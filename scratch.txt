@@ -1,0 +1,11 @@
+create_schedule_trigger(
+	"example-trigger",
+	"rate(10 minutes)",
+	"Example scheduled rule description.",
+	"Example_Project_1536004861",
+	"arn:aws:lambda:us-west-2:148731734429:function:Step_One",
+	{}
+).then(function( results ) {
+	console.log( "Scheduled trigger results: " );
+	console.log( results );
+});

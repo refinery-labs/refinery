@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Viz.js</title>
+    <link rel="stylesheet" type="text/css" href="./css/main.css">
+    <link rel="stylesheet" href="./css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+</head>
+
+<body>
+    <div id="app">
+    	<!-- modals -->
+    	<!-- Lambda/SFN Trigger Selection Modal -->
+		<div class="modal fade" id="trigger_selection_modal" tabindex="-1" role="dialog" aria-labelledby="trigger_selection_label" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="trigger_selection_label">Select a Trigger</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+		            	<center>
+		            		<div class="well">
+								<div class="btn-group" role="group" aria-label="Basic example">
+									<button type="button" class="btn btn-default" v-on:click="selected_trigger_type = 'none'">No Trigger</button>
+									<button type="button" class="btn btn-default" v-on:click="selected_trigger_type = 'scheduled'">Scheduled/Time Based</button>
+								</div>
+							</div>
+		            	</center>
+						<hr />
+						<div v-if="selected_trigger_type == 'scheduled'">
+							<h2>Schedule Trigger <i>(Time Based)</i></h2>
+							<div class="form-group">
+								<label for="trigger_name">Trigger Name</label>
+								<input type="text" class="form-control" v-model="scheduled_trigger_data.name" aria-describedby="trigger_name" placeholder="Trigger_Name">
+								<small class="form-text text-muted">Name of the trigger.</small>
+							</div>
+							<div class="form-group">
+								<label for="schedule_expression">Schedule Expression</label>
+								<input type="text" class="form-control" v-model="scheduled_trigger_data.schedule_expression" aria-describedby="schedule_expression" placeholder="rate(10 minutes)">
+								<small class="form-text text-muted">AWS schedule expression for when this trigger should be activated.</small>
+							</div>
+							<div class="form-group">
+								<label for="trigger_description">Description</label>
+								<input type="text" class="form-control" v-model="scheduled_trigger_data.description" aria-describedby="trigger_description" placeholder="Example scheduled rule description.">
+								<small class="form-text text-muted">Description for the trigger.</small>
+							</div>
+							<div class="form-group">
+								<label>Input Data</label>
+								<div style="height: 100px">
+									<editor editor-id="sfn_input_data" theme="monokai" lang="python" :content="scheduled_trigger_data.unformatted_input_data" v-on:change-content="sfn_input_data_change"></editor>
+								</div>
+								<small class="form-text text-muted">Input data for the target being triggered.</small>
+							</div>
+						</div>
+						<div v-if="selected_trigger_type == 'none'">
+							<center>
+								<h2><i>No trigger set, click below to continue.</i></h2>
+							</center>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		            	<button type="button" class="btn btn-primary" data-dismiss="modal" v-on:click="select_trigger_continue_action">Continue</button>
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+		
+		<!-- Fullscreen lambda code editor -->
+		<div class="modal fade" id="lambda_editor_popup" tabindex="-1" role="dialog" aria-labelledby="lambda_editor_popup_label" aria-hidden="true">
+		    <div class="modal-dialog modal-lg modal-full-screen" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="lambda_editor_popup_label">Edit Lambda</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<div style="height: 500px">
+							<editor editor-id="codecontent_large" theme="monokai" lang="python" :content="codecontent" v-on:change-content="codecontent_change"></editor>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		            	<button type="submit" class="btn btn-primary" v-on:click="run_tmp_lambda">Run Lambda</button>
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+    	
+    	<!-- Run Lambda Output -->
+		<div class="modal fade" id="runtmplambda_output" tabindex="-1" role="dialog" aria-labelledby="runtmplambda_label" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="runtmplambda_label">Lambda Execution Results</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		          <span aria-hidden="true">&times;</span>
+		        </button>
+		            </div>
+		            <div class="modal-body">
+		            	<div v-if="lambda_exec_result && !lambda_exec_result.is_error">
+							<b>Build Time: </b><code>{{lambda_build_time}}</code> seconds
+							<br />
+							<center>
+								<h3>Execution Returned Data</h3>
+							</center>
+							<p>
+								<pre style="background-color: #000000; color: #FFFFFF !important; border-radius: 4px; padding: 10px">{{lambda_exec_result.response}}</pre>
+							</p>
+		            	</div>
+		            	<div v-if="lambda_exec_result && lambda_exec_result.is_error">
+							<b>Build Time: </b><code>{{lambda_build_time}}</code> seconds
+							<br />
+							<b>Error Type: </b><code>{{lambda_exec_result.error.type}}</code>
+							<br />
+							<b>Error Message: </b><code>{{lambda_exec_result.error.message}}</code>
+							<br />
+							<hr />
+							<center>
+								<h3>Full Error Logs</h3>
+							</center>
+							<p>
+								<pre style="background-color: #000000; color: #FFFFFF !important; border-radius: 4px; padding: 10px">{{lambda_exec_result.logs}}</pre>
+							</p>
+		            	</div>
+						<div v-if="!lambda_exec_result">
+							<center>
+								<img src="/img/loading.gif" />
+								<br />
+								<i>Building and executing lambda, this may take a few seconds...</i>
+							</center>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+		
+		<!-- Run Step Function output -->
+		<div class="modal fade" id="runstepfunction_output" tabindex="-1" role="dialog" aria-labelledby="runstepfunction_label" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="runstepfunction_label">Step Function Execution Results</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+		            	<div v-if="step_function_execution_link">
+							<b>Build Time: </b><code>{{step_function_build_time}}</code> seconds
+							<hr />
+							<center>
+								<button type="button" class="btn btn-lg btn-primary" v-on:click="open_step_function_execution_page">Open AWS Execution Panel</button>
+							</center>
+		            	</div>
+						<div v-if="step_function_deploy_loading">
+							<center>
+								<img src="/img/loading.gif" />
+								<br />
+								<i>{{step_function_deploy_status_text}}</i>
+							</center>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+		
+		<!-- Header -->
+        <div id="header">
+			<nav class="navbar navbar-expand-lg navbar-light bg-light" style="background-color: #eee !important;">
+				<a class="navbar-brand" href="#" v-on:click="navigate_page('welcome')">
+					Refinery
+				</a>
+			    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+				<span class="navbar-toggler-icon"></span>
+				</button>
+			    <div class="collapse navbar-collapse">
+			        <ul class="navbar-nav">
+			            <li class="nav-item">
+			                <a class="nav-link" v-on:click="navigate_page('add-lambda')" href="#add-lambda">Add Lambda</a>
+			            </li>
+			        </ul>
+			    </div>
+			    <div class="form-inline my-2 my-lg-0">
+			    	<button type="button" class="btn btn-primary" v-on:click="select_trigger('sfn')">Deploy Step Function</button>
+			    </div>
+			</nav>
+        </div>
+        <div id="panes" class="split split-horizontal">
+            <div v-if="page == 'welcome'" class="split left-panel">
+            	<center>
+            		<h2>Welcome to Refinery!</h2>
+            		<i>Please select a menu option to start.</i>
+            	</center>
+            </div>
+            <div v-if="page == 'add-state-transition'" class="split left-panel">
+            	<div v-if="!selected_node">
+            		<h3>No state selected!</h3>
+            		<i>Please select a node from the current pipeline (click on a node from the right).</i>
+            	</div>
+            	<div v-else>
+					<h2>Add State Transition</h2>
+					<hr />
+					<div class="form-group">
+						<label for="selected_state">Selected State</label>
+						<input type="text" class="form-control" v-model="selected_node_data.name" aria-describedby="selected_state" placeholder="Write to S3" disabled>
+						<small id="selected_state_help" class="form-text text-muted">Name of the lambda function.</small>
+					</div>
+					<div class="form-group">
+						<label for="next_state">Next State</label>
+						<select id="next_state" class="form-control" v-model="next_state_transition_selected">
+							<option v-for="workflow_state in workflow_states" v-if="workflow_state.id != selected_node_data.id && workflow_state.id != 'start_node'" v-bind:value="workflow_state.id">{{workflow_state.name}}</option>
+						</select>
+						<small id="next_state_help" class="form-text text-muted">The next state to transition to after this one.</small>
+					</div>
+					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="add_state_transition">Add State Transition</button>
+            	</div>
+            </div>
+            <div v-if="page == 'modify-state-transition'" class="split left-panel">
+            	<h2>Modify State Transition</h2>
+            	<hr />
+				<button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_state_transition">Delete State Transition</button>
+            </div>
+            <div v-if="page == 'add-lambda'" class="split left-panel">
+                <h2>Add New Lambda</h2>
+                <hr />
+                <div class="form-group">
+                    <label for="new_lambda_name_input">Name</label>
+                    <input type="text" class="form-control" v-model="lambda_name" aria-describedby="new_lambda_name_input_help" placeholder="Write to S3">
+                    <small id="new_lambda_name_input_help" class="form-text text-muted">Name of the lambda function.</small>
+                </div>
+                <div class="form-group">
+                	<label for="new_lambda_language_select_input">Language</label>
+					<select class="custom-select" v-model="lambda_language" aria-describedby="new_lambda_language_select_input_help">
+						<option value="python2.7" selected>python2.7</option>
+					</select>
+					<small id="new_lambda_language_select_input_help" class="form-text text-muted">Language of lambda function.</small>
+				</div>
+				<div class="form-group">
+					<label>Import(s)</label>
+					<div style="height: 100px">
+						<editor editor-id="unformatted_code_imports" theme="monokai" lang="python" :content="unformatted_code_imports" v-on:change-content="code_imports_change"></editor>
+					</div>
+					<small class="form-text text-muted">Dependencies for the lambda code.</small>
+				</div>
+				<div class="form-group">
+					<label>Code</label>
+					<div style="height: 100px">
+						<editor editor-id="codecontent" theme="monokai" lang="python" :content="codecontent" v-on:change-content="codecontent_change"></editor>
+					</div>
+					<small class="form-text text-muted">Code of lambda function.</small>
+				</div>
+				<div class="form-group">
+					<label>Execution Memory</label>
+					<div class="form-group">
+						<div class="input-group mb-2">
+							<input type="number" class="form-control form-control-lg" v-model="lambda_memory" placeholder="128" step="64" min="128" max="3008">
+							<div class="input-group-append">
+								<div class="input-group-text">MB</div>
+							</div>
+						</div>
+					</div>
+					<small class="form-text text-muted">Maximum memory for the Lambda to use during execution.</small>
+				</div>
+                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="add_lambda">Add to Pipeline</button>
+            </div>
+            <div v-if="page == 'modify-lambda'" class="split left-panel">
+                <h2>Modify Lambda</h2>
+                <hr />
+                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_lambda">Delete Lambda</button>
+                <hr />
+                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="navigate_page('add-state-transition')">Add Transition</button>
+                <hr />
+                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="run_tmp_lambda">Run Lambda</button>
+                <hr />
+                <div class="form-group">
+                    <label for="new_lambda_name_input">Name</label>
+                    <input type="text" class="form-control" v-model="lambda_name" aria-describedby="new_lambda_name_input_help" placeholder="Write to S3">
+                    <small id="new_lambda_name_input_help" class="form-text text-muted">Name of the lambda function.</small>
+                </div>
+                <div class="form-group">
+                	<label for="new_lambda_language_select_input">Language</label>
+					<select class="custom-select" v-model="lambda_language" aria-describedby="new_lambda_language_select_input_help">
+						<option value="python2.7">python2.7</option>
+					</select>
+					<small id="new_lambda_language_select_input_help" class="form-text text-muted">Language of lambda function.</small>
+				</div>
+				<div class="form-group">
+					<label>Import(s)</label>
+					<div style="height: 100px">
+						<editor editor-id="unformatted_code_imports" theme="monokai" lang="python" :content="unformatted_code_imports" v-on:change-content="code_imports_change"></editor>
+					</div>
+					<small class="form-text text-muted">Dependencies for the lambda code.</small>
+				</div>
+				<div class="form-group">
+					<label>Code</label>
+					<div style="height: 100px">
+						<editor editor-id="codecontent" theme="monokai" lang="python" :content="codecontent" v-on:change-content="codecontent_change"></editor>
+					</div>
+					<div style="text-align: right">
+						<button type="button" class="btn btn-sm btn-secondary" v-on:click="fullscreen_lambda_editor">View Fullscreen</button>
+					</div>
+					<small class="form-text text-muted">Code of lambda function.</small>
+				</div>
+				<div class="form-group">
+					<label>Execution Memory</label>
+					<div class="form-group">
+						<div class="input-group mb-2">
+							<input type="number" class="form-control form-control-lg" v-model="lambda_memory" placeholder="128" step="64" min="128" max="3008">
+							<div class="input-group-append">
+								<div class="input-group-text">MB</div>
+							</div>
+						</div>
+					</div>
+					<small class="form-text text-muted">Maximum memory for the Lambda to use during execution.</small>
+				</div>
+                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_lambda">Update Lambda</button>
+            </div>
+            <div id="graph" class="split">
+                <div id="output">
+                    <div id="error"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="./js/jquery-3.3.1.min.js"></script>
+	<script src="./js/bootstrap.min.js"></script>
+    <script src="./js/ace.noconflict.js"></script>
+    <script src="./js/viz.js"></script>
+    <script src="./js/fabric.min.js"></script>
+    <script src="./js/split.min.js"></script>
+    <script src="./js/svg-pan-zoom.min.js"></script>
+    <script src="./js/vue.min.js"></script>
+    <script src="./js/main.js"></script>
+</body>
+
+</html>
