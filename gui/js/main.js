@@ -392,7 +392,9 @@ function reset_current_lambda_state_to_defaults() {
 	app.unformatted_code_imports = "";
 	app.codecontent = `
 def main( lambda_input, context ):
-    # Code here
+	"""
+	SQS message body: lambda_input[ "Records" ][0][ "body" ]
+	"""
     return False
 `;
 }
@@ -405,6 +407,21 @@ function deploy_step_function( sfn_name, workflow_states, workflow_relationships
 			"workflow_states": workflow_states,
 			"workflow_relationships": workflow_relationships,
 			"sfn_name": sfn_name,
+		}
+	);
+}
+
+function deploy_lambda( name, language, code, libraries, memory ) {
+	return api_request(
+		"POST",
+		"api/v1/aws/deploy_lambda",
+		{
+			"name": name,
+			"language": language,
+			"code": code,
+			"libraries": libraries,
+			"memory": memory,
+			"execution_time": 300
 		}
 	);
 }
@@ -435,6 +452,19 @@ function create_schedule_trigger( name, schedule_expression, description, target
 			"target_arn": target_arn,
 			"target_id": target_id,
 			"input_dict": input_dict
+		}
+	);
+}
+
+function create_lambda_input_sqs_queue( queue_name, content_based_deduplication, batch_size, lambda_arn ) {
+	return api_request(
+		"POST",
+		"api/v1/aws/create_sqs_trigger",
+		{
+			"queue_name": queue_name,
+			"content_based_deduplication": content_based_deduplication,
+			"batch_size": batch_size,
+			"lambda_arn": lambda_arn
 		}
 	);
 }
@@ -646,8 +676,25 @@ var app = new Vue({
         	"unformatted_input_data": "{}",
         	"input_dict": {},
         },
+        // Target data for when an SQS-based trigger is created
+        sqs_trigger_data: {
+			"queue_name": "Example Queue",
+			"content_based_deduplication": true,
+			"batch_size": 1,
+			"lambda_arn": "",
+        },
+        // Queue link
+        sqs_queue_link: false,
+        // Trigger link
+        cloudwatch_event_link: false,
         // Status text for when deploying Step Function
         step_function_deploy_status_text: "Loading...",
+        // Whether the lambda deploy is loading
+        lambda_deploy_loading: true,
+        // Deployed Lambda link
+        lambda_deployed_link: "",
+        // Status text while deploying lambda
+        lambda_deploy_status_text: "Loading",
         
         codeoptions: {
             mode: "python",
@@ -711,10 +758,15 @@ var app = new Vue({
 				app.step_function_execution_link
 			);
 		},
+		open_cloudwatch_trigger_page: function() {
+			window.open(
+				app.cloudwatch_event_link
+			);
+		},
 		select_trigger: function( target_type ) {
 			// Reset data
-	        scheduled_trigger_data = {
-	        	"name": "Scheduled_Trigger_Example",
+	        var scheduled_trigger_data = {
+	        	"name": app.lambda_name + " Trigger",
 	        	"schedule_expression": "rate(1 minute)",
 	        	"description": "Example scheduled rule description.",
 	        	"target_arn": "",
@@ -724,6 +776,17 @@ var app = new Vue({
 	        	"unformatted_input_data": "{}",
 	        }
 	        Vue.set( app, "scheduled_trigger_data", scheduled_trigger_data );
+	        
+	        var sqs_trigger_data = {
+				"queue_name": app.lambda_name + " Queue",
+				"content_based_deduplication": true,
+				"batch_size": 1,
+				"lambda_arn": "",
+	        }
+	        Vue.set( app, "sqs_trigger_data", sqs_trigger_data );
+	        
+	        app.sqs_queue_link = false;
+	        
 	        app.selected_trigger_type = "none";
 	        
 			$( "#trigger_selection_modal" ).modal(
@@ -733,6 +796,8 @@ var app = new Vue({
 		select_trigger_continue_action: function() {
 			if( app.scheduled_trigger_data.target_type == "sfn" ) {
 				app.deploy_step_function();
+			} else if ( app.scheduled_trigger_data.target_type == "lambda" ) {
+				app.deploy_lambda();
 			}
 		},
 		deploy_step_function: function() {
@@ -741,6 +806,7 @@ var app = new Vue({
 			app.step_function_build_time = 0;
 			app.step_function_execution_link = false;
 			app.step_function_deploy_status_text = "Building and executing the Step Function, this may take a bit...";
+			app.cloudwatch_event_link = false;
 			
 			$( "#runstepfunction_output" ).modal(
 				"show"
@@ -772,15 +838,86 @@ var app = new Vue({
 						app.scheduled_trigger_data.target_id,
 						app.scheduled_trigger_data.target_arn,
 						app.scheduled_trigger_data.input_dict,
-					);
+					).then(function( trigger_results ) {
+						app.cloudwatch_event_link = trigger_results[ "result" ][ "url" ];
+						return Promise.resolve();
+					});
 				} else {
 					console.log( "No trigger set, just continueing..." );
 					return Promise.resolve();
 				}
 			}).then(function( results ) {
 				app.step_function_deploy_loading = false;
-				console.log( "Scheduled trigger results: " );
+			});
+		},
+		deploy_lambda: function() {
+			// Clear previous result
+			app.lambda_exec_result = false;
+			app.lambda_build_time = 0;
+			app.lambda_deploy_loading = true;
+			app.lambda_deployed_link = "";
+			app.cloudwatch_event_link = false;
+			
+			$( "#deploylambda_output" ).modal(
+				"show"
+			);
+			
+			// Time build
+			var start_time = Date.now();
+			
+			// Status text
+			app.lambda_deploy_status_text = "Deploying Lambda...";
+			
+			deploy_lambda(
+				app.lambda_name,
+				app.lambda_language,
+				app.codecontent,
+				app.code_imports,
+				app.lambda_memory
+			).then(function( results ) {
+				console.log( "Deployed lambda: " );
 				console.log( results );
+				var delta = Date.now() - start_time;
+				app.lambda_build_time = ( delta / 1000 );
+				app.lambda_deployed_link = results[ "url" ];
+				app.scheduled_trigger_data.target_arn = results[ "arn" ];
+				app.scheduled_trigger_data.target_id = results[ "name" ];
+			}).then(function() {
+				if( app.selected_trigger_type == "scheduled" ) {
+					console.log( "Creating schedule-based trigger..." );
+					app.lambda_deploy_status_text = "Creating the schedule-based trigger specified...";
+					return create_schedule_trigger(
+						app.scheduled_trigger_data.name,
+						app.scheduled_trigger_data.schedule_expression,
+						app.scheduled_trigger_data.description,
+						"lambda",
+						app.scheduled_trigger_data.target_id,
+						app.scheduled_trigger_data.target_arn,
+						app.scheduled_trigger_data.input_dict,
+					).then(function( trigger_results ) {
+						app.cloudwatch_event_link = trigger_results[ "result" ][ "url" ];
+						return Promise.resolve();
+					});
+				} else if( app.selected_trigger_type == "sqs-queue" ) {
+					return create_lambda_input_sqs_queue(
+						app.sqs_trigger_data.queue_name,
+						app.sqs_trigger_data.content_based_deduplication,
+						app.sqs_trigger_data.batch_size,
+						app.scheduled_trigger_data.target_arn
+					).then(function( results ) {
+						console.log( "SQS queue creation results: " );
+						console.log( results );
+						
+						app.sqs_queue_link = results[ "queue_url" ];
+						
+						return Promise.resolve();
+					});
+				} else {
+					console.log( "No trigger set, just continuing..." );
+					return Promise.resolve();
+				}
+			}).then(function() {
+				app.lambda_deploy_loading = false;
 			});
 		},
 		run_tmp_lambda: function() {
@@ -795,8 +932,6 @@ var app = new Vue({
 				"show"
 			);
 			
-			console.log( )
-			
 			run_tmp_lambda(
 				app.lambda_language,
 				app.codecontent,
@@ -809,6 +944,16 @@ var app = new Vue({
 				app.lambda_build_time = ( delta / 1000 );
 				app.lambda_exec_result = results.result;
 			});
+		},
+		open_sqs_queue_page: function() {
+			window.open(
+				app.sqs_queue_link
+			);
+		},
+		open_deployed_lambda_page: function() {
+			window.open(
+				app.lambda_deployed_link
+			);
 		},
 		add_lambda: function() {
 			var lambda_data = get_lambda_data();

@@ -9,3 +9,46 @@ create_schedule_trigger(
 	console.log( "Scheduled trigger results: " );
 	console.log( results );
 });
+
+Example SQS input (value of lambda_input):
+{
+  "Records": [
+    {
+      "body": "pewpew",
+      "receiptHandle": "AQEBgy87YY7iG2g8XJMZrNGY2bmjxX+N8cfJbM4KFVBr0ukj+vh90onBQwUOrxCtVP+nH6jE2r+bT6mk6QbMcPptPcWNthVjAExXDRR9tc/N7qDMWF8NJDptziRQ3uDGJAJyBApRIlFW8o+0E08gzrOjb5sUvCXZ/9KKzhpGNNkEJbxXDvFCAczD9bseo+0saPJBkfh/2NT4MKxf/Xjurpgr0KJNFtqm/tKd764pR3bRPHE+ZuQuQA04P1dR9+BwnozBd2lzpVDBqAQxdQeoSadJeVx+RYgbmXLG+z6TZYeHmm/3NmdWbwnNT6/09mxGCPOfrZzc4UH9Dk0rzQFO1iqJY09+jRdrMtD9f/4v//j8LrkGWJZS8pVWpMlzD7Kwo0u8",
+      "md5OfBody": "d9d5f45e7ff3f68c97f705a90412fb36",
+      "eventSourceARN": "arn:aws:sqs:us-west-2:148731734429:example",
+      "eventSource": "aws:sqs",
+      "awsRegion": "us-west-2",
+      "messageId": "b7e86f02-ab33-4bc7-a9dc-3b22281eb86b",
+      "attributes": {
+        "ApproximateFirstReceiveTimestamp": "1536563919933",
+        "SenderId": "148731734429",
+        "ApproximateReceiveCount": "1",
+        "SentTimestamp": "1536563919922"
+      },
+      "messageAttributes": {}
+    }
+  ]
+}
+
+Get first SQS message:
+sqs_message = lambda_input[ "Records" ][0][ "body" ]
+
+import boto3
+import json
+import time
+
+def main( lambda_input, context ):
+    sqs_message = lambda_input[ "Records" ][0][ "body" ]
+    s3 = boto3.resource(
+        "s3"
+    )
+    object = s3.Object(
+        "lambdatestbucketpewpew",
+        str( int( time.time() ) ),
+    )
+    object.put(
+        Body=sqs_message
+    )
+    return sqs_message

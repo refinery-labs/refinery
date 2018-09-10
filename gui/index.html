@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Viz.js</title>
+    <title>Refinery - A Pipeline Editor</title>
     <link rel="stylesheet" type="text/css" href="./css/main.css">
     <link rel="stylesheet" href="./css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
 </head>
@@ -27,6 +27,7 @@
 								<div class="btn-group" role="group" aria-label="Basic example">
 									<button type="button" class="btn btn-default" v-on:click="selected_trigger_type = 'none'">No Trigger</button>
 									<button type="button" class="btn btn-default" v-on:click="selected_trigger_type = 'scheduled'">Scheduled/Time Based</button>
+									<button v-if="scheduled_trigger_data.target_type == 'lambda'" type="button" class="btn btn-default" v-on:click="selected_trigger_type = 'sqs-queue'">SQS Queue</button>
 								</div>
 							</div>
 		            	</center>
@@ -60,6 +61,30 @@
 							<center>
 								<h2><i>No trigger set, click below to continue.</i></h2>
 							</center>
+						</div>
+						<div v-if="selected_trigger_type == 'sqs-queue'">
+							<h2>SQS Queue</h2>
+							<div class="form-group">
+								<label for="sqs_queue_name">Queue Name</label>
+								<input type="text" class="form-control" v-model="sqs_trigger_data.queue_name" aria-describedby="sqs_queue_name" placeholder="Example Queue">
+								<small class="form-text text-muted">Name of the SQS queue linked to the Lambda.</small>
+							</div>
+							<div class="form-group">
+								<label>Batch Size</label>
+								<div class="form-group">
+									<div class="input-group mb-2">
+										<input type="number" class="form-control form-control-lg" v-model="sqs_trigger_data.batch_size" placeholder="1" step="1" min="1" max="10">
+										<div class="input-group-append">
+											<div class="input-group-text">Message(s)</div>
+										</div>
+									</div>
+								</div>
+								<small class="form-text text-muted">Number of messages to pass to Lambda at a time (max 10).</small>
+							</div>
+							<div class="form-group">
+								<input type="checkbox" v-model="sqs_trigger_data.content_based_deduplication"> <label>Content-Based De-duplication</label>
+								<small class="form-text text-muted">Should messages be de-duplicated based off of their message contents (5 minute rolling window)?</small>
+							</div>
 						</div>
 		            </div>
 		            <div class="modal-footer">
@@ -155,11 +180,15 @@
 		        		</button>
 		            </div>
 		            <div class="modal-body">
-		            	<div v-if="step_function_execution_link">
+		            	<div v-if="!step_function_deploy_loading">
 							<b>Build Time: </b><code>{{step_function_build_time}}</code> seconds
 							<hr />
 							<center>
 								<button type="button" class="btn btn-lg btn-primary" v-on:click="open_step_function_execution_page">Open AWS Execution Panel</button>
+								<div v-if="cloudwatch_event_link">
+									<hr />
+									<button type="button" class="btn btn-lg btn-primary" v-on:click="open_cloudwatch_trigger_page">View AWS Trigger</button>
+								</div>
 							</center>
 		            	</div>
 						<div v-if="step_function_deploy_loading">
@@ -167,6 +196,47 @@
 								<img src="/img/loading.gif" />
 								<br />
 								<i>{{step_function_deploy_status_text}}</i>
+							</center>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+		
+		<!-- Deploy Lambda output -->
+		<div class="modal fade" id="deploylambda_output" tabindex="-1" role="dialog" aria-labelledby="deploylambda_label" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="deploylambda_label">Deploy Lambda</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+		            	<div v-if="!lambda_deploy_loading">
+							<b>Build Time: </b><code>{{lambda_build_time}}</code> seconds
+							<hr />
+							<center>
+								<button type="button" class="btn btn-lg btn-primary" v-on:click="open_deployed_lambda_page">Open AWS Lambda Page</button>
+								<div v-if="cloudwatch_event_link">
+									<hr />
+									<button type="button" class="btn btn-lg btn-primary" v-on:click="open_cloudwatch_trigger_page">View AWS CloudWatch Trigger</button>
+								</div>
+								<div v-if="sqs_queue_link">
+									<hr />
+									<button type="button" class="btn btn-lg btn-primary" v-on:click="open_sqs_queue_page">View AWS SQS Trigger</button>
+								</div>
+							</center>
+		            	</div>
+						<div v-if="lambda_deploy_loading">
+							<center>
+								<img src="/img/loading.gif" />
+								<br />
+								<i>{{lambda_deploy_status_text}}</i>
 							</center>
 						</div>
 		            </div>
@@ -279,12 +349,6 @@
             <div v-if="page == 'modify-lambda'" class="split left-panel">
                 <h2>Modify Lambda</h2>
                 <hr />
-                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_lambda">Delete Lambda</button>
-                <hr />
-                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="navigate_page('add-state-transition')">Add Transition</button>
-                <hr />
-                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="run_tmp_lambda">Run Lambda</button>
-                <hr />
                 <div class="form-group">
                     <label for="new_lambda_name_input">Name</label>
                     <input type="text" class="form-control" v-model="lambda_name" aria-describedby="new_lambda_name_input_help" placeholder="Write to S3">
@@ -327,6 +391,14 @@
 					<small class="form-text text-muted">Maximum memory for the Lambda to use during execution.</small>
 				</div>
                 <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_lambda">Update Lambda</button>
+                <hr />
+                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_lambda">Delete Lambda</button>
+                <hr />
+                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="navigate_page('add-state-transition')">Add Transition</button>
+                <hr />
+                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="run_tmp_lambda">Run Lambda</button>
+                <hr />
+                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="select_trigger('lambda')">Deploy Lambda</button>
             </div>
             <div id="graph" class="split">
                 <div id="output">

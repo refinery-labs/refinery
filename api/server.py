@@ -28,6 +28,11 @@ from jsonschema import validate as validate_schema
 from tornado.concurrent import run_on_executor, futures
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 
+logging.basicConfig(
+	stream=sys.stdout,
+	level=logging.INFO
+)
+
 import StringIO
 import zipfile
 
@@ -46,7 +51,7 @@ with open( "config.yaml", "r" ) as file_handler:
         file_handler.read()
     )
     for key, value in settings.iteritems():
-        os.environ[ key ] = value
+        os.environ[ key ] = str( value )
         
 S3_CLIENT = boto3.client(
     "s3",
@@ -75,8 +80,18 @@ EVENTS_CLIENT = boto3.client(
     region_name=os.environ.get( "region_name" )
 )
 
+SQS_CLIENT = boto3.client(
+	"sqs",
+    aws_access_key_id=os.environ.get( "aws_access_key" ),
+    aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+    region_name=os.environ.get( "region_name" )
+)
+
 def pprint( input_dict ):
-	print( json.dumps( input_dict, sort_keys=True, indent=4, separators=( ",", ": " ) ) )
+	try:
+		print( json.dumps( input_dict, sort_keys=True, indent=4, separators=( ",", ": " ) ) )
+	except:
+		print( input_dict )
 	
 class BaseHandler( tornado.web.RequestHandler ):
 	def __init__( self, *args, **kwargs ):
@@ -494,7 +509,6 @@ class TaskSpawner(object):
 			
 		@run_on_executor
 		def add_rule_target( self, rule_name, target_type, target_id, target_arn, input_dict ):
-				
 			targets_data = 	{
 				"Id": target_id,
 				"Arn": target_arn,
@@ -507,11 +521,58 @@ class TaskSpawner(object):
 			if target_type == "sfn":
 				targets_data[ "RoleArn" ] = os.environ.get( "sfn_cloudwatch_role" )
 				
-			response = EVENTS_CLIENT.put_targets(
+			rule_creation_response = EVENTS_CLIENT.put_targets(
 				Rule=rule_name,
 				Targets=[
 					targets_data
 				]
+			)
+			
+			if target_type == "lambda":
+				"""
+				For AWS Lambda you need to add a permission to the Lambda function itself
+				via the add_permission API call to allow invocation via the CloudWatch event.
+				"""
+				lambda_permission_add_response = LAMBDA_CLIENT.add_permission(
+					FunctionName=target_arn,
+					StatementId=rule_name + "_statement",
+					Action="lambda:*",
+					Principal="events.amazonaws.com",
+					SourceArn="arn:aws:events:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":rule/" + rule_name,
+					#SourceAccount=os.environ.get( "aws_account_id" ) # THIS IS A BUG IN AWS NEVER PASS THIS
+				)
+				
+				print( "Lambda add permission: " )
+				pprint( lambda_permission_add_response )
+			
+			return rule_creation_response
+		
+		@run_on_executor
+		def create_sqs_queue( self, queue_name, content_based_deduplication ):
+			sqs_queue_name = get_lambda_safe_name( queue_name )
+			sqs_response = SQS_CLIENT.create_queue(
+				QueueName=sqs_queue_name,
+				Attributes={
+					"DelaySeconds": str( 0 ),
+					"MaximumMessageSize": "262144",
+					"VisibilityTimeout": str( 300 + 10 ), # Lambda max time plus ten seconds
+				}
+			)
+			
+			return "https://console.aws.amazon.com/sqs/home?region=" + os.environ.get( "region_name" ) + "#queue-browser:selected=https://sqs." + os.environ.get( "region_name" ) + ".amazonaws.com/" + os.environ.get( "aws_account_id" ) + "/" + sqs_queue_name + ";noRefresh=true;prefix="
+			
+		@run_on_executor
+		def map_sqs_to_lambda( self, sqs_arn, lambda_arn, batch_size ):
+			response = LAMBDA_CLIENT.create_event_source_mapping(
+				EventSourceArn=sqs_arn,
+				FunctionName=lambda_arn,
+				Enabled=True,
+				BatchSize=batch_size,
+			)
+			
+			print( "Mapping SQS to lambda: " )
+			pprint(
+				response
 			)
 			
 			return response
@@ -520,6 +581,80 @@ local_tasks = TaskSpawner()
 			
 def get_random_node_id():
 	return "n" + str( uuid.uuid4() ).replace( "-", "" )
+	
+class DeployLambda( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Deploy a given Lambda standalone
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"name": {
+					"type": "string",
+				},
+				"language": {
+					"type": "string",
+				},
+				"code": {
+					"type": "string",
+				},
+				"libraries": {
+					"type": "array",
+				},
+				"memory": {
+					"type": "integer",
+				},
+				"execution_time": {
+					"type": "integer",
+				},
+			},
+			"required": [
+				"name",
+				"language",
+				"code",
+				"libraries",
+				"memory",
+				"execution_time",
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Running AWS Lambda..."
+		)
+		
+		lambda_zip_package_data = yield local_tasks.build_lambda(
+			self.json[ "code" ],
+			self.json[ "libraries" ]
+		)
+		
+		deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
+			get_lambda_safe_name(
+				self.json[ "name" ]
+			),
+			"AWS Lambda deployed via refinery",
+			os.environ.get( "lambda_role" ),
+			lambda_zip_package_data,
+			self.json[ "execution_time" ], # Max AWS execution time
+			self.json[ "memory" ], # MB of execution memory
+			json.loads( os.environ.get( "vpc_data" ) ), # VPC data
+			{},
+			{
+				"project": "None"
+			}
+		)
+		
+		self.write({
+			"success": True,
+			"arn": deployed_lambda_data[ "FunctionArn" ],
+			"url": "https://console.aws.amazon.com/lambda/home?region=" + os.environ.get( "region_name" ) + "#/functions/" + deployed_lambda_data[ "FunctionArn" ] + "?tab=graph",
+			"name": get_lambda_safe_name(
+				self.json[ "name" ]
+			),
+		})
 
 class RunTmpLambda( BaseHandler ):
 	@gen.coroutine
@@ -728,10 +863,12 @@ class CreateScheduleTrigger( BaseHandler ):
 		}
 		
 		validate_schema( self.json, schema )
+		
+		cloudwatch_rule_name = get_lambda_safe_name( self.json[ "name" ] )
 
 		print( "Creating new scheduler rule..." )
 		rule_data = yield local_tasks.create_cloudwatch_rule(
-			self.json[ "name" ],
+			cloudwatch_rule_name,
 			self.json[ "schedule_expression" ],
 			self.json[ "description" ]
 		)
@@ -745,7 +882,7 @@ class CreateScheduleTrigger( BaseHandler ):
 		print( "Adding target to rule..." )
 		
 		target_add_data = yield local_tasks.add_rule_target(
-			self.json[ "name" ],
+			cloudwatch_rule_name,
 			self.json[ "target_type" ],
 			self.json[ "target_id" ],
 			self.json[ "target_arn" ],
@@ -755,15 +892,13 @@ class CreateScheduleTrigger( BaseHandler ):
 		print("Target added!")
 		
 		print( "Target added data: " )
-		try:
-			pprint( target_add_data )
-		except:
-			print( target_add_data )
+		pprint( target_add_data )
 		
 		self.write({
 			"success": True,
 			"result": {
 				"rule_arn": rule_arn,
+				"url": "https://console.aws.amazon.com/cloudwatch/home?region=" + os.environ.get( "region_name" ) + "#rules:name=" + cloudwatch_rule_name
 			}
 		})
 			
@@ -926,7 +1061,67 @@ class DeployStepFunction( BaseHandler ):
 				"sfn_name": sfn_name,
 			}
 		})
-			
+		
+class CreateSQSQueueTrigger( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		self.logit(
+			"Deploying SQS Queue..."
+		)
+		
+		schema = {
+			"type": "object",
+			"properties": {
+				"queue_name": {
+					"type": "string",
+				},
+				"lambda_arn": {
+					"type": "string",
+				},
+				"batch_size": {
+					"type": "integer"
+				},
+				"content_based_deduplication": {
+					"type": "boolean",
+				}
+			},
+			"required": [
+				"queue_name",
+				"content_based_deduplication",
+				"lambda_arn",
+				"batch_size",
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		sqs_queue_name = get_lambda_safe_name(
+			self.json[ "queue_name" ]
+		)
+		
+		sqs_queue_url = yield local_tasks.create_sqs_queue(
+			sqs_queue_name,
+			self.json[ "content_based_deduplication" ]
+		)
+		
+		sqs_arn = "arn:aws:sqs:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + sqs_queue_name
+		
+		sqs_lambda_map_result = yield local_tasks.map_sqs_to_lambda(
+			sqs_arn,
+			self.json[ "lambda_arn" ],
+			self.json[ "batch_size" ]
+		)
+		
+		print( "Map result: " )
+		pprint(
+			sqs_lambda_map_result
+		)
+		
+		self.write({
+			"success": True,
+			"queue_url": sqs_queue_url
+		})
+		
 def make_app( is_debug ):
 	# Convert to bool
 	is_debug = ( is_debug.lower() == "true" )
@@ -938,7 +1133,9 @@ def make_app( is_debug ):
 	return tornado.web.Application([
 		( r"/api/v1/aws/create_schedule_trigger", CreateScheduleTrigger ),
 		( r"/api/v1/aws/deploy_step_function", DeployStepFunction ),
-		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda )
+		( r"/api/v1/aws/deploy_lambda", DeployLambda ),
+		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda ),
+		( r"/api/v1/aws/create_sqs_trigger", CreateSQSQueueTrigger )
 	], **tornado_app_settings)
 			
 if __name__ == "__main__":
