@@ -140,92 +140,6 @@ function get_graph_node( node_id ) {
 	return match_element.parentElement;
 }
 
-/*
-const VueAceEditor = {
-    //  simplified model handling using `value` prop and `input` event for $emit
-    props:['value','id','options'],
-
-    //  add dynmic class and id (if not set) based on component tag
-    template:`
-        <div :id="id ? id: $options._componentTag +'-'+ _uid"
-             :class="$options._componentTag">
-            <slot></slot>
-        </div>
-    `,
-
-    watch:{
-        value() {
-            //  two way binding – emit changes to parent
-            this.$emit('input', this.value);
-            
-            //  update value on external model changes
-            if(this.oldValue !== this.value){
-                this.editor.setValue(this.value, 1);
-            }
-        }
-    },
-   
-    mounted(){
-        //  editor
-        this.editor = window.ace.edit(this.$el.id);
-        
-        //  deprecation fix
-        this.editor.$blockScrolling = Infinity;
-
-        //  ignore doctype warnings
-        const session = this.editor.getSession();
-        session.on("changeAnnotation", () => {
-            const a = session.getAnnotations();
-            const b = a.slice(0).filter( (item) => item.text.indexOf('DOC') == -1 );
-            if(a.length > b.length) session.setAnnotations(b);
-        });
-
-        //  editor options
-        //  https://github.com/ajaxorg/ace/wiki/Configuring-Ace
-        this.options = this.options || {};
-        
-        //  opinionated option defaults
-        this.options.maxLines = this.options.maxLines || Infinity;
-        this.options.printMargin = this.options.printMargin || false;
-        this.options.highlightActiveLine = this.options.highlightActiveLine || false;
-
-        //  hide cursor
-        if(this.options.cursor === 'none' || this.options.cursor === false){
-            this.editor.renderer.$cursorLayer.element.style.display = 'none';
-            delete this.options.cursor;
-        }
-
-        //  add missing mode and theme paths
-        if(this.options.mode && this.options.mode.indexOf('ace/mode/')===-1) {
-            this.options.mode = `ace/mode/${this.options.mode}`;
-        }
-        if(this.options.theme && this.options.theme.indexOf('ace/theme/')===-1) {
-            this.options.theme = `ace/theme/${this.options.theme}`;
-        }
-        this.editor.setOptions(this.options);
-        
-        
-        //  set model value
-        //  if no model value found – use slot content
-        if(!this.value || this.value === ''){
-            this.$emit('input', this.editor.getValue());
-        } else {
-            this.editor.setValue(this.value, -1);
-        }
-        
-        //  editor value changes
-        this.editor.on('change', () => {
-            //  oldValue set to prevent internal updates
-             this.value = this.oldValue = this.editor.getValue();
-        });
-        
-
-    },
-    methods:{ editor(){ return this.editor } }
-};
-
-*/
-
 function get_uuid() {
 	return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
 		(c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
@@ -397,6 +311,36 @@ def main( lambda_input, context ):
 	"""
     return False
 `;
+}
+
+function get_project_json() {
+	return JSON.stringify({
+		"version": "1.0.0",
+		"name": app.project_name,
+		"workflow_states": app.workflow_states,
+		"workflow_relationships": app.workflow_relationships,
+	}, false, 4 );
+}
+
+function download_file( file_contents, filename, content_type ) {
+    if( !content_type ) {
+    	content_type = "application/octet-stream";
+    }
+    var a = document.createElement( "a" );
+    var blob = new Blob(
+    	[file_contents],
+    	{"type": content_type}
+    );
+    a.href = window.URL.createObjectURL( blob );
+    a.download = filename;
+    a.click();
+}
+
+function get_safe_name( input_string ) {
+	return input_string.replace(
+		/[^a-z0-9\-\_]/gi,
+		"_"
+	);
 }
 
 function deploy_step_function( sfn_name, workflow_states, workflow_relationships ) {
@@ -577,6 +521,11 @@ function http_request( method, uri, headers, body ) {
     });
 }
 
+// On resize redraw graph
+$(window).resize(function(){
+    updateGraph();
+});
+
 var app = new Vue({
 	el: "#app",
     components:{
@@ -695,13 +644,15 @@ var app = new Vue({
         lambda_deployed_link: "",
         // Status text while deploying lambda
         lambda_deploy_status_text: "Loading",
+        // All project data serialized as JSON for export
+        project_data_json: "",
         
         codeoptions: {
             mode: "python",
             theme: "monokai",
             fontSize: 12,
             fontFamily: "monospace",
-            highlightActiveLine: false,
+            highlightActiveLine: true,
             highlightGutterLine: false
         },
 	},
@@ -714,9 +665,26 @@ var app = new Vue({
 		},
 		aws_step_function_data: function() {
 			return false
-		}
+		},
 	},
 	methods: {
+		show_rename_project_modal: function() {
+			$( "#project_name_rename_output" ).modal(
+				"show"
+			);
+		},
+		download_project_data: function() {
+			download_file(
+				get_project_json(),
+				get_safe_name( app.project_name ) + ".json"
+			);
+		},
+		export_project_data: function() {
+			Vue.set( app, "project_data_json", get_project_json() );
+			$( "#exportproject_output" ).modal(
+				"show"
+			);
+		},
 		fullscreen_lambda_editor: function() {
 			$( "#lambda_editor_popup" ).modal(
 				"show"
@@ -742,6 +710,9 @@ var app = new Vue({
 				
 				// Todo try to parse as Interger/Float/etc
 			}
+		},
+		project_export_data_change: function( val ) {
+			// Stub
 		},
 		code_imports_change: function ( val ) {
 			if( app.unformatted_code_imports !== val ) {
