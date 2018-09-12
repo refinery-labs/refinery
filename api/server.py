@@ -1142,6 +1142,54 @@ class SavedFunctionSearch( BaseHandler ):
 			"Searching saved functions..."
 		)
 		
+		if self.json[ "query" ] == "":
+			self.write({
+				"success": True,
+				"results": []
+			})
+			raise gen.Return()
+		
+		# First search names
+		name_search_results = session.query( SavedFunction ).filter(
+			SavedFunction.name.ilike( "%" + self.json[ "query" ] + "%" ) # Probably SQL injection \o/
+		).limit(10).all()
+		
+		# Second search descriptions
+		description_search_results = session.query( SavedFunction ).filter(
+			SavedFunction.description.ilike( "%" + self.json[ "query" ] + "%" ) # Probably SQL injection \o/
+		).limit(10).all()
+		
+		already_added_ids = []
+		results_list = []
+		
+		"""
+		The below ranks saved function "name" matches over description matches.
+		"""
+		for name_search_result in name_search_results:
+			if not name_search_result.id in already_added_ids:
+				already_added_ids.append(
+					name_search_result.id
+				)
+				
+				results_list.append(
+					name_search_result.to_dict()
+				)
+				
+		for description_search_result in description_search_results:
+			if not description_search_result.id in already_added_ids:
+				already_added_ids.append(
+					description_search_result.id
+				)
+				
+				results_list.append(
+					description_search_result.to_dict()
+				)
+		
+		self.write({
+			"success": True,
+			"results": results_list
+		})
+		
 class SavedFunctionCreate( BaseHandler ):
 	@gen.coroutine
 	def post( self ):
@@ -1192,6 +1240,95 @@ class SavedFunctionCreate( BaseHandler ):
 			"id": new_function.id
 		})
 		
+class SavedFunctionUpdate( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Update a saved function
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+				},
+				"name": {
+					"type": "string",
+				},
+				"description": {
+					"type": "string",
+				},
+				"code": {
+					"type": "string",
+				},
+				"language": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"id",
+				"name",
+				"description",
+				"code",
+				"language"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Updating function data..."
+		)
+		
+		saved_function = session.query( SavedFunction ).filter_by(
+			id=self.json[ "id" ]
+		).first()
+		
+		saved_function.name = self.json[ "name" ]
+		saved_function.description = self.json[ "description" ]
+		saved_function.code = self.json[ "code" ]
+		saved_function.language = self.json[ "language" ]
+		session.commit()
+		
+		self.write({
+			"success": True,
+			"id": saved_function.id
+		})
+		
+class SavedFunctionDelete( BaseHandler ):
+	@gen.coroutine
+	def delete( self ):
+		"""
+		Delete a saved function
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"id"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Deleting function data..."
+		)
+		
+		session.query( SavedFunction ).filter_by(
+			id=self.json[ "id" ]
+		).delete()
+		
+		session.commit()
+		
+		self.write({
+			"success": True
+		})
+		
 def make_app( is_debug ):
 	# Convert to bool
 	is_debug = ( is_debug.lower() == "true" )
@@ -1201,6 +1338,8 @@ def make_app( is_debug ):
 	}
 	
 	return tornado.web.Application([
+		( r"/api/v1/functions/delete", SavedFunctionDelete ),
+		( r"/api/v1/functions/update", SavedFunctionUpdate ),
 		( r"/api/v1/functions/create", SavedFunctionCreate ),
 		( r"/api/v1/functions/search", SavedFunctionSearch ),
 		( r"/api/v1/aws/create_schedule_trigger", CreateScheduleTrigger ),

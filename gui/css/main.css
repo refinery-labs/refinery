@@ -172,3 +172,7 @@
 .import-error-text {
 	color: #ff0000 !important;
 }
+
+.search-result-row:hover {
+	background-color: rgba(0, 0, 0, 0.2) !important;
+}

@@ -1,3 +1,13 @@
+update_saved_function(
+	"be3fb55a-98c4-4fe5-9339-20841f5f6788",
+	"updated_name",
+	"updated description",
+	"updated code",
+	"python2.7"
+).then(function( results ) {
+	console.log( results );
+});
+
 create_schedule_trigger(
 	"example-trigger",
 	"rate(10 minutes)",

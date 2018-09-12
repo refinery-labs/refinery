@@ -369,6 +369,40 @@ function project_file_uploaded( event_data ) {
 	reader.readAsText( file_data );
 }
 
+function delete_saved_function( id ) {
+	return api_request(
+		"DELETE",
+		"api/v1/functions/delete",
+		{
+			"id": id,
+		}
+	);
+}
+
+function search_saved_functions( query ) {
+	return api_request(
+		"POST",
+		"api/v1/functions/search",
+		{
+			"query": query,
+		}
+	);
+}
+
+function update_saved_function( id, name, description, code, language ) {
+	return api_request(
+		"POST",
+		"api/v1/functions/update",
+		{
+			"id": id,
+			"name": name,
+			"description": description,
+			"code": code,
+			"language": language,
+		}
+	);
+}
+
 function create_saved_function( name, description, code, language ) {
 	return api_request(
 		"POST",
@@ -696,6 +730,18 @@ var app = new Vue({
         project_data_json: "",
         // Errors while pasting JSON in import project menu
         import_paste_error: false,
+        // Data for saving new function
+        saved_function_data: {
+        	"id": "",
+			"name": "",
+			"description": "",
+			"code": "",
+			"language": "python2.7",
+        },
+        // Search results for saved function search
+        saved_function_search_results: [],
+        // Search term for saved function search
+        saved_function_search_query: "",
         
         codeoptions: {
             mode: "python",
@@ -705,6 +751,11 @@ var app = new Vue({
             highlightActiveLine: true,
             highlightGutterLine: false
         },
+	},
+	watch: {
+		saved_function_search_query: function( value, previous_value ) {
+			app.search_saved_functions( value );
+		},
 	},
 	computed: {
 		selected_node_data: function() {
@@ -718,6 +769,85 @@ var app = new Vue({
 		},
 	},
 	methods: {
+		delete_saved_function: function() {
+			delete_saved_function(
+				app.saved_function_data.id,
+			)
+		},
+		update_saved_function: function() {
+			update_saved_function(
+				app.saved_function_data.id,
+				app.saved_function_data.name,
+				app.saved_function_data.description,
+				app.saved_function_data.code,
+				app.saved_function_data.language
+			).then(function( results ) {
+				console.log( "Results" );
+				console.log( results );
+			});
+		},
+		view_saved_function: function( event ) {
+			var saved_function_id = event.srcElement.getAttribute( "id" );
+			
+			// Get saved function with that ID
+			var matched_functions = app.saved_function_search_results.filter(function( saved_function_search_result ) {
+				return ( saved_function_search_result.id === saved_function_id );
+			});
+			
+			var matched_function = matched_functions[0];
+			Vue.set( app, "saved_function_data", matched_function );
+			
+			$( "#viewsavefunction_output" ).modal(
+				"show"
+			);
+		},
+		search_saved_functions: function( query ) {
+			search_saved_functions( query ).then(function( results ) {
+				app.saved_function_search_results = results[ "results" ];
+			});
+		},
+		view_search_functions_modal: function() {
+			// Clear search query
+			app.saved_function_search_query = "";
+			
+			$( "#searchsavedfunction_output" ).modal(
+				"show"
+			);
+		},
+		saved_new_add_function: function() {
+			create_saved_function(
+				app.saved_function_data.name,
+				app.saved_function_data.description,
+				app.saved_function_data.code,
+				app.saved_function_data.language
+			).then(function( results ) {
+				console.log( "Results" );
+				console.log( results );
+			});
+		},
+		update_add_function_code: function( value ) {
+			app.saved_function_data.code = value;
+		},
+		view_add_function_modal: function() {
+	        var saved_function_data = {
+				"name": "",
+				"description": "",
+				"code": `
+def example( parameter ):
+	"""
+	Example function, should be self-contained and documented.
+	"""
+	return parameter.upper()
+`,
+				"language": "python2.7",
+	        };
+	        
+	        Vue.set( app, "saved_function_data", saved_function_data );
+	        
+			$( "#savefunction_output" ).modal(
+				"show"
+			);
+		},
 		project_import_data_change: function( new_project_data_json ) {
 			try {
 				import_project_data(
