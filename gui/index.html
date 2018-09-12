@@ -11,6 +11,7 @@
 <body>
     <div id="app">
     	<!-- modals -->
+    	
     	<!-- Change Project Name -->
 		<div class="modal fade" id="project_name_rename_output" tabindex="-1" role="dialog" aria-labelledby="project_name_rename_label" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -35,6 +36,38 @@
 		    </div>
 		</div>
 		
+		<!-- Import project modal -->
+		<div class="modal fade" id="importproject_output" tabindex="-1" role="dialog" aria-labelledby="importproject_label" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="importproject_label">Import Project Data</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+		            	<center>
+		            		<h2>Upload Project JSON</h2>
+							<div class="custom-file">
+								<input type="file" class="custom-file-input" id="project_file_upload">
+								<label class="custom-file-label" for="project_file_upload">Choose file</label>
+							</div>
+		            		<hr />
+		            		<h2>Paste Project JSON Below</h2>
+		            		<p v-if="import_paste_error" class="import-error-text"><i>{{import_paste_error}}</i></p>
+		            		<div style="height: 300px">
+								<editor editor-id="project_data_json_import" theme="monokai" lang="json" :content="project_data_json" v-on:change-content="project_import_data_change"></editor>
+		            		</div>
+		            	</center>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+		
     	<!-- Export project modal -->
 		<div class="modal fade" id="exportproject_output" tabindex="-1" role="dialog" aria-labelledby="exportproject_label" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -50,7 +83,7 @@
 		            		<button type="button" class="btn btn-lg btn-primary" v-on:click="download_project_data">Download Project Data</button>
 		            		<hr />
 		            		<div style="height: 300px">
-								<editor editor-id="project_data_json" theme="monokai" lang="json" :content="project_data_json" v-on:change-content="project_export_data_change"></editor>
+								<editor editor-id="project_data_json_export" theme="monokai" lang="json" :content="project_data_json" v-on:change-content="project_export_data_change"></editor>
 		            		</div>
 		            	</center>
 		            </div>
@@ -314,12 +347,16 @@
 			                </a>
 			            </li>
 			            <li class="nav-item">
-			                <a class="nav-link" v-on:click="navigate_page('add-lambda')" href="#add-lambda">Add Lambda</a>
+			                
 			            </li>
 			        </ul>
 			    </div>
 			    <div class="form-inline my-2 my-lg-0">
-			    	<button type="button" class="btn btn-primary" v-on:click="export_project_data" style="margin-right: 5px;">Export Project Data</button>
+			    	<button type="button" class="btn btn-primary" v-on:click="navigate_page('add-lambda')" style="margin-right: 5px;">Add Lambda</button>
+			    	<button type="button" class="btn btn-primary" v-on:click="import_project_data" style="margin-right: 5px;">Add Function</button>
+			    	<button type="button" class="btn btn-primary" v-on:click="import_project_data" style="margin-right: 5px;">Function Lookup</button>
+			    	<button type="button" class="btn btn-primary" v-on:click="import_project_data" style="margin-right: 5px;">Import Project</button>
+			    	<button type="button" class="btn btn-primary" v-on:click="export_project_data" style="margin-right: 5px;">Export Project</button>
 			    	<button type="button" class="btn btn-primary" v-on:click="select_trigger('sfn')">Deploy Step Function</button>
 			    </div>
 			</nav>

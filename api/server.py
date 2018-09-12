@@ -27,6 +27,8 @@ from botocore.exceptions import ClientError
 from jsonschema import validate as validate_schema
 from tornado.concurrent import run_on_executor, futures
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+from models.initiate_database import *
+from models.saved_function import SavedFunction
 
 logging.basicConfig(
 	stream=sys.stdout,
@@ -152,6 +154,9 @@ class BaseHandler( tornado.web.RequestHandler ):
 	def throw_404( self ):
 		self.set_status(404)
 		self.write("Resource not found")
+		
+	def on_finish( self ):
+		session.close()
 
 	def error( self, error_message, error_id ):
 		self.logit(
@@ -810,15 +815,6 @@ def refinery_to_aws_step_function( refinery_dict, name_to_arn_map ):
 			
 	return return_step_function_data
 	
-class ConvertRefineryToStepFunction( BaseHandler ):
-	@gen.coroutine
-	def post( self ):
-		self.logit(
-			"Converting policy in AWS Step Function policy..."
-		)
-		# TODO
-		pass
-	
 class CreateScheduleTrigger( BaseHandler ):
 	@gen.coroutine
 	def post( self ):
@@ -1122,6 +1118,80 @@ class CreateSQSQueueTrigger( BaseHandler ):
 			"queue_url": sqs_queue_url
 		})
 		
+class SavedFunctionSearch( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"query": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"query",
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Searching saved functions..."
+		)
+		
+class SavedFunctionCreate( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Create a function to save for later use.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"name": {
+					"type": "string",
+				},
+				"description": {
+					"type": "string",
+				},
+				"code": {
+					"type": "string",
+				},
+				"language": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"name",
+				"description",
+				"code",
+				"language"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Saving function data..."
+		)
+		
+		new_function = SavedFunction()
+		new_function.name = self.json[ "name" ]
+		new_function.description = self.json[ "description" ]
+		new_function.code = self.json[ "code" ]
+		new_function.language = self.json[ "language" ]
+		
+		session.add( new_function )
+		session.commit()
+		
+		self.write({
+			"success": True,
+			"id": new_function.id
+		})
+		
 def make_app( is_debug ):
 	# Convert to bool
 	is_debug = ( is_debug.lower() == "true" )
@@ -1131,6 +1201,8 @@ def make_app( is_debug ):
 	}
 	
 	return tornado.web.Application([
+		( r"/api/v1/functions/create", SavedFunctionCreate ),
+		( r"/api/v1/functions/search", SavedFunctionSearch ),
 		( r"/api/v1/aws/create_schedule_trigger", CreateScheduleTrigger ),
 		( r"/api/v1/aws/deploy_step_function", DeployStepFunction ),
 		( r"/api/v1/aws/deploy_lambda", DeployLambda ),
@@ -1147,5 +1219,6 @@ if __name__ == "__main__":
 	server.bind(
 		7777
 	)
+	Base.metadata.create_all( engine )
 	server.start()
 	tornado.ioloop.IOLoop.current().start()

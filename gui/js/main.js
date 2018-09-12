@@ -343,6 +343,45 @@ function get_safe_name( input_string ) {
 	);
 }
 
+function import_project_data( input_project_data ) {
+	app.project_name = input_project_data[ "name" ];
+	Vue.set( app, "workflow_states", input_project_data[ "workflow_states" ] );
+	Vue.set( app, "workflow_relationships", input_project_data[ "workflow_relationships" ] );
+	build_dot_graph();
+}
+
+function project_file_uploaded( event_data ) {
+	var file_data = event_data.target.files[0];
+	var reader = new FileReader();
+	reader.onload = function() {
+		var file_contents = reader.result;
+		try {
+			import_project_data(
+				JSON.parse(
+					file_contents
+				)
+			);
+		} catch ( e ) {
+			alert( "Error parsing project data! Invalid JSON?" );
+			console.log( e );
+		}
+	}
+	reader.readAsText( file_data );
+}
+
+function create_saved_function( name, description, code, language ) {
+	return api_request(
+		"POST",
+		"api/v1/functions/create",
+		{
+			"name": name,
+			"description": description,
+			"code": code,
+			"language": language,
+		}
+	);
+}
+
 function deploy_step_function( sfn_name, workflow_states, workflow_relationships ) {
 	return api_request(
 		"POST",
@@ -526,6 +565,15 @@ $(window).resize(function(){
     updateGraph();
 });
 
+// On load
+$( document ).ready(function() {
+	document.getElementById( "project_file_upload" ).addEventListener(
+		"change",
+		project_file_uploaded,
+		false
+	);
+});
+
 var app = new Vue({
 	el: "#app",
     components:{
@@ -590,7 +638,7 @@ var app = new Vue({
 		next_state_transition_selected: false,
 		graphiz_content: "",
 		// Project name
-		project_name: "Example Project",
+		project_name: "Untitled Project",
 		// Currently selected lambda name
 		lambda_name: "",
 		// Currently selected lambda language
@@ -646,6 +694,8 @@ var app = new Vue({
         lambda_deploy_status_text: "Loading",
         // All project data serialized as JSON for export
         project_data_json: "",
+        // Errors while pasting JSON in import project menu
+        import_paste_error: false,
         
         codeoptions: {
             mode: "python",
@@ -668,6 +718,19 @@ var app = new Vue({
 		},
 	},
 	methods: {
+		project_import_data_change: function( new_project_data_json ) {
+			try {
+				import_project_data(
+					JSON.parse(
+						new_project_data_json
+					)
+				);
+				app.import_paste_error = false;
+			} catch ( e ) {
+				app.import_paste_error = "Error! Invalid JSON."
+				console.log( e );
+			}
+		},
 		show_rename_project_modal: function() {
 			$( "#project_name_rename_output" ).modal(
 				"show"
@@ -682,6 +745,15 @@ var app = new Vue({
 		export_project_data: function() {
 			Vue.set( app, "project_data_json", get_project_json() );
 			$( "#exportproject_output" ).modal(
+				"show"
+			);
+		},
+		import_project_data: function() {
+			// Reset data
+			app.import_paste_error = false;
+			app.project_data_json = "";
+			
+			$( "#importproject_output" ).modal(
 				"show"
 			);
 		},

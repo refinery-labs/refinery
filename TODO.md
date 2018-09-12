@@ -1,8 +1,10 @@
 * Add max size of 80 for names of Lambdas, Queues, etc
-* Add SQS trigger processing to refinery
+* Add SQS trigger processing for Step Functions
 * Add API Gateway trigger to refinery
 * Add conditions to refinery (if/else)
-* Export/Import Step Functions
+* REQUIRE that all SQS deployed lambdas have a valid JSON Schema for messages (write details in S3).
+	* This keeps errors low and makes generating messages more structured.
+	* Makes everything more maintainable since you know the exact format required.
 * Create service to generate SQS messages for scraping ranges
 	* 1-1000 IDs of a web endpoint
 * Re-usable quick search function database

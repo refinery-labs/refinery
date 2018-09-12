@@ -168,3 +168,7 @@
 .project-name {
 	color: #ff0000 !important;
 }
+
+.import-error-text {
+	color: #ff0000 !important;
+}
