@@ -6,6 +6,7 @@ import tornado.escape
 import tornado.ioloop
 import tornado.web
 import subprocess
+import autopep8
 import logging
 import hashlib
 import shutil
@@ -54,6 +55,22 @@ with open( "config.yaml", "r" ) as file_handler:
     )
     for key, value in settings.iteritems():
         os.environ[ key ] = str( value )
+
+def on_start():
+	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES
+	LAMDBA_BASE_CODES = {}
+	LAMBDA_BASE_LIBRARIES = {
+		"python2.7": [
+			"redis"
+		],
+	}
+	
+	# Load Lambda base templates
+	with open( "./lambda_bases/python.py", "r" ) as file_handler:
+		LAMDBA_BASE_CODES[ "python2.7" ] = file_handler.read().replace(
+			"{{REDIS_PASSWORD_REPLACE_ME}}",
+			os.environ.get( "lambda_redis_password" )
+		)
         
 S3_CLIENT = boto3.client(
     "s3",
@@ -102,6 +119,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 		self.set_header( "Access-Control-Allow-Headers", "Content-Type, X-CSRF-Validation-Header" )
 		self.set_header( "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD" )
 		self.set_header( "Access-Control-Allow-Credentials", "true" )
+		self.set_header( "Access-Control-Max-Age", "600" )
 		self.set_header( "X-Frame-Options", "deny" )
 		self.set_header( "Content-Security-Policy", "default-src 'self'" )
 		self.set_header( "X-XSS-Protection", "1; mode=block" )
@@ -299,7 +317,7 @@ class TaskSpawner(object):
 					FunctionName=func_name,
 					Runtime="python2.7",
 					Role=role_name,
-					Handler="lambda.main",
+					Handler="lambda._init",
 					Code={
 						"ZipFile": zip_data,
 					},
@@ -469,6 +487,35 @@ class TaskSpawner(object):
 			"""
 			Build Lambda package zip and return zip data
 			"""
+			
+			"""
+			Inject base libraries (e.g. redis) into lambda
+			and the init code.
+			"""
+			
+			code = LAMDBA_BASE_CODES[ "python2.7" ] + "\n\n" + code
+			code = autopep8.fix_code(
+				code,
+				options={
+					"select": [
+						"E101",
+					]
+				}
+			)
+			
+			print(
+				code.replace(
+					"	",
+					"\t"
+				)
+			)
+			
+			for init_library in LAMBDA_BASE_LIBRARIES[ "python2.7" ]:
+				if not init_library in libraries:
+					libraries.append(
+						init_library
+					)
+			
 			base_zip_data = TaskSpawner.get_lambda_base_zip(
 				libraries
 			)
@@ -645,7 +692,7 @@ class DeployLambda( BaseHandler ):
 			lambda_zip_package_data,
 			self.json[ "execution_time" ], # Max AWS execution time
 			self.json[ "memory" ], # MB of execution memory
-			json.loads( os.environ.get( "vpc_data" ) ), # VPC data
+			{}, # VPC data
 			{},
 			{
 				"project": "None"
@@ -717,7 +764,7 @@ class RunTmpLambda( BaseHandler ):
 			lambda_zip_package_data,
 			self.json[ "execution_time" ], # Max AWS execution time
 			self.json[ "memory" ], # MB of execution memory
-			json.loads( os.environ.get( "vpc_data" ) ), # VPC data
+			{}, # VPC data
 			{},
 			{
 				"project": "None"
@@ -969,7 +1016,7 @@ class DeployStepFunction( BaseHandler ):
 				lambda_package_data[ "zip" ],
 				300, # Max AWS execution time
 				lambda_package_data[ "config" ][ "memory" ], # MB of execution memory
-				json.loads( os.environ.get( "vpc_data" ) ), # VPC data
+				{}, # VPC data
 				{},
 				{
 					"project": sfn_name
@@ -1351,6 +1398,8 @@ def make_app( is_debug ):
 			
 if __name__ == "__main__":
 	print( "Starting server..." )
+	# Re-initiate things
+	on_start()
 	app = make_app( "true" )
 	server = tornado.httpserver.HTTPServer(
 		app

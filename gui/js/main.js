@@ -306,10 +306,18 @@ function reset_current_lambda_state_to_defaults() {
 	app.unformatted_code_imports = "";
 	app.codecontent = `
 def main( lambda_input, context ):
-	"""
-	SQS message body: lambda_input[ "Records" ][0][ "body" ]
-	"""
-    return False
+    """
+    Embedded magic
+
+    Refinery memory:
+	    Namespace: rmemory.get( "example" )
+	    Without namespace: rmemory.get( "example", raw=True )
+
+    SQS message body:
+	    First message: lambda_input[ "Records" ][0][ "body" ]
+    """
+	
+	return False
 `;
 }
 
@@ -618,57 +626,44 @@ var app = new Vue({
 		selected_node: false,
 		selected_node_state: false,
 		selected_transition: false,
-		workflow_states: [
-		    {
-		        "id": "start_node",
-		        "name": "Start",
-		        "language": "",
-		        "code": "",
-		        "libraries": [],
-		        "memory": 0
-		    },
-		    {
-		        "id": "end_node",
-		        "name": "End",
-		        "language": "",
-		        "code": "",
-		        "libraries": [],
-		        "memory": 0
-		    },
-		    {
-		        "id": "nac6cfe6a9d4448b399139a783a57f70e",
-		        "name": "Step One",
-		        "language": "python2.7",
-		        "libraries": [],
-		        "code": "\ndef main( lambda_input, context ):\n    print( \"pew\" )\n    return \"example\"\n",
-		        "memory": 128
-		    },
-		    {
-		        "id": "n8769324f65b04a23b63a9b0315e18884",
-		        "name": "Step Two",
-		        "language": "python2.7",
-		        "libraries": [],
-		        "code": "\ndef main( lambda_input, context ):\n    print( \"wat\" )\n    return str(lambda_input).upper()\n",
-		        "memory": 128
-		    }
-		],
-		workflow_relationships: [
-		    {
-		        "id": "n6637cf40d02244ff8a57989d0b555eea",
-		        "node": "start_node",
-		        "next": "nac6cfe6a9d4448b399139a783a57f70e"
-		    },
-		    {
-		        "id": "n6a4b759e27554818bc59d713841597ac",
-		        "node": "nac6cfe6a9d4448b399139a783a57f70e",
-		        "next": "n8769324f65b04a23b63a9b0315e18884"
-		    },
-		    {
-		        "id": "n85120fd907ec4105a9758bf46313141f",
-		        "node": "n8769324f65b04a23b63a9b0315e18884",
-		        "next": "end_node"
-		    }
-		],
+	    "workflow_states": [
+	        {
+	            "id": "start_node",
+	            "name": "Start",
+	            "language": "",
+	            "code": "",
+	            "libraries": [],
+	            "memory": 0
+	        },
+	        {
+	            "id": "end_node",
+	            "name": "End",
+	            "language": "",
+	            "code": "",
+	            "libraries": [],
+	            "memory": 0
+	        },
+	        {
+	            "id": "n1640829ed84b452c828c4398618d23d8",
+	            "name": "Example Lambda",
+	            "language": "python2.7",
+	            "libraries": [],
+	            "code": "\ndef main( lambda_input, context ):\n    \"\"\"\n    Embedded magic\n\n    Refinery memory:\n\t    Namespace: rmemory.get( \"example\" )\n\t    Without namespace: rmemory.get( \"example\", raw=True )\n\n    SQS message body:\n\t    First message: lambda_input[ \"Records\" ][0][ \"body\" ]\n    \"\"\"\n\t\n\treturn False\n",
+	            "memory": 128
+	        }
+	    ],
+	    "workflow_relationships": [
+	        {
+	            "id": "n43dcdb3a0a3a476288243865c3598f0b",
+	            "node": "start_node",
+	            "next": "n1640829ed84b452c828c4398618d23d8"
+	        },
+	        {
+	            "id": "n4df662203ed54ff2911a37865c645593",
+	            "node": "n1640829ed84b452c828c4398618d23d8",
+	            "next": "end_node"
+	        }
+	    ],
 		next_state_transition_selected: false,
 		graphiz_content: "",
 		// Project name
