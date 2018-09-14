@@ -1,3 +1,6 @@
+* Add code to all lambdas to detect successful and unsuccessful runs
+	* Query redis on failures and activate certain actions
+		* Email abotfailure
 * Add libraries/imports to "Saved Functions"
 * Add max size of 80 for names of Lambdas, Queues, etc
 * Add SQS trigger processing for Step Functions

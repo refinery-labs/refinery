@@ -445,7 +445,7 @@ function deploy_lambda( name, language, code, libraries, memory ) {
 			"language": language,
 			"code": code,
 			"libraries": libraries,
-			"memory": memory,
+			"memory": parseInt( memory ),
 			"execution_time": 300
 		}
 	);
@@ -459,7 +459,7 @@ function run_tmp_lambda( language, code, libraries, memory ) {
 			"language": language,
 			"code": code,
 			"libraries": libraries,
-			"memory": memory,
+			"memory": parseInt( memory ),
 			"execution_time": 300
 		}
 	);
