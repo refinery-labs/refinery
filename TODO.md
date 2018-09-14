@@ -1,24 +1,21 @@
-* Add code to all lambdas to detect successful and unsuccessful runs
-	* Query redis on failures and activate certain actions
-		* Email abotfailure
-* Add libraries/imports to "Saved Functions"
-* Add max size of 80 for names of Lambdas, Queues, etc
-* Add SQS trigger processing for Step Functions
-* Add API Gateway trigger to refinery
-* Add conditions to refinery (if/else)
+* Add the ability to run code locally for testing
+	* Chmod to temporary directory
+	* Delete directory after run
+* System for managing key/values stored in redis instead of redis-commander
 * REQUIRE that all SQS deployed lambdas have a valid JSON Schema for messages (write details in S3).
 	* This keeps errors low and makes generating messages more structured.
 	* Makes everything more maintainable since you know the exact format required.
 * Create service to generate SQS messages for scraping ranges
 	* 1-1000 IDs of a web endpoint
+* Add code to all lambdas to detect successful and unsuccessful runs
+	* Query redis on failures and activate certain actions
+		* Email about failure
+* Add max size of 80 for names of Lambdas, Queues, etc
+* Add SQS trigger processing for Step Functions
+* Add API Gateway trigger to refinery
+* Add conditions to refinery (if/else)
 * Job emailer using Apps Scripts
 	* https://developers.google.com/apps-script/guides/services/quotas
-* Create Lambda to automatically load data from Google Cloud storage bucket into BigQuery using auto-schema
-	* Format of /bigquery/2018/09/10/10/30/hackernews/22b5f6c3-3ca0-4b53-bfb2-39479fd2ef13.json
-	* e.g. /bigquery/{YYYY}/{{MM}}/{{DD}}/{{HH}}/{{MM}}/{{TABLE_NAME}}/{{UUID}}.json
-	* Lambda runs every ten minutes to load data into BigQuery if data exists to be loaded.
-	* Bucket retains objects for only 24 hours before automatic deletion
-	* Max 1K loads a day per table
 * Create Chrome extension for generating code for refinery from HTTP traffic
 * Set up central redis for configs for lambdas
 	* Cookies

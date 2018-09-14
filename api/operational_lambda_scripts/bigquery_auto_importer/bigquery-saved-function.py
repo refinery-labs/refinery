@@ -1,38 +1,3 @@
-import uuid
-
-def main( lambda_input, context ):
-    """
-    Embedded magic
-
-    Refinery memory:
-	    Namespace: rmemory.get( "example" )
-	    Without namespace: rmemory.get( "example", raw=True )
-
-    SQS message body:
-	    First message: lambda_input[ "Records" ][0][ "body" ]
-    """
-    bs_data_array = []
-    
-    for i in range( 0, 1000 ):
-    	bs_data_array.append({
-    		"id": i,
-    		"uuid": str( uuid.uuid4() ),
-    		"static": "the same",
-    		"float": float( i ),
-    	})
-    	
-    send_to_bigquery(
-    	"bs_data",
-    	bs_data_array
-    )
-
-def get_bucket_base_path():
-	from datetime import datetime
-	
-	return "bigquery/{:%Y/%m/%d/%H/%M/}".format(
-	    datetime.now()
-	)
-	
 def send_to_bigquery( table_name, input_array_of_flat_dicts ):
 	"""
 	Send to Refinery's BigQuery data lake.
@@ -42,7 +7,7 @@ def send_to_bigquery( table_name, input_array_of_flat_dicts ):
 	and the values become rows in the table.
 	
 	:param str table_name "Name of table"
-	:param list	input_array_of_flat_dicts [{"example": "example"}]
+	:param list	input_array_of_flat_dicts [{"column_name": "row_value"}]
 	"""
 	import uuid
 	import json
@@ -76,6 +41,13 @@ def send_to_bigquery( table_name, input_array_of_flat_dicts ):
 	)
 	
 	return response
+	
+def get_bucket_base_path():
+	from datetime import datetime
+	
+	return "bigquery/{:%Y/%m/%d/%H/%M/}".format(
+	    datetime.now()
+	)
 
 def get_cloud_storage_client():
 	import json

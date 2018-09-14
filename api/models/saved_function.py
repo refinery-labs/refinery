@@ -1,4 +1,5 @@
 from initiate_database import *
+import json
 import uuid
 import time
 import os
@@ -11,6 +12,7 @@ class SavedFunction( Base ):
     name = Column(Text())
     description = Column(Text())
     code = Column(Text())
+    libraries = Column(Text())
     timestamp = Column(Integer())
 
     def __init__( self ):
@@ -18,11 +20,17 @@ class SavedFunction( Base ):
         self.timestamp = int( time.time() )
 
     def to_dict( self ):
-        exposed_attributes = [ "id", "name", "language", "description", "code", "timestamp" ]
+        exposed_attributes = [ "id", "name", "language", "description", "code", "libraries", "timestamp" ]
+        json_attributes = [ "libraries" ]
         return_dict = {}
 
         for attribute in exposed_attributes:
-            return_dict[ attribute ] = getattr( self, attribute )
+			if attribute in json_attributes:
+				return_dict[ attribute ] = json.loads(
+					getattr( self, attribute )
+				)
+			else:
+				return_dict[ attribute ] = getattr( self, attribute )
 
         return return_dict
 

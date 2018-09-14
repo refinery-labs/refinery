@@ -1257,13 +1257,17 @@ class SavedFunctionCreate( BaseHandler ):
 				},
 				"language": {
 					"type": "string",
+				},
+				"libraries": {
+					"type": "array",
 				}
 			},
 			"required": [
 				"name",
 				"description",
 				"code",
-				"language"
+				"language",
+				"libraries"
 			]
 		}
 		
@@ -1278,6 +1282,9 @@ class SavedFunctionCreate( BaseHandler ):
 		new_function.description = self.json[ "description" ]
 		new_function.code = self.json[ "code" ]
 		new_function.language = self.json[ "language" ]
+		new_function.libraries = json.dumps(
+			self.json[ "libraries" ]
+		)
 		
 		session.add( new_function )
 		session.commit()
@@ -1310,6 +1317,9 @@ class SavedFunctionUpdate( BaseHandler ):
 				},
 				"language": {
 					"type": "string",
+				},
+				"libraries": {
+					"type": "array",
 				}
 			},
 			"required": [
@@ -1317,7 +1327,8 @@ class SavedFunctionUpdate( BaseHandler ):
 				"name",
 				"description",
 				"code",
-				"language"
+				"language",
+				"libraries"
 			]
 		}
 		
@@ -1335,6 +1346,9 @@ class SavedFunctionUpdate( BaseHandler ):
 		saved_function.description = self.json[ "description" ]
 		saved_function.code = self.json[ "code" ]
 		saved_function.language = self.json[ "language" ]
+		saved_function.libraries = json.dumps(
+			self.json[ "libraries" ]
+		)
 		session.commit()
 		
 		self.write({

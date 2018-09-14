@@ -397,7 +397,7 @@ function search_saved_functions( query ) {
 	);
 }
 
-function update_saved_function( id, name, description, code, language ) {
+function update_saved_function( id, name, description, code, language, libraries ) {
 	return api_request(
 		"POST",
 		"api/v1/functions/update",
@@ -407,11 +407,12 @@ function update_saved_function( id, name, description, code, language ) {
 			"description": description,
 			"code": code,
 			"language": language,
+			"libraries": libraries,
 		}
 	);
 }
 
-function create_saved_function( name, description, code, language ) {
+function create_saved_function( name, description, code, language, libraries ) {
 	return api_request(
 		"POST",
 		"api/v1/functions/create",
@@ -420,6 +421,7 @@ function create_saved_function( name, description, code, language ) {
 			"description": description,
 			"code": code,
 			"language": language,
+			"libraries": libraries,
 		}
 	);
 }
@@ -732,7 +734,10 @@ var app = new Vue({
 			"description": "",
 			"code": "",
 			"language": "python2.7",
+			"libraries": [],
         },
+        // Unformatted saved function imports
+		unformatted_saved_function_libraries: "",
         // Search results for saved function search
         saved_function_search_results: [],
         // Search term for saved function search
@@ -751,6 +756,9 @@ var app = new Vue({
 		saved_function_search_query: function( value, previous_value ) {
 			app.search_saved_functions( value );
 		},
+		code_imports: function( value, previous_value ) {
+			app.unformatted_code_imports = app.code_imports.join( "\n" );
+		}
 	},
 	computed: {
 		selected_node_data: function() {
@@ -764,6 +772,24 @@ var app = new Vue({
 		},
 	},
 	methods: {
+		merge_saved_function: function() {
+			for( var i = 0; i < app.saved_function_data.libraries.length; i++ ) {
+				if( app.code_imports.indexOf( app.saved_function_data.libraries[i] ) === -1 ) {
+					app.code_imports.push(
+						app.saved_function_data.libraries[i]
+					);
+				}
+			}
+			
+			if( app.saved_function_data.language == "python2.7" ) {
+				app.codecontent += "\n# " + app.saved_function_data.name + " \n" + app.saved_function_data.code.trim() + "\n";
+			}
+		},
+		saved_function_libraries_changed: function( val ) {
+			val = val.trim();
+			var libraries = val.split( "\n" );
+			app.saved_function_data.libraries = libraries;
+		},
 		delete_saved_function: function() {
 			delete_saved_function(
 				app.saved_function_data.id,
@@ -775,7 +801,8 @@ var app = new Vue({
 				app.saved_function_data.name,
 				app.saved_function_data.description,
 				app.saved_function_data.code,
-				app.saved_function_data.language
+				app.saved_function_data.language,
+				app.saved_function_data.libraries
 			).then(function( results ) {
 				console.log( "Results" );
 				console.log( results );
@@ -792,6 +819,8 @@ var app = new Vue({
 			var matched_function = matched_functions[0];
 			Vue.set( app, "saved_function_data", matched_function );
 			
+			app.unformatted_saved_function_libraries = app.saved_function_data.libraries.join( "\n" );
+			
 			$( "#viewsavefunction_output" ).modal(
 				"show"
 			);
@@ -804,6 +833,8 @@ var app = new Vue({
 		view_search_functions_modal: function() {
 			// Clear search query
 			app.saved_function_search_query = "";
+			// Clear previous
+			app.unformatted_saved_function_libraries = "";
 			
 			$( "#searchsavedfunction_output" ).modal(
 				"show"
@@ -814,7 +845,8 @@ var app = new Vue({
 				app.saved_function_data.name,
 				app.saved_function_data.description,
 				app.saved_function_data.code,
-				app.saved_function_data.language
+				app.saved_function_data.language,
+				app.saved_function_data.libraries
 			).then(function( results ) {
 				console.log( "Results" );
 				console.log( results );
@@ -835,9 +867,13 @@ def example( parameter ):
 	return parameter.upper()
 `,
 				"language": "python2.7",
+				"libraries": [],
 	        };
 	        
 	        Vue.set( app, "saved_function_data", saved_function_data );
+	        
+			// Clear previous
+			app.unformatted_saved_function_libraries = "";
 	        
 			$( "#savefunction_output" ).modal(
 				"show"

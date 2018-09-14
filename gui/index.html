@@ -40,14 +40,23 @@
 							</select>
 							<small id="new_lambda_language_select_input_help" class="form-text text-muted">Language of saved function.</small>
 						</div>
+						<div class="form-group">
+							<label>Import(s)</label>
+							<div style="height: 50px">
+								<editor editor-id="saved_function_data_imports_view_editor" theme="monokai" lang="python" :content="unformatted_saved_function_libraries" v-on:change-content="saved_function_libraries_changed"></editor>
+							</div>
+							<small class="form-text text-muted">Libraries for the saved function.</small>
+						</div>
 	            		<div style="height: 300px">
 							<editor editor-id="view_saved_function_editor" theme="monokai" lang="python" :content="saved_function_data.code" v-on:change-content="update_add_function_code"></editor>
 	            		</div>
 	            		<br />
 	            		<center>
-	            			<button type="button" class="btn btn-lg btn-primary" v-on:click="update_saved_function" data-dismiss="modal">Update Saved Function</button>
+	            			<button type="button" class="btn btn-lg btn-primary" v-on:click="update_saved_function" data-dismiss="modal">Update Function</button>
 	            			
-	            			<button type="button" class="btn btn-lg btn-danger" v-on:click="delete_saved_function" style="margin-left: 10px;" data-dismiss="modal">Delete Saved Function</button>
+	            			<button type="button" class="btn btn-lg btn-primary" v-on:click="merge_saved_function" style="margin-left: 10px;" data-dismiss="modal" v-if="page == 'modify-lambda'">Merge into Lambda</button>
+	            			
+	            			<button type="button" class="btn btn-lg btn-danger" v-on:click="delete_saved_function" style="margin-left: 10px;" data-dismiss="modal">Delete Function</button>
 	            		</center>
 		            </div>
 		            <div class="modal-footer">
@@ -129,6 +138,13 @@
 								<option value="python2.7" selected>python2.7</option>
 							</select>
 							<small id="new_lambda_language_select_input_help" class="form-text text-muted">Language of saved function.</small>
+						</div>
+						<div class="form-group">
+							<label>Import(s)</label>
+							<div style="height: 50px">
+								<editor editor-id="saved_function_data_imports_editor" theme="monokai" lang="python" :content="unformatted_saved_function_libraries" v-on:change-content="saved_function_libraries_changed"></editor>
+							</div>
+							<small class="form-text text-muted">Libraries for the saved function.</small>
 						</div>
 	            		<div style="height: 300px">
 							<editor editor-id="saved_function_editor" theme="monokai" lang="python" :content="saved_function_data.code" v-on:change-content="update_add_function_code"></editor>
@@ -322,7 +338,7 @@
 		        		</button>
 		            </div>
 		            <div class="modal-body">
-						<div style="height: 500px">
+						<div style="height: 750px">
 							<editor editor-id="codecontent_large" theme="monokai" lang="python" :content="codecontent" v-on:change-content="codecontent_change"></editor>
 						</div>
 		            </div>
@@ -600,7 +616,7 @@
 						<editor editor-id="codecontent" theme="monokai" lang="python" :content="codecontent" v-on:change-content="codecontent_change"></editor>
 					</div>
 					<div style="text-align: right">
-						<button type="button" class="btn btn-sm btn-secondary" v-on:click="fullscreen_lambda_editor">View Fullscreen</button>
+						<button type="button" style="width: 100%" class="btn btn-sm btn-secondary" v-on:click="fullscreen_lambda_editor">View Fullscreen</button>
 					</div>
 					<small class="form-text text-muted">Code of lambda function.</small>
 				</div>
