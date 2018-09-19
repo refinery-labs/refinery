@@ -506,11 +506,16 @@
 			    	<button type="button" class="btn btn-primary" v-on:click="view_search_functions_modal" style="margin-right: 5px;">Function Lookup</button>
 			    	<button type="button" class="btn btn-primary" v-on:click="import_project_data" style="margin-right: 5px;">Import Project</button>
 			    	<button type="button" class="btn btn-primary" v-on:click="export_project_data" style="margin-right: 5px;">Export Project</button>
-			    	<button type="button" class="btn btn-primary" v-on:click="select_trigger('sfn')">Deploy Step Function</button>
+			    	<button type="button" class="btn btn-primary" v-on:click="select_trigger('sfn')" style="margin-right: 5px;">Deploy Step Function</button>
+			    	<button type="button" class="btn btn-primary" v-on:click="view_refinery_atc" style="margin-right: 5px;">ATC</button>
 			    </div>
 			</nav>
         </div>
+        
+        <!-- Body -->
         <div id="panes" class="split split-horizontal">
+        	
+        	<!-- Welcome panel -->
             <div v-if="page == 'welcome'" class="split left-panel">
             	<center>
             		<h2>Welcome to Refinery!</h2>
@@ -540,6 +545,8 @@
 					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="add_state_transition">Add State Transition</button>
             	</div>
             </div>
+            
+            <!-- Modify state transition panel -->
             <div v-if="page == 'modify-state-transition'" class="split left-panel">
             	<h2>Modify State Transition</h2>
             	<hr />
@@ -588,6 +595,8 @@
 				</div>
                 <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="add_lambda">Add to Pipeline</button>
             </div>
+            
+            <!-- Modify Lambda panel -->
             <div v-if="page == 'modify-lambda'" class="split left-panel">
                 <h2>Modify Lambda</h2>
                 <hr />
@@ -642,6 +651,118 @@
                 <hr />
                 <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="select_trigger('lambda')">Deploy Lambda</button>
             </div>
+            
+            <!-- Refinery ATC Homepage Panel -->
+            <div v-if="page == 'atc'" class="split left-panel">
+                <h2>Refinery ATC</h2>
+                <hr />
+                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="view_atc_create_loader">Add Queue Loader</button>
+                <hr />
+				<div v-for="queue_loader in atc.running_queue_loaders">
+					<b>Queue Loader ID: </b> <code>{{queue_loader.id}}</code><br />
+					<b>Queue Name: </b> <code>{{queue_loader.queue_name}}</code><br />
+					<b>Iterators: </b>
+					<ul>
+						<li v-for="iterator_options in queue_loader.iterators_options_array">Iterator: <code>{{iterator_options.iterator_function}}</code>
+							<ul>
+								<li>
+									Key: <code>{{iterator_options.template_key}}</code>
+								</li>
+								<li>
+									Role: <code>{{iterator_options.type}}</code>
+								</li>
+								<li>
+									Config: <p style="white-space: nowrap; text-overflow: ellipsis; max-width: 40ch; overflow: hidden;">
+										<code>{{JSON.stringify( iterator_options.arguments )}}</code>
+									</p>
+								</li>
+							</ul>
+						</li>
+					</ul>
+					<button type="submit" class="btn btn-danger" style="width: 100%; margin-bottom: 5px;" v-on:click="kill_job_loader(queue_loader.id)">Kill Job Loader</button>
+					<hr />
+				</div>
+            </div>
+            
+            <!-- Refinery ATC Add Loader Panel -->
+            <div v-if="page == 'atc-queue-loader'" class="split left-panel">
+                <h2>Queue Loader</h2>
+                <hr />
+                <div class="form-group">
+                	<label>SQS Queue</label>
+					<select class="custom-select" v-model="atc.queue_loader.queue_name">
+						<option v-bind:value="queue_name" v-for="queue_name in atc.sqs_queues">{{queue_name}}</option>
+					</select>
+					<small id="new_lambda_language_select_input_help" class="form-text text-muted">The SQS queue to publish generated jobs to.</small>
+				</div>
+				<div class="form-group">
+					<label>Job Template</label>
+					<div style="height: 100px">
+						<editor editor-id="atc_job_template_editor" theme="monokai" lang="json" :content="atc.unformatted_job_template_text" v-on:change-content="atc_job_template_text_changed"></editor>
+					</div>
+					<small class="form-text text-muted">Job Template</small>
+				</div>
+                <div class="form-group">
+                    <label>Cron Expression</label>
+                    <input type="text" class="form-control" v-model="atc.queue_loader.options.method_data.expression" placeholder="* * * * * *">
+                    <small class="form-text text-muted">Valid Cronjob expression for how often the loader should run a round. Note: This can also be just the string <code>immediate</code> if all data should be loaded at once.</small>
+                </div>
+				<div class="form-group" v-if="atc.queue_loader.options.method_type === 'cron'">
+					<label>Cycle(s) Per Round</label>
+					<div class="input-group mb-2">
+						<input type="number" class="form-control form-control-lg" v-model.number="atc.queue_loader.options.cycles" placeholder="1" step="1" min="1">
+						<div class="input-group-append">
+							<div class="input-group-text">Cycle(s)</div>
+						</div>
+					</div>
+					<small class="form-text text-muted">Number of cycles to run each round (basically, how many times should the iterators be run through each round).</small>
+				</div>
+				
+				<h3>Job Iterator(s)</h3>
+				<div v-if="!atc.queue_loader.iterators_options_array.length">
+					<i>No iterators are set, perhaps you should add some?</i>
+				</div>
+				<div v-if="atc.queue_loader.iterators_options_array.length">
+					<div v-for="(iterators_option, index) in atc.queue_loader.iterators_options_array">
+						<hr />
+		                <div class="form-group">
+		                	<label>Iterator</label>
+							<select class="custom-select" v-model="iterators_option.iterator_function">
+								<option v-bind:value="iterator.id" v-for="iterator in atc.iterators">{{iterator.name}}</option>
+							</select>
+							<small class="form-text text-muted">Custom iterator type which is controlled by the Arguments specified below.</small>
+						</div>
+		                <div class="form-group">
+		                	<label>Type</label>
+							<select class="custom-select" v-model="iterators_option.type">
+								<option value="primary">Primary</option>
+								<option value="supporting">Supporting</option>
+							</select>
+							<small class="form-text text-muted"><code>Primary</code> iterators will cause the job generation to finish when they have been exhausted. <code>Supporting</code> iterators will not and will instead restart from their starting state when they are exhausted (e.g. loop around).</small>
+						</div>
+		                <div class="form-group">
+		                    <label>Job Template Key</label>
+		                    <input type="text" class="form-control" v-model="iterators_option.template_key" placeholder="key">
+		                    <small class="form-text text-muted">The key who's value will be set on the above Job Template by the iterator.</small>
+		                </div>
+						<div class="form-group">
+							<label>Iterator Config</label>
+							<div style="height: 100px">
+								<editor v-bind:arg_index="index" v-bind:editor-id="'atc_iterator_arguments_editor' + index.toString()" theme="monokai" lang="json" :content="JSON.stringify( atc_get_arguments_by_iterator_id( iterators_option.iterator_function ),false,4)" v-on:change-content-context="atc_update_arguments"></editor>
+							</div>
+							<small class="form-text text-muted">This is the config data which changes how the iterator operates.</small>
+						</div>
+						<button type="submit" class="btn btn-danger" style="width: 100%; margin-bottom: 5px;" v-bind:iterator_index="index" v-on:click="delete_iterator(index)">Delete Iterator</button>
+					</div>
+				</div>
+				<hr />
+				<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="add_iterator">Add Iterator</button>
+				<hr />
+				<button v-if="atc.queue_loader.iterators_options_array.length" type="submit" class="btn btn-primary" style="width: 100%; height: 50px" v-on:click="create_queue_loader">Create Queue Loader</button>
+				<button v-if="!atc.queue_loader.iterators_options_array.length" type="submit" class="btn btn-primary" style="width: 100%; height: 50px" disabled>Create Queue Loader</button>
+            </div>
+            
+            <!-- Graph -->
             <div id="graph" class="split">
                 <div id="output">
                     <div id="error"></div>

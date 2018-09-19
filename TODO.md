@@ -1,3 +1,4 @@
+* Add lambda timeout option!
 * Add the ability to run code locally for testing
 	* Chmod to temporary directory
 	* Delete directory after run
@@ -20,3 +21,8 @@
 * Set up central redis for configs for lambdas
 	* Cookies
 	* User-Agents
+
+
+NOTE, SQS loading time (for pushing items into the queue in 10 items per request batches):
+10K = 4.2 seconds
+100K = 34.78 seconds

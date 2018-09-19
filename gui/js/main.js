@@ -1,4 +1,5 @@
 var API_SERVER = location.origin.toString() + ":7777";
+var ATC_SERVER = "http://100.115.92.205:1337";
 window.define = ace.define;
 window.require = ace.require;
 
@@ -305,19 +306,19 @@ function reset_current_lambda_state_to_defaults() {
 	app.code_imports = [];
 	app.unformatted_code_imports = "";
 	app.codecontent = `
+"""
+Embedded magic
+
+Refinery memory:
+	Namespace: rmemory.get( "example" )
+	Without namespace: rmemory.get( "example", raw=True )
+
+SQS message body:
+	First message: sqs_data = json.loads( lambda_input[ "Records" ][0][ "body" ] )
+"""
+
 def main( lambda_input, context ):
-    """
-    Embedded magic
-
-    Refinery memory:
-	    Namespace: rmemory.get( "example" )
-	    Without namespace: rmemory.get( "example", raw=True )
-
-    SQS message body:
-	    First message: lambda_input[ "Records" ][0][ "body" ]
-    """
-	
-	return False
+    return False
 `;
 }
 
@@ -376,6 +377,95 @@ function project_file_uploaded( event_data ) {
 	}
 	reader.readAsText( file_data );
 }
+
+function delete_atc_queue_loader_by_id( queue_loader_id ) {
+	return atc_api_request(
+		"DELETE",
+		"api/v1/queue_loaders",
+		{
+			"id": queue_loader_id
+		}
+	).then(function( results ) {
+		return results.id;
+	})
+}
+
+function get_atc_queue_loaders() {
+	return atc_api_request(
+		"GET",
+		"api/v1/queue_loaders",
+		{}
+	).then(function( results ) {
+		return results.queue_loaders;
+	})
+}
+
+function get_atc_iterators() {
+	return atc_api_request(
+		"GET",
+		"api/v1/iterators",
+		{}
+	).then(function( results ) {
+		return results.iterators;
+	})
+}
+
+function get_atc_sqs_queues() {
+	return atc_api_request(
+		"GET",
+		"api/v1/queues",
+		{}
+	).then(function( results ) {
+		return results.queues;
+	})
+}
+
+function create_queue_loader( queue_name, job_template, options, iterators_options_array ) {
+	return atc_api_request(
+		"POST",
+		"api/v1/queue_loaders/cron",
+		{
+			"queue_name": queue_name,
+			"job_template": job_template,
+			"options": options,
+			"iterators_options_array": iterators_options_array,
+		}
+	);
+}
+/*
+create_queue_loader(
+	"example",
+	{
+		"name": "Example Job",
+	},
+	{
+		"method_type": "cron",
+		"method_data": {
+			"expression": "* * * * * *",
+			"amount": 100,
+		},
+		"cycles": 15,
+	},
+	[
+		{
+			"type": "primary",
+			"template_key": "first_primary",
+			"arguments": [ 0, 50, 1, "000" ],
+			"iterator_function": "number_range"
+		},
+		{
+			"type": "supporting",
+			"template_key": "supporting_in_memory_array",
+			"arguments": [
+				[ "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten" ]
+			],
+			"iterator_function": "in_memory_array"
+		}
+	]
+).then(function( response ) {
+	console.log( response );
+});
+*/
 
 function delete_saved_function( id ) {
 	return api_request(
@@ -534,6 +624,44 @@ function api_request( method, endpoint, body ) {
     });
 }
 
+/*
+    Make ATC API request
+*/
+function atc_api_request( method, endpoint, body ) {
+    return http_request(
+        method,
+        ATC_SERVER + "/" + endpoint,
+        [
+            {
+                "key": "Content-Type",
+                "value": "application/json",
+            },
+            {
+                "key": "X-Server-Secret",
+                "value": "SOMETHING_PRETTY_OBSCURE_I_GUESS" // TODO make this dynamic
+            }
+        ],
+        JSON.stringify(
+            body
+        )
+    ).then(function( response_text ) {
+    	var response_data = JSON.parse(
+    		response_text
+    	);
+    	
+    	// If we get a redirect in the response, redirect instead of returning
+    	if( "redirect" in response_data && response_data[ "redirect" ] != "" ) {
+    		window.location = response_data[ "redirect" ];
+    	}
+    	
+    	if( "success" in response_data && response_data[ "success" ] == false ) {
+    		return Promise.reject( response_data );
+    	} else {
+    		return response_data.results;
+    	}
+    });
+}
+
 ace.config.set( "basePath", "./js/" );
 Vue.component('Editor', {
   template: '<div :id="editorId" style="width: 100%; height: 100%;"></div>',
@@ -563,7 +691,17 @@ Vue.component('Editor', {
 
     this.editor.on('change', () => {
     	this.beforeContent = this.editor.getValue()
-      this.$emit('change-content', this.editor.getValue())
+      this.$emit(
+      	'change-content',
+    	this.editor.getValue()
+      )
+      this.$emit(
+      	'change-content-context',
+    	{
+    		"value": this.editor.getValue(),
+    		"this": this
+    	}
+      )
     })
   }
 })
@@ -646,23 +784,25 @@ var app = new Vue({
 	            "memory": 0
 	        },
 	        {
-	            "id": "n1640829ed84b452c828c4398618d23d8",
+	            "id": "n425f6ca7004942ce86c7168f37d6b11b",
 	            "name": "Example Lambda",
 	            "language": "python2.7",
-	            "libraries": [],
-	            "code": "\ndef main( lambda_input, context ):\n    \"\"\"\n    Embedded magic\n\n    Refinery memory:\n\t    Namespace: rmemory.get( \"example\" )\n\t    Without namespace: rmemory.get( \"example\", raw=True )\n\n    SQS message body:\n\t    First message: lambda_input[ \"Records\" ][0][ \"body\" ]\n    \"\"\"\n\t\n\treturn False\n",
+	            "libraries": [
+	                "requests"
+	            ],
+	            "code": "\n\"\"\"\nEmbedded magic\n\nRefinery memory:\n\tNamespace: rmemory.get( \"example\" )\n\tWithout namespace: rmemory.get( \"example\", raw=True )\n\nSQS message body:\n\tFirst message: json.loads( lambda_input[ \"Records\" ][0][ \"body\" ] )\n\"\"\"\n\ndef main( lambda_input, context ):\n    return False\n",
 	            "memory": 128
 	        }
 	    ],
 	    "workflow_relationships": [
 	        {
-	            "id": "n43dcdb3a0a3a476288243865c3598f0b",
+	            "id": "nb774d647b8f84cf9bdc8803b6479da98",
 	            "node": "start_node",
-	            "next": "n1640829ed84b452c828c4398618d23d8"
+	            "next": "n425f6ca7004942ce86c7168f37d6b11b"
 	        },
 	        {
-	            "id": "n4df662203ed54ff2911a37865c645593",
-	            "node": "n1640829ed84b452c828c4398618d23d8",
+	            "id": "n7600b03ddfba43aca481c861d513429a",
+	            "node": "n425f6ca7004942ce86c7168f37d6b11b",
 	            "next": "end_node"
 	        }
 	    ],
@@ -743,6 +883,37 @@ var app = new Vue({
         // Search term for saved function search
         saved_function_search_query: "",
         
+        // Refinery ATC
+        atc: {
+        	// SQS queues
+        	sqs_queues: [],
+        	// Cron loader
+			queue_loader: {
+				"queue_name": "example",
+				"job_template": {
+					"id": "iterator_value",
+				},
+				"options": {
+					"method_type": "cron",
+					"method_data": {
+						"expression": "* * * * * *"
+					},
+					"cycles": 10,
+				},
+				"iterators_options_array": [
+					{
+						"type": "primary",
+						"template_key": "id",
+						"arguments": [ 0, 100, 1, "000" ],
+						"iterator_function": "number_range"
+					}
+				]
+			},
+			unformatted_job_template_text: "",
+			iterators: [],
+			running_queue_loaders: [],
+        },
+        
         codeoptions: {
             mode: "python",
             theme: "monokai",
@@ -758,7 +929,14 @@ var app = new Vue({
 		},
 		code_imports: function( value, previous_value ) {
 			app.unformatted_code_imports = app.code_imports.join( "\n" );
-		}
+		},
+		"atc.queue_loader.options.method_data.expression": function( value, previous_value ) {
+			if( value.toLocaleLowerCase() === "immediate" ) {
+				app.atc.queue_loader.options.method_type = "immediate";
+			} else {
+				app.atc.queue_loader.options.method_type = "cron";
+			}
+		},
 	},
 	computed: {
 		selected_node_data: function() {
@@ -772,6 +950,171 @@ var app = new Vue({
 		},
 	},
 	methods: {
+		kill_job_loader: function( id ) {
+			delete_atc_queue_loader_by_id( id ).then(function( result_id ) {
+				app.view_refinery_atc();
+			});
+		},
+		add_iterator: function( index ) {
+			app.atc.queue_loader.iterators_options_array.push({
+				"type": "supporting",
+				"template_key": "supporting_in_memory_array",
+				"arguments": [
+					[ "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten" ]
+				],
+				"iterator_function": "in_memory_array"
+			})
+		},
+		delete_iterator: function( index ) {
+			delete app.atc.queue_loader.iterators_options_array.splice(
+				index,
+				1
+			);
+		},
+		create_queue_loader: function() {
+			// Todo Add a validation layer to this
+			
+			/*
+				Slight hack to work around the way options are passed for
+				"immediate" and "cron" iterators.
+			*/
+			var generated_options = {};
+			if( app.atc.queue_loader.options.method_type === "immediate" ) {
+				generated_options = {
+					"method_type": "immediate",
+				}
+			} else {
+				generated_options = app.atc.queue_loader.options;
+			}
+			
+			create_queue_loader(
+				app.atc.queue_loader.queue_name,
+				app.atc.queue_loader.job_template,
+				app.atc.queue_loader.options,
+				app.atc.queue_loader.iterators_options_array
+			).then(function() {
+				app.view_refinery_atc();
+			});
+		},
+		atc_update_arguments: function( context_object ) {
+			try {
+				var argument_data = JSON.parse(
+					context_object.value
+				);
+
+				var index = context_object.this.$el.getAttribute( "arg_index" );
+				
+				app.atc.queue_loader.iterators_options_array[ index ].arguments = Object.values(
+					argument_data
+				);
+			} catch ( e ) {
+				console.log( "Error parsing arguments!" );
+			}
+		},
+		atc_get_arguments_by_iterator_id: function( iterator_id ) {
+			for( var i = 0; i < app.atc.iterators.length; i++ ) {
+				if( app.atc.iterators[i].id == iterator_id ) {
+					return app.atc.iterators[i].arguments;
+				}
+			}
+		},
+		atc_job_template_text_changed: function( val ) {
+			// TODO
+			try {
+				app.atc.queue_loader.job_template = JSON.parse(
+					val
+				);
+			} catch ( e ) {
+				console.log( "Invalid job template JSON" );
+			};
+		},
+		view_atc_create_loader: function() {
+			/*
+				"example",
+				{
+					"name": "Example Job",
+				},
+				{
+					"method_type": "cron",
+					"method_data": {
+						"expression": "* * * * * *",
+						"amount": 100,
+					},
+					"cycles": 15,
+				},
+				[
+					{
+						"type": "primary",
+						"template_key": "first_primary",
+						"arguments": [ 0, 50, 1, "000" ],
+						"iterator_function": "number_range"
+					},
+					{
+						"type": "supporting",
+						"template_key": "supporting_in_memory_array",
+						"arguments": [
+							[ "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten" ]
+						],
+						"iterator_function": "in_memory_array"
+					}
+				]
+			*/
+			var default_loader = {
+				"queue_name": "example",
+				"job_template": {
+					"id": "iterator_value",
+				},
+				"options": {
+					"method_type": "cron",
+					"method_data": {
+						"expression": "* * * * * *"
+					},
+					"cycles": 10,
+				},
+				"iterators_options_array": [
+					{
+						"type": "primary",
+						"template_key": "id",
+						"arguments": [ 0, 100, 1, "000" ],
+						"iterator_function": "number_range"
+					}
+				]
+			}
+			
+			// Set queue name to first SQS queue by default
+			if( app.atc.sqs_queues.length > 0 ) {
+				default_loader.queue_name = app.atc.sqs_queues[0];
+			}
+			
+			Vue.set( app.atc, "queue_loader", default_loader );
+			
+			// Set job template text
+			app.atc.unformatted_job_template_text = JSON.stringify(
+				app.atc.queue_loader.job_template,
+				false,
+				4
+			);
+			
+			app.navigate_page( "atc-queue-loader" );
+		},
+		update_refinery_atc_data: function() {
+			get_atc_sqs_queues().then(function( queue_names_array ) {
+				app.atc.sqs_queues = queue_names_array;
+			});
+			
+			get_atc_iterators().then(function( iterators ) {
+				app.atc.iterators = iterators;
+			});
+			
+			get_atc_queue_loaders().then(function( queue_loaders ) {
+				app.atc.running_queue_loaders = queue_loaders;
+			});
+		},
+		view_refinery_atc: function() {
+			app.navigate_page( "atc" );
+			
+			app.update_refinery_atc_data();
+		},
 		merge_saved_function: function() {
 			for( var i = 0; i < app.saved_function_data.libraries.length; i++ ) {
 				if( app.code_imports.indexOf( app.saved_function_data.libraries[i] ) === -1 ) {
@@ -861,10 +1204,10 @@ var app = new Vue({
 				"description": "",
 				"code": `
 def example( parameter ):
-	"""
-	Example function, should be self-contained and documented.
-	"""
-	return parameter.upper()
+    """
+    Example function, should be self-contained and documented.
+    """
+    return parameter.upper()
 `,
 				"language": "python2.7",
 				"libraries": [],
@@ -949,6 +1292,7 @@ def example( parameter ):
 		},
 		code_imports_change: function ( val ) {
 			if( app.unformatted_code_imports !== val ) {
+				val = val.replace( /import /g, "" );
 				app.unformatted_code_imports = val.trim();
 				if( app.unformatted_code_imports == "" ) {
 					app.code_imports = [];
@@ -1223,5 +1567,10 @@ def example( parameter ):
 		}
 	}
 });
+
+// Auto-update data from Refinery ATC server
+var atc_auto_updater = setInterval(function() {
+	app.update_refinery_atc_data();
+}, ( 1000 * 5 ));
 
 build_dot_graph();
