@@ -1,13 +1,7 @@
-* Add lambda timeout option!
 * Add the ability to run code locally for testing
 	* Chmod to temporary directory
 	* Delete directory after run
 * System for managing key/values stored in redis instead of redis-commander
-* REQUIRE that all SQS deployed lambdas have a valid JSON Schema for messages (write details in S3).
-	* This keeps errors low and makes generating messages more structured.
-	* Makes everything more maintainable since you know the exact format required.
-* Create service to generate SQS messages for scraping ranges
-	* 1-1000 IDs of a web endpoint
 * Add code to all lambdas to detect successful and unsuccessful runs
 	* Query redis on failures and activate certain actions
 		* Email about failure
@@ -21,7 +15,6 @@
 * Set up central redis for configs for lambdas
 	* Cookies
 	* User-Agents
-
 
 NOTE, SQS loading time (for pushing items into the queue in 10 items per request batches):
 10K = 4.2 seconds

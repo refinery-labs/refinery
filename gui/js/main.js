@@ -159,6 +159,7 @@ function get_lambda_data() {
 	return_data[ "code" ] = app.codecontent;
 	return_data[ "memory" ] = app.lambda_memory;
 	return_data[ "libraries" ] = app.code_imports;
+	return_data[ "max_execution_time" ] = app.lambda_max_execution_time;
 	return return_data
 }
 
@@ -270,6 +271,7 @@ function select_node( node_id ) {
 		app.unformatted_code_imports = selected_node_data.libraries.join( "\n" );
 		app.codecontent = selected_node_data.code;
 		app.lambda_memory = selected_node_data.memory;
+		app.lambda_max_execution_time = selected_node_data.max_execution_time;
 		app.navigate_page("modify-lambda");
 	} else {
 		app.navigate_page("welcome");
@@ -432,40 +434,31 @@ function create_queue_loader( queue_name, job_template, options, iterators_optio
 		}
 	);
 }
-/*
-create_queue_loader(
-	"example",
-	{
-		"name": "Example Job",
-	},
-	{
-		"method_type": "cron",
-		"method_data": {
-			"expression": "* * * * * *",
-			"amount": 100,
-		},
-		"cycles": 15,
-	},
-	[
+
+function get_job_template( queue_name ) {
+	return api_request(
+		"POST",
+		"api/v1/sqs/job_template/get",
 		{
-			"type": "primary",
-			"template_key": "first_primary",
-			"arguments": [ 0, 50, 1, "000" ],
-			"iterator_function": "number_range"
-		},
-		{
-			"type": "supporting",
-			"template_key": "supporting_in_memory_array",
-			"arguments": [
-				[ "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten" ]
-			],
-			"iterator_function": "in_memory_array"
+			"queue_name": queue_name
 		}
-	]
-).then(function( response ) {
-	console.log( response );
-});
-*/
+	).then(function( response ) {
+		return response.job_template;
+	});
+}
+
+function save_job_template( queue_name, job_template_data_string ) {
+	return api_request(
+		"POST",
+		"api/v1/sqs/job_template",
+		{
+			"queue_name": queue_name,
+			"job_template": job_template_data_string,
+		}
+	).then(function( response ) {
+		return response.id;
+	})
+}
 
 function delete_saved_function( id ) {
 	return api_request(
@@ -528,7 +521,7 @@ function deploy_step_function( sfn_name, workflow_states, workflow_relationships
 	);
 }
 
-function deploy_lambda( name, language, code, libraries, memory ) {
+function deploy_lambda( name, language, code, libraries, memory, max_execution_time ) {
 	return api_request(
 		"POST",
 		"api/v1/aws/deploy_lambda",
@@ -538,12 +531,12 @@ function deploy_lambda( name, language, code, libraries, memory ) {
 			"code": code,
 			"libraries": libraries,
 			"memory": parseInt( memory ),
-			"execution_time": 300
+			"max_execution_time": parseInt( max_execution_time )
 		}
 	);
 }
 
-function run_tmp_lambda( language, code, libraries, memory ) {
+function run_tmp_lambda( language, code, libraries, memory, max_execution_time ) {
 	return api_request(
 		"POST",
 		"api/v1/aws/run_tmp_lambda",
@@ -552,7 +545,7 @@ function run_tmp_lambda( language, code, libraries, memory ) {
 			"code": code,
 			"libraries": libraries,
 			"memory": parseInt( memory ),
-			"execution_time": 300
+			"max_execution_time": parseInt( max_execution_time )
 		}
 	);
 }
@@ -773,7 +766,8 @@ var app = new Vue({
 	            "language": "",
 	            "code": "",
 	            "libraries": [],
-	            "memory": 0
+	            "memory": 0,
+	            "max_execution_time": 0,
 	        },
 	        {
 	            "id": "end_node",
@@ -781,28 +775,28 @@ var app = new Vue({
 	            "language": "",
 	            "code": "",
 	            "libraries": [],
-	            "memory": 0
+	            "memory": 0,
+	            "max_execution_time": 0,
 	        },
 	        {
-	            "id": "n425f6ca7004942ce86c7168f37d6b11b",
+	            "id": "nf865f20e9e9b4373b405b4caae67a861",
 	            "name": "Example Lambda",
 	            "language": "python2.7",
-	            "libraries": [
-	                "requests"
-	            ],
-	            "code": "\n\"\"\"\nEmbedded magic\n\nRefinery memory:\n\tNamespace: rmemory.get( \"example\" )\n\tWithout namespace: rmemory.get( \"example\", raw=True )\n\nSQS message body:\n\tFirst message: json.loads( lambda_input[ \"Records\" ][0][ \"body\" ] )\n\"\"\"\n\ndef main( lambda_input, context ):\n    return False\n",
-	            "memory": 128
+	            "code": "\n\"\"\"\nEmbedded magic\n\nRefinery memory:\n\tNamespace: rmemory.get( \"example\" )\n\tWithout namespace: rmemory.get( \"example\", raw=True )\n\nSQS message body:\n\tFirst message: sqs_data = json.loads( lambda_input[ \"Records\" ][0][ \"body\" ] )\n\"\"\"\n\ndef main( lambda_input, context ):\n    return False\n",
+	            "memory": 128,
+	            "libraries": [],
+	            "max_execution_time": 60,
 	        }
 	    ],
 	    "workflow_relationships": [
 	        {
-	            "id": "nb774d647b8f84cf9bdc8803b6479da98",
+	            "id": "n20024fb3a86548d3bf4520354142ff89",
 	            "node": "start_node",
-	            "next": "n425f6ca7004942ce86c7168f37d6b11b"
+	            "next": "nf865f20e9e9b4373b405b4caae67a861"
 	        },
 	        {
-	            "id": "n7600b03ddfba43aca481c861d513429a",
-	            "node": "n425f6ca7004942ce86c7168f37d6b11b",
+	            "id": "n86b67a7df94348a79065763e28cdd8d5",
+	            "node": "nf865f20e9e9b4373b405b4caae67a861",
 	            "next": "end_node"
 	        }
 	    ],
@@ -821,6 +815,8 @@ var app = new Vue({
         codecontent: "",
         // Currently selected lambda max memory
         lambda_memory: 128,
+        // Currently selected lambda max runtime
+        lambda_max_execution_time: 30,
         // The result of a lambda execution
         lambda_exec_result: false,
         // Lambda build timer
@@ -850,6 +846,9 @@ var app = new Vue({
 			"content_based_deduplication": true,
 			"batch_size": 1,
 			"lambda_arn": "",
+			"sqs_job_template": JSON.stringify({
+				"id": "1"
+			}, false, 4 ),
         },
         // Queue link
         sqs_queue_link: false,
@@ -937,6 +936,16 @@ var app = new Vue({
 				app.atc.queue_loader.options.method_type = "cron";
 			}
 		},
+		"atc.queue_loader.queue_name": function( value, previous_value ) {
+			get_job_template( value ).then(function( job_template_string ) {
+				// Format it
+				app.atc.unformatted_job_template_text = JSON.stringify(
+					JSON.parse( job_template_string ),
+					false,
+					4
+				);
+			});
+		}
 	},
 	computed: {
 		selected_node_data: function() {
@@ -950,6 +959,9 @@ var app = new Vue({
 		},
 	},
 	methods: {
+		update_sqs_job_template: function( new_value ) {
+			app.sqs_trigger_data.sqs_job_template = new_value;
+		},
 		kill_job_loader: function( id ) {
 			delete_atc_queue_loader_by_id( id ).then(function( result_id ) {
 				app.view_refinery_atc();
@@ -1025,7 +1037,7 @@ var app = new Vue({
 					val
 				);
 			} catch ( e ) {
-				console.log( "Invalid job template JSON" );
+				
 			};
 		},
 		view_atc_create_loader: function() {
@@ -1084,16 +1096,24 @@ var app = new Vue({
 			// Set queue name to first SQS queue by default
 			if( app.atc.sqs_queues.length > 0 ) {
 				default_loader.queue_name = app.atc.sqs_queues[0];
+				get_job_template( default_loader.queue_name ).then(function( job_template_string ) {
+					// Format it
+					app.atc.unformatted_job_template_text = JSON.stringify(
+						JSON.parse( job_template_string ),
+						false,
+						4
+					);
+				});
+			} else {
+				// Set job template text
+				app.atc.unformatted_job_template_text = JSON.stringify(
+					app.atc.queue_loader.job_template,
+					false,
+					4
+				);
 			}
 			
 			Vue.set( app.atc, "queue_loader", default_loader );
-			
-			// Set job template text
-			app.atc.unformatted_job_template_text = JSON.stringify(
-				app.atc.queue_loader.job_template,
-				false,
-				4
-			);
 			
 			app.navigate_page( "atc-queue-loader" );
 		},
@@ -1330,6 +1350,9 @@ def example( parameter ):
 				"content_based_deduplication": true,
 				"batch_size": 1,
 				"lambda_arn": "",
+				"sqs_job_template": JSON.stringify({
+					"id": "1"
+				}, false, 4 ),
 	        }
 	        Vue.set( app, "sqs_trigger_data", sqs_trigger_data );
 	        
@@ -1421,7 +1444,8 @@ def example( parameter ):
 				app.lambda_language,
 				app.codecontent,
 				app.code_imports,
-				app.lambda_memory
+				app.lambda_memory,
+				app.lambda_max_execution_time
 			).then(function( results ) {
 				console.log( "Deployed lambda: " );
 				console.log( results );
@@ -1447,6 +1471,12 @@ def example( parameter ):
 						return Promise.resolve();
 					});
 				} else if( app.selected_trigger_type == "sqs-queue" ) {
+					// Also write Job Template to S3
+					save_job_template(
+						get_safe_name( app.sqs_trigger_data.queue_name ),
+						app.sqs_trigger_data.sqs_job_template,
+					);
+					
 					return create_lambda_input_sqs_queue(
 						app.sqs_trigger_data.queue_name,
 						app.sqs_trigger_data.content_based_deduplication,
@@ -1484,7 +1514,8 @@ def example( parameter ):
 				app.lambda_language,
 				app.codecontent,
 				app.code_imports,
-				app.lambda_memory
+				app.lambda_memory,
+				app.lambda_max_execution_time
 			).then(function( results ) {
 				console.log( "Run tmp lambda: " );
 				console.log( results );
@@ -1553,7 +1584,8 @@ def example( parameter ):
 				"language": app.lambda_language,
 				"libraries": app.code_imports,
 				"code": app.codecontent,
-				"memory": app.lambda_memory
+				"memory": app.lambda_memory,
+				"max_execution_time": app.lambda_max_execution_time,
 			}
 			
 			app.workflow_states = app.workflow_states.map(function( workflow_state ) {

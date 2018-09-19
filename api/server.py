@@ -503,13 +503,6 @@ class TaskSpawner(object):
 				}
 			)
 			
-			print(
-				code.replace(
-					"	",
-					"\t"
-				)
-			)
-			
 			for init_library in LAMBDA_BASE_LIBRARIES[ "python2.7" ]:
 				if not init_library in libraries:
 					libraries.append(
@@ -629,6 +622,36 @@ class TaskSpawner(object):
 			
 			return response
 			
+		@run_on_executor
+		def write_to_s3( self, s3_bucket, path, object_data ):
+			# Remove leading / because they are almost always not intended
+			if path.startswith( "/" ):
+				path = path[1:]
+				
+			response = S3_CLIENT.put_object(
+				Key=path,
+				Bucket=s3_bucket,
+				Body=object_data,
+			)
+			
+			return response
+			
+		@run_on_executor
+		def read_from_s3( self, s3_bucket, path ):
+			# Remove leading / because they are almost always not intended
+			if path.startswith( "/" ):
+				path = path[1:]
+				
+			try:
+				s3_object = S3_CLIENT.get_object(
+					Bucket=s3_bucket,
+					Key=path
+				)
+			except:
+				return "{}"
+				
+			return s3_object[ "Body" ].read()
+			
 local_tasks = TaskSpawner()
 			
 def get_random_node_id():
@@ -658,7 +681,7 @@ class DeployLambda( BaseHandler ):
 				"memory": {
 					"type": "integer",
 				},
-				"execution_time": {
+				"max_execution_time": {
 					"type": "integer",
 				},
 			},
@@ -668,7 +691,7 @@ class DeployLambda( BaseHandler ):
 				"code",
 				"libraries",
 				"memory",
-				"execution_time",
+				"max_execution_time",
 			]
 		}
 		
@@ -690,7 +713,7 @@ class DeployLambda( BaseHandler ):
 			"AWS Lambda deployed via refinery",
 			os.environ.get( "lambda_role" ),
 			lambda_zip_package_data,
-			self.json[ "execution_time" ], # Max AWS execution time
+			self.json[ "max_execution_time" ], # Max AWS execution time
 			self.json[ "memory" ], # MB of execution memory
 			{}, # VPC data
 			{},
@@ -731,7 +754,7 @@ class RunTmpLambda( BaseHandler ):
 				"memory": {
 					"type": "integer",
 				},
-				"execution_time": {
+				"max_execution_time": {
 					"type": "integer",
 				},
 			},
@@ -740,7 +763,7 @@ class RunTmpLambda( BaseHandler ):
 				"code",
 				"libraries",
 				"memory",
-				"execution_time",
+				"max_execution_time",
 			]
 		}
 		
@@ -762,7 +785,7 @@ class RunTmpLambda( BaseHandler ):
 			"AWS Lambda being inline tested.",
 			os.environ.get( "lambda_role" ),
 			lambda_zip_package_data,
-			self.json[ "execution_time" ], # Max AWS execution time
+			self.json[ "max_execution_time" ], # Max AWS execution time
 			self.json[ "memory" ], # MB of execution memory
 			{}, # VPC data
 			{},
@@ -1390,6 +1413,78 @@ class SavedFunctionDelete( BaseHandler ):
 			"success": True
 		})
 		
+class SaveSQSJobTemplate( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Save SQS job template to S3
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"job_template": {
+					"type": "string",
+				},
+				"queue_name": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"job_template",
+				"queue_name"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Writing job template..."
+		)
+		
+		yield local_tasks.write_to_s3(
+			os.environ.get( "sqs_job_templates_s3_bucket" ),
+			self.json[ "queue_name" ],
+			self.json[ "job_template" ]
+		)
+		
+		self.write({
+			"success": True
+		})
+		
+class GetSQSJobTemplate( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Retrieve an SQS template from S3
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"queue_name": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"queue_name"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Retrieving job template..."
+		)
+		
+		job_template = yield local_tasks.read_from_s3(
+			os.environ.get( "sqs_job_templates_s3_bucket" ),
+			self.json[ "queue_name" ]
+		)
+		
+		self.write({
+			"success": True,
+			"job_template": job_template
+		})
+		
 def make_app( is_debug ):
 	# Convert to bool
 	is_debug = ( is_debug.lower() == "true" )
@@ -1399,6 +1494,8 @@ def make_app( is_debug ):
 	}
 	
 	return tornado.web.Application([
+		( r"/api/v1/sqs/job_template/get", GetSQSJobTemplate ),
+		( r"/api/v1/sqs/job_template", SaveSQSJobTemplate ),
 		( r"/api/v1/functions/delete", SavedFunctionDelete ),
 		( r"/api/v1/functions/update", SavedFunctionUpdate ),
 		( r"/api/v1/functions/create", SavedFunctionCreate ),

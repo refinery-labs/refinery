@@ -317,6 +317,13 @@
 								<input type="checkbox" v-model="sqs_trigger_data.content_based_deduplication"> <label>Content-Based De-duplication</label>
 								<small class="form-text text-muted">Should messages be de-duplicated based off of their message contents (5 minute rolling window)?</small>
 							</div>
+							<div class="form-group">
+								<label>SQS Job Format</label>
+								<div style="height: 200px">
+									<editor editor-id="sqs_trigger_job_template_" theme="monokai" lang="json" :content="sqs_trigger_data.sqs_job_template" v-on:change-content="update_sqs_job_template"></editor>
+								</div>
+								<small class="form-text text-muted">A template of an example job to be added to this SQS queue. This is important for ensuring the triggered Lambda receives the appropriate input!</small>
+							</div>
 						</div>
 		            </div>
 		            <div class="modal-footer">
@@ -593,6 +600,18 @@
 					</div>
 					<small class="form-text text-muted">Maximum memory for the Lambda to use during execution.</small>
 				</div>
+				<div class="form-group">
+					<label>Max Execution Time</label>
+					<div class="form-group">
+						<div class="input-group mb-2">
+							<input type="number" class="form-control form-control-lg" v-model="lambda_max_execution_time" placeholder="60" step="1" min="2" max="300">
+							<div class="input-group-append">
+								<div class="input-group-text">Second(s)</div>
+							</div>
+						</div>
+					</div>
+					<small class="form-text text-muted">Maximum time the Lambda may execute before being killed in seconds.</small>
+				</div>
                 <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="add_lambda">Add to Pipeline</button>
             </div>
             
@@ -640,6 +659,18 @@
 						</div>
 					</div>
 					<small class="form-text text-muted">Maximum memory for the Lambda to use during execution.</small>
+				</div>
+				<div class="form-group">
+					<label>Max Execution Time</label>
+					<div class="form-group">
+						<div class="input-group mb-2">
+							<input type="number" class="form-control form-control-lg" v-model="lambda_max_execution_time" placeholder="60" step="1" min="2" max="300">
+							<div class="input-group-append">
+								<div class="input-group-text">Second(s)</div>
+							</div>
+						</div>
+					</div>
+					<small class="form-text text-muted">Maximum time the Lambda may execute before being killed in seconds.</small>
 				</div>
                 <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_lambda">Update Lambda</button>
                 <hr />
