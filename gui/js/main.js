@@ -312,8 +312,9 @@ function reset_current_lambda_state_to_defaults() {
 Embedded magic
 
 Refinery memory:
-	Namespace: rmemory.get( "example" )
-	Without namespace: rmemory.get( "example", raw=True )
+	Config memory: cmemory.get( "api_key" )
+	Global memory: gmemory.get( "example" )
+	Force no-namespace: gmemory.get( "example", raw=True )
 
 SQS message body:
 	First message: sqs_data = json.loads( lambda_input[ "Records" ][0][ "body" ] )
@@ -767,7 +768,7 @@ var app = new Vue({
 	            "code": "",
 	            "libraries": [],
 	            "memory": 0,
-	            "max_execution_time": 0,
+	            "max_execution_time": 0
 	        },
 	        {
 	            "id": "end_node",
@@ -776,27 +777,27 @@ var app = new Vue({
 	            "code": "",
 	            "libraries": [],
 	            "memory": 0,
-	            "max_execution_time": 0,
+	            "max_execution_time": 0
 	        },
 	        {
-	            "id": "nf865f20e9e9b4373b405b4caae67a861",
+	            "id": "nd6e2da329e3a4144863f76867caefc2d",
 	            "name": "Example Lambda",
 	            "language": "python2.7",
-	            "code": "\n\"\"\"\nEmbedded magic\n\nRefinery memory:\n\tNamespace: rmemory.get( \"example\" )\n\tWithout namespace: rmemory.get( \"example\", raw=True )\n\nSQS message body:\n\tFirst message: sqs_data = json.loads( lambda_input[ \"Records\" ][0][ \"body\" ] )\n\"\"\"\n\ndef main( lambda_input, context ):\n    return False\n",
-	            "memory": 128,
 	            "libraries": [],
-	            "max_execution_time": 60,
+	            "code": "\n\"\"\"\nEmbedded magic\n\nRefinery memory:\n\tConfig memory: cmemory.get( \"api_key\" )\n\tGlobal memory: gmemory.get( \"example\" )\n\tForce no-namespace: gmemory.get( \"example\", raw=True )\n\nSQS message body:\n\tFirst message: sqs_data = json.loads( lambda_input[ \"Records\" ][0][ \"body\" ] )\n\"\"\"\n\ndef main( lambda_input, context ):\n    return False\n",
+	            "memory": 128,
+	            "max_execution_time": 60
 	        }
 	    ],
 	    "workflow_relationships": [
 	        {
-	            "id": "n20024fb3a86548d3bf4520354142ff89",
+	            "id": "nc24ac4f2f1b0421ba0a14b3211df3ec7",
 	            "node": "start_node",
-	            "next": "nf865f20e9e9b4373b405b4caae67a861"
+	            "next": "nd6e2da329e3a4144863f76867caefc2d"
 	        },
 	        {
-	            "id": "n86b67a7df94348a79065763e28cdd8d5",
-	            "node": "nf865f20e9e9b4373b405b4caae67a861",
+	            "id": "n66c2a2294584476bac07ddf30f20bac5",
+	            "node": "nd6e2da329e3a4144863f76867caefc2d",
 	            "next": "end_node"
 	        }
 	    ],

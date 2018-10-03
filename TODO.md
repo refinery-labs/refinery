@@ -1,6 +1,10 @@
+* BigQuery Auto Importer does too many daily loads! Make every 3 minutes or something...
+---
+* Create Chrome extension for generating code for refinery from HTTP traffic
 * Add the ability to run code locally for testing
 	* Chmod to temporary directory
 	* Delete directory after run
+* Optimize redis client injection to only initialize connect on first use (instead of always connecting)
 * System for managing key/values stored in redis instead of redis-commander
 * Add code to all lambdas to detect successful and unsuccessful runs
 	* Query redis on failures and activate certain actions
@@ -9,9 +13,6 @@
 * Add SQS trigger processing for Step Functions
 * Add API Gateway trigger to refinery
 * Add conditions to refinery (if/else)
-* Job emailer using Apps Scripts
-	* https://developers.google.com/apps-script/guides/services/quotas
-* Create Chrome extension for generating code for refinery from HTTP traffic
 * Set up central redis for configs for lambdas
 	* Cookies
 	* User-Agents

@@ -1,23 +1,15 @@
 def main( lambda_input, context ):
-	from datetime import datetime
+	# Run every minute!
+	import datetime
 	
 	# Imports the Google BigQuery client library
 	from google.cloud import bigquery
 	
 	storage_client = get_cloud_storage_client()
 	
-	bucket_base_path = "bigquery/{:%Y/%m/%d/%H/}".format(
-	    datetime.now()
+	bucket_base_path = "bigquery/{:%Y/%m/%d/%H/%M/}".format(
+	    ( datetime.datetime.now() - datetime.timedelta( minutes=1 ) )
 	)
-	
-	# Get leading number of minute because this runs every 10 minutes
-	# to load the data into BigQuery
-	leading_digit_of_minute = "{:%M}".format(
-		datetime.now()
-	)[0]
-	
-	# Add it to the base path so we can get all items in this range
-	bucket_base_path = bucket_base_path + leading_digit_of_minute
 	
 	bucket = storage_client.get_bucket(
 		"refinery_bq_pipeline"
@@ -37,9 +29,13 @@ def main( lambda_input, context ):
 		
 	# Directories to laod
 	directories_to_load = []
+	
+	# Already known paths
+	known_paths = []
 		
 	# Enumerate all table names
 	table_names = []
+	
 	for bucket_file_path in bucket_file_paths:
 		table_name = bucket_file_path.split( "/" )[6]
 		if not table_name in table_names:
@@ -47,15 +43,22 @@ def main( lambda_input, context ):
 				table_name
 			)
 			
-		directories_to_load.append({
-			"table_name": table_name,
-			"path": "/".join(
-				bucket_file_path.split(
-					"/"
-				)[ :-1 ]
-			) + "/*"
-		})
+		new_path = "/".join(
+			bucket_file_path.split(
+				"/"
+			)[ :-1 ]
+		) + "/*"
+		
+		if not new_path in known_paths:
+			directories_to_load.append({
+				"table_name": table_name,
+				"path": new_path
+			})
 			
+			known_paths.append(
+				new_path
+			)
+	
 	# Create load job for each table
 	bigquery_client = get_bigquery_client()
 	
@@ -109,8 +112,7 @@ def get_bigquery_client():
 	
 	# And now we'll use it to set up Google Storage client
 	bigquery_client = bigquery.Client.from_service_account_dict(
-		rmemory.get( "bigquery_auto_importer_key", raw=True )
-		#rmemory.get( "bigquery_auto_importer_key"  )
+		cmemory.get( "bigquery_auto_importer_key" )
 	)
 	
 	return bigquery_client
@@ -140,8 +142,7 @@ def get_cloud_storage_client():
 	
 	# And now we'll use it to set up Google Storage client
 	storage_client = storage.Client.from_service_account_dict(
-		rmemory.get( "bigquery_auto_importer_key", raw=True )
-		#rmemory.get( "bigquery_auto_importer_key"  )
+		cmemory.get( "bigquery_auto_importer_key" )
 	)
 	
 	return storage_client

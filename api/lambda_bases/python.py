@@ -12,11 +12,7 @@ import time
 import redis
 import pickle
 
-if "_REDIS_SERVER" in os.environ:
-    _REDIS_SERVER = os.environ.get( "_REDIS_SERVER" )
-else:
-    _REDIS_SERVER = "redis.refinery.thehackerblog.com"
-
+# TODO only initialize connection when used.
 class Refinery_Memory:
 	json_types = [
 		list,
@@ -31,24 +27,34 @@ class Refinery_Memory:
 		bool,
 	]
 	
-	def __init__( self, namespace ):
+	def __init__( self, in_hostname, in_password, namespace ):
+		self.redis_client = False
+		self.namespace = namespace
+		self.hostname = in_hostname
+		self.password = in_password
+		
+	def connect( self ):
 		self.redis_client = redis.StrictRedis(
-		    host=_REDIS_SERVER,
+		    host=self.hostname,
 		    port=6379,
 		    db=0,
 		    socket_timeout=2,
-		    password="{{REDIS_PASSWORD_REPLACE_ME}}",
+		    password=self.password,
 		)
 		
-		self.namespace = namespace
-		
 	def _get_namespace( self, kwargs ):
+		if self.namespace == False:
+			return ""
+
 		if "raw" in kwargs and kwargs[ "raw" ]:
 			return ""
 			
 		return self.namespace + "."
 	
 	def set( self, key, input_data, **kwargs ):
+		if not self.redis_client:
+			self.connect()
+		
 		namespace = self._get_namespace( kwargs )
 			
 		if type( input_data ) in self.regular_types:
@@ -72,6 +78,9 @@ class Refinery_Memory:
 			)
 			
 	def get( self, key, **kwargs ):
+		if not self.redis_client:
+			self.connect()
+			
 		namespace = self._get_namespace( kwargs )
 		
 		data = self.redis_client.get(
@@ -95,6 +104,9 @@ class Refinery_Memory:
 		return data
 			
 	def exists( self, key, **kwargs ):
+		if not self.redis_client:
+			self.connect()
+			
 		namespace = self._get_namespace( kwargs )
 		
 		return self.redis_client.exists(
@@ -102,6 +114,9 @@ class Refinery_Memory:
 		)
 		
 	def delete( self, key, **kwargs ):
+		if not self.redis_client:
+			self.connect()
+			
 		namespace = self._get_namespace( kwargs )
 		
 		return self.redis_client.dek(
@@ -109,6 +124,9 @@ class Refinery_Memory:
 		)
 		
 	def rename( self, key, new_key, **kwargs ):
+		if not self.redis_client:
+			self.connect()
+			
 		namespace = self._get_namespace( kwargs )
 		
 		return self.redis_client.rename(
@@ -117,6 +135,9 @@ class Refinery_Memory:
 		)
 		
 	def expire_at( self, key, unix_timestamp, **kwargs ):
+		if not self.redis_client:
+			self.connect()
+			
 		namespace = self._get_namespace( kwargs )
 		
 		return self.redis_client.expireat(
@@ -125,6 +146,9 @@ class Refinery_Memory:
 		)
 		
 	def expire_in( self, key, seconds, **kwargs ):
+		if not self.redis_client:
+			self.connect()
+			
 		namespace = self._get_namespace( kwargs )
 		
 		return self.redis_client.expire(
@@ -133,9 +157,18 @@ class Refinery_Memory:
 		)
 
 def _init( lambda_input, context ):
-	global rmemory
+	global cmemory
+	global gmemory
 	
-	rmemory = Refinery_Memory(
+	cmemory = Refinery_Memory(
+		"config-memory.refinery.thehackerblog.com",
+		"{{REDIS_PASSWORD_REPLACE_ME}}",
+		False
+	)
+	
+	gmemory = Refinery_Memory(
+		"global-memory.refinery.thehackerblog.com",
+		"{{REDIS_PASSWORD_REPLACE_ME}}",
 		context.function_name
 	)
 	
