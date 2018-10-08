@@ -1,5 +1,41 @@
 var API_SERVER = location.origin.toString() + ":7777";
 var ATC_SERVER = "http://100.115.92.205:1337";
+
+var DEFAULT_LAMBDA_CODE = {
+	"python2.7": `
+"""
+Embedded magic
+
+Refinery memory:
+	Config memory: cmemory.get( "api_key" )
+	Global memory: gmemory.get( "example" )
+	Force no-namespace: gmemory.get( "example", raw=True )
+
+SQS message body:
+	First message: sqs_data = json.loads( lambda_input[ "Records" ][0][ "body" ] )
+"""
+
+def main( lambda_input, context ):
+    return False
+`,
+}
+
+var GRAPH_ICONS_ARRAY = [
+	{
+		"url": "/img/code-icon.png",
+		"id": "lambda"
+	},
+	{
+		"url": "/img/sqs_queue.png",
+		"id": "sqs_queue"
+	},
+	{
+		"url": "/img/clock-icon.png",
+		"id": "schedule_trigger"
+	}
+];
+var IMAGE_NODE_SPACES = "            ";
+
 window.define = ace.define;
 window.require = ace.require;
 
@@ -20,100 +56,128 @@ var parser = new DOMParser();
 var worker;
 var result;
 
-function updateGraph() {
-  if (worker) {
-    worker.terminate();
-  }
-
-  document.querySelector("#output").classList.add("working");
-  document.querySelector("#output").classList.remove("error");
-
-  worker = new Worker("./js/worker.js");
-
-  worker.onmessage = function(e) {
-    document.querySelector("#output").classList.remove("working");
-    document.querySelector("#output").classList.remove("error");
-    
-    result = e.data;
-    
-    updateOutput();
-  }
-
-  worker.onerror = function(e) {
-    document.querySelector("#output").classList.remove("working");
-    document.querySelector("#output").classList.add("error");
-    
-    var message = e.message === undefined ? "An error occurred while processing the graph input." : e.message;
-    
-    var error = document.querySelector("#error");
-    while (error.firstChild) {
-      error.removeChild(error.firstChild);
-    }
-    
-    document.querySelector("#error").appendChild(document.createTextNode(message));
-    
-    console.error(e);
-    e.preventDefault();
-  }
-  
-  var params = {
-    src: app.graphiz_content,
-    options: {
-      engine: "dot",
-      format: "svg"
-    }
-  };
-  
-  // Instead of asking for png-image-element directly, which we can't do in a worker,
-  // ask for SVG and convert when updating the output.
-  
-  if (params.options.format == "png-image-element") {
-    params.options.format = "svg";
-  }
-  
-  worker.postMessage(params);
+function update_graph() {
+	return new Promise(function(resolve, reject) {
+		if (worker) {
+			worker.terminate();
+		}
+		
+		document.querySelector("#output").classList.add("working");
+		document.querySelector("#output").classList.remove("error");
+		
+		worker = new Worker("./js/worker.js");
+		
+		worker.onmessage = function(e) {
+			document.querySelector("#output").classList.remove("working");
+			document.querySelector("#output").classList.remove("error");
+			
+			result = e.data;
+			
+			update_graph_output( resolve, reject );
+		}
+		
+		worker.onerror = function(e) {
+			document.querySelector("#output").classList.remove("working");
+			document.querySelector("#output").classList.add("error");
+			
+			var message = e.message === undefined ? "An error occurred while processing the graph input." : e.message;
+			
+			var error = document.querySelector("#error");
+			while (error.firstChild) {
+			error.removeChild(error.firstChild);
+		}
+		
+		document.querySelector("#error").appendChild(document.createTextNode(message));
+		
+		console.error(e);
+		e.preventDefault();
+		}
+		
+		var params = {
+			src: app.graphiz_content,
+			options: {
+				engine: "dot",
+				format: "svg"
+			}
+		};
+		
+		// Instead of asking for png-image-element directly, which we can't do in a worker,
+		// ask for SVG and convert when updating the output.
+		
+		if (params.options.format == "png-image-element") {
+			params.options.format = "svg";
+		}
+		
+		worker.postMessage(params);
+	});
 }
 
-function updateOutput() {
-  var graph = document.querySelector("#output");
-
-  var svg = graph.querySelector("svg");
-  if (svg) {
-    graph.removeChild(svg);
-  }
-
-  var text = graph.querySelector("#text");
-  if (text) {
-    graph.removeChild(text);
-  }
-
-  var img = graph.querySelector("img");
-  if (img) {
-    graph.removeChild(img);
-  }
-  
-  if (!result) {
-    return;
-  }
-  
+function update_graph_output( resolve, reject ) {
+	var graph = document.querySelector("#output");
+	
+	var svg = graph.querySelector("svg");
+	if (svg) {
+		graph.removeChild(svg);
+	}
+	
+	var text = graph.querySelector("#text");
+	if (text) {
+		graph.removeChild(text);
+	}
+	
+	var img = graph.querySelector("img");
+	if (img) {
+		graph.removeChild(img);
+	}
+	
+	if (!result) {
+		return reject();
+	}
+	
 	var svg = parser.parseFromString(result, "image/svg+xml").documentElement;
 	svg.id = "svg_output";
+
+	// Adds in images resources for use in nodes
+	var defs_element = document.createElementNS( "http://www.w3.org/2000/svg", "defs" );
+	GRAPH_ICONS_ARRAY.map(function( graph_icon_data ) {
+		var pattern_elem = document.createElementNS( "http://www.w3.org/2000/svg", "pattern" );
+		pattern_elem.setAttribute( "id", graph_icon_data.id );
+		var image_elem = document.createElementNS( "http://www.w3.org/2000/svg", "image" );
+		pattern_elem.appendChild( image_elem );
+		defs_element.appendChild( pattern_elem );
+		var selected_pattern_elem = defs_element.querySelector( "pattern[id='" + graph_icon_data.id + "']" );;
+		selected_pattern_elem.setAttributeNS( null, "id", graph_icon_data.id );
+		selected_pattern_elem.setAttributeNS( null, "height", "100%" );
+		selected_pattern_elem.setAttributeNS( null, "width", "100%" );
+		// Required to set case-sensitive attributes as SVG needs
+		selected_pattern_elem.setAttributeNS( null, "patternContentUnits", "objectBoundingBox" );
+		var selected_image_pattern_elem = selected_pattern_elem.querySelector( "image" );
+		selected_image_pattern_elem.setAttributeNS( null, "height", "1" );
+		selected_image_pattern_elem.setAttributeNS( null, "width", "1" );
+		selected_image_pattern_elem.setAttributeNS( null, "preserveAspectRatio", "none" );
+		selected_image_pattern_elem.setAttributeNS( "http://www.w3.org/1999/xlink", "xlink:href", graph_icon_data.url );
+	});
+	
+	svg.appendChild( defs_element );
+	
 	graph.appendChild(svg);
 	
 	panZoom = svgPanZoom(svg, {
-	  zoomEnabled: true,
-	  controlIconsEnabled: true,
-	  fit: true,
-	  center: true,
-	  minZoom: 0.1
+		zoomEnabled: true,
+		controlIconsEnabled: true,
+		fit: true,
+		center: true,
+		minZoom: 0.1
 	});
 	
 	svg.addEventListener('paneresize', function(e) {
-	  panZoom.resize();
+		panZoom.resize();
 	}, false);
 	window.addEventListener('resize', function(e) {
-	  panZoom.resize();
+		panZoom.resize();
 	});
+	
+	resolve();
 }
 
 window.addEventListener("beforeunload", function(e) {
@@ -160,10 +224,11 @@ function get_lambda_data() {
 	return_data[ "memory" ] = app.lambda_memory;
 	return_data[ "libraries" ] = app.code_imports;
 	return_data[ "max_execution_time" ] = app.lambda_max_execution_time;
+	return_data[ "type" ] = "lambda";
 	return return_data
 }
 
-function get_lambda_data_by_id( node_id ) {
+function get_node_data_by_id( node_id ) {
 	var results = app.workflow_states.filter(function( workflow_state ) {
 		return workflow_state[ "id" ] === node_id;
 	});
@@ -183,36 +248,112 @@ function get_state_transition_by_id( transition_id ) {
 	return false;
 }
 
+function get_element_from_string( input_string ) {
+	var div = document.createElement( "div" );
+	div.innerHTML = input_string.trim();
+	return div.firstChild;
+}
+
+function get_escaped_html( input_html ) {
+	var char_map = {
+		'&': '&amp;',
+		'<': '&lt;',
+		'>': '&gt;',
+		'"': '&quot;',
+		"'": '&#39;',
+		'/': '&#x2F;',
+		'`': '&#x60;',
+		'=': '&#x3D;'
+	};
+	
+	return String( input_html ).replace(/[&<>"'`=\/]/g, function (s) {
+		return char_map[s];
+	});
+}
+
 function build_dot_graph() {
 	var dot_contents = "digraph \"renderedworkflow\"{\n";
 	
 	app.workflow_states.map(function( workflow_state ) {
-		var node_color = "ededed";
-		var node_shape = "rectangle";
+		// Node that the shape "square" is reserved for image icons
+
+		// Defaults
+		var node_properties = {
+			"href": "javascript:select_node('" + workflow_state["id"] + "')",
+			"label": workflow_state["name"],
+			"fillcolor": "#ff7f00",
+			"style": "filled",
+			"shape": "rect",
+			"fontname": "Courier",
+			"fontsize": "10",
+			"color": "#000000",
+		};
 		
 		if( workflow_state["id"] == app.selected_node ) {
-			node_color = "fffa00";
-		} else if ( workflow_state["id"] == "start_node" || workflow_state["id"] == "end_node" ) {
+			// If it's a selected node turn it yellow, make a red border
+			node_properties.fillcolor = "#fffa00";
+			node_properties.color = "#ff0000";
+			node_properties.penwidth = "4";
+		} else if ( workflow_state["type"] == "sfn_start" || workflow_state["type"] == "sfn_end" ) {
 			// Start or End special node
-			node_color = "ff7f00";
+			node_properties.fillcolor = "#ff9900";
 		}
 		
-		if( workflow_state[ "id" ] == "start_node" ) {
-			node_shape = "circle";
-		} else if ( workflow_state[ "id" ] == "end_node" ) {
-			node_shape = "octagon";
+		var picture_node_types = GRAPH_ICONS_ARRAY.map(function( graph_item ) {
+			return graph_item.id;
+		});
+		
+		if( workflow_state[ "type" ] == "sfn_start" ) {
+			node_properties.shape = "circle";
+		} else if ( workflow_state[ "type" ] == "sfn_end" ) {
+			node_properties.shape = "octagon";
+		} else if ( picture_node_types.includes( workflow_state[ "type" ] ) ) {
+			node_properties.shape = "square";
 		}
 		
-		dot_contents += "\t" + workflow_state["id"] + " [href=\"javascript:select_node('" + workflow_state["id"] + "')\", label=\"" + workflow_state["name"] + "\", fillcolor=\"#" + node_color + "\", style=\"filled\", shape=\"" + node_shape + "\"];\n";
+		// We will super impose the label at a later time
+		if( node_properties.shape === "square" ) {
+			node_properties.label = IMAGE_NODE_SPACES;
+			delete node_properties.style;
+			delete node_properties.fillcolor;
+			node_properties.fill = "none";
+			
+			if( !( workflow_state["id"] == app.selected_node ) ) {
+				node_properties.style = "setlinewidth(0)";
+				node_properties.stroke = "none";
+			}
+			
+			node_properties.tooltip = btoa(JSON.stringify({
+				"name": workflow_state["name"],
+				"type": workflow_state["type"]
+			}));
+		}
+		
+		// Dynamically create the .dot line
+		var new_dot_line = "\t" + workflow_state["id"] + "[ ";
+		var attributes_array = [];
+		for ( var key in node_properties ) {
+			if ( node_properties.hasOwnProperty( key ) ) {
+				attributes_array.push(
+					key + "=\"" + node_properties[ key ] + "\""
+				);
+			}
+		}
+		
+		new_dot_line += attributes_array.join( ", " );
+		new_dot_line += " ];\n";
+		
+		console.log( "New dot line: " );
+		console.log( new_dot_line );
+		
+		dot_contents += new_dot_line;
 	});
 	
 	app.workflow_relationships.map(function( workflow_relationship ) {
 		dot_contents += "\t" + workflow_relationship["node"] + " -> " + workflow_relationship["next"];
 		
 		// "next" text next to transition
-		dot_contents += " [penwidth=2, label=<<table cellpadding=\"10\" border=\"0\" cellborder=\"0\"><tr><td>next</td></tr></table>> href=\"javascript:select_transition('" + workflow_relationship[ "id" ] + "')\" ";
-		
-		//dot_contents += " [penwidth=2, href=\"javascript:select_transition('" + workflow_relationship[ "id" ] + "')\" ";
+		dot_contents += " [penwidth=2, label=<<table cellpadding=\"10\" border=\"0\" cellborder=\"0\"><tr><td>" + get_escaped_html( workflow_relationship[ "name" ] ) + "</td></tr></table>> href=\"javascript:select_transition('" + workflow_relationship[ "id" ] + "')\" ";
 		
 		if( workflow_relationship.id == app.selected_transition ) {
 			dot_contents += "color=\"#ff0000\"";
@@ -226,8 +367,45 @@ function build_dot_graph() {
 	dot_contents += "}";
 	app.graphiz_content = dot_contents;
 	
-	console.log( dot_contents );
-	updateGraph();
+	// After we've drawn the chart we do our custom injections
+	update_graph().then(function() {
+		var svg_nodes = document.querySelectorAll( "g" );
+	
+		for( var i = 0; i < svg_nodes.length; i++ ) {
+			var text_element = svg_nodes[i].querySelector( "text" );
+			if( text_element == null ) {
+				continue;
+			}
+			
+			var a_elem = text_element.parentNode;
+			
+			var polygon = a_elem.querySelector( "polygon" );
+			var title_text = a_elem.getAttribute( "xlink:title" );
+			
+			// Try to base64 decode and JSON decode
+			try {
+				var title_text_data = JSON.parse( atob( title_text ) );
+				a_elem.setAttribute( "xlink:title", title_text_data.name );
+			} catch ( e ) {
+				continue;
+			}
+			
+			polygon.setAttribute( "fill", "url(#" + title_text_data.type + ")" );
+			var poly_box = polygon.getBBox();
+			
+			text_element.innerHTML = title_text_data.name;
+			var SVGRect = text_element.getBBox();
+			var rect = document.createElementNS( "http://www.w3.org/2000/svg", "rect");
+		    rect.setAttribute("x", ( SVGRect.x - 5 ) );
+		    rect.setAttribute("y", ( SVGRect.y - 5 ) );
+		    rect.setAttribute("width", ( SVGRect.width + 10 ) );
+		    rect.setAttribute("height", ( SVGRect.height + 10 ) );
+		    //rect.setAttribute("fill", "black");
+		    rect.setAttribute("style", "fill:black;fill-opacity:0.7;");
+		    text_element.setAttributeNS( null, "fill", "#FFFFFF" );
+		    text_element.parentNode.insertBefore( rect, text_element );
+		}
+	});
 }
 
 /*
@@ -248,24 +426,17 @@ function get_variable_state_transitions() {
 }
 
 function select_node( node_id ) {
-	if( app.selected_node == node_id && app.page == "modify-lambda" ) {
-		app.selected_node = false;
-	} else {
-		app.selected_node = node_id;
-	}
+	// Set selected node ID
+	app.selected_node = node_id;
+
+	var selected_node_data = get_node_data_by_id(
+		app.selected_node
+	);
 	
-	// Can't have both selected
-	if( app.selected_transition ) {
-		app.selected_transition = false;
-	}
-	
-	if( app.selected_node == "start_node" || app.selected_node == "end_node" ) {
-		app.navigate_page("add-state-transition");
-	} else if ( app.selected_node ) {
-		//app.navigate_page("add-state-transition");
-		// Set up temp variables
+	// Navigate to corresponding page
+	if( selected_node_data.type == "lambda" ) {
+		// Set up Lambda state for editor
 		reset_current_lambda_state_to_defaults();
-		var selected_node_data = get_lambda_data_by_id( node_id );
 		app.lambda_name = selected_node_data.name;
 		app.lambda_language = selected_node_data.language;
 		app.unformatted_code_imports = selected_node_data.libraries.join( "\n" );
@@ -273,12 +444,39 @@ function select_node( node_id ) {
 		app.lambda_memory = selected_node_data.memory;
 		app.lambda_max_execution_time = selected_node_data.max_execution_time;
 		app.navigate_page("modify-lambda");
+	} else if( selected_node_data.type == "sqs_queue" ) {
+		reset_current_sqs_queue_state_to_defaults();
+	    var sqs_trigger_data = {
+			"queue_name": selected_node_data.name,
+			"content_based_deduplication": selected_node_data.content_based_deduplication,
+			"batch_size": selected_node_data.batch_size,
+			"sqs_job_template": selected_node_data.sqs_job_template
+	    };
+	    Vue.set( app, "sqs_trigger_data", sqs_trigger_data );
+	    
+		app.navigate_page( "modify-sqs_queue" );
+	} else if ( selected_node_data.type == "schedule_trigger" ) {
+		reset_current_schedule_trigger_to_defaults();
+		
+		var trigger_data = {
+            "name": selected_node_data.name,
+			"schedule_expression": selected_node_data.schedule_expression,
+			"description": selected_node_data.description,
+			"unformatted_input_data": selected_node_data.unformatted_input_data,
+			"input_dict": selected_node_data.input_dict,
+		}
+
+	    Vue.set( app, "scheduled_trigger_data", trigger_data );
+	    
+	    app.navigate_page( "modify-schedule_trigger" );
 	} else {
-		app.navigate_page("welcome");
+		alert( "Error, unrecognized node type!" );
 	}
 	
-	
-	build_dot_graph();
+	// Can't have both selected
+	if( app.selected_transition ) {
+		app.selected_transition = false;
+	}
 }
 
 function select_transition( transition_id ) {
@@ -294,12 +492,38 @@ function select_transition( transition_id ) {
 	}
 	
 	if( app.selected_transition ) {
-		app.navigate_page("modify-state-transition");
+		// Load transition data into current
+		var selected_transition_data = app.selected_transition_data;
+		Vue.set( app, "state_transition_conditional_data", selected_transition_data );
+		app.navigate_page( "modify-state-transition" );
 	} else {
-		app.navigate_page("welcome");
+		app.navigate_page( "welcome" );
 	}
 	
 	build_dot_graph();
+}
+
+function reset_current_schedule_trigger_to_defaults() {
+    var scheduled_trigger_data = {
+    	"name": "Untitled Trigger",
+    	"schedule_expression": "rate(1 minute)",
+    	"description": "Example scheduled rule description.",
+    	"input_dict": {},
+    	"unformatted_input_data": "{}",
+    }
+    Vue.set( app, "scheduled_trigger_data", scheduled_trigger_data );
+}
+
+function reset_current_sqs_queue_state_to_defaults() {
+    var sqs_trigger_data = {
+		"queue_name": app.lambda_name,
+		"content_based_deduplication": true,
+		"batch_size": 1,
+		"sqs_job_template": JSON.stringify({
+			"id": "1"
+		}, false, 4 ),
+    }
+    Vue.set( app, "sqs_trigger_data", sqs_trigger_data );
 }
 
 function reset_current_lambda_state_to_defaults() {
@@ -307,22 +531,7 @@ function reset_current_lambda_state_to_defaults() {
 	app.lambda_language = "python2.7";
 	app.code_imports = [];
 	app.unformatted_code_imports = "";
-	app.codecontent = `
-"""
-Embedded magic
-
-Refinery memory:
-	Config memory: cmemory.get( "api_key" )
-	Global memory: gmemory.get( "example" )
-	Force no-namespace: gmemory.get( "example", raw=True )
-
-SQS message body:
-	First message: sqs_data = json.loads( lambda_input[ "Records" ][0][ "body" ] )
-"""
-
-def main( lambda_input, context ):
-    return False
-`;
+	app.codecontent = DEFAULT_LAMBDA_CODE[ "python2.7" ];
 }
 
 function get_project_json() {
@@ -510,18 +719,6 @@ function create_saved_function( name, description, code, language, libraries ) {
 	);
 }
 
-function deploy_step_function( sfn_name, workflow_states, workflow_relationships ) {
-	return api_request(
-		"POST",
-		"api/v1/aws/deploy_step_function",
-		{
-			"workflow_states": workflow_states,
-			"workflow_relationships": workflow_relationships,
-			"sfn_name": sfn_name,
-		}
-	);
-}
-
 function deploy_lambda( name, language, code, libraries, memory, max_execution_time ) {
 	return api_request(
 		"POST",
@@ -563,19 +760,6 @@ function create_schedule_trigger( name, schedule_expression, description, target
 			"target_arn": target_arn,
 			"target_id": target_id,
 			"input_dict": input_dict
-		}
-	);
-}
-
-function create_lambda_input_sqs_queue( queue_name, content_based_deduplication, batch_size, lambda_arn ) {
-	return api_request(
-		"POST",
-		"api/v1/aws/create_sqs_trigger",
-		{
-			"queue_name": queue_name,
-			"content_based_deduplication": content_based_deduplication,
-			"batch_size": batch_size,
-			"lambda_arn": lambda_arn
 		}
 	);
 }
@@ -738,7 +922,7 @@ function http_request( method, uri, headers, body ) {
 
 // On resize redraw graph
 $(window).resize(function(){
-    updateGraph();
+    build_dot_graph();
 });
 
 // On load
@@ -762,46 +946,51 @@ var app = new Vue({
 		selected_transition: false,
 	    "workflow_states": [
 	        {
-	            "id": "start_node",
-	            "name": "Start",
-	            "language": "",
-	            "code": "",
-	            "libraries": [],
-	            "memory": 0,
-	            "max_execution_time": 0
-	        },
-	        {
-	            "id": "end_node",
-	            "name": "End",
-	            "language": "",
-	            "code": "",
-	            "libraries": [],
-	            "memory": 0,
-	            "max_execution_time": 0
-	        },
-	        {
-	            "id": "nd6e2da329e3a4144863f76867caefc2d",
+	            "id": "n517c182f855849bab13434d8381c9c61",
 	            "name": "Example Lambda",
 	            "language": "python2.7",
-	            "libraries": [],
 	            "code": "\n\"\"\"\nEmbedded magic\n\nRefinery memory:\n\tConfig memory: cmemory.get( \"api_key\" )\n\tGlobal memory: gmemory.get( \"example\" )\n\tForce no-namespace: gmemory.get( \"example\", raw=True )\n\nSQS message body:\n\tFirst message: sqs_data = json.loads( lambda_input[ \"Records\" ][0][ \"body\" ] )\n\"\"\"\n\ndef main( lambda_input, context ):\n    return False\n",
 	            "memory": 128,
-	            "max_execution_time": 60
-	        }
-	    ],
-	    "workflow_relationships": [
-	        {
-	            "id": "nc24ac4f2f1b0421ba0a14b3211df3ec7",
-	            "node": "start_node",
-	            "next": "nd6e2da329e3a4144863f76867caefc2d"
+	            "libraries": [],
+	            "max_execution_time": 60,
+	            "type": "lambda"
 	        },
 	        {
-	            "id": "n66c2a2294584476bac07ddf30f20bac5",
-	            "node": "nd6e2da329e3a4144863f76867caefc2d",
-	            "next": "end_node"
+	            "id": "n91b2f92f52ef43febe9ca6ad2b558db9",
+	            "name": "Other Lambda",
+	            "language": "python2.7",
+	            "code": "\n\"\"\"\nEmbedded magic\n\nRefinery memory:\n\tConfig memory: cmemory.get( \"api_key\" )\n\tGlobal memory: gmemory.get( \"example\" )\n\tForce no-namespace: gmemory.get( \"example\", raw=True )\n\nSQS message body:\n\tFirst message: sqs_data = json.loads( lambda_input[ \"Records\" ][0][ \"body\" ] )\n\"\"\"\n\ndef main( lambda_input, context ):\n    return False\n",
+	            "memory": 128,
+	            "libraries": [],
+	            "max_execution_time": 60,
+	            "type": "lambda"
+	        },
+	        {
+	            "id": "nacb8bf2106884807bea34b638f47ab56",
+	            "name": "Third Lambda",
+	            "language": "python2.7",
+	            "code": "\n\"\"\"\nEmbedded magic\n\nRefinery memory:\n\tConfig memory: cmemory.get( \"api_key\" )\n\tGlobal memory: gmemory.get( \"example\" )\n\tForce no-namespace: gmemory.get( \"example\", raw=True )\n\nSQS message body:\n\tFirst message: sqs_data = json.loads( lambda_input[ \"Records\" ][0][ \"body\" ] )\n\"\"\"\n\ndef main( lambda_input, context ):\n    return False\n",
+	            "memory": 128,
+	            "libraries": [],
+	            "max_execution_time": 60,
+	            "type": "lambda"
 	        }
 	    ],
-		next_state_transition_selected: false,
+	    "workflow_relationships": [],
+	    available_transition_types: [
+	    	"then",
+	    	"if",
+	    	"else",
+	    	"exception"
+	    ],
+		state_transition_conditional_data: {
+			"name": "then",
+			// "then", "if", "else", "exception"
+			"type": "then",
+			"expression": "",
+			"node": "",
+			"next": false,
+		},
 		graphiz_content: "",
 		// Project name
 		project_name: "Untitled Project",
@@ -822,22 +1011,11 @@ var app = new Vue({
         lambda_exec_result: false,
         // Lambda build timer
         lambda_build_time: 0,
-        // Whether or not the step function deploy is loading
-        step_function_deploy_loading: true,
-        // Timer for building step function
-        step_function_build_time: 0,
-        // AWS link for built step function
-        step_function_execution_link: false,
-        // Which trigger type is being selected
-        selected_trigger_type: "none",
     	// Target data for when a schedule-based trigger is created
         scheduled_trigger_data: {
         	"name": "Scheduled_Trigger_Example",
         	"schedule_expression": "rate(1 minute)",
         	"description": "Example scheduled rule description.",
-        	"target_arn": "",
-        	"target_id": "",
-        	"target_type": "lambda",
         	"unformatted_input_data": "{}",
         	"input_dict": {},
         },
@@ -846,17 +1024,10 @@ var app = new Vue({
 			"queue_name": "Example Queue",
 			"content_based_deduplication": true,
 			"batch_size": 1,
-			"lambda_arn": "",
 			"sqs_job_template": JSON.stringify({
 				"id": "1"
 			}, false, 4 ),
         },
-        // Queue link
-        sqs_queue_link: false,
-        // Trigger link
-        cloudwatch_event_link: false,
-        // Status text for when deploying Step Function
-        step_function_deploy_status_text: "Loading...",
         // Whether the lambda deploy is loading
         lambda_deploy_loading: true,
         // Deployed Lambda link
@@ -946,20 +1117,151 @@ var app = new Vue({
 					4
 				);
 			});
+		},
+		
+		// Automatically update the graph when the state has changed
+		workflow_states: function( value, previous_value ) {
+			build_dot_graph();
+		},
+		workflow_relationships: function( value, previous_value ) {
+			build_dot_graph();
+		},
+		selected_transition: function( value, previous_value ) {
+			build_dot_graph();
+		},
+		selected_node: function( value, previous_value ) {
+			build_dot_graph();
+		},
+		selected_transition: function( value, previous_value ) {
+			build_dot_graph();
 		}
 	},
 	computed: {
 		selected_node_data: function() {
-			return get_lambda_data_by_id( app.selected_node );
+			return get_node_data_by_id( app.selected_node );
 		},
 		selected_transition_data: function() {
 			return get_state_transition_by_id( app.selected_transition );
 		},
-		aws_step_function_data: function() {
-			return false
+		selected_transition_start_node: function() {
+			if( app.selected_node_data ) {
+				return app.selected_node_data.name;
+			}
+			var transition_data = get_state_transition_by_id( app.selected_transition );
+			var origin_node_data = get_node_data_by_id( transition_data.node );
+			return origin_node_data.name;
 		},
+		valid_transition_paths: function() {
+			var valid_paths = [];
+
+			app.workflow_states.map(function( workflow_state ) {
+				if( app.is_valid_transition_path( app.selected_node_data.id, workflow_state.id ) ) {
+					valid_paths.push( workflow_state );
+				}
+			});
+			
+			return valid_paths;
+		}
 	},
 	methods: {
+		is_valid_transition_path: function( first_node_id, second_node_id ) {
+			var valid_type_transitions = [
+				{
+					"first_type": "lambda",
+					"second_type": "lambda",
+				},
+				{
+					"first_type": "sqs_queue",
+					"second_type": "lambda",
+				},
+				{
+					"first_type": "lambda",
+					"second_type": "sqs_queue",
+				},
+				{
+					"first_type": "schedule_trigger",
+					"second_type": "lambda",
+				}
+			];
+			
+			// Grab data for both nodes and determine if it's possible path
+			var first_node_data = get_node_data_by_id( first_node_id );
+			var second_node_data = get_node_data_by_id( second_node_id );
+
+			return valid_type_transitions.some(function( type_transition_data ) {
+				// If it matches a valid transition, then set is_valid_transition to true
+				return first_node_data.type == type_transition_data.first_type && second_node_data.type == type_transition_data.second_type;
+			});
+		},
+		update_state_transition: function() {
+			var updated_transition = {
+				"id": app.selected_transition,
+				"name": app.state_transition_conditional_data.name,
+				"type": app.state_transition_conditional_data.type,
+				"expression": app.state_transition_conditional_data.expression,
+				"node": app.state_transition_conditional_data.node,
+				"next": app.state_transition_conditional_data.next,
+			}
+			
+			app.workflow_relationships = app.workflow_relationships.map(function( workflow_relationship ) {
+				if( workflow_relationship.id == updated_transition.id ) {
+					return updated_transition;
+				} else {
+					return workflow_relationship;
+				}
+			});
+			
+			app.selected_transition = false;
+			
+			app.navigate_page( "welcome" );
+		},
+		add_timer_trigger_node: function() {
+			var new_timer_trigger = {
+				"id": get_random_node_id(),
+	            "name": "Untitled Timer",
+	            "type": "schedule_trigger",
+				"schedule_expression": "rate(1 minute)",
+				"description": "Example scheduled rule description.",
+				"unformatted_input_data": "{}",
+				"input_dict": {},
+			}
+			
+			app.workflow_states.push( new_timer_trigger );
+		},
+		add_lambda_node: function() {
+			var new_lambda_data = {
+				"id": get_random_node_id(),
+	            "name": "Untitled Lambda",
+	            "language": "python2.7",
+	            "code": DEFAULT_LAMBDA_CODE[ "python2.7" ],
+	            "memory": 128,
+	            "libraries": [],
+	            "max_execution_time": 60,
+	            "type": "lambda"
+			}
+			
+			app.workflow_states.push( new_lambda_data );
+		},
+		add_sqs_node: function() {
+		    var sqs_queue_node_data = {
+			    "id": get_random_node_id(),
+			    "type": "sqs_queue",
+			    "name": "Untitled Queue",
+				"queue_name": "Untitled Queue",
+				"content_based_deduplication": true,
+				"batch_size": 1,
+				"sqs_job_template": JSON.stringify({
+					"id": "1"
+				}, false, 4 ),
+		    };
+	    
+			app.workflow_states.push( sqs_queue_node_data );
+		},
+		todo: function() {
+			$( "#todo_output" ).modal(
+				"show"
+			);
+		},
 		update_sqs_job_template: function( new_value ) {
 			app.sqs_trigger_data.sqs_job_template = new_value;
 		},
@@ -1292,6 +1594,9 @@ def example( parameter ):
 				app.codecontent = val;
 			}
 		},
+		conditional_data_expression_change: function( val ) {
+			app.state_transition_conditional_data.expression = val;
+		},
 		sfn_input_data_change: function( val ) {
 			if ( app.scheduled_trigger_data.unformatted_input_data !== val ) {
 				app.scheduled_trigger_data.unformatted_input_data = val;
@@ -1322,183 +1627,6 @@ def example( parameter ):
 				}
 			}
 		},
-		open_step_function_execution_page: function() {
-			window.open(
-				app.step_function_execution_link
-			);
-		},
-		open_cloudwatch_trigger_page: function() {
-			window.open(
-				app.cloudwatch_event_link
-			);
-		},
-		select_trigger: function( target_type ) {
-			// Reset data
-	        var scheduled_trigger_data = {
-	        	"name": app.lambda_name + " Trigger",
-	        	"schedule_expression": "rate(1 minute)",
-	        	"description": "Example scheduled rule description.",
-	        	"target_arn": "",
-	        	"target_id": "",
-	        	"target_type": target_type,
-	        	"input_dict": {},
-	        	"unformatted_input_data": "{}",
-	        }
-	        Vue.set( app, "scheduled_trigger_data", scheduled_trigger_data );
-	        
-	        var sqs_trigger_data = {
-				"queue_name": app.lambda_name + " Queue",
-				"content_based_deduplication": true,
-				"batch_size": 1,
-				"lambda_arn": "",
-				"sqs_job_template": JSON.stringify({
-					"id": "1"
-				}, false, 4 ),
-	        }
-	        Vue.set( app, "sqs_trigger_data", sqs_trigger_data );
-	        
-	        app.sqs_queue_link = false;
-	        
-	        app.selected_trigger_type = "none";
-	        
-			$( "#trigger_selection_modal" ).modal(
-				"show"
-			);
-		},
-		select_trigger_continue_action: function() {
-			if( app.scheduled_trigger_data.target_type == "sfn" ) {
-				app.deploy_step_function();
-			} else if ( app.scheduled_trigger_data.target_type == "lambda" ) {
-				app.deploy_lambda();
-			}
-		},
-		deploy_step_function: function() {
-			// Clear previous result
-			app.step_function_deploy_loading = true;
-			app.step_function_build_time = 0;
-			app.step_function_execution_link = false;
-			app.step_function_deploy_status_text = "Building and executing the Step Function, this may take a bit...";
-			app.cloudwatch_event_link = false;
-			
-			$( "#runstepfunction_output" ).modal(
-				"show"
-			);
-			
-			// Time build
-			var start_time = Date.now();
-			
-			deploy_step_function(
-				app.project_name,
-				app.workflow_states,
-				app.workflow_relationships,
-			).then(function( results ){
-				var delta = Date.now() - start_time;
-				app.step_function_build_time = ( delta / 1000 );
-				app.step_function_execution_link = results[ "result" ][ "url" ];
-				app.scheduled_trigger_data.target_arn = results[ "result" ][ "sfn_arn" ];
-				app.scheduled_trigger_data.target_id = results[ "result" ][ "sfn_name" ];
-				return
-			}).then(function(){
-				if( app.selected_trigger_type == "scheduled" ) {
-					console.log( "Creating schedule-based trigger..." );
-					app.step_function_deploy_status_text = "Creating the schedule-based trigger specified...";
-					return create_schedule_trigger(
-						app.scheduled_trigger_data.name,
-						app.scheduled_trigger_data.schedule_expression,
-						app.scheduled_trigger_data.description,
-						"sfn",
-						app.scheduled_trigger_data.target_id,
-						app.scheduled_trigger_data.target_arn,
-						app.scheduled_trigger_data.input_dict,
-					).then(function( trigger_results ) {
-						app.cloudwatch_event_link = trigger_results[ "result" ][ "url" ];
-						return Promise.resolve();
-					});
-				} else {
-					console.log( "No trigger set, just continueing..." );
-					return Promise.resolve();
-				}
-			}).then(function( results ) {
-				app.step_function_deploy_loading = false;
-			});
-		},
-		deploy_lambda: function() {
-			// Clear previous result
-			app.lambda_exec_result = false;
-			app.lambda_build_time = 0;
-			app.lambda_deploy_loading = true;
-			app.lambda_deployed_link = "";
-			app.cloudwatch_event_link = false;
-			
-			$( "#deploylambda_output" ).modal(
-				"show"
-			);
-			
-			// Time build
-			var start_time = Date.now();
-			
-			// Status text
-			app.lambda_deploy_status_text = "Deploying Lambda...";
-			
-			deploy_lambda(
-				app.lambda_name,
-				app.lambda_language,
-				app.codecontent,
-				app.code_imports,
-				app.lambda_memory,
-				app.lambda_max_execution_time
-			).then(function( results ) {
-				console.log( "Deployed lambda: " );
-				console.log( results );
-				var delta = Date.now() - start_time;
-				app.lambda_build_time = ( delta / 1000 );
-				app.lambda_deployed_link = results[ "url" ];
-				app.scheduled_trigger_data.target_arn = results[ "arn" ];
-				app.scheduled_trigger_data.target_id = results[ "name" ];
-			}).then(function() {
-				if( app.selected_trigger_type == "scheduled" ) {
-					console.log( "Creating schedule-based trigger..." );
-					app.lambda_deploy_status_text = "Creating the schedule-based trigger specified...";
-					return create_schedule_trigger(
-						app.scheduled_trigger_data.name,
-						app.scheduled_trigger_data.schedule_expression,
-						app.scheduled_trigger_data.description,
-						"lambda",
-						app.scheduled_trigger_data.target_id,
-						app.scheduled_trigger_data.target_arn,
-						app.scheduled_trigger_data.input_dict,
-					).then(function( trigger_results ) {
-						app.cloudwatch_event_link = trigger_results[ "result" ][ "url" ];
-						return Promise.resolve();
-					});
-				} else if( app.selected_trigger_type == "sqs-queue" ) {
-					// Also write Job Template to S3
-					save_job_template(
-						get_safe_name( app.sqs_trigger_data.queue_name ),
-						app.sqs_trigger_data.sqs_job_template,
-					);
-					
-					return create_lambda_input_sqs_queue(
-						app.sqs_trigger_data.queue_name,
-						app.sqs_trigger_data.content_based_deduplication,
-						app.sqs_trigger_data.batch_size,
-						app.scheduled_trigger_data.target_arn
-					).then(function( results ) {
-						console.log( "SQS queue creation results: " );
-						console.log( results );
-						
-						app.sqs_queue_link = results[ "queue_url" ];
-						
-						return Promise.resolve();
-					});
-				} else {
-					console.log( "No trigger set, just continuing..." );
-					return Promise.resolve();
-				}
-			}).then(function() {
-				app.lambda_deploy_loading = false;
-			});
-		},
 		run_tmp_lambda: function() {
 			// Clear previous result
 			app.lambda_exec_result = false;
@@ -1525,44 +1653,53 @@ def example( parameter ):
 				app.lambda_exec_result = results.result;
 			});
 		},
-		open_sqs_queue_page: function() {
-			window.open(
-				app.sqs_queue_link
-			);
-		},
-		open_deployed_lambda_page: function() {
-			window.open(
-				app.lambda_deployed_link
-			);
-		},
 		add_lambda: function() {
 			var lambda_data = get_lambda_data();
 			app.workflow_states.push( lambda_data );
-			build_dot_graph();
 		},
 		navigate_page: function( page_id ) {
 			app.page = page_id;
-			if( app.page == "add-lambda" ) {
-				reset_current_lambda_state_to_defaults();
+		},
+		create_new_state_transition: function() {
+			var default_state_transition_conditional_data = {
+				"name": "then",
+				// "then", "if", "else", "exception"
+				"type": "then",
+				"expression": "",
+				"node": "",
+				"next": false,
 			}
+			
+			Vue.set( app, "state_transition_conditional_data", default_state_transition_conditional_data );
+			
+			var potential_next_pages = app.workflow_states.filter(function( workflow_state ) {
+				return ( workflow_state.id !== app.selected_node );
+			});
+			
+			if( potential_next_pages.length > 0 ) {
+				app.state_transition_conditional_data.next = potential_next_pages[0].id;
+			}
+			
+			app.navigate_page( "add-state-transition" );
 		},
 		add_state_transition: function() {
 			app.workflow_relationships.push({
 				"id": get_random_node_id(),
+				"name": app.state_transition_conditional_data.name,
+				"type": app.state_transition_conditional_data.type,
+				"expression": app.state_transition_conditional_data.expression,
 				"node": app.selected_node,
-				"next": app.next_state_transition_selected,
+				"next": app.state_transition_conditional_data.next,
 			});
-			build_dot_graph();
 			app.navigate_page("welcome");
 		},
 		delete_state_transition: function() {
 			app.workflow_relationships = app.workflow_relationships.filter(function( workflow_relationship ) {
 				return workflow_relationship.id !== app.selected_transition;
 			});
-			build_dot_graph();
 			app.navigate_page("welcome");
 		},
-		delete_lambda: function() {
+		delete_node: function() {
 			app.workflow_states = app.workflow_states.filter(function( workflow_state ) {
 				return workflow_state.id !== app.selected_node;
 			});
@@ -1575,8 +1712,15 @@ def example( parameter ):
 				}
 				return true;
 			});
-			build_dot_graph();
 			app.navigate_page("welcome");
+		},
+		update_node_data: function( node_id, new_node_data ) {
+			app.workflow_states = app.workflow_states.map(function( workflow_state ) {
+				if( workflow_state.id == node_id ) {
+					return new_node_data;
+				}
+				return workflow_state;
+			});
 		},
 		update_lambda: function() {
 			var updated_lambda_data = {
@@ -1587,17 +1731,46 @@ def example( parameter ):
 				"code": app.codecontent,
 				"memory": app.lambda_memory,
 				"max_execution_time": app.lambda_max_execution_time,
+				"type": "lambda",
 			}
 			
-			app.workflow_states = app.workflow_states.map(function( workflow_state ) {
-				if( workflow_state.id == app.selected_node ) {
-					return updated_lambda_data;
-				}
-				return workflow_state;
-			});
+			app.update_node_data(
+				app.selected_node,
+				updated_lambda_data
+			);
+		},
+		update_sqs_queue: function() {
+			var updated_sqs_queue_data = {
+				"id": app.selected_node,
+				"name": app.sqs_trigger_data.queue_name,
+				"type": "sqs_queue",
+				"queue_name": app.sqs_trigger_data.queue_name,
+				"content_based_deduplication": app.sqs_trigger_data.content_based_deduplication,
+				"batch_size": app.sqs_trigger_data.batch_size,
+				"sqs_job_template": app.sqs_trigger_data.sqs_job_template
+			};
 			
-			build_dot_graph();
-		}
+			app.update_node_data(
+				app.selected_node,
+				updated_sqs_queue_data
+			);
+		},
+		update_schedule_trigger: function() {
+			var updated_schedule_trigger = {
+				"id": app.selected_node,
+	            "name": app.scheduled_trigger_data.name,
+	            "type": "schedule_trigger",
+				"schedule_expression": app.scheduled_trigger_data.schedule_expression,
+				"description": app.scheduled_trigger_data.description,
+				"unformatted_input_data": app.scheduled_trigger_data.unformatted_input_data,
+				"input_dict": app.scheduled_trigger_data.input_dict,
+			};
+			
+			app.update_node_data(
+				app.selected_node,
+				updated_schedule_trigger
+			);
+		},
 	}
 });
 
