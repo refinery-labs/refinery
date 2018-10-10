@@ -33,6 +33,35 @@
 		        </div>
 		    </div>
 		</div>
+		
+    	<!-- Deploy diagram output -->
+		<div class="modal fade" id="deploydiagram_output" tabindex="-1" role="dialog" aria-labelledby="deploydiagram_label" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="deploydiagram_label">Infrastructure Deployment Results</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		          <span aria-hidden="true">&times;</span>
+		        </button>
+		            </div>
+		            <div class="modal-body">
+		            	<div v-if="!deploying_infrastructure">
+							<b>Build Time: </b><code>{{deploy_infrastructure_time}}</code> seconds
+		            	</div>
+						<div v-if="deploying_infrastructure">
+							<center>
+								<img src="/img/loading.gif" />
+								<br />
+								<i>Building and deploying infrastructure to production, this may take a while...</i>
+							</center>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
     	
 		<!-- View saved function modal -->
 		<div class="modal fade" id="viewsavefunction_output" tabindex="-1" role="dialog" aria-labelledby="viewsavefunction_label" aria-hidden="true">
@@ -408,7 +437,7 @@
 						</button>
 						<div class="dropdown-menu">
 							<a class="dropdown-item" href="#" v-on:click="add_lambda_node">Lambda</a>
-							<a class="dropdown-item" href="#" v-on:click="add_sqs_node">SQS Queue</a>
+							<a class="dropdown-item" href="#" v-on:click="add_sqs_node">SQS Queue Trigger</a>
 							<a class="dropdown-item" href="#" v-on:click="add_timer_trigger_node">Time Trigger</a>
 							<!--
 							<div class="dropdown-divider"></div>
@@ -421,7 +450,7 @@
 			    	<button type="button" class="btn btn-primary" v-on:click="import_project_data" style="margin-right: 5px;">Import Project</button>
 			    	<button type="button" class="btn btn-primary" v-on:click="export_project_data" style="margin-right: 5px;">Export Project</button>
 			    	<button type="button" class="btn btn-primary" v-on:click="view_refinery_atc" style="margin-right: 5px;">ATC</button>
-			    	<button type="button" class="btn btn-primary" v-on:click="todo" style="margin-left: 10px;">Deploy to Production</button>
+			    	<button type="button" class="btn btn-primary" v-on:click="deploy_infrastructure" style="margin-left: 10px;">Deploy to Production</button>
 			    </div>
 			</nav>
         </div>
@@ -468,7 +497,7 @@
 					</div>
 					<div class="form-group">
 						<label for="selected_state">Selected State</label>
-						<input type="text" class="form-control" v-bind:value="selected_transition_start_node" aria-describedby="selected_state" disabled>
+						<input type="text" class="form-control" v-bind:value="selected_transition_start_node.name" aria-describedby="selected_state" disabled>
 						<small id="selected_state_help" class="form-text text-muted">The currently selected node you're adding a transition to.</small>
 					</div>
 					<div class="form-group">
@@ -519,7 +548,7 @@
             
             <!-- SQS Queue Node Panel -->
             <div v-if="page == 'modify-sqs_queue'" class="split left-panel">
-				<h2>SQS Queue</h2>
+				<h2>SQS Queue Trigger</h2>
 				<div class="form-group">
 					<label for="sqs_queue_name">Queue Name</label>
 					<input type="text" class="form-control" v-model="sqs_trigger_data.queue_name" aria-describedby="sqs_queue_name" placeholder="Example Queue">

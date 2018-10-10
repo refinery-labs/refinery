@@ -111,6 +111,16 @@ def pprint( input_dict ):
 		print( json.dumps( input_dict, sort_keys=True, indent=4, separators=( ",", ": " ) ) )
 	except:
 		print( input_dict )
+		
+def logit( message, message_type="info" ):
+	if message_type == "info":
+		logging.info( message )
+	elif message_type == "warn":
+		logging.warn( message )
+	elif message_type == "debug":
+		logging.debug( message )
+	else:
+		logging.info( message )
 	
 class BaseHandler( tornado.web.RequestHandler ):
 	def __init__( self, *args, **kwargs ):
@@ -130,15 +140,8 @@ class BaseHandler( tornado.web.RequestHandler ):
 
 	def logit( self, message, message_type="info" ):
 		message = "[" + self.request.remote_ip + "] " + message
-
-		if message_type == "info":
-			logging.info( message )
-		elif message_type == "warn":
-			logging.warn( message )
-		elif message_type == "debug":
-			logging.debug( message )
-		else:
-			logging.info( message )
+		
+		logit( message )
 		
 	def prepare( self ):
 		csrf_validated = self.request.headers.get(
@@ -541,7 +544,7 @@ class TaskSpawner(object):
 			return zip_data
 			
 		@run_on_executor
-		def create_cloudwatch_rule( self, name, schedule_expression, description ):
+		def create_cloudwatch_rule( self, id, name, schedule_expression, description, input_dict ):
 			response = EVENTS_CLIENT.put_rule(
 				Name=name,
 				ScheduleExpression=schedule_expression, # cron(0 20 * * ? *) or rate(5 minutes)
@@ -550,10 +553,15 @@ class TaskSpawner(object):
 				RoleArn=os.environ.get( "events_role" )
 			)
 			
-			return response
+			return {
+				"id": id,
+				"name": name,
+				"arn": response[ "RuleArn" ],
+				"input_dict": input_dict,
+			}
 			
 		@run_on_executor
-		def add_rule_target( self, rule_name, target_type, target_id, target_arn, input_dict ):
+		def add_rule_target( self, rule_name, target_id, target_arn, input_dict ):
 			targets_data = 	{
 				"Id": target_id,
 				"Arn": target_arn,
@@ -562,10 +570,6 @@ class TaskSpawner(object):
 				)
 			}
 			
-			# Supports only lambda and SFNs
-			if target_type == "sfn":
-				targets_data[ "RoleArn" ] = os.environ.get( "sfn_cloudwatch_role" )
-				
 			rule_creation_response = EVENTS_CLIENT.put_targets(
 				Rule=rule_name,
 				Targets=[
@@ -573,22 +577,21 @@ class TaskSpawner(object):
 				]
 			)
 			
-			if target_type == "lambda":
-				"""
-				For AWS Lambda you need to add a permission to the Lambda function itself
-				via the add_permission API call to allow invocation via the CloudWatch event.
-				"""
-				lambda_permission_add_response = LAMBDA_CLIENT.add_permission(
-					FunctionName=target_arn,
-					StatementId=rule_name + "_statement",
-					Action="lambda:*",
-					Principal="events.amazonaws.com",
-					SourceArn="arn:aws:events:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":rule/" + rule_name,
-					#SourceAccount=os.environ.get( "aws_account_id" ) # THIS IS A BUG IN AWS NEVER PASS THIS
-				)
-				
-				print( "Lambda add permission: " )
-				pprint( lambda_permission_add_response )
+			"""
+			For AWS Lambda you need to add a permission to the Lambda function itself
+			via the add_permission API call to allow invocation via the CloudWatch event.
+			"""
+			lambda_permission_add_response = LAMBDA_CLIENT.add_permission(
+				FunctionName=target_arn,
+				StatementId=rule_name + "_statement",
+				Action="lambda:*",
+				Principal="events.amazonaws.com",
+				SourceArn="arn:aws:events:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":rule/" + rule_name,
+				#SourceAccount=os.environ.get( "aws_account_id" ) # THIS IS A BUG IN AWS NEVER PASS THIS
+			)
+			
+			print( "Lambda add permission: " )
+			pprint( lambda_permission_add_response )
 			
 			return rule_creation_response
 		
@@ -929,14 +932,13 @@ class CreateScheduleTrigger( BaseHandler ):
 		}
 		
 		validate_schema( self.json, schema )
-		
-		cloudwatch_rule_name = get_lambda_safe_name( self.json[ "name" ] )
 
 		print( "Creating new scheduler rule..." )
 		rule_data = yield local_tasks.create_cloudwatch_rule(
 			cloudwatch_rule_name,
 			self.json[ "schedule_expression" ],
-			self.json[ "description" ]
+			self.json[ "description" ],
+			{},
 		)
 		print( "Rule created!" )
 		
@@ -949,7 +951,6 @@ class CreateScheduleTrigger( BaseHandler ):
 		
 		target_add_data = yield local_tasks.add_rule_target(
 			cloudwatch_rule_name,
-			self.json[ "target_type" ],
 			self.json[ "target_id" ],
 			self.json[ "target_arn" ],
 			self.json[ "input_dict" ]
@@ -1485,6 +1486,180 @@ class GetSQSJobTemplate( BaseHandler ):
 			"job_template": job_template
 		})
 		
+@gen.coroutine
+def deploy_lambda( id, name, code, libraries, max_execution_time, memory ):
+	logit(
+		"Building '" + name + "' Lambda package..."
+	)
+	
+	lambda_zip_package_data = yield local_tasks.build_lambda(
+		code,
+		libraries
+	)
+	
+	logit(
+		"Deploying '" + name + "' Lambda package to production..."
+	)
+
+	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
+		name,
+		"AWS Lambda deployed via refinery",
+		os.environ.get( "lambda_role" ),
+		lambda_zip_package_data,
+		max_execution_time, # Max AWS execution time
+		memory, # MB of execution memory
+		{}, # VPC data
+		{},
+		{
+			"refinery_id": id,
+		}
+	)
+	
+	raise gen.Return({
+		"id": id,
+		"name": name,
+		"arn": deployed_lambda_data[ "FunctionArn" ]
+	})
+	
+def get_node_by_id( target_id, workflow_states ):
+	for workflow_state in workflow_states:
+		if workflow_states[ "id" ] == target_id:
+			return workflow_state
+	
+	return False
+	
+def get_updated_workflow_states_list( updated_node, workflow_states ):
+	for i in range( 0, len( workflow_states ) ):
+		if workflow_states[i][ "id" ] == updated_node[ "id" ]:
+			workflow_states[i] = updated_node
+			break
+		
+	return workflow_states
+	
+@gen.coroutine
+def deploy_diagram( diagram_data ):
+	"""
+	Deploy the diagram to AWS
+	"""
+	
+	lambda_nodes = []
+	schedule_trigger_nodes = []
+	
+	for workflow_state in diagram_data[ "workflow_states" ]:
+		if workflow_state[ "type" ] == "lambda":
+			lambda_nodes.append(
+				workflow_state
+			)
+		elif workflow_state[ "type" ] == "schedule_trigger":
+			schedule_trigger_nodes.append(
+				workflow_state
+			)
+	
+	"""
+	Deploy all Lambdas to production
+	"""
+	lambda_node_deploy_futures = []
+	
+	for lambda_node in lambda_nodes:
+		lambda_node_deploy_futures.append(
+			deploy_lambda(
+				lambda_node[ "id" ],
+				get_lambda_safe_name( lambda_node[ "name" ] ),
+				lambda_node[ "code" ],
+				lambda_node[ "libraries" ],
+				lambda_node[ "max_execution_time" ],
+				lambda_node[ "memory" ],
+			)
+		)
+		
+	"""
+	Deploy all time triggers to production
+	"""
+	schedule_trigger_node_deploy_futures = []
+	
+	for schedule_trigger_node in schedule_trigger_nodes:
+		schedule_trigger_name = get_lambda_safe_name( schedule_trigger_node[ "name" ] )
+		logit( "Deploying schedule trigger '" + schedule_trigger_name + "'..." )
+		schedule_trigger_node_deploy_futures.append(
+			local_tasks.create_cloudwatch_rule(
+				schedule_trigger_node[ "id" ],
+				schedule_trigger_name,
+				schedule_trigger_node[ "schedule_expression" ],
+				schedule_trigger_node[ "description" ],
+				schedule_trigger_node[ "input_dict" ],
+			)
+		)
+		
+	# Wait till everything is deployed
+	deployed_lambdas = yield lambda_node_deploy_futures
+	deployed_schedule_triggers = yield schedule_trigger_node_deploy_futures
+	
+	"""
+	Update all nodes with deployed ARN for easier teardown
+	"""
+	# Update workflow lambda nodes with arn
+	for deployed_lambda in deployed_lambdas:
+		for workflow_state in diagram_data[ "workflow_states" ]:
+			if workflow_state[ "id" ] == deployed_lambda[ "id" ]:
+				workflow_state[ "arn" ] = deployed_lambda[ "arn" ]
+				workflow_state[ "name" ] = deployed_lambda[ "name" ]
+				
+	# Update workflow scheduled trigger nodes with arn
+	for deployed_schedule_trigger in deployed_schedule_triggers:
+		for workflow_state in diagram_data[ "workflow_states" ]:
+			if workflow_state[ "id" ] == deployed_schedule_trigger[ "id" ]:
+				workflow_state[ "arn" ] = deployed_schedule_trigger[ "arn" ]
+				workflow_state[ "name" ] = deployed_schedule_trigger[ "name" ]
+	
+	"""
+	Link deployed schedule triggers to Lambdas
+	"""
+	schedule_trigger_pairs_to_deploy = []
+	for deployed_schedule_trigger in deployed_schedule_triggers:
+		for workflow_relationship in diagram_data[ "workflow_relationships" ]:
+			if deployed_schedule_trigger[ "id" ] == workflow_relationship[ "node" ]:
+				# Find target node
+				for deployed_lambda in deployed_lambdas:
+					if deployed_lambda[ "id" ] == workflow_relationship[ "next" ]:
+						schedule_trigger_pairs_to_deploy.append({
+							"scheduled_trigger": deployed_schedule_trigger,
+							"target_lambda": deployed_lambda,
+						})
+						
+	schedule_trigger_targeting_futures = []
+	for schedule_trigger_pair in schedule_trigger_pairs_to_deploy:
+		schedule_trigger_targeting_futures.append(
+			local_tasks.add_rule_target(
+				schedule_trigger_pair[ "scheduled_trigger" ][ "name" ],
+				schedule_trigger_pair[ "target_lambda" ][ "name" ],
+				schedule_trigger_pair[ "target_lambda" ][ "arn" ],
+				schedule_trigger_pair[ "scheduled_trigger" ][ "input_dict" ]
+			)
+		)
+	
+	# Wait till are triggers are set up
+	deployed_schedule_trigger_targets = yield schedule_trigger_targeting_futures
+	
+	raise gen.Return(
+		diagram_data
+	)
+		
+class DeployDiagram( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		self.logit(
+			"Deploying diagram to production..."
+		)
+		
+		diagram_data = json.loads( self.json[ "diagram_data" ] )
+		
+		results_data = yield deploy_diagram( diagram_data )
+		
+		self.write({
+			"success": True,
+			"result": diagram_data
+		})
+		
 def make_app( is_debug ):
 	# Convert to bool
 	is_debug = ( is_debug.lower() == "true" )
@@ -1494,6 +1669,7 @@ def make_app( is_debug ):
 	}
 	
 	return tornado.web.Application([
+		( r"/api/v1/aws/deploy_diagram", DeployDiagram ),
 		( r"/api/v1/sqs/job_template/get", GetSQSJobTemplate ),
 		( r"/api/v1/sqs/job_template", SaveSQSJobTemplate ),
 		( r"/api/v1/functions/delete", SavedFunctionDelete ),

@@ -440,6 +440,7 @@ function select_node( node_id ) {
 		app.lambda_name = selected_node_data.name;
 		app.lambda_language = selected_node_data.language;
 		app.unformatted_code_imports = selected_node_data.libraries.join( "\n" );
+		app.code_imports = selected_node_data.libraries;
 		app.codecontent = selected_node_data.code;
 		app.lambda_memory = selected_node_data.memory;
 		app.lambda_max_execution_time = selected_node_data.max_execution_time;
@@ -764,6 +765,16 @@ function create_schedule_trigger( name, schedule_expression, description, target
 	);
 }
 
+function deploy_infrastructure( diagram_data ) {
+	return api_request(
+		"POST",
+		"api/v1/aws/deploy_diagram",
+		{
+			"diagram_data": diagram_data,
+		}
+	);
+}
+
 /*
     Make API request
 */
@@ -947,36 +958,56 @@ var app = new Vue({
 	    "workflow_states": [
 	        {
 	            "id": "n517c182f855849bab13434d8381c9c61",
-	            "name": "Example Lambda",
+	            "name": "First S3 Write",
 	            "language": "python2.7",
-	            "code": "\n\"\"\"\nEmbedded magic\n\nRefinery memory:\n\tConfig memory: cmemory.get( \"api_key\" )\n\tGlobal memory: gmemory.get( \"example\" )\n\tForce no-namespace: gmemory.get( \"example\", raw=True )\n\nSQS message body:\n\tFirst message: sqs_data = json.loads( lambda_input[ \"Records\" ][0][ \"body\" ] )\n\"\"\"\n\ndef main( lambda_input, context ):\n    return False\n",
+	            "libraries": [
+	                "boto3"
+	            ],
+	            "code": "import boto3\nimport time\n\ndef main( lambda_input, context ):\n    s3 = boto3.resource( \"s3\" )\n    s3_object = s3.Object(\n        \"lambdatestbucketpewpew\",\n        \"first_\" + str( int( time.time() ) )\n    )\n    s3_object.put(\n        Body=\"pewpew\"\n    )",
 	            "memory": 128,
-	            "libraries": [],
 	            "max_execution_time": 60,
 	            "type": "lambda"
 	        },
 	        {
-	            "id": "n91b2f92f52ef43febe9ca6ad2b558db9",
-	            "name": "Other Lambda",
-	            "language": "python2.7",
-	            "code": "\n\"\"\"\nEmbedded magic\n\nRefinery memory:\n\tConfig memory: cmemory.get( \"api_key\" )\n\tGlobal memory: gmemory.get( \"example\" )\n\tForce no-namespace: gmemory.get( \"example\", raw=True )\n\nSQS message body:\n\tFirst message: sqs_data = json.loads( lambda_input[ \"Records\" ][0][ \"body\" ] )\n\"\"\"\n\ndef main( lambda_input, context ):\n    return False\n",
-	            "memory": 128,
-	            "libraries": [],
-	            "max_execution_time": 60,
-	            "type": "lambda"
+	            "id": "n77c572c331f349e29e8f1bcbbcd3bd5b",
+	            "name": "Test Timer",
+	            "type": "schedule_trigger",
+	            "schedule_expression": "rate(1 minute)",
+	            "description": "Example scheduled rule description.",
+	            "unformatted_input_data": "{}",
+	            "input_dict": {}
 	        },
 	        {
-	            "id": "nacb8bf2106884807bea34b638f47ab56",
-	            "name": "Third Lambda",
+	            "id": "nba89a05e2e9f4a508c7999c3bff49efe",
+	            "name": "Second S3 Write",
 	            "language": "python2.7",
-	            "code": "\n\"\"\"\nEmbedded magic\n\nRefinery memory:\n\tConfig memory: cmemory.get( \"api_key\" )\n\tGlobal memory: gmemory.get( \"example\" )\n\tForce no-namespace: gmemory.get( \"example\", raw=True )\n\nSQS message body:\n\tFirst message: sqs_data = json.loads( lambda_input[ \"Records\" ][0][ \"body\" ] )\n\"\"\"\n\ndef main( lambda_input, context ):\n    return False\n",
+	            "libraries": [
+	                "boto3"
+	            ],
+	            "code": "import boto3\nimport time\n\ndef main( lambda_input, context ):\n    s3 = boto3.resource( \"s3\" )\n    s3_object = s3.Object(\n        \"lambdatestbucketpewpew\",\n        \"second_\" + str( int( time.time() ) )\n    )\n    s3_object.put(\n        Body=\"pewpew\"\n    )",
 	            "memory": 128,
-	            "libraries": [],
 	            "max_execution_time": 60,
 	            "type": "lambda"
 	        }
 	    ],
-	    "workflow_relationships": [],
+	    "workflow_relationships": [
+	        {
+	            "id": "n1f634b4a1f4f48568cfb287a4beb9bb9",
+	            "name": "then",
+	            "type": "then",
+	            "expression": "",
+	            "node": "n77c572c331f349e29e8f1bcbbcd3bd5b",
+	            "next": "n517c182f855849bab13434d8381c9c61"
+	        },
+	        {
+	            "id": "nacd55a64d8414086b88f7dd624d18a87",
+	            "name": "then",
+	            "type": "then",
+	            "expression": "",
+	            "node": "n77c572c331f349e29e8f1bcbbcd3bd5b",
+	            "next": "nba89a05e2e9f4a508c7999c3bff49efe"
+	        }
+	    ],
 	    available_transition_types: [
 	    	"then",
 	    	"if",
@@ -1053,6 +1084,12 @@ var app = new Vue({
         saved_function_search_results: [],
         // Search term for saved function search
         saved_function_search_query: "",
+        
+        // Whether the infrastructure is still being deployed.
+        deploying_infrastructure: false,
+        
+        // Time taken to deploy infrastructure
+        deploy_infrastructure_time: 0,
         
         // Refinery ATC
         atc: {
@@ -1145,17 +1182,22 @@ var app = new Vue({
 		},
 		selected_transition_start_node: function() {
 			if( app.selected_node_data ) {
-				return app.selected_node_data.name;
+				return app.selected_node_data;
 			}
 			var transition_data = get_state_transition_by_id( app.selected_transition );
 			var origin_node_data = get_node_data_by_id( transition_data.node );
-			return origin_node_data.name;
+			return origin_node_data;
 		},
 		valid_transition_paths: function() {
 			var valid_paths = [];
+			var start_node_id = app.selected_node_data.id;
+			
+			if( !start_node_id ) {
+				start_node_id = app.selected_transition_data.node;
+			}
 
 			app.workflow_states.map(function( workflow_state ) {
-				if( app.is_valid_transition_path( app.selected_node_data.id, workflow_state.id ) ) {
+				if( app.is_valid_transition_path( start_node_id, workflow_state.id ) ) {
 					valid_paths.push( workflow_state );
 				}
 			});
@@ -1164,6 +1206,39 @@ var app = new Vue({
 		}
 	},
 	methods: {
+		deploy_infrastructure: async function() {
+			// Set that we're deploying the infrastructure
+			app.deploying_infrastructure = true;
+			
+			// Reset deployment timer
+			app.deploy_infrastructure_time = 0;
+			
+			// Start timer for deployment
+			var start_time = Date.now();
+			
+			$( "#deploydiagram_output" ).modal(
+				"show"
+			);
+			
+			var results = await deploy_infrastructure(
+				get_project_json()
+			);
+			
+			console.log( "Infrastructure deployment result: " );
+			console.log(
+				JSON.stringify(
+					results,
+					false,
+					4
+				)
+			);
+			
+			var delta = Date.now() - start_time;
+			app.deploy_infrastructure_time = ( delta / 1000 );
+			
+			// Mark that we're done
+			app.deploying_infrastructure = false;
+		},
 		is_valid_transition_path: function( first_node_id, second_node_id ) {
 			var valid_type_transitions = [
 				{
@@ -1666,19 +1741,19 @@ def example( parameter ):
 				// "then", "if", "else", "exception"
 				"type": "then",
 				"expression": "",
-				"node": "",
+				"node": app.selected_node,
 				"next": false,
 			}
-			
-			Vue.set( app, "state_transition_conditional_data", default_state_transition_conditional_data );
 			
 			var potential_next_pages = app.workflow_states.filter(function( workflow_state ) {
 				return ( workflow_state.id !== app.selected_node );
 			});
 			
 			if( potential_next_pages.length > 0 ) {
-				app.state_transition_conditional_data.next = potential_next_pages[0].id;
+				default_state_transition_conditional_data.next = potential_next_pages[0].id;
 			}
+			
+			Vue.set( app, "state_transition_conditional_data", default_state_transition_conditional_data );
 			
 			app.navigate_page( "add-state-transition" );
 		},
