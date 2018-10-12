@@ -8,7 +8,7 @@ Lambda Baking is the process of adding in additional functionality to a deployed
 	* Set up "Runtime Memory" methods
 	* Set up "Config Memory" methods
 * Set up Lambda input data
-	* Resolve indirect input data if it's not self-contained in Lambda payload body (done if return data size is >5MB)
+	* Resolve indirect input data if it's not self-contained in Lambda payload body
 		* Redis is a possible storage location (depending on pipeline config)
 		* S3 is a possible storage location (depending on pipeline config)
 	* Convert return data from JSON or MessagePack into native language data types

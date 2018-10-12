@@ -18,6 +18,14 @@ SQS message body:
 def main( lambda_input, context ):
     return False
 `,
+	"nodejs8.10": `
+/*
+ * Embedded magic
+ */
+async function main( lambda_input, context ) {
+	return false;
+}
+`
 }
 
 var GRAPH_ICONS_ARRAY = [
@@ -220,9 +228,9 @@ function get_lambda_data() {
 	return_data[ "id" ] = get_random_node_id();
 	return_data[ "name" ] = app.lambda_name;
 	return_data[ "language" ] = app.lambda_language;
-	return_data[ "code" ] = app.codecontent;
+	return_data[ "code" ] = app.lambda_code;
 	return_data[ "memory" ] = app.lambda_memory;
-	return_data[ "libraries" ] = app.code_imports;
+	return_data[ "libraries" ] = app.lambda_libraries;
 	return_data[ "max_execution_time" ] = app.lambda_max_execution_time;
 	return_data[ "type" ] = "lambda";
 	return return_data
@@ -343,9 +351,6 @@ function build_dot_graph() {
 		new_dot_line += attributes_array.join( ", " );
 		new_dot_line += " ];\n";
 		
-		console.log( "New dot line: " );
-		console.log( new_dot_line );
-		
 		dot_contents += new_dot_line;
 	});
 	
@@ -439,12 +444,11 @@ function select_node( node_id ) {
 		reset_current_lambda_state_to_defaults();
 		app.lambda_name = selected_node_data.name;
 		app.lambda_language = selected_node_data.language;
-		app.unformatted_code_imports = selected_node_data.libraries.join( "\n" );
-		app.code_imports = selected_node_data.libraries;
-		app.codecontent = selected_node_data.code;
+		app.unformatted_libraries = selected_node_data.libraries.join( "\n" );
+		app.lambda_code = selected_node_data.code;
 		app.lambda_memory = selected_node_data.memory;
 		app.lambda_max_execution_time = selected_node_data.max_execution_time;
-		app.navigate_page("modify-lambda");
+		app.navigate_page( "modify-lambda" );
 	} else if( selected_node_data.type == "sqs_queue" ) {
 		reset_current_sqs_queue_state_to_defaults();
 	    var sqs_trigger_data = {
@@ -530,9 +534,9 @@ function reset_current_sqs_queue_state_to_defaults() {
 function reset_current_lambda_state_to_defaults() {
 	app.lambda_name = "";
 	app.lambda_language = "python2.7";
-	app.code_imports = [];
-	app.unformatted_code_imports = "";
-	app.codecontent = DEFAULT_LAMBDA_CODE[ "python2.7" ];
+	//app.lambda_libraries = [];
+	app.unformatted_libraries = "";
+	app.lambda_code = DEFAULT_LAMBDA_CODE[ "python2.7" ];
 }
 
 function get_project_json() {
@@ -852,47 +856,55 @@ function atc_api_request( method, endpoint, body ) {
 }
 
 ace.config.set( "basePath", "./js/" );
-Vue.component('Editor', {
-  template: '<div :id="editorId" style="width: 100%; height: 100%;"></div>',
-  props: ['editorId', 'content', 'lang', 'theme'],
-  data () {
-    return {
-      editor: Object,
-      beforeContent: ''
-    }
-  },
-  watch: {
-    'content' (value) {
-    	if (this.beforeContent !== value) {
-      	this.editor.setValue(value, 1)
-      }
-    }
-  },
-  mounted () {
-  	const lang = this.lang || 'python'
-    const theme = this.theme || 'monokai'
-  
-	this.editor = window.ace.edit(this.editorId)
-    this.editor.setValue(this.content, 1)
-    
-    this.editor.getSession().setMode(`ace/mode/${lang}`)
-    this.editor.setTheme(`ace/theme/${theme}`)
+Vue.component( "Editor", {
+    template: '<div :id="editorId" style="width: 100%; height: 100%;"></div>',
+    props: ['editorId', 'content', 'lang', 'theme'],
+    data() {
+        return {
+            editor: Object,
+            beforeContent: false,
+        }
+    },
+    watch: {
+        "content" (value) {
+        	if( value !== this.beforeContent ) {
+        		this.editor.setValue( value, 1 );
+        	}
+        },
+        "lang" (lang) {
+            this.editor.getSession().setMode({
+                path: `ace/mode/${lang}`,
+                v: Date.now()
+            });
+        }
+    },
+    mounted() {
+        var lang = this.lang || 'python'
+        var theme = this.theme || 'monokai'
 
-    this.editor.on('change', () => {
-    	this.beforeContent = this.editor.getValue()
-      this.$emit(
-      	'change-content',
-    	this.editor.getValue()
-      )
-      this.$emit(
-      	'change-content-context',
-    	{
-    		"value": this.editor.getValue(),
-    		"this": this
-    	}
-      )
-    })
-  }
+        this.editor = window.ace.edit(this.editorId)
+        this.editor.setValue(this.content, 1)
+
+        this.editor.getSession().setMode({
+            path: `ace/mode/${lang}`,
+            v: Date.now()
+        });
+        this.editor.setTheme(`ace/theme/${theme}`)
+
+        this.editor.on('change', () => {
+        	this.beforeContent = this.editor.getValue();
+            this.$emit(
+                'change-content',
+                this.editor.getValue()
+            )
+            this.$emit(
+                'change-content-context', {
+                    "value": this.editor.getValue(),
+                    "this": this
+                }
+            )
+        })
+    }
 })
 
 /*
@@ -958,33 +970,22 @@ var app = new Vue({
 	    "workflow_states": [
 	        {
 	            "id": "n517c182f855849bab13434d8381c9c61",
-	            "name": "First S3 Write",
+	            "name": "Return Some Data",
 	            "language": "python2.7",
-	            "libraries": [
-	                "boto3"
-	            ],
-	            "code": "import boto3\nimport time\n\ndef main( lambda_input, context ):\n    s3 = boto3.resource( \"s3\" )\n    s3_object = s3.Object(\n        \"lambdatestbucketpewpew\",\n        \"first_\" + str( int( time.time() ) )\n    )\n    s3_object.put(\n        Body=\"pewpew\"\n    )",
+	            "libraries": [],
+	            "code": "def main( lambda_input, context ):\n    return {\n        \"test\": \"worked!\"\n    }\n",
 	            "memory": 128,
 	            "max_execution_time": 60,
 	            "type": "lambda"
 	        },
 	        {
-	            "id": "n77c572c331f349e29e8f1bcbbcd3bd5b",
-	            "name": "Test Timer",
-	            "type": "schedule_trigger",
-	            "schedule_expression": "rate(1 minute)",
-	            "description": "Example scheduled rule description.",
-	            "unformatted_input_data": "{}",
-	            "input_dict": {}
-	        },
-	        {
-	            "id": "nba89a05e2e9f4a508c7999c3bff49efe",
-	            "name": "Second S3 Write",
+	            "id": "n9264e4fe12dc44b5a2e41e811e39ad2c",
+	            "name": "Write Return to S3",
 	            "language": "python2.7",
 	            "libraries": [
 	                "boto3"
 	            ],
-	            "code": "import boto3\nimport time\n\ndef main( lambda_input, context ):\n    s3 = boto3.resource( \"s3\" )\n    s3_object = s3.Object(\n        \"lambdatestbucketpewpew\",\n        \"second_\" + str( int( time.time() ) )\n    )\n    s3_object.put(\n        Body=\"pewpew\"\n    )",
+	            "code": "import boto3\nimport json\n\ndef main( lambda_input, context ):\n    write_to_s3(\n        \"lambdatestbucketpewpew\",\n        \"output\",\n        json.dumps( lambda_input )\n    )\n    return True\n\n# Store in S3 \ndef write_to_s3( bucket_name, object_key, body ):\n\timport boto3\n\ts3_client = boto3.client( \"s3\" )\n\tresult = s3_client.put_object(\n\t\tBucket=bucket_name,\n\t\tKey=object_key,\n\t\tBody=body\n\t)\n\treturn result",
 	            "memory": 128,
 	            "max_execution_time": 60,
 	            "type": "lambda"
@@ -992,21 +993,21 @@ var app = new Vue({
 	    ],
 	    "workflow_relationships": [
 	        {
-	            "id": "n1f634b4a1f4f48568cfb287a4beb9bb9",
-	            "name": "then",
-	            "type": "then",
-	            "expression": "",
-	            "node": "n77c572c331f349e29e8f1bcbbcd3bd5b",
-	            "next": "n517c182f855849bab13434d8381c9c61"
-	        },
-	        {
-	            "id": "nacd55a64d8414086b88f7dd624d18a87",
-	            "name": "then",
-	            "type": "then",
-	            "expression": "",
-	            "node": "n77c572c331f349e29e8f1bcbbcd3bd5b",
-	            "next": "nba89a05e2e9f4a508c7999c3bff49efe"
+	            "id": "n047f72ec029c49739a62e566eb164625",
+	            "name": "if True",
+	            "type": "if",
+	            "expression": "True",
+	            "node": "n517c182f855849bab13434d8381c9c61",
+	            "next": "n9264e4fe12dc44b5a2e41e811e39ad2c"
 	        }
+	    ],
+	    ace_language_to_lang_id_map: {
+	    	"python2.7": "python",
+	    	"nodejs8.10": "javascript"
+	    },
+	    node_types_with_simple_transitions: [
+	    	"schedule_trigger",
+	    	"sqs_queue"
 	    ],
 	    available_transition_types: [
 	    	"then",
@@ -1030,10 +1031,10 @@ var app = new Vue({
 		// Currently selected lambda language
 		lambda_language: "python2.7",
 		// Currently selected lambda imports
-		unformatted_code_imports: "",
-		code_imports: [],
+		unformatted_libraries: "",
+		// lambda_libraries: [], This is now computed!
 		// Currently selected lambda code
-        codecontent: "",
+        lambda_code: "",
         // Currently selected lambda max memory
         lambda_memory: 128,
         // Currently selected lambda max runtime
@@ -1135,9 +1136,6 @@ var app = new Vue({
 		saved_function_search_query: function( value, previous_value ) {
 			app.search_saved_functions( value );
 		},
-		code_imports: function( value, previous_value ) {
-			app.unformatted_code_imports = app.code_imports.join( "\n" );
-		},
 		"atc.queue_loader.options.method_data.expression": function( value, previous_value ) {
 			if( value.toLocaleLowerCase() === "immediate" ) {
 				app.atc.queue_loader.options.method_type = "immediate";
@@ -1174,6 +1172,17 @@ var app = new Vue({
 		}
 	},
 	computed: {
+		lambda_libraries: {
+			cache: false,
+			get() {
+				var new_value = app.unformatted_libraries.trim();
+				if( new_value == "" ) {
+					return [];
+				}
+				
+				return new_value.split( "\n" );
+			}
+		},
 		selected_node_data: function() {
 			return get_node_data_by_id( app.selected_node );
 		},
@@ -1206,6 +1215,10 @@ var app = new Vue({
 		}
 	},
 	methods: {
+		lambda_language_manual_change: function() {
+			app.unformatted_libraries = "";
+			app.lambda_code = DEFAULT_LAMBDA_CODE[ app.lambda_language ];
+		},
 		deploy_infrastructure: async function() {
 			// Set that we're deploying the infrastructure
 			app.deploying_infrastructure = true;
@@ -1515,15 +1528,15 @@ var app = new Vue({
 		},
 		merge_saved_function: function() {
 			for( var i = 0; i < app.saved_function_data.libraries.length; i++ ) {
-				if( app.code_imports.indexOf( app.saved_function_data.libraries[i] ) === -1 ) {
-					app.code_imports.push(
+				if( app.lambda_libraries.indexOf( app.saved_function_data.libraries[i] ) === -1 ) {
+					app.lambda_libraries.push(
 						app.saved_function_data.libraries[i]
 					);
 				}
 			}
 			
 			if( app.saved_function_data.language == "python2.7" ) {
-				app.codecontent += "\n# " + app.saved_function_data.name + " \n" + app.saved_function_data.code.trim() + "\n";
+				app.lambda_code += "\n# " + app.saved_function_data.name + " \n" + app.saved_function_data.code.trim() + "\n";
 			}
 		},
 		saved_function_libraries_changed: function( val ) {
@@ -1664,9 +1677,14 @@ def example( parameter ):
 				"show"
 			);
 		},
-		codecontent_change: function( val ) {
-			if ( app.codecontent !== val ) {
-				app.codecontent = val;
+		lambda_libraries_change: function( val ) {
+			if( app.unformatted_libraries !== val ) {
+				app.unformatted_libraries = val;
+			}
+		},
+		lambda_code_change: function( val ) {
+			if ( app.lambda_code !== val ) {
+				app.lambda_code = val;
 			}
 		},
 		conditional_data_expression_change: function( val ) {
@@ -1691,17 +1709,6 @@ def example( parameter ):
 		project_export_data_change: function( val ) {
 			// Stub
 		},
-		code_imports_change: function ( val ) {
-			if( app.unformatted_code_imports !== val ) {
-				val = val.replace( /import /g, "" );
-				app.unformatted_code_imports = val.trim();
-				if( app.unformatted_code_imports == "" ) {
-					app.code_imports = [];
-				} else {
-					app.code_imports = app.unformatted_code_imports.split( "\n" );
-				}
-			}
-		},
 		run_tmp_lambda: function() {
 			// Clear previous result
 			app.lambda_exec_result = false;
@@ -1716,8 +1723,8 @@ def example( parameter ):
 			
 			run_tmp_lambda(
 				app.lambda_language,
-				app.codecontent,
-				app.code_imports,
+				app.lambda_code,
+				app.lambda_libraries,
 				app.lambda_memory,
 				app.lambda_max_execution_time
 			).then(function( results ) {
@@ -1802,8 +1809,8 @@ def example( parameter ):
 				"id": app.selected_node,
 				"name": app.lambda_name,
 				"language": app.lambda_language,
-				"libraries": app.code_imports,
-				"code": app.codecontent,
+				"libraries": app.lambda_libraries,
+				"code": app.lambda_code,
 				"memory": app.lambda_memory,
 				"max_execution_time": app.lambda_max_execution_time,
 				"type": "lambda",

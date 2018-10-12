@@ -7,10 +7,12 @@ Allows for single-millisecond retrieval and setting
 of data in the main redis memory cache.
 """
 import os
+import uuid
 import json
 import time
 import redis
 import pickle
+import traceback
 
 # TODO only initialize connection when used.
 class Refinery_Memory:
@@ -155,6 +157,39 @@ class Refinery_Memory:
 			namespace + key,
 			seconds
 		)
+		
+	def _get_input_data_from_redis( self, key, **kwargs ):
+		if not self.redis_client:
+			self.connect()
+			
+		namespace = self._get_namespace( kwargs )
+		pipeline = self.redis_client.pipeline()
+		pipeline.get( key )
+		pipeline.delete( key )
+		returned_data = pipeline.execute()
+		
+		try:
+			return json.loads( returned_data[ 0 ] )
+		except:
+			pass
+		
+		return returned_data[ 0 ]
+		
+	def _store_return_data_to_redis( self, return_data, **kwargs ):
+		if not self.redis_client:
+			self.connect()
+			
+		new_key = str( uuid.uuid4() )
+			
+		self.redis_client.setex(
+			new_key,
+			( 60 * 5 ),
+			json.dumps(
+				return_data
+			)
+		)
+		
+		return new_key
 
 def _init( lambda_input, context ):
 	global cmemory
@@ -172,4 +207,37 @@ def _init( lambda_input, context ):
 		context.function_name
 	)
 	
-	return main( lambda_input, context )
+	transition_data = json.loads( "{{TRANSITION_DATA_REPLACE_ME}}" )
+	
+	return_key = gmemory._store_return_data_to_redis({
+		"pew": "pew",
+		"kew": "ok"
+	})
+	
+	return gmemory._get_input_data_from_redis(
+		return_key
+	)
+	
+	#result = main( lambda_input, context )
+	
+	return {
+		"_refinery": {
+			"indirect": false,
+			"input_data": {
+				"": ""
+			}
+		}
+	}
+	
+	"""
+	_lambda_client = boto3.client( "" )
+	
+	response = client.invoke(
+	    FunctionName='string',
+	    InvocationType='Event'|'RequestResponse'|'DryRun',
+	    LogType='None'|'Tail',
+	    ClientContext='string',
+	    Payload=b'bytes'|file,
+	    Qualifier='string'
+	)
+	"""

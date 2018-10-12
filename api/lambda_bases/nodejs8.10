@@ -1,0 +1,3 @@
+exports._init = async function( lambda_input, context ) {
+	return await main( lambda_input, context );
+}

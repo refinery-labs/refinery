@@ -88,6 +88,7 @@
 		                	<label>Language</label>
 							<select class="custom-select" v-model="saved_function_data.language">
 								<option value="python2.7" selected>python2.7</option>
+								<option value="nodejs8.10">Node v8.10.0 (LTS)</option>
 							</select>
 							<small id="new_lambda_language_select_input_help" class="form-text text-muted">Language of saved function.</small>
 						</div>
@@ -187,6 +188,7 @@
 		                	<label>Language</label>
 							<select class="custom-select" v-model="saved_function_data.language">
 								<option value="python2.7" selected>python2.7</option>
+								<option value="nodejs8.10">Node v8.10.0 (LTS)</option>
 							</select>
 							<small id="new_lambda_language_select_input_help" class="form-text text-muted">Language of saved function.</small>
 						</div>
@@ -306,7 +308,7 @@
 		            </div>
 		            <div class="modal-body">
 						<div style="height: 750px">
-							<editor editor-id="codecontent_large" theme="monokai" lang="python" :content="codecontent" v-on:change-content="codecontent_change"></editor>
+							<editor editor-id="lambda_code_large" theme="monokai" v-bind:lang="ace_language_to_lang_id_map[lambda_language]" :content="lambda_code" v-on:change-content="lambda_code_change"></editor>
 						</div>
 		            </div>
 		            <div class="modal-footer">
@@ -439,10 +441,6 @@
 							<a class="dropdown-item" href="#" v-on:click="add_lambda_node">Lambda</a>
 							<a class="dropdown-item" href="#" v-on:click="add_sqs_node">SQS Queue Trigger</a>
 							<a class="dropdown-item" href="#" v-on:click="add_timer_trigger_node">Time Trigger</a>
-							<!--
-							<div class="dropdown-divider"></div>
-							<a class="dropdown-item" href="#">Separated link</a>
-							-->
 						</div>
 					</div>
 			    	<button type="button" class="btn btn-primary" v-on:click="view_add_function_modal" style="margin-right: 5px;">Add Function</button>
@@ -478,8 +476,11 @@
 					</div>
 					<div class="form-group">
 						<label>Transition Type</label>
-						<select class="form-control" v-model="state_transition_conditional_data.type">
+						<select class="form-control" v-model="state_transition_conditional_data.type" v-if="!node_types_with_simple_transitions.includes(selected_node_data.type)">
 							<option v-for="transition_type in available_transition_types" v-bind:value="transition_type">{{transition_type}}</option>
+						</select>
+						<select class="form-control" v-model="state_transition_conditional_data.type" v-if="node_types_with_simple_transitions.includes(selected_node_data.type)">
+							<option value="then">then</option>
 						</select>
 						<small class="form-text text-muted">Type of transition (e.g. <code>if</code> for conditional, <code>then</code> for regular transition).</small>
 					</div>
@@ -534,7 +535,7 @@
 				<div class="form-group">
 					<label>Input Data</label>
 					<div style="height: 100px">
-						<editor editor-id="sfn_input_data" theme="monokai" lang="python" :content="scheduled_trigger_data.unformatted_input_data" v-on:change-content="sfn_input_data_change"></editor>
+						<editor editor-id="sfn_input_data" theme="monokai" lang="python" :content="scheduled_trigger_data.unformatted_input_data"></editor>
 					</div>
 					<small class="form-text text-muted">Input data for the target being triggered.</small>
 				</div>
@@ -597,22 +598,23 @@
                 </div>
                 <div class="form-group">
                 	<label for="new_lambda_language_select_input">Language</label>
-					<select class="custom-select" v-model="lambda_language" aria-describedby="new_lambda_language_select_input_help">
+					<select class="custom-select" v-model="lambda_language" @change="lambda_language_manual_change" aria-describedby="new_lambda_language_select_input_help">
 						<option value="python2.7">python2.7</option>
+						<option value="nodejs8.10">Node v8.10.0 (LTS)</option>
 					</select>
 					<small id="new_lambda_language_select_input_help" class="form-text text-muted">Language of lambda function.</small>
 				</div>
 				<div class="form-group">
 					<label>Import(s)</label>
 					<div style="height: 100px">
-						<editor editor-id="unformatted_code_imports" theme="monokai" lang="python" :content="unformatted_code_imports" v-on:change-content="code_imports_change"></editor>
+						<editor editor-id="unformatted_libraries" theme="monokai" lang="python" :content="unformatted_libraries" v-on:change-content="lambda_libraries_change"></editor>
 					</div>
 					<small class="form-text text-muted">Dependencies for the lambda code.</small>
 				</div>
 				<div class="form-group">
 					<label>Code</label>
 					<div style="height: 100px">
-						<editor editor-id="codecontent" theme="monokai" lang="python" :content="codecontent" v-on:change-content="codecontent_change"></editor>
+						<editor editor-id="lambda_code" theme="monokai" v-bind:lang="ace_language_to_lang_id_map[lambda_language]" :content="lambda_code" v-on:change-content="lambda_code_change"></editor>
 					</div>
 					<div style="text-align: right">
 						<button type="button" style="width: 100%" class="btn btn-sm btn-secondary" v-on:click="fullscreen_lambda_editor">View Fullscreen</button>

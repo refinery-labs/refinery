@@ -57,20 +57,29 @@ with open( "config.yaml", "r" ) as file_handler:
         os.environ[ key ] = str( value )
 
 def on_start():
-	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES
+	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES
 	LAMDBA_BASE_CODES = {}
 	LAMBDA_BASE_LIBRARIES = {
 		"python2.7": [
 			"redis"
 		],
+		"nodejs8.10": [
+			"redis",
+		]
 	}
 	
-	# Load Lambda base templates
-	with open( "./lambda_bases/python.py", "r" ) as file_handler:
-		LAMDBA_BASE_CODES[ "python2.7" ] = file_handler.read().replace(
-			"{{REDIS_PASSWORD_REPLACE_ME}}",
-			os.environ.get( "lambda_redis_password" )
-		)
+	LAMBDA_SUPPORTED_LANGUAGES = [
+		"python2.7",
+		"nodejs8.10",
+	]
+	
+	for language_name, libraries in LAMBDA_BASE_LIBRARIES.iteritems():
+		# Load Lambda base templates
+		with open( "./lambda_bases/" + language_name, "r" ) as file_handler:
+			LAMDBA_BASE_CODES[ language_name ] = file_handler.read().replace(
+				"{{REDIS_PASSWORD_REPLACE_ME}}",
+				os.environ.get( "lambda_redis_password" )
+			)
         
 S3_CLIENT = boto3.client(
     "s3",
@@ -305,11 +314,11 @@ class TaskSpawner(object):
 			return response
 			
 		@run_on_executor
-		def deploy_aws_lambda( self, func_name, description, role_name, zip_data, timeout, memory, vpc_config, env_dict, tags_dict ):
-			return TaskSpawner._deploy_aws_lambda( func_name, description, role_name, zip_data, timeout, memory, vpc_config, env_dict, tags_dict )
+		def deploy_aws_lambda( self, func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, env_dict, tags_dict ):
+			return TaskSpawner._deploy_aws_lambda( func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, env_dict, tags_dict )
 
 		@staticmethod
-		def _deploy_aws_lambda( func_name, description, role_name, zip_data, timeout, memory, vpc_config, env_dict, tags_dict ):
+		def _deploy_aws_lambda( func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, env_dict, tags_dict ):
 			"""
 			Deploy an AWS Lambda and get it's reference ARN for use
 			in later creating an AWS Step Function (SFN)
@@ -318,7 +327,7 @@ class TaskSpawner(object):
 				# https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#Lambda.Client.create_function
 				response = LAMBDA_CLIENT.create_function(
 					FunctionName=func_name,
-					Runtime="python2.7",
+					Runtime=language,
 					Role=role_name,
 					Handler="lambda._init",
 					Code={
@@ -346,6 +355,7 @@ class TaskSpawner(object):
 					# Now create it since we're clear
 					return TaskSpawner._deploy_aws_lambda(
 						func_name,
+						language,
 						description,
 						role_name,
 						zip_data,
@@ -362,11 +372,11 @@ class TaskSpawner(object):
 			return response
 			
 		@staticmethod
-		def get_lambda_base_zip( libraries ):
+		def get_python27_lambda_base_zip( libraries ):
 			# Check if we have a cache .zip ready to go
 			libraries.sort()
 			hash_key = hashlib.sha256(
-				json.dumps(
+				"python2.7" + json.dumps(
 					libraries
 				)
 			).hexdigest()
@@ -480,13 +490,172 @@ class TaskSpawner(object):
 			return_zip = DEPENDENCY_CACHE[ hash_key ][:]
 			
 			return return_zip
+			
+		@staticmethod
+		def get_nodejs_810_base_zip( libraries ):
+			# Check if we have a cache .zip ready to go
+			libraries.sort()
+			hash_key = hashlib.sha256(
+				"nodejs8.10" + json.dumps(
+					libraries
+				)
+			).hexdigest()
+			
+			# If we have it, return it for use
+			if hash_key in DEPENDENCY_CACHE:
+				return_zip = DEPENDENCY_CACHE[ hash_key ][:]
+				return return_zip
+				
+			package_json_template = {
+				"name": "refinery-lambda",
+				"version": "1.0.0",
+				"description": "Lambda created by Refinery",
+				"main": "main.js",
+				"dependencies": {},
+				"devDependencies": {},
+				"scripts": {
+					"test": "echo \"Error: no test specified\" && exit 1",
+					"start": "node server.js"
+				}
+			}
+			
+			# Set up dependencies
+			for library in libraries:
+				if " " in library:
+					library_parts = library.split( " " )
+					package_json_template[ "dependencies" ][ library_parts[0] ] = library_parts[1]
+				else:
+					package_json_template[ "dependencies" ][ library ] = "*"
+
+			build_directory = "/tmp/" + str( uuid.uuid4() ) + "/"
+			build_directory_package_json_path = build_directory + "package.json"
+
+			# Create directory to build lambda in
+			os.mkdir(
+				build_directory
+			)
+			
+			# Write package.json
+			with open( build_directory_package_json_path, "w" ) as file_handler:
+				file_handler.write(
+					json.dumps(
+						package_json_template,
+						False,
+						4
+					)
+				)
+			
+			# Use npm to create node_modules from package.json
+			npm_process = subprocess.Popen(
+				"/usr/bin/npm install package.json",
+				shell=True,
+				stdout=subprocess.PIPE,
+				stderr=subprocess.PIPE,
+				cwd=build_directory
+			)
+			stdout, stderr = npm_process.communicate()
+			
+			# Zip filename
+			zip_filename = "/tmp/" + str( uuid.uuid4() ) + ".zip"
+			
+			# Create .zip file
+			zip_command = "/usr/bin/zip -r " + zip_filename + " *"
+			
+			zip_process = subprocess.Popen(
+				zip_command,
+				shell=True,
+				stdout=subprocess.PIPE,
+				stderr=subprocess.PIPE,
+				cwd=build_directory
+			)
+			stdout, stderr = zip_process.communicate()
+			
+			# Clean up build directory
+			shutil.rmtree( build_directory )
+			
+			# Zip bytes
+			zip_data = False
+			
+			# Read zip bytes from disk
+			with open( zip_filename, "rb" ) as file_handler:
+				zip_data = file_handler.read()
+
+			# Delete zip file now that we've read it
+			os.remove( zip_filename )
+			
+			# Cache this result in memory for future use
+			DEPENDENCY_CACHE[ hash_key ] = zip_data
+			
+			# Copy the cache data and return it
+			return_zip = DEPENDENCY_CACHE[ hash_key ][:]
+			
+			return return_zip
+			
+		@staticmethod
+		def _build_nodejs_810_lambda( code, libraries ):
+			"""
+			Build Lambda package zip and return zip data
+			"""
+			
+			"""
+			Inject base libraries (e.g. redis) into lambda
+			and the init code.
+			"""
+			
+			print( "Building node 8.10 lambda..." )
+			
+			code = LAMDBA_BASE_CODES[ "nodejs8.10" ] + "\n\n" + code
+			
+			# Append required libraries if not already required
+			for init_library in LAMBDA_BASE_LIBRARIES[ "nodejs8.10" ]:
+				if not init_library in libraries:
+					libraries.append(
+						init_library
+					)
+			
+			base_zip_data = TaskSpawner.get_nodejs_810_base_zip(
+				libraries
+			)
+			
+			tmp_zip_file = "/tmp/" + str( uuid.uuid4() ) + ".zip"
+			
+			with open( tmp_zip_file, "w" ) as file_handler:
+				file_handler.write(
+					base_zip_data
+				)
+				
+			with zipfile.ZipFile( tmp_zip_file, "a" ) as zip_file_handler:
+				info = zipfile.ZipInfo(
+					"lambda.js"
+				)
+				info.external_attr = 0777 << 16L
+				
+				# Write lambda.py into new .zip
+				zip_file_handler.writestr(
+					info,
+					code
+				)
+				
+			with open( tmp_zip_file, "rb" ) as file_handler:
+				zip_data = file_handler.read()
+			
+			# Delete zip file now that we've read it
+			os.remove( tmp_zip_file )
+			
+			return zip_data
 
 		@run_on_executor
-		def build_lambda( self, code, libraries ):
-			return TaskSpawner._build_lambda( code, libraries )
+		def build_lambda( self, language, code, libraries ):
+			if not ( language in LAMBDA_SUPPORTED_LANGUAGES ):
+				raise "Error, this language is not yet supported by refinery!"
+			
+			if language == "python2.7":
+				return TaskSpawner._build_python_lambda( code, libraries )
+			elif language == "nodejs8.10":
+				return TaskSpawner._build_nodejs_810_lambda( code, libraries )
 		
 		@staticmethod
-		def _build_lambda( code, libraries ):
+		def _build_python_lambda( code, libraries ):
 			"""
 			Build Lambda package zip and return zip data
 			"""
@@ -512,7 +681,7 @@ class TaskSpawner(object):
 						init_library
 					)
 			
-			base_zip_data = TaskSpawner.get_lambda_base_zip(
+			base_zip_data = TaskSpawner.get_python27_lambda_base_zip(
 				libraries
 			)
 			
@@ -705,6 +874,7 @@ class DeployLambda( BaseHandler ):
 		)
 		
 		lambda_zip_package_data = yield local_tasks.build_lambda(
+			self.json[ "language" ],
 			self.json[ "code" ],
 			self.json[ "libraries" ]
 		)
@@ -713,6 +883,7 @@ class DeployLambda( BaseHandler ):
 			get_lambda_safe_name(
 				self.json[ "name" ]
 			),
+			self.json[ "language" ],
 			"AWS Lambda deployed via refinery",
 			os.environ.get( "lambda_role" ),
 			lambda_zip_package_data,
@@ -777,6 +948,7 @@ class RunTmpLambda( BaseHandler ):
 		)
 		
 		lambda_zip_package_data = yield local_tasks.build_lambda(
+			self.json[ "language" ],
 			self.json[ "code" ],
 			self.json[ "libraries" ]
 		)
@@ -785,6 +957,7 @@ class RunTmpLambda( BaseHandler ):
 		
 		deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
 			random_node_id,
+			self.json[ "language" ],
 			"AWS Lambda being inline tested.",
 			os.environ.get( "lambda_role" ),
 			lambda_zip_package_data,
@@ -966,166 +1139,6 @@ class CreateScheduleTrigger( BaseHandler ):
 			"result": {
 				"rule_arn": rule_arn,
 				"url": "https://console.aws.amazon.com/cloudwatch/home?region=" + os.environ.get( "region_name" ) + "#rules:name=" + cloudwatch_rule_name
-			}
-		})
-			
-class DeployStepFunction( BaseHandler ):
-	@gen.coroutine
-	def post( self ):
-		"""
-		Deploys a Step Function to AWS and executes it.
-		
-		Returns a link to the AWS SFN execution.
-		"""
-		self.logit(
-			"Deplying step function to AWS..."
-		)
-
-		self.logit(
-			"Building lambda package..."
-		)
-		
-		lambda_build_futures = []
-		lambda_config_datas = []
-		
-		special_nodes = [
-			"start_node",
-			"end_node"
-		]
-		
-		sfn_name = get_lambda_safe_name( self.json[ "sfn_name" ] ) + "_" + str( int(time.time()) )
-		
-		for workflow_state in self.json[ "workflow_states" ]:
-			if not workflow_state[ "id" ] in special_nodes:
-				lambda_zip_package_data = local_tasks.build_lambda(
-					workflow_state[ "code" ],
-					workflow_state[ "libraries" ],
-				)
-				
-				lambda_build_futures.append(
-					lambda_zip_package_data
-				)
-				
-				lambda_config_datas.append(
-					workflow_state
-				)
-			
-		print( "Waiting for all packages to be built..." )
-		builds_zip_data_list = yield lambda_build_futures
-		print( "Builds complete!" )
-		
-		# Combine
-		lambda_packages = []
-		for i in range( 0, len( lambda_config_datas ) ):
-			lambda_packages.append({
-				"zip": builds_zip_data_list.pop(),
-				"config": lambda_config_datas.pop()
-			})
-		
-		print( "Deploying all lambdas..." )
-		
-		deployed_lambda_futures = []
-		lambda_config_datas = []
-		
-		for lambda_package_data in lambda_packages:
-			print( "Lambda data: " )
-			pprint(
-				lambda_package_data[ "config" ]
-			)
-			
-			deployed_lambda_data = local_tasks.deploy_aws_lambda(
-				get_lambda_safe_name( lambda_package_data[ "config" ][ "name" ] ),
-				"Example of API deployment of a Lambda function.",
-				os.environ.get( "lambda_role" ),
-				lambda_package_data[ "zip" ],
-				300, # Max AWS execution time
-				lambda_package_data[ "config" ][ "memory" ], # MB of execution memory
-				{}, # VPC data
-				{},
-				{
-					"project": sfn_name
-				}
-			)
-			
-			deployed_lambda_futures.append(
-				deployed_lambda_data
-			)
-			
-			lambda_config_datas.append(
-				lambda_package_data[ "config" ]
-			)
-			
-		print( "Waiting for deployments to finish..." )
-		deployed_lambda_results = yield deployed_lambda_futures
-		print( "Deployments complete!" )
-		
-		deployed_arns_list = []
-		
-		# Combined
-		for i in range( 0, len( lambda_config_datas ) ):
-			deployed_arns_list.append({
-				"config": lambda_config_datas.pop(),
-				"deploy_result": deployed_lambda_results.pop()
-			})
-		
-		print( "Deployed ARNs: " )
-		pprint(
-			deployed_arns_list
-		)
-		
-		name_to_arn_map = {}
-		for deployed_arn_data in deployed_arns_list:
-			name_to_arn_map[ get_lambda_safe_name( deployed_arn_data[ "config" ][ "name" ] ) ] = deployed_arn_data[ "deploy_result" ][ "FunctionArn" ]
-			
-		print( "Name to ARN map: " )
-		pprint( name_to_arn_map )
-		
-		aws_step_function_data = refinery_to_aws_step_function(
-			self.json,
-			name_to_arn_map,
-		)
-		
-		print( "Step function data: " )
-		pprint(
-			aws_step_function_data
-		)
-		
-		print( "Deploying Step Function..." )
-		deployed_step_function_data = yield local_tasks.deploy_aws_step_function(
-			sfn_name,
-			aws_step_function_data,
-			os.environ.get( "sfn_role" ),
-		)
-		print( "Step function deployed!" )
-		
-		step_function_arn = deployed_step_function_data[ "stateMachineArn" ]
-		
-		print( "Executing Step Function..." )
-		executed_step_function_data = yield local_tasks.execute_aws_step_function(
-			"autoexecutionexample",
-			step_function_arn,
-			{}
-		)
-		print( "Step function executed!" )
-		print(
-			executed_step_function_data
-		)
-		
-		exection_arn = executed_step_function_data[ "executionArn" ]
-		
-		execution_status_url = "https://us-west-2.console.aws.amazon.com/states/home?region=" + os.environ.get( "region_name" ) + "#/executions/details/" + exection_arn
-		
-		print( "Execution status URL: " )
-		print(
-			execution_status_url
-		)
-		
-		self.write({
-			"success": True,
-			"result": {
-				"url": execution_status_url,
-				"sfn_arn": step_function_arn,
-				"sfn_name": sfn_name,
 			}
 		})
 		
@@ -1487,12 +1500,13 @@ class GetSQSJobTemplate( BaseHandler ):
 		})
 		
 @gen.coroutine
-def deploy_lambda( id, name, code, libraries, max_execution_time, memory ):
+def deploy_lambda( id, name, language, code, libraries, max_execution_time, memory ):
 	logit(
 		"Building '" + name + "' Lambda package..."
 	)
 	
 	lambda_zip_package_data = yield local_tasks.build_lambda(
+		language,
 		code,
 		libraries
 	)
@@ -1503,6 +1517,7 @@ def deploy_lambda( id, name, code, libraries, max_execution_time, memory ):
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
 		name,
+		language,
 		"AWS Lambda deployed via refinery",
 		os.environ.get( "lambda_role" ),
 		lambda_zip_package_data,
@@ -1523,12 +1538,12 @@ def deploy_lambda( id, name, code, libraries, max_execution_time, memory ):
 	
 def get_node_by_id( target_id, workflow_states ):
 	for workflow_state in workflow_states:
-		if workflow_states[ "id" ] == target_id:
+		if workflow_state[ "id" ] == target_id:
 			return workflow_state
 	
 	return False
 	
-def get_updated_workflow_states_list( updated_node, workflow_states ):
+def update_workflow_states_list( updated_node, workflow_states ):
 	for i in range( 0, len( workflow_states ) ):
 		if workflow_states[i][ "id" ] == updated_node[ "id" ]:
 			workflow_states[i] = updated_node
@@ -1542,6 +1557,45 @@ def deploy_diagram( diagram_data ):
 	Deploy the diagram to AWS
 	"""
 	
+	"""
+	Process workflow relationships and tag Lambda
+	nodes with an array of transitions.
+	"""
+	# First just set an empty array for each lambda node
+	for workflow_state in diagram_data[ "workflow_states" ]:
+		if workflow_state[ "type" ] == "lambda":
+			workflow_state[ "transitions" ] = []
+		
+	# Now add transition data to each Lambda
+	for workflow_relationship in diagram_data[ "workflow_relationships" ]:
+		origin_node_data = get_node_by_id(
+			workflow_relationship[ "node" ],
+			diagram_data[ "workflow_states" ]
+		)
+		
+		if origin_node_data[ "type" ] == "lambda":
+			# TODO actually set this
+			new_transition_data = {
+				"target_arn": "arn:aws:lambda:us-west-2:148731734429:function:BigQuery_Auto_Import",
+				"type": "if",
+				"expression": "True"
+			}
+			
+			origin_node_data[ "transitions" ].append( workflow_relationship )
+			
+			diagram_data[ "workflow_states" ] = update_workflow_states_list(
+				origin_node_data,
+				diagram_data[ "workflow_states" ]
+			)
+		
+	print( "Workflow states: " )
+	pprint( diagram_data[ "workflow_states" ] )
+	
+	raise gen.Return()
+	
+	"""
+	Separate out nodes into different types
+	"""
 	lambda_nodes = []
 	schedule_trigger_nodes = []
 	
@@ -1565,6 +1619,7 @@ def deploy_diagram( diagram_data ):
 			deploy_lambda(
 				lambda_node[ "id" ],
 				get_lambda_safe_name( lambda_node[ "name" ] ),
+				lambda_node[ "language" ],
 				lambda_node[ "code" ],
 				lambda_node[ "libraries" ],
 				lambda_node[ "max_execution_time" ],
@@ -1677,7 +1732,6 @@ def make_app( is_debug ):
 		( r"/api/v1/functions/create", SavedFunctionCreate ),
 		( r"/api/v1/functions/search", SavedFunctionSearch ),
 		( r"/api/v1/aws/create_schedule_trigger", CreateScheduleTrigger ),
-		( r"/api/v1/aws/deploy_step_function", DeployStepFunction ),
 		( r"/api/v1/aws/deploy_lambda", DeployLambda ),
 		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda ),
 		( r"/api/v1/aws/create_sqs_trigger", CreateSQSQueueTrigger )
