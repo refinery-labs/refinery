@@ -61,7 +61,8 @@ def on_start():
 	LAMDBA_BASE_CODES = {}
 	LAMBDA_BASE_LIBRARIES = {
 		"python2.7": [
-			"redis"
+			"redis",
+			"boto3"
 		],
 		"nodejs8.10": [
 			"redis",
@@ -592,7 +593,7 @@ class TaskSpawner(object):
 			return return_zip
 			
 		@staticmethod
-		def _build_nodejs_810_lambda( code, libraries ):
+		def _build_nodejs_810_lambda( code, libraries, transitions ):
 			"""
 			Build Lambda package zip and return zip data
 			"""
@@ -645,17 +646,17 @@ class TaskSpawner(object):
 			return zip_data
 
 		@run_on_executor
-		def build_lambda( self, language, code, libraries ):
+		def build_lambda( self, language, code, libraries, transitions ):
 			if not ( language in LAMBDA_SUPPORTED_LANGUAGES ):
 				raise "Error, this language is not yet supported by refinery!"
 			
 			if language == "python2.7":
-				return TaskSpawner._build_python_lambda( code, libraries )
+				return TaskSpawner._build_python_lambda( code, libraries, transitions )
 			elif language == "nodejs8.10":
-				return TaskSpawner._build_nodejs_810_lambda( code, libraries )
+				return TaskSpawner._build_nodejs_810_lambda( code, libraries, transitions )
 		
 		@staticmethod
-		def _build_python_lambda( code, libraries ):
+		def _build_python_lambda( code, libraries, transitions ):
 			"""
 			Build Lambda package zip and return zip data
 			"""
@@ -674,6 +675,8 @@ class TaskSpawner(object):
 					]
 				}
 			)
+			
+			code = code.replace( "\"{{TRANSITION_DATA_REPLACE_ME}}\"", json.dumps( json.dumps( transitions ) ) )
 			
 			for init_library in LAMBDA_BASE_LIBRARIES[ "python2.7" ]:
 				if not init_library in libraries:
@@ -876,7 +879,8 @@ class DeployLambda( BaseHandler ):
 		lambda_zip_package_data = yield local_tasks.build_lambda(
 			self.json[ "language" ],
 			self.json[ "code" ],
-			self.json[ "libraries" ]
+			self.json[ "libraries" ],
+			[]
 		)
 		
 		deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
@@ -950,7 +954,13 @@ class RunTmpLambda( BaseHandler ):
 		lambda_zip_package_data = yield local_tasks.build_lambda(
 			self.json[ "language" ],
 			self.json[ "code" ],
-			self.json[ "libraries" ]
+			self.json[ "libraries" ],
+			{
+				"then": False,
+				"else": False,
+				"exception": False,
+				"if": []
+			}
 		)
 		
 		random_node_id = get_random_node_id()
@@ -1500,7 +1510,7 @@ class GetSQSJobTemplate( BaseHandler ):
 		})
 		
 @gen.coroutine
-def deploy_lambda( id, name, language, code, libraries, max_execution_time, memory ):
+def deploy_lambda( id, name, language, code, libraries, max_execution_time, memory, transitions ):
 	logit(
 		"Building '" + name + "' Lambda package..."
 	)
@@ -1508,7 +1518,8 @@ def deploy_lambda( id, name, language, code, libraries, max_execution_time, memo
 	lambda_zip_package_data = yield local_tasks.build_lambda(
 		language,
 		code,
-		libraries
+		libraries,
+		transitions
 	)
 	
 	logit(
@@ -1564,7 +1575,12 @@ def deploy_diagram( diagram_data ):
 	# First just set an empty array for each lambda node
 	for workflow_state in diagram_data[ "workflow_states" ]:
 		if workflow_state[ "type" ] == "lambda":
-			workflow_state[ "transitions" ] = []
+			# Set up default transitions data
+			workflow_state[ "transitions" ] = {}
+			workflow_state[ "transitions" ][ "if" ] = []
+			workflow_state[ "transitions" ][ "else" ] = False
+			workflow_state[ "transitions" ][ "exception" ] = False
+			workflow_state[ "transitions" ][ "then" ] = False
 		
 	# Now add transition data to each Lambda
 	for workflow_relationship in diagram_data[ "workflow_relationships" ]:
@@ -1573,25 +1589,31 @@ def deploy_diagram( diagram_data ):
 			diagram_data[ "workflow_states" ]
 		)
 		
+		target_node_data = get_node_by_id(
+			workflow_relationship[ "next" ],
+			diagram_data[ "workflow_states" ]
+		)
+		
 		if origin_node_data[ "type" ] == "lambda":
-			# TODO actually set this
-			new_transition_data = {
-				"target_arn": "arn:aws:lambda:us-west-2:148731734429:function:BigQuery_Auto_Import",
-				"type": "if",
-				"expression": "True"
-			}
+			target_arn = "arn:aws:lambda:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":function:" + get_lambda_safe_name( target_node_data[ "name" ] )
 			
-			origin_node_data[ "transitions" ].append( workflow_relationship )
-			
+			if workflow_relationship[ "type" ] == "then":
+				origin_node_data[ "transitions" ][ "then" ] = target_arn
+			elif workflow_relationship[ "type" ] == "else":
+				origin_node_data[ "transitions" ][ "else" ] = target_arn
+			elif workflow_relationship[ "type" ] == "exception":
+				origin_node_data[ "transitions" ][ "exception" ] = target_arn
+			elif workflow_relationship[ "type" ] == "if":
+				origin_node_data[ "transitions" ][ "if" ].append({
+					"target_arn": target_arn,
+					"type": workflow_relationship[ "type" ],
+					"expression": workflow_relationship[ "expression" ]
+				})
+				
 			diagram_data[ "workflow_states" ] = update_workflow_states_list(
 				origin_node_data,
 				diagram_data[ "workflow_states" ]
 			)
-		
-	print( "Workflow states: " )
-	pprint( diagram_data[ "workflow_states" ] )
-	
-	raise gen.Return()
 	
 	"""
 	Separate out nodes into different types
@@ -1624,6 +1646,7 @@ def deploy_diagram( diagram_data ):
 				lambda_node[ "libraries" ],
 				lambda_node[ "max_execution_time" ],
 				lambda_node[ "memory" ],
+				lambda_node[ "transitions" ],
 			)
 		)
 		

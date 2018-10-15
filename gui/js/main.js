@@ -1215,6 +1215,22 @@ var app = new Vue({
 		}
 	},
 	methods: {
+		is_simple_transition: function() {
+			if( app.selected_node_data ) {
+				return app.node_types_with_simple_transitions.includes( app.selected_node_data.type );
+			} else if ( app.selected_transition_start_node ) {
+				return app.node_types_with_simple_transitions.includes( app.selected_transition_start_node.type );
+			}
+		},
+		duplicate_lambda: function() {
+			// Copy selected Lambda
+			var lambda_copy = JSON.parse( JSON.stringify( app.selected_node_data ) );
+			// Generate new node ID
+			lambda_copy[ "id" ] = get_random_node_id();
+			
+			// Add to master diagram
+			app.workflow_states.push( lambda_copy );
+		},
 		lambda_language_manual_change: function() {
 			app.unformatted_libraries = "";
 			app.lambda_code = DEFAULT_LAMBDA_CODE[ app.lambda_language ];

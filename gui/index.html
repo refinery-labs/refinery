@@ -476,10 +476,10 @@
 					</div>
 					<div class="form-group">
 						<label>Transition Type</label>
-						<select class="form-control" v-model="state_transition_conditional_data.type" v-if="!node_types_with_simple_transitions.includes(selected_node_data.type)">
+						<select class="form-control" v-model="state_transition_conditional_data.type" v-if="!is_simple_transition()">
 							<option v-for="transition_type in available_transition_types" v-bind:value="transition_type">{{transition_type}}</option>
 						</select>
-						<select class="form-control" v-model="state_transition_conditional_data.type" v-if="node_types_with_simple_transitions.includes(selected_node_data.type)">
+						<select class="form-control" v-model="state_transition_conditional_data.type" v-if="is_simple_transition()">
 							<option value="then">then</option>
 						</select>
 						<small class="form-text text-muted">Type of transition (e.g. <code>if</code> for conditional, <code>then</code> for regular transition).</small>
@@ -489,7 +489,7 @@
 						<div style="height: 100px">
 							<editor editor-id="condition_expression_editor" theme="monokai" lang="python" :content="state_transition_conditional_data.expression" v-on:change-content="conditional_data_expression_change"></editor>
 						</div>
-						<small class="form-text text-muted"><b>IMPORTANT: </b>This is the conditional statement code which should return <code>true</code> if the condition path should be followed or <code>false</code> if it should not. The <code>return_data</code> variable will automatically be populated with your Lambda's returned data. This conditional statement <b>must</b> be written in the language the Lambda was written in.</small>
+						<small class="form-text text-muted"><b>IMPORTANT: </b>This is the conditional statement code which should evaluate to <code>true</code> if the condition path should be followed or <code>false</code> if it should not. The <code>return_data</code> variable will automatically be populated with your Lambda's returned data. This conditional statement <b>must</b> be written in the language the Lambda was written in.</small>
 					</div>
 					<div class="form-group">
 						<label>Name</label>
@@ -652,6 +652,8 @@
                 <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
                 <hr />
                 <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="run_tmp_lambda">Run Lambda</button>
+                <hr />
+                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="duplicate_lambda">Duplicate Lambda</button>
                 <hr />
                 <!-- <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="select_trigger('lambda')">Deploy Lambda</button> -->
             </div>

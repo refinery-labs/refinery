@@ -6,13 +6,14 @@ Base redis connection for pulling configs/etc.
 Allows for single-millisecond retrieval and setting
 of data in the main redis memory cache.
 """
+import sys
 import os
 import uuid
 import json
 import time
 import redis
 import pickle
-import traceback
+import boto3
 
 # TODO only initialize connection when used.
 class Refinery_Memory:
@@ -190,8 +191,37 @@ class Refinery_Memory:
 		)
 		
 		return new_key
+		
+def _call_next( arn, input_data ):
+	"""
+	Call the next Lambda in the chain.
+	"""
+	storage_key = gmemory._store_return_data_to_redis( input_data )
+	
+	return_wrapper_data = {
+		"_refinery": {
+			"indirect": {
+				"type": "redis",
+				"key": storage_key,
+			}
+		}
+	}
+	
+	_lambda_client = boto3.client( "lambda" )
+	
+	response = _lambda_client.invoke(
+	    FunctionName=arn,
+	    InvocationType="Event",
+	    LogType="None",
+	    ClientContext=json.dumps({}),
+	    Payload=json.dumps( return_wrapper_data )
+	)
+	
+	return response
 
 def _init( lambda_input, context ):
+	# TODO add timer
+	
 	global cmemory
 	global gmemory
 	
@@ -207,37 +237,51 @@ def _init( lambda_input, context ):
 		context.function_name
 	)
 	
-	transition_data = json.loads( "{{TRANSITION_DATA_REPLACE_ME}}" )
+	transitions = json.loads( "{{TRANSITION_DATA_REPLACE_ME}}" )
 	
-	return_key = gmemory._store_return_data_to_redis({
-		"pew": "pew",
-		"kew": "ok"
-	})
+	# Detect refinery wrapper and unwrap if existant
+	# Else just leave it unmodified
+	if "_refinery" in lambda_input:
+		_side_loaded = False
+		if "indirect" in lambda_input[ "_refinery" ] and "type" in lambda_input[ "_refinery" ][ "indirect" ]:
+			# Input data is stored in redis
+			if lambda_input[ "_refinery" ][ "indirect" ][ "type" ] == "redis":
+				lambda_input = gmemory._get_input_data_from_redis(
+					lambda_input[ "_refinery" ][ "indirect" ][ "key" ]
+				)
+				_side_loaded = True
+		
+		if not _side_loaded and "input_data" in lambda_input[ "_refinery" ]:
+			lambda_input = lambda_input[ "_refinery" ][ "input_data" ]
 	
-	return gmemory._get_input_data_from_redis(
-		return_key
-	)
+	try:
+		return_data = main( lambda_input, context )
+	except:
+		type, value, traceback = sys.exc_info()
+		
+		if transitions[ "exception" ]:
+			_call_next( transitions[ "exception" ], { "exception": traceback } )
+			return
+		else:
+			# Nothing to handle it, throw it again.
+			raise
 	
-	#result = main( lambda_input, context )
+	# If it's just a then, just invoke the next Lambda
+	if transitions[ "then" ]:
+		_call_next( transitions[ "then" ], return_data )
+		
+	# Iterate over every if
+	for if_statement_data in transitions[ "if" ]:
+		expression_eval_result = eval( if_statement_data[ "expression" ] )
+		
+		if expression_eval_result:
+			result = _call_next( if_statement_data[ "target_arn" ], return_data )
+			del result[ "Payload" ]
+			return result
+		
+	# If else is set, call that now
+	if transitions[ "else" ]:
+		_call_next( transitions[ "else" ], return_data )
+		return
 	
-	return {
-		"_refinery": {
-			"indirect": false,
-			"input_data": {
-				"": ""
-			}
-		}
-	}
-	
-	"""
-	_lambda_client = boto3.client( "" )
-	
-	response = client.invoke(
-	    FunctionName='string',
-	    InvocationType='Event'|'RequestResponse'|'DryRun',
-	    LogType='None'|'Tail',
-	    ClientContext='string',
-	    Payload=b'bytes'|file,
-	    Qualifier='string'
-	)
-	"""
+	return return_data
