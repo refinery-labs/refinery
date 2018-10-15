@@ -969,16 +969,6 @@ var app = new Vue({
 		selected_transition: false,
 	    "workflow_states": [
 	        {
-	            "id": "n517c182f855849bab13434d8381c9c61",
-	            "name": "Return Some Data",
-	            "language": "python2.7",
-	            "libraries": [],
-	            "code": "def main( lambda_input, context ):\n    return {\n        \"test\": \"worked!\"\n    }\n",
-	            "memory": 128,
-	            "max_execution_time": 60,
-	            "type": "lambda"
-	        },
-	        {
 	            "id": "n9264e4fe12dc44b5a2e41e811e39ad2c",
 	            "name": "Write Return to S3",
 	            "language": "python2.7",
@@ -989,15 +979,24 @@ var app = new Vue({
 	            "memory": 128,
 	            "max_execution_time": 60,
 	            "type": "lambda"
+	        },
+	        {
+	            "id": "n041e50f534e841768313f9096c49b575",
+	            "name": "test Queue",
+	            "type": "sqs_queue",
+	            "queue_name": "test Queue",
+	            "content_based_deduplication": true,
+	            "batch_size": 1,
+	            "sqs_job_template": "{\n    \"id\": \"1\"\n}"
 	        }
 	    ],
 	    "workflow_relationships": [
 	        {
-	            "id": "n047f72ec029c49739a62e566eb164625",
-	            "name": "if True",
-	            "type": "if",
-	            "expression": "True",
-	            "node": "n517c182f855849bab13434d8381c9c61",
+	            "id": "n4ea6c26c669b4ae3b765aab93dfdaa3b",
+	            "name": "then",
+	            "type": "then",
+	            "expression": "",
+	            "node": "n041e50f534e841768313f9096c49b575",
 	            "next": "n9264e4fe12dc44b5a2e41e811e39ad2c"
 	        }
 	    ],

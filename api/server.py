@@ -768,7 +768,7 @@ class TaskSpawner(object):
 			return rule_creation_response
 		
 		@run_on_executor
-		def create_sqs_queue( self, queue_name, content_based_deduplication ):
+		def create_sqs_queue( self, id, queue_name, content_based_deduplication, batch_size ):
 			sqs_queue_name = get_lambda_safe_name( queue_name )
 			sqs_response = SQS_CLIENT.create_queue(
 				QueueName=sqs_queue_name,
@@ -779,7 +779,14 @@ class TaskSpawner(object):
 				}
 			)
 			
-			return "https://console.aws.amazon.com/sqs/home?region=" + os.environ.get( "region_name" ) + "#queue-browser:selected=https://sqs." + os.environ.get( "region_name" ) + ".amazonaws.com/" + os.environ.get( "aws_account_id" ) + "/" + sqs_queue_name + ";noRefresh=true;prefix="
+			sqs_arn = "arn:aws:sqs:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + queue_name
+			
+			return {
+				"id": id,
+				"queue_name": queue_name,
+				"arn": sqs_arn,
+				"batch_size": batch_size
+			}
 			
 		@run_on_executor
 		def map_sqs_to_lambda( self, sqs_arn, lambda_arn, batch_size ):
@@ -1620,6 +1627,7 @@ def deploy_diagram( diagram_data ):
 	"""
 	lambda_nodes = []
 	schedule_trigger_nodes = []
+	sqs_queue_nodes = []
 	
 	for workflow_state in diagram_data[ "workflow_states" ]:
 		if workflow_state[ "type" ] == "lambda":
@@ -1628,6 +1636,10 @@ def deploy_diagram( diagram_data ):
 			)
 		elif workflow_state[ "type" ] == "schedule_trigger":
 			schedule_trigger_nodes.append(
+				workflow_state
+			)
+		elif workflow_state[ "type" ] == "sqs_queue":
+			sqs_queue_nodes.append(
 				workflow_state
 			)
 	
@@ -1668,9 +1680,27 @@ def deploy_diagram( diagram_data ):
 			)
 		)
 		
+	"""
+	Deploy all SQS queues to production
+	"""
+	sqs_queue_nodes_deploy_futures = []
+	
+	for sqs_queue_node in sqs_queue_nodes:
+		sqs_queue_name = get_lambda_safe_name( sqs_queue_node[ "name" ] )
+		logit( "Deploying SQS queue '" + sqs_queue_name + "'..." )
+		sqs_queue_nodes_deploy_futures.append(
+			local_tasks.create_sqs_queue(
+				sqs_queue_node[ "id" ],
+				sqs_queue_name,
+				sqs_queue_node[ "content_based_deduplication" ],
+				sqs_queue_node[ "batch_size" ] # Not used, passed along
+			)
+		)
+		
 	# Wait till everything is deployed
 	deployed_lambdas = yield lambda_node_deploy_futures
 	deployed_schedule_triggers = yield schedule_trigger_node_deploy_futures
+	deployed_sqs_queues = yield sqs_queue_nodes_deploy_futures
 	
 	"""
 	Update all nodes with deployed ARN for easier teardown
@@ -1688,6 +1718,14 @@ def deploy_diagram( diagram_data ):
 			if workflow_state[ "id" ] == deployed_schedule_trigger[ "id" ]:
 				workflow_state[ "arn" ] = deployed_schedule_trigger[ "arn" ]
 				workflow_state[ "name" ] = deployed_schedule_trigger[ "name" ]
+				
+	# Update SQS queue nodes with arn
+	for deployed_sqs_queue in deployed_sqs_queues:
+		for workflow_state in diagram_data[ "workflow_states" ]:
+			if workflow_state[ "id" ] == deployed_sqs_queue[ "id" ]:
+				workflow_state[ "arn" ] = deployed_sqs_queue[ "arn" ]
+				workflow_state[ "name" ] = deployed_sqs_queue[ "queue_name" ]
+				workflow_state[ "queue_name" ] = deployed_sqs_queue[ "queue_name" ]
 	
 	"""
 	Link deployed schedule triggers to Lambdas
@@ -1714,9 +1752,38 @@ def deploy_diagram( diagram_data ):
 				schedule_trigger_pair[ "scheduled_trigger" ][ "input_dict" ]
 			)
 		)
+		
+	"""
+	Link deployed SQS queues to their target Lambda (can only have one)
+	"""
+	sqs_queue_triggers_to_deploy = []
+	for deployed_sqs_queue in deployed_sqs_queues:
+		for workflow_relationship in diagram_data[ "workflow_relationships" ]:
+			if deployed_sqs_queue[ "id" ] == workflow_relationship[ "node" ]:
+				# Find target node
+				for deployed_lambda in deployed_lambdas:
+					if deployed_lambda[ "id" ] == workflow_relationship[ "next" ]:
+						sqs_queue_triggers_to_deploy.append({
+							"sqs_queue_trigger": deployed_sqs_queue,
+							"target_lambda": deployed_lambda,
+						})
+	
+	sqs_queue_trigger_targeting_futures = []
+	for sqs_queue_trigger in sqs_queue_triggers_to_deploy:
+		sqs_queue_trigger_targeting_futures.append(
+			local_tasks.map_sqs_to_lambda(
+				sqs_queue_trigger[ "sqs_queue_trigger" ][ "arn" ],
+				sqs_queue_trigger[ "target_lambda" ][ "arn" ],
+				sqs_queue_trigger[ "sqs_queue_trigger" ][ "batch_size" ]
+			)
+		)
 	
 	# Wait till are triggers are set up
 	deployed_schedule_trigger_targets = yield schedule_trigger_targeting_futures
+	sqs_queue_trigger_targets = yield sqs_queue_trigger_targeting_futures
+	
+	print( "Diagram: " )
+	pprint( diagram_data )
 	
 	raise gen.Return(
 		diagram_data
