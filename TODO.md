@@ -1,5 +1,3 @@
-* Duplicate Lambda option
-
 * BigQuery Auto Importer does too many daily loads! Make every 3 minutes or something...
 ---
 * Create Chrome extension for generating code for refinery from HTTP traffic

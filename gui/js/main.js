@@ -40,6 +40,10 @@ var GRAPH_ICONS_ARRAY = [
 	{
 		"url": "/img/clock-icon.png",
 		"id": "schedule_trigger"
+	},
+	{
+		"url": "/img/sns-topic.png",
+		"id": "sns_topic"
 	}
 ];
 var IMAGE_NODE_SPACES = "            ";
@@ -464,7 +468,7 @@ function select_node( node_id ) {
 		reset_current_schedule_trigger_to_defaults();
 		
 		var trigger_data = {
-            "name": selected_node_data.name,
+            "name": app.selected_node_data.name,
 			"schedule_expression": selected_node_data.schedule_expression,
 			"description": selected_node_data.description,
 			"unformatted_input_data": selected_node_data.unformatted_input_data,
@@ -474,6 +478,20 @@ function select_node( node_id ) {
 	    Vue.set( app, "scheduled_trigger_data", trigger_data );
 	    
 	    app.navigate_page( "modify-schedule_trigger" );
+	} else if ( selected_node_data.type == "sns_topic" ) {
+		reset_current_sns_topic_state_to_defaults();
+		
+		var sns_topic_data = {
+			"topic_name": selected_node_data.topic_name,
+			"sns_topic_template": selected_node_data.sns_topic_template
+		}
+		
+		console.log( "SNS topic data: " );
+		console.log( sns_topic_data );
+		
+		Vue.set( app, "sns_trigger_data", sns_topic_data );
+		
+		app.navigate_page( "modify-sns_topic" );
 	} else {
 		alert( "Error, unrecognized node type!" );
 	}
@@ -506,6 +524,16 @@ function select_transition( transition_id ) {
 	}
 	
 	build_dot_graph();
+}
+
+function reset_current_sns_topic_state_to_defaults() {
+    var sns_topic_data = {
+		"topic_name": "Untitled Topic",
+		"sns_topic_template": JSON.stringify({
+			"id": "1"
+		}, false, 4 ),
+    }
+    Vue.set( app, "sns_trigger_data", sns_topic_data );
 }
 
 function reset_current_schedule_trigger_to_defaults() {
@@ -981,22 +1009,20 @@ var app = new Vue({
 	            "type": "lambda"
 	        },
 	        {
-	            "id": "n041e50f534e841768313f9096c49b575",
-	            "name": "test Queue",
-	            "type": "sqs_queue",
-	            "queue_name": "test Queue",
-	            "content_based_deduplication": true,
-	            "batch_size": 1,
-	            "sqs_job_template": "{\n    \"id\": \"1\"\n}"
+	            "id": "ne4ee2dd0f5b94a9195c9747e98ae1347",
+	            "name": "Example Topic",
+	            "type": "sns_topic",
+	            "topic_name": "Example Topic",
+	            "sns_topic_template": "{\n    \"id\": \"1\"\n}"
 	        }
 	    ],
 	    "workflow_relationships": [
 	        {
-	            "id": "n4ea6c26c669b4ae3b765aab93dfdaa3b",
+	            "id": "ncda57c843eec4f92a5eb0fb4b55e5192",
 	            "name": "then",
 	            "type": "then",
 	            "expression": "",
-	            "node": "n041e50f534e841768313f9096c49b575",
+	            "node": "ne4ee2dd0f5b94a9195c9747e98ae1347",
 	            "next": "n9264e4fe12dc44b5a2e41e811e39ad2c"
 	        }
 	    ],
@@ -1006,7 +1032,8 @@ var app = new Vue({
 	    },
 	    node_types_with_simple_transitions: [
 	    	"schedule_trigger",
-	    	"sqs_queue"
+	    	"sqs_queue",
+	    	"sns_topic"
 	    ],
 	    available_transition_types: [
 	    	"then",
@@ -1059,6 +1086,13 @@ var app = new Vue({
 				"id": "1"
 			}, false, 4 ),
         },
+        // Target data for when an SNS-based trigger is created
+		sns_trigger_data: {
+			"topic_name": "Untitled Topic",
+			"sns_topic_template": JSON.stringify({
+				"id": "1"
+			}, false, 4 ),
+		},
         // Whether the lambda deploy is loading
         lambda_deploy_loading: true,
         // Deployed Lambda link
@@ -1284,7 +1318,11 @@ var app = new Vue({
 				{
 					"first_type": "schedule_trigger",
 					"second_type": "lambda",
-				}
+				},
+				{
+					"first_type": "sns_topic",
+					"second_type": "lambda",
+				},
 			];
 			
 			// Grab data for both nodes and determine if it's possible path
@@ -1317,6 +1355,19 @@ var app = new Vue({
 			app.selected_transition = false;
 			
 			app.navigate_page( "welcome" );
+		},
+		add_sns_topic_node: function() {
+			var new_sns_topic_node = {
+				"id": get_random_node_id(),
+	            "name": "Untitled Topic",
+	            "topic_name": "Untitled Topic",
+	            "type": "sns_topic",
+	            "sns_topic_template": JSON.stringify({
+					"id": "1"
+				}, false, 4 ),
+			}
+			
+			app.workflow_states.push( new_sns_topic_node );
 		},
 		add_timer_trigger_node: function() {
 			var new_timer_trigger = {
@@ -1364,6 +1415,9 @@ var app = new Vue({
 			$( "#todo_output" ).modal(
 				"show"
 			);
+		},
+		update_sns_topic_template: function( new_value ) {
+			app.sns_trigger_data.sns_topic_template = new_value;
 		},
 		update_sqs_job_template: function( new_value ) {
 			app.sqs_trigger_data.sqs_job_template = new_value;
@@ -1866,6 +1920,20 @@ def example( parameter ):
 			app.update_node_data(
 				app.selected_node,
 				updated_schedule_trigger
+			);
+		},
+		update_sns_topic: function() {
+			var updated_sns_topic_data = {
+				"id": app.selected_node,
+				"name": app.sns_trigger_data.topic_name,
+				"type": "sns_topic",
+				"topic_name": app.sns_trigger_data.topic_name,
+				"sns_topic_template": app.sns_trigger_data.sns_topic_template
+			};
+			
+			app.update_node_data(
+				app.selected_node,
+				updated_sns_topic_data
 			);
 		},
 	}

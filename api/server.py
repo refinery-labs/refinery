@@ -116,6 +116,13 @@ SQS_CLIENT = boto3.client(
     region_name=os.environ.get( "region_name" )
 )
 
+SNS_CLIENT = boto3.client(
+	"sns",
+    aws_access_key_id=os.environ.get( "aws_access_key" ),
+    aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+    region_name=os.environ.get( "region_name" )
+)
+
 def pprint( input_dict ):
 	try:
 		print( json.dumps( input_dict, sort_keys=True, indent=4, separators=( ",", ": " ) ) )
@@ -766,6 +773,67 @@ class TaskSpawner(object):
 			pprint( lambda_permission_add_response )
 			
 			return rule_creation_response
+		
+		@run_on_executor
+		def create_sns_topic( self, id, topic_name ):
+			topic_name = get_lambda_safe_name( topic_name )
+			response = SNS_CLIENT.create_topic(
+				Name=topic_name
+			)
+			
+			return {
+				"id": id,
+				"name": topic_name,
+				"arn": response[ "TopicArn" ],
+				"topic_name": topic_name
+			}
+			
+		@run_on_executor
+		def subscribe_lambda_to_sns_topic( self, topic_name, topic_arn, lambda_arn ):
+			"""
+			permission_response = SNS_CLIENT.add_permission(
+				TopicArn=topic_arn,
+				Label=str( uuid.uuid4() ),
+				AWSAccountId=[
+					os.environ.get( "aws_account_id" ),
+				],
+				ActionName=[
+					"Subscribe",
+					"ListSubscriptionsByTopic",
+					"Receive"
+				]
+			)
+			"""
+			"""
+			For AWS Lambda you need to add a permission to the Lambda function itself
+			via the add_permission API call to allow invocation via the SNS event.
+			"""
+			lambda_permission_add_response = LAMBDA_CLIENT.add_permission(
+				FunctionName=lambda_arn,
+				StatementId=str( uuid.uuid4() ),
+				Action="lambda:*",
+				Principal="sns.amazonaws.com",
+				SourceArn=topic_arn,
+				#SourceAccount=os.environ.get( "aws_account_id" ) # THIS IS A BUG IN AWS NEVER PASS THIS
+			)
+			
+			sns_topic_response = SNS_CLIENT.subscribe(
+				TopicArn=topic_arn,
+				Protocol="lambda",
+				Endpoint=lambda_arn,
+				Attributes={},
+				ReturnSubscriptionArn=True
+			)
+			
+			print( "Lambda SNS permission response: " )
+			pprint( lambda_permission_add_response )
+			
+			print( "SNS subscription creation response: " )
+			pprint( sns_topic_response )
+			
+			return {
+				"arn": sns_topic_response[ "SubscriptionArn" ]
+			}
 		
 		@run_on_executor
 		def create_sqs_queue( self, id, queue_name, content_based_deduplication, batch_size ):
@@ -1628,6 +1696,7 @@ def deploy_diagram( diagram_data ):
 	lambda_nodes = []
 	schedule_trigger_nodes = []
 	sqs_queue_nodes = []
+	sns_topic_nodes = []
 	
 	for workflow_state in diagram_data[ "workflow_states" ]:
 		if workflow_state[ "type" ] == "lambda":
@@ -1640,6 +1709,10 @@ def deploy_diagram( diagram_data ):
 			)
 		elif workflow_state[ "type" ] == "sqs_queue":
 			sqs_queue_nodes.append(
+				workflow_state
+			)
+		elif workflow_state[ "type" ] == "sns_topic":
+			sns_topic_nodes.append(
 				workflow_state
 			)
 	
@@ -1697,10 +1770,26 @@ def deploy_diagram( diagram_data ):
 			)
 		)
 		
+	"""
+	Deploy all SNS topics to production
+	"""
+	sns_topic_nodes_deploy_futures = []
+	
+	for sns_topic_node in sns_topic_nodes:
+		sns_topic_name = get_lambda_safe_name( sns_topic_node[ "name" ] )
+		logit( "Deploying SNS topic '" + sns_topic_name + "'..." )
+		sns_topic_nodes_deploy_futures.append(
+			local_tasks.create_sns_topic(
+				sns_topic_node[ "id" ],
+				sns_topic_node[ "topic_name" ],
+			)
+		)
+		
 	# Wait till everything is deployed
 	deployed_lambdas = yield lambda_node_deploy_futures
 	deployed_schedule_triggers = yield schedule_trigger_node_deploy_futures
 	deployed_sqs_queues = yield sqs_queue_nodes_deploy_futures
+	deployed_sns_topics = yield sns_topic_nodes_deploy_futures
 	
 	"""
 	Update all nodes with deployed ARN for easier teardown
@@ -1726,7 +1815,14 @@ def deploy_diagram( diagram_data ):
 				workflow_state[ "arn" ] = deployed_sqs_queue[ "arn" ]
 				workflow_state[ "name" ] = deployed_sqs_queue[ "queue_name" ]
 				workflow_state[ "queue_name" ] = deployed_sqs_queue[ "queue_name" ]
-	
+				
+	# Update SNS topics with arn
+	for deployed_sns_topic in deployed_sns_topics:
+		for workflow_state in diagram_data[ "workflow_states" ]:
+			if workflow_state[ "id" ] == deployed_sns_topic[ "id" ]:
+				workflow_state[ "arn" ] = deployed_sns_topic[ "arn" ]
+				workflow_state[ "name" ] = deployed_sns_topic[ "topic_name" ]
+				workflow_state[ "topic_name" ] = deployed_sns_topic[ "topic_name" ]
 	"""
 	Link deployed schedule triggers to Lambdas
 	"""
@@ -1754,7 +1850,7 @@ def deploy_diagram( diagram_data ):
 		)
 		
 	"""
-	Link deployed SQS queues to their target Lambda (can only have one)
+	Link deployed SQS queues to their target Lambdas
 	"""
 	sqs_queue_triggers_to_deploy = []
 	for deployed_sqs_queue in deployed_sqs_queues:
@@ -1778,9 +1874,35 @@ def deploy_diagram( diagram_data ):
 			)
 		)
 	
+	"""
+	Link deployed SNS topics to their Lambdas
+	"""
+	sns_topic_triggers_to_deploy = []
+	for deployed_sns_topic in deployed_sns_topics:
+		for workflow_relationship in diagram_data[ "workflow_relationships" ]:
+			if deployed_sns_topic[ "id" ] == workflow_relationship[ "node" ]:
+				# Find target node
+				for deployed_lambda in deployed_lambdas:
+					if deployed_lambda[ "id" ] == workflow_relationship[ "next" ]:
+						sns_topic_triggers_to_deploy.append({
+							"sns_topic_trigger": deployed_sns_topic,
+							"target_lambda": deployed_lambda,
+						})
+	
+	sns_topic_trigger_targeting_futures = []
+	for sns_topic_trigger in sns_topic_triggers_to_deploy:
+		sns_topic_trigger_targeting_futures.append(
+			local_tasks.subscribe_lambda_to_sns_topic(
+				sns_topic_trigger[ "sns_topic_trigger" ][ "topic_name" ],
+				sns_topic_trigger[ "sns_topic_trigger" ][ "arn" ],
+				sns_topic_trigger[ "target_lambda" ][ "arn" ],
+			)
+		)
+	
 	# Wait till are triggers are set up
 	deployed_schedule_trigger_targets = yield schedule_trigger_targeting_futures
 	sqs_queue_trigger_targets = yield sqs_queue_trigger_targeting_futures
+	sns_topic_trigger_targets = yield sns_topic_trigger_targeting_futures
 	
 	print( "Diagram: " )
 	pprint( diagram_data )
