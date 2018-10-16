@@ -1,3 +1,9 @@
+* Add ability to save projects
+* Add ability to save Lambdas
+* Add advanced logging ability for production deployed pipelines
+	* Allow walking through the pipeline execution chain visual
+	* View `input_data` and `return_data` at each node.
+
 * BigQuery Auto Importer does too many daily loads! Make every 3 minutes or something...
 ---
 * Create Chrome extension for generating code for refinery from HTTP traffic

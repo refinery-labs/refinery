@@ -6,7 +6,6 @@ Base redis connection for pulling configs/etc.
 Allows for single-millisecond retrieval and setting
 of data in the main redis memory cache.
 """
-import sys
 import os
 import uuid
 import json
@@ -14,6 +13,7 @@ import time
 import redis
 import pickle
 import boto3
+import traceback
 
 # TODO only initialize connection when used.
 class Refinery_Memory:
@@ -222,6 +222,22 @@ def _call_next( arn, input_data ):
 def _init( lambda_input, context ):
 	# TODO add timer
 	
+	# Bake in AWS region
+	aws_region = "{{AWS_REGION_REPLACE_ME}}"
+	
+	# Construct log details for debugging
+	log_details = {
+		"initialization_time": int( time.time() ),
+		"aws_region": aws_region,
+		"group_name": context.log_group_name,
+		"stream_name": context.log_stream_name,
+		"function_name": context.function_name,
+		"function_version": context.function_version,
+		"invoked_function_arn": context.invoked_function_arn,
+		"memory_limit_in_mb": context.memory_limit_in_mb,
+		"aws_request_id": context.aws_request_id
+	}
+	
 	global cmemory
 	global gmemory
 	
@@ -237,6 +253,7 @@ def _init( lambda_input, context ):
 		context.function_name
 	)
 	
+	# Bake in transition data
 	transitions = json.loads( "{{TRANSITION_DATA_REPLACE_ME}}" )
 	
 	# Detect refinery wrapper and unwrap if existant
@@ -254,13 +271,14 @@ def _init( lambda_input, context ):
 		if not _side_loaded and "input_data" in lambda_input[ "_refinery" ]:
 			lambda_input = lambda_input[ "_refinery" ][ "input_data" ]
 	
+	# Catch any exception that occurs and handle it if a catch is defined.
 	try:
 		return_data = main( lambda_input, context )
 	except:
-		type, value, traceback = sys.exc_info()
+		exception_string = str( traceback.format_exc() )
 		
 		if transitions[ "exception" ]:
-			_call_next( transitions[ "exception" ], { "exception": traceback } )
+			_call_next( transitions[ "exception" ], { "version": _VERSION, "exception_text": exception_string } )
 			return
 		else:
 			# Nothing to handle it, throw it again.

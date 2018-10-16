@@ -123,6 +123,13 @@ SNS_CLIENT = boto3.client(
     region_name=os.environ.get( "region_name" )
 )
 
+CLOUDWATCH_LOGS_CLIENT = boto3.client(
+	"logs",
+    aws_access_key_id=os.environ.get( "aws_access_key" ),
+    aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+    region_name=os.environ.get( "region_name" )
+)
+
 def pprint( input_dict ):
 	try:
 		print( json.dumps( input_dict, sort_keys=True, indent=4, separators=( ",", ": " ) ) )
@@ -263,6 +270,12 @@ class TaskSpawner(object):
 			log_output = base64.b64decode(
 				response[ "LogResult" ]
 			)
+			
+			# Will be filled with parsed lines
+			
+			if "START RequestId:" in log_output:
+				log_lines = log_output.split( "\n" )
+				log_output = "\n".join( log_lines[ 1:-3 ] )
 				
 			return {
 				"version": response[ "ExecutedVersion" ],
@@ -684,6 +697,7 @@ class TaskSpawner(object):
 			)
 			
 			code = code.replace( "\"{{TRANSITION_DATA_REPLACE_ME}}\"", json.dumps( json.dumps( transitions ) ) )
+			code = code.replace( "{{AWS_REGION_REPLACE_ME}}", os.environ.get( "region_name" ) )
 			
 			for init_library in LAMBDA_BASE_LIBRARIES[ "python2.7" ]:
 				if not init_library in libraries:
@@ -791,20 +805,6 @@ class TaskSpawner(object):
 		@run_on_executor
 		def subscribe_lambda_to_sns_topic( self, topic_name, topic_arn, lambda_arn ):
 			"""
-			permission_response = SNS_CLIENT.add_permission(
-				TopicArn=topic_arn,
-				Label=str( uuid.uuid4() ),
-				AWSAccountId=[
-					os.environ.get( "aws_account_id" ),
-				],
-				ActionName=[
-					"Subscribe",
-					"ListSubscriptionsByTopic",
-					"Receive"
-				]
-			)
-			"""
-			"""
 			For AWS Lambda you need to add a permission to the Lambda function itself
 			via the add_permission API call to allow invocation via the SNS event.
 			"""
@@ -825,13 +825,8 @@ class TaskSpawner(object):
 				ReturnSubscriptionArn=True
 			)
 			
-			print( "Lambda SNS permission response: " )
-			pprint( lambda_permission_add_response )
-			
-			print( "SNS subscription creation response: " )
-			pprint( sns_topic_response )
-			
 			return {
+				"statement": lambda_permission_add_response[ "Statement" ],
 				"arn": sns_topic_response[ "SubscriptionArn" ]
 			}
 		
@@ -869,6 +864,21 @@ class TaskSpawner(object):
 			pprint(
 				response
 			)
+			
+			return response
+			
+		@run_on_executor
+		def get_cloudwatch_logs( self, log_group_name, log_stream_name ):
+			response = CLOUDWATCH_LOGS_CLIENT.get_log_events(
+				logGroupName=log_group_name,
+				logStreamName=log_stream_name,
+				#nextToken='string',
+				#limit=123,
+				startFromHead=True
+			)
+			
+			print( "Get Cloudwatch Logs: " )
+			pprint( response )
 			
 			return response
 			

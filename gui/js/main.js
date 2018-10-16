@@ -13,6 +13,8 @@ Refinery memory:
 
 SQS message body:
 	First message: sqs_data = json.loads( lambda_input[ "Records" ][0][ "body" ] )
+SNS message body:
+	First message: sns_data = json.loads( lambda_input[ "Records" ][0][ "Sns" ][ "Message" ] )
 """
 
 def main( lambda_input, context ):
@@ -995,37 +997,8 @@ var app = new Vue({
 		selected_node: false,
 		selected_node_state: false,
 		selected_transition: false,
-	    "workflow_states": [
-	        {
-	            "id": "n9264e4fe12dc44b5a2e41e811e39ad2c",
-	            "name": "Write Return to S3",
-	            "language": "python2.7",
-	            "libraries": [
-	                "boto3"
-	            ],
-	            "code": "import boto3\nimport json\n\ndef main( lambda_input, context ):\n    write_to_s3(\n        \"lambdatestbucketpewpew\",\n        \"output\",\n        json.dumps( lambda_input )\n    )\n    return True\n\n# Store in S3 \ndef write_to_s3( bucket_name, object_key, body ):\n\timport boto3\n\ts3_client = boto3.client( \"s3\" )\n\tresult = s3_client.put_object(\n\t\tBucket=bucket_name,\n\t\tKey=object_key,\n\t\tBody=body\n\t)\n\treturn result",
-	            "memory": 128,
-	            "max_execution_time": 60,
-	            "type": "lambda"
-	        },
-	        {
-	            "id": "ne4ee2dd0f5b94a9195c9747e98ae1347",
-	            "name": "Example Topic",
-	            "type": "sns_topic",
-	            "topic_name": "Example Topic",
-	            "sns_topic_template": "{\n    \"id\": \"1\"\n}"
-	        }
-	    ],
-	    "workflow_relationships": [
-	        {
-	            "id": "ncda57c843eec4f92a5eb0fb4b55e5192",
-	            "name": "then",
-	            "type": "then",
-	            "expression": "",
-	            "node": "ne4ee2dd0f5b94a9195c9747e98ae1347",
-	            "next": "n9264e4fe12dc44b5a2e41e811e39ad2c"
-	        }
-	    ],
+		"workflow_states": [],
+	    "workflow_relationships": [],
 	    ace_language_to_lang_id_map: {
 	    	"python2.7": "python",
 	    	"nodejs8.10": "javascript"
