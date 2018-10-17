@@ -999,54 +999,81 @@ var app = new Vue({
 		selected_transition: false,
 	    "workflow_states": [
 	        {
-	            "id": "na70430af9b90411fabb1ea49aeab34e8",
-	            "name": "Get SNS Message",
+	            "id": "nbba28a84cfc9465d8e8bd4e3a88f8875",
+	            "name": "Parallel Spawner",
 	            "language": "python2.7",
 	            "libraries": [],
-	            "code": "\n\"\"\"\nEmbedded magic\n\nRefinery memory:\n\tConfig memory: cmemory.get( \"api_key\" )\n\tGlobal memory: gmemory.get( \"example\" )\n\tForce no-namespace: gmemory.get( \"example\", raw=True )\n\nSQS message body:\n\tFirst message: sqs_data = json.loads( lambda_input[ \"Records\" ][0][ \"body\" ] )\nSNS message body:\n\tFirst message: sns_data = json.loads( lambda_input[ \"Records\" ][ \"Sns\" ][0][ \"Message\" ] )\n\"\"\"\nimport json\n\ndef main( lambda_input, context ):\n    sns_data = json.loads( lambda_input[ \"Records\" ][0][ \"Sns\" ][ \"Message\" ] )\n    \n    if \"exception\" in sns_data:\n        output = 100 / 0\n    \n    return sns_data",
+	            "code": "\n\"\"\"\nEmbedded magic\n\nRefinery memory:\n\tConfig memory: cmemory.get( \"api_key\" )\n\tGlobal memory: gmemory.get( \"example\" )\n\tForce no-namespace: gmemory.get( \"example\", raw=True )\n\nSQS message body:\n\tFirst message: sqs_data = json.loads( lambda_input[ \"Records\" ][0][ \"body\" ] )\nSNS message body:\n\tFirst message: sns_data = json.loads( lambda_input[ \"Records\" ][0][ \"Sns\" ][ \"Message\" ] )\n\"\"\"\n\ndef main( lambda_input, context ):\n    return lambda_input\n",
 	            "memory": 128,
 	            "max_execution_time": 60,
 	            "type": "lambda"
 	        },
 	        {
-	            "id": "n049ddf0f9c914627b5ea41db40ee71fc",
-	            "name": "test Topic",
-	            "type": "sns_topic",
-	            "topic_name": "test Topic",
-	            "sns_topic_template": "{\n    \"id\": \"1\"\n}"
-	        },
-	        {
-	            "id": "n0466e9d4259a455282c55be95131f279",
-	            "name": "Write else",
+	            "id": "nf96efce8dacd4b7aa93f8f544c342ad7",
+	            "name": "then #1",
 	            "language": "python2.7",
-	            "libraries": [
-	                "boto3"
-	            ],
-	            "code": "\n\"\"\"\nEmbedded magic\n\nRefinery memory:\n\tConfig memory: cmemory.get( \"api_key\" )\n\tGlobal memory: gmemory.get( \"example\" )\n\tForce no-namespace: gmemory.get( \"example\", raw=True )\n\nSQS message body:\n\tFirst message: sqs_data = json.loads( lambda_input[ \"Records\" ][0][ \"body\" ] )\nSNS message body:\n\tFirst message: sns_data = json.loads( lambda_input[ \"Records\" ][ \"Sns\" ][0][ \"Message\" ] )\n\"\"\"\nimport json\n\ndef main( lambda_input, context ):\n    write_to_s3(\n        \"lambdatestbucketpewpew\",\n        \"else\",\n        json.dumps(\n            lambda_input,\n            False,\n            4\n        )\n    )\n    return True\n\n# Store in S3 \ndef write_to_s3( bucket_name, object_key, body ):\n\timport boto3\n\ts3_client = boto3.client( \"s3\" )\n\tresult = s3_client.put_object(\n\t\tBucket=bucket_name,\n\t\tKey=object_key,\n\t\tBody=body\n\t)\n\treturn result",
+	            "libraries": [],
+	            "code": "import json\n\ndef main( lambda_input, context ):\n    write_to_s3(\n        \"lambdatestbucketpewpew\",\n        \"then_one\",\n        json.dumps(\n            lambda_input    \n        )\n    )\n    \n    # Cause an exception\n    pew = 100 / 0\n\n# Store in S3 \ndef write_to_s3( bucket_name, object_key, body ):\n\timport boto3\n\ts3_client = boto3.client( \"s3\" )\n\tresult = s3_client.put_object(\n\t\tBucket=bucket_name,\n\t\tKey=object_key,\n\t\tBody=body\n\t)\n\treturn result\n",
 	            "memory": 128,
 	            "max_execution_time": 60,
 	            "type": "lambda"
 	        },
 	        {
-	            "id": "n8857125c265a41f7ac8443866fcf8c44",
-	            "name": "Write Has pew",
+	            "id": "n1a34ce925a744af58f8ac169ea873dee",
+	            "name": "Exception #1",
 	            "language": "python2.7",
-	            "libraries": [
-	                "boto3"
-	            ],
-	            "code": "\n\"\"\"\nEmbedded magic\n\nRefinery memory:\n\tConfig memory: cmemory.get( \"api_key\" )\n\tGlobal memory: gmemory.get( \"example\" )\n\tForce no-namespace: gmemory.get( \"example\", raw=True )\n\nSQS message body:\n\tFirst message: sqs_data = json.loads( lambda_input[ \"Records\" ][0][ \"body\" ] )\nSNS message body:\n\tFirst message: sns_data = json.loads( lambda_input[ \"Records\" ][ \"Sns\" ][0][ \"Message\" ] )\n\"\"\"\nimport json\n\ndef main( lambda_input, context ):\n    write_to_s3(\n        \"lambdatestbucketpewpew\",\n        \"has_pew\",\n        json.dumps(\n            lambda_input,\n            False,\n            4\n        )\n    )\n    return True\n\n# Store in S3 \ndef write_to_s3( bucket_name, object_key, body ):\n\timport boto3\n\ts3_client = boto3.client( \"s3\" )\n\tresult = s3_client.put_object(\n\t\tBucket=bucket_name,\n\t\tKey=object_key,\n\t\tBody=body\n\t)\n\treturn result",
+	            "libraries": [],
+	            "code": "import json\n\ndef main( lambda_input, context ):\n    write_to_s3(\n        \"lambdatestbucketpewpew\",\n        \"exception_one\",\n        json.dumps(\n            lambda_input    \n        )\n    )\n\n# Store in S3 \ndef write_to_s3( bucket_name, object_key, body ):\n\timport boto3\n\ts3_client = boto3.client( \"s3\" )\n\tresult = s3_client.put_object(\n\t\tBucket=bucket_name,\n\t\tKey=object_key,\n\t\tBody=body\n\t)\n\treturn result\n",
 	            "memory": 128,
 	            "max_execution_time": 60,
 	            "type": "lambda"
 	        },
 	        {
-	            "id": "nc02ddcb759e84b469581ca454e9947b6",
-	            "name": "Write Exception",
+	            "id": "n25934c251ad84afe84c5707bbdf2271e",
+	            "name": "then #2",
 	            "language": "python2.7",
-	            "libraries": [
-	                "boto3"
-	            ],
-	            "code": "\n\"\"\"\nEmbedded magic\n\nRefinery memory:\n\tConfig memory: cmemory.get( \"api_key\" )\n\tGlobal memory: gmemory.get( \"example\" )\n\tForce no-namespace: gmemory.get( \"example\", raw=True )\n\nSQS message body:\n\tFirst message: sqs_data = json.loads( lambda_input[ \"Records\" ][0][ \"body\" ] )\nSNS message body:\n\tFirst message: sns_data = json.loads( lambda_input[ \"Records\" ][ \"Sns\" ][0][ \"Message\" ] )\n\"\"\"\nimport json\n\ndef main( lambda_input, context ):\n    write_to_s3(\n        \"lambdatestbucketpewpew\",\n        \"exception\",\n        json.dumps(\n            lambda_input,\n            False,\n            4\n        )\n    )\n    return True\n\n# Store in S3 \ndef write_to_s3( bucket_name, object_key, body ):\n\timport boto3\n\ts3_client = boto3.client( \"s3\" )\n\tresult = s3_client.put_object(\n\t\tBucket=bucket_name,\n\t\tKey=object_key,\n\t\tBody=body\n\t)\n\treturn result",
+	            "libraries": [],
+	            "code": "import json\n\ndef main( lambda_input, context ):\n    write_to_s3(\n        \"lambdatestbucketpewpew\",\n        \"then_two\",\n        json.dumps(\n            lambda_input    \n        )\n    )\n    \n    return {\n        \"if_check\": True\n    }\n\n# Store in S3 \ndef write_to_s3( bucket_name, object_key, body ):\n\timport boto3\n\ts3_client = boto3.client( \"s3\" )\n\tresult = s3_client.put_object(\n\t\tBucket=bucket_name,\n\t\tKey=object_key,\n\t\tBody=body\n\t)\n\treturn result\n",
+	            "memory": 128,
+	            "max_execution_time": 60,
+	            "type": "lambda"
+	        },
+	        {
+	            "id": "n08468a6eadbf487788072cd4716ce182",
+	            "name": "then #3",
+	            "language": "python2.7",
+	            "libraries": [],
+	            "code": "import json\n\ndef main( lambda_input, context ):\n    write_to_s3(\n        \"lambdatestbucketpewpew\",\n        \"then_three\",\n        json.dumps(\n            lambda_input    \n        )\n    )\n\n# Store in S3 \ndef write_to_s3( bucket_name, object_key, body ):\n\timport boto3\n\ts3_client = boto3.client( \"s3\" )\n\tresult = s3_client.put_object(\n\t\tBucket=bucket_name,\n\t\tKey=object_key,\n\t\tBody=body\n\t)\n\treturn result\n",
+	            "memory": 128,
+	            "max_execution_time": 60,
+	            "type": "lambda"
+	        },
+	        {
+	            "id": "n435975e002a047e1bb8b5a2a75b9f1e2",
+	            "name": "Exception #2",
+	            "language": "python2.7",
+	            "libraries": [],
+	            "code": "import json\n\ndef main( lambda_input, context ):\n    write_to_s3(\n        \"lambdatestbucketpewpew\",\n        \"exception_two\",\n        json.dumps(\n            lambda_input    \n        )\n    )\n\n# Store in S3 \ndef write_to_s3( bucket_name, object_key, body ):\n\timport boto3\n\ts3_client = boto3.client( \"s3\" )\n\tresult = s3_client.put_object(\n\t\tBucket=bucket_name,\n\t\tKey=object_key,\n\t\tBody=body\n\t)\n\treturn result\n",
+	            "memory": 128,
+	            "max_execution_time": 60,
+	            "type": "lambda"
+	        },
+	        {
+	            "id": "n62a55e336380499da0fc6084c6a6394a",
+	            "name": "if #1",
+	            "language": "python2.7",
+	            "libraries": [],
+	            "code": "import json\n\ndef main( lambda_input, context ):\n    write_to_s3(\n        \"lambdatestbucketpewpew\",\n        \"if_one\",\n        json.dumps(\n            lambda_input    \n        )\n    )\n\n# Store in S3 \ndef write_to_s3( bucket_name, object_key, body ):\n\timport boto3\n\ts3_client = boto3.client( \"s3\" )\n\tresult = s3_client.put_object(\n\t\tBucket=bucket_name,\n\t\tKey=object_key,\n\t\tBody=body\n\t)\n\treturn result\n",
+	            "memory": 128,
+	            "max_execution_time": 60,
+	            "type": "lambda"
+	        },
+	        {
+	            "id": "ncc0e844cd8a84ce182b62254dac22d51",
+	            "name": "if #2",
+	            "language": "python2.7",
+	            "libraries": [],
+	            "code": "import json\n\ndef main( lambda_input, context ):\n    write_to_s3(\n        \"lambdatestbucketpewpew\",\n        \"if_two\",\n        json.dumps(\n            lambda_input    \n        )\n    )\n\n# Store in S3 \ndef write_to_s3( bucket_name, object_key, body ):\n\timport boto3\n\ts3_client = boto3.client( \"s3\" )\n\tresult = s3_client.put_object(\n\t\tBucket=bucket_name,\n\t\tKey=object_key,\n\t\tBody=body\n\t)\n\treturn result\n",
 	            "memory": 128,
 	            "max_execution_time": 60,
 	            "type": "lambda"
@@ -1054,36 +1081,60 @@ var app = new Vue({
 	    ],
 	    "workflow_relationships": [
 	        {
-	            "id": "nc4a4658211fa482d8316e5dc7211b31a",
+	            "id": "ned62968b787f4a758cf1e0284a4867eb",
 	            "name": "then",
 	            "type": "then",
 	            "expression": "",
-	            "node": "n049ddf0f9c914627b5ea41db40ee71fc",
-	            "next": "na70430af9b90411fabb1ea49aeab34e8"
+	            "node": "nbba28a84cfc9465d8e8bd4e3a88f8875",
+	            "next": "nf96efce8dacd4b7aa93f8f544c342ad7"
 	        },
 	        {
-	            "id": "nd7d1355be8554c4d89942db6e12fe16d",
-	            "name": "else",
-	            "type": "else",
+	            "id": "n31c15f2a6e9947208541aafd25054f05",
+	            "name": "then",
+	            "type": "then",
 	            "expression": "",
-	            "node": "na70430af9b90411fabb1ea49aeab34e8",
-	            "next": "n0466e9d4259a455282c55be95131f279"
+	            "node": "nbba28a84cfc9465d8e8bd4e3a88f8875",
+	            "next": "n25934c251ad84afe84c5707bbdf2271e"
 	        },
 	        {
-	            "id": "n506f6130775045f98aa145f344eed79f",
-	            "name": "if has \"pew\"",
-	            "type": "if",
-	            "expression": "return_data and \"pew\" in return_data",
-	            "node": "na70430af9b90411fabb1ea49aeab34e8",
-	            "next": "n8857125c265a41f7ac8443866fcf8c44"
+	            "id": "n391e066437414ad59d50c1980969ffeb",
+	            "name": "then",
+	            "type": "then",
+	            "expression": "",
+	            "node": "nbba28a84cfc9465d8e8bd4e3a88f8875",
+	            "next": "n08468a6eadbf487788072cd4716ce182"
 	        },
 	        {
-	            "id": "n038a52aa8d9d412eb786ae3770566e48",
+	            "id": "nde343f6014f9464b8440ab90fe323964",
 	            "name": "exception",
 	            "type": "exception",
 	            "expression": "",
-	            "node": "na70430af9b90411fabb1ea49aeab34e8",
-	            "next": "nc02ddcb759e84b469581ca454e9947b6"
+	            "node": "nf96efce8dacd4b7aa93f8f544c342ad7",
+	            "next": "n1a34ce925a744af58f8ac169ea873dee"
+	        },
+	        {
+	            "id": "n57297c9210a044f49adf07bb3e79cee3",
+	            "name": "exception",
+	            "type": "exception",
+	            "expression": "",
+	            "node": "nf96efce8dacd4b7aa93f8f544c342ad7",
+	            "next": "n435975e002a047e1bb8b5a2a75b9f1e2"
+	        },
+	        {
+	            "id": "n4aac19db5007418abf199f884dd19303",
+	            "name": "\"if_check\" in return_data",
+	            "type": "if",
+	            "expression": "\"if_check\" in return_data",
+	            "node": "n25934c251ad84afe84c5707bbdf2271e",
+	            "next": "n62a55e336380499da0fc6084c6a6394a"
+	        },
+	        {
+	            "id": "n1854e5a400d8439e9b41080dbd0212b7",
+	            "name": "\"if_check\" in return_data",
+	            "type": "if",
+	            "expression": "\"if_check\" in return_data",
+	            "node": "n25934c251ad84afe84c5707bbdf2271e",
+	            "next": "ncc0e844cd8a84ce182b62254dac22d51"
 	        }
 	    ],
 	    ace_language_to_lang_id_map: {

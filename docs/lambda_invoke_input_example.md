@@ -5,10 +5,11 @@ The following is an example of the payload which is passed to Lambdas invoked in
 ```json
 {
 	"_refinery": {
-		"indirect": false,
-		"input_data": {
-			"": ""
-		}
+		"indirect": {
+			"type": "redis",
+			"key": {{UUID_FOR_KEY}},
+		},
+		"parallel": true,
 	}
 }
 ```
@@ -40,3 +41,7 @@ Or in the case of S3:
 	}
 }
 ```
+
+## `parallel`
+
+The `parallel` key specifies if the 

@@ -1,3 +1,6 @@
+* Add programming language indicator for conditional transition expression editor
+* Add pre-check before deploy to point out if overwriting will occur
+	* Prompt to overwrite, write with renamed, or to cancel.
 * Fix API calls to reject promises properly and add JS Toastr support https://github.com/CodeSeven/toastr
 * Add ability to save projects
 * Add ability to save Lambdas

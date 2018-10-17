@@ -18,6 +18,9 @@ import threading
 
 # TODO only initialize connection when used.
 class Refinery_Memory:
+	# 6 minutes default return data expire
+	return_data_timeout = ( 60 * 6 )
+	
 	json_types = [
 		list,
 		dict
@@ -185,11 +188,40 @@ class Refinery_Memory:
 			
 		self.redis_client.setex(
 			new_key,
-			( 60 * 5 ),
+			self.return_data_timeout,
 			json.dumps(
 				return_data
 			)
 		)
+		
+		return new_key
+		
+	def _parallel_store_return_data_to_redis( self, return_data, number_of_parallel_nodes, continue_arn, **kwargs ):
+		if not self.redis_client:
+			self.connect()
+			
+		new_key = str( uuid.uuid4() )
+		
+		# Set job data
+		self.redis_client.setex(
+			new_key,
+			self.return_data_timeout,
+			json.dumps(
+				return_data
+			)
+		)
+		
+		"""
+		Parallel Lambda execution works by setting the P_AWAIT_{{new_key}} redis key
+		to the number of Lambdas which must finish executing before proceeding to the next step.
+		
+		After each Lambda finishes it will decrement the P_AWAIT_{{new_key}} value and check
+		if the counter has reached zero. If it has then it will clear the return data from redis
+		followed by invokign the Lambda ARN stored at P_CONT_{{new_key}} after its execution has
+		completed.
+		"""
+		parallel_key = "P_AWAIT_" + new_key
+		continue_arn_key = "P_CONT_" + new_key
 		
 		return new_key
 		
@@ -201,6 +233,18 @@ def _parallel_invoke( invoke_queue ):
 	
 	# Invokes a Lambda asynchronously
 	def lambda_invoker_worker( arn, input_data ):
+		storage_key = gmemory._store_return_data_to_redis( input_data )
+		
+		return_wrapper_data = {
+			"_refinery": {
+				"indirect": {
+					"type": "redis",
+					"key": storage_key,
+				},
+				"parallel": False
+			}
+		}
+		
 		lambda_client = boto3.client(
 			"lambda"
 		)
@@ -229,6 +273,11 @@ def _parallel_invoke( invoke_queue ):
 		new_thread.start()
 		time.sleep(0.05) # Annoying wedge due to boto3 bug
 		return new_thread
+		
+	# Bug fix test
+	lambda_client = boto3.client(
+		"lambda"
+	)
 	
 	# Keep looping while there's still Lambdas to invoke
 	while len( invoke_queue ) > 0:
@@ -246,7 +295,6 @@ def _parallel_invoke( invoke_queue ):
 				if active_thread.is_alive():
 					new_active_thread_list.append( active_thread )
 				elif already_spawned == False:
-					print( "Refresh!" )
 					new_active_thread_list.append(
 						spawn_new_worker()
 					)
@@ -272,7 +320,8 @@ def _call_next( arn, input_data ):
 			"indirect": {
 				"type": "redis",
 				"key": storage_key,
-			}
+			},
+			"parallel": False
 		}
 	}
 	
@@ -346,37 +395,78 @@ def _init( lambda_input, context ):
 	except:
 		exception_string = str( traceback.format_exc() )
 		
-		if transitions[ "exception" ]:
-			_call_next(
-				transitions[ "exception" ],
-				{
-					"version": _VERSION,
-					"exception_text": exception_string,
-					"input_data": input_data
-				}
-			)
+		if len( transitions[ "exception" ] ) > 0:
+			invocation_input_list = []
+			for exception_transition_arn in transitions[ "exception" ]:
+				invocation_input_list.append({
+					"arn": exception_transition_arn,
+					"input_data": {
+						"version": _VERSION,
+						"exception_text": exception_string,
+						"input_data": json.loads(
+							json.dumps(
+								lambda_input
+							)
+						)
+					}
+				})
+			
+			
+			# If there's an exception we should stop after invoking the exception case(s).
+			_parallel_invoke( invocation_input_list )
 			return
 		else:
 			# Nothing to handle it, throw it again.
 			raise
 	
+	# Stores the invocation data for "if"s and "then"s
+	invocation_input_list = []
+	
 	# If it's just a then, just invoke the next Lambda
-	if transitions[ "then" ]:
-		_call_next( transitions[ "then" ], return_data )
-		return
-		
+	for then_transition_arn in transitions[ "then" ]:
+		invocation_input_list.append({
+			"arn": then_transition_arn,
+			"input_data": json.loads(
+				json.dumps(
+					return_data
+				)
+			)
+		})
+	
+	# Variable to hold if any "if" statements evaluated to true
+	# if one has then we don't execute any "else" statements
+	true_if_evaluation_occured = False
+	
 	# Iterate over every if
 	for if_statement_data in transitions[ "if" ]:
 		expression_eval_result = eval( if_statement_data[ "expression" ] )
 		
 		if expression_eval_result:
-			result = _call_next( if_statement_data[ "target_arn" ], return_data )
-			del result[ "Payload" ]
-			return result
+			invocation_input_list.append({
+				"arn": if_statement_data[ "target_arn" ],
+				"input_data": json.loads(
+					json.dumps(
+						return_data
+					)
+				)
+			})
+			
+			true_if_evaluation_occured = True
 		
 	# If else is set, call that now
-	if transitions[ "else" ]:
-		_call_next( transitions[ "else" ], return_data )
-		return
+	if true_if_evaluation_occured == False:
+		for else_transition_arn in transitions[ "else" ]:
+			invocation_input_list.append({
+				"arn": else_transition_arn,
+				"input_data": json.loads(
+					json.dumps(
+						return_data
+					)
+				)
+			})
 	
+	# Now we invoke all the queued Lambdas!
+	_parallel_invoke( invocation_input_list )
+	
+	# Return the return data as usual
 	return return_data

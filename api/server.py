@@ -1041,9 +1041,9 @@ class RunTmpLambda( BaseHandler ):
 			self.json[ "code" ],
 			self.json[ "libraries" ],
 			{
-				"then": False,
-				"else": False,
-				"exception": False,
+				"then": [],
+				"else": [],
+				"exception": [],
 				"if": []
 			}
 		)
@@ -1663,9 +1663,9 @@ def deploy_diagram( diagram_data ):
 			# Set up default transitions data
 			workflow_state[ "transitions" ] = {}
 			workflow_state[ "transitions" ][ "if" ] = []
-			workflow_state[ "transitions" ][ "else" ] = False
-			workflow_state[ "transitions" ][ "exception" ] = False
-			workflow_state[ "transitions" ][ "then" ] = False
+			workflow_state[ "transitions" ][ "else" ] = []
+			workflow_state[ "transitions" ][ "exception" ] = []
+			workflow_state[ "transitions" ][ "then" ] = []
 		
 	# Now add transition data to each Lambda
 	for workflow_relationship in diagram_data[ "workflow_relationships" ]:
@@ -1683,11 +1683,11 @@ def deploy_diagram( diagram_data ):
 			target_arn = "arn:aws:lambda:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":function:" + get_lambda_safe_name( target_node_data[ "name" ] )
 			
 			if workflow_relationship[ "type" ] == "then":
-				origin_node_data[ "transitions" ][ "then" ] = target_arn
+				origin_node_data[ "transitions" ][ "then" ].append( target_arn )
 			elif workflow_relationship[ "type" ] == "else":
-				origin_node_data[ "transitions" ][ "else" ] = target_arn
+				origin_node_data[ "transitions" ][ "else" ].append( target_arn )
 			elif workflow_relationship[ "type" ] == "exception":
-				origin_node_data[ "transitions" ][ "exception" ] = target_arn
+				origin_node_data[ "transitions" ][ "exception" ].append( target_arn )
 			elif workflow_relationship[ "type" ] == "if":
 				origin_node_data[ "transitions" ][ "if" ].append({
 					"target_arn": target_arn,
