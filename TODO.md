@@ -1,8 +1,10 @@
+* Fix API calls to reject promises properly and add JS Toastr support https://github.com/CodeSeven/toastr
 * Add ability to save projects
 * Add ability to save Lambdas
 * Add advanced logging ability for production deployed pipelines
 	* Allow walking through the pipeline execution chain visual
 	* View `input_data` and `return_data` at each node.
+* Add parallel Lambda execution
 
 * BigQuery Auto Importer does too many daily loads! Make every 3 minutes or something...
 ---

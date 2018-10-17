@@ -14,6 +14,7 @@ import redis
 import pickle
 import boto3
 import traceback
+import threading
 
 # TODO only initialize connection when used.
 class Refinery_Memory:
@@ -192,6 +193,74 @@ class Refinery_Memory:
 		
 		return new_key
 		
+def _parallel_invoke( invoke_queue ):
+	# List of active threads
+	active_threads = []
+	# Maximum number of threads
+	max_threads = 10
+	
+	# Invokes a Lambda asynchronously
+	def lambda_invoker_worker( arn, input_data ):
+		lambda_client = boto3.client(
+			"lambda"
+		)
+	
+		response = lambda_client.invoke(
+			FunctionName=arn,
+			InvocationType="Event",
+			LogType="None",
+			Payload=json.dumps(
+				input_data
+			)
+		)
+		
+		raise SystemExit
+	
+	# Spawns a new worked and adds it to active_threads
+	def spawn_new_worker():
+		new_invoke_data = invoke_queue.pop()
+		new_thread = threading.Thread(
+			target=lambda_invoker_worker,
+			args=(
+				new_invoke_data[ "arn" ],
+				new_invoke_data[ "input_data" ]
+			)
+		)
+		new_thread.start()
+		time.sleep(0.05) # Annoying wedge due to boto3 bug
+		return new_thread
+	
+	# Keep looping while there's still Lambdas to invoke
+	while len( invoke_queue ) > 0:
+		# If we've not maxing out acive threads then spawn new ones
+		if len( active_threads ) < max_threads:
+			active_threads.append(
+				spawn_new_worker()
+			)
+		else:
+			# Iterate over our active threads and remove finished
+			new_active_thread_list = []
+			already_spawned = False
+			# Check if any threads are finished
+			for active_thread in active_threads:
+				if active_thread.is_alive():
+					new_active_thread_list.append( active_thread )
+				elif already_spawned == False:
+					print( "Refresh!" )
+					new_active_thread_list.append(
+						spawn_new_worker()
+					)
+					already_spawned = True
+					
+			active_threads = new_active_thread_list
+			
+	# Wait until all threads finish
+	for thread in active_threads:
+		thread.join()
+	
+	# We're all done
+	return
+		
 def _call_next( arn, input_data ):
 	"""
 	Call the next Lambda in the chain.
@@ -278,7 +347,14 @@ def _init( lambda_input, context ):
 		exception_string = str( traceback.format_exc() )
 		
 		if transitions[ "exception" ]:
-			_call_next( transitions[ "exception" ], { "version": _VERSION, "exception_text": exception_string } )
+			_call_next(
+				transitions[ "exception" ],
+				{
+					"version": _VERSION,
+					"exception_text": exception_string,
+					"input_data": input_data
+				}
+			)
 			return
 		else:
 			# Nothing to handle it, throw it again.
@@ -287,6 +363,7 @@ def _init( lambda_input, context ):
 	# If it's just a then, just invoke the next Lambda
 	if transitions[ "then" ]:
 		_call_next( transitions[ "then" ], return_data )
+		return
 		
 	# Iterate over every if
 	for if_statement_data in transitions[ "if" ]:
