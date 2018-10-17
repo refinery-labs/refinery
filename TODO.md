@@ -1,3 +1,4 @@
+* Fix SQL injection in ilike SQLAlchemy statements
 * Add programming language indicator for conditional transition expression editor
 * Add pre-check before deploy to point out if overwriting will occur
 	* Prompt to overwrite, write with renamed, or to cancel.

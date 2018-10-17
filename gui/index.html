@@ -12,7 +12,84 @@
     <div id="app">
     	<!-- modals -->
     	
-    	<!-- TODO Modal - for finished stuff -->
+		<!-- Search Lambda modal -->
+		<div class="modal fade" id="searchsavedlambda_output" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title">Search Saved Lambdas</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<div class="form-group">
+							<label>Search</label>
+							<input type="text" class="form-control" placeholder="Code search term" v-model="saved_lambda_search_query">
+							<small class="form-text text-muted">Free text search of saved Lambda.</small>
+						</div>
+						<hr />
+						<table class="table table-striped">
+							<thead>
+								<tr>
+									<th scope="col" style="width: 175px;">Name</th>
+									<th scope="col">Description</th>
+									<th scope="col" style="width: 120px">Language</th>
+									<th scope="col" style="width: 30px; text-align: center;"></th>
+									<th scope="col" style="width: 70px; text-align: center;"></th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr class="search-result-row" v-for="saved_lambda_search_result in saved_lambda_search_results">
+									<th scope="row">{{saved_lambda_search_result.name}}</th>
+									<td>{{saved_lambda_search_result.description}}</td>
+									<td>{{saved_lambda_search_result.language}}</td>
+									<td>
+										<button type="button" class="btn btn-danger" v-bind:id="saved_lambda_search_result.id" v-on:click="delete_saved_lambda_from_db">Delete</button>
+									</td>
+									<td>
+										<button type="button" class="btn btn-primary" v-bind:id="saved_lambda_search_result.id" v-on:click="add_saved_lambda_to_project" data-dismiss="modal">Import</button>
+									</td>
+								</tr>
+							</tbody>
+						</table>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+    	
+    	<!-- Save Lambda in database modal -->
+		<div class="modal fade" id="savelambdaindb_output" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="project_name_rename_label">Save Reusable Lambda in Database</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<div class="form-group">
+							<label>Description</label>
+							<input type="text" class="form-control" v-model="save_lambda_to_db_description" placeholder="Lambda to save input data as JSON to S3...">
+							<small class="form-text text-muted">Write a short description of what this Lambda does.</small>
+						</div>
+	            		<br />
+	            		<center>
+	            			<button type="button" class="btn btn-lg btn-primary" v-on:click="save_lambda_to_database" data-dismiss="modal">Save Lambda in Database</button>
+	            		</center>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+    	
+    	<!-- TODO Modal - for unfinished stuff -->
 		<div class="modal fade" id="todo_output" tabindex="-1" role="dialog" aria-labelledby="todo_label" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
 		        <div class="modal-content">
@@ -451,6 +528,7 @@
 							<a class="dropdown-item" href="#" v-on:click="add_timer_trigger_node">Time Trigger</a>
 						</div>
 					</div>
+					<button type="button" class="btn btn-primary" v-on:click="view_search_saved_lambdas_modal" style="margin-right: 5px;">Saved Lambdas</button>
 			    	<button type="button" class="btn btn-primary" v-on:click="view_add_function_modal" style="margin-right: 5px;">Add Function</button>
 			    	<button type="button" class="btn btn-primary" v-on:click="view_search_functions_modal" style="margin-right: 5px;">Function Lookup</button>
 			    	<button type="button" class="btn btn-primary" v-on:click="import_project_data" style="margin-right: 5px;">Import Project</button>
@@ -668,7 +746,7 @@
 					<label>Max Execution Time</label>
 					<div class="form-group">
 						<div class="input-group mb-2">
-							<input type="number" class="form-control form-control-lg" v-model="lambda_max_execution_time" placeholder="60" step="1" min="2" max="300">
+							<input type="number" class="form-control form-control-lg" v-model="lambda_max_execution_time" placeholder="60" step="1" min="2" max="900">
 							<div class="input-group-append">
 								<div class="input-group-text">Second(s)</div>
 							</div>
@@ -686,7 +764,7 @@
                 <hr />
                 <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="duplicate_lambda">Duplicate Lambda</button>
                 <hr />
-                <!-- <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="select_trigger('lambda')">Deploy Lambda</button> -->
+                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="view_save_lambda_to_db_modal">Save Lambda in Database</button>
             </div>
             
             <!-- Refinery ATC Homepage Panel -->

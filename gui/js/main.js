@@ -754,6 +754,42 @@ function create_saved_function( name, description, code, language, libraries ) {
 	);
 }
 
+function created_saved_lambda( name, description, code, language, libraries, memory, max_execution_time ) {
+	return api_request(
+		"POST",
+		"api/v1/lambdas/create",
+		{
+			"name": name,
+			"description": description,
+			"code": code,
+			"language": language,
+			"libraries": libraries,
+			"memory": memory,
+			"max_execution_time": max_execution_time
+		}
+	);
+}
+
+function search_saved_lambdas( query ) {
+	return api_request(
+		"POST",
+		"api/v1/lambdas/search",
+		{
+			"query": query,
+		}
+	);
+}
+
+function delete_saved_lambdas( id ) {
+	return api_request(
+		"DELETE",
+		"api/v1/lambdas/delete",
+		{
+			"id": id,
+		}
+	);
+}
+
 function deploy_lambda( name, language, code, libraries, memory, max_execution_time ) {
 	return api_request(
 		"POST",
@@ -1230,11 +1266,19 @@ var app = new Vue({
         // Search term for saved function search
         saved_function_search_query: "",
         
+        // Search term for saved Lambda search
+        saved_lambda_search_query: "",
+        // Search results for saved Lambda search
+        saved_lambda_search_results: [],
+        
         // Whether the infrastructure is still being deployed.
         deploying_infrastructure: false,
         
         // Time taken to deploy infrastructure
         deploy_infrastructure_time: 0,
+        
+        // Description of Lambda before saving to database
+        save_lambda_to_db_description: "",
         
         // Refinery ATC
         atc: {
@@ -1277,6 +1321,9 @@ var app = new Vue({
         },
 	},
 	watch: {
+		saved_lambda_search_query: function( value, previous_value ) {
+			app.search_saved_lambdas( value );
+		},
 		saved_function_search_query: function( value, previous_value ) {
 			app.search_saved_functions( value );
 		},
@@ -1359,6 +1406,84 @@ var app = new Vue({
 		}
 	},
 	methods: {
+		delete_saved_lambda_from_db: async function( event ) {
+			var saved_lambda_id = event.srcElement.getAttribute( "id" );
+			var result = await delete_saved_lambdas( saved_lambda_id );
+			
+			// Now clear it from the search results
+			app.saved_lambda_search_results = app.saved_lambda_search_results.filter(function( lambda_search_result ) {
+				return ( lambda_search_result.id !== saved_lambda_id );
+			});
+			
+			console.log( "New saved Lambda search results: " );
+			console.log( app.saved_lambda_search_results );
+			
+			console.log( "Delete saved lambda result: " );
+			console.log( result );
+		},
+		search_saved_lambdas: function( query ) {
+			search_saved_lambdas( query ).then(function( results ) {
+				app.saved_lambda_search_results = results[ "results" ];
+			});
+		},
+		view_search_saved_lambdas_modal: function() {
+			// Clear search query
+			app.saved_lambda_search_query = "";
+
+			$( "#searchsavedlambda_output" ).modal(
+				"show"
+			);
+		},
+		add_saved_lambda_to_project: function( event ) {
+			var saved_lambda_id = event.srcElement.getAttribute( "id" );
+			
+			// Get saved lambda with that ID
+			var matched_lambdas = app.saved_lambda_search_results.filter(function( saved_lambda_search_result ) {
+				return ( saved_lambda_search_result.id === saved_lambda_id );
+			});
+			
+			var matched_lambda = matched_lambdas[0];
+			
+			var lambda_attributes = [
+				"name",
+				"language",
+				"code",
+				"memory",
+				"libraries",
+				"max_execution_time"
+			];
+			
+			var new_lambda_data = {
+				"id": get_random_node_id(),
+	            "type": "lambda"
+			}
+			
+			// Merge over attributes into new Lambda to append
+			lambda_attributes.map(function( lambda_attribute_name ) {
+				new_lambda_data[ lambda_attribute_name ] = matched_lambda[ lambda_attribute_name ];
+			});
+			
+			app.workflow_states.push( new_lambda_data );
+		},
+		save_lambda_to_database: async function() {
+			var result = await created_saved_lambda(
+				app.selected_node_data.name,
+				app.save_lambda_to_db_description,
+				app.selected_node_data.code,
+				app.selected_node_data.language,
+				app.selected_node_data.libraries,
+				app.selected_node_data.memory,
+				app.selected_node_data.max_execution_time
+			);
+		},
+		view_save_lambda_to_db_modal: function() {
+			// Reset previous description
+			app.save_lambda_to_db_description = "";
+			
+			$( "#savelambdaindb_output" ).modal(
+				"show"
+			);
+		},
 		is_simple_transition: function() {
 			if( app.selected_node_data ) {
 				return app.node_types_with_simple_transitions.includes( app.selected_node_data.type );
@@ -1389,6 +1514,7 @@ var app = new Vue({
 			// Start timer for deployment
 			var start_time = Date.now();
 			
+			// Show "deploying diagram" modal
 			$( "#deploydiagram_output" ).modal(
 				"show"
 			);

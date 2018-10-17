@@ -30,6 +30,7 @@ from tornado.concurrent import run_on_executor, futures
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from models.initiate_database import *
 from models.saved_function import SavedFunction
+from models.saved_lambda import SavedLambda
 
 logging.basicConfig(
 	stream=sys.stdout,
@@ -1301,7 +1302,7 @@ class SavedFunctionSearch( BaseHandler ):
 	@gen.coroutine
 	def post( self ):
 		"""
-
+		Free text search of saved functions, returns matching results.
 		"""
 		schema = {
 			"type": "object",
@@ -1509,7 +1510,7 @@ class SavedFunctionDelete( BaseHandler ):
 		validate_schema( self.json, schema )
 		
 		self.logit(
-			"Deleting function data..."
+			"Deleting saved function data..."
 		)
 		
 		session.query( SavedFunction ).filter_by(
@@ -1937,6 +1938,184 @@ class DeployDiagram( BaseHandler ):
 			"result": diagram_data
 		})
 		
+class SavedLambdaCreate( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Create a Lambda to save for later use.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"name": {
+					"type": "string",
+				},
+				"description": {
+					"type": "string",
+				},
+				"code": {
+					"type": "string",
+				},
+				"language": {
+					"type": "string",
+				},
+				"libraries": {
+					"type": "array",
+				},
+				"memory": {
+					"type": "integer",
+					"minimum": 128,
+					"maximum": 3008,
+					"multipleOf": 64
+				},
+				"max_execution_time": {
+					"type": "integer",
+					"minimum": 1,
+					"maximum": 900
+				},
+			},
+			"required": [
+				"name",
+				"description",
+				"code",
+				"language",
+				"libraries",
+				"memory",
+				"max_execution_time"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Saving Lambda data..."
+		)
+		
+		new_lambda = SavedLambda()
+		new_lambda.name = self.json[ "name" ]
+		new_lambda.language = self.json[ "language" ]
+		new_lambda.libraries = json.dumps(
+			self.json[ "libraries" ]
+		)
+		new_lambda.code = self.json[ "code" ]
+		new_lambda.memory = self.json[ "memory" ]
+		new_lambda.max_execution_time = self.json[ "max_execution_time" ]
+		new_lambda.description = self.json[ "description" ]
+
+		session.add( new_lambda )
+		session.commit()
+		
+		self.write({
+			"success": True,
+			"id": new_lambda.id
+		})
+		
+class SavedLambdaSearch( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Free text search of saved Lambda, returns matching results.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"query": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"query",
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Searching saved Lambdas..."
+		)
+		
+		if self.json[ "query" ] == "":
+			self.write({
+				"success": True,
+				"results": []
+			})
+			raise gen.Return()
+		
+		# First search names
+		name_search_results = session.query( SavedLambda ).filter(
+			SavedLambda.name.ilike( "%" + self.json[ "query" ] + "%" ) # Probably SQL injection \o/
+		).limit(10).all()
+		
+		# Second search descriptions
+		description_search_results = session.query( SavedLambda ).filter(
+			SavedLambda.description.ilike( "%" + self.json[ "query" ] + "%" ) # Probably SQL injection \o/
+		).limit(10).all()
+		
+		already_added_ids = []
+		results_list = []
+		
+		"""
+		The below ranks saved function "name" matches over description matches.
+		"""
+		for name_search_result in name_search_results:
+			if not name_search_result.id in already_added_ids:
+				already_added_ids.append(
+					name_search_result.id
+				)
+				
+				results_list.append(
+					name_search_result.to_dict()
+				)
+				
+		for description_search_result in description_search_results:
+			if not description_search_result.id in already_added_ids:
+				already_added_ids.append(
+					description_search_result.id
+				)
+				
+				results_list.append(
+					description_search_result.to_dict()
+				)
+		
+		self.write({
+			"success": True,
+			"results": results_list
+		})
+		
+class SavedLambdaDelete( BaseHandler ):
+	@gen.coroutine
+	def delete( self ):
+		"""
+		Delete a saved Lambda
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"id"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Deleting Lambda data..."
+		)
+		
+		session.query( SavedLambda ).filter_by(
+			id=self.json[ "id" ]
+		).delete()
+		
+		session.commit()
+		
+		self.write({
+			"success": True
+		})
+		
 def make_app( is_debug ):
 	# Convert to bool
 	is_debug = ( is_debug.lower() == "true" )
@@ -1953,6 +2132,9 @@ def make_app( is_debug ):
 		( r"/api/v1/functions/update", SavedFunctionUpdate ),
 		( r"/api/v1/functions/create", SavedFunctionCreate ),
 		( r"/api/v1/functions/search", SavedFunctionSearch ),
+		( r"/api/v1/lambdas/create", SavedLambdaCreate ),
+		( r"/api/v1/lambdas/search", SavedLambdaSearch ),
+		( r"/api/v1/lambdas/delete", SavedLambdaDelete ),
 		( r"/api/v1/aws/create_schedule_trigger", CreateScheduleTrigger ),
 		( r"/api/v1/aws/deploy_lambda", DeployLambda ),
 		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda ),
