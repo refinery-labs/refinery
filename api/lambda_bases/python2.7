@@ -18,8 +18,8 @@ import threading
 
 # TODO only initialize connection when used.
 class Refinery_Memory:
-	# 6 minutes default return data expire
-	return_data_timeout = ( 60 * 6 )
+	# 16 minutes default return data expire
+	return_data_timeout = ( 60 * 16 )
 	
 	json_types = [
 		list,
@@ -308,34 +308,6 @@ def _parallel_invoke( invoke_queue ):
 	
 	# We're all done
 	return
-		
-def _call_next( arn, input_data ):
-	"""
-	Call the next Lambda in the chain.
-	"""
-	storage_key = gmemory._store_return_data_to_redis( input_data )
-	
-	return_wrapper_data = {
-		"_refinery": {
-			"indirect": {
-				"type": "redis",
-				"key": storage_key,
-			},
-			"parallel": False
-		}
-	}
-	
-	_lambda_client = boto3.client( "lambda" )
-	
-	response = _lambda_client.invoke(
-	    FunctionName=arn,
-	    InvocationType="Event",
-	    LogType="None",
-	    ClientContext=json.dumps({}),
-	    Payload=json.dumps( return_wrapper_data )
-	)
-	
-	return response
 
 def _init( lambda_input, context ):
 	# TODO add timer
@@ -395,6 +367,7 @@ def _init( lambda_input, context ):
 	except:
 		exception_string = str( traceback.format_exc() )
 		
+		# Invoke all Lambdas to be run when an exception occurs
 		if len( transitions[ "exception" ] ) > 0:
 			invocation_input_list = []
 			for exception_transition_arn in transitions[ "exception" ]:

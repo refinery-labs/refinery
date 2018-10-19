@@ -913,6 +913,112 @@ class TaskSpawner(object):
 				
 			return s3_object[ "Body" ].read()
 			
+		@run_on_executor
+		def get_aws_lambda_existence_info( self, id, type, lambda_name ):
+			return TaskSpawner._get_aws_lambda_existence_info( id, type, lambda_name )
+		
+		@staticmethod
+		def _get_aws_lambda_existence_info( id, type, lambda_name ):
+			try:
+				response = LAMBDA_CLIENT.get_function(
+					FunctionName=lambda_name
+				)
+			except LAMBDA_CLIENT.exceptions.ResourceNotFoundException:
+				return {
+					"id": id,
+					"type": type,
+					"name": lambda_name,
+					"exists": False
+				}
+				
+			return {
+				"id": id,
+				"type": type,
+				"name": lambda_name,
+				"exists": True,
+				"arn": response[ "Configuration" ][ "FunctionArn" ]
+			}
+			
+		@run_on_executor
+		def get_cloudwatch_existence_info( self, id, type, name ):
+			return TaskSpawner._get_cloudwatch_existence_info( id, type, name )
+			
+		@staticmethod
+		def _get_cloudwatch_existence_info( id, type, name ):
+			try:
+				response = EVENTS_CLIENT.describe_rule(
+					Name=name,
+				)
+			except EVENTS_CLIENT.exceptions.ResourceNotFoundException:
+				return {
+					"id": id,
+					"type": type,
+					"name": name,
+					"exists": False
+				}
+			
+			return {
+				"id": id,
+				"type": type,
+				"name": name,
+				"arn": response[ "Arn" ],
+				"exists": True,
+			}
+			
+		@run_on_executor
+		def get_sqs_existence_info( self, id, type, name ):
+			return TaskSpawner._get_sqs_existence_info( id, type, name )
+			
+		@staticmethod
+		def _get_sqs_existence_info( id, type, name ):
+			try:
+				queue_url_response = SQS_CLIENT.get_queue_url(
+					QueueName=name,
+				)
+			except SQS_CLIENT.exceptions.QueueDoesNotExist:
+				return {
+					"id": id,
+					"type": type,
+					"name": name,
+					"exists": False
+				}
+			
+			return {
+				"id": id,
+				"type": type,
+				"name": name,
+				"arn": "arn:aws:sqs:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + name,
+				"exists": True,
+			}
+			
+		@run_on_executor
+		def get_sns_existence_info( self, id, type, name ):
+			return TaskSpawner._get_sns_existence_info( id, type, name )
+			
+		@staticmethod
+		def _get_sns_existence_info( id, type, name ):
+			sns_topic_arn = "arn:aws:sns:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + name
+			
+			try:
+				response = SNS_CLIENT.get_topic_attributes(
+					TopicArn=sns_topic_arn
+				)
+			except SNS_CLIENT.exceptions.NotFoundException:
+				return {
+					"id": id,
+					"type": type,
+					"name": name,
+					"exists": False
+				}
+			
+			return {
+				"id": id,
+				"type": type,
+				"name": sns_topic_arn,
+				"arn": False,
+				"exists": True,
+			}
+			
 local_tasks = TaskSpawner()
 			
 def get_random_node_id():
@@ -2116,6 +2222,98 @@ class SavedLambdaDelete( BaseHandler ):
 			"success": True
 		})
 		
+class InfraTearDown( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		[
+			""
+		]
+		"""
+		pass
+	
+class InfraCollisionCheck( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		self.logit(
+			"Checking for production collisions..."
+		)
+		
+		diagram_data = json.loads( self.json[ "diagram_data" ] )
+		
+		"""
+		Returned collisions format:
+		
+		[
+			{
+				"id": {{node_id}},
+				"arn": {{production_resource_arn}},
+				"name": {{node_name}},
+				"type": {{node_type}},
+			}
+		]
+		"""
+		collision_check_futures = []
+		
+		"""
+		Iterate through workflow states and check for collisions
+		for each node in production based off get_lambda_safe_name
+		"""
+		for workflow_state in diagram_data[ "workflow_states" ]:
+			# Check for Lambda collision
+			if workflow_state[ "type" ] == "lambda":
+				collision_check_futures.append(
+					local_tasks.get_aws_lambda_existence_info(
+						workflow_state[ "id" ],
+						workflow_state[ "type" ],
+						get_lambda_safe_name(
+							workflow_state[ "name" ]
+						)
+					)
+				)
+			# Check for Schedule Trigger collisions (CloudWatch)
+			elif workflow_state[ "type" ] == "schedule_trigger":
+				collision_check_futures.append(
+					local_tasks.get_cloudwatch_existence_info(
+						workflow_state[ "id" ],
+						workflow_state[ "type" ],
+						get_lambda_safe_name(
+							workflow_state[ "name" ]
+						)
+					)
+				)
+			elif workflow_state[ "type" ] == "sqs_queue":
+				collision_check_futures.append(
+					local_tasks.get_sqs_existence_info(
+						workflow_state[ "id" ],
+						workflow_state[ "type" ],
+						get_lambda_safe_name(
+							workflow_state[ "name" ]
+						)
+					)
+				)
+			elif workflow_state[ "type" ] == "sns_topic":
+				collision_check_futures.append(
+					local_tasks.get_sns_existence_info(
+						workflow_state[ "id" ],
+						workflow_state[ "type" ],
+						get_lambda_safe_name(
+							workflow_state[ "name" ]
+						)
+					)
+				)
+		
+		# Wait for all collision checks to finish
+		collision_check_results = yield collision_check_futures
+		
+		print( "Collision check results: " )
+		pprint( collision_check_results )
+		
+		self.write({
+			"success": True,
+			"result": collision_check_results
+		})
+		
 def make_app( is_debug ):
 	# Convert to bool
 	is_debug = ( is_debug.lower() == "true" )
@@ -2138,7 +2336,9 @@ def make_app( is_debug ):
 		( r"/api/v1/aws/create_schedule_trigger", CreateScheduleTrigger ),
 		( r"/api/v1/aws/deploy_lambda", DeployLambda ),
 		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda ),
-		( r"/api/v1/aws/create_sqs_trigger", CreateSQSQueueTrigger )
+		( r"/api/v1/aws/create_sqs_trigger", CreateSQSQueueTrigger ),
+		( r"/api/v1/aws/infra_tear_down", InfraTearDown ),
+		( r"/api/v1/aws/infra_collision_check", InfraCollisionCheck )
 	], **tornado_app_settings)
 			
 if __name__ == "__main__":
