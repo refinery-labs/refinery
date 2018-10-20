@@ -35,8 +35,8 @@
 									<th scope="col" style="width: 175px;">Name</th>
 									<th scope="col">Description</th>
 									<th scope="col" style="width: 120px">Language</th>
-									<th scope="col" style="width: 30px; text-align: center;"></th>
 									<th scope="col" style="width: 70px; text-align: center;"></th>
+									<th scope="col" style="width: 30px; text-align: center;"></th>
 								</tr>
 							</thead>
 							<tbody>
@@ -45,10 +45,10 @@
 									<td>{{saved_lambda_search_result.description}}</td>
 									<td>{{saved_lambda_search_result.language}}</td>
 									<td>
-										<button type="button" class="btn btn-danger" v-bind:id="saved_lambda_search_result.id" v-on:click="delete_saved_lambda_from_db">Delete</button>
+										<button type="button" class="btn btn-primary" v-bind:id="saved_lambda_search_result.id" v-on:click="add_saved_lambda_to_project" data-dismiss="modal">Import</button>
 									</td>
 									<td>
-										<button type="button" class="btn btn-primary" v-bind:id="saved_lambda_search_result.id" v-on:click="add_saved_lambda_to_project" data-dismiss="modal">Import</button>
+										<button type="button" class="btn btn-danger" v-bind:id="saved_lambda_search_result.id" v-on:click="delete_saved_lambda_from_db">Delete</button>
 									</td>
 								</tr>
 							</tbody>

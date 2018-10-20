@@ -225,6 +225,12 @@ function get_uuid() {
 	)
 }
 
+function get_lambda_safe_name( input_string ) {
+	var regex = new RegExp( "[^A-Za-z0-9\_]", "g" );
+	input_string = input_string.replace( " ", "_" );
+	return input_string.replace( regex, "" );
+}
+
 function get_random_node_id() {
 	return "n" + get_uuid().replace( /-/g, "" ); // Must start with letter for Graphiz
 }
@@ -530,7 +536,7 @@ function select_transition( transition_id ) {
 
 function reset_current_sns_topic_state_to_defaults() {
     var sns_topic_data = {
-		"topic_name": "Untitled Topic",
+		"topic_name": "New Topic",
 		"sns_topic_template": JSON.stringify({
 			"id": "1"
 		}, false, 4 ),
@@ -540,7 +546,7 @@ function reset_current_sns_topic_state_to_defaults() {
 
 function reset_current_schedule_trigger_to_defaults() {
     var scheduled_trigger_data = {
-    	"name": "Untitled Trigger",
+    	"name": "New Trigger",
     	"schedule_expression": "rate(1 minute)",
     	"description": "Example scheduled rule description.",
     	"input_dict": {},
@@ -1080,7 +1086,7 @@ var app = new Vue({
 		},
 		graphiz_content: "",
 		// Project name
-		project_name: "Untitled Project",
+		project_name: "New Project",
 		// Currently selected lambda name
 		lambda_name: "",
 		// Currently selected lambda language
@@ -1117,7 +1123,7 @@ var app = new Vue({
         },
         // Target data for when an SNS-based trigger is created
 		sns_trigger_data: {
-			"topic_name": "Untitled Topic",
+			"topic_name": "New Topic",
 			"sns_topic_template": JSON.stringify({
 				"id": "1"
 			}, false, 4 ),
@@ -1294,6 +1300,50 @@ var app = new Vue({
 		}
 	},
 	methods: {
+		get_non_colliding_name: function( id, name, type ) {
+			// Check if name is a collision
+			var is_collision = app.is_node_name_collision(
+				id,
+				name,
+				type
+			);
+			
+			if( !is_collision ) {
+				return name;
+			}
+			
+			// Append a number to make the name not collide
+			// Just increment until we find a complying name.
+			var i = 2;
+			
+			// Save original name
+			var original_name = name;
+			
+			while( is_collision ) {
+				var new_name = original_name + " " + i.toString();
+				is_collision = app.is_node_name_collision(
+					id,
+					new_name,
+					type
+				);
+				i++;
+			}
+			
+			return new_name;
+		},
+		is_node_name_collision: function( id, name, type ) {
+			// Checks if there's aready a node of the same name and type
+			var conflict_nodes = app.workflow_states.filter(function( workflow_state ) {
+				return (
+					workflow_state[ "id" ] !== id &&
+					workflow_state[ "type" ] === type &&
+					get_lambda_safe_name( workflow_state[ "name" ] ) === get_lambda_safe_name( name )
+				);
+			});
+			
+			// If a match was found, return true
+			return ( conflict_nodes.length > 0 )
+		},
 		get_proper_name_for_node_type: function( name ) {
 			var match_hash = {
 				"lambda": "Lambda",
@@ -1359,6 +1409,12 @@ var app = new Vue({
 				new_lambda_data[ lambda_attribute_name ] = matched_lambda[ lambda_attribute_name ];
 			});
 			
+			new_lambda_data.name = app.get_non_colliding_name(
+				new_lambda_data.id,
+				new_lambda_data.name,
+				new_lambda_data.type
+			);
+			
 			app.workflow_states.push( new_lambda_data );
 		},
 		save_lambda_to_database: async function() {
@@ -1392,6 +1448,12 @@ var app = new Vue({
 			var lambda_copy = JSON.parse( JSON.stringify( app.selected_node_data ) );
 			// Generate new node ID
 			lambda_copy[ "id" ] = get_random_node_id();
+			
+			lambda_copy.name = app.get_non_colliding_name(
+				lambda_copy.id,
+				lambda_copy.name,
+				lambda_copy.type
+			);
 			
 			// Add to master diagram
 			app.workflow_states.push( lambda_copy );
@@ -1562,20 +1624,26 @@ var app = new Vue({
 		add_sns_topic_node: function() {
 			var new_sns_topic_node = {
 				"id": get_random_node_id(),
-	            "name": "Untitled Topic",
-	            "topic_name": "Untitled Topic",
+	            "name": "New Topic",
+	            "topic_name": "New Topic",
 	            "type": "sns_topic",
 	            "sns_topic_template": JSON.stringify({
 					"id": "1"
 				}, false, 4 ),
 			}
 			
+			new_sns_topic_node.name = app.get_non_colliding_name(
+				new_sns_topic_node.id,
+				new_sns_topic_node.name,
+				new_sns_topic_node.type
+			);
+			
 			app.workflow_states.push( new_sns_topic_node );
 		},
 		add_timer_trigger_node: function() {
 			var new_timer_trigger = {
 				"id": get_random_node_id(),
-	            "name": "Untitled Timer",
+	            "name": "New Timer",
 	            "type": "schedule_trigger",
 				"schedule_expression": "rate(1 minute)",
 				"description": "Example scheduled rule description.",
@@ -1583,12 +1651,18 @@ var app = new Vue({
 				"input_dict": {},
 			}
 			
+			new_timer_trigger.name = app.get_non_colliding_name(
+				new_timer_trigger.id,
+				new_timer_trigger.name,
+				new_timer_trigger.type
+			);
+			
 			app.workflow_states.push( new_timer_trigger );
 		},
 		add_lambda_node: function() {
 			var new_lambda_data = {
 				"id": get_random_node_id(),
-	            "name": "Untitled Lambda",
+	            "name": "New Lambda",
 	            "language": "python2.7",
 	            "code": DEFAULT_LAMBDA_CODE[ "python2.7" ],
 	            "memory": 128,
@@ -1597,20 +1671,32 @@ var app = new Vue({
 	            "type": "lambda"
 			}
 			
+			new_lambda_data.name = app.get_non_colliding_name(
+				new_lambda_data.id,
+				new_lambda_data.name,
+				new_lambda_data.type
+			);
+			
 			app.workflow_states.push( new_lambda_data );
 		},
 		add_sqs_node: function() {
 		    var sqs_queue_node_data = {
 			    "id": get_random_node_id(),
 			    "type": "sqs_queue",
-			    "name": "Untitled Queue",
-				"queue_name": "Untitled Queue",
+			    "name": "New Queue",
+				"queue_name": "New Queue",
 				"content_based_deduplication": true,
 				"batch_size": 1,
 				"sqs_job_template": JSON.stringify({
 					"id": "1"
 				}, false, 4 ),
 		    };
+		    
+			sqs_queue_node_data.name = app.get_non_colliding_name(
+				sqs_queue_node_data.id,
+				sqs_queue_node_data.name,
+				sqs_queue_node_data.type
+			);
 	    
 			app.workflow_states.push( sqs_queue_node_data );
 		},
@@ -2007,10 +2093,6 @@ def example( parameter ):
 				app.lambda_exec_result = results.result;
 			});
 		},
-		add_lambda: function() {
-			var lambda_data = get_lambda_data();
-			app.workflow_states.push( lambda_data );
-		},
 		navigate_page: function( page_id ) {
 			app.page = page_id;
 		},
@@ -2142,9 +2224,11 @@ def example( parameter ):
 	}
 });
 
+/*
 // Auto-update data from Refinery ATC server
 var atc_auto_updater = setInterval(function() {
 	app.update_refinery_atc_data();
 }, ( 1000 * 5 ));
+*/
 
 build_dot_graph();

@@ -624,8 +624,6 @@ class TaskSpawner(object):
 			and the init code.
 			"""
 			
-			print( "Building node 8.10 lambda..." )
-			
 			code = LAMDBA_BASE_CODES[ "nodejs8.10" ] + "\n\n" + code
 			
 			# Append required libraries if not already required
@@ -2460,6 +2458,34 @@ class InfraCollisionCheck( BaseHandler ):
 			"result": collision_check_results
 		})
 		
+@gen.coroutine
+def warm_lambda_base_caches():
+	"""
+	Kicks off building the dependency .zip templates for the base
+	builds so that future builds will be cached and will execute faster.
+	"""
+	
+	lambda_build_futures = []
+	
+	for supported_language in LAMBDA_SUPPORTED_LANGUAGES:
+		lambda_build_futures.append(
+			local_tasks.build_lambda(
+				supported_language,
+				"",
+				[],
+				{
+					"then": [],
+					"else": [],
+					"exception": [],
+					"if": []
+				}
+			)
+		)
+		
+	results = yield lambda_build_futures
+	
+	print( "Lambda base-cache has been warmed!" )
+		
 def make_app( is_debug ):
 	# Convert to bool
 	is_debug = ( is_debug.lower() == "true" )
@@ -2499,5 +2525,6 @@ if __name__ == "__main__":
 		7777
 	)
 	Base.metadata.create_all( engine )
+	tornado.ioloop.IOLoop.current().run_sync( warm_lambda_base_caches )
 	server.start()
 	tornado.ioloop.IOLoop.current().start()
