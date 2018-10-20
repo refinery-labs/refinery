@@ -855,6 +855,16 @@ function infrastructure_collision_check( diagram_data ) {
 	);
 }
 
+function infrastructure_teardown( teardown_nodes ) {
+	return api_request(
+		"POST",
+		"api/v1/aws/infra_tear_down",
+		{
+			"teardown_nodes": teardown_nodes,
+		}
+	);
+}
+
 /*
     Make API request
 */
@@ -1043,10 +1053,8 @@ var app = new Vue({
 		selected_node: false,
 		selected_node_state: false,
 		selected_transition: false,
-	    "workflow_states": [
-	    ],
-	    "workflow_relationships": [
-	    ],
+	    "workflow_states": [],
+	    "workflow_relationships": [],
 	    ace_language_to_lang_id_map: {
 	    	"python2.7": "python",
 	    	"nodejs8.10": "javascript"
@@ -1147,6 +1155,12 @@ var app = new Vue({
         
         // Whether the infrastructure is still being deployed.
         deploying_infrastructure: false,
+        
+        // Whether the infrastructure collision check is still ongoing
+        infrastructure_conflict_check_in_progress: false,
+        
+        // Results from infrastructure conflict check
+        infrastructure_conflict_check_results: [],
         
         // Time taken to deploy infrastructure
         deploy_infrastructure_time: 0,
@@ -1280,6 +1294,20 @@ var app = new Vue({
 		}
 	},
 	methods: {
+		get_proper_name_for_node_type: function( name ) {
+			var match_hash = {
+				"lambda": "Lambda",
+				"sqs_queue": "SQS Queue",
+				"schedule_trigger": "Schedule Trigger",
+				"sns_topic": "SNS Topic"
+			}
+			
+			if( name in match_hash ) {
+				return match_hash[ name ];
+			}
+			
+			return false;
+		},
 		delete_saved_lambda_from_db: async function( event ) {
 			var saved_lambda_id = event.srcElement.getAttribute( "id" );
 			var result = await delete_saved_lambdas( saved_lambda_id );
@@ -1373,14 +1401,68 @@ var app = new Vue({
 			app.lambda_code = DEFAULT_LAMBDA_CODE[ app.lambda_language ];
 		},
 		infrastructure_collision_check: async function() {
+			// Set boolean to show we're checking for collisions
+			app.infrastructure_conflict_check_in_progress = true;
+			
+			// Reset results
+			app.infrastructure_conflict_check_results = [];
+			
+			$( "#collisioncheck_output" ).modal(
+				"show"
+			);
+			
 			var collision_check_results = await infrastructure_collision_check(
 				get_project_json()
 			);
 			
+			// Set app state to results
+			app.infrastructure_conflict_check_results = collision_check_results.result;
+			
+			app.infrastructure_conflict_check_results = app.infrastructure_conflict_check_results.filter(function( conflict_check_result ) {
+				return conflict_check_result.exists;
+			});
+			
 			console.log( "Collision check results: " );
 			console.log( collision_check_results );
+			
+			// Reset to original state
+			app.infrastructure_conflict_check_in_progress = false;
+			
+			if( app.infrastructure_conflict_check_results.length === 0 ) {
+				$( "#collisioncheck_output" ).modal(
+					"hide"
+				);
+				app.deploy_infrastructure();
+			}
+		},
+		infrastructure_teardown: async function() {
+			$( "#infrastructureteardown_modal" ).modal(
+				"show"
+			);
+			
+			// Get teardown nodes from previous result
+			var teardown_nodes = JSON.parse(
+				JSON.stringify(
+					app.infrastructure_conflict_check_results
+				)
+			);
+			
+			// Teardown nodes
+			var teardown_results = await infrastructure_teardown(
+				teardown_nodes
+			);
+
+			// Kick off deploying infrastructure
+			app.deploy_infrastructure();
 		},
 		deploy_infrastructure: async function() {
+			$( "#collisioncheck_output" ).modal(
+				"hide"
+			);
+			$( "#infrastructureteardown_modal" ).modal(
+				"hide"
+			);
+			
 			// Set that we're deploying the infrastructure
 			app.deploying_infrastructure = true;
 			
@@ -1397,6 +1479,14 @@ var app = new Vue({
 			
 			var results = await deploy_infrastructure(
 				get_project_json()
+			);
+			
+			// Hacky
+			$( "#collisioncheck_output" ).modal(
+				"hide"
+			);
+			$( "#infrastructureteardown_modal" ).modal(
+				"hide"
 			);
 			
 			console.log( "Infrastructure deployment result: " );

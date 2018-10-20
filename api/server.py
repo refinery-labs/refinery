@@ -834,14 +834,25 @@ class TaskSpawner(object):
 		@run_on_executor
 		def create_sqs_queue( self, id, queue_name, content_based_deduplication, batch_size ):
 			sqs_queue_name = get_lambda_safe_name( queue_name )
-			sqs_response = SQS_CLIENT.create_queue(
-				QueueName=sqs_queue_name,
-				Attributes={
-					"DelaySeconds": str( 0 ),
-					"MaximumMessageSize": "262144",
-					"VisibilityTimeout": str( 300 + 10 ), # Lambda max time plus ten seconds
-				}
-			)
+			
+			queue_deleted = False
+			
+			while queue_deleted == False:
+				try:
+					sqs_response = SQS_CLIENT.create_queue(
+						QueueName=sqs_queue_name,
+						Attributes={
+							"DelaySeconds": str( 0 ),
+							"MaximumMessageSize": "262144",
+							"VisibilityTimeout": str( 300 + 10 ), # Lambda max time plus ten seconds
+						}
+					)
+					
+					queue_deleted = True
+				except SQS_CLIENT.exceptions.QueueDeletedRecently:
+					print( "SQS queue was deleted too recently, trying again in ten seconds..." )
+					
+					time.sleep( 10 )
 			
 			sqs_arn = "arn:aws:sqs:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + queue_name
 			
@@ -1014,9 +1025,85 @@ class TaskSpawner(object):
 			return {
 				"id": id,
 				"type": type,
-				"name": sns_topic_arn,
-				"arn": False,
+				"name": name,
+				"arn": sns_topic_arn,
 				"exists": True,
+			}
+			
+		@run_on_executor
+		def delete_lambda( self, id, type, name, arn ):
+			return TaskSpawner._delete_lambda( id, type, name, arn )
+			
+		@staticmethod
+		def _delete_lambda( id, type, name, arn ):
+			response = LAMBDA_CLIENT.delete_function(
+				FunctionName=arn,
+			)
+			
+			return {
+				"id": id,
+				"type": type,
+				"name": name,
+				"arn": arn,
+				"deleted": True,
+			}
+			
+		@run_on_executor
+		def delete_sns_topic( self, id, type, name, arn ):
+			return TaskSpawner._delete_sns_topic( id, type, name, arn )
+			
+		@staticmethod
+		def _delete_sns_topic( id, type, name, arn ):
+			response = SNS_CLIENT.delete_topic(
+				TopicArn=arn,
+			)
+			
+			return {
+				"id": id,
+				"type": type,
+				"name": name,
+				"arn": arn,
+				"deleted": True,
+			}
+			
+		@run_on_executor
+		def delete_sqs_queue( self, id, type, name, arn ):
+			return TaskSpawner._delete_sqs_queue( id, type, name, arn )
+			
+		@staticmethod
+		def _delete_sqs_queue( id, type, name, arn ):
+			queue_url_response = SQS_CLIENT.get_queue_url(
+				QueueName=name,
+			)
+			
+			response = SQS_CLIENT.delete_queue(
+				QueueUrl=queue_url_response[ "QueueUrl" ],
+			)
+			
+			return {
+				"id": id,
+				"type": type,
+				"name": name,
+				"arn": arn,
+				"deleted": True,
+			}
+			
+		@run_on_executor
+		def delete_schedule_trigger( self, id, type, name, arn ):
+			return TaskSpawner._delete_schedule_trigger( id, type, name, arn )
+			
+		@staticmethod
+		def _delete_schedule_trigger( id, type, name, arn ):
+			response = EVENTS_CLIENT.delete_rule(
+				Name=name,
+			)
+			
+			return {
+				"id": id,
+				"type": type,
+				"name": name,
+				"arn": arn,
+				"deleted": True,
 			}
 			
 local_tasks = TaskSpawner()
@@ -2227,10 +2314,69 @@ class InfraTearDown( BaseHandler ):
 	def post( self ):
 		"""
 		[
-			""
+			{
+				"id": {{node_id}},
+				"arn": {{production_resource_arn}},
+				"name": {{node_name}},
+				"type": {{node_type}},
+			}
 		]
 		"""
-		pass
+		teardown_nodes = self.json[ "teardown_nodes" ]
+		
+		teardown_operation_futures = []
+		
+		for teardown_node in teardown_nodes:
+			# Skip if the node doesn't exist
+			if teardown_node[ "exists" ] == False:
+				continue
+			
+			if teardown_node[ "type" ] == "lambda":
+				teardown_operation_futures.append(
+					local_tasks.delete_lambda(
+						teardown_node[ "id" ],
+						teardown_node[ "type" ],
+						teardown_node[ "name" ],
+						teardown_node[ "arn" ],
+					)
+				)
+			elif teardown_node[ "type" ] == "sns_topic":
+				teardown_operation_futures.append(
+					local_tasks.delete_sns_topic(
+						teardown_node[ "id" ],
+						teardown_node[ "type" ],
+						teardown_node[ "name" ],
+						teardown_node[ "arn" ],
+					)
+				)
+			elif teardown_node[ "type" ] == "sqs_queue":
+				teardown_operation_futures.append(
+					local_tasks.delete_sqs_queue(
+						teardown_node[ "id" ],
+						teardown_node[ "type" ],
+						teardown_node[ "name" ],
+						teardown_node[ "arn" ],
+					)
+				)
+			elif teardown_node[ "type" ] == "schedule_trigger":
+				teardown_operation_futures.append(
+					local_tasks.delete_schedule_trigger(
+						teardown_node[ "id" ],
+						teardown_node[ "type" ],
+						teardown_node[ "name" ],
+						teardown_node[ "arn" ],
+					)
+				)
+			
+		teardown_operation_results = yield teardown_operation_futures
+		
+		print( "Teardown results: ")
+		pprint( teardown_operation_results )
+		
+		self.write({
+			"success": True,
+			"result": teardown_operation_results
+		})
 	
 class InfraCollisionCheck( BaseHandler ):
 	@gen.coroutine

@@ -111,7 +111,79 @@
 		    </div>
 		</div>
 		
-    	<!-- Deploy diagram output -->
+    	<!-- Infrastructure teardown modal -->
+		<div class="modal fade" id="infrastructureteardown_modal" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title">Infrastructure Teardown</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		          <span aria-hidden="true">&times;</span>
+		        </button>
+		            </div>
+		            <div class="modal-body">
+						<center>
+							<img src="/img/loading.gif" />
+							<br />
+							<i>Tearing down colliding infrastructure, please wait...</i>
+						</center>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+		
+    	<!-- Pre-deploy conflict check modal -->
+		<div class="modal fade" id="collisioncheck_output" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title">Infrastructure Collision Check Results</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		          <span aria-hidden="true">&times;</span>
+		        </button>
+		            </div>
+		            <div class="modal-body" style="padding: 0px !important;">
+		            	<div v-if="!infrastructure_conflict_check_in_progress">
+							<table class="table">
+								<thead class="thead-dark">
+									<tr>
+										<th scope="col" style="width: 110px">Type</th>
+										<th scope="col">Resource Name</th>
+										<th scope="col">ARN</th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr v-for="conflict_check_result in infrastructure_conflict_check_results" v-if="conflict_check_result.exists">
+										<th scope="row">{{get_proper_name_for_node_type( conflict_check_result.type )}}</th>
+										<td>{{conflict_check_result.name}}</td>
+										<td><code>{{conflict_check_result.arn}}</code></td>
+									</tr>
+								</tbody>
+							</table>
+							<center>
+								<button type="button" class="btn btn-lg btn-danger" v-on:click="infrastructure_teardown">Delete & Replace Deploy</button>
+							</center>
+							<br />
+		            	</div>
+						<div v-if="infrastructure_conflict_check_in_progress">
+							<center>
+								<img src="/img/loading.gif" />
+								<br />
+								<i>Checking for deployment collisions with current infrastructure...</i>
+							</center>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel Deployment</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+		
+    	<!-- Deploy diagram output modal -->
 		<div class="modal fade" id="deploydiagram_output" tabindex="-1" role="dialog" aria-labelledby="deploydiagram_label" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
 		        <div class="modal-content">
@@ -534,8 +606,7 @@
 			    	<button type="button" class="btn btn-primary" v-on:click="import_project_data" style="margin-right: 5px;">Import Project</button>
 			    	<button type="button" class="btn btn-primary" v-on:click="export_project_data" style="margin-right: 5px;">Export Project</button>
 			    	<button type="button" class="btn btn-primary" v-on:click="view_refinery_atc" style="margin-right: 5px;">ATC</button>
-			    	<button type="button" class="btn btn-primary" v-on:click="infrastructure_collision_check" style="margin-left: 10px;">Collision Check</button>
-			    	<button type="button" class="btn btn-primary" v-on:click="deploy_infrastructure" style="margin-left: 10px;">Deploy to Production</button>
+			    	<button type="button" class="btn btn-primary" v-on:click="infrastructure_collision_check" style="margin-left: 10px;">Deploy to Production</button>
 			    </div>
 			</nav>
         </div>
