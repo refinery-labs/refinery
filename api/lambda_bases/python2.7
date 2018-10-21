@@ -259,19 +259,47 @@ def _parallel_invoke( invoke_queue ):
 		)
 		
 		raise SystemExit
+		
+	# Publishes to an SNS topic
+	def sns_topic_publish_worker( arn, input_data ):
+		sns_client = boto3.client(
+			"sns"
+		)
+	
+		response = sns_client.publish(
+			TopicArn=arn,
+			Message=json.dumps(
+				input_data
+			)
+		)
+		
+		raise SystemExit
 	
 	# Spawns a new worked and adds it to active_threads
 	def spawn_new_worker():
 		new_invoke_data = invoke_queue.pop()
-		new_thread = threading.Thread(
-			target=lambda_invoker_worker,
-			args=(
-				new_invoke_data[ "arn" ],
-				new_invoke_data[ "input_data" ]
+		
+		# Check type and invoke appropriately
+		if new_invoke_data[ "type" ] == "lambda":
+			new_thread = threading.Thread(
+				target=lambda_invoker_worker,
+				args=(
+					new_invoke_data[ "arn" ],
+					new_invoke_data[ "input_data" ]
+				)
 			)
-		)
-		new_thread.start()
-		time.sleep(0.05) # Annoying wedge due to boto3 bug
+			new_thread.start()
+			time.sleep(0.05) # Annoying wedge due to boto3 bug
+		elif new_invoke_data[ "type" ] == "sns_topic":
+			new_thread = threading.Thread(
+				target=sns_topic_publish_worker,
+				args=(
+					new_invoke_data[ "arn" ],
+					new_invoke_data[ "input_data" ]
+				)
+			)
+			new_thread.start()
+			time.sleep(0.05) # Annoying wedge due to boto3 bug
 		return new_thread
 		
 	# Bug fix test
@@ -370,9 +398,10 @@ def _init( lambda_input, context ):
 		# Invoke all Lambdas to be run when an exception occurs
 		if len( transitions[ "exception" ] ) > 0:
 			invocation_input_list = []
-			for exception_transition_arn in transitions[ "exception" ]:
+			for exception_transition_data in transitions[ "exception" ]:
 				invocation_input_list.append({
-					"arn": exception_transition_arn,
+					"type": exception_transition_data[ "type" ],
+					"arn": exception_transition_data[ "arn" ],
 					"input_data": {
 						"version": _VERSION,
 						"exception_text": exception_string,
@@ -396,9 +425,10 @@ def _init( lambda_input, context ):
 	invocation_input_list = []
 	
 	# If it's just a then, just invoke the next Lambda
-	for then_transition_arn in transitions[ "then" ]:
+	for then_transition_data in transitions[ "then" ]:
 		invocation_input_list.append({
-			"arn": then_transition_arn,
+			"type": then_transition_data[ "type" ],
+			"arn": then_transition_data[ "arn" ],
 			"input_data": json.loads(
 				json.dumps(
 					return_data
@@ -416,7 +446,8 @@ def _init( lambda_input, context ):
 		
 		if expression_eval_result:
 			invocation_input_list.append({
-				"arn": if_statement_data[ "target_arn" ],
+				"type": if_statement_data[ "type" ],
+				"arn": if_statement_data[ "arn" ],
 				"input_data": json.loads(
 					json.dumps(
 						return_data
@@ -428,9 +459,10 @@ def _init( lambda_input, context ):
 		
 	# If else is set, call that now
 	if true_if_evaluation_occured == False:
-		for else_transition_arn in transitions[ "else" ]:
+		for else_transition_data in transitions[ "else" ]:
 			invocation_input_list.append({
-				"arn": else_transition_arn,
+				"type": else_transition_data[ "type" ],
+				"arn": else_transition_data[ "arn" ],
 				"input_data": json.loads(
 					json.dumps(
 						return_data

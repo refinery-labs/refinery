@@ -1123,10 +1123,45 @@ var app = new Vue({
 	    	"nodejs8.10": "javascript"
 	    },
 	    node_types_with_simple_transitions: [
-	    	"schedule_trigger",
-	    	"sqs_queue",
-	    	"sns_topic"
+			{
+				"first_type": "schedule_trigger",
+				"second_type": "lambda",
+			},
+			{
+				"first_type": "sqs_queue",
+				"second_type": "lambda",
+			},
+			{
+				"first_type": "sns_topic",
+				"second_type": "lambda",
+			},
+			{
+				"first_type": "lambda",
+				"second_type": "sns_topic",
+			}
 	    ],
+		valid_type_transitions: [
+			{
+				"first_type": "lambda",
+				"second_type": "lambda",
+			},
+			{
+				"first_type": "sqs_queue",
+				"second_type": "lambda",
+			},
+			{
+				"first_type": "schedule_trigger",
+				"second_type": "lambda",
+			},
+			{
+				"first_type": "sns_topic",
+				"second_type": "lambda",
+			},
+			{
+				"first_type": "lambda",
+				"second_type": "sns_topic",
+			},
+		],
 	    available_transition_types: [
 	    	"then",
 	    	"if",
@@ -1355,6 +1390,12 @@ var app = new Vue({
 			var transition_data = get_state_transition_by_id( app.selected_transition );
 			var origin_node_data = get_node_data_by_id( transition_data.node );
 			return origin_node_data;
+		},
+		next_state_node_data: {
+			cache: false,
+			get() {
+				return get_node_data_by_id( app.state_transition_conditional_data.next );
+			}
 		},
 		valid_transition_paths: function() {
 			var valid_paths = [];
@@ -1618,10 +1659,24 @@ var app = new Vue({
 			);
 		},
 		is_simple_transition: function() {
-			if( app.selected_node_data ) {
-				return app.node_types_with_simple_transitions.includes( app.selected_node_data.type );
+			if( app.selected_node_data && app.next_state_node_data ) {
+				var is_simple_transition = false;
+				// Check if this lines up with any of our known simple transitions
+				app.node_types_with_simple_transitions.map(function( node_type_pair ) {
+					if( app.selected_node_data.type == node_type_pair[ "first_type" ] && app.next_state_node_data.type == node_type_pair[ "second_type" ] )	{
+						is_simple_transition = true;
+					}
+				});
+				return is_simple_transition;
 			} else if ( app.selected_transition_start_node ) {
-				return app.node_types_with_simple_transitions.includes( app.selected_transition_start_node.type );
+				var is_simple_transition = false;
+				// Check if this lines up with any of our known simple transitions
+				app.node_types_with_simple_transitions.map(function( node_type_pair ) {
+					if( app.selected_transition_start_node.type == node_type_pair[ "first_type" ] && app.next_state_node_data.type == node_type_pair[ "second_type" ] )	{
+						is_simple_transition = true;
+					}
+				});
+				return is_simple_transition;
 			}
 		},
 		duplicate_lambda: function() {
@@ -1748,34 +1803,11 @@ var app = new Vue({
 			app.deploying_infrastructure = false;
 		},
 		is_valid_transition_path: function( first_node_id, second_node_id ) {
-			var valid_type_transitions = [
-				{
-					"first_type": "lambda",
-					"second_type": "lambda",
-				},
-				{
-					"first_type": "sqs_queue",
-					"second_type": "lambda",
-				},
-				{
-					"first_type": "lambda",
-					"second_type": "sqs_queue",
-				},
-				{
-					"first_type": "schedule_trigger",
-					"second_type": "lambda",
-				},
-				{
-					"first_type": "sns_topic",
-					"second_type": "lambda",
-				},
-			];
-			
 			// Grab data for both nodes and determine if it's possible path
 			var first_node_data = get_node_data_by_id( first_node_id );
 			var second_node_data = get_node_data_by_id( second_node_id );
 
-			return valid_type_transitions.some(function( type_transition_data ) {
+			return app.valid_type_transitions.some(function( type_transition_data ) {
 				// If it matches a valid transition, then set is_valid_transition to true
 				return first_node_data.type == type_transition_data.first_type && second_node_data.type == type_transition_data.second_type;
 			});

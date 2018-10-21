@@ -1874,18 +1874,30 @@ def deploy_diagram( diagram_data ):
 		)
 		
 		if origin_node_data[ "type" ] == "lambda":
-			target_arn = "arn:aws:lambda:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":function:" + get_lambda_safe_name( target_node_data[ "name" ] )
+			if target_node_data[ "type" ] == "lambda":
+				target_arn = "arn:aws:lambda:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":function:" + get_lambda_safe_name( target_node_data[ "name" ] )
+			elif target_node_data[ "type" ] == "sns_topic":
+				target_arn = "arn:aws:sns:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + get_lambda_safe_name( target_node_data[ "name" ] )
 			
 			if workflow_relationship[ "type" ] == "then":
-				origin_node_data[ "transitions" ][ "then" ].append( target_arn )
+				origin_node_data[ "transitions" ][ "then" ].append({
+					"type": target_node_data[ "type" ],
+					"arn": target_arn,
+				})
 			elif workflow_relationship[ "type" ] == "else":
-				origin_node_data[ "transitions" ][ "else" ].append( target_arn )
+				origin_node_data[ "transitions" ][ "else" ].append({
+					"type": target_node_data[ "type" ],
+					"arn": target_arn,
+				})
 			elif workflow_relationship[ "type" ] == "exception":
-				origin_node_data[ "transitions" ][ "exception" ].append( target_arn )
+				origin_node_data[ "transitions" ][ "exception" ].append({
+					"type": target_node_data[ "type" ],
+					"arn": target_arn,
+				})
 			elif workflow_relationship[ "type" ] == "if":
 				origin_node_data[ "transitions" ][ "if" ].append({
-					"target_arn": target_arn,
-					"type": workflow_relationship[ "type" ],
+					"arn": target_arn,
+					"type": target_node_data[ "type" ],
 					"expression": workflow_relationship[ "expression" ]
 				})
 				
