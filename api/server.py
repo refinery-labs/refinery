@@ -2227,13 +2227,6 @@ class SavedLambdaSearch( BaseHandler ):
 			"Searching saved Lambdas..."
 		)
 		
-		if self.json[ "query" ] == "":
-			self.write({
-				"success": True,
-				"results": []
-			})
-			raise gen.Return()
-		
 		# First search names
 		name_search_results = session.query( SavedLambda ).filter(
 			SavedLambda.name.ilike( "%" + self.json[ "query" ] + "%" ) # Probably SQL injection \o/

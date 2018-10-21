@@ -1553,6 +1553,9 @@ var app = new Vue({
 		view_search_saved_lambdas_modal: function() {
 			// Clear search query
 			app.saved_lambda_search_query = "";
+			
+			// Do initial search
+			app.search_saved_lambdas( "" );
 
 			$( "#searchsavedlambda_output" ).modal(
 				"show"
