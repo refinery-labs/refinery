@@ -11,6 +11,6 @@ engine = create_engine("postgresql://" + settings["postgreql_username"] + ":" + 
 from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 from sqlalchemy import Column, Integer, String, func, update, Text, Binary, Boolean, BigInteger, event, select, exc, CHAR, ForeignKey, JSON
-from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.orm import sessionmaker, scoped_session, relationship
 Session = scoped_session(sessionmaker(bind=engine))
 session = Session()

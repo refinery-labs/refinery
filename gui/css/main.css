@@ -166,14 +166,19 @@
 }
 */
 
-.project-name {
-	color: #ff0000 !important;
-}
-
 .import-error-text {
 	color: #ff0000 !important;
 }
 
 .search-result-row:hover {
 	background-color: rgba(0, 0, 0, 0.2) !important;
+}
+
+.project-name {
+	color: #ff0000 !important;
+	display: inline;
+}
+
+.project-version {
+	display: inline;
 }

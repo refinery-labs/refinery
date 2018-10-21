@@ -577,7 +577,7 @@ function reset_current_lambda_state_to_defaults() {
 
 function get_project_json() {
 	return JSON.stringify({
-		"version": "1.0.0",
+		"version": app.project_version,
 		"name": app.project_name,
 		"workflow_states": app.workflow_states,
 		"workflow_relationships": app.workflow_relationships,
@@ -603,6 +603,20 @@ function get_safe_name( input_string ) {
 		/[^a-z0-9\-\_]/gi,
 		"_"
 	);
+}
+
+function pprint( input_object ) {
+	try {
+		console.log(
+			JSON.stringify(
+				input_object,
+				false,
+				4
+			)
+		);
+	} catch ( e ) {
+		console.dir( e );
+	}
 }
 
 function import_project_data( input_project_data ) {
@@ -871,6 +885,49 @@ function infrastructure_teardown( teardown_nodes ) {
 	);
 }
 
+function save_project( project_id, version, diagram_data ) {
+	return api_request(
+		"POST",
+		"api/v1/projects/save",
+		{
+			"project_id": project_id,
+			"diagram_data": diagram_data,
+			"version": version
+		}
+	);
+}
+
+function search_projects( query ) {
+	return api_request(
+		"POST",
+		"api/v1/projects/search",
+		{
+			"query": query,
+		}
+	);
+}
+
+function get_project( id, version ) {
+	return api_request(
+		"POST",
+		"api/v1/projects/get",
+		{
+			"id": id,
+			"version": version,
+		}
+	);
+}
+
+function delete_project( id ) {
+	return api_request(
+		"POST",
+		"api/v1/projects/delete",
+		{
+			"id": id
+		}
+	);
+}
+
 /*
     Make API request
 */
@@ -1085,6 +1142,10 @@ var app = new Vue({
 			"next": false,
 		},
 		graphiz_content: "",
+		// Project ID
+		project_id: false,
+		// Project version
+		project_version: 1,
 		// Project name
 		project_name: "New Project",
 		// Currently selected lambda name
@@ -1159,6 +1220,13 @@ var app = new Vue({
         // Search results for saved Lambda search
         saved_lambda_search_results: [],
         
+        // Search term for projects
+        projects_search_query: "",
+        // Search results for projects
+        projects_search_results: [],
+        // Selected project version
+        project_selected_versions: {},
+        
         // Whether the infrastructure is still being deployed.
         deploying_infrastructure: false,
         
@@ -1213,8 +1281,14 @@ var app = new Vue({
             highlightActiveLine: true,
             highlightGutterLine: false
         },
+        
+        // Text for error modal
+        error_modal_text: "",
 	},
 	watch: {
+		projects_search_query: function( value, previous_value ) {
+			app.search_projects( value );
+		},
 		saved_lambda_search_query: function( value, previous_value ) {
 			app.search_saved_lambdas( value );
 		},
@@ -1300,6 +1374,110 @@ var app = new Vue({
 		}
 	},
 	methods: {
+		clear_project: function() {
+			app.project_name = "New Project";
+			app.project_id = false;
+			app.project_version = 1;
+			import_project_data({
+			    "version": 1,
+			    "name": "New Project",
+			    "workflow_states": [],
+			    "workflow_relationships": []
+			});
+		},
+		delete_project: async function( event ) {
+			var project_id = event.srcElement.getAttribute( "id" );
+			var result = await delete_project(
+				project_id
+			);
+			
+			// Remove from search result as well
+			app.projects_search_results = app.projects_search_results.filter(function( projects_search_result ) {
+				return projects_search_result.id !== project_id;
+			});
+		},
+		open_project: async function( event ) {
+			var project_id = event.srcElement.getAttribute( "id" );
+			var project_name = event.srcElement.getAttribute( "projectname" );
+			var project_version = app.project_selected_versions[ project_id ];
+			
+			console.log( "Selected project ID: " + project_id + " with version " + project_version.toString() );
+			
+			var project_data = await get_project(
+				project_id,
+				project_version
+			);
+			
+			// Set current project data
+			app.project_id = project_id;
+			app.project_name = project_name;
+			app.project_version = project_version;
+			import_project_data(
+				JSON.parse(
+					project_data[ "project_json" ]
+				)
+			);
+			
+			console.log( "Project data: " );
+			pprint( project_data );
+		},
+		view_search_projects_modal: function() {
+			$( "#searchprojects_output" ).modal(
+				"show"
+			);
+			
+			app.search_projects( "" );
+		},
+		search_projects: async function( query ) {
+			var project_search_results = await search_projects(
+				query
+			);
+			
+			app.projects_search_results = project_search_results.results;
+			
+			app.projects_search_results.map(function( projects_search_result ) {
+				app.project_selected_versions[ projects_search_result.id ] = projects_search_result.versions[0];
+			});
+			
+			console.log( "Project search results: " );
+			pprint( app.projects_search_results );
+		},
+		save_project_bump_version: function() {
+			return app.save_project( false );
+		},
+		save_project_current_version: function() {
+			return app.save_project( app.project_version );
+		},
+		save_project: async function( project_version ) {
+			var error_occured = false;
+			
+			var results = await save_project(
+				app.project_id,
+				project_version,
+				get_project_json()
+			).catch(function( error ) {
+				error_occured = true;
+				if( error[ "code" ] == "PROJECT_NAME_EXISTS" ) {
+					app.error_modal_text = "A project with the name \"" + app.project_name + "\" already exists! Please change the project name to save it.";
+					$( "#error_output" ).modal(
+						"show"
+					);
+				}
+			});
+			
+			// Stop if an error occured
+			if( error_occured ) {
+				return
+			}
+			
+			// If we didn't have a project ID before, set it.
+			if( app.project_id === false ) {
+				app.project_id = results[ "project_id" ];
+			}
+			
+			// Update current version
+			app.project_version = results[ "project_version" ];
+		},
 		get_non_colliding_name: function( id, name, type ) {
 			// Check if name is a collision
 			var is_collision = app.is_node_name_collision(

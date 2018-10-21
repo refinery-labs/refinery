@@ -31,6 +31,8 @@ from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from models.initiate_database import *
 from models.saved_function import SavedFunction
 from models.saved_lambda import SavedLambda
+from models.project_versions import ProjectVersion
+from models.projects import Project
 
 logging.basicConfig(
 	stream=sys.stdout,
@@ -2458,6 +2460,231 @@ class InfraCollisionCheck( BaseHandler ):
 			"result": collision_check_results
 		})
 		
+class SaveProject( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		{
+			"project_id": {{project id uuid}} || False # If False create a new project
+			"diagram_data": {{diagram_data}},
+			"version": "1.0.0" || False # Either specific or just increment
+		}
+		"""
+		self.logit(
+			"Saving project to database..."
+		)
+		
+		project_id = self.json[ "project_id" ]
+		diagram_data = json.loads( self.json[ "diagram_data" ] )
+		project_name = diagram_data[ "name" ]
+		project_version = self.json[ "version" ]
+		
+		# If this is a new project and the name already exists
+		# Throw an error to indicate this can't be the case
+		if project_id == False:
+			project_with_same_name = session.query( Project ).filter_by(
+				name=project_name
+			).first()
+			
+			if project_with_same_name != None:
+				self.write({
+					"success": False,
+					"code": "PROJECT_NAME_EXISTS",
+					"msg": "A project with this name already exists!"
+				})
+				raise gen.Return()
+		
+		# Check if project already exists
+		if project_id:
+			previous_project = session.query( Project ).filter_by(
+				id=project_id
+			).first()
+		else:
+			previous_project = None
+		
+		# If there is a previous project and the name doesn't match, update it.
+		if previous_project and previous_project.name != project_name:
+			previous_project.name = project_name
+			session.commit()
+		
+		if previous_project == None:
+			previous_project = Project()
+			previous_project.name = diagram_data[ "name" ]
+			session.add( previous_project )
+			session.commit()
+			# Set project ID to newly generated ID
+			project_id = previous_project.id
+		
+		# If project version isn't set we'll update it to be an incremented version
+		# from the latest saved version.
+		if project_version == False:
+			latest_project_version = session.query( ProjectVersion ).filter_by(
+				project_id=project_id
+			).order_by( ProjectVersion.version.desc() ).first()
+
+			if latest_project_version == None:
+				project_version = 1
+			else:
+				project_version = ( latest_project_version.version + 1 )
+		else:
+			previous_project_version = session.query( ProjectVersion ).filter_by(
+				project_id=project_id,
+				version=project_version,
+			).first()
+
+			# Delete previous version with same ID since we're updating it
+			if previous_project_version != None:
+				session.delete( previous_project_version )
+				session.commit()
+		
+		# Now save new project version
+		new_project_version = ProjectVersion()
+		new_project_version.version = project_version
+		new_project_version.project_json = json.dumps(
+			diagram_data
+		)
+		
+		previous_project.versions.append(
+			new_project_version
+		)
+		
+		session.commit()
+		
+		self.write({
+			"success": True,
+			"project_id": project_id,
+			"project_version": project_version
+		})
+		
+class SearchSavedProjects( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Free text search of saved functions, returns matching results.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"query": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"query",
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Searching saved projects..."
+		)
+		
+		# First search names
+		project_search_results = session.query( Project ).filter(
+			Project.name.ilike( "%" + self.json[ "query" ] + "%" ) # Probably SQL injection \o/
+		).limit(10).all()
+		
+		results_list = []
+		
+		for project_search_result in project_search_results:
+			project_item = {
+				"id": project_search_result.id,
+				"name": project_search_result.name,
+				"timestamp": project_search_result.timestamp,
+				"versions": []
+			}
+			
+			for project_version in project_search_result.versions:
+				project_item[ "versions" ].append(
+					project_version.version
+				)
+				
+			# Sort project versions highest to lowest
+			project_item[ "versions" ].sort( reverse=True )
+			
+			results_list.append(
+				project_item
+			)
+		
+		self.write({
+			"success": True,
+			"results": results_list
+		})
+		
+class GetSavedProject( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Get a specific saved project
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+				},
+				"version": {
+					"type": "integer",
+				}
+			},
+			"required": [
+				"id",
+				"version"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Retrieving saved project..."
+		)
+		
+		project_version_result = session.query( ProjectVersion ).filter_by(
+			project_id=self.json[ "id" ],
+			version=self.json[ "version" ]
+		).first()
+
+		self.write({
+			"success": True,
+			"project_json": project_version_result.project_json
+		})
+		
+class DeleteSavedProject( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Get a specific saved project
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"id"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Deleting saved project..."
+		)
+		
+		saved_project_result = session.query( Project ).filter_by(
+			id=self.json[ "id" ]
+		).first()
+		
+		session.delete( saved_project_result )
+		session.commit()
+
+		self.write({
+			"success": True
+		})
+		
 @gen.coroutine
 def warm_lambda_base_caches():
 	"""
@@ -2510,7 +2737,11 @@ def make_app( is_debug ):
 		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda ),
 		( r"/api/v1/aws/create_sqs_trigger", CreateSQSQueueTrigger ),
 		( r"/api/v1/aws/infra_tear_down", InfraTearDown ),
-		( r"/api/v1/aws/infra_collision_check", InfraCollisionCheck )
+		( r"/api/v1/aws/infra_collision_check", InfraCollisionCheck ),
+		( r"/api/v1/projects/save", SaveProject ),
+		( r"/api/v1/projects/search", SearchSavedProjects ),
+		( r"/api/v1/projects/get", GetSavedProject ),
+		( r"/api/v1/projects/delete", DeleteSavedProject )
 	], **tornado_app_settings)
 			
 if __name__ == "__main__":
@@ -2525,6 +2756,6 @@ if __name__ == "__main__":
 		7777
 	)
 	Base.metadata.create_all( engine )
-	tornado.ioloop.IOLoop.current().run_sync( warm_lambda_base_caches )
+	#tornado.ioloop.IOLoop.current().run_sync( warm_lambda_base_caches )
 	server.start()
 	tornado.ioloop.IOLoop.current().start()

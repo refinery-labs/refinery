@@ -12,6 +12,78 @@
     <div id="app">
     	<!-- modals -->
     	
+		<!-- Search Projects modal -->
+		<div class="modal fade" id="searchprojects_output" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title">Search Projects</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<div class="form-group">
+							<label>Search</label>
+							<input type="text" class="form-control" placeholder="Project search term" v-model="projects_search_query">
+							<small class="form-text text-muted">Free text search of saved projects.</small>
+						</div>
+						<table class="table table-striped">
+							<thead>
+								<tr>
+									<th scope="col">Name</th>
+									<th scope="col" style="width: 90px;">Version</th>
+									<th scope="col" style="width: 30px; text-align: center;"></th>
+									<th scope="col" style="width: 30px; text-align: center;"></th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr class="search-result-row" v-for="projects_search_result in projects_search_results">
+									<td scope="row">{{projects_search_result.name}}</td>
+									<td scope="row">
+										<select class="form-control" v-model="project_selected_versions[projects_search_result.id]">
+											<option v-for="version in projects_search_result.versions" v-bind:value="version">v{{version}}</option>
+										</select>
+									</td>
+									<td>
+										<button type="button" class="btn btn-primary" v-bind:id="projects_search_result.id" v-bind:projectname="projects_search_result.name" v-on:click="open_project" data-dismiss="modal">Open</button>
+									</td>
+									<td>
+										<button type="button" class="btn btn-danger" v-bind:id="projects_search_result.id" v-on:click="delete_project">Delete Project</button>
+									</td>
+								</tr>
+							</tbody>
+						</table>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+    	
+    	<!-- Generic error modal -->
+		<div class="modal fade" id="error_output" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title">An Error Occured</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<center>
+							<h1>{{error_modal_text}}</h1>
+						</center>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+    	
 		<!-- Search Lambda modal -->
 		<div class="modal fade" id="searchsavedlambda_output" tabindex="-1" role="dialog" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -379,6 +451,11 @@
 							<input type="text" class="form-control" v-model="project_name" aria-describedby="project_name" placeholder="Example Project">
 							<small id="selected_state_help" class="form-text text-muted">Name of the project.</small>
 						</div>
+						<div class="form-group">
+							<label for="project_name">Project Version</label>
+							<input type="number" min="1" class="form-control" v-model="project_version" placeholder="2">
+							<small class="form-text text-muted">Project version, this will be automatically bumped on each save.</small>
+						</div>
 		            </div>
 		            <div class="modal-footer">
 		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
@@ -579,8 +656,9 @@
 			    <div class="collapse navbar-collapse">
 			        <ul class="navbar-nav">
 			            <li class="nav-item">
-			                <a class="nav-link project-name" href="#" v-on:click="show_rename_project_modal">
-			                	<i>{{project_name}}</i>
+			                <a class="nav-link" href="#" v-on:click="show_rename_project_modal">
+			                	<p class="project-name"><i>{{project_name}}</i></p>
+			                	<p class="project-version">v{{project_version}}</p>
 			                </a>
 			            </li>
 			            <li class="nav-item">
@@ -590,7 +668,7 @@
 			    </div>
 			    <div class="form-inline my-2 my-lg-0">
 					<div class="btn-group">
-						<button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-right: 5px;">
+						<button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-left: 5px;">
 							Add New Resource
 						</button>
 						<div class="dropdown-menu">
@@ -600,12 +678,31 @@
 							<a class="dropdown-item" href="#" v-on:click="add_timer_trigger_node">Time Trigger</a>
 						</div>
 					</div>
-					<button type="button" class="btn btn-primary" v-on:click="view_search_saved_lambdas_modal" style="margin-right: 5px;">Saved Lambdas</button>
-			    	<button type="button" class="btn btn-primary" v-on:click="view_add_function_modal" style="margin-right: 5px;">Add Function</button>
-			    	<button type="button" class="btn btn-primary" v-on:click="view_search_functions_modal" style="margin-right: 5px;">Function Lookup</button>
-			    	<button type="button" class="btn btn-primary" v-on:click="import_project_data" style="margin-right: 5px;">Import Project</button>
-			    	<button type="button" class="btn btn-primary" v-on:click="export_project_data" style="margin-right: 5px;">Export Project</button>
-			    	<button type="button" class="btn btn-primary" v-on:click="view_refinery_atc" style="margin-right: 5px;">ATC</button>
+					<button type="button" class="btn btn-primary" v-on:click="view_search_saved_lambdas_modal" style="margin-left: 5px;">Saved Lambdas</button>
+					<div class="btn-group">
+						<button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-left: 5px;">
+							Saved Functions
+						</button>
+						<div class="dropdown-menu">
+							<a class="dropdown-item" href="#" v-on:click="view_search_functions_modal">Search Saved Functions</a>
+							<a class="dropdown-item" href="#" v-on:click="view_add_function_modal">Save New Function</a>
+						</div>
+					</div>
+			    	<!-- <button type="button" class="btn btn-primary" v-on:click="view_refinery_atc" style="margin-right: 5px;">ATC</button> -->
+					<div class="btn-group">
+						<button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-left: 5px;">
+							Project Options
+						</button>
+						<div class="dropdown-menu">
+							<a class="dropdown-item" href="#" v-on:click="save_project_current_version">Save Project to Current Version</a>
+							<a class="dropdown-item" href="#" v-on:click="save_project_bump_version">Save Project to Bumped Version</a>
+							<hr />
+							<a class="dropdown-item" href="#" v-on:click="view_search_projects_modal">Open Project</a>
+							<a class="dropdown-item" href="#" v-on:click="import_project_data">Import Project</a>
+							<a class="dropdown-item" href="#" v-on:click="export_project_data">Export Project</a>
+							<a class="dropdown-item" href="#" v-on:click="clear_project">Clear Project</a>
+						</div>
+					</div>
 			    	<button type="button" class="btn btn-primary" v-on:click="infrastructure_collision_check" style="margin-left: 10px;">Deploy to Production</button>
 			    </div>
 			</nav>
