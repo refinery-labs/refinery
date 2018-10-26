@@ -18,6 +18,12 @@ class Project( Base ):
 		lazy="dynamic",
 		cascade="all, delete-orphan"
 	)
+    deployments = relationship(
+    	"Deployment",
+    	backref="projects",
+		lazy="dynamic",
+		cascade="all, delete-orphan"
+	)
     timestamp = Column(Integer())
 
     def __init__( self ):

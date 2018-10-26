@@ -33,6 +33,7 @@ from models.saved_function import SavedFunction
 from models.saved_lambda import SavedLambda
 from models.project_versions import ProjectVersion
 from models.projects import Project
+from models.deployments import Deployment
 
 logging.basicConfig(
 	stream=sys.stdout,
@@ -688,6 +689,7 @@ class TaskSpawner(object):
 			"""
 			
 			code = LAMDBA_BASE_CODES[ "python2.7" ] + "\n\n" + code
+			"""
 			code = autopep8.fix_code(
 				code,
 				options={
@@ -696,6 +698,8 @@ class TaskSpawner(object):
 					]
 				}
 			)
+			"""
+			code = code.replace( "\t", "    " )
 			
 			code = code.replace( "\"{{TRANSITION_DATA_REPLACE_ME}}\"", json.dumps( json.dumps( transitions ) ) )
 			code = code.replace( "{{AWS_REGION_REPLACE_ME}}", os.environ.get( "region_name" ) )
@@ -1094,6 +1098,22 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def _delete_schedule_trigger( id, type, name, arn ):
+			list_rule_targets_response = EVENTS_CLIENT.list_targets_by_rule(
+				Rule=name,
+			)
+			
+			target_ids = []
+			
+			for target_item in list_rule_targets_response[ "Targets" ]:
+				target_ids.append(
+					target_item[ "Id" ]
+				)
+
+			remove_targets_response = EVENTS_CLIENT.remove_targets(
+				Rule=name,
+				Ids=target_ids
+			)
+
 			response = EVENTS_CLIENT.delete_rule(
 				Name=name,
 			)
@@ -1514,13 +1534,6 @@ class SavedFunctionSearch( BaseHandler ):
 		self.logit(
 			"Searching saved functions..."
 		)
-		
-		if self.json[ "query" ] == "":
-			self.write({
-				"success": True,
-				"results": []
-			})
-			raise gen.Return()
 		
 		# First search names
 		name_search_results = session.query( SavedFunction ).filter(
@@ -2127,22 +2140,6 @@ def deploy_diagram( diagram_data ):
 		diagram_data
 	)
 		
-class DeployDiagram( BaseHandler ):
-	@gen.coroutine
-	def post( self ):
-		self.logit(
-			"Deploying diagram to production..."
-		)
-		
-		diagram_data = json.loads( self.json[ "diagram_data" ] )
-		
-		results_data = yield deploy_diagram( diagram_data )
-		
-		self.write({
-			"success": True,
-			"result": diagram_data
-		})
-		
 class SavedLambdaCreate( BaseHandler ):
 	@gen.coroutine
 	def post( self ):
@@ -2372,7 +2369,7 @@ class InfraTearDown( BaseHandler ):
 						teardown_node[ "arn" ],
 					)
 				)
-			
+		
 		teardown_operation_results = yield teardown_operation_futures
 		
 		print( "Teardown results: ")
@@ -2717,6 +2714,45 @@ def warm_lambda_base_caches():
 	results = yield lambda_build_futures
 	
 	print( "Lambda base-cache has been warmed!" )
+	
+		
+class DeployDiagram( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		self.logit(
+			"Deploying diagram to production..."
+		)
+		
+		project_id = self.json[ "project_id" ]
+		
+		diagram_data = json.loads( self.json[ "diagram_data" ] )
+		
+		results_data = yield deploy_diagram( diagram_data )
+		
+		existing_project = session.query( Project ).filter_by(
+			id=project_id
+		).first()
+		
+		new_deployment = Deployment()
+		new_deployment.project_id = project_id
+		new_deployment.deployment_json = json.dumps(
+			results_data
+		)
+		
+		existing_project.deployments.append(
+			new_deployment
+		)
+		
+		session.commit()
+		
+		self.write({
+			"success": True,
+			"result": {
+				"diagram_data": diagram_data,
+				"project_id": project_id,
+				"deployment_id": new_deployment.id,
+			}
+		})
 		
 def make_app( is_debug ):
 	# Convert to bool

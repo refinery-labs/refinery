@@ -1,3 +1,13 @@
+#toast-container {
+	top: 75px !important;
+}
+#toast-container > div {
+    opacity:1;
+}
+.toast {
+    opacity: 1 !important;
+}
+
 #app {
   display: flex;
   display: -webkit-flex;

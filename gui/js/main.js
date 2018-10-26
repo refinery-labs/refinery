@@ -53,17 +53,36 @@ var IMAGE_NODE_SPACES = "            ";
 window.define = ace.define;
 window.require = ace.require;
 
+toastr.options = {
+	"closeButton": true,
+	"debug": false,
+	"newestOnTop": true,
+	"progressBar": false,
+	"positionClass": "toast-top-right",
+	"preventDuplicates": false,
+	"onclick": null,
+	"showDuration": "300",
+	"hideDuration": "1000",
+	"timeOut": "3000",
+	"extendedTimeOut": "1000",
+	"showEasing": "swing",
+	"hideEasing": "linear",
+	"showMethod": "fadeIn",
+	"hideMethod": "fadeOut",
+	"escapeHtml": true,
+}
+
 var beforeUnloadMessage = null;
 
 var resizeEvent = new Event("paneresize");
-Split(['.left-panel', '#graph'], {
-  sizes: [25, 75],
-  onDragEnd: function() {
-    var svgOutput = document.getElementById("svg_output");
-    if (svgOutput != null) {
-      svgOutput.dispatchEvent(resizeEvent);
-    }
-  }
+Split([".left-panel", "#graph"], {
+	sizes: [25, 75],
+	onDragEnd: function() {
+		var svgOutput = document.getElementById("svg_output");
+		if (svgOutput != null) {
+			svgOutput.dispatchEvent(resizeEvent);
+		}
+	}
 });
 
 var parser = new DOMParser();
@@ -855,11 +874,12 @@ function create_schedule_trigger( name, schedule_expression, description, target
 	);
 }
 
-function deploy_infrastructure( diagram_data ) {
+function deploy_infrastructure( project_id, diagram_data ) {
 	return api_request(
 		"POST",
 		"api/v1/aws/deploy_diagram",
 		{
+			"project_id": project_id,
 			"diagram_data": diagram_data,
 		}
 	);
@@ -1425,24 +1445,34 @@ var app = new Vue({
 			    "workflow_states": [],
 			    "workflow_relationships": []
 			});
+			
+			toastr.success( "Project cleared successfully!" );
 		},
 		delete_project: async function( event ) {
+			var error_occured = false;
 			var project_id = event.srcElement.getAttribute( "id" );
 			var result = await delete_project(
 				project_id
-			);
+			).catch(function( error ) {
+				console.log( "Deleting project error: " );
+				console.log( error );
+				error_occured = true;
+				toastr.error( "An error occured while deleting the project!" );
+			})
 			
 			// Remove from search result as well
 			app.projects_search_results = app.projects_search_results.filter(function( projects_search_result ) {
 				return projects_search_result.id !== project_id;
 			});
+			
+			if( !error_occured ) {
+				toastr.success( "Project deleted successfully!" );
+			}
 		},
 		open_project: async function( event ) {
 			var project_id = event.srcElement.getAttribute( "id" );
 			var project_name = event.srcElement.getAttribute( "projectname" );
 			var project_version = app.project_selected_versions[ project_id ];
-			
-			console.log( "Selected project ID: " + project_id + " with version " + project_version.toString() );
 			
 			var project_data = await get_project(
 				project_id,
@@ -1458,9 +1488,6 @@ var app = new Vue({
 					project_data[ "project_json" ]
 				)
 			);
-			
-			console.log( "Project data: " );
-			pprint( project_data );
 		},
 		view_search_projects_modal: function() {
 			$( "#searchprojects_output" ).modal(
@@ -1510,6 +1537,8 @@ var app = new Vue({
 			if( error_occured ) {
 				return
 			}
+			
+			toastr.success( "Project saved successfully!" );
 			
 			// If we didn't have a project ID before, set it.
 			if( app.project_id === false ) {
@@ -1579,12 +1608,18 @@ var app = new Vue({
 		},
 		delete_saved_lambda_from_db: async function( event ) {
 			var saved_lambda_id = event.srcElement.getAttribute( "id" );
-			var result = await delete_saved_lambdas( saved_lambda_id );
+			var result = await delete_saved_lambdas( saved_lambda_id ).catch(function( error ) {
+				console.log( "Deleting saved Lambda error: " );
+				console.log( error );
+				toastr.error( "An error occured while deleting the saved Lambda from the database." );
+			})
 			
 			// Now clear it from the search results
 			app.saved_lambda_search_results = app.saved_lambda_search_results.filter(function( lambda_search_result ) {
 				return ( lambda_search_result.id !== saved_lambda_id );
 			});
+			
+			toastr.success( "Lambda deleted successfully!" );
 		},
 		search_saved_lambdas: function( query ) {
 			search_saved_lambdas( query ).then(function( results ) {
@@ -1640,6 +1675,7 @@ var app = new Vue({
 			app.workflow_states.push( new_lambda_data );
 		},
 		save_lambda_to_database: async function() {
+			var error_occured = false;
 			var result = await created_saved_lambda(
 				app.selected_node_data.name,
 				app.save_lambda_to_db_description,
@@ -1648,7 +1684,16 @@ var app = new Vue({
 				app.selected_node_data.libraries,
 				app.selected_node_data.memory,
 				app.selected_node_data.max_execution_time
-			);
+			).catch(function( error ) {
+				console.log( "Saving lambda to database error: " );
+				console.log( error );
+				toastr.error( "Error saving Lambda to database!" );
+				error_occured = true;
+			});
+			
+			if( !error_occured ) {
+				toastr.success( "Successfully saved Lambda to database!" );
+			}
 		},
 		view_save_lambda_to_db_modal: function() {
 			// Reset previous description
@@ -1776,6 +1821,7 @@ var app = new Vue({
 			);
 			
 			var results = await deploy_infrastructure(
+				app.project_id,
 				get_project_json()
 			);
 			
@@ -2150,10 +2196,9 @@ var app = new Vue({
 				"show"
 			);
 		},
-		search_saved_functions: function( query ) {
-			search_saved_functions( query ).then(function( results ) {
-				app.saved_function_search_results = results[ "results" ];
-			});
+		search_saved_functions: async function( query ) {
+			var results = await search_saved_functions( query );
+			app.saved_function_search_results = results[ "results" ];
 		},
 		view_search_functions_modal: function() {
 			// Clear search query
@@ -2164,6 +2209,8 @@ var app = new Vue({
 			$( "#searchsavedfunction_output" ).modal(
 				"show"
 			);
+			
+			app.search_saved_functions( "" );
 		},
 		saved_new_add_function: function() {
 			create_saved_function(

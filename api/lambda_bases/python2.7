@@ -42,11 +42,11 @@ class Refinery_Memory:
 		
 	def connect( self ):
 		self.redis_client = redis.StrictRedis(
-		    host=self.hostname,
-		    port=6379,
-		    db=0,
-		    socket_timeout=2,
-		    password=self.password,
+			host=self.hostname,
+			port=6379,
+			db=0,
+			socket_timeout=2,
+			password=self.password,
 		)
 		
 	def _get_namespace( self, kwargs ):
