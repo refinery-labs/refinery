@@ -350,6 +350,8 @@ class TaskSpawner(object):
 			
 			We then can check if there's an existing cached copy
 			that we can use before we upload it ourself.
+			
+			TODO: Improve this method, generated zips basically never have matching sigs.
 			"""
 			# Generate SHA256 hash of package
 			hash_key = hashlib.sha256(
@@ -2721,6 +2723,41 @@ class DeployDiagram( BaseHandler ):
 			}
 		})
 		
+class GetLatestProjectDeployment( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Get latest deployment for a given project ID
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"project_id": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"project_id"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Retrieving project deployments..."
+		)
+		
+		latest_deployment = session.query( Deployment ).filter_by(
+			project_id=self.json[ "project_id" ]
+		).order_by(
+			Deployment.timestamp.desc()
+		).first()
+
+		self.write({
+			"success": True,
+			"result": latest_deployment.to_dict()
+		})
+		
 def make_app( is_debug ):
 	# Convert to bool
 	is_debug = ( is_debug.lower() == "true" )
@@ -2748,7 +2785,8 @@ def make_app( is_debug ):
 		( r"/api/v1/projects/save", SaveProject ),
 		( r"/api/v1/projects/search", SearchSavedProjects ),
 		( r"/api/v1/projects/get", GetSavedProject ),
-		( r"/api/v1/projects/delete", DeleteSavedProject )
+		( r"/api/v1/projects/delete", DeleteSavedProject ),
+		( r"/api/v1/deployments/get_latest", GetLatestProjectDeployment )
 	], **tornado_app_settings)
 			
 if __name__ == "__main__":

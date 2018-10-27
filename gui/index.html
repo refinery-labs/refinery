@@ -655,7 +655,9 @@
 			    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
 				<span class="navbar-toggler-icon"></span>
 				</button>
-			    <div class="collapse navbar-collapse">
+				
+				<!-- Local IDE project name -->
+			    <div class="collapse navbar-collapse" v-if="ide_mode == 'LOCAL_IDE'">
 			        <ul class="navbar-nav">
 			            <li class="nav-item">
 			                <a class="nav-link" href="#" v-on:click="show_rename_project_modal">
@@ -668,7 +670,25 @@
 			            </li>
 			        </ul>
 			    </div>
-			    <div class="form-inline my-2 my-lg-0">
+			    
+			    <!-- Local IDE project name -->
+			    <div class="collapse navbar-collapse" v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+			        <ul class="navbar-nav">
+			            <li class="nav-item">
+			                <a class="nav-link" href="#">
+			                	Deployment:
+			                	<p class="project-name"><i>{{project_name}}</i></p>
+			                	<p class="project-version">v{{project_version}}</p>
+			                </a>
+			            </li>
+			            <li class="nav-item">
+			                
+			            </li>
+			        </ul>
+			    </div>
+			    
+			    <!-- Local IDE mode navbar -->
+			    <div class="form-inline my-2 my-lg-0" v-if="ide_mode == 'LOCAL_IDE'">
 					<div class="btn-group">
 						<button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-left: 5px;">
 							Add New Resource
@@ -705,7 +725,14 @@
 							<a class="dropdown-item" href="#" v-on:click="clear_project">Clear Project</a>
 						</div>
 					</div>
+					<button type="button" class="btn btn-primary" v-on:click="view_production_deployment" style="margin-left: 10px;" v-if="project_id">View Production Deployment</button>
 			    	<button type="button" class="btn btn-primary" v-on:click="infrastructure_collision_check" style="margin-left: 10px;">Deploy to Production</button>
+			    </div>
+			    
+			    <!-- Deployment viewer mode navbar -->
+			    <div class="form-inline my-2 my-lg-0" v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+			    	<button type="button" class="btn btn-danger" v-on:click="todo" style="margin-left: 10px;">Tear Down Deployment</button>
+			    	<button type="button" class="btn btn-primary" v-on:click="back_to_editor" style="margin-left: 10px;">Back to Editor</button>
 			    </div>
 			</nav>
         </div>
@@ -1046,6 +1073,14 @@
 				<hr />
 				<button v-if="atc.queue_loader.iterators_options_array.length" type="submit" class="btn btn-primary" style="width: 100%; height: 50px" v-on:click="create_queue_loader">Create Queue Loader</button>
 				<button v-if="!atc.queue_loader.iterators_options_array.length" type="submit" class="btn btn-primary" style="width: 100%; height: 50px" disabled>Create Queue Loader</button>
+            </div>
+            
+        	<!-- Deployment viewer welcome panel -->
+            <div v-if="page == 'deployment_viewer_welcome'" class="split left-panel">
+            	<center>
+            		<h2>Deployment Viewer</h2>
+            		<i>Select a node to see information about its deployment in production.</i>
+            	</center>
             </div>
             
             <!-- Graph -->

@@ -333,9 +333,6 @@ function build_dot_graph() {
 			node_properties.fillcolor = "#fffa00";
 			node_properties.color = "#ff0000";
 			node_properties.penwidth = "4";
-		} else if ( workflow_state["type"] == "sfn_start" || workflow_state["type"] == "sfn_end" ) {
-			// Start or End special node
-			node_properties.fillcolor = "#ff9900";
 		}
 		
 		var picture_node_types = GRAPH_ICONS_ARRAY.map(function( graph_item ) {
@@ -464,7 +461,26 @@ function get_variable_state_transitions() {
 function select_node( node_id ) {
 	// Set selected node ID
 	app.selected_node = node_id;
+	
+	// Can't have both selected
+	if( app.selected_transition ) {
+		app.selected_transition = false;
+	}
+	
+	if( app.ide_mode == "LOCAL_IDE" ) {
+		return select_node_local_ide( node_id );
+	} else if( app.ide_mode == "DEPLOYMENT_VIEWER" ) {
+		return select_node_deployment_viewer( node_id );
+	}
+}
 
+function select_node_deployment_viewer( node_id ) {
+	var selected_node_data = get_node_data_by_id(
+		app.selected_node
+	);
+}
+
+function select_node_local_ide( node_id ) {
 	var selected_node_data = get_node_data_by_id(
 		app.selected_node
 	);
@@ -522,11 +538,6 @@ function select_node( node_id ) {
 	} else {
 		alert( "Error, unrecognized node type!" );
 	}
-	
-	// Can't have both selected
-	if( app.selected_transition ) {
-		app.selected_transition = false;
-	}
 }
 
 function select_transition( transition_id ) {
@@ -541,6 +552,14 @@ function select_transition( transition_id ) {
 		app.selected_node = false;
 	}
 	
+	if( app.ide_mode == "LOCAL_IDE" ) {
+		return select_transition_local_ide( transition_id );
+	} else if( app.ide_mode == "DEPLOYMENT_VIEWER" ) {
+		return select_transition_deployment_viewer( transition_id );
+	}
+}
+
+function select_transition_local_ide( transition_id ) {
 	if( app.selected_transition ) {
 		// Load transition data into current
 		var selected_transition_data = app.selected_transition_data;
@@ -551,6 +570,10 @@ function select_transition( transition_id ) {
 	}
 	
 	build_dot_graph();
+}
+
+function select_transition_deployment_viewer( transition_id ) {
+	
 }
 
 function reset_current_sns_topic_state_to_defaults() {
@@ -933,6 +956,16 @@ function delete_project( id ) {
 	);
 }
 
+function get_latest_project_deployment( project_id ) {
+	return api_request(
+		"POST",
+		"api/v1/deployments/get_latest",
+		{
+			"project_id": project_id
+		}
+	);
+}
+
 /*
     Make API request
 */
@@ -1113,10 +1146,8 @@ $( document ).ready(function() {
 
 var app = new Vue({
 	el: "#app",
-    components:{
-        //"vue-ace-editor": VueAceEditor
-    },
 	data: {
+		ide_mode: "LOCAL_IDE",
 		page: "welcome",
 		selected_node: false,
 		selected_node_state: false,
@@ -1324,6 +1355,13 @@ var app = new Vue({
         
         // Text for error modal
         error_modal_text: "",
+        
+        // Deployment data
+        deployment_data: {
+        	diagram_data: {},
+        	deployed_timestamp: 0,
+        	diagram_stash: {},
+        },
 	},
 	watch: {
 		projects_search_query: function( value, previous_value ) {
@@ -1420,6 +1458,58 @@ var app = new Vue({
 		}
 	},
 	methods: {
+		back_to_editor: function() {
+			app.ide_mode = "LOCAL_IDE";
+			app.navigate_page( "welcome" );
+			app.selected_transition = false;
+			app.selected_node = false;
+			
+			// Pull the stashed data and set it again
+			Vue.set( app, "workflow_states", JSON.parse( JSON.stringify( app.deployment_data.diagram_stash.workflow_states ) ) );
+			Vue.set( app, "workflow_relationships", JSON.parse( JSON.stringify( app.deployment_data.diagram_stash.workflow_relationships ) ) );
+		},
+		view_production_deployment: async function() {
+			app.ide_mode = "DEPLOYMENT_VIEWER";
+			app.navigate_page( "deployment_viewer_welcome" );
+			app.selected_transition = false;
+			app.selected_node = false;
+			
+			// Stash previous diagram data for when we return
+			Vue.set( app.deployment_data.diagram_stash, "workflow_states", JSON.parse( JSON.stringify( app.workflow_states ) ) );
+			Vue.set( app.deployment_data.diagram_stash, "workflow_relationships", JSON.parse( JSON.stringify( app.workflow_relationships ) ) );
+
+			// Set current graph to deployment data
+			Vue.set( app, "workflow_states", app.deployment_data.diagram_data.workflow_states );
+			Vue.set( app, "workflow_relationships", app.deployment_data.diagram_data.workflow_relationships );
+		},
+		open_project: async function( event ) {
+			var project_id = event.srcElement.getAttribute( "id" );
+			var project_name = event.srcElement.getAttribute( "projectname" );
+			var project_version = app.project_selected_versions[ project_id ];
+			
+			var project_data = await get_project(
+				project_id,
+				project_version
+			);
+			
+			// Set current project data
+			app.project_id = project_id;
+			app.project_name = project_name;
+			app.project_version = project_version;
+			import_project_data(
+				JSON.parse(
+					project_data[ "project_json" ]
+				)
+			);
+			
+			// Load latest deployment data
+			var results = await get_latest_project_deployment(
+				app.project_id
+			);
+			
+			Vue.set( app.deployment_data, "diagram_data", results[ "result" ][ "deployment_json" ] );
+			Vue.set( app.deployment_data, "deployed_timestamp", results[ "result" ][ "timestamp" ] );
+		},
 		clear_project: function() {
 			app.project_name = "New Project";
 			app.project_id = false;
@@ -1453,26 +1543,6 @@ var app = new Vue({
 			if( !error_occured ) {
 				toastr.success( "Project deleted successfully!" );
 			}
-		},
-		open_project: async function( event ) {
-			var project_id = event.srcElement.getAttribute( "id" );
-			var project_name = event.srcElement.getAttribute( "projectname" );
-			var project_version = app.project_selected_versions[ project_id ];
-			
-			var project_data = await get_project(
-				project_id,
-				project_version
-			);
-			
-			// Set current project data
-			app.project_id = project_id;
-			app.project_name = project_name;
-			app.project_version = project_version;
-			import_project_data(
-				JSON.parse(
-					project_data[ "project_json" ]
-				)
-			);
 		},
 		view_search_projects_modal: function() {
 			$( "#searchprojects_output" ).modal(
