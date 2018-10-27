@@ -829,21 +829,6 @@ function delete_saved_lambdas( id ) {
 	);
 }
 
-function deploy_lambda( name, language, code, libraries, memory, max_execution_time ) {
-	return api_request(
-		"POST",
-		"api/v1/aws/deploy_lambda",
-		{
-			"name": name,
-			"language": language,
-			"code": code,
-			"libraries": libraries,
-			"memory": parseInt( memory ),
-			"max_execution_time": parseInt( max_execution_time )
-		}
-	);
-}
-
 function run_tmp_lambda( language, code, libraries, memory, max_execution_time ) {
 	return api_request(
 		"POST",

@@ -90,6 +90,7 @@ S3_CLIENT = boto3.client(
     "s3",
     aws_access_key_id=os.environ.get( "aws_access_key" ),
     aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+    region_name=os.environ.get( "region_name" )
 )
 
 LAMBDA_CLIENT = boto3.client(
@@ -345,6 +346,41 @@ class TaskSpawner(object):
 		@staticmethod
 		def _deploy_aws_lambda( func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, env_dict, tags_dict ):
 			"""
+			First upload the data to S3 at {{zip_sha1}}.zip
+			
+			We then can check if there's an existing cached copy
+			that we can use before we upload it ourself.
+			"""
+			# Generate SHA256 hash of package
+			hash_key = hashlib.sha256(
+				zip_data
+			).hexdigest()
+			s3_package_zip_path = hash_key + ".zip"
+			
+			# First check if it already exists
+			already_exists = False
+			
+			# S3 head response
+			try:
+				s3_head_response = S3_CLIENT.head_object(
+					Bucket=os.environ.get( "tmp_lambda_packages_bucket" ),
+					Key=s3_package_zip_path
+				)
+				
+				# If we didn't encounter a not-found exception, it exists.
+				already_exists = True
+			except ClientError as e:
+				pass
+			
+			if not already_exists:
+				print( "Doesn't already exist in S3 cache, writing to S3..." )
+				response = S3_CLIENT.put_object(
+					Key=s3_package_zip_path,
+					Bucket=os.environ.get( "tmp_lambda_packages_bucket" ),
+					Body=zip_data,
+				)
+			
+			"""
 			Deploy an AWS Lambda and get it's reference ARN for use
 			in later creating an AWS Step Function (SFN)
 			"""
@@ -356,7 +392,8 @@ class TaskSpawner(object):
 					Role=role_name,
 					Handler="lambda._init",
 					Code={
-						"ZipFile": zip_data,
+						"S3Bucket": os.environ.get( "tmp_lambda_packages_bucket" ),
+						"S3Key": s3_package_zip_path,
 					},
 					Description=description,
 					Timeout=timeout,
@@ -369,6 +406,8 @@ class TaskSpawner(object):
 					Tags=tags_dict
 				)
 			except ClientError as e:
+				print( "Exception occured: " )
+				pprint( e )
 				if e.response[ "Error" ][ "Code" ] == "ResourceConflictException":
 					print( "Duplicate! Deleting previous to replace it..." )
 					
@@ -647,7 +686,7 @@ class TaskSpawner(object):
 					base_zip_data
 				)
 				
-			with zipfile.ZipFile( tmp_zip_file, "a" ) as zip_file_handler:
+			with zipfile.ZipFile( tmp_zip_file, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
 				info = zipfile.ZipInfo(
 					"lambda.js"
 				)
@@ -721,7 +760,7 @@ class TaskSpawner(object):
 					base_zip_data
 				)
 				
-			with zipfile.ZipFile( tmp_zip_file, "a" ) as zip_file_handler:
+			with zipfile.ZipFile( tmp_zip_file, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
 				info = zipfile.ZipInfo(
 					"lambda.py"
 				)
@@ -898,8 +937,12 @@ class TaskSpawner(object):
 			
 			return response
 			
+		@staticmethod
+		def write_to_s3( s3_bucket, path, object_data ):
+			return TaskSpawner._write_to_s3( s3_bucket, path, object_data )
+			
 		@run_on_executor
-		def write_to_s3( self, s3_bucket, path, object_data ):
+		def _write_to_s3( self, s3_bucket, path, object_data ):
 			# Remove leading / because they are almost always not intended
 			if path.startswith( "/" ):
 				path = path[1:]
@@ -1130,83 +1173,6 @@ local_tasks = TaskSpawner()
 			
 def get_random_node_id():
 	return "n" + str( uuid.uuid4() ).replace( "-", "" )
-	
-class DeployLambda( BaseHandler ):
-	@gen.coroutine
-	def post( self ):
-		"""
-		Deploy a given Lambda standalone
-		"""
-		schema = {
-			"type": "object",
-			"properties": {
-				"name": {
-					"type": "string",
-				},
-				"language": {
-					"type": "string",
-				},
-				"code": {
-					"type": "string",
-				},
-				"libraries": {
-					"type": "array",
-				},
-				"memory": {
-					"type": "integer",
-				},
-				"max_execution_time": {
-					"type": "integer",
-				},
-			},
-			"required": [
-				"name",
-				"language",
-				"code",
-				"libraries",
-				"memory",
-				"max_execution_time",
-			]
-		}
-		
-		validate_schema( self.json, schema )
-		
-		self.logit(
-			"Running AWS Lambda..."
-		)
-		
-		lambda_zip_package_data = yield local_tasks.build_lambda(
-			self.json[ "language" ],
-			self.json[ "code" ],
-			self.json[ "libraries" ],
-			[]
-		)
-		
-		deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
-			get_lambda_safe_name(
-				self.json[ "name" ]
-			),
-			self.json[ "language" ],
-			"AWS Lambda deployed via refinery",
-			os.environ.get( "lambda_role" ),
-			lambda_zip_package_data,
-			self.json[ "max_execution_time" ], # Max AWS execution time
-			self.json[ "memory" ], # MB of execution memory
-			{}, # VPC data
-			{},
-			{
-				"project": "None"
-			}
-		)
-		
-		self.write({
-			"success": True,
-			"arn": deployed_lambda_data[ "FunctionArn" ],
-			"url": "https://console.aws.amazon.com/lambda/home?region=" + os.environ.get( "region_name" ) + "#/functions/" + deployed_lambda_data[ "FunctionArn" ] + "?tab=graph",
-			"name": get_lambda_safe_name(
-				self.json[ "name" ]
-			),
-		})
 
 class RunTmpLambda( BaseHandler ):
 	@gen.coroutine
@@ -1246,10 +1212,8 @@ class RunTmpLambda( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Running AWS Lambda..."
-		)
-		
+		self.logit( "Building Lambda package..." )
+
 		lambda_zip_package_data = yield local_tasks.build_lambda(
 			self.json[ "language" ],
 			self.json[ "code" ],
@@ -1264,6 +1228,7 @@ class RunTmpLambda( BaseHandler ):
 		
 		random_node_id = get_random_node_id()
 		
+		self.logit( "Deploying Lambda to S3..." )
 		deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
 			random_node_id,
 			self.json[ "language" ],
@@ -1279,11 +1244,13 @@ class RunTmpLambda( BaseHandler ):
 			}
 		)
 		
+		self.logit( "Executing Lambda..." )
 		lambda_result = yield local_tasks.execute_aws_lambda(
 			deployed_lambda_data[ "FunctionArn" ],
 			{}
 		)
 
+		self.logit( "Deleting Lambda..." )
 		# Now we delete the lambda, don't yield because we don't need to wait
 		delete_result = local_tasks.delete_aws_lambda(
 			random_node_id
@@ -2774,7 +2741,6 @@ def make_app( is_debug ):
 		( r"/api/v1/lambdas/search", SavedLambdaSearch ),
 		( r"/api/v1/lambdas/delete", SavedLambdaDelete ),
 		( r"/api/v1/aws/create_schedule_trigger", CreateScheduleTrigger ),
-		( r"/api/v1/aws/deploy_lambda", DeployLambda ),
 		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda ),
 		( r"/api/v1/aws/create_sqs_trigger", CreateSQSQueueTrigger ),
 		( r"/api/v1/aws/infra_tear_down", InfraTearDown ),
