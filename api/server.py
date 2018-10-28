@@ -135,6 +135,13 @@ CLOUDWATCH_LOGS_CLIENT = boto3.client(
     region_name=os.environ.get( "region_name" )
 )
 
+CLOUDWATCH_CLIENT = boto3.client(
+	"cloudwatch",
+    aws_access_key_id=os.environ.get( "aws_access_key" ),
+    aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+    region_name=os.environ.get( "region_name" )
+)
+
 def pprint( input_dict ):
 	try:
 		print( json.dumps( input_dict, sort_keys=True, indent=4, separators=( ",", ": " ) ) )
@@ -2299,7 +2306,8 @@ class InfraTearDown( BaseHandler ):
 		
 		for teardown_node in teardown_nodes:
 			# Skip if the node doesn't exist
-			if teardown_node[ "exists" ] == False:
+			# TODO move this client side, it's silly here.
+			if "exists" in teardown_node and teardown_node[ "exists" ] == False:
 				continue
 			
 			if teardown_node[ "type" ] == "lambda":
@@ -2752,10 +2760,48 @@ class GetLatestProjectDeployment( BaseHandler ):
 		).order_by(
 			Deployment.timestamp.desc()
 		).first()
+		
+		result_data = False
+		
+		if latest_deployment:
+			result_data = latest_deployment.to_dict()
 
 		self.write({
 			"success": True,
-			"result": latest_deployment.to_dict()
+			"result": result_data
+		})
+		
+class DeleteDeploymentsInProject( BaseHandler ):
+	def post( self ):
+		"""
+		Delete all deployments in database for a given project
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"project_id": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"project_id"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Deleting deployments from database..."
+		)
+		
+		session.query( Deployment ).filter_by(
+			project_id=self.json[ "project_id" ]
+		).delete()
+		
+		session.commit()
+		
+		self.write({
+			"success": True
 		})
 		
 def make_app( is_debug ):
@@ -2786,7 +2832,8 @@ def make_app( is_debug ):
 		( r"/api/v1/projects/search", SearchSavedProjects ),
 		( r"/api/v1/projects/get", GetSavedProject ),
 		( r"/api/v1/projects/delete", DeleteSavedProject ),
-		( r"/api/v1/deployments/get_latest", GetLatestProjectDeployment )
+		( r"/api/v1/deployments/get_latest", GetLatestProjectDeployment ),
+		( r"/api/v1/deployments/delete_all_in_project", DeleteDeploymentsInProject )
 	], **tornado_app_settings)
 			
 if __name__ == "__main__":

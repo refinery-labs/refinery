@@ -966,6 +966,16 @@ function get_latest_project_deployment( project_id ) {
 	);
 }
 
+function delete_all_deployments_under_project( project_id ) {
+	return api_request(
+		"POST",
+		"api/v1/deployments/delete_all_in_project",
+		{
+			"project_id": project_id
+		}
+	);
+}
+
 /*
     Make API request
 */
@@ -1358,6 +1368,7 @@ var app = new Vue({
         
         // Deployment data
         deployment_data: {
+        	exists: false,
         	diagram_data: {},
         	deployed_timestamp: 0,
         	diagram_stash: {},
@@ -1409,6 +1420,22 @@ var app = new Vue({
 		}
 	},
 	computed: {
+		delete_nodes_array: {
+			cache: false,
+			get() {
+				if( !app.deployment_data.exists ) {
+					return [];
+				}
+				return app.deployment_data.diagram_data.workflow_states.map(function( workflow_state ) {
+					return {
+						"id": workflow_state.id,
+						"arn": workflow_state.arn,
+						"name": workflow_state.name,
+						"type": workflow_state.type,
+				    }
+				});
+			}
+		},
 		lambda_libraries: {
 			cache: false,
 			get() {
@@ -1458,6 +1485,47 @@ var app = new Vue({
 		}
 	},
 	methods: {
+		teardown_infrastructure: async function() {
+			$( "#infrastructureteardown_modal" ).modal(
+				"show"
+			);
+			
+			var error_occured = false;
+			
+			var teardown_results = await infrastructure_teardown(
+				app.delete_nodes_array
+			).catch(function( error ) {
+				toastr.error( "An error occured while tearing down the infrastructure!" );
+				error_occured = true;
+			});
+			
+			console.log( "Teardown response: " );
+			pprint( teardown_results );
+			
+			var database_clear_results = await delete_all_deployments_under_project(
+				app.project_id,
+			).catch(function( error ) {
+				toastr.error( "An error occured while clearing the database of deployment(s)." );
+				error_occured = true;
+			});
+			
+			console.log( "Database clear reslts: ");
+			pprint( database_clear_results );
+			
+			if( !error_occured ) {
+				if( app.ide_mode === "DEPLOYMENT_VIEWER" ) {
+					app.back_to_editor();
+				}
+				
+				toastr.success( "Infrastructure torn down successfully!" );
+				
+				$( "#infrastructureteardown_modal" ).modal(
+					"hide"
+				);
+				
+				app.deployment_data.exists = false;
+			}
+		},
 		back_to_editor: function() {
 			app.ide_mode = "LOCAL_IDE";
 			app.navigate_page( "welcome" );
@@ -1501,14 +1569,23 @@ var app = new Vue({
 					project_data[ "project_json" ]
 				)
 			);
-			
+			app.navigate_page( "welcome" );
+			app.load_latest_deployment();
+		},
+		load_latest_deployment: async function() {
 			// Load latest deployment data
 			var results = await get_latest_project_deployment(
 				app.project_id
 			);
 			
-			Vue.set( app.deployment_data, "diagram_data", results[ "result" ][ "deployment_json" ] );
-			Vue.set( app.deployment_data, "deployed_timestamp", results[ "result" ][ "timestamp" ] );
+			if( results.result ) {
+				Vue.set( app.deployment_data, "diagram_data", results[ "result" ][ "deployment_json" ] );
+				Vue.set( app.deployment_data, "deployed_timestamp", results[ "result" ][ "timestamp" ] );
+				app.deployment_data.exists = true;
+			} else {
+				Vue.set( app.deployment_data, "diagram_data", {} );
+				Vue.set( app.deployment_data, "deployed_timestamp", 0 );
+			}
 		},
 		clear_project: function() {
 			app.project_name = "New Project";
@@ -1798,6 +1875,15 @@ var app = new Vue({
 			app.unformatted_libraries = "";
 			app.lambda_code = DEFAULT_LAMBDA_CODE[ app.lambda_language ];
 		},
+		deploy_first_step: async function() {
+			if( app.deployment_data.exists ) {
+				$( "#previous_infrastructure_warning" ).modal(
+					"show"
+				);
+			} else {
+				app.deploy_infrastructure();
+			}
+		},
 		infrastructure_collision_check: async function() {
 			// Set boolean to show we're checking for collisions
 			app.infrastructure_conflict_check_in_progress = true;
@@ -1833,7 +1919,7 @@ var app = new Vue({
 				app.deploy_infrastructure();
 			}
 		},
-		infrastructure_teardown: async function() {
+		conflicting_infrastructure_teardown: async function() {
 			$( "#infrastructureteardown_modal" ).modal(
 				"show"
 			);
@@ -1854,10 +1940,16 @@ var app = new Vue({
 			app.deploy_infrastructure();
 		},
 		deploy_infrastructure: async function() {
+			if( app.deployment_data.exists ) {
+				await app.teardown_infrastructure();
+			}
 			$( "#collisioncheck_output" ).modal(
 				"hide"
 			);
 			$( "#infrastructureteardown_modal" ).modal(
+				"hide"
+			);
+			$( "#previous_infrastructure_warning" ).modal(
 				"hide"
 			);
 			
@@ -1887,6 +1979,9 @@ var app = new Vue({
 			$( "#infrastructureteardown_modal" ).modal(
 				"hide"
 			);
+			$( "#previous_infrastructure_warning" ).modal(
+				"hide"
+			);
 			
 			console.log( "Infrastructure deployment result: " );
 			console.log(
@@ -1902,6 +1997,9 @@ var app = new Vue({
 			
 			// Mark that we're done
 			app.deploying_infrastructure = false;
+			
+			// Update latest deployment data on frontend
+			app.load_latest_deployment();
 		},
 		is_valid_transition_path: function( first_node_id, second_node_id ) {
 			// Grab data for both nodes and determine if it's possible path
