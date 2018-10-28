@@ -1161,10 +1161,12 @@ class TaskSpawner(object):
 					target_item[ "Id" ]
 				)
 
-			remove_targets_response = EVENTS_CLIENT.remove_targets(
-				Rule=name,
-				Ids=target_ids
-			)
+			# If there are some targets, delete them, else skip this.
+			if len( target_ids ) > 0:
+				remove_targets_response = EVENTS_CLIENT.remove_targets(
+					Rule=name,
+					Ids=target_ids
+				)
 
 			response = EVENTS_CLIENT.delete_rule(
 				Name=name,

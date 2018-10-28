@@ -467,20 +467,6 @@ function select_node( node_id ) {
 		app.selected_transition = false;
 	}
 	
-	if( app.ide_mode == "LOCAL_IDE" ) {
-		return select_node_local_ide( node_id );
-	} else if( app.ide_mode == "DEPLOYMENT_VIEWER" ) {
-		return select_node_deployment_viewer( node_id );
-	}
-}
-
-function select_node_deployment_viewer( node_id ) {
-	var selected_node_data = get_node_data_by_id(
-		app.selected_node
-	);
-}
-
-function select_node_local_ide( node_id ) {
 	var selected_node_data = get_node_data_by_id(
 		app.selected_node
 	);
@@ -552,14 +538,6 @@ function select_transition( transition_id ) {
 		app.selected_node = false;
 	}
 	
-	if( app.ide_mode == "LOCAL_IDE" ) {
-		return select_transition_local_ide( transition_id );
-	} else if( app.ide_mode == "DEPLOYMENT_VIEWER" ) {
-		return select_transition_deployment_viewer( transition_id );
-	}
-}
-
-function select_transition_local_ide( transition_id ) {
 	if( app.selected_transition ) {
 		// Load transition data into current
 		var selected_transition_data = app.selected_transition_data;
@@ -570,10 +548,6 @@ function select_transition_local_ide( transition_id ) {
 	}
 	
 	build_dot_graph();
-}
-
-function select_transition_deployment_viewer( transition_id ) {
-	
 }
 
 function reset_current_sns_topic_state_to_defaults() {
@@ -1055,7 +1029,7 @@ function atc_api_request( method, endpoint, body ) {
 ace.config.set( "basePath", "./js/" );
 Vue.component( "Editor", {
     template: '<div :id="editorId" style="width: 100%; height: 100%;"></div>',
-    props: ['editorId', 'content', 'lang', 'theme'],
+    props: ['editorId', 'content', 'lang', 'theme', 'disabled'],
     data() {
         return {
             editor: Object,
@@ -1073,11 +1047,15 @@ Vue.component( "Editor", {
                 path: `ace/mode/${lang}`,
                 v: Date.now()
             });
+        },
+        "disabled" (disabled_boolean) {
+            this.editor.setReadOnly(disabled_boolean);
         }
     },
     mounted() {
         var lang = this.lang || 'python'
         var theme = this.theme || 'monokai'
+        var disabled = this.disabled || false
 
         this.editor = window.ace.edit(this.editorId)
         this.editor.setValue(this.content, 1)
@@ -1087,6 +1065,8 @@ Vue.component( "Editor", {
             v: Date.now()
         });
         this.editor.setTheme(`ace/theme/${theme}`)
+        
+        this.editor.setReadOnly( disabled )
 
         this.editor.on('change', () => {
         	this.beforeContent = this.editor.getValue();
@@ -1583,6 +1563,7 @@ var app = new Vue({
 				Vue.set( app.deployment_data, "deployed_timestamp", results[ "result" ][ "timestamp" ] );
 				app.deployment_data.exists = true;
 			} else {
+				app.deployment_data.exists = false;
 				Vue.set( app.deployment_data, "diagram_data", {} );
 				Vue.set( app.deployment_data, "deployed_timestamp", 0 );
 			}

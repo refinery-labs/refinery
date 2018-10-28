@@ -560,7 +560,7 @@
 		            </div>
 		            <div class="modal-body">
 						<div style="height: 750px">
-							<editor editor-id="lambda_code_large" theme="monokai" v-bind:lang="ace_language_to_lang_id_map[lambda_language]" :content="lambda_code" v-on:change-content="lambda_code_change"></editor>
+							<editor editor-id="lambda_code_large" theme="monokai" v-bind:lang="ace_language_to_lang_id_map[lambda_language]" :content="lambda_code" v-on:change-content="lambda_code_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
 						</div>
 		            </div>
 		            <div class="modal-footer">
@@ -775,12 +775,14 @@
             <!-- Add state transition -->
             <div v-if="page == 'add-state-transition' || page == 'modify-state-transition'" class="split left-panel">
             	<div>
-					<h2 v-if="page == 'add-state-transition'">Add State Transition</h2>
-					<h2 v-if="page == 'modify-state-transition'">Modify State Transition</h2>
-					<hr />
-					<div v-if="page == 'modify-state-transition'">
-						<button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_state_transition">Delete State Transition</button>
+            		<div v-if="ide_mode == 'LOCAL_IDE'">
+						<h2 v-if="page == 'add-state-transition'">Add State Transition</h2>
+						<h2 v-if="page == 'modify-state-transition'">Modify State Transition</h2>
 						<hr />
+						<div v-if="page == 'modify-state-transition'">
+							<button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_state_transition">Delete State Transition</button>
+							<hr />
+						</div>
 					</div>
 					<div class="form-group">
 						<label for="selected_state">Selected State</label>
@@ -789,22 +791,22 @@
 					</div>
 					<div class="form-group">
 						<label for="next_state">Next State</label>
-						<select id="next_state" class="form-control" v-model="state_transition_conditional_data.next">
+						<select id="next_state" class="form-control" v-model="state_transition_conditional_data.next" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 							<option v-for="workflow_state in valid_transition_paths" v-if="workflow_state.id != selected_node_data.id" v-bind:value="workflow_state.id">{{workflow_state.name}}</option>
 						</select>
 						<small id="next_state_help" class="form-text text-muted">The next state to transition to after this one.</small>
 					</div>
 					<div class="form-group">
 						<label>Name</label>
-						<input type="text" class="form-control" v-model="state_transition_conditional_data.name" placeholder="then">
+						<input type="text" class="form-control" v-model="state_transition_conditional_data.name" placeholder="then" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 						<small id="selected_state_help" class="form-text text-muted">Name/label of the transition.</small>
 					</div>
 					<div class="form-group">
 						<label>Transition Type</label>
-						<select class="form-control" v-model="state_transition_conditional_data.type" v-if="!is_simple_transition()">
+						<select class="form-control" v-model="state_transition_conditional_data.type" v-if="!is_simple_transition()" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 							<option v-for="transition_type in available_transition_types" v-bind:value="transition_type">{{transition_type}}</option>
 						</select>
-						<select class="form-control" v-model="state_transition_conditional_data.type" v-if="is_simple_transition()">
+						<select class="form-control" v-model="state_transition_conditional_data.type" v-if="is_simple_transition()" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 							<option value="then">then</option>
 						</select>
 						<small class="form-text text-muted">Type of transition (e.g. <code>if</code> for conditional, <code>then</code> for regular transition).</small>
@@ -812,13 +814,15 @@
 					<div class="form-group" v-if="state_transition_conditional_data.type == 'if'">
 						<label>Conditional Expression</label>
 						<div style="height: 100px">
-							<editor editor-id="condition_expression_editor" theme="monokai" lang="python" :content="state_transition_conditional_data.expression" v-on:change-content="conditional_data_expression_change"></editor>
+							<editor editor-id="condition_expression_editor" theme="monokai" lang="python" :content="state_transition_conditional_data.expression" v-on:change-content="conditional_data_expression_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
 						</div>
 						<small class="form-text text-muted"><b>IMPORTANT: </b>This is the conditional statement code which should evaluate to <code>true</code> if the condition path should be followed or <code>false</code> if it should not. The <code>return_data</code> variable will automatically be populated with your Lambda's returned data. This conditional statement <b>must</b> be written in the language the Lambda was written in.</small>
 					</div>
-					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="add_state_transition" v-if="page == 'add-state-transition'">Add State Transition</button>
-					<hr />
-					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_state_transition" v-if="page == 'modify-state-transition'">Update State Transition</button>
+					<div v-if="ide_mode == 'LOCAL_IDE'">
+						<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="add_state_transition" v-if="page == 'add-state-transition'">Add State Transition</button>
+						<hr />
+						<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_state_transition" v-if="page == 'modify-state-transition'">Update State Transition</button>
+					</div>
             	</div>
             </div>
             
@@ -827,32 +831,34 @@
 				<h2>Schedule Trigger</h2>
 				<div class="form-group">
 					<label for="trigger_name">Trigger Name</label>
-					<input type="text" class="form-control" v-model="scheduled_trigger_data.name" aria-describedby="trigger_name" placeholder="Trigger_Name">
+					<input type="text" class="form-control" v-model="scheduled_trigger_data.name" aria-describedby="trigger_name" placeholder="Trigger_Name" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 					<small class="form-text text-muted">Name of the trigger.</small>
 				</div>
 				<div class="form-group">
 					<label for="schedule_expression">Schedule Expression</label>
-					<input type="text" class="form-control" v-model="scheduled_trigger_data.schedule_expression" aria-describedby="schedule_expression" placeholder="rate(10 minutes)">
+					<input type="text" class="form-control" v-model="scheduled_trigger_data.schedule_expression" aria-describedby="schedule_expression" placeholder="rate(10 minutes)" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 					<small class="form-text text-muted">AWS schedule expression for when this trigger should be activated.</small>
 				</div>
 				<div class="form-group">
 					<label for="trigger_description">Description</label>
-					<input type="text" class="form-control" v-model="scheduled_trigger_data.description" aria-describedby="trigger_description" placeholder="Example scheduled rule description.">
+					<input type="text" class="form-control" v-model="scheduled_trigger_data.description" aria-describedby="trigger_description" placeholder="Example scheduled rule description." :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 					<small class="form-text text-muted">Description for the trigger.</small>
 				</div>
 				<div class="form-group">
 					<label>Input Data</label>
 					<div style="height: 100px">
-						<editor editor-id="sfn_input_data" theme="monokai" lang="python" :content="scheduled_trigger_data.unformatted_input_data"></editor>
+						<editor editor-id="sfn_input_data" theme="monokai" lang="python" :content="scheduled_trigger_data.unformatted_input_data" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
 					</div>
 					<small class="form-text text-muted">Input data for the target being triggered.</small>
 				</div>
 				<hr />
-				<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_schedule_trigger">Update Schedule Trigger</button>
-				<hr />
-				<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
-                <hr />
-                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete Schedule Trigger</button>
+				<div v-if="ide_mode == 'LOCAL_IDE'">
+					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_schedule_trigger">Update Schedule Trigger</button>
+					<hr />
+					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
+	                <hr />
+	                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete Schedule Trigger</button>
+	            </div>
 			</div>
 			
             <!-- SNS Topic Node Panel -->
@@ -860,22 +866,24 @@
 				<h2>SNS Topic Trigger</h2>
 				<div class="form-group">
 					<label>Topic Name</label>
-					<input type="text" class="form-control" v-model="sns_trigger_data.topic_name" placeholder="Example Topic">
+					<input type="text" class="form-control" v-model="sns_trigger_data.topic_name" placeholder="Example Topic" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 					<small class="form-text text-muted">Name of the SNS topic linked to the Lambda.</small>
 				</div>
 				<div class="form-group">
 					<label>SNS Message Format</label>
 					<div style="height: 200px">
-						<editor editor-id="sns_topic_template_" theme="monokai" lang="json" :content="sns_trigger_data.sns_topic_template" v-on:change-content="update_sns_topic_template"></editor>
+						<editor editor-id="sns_topic_template_" theme="monokai" lang="json" :content="sns_trigger_data.sns_topic_template" v-on:change-content="update_sns_topic_template" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
 					</div>
 					<small class="form-text text-muted">A template of an example message to be added to this SNS topic. This is important for ensuring the triggered Lambda receives the appropriate input!</small>
 				</div>
 				<hr />
-				<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_sns_topic">Update SNS Topic</button>
-				<hr />
-				<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
-                <hr />
-                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete SNS Topic</button>
+				<div v-if="ide_mode == 'LOCAL_IDE'">
+					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_sns_topic">Update SNS Topic</button>
+					<hr />
+					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
+	                <hr />
+	                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete SNS Topic</button>
+	            </div>
 			</div>
             
             <!-- SQS Queue Node Panel -->
@@ -883,14 +891,14 @@
 				<h2>SQS Queue Trigger</h2>
 				<div class="form-group">
 					<label for="sqs_queue_name">Queue Name</label>
-					<input type="text" class="form-control" v-model="sqs_trigger_data.queue_name" aria-describedby="sqs_queue_name" placeholder="Example Queue">
+					<input type="text" class="form-control" v-model="sqs_trigger_data.queue_name" aria-describedby="sqs_queue_name" placeholder="Example Queue" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 					<small class="form-text text-muted">Name of the SQS queue linked to the Lambda.</small>
 				</div>
 				<div class="form-group">
 					<label>Batch Size</label>
 					<div class="form-group">
 						<div class="input-group mb-2">
-							<input type="number" class="form-control form-control-lg" v-model="sqs_trigger_data.batch_size" placeholder="1" step="1" min="1" max="10">
+							<input type="number" class="form-control form-control-lg" v-model="sqs_trigger_data.batch_size" placeholder="1" step="1" min="1" max="10" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 							<div class="input-group-append">
 								<div class="input-group-text">Message(s)</div>
 							</div>
@@ -899,23 +907,25 @@
 					<small class="form-text text-muted">Number of messages to pass to Lambda at a time (max 10).</small>
 				</div>
 				<div class="form-group">
-					<input type="checkbox" v-model="sqs_trigger_data.content_based_deduplication"> <label>Content-Based De-duplication</label>
+					<input type="checkbox" v-model="sqs_trigger_data.content_based_deduplication" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"> <label>Content-Based De-duplication</label>
 					<small class="form-text text-muted">Should messages be de-duplicated based off of their message contents (5 minute rolling window)?</small>
 				</div>
 				<div class="form-group">
 					<label>SQS Job Format</label>
 					<div style="height: 200px">
-						<editor editor-id="sqs_trigger_job_template_" theme="monokai" lang="json" :content="sqs_trigger_data.sqs_job_template" v-on:change-content="update_sqs_job_template"></editor>
+						<editor editor-id="sqs_trigger_job_template_" theme="monokai" lang="json" :content="sqs_trigger_data.sqs_job_template" v-on:change-content="update_sqs_job_template" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
 					</div>
 					<small class="form-text text-muted">A template of an example job to be added to this SQS queue. This is important for ensuring the triggered Lambda receives the appropriate input!</small>
 				</div>
 				
 				<hr />
-				<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_sqs_queue">Update SQS Queue</button>
-				<hr />
-				<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
-                <hr />
-                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete SQS Queue</button>
+				<div v-if="ide_mode == 'LOCAL_IDE'">
+					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_sqs_queue">Update SQS Queue</button>
+					<hr />
+					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
+	                <hr />
+	                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete SQS Queue</button>
+				</div>
 			</div>
             
             <!-- Modify Lambda panel -->
@@ -924,12 +934,12 @@
                 <hr />
                 <div class="form-group">
                     <label for="new_lambda_name_input">Name</label>
-                    <input type="text" class="form-control" v-model="lambda_name" aria-describedby="new_lambda_name_input_help" placeholder="Write to S3">
+                    <input type="text" class="form-control" v-model="lambda_name" aria-describedby="new_lambda_name_input_help" placeholder="Write to S3" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
                     <small id="new_lambda_name_input_help" class="form-text text-muted">Name of the lambda function.</small>
                 </div>
                 <div class="form-group">
-                	<label for="new_lambda_language_select_input">Language</label>
-					<select class="custom-select" v-model="lambda_language" @change="lambda_language_manual_change" aria-describedby="new_lambda_language_select_input_help">
+                	<label>Language</label>
+					<select class="custom-select" v-model="lambda_language" @change="lambda_language_manual_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 						<option value="python2.7">python2.7</option>
 						<option value="nodejs8.10">Node v8.10.0 (LTS)</option>
 					</select>
@@ -938,14 +948,14 @@
 				<div class="form-group">
 					<label>Import(s)</label>
 					<div style="height: 100px">
-						<editor editor-id="unformatted_libraries" theme="monokai" lang="python" :content="unformatted_libraries" v-on:change-content="lambda_libraries_change"></editor>
+						<editor editor-id="unformatted_libraries" theme="monokai" lang="python" :content="unformatted_libraries" v-on:change-content="lambda_libraries_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
 					</div>
 					<small class="form-text text-muted">Dependencies for the lambda code.</small>
 				</div>
 				<div class="form-group">
 					<label>Code</label>
 					<div style="height: 100px">
-						<editor editor-id="lambda_code" theme="monokai" v-bind:lang="ace_language_to_lang_id_map[lambda_language]" :content="lambda_code" v-on:change-content="lambda_code_change"></editor>
+						<editor editor-id="lambda_code" theme="monokai" v-bind:lang="ace_language_to_lang_id_map[lambda_language]" :content="lambda_code" v-on:change-content="lambda_code_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
 					</div>
 					<div style="text-align: right">
 						<button type="button" style="width: 100%" class="btn btn-sm btn-secondary" v-on:click="fullscreen_lambda_editor">View Fullscreen</button>
@@ -956,7 +966,7 @@
 					<label>Execution Memory</label>
 					<div class="form-group">
 						<div class="input-group mb-2">
-							<input type="number" class="form-control form-control-lg" v-model="lambda_memory" placeholder="128" step="64" min="128" max="3008">
+							<input type="number" class="form-control form-control-lg" v-model="lambda_memory" placeholder="128" step="64" min="128" max="3008" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 							<div class="input-group-append">
 								<div class="input-group-text">MB</div>
 							</div>
@@ -968,7 +978,7 @@
 					<label>Max Execution Time</label>
 					<div class="form-group">
 						<div class="input-group mb-2">
-							<input type="number" class="form-control form-control-lg" v-model="lambda_max_execution_time" placeholder="60" step="1" min="2" max="900">
+							<input type="number" class="form-control form-control-lg" v-model="lambda_max_execution_time" placeholder="60" step="1" min="2" max="900" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 							<div class="input-group-append">
 								<div class="input-group-text">Second(s)</div>
 							</div>
@@ -976,17 +986,19 @@
 					</div>
 					<small class="form-text text-muted">Maximum time the Lambda may execute before being killed in seconds.</small>
 				</div>
-                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_lambda">Update Lambda</button>
-                <hr />
-                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete Lambda</button>
-                <hr />
-                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
-                <hr />
-                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="run_tmp_lambda">Run Lambda</button>
-                <hr />
-                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="duplicate_lambda">Duplicate Lambda</button>
-                <hr />
-                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="view_save_lambda_to_db_modal">Save Lambda in Database</button>
+				<div v-if="ide_mode == 'LOCAL_IDE'">
+	                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_lambda">Update Lambda</button>
+	                <hr />
+	                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete Lambda</button>
+	                <hr />
+	                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
+	                <hr />
+	                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="run_tmp_lambda">Run Lambda</button>
+	                <hr />
+	                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="duplicate_lambda">Duplicate Lambda</button>
+	                <hr />
+	                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="view_save_lambda_to_db_modal">Save Lambda in Database</button>
+				</div>
             </div>
             
             <!-- Refinery ATC Homepage Panel -->
@@ -1035,7 +1047,7 @@
 				<div class="form-group">
 					<label>Job Template</label>
 					<div style="height: 100px">
-						<editor editor-id="atc_job_template_editor" theme="monokai" lang="json" :content="atc.unformatted_job_template_text" v-on:change-content="atc_job_template_text_changed"></editor>
+						<editor editor-id="atc_job_template_editor" theme="monokai" lang="json" :content="atc.unformatted_job_template_text" v-on:change-content="atc_job_template_text_changed" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
 					</div>
 					<small class="form-text text-muted">Job Template</small>
 				</div>
