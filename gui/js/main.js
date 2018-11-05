@@ -1441,6 +1441,35 @@ var app = new Vue({
 			var origin_node_data = get_node_data_by_id( transition_data.node );
 			return origin_node_data;
 		},
+		selected_node_aws_link: {
+			cache: false,
+			get() {
+				// arn:aws:sns:us-west-2:148731734429:Example_Topic
+				var full_arn = app.selected_node_data.arn;
+				var arn_parts = app.selected_node_data.arn.split( ":" );
+				var resource_type = arn_parts[2];
+				var aws_region = arn_parts[3];
+				var account_id = arn_parts[4];
+				
+				if( resource_type == "lambda" ) {
+					var resource_name = arn_parts[6];
+				} else if( resource_type == "events" ) {
+					var resource_name = arn_parts[5].replace( "rule/", "" );
+				} else {
+					var resource_name = arn_parts[5];
+				}
+
+				if( resource_type == "sns" ) {
+					return `https://${aws_region}.console.aws.amazon.com/sns/v2/home?region=${aws_region}#/topics/${full_arn}`;
+				} else if ( resource_type == "lambda" ) {
+					return `https://${aws_region}.console.aws.amazon.com/lambda/home?region=${aws_region}#/functions/${resource_name}?tab=monitoring`;
+				} else if ( resource_type == "events" ) {
+					return `https://${aws_region}.console.aws.amazon.com/cloudwatch/home?region=${aws_region}#rules:name=${resource_name}`;
+				} else if ( resource_type == "sqs" ) {
+					return `https://console.aws.amazon.com/sqs/home?region=${aws_region}#queue-browser:selected=https://sqs.${aws_region}.amazonaws.com/${account_id}/${resource_name};prefix=`;
+				}
+			}
+		},
 		next_state_node_data: {
 			cache: false,
 			get() {
@@ -1465,6 +1494,11 @@ var app = new Vue({
 		}
 	},
 	methods: {
+		open_current_node_in_aws: function() {
+			window.open(
+				app.selected_node_aws_link
+			);
+		},
 		teardown_infrastructure: async function() {
 			$( "#infrastructureteardown_modal" ).modal(
 				"show"
@@ -1530,6 +1564,11 @@ var app = new Vue({
 			Vue.set( app, "workflow_states", app.deployment_data.diagram_data.workflow_states );
 			Vue.set( app, "workflow_relationships", app.deployment_data.diagram_data.workflow_relationships );
 		},
+		clear_deployment_data: function() {
+			app.deployment_data.exists = false;
+			Vue.set( app.deployment_data, "diagram_data", {} );
+			Vue.set( app.deployment_data, "deployed_timestamp", 0 );
+		},
 		open_project: async function( event ) {
 			var project_id = event.srcElement.getAttribute( "id" );
 			var project_name = event.srcElement.getAttribute( "projectname" );
@@ -1563,9 +1602,7 @@ var app = new Vue({
 				Vue.set( app.deployment_data, "deployed_timestamp", results[ "result" ][ "timestamp" ] );
 				app.deployment_data.exists = true;
 			} else {
-				app.deployment_data.exists = false;
-				Vue.set( app.deployment_data, "diagram_data", {} );
-				Vue.set( app.deployment_data, "deployed_timestamp", 0 );
+				app.clear_deployment_data();
 			}
 		},
 		clear_project: function() {
@@ -1578,6 +1615,9 @@ var app = new Vue({
 			    "workflow_states": [],
 			    "workflow_relationships": []
 			});
+			app.navigate_page( "welcome" );
+			
+			app.clear_deployment_data();
 			
 			toastr.success( "Project cleared successfully!" );
 		},

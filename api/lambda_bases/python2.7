@@ -196,35 +196,6 @@ class Refinery_Memory:
 		
 		return new_key
 		
-	def _parallel_store_return_data_to_redis( self, return_data, number_of_parallel_nodes, continue_arn, **kwargs ):
-		if not self.redis_client:
-			self.connect()
-			
-		new_key = str( uuid.uuid4() )
-		
-		# Set job data
-		self.redis_client.setex(
-			new_key,
-			self.return_data_timeout,
-			json.dumps(
-				return_data
-			)
-		)
-		
-		"""
-		Parallel Lambda execution works by setting the P_AWAIT_{{new_key}} redis key
-		to the number of Lambdas which must finish executing before proceeding to the next step.
-		
-		After each Lambda finishes it will decrement the P_AWAIT_{{new_key}} value and check
-		if the counter has reached zero. If it has then it will clear the return data from redis
-		followed by invokign the Lambda ARN stored at P_CONT_{{new_key}} after its execution has
-		completed.
-		"""
-		parallel_key = "P_AWAIT_" + new_key
-		continue_arn_key = "P_CONT_" + new_key
-		
-		return new_key
-		
 def _parallel_invoke( invoke_queue ):
 	# List of active threads
 	active_threads = []
@@ -416,7 +387,7 @@ def _init( lambda_input, context ):
 			
 			# If there's an exception we should stop after invoking the exception case(s).
 			_parallel_invoke( invocation_input_list )
-			return
+			raise
 		else:
 			# Nothing to handle it, throw it again.
 			raise

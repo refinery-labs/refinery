@@ -828,6 +828,15 @@
             
             <!-- Schedule trigger panel -->
             <div v-if="page == 'modify-schedule_trigger'" class="split left-panel">
+            	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+            		<center>
+            			Resource ARN: <br />
+            			<code>{{selected_node_data.arn}}</code>
+            		</center>
+            		<hr />
+            		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_current_node_in_aws">Open in AWS >> </button>
+            		<hr />
+            	</div>
 				<h2>Schedule Trigger</h2>
 				<div class="form-group">
 					<label for="trigger_name">Trigger Name</label>
@@ -863,6 +872,15 @@
 			
             <!-- SNS Topic Node Panel -->
             <div v-if="page == 'modify-sns_topic'" class="split left-panel">
+            	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+            		<center>
+            			Resource ARN: <br />
+            			<code>{{selected_node_data.arn}}</code>
+            		</center>
+            		<hr />
+            		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_current_node_in_aws">Open in AWS >> </button>
+            		<hr />
+            	</div>
 				<h2>SNS Topic Trigger</h2>
 				<div class="form-group">
 					<label>Topic Name</label>
@@ -888,6 +906,15 @@
             
             <!-- SQS Queue Node Panel -->
             <div v-if="page == 'modify-sqs_queue'" class="split left-panel">
+            	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+            		<center>
+            			Resource ARN: <br />
+            			<code>{{selected_node_data.arn}}</code>
+            		</center>
+            		<hr />
+            		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_current_node_in_aws">Open in AWS >> </button>
+            		<hr />
+            	</div>
 				<h2>SQS Queue Trigger</h2>
 				<div class="form-group">
 					<label for="sqs_queue_name">Queue Name</label>
@@ -930,6 +957,15 @@
             
             <!-- Modify Lambda panel -->
             <div v-if="page == 'modify-lambda'" class="split left-panel">
+            	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+            		<center>
+            			Resource ARN: <br />
+            			<code>{{selected_node_data.arn}}</code>
+            		</center>
+            		<hr />
+            		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_current_node_in_aws">Open in AWS >> </button>
+            		<hr />
+            	</div>
                 <h2>Modify Lambda</h2>
                 <hr />
                 <div class="form-group">
@@ -1121,7 +1157,8 @@
             
         	<!-- Deployment viewer welcome panel -->
             <div v-if="page == 'deployment_lambda_viewer'" class="split left-panel">
-				<iframe src="/grafana/d-solo/7vcaLqxiz/aws-lambda?panelId=1&orgId=1&var-agg=1m&var-region=us-west-2&var-functionname=Uptime_Check" width="450" height="200" frameborder="0"></iframe>
+				
+				<!-- <iframe src="/grafana/d-solo/7vcaLqxiz/aws-lambda?panelId=1&orgId=1&var-agg=1m&var-region=us-west-2&var-functionname=Uptime_Check" width="450" height="200" frameborder="0"></iframe> -->
             </div>
             
             <!-- Graph -->

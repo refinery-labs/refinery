@@ -5,6 +5,7 @@
 import tornado.escape
 import tornado.ioloop
 import tornado.web
+import botocore
 import subprocess
 import autopep8
 import logging
@@ -66,7 +67,6 @@ def on_start():
 	LAMBDA_BASE_LIBRARIES = {
 		"python2.7": [
 			"redis",
-			"boto3"
 		],
 		"nodejs8.10": [
 			"redis",
@@ -137,6 +137,13 @@ CLOUDWATCH_LOGS_CLIENT = boto3.client(
 
 CLOUDWATCH_CLIENT = boto3.client(
 	"cloudwatch",
+    aws_access_key_id=os.environ.get( "aws_access_key" ),
+    aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+    region_name=os.environ.get( "region_name" )
+)
+
+APIGATEWAY_CLIENT = boto3.client(
+	"apigateway",
     aws_access_key_id=os.environ.get( "aws_access_key" ),
     aws_secret_access_key=os.environ.get( "aws_secret_key" ),
     region_name=os.environ.get( "region_name" )
@@ -1178,6 +1185,194 @@ class TaskSpawner(object):
 				"name": name,
 				"arn": arn,
 				"deleted": True,
+			}
+			
+		
+		@run_on_executor
+		def create_rest_api( self, name, description, version ):
+			response = APIGATEWAY_CLIENT.create_rest_api(
+				name=name,
+				description=description,
+				version=version,
+				apiKeySource="HEADER",
+				endpointConfiguration={
+				    "types": [
+				        "EDGE",
+				    ]
+				}
+			)
+			
+			return {
+				"id": response[ "id" ],
+				"name": response[ "name" ],
+				"description": response[ "description" ],
+				"version": response[ "version" ]
+			}
+			
+		@run_on_executor
+		def delete_rest_api( self, rest_api_id ):
+			response = APIGATEWAY_CLIENT.delete_rest_api(
+				restApiId=rest_api_id,
+			)
+			
+			return {
+				"id": rest_api_id,
+			}
+			
+		@run_on_executor
+		def get_rest_apis( self ):
+			response = APIGATEWAY_CLIENT.get_rest_apis(
+				limit=500,
+			)
+			
+			return response[ "items" ]
+			
+		@run_on_executor
+		def get_rest_api( self, api_gateway_id ):
+			response = APIGATEWAY_CLIENT.get_rest_api(
+				restApiId=api_gateway_id,
+			)
+			
+			return response
+			
+		@run_on_executor
+		def get_resources( self, rest_api_id ):
+			response = APIGATEWAY_CLIENT.get_resources(
+				restApiId=rest_api_id,
+				limit=500
+			)
+			
+			return response[ "items" ]
+			
+		@run_on_executor
+		def create_resource( self, rest_api_id, parent_id, path_part ):
+			response = APIGATEWAY_CLIENT.create_resource(
+				restApiId=rest_api_id,
+				parentId=parent_id,
+				pathPart=path_part
+			)
+			
+			print( "Create REST API resource response: " )
+			pprint( response )
+			
+			return {
+				"id": response[ "id" ],
+				"api_gateway_id": rest_api_id,
+				"parent_id": parent_id,
+			}
+			
+		@run_on_executor
+		def create_method( self, method_name, rest_api_id, resource_id, http_method, api_key_required ):
+			response = APIGATEWAY_CLIENT.put_method(
+				restApiId=rest_api_id,
+				resourceId=resource_id,
+				httpMethod=http_method,
+				authorizationType="NONE",
+				apiKeyRequired=api_key_required,
+				operationName=method_name,
+			)
+			
+			return {
+				"method_name": method_name,
+				"rest_api_id": rest_api_id,
+				"resource_id": resource_id,
+				"http_method": http_method,
+				"api_key_required": api_key_required,
+			}
+			
+		@run_on_executor
+		def clean_lambda_iam_policies( self, lambda_name ):
+			print( "Cleaning up IAM policies from no-longer-existing API Gateways attached to Lambda..." )
+			try:
+				response = LAMBDA_CLIENT.get_policy(
+					FunctionName=lambda_name,
+				)
+			except ClientError as e:
+				if e.response[ "Error" ][ "Code" ] == "ResourceNotFoundException":
+					return {}
+				raise
+			
+			existing_lambda_statements = json.loads(
+				response[ "Policy" ]
+			)[ "Statement" ]
+			
+			for statement in existing_lambda_statements:
+				# Try to extract API gateway
+				try:
+					source_arn = statement[ "Condition" ][ "ArnLike" ][ "AWS:SourceArn" ]
+					arn_parts = source_arn.split( ":" )
+				except:
+					continue
+				
+				# Make sure it's an API Gateway policy
+				if not source_arn.startswith( "arn:aws:execute-api:" ):
+					continue
+				
+				api_gateway_id = arn_parts[ 5 ]
+				print( "API Gateway ID: " + api_gateway_id )
+				
+				try:
+					api_gateway_data = APIGATEWAY_CLIENT.get_rest_api(
+						restApiId=api_gateway_id,
+					)
+				except:
+					print( "API Gateway does not exist, deleting IAM policy..." )
+					
+					delete_permission_response = LAMBDA_CLIENT.remove_permission(
+						FunctionName=lambda_name,
+						StatementId=statement[ "Sid" ]
+					)
+					
+					print( "Delete permission response: " )
+					pprint( delete_permission_response )
+			
+			return {
+			}
+			
+		@run_on_executor
+		def link_api_method_to_lambda( self, rest_api_id, resource_id, http_method, api_path, lambda_name ):
+			lambda_uri = "arn:aws:apigateway:" + os.environ.get( "region_name" ) + ":lambda:path/" + LAMBDA_CLIENT.meta.service_model.api_version + "/functions/arn:aws:lambda:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":function:" + lambda_name + "/invocations"
+			
+			integration_response = APIGATEWAY_CLIENT.put_integration(
+				restApiId=rest_api_id,
+				resourceId=resource_id,
+				httpMethod=http_method,
+				type="AWS_PROXY",
+				integrationHttpMethod="POST", # MUST be POST: https://github.com/boto/boto3/issues/572#issuecomment-239294381
+				uri=lambda_uri,
+				connectionType="INTERNET",
+				timeoutInMillis=29000 # 29 seconds
+			)
+			
+			"""
+			For AWS Lambda you need to add a permission to the Lambda function itself
+			via the add_permission API call to allow invocation via the CloudWatch event.
+			"""
+			source_arn = "arn:aws:execute-api:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + rest_api_id + "/*/" + http_method + api_path
+			
+			print( "Source ARN: " )
+			print( source_arn )
+			
+			# We have to clean previous policies we added from this Lambda
+			# Scan over all policies and delete any which aren't associated with
+			# API Gateways that actually exist!
+			
+			lambda_permission_add_response = LAMBDA_CLIENT.add_permission(
+				FunctionName=lambda_name,
+				StatementId=str( uuid.uuid4() ).replace( "_", "" ) + "_statement",
+				Action="lambda:*",
+				Principal="apigateway.amazonaws.com",
+				SourceArn=source_arn
+			)
+			
+			return {
+				"api_gateway_id": rest_api_id,
+				"resource_id": resource_id,
+				"http_method": http_method,
+				"lambda_name": lambda_name,
+				"type": integration_response[ "type" ],
+				"arn": integration_response[ "uri" ],
+				"statement": lambda_permission_add_response[ "Statement" ]
 			}
 			
 local_tasks = TaskSpawner()
@@ -2693,7 +2888,6 @@ def warm_lambda_base_caches():
 	results = yield lambda_build_futures
 	
 	print( "Lambda base-cache has been warmed!" )
-	
 		
 class DeployDiagram( BaseHandler ):
 	@gen.coroutine
@@ -2805,6 +2999,169 @@ class DeleteDeploymentsInProject( BaseHandler ):
 		self.write({
 			"success": True
 		})
+	
+	
+@gen.coroutine
+def create_lambda_api_route( api_gateway_id, http_method, route, lambda_name, overwrite_existing ):
+	def not_empty( input_item ):
+		return ( input_item != "" )
+	path_parts = route.split( "/" )
+	path_parts = filter( not_empty, path_parts )
+	
+	# First we clean the Lambda of API Gateway policies which point
+	# to dead API Gateways
+	yield local_tasks.clean_lambda_iam_policies(
+		lambda_name
+	)
+	
+	# A default resource is created along with an API gateway, we grab
+	# it so we can make our base method
+	resources = yield local_tasks.get_resources(
+		api_gateway_id
+	)
+	base_resource_id = resources[ 0 ][ "id" ]
+	
+	# Create a map of paths to verify existance later
+	# so we don't overwrite existing resources
+	path_existence_map = {}
+	for resource in resources:
+		path_existence_map[ resource[ "path" ] ] = resource[ "id" ]
+	
+	# Set the pointer to the base
+	current_base_pointer_id = base_resource_id
+	
+	# Path level, continously updated
+	current_path = ""
+	
+	# Create entire path from chain
+	for path_part in path_parts:
+		"""
+		TODO: Check for conflicting resources and don't
+		overwrite an existing resource if it exists already.
+		"""
+		# Check if there's a conflicting resource here
+		current_path = current_path + "/" + path_part
+		
+		# Get existing resource ID instead of creating one
+		if current_path in path_existence_map:
+			current_base_pointer_id = path_existence_map[ current_path ]
+		else:
+			# Otherwise go ahead and create one
+			print( "Creating section '" + path_part + "'..." )
+			new_resource = yield local_tasks.create_resource(
+				api_gateway_id,
+				current_base_pointer_id,
+				path_part
+			)
+			
+			current_base_pointer_id = new_resource[ "id" ]
+	
+	print( "Creating HTTP method..." )
+	
+	# Create method on base resource
+	method_response = yield local_tasks.create_method(
+		"HTTP Method",
+		api_gateway_id,
+		current_base_pointer_id,
+		http_method,
+		False,
+	)
+	
+	print( "HTTP method response: " )
+	pprint( method_response )
+	
+	print( "Linking Lambda to endpoint..." )
+	
+	# Link the API Gateway to the lambda
+	link_response = yield local_tasks.link_api_method_to_lambda(
+		api_gateway_id,
+		current_base_pointer_id,
+		http_method, # GET was previous here
+		route,
+		lambda_name
+	)
+	
+	print( "Lambda link response: " )
+	pprint(
+		link_response
+	)
+	
+	print( "All resources now that we've added some: " )
+	resources = yield local_tasks.get_resources(
+		api_gateway_id
+	)
+	pprint(
+		resources
+	)
+	
+@gen.coroutine
+def api_gateway_test():
+	api_gateway_name = "example"
+	overwrite_existing = True
+	
+	print( "List of all API gateways: " )
+	api_gateways = yield local_tasks.get_rest_apis()
+	
+	target_gateway_id = False
+	
+	# Get the ID of a previous gateway of the same name
+	# (If it exists)
+	for api_gateway in api_gateways:
+		print( api_gateway )
+		if api_gateway[ "name" ] == api_gateway_name:
+			target_gateway_id = api_gateway[ "id" ]
+			break
+	
+	# Previous API gateway exists, so delete it
+	if target_gateway_id and overwrite_existing:
+		print( "Deleting previous API Gateway..." )
+		deletion_result = yield local_tasks.delete_rest_api(
+			target_gateway_id
+		)
+	elif target_gateway_id and not overwrite_existing:
+		print( "Overwriting was disabled and API Gateway with the same name exists! Returning False...")
+		raise gen.Return( False )
+	
+	# Create API Gateway
+	create_gateway_result = yield local_tasks.create_rest_api(
+		api_gateway_name,
+		api_gateway_name, # Human readable name, just do the ID for now
+		"1.0.0"
+	)
+	
+	api_gateway_id = create_gateway_result[ "id" ]
+	
+	yield create_lambda_api_route(
+		api_gateway_id,
+		"GET",
+		"/api/wat",
+		"API_Gateway_Lambda",
+		True
+	)
+	
+	yield create_lambda_api_route(
+		api_gateway_id,
+		"POST",
+		"/api/wat",
+		"API_Gateway_Lambda",
+		True
+	)
+	
+	yield create_lambda_api_route(
+		api_gateway_id,
+		"PUT",
+		"/api/wat",
+		"API_Gateway_Lambda",
+		True
+	)
+	
+	yield create_lambda_api_route(
+		api_gateway_id,
+		"DELETE",
+		"/api/wat",
+		"API_Gateway_Lambda",
+		True
+	)
 		
 def make_app( is_debug ):
 	# Convert to bool
@@ -2851,5 +3208,6 @@ if __name__ == "__main__":
 	)
 	Base.metadata.create_all( engine )
 	#tornado.ioloop.IOLoop.current().run_sync( warm_lambda_base_caches )
+	tornado.ioloop.IOLoop.current().run_sync( api_gateway_test )
 	server.start()
 	tornado.ioloop.IOLoop.current().start()
