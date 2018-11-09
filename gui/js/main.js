@@ -46,6 +46,14 @@ var GRAPH_ICONS_ARRAY = [
 	{
 		"url": "/img/sns-topic.png",
 		"id": "sns_topic"
+	},
+	{
+		"url": "/img/api-gateway.png",
+		"id": "api_endpoint"
+	},
+	{
+		"url": "/img/api-gateway.png",
+		"id": "api_gateway_response"
 	}
 ];
 var IMAGE_NODE_SPACES = "            ";
@@ -314,6 +322,10 @@ function build_dot_graph() {
 	var dot_contents = "digraph \"renderedworkflow\"{\n";
 	
 	app.workflow_states.map(function( workflow_state ) {
+		// Don't display "api_gateway" deployed node, because it's not a visible node.
+		if( workflow_state[ "type" ] == "api_gateway" ) {
+			return
+		}
 		// Node that the shape "square" is reserved for image icons
 
 		// Defaults
@@ -521,6 +533,19 @@ function select_node( node_id ) {
 		Vue.set( app, "sns_trigger_data", sns_topic_data );
 		
 		app.navigate_page( "modify-sns_topic" );
+	} else if( selected_node_data.type == "api_endpoint" ) {
+		reset_current_api_endpoint_state_to_defaults();
+		
+		var api_endpoint_data = {
+			"name": app.selected_node_data.name,
+			"http_method": app.selected_node_data.http_method,
+			"api_path": app.selected_node_data.api_path,
+		}
+		Vue.set( app, "api_endpoint_data", api_endpoint_data );
+		
+		app.navigate_page( "modify-api_endpoint" );
+	} else if ( selected_node_data.type == "api_gateway_response" ) {
+		app.navigate_page( "modify-api_gateway_response" );
 	} else {
 		alert( "Error, unrecognized node type!" );
 	}
@@ -548,6 +573,16 @@ function select_transition( transition_id ) {
 	}
 	
 	build_dot_graph();
+}
+
+function reset_current_api_endpoint_state_to_defaults() {
+	var api_endpoint_data = {
+	    "name": "API Endpoint",
+	    "type": "api_endpoint",
+	    "http_method": "GET",
+	    "api_path": "/",
+	}
+	Vue.set( app, "api_endpoint_data", api_endpoint_data );
 }
 
 function reset_current_sns_topic_state_to_defaults() {
@@ -856,11 +891,12 @@ function create_schedule_trigger( name, schedule_expression, description, target
 	);
 }
 
-function deploy_infrastructure( project_id, diagram_data ) {
+function deploy_infrastructure( project_name, project_id, diagram_data ) {
 	return api_request(
 		"POST",
 		"api/v1/aws/deploy_diagram",
 		{
+			"project_name": project_name,
 			"project_id": project_id,
 			"diagram_data": diagram_data,
 		}
@@ -1164,7 +1200,15 @@ var app = new Vue({
 			{
 				"first_type": "lambda",
 				"second_type": "sns_topic",
-			}
+			},
+			{
+				"first_type": "api_endpoint",
+				"second_type": "lambda",
+			},
+			{
+				"first_type": "lambda",
+				"second_type": "api_gateway_response",
+			},
 	    ],
 		valid_type_transitions: [
 			{
@@ -1186,6 +1230,14 @@ var app = new Vue({
 			{
 				"first_type": "lambda",
 				"second_type": "sns_topic",
+			},
+			{
+				"first_type": "api_endpoint",
+				"second_type": "lambda",
+			},
+			{
+				"first_type": "lambda",
+				"second_type": "api_gateway_response",
 			},
 		],
 	    available_transition_types: [
@@ -1249,6 +1301,13 @@ var app = new Vue({
 			"sns_topic_template": JSON.stringify({
 				"id": "1"
 			}, false, 4 ),
+		},
+		// Target data for when an API Endpoint trigger is created
+		api_endpoint_data: {
+	        "name": "API Endpoint",
+	        "type": "api_endpoint",
+	        "http_method": "GET",
+	        "api_path": "/",
 		},
         // Whether the lambda deploy is loading
         lambda_deploy_loading: true,
@@ -1407,12 +1466,7 @@ var app = new Vue({
 					return [];
 				}
 				return app.deployment_data.diagram_data.workflow_states.map(function( workflow_state ) {
-					return {
-						"id": workflow_state.id,
-						"arn": workflow_state.arn,
-						"name": workflow_state.name,
-						"type": workflow_state.type,
-				    }
+					return workflow_state;
 				});
 			}
 		},
@@ -1989,6 +2043,7 @@ var app = new Vue({
 			);
 			
 			var results = await deploy_infrastructure(
+				app.project_name,
 				app.project_id,
 				get_project_json()
 			);
@@ -2132,6 +2187,36 @@ var app = new Vue({
 			);
 	    
 			app.workflow_states.push( sqs_queue_node_data );
+		},
+		add_api_gateway_pair_of_nodes: function() {
+			app.add_api_endpoint_node();
+			app.add_api_gateway_response_node();
+		},
+		add_api_endpoint_node: function() {
+			var new_api_endpoint_data = {
+				"id": get_random_node_id(),
+	            "name": "API Endpoint",
+	            "type": "api_endpoint",
+	            "http_method": "GET",
+	            "api_path": "/",
+			}
+			
+			new_api_endpoint_data.name = app.get_non_colliding_name(
+				new_api_endpoint_data.id,
+				new_api_endpoint_data.name,
+				"lambda",
+			);
+			
+			app.workflow_states.push( new_api_endpoint_data );
+		},
+		add_api_gateway_response_node: function() {
+			var new_api_gateway_response_data = {
+				"id": get_random_node_id(),
+	            "name": "API Response",
+	            "type": "api_gateway_response"
+			}
+			
+			app.workflow_states.push( new_api_gateway_response_data );
 		},
 		todo: function() {
 			$( "#todo_output" ).modal(
@@ -2653,6 +2738,20 @@ def example( parameter ):
 			app.update_node_data(
 				app.selected_node,
 				updated_sns_topic_data
+			);
+		},
+		update_api_endpoint: function() {
+			var updated_api_endpoint_data = {
+				"id": app.selected_node,
+				"name": app.api_endpoint_data.name,
+				"type": "api_endpoint",
+				"http_method": app.api_endpoint_data.http_method,
+				"api_path": app.api_endpoint_data.api_path,
+			};
+			
+			app.update_node_data(
+				app.selected_node,
+				updated_api_endpoint_data
 			);
 		},
 	}

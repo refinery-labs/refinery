@@ -672,9 +672,11 @@ class TaskSpawner(object):
 			return return_zip
 			
 		@staticmethod
-		def _build_nodejs_810_lambda( code, libraries, transitions ):
+		def _build_nodejs_810_lambda( code, libraries, transitions, execution_mode ):
 			"""
 			Build Lambda package zip and return zip data
+			
+			TODO integrate transitions, execution mode, etc.
 			"""
 			
 			"""
@@ -723,17 +725,17 @@ class TaskSpawner(object):
 			return zip_data
 
 		@run_on_executor
-		def build_lambda( self, language, code, libraries, transitions ):
+		def build_lambda( self, language, code, libraries, transitions, execution_mode ):
 			if not ( language in LAMBDA_SUPPORTED_LANGUAGES ):
-				raise "Error, this language is not yet supported by refinery!"
+				raise Exception( "Error, this language '" + language + "' is not yet supported by refinery!" )
 			
 			if language == "python2.7":
-				return TaskSpawner._build_python_lambda( code, libraries, transitions )
+				return TaskSpawner._build_python_lambda( code, libraries, transitions, execution_mode )
 			elif language == "nodejs8.10":
-				return TaskSpawner._build_nodejs_810_lambda( code, libraries, transitions )
+				return TaskSpawner._build_nodejs_810_lambda( code, libraries, transitions, execution_mode )
 		
 		@staticmethod
-		def _build_python_lambda( code, libraries, transitions ):
+		def _build_python_lambda( code, libraries, transitions, execution_mode ):
 			"""
 			Build Lambda package zip and return zip data
 			"""
@@ -758,6 +760,7 @@ class TaskSpawner(object):
 			
 			code = code.replace( "\"{{TRANSITION_DATA_REPLACE_ME}}\"", json.dumps( json.dumps( transitions ) ) )
 			code = code.replace( "{{AWS_REGION_REPLACE_ME}}", os.environ.get( "region_name" ) )
+			code = code.replace( "{{SPECIAL_EXECUTION_MODE}}", execution_mode )
 			
 			for init_library in LAMBDA_BASE_LIBRARIES[ "python2.7" ]:
 				if not init_library in libraries:
@@ -1220,6 +1223,35 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
+		def deploy_api_gateway_to_stage( self, rest_api_id, stage_name ):
+			deployment_response = APIGATEWAY_CLIENT.create_deployment(
+				restApiId=rest_api_id,
+				stageName=stage_name,
+				stageDescription="API Gateway deployment deployed via refinery",
+				description="API Gateway deployment deployed via refinery"
+			)
+			
+			deployment_id = deployment_response[ "id" ]
+			
+			"""
+			response = APIGATEWAY_CLIENT.create_stage(
+				restApiId=rest_api_id,
+				stageName=stage_name,
+				deploymentId=stage_name,
+				description="API Gateway deployed via refinery"
+			)
+			"""
+			
+			print( "Deployment response: " )
+			pprint( deployment_response )
+			
+			return {
+				"id": rest_api_id,
+				"stage_name": stage_name,
+				"deployment_id": deployment_id,
+			}
+			
+		@run_on_executor
 		def get_rest_apis( self ):
 			response = APIGATEWAY_CLIENT.get_rest_apis(
 				limit=500,
@@ -1429,7 +1461,8 @@ class RunTmpLambda( BaseHandler ):
 				"else": [],
 				"exception": [],
 				"if": []
-			}
+			},
+			"REGULAR"
 		)
 		
 		random_node_id = get_random_node_id()
@@ -1975,7 +2008,7 @@ class GetSQSJobTemplate( BaseHandler ):
 		})
 		
 @gen.coroutine
-def deploy_lambda( id, name, language, code, libraries, max_execution_time, memory, transitions ):
+def deploy_lambda( id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode ):
 	logit(
 		"Building '" + name + "' Lambda package..."
 	)
@@ -1984,7 +2017,8 @@ def deploy_lambda( id, name, language, code, libraries, max_execution_time, memo
 		language,
 		code,
 		libraries,
-		transitions
+		transitions,
+		execution_mode
 	)
 	
 	logit(
@@ -2028,7 +2062,7 @@ def update_workflow_states_list( updated_node, workflow_states ):
 	return workflow_states
 	
 @gen.coroutine
-def deploy_diagram( diagram_data ):
+def deploy_diagram( project_name, project_id, diagram_data ):
 	"""
 	Deploy the diagram to AWS
 	"""
@@ -2039,7 +2073,7 @@ def deploy_diagram( diagram_data ):
 	"""
 	# First just set an empty array for each lambda node
 	for workflow_state in diagram_data[ "workflow_states" ]:
-		if workflow_state[ "type" ] == "lambda":
+		if workflow_state[ "type" ] == "lambda" or workflow_state[ "type" ] == "api_endpoint":
 			# Set up default transitions data
 			workflow_state[ "transitions" ] = {}
 			workflow_state[ "transitions" ][ "if" ] = []
@@ -2059,11 +2093,14 @@ def deploy_diagram( diagram_data ):
 			diagram_data[ "workflow_states" ]
 		)
 		
-		if origin_node_data[ "type" ] == "lambda":
+		if origin_node_data[ "type" ] == "lambda" or origin_node_data[ "type" ] == "api_endpoint":
 			if target_node_data[ "type" ] == "lambda":
 				target_arn = "arn:aws:lambda:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":function:" + get_lambda_safe_name( target_node_data[ "name" ] )
 			elif target_node_data[ "type" ] == "sns_topic":
 				target_arn = "arn:aws:sns:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + get_lambda_safe_name( target_node_data[ "name" ] )
+			elif target_node_data[ "type" ] == "api_gateway_response":
+				# API Gateway responses are a pseudo node and don't have an ARN
+				target_arn = False
 			
 			if workflow_relationship[ "type" ] == "then":
 				origin_node_data[ "transitions" ][ "then" ].append({
@@ -2099,6 +2136,7 @@ def deploy_diagram( diagram_data ):
 	schedule_trigger_nodes = []
 	sqs_queue_nodes = []
 	sns_topic_nodes = []
+	api_endpoint_nodes = []
 	
 	for workflow_state in diagram_data[ "workflow_states" ]:
 		if workflow_state[ "type" ] == "lambda":
@@ -2117,6 +2155,10 @@ def deploy_diagram( diagram_data ):
 			sns_topic_nodes.append(
 				workflow_state
 			)
+		elif workflow_state[ "type" ] == "api_endpoint":
+			api_endpoint_nodes.append(
+				workflow_state
+			)
 	
 	"""
 	Deploy all Lambdas to production
@@ -2124,16 +2166,41 @@ def deploy_diagram( diagram_data ):
 	lambda_node_deploy_futures = []
 	
 	for lambda_node in lambda_nodes:
+		lambda_safe_name = get_lambda_safe_name( lambda_node[ "name" ] )
+		logit( "Deploying Lambda '" + lambda_safe_name + "'..." )
 		lambda_node_deploy_futures.append(
 			deploy_lambda(
 				lambda_node[ "id" ],
-				get_lambda_safe_name( lambda_node[ "name" ] ),
+				lambda_safe_name,
 				lambda_node[ "language" ],
 				lambda_node[ "code" ],
 				lambda_node[ "libraries" ],
 				lambda_node[ "max_execution_time" ],
 				lambda_node[ "memory" ],
 				lambda_node[ "transitions" ],
+				"REGULAR"
+			)
+		)
+		
+	"""
+	Deploy all API Endpoints to production
+	"""
+	api_endpoint_node_deploy_futures = []
+	
+	for api_endpoint_node in api_endpoint_nodes:
+		api_endpoint_safe_name = get_lambda_safe_name( api_endpoint_node[ "name" ] )
+		logit( "Deploying API Endpoint '" + api_endpoint_safe_name + "'..." )
+		api_endpoint_node_deploy_futures.append(
+			deploy_lambda(
+				api_endpoint_node[ "id" ],
+				api_endpoint_safe_name,
+				"python2.7",
+				"",
+				[],
+				30,
+				128,
+				api_endpoint_node[ "transitions" ],
+				"API_ENDPOINT"
 			)
 		)
 		
@@ -2192,6 +2259,59 @@ def deploy_diagram( diagram_data ):
 	deployed_schedule_triggers = yield schedule_trigger_node_deploy_futures
 	deployed_sqs_queues = yield sqs_queue_nodes_deploy_futures
 	deployed_sns_topics = yield sns_topic_nodes_deploy_futures
+	deployed_api_endpoints = yield api_endpoint_node_deploy_futures
+	
+	"""
+	Set up API Gateways to be attached to API Endpoints
+	"""
+	if len( deployed_api_endpoints ) > 0:
+		api_route_futures = []
+		
+		# We need to create an API gateway
+		logit( "Deplying API Gateway for API Endpoint(s)..." )
+		rest_api_name = get_lambda_safe_name( project_name )
+		create_gateway_result = yield local_tasks.create_rest_api(
+			rest_api_name,
+			rest_api_name, # Human readable name, just do the ID for now
+			"1.0.0"
+		)
+		
+		api_gateway_id = create_gateway_result[ "id" ]
+		
+		# Add the API Gateway as a new node
+		diagram_data[ "workflow_states" ].append({
+			"id": get_random_node_id(),
+			"type": "api_gateway",
+			"name": "__api_gateway__",
+			"rest_api_id": api_gateway_id,
+		})
+		
+		for deployed_api_endpoint in deployed_api_endpoints:
+			for workflow_state in diagram_data[ "workflow_states" ]:
+				if workflow_state[ "id" ] == deployed_api_endpoint[ "id" ]:
+					logit( "Setting up route " + workflow_state[ "http_method" ] + " " + workflow_state[ "api_path" ] + " for API Endpoint '" + workflow_state[ "name" ] + "'..." )
+					
+					api_route_futures.append(
+						create_lambda_api_route(
+							api_gateway_id,
+							workflow_state[ "http_method" ],
+							workflow_state[ "api_path" ],
+							deployed_api_endpoint[ "name" ],
+							True
+						)
+					)
+					
+		logit( "Waiting until all routes are deployed..." )
+		yield api_route_futures
+		
+		logit( "Now deploying API gateway to stage..." )
+		deploy_stage_results = yield local_tasks.deploy_api_gateway_to_stage(
+			api_gateway_id,
+			"refinery"
+		)
+		
+		print( "Deploy stage results: " )
+		pprint( deploy_stage_results )
 	
 	"""
 	Update all nodes with deployed ARN for easier teardown
@@ -2202,6 +2322,15 @@ def deploy_diagram( diagram_data ):
 			if workflow_state[ "id" ] == deployed_lambda[ "id" ]:
 				workflow_state[ "arn" ] = deployed_lambda[ "arn" ]
 				workflow_state[ "name" ] = deployed_lambda[ "name" ]
+				
+	# Update workflow API Endpoint nodes with arn
+	for deployed_api_endpoint in deployed_api_endpoints:
+		for workflow_state in diagram_data[ "workflow_states" ]:
+			if workflow_state[ "id" ] == deployed_api_endpoint[ "id" ]:
+				workflow_state[ "arn" ] = deployed_api_endpoint[ "arn" ]
+				workflow_state[ "name" ] = deployed_api_endpoint[ "name" ]
+				workflow_state[ "rest_api_id" ] = api_gateway_id
+				workflow_state[ "url" ] = "https://" + api_gateway_id + ".execute-api." + os.environ.get( "region_name" ) + ".amazonaws.com/refinery" + workflow_state[ "api_path" ]
 				
 	# Update workflow scheduled trigger nodes with arn
 	for deployed_schedule_trigger in deployed_schedule_triggers:
@@ -2225,6 +2354,8 @@ def deploy_diagram( diagram_data ):
 				workflow_state[ "arn" ] = deployed_sns_topic[ "arn" ]
 				workflow_state[ "name" ] = deployed_sns_topic[ "topic_name" ]
 				workflow_state[ "topic_name" ] = deployed_sns_topic[ "topic_name" ]
+	
+	
 	"""
 	Link deployed schedule triggers to Lambdas
 	"""
@@ -2516,6 +2647,15 @@ class InfraTearDown( BaseHandler ):
 						teardown_node[ "arn" ],
 					)
 				)
+			elif teardown_node[ "type" ] == "api_endpoint":
+				teardown_operation_futures.append(
+					local_tasks.delete_lambda(
+						teardown_node[ "id" ],
+						teardown_node[ "type" ],
+						teardown_node[ "name" ],
+						teardown_node[ "arn" ],
+					)
+				)
 			elif teardown_node[ "type" ] == "sns_topic":
 				teardown_operation_futures.append(
 					local_tasks.delete_sns_topic(
@@ -2541,6 +2681,15 @@ class InfraTearDown( BaseHandler ):
 						teardown_node[ "type" ],
 						teardown_node[ "name" ],
 						teardown_node[ "arn" ],
+					)
+				)
+			elif teardown_node[ "type" ] == "api_gateway":
+				pprint(
+					teardown_node
+				)
+				teardown_operation_futures.append(
+					local_tasks.delete_rest_api(
+						teardown_node[ "rest_api_id" ],
 					)
 				)
 		
@@ -2881,7 +3030,8 @@ def warm_lambda_base_caches():
 					"else": [],
 					"exception": [],
 					"if": []
-				}
+				},
+				"REGULAR"
 			)
 		)
 		
@@ -2897,10 +3047,15 @@ class DeployDiagram( BaseHandler ):
 		)
 		
 		project_id = self.json[ "project_id" ]
+		project_name = self.json[ "project_name" ]
 		
 		diagram_data = json.loads( self.json[ "diagram_data" ] )
 		
-		results_data = yield deploy_diagram( diagram_data )
+		results_data = yield deploy_diagram(
+			project_name,
+			project_id,
+			diagram_data
+		)
 		
 		existing_project = session.query( Project ).filter_by(
 			id=project_id
@@ -3208,6 +3363,6 @@ if __name__ == "__main__":
 	)
 	Base.metadata.create_all( engine )
 	#tornado.ioloop.IOLoop.current().run_sync( warm_lambda_base_caches )
-	tornado.ioloop.IOLoop.current().run_sync( api_gateway_test )
+	#tornado.ioloop.IOLoop.current().run_sync( api_gateway_test )
 	server.start()
 	tornado.ioloop.IOLoop.current().start()

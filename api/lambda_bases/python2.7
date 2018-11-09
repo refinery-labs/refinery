@@ -167,7 +167,6 @@ class Refinery_Memory:
 		if not self.redis_client:
 			self.connect()
 			
-		namespace = self._get_namespace( kwargs )
 		pipeline = self.redis_client.pipeline()
 		pipeline.get( key )
 		pipeline.delete( key )
@@ -203,7 +202,7 @@ def _parallel_invoke( invoke_queue ):
 	max_threads = 10
 	
 	# Invokes a Lambda asynchronously
-	def lambda_invoker_worker( arn, input_data ):
+	def lambda_invoker_worker( execution_id, arn, input_data ):
 		storage_key = gmemory._store_return_data_to_redis( input_data )
 		
 		return_wrapper_data = {
@@ -212,7 +211,8 @@ def _parallel_invoke( invoke_queue ):
 					"type": "redis",
 					"key": storage_key,
 				},
-				"parallel": False
+				"parallel": False,
+				"execution_id": execution_id,
 			}
 		}
 		
@@ -225,21 +225,44 @@ def _parallel_invoke( invoke_queue ):
 			InvocationType="Event",
 			LogType="None",
 			Payload=json.dumps(
-				input_data
+				return_wrapper_data
 			)
 		)
 		
 		raise SystemExit
 		
 	# Publishes to an SNS topic
-	def sns_topic_publish_worker( arn, input_data ):
+	def sns_topic_publish_worker( execution_id, arn, input_data ):
+		# Handle large data that won't fit in the 256K SNS max size
 		sns_client = boto3.client(
 			"sns"
 		)
+		
+		return_wrapper_data = {
+			"_refinery": {
+				"indirect": False,
+				"parallel": False,
+				"execution_id": execution_id,
+				"input_data": input_data,
+			}
+		}
 	
 		response = sns_client.publish(
 			TopicArn=arn,
 			Message=json.dumps(
+				return_wrapper_data
+			)
+		)
+		
+		raise SystemExit
+		
+	# Publishes to redis to be picked up by a polling API Gateway Lambda
+	def api_gateway_response( execution_id, arn, input_data ):
+		# Store with expiration in redis
+		gmemory.redis_client.setex(
+			execution_id,
+			gmemory.return_data_timeout,
+			json.dumps(
 				input_data
 			)
 		)
@@ -250,11 +273,15 @@ def _parallel_invoke( invoke_queue ):
 	def spawn_new_worker():
 		new_invoke_data = invoke_queue.pop()
 		
+		print( "new invoke data: " )
+		print( new_invoke_data )
+		
 		# Check type and invoke appropriately
 		if new_invoke_data[ "type" ] == "lambda":
 			new_thread = threading.Thread(
 				target=lambda_invoker_worker,
 				args=(
+					new_invoke_data[ "execution_id" ],
 					new_invoke_data[ "arn" ],
 					new_invoke_data[ "input_data" ]
 				)
@@ -265,12 +292,24 @@ def _parallel_invoke( invoke_queue ):
 			new_thread = threading.Thread(
 				target=sns_topic_publish_worker,
 				args=(
+					new_invoke_data[ "execution_id" ],
 					new_invoke_data[ "arn" ],
 					new_invoke_data[ "input_data" ]
 				)
 			)
 			new_thread.start()
 			time.sleep(0.05) # Annoying wedge due to boto3 bug
+		elif new_invoke_data[ "type" ] == "api_gateway_response":
+			new_thread = threading.Thread(
+				target=api_gateway_response,
+				args=(
+					new_invoke_data[ "execution_id" ],
+					new_invoke_data[ "arn" ],
+					new_invoke_data[ "input_data" ]
+				)
+			)
+			new_thread.start()
+
 		return new_thread
 		
 	# Bug fix test
@@ -308,11 +347,67 @@ def _parallel_invoke( invoke_queue ):
 	# We're all done
 	return
 
+def _api_endpoint( execution_id, context ):
+    # This will spin and continually query redis until either
+    # we time out without getting our HTTP response OR we return
+    # our response to the client.
+    
+    # Continually loop until we have only two seconds left
+    # Max execution time is 30 seconds, so that's 28 seconds
+    timed_out = True
+
+    # As long as we have ~2 seconds of runway left continue
+    # to query redis for our HTTP response data.
+    while context.get_remaining_time_in_millis() > ( 2 * 1000 ):
+        http_response = gmemory._get_input_data_from_redis(
+            execution_id
+        )
+        
+        # When we have a non-None http_response we can
+        # break out of the loop and declare we've not timed out.
+        if http_response:
+            timed_out = False
+            break
+        
+        # Wait a moment before checking again
+        time.sleep( 0.01 )
+    
+    # We've timed out, return an error
+    if timed_out:
+        return {
+        	"statusCode": 504,
+        	"headers": {},
+        	"body": json.dumps({
+        	    "msg": "The request to the backend has timed out.",
+        	    "success": False
+        	}),
+        	"isBase64Encoded": False
+        }
+    
+    # Check if the response is actually in an API Gateway already
+    # If not return as just regular JSON, if it is then return raw
+    if "body" in http_response:
+        return http_response
+    
+    # Return JSON response with the data
+    return {
+    	"statusCode": 200,
+    	"headers": {},
+    	"body": json.dumps( http_response ),
+    	"isBase64Encoded": False
+    }
+
 def _init( lambda_input, context ):
 	# TODO add timer
+	print( "raw input: " )
+	print( lambda_input )
 	
 	# Bake in AWS region
 	aws_region = "{{AWS_REGION_REPLACE_ME}}"
+	
+	# Indicate a special execution condition
+	# For example, an API Gateway Lambda
+	execution_mode = "{{SPECIAL_EXECUTION_MODE}}"
 	
 	# Construct log details for debugging
 	log_details = {
@@ -342,12 +437,19 @@ def _init( lambda_input, context ):
 		context.function_name
 	)
 	
+	# Execution ID, this is an ID which correlates to an execution chain
+	execution_id = False
+	
 	# Bake in transition data
 	transitions = json.loads( "{{TRANSITION_DATA_REPLACE_ME}}" )
 	
 	# Detect refinery wrapper and unwrap if existant
 	# Else just leave it unmodified
-	if "_refinery" in lambda_input:
+	if lambda_input and "_refinery" in lambda_input:
+		# Set execution ID if set
+		if "execution_id" in lambda_input[ "_refinery" ]:
+			execution_id = lambda_input[ "_refinery" ][ "execution_id" ]
+			
 		_side_loaded = False
 		if "indirect" in lambda_input[ "_refinery" ] and "type" in lambda_input[ "_refinery" ][ "indirect" ]:
 			# Input data is stored in redis
@@ -360,37 +462,54 @@ def _init( lambda_input, context ):
 		if not _side_loaded and "input_data" in lambda_input[ "_refinery" ]:
 			lambda_input = lambda_input[ "_refinery" ][ "input_data" ]
 	
-	# Catch any exception that occurs and handle it if a catch is defined.
-	try:
-		return_data = main( lambda_input, context )
-	except:
-		exception_string = str( traceback.format_exc() )
+	# If we don't have an execution ID, generate and set one!
+	if not execution_id:
+		execution_id = str( uuid.uuid4() )
 		
-		# Invoke all Lambdas to be run when an exception occurs
-		if len( transitions[ "exception" ] ) > 0:
-			invocation_input_list = []
-			for exception_transition_data in transitions[ "exception" ]:
-				invocation_input_list.append({
-					"type": exception_transition_data[ "type" ],
-					"arn": exception_transition_data[ "arn" ],
-					"input_data": {
-						"version": _VERSION,
-						"exception_text": exception_string,
-						"input_data": json.loads(
-							json.dumps(
-								lambda_input
+	# Set execution ID on Lambda context
+	# This is needed so it can be accessed inside of the Lambdas
+	# regular code.
+	setattr(
+		context,
+		"execution_id",
+		execution_id
+	)
+	
+	return_data = {}
+	
+	if execution_mode == "REGULAR":
+		# Catch any exception that occurs and handle it if a catch is defined.
+		try:
+			return_data = main( lambda_input, context )
+		except:
+			exception_string = str( traceback.format_exc() )
+			
+			# Invoke all Lambdas to be run when an exception occurs
+			if len( transitions[ "exception" ] ) > 0:
+				invocation_input_list = []
+				for exception_transition_data in transitions[ "exception" ]:
+					invocation_input_list.append({
+						"execution_id": execution_id,
+						"type": exception_transition_data[ "type" ],
+						"arn": exception_transition_data[ "arn" ],
+						"input_data": {
+							"version": _VERSION,
+							"exception_text": exception_string,
+							"input_data": json.loads(
+								json.dumps(
+									lambda_input
+								)
 							)
-						)
-					}
-				})
-			
-			
-			# If there's an exception we should stop after invoking the exception case(s).
-			_parallel_invoke( invocation_input_list )
-			raise
-		else:
-			# Nothing to handle it, throw it again.
-			raise
+						}
+					})
+				
+				
+				# If there's an exception we should stop after invoking the exception case(s).
+				_parallel_invoke( invocation_input_list )
+				raise
+			else:
+				# Nothing to handle it, throw it again.
+				raise
 	
 	# Stores the invocation data for "if"s and "then"s
 	invocation_input_list = []
@@ -398,6 +517,7 @@ def _init( lambda_input, context ):
 	# If it's just a then, just invoke the next Lambda
 	for then_transition_data in transitions[ "then" ]:
 		invocation_input_list.append({
+			"execution_id": execution_id,
 			"type": then_transition_data[ "type" ],
 			"arn": then_transition_data[ "arn" ],
 			"input_data": json.loads(
@@ -406,6 +526,13 @@ def _init( lambda_input, context ):
 				)
 			)
 		})
+	
+	# If it's an API gateway Lambda we can end it here.
+	if execution_mode == "API_ENDPOINT":
+		# Now we invoke all the queued Lambdas!
+		_parallel_invoke( invocation_input_list )
+		
+		return _api_endpoint( execution_id, context )
 	
 	# Variable to hold if any "if" statements evaluated to true
 	# if one has then we don't execute any "else" statements
@@ -417,6 +544,7 @@ def _init( lambda_input, context ):
 		
 		if expression_eval_result:
 			invocation_input_list.append({
+				"execution_id": execution_id,
 				"type": if_statement_data[ "type" ],
 				"arn": if_statement_data[ "arn" ],
 				"input_data": json.loads(
@@ -432,6 +560,7 @@ def _init( lambda_input, context ):
 	if true_if_evaluation_occured == False:
 		for else_transition_data in transitions[ "else" ]:
 			invocation_input_list.append({
+				"execution_id": execution_id,
 				"type": else_transition_data[ "type" ],
 				"arn": else_transition_data[ "arn" ],
 				"input_data": json.loads(
@@ -440,6 +569,9 @@ def _init( lambda_input, context ):
 					)
 				)
 			})
+	
+	print( "Invocation list: " )
+	print( invocation_input_list )
 	
 	# Now we invoke all the queued Lambdas!
 	_parallel_invoke( invocation_input_list )

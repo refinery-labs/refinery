@@ -722,6 +722,8 @@
 							<a class="dropdown-item" href="#" v-on:click="add_sns_topic_node">SNS Topic Trigger</a>
 							<a class="dropdown-item" href="#" v-on:click="add_sqs_node">SQS Queue Trigger</a>
 							<a class="dropdown-item" href="#" v-on:click="add_timer_trigger_node">Time Trigger</a>
+							<a class="dropdown-item" href="#" v-on:click="add_api_endpoint_node">API Endpoint</a>
+							<a class="dropdown-item" href="#" v-on:click="add_api_gateway_response_node">API Response</a>
 						</div>
 					</div>
 					<button type="button" class="btn btn-primary" v-on:click="view_search_saved_lambdas_modal" style="margin-left: 5px;">Saved Lambdas</button>
@@ -953,6 +955,79 @@
 	                <hr />
 	                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete SQS Queue</button>
 				</div>
+			</div>
+			
+            <!-- API Endpoint Panel -->
+            <div v-if="page == 'modify-api_endpoint'" class="split left-panel">
+            	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+            		<center>
+            			Resource ARN: <br />
+            			<code>{{selected_node_data.arn}}</code>
+            			<hr />
+            			Deployed Endpoint URL: <br />
+            			<code>{{selected_node_data.http_method}}</code> <a v-bind:href="selected_node_data.url" target="_blank"><code>{{selected_node_data.url}}</code></a>
+            		</center>
+            		<hr />
+            		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_current_node_in_aws">Open in AWS >> </button>
+            		<hr />
+            	</div>
+				<h2>API Endpoint</h2>
+				<hr />
+				<div class="form-group">
+					<label>Name</label>
+					<input type="text" class="form-control" v-model="api_endpoint_data.name" placeholder="Get MD5" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+					<small class="form-text text-muted">Name of this API endpoint.</small>
+				</div>
+                <div class="form-group">
+                	<label>HTTP Method</label>
+					<select class="custom-select" v-model="api_endpoint_data.http_method" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+						<option value="GET">GET</option>
+						<option value="POST">POST</option>
+						<option value="PUT">PUT</option>
+						<option value="DELETE">DELETE</option>
+						<option value="OPTIONS">OPTIONS</option>
+						<option value="HEAD">HEAD</option>
+						<option value="PATCH">PATCH</option>
+						<option value="ANY">*</option>
+					</select>
+					<small class="form-text text-muted">HTTP method of the API endpoint.</small>
+				</div>
+				<div class="form-group">
+					<label>Path</label>
+					<input type="text" class="form-control" v-model="api_endpoint_data.api_path" placeholder="/user/info" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+					<small class="form-text text-muted">Path of API endpoint.</small>
+				</div>
+				<div v-if="ide_mode == 'LOCAL_IDE'">
+					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_api_endpoint">Update API Endpoint</button>
+					<hr />
+					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
+	                <hr />
+	                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete API Endpoint</button>
+	            </div>
+			</div>
+			
+            <!-- API Gateway Response Panel -->
+            <div v-if="page == 'modify-api_gateway_response'" class="split left-panel">
+				<h2>API Response</h2>
+				<p>
+					An API response is a block which will cause the data returned from the preceding linked Lambda to be sent as an HTTP response (encoded as JSON).
+				</p>
+				<p>
+					Some important notes to consider:
+					<br />
+					<ul>
+						<li>The execution flow <b>must</b> be started by an API Gateway trigger node (otherwise where would the response be written?).</li>
+						<li>This block may only be called <b>once</b>, future calls are effectively no-operations.</li>
+						<li>The maximum amount of time an HTTP response to a request can take before timing out is <b>29 seconds</b>. <a href="https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html#api-gateway-limits" target="_blank">This is a hard limit of AWS.</a></li>
+						<li>An API Response is <b>not</b> tied to a particular API Gateway.</li>
+					</ul>
+				</p>
+				<hr />
+				<div >
+					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
+	                <hr />
+	                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete API Response</button>
+	            </div>
 			</div>
             
             <!-- Modify Lambda panel -->
