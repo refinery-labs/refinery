@@ -752,7 +752,7 @@
 						</div>
 					</div>
 					<button type="button" class="btn btn-primary" v-on:click="view_production_deployment" style="margin-left: 10px;" v-if="deployment_data.exists">View Production Deployment</button>
-			    	<button type="button" class="btn btn-primary" v-on:click="deploy_first_step" style="margin-left: 10px;">Deploy to Production</button>
+			    	<button type="button" class="btn btn-primary" v-on:click="deploy_first_step" style="margin-left: 10px;" v-if="project_id">Deploy to Production</button>
 			    </div>
 			    
 			    <!-- Deployment viewer mode navbar -->
@@ -975,7 +975,7 @@
 				<hr />
 				<div class="form-group">
 					<label>Name</label>
-					<input type="text" class="form-control" v-model="api_endpoint_data.name" placeholder="Get MD5" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+					<input type="text" class="form-control" v-model="api_endpoint_data.name" placeholder="Get MD5" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'" maxlength="55">
 					<small class="form-text text-muted">Name of this API endpoint.</small>
 				</div>
                 <div class="form-group">
@@ -994,7 +994,12 @@
 				</div>
 				<div class="form-group">
 					<label>Path</label>
-					<input type="text" class="form-control" v-model="api_endpoint_data.api_path" placeholder="/user/info" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+					<div class="input-group mb-3">
+						<div class="input-group-prepend">
+							<span class="input-group-text">/refinery</span>
+						</div>
+						<input type="text" class="form-control" v-model="api_endpoint_data.api_path" placeholder="/user/info" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+					</div>
 					<small class="form-text text-muted">Path of API endpoint.</small>
 				</div>
 				<div v-if="ide_mode == 'LOCAL_IDE'">

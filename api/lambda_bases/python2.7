@@ -273,9 +273,6 @@ def _parallel_invoke( invoke_queue ):
 	def spawn_new_worker():
 		new_invoke_data = invoke_queue.pop()
 		
-		print( "new invoke data: " )
-		print( new_invoke_data )
-		
 		# Check type and invoke appropriately
 		if new_invoke_data[ "type" ] == "lambda":
 			new_thread = threading.Thread(
@@ -392,16 +389,22 @@ def _api_endpoint( execution_id, context ):
     # Return JSON response with the data
     return {
     	"statusCode": 200,
-    	"headers": {},
+    	"headers": {
+    		"Content-Type": "application/json",
+    		"X-Frame-Options": "deny",
+    		"X-Content-Type-Options": "nosniff",
+    		"X-XSS-Protection": "1; mode=block",
+    		"Cache-Control": "no-cache, no-store, must-revalidate",
+    		"Pragma": "no-cache",
+    		"Expires": "0",
+    		"Server": "refinery"
+    	},
     	"body": json.dumps( http_response ),
     	"isBase64Encoded": False
     }
 
 def _init( lambda_input, context ):
 	# TODO add timer
-	print( "raw input: " )
-	print( lambda_input )
-	
 	# Bake in AWS region
 	aws_region = "{{AWS_REGION_REPLACE_ME}}"
 	
