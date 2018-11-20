@@ -16,6 +16,11 @@ import boto3
 import traceback
 import threading
 
+class AlreadyInvokedException( Exception ):
+	def __init__( self, message="This function has already been invoked!" ):
+		# Call the base class constructor with the parameters it needs
+		super( AlreadyInvokedException, self ).__init__( message )
+
 # TODO only initialize connection when used.
 class Refinery_Memory:
 	# 16 minutes default return data expire
@@ -172,6 +177,11 @@ class Refinery_Memory:
 		pipeline.delete( key )
 		returned_data = pipeline.execute()
 		
+		# Raise an exception if the GET fails
+		# This is how we achieve idempotency
+		if returned_data[ 0 ] == None:
+			raise AlreadyInvokedException()
+		
 		try:
 			return json.loads( returned_data[ 0 ] )
 		except:
@@ -222,7 +232,7 @@ def _parallel_invoke( invoke_queue ):
 	
 		response = lambda_client.invoke(
 			FunctionName=arn,
-			InvocationType="RequestResponse",
+			InvocationType="Event",
 			LogType="None",
 			Payload=json.dumps(
 				return_wrapper_data
@@ -356,9 +366,13 @@ def _api_endpoint( execution_id, context ):
     # As long as we have ~2 seconds of runway left continue
     # to query redis for our HTTP response data.
     while context.get_remaining_time_in_millis() > ( 2 * 1000 ):
-        http_response = gmemory._get_input_data_from_redis(
-            execution_id
-        )
+    	try:
+	        http_response = gmemory._get_input_data_from_redis(
+	            execution_id
+	        )
+		except AlreadyInvokedException as e:
+			print( "This Lambda has already been invoked (or the return data has expired). For this reason we are quitting out." )
+			return
         
         # When we have a non-None http_response we can
         # break out of the loop and declare we've not timed out.
@@ -457,9 +471,13 @@ def _init( lambda_input, context ):
 		if "indirect" in lambda_input[ "_refinery" ] and "type" in lambda_input[ "_refinery" ][ "indirect" ]:
 			# Input data is stored in redis
 			if lambda_input[ "_refinery" ][ "indirect" ][ "type" ] == "redis":
-				lambda_input = gmemory._get_input_data_from_redis(
-					lambda_input[ "_refinery" ][ "indirect" ][ "key" ]
-				)
+				try:
+					lambda_input = gmemory._get_input_data_from_redis(
+						lambda_input[ "_refinery" ][ "indirect" ][ "key" ]
+					)
+				except AlreadyInvokedException as e:
+					print( "This Lambda has already been invoked (or the return data has expired). For this reason we are quitting out." )
+					return
 				_side_loaded = True
 		
 		if not _side_loaded and "input_data" in lambda_input[ "_refinery" ]:
