@@ -35,6 +35,7 @@ from models.saved_lambda import SavedLambda
 from models.project_versions import ProjectVersion
 from models.projects import Project
 from models.deployments import Deployment
+from botocore.client import Config
 
 logging.basicConfig(
 	stream=sys.stdout,
@@ -93,11 +94,16 @@ S3_CLIENT = boto3.client(
     region_name=os.environ.get( "region_name" )
 )
 
+LAMBDA_CONFIG = Config(
+	connect_timeout=50,
+	read_timeout=( 60 * 15 )
+)
 LAMBDA_CLIENT = boto3.client(
     "lambda",
     aws_access_key_id=os.environ.get( "aws_access_key" ),
     aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-    region_name=os.environ.get( "region_name" )
+    region_name=os.environ.get( "region_name" ),
+	config=LAMBDA_CONFIG
 )
 
 SFN_CLIENT = boto3.client(
@@ -296,6 +302,27 @@ class TaskSpawner(object):
 				log_lines = log_output.split( "\n" )
 				log_output = "\n".join( log_lines[ 1:-3 ] )
 				
+			# For Python we fix the line error offset to hide the "magic" code we pack
+			if "Syntax error in module 'lambda': invalid syntax (lambda.py," in log_output:
+				log_output_parts = log_output.split(
+					"Syntax error in module 'lambda': invalid syntax (lambda.py, line "
+				)
+				error_line_number = log_output_parts[1]
+				error_line_number = error_line_number.replace(
+					")",
+					""
+				)
+				error_line_number = int( error_line_number )
+				
+				# Get lines in base Python code
+				base_python_lines = len( LAMDBA_BASE_CODES[ "python2.7" ].split( "\n" ) )
+				
+				# Calculate //actual// error line
+				real_error_line = ( error_line_number - base_python_lines ) - 1
+				
+				# Rewrite log output line
+				log_output = "Syntax error in module 'lambda': invalid syntax (lambda.py, line " + str( real_error_line ) + ")"
+				
 			return {
 				"version": response[ "ExecutedVersion" ],
 				"response": full_response,
@@ -412,8 +439,8 @@ class TaskSpawner(object):
 						"S3Key": s3_package_zip_path,
 					},
 					Description=description,
-					Timeout=timeout,
-					MemorySize=memory,
+					Timeout=int(timeout),
+					MemorySize=int(memory),
 					Publish=True,
 					VpcConfig=vpc_config,
 					Environment={

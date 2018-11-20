@@ -222,7 +222,7 @@ def _parallel_invoke( invoke_queue ):
 	
 		response = lambda_client.invoke(
 			FunctionName=arn,
-			InvocationType="Event",
+			InvocationType="RequestResponse",
 			LogType="None",
 			Payload=json.dumps(
 				return_wrapper_data
@@ -572,9 +572,6 @@ def _init( lambda_input, context ):
 					)
 				)
 			})
-	
-	print( "Invocation list: " )
-	print( invocation_input_list )
 	
 	# Now we invoke all the queued Lambdas!
 	_parallel_invoke( invocation_input_list )

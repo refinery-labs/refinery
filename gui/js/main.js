@@ -1,4 +1,4 @@
-var API_SERVER = location.origin.toString() + ":7777";
+var API_SERVER = "http://localhost:7777";
 var ATC_SERVER = "http://100.115.92.205:1337";
 
 var DEFAULT_LAMBDA_CODE = {
@@ -1548,6 +1548,13 @@ var app = new Vue({
 		}
 	},
 	methods: {
+		save_lambda_and_project: async function() {
+			// Update Lambda
+			app.update_lambda();
+			
+			// Now save the project
+			await app.save_project_current_version();
+		},
 		open_current_node_in_aws: function() {
 			window.open(
 				app.selected_node_aws_link
@@ -2585,6 +2592,11 @@ def example( parameter ):
 		},
 		project_export_data_change: function( val ) {
 			// Stub
+		},
+		view_tmp_lambda_output: function() {
+			$( "#runtmplambda_output" ).modal(
+				"show"
+			);
 		},
 		run_tmp_lambda: function() {
 			// Clear previous result
