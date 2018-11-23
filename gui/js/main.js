@@ -1,5 +1,4 @@
 var API_SERVER = "http://localhost:7777";
-var ATC_SERVER = "http://100.115.92.205:1337";
 
 var DEFAULT_LAMBDA_CODE = {
 	"python2.7": `
@@ -747,61 +746,6 @@ function project_file_uploaded( event_data ) {
 	reader.readAsText( file_data );
 }
 
-function delete_atc_queue_loader_by_id( queue_loader_id ) {
-	return atc_api_request(
-		"DELETE",
-		"api/v1/queue_loaders",
-		{
-			"id": queue_loader_id
-		}
-	).then(function( results ) {
-		return results.id;
-	})
-}
-
-function get_atc_queue_loaders() {
-	return atc_api_request(
-		"GET",
-		"api/v1/queue_loaders",
-		{}
-	).then(function( results ) {
-		return results.queue_loaders;
-	})
-}
-
-function get_atc_iterators() {
-	return atc_api_request(
-		"GET",
-		"api/v1/iterators",
-		{}
-	).then(function( results ) {
-		return results.iterators;
-	})
-}
-
-function get_atc_sqs_queues() {
-	return atc_api_request(
-		"GET",
-		"api/v1/queues",
-		{}
-	).then(function( results ) {
-		return results.queues;
-	})
-}
-
-function create_queue_loader( queue_name, job_template, options, iterators_options_array ) {
-	return atc_api_request(
-		"POST",
-		"api/v1/queue_loaders/cron",
-		{
-			"queue_name": queue_name,
-			"job_template": job_template,
-			"options": options,
-			"iterators_options_array": iterators_options_array,
-		}
-	);
-}
-
 function get_job_template( queue_name ) {
 	return api_request(
 		"POST",
@@ -1072,44 +1016,6 @@ function api_request( method, endpoint, body ) {
     		return Promise.reject( response_data );
     	} else {
     		return response_data;
-    	}
-    });
-}
-
-/*
-    Make ATC API request
-*/
-function atc_api_request( method, endpoint, body ) {
-    return http_request(
-        method,
-        ATC_SERVER + "/" + endpoint,
-        [
-            {
-                "key": "Content-Type",
-                "value": "application/json",
-            },
-            {
-                "key": "X-Server-Secret",
-                "value": "SOMETHING_PRETTY_OBSCURE_I_GUESS" // TODO make this dynamic
-            }
-        ],
-        JSON.stringify(
-            body
-        )
-    ).then(function( response_text ) {
-    	var response_data = JSON.parse(
-    		response_text
-    	);
-    	
-    	// If we get a redirect in the response, redirect instead of returning
-    	if( "redirect" in response_data && response_data[ "redirect" ] != "" ) {
-    		window.location = response_data[ "redirect" ];
-    	}
-    	
-    	if( "success" in response_data && response_data[ "success" ] == false ) {
-    		return Promise.reject( response_data );
-    	} else {
-    		return response_data.results;
     	}
     });
 }
@@ -1417,37 +1323,6 @@ var app = new Vue({
         // Description of Lambda before saving to database
         save_lambda_to_db_description: "",
         
-        // Refinery ATC
-        atc: {
-        	// SQS queues
-        	sqs_queues: [],
-        	// Cron loader
-			queue_loader: {
-				"queue_name": "example",
-				"job_template": {
-					"id": "iterator_value",
-				},
-				"options": {
-					"method_type": "cron",
-					"method_data": {
-						"expression": "* * * * * *"
-					},
-					"cycles": 10,
-				},
-				"iterators_options_array": [
-					{
-						"type": "primary",
-						"template_key": "id",
-						"arguments": [ 0, 100, 1, "000" ],
-						"iterator_function": "number_range"
-					}
-				]
-			},
-			unformatted_job_template_text: "",
-			iterators: [],
-			running_queue_loaders: [],
-        },
-        
         codeoptions: {
             mode: "python",
             theme: "monokai",
@@ -1477,23 +1352,6 @@ var app = new Vue({
 		},
 		saved_function_search_query: function( value, previous_value ) {
 			app.search_saved_functions( value );
-		},
-		"atc.queue_loader.options.method_data.expression": function( value, previous_value ) {
-			if( value.toLocaleLowerCase() === "immediate" ) {
-				app.atc.queue_loader.options.method_type = "immediate";
-			} else {
-				app.atc.queue_loader.options.method_type = "cron";
-			}
-		},
-		"atc.queue_loader.queue_name": function( value, previous_value ) {
-			get_job_template( value ).then(function( job_template_string ) {
-				// Format it
-				app.atc.unformatted_job_template_text = JSON.stringify(
-					JSON.parse( job_template_string ),
-					false,
-					4
-				);
-			});
 		},
 		
 		// Automatically update the graph when the state has changed
@@ -2137,13 +1995,13 @@ var app = new Vue({
 			app.deploying_infrastructure = false;
 			
 			// Update latest deployment data on frontend
-			app.load_latest_deployment();
+			await app.load_latest_deployment();
 			
 			// Hide "deploying diagram" modal
 			$( "#deploydiagram_output" ).modal(
 				"hide"
 			);
-			
+
 			// Transition to showing deployed infra
 			app.view_production_deployment();
 		},
@@ -2298,179 +2156,6 @@ var app = new Vue({
 		},
 		update_sqs_job_template: function( new_value ) {
 			app.sqs_trigger_data.sqs_job_template = new_value;
-		},
-		kill_job_loader: function( id ) {
-			delete_atc_queue_loader_by_id( id ).then(function( result_id ) {
-				app.view_refinery_atc();
-			});
-		},
-		add_iterator: function( index ) {
-			app.atc.queue_loader.iterators_options_array.push({
-				"type": "supporting",
-				"template_key": "supporting_in_memory_array",
-				"arguments": [
-					[ "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten" ]
-				],
-				"iterator_function": "in_memory_array"
-			})
-		},
-		delete_iterator: function( index ) {
-			delete app.atc.queue_loader.iterators_options_array.splice(
-				index,
-				1
-			);
-		},
-		create_queue_loader: function() {
-			// Todo Add a validation layer to this
-			
-			/*
-				Slight hack to work around the way options are passed for
-				"immediate" and "cron" iterators.
-			*/
-			var generated_options = {};
-			if( app.atc.queue_loader.options.method_type === "immediate" ) {
-				generated_options = {
-					"method_type": "immediate",
-				}
-			} else {
-				generated_options = app.atc.queue_loader.options;
-			}
-			
-			create_queue_loader(
-				app.atc.queue_loader.queue_name,
-				app.atc.queue_loader.job_template,
-				app.atc.queue_loader.options,
-				app.atc.queue_loader.iterators_options_array
-			).then(function() {
-				app.view_refinery_atc();
-			});
-		},
-		atc_update_arguments: function( context_object ) {
-			try {
-				var argument_data = JSON.parse(
-					context_object.value
-				);
-
-				var index = context_object.this.$el.getAttribute( "arg_index" );
-				
-				app.atc.queue_loader.iterators_options_array[ index ].arguments = Object.values(
-					argument_data
-				);
-			} catch ( e ) {
-				console.log( "Error parsing arguments!" );
-			}
-		},
-		atc_get_arguments_by_iterator_id: function( iterator_id ) {
-			for( var i = 0; i < app.atc.iterators.length; i++ ) {
-				if( app.atc.iterators[i].id == iterator_id ) {
-					return app.atc.iterators[i].arguments;
-				}
-			}
-		},
-		atc_job_template_text_changed: function( val ) {
-			// TODO
-			try {
-				app.atc.queue_loader.job_template = JSON.parse(
-					val
-				);
-			} catch ( e ) {
-				
-			};
-		},
-		view_atc_create_loader: function() {
-			/*
-				"example",
-				{
-					"name": "Example Job",
-				},
-				{
-					"method_type": "cron",
-					"method_data": {
-						"expression": "* * * * * *",
-						"amount": 100,
-					},
-					"cycles": 15,
-				},
-				[
-					{
-						"type": "primary",
-						"template_key": "first_primary",
-						"arguments": [ 0, 50, 1, "000" ],
-						"iterator_function": "number_range"
-					},
-					{
-						"type": "supporting",
-						"template_key": "supporting_in_memory_array",
-						"arguments": [
-							[ "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten" ]
-						],
-						"iterator_function": "in_memory_array"
-					}
-				]
-			*/
-			var default_loader = {
-				"queue_name": "example",
-				"job_template": {
-					"id": "iterator_value",
-				},
-				"options": {
-					"method_type": "cron",
-					"method_data": {
-						"expression": "* * * * * *"
-					},
-					"cycles": 10,
-				},
-				"iterators_options_array": [
-					{
-						"type": "primary",
-						"template_key": "id",
-						"arguments": [ 0, 100, 1, "000" ],
-						"iterator_function": "number_range"
-					}
-				]
-			}
-			
-			// Set queue name to first SQS queue by default
-			if( app.atc.sqs_queues.length > 0 ) {
-				default_loader.queue_name = app.atc.sqs_queues[0];
-				get_job_template( default_loader.queue_name ).then(function( job_template_string ) {
-					// Format it
-					app.atc.unformatted_job_template_text = JSON.stringify(
-						JSON.parse( job_template_string ),
-						false,
-						4
-					);
-				});
-			} else {
-				// Set job template text
-				app.atc.unformatted_job_template_text = JSON.stringify(
-					app.atc.queue_loader.job_template,
-					false,
-					4
-				);
-			}
-			
-			Vue.set( app.atc, "queue_loader", default_loader );
-			
-			app.navigate_page( "atc-queue-loader" );
-		},
-		update_refinery_atc_data: function() {
-			get_atc_sqs_queues().then(function( queue_names_array ) {
-				app.atc.sqs_queues = queue_names_array;
-			});
-			
-			get_atc_iterators().then(function( iterators ) {
-				app.atc.iterators = iterators;
-			});
-			
-			get_atc_queue_loaders().then(function( queue_loaders ) {
-				app.atc.running_queue_loaders = queue_loaders;
-			});
-		},
-		view_refinery_atc: function() {
-			app.navigate_page( "atc" );
-			
-			app.update_refinery_atc_data();
 		},
 		merge_saved_function: function() {
 			for( var i = 0; i < app.saved_function_data.libraries.length; i++ ) {
@@ -2837,12 +2522,5 @@ def example( parameter ):
 		},
 	}
 });
-
-/*
-// Auto-update data from Refinery ATC server
-var atc_auto_updater = setInterval(function() {
-	app.update_refinery_atc_data();
-}, ( 1000 * 5 ));
-*/
 
 build_dot_graph();

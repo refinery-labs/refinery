@@ -53,4 +53,4 @@ in the list be spawned into its own Lambda as the argument. This is a **new** tr
 Upon the final Lambda in the fan-out finishing execution the following steps occur in one redis transaction.
 
 * The `{{fan_out_id}}_FAN_OUT_COUNTER` is deleted
-* The ARN retrieved from `{{fan_out_id}}_FAN_IN_ARN` is invoked with the `["_refinery"]["indirect"]["key"]` set to the key `{{fan_out_id}}_RESULTS`. This will result in the next Lambda taking the result(s) array as input (may be a type-issue here) and then it will be deleted after the next Lambda is invoked.
+* The ARN retrieved from `{{fan_out_id}}_FAN_IN_ARN` is invoked with the `["_refinery"]["indirect"]["key"]` set to the key `FAN_IN_RESULTS_{{fan_out_id}}`. This will result in the next Lambda taking the result(s) array as input (may be a type-issue here) and then it will be deleted after the next Lambda is invoked.
