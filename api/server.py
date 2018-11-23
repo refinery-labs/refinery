@@ -1450,6 +1450,7 @@ class RunTmpLambda( BaseHandler ):
 		schema = {
 			"type": "object",
 			"properties": {
+				"input_data": {},
 				"language": {
 					"type": "string",
 				},
@@ -1467,6 +1468,7 @@ class RunTmpLambda( BaseHandler ):
 				},
 			},
 			"required": [
+				"input_data",
 				"language",
 				"code",
 				"libraries",
@@ -1487,7 +1489,9 @@ class RunTmpLambda( BaseHandler ):
 				"then": [],
 				"else": [],
 				"exception": [],
-				"if": []
+				"if": [],
+				"fan-out": [],
+				"fan-in": [],
 			},
 			"REGULAR"
 		)
@@ -1510,10 +1514,18 @@ class RunTmpLambda( BaseHandler ):
 			}
 		)
 		
+		# Try to parse Lambda input as JSON
+		try:
+			self.json[ "input_data" ] = json.loads(
+				self.json[ "input_data" ]
+			)
+		except:
+			pass
+		
 		self.logit( "Executing Lambda..." )
 		lambda_result = yield local_tasks.execute_aws_lambda(
 			deployed_lambda_data[ "FunctionArn" ],
-			{}
+			self.json[ "input_data" ],
 		)
 
 		self.logit( "Deleting Lambda..." )
@@ -2107,6 +2119,8 @@ def deploy_diagram( project_name, project_id, diagram_data ):
 			workflow_state[ "transitions" ][ "else" ] = []
 			workflow_state[ "transitions" ][ "exception" ] = []
 			workflow_state[ "transitions" ][ "then" ] = []
+			workflow_state[ "transitions" ][ "fan-out" ] = []
+			workflow_state[ "transitions" ][ "fan-in" ] = []
 		
 	# Now add transition data to each Lambda
 	for workflow_relationship in diagram_data[ "workflow_relationships" ]:
@@ -2149,6 +2163,16 @@ def deploy_diagram( project_name, project_id, diagram_data ):
 					"arn": target_arn,
 					"type": target_node_data[ "type" ],
 					"expression": workflow_relationship[ "expression" ]
+				})
+			elif workflow_relationship[ "type" ] == "fan-out":
+				origin_node_data[ "transitions" ][ "fan-out" ].append({
+					"type": target_node_data[ "type" ],
+					"arn": target_arn,
+				})
+			elif workflow_relationship[ "type" ] == "fan-in":
+				origin_node_data[ "transitions" ][ "fan-in" ].append({
+					"type": target_node_data[ "type" ],
+					"arn": target_arn,
 				})
 				
 			diagram_data[ "workflow_states" ] = update_workflow_states_list(
@@ -3056,7 +3080,9 @@ def warm_lambda_base_caches():
 					"then": [],
 					"else": [],
 					"exception": [],
-					"if": []
+					"if": [],
+					"fan-out": [],
+					"fan-in": [],
 				},
 				"REGULAR"
 			)

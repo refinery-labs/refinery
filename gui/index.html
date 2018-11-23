@@ -559,15 +559,21 @@
 		        		</button>
 		            </div>
 		            <div class="modal-body">
-						<div style="height: 750px">
-							<editor editor-id="lambda_code_large" theme="monokai" v-bind:lang="ace_language_to_lang_id_map[lambda_language]" :content="lambda_code" v-on:change-content="lambda_code_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
+						<div style="height: 100%">
+							<h5>Lambda Code</h5>
+							<editor style="height: 600px" editor-id="lambda_code_large" theme="monokai" v-bind:lang="ace_language_to_lang_id_map[lambda_language]" :content="lambda_code" v-on:change-content="lambda_code_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
+							<br />
+							<h5>Lambda Input Data (for testing)</h5>
+							<editor style="height: 100px" editor-id="lambda_input_data" theme="monokai" v-bind:lang="ace_language_to_lang_id_map[lambda_language]" v-on:change-content="lambda_input_change" :content="lambda_input" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
 						</div>
 		            </div>
 		            <div class="modal-footer">
-		            	<button type="submit" class="btn btn-primary" v-on:click="run_tmp_lambda">Run Lambda</button>
-		            	<button type="submit" class="btn btn-primary" v-on:click="view_tmp_lambda_output" v-if="lambda_exec_result">View Last Lambda Run</button>
-		            	<button type="submit" class="btn btn-primary" v-on:click="update_lambda">Save Lambda</button>
-		            	<button type="submit" class="btn btn-primary" v-on:click="save_lambda_and_project">Save Lambda & Project</button>
+		            	<div v-if="ide_mode == 'LOCAL_IDE'">
+			            	<button type="submit" class="btn btn-primary" v-on:click="run_tmp_lambda">Run Lambda</button>
+			            	<button type="submit" class="btn btn-primary" v-on:click="view_tmp_lambda_output" v-if="lambda_exec_result">View Last Lambda Run</button>
+			            	<button type="submit" class="btn btn-primary" v-on:click="update_lambda">Save Lambda</button>
+			            	<button type="submit" class="btn btn-primary" v-on:click="save_lambda_and_project">Save Lambda & Project</button>
+		            	</div>
 		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
 		            </div>
 		        </div>
@@ -754,6 +760,7 @@
 						</div>
 					</div>
 			    	<!-- <button type="button" class="btn btn-primary" v-on:click="view_refinery_atc" style="margin-right: 5px;">ATC</button> -->
+			    	<button type="button" class="btn btn-success" v-on:click="save_project_current_version" v-if="project_id">Save Project</button>
 					<button type="button" class="btn btn-primary" v-on:click="view_production_deployment" style="margin-left: 10px;" v-if="deployment_data.exists">View Production Deployment</button>
 			    	<button type="button" class="btn btn-success" v-on:click="deploy_first_step" style="margin-left: 10px;" v-if="project_id">Deploy to Production</button>
 			    </div>
@@ -815,6 +822,12 @@
 							<option value="then">then</option>
 						</select>
 						<small class="form-text text-muted">Type of transition (e.g. <code>if</code> for conditional, <code>then</code> for regular transition).</small>
+					</div>
+					<div v-if="state_transition_conditional_data.type == 'fan-out'">
+						<div class="alert alert-primary" role="alert">
+							<b>Note:</b> If performing a large <code>fan-out</code> operation it is advisable to upgrade the Execution Memory of the invoking Lambda. This is because the CPU is scaled proportionally to the Execution Memory. For example, a 128MB Lambda would take 35+ seconds to invoke 100 Lambdas while a 1024MB Lambda would take only 6 seconds.
+						</div>
+						<hr />
 					</div>
 					<div class="form-group" v-if="state_transition_conditional_data.type == 'if'">
 						<label>Conditional Expression</label>

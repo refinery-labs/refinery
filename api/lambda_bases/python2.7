@@ -24,6 +24,8 @@ class AlreadyInvokedException( Exception ):
 # TODO only initialize connection when used.
 class Refinery_Memory:
 	# 16 minutes default return data expire
+	# TODO in the future count the number of nodes in between and set timeout to be max
+	# time allocated for all the Lambdas in the path to run
 	return_data_timeout = ( 60 * 16 )
 	
 	json_types = [
@@ -205,14 +207,33 @@ class Refinery_Memory:
 		
 		return new_key
 		
+	def _set_fan_in_data( self, fan_out_id, fan_out_number, **kwargs ):
+		if not self.redis_client:
+			self.connect()
+		
+		# Do a redis pipeline transaction
+		pipeline = self.redis_client.pipeline()
+		pipeline.setex(
+			"FAN_IN_COUNTER_" + fan_out_id,
+			( 60 * 15 * 3 ), # TODO dynamically calculate based off of nodes in path worst-case
+			fan_out_number
+		)
+		returned_data = pipeline.execute()
+		
+		return
+		
 def _parallel_invoke( invoke_queue ):
+	# TODO potential speed up by using a redis transaction to store all Lambda input data
+	# in one pipelined action instead of the current request/response model.
+	
 	# List of active threads
 	active_threads = []
+	
 	# Maximum number of threads
-	max_threads = 10
+	max_threads = 50
 	
 	# Invokes a Lambda asynchronously
-	def lambda_invoker_worker( execution_id, arn, input_data ):
+	def lambda_invoker_worker( execution_id, fan_out_ids, arn, input_data ):
 		storage_key = gmemory._store_return_data_to_redis( input_data )
 		
 		return_wrapper_data = {
@@ -223,6 +244,7 @@ def _parallel_invoke( invoke_queue ):
 				},
 				"parallel": False,
 				"execution_id": execution_id,
+				"fan_out_ids": fan_out_ids,
 			}
 		}
 		
@@ -242,7 +264,7 @@ def _parallel_invoke( invoke_queue ):
 		raise SystemExit
 		
 	# Publishes to an SNS topic
-	def sns_topic_publish_worker( execution_id, arn, input_data ):
+	def sns_topic_publish_worker( execution_id, fan_out_ids, arn, input_data ):
 		# Handle large data that won't fit in the 256K SNS max size
 		sns_client = boto3.client(
 			"sns"
@@ -253,6 +275,7 @@ def _parallel_invoke( invoke_queue ):
 				"indirect": False,
 				"parallel": False,
 				"execution_id": execution_id,
+				"fan_out_ids": fan_out_ids,
 				"input_data": input_data,
 			}
 		}
@@ -289,6 +312,7 @@ def _parallel_invoke( invoke_queue ):
 				target=lambda_invoker_worker,
 				args=(
 					new_invoke_data[ "execution_id" ],
+					new_invoke_data[ "fan_out_ids" ],
 					new_invoke_data[ "arn" ],
 					new_invoke_data[ "input_data" ]
 				)
@@ -300,6 +324,7 @@ def _parallel_invoke( invoke_queue ):
 				target=sns_topic_publish_worker,
 				args=(
 					new_invoke_data[ "execution_id" ],
+					new_invoke_data[ "fan_out_ids" ],
 					new_invoke_data[ "arn" ],
 					new_invoke_data[ "input_data" ]
 				)
@@ -460,12 +485,19 @@ def _init( lambda_input, context ):
 	# Bake in transition data
 	transitions = json.loads( "{{TRANSITION_DATA_REPLACE_ME}}" )
 	
+	# Set default fan-out IDs list to be empty
+	fan_out_ids = []
+	
 	# Detect refinery wrapper and unwrap if existant
 	# Else just leave it unmodified
 	if lambda_input and "_refinery" in lambda_input:
 		# Set execution ID if set
 		if "execution_id" in lambda_input[ "_refinery" ]:
 			execution_id = lambda_input[ "_refinery" ][ "execution_id" ]
+			
+		# Set/propogate fan-out ID list if set
+		if "fan_out_ids" in lambda_input[ "_refinery" ]:
+			fan_out_ids = lambda_input[ "_refinery" ][ "fan_out_ids" ]
 			
 		_side_loaded = False
 		if "indirect" in lambda_input[ "_refinery" ] and "type" in lambda_input[ "_refinery" ][ "indirect" ]:
@@ -511,6 +543,7 @@ def _init( lambda_input, context ):
 				for exception_transition_data in transitions[ "exception" ]:
 					invocation_input_list.append({
 						"execution_id": execution_id,
+						"fan_out_ids": fan_out_ids,
 						"type": exception_transition_data[ "type" ],
 						"arn": exception_transition_data[ "arn" ],
 						"input_data": {
@@ -524,7 +557,6 @@ def _init( lambda_input, context ):
 						}
 					})
 				
-				
 				# If there's an exception we should stop after invoking the exception case(s).
 				_parallel_invoke( invocation_input_list )
 				raise
@@ -535,10 +567,46 @@ def _init( lambda_input, context ):
 	# Stores the invocation data for "if"s and "then"s
 	invocation_input_list = []
 	
+	# For fan-outs
+	for fan_out_transition_data in transitions[ "fan-out" ]:
+		if type( return_data ) != list:
+			raise Exception( "Error, tried to fan-out without returning a list, returned type " + str( type( return_data ) ) )
+		
+		# Generate fan-out ID
+		fan_out_id = str( uuid.uuid4() )
+		
+		# Add to our fan-out IDs
+		new_fan_out_ids = fan_out_ids
+		new_fan_out_ids.append(
+			fan_out_id
+		)
+		
+		# Set fan-in data in case we fan in later
+		gmemory._set_fan_in_data(
+			fan_out_id,
+			len( return_data )
+		)
+		
+		# Iterate over each item in the return list
+		for return_item_data in return_data:
+			# Create an invocation for it
+			invocation_input_list.append({
+				"execution_id": execution_id,
+				"fan_out_ids": new_fan_out_ids,
+				"type": fan_out_transition_data[ "type" ],
+				"arn": fan_out_transition_data[ "arn" ],
+				"input_data": json.loads(
+					json.dumps(
+						return_item_data
+					)
+				)
+			})
+	
 	# If it's just a then, just invoke the next Lambda
 	for then_transition_data in transitions[ "then" ]:
 		invocation_input_list.append({
 			"execution_id": execution_id,
+			"fan_out_ids": fan_out_ids,
 			"type": then_transition_data[ "type" ],
 			"arn": then_transition_data[ "arn" ],
 			"input_data": json.loads(
@@ -566,6 +634,7 @@ def _init( lambda_input, context ):
 		if expression_eval_result:
 			invocation_input_list.append({
 				"execution_id": execution_id,
+				"fan_out_ids": fan_out_ids,
 				"type": if_statement_data[ "type" ],
 				"arn": if_statement_data[ "arn" ],
 				"input_data": json.loads(
@@ -582,6 +651,7 @@ def _init( lambda_input, context ):
 		for else_transition_data in transitions[ "else" ]:
 			invocation_input_list.append({
 				"execution_id": execution_id,
+				"fan_out_ids": fan_out_ids,
 				"type": else_transition_data[ "type" ],
 				"arn": else_transition_data[ "arn" ],
 				"input_data": json.loads(

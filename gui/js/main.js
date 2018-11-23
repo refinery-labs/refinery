@@ -395,18 +395,69 @@ function build_dot_graph() {
 	});
 	
 	app.workflow_relationships.map(function( workflow_relationship ) {
-		dot_contents += "\t" + workflow_relationship["node"] + " -> " + workflow_relationship["next"];
-		
-		// "next" text next to transition
-		dot_contents += " [penwidth=2, label=<<table cellpadding=\"10\" border=\"0\" cellborder=\"0\"><tr><td>" + get_escaped_html( workflow_relationship[ "name" ] ) + "</td></tr></table>> href=\"javascript:select_transition('" + workflow_relationship[ "id" ] + "')\" ";
-		
-		if( workflow_relationship.id == app.selected_transition ) {
-			dot_contents += "color=\"#ff0000\"";
+		// Draw special cases for fan-out and fan-in
+		if( workflow_relationship[ "type" ] == "fan-out" ) {
+			// Three lines indicating a fan-out pattern
+			var fan_out_line_color = "#000000";
+			if( workflow_relationship.id == app.selected_transition ) {
+				fan_out_line_color = "#ff0000";
+			} else {
+				fan_out_line_color = "#000000";
+			}
+			
+			// Create pseudo "fan-out" node
+			var fake_out_pseudo_node = get_random_node_id();
+			dot_contents += fake_out_pseudo_node + "[label=\"<<< " + get_escaped_html( workflow_relationship[ "name" ] ) + " >>>\", shape=plaintext, penwidth=0, href=\"javascript:select_transition('" + workflow_relationship[ "id" ] + "')\", color=\"" + fan_out_line_color + "\"]\n";
+			
+			// Draw line to fan-out pseudo-node
+			dot_contents += "\t" + workflow_relationship["node"] + " -> " + fake_out_pseudo_node;
+			dot_contents += " [penwidth=2, href=\"javascript:select_transition('" + workflow_relationship[ "id" ] + "')\" color=\"" + fan_out_line_color + "\"]\n";
+
+			// Draw three lines from psuedo-node to next node
+			dot_contents += "\t" + fake_out_pseudo_node + " -> " + workflow_relationship["next"];
+			dot_contents += " [penwidth=2, href=\"javascript:select_transition('" + workflow_relationship[ "id" ] + "')\" color=\"" + fan_out_line_color + "\"]\n";
+			dot_contents += "\t" + fake_out_pseudo_node + " -> " + workflow_relationship["next"];
+			dot_contents += " [penwidth=2, href=\"javascript:select_transition('" + workflow_relationship[ "id" ] + "')\" color=\"" + fan_out_line_color + "\"]\n";
+			dot_contents += "\t" + fake_out_pseudo_node + " -> " + workflow_relationship["next"];
+			dot_contents += " [penwidth=2, href=\"javascript:select_transition('" + workflow_relationship[ "id" ] + "')\" color=\"" + fan_out_line_color + "\"]\n";
+		} else if( workflow_relationship[ "type" ] == "fan-in" ) {
+			// Three lines indicating a fan-in pattern
+			var fan_in_line_color = "#000000";
+			if( workflow_relationship.id == app.selected_transition ) {
+				fan_in_line_color = "#ff0000";
+			} else {
+				fan_in_line_color = "#000000";
+			}
+			
+			// Create pseudo "fan-out" node
+			var fake_out_pseudo_node = get_random_node_id();
+			dot_contents += fake_out_pseudo_node + "[label=\">>> " + get_escaped_html( workflow_relationship[ "name" ] ) + " <<<\", shape=plaintext, penwidth=0, href=\"javascript:select_transition('" + workflow_relationship[ "id" ] + "')\", color=\"" + fan_in_line_color + "\"]\n";
+			
+			// Draw three lines to the pseudo fan-in node
+			dot_contents += "\t" + workflow_relationship["node"] + " -> " + fake_out_pseudo_node;
+			dot_contents += " [penwidth=2, href=\"javascript:select_transition('" + workflow_relationship[ "id" ] + "')\" color=\"" + fan_in_line_color + "\"]\n";
+			dot_contents += "\t" + workflow_relationship["node"] + " -> " + fake_out_pseudo_node;
+			dot_contents += " [penwidth=2, href=\"javascript:select_transition('" + workflow_relationship[ "id" ] + "')\" color=\"" + fan_in_line_color + "\"]\n";
+			dot_contents += "\t" + workflow_relationship["node"] + " -> " + fake_out_pseudo_node;
+			dot_contents += " [penwidth=2, href=\"javascript:select_transition('" + workflow_relationship[ "id" ] + "')\" color=\"" + fan_in_line_color + "\"]\n";
+			
+			// Draw line to next node from pseudo-node
+			dot_contents += "\t" + fake_out_pseudo_node + " -> " + workflow_relationship["next"];
+			dot_contents += " [penwidth=2, href=\"javascript:select_transition('" + workflow_relationship[ "id" ] + "')\" color=\"" + fan_in_line_color + "\"]\n";
 		} else {
-			dot_contents += "color=\"#000000\"";
+			dot_contents += "\t" + workflow_relationship["node"] + " -> " + workflow_relationship["next"];
+			
+			// "next" text next to transition
+			dot_contents += " [penwidth=2, label=<<table cellpadding=\"10\" border=\"0\" cellborder=\"0\"><tr><td>" + get_escaped_html( workflow_relationship[ "name" ] ) + "</td></tr></table>> href=\"javascript:select_transition('" + workflow_relationship[ "id" ] + "')\" ";
+			
+			if( workflow_relationship.id == app.selected_transition ) {
+				dot_contents += "color=\"#ff0000\"";
+			} else {
+				dot_contents += "color=\"#000000\"";
+			}
+			
+			dot_contents += "]\n"
 		}
-		
-		dot_contents += "]\n"
 	});
 	
 	dot_contents += "}";
@@ -861,7 +912,7 @@ function delete_saved_lambdas( id ) {
 	);
 }
 
-function run_tmp_lambda( language, code, libraries, memory, max_execution_time ) {
+function run_tmp_lambda( language, code, libraries, memory, max_execution_time, input_data ) {
 	return api_request(
 		"POST",
 		"api/v1/aws/run_tmp_lambda",
@@ -870,7 +921,8 @@ function run_tmp_lambda( language, code, libraries, memory, max_execution_time )
 			"code": code,
 			"libraries": libraries,
 			"memory": parseInt( memory ),
-			"max_execution_time": parseInt( max_execution_time )
+			"max_execution_time": parseInt( max_execution_time ),
+			"input_data": input_data,
 		}
 	);
 }
@@ -1244,11 +1296,13 @@ var app = new Vue({
 	    	"then",
 	    	"if",
 	    	"else",
-	    	"exception"
+	    	"exception",
+	    	"fan-out",
+	    	"fan-in",
 	    ],
 		state_transition_conditional_data: {
 			"name": "then",
-			// "then", "if", "else", "exception"
+			// "then", "if", "else", "exception", "fan-out", "fan-in"
 			"type": "then",
 			"expression": "",
 			"node": "",
@@ -1268,6 +1322,7 @@ var app = new Vue({
 		// Currently selected lambda imports
 		unformatted_libraries: "",
 		// lambda_libraries: [], This is now computed!
+		lambda_input: "",
 		// Currently selected lambda code
         lambda_code: "",
         // Currently selected lambda max memory
@@ -2083,6 +2138,14 @@ var app = new Vue({
 			
 			// Update latest deployment data on frontend
 			app.load_latest_deployment();
+			
+			// Hide "deploying diagram" modal
+			$( "#deploydiagram_output" ).modal(
+				"hide"
+			);
+			
+			// Transition to showing deployed infra
+			app.view_production_deployment();
 		},
 		is_valid_transition_path: function( first_node_id, second_node_id ) {
 			// Grab data for both nodes and determine if it's possible path
@@ -2566,6 +2629,11 @@ def example( parameter ):
 				app.unformatted_libraries = val;
 			}
 		},
+		lambda_input_change: function( val ) {
+			if ( app.lambda_input !== val ) {
+				app.lambda_input = val;
+			}
+		},
 		lambda_code_change: function( val ) {
 			if ( app.lambda_code !== val ) {
 				app.lambda_code = val;
@@ -2615,7 +2683,8 @@ def example( parameter ):
 				app.lambda_code,
 				app.lambda_libraries,
 				app.lambda_memory,
-				app.lambda_max_execution_time
+				app.lambda_max_execution_time,
+				app.lambda_input,
 			).then(function( results ) {
 				console.log( "Run tmp lambda: " );
 				console.log( results );
@@ -2630,7 +2699,7 @@ def example( parameter ):
 		create_new_state_transition: function() {
 			var default_state_transition_conditional_data = {
 				"name": "then",
-				// "then", "if", "else", "exception"
+				// "then", "if", "else", "exception", "fan-out", "fan-in"
 				"type": "then",
 				"expression": "",
 				"node": app.selected_node,
