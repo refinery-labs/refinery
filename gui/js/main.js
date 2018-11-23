@@ -1372,6 +1372,18 @@ var app = new Vue({
 		}
 	},
 	computed: {
+		// Whether to prompt on user navigating away from page
+		leave_page_warning: {
+			cache: false,
+			get() {
+				// Some basic checks for now
+				return (
+					app.project_id != "" ||
+					app.workflow_relationships.length > 0 ||
+					app.workflow_states.length > 0
+				)
+			}
+		},
 		delete_nodes_array: {
 			cache: false,
 			get() {
@@ -2516,3 +2528,10 @@ def example( parameter ):
 });
 
 build_dot_graph();
+
+window.onbeforeunload = function( event ) {
+	if( app.leave_page_warning ) {
+		return "Are you sure you want to navigate away? You may lose important project data!";
+	}
+	return undefined;
+}
