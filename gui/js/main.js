@@ -1996,14 +1996,6 @@ var app = new Vue({
 			
 			// Update latest deployment data on frontend
 			await app.load_latest_deployment();
-			
-			// Hide "deploying diagram" modal
-			$( "#deploydiagram_output" ).modal(
-				"hide"
-			);
-
-			// Transition to showing deployed infra
-			app.view_production_deployment();
 		},
 		is_valid_transition_path: function( first_node_id, second_node_id ) {
 			// Grab data for both nodes and determine if it's possible path

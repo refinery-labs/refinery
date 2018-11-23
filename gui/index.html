@@ -294,6 +294,12 @@
 		            <div class="modal-body">
 		            	<div v-if="!deploying_infrastructure">
 							<b>Build Time: </b><code>{{deploy_infrastructure_time}}</code> seconds
+							<hr />
+							<center>
+								<button type="button" class="btn btn-lg btn-primary" v-on:click="view_production_deployment" data-dismiss="modal">
+									View Deployment Information
+								</button>
+							</center>
 		            	</div>
 						<div v-if="deploying_infrastructure">
 							<center>
@@ -1037,7 +1043,7 @@
 					Some important notes to consider:
 					<br />
 					<ul>
-						<li>The execution flow <b>must</b> be started by an API Gateway trigger node (otherwise where would the response be written?).</li>
+						<li>The execution flow <b>must</b> be started by an API Endpoint trigger node (otherwise where would the response be written?).</li>
 						<li>This block may only be called <b>once</b>, future calls are effectively no-operations.</li>
 						<li>The maximum amount of time an HTTP response to a request can take before timing out is <b>29 seconds</b>. <a href="https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html#api-gateway-limits" target="_blank">This is a hard limit of AWS.</a></li>
 						<li>An API Response is <b>not</b> tied to a particular API Gateway.</li>

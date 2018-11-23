@@ -524,7 +524,12 @@ def _parallel_invoke( invoke_queue ):
 	# We're all done
 	return
 
-def _api_endpoint( execution_id, context ):
+def _api_endpoint( lambda_input, execution_id, context ):
+	print( "Lambda context: " )
+	print( context )
+	print( "Lambda input: " )
+	print( lambda_input )
+	
     # This will spin and continually query redis until either
     # we time out without getting our HTTP response OR we return
     # our response to the client.
@@ -541,8 +546,7 @@ def _api_endpoint( execution_id, context ):
 	            execution_id
 	        )
 		except AlreadyInvokedException as e:
-			print( "This Lambda has already been invoked (or the return data has expired). For this reason we are quitting out." )
-			return
+			http_response = False
         
         # When we have a non-None http_response we can
         # break out of the loop and declare we've not timed out.
@@ -718,6 +722,9 @@ def _init( lambda_input, context ):
 			else:
 				# Nothing to handle it, throw it again.
 				raise
+	elif execution_mode == "API_ENDPOINT":
+		# Just return the HTTP request event data
+		return_data = lambda_input
 	
 	# Stores the invocation data for "if"s and "then"s
 	invocation_input_list = []
@@ -799,7 +806,7 @@ def _init( lambda_input, context ):
 		# Now we invoke all the queued Lambdas!
 		_parallel_invoke( invocation_input_list )
 		
-		return _api_endpoint( execution_id, context )
+		return _api_endpoint( lambda_input, execution_id, context )
 	
 	# Variable to hold if any "if" statements evaluated to true
 	# if one has then we don't execute any "else" statements
