@@ -6,7 +6,6 @@ var DEFAULT_LAMBDA_CODE = {
 Embedded magic
 
 Refinery memory:
-	Config memory: cmemory.get( "api_key" )
 	Global memory: gmemory.get( "example" )
 	Force no-namespace: gmemory.get( "example", raw=True )
 
@@ -1020,6 +1019,31 @@ function api_request( method, endpoint, body ) {
     });
 }
 
+function parse_arn( input_arn ) {
+	// arn:aws:sns:us-west-2:148731734429:Example_Topic
+	var full_arn = input_arn;
+	var arn_parts = input_arn.split( ":" );
+	var resource_type = arn_parts[2];
+	var aws_region = arn_parts[3];
+	var account_id = arn_parts[4];
+	
+	if( resource_type == "lambda" ) {
+		var resource_name = arn_parts[6];
+	} else if( resource_type == "events" ) {
+		var resource_name = arn_parts[5].replace( "rule/", "" );
+	} else {
+		var resource_name = arn_parts[5];
+	}
+	
+	return {
+		"full_arn": full_arn,
+		"resource_type": resource_type,
+		"aws_region": aws_region,
+		"account_id": account_id,
+		"resource_name": resource_name,
+	}
+}
+
 ace.config.set( "basePath", "./js/" );
 Vue.component( "Editor", {
     template: '<div :id="editorId" style="width: 100%; height: 100%;"></div>',
@@ -1423,29 +1447,18 @@ var app = new Vue({
 		selected_node_aws_link: {
 			cache: false,
 			get() {
-				// arn:aws:sns:us-west-2:148731734429:Example_Topic
-				var full_arn = app.selected_node_data.arn;
-				var arn_parts = app.selected_node_data.arn.split( ":" );
-				var resource_type = arn_parts[2];
-				var aws_region = arn_parts[3];
-				var account_id = arn_parts[4];
-				
-				if( resource_type == "lambda" ) {
-					var resource_name = arn_parts[6];
-				} else if( resource_type == "events" ) {
-					var resource_name = arn_parts[5].replace( "rule/", "" );
-				} else {
-					var resource_name = arn_parts[5];
-				}
+				var parsed_arn = parse_arn(
+					app.selected_node_data.arn
+				);
 
-				if( resource_type == "sns" ) {
-					return `https://${aws_region}.console.aws.amazon.com/sns/v2/home?region=${aws_region}#/topics/${full_arn}`;
-				} else if ( resource_type == "lambda" ) {
-					return `https://${aws_region}.console.aws.amazon.com/lambda/home?region=${aws_region}#/functions/${resource_name}?tab=monitoring`;
-				} else if ( resource_type == "events" ) {
-					return `https://${aws_region}.console.aws.amazon.com/cloudwatch/home?region=${aws_region}#rules:name=${resource_name}`;
-				} else if ( resource_type == "sqs" ) {
-					return `https://console.aws.amazon.com/sqs/home?region=${aws_region}#queue-browser:selected=https://sqs.${aws_region}.amazonaws.com/${account_id}/${resource_name};prefix=`;
+				if( parsed_arn.resource_type == "sns" ) {
+					return `https://${parsed_arn.aws_region}.console.aws.amazon.com/sns/v2/home?region=${parsed_arn.aws_region}#/topics/${parsed_arn.full_arn}`;
+				} else if ( parsed_arn.resource_type == "lambda" ) {
+					return `https://${parsed_arn.aws_region}.console.aws.amazon.com/lambda/home?region=${parsed_arn.aws_region}#/functions/${parsed_arn.resource_name}?tab=graph`;
+				} else if ( parsed_arn.resource_type == "events" ) {
+					return `https://${parsed_arn.aws_region}.console.aws.amazon.com/cloudwatch/home?region=${parsed_arn.aws_region}#rules:name=${parsed_arn.resource_name}`;
+				} else if ( parsed_arn.resource_type == "sqs" ) {
+					return `https://console.aws.amazon.com/sqs/home?region=${parsed_arn.aws_region}#queue-browser:selected=https://sqs.${parsed_arn.aws_region}.amazonaws.com/${parsed_arn.account_id}/${parsed_arn.resource_name};prefix=`;
 				}
 			}
 		},
@@ -1479,6 +1492,24 @@ var app = new Vue({
 			
 			// Now save the project
 			await app.save_project_current_version();
+		},
+		open_current_lambda_node_in_monitoring: function() {
+			var parsed_arn = parse_arn(
+				app.selected_node_data.arn
+			);
+			var monitoring_link = `https://${parsed_arn.aws_region}.console.aws.amazon.com/lambda/home?region=${parsed_arn.aws_region}#/functions/${parsed_arn.resource_name}?tab=monitoring`;
+			window.open(
+				monitoring_link
+			);
+		},
+		open_current_lambda_node_in_cloudwatch: function() {
+			var parsed_arn = parse_arn(
+				app.selected_node_data.arn
+			);
+			var cloudwatch_link = `https://${parsed_arn.aws_region}.console.aws.amazon.com/cloudwatch/home?region=${parsed_arn.aws_region}#logStream:group=/aws/lambda/${parsed_arn.resource_name};streamFilter=typeLogStreamPrefix`;
+			window.open(
+				cloudwatch_link
+			);
 		},
 		open_current_node_in_aws: function() {
 			window.open(
@@ -2136,7 +2167,7 @@ var app = new Vue({
 			new_api_endpoint_data.name = app.get_non_colliding_name(
 				new_api_endpoint_data.id,
 				new_api_endpoint_data.name,
-				"lambda",
+				"api_endpoint",
 			);
 			
 			app.workflow_states.push( new_api_endpoint_data );

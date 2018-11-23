@@ -592,6 +592,14 @@ def _api_endpoint( lambda_input, execution_id, context ):
     }
 
 def _init( lambda_input, context ):
+	global gmemory
+	# Make global to enable caching of redis connection
+	gmemory = Refinery_Memory(
+		"{{REDIS_HOSTNAME_REPLACE_ME}}",
+		"{{REDIS_PASSWORD_REPLACE_ME}}",
+		context.function_name
+	)
+
 	# TODO add timer
 	# Bake in AWS region
 	aws_region = "{{AWS_REGION_REPLACE_ME}}"
@@ -613,21 +621,6 @@ def _init( lambda_input, context ):
 		"aws_request_id": context.aws_request_id
 	}
 	
-	global cmemory
-	global gmemory
-	
-	cmemory = Refinery_Memory(
-		"config-memory.refinery.thehackerblog.com",
-		"{{REDIS_PASSWORD_REPLACE_ME}}",
-		False
-	)
-	
-	gmemory = Refinery_Memory(
-		"global-memory.refinery.thehackerblog.com",
-		"{{REDIS_PASSWORD_REPLACE_ME}}",
-		context.function_name
-	)
-	
 	# Execution ID, this is an ID which correlates to an execution chain
 	execution_id = False
 	
@@ -639,7 +632,7 @@ def _init( lambda_input, context ):
 	
 	# Detect refinery wrapper and unwrap if existant
 	# Else just leave it unmodified
-	if lambda_input and "_refinery" in lambda_input:
+	if type( lambda_input ) == dict and "_refinery" in lambda_input:
 		# Set execution ID if set
 		if "execution_id" in lambda_input[ "_refinery" ]:
 			execution_id = lambda_input[ "_refinery" ][ "execution_id" ]

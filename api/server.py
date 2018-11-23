@@ -7,7 +7,6 @@ import tornado.ioloop
 import tornado.web
 import botocore
 import subprocess
-import autopep8
 import logging
 import hashlib
 import shutil
@@ -85,6 +84,9 @@ def on_start():
 			LAMDBA_BASE_CODES[ language_name ] = file_handler.read().replace(
 				"{{REDIS_PASSWORD_REPLACE_ME}}",
 				os.environ.get( "lambda_redis_password" )
+			).replace(
+				"{{REDIS_HOSTNAME_REPLACE_ME}}",
+				os.environ.get( "lambda_redis_hostname" )
 			)
         
 S3_CLIENT = boto3.client(
@@ -301,28 +303,7 @@ class TaskSpawner(object):
 			if "START RequestId:" in log_output:
 				log_lines = log_output.split( "\n" )
 				log_output = "\n".join( log_lines[ 1:-3 ] )
-				
-			# For Python we fix the line error offset to hide the "magic" code we pack
-			if "Syntax error in module 'lambda': invalid syntax (lambda.py," in log_output:
-				log_output_parts = log_output.split(
-					"Syntax error in module 'lambda': invalid syntax (lambda.py, line "
-				)
-				error_line_number = log_output_parts[1]
-				error_line_number = error_line_number.replace(
-					")",
-					""
-				)
-				error_line_number = int( error_line_number )
-				
-				# Get lines in base Python code
-				base_python_lines = len( LAMDBA_BASE_CODES[ "python2.7" ].split( "\n" ) )
-				
-				# Calculate //actual// error line
-				real_error_line = ( error_line_number - base_python_lines ) - 1
-				
-				# Rewrite log output line
-				log_output = "Syntax error in module 'lambda': invalid syntax (lambda.py, line " + str( real_error_line ) + ")"
-				
+
 			return {
 				"version": response[ "ExecutedVersion" ],
 				"response": full_response,
@@ -772,17 +753,9 @@ class TaskSpawner(object):
 			and the init code.
 			"""
 			
-			code = LAMDBA_BASE_CODES[ "python2.7" ] + "\n\n" + code
-			"""
-			code = autopep8.fix_code(
-				code,
-				options={
-					"select": [
-						"E101",
-					]
-				}
-			)
-			"""
+			#code = LAMDBA_BASE_CODES[ "python2.7" ] + "\n\n" + code
+			code = code + "\n\n" + LAMDBA_BASE_CODES[ "python2.7" ]
+			
 			code = code.replace( "\t", "    " )
 			
 			code = code.replace( "\"{{TRANSITION_DATA_REPLACE_ME}}\"", json.dumps( json.dumps( transitions ) ) )
