@@ -221,6 +221,110 @@ class Refinery_Memory:
 		returned_data = pipeline.execute()
 		
 		return
+	
+	def _fan_in_get_results_data( self, fan_out_id, **kwargs ):
+		"""
+		Gets the fan-in data and deletes it immediately
+		"""
+		if not self.redis_client:
+			self.connect()
+			
+		# Do a redis pipeline transaction
+		pipeline = self.redis_client.pipeline()
+		
+		# Get array of returned data from fan-in
+		pipeline.lrange(
+			"FAN_IN_RESULTS_" + fan_out_id,
+			0,
+			-1
+		)
+		
+		# Delete the return data
+		pipeline.delete(
+			"FAN_IN_RESULTS_" + fan_out_id
+		)
+		
+		returned_data = pipeline.execute()
+		
+		# Raise an exception if the GET fails
+		# This is how we achieve idempotency
+		if returned_data[ 0 ] == None:
+			raise AlreadyInvokedException()
+			
+		# Decode returned data
+		decoded_return_data = []
+		
+		for returned_data_segment in returned_data[0]:
+			# Try to JSON-decode each segment
+			try:
+				decoded_return_data.append(
+					json.loads(
+						returned_data_segment
+					)
+				)
+			except:
+				decoded_return_data.append(
+					returned_data_segment
+				)
+		
+		return decoded_return_data
+	
+	def _fan_in_operations( self, fan_out_id, return_data, **kwargs ):
+		"""
+		This function either returns False if we're not the last Lambda
+		in the fan-in to be invoked or it returns a key of the data to be
+		passed to the next function after the fan-in as input.
+		"""
+		if not self.redis_client:
+			self.connect()
+		
+		# Do a redis pipeline transaction
+		pipeline = self.redis_client.pipeline()
+		
+		# Push return data into redis
+		pipeline.lpush(
+			"FAN_IN_RESULTS_" + fan_out_id,
+			json.dumps(
+				return_data
+			)
+		)
+		
+		# Update expiration
+		pipeline.expire(
+			"FAN_IN_RESULTS_" + fan_out_id,
+			( 60 * 15 * 3 ), # TODO dynamically calculate based off of nodes in path worst-case
+		)
+		
+		# Decrement fan-in counter
+		pipeline.decr(
+			"FAN_IN_COUNTER_" + fan_out_id
+		)
+		
+		# Get fan-in counter latest value
+		pipeline.get(
+			"FAN_IN_COUNTER_" + fan_out_id
+		)
+		
+		returned_data = pipeline.execute()
+		
+		# Check fan-in counter value
+		# If it's zero, we must move to invoke the next function
+		fan_in_counter_result = int( returned_data[3] )
+		
+		if fan_in_counter_result == 0:
+			# Clean up previous data
+			pipeline = self.redis_client.pipeline()
+			
+			# Delete fan-in counter
+			pipeline.delete(
+				"FAN_IN_COUNTER_" + fan_out_id
+			)
+			
+			returned_data = pipeline.execute()
+			
+			return "FAN_IN_RESULTS_" + fan_out_id
+		
+		return False
 		
 def _parallel_invoke( invoke_queue ):
 	# TODO potential speed up by using a redis transaction to store all Lambda input data
@@ -241,6 +345,35 @@ def _parallel_invoke( invoke_queue ):
 				"indirect": {
 					"type": "redis",
 					"key": storage_key,
+				},
+				"parallel": False,
+				"execution_id": execution_id,
+				"fan_out_ids": fan_out_ids,
+			}
+		}
+		
+		lambda_client = boto3.client(
+			"lambda"
+		)
+	
+		response = lambda_client.invoke(
+			FunctionName=arn,
+			InvocationType="Event",
+			LogType="None",
+			Payload=json.dumps(
+				return_wrapper_data
+			)
+		)
+		
+		raise SystemExit
+		
+	# Invokes a Lambda asynchronously with fan-in results as input
+	def lambda_invoker_worker_fan_in( execution_id, fan_out_ids, arn, fan_out_id ):
+		return_wrapper_data = {
+			"_refinery": {
+				"indirect": {
+					"type": "redis_fan_in",
+					"key": fan_out_id,
 				},
 				"parallel": False,
 				"execution_id": execution_id,
@@ -315,6 +448,18 @@ def _parallel_invoke( invoke_queue ):
 					new_invoke_data[ "fan_out_ids" ],
 					new_invoke_data[ "arn" ],
 					new_invoke_data[ "input_data" ]
+				)
+			)
+			new_thread.start()
+			time.sleep(0.05) # Annoying wedge due to boto3 bug
+		elif new_invoke_data[ "type" ] == "lambda_fan_in":
+			new_thread = threading.Thread(
+				target=lambda_invoker_worker_fan_in,
+				args=(
+					new_invoke_data[ "execution_id" ],
+					new_invoke_data[ "fan_out_ids" ],
+					new_invoke_data[ "arn" ],
+					new_invoke_data[ "fan_out_id" ]
 				)
 			)
 			new_thread.start()
@@ -511,6 +656,16 @@ def _init( lambda_input, context ):
 					print( "This Lambda has already been invoked (or the return data has expired). For this reason we are quitting out." )
 					return
 				_side_loaded = True
+			# Input data is stored in redis as a list from a fan-in
+			elif lambda_input[ "_refinery" ][ "indirect" ][ "type" ] == "redis_fan_in":
+				try:
+					lambda_input = gmemory._fan_in_get_results_data(
+						lambda_input[ "_refinery" ][ "indirect" ][ "key" ]
+					)
+				except AlreadyInvokedException as e:
+					print( "This Lambda has already been invoked (or the return data has expired). For this reason we are quitting out." )
+					return
+				_side_loaded = True
 		
 		if not _side_loaded and "input_data" in lambda_input[ "_refinery" ]:
 			lambda_input = lambda_input[ "_refinery" ][ "input_data" ]
@@ -600,6 +755,29 @@ def _init( lambda_input, context ):
 						return_item_data
 					)
 				)
+			})
+			
+	# For fan-in
+	for fan_in_transition_data in transitions[ "fan-in" ]:
+		# Get last fan-out ID
+		fan_out_id = fan_out_ids.pop()
+		
+		# First we push our returned data into the results list
+		fan_in_results = gmemory._fan_in_operations(
+			fan_out_id,
+			return_data
+		)
+		
+		# If we're the final invocation in the fan-in we
+		# will invoke the next Lambda with the return data
+		# array as the input.
+		if fan_in_results:
+			invocation_input_list.append({
+				"execution_id": execution_id,
+				"fan_out_ids": fan_out_ids,
+				"type": "lambda_fan_in",
+				"arn": fan_in_transition_data[ "arn" ],
+				"fan_out_id": fan_out_id
 			})
 	
 	# If it's just a then, just invoke the next Lambda
