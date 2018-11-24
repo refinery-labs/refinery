@@ -601,6 +601,7 @@ def _init( lambda_input, context ):
 	)
 
 	# TODO add timer
+	
 	# Bake in AWS region
 	aws_region = "{{AWS_REGION_REPLACE_ME}}"
 	
@@ -664,6 +665,7 @@ def _init( lambda_input, context ):
 					return
 				_side_loaded = True
 		
+		# Just directly passed input data
 		if not _side_loaded and "input_data" in lambda_input[ "_refinery" ]:
 			lambda_input = lambda_input[ "_refinery" ][ "input_data" ]
 	
