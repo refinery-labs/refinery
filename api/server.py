@@ -3274,75 +3274,6 @@ def create_lambda_api_route( api_gateway_id, http_method, route, lambda_name, ov
 	pprint(
 		resources
 	)
-	
-@gen.coroutine
-def api_gateway_test():
-	api_gateway_name = "example"
-	overwrite_existing = True
-	
-	print( "List of all API gateways: " )
-	api_gateways = yield local_tasks.get_rest_apis()
-	
-	target_gateway_id = False
-	
-	# Get the ID of a previous gateway of the same name
-	# (If it exists)
-	for api_gateway in api_gateways:
-		print( api_gateway )
-		if api_gateway[ "name" ] == api_gateway_name:
-			target_gateway_id = api_gateway[ "id" ]
-			break
-	
-	# Previous API gateway exists, so delete it
-	if target_gateway_id and overwrite_existing:
-		print( "Deleting previous API Gateway..." )
-		deletion_result = yield local_tasks.delete_rest_api(
-			target_gateway_id
-		)
-	elif target_gateway_id and not overwrite_existing:
-		print( "Overwriting was disabled and API Gateway with the same name exists! Returning False...")
-		raise gen.Return( False )
-	
-	# Create API Gateway
-	create_gateway_result = yield local_tasks.create_rest_api(
-		api_gateway_name,
-		api_gateway_name, # Human readable name, just do the ID for now
-		"1.0.0"
-	)
-	
-	api_gateway_id = create_gateway_result[ "id" ]
-	
-	yield create_lambda_api_route(
-		api_gateway_id,
-		"GET",
-		"/api/wat",
-		"API_Gateway_Lambda",
-		True
-	)
-	
-	yield create_lambda_api_route(
-		api_gateway_id,
-		"POST",
-		"/api/wat",
-		"API_Gateway_Lambda",
-		True
-	)
-	
-	yield create_lambda_api_route(
-		api_gateway_id,
-		"PUT",
-		"/api/wat",
-		"API_Gateway_Lambda",
-		True
-	)
-	
-	yield create_lambda_api_route(
-		api_gateway_id,
-		"DELETE",
-		"/api/wat",
-		"API_Gateway_Lambda",
-		True
-	)
 		
 def make_app( is_debug ):
 	# Convert to bool
@@ -3389,6 +3320,5 @@ if __name__ == "__main__":
 	)
 	Base.metadata.create_all( engine )
 	#tornado.ioloop.IOLoop.current().run_sync( warm_lambda_base_caches )
-	#tornado.ioloop.IOLoop.current().run_sync( api_gateway_test )
 	server.start()
 	tornado.ioloop.IOLoop.current().start()
