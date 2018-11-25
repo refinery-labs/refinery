@@ -1548,11 +1548,13 @@ var app = new Vue({
 					app.back_to_editor();
 				}
 				
-				toastr.success( "Infrastructure torn down successfully!" );
-				
-				$( "#infrastructureteardown_modal" ).modal(
-					"hide"
-				);
+				// Hack around modal fuckery
+				setTimeout(function() {
+					toastr.success( "Infrastructure torn down successfully!" );
+					$( "#infrastructureteardown_modal" ).modal(
+						"hide"
+					);
+				}, ( 1000 * 1 ) );
 				
 				app.deployment_data.exists = false;
 			}

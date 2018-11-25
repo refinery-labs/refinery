@@ -831,7 +831,7 @@
 					</div>
 					<div v-if="state_transition_conditional_data.type == 'fan-out'">
 						<div class="alert alert-primary" role="alert">
-							<b>Note:</b> If performing a large <code>fan-out</code> operation it is advisable to upgrade the Execution Memory of the invoking Lambda. This is because the CPU is scaled proportionally to the Execution Memory. For example, a 128MB Lambda would take 35+ seconds to invoke 100 Lambdas while a 1024MB Lambda would take only 6 seconds.
+							<b>Note:</b> If performing a large <code>fan-out</code> operation it is advisable to upgrade the Execution Memory of the invoking Lambda. This is because the CPU is scaled proportionally to the Execution Memory. For example, a 128 MB Lambda would take 25+ seconds to invoke 100 Lambdas while a 640 MB Lambda would take only ~5 seconds.
 						</div>
 						<hr />
 					</div>

@@ -4,7 +4,16 @@
 # vim: set fileencoding=utf8 :
 import boto3
 import json
+import yaml
 import os
+
+# Debugging shunt for setting environment variables from yaml
+with open( "config.yaml", "r" ) as file_handler:
+    settings = yaml.safe_load(
+        file_handler.read()
+    )
+    for key, value in settings.iteritems():
+        os.environ[ key ] = str( value )
 
 IAM_CLIENT = boto3.client(
     "iam",
@@ -12,6 +21,37 @@ IAM_CLIENT = boto3.client(
     aws_secret_access_key=os.environ.get( "aws_secret_key" ),
     region_name=os.environ.get( "region_name" )
 )
+
+def clear_previous_iam():
+	paired_iams = [
+		{
+			"role_name": "refinery_aws_lambda_admin_role",
+			"policy_arn": "arn:aws:iam::" + os.environ.get( "aws_account_id" ) + ":policy/refinery_aws_lambda_admin_policy",
+		},
+		{
+			"role_name": "refinery_aws_cloudwatch_admin_role",
+			"policy_arn": "arn:aws:iam::" + os.environ.get( "aws_account_id" ) + ":policy/refinery_aws_cloudwatch_admin_policy",
+		}
+	]
+	
+	
+	for paired_iam in paired_iams:
+		print( "Deleting role '" + paired_iam[ "role_name" ] + "' and its associated policies..." )
+		try:
+			IAM_CLIENT.detach_role_policy(
+				RoleName=paired_iam[ "role_name" ],
+				PolicyArn=paired_iam[ "policy_arn" ]
+			)
+			
+			IAM_CLIENT.delete_role(
+				RoleName=paired_iam[ "role_name" ]
+			)
+			
+			IAM_CLIENT.delete_policy(
+				PolicyArn=paired_iam[ "policy_arn" ]
+			)
+		except:
+			print( "Error deleting policy, may not already exist? Continuing...")
 		
 def setup_lambda_iam():
 	iam_role_name = "refinery_aws_lambda_admin_role"
@@ -52,6 +92,13 @@ def setup_lambda_iam():
 					"Effect": "Allow",
 					"Principal": {
 						"Service": "events.amazonaws.com"
+					},
+					"Action": "sts:AssumeRole"
+				},
+				{
+					"Effect": "Allow",
+					"Principal": {
+						"Service": "s3.amazonaws.com"
 					},
 					"Action": "sts:AssumeRole"
 				}
@@ -174,6 +221,7 @@ def setup_events_iam():
 	
 	return iam_role_arn
 
+clear_previous_iam()
 cloudwatch_iam_role_arn = setup_events_iam()
 lambda_iam_role_arn = setup_lambda_iam()
 print( """
