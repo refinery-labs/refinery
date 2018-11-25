@@ -326,6 +326,37 @@ class Refinery_Memory:
 		
 		return False
 		
+	def _bulk_store_input_data( self, lambda_invocation_list ):
+		"""
+		Uses a redis pipeline to quickly store all the input data
+		in the input lambda_invocation_list and replace "input_data"
+		with a redis key for each.
+		"""
+		if not self.redis_client:
+			self.connect()
+			
+		# Do a redis pipeline transaction
+		pipeline = self.redis_client.pipeline()
+		
+		for i in range( len( lambda_invocation_list ) ):
+			new_input_data_key = str( uuid.uuid4() )
+
+			pipeline.setex(
+				new_input_data_key,
+				self.return_data_timeout,
+				json.dumps(
+					lambda_invocation_list[ i ][ "input_data" ]
+				)
+			)
+			
+			del lambda_invocation_list[ i ][ "input_data" ]
+			lambda_invocation_list[ i ][ "input_data_key" ] = new_input_data_key
+			
+		# Execute in one quick transaction
+		returned_data = pipeline.execute()
+			
+		return lambda_invocation_list
+		
 def _parallel_invoke( invoke_queue ):
 	# TODO potential speed up by using a redis transaction to store all Lambda input data
 	# in one pipelined action instead of the current request/response model.
@@ -337,14 +368,12 @@ def _parallel_invoke( invoke_queue ):
 	max_threads = 50
 	
 	# Invokes a Lambda asynchronously
-	def lambda_invoker_worker( execution_id, fan_out_ids, arn, input_data ):
-		storage_key = gmemory._store_return_data_to_redis( input_data )
-		
+	def lambda_invoker_worker( execution_id, fan_out_ids, arn, return_key ):
 		return_wrapper_data = {
 			"_refinery": {
 				"indirect": {
 					"type": "redis",
-					"key": storage_key,
+					"key": return_key,
 				},
 				"parallel": False,
 				"execution_id": execution_id,
@@ -447,7 +476,7 @@ def _parallel_invoke( invoke_queue ):
 					new_invoke_data[ "execution_id" ],
 					new_invoke_data[ "fan_out_ids" ],
 					new_invoke_data[ "arn" ],
-					new_invoke_data[ "input_data" ]
+					new_invoke_data[ "input_data_key" ]
 				)
 			)
 			new_thread.start()
@@ -494,6 +523,34 @@ def _parallel_invoke( invoke_queue ):
 		"lambda"
 	)
 	
+	# First iterate over all the invocations and load the input data
+	# into redis in a single transaction/pipeline to speed it up.
+	new_invoke_queue = []
+	
+	# Create a special list for Lambdas to load the input data at once
+	lambda_invoke_list = []
+	
+	while len( invoke_queue ) > 0:
+		new_invoke_data = invoke_queue.pop()
+		
+		if new_invoke_data[ "type" ] == "lambda":
+			lambda_invoke_list.append(
+				new_invoke_data
+			)
+		else:
+			new_invoke_queue.append(
+				new_invoke_data
+			)
+			
+	# Process the Lambda's input_data
+	# input_data is replaced with return_key
+	lambda_invoke_list = gmemory._bulk_store_input_data(
+		lambda_invoke_list
+	)
+	
+	# Combine resulting lists
+	invoke_queue = new_invoke_queue + lambda_invoke_list
+	
 	# Keep looping while there's still Lambdas to invoke
 	while len( invoke_queue ) > 0:
 		# If we've not maxing out acive threads then spawn new ones
@@ -505,6 +562,7 @@ def _parallel_invoke( invoke_queue ):
 			# Iterate over our active threads and remove finished
 			new_active_thread_list = []
 			already_spawned = False
+			
 			# Check if any threads are finished
 			for active_thread in active_threads:
 				if active_thread.is_alive():
@@ -525,11 +583,6 @@ def _parallel_invoke( invoke_queue ):
 	return
 
 def _api_endpoint( lambda_input, execution_id, context ):
-	print( "Lambda context: " )
-	print( context )
-	print( "Lambda input: " )
-	print( lambda_input )
-	
     # This will spin and continually query redis until either
     # we time out without getting our HTTP response OR we return
     # our response to the client.
