@@ -1,16 +1,10 @@
 * Fix SQL injection in ilike SQLAlchemy statements
 * Add programming language indicator for conditional transition expression editor
-* Add pre-check before deploy to point out if overwriting will occur
-	* Prompt to overwrite, write with renamed, or to cancel.
 * Fix API calls to reject promises properly and add JS Toastr support https://github.com/CodeSeven/toastr
-* Add ability to save projects
-* Add ability to save Lambdas
 * Add advanced logging ability for production deployed pipelines
 	* Allow walking through the pipeline execution chain visual
 	* View `input_data` and `return_data` at each node.
-* Add parallel Lambda execution
 
-* BigQuery Auto Importer does too many daily loads! Make every 3 minutes or something...
 ---
 * Create Chrome extension for generating code for refinery from HTTP traffic
 * Add the ability to run code locally for testing
