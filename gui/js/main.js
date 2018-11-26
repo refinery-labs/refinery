@@ -1,4 +1,4 @@
-var API_SERVER = "http://localhost:7777";
+var API_SERVER = window.location.origin.toString();
 
 var DEFAULT_LAMBDA_CODE = {
 	"python2.7": `

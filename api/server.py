@@ -54,12 +54,15 @@ reload( sys )
 sys.setdefaultencoding( "utf8" )
 
 # Debugging shunt for setting environment variables from yaml
-with open( "config.yaml", "r" ) as file_handler:
-    settings = yaml.safe_load(
-        file_handler.read()
-    )
-    for key, value in settings.iteritems():
-        os.environ[ key ] = str( value )
+try:
+    with open( "config.yaml", "r" ) as file_handler:
+        settings = yaml.safe_load(
+            file_handler.read()
+        )
+        for key, value in settings.iteritems():
+            os.environ[ key ] = str( value )
+except:
+    print( "No config.yaml specified, assuming environmental variables are all set!" )
 
 def on_start():
 	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES
@@ -3276,9 +3279,6 @@ def create_lambda_api_route( api_gateway_id, http_method, route, lambda_name, ov
 	)
 		
 def make_app( is_debug ):
-	# Convert to bool
-	is_debug = ( is_debug.lower() == "true" )
-	
 	tornado_app_settings = {
 		"debug": is_debug,
 	}
@@ -3311,7 +3311,9 @@ if __name__ == "__main__":
 	print( "Starting server..." )
 	# Re-initiate things
 	on_start()
-	app = make_app( "true" )
+	app = make_app(
+                ( os.environ.get( "is_debug" ).lower() == "true" )
+        )
 	server = tornado.httpserver.HTTPServer(
 		app
 	)
