@@ -1,0 +1,38 @@
+version: "3"
+services:
+    refinery:
+        build: .
+        depends_on:
+            - postgresdb
+        environment:
+            access_control_allow_origin: http://localhost:1234
+            aws_access_key: AKIA*************
+            aws_secret_key: fkQE*************
+            aws_account_id: 1487********
+            region_name: us-west-2
+            lambda_role: arn:aws:iam::1487********:role/refinery_aws_lambda_admin_role
+            events_role: arn:aws:iam::1487********:role/refinery_aws_cloudwatch_admin_role
+            vpc_data: "{}"
+            postgreql_username: refinery
+            postgreql_password: refinery
+            postgres_db: refinery
+            postgresql_host: postgresdb
+            lambda_redis_hostname: redis_hostname
+            lambda_redis_password: redis_auth_password 
+            sqs_job_templates_s3_bucket: sqs_job_templates_bucket
+            tmp_lambda_packages_bucket: tmp_lambda_packages_bucket
+            postgreql_username: refinery
+            postgreql_password: refinery
+            postgres_db: refinery
+            postgresql_host: postgresdb
+            is_debug: "false"
+        ports:
+            - "1234:1234"
+    postgresdb:
+        image: postgres
+        environment:
+            POSTGRES_PASSWORD: refinery
+            POSTGRES_USER: refinery
+            POSTGRES_DB: refinery
+        ports:
+            - "5432:5432"
