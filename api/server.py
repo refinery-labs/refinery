@@ -17,6 +17,7 @@ import json
 import yaml
 import copy
 import time
+import jwt
 import sys
 import os
 import io
@@ -52,6 +53,9 @@ DEPENDENCY_CACHE = ExpiringDict(
 
 reload( sys )
 sys.setdefaultencoding( "utf8" )
+
+# Cloudflare Access public keys
+CF_ACCESS_PUBLIC_KEYS = []
 
 # Debugging shunt for setting environment variables from yaml
 try:
@@ -198,6 +202,40 @@ class BaseHandler( tornado.web.RequestHandler ):
 		logit( message )
 		
 	def prepare( self ):
+		"""
+		Cloudflare auth JWT validation
+		"""
+		if os.environ.get( "cf_enabled" ).lower() == "true":
+			cf_authorization_cookie = self.get_cookie( "CF_Authorization" )
+			
+			if not cf_authorization_cookie:
+				self.error(
+					"Error, no Cloudflare Access 'CF_Authorization' cookie set.",
+					"CF_ACCESS_NO_COOKIE"
+				)
+				raise gen.Return()
+				
+			valid_token = False
+			
+			for public_key in CF_ACCESS_PUBLIC_KEYS:
+				try:
+					jwt.decode(
+						cf_authorization_cookie,
+						key=public_key,
+						audience=os.environ.get( "cf_policy_aud" )
+					)
+					valid_token = True
+				except:
+					pass
+			
+			if not valid_token:
+				print( "Cloudflare Access verification check failed." )
+				self.error(
+					"Error, Cloudflare Access verification check failed.",
+					"CF_ACCESS_DENIED"
+				)
+				raise gen.Return()
+		
 		csrf_validated = self.request.headers.get(
 			"X-CSRF-Validation-Header",
 			False
@@ -3277,6 +3315,51 @@ def create_lambda_api_route( api_gateway_id, http_method, route, lambda_name, ov
 	pprint(
 		resources
 	)
+	
+@gen.coroutine
+def get_cloudflare_keys():
+	"""
+	Get keys to validate inbond JWTs
+	"""
+	global CF_ACCESS_PUBLIC_KEYS
+	CF_ACCESS_PUBLIC_KEYS = []
+	
+	# Update public keys every hour
+	public_keys_update_interval = (
+		60 * 60 * 1
+	)
+	
+	print( "Requesting Cloudflare's Access keys for '" + os.environ.get( "cf_certs_url" ) + "'..." )
+	client = AsyncHTTPClient()
+	
+	request = HTTPRequest(
+		url=os.environ.get( "cf_certs_url" ),
+		method="GET",
+	)
+	
+	response = yield client.fetch(
+		request
+	)
+	
+	response_data = json.loads(
+		response.body
+	)
+	
+	for key_dict in response_data[ "keys" ]:
+		public_key = jwt.algorithms.RSAAlgorithm.from_jwk(
+			json.dumps(
+				key_dict
+			)
+		)
+		CF_ACCESS_PUBLIC_KEYS.append(
+			public_key
+		)
+	
+	print( "Private keys to be updated again in " + str( public_keys_update_interval ) + " second(s)..." )
+	tornado.ioloop.IOLoop.current().add_timeout(
+		time.time() + public_keys_update_interval,
+		get_cloudflare_keys
+	)
 		
 def make_app( is_debug ):
 	tornado_app_settings = {
@@ -3322,5 +3405,8 @@ if __name__ == "__main__":
 	)
 	Base.metadata.create_all( engine )
 	#tornado.ioloop.IOLoop.current().run_sync( warm_lambda_base_caches )
+	if os.environ.get( "cf_enabled" ).lower() == "true":
+		tornado.ioloop.IOLoop.current().run_sync( get_cloudflare_keys )
+		
 	server.start()
 	tornado.ioloop.IOLoop.current().start()

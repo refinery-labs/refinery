@@ -18,3 +18,5 @@ six==1.11.0
 SQLAlchemy==1.2.11
 tornado==5.1
 urllib3==1.23
+PyJWT==1.6.4
+cryptography==2.4.2
