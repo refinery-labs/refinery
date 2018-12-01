@@ -59,14 +59,14 @@ CF_ACCESS_PUBLIC_KEYS = []
 
 # Debugging shunt for setting environment variables from yaml
 try:
-    with open( "config.yaml", "r" ) as file_handler:
-        settings = yaml.safe_load(
-            file_handler.read()
-        )
-        for key, value in settings.iteritems():
-            os.environ[ key ] = str( value )
+	with open( "config.yaml", "r" ) as file_handler:
+		settings = yaml.safe_load(
+			file_handler.read()
+		)
+		for key, value in settings.iteritems():
+			os.environ[ key ] = str( value )
 except:
-    print( "No config.yaml specified, assuming environmental variables are all set!" )
+	print( "No config.yaml specified, assuming environmental variables are all set!" )
 
 def on_start():
 	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES
@@ -95,12 +95,12 @@ def on_start():
 				"{{REDIS_HOSTNAME_REPLACE_ME}}",
 				os.environ.get( "lambda_redis_hostname" )
 			)
-        
+		
 S3_CLIENT = boto3.client(
-    "s3",
-    aws_access_key_id=os.environ.get( "aws_access_key" ),
-    aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-    region_name=os.environ.get( "region_name" )
+	"s3",
+	aws_access_key_id=os.environ.get( "aws_access_key" ),
+	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+	region_name=os.environ.get( "region_name" )
 )
 
 LAMBDA_CONFIG = Config(
@@ -108,60 +108,60 @@ LAMBDA_CONFIG = Config(
 	read_timeout=( 60 * 15 )
 )
 LAMBDA_CLIENT = boto3.client(
-    "lambda",
-    aws_access_key_id=os.environ.get( "aws_access_key" ),
-    aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-    region_name=os.environ.get( "region_name" ),
+	"lambda",
+	aws_access_key_id=os.environ.get( "aws_access_key" ),
+	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+	region_name=os.environ.get( "region_name" ),
 	config=LAMBDA_CONFIG
 )
 
 SFN_CLIENT = boto3.client(
-    "stepfunctions",
-    aws_access_key_id=os.environ.get( "aws_access_key" ),
-    aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-    region_name=os.environ.get( "region_name" )
+	"stepfunctions",
+	aws_access_key_id=os.environ.get( "aws_access_key" ),
+	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+	region_name=os.environ.get( "region_name" )
 )
 
 EVENTS_CLIENT = boto3.client(
 	"events",
-    aws_access_key_id=os.environ.get( "aws_access_key" ),
-    aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-    region_name=os.environ.get( "region_name" )
+	aws_access_key_id=os.environ.get( "aws_access_key" ),
+	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+	region_name=os.environ.get( "region_name" )
 )
 
 SQS_CLIENT = boto3.client(
 	"sqs",
-    aws_access_key_id=os.environ.get( "aws_access_key" ),
-    aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-    region_name=os.environ.get( "region_name" )
+	aws_access_key_id=os.environ.get( "aws_access_key" ),
+	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+	region_name=os.environ.get( "region_name" )
 )
 
 SNS_CLIENT = boto3.client(
 	"sns",
-    aws_access_key_id=os.environ.get( "aws_access_key" ),
-    aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-    region_name=os.environ.get( "region_name" )
+	aws_access_key_id=os.environ.get( "aws_access_key" ),
+	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+	region_name=os.environ.get( "region_name" )
 )
 
 CLOUDWATCH_LOGS_CLIENT = boto3.client(
 	"logs",
-    aws_access_key_id=os.environ.get( "aws_access_key" ),
-    aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-    region_name=os.environ.get( "region_name" )
+	aws_access_key_id=os.environ.get( "aws_access_key" ),
+	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+	region_name=os.environ.get( "region_name" )
 )
 
 CLOUDWATCH_CLIENT = boto3.client(
 	"cloudwatch",
-    aws_access_key_id=os.environ.get( "aws_access_key" ),
-    aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-    region_name=os.environ.get( "region_name" )
+	aws_access_key_id=os.environ.get( "aws_access_key" ),
+	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+	region_name=os.environ.get( "region_name" )
 )
 
 APIGATEWAY_CLIENT = boto3.client(
 	"apigateway",
-    aws_access_key_id=os.environ.get( "aws_access_key" ),
-    aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-    region_name=os.environ.get( "region_name" )
+	aws_access_key_id=os.environ.get( "aws_access_key" ),
+	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+	region_name=os.environ.get( "region_name" )
 )
 
 def pprint( input_dict ):
@@ -797,7 +797,7 @@ class TaskSpawner(object):
 			#code = LAMDBA_BASE_CODES[ "python2.7" ] + "\n\n" + code
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "python2.7" ]
 			
-			code = code.replace( "\t", "    " )
+			code = code.replace( "\t", "	" )
 			
 			code = code.replace( "\"{{TRANSITION_DATA_REPLACE_ME}}\"", json.dumps( json.dumps( transitions ) ) )
 			code = code.replace( "{{AWS_REGION_REPLACE_ME}}", os.environ.get( "region_name" ) )
@@ -1240,9 +1240,9 @@ class TaskSpawner(object):
 				version=version,
 				apiKeySource="HEADER",
 				endpointConfiguration={
-				    "types": [
-				        "EDGE",
-				    ]
+					"types": [
+						"EDGE",
+					]
 				}
 			)
 			
@@ -1453,6 +1453,49 @@ local_tasks = TaskSpawner()
 def get_random_node_id():
 	return "n" + str( uuid.uuid4() ).replace( "-", "" )
 
+class RunLambda( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Run a Lambda which has been deployed in production.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"input_data": {},
+				"arn": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"input_data",
+				"arn"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit( "Running Lambda with ARN of '" + self.json[ "arn" ] + "'..." )
+		
+		# Try to parse Lambda input as JSON
+		try:
+			self.json[ "input_data" ] = json.loads(
+				self.json[ "input_data" ]
+			)
+		except:
+			pass
+		
+		self.logit( "Executing Lambda..." )
+		lambda_result = yield local_tasks.execute_aws_lambda(
+			self.json[ "arn" ],
+			self.json[ "input_data" ],
+		)
+		
+		self.write({
+			"success": True,
+			"result": lambda_result
+		})
+		
 class RunTmpLambda( BaseHandler ):
 	@gen.coroutine
 	def post( self ):
@@ -3377,6 +3420,7 @@ def make_app( is_debug ):
 		( r"/api/v1/lambdas/create", SavedLambdaCreate ),
 		( r"/api/v1/lambdas/search", SavedLambdaSearch ),
 		( r"/api/v1/lambdas/delete", SavedLambdaDelete ),
+		( r"/api/v1/lambdas/run", RunLambda ),
 		( r"/api/v1/aws/create_schedule_trigger", CreateScheduleTrigger ),
 		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda ),
 		( r"/api/v1/aws/create_sqs_trigger", CreateSQSQueueTrigger ),
@@ -3395,8 +3439,8 @@ if __name__ == "__main__":
 	# Re-initiate things
 	on_start()
 	app = make_app(
-                ( os.environ.get( "is_debug" ).lower() == "true" )
-        )
+				( os.environ.get( "is_debug" ).lower() == "true" )
+		)
 	server = tornado.httpserver.HTTPServer(
 		app
 	)

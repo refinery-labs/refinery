@@ -9,8 +9,9 @@ RUN pip install -r /work/requirements.txt
 
 COPY ./nginx-config /etc/nginx/sites-enabled/default
 
-COPY ./gui /work/gui/
-COPY ./api /work/api/
+# For dev, uncomment when prod
+#COPY ./gui /work/gui/
+#COPY ./api /work/api/
 COPY ./docker-entrypoint.sh /work/
 
 EXPOSE 1234

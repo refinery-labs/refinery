@@ -559,7 +559,8 @@
 		    <div class="modal-dialog modal-lg modal-full-screen" role="document">
 		        <div class="modal-content">
 		            <div class="modal-header">
-		                <h5 class="modal-title" id="lambda_editor_popup_label">Edit Lambda</h5>
+		                <h5 class="modal-title" id="lambda_editor_popup_label" v-if="ide_mode == 'LOCAL_IDE'">Edit Lambda</h5>
+		                <h5 class="modal-title" id="lambda_editor_popup_label" v-if="ide_mode == 'DEPLOYMENT_VIEWER'">Run Lambda</h5>
 		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
 		        			<span aria-hidden="true">&times;</span>
 		        		</button>
@@ -570,7 +571,7 @@
 							<editor style="height: 600px" editor-id="lambda_code_large" theme="monokai" v-bind:lang="ace_language_to_lang_id_map[lambda_language]" :content="lambda_code" v-on:change-content="lambda_code_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
 							<br />
 							<h5>Lambda Input Data (for testing)</h5>
-							<editor style="height: 100px" editor-id="lambda_input_data" theme="monokai" v-bind:lang="ace_language_to_lang_id_map[lambda_language]" v-on:change-content="lambda_input_change" :content="lambda_input" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
+							<editor style="height: 100px" editor-id="lambda_input_data" theme="monokai" v-bind:lang="ace_language_to_lang_id_map[lambda_language]" v-on:change-content="lambda_input_change" :content="lambda_input"></editor>
 						</div>
 		            </div>
 		            <div class="modal-footer">
@@ -579,6 +580,9 @@
 			            	<button type="submit" class="btn btn-primary" v-on:click="view_tmp_lambda_output" v-if="lambda_exec_result">View Last Lambda Run</button>
 			            	<button type="submit" class="btn btn-primary" v-on:click="update_lambda">Save Lambda</button>
 			            	<button type="submit" class="btn btn-primary" v-on:click="save_lambda_and_project">Save Lambda & Project</button>
+		            	</div>
+		            	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+		            		<button type="submit" class="btn btn-primary" v-on:click="run_deployed_lambda">Run Lambda</button>
 		            	</div>
 		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
 		            </div>
@@ -1070,6 +1074,8 @@
             		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_current_lambda_node_in_monitoring">View Lambda Monitoring Graphs >> </button>
             		<hr />
             		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_current_lambda_node_in_cloudwatch">View CloudWatch log(s) >> </button>
+            		<hr />
+            		<button type="submit" class="btn btn-success" style="width: 100%" v-on:click="fullscreen_lambda_editor">Run Lambda >> </button>
             		<hr />
             	</div>
                 <h2>Modify Lambda</h2>

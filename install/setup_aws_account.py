@@ -5,6 +5,7 @@
 import boto3
 import json
 import yaml
+import uuid
 import os
 
 # Debugging shunt for setting environment variables from yaml
@@ -14,6 +15,13 @@ with open( "config.yaml", "r" ) as file_handler:
     )
     for key, value in settings.iteritems():
         os.environ[ key ] = str( value )
+
+S3_CLIENT = boto3.client(
+    "s3",
+    aws_access_key_id=os.environ.get( "aws_access_key" ),
+    aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+    region_name=os.environ.get( "region_name" )
+)
 
 IAM_CLIENT = boto3.client(
     "iam",
@@ -220,7 +228,50 @@ def setup_events_iam():
 	)
 	
 	return iam_role_arn
+	
+def create_refinery_buckets():
+	random_ext = str(
+		uuid.uuid4()
+	).replace( "-", "" )
+	
+	sqs_template_bucket_name = "sqstemplatebucket-" + random_ext
+	S3_CLIENT.create_bucket(
+		Bucket=sqs_template_bucket_name,
+		ACL="private"
+	)
+	
+	lambda_package_bucket_name = "lambdabuildpackages-" + random_ext
+	S3_CLIENT.create_bucket(
+		Bucket=lambda_package_bucket_name,
+	)
+	
+	lifecycle_response = S3_CLIENT.put_bucket_lifecycle_configuration(
+		Bucket=lambda_package_bucket_name,
+		LifecycleConfiguration={
+            "Rules": [
+                {
+                    "ID": "autoexpire",
+                    "Prefix": "",
+                    "Status": "Enabled",
+                    "Expiration": {
+                        "Days": 1
+                    }
+                }
+            ]
+        }
+	)
+	
+	print( "Lifecycle response: " )
+	print( lifecycle_response )
+	
+	print( "SQS bucket name: " )
+	print( sqs_template_bucket_name )
+	print( "Lambda package bucket name: " )
+	print( lambda_package_bucket_name )
+	
 
+create_refinery_buckets()
+exit()
 clear_previous_iam()
 cloudwatch_iam_role_arn = setup_events_iam()
 lambda_iam_role_arn = setup_lambda_iam()

@@ -855,6 +855,17 @@ function delete_saved_lambdas( id ) {
 	);
 }
 
+function run_deployed_lambda( arn, input_data ) {
+	return api_request(
+		"POST",
+		"api/v1/lambdas/run",
+		{
+            "arn": arn,
+			"input_data": input_data,
+		}
+	);
+}
+
 function run_tmp_lambda( language, code, libraries, memory, max_execution_time, input_data ) {
 	return api_request(
 		"POST",
@@ -2383,6 +2394,29 @@ def example( parameter ):
 		project_export_data_change: function( val ) {
 			// Stub
 		},
+		run_deployed_lambda: async function() {
+			// Clear previous result
+			app.lambda_exec_result = false;
+			app.lambda_build_time = 0;
+			
+			// Time build
+			var start_time = Date.now();
+			
+			// Show output modal
+            app.view_tmp_lambda_output();
+            
+            // Run Lambda with input
+            var results = await run_deployed_lambda(
+                app.selected_node_data.arn,
+                app.lambda_input
+            );
+            
+			console.log( "Run Lambda results: " );
+			console.log( results );
+			var delta = Date.now() - start_time;
+			app.lambda_build_time = ( delta / 1000 );
+			app.lambda_exec_result = results.result;
+		},
 		view_tmp_lambda_output: function() {
 			$( "#runtmplambda_output" ).modal(
 				"show"
@@ -2396,10 +2430,9 @@ def example( parameter ):
 			// Time build
 			var start_time = Date.now();
 			
-			$( "#runtmplambda_output" ).modal(
-				"show"
-			);
-			
+			// Show output modal
+            app.view_tmp_lambda_output();
+            
 			run_tmp_lambda(
 				app.lambda_language,
 				app.lambda_code,
