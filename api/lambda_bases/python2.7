@@ -8,14 +8,50 @@ Allows for single-millisecond retrieval and setting
 of data in the main redis memory cache.
 """
 import os
+import sys
 import uuid
 import json
 import time
 import redis
 import pickle
 import boto3
+import StringIO
 import traceback
 import threading
+
+class Logger( object ):
+    def __init__( self ):
+        self.stdout = sys.stdout
+        self.file = StringIO.StringIO()
+        sys.stdout = self
+        sys.stderr = self
+
+    def __del__(self):
+        self.close()
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, *args):
+        self.close()
+
+    def write(self, message):
+        self.stdout.write(message)
+        self.file.write(message)
+
+    def flush(self):
+        self.stdout.flush()
+        self.file.flush()
+        os.fsync(self.file.fileno())
+
+    def close(self):
+        if self.stdout != None:
+            sys.stdout = self.stdout
+            self.stdout = None
+
+        if self.file != None:
+            self.file.close()
+            self.file = None
 
 class AlreadyInvokedException( Exception ):
 	def __init__( self, message="This function has already been invoked!" ):
@@ -568,14 +604,6 @@ def _parallel_invoke( invoke_queue ):
 	
 	while len( invoke_queue ) > 0:
 		new_invoke_data = invoke_queue.pop()
-		"""
-		TODO, measure the input payload size to see if it's over
-		the Lambda "Event" invocation maximum of 256 KB:
-		https://docs.aws.amazon.com/lambda/latest/dg/limits.html
-		
-		If it is then use redis, else just invoke directly with
-		the input data.
-		"""
 		if new_invoke_data[ "type" ] == "lambda" and len( json.dumps( new_invoke_data[ "input_data" ] ) ) < _MAX_EVENT_LAMBDA_INVOKE_SIZE:
 			new_invoke_queue.append(
 				new_invoke_data
@@ -630,77 +658,129 @@ def _parallel_invoke( invoke_queue ):
 	return
 
 def _api_endpoint( lambda_input, execution_id, context ):
-    # This will spin and continually query redis until either
-    # we time out without getting our HTTP response OR we return
-    # our response to the client.
-    
-    # Continually loop until we have only two seconds left
-    # Max execution time is 30 seconds, so that's 28 seconds
-    timed_out = True
+	# This will spin and continually query redis until either
+	# we time out without getting our HTTP response OR we return
+	# our response to the client.
+	
+	# Continually loop until we have only two seconds left
+	# Max execution time is 30 seconds, so that's 28 seconds
+	timed_out = True
 
-    # As long as we have ~2 seconds of runway left continue
-    # to query redis for our HTTP response data.
-    while context.get_remaining_time_in_millis() > ( 2 * 1000 ):
-    	try:
-	        http_response = gmemory._get_input_data_from_redis(
-	            execution_id
-	        )
+	# As long as we have ~2 seconds of runway left continue
+	# to query redis for our HTTP response data.
+	while context.get_remaining_time_in_millis() > ( 2 * 1000 ):
+		try:
+			http_response = gmemory._get_input_data_from_redis(
+				execution_id
+			)
 		except AlreadyInvokedException as e:
 			http_response = False
-        
-        # When we have a non-None http_response we can
-        # break out of the loop and declare we've not timed out.
-        if http_response:
-            timed_out = False
-            break
-        
-        # Wait a moment before checking again
-        time.sleep( 0.01 )
-    
-    # We've timed out, return an error
-    if timed_out:
-        return {
-        	"statusCode": 504,
-        	"headers": {},
-        	"body": json.dumps({
-        	    "msg": "The request to the backend has timed out.",
-        	    "success": False
-        	}),
-        	"isBase64Encoded": False
-        }
-    
-    # Check if the response is actually in an API Gateway already
-    # If not return as just regular JSON, if it is then return raw
-    if "body" in http_response:
-        return http_response
-    
-    # Return JSON response with the data
-    return {
-    	"statusCode": 200,
-    	"headers": {
-    		"Content-Type": "application/json",
-    		"X-Frame-Options": "deny",
-    		"X-Content-Type-Options": "nosniff",
-    		"X-XSS-Protection": "1; mode=block",
-    		"Cache-Control": "no-cache, no-store, must-revalidate",
-    		"Pragma": "no-cache",
-    		"Expires": "0",
-    		"Server": "refinery"
-    	},
-    	"body": json.dumps( http_response ),
-    	"isBase64Encoded": False
-    }
+		
+		# When we have a non-None http_response we can
+		# break out of the loop and declare we've not timed out.
+		if http_response:
+			timed_out = False
+			break
+		
+		# Wait a moment before checking again
+		time.sleep( 0.01 )
+	
+	# We've timed out, return an error
+	if timed_out:
+		return {
+			"statusCode": 504,
+			"headers": {},
+			"body": json.dumps({
+				"msg": "The request to the backend has timed out.",
+				"success": False
+			}),
+			"isBase64Encoded": False
+		}
+	
+	# Check if the response is actually in an API Gateway already
+	# If not return as just regular JSON, if it is then return raw
+	if "body" in http_response:
+		return http_response
+	
+	# Return JSON response with the data
+	return {
+		"statusCode": 200,
+		"headers": {
+			"Content-Type": "application/json",
+			"X-Frame-Options": "deny",
+			"X-Content-Type-Options": "nosniff",
+			"X-XSS-Protection": "1; mode=block",
+			"Cache-Control": "no-cache, no-store, must-revalidate",
+			"Pragma": "no-cache",
+			"Expires": "0",
+			"Server": "refinery"
+		},
+		"body": json.dumps( http_response ),
+		"isBase64Encoded": False
+	}
+	
+def _write_pipeline_logs( s3_log_bucket, project_id, lambda_arn, lambda_name, execution_pipeline_id, log_type, log_data, execution_details ):
+	s3_client = boto3.client(
+		"s3"
+	)
+	
+	log_id = str( uuid.uuid4() )
+	
+	s3_path = project_id + "/" + execution_pipeline_id + "/" + log_type + "~" + lambda_name + "~" + log_id
+	
+	s3_data = {
+		"id": log_id,
+		"project_id": project_id,
+		"arn": lambda_arn,
+		"name": lambda_name,
+		"type": log_type, # INPUT, EXCEPTION, COMPLETE
+		"data": log_data,
+		"timestamp": int( time.time() )
+	}
+	
+	# Merge in execution_details
+	for key, value in execution_details.iteritems():
+		s3_data[ key ] = value
+
+	response = s3_client.put_object(
+		Bucket=s3_log_bucket,
+		Key=s3_path,
+		Body=json.dumps(
+			s3_data,
+			indent=4,
+			sort_keys=True
+		)
+	)
+	
+	raise SystemExit
 
 def _init( lambda_input, context ):
+	start_time = int( time.time() )
+	
+	# Monkey patch stdout to capture all output for debugging
+	logger = Logger()
+	
 	global gmemory
+	
 	# Make global to enable caching of redis connection
 	gmemory = Refinery_Memory(
 		"{{REDIS_HOSTNAME_REPLACE_ME}}",
 		"{{REDIS_PASSWORD_REPLACE_ME}}",
 		context.function_name
 	)
-
-	# TODO add timer
+	
+	execution_pipeline_id = "{{EXECUTION_PIPELINE_ID_REPLACE_ME}}"
+	s3_log_bucket = "{{LOG_BUCKET_NAME_REPLACE_ME}}"
+	execution_pipeline_logging_enabled = "{{PIPELINE_LOGGING_ENABLED_REPLACE_ME}}"
+	project_id = "{{PROJECT_ID_REPLACE_ME}}"
+	
+	# If pipeline logging is enabled
+	# We initialize the S3 client to prevent threading bugs
+	if execution_pipeline_logging_enabled:
+		# Bug fix test
+		s3_client = boto3.client(
+			"s3"
+		)
 	
 	# Bake in AWS region
 	aws_region = "{{AWS_REGION_REPLACE_ME}}"
@@ -710,15 +790,15 @@ def _init( lambda_input, context ):
 	execution_mode = "{{SPECIAL_EXECUTION_MODE}}"
 	
 	# Construct log details for debugging
-	log_details = {
-		"initialization_time": int( time.time() ),
+	execution_details = {
+		"initialization_time": start_time,
 		"aws_region": aws_region,
 		"group_name": context.log_group_name,
 		"stream_name": context.log_stream_name,
 		"function_name": context.function_name,
 		"function_version": context.function_version,
 		"invoked_function_arn": context.invoked_function_arn,
-		"memory_limit_in_mb": context.memory_limit_in_mb,
+		"memory_limit_in_mb": int( context.memory_limit_in_mb ),
 		"aws_request_id": context.aws_request_id
 	}
 	
@@ -772,6 +852,30 @@ def _init( lambda_input, context ):
 	# If we don't have an execution ID, generate and set one!
 	if not execution_id:
 		execution_id = str( uuid.uuid4() )
+	
+	# Set logging threads array so we can wait for their completion at the end of our run.
+	logging_threads = []
+		
+	# If pipeline logging is enabled then write the status
+	if execution_pipeline_logging_enabled:
+		new_logging_thread = threading.Thread(
+			target=_write_pipeline_logs,
+			args=(
+				s3_log_bucket,
+				execution_pipeline_id,
+				context.invoked_function_arn,
+				context.function_name,
+				execution_id,
+				"INPUT",
+				{
+					"input_data": lambda_input
+				},
+				execution_details
+			)
+		)
+		new_logging_thread.start()
+		time.sleep(0.05) # Annoying wedge due to boto3 bug
+		logging_threads.append( new_logging_thread )
 		
 	# Set execution ID on Lambda context
 	# This is needed so it can be accessed inside of the Lambdas
@@ -793,6 +897,27 @@ def _init( lambda_input, context ):
 			
 			# Invoke all Lambdas to be run when an exception occurs
 			if len( transitions[ "exception" ] ) > 0:
+				if execution_pipeline_logging_enabled:
+					exception_logging_thread = threading.Thread(
+						target=_write_pipeline_logs,
+						args=(
+							s3_log_bucket,
+							execution_pipeline_id,
+							context.invoked_function_arn,
+							context.function_name,
+							execution_id,
+							"CAUGHT_EXCEPTION",
+							{
+								"output": logger.file.getvalue(),
+								"exception": exception_string,
+								"return_data": return_data
+							},
+							execution_details
+						)
+					)
+					exception_logging_thread.start()
+					time.sleep(0.05) # Annoying wedge due to boto3 bug
+				
 				invocation_input_list = []
 				for exception_transition_data in transitions[ "exception" ]:
 					invocation_input_list.append({
@@ -813,8 +938,38 @@ def _init( lambda_input, context ):
 				
 				# If there's an exception we should stop after invoking the exception case(s).
 				_parallel_invoke( invocation_input_list )
+				
+				# Ensure we've waited for the log writing
+				if execution_pipeline_logging_enabled:
+					exception_logging_thread.join()
+				
 				raise
 			else:
+				if execution_pipeline_logging_enabled:
+					exception_logging_thread = threading.Thread(
+						target=_write_pipeline_logs,
+						args=(
+							s3_log_bucket,
+							execution_pipeline_id,
+							context.invoked_function_arn,
+							context.function_name,
+							execution_id,
+							"EXCEPTION",
+							{
+								"output": logger.file.getvalue(),
+								"exception": exception_string,
+								"return_data": return_data
+							},
+							execution_details
+						)
+					)
+					exception_logging_thread.start()
+					time.sleep(0.05) # Annoying wedge due to boto3 bug
+					
+				# Ensure we've waited for the log writing
+				if execution_pipeline_logging_enabled:
+					exception_logging_thread.join()
+				
 				# Nothing to handle it, throw it again.
 				raise
 	elif execution_mode == "API_ENDPOINT":
@@ -944,5 +1099,32 @@ def _init( lambda_input, context ):
 	# Now we invoke all the queued Lambdas!
 	_parallel_invoke( invocation_input_list )
 	
+	# If pipeline logging is enabled
+	# Write the return data of this Lambda
+	if execution_pipeline_logging_enabled:
+		new_logging_thread = threading.Thread(
+			target=_write_pipeline_logs,
+			args=(
+				s3_log_bucket,
+				execution_pipeline_id,
+				context.invoked_function_arn,
+				context.function_name,
+				execution_id,
+				"RETURN",
+				{
+					"output": logger.file.getvalue(),
+					"return_data": return_data
+				},
+				execution_details
+			)
+		)
+		new_logging_thread.start()
+		time.sleep(0.05) # Annoying wedge due to boto3 bug
+		logging_threads.append( new_logging_thread )
+	
+	# Wait until logs are written
+	for thread in logging_threads:
+		thread.join()
+		
 	# Return the return data as usual
 	return return_data

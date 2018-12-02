@@ -94,6 +94,9 @@ def on_start():
 			).replace(
 				"{{REDIS_HOSTNAME_REPLACE_ME}}",
 				os.environ.get( "lambda_redis_hostname" )
+			).replace(
+				"{{LOG_BUCKET_NAME_REPLACE_ME}}",
+				os.environ.get( "pipeline_logs_bucket" )
 			)
 		
 S3_CLIENT = boto3.client(
@@ -721,7 +724,7 @@ class TaskSpawner(object):
 			return return_zip
 			
 		@staticmethod
-		def _build_nodejs_810_lambda( code, libraries, transitions, execution_mode ):
+		def _build_nodejs_810_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id ):
 			"""
 			Build Lambda package zip and return zip data
 			
@@ -774,17 +777,17 @@ class TaskSpawner(object):
 			return zip_data
 
 		@run_on_executor
-		def build_lambda( self, language, code, libraries, transitions, execution_mode ):
+		def build_lambda( self, language, code, libraries, transitions, execution_mode, execution_pipeline_id ):
 			if not ( language in LAMBDA_SUPPORTED_LANGUAGES ):
 				raise Exception( "Error, this language '" + language + "' is not yet supported by refinery!" )
 			
 			if language == "python2.7":
-				return TaskSpawner._build_python_lambda( code, libraries, transitions, execution_mode )
+				return TaskSpawner._build_python_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id )
 			elif language == "nodejs8.10":
-				return TaskSpawner._build_nodejs_810_lambda( code, libraries, transitions, execution_mode )
+				return TaskSpawner._build_nodejs_810_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id )
 		
 		@staticmethod
-		def _build_python_lambda( code, libraries, transitions, execution_mode ):
+		def _build_python_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id ):
 			"""
 			Build Lambda package zip and return zip data
 			"""
@@ -794,7 +797,6 @@ class TaskSpawner(object):
 			and the init code.
 			"""
 			
-			#code = LAMDBA_BASE_CODES[ "python2.7" ] + "\n\n" + code
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "python2.7" ]
 			
 			code = code.replace( "\t", "	" )
@@ -802,6 +804,13 @@ class TaskSpawner(object):
 			code = code.replace( "\"{{TRANSITION_DATA_REPLACE_ME}}\"", json.dumps( json.dumps( transitions ) ) )
 			code = code.replace( "{{AWS_REGION_REPLACE_ME}}", os.environ.get( "region_name" ) )
 			code = code.replace( "{{SPECIAL_EXECUTION_MODE}}", execution_mode )
+			
+			if execution_pipeline_id:
+				code = code.replace( "{{EXECUTION_PIPELINE_ID_REPLACE_ME}}", execution_pipeline_id )
+				code = code.replace( "\"{{PIPELINE_LOGGING_ENABLED_REPLACE_ME}}\"", "True" )
+			else:
+				code = code.replace( "{{EXECUTION_PIPELINE_ID_REPLACE_ME}}", "" )
+				code = code.replace( "\"{{PIPELINE_LOGGING_ENABLED_REPLACE_ME}}\"", "False" )
 			
 			for init_library in LAMBDA_BASE_LIBRARIES[ "python2.7" ]:
 				if not init_library in libraries:
@@ -979,6 +988,17 @@ class TaskSpawner(object):
 			pprint(
 				response
 			)
+			
+			return response
+			
+		@run_on_executor
+		def create_log_group( self, log_group_name ):
+			response = CLOUDWATCH_LOGS_CLIENT.create_log_group(
+				logGroupName=log_group_name
+			)
+			
+			print( "Create log group: " )
+			pprint( response )
 			
 			return response
 			
@@ -1550,7 +1570,8 @@ class RunTmpLambda( BaseHandler ):
 				"fan-out": [],
 				"fan-in": [],
 			},
-			"REGULAR"
+			"REGULAR",
+			False
 		)
 		
 		random_node_id = get_random_node_id()
@@ -2104,7 +2125,7 @@ class GetSQSJobTemplate( BaseHandler ):
 		})
 		
 @gen.coroutine
-def deploy_lambda( id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode ):
+def deploy_lambda( id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id ):
 	logit(
 		"Building '" + name + "' Lambda package..."
 	)
@@ -2114,7 +2135,8 @@ def deploy_lambda( id, name, language, code, libraries, max_execution_time, memo
 		code,
 		libraries,
 		transitions,
-		execution_mode
+		execution_mode,
+		execution_pipeline_id
 	)
 	
 	logit(
@@ -2167,6 +2189,7 @@ def deploy_diagram( project_name, project_id, diagram_data ):
 	Process workflow relationships and tag Lambda
 	nodes with an array of transitions.
 	"""
+	
 	# First just set an empty array for each lambda node
 	for workflow_state in diagram_data[ "workflow_states" ]:
 		if workflow_state[ "type" ] == "lambda" or workflow_state[ "type" ] == "api_endpoint":
@@ -2286,7 +2309,8 @@ def deploy_diagram( project_name, project_id, diagram_data ):
 				lambda_node[ "max_execution_time" ],
 				lambda_node[ "memory" ],
 				lambda_node[ "transitions" ],
-				"REGULAR"
+				"REGULAR",
+				project_id
 			)
 		)
 		
@@ -2308,7 +2332,8 @@ def deploy_diagram( project_name, project_id, diagram_data ):
 				30,
 				128,
 				api_endpoint_node[ "transitions" ],
-				"API_ENDPOINT"
+				"API_ENDPOINT",
+				project_id
 			)
 		)
 		
@@ -3141,7 +3166,8 @@ def warm_lambda_base_caches():
 					"fan-out": [],
 					"fan-in": [],
 				},
-				"REGULAR"
+				"REGULAR",
+				False
 			)
 		)
 		
