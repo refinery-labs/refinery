@@ -777,8 +777,10 @@
 			    
 			    <!-- Deployment viewer mode navbar -->
 			    <div class="form-inline my-2 my-lg-0" v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
-			    	<button type="button" class="btn btn-danger" v-on:click="teardown_infrastructure" style="margin-left: 10px;">Tear Down Deployment</button>
-			    	<button type="button" class="btn btn-primary" v-on:click="back_to_editor" style="margin-left: 10px;">Back to Editor</button>
+			    	<button type="button" class="btn btn-danger" v-on:click="teardown_infrastructure" style="margin-left: 10px;" v-if="!selected_execution_id_data">Tear Down Deployment</button>
+			    	<button type="button" class="btn btn-primary" v-on:click="view_project_execution_ids" style="margin-left: 10px;">View Log(s)</button>
+			    	<button type="button" class="btn btn-primary" v-on:click="exit_execution_id_log_viewer" style="margin-left: 10px;" v-if="selected_execution_id_data">Back to Deployment Viewer</button>
+			    	<button type="button" class="btn btn-primary" v-on:click="back_to_editor" style="margin-left: 10px;" v-if="!selected_execution_id_data">Back to Editor</button>
 			    </div>
 			</nav>
         </div>
@@ -1063,7 +1065,7 @@
             
             <!-- Modify Lambda panel -->
             <div v-if="page == 'modify-lambda'" class="split left-panel">
-            	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+            	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER' && !selected_execution_id_data">
             		<center>
             			Resource ARN: <br />
             			<code>{{selected_node_data.arn}}</code>
@@ -1078,75 +1080,160 @@
             		<button type="submit" class="btn btn-success" style="width: 100%" v-on:click="fullscreen_lambda_editor">Run Lambda >> </button>
             		<hr />
             	</div>
-                <h2>Modify Lambda</h2>
-                <hr />
-                <div class="form-group">
-                    <label for="new_lambda_name_input">Name</label>
-                    <input type="text" class="form-control" v-model="lambda_name" aria-describedby="new_lambda_name_input_help" placeholder="Write to S3" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
-                    <small id="new_lambda_name_input_help" class="form-text text-muted">Name of the lambda function.</small>
-                </div>
-                <div class="form-group">
-                	<label>Language</label>
-					<select class="custom-select" v-model="lambda_language" @change="lambda_language_manual_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
-						<option value="python2.7">python2.7</option>
-						<!--<option value="nodejs8.10">Node v8.10.0 (LTS)</option>-->
-					</select>
-					<small id="new_lambda_language_select_input_help" class="form-text text-muted">Language of lambda function.</small>
-				</div>
-				<div class="form-group">
-					<label>Import(s)</label>
-					<div style="height: 100px">
-						<editor editor-id="unformatted_libraries" theme="monokai" lang="python" :content="unformatted_libraries" v-on:change-content="lambda_libraries_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
+            	<div v-if="selected_execution_id_data && !selected_log_id_data">
+            		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="view_project_execution_ids"><< Back</button>
+            		<hr />
+            		<h2>Lambda Execution(s)</h2>
+					<table class="table table-striped">
+						<thead>
+							<tr>
+								<th scope="col" style="text-align: center">Log ID</th>
+								<th scope="col" style="text-align: center">Time</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr v-for="log_data in selected_execution_id_data[ selected_node_data.name ]" v-bind:class="{ 'table-danger': ( log_data.type == 'EXCEPTION' ), 'table-success': ( log_data.type == 'RETURN' ) }" v-bind:logid="log_data.id" v-on:click="view_log_id_details">
+								<td class="log-preview-td"><i>{{ get_log_preview_text( log_data )  }}</i></td>
+								<td style="width: 180px; text-align: center">{{ timestamp_to_date( log_data.timestamp ) }}</td>
+							</tr>
+						</tbody>
+					</table>
+					<hr />
+            	</div>
+            	<div v-if="selected_log_id_data">
+            		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="back_to_lambda_exections"><< Back</button>
+            		<hr />
+            		<h2>Execution Details</h2>
+            		<p style="display: inline">
+            			<b>Log ID: </b><code>{{ selected_log_id_data.id }}</code>
+            		</p>
+            		<br />
+            		<p style="display: inline">
+            			<b>Occured on: </b>{{ timestamp_to_date( selected_log_id_data.timestamp ) }}
+            		</p>
+            		<br />
+            		<p style="display: inline">
+            			<b>Execution Status: </b>
+            			<p style="display: inline; color: rgb(19, 165, 53);" v-if="selected_log_id_data.type == 'RETURN'">
+            				<b>Success</b>
+            			</p>
+            			<p style="display: inline; color: #fa3247" v-if="selected_log_id_data.type == 'EXCEPTION'">
+            				<b>Exception Occurred</b>
+            			</p>
+            			<p style="display: inline; color: #ffaa00" v-if="selected_log_id_data.type == 'CAUGHT_EXCEPTION'">
+            				<b>Exception Caught</b>
+            			</p>
+            		</p>
+					<div class="form-group" v-if="'input_data' in selected_log_id_data.data">
+						<label><b>Input Data</b></label>
+						<div style="height: 100px">
+							<editor editor-id="log_input_data" theme="monokai" lang="json" :content="selected_log_id_data.data.input_data" :disabled="true"></editor>
+						</div>
+						<small class="form-text text-muted">Input pass to the Lambda.</small>
 					</div>
-					<small class="form-text text-muted">Dependencies for the lambda code.</small>
-				</div>
-				<div class="form-group">
-					<label>Code</label>
-					<div style="height: 100px">
-						<editor editor-id="lambda_code" theme="monokai" v-bind:lang="ace_language_to_lang_id_map[lambda_language]" :content="lambda_code" v-on:change-content="lambda_code_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
+					
+					<div class="form-group" v-if="'exception' in selected_log_id_data.data">
+						<label><b>Exception Details</b></label>
+						<div style="height: 100px">
+							<editor editor-id="log_exception" theme="monokai" lang="text" :content="selected_log_id_data.data.exception" :disabled="true"></editor>
+						</div>
+						<small class="form-text text-muted">Text of the exception which occured during this Lambda's execution.</small>
 					</div>
-					<div style="text-align: right">
-						<button type="button" style="width: 100%" class="btn btn-sm btn-secondary" v-on:click="fullscreen_lambda_editor">View Fullscreen</button>
+					
+					<div class="form-group" v-if="'output' in selected_log_id_data.data">
+						<label><b>Lambda Output (<code>stdout</code>/<code>stderr</code>)</b></label>
+						<div style="height: 100px">
+							<editor editor-id="log_output" theme="monokai" lang="text" :content="selected_log_id_data.data.output" :disabled="true"></editor>
+						</div>
+						<small class="form-text text-muted">Input pass to the Lambda.</small>
 					</div>
-					<small class="form-text text-muted">Code of lambda function.</small>
-				</div>
-				<div class="form-group">
-					<label>Execution Memory</label>
+					
+					<div class="form-group" v-if="'return_data' in selected_log_id_data.data">
+						<label><b>Return Data</b></label>
+						<div style="height: 100px">
+							<editor editor-id="log_return_data" theme="monokai" lang="json" :content="selected_log_id_data.data.return_data" :disabled="true"></editor>
+						</div>
+						<small class="form-text text-muted">Data return from the Lambda.</small>
+					</div>
+            	</div>
+            	
+            	<!-- Don't display while viewing a specific execution result -->
+            	<div v-if="!selected_log_id_data">
+	            	<div v-if="ide_mode == 'LOCAL_IDE'">
+	            		<h2>Modify Lambda</h2>
+	            	</div>
+	            	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+	            		<h2>Lambda Details</h2>
+	            	</div>
+	                <hr />
+	                <div class="form-group">
+	                    <label for="new_lambda_name_input">Name</label>
+	                    <input type="text" class="form-control" v-model="lambda_name" aria-describedby="new_lambda_name_input_help" placeholder="Write to S3" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+	                    <small id="new_lambda_name_input_help" class="form-text text-muted">Name of the lambda function.</small>
+	                </div>
+	                <div class="form-group">
+	                	<label>Language</label>
+						<select class="custom-select" v-model="lambda_language" @change="lambda_language_manual_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+							<option value="python2.7">python2.7</option>
+							<!--<option value="nodejs8.10">Node v8.10.0 (LTS)</option>-->
+						</select>
+						<small id="new_lambda_language_select_input_help" class="form-text text-muted">Language of lambda function.</small>
+					</div>
 					<div class="form-group">
-						<div class="input-group mb-2">
-							<input type="number" class="form-control form-control-lg" v-model="lambda_memory" placeholder="128" step="64" min="128" max="3008" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
-							<div class="input-group-append">
-								<div class="input-group-text">MB</div>
+						<label>Import(s)</label>
+						<div style="height: 100px">
+							<editor editor-id="unformatted_libraries" theme="monokai" lang="python" :content="unformatted_libraries" v-on:change-content="lambda_libraries_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
+						</div>
+						<small class="form-text text-muted">Dependencies for the lambda code.</small>
+					</div>
+					<div class="form-group">
+						<label>Code</label>
+						<div style="height: 100px">
+							<editor editor-id="lambda_code" theme="monokai" v-bind:lang="ace_language_to_lang_id_map[lambda_language]" :content="lambda_code" v-on:change-content="lambda_code_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
+						</div>
+						<div style="text-align: right">
+							<button type="button" style="width: 100%" class="btn btn-sm btn-secondary" v-on:click="fullscreen_lambda_editor">View Fullscreen</button>
+						</div>
+						<small class="form-text text-muted">Code of lambda function.</small>
+					</div>
+					<div class="form-group">
+						<label>Execution Memory</label>
+						<div class="form-group">
+							<div class="input-group mb-2">
+								<input type="number" class="form-control form-control-lg" v-model="lambda_memory" placeholder="128" step="64" min="128" max="3008" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+								<div class="input-group-append">
+									<div class="input-group-text">MB</div>
+								</div>
 							</div>
 						</div>
+						<small class="form-text text-muted">Maximum memory for the Lambda to use during execution.</small>
 					</div>
-					<small class="form-text text-muted">Maximum memory for the Lambda to use during execution.</small>
-				</div>
-				<div class="form-group">
-					<label>Max Execution Time</label>
 					<div class="form-group">
-						<div class="input-group mb-2">
-							<input type="number" class="form-control form-control-lg" v-model="lambda_max_execution_time" placeholder="60" step="1" min="2" max="900" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
-							<div class="input-group-append">
-								<div class="input-group-text">Second(s)</div>
+						<label>Max Execution Time</label>
+						<div class="form-group">
+							<div class="input-group mb-2">
+								<input type="number" class="form-control form-control-lg" v-model="lambda_max_execution_time" placeholder="60" step="1" min="2" max="900" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+								<div class="input-group-append">
+									<div class="input-group-text">Second(s)</div>
+								</div>
 							</div>
 						</div>
+						<small class="form-text text-muted">Maximum time the Lambda may execute before being killed in seconds.</small>
 					</div>
-					<small class="form-text text-muted">Maximum time the Lambda may execute before being killed in seconds.</small>
-				</div>
-				<div v-if="ide_mode == 'LOCAL_IDE'">
-	                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_lambda">Update Lambda</button>
-	                <hr />
-	                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete Lambda</button>
-	                <hr />
-	                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
-	                <hr />
-	                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="run_tmp_lambda">Run Lambda</button>
-	                <hr />
-	                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="duplicate_lambda">Duplicate Lambda</button>
-	                <hr />
-	                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="view_save_lambda_to_db_modal">Save Lambda in Database</button>
-				</div>
+					<div v-if="ide_mode == 'LOCAL_IDE'">
+		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_lambda">Update Lambda</button>
+		                <hr />
+		                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete Lambda</button>
+		                <hr />
+		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
+		                <hr />
+		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="run_tmp_lambda">Run Lambda</button>
+		                <hr />
+		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="duplicate_lambda">Duplicate Lambda</button>
+		                <hr />
+		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="view_save_lambda_to_db_modal">Save Lambda in Database</button>
+					</div>
+            	</div>
             </div>
             
         	<!-- Deployment viewer welcome panel -->
@@ -1157,10 +1244,48 @@
             	</center>
             </div>
             
-        	<!-- Deployment viewer welcome panel -->
-            <div v-if="page == 'deployment_lambda_viewer'" class="split left-panel">
-				
-				<!-- <iframe src="/grafana/d-solo/7vcaLqxiz/aws-lambda?panelId=1&orgId=1&var-agg=1m&var-region=us-west-2&var-functionname=Uptime_Check" width="450" height="200" frameborder="0"></iframe> -->
+        	<!-- Deployment log execution ID(s) viewer -->
+            <div v-if="page == 'project_logs_execution_ids'" class="split left-panel">
+            	<center>
+            		<h2>Pipeline Execution(s)</h2>
+            	</center>
+            	<div v-if="execution_ids_loading">
+            		<center>
+            			<img src="/img/circle-loader.gif" style="width: 150px" />
+            		</center>
+            	</div>
+            	<div v-if="!execution_ids_loading">
+					<table class="table table-striped">
+						<thead>
+							<tr>
+								<th scope="col" style="text-align: center">Execution ID</th>
+								<th scope="col" style="text-align: center">Time</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr v-for="execution_id_metadata in ordered_execution_ids_metadata" v-bind:class="{ 'table-danger': execution_id_metadata.error, 'table-success': !execution_id_metadata.error }" v-bind:executionid="execution_id_metadata.execution_id" v-on:click="view_execution_id_details">
+								<td>{{execution_id_metadata.execution_id}}</td>
+								<td style="width: 180px; text-align: center">{{execution_id_metadata.time}}</td>
+							</tr>
+						</tbody>
+					</table>
+            	</div>
+            </div>
+            
+        	<!-- Information on the execution ID log viewer -->
+            <div v-if="page == 'project_logs_execution_id_info'" style="width: 200px;" class="split left-panel">
+            	<center>
+            		<h2>Execution ID Viewer</h2>
+            		<i>You are currently viewing the execution outcome for execution ID <code>{{selected_execution_id_metadata.id}}</code>.
+            		<hr />
+            		Click one of the nodes to the right in order to view debugging information about its execution.</i>
+            		<br />
+            		<div v-if="selected_execution_id_data_loading">
+            			<img src="/img/circle-loader.gif" style="width: 150px" />
+            			<br />
+            			<i>Loading execution ID log data...</i>
+            		</div>
+            	</center>
             </div>
             
             <!-- Graph -->
@@ -1171,6 +1296,7 @@
             </div>
         </div>
     </div>
+    <script src="./js/moment-with-locales.min.js"></script>
     <script src="./js/jquery-3.3.1.min.js"></script>
 	<script src="./js/bootstrap.min.js"></script>
     <script src="./js/ace.noconflict.js"></script>

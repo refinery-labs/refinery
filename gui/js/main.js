@@ -316,7 +316,7 @@ function get_escaped_html( input_html ) {
 	});
 }
 
-function build_dot_graph() {
+async function build_dot_graph() {
 	var dot_contents = "digraph \"renderedworkflow\"{\n";
 	
 	app.workflow_states.map(function( workflow_state ) {
@@ -462,44 +462,86 @@ function build_dot_graph() {
 	app.graphiz_content = dot_contents;
 	
 	// After we've drawn the chart we do our custom injections
-	update_graph().then(function() {
-		var svg_nodes = document.querySelectorAll( "g" );
+	await update_graph();
 	
-		for( var i = 0; i < svg_nodes.length; i++ ) {
-			var text_element = svg_nodes[i].querySelector( "text" );
-			if( text_element == null ) {
-				continue;
-			}
-			
-			var a_elem = text_element.parentNode;
-			
-			var polygon = a_elem.querySelector( "polygon" );
-			var title_text = a_elem.getAttribute( "xlink:title" );
-			
-			// Try to base64 decode and JSON decode
-			try {
-				var title_text_data = JSON.parse( atob( title_text ) );
-				a_elem.setAttribute( "xlink:title", title_text_data.name );
-			} catch ( e ) {
-				continue;
-			}
-			
-			polygon.setAttribute( "fill", "url(#" + title_text_data.type + ")" );
-			var poly_box = polygon.getBBox();
-			
-			text_element.innerHTML = title_text_data.name;
-			var SVGRect = text_element.getBBox();
-			var rect = document.createElementNS( "http://www.w3.org/2000/svg", "rect");
-		    rect.setAttribute("x", ( SVGRect.x - 5 ) );
-		    rect.setAttribute("y", ( SVGRect.y - 5 ) );
-		    rect.setAttribute("width", ( SVGRect.width + 10 ) );
-		    rect.setAttribute("height", ( SVGRect.height + 10 ) );
-		    //rect.setAttribute("fill", "black");
-		    rect.setAttribute("style", "fill:black;fill-opacity:0.7;");
-		    text_element.setAttributeNS( null, "fill", "#FFFFFF" );
-		    text_element.parentNode.insertBefore( rect, text_element );
+	// Customizations
+	var svg_nodes = document.querySelectorAll( "g" );
+
+	for( var i = 0; i < svg_nodes.length; i++ ) {
+		var text_element = svg_nodes[i].querySelector( "text" );
+
+		if( text_element == null ) {
+			continue;
 		}
-	});
+		
+		// If we're viewing the execution logs
+		// We draw a colored box over the square indicating
+		// it's success or failure.
+		var node_id = svg_nodes[i].getAttribute( "id" );
+		
+		// Get <text> element since it contains the true Lambda name
+		var lambda_name = text_element.innerHTML;
+		
+		if( node_id.includes( "_node" ) && app.selected_execution_id_data && lambda_name in app.selected_execution_id_data ) {
+			var node_polygon = svg_nodes[i].querySelector( "polygon" );
+			
+			// Get bounding rectangle for polygon
+			var polygon_box = node_polygon.getBBox();
+			
+			// Text box rectagle
+			var highlight_box = document.createElementNS( "http://www.w3.org/2000/svg", "rect");
+		    highlight_box.setAttribute("x", polygon_box.x );
+		    highlight_box.setAttribute("y", polygon_box.y );
+		    highlight_box.setAttribute("width", polygon_box.width );
+		    highlight_box.setAttribute("height", polygon_box.height );
+		    
+		    // Highlight red or green depending on if the block has encountered any exceptions
+		    var exception_occured = false;
+		    app.selected_execution_id_data[ lambda_name ].map(function( lambda_log_data ) {
+		    	if( lambda_log_data.type == "EXCEPTION" ) {
+		    		exception_occured = true;
+		    	}
+		    });
+		    
+		    if( exception_occured ) {
+		    	highlight_box.setAttribute("style", "fill: #ff0000; fill-opacity: 0.4;");
+		    } else {
+		    	highlight_box.setAttribute("style", "fill: #12bc00; fill-opacity: 0.4;");
+		    }
+		    
+		    //text_element.setAttributeNS( null, "fill", "#FFFFFF" );
+		    text_element.parentNode.insertBefore( highlight_box, text_element );
+		}
+		
+		var a_elem = text_element.parentNode;
+		
+		var polygon = a_elem.querySelector( "polygon" );
+		var title_text = a_elem.getAttribute( "xlink:title" );
+		
+		// Try to base64 decode and JSON decode
+		try {
+			var title_text_data = JSON.parse( atob( title_text ) );
+			a_elem.setAttribute( "xlink:title", title_text_data.name );
+		} catch ( e ) {
+			continue;
+		}
+		
+		polygon.setAttribute( "fill", "url(#" + title_text_data.type + ")" );
+		var poly_box = polygon.getBBox();
+		
+		text_element.innerHTML = title_text_data.name;
+		var SVGRect = text_element.getBBox();
+		
+		// Text box rectagle
+		var rect = document.createElementNS( "http://www.w3.org/2000/svg", "rect");
+	    rect.setAttribute("x", ( SVGRect.x - 5 ) );
+	    rect.setAttribute("y", ( SVGRect.y - 5 ) );
+	    rect.setAttribute("width", ( SVGRect.width + 10 ) );
+	    rect.setAttribute("height", ( SVGRect.height + 10 ) );
+	    rect.setAttribute("style", "fill:black;fill-opacity:0.7;");
+	    text_element.setAttributeNS( null, "fill", "#FFFFFF" );
+	    text_element.parentNode.insertBefore( rect, text_element );
+	}
 }
 
 /*
@@ -522,6 +564,9 @@ function get_variable_state_transitions() {
 function select_node( node_id ) {
 	// Set selected node ID
 	app.selected_node = node_id;
+	
+	// Delete selected log ID
+	app.selected_log_id_data = false;
 	
 	// Can't have both selected
 	if( app.selected_transition ) {
@@ -575,9 +620,6 @@ function select_node( node_id ) {
 			"topic_name": selected_node_data.topic_name,
 			"sns_topic_template": selected_node_data.sns_topic_template
 		}
-		
-		console.log( "SNS topic data: " );
-		console.log( sns_topic_data );
 		
 		Vue.set( app, "sns_trigger_data", sns_topic_data );
 		
@@ -919,12 +961,13 @@ function infrastructure_collision_check( diagram_data ) {
 	);
 }
 
-function infrastructure_teardown( teardown_nodes ) {
+function infrastructure_teardown( project_id, teardown_nodes ) {
 	return api_request(
 		"POST",
 		"api/v1/aws/infra_tear_down",
 		{
 			"teardown_nodes": teardown_nodes,
+			"project_id": project_id,
 		}
 	);
 }
@@ -988,6 +1031,26 @@ function delete_all_deployments_under_project( project_id ) {
 		"api/v1/deployments/delete_all_in_project",
 		{
 			"project_id": project_id
+		}
+	);
+}
+
+function get_logged_execution_ids_for_project( project_id ) {
+	return api_request(
+		"POST",
+		"api/v1/logs/executions",
+		{
+			"project_id": project_id
+		}
+	);
+}
+
+function get_logs_data( log_paths_array ) {
+	return api_request(
+		"POST",
+		"api/v1/logs/executions/get",
+		{
+			"logs":  log_paths_array
 		}
 	);
 }
@@ -1377,6 +1440,26 @@ var app = new Vue({
         	deployed_timestamp: 0,
         	diagram_stash: {},
         },
+        
+        // Loader for when we pull execution ID(s)
+        execution_ids_loading: false,
+        
+        // Execution ID(s) for the current project and
+        // their respective metadata
+        execution_ids_metadata: {},
+        
+        // Selected execution ID's metadata
+        // Used to render the graph appropriately.
+        selected_execution_id_metadata: false,
+        
+        // The full logs data for the current
+        selected_execution_id_data: false,
+        
+        // Whether we're loading the exection ID logs
+        selected_execution_id_data_loading: false,
+        
+        // Currently selected log ID
+        selected_log_id_data: false,
 	},
 	watch: {
 		projects_search_query: function( value, previous_value ) {
@@ -1494,9 +1577,193 @@ var app = new Vue({
 			});
 			
 			return valid_paths;
-		}
+		},
+		ordered_execution_ids_metadata: function() {
+			function compare( a, b ) {
+				if ( a.oldest_observed_timestamp < b.oldest_observed_timestamp )
+					return -1;
+				if ( a.oldest_observed_timestamp > b.oldest_observed_timestamp  )
+					return 1;
+				return 0;
+			}
+			
+			// Get execution ID(s)
+			var execution_ids = Object.keys( app.execution_ids_metadata );
+			
+			if( execution_ids.length === 0 ) {
+				return [];
+			}
+			
+			// Make array of the metadata
+			var execution_ids_metadata_array = execution_ids.map(function( execution_id ) {
+				console.log( "Execution ID: " + execution_id );
+				var return_data = JSON.parse(
+					JSON.stringify(
+						app.execution_ids_metadata[ execution_id ]
+					)
+				);
+				
+				return_data[ "execution_id" ] = execution_id;
+				
+				return_data[ "time" ] = app.timestamp_to_date(
+					return_data[ "oldest_observed_timestamp" ]
+				);
+				
+				return return_data;
+			});
+			
+			// Sort the array by oldest timestamp
+			execution_ids_metadata_array.sort( compare );
+			
+			return execution_ids_metadata_array;
+		},
 	},
 	methods: {
+		get_log_preview_text: function( log_data ) {
+			var return_text = "";
+			if( "exception" in log_data.data && log_data.data.exception != "" ) {
+				return_text = log_data.data.exception;
+			} else if( "output" in log_data.data && log_data.data.output != "" ) {
+				return_text = log_data.data.output;
+			} else {
+				return_text = log_data.id;
+			}
+			
+			return return_text.substr( 0, 30 ) + "..."
+		},
+		back_to_lambda_exections: function() {
+			app.selected_log_id_data = false;
+		},
+		view_log_id_details: async function( event ) {
+			var attribute_id = "logid";
+			var target_element = event.srcElement;
+			var log_id = target_element.getAttribute( attribute_id );
+			var attempts = 10;
+			while( !log_id && attempts > 0 ) {
+				attempts--;
+				log_id = target_element.parentNode.getAttribute( attribute_id );
+			}
+			
+			app.selected_execution_id_data[ app.selected_node_data.name ].map(function( log_data ) {
+				if( log_data.id == log_id ) {
+					// Attempt to prettify the input data
+					if( "input_data" in log_data.data && log_data.data.input_data != "" ) {
+						if( typeof( log_data.data.input_data ) == "string" ) {
+							try {
+								log_data.data.input_data = JSON.parse( log_data.data.input_data );
+							} catch ( e ) {}
+						}
+						try {
+							log_data.data.input_data = JSON.stringify(
+								log_data.data.input_data,
+								false,
+								4
+							);
+						} catch ( e ) {}
+					}
+					
+					// Attempt to prettify the input data
+					if( "return_data" in log_data.data && log_data.data.return_data != "" ) {
+						if( typeof( log_data.data.return_data ) == "string" ) {
+							try {
+								log_data.data.return_data = JSON.parse( log_data.data.return_data );
+							} catch ( e ) {}
+						}
+						try {
+							log_data.data.return_data = JSON.stringify(
+								log_data.data.return_data,
+								false,
+								4
+							);
+						} catch ( e ) {}
+					}
+					app.selected_log_id_data = log_data;
+				}
+			});
+		},
+		timestamp_to_date: function( timestamp ) {
+			// Convert timestamp to date
+			var new_moment = moment.unix(
+				timestamp
+			);
+			
+			return new_moment.calendar();
+		},
+		exit_execution_id_log_viewer: function() {
+			app.navigate_page( "deployment_viewer_welcome" );
+			app.selected_execution_id_metadata = false;
+			app.execution_ids_metadata = false;
+			app.selected_execution_id_data = false;
+			app.selected_log_id_data = false;
+			
+			// To visualize the data on the graph, we need to re-render
+			build_dot_graph();
+		},
+		view_execution_id_details: async function( event ) {
+			var attribute_id = "executionid";
+			var target_element = event.srcElement;
+			var execution_id = target_element.getAttribute( attribute_id );
+			while( !execution_id ) {
+				execution_id = target_element.parentNode.getAttribute( attribute_id );
+			}
+			
+			app.selected_execution_id_metadata = app.execution_ids_metadata[ execution_id ];
+			app.selected_execution_id_metadata.execution_id = execution_id;
+			app.selected_execution_id_metadata.id = execution_id;
+			
+			app.navigate_page( "project_logs_execution_id_info" );
+			
+			app.selected_execution_id_data_loading = true;
+			var results = await get_logs_data(
+				app.selected_execution_id_metadata.logs
+			);
+			app.selected_execution_id_data_loading = false;
+			app.selected_execution_id_data = results[ "result" ];
+			
+			// Sorting function for our Lambda logs
+			function compare( a, b ) {
+				if ( a.timestamp < b.timestamp )
+					return -1;
+				if ( a.timestamp > b.timestamp  )
+					return 1;
+				return 0;
+			}
+			
+			// Get object keys
+			var lambda_names = Object.keys( app.selected_execution_id_data );
+			
+			lambda_names.map(function( lambda_name ) {
+				app.selected_execution_id_data[ lambda_name ].sort(
+					compare
+				);
+			});
+			
+			// To visualize the data on the graph, we need to re-render
+			build_dot_graph();
+		},
+		view_project_execution_ids: async function() {
+			app.navigate_page( "project_logs_execution_ids" );
+			
+			// Clear previous data
+			app.selected_execution_id_metadata = false;
+			app.execution_ids_metadata = false;
+			app.selected_execution_id_data = false;
+			app.selected_log_id_data = false;
+			
+			// De-select whatever we've selected
+			app.selected_node = false;
+			
+			app.execution_ids_loading = true;
+			await app.get_execution_ids_metadata();
+			app.execution_ids_loading = false;
+		},
+		get_execution_ids_metadata: async function() {
+			var result = await get_logged_execution_ids_for_project(
+				app.project_id
+			);
+
+			app.execution_ids_metadata = result.result;
+		},
 		save_lambda_and_project: async function() {
 			// Update Lambda
 			app.update_lambda();
@@ -1535,6 +1802,7 @@ var app = new Vue({
 			var error_occured = false;
 			
 			var teardown_results = await infrastructure_teardown(
+				app.project_id,
 				app.delete_nodes_array
 			).catch(function( error ) {
 				toastr.error( "An error occured while tearing down the infrastructure!" );
@@ -1984,6 +2252,7 @@ var app = new Vue({
 			
 			// Teardown nodes
 			var teardown_results = await infrastructure_teardown(
+				app.project_id,
 				teardown_nodes
 			);
 

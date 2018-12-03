@@ -1036,7 +1036,27 @@ class TaskSpawner(object):
 			return response
 			
 		@run_on_executor
+		def read_from_s3_and_return_input( self, s3_bucket, path ):
+			return_data = TaskSpawner._read_from_s3(
+				s3_bucket,
+				path
+			)
+			
+			return {
+				"s3_bucket": s3_bucket,
+				"path": path,
+				"body": return_data
+			}
+			
+		@run_on_executor
 		def read_from_s3( self, s3_bucket, path ):
+			return TaskSpawner._read_from_s3(
+				s3_bucket,
+				path
+			)
+		
+		@staticmethod
+		def _read_from_s3( s3_bucket, path ):
 			# Remove leading / because they are almost always not intended
 			if path.startswith( "/" ):
 				path = path[1:]
@@ -1050,6 +1070,158 @@ class TaskSpawner(object):
 				return "{}"
 				
 			return s3_object[ "Body" ].read()
+			
+		@run_on_executor
+		def bulk_s3_delete( self, s3_bucket, s3_path_list ):
+			print( "S3 bucket: " + s3_bucket )
+			print( "Input S3 Path list: " )
+			pprint( s3_path_list )
+			
+			delete_data = []
+			
+			for s3_path in s3_path_list:
+				delete_data.append({
+					"Key": s3_path,
+				})
+				
+			response = S3_CLIENT.delete_objects(
+				Bucket=s3_bucket,
+				Delete={
+					"Objects": delete_data
+				},
+			)
+			
+			print( "Delete response: " )
+			print( response )
+			
+			return response
+			
+		@run_on_executor
+		def get_s3_pipeline_execution_logs( self, s3_prefix, max_results ):
+			return TaskSpawner.get_all_s3_paths(
+				os.environ.get( "pipeline_logs_bucket" ),
+				s3_prefix,
+				max_results
+			)
+		
+		@staticmethod
+		def get_all_s3_paths( s3_bucket, prefix, max_results, **kwargs ):
+			return_array = []
+			continuation_token = False
+			if max_results == -1: # max_results -1 means get all results
+				max_keys = 1000
+			elif max_results <= 1000:
+				max_keys = max_results
+			else:
+				max_keys = 1000
+			
+			# First check to prime it
+			response = S3_CLIENT.list_objects_v2(
+				Bucket=s3_bucket,
+				Prefix=prefix,
+				MaxKeys=max_keys, # Max keys you can request at once
+				**kwargs
+			)
+			
+			while True:
+				if continuation_token:
+					# Grab another page of results
+					response = S3_CLIENT.list_objects_v2(
+						Bucket=s3_bucket,
+						Prefix=prefix,
+						MaxKeys=max_keys, # Max keys you can request at once
+						ContinuationToken=continuation_token,
+						**kwargs
+					)
+					
+				if not ( "Contents" in response ):
+					break
+
+				for s3_object in response[ "Contents" ]:
+					return_array.append(
+						s3_object[ "Key" ]
+					)
+				
+				# If the length is longer than the max results amount
+				# then just return the data.
+				if ( max_results != -1 ) and max_results <= len( return_array ):
+					break
+					
+				if response[ "IsTruncated" ] == False:
+					break
+				
+				continuation_token = response[ "NextContinuationToken" ]
+					
+			return return_array
+			
+		@run_on_executor
+		def get_s3_pipeline_execution_ids( self, timestamp_prefix, max_results ):
+			return TaskSpawner.get_all_s3_prefixes(
+				os.environ.get( "pipeline_logs_bucket" ),
+				timestamp_prefix,
+				max_results
+			)
+		
+		@run_on_executor
+		def get_s3_pipeline_timestamp_prefixes( self, project_id, max_results ):
+			return TaskSpawner.get_all_s3_prefixes(
+				os.environ.get( "pipeline_logs_bucket" ),
+				project_id + "/",
+				max_results
+			)
+
+		@staticmethod
+		def get_all_s3_prefixes( s3_bucket, prefix, max_results, **kwargs ):
+			return_array = []
+			continuation_token = False
+			if max_results == -1: # max_results -1 means get all results
+				max_keys = 1000
+			elif max_results <= 1000:
+				max_keys = max_results
+			else:
+				max_keys = 1000
+			
+			# First check to prime it
+			response = S3_CLIENT.list_objects_v2(
+				Bucket=s3_bucket,
+				Prefix=prefix,
+				MaxKeys=max_keys, # Max keys you can request at once
+				Delimiter="/",
+				**kwargs
+			)
+			
+			while True:
+				if continuation_token:
+					# Grab another page of results
+					response = S3_CLIENT.list_objects_v2(
+						Bucket=s3_bucket,
+						Prefix=prefix,
+						MaxKeys=max_keys, # Max keys you can request at once
+						Delimiter="/",
+						ContinuationToken=continuation_token,
+						**kwargs
+					)
+
+				# No results
+				if not ( "CommonPrefixes" in response ):
+					break
+
+				for s3_prefix in response[ "CommonPrefixes" ]:
+					return_array.append(
+						s3_prefix[ "Prefix" ]
+					)
+				
+				# If the length is longer than the max results amount
+				# then just return the data.
+				if ( max_results != -1 ) and max_results <= len( return_array ):
+					break
+					
+				if response[ "IsTruncated" ] == False:
+					break
+				
+				continuation_token = response[ "NextContinuationToken" ]
+					
+			return return_array
 			
 		@run_on_executor
 		def get_aws_lambda_existence_info( self, id, type, lambda_name ):
@@ -2828,6 +3000,12 @@ class InfraTearDown( BaseHandler ):
 		
 		teardown_operation_results = yield teardown_operation_futures
 		
+		# Delete our logs
+		# No need to yield till it completes
+		delete_logs(
+			self.json[ "project_id" ]
+		)
+		
 		print( "Teardown results: ")
 		pprint( teardown_operation_results )
 		
@@ -3291,7 +3469,6 @@ class DeleteDeploymentsInProject( BaseHandler ):
 			"success": True
 		})
 	
-	
 @gen.coroutine
 def create_lambda_api_route( api_gateway_id, http_method, route, lambda_name, overwrite_existing ):
 	def not_empty( input_item ):
@@ -3429,6 +3606,245 @@ def get_cloudflare_keys():
 		time.time() + public_keys_update_interval,
 		get_cloudflare_keys
 	)
+	
+@gen.coroutine
+def get_project_id_execution_log_groups( project_id, max_results ):
+	"""
+	@project_id: The ID of the project deployed into production
+	@max_results: The max number of timestamp groups you want to search
+	for logs under. They are in 5 minute blocks so each result is AT LEAST
+	(not at most) 5 minutes of logs.
+	
+	The result for this is the following format:
+	
+	results_dict = {
+		"execution_id": {
+			"logs": [
+				"full_s3_log_path"
+			],
+			"error": True, # If we find a log file with prefix of "EXCEPTION"
+			"oldest_observed_timestamp": 1543785335,
+		}
+	}
+	"""
+	execution_log_timestamp_prefixes = yield local_tasks.get_s3_pipeline_timestamp_prefixes(
+		project_id,
+		max_results
+	)
+	
+	timestamp_prefix_fetch_futures = []
+	
+	for execution_log_timestamp_prefix in execution_log_timestamp_prefixes:
+		print( "Retrieving execution id(s) under " + execution_log_timestamp_prefix + "..." )
+		timestamp_prefix_fetch_futures.append(
+			local_tasks.get_s3_pipeline_execution_ids(
+				execution_log_timestamp_prefix,
+				-1
+			)
+		)
+		
+	execution_id_prefixes = yield timestamp_prefix_fetch_futures
+	
+	# Now take all of the prefixes and get the full file paths under them
+	s3_log_path_promises = []
+	for execution_id_prefix_array in execution_id_prefixes:
+		for execution_id_prefix in execution_id_prefix_array:
+			print( "Retrieving execution id(s) under " + execution_id_prefix + "..." )
+			s3_log_path_promises.append(
+				local_tasks.get_s3_pipeline_execution_logs(
+					execution_id_prefix,
+					-1
+				)
+			)
+			
+	s3_log_file_paths = yield s3_log_path_promises
+	
+	# Merge list of lists into just a list
+	tmp_log_path_list = []
+	for s3_log_file_path_array in s3_log_file_paths:
+		for s3_log_file_path in s3_log_file_path_array:
+			tmp_log_path_list.append(
+				s3_log_file_path
+			)
+			
+	s3_log_file_paths = tmp_log_path_list
+	del tmp_log_path_list
+	
+	results_dict = {}
+	oldest_observed_timestamp = False
+	
+	for s3_log_file_path in s3_log_file_paths:
+		path_parts = s3_log_file_path.split( "/" )
+		execution_id = path_parts[ 2 ]
+		log_file_name = path_parts[ 3 ]
+		log_file_name_parts = log_file_name.split( "~" )
+		log_type = log_file_name_parts[ 0 ]
+		lambda_name = log_file_name_parts[ 1 ]
+		log_id = log_file_name_parts[ 2 ]
+		timestamp = int( log_file_name_parts[ 3 ] )
+		
+		# Initialize if it doesn't already exist
+		if not ( execution_id in results_dict ):
+			results_dict[ execution_id ] = {
+				"logs": [],
+				"error": False,
+				"oldest_observed_timestamp": timestamp
+			}
+			
+		# Append the log path
+		results_dict[ execution_id ][ "logs" ].append(
+			s3_log_file_path
+		)
+		
+		# If the prefix is "EXCEPTION" we know we encountered an error
+		if log_file_name.startswith( "EXCEPTION~" ):
+			results_dict[ execution_id ][ "error" ] = True
+			
+		# If the timestamp is older than the current, replace it
+		if timestamp < results_dict[ execution_id ][ "oldest_observed_timestamp" ]:
+			results_dict[ execution_id ][ "oldest_observed_timestamp" ] = timestamp
+		
+		# For the first timestamp
+		if oldest_observed_timestamp == False:
+			oldest_observed_timestamp = timestamp
+			
+		# If we've observed and older timestamp
+		if timestamp < oldest_observed_timestamp:
+			oldest_observed_timestamp = timestamp
+	
+	raise gen.Return( results_dict )
+	
+@gen.coroutine
+def get_logs_data( log_paths_array ):
+	"""
+	Return data format is the following:
+	{
+		"lambda_name": []
+	}
+	"""
+	s3_object_retrieval_futures = []
+	for log_file_path in log_paths_array:
+		s3_object_retrieval_futures.append(
+			local_tasks.read_from_s3_and_return_input(
+				os.environ.get( "pipeline_logs_bucket" ),
+				log_file_path
+			)
+		)
+		
+	s3_object_retrieval_data_results = yield s3_object_retrieval_futures
+	
+	return_data = {}
+	
+	for s3_object_retrieval_data in s3_object_retrieval_data_results:
+		s3_path_parts = s3_object_retrieval_data[ "path" ].split( "/" )
+		log_file_name = s3_path_parts[ 3 ]
+		log_file_name_parts = log_file_name.split( "~" )
+		log_type = log_file_name_parts[ 0 ]
+		lambda_name = log_file_name_parts[ 1 ]
+		log_id = log_file_name_parts[ 2 ]
+		timestamp = int( log_file_name_parts[ 3 ] )
+		log_data = json.loads(
+			s3_object_retrieval_data[ "body" ]
+		)
+		
+		if not ( log_data[ "function_name" ] in return_data ):
+			return_data[ log_data[ "function_name" ] ] = []
+			
+		return_data[ log_data[ "function_name" ] ].append(
+			log_data
+		)
+		
+	raise gen.Return( return_data )
+
+class GetProjectExecutions( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Get past execution ID(s) for a given deployed project
+		and their respective metadata.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"project_id": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"project_id"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Retrieving execution ID(s) and their metadata..."
+		)
+		
+		execution_ids_metadata = yield get_project_id_execution_log_groups(
+			self.json[ "project_id" ],
+			1000
+		)
+		
+		self.write({
+			"success": True,
+			"result": execution_ids_metadata
+		})
+		
+class GetProjectExecutionLogs( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Get log data for a list of log paths.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"logs": {
+					"type": "array",
+				},
+				
+			},
+			"required": [
+				"logs"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Retrieving requested logs..."
+		)
+		
+		logs_data = yield get_logs_data(
+			self.json[ "logs" ],
+		)
+		
+		self.write({
+			"success": True,
+			"result": logs_data
+		})
+		
+@gen.coroutine
+def delete_logs( project_id ):
+	while True:
+		print( "Collecting objects to delete..." )
+		log_paths = yield local_tasks.get_s3_pipeline_execution_logs(
+			project_id + "/",
+			1000
+		)
+
+		print( "Got back " + str( len( log_paths ) ) + " log object(s)!" )
+		
+		if len( log_paths ) == 0:
+			break
+		
+		print( "Deleting objects..." )
+		yield local_tasks.bulk_s3_delete(
+			os.environ.get( "pipeline_logs_bucket" ),
+			log_paths
+		)
+		print( "Objects deleted!" )
 		
 def make_app( is_debug ):
 	tornado_app_settings = {
@@ -3436,6 +3852,8 @@ def make_app( is_debug ):
 	}
 	
 	return tornado.web.Application([
+		( r"/api/v1/logs/executions/get", GetProjectExecutionLogs ),
+		( r"/api/v1/logs/executions", GetProjectExecutions ),
 		( r"/api/v1/aws/deploy_diagram", DeployDiagram ),
 		( r"/api/v1/sqs/job_template/get", GetSQSJobTemplate ),
 		( r"/api/v1/sqs/job_template", SaveSQSJobTemplate ),
@@ -3474,7 +3892,10 @@ if __name__ == "__main__":
 		7777
 	)
 	Base.metadata.create_all( engine )
+	
+	#tornado.ioloop.IOLoop.current().run_sync( delete_logs )
 	#tornado.ioloop.IOLoop.current().run_sync( warm_lambda_base_caches )
+	
 	if os.environ.get( "cf_enabled" ).lower() == "true":
 		tornado.ioloop.IOLoop.current().run_sync( get_cloudflare_keys )
 		

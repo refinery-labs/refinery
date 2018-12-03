@@ -15,43 +15,44 @@ import time
 import redis
 import pickle
 import boto3
+import datetime
 import StringIO
 import traceback
 import threading
 
 class Logger( object ):
-    def __init__( self ):
-        self.stdout = sys.stdout
-        self.file = StringIO.StringIO()
-        sys.stdout = self
-        sys.stderr = self
+	def __init__( self ):
+		self.stdout = sys.stdout
+		self.file = StringIO.StringIO()
+		sys.stdout = self
+		sys.stderr = self
 
-    def __del__(self):
-        self.close()
+	def __del__(self):
+		self.close()
 
-    def __enter__(self):
-        pass
+	def __enter__(self):
+		pass
 
-    def __exit__(self, *args):
-        self.close()
+	def __exit__(self, *args):
+		self.close()
 
-    def write(self, message):
-        self.stdout.write(message)
-        self.file.write(message)
+	def write(self, message):
+		self.stdout.write(message)
+		self.file.write(message)
 
-    def flush(self):
-        self.stdout.flush()
-        self.file.flush()
-        os.fsync(self.file.fileno())
+	def flush(self):
+		self.stdout.flush()
+		self.file.flush()
+		os.fsync(self.file.fileno())
 
-    def close(self):
-        if self.stdout != None:
-            sys.stdout = self.stdout
-            self.stdout = None
+	def close(self):
+		if self.stdout != None:
+			sys.stdout = self.stdout
+			self.stdout = None
 
-        if self.file != None:
-            self.file.close()
-            self.file = None
+		if self.file != None:
+			self.file.close()
+			self.file = None
 
 class AlreadyInvokedException( Exception ):
 	def __init__( self, message="This function has already been invoked!" ):
@@ -720,13 +721,35 @@ def _api_endpoint( lambda_input, execution_id, context ):
 	}
 	
 def _write_pipeline_logs( s3_log_bucket, project_id, lambda_arn, lambda_name, execution_pipeline_id, log_type, log_data, execution_details ):
+	def get_nearest_five_minutes():
+		round_to = ( 60 * 5 )
+		dt = datetime.datetime.now()
+		seconds = ( dt.replace( tzinfo=None ) - dt.min ).seconds
+		rounding = (
+			seconds + round_to / 2
+		) // round_to * round_to
+		return dt + datetime.timedelta( 0, rounding - seconds, - dt.microsecond )
+	
 	s3_client = boto3.client(
 		"s3"
 	)
 	
 	log_id = str( uuid.uuid4() )
 	
-	s3_path = project_id + "/" + execution_pipeline_id + "/" + log_type + "~" + lambda_name + "~" + log_id
+	"""
+	We use a string-reversed unix timestamps to take advantage
+	of S3's ordering design:
+	"List results are always returned in UTF-8 binary order."
+	
+	For this reason we use the UNIX timestamp is converted into
+	a string and then reversed so that when we do an S3 LIST
+	we will always get the most recent results first.
+	"""
+	nearest_minute = get_nearest_five_minutes()
+	unix_timestamp = nearest_minute.strftime( "%s" )
+	reversed_timestamp = unix_timestamp[::-1]
+	
+	s3_path = project_id + "/" + reversed_timestamp + "/" + execution_pipeline_id + "/" + log_type + "~" + lambda_name + "~" + log_id + "~" + str( int( time.time() ) )
 	
 	s3_data = {
 		"id": log_id,
@@ -751,8 +774,6 @@ def _write_pipeline_logs( s3_log_bucket, project_id, lambda_arn, lambda_name, ex
 			sort_keys=True
 		)
 	)
-	
-	raise SystemExit
 
 def _init( lambda_input, context ):
 	start_time = int( time.time() )
@@ -852,30 +873,6 @@ def _init( lambda_input, context ):
 	# If we don't have an execution ID, generate and set one!
 	if not execution_id:
 		execution_id = str( uuid.uuid4() )
-	
-	# Set logging threads array so we can wait for their completion at the end of our run.
-	logging_threads = []
-		
-	# If pipeline logging is enabled then write the status
-	if execution_pipeline_logging_enabled:
-		new_logging_thread = threading.Thread(
-			target=_write_pipeline_logs,
-			args=(
-				s3_log_bucket,
-				execution_pipeline_id,
-				context.invoked_function_arn,
-				context.function_name,
-				execution_id,
-				"INPUT",
-				{
-					"input_data": lambda_input
-				},
-				execution_details
-			)
-		)
-		new_logging_thread.start()
-		time.sleep(0.05) # Annoying wedge due to boto3 bug
-		logging_threads.append( new_logging_thread )
 		
 	# Set execution ID on Lambda context
 	# This is needed so it can be accessed inside of the Lambdas
@@ -898,24 +895,20 @@ def _init( lambda_input, context ):
 			# Invoke all Lambdas to be run when an exception occurs
 			if len( transitions[ "exception" ] ) > 0:
 				if execution_pipeline_logging_enabled:
-					exception_logging_thread = threading.Thread(
-						target=_write_pipeline_logs,
-						args=(
-							s3_log_bucket,
-							execution_pipeline_id,
-							context.invoked_function_arn,
-							context.function_name,
-							execution_id,
-							"CAUGHT_EXCEPTION",
-							{
-								"output": logger.file.getvalue(),
-								"exception": exception_string,
-							},
-							execution_details
-						)
+					_write_pipeline_logs(
+						s3_log_bucket,
+						execution_pipeline_id,
+						context.invoked_function_arn,
+						context.function_name,
+						execution_id,
+						"CAUGHT_EXCEPTION",
+						{
+							"input_data": lambda_input,
+							"output": logger.file.getvalue(),
+							"exception": exception_string,
+						},
+						execution_details
 					)
-					exception_logging_thread.start()
-					time.sleep(0.05) # Annoying wedge due to boto3 bug
 				
 				invocation_input_list = []
 				for exception_transition_data in transitions[ "exception" ]:
@@ -937,37 +930,25 @@ def _init( lambda_input, context ):
 				
 				# If there's an exception we should stop after invoking the exception case(s).
 				_parallel_invoke( invocation_input_list )
-				
-				# Ensure we've waited for the log writing
-				if execution_pipeline_logging_enabled:
-					exception_logging_thread.join()
-				
+
 				raise
 			else:
 				if execution_pipeline_logging_enabled:
-					exception_logging_thread = threading.Thread(
-						target=_write_pipeline_logs,
-						args=(
-							s3_log_bucket,
-							execution_pipeline_id,
-							context.invoked_function_arn,
-							context.function_name,
-							execution_id,
-							"EXCEPTION",
-							{
-								"output": logger.file.getvalue(),
-								"exception": exception_string,
-							},
-							execution_details
-						)
+					_write_pipeline_logs(
+						s3_log_bucket,
+						execution_pipeline_id,
+						context.invoked_function_arn,
+						context.function_name,
+						execution_id,
+						"EXCEPTION",
+						{
+							"input_data": lambda_input,
+							"output": logger.file.getvalue(),
+							"exception": exception_string,
+						},
+						execution_details
 					)
-					exception_logging_thread.start()
-					time.sleep(0.05) # Annoying wedge due to boto3 bug
-					
-				# Ensure we've waited for the log writing
-				if execution_pipeline_logging_enabled:
-					exception_logging_thread.join()
-				
+
 				# Nothing to handle it, throw it again.
 				raise
 	elif execution_mode == "API_ENDPOINT":
@@ -1100,29 +1081,20 @@ def _init( lambda_input, context ):
 	# If pipeline logging is enabled
 	# Write the return data of this Lambda
 	if execution_pipeline_logging_enabled:
-		new_logging_thread = threading.Thread(
-			target=_write_pipeline_logs,
-			args=(
-				s3_log_bucket,
-				execution_pipeline_id,
-				context.invoked_function_arn,
-				context.function_name,
-				execution_id,
-				"RETURN",
-				{
-					"output": logger.file.getvalue(),
-					"return_data": return_data
-				},
-				execution_details
-			)
+		_write_pipeline_logs(
+			s3_log_bucket,
+			execution_pipeline_id,
+			context.invoked_function_arn,
+			context.function_name,
+			execution_id,
+			"RETURN",
+			{
+				"input_data": lambda_input,
+				"output": logger.file.getvalue(),
+				"return_data": return_data
+			},
+			execution_details
 		)
-		new_logging_thread.start()
-		time.sleep(0.05) # Annoying wedge due to boto3 bug
-		logging_threads.append( new_logging_thread )
-	
-	# Wait until logs are written
-	for thread in logging_threads:
-		thread.join()
 		
 	# Return the return data as usual
 	return return_data

@@ -1,3 +1,18 @@
+.table-danger, table-danger>tr:hover {
+	background-color: #fa3247 !important;
+}
+
+.table-success, table-success>tr:hover {
+	background-color: #3ae561;
+}
+
+.log-preview-td {
+	max-width: 100px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 #toast-container {
 	top: 75px !important;
 }
