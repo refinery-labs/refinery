@@ -376,16 +376,21 @@ class Refinery_Memory:
 		# Do a redis pipeline transaction
 		pipeline = self.redis_client.pipeline()
 		
-		for i in range( len( lambda_invocation_list ) ):
+		for i in range( 0, len( lambda_invocation_list ) ):
 			new_input_data_key = str( uuid.uuid4() )
 
-			pipeline.setex(
-				new_input_data_key,
-				self.return_data_timeout,
-				json.dumps(
-					lambda_invocation_list[ i ][ "input_data" ]
+			try:
+				pipeline.setex(
+					new_input_data_key,
+					self.return_data_timeout,
+					json.dumps(
+						lambda_invocation_list[ i ][ "input_data" ]
+					)
 				)
-			)
+			except:
+				print( "Wtf:" )
+				print( lambda_invocation_list[ i ] )
+				raise
 			
 			del lambda_invocation_list[ i ][ "input_data" ]
 			lambda_invocation_list[ i ][ "input_data_key" ] = new_input_data_key
@@ -605,11 +610,14 @@ def _parallel_invoke( invoke_queue ):
 	
 	while len( invoke_queue ) > 0:
 		new_invoke_data = invoke_queue.pop()
+		"""
+		Currently removed due to the issues around idempotency
 		if new_invoke_data[ "type" ] == "lambda" and len( json.dumps( new_invoke_data[ "input_data" ] ) ) < _MAX_EVENT_LAMBDA_INVOKE_SIZE:
 			new_invoke_queue.append(
 				new_invoke_data
 			)
-		elif new_invoke_data[ "type" ] == "lambda":
+		"""
+		if new_invoke_data[ "type" ] == "lambda":
 			lambda_invoke_list.append(
 				new_invoke_data
 			)
@@ -931,7 +939,9 @@ def _init( lambda_input, context ):
 				# If there's an exception we should stop after invoking the exception case(s).
 				_parallel_invoke( invocation_input_list )
 
-				raise
+				# Removed due to re-invocation issues around "Event" Lambdas
+				#raise
+				return
 			else:
 				if execution_pipeline_logging_enabled:
 					_write_pipeline_logs(
@@ -949,8 +959,11 @@ def _init( lambda_input, context ):
 						execution_details
 					)
 
+				# Removed due to re-invocation issues around "Event" Lambdas
 				# Nothing to handle it, throw it again.
-				raise
+				#raise
+				return
+			
 	elif execution_mode == "API_ENDPOINT":
 		# Just return the HTTP request event data
 		return_data = lambda_input

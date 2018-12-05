@@ -1274,6 +1274,8 @@
             
         	<!-- Information on the execution ID log viewer -->
             <div v-if="page == 'project_logs_execution_id_info'" style="width: 200px;" class="split left-panel">
+            	<button type="button" class="btn btn-primary" v-on:click="view_project_execution_ids" style="width: 100%"><< Back</button>
+            	<hr />
             	<center>
             		<h2>Execution ID Viewer</h2>
             		<i>You are currently viewing the execution outcome for execution ID <code>{{selected_execution_id_metadata.id}}</code>.

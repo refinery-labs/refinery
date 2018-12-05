@@ -1073,10 +1073,6 @@ class TaskSpawner(object):
 			
 		@run_on_executor
 		def bulk_s3_delete( self, s3_bucket, s3_path_list ):
-			print( "S3 bucket: " + s3_bucket )
-			print( "Input S3 Path list: " )
-			pprint( s3_path_list )
-			
 			delete_data = []
 			
 			for s3_path in s3_path_list:
@@ -1090,10 +1086,6 @@ class TaskSpawner(object):
 					"Objects": delete_data
 				},
 			)
-			
-			print( "Delete response: " )
-			print( response )
-			
 			return response
 			
 		@run_on_executor
