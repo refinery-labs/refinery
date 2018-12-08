@@ -203,9 +203,9 @@ function update_graph_output( resolve, reject ) {
 	
 	panZoom = svgPanZoom(svg, {
 		zoomEnabled: true,
-		controlIconsEnabled: true,
-		fit: true,
-		center: true,
+		controlIconsEnabled: false,
+		fit: false,
+		center: false,
 		minZoom: 0.1
 	});
 	
