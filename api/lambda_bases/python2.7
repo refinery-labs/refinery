@@ -782,6 +782,42 @@ def _write_pipeline_logs( s3_log_bucket, project_id, lambda_arn, lambda_name, ex
 			sort_keys=True
 		)
 	)
+	
+def _spawner( lambda_input, context ):
+	"""
+	Fan-out invocations work in essentially the following stages:
+	* A Lambda is invoked which has a fan-out transition
+	* This Lambda sets up the counter in redis to prepare for fan-in
+	* The Lambda also stores all invocation data in redis as a list
+	* The Lambda then invokes itself with the ["_refinery"]["invoke"] options
+	
+	The value of ["_refinery"]["invoke"] is the following:
+	{
+		"invoke_id": {{UUID_OF_REDIS_LIST}},
+		"invoke_speed": {{INTEGER_OF_PARALELL_SPAWNERS}},
+	}
+	
+	The "invoke_id" refers to the ID of the list of invoke input(s)
+	stored inside of redis. The "invoke_speed" refers to how many
+	"spawner" Lambdas will be invoked.
+	
+	A "spawner" Lambda is just the Lambda invoking itself into a
+	specific new mode of operation. This mode of operation works
+	by spawning off multiple invocation threads which are continously
+	looped over and fed more invoke requests. In each loop the remaining
+	execution time is also checked. If the remaining execution time is
+	less than 5 seconds the Lambda will then invoke itself again once
+	to continue the invocation work (and will finish out it's pending
+	invocations).
+	
+	The "invoke_speed" determines the number of "spawner" Lambdas will
+	run at the same time. In any case the spawners will always invoke
+	all of the requested Lambdas for the returned data. The only thing
+	that varies is the speed at which this will occur. It could be at
+	the speed of 10 Lambdas invoking at ~18 invokes a second, or it could
+	be at 100 Lambdas at ~18 invokes a second.
+	"""
+	pass
 
 def _init( lambda_input, context ):
 	start_time = int( time.time() )
@@ -843,6 +879,10 @@ def _init( lambda_input, context ):
 	# Detect refinery wrapper and unwrap if existant
 	# Else just leave it unmodified
 	if type( lambda_input ) == dict and "_refinery" in lambda_input:
+		# If there's an "invoke" key it means we're doing a self-invocation fan-out
+		if "invoke" in lambda_input:
+			pass
+		
 		# Set execution ID if set
 		if "execution_id" in lambda_input[ "_refinery" ]:
 			execution_id = lambda_input[ "_refinery" ][ "execution_id" ]
@@ -960,8 +1000,6 @@ def _init( lambda_input, context ):
 					)
 
 				# Removed due to re-invocation issues around "Event" Lambdas
-				# Nothing to handle it, throw it again.
-				#raise
 				return
 			
 	elif execution_mode == "API_ENDPOINT":
@@ -985,12 +1023,12 @@ def _init( lambda_input, context ):
 			fan_out_id
 		)
 		
-		# Set fan-in data in case we fan in later
+		# Sets up atomic counter for fan-in
 		gmemory._set_fan_in_data(
 			fan_out_id,
 			len( return_data )
 		)
-		
+
 		# Iterate over each item in the return list
 		for return_item_data in return_data:
 			# Create an invocation for it
