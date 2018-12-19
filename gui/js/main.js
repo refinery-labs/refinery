@@ -1156,6 +1156,10 @@ Vue.component( "Editor", {
             path: `ace/mode/${lang}`,
             v: Date.now()
         });
+        this.editor.getSession().setOptions({
+        	tabSize: 4,
+        	useSoftTabs: true,
+        });
         this.editor.setTheme(`ace/theme/${theme}`)
         
         this.editor.setReadOnly( disabled )
@@ -2200,7 +2204,9 @@ var app = new Vue({
 					"show"
 				);
 			} else {
-				app.deploy_infrastructure();
+				await app.deploy_infrastructure().catch(function( error ) {
+					toastr.error( "An error occured while deploying the infrastructure!" );
+				});
 			}
 		},
 		infrastructure_collision_check: async function() {
@@ -2235,7 +2241,9 @@ var app = new Vue({
 				$( "#collisioncheck_output" ).modal(
 					"hide"
 				);
-				app.deploy_infrastructure();
+				app.deploy_infrastructure().catch(function( error ) {
+					toastr.error( "An error occured while deploying the infrastructure!" );
+				});
 			}
 		},
 		conflicting_infrastructure_teardown: async function() {
@@ -2257,7 +2265,9 @@ var app = new Vue({
 			);
 
 			// Kick off deploying infrastructure
-			app.deploy_infrastructure();
+			app.deploy_infrastructure().catch(function( error ) {
+				toastr.error( "An error occured while deploying the infrastructure!" );
+			});
 		},
 		deploy_infrastructure: async function() {
 			if( app.deployment_data.exists ) {
@@ -2644,7 +2654,7 @@ def example( parameter ):
 		conditional_data_expression_change: function( val ) {
 			app.state_transition_conditional_data.expression = val;
 		},
-		sfn_input_data_change: function( val ) {
+		update_time_trigger_input_data: function( val ) {
 			if ( app.scheduled_trigger_data.unformatted_input_data !== val ) {
 				app.scheduled_trigger_data.unformatted_input_data = val;
 				

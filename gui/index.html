@@ -836,6 +836,9 @@
 						<small class="form-text text-muted">Type of transition (e.g. <code>if</code> for conditional, <code>then</code> for regular transition).</small>
 					</div>
 					<div v-if="state_transition_conditional_data.type == 'fan-out'">
+						<div class="alert alert-warning" role="alert">
+							<b>Important:</b> For <code>fan-out</code> operations of any size you <b>must</b> set a max execution time of <b>at <u>least</u> 10 seconds</b>. For larger <code>fan-out</code> operations in the 1K-100K range you should consider making the max execution time as long as possible. Note that even with a low max execution time of 10 seconds all of the invocations will still be completed, but you'll incur a larger number of invocations due to the way Refinery's ramp-up invocation system works.
+						</div>
 						<div class="alert alert-primary" role="alert">
 							<b>Note:</b> If performing a large <code>fan-out</code> operation it is advisable to upgrade the Execution Memory of the invoking Lambda. This is because the CPU is scaled proportionally to the Execution Memory. For example, a 128 MB Lambda would take 25+ seconds to invoke 100 Lambdas while a 640 MB Lambda would take only ~5 seconds.
 						</div>
@@ -886,7 +889,7 @@
 				<div class="form-group">
 					<label>Input Data</label>
 					<div style="height: 100px">
-						<editor editor-id="sfn_input_data" theme="monokai" lang="python" :content="scheduled_trigger_data.unformatted_input_data" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
+						<editor editor-id="time_trigger_editor" theme="monokai" lang="python" :content="scheduled_trigger_data.unformatted_input_data" v-on:change-content="update_time_trigger_input_data"  :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
 					</div>
 					<small class="form-text text-muted">Input data for the target being triggered.</small>
 				</div>

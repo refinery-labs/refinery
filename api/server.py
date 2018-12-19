@@ -799,7 +799,8 @@ class TaskSpawner(object):
 			
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "python2.7" ]
 			
-			code = code.replace( "\t", "	" )
+			# Convert tabs to four spaces
+			code = code.replace( "\t", "    " )
 			
 			code = code.replace( "\"{{TRANSITION_DATA_REPLACE_ME}}\"", json.dumps( json.dumps( transitions ) ) )
 			code = code.replace( "{{AWS_REGION_REPLACE_ME}}", os.environ.get( "region_name" ) )
@@ -1767,7 +1768,12 @@ class RunTmpLambda( BaseHandler ):
 		self.logit( "Executing Lambda..." )
 		lambda_result = yield local_tasks.execute_aws_lambda(
 			deployed_lambda_data[ "FunctionArn" ],
-			self.json[ "input_data" ],
+			{
+				"_refinery": {
+					"throw_exceptions_fully": True,
+					"input_data": self.json[ "input_data" ]
+				}
+			},
 		)
 
 		self.logit( "Deleting Lambda..." )

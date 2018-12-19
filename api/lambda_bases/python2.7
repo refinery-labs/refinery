@@ -9,6 +9,7 @@ of data in the main redis memory cache.
 """
 import os
 import sys
+import math
 import uuid
 import json
 import time
@@ -58,8 +59,12 @@ class AlreadyInvokedException( Exception ):
 	def __init__( self, message="This function has already been invoked!" ):
 		# Call the base class constructor with the parameters it needs
 		super( AlreadyInvokedException, self ).__init__( message )
-
-# TODO only initialize connection when used.
+		
+class InvokeQueueEmptyException( Exception ):
+	def __init__( self, message="We've exhausted all of the invocations we have to do!" ):
+		# Call the base class constructor with the parameters it needs
+		super( InvokeQueueEmptyException, self ).__init__( message )
+		
 class Refinery_Memory:
 	# 16 minutes default return data expire
 	# TODO in the future count the number of nodes in between and set timeout to be max
@@ -245,20 +250,53 @@ class Refinery_Memory:
 		
 		return new_key
 		
-	def _set_fan_in_data( self, fan_out_id, fan_out_number, **kwargs ):
+	def _set_fan_in_data( self, fan_out_id, invocation_list, **kwargs ):
+		if not self.redis_client:
+			self.connect()
+			
+		# Generate an invocation array ID
+		invocation_array_id = "INVOCATION_QUEUE_" + str( uuid.uuid4() )
+		
+		# Do a redis pipeline transaction
+		pipeline = self.redis_client.pipeline()
+		
+		# Set up the counter for fan-in
+		pipeline.setex(
+			"FAN_IN_COUNTER_" + fan_out_id,
+			( 60 * 15 * 3 ), # TODO dynamically calculate based off of nodes in path worst-case
+			len( invocation_list )
+		)
+		
+		# Store all invocation data in redis in a list
+		pipeline.rpush(
+			invocation_array_id,
+			*invocation_list
+		)
+		
+		returned_data = pipeline.execute()
+		
+		return invocation_array_id
+		
+	def _get_invocation_input_from_queue( self, invocation_id ):
+		"""
+		Pops an invocation input off of the array.
+		
+		If the array has been exhausted then it raises InvokeQueueEmptyException
+		"""
 		if not self.redis_client:
 			self.connect()
 		
 		# Do a redis pipeline transaction
 		pipeline = self.redis_client.pipeline()
-		pipeline.setex(
-			"FAN_IN_COUNTER_" + fan_out_id,
-			( 60 * 15 * 3 ), # TODO dynamically calculate based off of nodes in path worst-case
-			fan_out_number
-		)
+		
+		pipeline.lpop( invocation_id )
+		
 		returned_data = pipeline.execute()
 		
-		return
+		if returned_data[0] == None:
+			raise InvokeQueueEmptyException()
+		
+		return json.loads( returned_data[0] )
 	
 	def _fan_in_get_results_data( self, fan_out_id, **kwargs ):
 		"""
@@ -462,6 +500,34 @@ def _parallel_invoke( invoke_queue ):
 		
 		raise SystemExit
 		
+	# Self-invocation for a fan-out transition
+	def lambda_invoker_fan_out( arn, return_key, invocation_id ):
+		return_wrapper_data = {
+			"_refinery": {
+				"invoke": invocation_id,
+				"indirect": {
+					"type": "redis",
+					"key": return_key,
+				},
+				"parallel": False
+			}
+		}
+		
+		lambda_client = boto3.client(
+			"lambda"
+		)
+	
+		response = lambda_client.invoke(
+			FunctionName=arn,
+			InvocationType="Event",
+			LogType="None",
+			Payload=json.dumps(
+				return_wrapper_data
+			)
+		)
+		
+		raise SystemExit
+		
 	# Invokes a Lambda asynchronously with fan-in results as input
 	def lambda_invoker_worker_fan_in( execution_id, fan_out_ids, arn, fan_out_id ):
 		return_wrapper_data = {
@@ -559,6 +625,17 @@ def _parallel_invoke( invoke_queue ):
 			)
 			new_thread.start()
 			time.sleep(0.05) # Annoying wedge due to boto3 bug
+		elif new_invoke_data[ "type" ] == "lambda_fan_out":
+			new_thread = threading.Thread(
+				target=lambda_invoker_fan_out,
+				args=(
+					new_invoke_data[ "arn" ],
+					new_invoke_data[ "input_data_key" ],
+					new_invoke_data[ "invocation_id" ]
+				)
+			)
+			new_thread.start()
+			time.sleep(0.05) # Annoying wedge due to boto3 bug
 		elif new_invoke_data[ "type" ] == "lambda_fan_in":
 			new_thread = threading.Thread(
 				target=lambda_invoker_worker_fan_in,
@@ -596,7 +673,7 @@ def _parallel_invoke( invoke_queue ):
 
 		return new_thread
 		
-	# Bug fix test
+	# Bug fix
 	lambda_client = boto3.client(
 		"lambda"
 	)
@@ -617,7 +694,7 @@ def _parallel_invoke( invoke_queue ):
 				new_invoke_data
 			)
 		"""
-		if new_invoke_data[ "type" ] == "lambda":
+		if new_invoke_data[ "type" ] == "lambda" or new_invoke_data[ "type" ] == "lambda_fan_out":
 			lambda_invoke_list.append(
 				new_invoke_data
 			)
@@ -783,7 +860,7 @@ def _write_pipeline_logs( s3_log_bucket, project_id, lambda_arn, lambda_name, ex
 		)
 	)
 	
-def _spawner( lambda_input, context ):
+def _spawner( invocation_id, context ):
 	"""
 	Fan-out invocations work in essentially the following stages:
 	* A Lambda is invoked which has a fan-out transition
@@ -808,7 +885,8 @@ def _spawner( lambda_input, context ):
 	execution time is also checked. If the remaining execution time is
 	less than 5 seconds the Lambda will then invoke itself again once
 	to continue the invocation work (and will finish out it's pending
-	invocations).
+	invocations). If the invoke queue is finished the Lambda simply
+	immediately exits.
 	
 	The "invoke_speed" determines the number of "spawner" Lambdas will
 	run at the same time. In any case the spawners will always invoke
@@ -817,10 +895,59 @@ def _spawner( lambda_input, context ):
 	the speed of 10 Lambdas invoking at ~18 invokes a second, or it could
 	be at 100 Lambdas at ~18 invokes a second.
 	"""
-	pass
+	print( "I am a spawner lambda who's spawned with an invocation ID of " + invocation_id )
+	
+	remaining_time_limit = ( 1000 * 10 )
+	parallel_invocation_number = 15
+	queue_exhausted = False
+	
+	while queue_exhausted == False:
+		# Reset list of Lambdas to invoke
+		lambdas_to_invoke = []
+		
+		# Check if we're close to a timeout, if we are we should invoke ourselfs
+		# and then dip out of performing more invocations.
+		remaining_milliseconds = context.get_remaining_time_in_millis()
+		if remaining_milliseconds <= remaining_time_limit:
+			lambdas_to_invoke.append({
+				"type": "lambda_fan_out",
+				"arn": context.invoked_function_arn,
+				"invocation_id": invocation_id,
+				# Input data is purely to ensure we get idempotency
+				"input_data": {
+					"why": "idempotency"
+				}
+			})
+			start_time = time.time()
+			_parallel_invoke( lambdas_to_invoke )
+			return
+
+		# Pull at least parallel_invocation_number number of inputs of the queue
+		for i in range( 0, parallel_invocation_number ):
+			try:
+				lambdas_to_invoke.append(
+					gmemory._get_invocation_input_from_queue(
+						invocation_id
+					)
+				)
+			except InvokeQueueEmptyException as e:
+				queue_exhausted = True
+				# Break out of immediate for loop
+				break
+		
+		start_time = time.time()
+		_parallel_invoke( lambdas_to_invoke )
+
+	return
+
+def _pprint( input_dict ):
+	try:
+		print( json.dumps( input_dict, sort_keys=True, indent=4, separators=( ",", ": " ) ) )
+	except:
+		print( input_dict )
 
 def _init( lambda_input, context ):
-	start_time = int( time.time() )
+	start_time = time.time()
 	
 	# Monkey patch stdout to capture all output for debugging
 	logger = Logger()
@@ -856,7 +983,7 @@ def _init( lambda_input, context ):
 	
 	# Construct log details for debugging
 	execution_details = {
-		"initialization_time": start_time,
+		"initialization_time": int( start_time ),
 		"aws_region": aws_region,
 		"group_name": context.log_group_name,
 		"stream_name": context.log_stream_name,
@@ -876,13 +1003,12 @@ def _init( lambda_input, context ):
 	# Set default fan-out IDs list to be empty
 	fan_out_ids = []
 	
+	# Throw exceptions fully (for use in tmp-runs, etc)
+	throw_exceptions_fully = False
+	
 	# Detect refinery wrapper and unwrap if existant
 	# Else just leave it unmodified
 	if type( lambda_input ) == dict and "_refinery" in lambda_input:
-		# If there's an "invoke" key it means we're doing a self-invocation fan-out
-		if "invoke" in lambda_input:
-			pass
-		
 		# Set execution ID if set
 		if "execution_id" in lambda_input[ "_refinery" ]:
 			execution_id = lambda_input[ "_refinery" ][ "execution_id" ]
@@ -890,6 +1016,19 @@ def _init( lambda_input, context ):
 		# Set/propogate fan-out ID list if set
 		if "fan_out_ids" in lambda_input[ "_refinery" ]:
 			fan_out_ids = lambda_input[ "_refinery" ][ "fan_out_ids" ]
+		
+		# Throw exceptions fully (for use in tmp-runs, etc)
+		if "throw_exceptions_fully" in lambda_input[ "_refinery" ]:
+			throw_exceptions_fully = True
+			
+		# Set is invoke status
+		is_spawner_invocation = False
+		
+		# We don't immediately invoke ourselves until after loading
+		# useless return data to ensure idempotency
+		if "invoke" in lambda_input[ "_refinery" ]:
+			is_spawner_invocation = True
+			invocation_id = lambda_input[ "_refinery" ][ "invoke" ]
 			
 		_side_loaded = False
 		if "indirect" in lambda_input[ "_refinery" ] and "type" in lambda_input[ "_refinery" ][ "indirect" ]:
@@ -913,6 +1052,13 @@ def _init( lambda_input, context ):
 					print( "This Lambda has already been invoked (or the return data has expired). For this reason we are quitting out." )
 					return
 				_side_loaded = True
+				
+		# If there's an "invoke" key it means we're doing a self-invocation fan-out
+		if is_spawner_invocation:
+			return _spawner(
+				invocation_id,
+				context
+			)
 		
 		# Just directly passed input data
 		if not _side_loaded and "input_data" in lambda_input[ "_refinery" ]:
@@ -979,8 +1125,9 @@ def _init( lambda_input, context ):
 				# If there's an exception we should stop after invoking the exception case(s).
 				_parallel_invoke( invocation_input_list )
 
-				# Removed due to re-invocation issues around "Event" Lambdas
-				#raise
+				# Only runs in tmp runs due to Event-retry AWS behavior
+				if throw_exceptions_fully:
+					raise
 				return
 			else:
 				if execution_pipeline_logging_enabled:
@@ -999,7 +1146,9 @@ def _init( lambda_input, context ):
 						execution_details
 					)
 
-				# Removed due to re-invocation issues around "Event" Lambdas
+				# Only runs in tmp runs due to Event-retry AWS behavior
+				if throw_exceptions_fully:
+					raise
 				return
 			
 	elif execution_mode == "API_ENDPOINT":
@@ -1023,25 +1172,147 @@ def _init( lambda_input, context ):
 			fan_out_id
 		)
 		
-		# Sets up atomic counter for fan-in
-		gmemory._set_fan_in_data(
-			fan_out_id,
-			len( return_data )
-		)
-
+		# Create a list of invocation inputs
+		invocation_list = []
+		
 		# Iterate over each item in the return list
 		for return_item_data in return_data:
 			# Create an invocation for it
-			invocation_input_list.append({
-				"execution_id": execution_id,
-				"fan_out_ids": new_fan_out_ids,
-				"type": fan_out_transition_data[ "type" ],
-				"arn": fan_out_transition_data[ "arn" ],
-				"input_data": json.loads(
-					json.dumps(
-						return_item_data
+			# Convert into JSON so it can be stored in redis
+			invocation_list.append(
+				json.dumps({
+					"execution_id": execution_id,
+					"fan_out_ids": new_fan_out_ids,
+					"type": fan_out_transition_data[ "type" ],
+					"arn": fan_out_transition_data[ "arn" ],
+					"input_data": json.loads(
+						json.dumps(
+							return_item_data
+						)
 					)
-				)
+				})
+			)
+		
+		# Sets up atomic counter for fan-in
+		invocation_id = gmemory._set_fan_in_data(
+			fan_out_id,
+			invocation_list
+		)
+		
+		"""
+		Calculate the fan-out invocation speed (A.K.A. the
+		number of spawners we'll spin up to invoke it all).
+		
+		There are three factors for this:
+		* Remaining execution time (to invoke the spawners).
+		* Execution memory (affects how invocating can be done)
+		* Number of invocations to perform
+		
+		The remaining execution time is used as the ceiling
+		and the number of invocations to perform is used to
+		figure out the velocity.
+		"""
+		total_lambda_execution_time = int( math.ceil( time.time() - start_time ) ) + int( context.get_remaining_time_in_millis() / 1000 )
+		remaining_seconds = int(
+			math.floor(
+				( context.get_remaining_time_in_millis() / 1000 )
+			)
+		)
+		
+		# Conservative estimates of how many lambdas can
+		# be executed per second for each memory range.
+		# These are pretty low balls but better safe than sorry!
+		if int( context.memory_limit_in_mb ) <= 256:
+			lambdas_per_second = 2
+		elif int( context.memory_limit_in_mb ) <= 576:
+			lambdas_per_second = 10
+		elif int( context.memory_limit_in_mb ) > 576:
+			lambdas_per_second = 13
+			
+		# Calculate max number of Lambdas we //could// execute
+		max_lambda_invocations_possible = ( lambdas_per_second * remaining_seconds )
+		
+		# Number of invocations we actually have to execute
+		number_of_executions_to_perform = len( invocation_list )
+		
+		# Number of invocations a fresh-started Lambda could do
+		# Minus one for the initialization cost that may be incurred
+		total_lambda_executions_per_run = ( lambdas_per_second * ( total_lambda_execution_time - 2 ) )
+		
+		# Calculate the number of full runs it'd take to process all the invocations
+		number_of_runs_to_complete = int( math.ceil( float( number_of_executions_to_perform ) / float( total_lambda_executions_per_run ) ) )
+
+		# Now calculate the number of spawners to kick off.
+		if number_of_runs_to_complete <= max_lambda_invocations_possible:
+			# If the number of runs to complete the work is less than the
+			# number of invocations possible we'll just invoke that many
+			# spawner Lambda(s)!
+			fan_out_invocation_speed = number_of_runs_to_complete
+		else:
+			# Otherwise we'll just invoke the max possible
+			fan_out_invocation_speed = max_lambda_invocations_possible
+			
+			
+		def get_seconds_to_completion( number_of_executions_to_perform, lambdas_per_second, fan_out_invocation_speed ):
+			return ( float( number_of_executions_to_perform ) / float( lambdas_per_second * fan_out_invocation_speed ) )
+		
+		seconds_to_complete = get_seconds_to_completion(
+			number_of_executions_to_perform,
+			lambdas_per_second,
+			fan_out_invocation_speed
+		)
+		
+		# This is the target seconds we shoot for to spawn everything.
+		target_seconds = 10
+
+		# Keep boosting
+		while seconds_to_complete > target_seconds:
+			seconds_to_complete = get_seconds_to_completion(
+				number_of_executions_to_perform,
+				lambdas_per_second,
+				( fan_out_invocation_speed + 1 )
+			)
+			
+			# If boosting would push us over max Lambda invocations quit out
+			if ( fan_out_invocation_speed + 1 ) > max_lambda_invocations_possible:
+				break
+			
+			# Meets criteria so we can up it
+			fan_out_invocation_speed += 1
+			
+			# If we meet our target time then we can stop
+			if seconds_to_complete <= target_seconds:
+				break
+		
+		seconds_to_complete = get_seconds_to_completion(
+			number_of_executions_to_perform,
+			lambdas_per_second,
+			fan_out_invocation_speed
+		)
+		
+		"""
+		print( "[ BOOSTED ] It would take " + str( seconds_to_complete ) + " seconds to finish invoking everything at the current rate of " + str( lambdas_per_second ) + " across " + str( fan_out_invocation_speed ) + " spawner(s)." )
+
+		print( "We have to invoke " + str( number_of_executions_to_perform ) + " Lambdas for this fan-out." )
+		print( "Given our remaining execution time of " + str( remaining_seconds ) + " second(s) we can execute a max of " + str( max_lambda_invocations_possible ) + " spawner Lambda(s)." )
+		print( "The max execution time of this Lambda is " + str( total_lambda_execution_time ) + " second(s)." )
+		print( "The Lambdas per second that we can invoke at this memory size of " + str( context.memory_limit_in_mb ) + " MB is " + str( lambdas_per_second ) )
+		print( "Given that max execution time, we could invoke everything in " + str( number_of_runs_to_complete ) + " run(s)." )
+		print( "The number of spawner Lambdas to be invoked has been set to " + str( fan_out_invocation_speed ) )
+		exit()
+		"""
+		
+		# Invoke self in "spawner" mode X times
+		# where X is invocation speed
+		for i in range( 0, fan_out_invocation_speed ):
+			invocation_input_list.append({
+				"type": "lambda_fan_out",
+				"arn": context.invoked_function_arn,
+				"invocation_id": invocation_id,
+				# Input data is purely to ensure we get idempotency
+				"input_data": {
+					"why": "idempotency"
+				}
 			})
 			
 	# For fan-in
