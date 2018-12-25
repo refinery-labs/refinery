@@ -24,6 +24,12 @@ class Project( Base ):
 		lazy="dynamic",
 		cascade="all, delete-orphan"
 	)
+    configs = relationship(
+    	"ProjectConfig",
+    	backref="configs",
+		lazy="dynamic",
+		cascade="all, delete-orphan"
+	)
     timestamp = Column(Integer())
 
     def __init__( self ):

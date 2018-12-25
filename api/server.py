@@ -35,6 +35,7 @@ from models.saved_lambda import SavedLambda
 from models.project_versions import ProjectVersion
 from models.projects import Project
 from models.deployments import Deployment
+from models.project_config import ProjectConfig
 from botocore.client import Config
 
 logging.basicConfig(
@@ -99,11 +100,16 @@ def on_start():
 				os.environ.get( "pipeline_logs_bucket" )
 			)
 		
+# Up the max connection amount in pool
+S3_CONFIG = Config(
+	max_pool_connections=( 1000 * 2 )
+)
 S3_CLIENT = boto3.client(
 	"s3",
 	aws_access_key_id=os.environ.get( "aws_access_key" ),
 	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" )
+	region_name=os.environ.get( "region_name" ),
+	config=S3_CONFIG
 )
 
 LAMBDA_CONFIG = Config(
@@ -406,11 +412,11 @@ class TaskSpawner(object):
 			return response
 			
 		@run_on_executor
-		def deploy_aws_lambda( self, func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, env_dict, tags_dict ):
-			return TaskSpawner._deploy_aws_lambda( func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, env_dict, tags_dict )
+		def deploy_aws_lambda( self, func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict ):
+			return TaskSpawner._deploy_aws_lambda( func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict )
 
 		@staticmethod
-		def _deploy_aws_lambda( func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, env_dict, tags_dict ):
+		def _deploy_aws_lambda( func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict ):
 			"""
 			First upload the data to S3 at {{zip_sha1}}.zip
 			
@@ -447,11 +453,12 @@ class TaskSpawner(object):
 					Bucket=os.environ.get( "tmp_lambda_packages_bucket" ),
 					Body=zip_data,
 				)
+				
+			# Generate environment variables data structure
+			env_data = {}
+			for env_pair in environment_variables:
+				env_data[ env_pair[ "key" ] ] = env_pair[ "value" ]
 			
-			"""
-			Deploy an AWS Lambda and get it's reference ARN for use
-			in later creating an AWS Step Function (SFN)
-			"""
 			try:
 				# https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#Lambda.Client.create_function
 				response = LAMBDA_CLIENT.create_function(
@@ -469,7 +476,7 @@ class TaskSpawner(object):
 					Publish=True,
 					VpcConfig=vpc_config,
 					Environment={
-						"Variables": env_dict
+						"Variables": env_data
 					},
 					Tags=tags_dict
 				)
@@ -494,13 +501,12 @@ class TaskSpawner(object):
 						timeout,
 						memory,
 						vpc_config,
-						env_dict,
+						environment_variables,
 						tags_dict
 					)
 				else:
 					return False
 			
-			# response[ "MasterArn" ]
 			return response
 			
 		@staticmethod
@@ -1061,7 +1067,7 @@ class TaskSpawner(object):
 			# Remove leading / because they are almost always not intended
 			if path.startswith( "/" ):
 				path = path[1:]
-				
+			
 			try:
 				s3_object = S3_CLIENT.get_object(
 					Bucket=s3_bucket,
@@ -1708,6 +1714,9 @@ class RunTmpLambda( BaseHandler ):
 				"max_execution_time": {
 					"type": "integer",
 				},
+				"environment_variables": {
+					"type": "array"
+				}
 			},
 			"required": [
 				"input_data",
@@ -1716,6 +1725,7 @@ class RunTmpLambda( BaseHandler ):
 				"libraries",
 				"memory",
 				"max_execution_time",
+				"environment_variables",
 			]
 		}
 		
@@ -1751,7 +1761,7 @@ class RunTmpLambda( BaseHandler ):
 			self.json[ "max_execution_time" ], # Max AWS execution time
 			self.json[ "memory" ], # MB of execution memory
 			{}, # VPC data
-			{},
+			self.json[ "environment_variables" ], # Env list
 			{
 				"project": "None"
 			}
@@ -2295,7 +2305,7 @@ class GetSQSJobTemplate( BaseHandler ):
 		})
 		
 @gen.coroutine
-def deploy_lambda( id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id ):
+def deploy_lambda( id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, environment_variables ):
 	logit(
 		"Building '" + name + "' Lambda package..."
 	)
@@ -2322,7 +2332,7 @@ def deploy_lambda( id, name, language, code, libraries, max_execution_time, memo
 		max_execution_time, # Max AWS execution time
 		memory, # MB of execution memory
 		{}, # VPC data
-		{},
+		environment_variables,
 		{
 			"refinery_id": id,
 		}
@@ -2350,7 +2360,7 @@ def update_workflow_states_list( updated_node, workflow_states ):
 	return workflow_states
 	
 @gen.coroutine
-def deploy_diagram( project_name, project_id, diagram_data ):
+def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	"""
 	Deploy the diagram to AWS
 	"""
@@ -2362,6 +2372,13 @@ def deploy_diagram( project_name, project_id, diagram_data ):
 	
 	# First just set an empty array for each lambda node
 	for workflow_state in diagram_data[ "workflow_states" ]:
+		# If there are environment variables in project_config, add them to the Lambda node data
+		if workflow_state[ "type" ] == "lambda":
+			if workflow_state[ "id" ] in project_config[ "environment_variables" ]:
+				workflow_state[ "environment_variables" ] = project_config[ "environment_variables" ][ workflow_state[ "id" ] ]
+			else:
+				workflow_state[ "environment_variables" ] = []
+		
 		if workflow_state[ "type" ] == "lambda" or workflow_state[ "type" ] == "api_endpoint":
 			# Set up default transitions data
 			workflow_state[ "transitions" ] = {}
@@ -2480,7 +2497,8 @@ def deploy_diagram( project_name, project_id, diagram_data ):
 				lambda_node[ "memory" ],
 				lambda_node[ "transitions" ],
 				"REGULAR",
-				project_id
+				project_id,
+				lambda_node[ "environment_variables" ]
 			)
 		)
 		
@@ -2503,7 +2521,8 @@ def deploy_diagram( project_name, project_id, diagram_data ):
 				128,
 				api_endpoint_node[ "transitions" ],
 				"API_ENDPOINT",
-				project_id
+				project_id,
+				[]
 			)
 		)
 		
@@ -3102,6 +3121,7 @@ class SaveProject( BaseHandler ):
 			"project_id": {{project id uuid}} || False # If False create a new project
 			"diagram_data": {{diagram_data}},
 			"version": "1.0.0" || False # Either specific or just increment
+			"config": {{project_config_data}} # Project config such as ENV variables, etc.
 		}
 		"""
 		self.logit(
@@ -3112,6 +3132,7 @@ class SaveProject( BaseHandler ):
 		diagram_data = json.loads( self.json[ "diagram_data" ] )
 		project_name = diagram_data[ "name" ]
 		project_version = self.json[ "version" ]
+		project_config = self.json[ "config" ]
 		
 		# If this is a new project and the name already exists
 		# Throw an error to indicate this can't be the case
@@ -3181,6 +3202,21 @@ class SaveProject( BaseHandler ):
 		previous_project.versions.append(
 			new_project_version
 		)
+		
+		# Check to see if there's a previous project config
+		previous_project_config = session.query( ProjectConfig ).filter_by(
+			project_id=project_id
+		).first()
+		
+		# If not, create one
+		if previous_project_config == None:
+			new_project_config = ProjectConfig()
+			new_project_config.project_id = project_id
+			new_project_config.config_json = project_config
+			session.add( new_project_config )
+		else: # Otherwise update the current config
+			previous_project_config.project_id = project_id
+			previous_project_config.config_json = project_config
 		
 		session.commit()
 		
@@ -3360,13 +3396,15 @@ class DeployDiagram( BaseHandler ):
 		
 		project_id = self.json[ "project_id" ]
 		project_name = self.json[ "project_name" ]
+		project_config = self.json[ "project_config" ]
 		
 		diagram_data = json.loads( self.json[ "diagram_data" ] )
 		
 		results_data = yield deploy_diagram(
 			project_name,
 			project_id,
-			diagram_data
+			diagram_data,
+			project_config
 		)
 		
 		existing_project = session.query( Project ).filter_by(
@@ -3392,6 +3430,44 @@ class DeployDiagram( BaseHandler ):
 				"project_id": project_id,
 				"deployment_id": new_deployment.id,
 			}
+		})
+		
+class GetProjectConfig( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Get the project config for a given project ID
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"project_id": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"project_id"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Retrieving project deployments..."
+		)
+		
+		project_config = session.query( ProjectConfig ).filter_by(
+			project_id=self.json[ "project_id" ]
+		).first()
+		
+		project_config_data = project_config.to_dict()
+		
+		print( "Project config data: " )
+		print( project_config_data )
+
+		self.write({
+			"success": True,
+			"result": project_config_data[ "config_json" ]
 		})
 		
 class GetLatestProjectDeployment( BaseHandler ):
@@ -3872,6 +3948,7 @@ def make_app( is_debug ):
 		( r"/api/v1/projects/search", SearchSavedProjects ),
 		( r"/api/v1/projects/get", GetSavedProject ),
 		( r"/api/v1/projects/delete", DeleteSavedProject ),
+		( r"/api/v1/projects/config/get", GetProjectConfig ),
 		( r"/api/v1/deployments/get_latest", GetLatestProjectDeployment ),
 		( r"/api/v1/deployments/delete_all_in_project", DeleteDeploymentsInProject )
 	], **tornado_app_settings)

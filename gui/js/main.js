@@ -779,10 +779,11 @@ function project_file_uploaded( event_data ) {
 					file_contents
 				)
 			);
+			$( "#importproject_output" ).modal( "hide" );
 		} catch ( e ) {
 			alert( "Error parsing project data! Invalid JSON?" );
 			console.log( e );
-		}
+		};
 	}
 	reader.readAsText( file_data );
 }
@@ -871,8 +872,8 @@ function created_saved_lambda( name, description, code, language, libraries, mem
 			"code": code,
 			"language": language,
 			"libraries": libraries,
-			"memory": memory,
-			"max_execution_time": max_execution_time
+			"memory": parseInt( memory ),
+			"max_execution_time": parseInt( max_execution_time )
 		}
 	);
 }
@@ -908,7 +909,7 @@ function run_deployed_lambda( arn, input_data ) {
 	);
 }
 
-function run_tmp_lambda( language, code, libraries, memory, max_execution_time, input_data ) {
+function run_tmp_lambda( language, code, libraries, memory, max_execution_time, input_data, environment_variables ) {
 	return api_request(
 		"POST",
 		"api/v1/aws/run_tmp_lambda",
@@ -919,6 +920,7 @@ function run_tmp_lambda( language, code, libraries, memory, max_execution_time, 
 			"memory": parseInt( memory ),
 			"max_execution_time": parseInt( max_execution_time ),
 			"input_data": input_data,
+			"environment_variables": environment_variables,
 		}
 	);
 }
@@ -939,13 +941,14 @@ function create_schedule_trigger( name, schedule_expression, description, target
 	);
 }
 
-function deploy_infrastructure( project_name, project_id, diagram_data ) {
+function deploy_infrastructure( project_name, project_id, diagram_data, project_config ) {
 	return api_request(
 		"POST",
 		"api/v1/aws/deploy_diagram",
 		{
 			"project_name": project_name,
 			"project_id": project_id,
+			"project_config": project_config,
 			"diagram_data": diagram_data,
 		}
 	);
@@ -972,14 +975,15 @@ function infrastructure_teardown( project_id, teardown_nodes ) {
 	);
 }
 
-function save_project( project_id, version, diagram_data ) {
+function save_project( project_id, version, diagram_data, project_config ) {
 	return api_request(
 		"POST",
 		"api/v1/projects/save",
 		{
 			"project_id": project_id,
 			"diagram_data": diagram_data,
-			"version": version
+			"version": version,
+			"config": project_config,
 		}
 	);
 }
@@ -1011,6 +1015,16 @@ function delete_project( id ) {
 		"api/v1/projects/delete",
 		{
 			"id": id
+		}
+	);
+}
+
+function get_project_config( project_id ) {
+	return api_request(
+		"POST",
+		"api/v1/projects/config/get",
+		{
+			"project_id": project_id
 		}
 	);
 }
@@ -1230,6 +1244,28 @@ $( document ).ready(function() {
 	);
 });
 
+var _DEFAULT_PROJECT_CONFIG = {
+	"version": "1.0.0",
+	/*
+		{
+			{{node_id}}: [
+				{
+					"key": "value"
+				}
+			]
+		}
+	*/
+	"environment_variables": {},
+	/*
+		{
+			"api_gateway_id": {{api_gateway_id}}
+		}
+	*/
+	"api_gateway_data": {
+		"exists": false,
+	}
+};
+
 var app = new Vue({
 	el: "#app",
 	data: {
@@ -1240,6 +1276,11 @@ var app = new Vue({
 		selected_transition: false,
 	    "workflow_states": [],
 	    "workflow_relationships": [],
+	    project_config: JSON.parse(
+	    	JSON.stringify(
+	    		_DEFAULT_PROJECT_CONFIG
+	    	)
+	    ),
 	    ace_language_to_lang_id_map: {
 	    	"python2.7": "python",
 	    	"nodejs8.10": "javascript"
@@ -1393,20 +1434,25 @@ var app = new Vue({
         },
         // Unformatted saved function imports
 		unformatted_saved_function_libraries: "",
+		
         // Search results for saved function search
         saved_function_search_results: [],
+        
         // Search term for saved function search
         saved_function_search_query: "",
         
         // Search term for saved Lambda search
         saved_lambda_search_query: "",
+        
         // Search results for saved Lambda search
         saved_lambda_search_results: [],
         
         // Search term for projects
         projects_search_query: "",
+        
         // Search results for projects
         projects_search_results: [],
+        
         // Selected project version
         project_selected_versions: {},
         
@@ -1464,6 +1510,16 @@ var app = new Vue({
         
         // Currently selected log ID
         selected_log_id_data: false,
+        
+        // Data for a fullscreen text viewer modal
+        fullscreen_text_viewer_data: {
+        	"text": "...",
+        	"title": "Example Popup",
+        	"language": "text",
+        },
+        
+        // Currently selected node environment variables
+        selected_node_environment_variables: [],
 	},
 	watch: {
 		projects_search_query: function( value, previous_value ) {
@@ -1623,6 +1679,54 @@ var app = new Vue({
 		},
 	},
 	methods: {
+		delete_environment_variable: function() {
+			var attribute_id = "envindex";
+			var target_element = event.srcElement;
+			var env_index = target_element.getAttribute( attribute_id );
+			env_index = parseInt( env_index );
+			app.selected_node_environment_variables.splice( env_index, 1 )
+		},
+		save_environment_variables: function() {
+			// Copy the data structure
+			var env_copy = JSON.parse(
+				JSON.stringify(
+					app.selected_node_environment_variables
+				)
+			);
+			
+			// Uppercase all environment variable keys
+			env_copy = env_copy.map(function( env_pair ) {
+				env_pair[ "key" ] = env_pair[ "key" ].toUpperCase()
+				return env_pair;
+			});
+			
+			// Copy variables into project config
+			app.project_config.environment_variables[ app.selected_node ] = env_copy;
+		},
+		add_environment_variable_to_selected: function( key, value ) {
+			app.selected_node_environment_variables.push({
+				"key": key,
+				"value": value,
+			});
+		},
+		open_lambda_environment_variables_editor: function() {
+			$( "#lambda_environment_variables_output" ).modal( "show" );
+			if( app.selected_node in app.project_config.environment_variables ) {
+				app.selected_node_environment_variables = JSON.parse(
+					JSON.stringify(
+						app.project_config.environment_variables[ app.selected_node ]
+					)
+				);
+				return
+			}
+			app.selected_node_environment_variables = [];
+		},
+		open_fullscreen_text_viewer: function( title, text, language ) {
+			app.fullscreen_text_viewer_data.title = title;
+			app.fullscreen_text_viewer_data.text = text;
+			app.fullscreen_text_viewer_data.language = language;
+			$( "#text_viewer_popup" ).modal( "show" );
+		},
 		get_log_preview_text: function( log_data ) {
 			var return_text = "";
 			if( "exception" in log_data.data && log_data.data.exception != "" ) {
@@ -1891,7 +1995,24 @@ var app = new Vue({
 				)
 			);
 			app.navigate_page( "welcome" );
+			
+			// Get latest deployment data
 			app.load_latest_deployment();
+			
+			// Load the latest config
+			app.load_latest_config();
+		},
+		load_latest_config: async function() {
+			// Load latest deployment data
+			var project_config = await get_project_config(
+				app.project_id
+			);
+			
+			if( project_config.result ) {
+				Vue.set( app, "project_config", JSON.parse( JSON.stringify( project_config[ "result" ] ) ) );
+			} else {
+				alert( "Error loading config data!" );
+			}
 		},
 		load_latest_deployment: async function() {
 			// Load latest deployment data
@@ -1911,6 +2032,11 @@ var app = new Vue({
 			app.project_name = "New Project";
 			app.project_id = false;
 			app.project_version = 1;
+			app.project_config = JSON.parse(
+				JSON.stringify(
+					_DEFAULT_PROJECT_CONFIG
+				)
+			);
 			import_project_data({
 			    "version": 1,
 			    "name": "New Project",
@@ -1977,7 +2103,8 @@ var app = new Vue({
 			var results = await save_project(
 				app.project_id,
 				project_version,
-				get_project_json()
+				get_project_json(),
+				JSON.stringify( app.project_config ),
 			).catch(function( error ) {
 				error_occured = true;
 				if( error[ "code" ] == "PROJECT_NAME_EXISTS" ) {
@@ -2300,7 +2427,8 @@ var app = new Vue({
 			var results = await deploy_infrastructure(
 				app.project_name,
 				app.project_id,
-				get_project_json()
+				get_project_json(),
+				app.project_config
 			);
 			
 			// Hacky
@@ -2712,6 +2840,12 @@ def example( parameter ):
 			// Show output modal
             app.view_tmp_lambda_output();
             
+            // Environment variables
+            var environment_variables = [];
+            if( app.selected_node in app.project_config[ "environment_variables" ] ) {
+            	environment_variables = app.project_config[ "environment_variables" ][ app.selected_node ];
+            }
+            
 			run_tmp_lambda(
 				app.lambda_language,
 				app.lambda_code,
@@ -2719,6 +2853,7 @@ def example( parameter ):
 				app.lambda_memory,
 				app.lambda_max_execution_time,
 				app.lambda_input,
+				environment_variables
 			).then(function( results ) {
 				console.log( "Run tmp lambda: " );
 				console.log( results );

@@ -186,6 +186,49 @@
 		        </div>
 		    </div>
 		</div>
+		
+		<!-- Edit Lambda environment variables modal -->
+		<div class="modal fade" id="lambda_environment_variables_output" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title">Lambda Environment Variables</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<h3>Lambda Environment Variable(s)</h3>
+						<p>
+							These environment variables will be applied to this Lambda when deployed into production (and run in development). Environment variables allow for clean seperation of configuration from code and add the ability to change configuration settings without a re-deploy.
+						</p>
+						<hr />
+						<div class="input-group mb-3" v-for="( env_pair, index ) in selected_node_environment_variables">
+							<div class="input-group-prepend">
+								<span class="input-group-text">Key</span>
+							</div>
+							<input type="text" class="form-control" placeholder="EXAMPLE_VARIABLE_KEY" style="text-transform: uppercase" v-model="env_pair.key">
+							<div class="input-group-prepend">
+								<span class="input-group-text">Value</span>
+							</div>
+							<input type="text" class="form-control" placeholder="Environment variable value." v-model="env_pair.value">
+							<button type="button" class="btn btn-danger" style="margin-left: 5px;" v-bind:envindex="index" v-on:click="delete_environment_variable">Delete</button>
+						</div>
+						<div v-if="selected_node_environment_variables.length == 0">
+							<center><p><i>No environment variables set.</i></p></center>
+						</div>
+						<hr />
+						<div style="text-align: right">
+							<button type="button" class="btn btn-primary" v-on:click="add_environment_variable_to_selected('EXAMPLE_ENV_VAR', 'Environment variable value.')">+ Add Variable</button>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		            	<button type="button" class="btn btn-primary" data-dismiss="modal" v-on:click="save_environment_variables">Save</button>
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
     	
     	<!-- TODO Modal - for unfinished stuff -->
 		<div class="modal fade" id="todo_output" tabindex="-1" role="dialog" aria-labelledby="todo_label" aria-hidden="true">
@@ -553,6 +596,28 @@
 		        </div>
 		    </div>
 		</div>
+		
+		<!-- Fullscreen text viewer -->
+		<div class="modal fade" id="text_viewer_popup" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg modal-full-screen" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title">{{fullscreen_text_viewer_data.title}}</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<div style="height: 100%">
+							<editor style="height: 700px" editor-id="fullscreen_text_viewer_editor" theme="monokai" v-bind:lang="fullscreen_text_viewer_data.language" :content="fullscreen_text_viewer_data.text" :disabled="true"></editor>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
 
 		<!-- Fullscreen lambda code editor -->
 		<div class="modal fade" id="lambda_editor_popup" tabindex="-1" role="dialog" aria-labelledby="lambda_editor_popup_label" aria-hidden="true">
@@ -752,6 +817,7 @@
 						</button>
 						<div class="dropdown-menu">
 							<a class="dropdown-item" href="#" v-on:click="add_lambda_node">Lambda</a>
+							<a class="dropdown-item" href="#" v-on:click="view_search_saved_lambdas_modal">Saved Lambda</a>
 							<a class="dropdown-item" href="#" v-on:click="add_sns_topic_node">SNS Topic Trigger</a>
 							<a class="dropdown-item" href="#" v-on:click="add_sqs_node">SQS Queue Trigger</a>
 							<a class="dropdown-item" href="#" v-on:click="add_timer_trigger_node">Time Trigger</a>
@@ -759,7 +825,6 @@
 							<a class="dropdown-item" href="#" v-on:click="add_api_gateway_response_node">API Response</a>
 						</div>
 					</div>
-					<button type="button" class="btn btn-primary" v-on:click="view_search_saved_lambdas_modal" style="margin-left: 5px;">Saved Lambdas</button>
 					<div class="btn-group">
 						<button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-left: 5px; margin-right: 45px">
 							Saved Functions
@@ -837,10 +902,10 @@
 					</div>
 					<div v-if="state_transition_conditional_data.type == 'fan-out'">
 						<div class="alert alert-warning" role="alert">
-							<b>Important:</b> For <code>fan-out</code> operations of any size you <b>must</b> set a max execution time of <b>at <u>least</u> 10 seconds</b>. For larger <code>fan-out</code> operations in the 1K-100K range you should consider making the max execution time as long as possible. Note that even with a low max execution time of 10 seconds all of the invocations will still be completed, but you'll incur a larger number of invocations due to the way Refinery's ramp-up invocation system works.
+							<b>Important:</b> For <code>fan-out</code> operations of any size you <b>must</b> set a max execution time of <b>at <u>least</u> 10 seconds</b>. For larger <code>fan-out</code> operations in the 1K-100K+ range you should consider making the max execution time as long as possible. Note that even with a low max execution time of 10 seconds all of the invocations will still be completed, but you'll incur a larger number of invocations due to the way Refinery's ramp-up invocation system works.
 						</div>
 						<div class="alert alert-primary" role="alert">
-							<b>Note:</b> If performing a large <code>fan-out</code> operation it is advisable to upgrade the Execution Memory of the invoking Lambda. This is because the CPU is scaled proportionally to the Execution Memory. For example, a 128 MB Lambda would take 25+ seconds to invoke 100 Lambdas while a 640 MB Lambda would take only ~5 seconds.
+							<b>Note:</b> If performing a large <code>fan-out</code> operation it is advisable to upgrade the Execution Memory of the invoking Lambda. This is because the CPU is scaled proportionally to the Execution Memory. Invocation speed will be greately increased if the Execution Memory is at least 640 MB.
 						</div>
 						<hr />
 					</div>
@@ -1090,7 +1155,7 @@
 					<table class="table table-striped">
 						<thead>
 							<tr>
-								<th scope="col" style="text-align: center">Log ID</th>
+								<th scope="col" style="text-align: center">Log Excerpt</th>
 								<th scope="col" style="text-align: center">Time</th>
 							</tr>
 						</thead>
@@ -1132,6 +1197,9 @@
 						<div style="height: 100px">
 							<editor editor-id="log_input_data" theme="monokai" lang="json" :content="selected_log_id_data.data.input_data" :disabled="true"></editor>
 						</div>
+						<div style="text-align: right">
+							<button type="button" style="width: 100%" class="btn btn-sm btn-secondary" v-on:click="open_fullscreen_text_viewer('Input Data', selected_log_id_data.data.input_data, 'json')">View Fullscreen</button>
+						</div>
 						<small class="form-text text-muted">Input passed to the Lambda.</small>
 					</div>
 					
@@ -1139,6 +1207,9 @@
 						<label><b>Exception Details</b></label>
 						<div style="height: 100px">
 							<editor editor-id="log_exception" theme="monokai" lang="text" :content="selected_log_id_data.data.exception" :disabled="true"></editor>
+						</div>
+						<div style="text-align: right">
+							<button type="button" style="width: 100%" class="btn btn-sm btn-secondary" v-on:click="open_fullscreen_text_viewer('Exception Details', selected_log_id_data.data.exception, 'text')">View Fullscreen</button>
 						</div>
 						<small class="form-text text-muted">Text of the exception which occured during this Lambda's execution.</small>
 					</div>
@@ -1148,6 +1219,9 @@
 						<div style="height: 100px">
 							<editor editor-id="log_output" theme="monokai" lang="text" :content="selected_log_id_data.data.output" :disabled="true"></editor>
 						</div>
+						<div style="text-align: right">
+							<button type="button" style="width: 100%" class="btn btn-sm btn-secondary" v-on:click="open_fullscreen_text_viewer('Lambda Output', selected_log_id_data.data.output, 'text')">View Fullscreen</button>
+						</div>
 						<small class="form-text text-muted">Output from <code>stdout</code> and <code>stderr</code> during execution.</small>
 					</div>
 					
@@ -1155,6 +1229,9 @@
 						<label><b>Return Data</b></label>
 						<div style="height: 100px">
 							<editor editor-id="log_return_data" theme="monokai" lang="json" :content="selected_log_id_data.data.return_data" :disabled="true"></editor>
+						</div>
+						<div style="text-align: right">
+							<button type="button" style="width: 100%" class="btn btn-sm btn-secondary" v-on:click="open_fullscreen_text_viewer('Return Data', selected_log_id_data.data.return_data, 'json')">View Fullscreen</button>
 						</div>
 						<small class="form-text text-muted">Data returned from the Lambda.</small>
 					</div>
@@ -1225,6 +1302,8 @@
 					</div>
 					<div v-if="ide_mode == 'LOCAL_IDE'">
 		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_lambda">Update Lambda</button>
+		                <hr />
+		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_lambda_environment_variables_editor">Environment Variables</button>
 		                <hr />
 		                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete Lambda</button>
 		                <hr />
