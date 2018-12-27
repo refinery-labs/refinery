@@ -223,7 +223,12 @@
 						</div>
 		            </div>
 		            <div class="modal-footer">
-		            	<button type="button" class="btn btn-primary" data-dismiss="modal" v-on:click="save_environment_variables">Save</button>
+		            	<div v-if="ide_mode == 'LOCAL_IDE'">
+		            		<button type="button" class="btn btn-primary" data-dismiss="modal" v-on:click="save_environment_variables">Save</button>
+		            	</div>
+		            	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+		            		<button type="button" class="btn btn-primary" data-dismiss="modal" v-on:click="update_deployed_lambda_environment_variables">Update Lambda Config</button>
+		            	</div>
 		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
 		            </div>
 		        </div>
@@ -1145,7 +1150,9 @@
             		<hr />
             		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_current_lambda_node_in_cloudwatch">View CloudWatch log(s) >> </button>
             		<hr />
-            		<button type="submit" class="btn btn-success" style="width: 100%" v-on:click="fullscreen_lambda_editor">Run Lambda >> </button>
+		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_lambda_environment_variables_editor">Modify Environment Variables</button>
+		            <hr />
+            		<button type="submit" class="btn btn-success" style="width: 100%" v-on:click="fullscreen_lambda_editor">Run Lambda</button>
             		<hr />
             	</div>
             	<div v-if="selected_execution_id_data && !selected_log_id_data">

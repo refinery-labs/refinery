@@ -412,6 +412,22 @@ class TaskSpawner(object):
 			return response
 			
 		@run_on_executor
+		def update_lambda_environment_variables( self, func_name, environment_variables ):
+			# Generate environment variables data structure
+			env_data = {}
+			for env_pair in environment_variables:
+				env_data[ env_pair[ "key" ] ] = env_pair[ "value" ]
+				
+			response = LAMBDA_CLIENT.update_function_configuration(
+				FunctionName=func_name,
+				Environment={
+					"Variables": env_data
+				},
+			)
+			
+			return response
+			
+		@run_on_executor
 		def deploy_aws_lambda( self, func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict ):
 			return TaskSpawner._deploy_aws_lambda( func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict )
 
@@ -3461,9 +3477,6 @@ class GetProjectConfig( BaseHandler ):
 		).first()
 		
 		project_config_data = project_config.to_dict()
-		
-		print( "Project config data: " )
-		print( project_config_data )
 
 		self.write({
 			"success": True,
@@ -3920,6 +3933,75 @@ def delete_logs( project_id ):
 		)
 		print( "Objects deleted!" )
 		
+class UpdateEnvironmentVariables( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Update environment variables for a given Lambda.
+		
+		Save the updated deployment diagram to the database and return
+		it to the frontend.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"project_id": {
+					"type": "string",
+				},
+				"arn": {
+					"type": "string",
+				},
+				"environment_variables": {
+					"type": "array",
+				},
+				
+			},
+			"required": [
+				"arn",
+				"environment_variables"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Updating environment variables..."
+		)
+		
+		response = yield local_tasks.update_lambda_environment_variables(
+			self.json[ "arn" ],
+			self.json[ "environment_variables" ],
+		)
+		
+		# Update the deployment diagram to reflect the new environment variables
+		latest_deployment = session.query( Deployment ).filter_by(
+			project_id=self.json[ "project_id" ]
+		).order_by(
+			Deployment.timestamp.desc()
+		).first()
+		
+		# Get deployment diagram from it
+		deployment_diagram_data = json.loads( latest_deployment.deployment_json )
+		
+		# Get node with the specified ARN and update it
+		for workflow_state in deployment_diagram_data[ "workflow_states" ]:
+			if workflow_state[ "arn" ] == self.json[ "arn" ]:
+				print( "Updated environment variables!" )
+				workflow_state[ "environment_variables" ] = self.json[ "environment_variables" ]
+		
+		print( "Updated deployment states: " )
+		pprint( deployment_diagram_data[ "workflow_states" ] )
+		
+		latest_deployment.deployment_json = json.dumps( deployment_diagram_data )
+		session.commit()
+		
+		self.write({
+			"success": True,
+			"result": {
+				"deployment_diagram": deployment_diagram_data
+			}
+		})
+		
 def make_app( is_debug ):
 	tornado_app_settings = {
 		"debug": is_debug,
@@ -3939,6 +4021,7 @@ def make_app( is_debug ):
 		( r"/api/v1/lambdas/search", SavedLambdaSearch ),
 		( r"/api/v1/lambdas/delete", SavedLambdaDelete ),
 		( r"/api/v1/lambdas/run", RunLambda ),
+		( r"/api/v1/lambdas/env_vars/update", UpdateEnvironmentVariables ),
 		( r"/api/v1/aws/create_schedule_trigger", CreateScheduleTrigger ),
 		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda ),
 		( r"/api/v1/aws/create_sqs_trigger", CreateSQSQueueTrigger ),

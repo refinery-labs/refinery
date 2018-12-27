@@ -274,7 +274,13 @@ function get_lambda_data() {
 }
 
 function get_node_data_by_id( node_id ) {
-	var results = app.workflow_states.filter(function( workflow_state ) {
+	var target_states = app.workflow_states;
+	
+	if( app.ide_mode == "DEPLOYMENT_VIEWER" ) {
+		target_states = app.deployment_data.diagram_data.workflow_states;
+	}
+	
+	var results = target_states.filter(function( workflow_state ) {
 		return workflow_state[ "id" ] === node_id;
 	});
 	if( results.length > 0 ) {
@@ -284,7 +290,13 @@ function get_node_data_by_id( node_id ) {
 }
 
 function get_state_transition_by_id( transition_id ) {
-	var results = app.workflow_relationships.filter(function( workflow_relationship ) {
+	var target_relationships = app.workflow_relationships;
+	
+	if( app.ide_mode == "DEPLOYMENT_VIEWER" ) {
+		target_relationships = app.deployment_data.diagram_data.workflow_relationships;
+	}
+	
+	var results = target_relationships.filter(function( workflow_relationship ) {
 		return workflow_relationship[ "id" ] === transition_id;
 	});
 	if( results.length > 0 ) {
@@ -1069,6 +1081,18 @@ function get_logs_data( log_paths_array ) {
 	);
 }
 
+function update_lambda_environment_variables( project_id, arn, environment_variables ) {
+	return api_request(
+		"POST",
+		"api/v1/lambdas/env_vars/update",
+		{
+			"project_id": project_id,
+			"arn": arn,
+			"environment_variables":  environment_variables
+		}
+	);
+}
+
 /*
     Make API request
 */
@@ -1584,8 +1608,11 @@ var app = new Vue({
 				return new_value.split( "\n" );
 			}
 		},
-		selected_node_data: function() {
-			return get_node_data_by_id( app.selected_node );
+		selected_node_data: {
+			cache: false,
+			get() {
+				return get_node_data_by_id( app.selected_node );
+			}
 		},
 		selected_transition_data: function() {
 			return get_state_transition_by_id( app.selected_transition );
@@ -1679,6 +1706,33 @@ var app = new Vue({
 		},
 	},
 	methods: {
+		update_deployed_lambda_environment_variables: async function() {
+			var error_occured = false;
+			
+			// Update environment variables
+			var result = await update_lambda_environment_variables(
+				app.project_id,
+				app.selected_node_data.arn,
+				app.selected_node_environment_variables
+			).catch(function( error ) {
+				toastr.error( "An error occured while updating Lambda environment variables (see console for more information)." );
+				error_occured = true;
+				console.error( error );
+			});
+			
+			// Quit out if we had an error
+			if( error_occured ) {
+				return
+			}
+			
+			console.log( "New deployment data: " );
+			pprint( result );
+			
+			// Update our deployment diagram
+			Vue.set( app.deployment_data, "diagram_data", result[ "result" ][ "deployment_diagram" ] );
+			
+			toastr.success( "Lambda environment variables updated successfully!" );
+		},
 		delete_environment_variable: function() {
 			var attribute_id = "envindex";
 			var target_element = event.srcElement;
@@ -1711,6 +1765,21 @@ var app = new Vue({
 		},
 		open_lambda_environment_variables_editor: function() {
 			$( "#lambda_environment_variables_output" ).modal( "show" );
+			
+			// Depending on if we're viewing a deployment or using the local IDE
+			// we'll show different environment variables
+			
+			// Deployment viewer
+			if( app.ide_mode === "DEPLOYMENT_VIEWER" ) {
+				app.selected_node_environment_variables = JSON.parse(
+					JSON.stringify(
+						app.selected_node_data.environment_variables
+					)
+				);
+				return
+			}
+			
+			// Local IDE
 			if( app.selected_node in app.project_config.environment_variables ) {
 				app.selected_node_environment_variables = JSON.parse(
 					JSON.stringify(
@@ -1719,6 +1788,7 @@ var app = new Vue({
 				);
 				return
 			}
+			
 			app.selected_node_environment_variables = [];
 		},
 		open_fullscreen_text_viewer: function( title, text, language ) {
