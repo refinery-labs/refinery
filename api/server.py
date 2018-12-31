@@ -428,11 +428,11 @@ class TaskSpawner(object):
 			return response
 			
 		@run_on_executor
-		def deploy_aws_lambda( self, func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict ):
-			return TaskSpawner._deploy_aws_lambda( func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict )
+		def deploy_aws_lambda( self, func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
+			return TaskSpawner._deploy_aws_lambda( func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict, layers )
 
 		@staticmethod
-		def _deploy_aws_lambda( func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict ):
+		def _deploy_aws_lambda( func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
 			"""
 			First upload the data to S3 at {{zip_sha1}}.zip
 			
@@ -494,7 +494,8 @@ class TaskSpawner(object):
 					Environment={
 						"Variables": env_data
 					},
-					Tags=tags_dict
+					Tags=tags_dict,
+					Layers=layers,
 				)
 			except ClientError as e:
 				print( "Exception occured: " )
@@ -518,7 +519,8 @@ class TaskSpawner(object):
 						memory,
 						vpc_config,
 						environment_variables,
-						tags_dict
+						tags_dict,
+						layers
 					)
 				else:
 					return False
@@ -1732,6 +1734,9 @@ class RunTmpLambda( BaseHandler ):
 				},
 				"environment_variables": {
 					"type": "array"
+				},
+				"layers": {
+					"type": "array"
 				}
 			},
 			"required": [
@@ -1742,6 +1747,7 @@ class RunTmpLambda( BaseHandler ):
 				"memory",
 				"max_execution_time",
 				"environment_variables",
+				"layers"
 			]
 		}
 		
@@ -1780,7 +1786,8 @@ class RunTmpLambda( BaseHandler ):
 			self.json[ "environment_variables" ], # Env list
 			{
 				"project": "None"
-			}
+			},
+			self.json[ "layers" ]
 		)
 		
 		# Try to parse Lambda input as JSON
@@ -1803,11 +1810,12 @@ class RunTmpLambda( BaseHandler ):
 		)
 
 		self.logit( "Deleting Lambda..." )
+		
 		# Now we delete the lambda, don't yield because we don't need to wait
 		delete_result = local_tasks.delete_aws_lambda(
 			random_node_id
 		)
-		
+
 		self.write({
 			"success": True,
 			"result": lambda_result
@@ -2321,7 +2329,7 @@ class GetSQSJobTemplate( BaseHandler ):
 		})
 		
 @gen.coroutine
-def deploy_lambda( id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, environment_variables ):
+def deploy_lambda( id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, environment_variables, layers ):
 	logit(
 		"Building '" + name + "' Lambda package..."
 	)
@@ -2351,7 +2359,8 @@ def deploy_lambda( id, name, language, code, libraries, max_execution_time, memo
 		environment_variables,
 		{
 			"refinery_id": id,
-		}
+		},
+		layers
 	)
 	
 	raise gen.Return({
@@ -2514,7 +2523,8 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 				lambda_node[ "transitions" ],
 				"REGULAR",
 				project_id,
-				lambda_node[ "environment_variables" ]
+				lambda_node[ "environment_variables" ],
+				lambda_node[ "layers" ],
 			)
 		)
 		
@@ -2538,6 +2548,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 				api_endpoint_node[ "transitions" ],
 				"API_ENDPOINT",
 				project_id,
+				[],
 				[]
 			)
 		)

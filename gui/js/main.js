@@ -268,6 +268,7 @@ function get_lambda_data() {
 	return_data[ "code" ] = app.lambda_code;
 	return_data[ "memory" ] = app.lambda_memory;
 	return_data[ "libraries" ] = app.lambda_libraries;
+	return_data[ "layers" ] = app.lambda_layers;
 	return_data[ "max_execution_time" ] = app.lambda_max_execution_time;
 	return_data[ "type" ] = "lambda";
 	return return_data
@@ -599,6 +600,7 @@ function select_node( node_id ) {
 		app.lambda_code = selected_node_data.code;
 		app.lambda_memory = selected_node_data.memory;
 		app.lambda_max_execution_time = selected_node_data.max_execution_time;
+		app.lambda_layers = selected_node_data.layers;
 		app.navigate_page( "modify-lambda" );
 	} else if( selected_node_data.type == "sqs_queue" ) {
 		reset_current_sqs_queue_state_to_defaults();
@@ -725,6 +727,7 @@ function reset_current_lambda_state_to_defaults() {
 	app.lambda_name = "";
 	app.lambda_language = "python2.7";
 	//app.lambda_libraries = [];
+	app.lambda_layers = [];
 	app.unformatted_libraries = "";
 	app.lambda_code = DEFAULT_LAMBDA_CODE[ "python2.7" ];
 }
@@ -921,7 +924,7 @@ function run_deployed_lambda( arn, input_data ) {
 	);
 }
 
-function run_tmp_lambda( language, code, libraries, memory, max_execution_time, input_data, environment_variables ) {
+function run_tmp_lambda( language, code, libraries, memory, max_execution_time, input_data, environment_variables, layers ) {
 	return api_request(
 		"POST",
 		"api/v1/aws/run_tmp_lambda",
@@ -933,6 +936,7 @@ function run_tmp_lambda( language, code, libraries, memory, max_execution_time, 
 			"max_execution_time": parseInt( max_execution_time ),
 			"input_data": input_data,
 			"environment_variables": environment_variables,
+			"layers": layers,
 		}
 	);
 }
@@ -1402,6 +1406,8 @@ var app = new Vue({
         lambda_memory: 128,
         // Currently selected lambda max runtime
         lambda_max_execution_time: 30,
+		// Lambda layer ARNs
+		lambda_layers: [],
         // The result of a lambda execution
         lambda_exec_result: false,
         // Lambda build timer
@@ -1706,6 +1712,19 @@ var app = new Vue({
 		},
 	},
 	methods: {
+		delete_layer: function() {
+			var attribute_id = "layerindex";
+			var target_element = event.srcElement;
+			var layer_index = target_element.getAttribute( attribute_id );
+			layer_index = parseInt( layer_index );
+			app.lambda_layers.splice( layer_index, 1 )
+		},
+		add_lambda_layer_to_selected: function( arn ) {
+			app.lambda_layers.push( arn );
+		},
+		open_lambda_lambda_layers_editor: function() {
+			$( "#lambda_layers_modal_output" ).modal( "show" );
+		},
 		update_deployed_lambda_environment_variables: async function() {
 			var error_occured = false;
 			
@@ -1724,9 +1743,6 @@ var app = new Vue({
 			if( error_occured ) {
 				return
 			}
-			
-			console.log( "New deployment data: " );
-			pprint( result );
 			
 			// Update our deployment diagram
 			Vue.set( app.deployment_data, "diagram_data", result[ "result" ][ "deployment_diagram" ] );
@@ -2305,7 +2321,8 @@ var app = new Vue({
 				"code",
 				"memory",
 				"libraries",
-				"max_execution_time"
+				"max_execution_time",
+				"layers"
 			];
 			
 			var new_lambda_data = {
@@ -2608,6 +2625,7 @@ var app = new Vue({
 	            "code": DEFAULT_LAMBDA_CODE[ "python2.7" ],
 	            "memory": 128,
 	            "libraries": [],
+	            "layers": [],
 	            "max_execution_time": 60,
 	            "type": "lambda"
 			}
@@ -2923,7 +2941,8 @@ def example( parameter ):
 				app.lambda_memory,
 				app.lambda_max_execution_time,
 				app.lambda_input,
-				environment_variables
+				environment_variables,
+				app.lambda_layers,
 			).then(function( results ) {
 				console.log( "Run tmp lambda: " );
 				console.log( results );
@@ -3006,6 +3025,7 @@ def example( parameter ):
 				"code": app.lambda_code,
 				"memory": app.lambda_memory,
 				"max_execution_time": app.lambda_max_execution_time,
+				"layers": app.lambda_layers,
 				"type": "lambda",
 			}
 			

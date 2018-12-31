@@ -187,6 +187,46 @@
 		    </div>
 		</div>
 		
+		<!-- Edit Lambda layers modal -->
+		<!--
+		<div class="modal fade" id="lambda_layers_modal_output" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title">Edit Layer(s)</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<h3>Lambda Layer(s)</h3>
+						<p>
+							Add the ARN(s) of the <a href="https://docs.aws.amazon.com/lambda/latest/dg/configuration-layers.html" target="_blank">Lambda layers</a> you wish to use with this Lambda function.
+						</p>
+						<hr />
+						<div class="input-group mb-3" v-for="( layer_arn, index ) in lambda_layers">
+							<div class="input-group-prepend">
+								<span class="input-group-text">Layer ARN</span>
+							</div>
+							<input type="text" class="form-control" placeholder="ARN" v-model="lambda_layers[index]">
+							<button type="button" class="btn btn-danger" style="margin-left: 5px;" v-bind:layerindex="index" v-on:click="delete_layer">Delete</button>
+						</div>
+						<div v-if="lambda_layers.length == 0">
+							<center><p><i>No Lambda layers have been set!</i></p></center>
+						</div>
+						<hr />
+						<div style="text-align: right">
+							<button type="button" class="btn btn-primary" v-on:click="add_lambda_layer_to_selected('arn:aws:lambda:xx-xxxx-xx:xxxxxxxxxxxxxx:layer:x:x')">+ Add Layer ARN</button>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+		-->
+		
 		<!-- Edit Lambda environment variables modal -->
 		<div class="modal fade" id="lambda_environment_variables_output" tabindex="-1" role="dialog" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -1137,7 +1177,7 @@
 			</div>
             
             <!-- Modify Lambda panel -->
-            <div v-if="page == 'modify-lambda'" class="split left-panel">
+            <div v-if="page == 'modify-lambda'" class="split left-panel" style="max-width: 400px">
             	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER' && !selected_execution_id_data">
             		<center>
             			Resource ARN: <br />
@@ -1307,10 +1347,33 @@
 						</div>
 						<small class="form-text text-muted">Maximum time the Lambda may execute before being killed in seconds.</small>
 					</div>
+					<div class="form-group">
+						<label>Layers</label>
+						<div class="form-group">
+							<div class="input-group mb-3" v-for="( layer_arn, index ) in lambda_layers">
+								<div class="input-group-prepend">
+									<span class="input-group-text">ARN</span>
+								</div>
+								<input type="text" class="form-control" placeholder="ARN" v-model="lambda_layers[index]">
+								<button type="button" class="btn btn-danger" style="margin-left: 5px;" v-bind:layerindex="index" v-on:click="delete_layer">Delete</button>
+							</div>
+							<div v-if="lambda_layers.length == 0">
+								<br />
+								<center><p><i>No Lambda layers have been set!</i></p></center>
+							</div>
+							<div style="text-align: right" v-if="lambda_layers.length < 5">
+								<button type="button" class="btn btn-primary" v-on:click="add_lambda_layer_to_selected('arn:aws:lambda:xx-xxxx-xx:xxxxxxxxxxxxxx:layer:x:x')">+ Add Layer ARN</button>
+							</div>
+						</div>
+					</div>
+					<small class="form-text text-muted">The ARN(s) of the <a href="https://docs.aws.amazon.com/lambda/latest/dg/configuration-layers.html" target="_blank">layers</a> you wish to use with this Lambda. There is a hard AWS limit of five layers per Lambda.</small>
+					<hr />
 					<div v-if="ide_mode == 'LOCAL_IDE'">
 		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_lambda">Update Lambda</button>
 		                <hr />
 		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_lambda_environment_variables_editor">Environment Variables</button>
+		                <hr />
+		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_lambda_lambda_layers_editor">Layer(s)</button>
 		                <hr />
 		                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete Lambda</button>
 		                <hr />
