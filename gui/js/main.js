@@ -1097,6 +1097,16 @@ function update_lambda_environment_variables( project_id, arn, environment_varia
 	);
 }
 
+function get_lambda_cloudwatch_logs( arn ) {
+	return api_request(
+		"POST",
+		"api/v1/lambdas/logs",
+		{
+			"arn": arn
+		}
+	);
+}
+
 /*
     Make API request
 */
@@ -1221,6 +1231,17 @@ Vue.component( "Editor", {
         })
     }
 })
+
+/*
+	Async await
+*/
+function wait( millseconds ) {
+	return new Promise(function(resolve, reject) {
+		setTimeout(function() {
+			resolve();
+		}, millseconds );
+	});
+}
 
 /*
     Make HTTP request
@@ -1410,6 +1431,9 @@ var app = new Vue({
 		lambda_layers: [],
         // The result of a lambda execution
         lambda_exec_result: false,
+        // Used to make sure we don't poll for logs
+        // for a previous lamdba after we've run another lambda
+        lambda_last_executed_arn: false,
         // Lambda build timer
         lambda_build_time: 0,
     	// Target data for when a schedule-based trigger is created
@@ -2321,8 +2345,7 @@ var app = new Vue({
 				"code",
 				"memory",
 				"libraries",
-				"max_execution_time",
-				"layers"
+				"max_execution_time"
 			];
 			
 			var new_lambda_data = {
@@ -2334,6 +2357,9 @@ var app = new Vue({
 			lambda_attributes.map(function( lambda_attribute_name ) {
 				new_lambda_data[ lambda_attribute_name ] = matched_lambda[ lambda_attribute_name ];
 			});
+			
+			// Add empty layers
+			new_lambda_data[ "layers" ] = [];
 			
 			new_lambda_data.name = app.get_non_colliding_name(
 				new_lambda_data.id,
@@ -2911,13 +2937,16 @@ def example( parameter ):
 			var delta = Date.now() - start_time;
 			app.lambda_build_time = ( delta / 1000 );
 			app.lambda_exec_result = results.result;
+			
+			// Ensure we have un-truncated results
+			app.full_output_checker();
 		},
 		view_tmp_lambda_output: function() {
 			$( "#runtmplambda_output" ).modal(
 				"show"
 			);
 		},
-		run_tmp_lambda: function() {
+		run_tmp_lambda: async function() {
 			// Clear previous result
 			app.lambda_exec_result = false;
 			app.lambda_build_time = 0;
@@ -2934,7 +2963,8 @@ def example( parameter ):
             	environment_variables = app.project_config[ "environment_variables" ][ app.selected_node ];
             }
             
-			run_tmp_lambda(
+            // Execute the Lambda
+			var results = await run_tmp_lambda(
 				app.lambda_language,
 				app.lambda_code,
 				app.lambda_libraries,
@@ -2943,13 +2973,54 @@ def example( parameter ):
 				app.lambda_input,
 				environment_variables,
 				app.lambda_layers,
-			).then(function( results ) {
-				console.log( "Run tmp lambda: " );
-				console.log( results );
-				var delta = Date.now() - start_time;
-				app.lambda_build_time = ( delta / 1000 );
-				app.lambda_exec_result = results.result;
-			});
+			);
+			
+			var delta = Date.now() - start_time;
+			app.lambda_build_time = ( delta / 1000 );
+			app.lambda_exec_result = results.result;
+			
+			// Ensure we have un-truncated results
+			app.full_output_checker();
+		},
+		full_output_checker: async function() {
+			// If logs are full we don't need to poll CloudWatch
+			if( !app.lambda_exec_result.truncated ) {
+				return
+			}
+			
+			// Max polling attempts
+			var polling_attempts_remaining = 15;
+			
+			// Get lambda ARN
+			var lambda_arn = app.lambda_exec_result.arn;
+			
+			// Update last executed ARN to stop any other log polling
+			app.lambda_last_executed_arn = lambda_arn;
+			
+			// Poll for full results
+			while( polling_attempts_remaining > 0 ) {
+				await wait(
+					( 1000 * 2 )
+				);
+				
+				if( app.lambda_last_executed_arn != lambda_arn ) {
+					break;
+				}
+				
+				var log_result = await get_lambda_cloudwatch_logs(
+					lambda_arn
+				);
+				
+				log_result = log_result.result;
+				
+				if( !log_result.truncated ) {
+					app.lambda_exec_result.logs = log_result.log_output;
+					app.lambda_exec_result.truncated = false;
+					break;
+				}
+				
+				polling_attempts_remaining--;
+			}
 		},
 		navigate_page: function( page_id ) {
 			app.page = page_id;

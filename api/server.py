@@ -343,18 +343,23 @@ class TaskSpawner(object):
 			
 			if "FunctionError" in response:
 				function_error = response[ "FunctionError" ]
-				
+			
 			log_output = base64.b64decode(
 				response[ "LogResult" ]
 			)
 			
 			# Will be filled with parsed lines
-			
 			if "START RequestId:" in log_output:
 				log_lines = log_output.split( "\n" )
-				log_output = "\n".join( log_lines[ 1:-3 ] )
+				
+			# Mark truncated if logs are not complete
+			truncated = True
+			if( "START RequestId: " in log_output and "END RequestId: " in log_output ):
+				truncated = False
 
 			return {
+				"truncated": truncated,
+				"arn": arn,
 				"version": response[ "ExecutedVersion" ],
 				"response": full_response,
 				"request_id": response[ "ResponseMetadata" ][ "RequestId" ],
@@ -1027,21 +1032,6 @@ class TaskSpawner(object):
 			
 			return response
 			
-		@run_on_executor
-		def get_cloudwatch_logs( self, log_group_name, log_stream_name ):
-			response = CLOUDWATCH_LOGS_CLIENT.get_log_events(
-				logGroupName=log_group_name,
-				logStreamName=log_stream_name,
-				#nextToken='string',
-				#limit=123,
-				startFromHead=True
-			)
-			
-			print( "Get Cloudwatch Logs: " )
-			pprint( response )
-			
-			return response
-			
 		@staticmethod
 		def write_to_s3( s3_bucket, path, object_data ):
 			return TaskSpawner._write_to_s3( s3_bucket, path, object_data )
@@ -1267,6 +1257,68 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
+		def get_lambda_cloudwatch_logs( self, arn ):
+			"""
+			Pull the full logs from CloudWatch
+			"""
+			arn_parts = arn.split( ":" )
+			lambda_name = arn_parts[ -1 ]
+			log_group_name = "/aws/lambda/" + lambda_name
+			
+			# Pull the last stream from CloudWatch
+			# Streams take time to propogate so wait if needed
+			streams_data = CLOUDWATCH_LOGS_CLIENT.describe_log_streams(
+				logGroupName=log_group_name,
+				orderBy="LastEventTime",
+				limit=50
+			)
+			
+			stream_id = streams_data[ "logStreams" ][ 0 ][ "logStreamName" ]
+			
+			log_output = ""
+			attempts_remaining = 4
+			some_log_data_returned = False
+			forward_token = False
+			last_forward_token = False
+			
+			while attempts_remaining > 0:
+				print( "[ STATUS ] Grabbing log events from '" + log_group_name + "' at '" + stream_id + "'..." )
+				get_log_events_params = {
+					"logGroupName": log_group_name,
+					"logStreamName": stream_id
+				}
+				
+				if forward_token:
+					get_log_events_params[ "nextToken" ] = forward_token
+				
+				log_data = CLOUDWATCH_LOGS_CLIENT.get_log_events(
+					**get_log_events_params
+				)
+				
+				last_forward_token = forward_token
+				forward_token = False
+				forward_token = log_data[ "nextForwardToken" ]
+				
+				# If we got nothing in response we'll try again
+				if len( log_data[ "events" ] ) == 0 and some_log_data_returned == False:
+					attempts_remaining = attempts_remaining - 1
+					time.sleep( 1 )
+					continue
+				
+				# If that's the last of the log data, quit out
+				if last_forward_token == forward_token:
+					break
+				
+				# Indicate we've at least gotten some log data previously
+				some_log_data_returned = True
+				
+				for event_data in log_data[ "events" ]:
+					# Append log data
+					log_output += event_data[ "message" ]
+					
+			return log_output
+			
+		@run_on_executor
 		def get_cloudwatch_existence_info( self, id, type, name ):
 			return TaskSpawner._get_cloudwatch_existence_info( id, type, name )
 			
@@ -1352,9 +1404,14 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def _delete_lambda( id, type, name, arn ):
-			response = LAMBDA_CLIENT.delete_function(
-				FunctionName=arn,
-			)
+			try:
+				response = LAMBDA_CLIENT.delete_function(
+					FunctionName=arn,
+				)
+			except ClientError as e:
+				if e.response[ "Error" ][ "Code" ] != "ResourceNotFoundException":
+					raise
+				pass
 			
 			return {
 				"id": id,
@@ -3997,11 +4054,7 @@ class UpdateEnvironmentVariables( BaseHandler ):
 		# Get node with the specified ARN and update it
 		for workflow_state in deployment_diagram_data[ "workflow_states" ]:
 			if workflow_state[ "arn" ] == self.json[ "arn" ]:
-				print( "Updated environment variables!" )
 				workflow_state[ "environment_variables" ] = self.json[ "environment_variables" ]
-		
-		print( "Updated deployment states: " )
-		pprint( deployment_diagram_data[ "workflow_states" ] )
 		
 		latest_deployment.deployment_json = json.dumps( deployment_diagram_data )
 		session.commit()
@@ -4010,6 +4063,50 @@ class UpdateEnvironmentVariables( BaseHandler ):
 			"success": True,
 			"result": {
 				"deployment_diagram": deployment_diagram_data
+			}
+		})
+		
+class GetCloudWatchLogsForLambda( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Get CloudWatch Logs for a given Lambda ARN.
+		
+		The logs may not be complete, since it takes time to propogate.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"arn": {
+					"type": "string",
+				},
+				
+			},
+			"required": [
+				"arn"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Retrieving CloudWatch logs..."
+		)
+		
+		log_output = yield local_tasks.get_lambda_cloudwatch_logs(
+			self.json[ "arn" ]
+		)
+		
+		truncated = True
+		
+		if "END RequestId: " in log_output:
+			truncated = False
+		
+		self.write({
+			"success": True,
+			"result": {
+				"truncated": truncated,
+				"log_output": log_output
 			}
 		})
 		
@@ -4032,6 +4129,7 @@ def make_app( is_debug ):
 		( r"/api/v1/lambdas/search", SavedLambdaSearch ),
 		( r"/api/v1/lambdas/delete", SavedLambdaDelete ),
 		( r"/api/v1/lambdas/run", RunLambda ),
+		( r"/api/v1/lambdas/logs", GetCloudWatchLogsForLambda ),
 		( r"/api/v1/lambdas/env_vars/update", UpdateEnvironmentVariables ),
 		( r"/api/v1/aws/create_schedule_trigger", CreateScheduleTrigger ),
 		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda ),

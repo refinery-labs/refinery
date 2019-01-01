@@ -716,6 +716,9 @@
 							<br />
 							<center>
 								<h3>Lambda Full Output</h3>
+								<p v-if="lambda_exec_result.truncated" style="display: inline; font-style: italic; color: #ff0000">
+									Logs are currently truncated to last 4 KB, for the full logs please wait...
+								</p>
 							</center>
 							<p>
 								<pre style="background-color: #000000; color: #FFFFFF !important; border-radius: 4px; padding: 10px">{{lambda_exec_result.logs}}</pre>
