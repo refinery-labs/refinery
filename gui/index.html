@@ -1199,7 +1199,7 @@
             		<hr />
             	</div>
             	<div v-if="selected_execution_id_data && !selected_log_id_data">
-            		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="view_project_execution_ids"><< Back</button>
+            		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="navigate_page('project_logs_execution_ids')"><< Back</button>
             		<hr />
             		<h2>Lambda Execution(s)</h2>
 					<table class="table table-striped">
@@ -1429,7 +1429,7 @@
             
         	<!-- Information on the execution ID log viewer -->
             <div v-if="page == 'project_logs_execution_id_info'" style="width: 200px;" class="split left-panel">
-            	<button type="button" class="btn btn-primary" v-on:click="view_project_execution_ids" style="width: 100%"><< Back</button>
+            	<button type="button" class="btn btn-primary" v-on:click="navigate_page('project_logs_execution_ids')" style="width: 100%"><< Back</button>
             	<hr />
             	<center>
             		<h2>Execution ID Viewer</h2>

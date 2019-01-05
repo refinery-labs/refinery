@@ -1698,9 +1698,9 @@ var app = new Vue({
 		ordered_execution_ids_metadata: function() {
 			function compare( a, b ) {
 				if ( a.oldest_observed_timestamp < b.oldest_observed_timestamp )
-					return -1;
-				if ( a.oldest_observed_timestamp > b.oldest_observed_timestamp  )
 					return 1;
+				if ( a.oldest_observed_timestamp > b.oldest_observed_timestamp  )
+					return -1;
 				return 0;
 			}
 			
