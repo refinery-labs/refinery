@@ -1199,6 +1199,8 @@ class TaskSpawner(object):
 			
 			while True:
 				if continuation_token:
+					print( "Last continuation token: " )
+					print( continuation_token )
 					# Grab another page of results
 					response = S3_CLIENT.list_objects_v2(
 						Bucket=s3_bucket,
@@ -3787,6 +3789,9 @@ def get_project_id_execution_log_groups( project_id, max_results ):
 		max_results
 	)
 	
+	print( "Execution log timestamp prefixs: " )
+	pprint( execution_log_timestamp_prefixes )
+	
 	timestamp_prefix_fetch_futures = []
 	
 	for execution_log_timestamp_prefix in execution_log_timestamp_prefixes:
@@ -3942,7 +3947,7 @@ class GetProjectExecutions( BaseHandler ):
 		
 		execution_ids_metadata = yield get_project_id_execution_log_groups(
 			self.json[ "project_id" ],
-			1000
+			100
 		)
 		
 		self.write({
