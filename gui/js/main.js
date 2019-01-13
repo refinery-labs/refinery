@@ -1065,13 +1065,19 @@ function delete_all_deployments_under_project( project_id ) {
 	);
 }
 
-function get_logged_execution_ids_for_project( project_id ) {
+function get_logged_execution_ids_for_project( project_id, continuation_token ) {
+	var parameters = {
+		"project_id": project_id
+	}
+	
+	if( continuation_token ) {
+		parameters[ "continuation_token" ] = continuation_token
+	}
+	
 	return api_request(
 		"POST",
 		"api/v1/logs/executions",
-		{
-			"project_id": project_id
-		}
+		parameters
 	);
 }
 
@@ -1548,9 +1554,15 @@ var app = new Vue({
         // Loader for when we pull execution ID(s)
         execution_ids_loading: false,
         
+        // Loader for when we're pulling more execution ID(s)
+        more_execution_ids_loading: false,
+        
         // Execution ID(s) for the current project and
         // their respective metadata
         execution_ids_metadata: {},
+        
+        // Continuation token for pulling older execution ID(s)
+        execution_ids_continuation_token: false,
         
         // Selected execution ID's metadata
         // Used to render the graph appropriately.
@@ -1695,44 +1707,47 @@ var app = new Vue({
 			
 			return valid_paths;
 		},
-		ordered_execution_ids_metadata: function() {
-			function compare( a, b ) {
-				if ( a.oldest_observed_timestamp < b.oldest_observed_timestamp )
-					return 1;
-				if ( a.oldest_observed_timestamp > b.oldest_observed_timestamp  )
-					return -1;
-				return 0;
+		ordered_execution_ids_metadata: {
+			cache: false,
+			get() {
+				function compare( a, b ) {
+					if ( a.oldest_observed_timestamp < b.oldest_observed_timestamp )
+						return 1;
+					if ( a.oldest_observed_timestamp > b.oldest_observed_timestamp  )
+						return -1;
+					return 0;
+				}
+				
+				// Get execution ID(s)
+				var execution_ids = Object.keys( app.execution_ids_metadata );
+				
+				if( execution_ids.length === 0 ) {
+					return [];
+				}
+				
+				// Make array of the metadata
+				var execution_ids_metadata_array = execution_ids.map(function( execution_id ) {
+					console.log( "Execution ID: " + execution_id );
+					var return_data = JSON.parse(
+						JSON.stringify(
+							app.execution_ids_metadata[ execution_id ]
+						)
+					);
+					
+					return_data[ "execution_id" ] = execution_id;
+					
+					return_data[ "time" ] = app.timestamp_to_date(
+						return_data[ "oldest_observed_timestamp" ]
+					);
+					
+					return return_data;
+				});
+				
+				// Sort the array by oldest timestamp
+				execution_ids_metadata_array.sort( compare );
+				
+				return execution_ids_metadata_array;
 			}
-			
-			// Get execution ID(s)
-			var execution_ids = Object.keys( app.execution_ids_metadata );
-			
-			if( execution_ids.length === 0 ) {
-				return [];
-			}
-			
-			// Make array of the metadata
-			var execution_ids_metadata_array = execution_ids.map(function( execution_id ) {
-				console.log( "Execution ID: " + execution_id );
-				var return_data = JSON.parse(
-					JSON.stringify(
-						app.execution_ids_metadata[ execution_id ]
-					)
-				);
-				
-				return_data[ "execution_id" ] = execution_id;
-				
-				return_data[ "time" ] = app.timestamp_to_date(
-					return_data[ "oldest_observed_timestamp" ]
-				);
-				
-				return return_data;
-			});
-			
-			// Sort the array by oldest timestamp
-			execution_ids_metadata_array.sort( compare );
-			
-			return execution_ids_metadata_array;
 		},
 	},
 	methods: {
@@ -1996,10 +2011,40 @@ var app = new Vue({
 		},
 		get_execution_ids_metadata: async function() {
 			var result = await get_logged_execution_ids_for_project(
-				app.project_id
+				app.project_id,
+				false
 			);
-
-			app.execution_ids_metadata = result.result;
+			
+			// Set contiuation token
+			app.execution_ids_continuation_token = result.result.continuation_token;
+			
+			// Set executions
+			app.execution_ids_metadata = result.result.executions;
+		},
+		get_more_execution_ids_metadata: async function() {
+			app.more_execution_ids_loading = true;
+			
+			var result = await get_logged_execution_ids_for_project(
+				app.project_id,
+				app.execution_ids_continuation_token
+			);
+			
+			// Set contiuation token
+			app.execution_ids_continuation_token = result.result.continuation_token;
+			
+			// Merge previous executions with the new ones
+			var executions_data = result.result.executions;
+			var execution_id_keys = Object.keys( executions_data );
+			
+			execution_id_keys.map(function( execution_id ) {
+				app.execution_ids_metadata[ execution_id ] = JSON.parse(
+					JSON.stringify(
+						executions_data[ execution_id ]
+					)
+				);
+			});
+			
+			app.more_execution_ids_loading = false;
 		},
 		save_lambda_and_project: async function() {
 			// Update Lambda

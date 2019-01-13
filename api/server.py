@@ -1162,53 +1162,61 @@ class TaskSpawner(object):
 			return return_array
 			
 		@run_on_executor
-		def get_s3_pipeline_execution_ids( self, timestamp_prefix, max_results ):
+		def get_s3_pipeline_execution_ids( self, timestamp_prefix, max_results, continuation_token ):
 			return TaskSpawner.get_all_s3_prefixes(
 				os.environ.get( "pipeline_logs_bucket" ),
 				timestamp_prefix,
-				max_results
+				max_results,
+				continuation_token
 			)
 		
 		@run_on_executor
-		def get_s3_pipeline_timestamp_prefixes( self, project_id, max_results ):
+		def get_s3_pipeline_timestamp_prefixes( self, project_id, max_results, continuation_token ):
 			return TaskSpawner.get_all_s3_prefixes(
 				os.environ.get( "pipeline_logs_bucket" ),
 				project_id + "/",
-				max_results
+				max_results,
+				continuation_token
 			)
 
 		@staticmethod
-		def get_all_s3_prefixes( s3_bucket, prefix, max_results, **kwargs ):
+		def get_all_s3_prefixes( s3_bucket, prefix, max_results, continuation_token ):
 			return_array = []
-			continuation_token = False
 			if max_results == -1: # max_results -1 means get all results
 				max_keys = 1000
 			elif max_results <= 1000:
 				max_keys = max_results
 			else:
 				max_keys = 1000
+				
+			list_objects_params = {
+				"Bucket": s3_bucket,
+				"Prefix": prefix,
+				"MaxKeys": max_keys, # Max keys you can request at once
+				"Delimiter": "/"
+			}
+			
+			if continuation_token:
+				list_objects_params[ "ContinuationToken" ] = continuation_token
 			
 			# First check to prime it
 			response = S3_CLIENT.list_objects_v2(
-				Bucket=s3_bucket,
-				Prefix=prefix,
-				MaxKeys=max_keys, # Max keys you can request at once
-				Delimiter="/",
-				**kwargs
+				**list_objects_params
 			)
 			
 			while True:
 				if continuation_token:
+					list_objects_params[ "ContinuationToken" ] = continuation_token
 					# Grab another page of results
 					response = S3_CLIENT.list_objects_v2(
-						Bucket=s3_bucket,
-						Prefix=prefix,
-						MaxKeys=max_keys, # Max keys you can request at once
-						Delimiter="/",
-						ContinuationToken=continuation_token,
-						**kwargs
+						**list_objects_params
 					)
-
+				
+				if "NextContinuationToken" in response:
+					continuation_token = response[ "NextContinuationToken" ]
+				else:
+					continuation_token = False
+					
 				# No results
 				if not ( "CommonPrefixes" in response ):
 					break
@@ -1225,10 +1233,11 @@ class TaskSpawner(object):
 					
 				if response[ "IsTruncated" ] == False:
 					break
-				
-				continuation_token = response[ "NextContinuationToken" ]
 					
-			return return_array
+			return {
+				"prefixes": return_array,
+				"continuation_token": continuation_token
+			}
 			
 		@run_on_executor
 		def get_aws_lambda_existence_info( self, id, type, lambda_name ):
@@ -3763,7 +3772,7 @@ def get_cloudflare_keys():
 	)
 	
 @gen.coroutine
-def get_project_id_execution_log_groups( project_id, max_results ):
+def get_project_id_execution_log_groups( project_id, max_results, continuation_token ):
 	"""
 	@project_id: The ID of the project deployed into production
 	@max_results: The max number of timestamp groups you want to search
@@ -3773,22 +3782,30 @@ def get_project_id_execution_log_groups( project_id, max_results ):
 	The result for this is the following format:
 	
 	results_dict = {
-		"execution_id": {
-			"logs": [
-				"full_s3_log_path"
-			],
-			"error": True, # If we find a log file with prefix of "EXCEPTION"
-			"oldest_observed_timestamp": 1543785335,
-		}
+		"executions": {
+			"execution_id": {
+				"logs": [
+					"full_s3_log_path"
+				],
+				"error": True, # If we find a log file with prefix of "EXCEPTION"
+				"oldest_observed_timestamp": 1543785335,
+			}
+		},
+		"continuation_token": "aASDWQ...",
 	}
 	"""
-	execution_log_timestamp_prefixes = yield local_tasks.get_s3_pipeline_timestamp_prefixes(
+	results_dict = {}
+	
+	execution_log_timestamp_prefix_data = yield local_tasks.get_s3_pipeline_timestamp_prefixes(
 		project_id,
-		max_results
+		max_results,
+		continuation_token
 	)
 	
-	print( "Execution log timestamp prefixs: " )
-	pprint( execution_log_timestamp_prefixes )
+	results_dict[ "continuation_token" ] = execution_log_timestamp_prefix_data[ "continuation_token" ]
+	results_dict[ "executions" ] = {}
+	
+	execution_log_timestamp_prefixes = execution_log_timestamp_prefix_data[ "prefixes" ]
 	
 	timestamp_prefix_fetch_futures = []
 	
@@ -3797,23 +3814,31 @@ def get_project_id_execution_log_groups( project_id, max_results ):
 		timestamp_prefix_fetch_futures.append(
 			local_tasks.get_s3_pipeline_execution_ids(
 				execution_log_timestamp_prefix,
-				-1
+				-1,
+				False
 			)
 		)
 		
-	execution_id_prefixes = yield timestamp_prefix_fetch_futures
+	execution_id_prefixes_data = yield timestamp_prefix_fetch_futures
+	
+	# Flat list of prefixes
+	execution_id_prefixes = []
+	
+	# Consolidate all data into just a final list of data
+	for execution_id_prefix_data in execution_id_prefixes_data:
+		execution_id_prefixes = execution_id_prefixes + execution_id_prefix_data[ "prefixes" ]
 	
 	# Now take all of the prefixes and get the full file paths under them
 	s3_log_path_promises = []
-	for execution_id_prefix_array in execution_id_prefixes:
-		for execution_id_prefix in execution_id_prefix_array:
-			print( "Retrieving execution id(s) under " + execution_id_prefix + "..." )
-			s3_log_path_promises.append(
-				local_tasks.get_s3_pipeline_execution_logs(
-					execution_id_prefix,
-					-1
-				)
+
+	for execution_id_prefix in execution_id_prefixes:
+		print( "Retrieving log paths under " + execution_id_prefix + "..." )
+		s3_log_path_promises.append(
+			local_tasks.get_s3_pipeline_execution_logs(
+				execution_id_prefix,
+				-1
 			)
+		)
 			
 	s3_log_file_paths = yield s3_log_path_promises
 	
@@ -3828,7 +3853,6 @@ def get_project_id_execution_log_groups( project_id, max_results ):
 	s3_log_file_paths = tmp_log_path_list
 	del tmp_log_path_list
 	
-	results_dict = {}
 	oldest_observed_timestamp = False
 	
 	for s3_log_file_path in s3_log_file_paths:
@@ -3842,25 +3866,25 @@ def get_project_id_execution_log_groups( project_id, max_results ):
 		timestamp = int( log_file_name_parts[ 3 ] )
 		
 		# Initialize if it doesn't already exist
-		if not ( execution_id in results_dict ):
-			results_dict[ execution_id ] = {
+		if not ( execution_id in results_dict[ "executions" ] ):
+			results_dict[ "executions" ][ execution_id ] = {
 				"logs": [],
 				"error": False,
 				"oldest_observed_timestamp": timestamp
 			}
 			
 		# Append the log path
-		results_dict[ execution_id ][ "logs" ].append(
+		results_dict[ "executions" ][ execution_id ][ "logs" ].append(
 			s3_log_file_path
 		)
 		
 		# If the prefix is "EXCEPTION" we know we encountered an error
 		if log_file_name.startswith( "EXCEPTION~" ):
-			results_dict[ execution_id ][ "error" ] = True
+			results_dict[ "executions" ][ execution_id ][ "error" ] = True
 			
 		# If the timestamp is older than the current, replace it
-		if timestamp < results_dict[ execution_id ][ "oldest_observed_timestamp" ]:
-			results_dict[ execution_id ][ "oldest_observed_timestamp" ] = timestamp
+		if timestamp < results_dict[ "executions" ][ execution_id ][ "oldest_observed_timestamp" ]:
+			results_dict[ "executions" ][ execution_id ][ "oldest_observed_timestamp" ] = timestamp
 		
 		# For the first timestamp
 		if oldest_observed_timestamp == False:
@@ -3930,6 +3954,9 @@ class GetProjectExecutions( BaseHandler ):
 			"properties": {
 				"project_id": {
 					"type": "string",
+				},
+				"continuation_token": {
+					"type": "string",
 				}
 			},
 			"required": [
@@ -3943,9 +3970,15 @@ class GetProjectExecutions( BaseHandler ):
 			"Retrieving execution ID(s) and their metadata..."
 		)
 		
+		continuation_token = False
+		
+		if "continuation_token" in self.json:
+			continuation_token = self.json[ "continuation_token" ]
+		
 		execution_ids_metadata = yield get_project_id_execution_log_groups(
 			self.json[ "project_id" ],
-			100
+			100,
+			continuation_token
 		)
 		
 		self.write({

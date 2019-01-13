@@ -1305,7 +1305,7 @@
 	                	<label>Language</label>
 						<select class="custom-select" v-model="lambda_language" @change="lambda_language_manual_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 							<option value="python2.7">python2.7</option>
-							<option value="nodejs8.10">Node v8.10.0 (LTS)</option>
+							<!--<option value="nodejs8.10">Node v8.10.0 (LTS)</option>-->
 						</select>
 						<small id="new_lambda_language_select_input_help" class="form-text text-muted">Language of lambda function.</small>
 					</div>
@@ -1407,6 +1407,8 @@
             	<div v-if="execution_ids_loading">
             		<center>
             			<img src="/img/circle-loader.gif" style="width: 150px" />
+            			<br />
+            			Loading pipeline executions, this may take a few seconds...
             		</center>
             	</div>
             	<div v-if="!execution_ids_loading">
@@ -1424,6 +1426,15 @@
 							</tr>
 						</tbody>
 					</table>
+					<hr />
+					<div v-if="!more_execution_ids_loading && execution_ids_continuation_token">
+						<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="get_more_execution_ids_metadata">Pull Older Logs</button>
+					</div>
+					<div v-if="more_execution_ids_loading">
+					    <center>
+					        <img src="/img/circle-loader.gif" style="width: 50px;"> Loading more logs, please wait...
+					    </center>
+					</div>
             	</div>
             </div>
             
