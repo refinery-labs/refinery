@@ -1736,6 +1736,16 @@ var app = new Vue({
 		},
 	},
 	methods: {
+		force_string: function( input_data ) {
+        	if( typeof( input_data ) === "object" ) {
+        		input_data = JSON.stringify(
+        			input_data,
+        			false,
+        			4
+        		);
+        	}
+        	return input_data;
+		},
 		delete_layer: function() {
 			var attribute_id = "layerindex";
 			var target_element = event.srcElement;
@@ -1923,6 +1933,15 @@ var app = new Vue({
 			var execution_id = target_element.getAttribute( attribute_id );
 			while( !execution_id ) {
 				execution_id = target_element.parentNode.getAttribute( attribute_id );
+			}
+			
+			// De-select whatever we've selected
+			app.selected_node = false;
+			
+			// If we've already cached this execution ID then don't regrab it
+			if( app.selected_execution_id_metadata.id == execution_id ) {
+				app.navigate_page( "project_logs_execution_id_info" );
+				return
 			}
 			
 			app.selected_execution_id_metadata = app.execution_ids_metadata[ execution_id ];

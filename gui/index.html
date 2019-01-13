@@ -1245,7 +1245,7 @@
 					<div class="form-group" v-if="'input_data' in selected_log_id_data.data">
 						<label><b>Input Data</b></label>
 						<div style="height: 100px">
-							<editor editor-id="log_input_data" theme="monokai" lang="json" :content="selected_log_id_data.data.input_data" :disabled="true"></editor>
+							<editor editor-id="log_input_data" theme="monokai" lang="json" :content="force_string( selected_log_id_data.data.input_data )" :disabled="true"></editor>
 						</div>
 						<div style="text-align: right">
 							<button type="button" style="width: 100%" class="btn btn-sm btn-secondary" v-on:click="open_fullscreen_text_viewer('Input Data', selected_log_id_data.data.input_data, 'json')">View Fullscreen</button>
@@ -1256,7 +1256,7 @@
 					<div class="form-group" v-if="'exception' in selected_log_id_data.data">
 						<label><b>Exception Details</b></label>
 						<div style="height: 100px">
-							<editor editor-id="log_exception" theme="monokai" lang="text" :content="selected_log_id_data.data.exception" :disabled="true"></editor>
+							<editor editor-id="log_exception" theme="monokai" lang="text" :content="force_string( selected_log_id_data.data.exception )" :disabled="true"></editor>
 						</div>
 						<div style="text-align: right">
 							<button type="button" style="width: 100%" class="btn btn-sm btn-secondary" v-on:click="open_fullscreen_text_viewer('Exception Details', selected_log_id_data.data.exception, 'text')">View Fullscreen</button>
@@ -1267,7 +1267,7 @@
 					<div class="form-group" v-if="'output' in selected_log_id_data.data">
 						<label><b>Lambda Output (<code>stdout</code>/<code>stderr</code>)</b></label>
 						<div style="height: 100px">
-							<editor editor-id="log_output" theme="monokai" lang="text" :content="selected_log_id_data.data.output" :disabled="true"></editor>
+							<editor editor-id="log_output" theme="monokai" lang="text" :content="force_string( selected_log_id_data.data.output )" :disabled="true"></editor>
 						</div>
 						<div style="text-align: right">
 							<button type="button" style="width: 100%" class="btn btn-sm btn-secondary" v-on:click="open_fullscreen_text_viewer('Lambda Output', selected_log_id_data.data.output, 'text')">View Fullscreen</button>
@@ -1278,7 +1278,7 @@
 					<div class="form-group" v-if="'return_data' in selected_log_id_data.data">
 						<label><b>Return Data</b></label>
 						<div style="height: 100px">
-							<editor editor-id="log_return_data" theme="monokai" lang="json" :content="selected_log_id_data.data.return_data" :disabled="true"></editor>
+							<editor editor-id="log_return_data" theme="monokai" lang="json" :content="force_string( selected_log_id_data.data.return_data )" :disabled="true"></editor>
 						</div>
 						<div style="text-align: right">
 							<button type="button" style="width: 100%" class="btn btn-sm btn-secondary" v-on:click="open_fullscreen_text_viewer('Return Data', selected_log_id_data.data.return_data, 'json')">View Fullscreen</button>
@@ -1305,7 +1305,7 @@
 	                	<label>Language</label>
 						<select class="custom-select" v-model="lambda_language" @change="lambda_language_manual_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 							<option value="python2.7">python2.7</option>
-							<!--<option value="nodejs8.10">Node v8.10.0 (LTS)</option>-->
+							<option value="nodejs8.10">Node v8.10.0 (LTS)</option>
 						</select>
 						<small id="new_lambda_language_select_input_help" class="form-text text-muted">Language of lambda function.</small>
 					</div>
