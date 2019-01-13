@@ -1199,8 +1199,6 @@ class TaskSpawner(object):
 			
 			while True:
 				if continuation_token:
-					print( "Last continuation token: " )
-					print( continuation_token )
 					# Grab another page of results
 					response = S3_CLIENT.list_objects_v2(
 						Bucket=s3_bucket,
