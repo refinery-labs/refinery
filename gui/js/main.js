@@ -542,6 +542,9 @@ async function build_dot_graph() {
 		polygon.setAttribute( "fill", "url(#" + title_text_data.type + ")" );
 		var poly_box = polygon.getBBox();
 		
+		// Hide the Refinery unique deployment ID from the graph
+		title_text_data.name = title_text_data.name.toString().replace( /\_RFN[0-9a-zA-Z]{6}/gm, "" );
+		
 		text_element.innerHTML = title_text_data.name;
 		var SVGRect = text_element.getBBox();
 		

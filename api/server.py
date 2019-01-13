@@ -9,8 +9,10 @@ import botocore
 import subprocess
 import logging
 import hashlib
+import random
 import shutil
 import base64
+import string
 import boto3
 import uuid
 import json
@@ -1727,6 +1729,16 @@ local_tasks = TaskSpawner()
 			
 def get_random_node_id():
 	return "n" + str( uuid.uuid4() ).replace( "-", "" )
+	
+def get_random_id( length ):
+	return "".join(
+		random.choice(
+			string.ascii_letters + string.digits
+		) for _ in range( length )
+	)
+
+def get_random_deploy_id():
+	return "_RFN" + get_random_id( 6 )
 
 class RunLambda( BaseHandler ):
 	@gen.coroutine
@@ -2461,8 +2473,19 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	nodes with an array of transitions.
 	"""
 	
+	# Random ID to keep deploy ARNs unique
+	# TODO do more research into collision probability
+	unique_deploy_id = get_random_deploy_id()
+	
 	# First just set an empty array for each lambda node
 	for workflow_state in diagram_data[ "workflow_states" ]:
+		# Update all of the workflow states with new random deploy ID
+		if "name" in workflow_state:
+			workflow_state[ "name" ] += unique_deploy_id
+		# Edge case for SNS topics - TODO should be fixed so that SNS topics have "name" like any other node
+		if "topic_name" in workflow_state:
+			workflow_state[ "topic_name" ] += unique_deploy_id
+		
 		# If there are environment variables in project_config, add them to the Lambda node data
 		if workflow_state[ "type" ] == "lambda":
 			if workflow_state[ "id" ] in project_config[ "environment_variables" ]:
