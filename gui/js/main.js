@@ -493,7 +493,7 @@ async function build_dot_graph() {
 		var node_id = svg_nodes[i].getAttribute( "id" );
 		
 		// Get <text> element since it contains the true Lambda name
-		var lambda_name = text_element.innerHTML;
+		var lambda_name = text_element.getAttribute( "lambda_name" );
 		
 		if( node_id.includes( "_node" ) && app.selected_execution_id_data && lambda_name in app.selected_execution_id_data ) {
 			var node_polygon = svg_nodes[i].querySelector( "polygon" );
@@ -522,7 +522,6 @@ async function build_dot_graph() {
 		    	highlight_box.setAttribute("style", "fill: #12bc00; fill-opacity: 0.4;");
 		    }
 		    
-		    //text_element.setAttributeNS( null, "fill", "#FFFFFF" );
 		    text_element.parentNode.insertBefore( highlight_box, text_element );
 		}
 		
@@ -542,10 +541,11 @@ async function build_dot_graph() {
 		polygon.setAttribute( "fill", "url(#" + title_text_data.type + ")" );
 		var poly_box = polygon.getBBox();
 		
-		// Hide the Refinery unique deployment ID from the graph
-		title_text_data.name = title_text_data.name.toString().replace( /\_RFN[0-9a-zA-Z]{6}/gm, "" );
+		text_element.setAttribute( "lambda_name", title_text_data.name );
 		
 		text_element.innerHTML = title_text_data.name;
+		text_element.innerHTML = text_element.innerHTML.replace( /\_RFN[0-9a-zA-Z]{6}/gm, "" );
+		
 		var SVGRect = text_element.getBBox();
 		
 		// Text box rectagle
@@ -1730,7 +1730,6 @@ var app = new Vue({
 				
 				// Make array of the metadata
 				var execution_ids_metadata_array = execution_ids.map(function( execution_id ) {
-					console.log( "Execution ID: " + execution_id );
 					var return_data = JSON.parse(
 						JSON.stringify(
 							app.execution_ids_metadata[ execution_id ]
@@ -2264,9 +2263,6 @@ var app = new Vue({
 			app.projects_search_results.map(function( projects_search_result ) {
 				app.project_selected_versions[ projects_search_result.id ] = projects_search_result.versions[0];
 			});
-			
-			console.log( "Project search results: " );
-			pprint( app.projects_search_results );
 		},
 		save_project_bump_version: function() {
 			return app.save_project( false );
