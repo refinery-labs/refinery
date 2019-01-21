@@ -961,12 +961,12 @@ def _init( lambda_input, context ):
 	
 	execution_pipeline_id = "{{EXECUTION_PIPELINE_ID_REPLACE_ME}}"
 	s3_log_bucket = "{{LOG_BUCKET_NAME_REPLACE_ME}}"
-	execution_pipeline_logging_enabled = "{{PIPELINE_LOGGING_ENABLED_REPLACE_ME}}"
+	execution_pipeline_logging_level = "{{PIPELINE_LOGGING_LEVEL_REPLACE_ME}}"
 	project_id = "{{PROJECT_ID_REPLACE_ME}}"
 	
 	# If pipeline logging is enabled
 	# We initialize the S3 client to prevent threading bugs
-	if execution_pipeline_logging_enabled:
+	if execution_pipeline_logging_level != "LOG_NONE":
 		# Bug fix test
 		s3_client = boto3.client(
 			"s3"
@@ -1086,7 +1086,7 @@ def _init( lambda_input, context ):
 			
 			# Invoke all Lambdas to be run when an exception occurs
 			if len( transitions[ "exception" ] ) > 0:
-				if execution_pipeline_logging_enabled:
+				if execution_pipeline_logging_level == "LOG_ERRORS" or execution_pipeline_logging_level == "LOG_ALL":
 					_write_pipeline_logs(
 						s3_log_bucket,
 						execution_pipeline_id,
@@ -1128,7 +1128,7 @@ def _init( lambda_input, context ):
 					raise
 				return
 			else:
-				if execution_pipeline_logging_enabled:
+				if execution_pipeline_logging_level == "LOG_ERRORS" or execution_pipeline_logging_level == "LOG_ALL":
 					_write_pipeline_logs(
 						s3_log_bucket,
 						execution_pipeline_id,
@@ -1143,7 +1143,7 @@ def _init( lambda_input, context ):
 						},
 						execution_details
 					)
-
+					
 				# Only runs in tmp runs due to Event-retry AWS behavior
 				if throw_exceptions_fully:
 					raise
@@ -1400,7 +1400,7 @@ def _init( lambda_input, context ):
 	
 	# If pipeline logging is enabled
 	# Write the return data of this Lambda
-	if execution_pipeline_logging_enabled:
+	if execution_pipeline_logging_level == "LOG_ALL":
 		_write_pipeline_logs(
 			s3_log_bucket,
 			execution_pipeline_id,

@@ -802,6 +802,35 @@
 		    </div>
 		</div>
 		
+		<!-- Project Settings Modal -->
+		<div class="modal fade" id="project_settings_modal" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title">Project Settings</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<div class="form-group">
+							<label>Logging Level</label>
+							<select class="form-control" v-model="project_config.logging.level">
+								<option value="LOG_ALL">Log all executions</option>
+								<option value="LOG_ERRORS">Log only errors</option>
+								<option value="LOG_NONE">No logging</option>
+							</select>
+							<small class="form-text text-muted">The logging level to use when Lambdas run in production. Note that changing this level requires a re-deploy to take effect!</small>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		            	<button type="button" class="btn btn-success" v-on:click="save_project_current_version" data-dismiss="modal" v-if="project_id">Save Project</button>
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+		
 		<!-- Header -->
         <div id="header">
 			<nav class="navbar navbar-expand-lg navbar-light bg-light" style="background-color: #eee !important;">
@@ -853,6 +882,7 @@
 							<a class="dropdown-item" href="#" v-on:click="save_project_current_version">Save Project to Current Version</a>
 							<a class="dropdown-item" href="#" v-on:click="save_project_bump_version">Save Project to Bumped Version</a>
 							<hr />
+							<a class="dropdown-item" href="#" v-on:click="view_project_settings">Project Settings</a>
 							<a class="dropdown-item" href="#" v-on:click="view_search_projects_modal">Open Project</a>
 							<a class="dropdown-item" href="#" v-on:click="import_project_data">Import Project</a>
 							<a class="dropdown-item" href="#" v-on:click="export_project_data">Export Project</a>
@@ -868,7 +898,7 @@
 							<a class="dropdown-item" href="#" v-on:click="view_search_saved_lambdas_modal">Saved Lambda</a>
 							<a class="dropdown-item" href="#" v-on:click="add_sns_topic_node">SNS Topic Trigger</a>
 							<a class="dropdown-item" href="#" v-on:click="add_sqs_node">SQS Queue Trigger</a>
-							<a class="dropdown-item" href="#" v-on:click="add_timer_trigger_node">Time Trigger</a>
+							<a class="dropdown-item" href="#" v-on:click="add_timer_trigger_node">Schedule Trigger</a>
 							<a class="dropdown-item" href="#" v-on:click="add_api_endpoint_node">API Endpoint</a>
 							<a class="dropdown-item" href="#" v-on:click="add_api_gateway_response_node">API Response</a>
 						</div>
@@ -1172,7 +1202,7 @@
 					</ul>
 				</p>
 				<hr />
-				<div >
+				<div v-if="ide_mode == 'LOCAL_IDE'">
 					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
 	                <hr />
 	                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete API Response</button>
@@ -1375,8 +1405,6 @@
 		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_lambda">Update Lambda</button>
 		                <hr />
 		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_lambda_environment_variables_editor">Environment Variables</button>
-		                <hr />
-		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_lambda_lambda_layers_editor">Layer(s)</button>
 		                <hr />
 		                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete Lambda</button>
 		                <hr />

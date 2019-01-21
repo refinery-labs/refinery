@@ -2,19 +2,6 @@ var API_SERVER = window.location.origin.toString();
 
 var DEFAULT_LAMBDA_CODE = {
 	"python2.7": `
-"""
-Embedded magic
-
-Refinery memory:
-	Global memory: gmemory.get( "example" )
-	Force no-namespace: gmemory.get( "example", raw=True )
-
-SQS message body:
-	First message: sqs_data = json.loads( lambda_input[ "Records" ][0][ "body" ] )
-SNS message body:
-	First message: sns_data = json.loads( lambda_input[ "Records" ][0][ "Sns" ][ "Message" ] )
-"""
-
 def main( lambda_input, context ):
     return False
 `,
@@ -1321,6 +1308,10 @@ var _DEFAULT_PROJECT_CONFIG = {
 	*/
 	"api_gateway_data": {
 		"exists": false,
+	},
+	
+	"logging": {
+		"level": "LOG_ALL",
 	}
 };
 
@@ -1753,6 +1744,9 @@ var app = new Vue({
 		},
 	},
 	methods: {
+		view_project_settings: function() {
+			$( "#project_settings_modal" ).modal( "show" );
+		},
 		force_string: function( input_data ) {
         	if( typeof( input_data ) === "object" ) {
         		input_data = JSON.stringify(
@@ -2180,12 +2174,31 @@ var app = new Vue({
 		},
 		load_latest_config: async function() {
 			// Load latest deployment data
-			var project_config = await get_project_config(
+			var project_config_data = await get_project_config(
 				app.project_id
 			);
 			
-			if( project_config.result ) {
-				Vue.set( app, "project_config", JSON.parse( JSON.stringify( project_config[ "result" ] ) ) );
+			var project_config = project_config_data[ "result" ];
+			
+			// Load the defaults and merge in anything
+			// which is undefined on the project config
+			var default_project_keys = Object.keys(
+				_DEFAULT_PROJECT_CONFIG
+			);
+			
+			default_project_keys.map(function( default_project_key ) {
+				if ( !( default_project_key in project_config ) ) {
+					console.log( "Updating project config to include new field '" + default_project_key + "'." );
+					project_config[ default_project_key ] = JSON.parse(
+						JSON.stringify(
+							_DEFAULT_PROJECT_CONFIG[ default_project_key ]
+						)
+					);
+				}
+			});
+			
+			if( project_config ) {
+				Vue.set( app, "project_config", JSON.parse( JSON.stringify( project_config ) ) );
 			} else {
 				alert( "Error loading config data!" );
 			}

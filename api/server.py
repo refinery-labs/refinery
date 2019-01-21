@@ -808,17 +808,17 @@ class TaskSpawner(object):
 			return zip_data
 
 		@run_on_executor
-		def build_lambda( self, language, code, libraries, transitions, execution_mode, execution_pipeline_id ):
+		def build_lambda( self, language, code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
 			if not ( language in LAMBDA_SUPPORTED_LANGUAGES ):
 				raise Exception( "Error, this language '" + language + "' is not yet supported by refinery!" )
 			
 			if language == "python2.7":
-				return TaskSpawner._build_python_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id )
+				return TaskSpawner._build_python_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level )
 			elif language == "nodejs8.10":
-				return TaskSpawner._build_nodejs_810_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id )
+				return TaskSpawner._build_nodejs_810_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level )
 		
 		@staticmethod
-		def _build_python_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id ):
+		def _build_python_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
 			"""
 			Build Lambda package zip and return zip data
 			"""
@@ -839,10 +839,10 @@ class TaskSpawner(object):
 			
 			if execution_pipeline_id:
 				code = code.replace( "{{EXECUTION_PIPELINE_ID_REPLACE_ME}}", execution_pipeline_id )
-				code = code.replace( "\"{{PIPELINE_LOGGING_ENABLED_REPLACE_ME}}\"", "True" )
+				code = code.replace( "{{PIPELINE_LOGGING_LEVEL_REPLACE_ME}}", execution_log_level )
 			else:
 				code = code.replace( "{{EXECUTION_PIPELINE_ID_REPLACE_ME}}", "" )
-				code = code.replace( "\"{{PIPELINE_LOGGING_ENABLED_REPLACE_ME}}\"", "False" )
+				code = code.replace( "{{PIPELINE_LOGGING_LEVEL_REPLACE_ME}}", "LOG_NONE" )
 			
 			for init_library in LAMBDA_BASE_LIBRARIES[ "python2.7" ]:
 				if not init_library in libraries:
@@ -1846,6 +1846,7 @@ class RunTmpLambda( BaseHandler ):
 				"fan-in": [],
 			},
 			"REGULAR",
+			False,
 			False
 		)
 		
@@ -2407,7 +2408,7 @@ class GetSQSJobTemplate( BaseHandler ):
 		})
 		
 @gen.coroutine
-def deploy_lambda( id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, environment_variables, layers ):
+def deploy_lambda( id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, execution_log_level, environment_variables, layers ):
 	logit(
 		"Building '" + name + "' Lambda package..."
 	)
@@ -2418,7 +2419,8 @@ def deploy_lambda( id, name, language, code, libraries, max_execution_time, memo
 		libraries,
 		transitions,
 		execution_mode,
-		execution_pipeline_id
+		execution_pipeline_id,
+		execution_log_level
 	)
 	
 	logit(
@@ -2612,6 +2614,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 				lambda_node[ "transitions" ],
 				"REGULAR",
 				project_id,
+				project_config[ "logging" ][ "level" ],
 				lambda_node[ "environment_variables" ],
 				lambda_node[ "layers" ],
 			)
@@ -2637,6 +2640,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 				api_endpoint_node[ "transitions" ],
 				"API_ENDPOINT",
 				project_id,
+				project_config[ "logging" ][ "level" ],
 				[],
 				[]
 			)
@@ -3495,6 +3499,7 @@ def warm_lambda_base_caches():
 					"fan-in": [],
 				},
 				"REGULAR",
+				False,
 				False
 			)
 		)
