@@ -1306,8 +1306,8 @@ var _DEFAULT_PROJECT_CONFIG = {
 			"api_gateway_id": {{api_gateway_id}}
 		}
 	*/
-	"api_gateway_data": {
-		"exists": false,
+	"api_gateway": {
+		"gateway_id": false,
 	},
 	
 	"logging": {

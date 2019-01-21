@@ -870,7 +870,7 @@ class TaskSpawner(object):
 				# Write lambda.py into new .zip
 				zip_file_handler.writestr(
 					info,
-					code
+					code.encode( "utf-8" )
 				)
 				
 			with open( tmp_zip_file, "rb" ) as file_handler:
