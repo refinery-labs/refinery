@@ -1541,6 +1541,36 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
+		def delete_rest_api_resource( self, rest_api_id, resource_id ):
+			response = APIGATEWAY_CLIENT.delete_resource(
+				restApiId=rest_api_id,
+				resourceId=resource_id,
+			)
+			
+			return {
+				"rest_api_id": rest_api_id,
+				"resource_id": resource_id
+			}
+			
+		@run_on_executor
+		def delete_rest_api_resource_method( self, rest_api_id, resource_id, method ):
+			try:
+				response = APIGATEWAY_CLIENT.delete_method(
+					restApiId=rest_api_id,
+					resourceId=resource_id,
+					httpMethod=method,
+				)
+			except:
+				print( "Exception occurred while deleting method '" + method + "'!" )
+				pass
+			
+			return {
+				"rest_api_id": rest_api_id,
+				"resource_id": resource_id,
+				"method": method
+			}
+			
+		@run_on_executor
 		def deploy_api_gateway_to_stage( self, rest_api_id, stage_name ):
 			deployment_response = APIGATEWAY_CLIENT.create_deployment(
 				restApiId=rest_api_id,
@@ -1550,15 +1580,6 @@ class TaskSpawner(object):
 			)
 			
 			deployment_id = deployment_response[ "id" ]
-			
-			"""
-			response = APIGATEWAY_CLIENT.create_stage(
-				restApiId=rest_api_id,
-				stageName=stage_name,
-				deploymentId=stage_name,
-				description="API Gateway deployed via refinery"
-			)
-			"""
 			
 			print( "Deployment response: " )
 			pprint( deployment_response )
@@ -1593,6 +1614,26 @@ class TaskSpawner(object):
 			)
 			
 			return response[ "items" ]
+			
+		@run_on_executor
+		def get_stages( self, rest_api_id ):
+			response = APIGATEWAY_CLIENT.get_stages(
+				restApiId=rest_api_id
+			)
+			
+			return response[ "item" ]
+			
+		@run_on_executor
+		def delete_stage( self, rest_api_id, stage_name ):
+			response = APIGATEWAY_CLIENT.delete_stage(
+				restApiId=rest_api_id,
+				stageName=stage_name
+			)
+			
+			return {
+				"rest_api_id": rest_api_id,
+				"stage_name": stage_name
+			}
 			
 		@run_on_executor
 		def create_resource( self, rest_api_id, parent_id, path_part ):
@@ -2706,19 +2747,34 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	"""
 	Set up API Gateways to be attached to API Endpoints
 	"""
+	
+	# The API Gateway ID
+	api_gateway_id = False
+	
+	# Pull previous API Gateway ID if it exists
+	if project_config[ "api_gateway" ][ "gateway_id" ]:
+		api_gateway_id = project_config[ "api_gateway" ][ "gateway_id" ]
+		logit( "Previous API Gateway exists with ID of '" + api_gateway_id + "'..." )
+		
 	if len( deployed_api_endpoints ) > 0:
 		api_route_futures = []
 		
 		# We need to create an API gateway
-		logit( "Deplying API Gateway for API Endpoint(s)..." )
-		rest_api_name = get_lambda_safe_name( project_name )
-		create_gateway_result = yield local_tasks.create_rest_api(
-			rest_api_name,
-			rest_api_name, # Human readable name, just do the ID for now
-			"1.0.0"
-		)
+		logit( "Deploying API Gateway for API Endpoint(s)..." )
 		
-		api_gateway_id = create_gateway_result[ "id" ]
+		# Create a new API Gateway if one does not already exist
+		if api_gateway_id == False:
+			rest_api_name = get_lambda_safe_name( project_name )
+			create_gateway_result = yield local_tasks.create_rest_api(
+				rest_api_name,
+				rest_api_name, # Human readable name, just do the ID for now
+				"1.0.0"
+			)
+			
+			api_gateway_id = create_gateway_result[ "id" ]
+			
+			# Update project config
+			project_config[ "api_gateway" ][ "gateway_id" ] = api_gateway_id
 		
 		# Add the API Gateway as a new node
 		diagram_data[ "workflow_states" ].append({
@@ -2882,9 +2938,12 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	print( "Diagram: " )
 	pprint( diagram_data )
 	
-	raise gen.Return(
-		diagram_data
-	)
+	raise gen.Return({
+		"project_name": project_name,
+		"project_id": project_id,
+		"deployment_diagram": diagram_data,
+		"project_config": project_config
+	})
 		
 class SavedLambdaCreate( BaseHandler ):
 	@gen.coroutine
@@ -3126,11 +3185,8 @@ class InfraTearDown( BaseHandler ):
 					)
 				)
 			elif teardown_node[ "type" ] == "api_gateway":
-				pprint(
-					teardown_node
-				)
 				teardown_operation_futures.append(
-					local_tasks.delete_rest_api(
+					strip_api_gateway(
 						teardown_node[ "rest_api_id" ],
 					)
 				)
@@ -3323,28 +3379,41 @@ class SaveProject( BaseHandler ):
 			new_project_version
 		)
 		
-		# Check to see if there's a previous project config
-		previous_project_config = session.query( ProjectConfig ).filter_by(
-			project_id=project_id
-		).first()
-		
-		# If not, create one
-		if previous_project_config == None:
-			new_project_config = ProjectConfig()
-			new_project_config.project_id = project_id
-			new_project_config.config_json = project_config
-			session.add( new_project_config )
-		else: # Otherwise update the current config
-			previous_project_config.project_id = project_id
-			previous_project_config.config_json = project_config
-		
-		session.commit()
+		# Update project config
+		update_project_config(
+			project_id,
+			project_config
+		)
 		
 		self.write({
 			"success": True,
 			"project_id": project_id,
 			"project_version": project_version
 		})
+		
+def update_project_config( project_id, project_config ):
+	# Convert to JSON if not already
+	if type( project_config ) == dict:
+		project_config = json.dumps(
+			project_config
+		)
+	
+	# Check to see if there's a previous project config
+	previous_project_config = session.query( ProjectConfig ).filter_by(
+		project_id=project_id
+	).first()
+	
+	# If not, create one
+	if previous_project_config == None:
+		new_project_config = ProjectConfig()
+		new_project_config.project_id = project_id
+		new_project_config.config_json = project_config
+		session.add( new_project_config )
+	else: # Otherwise update the current config
+		previous_project_config.project_id = project_id
+		previous_project_config.config_json = project_config
+	
+	session.commit()
 		
 class SearchSavedProjects( BaseHandler ):
 	@gen.coroutine
@@ -3464,6 +3533,23 @@ class DeleteSavedProject( BaseHandler ):
 			"Deleting saved project..."
 		)
 		
+		# Pull the latest project config
+		project_config = session.query( ProjectConfig ).filter_by(
+			project_id=self.json[ "id" ]
+		).first()
+		project_config_data = project_config.to_dict()
+		project_config_dict = project_config_data[ "config_json" ]
+		
+		# Delete the API Gateway associated with this project
+		if "api_gateway" in project_config_dict:
+			api_gateway_id = project_config_dict[ "api_gateway" ][ "gateway_id" ]
+			
+			logit( "Deleting associated API Gateway '" + api_gateway_id + "'..." )
+			
+			yield local_tasks.delete_rest_api(
+				api_gateway_id
+			)
+		
 		saved_project_result = session.query( Project ).filter_by(
 			id=self.json[ "id" ]
 		).first()
@@ -3521,12 +3607,21 @@ class DeployDiagram( BaseHandler ):
 		
 		diagram_data = json.loads( self.json[ "diagram_data" ] )
 		
-		results_data = yield deploy_diagram(
+		"""
+		"project_name": project_name,
+		"project_id": project_id,
+		"deployment_diagram": diagram_data,
+		"project_config": project_config
+		"""
+		deployment_data = yield deploy_diagram(
 			project_name,
 			project_id,
 			diagram_data,
 			project_config
 		)
+		
+		# TODO: Update the project data? Deployments should probably
+		# be an explicit "Save Project" action.
 		
 		existing_project = session.query( Project ).filter_by(
 			id=project_id
@@ -3535,7 +3630,7 @@ class DeployDiagram( BaseHandler ):
 		new_deployment = Deployment()
 		new_deployment.project_id = project_id
 		new_deployment.deployment_json = json.dumps(
-			results_data
+			deployment_data[ "deployment_diagram" ]
 		)
 		
 		existing_project.deployments.append(
@@ -3544,10 +3639,17 @@ class DeployDiagram( BaseHandler ):
 		
 		session.commit()
 		
+		# Update project config
+		logit( "Updating database with new project config..." )
+		update_project_config(
+			project_id,
+			deployment_data[ "project_config" ]
+		)
+		
 		self.write({
 			"success": True,
 			"result": {
-				"diagram_data": diagram_data,
+				"diagram_data": deployment_data[ "deployment_diagram" ],
 				"project_id": project_id,
 				"deployment_id": new_deployment.id,
 			}
@@ -4178,6 +4280,69 @@ class GetCloudWatchLogsForLambda( BaseHandler ):
 			}
 		})
 		
+@gen.coroutine
+def strip_api_gateway( api_gateway_id ):
+	"""
+	Strip a given API Gateway of all of it's:
+	* Resources
+	* Resource Methods
+	* Stages
+	
+	Allowing for the configuration details to be replaced.
+	"""
+	rest_resources = yield local_tasks.get_resources(
+		api_gateway_id
+	)
+	
+	pprint(
+		rest_resources
+	)
+	
+	# List of futures to finish before we continue
+	deletion_futures = []
+	
+	# Iterate over resources and delete everything that
+	# can be deleted.
+	for resource_item in rest_resources:
+		# We can't delete the root resource
+		if resource_item[ "path" ] != "/":
+			print( "Deleting resource ID '" + resource_item[ "id" ] + "'..." )
+			deletion_futures.append(
+				local_tasks.delete_rest_api_resource(
+					api_gateway_id,
+					resource_item[ "id" ]
+				)
+			)
+		
+		# Delete the methods
+		if "resourceMethods" in resource_item:
+			for http_method, values in resource_item[ "resourceMethods" ].iteritems():
+				print( "Deleting HTTP method '" + http_method + "'..." )
+				deletion_futures.append(
+					local_tasks.delete_rest_api_resource_method(
+						api_gateway_id,
+						resource_item[ "id" ],
+						http_method
+					)
+				)
+			
+	rest_stages = yield local_tasks.get_stages(
+		api_gateway_id
+	)
+	
+	for rest_stage in rest_stages:
+		print( "Deleting stage '" + rest_stage[ "stageName" ] + "'..." )
+		deletion_futures.append(
+			local_tasks.delete_stage(
+				api_gateway_id,
+				rest_stage[ "stageName" ]
+			)
+		)
+	
+	yield deletion_futures
+	
+	raise gen.Return( api_gateway_id )
+		
 def make_app( is_debug ):
 	tornado_app_settings = {
 		"debug": is_debug,
@@ -4227,6 +4392,8 @@ if __name__ == "__main__":
 		7777
 	)
 	Base.metadata.create_all( engine )
+	
+	#tornado.ioloop.IOLoop.current().run_sync( testing )
 	
 	#tornado.ioloop.IOLoop.current().run_sync( delete_logs )
 	#tornado.ioloop.IOLoop.current().run_sync( warm_lambda_base_caches )

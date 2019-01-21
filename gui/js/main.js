@@ -2525,73 +2525,10 @@ var app = new Vue({
 				});
 			}
 		},
-		infrastructure_collision_check: async function() {
-			// Set boolean to show we're checking for collisions
-			app.infrastructure_conflict_check_in_progress = true;
-			
-			// Reset results
-			app.infrastructure_conflict_check_results = [];
-			
-			$( "#collisioncheck_output" ).modal(
-				"show"
-			);
-			
-			var collision_check_results = await infrastructure_collision_check(
-				get_project_json()
-			);
-			
-			// Set app state to results
-			app.infrastructure_conflict_check_results = collision_check_results.result;
-			
-			app.infrastructure_conflict_check_results = app.infrastructure_conflict_check_results.filter(function( conflict_check_result ) {
-				return conflict_check_result.exists;
-			});
-			
-			console.log( "Collision check results: " );
-			console.log( collision_check_results );
-			
-			// Reset to original state
-			app.infrastructure_conflict_check_in_progress = false;
-			
-			if( app.infrastructure_conflict_check_results.length === 0 ) {
-				$( "#collisioncheck_output" ).modal(
-					"hide"
-				);
-				app.deploy_infrastructure().catch(function( error ) {
-					toastr.error( "An error occured while deploying the infrastructure!" );
-				});
-			}
-		},
-		conflicting_infrastructure_teardown: async function() {
-			$( "#infrastructureteardown_modal" ).modal(
-				"show"
-			);
-			
-			// Get teardown nodes from previous result
-			var teardown_nodes = JSON.parse(
-				JSON.stringify(
-					app.infrastructure_conflict_check_results
-				)
-			);
-			
-			// Teardown nodes
-			var teardown_results = await infrastructure_teardown(
-				app.project_id,
-				teardown_nodes
-			);
-
-			// Kick off deploying infrastructure
-			app.deploy_infrastructure().catch(function( error ) {
-				toastr.error( "An error occured while deploying the infrastructure!" );
-			});
-		},
 		deploy_infrastructure: async function() {
 			if( app.deployment_data.exists ) {
 				await app.teardown_infrastructure();
 			}
-			$( "#collisioncheck_output" ).modal(
-				"hide"
-			);
 			$( "#infrastructureteardown_modal" ).modal(
 				"hide"
 			);
@@ -2618,12 +2555,12 @@ var app = new Vue({
 				app.project_id,
 				get_project_json(),
 				app.project_config
-			);
+			).catch(function( error ) {
+				toastr.error( "An error occurred while deploying infrastructure!" );
+				console.log( error );
+			});
 			
 			// Hacky
-			$( "#collisioncheck_output" ).modal(
-				"hide"
-			);
 			$( "#infrastructureteardown_modal" ).modal(
 				"hide"
 			);
@@ -2648,6 +2585,9 @@ var app = new Vue({
 			
 			// Update latest deployment data on frontend
 			await app.load_latest_deployment();
+			
+			// Load latest project config
+			await app.load_latest_config();
 		},
 		is_valid_transition_path: function( first_node_id, second_node_id ) {
 			// Grab data for both nodes and determine if it's possible path
