@@ -1282,11 +1282,6 @@ $(window).resize(function(){
 
 // On load
 $( document ).ready(function() {
-	document.getElementById( "project_file_upload" ).addEventListener(
-		"change",
-		project_file_uploaded,
-		false
-	);
 });
 
 var _DEFAULT_PROJECT_CONFIG = {
@@ -1754,6 +1749,8 @@ var app = new Vue({
         			false,
         			4
         		);
+        	} else {
+        		input_data = input_data.toString();
         	}
         	return input_data;
 		},
@@ -2887,6 +2884,13 @@ def example( parameter ):
 			
 			$( "#importproject_output" ).modal(
 				"show"
+			);
+			
+			// Add file upload listener
+			document.getElementById( "project_file_upload" ).addEventListener(
+				"input",
+				project_file_uploaded,
+				false
 			);
 		},
 		fullscreen_lambda_editor: function() {
