@@ -2595,6 +2595,11 @@ var app = new Vue({
 				toastr.error( "An error occurred while attempting to deploy the infrastructure!" )
 				app.deploy_infrastructure_succeeded = false;
 				app.deploy_infrastructure_exceptions = results.result.exceptions;
+				// Replace deployment name with original name
+				app.deploy_infrastructure_exceptions.map(function( exception_data ) {
+					var node_data = get_node_data_by_id( exception_data.id );
+					exception_data.name = node_data.name;
+				});
 				return
 			}
 			
