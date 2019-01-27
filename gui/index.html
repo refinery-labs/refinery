@@ -332,7 +332,8 @@
 		        </button>
 		            </div>
 		            <div class="modal-body">
-		            	<div v-if="!deploying_infrastructure">
+		            	<!-- Infrastructure successfully deployed -->
+		            	<div v-if="!deploying_infrastructure && deploy_infrastructure_succeeded">
 							<b>Build Time: </b><code>{{deploy_infrastructure_time}}</code> seconds
 							<hr />
 							<center>
@@ -341,6 +342,33 @@
 								</button>
 							</center>
 		            	</div>
+		            	<!-- Infrastructure failed to deploy -->
+		            	<div v-if="!deploying_infrastructure && !deploy_infrastructure_succeeded">
+							<h2 style="color: red"><i>The deploy has failed!</i></h2>
+							<hr />
+							<p>
+								Refinery has rolled back all deployed changes associated with this deploy. You must remediate these errors before this deployment will work. The following table outlines the errors Refinery received from AWS:
+							</p>
+							<table class="table table-striped">
+								<thead>
+									<tr>
+										<th scope="col">Node Name</th>
+										<th scope="col">AWS Error</th>
+										<th scope="col"></th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr v-for="deploy_infrastructure_exception in deploy_infrastructure_exceptions">
+										<th scope="row">{{deploy_infrastructure_exception.name}}</th>
+										<td>{{deploy_infrastructure_exception.exception}}</td>
+										<td>
+											<button type="button" class="btn btn-primary" v-bind:node-id="deploy_infrastructure_exception.id" v-on:click="infrastructure_deploy_error_view_node" data-dismiss="modal">View Node</button>
+										</td>
+									</tr>
+								</tbody>
+							</table>
+		            	</div>
+		            	<!-- Loading GUI for deploying infra -->
 						<div v-if="deploying_infrastructure">
 							<center>
 								<img src="/img/loading.gif" />

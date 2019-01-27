@@ -1517,6 +1517,12 @@ var app = new Vue({
         // Time taken to deploy infrastructure
         deploy_infrastructure_time: 0,
         
+        // Status of the deployment (success/failure)
+        deploy_infrastructure_succeeded: false,
+        
+        // Array of exceptions which occurred during deployment
+        deploy_infrastructure_exceptions: [],
+        
         // Description of Lambda before saving to database
         save_lambda_to_db_description: "",
         
@@ -2517,9 +2523,7 @@ var app = new Vue({
 					"show"
 				);
 			} else {
-				await app.deploy_infrastructure().catch(function( error ) {
-					toastr.error( "An error occured while deploying the infrastructure!" );
-				});
+				await app.deploy_infrastructure();
 			}
 		},
 		deploy_infrastructure: async function() {
@@ -2539,6 +2543,12 @@ var app = new Vue({
 			// Reset deployment timer
 			app.deploy_infrastructure_time = 0;
 			
+			// Reset deploy outcome
+			app.deploy_infrastructure_succeeded = true;
+			
+			// Reset deploy exceptions
+			app.deploy_infrastructure_exceptions = [];
+			
 			// Start timer for deployment
 			var start_time = Date.now();
 			
@@ -2553,7 +2563,7 @@ var app = new Vue({
 				get_project_json(),
 				app.project_config
 			).catch(function( error ) {
-				toastr.error( "An error occurred while deploying infrastructure!" );
+				toastr.error( "An uncaught error occurred while deploying infrastructure!" );
 				console.log( error );
 			});
 			
@@ -2580,11 +2590,29 @@ var app = new Vue({
 			// Mark that we're done
 			app.deploying_infrastructure = false;
 			
+			// Check to see if the deployment failed
+			if( results.result.deployment_success === false ) {
+				toastr.error( "An error occurred while attempting to deploy the infrastructure!" )
+				app.deploy_infrastructure_succeeded = false;
+				app.deploy_infrastructure_exceptions = results.result.exceptions;
+				return
+			}
+			
 			// Update latest deployment data on frontend
 			await app.load_latest_deployment();
 			
 			// Load latest project config
 			await app.load_latest_config();
+		},
+		infrastructure_deploy_error_view_node: function() {
+			var attribute_id = "node-id";
+			var target_element = event.srcElement;
+			var node_id = target_element.getAttribute( attribute_id );
+			while( !node_id ) {
+				node_id = target_element.parentNode.getAttribute( attribute_id );
+			}
+			
+			select_node( node_id );
 		},
 		is_valid_transition_path: function( first_node_id, second_node_id ) {
 			// Grab data for both nodes and determine if it's possible path

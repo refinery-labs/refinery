@@ -1,0 +1,497 @@
+
+
+
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      <meta http-equiv="x-ua-compatible" content="ie=edge">
+      
+      
+      
+      
+        <meta name="lang:clipboard.copy" content="Copy to clipboard">
+      
+        <meta name="lang:clipboard.copied" content="Copied to clipboard">
+      
+        <meta name="lang:search.language" content="en">
+      
+        <meta name="lang:search.pipeline.stopwords" content="True">
+      
+        <meta name="lang:search.pipeline.trimmer" content="True">
+      
+        <meta name="lang:search.result.none" content="No matching documents">
+      
+        <meta name="lang:search.result.one" content="1 matching document">
+      
+        <meta name="lang:search.result.other" content="# matching documents">
+      
+        <meta name="lang:search.tokenizer" content="[\s\-]+">
+      
+      <link rel="shortcut icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.0.4, mkdocs-material-3.2.0">
+    
+    
+      
+        <title>Refinery Docs</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/application.572ca0f0.css">
+      
+      
+    
+    
+      <script src="../assets/javascripts/modernizr.8c900955.js"></script>
+    
+    
+      
+        <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,400,400i,700|Roboto+Mono">
+        <style>body,input{font-family:"Roboto","Helvetica Neue",Helvetica,Arial,sans-serif}code,kbd,pre{font-family:"Roboto Mono","Courier New",Courier,monospace}</style>
+      
+    
+    <link rel="stylesheet" href="../assets/fonts/material-icons.css">
+    
+    
+    
+  </head>
+  
+    <body dir="ltr">
+  
+    <svg class="md-svg">
+      <defs>
+        
+        
+      </defs>
+    </svg>
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" data-md-component="overlay" for="__drawer"></label>
+    
+      <a href="#debugging-logging" tabindex="1" class="md-skip">
+        Skip to content
+      </a>
+    
+    
+      <header class="md-header" data-md-component="header">
+  <nav class="md-header-nav md-grid">
+    <div class="md-flex">
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <a href=".." title="Refinery Docs" class="md-header-nav__button md-logo">
+          
+            <i class="md-icon"></i>
+          
+        </a>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        <label class="md-icon md-icon--menu md-header-nav__button" for="__drawer"></label>
+      </div>
+      <div class="md-flex__cell md-flex__cell--stretch">
+        <div class="md-flex__ellipsis md-header-nav__title" data-md-component="title">
+          
+            
+              <span class="md-header-nav__topic">
+                Refinery Docs
+              </span>
+              <span class="md-header-nav__topic">
+                Debugging & Logging
+              </span>
+            
+          
+        </div>
+      </div>
+      <div class="md-flex__cell md-flex__cell--shrink">
+        
+          
+            <label class="md-icon md-icon--search md-header-nav__button" for="__search"></label>
+            
+<div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="query" data-md-state="active">
+      <label class="md-icon md-search__icon" for="__search"></label>
+      <button type="reset" class="md-icon md-search__icon" data-md-component="reset" tabindex="-1">
+        &#xE5CD;
+      </button>
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="result">
+          <div class="md-search-result__meta">
+            Type to start searching
+          </div>
+          <ol class="md-search-result__list"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+          
+        
+      </div>
+      
+    </div>
+  </nav>
+</header>
+    
+    <div class="md-container">
+      
+        
+      
+      
+      <main class="md-main">
+        <div class="md-main__inner md-grid" data-md-component="container">
+          
+            
+              <div class="md-sidebar md-sidebar--primary" data-md-component="navigation">
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    <nav class="md-nav md-nav--primary" data-md-level="0">
+  <label class="md-nav__title md-nav__title--site" for="__drawer">
+    <a href=".." title="Refinery Docs" class="md-nav__button md-logo">
+      
+        <i class="md-icon"></i>
+      
+    </a>
+    Refinery Docs
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href=".." title="Home" class="md-nav__link">
+      Home
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="../what-is-refinery/" title="What is Refinery?" class="md-nav__link">
+      What is Refinery?
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="../architecture/" title="Architecture" class="md-nav__link">
+      Architecture
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="../quickstart/intro/" title="Getting Started" class="md-nav__link">
+      Getting Started
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="../nodes/" title="Nodes" class="md-nav__link">
+      Nodes
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+
+  <li class="md-nav__item">
+    <a href="../transitions/" title="Transitions" class="md-nav__link">
+      Transitions
+    </a>
+  </li>
+
+    
+      
+      
+      
+
+  
+
+
+  <li class="md-nav__item md-nav__item--active">
+    
+    <input class="md-toggle md-nav__toggle" data-md-toggle="toc" type="checkbox" id="__toc">
+    
+      
+    
+    
+      <label class="md-nav__link md-nav__link--active" for="__toc">
+        Debugging & Logging
+      </label>
+    
+    <a href="./" title="Debugging & Logging" class="md-nav__link md-nav__link--active">
+      Debugging & Logging
+    </a>
+    
+      
+<nav class="md-nav md-nav--secondary">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">Table of contents</label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-refinery-logs" title="What Refinery Logs" class="md-nav__link">
+    What Refinery Logs
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuring-your-logging-level" title="Configuring Your Logging Level" class="md-nav__link">
+    Configuring Your Logging Level
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#viewing-logs-of-a-deployed-project" title="Viewing Logs of a Deployed Project" class="md-nav__link">
+    Viewing Logs of a Deployed Project
+  </a>
+  
+</li>
+      
+      
+      
+      
+      
+    </ul>
+  
+</nav>
+    
+  </li>
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="toc">
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+<nav class="md-nav md-nav--secondary">
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">Table of contents</label>
+    <ul class="md-nav__list" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#what-refinery-logs" title="What Refinery Logs" class="md-nav__link">
+    What Refinery Logs
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#configuring-your-logging-level" title="Configuring Your Logging Level" class="md-nav__link">
+    Configuring Your Logging Level
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#viewing-logs-of-a-deployed-project" title="Viewing Logs of a Deployed Project" class="md-nav__link">
+    Viewing Logs of a Deployed Project
+  </a>
+  
+</li>
+      
+      
+      
+      
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          <div class="md-content">
+            <article class="md-content__inner md-typeset">
+              
+                
+                
+                <h1 id="debugging-logging">Debugging &amp; Logging</h1>
+<p>Debugging in serverless environments can often be a complex chore which feels like working with a <a href="https://en.wikipedia.org/wiki/Black_box">black box</a>. Refinery attempts to greately simplify the debugging process through the use of its scalable logging system built on top of S3. The logging system in Refinery is configurable and allows for extreme verbosity when needed to help pinpoint and easily reproduce problems.</p>
+<h2 id="what-refinery-logs">What Refinery Logs</h2>
+<p>Before we dive into debugging your service, we first have to talk about logging. Refinery logs a large amount of metadata about a Lambda's given execution. For example, some of the data which is logged is the following:</p>
+<ul>
+<li>The full input to the Lambda.</li>
+<li>The full returned output of the Lambda.</li>
+<li>All <code>stdout</code> and <code>stderr</code> outputted during execution.</li>
+<li>Time of execution.</li>
+</ul>
+<p>The reason for this level of verbosity is to allow easy reproduction of issues. Since development in Refinery is accomplished by building small functional blocks in a pipeline fashion, logging the full input and output allows developers to easy replay the same inputs into the same blocks in the IDE in order to replicate the issue.</p>
+<h2 id="configuring-your-logging-level">Configuring Your Logging Level</h2>
+<p>Refinery allows for configuring different levels of logging for when your service is deployed in production. The levels of logging available are:</p>
+<ul>
+<li><code>Log all executions</code>: Every time a Lambda is executed a log file is written.</li>
+<li><code>Log only errors</code>: A log file is written only when a Lambda encounters an uncaught exception.</li>
+<li><code>No logging</code>: No logs are written under any circumstance.</li>
+</ul>
+<p>The major tradeoff with logging all executions, error only logging, and no logging is cost. The Lambdas that Refinery deploys make use of S3 for storing of all of the created log objects. This means that you will incur the appropriate level of cost for each write you do to S3. As of the time of this writing, saving an object to S3 is billed at <a href="https://aws.amazon.com/s3/pricing/#S3_Standard">$0.005 per 1,000 requests</a>. While this may seem inexpensive, it can add up if you're doing full verbosity logging on pipelines with a large number of executions. It's important to always be mindful about the amount of resources you're consuming when using Refinery.</p>
+<p>In order to configure your logging level for a given project, select <code>Project Settings</code> under the <code>Project Options</code> menu:</p>
+<p><center>
+<img alt="" src="images/project-settings-selection.png" />
+</center></p>
+<p>The following dialogue will be presented which allows for changing the logging level:</p>
+<p><center>
+<img alt="" src="images/project-settings-dialogue.png" />
+</center></p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Changes in the logging level require a re-deploy to take effect.</p>
+</div>
+<h2 id="viewing-logs-of-a-deployed-project">Viewing Logs of a Deployed Project</h2>
+<p>After deploying a project with the logging level set to <code>Log all executions</code> or <code>Log only errors</code> you can then review the logs by clicking on <code>View Production Deployment</code> followed by clicking <code>View Log(s)</code>.</p>
+<p><center>
+<img alt="" src="images/pipeline-executions.png" />
+</center></p>
+<p>The above screenshot demonstrates an example execution log group. In Refinery, logging is grouped by unique triggers of the deployed pipeline. What this means is that anytime a trigger (such as a <a href="/nodes/#schedule-trigger">Schedule Trigger</a>, or an <a href="/nodes/#api-endpoint">API Endpoint</a>) starts a pipeline's execution, a new execution ID will be generated. Multiple Lambda executions can be contained under a single pipeline execution ID.</p>
+<p>In the above screenshot you can see that the pipeline execution group is colored red. This is because somewhere in this pipeline's execution an uncaught exception occured. In Refinery if even a single Lambda in a pipeline's execution results in an uncaught exception being thrown the entire pipeline execution will be marked red. This is to ensure that errors do not go unmissed and to provide a clear distinction between a pipeline which executed completely without errors and a pipline which experienced no issues.</p>
+<p>Click on the pipeline execution box to view details about it. You'll see that upon viewing a specific pipeline execution that your deployment will have green and red boxes drawn over each Lambda:</p>
+<p><center>
+<img alt="" src="images/debugging-coloring.png" />
+</center></p>
+<p>This works in a very similar way to how coloring works for the pipeline execution log groups. If a Lambda is executed three times and one of the executions results in an uncaught exception the box will be red. If none of the executions of a given Lambda resulted in an uncaught exception the box with be green. If the Lambda was never executed in that pipeline execution it will not be colored.</p>
+<p>To view more information about a Lambda's execution(s), simply click on the Lambda itself. In this case we'll view the <code>100x</code> Lambda's executions to understand what caused the uncaught exception. Upon clicking on the Lambda we get the following:</p>
+<p><center>
+<img alt="" src="images/lambda-executions.png" />
+</center></p>
+<p>The above screenshot shows that the Lambda executed successfully five times and encountered an uncaught exception once. Since we want to understand what caused this exception we'll click on the red line to get more information about that specific execution:</p>
+<p><center>
+<img alt="" src="images/pipeline-execution-details.png" />
+</center></p>
+<p>The above screenshot shows the details of the execution. We can see that the input to the Lambda was the integer <code>0</code> and the stack trace was the following:</p>
+<div class="codehilite"><pre><span></span><span class="n">Traceback</span> <span class="p">(</span><span class="n">most</span> <span class="n">recent</span> <span class="n">call</span> <span class="n">last</span><span class="p">):</span>
+  <span class="n">File</span> <span class="s2">&quot;/var/task/lambda.py&quot;</span><span class="p">,</span> <span class="n">line</span> <span class="mi">1089</span><span class="p">,</span> <span class="ow">in</span> <span class="n">_init</span>
+    <span class="n">return_data</span> <span class="o">=</span> <span class="n">main</span><span class="p">(</span> <span class="n">lambda_input</span><span class="p">,</span> <span class="n">context</span> <span class="p">)</span>
+  <span class="n">File</span> <span class="s2">&quot;/var/task/lambda.py&quot;</span><span class="p">,</span> <span class="n">line</span> <span class="mi">4</span><span class="p">,</span> <span class="ow">in</span> <span class="n">main</span>
+    <span class="k">return</span> <span class="p">(</span> <span class="mi">100</span> <span class="o">/</span> <span class="n">lambda_input</span> <span class="p">)</span>
+<span class="ne">ZeroDivisionError</span><span class="p">:</span> <span class="n">integer</span> <span class="n">division</span> <span class="ow">or</span> <span class="n">modulo</span> <span class="n">by</span> <span class="n">zero</span>
+</pre></div>
+
+
+<p>The code, which you can probably infer from the stack trace, was the following:</p>
+<div class="codehilite"><pre><span></span><span class="k">def</span> <span class="nf">main</span><span class="p">(</span> <span class="n">lambda_input</span><span class="p">,</span> <span class="n">context</span> <span class="p">):</span>
+    <span class="k">print</span><span class="p">(</span> <span class="s2">&quot;Dividing 100 by &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span> <span class="n">lambda_input</span> <span class="p">)</span> <span class="o">+</span> <span class="s2">&quot;...&quot;</span> <span class="p">)</span>
+    <span class="k">return</span> <span class="p">(</span> <span class="mi">100</span> <span class="o">/</span> <span class="n">lambda_input</span> <span class="p">)</span>
+</pre></div>
+
+
+<p>We can clearly see that the cause of this problem was the input to the Lambda being <code>0</code> which we divided the number <code>100</code> by. This caused an uncaught <code>ZeroDivisionError</code> exception which was logged by Refinery as a failure. While this particular issue was easy to spot, in more complex scenarios it may be harder to find the root cause of an error. In these situations you can better debug the problem by copying the input under the <code>Input Data</code> section and running it through the Lambda in the IDE. The following screenshot demonstrates this process:</p>
+<p><img alt="" src="images/replaying-input-example.png" /></p>
+<p>The above screenshot shows our simplistic example of passing in the <code>0</code> as input to this particular Lambda in the IDE. We get the same exception as we did in production and we can easily modify the code here to find the root cause without touching the production deployment. Once we have a fix we can simply deploy it to production to remediate the problem.</p>
+                
+                  
+                
+              
+              
+                
+
+
+              
+            </article>
+          </div>
+        </div>
+      </main>
+      
+        
+<footer class="md-footer">
+  
+    <div class="md-footer-nav">
+      <nav class="md-footer-nav__inner md-grid">
+        
+          <a href="../transitions/" title="Transitions" class="md-flex md-footer-nav__link md-footer-nav__link--prev" rel="prev">
+            <div class="md-flex__cell md-flex__cell--shrink">
+              <i class="md-icon md-icon--arrow-back md-footer-nav__button"></i>
+            </div>
+            <div class="md-flex__cell md-flex__cell--stretch md-footer-nav__title">
+              <span class="md-flex__ellipsis">
+                <span class="md-footer-nav__direction">
+                  Previous
+                </span>
+                Transitions
+              </span>
+            </div>
+          </a>
+        
+        
+      </nav>
+    </div>
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-footer-copyright">
+        
+        powered by
+        <a href="https://www.mkdocs.org">MkDocs</a>
+        and
+        <a href="https://squidfunk.github.io/mkdocs-material/">
+          Material for MkDocs</a>
+      </div>
+      
+        
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    
+      <script src="../assets/javascripts/application.b41f3d20.js"></script>
+      
+      <script>app.initialize({version:"1.0.4",url:{base:".."}})</script>
+      
+    
+    
+      
+    
+  </body>
+</html>

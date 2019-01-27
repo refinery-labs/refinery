@@ -1288,18 +1288,6 @@ def _init( lambda_input, context ):
 			fan_out_invocation_speed
 		)
 		
-		"""
-		print( "[ BOOSTED ] It would take " + str( seconds_to_complete ) + " seconds to finish invoking everything at the current rate of " + str( lambdas_per_second ) + " across " + str( fan_out_invocation_speed ) + " spawner(s)." )
-
-		print( "We have to invoke " + str( number_of_executions_to_perform ) + " Lambdas for this fan-out." )
-		print( "Given our remaining execution time of " + str( remaining_seconds ) + " second(s) we can execute a max of " + str( max_lambda_invocations_possible ) + " spawner Lambda(s)." )
-		print( "The max execution time of this Lambda is " + str( total_lambda_execution_time ) + " second(s)." )
-		print( "The Lambdas per second that we can invoke at this memory size of " + str( context.memory_limit_in_mb ) + " MB is " + str( lambdas_per_second ) )
-		print( "Given that max execution time, we could invoke everything in " + str( number_of_runs_to_complete ) + " run(s)." )
-		print( "The number of spawner Lambdas to be invoked has been set to " + str( fan_out_invocation_speed ) )
-		exit()
-		"""
-		
 		# Invoke self in "spawner" mode X times
 		# where X is invocation speed
 		for i in range( 0, fan_out_invocation_speed ):

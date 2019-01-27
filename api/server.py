@@ -1415,10 +1415,12 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def _delete_lambda( id, type, name, arn ):
+			was_deleted = False
 			try:
 				response = LAMBDA_CLIENT.delete_function(
 					FunctionName=arn,
 				)
+				was_deleted = True
 			except ClientError as e:
 				if e.response[ "Error" ][ "Code" ] != "ResourceNotFoundException":
 					raise
@@ -1429,7 +1431,7 @@ class TaskSpawner(object):
 				"type": type,
 				"name": name,
 				"arn": arn,
-				"deleted": True,
+				"deleted": was_deleted,
 			}
 			
 		@run_on_executor
@@ -1438,16 +1440,23 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def _delete_sns_topic( id, type, name, arn ):
-			response = SNS_CLIENT.delete_topic(
-				TopicArn=arn,
-			)
+			was_deleted = False
+			
+			try:
+				response = SNS_CLIENT.delete_topic(
+					TopicArn=arn,
+				)
+				was_deleted = True
+			except ClientError as e:
+				if e.response[ "Error" ][ "Code" ] != "ResourceNotFoundException":
+					raise
 			
 			return {
 				"id": id,
 				"type": type,
 				"name": name,
 				"arn": arn,
-				"deleted": True,
+				"deleted": was_deleted,
 			}
 			
 		@run_on_executor
@@ -1456,20 +1465,26 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def _delete_sqs_queue( id, type, name, arn ):
-			queue_url_response = SQS_CLIENT.get_queue_url(
-				QueueName=name,
-			)
+			was_deleted = False
 			
-			response = SQS_CLIENT.delete_queue(
-				QueueUrl=queue_url_response[ "QueueUrl" ],
-			)
+			try:
+				queue_url_response = SQS_CLIENT.get_queue_url(
+					QueueName=name,
+				)
+				
+				response = SQS_CLIENT.delete_queue(
+					QueueUrl=queue_url_response[ "QueueUrl" ],
+				)
+			except ClientError as e:
+				if e.response[ "Error" ][ "Code" ] != "ResourceNotFoundException":
+					raise
 			
 			return {
 				"id": id,
 				"type": type,
 				"name": name,
 				"arn": arn,
-				"deleted": True,
+				"deleted": was_deleted,
 			}
 			
 		@run_on_executor
@@ -1478,34 +1493,41 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def _delete_schedule_trigger( id, type, name, arn ):
-			list_rule_targets_response = EVENTS_CLIENT.list_targets_by_rule(
-				Rule=name,
-			)
-			
-			target_ids = []
-			
-			for target_item in list_rule_targets_response[ "Targets" ]:
-				target_ids.append(
-					target_item[ "Id" ]
-				)
-
-			# If there are some targets, delete them, else skip this.
-			if len( target_ids ) > 0:
-				remove_targets_response = EVENTS_CLIENT.remove_targets(
+			was_deleted = False
+			try:
+				list_rule_targets_response = EVENTS_CLIENT.list_targets_by_rule(
 					Rule=name,
-					Ids=target_ids
 				)
-
-			response = EVENTS_CLIENT.delete_rule(
-				Name=name,
-			)
+				
+				target_ids = []
+				
+				for target_item in list_rule_targets_response[ "Targets" ]:
+					target_ids.append(
+						target_item[ "Id" ]
+					)
+	
+				# If there are some targets, delete them, else skip this.
+				if len( target_ids ) > 0:
+					remove_targets_response = EVENTS_CLIENT.remove_targets(
+						Rule=name,
+						Ids=target_ids
+					)
+				
+				response = EVENTS_CLIENT.delete_rule(
+					Name=name,
+				)
+				
+				was_deleted = True
+			except ClientError as e:
+				if e.response[ "Error" ][ "Code" ] != "ResourceNotFoundException":
+					raise
 			
 			return {
 				"id": id,
 				"type": type,
 				"name": name,
 				"arn": arn,
-				"deleted": True,
+				"deleted": was_deleted,
 			}
 			
 		
@@ -2546,6 +2568,68 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 			workflow_state[ "transitions" ][ "fan-out" ] = []
 			workflow_state[ "transitions" ][ "fan-in" ] = []
 		
+	"""
+	Here we calculate the teardown data ahead of time.
+	
+	This is used when we encounter an error during the
+	deployment process which requires us to roll back.
+	When the rollback occurs we pass our previously-generated
+	list and pass it to the tear down function.
+	
+	[
+		{
+			"id": {{node_id}},
+			"arn": {{production_resource_arn}},
+			"name": {{node_name}},
+			"type": {{node_type}},
+		}
+	]
+	"""
+	teardown_nodes_list = []
+	
+	
+	"""
+	This holds all of the exception data which occurred during a
+	deployment. Upon an unhandled exception occurring we rollback
+	and teardown what's been deployed so far. After that we return
+	an error to the user with information on what caused the deploy
+	to fail.
+	
+	[
+		{
+			"type": "", # The type of the deployed node
+			"name": "", # The name of the specific node
+			"id": "", # The ID of the specific node
+			"exception": "", # String of the exception details
+		}
+	]
+	"""
+	deployment_exceptions = []
+	
+	for workflow_state in diagram_data[ "workflow_states" ]:
+		if workflow_state[ "type" ] == "lambda":
+			node_arn = "arn:aws:lambda:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":function:" + get_lambda_safe_name( workflow_state[ "name" ] )
+		elif workflow_state[ "type" ] == "sns_topic":
+			node_arn = "arn:aws:sns:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + get_lambda_safe_name( workflow_state[ "name" ] )
+		elif workflow_state[ "type" ] == "sqs_queue":
+			node_arn = "arn:aws:sqs:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + get_lambda_safe_name( workflow_state[ "name" ] )
+		elif workflow_state[ "type" ] == "schedule_trigger":
+			node_arn = "arn:aws:events:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":rule/" + get_lambda_safe_name( workflow_state[ "name" ] )
+		else:
+			node_arn = False
+		
+		# For pseudo-nodes like API Responses we don't need to create a teardown entry
+		if node_arn:
+			teardown_nodes_list.append({
+				"id": workflow_state[ "id" ],
+				"arn": node_arn,
+				"name": get_lambda_safe_name( workflow_state[ "name" ] ),
+				"type": workflow_state[ "type" ],
+			})
+			
+	print( "Teardown node list: " )
+	pprint( teardown_nodes_list )
+		
 	# Now add transition data to each Lambda
 	for workflow_relationship in diagram_data[ "workflow_relationships" ]:
 		origin_node_data = get_node_by_id(
@@ -2695,15 +2779,18 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	for schedule_trigger_node in schedule_trigger_nodes:
 		schedule_trigger_name = get_lambda_safe_name( schedule_trigger_node[ "name" ] )
 		logit( "Deploying schedule trigger '" + schedule_trigger_name + "'..." )
-		schedule_trigger_node_deploy_futures.append(
-			local_tasks.create_cloudwatch_rule(
+		schedule_trigger_node_deploy_futures.append({
+			"id": schedule_trigger_node[ "id" ],
+			"name": get_lambda_safe_name( schedule_trigger_node[ "name" ] ),
+			"type": schedule_trigger_node[ "type" ],
+			"future": local_tasks.create_cloudwatch_rule(
 				schedule_trigger_node[ "id" ],
 				schedule_trigger_name,
 				schedule_trigger_node[ "schedule_expression" ],
 				schedule_trigger_node[ "description" ],
 				schedule_trigger_node[ "input_dict" ],
 			)
-		)
+		})
 		
 	"""
 	Deploy all SQS queues to production
@@ -2738,11 +2825,37 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 		)
 		
 	# Wait till everything is deployed
+	deployed_schedule_triggers = []
+	for schedule_trigger_node_deploy_future in schedule_trigger_node_deploy_futures:
+		try:
+			output = yield schedule_trigger_node_deploy_future[ "future" ]
+			deployed_schedule_triggers.append(
+				output
+			)
+		except Exception, e:
+			deployment_exceptions.append({
+				"id": schedule_trigger_node_deploy_future[ "id" ],
+				"name": schedule_trigger_node_deploy_future[ "name" ],
+				"type": schedule_trigger_node_deploy_future[ "type" ],
+				"exception": str( e )
+			})
+			
+	#deployed_schedule_triggers = yield schedule_trigger_node_deploy_futures
 	deployed_lambdas = yield lambda_node_deploy_futures
-	deployed_schedule_triggers = yield schedule_trigger_node_deploy_futures
 	deployed_sqs_queues = yield sqs_queue_nodes_deploy_futures
 	deployed_sns_topics = yield sns_topic_nodes_deploy_futures
 	deployed_api_endpoints = yield api_endpoint_node_deploy_futures
+	
+	# This is the earliest point we can apply the breaks in the case of an exception
+	# It's the callers responsibility to tear down the nodes
+	if len( deployment_exceptions ) > 0:
+		print( "[ ERROR ] An uncaught exception occurred during the deployment process!" )
+		pprint( deployment_exceptions )
+		raise gen.Return({
+			"success": False,
+			"teardown_nodes_list": teardown_nodes_list,
+			"exceptions": deployment_exceptions,
+		})
 	
 	"""
 	Set up API Gateways to be attached to API Endpoints
@@ -2939,6 +3052,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	pprint( diagram_data )
 	
 	raise gen.Return({
+		"success": True,
 		"project_name": project_name,
 		"project_id": project_id,
 		"deployment_diagram": diagram_data,
@@ -3115,83 +3229,82 @@ class SavedLambdaDelete( BaseHandler ):
 		self.write({
 			"success": True
 		})
+
+@gen.coroutine
+def teardown_infrastructure( teardown_nodes ):
+	"""
+	[
+		{
+			"id": {{node_id}},
+			"arn": {{production_resource_arn}},
+			"name": {{node_name}},
+			"type": {{node_type}},
+		}
+	]
+	"""
+	teardown_operation_futures = []
+	
+	for teardown_node in teardown_nodes:
+		# Skip if the node doesn't exist
+		# TODO move this client side, it's silly here.
+		if "exists" in teardown_node and teardown_node[ "exists" ] == False:
+			continue
 		
+		if teardown_node[ "type" ] == "lambda" or teardown_node[ "type" ] == "api_endpoint":
+			teardown_operation_futures.append(
+				local_tasks.delete_lambda(
+					teardown_node[ "id" ],
+					teardown_node[ "type" ],
+					teardown_node[ "name" ],
+					teardown_node[ "arn" ],
+				)
+			)
+		elif teardown_node[ "type" ] == "sns_topic":
+			teardown_operation_futures.append(
+				local_tasks.delete_sns_topic(
+					teardown_node[ "id" ],
+					teardown_node[ "type" ],
+					teardown_node[ "name" ],
+					teardown_node[ "arn" ],
+				)
+			)
+		elif teardown_node[ "type" ] == "sqs_queue":
+			teardown_operation_futures.append(
+				local_tasks.delete_sqs_queue(
+					teardown_node[ "id" ],
+					teardown_node[ "type" ],
+					teardown_node[ "name" ],
+					teardown_node[ "arn" ],
+				)
+			)
+		elif teardown_node[ "type" ] == "schedule_trigger":
+			teardown_operation_futures.append(
+				local_tasks.delete_schedule_trigger(
+					teardown_node[ "id" ],
+					teardown_node[ "type" ],
+					teardown_node[ "name" ],
+					teardown_node[ "arn" ],
+				)
+			)
+		elif teardown_node[ "type" ] == "api_gateway":
+			teardown_operation_futures.append(
+				strip_api_gateway(
+					teardown_node[ "rest_api_id" ],
+				)
+			)
+	
+	teardown_operation_results = yield teardown_operation_futures
+	
+	raise gen.Return( teardown_operation_results )
+
 class InfraTearDown( BaseHandler ):
 	@gen.coroutine
 	def post( self ):
-		"""
-		[
-			{
-				"id": {{node_id}},
-				"arn": {{production_resource_arn}},
-				"name": {{node_name}},
-				"type": {{node_type}},
-			}
-		]
-		"""
 		teardown_nodes = self.json[ "teardown_nodes" ]
-		
-		teardown_operation_futures = []
-		
-		for teardown_node in teardown_nodes:
-			# Skip if the node doesn't exist
-			# TODO move this client side, it's silly here.
-			if "exists" in teardown_node and teardown_node[ "exists" ] == False:
-				continue
-			
-			if teardown_node[ "type" ] == "lambda":
-				teardown_operation_futures.append(
-					local_tasks.delete_lambda(
-						teardown_node[ "id" ],
-						teardown_node[ "type" ],
-						teardown_node[ "name" ],
-						teardown_node[ "arn" ],
-					)
-				)
-			elif teardown_node[ "type" ] == "api_endpoint":
-				teardown_operation_futures.append(
-					local_tasks.delete_lambda(
-						teardown_node[ "id" ],
-						teardown_node[ "type" ],
-						teardown_node[ "name" ],
-						teardown_node[ "arn" ],
-					)
-				)
-			elif teardown_node[ "type" ] == "sns_topic":
-				teardown_operation_futures.append(
-					local_tasks.delete_sns_topic(
-						teardown_node[ "id" ],
-						teardown_node[ "type" ],
-						teardown_node[ "name" ],
-						teardown_node[ "arn" ],
-					)
-				)
-			elif teardown_node[ "type" ] == "sqs_queue":
-				teardown_operation_futures.append(
-					local_tasks.delete_sqs_queue(
-						teardown_node[ "id" ],
-						teardown_node[ "type" ],
-						teardown_node[ "name" ],
-						teardown_node[ "arn" ],
-					)
-				)
-			elif teardown_node[ "type" ] == "schedule_trigger":
-				teardown_operation_futures.append(
-					local_tasks.delete_schedule_trigger(
-						teardown_node[ "id" ],
-						teardown_node[ "type" ],
-						teardown_node[ "name" ],
-						teardown_node[ "arn" ],
-					)
-				)
-			elif teardown_node[ "type" ] == "api_gateway":
-				teardown_operation_futures.append(
-					strip_api_gateway(
-						teardown_node[ "rest_api_id" ],
-					)
-				)
-		
-		teardown_operation_results = yield teardown_operation_futures
+
+		teardown_operation_results = yield teardown_infrastructure(
+			teardown_nodes
+		)
 		
 		# Delete our logs
 		# No need to yield till it completes
@@ -3607,18 +3720,30 @@ class DeployDiagram( BaseHandler ):
 		
 		diagram_data = json.loads( self.json[ "diagram_data" ] )
 		
-		"""
-		"project_name": project_name,
-		"project_id": project_id,
-		"deployment_diagram": diagram_data,
-		"project_config": project_config
-		"""
 		deployment_data = yield deploy_diagram(
 			project_name,
 			project_id,
 			diagram_data,
 			project_config
 		)
+		
+		# Check if the deployment failed
+		if deployment_data[ "success" ] == False:
+			print( "[ ERROR ] We are now rolling back the deployments we've made..." )
+			yield teardown_infrastructure(
+				deployment_data[ "teardown_nodes_list" ]
+			)
+			print( "[ ERROR ] We've completed our rollback, returning an error..." )
+			
+			# For now we'll just raise
+			self.write({
+				"success": True, # Success meaning we caught it
+				"result": {
+					"deployment_success": False,
+					"exceptions": deployment_data[ "exceptions" ],
+				}
+			})
+			raise gen.Return()
 		
 		# TODO: Update the project data? Deployments should probably
 		# be an explicit "Save Project" action.
@@ -3649,6 +3774,7 @@ class DeployDiagram( BaseHandler ):
 		self.write({
 			"success": True,
 			"result": {
+				"deployment_success": True,
 				"diagram_data": deployment_data[ "deployment_diagram" ],
 				"project_id": project_id,
 				"deployment_id": new_deployment.id,
