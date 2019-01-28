@@ -234,12 +234,6 @@ def create_refinery_buckets():
 		uuid.uuid4()
 	).replace( "-", "" )
 	
-	sqs_template_bucket_name = "sqstemplatebucket-" + random_ext
-	S3_CLIENT.create_bucket(
-		Bucket=sqs_template_bucket_name,
-		ACL="private"
-	)
-	
 	lambda_package_bucket_name = "lambdabuildpackages-" + random_ext
 	S3_CLIENT.create_bucket(
 		Bucket=lambda_package_bucket_name,
@@ -263,9 +257,7 @@ def create_refinery_buckets():
 	
 	print( "Lifecycle response: " )
 	print( lifecycle_response )
-	
-	print( "SQS bucket name: " )
-	print( sqs_template_bucket_name )
+
 	print( "Lambda package bucket name: " )
 	print( lambda_package_bucket_name )
 	
