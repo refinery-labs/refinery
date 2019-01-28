@@ -2615,6 +2615,8 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 			node_arn = "arn:aws:sqs:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + get_lambda_safe_name( workflow_state[ "name" ] )
 		elif workflow_state[ "type" ] == "schedule_trigger":
 			node_arn = "arn:aws:events:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":rule/" + get_lambda_safe_name( workflow_state[ "name" ] )
+		elif workflow_state[ "type" ] == "api_endpoint":
+			node_arn = "arn:aws:lambda:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":function:" + get_lambda_safe_name( workflow_state[ "name" ] )
 		else:
 			node_arn = False
 		
@@ -2727,8 +2729,12 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	for lambda_node in lambda_nodes:
 		lambda_safe_name = get_lambda_safe_name( lambda_node[ "name" ] )
 		logit( "Deploying Lambda '" + lambda_safe_name + "'..." )
-		lambda_node_deploy_futures.append(
-			deploy_lambda(
+
+		lambda_node_deploy_futures.append({
+			"id": lambda_node[ "id" ],
+			"name": lambda_safe_name,
+			"type": lambda_node[ "type" ],
+			"future": deploy_lambda(
 				lambda_node[ "id" ],
 				lambda_safe_name,
 				lambda_node[ "language" ],
@@ -2743,7 +2749,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 				lambda_node[ "environment_variables" ],
 				lambda_node[ "layers" ],
 			)
-		)
+		})
 		
 	"""
 	Deploy all API Endpoints to production
@@ -2753,8 +2759,11 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	for api_endpoint_node in api_endpoint_nodes:
 		api_endpoint_safe_name = get_lambda_safe_name( api_endpoint_node[ "name" ] )
 		logit( "Deploying API Endpoint '" + api_endpoint_safe_name + "'..." )
-		api_endpoint_node_deploy_futures.append(
-			deploy_lambda(
+		api_endpoint_node_deploy_futures.append({
+			"id": api_endpoint_node[ "id" ],
+			"name": get_lambda_safe_name( api_endpoint_node[ "name" ] ),
+			"type": api_endpoint_node[ "type" ],
+			"future": deploy_lambda(
 				api_endpoint_node[ "id" ],
 				api_endpoint_safe_name,
 				"python2.7",
@@ -2769,7 +2778,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 				[],
 				[]
 			)
-		)
+		})
 		
 	"""
 	Deploy all time triggers to production
@@ -2781,7 +2790,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 		logit( "Deploying schedule trigger '" + schedule_trigger_name + "'..." )
 		schedule_trigger_node_deploy_futures.append({
 			"id": schedule_trigger_node[ "id" ],
-			"name": get_lambda_safe_name( schedule_trigger_node[ "name" ] ),
+			"name": schedule_trigger_name,
 			"type": schedule_trigger_node[ "type" ],
 			"future": local_tasks.create_cloudwatch_rule(
 				schedule_trigger_node[ "id" ],
@@ -2800,14 +2809,17 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	for sqs_queue_node in sqs_queue_nodes:
 		sqs_queue_name = get_lambda_safe_name( sqs_queue_node[ "name" ] )
 		logit( "Deploying SQS queue '" + sqs_queue_name + "'..." )
-		sqs_queue_nodes_deploy_futures.append(
-			local_tasks.create_sqs_queue(
+		sqs_queue_nodes_deploy_futures.append({
+			"id": sqs_queue_node[ "id" ],
+			"name": sqs_queue_name,
+			"type": sqs_queue_node[ "type" ],
+			"future": local_tasks.create_sqs_queue(
 				sqs_queue_node[ "id" ],
 				sqs_queue_name,
 				sqs_queue_node[ "content_based_deduplication" ],
 				sqs_queue_node[ "batch_size" ] # Not used, passed along
 			)
-		)
+		})
 		
 	"""
 	Deploy all SNS topics to production
@@ -2817,34 +2829,68 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	for sns_topic_node in sns_topic_nodes:
 		sns_topic_name = get_lambda_safe_name( sns_topic_node[ "name" ] )
 		logit( "Deploying SNS topic '" + sns_topic_name + "'..." )
-		sns_topic_nodes_deploy_futures.append(
-			local_tasks.create_sns_topic(
+		
+		sns_topic_nodes_deploy_futures.append({
+			"id": sns_topic_node[ "id" ],
+			"name": sns_topic_name,
+			"type": sns_topic_node[ "type" ],
+			"future": local_tasks.create_sns_topic(
 				sns_topic_node[ "id" ],
 				sns_topic_node[ "topic_name" ],
 			)
-		)
+		})
 		
-	# Wait till everything is deployed
+	# Combine futures
+	combined_futures_list = []
+	combined_futures_list += schedule_trigger_node_deploy_futures
+	combined_futures_list += lambda_node_deploy_futures
+	combined_futures_list += sqs_queue_nodes_deploy_futures
+	combined_futures_list += sns_topic_nodes_deploy_futures
+	combined_futures_list += api_endpoint_node_deploy_futures
+	
+	# Initialize list of results
 	deployed_schedule_triggers = []
-	for schedule_trigger_node_deploy_future in schedule_trigger_node_deploy_futures:
+	deployed_lambdas = []
+	deployed_sqs_queues = []
+	deployed_sns_topics = []
+	deployed_api_endpoints = []
+	
+	# Wait till everything is deployed
+	for deploy_future_data in combined_futures_list:
 		try:
-			output = yield schedule_trigger_node_deploy_future[ "future" ]
-			deployed_schedule_triggers.append(
-				output
-			)
+			output = yield deploy_future_data[ "future" ]
+			
+			print( "[ STATUS ] Deployed node '" + deploy_future_data[ "name" ] + "' successfully!" )
+			
+			# Append to approriate lists
+			if deploy_future_data[ "type" ] == "lambda":
+				deployed_lambdas.append(
+					output
+				)
+			elif deploy_future_data[ "type" ] == "sqs_queue":
+				deployed_sqs_queues.append(
+					output
+				)
+			elif deploy_future_data[ "type" ] == "schedule_trigger":
+				deployed_schedule_triggers.append(
+					output
+				)
+			elif deploy_future_data[ "type" ] == "sns_topic":
+				deployed_sns_topics.append(
+					output
+				)
+			elif deploy_future_data[ "type" ] == "api_endpoint":
+				deployed_api_endpoints.append(
+					output
+				)
 		except Exception, e:
+			print( "[ ERROR ] Failed to deploy node '" + deploy_future_data[ "name" ] + "'!" )
 			deployment_exceptions.append({
-				"id": schedule_trigger_node_deploy_future[ "id" ],
-				"name": schedule_trigger_node_deploy_future[ "name" ],
-				"type": schedule_trigger_node_deploy_future[ "type" ],
+				"id": deploy_future_data[ "id" ],
+				"name": deploy_future_data[ "name" ],
+				"type": deploy_future_data[ "type" ],
 				"exception": str( e )
 			})
-			
-	#deployed_schedule_triggers = yield schedule_trigger_node_deploy_futures
-	deployed_lambdas = yield lambda_node_deploy_futures
-	deployed_sqs_queues = yield sqs_queue_nodes_deploy_futures
-	deployed_sns_topics = yield sns_topic_nodes_deploy_futures
-	deployed_api_endpoints = yield api_endpoint_node_deploy_futures
 	
 	# This is the earliest point we can apply the breaks in the case of an exception
 	# It's the callers responsibility to tear down the nodes
