@@ -2398,78 +2398,6 @@ class SavedFunctionDelete( BaseHandler ):
 			"success": True
 		})
 		
-class SaveSQSJobTemplate( BaseHandler ):
-	@gen.coroutine
-	def post( self ):
-		"""
-		Save SQS job template to S3
-		"""
-		schema = {
-			"type": "object",
-			"properties": {
-				"job_template": {
-					"type": "string",
-				},
-				"queue_name": {
-					"type": "string",
-				}
-			},
-			"required": [
-				"job_template",
-				"queue_name"
-			]
-		}
-		
-		validate_schema( self.json, schema )
-		
-		self.logit(
-			"Writing job template..."
-		)
-		
-		yield local_tasks.write_to_s3(
-			os.environ.get( "sqs_job_templates_s3_bucket" ),
-			self.json[ "queue_name" ],
-			self.json[ "job_template" ]
-		)
-		
-		self.write({
-			"success": True
-		})
-		
-class GetSQSJobTemplate( BaseHandler ):
-	@gen.coroutine
-	def post( self ):
-		"""
-		Retrieve an SQS template from S3
-		"""
-		schema = {
-			"type": "object",
-			"properties": {
-				"queue_name": {
-					"type": "string",
-				}
-			},
-			"required": [
-				"queue_name"
-			]
-		}
-		
-		validate_schema( self.json, schema )
-		
-		self.logit(
-			"Retrieving job template..."
-		)
-		
-		job_template = yield local_tasks.read_from_s3(
-			os.environ.get( "sqs_job_templates_s3_bucket" ),
-			self.json[ "queue_name" ]
-		)
-		
-		self.write({
-			"success": True,
-			"job_template": job_template
-		})
-		
 @gen.coroutine
 def deploy_lambda( id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, execution_log_level, environment_variables, layers ):
 	logit(
@@ -4524,8 +4452,6 @@ def make_app( is_debug ):
 		( r"/api/v1/logs/executions/get", GetProjectExecutionLogs ),
 		( r"/api/v1/logs/executions", GetProjectExecutions ),
 		( r"/api/v1/aws/deploy_diagram", DeployDiagram ),
-		( r"/api/v1/sqs/job_template/get", GetSQSJobTemplate ),
-		( r"/api/v1/sqs/job_template", SaveSQSJobTemplate ),
 		( r"/api/v1/functions/delete", SavedFunctionDelete ),
 		( r"/api/v1/functions/update", SavedFunctionUpdate ),
 		( r"/api/v1/functions/create", SavedFunctionCreate ),

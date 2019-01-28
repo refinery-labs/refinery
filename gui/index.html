@@ -1043,13 +1043,6 @@
 					<input type="text" class="form-control" v-model="sns_trigger_data.topic_name" placeholder="Example Topic" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 					<small class="form-text text-muted">Name of the SNS topic linked to the Lambda.</small>
 				</div>
-				<div class="form-group">
-					<label>SNS Message Format</label>
-					<div style="height: 200px">
-						<editor editor-id="sns_topic_template_" theme="monokai" lang="json" :content="sns_trigger_data.sns_topic_template" v-on:change-content="update_sns_topic_template" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
-					</div>
-					<small class="form-text text-muted">A template of an example message to be added to this SNS topic. This is important for ensuring the triggered Lambda receives the appropriate input!</small>
-				</div>
 				<hr />
 				<div v-if="ide_mode == 'LOCAL_IDE'">
 					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_sns_topic">Update SNS Topic</button>
@@ -1092,13 +1085,6 @@
 				<div class="form-group">
 					<input type="checkbox" v-model="sqs_trigger_data.content_based_deduplication" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"> <label>Content-Based De-duplication</label>
 					<small class="form-text text-muted">Should messages be de-duplicated based off of their message contents (5 minute rolling window)?</small>
-				</div>
-				<div class="form-group">
-					<label>SQS Job Format</label>
-					<div style="height: 200px">
-						<editor editor-id="sqs_trigger_job_template_" theme="monokai" lang="json" :content="sqs_trigger_data.sqs_job_template" v-on:change-content="update_sqs_job_template" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
-					</div>
-					<small class="form-text text-muted">A template of an example job to be added to this SQS queue. This is important for ensuring the triggered Lambda receives the appropriate input!</small>
 				</div>
 				
 				<hr />

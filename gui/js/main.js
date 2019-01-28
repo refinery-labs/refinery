@@ -597,8 +597,7 @@ function select_node( node_id ) {
 	    var sqs_trigger_data = {
 			"queue_name": selected_node_data.name,
 			"content_based_deduplication": selected_node_data.content_based_deduplication,
-			"batch_size": selected_node_data.batch_size,
-			"sqs_job_template": selected_node_data.sqs_job_template
+			"batch_size": selected_node_data.batch_size
 	    };
 	    Vue.set( app, "sqs_trigger_data", sqs_trigger_data );
 	    
@@ -622,7 +621,6 @@ function select_node( node_id ) {
 		
 		var sns_topic_data = {
 			"topic_name": selected_node_data.topic_name,
-			"sns_topic_template": selected_node_data.sns_topic_template
 		}
 		
 		Vue.set( app, "sns_trigger_data", sns_topic_data );
@@ -683,9 +681,6 @@ function reset_current_api_endpoint_state_to_defaults() {
 function reset_current_sns_topic_state_to_defaults() {
     var sns_topic_data = {
 		"topic_name": "New Topic",
-		"sns_topic_template": JSON.stringify({
-			"id": "1"
-		}, false, 4 ),
     }
     Vue.set( app, "sns_trigger_data", sns_topic_data );
 }
@@ -705,10 +700,7 @@ function reset_current_sqs_queue_state_to_defaults() {
     var sqs_trigger_data = {
 		"queue_name": app.lambda_name,
 		"content_based_deduplication": true,
-		"batch_size": 1,
-		"sqs_job_template": JSON.stringify({
-			"id": "1"
-		}, false, 4 ),
+		"batch_size": 1
     }
     Vue.set( app, "sqs_trigger_data", sqs_trigger_data );
 }
@@ -791,31 +783,6 @@ function project_file_uploaded( event_data ) {
 		};
 	}
 	reader.readAsText( file_data );
-}
-
-function get_job_template( queue_name ) {
-	return api_request(
-		"POST",
-		"api/v1/sqs/job_template/get",
-		{
-			"queue_name": queue_name
-		}
-	).then(function( response ) {
-		return response.job_template;
-	});
-}
-
-function save_job_template( queue_name, job_template_data_string ) {
-	return api_request(
-		"POST",
-		"api/v1/sqs/job_template",
-		{
-			"queue_name": queue_name,
-			"job_template": job_template_data_string,
-		}
-	).then(function( response ) {
-		return response.id;
-	})
 }
 
 function delete_saved_function( id ) {
@@ -1444,16 +1411,10 @@ var app = new Vue({
 			"queue_name": "Example Queue",
 			"content_based_deduplication": true,
 			"batch_size": 1,
-			"sqs_job_template": JSON.stringify({
-				"id": "1"
-			}, false, 4 ),
         },
         // Target data for when an SNS-based trigger is created
 		sns_trigger_data: {
 			"topic_name": "New Topic",
-			"sns_topic_template": JSON.stringify({
-				"id": "1"
-			}, false, 4 ),
 		},
 		// Target data for when an API Endpoint trigger is created
 		api_endpoint_data: {
@@ -2657,9 +2618,6 @@ var app = new Vue({
 	            "name": "New Topic",
 	            "topic_name": "New Topic",
 	            "type": "sns_topic",
-	            "sns_topic_template": JSON.stringify({
-					"id": "1"
-				}, false, 4 ),
 			}
 			
 			new_sns_topic_node.name = app.get_non_colliding_name(
@@ -2717,10 +2675,7 @@ var app = new Vue({
 			    "name": "New Queue",
 				"queue_name": "New Queue",
 				"content_based_deduplication": true,
-				"batch_size": 1,
-				"sqs_job_template": JSON.stringify({
-					"id": "1"
-				}, false, 4 ),
+				"batch_size": 1
 		    };
 		    
 			sqs_queue_node_data.name = app.get_non_colliding_name(
@@ -2765,12 +2720,6 @@ var app = new Vue({
 			$( "#todo_output" ).modal(
 				"show"
 			);
-		},
-		update_sns_topic_template: function( new_value ) {
-			app.sns_trigger_data.sns_topic_template = new_value;
-		},
-		update_sqs_job_template: function( new_value ) {
-			app.sqs_trigger_data.sqs_job_template = new_value;
 		},
 		merge_saved_function: function() {
 			for( var i = 0; i < app.saved_function_data.libraries.length; i++ ) {
@@ -3166,7 +3115,6 @@ def example( parameter ):
 				"queue_name": app.sqs_trigger_data.queue_name,
 				"content_based_deduplication": app.sqs_trigger_data.content_based_deduplication,
 				"batch_size": app.sqs_trigger_data.batch_size,
-				"sqs_job_template": app.sqs_trigger_data.sqs_job_template
 			};
 			
 			app.update_node_data(
@@ -3195,8 +3143,7 @@ def example( parameter ):
 				"id": app.selected_node,
 				"name": app.sns_trigger_data.topic_name,
 				"type": "sns_topic",
-				"topic_name": app.sns_trigger_data.topic_name,
-				"sns_topic_template": app.sns_trigger_data.sns_topic_template
+				"topic_name": app.sns_trigger_data.topic_name
 			};
 			
 			app.update_node_data(
