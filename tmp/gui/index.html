@@ -1,0 +1,1477 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Refinery - A Pipeline Editor</title>
+    <link rel="stylesheet" type="text/css" href="./css/main.css">
+    <link rel="stylesheet" type="text/css" href="./css/toastr.min.css">
+    <link rel="stylesheet" href="./css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+	<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+	<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+</head>
+
+<body>
+    <div id="app">
+    	<!-- modals -->
+    	
+    	<!-- "Previous infrastructure exists, tear it down?" modal -->
+		<div class="modal fade" id="previous_infrastructure_warning" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title">Previous Infrastructure Check</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+		            	<center>
+		            		<h1>A previous diagram has already been deployed for this project.</h1>
+		            		<hr />
+		            		<button type="button" class="btn btn-lg btn-danger" v-on:click="deploy_infrastructure">Tear Down Previous Infrastructure & Deploy</button>
+		            	</center>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+    	
+		<!-- Search Projects modal -->
+		<div class="modal fade" id="searchprojects_output" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title">Search Projects</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<div class="form-group">
+							<label>Search</label>
+							<input type="text" class="form-control" placeholder="Project search term" v-model="projects_search_query">
+							<small class="form-text text-muted">Free text search of saved projects.</small>
+						</div>
+						<table class="table table-striped">
+							<thead>
+								<tr>
+									<th scope="col">Name</th>
+									<th scope="col" style="width: 90px;">Version</th>
+									<th scope="col" style="width: 30px; text-align: center;"></th>
+									<th scope="col" style="width: 30px; text-align: center;"></th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr class="search-result-row" v-for="projects_search_result in projects_search_results">
+									<td scope="row">{{projects_search_result.name}}</td>
+									<td scope="row">
+										<select class="form-control" v-model="project_selected_versions[projects_search_result.id]">
+											<option v-for="version in projects_search_result.versions" v-bind:value="version">v{{version}}</option>
+										</select>
+									</td>
+									<td>
+										<button type="button" class="btn btn-primary" v-bind:id="projects_search_result.id" v-bind:projectname="projects_search_result.name" v-on:click="open_project" data-dismiss="modal">Open</button>
+									</td>
+									<td>
+										<button type="button" class="btn btn-danger" v-bind:id="projects_search_result.id" v-on:click="delete_project">Delete Project</button>
+									</td>
+								</tr>
+							</tbody>
+						</table>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+    	
+    	<!-- Generic error modal -->
+		<div class="modal fade" id="error_output" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title">An Error Occured</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<center>
+							<h1>{{error_modal_text}}</h1>
+						</center>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+    	
+		<!-- Search Lambda modal -->
+		<div class="modal fade" id="searchsavedlambda_output" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title">Search Saved Lambdas</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<div class="form-group">
+							<label>Search</label>
+							<input type="text" class="form-control" placeholder="Code search term" v-model="saved_lambda_search_query">
+							<small class="form-text text-muted">Free text search of saved Lambda.</small>
+						</div>
+						<table class="table table-striped">
+							<thead>
+								<tr>
+									<th scope="col" style="width: 175px;">Name</th>
+									<th scope="col">Description</th>
+									<th scope="col" style="width: 120px">Language</th>
+									<th scope="col" style="width: 70px; text-align: center;"></th>
+									<th scope="col" style="width: 30px; text-align: center;"></th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr class="search-result-row" v-for="saved_lambda_search_result in saved_lambda_search_results">
+									<th scope="row">{{saved_lambda_search_result.name}}</th>
+									<td>{{saved_lambda_search_result.description}}</td>
+									<td>{{saved_lambda_search_result.language}}</td>
+									<td>
+										<button type="button" class="btn btn-primary" v-bind:id="saved_lambda_search_result.id" v-on:click="add_saved_lambda_to_project" data-dismiss="modal">Import</button>
+									</td>
+									<td>
+										<button type="button" class="btn btn-danger" v-bind:id="saved_lambda_search_result.id" v-on:click="delete_saved_lambda_from_db">Delete</button>
+									</td>
+								</tr>
+							</tbody>
+						</table>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+    	
+    	<!-- Save Lambda in database modal -->
+		<div class="modal fade" id="savelambdaindb_output" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="project_name_rename_label">Save Reusable Lambda in Database</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<div class="form-group">
+							<label>Description</label>
+							<input type="text" class="form-control" v-model="save_lambda_to_db_description" placeholder="Lambda to save input data as JSON to S3...">
+							<small class="form-text text-muted">Write a short description of what this Lambda does.</small>
+						</div>
+	            		<br />
+	            		<center>
+	            			<button type="button" class="btn btn-lg btn-primary" v-on:click="save_lambda_to_database" data-dismiss="modal">Save Lambda in Database</button>
+	            		</center>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+		
+		<!-- Edit Lambda layers modal -->
+		<!--
+		<div class="modal fade" id="lambda_layers_modal_output" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title">Edit Layer(s)</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<h3>Lambda Layer(s)</h3>
+						<p>
+							Add the ARN(s) of the <a href="https://docs.aws.amazon.com/lambda/latest/dg/configuration-layers.html" target="_blank">Lambda layers</a> you wish to use with this Lambda function.
+						</p>
+						<hr />
+						<div class="input-group mb-3" v-for="( layer_arn, index ) in lambda_layers">
+							<div class="input-group-prepend">
+								<span class="input-group-text">Layer ARN</span>
+							</div>
+							<input type="text" class="form-control" placeholder="ARN" v-model="lambda_layers[index]">
+							<button type="button" class="btn btn-danger" style="margin-left: 5px;" v-bind:layerindex="index" v-on:click="delete_layer">Delete</button>
+						</div>
+						<div v-if="lambda_layers.length == 0">
+							<center><p><i>No Lambda layers have been set!</i></p></center>
+						</div>
+						<hr />
+						<div style="text-align: right">
+							<button type="button" class="btn btn-primary" v-on:click="add_lambda_layer_to_selected('arn:aws:lambda:xx-xxxx-xx:xxxxxxxxxxxxxx:layer:x:x')">+ Add Layer ARN</button>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+		-->
+		
+		<!-- Edit Lambda environment variables modal -->
+		<div class="modal fade" id="lambda_environment_variables_output" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title">Lambda Environment Variables</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<h3>Lambda Environment Variable(s)</h3>
+						<p>
+							These environment variables will be applied to this Lambda when deployed into production (and run in development). Environment variables allow for clean seperation of configuration from code and add the ability to change configuration settings without a re-deploy.
+						</p>
+						<hr />
+						<div class="input-group mb-3" v-for="( env_pair, index ) in selected_node_environment_variables">
+							<div class="input-group-prepend">
+								<span class="input-group-text">Key</span>
+							</div>
+							<input type="text" class="form-control" placeholder="EXAMPLE_VARIABLE_KEY" style="text-transform: uppercase" v-model="env_pair.key">
+							<div class="input-group-prepend">
+								<span class="input-group-text">Value</span>
+							</div>
+							<input type="text" class="form-control" placeholder="Environment variable value." v-model="env_pair.value">
+							<button type="button" class="btn btn-danger" style="margin-left: 5px;" v-bind:envindex="index" v-on:click="delete_environment_variable">Delete</button>
+						</div>
+						<div v-if="selected_node_environment_variables.length == 0">
+							<center><p><i>No environment variables set.</i></p></center>
+						</div>
+						<hr />
+						<div style="text-align: right">
+							<button type="button" class="btn btn-primary" v-on:click="add_environment_variable_to_selected('EXAMPLE_ENV_VAR', 'Environment variable value.')">+ Add Variable</button>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		            	<div v-if="ide_mode == 'LOCAL_IDE'">
+		            		<button type="button" class="btn btn-primary" data-dismiss="modal" v-on:click="save_environment_variables">Save</button>
+		            	</div>
+		            	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+		            		<button type="button" class="btn btn-primary" data-dismiss="modal" v-on:click="update_deployed_lambda_environment_variables">Update Lambda Config</button>
+		            	</div>
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+    	
+    	<!-- TODO Modal - for unfinished stuff -->
+		<div class="modal fade" id="todo_output" tabindex="-1" role="dialog" aria-labelledby="todo_label" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="todo_label">TODO</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<center>
+							<h1>This has not been implemented yet!</h1>
+						</center>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+		
+    	<!-- Infrastructure teardown modal -->
+		<div class="modal fade" id="infrastructureteardown_modal" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title">Infrastructure Teardown</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		          <span aria-hidden="true">&times;</span>
+		        </button>
+		            </div>
+		            <div class="modal-body">
+						<center>
+							<img src="/img/loading.gif" />
+							<br />
+							<i>Tearing down colliding infrastructure, please wait...</i>
+						</center>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+		
+    	<!-- Deploy diagram output modal -->
+		<div class="modal fade" id="deploydiagram_output" tabindex="-1" role="dialog" aria-labelledby="deploydiagram_label" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="deploydiagram_label">Infrastructure Deployment Results</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		          <span aria-hidden="true">&times;</span>
+		        </button>
+		            </div>
+		            <div class="modal-body">
+		            	<!-- Infrastructure successfully deployed -->
+		            	<div v-if="!deploying_infrastructure && deploy_infrastructure_succeeded">
+							<b>Build Time: </b><code>{{deploy_infrastructure_time}}</code> seconds
+							<hr />
+							<center>
+								<button type="button" class="btn btn-lg btn-primary" v-on:click="view_production_deployment" data-dismiss="modal">
+									View Deployment Information
+								</button>
+							</center>
+		            	</div>
+		            	<!-- Infrastructure failed to deploy -->
+		            	<div v-if="!deploying_infrastructure && !deploy_infrastructure_succeeded">
+							<h2 style="color: red"><i>The deploy has failed!</i></h2>
+							<hr />
+							<p>
+								Refinery has rolled back all deployed changes associated with this deploy. You must remediate these errors before this deployment will work. The following table outlines the errors Refinery received from AWS:
+							</p>
+							<table class="table table-striped">
+								<thead>
+									<tr>
+										<th scope="col" style="width: 150px;">Node Name</th>
+										<th scope="col">AWS Error</th>
+										<th scope="col"></th>
+									</tr>
+								</thead>
+								<tbody>
+									<tr v-for="deploy_infrastructure_exception in deploy_infrastructure_exceptions">
+										<th scope="row">{{deploy_infrastructure_exception.name}}</th>
+										<td>{{deploy_infrastructure_exception.exception}}</td>
+										<td>
+											<button type="button" class="btn btn-primary" v-bind:node-id="deploy_infrastructure_exception.id" v-on:click="infrastructure_deploy_error_view_node" data-dismiss="modal">View Node</button>
+										</td>
+									</tr>
+								</tbody>
+							</table>
+		            	</div>
+		            	<!-- Loading GUI for deploying infra -->
+						<div v-if="deploying_infrastructure">
+							<center>
+								<img src="/img/loading.gif" />
+								<br />
+								<i>Building and deploying infrastructure to production, this may take a while...</i>
+							</center>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+    	
+		<!-- View saved function modal -->
+		<div class="modal fade" id="viewsavefunction_output" tabindex="-1" role="dialog" aria-labelledby="viewsavefunction_label" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="viewsavefunction_label">Saved Function</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<div class="form-group">
+							<label>Name</label>
+							<input type="text" class="form-control" v-model="saved_function_data.name" placeholder="Uppercase Function">
+							<small class="form-text text-muted">Name of your saved function.</small>
+						</div>
+						<div class="form-group">
+							<label>Description</label>
+							<input type="text" class="form-control" v-model="saved_function_data.description" placeholder="This function uppercases a string input.">
+							<small class="form-text text-muted">Description of what the function does.</small>
+						</div>
+		                <div class="form-group">
+		                	<label>Language</label>
+							<select class="custom-select" v-model="saved_function_data.language">
+								<option value="python2.7" selected>python2.7</option>
+								<!--<option value="nodejs8.10">Node v8.10.0 (LTS)</option>-->
+							</select>
+							<small id="new_lambda_language_select_input_help" class="form-text text-muted">Language of saved function.</small>
+						</div>
+						<div class="form-group">
+							<label>Import(s)</label>
+							<div style="height: 50px">
+								<editor editor-id="saved_function_data_imports_view_editor" theme="monokai" lang="python" :content="unformatted_saved_function_libraries" v-on:change-content="saved_function_libraries_changed"></editor>
+							</div>
+							<small class="form-text text-muted">Libraries for the saved function.</small>
+						</div>
+	            		<div style="height: 300px">
+							<editor editor-id="view_saved_function_editor" theme="monokai" lang="python" :content="saved_function_data.code" v-on:change-content="update_add_function_code"></editor>
+	            		</div>
+	            		<br />
+	            		<center>
+	            			<button type="button" class="btn btn-lg btn-primary" v-on:click="update_saved_function" data-dismiss="modal">Update Function</button>
+	            			
+	            			<button type="button" class="btn btn-lg btn-primary" v-on:click="merge_saved_function" style="margin-left: 10px;" data-dismiss="modal" v-if="page == 'modify-lambda'">Merge into Lambda</button>
+	            			
+	            			<button type="button" class="btn btn-lg btn-danger" v-on:click="delete_saved_function" style="margin-left: 10px;" data-dismiss="modal">Delete Function</button>
+	            		</center>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+    	
+		<!-- Search Saved functions modal -->
+		<div class="modal fade" id="searchsavedfunction_output" tabindex="-1" role="dialog" aria-labelledby="searchsavedfunction_label" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="searchsavedfunction_label">Search Saved Functions</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<div class="form-group">
+							<label>Search</label>
+							<input type="text" class="form-control" placeholder="Code search term" v-model="saved_function_search_query">
+							<small class="form-text text-muted">Free text search of saved function.</small>
+						</div>
+						<hr />
+						<table class="table table-striped">
+							<thead>
+								<tr>
+									<th scope="col" style="width: 175px;">Name</th>
+									<th scope="col">Description</th>
+									<th scope="col" style="width: 210px">Language</th>
+									<th scope="col" style="width: 90px; text-align: center;"></th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr class="search-result-row" v-for="saved_function_search_result in saved_function_search_results">
+									<th scope="row">{{saved_function_search_result.name}}</th>
+									<td>{{saved_function_search_result.description}}</td>
+									<td>{{saved_function_search_result.language}}</td>
+									<td>
+										<button type="button" class="btn btn-primary" v-bind:id="saved_function_search_result.id" v-on:click="view_saved_function" data-dismiss="modal">Open</button>
+									</td>
+								</tr>
+							</tbody>
+						</table>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+    	
+		<!-- Create new saved function modal -->
+		<div class="modal fade" id="savefunction_output" tabindex="-1" role="dialog" aria-labelledby="savefunction_label" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="savefunction_label">Save New Function</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<div class="form-group">
+							<label>Name</label>
+							<input type="text" class="form-control" v-model="saved_function_data.name" placeholder="Uppercase Function">
+							<small class="form-text text-muted">Name of your saved function.</small>
+						</div>
+						<div class="form-group">
+							<label>Description</label>
+							<input type="text" class="form-control" v-model="saved_function_data.description" placeholder="This function uppercases a string input.">
+							<small class="form-text text-muted">Description of what the function does.</small>
+						</div>
+		                <div class="form-group">
+		                	<label>Language</label>
+							<select class="custom-select" v-model="saved_function_data.language">
+								<option value="python2.7" selected>python2.7</option>
+								<!--<option value="nodejs8.10">Node v8.10.0 (LTS)</option>-->
+							</select>
+							<small id="new_lambda_language_select_input_help" class="form-text text-muted">Language of saved function.</small>
+						</div>
+						<div class="form-group">
+							<label>Import(s)</label>
+							<div style="height: 50px">
+								<editor editor-id="saved_function_data_imports_editor" theme="monokai" lang="python" :content="unformatted_saved_function_libraries" v-on:change-content="saved_function_libraries_changed"></editor>
+							</div>
+							<small class="form-text text-muted">Libraries for the saved function.</small>
+						</div>
+	            		<div style="height: 300px">
+							<editor editor-id="saved_function_editor" theme="monokai" lang="python" :content="saved_function_data.code" v-on:change-content="update_add_function_code"></editor>
+	            		</div>
+	            		<br />
+	            		<center>
+	            			<button type="button" class="btn btn-lg btn-primary" v-on:click="saved_new_add_function" data-dismiss="modal">Save New Function</button>
+	            		</center>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+    	
+    	<!-- Change Project Name -->
+		<div class="modal fade" id="project_name_rename_output" tabindex="-1" role="dialog" aria-labelledby="project_name_rename_label" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="project_name_rename_label">Project Name</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<div class="form-group">
+							<label for="project_name">Project Name</label>
+							<input type="text" class="form-control" v-model="project_name" aria-describedby="project_name" placeholder="Example Project">
+							<small id="selected_state_help" class="form-text text-muted">Name of the project.</small>
+						</div>
+						<div class="form-group">
+							<label for="project_name">Project Version</label>
+							<input type="number" min="1" class="form-control" v-model="project_version" placeholder="2">
+							<small class="form-text text-muted">Project version, this will be automatically bumped on each save.</small>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+		
+		<!-- Import project modal -->
+		<div class="modal fade" id="importproject_output" tabindex="-1" role="dialog" aria-labelledby="importproject_label" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="importproject_label">Import Project Data</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+		            	<center>
+		            		<h2>Upload Project JSON</h2>
+							<div class="custom-file">
+								<input type="file" class="custom-file-input" id="project_file_upload">
+								<label class="custom-file-label" for="project_file_upload">Choose file</label>
+							</div>
+		            		<hr />
+		            		<h2>Paste Project JSON Below</h2>
+		            		<p v-if="import_paste_error" class="import-error-text"><i>{{import_paste_error}}</i></p>
+		            		<div style="height: 300px">
+								<editor editor-id="project_data_json_import" theme="monokai" lang="json" :content="project_data_json" v-on:change-content="project_import_data_change"></editor>
+		            		</div>
+		            	</center>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+		
+    	<!-- Export project modal -->
+		<div class="modal fade" id="exportproject_output" tabindex="-1" role="dialog" aria-labelledby="exportproject_label" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="exportproject_label">Exported Project Data</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+		            	<center>
+		            		<button type="button" class="btn btn-lg btn-primary" v-on:click="download_project_data">Download Project Data</button>
+		            		<hr />
+		            		<div style="height: 300px">
+								<editor editor-id="project_data_json_export" theme="monokai" lang="json" :content="project_data_json" v-on:change-content="project_export_data_change"></editor>
+		            		</div>
+		            	</center>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+		
+		<!-- Fullscreen text viewer -->
+		<div class="modal fade" id="text_viewer_popup" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg modal-full-screen" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title">{{fullscreen_text_viewer_data.title}}</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<div style="height: 100%">
+							<editor style="height: 700px" editor-id="fullscreen_text_viewer_editor" theme="monokai" v-bind:lang="fullscreen_text_viewer_data.language" :content="fullscreen_text_viewer_data.text" :disabled="true"></editor>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+
+		<!-- Fullscreen lambda code editor -->
+		<div class="modal fade" id="lambda_editor_popup" tabindex="-1" role="dialog" aria-labelledby="lambda_editor_popup_label" aria-hidden="true">
+		    <div class="modal-dialog modal-lg modal-full-screen" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="lambda_editor_popup_label" v-if="ide_mode == 'LOCAL_IDE'">Edit Lambda</h5>
+		                <h5 class="modal-title" id="lambda_editor_popup_label" v-if="ide_mode == 'DEPLOYMENT_VIEWER'">Run Lambda</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<div style="height: 100%">
+							<h5>Lambda Code</h5>
+							<editor style="height: 600px" editor-id="lambda_code_large" theme="monokai" v-bind:lang="ace_language_to_lang_id_map[lambda_language]" :content="lambda_code" v-on:change-content="lambda_code_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
+							<br />
+							<h5>Lambda Input Data (for testing)</h5>
+							<editor style="height: 100px" editor-id="lambda_input_data" theme="monokai" v-bind:lang="ace_language_to_lang_id_map[lambda_language]" v-on:change-content="lambda_input_change" :content="lambda_input"></editor>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		            	<div v-if="ide_mode == 'LOCAL_IDE'">
+			            	<button type="submit" class="btn btn-primary" v-on:click="run_tmp_lambda">Run Lambda</button>
+			            	<button type="submit" class="btn btn-primary" v-on:click="view_tmp_lambda_output" v-if="lambda_exec_result">View Last Lambda Run</button>
+			            	<button type="submit" class="btn btn-primary" v-on:click="update_lambda">Save Lambda</button>
+			            	<button type="submit" class="btn btn-primary" v-on:click="save_lambda_and_project">Save Lambda & Project</button>
+		            	</div>
+		            	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+		            		<button type="submit" class="btn btn-primary" v-on:click="run_deployed_lambda">Run Lambda</button>
+		            	</div>
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+    	
+    	<!-- Run Lambda Output -->
+		<div class="modal fade" id="runtmplambda_output" tabindex="-1" role="dialog" aria-labelledby="runtmplambda_label" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="runtmplambda_label">Lambda Execution Results</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		          <span aria-hidden="true">&times;</span>
+		        </button>
+		            </div>
+		            <div class="modal-body">
+		            	<div v-if="lambda_exec_result && !lambda_exec_result.is_error">
+							<b>Build Time: </b><code>{{lambda_build_time}}</code> seconds
+							<br />
+							<center>
+								<h3>Lambda Full Output</h3>
+								<p v-if="lambda_exec_result.truncated" style="display: inline; font-style: italic; color: #ff0000">
+									Logs are currently truncated to last 4 KB, for the full logs please wait...
+								</p>
+							</center>
+							<p>
+								<pre style="background-color: #000000; color: #FFFFFF !important; border-radius: 4px; padding: 10px">{{lambda_exec_result.logs}}</pre>
+							</p>
+							<hr />
+							<center>
+								<h3>Execution Returned Data</h3>
+							</center>
+							<p>
+								<pre style="background-color: #000000; color: #FFFFFF !important; border-radius: 4px; padding: 10px">{{lambda_exec_result.response}}</pre>
+							</p>
+		            	</div>
+		            	<div v-if="lambda_exec_result && lambda_exec_result.is_error">
+							<b>Build Time: </b><code>{{lambda_build_time}}</code> seconds
+							<br />
+							<b>Error Type: </b><code>{{lambda_exec_result.error.type}}</code>
+							<br />
+							<b>Error Message: </b><code>{{lambda_exec_result.error.message}}</code>
+							<br />
+							<hr />
+							<center>
+								<h3>Full Error Logs</h3>
+							</center>
+							<p>
+								<pre style="background-color: #000000; color: #FFFFFF !important; border-radius: 4px; padding: 10px">{{lambda_exec_result.logs}}</pre>
+							</p>
+		            	</div>
+						<div v-if="!lambda_exec_result">
+							<center>
+								<img src="/img/loading.gif" />
+								<br />
+								<i>Building and executing lambda, this may take a few seconds...</i>
+							</center>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+		
+		<!-- Deploy Lambda output -->
+		<div class="modal fade" id="deploylambda_output" tabindex="-1" role="dialog" aria-labelledby="deploylambda_label" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title" id="deploylambda_label">Deploy Lambda</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+		            	<div v-if="!lambda_deploy_loading">
+							<b>Build Time: </b><code>{{lambda_build_time}}</code> seconds
+							<hr />
+							<center>
+								<button type="button" class="btn btn-lg btn-primary" v-on:click="open_deployed_lambda_page">Open AWS Lambda Page</button>
+								<div v-if="cloudwatch_event_link">
+									<hr />
+									<button type="button" class="btn btn-lg btn-primary" v-on:click="open_cloudwatch_trigger_page">View AWS CloudWatch Trigger</button>
+								</div>
+								<div v-if="sqs_queue_link">
+									<hr />
+									<button type="button" class="btn btn-lg btn-primary" v-on:click="open_sqs_queue_page">View AWS SQS Trigger</button>
+								</div>
+							</center>
+		            	</div>
+						<div v-if="lambda_deploy_loading">
+							<center>
+								<img src="/img/loading.gif" />
+								<br />
+								<i>{{lambda_deploy_status_text}}</i>
+							</center>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+		
+		<!-- Project Settings Modal -->
+		<div class="modal fade" id="project_settings_modal" tabindex="-1" role="dialog" aria-hidden="true">
+		    <div class="modal-dialog modal-lg" role="document">
+		        <div class="modal-content">
+		            <div class="modal-header">
+		                <h5 class="modal-title">Project Settings</h5>
+		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+		        			<span aria-hidden="true">&times;</span>
+		        		</button>
+		            </div>
+		            <div class="modal-body">
+						<div class="form-group">
+							<label>Logging Level</label>
+							<select class="form-control" v-model="project_config.logging.level">
+								<option value="LOG_ALL">Log all executions</option>
+								<option value="LOG_ERRORS">Log only errors</option>
+								<option value="LOG_NONE">No logging</option>
+							</select>
+							<small class="form-text text-muted">The logging level to use when Lambdas run in production. Note that changing this level requires a re-deploy to take effect!</small>
+						</div>
+		            </div>
+		            <div class="modal-footer">
+		            	<button type="button" class="btn btn-success" v-on:click="save_project_current_version" data-dismiss="modal" v-if="project_id">Save Project</button>
+		                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+		            </div>
+		        </div>
+		    </div>
+		</div>
+		
+		<!-- Header -->
+        <div id="header">
+			<nav class="navbar navbar-expand-lg navbar-light bg-light" style="background-color: #eee !important;">
+				<a class="navbar-brand" href="#" v-on:click="navigate_page('welcome')">
+					Refinery
+				</a>
+			    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+				<span class="navbar-toggler-icon"></span>
+				</button>
+				
+				<!-- Local IDE project name -->
+			    <div class="collapse navbar-collapse" v-if="ide_mode == 'LOCAL_IDE'">
+			        <ul class="navbar-nav">
+			            <li class="nav-item">
+			                <a class="nav-link" href="#" v-on:click="show_rename_project_modal">
+			                	<p class="project-name"><i>{{project_name}}</i></p>
+			                	<p class="project-version">v{{project_version}}</p>
+			                </a>
+			            </li>
+			            <li class="nav-item">
+			                
+			            </li>
+			        </ul>
+			    </div>
+			    
+			    <!-- Local IDE project name -->
+			    <div class="collapse navbar-collapse" v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+			        <ul class="navbar-nav">
+			            <li class="nav-item">
+			                <a class="nav-link" href="#">
+			                	Deployment:
+			                	<p class="project-name"><i>{{project_name}}</i></p>
+			                	<p class="project-version">v{{project_version}}</p>
+			                </a>
+			            </li>
+			            <li class="nav-item">
+			                
+			            </li>
+			        </ul>
+			    </div>
+			    
+			    <!-- Local IDE mode navbar -->
+			    <div class="form-inline my-2 my-lg-0" v-if="ide_mode == 'LOCAL_IDE'">
+					<div class="btn-group">
+						<button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-left: 5px;">
+							Project Options
+						</button>
+						<div class="dropdown-menu">
+							<a class="dropdown-item" href="#" v-on:click="save_project_current_version">Save Project to Current Version</a>
+							<a class="dropdown-item" href="#" v-on:click="save_project_bump_version">Save Project to Bumped Version</a>
+							<hr />
+							<a class="dropdown-item" href="#" v-on:click="view_project_settings">Project Settings</a>
+							<a class="dropdown-item" href="#" v-on:click="view_search_projects_modal">Open Project</a>
+							<a class="dropdown-item" href="#" v-on:click="import_project_data">Import Project</a>
+							<a class="dropdown-item" href="#" v-on:click="export_project_data">Export Project</a>
+							<a class="dropdown-item" href="#" v-on:click="clear_project">Clear Project</a>
+						</div>
+					</div>
+					<div class="btn-group">
+						<button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-left: 5px;">
+							Add New Resource
+						</button>
+						<div class="dropdown-menu">
+							<a class="dropdown-item" href="#" v-on:click="add_lambda_node">Lambda</a>
+							<a class="dropdown-item" href="#" v-on:click="view_search_saved_lambdas_modal">Saved Lambda</a>
+							<a class="dropdown-item" href="#" v-on:click="add_sns_topic_node">SNS Topic Trigger</a>
+							<a class="dropdown-item" href="#" v-on:click="add_sqs_node">SQS Queue Trigger</a>
+							<a class="dropdown-item" href="#" v-on:click="add_timer_trigger_node">Schedule Trigger</a>
+							<a class="dropdown-item" href="#" v-on:click="add_api_endpoint_node">API Endpoint</a>
+							<a class="dropdown-item" href="#" v-on:click="add_api_gateway_response_node">API Response</a>
+						</div>
+					</div>
+					<div class="btn-group">
+						<button type="button" class="btn btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="margin-left: 5px; margin-right: 45px">
+							Saved Functions
+						</button>
+						<div class="dropdown-menu">
+							<a class="dropdown-item" href="#" v-on:click="view_search_functions_modal">Search Saved Functions</a>
+							<a class="dropdown-item" href="#" v-on:click="view_add_function_modal">Save New Function</a>
+						</div>
+					</div>
+			    	<!-- <button type="button" class="btn btn-primary" v-on:click="view_refinery_atc" style="margin-right: 5px;">ATC</button> -->
+			    	<button type="button" class="btn btn-success" v-on:click="save_project_current_version" v-if="project_id">Save Project</button>
+					<button type="button" class="btn btn-primary" v-on:click="view_production_deployment" style="margin-left: 10px;" v-if="deployment_data.exists">View Production Deployment</button>
+			    	<button type="button" class="btn btn-success" v-on:click="deploy_first_step" style="margin-left: 10px;" v-if="project_id">Deploy to Production</button>
+			    </div>
+			    
+			    <!-- Deployment viewer mode navbar -->
+			    <div class="form-inline my-2 my-lg-0" v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+			    	<button type="button" class="btn btn-danger" v-on:click="teardown_infrastructure" style="margin-left: 10px;" v-if="!selected_execution_id_data">Tear Down Deployment</button>
+			    	<button type="button" class="btn btn-primary" v-on:click="view_project_execution_ids" style="margin-left: 10px;">View Log(s)</button>
+			    	<button type="button" class="btn btn-primary" v-on:click="exit_execution_id_log_viewer" style="margin-left: 10px;" v-if="selected_execution_id_data">Back to Deployment Viewer</button>
+			    	<button type="button" class="btn btn-primary" v-on:click="back_to_editor" style="margin-left: 10px;" v-if="!selected_execution_id_data">Back to Editor</button>
+			    </div>
+			</nav>
+        </div>
+        
+        <!-- Body -->
+        <div id="panes" class="split split-horizontal">
+        	
+        	<!-- Welcome panel -->
+            <div v-if="page == 'welcome'" class="split left-panel">
+            	<center>
+            		<h2>Welcome to Refinery!</h2>
+            		<i>Please select a menu option to start.</i>
+            	</center>
+            </div>
+            
+            <!-- Add state transition -->
+            <div v-if="page == 'add-state-transition' || page == 'modify-state-transition'" class="split left-panel">
+            	<div>
+            		<div v-if="ide_mode == 'LOCAL_IDE'">
+						<h2 v-if="page == 'add-state-transition'">Add State Transition</h2>
+						<h2 v-if="page == 'modify-state-transition'">Modify State Transition</h2>
+						<hr />
+						<div v-if="page == 'modify-state-transition'">
+							<button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_state_transition">Delete State Transition</button>
+							<hr />
+						</div>
+					</div>
+					<div class="form-group">
+						<label for="selected_state">Selected State</label>
+						<input type="text" class="form-control" v-bind:value="selected_transition_start_node.name" aria-describedby="selected_state" disabled>
+						<small id="selected_state_help" class="form-text text-muted">The currently selected node you're adding a transition to.</small>
+					</div>
+					<div class="form-group">
+						<label for="next_state">Next State</label>
+						<select id="next_state" class="form-control" v-model="state_transition_conditional_data.next" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+							<option v-for="workflow_state in valid_transition_paths" v-if="workflow_state.id != selected_node_data.id" v-bind:value="workflow_state.id">{{workflow_state.name}}</option>
+						</select>
+						<small id="next_state_help" class="form-text text-muted">The next state to transition to after this one.</small>
+					</div>
+					<div class="form-group">
+						<label>Name</label>
+						<input type="text" class="form-control" v-model="state_transition_conditional_data.name" placeholder="then" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+						<small id="selected_state_help" class="form-text text-muted">Name/label of the transition.</small>
+					</div>
+					<div class="form-group">
+						<label>Transition Type</label>
+						<select class="form-control" v-model="state_transition_conditional_data.type" v-if="!is_simple_transition()" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+							<option v-for="transition_type in available_transition_types" v-bind:value="transition_type">{{transition_type}}</option>
+						</select>
+						<select class="form-control" v-model="state_transition_conditional_data.type" v-if="is_simple_transition()" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+							<option value="then">then</option>
+						</select>
+						<small class="form-text text-muted">Type of transition (e.g. <code>if</code> for conditional, <code>then</code> for regular transition).</small>
+					</div>
+					<div v-if="state_transition_conditional_data.type == 'fan-out'">
+						<div class="alert alert-warning" role="alert">
+							<b>Important:</b> For <code>fan-out</code> operations of any size you <b>must</b> set a max execution time of <b>at <u>least</u> 10 seconds</b>. For larger <code>fan-out</code> operations in the 1K-100K+ range you should consider making the max execution time as long as possible. Note that even with a low max execution time of 10 seconds all of the invocations will still be completed, but you'll incur a larger number of invocations due to the way Refinery's ramp-up invocation system works.
+						</div>
+						<div class="alert alert-primary" role="alert">
+							<b>Note:</b> If performing a large <code>fan-out</code> operation it is advisable to upgrade the Execution Memory of the invoking Lambda. This is because the CPU is scaled proportionally to the Execution Memory. Invocation speed will be greately increased if the Execution Memory is at least 640 MB.
+						</div>
+						<hr />
+					</div>
+					<div class="form-group" v-if="state_transition_conditional_data.type == 'if'">
+						<label>Conditional Expression</label>
+						<div style="height: 100px">
+							<editor editor-id="condition_expression_editor" theme="monokai" lang="python" :content="state_transition_conditional_data.expression" v-on:change-content="conditional_data_expression_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
+						</div>
+						<small class="form-text text-muted"><b>IMPORTANT: </b>This is the conditional statement code which should evaluate to <code>true</code> if the condition path should be followed or <code>false</code> if it should not. The <code>return_data</code> variable will automatically be populated with your Lambda's returned data. This conditional statement <b>must</b> be written in the language the Lambda was written in.</small>
+					</div>
+					<div v-if="ide_mode == 'LOCAL_IDE'">
+						<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="add_state_transition" v-if="page == 'add-state-transition'">Add State Transition</button>
+						<hr />
+						<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_state_transition" v-if="page == 'modify-state-transition'">Update State Transition</button>
+					</div>
+            	</div>
+            </div>
+            
+            <!-- Schedule trigger panel -->
+            <div v-if="page == 'modify-schedule_trigger'" class="split left-panel">
+            	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+            		<center>
+            			Resource ARN: <br />
+            			<code>{{selected_node_data.arn}}</code>
+            		</center>
+            		<hr />
+            		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_current_node_in_aws">Open in AWS >> </button>
+            		<hr />
+            	</div>
+				<h2>Schedule Trigger</h2>
+				<div class="form-group">
+					<label for="trigger_name">Trigger Name</label>
+					<input type="text" class="form-control" v-model="scheduled_trigger_data.name" aria-describedby="trigger_name" placeholder="Trigger_Name" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+					<small class="form-text text-muted">Name of the trigger.</small>
+				</div>
+				<div class="form-group">
+					<label for="schedule_expression">Schedule Expression</label>
+					<input type="text" class="form-control" v-model="scheduled_trigger_data.schedule_expression" aria-describedby="schedule_expression" placeholder="rate(10 minutes)" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+					<small class="form-text text-muted">AWS schedule expression for when this trigger should be activated.</small>
+				</div>
+				<div class="form-group">
+					<label for="trigger_description">Description</label>
+					<input type="text" class="form-control" v-model="scheduled_trigger_data.description" aria-describedby="trigger_description" placeholder="Example scheduled rule description." :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+					<small class="form-text text-muted">Description for the trigger.</small>
+				</div>
+				<div class="form-group">
+					<label>Input Data</label>
+					<div style="height: 100px">
+						<editor editor-id="time_trigger_editor" theme="monokai" lang="python" :content="scheduled_trigger_data.unformatted_input_data" v-on:change-content="update_time_trigger_input_data"  :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
+					</div>
+					<small class="form-text text-muted">Input data for the target being triggered.</small>
+				</div>
+				<hr />
+				<div v-if="ide_mode == 'LOCAL_IDE'">
+					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_schedule_trigger">Update Schedule Trigger</button>
+					<hr />
+					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
+	                <hr />
+	                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete Schedule Trigger</button>
+	            </div>
+			</div>
+			
+            <!-- SNS Topic Node Panel -->
+            <div v-if="page == 'modify-sns_topic'" class="split left-panel">
+            	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+            		<center>
+            			Resource ARN: <br />
+            			<code>{{selected_node_data.arn}}</code>
+            		</center>
+            		<hr />
+            		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_current_node_in_aws">Open in AWS >> </button>
+            		<hr />
+            	</div>
+				<h2>SNS Topic Trigger</h2>
+				<div class="form-group">
+					<label>Topic Name</label>
+					<input type="text" class="form-control" v-model="sns_trigger_data.topic_name" placeholder="Example Topic" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+					<small class="form-text text-muted">Name of the SNS topic linked to the Lambda.</small>
+				</div>
+				<hr />
+				<div v-if="ide_mode == 'LOCAL_IDE'">
+					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_sns_topic">Update SNS Topic</button>
+					<hr />
+					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
+	                <hr />
+	                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete SNS Topic</button>
+	            </div>
+			</div>
+            
+            <!-- SQS Queue Node Panel -->
+            <div v-if="page == 'modify-sqs_queue'" class="split left-panel">
+            	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+            		<center>
+            			Resource ARN: <br />
+            			<code>{{selected_node_data.arn}}</code>
+            		</center>
+            		<hr />
+            		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_current_node_in_aws">Open in AWS >> </button>
+            		<hr />
+            	</div>
+				<h2>SQS Queue Trigger</h2>
+				<div class="form-group">
+					<label for="sqs_queue_name">Queue Name</label>
+					<input type="text" class="form-control" v-model="sqs_trigger_data.queue_name" aria-describedby="sqs_queue_name" placeholder="Example Queue" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+					<small class="form-text text-muted">Name of the SQS queue linked to the Lambda.</small>
+				</div>
+				<div class="form-group">
+					<label>Batch Size</label>
+					<div class="form-group">
+						<div class="input-group mb-2">
+							<input type="number" class="form-control form-control-lg" v-model="sqs_trigger_data.batch_size" placeholder="1" step="1" min="1" max="10" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+							<div class="input-group-append">
+								<div class="input-group-text">Message(s)</div>
+							</div>
+						</div>
+					</div>
+					<small class="form-text text-muted">Number of messages to pass to Lambda at a time (max 10).</small>
+				</div>
+				<div class="form-group">
+					<input type="checkbox" v-model="sqs_trigger_data.content_based_deduplication" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"> <label>Content-Based De-duplication</label>
+					<small class="form-text text-muted">Should messages be de-duplicated based off of their message contents (5 minute rolling window)?</small>
+				</div>
+				
+				<hr />
+				<div v-if="ide_mode == 'LOCAL_IDE'">
+					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_sqs_queue">Update SQS Queue</button>
+					<hr />
+					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
+	                <hr />
+	                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete SQS Queue</button>
+				</div>
+			</div>
+			
+            <!-- API Endpoint Panel -->
+            <div v-if="page == 'modify-api_endpoint'" class="split left-panel">
+            	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+            		<center>
+            			Resource ARN: <br />
+            			<code>{{selected_node_data.arn}}</code>
+            			<hr />
+            			Deployed Endpoint URL: <br />
+            			<code>{{selected_node_data.http_method}}</code> <a v-bind:href="selected_node_data.url" target="_blank"><code>{{selected_node_data.url}}</code></a>
+            		</center>
+            		<hr />
+            		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_current_node_in_aws">Open in AWS >> </button>
+            		<hr />
+            	</div>
+				<h2>API Endpoint</h2>
+				<hr />
+				<div class="form-group">
+					<label>Name</label>
+					<input type="text" class="form-control" v-model="api_endpoint_data.name" placeholder="Get MD5" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'" maxlength="55">
+					<small class="form-text text-muted">Name of this API endpoint.</small>
+				</div>
+                <div class="form-group">
+                	<label>HTTP Method</label>
+					<select class="custom-select" v-model="api_endpoint_data.http_method" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+						<option value="GET">GET</option>
+						<option value="POST">POST</option>
+						<option value="PUT">PUT</option>
+						<option value="DELETE">DELETE</option>
+						<option value="OPTIONS">OPTIONS</option>
+						<option value="HEAD">HEAD</option>
+						<option value="PATCH">PATCH</option>
+						<option value="ANY">*</option>
+					</select>
+					<small class="form-text text-muted">HTTP method of the API endpoint.</small>
+				</div>
+				<div class="form-group">
+					<label>Path</label>
+					<div class="input-group mb-3">
+						<div class="input-group-prepend">
+							<span class="input-group-text">/refinery</span>
+						</div>
+						<input type="text" class="form-control" v-model="api_endpoint_data.api_path" placeholder="/user/info" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+					</div>
+					<small class="form-text text-muted">Path of API endpoint.</small>
+				</div>
+				<div v-if="ide_mode == 'LOCAL_IDE'">
+					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_api_endpoint">Update API Endpoint</button>
+					<hr />
+					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
+	                <hr />
+	                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete API Endpoint</button>
+	            </div>
+			</div>
+			
+            <!-- API Gateway Response Panel -->
+            <div v-if="page == 'modify-api_gateway_response'" class="split left-panel">
+				<h2>API Response</h2>
+				<p>
+					An API response is a block which will cause the data returned from the preceding linked Lambda to be sent as an HTTP response (encoded as JSON).
+				</p>
+				<p>
+					Some important notes to consider:
+					<br />
+					<ul>
+						<li>The execution flow <b>must</b> be started by an API Endpoint trigger node (otherwise where would the response be written?).</li>
+						<li>This block may only be called <b>once</b>, future calls are effectively no-operations.</li>
+						<li>The maximum amount of time an HTTP response to a request can take before timing out is <b>29 seconds</b>. <a href="https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html#api-gateway-limits" target="_blank">This is a hard limit of AWS.</a></li>
+						<li>An API Response is <b>not</b> tied to a particular API Gateway.</li>
+					</ul>
+				</p>
+				<hr />
+				<div v-if="ide_mode == 'LOCAL_IDE'">
+					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
+	                <hr />
+	                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete API Response</button>
+	            </div>
+			</div>
+            
+            <!-- Modify Lambda panel -->
+            <div v-if="page == 'modify-lambda'" class="split left-panel" style="max-width: 400px">
+            	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER' && !selected_execution_id_data">
+            		<center>
+            			Resource ARN: <br />
+            			<code>{{selected_node_data.arn}}</code>
+            		</center>
+            		<hr />
+            		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_current_node_in_aws">View Lambda in AWS Console >> </button>
+            		<hr />
+            		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_current_lambda_node_in_monitoring">View Lambda Monitoring Graphs >> </button>
+            		<hr />
+            		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_current_lambda_node_in_cloudwatch">View CloudWatch log(s) >> </button>
+            		<hr />
+		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_lambda_environment_variables_editor">Modify Environment Variables</button>
+		            <hr />
+            		<button type="submit" class="btn btn-success" style="width: 100%" v-on:click="fullscreen_lambda_editor">Run Lambda</button>
+            		<hr />
+            	</div>
+            	<div v-if="selected_execution_id_data && !selected_log_id_data">
+            		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="navigate_page('project_logs_execution_ids')"><< Back</button>
+            		<hr />
+            		<h2>Lambda Execution(s)</h2>
+					<table class="table table-striped">
+						<thead>
+							<tr>
+								<th scope="col" style="text-align: center">Log Excerpt</th>
+								<th scope="col" style="text-align: center">Time</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr v-for="log_data in selected_execution_id_data[ selected_node_data.name ]" v-bind:class="{ 'table-danger': ( log_data.type == 'EXCEPTION' ), 'table-success': ( log_data.type == 'RETURN' ) }" v-bind:logid="log_data.id" v-on:click="view_log_id_details">
+								<td class="log-preview-td"><i>{{ get_log_preview_text( log_data )  }}</i></td>
+								<td style="width: 180px; text-align: center">{{ timestamp_to_date( log_data.timestamp ) }}</td>
+							</tr>
+						</tbody>
+					</table>
+					<hr />
+            	</div>
+            	<div v-if="selected_log_id_data">
+            		<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="back_to_lambda_exections"><< Back</button>
+            		<hr />
+            		<h2>Execution Details</h2>
+            		<p style="display: inline">
+            			<b>Log ID: </b><code>{{ selected_log_id_data.id }}</code>
+            		</p>
+            		<br />
+            		<p style="display: inline">
+            			<b>Occured on: </b>{{ timestamp_to_date( selected_log_id_data.timestamp ) }}
+            		</p>
+            		<br />
+            		<p style="display: inline">
+            			<b>Execution Status: </b>
+            			<p style="display: inline; color: rgb(19, 165, 53);" v-if="selected_log_id_data.type == 'RETURN'">
+            				<b>Success</b>
+            			</p>
+            			<p style="display: inline; color: #fa3247" v-if="selected_log_id_data.type == 'EXCEPTION'">
+            				<b>Exception Occurred</b>
+            			</p>
+            			<p style="display: inline; color: #ffaa00" v-if="selected_log_id_data.type == 'CAUGHT_EXCEPTION'">
+            				<b>Exception Caught</b>
+            			</p>
+            		</p>
+					<div class="form-group" v-if="'input_data' in selected_log_id_data.data">
+						<label><b>Input Data</b></label>
+						<div style="height: 100px">
+							<editor editor-id="log_input_data" theme="monokai" lang="json" :content="force_string( selected_log_id_data.data.input_data )" :disabled="true"></editor>
+						</div>
+						<div style="text-align: right">
+							<button type="button" style="width: 100%" class="btn btn-sm btn-secondary" v-on:click="open_fullscreen_text_viewer('Input Data', selected_log_id_data.data.input_data, 'json')">View Fullscreen</button>
+						</div>
+						<small class="form-text text-muted">Input passed to the Lambda.</small>
+					</div>
+					
+					<div class="form-group" v-if="'exception' in selected_log_id_data.data">
+						<label><b>Exception Details</b></label>
+						<div style="height: 100px">
+							<editor editor-id="log_exception" theme="monokai" lang="text" :content="force_string( selected_log_id_data.data.exception )" :disabled="true"></editor>
+						</div>
+						<div style="text-align: right">
+							<button type="button" style="width: 100%" class="btn btn-sm btn-secondary" v-on:click="open_fullscreen_text_viewer('Exception Details', selected_log_id_data.data.exception, 'text')">View Fullscreen</button>
+						</div>
+						<small class="form-text text-muted">Text of the exception which occured during this Lambda's execution.</small>
+					</div>
+					
+					<div class="form-group" v-if="'output' in selected_log_id_data.data">
+						<label><b>Lambda Output (<code>stdout</code>/<code>stderr</code>)</b></label>
+						<div style="height: 100px">
+							<editor editor-id="log_output" theme="monokai" lang="text" :content="force_string( selected_log_id_data.data.output )" :disabled="true"></editor>
+						</div>
+						<div style="text-align: right">
+							<button type="button" style="width: 100%" class="btn btn-sm btn-secondary" v-on:click="open_fullscreen_text_viewer('Lambda Output', selected_log_id_data.data.output, 'text')">View Fullscreen</button>
+						</div>
+						<small class="form-text text-muted">Output from <code>stdout</code> and <code>stderr</code> during execution.</small>
+					</div>
+					
+					<div class="form-group" v-if="'return_data' in selected_log_id_data.data">
+						<label><b>Return Data</b></label>
+						<div style="height: 100px">
+							<editor editor-id="log_return_data" theme="monokai" lang="json" :content="force_string( selected_log_id_data.data.return_data )" :disabled="true"></editor>
+						</div>
+						<div style="text-align: right">
+							<button type="button" style="width: 100%" class="btn btn-sm btn-secondary" v-on:click="open_fullscreen_text_viewer('Return Data', selected_log_id_data.data.return_data, 'json')">View Fullscreen</button>
+						</div>
+						<small class="form-text text-muted">Data returned from the Lambda.</small>
+					</div>
+            	</div>
+            	
+            	<!-- Don't display while viewing a specific execution result -->
+            	<div v-if="!selected_log_id_data">
+	            	<div v-if="ide_mode == 'LOCAL_IDE'">
+	            		<h2>Modify Lambda</h2>
+	            	</div>
+	            	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
+	            		<h2>Lambda Details</h2>
+	            	</div>
+	                <hr />
+	                <div class="form-group">
+	                    <label for="new_lambda_name_input">Name</label>
+	                    <input type="text" class="form-control" v-model="lambda_name" aria-describedby="new_lambda_name_input_help" placeholder="Write to S3" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+	                    <small id="new_lambda_name_input_help" class="form-text text-muted">Name of the lambda function.</small>
+	                </div>
+	                <div class="form-group">
+	                	<label>Language</label>
+						<select class="custom-select" v-model="lambda_language" @change="lambda_language_manual_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+							<option value="python2.7">python2.7</option>
+							<!--<option value="nodejs8.10">Node v8.10.0 (LTS)</option>-->
+						</select>
+						<small id="new_lambda_language_select_input_help" class="form-text text-muted">Language of lambda function.</small>
+					</div>
+					<div class="form-group">
+						<label>Import(s)</label>
+						<div style="height: 100px">
+							<editor editor-id="unformatted_libraries" theme="monokai" lang="python" :content="unformatted_libraries" v-on:change-content="lambda_libraries_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
+						</div>
+						<small class="form-text text-muted">Dependencies for the lambda code.</small>
+					</div>
+					<div class="form-group">
+						<label>Code</label>
+						<div style="height: 100px">
+							<editor editor-id="lambda_code" theme="monokai" v-bind:lang="ace_language_to_lang_id_map[lambda_language]" :content="lambda_code" v-on:change-content="lambda_code_change" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"></editor>
+						</div>
+						<div style="text-align: right">
+							<button type="button" style="width: 100%" class="btn btn-sm btn-secondary" v-on:click="fullscreen_lambda_editor">View Fullscreen</button>
+						</div>
+						<small class="form-text text-muted">Code of lambda function.</small>
+					</div>
+					<div class="form-group">
+						<label>Execution Memory</label>
+						<div class="form-group">
+							<div class="input-group mb-2">
+								<input type="number" class="form-control form-control-lg" v-model="lambda_memory" placeholder="128" step="64" min="128" max="3008" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+								<div class="input-group-append">
+									<div class="input-group-text">MB</div>
+								</div>
+							</div>
+						</div>
+						<small class="form-text text-muted">Maximum memory for the Lambda to use during execution.</small>
+					</div>
+					<div class="form-group">
+						<label>Max Execution Time</label>
+						<div class="form-group">
+							<div class="input-group mb-2">
+								<input type="number" class="form-control form-control-lg" v-model="lambda_max_execution_time" placeholder="60" step="1" min="2" max="900" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+								<div class="input-group-append">
+									<div class="input-group-text">Second(s)</div>
+								</div>
+							</div>
+						</div>
+						<small class="form-text text-muted">Maximum time the Lambda may execute before being killed in seconds.</small>
+					</div>
+					<div class="form-group">
+						<label>Layers</label>
+						<div class="form-group">
+							<div class="input-group mb-3" v-for="( layer_arn, index ) in lambda_layers">
+								<div class="input-group-prepend">
+									<span class="input-group-text">ARN</span>
+								</div>
+								<input type="text" class="form-control" placeholder="ARN" v-model="lambda_layers[index]">
+								<button type="button" class="btn btn-danger" style="margin-left: 5px;" v-bind:layerindex="index" v-on:click="delete_layer">Delete</button>
+							</div>
+							<div v-if="lambda_layers.length == 0">
+								<br />
+								<center><p><i>No Lambda layers have been set!</i></p></center>
+							</div>
+							<div style="text-align: right" v-if="lambda_layers.length < 5">
+								<button type="button" class="btn btn-primary" v-on:click="add_lambda_layer_to_selected('arn:aws:lambda:xx-xxxx-xx:xxxxxxxxxxxxxx:layer:x:x')">+ Add Layer ARN</button>
+							</div>
+						</div>
+					</div>
+					<small class="form-text text-muted">The ARN(s) of the <a href="https://docs.aws.amazon.com/lambda/latest/dg/configuration-layers.html" target="_blank">layers</a> you wish to use with this Lambda. There is a hard AWS limit of five layers per Lambda.</small>
+					<hr />
+					<div v-if="ide_mode == 'LOCAL_IDE'">
+		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_lambda">Update Lambda</button>
+		                <hr />
+		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="open_lambda_environment_variables_editor">Environment Variables</button>
+		                <hr />
+		                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete Lambda</button>
+		                <hr />
+		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="create_new_state_transition">Add Transition</button>
+		                <hr />
+		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="run_tmp_lambda">Run Lambda</button>
+		                <hr />
+		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="duplicate_lambda">Duplicate Lambda</button>
+		                <hr />
+		                <button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="view_save_lambda_to_db_modal">Save Lambda in Database</button>
+					</div>
+            	</div>
+            </div>
+            
+        	<!-- Deployment viewer welcome panel -->
+            <div v-if="page == 'deployment_viewer_welcome'" class="split left-panel">
+            	<center>
+            		<h2>Deployment Viewer</h2>
+            		<i>Select a node to see information about its deployment in production.</i>
+            	</center>
+            </div>
+            
+        	<!-- Deployment log execution ID(s) viewer -->
+            <div v-if="page == 'project_logs_execution_ids'" class="split left-panel">
+            	<center>
+            		<h2>Pipeline Execution(s)</h2>
+            	</center>
+            	<div v-if="execution_ids_loading">
+            		<center>
+            			<img src="/img/circle-loader.gif" style="width: 150px" />
+            			<br />
+            			Loading pipeline executions, this may take a few seconds...
+            		</center>
+            	</div>
+            	<div v-if="!execution_ids_loading">
+					<table class="table table-striped">
+						<thead>
+							<tr>
+								<th scope="col" style="text-align: center">Execution ID</th>
+								<th scope="col" style="text-align: center">Time</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr v-for="execution_id_metadata in ordered_execution_ids_metadata" v-bind:class="{ 'table-danger': execution_id_metadata.error, 'table-success': !execution_id_metadata.error }" v-bind:executionid="execution_id_metadata.execution_id" v-on:click="view_execution_id_details">
+								<td>{{execution_id_metadata.execution_id}}</td>
+								<td style="width: 180px; text-align: center">{{execution_id_metadata.time}}</td>
+							</tr>
+						</tbody>
+					</table>
+					<hr />
+					<div v-if="!more_execution_ids_loading && execution_ids_continuation_token">
+						<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="get_more_execution_ids_metadata">Pull Older Logs</button>
+					</div>
+					<div v-if="more_execution_ids_loading">
+					    <center>
+					        <img src="/img/circle-loader.gif" style="width: 50px;"> Loading more logs, please wait...
+					    </center>
+					</div>
+            	</div>
+            </div>
+            
+        	<!-- Information on the execution ID log viewer -->
+            <div v-if="page == 'project_logs_execution_id_info'" style="width: 200px;" class="split left-panel">
+            	<button type="button" class="btn btn-primary" v-on:click="navigate_page('project_logs_execution_ids')" style="width: 100%"><< Back</button>
+            	<hr />
+            	<center>
+            		<h2>Execution ID Viewer</h2>
+            		<i>You are currently viewing the execution outcome for execution ID <code>{{selected_execution_id_metadata.id}}</code>.
+            		<hr />
+            		Click one of the nodes to the right in order to view debugging information about its execution.</i>
+            		<br />
+            		<div v-if="selected_execution_id_data_loading">
+            			<img src="/img/circle-loader.gif" style="width: 150px" />
+            			<br />
+            			<i>Loading execution ID log data...
+            			<br />
+            			This may take seconds or minutes depending on the number of individual Lambda executions which occured in this pipeline execution.
+            			</i>
+            		</div>
+            	</center>
+            </div>
+            
+            <!-- Graph -->
+            <div id="graph" class="split">
+                <div id="output">
+                    <div id="error"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="./js/moment-with-locales.min.js"></script>
+    <script src="./js/jquery-3.3.1.min.js"></script>
+	<script src="./js/bootstrap.min.js"></script>
+    <script src="./js/ace.noconflict.js"></script>
+    <script src="./js/viz.js"></script>
+    <script src="./js/fabric.min.js"></script>
+    <script src="./js/split.min.js"></script>
+    <script src="./js/svg-pan-zoom.min.js"></script>
+    <script src="./js/toastr.min.js"></script>
+    <script src="./js/vue.min.js"></script>
+    <script src="./js/main.js"></script>
+</body>
+
+</html>

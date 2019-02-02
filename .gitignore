@@ -2,3 +2,4 @@ env/
 *.yaml
 *.yml
 *.pyc
+elastic-beanstack-package.zip

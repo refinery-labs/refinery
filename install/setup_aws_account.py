@@ -260,10 +260,22 @@ def create_refinery_buckets():
 
 	print( "Lambda package bucket name: " )
 	print( lambda_package_bucket_name )
-	
 
-create_refinery_buckets()
-exit()
+	random_ext = str(
+		uuid.uuid4()
+	).replace( "-", "" )
+	
+	lambda_logging_bucket_name = "lambda-logging-" + random_ext
+	S3_CLIENT.create_bucket(
+		Bucket=lambda_logging_bucket_name,
+	)
+
+	return {
+            "packages_bucket_name": lambda_package_bucket_name,
+            "logging_bucket_name": lambda_logging_bucket_name,
+        }
+
+bucket_data = create_refinery_buckets()
 clear_previous_iam()
 cloudwatch_iam_role_arn = setup_events_iam()
 lambda_iam_role_arn = setup_lambda_iam()
@@ -277,3 +289,9 @@ print( cloudwatch_iam_role_arn )
 
 print( "Lambda IAM policy ARN: " )
 print( lambda_iam_role_arn )
+
+print( "Lambda package bucket name: " )
+print( bucket_data[ "packages_bucket_name" ]  )
+
+print( "Lambda logging bucket name: " )
+print( bucket_data[ "logging_bucket_name" ]  )
