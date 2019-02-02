@@ -1,7 +1,0 @@
-{
-	"Comment": "Step Function Template",
-	"StartAt": "changeme",
-	"Version": "1.0",
-	"States": {
-	}
-}
