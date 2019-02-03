@@ -1,6 +1,6 @@
 # Architecture
 
-Refinery's base-architecture is fairly simple. The only "real" additional infrastructure which is added to your environment is a single redis instance (or cluster) which is a core part of how Refinery achieves things like [idempotency](https://cloudonaut.io/your-lambda-function-might-execute-twice-deal-with-it/) (ensuring your Lambdas execute only once), message passing, and other core work.
+Refinery's base-architecture is fairly simple. The only "real" additional infrastructure which is added into the equation is a single redis instance (or cluster) which is a core part of how Refinery achieves things like [idempotency](https://cloudonaut.io/your-lambda-function-might-execute-twice-deal-with-it/) (ensuring your Lambdas execute only once), message passing, and other core work.
 
 ## Why redis?
 

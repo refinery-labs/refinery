@@ -344,7 +344,7 @@
                 
                 
                 <h1 id="architecture">Architecture</h1>
-<p>Refinery's base-architecture is fairly simple. The only "real" additional infrastructure which is added to your environment is a single redis instance (or cluster) which is a core part of how Refinery achieves things like <a href="https://cloudonaut.io/your-lambda-function-might-execute-twice-deal-with-it/">idempotency</a> (ensuring your Lambdas execute only once), message passing, and other core work.</p>
+<p>Refinery's base-architecture is fairly simple. The only "real" additional infrastructure which is added into the equation is a single redis instance (or cluster) which is a core part of how Refinery achieves things like <a href="https://cloudonaut.io/your-lambda-function-might-execute-twice-deal-with-it/">idempotency</a> (ensuring your Lambdas execute only once), message passing, and other core work.</p>
 <h2 id="why-redis">Why redis?</h2>
 <p>Redis is an extremely fast datastore which allows for quick retrieval, storage, and atomic data operations. While adding redis does make the infrastructure less "serverless" it's currently required to perform many of Refinery's features. Since redis is so fast it's likely not going to be a choke point for your deployments. However, if you have extremely high loads then you can also make use of an array of redis instances (simply contact us for more information) for extreme throughput. It is possible that in the future there will be enough concrete serverless functionality in AWS to remove the need for redis, but in the mean time we don't want to be contrained by it.</p>
 <h2 id="refinery-diagram">Refinery Diagram</h2>

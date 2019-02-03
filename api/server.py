@@ -1724,14 +1724,15 @@ class TaskSpawner(object):
 				if not source_arn.startswith( "arn:aws:execute-api:" ):
 					continue
 				
-				api_gateway_id = arn_parts[ 5 ]
-				print( "API Gateway ID: " + api_gateway_id )
-				
 				try:
+					api_gateway_id = arn_parts[ 5 ]
+					print( "API Gateway ID: " + api_gateway_id )
+					
 					api_gateway_data = APIGATEWAY_CLIENT.get_rest_api(
 						restApiId=api_gateway_id,
 					)
 				except:
+					
 					print( "API Gateway does not exist, deleting IAM policy..." )
 					
 					delete_permission_response = LAMBDA_CLIENT.remove_permission(
@@ -3634,11 +3635,12 @@ class DeleteSavedProject( BaseHandler ):
 		if "api_gateway" in project_config_dict:
 			api_gateway_id = project_config_dict[ "api_gateway" ][ "gateway_id" ]
 			
-			logit( "Deleting associated API Gateway '" + api_gateway_id + "'..." )
-			
-			yield local_tasks.delete_rest_api(
-				api_gateway_id
-			)
+			if api_gateway_id:
+				logit( "Deleting associated API Gateway '" + api_gateway_id + "'..." )
+				
+				yield local_tasks.delete_rest_api(
+					api_gateway_id
+				)
 		
 		saved_project_result = session.query( Project ).filter_by(
 			id=self.json[ "id" ]

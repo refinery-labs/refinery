@@ -20,14 +20,14 @@ S3_CLIENT = boto3.client(
     "s3",
     aws_access_key_id=os.environ.get( "aws_access_key" ),
     aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-    region_name=os.environ.get( "region_name" )
+    region_name=os.environ.get( "aws_region" )
 )
 
 IAM_CLIENT = boto3.client(
     "iam",
     aws_access_key_id=os.environ.get( "aws_access_key" ),
     aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-    region_name=os.environ.get( "region_name" )
+    region_name=os.environ.get( "aws_region" )
 )
 
 def clear_previous_iam():
@@ -236,7 +236,10 @@ def create_refinery_buckets():
 	
 	lambda_package_bucket_name = "lambdabuildpackages-" + random_ext
 	S3_CLIENT.create_bucket(
-		Bucket=lambda_package_bucket_name,
+            Bucket=lambda_package_bucket_name,
+            CreateBucketConfiguration={
+                "LocationConstraint": os.environ.get( "aws_region" ),
+            }
 	)
 	
 	lifecycle_response = S3_CLIENT.put_bucket_lifecycle_configuration(
@@ -267,7 +270,10 @@ def create_refinery_buckets():
 	
 	lambda_logging_bucket_name = "lambda-logging-" + random_ext
 	S3_CLIENT.create_bucket(
-		Bucket=lambda_logging_bucket_name,
+            Bucket=lambda_logging_bucket_name,
+            CreateBucketConfiguration={
+                "LocationConstraint": os.environ.get( "aws_region" ),
+            }
 	)
 
 	return {
