@@ -1,3 +1,25 @@
-exports._init = async function( lambda_input, context ) {
-	return await main( lambda_input, context );
+function return_result( program_output ) {
+	console.log(
+		"<REFINERY_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + JSON.stringify(
+			program_output,
+			false,
+			4
+		) + "<REFINERY_OUTPUT_CUSTOM_RUNTIME_END_MARKER>"
+	);
 }
+
+(async function() {
+	var input_data = JSON.parse( process.argv[2] );
+	var lambda_input = input_data[ "lambda_input" ];
+	var context = input_data[ "context" ];
+	try {
+		var output = await main( lambda_input, context );
+		return_result( output );
+		process.exit(0);
+	} catch ( e ) {
+		console.log(
+			e.stack.toString()
+		);
+		process.exit(1);
+	}
+})();

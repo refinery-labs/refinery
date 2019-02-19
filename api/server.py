@@ -70,17 +70,37 @@ try:
 			os.environ[ key ] = str( value )
 except:
 	print( "No config.yaml specified, assuming environmental variables are all set!" )
-
+			
 def on_start():
-	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES
+	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES
+	
+	def inject_configurations( input_code ):
+		return input_code.replace(
+			"{{REDIS_PASSWORD_REPLACE_ME}}",
+			os.environ.get( "lambda_redis_password" )
+		).replace(
+			"{{REDIS_HOSTNAME_REPLACE_ME}}",
+			os.environ.get( "lambda_redis_hostname" )
+		).replace(
+			"\"{{REDIS_PORT_REPLACE_ME}}\"",
+			os.environ.get( "lambda_redis_port" )
+		).replace(
+			"{{LOG_BUCKET_NAME_REPLACE_ME}}",
+			os.environ.get( "pipeline_logs_bucket" )
+		)
+	
 	LAMDBA_BASE_CODES = {}
+	
+	# These languages are all custom
+	CUSTOM_RUNTIME_LANGUAGES = [
+		"nodejs8.10",
+	]
+	
 	LAMBDA_BASE_LIBRARIES = {
 		"python2.7": [
 			"redis",
 		],
-		"nodejs8.10": [
-			"redis",
-		]
+		"nodejs8.10": [],
 	}
 	
 	LAMBDA_SUPPORTED_LANGUAGES = [
@@ -88,21 +108,18 @@ def on_start():
 		"nodejs8.10",
 	]
 	
+	CUSTOM_RUNTIME_CODE = ""
+	
+	with open( "./custom-runtime/base-src/bootstrap", "r" ) as file_handler:
+		CUSTOM_RUNTIME_CODE = inject_configurations(
+			file_handler.read()
+		)
+
 	for language_name, libraries in LAMBDA_BASE_LIBRARIES.iteritems():
 		# Load Lambda base templates
 		with open( "./lambda_bases/" + language_name, "r" ) as file_handler:
-			LAMDBA_BASE_CODES[ language_name ] = file_handler.read().replace(
-				"{{REDIS_PASSWORD_REPLACE_ME}}",
-				os.environ.get( "lambda_redis_password" )
-			).replace(
-				"{{REDIS_HOSTNAME_REPLACE_ME}}",
-				os.environ.get( "lambda_redis_hostname" )
-			).replace(
-				"\"{{REDIS_PORT_REPLACE_ME}}\"",
-				os.environ.get( "lambda_redis_port" )
-			).replace(
-				"{{LOG_BUCKET_NAME_REPLACE_ME}}",
-				os.environ.get( "pipeline_logs_bucket" )
+			LAMDBA_BASE_CODES[ language_name ] = inject_configurations(
+				file_handler.read()
 			)
 		
 # Up the max connection amount in pool
@@ -443,6 +460,9 @@ class TaskSpawner(object):
 
 		@staticmethod
 		def _deploy_aws_lambda( func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
+			if language in CUSTOM_RUNTIME_LANGUAGES:
+				language = "provided"
+
 			"""
 			First upload the data to S3 at {{zip_sha1}}.zip
 			
@@ -721,6 +741,22 @@ class TaskSpawner(object):
 			)
 			stdout, stderr = npm_process.communicate()
 			
+			# This files location
+			source_file_directory = os.path.dirname(os.path.realpath(__file__))
+			
+			# Copy custom runtime files over
+			cp_runtime_command = "/bin/cp -r * " + build_directory + " && cp " + source_file_directory + "/custom-runtime/node8.10/runtime " + build_directory + " && rm " + build_directory + "bootstrap"
+			
+			# Copy files
+			copy_process = subprocess.Popen(
+				cp_runtime_command,
+				shell=True,
+				stdout=subprocess.PIPE,
+				stderr=subprocess.PIPE,
+				cwd=source_file_directory + "/custom-runtime/base-src/"
+			)
+			stdout, stderr = copy_process.communicate()
+			
 			# Zip filename
 			zip_filename = "/tmp/" + str( uuid.uuid4() ) + ".zip"
 			
@@ -758,19 +794,26 @@ class TaskSpawner(object):
 			return return_zip
 			
 		@staticmethod
-		def _build_nodejs_810_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id ):
+		def _build_nodejs_810_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
 			"""
-			Build Lambda package zip and return zip data
-			
-			TODO integrate transitions, execution mode, etc.
+			Customize and inject custom runtime.
 			"""
+			bootstrap_content = CUSTOM_RUNTIME_CODE
+			bootstrap_content = TaskSpawner._get_custom_python_base_code(
+				bootstrap_content,
+				libraries,
+				transitions,
+				execution_mode,
+				execution_pipeline_id,
+				execution_log_level
+			)
 			
 			"""
 			Inject base libraries (e.g. redis) into lambda
 			and the init code.
 			"""
 			
-			code = LAMDBA_BASE_CODES[ "nodejs8.10" ] + "\n\n" + code
+			code = code + "\n\n" + LAMDBA_BASE_CODES[ "nodejs8.10" ]
 			
 			# Append required libraries if not already required
 			for init_library in LAMBDA_BASE_LIBRARIES[ "nodejs8.10" ]:
@@ -792,7 +835,7 @@ class TaskSpawner(object):
 				
 			with zipfile.ZipFile( tmp_zip_file, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
 				info = zipfile.ZipInfo(
-					"lambda.js"
+					"lambda"
 				)
 				info.external_attr = 0777 << 16L
 				
@@ -800,6 +843,18 @@ class TaskSpawner(object):
 				zip_file_handler.writestr(
 					info,
 					code
+				)
+				
+				# Write bootstrap into new .zip
+				bootstrap_info = zipfile.ZipInfo(
+					"bootstrap"
+				)
+				bootstrap_info.external_attr = 0777 << 16L
+				
+				# Write lambda.py into new .zip
+				zip_file_handler.writestr(
+					bootstrap_info,
+					bootstrap_content
 				)
 				
 			with open( tmp_zip_file, "rb" ) as file_handler:
@@ -819,20 +874,9 @@ class TaskSpawner(object):
 				return TaskSpawner._build_python_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level )
 			elif language == "nodejs8.10":
 				return TaskSpawner._build_nodejs_810_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level )
-		
+				
 		@staticmethod
-		def _build_python_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
-			"""
-			Build Lambda package zip and return zip data
-			"""
-			
-			"""
-			Inject base libraries (e.g. redis) into lambda
-			and the init code.
-			"""
-			
-			code = code + "\n\n" + LAMDBA_BASE_CODES[ "python2.7" ]
-			
+		def _get_custom_python_base_code( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
 			# Convert tabs to four spaces
 			code = code.replace( "\t", "    " )
 			
@@ -846,6 +890,30 @@ class TaskSpawner(object):
 			else:
 				code = code.replace( "{{EXECUTION_PIPELINE_ID_REPLACE_ME}}", "" )
 				code = code.replace( "{{PIPELINE_LOGGING_LEVEL_REPLACE_ME}}", "LOG_NONE" )
+			
+			return code
+		
+		@staticmethod
+		def _build_python_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
+			"""
+			Build Lambda package zip and return zip data
+			"""
+			
+			"""
+			Inject base libraries (e.g. redis) into lambda
+			and the init code.
+			"""
+
+			# Get customized base code
+			code = code + "\n\n" + LAMDBA_BASE_CODES[ "python2.7" ]
+			code = TaskSpawner._get_custom_python_base_code(
+				code,
+				libraries,
+				transitions,
+				execution_mode,
+				execution_pipeline_id,
+				execution_log_level
+			)
 			
 			for init_library in LAMBDA_BASE_LIBRARIES[ "python2.7" ]:
 				if not init_library in libraries:
