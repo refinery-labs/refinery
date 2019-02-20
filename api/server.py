@@ -705,6 +705,8 @@ class TaskSpawner(object):
 				}
 			}
 			
+			# TODO if no dependencies then just ignore this part
+
 			# Set up dependencies
 			for library in libraries:
 				if " " in library:
@@ -715,7 +717,7 @@ class TaskSpawner(object):
 
 			build_directory = "/tmp/" + str( uuid.uuid4() ) + "/"
 			build_directory_package_json_path = build_directory + "package.json"
-
+			
 			# Create directory to build lambda in
 			os.mkdir(
 				build_directory
@@ -731,15 +733,16 @@ class TaskSpawner(object):
 					)
 				)
 			
-			# Use npm to create node_modules from package.json
-			npm_process = subprocess.Popen(
-				"/usr/bin/npm install package.json",
-				shell=True,
-				stdout=subprocess.PIPE,
-				stderr=subprocess.PIPE,
-				cwd=build_directory
-			)
-			stdout, stderr = npm_process.communicate()
+			if len( libraries ) > 0:
+				# Use npm to create node_modules from package.json
+				npm_process = subprocess.Popen(
+					"/usr/bin/npm install",
+					shell=True,
+					stdout=subprocess.PIPE,
+					stderr=subprocess.PIPE,
+					cwd=build_directory
+				)
+				stdout, stderr = npm_process.communicate()
 			
 			# This files location
 			source_file_directory = os.path.dirname(os.path.realpath(__file__))

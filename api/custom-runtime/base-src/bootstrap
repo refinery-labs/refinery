@@ -1048,9 +1048,9 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 		# Catch any exception that occurs and handle it if a catch is defined.
 		handler_parts = os.getenv( "_HANDLER" ).split( "." )
 		executable_path = os.getenv( "LAMBDA_TASK_ROOT" ) + "/" + handler_parts[0]
-
+		
 		try:
-			return_data = subprocess.check_output(
+			process_handler = subprocess.Popen(
 				[
 					os.path.dirname(os.path.realpath(__file__)) + "/runtime",
 					executable_path,
@@ -1059,10 +1059,17 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 						"context": context.context_dict,
 					})
 				],
-				stderr=subprocess.STDOUT,
+				stdout=subprocess.PIPE,
+				stderr=subprocess.PIPE,
 				shell=False,
-				universal_newlines=True
+				universal_newlines=True,
+				cwd=os.getenv( "LAMBDA_TASK_ROOT" ) + "/",
 			)
+			
+			process_stdout, process_stderr = process_handler.communicate()
+			
+			return_data = str( process_stderr ) + str( process_stdout )
+			return_data = return_data.strip()
 			
 			# We now look for the markers to indicate data is being returned.
 			start_marker = "<REFINERY_OUTPUT_CUSTOM_RUNTIME_START_MARKER>"
@@ -1075,15 +1082,18 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 				program_output = return_data_parts[0]
 				return_data_sub_parts = return_data_parts[1].split( end_marker )
 				return_data_string = return_data_sub_parts[0]
-				return_data = json.loads(
-					return_data_string
-				)
+				try:
+					return_data = json.loads(
+						return_data_string
+					)
+				except:
+					return_data = return_data_string
 				# Write the output for logging
-				sys.stdout.write( program_output + "\n" )
+				sys.stdout.write( program_output )
 				sys.stdout.flush()
 			else:
 				# Write the output for logging
-				sys.stdout.write( return_data + "\n" )
+				sys.stdout.write( return_data )
 				sys.stdout.flush()
 				# If there's no marker we're not returning anything.
 				# Just return nothing
