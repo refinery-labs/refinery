@@ -1134,6 +1134,7 @@ function parse_arn( input_arn ) {
 }
 
 ace.config.set( "basePath", "./js/" );
+
 Vue.component( "Editor", {
     template: '<div :id="editorId" style="width: 100%; height: 100%;"></div>',
     props: ['editorId', 'content', 'lang', 'theme', 'disabled'],
@@ -1163,7 +1164,7 @@ Vue.component( "Editor", {
         var lang = this.lang || 'python'
         var theme = this.theme || 'monokai'
         var disabled = this.disabled || false
-
+        
         this.editor = window.ace.edit(this.editorId)
         this.editor.setValue(this.content, 1)
 
@@ -1171,14 +1172,17 @@ Vue.component( "Editor", {
             path: `ace/mode/${lang}`,
             v: Date.now()
         });
-        this.editor.getSession().setOptions({
+        this.editor.setOptions({
         	tabSize: 4,
         	useSoftTabs: true,
+        	scrollPastEnd: true,
+        	enableBasicAutocompletion: true,
+        	enableLiveAutocompletion: true
         });
         this.editor.setTheme(`ace/theme/${theme}`)
         
         this.editor.setReadOnly( disabled )
-
+        
         this.editor.on('change', () => {
         	this.beforeContent = this.editor.getValue();
             this.$emit(

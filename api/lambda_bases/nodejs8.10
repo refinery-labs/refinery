@@ -18,8 +18,8 @@ function return_result( program_output ) {
 		process.exit(0);
 	} catch ( e ) {
 		console.log(
-			e.stack.toString()
+			"<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + e.stack.toString() + "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_END_MARKER>"
 		);
-		process.exit(1);
+		process.exit(-1);
 	}
 })();

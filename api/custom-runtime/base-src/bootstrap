@@ -918,6 +918,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 	
 	global gmemory
 	
+	_start_clock( "Refinery_Memory intialization" )
 	# Make global to enable caching of redis connection
 	gmemory = Refinery_Memory(
 		"{{REDIS_HOSTNAME_REPLACE_ME}}",
@@ -925,6 +926,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 		"{{REDIS_PORT_REPLACE_ME}}",
 		context.function_name
 	)
+	_stop_clock( "Refinery_Memory intialization" )
 	
 	execution_pipeline_id = "{{EXECUTION_PIPELINE_ID_REPLACE_ME}}"
 	s3_log_bucket = "{{LOG_BUCKET_NAME_REPLACE_ME}}"
@@ -934,10 +936,12 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 	# If pipeline logging is enabled
 	# We initialize the S3 client to prevent threading bugs
 	if execution_pipeline_logging_level != "LOG_NONE":
+		_start_clock( "S3 Boto Client Initialization" )
 		# Bug fix test
 		s3_client = boto3.client(
 			"s3"
 		)
+		_stop_clock( "S3 Boto Client Initialization" )
 	
 	# Bake in AWS region
 	aws_region = "{{AWS_REGION_REPLACE_ME}}"
@@ -970,6 +974,8 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 	
 	# Throw exceptions fully (for use in tmp-runs, etc)
 	throw_exceptions_fully = False
+	
+	_start_clock( "Loading Input Data" )
 	
 	# Detect refinery wrapper and unwrap if existant
 	# Else just leave it unmodified
@@ -1029,6 +1035,8 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 		if not _side_loaded and "input_data" in lambda_input[ "_refinery" ]:
 			lambda_input = lambda_input[ "_refinery" ][ "input_data" ]
 	
+	_stop_clock( "Loading Input Data" )
+	
 	# If we don't have an execution ID, generate and set one!
 	if not execution_id:
 		execution_id = str( uuid.uuid4() )
@@ -1049,25 +1057,33 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 		handler_parts = os.getenv( "_HANDLER" ).split( "." )
 		executable_path = os.getenv( "LAMBDA_TASK_ROOT" ) + "/" + handler_parts[0]
 		
-		try:
-			process_handler = subprocess.Popen(
-				[
-					os.path.dirname(os.path.realpath(__file__)) + "/runtime",
-					executable_path,
-					json.dumps({
-						"lambda_input": lambda_input,
-						"context": context.context_dict,
-					})
-				],
-				stdout=subprocess.PIPE,
-				stderr=subprocess.PIPE,
-				shell=False,
-				universal_newlines=True,
-				cwd=os.getenv( "LAMBDA_TASK_ROOT" ) + "/",
-			)
-			
-			process_stdout, process_stderr = process_handler.communicate()
-			
+		_start_clock( "Executing Lambda" )
+		
+
+		process_handler = subprocess.Popen(
+			[
+				os.path.dirname(os.path.realpath(__file__)) + "/runtime",
+				executable_path,
+				json.dumps({
+					"lambda_input": lambda_input,
+					"context": context.context_dict,
+				})
+			],
+			stdout=subprocess.PIPE,
+			stderr=subprocess.PIPE,
+			shell=False,
+			universal_newlines=True,
+			cwd=os.getenv( "LAMBDA_TASK_ROOT" ) + "/",
+		)
+		
+		process_stdout, process_stderr = process_handler.communicate()
+		
+		_stop_clock( "Executing Lambda" )
+		
+		return_data = str( process_stderr ) + str( process_stdout )
+		return_data = return_data.strip()
+		
+		if process_handler.returncode == 0:
 			return_data = str( process_stderr ) + str( process_stdout )
 			return_data = return_data.strip()
 			
@@ -1098,9 +1114,27 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 				# If there's no marker we're not returning anything.
 				# Just return nothing
 				return_data = ""
-				
-		except subprocess.CalledProcessError as exc:
-			exception_string = exc.output
+		else:
+			error_output = return_data
+			
+			error_start_marker = "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_START_MARKER>"
+			error_end_marker = "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_END_MARKER>"
+			
+			if error_start_marker in str( error_output ) and error_end_marker in str( error_output ):
+				exception_parts = error_output.split( error_start_marker )
+				error_output = error_output.replace(
+					error_start_marker,
+					""
+				).replace(
+					error_end_marker,
+					""
+				)
+				exception_data_sub_parts = exception_parts[1].split( error_end_marker )
+				exception_string = exception_data_sub_parts[0]
+			else:
+				exception_string = ""
+			
+			_stop_clock( "Executing Lambda" )
 
 			# Invoke all Lambdas to be run when an exception occurs
 			if len( transitions[ "exception" ] ) > 0:
@@ -1114,7 +1148,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 						"CAUGHT_EXCEPTION",
 						{
 							"input_data": lambda_input,
-							"output": "", # TODO this should also be intelligently returned
+							"output": error_output,
 							"exception": exception_string,
 						},
 						execution_details
@@ -1142,7 +1176,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 				_parallel_invoke( invocation_input_list )
 
 				# Write error to stderr for logging
-				sys.stderr.write( exception_string )
+				sys.stderr.write( error_output )
 				sys.stderr.flush()
 				custom_runtime.send_error(
 					request_id,
@@ -1160,14 +1194,14 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 						"EXCEPTION",
 						{
 							"input_data": lambda_input,
-							"output": "", # TODO this should also be intelligently returned
+							"output": error_output,
 							"exception": exception_string,
 						},
 						execution_details
 					)
 				
 				# Write error to stderr for logging
-				sys.stderr.write( exception_string )
+				sys.stderr.write( error_output )
 				sys.stderr.flush()
 				custom_runtime.send_error(
 					request_id,
@@ -1466,6 +1500,38 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 		)
 	)
 	return
+
+"""
+{
+	"action_name": {
+		"start": time.time(),
+		"end": time.time(),
+		"total": 0,
+	}
+}
+"""
+_CLOCK_TIMES = {}
+def _start_clock( action_name ):
+	return
+	global _CLOCK_TIMES
+	_CLOCK_TIMES[ action_name ] = {
+		"start": datetime.datetime.now(),
+		"end": 0,
+		"total": 0,
+	}
+	
+def _stop_clock( action_name ):
+	return
+	global _CLOCK_TIMES
+	_CLOCK_TIMES[ action_name ][ "end" ] = datetime.datetime.now()
+	_CLOCK_TIMES[ action_name ][ "total" ] = (
+		(
+			time.mktime(_CLOCK_TIMES[ action_name ][ "end" ].timetuple())*1e3 + _CLOCK_TIMES[ action_name ][ "end" ].microsecond/1e3
+		) - (
+			time.mktime(_CLOCK_TIMES[ action_name ][ "start" ].timetuple())*1e3 + _CLOCK_TIMES[ action_name ][ "start" ].microsecond/1e3
+		)
+	)
+	print( "[ INFO ] The action '" + action_name + "' took " + str( ( _CLOCK_TIMES[ action_name ][ "total" ] * 0.001 ) ) + " second(s)." )
 	
 class CustomRuntime():
 	"""
@@ -1512,8 +1578,10 @@ class CustomRuntime():
 					
 			def get_remaining_time_in_millis( self ):
 				return self.deadline_ms - int( time.time() * 1000 )
-				
+		
+		_start_clock( "Context Object Initialization" )
 		new_context = ContextObject( context_dict )
+		_stop_clock( "Context Object Initialization" )
 		
 		lambda_input = event_data[ "event_data" ]
 		
