@@ -164,7 +164,7 @@
 		    <div class="modal-dialog modal-lg" role="document">
 		        <div class="modal-content">
 		            <div class="modal-header">
-		                <h5 class="modal-title" id="project_name_rename_label">Save Reusable Lambda in Database</h5>
+		                <h5 class="modal-title" id="project_name_rename_label2">Save Reusable Lambda in Database</h5>
 		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
 		        			<span aria-hidden="true">&times;</span>
 		        		</button>
@@ -411,7 +411,7 @@
 								<option value="python2.7" selected>python2.7</option>
 								<!--<option value="nodejs8.10">Node v8.10.0 (LTS)</option>-->
 							</select>
-							<small id="new_lambda_language_select_input_help" class="form-text text-muted">Language of saved function.</small>
+							<small id="language_of_function" class="form-text text-muted">Language of saved function.</small>
 						</div>
 						<div class="form-group">
 							<label>Import(s)</label>
@@ -511,7 +511,7 @@
 								<option value="python2.7" selected>python2.7</option>
 								<!--<option value="nodejs8.10">Node v8.10.0 (LTS)</option>-->
 							</select>
-							<small id="new_lambda_language_select_input_help" class="form-text text-muted">Language of saved function.</small>
+							<small id="new_lambda_language_select_input_help2" class="form-text text-muted">Language of saved function.</small>
 						</div>
 						<div class="form-group">
 							<label>Import(s)</label>
@@ -548,12 +548,12 @@
 		            <div class="modal-body">
 						<div class="form-group">
 							<label for="project_name">Project Name</label>
-							<input type="text" class="form-control" v-model="project_name" aria-describedby="project_name" placeholder="Example Project">
-							<small id="selected_state_help" class="form-text text-muted">Name of the project.</small>
+							<input type="text" class="form-control" v-model="project_name" aria-describedby="project_name" id="project_name" placeholder="Example Project">
+							<small id="name_of_project" class="form-text text-muted">Name of the project.</small>
 						</div>
 						<div class="form-group">
-							<label for="project_name">Project Version</label>
-							<input type="number" min="1" class="form-control" v-model="project_version" placeholder="2">
+							<label for="project_version">Project Version</label>
+							<input type="number" min="1" class="form-control" v-model="project_version" id="project_version" placeholder="2">
 							<small class="form-text text-muted">Project version, this will be automatically bumped on each save.</small>
 						</div>
 		            </div>
@@ -650,7 +650,7 @@
 		        <div class="modal-content">
 		            <div class="modal-header">
 		                <h5 class="modal-title" id="lambda_editor_popup_label" v-if="ide_mode == 'LOCAL_IDE'">Edit Lambda</h5>
-		                <h5 class="modal-title" id="lambda_editor_popup_label" v-if="ide_mode == 'DEPLOYMENT_VIEWER'">Run Lambda</h5>
+		                <h5 class="modal-title" id="lambda_editor_popup_label2" v-if="ide_mode == 'DEPLOYMENT_VIEWER'">Run Lambda</h5>
 		                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
 		        			<span aria-hidden="true">&times;</span>
 		        		</button>
@@ -933,8 +933,8 @@
 					</div>
 					<div class="form-group">
 						<label for="selected_state">Selected State</label>
-						<input type="text" class="form-control" v-bind:value="selected_transition_start_node.name" aria-describedby="selected_state" disabled>
-						<small id="selected_state_help" class="form-text text-muted">The currently selected node you're adding a transition to.</small>
+						<input type="text" class="form-control" v-bind:value="selected_transition_start_node.name" aria-describedby="selected_state" id="selected_state" disabled>
+						<small id="selected_state_help2" class="form-text text-muted">The currently selected node you're adding a transition to.</small>
 					</div>
 					<div class="form-group">
 						<label for="next_state">Next State</label>
@@ -996,17 +996,20 @@
 				<h2>Schedule Trigger</h2>
 				<div class="form-group">
 					<label for="trigger_name">Trigger Name</label>
-					<input type="text" class="form-control" v-model="scheduled_trigger_data.name" aria-describedby="trigger_name" placeholder="Trigger_Name" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+					<input type="text" class="form-control" id="trigger_name"
+						   v-model="scheduled_trigger_data.name" aria-describedby="trigger_name" placeholder="Trigger_Name" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 					<small class="form-text text-muted">Name of the trigger.</small>
 				</div>
 				<div class="form-group">
 					<label for="schedule_expression">Schedule Expression</label>
-					<input type="text" class="form-control" v-model="scheduled_trigger_data.schedule_expression" aria-describedby="schedule_expression" placeholder="rate(10 minutes)" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+					<input type="text" class="form-control" id="schedule_expression"
+						   v-model="scheduled_trigger_data.schedule_expression" aria-describedby="schedule_expression" placeholder="rate(10 minutes)" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 					<small class="form-text text-muted">AWS schedule expression for when this trigger should be activated.</small>
 				</div>
 				<div class="form-group">
 					<label for="trigger_description">Description</label>
-					<input type="text" class="form-control" v-model="scheduled_trigger_data.description" aria-describedby="trigger_description" placeholder="Example scheduled rule description." :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+					<input type="text" class="form-control" id="trigger_description"
+						   v-model="scheduled_trigger_data.description" aria-describedby="trigger_description" placeholder="Example scheduled rule description." :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 					<small class="form-text text-muted">Description for the trigger.</small>
 				</div>
 				<div class="form-group">
@@ -1067,7 +1070,7 @@
 				<h2>SQS Queue Trigger</h2>
 				<div class="form-group">
 					<label for="sqs_queue_name">Queue Name</label>
-					<input type="text" class="form-control" v-model="sqs_trigger_data.queue_name" aria-describedby="sqs_queue_name" placeholder="Example Queue" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+					<input type="text" class="form-control" id="sqs_queue_name" v-model="sqs_trigger_data.queue_name" aria-describedby="sqs_queue_name" placeholder="Example Queue" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 					<small class="form-text text-muted">Name of the SQS queue linked to the Lambda.</small>
 				</div>
 				<div class="form-group">
@@ -1294,7 +1297,7 @@
 	                <hr />
 	                <div class="form-group">
 	                    <label for="new_lambda_name_input">Name</label>
-	                    <input type="text" class="form-control" v-model="lambda_name" aria-describedby="new_lambda_name_input_help" placeholder="Write to S3" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
+	                    <input type="text" class="form-control" id="new_lambda_name_input" v-model="lambda_name" aria-describedby="new_lambda_name_input_help" placeholder="Write to S3" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'">
 	                    <small id="new_lambda_name_input_help" class="form-text text-muted">Name of the lambda function.</small>
 	                </div>
 	                <div class="form-group">
@@ -1461,20 +1464,20 @@
             </div>
         </div>
     </div>
-    <script src="./js/moment-with-locales.min.js"></script>
-    <script src="./js/jquery-3.3.1.min.js"></script>
-	<script src="./js/bootstrap.min.js"></script>
+    <script src="./js/vendor/moment-with-locales.min.js"></script>
+    <script src="./js/vendor/jquery-3.3.1.min.js"></script>
+	<script src="./js/vendor/bootstrap.min.js"></script>
 	
 	<!-- Ace Editor -->
     <script src="./js/ace.js"></script>
     <script src="./js/ext-language_tools.js"></script>
     
     <script src="./js/viz.js"></script>
-    <script src="./js/fabric.min.js"></script>
-    <script src="./js/split.min.js"></script>
-    <script src="./js/svg-pan-zoom.min.js"></script>
-    <script src="./js/toastr.min.js"></script>
-    <script src="./js/vue.min.js"></script>
+    <script src="./js/vendor/fabric.min.js"></script>
+    <script src="./js/vendor/split.min.js"></script>
+    <script src="./js/vendor/svg-pan-zoom.min.js"></script>
+    <script src="./js/vendor/toastr.min.js"></script>
+    <script src="./js/vendor/vue.min.js"></script>
     <script src="./js/main.js"></script>
 </body>
 
