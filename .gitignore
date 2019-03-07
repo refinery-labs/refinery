@@ -4,3 +4,4 @@ env/
 *.pyc
 tmp/
 elastic-beanstack-package.zip
+.idea/
