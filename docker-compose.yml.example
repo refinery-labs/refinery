@@ -6,28 +6,31 @@ services:
             - postgresdb
         environment:
             access_control_allow_origin: http://localhost:1234
-            aws_access_key: AKIA*************
-            aws_secret_key: fkQE*************
-            aws_account_id: 1487********
+            aws_access_key: AWS_ADMIN_ACCESS_KEY
+            aws_secret_key: AWS_ADMIN_SECRET_KEY
+            aws_account_id: AWS_ACCOUNT_ID
             region_name: us-west-2
-            lambda_role: arn:aws:iam::1487********:role/refinery_aws_lambda_admin_role
-            events_role: arn:aws:iam::1487********:role/refinery_aws_cloudwatch_admin_role
+            lambda_role: arn:aws:iam::148731734429:role/refinery_aws_lambda_admin_role # Use the install/setup_aws_account.py script to get this
+            events_role: arn:aws:iam::148731734429:role/refinery_aws_cloudwatch_admin_role # Use the install/setup_aws_account.py script to get this
             vpc_data: "{}"
             postgreql_username: refinery
             postgreql_password: refinery
             postgres_db: refinery
             postgresql_host: postgresdb
-            lambda_redis_hostname: redis_hostname
-            lambda_redis_password: redis_auth_password 
-            sqs_job_templates_s3_bucket: sqs_job_templates_bucket
-            tmp_lambda_packages_bucket: tmp_lambda_packages_bucket
-            postgreql_username: refinery
-            postgreql_password: refinery
-            postgres_db: refinery
-            postgresql_host: postgresdb
-            is_debug: "false"
+            lambda_redis_hostname: REDIS_HOSTNAME
+            lambda_redis_password: REDIS_PASSWORD
+            lambda_redis_port: 6379
+            tmp_lambda_packages_bucket: # Use the install/setup_aws_account.py script to get this
+            is_debug: "true"
+            cf_enabled: "true"
+            cf_policy_aud: # Get this from Cloudflare access
+            cf_certs_url: https://yoursubdomain-replace-me.cloudflareaccess.com/cdn-cgi/access/certs
+            pipeline_logs_bucket: # Use the install/setup_aws_account.py script to get this
         ports:
-            - "1234:1234"
+            - "80:1234"
+        volumes:
+            - ./api/:/work/api/ # Mounting these as volumes allows live reloading
+            - ./gui/:/work/gui/
     postgresdb:
         image: postgres
         environment:

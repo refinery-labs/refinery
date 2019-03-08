@@ -9,8 +9,8 @@ RUN apt-get install --yes build-essential
 RUN mkdir /work/
 
 # For dev, uncomment when prod
-# COPY ./gui/ /work/gui/
-# COPY ./api/ /work/api/
+#COPY ./gui/ /work/gui/
+#COPY ./api/ /work/api/
 
 WORKDIR /work/api/
 COPY ./api/requirements.txt /work/requirements.txt
