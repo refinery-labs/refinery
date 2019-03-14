@@ -13,7 +13,7 @@ with open( "config.yaml", "r" ) as file_handler:
     settings = yaml.safe_load(
         file_handler.read()
     )
-    for key, value in settings.iteritems():
+    for key, value in settings.items():
         os.environ[ key ] = str( value )
 
 S3_CLIENT = boto3.client(
