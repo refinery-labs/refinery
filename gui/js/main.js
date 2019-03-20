@@ -1158,7 +1158,8 @@ Vue.component( "Editor", {
         },
         "disabled" (disabled_boolean) {
             this.editor.setReadOnly(disabled_boolean);
-        }
+        },
+        
     },
     mounted() {
         var lang = this.lang || 'python'
@@ -3156,6 +3157,18 @@ def example( parameter ):
 			);
 		},
 		update_api_endpoint: function() {
+			// If the API endpoint path has a trailing slash
+			// automatically remove it (API Gateway limitation)
+			if( app.api_endpoint_data.api_path.endsWith( "/" ) ) {
+				app.api_endpoint_data.api_path = app.api_endpoint_data.api_path.slice(0, -1);
+			}
+			
+			// If the API endpoint path does not start with a slash
+			// add one.
+			if( !app.api_endpoint_data.api_path.startsWith( "/" ) ) {
+				app.api_endpoint_data.api_path = "/" + app.api_endpoint_data.api_path;
+			}
+			
 			var updated_api_endpoint_data = {
 				"id": app.selected_node,
 				"name": app.api_endpoint_data.name,
