@@ -31,6 +31,14 @@ services:
         volumes:
             - ./api/:/work/api/ # Mounting these as volumes allows live reloading
             - ./gui/:/work/gui/
+    front-end:
+        build: ./front-end
+        depends_on:
+          - refinery
+        ports:
+            - "8080:8080"
+        volumes:
+            - ./front-end/:/work/front-end/
     postgresdb:
         image: postgres
         environment:

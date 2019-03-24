@@ -1,0 +1,20 @@
+FROM node:10
+# Note: Using Node 10 because it's the current LTS release and fabric doesn't work with odd numbers.
+
+# Needed for node-gyp
+RUN apt-get update
+RUN apt-get install -y g++ build-essential
+
+RUN mkdir /work/
+RUN mkdir /work/front-end
+# It seems like it is safe to copy these files and then "mount" over them.
+COPY . /work/front-end
+WORKDIR /work/front-end
+
+# Necessary for certain modules to install correctly (mostly fabric).
+RUN npm install -g node-gyp
+
+RUN npm install
+
+# The "serve" mode will hot-reload components and watch for changes automatically.
+ENTRYPOINT ["npm", "run", "serve"]
