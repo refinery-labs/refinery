@@ -7,3 +7,4 @@ elastic-beanstack-package.zip
 .idea/
 docker-compose.yml
 install/config.yaml
+front-end/node_modules/
