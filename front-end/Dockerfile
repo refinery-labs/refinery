@@ -16,5 +16,8 @@ RUN npm install -g node-gyp
 
 RUN npm install
 
+RUN pwd
+RUN ls -lisah
+
 # The "serve" mode will hot-reload components and watch for changes automatically.
 ENTRYPOINT ["npm", "run", "serve"]

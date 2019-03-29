@@ -1,33 +1,40 @@
 from initiate_database import *
-from projects import Project
 import json
 import uuid
 import time
 import os
 
-class Deployment( Base ):
-	__tablename__ = "deployments"
-	
-	id = Column(CHAR(36), primary_key=True)
-	
-	project_id = Column(
+class AWSAccount( Base ):
+	__tablename__ = "aws_accounts"
+
+	id = Column(
 		CHAR(36),
-		ForeignKey( Project.id ),
 		primary_key=True
 	)
 	
-	# AWS Account this deployment was deployed to.
-	aws_account_id = Column(
+	# AWS account ID
+	account_id = Column(Integer())
+	
+	# AWS access key
+	access_key = Column(Text())
+	
+	# AWS secret key
+	secret_key = Column(Text())
+	
+	# Parent organization the AWS account belongs to
+	organization_id = Column(
 		CHAR(36),
 		ForeignKey(
-			"aws_accounts.id"
+			"organizations.id"
 		)
 	)
 	
-	deployment_json = Column(Text())
+	# Deployments this AWS account is associated with
+	deployments = relationship(
+		"Deployment",
+		lazy="dynamic"
+	)
 	
-	timestamp = Column(Integer())
-
 	def __init__( self ):
 		self.id = str( uuid.uuid4() )
 		self.timestamp = int( time.time() )
@@ -35,12 +42,13 @@ class Deployment( Base ):
 	def to_dict( self ):
 		exposed_attributes = [
 			"id",
-			"project_id",
-			"deployment_json",
+			"account_id",
+			"access_key",
+			"secret_key",
 			"timestamp"
 		]
 		
-		json_attributes = [ "deployment_json" ]
+		json_attributes = []
 		return_dict = {}
 
 		for attribute in exposed_attributes:

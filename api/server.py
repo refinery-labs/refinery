@@ -31,13 +31,19 @@ from botocore.exceptions import ClientError
 from jsonschema import validate as validate_schema
 from tornado.concurrent import run_on_executor, futures
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+
 from models.initiate_database import *
 from models.saved_function import SavedFunction
 from models.saved_lambda import SavedLambda
 from models.project_versions import ProjectVersion
 from models.projects import Project
+from models.organizations import Organization
+from models.users import User
+from models.email_auth_tokens import EmailAuthToken
+from models.aws_accounts import AWSAccount
 from models.deployments import Deployment
 from models.project_config import ProjectConfig
+
 from botocore.client import Config
 
 logging.basicConfig(
@@ -59,17 +65,6 @@ sys.setdefaultencoding( "utf8" )
 
 # Cloudflare Access public keys
 CF_ACCESS_PUBLIC_KEYS = []
-
-# Debugging shunt for setting environment variables from yaml
-try:
-	with open( "config.yaml", "r" ) as file_handler:
-		settings = yaml.safe_load(
-			file_handler.read()
-		)
-		for key, value in settings.iteritems():
-			os.environ[ key ] = str( value )
-except:
-	print( "No config.yaml specified, assuming environmental variables are all set!" )
 			
 def on_start():
 	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES
@@ -4518,6 +4513,83 @@ def strip_api_gateway( api_gateway_id ):
 	yield deletion_futures
 	
 	raise gen.Return( api_gateway_id )
+	
+	
+@gen.coroutine
+def db_tests():
+	test_org_name = "Example Org"
+	print( "Creating organization..." )
+	new_organization = Organization()
+	new_organization.name = test_org_name
+	new_organization.max_users = 100
+	
+	print( "Creating user for organization..." )
+	new_user = User()
+	new_user.name = "Mark FakeUser"
+	new_user.email = "mark@fake.user.example"
+	
+	new_organization.users.append(
+		new_user
+	)
+	
+	print( "Creating another user for organization..." )
+	new_user2 = User()
+	new_user2.name = "Joe FakeUser"
+	new_user2.email = "joe@fake.user.example"
+	
+	new_organization.users.append(
+		new_user2
+	)
+	
+	session.add( new_organization )
+	session.commit()
+	
+	# Retrieve the org and pull out the users
+	print( "Pulling the org back..." )
+	pulled_org = session.query( Organization ).filter_by(
+		name=test_org_name
+	).first()
+	
+	print( "Users from pulled org: " )
+
+	for pulled_user in pulled_org.users:
+		print( pulled_user.name + " - " + pulled_user.email )
+		
+	print( "Pulling a user from the database to get their org..." )
+	pulled_user = session.query( User ).filter_by(
+		email="mark@fake.user.example"
+	).first()
+	
+	print( "Pulled user: " + pulled_user.name + " - " + pulled_user.email )
+	
+	print( "Adding email auth token to user..." )
+	email_auth_token = EmailAuthToken()
+	pulled_user.email_auth_tokens.append(
+		email_auth_token
+	)
+	email_auth_token2 = EmailAuthToken()
+	pulled_user.email_auth_tokens.append(
+		email_auth_token2
+	)
+	session.commit()
+	
+	pulled_user2 = session.query( User ).filter_by(
+		email="mark@fake.user.example"
+	).first()
+	
+	print( "Pulled user: " + pulled_user2.name )
+	
+	for email_token in pulled_user2.email_auth_tokens:
+		print( "Email token: " + email_token.token )
+		
+	print( "Now creating a new project with two deployments." )
+	
+	project_name = "Example Project"
+	
+	new_project = Project()
+	new_project.name = project_name
+	session.add( new_project )
+	session.commit()
 		
 def make_app( is_debug ):
 	tornado_app_settings = {
@@ -4567,7 +4639,7 @@ if __name__ == "__main__":
 	)
 	Base.metadata.create_all( engine )
 	
-	#tornado.ioloop.IOLoop.current().run_sync( testing )
+	tornado.ioloop.IOLoop.current().run_sync( db_tests )
 	
 	#tornado.ioloop.IOLoop.current().run_sync( delete_logs )
 	#tornado.ioloop.IOLoop.current().run_sync( warm_lambda_base_caches )
