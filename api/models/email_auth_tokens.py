@@ -17,6 +17,12 @@ class EmailAuthToken( Base ):
 	# via a unique token sent to a user's email on file
 	token = Column(Text())
 	
+	# Boolean to set if the token is expired
+	# This should be set to True if the token has been used.
+	# OR if the token becomes too old
+	# Currently the expire age for a token is 3 hours.
+	is_expired = Column(Boolean())
+	
 	# Parent user the auth token belongs to
 	user_id = Column(
 		CHAR(36),
@@ -24,6 +30,9 @@ class EmailAuthToken( Base ):
 			"users.id"
 		)
 	)
+
+	# The "user" attribute is also mapped to this object
+	# via the SQLAlchemy backref function
 	
 	timestamp = Column(Integer())
 
@@ -32,12 +41,14 @@ class EmailAuthToken( Base ):
 		self.token = binascii.hexlify(
 			os.urandom(32)
 		)
+		self.expired = False
 		self.timestamp = int( time.time() )
 
 	def to_dict( self ):
 		exposed_attributes = [
 			"id",
 			"token",
+			"expired",
 			"timestamp"
 		]
 		

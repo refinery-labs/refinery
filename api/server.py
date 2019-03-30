@@ -7,6 +7,7 @@ import tornado.ioloop
 import tornado.web
 import botocore
 import subprocess
+import pystache
 import logging
 import hashlib
 import random
@@ -31,6 +32,7 @@ from botocore.exceptions import ClientError
 from jsonschema import validate as validate_schema
 from tornado.concurrent import run_on_executor, futures
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+from email_validator import validate_email, EmailNotValidError
 
 from models.initiate_database import *
 from models.saved_function import SavedFunction
@@ -67,7 +69,7 @@ sys.setdefaultencoding( "utf8" )
 CF_ACCESS_PUBLIC_KEYS = []
 			
 def on_start():
-	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES
+	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES
 	
 	def inject_configurations( input_code ):
 		return input_code.replace(
@@ -83,6 +85,14 @@ def on_start():
 			"{{LOG_BUCKET_NAME_REPLACE_ME}}",
 			os.environ.get( "pipeline_logs_bucket" )
 		)
+	
+	# Email templates
+	email_templates_folder = "./email_templates/"
+	EMAIL_TEMPLATES = {}
+	for filename in os.listdir( email_templates_folder ):
+		template_name = filename.split( "." )[0]
+		with open( email_templates_folder + filename, "r" ) as file_handler:
+			EMAIL_TEMPLATES[ template_name ] = file_handler.read()
 	
 	LAMDBA_BASE_CODES = {}
 	
@@ -121,6 +131,7 @@ def on_start():
 S3_CONFIG = Config(
 	max_pool_connections=( 1000 * 2 )
 )
+
 S3_CLIENT = boto3.client(
 	"s3",
 	aws_access_key_id=os.environ.get( "aws_access_key" ),
@@ -188,6 +199,15 @@ APIGATEWAY_CLIENT = boto3.client(
 	aws_access_key_id=os.environ.get( "aws_access_key" ),
 	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
 	region_name=os.environ.get( "region_name" )
+)
+
+# This is purely for sending emails as part of Refinery's
+# regular operations (e.g. authentication via email code, etc).
+SES_EMAIL_CLIENT = boto3.client(
+	"ses",
+	aws_access_key_id=os.environ.get( "ses_emails_access_key" ),
+	aws_secret_access_key=os.environ.get( "ses_emails_secret_key" ),
+	region_name=os.environ.get( "ses_emails_region" )
 )
 
 def pprint( input_dict ):
@@ -313,6 +333,82 @@ class TaskSpawner(object):
 		def __init__(self, loop=None):
 			self.executor = futures.ThreadPoolExecutor( 60 )
 			self.loop = loop or tornado.ioloop.IOLoop.current()
+			
+		@run_on_executor
+		def send_registration_confirmation_email( self, email_address, auth_token ):
+			registration_confirmation_link = os.environ.get( "access_control_allow_origin" ) + "/authentication/email/" + auth_token
+			response = SES_EMAIL_CLIENT.send_email(
+				Source=os.environ.get( "ses_emails_from_email" ),
+				Destination={
+					"ToAddresses": [
+						email_address,
+					]
+				},
+				Message={
+					"Subject": {
+						"Data": "RefineryLabs.io - Confirm your Refinery registration",
+						"Charset": "UTF-8"
+					},
+					"Body": {
+						"Text": {
+							"Data": pystache.render(
+								EMAIL_TEMPLATES[ "registration_confirmation_text" ],
+								{
+									"registration_confirmation_link": registration_confirmation_link,
+								}
+							),
+							"Charset": "UTF-8"
+						},
+						"Html": {
+							"Data": pystache.render(
+								EMAIL_TEMPLATES[ "registration_confirmation" ],
+								{
+									"registration_confirmation_link": registration_confirmation_link,
+								}
+							),
+							"Charset": "UTF-8"
+						}
+					}
+				}
+			)
+			
+		@run_on_executor
+		def send_authentication_email( self, email_address, auth_token ):
+			authentication_link = os.environ.get( "access_control_allow_origin" ) + "/authentication/email/" + auth_token
+			response = SES_EMAIL_CLIENT.send_email(
+				Source=os.environ.get( "ses_emails_from_email" ),
+				Destination={
+					"ToAddresses": [
+						email_address,
+					]
+				},
+				Message={
+					"Subject": {
+						"Data": "RefineryLabs.io - Login by email confirmation",
+						"Charset": "UTF-8"
+					},
+					"Body": {
+						"Text": {
+							"Data": pystache.render(
+								EMAIL_TEMPLATES[ "authentication_email_text" ],
+								{
+									"authentication_email_text": authentication_link,
+								}
+							),
+							"Charset": "UTF-8"
+						},
+						"Html": {
+							"Data": pystache.render(
+								EMAIL_TEMPLATES[ "authentication_email" ],
+								{
+									"authentication_email": authentication_link,
+								}
+							),
+							"Charset": "UTF-8"
+						}
+					}
+				}
+			)
 			
 		@run_on_executor
 		def execute_aws_lambda( self, arn, input_data ):
@@ -4590,6 +4686,168 @@ def db_tests():
 	new_project.name = project_name
 	session.add( new_project )
 	session.commit()
+	
+class NewRegistration( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Register a new Refinery account.
+		
+		This will trigger an email to verify the user's account.
+		Email is used for authentication, so by design the user will
+		have to validate their email to log into the service.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"organization_name": {
+					"type": "string",
+				},
+				"name": {
+					"type": "string",
+				},
+				"email": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"organization_name",
+				"name",
+				"email"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		self.logit(
+			"Processing user registration..."
+		)
+		
+		# Before we continue, check if the email is valid
+		try:
+			email_validator = validate_email(
+				self.json[ "email" ]
+			)
+			email = email_validator[ "email" ] # replace with normalized form
+		except EmailNotValidError as e:
+			self.logit( "Invalid email provided during signup!" )
+			self.write({
+				"success": False,
+				"code": "INVALID_EMAIL",
+				"msg": str( e ) # The exception string is user-friendly by design.
+			})
+			raise gen.Return()
+			
+		# Create new organization for user
+		new_organization = Organization()
+		new_organization.name = self.json[ "organization_name" ]
+		
+		# TODO(mandatory): Integration billing before registration
+		# is allowed. Also allow for bypass via special registration
+		# codes.
+		
+		# TODO(mandatory): Automatically allocate an AWS account
+		# from the list of sub-AWS accounts.
+		
+		# Create the user itself and add it to the organization
+		new_user = User()
+		new_user.name = self.json[ "name" ]
+		new_user.email = self.json[ "email" ]
+		
+		# Create a new email auth token as well
+		email_auth_token = EmailAuthToken()
+		
+		# Pull out the authentication token
+		raw_email_authentication_token = email_auth_token.token
+		
+		# Add the token to the list of the user's token
+		new_user.email_auth_tokens.append(
+			email_auth_token
+		)
+		
+		# Add user to the organization
+		new_organization.users.append(
+			new_user
+		)
+		
+		session.add( new_organization )
+		session.commit()
+		
+		# Send registration confirmation link to user's email address
+		# The first time they authenticate via this link it will both confirm
+		# their email address and authenticate them.
+		self.logit( "Sending user their registration confirmation email..." )
+		yield local_tasks.send_registration_confirmation_email(
+			self.json[ "email" ],
+			raw_email_authentication_token
+		)
+
+		self.write({
+			"success": True,
+			"result": {
+				"msg": "Registration was successful! Please check your inbox to validate your email address and to log in."
+			}
+		})
+		
+class EmailAuthentication( BaseHandler ):
+	@gen.coroutine
+	def get( self, email_authentication_token=None ):
+		"""
+		This is the endpoint which is linked to in the email send out to the user.
+		
+		Currently this responds with ugly text errors, but eventually it will be just
+		another REST-API endpoint.
+		"""
+		self.logit( "User is authenticating via email link" )
+		
+		# Query for the provided authentication token
+		email_authentication_token = session.query( EmailAuthToken ).filter_by(
+			token=str( email_authentication_token )
+		).first()
+		
+		if email_authentication_token == None:
+			self.logit( "User's token was not found in the database" )
+			self.write( "Invalid authentication token, did you copy the link correctly?" )
+			raise gen.Return()
+			
+		# Calculate token age
+		token_age = ( int( time.time() ) - email_authentication_token.timestamp )
+		
+		# Check if the token is expired
+		if email_authentication_token.is_expired == True:
+			self.logit( "The user's email token was already marked as expired." )
+			self.write( "That email token has expired, please try authenticating again to request a new one." )
+			raise gen.Return()
+		
+		# Check if the token is older than the allowed lifetime
+		# If it is then mark it expired and return an error
+		if token_age >= int( os.environ.get( "email_token_lifetime" ) ):
+			self.logit( "The user's email token was too old and was marked as expired." )
+			
+			# Mark the token as expired in the database
+			email_authentication_token.is_expired = True
+			session.commit()
+			
+			self.write( "That email token has expired, please try authenticating again to request a new one." )
+			raise gen.Return()
+		
+		# Since the user has now authenticated
+		# Mark the token as expired in the database
+		email_authentication_token.is_expired = True
+		
+		# Check if the user has previously authenticated via
+		# their email address. If not we'll mark their email
+		# as validated as well.
+		if email_authentication_token.user.email_verified == False:
+			email_authentication_token.user.email_verified = True
+		
+		session.commit()
+			
+		# Authenticate them to the relevant user account
+		# TODO(mandatory): Set an HMAC and encrypted session cookie
+		# here.
+		self.logit( "User authenticated successfully" )
+		self.write( "Authentication successful!" )
 		
 def make_app( is_debug ):
 	tornado_app_settings = {
@@ -4597,6 +4855,8 @@ def make_app( is_debug ):
 	}
 	
 	return tornado.web.Application([
+		( r"/authentication/email/([a-z0-9]+)", EmailAuthentication ),
+		( r"/api/v1/auth/register", NewRegistration ),
 		( r"/api/v1/logs/executions/get", GetProjectExecutionLogs ),
 		( r"/api/v1/logs/executions", GetProjectExecutions ),
 		( r"/api/v1/aws/deploy_diagram", DeployDiagram ),
@@ -4639,7 +4899,7 @@ if __name__ == "__main__":
 	)
 	Base.metadata.create_all( engine )
 	
-	tornado.ioloop.IOLoop.current().run_sync( db_tests )
+	#tornado.ioloop.IOLoop.current().run_sync( db_tests )
 	
 	#tornado.ioloop.IOLoop.current().run_sync( delete_logs )
 	#tornado.ioloop.IOLoop.current().run_sync( warm_lambda_base_caches )

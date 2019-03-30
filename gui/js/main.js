@@ -785,6 +785,18 @@ function project_file_uploaded( event_data ) {
 	reader.readAsText( file_data );
 }
 
+function register( organization_name, user_full_name, email ) {
+	return api_request(
+		"POST",
+		"api/v1/auth/register",
+		{
+			"organization_name": organization_name,
+			"name": user_full_name,
+			"email": email,
+		}
+	);
+}
+
 function delete_saved_function( id ) {
 	return api_request(
 		"DELETE",

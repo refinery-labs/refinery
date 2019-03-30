@@ -54,7 +54,8 @@ class User( Base ):
 		lazy="dynamic",
 		# When a user is deleted all auth tokens should
 		# be deleted as well.
-		cascade="all, delete-orphan"
+		cascade="all, delete-orphan",
+		backref="user",
 	)
 	
 	timestamp = Column(Integer())
