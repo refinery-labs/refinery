@@ -13,13 +13,34 @@ class AWSAccount( Base ):
 	)
 	
 	# AWS account ID
-	account_id = Column(Integer())
+	account_id = Column(BigInteger())
 	
 	# AWS access key
 	access_key = Column(Text())
 	
 	# AWS secret key
 	secret_key = Column(Text())
+	
+	# AWS region
+	region = Column(Text())
+	
+	# Lambda packages S3 bucket
+	lambda_packages_bucket = Column(Text())
+	
+	# Logs S3 bucket
+	logs_bucket = Column(Text())
+	
+	# AWS IAM Console Admin username
+	iam_admin_username = Column(Text())
+	
+	# AWS IAM Console Admin password
+	iam_admin_password = Column(Text())
+	
+	# Whether the AWS Account is a "reserved account"
+	# Reserved accounts are sub-accounts of the main Refinery
+	# account. They are allocated to new users in order to do
+	# reseller pricing of AWS serverless usage.
+	is_reserved_account = Column(Boolean())
 	
 	# Parent organization the AWS account belongs to
 	organization_id = Column(
@@ -37,6 +58,7 @@ class AWSAccount( Base ):
 	
 	def __init__( self ):
 		self.id = str( uuid.uuid4() )
+		self.is_reserved_account = False
 		self.timestamp = int( time.time() )
 
 	def to_dict( self ):
@@ -45,6 +67,12 @@ class AWSAccount( Base ):
 			"account_id",
 			"access_key",
 			"secret_key",
+			"region",
+			"lambda_packages_bucket",
+			"logs_bucket",
+			"iam_admin_username",
+			"iam_admin_password",
+			"is_reserved_account",
 			"timestamp"
 		]
 		

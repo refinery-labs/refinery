@@ -22,7 +22,7 @@ class Organization( Base ):
 	name = Column(Text())
 	
 	# Max users, an attribute for billing
-	max_users = Column(Integer())
+	max_users = Column(BigInteger())
 	
 	# Whether the organization is disabled
 	disabled = Column(Boolean())

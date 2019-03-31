@@ -241,6 +241,40 @@ class BaseHandler( tornado.web.RequestHandler ):
 		self.set_header( "Cache-Control", "no-cache, no-store, must-revalidate" )
 		self.set_header( "Pragma", "no-cache" )
 		self.set_header( "Expires", "0" )
+		
+	def authenticate_user_id( self, user_id ):
+		# Set authentication cookie
+		self.set_secure_cookie(
+			"session",
+			json.dumps({
+				"user_id": user_id,
+			}),
+			expires_days=int( os.environ.get( "cookie_expire_days" ) )
+		)
+		
+	def get_authenticated_user( self ):
+		# Get secure cookie data
+		secure_cookie_data = self.get_secure_cookie(
+			"session",
+			max_age_days=int( os.environ.get( "cookie_expire_days" ) )
+		)
+		
+		if secure_cookie_data == None:
+			return None
+			
+		session_data = json.loads(
+			secure_cookie_data
+		)
+		
+		if not ( "user_id" in session_data ):
+			return None
+		
+		# Pull related user
+		authenticated_user = session.query( User ).filter_by(
+			id=str( session_data[ "user_id" ] )
+		).first()
+
+		return authenticated_user
 
 	def logit( self, message, message_type="info" ):
 		message = "[" + self.request.remote_ip + "] " + message
@@ -4746,8 +4780,16 @@ class NewRegistration( BaseHandler ):
 		# is allowed. Also allow for bypass via special registration
 		# codes.
 		
-		# TODO(mandatory): Automatically allocate an AWS account
-		# from the list of sub-AWS accounts.
+		# Check if there are reserved AWS accounts available
+		aws_reserved_account = session.query( AWSAccount ).filter_by(
+			is_reserved_account=True
+		).first()
+		
+		# If one exists, add it to the account
+		if aws_reserved_account != None:
+			self.logit( "Adding a reserved AWS account to the newly registered Refinery account..." )
+			aws_reserved_account.is_reserved_account = False
+			aws_reserved_account.organization_id = new_organization.id
 		
 		# Create the user itself and add it to the organization
 		new_user = User()
@@ -4789,7 +4831,7 @@ class NewRegistration( BaseHandler ):
 			}
 		})
 		
-class EmailAuthentication( BaseHandler ):
+class EmailLinkAuthentication( BaseHandler ):
 	@gen.coroutine
 	def get( self, email_authentication_token=None ):
 		"""
@@ -4842,20 +4884,74 @@ class EmailAuthentication( BaseHandler ):
 			email_authentication_token.user.email_verified = True
 		
 		session.commit()
-			
-		# Authenticate them to the relevant user account
-		# TODO(mandatory): Set an HMAC and encrypted session cookie
-		# here.
+		
 		self.logit( "User authenticated successfully" )
-		self.write( "Authentication successful!" )
+		
+		# Authenticate the user via secure cookie
+		self.authenticate_user_id(
+			email_authentication_token.user.id
+		)
+		
+		self.redirect(
+			"/"
+		)
+		
+class GetAuthenticationStatus( BaseHandler ):
+	@gen.coroutine
+	def get( self ):
+		current_user = self.get_authenticated_user()
+		
+		if current_user:
+			self.write({
+				"authenticated": True,
+				"name": current_user.name,
+				"email": current_user.email,
+				"permission_level": current_user.permission_level,
+			})
+			raise gen.Return()
+		
+		self.write({
+			"authenticated": False
+		})
+		
+@gen.coroutine
+def add_reserved_aws_accounts():
+	# Just for testing, this adds AWS accounts to the reserved pool
+	# if it is currently empty.
+	reserved_aws_accounts_count = session.query( AWSAccount ).filter_by(
+		is_reserved_account=True
+	).count()
+	
+	# How many accounts to add
+	juice_amount = 100
+	
+	if reserved_aws_accounts_count == 0:
+		print( "No AWS account in reserves, adding " + str( juice_amount ) + " to the pool..." )
+		for i in range( 0, 100 ):
+			new_aws_account = AWSAccount()
+			new_aws_account.is_reserved_account = True
+			new_aws_account.account_id = int( os.environ.get( "aws_account_id" ) )
+			new_aws_account.access_key = os.environ.get( "aws_access_key" )
+			new_aws_account.secret_key = os.environ.get( "aws_secret_key" )
+			new_aws_account.region = os.environ.get( "region_name" )
+			new_aws_account.lambda_packages_bucket = os.environ.get( "tmp_lambda_packages_bucket" )
+			new_aws_account.logs_bucket = os.environ.get( "pipeline_logs_bucket" )
+			new_aws_account.iam_admin_username = "DUMMY_VALUE"
+			new_aws_account.iam_admin_password = "DUMMY_VALUE"
+			session.add( new_aws_account )
+			
+		session.commit()
+		print( "Added new AWS accounts to the pool!" )
 		
 def make_app( is_debug ):
 	tornado_app_settings = {
 		"debug": is_debug,
+		"cookie_secret": os.environ.get( "cookie_secret_value" )
 	}
 	
 	return tornado.web.Application([
-		( r"/authentication/email/([a-z0-9]+)", EmailAuthentication ),
+		( r"/authentication/email/([a-z0-9]+)", EmailLinkAuthentication ),
+		( r"/api/v1/auth/me", GetAuthenticationStatus ),
 		( r"/api/v1/auth/register", NewRegistration ),
 		( r"/api/v1/logs/executions/get", GetProjectExecutionLogs ),
 		( r"/api/v1/logs/executions", GetProjectExecutions ),
@@ -4889,8 +4985,8 @@ if __name__ == "__main__":
 	# Re-initiate things
 	on_start()
 	app = make_app(
-				( os.environ.get( "is_debug" ).lower() == "true" )
-		)
+		( os.environ.get( "is_debug" ).lower() == "true" )
+	)
 	server = tornado.httpserver.HTTPServer(
 		app
 	)
@@ -4899,7 +4995,7 @@ if __name__ == "__main__":
 	)
 	Base.metadata.create_all( engine )
 	
-	#tornado.ioloop.IOLoop.current().run_sync( db_tests )
+	tornado.ioloop.IOLoop.current().run_sync( add_reserved_aws_accounts )
 	
 	#tornado.ioloop.IOLoop.current().run_sync( delete_logs )
 	#tornado.ioloop.IOLoop.current().run_sync( warm_lambda_base_caches )
