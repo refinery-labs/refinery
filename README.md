@@ -43,7 +43,15 @@ pikaur -S lsyncd
 
 From there, you can run the dev script to sync files like so:
 ```sh
-./scripts/docker-machine-dev-flow/sync-files-to-docker-machine.sh
+# go to the folder so that the script can use relative paths from here
+cd ./scripts/docker-machine-dev-flow
+
+# make any changes to lsync-config.lua for your local docker-machine env
+# you'll need to point the IP to the correct one. Get this via:
+docker-machine ip machine4
+
+# This will run lsync
+./sync-files-to-docker-machine.sh
 
 # output should show lsync sycing stuff properly
 ```
