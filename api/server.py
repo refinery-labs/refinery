@@ -242,6 +242,9 @@ class BaseHandler( tornado.web.RequestHandler ):
 		self.set_header( "Pragma", "no-cache" )
 		self.set_header( "Expires", "0" )
 		
+		# For caching the currently-authenticated user
+		self.authenticated_user = None
+		
 	def authenticate_user_id( self, user_id ):
 		# Set authentication cookie
 		self.set_secure_cookie(
@@ -252,7 +255,50 @@ class BaseHandler( tornado.web.RequestHandler ):
 			expires_days=int( os.environ.get( "cookie_expire_days" ) )
 		)
 		
-	def get_authenticated_user( self ):
+	def get_authenticated_user_cloud_configurations( self ):
+		"""
+		This returns the cloud configurations for the current user.
+		
+		This mainly means things like AWS credentials, S3 buckets
+		used for package builders, etc.
+		
+		This will return a list of configuration JSON objects. Note
+		that in the beggining we will ALWAYS just use the first JSON
+		object in the list because we don't support multiple AWS deploys
+		yet.
+		"""
+		# Pull the authenticated user's organization
+		user_organization = self.get_authenticated_user_org()
+		
+		if user_organization == None:
+			return None
+		
+		# Returned list of JSON cloud config data
+		cloud_configuration_list = []
+		
+		# Return the JSON objects for all AWS accounts
+		for aws_account in user_organization.aws_accounts:
+			cloud_configuration_list.append(
+				aws_account.to_dict()
+			)
+			
+		return cloud_configuration_list
+		
+	def get_authenticated_user_org( self ):
+		# First we grab the organization ID
+		authentication_user = self.get_authenticated_user()
+		
+		if authentication_user == None:
+			return None
+		
+		# Get organization user is a part of
+		user_org = session.query( Organization ).filter_by(
+			id=authentication_user.organization_id
+		).first()
+		
+		return user_org
+		
+	def get_authenticated_user_id( self ):
 		# Get secure cookie data
 		secure_cookie_data = self.get_secure_cookie(
 			"session",
@@ -268,11 +314,30 @@ class BaseHandler( tornado.web.RequestHandler ):
 		
 		if not ( "user_id" in session_data ):
 			return None
+			
+		return session_data[ "user_id" ]
+		
+	def get_authenticated_user( self ):
+		"""
+		Grabs the currently authenticated user
+		
+		This will be cached after the first call of
+		this method,
+		"""
+		if self.authenticated_user != None:
+			return self.authenticated_user
+		
+		user_id = self.get_authenticated_user_id()
+		
+		if user_id == None:
+			return None
 		
 		# Pull related user
 		authenticated_user = session.query( User ).filter_by(
-			id=str( session_data[ "user_id" ] )
+			id=str( user_id )
 		).first()
+		
+		self.authenticated_user = authenticated_user
 
 		return authenticated_user
 
@@ -362,6 +427,36 @@ class BaseHandler( tornado.web.RequestHandler ):
 			"msg": error_message,
 			"id": error_id
 		}))
+		
+"""
+Decorators
+"""
+def authenticated( func ):
+	"""
+	Decorator to ensure the user is currently authenticated.
+	
+	If the user is not, the response will be:
+	{
+		"success": false,
+		"code": "AUTH_REQUIRED",
+		"msg": "User must be authenticated to hit this endpoint",
+	}
+	"""
+	def wrapper( *args, **kwargs ):
+		self_reference = args[0]
+		
+		authenticated_user = self_reference.get_authenticated_user()
+		
+		if authenticated_user == None:
+			self_reference.write({
+				"success": False,
+				"code": "AUTH_REQUIRED",
+				"msg": "User must be authenticated to hit this endpoint",
+			})
+			return
+		
+		return func( *args, **kwargs )
+	return wrapper
 	
 class TaskSpawner(object):
 		def __init__(self, loop=None):
@@ -426,7 +521,7 @@ class TaskSpawner(object):
 							"Data": pystache.render(
 								EMAIL_TEMPLATES[ "authentication_email_text" ],
 								{
-									"authentication_email_text": authentication_link,
+									"email_authentication_link": authentication_link,
 								}
 							),
 							"Charset": "UTF-8"
@@ -435,7 +530,7 @@ class TaskSpawner(object):
 							"Data": pystache.render(
 								EMAIL_TEMPLATES[ "authentication_email" ],
 								{
-									"authentication_email": authentication_link,
+									"email_authentication_link": authentication_link,
 								}
 							),
 							"Charset": "UTF-8"
@@ -1006,7 +1101,7 @@ class TaskSpawner(object):
 		@staticmethod
 		def _get_custom_python_base_code( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
 			# Convert tabs to four spaces
-			code = code.replace( "\t", "    " )
+			code = code.replace( "\t", "	" )
 			
 			code = code.replace( "\"{{TRANSITION_DATA_REPLACE_ME}}\"", json.dumps( json.dumps( transitions ) ) )
 			code = code.replace( "{{AWS_REGION_REPLACE_ME}}", os.environ.get( "region_name" ) )
@@ -4895,8 +4990,9 @@ class EmailLinkAuthentication( BaseHandler ):
 		self.redirect(
 			"/"
 		)
-		
+	
 class GetAuthenticationStatus( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def get( self ):
 		current_user = self.get_authenticated_user()
@@ -4912,6 +5008,71 @@ class GetAuthenticationStatus( BaseHandler ):
 		
 		self.write({
 			"authenticated": False
+		})
+
+class Authenticate( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		This fires off an authentication email for a given user.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"email": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"email"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		# Get user based off of the provided email
+		user = session.query( User ).filter_by(
+			email=self.json[ "email" ]
+		).first()
+		
+		if user == None:
+			self.write({
+				"success": False,
+				"code": "USER_NOT_FOUND",
+				"msg": "No user was found with that email address."
+			})
+			raise gen.Return()
+		
+		# Generate an auth token and add it to the user's account
+		# Create a new email auth token as well
+		email_auth_token = EmailAuthToken()
+		
+		# Pull out the authentication token
+		raw_email_authentication_token = email_auth_token.token
+		
+		# Add the token to the list of the user's token
+		user.email_auth_tokens.append(
+			email_auth_token
+		)
+		
+		session.commit()
+		
+		yield local_tasks.send_authentication_email(
+			user.email,
+			raw_email_authentication_token
+		)
+		
+		self.write({
+			"success": True,
+			"msg": "Sent an authentication email to the user. Please click the link in the email to log in to Refinery!"
+		})
+
+class Logout( BaseHandler ):
+	@gen.coroutine
+	def get( self ):
+		self.clear_cookie( "session" )
+		self.write({
+			"success": True
 		})
 		
 @gen.coroutine
@@ -4953,6 +5114,8 @@ def make_app( is_debug ):
 		( r"/authentication/email/([a-z0-9]+)", EmailLinkAuthentication ),
 		( r"/api/v1/auth/me", GetAuthenticationStatus ),
 		( r"/api/v1/auth/register", NewRegistration ),
+		( r"/api/v1/auth/login", Authenticate ),
+		( r"/api/v1/auth/logout", Logout ),
 		( r"/api/v1/logs/executions/get", GetProjectExecutionLogs ),
 		( r"/api/v1/logs/executions", GetProjectExecutions ),
 		( r"/api/v1/aws/deploy_diagram", DeployDiagram ),

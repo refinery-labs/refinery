@@ -42,6 +42,8 @@ class AWSAccount( Base ):
 	# reseller pricing of AWS serverless usage.
 	is_reserved_account = Column(Boolean())
 	
+	timestamp = Column(Integer())
+	
 	# Parent organization the AWS account belongs to
 	organization_id = Column(
 		CHAR(36),

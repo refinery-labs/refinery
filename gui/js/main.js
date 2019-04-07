@@ -785,6 +785,16 @@ function project_file_uploaded( event_data ) {
 	reader.readAsText( file_data );
 }
 
+function login( user_email ) {
+	return api_request(
+		"POST",
+		"api/v1/auth/login",
+		{
+			"email": user_email,
+		}
+	);
+}
+
 function register( organization_name, user_full_name, email ) {
 	return api_request(
 		"POST",
