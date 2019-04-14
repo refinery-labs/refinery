@@ -785,6 +785,24 @@ function project_file_uploaded( event_data ) {
 	reader.readAsText( file_data );
 }
 
+function get_authenticated_user_info() {
+	return api_request(
+		"GET",
+		"api/v1/auth/me",
+		false
+	);
+}
+
+function logout() {
+	// This is a POST to prevent logout CSRF
+	// and because it's state-changing and we're not animals.
+	return api_request(
+		"POST",
+		"api/v1/auth/logout",
+		{}
+	);
+}
+
 function login( user_email ) {
 	return api_request(
 		"POST",
@@ -1095,8 +1113,8 @@ function get_lambda_cloudwatch_logs( arn ) {
 /*
     Make API request
 */
-function api_request( method, endpoint, body ) {
-    return http_request(
+async function api_request( method, endpoint, body ) {
+    var response_text = await http_request(
         method,
         API_SERVER + "/" + endpoint,
         [
@@ -1112,22 +1130,39 @@ function api_request( method, endpoint, body ) {
         JSON.stringify(
             body
         )
-    ).then(function( response_text ) {
-    	var response_data = JSON.parse(
-    		response_text
-    	);
-    	
-    	// If we get a redirect in the response, redirect instead of returning
-    	if( "redirect" in response_data && response_data[ "redirect" ] != "" ) {
-    		window.location = response_data[ "redirect" ];
-    	}
-    	
-    	if( "success" in response_data && response_data[ "success" ] == false ) {
-    		return Promise.reject( response_data );
-    	} else {
-    		return response_data;
-    	}
-    });
+    );
+    
+	var response_data = JSON.parse(
+		response_text
+	);
+	
+	// If we get a redirect in the response, redirect instead of returning
+	if( "redirect" in response_data && response_data[ "redirect" ] != "" ) {
+		window.location = response_data[ "redirect" ];
+	}
+	
+	// If we got an authentication error, open the login modal
+	if( "code" in response_data && response_data.code === "AUTH_REQUIRED" ) {
+		show_login_prompt();
+		app.user_is_authenticated = false;
+		return Promise.reject( response_data );
+	}
+	
+	// Reject it if we got an error
+	if( "success" in response_data && response_data[ "success" ] == false ) {
+		// Print error message if one exists
+		if( "msg" in response_data ) {
+			toastr.error( response_data.msg );
+		}
+		
+		return Promise.reject( response_data );
+	}
+	
+	return response_data;
+}
+
+function show_login_prompt() {
+	$( "#login_in_modal" ).modal( "show" );
 }
 
 function parse_arn( input_arn ) {
@@ -1274,8 +1309,26 @@ $(window).resize(function(){
 });
 
 // On load
-$( document ).ready(function() {
+$( document ).ready(async function() {
+	await get_authenticated_user_info();
 });
+
+// Continually poll the backend to ensure we're still authenticated
+const authentication_check_interval = setInterval(async function() {
+	try {
+		const user_info = await get_authenticated_user_info();
+		app.user_is_authenticated = true;
+		app.user_metadata = user_info;
+	} catch ( error_response ) {
+		// No-op, since the login prompt is a side-effect.
+		return
+	}
+	
+	// Since we're authenticated, make sure to automatically
+	// Clear all login/authentication-related modals
+	$( "#authentication_email_sent_modal" ).modal( "hide" );
+	$( "#login_in_modal" ).modal( "hide" );
+}, ( 1000 * 2 ));
 
 var _DEFAULT_PROJECT_CONFIG = {
 	"version": "1.0.0",
@@ -1568,6 +1621,18 @@ var app = new Vue({
         
         // Currently selected node environment variables
         selected_node_environment_variables: [],
+        
+        // Email address for the login prompt
+        authentication_email_address: "",
+        
+        // Error message for logins
+        login_error_message: false,
+        
+        // Whether we are currently authenticated
+        user_is_authenticated: false,
+        
+        // The user's current info
+        user_metadata: {},
 	},
 	watch: {
 		projects_search_query: function( value, previous_value ) {
@@ -1732,6 +1797,30 @@ var app = new Vue({
 		},
 	},
 	methods: {
+		log_out: async function() {
+			// Log out the user
+			await logout();
+			toastr.success( "You have been logged out successfully!" );
+		},
+		log_in: async function() {
+			// Attempt to log in with email
+			try {
+				const login_response = await login(
+					app.authentication_email_address
+				);
+				app.login_error_message = false;
+			} catch ( error_response ) {
+				if( error_response.code === "USER_NOT_FOUND" ) {
+					app.login_error_message = "No user with that email address found. Make sure to double check for typos! If you don't have an account yet, click \"Create a new account\" to register a new account!";
+				} else {
+					console.error( "Unexpected login error code returned: " );
+					console.error( error_response );
+				}
+				return
+			}
+			
+			$( "#authentication_email_sent_modal" ).modal( "show" );
+		},
 		view_project_settings: function() {
 			$( "#project_settings_modal" ).modal( "show" );
 		},

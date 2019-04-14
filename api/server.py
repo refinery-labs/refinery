@@ -451,7 +451,7 @@ def authenticated( func ):
 			self_reference.write({
 				"success": False,
 				"code": "AUTH_REQUIRED",
-				"msg": "User must be authenticated to hit this endpoint",
+				"msg": "You must be authenticated to do this!",
 			})
 			return
 		
@@ -2660,6 +2660,7 @@ class SavedFunctionUpdate( BaseHandler ):
 		})
 		
 class SavedFunctionDelete( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def delete( self ):
 		"""
@@ -3329,6 +3330,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	})
 		
 class SavedLambdaCreate( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -3401,6 +3403,7 @@ class SavedLambdaCreate( BaseHandler ):
 		})
 		
 class SavedLambdaSearch( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -3466,6 +3469,7 @@ class SavedLambdaSearch( BaseHandler ):
 		})
 		
 class SavedLambdaDelete( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def delete( self ):
 		"""
@@ -3567,6 +3571,7 @@ def teardown_infrastructure( teardown_nodes ):
 	raise gen.Return( teardown_operation_results )
 
 class InfraTearDown( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		teardown_nodes = self.json[ "teardown_nodes" ]
@@ -3590,6 +3595,7 @@ class InfraTearDown( BaseHandler ):
 		})
 	
 class InfraCollisionCheck( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		self.logit(
@@ -3672,6 +3678,7 @@ class InfraCollisionCheck( BaseHandler ):
 		})
 		
 class SaveProject( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -3681,6 +3688,9 @@ class SaveProject( BaseHandler ):
 			"version": "1.0.0" || False # Either specific or just increment
 			"config": {{project_config_data}} # Project config such as ENV variables, etc.
 		}
+		
+		TODO:
+			* The logic for each branch of project exists and project doesn't exist should be refactored
 		"""
 		self.logit(
 			"Saving project to database..."
@@ -3695,17 +3705,14 @@ class SaveProject( BaseHandler ):
 		# If this is a new project and the name already exists
 		# Throw an error to indicate this can't be the case
 		if project_id == False:
-			project_with_same_name = session.query( Project ).filter_by(
-				name=project_name
-			).first()
-			
-			if project_with_same_name != None:
-				self.write({
-					"success": False,
-					"code": "PROJECT_NAME_EXISTS",
-					"msg": "A project with this name already exists!"
-				})
-				raise gen.Return()
+			for project in self.get_authenticated_user().projects:
+				if project.name == project_name:
+					self.write({
+						"success": False,
+						"code": "PROJECT_NAME_EXISTS",
+						"msg": "A project with this name already exists!"
+					})
+					raise gen.Return()
 		
 		# Check if project already exists
 		if project_id:
@@ -3714,17 +3721,43 @@ class SaveProject( BaseHandler ):
 			).first()
 		else:
 			previous_project = None
+			
+		# If a previous project exists, make sure the user has permissions
+		# to actually modify it
+		if previous_project:
+			# Default deny
+			user_has_access = False
+			for user in previous_project.users:
+				if user.id == self.get_authenticated_user().id:
+					user_has_access = True
+		
+			# Deny if they don't have access
+			if user_has_access == False:
+				self.write({
+					"success": False,
+					"code": "ACCESS_DENIED",
+					"msg": "You do not have the permissions required to access this project."
+				})
+				raise gen.Return()
 		
 		# If there is a previous project and the name doesn't match, update it.
 		if previous_project and previous_project.name != project_name:
 			previous_project.name = project_name
 			session.commit()
 		
+		# If there's no previous project, create a new one
 		if previous_project == None:
 			previous_project = Project()
 			previous_project.name = diagram_data[ "name" ]
+			
+			# Add the user to the project so they can access it
+			previous_project.users.append(
+				self.authenticated_user
+			)
+			
 			session.add( previous_project )
 			session.commit()
+			
 			# Set project ID to newly generated ID
 			project_id = previous_project.id
 		
@@ -3798,6 +3831,7 @@ def update_project_config( project_id, project_config ):
 	session.commit()
 		
 class SearchSavedProjects( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -3854,6 +3888,7 @@ class SearchSavedProjects( BaseHandler ):
 		})
 		
 class GetSavedProject( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -3892,6 +3927,7 @@ class GetSavedProject( BaseHandler ):
 		})
 		
 class DeleteSavedProject( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -3978,6 +4014,7 @@ def warm_lambda_base_caches():
 	print( "Lambda base-cache has been warmed!" )
 		
 class DeployDiagram( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		self.logit(
@@ -4052,6 +4089,7 @@ class DeployDiagram( BaseHandler ):
 		})
 		
 class GetProjectConfig( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -4087,6 +4125,7 @@ class GetProjectConfig( BaseHandler ):
 		})
 		
 class GetLatestProjectDeployment( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -4127,6 +4166,7 @@ class GetLatestProjectDeployment( BaseHandler ):
 		})
 		
 class DeleteDeploymentsInProject( BaseHandler ):
+	@authenticated
 	def post( self ):
 		"""
 		Delete all deployments in database for a given project
@@ -4469,6 +4509,7 @@ def get_logs_data( log_paths_array ):
 	raise gen.Return( return_data )
 
 class GetProjectExecutions( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -4513,6 +4554,7 @@ class GetProjectExecutions( BaseHandler ):
 		})
 		
 class GetProjectExecutionLogs( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -4568,6 +4610,7 @@ def delete_logs( project_id ):
 		print( "Objects deleted!" )
 		
 class UpdateEnvironmentVariables( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -4633,6 +4676,7 @@ class UpdateEnvironmentVariables( BaseHandler ):
 		})
 		
 class GetCloudWatchLogsForLambda( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -5069,7 +5113,7 @@ class Authenticate( BaseHandler ):
 
 class Logout( BaseHandler ):
 	@gen.coroutine
-	def get( self ):
+	def post( self ):
 		self.clear_cookie( "session" )
 		self.write({
 			"success": True
