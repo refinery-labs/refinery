@@ -4,7 +4,7 @@ import '@/styles/app.scss';
 
 // The @Component decorator indicates the class is a Vue component
 @Component
-export default class MyComponent extends Vue {
+export default class App extends Vue {
    public render(h: CreateElement): VNode {
        return (
            <div id="app">
