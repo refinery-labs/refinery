@@ -2,11 +2,18 @@ import Vue from 'vue';
 import Router from 'vue-router';
 import Home from './views/Home.vue';
 import Settings from './views/Settings.vue';
+import Marketplace from './views/Marketplace.vue';
+import AdminPanel from './views/Admin';
 import AllProjects from './views/AllProjects';
 import ViewProject from './views/ViewProject';
 import OpenedProjectOverview from './views/ProjectsNestedViews/OpenedProjectOverview';
 import AllProjectWorkflows from './views/ProjectsNestedViews/AllProjectWorkflows';
 import ViewWorkflow from '@/views/ProjectsNestedViews/ViewWorkflow';
+import OpenedWorkflowWrapper from '@/views/ProjectsNestedViews/OpenedWorkflowWrapper';
+import EditWorkflow from '@/views/ProjectsNestedViews/EditWorkflow';
+import ProjectDeployments from '@/views/ProjectsNestedViews/ProjectDeployments';
+import ViewProjectDeployment from '@/views/ProjectsNestedViews/ViewProjectDeployment';
+import EditProjectDeployment from '@/views/ProjectsNestedViews/EditProjectDeployment';
 
 Vue.use(Router);
 
@@ -44,7 +51,6 @@ export default new Router({
     // Most people using Refinery will probably only have 1 project for a while, so we can hide this functionality.
     {
       path: '/p/:projectId',
-      name: 'project',
       component: ViewProject,
       
       children: [
@@ -52,6 +58,8 @@ export default new Router({
         {
           path: '',
           name: 'opened project overview',
+          // Example syntax for how to load multiple components
+          // components: {default: OpenedProjectOverview, home: Home }
           component: OpenedProjectOverview
         },
         // View all workflows
@@ -63,21 +71,20 @@ export default new Router({
         // View workflow by ID
         {
           path: 'w/:workflowId',
-          name: 'view workflow',
-          component: ViewWorkflow,
+          component: OpenedWorkflowWrapper,
     
           children: [
             // Overview of specific workflow
             {
               path: '',
               name: 'workflow overview',
-              component: Home
+              component: ViewWorkflow
             },
             // Edit a specific workflow
             {
               path: 'edit',
               name: 'edit workflow',
-              component: Home
+              component: EditWorkflow
             }
           ]
         },
@@ -85,26 +92,26 @@ export default new Router({
         {
           path: 'deployments',
           name: 'all deployments',
-          component: Home // View all deployments
+          // View all deployments
+          component: ProjectDeployments
         },
         // View deployment by ID
         {
           path: 'd/:deploymentId',
-          name: 'deployment',
-          component: Home,
+          component: OpenedWorkflowWrapper,
     
           children: [
             // Overview of deployment
             {
               path: '',
               name: 'deployment overview',
-              component: Home
+              component: ViewProjectDeployment
             },
             // Edit deployment
             {
               path: 'edit',
               name: 'edit deployment',
-              component: Home
+              component: EditProjectDeployment
             }
           ]
         }
@@ -113,12 +120,13 @@ export default new Router({
     {
       path: '/marketplace',
       name: 'marketplace',
-      component: Home // This will likely need to have children eventually... but not today.
+      // This will likely need to have children eventually... but not today.
+      component: Marketplace
     },
     {
       path: '/admin',
       name: 'admin',
-      component: Home
+      component: AdminPanel
     },
   ]
 });

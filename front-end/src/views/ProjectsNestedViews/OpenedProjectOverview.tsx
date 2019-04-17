@@ -7,7 +7,7 @@ import '@/styles/app.scss';
 export default class OpenedProjectOverview extends Vue {
   public render(h: CreateElement): VNode {
     return (
-      <div className="opened-project-overview">
+      <div class="opened-project-overview">
         <h2>Opened Project</h2>
         Id: {this.$route.params.projectId}
       </div>

@@ -7,10 +7,11 @@ import '@/styles/app.scss';
 export default class ViewProject extends Vue {
   public render(h: CreateElement): VNode {
     return (
-      <div className="view-project-page">
+      <div class="view-project-page">
         <h2>View Project</h2>
         Id: {this.$route.params.projectId}
-        <router-view/>
+        <router-view />
+        <router-view name="home" />
       </div>
     );
   }

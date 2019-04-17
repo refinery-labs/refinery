@@ -7,7 +7,7 @@ import '@/styles/app.scss';
 export default class AllProjectWorkflows extends Vue {
   public render(h: CreateElement): VNode {
     return (
-      <div className="all-project-workflows">
+      <div class="all-project-workflows">
         <h2>All Workflows</h2>
         Id: {this.$route.params.projectId}
       </div>
