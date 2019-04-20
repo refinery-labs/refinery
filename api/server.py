@@ -3602,6 +3602,7 @@ class SearchSavedProjects( BaseHandler ):
 		)
 		
 		# First search names
+		# TODO: Add pagination support so that you can see more than the first 10 projects
 		project_search_results = session.query( Project ).filter(
 			Project.name.ilike( "%" + self.json[ "query" ] + "%" ) # Probably SQL injection \o/
 		).limit(10).all()
