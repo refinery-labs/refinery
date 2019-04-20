@@ -1161,8 +1161,13 @@ async function api_request( method, endpoint, body ) {
 	return response_data;
 }
 
-function show_login_prompt() {
+async function show_login_prompt() {
 	$( "#login_in_modal" ).modal( "show" );
+	
+	// Hack due to a bug with modals.
+	// Another good reason to get off of them.
+	await wait( 1000 );
+	$( "#login_email_input" ).focus();
 }
 
 function parse_arn( input_arn ) {
@@ -1310,11 +1315,11 @@ $(window).resize(function(){
 
 // On load
 $( document ).ready(async function() {
-	await get_authenticated_user_info();
+	await pull_user_metadata();
 });
 
-// Continually poll the backend to ensure we're still authenticated
-const authentication_check_interval = setInterval(async function() {
+// Function to attempt to get user metadata
+async function pull_user_metadata() {
 	try {
 		const user_info = await get_authenticated_user_info();
 		app.user_is_authenticated = true;
@@ -1328,7 +1333,13 @@ const authentication_check_interval = setInterval(async function() {
 	// Clear all login/authentication-related modals
 	$( "#authentication_email_sent_modal" ).modal( "hide" );
 	$( "#login_in_modal" ).modal( "hide" );
-}, ( 1000 * 2 ));
+}
+
+// Continually poll the backend to ensure we're still authenticated
+const authentication_check_interval = setInterval(
+	pull_user_metadata,
+	( 1000 * 2 )
+);
 
 var _DEFAULT_PROJECT_CONFIG = {
 	"version": "1.0.0",
@@ -1800,6 +1811,7 @@ var app = new Vue({
 		log_out: async function() {
 			// Log out the user
 			await logout();
+			show_login_prompt();
 			toastr.success( "You have been logged out successfully!" );
 		},
 		log_in: async function() {
@@ -1811,7 +1823,7 @@ var app = new Vue({
 				app.login_error_message = false;
 			} catch ( error_response ) {
 				if( error_response.code === "USER_NOT_FOUND" ) {
-					app.login_error_message = "No user with that email address found. Make sure to double check for typos! If you don't have an account yet, click \"Create a new account\" to register a new account!";
+					app.login_error_message = "No user with that email address found.\nMake sure to double check for typos! If you don't have an account yet, click \"Create a new account\" to register a new account!";
 				} else {
 					console.error( "Unexpected login error code returned: " );
 					console.error( error_response );

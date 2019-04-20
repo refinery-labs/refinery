@@ -799,13 +799,13 @@
 		            <div class="modal-body">
 		            	<div v-if="login_error_message">
 		            		<center>
-		            			<p style="font-color: red;">{{login_error_message}}</p>
+		            			<p style="color: #ff0000;"><i>{{login_error_message}}</i></p>
 		            		</center>
 		            	</div>
 						<div class="form-group">
 							<label>Email Address</label>
-							<input type="email" class="form-control" placeholder="youremail@example.com" v-model="authentication_email_address">
-							<small id="emailHelp" class="form-text text-muted">Use the email address you used when you signed up for Refinery.</small>
+							<input id="login_email_input" type="email" class="form-control" placeholder="youremail@example.com" v-model="authentication_email_address">
+							<small class="form-text text-muted">Use the email address you used when you signed up for Refinery.</small>
 						</div>
 						<button type="button" class="btn btn-primary btn-lg" v-on:click="log_in">Log in</button>
 						<button type="button" class="btn btn-secondary btn-lg" v-on:click="todo">Create a new account</button>
