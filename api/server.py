@@ -271,6 +271,13 @@ class BaseHandler( tornado.web.RequestHandler ):
 				
 		return is_owner
 		
+	def is_owner_of_saved_function( self, saved_function_id ):
+		saved_function = session.query( SavedFunction ).filter_by(
+			id=saved_function_id
+		).first()
+		
+		return ( saved_function.user_id == self.get_authenticated_user_id() )
+		
 	def get_authenticated_user_cloud_configurations( self ):
 		"""
 		This returns the cloud configurations for the current user.
@@ -2115,6 +2122,7 @@ def get_random_deploy_id():
 	return "_RFN" + get_random_id( 6 )
 
 class RunLambda( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -2158,6 +2166,7 @@ class RunLambda( BaseHandler ):
 		})
 		
 class RunTmpLambda( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -2351,6 +2360,7 @@ def refinery_to_aws_step_function( refinery_dict, name_to_arn_map ):
 	return return_step_function_data
 	
 class CreateScheduleTrigger( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -2432,6 +2442,7 @@ class CreateScheduleTrigger( BaseHandler ):
 		})
 		
 class CreateSQSQueueTrigger( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		self.logit(
@@ -2492,6 +2503,7 @@ class CreateSQSQueueTrigger( BaseHandler ):
 		})
 		
 class SavedFunctionSearch( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -2515,48 +2527,44 @@ class SavedFunctionSearch( BaseHandler ):
 			"Searching saved functions..."
 		)
 		
-		# First search names
-		name_search_results = session.query( SavedFunction ).filter(
-			SavedFunction.name.ilike( "%" + self.json[ "query" ] + "%" ) # Probably SQL injection \o/
-		).limit(10).all()
+		# Get user's saved functions and search through them
+		saved_functions = session.query( SavedFunction ).filter_by(
+			user_id=self.get_authenticated_user_id()
+		).all()
 		
-		# Second search descriptions
-		description_search_results = session.query( SavedFunction ).filter(
-			SavedFunction.description.ilike( "%" + self.json[ "query" ] + "%" ) # Probably SQL injection \o/
-		).limit(10).all()
+		# List of already returned result IDs
+		existing_ids = []
 		
-		already_added_ids = []
+		# List of results
 		results_list = []
 		
-		"""
-		The below ranks saved function "name" matches over description matches.
-		"""
-		for name_search_result in name_search_results:
-			if not name_search_result.id in already_added_ids:
-				already_added_ids.append(
-					name_search_result.id
-				)
-				
-				results_list.append(
-					name_search_result.to_dict()
-				)
-				
-		for description_search_result in description_search_results:
-			if not description_search_result.id in already_added_ids:
-				already_added_ids.append(
-					description_search_result.id
-				)
-				
-				results_list.append(
-					description_search_result.to_dict()
-				)
+		# Searchable attributes
+		searchable_attributes = [
+			"name",
+			"description"
+		]
 		
+		# Search and add results in order of the searchable attributes
+		for searchable_attribute in searchable_attributes:
+			for saved_function in saved_functions:
+				if self.json[ "query" ].lower() in getattr( saved_function, searchable_attribute ).lower() and not ( saved_function.id in existing_ids ):
+					# Add to results
+					results_list.append(
+						saved_function.to_dict()
+					)
+					
+					# Add to existing IDs so we don't have duplicates
+					existing_ids.append(
+						saved_function.id
+					)
+				
 		self.write({
 			"success": True,
 			"results": results_list
 		})
 		
 class SavedFunctionCreate( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -2604,6 +2612,7 @@ class SavedFunctionCreate( BaseHandler ):
 		new_function.libraries = json.dumps(
 			self.json[ "libraries" ]
 		)
+		new_function.user_id = self.get_authenticated_user_id()
 		
 		session.add( new_function )
 		session.commit()
@@ -2614,6 +2623,7 @@ class SavedFunctionCreate( BaseHandler ):
 		})
 		
 class SavedFunctionUpdate( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -2657,6 +2667,14 @@ class SavedFunctionUpdate( BaseHandler ):
 			"Updating function data..."
 		)
 		
+		if not self.is_owner_of_saved_function( self.json[ "id" ] ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have priveleges to access that saved function!",
+			})
+			raise gen.Return()
+		
 		saved_function = session.query( SavedFunction ).filter_by(
 			id=self.json[ "id" ]
 		).first()
@@ -2699,6 +2717,14 @@ class SavedFunctionDelete( BaseHandler ):
 		self.logit(
 			"Deleting saved function data..."
 		)
+		
+		if not self.is_owner_of_saved_function( self.json[ "id" ] ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have priveleges to delete that saved function!",
+			})
+			raise gen.Return()
 		
 		session.query( SavedFunction ).filter_by(
 			id=self.json[ "id" ]
@@ -4230,6 +4256,7 @@ class GetLatestProjectDeployment( BaseHandler ):
 		
 class DeleteDeploymentsInProject( BaseHandler ):
 	@authenticated
+	@gen.coroutine
 	def post( self ):
 		"""
 		Delete all deployments in database for a given project
@@ -5250,10 +5277,10 @@ def make_app( is_debug ):
 		( r"/api/v1/logs/executions/get", GetProjectExecutionLogs ),
 		( r"/api/v1/logs/executions", GetProjectExecutions ), # Auth reviewed *
 		( r"/api/v1/aws/deploy_diagram", DeployDiagram ), # Auth reviewed
-		( r"/api/v1/functions/delete", SavedFunctionDelete ),
-		( r"/api/v1/functions/update", SavedFunctionUpdate ),
-		( r"/api/v1/functions/create", SavedFunctionCreate ),
-		( r"/api/v1/functions/search", SavedFunctionSearch ),
+		( r"/api/v1/functions/delete", SavedFunctionDelete ), # Auth reviewed
+		( r"/api/v1/functions/update", SavedFunctionUpdate ), # Auth reviewed
+		( r"/api/v1/functions/create", SavedFunctionCreate ), # Auth reviewed
+		( r"/api/v1/functions/search", SavedFunctionSearch ), # Auth reviewed
 		( r"/api/v1/lambdas/create", SavedLambdaCreate ),
 		( r"/api/v1/lambdas/search", SavedLambdaSearch ),
 		( r"/api/v1/lambdas/delete", SavedLambdaDelete ),

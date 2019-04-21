@@ -58,6 +58,17 @@ class User( Base ):
 		backref="user",
 	)
 	
+	# One user can have many saved functions
+	# When a user is deleted it makes sense to clear all
+	# saved functions from the database as well.
+	saved_functions = relationship(
+		"SavedFunction",
+		lazy="dynamic",
+		# When a user is deleted all saved functions should
+		# be deleted as well.
+		cascade="all, delete-orphan"
+	)
+	
 	timestamp = Column(Integer())
 
 	def __init__( self ):
