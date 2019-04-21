@@ -1,7 +1,7 @@
 import Vue, {CreateElement, VNode} from 'vue';
 import Component from 'vue-class-component';
-import '@/styles/app.scss';
 import SidebarNav, {NavItem} from '@/components/SidebarNav';
+import TopNavbar from '@/components/TopNavbar';
 
 const navItems: NavItem[] = [
   {
@@ -18,16 +18,20 @@ const navItems: NavItem[] = [
 
 @Component({
   components: {
-    SidebarNav
+    SidebarNav,
+    TopNavbar
   }
 })
 export default class App extends Vue {
   public render(h: CreateElement): VNode {
     return (
-      <div id="app" class="display--flex">
-        <SidebarNav props={{navItems}}/>
-        <div class="flex-grow--3">
-          <router-view />
+      <div id="app">
+        <TopNavbar />
+        <div class="app-content display--flex">
+          <SidebarNav props={{navItems}}/>
+          <div class="flex-grow--3">
+            <router-view />
+          </div>
         </div>
       </div>
     );
