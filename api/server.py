@@ -255,6 +255,22 @@ class BaseHandler( tornado.web.RequestHandler ):
 			expires_days=int( os.environ.get( "cookie_expire_days" ) )
 		)
 		
+	def is_owner_of_project( self, project_id ):
+		# Check to ensure the user owns the project
+		project = session.query( Project ).filter_by(
+			id=project_id
+		).first()
+		
+		# Iterate over project owners and see if one matches
+		# the currently authenticated user
+		is_owner = False
+		
+		for project_owner in project.users:
+			if self.get_authenticated_user_id() == project_owner.id:
+				is_owner = True
+				
+		return is_owner
+		
 	def get_authenticated_user_cloud_configurations( self ):
 		"""
 		This returns the cloud configurations for the current user.
@@ -3725,18 +3741,12 @@ class SaveProject( BaseHandler ):
 		# If a previous project exists, make sure the user has permissions
 		# to actually modify it
 		if previous_project:
-			# Default deny
-			user_has_access = False
-			for user in previous_project.users:
-				if user.id == self.get_authenticated_user().id:
-					user_has_access = True
-		
 			# Deny if they don't have access
-			if user_has_access == False:
+			if not self.is_owner_of_project( project_id ):
 				self.write({
 					"success": False,
 					"code": "ACCESS_DENIED",
-					"msg": "You do not have the permissions required to access this project."
+					"msg": "You do not have the permissions required to save this project."
 				})
 				raise gen.Return()
 		
@@ -3855,10 +3865,16 @@ class SearchSavedProjects( BaseHandler ):
 			"Searching saved projects..."
 		)
 		
-		# First search names
-		project_search_results = session.query( Project ).filter(
-			Project.name.ilike( "%" + self.json[ "query" ] + "%" ) # Probably SQL injection \o/
-		).limit(10).all()
+		authenticated_user = self.get_authenticated_user()
+		
+		# Projects that match the query
+		project_search_results = []
+		
+		for project_data in authenticated_user.projects:
+			if self.json[ "query" ].lower() in str( project_data.name ).lower():
+				project_search_results.append(
+					project_data
+				)
 		
 		results_list = []
 		
@@ -3915,12 +3931,21 @@ class GetSavedProject( BaseHandler ):
 		self.logit(
 			"Retrieving saved project..."
 		)
-		
+
+		# Ensure user is owner of the project
+		if not self.is_owner_of_project( self.json[ "id" ] ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have priveleges to access that project version!",
+			})
+			raise gen.Return()
+			
 		project_version_result = session.query( ProjectVersion ).filter_by(
 			project_id=self.json[ "id" ],
 			version=self.json[ "version" ]
 		).first()
-
+		
 		self.write({
 			"success": True,
 			"project_json": project_version_result.project_json
@@ -3951,6 +3976,15 @@ class DeleteSavedProject( BaseHandler ):
 			"Deleting saved project..."
 		)
 		
+		# Ensure user is owner of the project
+		if not self.is_owner_of_project( self.json[ "id" ] ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have priveleges to delete that project!",
+			})
+			raise gen.Return()
+			
 		# Pull the latest project config
 		project_config = session.query( ProjectConfig ).filter_by(
 			project_id=self.json[ "id" ]
@@ -4017,9 +4051,20 @@ class DeployDiagram( BaseHandler ):
 	@authenticated
 	@gen.coroutine
 	def post( self ):
+		# TODO: Add jsonschema
+		
 		self.logit(
 			"Deploying diagram to production..."
 		)
+		
+		# Ensure user is owner of the project
+		if not self.is_owner_of_project( self.json[ "project_id" ] ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have priveleges to deploy that!",
+			})
+			raise gen.Return()
 		
 		project_id = self.json[ "project_id" ]
 		project_name = self.json[ "project_name" ]
@@ -4113,6 +4158,15 @@ class GetProjectConfig( BaseHandler ):
 			"Retrieving project deployments..."
 		)
 		
+		# Ensure user is owner of the project
+		if not self.is_owner_of_project( self.json[ "project_id" ] ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have priveleges to get that project version!",
+			})
+			raise gen.Return()
+		
 		project_config = session.query( ProjectConfig ).filter_by(
 			project_id=self.json[ "project_id" ]
 		).first()
@@ -4148,6 +4202,15 @@ class GetLatestProjectDeployment( BaseHandler ):
 		self.logit(
 			"Retrieving project deployments..."
 		)
+		
+		# Ensure user is owner of the project
+		if not self.is_owner_of_project( self.json[ "project_id" ] ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have priveleges to get this project deployment!",
+			})
+			raise gen.Return()
 		
 		latest_deployment = session.query( Deployment ).filter_by(
 			project_id=self.json[ "project_id" ]
@@ -4188,6 +4251,15 @@ class DeleteDeploymentsInProject( BaseHandler ):
 		self.logit(
 			"Deleting deployments from database..."
 		)
+		
+		# Ensure user is owner of the project
+		if not self.is_owner_of_project( self.json[ "project_id" ] ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have priveleges to delete that deployment!",
+			})
+			raise gen.Return()
 		
 		session.query( Deployment ).filter_by(
 			project_id=self.json[ "project_id" ]
@@ -4537,6 +4609,15 @@ class GetProjectExecutions( BaseHandler ):
 			"Retrieving execution ID(s) and their metadata..."
 		)
 		
+		# Ensure user is owner of the project
+		if not self.is_owner_of_project( self.json[ "project_id" ] ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have priveleges to access that project's executions!",
+			})
+			raise gen.Return()
+		
 		continuation_token = False
 		
 		if "continuation_token" in self.json:
@@ -4559,6 +4640,10 @@ class GetProjectExecutionLogs( BaseHandler ):
 	def post( self ):
 		"""
 		Get log data for a list of log paths.
+		
+		TODO: ACL for this is a bit tricky. Can be done due to the
+		special pathing of the S3 logs which contain the project ID,
+		etc.
 		"""
 		schema = {
 			"type": "object",
@@ -4919,6 +5004,8 @@ class NewRegistration( BaseHandler ):
 		# is allowed. Also allow for bypass via special registration
 		# codes.
 		
+		# TODO(): Emails should probably be forced to be unique?
+		
 		# Check if there are reserved AWS accounts available
 		aws_reserved_account = session.query( AWSAccount ).filter_by(
 			is_reserved_account=True
@@ -5155,14 +5242,14 @@ def make_app( is_debug ):
 	}
 	
 	return tornado.web.Application([
-		( r"/authentication/email/([a-z0-9]+)", EmailLinkAuthentication ),
-		( r"/api/v1/auth/me", GetAuthenticationStatus ),
-		( r"/api/v1/auth/register", NewRegistration ),
-		( r"/api/v1/auth/login", Authenticate ),
-		( r"/api/v1/auth/logout", Logout ),
+		( r"/authentication/email/([a-z0-9]+)", EmailLinkAuthentication ), # Auth reviewed
+		( r"/api/v1/auth/me", GetAuthenticationStatus ), # Auth reviewed
+		( r"/api/v1/auth/register", NewRegistration ), # Auth reviewed
+		( r"/api/v1/auth/login", Authenticate ), # Auth reviewed
+		( r"/api/v1/auth/logout", Logout ), # Auth reviewed
 		( r"/api/v1/logs/executions/get", GetProjectExecutionLogs ),
-		( r"/api/v1/logs/executions", GetProjectExecutions ),
-		( r"/api/v1/aws/deploy_diagram", DeployDiagram ),
+		( r"/api/v1/logs/executions", GetProjectExecutions ), # Auth reviewed *
+		( r"/api/v1/aws/deploy_diagram", DeployDiagram ), # Auth reviewed
 		( r"/api/v1/functions/delete", SavedFunctionDelete ),
 		( r"/api/v1/functions/update", SavedFunctionUpdate ),
 		( r"/api/v1/functions/create", SavedFunctionCreate ),
@@ -5178,13 +5265,13 @@ def make_app( is_debug ):
 		( r"/api/v1/aws/create_sqs_trigger", CreateSQSQueueTrigger ),
 		( r"/api/v1/aws/infra_tear_down", InfraTearDown ),
 		( r"/api/v1/aws/infra_collision_check", InfraCollisionCheck ),
-		( r"/api/v1/projects/save", SaveProject ),
-		( r"/api/v1/projects/search", SearchSavedProjects ),
-		( r"/api/v1/projects/get", GetSavedProject ),
-		( r"/api/v1/projects/delete", DeleteSavedProject ),
-		( r"/api/v1/projects/config/get", GetProjectConfig ),
-		( r"/api/v1/deployments/get_latest", GetLatestProjectDeployment ),
-		( r"/api/v1/deployments/delete_all_in_project", DeleteDeploymentsInProject )
+		( r"/api/v1/projects/save", SaveProject ), # Auth reviewed
+		( r"/api/v1/projects/search", SearchSavedProjects ), # Auth reviewed
+		( r"/api/v1/projects/get", GetSavedProject ), # Auth reviewed
+		( r"/api/v1/projects/delete", DeleteSavedProject ), # Auth reviewed
+		( r"/api/v1/projects/config/get", GetProjectConfig ), # Auth reviewed
+		( r"/api/v1/deployments/get_latest", GetLatestProjectDeployment ), # Auth reviewed
+		( r"/api/v1/deployments/delete_all_in_project", DeleteDeploymentsInProject ) # Auth reviewed
 	], **tornado_app_settings)
 			
 if __name__ == "__main__":
