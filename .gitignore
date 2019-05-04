@@ -8,3 +8,4 @@ elastic-beanstack-package.zip
 docker-compose.yml
 install/config.yaml
 front-end/node_modules/
+auto-reload.sh

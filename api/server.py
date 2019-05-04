@@ -307,6 +307,18 @@ class BaseHandler( tornado.web.RequestHandler ):
 			
 		return cloud_configuration_list
 		
+	def get_authenticated_user_cloud_configuration( self ):
+		"""
+		This just returns the first cloud configuration. Short term use since we'll
+		eventually be moving to a multiple AWS account deploy system.
+		"""
+		cloud_configurations = self.get_authenticated_user_cloud_configurations()
+		
+		if len( cloud_configurations ) > 0:
+			return cloud_configurations[ 0 ]
+		
+		return False
+		
 	def get_authenticated_user_org( self ):
 		# First we grab the organization ID
 		authentication_user = self.get_authenticated_user()
@@ -2359,149 +2371,6 @@ def refinery_to_aws_step_function( refinery_dict, name_to_arn_map ):
 			
 	return return_step_function_data
 	
-class CreateScheduleTrigger( BaseHandler ):
-	@authenticated
-	@gen.coroutine
-	def post( self ):
-		"""
-		Creates a scheduled trigger for a given SFN or Lambda.
-		"""
-		self.logit(
-			"Creating scheduled trigger..."
-		)
-		
-		schema = {
-			"type": "object",
-			"properties": {
-				"name": {
-					"type": "string",
-				},
-				"schedule_expression": {
-					"type": "string",
-				},
-				"description": {
-					"type": "string",
-				},
-				"target_arn": {
-					"type": "string",
-				},
-				"target_id": {
-					"type": "string",
-				},
-				"target_type": {
-					"type": "string"
-				}
-			},
-			"required": [
-				"name",
-				"schedule_expression",
-				"description",
-				"target_arn",
-				"input_dict",
-				"target_id",
-				"target_type"
-			]
-		}
-		
-		validate_schema( self.json, schema )
-
-		print( "Creating new scheduler rule..." )
-		rule_data = yield local_tasks.create_cloudwatch_rule(
-			cloudwatch_rule_name,
-			self.json[ "schedule_expression" ],
-			self.json[ "description" ],
-			{},
-		)
-		print( "Rule created!" )
-		
-		print( "Rule data: " )
-		print( rule_data )
-		
-		rule_arn = rule_data[ "RuleArn" ]
-		
-		print( "Adding target to rule..." )
-		
-		target_add_data = yield local_tasks.add_rule_target(
-			cloudwatch_rule_name,
-			self.json[ "target_id" ],
-			self.json[ "target_arn" ],
-			self.json[ "input_dict" ]
-		)
-		
-		print("Target added!")
-		
-		print( "Target added data: " )
-		pprint( target_add_data )
-		
-		self.write({
-			"success": True,
-			"result": {
-				"rule_arn": rule_arn,
-				"url": "https://console.aws.amazon.com/cloudwatch/home?region=" + os.environ.get( "region_name" ) + "#rules:name=" + cloudwatch_rule_name
-			}
-		})
-		
-class CreateSQSQueueTrigger( BaseHandler ):
-	@authenticated
-	@gen.coroutine
-	def post( self ):
-		self.logit(
-			"Deploying SQS Queue..."
-		)
-		
-		schema = {
-			"type": "object",
-			"properties": {
-				"queue_name": {
-					"type": "string",
-				},
-				"lambda_arn": {
-					"type": "string",
-				},
-				"batch_size": {
-					"type": "integer"
-				},
-				"content_based_deduplication": {
-					"type": "boolean",
-				}
-			},
-			"required": [
-				"queue_name",
-				"content_based_deduplication",
-				"lambda_arn",
-				"batch_size",
-			]
-		}
-		
-		validate_schema( self.json, schema )
-		
-		sqs_queue_name = get_lambda_safe_name(
-			self.json[ "queue_name" ]
-		)
-		
-		sqs_queue_url = yield local_tasks.create_sqs_queue(
-			sqs_queue_name,
-			self.json[ "content_based_deduplication" ]
-		)
-		
-		sqs_arn = "arn:aws:sqs:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + sqs_queue_name
-		
-		sqs_lambda_map_result = yield local_tasks.map_sqs_to_lambda(
-			sqs_arn,
-			self.json[ "lambda_arn" ],
-			self.json[ "batch_size" ]
-		)
-		
-		print( "Map result: " )
-		pprint(
-			sqs_lambda_map_result
-		)
-		
-		self.write({
-			"success": True,
-			"queue_url": sqs_queue_url
-		})
-		
 class SavedFunctionSearch( BaseHandler ):
 	@authenticated
 	@gen.coroutine
@@ -3373,7 +3242,6 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 		
 class SavedLambdaCreate( BaseHandler ):
 	@authenticated
-	@gen.coroutine
 	def post( self ):
 		"""
 		Create a Lambda to save for later use.
@@ -3435,6 +3303,7 @@ class SavedLambdaCreate( BaseHandler ):
 		new_lambda.memory = self.json[ "memory" ]
 		new_lambda.max_execution_time = self.json[ "max_execution_time" ]
 		new_lambda.description = self.json[ "description" ]
+		new_lambda.user_id = self.get_authenticated_user_id()
 
 		session.add( new_lambda )
 		session.commit()
@@ -3446,7 +3315,6 @@ class SavedLambdaCreate( BaseHandler ):
 		
 class SavedLambdaSearch( BaseHandler ):
 	@authenticated
-	@gen.coroutine
 	def post( self ):
 		"""
 		Free text search of saved Lambda, returns matching results.
@@ -3469,41 +3337,36 @@ class SavedLambdaSearch( BaseHandler ):
 			"Searching saved Lambdas..."
 		)
 		
-		# First search names
-		name_search_results = session.query( SavedLambda ).filter(
-			SavedLambda.name.ilike( "%" + self.json[ "query" ] + "%" ) # Probably SQL injection \o/
-		).limit(10).all()
+		# Get user's saved lambdas and search through them
+		saved_lambdas = session.query( SavedLambda ).filter_by(
+			user_id=self.get_authenticated_user_id()
+		).all()
 		
-		# Second search descriptions
-		description_search_results = session.query( SavedLambda ).filter(
-			SavedLambda.description.ilike( "%" + self.json[ "query" ] + "%" ) # Probably SQL injection \o/
-		).limit(10).all()
+		# List of already returned result IDs
+		existing_ids = []
 		
-		already_added_ids = []
+		# List of results
 		results_list = []
 		
-		"""
-		The below ranks saved function "name" matches over description matches.
-		"""
-		for name_search_result in name_search_results:
-			if not name_search_result.id in already_added_ids:
-				already_added_ids.append(
-					name_search_result.id
-				)
-				
-				results_list.append(
-					name_search_result.to_dict()
-				)
-				
-		for description_search_result in description_search_results:
-			if not description_search_result.id in already_added_ids:
-				already_added_ids.append(
-					description_search_result.id
-				)
-				
-				results_list.append(
-					description_search_result.to_dict()
-				)
+		# Searchable attributes
+		searchable_attributes = [
+			"name",
+			"description"
+		]
+		
+		# Search and add results in order of the searchable attributes
+		for searchable_attribute in searchable_attributes:
+			for saved_lambda in saved_lambdas:
+				if self.json[ "query" ].lower() in getattr( saved_lambda, searchable_attribute ).lower() and not ( saved_lambda.id in existing_ids ):
+					# Add to results
+					results_list.append(
+						saved_lambda.to_dict()
+					)
+					
+					# Add to existing IDs so we don't have duplicates
+					existing_ids.append(
+						saved_lambda.id
+					)
 		
 		self.write({
 			"success": True,
@@ -3536,6 +3399,7 @@ class SavedLambdaDelete( BaseHandler ):
 		)
 		
 		session.query( SavedLambda ).filter_by(
+			user_id=self.get_authenticated_user_id(),
 			id=self.json[ "id" ]
 		).delete()
 		
@@ -5151,7 +5015,6 @@ class EmailLinkAuthentication( BaseHandler ):
 	
 class GetAuthenticationStatus( BaseHandler ):
 	@authenticated
-	@gen.coroutine
 	def get( self ):
 		current_user = self.get_authenticated_user()
 		
@@ -5162,7 +5025,7 @@ class GetAuthenticationStatus( BaseHandler ):
 				"email": current_user.email,
 				"permission_level": current_user.permission_level,
 			})
-			raise gen.Return()
+			return
 		
 		self.write({
 			"authenticated": False
@@ -5281,15 +5144,13 @@ def make_app( is_debug ):
 		( r"/api/v1/functions/update", SavedFunctionUpdate ), # Auth reviewed
 		( r"/api/v1/functions/create", SavedFunctionCreate ), # Auth reviewed
 		( r"/api/v1/functions/search", SavedFunctionSearch ), # Auth reviewed
-		( r"/api/v1/lambdas/create", SavedLambdaCreate ),
-		( r"/api/v1/lambdas/search", SavedLambdaSearch ),
-		( r"/api/v1/lambdas/delete", SavedLambdaDelete ),
+		( r"/api/v1/lambdas/create", SavedLambdaCreate ), # Auth reviewed
+		( r"/api/v1/lambdas/search", SavedLambdaSearch ), # Auth reviewed
+		( r"/api/v1/lambdas/delete", SavedLambdaDelete ), # Auth reviewed
 		( r"/api/v1/lambdas/run", RunLambda ),
 		( r"/api/v1/lambdas/logs", GetCloudWatchLogsForLambda ),
 		( r"/api/v1/lambdas/env_vars/update", UpdateEnvironmentVariables ),
-		( r"/api/v1/aws/create_schedule_trigger", CreateScheduleTrigger ),
 		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda ),
-		( r"/api/v1/aws/create_sqs_trigger", CreateSQSQueueTrigger ),
 		( r"/api/v1/aws/infra_tear_down", InfraTearDown ),
 		( r"/api/v1/aws/infra_collision_check", InfraCollisionCheck ),
 		( r"/api/v1/projects/save", SaveProject ), # Auth reviewed
