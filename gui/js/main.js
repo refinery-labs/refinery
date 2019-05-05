@@ -1733,7 +1733,7 @@ var app = new Vue({
 				);
 
 				if( parsed_arn.resource_type == "sns" ) {
-					return `https://${parsed_arn.aws_region}.console.aws.amazon.com/sns/v2/home?region=${parsed_arn.aws_region}#/topics/${parsed_arn.full_arn}`;
+					return `https://${parsed_arn.aws_region}.console.aws.amazon.com/sns/v2/home?region=${parsed_arn.aws_region}#/topic/${parsed_arn.full_arn}`;
 				} else if ( parsed_arn.resource_type == "lambda" ) {
 					return `https://${parsed_arn.aws_region}.console.aws.amazon.com/lambda/home?region=${parsed_arn.aws_region}#/functions/${parsed_arn.resource_name}?tab=graph`;
 				} else if ( parsed_arn.resource_type == "events" ) {

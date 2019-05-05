@@ -7,6 +7,7 @@ import tornado.ioloop
 import tornado.web
 import botocore
 import subprocess
+import traceback
 import pystache
 import logging
 import hashlib
@@ -126,80 +127,6 @@ def on_start():
 			LAMDBA_BASE_CODES[ language_name ] = inject_configurations(
 				file_handler.read()
 			)
-		
-# Up the max connection amount in pool
-S3_CONFIG = Config(
-	max_pool_connections=( 1000 * 2 )
-)
-
-S3_CLIENT = boto3.client(
-	"s3",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" ),
-	config=S3_CONFIG
-)
-
-LAMBDA_CONFIG = Config(
-	connect_timeout=50,
-	read_timeout=( 60 * 15 )
-)
-LAMBDA_CLIENT = boto3.client(
-	"lambda",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" ),
-	config=LAMBDA_CONFIG
-)
-
-SFN_CLIENT = boto3.client(
-	"stepfunctions",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" )
-)
-
-EVENTS_CLIENT = boto3.client(
-	"events",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" )
-)
-
-SQS_CLIENT = boto3.client(
-	"sqs",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" )
-)
-
-SNS_CLIENT = boto3.client(
-	"sns",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" )
-)
-
-CLOUDWATCH_LOGS_CLIENT = boto3.client(
-	"logs",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" )
-)
-
-CLOUDWATCH_CLIENT = boto3.client(
-	"cloudwatch",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" )
-)
-
-APIGATEWAY_CLIENT = boto3.client(
-	"apigateway",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" )
-)
 
 # This is purely for sending emails as part of Refinery's
 # regular operations (e.g. authentication via email code, etc).
@@ -209,6 +136,33 @@ SES_EMAIL_CLIENT = boto3.client(
 	aws_secret_access_key=os.environ.get( "ses_emails_secret_key" ),
 	region_name=os.environ.get( "ses_emails_region" )
 )
+
+def get_aws_client( client_type, credentials ):
+	"""
+	Take an AWS client type ("s3", "lambda", etc) and an AWS
+	credentials dict and return an AWS client object.
+	"""
+	
+	client_options = {
+		"aws_access_key_id": credentials[ "access_key" ],
+		"aws_secret_access_key": credentials[ "secret_key" ],
+		"region_name": credentials[ "region" ],
+	}
+	
+	if client_type == "lambda":
+		client_options[ "config" ] = Config(
+			connect_timeout=50,
+			read_timeout=( 60 * 15 )
+		)
+	elif client_type == "s3":
+		client_options[ "config" ] = Config(
+			max_pool_connections=( 1000 * 2 )
+		)
+		
+	return boto3.client(
+		client_type,
+		**client_options
+	)
 
 def pprint( input_dict ):
 	try:
@@ -575,12 +529,13 @@ class TaskSpawner(object):
 			)
 			
 		@run_on_executor
-		def execute_aws_lambda( self, arn, input_data ):
-			return TaskSpawner._execute_aws_lambda( arn, input_data )
+		def execute_aws_lambda( self, credentials, arn, input_data ):
+			return TaskSpawner._execute_aws_lambda( credentials, arn, input_data )
 		
 		@staticmethod
-		def _execute_aws_lambda( arn, input_data ):
-			response = LAMBDA_CLIENT.invoke(
+		def _execute_aws_lambda( credentials, arn, input_data ):
+			lambda_client = get_aws_client( "lambda", credentials )
+			response = lambda_client.invoke(
 				FunctionName=arn,
 				InvocationType="RequestResponse",
 				LogType="Tail",
@@ -648,59 +603,26 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def execute_aws_step_function( self, exec_name, sfn_arn, input_data ):
-			return TaskSpawner._execute_aws_step_function( exec_name, sfn_arn, input_data )
+		def delete_aws_lambda( self, credentials, arn_or_name ):
+			return TaskSpawner._delete_aws_lambda( credentials, arn_or_name )
 		
 		@staticmethod
-		def _execute_aws_step_function( exec_name, sfn_arn, input_data ):
-			response = SFN_CLIENT.start_execution(
-				stateMachineArn=sfn_arn,
-				name=exec_name,
-				input=json.dumps(
-					input_data
-				)
-			)
-			
-			return response
-			
-		@run_on_executor
-		def deploy_aws_step_function( self, sfn_name, sfn_definition, role_name ):
-			return TaskSpawner._deploy_aws_step_function( sfn_name, sfn_definition, role_name )
-
-		@staticmethod
-		def _deploy_aws_step_function( sfn_name, sfn_definition, role_name ):
-			"""
-			Deploy an AWS step function
-			"""
-			response = SFN_CLIENT.create_state_machine(
-				name=sfn_name,
-				definition=json.dumps(
-					sfn_definition
-				),
-				roleArn=role_name
-			)
-			return response
-			
-		@run_on_executor
-		def delete_aws_lambda( self, arn_or_name ):
-			return TaskSpawner._delete_aws_lambda( arn_or_name )
-		
-		@staticmethod
-		def _delete_aws_lambda( arn_or_name ):
-			response = LAMBDA_CLIENT.delete_function(
+		def _delete_aws_lambda( credentials, arn_or_name ):
+			lambda_client = get_aws_client( "lambda", credentials )
+			return lambda_client.delete_function(
 				FunctionName=arn_or_name
 			)
 			
-			return response
-			
 		@run_on_executor
-		def update_lambda_environment_variables( self, func_name, environment_variables ):
+		def update_lambda_environment_variables( self, credentials, func_name, environment_variables ):
+			lambda_client = get_aws_client( "lambda", credentials )
+			
 			# Generate environment variables data structure
 			env_data = {}
 			for env_pair in environment_variables:
 				env_data[ env_pair[ "key" ] ] = env_pair[ "value" ]
 				
-			response = LAMBDA_CLIENT.update_function_configuration(
+			response = lambda_client.update_function_configuration(
 				FunctionName=func_name,
 				Environment={
 					"Variables": env_data
@@ -710,11 +632,11 @@ class TaskSpawner(object):
 			return response
 			
 		@run_on_executor
-		def deploy_aws_lambda( self, func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
-			return TaskSpawner._deploy_aws_lambda( func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict, layers )
+		def deploy_aws_lambda( self, credentials, func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
+			return TaskSpawner._deploy_aws_lambda( credentials, func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict, layers )
 
 		@staticmethod
-		def _deploy_aws_lambda( func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
+		def _deploy_aws_lambda( credentials, func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
 			if language in CUSTOM_RUNTIME_LANGUAGES:
 				language = "provided"
 
@@ -735,10 +657,16 @@ class TaskSpawner(object):
 			# First check if it already exists
 			already_exists = False
 			
+			# Create S3 client
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
 			# S3 head response
 			try:
-				s3_head_response = S3_CLIENT.head_object(
-					Bucket=os.environ.get( "tmp_lambda_packages_bucket" ),
+				s3_head_response = s3_client.head_object(
+					Bucket=credentials[ "lambda_packages_bucket" ],
 					Key=s3_package_zip_path
 				)
 				
@@ -749,9 +677,9 @@ class TaskSpawner(object):
 			
 			if not already_exists:
 				print( "Doesn't already exist in S3 cache, writing to S3..." )
-				response = S3_CLIENT.put_object(
+				response = s3_client.put_object(
 					Key=s3_package_zip_path,
-					Bucket=os.environ.get( "tmp_lambda_packages_bucket" ),
+					Bucket=credentials[ "lambda_packages_bucket" ],
 					Body=zip_data,
 				)
 				
@@ -759,16 +687,22 @@ class TaskSpawner(object):
 			env_data = {}
 			for env_pair in environment_variables:
 				env_data[ env_pair[ "key" ] ] = env_pair[ "value" ]
+				
+			# Create Lambda client
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
 			
 			try:
 				# https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#Lambda.Client.create_function
-				response = LAMBDA_CLIENT.create_function(
+				response = lambda_client.create_function(
 					FunctionName=func_name,
 					Runtime=language,
 					Role=role_name,
 					Handler="lambda._init",
 					Code={
-						"S3Bucket": os.environ.get( "tmp_lambda_packages_bucket" ),
+						"S3Bucket": credentials[ "lambda_packages_bucket" ],
 						"S3Key": s3_package_zip_path,
 					},
 					Description=description,
@@ -790,11 +724,13 @@ class TaskSpawner(object):
 					
 					# Delete the existing lambda
 					delete_response = TaskSpawner._delete_aws_lambda(
+						credentials,
 						func_name
 					)
 					
 					# Now create it since we're clear
 					return TaskSpawner._deploy_aws_lambda(
+						credentials,
 						func_name,
 						language,
 						description,
@@ -1211,13 +1147,23 @@ class TaskSpawner(object):
 			return zip_data
 			
 		@run_on_executor
-		def create_cloudwatch_rule( self, id, name, schedule_expression, description, input_dict ):
-			response = EVENTS_CLIENT.put_rule(
+		def create_cloudwatch_rule( self, credentials, id, name, schedule_expression, description, input_dict ):
+			events_client = get_aws_client(
+				"events",
+				credentials,
+			)
+			
+			# Events role ARN is able to be generated off of the account ID
+			# The role name should be the same for all accounts.
+			# arn:aws:iam::148731734429:role/refinery_aws_cloudwatch_admin_role
+			events_role_arn = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/refinery_aws_cloudwatch_admin_role"
+			
+			response = events_client.put_rule(
 				Name=name,
 				ScheduleExpression=schedule_expression, # cron(0 20 * * ? *) or rate(5 minutes)
 				State="ENABLED",
 				Description=description,
-				RoleArn=os.environ.get( "events_role" )
+				RoleArn=events_role_arn,
 			)
 			
 			return {
@@ -1228,7 +1174,17 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def add_rule_target( self, rule_name, target_id, target_arn, input_dict ):
+		def add_rule_target( self, credentials, rule_name, target_id, target_arn, input_dict ):
+			events_client = get_aws_client(
+				"events",
+				credentials,
+			)
+			
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials,
+			)
+			
 			targets_data = 	{
 				"Id": target_id,
 				"Arn": target_arn,
@@ -1237,7 +1193,7 @@ class TaskSpawner(object):
 				)
 			}
 			
-			rule_creation_response = EVENTS_CLIENT.put_targets(
+			rule_creation_response = events_client.put_targets(
 				Rule=rule_name,
 				Targets=[
 					targets_data
@@ -1248,24 +1204,26 @@ class TaskSpawner(object):
 			For AWS Lambda you need to add a permission to the Lambda function itself
 			via the add_permission API call to allow invocation via the CloudWatch event.
 			"""
-			lambda_permission_add_response = LAMBDA_CLIENT.add_permission(
+			lambda_permission_add_response = lambda_client.add_permission(
 				FunctionName=target_arn,
 				StatementId=rule_name + "_statement",
 				Action="lambda:*",
 				Principal="events.amazonaws.com",
-				SourceArn="arn:aws:events:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":rule/" + rule_name,
+				SourceArn="arn:aws:events:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":rule/" + rule_name,
 				#SourceAccount=os.environ.get( "aws_account_id" ) # THIS IS A BUG IN AWS NEVER PASS THIS
 			)
-			
-			print( "Lambda add permission: " )
-			pprint( lambda_permission_add_response )
 			
 			return rule_creation_response
 		
 		@run_on_executor
-		def create_sns_topic( self, id, topic_name ):
+		def create_sns_topic( self, credentials, id, topic_name ):
+			sns_client = get_aws_client(
+				"sns",
+				credentials
+			)
+			
 			topic_name = get_lambda_safe_name( topic_name )
-			response = SNS_CLIENT.create_topic(
+			response = sns_client.create_topic(
 				Name=topic_name
 			)
 			
@@ -1277,12 +1235,22 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def subscribe_lambda_to_sns_topic( self, topic_name, topic_arn, lambda_arn ):
+		def subscribe_lambda_to_sns_topic( self, credentials, topic_name, topic_arn, lambda_arn ):
 			"""
 			For AWS Lambda you need to add a permission to the Lambda function itself
 			via the add_permission API call to allow invocation via the SNS event.
 			"""
-			lambda_permission_add_response = LAMBDA_CLIENT.add_permission(
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
+			sns_client = get_aws_client(
+				"sns",
+				credentials,
+			)
+			
+			lambda_permission_add_response = lambda_client.add_permission(
 				FunctionName=lambda_arn,
 				StatementId=str( uuid.uuid4() ),
 				Action="lambda:*",
@@ -1291,7 +1259,7 @@ class TaskSpawner(object):
 				#SourceAccount=os.environ.get( "aws_account_id" ) # THIS IS A BUG IN AWS NEVER PASS THIS
 			)
 			
-			sns_topic_response = SNS_CLIENT.subscribe(
+			sns_topic_response = sns_client.subscribe(
 				TopicArn=topic_arn,
 				Protocol="lambda",
 				Endpoint=lambda_arn,
@@ -1305,14 +1273,19 @@ class TaskSpawner(object):
 			}
 		
 		@run_on_executor
-		def create_sqs_queue( self, id, queue_name, content_based_deduplication, batch_size ):
+		def create_sqs_queue( self, credentials, id, queue_name, content_based_deduplication, batch_size ):
+			sqs_client = get_aws_client(
+				"sqs",
+				credentials
+			)
+			
 			sqs_queue_name = get_lambda_safe_name( queue_name )
 			
 			queue_deleted = False
 			
 			while queue_deleted == False:
 				try:
-					sqs_response = SQS_CLIENT.create_queue(
+					sqs_response = sqs_client.create_queue(
 						QueueName=sqs_queue_name,
 						Attributes={
 							"DelaySeconds": str( 0 ),
@@ -1322,12 +1295,12 @@ class TaskSpawner(object):
 					)
 					
 					queue_deleted = True
-				except SQS_CLIENT.exceptions.QueueDeletedRecently:
+				except sqs_client.exceptions.QueueDeletedRecently:
 					print( "SQS queue was deleted too recently, trying again in ten seconds..." )
 					
 					time.sleep( 10 )
 			
-			sqs_arn = "arn:aws:sqs:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + queue_name
+			sqs_arn = "arn:aws:sqs:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + queue_name
 			
 			return {
 				"id": id,
@@ -1337,53 +1310,25 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def map_sqs_to_lambda( self, sqs_arn, lambda_arn, batch_size ):
-			response = LAMBDA_CLIENT.create_event_source_mapping(
+		def map_sqs_to_lambda( self, credentials, sqs_arn, lambda_arn, batch_size ):
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
+			response = lambda_client.create_event_source_mapping(
 				EventSourceArn=sqs_arn,
 				FunctionName=lambda_arn,
 				Enabled=True,
 				BatchSize=batch_size,
 			)
 			
-			print( "Mapping SQS to lambda: " )
-			pprint(
-				response
-			)
-			
 			return response
-			
+
 		@run_on_executor
-		def create_log_group( self, log_group_name ):
-			response = CLOUDWATCH_LOGS_CLIENT.create_log_group(
-				logGroupName=log_group_name
-			)
-			
-			print( "Create log group: " )
-			pprint( response )
-			
-			return response
-			
-		@staticmethod
-		def write_to_s3( s3_bucket, path, object_data ):
-			return TaskSpawner._write_to_s3( s3_bucket, path, object_data )
-			
-		@run_on_executor
-		def _write_to_s3( self, s3_bucket, path, object_data ):
-			# Remove leading / because they are almost always not intended
-			if path.startswith( "/" ):
-				path = path[1:]
-				
-			response = S3_CLIENT.put_object(
-				Key=path,
-				Bucket=s3_bucket,
-				Body=object_data,
-			)
-			
-			return response
-			
-		@run_on_executor
-		def read_from_s3_and_return_input( self, s3_bucket, path ):
+		def read_from_s3_and_return_input( self, credentials, s3_bucket, path ):
 			return_data = TaskSpawner._read_from_s3(
+				credentials,
 				s3_bucket,
 				path
 			)
@@ -1395,20 +1340,26 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def read_from_s3( self, s3_bucket, path ):
+		def read_from_s3( self, credentials, s3_bucket, path ):
 			return TaskSpawner._read_from_s3(
+				credentials,
 				s3_bucket,
 				path
 			)
 		
 		@staticmethod
-		def _read_from_s3( s3_bucket, path ):
+		def _read_from_s3( credentials, s3_bucket, path ):
+			s3_client = get_aws_client(
+				"s3",
+				credentials,
+			)
+			
 			# Remove leading / because they are almost always not intended
 			if path.startswith( "/" ):
 				path = path[1:]
 			
 			try:
-				s3_object = S3_CLIENT.get_object(
+				s3_object = s3_client.get_object(
 					Bucket=s3_bucket,
 					Key=path
 				)
@@ -1418,7 +1369,12 @@ class TaskSpawner(object):
 			return s3_object[ "Body" ].read()
 			
 		@run_on_executor
-		def bulk_s3_delete( self, s3_bucket, s3_path_list ):
+		def bulk_s3_delete( self, credentials, s3_bucket, s3_path_list ):
+			s3_client = get_aws_client(
+				"s3",
+				credentials,
+			)
+			
 			delete_data = []
 			
 			for s3_path in s3_path_list:
@@ -1426,7 +1382,7 @@ class TaskSpawner(object):
 					"Key": s3_path,
 				})
 				
-			response = S3_CLIENT.delete_objects(
+			response = s3_client.delete_objects(
 				Bucket=s3_bucket,
 				Delete={
 					"Objects": delete_data
@@ -1435,15 +1391,21 @@ class TaskSpawner(object):
 			return response
 			
 		@run_on_executor
-		def get_s3_pipeline_execution_logs( self, s3_prefix, max_results ):
+		def get_s3_pipeline_execution_logs( self, credentials, s3_prefix, max_results ):
 			return TaskSpawner.get_all_s3_paths(
-				os.environ.get( "pipeline_logs_bucket" ),
+				credentials,
+				credentials[ "logs_bucket" ],
 				s3_prefix,
 				max_results
 			)
 		
 		@staticmethod
-		def get_all_s3_paths( s3_bucket, prefix, max_results, **kwargs ):
+		def get_all_s3_paths( credentials, s3_bucket, prefix, max_results, **kwargs ):
+			s3_client = get_aws_client(
+				"s3",
+				credentials,
+			)
+			
 			return_array = []
 			continuation_token = False
 			if max_results == -1: # max_results -1 means get all results
@@ -1454,7 +1416,7 @@ class TaskSpawner(object):
 				max_keys = 1000
 			
 			# First check to prime it
-			response = S3_CLIENT.list_objects_v2(
+			response = s3_client.list_objects_v2(
 				Bucket=s3_bucket,
 				Prefix=prefix,
 				MaxKeys=max_keys, # Max keys you can request at once
@@ -1464,7 +1426,7 @@ class TaskSpawner(object):
 			while True:
 				if continuation_token:
 					# Grab another page of results
-					response = S3_CLIENT.list_objects_v2(
+					response = s3_client.list_objects_v2(
 						Bucket=s3_bucket,
 						Prefix=prefix,
 						MaxKeys=max_keys, # Max keys you can request at once
@@ -1493,25 +1455,32 @@ class TaskSpawner(object):
 			return return_array
 			
 		@run_on_executor
-		def get_s3_pipeline_execution_ids( self, timestamp_prefix, max_results, continuation_token ):
+		def get_s3_pipeline_execution_ids( self, credentials, timestamp_prefix, max_results, continuation_token ):
 			return TaskSpawner.get_all_s3_prefixes(
-				os.environ.get( "pipeline_logs_bucket" ),
+				credentials,
+				credentials[ "logs_bucket" ],
 				timestamp_prefix,
 				max_results,
 				continuation_token
 			)
 		
 		@run_on_executor
-		def get_s3_pipeline_timestamp_prefixes( self, project_id, max_results, continuation_token ):
+		def get_s3_pipeline_timestamp_prefixes( self, credentials, project_id, max_results, continuation_token ):
 			return TaskSpawner.get_all_s3_prefixes(
-				os.environ.get( "pipeline_logs_bucket" ),
+				credentials,
+				credentials[ "logs_bucket" ],
 				project_id + "/",
 				max_results,
 				continuation_token
 			)
 
 		@staticmethod
-		def get_all_s3_prefixes( s3_bucket, prefix, max_results, continuation_token ):
+		def get_all_s3_prefixes( credentials, s3_bucket, prefix, max_results, continuation_token ):
+			s3_client = get_aws_client(
+				"s3",
+				credentials,
+			)
+			
 			return_array = []
 			if max_results == -1: # max_results -1 means get all results
 				max_keys = 1000
@@ -1531,7 +1500,7 @@ class TaskSpawner(object):
 				list_objects_params[ "ContinuationToken" ] = continuation_token
 			
 			# First check to prime it
-			response = S3_CLIENT.list_objects_v2(
+			response = s3_client.list_objects_v2(
 				**list_objects_params
 			)
 			
@@ -1539,7 +1508,7 @@ class TaskSpawner(object):
 				if continuation_token:
 					list_objects_params[ "ContinuationToken" ] = continuation_token
 					# Grab another page of results
-					response = S3_CLIENT.list_objects_v2(
+					response = s3_client.list_objects_v2(
 						**list_objects_params
 					)
 				
@@ -1571,16 +1540,21 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def get_aws_lambda_existence_info( self, id, type, lambda_name ):
-			return TaskSpawner._get_aws_lambda_existence_info( id, type, lambda_name )
+		def get_aws_lambda_existence_info( self, credentials, id, type, lambda_name ):
+			return TaskSpawner._get_aws_lambda_existence_info( credentials, id, type, lambda_name )
 		
 		@staticmethod
-		def _get_aws_lambda_existence_info( id, type, lambda_name ):
+		def _get_aws_lambda_existence_info( credentials, id, type, lambda_name ):
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
 			try:
-				response = LAMBDA_CLIENT.get_function(
+				response = lambda_client.get_function(
 					FunctionName=lambda_name
 				)
-			except LAMBDA_CLIENT.exceptions.ResourceNotFoundException:
+			except lambda_client.exceptions.ResourceNotFoundException:
 				return {
 					"id": id,
 					"type": type,
@@ -1597,7 +1571,12 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def get_lambda_cloudwatch_logs( self, arn ):
+		def get_lambda_cloudwatch_logs( self, credentials, arn ):
+			cloudwatch_logs_client = get_aws_client(
+				"logs",
+				credentials
+			)
+			
 			"""
 			Pull the full logs from CloudWatch
 			"""
@@ -1607,7 +1586,7 @@ class TaskSpawner(object):
 			
 			# Pull the last stream from CloudWatch
 			# Streams take time to propogate so wait if needed
-			streams_data = CLOUDWATCH_LOGS_CLIENT.describe_log_streams(
+			streams_data = cloudwatch_logs_client.describe_log_streams(
 				logGroupName=log_group_name,
 				orderBy="LastEventTime",
 				limit=50
@@ -1631,7 +1610,7 @@ class TaskSpawner(object):
 				if forward_token:
 					get_log_events_params[ "nextToken" ] = forward_token
 				
-				log_data = CLOUDWATCH_LOGS_CLIENT.get_log_events(
+				log_data = cloudwatch_logs_client.get_log_events(
 					**get_log_events_params
 				)
 				
@@ -1659,16 +1638,21 @@ class TaskSpawner(object):
 			return log_output
 			
 		@run_on_executor
-		def get_cloudwatch_existence_info( self, id, type, name ):
-			return TaskSpawner._get_cloudwatch_existence_info( id, type, name )
+		def get_cloudwatch_existence_info( self, credentials, id, type, name ):
+			return TaskSpawner._get_cloudwatch_existence_info( credentials, id, type, name )
 			
 		@staticmethod
-		def _get_cloudwatch_existence_info( id, type, name ):
+		def _get_cloudwatch_existence_info( credentials, id, type, name ):
+			events_client = get_aws_client(
+				"events",
+				credentials
+			)
+			
 			try:
-				response = EVENTS_CLIENT.describe_rule(
+				response = events_client.describe_rule(
 					Name=name,
 				)
-			except EVENTS_CLIENT.exceptions.ResourceNotFoundException:
+			except events_client.exceptions.ResourceNotFoundException:
 				return {
 					"id": id,
 					"type": type,
@@ -1685,16 +1669,21 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def get_sqs_existence_info( self, id, type, name ):
-			return TaskSpawner._get_sqs_existence_info( id, type, name )
+		def get_sqs_existence_info( self, credentials, id, type, name ):
+			return TaskSpawner._get_sqs_existence_info( credentials, id, type, name )
 			
 		@staticmethod
-		def _get_sqs_existence_info( id, type, name ):
+		def _get_sqs_existence_info( credentials, id, type, name ):
+			sqs_client = get_aws_client(
+				"sqs",
+				credentials,
+			)
+			
 			try:
-				queue_url_response = SQS_CLIENT.get_queue_url(
+				queue_url_response = sqs_client.get_queue_url(
 					QueueName=name,
 				)
-			except SQS_CLIENT.exceptions.QueueDoesNotExist:
+			except sqs_client.exceptions.QueueDoesNotExist:
 				return {
 					"id": id,
 					"type": type,
@@ -1706,23 +1695,28 @@ class TaskSpawner(object):
 				"id": id,
 				"type": type,
 				"name": name,
-				"arn": "arn:aws:sqs:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + name,
+				"arn": "arn:aws:sqs:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + name,
 				"exists": True,
 			}
 			
 		@run_on_executor
-		def get_sns_existence_info( self, id, type, name ):
-			return TaskSpawner._get_sns_existence_info( id, type, name )
+		def get_sns_existence_info( self, credentials, id, type, name ):
+			return TaskSpawner._get_sns_existence_info( credentials, id, type, name )
 			
 		@staticmethod
-		def _get_sns_existence_info( id, type, name ):
-			sns_topic_arn = "arn:aws:sns:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + name
+		def _get_sns_existence_info( credentials, id, type, name ):
+			sns_client = get_aws_client(
+				"sns",
+				credentials
+			)
+			
+			sns_topic_arn = "arn:aws:sns:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + name
 			
 			try:
-				response = SNS_CLIENT.get_topic_attributes(
+				response = sns_client.get_topic_attributes(
 					TopicArn=sns_topic_arn
 				)
-			except SNS_CLIENT.exceptions.NotFoundException:
+			except sns_client.exceptions.NotFoundException:
 				return {
 					"id": id,
 					"type": type,
@@ -1739,14 +1733,19 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def delete_lambda( self, id, type, name, arn ):
-			return TaskSpawner._delete_lambda( id, type, name, arn )
+		def delete_lambda( self, credentials, id, type, name, arn ):
+			return TaskSpawner._delete_lambda( credentials, id, type, name, arn )
 			
 		@staticmethod
-		def _delete_lambda( id, type, name, arn ):
+		def _delete_lambda( credentials, id, type, name, arn ):
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
 			was_deleted = False
 			try:
-				response = LAMBDA_CLIENT.delete_function(
+				response = lambda_client.delete_function(
 					FunctionName=arn,
 				)
 				was_deleted = True
@@ -1764,15 +1763,20 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def delete_sns_topic( self, id, type, name, arn ):
-			return TaskSpawner._delete_sns_topic( id, type, name, arn )
+		def delete_sns_topic( self, credentials, id, type, name, arn ):
+			return TaskSpawner._delete_sns_topic( credentials, id, type, name, arn )
 			
 		@staticmethod
-		def _delete_sns_topic( id, type, name, arn ):
+		def _delete_sns_topic( credentials, id, type, name, arn ):
+			sns_client = get_aws_client(
+				"sns",
+				credentials,
+			)
+			
 			was_deleted = False
 			
 			try:
-				response = SNS_CLIENT.delete_topic(
+				response = sns_client.delete_topic(
 					TopicArn=arn,
 				)
 				was_deleted = True
@@ -1789,19 +1793,24 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def delete_sqs_queue( self, id, type, name, arn ):
-			return TaskSpawner._delete_sqs_queue( id, type, name, arn )
+		def delete_sqs_queue( self, credentials, id, type, name, arn ):
+			return TaskSpawner._delete_sqs_queue( credentials, id, type, name, arn )
 			
 		@staticmethod
-		def _delete_sqs_queue( id, type, name, arn ):
+		def _delete_sqs_queue( credentials, id, type, name, arn ):
+			sqs_client = get_aws_client(
+				"sqs",
+				credentials,
+			)
+			
 			was_deleted = False
 			
 			try:
-				queue_url_response = SQS_CLIENT.get_queue_url(
+				queue_url_response = sqs_client.get_queue_url(
 					QueueName=name,
 				)
 				
-				response = SQS_CLIENT.delete_queue(
+				response = sqs_client.delete_queue(
 					QueueUrl=queue_url_response[ "QueueUrl" ],
 				)
 			except ClientError as e:
@@ -1817,14 +1826,19 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def delete_schedule_trigger( self, id, type, name, arn ):
-			return TaskSpawner._delete_schedule_trigger( id, type, name, arn )
+		def delete_schedule_trigger( self, credentials, id, type, name, arn ):
+			return TaskSpawner._delete_schedule_trigger( credentials, id, type, name, arn )
 			
 		@staticmethod
-		def _delete_schedule_trigger( id, type, name, arn ):
+		def _delete_schedule_trigger( credentials, id, type, name, arn ):
+			events_client = get_aws_client(
+				"events",
+				credentials
+			)
+			
 			was_deleted = False
 			try:
-				list_rule_targets_response = EVENTS_CLIENT.list_targets_by_rule(
+				list_rule_targets_response = events_client.list_targets_by_rule(
 					Rule=name,
 				)
 				
@@ -1837,12 +1851,12 @@ class TaskSpawner(object):
 	
 				# If there are some targets, delete them, else skip this.
 				if len( target_ids ) > 0:
-					remove_targets_response = EVENTS_CLIENT.remove_targets(
+					remove_targets_response = events_client.remove_targets(
 						Rule=name,
 						Ids=target_ids
 					)
 				
-				response = EVENTS_CLIENT.delete_rule(
+				response = events_client.delete_rule(
 					Name=name,
 				)
 				
@@ -1861,8 +1875,13 @@ class TaskSpawner(object):
 			
 		
 		@run_on_executor
-		def create_rest_api( self, name, description, version ):
-			response = APIGATEWAY_CLIENT.create_rest_api(
+		def create_rest_api( self, credentials, name, description, version ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
+			response = api_gateway_client.create_rest_api(
 				name=name,
 				description=description,
 				version=version,
@@ -1882,8 +1901,13 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def delete_rest_api( self, rest_api_id ):
-			response = APIGATEWAY_CLIENT.delete_rest_api(
+		def delete_rest_api( self, credentials, rest_api_id ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
+			response = api_gateway_client.delete_rest_api(
 				restApiId=rest_api_id,
 			)
 			
@@ -1892,8 +1916,13 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def delete_rest_api_resource( self, rest_api_id, resource_id ):
-			response = APIGATEWAY_CLIENT.delete_resource(
+		def delete_rest_api_resource( self, credentials, rest_api_id, resource_id ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
+			response = api_gateway_client.delete_resource(
 				restApiId=rest_api_id,
 				resourceId=resource_id,
 			)
@@ -1904,9 +1933,14 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def delete_rest_api_resource_method( self, rest_api_id, resource_id, method ):
+		def delete_rest_api_resource_method( self, credentials, rest_api_id, resource_id, method ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
 			try:
-				response = APIGATEWAY_CLIENT.delete_method(
+				response = api_gateway_client.delete_method(
 					restApiId=rest_api_id,
 					resourceId=resource_id,
 					httpMethod=method,
@@ -1922,8 +1956,13 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def deploy_api_gateway_to_stage( self, rest_api_id, stage_name ):
-			deployment_response = APIGATEWAY_CLIENT.create_deployment(
+		def deploy_api_gateway_to_stage( self, credentials, rest_api_id, stage_name ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
+			deployment_response = api_gateway_client.create_deployment(
 				restApiId=rest_api_id,
 				stageName=stage_name,
 				stageDescription="API Gateway deployment deployed via refinery",
@@ -1942,24 +1981,13 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def get_rest_apis( self ):
-			response = APIGATEWAY_CLIENT.get_rest_apis(
-				limit=500,
+		def get_resources( self, credentials, rest_api_id ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
 			)
 			
-			return response[ "items" ]
-			
-		@run_on_executor
-		def get_rest_api( self, api_gateway_id ):
-			response = APIGATEWAY_CLIENT.get_rest_api(
-				restApiId=api_gateway_id,
-			)
-			
-			return response
-			
-		@run_on_executor
-		def get_resources( self, rest_api_id ):
-			response = APIGATEWAY_CLIENT.get_resources(
+			response = api_gateway_client.get_resources(
 				restApiId=rest_api_id,
 				limit=500
 			)
@@ -1967,16 +1995,26 @@ class TaskSpawner(object):
 			return response[ "items" ]
 			
 		@run_on_executor
-		def get_stages( self, rest_api_id ):
-			response = APIGATEWAY_CLIENT.get_stages(
+		def get_stages( self, credentials, rest_api_id ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
+			response = api_gateway_client.get_stages(
 				restApiId=rest_api_id
 			)
 			
 			return response[ "item" ]
 			
 		@run_on_executor
-		def delete_stage( self, rest_api_id, stage_name ):
-			response = APIGATEWAY_CLIENT.delete_stage(
+		def delete_stage( self, credentials, rest_api_id, stage_name ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
+			response = api_gateway_client.delete_stage(
 				restApiId=rest_api_id,
 				stageName=stage_name
 			)
@@ -1987,8 +2025,13 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def create_resource( self, rest_api_id, parent_id, path_part ):
-			response = APIGATEWAY_CLIENT.create_resource(
+		def create_resource( self, credentials, rest_api_id, parent_id, path_part ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
+			response = api_gateway_client.create_resource(
 				restApiId=rest_api_id,
 				parentId=parent_id,
 				pathPart=path_part
@@ -2004,8 +2047,13 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def create_method( self, method_name, rest_api_id, resource_id, http_method, api_key_required ):
-			response = APIGATEWAY_CLIENT.put_method(
+		def create_method( self, credentials, method_name, rest_api_id, resource_id, http_method, api_key_required ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
+			response = api_gateway_client.put_method(
 				restApiId=rest_api_id,
 				resourceId=resource_id,
 				httpMethod=http_method,
@@ -2023,10 +2071,20 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def clean_lambda_iam_policies( self, lambda_name ):
+		def clean_lambda_iam_policies( self, credentials, lambda_name ):
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
 			print( "Cleaning up IAM policies from no-longer-existing API Gateways attached to Lambda..." )
 			try:
-				response = LAMBDA_CLIENT.get_policy(
+				response = lambda_client.get_policy(
 					FunctionName=lambda_name,
 				)
 			except ClientError as e:
@@ -2054,14 +2112,14 @@ class TaskSpawner(object):
 					api_gateway_id = arn_parts[ 5 ]
 					print( "API Gateway ID: " + api_gateway_id )
 					
-					api_gateway_data = APIGATEWAY_CLIENT.get_rest_api(
+					api_gateway_data = api_gateway_client.get_rest_api(
 						restApiId=api_gateway_id,
 					)
 				except:
 					
 					print( "API Gateway does not exist, deleting IAM policy..." )
 					
-					delete_permission_response = LAMBDA_CLIENT.remove_permission(
+					delete_permission_response = lambda_client.remove_permission(
 						FunctionName=lambda_name,
 						StatementId=statement[ "Sid" ]
 					)
@@ -2069,14 +2127,23 @@ class TaskSpawner(object):
 					print( "Delete permission response: " )
 					pprint( delete_permission_response )
 			
-			return {
-			}
+			return {}
 			
 		@run_on_executor
-		def link_api_method_to_lambda( self, rest_api_id, resource_id, http_method, api_path, lambda_name ):
-			lambda_uri = "arn:aws:apigateway:" + os.environ.get( "region_name" ) + ":lambda:path/" + LAMBDA_CLIENT.meta.service_model.api_version + "/functions/arn:aws:lambda:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":function:" + lambda_name + "/invocations"
+		def link_api_method_to_lambda( self, credentials, rest_api_id, resource_id, http_method, api_path, lambda_name ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
 			
-			integration_response = APIGATEWAY_CLIENT.put_integration(
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
+			lambda_uri = "arn:aws:apigateway:" + credentials[ "region" ] + ":lambda:path/" + lambda_client.meta.service_model.api_version + "/functions/arn:aws:lambda:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":function:" + lambda_name + "/invocations"
+			
+			integration_response = api_gateway_client.put_integration(
 				restApiId=rest_api_id,
 				resourceId=resource_id,
 				httpMethod=http_method,
@@ -2091,7 +2158,7 @@ class TaskSpawner(object):
 			For AWS Lambda you need to add a permission to the Lambda function itself
 			via the add_permission API call to allow invocation via the CloudWatch event.
 			"""
-			source_arn = "arn:aws:execute-api:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + rest_api_id + "/*/" + http_method + api_path
+			source_arn = "arn:aws:execute-api:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + rest_api_id + "/*/" + http_method + api_path
 			
 			print( "Source ARN: " )
 			print( source_arn )
@@ -2100,7 +2167,7 @@ class TaskSpawner(object):
 			# Scan over all policies and delete any which aren't associated with
 			# API Gateways that actually exist!
 			
-			lambda_permission_add_response = LAMBDA_CLIENT.add_permission(
+			lambda_permission_add_response = lambda_client.add_permission(
 				FunctionName=lambda_name,
 				StatementId=str( uuid.uuid4() ).replace( "_", "" ) + "_statement",
 				Action="lambda:*",
@@ -2168,6 +2235,7 @@ class RunLambda( BaseHandler ):
 		
 		self.logit( "Executing Lambda..." )
 		lambda_result = yield local_tasks.execute_aws_lambda(
+			self.get_authenticated_user_cloud_configuration(),
 			self.json[ "arn" ],
 			self.json[ "input_data" ],
 		)
@@ -2249,6 +2317,7 @@ class RunTmpLambda( BaseHandler ):
 		
 		self.logit( "Deploying Lambda to S3..." )
 		deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
+			self.get_authenticated_user_cloud_configuration(),
 			random_node_id,
 			self.json[ "language" ],
 			"AWS Lambda being inline tested.",
@@ -2274,6 +2343,7 @@ class RunTmpLambda( BaseHandler ):
 		
 		self.logit( "Executing Lambda..." )
 		lambda_result = yield local_tasks.execute_aws_lambda(
+			self.get_authenticated_user_cloud_configuration(),
 			deployed_lambda_data[ "FunctionArn" ],
 			{
 				"_refinery": {
@@ -2287,6 +2357,7 @@ class RunTmpLambda( BaseHandler ):
 		
 		# Now we delete the lambda, don't yield because we don't need to wait
 		delete_result = local_tasks.delete_aws_lambda(
+			self.get_authenticated_user_cloud_configuration(),
 			random_node_id
 		)
 
@@ -2606,7 +2677,7 @@ class SavedFunctionDelete( BaseHandler ):
 		})
 		
 @gen.coroutine
-def deploy_lambda( id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, execution_log_level, environment_variables, layers ):
+def deploy_lambda( credentials, id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, execution_log_level, environment_variables, layers ):
 	logit(
 		"Building '" + name + "' Lambda package..."
 	)
@@ -2626,6 +2697,7 @@ def deploy_lambda( id, name, language, code, libraries, max_execution_time, memo
 	)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
+		credentials,
 		name,
 		language,
 		"AWS Lambda deployed via refinery",
@@ -2663,7 +2735,7 @@ def update_workflow_states_list( updated_node, workflow_states ):
 	return workflow_states
 	
 @gen.coroutine
-def deploy_diagram( project_name, project_id, diagram_data, project_config ):
+def deploy_diagram( credentials, project_name, project_id, diagram_data, project_config ):
 	"""
 	Deploy the diagram to AWS
 	"""
@@ -2870,6 +2942,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 			"name": lambda_safe_name,
 			"type": lambda_node[ "type" ],
 			"future": deploy_lambda(
+				credentials,
 				lambda_node[ "id" ],
 				lambda_safe_name,
 				lambda_node[ "language" ],
@@ -2899,6 +2972,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 			"name": get_lambda_safe_name( api_endpoint_node[ "name" ] ),
 			"type": api_endpoint_node[ "type" ],
 			"future": deploy_lambda(
+				credentials,
 				api_endpoint_node[ "id" ],
 				api_endpoint_safe_name,
 				"python2.7",
@@ -2928,6 +3002,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 			"name": schedule_trigger_name,
 			"type": schedule_trigger_node[ "type" ],
 			"future": local_tasks.create_cloudwatch_rule(
+				credentials,
 				schedule_trigger_node[ "id" ],
 				schedule_trigger_name,
 				schedule_trigger_node[ "schedule_expression" ],
@@ -2949,6 +3024,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 			"name": sqs_queue_name,
 			"type": sqs_queue_node[ "type" ],
 			"future": local_tasks.create_sqs_queue(
+				credentials,
 				sqs_queue_node[ "id" ],
 				sqs_queue_name,
 				sqs_queue_node[ "content_based_deduplication" ],
@@ -2970,6 +3046,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 			"name": sns_topic_name,
 			"type": sns_topic_node[ "type" ],
 			"future": local_tasks.create_sns_topic(
+				credentials,
 				sns_topic_node[ "id" ],
 				sns_topic_node[ "topic_name" ],
 			)
@@ -3020,11 +3097,13 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 				)
 		except Exception, e:
 			print( "[ ERROR ] Failed to deploy node '" + deploy_future_data[ "name" ] + "'!" )
+			print( "The full exception details can be seen below: " )
+			traceback.print_exc()
 			deployment_exceptions.append({
 				"id": deploy_future_data[ "id" ],
 				"name": deploy_future_data[ "name" ],
 				"type": deploy_future_data[ "type" ],
-				"exception": str( e )
+				"exception": traceback.format_exc()
 			})
 	
 	# This is the earliest point we can apply the breaks in the case of an exception
@@ -3060,6 +3139,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 		if api_gateway_id == False:
 			rest_api_name = get_lambda_safe_name( project_name )
 			create_gateway_result = yield local_tasks.create_rest_api(
+				credentials,
 				rest_api_name,
 				rest_api_name, # Human readable name, just do the ID for now
 				"1.0.0"
@@ -3085,6 +3165,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 					
 					api_route_futures.append(
 						create_lambda_api_route(
+							credentials,
 							api_gateway_id,
 							workflow_state[ "http_method" ],
 							workflow_state[ "api_path" ],
@@ -3098,6 +3179,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 		
 		logit( "Now deploying API gateway to stage..." )
 		deploy_stage_results = yield local_tasks.deploy_api_gateway_to_stage(
+			credentials,
 			api_gateway_id,
 			"refinery"
 		)
@@ -3167,6 +3249,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	for schedule_trigger_pair in schedule_trigger_pairs_to_deploy:
 		schedule_trigger_targeting_futures.append(
 			local_tasks.add_rule_target(
+				credentials,
 				schedule_trigger_pair[ "scheduled_trigger" ][ "name" ],
 				schedule_trigger_pair[ "target_lambda" ][ "name" ],
 				schedule_trigger_pair[ "target_lambda" ][ "arn" ],
@@ -3193,6 +3276,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	for sqs_queue_trigger in sqs_queue_triggers_to_deploy:
 		sqs_queue_trigger_targeting_futures.append(
 			local_tasks.map_sqs_to_lambda(
+				credentials,
 				sqs_queue_trigger[ "sqs_queue_trigger" ][ "arn" ],
 				sqs_queue_trigger[ "target_lambda" ][ "arn" ],
 				sqs_queue_trigger[ "sqs_queue_trigger" ][ "batch_size" ]
@@ -3218,6 +3302,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	for sns_topic_trigger in sns_topic_triggers_to_deploy:
 		sns_topic_trigger_targeting_futures.append(
 			local_tasks.subscribe_lambda_to_sns_topic(
+				credentials,
 				sns_topic_trigger[ "sns_topic_trigger" ][ "topic_name" ],
 				sns_topic_trigger[ "sns_topic_trigger" ][ "arn" ],
 				sns_topic_trigger[ "target_lambda" ][ "arn" ],
@@ -3410,7 +3495,7 @@ class SavedLambdaDelete( BaseHandler ):
 		})
 
 @gen.coroutine
-def teardown_infrastructure( teardown_nodes ):
+def teardown_infrastructure( credentials, teardown_nodes ):
 	"""
 	[
 		{
@@ -3432,6 +3517,7 @@ def teardown_infrastructure( teardown_nodes ):
 		if teardown_node[ "type" ] == "lambda" or teardown_node[ "type" ] == "api_endpoint":
 			teardown_operation_futures.append(
 				local_tasks.delete_lambda(
+					credentials,
 					teardown_node[ "id" ],
 					teardown_node[ "type" ],
 					teardown_node[ "name" ],
@@ -3441,6 +3527,7 @@ def teardown_infrastructure( teardown_nodes ):
 		elif teardown_node[ "type" ] == "sns_topic":
 			teardown_operation_futures.append(
 				local_tasks.delete_sns_topic(
+					credentials,
 					teardown_node[ "id" ],
 					teardown_node[ "type" ],
 					teardown_node[ "name" ],
@@ -3450,6 +3537,7 @@ def teardown_infrastructure( teardown_nodes ):
 		elif teardown_node[ "type" ] == "sqs_queue":
 			teardown_operation_futures.append(
 				local_tasks.delete_sqs_queue(
+					credentials,
 					teardown_node[ "id" ],
 					teardown_node[ "type" ],
 					teardown_node[ "name" ],
@@ -3459,6 +3547,7 @@ def teardown_infrastructure( teardown_nodes ):
 		elif teardown_node[ "type" ] == "schedule_trigger":
 			teardown_operation_futures.append(
 				local_tasks.delete_schedule_trigger(
+					credentials,
 					teardown_node[ "id" ],
 					teardown_node[ "type" ],
 					teardown_node[ "name" ],
@@ -3468,6 +3557,7 @@ def teardown_infrastructure( teardown_nodes ):
 		elif teardown_node[ "type" ] == "api_gateway":
 			teardown_operation_futures.append(
 				strip_api_gateway(
+					credentials,
 					teardown_node[ "rest_api_id" ],
 				)
 			)
@@ -3483,12 +3573,14 @@ class InfraTearDown( BaseHandler ):
 		teardown_nodes = self.json[ "teardown_nodes" ]
 
 		teardown_operation_results = yield teardown_infrastructure(
+			self.get_authenticated_user_cloud_configuration(),
 			teardown_nodes
 		)
 		
 		# Delete our logs
 		# No need to yield till it completes
 		delete_logs(
+			self.get_authenticated_user_cloud_configuration(),
 			self.json[ "project_id" ]
 		)
 		
@@ -3533,6 +3625,7 @@ class InfraCollisionCheck( BaseHandler ):
 			if workflow_state[ "type" ] == "lambda":
 				collision_check_futures.append(
 					local_tasks.get_aws_lambda_existence_info(
+						self.get_authenticated_user_cloud_configuration(),
 						workflow_state[ "id" ],
 						workflow_state[ "type" ],
 						get_lambda_safe_name(
@@ -3544,6 +3637,7 @@ class InfraCollisionCheck( BaseHandler ):
 			elif workflow_state[ "type" ] == "schedule_trigger":
 				collision_check_futures.append(
 					local_tasks.get_cloudwatch_existence_info(
+						self.get_authenticated_user_cloud_configuration(),
 						workflow_state[ "id" ],
 						workflow_state[ "type" ],
 						get_lambda_safe_name(
@@ -3554,6 +3648,7 @@ class InfraCollisionCheck( BaseHandler ):
 			elif workflow_state[ "type" ] == "sqs_queue":
 				collision_check_futures.append(
 					local_tasks.get_sqs_existence_info(
+						self.get_authenticated_user_cloud_configuration(),
 						workflow_state[ "id" ],
 						workflow_state[ "type" ],
 						get_lambda_safe_name(
@@ -3564,6 +3659,7 @@ class InfraCollisionCheck( BaseHandler ):
 			elif workflow_state[ "type" ] == "sns_topic":
 				collision_check_futures.append(
 					local_tasks.get_sns_existence_info(
+						self.get_authenticated_user_cloud_configuration(),
 						workflow_state[ "id" ],
 						workflow_state[ "type" ],
 						get_lambda_safe_name(
@@ -3890,6 +3986,7 @@ class DeleteSavedProject( BaseHandler ):
 				logit( "Deleting associated API Gateway '" + api_gateway_id + "'..." )
 				
 				yield local_tasks.delete_rest_api(
+					self.get_authenticated_user_cloud_configuration(),
 					api_gateway_id
 				)
 		
@@ -3963,6 +4060,7 @@ class DeployDiagram( BaseHandler ):
 		diagram_data = json.loads( self.json[ "diagram_data" ] )
 		
 		deployment_data = yield deploy_diagram(
+			self.get_authenticated_user_cloud_configuration(),
 			project_name,
 			project_id,
 			diagram_data,
@@ -3973,6 +4071,7 @@ class DeployDiagram( BaseHandler ):
 		if deployment_data[ "success" ] == False:
 			print( "[ ERROR ] We are now rolling back the deployments we've made..." )
 			yield teardown_infrastructure(
+				self.get_authenticated_user_cloud_configuration(),
 				deployment_data[ "teardown_nodes_list" ]
 			)
 			print( "[ ERROR ] We've completed our rollback, returning an error..." )
@@ -4163,7 +4262,7 @@ class DeleteDeploymentsInProject( BaseHandler ):
 		})
 	
 @gen.coroutine
-def create_lambda_api_route( api_gateway_id, http_method, route, lambda_name, overwrite_existing ):
+def create_lambda_api_route( credentials, api_gateway_id, http_method, route, lambda_name, overwrite_existing ):
 	def not_empty( input_item ):
 		return ( input_item != "" )
 	path_parts = route.split( "/" )
@@ -4172,12 +4271,14 @@ def create_lambda_api_route( api_gateway_id, http_method, route, lambda_name, ov
 	# First we clean the Lambda of API Gateway policies which point
 	# to dead API Gateways
 	yield local_tasks.clean_lambda_iam_policies(
+		credentials,
 		lambda_name
 	)
 	
 	# A default resource is created along with an API gateway, we grab
 	# it so we can make our base method
 	resources = yield local_tasks.get_resources(
+		credentials,
 		api_gateway_id
 	)
 	base_resource_id = resources[ 0 ][ "id" ]
@@ -4210,6 +4311,7 @@ def create_lambda_api_route( api_gateway_id, http_method, route, lambda_name, ov
 			# Otherwise go ahead and create one
 			print( "Creating section '" + path_part + "'..." )
 			new_resource = yield local_tasks.create_resource(
+				credentials,
 				api_gateway_id,
 				current_base_pointer_id,
 				path_part
@@ -4221,6 +4323,7 @@ def create_lambda_api_route( api_gateway_id, http_method, route, lambda_name, ov
 	
 	# Create method on base resource
 	method_response = yield local_tasks.create_method(
+		credentials,
 		"HTTP Method",
 		api_gateway_id,
 		current_base_pointer_id,
@@ -4235,6 +4338,7 @@ def create_lambda_api_route( api_gateway_id, http_method, route, lambda_name, ov
 	
 	# Link the API Gateway to the lambda
 	link_response = yield local_tasks.link_api_method_to_lambda(
+		credentials,
 		api_gateway_id,
 		current_base_pointer_id,
 		http_method, # GET was previous here
@@ -4249,6 +4353,7 @@ def create_lambda_api_route( api_gateway_id, http_method, route, lambda_name, ov
 	
 	print( "All resources now that we've added some: " )
 	resources = yield local_tasks.get_resources(
+		credentials,
 		api_gateway_id
 	)
 	pprint(
@@ -4301,7 +4406,7 @@ def get_cloudflare_keys():
 	)
 	
 @gen.coroutine
-def get_project_id_execution_log_groups( project_id, max_results, continuation_token ):
+def get_project_id_execution_log_groups( credentials, project_id, max_results, continuation_token ):
 	"""
 	@project_id: The ID of the project deployed into production
 	@max_results: The max number of timestamp groups you want to search
@@ -4326,6 +4431,7 @@ def get_project_id_execution_log_groups( project_id, max_results, continuation_t
 	results_dict = {}
 	
 	execution_log_timestamp_prefix_data = yield local_tasks.get_s3_pipeline_timestamp_prefixes(
+		credentials,
 		project_id,
 		max_results,
 		continuation_token
@@ -4342,6 +4448,7 @@ def get_project_id_execution_log_groups( project_id, max_results, continuation_t
 		print( "Retrieving execution id(s) under " + execution_log_timestamp_prefix + "..." )
 		timestamp_prefix_fetch_futures.append(
 			local_tasks.get_s3_pipeline_execution_ids(
+				credentials,
 				execution_log_timestamp_prefix,
 				-1,
 				False
@@ -4364,6 +4471,7 @@ def get_project_id_execution_log_groups( project_id, max_results, continuation_t
 		print( "Retrieving log paths under " + execution_id_prefix + "..." )
 		s3_log_path_promises.append(
 			local_tasks.get_s3_pipeline_execution_logs(
+				credentials,
 				execution_id_prefix,
 				-1
 			)
@@ -4426,7 +4534,7 @@ def get_project_id_execution_log_groups( project_id, max_results, continuation_t
 	raise gen.Return( results_dict )
 	
 @gen.coroutine
-def get_logs_data( log_paths_array ):
+def get_logs_data( credentials, log_paths_array ):
 	"""
 	Return data format is the following:
 	{
@@ -4437,7 +4545,8 @@ def get_logs_data( log_paths_array ):
 	for log_file_path in log_paths_array:
 		s3_object_retrieval_futures.append(
 			local_tasks.read_from_s3_and_return_input(
-				os.environ.get( "pipeline_logs_bucket" ),
+				credentials,
+				credentials[ "logs_bucket" ],
 				log_file_path
 			)
 		)
@@ -4515,6 +4624,7 @@ class GetProjectExecutions( BaseHandler ):
 			continuation_token = self.json[ "continuation_token" ]
 		
 		execution_ids_metadata = yield get_project_id_execution_log_groups(
+			self.get_authenticated_user_cloud_configuration(),
 			self.json[ "project_id" ],
 			100,
 			continuation_token
@@ -4531,10 +4641,6 @@ class GetProjectExecutionLogs( BaseHandler ):
 	def post( self ):
 		"""
 		Get log data for a list of log paths.
-		
-		TODO: ACL for this is a bit tricky. Can be done due to the
-		special pathing of the S3 logs which contain the project ID,
-		etc.
 		"""
 		schema = {
 			"type": "object",
@@ -4556,6 +4662,7 @@ class GetProjectExecutionLogs( BaseHandler ):
 		)
 		
 		logs_data = yield get_logs_data(
+			self.get_authenticated_user_cloud_configuration(),
 			self.json[ "logs" ],
 		)
 		
@@ -4565,10 +4672,11 @@ class GetProjectExecutionLogs( BaseHandler ):
 		})
 		
 @gen.coroutine
-def delete_logs( project_id ):
+def delete_logs( credentials, project_id ):
 	while True:
 		print( "Collecting objects to delete..." )
 		log_paths = yield local_tasks.get_s3_pipeline_execution_logs(
+			credentials,
 			project_id + "/",
 			1000
 		)
@@ -4580,7 +4688,8 @@ def delete_logs( project_id ):
 		
 		print( "Deleting objects..." )
 		yield local_tasks.bulk_s3_delete(
-			os.environ.get( "pipeline_logs_bucket" ),
+			credentials,
+			credentials[ "logs_bucket" ],
 			log_paths
 		)
 		print( "Objects deleted!" )
@@ -4622,6 +4731,7 @@ class UpdateEnvironmentVariables( BaseHandler ):
 		)
 		
 		response = yield local_tasks.update_lambda_environment_variables(
+			self.get_authenticated_user_cloud_configuration(),
 			self.json[ "arn" ],
 			self.json[ "environment_variables" ],
 		)
@@ -4680,6 +4790,7 @@ class GetCloudWatchLogsForLambda( BaseHandler ):
 		)
 		
 		log_output = yield local_tasks.get_lambda_cloudwatch_logs(
+			self.get_authenticated_user_cloud_configuration(),
 			self.json[ "arn" ]
 		)
 		
@@ -4697,7 +4808,7 @@ class GetCloudWatchLogsForLambda( BaseHandler ):
 		})
 		
 @gen.coroutine
-def strip_api_gateway( api_gateway_id ):
+def strip_api_gateway( credentials, api_gateway_id ):
 	"""
 	Strip a given API Gateway of all of it's:
 	* Resources
@@ -4707,6 +4818,7 @@ def strip_api_gateway( api_gateway_id ):
 	Allowing for the configuration details to be replaced.
 	"""
 	rest_resources = yield local_tasks.get_resources(
+		credentials,
 		api_gateway_id
 	)
 	
@@ -4725,6 +4837,7 @@ def strip_api_gateway( api_gateway_id ):
 			print( "Deleting resource ID '" + resource_item[ "id" ] + "'..." )
 			deletion_futures.append(
 				local_tasks.delete_rest_api_resource(
+					credentials,
 					api_gateway_id,
 					resource_item[ "id" ]
 				)
@@ -4736,6 +4849,7 @@ def strip_api_gateway( api_gateway_id ):
 				print( "Deleting HTTP method '" + http_method + "'..." )
 				deletion_futures.append(
 					local_tasks.delete_rest_api_resource_method(
+						credentials,
 						api_gateway_id,
 						resource_item[ "id" ],
 						http_method
@@ -4743,6 +4857,7 @@ def strip_api_gateway( api_gateway_id ):
 				)
 			
 	rest_stages = yield local_tasks.get_stages(
+		credentials,
 		api_gateway_id
 	)
 	
@@ -4750,6 +4865,7 @@ def strip_api_gateway( api_gateway_id ):
 		print( "Deleting stage '" + rest_stage[ "stageName" ] + "'..." )
 		deletion_futures.append(
 			local_tasks.delete_stage(
+				credentials,
 				api_gateway_id,
 				rest_stage[ "stageName" ]
 			)
