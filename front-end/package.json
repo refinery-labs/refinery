@@ -6,18 +6,28 @@
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
     "lint": "vue-cli-service lint",
+    "modernizr": "modernizr -c modernizr-config.json -d node_modules/modernizr/modernizr.custom.js",
+    "postinstall": "mkdir tmp-build; npm run modernizr",
     "test:e2e": "vue-cli-service test:e2e",
     "test:unit": "vue-cli-service test:unit"
   },
   "dependencies": {
+    "@fortawesome/fontawesome-free": "^5.8.1",
+    "@jh3y/whirl": "^2.0.0",
+    "animate.css": "^3.7.0",
     "bootstrap": "^4.3.1",
     "bootstrap-vue": "^2.0.0-rc.18",
+    "modernizr": "^3.7.1",
+    "moment": "^2.24.0",
     "register-service-worker": "^1.6.2",
+    "screenfull": "^4.2.0",
+    "simple-line-icons": "^2.4.1",
     "vue": "^2.6.6",
     "vue-class-component": "^6.0.0",
     "vue-property-decorator": "^7.0.0",
     "vue-router": "^3.0.1",
-    "vuex": "^3.0.1"
+    "vuex": "^3.0.1",
+    "vuex-persistedstate": "^2.5.4"
   },
   "devDependencies": {
     "@types/jest": "^23.1.4",

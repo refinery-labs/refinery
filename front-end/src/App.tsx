@@ -26,9 +26,7 @@ export default class App extends Vue {
   public render(h: CreateElement): VNode {
     return (
       <div id="app">
-        <TopNavbar />
         <div class="app-content display--flex">
-          <SidebarNav props={{navItems}}/>
           <div class="flex-grow--3">
             <router-view />
           </div>

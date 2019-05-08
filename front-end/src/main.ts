@@ -1,8 +1,10 @@
 import Vue from 'vue';
 import BootstrapVue from 'bootstrap-vue';
 
-import 'bootstrap/dist/css/bootstrap.css';
-import 'bootstrap-vue/dist/bootstrap-vue.css';
+import './vendor';
+
+import '@/styles/bootstrap.scss';
+import '@/styles/custom-bootstrap-theme.scss';
 import '@/styles/app.scss';
 
 import App from './App';

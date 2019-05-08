@@ -1,0 +1,62 @@
+/* ========================================================================
+     Component: VueTables
+ ========================================================================== */
+
+.VueTables__child-row-toggler {
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+  display: block;
+  margin: auto;
+  text-align: center;
+}
+
+.VueTables__child-row-toggler--closed::before {
+  content: "+";
+}
+
+.VueTables__child-row-toggler--open::before {
+  content: "-";
+}
+
+.VueTables__heading {
+    margin-right: .5rem;
+}
+
+.VueTables__search label,
+.VueTables__limit label {
+  display: inline-block !important;
+  margin-right: .5em;
+}
+
+.VuePagination {
+  justify-content: center;
+}
+
+@include media-breakpoint-up(sm) {
+
+    .VuePagination {
+      position: relative;
+      display: block;
+      text-align: center;
+    }
+    .VuePagination nav {
+        display: flex;
+        align-items: center;
+        padding: 1rem 0;
+    }
+
+    .VuePagination .pagination,
+    .VuePagination__count {
+        position: absolute;
+        margin: 0;
+    }
+
+    .VuePagination .pagination {
+        right: -15px;
+    }
+    .VuePagination__count {
+        left: 0;
+        width: auto;
+    }
+}

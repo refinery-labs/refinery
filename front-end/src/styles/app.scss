@@ -1,3 +1,4 @@
+
 body {
   margin: 0;
 }
@@ -25,7 +26,7 @@ body {
   width: 160px;
   height: 100vh;
   background: #ddd;
-  flex-grow: 0;
+  flex-grow: 1;
   border-right: black 1px solid;
 
   &__item {
@@ -104,4 +105,8 @@ body {
       flex-direction: column;
     }
   }
+}
+
+.hello-world {
+  color: red;
 }
