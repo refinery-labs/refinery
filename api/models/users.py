@@ -16,7 +16,12 @@ class User( Base ):
 	name = Column(Text())
 	
 	# Email address of the user
-	email = Column(Text())
+	# Unique constraint because users should only sign up
+	# with one email address per account.
+	email = Column(
+		Text(),
+		unique=True
+	)
 	
 	# Whether we've validated ownership of the email
 	email_verified = Column(Boolean())

@@ -12,6 +12,9 @@ class AWSAccount( Base ):
 		primary_key=True
 	)
 	
+	# Label for the AWS account
+	account_label = Column(Text())
+	
 	# AWS account ID
 	account_id = Column(BigInteger())
 	

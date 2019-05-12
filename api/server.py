@@ -2315,13 +2315,17 @@ class RunTmpLambda( BaseHandler ):
 		
 		random_node_id = get_random_node_id()
 		
+		credentials = self.get_authenticated_user_cloud_configuration()
+		
+		lambda_role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/refinery_aws_lambda_admin_role"
+		
 		self.logit( "Deploying Lambda to S3..." )
 		deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
-			self.get_authenticated_user_cloud_configuration(),
+			credentials,
 			random_node_id,
 			self.json[ "language" ],
 			"AWS Lambda being inline tested.",
-			os.environ.get( "lambda_role" ),
+			lambda_role,
 			lambda_zip_package_data,
 			self.json[ "max_execution_time" ], # Max AWS execution time
 			self.json[ "memory" ], # MB of execution memory
@@ -2695,13 +2699,15 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	logit(
 		"Deploying '" + name + "' Lambda package to production..."
 	)
+	
+	lambda_role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/refinery_aws_lambda_admin_role"
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
 		credentials,
 		name,
 		language,
 		"AWS Lambda deployed via refinery",
-		os.environ.get( "lambda_role" ),
+		lambda_role,
 		lambda_zip_package_data,
 		max_execution_time, # Max AWS execution time
 		memory, # MB of execution memory
@@ -2815,15 +2821,15 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	
 	for workflow_state in diagram_data[ "workflow_states" ]:
 		if workflow_state[ "type" ] == "lambda":
-			node_arn = "arn:aws:lambda:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":function:" + get_lambda_safe_name( workflow_state[ "name" ] )
+			node_arn = "arn:aws:lambda:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":function:" + get_lambda_safe_name( workflow_state[ "name" ] )
 		elif workflow_state[ "type" ] == "sns_topic":
-			node_arn = "arn:aws:sns:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + get_lambda_safe_name( workflow_state[ "name" ] )
+			node_arn = "arn:aws:sns:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + get_lambda_safe_name( workflow_state[ "name" ] )
 		elif workflow_state[ "type" ] == "sqs_queue":
-			node_arn = "arn:aws:sqs:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + get_lambda_safe_name( workflow_state[ "name" ] )
+			node_arn = "arn:aws:sqs:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + get_lambda_safe_name( workflow_state[ "name" ] )
 		elif workflow_state[ "type" ] == "schedule_trigger":
-			node_arn = "arn:aws:events:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":rule/" + get_lambda_safe_name( workflow_state[ "name" ] )
+			node_arn = "arn:aws:events:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":rule/" + get_lambda_safe_name( workflow_state[ "name" ] )
 		elif workflow_state[ "type" ] == "api_endpoint":
-			node_arn = "arn:aws:lambda:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":function:" + get_lambda_safe_name( workflow_state[ "name" ] )
+			node_arn = "arn:aws:lambda:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":function:" + get_lambda_safe_name( workflow_state[ "name" ] )
 		else:
 			node_arn = False
 		
@@ -2853,9 +2859,9 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		
 		if origin_node_data[ "type" ] == "lambda" or origin_node_data[ "type" ] == "api_endpoint":
 			if target_node_data[ "type" ] == "lambda":
-				target_arn = "arn:aws:lambda:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":function:" + get_lambda_safe_name( target_node_data[ "name" ] )
+				target_arn = "arn:aws:lambda:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":function:" + get_lambda_safe_name( target_node_data[ "name" ] )
 			elif target_node_data[ "type" ] == "sns_topic":
-				target_arn = "arn:aws:sns:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + get_lambda_safe_name( target_node_data[ "name" ] )
+				target_arn = "arn:aws:sns:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] )+ ":" + get_lambda_safe_name( target_node_data[ "name" ] )
 			elif target_node_data[ "type" ] == "api_gateway_response":
 				# API Gateway responses are a pseudo node and don't have an ARN
 				target_arn = False
@@ -3204,7 +3210,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				workflow_state[ "arn" ] = deployed_api_endpoint[ "arn" ]
 				workflow_state[ "name" ] = deployed_api_endpoint[ "name" ]
 				workflow_state[ "rest_api_id" ] = api_gateway_id
-				workflow_state[ "url" ] = "https://" + api_gateway_id + ".execute-api." + os.environ.get( "region_name" ) + ".amazonaws.com/refinery" + workflow_state[ "api_path" ]
+				workflow_state[ "url" ] = "https://" + api_gateway_id + ".execute-api." + credentials[ "region" ] + ".amazonaws.com/refinery" + workflow_state[ "api_path" ]
 				
 	# Update workflow scheduled trigger nodes with arn
 	for deployed_schedule_trigger in deployed_schedule_triggers:
@@ -5011,7 +5017,21 @@ class NewRegistration( BaseHandler ):
 		# is allowed. Also allow for bypass via special registration
 		# codes.
 		
-		# TODO(): Emails should probably be forced to be unique?
+		# Check if the user is already registered
+		user = session.query( User ).filter_by(
+			email=self.json[ "email" ]
+		).first()
+		
+		# If the user already exists, stop here and notify them.
+		# They should be given the option to attempt to authenticate/confirm
+		# their account by logging in.
+		if user != None:
+			self.write({
+				"success": False,
+				"code": "USER_ALREADY_EXISTS",
+				"msg": "A user with that email address already exists!"
+			})
+			raise gen.Return()
 		
 		# Check if there are reserved AWS accounts available
 		aws_reserved_account = session.query( AWSAccount ).filter_by(
@@ -5227,6 +5247,7 @@ def add_reserved_aws_accounts():
 		print( "No AWS account in reserves, adding " + str( juice_amount ) + " to the pool..." )
 		for i in range( 0, 100 ):
 			new_aws_account = AWSAccount()
+			new_aws_account.account_label = "RefineryLabs Customer Account"
 			new_aws_account.is_reserved_account = True
 			new_aws_account.account_id = int( os.environ.get( "aws_account_id" ) )
 			new_aws_account.access_key = os.environ.get( "aws_access_key" )
