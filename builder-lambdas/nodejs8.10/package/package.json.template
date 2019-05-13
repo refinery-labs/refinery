@@ -1,0 +1,9 @@
+{
+	"name": "refinery-lambda",
+	"version": "1.0.0",
+	"description": "Lambda created by Refinery",
+	"main": "main.js",
+	"dependencies": {},
+	"devDependencies": {},
+	"scripts": {}
+}
