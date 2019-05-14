@@ -20,6 +20,8 @@
 echo "Building Python 2.7 library builder Lambda package..."
 rm python-library-builder.zip
 cd package/
-zip -r python-library-builder.zip *
+zip -qq -r python-library-builder.zip *
 mv python-library-builder.zip ..
 cd ..
+aws s3 cp python-library-builder.zip s3://builder-lambda-testing-bucket/
+aws lambda update-function-code --function-name python27-builder-lambda --s3-bucket builder-lambda-testing-bucket --s3-key python-library-builder.zip

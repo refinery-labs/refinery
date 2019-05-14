@@ -749,246 +749,112 @@ class TaskSpawner(object):
 			return response
 			
 		@staticmethod
-		def get_python27_lambda_base_zip( libraries ):
-			# Check if we have a cache .zip ready to go
-			libraries.sort()
-			hash_key = hashlib.sha256(
-				"python2.7" + json.dumps(
-					libraries
-				)
-			).hexdigest()
-			
-			# If we have it, return it for use
-			if hash_key in DEPENDENCY_CACHE:
-				return_zip = DEPENDENCY_CACHE[ hash_key ][:]
-				return return_zip
-
-			build_directory = "/tmp/" + str( uuid.uuid4() ) + "/"
-			build_directory_env = build_directory + "env/"
-			build_directory_requirements_txt = build_directory + "requirements.txt"
-
-			# Create directory to build lambda in
-			os.mkdir(
-				build_directory
+		def get_python27_lambda_base_zip( credentials, libraries ):
+			# Create S3 client
+			s3_client = get_aws_client(
+				"s3",
+				credentials
 			)
 			
-			# virtualenv
-			os.mkdir(
-				build_directory_env
+			# Create Lambda client
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
 			)
 			
-			# Create virtualenv
-			try:
-				virtualenv_process = subprocess.check_output(
-					[
-						"/usr/bin/virtualenv",
-						build_directory_env
-					]
-				)
-			except subprocess.CalledProcessError, e:
-				print( "Exception occured while creating virtualenv: " )
-				print( e.output )
-				
-			# Write requirements.txt
-			with open( build_directory_requirements_txt, "w" ) as file_handler:
-				file_handler.write(
-					"\n".join(
-						libraries
-					)
-				)
-				
-			# Using virtualenv pip, install packages
-			try:
-				virtualenv_process = subprocess.check_output(
-					[
-						build_directory_env + "bin/pip",
-						"install",
-						"-r",
-						build_directory_requirements_txt
-					]
-				)
-			except subprocess.CalledProcessError, e:
-				print( "Exception occured while installing dependencies: " )
-				print( e.output )
-				
-			# Create .zip file
-			zip_directory = "/tmp/" + str( uuid.uuid4() ) + "/"
-			
-			# Zip filename
-			zip_filename = "/tmp/" + str( uuid.uuid4() ) + ".zip"
-			
-			# zip dir
-			os.mkdir(
-				zip_directory
-			)
-			
-			copy_command = "/bin/cp -r " + build_directory + "/env/lib/python2.7/site-packages/* " + zip_directory
-			
-			cp_process = subprocess.Popen(
-				copy_command,
-				shell=True,
-				stdout=subprocess.PIPE,
-				stderr=subprocess.PIPE
-			)
-			stdout, stderr = cp_process.communicate()
-				
-			# Clean up original directory
-			shutil.rmtree( build_directory )
-			
-			# Create .zip file
-			zip_command = "/usr/bin/zip -r " + zip_filename + " *"
-			
-			zip_process = subprocess.Popen(
-				zip_command,
-				shell=True,
-				stdout=subprocess.PIPE,
-				stderr=subprocess.PIPE,
-				cwd=zip_directory
-			)
-			stdout, stderr = zip_process.communicate()
-			
-			# Clean up zip directory
-			shutil.rmtree( zip_directory )
-			
-			# Zip bytes
-			zip_data = False
-			
-			# Read zip bytes from disk
-			with open( zip_filename, "rb" ) as file_handler:
-				zip_data = file_handler.read()
-
-			# Delete zip file now that we've read it
-			os.remove( zip_filename )
-			
-			# Cache this result in memory for future use
-			DEPENDENCY_CACHE[ hash_key ] = zip_data
-			
-			# Copy the cache data and return it
-			return_zip = DEPENDENCY_CACHE[ hash_key ][:]
-			
-			return return_zip
-			
-		@staticmethod
-		def get_nodejs_810_base_zip( libraries ):
-			# Check if we have a cache .zip ready to go
-			libraries.sort()
-			hash_key = hashlib.sha256(
-				"nodejs8.10" + json.dumps(
-					libraries
-				)
-			).hexdigest()
-			
-			# If we have it, return it for use
-			if hash_key in DEPENDENCY_CACHE:
-				return_zip = DEPENDENCY_CACHE[ hash_key ][:]
-				return return_zip
-				
-			package_json_template = {
-				"name": "refinery-lambda",
-				"version": "1.0.0",
-				"description": "Lambda created by Refinery",
-				"main": "main.js",
-				"dependencies": {},
-				"devDependencies": {},
-				"scripts": {
-					"test": "echo \"Error: no test specified\" && exit 1",
-					"start": "node server.js"
-				}
+			lambda_input = {
+				"libraries": libraries,
 			}
 			
-			# TODO if no dependencies then just ignore this part
-
-			# Set up dependencies
-			for library in libraries:
-				if " " in library:
-					library_parts = library.split( " " )
-					package_json_template[ "dependencies" ][ library_parts[0] ] = library_parts[1]
-				else:
-					package_json_template[ "dependencies" ][ library ] = "*"
-
-			build_directory = "/tmp/" + str( uuid.uuid4() ) + "/"
-			build_directory_package_json_path = build_directory + "package.json"
-			
-			# Create directory to build lambda in
-			os.mkdir(
-				build_directory
+			# Utilize the account builder-lambda to build the package zip
+			# This will be invoked in the customer's sub-account providing
+			# multi-tenancy. Some potential for abuse if the Lambda is warm
+			# and the previous Lambda built a malicious pip modules for example.
+			# However, the IAM permissions for the Lambda itself should be extremely
+			# scopes to only allow writes to the S3 bucket and "head" for objects.
+			# No listing, etc.
+			lambda_invoke_response = lambda_client.invoke(
+				FunctionName="python27-builder-lambda", # The name should always be this, TODO for Terraform account template
+				InvocationType="RequestResponse",
+				LogType="Tail",
+				Payload=json.dumps( lambda_input ),
 			)
 			
-			# Write package.json
-			with open( build_directory_package_json_path, "w" ) as file_handler:
-				file_handler.write(
-					json.dumps(
-						package_json_template,
-						False,
-						4
-					)
-				)
+			# payload_body is a full S3 object path s3://x/y.zip
+			s3_full_path = lambda_invoke_response[ "Payload" ].read()
 			
-			if len( libraries ) > 0:
-				# Use npm to create node_modules from package.json
-				npm_process = subprocess.Popen(
-					"/usr/bin/npm install",
-					shell=True,
-					stdout=subprocess.PIPE,
-					stderr=subprocess.PIPE,
-					cwd=build_directory
-				)
-				stdout, stderr = npm_process.communicate()
+			# Pull the S3 bucket and object key from path.
+			s3_bucket, object_key = s3_full_path.replace(
+				"s3://",
+				""
+			).split( "/" )
 			
-			# This files location
-			source_file_directory = os.path.dirname(os.path.realpath(__file__))
-			
-			# Copy custom runtime files over
-			cp_runtime_command = "/bin/cp -r * " + build_directory + " && cp " + source_file_directory + "/custom-runtime/node8.10/runtime " + build_directory + " && rm " + build_directory + "bootstrap"
-			
-			# Copy files
-			copy_process = subprocess.Popen(
-				cp_runtime_command,
-				shell=True,
-				stdout=subprocess.PIPE,
-				stderr=subprocess.PIPE,
-				cwd=source_file_directory + "/custom-runtime/base-src/"
+			# Pull the zip data and return the raw binary
+			# TODO: Convert this to Lambda layers
+			object_response = s3_client.get_object(
+				Bucket=s3_bucket,
+				Key=object_key,
 			)
-			stdout, stderr = copy_process.communicate()
 			
-			# Zip filename
-			zip_filename = "/tmp/" + str( uuid.uuid4() ) + ".zip"
-			
-			# Create .zip file
-			zip_command = "/usr/bin/zip -r " + zip_filename + " *"
-			
-			zip_process = subprocess.Popen(
-				zip_command,
-				shell=True,
-				stdout=subprocess.PIPE,
-				stderr=subprocess.PIPE,
-				cwd=build_directory
-			)
-			stdout, stderr = zip_process.communicate()
-			
-			# Clean up build directory
-			shutil.rmtree( build_directory )
-			
-			# Zip bytes
-			zip_data = False
-			
-			# Read zip bytes from disk
-			with open( zip_filename, "rb" ) as file_handler:
-				zip_data = file_handler.read()
-
-			# Delete zip file now that we've read it
-			os.remove( zip_filename )
-			
-			# Cache this result in memory for future use
-			DEPENDENCY_CACHE[ hash_key ] = zip_data
-			
-			# Copy the cache data and return it
-			return_zip = DEPENDENCY_CACHE[ hash_key ][:]
-			
-			return return_zip
+			return object_response[ "Body" ].read()
 			
 		@staticmethod
-		def _build_nodejs_810_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
+		def get_nodejs_810_base_zip( credentials, libraries ):
+			libraries_object = {}
+			
+			for library in libraries:
+				libraries_object[ library ] = "latest"
+			
+			# Create S3 client
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
+			# Create Lambda client
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
+			lambda_input = {
+				"libraries": libraries_object,
+			}
+			
+			# Utilize the account builder-lambda to build the package zip
+			# This will be invoked in the customer's sub-account providing
+			# multi-tenancy. Some potential for abuse if the Lambda is warm
+			# and the previous Lambda built a malicious pip modules for example.
+			# However, the IAM permissions for the Lambda itself should be extremely
+			# scopes to only allow writes to the S3 bucket and "head" for objects.
+			# No listing, etc.
+			lambda_invoke_response = lambda_client.invoke(
+				FunctionName="node810-library-builder", # The name should always be this, TODO for Terraform account template
+				InvocationType="RequestResponse",
+				LogType="Tail",
+				Payload=json.dumps( lambda_input ),
+			)
+			
+			# payload_body is a full S3 object path s3://x/y.zip
+			s3_full_path = lambda_invoke_response[ "Payload" ].read()
+			
+			# Pull the S3 bucket and object key from path.
+			s3_bucket, object_key = s3_full_path.replace(
+				"s3://",
+				""
+			).split( "/" )
+			
+			# Pull the zip data and return the raw binary
+			# TODO: Convert this to Lambda layers
+			object_response = s3_client.get_object(
+				Bucket=s3_bucket,
+				Key=object_key,
+			)
+			
+			return object_response[ "Body" ].read()
+			
+		@staticmethod
+		def _build_nodejs_810_lambda( credentials, code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
 			"""
 			Customize and inject custom runtime.
 			"""
@@ -1017,6 +883,7 @@ class TaskSpawner(object):
 					)
 			
 			base_zip_data = TaskSpawner.get_nodejs_810_base_zip(
+				credentials,
 				libraries
 			)
 			
@@ -1060,14 +927,14 @@ class TaskSpawner(object):
 			return zip_data
 
 		@run_on_executor
-		def build_lambda( self, language, code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
+		def build_lambda( self, credentials, language, code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
 			if not ( language in LAMBDA_SUPPORTED_LANGUAGES ):
 				raise Exception( "Error, this language '" + language + "' is not yet supported by refinery!" )
 			
 			if language == "python2.7":
-				return TaskSpawner._build_python_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level )
+				return TaskSpawner._build_python_lambda( credentials, code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level )
 			elif language == "nodejs8.10":
-				return TaskSpawner._build_nodejs_810_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level )
+				return TaskSpawner._build_nodejs_810_lambda( credentials, code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level )
 				
 		@staticmethod
 		def _get_custom_python_base_code( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
@@ -1088,7 +955,7 @@ class TaskSpawner(object):
 			return code
 		
 		@staticmethod
-		def _build_python_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
+		def _build_python_lambda( credentials, code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
 			"""
 			Build Lambda package zip and return zip data
 			"""
@@ -1116,6 +983,7 @@ class TaskSpawner(object):
 					)
 			
 			base_zip_data = TaskSpawner.get_python27_lambda_base_zip(
+				credentials,
 				libraries
 			)
 			
@@ -2295,8 +2163,11 @@ class RunTmpLambda( BaseHandler ):
 		validate_schema( self.json, schema )
 		
 		self.logit( "Building Lambda package..." )
+		
+		credentials = self.get_authenticated_user_cloud_configuration()
 
 		lambda_zip_package_data = yield local_tasks.build_lambda(
+			credentials,
 			self.json[ "language" ],
 			self.json[ "code" ],
 			self.json[ "libraries" ],
@@ -2314,8 +2185,6 @@ class RunTmpLambda( BaseHandler ):
 		)
 		
 		random_node_id = get_random_node_id()
-		
-		credentials = self.get_authenticated_user_cloud_configuration()
 		
 		lambda_role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/refinery_aws_lambda_admin_role"
 		
@@ -2687,6 +2556,7 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	)
 	
 	lambda_zip_package_data = yield local_tasks.build_lambda(
+		credentials,
 		language,
 		code,
 		libraries,
@@ -4007,39 +3877,6 @@ class DeleteSavedProject( BaseHandler ):
 			"success": True
 		})
 		
-@gen.coroutine
-def warm_lambda_base_caches():
-	"""
-	Kicks off building the dependency .zip templates for the base
-	builds so that future builds will be cached and will execute faster.
-	"""
-	
-	lambda_build_futures = []
-	
-	for supported_language in LAMBDA_SUPPORTED_LANGUAGES:
-		lambda_build_futures.append(
-			local_tasks.build_lambda(
-				supported_language,
-				"",
-				[],
-				{
-					"then": [],
-					"else": [],
-					"exception": [],
-					"if": [],
-					"fan-out": [],
-					"fan-in": [],
-				},
-				"REGULAR",
-				False,
-				False
-			)
-		)
-		
-	results = yield lambda_build_futures
-	
-	print( "Lambda base-cache has been warmed!" )
-		
 class DeployDiagram( BaseHandler ):
 	@authenticated
 	@gen.coroutine
@@ -5316,8 +5153,7 @@ if __name__ == "__main__":
 	
 	tornado.ioloop.IOLoop.current().run_sync( add_reserved_aws_accounts )
 	
-	#tornado.ioloop.IOLoop.current().run_sync( delete_logs )
-	#tornado.ioloop.IOLoop.current().run_sync( warm_lambda_base_caches )
+	#tornado.ioloop.IOLoop.current().run_sync( test )
 	
 	if os.environ.get( "cf_enabled" ).lower() == "true":
 		tornado.ioloop.IOLoop.current().run_sync( get_cloudflare_keys )

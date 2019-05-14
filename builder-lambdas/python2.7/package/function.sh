@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 function handler () {
   export PATH="$(pwd)/bin/:$PATH"
   export PYTHONPATH="$LAMBDA_TASK_ROOT/lib/python2.7/site-packages/"
@@ -9,6 +10,9 @@ function handler () {
   
   # Create new build directory
   mkdir /tmp/build/
+  
+  echo "Python version is: " 1>&2;
+  python --version 1>&2;
   
   # Get a straight string of the libraries (\n seperated)
   # for requirements.txt
@@ -52,22 +56,36 @@ function handler () {
   # Cat requirements.txt
   cat /tmp/build/requirements.txt 1>&2;
   
+  # Go to build directory
+  cd /tmp/build/
+  
   # Create a new virtualenv in the build directory
-  virtualenv /tmp/build/ 1>&2;
+  echo "Virtualenv creating..." 1>&2;
+  virtualenv env 1>&2;
   
   # Source the new virtualenv
-  source /tmp/build/bin/activate
+  source "/tmp/build/env/bin/activate" 1>&2;
+  
+  echo "Virtualenv is: " 1>&2;
+  echo "$VIRTUAL_ENV" 1>&2;
   
   # Install libraries in virtualenv
-  pip install -r /tmp/build/requirements.txt 1>&2;
+  /tmp/build/env/bin/pip2.7 install -r /tmp/build/requirements.txt 1>&2;
   
-  cd /tmp/build/lib/python2.7/site-packages/
+  cd /tmp/build/env/lib/python2.7/site-packages/
   
-  zip -r libraries.zip * 1>&2;
+  echo "PWD is: " 1>&2;
+  echo "$(pwd)" 1>&2;
+  
+  ls -lisah /tmp/build/ 1>&2;
+  
+  zip -qq -r libraries.zip * 1>&2;
   
   mv libraries.zip /tmp/build/
   
   python "$LAMBDA_TASK_ROOT/lib/python2.7/site-packages/awscli/__main__.py" s3 cp /tmp/build/libraries.zip "$PACKAGE_S3_PATH" 1>&2;
 
   echo $PACKAGE_S3_PATH
+  
+  deactivate
 }
