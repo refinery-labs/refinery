@@ -70,6 +70,8 @@ try:
 			os.environ[ key ] = str( value )
 except:
 	print( "No config.yaml specified, assuming environmental variables are all set!" )
+
+allowed_origins = json.loads( os.environ.get( "access_control_allow_origins" ) )
 			
 def on_start():
 	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES
@@ -214,7 +216,7 @@ def logit( message, message_type="info" ):
 class BaseHandler( tornado.web.RequestHandler ):
 	def __init__( self, *args, **kwargs ):
 		super( BaseHandler, self ).__init__( *args, **kwargs )
-		self.set_header( "Access-Control-Allow-Origin", os.environ.get( "access_control_allow_origin" ), )
+		# self.set_header( "Access-Control-Allow-Origin", os.environ.get( "access_control_allow_origin" ), )
 		self.set_header( "Access-Control-Allow-Headers", "Content-Type, X-CSRF-Validation-Header" )
 		self.set_header( "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD" )
 		self.set_header( "Access-Control-Allow-Credentials", "true" )
@@ -226,6 +228,14 @@ class BaseHandler( tornado.web.RequestHandler ):
 		self.set_header( "Cache-Control", "no-cache, no-store, must-revalidate" )
 		self.set_header( "Pragma", "no-cache" )
 		self.set_header( "Expires", "0" )
+
+	def initialize( self ):
+		host_header = self.request.headers['Origin']
+
+		# Identify if the request is coming from a domain that is in the whitelist
+		# If it is, set the necessary CORS response header to allow the request to succeed.
+		if host_header in allowed_origins:
+			self.set_header( "Access-Control-Allow-Origin", host_header, )
 
 	def logit( self, message, message_type="info" ):
 		message = "[" + self.request.remote_ip + "] " + message

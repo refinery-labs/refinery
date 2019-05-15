@@ -5,7 +5,7 @@ services:
         depends_on:
             - postgresdb
         environment:
-            access_control_allow_origin: http://localhost:1234
+            access_control_allow_origins: "[\"http://localhost:1234\",\"http://localhost:8080\",\"http://localhost:8002\"]"
             aws_access_key: AWS_ADMIN_ACCESS_KEY
             aws_secret_key: AWS_ADMIN_SECRET_KEY
             aws_account_id: AWS_ACCOUNT_ID
