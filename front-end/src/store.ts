@@ -1,10 +1,22 @@
-import Vue from "vue";
-import Vuex from "vuex";
+import Vue from 'vue';
+import Vuex from 'vuex';
+import SettingPlugin from '@/store/plugins/setting';
+import SettingModule from '@/store/modules/setting';
 
 Vue.use(Vuex);
 
 export default new Vuex.Store({
-  state: {},
+  state: {
+    setting: {
+    
+    }
+  },
   mutations: {},
-  actions: {}
+  actions: {},
+  modules: {
+    setting: SettingModule
+  },
+  plugins: [
+    SettingPlugin,
+  ]
 });

@@ -1,6 +1,5 @@
 import {CreateElement, VNode} from 'vue';
 import {Component, Prop, Vue} from 'vue-property-decorator';
-import '@/styles/app.scss';
 
 export declare type NavItem = {link: string, text: string, color: string};
 

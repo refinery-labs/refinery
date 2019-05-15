@@ -1,6 +1,5 @@
 import Vue, {CreateElement, VNode} from 'vue';
 import Component from 'vue-class-component';
-import '@/styles/app.scss';
 
 @Component
 export default class AdminPanel extends Vue {
@@ -8,6 +7,13 @@ export default class AdminPanel extends Vue {
     return (
       <div class="admin-panel-page">
         <h2>Secret Admin Panel!</h2>
+        <b-container>
+          <b-row>
+            <b-col>1</b-col>
+  
+            <b-col>2</b-col>
+          </b-row>
+        </b-container>
         <router-view />
       </div>
     );
