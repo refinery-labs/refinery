@@ -1,0 +1,21 @@
+/* ========================================================================
+     Component: form-validation
+ ========================================================================== */
+
+
+// Auto color validation of input group
+// Support only input-group-append
+.input-group.with-focus {
+    .form-control {
+        transition: none;
+        &:focus+.input-group-append>.input-group-text {
+            border-color: $input-focus-border-color;
+        }
+        &.is-invalid+.input-group-append>.input-group-text {
+            border-color: $danger;
+        }
+        &.is-valid+.input-group-append>.input-group-text {
+            border-color: $success;
+        }
+    }
+}
