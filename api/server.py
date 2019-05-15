@@ -216,7 +216,6 @@ def logit( message, message_type="info" ):
 class BaseHandler( tornado.web.RequestHandler ):
 	def __init__( self, *args, **kwargs ):
 		super( BaseHandler, self ).__init__( *args, **kwargs )
-		# self.set_header( "Access-Control-Allow-Origin", os.environ.get( "access_control_allow_origin" ), )
 		self.set_header( "Access-Control-Allow-Headers", "Content-Type, X-CSRF-Validation-Header" )
 		self.set_header( "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD" )
 		self.set_header( "Access-Control-Allow-Credentials", "true" )
