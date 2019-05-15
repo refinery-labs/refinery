@@ -229,6 +229,9 @@ class BaseHandler( tornado.web.RequestHandler ):
 		self.set_header( "Expires", "0" )
 
 	def initialize( self ):
+		if 'Origin' not in self.request.headers:
+			return
+
 		host_header = self.request.headers['Origin']
 
 		# Identify if the request is coming from a domain that is in the whitelist
