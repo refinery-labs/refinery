@@ -34,6 +34,7 @@ const moduleState: UserInterfaceState = {
 };
 
 const SettingModule: Module<UserInterfaceState, RootState> = {
+    namespaced: true,
     state: moduleState,
     getters: {
         getSetting(state) {

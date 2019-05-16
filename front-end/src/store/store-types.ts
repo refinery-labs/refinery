@@ -1,3 +1,5 @@
+import {BaseRefineryResource, RefineryProject} from '@/types/graph';
+
 export interface RootState {
   setting: UserInterfaceState
 }
@@ -45,4 +47,9 @@ export interface UserInterfaceState {
   [UserInterfaceSettings.useFullLayout]?: boolean,
   /* Hide footer */
   [UserInterfaceSettings.hiddenFooter]?: boolean
+}
+
+export interface ProjectViewState {
+  openedProject: RefineryProject | null,
+  selectedNode: BaseRefineryResource | null
 }

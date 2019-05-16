@@ -1,9 +1,9 @@
-import Vue from 'vue'
-import Vuex from 'vuex'
+import Vue from 'vue';
+import Vuex from 'vuex';
 import createPersistedState from 'vuex-persistedstate';
 
-import SettingModule from './modules/setting'
-import SettingPlugin from './plugins/setting'
+import SettingModule from './modules/setting';
+import SettingPlugin from './plugins/setting';
 
 Vue.use(Vuex);
 
