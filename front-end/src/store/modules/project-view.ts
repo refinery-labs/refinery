@@ -3,9 +3,13 @@
  */
 import {Module} from 'vuex';
 import {RootState, ProjectViewState} from '@/store/store-types';
+import simpleDataJson from '../fake-project-data/simple-data.json';
+import {RefineryProject} from '@/types/graph';
+
+const simpleData: RefineryProject = simpleDataJson;
 
 const moduleState: ProjectViewState = {
-  openedProject: null,
+  openedProject: simpleData,
   selectedNode: null
 };
 

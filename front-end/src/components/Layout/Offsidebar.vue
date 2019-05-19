@@ -1,5 +1,5 @@
 <template>
-    <aside class="offsidebar d-none">
+    <aside class="offsidebar d-none" ref="sidebarElement">
         <b-tabs nav-class="nav-justified">
             <b-tab title="first" active>
                 <template slot="title">
@@ -77,7 +77,7 @@
                     </div>
                 </div>
             </b-tab>
-            <b-tab title="second" >
+            <b-tab title="second">
                 <template slot="title">
                     <em class="icon-user fa-lg"></em>
                 </template>
@@ -90,7 +90,8 @@
                     <!-- END list title-->
                     <div class="list-group-item list-group-item-action border-0">
                         <div class="media">
-                            <img class="align-self-center mr-3 rounded-circle thumb48" src="img/user/05.jpg" alt="Image">
+                            <img class="align-self-center mr-3 rounded-circle thumb48" src="img/user/05.jpg"
+                                 alt="Image">
                             <div class="media-body text-truncate">
                                 <a href="#">
                                     <strong>Juan Sims</strong>
@@ -105,7 +106,8 @@
                     </div>
                     <div class="list-group-item list-group-item-action border-0">
                         <div class="media">
-                            <img class="align-self-center mr-3 rounded-circle thumb48" src="img/user/06.jpg" alt="Image">
+                            <img class="align-self-center mr-3 rounded-circle thumb48" src="img/user/06.jpg"
+                                 alt="Image">
                             <div class="media-body text-truncate">
                                 <a href="#">
                                     <strong>Maureen Jenkins</strong>
@@ -120,7 +122,8 @@
                     </div>
                     <div class="list-group-item list-group-item-action border-0">
                         <div class="media">
-                            <img class="align-self-center mr-3 rounded-circle thumb48" src="img/user/07.jpg" alt="Image">
+                            <img class="align-self-center mr-3 rounded-circle thumb48" src="img/user/07.jpg"
+                                 alt="Image">
                             <div class="media-body text-truncate">
                                 <a href="#">
                                     <strong>Billie Dunn</strong>
@@ -135,7 +138,8 @@
                     </div>
                     <div class="list-group-item list-group-item-action border-0">
                         <div class="media">
-                            <img class="align-self-center mr-3 rounded-circle thumb48" src="img/user/08.jpg" alt="Image">
+                            <img class="align-self-center mr-3 rounded-circle thumb48" src="img/user/08.jpg"
+                                 alt="Image">
                             <div class="media-body text-truncate">
                                 <a href="#">
                                     <strong>Tomothy Roberts</strong>
@@ -155,7 +159,8 @@
                     <!-- END list title-->
                     <div class="list-group-item list-group-item-action border-0">
                         <div class="media">
-                            <img class="align-self-center mr-3 rounded-circle thumb48" src="img/user/09.jpg" alt="Image">
+                            <img class="align-self-center mr-3 rounded-circle thumb48" src="img/user/09.jpg"
+                                 alt="Image">
                             <div class="media-body text-truncate">
                                 <a href="#">
                                     <strong>Lawrence Robinson</strong>
@@ -170,7 +175,8 @@
                     </div>
                     <div class="list-group-item list-group-item-action border-0">
                         <div class="media">
-                            <img class="align-self-center mr-3 rounded-circle thumb48" src="img/user/10.jpg" alt="Image">
+                            <img class="align-self-center mr-3 rounded-circle thumb48" src="img/user/10.jpg"
+                                 alt="Image">
                             <div class="media-body text-truncate">
                                 <a href="#">
                                     <strong>Tyrone Owens</strong>
@@ -196,7 +202,8 @@
                         <small class="text-muted">Tasks completion</small>
                     </p>
                     <div class="progress progress-xs m-0">
-                        <div class="progress-bar bg-success" role="progressbar" aria-valuenow="80" aria-valuemin="0" aria-valuemax="100" style="width: 80%">
+                        <div class="progress-bar bg-success" role="progressbar" aria-valuenow="80" aria-valuemin="0"
+                             aria-valuemax="100" style="width: 80%">
                             <span class="sr-only">80% Complete</span>
                         </div>
                     </div>
@@ -206,7 +213,8 @@
                         <small class="text-muted">Upload quota</small>
                     </p>
                     <div class="progress progress-xs m-0">
-                        <div class="progress-bar bg-warning" role="progressbar" aria-valuenow="40" aria-valuemin="0" aria-valuemax="100" style="width: 40%">
+                        <div class="progress-bar bg-warning" role="progressbar" aria-valuenow="40" aria-valuemin="0"
+                             aria-valuemax="100" style="width: 40%">
                             <span class="sr-only">40% Complete</span>
                         </div>
                     </div>
@@ -219,57 +227,89 @@
 </template>
 
 <script>
-    import { mapGetters, mapMutations } from 'vuex'
+  import {mapMutations, mapGetters} from 'vuex';
+  import Vue from 'vue';
 
-    export default {
-        name: 'Offsidebar',
-        computed: {
-            isFixed: {
-                get () { return this.getSetting.isFixed },
-                set (value) { this.changeSetting({name: 'isFixed', value}) }
-            },
-            isBoxed: {
-                get () { return this.getSetting.isBoxed },
-                set (value) { this.changeSetting({name: 'isBoxed', value}) }
-            },
-            isCollapsed: {
-                get () { return this.getSetting.isCollapsed },
-                set (value) { this.changeSetting({name: 'isCollapsed', value}) }
-            },
-            isCollapsedText: {
-                get () { return this.getSetting.isCollapsedText },
-                set (value) { this.changeSetting({name: 'isCollapsedText', value}) }
-            },
-            isFloat: {
-                get () { return this.getSetting.isFloat },
-                set (value) { this.changeSetting({name: 'isFloat', value}) }
-            },
-            asideHover: {
-                get () { return this.getSetting.asideHover },
-                set (value) { this.changeSetting({name: 'asideHover', value}) }
-            },
-            asideScrollbar: {
-                get () { return this.getSetting.asideScrollbar },
-                set (value) { this.changeSetting({name: 'asideScrollbar', value}) }
-            },
-            themePath: {
-                get () { return this.getTheme },
-                set (value) { this.changeTheme(value) }
-            },
-            ...mapGetters([
-                'getSetting',
-                'getTheme'
-            ])
+  export default Vue.extend({
+    computed: {
+      isFixed: {
+        get() {
+          return this.settings.isFixed;
         },
-        methods: {
-            ...mapMutations([
-                'changeSetting',
-                'changeTheme'
-            ])
-        },
-        mounted() {
-            // unhide offsidebar on mounted
-            document.querySelector('.offsidebar.d-none').classList.remove('d-none')
+        set(value) {
+          this.changeSetting({name: 'isFixed', value});
         }
+      },
+      isBoxed: {
+        get() {
+          return this.settings.isBoxed;
+        },
+        set(value) {
+          this.changeSetting({name: 'isBoxed', value});
+        }
+      },
+      isCollapsed: {
+        get() {
+          return this.settings.isCollapsed;
+        },
+        set(value) {
+          this.changeSetting({name: 'isCollapsed', value});
+        }
+      },
+      isCollapsedText: {
+        get() {
+          return this.settings.isCollapsedText;
+        },
+        set(value) {
+          this.changeSetting({name: 'isCollapsedText', value});
+        }
+      },
+      isFloat: {
+        get() {
+          return this.settings.isFloat;
+        },
+        set(value) {
+          this.changeSetting({name: 'isFloat', value});
+        }
+      },
+      asideHover: {
+        get() {
+          return this.settings.asideHover;
+        },
+        set(value) {
+          this.changeSetting({name: 'asideHover', value});
+        }
+      },
+      asideScrollbar: {
+        get() {
+          return this.settings.asideScrollbar;
+        },
+        set(value) {
+          this.changeSetting({name: 'asideScrollbar', value});
+        }
+      },
+      ...mapGetters([
+        'settings'
+      ])
+    },
+    methods: {
+      ...mapMutations([
+        'changeSetting',
+        'toggleSetting'
+      ])
+    },
+    mounted() {
+
+      const sidebarElement = this.$refs.sidebarElement;
+
+      if (!sidebarElement) {
+        return;
+      }
+
+      // const sidebarHtmlElement = sidebarElement as HTMLElement;
+
+      // unhide offsidebar on mounted
+      sidebarElement.classList.remove('d-none');
     }
+  });
 </script>
