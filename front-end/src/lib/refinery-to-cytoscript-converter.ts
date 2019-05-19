@@ -107,7 +107,14 @@ const baseNodeStyle = {
   shape: 'roundrectangle',
   label: 'data(name)',
   'background-fit': 'contain',
-  'background-color': '#fff'
+  'background-color': '#fff',
+  'text-valign': 'bottom',
+  'compound-sizing-wrt-labels': 'include',
+  'text-margin-y': '2px',
+  "padding-top": "10px",
+  "padding-left": "10px",
+  "padding-bottom": "10px",
+  "padding-right": "10px",
 };
 
 const baseEdgeStyle = {
@@ -118,7 +125,13 @@ const baseEdgeStyle = {
   'line-color': '#9dbaea',
   'target-arrow-color': '#9dbaea',
   'curve-style': 'bezier',
-  'text-margin-x ': '50px'
+  'text-rotation': 'autorotate',
+  'target-endpoint': 'outside-to-node-or-label',
+};
+
+const edgeWithLabelStyle = {
+  'text-margin-x': '15px',
+  'text-margin-y': '15px'
 };
 
 type CytoscapeStyleConfigLookup = {
@@ -154,6 +167,7 @@ export function generateCytoscapeStyle(): CssStyleDeclaration {
   
   cytoscapeStyleHelper.selector('node').style(baseNodeStyle);
   cytoscapeStyleHelper.selector('edge').style(baseEdgeStyle);
+  cytoscapeStyleHelper.selector('edge[label]').style(edgeWithLabelStyle);
   
   // Black magic, I know.
   // This will apply each "style" against the StyleHelper and then return the helper at the end.
