@@ -1,12 +1,42 @@
 import {CreateElement, VNode} from 'vue';
 import {Component, Prop, Vue, Watch} from 'vue-property-decorator';
-import cytoscape, {ElementDefinition, ElementsDefinition, LayoutOptions, Stylesheet} from 'cytoscape';
+import cytoscape, {ElementDefinition, ElementsDefinition, EventObject, LayoutOptions, Stylesheet} from 'cytoscape';
 import dagre from 'cytoscape-dagre';
+
+const baseCytoscapeStyles = [
+  {
+    selector: 'node.highlight',
+    style: {
+      'background-blacken': -0.2,
+      color: '#fff',
+      'text-background-color': '#333'
+    }
+  },
+  // {
+  //   selector: 'node.semitransp',
+  //   style:{ 'opacity': '0.95' }
+  // },
+  {
+    selector: 'edge.highlight',
+    style: {
+      'mid-target-arrow-color': '#FFF',
+      color: 'red',
+      'line-color': '#abc4ed',
+      'target-arrow-color': '#abc4ed',
+    }
+  },
+  // {
+  //   selector: 'edge.semitransp',
+  //   style:{ 'opacity': '0.95' }
+  // }
+];
 
 cytoscape.use(dagre);
 
 type CyElements = ElementsDefinition | ElementDefinition[] | Promise<ElementsDefinition> | Promise<ElementDefinition[]>;
-type CyStyle = Stylesheet[] | Promise<Stylesheet[]>;
+
+// Let's just not support promises in our API style. If we need it we'll figure it out
+type CyStyle = Stylesheet[]; // | Promise<Stylesheet[]>;
 
 @Component
 export default class CytoscapeGraph extends Vue {
@@ -59,6 +89,7 @@ export default class CytoscapeGraph extends Vue {
   }
 
   public generateInitialCytoscapeConfig(): cytoscape.CytoscapeOptions {
+    console.log(Object.values(this.stylesheet));
     return {
       layout: {
         name: 'dagre',
@@ -74,8 +105,10 @@ export default class CytoscapeGraph extends Vue {
   
       boxSelectionEnabled: false,
       autounselectify: true,
+      minZoom: 0.5,
+      maxZoom: 4,
   
-      style: this.stylesheet,
+      style: [...Object.values(this.stylesheet), ...baseCytoscapeStyles],
   
       elements: this.elements || {
         // Prevents a "default" node from rendering when the list is empty...
@@ -86,18 +119,38 @@ export default class CytoscapeGraph extends Vue {
     };
   }
   
+  public setupEventHandlers(cy: cytoscape.Core) {
+    function addHighlight(e: EventObject){
+      const sel = e.target;
+      cy.elements().not(sel).addClass('semitransp');
+      sel.addClass('highlight');
+    }
+    
+    function removeHighlight(e: EventObject){
+      const sel = e.target;
+      cy.elements().removeClass('semitransp');
+      sel.removeClass('highlight');
+    }
+    
+    cy.on('mouseover', 'node', addHighlight);
+    cy.on('mouseout', 'node', removeHighlight);
+    cy.on('mouseover', 'edge', addHighlight);
+    cy.on('mouseout', 'edge', removeHighlight);
+  }
+  
   public mounted() {
     if (!this.$refs.container) {
       return null;
     }
     
     const config = this.generateInitialCytoscapeConfig();
-    console.log(config);
   
     // Have to cast to specifically HTMLElement for this to work.
     config.container = this.$refs.container as HTMLElement;
     
     this.cy = cytoscape(config);
+    
+    this.setupEventHandlers(this.cy);
     
     this.$forceUpdate();
   }

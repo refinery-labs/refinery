@@ -3,7 +3,9 @@
  */
 import {Module} from 'vuex';
 import {RootState, ProjectViewState} from '@/store/store-types';
-import simpleDataJson from '../fake-project-data/simple-data.json';
+
+// @ts-ignore
+import simpleDataJson from '../fake-project-data/simple-data';
 import {RefineryProject} from '@/types/graph';
 
 const simpleData: RefineryProject = simpleDataJson;

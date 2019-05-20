@@ -9,11 +9,9 @@ import cytoscape from 'cytoscape';
 import {
   CssStyleDeclaration,
   EdgeDefinition,
-  ElementGroup,
   ElementsDefinition,
   NodeDefinition,
 } from 'cytoscape';
-import StylesheetHelper = cytoscape.StylesheetHelper;
 
 const baseElementProperties = {
   // group: 'nodes' as ElementGroup,
@@ -102,36 +100,38 @@ export function generateCytoscapeElements(project: RefineryProject): ElementsDef
 }
 
 const baseNodeStyle = {
-  width: 64,
-  height: 64,
-  shape: 'roundrectangle',
-  label: 'data(name)',
-  'background-fit': 'contain',
-  'background-color': '#fff',
-  'text-valign': 'bottom',
-  'compound-sizing-wrt-labels': 'include',
-  'text-margin-y': '2px',
-  "padding-top": "10px",
-  "padding-left": "10px",
-  "padding-bottom": "10px",
-  "padding-right": "10px",
+  selector: 'node',
+  style: {
+    width: 64,
+    height: 64,
+    shape: 'roundrectangle',
+    label: 'data(name)',
+    color: '#fff',
+    'background-fit': 'contain',
+    'background-color': '#fff',
+    'text-valign': 'bottom',
+    'compound-sizing-wrt-labels': 'include',
+    'text-margin-y': '6px',
+    'text-background-color': '#000',
+    'text-background-opacity': '0.5',
+    'text-background-padding': '4px',
+    'text-background-shape': 'roundrectangle'
+  }
 };
 
 const baseEdgeStyle = {
-  width: 5,
-  label: 'data(name)',
-  color: '#444',
-  'target-arrow-shape': 'triangle',
-  'line-color': '#9dbaea',
-  'target-arrow-color': '#9dbaea',
-  'curve-style': 'bezier',
-  'text-rotation': 'autorotate',
-  'target-endpoint': 'outside-to-node-or-label',
-};
-
-const edgeWithLabelStyle = {
-  'text-margin-x': '15px',
-  'text-margin-y': '15px'
+  selector: 'edge',
+  style: {
+    width: 5,
+    label: 'data(name)',
+    color: '#2a2a2a',
+    'target-arrow-shape': 'triangle',
+    'line-color': '#9dbaea',
+    'target-arrow-color': '#9dbaea',
+    'curve-style': 'bezier',
+    'text-rotation': 'autorotate',
+    'target-endpoint': 'outside-to-node-or-label',
+  }
 };
 
 type CytoscapeStyleConfigLookup = {
@@ -160,23 +160,21 @@ const cytoscapeConfigLookup: CytoscapeStyleConfigLookup = {
 };
 
 export function generateCytoscapeStyle(): CssStyleDeclaration {
-
-  // TODO: Wait until the stylesheet types are landed.
-  // @ts-ignore
-  const cytoscapeStyleHelper = cytoscape.stylesheet() as StylesheetHelper;
   
-  cytoscapeStyleHelper.selector('node').style(baseNodeStyle);
-  cytoscapeStyleHelper.selector('edge').style(baseEdgeStyle);
-  cytoscapeStyleHelper.selector('edge[label]').style(edgeWithLabelStyle);
-  
-  // Black magic, I know.
-  // This will apply each "style" against the StyleHelper and then return the helper at the end.
-  const filledStyleHellper = Object.keys(cytoscapeConfigLookup).reduce(
-    (out, key) => out.selector(`.${key}`).style(cytoscapeConfigLookup[key]),
-    cytoscapeStyleHelper
+  // Generate styles for each node
+  const filledStyleHelper = Object.keys(cytoscapeConfigLookup).map(
+    key => ({
+      // CSS-style syntax
+      selector: `.${key}`,
+      style: cytoscapeConfigLookup[key]
+    })
   );
   
-  return filledStyleHellper as CssStyleDeclaration;
+  return [
+    baseNodeStyle,
+    baseEdgeStyle,
+    ...filledStyleHelper
+  ];
 }
 
 export function convertRefineryProjectToCytoscape(project: RefineryProject): cytoscape.CytoscapeOptions {
