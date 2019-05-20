@@ -129,11 +129,12 @@
 </template>
 
 <script>
+    import Vue from 'vue';
     import { mapMutations } from 'vuex'
     import HeaderSearch from './HeaderSearch'
     import ToggleFullscreen from '../Common/ToggleFullscreen'
 
-    export default {
+    export default Vue.extend({
         name: 'Header',
         components: {
             HeaderSearch,
@@ -156,18 +157,18 @@
                 'toggleSetting'
             ]),
             toggleOffsidebar() {
-                this.toggleSetting('offsidebarOpen')
+                this.toggleSetting('offsidebarOpen');
             },
             toggleOffcanvas() {
-                this.toggleSetting('asideToggled')
+                this.toggleSetting('asideToggled');
             },
             toggleAsideCollapsed() {
-                this.toggleSetting('isCollapsed')
+                this.toggleSetting('isCollapsed');
                 this.resize();
             },
             toggleUserBlock() {
-                this.toggleSetting('showUserBlock')
+                this.toggleSetting('showUserBlock');
             }
         }
-    }
+    });
 </script>

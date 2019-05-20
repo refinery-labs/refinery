@@ -2,19 +2,8 @@ import Vue, {CreateElement, VNode} from 'vue';
 import Component from 'vue-class-component';
 import SidebarNav, {NavItem} from '@/components/SidebarNav';
 import TopNavbar from '@/components/TopNavbar';
-
-const navItems: NavItem[] = [
-  {
-    link: '/',
-    text: 'Home',
-    color: 'blue'
-  },
-  {
-    link: '/projects',
-    text: 'Projects',
-    color: 'red'
-  }
-];
+import {UserInterfaceSettings, UserInterfaceState} from '@/store/store-types';
+import {Getter} from 'vuex-class';
 
 @Component({
   components: {
@@ -23,9 +12,23 @@ const navItems: NavItem[] = [
   }
 })
 export default class App extends Vue {
+  @Getter settings!: UserInterfaceState;
+  
   public render(h: CreateElement): VNode {
+    const activeClasses = {
+      'layout-fixed': this.settings[UserInterfaceSettings.isFixed],
+      'layout-boxed': this.settings[UserInterfaceSettings.isBoxed],
+      'aside-collapsed': this.settings[UserInterfaceSettings.isCollapsed],
+      'aside-collapsed-text': this.settings[UserInterfaceSettings.isCollapsedText],
+      'aside-float': this.settings[UserInterfaceSettings.isFloat],
+      'aside-hover': this.settings[UserInterfaceSettings.asideHover],
+      'offsidebar-open': this.settings[UserInterfaceSettings.offsidebarOpen],
+      'aside-toggled': this.settings[UserInterfaceSettings.asideToggled],
+      'layout-h': this.settings[UserInterfaceSettings.horizontal]
+    };
+    
     return (
-      <div id="app">
+      <div id="app" class={activeClasses}>
         <div class="app-content display--flex">
           <div class="flex-grow--3">
             <router-view />

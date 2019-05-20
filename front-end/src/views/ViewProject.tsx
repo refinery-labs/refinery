@@ -16,9 +16,9 @@ export default class ViewProject extends Vue {
     
     return (
       <div class="view-project-page">
-        <h2>View Project</h2>
-        Id: {this.$route.params.projectId}
-        <router-view />
+        {/*<h2>View Project</h2>*/}
+        {/*Id: {this.$route.params.projectId}*/}
+        {/*<router-view />*/}
         <CytoscapeGraph props={{elements, stylesheet}} />
       </div>
     );

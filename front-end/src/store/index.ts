@@ -1,10 +1,8 @@
 import Vue from 'vue';
 import Vuex from 'vuex';
-import createPersistedState from 'vuex-persistedstate';
-
-import SettingModule from './modules/setting';
 import SettingPlugin from './plugins/setting';
-
+import SettingModule from './modules/setting';
+import createPersistedState from 'vuex-persistedstate';
 import ProjectView from './modules/project-view';
 
 Vue.use(Vuex);
@@ -18,6 +16,11 @@ const ignoredStates = [
 ];
 
 export default new Vuex.Store({
+  state: {
+    setting: {}
+  },
+  mutations: {},
+  actions: {},
   modules: {
     setting: SettingModule,
     project: ProjectView
@@ -27,11 +30,13 @@ export default new Vuex.Store({
       reducer: (persistedState) => {
         // deep clone
         const stateFilter = JSON.parse(JSON.stringify(persistedState));
-        
+      
         ignoredStates.forEach(item => delete stateFilter.setting[item]);
         return stateFilter;
       }
     }),
     SettingPlugin
-  ]
+  ],
+  // Dev Only: Causes Vuex to get angry when mutations are done to it's state outside of a mutator
+  strict: process.env.NODE_ENV !== 'production'
 });

@@ -89,7 +89,6 @@ export default class CytoscapeGraph extends Vue {
   }
 
   public generateInitialCytoscapeConfig(): cytoscape.CytoscapeOptions {
-    console.log(Object.values(this.stylesheet));
     return {
       layout: {
         name: 'dagre',
@@ -153,6 +152,7 @@ export default class CytoscapeGraph extends Vue {
     this.setupEventHandlers(this.cy);
     
     this.$forceUpdate();
+    
   }
  
   public render(h: CreateElement): VNode {

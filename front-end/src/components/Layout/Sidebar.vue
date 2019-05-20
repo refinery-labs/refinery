@@ -70,12 +70,12 @@
 </template>
 
 <script>
-
+    import Vue from 'vue';
     import { mapState } from 'vuex';
     import SidebarRun from './Sidebar.run';
     import Menu from '../../menu';
 
-    export default {
+    export default Vue.extend({
         name: 'Sidebar',
         data() {
             return {
@@ -135,5 +135,5 @@
             }
 
         }
-    }
+    });
 </script>

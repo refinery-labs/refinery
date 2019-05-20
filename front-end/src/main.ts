@@ -11,7 +11,7 @@ import '@/styles/app.scss';
 
 import App from './App';
 import router from './router';
-import store from './store';
+import store from './store/index';
 import './registerServiceWorker';
 
 Vue.use(BootstrapVue);
