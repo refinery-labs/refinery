@@ -1,0 +1,4 @@
+# This file is used for the account creator tool.
+aws_secret_access_key: REPLACEME
+aws_access_key_id: REPLACEME
+aws_region: us-west-1

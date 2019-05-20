@@ -72,21 +72,6 @@ CF_ACCESS_PUBLIC_KEYS = []
 def on_start():
 	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES
 	
-	def inject_configurations( input_code ):
-		return input_code.replace(
-			"{{REDIS_PASSWORD_REPLACE_ME}}",
-			os.environ.get( "lambda_redis_password" )
-		).replace(
-			"{{REDIS_HOSTNAME_REPLACE_ME}}",
-			os.environ.get( "lambda_redis_hostname" )
-		).replace(
-			"\"{{REDIS_PORT_REPLACE_ME}}\"",
-			os.environ.get( "lambda_redis_port" )
-		).replace(
-			"{{LOG_BUCKET_NAME_REPLACE_ME}}",
-			os.environ.get( "pipeline_logs_bucket" )
-		)
-	
 	# Email templates
 	email_templates_folder = "./email_templates/"
 	EMAIL_TEMPLATES = {}
@@ -117,16 +102,30 @@ def on_start():
 	CUSTOM_RUNTIME_CODE = ""
 	
 	with open( "./custom-runtime/base-src/bootstrap", "r" ) as file_handler:
-		CUSTOM_RUNTIME_CODE = inject_configurations(
-			file_handler.read()
-		)
+		CUSTOM_RUNTIME_CODE = file_handler.read()
 
 	for language_name, libraries in LAMBDA_BASE_LIBRARIES.iteritems():
 		# Load Lambda base templates
 		with open( "./lambda_bases/" + language_name, "r" ) as file_handler:
-			LAMDBA_BASE_CODES[ language_name ] = inject_configurations(
-				file_handler.read()
-			)
+			LAMDBA_BASE_CODES[ language_name ] = file_handler.read()
+			
+def inject_configurations( credentials, input_code ):
+	"""
+	Injects the configs into the Lambda source code
+	"""
+	return input_code.replace(
+		"{{REDIS_PASSWORD_REPLACE_ME}}",
+		credentials[ "redis_password" ],
+	).replace(
+		"{{REDIS_HOSTNAME_REPLACE_ME}}",
+		credentials[ "redis_hostname" ],
+	).replace(
+		"\"{{REDIS_PORT_REPLACE_ME}}\"",
+		str( credentials[ "redis_port" ] ),
+	).replace(
+		"{{LOG_BUCKET_NAME_REPLACE_ME}}",
+		credentials[ "logs_bucket" ],
+	)
 
 # This is purely for sending emails as part of Refinery's
 # regular operations (e.g. authentication via email code, etc).
@@ -800,6 +799,8 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def get_nodejs_810_base_zip( credentials, libraries ):
+			print( "Invoking builder Lambda..." )
+			pprint( libraries )
 			libraries_object = {}
 			
 			for library in libraries:
@@ -858,8 +859,13 @@ class TaskSpawner(object):
 			"""
 			Customize and inject custom runtime.
 			"""
-			bootstrap_content = CUSTOM_RUNTIME_CODE
+			bootstrap_content = inject_configurations(
+				credentials,
+				CUSTOM_RUNTIME_CODE
+			)
+			
 			bootstrap_content = TaskSpawner._get_custom_python_base_code(
+				credentials,
 				bootstrap_content,
 				libraries,
 				transitions,
@@ -928,6 +934,7 @@ class TaskSpawner(object):
 
 		@run_on_executor
 		def build_lambda( self, credentials, language, code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
+			print( "Building Lambda " + language + " with libraries: " + str( libraries) )
 			if not ( language in LAMBDA_SUPPORTED_LANGUAGES ):
 				raise Exception( "Error, this language '" + language + "' is not yet supported by refinery!" )
 			
@@ -937,12 +944,12 @@ class TaskSpawner(object):
 				return TaskSpawner._build_nodejs_810_lambda( credentials, code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level )
 				
 		@staticmethod
-		def _get_custom_python_base_code( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
+		def _get_custom_python_base_code( credentials, code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
 			# Convert tabs to four spaces
 			code = code.replace( "\t", "	" )
 			
 			code = code.replace( "\"{{TRANSITION_DATA_REPLACE_ME}}\"", json.dumps( json.dumps( transitions ) ) )
-			code = code.replace( "{{AWS_REGION_REPLACE_ME}}", os.environ.get( "region_name" ) )
+			code = code.replace( "{{AWS_REGION_REPLACE_ME}}", credentials[ "region" ] )
 			code = code.replace( "{{SPECIAL_EXECUTION_MODE}}", execution_mode )
 			
 			if execution_pipeline_id:
@@ -966,8 +973,13 @@ class TaskSpawner(object):
 			"""
 
 			# Get customized base code
-			code = code + "\n\n" + LAMDBA_BASE_CODES[ "python2.7" ]
+			code = code + "\n\n" + inject_configurations(
+				credentials,
+				LAMDBA_BASE_CODES[ "python2.7" ]
+			)
+			
 			code = TaskSpawner._get_custom_python_base_code(
+				credentials,
 				code,
 				libraries,
 				transitions,
@@ -5094,6 +5106,9 @@ def add_reserved_aws_accounts():
 			new_aws_account.logs_bucket = os.environ.get( "pipeline_logs_bucket" )
 			new_aws_account.iam_admin_username = "DUMMY_VALUE"
 			new_aws_account.iam_admin_password = "DUMMY_VALUE"
+			new_aws_account.redis_hostname = os.environ.get( "lambda_redis_hostname" )
+			new_aws_account.redis_password = os.environ.get( "lambda_redis_password" )
+			new_aws_account.redis_port = int( os.environ.get( "lambda_redis_port" ) )
 			session.add( new_aws_account )
 			
 		session.commit()
@@ -5111,7 +5126,7 @@ def make_app( is_debug ):
 		( r"/api/v1/auth/register", NewRegistration ), # Auth reviewed
 		( r"/api/v1/auth/login", Authenticate ), # Auth reviewed
 		( r"/api/v1/auth/logout", Logout ), # Auth reviewed
-		( r"/api/v1/logs/executions/get", GetProjectExecutionLogs ),
+		( r"/api/v1/logs/executions/get", GetProjectExecutionLogs ), # Auth reviewed
 		( r"/api/v1/logs/executions", GetProjectExecutions ), # Auth reviewed *
 		( r"/api/v1/aws/deploy_diagram", DeployDiagram ), # Auth reviewed
 		( r"/api/v1/functions/delete", SavedFunctionDelete ), # Auth reviewed
@@ -5121,12 +5136,12 @@ def make_app( is_debug ):
 		( r"/api/v1/lambdas/create", SavedLambdaCreate ), # Auth reviewed
 		( r"/api/v1/lambdas/search", SavedLambdaSearch ), # Auth reviewed
 		( r"/api/v1/lambdas/delete", SavedLambdaDelete ), # Auth reviewed
-		( r"/api/v1/lambdas/run", RunLambda ),
-		( r"/api/v1/lambdas/logs", GetCloudWatchLogsForLambda ),
+		( r"/api/v1/lambdas/run", RunLambda ), # Auth reviewed
+		( r"/api/v1/lambdas/logs", GetCloudWatchLogsForLambda ), # Auth reviewed
 		( r"/api/v1/lambdas/env_vars/update", UpdateEnvironmentVariables ),
-		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda ),
-		( r"/api/v1/aws/infra_tear_down", InfraTearDown ),
-		( r"/api/v1/aws/infra_collision_check", InfraCollisionCheck ),
+		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda ), # Auth reviewed
+		( r"/api/v1/aws/infra_tear_down", InfraTearDown ), # Auth reviewed
+		( r"/api/v1/aws/infra_collision_check", InfraCollisionCheck ), # Auth reviewed
 		( r"/api/v1/projects/save", SaveProject ), # Auth reviewed
 		( r"/api/v1/projects/search", SearchSavedProjects ), # Auth reviewed
 		( r"/api/v1/projects/get", GetSavedProject ), # Auth reviewed

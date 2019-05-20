@@ -1,0 +1,7 @@
+*.tfvars
+*.tfstate
+.terraform/
+env/
+*.yml
+*.yaml
+terraform-refinery-customer-aws-account-details.json

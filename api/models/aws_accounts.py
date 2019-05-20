@@ -39,6 +39,15 @@ class AWSAccount( Base ):
 	# AWS IAM Console Admin password
 	iam_admin_password = Column(Text())
 	
+	# Redis hostname
+	redis_hostname = Column(Text())
+	
+	# Redis password
+	redis_password = Column(Text())
+	
+	# Redis port
+	redis_port = Column(BigInteger())
+	
 	# Whether the AWS Account is a "reserved account"
 	# Reserved accounts are sub-accounts of the main Refinery
 	# account. They are allocated to new users in order to do
@@ -77,6 +86,9 @@ class AWSAccount( Base ):
 			"logs_bucket",
 			"iam_admin_username",
 			"iam_admin_password",
+			"redis_hostname",
+			"redis_password",
+			"redis_port",
 			"is_reserved_account",
 			"timestamp"
 		]

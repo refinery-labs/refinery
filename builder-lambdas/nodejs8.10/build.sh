@@ -20,14 +20,14 @@
 # cache after >=1 day(s) - this is to allow updates to the packages to make
 # it into future builds.
 echo "Building Node 8.10 library builder Lambda package..."
-rm node-library-builder.zip
+rm node8.10-library-builder.zip
 rm -rf ./package/runtime/
 mkdir ./package/runtime/
 cp -r ../../api/custom-runtime/base-src/* ./package/runtime/
 cp -r ../../api/custom-runtime/node8.10/runtime ./package/runtime/
 cd ./package/
-zip -qq -r node-library-builder.zip *
-mv node-library-builder.zip ../
+zip -qq -r node8.10-library-builder.zip *
+mv node8.10-library-builder.zip ../
 cd ../
-aws s3 cp node-library-builder.zip s3://builder-lambda-testing-bucket/
-aws lambda update-function-code --function-name node810-library-builder --s3-bucket builder-lambda-testing-bucket --s3-key node-library-builder.zip
+aws s3 cp node8.10-library-builder.zip s3://refinery-builder-lambdas/
+#aws lambda update-function-code --function-name node810-builder-lambda --s3-bucket refinery-builder-lambdas --s3-key node8.10-library-builder.zip

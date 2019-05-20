@@ -34,12 +34,14 @@ function handler () {
   
   echo "Checking S3 bucket for a previously-cached build..." 1>&2;
   
-  # TODO: Write code to immediately return the same S3 path if it already exists.
   OBJECT_CHECK_OUTPUT=$(python "$LAMBDA_TASK_ROOT/lib/python2.7/site-packages/awscli/__main__.py" s3api head-object --bucket $BUILD_BUCKET --key $S3_OBJECT_PATH 2>&1 || true)
   
   # Substring determining if the object doesn't exist
   NOT_FOUND_STRING="An error occurred (404)"
-  
+
+  echo "Data returned from S3: " 1>&2;
+  echo "$OBJECT_CHECK_OUTPUT" 1>&2;
+
   # Check to see if the object exists, if it does just immediately
   # return the full S3 path to the object in the cache.
   if [[ "$OBJECT_CHECK_OUTPUT" != *"$NOT_FOUND_STRING"* ]]; then
