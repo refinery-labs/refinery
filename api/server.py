@@ -108,24 +108,6 @@ def on_start():
 		# Load Lambda base templates
 		with open( "./lambda_bases/" + language_name, "r" ) as file_handler:
 			LAMDBA_BASE_CODES[ language_name ] = file_handler.read()
-			
-def inject_configurations( credentials, input_code ):
-	"""
-	Injects the configs into the Lambda source code
-	"""
-	return input_code.replace(
-		"{{REDIS_PASSWORD_REPLACE_ME}}",
-		credentials[ "redis_password" ],
-	).replace(
-		"{{REDIS_HOSTNAME_REPLACE_ME}}",
-		credentials[ "redis_hostname" ],
-	).replace(
-		"\"{{REDIS_PORT_REPLACE_ME}}\"",
-		str( credentials[ "redis_port" ] ),
-	).replace(
-		"{{LOG_BUCKET_NAME_REPLACE_ME}}",
-		credentials[ "logs_bucket" ],
-	)
 
 # This is purely for sending emails as part of Refinery's
 # regular operations (e.g. authentication via email code, etc).
@@ -644,8 +626,6 @@ class TaskSpawner(object):
 			
 			We then can check if there's an existing cached copy
 			that we can use before we upload it ourself.
-			
-			TODO: Improve this method, generated zips basically never have matching sigs.
 			"""
 			# Generate SHA256 hash of package
 			hash_key = hashlib.sha256(
@@ -854,25 +834,21 @@ class TaskSpawner(object):
 			
 			return object_response[ "Body" ].read()
 			
-		@staticmethod
-		def _build_nodejs_810_lambda( credentials, code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
-			"""
-			Customize and inject custom runtime.
-			"""
-			bootstrap_content = inject_configurations(
-				credentials,
-				CUSTOM_RUNTIME_CODE
-			)
+		@run_on_executor
+		def build_lambda( self, credentials, language, code, libraries ):
+			print( "Building Lambda " + language + " with libraries: " + str( libraries ) )
+			if not ( language in LAMBDA_SUPPORTED_LANGUAGES ):
+				raise Exception( "Error, this language '" + language + "' is not yet supported by refinery!" )
 			
-			bootstrap_content = TaskSpawner._get_custom_python_base_code(
-				credentials,
-				bootstrap_content,
-				libraries,
-				transitions,
-				execution_mode,
-				execution_pipeline_id,
-				execution_log_level
-			)
+			if language == "python2.7":
+				return TaskSpawner._build_python_lambda( credentials, code, libraries )
+			elif language == "nodejs8.10":
+				return TaskSpawner._build_nodejs_810_lambda( credentials, code, libraries )
+			
+		@staticmethod
+		def _build_nodejs_810_lambda( credentials, code, libraries ):
+			# Make a copy of the Refinery customer runtime code
+			bootstrap_content = CUSTOM_RUNTIME_CODE
 			
 			"""
 			Inject base libraries (e.g. redis) into lambda
@@ -931,38 +907,9 @@ class TaskSpawner(object):
 			os.remove( tmp_zip_file )
 			
 			return zip_data
-
-		@run_on_executor
-		def build_lambda( self, credentials, language, code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
-			print( "Building Lambda " + language + " with libraries: " + str( libraries) )
-			if not ( language in LAMBDA_SUPPORTED_LANGUAGES ):
-				raise Exception( "Error, this language '" + language + "' is not yet supported by refinery!" )
-			
-			if language == "python2.7":
-				return TaskSpawner._build_python_lambda( credentials, code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level )
-			elif language == "nodejs8.10":
-				return TaskSpawner._build_nodejs_810_lambda( credentials, code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level )
-				
-		@staticmethod
-		def _get_custom_python_base_code( credentials, code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
-			# Convert tabs to four spaces
-			code = code.replace( "\t", "	" )
-			
-			code = code.replace( "\"{{TRANSITION_DATA_REPLACE_ME}}\"", json.dumps( json.dumps( transitions ) ) )
-			code = code.replace( "{{AWS_REGION_REPLACE_ME}}", credentials[ "region" ] )
-			code = code.replace( "{{SPECIAL_EXECUTION_MODE}}", execution_mode )
-			
-			if execution_pipeline_id:
-				code = code.replace( "{{EXECUTION_PIPELINE_ID_REPLACE_ME}}", execution_pipeline_id )
-				code = code.replace( "{{PIPELINE_LOGGING_LEVEL_REPLACE_ME}}", execution_log_level )
-			else:
-				code = code.replace( "{{EXECUTION_PIPELINE_ID_REPLACE_ME}}", "" )
-				code = code.replace( "{{PIPELINE_LOGGING_LEVEL_REPLACE_ME}}", "LOG_NONE" )
-			
-			return code
 		
 		@staticmethod
-		def _build_python_lambda( credentials, code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
+		def _build_python_lambda( credentials, code, libraries ):
 			"""
 			Build Lambda package zip and return zip data
 			"""
@@ -973,20 +920,7 @@ class TaskSpawner(object):
 			"""
 
 			# Get customized base code
-			code = code + "\n\n" + inject_configurations(
-				credentials,
-				LAMDBA_BASE_CODES[ "python2.7" ]
-			)
-			
-			code = TaskSpawner._get_custom_python_base_code(
-				credentials,
-				code,
-				libraries,
-				transitions,
-				execution_mode,
-				execution_pipeline_id,
-				execution_log_level
-			)
+			code = code + "\n\n" + LAMDBA_BASE_CODES[ "python2.7" ]
 			
 			for init_library in LAMBDA_BASE_LIBRARIES[ "python2.7" ]:
 				if not init_library in libraries:
@@ -2182,18 +2116,7 @@ class RunTmpLambda( BaseHandler ):
 			credentials,
 			self.json[ "language" ],
 			self.json[ "code" ],
-			self.json[ "libraries" ],
-			{
-				"then": [],
-				"else": [],
-				"exception": [],
-				"if": [],
-				"fan-out": [],
-				"fan-in": [],
-			},
-			"REGULAR",
-			False,
-			False
+			self.json[ "libraries" ]
 		)
 		
 		random_node_id = get_random_node_id()
@@ -2567,15 +2490,57 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		"Building '" + name + "' Lambda package..."
 	)
 	
+	"""
+	Here we build the default required environment variables.
+	"""
+	all_environment_vars = environment_variables
+	all_environment_vars.append({
+		"key": "REDIS_HOSTNAME",
+		"value": credentials[ "redis_hostname" ],
+	})
+	
+	all_environment_vars.append({
+		"key": "REDIS_PASSWORD",
+		"value": credentials[ "redis_password" ],
+	})
+
+	all_environment_vars.append({
+		"key": "REDIS_PORT",
+		"value": str( credentials[ "redis_port" ] ),
+	})
+
+	all_environment_vars.append({
+		"key": "EXECUTION_PIPELINE_ID",
+		"value": execution_pipeline_id,
+	})
+	
+	all_environment_vars.append({
+		"key": "LOG_BUCKET_NAME",
+		"value": credentials[ "logs_bucket" ],
+	})
+
+	all_environment_vars.append({
+		"key": "PIPELINE_LOGGING_LEVEL",
+		"value": execution_log_level,
+	})
+	
+	all_environment_vars.append({
+		"key": "EXECUTION_MODE",
+		"value": execution_mode,
+	})
+	
+	all_environment_vars.append({
+		"key": "TRANSITION_DATA",
+		"value": json.dumps(
+			transitions
+		),
+	})
+
 	lambda_zip_package_data = yield local_tasks.build_lambda(
 		credentials,
 		language,
 		code,
-		libraries,
-		transitions,
-		execution_mode,
-		execution_pipeline_id,
-		execution_log_level
+		libraries
 	)
 	
 	logit(
@@ -2594,7 +2559,7 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		max_execution_time, # Max AWS execution time
 		memory, # MB of execution memory
 		{}, # VPC data
-		environment_variables,
+		all_environment_vars,
 		{
 			"refinery_id": id,
 		},
