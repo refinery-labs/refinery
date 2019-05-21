@@ -29,5 +29,5 @@ cd ./package/
 zip -qq -r node8.10-library-builder.zip *
 mv node8.10-library-builder.zip ../
 cd ../
-aws s3 cp node8.10-library-builder.zip s3://refinery-builder-lambdas/
-#aws lambda update-function-code --function-name node810-builder-lambda --s3-bucket refinery-builder-lambdas --s3-key node8.10-library-builder.zip
+aws s3 cp node8.10-library-builder.zip s3://temporarylambdapackages/
+aws lambda update-function-code --function-name node810-library-builder --s3-bucket temporarylambdapackages --s3-key node8.10-library-builder.zip

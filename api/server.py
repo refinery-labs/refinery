@@ -510,6 +510,48 @@ class TaskSpawner(object):
 			)
 			
 		@run_on_executor
+		def check_if_layer_exists( self, credentials, layer_name ):
+			lambda_client = get_aws_client( "lambda", credentials )
+			
+			try:
+				response = lambda_client.get_layer_version(
+					LayerName=layer_name,
+					VersionNumber=1
+				)
+			except ClientError as e:
+				if e.response[ "Error" ][ "Code" ] == "ResourceNotFoundException":
+					return False
+					
+			return True
+			
+		@run_on_executor
+		def create_lambda_layer( self, credentials, layer_name, description, s3_bucket, s3_object_key ):
+			lambda_client = get_aws_client( "lambda", credentials )
+			
+			response = lambda_client.publish_layer_version(
+				LayerName="RefineryManagedLayer_" + layer_name,
+				Description=description,
+				Content={
+					"S3Bucket": s3_bucket,
+					"S3Key": s3_object_key,
+				},
+				CompatibleRuntimes=[
+					"python2.7",
+					"provided",
+				],
+				LicenseInfo="See layer contents for license information."
+			)
+			
+			return {
+				"sha256": response[ "Content" ][ "CodeSha256" ],
+				"size": response[ "Content" ][ "CodeSize" ],
+				"version": response[ "Version" ],
+				"layer_arn": response[ "LayerArn" ],
+				"layer_version_arn": response[ "LayerVersionArn" ],
+				"created_date": response[ "CreatedDate" ]
+			}
+			
+		@run_on_executor
 		def execute_aws_lambda( self, credentials, arn, input_data ):
 			return TaskSpawner._execute_aws_lambda( credentials, arn, input_data )
 		
@@ -778,9 +820,7 @@ class TaskSpawner(object):
 			return object_response[ "Body" ].read()
 			
 		@staticmethod
-		def get_nodejs_810_base_zip( credentials, libraries ):
-			print( "Invoking builder Lambda..." )
-			pprint( libraries )
+		def get_nodejs_810_libraries_zip( credentials, libraries ):
 			libraries_object = {}
 			
 			for library in libraries:
@@ -826,7 +866,6 @@ class TaskSpawner(object):
 			).split( "/" )
 			
 			# Pull the zip data and return the raw binary
-			# TODO: Convert this to Lambda layers
 			object_response = s3_client.get_object(
 				Bucket=s3_bucket,
 				Key=object_key,
@@ -847,36 +886,19 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def _build_nodejs_810_lambda( credentials, code, libraries ):
-			# Make a copy of the Refinery customer runtime code
-			bootstrap_content = CUSTOM_RUNTIME_CODE
-			
-			"""
-			Inject base libraries (e.g. redis) into lambda
-			and the init code.
-			"""
-			
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "nodejs8.10" ]
 			
-			# Append required libraries if not already required
-			for init_library in LAMBDA_BASE_LIBRARIES[ "nodejs8.10" ]:
-				if not init_library in libraries:
-					libraries.append(
-						init_library
-					)
-			
-			base_zip_data = TaskSpawner.get_nodejs_810_base_zip(
+			# Use a builder Lambda to create a ZIP with all of the packages
+			# packed in.
+			base_zip_data = TaskSpawner.get_nodejs_810_libraries_zip(
 				credentials,
 				libraries
 			)
 			
-			tmp_zip_file = "/tmp/" + str( uuid.uuid4() ) + ".zip"
-			
-			with open( tmp_zip_file, "w" ) as file_handler:
-				file_handler.write(
-					base_zip_data
-				)
+			# Create a virtual file handler for the Lambda zip package
+			lambda_package_zip = io.BytesIO( base_zip_data )
 				
-			with zipfile.ZipFile( tmp_zip_file, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+			with zipfile.ZipFile( lambda_package_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
 				info = zipfile.ZipInfo(
 					"lambda"
 				)
@@ -885,28 +907,13 @@ class TaskSpawner(object):
 				# Write lambda.py into new .zip
 				zip_file_handler.writestr(
 					info,
-					code
+					str( code )
 				)
-				
-				# Write bootstrap into new .zip
-				bootstrap_info = zipfile.ZipInfo(
-					"bootstrap"
-				)
-				bootstrap_info.external_attr = 0777 << 16L
-				
-				# Write lambda.py into new .zip
-				zip_file_handler.writestr(
-					bootstrap_info,
-					bootstrap_content
-				)
-				
-			with open( tmp_zip_file, "rb" ) as file_handler:
-				zip_data = file_handler.read()
+		
+			lambda_package_zip_data = lambda_package_zip.getvalue()
+			lambda_package_zip.close()
 			
-			# Delete zip file now that we've read it
-			os.remove( tmp_zip_file )
-			
-			return zip_data
+			return lambda_package_zip_data
 		
 		@staticmethod
 		def _build_python_lambda( credentials, code, libraries ):
@@ -933,14 +940,10 @@ class TaskSpawner(object):
 				libraries
 			)
 			
-			tmp_zip_file = "/tmp/" + str( uuid.uuid4() ) + ".zip"
-			
-			with open( tmp_zip_file, "w" ) as file_handler:
-				file_handler.write(
-					base_zip_data
-				)
+			# Create a virtual file handler for the Lambda zip package
+			lambda_package_zip = io.BytesIO( base_zip_data )
 				
-			with zipfile.ZipFile( tmp_zip_file, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+			with zipfile.ZipFile( lambda_package_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
 				info = zipfile.ZipInfo(
 					"lambda.py"
 				)
@@ -949,16 +952,13 @@ class TaskSpawner(object):
 				# Write lambda.py into new .zip
 				zip_file_handler.writestr(
 					info,
-					code.encode( "utf-8" )
+					str( code )
 				)
 				
-			with open( tmp_zip_file, "rb" ) as file_handler:
-				zip_data = file_handler.read()
-			
-			# Delete zip file now that we've read it
-			os.remove( tmp_zip_file )
-			
-			return zip_data
+			lambda_package_zip_data = lambda_package_zip.getvalue()
+			lambda_package_zip.close()
+
+			return lambda_package_zip_data
 			
 		@run_on_executor
 		def create_cloudwatch_rule( self, credentials, id, name, schedule_expression, description, input_dict ):
@@ -2111,33 +2111,30 @@ class RunTmpLambda( BaseHandler ):
 		self.logit( "Building Lambda package..." )
 		
 		credentials = self.get_authenticated_user_cloud_configuration()
-
-		lambda_zip_package_data = yield local_tasks.build_lambda(
-			credentials,
-			self.json[ "language" ],
-			self.json[ "code" ],
-			self.json[ "libraries" ]
-		)
 		
 		random_node_id = get_random_node_id()
 		
-		lambda_role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/refinery_aws_lambda_admin_role"
-		
-		self.logit( "Deploying Lambda to S3..." )
-		deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
+		lambda_info = yield deploy_lambda(
 			credentials,
 			random_node_id,
+			random_node_id,
 			self.json[ "language" ],
-			"AWS Lambda being inline tested.",
-			lambda_role,
-			lambda_zip_package_data,
-			self.json[ "max_execution_time" ], # Max AWS execution time
+			self.json[ "code" ],
+			self.json[ "libraries" ],
+			self.json[ "max_execution_time" ],
 			self.json[ "memory" ], # MB of execution memory
-			{}, # VPC data
-			self.json[ "environment_variables" ], # Env list
 			{
-				"project": "None"
+				"then": [],
+				"exception": [],
+				"fan-out": [],
+				"else": [],
+				"fan-in": [],
+				"if": []
 			},
+			"REGULAR",
+			"SHOULD_NEVER_HAPPEN_TMP_LAMBDA_RUN", # Doesn't matter no logging is enabled
+			"LOG_NONE",
+			self.json[ "environment_variables" ], # Env list
 			self.json[ "layers" ]
 		)
 		
@@ -2152,7 +2149,7 @@ class RunTmpLambda( BaseHandler ):
 		self.logit( "Executing Lambda..." )
 		lambda_result = yield local_tasks.execute_aws_lambda(
 			self.get_authenticated_user_cloud_configuration(),
-			deployed_lambda_data[ "FunctionArn" ],
+			lambda_info[ "arn" ],
 			{
 				"_refinery": {
 					"throw_exceptions_fully": True,
@@ -2493,7 +2490,7 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	"""
 	Here we build the default required environment variables.
 	"""
-	all_environment_vars = environment_variables
+	all_environment_vars = copy.copy( environment_variables )
 	all_environment_vars.append({
 		"key": "REDIS_HOSTNAME",
 		"value": credentials[ "redis_hostname" ],
@@ -2542,12 +2539,18 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		code,
 		libraries
 	)
-	
+
 	logit(
 		"Deploying '" + name + "' Lambda package to production..."
 	)
 	
 	lambda_role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/refinery_aws_lambda_admin_role"
+	
+	# Add the custom runtime layer in all cases
+	if language == "nodejs8.10":
+		layers.append(
+			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-node810-custom-runtime:1"
+		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
 		credentials,
@@ -2689,8 +2692,8 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				"type": workflow_state[ "type" ],
 			})
 			
-	print( "Teardown node list: " )
-	pprint( teardown_nodes_list )
+	#print( "Teardown node list: " )
+	#pprint( teardown_nodes_list )
 		
 	# Now add transition data to each Lambda
 	for workflow_relationship in diagram_data[ "workflow_relationships" ]:
@@ -2832,7 +2835,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				"",
 				[],
 				30,
-				128,
+				512,
 				api_endpoint_node[ "transitions" ],
 				"API_ENDPOINT",
 				project_id,
@@ -3036,10 +3039,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 			api_gateway_id,
 			"refinery"
 		)
-		
-		print( "Deploy stage results: " )
-		pprint( deploy_stage_results )
-	
+
 	"""
 	Update all nodes with deployed ARN for easier teardown
 	"""
@@ -3167,8 +3167,8 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	sqs_queue_trigger_targets = yield sqs_queue_trigger_targeting_futures
 	sns_topic_trigger_targets = yield sns_topic_trigger_targeting_futures
 	
-	print( "Diagram: " )
-	pprint( diagram_data )
+	#print( "Diagram: " )
+	#pprint( diagram_data )
 	
 	raise gen.Return({
 		"success": True,

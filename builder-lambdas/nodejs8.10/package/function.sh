@@ -15,7 +15,7 @@ function handler () {
   mkdir $BUILD_DIRECTORY
   
   # Copy runtime to the build directory
-  cp -r $LAMBDA_TASK_ROOT/runtime/* $BUILD_DIRECTORY
+  # cp -r $LAMBDA_TASK_ROOT/runtime/* $BUILD_DIRECTORY
   
   # Get a JSON sorted and minified version of the libraries
   # so we can use it for a key for the hash function
