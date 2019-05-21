@@ -5,9 +5,10 @@
 import tornado.escape
 import tornado.ioloop
 import tornado.web
-import botocore
 import subprocess
 import traceback
+import botocore
+import datetime
 import pystache
 import logging
 import hashlib
@@ -16,6 +17,7 @@ import shutil
 import base64
 import string
 import boto3
+import numpy
 import uuid
 import json
 import yaml
@@ -116,6 +118,15 @@ SES_EMAIL_CLIENT = boto3.client(
 	aws_access_key_id=os.environ.get( "ses_emails_access_key" ),
 	aws_secret_access_key=os.environ.get( "ses_emails_secret_key" ),
 	region_name=os.environ.get( "ses_emails_region" )
+)
+
+# This is another global Boto3 client because we need root access
+# to pull the billing for all of our sub-accounts
+COST_EXPLORER = boto3.client(
+	"ce",
+	aws_access_key_id=os.environ.get( "aws_access_key" ),
+	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+	region_name=os.environ.get( "region_name" )
 )
 
 def get_aws_client( client_type, credentials ):
@@ -470,7 +481,7 @@ class TaskSpawner(object):
 					}
 				}
 			)
-			
+	
 		@run_on_executor
 		def send_authentication_email( self, email_address, auth_token ):
 			authentication_link = os.environ.get( "access_control_allow_origin" ) + "/authentication/email/" + auth_token
@@ -508,6 +519,125 @@ class TaskSpawner(object):
 					}
 				}
 			)
+			
+		@run_on_executor
+		def get_sub_account_billing_data( self, account_id, start_date, end_date, granularity ):
+			"""
+			account_id: 994344292413
+			start_date: 2017-05-01
+			end_date: 2017-06-01
+			granularity: "daily" || "hourly" || "monthly"
+			"""
+			metric_name = "NetUnblendedCost"
+			
+			# Markup multiplier
+			markup_multiplier = 1 + ( int( os.environ.get( "mark_up_percent" ) ) / 100 )
+			
+			usage_parameters = {
+				"TimePeriod": {
+					"Start": start_date,
+					"End": end_date,
+				},
+				"Filter": {
+					"Dimensions": {
+						"Key": "LINKED_ACCOUNT",
+						"Values": [
+							str( account_id )
+						]
+					}
+				},
+				"Granularity": granularity.upper(),
+				"Metrics": [ metric_name ],
+				"GroupBy": [
+					{
+						"Type": "DIMENSION",
+						"Key": "SERVICE"
+					}
+				]
+			}
+			
+			response = COST_EXPLORER.get_cost_and_usage(
+				**usage_parameters
+			)
+			cost_groups = response[ "ResultsByTime" ][0][ "Groups" ]
+			
+			return_data = {
+				"bill_total": {
+					"unit": "USD",
+					"total": 0
+				},
+				"service_breakdown": [],
+			}
+			total_amount = 0
+			
+			for cost_group in cost_groups:
+				cost_group_name = cost_group[ "Keys" ][0]
+				unit = cost_group[ "Metrics" ][ metric_name ][ "Unit" ]
+				total = float( cost_group[ "Metrics" ][ metric_name ][ "Amount" ] ) * markup_multiplier
+				if total == 0:
+					total_string = "0"
+				else:
+					total_string = numpy.format_float_positional( total )
+				
+				return_data[ "service_breakdown" ].append({
+					"service_name": cost_group_name,
+					"unit": unit,
+					"total": total_string,
+				})
+				
+				total_amount = total_amount + total
+				
+			if total_amount == 0:
+				total_amount_string = "0"
+			else:
+				total_amount_string = numpy.format_float_positional( total_amount )
+				
+			return_data[ "bill_total" ][ "total" ] = total_amount_string
+			
+			return return_data
+			
+		@run_on_executor
+		def get_sub_account_billing_forecast( self, account_id, start_date, end_date, granularity ):
+			"""
+			account_id: 994344292413
+			start_date: 2017-05-01
+			end_date: 2017-06-01
+			granularity: monthly"
+			"""
+			metric_name = "NET_UNBLENDED_COST"
+			
+			# Markup multiplier
+			markup_multiplier = 1 + ( int( os.environ.get( "mark_up_percent" ) ) / 100 )
+			
+			forcecast_parameters = {
+				"TimePeriod": {
+					"Start": start_date,
+					"End": end_date,
+				},
+				"Filter": {
+					"Dimensions": {
+						"Key": "LINKED_ACCOUNT",
+						"Values": [
+							str( account_id )
+						]
+					}
+				},
+				"Granularity": granularity.upper(),
+				"Metric": metric_name
+			}
+			
+			response = COST_EXPLORER.get_cost_forecast(
+				**forcecast_parameters
+			)
+			
+			forecast_total = float( response[ "Total" ][ "Amount" ] ) * markup_multiplier
+			forecast_total_string = numpy.format_float_positional( forecast_total )
+			forecast_unit = response[ "Total" ][ "Unit" ]
+			
+			return {
+				"forecasted_total": forecast_total_string,
+				"unit": forecast_unit
+			}
 			
 		@run_on_executor
 		def check_if_layer_exists( self, credentials, layer_name ):
@@ -4965,9 +5095,10 @@ class EmailLinkAuthentication( BaseHandler ):
 	
 class GetAuthenticationStatus( BaseHandler ):
 	@authenticated
+	@gen.coroutine
 	def get( self ):
 		current_user = self.get_authenticated_user()
-		
+
 		if current_user:
 			self.write({
 				"authenticated": True,
@@ -5046,6 +5177,109 @@ class Logout( BaseHandler ):
 			"success": True
 		})
 		
+class GetBillingDateRangeTotal( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def post( self ):
+		"""
+		Pulls the billing totals for a given date range.
+		
+		This allows for the frontend to pull things like:
+		* The user's current total costs for the month
+		* The total costs for the last three months.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"start_date": {
+					"type": "string",
+					"pattern": "^\d\d\d\d\-\d\d\-\d\d$",
+				},
+				"end_date": {
+					"type": "string",
+					"pattern": "^\d\d\d\d\-\d\d\-\d\d$",
+				},
+				"granularity": {
+					"type": "string",
+					"enum": [
+						"monthly",
+						"daily"
+					]
+				}
+			},
+			"required": [
+				"start_date",
+				"end_date",
+				"granularity"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		current_user = self.get_authenticated_user()
+		credentials = self.get_authenticated_user_cloud_configuration()
+		
+		billing_data = yield local_tasks.get_sub_account_billing_data(
+			credentials[ "account_id" ],
+			self.json[ "start_date" ],
+			self.json[ "end_date" ],
+			self.json[ "granularity" ],
+		)
+		
+		self.write( billing_data )
+		
+class GetBillingDateRangeForecast( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def post( self ):
+		"""
+		Pulls the billing totals for a given date range.
+		
+		This allows for the frontend to pull things like:
+		* The user's current total costs for the month
+		* The total costs for the last three months.
+		"""
+		current_user = self.get_authenticated_user()
+		credentials = self.get_authenticated_user_cloud_configuration()
+		
+		# Get tomorrow date
+		today_date = datetime.date.today()
+		tomorrow_date = datetime.date.today() + datetime.timedelta( days=1 )
+		start_date = tomorrow_date
+		
+		# We could potentially be on the last day of the month
+		# making tomorrow the next month! Check for this case.
+		# If it's the case then we'll just set the start date to today
+		if tomorrow_date.month == today_date.month:
+			start_date = today_date
+		
+		# Get first day of next month
+		current_month_num = today_date.month
+		current_year_num = today_date.year
+		next_month_num = current_month_num + 1
+		
+		# Check if we're on the last month
+		# If so the next month number is 1
+		# and we should add 1 to the year
+		if current_month_num == 12:
+			next_month_num = 1
+			current_year_num = current_year_num + 1
+			
+		next_month_start_date = datetime.date(
+			current_year_num,
+			next_month_num,
+			1
+		)
+		
+		forecast_data = yield local_tasks.get_sub_account_billing_forecast(
+			credentials[ "account_id" ],
+			tomorrow_date.strftime( "%Y-%m-%d" ),
+			next_month_start_date.strftime( "%Y-%m-%d" ),
+			"monthly"
+		)
+		
+		self.write( forecast_data )
+		
 @gen.coroutine
 def add_reserved_aws_accounts():
 	# Just for testing, this adds AWS accounts to the reserved pool
@@ -5113,7 +5347,9 @@ def make_app( is_debug ):
 		( r"/api/v1/projects/delete", DeleteSavedProject ), # Auth reviewed
 		( r"/api/v1/projects/config/get", GetProjectConfig ), # Auth reviewed
 		( r"/api/v1/deployments/get_latest", GetLatestProjectDeployment ), # Auth reviewed
-		( r"/api/v1/deployments/delete_all_in_project", DeleteDeploymentsInProject ) # Auth reviewed
+		( r"/api/v1/deployments/delete_all_in_project", DeleteDeploymentsInProject ), # Auth reviewed
+		( r"/api/v1/billing/total_for_date_range", GetBillingDateRangeTotal ),
+		( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast )
 	], **tornado_app_settings)
 			
 if __name__ == "__main__":
@@ -5133,7 +5369,7 @@ if __name__ == "__main__":
 	
 	tornado.ioloop.IOLoop.current().run_sync( add_reserved_aws_accounts )
 	
-	#tornado.ioloop.IOLoop.current().run_sync( test )
+	#tornado.ioloop.IOLoop.current().run_sync( billing_test )
 	
 	if os.environ.get( "cf_enabled" ).lower() == "true":
 		tornado.ioloop.IOLoop.current().run_sync( get_cloudflare_keys )

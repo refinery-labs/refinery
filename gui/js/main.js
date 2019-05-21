@@ -1111,6 +1111,52 @@ function get_lambda_cloudwatch_logs( arn ) {
 }
 
 /*
+Example return data:
+
+{
+    "bill_total": {
+        "total": "234.06024711360004",
+        "unit": "USD"
+    },
+    "service_breakdown": [
+        {
+            "service_name": "AWS Lambda",
+            "total": "28.2676375066",
+            "unit": "USD"
+        },
+		...
+    ]
+}
+*/
+function get_billing_date_range_total( start_date, end_date, granularity ) {
+	return api_request(
+		"POST",
+		"api/v1/billing/total_for_date_range",
+		{
+			"start_date": start_date,
+			"end_date": end_date,
+			"granularity": granularity
+		}
+	);
+}
+
+/*
+Example return data:
+
+{
+    "forecasted_total": "345.1653812066249",
+    "unit": "USD"
+}
+*/
+function get_billing_date_range_forecast( start_date, end_date ) {
+	return api_request(
+		"POST",
+		"api/v1/billing/forecast_for_date_range",
+		{}
+	);
+}
+
+/*
     Make API request
 */
 async function api_request( method, endpoint, body ) {
