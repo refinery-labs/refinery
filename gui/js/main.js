@@ -6,13 +6,18 @@ def main( lambda_input, context ):
     return False
 `,
 	"nodejs8.10": `
-/*
- * Embedded magic
- */
 async function main( lambda_input, context ) {
 	return false;
 }
-`
+`,
+	"php7.3": `
+<?php
+// Uncomment if you specified libraries
+// require __DIR__ . "/vendor/autoload.php";
+function main( $lambda_input, $context ) {
+	return false;
+}
+`,
 }
 
 var GRAPH_ICONS_ARRAY = [
@@ -1430,7 +1435,8 @@ var app = new Vue({
 	    ),
 	    ace_language_to_lang_id_map: {
 	    	"python2.7": "python",
-	    	"nodejs8.10": "javascript"
+	    	"nodejs8.10": "javascript",
+	    	"php7.3": "php",
 	    },
 	    node_types_with_simple_transitions: [
 			{

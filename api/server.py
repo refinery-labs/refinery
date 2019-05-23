@@ -68,6 +68,8 @@ DEPENDENCY_CACHE = ExpiringDict(
 reload( sys )
 sys.setdefaultencoding( "utf8" )
 
+EMPTY_ZIP_DATA = bytearray( "PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" )
+
 # Cloudflare Access public keys
 CF_ACCESS_PUBLIC_KEYS = []
 			
@@ -87,6 +89,7 @@ def on_start():
 	# These languages are all custom
 	CUSTOM_RUNTIME_LANGUAGES = [
 		"nodejs8.10",
+		"php7.3",
 	]
 	
 	LAMBDA_BASE_LIBRARIES = {
@@ -94,11 +97,13 @@ def on_start():
 			"redis",
 		],
 		"nodejs8.10": [],
+		"php7.3": [],
 	}
 	
 	LAMBDA_SUPPORTED_LANGUAGES = [
 		"python2.7",
 		"nodejs8.10",
+		"php7.3",
 	]
 	
 	CUSTOM_RUNTIME_CODE = ""
@@ -950,58 +955,368 @@ class TaskSpawner(object):
 			return object_response[ "Body" ].read()
 			
 		@staticmethod
-		def get_nodejs_810_libraries_zip( credentials, libraries ):
-			libraries_object = {}
+		def start_node810_codebuild( credentials, libraries_object ):
+			"""
+			Returns a build ID to be polled at a later time
+			"""
+			codebuild_client = get_aws_client(
+				"codebuild",
+				credentials
+			)
 			
-			for library in libraries:
-				libraries_object[ library ] = "latest"
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+				
+			package_json_template = {
+				"name": "refinery-lambda",
+				"version": "1.0.0",
+				"description": "Lambda created by Refinery",
+				"main": "main.js",
+				"dependencies": libraries_object,
+				"devDependencies": {},
+				"scripts": {}
+			}
 			
-			# Create S3 client
+			# Create empty zip file
+			codebuild_zip = io.BytesIO( EMPTY_ZIP_DATA )
+			
+			buildspec_template = {
+				"artifacts": {
+					"files": [
+						 "**/*"
+					]
+				},
+				"phases": {
+					"build": {
+						"commands": [
+							"npm install"
+						]
+					},
+					"install": {
+						"runtime-versions": {
+							"nodejs": 8
+						}
+					}
+				},
+				"version": 0.2
+			}
+			
+			with zipfile.ZipFile( codebuild_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+				# Write buildspec.yml defining the build process
+				buildspec = zipfile.ZipInfo(
+					"buildspec.yml"
+				)
+				buildspec.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					buildspec,
+					yaml.dump(
+						buildspec_template
+					)
+				)
+				
+				# Write the package.json
+				package_json = zipfile.ZipInfo(
+					"package.json"
+				)
+				package_json.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					package_json,
+					json.dumps(
+						package_json_template
+					)
+				)
+			
+			codebuild_zip_data = codebuild_zip.getvalue()
+			codebuild_zip.close()
+			
+			# S3 object key of the build package, randomly generated.
+			s3_key = "buildspecs/" + str( uuid.uuid4() ) + ".zip"
+
+			# Write the CodeBuild build package to S3
+			s3_response = s3_client.put_object(
+				Bucket=credentials[ "lambda_packages_bucket" ],
+				Body=codebuild_zip_data,
+				Key=s3_key,
+				ACL="public-read", # THIS HAS TO BE PUBLIC READ FOR SOME FUCKED UP REASON I DONT KNOW WHY
+			)
+			
+			# Fire-off the build
+			codebuild_response = codebuild_client.start_build(
+				projectName="refinery-builds",
+				sourceTypeOverride="S3",
+				sourceLocationOverride=credentials[ "lambda_packages_bucket" ] + "/" + s3_key,
+			)
+			
+			build_id = codebuild_response[ "build" ][ "id" ]
+			
+			return build_id
+			
+		@staticmethod
+		def s3_object_exists( credentials, bucket_name, object_key ):
 			s3_client = get_aws_client(
 				"s3",
 				credentials
 			)
 			
-			# Create Lambda client
-			lambda_client = get_aws_client(
-				"lambda",
+			already_exists = False
+			try:
+				s3_head_response = s3_client.head_object(
+					Bucket=bucket_name,
+					Key=object_key
+				)
+				
+				# If we didn't encounter a not-found exception, it exists.
+				already_exists = True
+			except ClientError as e:
+				pass
+			
+			return already_exists
+		
+		@staticmethod
+		def get_nodejs_810_libraries_zip( credentials, libraries ):
+			s3_client = get_aws_client(
+				"s3",
 				credentials
 			)
 			
-			lambda_input = {
-				"libraries": libraries_object,
+			# TODO just take an object as input
+			libraries_object = {}
+			
+			for library in libraries:
+				libraries_object[ str( library ) ] = "latest"
+			
+			# Final object is in the format of SHA256( node8.10-{{canonicalizated_libraries}} ).zip
+			hash_input = "node8.10-" + json.dumps( libraries_object, sort_keys=True )
+			hash_key = hashlib.sha256(
+				hash_input
+			).hexdigest()
+			final_s3_package_zip_path = hash_key + ".zip"
+			
+			already_exists = TaskSpawner.s3_object_exists(
+				credentials,
+				credentials[ "lambda_packages_bucket" ],
+				final_s3_package_zip_path
+			)
+			
+			if already_exists:
+				return TaskSpawner._read_from_s3(
+					credentials,
+					credentials[ "lambda_packages_bucket" ],
+					final_s3_package_zip_path
+				)
+			
+			# Kick off CodeBuild for the libraries to get a zip artifact of
+			# all of the libraries.
+			build_id = TaskSpawner.start_node810_codebuild(
+				credentials,
+				libraries_object
+			)
+			
+			# This continually polls for the CodeBuild build to finish
+			# Once it does it returns the raw artifact zip data.
+			return TaskSpawner.get_codebuild_artifact_zip_data(
+				credentials,
+				build_id,
+				final_s3_package_zip_path
+			)
+		
+		@staticmethod
+		def get_codebuild_artifact_zip_data( credentials, build_id, final_s3_package_zip_path ):
+			codebuild_client = get_aws_client(
+				"codebuild",
+				credentials
+			)
+			
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
+			build_info = {}
+			
+			# Generate output artifact location from the build ID
+			build_id_parts = build_id.split( ":" )
+			output_artifact_path = build_id_parts[1] + "/package.zip"
+			
+			# Loop until we have the build information
+			while True:
+				# Check the status of the build we just kicked off
+				codebuild_build_status_response = codebuild_client.batch_get_builds(
+					ids=[
+						build_id
+					]
+				)
+				build_info = codebuild_build_status_response[ "builds" ][0]
+				build_status = build_info[ "buildStatus" ]
+				
+				if build_status != "IN_PROGRESS":
+					break
+				
+				print( "Build ID " + build_id + " is still in progress, querying the status again in 2 seconds...")
+				time.sleep( 2 )
+			
+			if build_status != "SUCCEEDED":
+				raise "Build ID " + build_id + " failed with status code '" + build_status + "'!"
+			
+			# We now copy this artifact to a location with a deterministic hash name
+			# so that we can query for its existence and cache previously-build packages.
+			s3_copy_response = s3_client.copy_object(
+				Bucket=credentials[ "lambda_packages_bucket" ],
+				CopySource={
+					"Bucket": credentials[ "lambda_packages_bucket" ],
+					"Key": output_artifact_path
+				},
+				Key=final_s3_package_zip_path
+			)
+			
+			return TaskSpawner._read_from_s3(
+				credentials,
+				credentials[ "lambda_packages_bucket" ],
+				final_s3_package_zip_path
+			)
+			
+		@staticmethod
+		def get_php73_lambda_base_zip( credentials, libraries ):
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
+			# TODO just take an object as input
+			libraries_object = {}
+			
+			for library in libraries:
+				libraries_object[ str( library ) ] = "*"
+			
+			# Final object is in the format of SHA256( php7.3-{{canonicalizated_libraries}} ).zip
+			hash_input = "php7.3-" + json.dumps( libraries_object, sort_keys=True )
+			hash_key = hashlib.sha256(
+				hash_input
+			).hexdigest()
+			final_s3_package_zip_path = hash_key + ".zip"
+			
+			already_exists = TaskSpawner.s3_object_exists(
+				credentials,
+				credentials[ "lambda_packages_bucket" ],
+				final_s3_package_zip_path
+			)
+			
+			if already_exists:
+				return TaskSpawner._read_from_s3(
+					credentials,
+					credentials[ "lambda_packages_bucket" ],
+					final_s3_package_zip_path
+				)
+			
+			# Kick off CodeBuild for the libraries to get a zip artifact of
+			# all of the libraries.
+			build_id = TaskSpawner.start_php73_codebuild(
+				credentials,
+				libraries_object
+			)
+			
+			# This continually polls for the CodeBuild build to finish
+			# Once it does it returns the raw artifact zip data.
+			return TaskSpawner.get_codebuild_artifact_zip_data(
+				credentials,
+				build_id,
+				final_s3_package_zip_path
+			)
+			
+		@staticmethod
+		def start_php73_codebuild( credentials, libraries_object ):
+			"""
+			Returns a build ID to be polled at a later time
+			"""
+			codebuild_client = get_aws_client(
+				"codebuild",
+				credentials
+			)
+			
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+				
+			composer_json_template = {
+				"require": libraries_object,
 			}
 			
-			# Utilize the account builder-lambda to build the package zip
-			# This will be invoked in the customer's sub-account providing
-			# multi-tenancy. Some potential for abuse if the Lambda is warm
-			# and the previous Lambda built a malicious pip modules for example.
-			# However, the IAM permissions for the Lambda itself should be extremely
-			# scopes to only allow writes to the S3 bucket and "head" for objects.
-			# No listing, etc.
-			lambda_invoke_response = lambda_client.invoke(
-				FunctionName="node810-library-builder", # The name should always be this, TODO for Terraform account template
-				InvocationType="RequestResponse",
-				LogType="Tail",
-				Payload=json.dumps( lambda_input ),
+			# Create empty zip file
+			codebuild_zip = io.BytesIO( EMPTY_ZIP_DATA )
+			
+			buildspec_template = {
+				"artifacts": {
+					"files": [
+						 "**/*"
+					]
+				},
+				"phases": {
+					"build": {
+						"commands": [
+							"composer install"
+						]
+					},
+					"install": {
+						"runtime-versions": {
+							"php": 7.3
+						}
+					}
+				},
+				"version": 0.2
+			}
+			
+			with zipfile.ZipFile( codebuild_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+				# Write buildspec.yml defining the build process
+				buildspec = zipfile.ZipInfo(
+					"buildspec.yml"
+				)
+				buildspec.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					buildspec,
+					yaml.dump(
+						buildspec_template
+					)
+				)
+				
+				# Write the package.json
+				composer_json = zipfile.ZipInfo(
+					"composer.json"
+				)
+				composer_json.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					composer_json,
+					json.dumps(
+						composer_json_template
+					)
+				)
+			
+			codebuild_zip_data = codebuild_zip.getvalue()
+			codebuild_zip.close()
+			
+			# S3 object key of the build package, randomly generated.
+			s3_key = "buildspecs/" + str( uuid.uuid4() ) + ".zip"
+
+			# Write the CodeBuild build package to S3
+			s3_response = s3_client.put_object(
+				Bucket=credentials[ "lambda_packages_bucket" ],
+				Body=codebuild_zip_data,
+				Key=s3_key,
+				ACL="public-read", # THIS HAS TO BE PUBLIC READ FOR SOME FUCKED UP REASON I DONT KNOW WHY
 			)
 			
-			# payload_body is a full S3 object path s3://x/y.zip
-			s3_full_path = lambda_invoke_response[ "Payload" ].read()
-			
-			# Pull the S3 bucket and object key from path.
-			s3_bucket, object_key = s3_full_path.replace(
-				"s3://",
-				""
-			).split( "/" )
-			
-			# Pull the zip data and return the raw binary
-			object_response = s3_client.get_object(
-				Bucket=s3_bucket,
-				Key=object_key,
+			# Fire-off the build
+			codebuild_response = codebuild_client.start_build(
+				projectName="refinery-builds",
+				sourceTypeOverride="S3",
+				sourceLocationOverride=credentials[ "lambda_packages_bucket" ] + "/" + s3_key,
 			)
 			
-			return object_response[ "Body" ].read()
+			build_id = codebuild_response[ "build" ][ "id" ]
+			
+			return build_id
 			
 		@run_on_executor
 		def build_lambda( self, credentials, language, code, libraries ):
@@ -1011,15 +1326,46 @@ class TaskSpawner(object):
 			
 			if language == "python2.7":
 				return TaskSpawner._build_python_lambda( credentials, code, libraries )
+			elif language == "php7.3":
+				return TaskSpawner._build_php_73_lambda( credentials, code, libraries )
 			elif language == "nodejs8.10":
 				return TaskSpawner._build_nodejs_810_lambda( credentials, code, libraries )
+			
+		@staticmethod
+		def _build_php_73_lambda( credentials, code, libraries ):
+			code = code + "\n\n" + LAMDBA_BASE_CODES[ "php7.3" ]
+			
+			# Use CodeBuilder to get a base zip of the libraries
+			base_zip_data = TaskSpawner.get_php73_lambda_base_zip(
+				credentials,
+				libraries
+			)
+			
+			# Create a virtual file handler for the Lambda zip package
+			lambda_package_zip = io.BytesIO( base_zip_data )
+				
+			with zipfile.ZipFile( lambda_package_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+				info = zipfile.ZipInfo(
+					"lambda"
+				)
+				info.external_attr = 0777 << 16L
+				
+				# Write lambda.php into new .zip
+				zip_file_handler.writestr(
+					info,
+					str( code )
+				)
+		
+			lambda_package_zip_data = lambda_package_zip.getvalue()
+			lambda_package_zip.close()
+			
+			return lambda_package_zip_data
 			
 		@staticmethod
 		def _build_nodejs_810_lambda( credentials, code, libraries ):
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "nodejs8.10" ]
 			
-			# Use a builder Lambda to create a ZIP with all of the packages
-			# packed in.
+			# Use CodeBuilder to get a base zip of the libraries
 			base_zip_data = TaskSpawner.get_nodejs_810_libraries_zip(
 				credentials,
 				libraries
@@ -1129,7 +1475,7 @@ class TaskSpawner(object):
 				credentials,
 			)
 			
-			targets_data = 	{
+			targets_data =	 {
 				"Id": target_id,
 				"Arn": target_arn,
 				"Input": json.dumps(
@@ -2680,6 +3026,10 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	if language == "nodejs8.10":
 		layers.append(
 			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-node810-custom-runtime:1"
+		)
+	elif language == "php7.3":
+		layers.append(
+			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-php73-custom-runtime:1"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
