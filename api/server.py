@@ -5320,34 +5320,34 @@ def make_app( is_debug ):
 	}
 	
 	return tornado.web.Application([
-		( r"/authentication/email/([a-z0-9]+)", EmailLinkAuthentication ), # Auth reviewed
-		( r"/api/v1/auth/me", GetAuthenticationStatus ), # Auth reviewed
-		( r"/api/v1/auth/register", NewRegistration ), # Auth reviewed
-		( r"/api/v1/auth/login", Authenticate ), # Auth reviewed
-		( r"/api/v1/auth/logout", Logout ), # Auth reviewed
-		( r"/api/v1/logs/executions/get", GetProjectExecutionLogs ), # Auth reviewed
-		( r"/api/v1/logs/executions", GetProjectExecutions ), # Auth reviewed *
-		( r"/api/v1/aws/deploy_diagram", DeployDiagram ), # Auth reviewed
-		( r"/api/v1/functions/delete", SavedFunctionDelete ), # Auth reviewed
-		( r"/api/v1/functions/update", SavedFunctionUpdate ), # Auth reviewed
-		( r"/api/v1/functions/create", SavedFunctionCreate ), # Auth reviewed
-		( r"/api/v1/functions/search", SavedFunctionSearch ), # Auth reviewed
-		( r"/api/v1/lambdas/create", SavedLambdaCreate ), # Auth reviewed
-		( r"/api/v1/lambdas/search", SavedLambdaSearch ), # Auth reviewed
-		( r"/api/v1/lambdas/delete", SavedLambdaDelete ), # Auth reviewed
-		( r"/api/v1/lambdas/run", RunLambda ), # Auth reviewed
-		( r"/api/v1/lambdas/logs", GetCloudWatchLogsForLambda ), # Auth reviewed
+		( r"/authentication/email/([a-z0-9]+)", EmailLinkAuthentication ),
+		( r"/api/v1/auth/me", GetAuthenticationStatus ),
+		( r"/api/v1/auth/register", NewRegistration ),
+		( r"/api/v1/auth/login", Authenticate ),
+		( r"/api/v1/auth/logout", Logout ),
+		( r"/api/v1/logs/executions/get", GetProjectExecutionLogs ),
+		( r"/api/v1/logs/executions", GetProjectExecutions ),
+		( r"/api/v1/aws/deploy_diagram", DeployDiagram ),
+		( r"/api/v1/functions/delete", SavedFunctionDelete ),
+		( r"/api/v1/functions/update", SavedFunctionUpdate ),
+		( r"/api/v1/functions/create", SavedFunctionCreate ),
+		( r"/api/v1/functions/search", SavedFunctionSearch ),
+		( r"/api/v1/lambdas/create", SavedLambdaCreate ),
+		( r"/api/v1/lambdas/search", SavedLambdaSearch ),
+		( r"/api/v1/lambdas/delete", SavedLambdaDelete ),
+		( r"/api/v1/lambdas/run", RunLambda ),
+		( r"/api/v1/lambdas/logs", GetCloudWatchLogsForLambda ),
 		( r"/api/v1/lambdas/env_vars/update", UpdateEnvironmentVariables ),
-		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda ), # Auth reviewed
-		( r"/api/v1/aws/infra_tear_down", InfraTearDown ), # Auth reviewed
-		( r"/api/v1/aws/infra_collision_check", InfraCollisionCheck ), # Auth reviewed
-		( r"/api/v1/projects/save", SaveProject ), # Auth reviewed
-		( r"/api/v1/projects/search", SearchSavedProjects ), # Auth reviewed
-		( r"/api/v1/projects/get", GetSavedProject ), # Auth reviewed
-		( r"/api/v1/projects/delete", DeleteSavedProject ), # Auth reviewed
-		( r"/api/v1/projects/config/get", GetProjectConfig ), # Auth reviewed
-		( r"/api/v1/deployments/get_latest", GetLatestProjectDeployment ), # Auth reviewed
-		( r"/api/v1/deployments/delete_all_in_project", DeleteDeploymentsInProject ), # Auth reviewed
+		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda ),
+		( r"/api/v1/aws/infra_tear_down", InfraTearDown ),
+		( r"/api/v1/aws/infra_collision_check", InfraCollisionCheck ),
+		( r"/api/v1/projects/save", SaveProject ),
+		( r"/api/v1/projects/search", SearchSavedProjects ),
+		( r"/api/v1/projects/get", GetSavedProject ),
+		( r"/api/v1/projects/delete", DeleteSavedProject ),
+		( r"/api/v1/projects/config/get", GetProjectConfig ),
+		( r"/api/v1/deployments/get_latest", GetLatestProjectDeployment ),
+		( r"/api/v1/deployments/delete_all_in_project", DeleteDeploymentsInProject ),
 		( r"/api/v1/billing/total_for_date_range", GetBillingDateRangeTotal ),
 		( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast )
 	], **tornado_app_settings)
