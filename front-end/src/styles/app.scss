@@ -1,3 +1,4 @@
+@import "./variables";
 
 body {
   margin: 0;
@@ -25,7 +26,7 @@ body {
 .sidebar-nav {
   background: #ddd;
   border-right: black 1px solid;
-  min-height: calc(100vh - 55px);
+  //min-height: calc(100vh - 55px);
 
   &__item {
     min-height: 80px;
@@ -70,55 +71,14 @@ body {
   font-family: "Open Sans", serif;
 }
 
-.display {
-  &--flex {
-    display: flex;
-  }
-  &--block {
-    display: block;
-  }
+.view-project-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 115px);
 }
 
-.center {
-  &--vertical {
-    margin-top: auto;
-    margin-bottom: auto;
-  }
-  &--horizontal {
-    margin-left: auto;
-    margin-right: auto;
-  }
-  &--all {
-    margin: auto;
-  }
-}
-
-.flex {
-  &-grow {
-    &--1 {
-      flex-grow: 1;
-    }
-
-    &--2 {
-      flex-grow: 2;
-    }
-
-    &--3 {
-      flex-grow: 3;
-    }
-
-    &--4 {
-      flex-grow: 4;
-    }
-  }
-
-  &-direction {
-    &--column {
-      flex-direction: column;
-    }
-  }
-}
-
-.hello-world {
-  color: red;
+.graph-container {
+  height: 100%;
+  flex-grow: 1;
+  text-align: initial;
 }

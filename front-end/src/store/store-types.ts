@@ -6,7 +6,9 @@ export interface RootState {
 
 export enum UserInterfaceSettings {
   isFixed = 'isFixed',
-  isCollapsed = 'isCollapsed',
+  isGlobalNavCollapsed = 'isGlobalNavCollapsed',
+  isGlobalNavClosing = 'isGlobalNavClosing',
+  isSidebarCollapsed = 'isSidebarCollapsed',
   isBoxed = 'isBoxed',
   isFloat = 'isFloat',
   asideHover = 'asideHover',
@@ -23,8 +25,12 @@ export enum UserInterfaceSettings {
 export interface UserInterfaceState {
   /* Layout fixed. Scroll content only */
   [UserInterfaceSettings.isFixed]?: boolean,
+  /* Global Nav collapsed */
+  [UserInterfaceSettings.isGlobalNavCollapsed]?: boolean,
+  /* Global Nav closing, fires when nav is closed */
+  [UserInterfaceSettings.isGlobalNavClosing]?: boolean,
   /* Sidebar collapsed */
-  [UserInterfaceSettings.isCollapsed]?: boolean,
+  [UserInterfaceSettings.isSidebarCollapsed]?: boolean,
   /* Boxed layout */
   [UserInterfaceSettings.isBoxed]?: boolean,
   /* Floating sidebar */

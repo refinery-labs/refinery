@@ -14,7 +14,7 @@ import EditWorkflow from '@/views/ProjectsNestedViews/EditWorkflow';
 import ProjectDeployments from '@/views/ProjectsNestedViews/ProjectDeployments';
 import ViewProjectDeployment from '@/views/ProjectsNestedViews/ViewProjectDeployment';
 import EditProjectDeployment from '@/views/ProjectsNestedViews/EditProjectDeployment';
-import Layout from '@/components/Layout/Layout.vue';
+import Layout from '@/components/Layout/Layout';
 import {baseLinks} from '@/constants/router-constants';
 
 Vue.use(Router);
@@ -134,6 +134,11 @@ export default new Router({
           path: baseLinks.marketplace,
           name: 'marketplace',
           // This will likely need to have children eventually... but not today.
+          component: Marketplace
+        },
+        {
+          path: baseLinks.help,
+          name: 'help',
           component: Marketplace
         },
         {

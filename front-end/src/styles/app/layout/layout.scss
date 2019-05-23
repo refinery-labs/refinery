@@ -13,22 +13,7 @@
 // If modified or removed make sure to check the variable
 // shared with other components
 // -------------------------------------------------------------
-$aside-wd:                                220px;
-$aside-wd-collapsed:                      70px;
-$aside-wd-collapsed-text:                 90px;
-$aside-bg:                                #fff;
-
-$content-bg:                              $body-bg;
-$content-heading-bg:                      #fafbfc;
-$content-heading-border:                  #cfdbe2;
-$content-padding:                         20px;
-
-$footer-hg:                               60px;
-
-$navbar-hg:                               $navbar-height;
-
-$boxed-max-width:                         1140px;
-$z-index-main-section:                    111;
+@import "../../variables";
 
 html {
     /* $replace rtl */
@@ -543,5 +528,123 @@ _:-ms-lang(x),
     }
     .aside-collapsed-text & {
         left: $aside-wd-collapsed-text
+    }
+}
+
+
+.global-nav-collapsed {
+    .global-nav-container {
+        display: none;
+    }
+    .global-nav-container-inner {
+        width: 0;
+    }
+}
+
+// Frosted Glass effect
+.global-nav-visible {
+    overflow: hidden;
+    .wrapper {
+        filter: blur($blur-amount);
+        animation: blurin 0.2s linear forwards;
+    }
+    &.global-nav-closing {
+        .global-nav-container {
+            &-inner {
+                transform: translateX(- $aside-wd - 40px) !important;
+                animation: shrinkSidebar 0.15s ease-in forwards;
+            }
+            &-backdrop {
+                background-color: rgba(255,255,255,0);
+                animation: fadeOutBackdrop 0.15s ease-in forwards;
+            }
+        }
+        .wrapper {
+            animation: blurout .15s ease-in forwards;
+        }
+    }
+}
+
+.global-nav-container {
+    width: 100vw;
+
+    &-inner {
+        z-index: $z-index-main-section + 20;
+        height: 100%;
+        width: $aside-wd + 40px;
+        background-color: $aside-bg;
+        animation: growSidebar 0.1s linear forwards;
+
+        .sidebar {
+            background-color: $dark;
+        }
+    }
+
+    // Sits immediately behind and is the "dark" layer
+    &-backdrop {
+        z-index: $z-index-main-section + 19;
+        width: 100vw;
+        height: 100vh;
+        background-color: rgba(255,255,255,0.4);
+        animation: fadeInBackdrop 0.1s linear forwards;
+    }
+}
+
+@keyframes fadeInBackdrop {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 0.4;
+    }
+}
+
+@keyframes fadeOutBackdrop {
+    from {
+        opacity: 0.4;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes blurin {
+    from {
+        filter: blur(0);
+        transform: scale(1, 1);
+    }
+    to {
+        filter: blur($blur-amount);
+        transform: scale(1.01, 1.01);
+    }
+}
+
+@keyframes blurout {
+    from {
+        filter: blur($blur-amount);
+        transform: scale(1.01, 1.01);
+    }
+    to {
+        filter: blur(0);
+        transform: scale(1, 1);
+    }
+}
+
+@keyframes growSidebar {
+    from {
+        transform: translateX(- $aside-wd - 40px);
+    }
+    to {
+
+        transform: translateX(0);
+    }
+}
+
+@keyframes shrinkSidebar {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(- $aside-wd - 40px);
     }
 }

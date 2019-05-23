@@ -34,7 +34,15 @@ export const get = async <T>(
 export const post = async <T>(
   path: string,
   body: any,
-  args: RequestInit = { method: "post", body: JSON.stringify(body) }
+  args: RequestInit = {
+    method: "post",
+    mode: 'cors',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRF-Validation-Header': "False"
+    },
+    body: JSON.stringify(body)
+  }
 ): Promise<IHttpResponse<T>> => {
   return await http<T>(new Request(path, args));
 };

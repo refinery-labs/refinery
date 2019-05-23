@@ -15,16 +15,16 @@ function updateBodyClass(stat: boolean|undefined, name: string) {
     a classname related with that setting from the target element
 */
 function updateClasses(state: RootState) {
-    updateBodyClass(state.setting.isFixed, 'layout-fixed');
-    updateBodyClass(state.setting.isBoxed, 'layout-boxed');
-    updateBodyClass(state.setting.isCollapsed, 'aside-collapsed');
-    updateBodyClass(state.setting.isCollapsedText, 'aside-collapsed-text');
-    updateBodyClass(state.setting.isFloat, 'aside-float');
-    updateBodyClass(state.setting.asideHover, 'aside-hover');
-    updateBodyClass(state.setting.offsidebarOpen, 'offsidebar-open');
-    updateBodyClass(state.setting.asideToggled, 'aside-toggled');
-    // layout horizontal
-    updateBodyClass(state.setting.horizontal, 'layout-h');
+    // updateBodyClass(state.setting.isFixed, 'layout-fixed');
+    // updateBodyClass(state.setting.isBoxed, 'layout-boxed');
+    // updateBodyClass(state.setting.isGlobalNavCollapsed, 'aside-collapsed');
+    // updateBodyClass(state.setting.isCollapsedText, 'aside-collapsed-text');
+    // updateBodyClass(state.setting.isFloat, 'aside-float');
+    // updateBodyClass(state.setting.asideHover, 'aside-hover');
+    // updateBodyClass(state.setting.offsidebarOpen, 'offsidebar-open');
+    // updateBodyClass(state.setting.asideToggled, 'aside-toggled');
+    // // layout horizontal
+    // updateBodyClass(state.setting.horizontal, 'layout-h');
     // apply change to the sidebar element
     updateElementClass(document.querySelector('.sidebar'), state.setting.asideScrollbar, 'show-scrollbar')
 }

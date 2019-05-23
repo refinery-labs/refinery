@@ -23,7 +23,8 @@ $scrollbar-wd:                    17px;
 
 .sidebar {
     height: 100%;
-    padding-bottom: 20px;
+    // Why is this needed?
+    //padding-bottom: 20px;
     background-color: $sidebar-bg;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch; // draw a divider for the sidebar

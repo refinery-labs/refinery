@@ -8,10 +8,11 @@ import '@/styles/fonts.scss';
 import '@/styles/bootstrap.scss';
 import '@/styles/custom-bootstrap-theme.scss';
 import '@/styles/app.scss';
+import '@/styles/class-helpers.scss';
 
 import App from './App';
 import router from './router';
-import store from './store';
+import store from './store/index';
 import './registerServiceWorker';
 
 Vue.use(BootstrapVue);
