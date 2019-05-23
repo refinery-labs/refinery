@@ -22,7 +22,7 @@ const moduleState: UserInterfaceState = {
   /* Show sidebar scrollbar (dont' hide it) */
   [UserInterfaceSettings.asideScrollbar]: false,
   /* Sidebar collapsed with big icons and text */
-  [UserInterfaceSettings.isCollapsedText]: false,
+  [UserInterfaceSettings.isCollapsedText]: true,
   /* Toggle for the offsidebar */
   [UserInterfaceSettings.offsidebarOpen]: false,
   /* Toggle for the sidebar offcanvas (mobile) */

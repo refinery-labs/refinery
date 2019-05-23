@@ -1,5 +1,5 @@
 // Modernizr
-// import 'modernizr/modernizr.custom.js';
+import 'modernizr/modernizr.custom.js';
 // Bootstrap Vue
 import 'bootstrap-vue/dist/bootstrap-vue.css'
 // Whirl

@@ -72,11 +72,11 @@
                 showUserBlock: state => state.setting.showUserBlock
             })
         },
-        // watch: {
-        //     $route(to, from) {
-        //         this.closeSidebar()
-        //     }
-        // },
+        watch: {
+            $route(to, from) {
+                this.closeSidebar()
+            }
+        },
         methods: {
             closeSidebar() {
                 this.$store.commit('changeSetting', {name: UserInterfaceSettings.asideToggled, value: false})
