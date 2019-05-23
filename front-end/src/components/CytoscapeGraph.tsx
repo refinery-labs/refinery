@@ -20,9 +20,9 @@ const baseCytoscapeStyles = [
     selector: 'edge.highlight',
     style: {
       'mid-target-arrow-color': '#FFF',
-      color: 'red',
-      'line-color': '#abc4ed',
-      'target-arrow-color': '#abc4ed',
+      color: '#3f3f3f',
+      'line-color': '#6391dd',
+      'target-arrow-color': '#6391dd',
     }
   },
   // {

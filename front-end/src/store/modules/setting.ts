@@ -7,8 +7,12 @@ import {RootState, UserInterfaceSettings, UserInterfaceState} from '@/store/stor
 const moduleState: UserInterfaceState = {
   /* Layout fixed. Scroll content only */
   [UserInterfaceSettings.isFixed]: true,
+  /* Global Nav collapsed */
+  [UserInterfaceSettings.isGlobalNavCollapsed]: false,
+  /* Global Nav closing, fires when nav is closed */
+  [UserInterfaceSettings.isGlobalNavClosing]: false,
   /* Sidebar collapsed */
-  [UserInterfaceSettings.isCollapsed]: false,
+  [UserInterfaceSettings.isSidebarCollapsed]: false,
   /* Boxed layout */
   [UserInterfaceSettings.isBoxed]: false,
   /* Floating sidebar */
@@ -37,6 +41,16 @@ const SettingModule: Module<UserInterfaceState, RootState> = {
   // This is difficult to use and Mutators don't seem to work in consumers?
   // namespaced: true,
   state: moduleState,
+  actions: {
+    closeGlobalNav(context) {
+      context.commit('toggleSettingOn', UserInterfaceSettings.isGlobalNavClosing);
+  
+      setTimeout(() => {
+        context.commit('toggleSetting', UserInterfaceSettings.isGlobalNavCollapsed);
+        context.commit('toggleSettingOff', UserInterfaceSettings.isGlobalNavClosing);
+      }, 220);
+    }
+  },
   getters: {
     settings: state => state
   },
@@ -49,6 +63,20 @@ const SettingModule: Module<UserInterfaceState, RootState> = {
         state[name] = !state[name];
     },
     /**
+     * Toggle a setting off
+     */
+    toggleSettingOff(state, name: UserInterfaceSettings) {
+      if (name in state)
+        state[name] = false;
+    },
+    /**
+     * Toggle a setting on
+     */
+    toggleSettingOn(state, name: UserInterfaceSettings) {
+      if (name in state)
+        state[name] = true;
+    },
+    /**
      * Change a setting value
      * payload.name: name of the setting prop to change
      * payload.value: new value to apply
@@ -57,8 +85,7 @@ const SettingModule: Module<UserInterfaceState, RootState> = {
       if (name in state)
         state[name] = value;
     }
-  },
-  actions: {}
+  }
 };
 
 export default SettingModule;

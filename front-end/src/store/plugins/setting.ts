@@ -17,7 +17,7 @@ function updateBodyClass(stat: boolean|undefined, name: string) {
 function updateClasses(state: RootState) {
     // updateBodyClass(state.setting.isFixed, 'layout-fixed');
     // updateBodyClass(state.setting.isBoxed, 'layout-boxed');
-    // updateBodyClass(state.setting.isCollapsed, 'aside-collapsed');
+    // updateBodyClass(state.setting.isGlobalNavCollapsed, 'aside-collapsed');
     // updateBodyClass(state.setting.isCollapsedText, 'aside-collapsed-text');
     // updateBodyClass(state.setting.isFloat, 'aside-float');
     // updateBodyClass(state.setting.asideHover, 'aside-hover');

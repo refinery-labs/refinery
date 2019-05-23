@@ -34,7 +34,7 @@
                         <p class="float-left">Collapsed</p>
                         <div class="float-right">
                             <label class="switch">
-                                <input type="checkbox" name="isCollapsed" v-model="isCollapsed">
+                                <input type="checkbox" name="isGlobalNavCollapsed" v-model="isGlobalNavCollapsed">
                                 <span></span>
                             </label>
                         </div>
@@ -229,63 +229,64 @@
 <script>
   import {mapMutations, mapGetters} from 'vuex';
   import Vue from 'vue';
+  import {UserInterfaceSettings} from '../../store/store-types';
 
   export default Vue.extend({
     computed: {
       isFixed: {
         get() {
-          return this.settings.isFixed;
+          return this.settings[UserInterfaceSettings.isFixed];
         },
         set(value) {
-          this.changeSetting({name: 'isFixed', value});
+          this.changeSetting({name: UserInterfaceSettings.isFixed, value});
         }
       },
       isBoxed: {
         get() {
-          return this.settings.isBoxed;
+          return this.settings[UserInterfaceSettings.isBoxed];
         },
         set(value) {
-          this.changeSetting({name: 'isBoxed', value});
+          this.changeSetting({name: UserInterfaceSettings.isBoxed, value});
         }
       },
-      isCollapsed: {
+      isGlobalNavCollapsed: {
         get() {
-          return this.settings.isCollapsed;
+          return this.settings[UserInterfaceSettings.isGlobalNavCollapsed];
         },
         set(value) {
-          this.changeSetting({name: 'isCollapsed', value});
+          this.changeSetting({name: UserInterfaceSettings.isGlobalNavCollapsed, value});
         }
       },
       isCollapsedText: {
         get() {
-          return this.settings.isCollapsedText;
+          return this.settings[UserInterfaceSettings.isCollapsedText];
         },
         set(value) {
-          this.changeSetting({name: 'isCollapsedText', value});
+          this.changeSetting({name: UserInterfaceSettings.isCollapsedText, value});
         }
       },
       isFloat: {
         get() {
-          return this.settings.isFloat;
+          return this.settings[UserInterfaceSettings.isFloat];
         },
         set(value) {
-          this.changeSetting({name: 'isFloat', value});
+          this.changeSetting({name: UserInterfaceSettings.isFloat, value});
         }
       },
       asideHover: {
         get() {
-          return this.settings.asideHover;
+          return this.settings[UserInterfaceSettings.asideHover];
         },
         set(value) {
-          this.changeSetting({name: 'asideHover', value});
+          this.changeSetting({name: UserInterfaceSettings.asideHover, value});
         }
       },
       asideScrollbar: {
         get() {
-          return this.settings.asideScrollbar;
+          return this.settings[UserInterfaceSettings.asideScrollbar];
         },
         set(value) {
-          this.changeSetting({name: 'asideScrollbar', value});
+          this.changeSetting({name: UserInterfaceSettings.asideScrollbar, value});
         }
       },
       ...mapGetters([

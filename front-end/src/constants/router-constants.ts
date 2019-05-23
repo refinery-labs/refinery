@@ -6,5 +6,7 @@ export const baseLinks = {
   stats: '/stats',
   projects: '/projects',
   marketplace: '/marketplace',
+  billing: '/billing',
+  help: '/help',
   admin: '/admin'
 };

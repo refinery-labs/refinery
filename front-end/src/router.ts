@@ -137,6 +137,11 @@ export default new Router({
           component: Marketplace
         },
         {
+          path: baseLinks.help,
+          name: 'help',
+          component: Marketplace
+        },
+        {
           path: baseLinks.admin,
           name: 'admin',
           component: AdminPanel
