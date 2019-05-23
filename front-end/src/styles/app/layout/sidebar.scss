@@ -27,7 +27,6 @@ $scrollbar-wd:                    17px;
     background-color: $sidebar-bg;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch; // draw a divider for the sidebar
-    display: flex;
     &:after {
         content: "";
         background: rgba(0, 0, 0, .15);

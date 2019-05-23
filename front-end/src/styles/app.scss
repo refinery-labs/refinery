@@ -23,11 +23,9 @@ body {
 }
 
 .sidebar-nav {
-  width: 160px;
-  height: 100vh;
   background: #ddd;
-  flex-grow: 1;
   border-right: black 1px solid;
+  min-height: calc(100vh - 55px);
 
   &__item {
     min-height: 80px;
@@ -56,6 +54,20 @@ body {
       background: #2F96B4;
     }
   }
+}
+
+.main-logo {
+  color: #fff;
+  font-weight: 800;
+  letter-spacing: .225em;
+  transition: transform .5s ease,opacity .5s ease;
+  display: inline-block;
+  font-size: 0.75em;
+  opacity: 1;
+  padding: 0;
+  position: relative;
+  z-index: 1;
+  font-family: "Open Sans", serif;
 }
 
 .display {

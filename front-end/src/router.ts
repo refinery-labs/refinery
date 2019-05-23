@@ -15,6 +15,7 @@ import ProjectDeployments from '@/views/ProjectsNestedViews/ProjectDeployments';
 import ViewProjectDeployment from '@/views/ProjectsNestedViews/ViewProjectDeployment';
 import EditProjectDeployment from '@/views/ProjectsNestedViews/EditProjectDeployment';
 import Layout from '@/components/Layout/Layout.vue';
+import {baseLinks} from '@/constants/router-constants';
 
 Vue.use(Router);
 
@@ -31,7 +32,7 @@ export default new Router({
           component: Home
         },
         {
-          path: '/about',
+          path: baseLinks.about,
           name: 'about',
           // route level code-splitting
           // this generates a separate chunk (about.[hash].js) for this route
@@ -41,20 +42,20 @@ export default new Router({
         },
         // Account-level settings page
         {
-          path: '/settings',
+          path: baseLinks.settings,
           name: 'settings',
           component: Settings
         },
         // Gives info about billing and usage on the platform.
         // Will likely contain children for pages like billing and specific endpoint hits.
         {
-          path: '/stats',
+          path: baseLinks.stats,
           name: 'stats',
           component: Settings
         },
         // View all available projects
         {
-          path: '/projects',
+          path: baseLinks.projects,
           name: 'all projects',
           component: AllProjects
         },
@@ -63,15 +64,15 @@ export default new Router({
         // Most people using Refinery will probably only have 1 project for a while, so we can hide this functionality.
         {
           path: '/p/:projectId',
+          // components: {default: ViewProject, graph: RefineryGraph},
           component: ViewProject,
-    
           children: [
             // Opened project overview page
             {
               path: '',
               name: 'opened project overview',
               // Example syntax for how to load multiple components
-              // components: {default: OpenedProjectOverview, home: Home }
+              // components: {default: OpenedProjectOverview, graphComponent: RefineryGraph }
               component: OpenedProjectOverview
             },
             // View all workflows
@@ -130,13 +131,13 @@ export default new Router({
           ]
         },
         {
-          path: '/marketplace',
+          path: baseLinks.marketplace,
           name: 'marketplace',
           // This will likely need to have children eventually... but not today.
           component: Marketplace
         },
         {
-          path: '/admin',
+          path: baseLinks.admin,
           name: 'admin',
           component: AdminPanel
         }

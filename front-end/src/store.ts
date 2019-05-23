@@ -18,5 +18,7 @@ export default new Vuex.Store({
   },
   plugins: [
     SettingPlugin,
-  ]
+  ],
+  // Dev Only: Causes Vuex to get angry when mutations are done to it's state outside of a mutator
+  strict: process.env.NODE_ENV !== 'production'
 });

@@ -1,6 +1,7 @@
 <template>
     <div class="home">
         <h2>Welcome to Refinery!</h2>
+        <router-link to="/projects">View Projects</router-link>
     </div>
 </template>
 
