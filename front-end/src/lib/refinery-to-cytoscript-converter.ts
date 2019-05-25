@@ -12,6 +12,7 @@ import {
   ElementsDefinition,
   NodeDefinition,
 } from 'cytoscape';
+import {baseEdgeStyle, baseNodeStyle} from '@/lib/cytoscape-styles';
 
 const baseElementProperties = {
   // group: 'nodes' as ElementGroup,
@@ -85,7 +86,7 @@ export function generateCytoscapeElements(project: RefineryProject): ElementsDef
     // http://js.cytoscape.org/#notation/elements-json
     return {
       data: {
-        // id: edge.id,
+        id: edge.id,
         name: edge.type as string,
         source: edge.node,
         target: edge.next
@@ -98,41 +99,6 @@ export function generateCytoscapeElements(project: RefineryProject): ElementsDef
     edges
   };
 }
-
-const baseNodeStyle = {
-  selector: 'node',
-  style: {
-    width: 64,
-    height: 64,
-    shape: 'roundrectangle',
-    label: 'data(name)',
-    color: '#fff',
-    'background-fit': 'contain',
-    'background-color': '#fff',
-    'text-valign': 'bottom',
-    'compound-sizing-wrt-labels': 'include',
-    'text-margin-y': '6px',
-    'text-background-color': '#000',
-    'text-background-opacity': '0.5',
-    'text-background-padding': '4px',
-    'text-background-shape': 'roundrectangle'
-  }
-};
-
-const baseEdgeStyle = {
-  selector: 'edge',
-  style: {
-    width: 5,
-    label: 'data(name)',
-    color: '#2a2a2a',
-    'target-arrow-shape': 'triangle',
-    'line-color': '#9dbaea',
-    'target-arrow-color': '#9dbaea',
-    'curve-style': 'bezier',
-    'text-rotation': 'autorotate',
-    'target-endpoint': 'outside-to-node-or-label',
-  }
-};
 
 type CytoscapeStyleConfigLookup = {
   [key: string]: {}

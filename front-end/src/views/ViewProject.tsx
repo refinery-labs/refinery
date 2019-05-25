@@ -1,25 +1,24 @@
 import Vue, {CreateElement, VNode} from 'vue';
 import Component from 'vue-class-component';
-import CytoscapeGraph from '@/components/CytoscapeGraph';
-// @ts-ignore
-import complexProject from '../store/fake-project-data/complex-data';
-// @ts-ignore
-import simpleProject from '../store/fake-project-data/simple-data';
-import {generateCytoscapeElements, generateCytoscapeStyle} from '@/lib/refinery-to-cytoscript-converter';
+import OpenedProjectGraphContainer from '@/containers/OpenedProjectGraphContainer';
 
 @Component
 export default class ViewProject extends Vue {
   public render(h: CreateElement): VNode {
-    const elements = generateCytoscapeElements(complexProject);
-    
-    const stylesheet = generateCytoscapeStyle();
+    const basePath = `/p/${this.$route.params.projectId}`;
     
     return (
       <div class="view-project-page">
-        {/*<h2>View Project</h2>*/}
-        {/*Id: {this.$route.params.projectId}*/}
-        {/*<router-view />*/}
-        <CytoscapeGraph props={{elements, stylesheet}} />
+        
+        <b-nav tabs justified>
+          <b-nav-item exact to={basePath}>Overview</b-nav-item>
+          <b-nav-item to={`${basePath}/edit`}>Edit</b-nav-item>
+          <b-nav-item to={`${basePath}/deployments`}>Deployments</b-nav-item>
+          <b-nav-item to={`${basePath}/usage`}>Usage</b-nav-item>
+          <b-nav-item to={`${basePath}/settings`}>Settings</b-nav-item>
+        </b-nav>
+        
+        <router-view />
       </div>
     );
   }

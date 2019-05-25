@@ -3,7 +3,7 @@ import {Component, Watch} from 'vue-property-decorator';
 import {Route} from 'vue-router';
 import {UserInterfaceSettings, UserInterfaceState} from '@/store/store-types';
 import {Action, Getter, Mutation} from 'vuex-class';
-import {MenuItem} from '@/types/layout-types';
+import {MenuItem, MenuItemList} from '@/types/layout-types';
 import {GlobalNavMenuItems} from '@/menu';
 
 @Component
@@ -30,8 +30,10 @@ export default class GlobalNavSidebar extends Vue {
     /** prepare initial state of collapse menus. Doesnt allow same route names */
     let collapse: {[key: string]: boolean} = {};
     GlobalNavMenuItems
-      .filter(({heading}) => !heading)
-      .forEach(({name, path, submenu}) => {
+      .filter((menuItem: MenuItem) => !menuItem.heading)
+      .forEach((menuItem: MenuItem) => {
+        const {name, path, submenu} = menuItem;
+        
         if (!name) {
           return;
         }
@@ -181,7 +183,7 @@ export default class GlobalNavSidebar extends Vue {
         <aside class="global-nav-container-inner position--fixed sidebar--left overflow-hidden">
           <nav class="sidebar">
             <ul class="sidebar-nav">
-              {GlobalNavMenuItems.map(menuItem => this.renderNavItem(menuItem))}
+              {GlobalNavMenuItems.map((menuItem: MenuItem) => this.renderNavItem(menuItem))}
             </ul>
           </nav>
         </aside>

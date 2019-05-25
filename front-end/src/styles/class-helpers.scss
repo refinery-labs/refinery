@@ -102,3 +102,9 @@
     height: 100%;
   }
 }
+
+.text-align {
+  &--left {
+    text-align: left;
+  }
+}

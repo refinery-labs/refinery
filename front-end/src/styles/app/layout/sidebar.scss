@@ -214,68 +214,86 @@ $tablet-landscape: 1025px;
 .aside-collapsed,
 .aside-collapsed-text {
 
-    .sidebar {
-        overflow-x: hidden; // Applies to first level items
-        >.sidebar-nav {
+    .wrapper {
+        .sidebar {
+            overflow-x: hidden; // Applies to first level items
+            > .sidebar-nav {
 
-            .sidebar-nav,
-            >.nav-heading,
-            >li>.nav-item>span,
-            >li>a>span {
-                display: none !important;
-            }
+                .sidebar-nav,
+                > .nav-heading,
+                > li > .nav-item > span,
+                > li > a > span {
+                    display: none !important;
+                }
 
-            >li {
-                width: $aside-wd-collapsed - 1;
-                >a,
-                >.nav-item {
-                    text-indent: -$sidebar-item-border-wd;
-                    padding: 20px 0;
-                    text-align: center;
-                    >em {
-                        font-size: 1.6em; // increase icons size
-                        width: auto;
-                    }
-                    &:focus {
-                        // accessibility
-                        background-color: transparent;
-                        >em {
-                            color: inherit;
+                > li {
+                    width: $aside-wd-collapsed - 1;
+
+                    > a,
+                    > .nav-item {
+                        text-indent: -$sidebar-item-border-wd;
+                        padding: 20px 0;
+                        text-align: center;
+
+                        > em {
+                            font-size: 1.6em; // increase icons size
+                            width: auto;
+                        }
+
+                        &:focus {
+                            // accessibility
+                            background-color: transparent;
+
+                            > em {
+                                color: inherit;
+                            }
                         }
                     }
                 }
             }
-        } // labels in menu items
-        .sidebar-nav {
-            .badge {
-                position: absolute;
-                top: 10px;
-                right: 5px;
-                text-indent: 0;
+
+            // labels in menu items
+            .sidebar-nav {
+                .badge {
+                    position: absolute;
+                    top: 10px;
+                    right: 5px;
+                    text-indent: 0;
+                }
             }
         }
-    } // .sidebar
+
+        // .sidebar
+    }
 } // .aside-collapsed/text
 .aside-collapsed-text {
 
-    .sidebar {
-        >.sidebar-nav {
+    .wrapper {
+        .sidebar {
+            > .sidebar-nav {
 
-            >li>.nav-item>span,
-            >li>a>span {
-                display: block !important;
-                font-size: 12px;
-            }
+                > li > .nav-item > span,
+                > li > a > span {
+                    display: block !important;
+                    font-size: 12px;
+                }
 
-            >li {
-                width: $aside-wd-collapsed-text - 2;
-                >a {
-                    padding: 14px 0;
-                    >em {
-                        font-size: 1.4em;
+                > li {
+                    width: $aside-wd-collapsed-text - 2;
+
+                    > a {
+                        padding: 14px 0;
+
+                        > em {
+                            font-size: 1.4em;
+                        }
                     }
                 }
             }
         }
     }
+}
+
+.sidebar-nav--extra-height {
+    height: calc(100% + 40px);
 }

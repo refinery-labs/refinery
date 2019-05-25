@@ -16,6 +16,7 @@ import ViewProjectDeployment from '@/views/ProjectsNestedViews/ViewProjectDeploy
 import EditProjectDeployment from '@/views/ProjectsNestedViews/EditProjectDeployment';
 import Layout from '@/components/Layout/Layout';
 import {baseLinks} from '@/constants/router-constants';
+import OpenedProjectGraphContainer from '@/containers/OpenedProjectGraphContainer';
 
 Vue.use(Router);
 
@@ -70,41 +71,21 @@ export default new Router({
             // Opened project overview page
             {
               path: '',
-              name: 'opened project overview',
+              name: 'project',
               // Example syntax for how to load multiple components
               // components: {default: OpenedProjectOverview, graphComponent: RefineryGraph }
               component: OpenedProjectOverview
             },
             // View all workflows
             {
-              path: 'workflows',
-              name: 'all workflows',
-              component: AllProjectWorkflows
-            },
-            // View workflow by ID
-            {
-              path: 'w/:workflowId',
-              component: OpenedWorkflowWrapper,
-        
-              children: [
-                // Overview of specific workflow
-                {
-                  path: '',
-                  name: 'workflow overview',
-                  component: ViewWorkflow
-                },
-                // Edit a specific workflow
-                {
-                  path: 'edit',
-                  name: 'edit workflow',
-                  component: EditWorkflow
-                }
-              ]
+              path: 'edit',
+              name: 'editGraph',
+              component: OpenedProjectGraphContainer
             },
             // View all deployments for project
             {
               path: 'deployments',
-              name: 'all deployments',
+              name: 'allDeployments',
               // View all deployments
               component: ProjectDeployments
             },
@@ -117,16 +98,28 @@ export default new Router({
                 // Overview of deployment
                 {
                   path: '',
-                  name: 'deployment overview',
+                  name: 'deployment',
                   component: ViewProjectDeployment
                 },
                 // Edit deployment
                 {
                   path: 'edit',
-                  name: 'edit deployment',
+                  name: 'editDeployment',
                   component: EditProjectDeployment
                 }
               ]
+            },
+            // View Usage information for project
+            {
+              path: 'usage',
+              name: 'projectUsage',
+              component: ProjectDeployments
+            },
+            // View settings for a project
+            {
+              path: 'settings',
+              name: 'projectSettings',
+              component: ProjectDeployments
             }
           ]
         },

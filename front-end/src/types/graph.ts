@@ -1,6 +1,12 @@
-export interface RefineryProject {
-  version: number,
+import {ElementDefinition, ElementsDefinition, Stylesheet} from 'cytoscape';
+
+export interface BaseRefineryResource {
   name: string,
+  id: string,
+}
+
+export interface RefineryProject extends BaseRefineryResource {
+  version: number,
   workflow_states: WorkflowState[],
   workflow_relationships: WorkflowRelationship[]
 }
@@ -24,11 +30,6 @@ export enum API_ENDPOINT_HTTP_METHOD {
   POST = "POST",
   PUT = "PUT",
   DELETE = "DELETE"
-}
-
-export interface BaseRefineryResource {
-  name: string,
-  id: string,
 }
 
 export interface WorkflowState extends BaseRefineryResource {
@@ -79,3 +80,8 @@ export interface WorkflowRelationship extends BaseRefineryResource {
   next: string,
   expression: string
 }
+
+export type CyElements = ElementsDefinition | ElementDefinition[] | Promise<ElementsDefinition> | Promise<ElementDefinition[]>;
+
+// Let's just not support promises in our API style. If we need it we'll figure it out
+export type CyStyle = Stylesheet[]; // | Promise<Stylesheet[]>;

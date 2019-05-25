@@ -30,10 +30,6 @@ export default class Layout extends Vue {
           {/*top navbar*/}
           <Header/>
       
-          <Sidebar/>
-      
-          <Offsidebar/>
-      
           {/*Main section*/}
           <section class="section-container">
             {/*Page content*/}

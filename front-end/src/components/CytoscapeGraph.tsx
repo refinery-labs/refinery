@@ -1,42 +1,12 @@
 import {CreateElement, VNode} from 'vue';
 import {Component, Prop, Vue, Watch} from 'vue-property-decorator';
-import cytoscape, {ElementDefinition, ElementsDefinition, EventObject, LayoutOptions, Stylesheet} from 'cytoscape';
+import cytoscape, {EventObject, LayoutOptions, NodeCollection} from 'cytoscape';
 import dagre from 'cytoscape-dagre';
+import {CyElements, CyStyle, WorkflowRelationship, WorkflowState} from '@/types/graph';
+import {baseCytoscapeStyles, STYLE_CLASSES} from '@/lib/cytoscape-styles';
 
-const baseCytoscapeStyles = [
-  {
-    selector: 'node.highlight',
-    style: {
-      'background-blacken': -0.2,
-      color: '#fff',
-      'text-background-color': '#333'
-    }
-  },
-  // {
-  //   selector: 'node.semitransp',
-  //   style:{ 'opacity': '0.95' }
-  // },
-  {
-    selector: 'edge.highlight',
-    style: {
-      'mid-target-arrow-color': '#FFF',
-      color: '#3f3f3f',
-      'line-color': '#6391dd',
-      'target-arrow-color': '#6391dd',
-    }
-  },
-  // {
-  //   selector: 'edge.semitransp',
-  //   style:{ 'opacity': '0.95' }
-  // }
-];
 
 cytoscape.use(dagre);
-
-type CyElements = ElementsDefinition | ElementDefinition[] | Promise<ElementsDefinition> | Promise<ElementDefinition[]>;
-
-// Let's just not support promises in our API style. If we need it we'll figure it out
-type CyStyle = Stylesheet[]; // | Promise<Stylesheet[]>;
 
 @Component
 export default class CytoscapeGraph extends Vue {
@@ -46,10 +16,14 @@ export default class CytoscapeGraph extends Vue {
   @Prop() private layout!: LayoutOptions;
   @Prop({required: true}) private stylesheet!: CyStyle;
   
+  @Prop({required: true}) private selectNode!: (element: WorkflowState) => {};
+  @Prop({required: true}) private selectEdge!: (element: WorkflowRelationship) => {};
+  @Prop() private selected!: string;
+  
   // This is a catch-all for any additional options that need to be specified
   @Prop({default: () => {}}) private config!: cytoscape.CytoscapeOptions;
   
-  public cytoscapeValueModified(val: object) {
+  public cytoscapeValueModified() {
     if (!this.cy) {
       // TODO: Make this development only?
       console.error('Graph not loaded yet and elements were modified!');
@@ -57,35 +31,71 @@ export default class CytoscapeGraph extends Vue {
     }
   
     // Tells the Cytoscape graph to update. The library internally diffs elements based on their ID.
-    this.cy.json(val);
+    this.cy.json(this.generateInitialCytoscapeConfig());
+    
+    // Re-select the node on the graph
+    this.selectNodeOrEdgeInInstance(this.cy.elements(`#${this.selected}`));
   }
   
   @Watch('elements', {deep: true})
   private elementsModified(val: CyElements, oldVal: CyElements) {
-    this.cytoscapeValueModified({
-      elements: val
-    });
+    if (val === oldVal) {
+      return;
+    }
+    
+    this.cytoscapeValueModified();
   }
   
   @Watch('layout', {deep: true})
   private layoutModified(val: LayoutOptions, oldVal: LayoutOptions) {
-    this.cytoscapeValueModified({
-      layout: val
-    });
+    if (val === oldVal) {
+      return;
+    }
+  
+    this.cytoscapeValueModified();
   }
   
   @Watch('stylesheet', {deep: true})
   private styleModified(val: CyStyle, oldVal: CyStyle) {
-    this.cytoscapeValueModified({
-      style: val
-    });
+    if (val === oldVal) {
+      return;
+    }
+  
+    this.cytoscapeValueModified();
   }
   
   @Watch('config', {deep: true})
   private configModified(val: cytoscape.CytoscapeOptions, oldVal: cytoscape.CytoscapeOptions) {
-    this.cytoscapeValueModified({
-      ...val
-    });
+    if (val === oldVal) {
+      return;
+    }
+  
+    this.cytoscapeValueModified();
+  }
+  
+  @Watch('selected')
+  private selectedModified(val: string, oldVal: string) {
+    if (val === oldVal || !this.cy) {
+      return;
+    }
+    
+    this.selectNodeOrEdgeInInstance(this.cy.elements(`#${val}`));
+  }
+  
+  /**
+   * Luckily for us, we don't have to actually use Cytoscape!
+   * We use CSS styles to "convey" a selected node to the user. But we don't actually "select" a node
+   * in Cytoscape, as one might regularly.
+   * @param sel The ID of the node that we want to render as "selected". Can be an edge or node.
+   */
+  private selectNodeOrEdgeInInstance(sel: NodeCollection) {
+    // "de-selects" all of the other nodes
+    this.cy.elements().not(sel).removeClass(STYLE_CLASSES.SELECTED);
+  
+    if (sel) {
+      // Causes the node to render as "selected" in the UI.
+      sel.addClass(STYLE_CLASSES.SELECTED);
+    }
   }
 
   public generateInitialCytoscapeConfig(): cytoscape.CytoscapeOptions {
@@ -119,13 +129,13 @@ export default class CytoscapeGraph extends Vue {
   }
   
   public setupEventHandlers(cy: cytoscape.Core) {
-    function addHighlight(e: EventObject){
+    function addHighlight(e: EventObject) {
       const sel = e.target;
       cy.elements().not(sel).addClass('semitransp');
       sel.addClass('highlight');
     }
     
-    function removeHighlight(e: EventObject){
+    function removeHighlight(e: EventObject) {
       const sel = e.target;
       cy.elements().removeClass('semitransp');
       sel.removeClass('highlight');
@@ -135,6 +145,22 @@ export default class CytoscapeGraph extends Vue {
     cy.on('mouseout', 'node', removeHighlight);
     cy.on('mouseover', 'edge', addHighlight);
     cy.on('mouseout', 'edge', removeHighlight);
+  
+    // Apparently 'tap' isn't in the type definitions for this package... But it's in the docs!
+    // Tap is a "click" that works for both Touch and Mouse based interfaces.
+    // @ts-ignore
+    cy.on('tap', 'node', e => {
+      this.selectNodeOrEdgeInInstance(e.target);
+      
+      this.selectNode(e.target._private.data.id);
+    });
+    
+    // @ts-ignore
+    cy.on('tap', 'edge', e => {
+      this.selectNodeOrEdgeInInstance(e.target);
+  
+      this.selectEdge(e.target._private.data.id);
+    });
   }
   
   public mounted() {
