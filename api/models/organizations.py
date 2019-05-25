@@ -27,6 +27,18 @@ class Organization( Base ):
 	# Whether the organization is disabled
 	disabled = Column(Boolean())
 	
+	# Set if the org has a bill which is overdue for payment
+	# Used to disable certain endpoints for all organizational users
+	payments_overdue = Column(Boolean())
+	
+	# One user is the billing admin for a given organization
+	# This is used during invoicing to send the invoice somewhere.
+	billing_admin_user = relationship(
+		"User",
+		uselist=False,
+		back_populates="organization"
+	)
+	
 	# Child users to the organization
 	users = relationship(
 		"User",

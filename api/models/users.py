@@ -27,11 +27,24 @@ class User( Base ):
 	email_verified = Column(Boolean())
 	
 	# Whether the user's account is disabled
+	# A disabled user cannot log in to Refinery
 	disabled = Column(Boolean())
+	
+	# If the user has a payment method added
+	# This is used to determine if the user's account
+	# should be "frozen" after their "free trial" period
+	# has expired (e.g. after 14 days or whatever)
+	has_valid_payment_method_on_file = Column(Boolean())
 	
 	# What level the user is in an organization
 	# For now there's only one level - ADMIN
 	permission_level = Column(Text())
+	
+	# Payment ID - currently this means Stripe
+	payment_id = Column(Text())
+	
+	# Phone number of the user
+	phone_number = Column(Text())
 	
 	# Parent organization the user belongs to
 	organization_id = Column(
@@ -39,6 +52,10 @@ class User( Base ):
 		ForeignKey(
 			"organizations.id"
 		)
+	)
+	organization = relationship(
+		"Organization",
+		back_populates="billing_admin_user"
 	)
 	
 	# Many to many relationship to users
@@ -81,6 +98,7 @@ class User( Base ):
 		self.email_verified = False
 		self.disabled = False
 		self.permission_level = "ADMIN"
+		self.has_valid_payment_method_on_file = False
 		self.timestamp = int( time.time() )
 
 	def to_dict( self ):

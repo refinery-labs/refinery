@@ -14,6 +14,7 @@ import logging
 import hashlib
 import random
 import shutil
+import stripe
 import base64
 import string
 import boto3
@@ -22,6 +23,7 @@ import uuid
 import json
 import yaml
 import copy
+import math
 import time
 import jwt
 import sys
@@ -69,6 +71,9 @@ reload( sys )
 sys.setdefaultencoding( "utf8" )
 
 EMPTY_ZIP_DATA = bytearray( "PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" )
+
+# Initialize Stripe
+stripe.api_key = os.environ.get( "stripe_api_key" )
 
 # Cloudflare Access public keys
 CF_ACCESS_PUBLIC_KEYS = []
@@ -408,11 +413,11 @@ class BaseHandler( tornado.web.RequestHandler ):
 			message_type="warn"
 		)
 		
-		self.write(json.dumps({
+		self.write({
 			"success": False,
 			"msg": error_message,
-			"id": error_id
-		}))
+			"code": error_id
+		})
 		
 """
 Decorators
@@ -425,7 +430,7 @@ def authenticated( func ):
 	{
 		"success": false,
 		"code": "AUTH_REQUIRED",
-		"msg": "User must be authenticated to hit this endpoint",
+		"msg": "...",
 	}
 	"""
 	def wrapper( *args, **kwargs ):
@@ -444,11 +449,111 @@ def authenticated( func ):
 		return func( *args, **kwargs )
 	return wrapper
 	
+def disable_on_overdue_payment( func ):
+	"""
+	Decorator to disable specific endpoints if the user
+	is in collections and needs to settle up their bill.
+	
+	If the user is not, the response will be:
+	{
+		"success": false,
+		"code": "ORGANIZATION_UNSETTLED_BILLS",
+		"msg": "...",
+	}
+	"""
+	def wrapper( *args, **kwargs ):
+		self_reference = args[0]
+		
+		# Pull the authenticated user
+		authenticated_user = self_reference.get_authenticated_user()
+		
+		# Pull the user's org to see if any payments are overdue
+		authenticated_user_org = authenticated_user.organization
+		
+		if authenticated_user_org.payments_overdue == True:
+			self_reference.write({
+				"success": False,
+				"code": "ORGANIZATION_UNSETTLED_BILLS",
+				"msg": "This organization has an unsettled bill which is overdue for payment. This action can not be performed until the outstanding bills have been paid.",
+			})
+			return
+		
+		# Check if the user is on a free trial and if the free trial is over
+		trial_info = get_user_free_trial_information( authenticated_user )
+		
+		if trial_info[ "is_using_trial" ] and trial_info[ "trial_over" ]:
+			self_reference.write({
+				"success": False,
+				"code": "USER_FREE_TRIAL_ENDED",
+				"msg": "Your free trial has ended, you must supply a payment method in order to perform this action.",
+			})
+			return
+		
+		return func( *args, **kwargs )
+	return wrapper
+	
+def get_billing_rounded_float( input_price_float ):
+	"""
+	This is used because Stripe only allows you to charge line
+	items in cents. Meaning that some rounding will occur on the
+	final line items on the bill. AWS returns us lengthy-floats which
+	means that the conversion will have to be done in both the invoice
+	billing and the bill calculation endpoints the same way. We also have
+	to do this in a safe round up way that won't accidentally under-bill
+	our customers.
+	
+	This endpoint basically converts the AWS float into cents, rounds it,
+	and then converts it back to a float rounded appropriately to two digits
+	and returns the float again. All billing code should use this to ensure
+	consistency in what the user sees from a billing point of view.
+	"""
+	# Special case is when the input float is 0
+	if input_price_float == 0:
+		return float( 0.00 )
+
+	# Round float UP TO second digit
+	# Meaning 10.015 becomes 10.02
+	# and 10.012 becomes 10.02
+	rounded_up_float = (
+		math.ceil(
+			input_price_float * 100
+		) / 100
+	)
+	
+	return rounded_up_float
+
 class TaskSpawner(object):
 		def __init__(self, loop=None):
 			self.executor = futures.ThreadPoolExecutor( 60 )
 			self.loop = loop or tornado.ioloop.IOLoop.current()
+		
+		@run_on_executor
+		def freeze_aws_account( self, credentials ):
+			"""
+			Freezes an AWS sub-account when the user has gone past
+			their free trial or when they have gone tardy on their bill.
 			
+			This is different from closing an AWS sub-account in that it preserves
+			the underlying resources in the account. Generally this is the
+			"warning shot" before we later close the account and delete it all.
+			
+			The steps are as follows:
+			* Disable AWS console access via delete_login_profile()
+			* Revoke all active AWS console sessions
+			* Iterate over all deployed Lambdas and throttle them
+			* Stop all active CodeBuilds
+			"""
+			iam_client = get_aws_client(
+				"iam",
+				credentials
+			)
+			
+			"""
+			iam_client.delete_login_profile(
+				credentials[ "iam_admin_username" ],
+			)
+			"""
+		
 		@run_on_executor
 		def send_registration_confirmation_email( self, email_address, auth_token ):
 			registration_confirmation_link = os.environ.get( "access_control_allow_origin" ) + "/authentication/email/" + auth_token
@@ -526,7 +631,164 @@ class TaskSpawner(object):
 			)
 			
 		@run_on_executor
+		def stripe_create_customer( self, email, name ):
+			# Create a customer in Stripe
+			customer = stripe.Customer.create(
+				email=email,
+				name=name,
+			)
+			
+			return customer[ "id" ]
+			
+		@run_on_executor
+		def generate_managed_accounts_invoices( self, start_date_string, end_date_string ):
+			"""
+			Bills ultimately belong to the organization but are paid by
+			the ADMINS of the organization. So we generate the invoices and
+			then send them to the admins on the account for payment.
+			
+			Note that this is purely for accounts which are "managed" meaning
+			we own the billing of the sub-AWS accounts and we upcharge and
+			bill the customer.
+			"""
+			# Pull a list of organizations to generate invoices for
+			organizations = session.query( Organization )
+			
+			# List of invoices to send out at the end
+			"""
+			{
+				# To send invoice emails
+				"admin_stripe_id": "...",
+				"aws_account_bills": [],
+			}
+			"""
+			invoice_list = []
+			
+			# Setting for if Refinery should just finalize the invoices
+			# or if manual approve/editing is enabled. One is more careful
+			# than the others.
+			finalize_invoices_enabled = json.loads(
+				os.environ.get( "stripe_finalize_invoices" )
+			)
+			
+			# Iterate over each organization
+			for organization in organizations:
+				# If the organization is disabled we just skip it
+				if organization.disabled == True:
+					continue
+				
+				# Check if the organization billing admin has validated
+				# their email address. If not it means they never finished
+				# the signup process so we can skip them.
+				if organization.billing_admin_user.email_verified == False:
+					print( "Skipping organization admin because their billing admin email is not verified..." )
+					continue
+				
+				current_organization_invoice_data = {
+					"admin_stripe_id": "...",
+					"aws_account_bills": [],
+				}
+				
+				# Pull the organization billing admin and send them
+				# the invoice email so they can pay it.
+				current_organization_invoice_data[ "admin_stripe_id" ] = organization.billing_admin_user.payment_id
+				
+				# Pull billing information for each AWS account
+				for aws_account in organization.aws_accounts:
+					# Skip the AWS account if it's not managed
+					if aws_account.account_type != "MANAGED":
+						continue
+					
+					billing_information = TaskSpawner._get_sub_account_billing_data(
+						aws_account.account_id,
+						start_date_string,
+						end_date_string,
+						"monthly"
+					)
+					
+					current_organization_invoice_data[ "aws_account_bills" ].append({
+						"aws_account_label": aws_account.account_label,
+						"aws_account_id": aws_account.account_id,
+						"billing_information": billing_information,
+					})
+				
+				invoice_list.append(
+					current_organization_invoice_data
+				)
+			
+			for invoice_data in invoice_list:
+				for aws_account_billing_data in invoice_data[ "aws_account_bills" ]:
+					# We send one bill per managed AWS account if they have multiple
+					
+					for service_cost_data in aws_account_billing_data[ "billing_information" ][ "service_breakdown" ]:
+						line_item_cents = int(
+							float( service_cost_data[ "total" ] ) * 100
+						)
+						
+						# If the item costs zero cents don't add it to the bill.
+						if line_item_cents > 0:
+							service_description = "Managed " + service_cost_data[ "service_name" ]
+							
+							if aws_account_billing_data[ "aws_account_label" ].strip() != "":
+								service_description = service_description + " (Cloud Account: '" + aws_account_billing_data[ "aws_account_label" ] + "')"
+							
+							stripe.InvoiceItem.create(
+								# Stripe bills in cents!
+								amount=line_item_cents,
+								currency=str( service_cost_data[ "unit" ] ).lower(),
+								customer=invoice_data[ "admin_stripe_id" ],
+								description=service_description,
+							)
+					
+					invoice_creation_params = {
+						"customer": invoice_data[ "admin_stripe_id" ],
+						"auto_advance": True,
+						"billing": "charge_automatically",
+						"metadata": {
+							"aws_account_id": aws_account_billing_data[ "aws_account_id" ]
+						}
+					}
+					
+					customer_invoice = stripe.Invoice.create(
+						**invoice_creation_params
+					)
+					
+					if finalize_invoices_enabled:
+						customer_invoice.send_invoice()
+			
+			# Notify finance department that they have an hour to review the
+			response = SES_EMAIL_CLIENT.send_email(
+				Source=os.environ.get( "ses_emails_from_email" ),
+				Destination={
+					"ToAddresses": [
+						os.environ.get( "billing_alert_email" ),
+					]
+				},
+				Message={
+					"Subject": {
+						"Data": "[URGENT][IMPORTANT]: Monthly customer invoice generation has completed. One hour to auto-finalization.",
+						"Charset": "UTF-8"
+					},
+					"Body": {
+						"Html": {
+							"Data": "The monthly Stripe invoice generation has completed. You have <b>one hour</b> to review invoices before they go out to customers.<br /><a href=\"https://dashboard.stripe.com/invoices\"><b>Click here to review the generated invoices</b></a><br /><br />",
+							"Charset": "UTF-8"
+						}
+					}
+				}
+			)
+	
+		@run_on_executor
 		def get_sub_account_billing_data( self, account_id, start_date, end_date, granularity ):
+			return TaskSpawner._get_sub_account_billing_data(
+				account_id,
+				start_date,
+				end_date,
+				granularity
+			)
+			
+		@staticmethod
+		def _get_sub_account_billing_data( account_id, start_date, end_date, granularity ):
 			"""
 			account_id: 994344292413
 			start_date: 2017-05-01
@@ -575,29 +837,37 @@ class TaskSpawner(object):
 			}
 			total_amount = 0
 			
+			# Remove some of the AWS branding from the billing
+			remove_aws_branding_words = [
+				"AWS",
+				"Amazon",
+			]
+			
 			for cost_group in cost_groups:
 				cost_group_name = cost_group[ "Keys" ][0]
+				
+				# Remove branding
+				for aws_branding_word in remove_aws_branding_words:
+					cost_group_name = cost_group_name.replace(
+						aws_branding_word,
+						""
+					)
+					cost_group_name = cost_group_name.strip()
+				
 				unit = cost_group[ "Metrics" ][ metric_name ][ "Unit" ]
-				total = float( cost_group[ "Metrics" ][ metric_name ][ "Amount" ] ) * markup_multiplier
-				if total == 0:
-					total_string = "0"
-				else:
-					total_string = numpy.format_float_positional( total )
+				total = get_billing_rounded_float(
+					float( cost_group[ "Metrics" ][ metric_name ][ "Amount" ] ) * markup_multiplier
+				)
 				
 				return_data[ "service_breakdown" ].append({
 					"service_name": cost_group_name,
 					"unit": unit,
-					"total": total_string,
+					"total": str( total ),
 				})
 				
 				total_amount = total_amount + total
 				
-			if total_amount == 0:
-				total_amount_string = "0"
-			else:
-				total_amount_string = numpy.format_float_positional( total_amount )
-				
-			return_data[ "bill_total" ][ "total" ] = total_amount_string
+			return_data[ "bill_total" ][ "total" ] = str( total_amount )
 			
 			return return_data
 			
@@ -2492,6 +2762,7 @@ def get_random_deploy_id():
 
 class RunLambda( BaseHandler ):
 	@authenticated
+	@disable_on_overdue_payment
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -2537,6 +2808,7 @@ class RunLambda( BaseHandler ):
 		
 class RunTmpLambda( BaseHandler ):
 	@authenticated
+	@disable_on_overdue_payment
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -4336,6 +4608,7 @@ class DeleteSavedProject( BaseHandler ):
 		
 class DeployDiagram( BaseHandler ):
 	@authenticated
+	@disable_on_overdue_payment
 	@gen.coroutine
 	def post( self ):
 		# TODO: Add jsonschema
@@ -4882,6 +5155,7 @@ def get_logs_data( credentials, log_paths_array ):
 
 class GetProjectExecutions( BaseHandler ):
 	@authenticated
+	@disable_on_overdue_payment
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -4937,6 +5211,7 @@ class GetProjectExecutions( BaseHandler ):
 		
 class GetProjectExecutionLogs( BaseHandler ):
 	@authenticated
+	@disable_on_overdue_payment
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -4996,6 +5271,7 @@ def delete_logs( credentials, project_id ):
 		
 class UpdateEnvironmentVariables( BaseHandler ):
 	@authenticated
+	@disable_on_overdue_payment
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -5063,6 +5339,7 @@ class UpdateEnvironmentVariables( BaseHandler ):
 		
 class GetCloudWatchLogsForLambda( BaseHandler ):
 	@authenticated
+	@disable_on_overdue_payment
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -5175,83 +5452,6 @@ def strip_api_gateway( credentials, api_gateway_id ):
 	
 	raise gen.Return( api_gateway_id )
 	
-	
-@gen.coroutine
-def db_tests():
-	test_org_name = "Example Org"
-	print( "Creating organization..." )
-	new_organization = Organization()
-	new_organization.name = test_org_name
-	new_organization.max_users = 100
-	
-	print( "Creating user for organization..." )
-	new_user = User()
-	new_user.name = "Mark FakeUser"
-	new_user.email = "mark@fake.user.example"
-	
-	new_organization.users.append(
-		new_user
-	)
-	
-	print( "Creating another user for organization..." )
-	new_user2 = User()
-	new_user2.name = "Joe FakeUser"
-	new_user2.email = "joe@fake.user.example"
-	
-	new_organization.users.append(
-		new_user2
-	)
-	
-	session.add( new_organization )
-	session.commit()
-	
-	# Retrieve the org and pull out the users
-	print( "Pulling the org back..." )
-	pulled_org = session.query( Organization ).filter_by(
-		name=test_org_name
-	).first()
-	
-	print( "Users from pulled org: " )
-
-	for pulled_user in pulled_org.users:
-		print( pulled_user.name + " - " + pulled_user.email )
-		
-	print( "Pulling a user from the database to get their org..." )
-	pulled_user = session.query( User ).filter_by(
-		email="mark@fake.user.example"
-	).first()
-	
-	print( "Pulled user: " + pulled_user.name + " - " + pulled_user.email )
-	
-	print( "Adding email auth token to user..." )
-	email_auth_token = EmailAuthToken()
-	pulled_user.email_auth_tokens.append(
-		email_auth_token
-	)
-	email_auth_token2 = EmailAuthToken()
-	pulled_user.email_auth_tokens.append(
-		email_auth_token2
-	)
-	session.commit()
-	
-	pulled_user2 = session.query( User ).filter_by(
-		email="mark@fake.user.example"
-	).first()
-	
-	print( "Pulled user: " + pulled_user2.name )
-	
-	for email_token in pulled_user2.email_auth_tokens:
-		print( "Email token: " + email_token.token )
-		
-	print( "Now creating a new project with two deployments." )
-	
-	project_name = "Example Project"
-	
-	new_project = Project()
-	new_project.name = project_name
-	session.add( new_project )
-	session.commit()
-	
 class NewRegistration( BaseHandler ):
 	@gen.coroutine
 	def post( self ):
@@ -5307,9 +5507,8 @@ class NewRegistration( BaseHandler ):
 		new_organization = Organization()
 		new_organization.name = self.json[ "organization_name" ]
 		
-		# TODO(mandatory): Integration billing before registration
-		# is allowed. Also allow for bypass via special registration
-		# codes.
+		# Set defaults
+		new_organization.payments_overdue = False
 		
 		# Check if the user is already registered
 		user = session.query( User ).filter_by(
@@ -5358,6 +5557,9 @@ class NewRegistration( BaseHandler ):
 		new_organization.users.append(
 			new_user
 		)
+		
+		# Set this user as the billing admin
+		new_organization.billing_admin_id = new_user.id
 		
 		session.add( new_organization )
 		session.commit()
@@ -5429,8 +5631,36 @@ class EmailLinkAuthentication( BaseHandler ):
 		# as validated as well.
 		if email_authentication_token.user.email_verified == False:
 			email_authentication_token.user.email_verified = True
+			
+			# Additionally since they've validated their email we'll add them to Stripe
+			customer_id = yield local_tasks.stripe_create_customer(
+				email_authentication_token.user.email,
+				email_authentication_token.user.name,
+			)
+			
+			# Set user's payment_id to the Stripe customer ID
+			email_authentication_token.user.payment_id = customer_id
 		
 		session.commit()
+		
+		# Check if the user's account is disabled
+		# If it's disabled don't allow the user to log in at all.
+		if email_authentication_token.user.disabled == True:
+			self.logit( "User login was denied due to their account being disabled!" )
+			self.write( "Your account is currently disabled, please contact customer support for more information." )
+			raise gen.Return()
+		
+		# Pull the user's organization
+		user_organization = session.query( Organization ).filter_by(
+			id=email_authentication_token.user.organization_id
+		).first()
+		
+		# Check if the user's organization is disabled
+		# If it's disabled don't allow the user to log in at all.
+		if user_organization.disabled == True:
+			self.logit( "User login was denied due to their organization being disabled!" )
+			self.write( "Your organization is currently disabled, please contact customer support for more information." )
+			raise gen.Return()
 		
 		self.logit( "User authenticated successfully" )
 		
@@ -5455,6 +5685,9 @@ class GetAuthenticationStatus( BaseHandler ):
 				"name": current_user.name,
 				"email": current_user.email,
 				"permission_level": current_user.permission_level,
+				"trial_information": get_user_free_trial_information(
+					self.get_authenticated_user()
+				)
 			})
 			return
 		
@@ -5578,6 +5811,47 @@ class GetBillingDateRangeTotal( BaseHandler ):
 		
 		self.write( billing_data )
 		
+def get_current_month_start_and_end_date_strings():
+	"""
+	Returns the start date string of this month and
+	the start date of the next month for pulling AWS
+	billing for the current month.
+	"""
+	# Get tomorrow date
+	today_date = datetime.date.today()
+	tomorrow_date = datetime.date.today() + datetime.timedelta( days=1 )
+	start_date = tomorrow_date
+	
+	# We could potentially be on the last day of the month
+	# making tomorrow the next month! Check for this case.
+	# If it's the case then we'll just set the start date to today
+	if tomorrow_date.month == today_date.month:
+		start_date = today_date
+	
+	# Get first day of next month
+	current_month_num = today_date.month
+	current_year_num = today_date.year
+	next_month_num = current_month_num + 1
+	
+	# Check if we're on the last month
+	# If so the next month number is 1
+	# and we should add 1 to the year
+	if current_month_num == 12:
+		next_month_num = 1
+		current_year_num = current_year_num + 1
+		
+	next_month_start_date = datetime.date(
+		current_year_num,
+		next_month_num,
+		1
+	)
+		
+	return {
+		"current_date": tomorrow_date.strftime( "%Y-%m-%d" ),
+		"month_start_date": tomorrow_date.strftime( "%Y-%m-01" ),
+		"month_end_date": next_month_start_date.strftime( "%Y-%m-%d" ),
+	}
+		
 class GetBillingDateRangeForecast( BaseHandler ):
 	@authenticated
 	@gen.coroutine
@@ -5592,43 +5866,48 @@ class GetBillingDateRangeForecast( BaseHandler ):
 		current_user = self.get_authenticated_user()
 		credentials = self.get_authenticated_user_cloud_configuration()
 		
-		# Get tomorrow date
-		today_date = datetime.date.today()
-		tomorrow_date = datetime.date.today() + datetime.timedelta( days=1 )
-		start_date = tomorrow_date
-		
-		# We could potentially be on the last day of the month
-		# making tomorrow the next month! Check for this case.
-		# If it's the case then we'll just set the start date to today
-		if tomorrow_date.month == today_date.month:
-			start_date = today_date
-		
-		# Get first day of next month
-		current_month_num = today_date.month
-		current_year_num = today_date.year
-		next_month_num = current_month_num + 1
-		
-		# Check if we're on the last month
-		# If so the next month number is 1
-		# and we should add 1 to the year
-		if current_month_num == 12:
-			next_month_num = 1
-			current_year_num = current_year_num + 1
-			
-		next_month_start_date = datetime.date(
-			current_year_num,
-			next_month_num,
-			1
-		)
+		date_info = get_current_month_start_and_end_date_strings()
 		
 		forecast_data = yield local_tasks.get_sub_account_billing_forecast(
 			credentials[ "account_id" ],
-			tomorrow_date.strftime( "%Y-%m-%d" ),
-			next_month_start_date.strftime( "%Y-%m-%d" ),
+			date_info[ "current_date"],
+			date_info[ "month_end_date" ],
 			"monthly"
 		)
 		
 		self.write( forecast_data )
+		
+def get_user_free_trial_information( input_user ):
+	return_data = {
+		"trial_end_timestamp": 0,
+		"trial_started_timestamp": 0,
+		"trial_over": False,
+		"is_using_trial": True,
+	}
+	
+	# If the user has a payment method on file they can't be using the
+	# free trial.
+	if input_user.has_valid_payment_method_on_file == True:
+		return_data[ "is_using_trial" ] = False
+		return_data[ "trial_over" ] = True
+		
+	# Calculate when the trial is over
+	trial_length_in_seconds = ( 60 * 60 * 24 * 14 )
+	return_data[ "trial_started_timestamp" ] = input_user.timestamp
+	return_data[ "trial_end_timestamp" ] = input_user.timestamp + trial_length_in_seconds
+	
+	# Calculate if the user is past their free trial
+	current_timestamp = int( time.time() )
+	
+	# Calculate time since user sign up
+	seconds_since_signup = current_timestamp - input_user.timestamp
+	
+	# If it's been over 14 days since signup the user
+	# has exhausted their free trial
+	if seconds_since_signup > trial_length_in_seconds:
+		return_data[ "trial_over" ] = True
+		
+	return return_data
 		
 @gen.coroutine
 def add_reserved_aws_accounts():
@@ -5645,7 +5924,8 @@ def add_reserved_aws_accounts():
 		print( "No AWS account in reserves, adding " + str( juice_amount ) + " to the pool..." )
 		for i in range( 0, 100 ):
 			new_aws_account = AWSAccount()
-			new_aws_account.account_label = "RefineryLabs Customer Account"
+			new_aws_account.account_label = ""
+			new_aws_account.account_type = "MANAGED"
 			new_aws_account.is_reserved_account = True
 			new_aws_account.account_id = int( os.environ.get( "aws_account_id" ) )
 			new_aws_account.access_key = os.environ.get( "aws_access_key" )
@@ -5701,6 +5981,15 @@ def make_app( is_debug ):
 		( r"/api/v1/billing/total_for_date_range", GetBillingDateRangeTotal ),
 		( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast )
 	], **tornado_app_settings)
+	
+@gen.coroutine
+def billing_test():
+	date_info = get_current_month_start_and_end_date_strings()
+	print( "Generating invoices for " + date_info[ "month_start_date" ] + " -> " + date_info[ "month_end_date" ]  )
+	yield local_tasks.generate_managed_accounts_invoices(
+		date_info[ "month_start_date"],
+		date_info[ "month_end_date" ],
+	)
 			
 if __name__ == "__main__":
 	print( "Starting server..." )

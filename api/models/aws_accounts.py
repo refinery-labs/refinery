@@ -13,6 +13,8 @@ class AWSAccount( Base ):
 	)
 	
 	# Label for the AWS account
+	# Leave blank for now until we support multiple
+	# AWS accounts.
 	account_label = Column(Text())
 	
 	# AWS account ID
@@ -48,10 +50,16 @@ class AWSAccount( Base ):
 	# Redis port
 	redis_port = Column(BigInteger())
 	
+	# The AWS account type, which can be any of the following:
+	# MANAGED || UNMANAGED
+	# MANAGED is for sub-accounts that we manage
+	# UNMANAGED is for third-party AWS accounts we don't manage.
+	account_type = Column(Text())
+	
 	# Whether the AWS Account is a "reserved account"
 	# Reserved accounts are sub-accounts of the main Refinery
 	# account. They are allocated to new users in order to do
-	# reseller pricing of AWS serverless usage.
+	# reseller pricing of AWS usage.
 	is_reserved_account = Column(Boolean())
 	
 	timestamp = Column(Integer())
