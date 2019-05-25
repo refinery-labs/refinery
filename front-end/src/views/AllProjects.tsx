@@ -3,10 +3,13 @@ import Component from 'vue-class-component';
 import {namespace, State} from 'vuex-class';
 import moment from 'moment';
 import {ProjectSearchResult} from '@/types/api-types';
+import Search2 from '@/components/AllProjects/Search2';
 
 const allProjects = namespace('allProjects');
 
-@Component
+@Component({
+  components: {Search2}
+})
 export default class AllProjects extends Vue {
   @allProjects.State availableProjects!: ProjectSearchResult[];
   
@@ -27,7 +30,6 @@ export default class AllProjects extends Vue {
     const datetime = new Date(project.timestamp * 1000);
     
     const sortedVersions = project.versions.slice().sort().reverse();
-   
     
     return (
       <b-card no-body class="card card-default text-align--left">
@@ -114,13 +116,14 @@ export default class AllProjects extends Vue {
     }
     
     return (
-      <div class="all-projects-page">
-        <h2>All Projects</h2>
-        <b-container class="mt-6">
-          <b-card-group columns>
-            {this.availableProjects.map(project => this.renderCard(project))}
-          </b-card-group>
-        </b-container>
+      <div class="all-projects-page text-align--left">
+        {/*<h2>All Projects</h2>*/}
+        {/*<b-container class="mt-6">*/}
+          {/*<b-card-group columns>*/}
+            {/*{this.availableProjects.map(project => this.renderCard(project))}*/}
+          {/*</b-card-group>*/}
+        {/*</b-container>*/}
+        <Search2 />
       </div>
     );
   }

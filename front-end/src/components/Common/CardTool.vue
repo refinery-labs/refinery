@@ -4,10 +4,11 @@
         <em v-if="dismiss" @click="handleDismiss" class="fa fa-times"></em>
     </div>
 </template>
+
 <script>
+    import Vue from 'vue';
     // Card Tools
     // -----------------------------------
-
 
     /**
      * Helper function to find the closest
@@ -16,16 +17,15 @@
     function getCardParent(item) {
         var el = item.parentElement;
         while (el && !el.classList.contains('card'))
-            el = el.parentElement
+            el = el.parentElement;
         return el
     }
-
 
     /**
      * Add action icons to card components to allow
      * refresh data or remove a card element
      */
-    export default {
+    export default Vue.extend({
         name: 'CardTool',
         props: {
             /** show the refreshe icon */
@@ -51,7 +51,8 @@
             spinner: {
                 type: String,
                 default: 'standard'
-            }
+            },
+            forceSpin: Boolean
         },
 
         methods: {
@@ -64,20 +65,20 @@
                     card.parentNode.removeChild(card);
                     // An event to catch when the card has been removed from DOM
                     this.onRemoved();
-                }
+                };
 
                 const animate = function(item, cb) {
                     if ('onanimationend' in window) { // animation supported
-                        item.addEventListener('animationend', cb.bind(this))
+                        item.addEventListener('animationend', cb.bind(this));
                         item.className += ' animated bounceOut'; // requires animate.css
                     } else cb.call(this) // no animation, just remove
-                }
+                };
 
                 const confirmRemove = function() {
                     animate(card, function() {
                         destroyCard();
                     })
-                }
+                };
 
                 // Trigger the event and finally remove the element
                 this.onRemove(card, confirmRemove);
@@ -87,13 +88,13 @@
                 const WHIRL_CLASS = 'whirl';
                 const card = getCardParent(this.$refs.cardRef);
 
-                const showSpinner = function(card, spinner) {
+                function showSpinner(card, spinner) {
                     card.classList.add(WHIRL_CLASS);
                     spinner.forEach(function(s) { card.classList.add(s) })
                 }
 
                 // method to clear the spinner when done
-                const done = () => { card.classList.remove(WHIRL_CLASS); }
+                const done = () => { card.classList.remove(WHIRL_CLASS); };
                 // start showing the spinner
                 showSpinner(card, this.spinner.split(' '));
                 // event to remove spinner when refres is done
@@ -101,6 +102,6 @@
 
             }
         }
-    }
+    });
 
 </script>

@@ -174,8 +174,8 @@ body {
             }
         }
 
-        .section-container,
-        .footer-container {
+        .section-container--nav,
+        .footer-container--nav {
             margin-left: $aside-wd;
         }
 
@@ -203,8 +203,8 @@ body {
     }
     .aside-toggled {
         .wrapper {
-            .section-container,
-            .footer-container {
+            .section-container--nav,
+            .footer-container--nav {
                 margin-left: $aside-wd;
             }
 
@@ -256,8 +256,8 @@ body {
 
     .aside-collapsed.aside-toggled {
         .wrapper {
-            .section-container,
-            .footer-container {
+            .section-container--nav,
+            .footer-container--nav {
                 margin-left: $aside-wd-collapsed;
             }
 
@@ -322,8 +322,8 @@ body {
     // Aside status toggled via JS
     .aside-collapsed {
         .wrapper {
-            .section-container,
-            .footer-container {
+            .section-container--nav,
+            .footer-container--nav {
                 margin-left: $aside-wd-collapsed;
             }
         }
@@ -343,8 +343,8 @@ body {
 
     .aside-collapsed-text.aside-toggled {
         .wrapper {
-            .section-container,
-            .footer-container {
+            .section-container--nav,
+            .footer-container--nav {
                 margin-left: $aside-wd-collapsed-text;
             }
 
@@ -409,8 +409,8 @@ body {
     // Aside status toggled via JS
     .aside-collapsed-text {
         .wrapper {
-            .section-container,
-            .footer-container {
+            .section-container--nav,
+            .footer-container--nav {
                 margin-left: $aside-wd-collapsed-text;
             }
         }

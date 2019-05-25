@@ -4,6 +4,8 @@ import 'modernizr/modernizr.custom.js';
 import 'bootstrap-vue/dist/bootstrap-vue.css'
 // Whirl
 //import '~@jh3y/whirl/dist/whirl.css';
+import '@/styles/app/whirl.scss';
+
 // Font Awesome
 import '@fortawesome/fontawesome-free/css/brands.css';
 import '@fortawesome/fontawesome-free/css/regular.css';
