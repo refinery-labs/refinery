@@ -50,6 +50,8 @@ from models.email_auth_tokens import EmailAuthToken
 from models.aws_accounts import AWSAccount
 from models.deployments import Deployment
 from models.project_config import ProjectConfig
+from models.cached_billing_collections import CachedBillingCollection
+from models.cached_billing_items import CachedBillingItem
 
 from botocore.client import Config
 
@@ -527,8 +529,8 @@ class TaskSpawner(object):
 			self.executor = futures.ThreadPoolExecutor( 60 )
 			self.loop = loop or tornado.ioloop.IOLoop.current()
 		
-		@run_on_executor
-		def freeze_aws_account( self, credentials ):
+		@staticmethod
+		def freeze_aws_account( credentials ):
 			"""
 			Freezes an AWS sub-account when the user has gone past
 			their free trial or when they have gone tardy on their bill.
@@ -553,6 +555,8 @@ class TaskSpawner(object):
 				credentials[ "iam_admin_username" ],
 			)
 			"""
+			
+			return False
 		
 		@run_on_executor
 		def send_registration_confirmation_email( self, email_address, auth_token ):
@@ -703,7 +707,8 @@ class TaskSpawner(object):
 						aws_account.account_id,
 						start_date_string,
 						end_date_string,
-						"monthly"
+						"monthly",
+						False
 					)
 					
 					current_organization_invoice_data[ "aws_account_bills" ].append({
@@ -777,18 +782,300 @@ class TaskSpawner(object):
 					}
 				}
 			)
+		@run_on_executor
+		def pull_current_month_running_account_totals( self ):
+			"""
+			This runs through all of the sub-AWS accounts managed
+			by Refinery and returns an array like the following:
+			{
+				"aws_account_id": "00000000000",
+				"billing_total": "12.39",
+				"unit": "USD",
+			}
+			"""
+			date_info = get_current_month_start_and_end_date_strings()
+			
+			metric_name = "NetUnblendedCost"
+			aws_account_running_cost_list = []
+			
+			ce_params = {
+				"TimePeriod": {
+					"Start": date_info[ "month_start_date" ],
+					"End": date_info[ "next_month_first_day" ],
+				},
+				"Granularity": "MONTHLY",
+				"Metrics": [
+					metric_name
+				],
+				"GroupBy": [
+					{
+						"Type": "DIMENSION",
+						"Key": "LINKED_ACCOUNT"
+					}
+				]
+			}
+			
+			ce_response = {}
+			
+			while True:
+				ce_response = COST_EXPLORER.get_cost_and_usage(
+					**ce_params
+				)
+				account_billing_results = ce_response[ "ResultsByTime" ][0][ "Groups" ]
+				
+				for account_billing_result in account_billing_results:
+					aws_account_running_cost_list.append({
+						"aws_account_id": account_billing_result[ "Keys" ][0],
+						"billing_total": account_billing_result[ "Metrics" ][ metric_name ][ "Amount" ],
+						"unit": account_billing_result[ "Metrics" ][ metric_name ][ "Unit" ],
+					})
+				
+				# Stop here if there are no more pages to iterate through.
+				if ( "NextPageToken" in ce_response ) == False:
+					break
+				
+				# If we have a next page token, then add it to our
+				# parameters for the next paginated calls.
+				ce_params[ "NextPageToken" ] = ce_response[ "NextPageToken" ]
+				
+			return aws_account_running_cost_list
+			
+		@run_on_executor
+		def enforce_account_limits( self, aws_account_running_cost_list ):
+			"""
+			{
+				"aws_account_id": "00000000000",
+				"billing_total": "12.39",
+				"unit": "USD",
+			}
+			"""
+			# Pull the configured free trial account limits
+			free_trial_user_max_amount = float( os.environ.get( "free_trial_billing_limit" ) )
+			
+			# Iterate over the input list and pull the related accounts
+			for aws_account_info in aws_account_running_cost_list:
+				# Pull relevant AWS account
+				aws_account = session.query( AWSAccount ).filter_by(
+					account_id=aws_account_info[ "aws_account_id" ],
+					is_reserved_account=False,
+				).first()
+				
+				# If there's no related AWS account in the database
+				# we just skip over it because it's likely a non-customer
+				# AWS account
+				if aws_account == None:
+					continue
+				
+				# Pull related organization
+				owner_organization = session.query( Organization ).filter_by(
+					id=aws_account.organization_id
+				).first()
+				
+				# Check if the user is a free trial user
+				user_trial_info = get_user_free_trial_information( owner_organization.billing_admin_user )
+				
+				# If they are a free trial user, check if their usage has
+				# exceeded the allowed limits
+				exceeds_free_trial_limit = float( aws_account_info[ "billing_total" ] ) >= free_trial_user_max_amount
+				if user_trial_info[ "is_using_trial" ] and exceeds_free_trial_limit:
+					print( "[ STATUS ] The following user has exceeded their free trial: ")
+					print( "Account ID: " + aws_account_info[ "aws_account_id" ] )
+					print( "User email: " + owner_organization.billing_admin_user.email )
+					print( "Account Total: " + aws_account_info[ "billing_total" ] )
+					print( "[ STATUS ] Taking action against free-trial account..." )
+					freeze_result = TaskSpawner.freeze_aws_account(
+						aws_account.to_dict()
+					)
 	
 		@run_on_executor
-		def get_sub_account_billing_data( self, account_id, start_date, end_date, granularity ):
+		def get_sub_account_month_billing_data( self, account_id, billing_month, use_cache ):
+			# Parse the billing month into a datetime object
+			billing_month_datetime = datetime.datetime.strptime(
+				billing_month,
+				"%Y-%m"
+			)
+			
+			# Get first day of the month
+			billing_start_date = billing_month_datetime.strftime( "%Y-%m-%d" )
+			
+			# Get the first day of the next month
+			# This is some magic to ensure we end up on the next month since a month
+			# never has 32 days.
+			next_month_date = billing_month_datetime + datetime.timedelta( days=32 )
+			billing_end_date = next_month_date.strftime( "%Y-%m-01" )
+			
 			return TaskSpawner._get_sub_account_billing_data(
 				account_id,
-				start_date,
-				end_date,
-				granularity
+				billing_start_date,
+				billing_end_date,
+				"monthly",
+				use_cache
 			)
 			
 		@staticmethod
-		def _get_sub_account_billing_data( account_id, start_date, end_date, granularity ):
+		def _get_sub_account_billing_data( account_id, start_date, end_date, granularity, use_cache ):
+			"""
+			Pull the service breakdown list and return it along with the totals.
+			Note that this data is not marked up. This function does the work of marking it up.
+			{
+				"bill_total": {
+					"total": "283.92",
+					"unit": "USD"
+				},
+				"service_breakdown": [
+					{
+						"service_name": "AWS Cost Explorer",
+						"total": "1.14",
+						"unit": "USD"
+					},
+				...
+			"""
+			service_breakdown_list = TaskSpawner._get_sub_account_service_breakdown_list(
+				account_id,
+				start_date,
+				end_date,
+				granularity,
+				use_cache
+			)
+			
+			return_data = {
+				"bill_total": {
+					"total": 0,
+					"unit": "USD",
+				},
+				"service_breakdown": []
+			}
+			
+			total_amount = 0.00
+			
+			# Remove some of the AWS branding from the billing
+			remove_aws_branding_words = [
+				"AWS",
+				"Amazon",
+			]
+			
+			# Markup multiplier
+			markup_multiplier = 1 + ( int( os.environ.get( "mark_up_percent" ) ) / 100 )
+			
+			for service_breakdown_info in service_breakdown_list:
+				# Remove branding words from service name
+				service_name = service_breakdown_info[ "service_name" ]
+				for aws_branding_word in remove_aws_branding_words:
+					service_name = service_name.replace(
+						aws_branding_word,
+						""
+					).strip()
+				
+				# Mark up the total for the service
+				service_total = float( service_breakdown_info[ "total" ] )
+				
+				# Don't add it as a line item if it's zero
+				if service_total > 0:
+					service_total = get_billing_rounded_float(
+						service_total
+					) * markup_multiplier
+						
+					return_data[ "service_breakdown" ].append({
+						"service_name": service_name,
+						"unit": service_breakdown_info[ "unit" ],
+						"total": ( "%.2f" % service_total ),
+					})
+					
+					total_amount = total_amount + service_total
+			
+			return_data[ "bill_total" ] = ( "%.2f" % total_amount )
+			
+			return return_data
+		
+		@staticmethod
+		def _get_sub_account_service_breakdown_list( account_id, start_date, end_date, granularity, use_cache ):
+			"""
+			Return format:
+			
+			[
+				{
+					"service_name": "EC2 - Other",
+					"unit": "USD",
+					"total": "10.0245523",
+				}
+				...
+			]
+			"""
+			# Pull related AWS account and get the database ID for it
+			aws_account = session.query( AWSAccount ).filter_by(
+				account_id=account_id,
+			).first()
+
+			# If the use_cache is enabled we'll check the database for an
+			# already cached bill.
+			# The oldest a cached bill can be is 24 hours, otherwise a new
+			# one will be generated and cached. This allows our customers to
+			# always have a daily service total if they want it.
+			if use_cache:
+				current_timestamp = int( time.time() )
+				# Basically 24 hours before the current time.
+				oldest_usable_cached_result_timestamp = current_timestamp - ( 60 * 60 * 24 )
+				billing_collection = session.query( CachedBillingCollection ).filter_by(
+					billing_start_date=start_date,
+					billing_end_date=end_date,
+					billing_granularity=granularity,
+					aws_account_id=aws_account.id
+				).filter(
+					CachedBillingCollection.timestamp >= oldest_usable_cached_result_timestamp
+				).order_by(
+					CachedBillingCollection.timestamp.desc()
+				).first()
+				
+				# If billing collection exists format and return it
+				if billing_collection:
+					# Create a service breakdown list from database data
+					service_breakdown_list = []
+					
+					for billing_item in billing_collection.billing_items:
+						service_breakdown_list.append({
+							"service_name": billing_item.service_name,
+							"unit": billing_item.unit,
+							"total": billing_item.total,
+						})
+						
+					return service_breakdown_list
+
+			# Pull the raw billing data via the AWS CostExplorer API
+			# Note that this returned data is not marked up.
+			# This also costs us 1 cent each time we make this request
+			# Which is why we implement caching for user billing.
+			service_breakdown_list = TaskSpawner._api_get_sub_account_billing_data(
+				account_id,
+				start_date,
+				end_date,
+				granularity,
+			)
+			
+			# Since we've queried this data we'll cache it for future
+			# retrievals.
+			new_billing_collection = CachedBillingCollection()
+			new_billing_collection.billing_start_date = start_date
+			new_billing_collection.billing_end_date = end_date
+			new_billing_collection.billing_granularity = granularity
+			new_billing_collection.aws_account_id = aws_account.id
+			
+			# Add all of the line items as billing items
+			for service_breakdown_data in service_breakdown_list:
+				billing_item = CachedBillingItem()
+				billing_item.service_name = service_breakdown_data[ "service_name" ]
+				billing_item.unit = service_breakdown_data[ "unit" ]
+				billing_item.total = service_breakdown_data[ "total" ]
+				new_billing_collection.billing_items.append(
+					billing_item
+				)
+			
+			session.add( new_billing_collection )
+			session.commit()
+			
+			return service_breakdown_list
+		
+		@staticmethod
+		def _api_get_sub_account_billing_data( account_id, start_date, end_date, granularity ):
 			"""
 			account_id: 994344292413
 			start_date: 2017-05-01
@@ -796,9 +1083,6 @@ class TaskSpawner(object):
 			granularity: "daily" || "hourly" || "monthly"
 			"""
 			metric_name = "NetUnblendedCost"
-			
-			# Markup multiplier
-			markup_multiplier = 1 + ( int( os.environ.get( "mark_up_percent" ) ) / 100 )
 			
 			usage_parameters = {
 				"TimePeriod": {
@@ -828,48 +1112,19 @@ class TaskSpawner(object):
 			)
 			cost_groups = response[ "ResultsByTime" ][0][ "Groups" ]
 			
-			return_data = {
-				"bill_total": {
-					"unit": "USD",
-					"total": 0
-				},
-				"service_breakdown": [],
-			}
-			total_amount = 0
-			
-			# Remove some of the AWS branding from the billing
-			remove_aws_branding_words = [
-				"AWS",
-				"Amazon",
-			]
+			service_breakdown_list = []
 			
 			for cost_group in cost_groups:
 				cost_group_name = cost_group[ "Keys" ][0]
-				
-				# Remove branding
-				for aws_branding_word in remove_aws_branding_words:
-					cost_group_name = cost_group_name.replace(
-						aws_branding_word,
-						""
-					)
-					cost_group_name = cost_group_name.strip()
-				
 				unit = cost_group[ "Metrics" ][ metric_name ][ "Unit" ]
-				total = get_billing_rounded_float(
-					float( cost_group[ "Metrics" ][ metric_name ][ "Amount" ] ) * markup_multiplier
-				)
-				
-				return_data[ "service_breakdown" ].append({
+				total = cost_group[ "Metrics" ][ metric_name ][ "Amount" ]
+				service_breakdown_list.append({
 					"service_name": cost_group_name,
 					"unit": unit,
-					"total": str( total ),
+					"total": total,
 				})
-				
-				total_amount = total_amount + total
-				
-			return_data[ "bill_total" ][ "total" ] = str( total_amount )
 			
-			return return_data
+			return service_breakdown_list
 			
 		@run_on_executor
 		def get_sub_account_billing_forecast( self, account_id, start_date, end_date, granularity ):
@@ -5760,7 +6015,7 @@ class Logout( BaseHandler ):
 			"success": True
 		})
 		
-class GetBillingDateRangeTotal( BaseHandler ):
+class GetBillingMonthTotals( BaseHandler ):
 	@authenticated
 	@gen.coroutine
 	def post( self ):
@@ -5774,26 +6029,13 @@ class GetBillingDateRangeTotal( BaseHandler ):
 		schema = {
 			"type": "object",
 			"properties": {
-				"start_date": {
+				"billing_month": {
 					"type": "string",
-					"pattern": "^\d\d\d\d\-\d\d\-\d\d$",
-				},
-				"end_date": {
-					"type": "string",
-					"pattern": "^\d\d\d\d\-\d\d\-\d\d$",
-				},
-				"granularity": {
-					"type": "string",
-					"enum": [
-						"monthly",
-						"daily"
-					]
+					"pattern": "^\d\d\d\d\-\d\d$",
 				}
 			},
 			"required": [
-				"start_date",
-				"end_date",
-				"granularity"
+				"billing_month"
 			]
 		}
 		
@@ -5802,11 +6044,10 @@ class GetBillingDateRangeTotal( BaseHandler ):
 		current_user = self.get_authenticated_user()
 		credentials = self.get_authenticated_user_cloud_configuration()
 		
-		billing_data = yield local_tasks.get_sub_account_billing_data(
+		billing_data = yield local_tasks.get_sub_account_month_billing_data(
 			credentials[ "account_id" ],
-			self.json[ "start_date" ],
-			self.json[ "end_date" ],
-			self.json[ "granularity" ],
+			self.json[ "billing_month" ],
+			True
 		)
 		
 		self.write( billing_data )
@@ -5849,7 +6090,7 @@ def get_current_month_start_and_end_date_strings():
 	return {
 		"current_date": tomorrow_date.strftime( "%Y-%m-%d" ),
 		"month_start_date": tomorrow_date.strftime( "%Y-%m-01" ),
-		"month_end_date": next_month_start_date.strftime( "%Y-%m-%d" ),
+		"next_month_first_day": next_month_start_date.strftime( "%Y-%m-%d" ),
 	}
 		
 class GetBillingDateRangeForecast( BaseHandler ):
@@ -5871,11 +6112,63 @@ class GetBillingDateRangeForecast( BaseHandler ):
 		forecast_data = yield local_tasks.get_sub_account_billing_forecast(
 			credentials[ "account_id" ],
 			date_info[ "current_date"],
-			date_info[ "month_end_date" ],
+			date_info[ "next_month_first_day" ],
 			"monthly"
 		)
 		
 		self.write( forecast_data )
+
+class RunBillingWatchdogJob( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def get( self ):
+		"""
+		This job checks the running account totals of each AWS account to see
+		if their usage has gone over the safety limits. This is mainly for free
+		trial users and for alerting users that they may incur a large bill.
+		"""
+		self.write({
+			"success": True,
+			"msg": "Watchdog job has been started!"
+		})
+		self.finish()
+		print( "[ STATUS ] Initiating billing watchdog job, scanning all accounts to check for billing anomalies..." )
+		aws_account_running_cost_list = yield local_tasks.pull_current_month_running_account_totals()
+		print( "[ STATUS ] " + str( len( aws_account_running_cost_list ) ) + " account(s) pulled from billing, checking against rules..." )
+		yield local_tasks.enforce_account_limits( aws_account_running_cost_list )
+		
+class RunMonthlyStripeBillingJob( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def get( self ):
+		"""
+		Runs at the first of the month and creates auto-finalizing draft
+		invoices for all Refinery customers. After it does this it emails
+		the "billing_alert_email" email with a notice to review the drafts
+		before they auto-finalize after one-hour.
+		"""
+		self.write({
+			"success": True,
+			"msg": "The billing job has been started!"
+		})
+		self.finish()
+		print( "[ STATUS ] Running monthly Stripe billing job to invoice all Refinery customers." )
+		date_info = get_current_month_start_and_end_date_strings()
+		print( "[ STATUS ] Generating invoices for " + date_info[ "month_start_date" ] + " -> " + date_info[ "next_month_first_day" ]  )
+		yield local_tasks.generate_managed_accounts_invoices(
+			date_info[ "month_start_date"],
+			date_info[ "next_month_first_day" ],
+		)
+		print( "[ STATUS ] Stripe billing job has completed!" )
+		
+class HealthHandler( BaseHandler ):
+	@authenticated
+	def get( self ):
+		# Just run a dummy database query to ensure it's working
+		session.query( User ).first()
+		self.write({
+			"status": "ok"
+		})
 		
 def get_user_free_trial_information( input_user ):
 	return_data = {
@@ -5927,7 +6220,7 @@ def add_reserved_aws_accounts():
 			new_aws_account.account_label = ""
 			new_aws_account.account_type = "MANAGED"
 			new_aws_account.is_reserved_account = True
-			new_aws_account.account_id = int( os.environ.get( "aws_account_id" ) )
+			new_aws_account.account_id = os.environ.get( "aws_account_id" )
 			new_aws_account.access_key = os.environ.get( "aws_access_key" )
 			new_aws_account.secret_key = os.environ.get( "aws_secret_key" )
 			new_aws_account.region = os.environ.get( "region_name" )
@@ -5950,6 +6243,7 @@ def make_app( is_debug ):
 	}
 	
 	return tornado.web.Application([
+		( r"/api/v1/health", HealthHandler ),
 		( r"/authentication/email/([a-z0-9]+)", EmailLinkAuthentication ),
 		( r"/api/v1/auth/me", GetAuthenticationStatus ),
 		( r"/api/v1/auth/register", NewRegistration ),
@@ -5978,22 +6272,21 @@ def make_app( is_debug ):
 		( r"/api/v1/projects/config/get", GetProjectConfig ),
 		( r"/api/v1/deployments/get_latest", GetLatestProjectDeployment ),
 		( r"/api/v1/deployments/delete_all_in_project", DeleteDeploymentsInProject ),
-		( r"/api/v1/billing/total_for_date_range", GetBillingDateRangeTotal ),
-		( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast )
+		( r"/api/v1/billing/get_month_totals", GetBillingMonthTotals ),
+		# Temporarily disabled since it doesn't cache the CostExplorer results
+		#( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast ),
+		
+		# These are "services" which are only called by external crons, etc.
+		# External users are blocked from ever reaching these routes
+		
+		# TODO: Implement authentication for these /services/ routes. Tie it to whatever
+		# the cron service supports for shared secrets/etc.
+		( r"/services/v1/billing_watchdog", RunBillingWatchdogJob ),
+		( r"/services/v1/bill_customers", RunMonthlyStripeBillingJob )
 	], **tornado_app_settings)
-	
-@gen.coroutine
-def billing_test():
-	date_info = get_current_month_start_and_end_date_strings()
-	print( "Generating invoices for " + date_info[ "month_start_date" ] + " -> " + date_info[ "month_end_date" ]  )
-	yield local_tasks.generate_managed_accounts_invoices(
-		date_info[ "month_start_date"],
-		date_info[ "month_end_date" ],
-	)
-			
+
 if __name__ == "__main__":
 	print( "Starting server..." )
-	# Re-initiate things
 	on_start()
 	app = make_app(
 		( os.environ.get( "is_debug" ).lower() == "true" )

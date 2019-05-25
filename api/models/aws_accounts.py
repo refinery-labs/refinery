@@ -18,7 +18,7 @@ class AWSAccount( Base ):
 	account_label = Column(Text())
 	
 	# AWS account ID
-	account_id = Column(BigInteger())
+	account_id = Column(Text())
 	
 	# AWS access key
 	access_key = Column(Text())
@@ -78,6 +78,13 @@ class AWSAccount( Base ):
 		lazy="dynamic"
 	)
 	
+	# The cached billing collections for this AWS account
+	cached_billing_collections = relationship(
+		"CachedBillingCollection",
+		back_populates="aws_account",
+		lazy="dynamic"
+	)
+	
 	def __init__( self ):
 		self.id = str( uuid.uuid4() )
 		self.is_reserved_account = False
@@ -97,6 +104,7 @@ class AWSAccount( Base ):
 			"redis_hostname",
 			"redis_password",
 			"redis_port",
+			"account_type",
 			"is_reserved_account",
 			"timestamp"
 		]

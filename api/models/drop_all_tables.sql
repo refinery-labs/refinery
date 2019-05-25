@@ -9,6 +9,8 @@ DROP TABLE email_auth_tokens;
 DROP TABLE user_projects_association;
 DROP TABLE users;
 DROP TABLE projects;
+DROP TABLE cached_billing_collections;
+DROP TABLE cached_billing_items;
 DROP TABLE organizations CASCADE;
 
 \d+;

@@ -1116,31 +1116,32 @@ function get_lambda_cloudwatch_logs( arn ) {
 }
 
 /*
+Example input(s):
+billing_month = "2019-05"
+
 Example return data:
 
 {
     "bill_total": {
-        "total": "234.06024711360004",
+        "total": "234.06",
         "unit": "USD"
     },
     "service_breakdown": [
         {
-            "service_name": "AWS Lambda",
-            "total": "28.2676375066",
+            "service_name": "Lambda",
+            "total": "28.26",
             "unit": "USD"
         },
 		...
     ]
 }
 */
-function get_billing_date_range_total( start_date, end_date, granularity ) {
+function get_billing_month_totals( billing_month ) {
 	return api_request(
 		"POST",
-		"api/v1/billing/total_for_date_range",
+		"api/v1/billing/get_month_totals",
 		{
-			"start_date": start_date,
-			"end_date": end_date,
-			"granularity": granularity
+			"billing_month": billing_month,
 		}
 	);
 }
