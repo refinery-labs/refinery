@@ -29,7 +29,7 @@ resource "aws_iam_policy" "refinery_default_aws_lambda_policy" {
       "Resource": "arn:aws:s3:::refinery-lambda-logging-${var.s3_bucket_suffix}/*"
     },
     {
-      "Sid": "VisualEditor2",
+      "Sid": "VisualEditor1",
       "Effect": "Allow",
       "Action": [
         "sqs:DeleteMessage",
@@ -37,9 +37,25 @@ resource "aws_iam_policy" "refinery_default_aws_lambda_policy" {
         "lambda:InvokeFunction",
         "sqs:ReceiveMessage",
         "lambda:InvokeAsync",
-        "sqs:GetQueueAttributes"
+        "sqs:GetQueueAttributes",
+        "logs:CreateLogGroup"
       ],
       "Resource": "*"
+    },
+    {
+        "Sid": "VisualEditor2",
+        "Effect": "Allow",
+        "Action": [
+            "logs:CreateLogStream",
+            "logs:PutLogEvents"
+        ],
+        "Resource": "arn:aws:logs:*:*:log-group:*"
+    },
+    {
+        "Sid": "VisualEditor3",
+        "Effect": "Allow",
+        "Action": "logs:PutLogEvents",
+        "Resource": "arn:aws:logs:*:*:log-group:*:*:*"
     }
   ]
 }
@@ -142,48 +158,21 @@ resource "aws_iam_role_policy_attachment" "refinery_default_aws_cloudwatch_attac
 }
 
 /*
-	The IAM policy for builder Lambdas. They have special permissions
-	for both Heading and Puting to the packages S3 bucket.
-	
-	Note that the permissions here are odd because of fun bugs in AWS S3:
-	https://github.com/aws/aws-cli/issues/1689#issuecomment-167629066
-	
-	These permissions would be more scoped if they could be - but alas it
-	cannot be done at this time.
-	
-	Why Amazon, why?
+	IAM policy for the Lambda packages CodeBuild project
 */
-resource "aws_iam_policy" "refinery_builder_aws_lambda_policy" {
-    name        = "refinery_builder_aws_lambda_policy"
-    path        = "/"
-    description = "IAM policy for builder Lambdas."
-    policy      = <<POLICY
+resource "aws_iam_role" "codebuild-refinery-builds-service-role" {
+    name               = "codebuild-refinery-builds-service-role"
+    path               = "/service-role/"
+    assume_role_policy = <<POLICY
 {
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "VisualEditor0",
       "Effect": "Allow",
-      "Action": "s3:PutObject",
-      "Resource": "arn:aws:s3:::refinery-lambda-build-packages-${var.s3_bucket_suffix}/*"
-    },
-    {
-      "Sid": "VisualEditor1",
-      "Effect": "Allow",
-      "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::refinery-lambda-build-packages-${var.s3_bucket_suffix}/*"
-    },
-    {
-        "Sid": "VisualEditor2",
-        "Effect": "Allow",
-        "Action": "s3:GetAccountPublicAccessBlock",
-        "Resource": "*"
-    },
-    {
-      "Sid": "VisualEditor3",
-      "Effect": "Allow",
-      "Action": "s3:ListBucket",
-      "Resource": "arn:aws:s3:::refinery-lambda-build-packages-${var.s3_bucket_suffix}"
+      "Principal": {
+        "Service": "codebuild.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
     }
   ]
 }
@@ -191,32 +180,85 @@ POLICY
 }
 
 /*
-	IAM role for builder Lambdas to use.
+	IAM policy for trust relationship to CodeBuild
 */
-resource "aws_iam_role" "refinery_builder_aws_lambda_role" {
-  name = "refinery_builder_aws_lambda_role"
-
-  assume_role_policy = <<EOF
+resource "aws_iam_policy" "refinery_codebuild_base_policy" {
+    name        = "refinery_codebuild_base_policy"
+    path        = "/service-role/"
+    description = "Policy used in trust relationship with CodeBuild"
+    policy      = <<POLICY
 {
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Action": "sts:AssumeRole",
-      "Principal": {
-        "Service": "lambda.amazonaws.com"
-      },
       "Effect": "Allow",
-      "Sid": ""
+      "Resource": [
+        "arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/refinery-builds",
+        "arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/refinery-builds:*"
+      ],
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Resource": [
+        "arn:aws:s3:::codepipeline-${var.region}-*"
+      ],
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:GetObjectVersion",
+        "s3:GetBucketAcl",
+        "s3:GetBucketLocation"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Resource": [
+        "arn:aws:s3:::refinery-lambda-build-packages-${var.s3_bucket_suffix}",
+        "arn:aws:s3:::refinery-lambda-build-packages-${var.s3_bucket_suffix}/*"
+      ],
+      "Action": [
+        "s3:PutObject",
+        "s3:GetBucketAcl",
+        "s3:GetBucketLocation"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:GetObjectVersion"
+      ],
+      "Resource": [
+        "arn:aws:s3:::refinery-lambda-build-packages-${var.s3_bucket_suffix}/nonexistant.zip",
+        "arn:aws:s3:::refinery-lambda-build-packages-${var.s3_bucket_suffix}/nonexistant.zip/*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Resource": [
+        "arn:aws:s3:::refinery-lambda-build-packages-${var.s3_bucket_suffix}"
+      ],
+      "Action": [
+        "s3:ListBucket",
+        "s3:GetBucketAcl",
+        "s3:GetBucketLocation"
+      ]
     }
   ]
 }
-EOF
+POLICY
 }
 
 /*
-	Ties the builder Lambda IAM policy to the IAM role.
+	This attached the IAM policy to the IAM role for the
+	CloudBuild IAM policies.
 */
-resource "aws_iam_role_policy_attachment" "refinery_builder_aws_lambda_attachment" {
-  role       = "${aws_iam_role.refinery_builder_aws_lambda_role.id}"
-  policy_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/refinery_builder_aws_lambda_policy"
+resource "aws_iam_role_policy_attachment" "refinery_codebuild_builds_attachment" {
+  role       = "${aws_iam_role.codebuild-refinery-builds-service-role.id}"
+  policy_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/service-role/refinery_codebuild_base_policy"
 }

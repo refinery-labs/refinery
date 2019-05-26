@@ -219,7 +219,7 @@ def create_new_refinery_aws_account():
 			# We then assume the administrator role for the sub-account we created
 			assumed_role_credentials = get_assume_role_credentials(
 				sub_account_admin_role_arn,
-				1800 # 30 minutes lifetime
+				3600 # One hour - TODO CHANGEME
 			)
 			break
 		except botocore.exceptions.ClientError as boto_error:

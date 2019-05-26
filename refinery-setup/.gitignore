@@ -5,3 +5,4 @@ env/
 *.yml
 *.yaml
 terraform-refinery-customer-aws-account-details.json
+refinery-customer-aws-config.json

@@ -2059,8 +2059,7 @@ class TaskSpawner(object):
 			
 			# Events role ARN is able to be generated off of the account ID
 			# The role name should be the same for all accounts.
-			# arn:aws:iam::148731734429:role/refinery_aws_cloudwatch_admin_role
-			events_role_arn = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/refinery_aws_cloudwatch_admin_role"
+			events_role_arn = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/refinery_default_aws_cloudwatch_role"
 			
 			response = events_client.put_rule(
 				Name=name,
@@ -3636,7 +3635,7 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		"Deploying '" + name + "' Lambda package to production..."
 	)
 	
-	lambda_role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/refinery_aws_lambda_admin_role"
+	lambda_role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/refinery_default_aws_lambda_role"
 	
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
@@ -5741,10 +5740,6 @@ def strip_api_gateway( credentials, api_gateway_id ):
 	rest_resources = yield local_tasks.get_resources(
 		credentials,
 		api_gateway_id
-	)
-	
-	pprint(
-		rest_resources
 	)
 	
 	# List of futures to finish before we continue
