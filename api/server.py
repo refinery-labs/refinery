@@ -1431,53 +1431,142 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def get_python27_lambda_base_zip( credentials, libraries ):
-			# Create S3 client
 			s3_client = get_aws_client(
 				"s3",
 				credentials
 			)
 			
-			# Create Lambda client
-			lambda_client = get_aws_client(
-				"lambda",
+			# TODO just take an object as input
+			libraries_object = {}
+			
+			for library in libraries:
+				libraries_object[ str( library ) ] = "latest"
+			
+			# Final object is in the format of SHA256( node8.10-{{canonicalizated_libraries}} ).zip
+			hash_input = "python2.7-" + json.dumps( libraries_object, sort_keys=True )
+			hash_key = hashlib.sha256(
+				hash_input
+			).hexdigest()
+			final_s3_package_zip_path = hash_key + ".zip"
+			
+			already_exists = TaskSpawner.s3_object_exists(
+				credentials,
+				credentials[ "lambda_packages_bucket" ],
+				final_s3_package_zip_path
+			)
+			
+			if already_exists:
+				return TaskSpawner._read_from_s3(
+					credentials,
+					credentials[ "lambda_packages_bucket" ],
+					final_s3_package_zip_path
+				)
+			
+			# Kick off CodeBuild for the libraries to get a zip artifact of
+			# all of the libraries.
+			build_id = TaskSpawner.start_python27_codebuild(
+				credentials,
+				libraries_object
+			)
+			
+			# This continually polls for the CodeBuild build to finish
+			# Once it does it returns the raw artifact zip data.
+			return TaskSpawner.get_codebuild_artifact_zip_data(
+				credentials,
+				build_id,
+				final_s3_package_zip_path
+			)
+			
+		@staticmethod
+		def start_python27_codebuild( credentials, libraries_object ):
+			"""
+			Returns a build ID to be polled at a later time
+			"""
+			codebuild_client = get_aws_client(
+				"codebuild",
 				credentials
 			)
 			
-			lambda_input = {
-				"libraries": libraries,
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
+			requirements_text = ""
+			for key, value in libraries_object.iteritems():
+				if value != "latest":
+					requirements_text += key + "==" + value + "\n"
+				else:
+					requirements_text += key + "\n"
+			
+			# Create empty zip file
+			codebuild_zip = io.BytesIO( EMPTY_ZIP_DATA )
+			
+			buildspec_template = {
+				"artifacts": {
+					"files": [
+						 "**/*"
+					]
+				},
+				"phases": {
+					"build": {
+						"commands": [
+							"pip install --target . -r requirements.txt"
+						]
+					},
+				},
+				"run-as": "root",
+				"version": 0.1
 			}
 			
-			# Utilize the account builder-lambda to build the package zip
-			# This will be invoked in the customer's sub-account providing
-			# multi-tenancy. Some potential for abuse if the Lambda is warm
-			# and the previous Lambda built a malicious pip modules for example.
-			# However, the IAM permissions for the Lambda itself should be extremely
-			# scopes to only allow writes to the S3 bucket and "head" for objects.
-			# No listing, etc.
-			lambda_invoke_response = lambda_client.invoke(
-				FunctionName="python27-builder-lambda", # The name should always be this, TODO for Terraform account template
-				InvocationType="RequestResponse",
-				LogType="Tail",
-				Payload=json.dumps( lambda_input ),
+			with zipfile.ZipFile( codebuild_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+				# Write buildspec.yml defining the build process
+				buildspec = zipfile.ZipInfo(
+					"buildspec.yml"
+				)
+				buildspec.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					buildspec,
+					yaml.dump(
+						buildspec_template
+					)
+				)
+				
+				# Write the package.json
+				requirements_txt_file = zipfile.ZipInfo(
+					"requirements.txt"
+				)
+				requirements_txt_file.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					requirements_txt_file,
+					requirements_text
+				)
+			
+			codebuild_zip_data = codebuild_zip.getvalue()
+			codebuild_zip.close()
+			
+			# S3 object key of the build package, randomly generated.
+			s3_key = "buildspecs/" + str( uuid.uuid4() ) + ".zip"
+
+			# Write the CodeBuild build package to S3
+			s3_response = s3_client.put_object(
+				Bucket=credentials[ "lambda_packages_bucket" ],
+				Body=codebuild_zip_data,
+				Key=s3_key,
+				ACL="public-read", # THIS HAS TO BE PUBLIC READ FOR SOME FUCKED UP REASON I DONT KNOW WHY
 			)
 			
-			# payload_body is a full S3 object path s3://x/y.zip
-			s3_full_path = lambda_invoke_response[ "Payload" ].read()
-			
-			# Pull the S3 bucket and object key from path.
-			s3_bucket, object_key = s3_full_path.replace(
-				"s3://",
-				""
-			).split( "/" )
-			
-			# Pull the zip data and return the raw binary
-			# TODO: Convert this to Lambda layers
-			object_response = s3_client.get_object(
-				Bucket=s3_bucket,
-				Key=object_key,
+			# Fire-off the build
+			codebuild_response = codebuild_client.start_build(
+				projectName="refinery-builds",
+				sourceTypeOverride="S3",
+				imageOverride="docker.io/python:2.7",
+				sourceLocationOverride=credentials[ "lambda_packages_bucket" ] + "/" + s3_key,
 			)
 			
-			return object_response[ "Body" ].read()
+			build_id = codebuild_response[ "build" ][ "id" ]
+			
+			return build_id
 			
 		@staticmethod
 		def start_node810_codebuild( credentials, libraries_object ):
@@ -1935,7 +2024,7 @@ class TaskSpawner(object):
 					libraries.append(
 						init_library
 					)
-			
+				
 			base_zip_data = TaskSpawner.get_python27_lambda_base_zip(
 				credentials,
 				libraries
