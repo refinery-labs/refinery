@@ -1,21 +1,21 @@
-# Outputs the AWS region
-output "aws_region" {
-	value = "${var.region}"
-}
-
 # Outputs the AWS account ID
 output "aws_account_id" {
 	value = "${data.aws_caller_identity.current.account_id}"
 }
 
-# Outputs the Elastic IP address
-output "redis_elastic_ip" {
-	value = "${aws_eip.refinery_redis_elastic_ip.public_ip}"
+# Outputs the AWS region
+output "aws_region" {
+	value = "${var.region}"
 }
 
 # Outputs the S3 prefix
 output "s3_suffix" {
 	value = "${var.s3_bucket_suffix}"
+}
+
+# Outputs the Elastic IP address
+output "redis_elastic_ip" {
+	value = "${aws_eip.refinery_redis_elastic_ip.public_ip}"
 }
 
 # Outputs the Redis password

@@ -19,6 +19,7 @@ import base64
 import string
 import boto3
 import numpy
+import struct
 import uuid
 import json
 import yaml
@@ -33,6 +34,7 @@ import io
 from tornado import gen
 from datetime import timedelta
 from tornado.web import asynchronous
+from expiringdict import ExpiringDict
 from botocore.exceptions import ClientError
 from jsonschema import validate as validate_schema
 from tornado.concurrent import run_on_executor, futures
@@ -141,32 +143,95 @@ COST_EXPLORER = boto3.client(
 	region_name=os.environ.get( "region_name" )
 )
 
+# This client is used to assume role into all of our customer's
+# AWS accounts as a root-priveleged support account ("DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT")
+STS_CLIENT = boto3.client(
+	"sts",
+	aws_access_key_id=os.environ.get( "aws_access_key" ),
+	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+	region_name=os.environ.get( "region_name" )
+)
+
+# For generating crytographically-secure random strings
+def get_urand_password( length ):
+    symbols = string.ascii_letters + string.digits
+    return "".join([symbols[x * len(symbols) / 256] for x in struct.unpack("%dB" % (length,), os.urandom(length))])
+    
+"""
+This is some poor-man's caching to greately speed up Boto3
+client access times. We basically just cache and return the client
+if it's less than the STS Assume Role age.
+
+Basically this is critical when we do things like the S3 log pulling
+because it does TONS of concurrent connections. Without the caching it
+can take ~35 seconds to pull the logs, with the caching it takes ~5.
+"""
+BOTO3_CLIENT_CACHE = ExpiringDict(
+	max_len=500,
+	max_age_seconds=( int( os.environ.get( "assume_role_session_lifetime_seconds" ) ) - 60 )
+)
 def get_aws_client( client_type, credentials ):
 	"""
-	Take an AWS client type ("s3", "lambda", etc) and an AWS
-	credentials dict and return an AWS client object.
+	Take an AWS client type ("s3", "lambda", etc) and utilize
+	STS to assume role into the customer's account and return
+	a key and token for the admin service account ("DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT")
 	"""
+	global BOTO3_CLIENT_CACHE
 	
-	client_options = {
-		"aws_access_key_id": credentials[ "access_key" ],
-		"aws_secret_access_key": credentials[ "secret_key" ],
-		"region_name": credentials[ "region" ],
-	}
+	cache_key = client_type + credentials[ "account_id" ] + credentials[ "region" ]
 	
+	if cache_key in BOTO3_CLIENT_CACHE:
+		return BOTO3_CLIENT_CACHE[ cache_key ]
+	
+	# Generate the Refinery AWS management role ARN we are going to assume into
+	sub_account_admin_role_arn = "arn:aws:iam::" + credentials[ "account_id" ] + ":role/DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT"
+	
+	# We need to generate a random role session name
+	role_session_name = "Refinery-Managed-Account-Support-" + get_urand_password( 12 )
+	
+	# Perform the assume role action
+	assume_role_response = STS_CLIENT.assume_role(
+		RoleArn=sub_account_admin_role_arn,
+		RoleSessionName=role_session_name,
+		DurationSeconds=int( os.environ.get( "assume_role_session_lifetime_seconds" ) )
+	)
+	
+	# Remove non-JSON serializable part from response
+	del assume_role_response[ "Credentials" ][ "Expiration" ]
+	
+	# Take the assume role credentials and use it to create a boto3 session
+	boto3_session = boto3.Session(
+		aws_access_key_id=assume_role_response[ "Credentials" ][ "AccessKeyId" ],
+		aws_secret_access_key=assume_role_response[ "Credentials" ][ "SecretAccessKey" ],
+		aws_session_token=assume_role_response[ "Credentials" ][ "SessionToken" ],
+		region_name=credentials[ "region" ],
+	)
+	
+	# Options for boto3 client
+	client_options = {}
+	
+	# Custom configurations depending on the client type
 	if client_type == "lambda":
 		client_options[ "config" ] = Config(
 			connect_timeout=50,
 			read_timeout=( 60 * 15 )
 		)
 	elif client_type == "s3":
+		print( "Client type is S3, upping connections!" )
 		client_options[ "config" ] = Config(
 			max_pool_connections=( 1000 * 2 )
 		)
-		
-	return boto3.client(
+	
+	# Use the new boto3 session to create a boto3 client
+	boto3_client = boto3_session.client(
 		client_type,
 		**client_options
 	)
+	
+	# Store it in the cache for future access
+	BOTO3_CLIENT_CACHE[ cache_key ] = boto3_client
+	
+	return boto3_client
 
 def pprint( input_dict ):
 	try:
@@ -341,6 +406,16 @@ class BaseHandler( tornado.web.RequestHandler ):
 		
 	def prepare( self ):
 		"""
+		/service/ path protection requiring a shared-secret to access them.
+		"""
+		if self.request.path.startswith( "/services/" ):
+			self.error(
+				"You are hitting a service URL, you MUST provide the shared secret in either a 'secret' parameter or the 'X-SERVICE-SECRET' header to use this.",
+				"ACCESS_DENIED_SHARED_SECRET_REQUIRED"
+			)
+			return
+		
+		"""
 		Cloudflare auth JWT validation
 		"""
 		if os.environ.get( "cf_enabled" ).lower() == "true":
@@ -351,7 +426,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 					"Error, no Cloudflare Access 'CF_Authorization' cookie set.",
 					"CF_ACCESS_NO_COOKIE"
 				)
-				raise gen.Return()
+				return
 				
 			valid_token = False
 			
@@ -372,7 +447,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 					"Error, Cloudflare Access verification check failed.",
 					"CF_ACCESS_DENIED"
 				)
-				raise gen.Return()
+				return
 		
 		csrf_validated = self.request.headers.get(
 			"X-CSRF-Validation-Header",
@@ -410,12 +485,13 @@ class BaseHandler( tornado.web.RequestHandler ):
 		session.close()
 
 	def error( self, error_message, error_id ):
+		self.set_status( 500 )
 		self.logit(
 			error_message,
 			message_type="warn"
 		)
 		
-		self.write({
+		self.finish({
 			"success": False,
 			"msg": error_message,
 			"code": error_id
@@ -528,6 +604,113 @@ class TaskSpawner(object):
 		def __init__(self, loop=None):
 			self.executor = futures.ThreadPoolExecutor( 60 )
 			self.loop = loop or tornado.ioloop.IOLoop.current()
+			
+		@run_on_executor
+		def test_freeze_aws_account( self, credentials ):
+			return TaskSpawner.unfreeze_aws_account( credentials )
+			
+		@staticmethod
+		def unfreeze_aws_account( credentials ):
+			"""
+			Unfreezes a previously-frozen AWS account, this is for situations
+			where a user has gone over their free-trial or billing limit leading
+			to their account getting frozen. By calling this the account will be
+			re-enabled for regular Refinery use.
+			* De-throttle all AWS Lambdas
+			* Turn on EC2 instances (redis)
+			"""
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
+			ec2_client = get_aws_client(
+				"ec2",
+				credentials
+			)
+			
+			# Pull all Lambda ARN(s)
+			lambda_arns = TaskSpawner.get_lambda_arns(
+				credentials
+			)
+			
+			# Remove function throttle from each Lambda
+			for lambda_arn in lambda_arns:
+				lambda_client.delete_function_concurrency(
+					FunctionName=lambda_arn
+				)
+			
+			# Start EC2 instance(s)
+			ec2_instance_ids = TaskSpawner.get_ec2_instance_ids( credentials )
+
+			start_instance_response = ec2_client.start_instances(
+				InstanceIds=ec2_instance_ids
+			)
+			
+			return True
+			
+		@staticmethod
+		def get_lambda_arns( credentials ):
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
+			# Now we throttle all of the user's Lambdas so none will execute
+			# First we pull all of the user's Lambdas
+			lambda_list_params = {
+				"MaxItems": 50,
+			}
+			
+			# The list of Lambda ARNs
+			lambda_arn_list = []
+			
+			while True:
+				lambda_functions_response = lambda_client.list_functions(
+					**lambda_list_params
+				)
+				
+				for lambda_function_data in lambda_functions_response[ "Functions" ]:
+					lambda_arn_list.append(
+						lambda_function_data[ "FunctionArn" ]
+					)
+				
+				# Only do another loop if we have more results
+				if not ( "NextMarker" in lambda_functions_response ):
+					break
+				
+				lambda_list_params[ "Marker" ] = lambda_functions_response[ "NextMarker" ]
+
+			# Iterate over list of Lambda ARNs and set concurrency to zero for all
+			for lambda_arn in lambda_arn_list:
+				lambda_client.put_function_concurrency(
+					FunctionName=lambda_arn,
+					ReservedConcurrentExecutions=0
+				)
+				
+			return lambda_arn_list
+			
+		@staticmethod
+		def get_ec2_instance_ids( credentials ):
+			ec2_client = get_aws_client(
+				"ec2",
+				credentials
+			)
+			
+			# Turn off all EC2 instances (AKA just redis)
+			ec2_describe_instances_response = ec2_client.describe_instances(
+				MaxResults=1000
+			)
+
+			# List of EC2 instance IDs
+			ec2_instance_ids = []
+			
+			for ec2_instance_data in ec2_describe_instances_response[ "Reservations" ][0][ "Instances" ]:
+				ec2_instance_ids.append(
+					ec2_instance_data[ "InstanceId" ]
+				)
+				
+			return ec2_instance_ids
 		
 		@staticmethod
 		def freeze_aws_account( credentials ):
@@ -540,23 +723,138 @@ class TaskSpawner(object):
 			"warning shot" before we later close the account and delete it all.
 			
 			The steps are as follows:
-			* Disable AWS console access via delete_login_profile()
-			* Revoke all active AWS console sessions
+			* Disable AWS console access by changing the password
+			* Revoke all active AWS console sessions - TODO
 			* Iterate over all deployed Lambdas and throttle them
 			* Stop all active CodeBuilds
+			* Turn-off EC2 instances (redis)
 			"""
 			iam_client = get_aws_client(
 				"iam",
 				credentials
 			)
 			
-			"""
-			iam_client.delete_login_profile(
-				credentials[ "iam_admin_username" ],
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
 			)
-			"""
+			
+			codebuild_client = get_aws_client(
+				"codebuild",
+				credentials
+			)
+			
+			ec2_client = get_aws_client(
+				"ec2",
+				credentials
+			)
+			
+			# Change the user's console login password
+			# They won't be able to get a new one because the console
+			# password will only be returned when their account is in
+			# good payment standing.
+			new_console_user_password = get_urand_password( 128 )
+			update_login_profile_response = iam_client.update_login_profile(
+				UserName=credentials[ "iam_admin_username" ],
+				Password=new_console_user_password,
+				PasswordResetRequired=False
+			)
+
+			# Update the console login in the database
+			aws_account = session.query( AWSAccount ).filter_by(
+				account_id=credentials[ "account_id" ]
+			).first()
+			aws_account.iam_admin_password = new_console_user_password
+			session.commit()
+			
+			# Get Lambda ARNs
+			lambda_arn_list = TaskSpawner.get_lambda_arns( credentials )
+			
+			# List all CodeBuild builds and stop any that are running
+			codebuild_build_ids = []
+			codebuild_list_params = {}
+			
+			while True:
+				codebuild_list_response = codebuild_client.list_builds(
+					**codebuild_list_params
+				)
+				
+				for build_id in codebuild_list_response[ "ids" ]:
+					codebuild_build_ids.append(
+						build_id
+					)
+				
+				if not ( "nextToken" in codebuild_list_response ):
+					break
+				
+				codebuild_list_params[ "nextToken" ] = codebuild_list_response[ "nextToken" ]
+			
+			# We now scan these builds to see if they are currently running.
+			# We can do this in batches of 100
+			active_build_ids = []
+			chunk_size = 100
+			
+			while len( codebuild_build_ids ) > 0:
+				chunk_of_build_ids = codebuild_build_ids[:chunk_size]
+				remaining_build_ids = codebuild_build_ids[chunk_size:]
+				codebuild_build_ids = remaining_build_ids
+				
+				# Pull the information for the build ID chunk
+				builds_info_response = codebuild_client.batch_get_builds(
+					ids=chunk_of_build_ids,
+				)
+				
+				# Iterate over the builds info response to find live build IDs
+				for build_info in builds_info_response[ "builds" ]:
+					if build_info[ "buildStatus" ] == "IN_PROGRESS":
+						active_build_ids.append(
+							build_info[ "id" ]
+						)
+			
+			# Run through all active builds and stop them in their place
+			for active_build_id in active_build_ids:
+				stop_build_response = codebuild_client.stop_build(
+					id=active_build_id
+				)
+				
+			ec2_instance_ids = TaskSpawner.get_ec2_instance_ids( credentials )
+
+			stop_instance_response = ec2_client.stop_instances(
+				InstanceIds=ec2_instance_ids
+			)
 			
 			return False
+			
+		@staticmethod
+		def send_account_freeze_email( aws_account_id, amount_accumulated, organization_admin_email ):
+			response = SES_EMAIL_CLIENT.send_email(
+				Source=os.environ.get( "ses_emails_from_email" ),
+				Destination={
+					"ToAddresses": [
+						os.environ.get( "free_trial_freeze_alerts" ),
+					]
+				},
+				Message={
+					"Subject": {
+						"Data": "[Freeze Alert] The Refinery AWS Account #" + aws_account_id + " has been frozen for going over its account limit!",
+						"Charset": "UTF-8"
+					},
+					"Body": {
+						"Html": {
+							"Data": pystache.render(
+								EMAIL_TEMPLATES[ "account_frozen_alert" ],
+								{
+									"aws_account_id": aws_account_id,
+									"free_trial_billing_limit": os.environ.get( "free_trial_billing_limit" ),
+									"amount_accumulated": amount_accumulated,
+									"organization_admin_email": organization_admin_email,
+								}
+							),
+							"Charset": "UTF-8"
+						}
+					}
+				}
+			)
 		
 		@run_on_executor
 		def send_registration_confirmation_email( self, email_address, auth_token ):
@@ -878,13 +1176,17 @@ class TaskSpawner(object):
 				# exceeded the allowed limits
 				exceeds_free_trial_limit = float( aws_account_info[ "billing_total" ] ) >= free_trial_user_max_amount
 				if user_trial_info[ "is_using_trial" ] and exceeds_free_trial_limit:
-					print( "[ STATUS ] The following user has exceeded their free trial: ")
-					print( "Account ID: " + aws_account_info[ "aws_account_id" ] )
-					print( "User email: " + owner_organization.billing_admin_user.email )
-					print( "Account Total: " + aws_account_info[ "billing_total" ] )
+					print( "[ STATUS ] Enumerated user has exceeded their free trial.")
 					print( "[ STATUS ] Taking action against free-trial account..." )
 					freeze_result = TaskSpawner.freeze_aws_account(
 						aws_account.to_dict()
+					)
+					
+					# Send account frozen email to us to know that it happened
+					send_account_freeze_email(
+						aws_account_info[ "aws_account_id" ],
+						aws_account_info[ "billing_total" ],
+						owner_organization.billing_admin_user.email
 					)
 	
 		@run_on_executor
@@ -1950,10 +2252,12 @@ class TaskSpawner(object):
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "php7.3" ]
 			
 			# Use CodeBuilder to get a base zip of the libraries
-			base_zip_data = TaskSpawner.get_php73_lambda_base_zip(
-				credentials,
-				libraries
-			)
+			base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
+			if len( libraries ) > 0:
+				base_zip_data = TaskSpawner.get_php73_lambda_base_zip(
+					credentials,
+					libraries
+				)
 			
 			# Create a virtual file handler for the Lambda zip package
 			lambda_package_zip = io.BytesIO( base_zip_data )
@@ -1980,10 +2284,12 @@ class TaskSpawner(object):
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "nodejs8.10" ]
 			
 			# Use CodeBuilder to get a base zip of the libraries
-			base_zip_data = TaskSpawner.get_nodejs_810_libraries_zip(
-				credentials,
-				libraries
-			)
+			base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
+			if len( libraries ) > 0:
+				base_zip_data = TaskSpawner.get_nodejs_810_libraries_zip(
+					credentials,
+					libraries
+				)
 			
 			# Create a virtual file handler for the Lambda zip package
 			lambda_package_zip = io.BytesIO( base_zip_data )
@@ -2024,11 +2330,13 @@ class TaskSpawner(object):
 					libraries.append(
 						init_library
 					)
-				
-			base_zip_data = TaskSpawner.get_python27_lambda_base_zip(
-				credentials,
-				libraries
-			)
+					
+			base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
+			if len( libraries ) > 0:
+				base_zip_data = TaskSpawner.get_python27_lambda_base_zip(
+					credentials,
+					libraries
+				)
 			
 			# Create a virtual file handler for the Lambda zip package
 			lambda_package_zip = io.BytesIO( base_zip_data )
@@ -6286,40 +6594,6 @@ def get_user_free_trial_information( input_user ):
 		
 	return return_data
 		
-@gen.coroutine
-def add_reserved_aws_accounts():
-	# Just for testing, this adds AWS accounts to the reserved pool
-	# if it is currently empty.
-	reserved_aws_accounts_count = session.query( AWSAccount ).filter_by(
-		is_reserved_account=True
-	).count()
-	
-	# How many accounts to add
-	juice_amount = 100
-	
-	if reserved_aws_accounts_count == 0:
-		print( "No AWS account in reserves, adding " + str( juice_amount ) + " to the pool..." )
-		for i in range( 0, 100 ):
-			new_aws_account = AWSAccount()
-			new_aws_account.account_label = ""
-			new_aws_account.account_type = "MANAGED"
-			new_aws_account.is_reserved_account = True
-			new_aws_account.account_id = os.environ.get( "aws_account_id" )
-			new_aws_account.access_key = os.environ.get( "aws_access_key" )
-			new_aws_account.secret_key = os.environ.get( "aws_secret_key" )
-			new_aws_account.region = os.environ.get( "region_name" )
-			new_aws_account.lambda_packages_bucket = os.environ.get( "tmp_lambda_packages_bucket" )
-			new_aws_account.logs_bucket = os.environ.get( "pipeline_logs_bucket" )
-			new_aws_account.iam_admin_username = "DUMMY_VALUE"
-			new_aws_account.iam_admin_password = "DUMMY_VALUE"
-			new_aws_account.redis_hostname = os.environ.get( "lambda_redis_hostname" )
-			new_aws_account.redis_password = os.environ.get( "lambda_redis_password" )
-			new_aws_account.redis_port = int( os.environ.get( "lambda_redis_port" ) )
-			session.add( new_aws_account )
-			
-		session.commit()
-		print( "Added new AWS accounts to the pool!" )
-		
 def make_app( is_debug ):
 	tornado_app_settings = {
 		"debug": is_debug,
@@ -6368,6 +6642,39 @@ def make_app( is_debug ):
 		( r"/services/v1/billing_watchdog", RunBillingWatchdogJob ),
 		( r"/services/v1/bill_customers", RunMonthlyStripeBillingJob )
 	], **tornado_app_settings)
+	
+@gen.coroutine
+def add_reserved_aws_accounts():
+	# Just for testing, this adds AWS accounts to the reserved pool
+	# if it is currently empty.
+	reserved_aws_accounts_count = session.query( AWSAccount ).filter_by(
+		is_reserved_account=True
+	).count()
+
+	if reserved_aws_accounts_count == 0:
+		print( "No AWS account in reserves, adding to the pool..." )
+		new_aws_account = AWSAccount()
+		new_aws_account.account_label = ""
+		new_aws_account.account_type = "MANAGED"
+		new_aws_account.is_reserved_account = True
+		new_aws_account.account_id = "924692408105"
+		new_aws_account.region = "us-west-2"
+		new_aws_account.iam_admin_username = "refinery-customer-4fabkneykzkasuta"
+		new_aws_account.iam_admin_password = "DUMMY_VALUE"
+		new_aws_account.s3_bucket_suffix = "s3wzxdu6xwcnqrjmkwud4fftsbjlj9yl"
+		new_aws_account.redis_hostname = "52.37.16.85"
+		new_aws_account.redis_password = "ezc8M1icivweQOmcDzD3yJPJzhSTqruFrd7xC6mnvywnjgUaYOFTszJp7QpDMm4M"
+		new_aws_account.redis_secret_prefix = "YrZfkWUvfb7DehUDKF4N7pnk3EItlEFMmJnx0sOE"
+		new_aws_account.redis_port = 6379
+		session.add( new_aws_account )
+			
+		session.commit()
+		print( "Added new AWS accounts to the pool!" )
+		
+@gen.coroutine
+def freeze_account_test():
+	aws_account = session.query( AWSAccount ).filter_by().first()
+	yield local_tasks.test_freeze_aws_account( aws_account.to_dict() )
 
 if __name__ == "__main__":
 	print( "Starting server..." )
@@ -6385,7 +6692,7 @@ if __name__ == "__main__":
 	
 	tornado.ioloop.IOLoop.current().run_sync( add_reserved_aws_accounts )
 	
-	#tornado.ioloop.IOLoop.current().run_sync( billing_test )
+	tornado.ioloop.IOLoop.current().run_sync( freeze_account_test )
 	
 	if os.environ.get( "cf_enabled" ).lower() == "true":
 		tornado.ioloop.IOLoop.current().run_sync( get_cloudflare_keys )

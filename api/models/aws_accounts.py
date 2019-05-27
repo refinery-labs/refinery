@@ -20,20 +20,12 @@ class AWSAccount( Base ):
 	# AWS account ID
 	account_id = Column(Text())
 	
-	# AWS access key
-	access_key = Column(Text())
-	
-	# AWS secret key
-	secret_key = Column(Text())
-	
 	# AWS region
 	region = Column(Text())
 	
-	# Lambda packages S3 bucket
-	lambda_packages_bucket = Column(Text())
-	
-	# Logs S3 bucket
-	logs_bucket = Column(Text())
+	# S3 bucket suffix, used to generate the full
+	# bucket names for sub-accounts
+	s3_bucket_suffix = Column(Text())
 	
 	# AWS IAM Console Admin username
 	iam_admin_username = Column(Text())
@@ -49,6 +41,9 @@ class AWSAccount( Base ):
 	
 	# Redis port
 	redis_port = Column(BigInteger())
+	
+	# Redis secret prefix
+	redis_secret_prefix = Column(Text())
 	
 	# The AWS account type, which can be any of the following:
 	# MANAGED || UNMANAGED
@@ -94,11 +89,8 @@ class AWSAccount( Base ):
 		exposed_attributes = [
 			"id",
 			"account_id",
-			"access_key",
-			"secret_key",
 			"region",
-			"lambda_packages_bucket",
-			"logs_bucket",
+			"s3_bucket_suffix",
 			"iam_admin_username",
 			"iam_admin_password",
 			"redis_hostname",
@@ -119,6 +111,10 @@ class AWSAccount( Base ):
 				)
 			else:
 				return_dict[ attribute ] = getattr( self, attribute )
+				
+		# Generate S3 packages and logging bucket values
+		return_dict[ "lambda_packages_bucket" ] = "refinery-lambda-build-packages-" + self.s3_bucket_suffix
+		return_dict[ "logs_bucket" ] = "refinery-lambda-logging-" + self.s3_bucket_suffix
 
 		return return_dict
 

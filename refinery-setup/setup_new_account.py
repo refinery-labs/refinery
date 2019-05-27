@@ -13,9 +13,6 @@ REFINERY_AWS_ACCOUNT_EMAIL_PREFIX = "aws-"
 # The @ email for all managed Refinery customer AWS accounts
 REFINERY_AWS_ACCOUNT_EMAIL_SUFFIX = "@mail.refineryusercontent.com"
 
-# The administrator role we use to administrate the managed AWS accounts
-REFINERY_AWS_MANAGEMENT_ROLE_NAME = "DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT"
-
 try:
 	with open( "config.yml", "r" ) as file_handler:
 		aws_credentials_config = yaml.safe_load(
@@ -53,7 +50,7 @@ def create_aws_sub_account( refinery_aws_account_id, email ):
 	
 	response = organizations_client.create_account(
 		Email=email,
-		RoleName=REFINERY_AWS_MANAGEMENT_ROLE_NAME,
+		RoleName="DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT",
 		AccountName=account_name,
 		IamUserAccessToBilling="DENY"
 	)
@@ -206,7 +203,7 @@ def create_new_refinery_aws_account():
 	print( "[ STATUS ] Sub-account created! AWS account ID is " + account_details[ "account_id" ] + " and the name is '" + account_details[ "account_name" ] + "'" )
 	
 	# Generate ARN for the sub-account AWS administrator role
-	sub_account_admin_role_arn = "arn:aws:iam::" + str( account_details[ "account_id" ] ) + ":role/" + REFINERY_AWS_MANAGEMENT_ROLE_NAME
+	sub_account_admin_role_arn = "arn:aws:iam::" + str( account_details[ "account_id" ] ) + ":role/DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT"
 	
 	print( "[ STATUS ] Sub-account role ARN is '" + sub_account_admin_role_arn + "'." )
 	

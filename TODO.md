@@ -1,1 +1,0 @@
-* Add environment variables as part of a project JSON schema - not the values but the keys and if they're required to do a deploy
