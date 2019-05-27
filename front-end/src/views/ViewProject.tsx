@@ -12,7 +12,6 @@ export default class ViewProject extends Vue {
         
         <b-nav tabs justified>
           <b-nav-item exact to={basePath}>Overview</b-nav-item>
-          <b-nav-item to={`${basePath}/edit`}>Edit</b-nav-item>
           <b-nav-item to={`${basePath}/deployments`}>Deployments</b-nav-item>
           <b-nav-item to={`${basePath}/usage`}>Usage</b-nav-item>
           <b-nav-item to={`${basePath}/settings`}>Settings</b-nav-item>

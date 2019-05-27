@@ -34,24 +34,24 @@ export default new Vuex.Store<RootState>({
   },
   plugins: [
     // TODO: This is busted... Dang
-    createPersistedState({
-      reducer: (persistedState: RootState) => {
-        // deep clone
-        const stateFilter: RootState = JSON.parse(JSON.stringify(persistedState));
-  
-        // Ignoring the typescript checks here because we know that this is
-        const newState = Object.keys(stateFilter.setting).reduce((out, key) => {
-          // @ts-ignore
-          if (whiteListedStates[key]) {
-            // @ts-ignore
-            out[key] = stateFilter.setting[key];
-          }
-          return out;
-        }, {});
-        
-        return {setting: newState};
-      }
-    }),
+    // createPersistedState({
+    //   reducer: (persistedState: RootState) => {
+    //     // deep clone
+    //     const stateFilter: RootState = JSON.parse(JSON.stringify(persistedState));
+    //
+    //     // Ignoring the typescript checks here because we know that this is
+    //     const newState = Object.keys(stateFilter.setting).reduce((out, key) => {
+    //       // @ts-ignore
+    //       if (whiteListedStates[key]) {
+    //         // @ts-ignore
+    //         out[key] = stateFilter.setting[key];
+    //       }
+    //       return out;
+    //     }, {});
+    //
+    //     return {setting: newState};
+    //   }
+    // }),
     SettingPlugin
   ],
   // Dev Only: Causes Vuex to get angry when mutations are done to it's state outside of a mutator

@@ -15,7 +15,7 @@ import ProjectDeployments from '@/views/ProjectsNestedViews/ProjectDeployments';
 import ViewProjectDeployment from '@/views/ProjectsNestedViews/ViewProjectDeployment';
 import EditProjectDeployment from '@/views/ProjectsNestedViews/EditProjectDeployment';
 import Layout from '@/components/Layout/Layout';
-import {baseLinks} from '@/constants/router-constants';
+import {baseLinks, projectViewLinks} from '@/constants/router-constants';
 import OpenedProjectGraphContainer from '@/containers/OpenedProjectGraphContainer';
 
 Vue.use(Router);
@@ -64,7 +64,7 @@ export default new Router({
         // A project is akin to a "website" or a collection of "workflows" which map to a collection of tasks.
         // Most people using Refinery will probably only have 1 project for a while, so we can hide this functionality.
         {
-          path: '/p/:projectId',
+          path: projectViewLinks.viewProject,
           // components: {default: ViewProject, graph: RefineryGraph},
           component: ViewProject,
           children: [
@@ -75,12 +75,6 @@ export default new Router({
               // Example syntax for how to load multiple components
               // components: {default: OpenedProjectOverview, graphComponent: RefineryGraph }
               component: OpenedProjectOverview
-            },
-            // View all workflows
-            {
-              path: 'edit',
-              name: 'editGraph',
-              component: OpenedProjectGraphContainer
             },
             // View all deployments for project
             {

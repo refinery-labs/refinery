@@ -1,10 +1,9 @@
 import Vue, {CreateElement, VNode} from 'vue';
 import Component from 'vue-class-component';
-import SidebarNav, {NavItem} from '@/components/SidebarNav';
+import SidebarNav from '@/components/SidebarNav';
 import TopNavbar from '@/components/TopNavbar';
 import {UserInterfaceSettings, UserInterfaceState} from '@/store/store-types';
 import {Getter} from 'vuex-class';
-import {Watch} from 'vue-property-decorator';
 
 @Component({
   components: {

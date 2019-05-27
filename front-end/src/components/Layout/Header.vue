@@ -4,7 +4,7 @@
     <nav class="navbar topnavbar">
       <!-- START navbar header-->
       <div class="navbar-header">
-        <a class="navbar-brand" href="#/">
+        <router-link class="navbar-brand" to="/">
           <div class="brand-logo">
             <!--<img class="img-fluid" src="img/logo.png" alt="App Logo">-->
             <span class="main-logo">REFINERY</span>
@@ -12,7 +12,7 @@
           <div class="brand-logo-collapsed">
             <img class="img-fluid" src="img/logo-single.png" alt="App">
           </div>
-        </a>
+        </router-link>
       </div>
       <!-- END navbar header-->
       <!-- START Left navbar-->

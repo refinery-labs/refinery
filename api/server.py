@@ -3361,6 +3361,8 @@ def teardown_infrastructure( teardown_nodes ):
 class InfraTearDown( BaseHandler ):
 	@gen.coroutine
 	def post( self ):
+		# TODO: Add Json Schema support
+
 		teardown_nodes = self.json[ "teardown_nodes" ]
 
 		teardown_operation_results = yield teardown_infrastructure(
@@ -3384,6 +3386,8 @@ class InfraTearDown( BaseHandler ):
 class InfraCollisionCheck( BaseHandler ):
 	@gen.coroutine
 	def post( self ):
+		# TODO: Add Json Schema support
+
 		self.logit(
 			"Checking for production collisions..."
 		)
@@ -3663,8 +3667,7 @@ class GetSavedProject( BaseHandler ):
 				}
 			},
 			"required": [
-				"id",
-				"version"
+				"id"
 			]
 		}
 		
@@ -3673,17 +3676,34 @@ class GetSavedProject( BaseHandler ):
 		self.logit(
 			"Retrieving saved project..."
 		)
-		
-		project_version_result = session.query( ProjectVersion ).filter_by(
-			project_id=self.json[ "id" ],
-			version=self.json[ "version" ]
-		).first()
 
 		self.write({
 			"success": True,
-			"project_json": project_version_result.project_json
+			"project_json": self.fetch_project()
 		})
-		
+
+	def fetch_project( self ):
+		if 'version' not in self.json:
+			return self.fetch_project_without_version(self.json[ "id" ])
+
+		return self.fetch_project_by_version(self.json[ "id" ], self.json[ "version" ])
+
+	def fetch_project_by_version( self, id, version ):
+		project_version_result = session.query( ProjectVersion ).filter_by(
+			project_id=id,
+			version=version
+		).first()
+
+		return project_version_result.project_json
+
+	def fetch_project_without_version( self, id ):
+		project_version_result = session.query( ProjectVersion ).filter_by(
+			project_id=id
+		).order_by(ProjectVersion.version.desc()).first()
+
+		return project_version_result.project_json
+
+
 class DeleteSavedProject( BaseHandler ):
 	@gen.coroutine
 	def post( self ):

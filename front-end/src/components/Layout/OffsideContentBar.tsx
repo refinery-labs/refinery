@@ -5,7 +5,7 @@ import {UserInterfaceSettings, UserInterfaceState} from '@/store/store-types';
 import {Action, Getter, Mutation} from 'vuex-class';
 
 @Component
-export default class GlobalNavSidebar extends Vue {
+export default class OffsideContentBar extends Vue {
   
   @Mutation toggleSettingOn!: (name: UserInterfaceSettings) => {};
   @Mutation toggleSettingOff!: (name: UserInterfaceSettings) => {};

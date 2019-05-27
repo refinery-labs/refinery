@@ -9,9 +9,9 @@ export default class CardToolTsx extends Vue {
   @Prop() refresh!: Boolean;
   @Prop() dismiss!: Boolean;
   @Prop() forceSpin!: Boolean;
-  @Prop({default: () => {}}) onRemove!: Function;
-  @Prop({default: () => {}}) onRemoved!: Function;
-  @Prop({default: () => {}}) onRefresh!: Function;
+  @Prop() onRemove!: Function;
+  @Prop() onRemoved!: Function;
+  @Prop() onRefresh!: Function;
   @Prop({default: 'standard'}) spinner!: string;
   
   @Watch('forceSpin', {immediate: true})
@@ -134,7 +134,6 @@ export default class CardToolTsx extends Vue {
       this.removeWhirlClass(card);
       return;
     }
-    
     // start showing the spinner
     this.addWhirlClass(card);
     
@@ -145,7 +144,7 @@ export default class CardToolTsx extends Vue {
   }
   
   public renderRefresh() {
-    if (!this.refresh) {
+    if (!this.refresh || !this.onRefresh) {
       return null;
     }
     

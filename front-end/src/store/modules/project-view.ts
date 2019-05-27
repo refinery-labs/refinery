@@ -2,19 +2,25 @@
  * Setting store to control layout behavior
  */
 import {Module} from 'vuex';
-import {RootState, ProjectViewState} from '@/store/store-types';
-
+import {ProjectViewState, RootState} from '@/store/store-types';
 // @ts-ignore
 import complexProject from '../fake-project-data/complex-data';
-import {
-  BaseRefineryResource,
-  CyElements,
-  CyStyle,
-  RefineryProject
-} from '@/types/graph';
+import {BaseRefineryResource, CyElements, CyStyle, RefineryProject} from '@/types/graph';
 import {generateCytoscapeElements, generateCytoscapeStyle} from '@/lib/refinery-to-cytoscript-converter';
 import {LayoutOptions} from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
+import {ProjectViewMutators} from '@/constants/store-constants';
+import {getApiClient} from '@/store/fetchers/refinery-api';
+import {API_ENDPOINT} from '@/constants/api-constants';
+import {GetSavedProjectRequest, GetSavedProjectResponse} from '@/types/api-types';
+
+export function unwrapProjectJson(response: GetSavedProjectResponse) {
+  try {
+    return JSON.parse(response.project_json) as RefineryProject;
+  } catch {
+    return null;
+  }
+}
 
 const moduleState: ProjectViewState = {
   openedProject: null,
@@ -30,43 +36,57 @@ const SettingModule: Module<ProjectViewState, RootState> = {
   state: moduleState,
   getters: {},
   mutations: {
-    setOpenedProject(state, project) {
+    [ProjectViewMutators.setOpenedProject](state, project) {
       state.openedProject = project;
     },
-    selectedResource(state, resource: BaseRefineryResource) {
+    [ProjectViewMutators.selectedResource](state, resource: BaseRefineryResource) {
       state.selectedResource = resource;
     },
-    setCytoscapeElements(state, elements: CyElements) {
+    [ProjectViewMutators.setCytoscapeElements](state, elements: CyElements) {
       state.cytoscapeElements = elements;
     },
-    setCytoscapeStyle(state, stylesheet: CyStyle) {
+    [ProjectViewMutators.setCytoscapeStyle](state, stylesheet: CyStyle) {
       state.cytoscapeStyle = stylesheet;
     },
-    setCytoscapeLayout(state, layout: LayoutOptions) {
+    [ProjectViewMutators.setCytoscapeLayout](state, layout: LayoutOptions) {
       state.cytoscapeLayoutOptions = layout;
     },
-    setCytoscapeConfig(state, config: cytoscape.CytoscapeOptions) {
+    [ProjectViewMutators.setCytoscapeConfig](state, config: cytoscape.CytoscapeOptions) {
       state.cytoscapeConfig = config;
     }
   },
   actions: {
-    openProject(context, projectId: string) {
-      // TODO: Fetch the project from the server
+    async openProject(context, request: GetSavedProjectRequest) {
+      const getProjectClient = getApiClient(API_ENDPOINT.GetSavedProject);
       
-      const project = complexProject;
+      const projectResult = await getProjectClient(request) as GetSavedProjectResponse;
+      
+      if (!projectResult.success) {
+        // TODO: Handle error gracefully
+        console.error('Unable to open project!');
+        return;
+      }
+      
+      const project = unwrapProjectJson(projectResult);
+      
+      if (!project) {
+        // TODO: Handle error gracefully
+        console.error('Unable to read project from server');
+        return;
+      }
       
       const elements = generateCytoscapeElements(project);
   
       const stylesheet = generateCytoscapeStyle();
   
-      context.commit('setOpenedProject', project);
-      context.commit('setCytoscapeElements', elements);
-      context.commit('setCytoscapeStyle', stylesheet);
+      context.commit(ProjectViewMutators.setOpenedProject, project);
+      context.commit(ProjectViewMutators.setCytoscapeElements, elements);
+      context.commit(ProjectViewMutators.setCytoscapeStyle, stylesheet);
     },
     selectNode(context, nodeId: string) {
       if (!context.state.openedProject) {
         console.error('Attempted to select node without opened project', nodeId);
-        context.commit('selectedResource', null);
+        context.commit(ProjectViewMutators.selectedResource, null);
         return;
       }
   
@@ -74,18 +94,18 @@ const SettingModule: Module<ProjectViewState, RootState> = {
   
       if (nodes.length === 0) {
         console.error('No node was found with id', nodeId);
-        context.commit('selectedResource', null);
+        context.commit(ProjectViewMutators.selectedResource, null);
         return;
       }
       
       // TODO: Figure out how to check for "dirty" state, likely via using:
       // context.rootState
       
-      context.commit('selectedResource', nodes[0].id);
+      context.commit(ProjectViewMutators.selectedResource, nodes[0].id);
     },
     selectEdge(context, edgeId: string) {
       if (!context.state.openedProject) {
-        context.commit('selectedResource', null);
+        context.commit(ProjectViewMutators.selectedResource, null);
         return;
       }
       
@@ -93,11 +113,11 @@ const SettingModule: Module<ProjectViewState, RootState> = {
   
       if (edges.length === 0) {
         console.error('No edge was found with id', edgeId);
-        context.commit('selectedResource', null);
+        context.commit(ProjectViewMutators.selectedResource, null);
         return;
       }
       
-      context.commit('selectedResource', edges[0].id);
+      context.commit(ProjectViewMutators.selectedResource, edges[0].id);
     }
   }
 };

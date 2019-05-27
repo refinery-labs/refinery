@@ -2,68 +2,15 @@
  * Setting store to control layout behavior
  */
 import {Module} from 'vuex';
-import {RootState, AllProjectsState} from '@/store/store-types';
-
-const initialState = [{
-  "timestamp": 1554179683,
-  "versions": [1],
-  "id": "bee8d465-61a9-4295-aadc-4d2f006dd128",
-  "name": "World Dominator"
-}, {
-  "timestamp": 1554179683,
-  "versions": [1],
-  "id": "bee8d465-61a9-4295-aadc-4d2f006dd128",
-  "name": "Secret VC Backdoor Agent"
-}, {
-  "timestamp": 1554179683,
-  "versions": [1],
-  "id": "bee8d465-61a9-4295-aadc-4d2f006dd128",
-  "name": "Friendship Compliance Tool"
-}, {
-  "timestamp": 1558816788,
-  "versions": [1,2,3,4],
-  "id": "bee8d465-61a9-4295-aadc-4d2f006dd128",
-  "name": "Weekly Texting Metrics"
-}, {
-  "timestamp": 1554179683,
-  "versions": [1],
-  "id": "bee8d465-61a9-4295-aadc-4d2f006dd128",
-  "name": "Twitter Feed Reader"
-}, {
-  "timestamp": 1554179683,
-  "versions": [1,2],
-  "id": "bee8d465-61a9-4295-aadc-4d2f006dd128",
-  "name": "New Project"
-}, {
-  "timestamp": 1554179683,
-  "versions": [1],
-  "id": "bee8d465-61a9-4295-aadc-4d2f006dd128",
-  "name": "Spooky Scary Skeleton Generator"
-}, {
-  "timestamp": 1554179683,
-  "versions": [1],
-  "id": "bee8d465-61a9-4295-aadc-4d2f006dd128",
-  "name": "Spooky Scary Skeleton Generator (v2)"
-}, {
-  "timestamp": 1554179683,
-  "versions": [1],
-  "id": "bee8d465-61a9-4295-aadc-4d2f006dd128",
-  "name": "Twitter Feed Reader -- Modern Version!"
-}, {
-  "timestamp": 1554179683,
-  "versions": [1],
-  "id": "bee8d465-61a9-4295-aadc-4d2f006dd128",
-  "name": "New Project for The President Himself Number Two"
-}, {
-  "timestamp": 1554179683,
-  "versions": [1],
-  "id": "bee8d465-61a9-4295-aadc-4d2f006dd128",
-  "name": "New Project for The President Himself"
-}];
+import {AllProjectsState, RootState} from '@/store/store-types';
+import {AllProjectsMutators} from '@/constants/store-constants';
+import {apiClientMap, getApiClient} from '@/store/fetchers/refinery-api';
+import {API_ENDPOINT} from '@/constants/api-constants';
+import {SearchSavedProjectsResponse} from '@/types/api-types';
 
 const moduleState: AllProjectsState = {
-  availableProjects: initialState,
-  searchBox: '',
+  availableProjects: [],
+  searchBoxText: '',
   isSearching: false
 };
 
@@ -72,18 +19,35 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
   state: moduleState,
   getters: {},
   mutations: {
-    setSearchingStatus(state, isSearching) {
+    [AllProjectsMutators.setSearchingStatus](state, isSearching) {
       state.isSearching = isSearching;
+    },
+    [AllProjectsMutators.setAvailableProjects](state, results) {
+      state.availableProjects = results;
+    },
+    [AllProjectsMutators.setSearchBoxInput](state, text) {
+      state.searchBoxText = text;
     }
   },
   actions: {
     async performSearch(context) {
-      context.commit('setSearchingStatus', true);
-      // TODO: Make this make an AJAX request
+      context.commit(AllProjectsMutators.setSearchingStatus, true);
   
-      setTimeout(() => {
-        context.commit('setSearchingStatus', false);
-      }, 3000);
+      const searchSavedProjects = getApiClient(API_ENDPOINT.SearchSavedProjects);
+      
+      const result = await searchSavedProjects({
+        query: context.state.searchBoxText
+      }) as SearchSavedProjectsResponse;
+      
+      if (!result.success) {
+        // TODO: Handle this error case
+        console.error('Failure to retrieve available projects');
+        context.commit(AllProjectsMutators.setSearchingStatus, false);
+        return;
+      }
+      
+      context.commit(AllProjectsMutators.setAvailableProjects, result.results);
+      context.commit(AllProjectsMutators.setSearchingStatus, false);
     }
   }
 };

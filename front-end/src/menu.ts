@@ -85,12 +85,9 @@ export const WorkflowEditorMenuItems: MenuItemList = [
 
 export const SidebarMenuItems: MenuItemList = [
   {
-    heading: 'Main Navigation',
-    translate: 'sidebar.heading.HEADER'
-  },
-  {
     name: 'Blocks',
     icon: 'icon-grid',
+    path: '/asdf',
     translate: 'sidebar.nav.BLOCKS'
   },
   // {

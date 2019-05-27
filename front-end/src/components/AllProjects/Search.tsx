@@ -1,22 +1,34 @@
 import {CreateElement, VNode} from 'vue';
 import {Component, Prop, Vue} from 'vue-property-decorator';
 import moment from 'moment';
-import CardTool from '@/components/Common/CardTool.vue';
 import ContentWrapper from '@/components/Layout/ContentWrapper.vue';
-import {ProjectSearchResult} from '@/types/api-types';
+import {SearchSavedProjectsResult} from '@/types/api-types';
 import {namespace} from 'vuex-class';
 import CardToolTsx from '@/components/Common/CardToolTsx';
+import {linkFormatterUtils} from '@/constants/router-constants';
 
 const allProjects = namespace('allProjects');
 
 @Component({
   components: {ContentWrapper}
 })
-export default class Search2 extends Vue {
-  @allProjects.State availableProjects!: ProjectSearchResult[];
+export default class Search extends Vue {
+  @allProjects.State availableProjects!: SearchSavedProjectsResult[];
   @allProjects.State isSearching!: Boolean;
+  @allProjects.State searchBoxText!: string;
   
   @allProjects.Action performSearch!: () => {};
+  
+  @allProjects.Mutation setSearchBoxInput!: (text: string) => {};
+  
+  onSearchClicked(e: Event) {
+    if (!e || !e.target) {
+      return;
+    }
+    
+    // This is certainly annoying
+    this.setSearchBoxInput((e.target as HTMLInputElement).value)
+  }
   
   public mounted() {
     this.performSearch();
@@ -28,15 +40,41 @@ export default class Search2 extends Vue {
       // @ts-ignore
       <CardToolTsx props={{
         refresh: true,
+        onRefresh: this.performSearch,
         forceSpin: this.isSearching
       }} />
     );
   }
   
-  renderSearchTable() {
+  public renderPaginationTable() {
+    if (this.availableProjects.length === 0) {
+      return null;
+    }
+    
+    return (
+      <ul class="pagination pagination-sm">
+        <li class="page-item active">
+          <a class="page-link" href="#">1</a>
+        </li>
+        {/*TODO: Add Pagination support*/}
+        {/*<li class="page-item">*/}
+        {/*<a class="page-link" href="#">2</a>*/}
+        {/*</li>*/}
+        {/*<li class="page-item">*/}
+        {/*<a class="page-link" href="#">3</a>*/}
+        {/*</li>*/}
+        {/*<li class="page-item">*/}
+        {/*<a class="page-link" href="#">»</a>*/}
+        {/*</li>*/}
+      </ul>
+    );
+  }
+  
+  public renderSearchTable() {
     const availableProjects = this.availableProjects;
     
-    const chunked = availableProjects.slice().slice(0, 10);
+    // TODO: Add Pagination support
+    const chunked = availableProjects; //.slice().slice(0, 10);
     
     return (
       <div class="col-lg-9">
@@ -61,20 +99,7 @@ export default class Search2 extends Vue {
             <div class="d-flex">
               {/*<button class="btn btn-sm btn-secondary">Clear</button>*/}
               <nav class="ml-auto">
-                <ul class="pagination pagination-sm">
-                  <li class="page-item active">
-                    <a class="page-link" href="#">1</a>
-                  </li>
-                  <li class="page-item">
-                    <a class="page-link" href="#">2</a>
-                  </li>
-                  <li class="page-item">
-                    <a class="page-link" href="#">3</a>
-                  </li>
-                  <li class="page-item">
-                    <a class="page-link" href="#">»</a>
-                  </li>
-                </ul>
+                {this.renderPaginationTable()}
               </nav>
             </div>
           </div>
@@ -83,10 +108,12 @@ export default class Search2 extends Vue {
     );
   }
   
-  public renderSearchResult(project: ProjectSearchResult) {
+  public renderSearchResult(project: SearchSavedProjectsResult) {
     const updatedTime = moment(project.timestamp * 1000);
     const durationSinceUpdated = moment.duration(-moment().diff(updatedTime)).humanize(true);
   
+    const viewProjectLink = linkFormatterUtils.viewProjectFormatter(project.id);
+    
     return (
       <tr>
         <td>
@@ -98,7 +125,7 @@ export default class Search2 extends Vue {
                 <p>If I had a description, this is where I would put it! Thanks, Mandatory. This is why we can't have nice things.</p>
               </div>
               <div class="ml-auto">
-                <div class="btn btn-info btn-sm">View</div>
+                <router-link class="btn btn-info btn-sm" to={viewProjectLink}>View</router-link>
               </div>
             </div>
           </div>
@@ -126,9 +153,12 @@ export default class Search2 extends Vue {
               <div class="form-group mb-4">
                 <label class="col-form-label mb-2">By Name</label>
                 <br/>
-                <input class="form-control mb-2" type="text" placeholder="Search projects by name..."/>
+                <input class="form-control mb-2" type="text" placeholder="Search projects by name..."
+                       value={this.searchBoxText}
+                       on={{change: this.onSearchClicked}} />
               </div>
-              <button class="btn btn-secondary btn-lg">Search</button>
+              <button class="btn btn-secondary btn-lg"
+                      on={{click: this.performSearch}}>Search</button>
             </div>
           </div>
         </div>
