@@ -1115,6 +1115,47 @@ function get_lambda_cloudwatch_logs( arn ) {
 	);
 }
 
+function add_credit_card_token_to_account( stripe_token ) {
+	return api_request(
+		"POST",
+		"api/v1/billing/creditcards/add",
+		{
+			"stripe_token": stripe_token
+		}
+	);
+}
+
+/*
+	Returns metadata about what cards the user has on file
+*/
+function get_account_credit_cards() {
+	return api_request(
+		"GET",
+		"api/v1/billing/creditcards/list",
+		{}
+	);
+}
+
+function delete_credit_card( card_id ) {
+	return api_request(
+		"POST",
+		"api/v1/billing/creditcards/delete",
+		{
+			"id": card_id,
+		}
+	);
+}
+
+function set_card_as_primary( card_id ) {
+	return api_request(
+		"POST",
+		"api/v1/billing/creditcards/make_primary",
+		{
+			"id": card_id,
+		}
+	);
+}
+
 /*
 Example input(s):
 billing_month = "2019-05"

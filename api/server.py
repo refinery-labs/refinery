@@ -599,6 +599,10 @@ def get_billing_rounded_float( input_price_float ):
 	)
 	
 	return rounded_up_float
+	
+# Custom exceptions
+class CardIsPrimaryException(Exception):
+    pass
 
 class TaskSpawner(object):
 		def __init__(self, loop=None):
@@ -941,6 +945,86 @@ class TaskSpawner(object):
 			)
 			
 			return customer[ "id" ]
+			
+		@run_on_executor
+		def associate_card_token_with_customer_account( self, stripe_customer_id, card_token ):
+			# Add the card to the customer's account.
+			new_card = stripe.Customer.create_source(
+				stripe_customer_id,
+				source=card_token
+			)
+			
+			return new_card[ "id" ]
+			
+		@run_on_executor
+		def get_account_cards( self, stripe_customer_id ):
+			return TaskSpawner._get_account_cards( stripe_customer_id )
+			
+		@staticmethod
+		def _get_account_cards( stripe_customer_id ):
+			# Pull all of the metadata for the cards the customer
+			# has on file with Stripe
+			cards = stripe.Customer.list_sources(
+				stripe_customer_id,
+				object="card",
+				limit=100,
+			)
+			
+			# Pull the user's default card and add that
+			# metadata to the card
+			customer_info = TaskSpawner._get_stripe_customer_information(
+				stripe_customer_id
+			)
+			
+			for card in cards:
+				is_primary = False
+				if card[ "id" ] == customer_info[ "default_source" ]:
+					is_primary = True
+				card[ "is_primary" ] = is_primary
+			
+			return cards[ "data" ]
+			
+		@run_on_executor
+		def get_stripe_customer_information( self, stripe_customer_id ):
+			return TaskSpawner._get_stripe_customer_information( stripe_customer_id )
+			
+		@staticmethod
+		def _get_stripe_customer_information( stripe_customer_id ):
+			return stripe.Customer.retrieve(
+				stripe_customer_id
+			)
+			
+		@run_on_executor
+		def set_stripe_customer_default_payment_source( self, stripe_customer_id, card_id ):
+			customer_update_response = stripe.Customer.modify(
+				stripe_customer_id,
+				default_source=card_id,
+			)
+			
+			pprint( customer_update_response )
+			
+		@run_on_executor
+		def delete_card_from_account( self, stripe_customer_id, card_id ):
+			# We first have to pull the customers information so we
+			# can verify that they are not deleting their default
+			# payment source from Stripe.
+			customer_information = TaskSpawner._get_stripe_customer_information(
+				stripe_customer_id
+			)
+			
+			# Throw an exception if this is the default source for the user
+			if customer_information[ "default_source" ] == card_id:
+				raise CardIsPrimaryException()
+				
+			return True
+			
+			# Delete the card from STripe
+			delete_response = stripe.Customer.delete_source(
+				stripe_customer_id,
+				card_id
+			)
+			
+			return cards[ "data" ]
 			
 		@run_on_executor
 		def generate_managed_accounts_invoices( self, start_date_string, end_date_string ):
@@ -6562,6 +6646,168 @@ class HealthHandler( BaseHandler ):
 			"status": "ok"
 		})
 		
+class AddCreditCardToken( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def post( self ):
+		"""
+		Adds a credit card token to a given user's Stripe record.
+		
+		THIS DOES NOT STORE CREDIT CARD INFORMATION, DO NOT EVER PASS
+		CREDIT CARD INFORMATION TO IT. DON'T EVEN *THINK* ABOUT DOING
+		IT OR I WILL PERSONALLY SLAP YOU. -mandatory
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"token": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"token"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		current_user = self.get_authenticated_user()
+		
+		yield local_tasks.associate_card_token_with_customer_account(
+			current_user.payment_id,
+			self.json[ "token" ]
+		)
+		
+		self.write({
+			"success": True,
+			"msg": "The credit card has been successfully added to your account!"
+		})
+		
+class ListCreditCards( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def get( self ):
+		"""
+		List the credit cards the user has on file, returns
+		just the non-PII info that we get back from Stripe
+		"""
+		current_user = self.get_authenticated_user()
+		
+		cards_info_list = yield local_tasks.get_account_cards(
+			current_user.payment_id,
+		)
+		
+		# Filter card info
+		filtered_card_info_list = []
+		
+		# The keys we're fine with passing from back Stripe
+		returnable_keys = [
+			"id",
+			"brand",
+			"country",
+			"exp_month",
+			"exp_year",
+			"last4",
+			"is_primary"
+		]
+		
+		for card_info in cards_info_list:
+			filtered_card_info = {}
+			for key, value in card_info.iteritems():
+				if key in returnable_keys:
+					filtered_card_info[ key ] = value
+			
+			filtered_card_info_list.append(
+				filtered_card_info
+			)
+		
+		self.write({
+			"success": True,
+			"cards": filtered_card_info_list
+		})
+		
+class DeleteCreditCard( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def post( self ):
+		"""
+		Deletes a credit card from the user's Stripe account.
+		
+		This is not allowed if the payment method is the only
+		one on file for that account.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"id"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		current_user = self.get_authenticated_user()
+		
+		try:
+			yield local_tasks.delete_card_from_account(
+				current_user.payment_id,
+				self.json[ "id" ]
+			)
+		except CardIsPrimaryException:
+			self.error(
+				"You cannot delete your primary payment method, you must have at least one available to pay your bills.",
+				"CANT_DELETE_PRIMARY"
+			)
+			raise gen.Return()
+		
+		self.write({
+			"success": True,
+			"msg": "The card has been successfully been deleted from your account!"
+		})
+		
+class MakeCreditCardPrimary( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def post( self ):
+		"""
+		Sets a given card to be the user's primary credit card.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"id"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		current_user = self.get_authenticated_user()
+		
+		try:
+			yield local_tasks.set_stripe_customer_default_payment_source(
+				current_user.payment_id,
+				self.json[ "id" ]
+			)
+		except:
+			self.error(
+				"An error occurred while making the card your primary.",
+				"GENERIC_MAKE_PRIMARY_ERROR"
+			)
+		
+		self.write({
+			"success": True,
+			"msg": "You have set this card to be your primary succesfully."
+		})
+		
 def get_user_free_trial_information( input_user ):
 	return_data = {
 		"trial_end_timestamp": 0,
@@ -6631,6 +6877,10 @@ def make_app( is_debug ):
 		( r"/api/v1/deployments/get_latest", GetLatestProjectDeployment ),
 		( r"/api/v1/deployments/delete_all_in_project", DeleteDeploymentsInProject ),
 		( r"/api/v1/billing/get_month_totals", GetBillingMonthTotals ),
+		( r"/api/v1/billing/creditcards/add", AddCreditCardToken ),
+		( r"/api/v1/billing/creditcards/list", ListCreditCards ),
+		( r"/api/v1/billing/creditcards/delete", DeleteCreditCard ),
+		( r"/api/v1/billing/creditcards/make_primary", MakeCreditCardPrimary ),
 		# Temporarily disabled since it doesn't cache the CostExplorer results
 		#( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast ),
 		
