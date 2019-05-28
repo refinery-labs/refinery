@@ -6899,12 +6899,85 @@ def get_user_free_trial_information( input_user ):
 		
 	return return_data
 	
+@gen.coroutine
+def is_build_package_cached( credentials, language, libraries ):
+	# Edge case for python2.7 because of the tight custom-runtime
+	# integration which requires the redis library
+	if language == "python2.7" and not ( "redis" in libraries ):
+		libraries.append(
+			"redis"
+		)
+	
+	# TODO just accept a dict/object in of an
+	# array followed by converting it to one.
+	libraries_dict = {}
+	for library in libraries:
+		libraries_dict[ str( library ) ] = "latest"
+	
+	build_id = False
+	
+	# Get the final S3 path
+	final_s3_package_zip_path = yield local_tasks.get_final_zip_package_path(
+		language,
+		libraries_dict,
+	)
+	
+	# Get if the package is already cached
+	is_already_cached = yield local_tasks.s3_object_exists(
+		credentials,
+		credentials[ "lambda_packages_bucket" ],
+		final_s3_package_zip_path
+	)
+	
+	raise gen.Return( is_already_cached )
+	
+class CheckIfLibrariesCached( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def post( self ):
+		"""
+		Just returns if a given language + libraries has
+		already been built and cached in S3.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"libraries": {
+					"type": "array"
+				},
+				"language": {
+					"type": "string",
+					"enum": LAMBDA_SUPPORTED_LANGUAGES
+				}
+			},
+			"required": [
+				"libraries",
+				"language"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		credentials = self.get_authenticated_user_cloud_configuration()
+		
+		is_already_cached = yield is_build_package_cached(
+			credentials,
+			self.json[ "language" ],
+			self.json[ "libraries" ]
+		)
+		
+		# Return immediately since we don't need to kick off the build
+		self.write({
+			"success": True,
+			"is_already_cached": is_already_cached,
+		})
+	
 class BuildLibrariesPackage( BaseHandler ):
 	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
-		Sets a given card to be the user's primary credit card.
+		Kick off a codebuild for listed build libraries.
 		"""
 		schema = {
 			"type": "object",
@@ -6949,22 +7022,6 @@ class BuildLibrariesPackage( BaseHandler ):
 			libraries_dict,
 		)
 		
-		# Get if the package is already cached
-		is_already_cached = yield local_tasks.s3_object_exists(
-			credentials,
-			credentials[ "lambda_packages_bucket" ],
-			final_s3_package_zip_path
-		)
-		
-		# Return immediately since we don't need to kick off the build
-		if is_already_cached:
-			self.write({
-				"success": True,
-				"build_id": False,
-				"is_already_cached": True,
-			})
-			raise gen.Return()
-		
 		if self.json[ "language" ] == "python2.7":
 			build_id = yield local_tasks.start_python27_codebuild(
 				credentials,
@@ -6998,7 +7055,6 @@ class BuildLibrariesPackage( BaseHandler ):
 		self.write({
 			"success": True,
 			"build_id": build_id,
-			"is_already_cached": is_already_cached,
 		})
 		
 def make_app( is_debug ):
@@ -7028,6 +7084,7 @@ def make_app( is_debug ):
 		( r"/api/v1/lambdas/logs", GetCloudWatchLogsForLambda ),
 		( r"/api/v1/lambdas/env_vars/update", UpdateEnvironmentVariables ),
 		( r"/api/v1/lambdas/build_libraries", BuildLibrariesPackage ),
+		( r"/api/v1/lambdas/libraries_cache_check", CheckIfLibrariesCached ),
 		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda ),
 		( r"/api/v1/aws/infra_tear_down", InfraTearDown ),
 		( r"/api/v1/aws/infra_collision_check", InfraCollisionCheck ),

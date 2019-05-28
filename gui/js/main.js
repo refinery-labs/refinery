@@ -1157,6 +1157,24 @@ function set_card_as_primary( card_id ) {
 }
 
 /*
+	Check if a package of dependencies has already
+	been cached. This is useful for letting the user
+	know if they are about to experience increased
+	build times because of a switch up in dependencies
+	which requires a rebuild.
+*/
+function check_if_packages_cached( language, libraries_array ) {
+	return api_request(
+		"POST",
+		"api/v1/lambdas/libraries_cache_check",
+		{
+			"language": language,
+			"libraries": libraries_array,
+		}
+	);
+}
+
+/*
 	Kick off a build of a package of dependencies.
 	This speeds up deploys because all package zips
 	are automatically cached in S3. So when they do
