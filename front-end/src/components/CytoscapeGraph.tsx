@@ -180,6 +180,15 @@ export default class CytoscapeGraph extends Vue {
     this.$forceUpdate();
     
   }
+  
+  public beforeDestroy() {
+    if (!this.cy) {
+      return;
+    }
+    
+    // Kill the container gracefully
+    this.cy.destroy();
+  }
  
   public render(h: CreateElement): VNode {
     if (!this.$refs.container) {

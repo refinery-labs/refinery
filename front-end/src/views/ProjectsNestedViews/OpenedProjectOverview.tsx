@@ -8,11 +8,13 @@ import {GetSavedProjectRequest} from '@/types/api-types';
 import {namespace} from 'vuex-class';
 import SidebarNav from '@/components/SidebarNav';
 import {SidebarMenuItems} from '@/menu';
+import {RefineryProject} from '@/types/graph';
 
 const project = namespace('project');
 
 @Component
 export default class OpenedProjectOverview extends Vue {
+  @project.State isLoadingProject!: boolean;
   @project.Action openProject!: (projectId: GetSavedProjectRequest) => {};
   
   @Watch('$route', {immediate: true})
@@ -27,21 +29,38 @@ export default class OpenedProjectOverview extends Vue {
   
   public render(h: CreateElement): VNode {
   
+    // TODO: Add validation of the ID structure
     if (!this.$route.params.projectId) {
       return (
         <h2>Please open a project first</h2>
       );
     }
     
-    return (
-      <div class="opened-project-overview display--flex flex-grow--1">
+    const containerClasses = {
+      'opened-project-overview': true,
+      'display--flex': true,
+      'flex-grow--1': true
+    };
   
+    // Show a nice loading animation
+    if (this.isLoadingProject) {
+      return (
+        <div class={{
+          ...containerClasses,
+          'whirl': true,
+          'standard': true
+        }}>
+        </div>
+      );
+    }
+    
+    return (
+      <div class={containerClasses}>
         <SidebarNav props={{navItems: SidebarMenuItems}} />
-       
+  
         <OpenedProjectGraphContainer />
   
         <Offsidebar/>
-        
       </div>
     );
   }

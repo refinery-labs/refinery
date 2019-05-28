@@ -211,6 +211,8 @@ export interface GetSavedProjectRequest extends BaseApiRequest {
 
 export interface GetSavedProjectResponse extends BaseApiResponse {
   project_json: string;
+  version:      number;
+  id:           string;
   success:      boolean;
 }
 

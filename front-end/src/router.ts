@@ -17,6 +17,8 @@ import EditProjectDeployment from '@/views/ProjectsNestedViews/EditProjectDeploy
 import Layout from '@/components/Layout/Layout';
 import {baseLinks, projectViewLinks} from '@/constants/router-constants';
 import OpenedProjectGraphContainer from '@/containers/OpenedProjectGraphContainer';
+import PageNotFound from '@/views/PageNotFound';
+import ProjectNotFound from '@/views/ProjectsNestedViews/ProjectNotFound';
 
 Vue.use(Router);
 
@@ -57,7 +59,7 @@ export default new Router({
         // View all available projects
         {
           path: baseLinks.projects,
-          name: 'all projects',
+          name: 'allProjects',
           component: AllProjects
         },
         // Everything specific to a project is nested under the projectId in the path.
@@ -65,17 +67,10 @@ export default new Router({
         // Most people using Refinery will probably only have 1 project for a while, so we can hide this functionality.
         {
           path: projectViewLinks.viewProject,
+          name: 'project',
           // components: {default: ViewProject, graph: RefineryGraph},
           component: ViewProject,
           children: [
-            // Opened project overview page
-            {
-              path: '',
-              name: 'project',
-              // Example syntax for how to load multiple components
-              // components: {default: OpenedProjectOverview, graphComponent: RefineryGraph }
-              component: OpenedProjectOverview
-            },
             // View all deployments for project
             {
               path: 'deployments',
@@ -114,6 +109,10 @@ export default new Router({
               path: 'settings',
               name: 'projectSettings',
               component: ProjectDeployments
+            },
+            {
+              path: '*',
+              component: ProjectNotFound
             }
           ]
         },
@@ -132,10 +131,13 @@ export default new Router({
           path: baseLinks.admin,
           name: 'admin',
           component: AdminPanel
+        },
+        {
+          path: '*',
+          component: PageNotFound
         }
       ]
-    },
-    
+    }
   ]
 });
 

@@ -3,8 +3,6 @@
  */
 import {Module} from 'vuex';
 import {ProjectViewState, RootState} from '@/store/store-types';
-// @ts-ignore
-import complexProject from '../fake-project-data/complex-data';
 import {BaseRefineryResource, CyElements, CyStyle, RefineryProject} from '@/types/graph';
 import {generateCytoscapeElements, generateCytoscapeStyle} from '@/lib/refinery-to-cytoscript-converter';
 import {LayoutOptions} from 'cytoscape';
@@ -16,7 +14,10 @@ import {GetSavedProjectRequest, GetSavedProjectResponse} from '@/types/api-types
 
 export function unwrapProjectJson(response: GetSavedProjectResponse) {
   try {
-    return JSON.parse(response.project_json) as RefineryProject;
+    const project = JSON.parse(response.project_json) as RefineryProject;
+    project.id = response.id;
+    project.version = response.version;
+    return project;
   } catch {
     return null;
   }
@@ -24,6 +25,7 @@ export function unwrapProjectJson(response: GetSavedProjectResponse) {
 
 const moduleState: ProjectViewState = {
   openedProject: null,
+  isLoadingProject: true,
   selectedResource: null,
   cytoscapeElements: null,
   cytoscapeStyle: null,
@@ -38,6 +40,9 @@ const SettingModule: Module<ProjectViewState, RootState> = {
   mutations: {
     [ProjectViewMutators.setOpenedProject](state, project) {
       state.openedProject = project;
+    },
+    [ProjectViewMutators.isLoadingProject](state, value: boolean) {
+      state.isLoadingProject = value;
     },
     [ProjectViewMutators.selectedResource](state, resource: BaseRefineryResource) {
       state.selectedResource = resource;
@@ -57,6 +62,8 @@ const SettingModule: Module<ProjectViewState, RootState> = {
   },
   actions: {
     async openProject(context, request: GetSavedProjectRequest) {
+      context.commit(ProjectViewMutators.isLoadingProject, true);
+      
       const getProjectClient = getApiClient(API_ENDPOINT.GetSavedProject);
       
       const projectResult = await getProjectClient(request) as GetSavedProjectResponse;
@@ -82,6 +89,7 @@ const SettingModule: Module<ProjectViewState, RootState> = {
       context.commit(ProjectViewMutators.setOpenedProject, project);
       context.commit(ProjectViewMutators.setCytoscapeElements, elements);
       context.commit(ProjectViewMutators.setCytoscapeStyle, stylesheet);
+      context.commit(ProjectViewMutators.isLoadingProject, false);
     },
     selectNode(context, nodeId: string) {
       if (!context.state.openedProject) {

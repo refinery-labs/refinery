@@ -62,6 +62,7 @@ export interface UserInterfaceState {
 
 export interface ProjectViewState {
   openedProject: RefineryProject | null,
+  isLoadingProject: boolean,
   selectedResource: BaseRefineryResource | null,
   cytoscapeElements: CyElements | null,
   cytoscapeStyle: CyStyle | null,

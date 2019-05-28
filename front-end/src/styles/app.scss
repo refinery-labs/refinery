@@ -106,10 +106,45 @@ $sidebar-item-margin: 6px;
   display: flex;
   flex-direction: column;
   height: calc(100vh - 115px);
+  width: 100%;
 }
 
 .graph-container {
   height: 100%;
   flex-grow: 1;
   text-align: initial;
+}
+
+.graph-visibility {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  height: 100%;
+  width: 100%;
+  &--hidden {
+    z-index: 0;
+  }
+}
+
+.project-router-container {
+  background-color: $body-bg;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  &--hidden {
+    position: relative;
+    display: none;
+    z-index: 0;
+  }
+}
+
+.view-project-page-content {
+  position: relative;
+  flex-grow: 1;
 }

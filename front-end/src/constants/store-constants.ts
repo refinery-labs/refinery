@@ -8,6 +8,7 @@ export enum AllProjectsMutators {
 export enum ProjectViewMutators {
   setOpenedProject = 'setOpenedProject',
   selectedResource = 'selectedResource',
+  isLoadingProject = 'isLoadingProject',
   setCytoscapeElements = 'setCytoscapeElements',
   setCytoscapeStyle = 'setCytoscapeStyle',
   setCytoscapeLayout = 'setCytoscapeLayout',

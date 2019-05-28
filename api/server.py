@@ -3677,9 +3677,13 @@ class GetSavedProject( BaseHandler ):
 			"Retrieving saved project..."
 		)
 
+		project = self.fetch_project()
+
 		self.write({
 			"success": True,
-			"project_json": self.fetch_project()
+			"id": project.id,
+			"version": project.version,
+			"project_json": project.project_json
 		})
 
 	def fetch_project( self ):
@@ -3694,14 +3698,14 @@ class GetSavedProject( BaseHandler ):
 			version=version
 		).first()
 
-		return project_version_result.project_json
+		return project_version_result
 
 	def fetch_project_without_version( self, id ):
 		project_version_result = session.query( ProjectVersion ).filter_by(
 			project_id=id
 		).order_by(ProjectVersion.version.desc()).first()
 
-		return project_version_result.project_json
+		return project_version_result
 
 
 class DeleteSavedProject( BaseHandler ):

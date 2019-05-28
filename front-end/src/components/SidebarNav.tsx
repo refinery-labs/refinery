@@ -29,7 +29,7 @@ export default class SidebarNav extends Vue {
   public render(h: CreateElement): VNode {
     const navItems: MenuItemList = this.$props.navItems;
     return (
-      <ul class="content-sidebar display--flex flex-direction--column">
+      <ul class="content-sidebar display--flex flex-direction--column padding-left--none">
         {navItems.map((item) => this.renderNavItem(item))}
       </ul>
     );
