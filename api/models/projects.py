@@ -12,24 +12,39 @@ class Project( Base ):
     	Text(),
     	unique=True
     )
+    
+    # Many to many relationship to projects
+    # A user can belong to many projects
+    # A project can belong to many users
+    users = relationship(
+    	"User",
+		lazy="dynamic",
+		secondary=users_projects_association_table,
+		back_populates="projects"
+	)
+	
+	# Versions of the projects
     versions = relationship(
     	"ProjectVersion",
     	backref="projects",
 		lazy="dynamic",
 		cascade="all, delete-orphan"
 	)
+	
     deployments = relationship(
     	"Deployment",
     	backref="projects",
 		lazy="dynamic",
 		cascade="all, delete-orphan"
 	)
+	
     configs = relationship(
     	"ProjectConfig",
     	backref="configs",
 		lazy="dynamic",
 		cascade="all, delete-orphan"
 	)
+	
     timestamp = Column(Integer())
 
     def __init__( self ):

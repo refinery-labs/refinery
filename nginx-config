@@ -19,4 +19,12 @@ server {
     location ~ /api/.* {
         proxy_pass http://localhost:7777;
     }
+
+    location ~ /services/.* {
+        proxy_pass http://localhost:7777;
+    }
+
+    location ~ /authentication/.* {
+        proxy_pass http://localhost:7777;
+    }
 }

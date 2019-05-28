@@ -5,27 +5,62 @@ services:
         depends_on:
             - postgresdb
         environment:
+        	# The HTTP origin to serve in Access-Control-Allow-Origin header
+            access_control_allow_origin: https://example.refinerylabs.io
+            # Master keys for the master account of the AWS org
+            aws_access_key: REPLACE_ME_WITH_ORG_ROOT_ACCOUNT_ACCESS_KEY
+            aws_secret_key: REPLACE_ME_WITH_ORG_ROOT_ACCOUNT_SECRET_KEY
+            aws_account_id: REPLACE_ME_WITH_ORG_ROOT_ACCOUNT_ID
+            region_name: REPLACE_ME_WITH_ORG_ROOT_ACCOUNT_REGION
+            # JSON array of allowed origins
             access_control_allow_origins: "[\"http://localhost:1234\",\"http://localhost:8080\",\"http://localhost:8002\"]"
-            aws_access_key: AWS_ADMIN_ACCESS_KEY
-            aws_secret_key: AWS_ADMIN_SECRET_KEY
-            aws_account_id: AWS_ACCOUNT_ID
-            region_name: us-west-2
-            lambda_role: arn:aws:iam::148731734429:role/refinery_aws_lambda_admin_role # Use the install/setup_aws_account.py script to get this
-            events_role: arn:aws:iam::148731734429:role/refinery_aws_cloudwatch_admin_role # Use the install/setup_aws_account.py script to get this
+            # Really does nothing, should be removed at some point
             vpc_data: "{}"
+            # The postgres username
             postgreql_username: refinery
+            # The postgres password
             postgreql_password: refinery
+            # The postgres database
             postgres_db: refinery
+            # The postgres database
             postgresql_host: postgresdb
-            lambda_redis_hostname: REDIS_HOSTNAME
-            lambda_redis_password: REDIS_PASSWORD
-            lambda_redis_port: 6379
-            tmp_lambda_packages_bucket: # Use the install/setup_aws_account.py script to get this
+            # Whether debugging mode is enabled for tornado
             is_debug: "true"
+            # Whether Cloudflare auth is enabled
             cf_enabled: "true"
-            cf_policy_aud: # Get this from Cloudflare access
-            cf_certs_url: https://yoursubdomain-replace-me.cloudflareaccess.com/cdn-cgi/access/certs
-            pipeline_logs_bucket: # Use the install/setup_aws_account.py script to get this
+            # Cloudflare Access AUD
+            cf_policy_aud: REPLACE_ME_WITH_CLOUDFLARE_ACCESS_AUD
+            # Cloudflare Access URL to grab cert keys
+            cf_certs_url: https://refinery.cloudflareaccess.com/cdn-cgi/access/certs
+            # The SES send-from email - this must be verified in SES
+            ses_emails_from_email: REPLACE_ME_WITH_SES_SEND_FROM_EMAIL
+            # How long the email token should last before expiring
+            email_token_lifetime: 10800 # 3 hours before the email authentication token no longer works
+            # Secret value for the HMACed cookies
+            cookie_secret_value: SUPER_SECRET_VALUE_1234
+            # How many days the HTTP cookies last for
+            cookie_expire_days: 7
+            # How much we mark up AWS's costs for managed AWS accounts
+            mark_up_percent: 20
+            # The Stripe API key
+            stripe_api_key: REPLACE_ME_WITH_STRIPE_KEY_ENSURE_ITS_TENANCY_APPROPRIATE
+            # Whether to finalize invoices or leave them in draft for manual approval
+            # and final sending.
+            stripe_finalize_invoices: "false"
+            # The email address which is notified when we have an hour to review the
+            # invoices before they go out.
+            billing_alert_email: REPLACE_ME_WITH_SES_VERIFIED_SEND_TO_EMAIL
+            # The free-trial account maximum amount that a account is allowed
+            # to incur before the account is frozen.
+            free_trial_billing_limit: "10.00"
+            # This specifies the max time for the assume role action
+            # We have a per-account ceiling of 1-hour, but we should basically always
+            # be assuming for less time than that.
+            assume_role_session_lifetime_seconds: "900"
+            # Alerts for when a free-trial account goes over the limit
+            free_trial_freeze_alerts: REPLACE_ME_WITH_SES_VERIFIED_SEND_TO_EMAIL
+            # Shared secret for /service/ endpoints to be triggered
+            service_shared_secret: SUPER_SECRET_SERVICE_VALUE_1234
         ports:
             - "80:1234"
         volumes:

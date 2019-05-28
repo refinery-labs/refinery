@@ -1,0 +1,20 @@
+(function( $lambda_data ) {
+	$input_data = json_decode(
+		$lambda_data,
+		true
+	);
+
+	$lambda_input = $input_data[ "lambda_input" ];
+	$context = $input_data[ "context" ];
+	
+	try {
+		$output = main( $lambda_input, $context );
+		echo( "\n" );
+		echo( "<REFINERY_OUTPUT_CUSTOM_RUNTIME_START_MARKER>".json_encode( $output )."<REFINERY_OUTPUT_CUSTOM_RUNTIME_END_MARKER>" );
+		exit(0);
+	} catch ( Exception $e ) {
+		$error_message = $e->getMessage();
+		echo( "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_START_MARKER>".$error_message."<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_END_MARKER>" );
+		exit(-1);
+	}
+})( $argv[1] );

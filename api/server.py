@@ -5,19 +5,26 @@
 import tornado.escape
 import tornado.ioloop
 import tornado.web
-import botocore
 import subprocess
+import traceback
+import botocore
+import datetime
+import pystache
 import logging
 import hashlib
 import random
 import shutil
+import stripe
 import base64
 import string
 import boto3
+import numpy
+import struct
 import uuid
 import json
 import yaml
 import copy
+import math
 import time
 import jwt
 import sys
@@ -27,17 +34,26 @@ import io
 from tornado import gen
 from datetime import timedelta
 from tornado.web import asynchronous
+from expiringdict import ExpiringDict
 from botocore.exceptions import ClientError
 from jsonschema import validate as validate_schema
 from tornado.concurrent import run_on_executor, futures
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+from email_validator import validate_email, EmailNotValidError
+
 from models.initiate_database import *
-from models.saved_function import SavedFunction
 from models.saved_lambda import SavedLambda
 from models.project_versions import ProjectVersion
 from models.projects import Project
+from models.organizations import Organization
+from models.users import User
+from models.email_auth_tokens import EmailAuthToken
+from models.aws_accounts import AWSAccount
 from models.deployments import Deployment
 from models.project_config import ProjectConfig
+from models.cached_billing_collections import CachedBillingCollection
+from models.cached_billing_items import CachedBillingItem
+
 from botocore.client import Config
 
 logging.basicConfig(
@@ -57,45 +73,34 @@ DEPENDENCY_CACHE = ExpiringDict(
 reload( sys )
 sys.setdefaultencoding( "utf8" )
 
+EMPTY_ZIP_DATA = bytearray( "PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" )
+
+# Initialize Stripe
+stripe.api_key = os.environ.get( "stripe_api_key" )
+
 # Cloudflare Access public keys
 CF_ACCESS_PUBLIC_KEYS = []
 
-# Debugging shunt for setting environment variables from yaml
-try:
-	with open( "config.yaml", "r" ) as file_handler:
-		settings = yaml.safe_load(
-			file_handler.read()
-		)
-		for key, value in settings.iteritems():
-			os.environ[ key ] = str( value )
-except:
-	print( "No config.yaml specified, assuming environmental variables are all set!" )
-
+# Pull list of allowed Access-Control-Allow-Origin values from environment var 
 allowed_origins = json.loads( os.environ.get( "access_control_allow_origins" ) )
 			
 def on_start():
-	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES
+	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES
 	
-	def inject_configurations( input_code ):
-		return input_code.replace(
-			"{{REDIS_PASSWORD_REPLACE_ME}}",
-			os.environ.get( "lambda_redis_password" )
-		).replace(
-			"{{REDIS_HOSTNAME_REPLACE_ME}}",
-			os.environ.get( "lambda_redis_hostname" )
-		).replace(
-			"\"{{REDIS_PORT_REPLACE_ME}}\"",
-			os.environ.get( "lambda_redis_port" )
-		).replace(
-			"{{LOG_BUCKET_NAME_REPLACE_ME}}",
-			os.environ.get( "pipeline_logs_bucket" )
-		)
+	# Email templates
+	email_templates_folder = "./email_templates/"
+	EMAIL_TEMPLATES = {}
+	for filename in os.listdir( email_templates_folder ):
+		template_name = filename.split( "." )[0]
+		with open( email_templates_folder + filename, "r" ) as file_handler:
+			EMAIL_TEMPLATES[ template_name ] = file_handler.read()
 	
 	LAMDBA_BASE_CODES = {}
 	
 	# These languages are all custom
 	CUSTOM_RUNTIME_LANGUAGES = [
 		"nodejs8.10",
+		"php7.3",
 	]
 	
 	LAMBDA_BASE_LIBRARIES = {
@@ -103,111 +108,152 @@ def on_start():
 			"redis",
 		],
 		"nodejs8.10": [],
+		"php7.3": [],
 	}
 	
 	LAMBDA_SUPPORTED_LANGUAGES = [
 		"python2.7",
 		"nodejs8.10",
+		"php7.3",
 	]
 	
 	CUSTOM_RUNTIME_CODE = ""
 	
 	with open( "./custom-runtime/base-src/bootstrap", "r" ) as file_handler:
-		CUSTOM_RUNTIME_CODE = inject_configurations(
-			file_handler.read()
-		)
+		CUSTOM_RUNTIME_CODE = file_handler.read()
 
 	for language_name, libraries in LAMBDA_BASE_LIBRARIES.iteritems():
 		# Load Lambda base templates
 		with open( "./lambda_bases/" + language_name, "r" ) as file_handler:
-			LAMDBA_BASE_CODES[ language_name ] = inject_configurations(
-				file_handler.read()
-			)
-		
-# Up the max connection amount in pool
-S3_CONFIG = Config(
-	max_pool_connections=( 1000 * 2 )
-)
-S3_CLIENT = boto3.client(
-	"s3",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" ),
-	config=S3_CONFIG
-)
+			LAMDBA_BASE_CODES[ language_name ] = file_handler.read()
 
-LAMBDA_CONFIG = Config(
-	connect_timeout=50,
-	read_timeout=( 60 * 15 )
-)
-LAMBDA_CLIENT = boto3.client(
-	"lambda",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" ),
-	config=LAMBDA_CONFIG
-)
-
-SFN_CLIENT = boto3.client(
-	"stepfunctions",
+# This is purely for sending emails as part of Refinery's
+# regular operations (e.g. authentication via email code, etc).
+SES_EMAIL_CLIENT = boto3.client(
+	"ses",
 	aws_access_key_id=os.environ.get( "aws_access_key" ),
 	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
 	region_name=os.environ.get( "region_name" )
 )
 
-EVENTS_CLIENT = boto3.client(
-	"events",
+# This is another global Boto3 client because we need root access
+# to pull the billing for all of our sub-accounts
+COST_EXPLORER = boto3.client(
+	"ce",
 	aws_access_key_id=os.environ.get( "aws_access_key" ),
 	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
 	region_name=os.environ.get( "region_name" )
 )
 
-SQS_CLIENT = boto3.client(
-	"sqs",
+# This client is used to assume role into all of our customer's
+# AWS accounts as a root-priveleged support account ("DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT")
+STS_CLIENT = boto3.client(
+	"sts",
 	aws_access_key_id=os.environ.get( "aws_access_key" ),
 	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
 	region_name=os.environ.get( "region_name" )
 )
 
-SNS_CLIENT = boto3.client(
-	"sns",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" )
-)
+# For generating crytographically-secure random strings
+def get_urand_password( length ):
+    symbols = string.ascii_letters + string.digits
+    return "".join([symbols[x * len(symbols) / 256] for x in struct.unpack("%dB" % (length,), os.urandom(length))])
+    
+"""
+This is some poor-man's caching to greately speed up Boto3
+client access times. We basically just cache and return the client
+if it's less than the STS Assume Role age.
 
-CLOUDWATCH_LOGS_CLIENT = boto3.client(
-	"logs",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" )
+Basically this is critical when we do things like the S3 log pulling
+because it does TONS of concurrent connections. Without the caching it
+can take ~35 seconds to pull the logs, with the caching it takes ~5.
+"""
+BOTO3_CLIENT_CACHE = ExpiringDict(
+	max_len=500,
+	max_age_seconds=( int( os.environ.get( "assume_role_session_lifetime_seconds" ) ) - 60 )
 )
-
-CLOUDWATCH_CLIENT = boto3.client(
-	"cloudwatch",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" )
-)
-
-APIGATEWAY_CLIENT = boto3.client(
-	"apigateway",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" )
-)
-
-def pprint( input_dict ):
-	try:
-		print( json.dumps( input_dict, sort_keys=True, indent=4, separators=( ",", ": " ) ) )
-	except:
-		print( input_dict )
+def get_aws_client( client_type, credentials ):
+	"""
+	Take an AWS client type ("s3", "lambda", etc) and utilize
+	STS to assume role into the customer's account and return
+	a key and token for the admin service account ("DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT")
+	"""
+	global BOTO3_CLIENT_CACHE
+	
+	cache_key = client_type + credentials[ "account_id" ] + credentials[ "region" ]
+	
+	if cache_key in BOTO3_CLIENT_CACHE:
+		return BOTO3_CLIENT_CACHE[ cache_key ]
+	
+	# Generate the Refinery AWS management role ARN we are going to assume into
+	sub_account_admin_role_arn = "arn:aws:iam::" + credentials[ "account_id" ] + ":role/DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT"
+	
+	# We need to generate a random role session name
+	role_session_name = "Refinery-Managed-Account-Support-" + get_urand_password( 12 )
+	
+	# Perform the assume role action
+	assume_role_response = STS_CLIENT.assume_role(
+		RoleArn=sub_account_admin_role_arn,
+		RoleSessionName=role_session_name,
+		DurationSeconds=int( os.environ.get( "assume_role_session_lifetime_seconds" ) )
+	)
+	
+	# Remove non-JSON serializable part from response
+	del assume_role_response[ "Credentials" ][ "Expiration" ]
+	
+	# Take the assume role credentials and use it to create a boto3 session
+	boto3_session = boto3.Session(
+		aws_access_key_id=assume_role_response[ "Credentials" ][ "AccessKeyId" ],
+		aws_secret_access_key=assume_role_response[ "Credentials" ][ "SecretAccessKey" ],
+		aws_session_token=assume_role_response[ "Credentials" ][ "SessionToken" ],
+		region_name=credentials[ "region" ],
+	)
+	
+	# Options for boto3 client
+	client_options = {}
+	
+	# Custom configurations depending on the client type
+	if client_type == "lambda":
+		client_options[ "config" ] = Config(
+			connect_timeout=50,
+			read_timeout=( 60 * 15 )
+		)
+	elif client_type == "s3":
+		client_options[ "config" ] = Config(
+			max_pool_connections=( 1000 * 2 )
+		)
+	
+	# Use the new boto3 session to create a boto3 client
+	boto3_client = boto3_session.client(
+		client_type,
+		**client_options
+	)
+	
+	# Store it in the cache for future access
+	BOTO3_CLIENT_CACHE[ cache_key ] = boto3_client
+	
+	return boto3_client
 		
 def logit( message, message_type="info" ):
+	# Attempt to parse the message as json
+	# If we can then prettify it before printing
+	try:
+		message = json.loads( message )
+		message = json.dumps(
+			input_dict,
+			sort_keys=True,
+			indent=4,
+			separators=( ",", ": " )
+		)
+	except:
+		pass
+	
 	if message_type == "info":
 		logging.info( message )
 	elif message_type == "warn":
 		logging.warn( message )
+	elif message_type == "error":
+		logging.error( message )
 	elif message_type == "debug":
 		logging.debug( message )
 	else:
@@ -227,7 +273,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 		self.set_header( "Cache-Control", "no-cache, no-store, must-revalidate" )
 		self.set_header( "Pragma", "no-cache" )
 		self.set_header( "Expires", "0" )
-
+    
 	def initialize( self ):
 		if 'Origin' not in self.request.headers:
 			return
@@ -237,14 +283,156 @@ class BaseHandler( tornado.web.RequestHandler ):
 		# Identify if the request is coming from a domain that is in the whitelist
 		# If it is, set the necessary CORS response header to allow the request to succeed.
 		if host_header in allowed_origins:
-			self.set_header( "Access-Control-Allow-Origin", host_header, )
-
-	def logit( self, message, message_type="info" ):
-		message = "[" + self.request.remote_ip + "] " + message
+			self.set_header( "Access-Control-Allow-Origin", host_header )
 		
-		logit( message )
+		# For caching the currently-authenticated user
+		self.authenticated_user = None
+		
+	def authenticate_user_id( self, user_id ):
+		# Set authentication cookie
+		self.set_secure_cookie(
+			"session",
+			json.dumps({
+				"user_id": user_id,
+			}),
+			expires_days=int( os.environ.get( "cookie_expire_days" ) )
+		)
+		
+	def is_owner_of_project( self, project_id ):
+		# Check to ensure the user owns the project
+		project = session.query( Project ).filter_by(
+			id=project_id
+		).first()
+		
+		# Iterate over project owners and see if one matches
+		# the currently authenticated user
+		is_owner = False
+		
+		for project_owner in project.users:
+			if self.get_authenticated_user_id() == project_owner.id:
+				is_owner = True
+				
+		return is_owner
+		
+	def get_authenticated_user_cloud_configurations( self ):
+		"""
+		This returns the cloud configurations for the current user.
+		
+		This mainly means things like AWS credentials, S3 buckets
+		used for package builders, etc.
+		
+		This will return a list of configuration JSON objects. Note
+		that in the beggining we will ALWAYS just use the first JSON
+		object in the list because we don't support multiple AWS deploys
+		yet.
+		"""
+		# Pull the authenticated user's organization
+		user_organization = self.get_authenticated_user_org()
+		
+		if user_organization == None:
+			return None
+		
+		# Returned list of JSON cloud config data
+		cloud_configuration_list = []
+		
+		# Return the JSON objects for all AWS accounts
+		for aws_account in user_organization.aws_accounts:
+			cloud_configuration_list.append(
+				aws_account.to_dict()
+			)
+			
+		return cloud_configuration_list
+		
+	def get_authenticated_user_cloud_configuration( self ):
+		"""
+		This just returns the first cloud configuration. Short term use since we'll
+		eventually be moving to a multiple AWS account deploy system.
+		"""
+		cloud_configurations = self.get_authenticated_user_cloud_configurations()
+		
+		if len( cloud_configurations ) > 0:
+			return cloud_configurations[ 0 ]
+		
+		return False
+		
+	def get_authenticated_user_org( self ):
+		# First we grab the organization ID
+		authentication_user = self.get_authenticated_user()
+		
+		if authentication_user == None:
+			return None
+		
+		# Get organization user is a part of
+		user_org = session.query( Organization ).filter_by(
+			id=authentication_user.organization_id
+		).first()
+		
+		return user_org
+		
+	def get_authenticated_user_id( self ):
+		# Get secure cookie data
+		secure_cookie_data = self.get_secure_cookie(
+			"session",
+			max_age_days=int( os.environ.get( "cookie_expire_days" ) )
+		)
+		
+		if secure_cookie_data == None:
+			return None
+			
+		session_data = json.loads(
+			secure_cookie_data
+		)
+		
+		if not ( "user_id" in session_data ):
+			return None
+			
+		return session_data[ "user_id" ]
+		
+	def get_authenticated_user( self ):
+		"""
+		Grabs the currently authenticated user
+		
+		This will be cached after the first call of
+		this method,
+		"""
+		if self.authenticated_user != None:
+			return self.authenticated_user
+		
+		user_id = self.get_authenticated_user_id()
+		
+		if user_id == None:
+			return None
+		
+		# Pull related user
+		authenticated_user = session.query( User ).filter_by(
+			id=str( user_id )
+		).first()
+		
+		self.authenticated_user = authenticated_user
+
+		return authenticated_user
 		
 	def prepare( self ):
+		"""
+		/service/ path protection requiring a shared-secret to access them.
+		"""
+		if self.request.path.startswith( "/services/" ):
+			services_auth_header = self.request.headers.get( "X-Service-Secret", None )
+			services_auth_param = self.get_argument( "secret", None )
+			
+			service_secret = None
+			if services_auth_header:
+				service_secret = services_auth_header
+			elif services_auth_param:
+				service_secret = services_auth_param
+				
+			if os.environ.get( "service_shared_secret" ) != service_secret:
+				self.error(
+					"You are hitting a service URL, you MUST provide the shared secret in either a 'secret' parameter or the 'X-Service-Secret' header to use this.",
+					"ACCESS_DENIED_SHARED_SECRET_REQUIRED"
+				)
+				return
+		
 		"""
 		Cloudflare auth JWT validation
 		"""
@@ -256,7 +444,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 					"Error, no Cloudflare Access 'CF_Authorization' cookie set.",
 					"CF_ACCESS_NO_COOKIE"
 				)
-				raise gen.Return()
+				return
 				
 			valid_token = False
 			
@@ -272,12 +460,11 @@ class BaseHandler( tornado.web.RequestHandler ):
 					pass
 			
 			if not valid_token:
-				print( "Cloudflare Access verification check failed." )
 				self.error(
 					"Error, Cloudflare Access verification check failed.",
 					"CF_ACCESS_DENIED"
 				)
-				raise gen.Return()
+				return
 		
 		csrf_validated = self.request.headers.get(
 			"X-CSRF-Validation-Header",
@@ -315,29 +502,1121 @@ class BaseHandler( tornado.web.RequestHandler ):
 		session.close()
 
 	def error( self, error_message, error_id ):
-		self.logit(
+		self.set_status( 500 )
+		logit(
 			error_message,
 			message_type="warn"
 		)
 		
-		self.write(json.dumps({
+		self.finish({
 			"success": False,
 			"msg": error_message,
-			"id": error_id
-		}))
+			"code": error_id
+		})
+		
+"""
+Decorators
+"""
+def authenticated( func ):
+	"""
+	Decorator to ensure the user is currently authenticated.
 	
+	If the user is not, the response will be:
+	{
+		"success": false,
+		"code": "AUTH_REQUIRED",
+		"msg": "...",
+	}
+	"""
+	def wrapper( *args, **kwargs ):
+		self_reference = args[0]
+		
+		authenticated_user = self_reference.get_authenticated_user()
+		
+		if authenticated_user == None:
+			self_reference.write({
+				"success": False,
+				"code": "AUTH_REQUIRED",
+				"msg": "You must be authenticated to do this!",
+			})
+			return
+		
+		return func( *args, **kwargs )
+	return wrapper
+	
+def disable_on_overdue_payment( func ):
+	"""
+	Decorator to disable specific endpoints if the user
+	is in collections and needs to settle up their bill.
+	
+	If the user is not, the response will be:
+	{
+		"success": false,
+		"code": "ORGANIZATION_UNSETTLED_BILLS",
+		"msg": "...",
+	}
+	"""
+	def wrapper( *args, **kwargs ):
+		self_reference = args[0]
+		
+		# Pull the authenticated user
+		authenticated_user = self_reference.get_authenticated_user()
+		
+		# Pull the user's org to see if any payments are overdue
+		authenticated_user_org = authenticated_user.organization
+		
+		if authenticated_user_org.payments_overdue == True:
+			self_reference.write({
+				"success": False,
+				"code": "ORGANIZATION_UNSETTLED_BILLS",
+				"msg": "This organization has an unsettled bill which is overdue for payment. This action can not be performed until the outstanding bills have been paid.",
+			})
+			return
+		
+		# Check if the user is on a free trial and if the free trial is over
+		trial_info = get_user_free_trial_information( authenticated_user )
+		
+		if trial_info[ "is_using_trial" ] and trial_info[ "trial_over" ]:
+			self_reference.write({
+				"success": False,
+				"code": "USER_FREE_TRIAL_ENDED",
+				"msg": "Your free trial has ended, you must supply a payment method in order to perform this action.",
+			})
+			return
+		
+		return func( *args, **kwargs )
+	return wrapper
+	
+def get_billing_rounded_float( input_price_float ):
+	"""
+	This is used because Stripe only allows you to charge line
+	items in cents. Meaning that some rounding will occur on the
+	final line items on the bill. AWS returns us lengthy-floats which
+	means that the conversion will have to be done in both the invoice
+	billing and the bill calculation endpoints the same way. We also have
+	to do this in a safe round up way that won't accidentally under-bill
+	our customers.
+	
+	This endpoint basically converts the AWS float into cents, rounds it,
+	and then converts it back to a float rounded appropriately to two digits
+	and returns the float again. All billing code should use this to ensure
+	consistency in what the user sees from a billing point of view.
+	"""
+	# Special case is when the input float is 0
+	if input_price_float == 0:
+		return float( 0.00 )
+
+	# Round float UP TO second digit
+	# Meaning 10.015 becomes 10.02
+	# and 10.012 becomes 10.02
+	rounded_up_float = (
+		math.ceil(
+			input_price_float * 100
+		) / 100
+	)
+	
+	return rounded_up_float
+	
+# Custom exceptions
+class CardIsPrimaryException(Exception):
+    pass
+
 class TaskSpawner(object):
 		def __init__(self, loop=None):
 			self.executor = futures.ThreadPoolExecutor( 60 )
 			self.loop = loop or tornado.ioloop.IOLoop.current()
 			
-		@run_on_executor
-		def execute_aws_lambda( self, arn, input_data ):
-			return TaskSpawner._execute_aws_lambda( arn, input_data )
+		@staticmethod
+		def unfreeze_aws_account( credentials ):
+			"""
+			Unfreezes a previously-frozen AWS account, this is for situations
+			where a user has gone over their free-trial or billing limit leading
+			to their account getting frozen. By calling this the account will be
+			re-enabled for regular Refinery use.
+			* De-throttle all AWS Lambdas
+			* Turn on EC2 instances (redis)
+			"""
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
+			ec2_client = get_aws_client(
+				"ec2",
+				credentials
+			)
+			
+			# Pull all Lambda ARN(s)
+			lambda_arns = TaskSpawner.get_lambda_arns(
+				credentials
+			)
+			
+			# Remove function throttle from each Lambda
+			for lambda_arn in lambda_arns:
+				lambda_client.delete_function_concurrency(
+					FunctionName=lambda_arn
+				)
+			
+			# Start EC2 instance(s)
+			ec2_instance_ids = TaskSpawner.get_ec2_instance_ids( credentials )
+
+			start_instance_response = ec2_client.start_instances(
+				InstanceIds=ec2_instance_ids
+			)
+			
+			return True
+			
+		@staticmethod
+		def get_lambda_arns( credentials ):
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
+			# Now we throttle all of the user's Lambdas so none will execute
+			# First we pull all of the user's Lambdas
+			lambda_list_params = {
+				"MaxItems": 50,
+			}
+			
+			# The list of Lambda ARNs
+			lambda_arn_list = []
+			
+			while True:
+				lambda_functions_response = lambda_client.list_functions(
+					**lambda_list_params
+				)
+				
+				for lambda_function_data in lambda_functions_response[ "Functions" ]:
+					lambda_arn_list.append(
+						lambda_function_data[ "FunctionArn" ]
+					)
+				
+				# Only do another loop if we have more results
+				if not ( "NextMarker" in lambda_functions_response ):
+					break
+				
+				lambda_list_params[ "Marker" ] = lambda_functions_response[ "NextMarker" ]
+
+			# Iterate over list of Lambda ARNs and set concurrency to zero for all
+			for lambda_arn in lambda_arn_list:
+				lambda_client.put_function_concurrency(
+					FunctionName=lambda_arn,
+					ReservedConcurrentExecutions=0
+				)
+				
+			return lambda_arn_list
+			
+		@staticmethod
+		def get_ec2_instance_ids( credentials ):
+			ec2_client = get_aws_client(
+				"ec2",
+				credentials
+			)
+			
+			# Turn off all EC2 instances (AKA just redis)
+			ec2_describe_instances_response = ec2_client.describe_instances(
+				MaxResults=1000
+			)
+
+			# List of EC2 instance IDs
+			ec2_instance_ids = []
+			
+			for ec2_instance_data in ec2_describe_instances_response[ "Reservations" ][0][ "Instances" ]:
+				ec2_instance_ids.append(
+					ec2_instance_data[ "InstanceId" ]
+				)
+				
+			return ec2_instance_ids
 		
 		@staticmethod
-		def _execute_aws_lambda( arn, input_data ):
-			response = LAMBDA_CLIENT.invoke(
+		def freeze_aws_account( credentials ):
+			"""
+			Freezes an AWS sub-account when the user has gone past
+			their free trial or when they have gone tardy on their bill.
+			
+			This is different from closing an AWS sub-account in that it preserves
+			the underlying resources in the account. Generally this is the
+			"warning shot" before we later close the account and delete it all.
+			
+			The steps are as follows:
+			* Disable AWS console access by changing the password
+			* Revoke all active AWS console sessions - TODO
+			* Iterate over all deployed Lambdas and throttle them
+			* Stop all active CodeBuilds
+			* Turn-off EC2 instances (redis)
+			"""
+			iam_client = get_aws_client(
+				"iam",
+				credentials
+			)
+			
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
+			codebuild_client = get_aws_client(
+				"codebuild",
+				credentials
+			)
+			
+			ec2_client = get_aws_client(
+				"ec2",
+				credentials
+			)
+			
+			# Change the user's console login password
+			# They won't be able to get a new one because the console
+			# password will only be returned when their account is in
+			# good payment standing.
+			new_console_user_password = get_urand_password( 128 )
+			update_login_profile_response = iam_client.update_login_profile(
+				UserName=credentials[ "iam_admin_username" ],
+				Password=new_console_user_password,
+				PasswordResetRequired=False
+			)
+
+			# Update the console login in the database
+			aws_account = session.query( AWSAccount ).filter_by(
+				account_id=credentials[ "account_id" ]
+			).first()
+			aws_account.iam_admin_password = new_console_user_password
+			session.commit()
+			
+			# Get Lambda ARNs
+			lambda_arn_list = TaskSpawner.get_lambda_arns( credentials )
+			
+			# List all CodeBuild builds and stop any that are running
+			codebuild_build_ids = []
+			codebuild_list_params = {}
+			
+			while True:
+				codebuild_list_response = codebuild_client.list_builds(
+					**codebuild_list_params
+				)
+				
+				for build_id in codebuild_list_response[ "ids" ]:
+					codebuild_build_ids.append(
+						build_id
+					)
+				
+				if not ( "nextToken" in codebuild_list_response ):
+					break
+				
+				codebuild_list_params[ "nextToken" ] = codebuild_list_response[ "nextToken" ]
+			
+			# We now scan these builds to see if they are currently running.
+			# We can do this in batches of 100
+			active_build_ids = []
+			chunk_size = 100
+			
+			while len( codebuild_build_ids ) > 0:
+				chunk_of_build_ids = codebuild_build_ids[:chunk_size]
+				remaining_build_ids = codebuild_build_ids[chunk_size:]
+				codebuild_build_ids = remaining_build_ids
+				
+				# Pull the information for the build ID chunk
+				builds_info_response = codebuild_client.batch_get_builds(
+					ids=chunk_of_build_ids,
+				)
+				
+				# Iterate over the builds info response to find live build IDs
+				for build_info in builds_info_response[ "builds" ]:
+					if build_info[ "buildStatus" ] == "IN_PROGRESS":
+						active_build_ids.append(
+							build_info[ "id" ]
+						)
+			
+			# Run through all active builds and stop them in their place
+			for active_build_id in active_build_ids:
+				stop_build_response = codebuild_client.stop_build(
+					id=active_build_id
+				)
+				
+			ec2_instance_ids = TaskSpawner.get_ec2_instance_ids( credentials )
+
+			stop_instance_response = ec2_client.stop_instances(
+				InstanceIds=ec2_instance_ids
+			)
+			
+			return False
+			
+		@staticmethod
+		def send_account_freeze_email( aws_account_id, amount_accumulated, organization_admin_email ):
+			response = SES_EMAIL_CLIENT.send_email(
+				Source=os.environ.get( "ses_emails_from_email" ),
+				Destination={
+					"ToAddresses": [
+						os.environ.get( "free_trial_freeze_alerts" ),
+					]
+				},
+				Message={
+					"Subject": {
+						"Data": "[Freeze Alert] The Refinery AWS Account #" + aws_account_id + " has been frozen for going over its account limit!",
+						"Charset": "UTF-8"
+					},
+					"Body": {
+						"Html": {
+							"Data": pystache.render(
+								EMAIL_TEMPLATES[ "account_frozen_alert" ],
+								{
+									"aws_account_id": aws_account_id,
+									"free_trial_billing_limit": os.environ.get( "free_trial_billing_limit" ),
+									"amount_accumulated": amount_accumulated,
+									"organization_admin_email": organization_admin_email,
+								}
+							),
+							"Charset": "UTF-8"
+						}
+					}
+				}
+			)
+		
+		@run_on_executor
+		def send_registration_confirmation_email( self, email_address, auth_token ):
+			registration_confirmation_link = os.environ.get( "access_control_allow_origin" ) + "/authentication/email/" + auth_token
+			response = SES_EMAIL_CLIENT.send_email(
+				Source=os.environ.get( "ses_emails_from_email" ),
+				Destination={
+					"ToAddresses": [
+						email_address,
+					]
+				},
+				Message={
+					"Subject": {
+						"Data": "RefineryLabs.io - Confirm your Refinery registration",
+						"Charset": "UTF-8"
+					},
+					"Body": {
+						"Text": {
+							"Data": pystache.render(
+								EMAIL_TEMPLATES[ "registration_confirmation_text" ],
+								{
+									"registration_confirmation_link": registration_confirmation_link,
+								}
+							),
+							"Charset": "UTF-8"
+						},
+						"Html": {
+							"Data": pystache.render(
+								EMAIL_TEMPLATES[ "registration_confirmation" ],
+								{
+									"registration_confirmation_link": registration_confirmation_link,
+								}
+							),
+							"Charset": "UTF-8"
+						}
+					}
+				}
+			)
+	
+		@run_on_executor
+		def send_authentication_email( self, email_address, auth_token ):
+			authentication_link = os.environ.get( "access_control_allow_origin" ) + "/authentication/email/" + auth_token
+			response = SES_EMAIL_CLIENT.send_email(
+				Source=os.environ.get( "ses_emails_from_email" ),
+				Destination={
+					"ToAddresses": [
+						email_address,
+					]
+				},
+				Message={
+					"Subject": {
+						"Data": "RefineryLabs.io - Login by email confirmation",
+						"Charset": "UTF-8"
+					},
+					"Body": {
+						"Text": {
+							"Data": pystache.render(
+								EMAIL_TEMPLATES[ "authentication_email_text" ],
+								{
+									"email_authentication_link": authentication_link,
+								}
+							),
+							"Charset": "UTF-8"
+						},
+						"Html": {
+							"Data": pystache.render(
+								EMAIL_TEMPLATES[ "authentication_email" ],
+								{
+									"email_authentication_link": authentication_link,
+								}
+							),
+							"Charset": "UTF-8"
+						}
+					}
+				}
+			)
+			
+		@run_on_executor
+		def stripe_create_customer( self, email, name ):
+			# Create a customer in Stripe
+			customer = stripe.Customer.create(
+				email=email,
+				name=name,
+			)
+			
+			return customer[ "id" ]
+			
+		@run_on_executor
+		def associate_card_token_with_customer_account( self, stripe_customer_id, card_token ):
+			# Add the card to the customer's account.
+			new_card = stripe.Customer.create_source(
+				stripe_customer_id,
+				source=card_token
+			)
+			
+			return new_card[ "id" ]
+			
+		@run_on_executor
+		def get_account_cards( self, stripe_customer_id ):
+			return TaskSpawner._get_account_cards( stripe_customer_id )
+			
+		@staticmethod
+		def _get_account_cards( stripe_customer_id ):
+			# Pull all of the metadata for the cards the customer
+			# has on file with Stripe
+			cards = stripe.Customer.list_sources(
+				stripe_customer_id,
+				object="card",
+				limit=100,
+			)
+			
+			# Pull the user's default card and add that
+			# metadata to the card
+			customer_info = TaskSpawner._get_stripe_customer_information(
+				stripe_customer_id
+			)
+			
+			for card in cards:
+				is_primary = False
+				if card[ "id" ] == customer_info[ "default_source" ]:
+					is_primary = True
+				card[ "is_primary" ] = is_primary
+			
+			return cards[ "data" ]
+			
+		@run_on_executor
+		def get_stripe_customer_information( self, stripe_customer_id ):
+			return TaskSpawner._get_stripe_customer_information( stripe_customer_id )
+			
+		@staticmethod
+		def _get_stripe_customer_information( stripe_customer_id ):
+			return stripe.Customer.retrieve(
+				stripe_customer_id
+			)
+			
+		@run_on_executor
+		def set_stripe_customer_default_payment_source( self, stripe_customer_id, card_id ):
+			customer_update_response = stripe.Customer.modify(
+				stripe_customer_id,
+				default_source=card_id,
+			)
+			
+			logit( customer_update_response )
+			
+		@run_on_executor
+		def delete_card_from_account( self, stripe_customer_id, card_id ):
+			# We first have to pull the customers information so we
+			# can verify that they are not deleting their default
+			# payment source from Stripe.
+			customer_information = TaskSpawner._get_stripe_customer_information(
+				stripe_customer_id
+			)
+			
+			# Throw an exception if this is the default source for the user
+			if customer_information[ "default_source" ] == card_id:
+				raise CardIsPrimaryException()
+				
+			return True
+			
+			# Delete the card from STripe
+			delete_response = stripe.Customer.delete_source(
+				stripe_customer_id,
+				card_id
+			)
+			
+			return cards[ "data" ]
+			
+		@run_on_executor
+		def generate_managed_accounts_invoices( self, start_date_string, end_date_string ):
+			"""
+			Bills ultimately belong to the organization but are paid by
+			the ADMINS of the organization. So we generate the invoices and
+			then send them to the admins on the account for payment.
+			
+			Note that this is purely for accounts which are "managed" meaning
+			we own the billing of the sub-AWS accounts and we upcharge and
+			bill the customer.
+			"""
+			# Pull a list of organizations to generate invoices for
+			organizations = session.query( Organization )
+			
+			# List of invoices to send out at the end
+			"""
+			{
+				# To send invoice emails
+				"admin_stripe_id": "...",
+				"aws_account_bills": [],
+			}
+			"""
+			invoice_list = []
+			
+			# Setting for if Refinery should just finalize the invoices
+			# or if manual approve/editing is enabled. One is more careful
+			# than the others.
+			finalize_invoices_enabled = json.loads(
+				os.environ.get( "stripe_finalize_invoices" )
+			)
+			
+			# Iterate over each organization
+			for organization in organizations:
+				# If the organization is disabled we just skip it
+				if organization.disabled == True:
+					continue
+				
+				# Check if the organization billing admin has validated
+				# their email address. If not it means they never finished
+				# the signup process so we can skip them.
+				if organization.billing_admin_user.email_verified == False:
+					continue
+				
+				current_organization_invoice_data = {
+					"admin_stripe_id": "...",
+					"aws_account_bills": [],
+				}
+				
+				# Pull the organization billing admin and send them
+				# the invoice email so they can pay it.
+				current_organization_invoice_data[ "admin_stripe_id" ] = organization.billing_admin_user.payment_id
+				
+				# Pull billing information for each AWS account
+				for aws_account in organization.aws_accounts:
+					# Skip the AWS account if it's not managed
+					if aws_account.account_type != "MANAGED":
+						continue
+					
+					billing_information = TaskSpawner._get_sub_account_billing_data(
+						aws_account.account_id,
+						start_date_string,
+						end_date_string,
+						"monthly",
+						False
+					)
+					
+					current_organization_invoice_data[ "aws_account_bills" ].append({
+						"aws_account_label": aws_account.account_label,
+						"aws_account_id": aws_account.account_id,
+						"billing_information": billing_information,
+					})
+				
+				invoice_list.append(
+					current_organization_invoice_data
+				)
+			
+			for invoice_data in invoice_list:
+				for aws_account_billing_data in invoice_data[ "aws_account_bills" ]:
+					# We send one bill per managed AWS account if they have multiple
+					
+					for service_cost_data in aws_account_billing_data[ "billing_information" ][ "service_breakdown" ]:
+						line_item_cents = int(
+							float( service_cost_data[ "total" ] ) * 100
+						)
+						
+						# If the item costs zero cents don't add it to the bill.
+						if line_item_cents > 0:
+							service_description = "Managed " + service_cost_data[ "service_name" ]
+							
+							if aws_account_billing_data[ "aws_account_label" ].strip() != "":
+								service_description = service_description + " (Cloud Account: '" + aws_account_billing_data[ "aws_account_label" ] + "')"
+							
+							stripe.InvoiceItem.create(
+								# Stripe bills in cents!
+								amount=line_item_cents,
+								currency=str( service_cost_data[ "unit" ] ).lower(),
+								customer=invoice_data[ "admin_stripe_id" ],
+								description=service_description,
+							)
+					
+					invoice_creation_params = {
+						"customer": invoice_data[ "admin_stripe_id" ],
+						"auto_advance": True,
+						"billing": "charge_automatically",
+						"metadata": {
+							"aws_account_id": aws_account_billing_data[ "aws_account_id" ]
+						}
+					}
+					
+					customer_invoice = stripe.Invoice.create(
+						**invoice_creation_params
+					)
+					
+					if finalize_invoices_enabled:
+						customer_invoice.send_invoice()
+			
+			# Notify finance department that they have an hour to review the
+			response = SES_EMAIL_CLIENT.send_email(
+				Source=os.environ.get( "ses_emails_from_email" ),
+				Destination={
+					"ToAddresses": [
+						os.environ.get( "billing_alert_email" ),
+					]
+				},
+				Message={
+					"Subject": {
+						"Data": "[URGENT][IMPORTANT]: Monthly customer invoice generation has completed. One hour to auto-finalization.",
+						"Charset": "UTF-8"
+					},
+					"Body": {
+						"Html": {
+							"Data": "The monthly Stripe invoice generation has completed. You have <b>one hour</b> to review invoices before they go out to customers.<br /><a href=\"https://dashboard.stripe.com/invoices\"><b>Click here to review the generated invoices</b></a><br /><br />",
+							"Charset": "UTF-8"
+						}
+					}
+				}
+			)
+		@run_on_executor
+		def pull_current_month_running_account_totals( self ):
+			"""
+			This runs through all of the sub-AWS accounts managed
+			by Refinery and returns an array like the following:
+			{
+				"aws_account_id": "00000000000",
+				"billing_total": "12.39",
+				"unit": "USD",
+			}
+			"""
+			date_info = get_current_month_start_and_end_date_strings()
+			
+			metric_name = "NetUnblendedCost"
+			aws_account_running_cost_list = []
+			
+			ce_params = {
+				"TimePeriod": {
+					"Start": date_info[ "month_start_date" ],
+					"End": date_info[ "next_month_first_day" ],
+				},
+				"Granularity": "MONTHLY",
+				"Metrics": [
+					metric_name
+				],
+				"GroupBy": [
+					{
+						"Type": "DIMENSION",
+						"Key": "LINKED_ACCOUNT"
+					}
+				]
+			}
+			
+			ce_response = {}
+			
+			while True:
+				ce_response = COST_EXPLORER.get_cost_and_usage(
+					**ce_params
+				)
+				account_billing_results = ce_response[ "ResultsByTime" ][0][ "Groups" ]
+				
+				for account_billing_result in account_billing_results:
+					aws_account_running_cost_list.append({
+						"aws_account_id": account_billing_result[ "Keys" ][0],
+						"billing_total": account_billing_result[ "Metrics" ][ metric_name ][ "Amount" ],
+						"unit": account_billing_result[ "Metrics" ][ metric_name ][ "Unit" ],
+					})
+				
+				# Stop here if there are no more pages to iterate through.
+				if ( "NextPageToken" in ce_response ) == False:
+					break
+				
+				# If we have a next page token, then add it to our
+				# parameters for the next paginated calls.
+				ce_params[ "NextPageToken" ] = ce_response[ "NextPageToken" ]
+				
+			return aws_account_running_cost_list
+			
+		@run_on_executor
+		def enforce_account_limits( self, aws_account_running_cost_list ):
+			"""
+			{
+				"aws_account_id": "00000000000",
+				"billing_total": "12.39",
+				"unit": "USD",
+			}
+			"""
+			# Pull the configured free trial account limits
+			free_trial_user_max_amount = float( os.environ.get( "free_trial_billing_limit" ) )
+			
+			# Iterate over the input list and pull the related accounts
+			for aws_account_info in aws_account_running_cost_list:
+				# Pull relevant AWS account
+				aws_account = session.query( AWSAccount ).filter_by(
+					account_id=aws_account_info[ "aws_account_id" ],
+					is_reserved_account=False,
+				).first()
+				
+				# If there's no related AWS account in the database
+				# we just skip over it because it's likely a non-customer
+				# AWS account
+				if aws_account == None:
+					continue
+				
+				# Pull related organization
+				owner_organization = session.query( Organization ).filter_by(
+					id=aws_account.organization_id
+				).first()
+				
+				# Check if the user is a free trial user
+				user_trial_info = get_user_free_trial_information( owner_organization.billing_admin_user )
+				
+				# If they are a free trial user, check if their usage has
+				# exceeded the allowed limits
+				exceeds_free_trial_limit = float( aws_account_info[ "billing_total" ] ) >= free_trial_user_max_amount
+				if user_trial_info[ "is_using_trial" ] and exceeds_free_trial_limit:
+					logit( "[ STATUS ] Enumerated user has exceeded their free trial.")
+					logit( "[ STATUS ] Taking action against free-trial account..." )
+					freeze_result = TaskSpawner.freeze_aws_account(
+						aws_account.to_dict()
+					)
+					
+					# Send account frozen email to us to know that it happened
+					TaskSpawner.send_account_freeze_email(
+						aws_account_info[ "aws_account_id" ],
+						aws_account_info[ "billing_total" ],
+						owner_organization.billing_admin_user.email
+					)
+	
+		@run_on_executor
+		def get_sub_account_month_billing_data( self, account_id, billing_month, use_cache ):
+			# Parse the billing month into a datetime object
+			billing_month_datetime = datetime.datetime.strptime(
+				billing_month,
+				"%Y-%m"
+			)
+			
+			# Get first day of the month
+			billing_start_date = billing_month_datetime.strftime( "%Y-%m-%d" )
+			
+			# Get the first day of the next month
+			# This is some magic to ensure we end up on the next month since a month
+			# never has 32 days.
+			next_month_date = billing_month_datetime + datetime.timedelta( days=32 )
+			billing_end_date = next_month_date.strftime( "%Y-%m-01" )
+			
+			return TaskSpawner._get_sub_account_billing_data(
+				account_id,
+				billing_start_date,
+				billing_end_date,
+				"monthly",
+				use_cache
+			)
+			
+		@staticmethod
+		def _get_sub_account_billing_data( account_id, start_date, end_date, granularity, use_cache ):
+			"""
+			Pull the service breakdown list and return it along with the totals.
+			Note that this data is not marked up. This function does the work of marking it up.
+			{
+				"bill_total": {
+					"total": "283.92",
+					"unit": "USD"
+				},
+				"service_breakdown": [
+					{
+						"service_name": "AWS Cost Explorer",
+						"total": "1.14",
+						"unit": "USD"
+					},
+				...
+			"""
+			service_breakdown_list = TaskSpawner._get_sub_account_service_breakdown_list(
+				account_id,
+				start_date,
+				end_date,
+				granularity,
+				use_cache
+			)
+			
+			return_data = {
+				"bill_total": {
+					"total": 0,
+					"unit": "USD",
+				},
+				"service_breakdown": []
+			}
+			
+			total_amount = 0.00
+			
+			# Remove some of the AWS branding from the billing
+			remove_aws_branding_words = [
+				"AWS",
+				"Amazon",
+			]
+			
+			# Markup multiplier
+			markup_multiplier = 1 + ( int( os.environ.get( "mark_up_percent" ) ) / 100 )
+			
+			for service_breakdown_info in service_breakdown_list:
+				# Remove branding words from service name
+				service_name = service_breakdown_info[ "service_name" ]
+				for aws_branding_word in remove_aws_branding_words:
+					service_name = service_name.replace(
+						aws_branding_word,
+						""
+					).strip()
+				
+				# Mark up the total for the service
+				service_total = float( service_breakdown_info[ "total" ] )
+				
+				# Don't add it as a line item if it's zero
+				if service_total > 0:
+					service_total = get_billing_rounded_float(
+						service_total
+					) * markup_multiplier
+						
+					return_data[ "service_breakdown" ].append({
+						"service_name": service_name,
+						"unit": service_breakdown_info[ "unit" ],
+						"total": ( "%.2f" % service_total ),
+					})
+					
+					total_amount = total_amount + service_total
+			
+			return_data[ "bill_total" ] = ( "%.2f" % total_amount )
+			
+			return return_data
+		
+		@staticmethod
+		def _get_sub_account_service_breakdown_list( account_id, start_date, end_date, granularity, use_cache ):
+			"""
+			Return format:
+			
+			[
+				{
+					"service_name": "EC2 - Other",
+					"unit": "USD",
+					"total": "10.0245523",
+				}
+				...
+			]
+			"""
+			# Pull related AWS account and get the database ID for it
+			aws_account = session.query( AWSAccount ).filter_by(
+				account_id=account_id,
+			).first()
+
+			# If the use_cache is enabled we'll check the database for an
+			# already cached bill.
+			# The oldest a cached bill can be is 24 hours, otherwise a new
+			# one will be generated and cached. This allows our customers to
+			# always have a daily service total if they want it.
+			if use_cache:
+				current_timestamp = int( time.time() )
+				# Basically 24 hours before the current time.
+				oldest_usable_cached_result_timestamp = current_timestamp - ( 60 * 60 * 24 )
+				billing_collection = session.query( CachedBillingCollection ).filter_by(
+					billing_start_date=start_date,
+					billing_end_date=end_date,
+					billing_granularity=granularity,
+					aws_account_id=aws_account.id
+				).filter(
+					CachedBillingCollection.timestamp >= oldest_usable_cached_result_timestamp
+				).order_by(
+					CachedBillingCollection.timestamp.desc()
+				).first()
+				
+				# If billing collection exists format and return it
+				if billing_collection:
+					# Create a service breakdown list from database data
+					service_breakdown_list = []
+					
+					for billing_item in billing_collection.billing_items:
+						service_breakdown_list.append({
+							"service_name": billing_item.service_name,
+							"unit": billing_item.unit,
+							"total": billing_item.total,
+						})
+						
+					return service_breakdown_list
+
+			# Pull the raw billing data via the AWS CostExplorer API
+			# Note that this returned data is not marked up.
+			# This also costs us 1 cent each time we make this request
+			# Which is why we implement caching for user billing.
+			service_breakdown_list = TaskSpawner._api_get_sub_account_billing_data(
+				account_id,
+				start_date,
+				end_date,
+				granularity,
+			)
+			
+			# Since we've queried this data we'll cache it for future
+			# retrievals.
+			new_billing_collection = CachedBillingCollection()
+			new_billing_collection.billing_start_date = start_date
+			new_billing_collection.billing_end_date = end_date
+			new_billing_collection.billing_granularity = granularity
+			new_billing_collection.aws_account_id = aws_account.id
+			
+			# Add all of the line items as billing items
+			for service_breakdown_data in service_breakdown_list:
+				billing_item = CachedBillingItem()
+				billing_item.service_name = service_breakdown_data[ "service_name" ]
+				billing_item.unit = service_breakdown_data[ "unit" ]
+				billing_item.total = service_breakdown_data[ "total" ]
+				new_billing_collection.billing_items.append(
+					billing_item
+				)
+			
+			session.add( new_billing_collection )
+			session.commit()
+			
+			return service_breakdown_list
+		
+		@staticmethod
+		def _api_get_sub_account_billing_data( account_id, start_date, end_date, granularity ):
+			"""
+			account_id: 994344292413
+			start_date: 2017-05-01
+			end_date: 2017-06-01
+			granularity: "daily" || "hourly" || "monthly"
+			"""
+			metric_name = "NetUnblendedCost"
+			
+			usage_parameters = {
+				"TimePeriod": {
+					"Start": start_date,
+					"End": end_date,
+				},
+				"Filter": {
+					"Dimensions": {
+						"Key": "LINKED_ACCOUNT",
+						"Values": [
+							str( account_id )
+						]
+					}
+				},
+				"Granularity": granularity.upper(),
+				"Metrics": [ metric_name ],
+				"GroupBy": [
+					{
+						"Type": "DIMENSION",
+						"Key": "SERVICE"
+					}
+				]
+			}
+			
+			response = COST_EXPLORER.get_cost_and_usage(
+				**usage_parameters
+			)
+			cost_groups = response[ "ResultsByTime" ][0][ "Groups" ]
+			
+			service_breakdown_list = []
+			
+			for cost_group in cost_groups:
+				cost_group_name = cost_group[ "Keys" ][0]
+				unit = cost_group[ "Metrics" ][ metric_name ][ "Unit" ]
+				total = cost_group[ "Metrics" ][ metric_name ][ "Amount" ]
+				service_breakdown_list.append({
+					"service_name": cost_group_name,
+					"unit": unit,
+					"total": total,
+				})
+			
+			return service_breakdown_list
+			
+		@run_on_executor
+		def get_sub_account_billing_forecast( self, account_id, start_date, end_date, granularity ):
+			"""
+			account_id: 994344292413
+			start_date: 2017-05-01
+			end_date: 2017-06-01
+			granularity: monthly"
+			"""
+			metric_name = "NET_UNBLENDED_COST"
+			
+			# Markup multiplier
+			markup_multiplier = 1 + ( int( os.environ.get( "mark_up_percent" ) ) / 100 )
+			
+			forcecast_parameters = {
+				"TimePeriod": {
+					"Start": start_date,
+					"End": end_date,
+				},
+				"Filter": {
+					"Dimensions": {
+						"Key": "LINKED_ACCOUNT",
+						"Values": [
+							str( account_id )
+						]
+					}
+				},
+				"Granularity": granularity.upper(),
+				"Metric": metric_name
+			}
+			
+			response = COST_EXPLORER.get_cost_forecast(
+				**forcecast_parameters
+			)
+			
+			forecast_total = float( response[ "Total" ][ "Amount" ] ) * markup_multiplier
+			forecast_total_string = numpy.format_float_positional( forecast_total )
+			forecast_unit = response[ "Total" ][ "Unit" ]
+			
+			return {
+				"forecasted_total": forecast_total_string,
+				"unit": forecast_unit
+			}
+			
+		@run_on_executor
+		def check_if_layer_exists( self, credentials, layer_name ):
+			lambda_client = get_aws_client( "lambda", credentials )
+			
+			try:
+				response = lambda_client.get_layer_version(
+					LayerName=layer_name,
+					VersionNumber=1
+				)
+			except ClientError as e:
+				if e.response[ "Error" ][ "Code" ] == "ResourceNotFoundException":
+					return False
+					
+			return True
+			
+		@run_on_executor
+		def create_lambda_layer( self, credentials, layer_name, description, s3_bucket, s3_object_key ):
+			lambda_client = get_aws_client( "lambda", credentials )
+			
+			response = lambda_client.publish_layer_version(
+				LayerName="RefineryManagedLayer_" + layer_name,
+				Description=description,
+				Content={
+					"S3Bucket": s3_bucket,
+					"S3Key": s3_object_key,
+				},
+				CompatibleRuntimes=[
+					"python2.7",
+					"provided",
+				],
+				LicenseInfo="See layer contents for license information."
+			)
+			
+			return {
+				"sha256": response[ "Content" ][ "CodeSha256" ],
+				"size": response[ "Content" ][ "CodeSize" ],
+				"version": response[ "Version" ],
+				"layer_arn": response[ "LayerArn" ],
+				"layer_version_arn": response[ "LayerVersionArn" ],
+				"created_date": response[ "CreatedDate" ]
+			}
+			
+		@run_on_executor
+		def execute_aws_lambda( self, credentials, arn, input_data ):
+			return TaskSpawner._execute_aws_lambda( credentials, arn, input_data )
+		
+		@staticmethod
+		def _execute_aws_lambda( credentials, arn, input_data ):
+			lambda_client = get_aws_client( "lambda", credentials )
+			response = lambda_client.invoke(
 				FunctionName=arn,
 				InvocationType="RequestResponse",
 				LogType="Tail",
@@ -405,59 +1684,26 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def execute_aws_step_function( self, exec_name, sfn_arn, input_data ):
-			return TaskSpawner._execute_aws_step_function( exec_name, sfn_arn, input_data )
+		def delete_aws_lambda( self, credentials, arn_or_name ):
+			return TaskSpawner._delete_aws_lambda( credentials, arn_or_name )
 		
 		@staticmethod
-		def _execute_aws_step_function( exec_name, sfn_arn, input_data ):
-			response = SFN_CLIENT.start_execution(
-				stateMachineArn=sfn_arn,
-				name=exec_name,
-				input=json.dumps(
-					input_data
-				)
-			)
-			
-			return response
-			
-		@run_on_executor
-		def deploy_aws_step_function( self, sfn_name, sfn_definition, role_name ):
-			return TaskSpawner._deploy_aws_step_function( sfn_name, sfn_definition, role_name )
-
-		@staticmethod
-		def _deploy_aws_step_function( sfn_name, sfn_definition, role_name ):
-			"""
-			Deploy an AWS step function
-			"""
-			response = SFN_CLIENT.create_state_machine(
-				name=sfn_name,
-				definition=json.dumps(
-					sfn_definition
-				),
-				roleArn=role_name
-			)
-			return response
-			
-		@run_on_executor
-		def delete_aws_lambda( self, arn_or_name ):
-			return TaskSpawner._delete_aws_lambda( arn_or_name )
-		
-		@staticmethod
-		def _delete_aws_lambda( arn_or_name ):
-			response = LAMBDA_CLIENT.delete_function(
+		def _delete_aws_lambda( credentials, arn_or_name ):
+			lambda_client = get_aws_client( "lambda", credentials )
+			return lambda_client.delete_function(
 				FunctionName=arn_or_name
 			)
 			
-			return response
-			
 		@run_on_executor
-		def update_lambda_environment_variables( self, func_name, environment_variables ):
+		def update_lambda_environment_variables( self, credentials, func_name, environment_variables ):
+			lambda_client = get_aws_client( "lambda", credentials )
+			
 			# Generate environment variables data structure
 			env_data = {}
 			for env_pair in environment_variables:
 				env_data[ env_pair[ "key" ] ] = env_pair[ "value" ]
 				
-			response = LAMBDA_CLIENT.update_function_configuration(
+			response = lambda_client.update_function_configuration(
 				FunctionName=func_name,
 				Environment={
 					"Variables": env_data
@@ -466,66 +1712,114 @@ class TaskSpawner(object):
 			
 			return response
 			
-		@run_on_executor
-		def deploy_aws_lambda( self, func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
-			return TaskSpawner._deploy_aws_lambda( func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict, layers )
-
 		@staticmethod
-		def _deploy_aws_lambda( func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
-			if language in CUSTOM_RUNTIME_LANGUAGES:
-				language = "provided"
-
-			"""
-			First upload the data to S3 at {{zip_sha1}}.zip
+		def build_lambda( credentials, language, code, libraries ):
+			logit( "Building Lambda " + language + " with libraries: " + str( libraries ), "info" )
+			if not ( language in LAMBDA_SUPPORTED_LANGUAGES ):
+				raise Exception( "Error, this language '" + language + "' is not yet supported by refinery!" )
 			
-			We then can check if there's an existing cached copy
-			that we can use before we upload it ourself.
+			if language == "python2.7":
+				package_zip_data = TaskSpawner._build_python27_lambda( credentials, code, libraries )
+			elif language == "php7.3":
+				package_zip_data = TaskSpawner._build_php_73_lambda( credentials, code, libraries )
+			elif language == "nodejs8.10":
+				package_zip_data = TaskSpawner._build_nodejs_810_lambda( credentials, code, libraries )
+				
+			return package_zip_data
 			
-			TODO: Improve this method, generated zips basically never have matching sigs.
+		@run_on_executor
+		def deploy_aws_lambda( self, credentials, func_name, language, description, role_name, code, libraries, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
 			"""
-			# Generate SHA256 hash of package
+			Here we do caching to see if we've done this exact build before
+			(e.g. the same language, code, and libraries). If we have an the
+			previous zip package is still in S3 we can just return that.
+			
+			The zip key is {{SHA256_OF_LANG-CODE-LIBRARIES}}.zip
+			"""
+			# Generate libraries object for now until we modify it to be a dict/object
+			libraries_object = {}
+			for library in libraries:
+				libraries_object[ str( library ) ] = "latest"
+				
+			# Generate SHA256 hash input for caching key
+			hash_input = language + "-" + code + "-" + json.dumps( libraries_object, sort_keys=True )
 			hash_key = hashlib.sha256(
-				zip_data
+				hash_input
 			).hexdigest()
 			s3_package_zip_path = hash_key + ".zip"
 			
-			# First check if it already exists
+			# Check to see if it's in the S3 cache
 			already_exists = False
 			
-			# S3 head response
-			try:
-				s3_head_response = S3_CLIENT.head_object(
-					Bucket=os.environ.get( "tmp_lambda_packages_bucket" ),
-					Key=s3_package_zip_path
-				)
-				
-				# If we didn't encounter a not-found exception, it exists.
-				already_exists = True
-			except ClientError as e:
-				pass
+			# Create S3 client
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
+			# Check if we've already deployed this exact same Lambda before
+			already_exists = TaskSpawner._s3_object_exists(
+				credentials,
+				credentials[ "lambda_packages_bucket" ],
+				s3_package_zip_path
+			)
 			
 			if not already_exists:
-				print( "Doesn't already exist in S3 cache, writing to S3..." )
-				response = S3_CLIENT.put_object(
-					Key=s3_package_zip_path,
-					Bucket=os.environ.get( "tmp_lambda_packages_bucket" ),
-					Body=zip_data,
+				# Build the Lambda package .zip and return the zip data for it
+				lambda_zip_package_data = TaskSpawner.build_lambda(
+					credentials,
+					language,
+					code,
+					libraries
 				)
 				
+				# Write it the cache
+				s3_client.put_object(
+					Key=s3_package_zip_path,
+					Bucket=credentials[ "lambda_packages_bucket" ],
+					Body=lambda_zip_package_data,
+				)
+			
+			return TaskSpawner._deploy_aws_lambda(
+				credentials,
+				func_name,
+				language,
+				description,
+				role_name,
+				s3_package_zip_path,
+				timeout,
+				memory,
+				vpc_config,
+				environment_variables,
+				tags_dict,
+				layers
+			)
+
+		@staticmethod
+		def _deploy_aws_lambda( credentials, func_name, language, description, role_name, s3_package_zip_path, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
+			if language in CUSTOM_RUNTIME_LANGUAGES:
+				language = "provided"
+
 			# Generate environment variables data structure
 			env_data = {}
 			for env_pair in environment_variables:
 				env_data[ env_pair[ "key" ] ] = env_pair[ "value" ]
+				
+			# Create Lambda client
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
 			
 			try:
 				# https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#Lambda.Client.create_function
-				response = LAMBDA_CLIENT.create_function(
+				response = lambda_client.create_function(
 					FunctionName=func_name,
 					Runtime=language,
 					Role=role_name,
 					Handler="lambda._init",
 					Code={
-						"S3Bucket": os.environ.get( "tmp_lambda_packages_bucket" ),
+						"S3Bucket": credentials[ "lambda_packages_bucket" ],
 						"S3Key": s3_package_zip_path,
 					},
 					Description=description,
@@ -540,23 +1834,21 @@ class TaskSpawner(object):
 					Layers=layers,
 				)
 			except ClientError as e:
-				print( "Exception occured: " )
-				pprint( e )
 				if e.response[ "Error" ][ "Code" ] == "ResourceConflictException":
-					print( "Duplicate! Deleting previous to replace it..." )
-					
 					# Delete the existing lambda
 					delete_response = TaskSpawner._delete_aws_lambda(
+						credentials,
 						func_name
 					)
 					
 					# Now create it since we're clear
 					return TaskSpawner._deploy_aws_lambda(
+						credentials,
 						func_name,
 						language,
 						description,
 						role_name,
-						zip_data,
+						s3_package_zip_path,
 						timeout,
 						memory,
 						vpc_config,
@@ -565,290 +1857,600 @@ class TaskSpawner(object):
 						layers
 					)
 				else:
+					logit( "Exception occured: ", "error" )
+					logit( e, "error" )
 					return False
 			
 			return response
+		
+		@run_on_executor
+		def get_final_zip_package_path( self, language, libraries ):
+			return TaskSpawner._get_final_zip_package_path( language, libraries )
 			
 		@staticmethod
-		def get_python27_lambda_base_zip( libraries ):
-			# Check if we have a cache .zip ready to go
-			libraries.sort()
+		def _get_final_zip_package_path( language, libraries_object ):
+			hash_input = language + "-" + json.dumps( libraries_object, sort_keys=True )
 			hash_key = hashlib.sha256(
-				"python2.7" + json.dumps(
-					libraries
-				)
+				hash_input
 			).hexdigest()
+			final_s3_package_zip_path = hash_key + ".zip"
+			return final_s3_package_zip_path
 			
-			# If we have it, return it for use
-			if hash_key in DEPENDENCY_CACHE:
-				return_zip = DEPENDENCY_CACHE[ hash_key ][:]
-				return return_zip
-
-			build_directory = "/tmp/" + str( uuid.uuid4() ) + "/"
-			build_directory_env = build_directory + "env/"
-			build_directory_requirements_txt = build_directory + "requirements.txt"
-
-			# Create directory to build lambda in
-			os.mkdir(
-				build_directory
+		@staticmethod
+		def get_python27_lambda_base_zip( credentials, libraries ):
+			s3_client = get_aws_client(
+				"s3",
+				credentials
 			)
 			
-			# virtualenv
-			os.mkdir(
-				build_directory_env
+			libraries_object = {}
+			for library in libraries:
+				libraries_object[ str( library ) ] = "latest"
+			
+			final_s3_package_zip_path = TaskSpawner._get_final_zip_package_path(
+				"python2.7",
+				libraries_object
 			)
 			
-			# Create virtualenv
-			try:
-				virtualenv_process = subprocess.check_output(
-					[
-						"/usr/bin/virtualenv",
-						build_directory_env
-					]
+			if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
+				return TaskSpawner._read_from_s3(
+					credentials,
+					credentials[ "lambda_packages_bucket" ],
+					final_s3_package_zip_path
 				)
-			except subprocess.CalledProcessError, e:
-				print( "Exception occured while creating virtualenv: " )
-				print( e.output )
-				
-			# Write requirements.txt
-			with open( build_directory_requirements_txt, "w" ) as file_handler:
-				file_handler.write(
-					"\n".join(
-						libraries
+			
+			# Kick off CodeBuild for the libraries to get a zip artifact of
+			# all of the libraries.
+			build_id = TaskSpawner._start_python27_codebuild(
+				credentials,
+				libraries_object
+			)
+			
+			# This continually polls for the CodeBuild build to finish
+			# Once it does it returns the raw artifact zip data.
+			return TaskSpawner._get_codebuild_artifact_zip_data(
+				credentials,
+				build_id,
+				final_s3_package_zip_path
+			)
+			
+		@run_on_executor
+		def start_python27_codebuild( self, credentials, libraries_object ):
+			return TaskSpawner._start_python27_codebuild( credentials, libraries_object )
+			
+		@staticmethod
+		def _start_python27_codebuild( credentials, libraries_object ):
+			"""
+			Returns a build ID to be polled at a later time
+			"""
+			codebuild_client = get_aws_client(
+				"codebuild",
+				credentials
+			)
+			
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
+			requirements_text = ""
+			for key, value in libraries_object.iteritems():
+				if value != "latest":
+					requirements_text += key + "==" + value + "\n"
+				else:
+					requirements_text += key + "\n"
+			
+			# Create empty zip file
+			codebuild_zip = io.BytesIO( EMPTY_ZIP_DATA )
+			
+			buildspec_template = {
+				"artifacts": {
+					"files": [
+						 "**/*"
+					]
+				},
+				"phases": {
+					"build": {
+						"commands": [
+							"pip install --target . -r requirements.txt"
+						]
+					},
+				},
+				"run-as": "root",
+				"version": 0.1
+			}
+			
+			with zipfile.ZipFile( codebuild_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+				# Write buildspec.yml defining the build process
+				buildspec = zipfile.ZipInfo(
+					"buildspec.yml"
+				)
+				buildspec.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					buildspec,
+					yaml.dump(
+						buildspec_template
 					)
 				)
 				
-			# Using virtualenv pip, install packages
-			try:
-				virtualenv_process = subprocess.check_output(
-					[
-						build_directory_env + "bin/pip",
-						"install",
-						"-r",
-						build_directory_requirements_txt
-					]
+				# Write the package.json
+				requirements_txt_file = zipfile.ZipInfo(
+					"requirements.txt"
 				)
-			except subprocess.CalledProcessError, e:
-				print( "Exception occured while installing dependencies: " )
-				print( e.output )
-				
-			# Create .zip file
-			zip_directory = "/tmp/" + str( uuid.uuid4() ) + "/"
+				requirements_txt_file.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					requirements_txt_file,
+					requirements_text
+				)
 			
-			# Zip filename
-			zip_filename = "/tmp/" + str( uuid.uuid4() ) + ".zip"
+			codebuild_zip_data = codebuild_zip.getvalue()
+			codebuild_zip.close()
 			
-			# zip dir
-			os.mkdir(
-				zip_directory
-			)
-			
-			copy_command = "/bin/cp -r " + build_directory + "/env/lib/python2.7/site-packages/* " + zip_directory
-			
-			cp_process = subprocess.Popen(
-				copy_command,
-				shell=True,
-				stdout=subprocess.PIPE,
-				stderr=subprocess.PIPE
-			)
-			stdout, stderr = cp_process.communicate()
-				
-			# Clean up original directory
-			shutil.rmtree( build_directory )
-			
-			# Create .zip file
-			zip_command = "/usr/bin/zip -r " + zip_filename + " *"
-			
-			zip_process = subprocess.Popen(
-				zip_command,
-				shell=True,
-				stdout=subprocess.PIPE,
-				stderr=subprocess.PIPE,
-				cwd=zip_directory
-			)
-			stdout, stderr = zip_process.communicate()
-			
-			# Clean up zip directory
-			shutil.rmtree( zip_directory )
-			
-			# Zip bytes
-			zip_data = False
-			
-			# Read zip bytes from disk
-			with open( zip_filename, "rb" ) as file_handler:
-				zip_data = file_handler.read()
+			# S3 object key of the build package, randomly generated.
+			s3_key = "buildspecs/" + str( uuid.uuid4() ) + ".zip"
 
-			# Delete zip file now that we've read it
-			os.remove( zip_filename )
+			# Write the CodeBuild build package to S3
+			s3_response = s3_client.put_object(
+				Bucket=credentials[ "lambda_packages_bucket" ],
+				Body=codebuild_zip_data,
+				Key=s3_key,
+				ACL="public-read", # THIS HAS TO BE PUBLIC READ FOR SOME FUCKED UP REASON I DONT KNOW WHY
+			)
 			
-			# Cache this result in memory for future use
-			DEPENDENCY_CACHE[ hash_key ] = zip_data
+			# Fire-off the build
+			codebuild_response = codebuild_client.start_build(
+				projectName="refinery-builds",
+				sourceTypeOverride="S3",
+				imageOverride="docker.io/python:2.7",
+				sourceLocationOverride=credentials[ "lambda_packages_bucket" ] + "/" + s3_key,
+			)
 			
-			# Copy the cache data and return it
-			return_zip = DEPENDENCY_CACHE[ hash_key ][:]
+			build_id = codebuild_response[ "build" ][ "id" ]
 			
-			return return_zip
+			return build_id
+		
+		@run_on_executor
+		def start_node810_codebuild( self, credentials, libraries_object ):
+			return TaskSpawner._start_node810_codebuild( credentials, libraries_object )
 			
 		@staticmethod
-		def get_nodejs_810_base_zip( libraries ):
-			# Check if we have a cache .zip ready to go
-			libraries.sort()
-			hash_key = hashlib.sha256(
-				"nodejs8.10" + json.dumps(
-					libraries
-				)
-			).hexdigest()
+		def _start_node810_codebuild( credentials, libraries_object ):
+			"""
+			Returns a build ID to be polled at a later time
+			"""
+			codebuild_client = get_aws_client(
+				"codebuild",
+				credentials
+			)
 			
-			# If we have it, return it for use
-			if hash_key in DEPENDENCY_CACHE:
-				return_zip = DEPENDENCY_CACHE[ hash_key ][:]
-				return return_zip
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
 				
 			package_json_template = {
 				"name": "refinery-lambda",
 				"version": "1.0.0",
 				"description": "Lambda created by Refinery",
 				"main": "main.js",
-				"dependencies": {},
+				"dependencies": libraries_object,
 				"devDependencies": {},
-				"scripts": {
-					"test": "echo \"Error: no test specified\" && exit 1",
-					"start": "node server.js"
-				}
+				"scripts": {}
 			}
 			
-			# TODO if no dependencies then just ignore this part
-
-			# Set up dependencies
-			for library in libraries:
-				if " " in library:
-					library_parts = library.split( " " )
-					package_json_template[ "dependencies" ][ library_parts[0] ] = library_parts[1]
-				else:
-					package_json_template[ "dependencies" ][ library ] = "*"
-
-			build_directory = "/tmp/" + str( uuid.uuid4() ) + "/"
-			build_directory_package_json_path = build_directory + "package.json"
+			# Create empty zip file
+			codebuild_zip = io.BytesIO( EMPTY_ZIP_DATA )
 			
-			# Create directory to build lambda in
-			os.mkdir(
-				build_directory
-			)
+			buildspec_template = {
+				"artifacts": {
+					"files": [
+						 "**/*"
+					]
+				},
+				"phases": {
+					"build": {
+						"commands": [
+							"npm install"
+						]
+					},
+					"install": {
+						"runtime-versions": {
+							"nodejs": 8
+						}
+					}
+				},
+				"version": 0.2
+			}
 			
-			# Write package.json
-			with open( build_directory_package_json_path, "w" ) as file_handler:
-				file_handler.write(
-					json.dumps(
-						package_json_template,
-						False,
-						4
-					)
+			with zipfile.ZipFile( codebuild_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+				# Write buildspec.yml defining the build process
+				buildspec = zipfile.ZipInfo(
+					"buildspec.yml"
 				)
-			
-			if len( libraries ) > 0:
-				# Use npm to create node_modules from package.json
-				npm_process = subprocess.Popen(
-					"/usr/bin/npm install",
-					shell=True,
-					stdout=subprocess.PIPE,
-					stderr=subprocess.PIPE,
-					cwd=build_directory
-				)
-				stdout, stderr = npm_process.communicate()
-			
-			# This files location
-			source_file_directory = os.path.dirname(os.path.realpath(__file__))
-			
-			# Copy custom runtime files over
-			cp_runtime_command = "/bin/cp -r * " + build_directory + " && cp " + source_file_directory + "/custom-runtime/node8.10/runtime " + build_directory + " && rm " + build_directory + "bootstrap"
-			
-			# Copy files
-			copy_process = subprocess.Popen(
-				cp_runtime_command,
-				shell=True,
-				stdout=subprocess.PIPE,
-				stderr=subprocess.PIPE,
-				cwd=source_file_directory + "/custom-runtime/base-src/"
-			)
-			stdout, stderr = copy_process.communicate()
-			
-			# Zip filename
-			zip_filename = "/tmp/" + str( uuid.uuid4() ) + ".zip"
-			
-			# Create .zip file
-			zip_command = "/usr/bin/zip -r " + zip_filename + " *"
-			
-			zip_process = subprocess.Popen(
-				zip_command,
-				shell=True,
-				stdout=subprocess.PIPE,
-				stderr=subprocess.PIPE,
-				cwd=build_directory
-			)
-			stdout, stderr = zip_process.communicate()
-			
-			# Clean up build directory
-			shutil.rmtree( build_directory )
-			
-			# Zip bytes
-			zip_data = False
-			
-			# Read zip bytes from disk
-			with open( zip_filename, "rb" ) as file_handler:
-				zip_data = file_handler.read()
-
-			# Delete zip file now that we've read it
-			os.remove( zip_filename )
-			
-			# Cache this result in memory for future use
-			DEPENDENCY_CACHE[ hash_key ] = zip_data
-			
-			# Copy the cache data and return it
-			return_zip = DEPENDENCY_CACHE[ hash_key ][:]
-			
-			return return_zip
-			
-		@staticmethod
-		def _build_nodejs_810_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
-			"""
-			Customize and inject custom runtime.
-			"""
-			bootstrap_content = CUSTOM_RUNTIME_CODE
-			bootstrap_content = TaskSpawner._get_custom_python_base_code(
-				bootstrap_content,
-				libraries,
-				transitions,
-				execution_mode,
-				execution_pipeline_id,
-				execution_log_level
-			)
-			
-			"""
-			Inject base libraries (e.g. redis) into lambda
-			and the init code.
-			"""
-			
-			code = code + "\n\n" + LAMDBA_BASE_CODES[ "nodejs8.10" ]
-			
-			# Append required libraries if not already required
-			for init_library in LAMBDA_BASE_LIBRARIES[ "nodejs8.10" ]:
-				if not init_library in libraries:
-					libraries.append(
-						init_library
+				buildspec.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					buildspec,
+					yaml.dump(
+						buildspec_template
 					)
-			
-			base_zip_data = TaskSpawner.get_nodejs_810_base_zip(
-				libraries
-			)
-			
-			tmp_zip_file = "/tmp/" + str( uuid.uuid4() ) + ".zip"
-			
-			with open( tmp_zip_file, "w" ) as file_handler:
-				file_handler.write(
-					base_zip_data
 				)
 				
-			with zipfile.ZipFile( tmp_zip_file, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+				# Write the package.json
+				package_json = zipfile.ZipInfo(
+					"package.json"
+				)
+				package_json.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					package_json,
+					json.dumps(
+						package_json_template
+					)
+				)
+			
+			codebuild_zip_data = codebuild_zip.getvalue()
+			codebuild_zip.close()
+			
+			# S3 object key of the build package, randomly generated.
+			s3_key = "buildspecs/" + str( uuid.uuid4() ) + ".zip"
+
+			# Write the CodeBuild build package to S3
+			s3_response = s3_client.put_object(
+				Bucket=credentials[ "lambda_packages_bucket" ],
+				Body=codebuild_zip_data,
+				Key=s3_key,
+				ACL="public-read", # THIS HAS TO BE PUBLIC READ FOR SOME FUCKED UP REASON I DONT KNOW WHY
+			)
+			
+			# Fire-off the build
+			codebuild_response = codebuild_client.start_build(
+				projectName="refinery-builds",
+				sourceTypeOverride="S3",
+				sourceLocationOverride=credentials[ "lambda_packages_bucket" ] + "/" + s3_key,
+			)
+			
+			build_id = codebuild_response[ "build" ][ "id" ]
+			
+			return build_id
+	
+		@run_on_executor
+		def s3_object_exists( self, credentials, bucket_name, object_key ):
+			return TaskSpawner._s3_object_exists(
+				credentials,
+				bucket_name,
+				object_key
+			)
+			
+		@staticmethod
+		def _s3_object_exists( credentials, bucket_name, object_key ):
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
+			already_exists = False
+			try:
+				s3_head_response = s3_client.head_object(
+					Bucket=bucket_name,
+					Key=object_key
+				)
+				
+				# If we didn't encounter a not-found exception, it exists.
+				already_exists = True
+			except ClientError as e:
+				pass
+			
+			return already_exists
+		
+		@staticmethod
+		def get_nodejs_810_lambda_base_zip( credentials, libraries ):
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
+			libraries_object = {}
+			for library in libraries:
+				libraries_object[ str( library ) ] = "latest"
+			
+			final_s3_package_zip_path = TaskSpawner._get_final_zip_package_path(
+				"nodejs8.10",
+				libraries_object
+			)
+			
+			if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
+				return TaskSpawner._read_from_s3(
+					credentials,
+					credentials[ "lambda_packages_bucket" ],
+					final_s3_package_zip_path
+				)
+			
+			# Kick off CodeBuild for the libraries to get a zip artifact of
+			# all of the libraries.
+			build_id = TaskSpawner._start_node810_codebuild(
+				credentials,
+				libraries_object
+			)
+			
+			# This continually polls for the CodeBuild build to finish
+			# Once it does it returns the raw artifact zip data.
+			return TaskSpawner._get_codebuild_artifact_zip_data(
+				credentials,
+				build_id,
+				final_s3_package_zip_path
+			)
+		
+		@run_on_executor
+		def get_codebuild_artifact_zip_data( self, credentials, build_id, final_s3_package_zip_path ):
+			return TaskSpawner._get_codebuild_artifact_zip_data(
+				credentials,
+				build_id,
+				final_s3_package_zip_path
+			)
+		
+		@staticmethod
+		def _get_codebuild_artifact_zip_data( credentials, build_id, final_s3_package_zip_path ):
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
+			# Wait until the codebuild is finished
+			# This is pieced out so that we can also kick off codebuilds
+			# without having to pull the final zip result
+			TaskSpawner._finalize_codebuild(
+				credentials,
+				build_id,
+				final_s3_package_zip_path
+			)
+			
+			return TaskSpawner._read_from_s3(
+				credentials,
+				credentials[ "lambda_packages_bucket" ],
+				final_s3_package_zip_path
+			)
+			
+		@run_on_executor
+		def finalize_codebuild( self, credentials, build_id, final_s3_package_zip_path ):
+			return TaskSpawner._finalize_codebuild(
+				credentials,
+				build_id,
+				final_s3_package_zip_path
+			)
+			
+		@staticmethod
+		def _finalize_codebuild( credentials, build_id, final_s3_package_zip_path ):
+			codebuild_client = get_aws_client(
+				"codebuild",
+				credentials
+			)
+			
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
+			build_info = {}
+			
+			# Generate output artifact location from the build ID
+			build_id_parts = build_id.split( ":" )
+			output_artifact_path = build_id_parts[1] + "/package.zip"
+			
+			# Loop until we have the build information
+			while True:
+				# Check the status of the build we just kicked off
+				codebuild_build_status_response = codebuild_client.batch_get_builds(
+					ids=[
+						build_id
+					]
+				)
+				build_info = codebuild_build_status_response[ "builds" ][0]
+				build_status = build_info[ "buildStatus" ]
+				
+				if build_status != "IN_PROGRESS":
+					break
+				
+				logit( "Build ID " + build_id + " is still in progress, querying the status again in 2 seconds...")
+				time.sleep( 2 )
+			
+			if build_status != "SUCCEEDED":
+				raise "Build ID " + build_id + " failed with status code '" + build_status + "'!"
+			
+			# We now copy this artifact to a location with a deterministic hash name
+			# so that we can query for its existence and cache previously-build packages.
+			s3_copy_response = s3_client.copy_object(
+				Bucket=credentials[ "lambda_packages_bucket" ],
+				CopySource={
+					"Bucket": credentials[ "lambda_packages_bucket" ],
+					"Key": output_artifact_path
+				},
+				Key=final_s3_package_zip_path
+			)
+			
+			return True
+			
+		@staticmethod
+		def get_php73_lambda_base_zip( credentials, libraries ):
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
+			libraries_object = {}
+			for library in libraries:
+				libraries_object[ str( library ) ] = "latest"
+			
+			final_s3_package_zip_path = TaskSpawner._get_final_zip_package_path(
+				"php7.3",
+				libraries_object
+			)
+			
+			if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
+				return TaskSpawner._read_from_s3(
+					credentials,
+					credentials[ "lambda_packages_bucket" ],
+					final_s3_package_zip_path
+				)
+			
+			# Kick off CodeBuild for the libraries to get a zip artifact of
+			# all of the libraries.
+			build_id = TaskSpawner._start_php73_codebuild(
+				credentials,
+				libraries_object
+			)
+			
+			# This continually polls for the CodeBuild build to finish
+			# Once it does it returns the raw artifact zip data.
+			return TaskSpawner._get_codebuild_artifact_zip_data(
+				credentials,
+				build_id,
+				final_s3_package_zip_path
+			)
+
+		@run_on_executor
+		def start_php73_codebuild( self, credentials, libraries_object ):
+			return TaskSpawner._start_php73_codebuild( credentials, libraries_object )
+
+		@staticmethod
+		def _start_php73_codebuild( credentials, libraries_object ):
+			"""
+			Returns a build ID to be polled at a later time
+			"""
+			codebuild_client = get_aws_client(
+				"codebuild",
+				credentials
+			)
+			
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+				
+			composer_json_template = {
+				"require": libraries_object,
+			}
+			
+			# Create empty zip file
+			codebuild_zip = io.BytesIO( EMPTY_ZIP_DATA )
+			
+			buildspec_template = {
+				"artifacts": {
+					"files": [
+						 "**/*"
+					]
+				},
+				"phases": {
+					"build": {
+						"commands": [
+							"composer install"
+						]
+					},
+					"install": {
+						"runtime-versions": {
+							"php": 7.3
+						}
+					}
+				},
+				"version": 0.2
+			}
+			
+			with zipfile.ZipFile( codebuild_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+				# Write buildspec.yml defining the build process
+				buildspec = zipfile.ZipInfo(
+					"buildspec.yml"
+				)
+				buildspec.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					buildspec,
+					yaml.dump(
+						buildspec_template
+					)
+				)
+				
+				# Write the package.json
+				composer_json = zipfile.ZipInfo(
+					"composer.json"
+				)
+				composer_json.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					composer_json,
+					json.dumps(
+						composer_json_template
+					)
+				)
+			
+			codebuild_zip_data = codebuild_zip.getvalue()
+			codebuild_zip.close()
+			
+			# S3 object key of the build package, randomly generated.
+			s3_key = "buildspecs/" + str( uuid.uuid4() ) + ".zip"
+
+			# Write the CodeBuild build package to S3
+			s3_response = s3_client.put_object(
+				Bucket=credentials[ "lambda_packages_bucket" ],
+				Body=codebuild_zip_data,
+				Key=s3_key,
+				ACL="public-read", # THIS HAS TO BE PUBLIC READ FOR SOME FUCKED UP REASON I DONT KNOW WHY
+			)
+			
+			# Fire-off the build
+			codebuild_response = codebuild_client.start_build(
+				projectName="refinery-builds",
+				sourceTypeOverride="S3",
+				sourceLocationOverride=credentials[ "lambda_packages_bucket" ] + "/" + s3_key,
+			)
+			
+			build_id = codebuild_response[ "build" ][ "id" ]
+			
+			return build_id
+			
+		@staticmethod
+		def _build_php_73_lambda( credentials, code, libraries ):
+			code = code + "\n\n" + LAMDBA_BASE_CODES[ "php7.3" ]
+			
+			# Use CodeBuilder to get a base zip of the libraries
+			base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
+			if len( libraries ) > 0:
+				base_zip_data = TaskSpawner.get_php73_lambda_base_zip(
+					credentials,
+					libraries
+				)
+			
+			# Create a virtual file handler for the Lambda zip package
+			lambda_package_zip = io.BytesIO( base_zip_data )
+				
+			with zipfile.ZipFile( lambda_package_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+				info = zipfile.ZipInfo(
+					"lambda"
+				)
+				info.external_attr = 0777 << 16L
+				
+				# Write lambda.php into new .zip
+				zip_file_handler.writestr(
+					info,
+					str( code )
+				)
+		
+			lambda_package_zip_data = lambda_package_zip.getvalue()
+			lambda_package_zip.close()
+			
+			return lambda_package_zip_data
+			
+		@staticmethod
+		def _build_nodejs_810_lambda( credentials, code, libraries ):
+			code = code + "\n\n" + LAMDBA_BASE_CODES[ "nodejs8.10" ]
+			
+			# Use CodeBuilder to get a base zip of the libraries
+			base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
+			if len( libraries ) > 0:
+				base_zip_data = TaskSpawner.get_nodejs_810_lambda_base_zip(
+					credentials,
+					libraries
+				)
+			
+			# Create a virtual file handler for the Lambda zip package
+			lambda_package_zip = io.BytesIO( base_zip_data )
+				
+			with zipfile.ZipFile( lambda_package_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
 				info = zipfile.ZipInfo(
 					"lambda"
 				)
@@ -857,59 +2459,16 @@ class TaskSpawner(object):
 				# Write lambda.py into new .zip
 				zip_file_handler.writestr(
 					info,
-					code
+					str( code )
 				)
-				
-				# Write bootstrap into new .zip
-				bootstrap_info = zipfile.ZipInfo(
-					"bootstrap"
-				)
-				bootstrap_info.external_attr = 0777 << 16L
-				
-				# Write lambda.py into new .zip
-				zip_file_handler.writestr(
-					bootstrap_info,
-					bootstrap_content
-				)
-				
-			with open( tmp_zip_file, "rb" ) as file_handler:
-				zip_data = file_handler.read()
+		
+			lambda_package_zip_data = lambda_package_zip.getvalue()
+			lambda_package_zip.close()
 			
-			# Delete zip file now that we've read it
-			os.remove( tmp_zip_file )
-			
-			return zip_data
-
-		@run_on_executor
-		def build_lambda( self, language, code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
-			if not ( language in LAMBDA_SUPPORTED_LANGUAGES ):
-				raise Exception( "Error, this language '" + language + "' is not yet supported by refinery!" )
-			
-			if language == "python2.7":
-				return TaskSpawner._build_python_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level )
-			elif language == "nodejs8.10":
-				return TaskSpawner._build_nodejs_810_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level )
-				
-		@staticmethod
-		def _get_custom_python_base_code( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
-			# Convert tabs to four spaces
-			code = code.replace( "\t", "    " )
-			
-			code = code.replace( "\"{{TRANSITION_DATA_REPLACE_ME}}\"", json.dumps( json.dumps( transitions ) ) )
-			code = code.replace( "{{AWS_REGION_REPLACE_ME}}", os.environ.get( "region_name" ) )
-			code = code.replace( "{{SPECIAL_EXECUTION_MODE}}", execution_mode )
-			
-			if execution_pipeline_id:
-				code = code.replace( "{{EXECUTION_PIPELINE_ID_REPLACE_ME}}", execution_pipeline_id )
-				code = code.replace( "{{PIPELINE_LOGGING_LEVEL_REPLACE_ME}}", execution_log_level )
-			else:
-				code = code.replace( "{{EXECUTION_PIPELINE_ID_REPLACE_ME}}", "" )
-				code = code.replace( "{{PIPELINE_LOGGING_LEVEL_REPLACE_ME}}", "LOG_NONE" )
-			
-			return code
+			return lambda_package_zip_data
 		
 		@staticmethod
-		def _build_python_lambda( code, libraries, transitions, execution_mode, execution_pipeline_id, execution_log_level ):
+		def _build_python27_lambda( credentials, code, libraries ):
 			"""
 			Build Lambda package zip and return zip data
 			"""
@@ -921,33 +2480,24 @@ class TaskSpawner(object):
 
 			# Get customized base code
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "python2.7" ]
-			code = TaskSpawner._get_custom_python_base_code(
-				code,
-				libraries,
-				transitions,
-				execution_mode,
-				execution_pipeline_id,
-				execution_log_level
-			)
 			
 			for init_library in LAMBDA_BASE_LIBRARIES[ "python2.7" ]:
 				if not init_library in libraries:
 					libraries.append(
 						init_library
 					)
-			
-			base_zip_data = TaskSpawner.get_python27_lambda_base_zip(
-				libraries
-			)
-			
-			tmp_zip_file = "/tmp/" + str( uuid.uuid4() ) + ".zip"
-			
-			with open( tmp_zip_file, "w" ) as file_handler:
-				file_handler.write(
-					base_zip_data
+					
+			base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
+			if len( libraries ) > 0:
+				base_zip_data = TaskSpawner.get_python27_lambda_base_zip(
+					credentials,
+					libraries
 				)
+			
+			# Create a virtual file handler for the Lambda zip package
+			lambda_package_zip = io.BytesIO( base_zip_data )
 				
-			with zipfile.ZipFile( tmp_zip_file, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+			with zipfile.ZipFile( lambda_package_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
 				info = zipfile.ZipInfo(
 					"lambda.py"
 				)
@@ -956,25 +2506,31 @@ class TaskSpawner(object):
 				# Write lambda.py into new .zip
 				zip_file_handler.writestr(
 					info,
-					code.encode( "utf-8" )
+					str( code )
 				)
 				
-			with open( tmp_zip_file, "rb" ) as file_handler:
-				zip_data = file_handler.read()
-			
-			# Delete zip file now that we've read it
-			os.remove( tmp_zip_file )
-			
-			return zip_data
+			lambda_package_zip_data = lambda_package_zip.getvalue()
+			lambda_package_zip.close()
+
+			return lambda_package_zip_data
 			
 		@run_on_executor
-		def create_cloudwatch_rule( self, id, name, schedule_expression, description, input_dict ):
-			response = EVENTS_CLIENT.put_rule(
+		def create_cloudwatch_rule( self, credentials, id, name, schedule_expression, description, input_dict ):
+			events_client = get_aws_client(
+				"events",
+				credentials,
+			)
+			
+			# Events role ARN is able to be generated off of the account ID
+			# The role name should be the same for all accounts.
+			events_role_arn = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/refinery_default_aws_cloudwatch_role"
+			
+			response = events_client.put_rule(
 				Name=name,
 				ScheduleExpression=schedule_expression, # cron(0 20 * * ? *) or rate(5 minutes)
 				State="ENABLED",
 				Description=description,
-				RoleArn=os.environ.get( "events_role" )
+				RoleArn=events_role_arn,
 			)
 			
 			return {
@@ -985,8 +2541,18 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def add_rule_target( self, rule_name, target_id, target_arn, input_dict ):
-			targets_data = 	{
+		def add_rule_target( self, credentials, rule_name, target_id, target_arn, input_dict ):
+			events_client = get_aws_client(
+				"events",
+				credentials,
+			)
+			
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials,
+			)
+			
+			targets_data =	 {
 				"Id": target_id,
 				"Arn": target_arn,
 				"Input": json.dumps(
@@ -994,7 +2560,7 @@ class TaskSpawner(object):
 				)
 			}
 			
-			rule_creation_response = EVENTS_CLIENT.put_targets(
+			rule_creation_response = events_client.put_targets(
 				Rule=rule_name,
 				Targets=[
 					targets_data
@@ -1005,24 +2571,26 @@ class TaskSpawner(object):
 			For AWS Lambda you need to add a permission to the Lambda function itself
 			via the add_permission API call to allow invocation via the CloudWatch event.
 			"""
-			lambda_permission_add_response = LAMBDA_CLIENT.add_permission(
+			lambda_permission_add_response = lambda_client.add_permission(
 				FunctionName=target_arn,
 				StatementId=rule_name + "_statement",
 				Action="lambda:*",
 				Principal="events.amazonaws.com",
-				SourceArn="arn:aws:events:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":rule/" + rule_name,
+				SourceArn="arn:aws:events:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":rule/" + rule_name,
 				#SourceAccount=os.environ.get( "aws_account_id" ) # THIS IS A BUG IN AWS NEVER PASS THIS
 			)
-			
-			print( "Lambda add permission: " )
-			pprint( lambda_permission_add_response )
 			
 			return rule_creation_response
 		
 		@run_on_executor
-		def create_sns_topic( self, id, topic_name ):
+		def create_sns_topic( self, credentials, id, topic_name ):
+			sns_client = get_aws_client(
+				"sns",
+				credentials
+			)
+			
 			topic_name = get_lambda_safe_name( topic_name )
-			response = SNS_CLIENT.create_topic(
+			response = sns_client.create_topic(
 				Name=topic_name
 			)
 			
@@ -1034,12 +2602,22 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def subscribe_lambda_to_sns_topic( self, topic_name, topic_arn, lambda_arn ):
+		def subscribe_lambda_to_sns_topic( self, credentials, topic_name, topic_arn, lambda_arn ):
 			"""
 			For AWS Lambda you need to add a permission to the Lambda function itself
 			via the add_permission API call to allow invocation via the SNS event.
 			"""
-			lambda_permission_add_response = LAMBDA_CLIENT.add_permission(
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
+			sns_client = get_aws_client(
+				"sns",
+				credentials,
+			)
+			
+			lambda_permission_add_response = lambda_client.add_permission(
 				FunctionName=lambda_arn,
 				StatementId=str( uuid.uuid4() ),
 				Action="lambda:*",
@@ -1048,7 +2626,7 @@ class TaskSpawner(object):
 				#SourceAccount=os.environ.get( "aws_account_id" ) # THIS IS A BUG IN AWS NEVER PASS THIS
 			)
 			
-			sns_topic_response = SNS_CLIENT.subscribe(
+			sns_topic_response = sns_client.subscribe(
 				TopicArn=topic_arn,
 				Protocol="lambda",
 				Endpoint=lambda_arn,
@@ -1062,14 +2640,19 @@ class TaskSpawner(object):
 			}
 		
 		@run_on_executor
-		def create_sqs_queue( self, id, queue_name, content_based_deduplication, batch_size ):
+		def create_sqs_queue( self, credentials, id, queue_name, content_based_deduplication, batch_size ):
+			sqs_client = get_aws_client(
+				"sqs",
+				credentials
+			)
+			
 			sqs_queue_name = get_lambda_safe_name( queue_name )
 			
 			queue_deleted = False
 			
 			while queue_deleted == False:
 				try:
-					sqs_response = SQS_CLIENT.create_queue(
+					sqs_response = sqs_client.create_queue(
 						QueueName=sqs_queue_name,
 						Attributes={
 							"DelaySeconds": str( 0 ),
@@ -1079,12 +2662,12 @@ class TaskSpawner(object):
 					)
 					
 					queue_deleted = True
-				except SQS_CLIENT.exceptions.QueueDeletedRecently:
-					print( "SQS queue was deleted too recently, trying again in ten seconds..." )
+				except sqs_client.exceptions.QueueDeletedRecently:
+					logit( "SQS queue was deleted too recently, trying again in ten seconds..." )
 					
 					time.sleep( 10 )
 			
-			sqs_arn = "arn:aws:sqs:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + queue_name
+			sqs_arn = "arn:aws:sqs:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + queue_name
 			
 			return {
 				"id": id,
@@ -1094,53 +2677,25 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def map_sqs_to_lambda( self, sqs_arn, lambda_arn, batch_size ):
-			response = LAMBDA_CLIENT.create_event_source_mapping(
+		def map_sqs_to_lambda( self, credentials, sqs_arn, lambda_arn, batch_size ):
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
+			response = lambda_client.create_event_source_mapping(
 				EventSourceArn=sqs_arn,
 				FunctionName=lambda_arn,
 				Enabled=True,
 				BatchSize=batch_size,
 			)
 			
-			print( "Mapping SQS to lambda: " )
-			pprint(
-				response
-			)
-			
 			return response
-			
+
 		@run_on_executor
-		def create_log_group( self, log_group_name ):
-			response = CLOUDWATCH_LOGS_CLIENT.create_log_group(
-				logGroupName=log_group_name
-			)
-			
-			print( "Create log group: " )
-			pprint( response )
-			
-			return response
-			
-		@staticmethod
-		def write_to_s3( s3_bucket, path, object_data ):
-			return TaskSpawner._write_to_s3( s3_bucket, path, object_data )
-			
-		@run_on_executor
-		def _write_to_s3( self, s3_bucket, path, object_data ):
-			# Remove leading / because they are almost always not intended
-			if path.startswith( "/" ):
-				path = path[1:]
-				
-			response = S3_CLIENT.put_object(
-				Key=path,
-				Bucket=s3_bucket,
-				Body=object_data,
-			)
-			
-			return response
-			
-		@run_on_executor
-		def read_from_s3_and_return_input( self, s3_bucket, path ):
+		def read_from_s3_and_return_input( self, credentials, s3_bucket, path ):
 			return_data = TaskSpawner._read_from_s3(
+				credentials,
 				s3_bucket,
 				path
 			)
@@ -1152,20 +2707,26 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def read_from_s3( self, s3_bucket, path ):
+		def read_from_s3( self, credentials, s3_bucket, path ):
 			return TaskSpawner._read_from_s3(
+				credentials,
 				s3_bucket,
 				path
 			)
 		
 		@staticmethod
-		def _read_from_s3( s3_bucket, path ):
+		def _read_from_s3( credentials, s3_bucket, path ):
+			s3_client = get_aws_client(
+				"s3",
+				credentials,
+			)
+			
 			# Remove leading / because they are almost always not intended
 			if path.startswith( "/" ):
 				path = path[1:]
 			
 			try:
-				s3_object = S3_CLIENT.get_object(
+				s3_object = s3_client.get_object(
 					Bucket=s3_bucket,
 					Key=path
 				)
@@ -1175,7 +2736,12 @@ class TaskSpawner(object):
 			return s3_object[ "Body" ].read()
 			
 		@run_on_executor
-		def bulk_s3_delete( self, s3_bucket, s3_path_list ):
+		def bulk_s3_delete( self, credentials, s3_bucket, s3_path_list ):
+			s3_client = get_aws_client(
+				"s3",
+				credentials,
+			)
+			
 			delete_data = []
 			
 			for s3_path in s3_path_list:
@@ -1183,7 +2749,7 @@ class TaskSpawner(object):
 					"Key": s3_path,
 				})
 				
-			response = S3_CLIENT.delete_objects(
+			response = s3_client.delete_objects(
 				Bucket=s3_bucket,
 				Delete={
 					"Objects": delete_data
@@ -1192,15 +2758,21 @@ class TaskSpawner(object):
 			return response
 			
 		@run_on_executor
-		def get_s3_pipeline_execution_logs( self, s3_prefix, max_results ):
+		def get_s3_pipeline_execution_logs( self, credentials, s3_prefix, max_results ):
 			return TaskSpawner.get_all_s3_paths(
-				os.environ.get( "pipeline_logs_bucket" ),
+				credentials,
+				credentials[ "logs_bucket" ],
 				s3_prefix,
 				max_results
 			)
 		
 		@staticmethod
-		def get_all_s3_paths( s3_bucket, prefix, max_results, **kwargs ):
+		def get_all_s3_paths( credentials, s3_bucket, prefix, max_results, **kwargs ):
+			s3_client = get_aws_client(
+				"s3",
+				credentials,
+			)
+			
 			return_array = []
 			continuation_token = False
 			if max_results == -1: # max_results -1 means get all results
@@ -1211,7 +2783,7 @@ class TaskSpawner(object):
 				max_keys = 1000
 			
 			# First check to prime it
-			response = S3_CLIENT.list_objects_v2(
+			response = s3_client.list_objects_v2(
 				Bucket=s3_bucket,
 				Prefix=prefix,
 				MaxKeys=max_keys, # Max keys you can request at once
@@ -1221,7 +2793,7 @@ class TaskSpawner(object):
 			while True:
 				if continuation_token:
 					# Grab another page of results
-					response = S3_CLIENT.list_objects_v2(
+					response = s3_client.list_objects_v2(
 						Bucket=s3_bucket,
 						Prefix=prefix,
 						MaxKeys=max_keys, # Max keys you can request at once
@@ -1250,25 +2822,32 @@ class TaskSpawner(object):
 			return return_array
 			
 		@run_on_executor
-		def get_s3_pipeline_execution_ids( self, timestamp_prefix, max_results, continuation_token ):
+		def get_s3_pipeline_execution_ids( self, credentials, timestamp_prefix, max_results, continuation_token ):
 			return TaskSpawner.get_all_s3_prefixes(
-				os.environ.get( "pipeline_logs_bucket" ),
+				credentials,
+				credentials[ "logs_bucket" ],
 				timestamp_prefix,
 				max_results,
 				continuation_token
 			)
 		
 		@run_on_executor
-		def get_s3_pipeline_timestamp_prefixes( self, project_id, max_results, continuation_token ):
+		def get_s3_pipeline_timestamp_prefixes( self, credentials, project_id, max_results, continuation_token ):
 			return TaskSpawner.get_all_s3_prefixes(
-				os.environ.get( "pipeline_logs_bucket" ),
+				credentials,
+				credentials[ "logs_bucket" ],
 				project_id + "/",
 				max_results,
 				continuation_token
 			)
 
 		@staticmethod
-		def get_all_s3_prefixes( s3_bucket, prefix, max_results, continuation_token ):
+		def get_all_s3_prefixes( credentials, s3_bucket, prefix, max_results, continuation_token ):
+			s3_client = get_aws_client(
+				"s3",
+				credentials,
+			)
+			
 			return_array = []
 			if max_results == -1: # max_results -1 means get all results
 				max_keys = 1000
@@ -1288,7 +2867,7 @@ class TaskSpawner(object):
 				list_objects_params[ "ContinuationToken" ] = continuation_token
 			
 			# First check to prime it
-			response = S3_CLIENT.list_objects_v2(
+			response = s3_client.list_objects_v2(
 				**list_objects_params
 			)
 			
@@ -1296,7 +2875,7 @@ class TaskSpawner(object):
 				if continuation_token:
 					list_objects_params[ "ContinuationToken" ] = continuation_token
 					# Grab another page of results
-					response = S3_CLIENT.list_objects_v2(
+					response = s3_client.list_objects_v2(
 						**list_objects_params
 					)
 				
@@ -1328,16 +2907,21 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def get_aws_lambda_existence_info( self, id, type, lambda_name ):
-			return TaskSpawner._get_aws_lambda_existence_info( id, type, lambda_name )
+		def get_aws_lambda_existence_info( self, credentials, id, type, lambda_name ):
+			return TaskSpawner._get_aws_lambda_existence_info( credentials, id, type, lambda_name )
 		
 		@staticmethod
-		def _get_aws_lambda_existence_info( id, type, lambda_name ):
+		def _get_aws_lambda_existence_info( credentials, id, type, lambda_name ):
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
 			try:
-				response = LAMBDA_CLIENT.get_function(
+				response = lambda_client.get_function(
 					FunctionName=lambda_name
 				)
-			except LAMBDA_CLIENT.exceptions.ResourceNotFoundException:
+			except lambda_client.exceptions.ResourceNotFoundException:
 				return {
 					"id": id,
 					"type": type,
@@ -1354,7 +2938,12 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def get_lambda_cloudwatch_logs( self, arn ):
+		def get_lambda_cloudwatch_logs( self, credentials, arn ):
+			cloudwatch_logs_client = get_aws_client(
+				"logs",
+				credentials
+			)
+			
 			"""
 			Pull the full logs from CloudWatch
 			"""
@@ -1364,7 +2953,7 @@ class TaskSpawner(object):
 			
 			# Pull the last stream from CloudWatch
 			# Streams take time to propogate so wait if needed
-			streams_data = CLOUDWATCH_LOGS_CLIENT.describe_log_streams(
+			streams_data = cloudwatch_logs_client.describe_log_streams(
 				logGroupName=log_group_name,
 				orderBy="LastEventTime",
 				limit=50
@@ -1379,7 +2968,7 @@ class TaskSpawner(object):
 			last_forward_token = False
 			
 			while attempts_remaining > 0:
-				print( "[ STATUS ] Grabbing log events from '" + log_group_name + "' at '" + stream_id + "'..." )
+				logit( "[ STATUS ] Grabbing log events from '" + log_group_name + "' at '" + stream_id + "'..." )
 				get_log_events_params = {
 					"logGroupName": log_group_name,
 					"logStreamName": stream_id
@@ -1388,7 +2977,7 @@ class TaskSpawner(object):
 				if forward_token:
 					get_log_events_params[ "nextToken" ] = forward_token
 				
-				log_data = CLOUDWATCH_LOGS_CLIENT.get_log_events(
+				log_data = cloudwatch_logs_client.get_log_events(
 					**get_log_events_params
 				)
 				
@@ -1416,16 +3005,21 @@ class TaskSpawner(object):
 			return log_output
 			
 		@run_on_executor
-		def get_cloudwatch_existence_info( self, id, type, name ):
-			return TaskSpawner._get_cloudwatch_existence_info( id, type, name )
+		def get_cloudwatch_existence_info( self, credentials, id, type, name ):
+			return TaskSpawner._get_cloudwatch_existence_info( credentials, id, type, name )
 			
 		@staticmethod
-		def _get_cloudwatch_existence_info( id, type, name ):
+		def _get_cloudwatch_existence_info( credentials, id, type, name ):
+			events_client = get_aws_client(
+				"events",
+				credentials
+			)
+			
 			try:
-				response = EVENTS_CLIENT.describe_rule(
+				response = events_client.describe_rule(
 					Name=name,
 				)
-			except EVENTS_CLIENT.exceptions.ResourceNotFoundException:
+			except events_client.exceptions.ResourceNotFoundException:
 				return {
 					"id": id,
 					"type": type,
@@ -1442,16 +3036,21 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def get_sqs_existence_info( self, id, type, name ):
-			return TaskSpawner._get_sqs_existence_info( id, type, name )
+		def get_sqs_existence_info( self, credentials, id, type, name ):
+			return TaskSpawner._get_sqs_existence_info( credentials, id, type, name )
 			
 		@staticmethod
-		def _get_sqs_existence_info( id, type, name ):
+		def _get_sqs_existence_info( credentials, id, type, name ):
+			sqs_client = get_aws_client(
+				"sqs",
+				credentials,
+			)
+			
 			try:
-				queue_url_response = SQS_CLIENT.get_queue_url(
+				queue_url_response = sqs_client.get_queue_url(
 					QueueName=name,
 				)
-			except SQS_CLIENT.exceptions.QueueDoesNotExist:
+			except sqs_client.exceptions.QueueDoesNotExist:
 				return {
 					"id": id,
 					"type": type,
@@ -1463,23 +3062,28 @@ class TaskSpawner(object):
 				"id": id,
 				"type": type,
 				"name": name,
-				"arn": "arn:aws:sqs:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + name,
+				"arn": "arn:aws:sqs:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + name,
 				"exists": True,
 			}
 			
 		@run_on_executor
-		def get_sns_existence_info( self, id, type, name ):
-			return TaskSpawner._get_sns_existence_info( id, type, name )
+		def get_sns_existence_info( self, credentials, id, type, name ):
+			return TaskSpawner._get_sns_existence_info( credentials, id, type, name )
 			
 		@staticmethod
-		def _get_sns_existence_info( id, type, name ):
-			sns_topic_arn = "arn:aws:sns:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + name
+		def _get_sns_existence_info( credentials, id, type, name ):
+			sns_client = get_aws_client(
+				"sns",
+				credentials
+			)
+			
+			sns_topic_arn = "arn:aws:sns:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + name
 			
 			try:
-				response = SNS_CLIENT.get_topic_attributes(
+				response = sns_client.get_topic_attributes(
 					TopicArn=sns_topic_arn
 				)
-			except SNS_CLIENT.exceptions.NotFoundException:
+			except sns_client.exceptions.NotFoundException:
 				return {
 					"id": id,
 					"type": type,
@@ -1496,14 +3100,19 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def delete_lambda( self, id, type, name, arn ):
-			return TaskSpawner._delete_lambda( id, type, name, arn )
+		def delete_lambda( self, credentials, id, type, name, arn ):
+			return TaskSpawner._delete_lambda( credentials, id, type, name, arn )
 			
 		@staticmethod
-		def _delete_lambda( id, type, name, arn ):
+		def _delete_lambda( credentials, id, type, name, arn ):
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
 			was_deleted = False
 			try:
-				response = LAMBDA_CLIENT.delete_function(
+				response = lambda_client.delete_function(
 					FunctionName=arn,
 				)
 				was_deleted = True
@@ -1521,15 +3130,20 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def delete_sns_topic( self, id, type, name, arn ):
-			return TaskSpawner._delete_sns_topic( id, type, name, arn )
+		def delete_sns_topic( self, credentials, id, type, name, arn ):
+			return TaskSpawner._delete_sns_topic( credentials, id, type, name, arn )
 			
 		@staticmethod
-		def _delete_sns_topic( id, type, name, arn ):
+		def _delete_sns_topic( credentials, id, type, name, arn ):
+			sns_client = get_aws_client(
+				"sns",
+				credentials,
+			)
+			
 			was_deleted = False
 			
 			try:
-				response = SNS_CLIENT.delete_topic(
+				response = sns_client.delete_topic(
 					TopicArn=arn,
 				)
 				was_deleted = True
@@ -1546,19 +3160,24 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def delete_sqs_queue( self, id, type, name, arn ):
-			return TaskSpawner._delete_sqs_queue( id, type, name, arn )
+		def delete_sqs_queue( self, credentials, id, type, name, arn ):
+			return TaskSpawner._delete_sqs_queue( credentials, id, type, name, arn )
 			
 		@staticmethod
-		def _delete_sqs_queue( id, type, name, arn ):
+		def _delete_sqs_queue( credentials, id, type, name, arn ):
+			sqs_client = get_aws_client(
+				"sqs",
+				credentials,
+			)
+			
 			was_deleted = False
 			
 			try:
-				queue_url_response = SQS_CLIENT.get_queue_url(
+				queue_url_response = sqs_client.get_queue_url(
 					QueueName=name,
 				)
 				
-				response = SQS_CLIENT.delete_queue(
+				response = sqs_client.delete_queue(
 					QueueUrl=queue_url_response[ "QueueUrl" ],
 				)
 			except ClientError as e:
@@ -1574,14 +3193,19 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def delete_schedule_trigger( self, id, type, name, arn ):
-			return TaskSpawner._delete_schedule_trigger( id, type, name, arn )
+		def delete_schedule_trigger( self, credentials, id, type, name, arn ):
+			return TaskSpawner._delete_schedule_trigger( credentials, id, type, name, arn )
 			
 		@staticmethod
-		def _delete_schedule_trigger( id, type, name, arn ):
+		def _delete_schedule_trigger( credentials, id, type, name, arn ):
+			events_client = get_aws_client(
+				"events",
+				credentials
+			)
+			
 			was_deleted = False
 			try:
-				list_rule_targets_response = EVENTS_CLIENT.list_targets_by_rule(
+				list_rule_targets_response = events_client.list_targets_by_rule(
 					Rule=name,
 				)
 				
@@ -1594,12 +3218,12 @@ class TaskSpawner(object):
 	
 				# If there are some targets, delete them, else skip this.
 				if len( target_ids ) > 0:
-					remove_targets_response = EVENTS_CLIENT.remove_targets(
+					remove_targets_response = events_client.remove_targets(
 						Rule=name,
 						Ids=target_ids
 					)
 				
-				response = EVENTS_CLIENT.delete_rule(
+				response = events_client.delete_rule(
 					Name=name,
 				)
 				
@@ -1618,8 +3242,13 @@ class TaskSpawner(object):
 			
 		
 		@run_on_executor
-		def create_rest_api( self, name, description, version ):
-			response = APIGATEWAY_CLIENT.create_rest_api(
+		def create_rest_api( self, credentials, name, description, version ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
+			response = api_gateway_client.create_rest_api(
 				name=name,
 				description=description,
 				version=version,
@@ -1639,8 +3268,13 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def delete_rest_api( self, rest_api_id ):
-			response = APIGATEWAY_CLIENT.delete_rest_api(
+		def delete_rest_api( self, credentials, rest_api_id ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
+			response = api_gateway_client.delete_rest_api(
 				restApiId=rest_api_id,
 			)
 			
@@ -1649,8 +3283,13 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def delete_rest_api_resource( self, rest_api_id, resource_id ):
-			response = APIGATEWAY_CLIENT.delete_resource(
+		def delete_rest_api_resource( self, credentials, rest_api_id, resource_id ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
+			response = api_gateway_client.delete_resource(
 				restApiId=rest_api_id,
 				resourceId=resource_id,
 			)
@@ -1661,15 +3300,20 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def delete_rest_api_resource_method( self, rest_api_id, resource_id, method ):
+		def delete_rest_api_resource_method( self, credentials, rest_api_id, resource_id, method ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
 			try:
-				response = APIGATEWAY_CLIENT.delete_method(
+				response = api_gateway_client.delete_method(
 					restApiId=rest_api_id,
 					resourceId=resource_id,
 					httpMethod=method,
 				)
 			except:
-				print( "Exception occurred while deleting method '" + method + "'!" )
+				logit( "Exception occurred while deleting method '" + method + "'!" )
 				pass
 			
 			return {
@@ -1679,8 +3323,13 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def deploy_api_gateway_to_stage( self, rest_api_id, stage_name ):
-			deployment_response = APIGATEWAY_CLIENT.create_deployment(
+		def deploy_api_gateway_to_stage( self, credentials, rest_api_id, stage_name ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
+			deployment_response = api_gateway_client.create_deployment(
 				restApiId=rest_api_id,
 				stageName=stage_name,
 				stageDescription="API Gateway deployment deployed via refinery",
@@ -1689,8 +3338,8 @@ class TaskSpawner(object):
 			
 			deployment_id = deployment_response[ "id" ]
 			
-			print( "Deployment response: " )
-			pprint( deployment_response )
+			logit( "Deployment response: " )
+			logit( deployment_response )
 			
 			return {
 				"id": rest_api_id,
@@ -1699,24 +3348,13 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def get_rest_apis( self ):
-			response = APIGATEWAY_CLIENT.get_rest_apis(
-				limit=500,
+		def get_resources( self, credentials, rest_api_id ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
 			)
 			
-			return response[ "items" ]
-			
-		@run_on_executor
-		def get_rest_api( self, api_gateway_id ):
-			response = APIGATEWAY_CLIENT.get_rest_api(
-				restApiId=api_gateway_id,
-			)
-			
-			return response
-			
-		@run_on_executor
-		def get_resources( self, rest_api_id ):
-			response = APIGATEWAY_CLIENT.get_resources(
+			response = api_gateway_client.get_resources(
 				restApiId=rest_api_id,
 				limit=500
 			)
@@ -1724,16 +3362,26 @@ class TaskSpawner(object):
 			return response[ "items" ]
 			
 		@run_on_executor
-		def get_stages( self, rest_api_id ):
-			response = APIGATEWAY_CLIENT.get_stages(
+		def get_stages( self, credentials, rest_api_id ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
+			response = api_gateway_client.get_stages(
 				restApiId=rest_api_id
 			)
 			
 			return response[ "item" ]
 			
 		@run_on_executor
-		def delete_stage( self, rest_api_id, stage_name ):
-			response = APIGATEWAY_CLIENT.delete_stage(
+		def delete_stage( self, credentials, rest_api_id, stage_name ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
+			response = api_gateway_client.delete_stage(
 				restApiId=rest_api_id,
 				stageName=stage_name
 			)
@@ -1744,15 +3392,17 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def create_resource( self, rest_api_id, parent_id, path_part ):
-			response = APIGATEWAY_CLIENT.create_resource(
+		def create_resource( self, credentials, rest_api_id, parent_id, path_part ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
+			response = api_gateway_client.create_resource(
 				restApiId=rest_api_id,
 				parentId=parent_id,
 				pathPart=path_part
 			)
-			
-			print( "Create REST API resource response: " )
-			pprint( response )
 			
 			return {
 				"id": response[ "id" ],
@@ -1761,8 +3411,13 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def create_method( self, method_name, rest_api_id, resource_id, http_method, api_key_required ):
-			response = APIGATEWAY_CLIENT.put_method(
+		def create_method( self, credentials, method_name, rest_api_id, resource_id, http_method, api_key_required ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
+			response = api_gateway_client.put_method(
 				restApiId=rest_api_id,
 				resourceId=resource_id,
 				httpMethod=http_method,
@@ -1780,10 +3435,20 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def clean_lambda_iam_policies( self, lambda_name ):
-			print( "Cleaning up IAM policies from no-longer-existing API Gateways attached to Lambda..." )
+		def clean_lambda_iam_policies( self, credentials, lambda_name ):
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			
+			logit( "Cleaning up IAM policies from no-longer-existing API Gateways attached to Lambda..." )
 			try:
-				response = LAMBDA_CLIENT.get_policy(
+				response = lambda_client.get_policy(
 					FunctionName=lambda_name,
 				)
 			except ClientError as e:
@@ -1809,31 +3474,34 @@ class TaskSpawner(object):
 				
 				try:
 					api_gateway_id = arn_parts[ 5 ]
-					print( "API Gateway ID: " + api_gateway_id )
-					
-					api_gateway_data = APIGATEWAY_CLIENT.get_rest_api(
+					api_gateway_data = api_gateway_client.get_rest_api(
 						restApiId=api_gateway_id,
 					)
 				except:
+					logit( "API Gateway does not exist, deleting IAM policy..." )
 					
-					print( "API Gateway does not exist, deleting IAM policy..." )
-					
-					delete_permission_response = LAMBDA_CLIENT.remove_permission(
+					delete_permission_response = lambda_client.remove_permission(
 						FunctionName=lambda_name,
 						StatementId=statement[ "Sid" ]
 					)
-					
-					print( "Delete permission response: " )
-					pprint( delete_permission_response )
 			
-			return {
-			}
+			return {}
 			
 		@run_on_executor
-		def link_api_method_to_lambda( self, rest_api_id, resource_id, http_method, api_path, lambda_name ):
-			lambda_uri = "arn:aws:apigateway:" + os.environ.get( "region_name" ) + ":lambda:path/" + LAMBDA_CLIENT.meta.service_model.api_version + "/functions/arn:aws:lambda:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":function:" + lambda_name + "/invocations"
+		def link_api_method_to_lambda( self, credentials, rest_api_id, resource_id, http_method, api_path, lambda_name ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
 			
-			integration_response = APIGATEWAY_CLIENT.put_integration(
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
+			lambda_uri = "arn:aws:apigateway:" + credentials[ "region" ] + ":lambda:path/" + lambda_client.meta.service_model.api_version + "/functions/arn:aws:lambda:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":function:" + lambda_name + "/invocations"
+			
+			integration_response = api_gateway_client.put_integration(
 				restApiId=rest_api_id,
 				resourceId=resource_id,
 				httpMethod=http_method,
@@ -1848,16 +3516,13 @@ class TaskSpawner(object):
 			For AWS Lambda you need to add a permission to the Lambda function itself
 			via the add_permission API call to allow invocation via the CloudWatch event.
 			"""
-			source_arn = "arn:aws:execute-api:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + rest_api_id + "/*/" + http_method + api_path
-			
-			print( "Source ARN: " )
-			print( source_arn )
+			source_arn = "arn:aws:execute-api:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + rest_api_id + "/*/" + http_method + api_path
 			
 			# We have to clean previous policies we added from this Lambda
 			# Scan over all policies and delete any which aren't associated with
 			# API Gateways that actually exist!
 			
-			lambda_permission_add_response = LAMBDA_CLIENT.add_permission(
+			lambda_permission_add_response = lambda_client.add_permission(
 				FunctionName=lambda_name,
 				StatementId=str( uuid.uuid4() ).replace( "_", "" ) + "_statement",
 				Action="lambda:*",
@@ -1891,6 +3556,8 @@ def get_random_deploy_id():
 	return "_RFN" + get_random_id( 6 )
 
 class RunLambda( BaseHandler ):
+	@authenticated
+	@disable_on_overdue_payment
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -1912,7 +3579,7 @@ class RunLambda( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit( "Running Lambda with ARN of '" + self.json[ "arn" ] + "'..." )
+		logit( "Running Lambda with ARN of '" + self.json[ "arn" ] + "'..." )
 		
 		# Try to parse Lambda input as JSON
 		try:
@@ -1922,8 +3589,9 @@ class RunLambda( BaseHandler ):
 		except:
 			pass
 		
-		self.logit( "Executing Lambda..." )
+		logit( "Executing Lambda..." )
 		lambda_result = yield local_tasks.execute_aws_lambda(
+			self.get_authenticated_user_cloud_configuration(),
 			self.json[ "arn" ],
 			self.json[ "input_data" ],
 		)
@@ -1934,6 +3602,8 @@ class RunLambda( BaseHandler ):
 		})
 		
 class RunTmpLambda( BaseHandler ):
+	@authenticated
+	@disable_on_overdue_payment
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -1981,41 +3651,33 @@ class RunTmpLambda( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit( "Building Lambda package..." )
-
-		lambda_zip_package_data = yield local_tasks.build_lambda(
-			self.json[ "language" ],
-			self.json[ "code" ],
-			self.json[ "libraries" ],
-			{
-				"then": [],
-				"else": [],
-				"exception": [],
-				"if": [],
-				"fan-out": [],
-				"fan-in": [],
-			},
-			"REGULAR",
-			False,
-			False
-		)
+		logit( "Building Lambda package..." )
+		
+		credentials = self.get_authenticated_user_cloud_configuration()
 		
 		random_node_id = get_random_node_id()
 		
-		self.logit( "Deploying Lambda to S3..." )
-		deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
+		lambda_info = yield deploy_lambda(
+			credentials,
+			random_node_id,
 			random_node_id,
 			self.json[ "language" ],
-			"AWS Lambda being inline tested.",
-			os.environ.get( "lambda_role" ),
-			lambda_zip_package_data,
-			self.json[ "max_execution_time" ], # Max AWS execution time
+			self.json[ "code" ],
+			self.json[ "libraries" ],
+			self.json[ "max_execution_time" ],
 			self.json[ "memory" ], # MB of execution memory
-			{}, # VPC data
-			self.json[ "environment_variables" ], # Env list
 			{
-				"project": "None"
+				"then": [],
+				"exception": [],
+				"fan-out": [],
+				"else": [],
+				"fan-in": [],
+				"if": []
 			},
+			"REGULAR",
+			"SHOULD_NEVER_HAPPEN_TMP_LAMBDA_RUN", # Doesn't matter no logging is enabled
+			"LOG_NONE",
+			self.json[ "environment_variables" ], # Env list
 			self.json[ "layers" ]
 		)
 		
@@ -2027,9 +3689,10 @@ class RunTmpLambda( BaseHandler ):
 		except:
 			pass
 		
-		self.logit( "Executing Lambda..." )
+		logit( "Executing Lambda..." )
 		lambda_result = yield local_tasks.execute_aws_lambda(
-			deployed_lambda_data[ "FunctionArn" ],
+			self.get_authenticated_user_cloud_configuration(),
+			lambda_info[ "arn" ],
 			{
 				"_refinery": {
 					"throw_exceptions_fully": True,
@@ -2038,10 +3701,11 @@ class RunTmpLambda( BaseHandler ):
 			},
 		)
 
-		self.logit( "Deleting Lambda..." )
+		logit( "Deleting Lambda..." )
 		
 		# Now we delete the lambda, don't yield because we don't need to wait
 		delete_result = local_tasks.delete_aws_lambda(
+			self.get_authenticated_user_cloud_configuration(),
 			random_node_id
 		)
 
@@ -2054,467 +3718,83 @@ def get_lambda_safe_name( input_name ):
 	whitelist = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
 	input_name = input_name.replace( " ", "_" )
 	return "".join([c for c in input_name if c in whitelist])[:64]
-		
-def refinery_to_aws_step_function( refinery_dict, name_to_arn_map ):
-	"""
-	Generates an AWS step function structure out of a refinery structure
-	"""
-	return_step_function_data = {
-		"Comment": "Step Function generated by refinery"
-	}
 	
-	states_dict = {}
-	
-	special_nodes = [
-		"start_node",
-		"end_node"
-	]
-	
-	# Generate ID -> Name map
-	id_to_name_map = {}
-	name_to_id_map = {}
-	for workflow_state in refinery_dict[ "workflow_states" ]:
-		id_to_name_map[ workflow_state[ "id" ] ] = workflow_state[ "name" ]
-		name_to_id_map[ workflow_state[ "name" ] ] = get_lambda_safe_name(
-			workflow_state[ "id" ]
-		)
-	
-	first_node = False
-	end_nodes = []
-	
-	# Determine start and end nodes
-	for workflow_relationship in refinery_dict[ "workflow_relationships" ]:
-		if workflow_relationship[ "node" ] == "start_node":
-			first_node = workflow_relationship[ "next" ]
-			
-		if workflow_relationship[ "next" ] == "end_node":
-			end_nodes.append(
-				workflow_relationship[ "node" ]
-			)
-			
-	for workflow_state in refinery_dict[ "workflow_states" ]:
-		# Ignore special states like start_node
-		if not workflow_state[ "id" ] in special_nodes:
-			next_node = False
-			# Look for relationships incase of next node
-			for workflow_relationship in refinery_dict[ "workflow_relationships" ]:
-				if not workflow_relationship[ "next" ] in special_nodes:
-					if workflow_relationship[ "node" ] == workflow_state[ "id" ]:
-						next_node = get_lambda_safe_name(
-							id_to_name_map[ workflow_relationship[ "next" ] ]
-						)
-			
-			aws_state_dict = {
-				"Type": "Task",
-				"Resource": name_to_arn_map[ get_lambda_safe_name( workflow_state[ "name" ] ) ],
-			}
-			
-			# If it's the first node, set StartAt
-			if workflow_state[ "id" ] == first_node:
-				return_step_function_data[ "StartAt" ] = get_lambda_safe_name( workflow_state[ "name" ] )
-				
-			# If it's the last node set "End"
-			if workflow_state[ "id" ] in end_nodes:
-				aws_state_dict[ "End" ] = True
-				
-			if next_node:
-				aws_state_dict[ "Next" ] = next_node
-			
-			states_dict[ get_lambda_safe_name( workflow_state[ "name" ] ) ] = aws_state_dict
-			
-	return_step_function_data[ "States" ] = states_dict
-			
-	return return_step_function_data
-	
-class CreateScheduleTrigger( BaseHandler ):
-	@gen.coroutine
-	def post( self ):
-		"""
-		Creates a scheduled trigger for a given SFN or Lambda.
-		"""
-		self.logit(
-			"Creating scheduled trigger..."
-		)
-		
-		schema = {
-			"type": "object",
-			"properties": {
-				"name": {
-					"type": "string",
-				},
-				"schedule_expression": {
-					"type": "string",
-				},
-				"description": {
-					"type": "string",
-				},
-				"target_arn": {
-					"type": "string",
-				},
-				"target_id": {
-					"type": "string",
-				},
-				"target_type": {
-					"type": "string"
-				}
-			},
-			"required": [
-				"name",
-				"schedule_expression",
-				"description",
-				"target_arn",
-				"input_dict",
-				"target_id",
-				"target_type"
-			]
-		}
-		
-		validate_schema( self.json, schema )
-
-		print( "Creating new scheduler rule..." )
-		rule_data = yield local_tasks.create_cloudwatch_rule(
-			cloudwatch_rule_name,
-			self.json[ "schedule_expression" ],
-			self.json[ "description" ],
-			{},
-		)
-		print( "Rule created!" )
-		
-		print( "Rule data: " )
-		print( rule_data )
-		
-		rule_arn = rule_data[ "RuleArn" ]
-		
-		print( "Adding target to rule..." )
-		
-		target_add_data = yield local_tasks.add_rule_target(
-			cloudwatch_rule_name,
-			self.json[ "target_id" ],
-			self.json[ "target_arn" ],
-			self.json[ "input_dict" ]
-		)
-		
-		print("Target added!")
-		
-		print( "Target added data: " )
-		pprint( target_add_data )
-		
-		self.write({
-			"success": True,
-			"result": {
-				"rule_arn": rule_arn,
-				"url": "https://console.aws.amazon.com/cloudwatch/home?region=" + os.environ.get( "region_name" ) + "#rules:name=" + cloudwatch_rule_name
-			}
-		})
-		
-class CreateSQSQueueTrigger( BaseHandler ):
-	@gen.coroutine
-	def post( self ):
-		self.logit(
-			"Deploying SQS Queue..."
-		)
-		
-		schema = {
-			"type": "object",
-			"properties": {
-				"queue_name": {
-					"type": "string",
-				},
-				"lambda_arn": {
-					"type": "string",
-				},
-				"batch_size": {
-					"type": "integer"
-				},
-				"content_based_deduplication": {
-					"type": "boolean",
-				}
-			},
-			"required": [
-				"queue_name",
-				"content_based_deduplication",
-				"lambda_arn",
-				"batch_size",
-			]
-		}
-		
-		validate_schema( self.json, schema )
-		
-		sqs_queue_name = get_lambda_safe_name(
-			self.json[ "queue_name" ]
-		)
-		
-		sqs_queue_url = yield local_tasks.create_sqs_queue(
-			sqs_queue_name,
-			self.json[ "content_based_deduplication" ]
-		)
-		
-		sqs_arn = "arn:aws:sqs:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + sqs_queue_name
-		
-		sqs_lambda_map_result = yield local_tasks.map_sqs_to_lambda(
-			sqs_arn,
-			self.json[ "lambda_arn" ],
-			self.json[ "batch_size" ]
-		)
-		
-		print( "Map result: " )
-		pprint(
-			sqs_lambda_map_result
-		)
-		
-		self.write({
-			"success": True,
-			"queue_url": sqs_queue_url
-		})
-		
-class SavedFunctionSearch( BaseHandler ):
-	@gen.coroutine
-	def post( self ):
-		"""
-		Free text search of saved functions, returns matching results.
-		"""
-		schema = {
-			"type": "object",
-			"properties": {
-				"query": {
-					"type": "string",
-				}
-			},
-			"required": [
-				"query",
-			]
-		}
-		
-		validate_schema( self.json, schema )
-		
-		self.logit(
-			"Searching saved functions..."
-		)
-		
-		# First search names
-		name_search_results = session.query( SavedFunction ).filter(
-			SavedFunction.name.ilike( "%" + self.json[ "query" ] + "%" ) # Probably SQL injection \o/
-		).limit(10).all()
-		
-		# Second search descriptions
-		description_search_results = session.query( SavedFunction ).filter(
-			SavedFunction.description.ilike( "%" + self.json[ "query" ] + "%" ) # Probably SQL injection \o/
-		).limit(10).all()
-		
-		already_added_ids = []
-		results_list = []
-		
-		"""
-		The below ranks saved function "name" matches over description matches.
-		"""
-		for name_search_result in name_search_results:
-			if not name_search_result.id in already_added_ids:
-				already_added_ids.append(
-					name_search_result.id
-				)
-				
-				results_list.append(
-					name_search_result.to_dict()
-				)
-				
-		for description_search_result in description_search_results:
-			if not description_search_result.id in already_added_ids:
-				already_added_ids.append(
-					description_search_result.id
-				)
-				
-				results_list.append(
-					description_search_result.to_dict()
-				)
-		
-		self.write({
-			"success": True,
-			"results": results_list
-		})
-		
-class SavedFunctionCreate( BaseHandler ):
-	@gen.coroutine
-	def post( self ):
-		"""
-		Create a function to save for later use.
-		"""
-		schema = {
-			"type": "object",
-			"properties": {
-				"name": {
-					"type": "string",
-				},
-				"description": {
-					"type": "string",
-				},
-				"code": {
-					"type": "string",
-				},
-				"language": {
-					"type": "string",
-				},
-				"libraries": {
-					"type": "array",
-				}
-			},
-			"required": [
-				"name",
-				"description",
-				"code",
-				"language",
-				"libraries"
-			]
-		}
-		
-		validate_schema( self.json, schema )
-		
-		self.logit(
-			"Saving function data..."
-		)
-		
-		new_function = SavedFunction()
-		new_function.name = self.json[ "name" ]
-		new_function.description = self.json[ "description" ]
-		new_function.code = self.json[ "code" ]
-		new_function.language = self.json[ "language" ]
-		new_function.libraries = json.dumps(
-			self.json[ "libraries" ]
-		)
-		
-		session.add( new_function )
-		session.commit()
-		
-		self.write({
-			"success": True,
-			"id": new_function.id
-		})
-		
-class SavedFunctionUpdate( BaseHandler ):
-	@gen.coroutine
-	def post( self ):
-		"""
-		Update a saved function
-		"""
-		schema = {
-			"type": "object",
-			"properties": {
-				"id": {
-					"type": "string",
-				},
-				"name": {
-					"type": "string",
-				},
-				"description": {
-					"type": "string",
-				},
-				"code": {
-					"type": "string",
-				},
-				"language": {
-					"type": "string",
-				},
-				"libraries": {
-					"type": "array",
-				}
-			},
-			"required": [
-				"id",
-				"name",
-				"description",
-				"code",
-				"language",
-				"libraries"
-			]
-		}
-		
-		validate_schema( self.json, schema )
-		
-		self.logit(
-			"Updating function data..."
-		)
-		
-		saved_function = session.query( SavedFunction ).filter_by(
-			id=self.json[ "id" ]
-		).first()
-		
-		saved_function.name = self.json[ "name" ]
-		saved_function.description = self.json[ "description" ]
-		saved_function.code = self.json[ "code" ]
-		saved_function.language = self.json[ "language" ]
-		saved_function.libraries = json.dumps(
-			self.json[ "libraries" ]
-		)
-		session.commit()
-		
-		self.write({
-			"success": True,
-			"id": saved_function.id
-		})
-		
-class SavedFunctionDelete( BaseHandler ):
-	@gen.coroutine
-	def delete( self ):
-		"""
-		Delete a saved function
-		"""
-		schema = {
-			"type": "object",
-			"properties": {
-				"id": {
-					"type": "string",
-				}
-			},
-			"required": [
-				"id"
-			]
-		}
-		
-		validate_schema( self.json, schema )
-		
-		self.logit(
-			"Deleting saved function data..."
-		)
-		
-		session.query( SavedFunction ).filter_by(
-			id=self.json[ "id" ]
-		).delete()
-		
-		session.commit()
-		
-		self.write({
-			"success": True
-		})
-		
 @gen.coroutine
-def deploy_lambda( id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, execution_log_level, environment_variables, layers ):
-	logit(
-		"Building '" + name + "' Lambda package..."
-	)
+def deploy_lambda( credentials, id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, execution_log_level, environment_variables, layers ):
+	"""
+	Here we build the default required environment variables.
+	"""
+	all_environment_vars = copy.copy( environment_variables )
+	all_environment_vars.append({
+		"key": "REDIS_HOSTNAME",
+		"value": credentials[ "redis_hostname" ],
+	})
 	
-	lambda_zip_package_data = yield local_tasks.build_lambda(
-		language,
-		code,
-		libraries,
-		transitions,
-		execution_mode,
-		execution_pipeline_id,
-		execution_log_level
-	)
+	all_environment_vars.append({
+		"key": "REDIS_PASSWORD",
+		"value": credentials[ "redis_password" ],
+	})
+
+	all_environment_vars.append({
+		"key": "REDIS_PORT",
+		"value": str( credentials[ "redis_port" ] ),
+	})
+
+	all_environment_vars.append({
+		"key": "EXECUTION_PIPELINE_ID",
+		"value": execution_pipeline_id,
+	})
 	
+	all_environment_vars.append({
+		"key": "LOG_BUCKET_NAME",
+		"value": credentials[ "logs_bucket" ],
+	})
+
+	all_environment_vars.append({
+		"key": "PIPELINE_LOGGING_LEVEL",
+		"value": execution_log_level,
+	})
+	
+	all_environment_vars.append({
+		"key": "EXECUTION_MODE",
+		"value": execution_mode,
+	})
+	
+	all_environment_vars.append({
+		"key": "TRANSITION_DATA",
+		"value": json.dumps(
+			transitions
+		),
+	})
+
 	logit(
 		"Deploying '" + name + "' Lambda package to production..."
 	)
+	
+	lambda_role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/refinery_default_aws_lambda_role"
+	
+	# Add the custom runtime layer in all cases
+	if language == "nodejs8.10":
+		layers.append(
+			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-node810-custom-runtime:1"
+		)
+	elif language == "php7.3":
+		layers.append(
+			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-php73-custom-runtime:1"
+		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
+		credentials,
 		name,
 		language,
 		"AWS Lambda deployed via refinery",
-		os.environ.get( "lambda_role" ),
-		lambda_zip_package_data,
+		lambda_role,
+		code,
+		libraries,
 		max_execution_time, # Max AWS execution time
 		memory, # MB of execution memory
 		{}, # VPC data
-		environment_variables,
+		all_environment_vars,
 		{
 			"refinery_id": id,
 		},
@@ -2543,7 +3823,7 @@ def update_workflow_states_list( updated_node, workflow_states ):
 	return workflow_states
 	
 @gen.coroutine
-def deploy_diagram( project_name, project_id, diagram_data, project_config ):
+def deploy_diagram( credentials, project_name, project_id, diagram_data, project_config ):
 	"""
 	Deploy the diagram to AWS
 	"""
@@ -2623,15 +3903,15 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	
 	for workflow_state in diagram_data[ "workflow_states" ]:
 		if workflow_state[ "type" ] == "lambda":
-			node_arn = "arn:aws:lambda:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":function:" + get_lambda_safe_name( workflow_state[ "name" ] )
+			node_arn = "arn:aws:lambda:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":function:" + get_lambda_safe_name( workflow_state[ "name" ] )
 		elif workflow_state[ "type" ] == "sns_topic":
-			node_arn = "arn:aws:sns:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + get_lambda_safe_name( workflow_state[ "name" ] )
+			node_arn = "arn:aws:sns:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + get_lambda_safe_name( workflow_state[ "name" ] )
 		elif workflow_state[ "type" ] == "sqs_queue":
-			node_arn = "arn:aws:sqs:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + get_lambda_safe_name( workflow_state[ "name" ] )
+			node_arn = "arn:aws:sqs:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + get_lambda_safe_name( workflow_state[ "name" ] )
 		elif workflow_state[ "type" ] == "schedule_trigger":
-			node_arn = "arn:aws:events:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":rule/" + get_lambda_safe_name( workflow_state[ "name" ] )
+			node_arn = "arn:aws:events:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":rule/" + get_lambda_safe_name( workflow_state[ "name" ] )
 		elif workflow_state[ "type" ] == "api_endpoint":
-			node_arn = "arn:aws:lambda:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":function:" + get_lambda_safe_name( workflow_state[ "name" ] )
+			node_arn = "arn:aws:lambda:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":function:" + get_lambda_safe_name( workflow_state[ "name" ] )
 		else:
 			node_arn = False
 		
@@ -2643,9 +3923,6 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 				"name": get_lambda_safe_name( workflow_state[ "name" ] ),
 				"type": workflow_state[ "type" ],
 			})
-			
-	print( "Teardown node list: " )
-	pprint( teardown_nodes_list )
 		
 	# Now add transition data to each Lambda
 	for workflow_relationship in diagram_data[ "workflow_relationships" ]:
@@ -2661,9 +3938,9 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 		
 		if origin_node_data[ "type" ] == "lambda" or origin_node_data[ "type" ] == "api_endpoint":
 			if target_node_data[ "type" ] == "lambda":
-				target_arn = "arn:aws:lambda:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":function:" + get_lambda_safe_name( target_node_data[ "name" ] )
+				target_arn = "arn:aws:lambda:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":function:" + get_lambda_safe_name( target_node_data[ "name" ] )
 			elif target_node_data[ "type" ] == "sns_topic":
-				target_arn = "arn:aws:sns:" + os.environ.get( "region_name" ) + ":" + os.environ.get( "aws_account_id" ) + ":" + get_lambda_safe_name( target_node_data[ "name" ] )
+				target_arn = "arn:aws:sns:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] )+ ":" + get_lambda_safe_name( target_node_data[ "name" ] )
 			elif target_node_data[ "type" ] == "api_gateway_response":
 				# API Gateway responses are a pseudo node and don't have an ARN
 				target_arn = False
@@ -2750,6 +4027,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 			"name": lambda_safe_name,
 			"type": lambda_node[ "type" ],
 			"future": deploy_lambda(
+				credentials,
 				lambda_node[ "id" ],
 				lambda_safe_name,
 				lambda_node[ "language" ],
@@ -2779,13 +4057,14 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 			"name": get_lambda_safe_name( api_endpoint_node[ "name" ] ),
 			"type": api_endpoint_node[ "type" ],
 			"future": deploy_lambda(
+				credentials,
 				api_endpoint_node[ "id" ],
 				api_endpoint_safe_name,
 				"python2.7",
 				"",
 				[],
 				30,
-				128,
+				512,
 				api_endpoint_node[ "transitions" ],
 				"API_ENDPOINT",
 				project_id,
@@ -2808,6 +4087,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 			"name": schedule_trigger_name,
 			"type": schedule_trigger_node[ "type" ],
 			"future": local_tasks.create_cloudwatch_rule(
+				credentials,
 				schedule_trigger_node[ "id" ],
 				schedule_trigger_name,
 				schedule_trigger_node[ "schedule_expression" ],
@@ -2829,6 +4109,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 			"name": sqs_queue_name,
 			"type": sqs_queue_node[ "type" ],
 			"future": local_tasks.create_sqs_queue(
+				credentials,
 				sqs_queue_node[ "id" ],
 				sqs_queue_name,
 				sqs_queue_node[ "content_based_deduplication" ],
@@ -2850,6 +4131,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 			"name": sns_topic_name,
 			"type": sns_topic_node[ "type" ],
 			"future": local_tasks.create_sns_topic(
+				credentials,
 				sns_topic_node[ "id" ],
 				sns_topic_node[ "topic_name" ],
 			)
@@ -2875,7 +4157,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 		try:
 			output = yield deploy_future_data[ "future" ]
 			
-			print( "[ STATUS ] Deployed node '" + deploy_future_data[ "name" ] + "' successfully!" )
+			logit( "Deployed node '" + deploy_future_data[ "name" ] + "' successfully!" )
 			
 			# Append to approriate lists
 			if deploy_future_data[ "type" ] == "lambda":
@@ -2899,19 +4181,21 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 					output
 				)
 		except Exception, e:
-			print( "[ ERROR ] Failed to deploy node '" + deploy_future_data[ "name" ] + "'!" )
+			logit( "Failed to deploy node '" + deploy_future_data[ "name" ] + "'!", "error" )
+			logit( "The full exception details can be seen below: ", "error" )
+			logit( traceback.format_exc(), "error" )
 			deployment_exceptions.append({
 				"id": deploy_future_data[ "id" ],
 				"name": deploy_future_data[ "name" ],
 				"type": deploy_future_data[ "type" ],
-				"exception": str( e )
+				"exception": traceback.format_exc()
 			})
 	
 	# This is the earliest point we can apply the breaks in the case of an exception
 	# It's the callers responsibility to tear down the nodes
 	if len( deployment_exceptions ) > 0:
-		print( "[ ERROR ] An uncaught exception occurred during the deployment process!" )
-		pprint( deployment_exceptions )
+		logit( "[ ERROR ] An uncaught exception occurred during the deployment process!", "error" )
+		logit( deployment_exceptions, "error" )
 		raise gen.Return({
 			"success": False,
 			"teardown_nodes_list": teardown_nodes_list,
@@ -2940,6 +4224,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 		if api_gateway_id == False:
 			rest_api_name = get_lambda_safe_name( project_name )
 			create_gateway_result = yield local_tasks.create_rest_api(
+				credentials,
 				rest_api_name,
 				rest_api_name, # Human readable name, just do the ID for now
 				"1.0.0"
@@ -2965,6 +4250,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 					
 					api_route_futures.append(
 						create_lambda_api_route(
+							credentials,
 							api_gateway_id,
 							workflow_state[ "http_method" ],
 							workflow_state[ "api_path" ],
@@ -2978,13 +4264,11 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 		
 		logit( "Now deploying API gateway to stage..." )
 		deploy_stage_results = yield local_tasks.deploy_api_gateway_to_stage(
+			credentials,
 			api_gateway_id,
 			"refinery"
 		)
-		
-		print( "Deploy stage results: " )
-		pprint( deploy_stage_results )
-	
+
 	"""
 	Update all nodes with deployed ARN for easier teardown
 	"""
@@ -3002,7 +4286,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 				workflow_state[ "arn" ] = deployed_api_endpoint[ "arn" ]
 				workflow_state[ "name" ] = deployed_api_endpoint[ "name" ]
 				workflow_state[ "rest_api_id" ] = api_gateway_id
-				workflow_state[ "url" ] = "https://" + api_gateway_id + ".execute-api." + os.environ.get( "region_name" ) + ".amazonaws.com/refinery" + workflow_state[ "api_path" ]
+				workflow_state[ "url" ] = "https://" + api_gateway_id + ".execute-api." + credentials[ "region" ] + ".amazonaws.com/refinery" + workflow_state[ "api_path" ]
 				
 	# Update workflow scheduled trigger nodes with arn
 	for deployed_schedule_trigger in deployed_schedule_triggers:
@@ -3047,6 +4331,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	for schedule_trigger_pair in schedule_trigger_pairs_to_deploy:
 		schedule_trigger_targeting_futures.append(
 			local_tasks.add_rule_target(
+				credentials,
 				schedule_trigger_pair[ "scheduled_trigger" ][ "name" ],
 				schedule_trigger_pair[ "target_lambda" ][ "name" ],
 				schedule_trigger_pair[ "target_lambda" ][ "arn" ],
@@ -3073,6 +4358,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	for sqs_queue_trigger in sqs_queue_triggers_to_deploy:
 		sqs_queue_trigger_targeting_futures.append(
 			local_tasks.map_sqs_to_lambda(
+				credentials,
 				sqs_queue_trigger[ "sqs_queue_trigger" ][ "arn" ],
 				sqs_queue_trigger[ "target_lambda" ][ "arn" ],
 				sqs_queue_trigger[ "sqs_queue_trigger" ][ "batch_size" ]
@@ -3098,6 +4384,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	for sns_topic_trigger in sns_topic_triggers_to_deploy:
 		sns_topic_trigger_targeting_futures.append(
 			local_tasks.subscribe_lambda_to_sns_topic(
+				credentials,
 				sns_topic_trigger[ "sns_topic_trigger" ][ "topic_name" ],
 				sns_topic_trigger[ "sns_topic_trigger" ][ "arn" ],
 				sns_topic_trigger[ "target_lambda" ][ "arn" ],
@@ -3109,9 +4396,6 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	sqs_queue_trigger_targets = yield sqs_queue_trigger_targeting_futures
 	sns_topic_trigger_targets = yield sns_topic_trigger_targeting_futures
 	
-	print( "Diagram: " )
-	pprint( diagram_data )
-	
 	raise gen.Return({
 		"success": True,
 		"project_name": project_name,
@@ -3121,7 +4405,7 @@ def deploy_diagram( project_name, project_id, diagram_data, project_config ):
 	})
 		
 class SavedLambdaCreate( BaseHandler ):
-	@gen.coroutine
+	@authenticated
 	def post( self ):
 		"""
 		Create a Lambda to save for later use.
@@ -3169,9 +4453,7 @@ class SavedLambdaCreate( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Saving Lambda data..."
-		)
+		logit( "Saving Lambda data..." )
 		
 		new_lambda = SavedLambda()
 		new_lambda.name = self.json[ "name" ]
@@ -3183,6 +4465,7 @@ class SavedLambdaCreate( BaseHandler ):
 		new_lambda.memory = self.json[ "memory" ]
 		new_lambda.max_execution_time = self.json[ "max_execution_time" ]
 		new_lambda.description = self.json[ "description" ]
+		new_lambda.user_id = self.get_authenticated_user_id()
 
 		session.add( new_lambda )
 		session.commit()
@@ -3193,7 +4476,7 @@ class SavedLambdaCreate( BaseHandler ):
 		})
 		
 class SavedLambdaSearch( BaseHandler ):
-	@gen.coroutine
+	@authenticated
 	def post( self ):
 		"""
 		Free text search of saved Lambda, returns matching results.
@@ -3212,45 +4495,38 @@ class SavedLambdaSearch( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Searching saved Lambdas..."
-		)
+		logit( "Searching saved Lambdas..." )
 		
-		# First search names
-		name_search_results = session.query( SavedLambda ).filter(
-			SavedLambda.name.ilike( "%" + self.json[ "query" ] + "%" ) # Probably SQL injection \o/
-		).limit(10).all()
+		# Get user's saved lambdas and search through them
+		saved_lambdas = session.query( SavedLambda ).filter_by(
+			user_id=self.get_authenticated_user_id()
+		).all()
 		
-		# Second search descriptions
-		description_search_results = session.query( SavedLambda ).filter(
-			SavedLambda.description.ilike( "%" + self.json[ "query" ] + "%" ) # Probably SQL injection \o/
-		).limit(10).all()
+		# List of already returned result IDs
+		existing_ids = []
 		
-		already_added_ids = []
+		# List of results
 		results_list = []
 		
-		"""
-		The below ranks saved function "name" matches over description matches.
-		"""
-		for name_search_result in name_search_results:
-			if not name_search_result.id in already_added_ids:
-				already_added_ids.append(
-					name_search_result.id
-				)
-				
-				results_list.append(
-					name_search_result.to_dict()
-				)
-				
-		for description_search_result in description_search_results:
-			if not description_search_result.id in already_added_ids:
-				already_added_ids.append(
-					description_search_result.id
-				)
-				
-				results_list.append(
-					description_search_result.to_dict()
-				)
+		# Searchable attributes
+		searchable_attributes = [
+			"name",
+			"description"
+		]
+		
+		# Search and add results in order of the searchable attributes
+		for searchable_attribute in searchable_attributes:
+			for saved_lambda in saved_lambdas:
+				if self.json[ "query" ].lower() in getattr( saved_lambda, searchable_attribute ).lower() and not ( saved_lambda.id in existing_ids ):
+					# Add to results
+					results_list.append(
+						saved_lambda.to_dict()
+					)
+					
+					# Add to existing IDs so we don't have duplicates
+					existing_ids.append(
+						saved_lambda.id
+					)
 		
 		self.write({
 			"success": True,
@@ -3258,6 +4534,7 @@ class SavedLambdaSearch( BaseHandler ):
 		})
 		
 class SavedLambdaDelete( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def delete( self ):
 		"""
@@ -3277,11 +4554,10 @@ class SavedLambdaDelete( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Deleting Lambda data..."
-		)
+		logit( "Deleting Lambda data..." )
 		
 		session.query( SavedLambda ).filter_by(
+			user_id=self.get_authenticated_user_id(),
 			id=self.json[ "id" ]
 		).delete()
 		
@@ -3292,7 +4568,7 @@ class SavedLambdaDelete( BaseHandler ):
 		})
 
 @gen.coroutine
-def teardown_infrastructure( teardown_nodes ):
+def teardown_infrastructure( credentials, teardown_nodes ):
 	"""
 	[
 		{
@@ -3314,6 +4590,7 @@ def teardown_infrastructure( teardown_nodes ):
 		if teardown_node[ "type" ] == "lambda" or teardown_node[ "type" ] == "api_endpoint":
 			teardown_operation_futures.append(
 				local_tasks.delete_lambda(
+					credentials,
 					teardown_node[ "id" ],
 					teardown_node[ "type" ],
 					teardown_node[ "name" ],
@@ -3323,6 +4600,7 @@ def teardown_infrastructure( teardown_nodes ):
 		elif teardown_node[ "type" ] == "sns_topic":
 			teardown_operation_futures.append(
 				local_tasks.delete_sns_topic(
+					credentials,
 					teardown_node[ "id" ],
 					teardown_node[ "type" ],
 					teardown_node[ "name" ],
@@ -3332,6 +4610,7 @@ def teardown_infrastructure( teardown_nodes ):
 		elif teardown_node[ "type" ] == "sqs_queue":
 			teardown_operation_futures.append(
 				local_tasks.delete_sqs_queue(
+					credentials,
 					teardown_node[ "id" ],
 					teardown_node[ "type" ],
 					teardown_node[ "name" ],
@@ -3341,6 +4620,7 @@ def teardown_infrastructure( teardown_nodes ):
 		elif teardown_node[ "type" ] == "schedule_trigger":
 			teardown_operation_futures.append(
 				local_tasks.delete_schedule_trigger(
+					credentials,
 					teardown_node[ "id" ],
 					teardown_node[ "type" ],
 					teardown_node[ "name" ],
@@ -3350,6 +4630,7 @@ def teardown_infrastructure( teardown_nodes ):
 		elif teardown_node[ "type" ] == "api_gateway":
 			teardown_operation_futures.append(
 				strip_api_gateway(
+					credentials,
 					teardown_node[ "rest_api_id" ],
 				)
 			)
@@ -3359,24 +4640,22 @@ def teardown_infrastructure( teardown_nodes ):
 	raise gen.Return( teardown_operation_results )
 
 class InfraTearDown( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
-		# TODO: Add Json Schema support
-
 		teardown_nodes = self.json[ "teardown_nodes" ]
 
 		teardown_operation_results = yield teardown_infrastructure(
+			self.get_authenticated_user_cloud_configuration(),
 			teardown_nodes
 		)
 		
 		# Delete our logs
 		# No need to yield till it completes
 		delete_logs(
+			self.get_authenticated_user_cloud_configuration(),
 			self.json[ "project_id" ]
 		)
-		
-		print( "Teardown results: ")
-		pprint( teardown_operation_results )
 		
 		self.write({
 			"success": True,
@@ -3384,13 +4663,10 @@ class InfraTearDown( BaseHandler ):
 		})
 	
 class InfraCollisionCheck( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
-		# TODO: Add Json Schema support
-
-		self.logit(
-			"Checking for production collisions..."
-		)
+		logit( "Checking for production collisions..." )
 		
 		diagram_data = json.loads( self.json[ "diagram_data" ] )
 		
@@ -3417,6 +4693,7 @@ class InfraCollisionCheck( BaseHandler ):
 			if workflow_state[ "type" ] == "lambda":
 				collision_check_futures.append(
 					local_tasks.get_aws_lambda_existence_info(
+						self.get_authenticated_user_cloud_configuration(),
 						workflow_state[ "id" ],
 						workflow_state[ "type" ],
 						get_lambda_safe_name(
@@ -3428,6 +4705,7 @@ class InfraCollisionCheck( BaseHandler ):
 			elif workflow_state[ "type" ] == "schedule_trigger":
 				collision_check_futures.append(
 					local_tasks.get_cloudwatch_existence_info(
+						self.get_authenticated_user_cloud_configuration(),
 						workflow_state[ "id" ],
 						workflow_state[ "type" ],
 						get_lambda_safe_name(
@@ -3438,6 +4716,7 @@ class InfraCollisionCheck( BaseHandler ):
 			elif workflow_state[ "type" ] == "sqs_queue":
 				collision_check_futures.append(
 					local_tasks.get_sqs_existence_info(
+						self.get_authenticated_user_cloud_configuration(),
 						workflow_state[ "id" ],
 						workflow_state[ "type" ],
 						get_lambda_safe_name(
@@ -3448,6 +4727,7 @@ class InfraCollisionCheck( BaseHandler ):
 			elif workflow_state[ "type" ] == "sns_topic":
 				collision_check_futures.append(
 					local_tasks.get_sns_existence_info(
+						self.get_authenticated_user_cloud_configuration(),
 						workflow_state[ "id" ],
 						workflow_state[ "type" ],
 						get_lambda_safe_name(
@@ -3459,15 +4739,13 @@ class InfraCollisionCheck( BaseHandler ):
 		# Wait for all collision checks to finish
 		collision_check_results = yield collision_check_futures
 		
-		print( "Collision check results: " )
-		pprint( collision_check_results )
-		
 		self.write({
 			"success": True,
 			"result": collision_check_results
 		})
 		
 class SaveProject( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -3477,10 +4755,11 @@ class SaveProject( BaseHandler ):
 			"version": "1.0.0" || False # Either specific or just increment
 			"config": {{project_config_data}} # Project config such as ENV variables, etc.
 		}
+		
+		TODO:
+			* The logic for each branch of project exists and project doesn't exist should be refactored
 		"""
-		self.logit(
-			"Saving project to database..."
-		)
+		logit( "Saving project to database..." )
 		
 		project_id = self.json[ "project_id" ]
 		diagram_data = json.loads( self.json[ "diagram_data" ] )
@@ -3491,17 +4770,14 @@ class SaveProject( BaseHandler ):
 		# If this is a new project and the name already exists
 		# Throw an error to indicate this can't be the case
 		if project_id == False:
-			project_with_same_name = session.query( Project ).filter_by(
-				name=project_name
-			).first()
-			
-			if project_with_same_name != None:
-				self.write({
-					"success": False,
-					"code": "PROJECT_NAME_EXISTS",
-					"msg": "A project with this name already exists!"
-				})
-				raise gen.Return()
+			for project in self.get_authenticated_user().projects:
+				if project.name == project_name:
+					self.write({
+						"success": False,
+						"code": "PROJECT_NAME_EXISTS",
+						"msg": "A project with this name already exists!"
+					})
+					raise gen.Return()
 		
 		# Check if project already exists
 		if project_id:
@@ -3510,17 +4786,37 @@ class SaveProject( BaseHandler ):
 			).first()
 		else:
 			previous_project = None
+			
+		# If a previous project exists, make sure the user has permissions
+		# to actually modify it
+		if previous_project:
+			# Deny if they don't have access
+			if not self.is_owner_of_project( project_id ):
+				self.write({
+					"success": False,
+					"code": "ACCESS_DENIED",
+					"msg": "You do not have the permissions required to save this project."
+				})
+				raise gen.Return()
 		
 		# If there is a previous project and the name doesn't match, update it.
 		if previous_project and previous_project.name != project_name:
 			previous_project.name = project_name
 			session.commit()
 		
+		# If there's no previous project, create a new one
 		if previous_project == None:
 			previous_project = Project()
 			previous_project.name = diagram_data[ "name" ]
+			
+			# Add the user to the project so they can access it
+			previous_project.users.append(
+				self.authenticated_user
+			)
+			
 			session.add( previous_project )
 			session.commit()
+			
 			# Set project ID to newly generated ID
 			project_id = previous_project.id
 		
@@ -3594,6 +4890,7 @@ def update_project_config( project_id, project_config ):
 	session.commit()
 		
 class SearchSavedProjects( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -3613,15 +4910,18 @@ class SearchSavedProjects( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Searching saved projects..."
-		)
+		logit( "Searching saved projects..." )
 		
-		# First search names
-		# TODO: Add pagination support so that you can see more than the first 10 projects
-		project_search_results = session.query( Project ).filter(
-			Project.name.ilike( "%" + self.json[ "query" ] + "%" ) # Probably SQL injection \o/
-		).limit(10).all()
+		authenticated_user = self.get_authenticated_user()
+		
+		# Projects that match the query
+		project_search_results = []
+		
+		for project_data in authenticated_user.projects:
+			if self.json[ "query" ].lower() in str( project_data.name ).lower():
+				project_search_results.append(
+					project_data
+				)
 		
 		results_list = []
 		
@@ -3651,6 +4951,7 @@ class SearchSavedProjects( BaseHandler ):
 		})
 		
 class GetSavedProject( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -3667,16 +4968,24 @@ class GetSavedProject( BaseHandler ):
 				}
 			},
 			"required": [
-				"id"
+				"id",
+				"version"
 			]
 		}
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Retrieving saved project..."
-		)
+		logit( "Retrieving saved project..." )
 
+		# Ensure user is owner of the project
+		if not self.is_owner_of_project( self.json[ "id" ] ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have priveleges to access that project version!",
+			})
+			raise gen.Return()
+			
 		project = self.fetch_project()
 
 		self.write({
@@ -3706,9 +5015,9 @@ class GetSavedProject( BaseHandler ):
 		).order_by(ProjectVersion.version.desc()).first()
 
 		return project_version_result
-
-
+		
 class DeleteSavedProject( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -3728,10 +5037,17 @@ class DeleteSavedProject( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Deleting saved project..."
-		)
+		logit( "Deleting saved project..." )
 		
+		# Ensure user is owner of the project
+		if not self.is_owner_of_project( self.json[ "id" ] ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have priveleges to delete that project!",
+			})
+			raise gen.Return()
+			
 		# Pull the latest project config
 		project_config = session.query( ProjectConfig ).filter_by(
 			project_id=self.json[ "id" ]
@@ -3747,6 +5063,7 @@ class DeleteSavedProject( BaseHandler ):
 				logit( "Deleting associated API Gateway '" + api_gateway_id + "'..." )
 				
 				yield local_tasks.delete_rest_api(
+					self.get_authenticated_user_cloud_configuration(),
 					api_gateway_id
 				)
 		
@@ -3761,45 +5078,23 @@ class DeleteSavedProject( BaseHandler ):
 			"success": True
 		})
 		
-@gen.coroutine
-def warm_lambda_base_caches():
-	"""
-	Kicks off building the dependency .zip templates for the base
-	builds so that future builds will be cached and will execute faster.
-	"""
-	
-	lambda_build_futures = []
-	
-	for supported_language in LAMBDA_SUPPORTED_LANGUAGES:
-		lambda_build_futures.append(
-			local_tasks.build_lambda(
-				supported_language,
-				"",
-				[],
-				{
-					"then": [],
-					"else": [],
-					"exception": [],
-					"if": [],
-					"fan-out": [],
-					"fan-in": [],
-				},
-				"REGULAR",
-				False,
-				False
-			)
-		)
-		
-	results = yield lambda_build_futures
-	
-	print( "Lambda base-cache has been warmed!" )
-		
 class DeployDiagram( BaseHandler ):
+	@authenticated
+	@disable_on_overdue_payment
 	@gen.coroutine
 	def post( self ):
-		self.logit(
-			"Deploying diagram to production..."
-		)
+		# TODO: Add jsonschema
+		
+		logit( "Deploying diagram to production..." )
+		
+		# Ensure user is owner of the project
+		if not self.is_owner_of_project( self.json[ "project_id" ] ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have priveleges to deploy that!",
+			})
+			raise gen.Return()
 		
 		project_id = self.json[ "project_id" ]
 		project_name = self.json[ "project_name" ]
@@ -3808,6 +5103,7 @@ class DeployDiagram( BaseHandler ):
 		diagram_data = json.loads( self.json[ "diagram_data" ] )
 		
 		deployment_data = yield deploy_diagram(
+			self.get_authenticated_user_cloud_configuration(),
 			project_name,
 			project_id,
 			diagram_data,
@@ -3816,11 +5112,12 @@ class DeployDiagram( BaseHandler ):
 		
 		# Check if the deployment failed
 		if deployment_data[ "success" ] == False:
-			print( "[ ERROR ] We are now rolling back the deployments we've made..." )
+			logit( "We are now rolling back the deployments we've made...", "error" )
 			yield teardown_infrastructure(
+				self.get_authenticated_user_cloud_configuration(),
 				deployment_data[ "teardown_nodes_list" ]
 			)
-			print( "[ ERROR ] We've completed our rollback, returning an error..." )
+			logit( "We've completed our rollback, returning an error...", "error" )
 			
 			# For now we'll just raise
 			self.write({
@@ -3869,6 +5166,7 @@ class DeployDiagram( BaseHandler ):
 		})
 		
 class GetProjectConfig( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -3888,9 +5186,16 @@ class GetProjectConfig( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Retrieving project deployments..."
-		)
+		logit( "Retrieving project deployments..." )
+		
+		# Ensure user is owner of the project
+		if not self.is_owner_of_project( self.json[ "project_id" ] ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have priveleges to get that project version!",
+			})
+			raise gen.Return()
 		
 		project_config = session.query( ProjectConfig ).filter_by(
 			project_id=self.json[ "project_id" ]
@@ -3904,6 +5209,7 @@ class GetProjectConfig( BaseHandler ):
 		})
 		
 class GetLatestProjectDeployment( BaseHandler ):
+	@authenticated
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -3923,9 +5229,16 @@ class GetLatestProjectDeployment( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Retrieving project deployments..."
-		)
+		logit( "Retrieving project deployments..." )
+		
+		# Ensure user is owner of the project
+		if not self.is_owner_of_project( self.json[ "project_id" ] ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have priveleges to get this project deployment!",
+			})
+			raise gen.Return()
 		
 		latest_deployment = session.query( Deployment ).filter_by(
 			project_id=self.json[ "project_id" ]
@@ -3944,6 +5257,8 @@ class GetLatestProjectDeployment( BaseHandler ):
 		})
 		
 class DeleteDeploymentsInProject( BaseHandler ):
+	@authenticated
+	@gen.coroutine
 	def post( self ):
 		"""
 		Delete all deployments in database for a given project
@@ -3962,9 +5277,16 @@ class DeleteDeploymentsInProject( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Deleting deployments from database..."
-		)
+		logit( "Deleting deployments from database..." )
+		
+		# Ensure user is owner of the project
+		if not self.is_owner_of_project( self.json[ "project_id" ] ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have priveleges to delete that deployment!",
+			})
+			raise gen.Return()
 		
 		session.query( Deployment ).filter_by(
 			project_id=self.json[ "project_id" ]
@@ -3977,7 +5299,7 @@ class DeleteDeploymentsInProject( BaseHandler ):
 		})
 	
 @gen.coroutine
-def create_lambda_api_route( api_gateway_id, http_method, route, lambda_name, overwrite_existing ):
+def create_lambda_api_route( credentials, api_gateway_id, http_method, route, lambda_name, overwrite_existing ):
 	def not_empty( input_item ):
 		return ( input_item != "" )
 	path_parts = route.split( "/" )
@@ -3986,12 +5308,14 @@ def create_lambda_api_route( api_gateway_id, http_method, route, lambda_name, ov
 	# First we clean the Lambda of API Gateway policies which point
 	# to dead API Gateways
 	yield local_tasks.clean_lambda_iam_policies(
+		credentials,
 		lambda_name
 	)
 	
 	# A default resource is created along with an API gateway, we grab
 	# it so we can make our base method
 	resources = yield local_tasks.get_resources(
+		credentials,
 		api_gateway_id
 	)
 	base_resource_id = resources[ 0 ][ "id" ]
@@ -4022,8 +5346,8 @@ def create_lambda_api_route( api_gateway_id, http_method, route, lambda_name, ov
 			current_base_pointer_id = path_existence_map[ current_path ]
 		else:
 			# Otherwise go ahead and create one
-			print( "Creating section '" + path_part + "'..." )
 			new_resource = yield local_tasks.create_resource(
+				credentials,
 				api_gateway_id,
 				current_base_pointer_id,
 				path_part
@@ -4031,10 +5355,9 @@ def create_lambda_api_route( api_gateway_id, http_method, route, lambda_name, ov
 			
 			current_base_pointer_id = new_resource[ "id" ]
 	
-	print( "Creating HTTP method..." )
-	
 	# Create method on base resource
 	method_response = yield local_tasks.create_method(
+		credentials,
 		"HTTP Method",
 		api_gateway_id,
 		current_base_pointer_id,
@@ -4042,13 +5365,9 @@ def create_lambda_api_route( api_gateway_id, http_method, route, lambda_name, ov
 		False,
 	)
 	
-	print( "HTTP method response: " )
-	pprint( method_response )
-	
-	print( "Linking Lambda to endpoint..." )
-	
 	# Link the API Gateway to the lambda
 	link_response = yield local_tasks.link_api_method_to_lambda(
+		credentials,
 		api_gateway_id,
 		current_base_pointer_id,
 		http_method, # GET was previous here
@@ -4056,17 +5375,9 @@ def create_lambda_api_route( api_gateway_id, http_method, route, lambda_name, ov
 		lambda_name
 	)
 	
-	print( "Lambda link response: " )
-	pprint(
-		link_response
-	)
-	
-	print( "All resources now that we've added some: " )
 	resources = yield local_tasks.get_resources(
+		credentials,
 		api_gateway_id
-	)
-	pprint(
-		resources
 	)
 	
 @gen.coroutine
@@ -4082,7 +5393,7 @@ def get_cloudflare_keys():
 		60 * 60 * 1
 	)
 	
-	print( "Requesting Cloudflare's Access keys for '" + os.environ.get( "cf_certs_url" ) + "'..." )
+	logit( "Requesting Cloudflare's Access keys for '" + os.environ.get( "cf_certs_url" ) + "'..." )
 	client = AsyncHTTPClient()
 	
 	request = HTTPRequest(
@@ -4108,14 +5419,14 @@ def get_cloudflare_keys():
 			public_key
 		)
 	
-	print( "Private keys to be updated again in " + str( public_keys_update_interval ) + " second(s)..." )
+	logit( "Private keys to be updated again in " + str( public_keys_update_interval ) + " second(s)..." )
 	tornado.ioloop.IOLoop.current().add_timeout(
 		time.time() + public_keys_update_interval,
 		get_cloudflare_keys
 	)
 	
 @gen.coroutine
-def get_project_id_execution_log_groups( project_id, max_results, continuation_token ):
+def get_project_id_execution_log_groups( credentials, project_id, max_results, continuation_token ):
 	"""
 	@project_id: The ID of the project deployed into production
 	@max_results: The max number of timestamp groups you want to search
@@ -4140,6 +5451,7 @@ def get_project_id_execution_log_groups( project_id, max_results, continuation_t
 	results_dict = {}
 	
 	execution_log_timestamp_prefix_data = yield local_tasks.get_s3_pipeline_timestamp_prefixes(
+		credentials,
 		project_id,
 		max_results,
 		continuation_token
@@ -4153,9 +5465,9 @@ def get_project_id_execution_log_groups( project_id, max_results, continuation_t
 	timestamp_prefix_fetch_futures = []
 	
 	for execution_log_timestamp_prefix in execution_log_timestamp_prefixes:
-		print( "Retrieving execution id(s) under " + execution_log_timestamp_prefix + "..." )
 		timestamp_prefix_fetch_futures.append(
 			local_tasks.get_s3_pipeline_execution_ids(
+				credentials,
 				execution_log_timestamp_prefix,
 				-1,
 				False
@@ -4175,9 +5487,9 @@ def get_project_id_execution_log_groups( project_id, max_results, continuation_t
 	s3_log_path_promises = []
 
 	for execution_id_prefix in execution_id_prefixes:
-		print( "Retrieving log paths under " + execution_id_prefix + "..." )
 		s3_log_path_promises.append(
 			local_tasks.get_s3_pipeline_execution_logs(
+				credentials,
 				execution_id_prefix,
 				-1
 			)
@@ -4240,7 +5552,7 @@ def get_project_id_execution_log_groups( project_id, max_results, continuation_t
 	raise gen.Return( results_dict )
 	
 @gen.coroutine
-def get_logs_data( log_paths_array ):
+def get_logs_data( credentials, log_paths_array ):
 	"""
 	Return data format is the following:
 	{
@@ -4251,7 +5563,8 @@ def get_logs_data( log_paths_array ):
 	for log_file_path in log_paths_array:
 		s3_object_retrieval_futures.append(
 			local_tasks.read_from_s3_and_return_input(
-				os.environ.get( "pipeline_logs_bucket" ),
+				credentials,
+				credentials[ "logs_bucket" ],
 				log_file_path
 			)
 		)
@@ -4278,7 +5591,7 @@ def get_logs_data( log_paths_array ):
 		return_data[ log_data[ "function_name" ] ].append(
 			log_data
 		)
-		
+    
 	# Reverse order for return values
 	for key, value in return_data.iteritems():
 		return_data[ key ] = return_data[ key ][::-1]
@@ -4286,6 +5599,8 @@ def get_logs_data( log_paths_array ):
 	raise gen.Return( return_data )
 
 class GetProjectExecutions( BaseHandler ):
+	@authenticated
+	@disable_on_overdue_payment  
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -4309,16 +5624,24 @@ class GetProjectExecutions( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Retrieving execution ID(s) and their metadata..."
-		)
+		logit( "Retrieving execution ID(s) and their metadata..." )
 		
+		# Ensure user is owner of the project
+		if not self.is_owner_of_project( self.json[ "project_id" ] ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have priveleges to access that project's executions!",
+			})
+			raise gen.Return()
+      
 		continuation_token = False
 		
 		if "continuation_token" in self.json:
 			continuation_token = self.json[ "continuation_token" ]
 		
 		execution_ids_metadata = yield get_project_id_execution_log_groups(
+			self.get_authenticated_user_cloud_configuration(),
 			self.json[ "project_id" ],
 			100,
 			continuation_token
@@ -4330,6 +5653,8 @@ class GetProjectExecutions( BaseHandler ):
 		})
 		
 class GetProjectExecutionLogs( BaseHandler ):
+	@authenticated
+	@disable_on_overdue_payment
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -4350,11 +5675,10 @@ class GetProjectExecutionLogs( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Retrieving requested logs..."
-		)
+		logit( "Retrieving requested logs..." )
 		
 		logs_data = yield get_logs_data(
+			self.get_authenticated_user_cloud_configuration(),
 			self.json[ "logs" ],
 		)
 		
@@ -4364,27 +5688,26 @@ class GetProjectExecutionLogs( BaseHandler ):
 		})
 		
 @gen.coroutine
-def delete_logs( project_id ):
+def delete_logs( credentials, project_id ):
 	while True:
-		print( "Collecting objects to delete..." )
 		log_paths = yield local_tasks.get_s3_pipeline_execution_logs(
+			credentials,
 			project_id + "/",
 			1000
 		)
 
-		print( "Got back " + str( len( log_paths ) ) + " log object(s)!" )
-		
 		if len( log_paths ) == 0:
 			break
 		
-		print( "Deleting objects..." )
 		yield local_tasks.bulk_s3_delete(
-			os.environ.get( "pipeline_logs_bucket" ),
+			credentials,
+			credentials[ "logs_bucket" ],
 			log_paths
 		)
-		print( "Objects deleted!" )
-		
+
 class UpdateEnvironmentVariables( BaseHandler ):
+	@authenticated
+	@disable_on_overdue_payment
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -4415,11 +5738,10 @@ class UpdateEnvironmentVariables( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Updating environment variables..."
-		)
+		logit( "Updating environment variables..." )
 		
 		response = yield local_tasks.update_lambda_environment_variables(
+			self.get_authenticated_user_cloud_configuration(),
 			self.json[ "arn" ],
 			self.json[ "environment_variables" ],
 		)
@@ -4450,6 +5772,8 @@ class UpdateEnvironmentVariables( BaseHandler ):
 		})
 		
 class GetCloudWatchLogsForLambda( BaseHandler ):
+	@authenticated
+	@disable_on_overdue_payment
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -4472,11 +5796,10 @@ class GetCloudWatchLogsForLambda( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Retrieving CloudWatch logs..."
-		)
+		logit( "Retrieving CloudWatch logs..." )
 		
 		log_output = yield local_tasks.get_lambda_cloudwatch_logs(
+			self.get_authenticated_user_cloud_configuration(),
 			self.json[ "arn" ]
 		)
 		
@@ -4494,7 +5817,7 @@ class GetCloudWatchLogsForLambda( BaseHandler ):
 		})
 		
 @gen.coroutine
-def strip_api_gateway( api_gateway_id ):
+def strip_api_gateway( credentials, api_gateway_id ):
 	"""
 	Strip a given API Gateway of all of it's:
 	* Resources
@@ -4504,11 +5827,8 @@ def strip_api_gateway( api_gateway_id ):
 	Allowing for the configuration details to be replaced.
 	"""
 	rest_resources = yield local_tasks.get_resources(
+		credentials,
 		api_gateway_id
-	)
-	
-	pprint(
-		rest_resources
 	)
 	
 	# List of futures to finish before we continue
@@ -4519,9 +5839,9 @@ def strip_api_gateway( api_gateway_id ):
 	for resource_item in rest_resources:
 		# We can't delete the root resource
 		if resource_item[ "path" ] != "/":
-			print( "Deleting resource ID '" + resource_item[ "id" ] + "'..." )
 			deletion_futures.append(
 				local_tasks.delete_rest_api_resource(
+					credentials,
 					api_gateway_id,
 					resource_item[ "id" ]
 				)
@@ -4530,9 +5850,9 @@ def strip_api_gateway( api_gateway_id ):
 		# Delete the methods
 		if "resourceMethods" in resource_item:
 			for http_method, values in resource_item[ "resourceMethods" ].iteritems():
-				print( "Deleting HTTP method '" + http_method + "'..." )
 				deletion_futures.append(
 					local_tasks.delete_rest_api_resource_method(
+						credentials,
 						api_gateway_id,
 						resource_item[ "id" ],
 						http_method
@@ -4540,13 +5860,14 @@ def strip_api_gateway( api_gateway_id ):
 				)
 			
 	rest_stages = yield local_tasks.get_stages(
+		credentials,
 		api_gateway_id
 	)
 	
 	for rest_stage in rest_stages:
-		print( "Deleting stage '" + rest_stage[ "stageName" ] + "'..." )
 		deletion_futures.append(
 			local_tasks.delete_stage(
+				credentials,
 				api_gateway_id,
 				rest_stage[ "stageName" ]
 			)
@@ -4555,29 +5876,841 @@ def strip_api_gateway( api_gateway_id ):
 	yield deletion_futures
 	
 	raise gen.Return( api_gateway_id )
+	
+class NewRegistration( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Register a new Refinery account.
+		
+		This will trigger an email to verify the user's account.
+		Email is used for authentication, so by design the user will
+		have to validate their email to log into the service.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"organization_name": {
+					"type": "string",
+				},
+				"name": {
+					"type": "string",
+				},
+				"email": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"organization_name",
+				"name",
+				"email"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		logit( "Processing user registration..." )
+		
+		# Before we continue, check if the email is valid
+		try:
+			email_validator = validate_email(
+				self.json[ "email" ]
+			)
+			email = email_validator[ "email" ] # replace with normalized form
+		except EmailNotValidError as e:
+			logit( "Invalid email provided during signup!" )
+			self.write({
+				"success": False,
+				"code": "INVALID_EMAIL",
+				"msg": str( e ) # The exception string is user-friendly by design.
+			})
+			raise gen.Return()
+			
+		# Create new organization for user
+		new_organization = Organization()
+		new_organization.name = self.json[ "organization_name" ]
+		
+		# Set defaults
+		new_organization.payments_overdue = False
+		
+		# Check if the user is already registered
+		user = session.query( User ).filter_by(
+			email=self.json[ "email" ]
+		).first()
+		
+		# If the user already exists, stop here and notify them.
+		# They should be given the option to attempt to authenticate/confirm
+		# their account by logging in.
+		if user != None:
+			self.write({
+				"success": False,
+				"code": "USER_ALREADY_EXISTS",
+				"msg": "A user with that email address already exists!"
+			})
+			raise gen.Return()
+		
+		# Check if there are reserved AWS accounts available
+		aws_reserved_account = session.query( AWSAccount ).filter_by(
+			is_reserved_account=True
+		).first()
+		
+		# If one exists, add it to the account
+		if aws_reserved_account != None:
+			logit( "Adding a reserved AWS account to the newly registered Refinery account..." )
+			aws_reserved_account.is_reserved_account = False
+			aws_reserved_account.organization_id = new_organization.id
+		
+		# Create the user itself and add it to the organization
+		new_user = User()
+		new_user.name = self.json[ "name" ]
+		new_user.email = self.json[ "email" ]
+		
+		# Create a new email auth token as well
+		email_auth_token = EmailAuthToken()
+		
+		# Pull out the authentication token
+		raw_email_authentication_token = email_auth_token.token
+		
+		# Add the token to the list of the user's token
+		new_user.email_auth_tokens.append(
+			email_auth_token
+		)
+		
+		# Add user to the organization
+		new_organization.users.append(
+			new_user
+		)
+		
+		# Set this user as the billing admin
+		new_organization.billing_admin_id = new_user.id
+		
+		session.add( new_organization )
+		session.commit()
+		
+		# Send registration confirmation link to user's email address
+		# The first time they authenticate via this link it will both confirm
+		# their email address and authenticate them.
+		logit( "Sending user their registration confirmation email..." )
+		yield local_tasks.send_registration_confirmation_email(
+			self.json[ "email" ],
+			raw_email_authentication_token
+		)
+
+		self.write({
+			"success": True,
+			"result": {
+				"msg": "Registration was successful! Please check your inbox to validate your email address and to log in."
+			}
+		})
+		
+class EmailLinkAuthentication( BaseHandler ):
+	@gen.coroutine
+	def get( self, email_authentication_token=None ):
+		"""
+		This is the endpoint which is linked to in the email send out to the user.
+		
+		Currently this responds with ugly text errors, but eventually it will be just
+		another REST-API endpoint.
+		"""
+		logit( "User is authenticating via email link" )
+		
+		# Query for the provided authentication token
+		email_authentication_token = session.query( EmailAuthToken ).filter_by(
+			token=str( email_authentication_token )
+		).first()
+		
+		if email_authentication_token == None:
+			logit( "User's token was not found in the database" )
+			self.write( "Invalid authentication token, did you copy the link correctly?" )
+			raise gen.Return()
+			
+		# Calculate token age
+		token_age = ( int( time.time() ) - email_authentication_token.timestamp )
+		
+		# Check if the token is expired
+		if email_authentication_token.is_expired == True:
+			logit( "The user's email token was already marked as expired." )
+			self.write( "That email token has expired, please try authenticating again to request a new one." )
+			raise gen.Return()
+		
+		# Check if the token is older than the allowed lifetime
+		# If it is then mark it expired and return an error
+		if token_age >= int( os.environ.get( "email_token_lifetime" ) ):
+			logit( "The user's email token was too old and was marked as expired." )
+			
+			# Mark the token as expired in the database
+			email_authentication_token.is_expired = True
+			session.commit()
+			
+			self.write( "That email token has expired, please try authenticating again to request a new one." )
+			raise gen.Return()
+		
+		# Since the user has now authenticated
+		# Mark the token as expired in the database
+		email_authentication_token.is_expired = True
+		
+		# Check if the user has previously authenticated via
+		# their email address. If not we'll mark their email
+		# as validated as well.
+		if email_authentication_token.user.email_verified == False:
+			email_authentication_token.user.email_verified = True
+			
+			# Additionally since they've validated their email we'll add them to Stripe
+			customer_id = yield local_tasks.stripe_create_customer(
+				email_authentication_token.user.email,
+				email_authentication_token.user.name,
+			)
+			
+			# Set user's payment_id to the Stripe customer ID
+			email_authentication_token.user.payment_id = customer_id
+		
+		session.commit()
+		
+		# Check if the user's account is disabled
+		# If it's disabled don't allow the user to log in at all.
+		if email_authentication_token.user.disabled == True:
+			logit( "User login was denied due to their account being disabled!" )
+			self.write( "Your account is currently disabled, please contact customer support for more information." )
+			raise gen.Return()
+		
+		# Pull the user's organization
+		user_organization = session.query( Organization ).filter_by(
+			id=email_authentication_token.user.organization_id
+		).first()
+		
+		# Check if the user's organization is disabled
+		# If it's disabled don't allow the user to log in at all.
+		if user_organization.disabled == True:
+			logit( "User login was denied due to their organization being disabled!" )
+			self.write( "Your organization is currently disabled, please contact customer support for more information." )
+			raise gen.Return()
+		
+		logit( "User authenticated successfully" )
+		
+		# Authenticate the user via secure cookie
+		self.authenticate_user_id(
+			email_authentication_token.user.id
+		)
+		
+		self.redirect(
+			"/"
+		)
+	
+class GetAuthenticationStatus( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def get( self ):
+		current_user = self.get_authenticated_user()
+
+		if current_user:
+			self.write({
+				"authenticated": True,
+				"name": current_user.name,
+				"email": current_user.email,
+				"permission_level": current_user.permission_level,
+				"trial_information": get_user_free_trial_information(
+					self.get_authenticated_user()
+				)
+			})
+			return
+		
+		self.write({
+			"authenticated": False
+		})
+
+class Authenticate( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		This fires off an authentication email for a given user.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"email": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"email"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		# Get user based off of the provided email
+		user = session.query( User ).filter_by(
+			email=self.json[ "email" ]
+		).first()
+		
+		if user == None:
+			self.write({
+				"success": False,
+				"code": "USER_NOT_FOUND",
+				"msg": "No user was found with that email address."
+			})
+			raise gen.Return()
+		
+		# Generate an auth token and add it to the user's account
+		# Create a new email auth token as well
+		email_auth_token = EmailAuthToken()
+		
+		# Pull out the authentication token
+		raw_email_authentication_token = email_auth_token.token
+		
+		# Add the token to the list of the user's token
+		user.email_auth_tokens.append(
+			email_auth_token
+		)
+		
+		session.commit()
+		
+		yield local_tasks.send_authentication_email(
+			user.email,
+			raw_email_authentication_token
+		)
+		
+		self.write({
+			"success": True,
+			"msg": "Sent an authentication email to the user. Please click the link in the email to log in to Refinery!"
+		})
+
+class Logout( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		self.clear_cookie( "session" )
+		self.write({
+			"success": True
+		})
+		
+class GetBillingMonthTotals( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def post( self ):
+		"""
+		Pulls the billing totals for a given date range.
+		
+		This allows for the frontend to pull things like:
+		* The user's current total costs for the month
+		* The total costs for the last three months.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"billing_month": {
+					"type": "string",
+					"pattern": "^\d\d\d\d\-\d\d$",
+				}
+			},
+			"required": [
+				"billing_month"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		current_user = self.get_authenticated_user()
+		credentials = self.get_authenticated_user_cloud_configuration()
+		
+		billing_data = yield local_tasks.get_sub_account_month_billing_data(
+			credentials[ "account_id" ],
+			self.json[ "billing_month" ],
+			True
+		)
+		
+		self.write( billing_data )
+		
+def get_current_month_start_and_end_date_strings():
+	"""
+	Returns the start date string of this month and
+	the start date of the next month for pulling AWS
+	billing for the current month.
+	"""
+	# Get tomorrow date
+	today_date = datetime.date.today()
+	tomorrow_date = datetime.date.today() + datetime.timedelta( days=1 )
+	start_date = tomorrow_date
+	
+	# We could potentially be on the last day of the month
+	# making tomorrow the next month! Check for this case.
+	# If it's the case then we'll just set the start date to today
+	if tomorrow_date.month == today_date.month:
+		start_date = today_date
+	
+	# Get first day of next month
+	current_month_num = today_date.month
+	current_year_num = today_date.year
+	next_month_num = current_month_num + 1
+	
+	# Check if we're on the last month
+	# If so the next month number is 1
+	# and we should add 1 to the year
+	if current_month_num == 12:
+		next_month_num = 1
+		current_year_num = current_year_num + 1
+		
+	next_month_start_date = datetime.date(
+		current_year_num,
+		next_month_num,
+		1
+	)
+		
+	return {
+		"current_date": tomorrow_date.strftime( "%Y-%m-%d" ),
+		"month_start_date": tomorrow_date.strftime( "%Y-%m-01" ),
+		"next_month_first_day": next_month_start_date.strftime( "%Y-%m-%d" ),
+	}
+		
+class GetBillingDateRangeForecast( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def post( self ):
+		"""
+		Pulls the billing totals for a given date range.
+		
+		This allows for the frontend to pull things like:
+		* The user's current total costs for the month
+		* The total costs for the last three months.
+		"""
+		current_user = self.get_authenticated_user()
+		credentials = self.get_authenticated_user_cloud_configuration()
+		
+		date_info = get_current_month_start_and_end_date_strings()
+		
+		forecast_data = yield local_tasks.get_sub_account_billing_forecast(
+			credentials[ "account_id" ],
+			date_info[ "current_date"],
+			date_info[ "next_month_first_day" ],
+			"monthly"
+		)
+		
+		self.write( forecast_data )
+
+class RunBillingWatchdogJob( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def get( self ):
+		"""
+		This job checks the running account totals of each AWS account to see
+		if their usage has gone over the safety limits. This is mainly for free
+		trial users and for alerting users that they may incur a large bill.
+		"""
+		self.write({
+			"success": True,
+			"msg": "Watchdog job has been started!"
+		})
+		self.finish()
+		logit( "[ STATUS ] Initiating billing watchdog job, scanning all accounts to check for billing anomalies..." )
+		aws_account_running_cost_list = yield local_tasks.pull_current_month_running_account_totals()
+		logit( "[ STATUS ] " + str( len( aws_account_running_cost_list ) ) + " account(s) pulled from billing, checking against rules..." )
+		yield local_tasks.enforce_account_limits( aws_account_running_cost_list )
+		
+class RunMonthlyStripeBillingJob( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def get( self ):
+		"""
+		Runs at the first of the month and creates auto-finalizing draft
+		invoices for all Refinery customers. After it does this it emails
+		the "billing_alert_email" email with a notice to review the drafts
+		before they auto-finalize after one-hour.
+		"""
+		self.write({
+			"success": True,
+			"msg": "The billing job has been started!"
+		})
+		self.finish()
+		logit( "[ STATUS ] Running monthly Stripe billing job to invoice all Refinery customers." )
+		date_info = get_current_month_start_and_end_date_strings()
+		logit( "[ STATUS ] Generating invoices for " + date_info[ "month_start_date" ] + " -> " + date_info[ "next_month_first_day" ]  )
+		yield local_tasks.generate_managed_accounts_invoices(
+			date_info[ "month_start_date"],
+			date_info[ "next_month_first_day" ],
+		)
+		logit( "[ STATUS ] Stripe billing job has completed!" )
+		
+class HealthHandler( BaseHandler ):
+	@authenticated
+	def get( self ):
+		# Just run a dummy database query to ensure it's working
+		session.query( User ).first()
+		self.write({
+			"status": "ok"
+		})
+		
+class AddCreditCardToken( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def post( self ):
+		"""
+		Adds a credit card token to a given user's Stripe record.
+		
+		THIS DOES NOT STORE CREDIT CARD INFORMATION, DO NOT EVER PASS
+		CREDIT CARD INFORMATION TO IT. DON'T EVEN *THINK* ABOUT DOING
+		IT OR I WILL PERSONALLY SLAP YOU. -mandatory
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"token": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"token"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		current_user = self.get_authenticated_user()
+		
+		yield local_tasks.associate_card_token_with_customer_account(
+			current_user.payment_id,
+			self.json[ "token" ]
+		)
+		
+		self.write({
+			"success": True,
+			"msg": "The credit card has been successfully added to your account!"
+		})
+		
+class ListCreditCards( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def get( self ):
+		"""
+		List the credit cards the user has on file, returns
+		just the non-PII info that we get back from Stripe
+		"""
+		current_user = self.get_authenticated_user()
+		
+		cards_info_list = yield local_tasks.get_account_cards(
+			current_user.payment_id,
+		)
+		
+		# Filter card info
+		filtered_card_info_list = []
+		
+		# The keys we're fine with passing from back Stripe
+		returnable_keys = [
+			"id",
+			"brand",
+			"country",
+			"exp_month",
+			"exp_year",
+			"last4",
+			"is_primary"
+		]
+		
+		for card_info in cards_info_list:
+			filtered_card_info = {}
+			for key, value in card_info.iteritems():
+				if key in returnable_keys:
+					filtered_card_info[ key ] = value
+			
+			filtered_card_info_list.append(
+				filtered_card_info
+			)
+		
+		self.write({
+			"success": True,
+			"cards": filtered_card_info_list
+		})
+		
+class DeleteCreditCard( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def post( self ):
+		"""
+		Deletes a credit card from the user's Stripe account.
+		
+		This is not allowed if the payment method is the only
+		one on file for that account.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"id"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		current_user = self.get_authenticated_user()
+		
+		try:
+			yield local_tasks.delete_card_from_account(
+				current_user.payment_id,
+				self.json[ "id" ]
+			)
+		except CardIsPrimaryException:
+			self.error(
+				"You cannot delete your primary payment method, you must have at least one available to pay your bills.",
+				"CANT_DELETE_PRIMARY"
+			)
+			raise gen.Return()
+		
+		self.write({
+			"success": True,
+			"msg": "The card has been successfully been deleted from your account!"
+		})
+		
+class MakeCreditCardPrimary( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def post( self ):
+		"""
+		Sets a given card to be the user's primary credit card.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"id"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		current_user = self.get_authenticated_user()
+		
+		try:
+			yield local_tasks.set_stripe_customer_default_payment_source(
+				current_user.payment_id,
+				self.json[ "id" ]
+			)
+		except:
+			self.error(
+				"An error occurred while making the card your primary.",
+				"GENERIC_MAKE_PRIMARY_ERROR"
+			)
+		
+		self.write({
+			"success": True,
+			"msg": "You have set this card to be your primary succesfully."
+		})
+		
+def get_user_free_trial_information( input_user ):
+	return_data = {
+		"trial_end_timestamp": 0,
+		"trial_started_timestamp": 0,
+		"trial_over": False,
+		"is_using_trial": True,
+	}
+	
+	# If the user has a payment method on file they can't be using the
+	# free trial.
+	if input_user.has_valid_payment_method_on_file == True:
+		return_data[ "is_using_trial" ] = False
+		return_data[ "trial_over" ] = True
+		
+	# Calculate when the trial is over
+	trial_length_in_seconds = ( 60 * 60 * 24 * 14 )
+	return_data[ "trial_started_timestamp" ] = input_user.timestamp
+	return_data[ "trial_end_timestamp" ] = input_user.timestamp + trial_length_in_seconds
+	
+	# Calculate if the user is past their free trial
+	current_timestamp = int( time.time() )
+	
+	# Calculate time since user sign up
+	seconds_since_signup = current_timestamp - input_user.timestamp
+	
+	# If it's been over 14 days since signup the user
+	# has exhausted their free trial
+	if seconds_since_signup > trial_length_in_seconds:
+		return_data[ "trial_over" ] = True
+		
+	return return_data
+	
+@gen.coroutine
+def is_build_package_cached( credentials, language, libraries ):
+	# Edge case for python2.7 because of the tight custom-runtime
+	# integration which requires the redis library
+	if language == "python2.7" and not ( "redis" in libraries ):
+		libraries.append(
+			"redis"
+		)
+	
+	# TODO just accept a dict/object in of an
+	# array followed by converting it to one.
+	libraries_dict = {}
+	for library in libraries:
+		libraries_dict[ str( library ) ] = "latest"
+	
+	# Get the final S3 path
+	final_s3_package_zip_path = yield local_tasks.get_final_zip_package_path(
+		language,
+		libraries_dict,
+	)
+	
+	# Get if the package is already cached
+	is_already_cached = yield local_tasks.s3_object_exists(
+		credentials,
+		credentials[ "lambda_packages_bucket" ],
+		final_s3_package_zip_path
+	)
+	
+	raise gen.Return( is_already_cached )
+	
+class CheckIfLibrariesCached( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def post( self ):
+		"""
+		Just returns if a given language + libraries has
+		already been built and cached in S3.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"libraries": {
+					"type": "array"
+				},
+				"language": {
+					"type": "string",
+					"enum": LAMBDA_SUPPORTED_LANGUAGES
+				}
+			},
+			"required": [
+				"libraries",
+				"language"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		credentials = self.get_authenticated_user_cloud_configuration()
+		
+		is_already_cached = yield is_build_package_cached(
+			credentials,
+			self.json[ "language" ],
+			self.json[ "libraries" ]
+		)
+		
+		self.write({
+			"success": True,
+			"is_already_cached": is_already_cached,
+		})
+	
+class BuildLibrariesPackage( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def post( self ):
+		"""
+		Kick off a codebuild for listed build libraries.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"libraries": {
+					"type": "array"
+				},
+				"language": {
+					"type": "string",
+					"enum": LAMBDA_SUPPORTED_LANGUAGES
+				}
+			},
+			"required": [
+				"libraries",
+				"language"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		current_user = self.get_authenticated_user()
+		credentials = self.get_authenticated_user_cloud_configuration()
+		
+		# Edge case for python2.7 because of the tight custom-runtime
+		# integration which requires the redis library
+		if self.json[ "language" ] == "python2.7" and not ( "redis" in self.json[ "libraries" ] ):
+			self.json[ "libraries" ].append(
+				"redis"
+			)
+		
+		# TODO just accept a dict/object in of an
+		# array followed by converting it to one.
+		libraries_dict = {}
+		for library in self.json[ "libraries" ]:
+			libraries_dict[ str( library ) ] = "latest"
+		
+		build_id = False
+		
+		# Get the final S3 path
+		final_s3_package_zip_path = yield local_tasks.get_final_zip_package_path(
+			self.json[ "language" ],
+			libraries_dict,
+		)
+		
+		if self.json[ "language" ] == "python2.7":
+			build_id = yield local_tasks.start_python27_codebuild(
+				credentials,
+				libraries_dict
+			)
+		elif self.json[ "language" ] == "nodejs8.10":
+			build_id = yield local_tasks.start_node810_codebuild(
+				credentials,
+				libraries_dict
+			)
+		elif self.json[ "language" ] == "php7.3":
+			build_id = yield local_tasks.start_php73_codebuild(
+				credentials,
+				libraries_dict
+			)
+		else:
+			self.error(
+				"You've provided a language that Refinery does not currently support!",
+				"UNSUPPORTED_LANGUAGE"
+			)
+			raise gen.Return()
+		
+		# Don't yield here because we don't care about the outcome of this task
+		# we just want to kick it off in the background
+		local_tasks.finalize_codebuild(
+			credentials,
+			build_id,
+			final_s3_package_zip_path
+		)
+		
+		self.write({
+			"success": True,
+		})
 		
 def make_app( is_debug ):
 	tornado_app_settings = {
 		"debug": is_debug,
+		"cookie_secret": os.environ.get( "cookie_secret_value" )
 	}
 	
 	return tornado.web.Application([
+		( r"/api/v1/health", HealthHandler ),
+		( r"/authentication/email/([a-z0-9]+)", EmailLinkAuthentication ),
+		( r"/api/v1/auth/me", GetAuthenticationStatus ),
+		( r"/api/v1/auth/register", NewRegistration ),
+		( r"/api/v1/auth/login", Authenticate ),
+		( r"/api/v1/auth/logout", Logout ),
 		( r"/api/v1/logs/executions/get", GetProjectExecutionLogs ),
 		( r"/api/v1/logs/executions", GetProjectExecutions ),
 		( r"/api/v1/aws/deploy_diagram", DeployDiagram ),
-		( r"/api/v1/functions/delete", SavedFunctionDelete ),
-		( r"/api/v1/functions/update", SavedFunctionUpdate ),
-		( r"/api/v1/functions/create", SavedFunctionCreate ),
-		( r"/api/v1/functions/search", SavedFunctionSearch ),
 		( r"/api/v1/lambdas/create", SavedLambdaCreate ),
 		( r"/api/v1/lambdas/search", SavedLambdaSearch ),
 		( r"/api/v1/lambdas/delete", SavedLambdaDelete ),
 		( r"/api/v1/lambdas/run", RunLambda ),
 		( r"/api/v1/lambdas/logs", GetCloudWatchLogsForLambda ),
 		( r"/api/v1/lambdas/env_vars/update", UpdateEnvironmentVariables ),
-		( r"/api/v1/aws/create_schedule_trigger", CreateScheduleTrigger ),
+		( r"/api/v1/lambdas/build_libraries", BuildLibrariesPackage ),
+		( r"/api/v1/lambdas/libraries_cache_check", CheckIfLibrariesCached ),
 		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda ),
-		( r"/api/v1/aws/create_sqs_trigger", CreateSQSQueueTrigger ),
 		( r"/api/v1/aws/infra_tear_down", InfraTearDown ),
 		( r"/api/v1/aws/infra_collision_check", InfraCollisionCheck ),
 		( r"/api/v1/projects/save", SaveProject ),
@@ -4586,16 +6719,27 @@ def make_app( is_debug ):
 		( r"/api/v1/projects/delete", DeleteSavedProject ),
 		( r"/api/v1/projects/config/get", GetProjectConfig ),
 		( r"/api/v1/deployments/get_latest", GetLatestProjectDeployment ),
-		( r"/api/v1/deployments/delete_all_in_project", DeleteDeploymentsInProject )
+		( r"/api/v1/deployments/delete_all_in_project", DeleteDeploymentsInProject ),
+		( r"/api/v1/billing/get_month_totals", GetBillingMonthTotals ),
+		( r"/api/v1/billing/creditcards/add", AddCreditCardToken ),
+		( r"/api/v1/billing/creditcards/list", ListCreditCards ),
+		( r"/api/v1/billing/creditcards/delete", DeleteCreditCard ),
+		( r"/api/v1/billing/creditcards/make_primary", MakeCreditCardPrimary ),
+		# Temporarily disabled since it doesn't cache the CostExplorer results
+		#( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast ),
+		
+		# These are "services" which are only called by external crons, etc.
+		# External users are blocked from ever reaching these routes
+		( r"/services/v1/billing_watchdog", RunBillingWatchdogJob ),
+		( r"/services/v1/bill_customers", RunMonthlyStripeBillingJob )
 	], **tornado_app_settings)
-			
+
 if __name__ == "__main__":
-	print( "Starting server..." )
-	# Re-initiate things
+	logit( "Starting the Refinery service...", "info" )
 	on_start()
 	app = make_app(
-				( os.environ.get( "is_debug" ).lower() == "true" )
-		)
+		( os.environ.get( "is_debug" ).lower() == "true" )
+	)
 	server = tornado.httpserver.HTTPServer(
 		app
 	)
@@ -4603,11 +6747,6 @@ if __name__ == "__main__":
 		7777
 	)
 	Base.metadata.create_all( engine )
-	
-	#tornado.ioloop.IOLoop.current().run_sync( testing )
-	
-	#tornado.ioloop.IOLoop.current().run_sync( delete_logs )
-	#tornado.ioloop.IOLoop.current().run_sync( warm_lambda_base_caches )
 	
 	if os.environ.get( "cf_enabled" ).lower() == "true":
 		tornado.ioloop.IOLoop.current().run_sync( get_cloudflare_keys )

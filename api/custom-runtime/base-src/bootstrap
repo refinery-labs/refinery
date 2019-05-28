@@ -919,17 +919,16 @@ def _init( custom_runtime, request_id, lambda_input, context ):
     _start_clock( "Refinery_Memory intialization" )
     # Make global to enable caching of redis connection
     gmemory = Refinery_Memory(
-        "{{REDIS_HOSTNAME_REPLACE_ME}}",
-        "{{REDIS_PASSWORD_REPLACE_ME}}",
-        "{{REDIS_PORT_REPLACE_ME}}",
+        os.environ[ "REDIS_HOSTNAME" ],
+        os.environ[ "REDIS_PASSWORD" ],
+        os.environ[ "REDIS_PORT" ],
         context.function_name
     )
     _stop_clock( "Refinery_Memory intialization" )
 
-    execution_pipeline_id = "{{EXECUTION_PIPELINE_ID_REPLACE_ME}}"
-    s3_log_bucket = "{{LOG_BUCKET_NAME_REPLACE_ME}}"
-    execution_pipeline_logging_level = "{{PIPELINE_LOGGING_LEVEL_REPLACE_ME}}"
-    project_id = "{{PROJECT_ID_REPLACE_ME}}"
+    execution_pipeline_id = os.environ[ "EXECUTION_PIPELINE_ID" ]
+    s3_log_bucket = os.environ[ "LOG_BUCKET_NAME" ]
+    execution_pipeline_logging_level = os.environ[ "PIPELINE_LOGGING_LEVEL" ]
 
     # If pipeline logging is enabled
     # We initialize the S3 client to prevent threading bugs
@@ -942,11 +941,11 @@ def _init( custom_runtime, request_id, lambda_input, context ):
         _stop_clock( "S3 Boto Client Initialization" )
 
     # Bake in AWS region
-    aws_region = "{{AWS_REGION_REPLACE_ME}}"
+    aws_region = os.environ[ "AWS_REGION" ]
 
     # Indicate a special execution condition
     # For example, an API Gateway Lambda
-    execution_mode = "{{SPECIAL_EXECUTION_MODE}}"
+    execution_mode = os.environ[ "EXECUTION_MODE" ]
 
     # Construct log details for debugging
     execution_details = {
@@ -965,7 +964,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
     execution_id = False
 
     # Bake in transition data
-    transitions = json.loads( "{{TRANSITION_DATA_REPLACE_ME}}" )
+    transitions = json.loads( os.environ[ "TRANSITION_DATA" ] )
 
     # Set default fan-out IDs list to be empty
     fan_out_ids = []
@@ -1056,7 +1055,6 @@ def _init( custom_runtime, request_id, lambda_input, context ):
         executable_path = os.getenv( "LAMBDA_TASK_ROOT" ) + "/" + handler_parts[0]
 
         _start_clock( "Executing Lambda" )
-
 
         process_handler = subprocess.Popen(
             [

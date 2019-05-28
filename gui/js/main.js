@@ -6,13 +6,18 @@ def main( lambda_input, context ):
     return False
 `,
 	"nodejs8.10": `
-/*
- * Embedded magic
- */
 async function main( lambda_input, context ) {
 	return false;
 }
-`
+`,
+	"php7.3": `
+<?php
+// Uncomment if you specified libraries
+// require __DIR__ . "/vendor/autoload.php";
+function main( $lambda_input, $context ) {
+	return false;
+}
+`,
 }
 
 var GRAPH_ICONS_ARRAY = [
@@ -785,6 +790,46 @@ function project_file_uploaded( event_data ) {
 	reader.readAsText( file_data );
 }
 
+function get_authenticated_user_info() {
+	return api_request(
+		"GET",
+		"api/v1/auth/me",
+		false
+	);
+}
+
+function logout() {
+	// This is a POST to prevent logout CSRF
+	// and because it's state-changing and we're not animals.
+	return api_request(
+		"POST",
+		"api/v1/auth/logout",
+		{}
+	);
+}
+
+function login( user_email ) {
+	return api_request(
+		"POST",
+		"api/v1/auth/login",
+		{
+			"email": user_email,
+		}
+	);
+}
+
+function register( organization_name, user_full_name, email ) {
+	return api_request(
+		"POST",
+		"api/v1/auth/register",
+		{
+			"organization_name": organization_name,
+			"name": user_full_name,
+			"email": email,
+		}
+	);
+}
+
 function delete_saved_function( id ) {
 	return api_request(
 		"DELETE",
@@ -1070,11 +1115,135 @@ function get_lambda_cloudwatch_logs( arn ) {
 	);
 }
 
+function add_credit_card_token_to_account( stripe_token ) {
+	return api_request(
+		"POST",
+		"api/v1/billing/creditcards/add",
+		{
+			"stripe_token": stripe_token
+		}
+	);
+}
+
+/*
+	Returns metadata about what cards the user has on file
+*/
+function get_account_credit_cards() {
+	return api_request(
+		"GET",
+		"api/v1/billing/creditcards/list",
+		{}
+	);
+}
+
+function delete_credit_card( card_id ) {
+	return api_request(
+		"POST",
+		"api/v1/billing/creditcards/delete",
+		{
+			"id": card_id,
+		}
+	);
+}
+
+function set_card_as_primary( card_id ) {
+	return api_request(
+		"POST",
+		"api/v1/billing/creditcards/make_primary",
+		{
+			"id": card_id,
+		}
+	);
+}
+
+/*
+	Check if a package of dependencies has already
+	been cached. This is useful for letting the user
+	know if they are about to experience increased
+	build times because of a switch up in dependencies
+	which requires a rebuild.
+*/
+function check_if_packages_cached( language, libraries_array ) {
+	return api_request(
+		"POST",
+		"api/v1/lambdas/libraries_cache_check",
+		{
+			"language": language,
+			"libraries": libraries_array,
+		}
+	);
+}
+
+/*
+	Kick off a build of a package of dependencies.
+	This speeds up deploys because all package zips
+	are automatically cached in S3. So when they do
+	a deploy in the future the dependencies will
+	already be build and cached in S3.
+*/
+function build_libraries_package( language, libraries_array ) {
+	return api_request(
+		"POST",
+		"api/v1/lambdas/build_libraries",
+		{
+			"language": language,
+			"libraries": libraries_array,
+		}
+	);
+}
+
+/*
+Example input(s):
+billing_month = "2019-05"
+
+Example return data:
+
+{
+    "bill_total": {
+        "total": "234.06",
+        "unit": "USD"
+    },
+    "service_breakdown": [
+        {
+            "service_name": "Lambda",
+            "total": "28.26",
+            "unit": "USD"
+        },
+		...
+    ]
+}
+*/
+function get_billing_month_totals( billing_month ) {
+	return api_request(
+		"POST",
+		"api/v1/billing/get_month_totals",
+		{
+			"billing_month": billing_month,
+		}
+	);
+}
+
+/*
+Example return data:
+
+{
+    "forecasted_total": "345.1653812066249",
+    "unit": "USD"
+}
+*/
+function get_billing_date_range_forecast( start_date, end_date ) {
+	return api_request(
+		"POST",
+		"api/v1/billing/forecast_for_date_range",
+		{}
+	);
+}
+
 /*
     Make API request
 */
-function api_request( method, endpoint, body ) {
-    return http_request(
+async function api_request( method, endpoint, body ) {
+    var response_text = await http_request(
         method,
         API_SERVER + "/" + endpoint,
         [
@@ -1090,22 +1259,44 @@ function api_request( method, endpoint, body ) {
         JSON.stringify(
             body
         )
-    ).then(function( response_text ) {
-    	var response_data = JSON.parse(
-    		response_text
-    	);
-    	
-    	// If we get a redirect in the response, redirect instead of returning
-    	if( "redirect" in response_data && response_data[ "redirect" ] != "" ) {
-    		window.location = response_data[ "redirect" ];
-    	}
-    	
-    	if( "success" in response_data && response_data[ "success" ] == false ) {
-    		return Promise.reject( response_data );
-    	} else {
-    		return response_data;
-    	}
-    });
+    );
+    
+	var response_data = JSON.parse(
+		response_text
+	);
+	
+	// If we get a redirect in the response, redirect instead of returning
+	if( "redirect" in response_data && response_data[ "redirect" ] != "" ) {
+		window.location = response_data[ "redirect" ];
+	}
+	
+	// If we got an authentication error, open the login modal
+	if( "code" in response_data && response_data.code === "AUTH_REQUIRED" ) {
+		show_login_prompt();
+		app.user_is_authenticated = false;
+		return Promise.reject( response_data );
+	}
+	
+	// Reject it if we got an error
+	if( "success" in response_data && response_data[ "success" ] == false ) {
+		// Print error message if one exists
+		if( "msg" in response_data ) {
+			toastr.error( response_data.msg );
+		}
+		
+		return Promise.reject( response_data );
+	}
+	
+	return response_data;
+}
+
+async function show_login_prompt() {
+	$( "#login_in_modal" ).modal( "show" );
+	
+	// Hack due to a bug with modals.
+	// Another good reason to get off of them.
+	await wait( 1000 );
+	$( "#login_email_input" ).focus();
 }
 
 function parse_arn( input_arn ) {
@@ -1252,8 +1443,32 @@ $(window).resize(function(){
 });
 
 // On load
-$( document ).ready(function() {
+$( document ).ready(async function() {
+	await pull_user_metadata();
 });
+
+// Function to attempt to get user metadata
+async function pull_user_metadata() {
+	try {
+		const user_info = await get_authenticated_user_info();
+		app.user_is_authenticated = true;
+		app.user_metadata = user_info;
+	} catch ( error_response ) {
+		// No-op, since the login prompt is a side-effect.
+		return
+	}
+	
+	// Since we're authenticated, make sure to automatically
+	// Clear all login/authentication-related modals
+	$( "#authentication_email_sent_modal" ).modal( "hide" );
+	$( "#login_in_modal" ).modal( "hide" );
+}
+
+// Continually poll the backend to ensure we're still authenticated
+const authentication_check_interval = setInterval(
+	pull_user_metadata,
+	( 1000 * 2 )
+);
 
 var _DEFAULT_PROJECT_CONFIG = {
 	"version": "1.0.0",
@@ -1298,7 +1513,8 @@ var app = new Vue({
 	    ),
 	    ace_language_to_lang_id_map: {
 	    	"python2.7": "python",
-	    	"nodejs8.10": "javascript"
+	    	"nodejs8.10": "javascript",
+	    	"php7.3": "php",
 	    },
 	    node_types_with_simple_transitions: [
 			{
@@ -1546,6 +1762,18 @@ var app = new Vue({
         
         // Currently selected node environment variables
         selected_node_environment_variables: [],
+        
+        // Email address for the login prompt
+        authentication_email_address: "",
+        
+        // Error message for logins
+        login_error_message: false,
+        
+        // Whether we are currently authenticated
+        user_is_authenticated: false,
+        
+        // The user's current info
+        user_metadata: {},
 	},
 	watch: {
 		projects_search_query: function( value, previous_value ) {
@@ -1635,7 +1863,7 @@ var app = new Vue({
 				);
 
 				if( parsed_arn.resource_type == "sns" ) {
-					return `https://${parsed_arn.aws_region}.console.aws.amazon.com/sns/v2/home?region=${parsed_arn.aws_region}#/topics/${parsed_arn.full_arn}`;
+					return `https://${parsed_arn.aws_region}.console.aws.amazon.com/sns/v2/home?region=${parsed_arn.aws_region}#/topic/${parsed_arn.full_arn}`;
 				} else if ( parsed_arn.resource_type == "lambda" ) {
 					return `https://${parsed_arn.aws_region}.console.aws.amazon.com/lambda/home?region=${parsed_arn.aws_region}#/functions/${parsed_arn.resource_name}?tab=graph`;
 				} else if ( parsed_arn.resource_type == "events" ) {
@@ -1710,6 +1938,31 @@ var app = new Vue({
 		},
 	},
 	methods: {
+		log_out: async function() {
+			// Log out the user
+			await logout();
+			show_login_prompt();
+			toastr.success( "You have been logged out successfully!" );
+		},
+		log_in: async function() {
+			// Attempt to log in with email
+			try {
+				const login_response = await login(
+					app.authentication_email_address
+				);
+				app.login_error_message = false;
+			} catch ( error_response ) {
+				if( error_response.code === "USER_NOT_FOUND" ) {
+					app.login_error_message = "No user with that email address found.\nMake sure to double check for typos! If you don't have an account yet, click \"Create a new account\" to register a new account!";
+				} else {
+					console.error( "Unexpected login error code returned: " );
+					console.error( error_response );
+				}
+				return
+			}
+			
+			$( "#authentication_email_sent_modal" ).modal( "show" );
+		},
 		view_project_settings: function() {
 			$( "#project_settings_modal" ).modal( "show" );
 		},
