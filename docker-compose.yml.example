@@ -33,6 +33,9 @@ services:
             - ./gui/:/work/gui/
     front-end:
         build: ./front-end
+        environment:
+          NODE_ENV: development
+          VUE_APP_API_HOST: "http://localhost:8002"
         ports:
             - "8080:8080"
         volumes:
