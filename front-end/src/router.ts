@@ -15,7 +15,10 @@ import ProjectDeployments from '@/views/ProjectsNestedViews/ProjectDeployments';
 import ViewProjectDeployment from '@/views/ProjectsNestedViews/ViewProjectDeployment';
 import EditProjectDeployment from '@/views/ProjectsNestedViews/EditProjectDeployment';
 import Layout from '@/components/Layout/Layout';
-import {baseLinks} from '@/constants/router-constants';
+import {baseLinks, projectViewLinks} from '@/constants/router-constants';
+import OpenedProjectGraphContainer from '@/containers/OpenedProjectGraphContainer';
+import PageNotFound from '@/views/PageNotFound';
+import ProjectNotFound from '@/views/ProjectsNestedViews/ProjectNotFound';
 
 Vue.use(Router);
 
@@ -56,55 +59,22 @@ export default new Router({
         // View all available projects
         {
           path: baseLinks.projects,
-          name: 'all projects',
+          name: 'allProjects',
           component: AllProjects
         },
         // Everything specific to a project is nested under the projectId in the path.
         // A project is akin to a "website" or a collection of "workflows" which map to a collection of tasks.
         // Most people using Refinery will probably only have 1 project for a while, so we can hide this functionality.
         {
-          path: '/p/:projectId',
+          path: projectViewLinks.viewProject,
+          name: 'project',
           // components: {default: ViewProject, graph: RefineryGraph},
           component: ViewProject,
           children: [
-            // Opened project overview page
-            {
-              path: '',
-              name: 'opened project overview',
-              // Example syntax for how to load multiple components
-              // components: {default: OpenedProjectOverview, graphComponent: RefineryGraph }
-              component: OpenedProjectOverview
-            },
-            // View all workflows
-            {
-              path: 'workflows',
-              name: 'all workflows',
-              component: AllProjectWorkflows
-            },
-            // View workflow by ID
-            {
-              path: 'w/:workflowId',
-              component: OpenedWorkflowWrapper,
-        
-              children: [
-                // Overview of specific workflow
-                {
-                  path: '',
-                  name: 'workflow overview',
-                  component: ViewWorkflow
-                },
-                // Edit a specific workflow
-                {
-                  path: 'edit',
-                  name: 'edit workflow',
-                  component: EditWorkflow
-                }
-              ]
-            },
             // View all deployments for project
             {
               path: 'deployments',
-              name: 'all deployments',
+              name: 'allDeployments',
               // View all deployments
               component: ProjectDeployments
             },
@@ -117,16 +87,32 @@ export default new Router({
                 // Overview of deployment
                 {
                   path: '',
-                  name: 'deployment overview',
+                  name: 'deployment',
                   component: ViewProjectDeployment
                 },
                 // Edit deployment
                 {
                   path: 'edit',
-                  name: 'edit deployment',
+                  name: 'editDeployment',
                   component: EditProjectDeployment
                 }
               ]
+            },
+            // View Usage information for project
+            {
+              path: 'usage',
+              name: 'projectUsage',
+              component: ProjectDeployments
+            },
+            // View settings for a project
+            {
+              path: 'settings',
+              name: 'projectSettings',
+              component: ProjectDeployments
+            },
+            {
+              path: '*',
+              component: ProjectNotFound
             }
           ]
         },
@@ -145,10 +131,13 @@ export default new Router({
           path: baseLinks.admin,
           name: 'admin',
           component: AdminPanel
+        },
+        {
+          path: '*',
+          component: PageNotFound
         }
       ]
-    },
-    
+    }
   ]
 });
 

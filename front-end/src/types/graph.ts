@@ -1,11 +1,18 @@
-export interface RefineryProject {
-  version: number,
+import {ElementDefinition, ElementsDefinition, Stylesheet} from 'cytoscape';
+import {HTTP_METHOD} from '@/constants/api-constants';
+
+export interface BaseRefineryResource {
   name: string,
+  id: string,
+}
+
+export interface RefineryProject extends BaseRefineryResource {
+  version: number,
   workflow_states: WorkflowState[],
   workflow_relationships: WorkflowRelationship[]
 }
 
-export enum SupportedLanguages {
+export enum SupportedLanguage {
   PYTHON_2 = "python2.7",
   NODEJS_8 = "nodejs8.10"
 }
@@ -13,22 +20,27 @@ export enum SupportedLanguages {
 export enum WorkflowStateType {
   LAMBDA = "lambda",
   API_GATEWAY_RESPONSE = "api_gateway_response",
+  // TODO: What is this?
+  API_GATEWAY = "api_gateway",
   API_ENDPOINT = "api_endpoint",
   SNS_TOPIC = "sns_topic",
   SQS_QUEUE = "sqs_queue",
   SCHEDULE_TRIGGER = "schedule_trigger"
 }
 
-export enum API_ENDPOINT_HTTP_METHOD {
-  GET = "GET",
-  POST = "POST",
-  PUT = "PUT",
-  DELETE = "DELETE"
+export enum WorkflowRelationshipType {
+  THEN = "then",
+  IF = "if",
+  FAN_OUT = "fan-out",
+  FAN_IN = "fan-in",
+  EXCEPTION = "exception",
+  ELSE = "else"
 }
 
-export interface BaseRefineryResource {
-  name: string,
-  id: string,
+export enum ProjectLogLevel {
+  LOG_ALL = "LOG_ALL",
+  LOG_ERRORS = "LOG_ERRORS",
+  LOG_NONE = "LOG_NONE"
 }
 
 export interface WorkflowState extends BaseRefineryResource {
@@ -38,7 +50,7 @@ export interface WorkflowState extends BaseRefineryResource {
 export interface LambdaWorkflowState extends WorkflowState {
   layers: string[],
   code: string,
-  language: SupportedLanguages,
+  language: SupportedLanguage,
   libraries: string[],
   memory: number,
   max_execution_time: number
@@ -46,7 +58,7 @@ export interface LambdaWorkflowState extends WorkflowState {
 
 export interface ApiEndpointWorkflowState extends WorkflowState {
   api_path: string,
-  http_method: API_ENDPOINT_HTTP_METHOD
+  http_method: HTTP_METHOD
 }
 
 export interface ApiGatewayResponseWorkflowState extends WorkflowState {}
@@ -65,12 +77,11 @@ export interface ScheduleTriggerWorkflowState extends WorkflowState {
   schedule_expression: string,
   description: string,
   unformatted_input_data: string,
-  input_dict: {[key: string]: {} | string}
+  input_dict: ScheduleTriggerInputDict
 }
 
-export enum WorkflowRelationshipType {
-  THEN = "then",
-  IF = "if"
+export interface ScheduleTriggerInputDict {
+  [key: string]: {} | string
 }
 
 export interface WorkflowRelationship extends BaseRefineryResource {
@@ -79,3 +90,24 @@ export interface WorkflowRelationship extends BaseRefineryResource {
   next: string,
   expression: string
 }
+
+export interface ProjectConfig {
+  environment_variables: ProjectEnvironmentVariableConfig;
+  api_gateway:           {gateway_id: string};
+  version:               string;
+  logging:               {level: ProjectLogLevel};
+}
+
+export interface ProjectEnvironmentVariableConfig {
+  [key: string]: ProjectEnvironmentVariable[]
+}
+
+export interface ProjectEnvironmentVariable {
+  key: string,
+  value: string
+}
+
+export type CyElements = ElementsDefinition | ElementDefinition[] | Promise<ElementsDefinition> | Promise<ElementDefinition[]>;
+
+// Let's just not support promises in our API style. If we need it we'll figure it out
+export type CyStyle = Stylesheet[]; // | Promise<Stylesheet[]>;

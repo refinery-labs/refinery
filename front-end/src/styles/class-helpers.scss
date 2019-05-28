@@ -6,6 +6,9 @@
   &--block {
     display: block;
   }
+  &--none {
+    display: none;
+  }
 }
 
 .center {
@@ -20,6 +23,36 @@
   &--all {
     margin: auto;
   }
+}
+
+$padding-sides: (
+  left,
+  right,
+  top,
+  bottom
+);
+
+$padding-steps: (
+  none: 0,
+  tiny: 2px,
+  small: 4px,
+  normal: 8px,
+  big: 16px,
+  huge: 32px
+);
+
+@mixin padding-generator($sides, $steps) {
+  @each $side in $sides {
+    @each $step, $size in $steps {
+      &-#{$side}--#{$step} {
+        padding-#{$side}: $size;
+      }
+    }
+  }
+}
+
+.padding {
+  @include padding-generator($padding-sides, $padding-steps);
 }
 
 .flex {
@@ -100,5 +133,28 @@
   }
   &--100percent {
     height: 100%;
+  }
+}
+
+.width {
+  &--max-viewheight {
+    height: 100vh;
+  }
+  &--100percent {
+    height: 100%;
+  }
+}
+
+.text-align {
+  &--left {
+    text-align: left;
+  }
+}
+
+.layout {
+  &--constrain {
+    max-width: 1200px;
+    margin-left: auto !important;
+    margin-right: auto !important;
   }
 }

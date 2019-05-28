@@ -26,11 +26,42 @@ body {
 .sidebar-nav {
   background: #ddd;
   border-right: black 1px solid;
+}
+
+$sidebar-item-margin: 6px;
+
+.content-sidebar {
+
+  //border-right: black 1px solid;
   //min-height: calc(100vh - 55px);
+  height: 100%;
+  width: 100px;
+  align-items: flex-start;
+
+  a {
+    margin: auto;
+    text-indent: -3px;
+    padding: 12px 0 6px 0;
+    text-align: center;
+  }
+
+  em {
+    font-size: 2.2em;
+    width: auto;
+  }
+
+  span {
+    display: block !important;
+    font-size: 16px;
+  }
 
   &__item {
-    min-height: 80px;
-    margin: 0 4px 4px 4px;
+    background: #ddd;
+    border: #bbb 1px solid;
+    border-radius: 4px;
+    height: 80px;
+    width: 80px;
+    margin: 0 $sidebar-item-margin $sidebar-item-margin $sidebar-item-margin;
 
     color: #efefef;
     text-decoration: none;
@@ -40,11 +71,11 @@ body {
     }
 
     &:first-child {
-      margin-top: 4px;
+      margin-top: $sidebar-item-margin;
     }
 
     &:last-child {
-      margin-bottom: 4px;
+      margin-bottom: $sidebar-item-margin;
     }
 
     &--red {
@@ -75,10 +106,45 @@ body {
   display: flex;
   flex-direction: column;
   height: calc(100vh - 115px);
+  width: 100%;
 }
 
 .graph-container {
   height: 100%;
   flex-grow: 1;
   text-align: initial;
+}
+
+.graph-visibility {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  height: 100%;
+  width: 100%;
+  &--hidden {
+    z-index: 0;
+  }
+}
+
+.project-router-container {
+  background-color: $body-bg;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  &--hidden {
+    position: relative;
+    display: none;
+    z-index: 0;
+  }
+}
+
+.view-project-page-content {
+  position: relative;
+  flex-grow: 1;
 }

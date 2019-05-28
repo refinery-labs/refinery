@@ -4,7 +4,7 @@
     <div class="aside-inner">
       <nav class="sidebar" data-sidebar-anyclick-close="">
         <!-- START sidebar nav-->
-        <ul class="sidebar-nav height--100percent">
+        <ul class="sidebar-nav sidebar-nav--extra-height">
           <!-- END user info-->
           <!-- Iterates over all sidebar items-->
           <template v-for="item in Menu">
@@ -55,6 +55,7 @@
     import {mapState} from 'vuex';
     import SidebarRun from './Sidebar.run';
     import {SidebarMenuItems as Menu} from '../../menu';
+    import {UserInterfaceSettings} from '../../store/store-types';
 
     export default Vue.extend({
         name: 'Sidebar',
@@ -72,11 +73,11 @@
                 showUserBlock: state => state.setting.showUserBlock
             })
         },
-        // watch: {
-        //     $route(to, from) {
-        //         this.closeSidebar()
-        //     }
-        // },
+        watch: {
+            $route(to, from) {
+                this.closeSidebar()
+            }
+        },
         methods: {
             closeSidebar() {
                 this.$store.commit('changeSetting', {name: UserInterfaceSettings.asideToggled, value: false})

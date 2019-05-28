@@ -1,7 +1,12 @@
-import {BaseRefineryResource, RefineryProject} from '@/types/graph';
+import {BaseRefineryResource, CyElements, CyStyle, RefineryProject} from '@/types/graph';
+import {LayoutOptions} from 'cytoscape';
+import cytoscape from '@/components/CytoscapeGraph';
+import {SearchSavedProjectsResult} from '@/types/api-types';
 
 export interface RootState {
-  setting: UserInterfaceState
+  setting: UserInterfaceState,
+  project: ProjectViewState,
+  allProjects: AllProjectsState
 }
 
 export enum UserInterfaceSettings {
@@ -57,5 +62,16 @@ export interface UserInterfaceState {
 
 export interface ProjectViewState {
   openedProject: RefineryProject | null,
-  selectedNode: BaseRefineryResource | null
+  isLoadingProject: boolean,
+  selectedResource: BaseRefineryResource | null,
+  cytoscapeElements: CyElements | null,
+  cytoscapeStyle: CyStyle | null,
+  cytoscapeLayoutOptions: LayoutOptions | null,
+  cytoscapeConfig: cytoscape.CytoscapeOptions | null
+}
+
+export interface AllProjectsState {
+  availableProjects: SearchSavedProjectsResult[],
+  searchBoxText: string,
+  isSearching: boolean
 }

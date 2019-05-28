@@ -3,6 +3,7 @@
  */
 import {Module} from 'vuex';
 import {RootState, UserInterfaceSettings, UserInterfaceState} from '@/store/store-types';
+import {SettingsMutators} from '@/constants/store-constants';
 
 const moduleState: UserInterfaceState = {
   /* Layout fixed. Scroll content only */
@@ -22,7 +23,7 @@ const moduleState: UserInterfaceState = {
   /* Show sidebar scrollbar (dont' hide it) */
   [UserInterfaceSettings.asideScrollbar]: false,
   /* Sidebar collapsed with big icons and text */
-  [UserInterfaceSettings.isCollapsedText]: false,
+  [UserInterfaceSettings.isCollapsedText]: true,
   /* Toggle for the offsidebar */
   [UserInterfaceSettings.offsidebarOpen]: false,
   /* Toggle for the sidebar offcanvas (mobile) */
@@ -41,16 +42,6 @@ const SettingModule: Module<UserInterfaceState, RootState> = {
   // This is difficult to use and Mutators don't seem to work in consumers?
   // namespaced: true,
   state: moduleState,
-  actions: {
-    closeGlobalNav(context) {
-      context.commit('toggleSettingOn', UserInterfaceSettings.isGlobalNavClosing);
-  
-      setTimeout(() => {
-        context.commit('toggleSetting', UserInterfaceSettings.isGlobalNavCollapsed);
-        context.commit('toggleSettingOff', UserInterfaceSettings.isGlobalNavClosing);
-      }, 220);
-    }
-  },
   getters: {
     settings: state => state
   },
@@ -58,21 +49,21 @@ const SettingModule: Module<UserInterfaceState, RootState> = {
     /**
      * Toggle a setting value (only boolean)
      */
-    toggleSetting(state, name: UserInterfaceSettings) {
+    [SettingsMutators.toggleSetting](state, name: UserInterfaceSettings) {
       if (name in state)
         state[name] = !state[name];
     },
     /**
      * Toggle a setting off
      */
-    toggleSettingOff(state, name: UserInterfaceSettings) {
+    [SettingsMutators.toggleSettingOff](state, name: UserInterfaceSettings) {
       if (name in state)
         state[name] = false;
     },
     /**
      * Toggle a setting on
      */
-    toggleSettingOn(state, name: UserInterfaceSettings) {
+    [SettingsMutators.toggleSettingOn](state, name: UserInterfaceSettings) {
       if (name in state)
         state[name] = true;
     },
@@ -81,9 +72,25 @@ const SettingModule: Module<UserInterfaceState, RootState> = {
      * payload.name: name of the setting prop to change
      * payload.value: new value to apply
      */
-    changeSetting(state, {name, value}: { name: UserInterfaceSettings, value: boolean }) {
+    [SettingsMutators.changeSetting](state, {name, value}: { name: UserInterfaceSettings, value: boolean }) {
       if (name in state)
         state[name] = value;
+    }
+  },
+  actions: {
+    closeGlobalNav(context) {
+      if (!context.state.isGlobalNavCollapsed) {
+        return;
+      }
+      
+      context.commit(SettingsMutators.toggleSettingOn, UserInterfaceSettings.isGlobalNavClosing);
+      
+      // We throw this timer in here to allow the CSS to do it's magic.
+      // Sure, we could listen to the animation events and trigger this there... But we're lazy, okay?
+      setTimeout(() => {
+        context.commit(SettingsMutators.toggleSetting, UserInterfaceSettings.isGlobalNavCollapsed);
+        context.commit(SettingsMutators.toggleSettingOff, UserInterfaceSettings.isGlobalNavClosing);
+      }, 220);
     }
   }
 };
