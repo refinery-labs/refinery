@@ -42,7 +42,6 @@ from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from email_validator import validate_email, EmailNotValidError
 
 from models.initiate_database import *
-from models.saved_function import SavedFunction
 from models.saved_lambda import SavedLambda
 from models.project_versions import ProjectVersion
 from models.projects import Project
@@ -231,18 +230,27 @@ def get_aws_client( client_type, credentials ):
 	BOTO3_CLIENT_CACHE[ cache_key ] = boto3_client
 	
 	return boto3_client
-
-def pprint( input_dict ):
-	try:
-		print( json.dumps( input_dict, sort_keys=True, indent=4, separators=( ",", ": " ) ) )
-	except:
-		print( input_dict )
 		
 def logit( message, message_type="info" ):
+	# Attempt to parse the message as json
+	# If we can then prettify it before printing
+	try:
+		message = json.loads( message )
+		message = json.dumps(
+			input_dict,
+			sort_keys=True,
+			indent=4,
+			separators=( ",", ": " )
+		)
+	except:
+		pass
+	
 	if message_type == "info":
 		logging.info( message )
 	elif message_type == "warn":
 		logging.warn( message )
+	elif message_type == "error":
+		logging.error( message )
 	elif message_type == "debug":
 		logging.debug( message )
 	else:
@@ -292,13 +300,6 @@ class BaseHandler( tornado.web.RequestHandler ):
 				is_owner = True
 				
 		return is_owner
-		
-	def is_owner_of_saved_function( self, saved_function_id ):
-		saved_function = session.query( SavedFunction ).filter_by(
-			id=saved_function_id
-		).first()
-		
-		return ( saved_function.user_id == self.get_authenticated_user_id() )
 		
 	def get_authenticated_user_cloud_configurations( self ):
 		"""
@@ -397,22 +398,27 @@ class BaseHandler( tornado.web.RequestHandler ):
 		self.authenticated_user = authenticated_user
 
 		return authenticated_user
-
-	def logit( self, message, message_type="info" ):
-		message = "[" + self.request.remote_ip + "] " + message
-		
-		logit( message )
 		
 	def prepare( self ):
 		"""
 		/service/ path protection requiring a shared-secret to access them.
 		"""
 		if self.request.path.startswith( "/services/" ):
-			self.error(
-				"You are hitting a service URL, you MUST provide the shared secret in either a 'secret' parameter or the 'X-SERVICE-SECRET' header to use this.",
-				"ACCESS_DENIED_SHARED_SECRET_REQUIRED"
-			)
-			return
+			services_auth_header = self.request.headers.get( "X-Service-Secret", None )
+			services_auth_param = self.get_argument( "secret", None )
+			
+			service_secret = None
+			if services_auth_header:
+				service_secret = services_auth_header
+			elif services_auth_param:
+				service_secret = services_auth_param
+				
+			if os.environ.get( "service_shared_secret" ) != service_secret:
+				self.error(
+					"You are hitting a service URL, you MUST provide the shared secret in either a 'secret' parameter or the 'X-Service-Secret' header to use this.",
+					"ACCESS_DENIED_SHARED_SECRET_REQUIRED"
+				)
+				return
 		
 		"""
 		Cloudflare auth JWT validation
@@ -441,7 +447,6 @@ class BaseHandler( tornado.web.RequestHandler ):
 					pass
 			
 			if not valid_token:
-				print( "Cloudflare Access verification check failed." )
 				self.error(
 					"Error, Cloudflare Access verification check failed.",
 					"CF_ACCESS_DENIED"
@@ -485,7 +490,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 
 	def error( self, error_message, error_id ):
 		self.set_status( 500 )
-		self.logit(
+		logit(
 			error_message,
 			message_type="warn"
 		)
@@ -607,10 +612,6 @@ class TaskSpawner(object):
 		def __init__(self, loop=None):
 			self.executor = futures.ThreadPoolExecutor( 60 )
 			self.loop = loop or tornado.ioloop.IOLoop.current()
-			
-		@run_on_executor
-		def test_freeze_aws_account( self, credentials ):
-			return TaskSpawner.unfreeze_aws_account( credentials )
 			
 		@staticmethod
 		def unfreeze_aws_account( credentials ):
@@ -1000,7 +1001,7 @@ class TaskSpawner(object):
 				default_source=card_id,
 			)
 			
-			pprint( customer_update_response )
+			logit( customer_update_response )
 			
 		@run_on_executor
 		def delete_card_from_account( self, stripe_customer_id, card_id ):
@@ -1066,7 +1067,6 @@ class TaskSpawner(object):
 				# their email address. If not it means they never finished
 				# the signup process so we can skip them.
 				if organization.billing_admin_user.email_verified == False:
-					print( "Skipping organization admin because their billing admin email is not verified..." )
 					continue
 				
 				current_organization_invoice_data = {
@@ -1259,14 +1259,14 @@ class TaskSpawner(object):
 				# exceeded the allowed limits
 				exceeds_free_trial_limit = float( aws_account_info[ "billing_total" ] ) >= free_trial_user_max_amount
 				if user_trial_info[ "is_using_trial" ] and exceeds_free_trial_limit:
-					print( "[ STATUS ] Enumerated user has exceeded their free trial.")
-					print( "[ STATUS ] Taking action against free-trial account..." )
+					logit( "[ STATUS ] Enumerated user has exceeded their free trial.")
+					logit( "[ STATUS ] Taking action against free-trial account..." )
 					freeze_result = TaskSpawner.freeze_aws_account(
 						aws_account.to_dict()
 					)
 					
 					# Send account frozen email to us to know that it happened
-					send_account_freeze_email(
+					TaskSpawner.send_account_freeze_email(
 						aws_account_info[ "aws_account_id" ],
 						aws_account_info[ "billing_total" ],
 						owner_organization.billing_admin_user.email
@@ -1701,7 +1701,7 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def build_lambda( credentials, language, code, libraries ):
-			print( "Building Lambda " + language + " with libraries: " + str( libraries ) )
+			logit( "Building Lambda " + language + " with libraries: " + str( libraries ), "info" )
 			if not ( language in LAMBDA_SUPPORTED_LANGUAGES ):
 				raise Exception( "Error, this language '" + language + "' is not yet supported by refinery!" )
 			
@@ -1752,8 +1752,6 @@ class TaskSpawner(object):
 			)
 			
 			if not already_exists:
-				print( "Doesn't already exist in S3 cache, writing to S3..." )
-				
 				# Build the Lambda package .zip and return the zip data for it
 				lambda_zip_package_data = TaskSpawner.build_lambda(
 					credentials,
@@ -1768,8 +1766,6 @@ class TaskSpawner(object):
 					Bucket=credentials[ "lambda_packages_bucket" ],
 					Body=lambda_zip_package_data,
 				)
-			else:
-				print( "This exact code package was deployed before, using cached item..." )
 			
 			return TaskSpawner._deploy_aws_lambda(
 				credentials,
@@ -1825,11 +1821,7 @@ class TaskSpawner(object):
 					Layers=layers,
 				)
 			except ClientError as e:
-				print( "Exception occured: " )
-				pprint( e )
 				if e.response[ "Error" ][ "Code" ] == "ResourceConflictException":
-					print( "Duplicate! Deleting previous to replace it..." )
-					
 					# Delete the existing lambda
 					delete_response = TaskSpawner._delete_aws_lambda(
 						credentials,
@@ -1852,6 +1844,8 @@ class TaskSpawner(object):
 						layers
 					)
 				else:
+					logit( "Exception occured: ", "error" )
+					logit( e, "error" )
 					return False
 			
 			return response
@@ -1867,10 +1861,6 @@ class TaskSpawner(object):
 				hash_input
 			).hexdigest()
 			final_s3_package_zip_path = hash_key + ".zip"
-			
-			print( "Hash input: " + hash_input )
-			print( "Final path: " + final_s3_package_zip_path )
-			
 			return final_s3_package_zip_path
 			
 		@staticmethod
@@ -2246,7 +2236,7 @@ class TaskSpawner(object):
 				if build_status != "IN_PROGRESS":
 					break
 				
-				print( "Build ID " + build_id + " is still in progress, querying the status again in 2 seconds...")
+				logit( "Build ID " + build_id + " is still in progress, querying the status again in 2 seconds...")
 				time.sleep( 2 )
 			
 			if build_status != "SUCCEEDED":
@@ -2660,7 +2650,7 @@ class TaskSpawner(object):
 					
 					queue_deleted = True
 				except sqs_client.exceptions.QueueDeletedRecently:
-					print( "SQS queue was deleted too recently, trying again in ten seconds..." )
+					logit( "SQS queue was deleted too recently, trying again in ten seconds..." )
 					
 					time.sleep( 10 )
 			
@@ -2965,7 +2955,7 @@ class TaskSpawner(object):
 			last_forward_token = False
 			
 			while attempts_remaining > 0:
-				print( "[ STATUS ] Grabbing log events from '" + log_group_name + "' at '" + stream_id + "'..." )
+				logit( "[ STATUS ] Grabbing log events from '" + log_group_name + "' at '" + stream_id + "'..." )
 				get_log_events_params = {
 					"logGroupName": log_group_name,
 					"logStreamName": stream_id
@@ -3310,7 +3300,7 @@ class TaskSpawner(object):
 					httpMethod=method,
 				)
 			except:
-				print( "Exception occurred while deleting method '" + method + "'!" )
+				logit( "Exception occurred while deleting method '" + method + "'!" )
 				pass
 			
 			return {
@@ -3335,8 +3325,8 @@ class TaskSpawner(object):
 			
 			deployment_id = deployment_response[ "id" ]
 			
-			print( "Deployment response: " )
-			pprint( deployment_response )
+			logit( "Deployment response: " )
+			logit( deployment_response )
 			
 			return {
 				"id": rest_api_id,
@@ -3401,9 +3391,6 @@ class TaskSpawner(object):
 				pathPart=path_part
 			)
 			
-			print( "Create REST API resource response: " )
-			pprint( response )
-			
 			return {
 				"id": response[ "id" ],
 				"api_gateway_id": rest_api_id,
@@ -3446,7 +3433,7 @@ class TaskSpawner(object):
 				credentials
 			)
 			
-			print( "Cleaning up IAM policies from no-longer-existing API Gateways attached to Lambda..." )
+			logit( "Cleaning up IAM policies from no-longer-existing API Gateways attached to Lambda..." )
 			try:
 				response = lambda_client.get_policy(
 					FunctionName=lambda_name,
@@ -3474,22 +3461,16 @@ class TaskSpawner(object):
 				
 				try:
 					api_gateway_id = arn_parts[ 5 ]
-					print( "API Gateway ID: " + api_gateway_id )
-					
 					api_gateway_data = api_gateway_client.get_rest_api(
 						restApiId=api_gateway_id,
 					)
 				except:
-					
-					print( "API Gateway does not exist, deleting IAM policy..." )
+					logit( "API Gateway does not exist, deleting IAM policy..." )
 					
 					delete_permission_response = lambda_client.remove_permission(
 						FunctionName=lambda_name,
 						StatementId=statement[ "Sid" ]
 					)
-					
-					print( "Delete permission response: " )
-					pprint( delete_permission_response )
 			
 			return {}
 			
@@ -3523,9 +3504,6 @@ class TaskSpawner(object):
 			via the add_permission API call to allow invocation via the CloudWatch event.
 			"""
 			source_arn = "arn:aws:execute-api:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + rest_api_id + "/*/" + http_method + api_path
-			
-			print( "Source ARN: " )
-			print( source_arn )
 			
 			# We have to clean previous policies we added from this Lambda
 			# Scan over all policies and delete any which aren't associated with
@@ -3588,7 +3566,7 @@ class RunLambda( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit( "Running Lambda with ARN of '" + self.json[ "arn" ] + "'..." )
+		logit( "Running Lambda with ARN of '" + self.json[ "arn" ] + "'..." )
 		
 		# Try to parse Lambda input as JSON
 		try:
@@ -3598,7 +3576,7 @@ class RunLambda( BaseHandler ):
 		except:
 			pass
 		
-		self.logit( "Executing Lambda..." )
+		logit( "Executing Lambda..." )
 		lambda_result = yield local_tasks.execute_aws_lambda(
 			self.get_authenticated_user_cloud_configuration(),
 			self.json[ "arn" ],
@@ -3660,7 +3638,7 @@ class RunTmpLambda( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit( "Building Lambda package..." )
+		logit( "Building Lambda package..." )
 		
 		credentials = self.get_authenticated_user_cloud_configuration()
 		
@@ -3698,7 +3676,7 @@ class RunTmpLambda( BaseHandler ):
 		except:
 			pass
 		
-		self.logit( "Executing Lambda..." )
+		logit( "Executing Lambda..." )
 		lambda_result = yield local_tasks.execute_aws_lambda(
 			self.get_authenticated_user_cloud_configuration(),
 			lambda_info[ "arn" ],
@@ -3710,7 +3688,7 @@ class RunTmpLambda( BaseHandler ):
 			},
 		)
 
-		self.logit( "Deleting Lambda..." )
+		logit( "Deleting Lambda..." )
 		
 		# Now we delete the lambda, don't yield because we don't need to wait
 		delete_result = local_tasks.delete_aws_lambda(
@@ -3727,312 +3705,7 @@ def get_lambda_safe_name( input_name ):
 	whitelist = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
 	input_name = input_name.replace( " ", "_" )
 	return "".join([c for c in input_name if c in whitelist])[:64]
-		
-def refinery_to_aws_step_function( refinery_dict, name_to_arn_map ):
-	"""
-	Generates an AWS step function structure out of a refinery structure
-	"""
-	return_step_function_data = {
-		"Comment": "Step Function generated by refinery"
-	}
 	
-	states_dict = {}
-	
-	special_nodes = [
-		"start_node",
-		"end_node"
-	]
-	
-	# Generate ID -> Name map
-	id_to_name_map = {}
-	name_to_id_map = {}
-	for workflow_state in refinery_dict[ "workflow_states" ]:
-		id_to_name_map[ workflow_state[ "id" ] ] = workflow_state[ "name" ]
-		name_to_id_map[ workflow_state[ "name" ] ] = get_lambda_safe_name(
-			workflow_state[ "id" ]
-		)
-	
-	first_node = False
-	end_nodes = []
-	
-	# Determine start and end nodes
-	for workflow_relationship in refinery_dict[ "workflow_relationships" ]:
-		if workflow_relationship[ "node" ] == "start_node":
-			first_node = workflow_relationship[ "next" ]
-			
-		if workflow_relationship[ "next" ] == "end_node":
-			end_nodes.append(
-				workflow_relationship[ "node" ]
-			)
-			
-	for workflow_state in refinery_dict[ "workflow_states" ]:
-		# Ignore special states like start_node
-		if not workflow_state[ "id" ] in special_nodes:
-			next_node = False
-			# Look for relationships incase of next node
-			for workflow_relationship in refinery_dict[ "workflow_relationships" ]:
-				if not workflow_relationship[ "next" ] in special_nodes:
-					if workflow_relationship[ "node" ] == workflow_state[ "id" ]:
-						next_node = get_lambda_safe_name(
-							id_to_name_map[ workflow_relationship[ "next" ] ]
-						)
-			
-			aws_state_dict = {
-				"Type": "Task",
-				"Resource": name_to_arn_map[ get_lambda_safe_name( workflow_state[ "name" ] ) ],
-			}
-			
-			# If it's the first node, set StartAt
-			if workflow_state[ "id" ] == first_node:
-				return_step_function_data[ "StartAt" ] = get_lambda_safe_name( workflow_state[ "name" ] )
-				
-			# If it's the last node set "End"
-			if workflow_state[ "id" ] in end_nodes:
-				aws_state_dict[ "End" ] = True
-				
-			if next_node:
-				aws_state_dict[ "Next" ] = next_node
-			
-			states_dict[ get_lambda_safe_name( workflow_state[ "name" ] ) ] = aws_state_dict
-			
-	return_step_function_data[ "States" ] = states_dict
-			
-	return return_step_function_data
-	
-class SavedFunctionSearch( BaseHandler ):
-	@authenticated
-	@gen.coroutine
-	def post( self ):
-		"""
-		Free text search of saved functions, returns matching results.
-		"""
-		schema = {
-			"type": "object",
-			"properties": {
-				"query": {
-					"type": "string",
-				}
-			},
-			"required": [
-				"query",
-			]
-		}
-		
-		validate_schema( self.json, schema )
-		
-		self.logit(
-			"Searching saved functions..."
-		)
-		
-		# Get user's saved functions and search through them
-		saved_functions = session.query( SavedFunction ).filter_by(
-			user_id=self.get_authenticated_user_id()
-		).all()
-		
-		# List of already returned result IDs
-		existing_ids = []
-		
-		# List of results
-		results_list = []
-		
-		# Searchable attributes
-		searchable_attributes = [
-			"name",
-			"description"
-		]
-		
-		# Search and add results in order of the searchable attributes
-		for searchable_attribute in searchable_attributes:
-			for saved_function in saved_functions:
-				if self.json[ "query" ].lower() in getattr( saved_function, searchable_attribute ).lower() and not ( saved_function.id in existing_ids ):
-					# Add to results
-					results_list.append(
-						saved_function.to_dict()
-					)
-					
-					# Add to existing IDs so we don't have duplicates
-					existing_ids.append(
-						saved_function.id
-					)
-				
-		self.write({
-			"success": True,
-			"results": results_list
-		})
-		
-class SavedFunctionCreate( BaseHandler ):
-	@authenticated
-	@gen.coroutine
-	def post( self ):
-		"""
-		Create a function to save for later use.
-		"""
-		schema = {
-			"type": "object",
-			"properties": {
-				"name": {
-					"type": "string",
-				},
-				"description": {
-					"type": "string",
-				},
-				"code": {
-					"type": "string",
-				},
-				"language": {
-					"type": "string",
-				},
-				"libraries": {
-					"type": "array",
-				}
-			},
-			"required": [
-				"name",
-				"description",
-				"code",
-				"language",
-				"libraries"
-			]
-		}
-		
-		validate_schema( self.json, schema )
-		
-		self.logit(
-			"Saving function data..."
-		)
-		
-		new_function = SavedFunction()
-		new_function.name = self.json[ "name" ]
-		new_function.description = self.json[ "description" ]
-		new_function.code = self.json[ "code" ]
-		new_function.language = self.json[ "language" ]
-		new_function.libraries = json.dumps(
-			self.json[ "libraries" ]
-		)
-		new_function.user_id = self.get_authenticated_user_id()
-		
-		session.add( new_function )
-		session.commit()
-		
-		self.write({
-			"success": True,
-			"id": new_function.id
-		})
-		
-class SavedFunctionUpdate( BaseHandler ):
-	@authenticated
-	@gen.coroutine
-	def post( self ):
-		"""
-		Update a saved function
-		"""
-		schema = {
-			"type": "object",
-			"properties": {
-				"id": {
-					"type": "string",
-				},
-				"name": {
-					"type": "string",
-				},
-				"description": {
-					"type": "string",
-				},
-				"code": {
-					"type": "string",
-				},
-				"language": {
-					"type": "string",
-				},
-				"libraries": {
-					"type": "array",
-				}
-			},
-			"required": [
-				"id",
-				"name",
-				"description",
-				"code",
-				"language",
-				"libraries"
-			]
-		}
-		
-		validate_schema( self.json, schema )
-		
-		self.logit(
-			"Updating function data..."
-		)
-		
-		if not self.is_owner_of_saved_function( self.json[ "id" ] ):
-			self.write({
-				"success": False,
-				"code": "ACCESS_DENIED",
-				"msg": "You do not have priveleges to access that saved function!",
-			})
-			raise gen.Return()
-		
-		saved_function = session.query( SavedFunction ).filter_by(
-			id=self.json[ "id" ]
-		).first()
-		
-		saved_function.name = self.json[ "name" ]
-		saved_function.description = self.json[ "description" ]
-		saved_function.code = self.json[ "code" ]
-		saved_function.language = self.json[ "language" ]
-		saved_function.libraries = json.dumps(
-			self.json[ "libraries" ]
-		)
-		session.commit()
-		
-		self.write({
-			"success": True,
-			"id": saved_function.id
-		})
-		
-class SavedFunctionDelete( BaseHandler ):
-	@authenticated
-	@gen.coroutine
-	def delete( self ):
-		"""
-		Delete a saved function
-		"""
-		schema = {
-			"type": "object",
-			"properties": {
-				"id": {
-					"type": "string",
-				}
-			},
-			"required": [
-				"id"
-			]
-		}
-		
-		validate_schema( self.json, schema )
-		
-		self.logit(
-			"Deleting saved function data..."
-		)
-		
-		if not self.is_owner_of_saved_function( self.json[ "id" ] ):
-			self.write({
-				"success": False,
-				"code": "ACCESS_DENIED",
-				"msg": "You do not have priveleges to delete that saved function!",
-			})
-			raise gen.Return()
-		
-		session.query( SavedFunction ).filter_by(
-			id=self.json[ "id" ]
-		).delete()
-		
-		session.commit()
-		
-		self.write({
-			"success": True
-		})
-		
 @gen.coroutine
 def deploy_lambda( credentials, id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, execution_log_level, environment_variables, layers ):
 	"""
@@ -4237,9 +3910,6 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				"name": get_lambda_safe_name( workflow_state[ "name" ] ),
 				"type": workflow_state[ "type" ],
 			})
-			
-	#print( "Teardown node list: " )
-	#pprint( teardown_nodes_list )
 		
 	# Now add transition data to each Lambda
 	for workflow_relationship in diagram_data[ "workflow_relationships" ]:
@@ -4474,7 +4144,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		try:
 			output = yield deploy_future_data[ "future" ]
 			
-			print( "[ STATUS ] Deployed node '" + deploy_future_data[ "name" ] + "' successfully!" )
+			logit( "Deployed node '" + deploy_future_data[ "name" ] + "' successfully!" )
 			
 			# Append to approriate lists
 			if deploy_future_data[ "type" ] == "lambda":
@@ -4498,9 +4168,9 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 					output
 				)
 		except Exception, e:
-			print( "[ ERROR ] Failed to deploy node '" + deploy_future_data[ "name" ] + "'!" )
-			print( "The full exception details can be seen below: " )
-			traceback.print_exc()
+			logit( "Failed to deploy node '" + deploy_future_data[ "name" ] + "'!", "error" )
+			logit( "The full exception details can be seen below: ", "error" )
+			logit( traceback.format_exc(), "error" )
 			deployment_exceptions.append({
 				"id": deploy_future_data[ "id" ],
 				"name": deploy_future_data[ "name" ],
@@ -4511,8 +4181,8 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	# This is the earliest point we can apply the breaks in the case of an exception
 	# It's the callers responsibility to tear down the nodes
 	if len( deployment_exceptions ) > 0:
-		print( "[ ERROR ] An uncaught exception occurred during the deployment process!" )
-		pprint( deployment_exceptions )
+		logit( "[ ERROR ] An uncaught exception occurred during the deployment process!", "error" )
+		logit( deployment_exceptions, "error" )
 		raise gen.Return({
 			"success": False,
 			"teardown_nodes_list": teardown_nodes_list,
@@ -4713,9 +4383,6 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	sqs_queue_trigger_targets = yield sqs_queue_trigger_targeting_futures
 	sns_topic_trigger_targets = yield sns_topic_trigger_targeting_futures
 	
-	#print( "Diagram: " )
-	#pprint( diagram_data )
-	
 	raise gen.Return({
 		"success": True,
 		"project_name": project_name,
@@ -4773,9 +4440,7 @@ class SavedLambdaCreate( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Saving Lambda data..."
-		)
+		logit( "Saving Lambda data..." )
 		
 		new_lambda = SavedLambda()
 		new_lambda.name = self.json[ "name" ]
@@ -4817,9 +4482,7 @@ class SavedLambdaSearch( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Searching saved Lambdas..."
-		)
+		logit( "Searching saved Lambdas..." )
 		
 		# Get user's saved lambdas and search through them
 		saved_lambdas = session.query( SavedLambda ).filter_by(
@@ -4878,9 +4541,7 @@ class SavedLambdaDelete( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Deleting Lambda data..."
-		)
+		logit( "Deleting Lambda data..." )
 		
 		session.query( SavedLambda ).filter_by(
 			user_id=self.get_authenticated_user_id(),
@@ -4983,9 +4644,6 @@ class InfraTearDown( BaseHandler ):
 			self.json[ "project_id" ]
 		)
 		
-		print( "Teardown results: ")
-		pprint( teardown_operation_results )
-		
 		self.write({
 			"success": True,
 			"result": teardown_operation_results
@@ -4995,9 +4653,7 @@ class InfraCollisionCheck( BaseHandler ):
 	@authenticated
 	@gen.coroutine
 	def post( self ):
-		self.logit(
-			"Checking for production collisions..."
-		)
+		logit( "Checking for production collisions..." )
 		
 		diagram_data = json.loads( self.json[ "diagram_data" ] )
 		
@@ -5070,9 +4726,6 @@ class InfraCollisionCheck( BaseHandler ):
 		# Wait for all collision checks to finish
 		collision_check_results = yield collision_check_futures
 		
-		print( "Collision check results: " )
-		pprint( collision_check_results )
-		
 		self.write({
 			"success": True,
 			"result": collision_check_results
@@ -5093,9 +4746,7 @@ class SaveProject( BaseHandler ):
 		TODO:
 			* The logic for each branch of project exists and project doesn't exist should be refactored
 		"""
-		self.logit(
-			"Saving project to database..."
-		)
+		logit( "Saving project to database..." )
 		
 		project_id = self.json[ "project_id" ]
 		diagram_data = json.loads( self.json[ "diagram_data" ] )
@@ -5246,9 +4897,7 @@ class SearchSavedProjects( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Searching saved projects..."
-		)
+		logit( "Searching saved projects..." )
 		
 		authenticated_user = self.get_authenticated_user()
 		
@@ -5313,9 +4962,7 @@ class GetSavedProject( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Retrieving saved project..."
-		)
+		logit( "Retrieving saved project..." )
 
 		# Ensure user is owner of the project
 		if not self.is_owner_of_project( self.json[ "id" ] ):
@@ -5357,9 +5004,7 @@ class DeleteSavedProject( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Deleting saved project..."
-		)
+		logit( "Deleting saved project..." )
 		
 		# Ensure user is owner of the project
 		if not self.is_owner_of_project( self.json[ "id" ] ):
@@ -5407,9 +5052,7 @@ class DeployDiagram( BaseHandler ):
 	def post( self ):
 		# TODO: Add jsonschema
 		
-		self.logit(
-			"Deploying diagram to production..."
-		)
+		logit( "Deploying diagram to production..." )
 		
 		# Ensure user is owner of the project
 		if not self.is_owner_of_project( self.json[ "project_id" ] ):
@@ -5436,12 +5079,12 @@ class DeployDiagram( BaseHandler ):
 		
 		# Check if the deployment failed
 		if deployment_data[ "success" ] == False:
-			print( "[ ERROR ] We are now rolling back the deployments we've made..." )
+			logit( "We are now rolling back the deployments we've made...", "error" )
 			yield teardown_infrastructure(
 				self.get_authenticated_user_cloud_configuration(),
 				deployment_data[ "teardown_nodes_list" ]
 			)
-			print( "[ ERROR ] We've completed our rollback, returning an error..." )
+			logit( "We've completed our rollback, returning an error...", "error" )
 			
 			# For now we'll just raise
 			self.write({
@@ -5510,9 +5153,7 @@ class GetProjectConfig( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Retrieving project deployments..."
-		)
+		logit( "Retrieving project deployments..." )
 		
 		# Ensure user is owner of the project
 		if not self.is_owner_of_project( self.json[ "project_id" ] ):
@@ -5555,9 +5196,7 @@ class GetLatestProjectDeployment( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Retrieving project deployments..."
-		)
+		logit( "Retrieving project deployments..." )
 		
 		# Ensure user is owner of the project
 		if not self.is_owner_of_project( self.json[ "project_id" ] ):
@@ -5605,9 +5244,7 @@ class DeleteDeploymentsInProject( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Deleting deployments from database..."
-		)
+		logit( "Deleting deployments from database..." )
 		
 		# Ensure user is owner of the project
 		if not self.is_owner_of_project( self.json[ "project_id" ] ):
@@ -5676,7 +5313,6 @@ def create_lambda_api_route( credentials, api_gateway_id, http_method, route, la
 			current_base_pointer_id = path_existence_map[ current_path ]
 		else:
 			# Otherwise go ahead and create one
-			print( "Creating section '" + path_part + "'..." )
 			new_resource = yield local_tasks.create_resource(
 				credentials,
 				api_gateway_id,
@@ -5685,8 +5321,6 @@ def create_lambda_api_route( credentials, api_gateway_id, http_method, route, la
 			)
 			
 			current_base_pointer_id = new_resource[ "id" ]
-	
-	print( "Creating HTTP method..." )
 	
 	# Create method on base resource
 	method_response = yield local_tasks.create_method(
@@ -5698,11 +5332,6 @@ def create_lambda_api_route( credentials, api_gateway_id, http_method, route, la
 		False,
 	)
 	
-	print( "HTTP method response: " )
-	pprint( method_response )
-	
-	print( "Linking Lambda to endpoint..." )
-	
 	# Link the API Gateway to the lambda
 	link_response = yield local_tasks.link_api_method_to_lambda(
 		credentials,
@@ -5713,18 +5342,9 @@ def create_lambda_api_route( credentials, api_gateway_id, http_method, route, la
 		lambda_name
 	)
 	
-	print( "Lambda link response: " )
-	pprint(
-		link_response
-	)
-	
-	print( "All resources now that we've added some: " )
 	resources = yield local_tasks.get_resources(
 		credentials,
 		api_gateway_id
-	)
-	pprint(
-		resources
 	)
 	
 @gen.coroutine
@@ -5740,7 +5360,7 @@ def get_cloudflare_keys():
 		60 * 60 * 1
 	)
 	
-	print( "Requesting Cloudflare's Access keys for '" + os.environ.get( "cf_certs_url" ) + "'..." )
+	logit( "Requesting Cloudflare's Access keys for '" + os.environ.get( "cf_certs_url" ) + "'..." )
 	client = AsyncHTTPClient()
 	
 	request = HTTPRequest(
@@ -5766,7 +5386,7 @@ def get_cloudflare_keys():
 			public_key
 		)
 	
-	print( "Private keys to be updated again in " + str( public_keys_update_interval ) + " second(s)..." )
+	logit( "Private keys to be updated again in " + str( public_keys_update_interval ) + " second(s)..." )
 	tornado.ioloop.IOLoop.current().add_timeout(
 		time.time() + public_keys_update_interval,
 		get_cloudflare_keys
@@ -5812,7 +5432,6 @@ def get_project_id_execution_log_groups( credentials, project_id, max_results, c
 	timestamp_prefix_fetch_futures = []
 	
 	for execution_log_timestamp_prefix in execution_log_timestamp_prefixes:
-		print( "Retrieving execution id(s) under " + execution_log_timestamp_prefix + "..." )
 		timestamp_prefix_fetch_futures.append(
 			local_tasks.get_s3_pipeline_execution_ids(
 				credentials,
@@ -5835,7 +5454,6 @@ def get_project_id_execution_log_groups( credentials, project_id, max_results, c
 	s3_log_path_promises = []
 
 	for execution_id_prefix in execution_id_prefixes:
-		print( "Retrieving log paths under " + execution_id_prefix + "..." )
 		s3_log_path_promises.append(
 			local_tasks.get_s3_pipeline_execution_logs(
 				credentials,
@@ -5973,9 +5591,7 @@ class GetProjectExecutions( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Retrieving execution ID(s) and their metadata..."
-		)
+		logit( "Retrieving execution ID(s) and their metadata..." )
 		
 		# Ensure user is owner of the project
 		if not self.is_owner_of_project( self.json[ "project_id" ] ):
@@ -6026,9 +5642,7 @@ class GetProjectExecutionLogs( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Retrieving requested logs..."
-		)
+		logit( "Retrieving requested logs..." )
 		
 		logs_data = yield get_logs_data(
 			self.get_authenticated_user_cloud_configuration(),
@@ -6043,26 +5657,21 @@ class GetProjectExecutionLogs( BaseHandler ):
 @gen.coroutine
 def delete_logs( credentials, project_id ):
 	while True:
-		print( "Collecting objects to delete..." )
 		log_paths = yield local_tasks.get_s3_pipeline_execution_logs(
 			credentials,
 			project_id + "/",
 			1000
 		)
 
-		print( "Got back " + str( len( log_paths ) ) + " log object(s)!" )
-		
 		if len( log_paths ) == 0:
 			break
 		
-		print( "Deleting objects..." )
 		yield local_tasks.bulk_s3_delete(
 			credentials,
 			credentials[ "logs_bucket" ],
 			log_paths
 		)
-		print( "Objects deleted!" )
-		
+
 class UpdateEnvironmentVariables( BaseHandler ):
 	@authenticated
 	@disable_on_overdue_payment
@@ -6096,9 +5705,7 @@ class UpdateEnvironmentVariables( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Updating environment variables..."
-		)
+		logit( "Updating environment variables..." )
 		
 		response = yield local_tasks.update_lambda_environment_variables(
 			self.get_authenticated_user_cloud_configuration(),
@@ -6156,9 +5763,7 @@ class GetCloudWatchLogsForLambda( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Retrieving CloudWatch logs..."
-		)
+		logit( "Retrieving CloudWatch logs..." )
 		
 		log_output = yield local_tasks.get_lambda_cloudwatch_logs(
 			self.get_authenticated_user_cloud_configuration(),
@@ -6201,7 +5806,6 @@ def strip_api_gateway( credentials, api_gateway_id ):
 	for resource_item in rest_resources:
 		# We can't delete the root resource
 		if resource_item[ "path" ] != "/":
-			print( "Deleting resource ID '" + resource_item[ "id" ] + "'..." )
 			deletion_futures.append(
 				local_tasks.delete_rest_api_resource(
 					credentials,
@@ -6213,7 +5817,6 @@ def strip_api_gateway( credentials, api_gateway_id ):
 		# Delete the methods
 		if "resourceMethods" in resource_item:
 			for http_method, values in resource_item[ "resourceMethods" ].iteritems():
-				print( "Deleting HTTP method '" + http_method + "'..." )
 				deletion_futures.append(
 					local_tasks.delete_rest_api_resource_method(
 						credentials,
@@ -6229,7 +5832,6 @@ def strip_api_gateway( credentials, api_gateway_id ):
 	)
 	
 	for rest_stage in rest_stages:
-		print( "Deleting stage '" + rest_stage[ "stageName" ] + "'..." )
 		deletion_futures.append(
 			local_tasks.delete_stage(
 				credentials,
@@ -6274,9 +5876,7 @@ class NewRegistration( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		self.logit(
-			"Processing user registration..."
-		)
+		logit( "Processing user registration..." )
 		
 		# Before we continue, check if the email is valid
 		try:
@@ -6285,7 +5885,7 @@ class NewRegistration( BaseHandler ):
 			)
 			email = email_validator[ "email" ] # replace with normalized form
 		except EmailNotValidError as e:
-			self.logit( "Invalid email provided during signup!" )
+			logit( "Invalid email provided during signup!" )
 			self.write({
 				"success": False,
 				"code": "INVALID_EMAIL",
@@ -6323,7 +5923,7 @@ class NewRegistration( BaseHandler ):
 		
 		# If one exists, add it to the account
 		if aws_reserved_account != None:
-			self.logit( "Adding a reserved AWS account to the newly registered Refinery account..." )
+			logit( "Adding a reserved AWS account to the newly registered Refinery account..." )
 			aws_reserved_account.is_reserved_account = False
 			aws_reserved_account.organization_id = new_organization.id
 		
@@ -6357,7 +5957,7 @@ class NewRegistration( BaseHandler ):
 		# Send registration confirmation link to user's email address
 		# The first time they authenticate via this link it will both confirm
 		# their email address and authenticate them.
-		self.logit( "Sending user their registration confirmation email..." )
+		logit( "Sending user their registration confirmation email..." )
 		yield local_tasks.send_registration_confirmation_email(
 			self.json[ "email" ],
 			raw_email_authentication_token
@@ -6379,7 +5979,7 @@ class EmailLinkAuthentication( BaseHandler ):
 		Currently this responds with ugly text errors, but eventually it will be just
 		another REST-API endpoint.
 		"""
-		self.logit( "User is authenticating via email link" )
+		logit( "User is authenticating via email link" )
 		
 		# Query for the provided authentication token
 		email_authentication_token = session.query( EmailAuthToken ).filter_by(
@@ -6387,7 +5987,7 @@ class EmailLinkAuthentication( BaseHandler ):
 		).first()
 		
 		if email_authentication_token == None:
-			self.logit( "User's token was not found in the database" )
+			logit( "User's token was not found in the database" )
 			self.write( "Invalid authentication token, did you copy the link correctly?" )
 			raise gen.Return()
 			
@@ -6396,14 +5996,14 @@ class EmailLinkAuthentication( BaseHandler ):
 		
 		# Check if the token is expired
 		if email_authentication_token.is_expired == True:
-			self.logit( "The user's email token was already marked as expired." )
+			logit( "The user's email token was already marked as expired." )
 			self.write( "That email token has expired, please try authenticating again to request a new one." )
 			raise gen.Return()
 		
 		# Check if the token is older than the allowed lifetime
 		# If it is then mark it expired and return an error
 		if token_age >= int( os.environ.get( "email_token_lifetime" ) ):
-			self.logit( "The user's email token was too old and was marked as expired." )
+			logit( "The user's email token was too old and was marked as expired." )
 			
 			# Mark the token as expired in the database
 			email_authentication_token.is_expired = True
@@ -6436,7 +6036,7 @@ class EmailLinkAuthentication( BaseHandler ):
 		# Check if the user's account is disabled
 		# If it's disabled don't allow the user to log in at all.
 		if email_authentication_token.user.disabled == True:
-			self.logit( "User login was denied due to their account being disabled!" )
+			logit( "User login was denied due to their account being disabled!" )
 			self.write( "Your account is currently disabled, please contact customer support for more information." )
 			raise gen.Return()
 		
@@ -6448,11 +6048,11 @@ class EmailLinkAuthentication( BaseHandler ):
 		# Check if the user's organization is disabled
 		# If it's disabled don't allow the user to log in at all.
 		if user_organization.disabled == True:
-			self.logit( "User login was denied due to their organization being disabled!" )
+			logit( "User login was denied due to their organization being disabled!" )
 			self.write( "Your organization is currently disabled, please contact customer support for more information." )
 			raise gen.Return()
 		
-		self.logit( "User authenticated successfully" )
+		logit( "User authenticated successfully" )
 		
 		# Authenticate the user via secure cookie
 		self.authenticate_user_id(
@@ -6667,9 +6267,9 @@ class RunBillingWatchdogJob( BaseHandler ):
 			"msg": "Watchdog job has been started!"
 		})
 		self.finish()
-		print( "[ STATUS ] Initiating billing watchdog job, scanning all accounts to check for billing anomalies..." )
+		logit( "[ STATUS ] Initiating billing watchdog job, scanning all accounts to check for billing anomalies..." )
 		aws_account_running_cost_list = yield local_tasks.pull_current_month_running_account_totals()
-		print( "[ STATUS ] " + str( len( aws_account_running_cost_list ) ) + " account(s) pulled from billing, checking against rules..." )
+		logit( "[ STATUS ] " + str( len( aws_account_running_cost_list ) ) + " account(s) pulled from billing, checking against rules..." )
 		yield local_tasks.enforce_account_limits( aws_account_running_cost_list )
 		
 class RunMonthlyStripeBillingJob( BaseHandler ):
@@ -6687,14 +6287,14 @@ class RunMonthlyStripeBillingJob( BaseHandler ):
 			"msg": "The billing job has been started!"
 		})
 		self.finish()
-		print( "[ STATUS ] Running monthly Stripe billing job to invoice all Refinery customers." )
+		logit( "[ STATUS ] Running monthly Stripe billing job to invoice all Refinery customers." )
 		date_info = get_current_month_start_and_end_date_strings()
-		print( "[ STATUS ] Generating invoices for " + date_info[ "month_start_date" ] + " -> " + date_info[ "next_month_first_day" ]  )
+		logit( "[ STATUS ] Generating invoices for " + date_info[ "month_start_date" ] + " -> " + date_info[ "next_month_first_day" ]  )
 		yield local_tasks.generate_managed_accounts_invoices(
 			date_info[ "month_start_date"],
 			date_info[ "next_month_first_day" ],
 		)
-		print( "[ STATUS ] Stripe billing job has completed!" )
+		logit( "[ STATUS ] Stripe billing job has completed!" )
 		
 class HealthHandler( BaseHandler ):
 	@authenticated
@@ -7069,10 +6669,6 @@ def make_app( is_debug ):
 		( r"/api/v1/logs/executions/get", GetProjectExecutionLogs ),
 		( r"/api/v1/logs/executions", GetProjectExecutions ),
 		( r"/api/v1/aws/deploy_diagram", DeployDiagram ),
-		( r"/api/v1/functions/delete", SavedFunctionDelete ),
-		( r"/api/v1/functions/update", SavedFunctionUpdate ),
-		( r"/api/v1/functions/create", SavedFunctionCreate ),
-		( r"/api/v1/functions/search", SavedFunctionSearch ),
 		( r"/api/v1/lambdas/create", SavedLambdaCreate ),
 		( r"/api/v1/lambdas/search", SavedLambdaSearch ),
 		( r"/api/v1/lambdas/delete", SavedLambdaDelete ),
@@ -7101,43 +6697,12 @@ def make_app( is_debug ):
 		
 		# These are "services" which are only called by external crons, etc.
 		# External users are blocked from ever reaching these routes
-		
-		# TODO: Implement authentication for these /services/ routes. Tie it to whatever
-		# the cron service supports for shared secrets/etc.
 		( r"/services/v1/billing_watchdog", RunBillingWatchdogJob ),
 		( r"/services/v1/bill_customers", RunMonthlyStripeBillingJob )
 	], **tornado_app_settings)
-	
-@gen.coroutine
-def add_reserved_aws_accounts():
-	# Just for testing, this adds AWS accounts to the reserved pool
-	# if it is currently empty.
-	reserved_aws_accounts_count = session.query( AWSAccount ).filter_by(
-		is_reserved_account=True
-	).count()
 
-	if reserved_aws_accounts_count == 0:
-		print( "No AWS account in reserves, adding to the pool..." )
-		new_aws_account = AWSAccount()
-		new_aws_account.account_label = ""
-		new_aws_account.account_type = "MANAGED"
-		new_aws_account.is_reserved_account = True
-		new_aws_account.account_id = "924692408105"
-		new_aws_account.region = "us-west-2"
-		new_aws_account.iam_admin_username = "refinery-customer-4fabkneykzkasuta"
-		new_aws_account.iam_admin_password = "DUMMY_VALUE"
-		new_aws_account.s3_bucket_suffix = "s3wzxdu6xwcnqrjmkwud4fftsbjlj9yl"
-		new_aws_account.redis_hostname = "52.37.16.85"
-		new_aws_account.redis_password = "ezc8M1icivweQOmcDzD3yJPJzhSTqruFrd7xC6mnvywnjgUaYOFTszJp7QpDMm4M"
-		new_aws_account.redis_secret_prefix = "YrZfkWUvfb7DehUDKF4N7pnk3EItlEFMmJnx0sOE"
-		new_aws_account.redis_port = 6379
-		session.add( new_aws_account )
-			
-		session.commit()
-		print( "Added new AWS accounts to the pool!" )
-		
 if __name__ == "__main__":
-	print( "Starting server..." )
+	logit( "Starting the Refinery service...", "info" )
 	on_start()
 	app = make_app(
 		( os.environ.get( "is_debug" ).lower() == "true" )
@@ -7149,10 +6714,6 @@ if __name__ == "__main__":
 		7777
 	)
 	Base.metadata.create_all( engine )
-	
-	tornado.ioloop.IOLoop.current().run_sync( add_reserved_aws_accounts )
-	
-	#tornado.ioloop.IOLoop.current().run_sync( freeze_account_test )
 	
 	if os.environ.get( "cf_enabled" ).lower() == "true":
 		tornado.ioloop.IOLoop.current().run_sync( get_cloudflare_keys )
