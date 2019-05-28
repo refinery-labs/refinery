@@ -1,0 +1,30 @@
+FROM node:10
+
+# This file literally just installs node_modules so that they can be fetched for local dev.
+# You can run it like this:
+# docker run -v $(pwd):/work/front-end/ -t install_npm_modules:latest
+
+# Note: Using Node 10 because it's the current LTS release and fabric doesn't work with odd numbers.
+
+# Needed for node-gyp
+RUN apt-get update
+RUN apt-get install -y g++ build-essential
+
+RUN mkdir /work/
+RUN mkdir /work/front-end
+RUN mkdir /work/front-end-modules
+# It seems like it is safe to copy these files and then "mount" over them.
+COPY ./package.json /work/front-end-modules/package.json
+COPY ./package-lock.json /work/front-end-modules/package-lock.json
+COPY ./remove-and-copy-npm-modules.sh /work/remove-and-copy-npm-modules.sh
+WORKDIR /work/front-end-modules
+
+# Necessary for certain modules to install correctly (mostly fabric).
+RUN npm install -g node-gyp
+
+RUN npm install
+
+WORKDIR /work/front-end
+
+# This script will add node_modules to the volume mounted to /work/front-end
+ENTRYPOINT ["/work/remove-and-copy-npm-modules.sh"]

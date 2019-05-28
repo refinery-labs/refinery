@@ -1,0 +1,36 @@
+/* ========================================================================
+    Component: Notifications
+ ========================================================================== */
+
+// Vue notifications
+// place container correctly
+.notifications {
+    &.center-top,
+    &.left-top,
+    &.right-top {
+        top: 10px !important;
+        @include media-breakpoint-up(md) {
+            top: ($navbar-height + 10px) !important;
+        }
+    }
+    @include media-breakpoint-up(md) {
+        &.left-top,
+        &.left-bottom {
+            left: ($aside-wd + 10px) !important;
+        }
+    }
+    &.right-top,
+    &.right-bottom {
+        right: 10px !important;
+    }
+    &.center-bottom,
+    &.left-bottom,
+    &.right-bottom {
+        bottom: 10px !important;
+    }
+}
+
+.vue-notification {
+    border-left-color: rgba(0,0,0,.25);
+    margin-left: 0;
+}

@@ -105,7 +105,7 @@ function update_graph() {
 			result = e.data;
 			
 			update_graph_output( resolve, reject );
-		}
+		};
 		
 		worker.onerror = function(e) {
 			document.querySelector("#output").classList.remove("working");
@@ -115,14 +115,14 @@ function update_graph() {
 			
 			var error = document.querySelector("#error");
 			while (error.firstChild) {
-			error.removeChild(error.firstChild);
-		}
+				error.removeChild(error.firstChild);
+			}
 		
-		document.querySelector("#error").appendChild(document.createTextNode(message));
+			document.querySelector("#error").appendChild(document.createTextNode(message));
 		
-		console.error(e);
-		e.preventDefault();
-		}
+			console.error(e);
+			e.preventDefault();
+		};
 		
 		var params = {
 			src: app.graphiz_content,
@@ -135,7 +135,7 @@ function update_graph() {
 		// Instead of asking for png-image-element directly, which we can't do in a worker,
 		// ask for SVG and convert when updating the output.
 		
-		if (params.options.format == "png-image-element") {
+		if (params.options.format === "png-image-element") {
 			params.options.format = "svg";
 		}
 		
@@ -176,7 +176,7 @@ function update_graph_output( resolve, reject ) {
 		var image_elem = document.createElementNS( "http://www.w3.org/2000/svg", "image" );
 		pattern_elem.appendChild( image_elem );
 		defs_element.appendChild( pattern_elem );
-		var selected_pattern_elem = defs_element.querySelector( "pattern[id='" + graph_icon_data.id + "']" );;
+		var selected_pattern_elem = defs_element.querySelector( "pattern[id='" + graph_icon_data.id + "']" );
 		selected_pattern_elem.setAttributeNS( null, "id", graph_icon_data.id );
 		selected_pattern_elem.setAttributeNS( null, "height", "100%" );
 		selected_pattern_elem.setAttributeNS( null, "width", "100%" );
@@ -269,7 +269,7 @@ function get_lambda_data() {
 function get_node_data_by_id( node_id ) {
 	var target_states = app.workflow_states;
 	
-	if( app.ide_mode == "DEPLOYMENT_VIEWER" ) {
+	if( app.ide_mode === "DEPLOYMENT_VIEWER" ) {
 		target_states = app.deployment_data.diagram_data.workflow_states;
 	}
 	
@@ -285,7 +285,7 @@ function get_node_data_by_id( node_id ) {
 function get_state_transition_by_id( transition_id ) {
 	var target_relationships = app.workflow_relationships;
 	
-	if( app.ide_mode == "DEPLOYMENT_VIEWER" ) {
+	if( app.ide_mode === "DEPLOYMENT_VIEWER" ) {
 		target_relationships = app.deployment_data.diagram_data.workflow_relationships;
 	}
 	
@@ -785,8 +785,8 @@ function project_file_uploaded( event_data ) {
 		} catch ( e ) {
 			alert( "Error parsing project data! Invalid JSON?" );
 			console.log( e );
-		};
-	}
+		}
+	};
 	reader.readAsText( file_data );
 }
 

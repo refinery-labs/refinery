@@ -1,0 +1,85 @@
+/* ========================================================================
+    Component: plugins
+    - Use this stylesheet to include single css styles for plugins
+ ========================================================================== */
+
+
+// Bootstrap Slider variables
+$slider-handle-bg: $primary;
+$slider-track-border: $primary;
+$slider-selection-bg: $slider-track-border;
+$slider-tooltip-color: #2c3037;
+
+body {
+
+    // Vue Tag Input
+
+    .vue-input-tag-wrapper {
+        border: 1px solid $gray;
+        padding-top: 4px;
+        padding-bottom: 4px;
+    }
+    .vue-input-tag-wrapper .input-tag {
+        background-color: $info;
+        border-color: $info;
+        color: #fff;
+        padding: 2px 6px;
+        margin-bottom: 0;
+        align-self: center;
+        > .remove { margin-left: 4px; color: #fff; }
+    }
+    .vue-input-tag-wrapper .new-tag {
+        padding: 3px 6px;
+        margin: 0
+    }
+
+    // Vue Multiselect
+
+    .multiselect__option--highlight,
+    .multiselect__option--highlight:after {
+        background-color: $info;
+    }
+    .multiselect__option--selected.multiselect__option--highlight {
+        background-color: $info-dark;
+    }
+    .multiselect__tag {
+        background-color: $info;
+        margin-bottom: 0;
+    }
+
+    .multiselect__input, .multiselect__single {
+        margin: 0;
+        font-size: 0.875rem;
+    }
+    .multiselect__tags {
+        min-height: $input-height;
+        padding-top: 5px;
+    }
+    .multiselect__tag-icon:focus, .multiselect__tag-icon:hover {
+        background-color: $info-dark;
+    }
+
+    .multiselect__content-wrapper {
+        z-index: 9001 !important;
+    }
+
+
+    // Datepicker
+    .vdp-datepicker__calendar .cell.selected {
+        background-color: $info;
+        color: #fff;
+    }
+
+    // Quill editor
+    .quill-editor {
+        min-height: 200px;
+        .ql-container{
+            border-color: $gray;
+            min-height: 200px;
+        }
+        .ql-toolbar {
+            border-color: $gray;
+        }
+    }
+
+}

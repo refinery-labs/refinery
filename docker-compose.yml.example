@@ -12,6 +12,10 @@ services:
             aws_secret_key: REPLACE_ME_WITH_ORG_ROOT_ACCOUNT_SECRET_KEY
             aws_account_id: REPLACE_ME_WITH_ORG_ROOT_ACCOUNT_ID
             region_name: REPLACE_ME_WITH_ORG_ROOT_ACCOUNT_REGION
+            # JSON array of allowed origins
+            access_control_allow_origins: "[\"http://localhost:1234\",\"http://localhost:8080\",\"http://localhost:8002\"]"
+            # Really does nothing, should be removed at some point
+            vpc_data: "{}"
             # The postgres username
             postgreql_username: refinery
             # The postgres password
@@ -64,12 +68,12 @@ services:
             - ./gui/:/work/gui/
     front-end:
         build: ./front-end
-        depends_on:
-          - refinery
         ports:
             - "8080:8080"
         volumes:
             - ./front-end/:/work/front-end/
+            - /work/front-end/node_modules # This will copy in node_modules from the built image, because magic
+            # More info on above magic here: https://stackoverflow.com/questions/30043872/docker-compose-node-modules-not-present-in-a-volume-after-npm-install-succeeds
     postgresdb:
         image: postgres
         environment:

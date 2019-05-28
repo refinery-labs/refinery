@@ -80,6 +80,9 @@ stripe.api_key = os.environ.get( "stripe_api_key" )
 
 # Cloudflare Access public keys
 CF_ACCESS_PUBLIC_KEYS = []
+
+# Pull list of allowed Access-Control-Allow-Origin values from environment var 
+allowed_origins = json.loads( os.environ.get( "access_control_allow_origins" ) )
 			
 def on_start():
 	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES
@@ -259,7 +262,6 @@ def logit( message, message_type="info" ):
 class BaseHandler( tornado.web.RequestHandler ):
 	def __init__( self, *args, **kwargs ):
 		super( BaseHandler, self ).__init__( *args, **kwargs )
-		self.set_header( "Access-Control-Allow-Origin", os.environ.get( "access_control_allow_origin" ), )
 		self.set_header( "Access-Control-Allow-Headers", "Content-Type, X-CSRF-Validation-Header" )
 		self.set_header( "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD" )
 		self.set_header( "Access-Control-Allow-Credentials", "true" )
@@ -271,6 +273,17 @@ class BaseHandler( tornado.web.RequestHandler ):
 		self.set_header( "Cache-Control", "no-cache, no-store, must-revalidate" )
 		self.set_header( "Pragma", "no-cache" )
 		self.set_header( "Expires", "0" )
+    
+	def initialize( self ):
+		if 'Origin' not in self.request.headers:
+			return
+
+		host_header = self.request.headers['Origin']
+
+		# Identify if the request is coming from a domain that is in the whitelist
+		# If it is, set the necessary CORS response header to allow the request to succeed.
+		if host_header in allowed_origins:
+			self.set_header( "Access-Control-Allow-Origin", host_header )
 		
 		# For caching the currently-authenticated user
 		self.authenticated_user = None
@@ -4973,15 +4986,35 @@ class GetSavedProject( BaseHandler ):
 			})
 			raise gen.Return()
 			
-		project_version_result = session.query( ProjectVersion ).filter_by(
-			project_id=self.json[ "id" ],
-			version=self.json[ "version" ]
-		).first()
-		
+		project = self.fetch_project()
+
 		self.write({
 			"success": True,
-			"project_json": project_version_result.project_json
+			"id": project.id,
+			"version": project.version,
+			"project_json": project.project_json
 		})
+
+	def fetch_project( self ):
+		if 'version' not in self.json:
+			return self.fetch_project_without_version(self.json[ "id" ])
+
+		return self.fetch_project_by_version(self.json[ "id" ], self.json[ "version" ])
+
+	def fetch_project_by_version( self, id, version ):
+		project_version_result = session.query( ProjectVersion ).filter_by(
+			project_id=id,
+			version=version
+		).first()
+
+		return project_version_result
+
+	def fetch_project_without_version( self, id ):
+		project_version_result = session.query( ProjectVersion ).filter_by(
+			project_id=id
+		).order_by(ProjectVersion.version.desc()).first()
+
+		return project_version_result
 		
 class DeleteSavedProject( BaseHandler ):
 	@authenticated
@@ -5558,7 +5591,7 @@ def get_logs_data( credentials, log_paths_array ):
 		return_data[ log_data[ "function_name" ] ].append(
 			log_data
 		)
-		
+    
 	# Reverse order for return values
 	for key, value in return_data.iteritems():
 		return_data[ key ] = return_data[ key ][::-1]
@@ -5567,7 +5600,7 @@ def get_logs_data( credentials, log_paths_array ):
 
 class GetProjectExecutions( BaseHandler ):
 	@authenticated
-	@disable_on_overdue_payment
+	@disable_on_overdue_payment  
 	@gen.coroutine
 	def post( self ):
 		"""
@@ -5601,7 +5634,7 @@ class GetProjectExecutions( BaseHandler ):
 				"msg": "You do not have priveleges to access that project's executions!",
 			})
 			raise gen.Return()
-		
+      
 		continuation_token = False
 		
 		if "continuation_token" in self.json:

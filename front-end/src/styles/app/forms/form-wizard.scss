@@ -1,0 +1,98 @@
+/* ========================================================================
+     Component: form-wizard
+ ========================================================================== */
+
+.vue-form-wizard {
+    .wizard-header {
+        display: none;
+    }
+    .wizard-tab-content {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+    .wizard-icon-circle {
+        background-color: none !important;
+        .wizard-icon-container {
+            background: none !important;
+        }
+    }
+    &.md .wizard-icon-circle {
+        border: 0 !important;
+        width: auto !important;
+        height: auto !important;
+    }
+    .wizard-card-footer {
+        padding: 0 !important;
+    }
+}
+
+// Removed progress bar
+.vue-form-wizard .wizard-navigation .wizard-progress-with-circle .wizard-progress-bar {
+    display: none;
+}
+
+// The span element is added with a custom template
+.vue-form-wizard .wizard-nav-pills > li {
+    > a > span {
+        color: $body-color;
+        @include media-breakpoint-up(lg) {
+            margin-left: 1.5rem;
+            text-align: left;
+        }
+    }
+    &.active>a > span {
+        color: #fff;
+    }
+}
+
+.vue-form-wizard .wizard-nav-pills>li>a {
+    padding: 6px 4px !important;
+    @include media-breakpoint-up(lg) {
+        padding: 1rem 1.5rem !important;
+        flex-direction: row !important;
+    }
+}
+
+.vue-form-wizard .wizard-nav-pills>li.active .wizard-icon-circle {
+    background-color: $info !important;
+}
+
+.vue-form-wizard .wizard-nav-pills>li.active>a,
+.vue-form-wizard .wizard-nav-pills>li.active>a:focus,
+.vue-form-wizard .wizard-nav-pills>li.active>a:hover {
+    background-color: $info !important;
+}
+
+// Convert wizard to vertical representation
+// on tablets and up, mobiles displays as stamdard horizontal
+@include media-breakpoint-up(md) {
+    .vue-form-wizard-vertical {
+
+        .wizard-navigation {
+            display: flex;
+            flex-direction: row;
+        }
+        .wizard-nav {
+            flex-direction: column;
+        }
+        .wizard-tab-content {
+            flex-grow: 1;
+            padding-top: 4px !important;
+            padding-left: 1rem !important;
+        }
+        .wizard-nav {
+            align-self: flex-start;
+        }
+        .wizard-nav > li {
+            flex-grow: 0;
+        }
+        .wizard-card-footer {
+            text-align: right;
+            .wizard-footer-left,
+            .wizard-footer-right {
+                display: inline-block;
+                float: none !important;
+            }
+        }
+    }
+}
