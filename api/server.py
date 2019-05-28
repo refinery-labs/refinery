@@ -6914,8 +6914,6 @@ def is_build_package_cached( credentials, language, libraries ):
 	for library in libraries:
 		libraries_dict[ str( library ) ] = "latest"
 	
-	build_id = False
-	
 	# Get the final S3 path
 	final_s3_package_zip_path = yield local_tasks.get_final_zip_package_path(
 		language,
@@ -6966,7 +6964,6 @@ class CheckIfLibrariesCached( BaseHandler ):
 			self.json[ "libraries" ]
 		)
 		
-		# Return immediately since we don't need to kick off the build
 		self.write({
 			"success": True,
 			"is_already_cached": is_already_cached,
@@ -7054,7 +7051,6 @@ class BuildLibrariesPackage( BaseHandler ):
 		
 		self.write({
 			"success": True,
-			"build_id": build_id,
 		})
 		
 def make_app( is_debug ):
