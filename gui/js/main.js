@@ -1157,6 +1157,24 @@ function set_card_as_primary( card_id ) {
 }
 
 /*
+	Kick off a build of a package of dependencies.
+	This speeds up deploys because all package zips
+	are automatically cached in S3. So when they do
+	a deploy in the future the dependencies will
+	already be build and cached in S3.
+*/
+function build_libraries_package( language, libraries_array ) {
+	return api_request(
+		"POST",
+		"api/v1/lambdas/build_libraries",
+		{
+			"language": language,
+			"libraries": libraries_array,
+		}
+	);
+}
+
+/*
 Example input(s):
 billing_month = "2019-05"
 

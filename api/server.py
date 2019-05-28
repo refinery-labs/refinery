@@ -217,7 +217,6 @@ def get_aws_client( client_type, credentials ):
 			read_timeout=( 60 * 15 )
 		)
 	elif client_type == "s3":
-		print( "Client type is S3, upping connections!" )
 		client_options[ "config" ] = Config(
 			max_pool_connections=( 1000 * 2 )
 		)
@@ -1700,28 +1699,43 @@ class TaskSpawner(object):
 			
 			return response
 			
-		@run_on_executor
-		def deploy_aws_lambda( self, credentials, func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
-			return TaskSpawner._deploy_aws_lambda( credentials, func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict, layers )
-
 		@staticmethod
-		def _deploy_aws_lambda( credentials, func_name, language, description, role_name, zip_data, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
-			if language in CUSTOM_RUNTIME_LANGUAGES:
-				language = "provided"
-
-			"""
-			First upload the data to S3 at {{zip_sha1}}.zip
+		def build_lambda( credentials, language, code, libraries ):
+			print( "Building Lambda " + language + " with libraries: " + str( libraries ) )
+			if not ( language in LAMBDA_SUPPORTED_LANGUAGES ):
+				raise Exception( "Error, this language '" + language + "' is not yet supported by refinery!" )
 			
-			We then can check if there's an existing cached copy
-			that we can use before we upload it ourself.
+			if language == "python2.7":
+				package_zip_data = TaskSpawner._build_python27_lambda( credentials, code, libraries )
+			elif language == "php7.3":
+				package_zip_data = TaskSpawner._build_php_73_lambda( credentials, code, libraries )
+			elif language == "nodejs8.10":
+				package_zip_data = TaskSpawner._build_nodejs_810_lambda( credentials, code, libraries )
+				
+			return package_zip_data
+			
+		@run_on_executor
+		def deploy_aws_lambda( self, credentials, func_name, language, description, role_name, code, libraries, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
 			"""
-			# Generate SHA256 hash of package
+			Here we do caching to see if we've done this exact build before
+			(e.g. the same language, code, and libraries). If we have an the
+			previous zip package is still in S3 we can just return that.
+			
+			The zip key is {{SHA256_OF_LANG-CODE-LIBRARIES}}.zip
+			"""
+			# Generate libraries object for now until we modify it to be a dict/object
+			libraries_object = {}
+			for library in libraries:
+				libraries_object[ str( library ) ] = "latest"
+				
+			# Generate SHA256 hash input for caching key
+			hash_input = language + "-" + code + "-" + json.dumps( libraries_object, sort_keys=True )
 			hash_key = hashlib.sha256(
-				zip_data
+				hash_input
 			).hexdigest()
 			s3_package_zip_path = hash_key + ".zip"
 			
-			# First check if it already exists
+			# Check to see if it's in the S3 cache
 			already_exists = False
 			
 			# Create S3 client
@@ -1730,26 +1744,53 @@ class TaskSpawner(object):
 				credentials
 			)
 			
-			# S3 head response
-			try:
-				s3_head_response = s3_client.head_object(
-					Bucket=credentials[ "lambda_packages_bucket" ],
-					Key=s3_package_zip_path
-				)
-				
-				# If we didn't encounter a not-found exception, it exists.
-				already_exists = True
-			except ClientError as e:
-				pass
+			# Check if we've already deployed this exact same Lambda before
+			already_exists = TaskSpawner._s3_object_exists(
+				credentials,
+				credentials[ "lambda_packages_bucket" ],
+				s3_package_zip_path
+			)
 			
 			if not already_exists:
 				print( "Doesn't already exist in S3 cache, writing to S3..." )
-				response = s3_client.put_object(
-					Key=s3_package_zip_path,
-					Bucket=credentials[ "lambda_packages_bucket" ],
-					Body=zip_data,
+				
+				# Build the Lambda package .zip and return the zip data for it
+				lambda_zip_package_data = TaskSpawner.build_lambda(
+					credentials,
+					language,
+					code,
+					libraries
 				)
 				
+				# Write it the cache
+				s3_client.put_object(
+					Key=s3_package_zip_path,
+					Bucket=credentials[ "lambda_packages_bucket" ],
+					Body=lambda_zip_package_data,
+				)
+			else:
+				print( "This exact code package was deployed before, using cached item..." )
+			
+			return TaskSpawner._deploy_aws_lambda(
+				credentials,
+				func_name,
+				language,
+				description,
+				role_name,
+				s3_package_zip_path,
+				timeout,
+				memory,
+				vpc_config,
+				environment_variables,
+				tags_dict,
+				layers
+			)
+
+		@staticmethod
+		def _deploy_aws_lambda( credentials, func_name, language, description, role_name, s3_package_zip_path, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
+			if language in CUSTOM_RUNTIME_LANGUAGES:
+				language = "provided"
+
 			# Generate environment variables data structure
 			env_data = {}
 			for env_pair in environment_variables:
@@ -1802,7 +1843,7 @@ class TaskSpawner(object):
 						language,
 						description,
 						role_name,
-						zip_data,
+						s3_package_zip_path,
 						timeout,
 						memory,
 						vpc_config,
@@ -1814,6 +1855,23 @@ class TaskSpawner(object):
 					return False
 			
 			return response
+		
+		@run_on_executor
+		def get_final_zip_package_path( self, language, libraries ):
+			return TaskSpawner._get_final_zip_package_path( language, libraries )
+			
+		@staticmethod
+		def _get_final_zip_package_path( language, libraries_object ):
+			hash_input = language + "-" + json.dumps( libraries_object, sort_keys=True )
+			hash_key = hashlib.sha256(
+				hash_input
+			).hexdigest()
+			final_s3_package_zip_path = hash_key + ".zip"
+			
+			print( "Hash input: " + hash_input )
+			print( "Final path: " + final_s3_package_zip_path )
+			
+			return final_s3_package_zip_path
 			
 		@staticmethod
 		def get_python27_lambda_base_zip( credentials, libraries ):
@@ -1822,26 +1880,16 @@ class TaskSpawner(object):
 				credentials
 			)
 			
-			# TODO just take an object as input
 			libraries_object = {}
-			
 			for library in libraries:
 				libraries_object[ str( library ) ] = "latest"
 			
-			# Final object is in the format of SHA256( node8.10-{{canonicalizated_libraries}} ).zip
-			hash_input = "python2.7-" + json.dumps( libraries_object, sort_keys=True )
-			hash_key = hashlib.sha256(
-				hash_input
-			).hexdigest()
-			final_s3_package_zip_path = hash_key + ".zip"
-			
-			already_exists = TaskSpawner.s3_object_exists(
-				credentials,
-				credentials[ "lambda_packages_bucket" ],
-				final_s3_package_zip_path
+			final_s3_package_zip_path = TaskSpawner._get_final_zip_package_path(
+				"python2.7",
+				libraries_object
 			)
 			
-			if already_exists:
+			if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
 				return TaskSpawner._read_from_s3(
 					credentials,
 					credentials[ "lambda_packages_bucket" ],
@@ -1850,21 +1898,25 @@ class TaskSpawner(object):
 			
 			# Kick off CodeBuild for the libraries to get a zip artifact of
 			# all of the libraries.
-			build_id = TaskSpawner.start_python27_codebuild(
+			build_id = TaskSpawner._start_python27_codebuild(
 				credentials,
 				libraries_object
 			)
 			
 			# This continually polls for the CodeBuild build to finish
 			# Once it does it returns the raw artifact zip data.
-			return TaskSpawner.get_codebuild_artifact_zip_data(
+			return TaskSpawner._get_codebuild_artifact_zip_data(
 				credentials,
 				build_id,
 				final_s3_package_zip_path
 			)
 			
+		@run_on_executor
+		def start_python27_codebuild( self, credentials, libraries_object ):
+			return TaskSpawner._start_python27_codebuild( credentials, libraries_object )
+			
 		@staticmethod
-		def start_python27_codebuild( credentials, libraries_object ):
+		def _start_python27_codebuild( credentials, libraries_object ):
 			"""
 			Returns a build ID to be polled at a later time
 			"""
@@ -1953,9 +2005,13 @@ class TaskSpawner(object):
 			build_id = codebuild_response[ "build" ][ "id" ]
 			
 			return build_id
+		
+		@run_on_executor
+		def start_node810_codebuild( self, credentials, libraries_object ):
+			return TaskSpawner._start_node810_codebuild( credentials, libraries_object )
 			
 		@staticmethod
-		def start_node810_codebuild( credentials, libraries_object ):
+		def _start_node810_codebuild( credentials, libraries_object ):
 			"""
 			Returns a build ID to be polled at a later time
 			"""
@@ -2052,9 +2108,17 @@ class TaskSpawner(object):
 			build_id = codebuild_response[ "build" ][ "id" ]
 			
 			return build_id
+	
+		@run_on_executor
+		def s3_object_exists( self, credentials, bucket_name, object_key ):
+			return TaskSpawner._s3_object_exists(
+				credentials,
+				bucket_name,
+				object_key
+			)
 			
 		@staticmethod
-		def s3_object_exists( credentials, bucket_name, object_key ):
+		def _s3_object_exists( credentials, bucket_name, object_key ):
 			s3_client = get_aws_client(
 				"s3",
 				credentials
@@ -2075,32 +2139,22 @@ class TaskSpawner(object):
 			return already_exists
 		
 		@staticmethod
-		def get_nodejs_810_libraries_zip( credentials, libraries ):
+		def get_nodejs_810_lambda_base_zip( credentials, libraries ):
 			s3_client = get_aws_client(
 				"s3",
 				credentials
 			)
 			
-			# TODO just take an object as input
 			libraries_object = {}
-			
 			for library in libraries:
 				libraries_object[ str( library ) ] = "latest"
 			
-			# Final object is in the format of SHA256( node8.10-{{canonicalizated_libraries}} ).zip
-			hash_input = "node8.10-" + json.dumps( libraries_object, sort_keys=True )
-			hash_key = hashlib.sha256(
-				hash_input
-			).hexdigest()
-			final_s3_package_zip_path = hash_key + ".zip"
-			
-			already_exists = TaskSpawner.s3_object_exists(
-				credentials,
-				credentials[ "lambda_packages_bucket" ],
-				final_s3_package_zip_path
+			final_s3_package_zip_path = TaskSpawner._get_final_zip_package_path(
+				"nodejs8.10",
+				libraries_object
 			)
 			
-			if already_exists:
+			if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
 				return TaskSpawner._read_from_s3(
 					credentials,
 					credentials[ "lambda_packages_bucket" ],
@@ -2109,21 +2163,59 @@ class TaskSpawner(object):
 			
 			# Kick off CodeBuild for the libraries to get a zip artifact of
 			# all of the libraries.
-			build_id = TaskSpawner.start_node810_codebuild(
+			build_id = TaskSpawner._start_node810_codebuild(
 				credentials,
 				libraries_object
 			)
 			
 			# This continually polls for the CodeBuild build to finish
 			# Once it does it returns the raw artifact zip data.
-			return TaskSpawner.get_codebuild_artifact_zip_data(
+			return TaskSpawner._get_codebuild_artifact_zip_data(
+				credentials,
+				build_id,
+				final_s3_package_zip_path
+			)
+		
+		@run_on_executor
+		def get_codebuild_artifact_zip_data( self, credentials, build_id, final_s3_package_zip_path ):
+			return TaskSpawner._get_codebuild_artifact_zip_data(
 				credentials,
 				build_id,
 				final_s3_package_zip_path
 			)
 		
 		@staticmethod
-		def get_codebuild_artifact_zip_data( credentials, build_id, final_s3_package_zip_path ):
+		def _get_codebuild_artifact_zip_data( credentials, build_id, final_s3_package_zip_path ):
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
+			# Wait until the codebuild is finished
+			# This is pieced out so that we can also kick off codebuilds
+			# without having to pull the final zip result
+			TaskSpawner._finalize_codebuild(
+				credentials,
+				build_id,
+				final_s3_package_zip_path
+			)
+			
+			return TaskSpawner._read_from_s3(
+				credentials,
+				credentials[ "lambda_packages_bucket" ],
+				final_s3_package_zip_path
+			)
+			
+		@run_on_executor
+		def finalize_codebuild( self, credentials, build_id, final_s3_package_zip_path ):
+			return TaskSpawner._finalize_codebuild(
+				credentials,
+				build_id,
+				final_s3_package_zip_path
+			)
+			
+		@staticmethod
+		def _finalize_codebuild( credentials, build_id, final_s3_package_zip_path ):
 			codebuild_client = get_aws_client(
 				"codebuild",
 				credentials
@@ -2171,11 +2263,7 @@ class TaskSpawner(object):
 				Key=final_s3_package_zip_path
 			)
 			
-			return TaskSpawner._read_from_s3(
-				credentials,
-				credentials[ "lambda_packages_bucket" ],
-				final_s3_package_zip_path
-			)
+			return True
 			
 		@staticmethod
 		def get_php73_lambda_base_zip( credentials, libraries ):
@@ -2184,26 +2272,16 @@ class TaskSpawner(object):
 				credentials
 			)
 			
-			# TODO just take an object as input
 			libraries_object = {}
-			
 			for library in libraries:
-				libraries_object[ str( library ) ] = "*"
+				libraries_object[ str( library ) ] = "latest"
 			
-			# Final object is in the format of SHA256( php7.3-{{canonicalizated_libraries}} ).zip
-			hash_input = "php7.3-" + json.dumps( libraries_object, sort_keys=True )
-			hash_key = hashlib.sha256(
-				hash_input
-			).hexdigest()
-			final_s3_package_zip_path = hash_key + ".zip"
-			
-			already_exists = TaskSpawner.s3_object_exists(
-				credentials,
-				credentials[ "lambda_packages_bucket" ],
-				final_s3_package_zip_path
+			final_s3_package_zip_path = TaskSpawner._get_final_zip_package_path(
+				"php7.3",
+				libraries_object
 			)
 			
-			if already_exists:
+			if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
 				return TaskSpawner._read_from_s3(
 					credentials,
 					credentials[ "lambda_packages_bucket" ],
@@ -2212,21 +2290,25 @@ class TaskSpawner(object):
 			
 			# Kick off CodeBuild for the libraries to get a zip artifact of
 			# all of the libraries.
-			build_id = TaskSpawner.start_php73_codebuild(
+			build_id = TaskSpawner._start_php73_codebuild(
 				credentials,
 				libraries_object
 			)
 			
 			# This continually polls for the CodeBuild build to finish
 			# Once it does it returns the raw artifact zip data.
-			return TaskSpawner.get_codebuild_artifact_zip_data(
+			return TaskSpawner._get_codebuild_artifact_zip_data(
 				credentials,
 				build_id,
 				final_s3_package_zip_path
 			)
-			
+
+		@run_on_executor
+		def start_php73_codebuild( self, credentials, libraries_object ):
+			return TaskSpawner._start_php73_codebuild( credentials, libraries_object )
+
 		@staticmethod
-		def start_php73_codebuild( credentials, libraries_object ):
+		def _start_php73_codebuild( credentials, libraries_object ):
 			"""
 			Returns a build ID to be polled at a later time
 			"""
@@ -2318,19 +2400,6 @@ class TaskSpawner(object):
 			
 			return build_id
 			
-		@run_on_executor
-		def build_lambda( self, credentials, language, code, libraries ):
-			print( "Building Lambda " + language + " with libraries: " + str( libraries ) )
-			if not ( language in LAMBDA_SUPPORTED_LANGUAGES ):
-				raise Exception( "Error, this language '" + language + "' is not yet supported by refinery!" )
-			
-			if language == "python2.7":
-				return TaskSpawner._build_python_lambda( credentials, code, libraries )
-			elif language == "php7.3":
-				return TaskSpawner._build_php_73_lambda( credentials, code, libraries )
-			elif language == "nodejs8.10":
-				return TaskSpawner._build_nodejs_810_lambda( credentials, code, libraries )
-			
 		@staticmethod
 		def _build_php_73_lambda( credentials, code, libraries ):
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "php7.3" ]
@@ -2370,7 +2439,7 @@ class TaskSpawner(object):
 			# Use CodeBuilder to get a base zip of the libraries
 			base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
 			if len( libraries ) > 0:
-				base_zip_data = TaskSpawner.get_nodejs_810_libraries_zip(
+				base_zip_data = TaskSpawner.get_nodejs_810_lambda_base_zip(
 					credentials,
 					libraries
 				)
@@ -2396,7 +2465,7 @@ class TaskSpawner(object):
 			return lambda_package_zip_data
 		
 		@staticmethod
-		def _build_python_lambda( credentials, code, libraries ):
+		def _build_python27_lambda( credentials, code, libraries ):
 			"""
 			Build Lambda package zip and return zip data
 			"""
@@ -3966,10 +4035,6 @@ class SavedFunctionDelete( BaseHandler ):
 		
 @gen.coroutine
 def deploy_lambda( credentials, id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, execution_log_level, environment_variables, layers ):
-	logit(
-		"Building '" + name + "' Lambda package..."
-	)
-	
 	"""
 	Here we build the default required environment variables.
 	"""
@@ -4016,13 +4081,6 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		),
 	})
 
-	lambda_zip_package_data = yield local_tasks.build_lambda(
-		credentials,
-		language,
-		code,
-		libraries
-	)
-
 	logit(
 		"Deploying '" + name + "' Lambda package to production..."
 	)
@@ -4045,7 +4103,8 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		language,
 		"AWS Lambda deployed via refinery",
 		lambda_role,
-		lambda_zip_package_data,
+		code,
+		libraries,
 		max_execution_time, # Max AWS execution time
 		memory, # MB of execution memory
 		{}, # VPC data
@@ -6839,6 +6898,108 @@ def get_user_free_trial_information( input_user ):
 		return_data[ "trial_over" ] = True
 		
 	return return_data
+	
+class BuildLibrariesPackage( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def post( self ):
+		"""
+		Sets a given card to be the user's primary credit card.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"libraries": {
+					"type": "array"
+				},
+				"language": {
+					"type": "string",
+					"enum": LAMBDA_SUPPORTED_LANGUAGES
+				}
+			},
+			"required": [
+				"libraries",
+				"language"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		current_user = self.get_authenticated_user()
+		credentials = self.get_authenticated_user_cloud_configuration()
+		
+		# Edge case for python2.7 because of the tight custom-runtime
+		# integration which requires the redis library
+		if self.json[ "language" ] == "python2.7" and not ( "redis" in self.json[ "libraries" ] ):
+			self.json[ "libraries" ].append(
+				"redis"
+			)
+		
+		# TODO just accept a dict/object in of an
+		# array followed by converting it to one.
+		libraries_dict = {}
+		for library in self.json[ "libraries" ]:
+			libraries_dict[ str( library ) ] = "latest"
+		
+		build_id = False
+		
+		# Get the final S3 path
+		final_s3_package_zip_path = yield local_tasks.get_final_zip_package_path(
+			self.json[ "language" ],
+			libraries_dict,
+		)
+		
+		# Get if the package is already cached
+		is_already_cached = yield local_tasks.s3_object_exists(
+			credentials,
+			credentials[ "lambda_packages_bucket" ],
+			final_s3_package_zip_path
+		)
+		
+		# Return immediately since we don't need to kick off the build
+		if is_already_cached:
+			self.write({
+				"success": True,
+				"build_id": False,
+				"is_already_cached": True,
+			})
+			raise gen.Return()
+		
+		if self.json[ "language" ] == "python2.7":
+			build_id = yield local_tasks.start_python27_codebuild(
+				credentials,
+				libraries_dict
+			)
+		elif self.json[ "language" ] == "nodejs8.10":
+			build_id = yield local_tasks.start_node810_codebuild(
+				credentials,
+				libraries_dict
+			)
+		elif self.json[ "language" ] == "php7.3":
+			build_id = yield local_tasks.start_php73_codebuild(
+				credentials,
+				libraries_dict
+			)
+		else:
+			self.error(
+				"You've provided a language that Refinery does not currently support!",
+				"UNSUPPORTED_LANGUAGE"
+			)
+			raise gen.Return()
+		
+		# Don't yield here because we don't care about the outcome of this task
+		# we just want to kick it off in the background
+		local_tasks.finalize_codebuild(
+			credentials,
+			build_id,
+			final_s3_package_zip_path
+		)
+		
+		self.write({
+			"success": True,
+			"build_id": build_id,
+			"is_already_cached": is_already_cached,
+		})
 		
 def make_app( is_debug ):
 	tornado_app_settings = {
@@ -6866,6 +7027,7 @@ def make_app( is_debug ):
 		( r"/api/v1/lambdas/run", RunLambda ),
 		( r"/api/v1/lambdas/logs", GetCloudWatchLogsForLambda ),
 		( r"/api/v1/lambdas/env_vars/update", UpdateEnvironmentVariables ),
+		( r"/api/v1/lambdas/build_libraries", BuildLibrariesPackage ),
 		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda ),
 		( r"/api/v1/aws/infra_tear_down", InfraTearDown ),
 		( r"/api/v1/aws/infra_collision_check", InfraCollisionCheck ),
@@ -6921,11 +7083,6 @@ def add_reserved_aws_accounts():
 		session.commit()
 		print( "Added new AWS accounts to the pool!" )
 		
-@gen.coroutine
-def freeze_account_test():
-	aws_account = session.query( AWSAccount ).filter_by().first()
-	yield local_tasks.test_freeze_aws_account( aws_account.to_dict() )
-
 if __name__ == "__main__":
 	print( "Starting server..." )
 	on_start()
@@ -6942,7 +7099,7 @@ if __name__ == "__main__":
 	
 	tornado.ioloop.IOLoop.current().run_sync( add_reserved_aws_accounts )
 	
-	tornado.ioloop.IOLoop.current().run_sync( freeze_account_test )
+	#tornado.ioloop.IOLoop.current().run_sync( freeze_account_test )
 	
 	if os.environ.get( "cf_enabled" ).lower() == "true":
 		tornado.ioloop.IOLoop.current().run_sync( get_cloudflare_keys )
