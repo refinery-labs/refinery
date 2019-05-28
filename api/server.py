@@ -128,9 +128,9 @@ def on_start():
 # regular operations (e.g. authentication via email code, etc).
 SES_EMAIL_CLIENT = boto3.client(
 	"ses",
-	aws_access_key_id=os.environ.get( "ses_emails_access_key" ),
-	aws_secret_access_key=os.environ.get( "ses_emails_secret_key" ),
-	region_name=os.environ.get( "ses_emails_region" )
+	aws_access_key_id=os.environ.get( "aws_access_key" ),
+	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+	region_name=os.environ.get( "region_name" )
 )
 
 # This is another global Boto3 client because we need root access
