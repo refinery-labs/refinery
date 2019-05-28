@@ -1,10 +1,6 @@
 FROM ubuntu:16.04
 
-RUN apt-get update && apt-get -y install zip nginx python python-dev python-pip python-virtualenv curl
-
-RUN curl --silent --location https://deb.nodesource.com/setup_8.x | bash -
-RUN apt-get install --yes nodejs
-RUN apt-get install --yes build-essential
+RUN apt-get update && apt-get -y install zip nginx python python-dev python-pip curl
 
 RUN mkdir /work/
 
