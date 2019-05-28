@@ -44,7 +44,6 @@ import {
   GetSavedProjectRequest, CreateSQSQueueTriggerRequest, CreateSQSQueueTriggerResponse
 } from '@/types/api-types';
 import {API_ENDPOINT, ApiConfigMap} from '@/constants/api-constants';
-import {RefineryProject} from '@/types/graph';
 
 export type RefineryApiCall<TRequest extends BaseApiRequest, TResponse extends BaseApiResponse>
   = (request: TRequest) => Promise<TResponse>;
@@ -61,7 +60,7 @@ function makeApiClient<TRequest extends BaseApiRequest, TResponse extends BaseAp
     const config = ApiConfigMap[apiEndpoint];
 
     const httpResponse
-      = await HttpUtil[config.method]<TRequest, TResponse>(`http://localhost:8002${config.path}`, request);
+      = await HttpUtil[config.method]<TRequest, TResponse>(`${process.env.VUE_APP_API_HOST}${config.path}`, request);
 
     if (!httpResponse.parsedBody) {
       throw new Error('Malformed API Response');

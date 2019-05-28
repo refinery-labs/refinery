@@ -8,7 +8,6 @@ import {GetSavedProjectRequest} from '@/types/api-types';
 import {namespace} from 'vuex-class';
 import SidebarNav from '@/components/SidebarNav';
 import {SidebarMenuItems} from '@/menu';
-import {RefineryProject} from '@/types/graph';
 
 const project = namespace('project');
 
