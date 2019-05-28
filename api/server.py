@@ -65,10 +65,6 @@ import StringIO
 import zipfile
 
 from expiringdict import ExpiringDict
-DEPENDENCY_CACHE = ExpiringDict(
-	max_len=20,
-	max_age_seconds=( 60 * 60 * 24 )
-)
 
 reload( sys )
 sys.setdefaultencoding( "utf8" )
@@ -81,7 +77,7 @@ stripe.api_key = os.environ.get( "stripe_api_key" )
 # Cloudflare Access public keys
 CF_ACCESS_PUBLIC_KEYS = []
 
-# Pull list of allowed Access-Control-Allow-Origin values from environment var 
+# Pull list of allowed Access-Control-Allow-Origin values from environment var
 allowed_origins = json.loads( os.environ.get( "access_control_allow_origins" ) )
 			
 def on_start():
@@ -273,20 +269,20 @@ class BaseHandler( tornado.web.RequestHandler ):
 		self.set_header( "Cache-Control", "no-cache, no-store, must-revalidate" )
 		self.set_header( "Pragma", "no-cache" )
 		self.set_header( "Expires", "0" )
+		
+		# For caching the currently-authenticated user
+		self.authenticated_user = None
     
 	def initialize( self ):
-		if 'Origin' not in self.request.headers:
+		if "Origin" not in self.request.headers:
 			return
 
-		host_header = self.request.headers['Origin']
+		host_header = self.request.headers[ "Origin" ]
 
 		# Identify if the request is coming from a domain that is in the whitelist
 		# If it is, set the necessary CORS response header to allow the request to succeed.
 		if host_header in allowed_origins:
 			self.set_header( "Access-Control-Allow-Origin", host_header )
-		
-		# For caching the currently-authenticated user
-		self.authenticated_user = None
 		
 	def authenticate_user_id( self, user_id ):
 		# Set authentication cookie
@@ -875,7 +871,7 @@ class TaskSpawner(object):
 		
 		@run_on_executor
 		def send_registration_confirmation_email( self, email_address, auth_token ):
-			registration_confirmation_link = os.environ.get( "access_control_allow_origin" ) + "/authentication/email/" + auth_token
+			registration_confirmation_link = os.environ.get( "web_origin" ) + "/authentication/email/" + auth_token
 			response = SES_EMAIL_CLIENT.send_email(
 				Source=os.environ.get( "ses_emails_from_email" ),
 				Destination={
@@ -913,7 +909,7 @@ class TaskSpawner(object):
 	
 		@run_on_executor
 		def send_authentication_email( self, email_address, auth_token ):
-			authentication_link = os.environ.get( "access_control_allow_origin" ) + "/authentication/email/" + auth_token
+			authentication_link = os.environ.get( "web_origin" ) + "/authentication/email/" + auth_token
 			response = SES_EMAIL_CLIENT.send_email(
 				Source=os.environ.get( "ses_emails_from_email" ),
 				Destination={
@@ -5600,7 +5596,7 @@ def get_logs_data( credentials, log_paths_array ):
 
 class GetProjectExecutions( BaseHandler ):
 	@authenticated
-	@disable_on_overdue_payment  
+	@disable_on_overdue_payment
 	@gen.coroutine
 	def post( self ):
 		"""

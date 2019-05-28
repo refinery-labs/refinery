@@ -5,7 +5,9 @@ services:
         depends_on:
             - postgresdb
         environment:
-        	# The HTTP origin to serve in Access-Control-Allow-Origin header
+            # Instance URL, used for sending emails, etc.
+            web_origin: "https://example.refinerylabs.io"
+            # The HTTP origin to serve in Access-Control-Allow-Origin header
             access_control_allow_origin: https://example.refinerylabs.io
             # Master keys for the master account of the AWS org
             aws_access_key: REPLACE_ME_WITH_ORG_ROOT_ACCOUNT_ACCESS_KEY
