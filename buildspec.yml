@@ -1,6 +1,9 @@
 version: 0.2
 
 phases:
+  install:
+    runtime-versions:
+      docker: 18
   pre_build:
     commands:
       - echo Logging in to Amazon ECR...
@@ -22,4 +25,5 @@ phases:
       - docker push $REPOSITORY_URI:latest
       - docker push $REPOSITORY_URI:$IMAGE_TAG
 artifacts:
-    files: elasticbeanstalk-config/Dockerrun.aws.json
+	base-directory: elasticbeanstalk-config/
+    files: **/*
