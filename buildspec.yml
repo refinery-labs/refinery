@@ -26,4 +26,4 @@ phases:
       - docker push $REPOSITORY_URI:$IMAGE_TAG
 artifacts:
     base-directory: elasticbeanstalk-config/
-    files: **/*
+    files: "**/*"
