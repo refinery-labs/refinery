@@ -432,35 +432,36 @@ class BaseHandler( tornado.web.RequestHandler ):
 		"""
 		Cloudflare auth JWT validation
 		"""
-		if os.environ.get( "cf_enabled" ).lower() == "true":
-			cf_authorization_cookie = self.get_cookie( "CF_Authorization" )
-			
-			if not cf_authorization_cookie:
-				self.error(
-					"Error, no Cloudflare Access 'CF_Authorization' cookie set.",
-					"CF_ACCESS_NO_COOKIE"
-				)
-				return
+		if not ( self.request.path.startswith( "/api/v1/health" ) ):
+			if os.environ.get( "cf_enabled" ).lower() == "true":
+				cf_authorization_cookie = self.get_cookie( "CF_Authorization" )
 				
-			valid_token = False
-			
-			for public_key in CF_ACCESS_PUBLIC_KEYS:
-				try:
-					jwt.decode(
-						cf_authorization_cookie,
-						key=public_key,
-						audience=os.environ.get( "cf_policy_aud" )
+				if not cf_authorization_cookie:
+					self.error(
+						"Error, no Cloudflare Access 'CF_Authorization' cookie set.",
+						"CF_ACCESS_NO_COOKIE"
 					)
-					valid_token = True
-				except:
-					pass
-			
-			if not valid_token:
-				self.error(
-					"Error, Cloudflare Access verification check failed.",
-					"CF_ACCESS_DENIED"
-				)
-				return
+					return
+					
+				valid_token = False
+				
+				for public_key in CF_ACCESS_PUBLIC_KEYS:
+					try:
+						jwt.decode(
+							cf_authorization_cookie,
+							key=public_key,
+							audience=os.environ.get( "cf_policy_aud" )
+						)
+						valid_token = True
+					except:
+						pass
+				
+				if not valid_token:
+					self.error(
+						"Error, Cloudflare Access verification check failed.",
+						"CF_ACCESS_DENIED"
+					)
+					return
 		
 		csrf_validated = self.request.headers.get(
 			"X-CSRF-Validation-Header",
