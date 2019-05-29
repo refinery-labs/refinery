@@ -6326,7 +6326,6 @@ class RunMonthlyStripeBillingJob( BaseHandler ):
 		logit( "[ STATUS ] Stripe billing job has completed!" )
 		
 class HealthHandler( BaseHandler ):
-	@authenticated
 	def get( self ):
 		# Just run a dummy database query to ensure it's working
 		session.query( User ).first()
