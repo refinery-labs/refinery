@@ -1,0 +1,16 @@
+{
+  "AWSEBDockerrunVersion": 2,
+  "containerDefinitions": [
+    {
+      "name": "refinery-api-server",
+      "image": "134071937287.dkr.ecr.us-west-2.amazonaws.com/refinery-api-server-prod",
+      "essential": true,
+      "portMappings": [
+        {
+          "hostPort": 7777,
+          "containerPort": 80
+        }
+      ]
+    }
+  ]
+}
