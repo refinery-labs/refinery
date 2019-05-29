@@ -6731,7 +6731,6 @@ def make_app( is_debug ):
 	], **tornado_app_settings)
 
 if __name__ == "__main__":
-	1/0
 	logit( "Starting the Refinery service...", "info" )
 	on_start()
 	app = make_app(
