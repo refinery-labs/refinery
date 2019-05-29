@@ -3,6 +3,7 @@
   "containerDefinitions": [
     {
       "name": "refinery-api-server",
+      "memory": 1024,
       "image": "134071937287.dkr.ecr.us-west-2.amazonaws.com/refinery-api-server-prod",
       "essential": true,
       "portMappings": [
