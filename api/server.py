@@ -786,7 +786,7 @@ class TaskSpawner(object):
 			account_details[ "id" ] = get_urand_password( 16 ).lower()
 			
 			# Generate and set some secrets
-			account_details[ "refinery_customer_aws_console_username" ] = "refinery-customer-" + account_details[ "id" ]
+			account_details[ "refinery_customer_aws_console_username" ] = "refinery-customer"
 			account_details[ "refinery_customer_aws_console_password" ] = get_urand_password( 128 )
 			account_details[ "s3_bucket_suffix" ] = str( get_urand_password( 32 ) ).lower()
 			account_details[ "redis_password" ] = get_urand_password( 64 )
@@ -974,7 +974,7 @@ class TaskSpawner(object):
 			
 			logit( "Freezing the account until it's used by someone..." )
 			
-			TaskSpawner.freeze_aws_account(
+			TaskSpawner._freeze_aws_account(
 				new_aws_account.to_dict()
 			)
 			
@@ -1092,9 +1092,13 @@ class TaskSpawner(object):
 				)
 				
 			return ec2_instance_ids
+			
+		@run_on_executor
+		def freeze_aws_account( self, credentials ):
+			return TaskSpawner._freeze_aws_account( credentials )
 		
 		@staticmethod
-		def freeze_aws_account( credentials ):
+		def _freeze_aws_account( credentials ):
 			"""
 			Freezes an AWS sub-account when the user has gone past
 			their free trial or when they have gone tardy on their bill.
@@ -1110,6 +1114,8 @@ class TaskSpawner(object):
 			* Stop all active CodeBuilds
 			* Turn-off EC2 instances (redis)
 			"""
+			logit( "Freezing AWS account..." )
+			
 			iam_client = get_aws_client(
 				"iam",
 				credentials
@@ -1130,17 +1136,53 @@ class TaskSpawner(object):
 				credentials
 			)
 			
-			# Change the user's console login password
-			# They won't be able to get a new one because the console
-			# password will only be returned when their account is in
-			# good payment standing.
+			logit( "Deleting AWS console user..." )
+			
+			# The only way to revoke an AWS Console user's session
+			# is to delete the console user and create a new one.
+			
+			# Generate the IAM policy ARN
+			iam_policy_arn = "arn:aws:iam::" + credentials[ "account_id" ] + ":policy/RefineryCustomerPolicy"
+			
+			# Generate a new user console password
 			new_console_user_password = get_urand_password( 128 )
-			update_login_profile_response = iam_client.update_login_profile(
+			
+			# Delete the current AWS console user
+			delete_user_profile_response = iam_client.delete_login_profile(
+				UserName=credentials[ "iam_admin_username" ],
+			)
+			
+			# Remove the policy from the user
+			detach_user_policy = iam_client.detach_user_policy(
+				UserName=credentials[ "iam_admin_username" ],
+				PolicyArn=iam_policy_arn
+			)
+			
+			# Delete the IAM user
+			delete_user_response = iam_client.delete_user(
+				UserName=credentials[ "iam_admin_username" ],
+			)
+			
+			logit( "Re-creating the AWS console user..." )
+			
+			# Create the IAM user again
+			delete_user_response = iam_client.create_user(
+				UserName=credentials[ "iam_admin_username" ],
+			)
+			
+			# Attach the limiting IAM policy to it.
+			attach_policy_response = iam_client.attach_user_policy(
+				UserName=credentials[ "iam_admin_username" ],
+				PolicyArn=iam_policy_arn
+			)
+			
+			# Create the console user again.
+			create_user_response = iam_client.create_login_profile(
 				UserName=credentials[ "iam_admin_username" ],
 				Password=new_console_user_password,
 				PasswordResetRequired=False
 			)
-
+			
 			# Update the console login in the database
 			aws_account = session.query( AWSAccount ).filter_by(
 				account_id=credentials[ "account_id" ]
@@ -1638,7 +1680,7 @@ class TaskSpawner(object):
 				if user_trial_info[ "is_using_trial" ] and exceeds_free_trial_limit:
 					logit( "[ STATUS ] Enumerated user has exceeded their free trial.")
 					logit( "[ STATUS ] Taking action against free-trial account..." )
-					freeze_result = TaskSpawner.freeze_aws_account(
+					freeze_result = TaskSpawner._freeze_aws_account(
 						aws_account.to_dict()
 					)
 					
