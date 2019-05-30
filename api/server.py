@@ -426,6 +426,12 @@ class BaseHandler( tornado.web.RequestHandler ):
 		
 	def prepare( self ):
 		"""
+		For the health endpoint all of this should be skipped.
+		"""
+		if self.request.path == "/api/v1/health":
+			return
+		
+		"""
 		/service/ path protection requiring a shared-secret to access them.
 		"""
 		if self.request.path.startswith( "/services/" ):
