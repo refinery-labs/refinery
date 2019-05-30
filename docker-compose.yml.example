@@ -63,6 +63,17 @@ services:
             free_trial_freeze_alerts: REPLACE_ME_WITH_SES_VERIFIED_SEND_TO_EMAIL
             # Shared secret for /service/ endpoints to be triggered
             service_shared_secret: SUPER_SECRET_SERVICE_VALUE_1234
+            # The email suffix for customer AWS accounts
+            customer_aws_email_suffix: "@mail.refineryusercontent.com"
+            # The prefix for customer AWS accounts
+            customer_aws_email_prefix: "aws-"
+            # The IAM role we have in all customer accounts so we can administrate them
+            # This should only be changed when this is run in dev VS prod. Otherwise this
+            # value should never change
+            customer_aws_admin_assume_role: DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT
+            # The target amount of AWS accounts in the pool, these are the
+            # AWS accounts which are frozen for customers to start using.
+            reserved_aws_pool_target_amount: 5
         ports:
             - "80:1234"
         volumes:
