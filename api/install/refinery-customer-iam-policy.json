@@ -6,32 +6,39 @@
             "Effect": "Allow",
             "Action": [
                 "sqs:DeleteMessage",
+                "iam:GetPolicyVersion",
                 "sqs:SendMessageBatch",
                 "sqs:UntagQueue",
-                "logs:*",
                 "sqs:ReceiveMessage",
+                "logs:*",
                 "sns:Unsubscribe",
                 "lambda:GetFunctionConfiguration",
                 "sns:ListEndpointsByPlatformApplication",
                 "sqs:RemovePermission",
-                "apigateway:*",
+                "iam:ListAttachedRolePolicies",
                 "sns:Subscribe",
                 "sns:ConfirmSubscription",
                 "lambda:ListLayerVersions",
                 "lambda:ListLayers",
                 "lambda:DeleteFunction",
+                "iam:ListRolePolicies",
                 "s3:HeadBucket",
                 "lambda:GetAlias",
                 "events:*",
+                "sns:ListTagsForResource",
+                "iam:GetRole",
                 "sqs:GetQueueUrl",
                 "sns:ListSubscriptionsByTopic",
                 "s3:PutAccountPublicAccessBlock",
+                "iam:GetPolicy",
                 "lambda:ListFunctions",
+                "apigateway:*",
                 "lambda:GetEventSourceMapping",
                 "lambda:InvokeFunction",
                 "lambda:ListAliases",
-                "sqs:SendMessage",
                 "sns:CreateTopic",
+                "sqs:SendMessage",
+                "cloudformation:DescribeStackResources",
                 "sqs:GetQueueAttributes",
                 "lambda:AddLayerVersionPermission",
                 "sns:GetSubscriptionAttributes",
@@ -40,6 +47,7 @@
                 "sqs:DeleteQueue",
                 "lambda:ListEventSourceMappings",
                 "lambda:DeleteEventSourceMapping",
+                "tag:GetResources",
                 "sns:DeleteTopic",
                 "lambda:ListVersionsByFunction",
                 "lambda:GetLayerVersion",
@@ -60,15 +68,18 @@
                 "sqs:ListQueues",
                 "sqs:ChangeMessageVisibility",
                 "sns:GetTopicAttributes",
+                "lambda:GetFunction",
                 "lambda:UpdateFunctionConfiguration",
+                "iam:ListRoles",
                 "sns:ListSubscriptions",
                 "sns:AddPermission",
                 "sqs:TagQueue",
-                "sqs:ListDeadLetterSourceQueues",
                 "sns:SetSubscriptionAttributes",
+                "sqs:ListDeadLetterSourceQueues",
                 "s3:GetAccountPublicAccessBlock",
                 "lambda:AddPermission",
                 "s3:ListAllMyBuckets",
+                "kms:ListAliases",
                 "lambda:DeleteAlias",
                 "sqs:CreateQueue",
                 "lambda:DeleteFunctionConcurrency",
@@ -81,14 +92,33 @@
         {
             "Sid": "VisualEditor1",
             "Effect": "Allow",
-            "Action": "s3:*",
-            "Resource": "arn:aws:s3:::*"
+            "Action": [
+                "cloudformation:DescribeStackResources",
+                "kms:DescribeKey"
+            ],
+            "Resource": [
+                "arn:aws:cloudformation:*:*:stack/*/*",
+                "arn:aws:kms:*:*:key/*"
+            ]
         },
         {
             "Sid": "VisualEditor2",
             "Effect": "Allow",
             "Action": "s3:*",
-            "Resource": "arn:aws:s3:::*/*"
+            "Resource": "arn:aws:s3:::*"
+        },
+        {
+            "Sid": "VisualEditor3",
+            "Effect": "Deny",
+            "Action": [
+                "s3:PutAccountPublicAccessBlock",
+                "s3:GetAccountPublicAccessBlock",
+                "s3:ListAllMyBuckets",
+                "s3:ListJobs",
+                "s3:CreateJob",
+                "s3:HeadBucket"
+            ],
+            "Resource": "*"
         }
     ]
 }
