@@ -747,6 +747,10 @@ class TaskSpawner(object):
 				"arn": create_user_response[ "User" ][ "Arn" ]
 			}
 			
+		@run_on_executor
+		def provision_new_sub_aws_account( self ):
+			return TaskSpawner._provision_new_sub_aws_account()
+			
 		@staticmethod
 		def _provision_new_sub_aws_account():
 			# Create a temporary working directory for the work.
@@ -6658,7 +6662,6 @@ class GetBillingDateRangeForecast( BaseHandler ):
 		self.write( forecast_data )
 
 class RunBillingWatchdogJob( BaseHandler ):
-	@authenticated
 	@gen.coroutine
 	def get( self ):
 		"""
@@ -6677,7 +6680,6 @@ class RunBillingWatchdogJob( BaseHandler ):
 		yield local_tasks.enforce_account_limits( aws_account_running_cost_list )
 		
 class RunMonthlyStripeBillingJob( BaseHandler ):
-	@authenticated
 	@gen.coroutine
 	def get( self ):
 		"""
@@ -7057,6 +7059,33 @@ class BuildLibrariesPackage( BaseHandler ):
 			"success": True,
 		})
 		
+class MaintainAWSAccountReserves( BaseHandler ):
+	@gen.coroutine
+	def get( self ):
+		"""
+		This job checks the number of AWS accounts in the reserve pool and will
+		automatically create accounts for the pool if there are less than the
+		target amount. This job is run regularly (every minute) to ensure that
+		we always have enough AWS accounts ready to use.
+		"""
+		self.write({
+			"success": True,
+			"msg": "AWS account maintenance job has been kicked off!"
+		})
+		self.finish()
+		
+		reserved_aws_pool_target_amount = int( os.environ.get( "reserved_aws_pool_target_amount" ) )
+			
+		current_aws_account_count = session.query( AWSAccount ).filter_by(
+			is_reserved_account=True
+		).count()
+		
+		logit( "Current AWS account(s) in pool is " + str( current_aws_account_count ) + " we have a target of " + str( reserved_aws_pool_target_amount ) )
+		
+		if current_aws_account_count < reserved_aws_pool_target_amount:
+			logit( "We are under our target, creating new AWS account for the pool..." )
+			local_tasks.provision_new_sub_aws_account()
+		
 def make_app( is_debug ):
 	tornado_app_settings = {
 		"debug": is_debug,
@@ -7101,6 +7130,7 @@ def make_app( is_debug ):
 		
 		# These are "services" which are only called by external crons, etc.
 		# External users are blocked from ever reaching these routes
+		( r"/services/v1/maintain_aws_account_pool", MaintainAWSAccountReserves ),
 		( r"/services/v1/billing_watchdog", RunBillingWatchdogJob ),
 		( r"/services/v1/bill_customers", RunMonthlyStripeBillingJob )
 	], **tornado_app_settings)

@@ -9,8 +9,7 @@ class Project( Base ):
 
     id = Column(CHAR(36), primary_key=True)
     name = Column(
-    	Text(),
-    	unique=True
+    	Text()
     )
     
     # Many to many relationship to projects
