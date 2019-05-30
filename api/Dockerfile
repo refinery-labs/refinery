@@ -17,6 +17,7 @@ COPY ./custom-runtime/ /work/custom-runtime/
 COPY ./docker-entrypoint.sh /work/
 
 WORKDIR /work/install/
+RUN chmod +x /work/install/terraform
 RUN /work/install/terraform init
 WORKDIR /work/
 
