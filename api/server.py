@@ -637,10 +637,6 @@ class TaskSpawner(object):
 		def __init__(self, loop=None):
 			self.executor = futures.ThreadPoolExecutor( 60 )
 			self.loop = loop or tornado.ioloop.IOLoop.current()
-		
-		@run_on_executor
-		def test_provision_new_sub_aws_account( self ):
-			return TaskSpawner._provision_new_sub_aws_account()
 			
 		@staticmethod
 		def _create_aws_org_sub_account( refinery_aws_account_id, email ):
@@ -6407,6 +6403,9 @@ class EmailLinkAuthentication( BaseHandler ):
 			id=email_authentication_token.user.organization_id
 		).first()
 		
+		print( "User organization: " )
+		print( user_organization )
+		
 		# Check if the user has previously authenticated via
 		# their email address. If not we'll mark their email
 		# as validated as well.
@@ -6423,6 +6422,7 @@ class EmailLinkAuthentication( BaseHandler ):
 				logit( "Adding a reserved AWS account to the newly registered Refinery account..." )
 				aws_reserved_account.is_reserved_account = False
 				aws_reserved_account.organization_id = user_organization.id
+				session.commit()
 				
 				# Don't yield because we don't care about the result
 				# Unfreeze/thaw the account so that it's ready for the new user
@@ -7057,10 +7057,6 @@ class BuildLibrariesPackage( BaseHandler ):
 			"success": True,
 		})
 		
-@gen.coroutine
-def test():
-	yield local_tasks.test_provision_new_sub_aws_account()
-		
 def make_app( is_debug ):
 	tornado_app_settings = {
 		"debug": is_debug,
@@ -7122,8 +7118,6 @@ if __name__ == "__main__":
 		7777
 	)
 	Base.metadata.create_all( engine )
-	
-	#tornado.ioloop.IOLoop.current().run_sync( test )
 	
 	if os.environ.get( "cf_enabled" ).lower() == "true":
 		tornado.ioloop.IOLoop.current().run_sync( get_cloudflare_keys )
