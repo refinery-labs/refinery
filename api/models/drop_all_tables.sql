@@ -3,6 +3,7 @@ DROP TABLE project_configs;
 DROP TABLE project_versions;
 DROP TABLE saved_lambdas;
 DROP TABLE aws_accounts;
+DROP TABLE terraform_state_versions;
 DROP TABLE organizations;
 DROP TABLE email_auth_tokens;
 DROP TABLE user_projects_association;

@@ -1,6 +1,7 @@
 env/
 *.yaml
 *.yml
+!buildspec.yml
 *.pyc
 tmp/
 elastic-beanstack-package.zip

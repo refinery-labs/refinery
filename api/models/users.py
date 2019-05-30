@@ -24,21 +24,33 @@ class User( Base ):
 	)
 	
 	# Whether we've validated ownership of the email
-	email_verified = Column(Boolean())
+	email_verified = Column(
+		Boolean(),
+		default=False,
+	)
 	
 	# Whether the user's account is disabled
 	# A disabled user cannot log in to Refinery
-	disabled = Column(Boolean())
+	disabled = Column(
+		Boolean(),
+		default=False
+	)
 	
 	# If the user has a payment method added
 	# This is used to determine if the user's account
 	# should be "frozen" after their "free trial" period
 	# has expired (e.g. after 14 days or whatever)
-	has_valid_payment_method_on_file = Column(Boolean())
+	has_valid_payment_method_on_file = Column(
+		Boolean(),
+		default=False,
+	)
 	
 	# What level the user is in an organization
 	# For now there's only one level - ADMIN
-	permission_level = Column(Text())
+	permission_level = Column(
+		Text(),
+		default="ADMIN",
+	)
 	
 	# Payment ID - currently this means Stripe
 	payment_id = Column(Text())

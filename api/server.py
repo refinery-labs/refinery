@@ -53,6 +53,7 @@ from models.deployments import Deployment
 from models.project_config import ProjectConfig
 from models.cached_billing_collections import CachedBillingCollection
 from models.cached_billing_items import CachedBillingItem
+from models.terraform_state_versions import TerraformStateVersion
 
 from botocore.client import Config
 
@@ -81,7 +82,7 @@ CF_ACCESS_PUBLIC_KEYS = []
 allowed_origins = json.loads( os.environ.get( "access_control_allow_origins" ) )
 			
 def on_start():
-	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES
+	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES, CUSTOMER_IAM_POLICY
 	
 	# Email templates
 	email_templates_folder = "./email_templates/"
@@ -115,6 +116,13 @@ def on_start():
 	
 	CUSTOM_RUNTIME_CODE = ""
 	
+	CUSTOMER_IAM_POLICY = ""
+	
+	with open( "./install/refinery-customer-iam-policy.json", "r" ) as file_handler:
+		CUSTOMER_IAM_POLICY = json.loads(
+			file_handler.read()
+		)
+	
 	with open( "./custom-runtime/base-src/bootstrap", "r" ) as file_handler:
 		CUSTOM_RUNTIME_CODE = file_handler.read()
 
@@ -145,6 +153,15 @@ COST_EXPLORER = boto3.client(
 # AWS accounts as a root-priveleged support account ("DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT")
 STS_CLIENT = boto3.client(
 	"sts",
+	aws_access_key_id=os.environ.get( "aws_access_key" ),
+	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+	region_name=os.environ.get( "region_name" )
+)
+
+# The AWS organization API for provisioning new AWS sub-accounts
+# for customers to use.
+ORGANIZATION_CLIENT = boto3.client(
+	"organizations",
 	aws_access_key_id=os.environ.get( "aws_access_key" ),
 	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
 	region_name=os.environ.get( "region_name" )
@@ -234,9 +251,8 @@ def logit( message, message_type="info" ):
 	# Attempt to parse the message as json
 	# If we can then prettify it before printing
 	try:
-		message = json.loads( message )
 		message = json.dumps(
-			input_dict,
+			message,
 			sort_keys=True,
 			indent=4,
 			separators=( ",", ": " )
@@ -623,7 +639,357 @@ class TaskSpawner(object):
 			self.loop = loop or tornado.ioloop.IOLoop.current()
 			
 		@staticmethod
-		def unfreeze_aws_account( credentials ):
+		def _create_aws_org_sub_account( refinery_aws_account_id, email ):
+			account_name = "Refinery Customer Account " + refinery_aws_account_id
+			
+			response = ORGANIZATION_CLIENT.create_account(
+				Email=email,
+				RoleName=os.environ.get( "customer_aws_admin_assume_role" ),
+				AccountName=account_name,
+				IamUserAccessToBilling="DENY"
+			)
+			account_status_data = response[ "CreateAccountStatus" ]
+			create_account_id = account_status_data[ "Id" ]
+			
+			# Loop while the account is being created
+			while True:
+				if account_status_data[ "State" ] == "SUCCEEDED" and "AccountId" in account_status_data:
+					return {
+						"account_name": account_name,
+						"account_id": account_status_data[ "AccountId" ],
+					}
+					
+				if account_status_data[ "State" ] == "FAILED":
+					logit( "The account creation has failed!", "error" )
+					logit( "Full account creation response is the following: ", "error" )
+					logit( account_status_data )
+					return False
+				
+				logit( "Current AWS account creation status is '" + account_status_data[ "State" ] + "', waiting 5 seconds before checking again..." )
+				time.sleep( 5 )
+				
+				# Poll AWS again to see if the account creation has progressed
+				response = ORGANIZATION_CLIENT.describe_create_account_status(
+					CreateAccountRequestId=create_account_id
+				)
+				account_status_data = response[ "CreateAccountStatus" ]
+		
+		@staticmethod
+		def _get_assume_role_credentials( role_arn, session_lifetime ):
+			# Session lifetime must be a minimum of 15 minutes
+			# https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts.html#STS.Client.assume_role
+			min_session_lifetime_seconds = 900
+			if session_lifetime < min_session_lifetime_seconds:
+				session_lifetime = min_session_lifetime_seconds
+			
+			role_session_name = "Refinery-Managed-Account-Support-" + get_urand_password( 12 )
+			
+			response = STS_CLIENT.assume_role(
+				RoleArn=role_arn,
+				RoleSessionName=role_session_name,
+				DurationSeconds=session_lifetime
+			)
+			
+			return {
+				"access_key_id": response[ "Credentials" ][ "AccessKeyId" ],
+				"secret_access_key": response[ "Credentials" ][ "SecretAccessKey" ],
+				"session_token": response[ "Credentials" ][ "SessionToken" ],
+				"expiration_date": response[ "Credentials" ][ "Expiration" ],
+				"assumed_role_id": response[ "AssumedRoleUser" ][ "AssumedRoleId" ],
+				"role_session_name": role_session_name,
+				"arn": response[ "AssumedRoleUser" ][ "Arn" ],
+			}
+		
+		@staticmethod
+		def _create_new_console_user( access_key_id, secret_access_key, session_token, username, password ):
+			# Create a Boto3 session with the assumed role credentials
+			# This allows us to create a client which will be authenticated
+			# as the account we assumed the role of.
+			iam_session = boto3.Session(
+				aws_access_key_id=access_key_id,
+				aws_secret_access_key=secret_access_key,
+				aws_session_token=session_token
+			)
+			
+			# IAM client spawned from the assumed role session
+			iam_client = iam_session.client( "iam" )
+			
+			# Create an IAM user
+			create_user_response = iam_client.create_user(
+				UserName=username
+			)
+			
+			# Create IAM policy for the user
+			create_policy_response = iam_client.create_policy(
+				PolicyName="RefineryCustomerPolicy",
+				PolicyDocument=json.dumps( CUSTOMER_IAM_POLICY ),
+				Description="Refinery Labs managed AWS customer account policy."
+			)
+			
+			# Attaches limited access policy to the AWS account to scope
+			# down the permissions the Refinery customer can perform in
+			# the AWS console.
+			attach_policy_response = iam_client.attach_user_policy(
+				UserName=username,
+				PolicyArn=create_policy_response[ "Policy" ][ "Arn" ]
+			)
+			
+			# Allow the IAM user to access the account through the console
+			create_login_profile_response = iam_client.create_login_profile(
+				UserName=username,
+				Password=password,
+				PasswordResetRequired=False,
+			)
+			
+			return {
+				"username": username,
+				"password": password,
+				"arn": create_user_response[ "User" ][ "Arn" ]
+			}
+			
+		@run_on_executor
+		def provision_new_sub_aws_account( self ):
+			return TaskSpawner._provision_new_sub_aws_account()
+			
+		@staticmethod
+		def _provision_new_sub_aws_account():
+			# Create a temporary working directory for the work.
+			# Even if there's some exception thrown during the process
+			# we will still delete the underlying state.
+			temporary_dir = "/tmp/" + str( uuid.uuid4() ) + "/"
+			
+			try:
+				# Recursively copy files to the directory
+				shutil.copytree(
+					"/work/install/",
+					temporary_dir
+				)
+				
+				TaskSpawner.__provision_new_sub_aws_account(
+					temporary_dir
+				)
+			finally:
+				# Delete the temporary directory reguardless.
+				shutil.rmtree( temporary_dir )
+			
+			return True
+			
+		@staticmethod
+		def __provision_new_sub_aws_account( base_dir ):
+			logit( "Provisioning a new AWS sub-account..." )
+			
+			# Used to keep all of the account details in one place
+			# for later insert into the database
+			account_details = {}
+			
+			# Create a unique ID for the Refinery AWS account
+			account_details[ "id" ] = get_urand_password( 16 ).lower()
+			
+			# Generate and set some secrets
+			account_details[ "refinery_customer_aws_console_username" ] = "refinery-customer"
+			account_details[ "refinery_customer_aws_console_password" ] = get_urand_password( 128 )
+			account_details[ "s3_bucket_suffix" ] = str( get_urand_password( 32 ) ).lower()
+			account_details[ "redis_password" ] = get_urand_password( 64 )
+			account_details[ "redis_prefix" ] = get_urand_password( 40 )
+			account_details[ "email" ] = os.environ.get( "customer_aws_email_prefix" ) + account_details[ "id" ] + os.environ.get( "customer_aws_email_suffix" )
+			
+			# Create AWS sub-account
+			logit( "Creating AWS sub-account '" + account_details[ "email" ] + "'..." )
+			
+			# Create sub-AWS account
+			account_creation_response = TaskSpawner._create_aws_org_sub_account(
+				account_details[ "id" ],
+				account_details[ "email" ],
+			)
+			
+			if account_creation_response == False:
+				raise Exception( "Account creation failed, quitting out!" )
+			
+			account_details[ "account_name" ] = account_creation_response[ "account_name" ]
+			account_details[ "account_id" ] = account_creation_response[ "account_id" ]
+			
+			logit( "Sub-account created! AWS account ID is " + account_details[ "account_id" ] + " and the name is '" + account_details[ "account_name" ] + "'" )
+			
+			# Generate ARN for the sub-account AWS administrator role
+			sub_account_admin_role_arn = "arn:aws:iam::" + str( account_details[ "account_id" ] ) + ":role/" + os.environ.get( "customer_aws_admin_assume_role" )
+			
+			logit( "Sub-account role ARN is '" + sub_account_admin_role_arn + "'." )
+			
+			assumed_role_credentials = {}
+			
+			while True:
+				logit( "Attempting to assume the sub-account's administrator role..." )
+				
+				try:
+					# We then assume the administrator role for the sub-account we created
+					assumed_role_credentials = TaskSpawner._get_assume_role_credentials(
+						sub_account_admin_role_arn,
+						3600 # One hour - TODO CHANGEME
+					)
+					break
+				except botocore.exceptions.ClientError as boto_error:
+					# If it's not an AccessDenied exception it's not what we except so we re-raise
+					if boto_error.response[ "Error" ][ "Code" ] != "AccessDenied":
+						logit( "Unexpected Boto3 response: " + boto_error.response[ "Error" ][ "Code" ] )
+						logit( boto_error.response )
+						raise boto_error
+					
+					# Otherwise it's what we accept and we just need to wait.
+					logit( "Got an Access Denied error, role is likely not propogated yet. Trying again in 5 seconds..." )
+					time.sleep( 5 )
+					
+			logit( "Successfully assumed the sub-account's administrator role." )
+			logit( "Minting a new AWS Console User account for the customer to use..." )
+			
+			# Using the credentials from the assumed role we mint an IAM console
+			# user for Refinery customers to use to log into their managed AWS account.
+			create_console_user_results = TaskSpawner._create_new_console_user(
+				assumed_role_credentials[ "access_key_id" ],
+				assumed_role_credentials[ "secret_access_key" ],
+				assumed_role_credentials[ "session_token" ],
+				account_details[ "refinery_customer_aws_console_username" ],
+				account_details[ "refinery_customer_aws_console_password" ]
+			)
+			
+			logit( "Successfully minted a console user account!" )
+			logit( "Writing Terraform input variables to file..." )
+			
+			# Write out the terraform configuration data
+			terraform_configuration_data = {
+				"session_token": assumed_role_credentials[ "session_token" ],
+				"role_session_name": assumed_role_credentials[ "role_session_name" ],
+				"assume_role_arn": sub_account_admin_role_arn,
+				"access_key": assumed_role_credentials[ "access_key_id" ],
+				"secret_key": assumed_role_credentials[ "secret_access_key" ],
+				"region": os.environ.get( "region_name" ),
+				"s3_bucket_suffix": account_details[ "s3_bucket_suffix" ],
+				"redis_secrets": {
+					"password": account_details[ "redis_password" ],
+					"secret_prefix": account_details[ "redis_prefix" ],
+				}
+			}
+			
+			# Customer config path
+			customer_aws_config_path = base_dir + "customer_config.json"
+			
+			# Write configuration data to a file for Terraform to use.
+			with open( customer_aws_config_path, "w" ) as file_handler:
+				file_handler.write(
+					json.dumps(
+						terraform_configuration_data
+					)
+				)
+				
+			logit( "Terraform input variables successfully written to disk. " )
+			logit( "Waiting 60 seconds before running Terraform due to AWS propogation requirements..." )
+			time.sleep( 60 )
+			logit( "Finished waiting, applying Terraform plan to newly created account..." )
+			logit( "Running 'terraform apply' to configure the account..." )
+			
+			# Terraform apply
+			process_handler = subprocess.Popen(
+				[
+					base_dir + "terraform",
+					"apply",
+					"-auto-approve",
+					"-var-file",
+					customer_aws_config_path,
+				],
+				stdout=subprocess.PIPE,
+				stderr=subprocess.PIPE,
+				shell=False,
+				universal_newlines=True,
+				cwd=base_dir,
+			)
+			process_stdout, process_stderr = process_handler.communicate()
+			
+			if process_stderr.strip() != "":
+				logit( "The Terraform provisioning has failed!" )
+				# TODO - Notify us via an email alert to cancel the account.
+				raise Exception( "Terraform provisioning failed!" )
+			
+			logit( "Running 'terraform output' to pull the account details..." )
+			
+			# Print Terraform output as JSON so we can read it.
+			process_handler = subprocess.Popen(
+				[
+					base_dir + "terraform",
+					"output",
+					"-json"
+				],
+				stdout=subprocess.PIPE,
+				stderr=subprocess.PIPE,
+				shell=False,
+				universal_newlines=True,
+				cwd=base_dir,
+			)
+			process_stdout, process_stderr = process_handler.communicate()
+			
+			# Parse Terraform JSON output
+			terraform_provisioned_account_details = json.loads(
+				process_stdout
+			)
+			
+			logit( "Pulled Terraform output successfully." )
+			
+			# Pull the terraform state and pull it so we can later
+			# make terraform changes to user accounts.
+			terraform_state = ""
+			with open( base_dir + "terraform.tfstate", "r" ) as file_handler:
+				terraform_state = file_handler.read()
+				
+			logit( "Adding AWS account to the database reserve pool..." )
+			
+			# Store the AWS account in the database
+			new_aws_account = AWSAccount()
+			new_aws_account.account_label = ""
+			new_aws_account.account_id = terraform_provisioned_account_details[ "aws_account_id" ][ "value" ]
+			new_aws_account.region = terraform_provisioned_account_details[ "aws_region" ][ "value" ]
+			new_aws_account.s3_bucket_suffix = terraform_provisioned_account_details[ "s3_suffix" ][ "value" ]
+			new_aws_account.iam_admin_username = account_details[ "refinery_customer_aws_console_username" ]
+			new_aws_account.iam_admin_password = account_details[ "refinery_customer_aws_console_password" ]
+			new_aws_account.redis_hostname = terraform_provisioned_account_details[ "redis_elastic_ip" ][ "value" ]
+			new_aws_account.redis_password = account_details[ "redis_password" ]
+			new_aws_account.redis_port = 6379
+			new_aws_account.redis_secret_prefix = account_details[ "redis_prefix" ]
+			new_aws_account.account_type = "MANAGED"
+			new_aws_account.is_reserved_account = True
+			new_aws_account.terraform_state = terraform_state
+			new_aws_account.ssh_public_key = terraform_provisioned_account_details[ "refinery_redis_ssh_key_public_key_openssh" ][ "value" ]
+			new_aws_account.ssh_private_key = terraform_provisioned_account_details[ "refinery_redis_ssh_key_private_key_pem" ][ "value" ]
+			new_aws_account.aws_account_email = account_details[ "email" ]
+			new_aws_account.terraform_state_versions = []
+			
+			# Create a new terraform state version
+			terraform_state_version = TerraformStateVersion()
+			terraform_state_version.terraform_state = terraform_state
+			new_aws_account.terraform_state_versions.append(
+				terraform_state_version
+			)
+			
+			session.add( new_aws_account )
+			session.commit()
+			
+			logit( "Added AWS account to the pool successfully!" )
+			
+			logit( "Freezing the account until it's used by someone..." )
+			
+			TaskSpawner._freeze_aws_account(
+				new_aws_account.to_dict()
+			)
+			
+			logit( "Account frozen successfully." )
+			
+			return True
+		
+		@run_on_executor
+		def unfreeze_aws_account( self, credentials ):
+			return TaskSpawner._unfreeze_aws_account(
+				credentials
+			)
+		
+		@staticmethod
+		def _unfreeze_aws_account( credentials ):
 			"""
 			Unfreezes a previously-frozen AWS account, this is for situations
 			where a user has gone over their free-trial or billing limit leading
@@ -632,6 +998,8 @@ class TaskSpawner(object):
 			* De-throttle all AWS Lambdas
 			* Turn on EC2 instances (redis)
 			"""
+			logit( "Unfreezing AWS account..." )
+			
 			lambda_client = get_aws_client(
 				"lambda",
 				credentials
@@ -724,9 +1092,13 @@ class TaskSpawner(object):
 				)
 				
 			return ec2_instance_ids
+			
+		@run_on_executor
+		def freeze_aws_account( self, credentials ):
+			return TaskSpawner._freeze_aws_account( credentials )
 		
 		@staticmethod
-		def freeze_aws_account( credentials ):
+		def _freeze_aws_account( credentials ):
 			"""
 			Freezes an AWS sub-account when the user has gone past
 			their free trial or when they have gone tardy on their bill.
@@ -742,6 +1114,8 @@ class TaskSpawner(object):
 			* Stop all active CodeBuilds
 			* Turn-off EC2 instances (redis)
 			"""
+			logit( "Freezing AWS account..." )
+			
 			iam_client = get_aws_client(
 				"iam",
 				credentials
@@ -762,17 +1136,53 @@ class TaskSpawner(object):
 				credentials
 			)
 			
-			# Change the user's console login password
-			# They won't be able to get a new one because the console
-			# password will only be returned when their account is in
-			# good payment standing.
+			logit( "Deleting AWS console user..." )
+			
+			# The only way to revoke an AWS Console user's session
+			# is to delete the console user and create a new one.
+			
+			# Generate the IAM policy ARN
+			iam_policy_arn = "arn:aws:iam::" + credentials[ "account_id" ] + ":policy/RefineryCustomerPolicy"
+			
+			# Generate a new user console password
 			new_console_user_password = get_urand_password( 128 )
-			update_login_profile_response = iam_client.update_login_profile(
+			
+			# Delete the current AWS console user
+			delete_user_profile_response = iam_client.delete_login_profile(
+				UserName=credentials[ "iam_admin_username" ],
+			)
+			
+			# Remove the policy from the user
+			detach_user_policy = iam_client.detach_user_policy(
+				UserName=credentials[ "iam_admin_username" ],
+				PolicyArn=iam_policy_arn
+			)
+			
+			# Delete the IAM user
+			delete_user_response = iam_client.delete_user(
+				UserName=credentials[ "iam_admin_username" ],
+			)
+			
+			logit( "Re-creating the AWS console user..." )
+			
+			# Create the IAM user again
+			delete_user_response = iam_client.create_user(
+				UserName=credentials[ "iam_admin_username" ],
+			)
+			
+			# Attach the limiting IAM policy to it.
+			attach_policy_response = iam_client.attach_user_policy(
+				UserName=credentials[ "iam_admin_username" ],
+				PolicyArn=iam_policy_arn
+			)
+			
+			# Create the console user again.
+			create_user_response = iam_client.create_login_profile(
 				UserName=credentials[ "iam_admin_username" ],
 				Password=new_console_user_password,
 				PasswordResetRequired=False
 			)
-
+			
 			# Update the console login in the database
 			aws_account = session.query( AWSAccount ).filter_by(
 				account_id=credentials[ "account_id" ]
@@ -1270,7 +1680,7 @@ class TaskSpawner(object):
 				if user_trial_info[ "is_using_trial" ] and exceeds_free_trial_limit:
 					logit( "[ STATUS ] Enumerated user has exceeded their free trial.")
 					logit( "[ STATUS ] Taking action against free-trial account..." )
-					freeze_result = TaskSpawner.freeze_aws_account(
+					freeze_result = TaskSpawner._freeze_aws_account(
 						aws_account.to_dict()
 					)
 					
@@ -5945,17 +6355,6 @@ class NewRegistration( BaseHandler ):
 			})
 			raise gen.Return()
 		
-		# Check if there are reserved AWS accounts available
-		aws_reserved_account = session.query( AWSAccount ).filter_by(
-			is_reserved_account=True
-		).first()
-		
-		# If one exists, add it to the account
-		if aws_reserved_account != None:
-			logit( "Adding a reserved AWS account to the newly registered Refinery account..." )
-			aws_reserved_account.is_reserved_account = False
-			aws_reserved_account.organization_id = new_organization.id
-		
 		# Create the user itself and add it to the organization
 		new_user = User()
 		new_user.name = self.json[ "name" ]
@@ -6045,11 +6444,38 @@ class EmailLinkAuthentication( BaseHandler ):
 		# Mark the token as expired in the database
 		email_authentication_token.is_expired = True
 		
+		# Pull the user's organization
+		user_organization = session.query( Organization ).filter_by(
+			id=email_authentication_token.user.organization_id
+		).first()
+		
+		print( "User organization: " )
+		print( user_organization )
+		
 		# Check if the user has previously authenticated via
 		# their email address. If not we'll mark their email
 		# as validated as well.
 		if email_authentication_token.user.email_verified == False:
 			email_authentication_token.user.email_verified = True
+			
+			# Check if there are reserved AWS accounts available
+			aws_reserved_account = session.query( AWSAccount ).filter_by(
+				is_reserved_account=True
+			).first()
+			
+			# If one exists, add it to the account
+			if aws_reserved_account != None:
+				logit( "Adding a reserved AWS account to the newly registered Refinery account..." )
+				aws_reserved_account.is_reserved_account = False
+				aws_reserved_account.organization_id = user_organization.id
+				session.commit()
+				
+				# Don't yield because we don't care about the result
+				# Unfreeze/thaw the account so that it's ready for the new user
+				# This takes ~30 seconds - worth noting. But that **should** be fine.
+				local_tasks.unfreeze_aws_account(
+					aws_reserved_account.to_dict()
+				)
 			
 			# Additionally since they've validated their email we'll add them to Stripe
 			customer_id = yield local_tasks.stripe_create_customer(
@@ -6068,11 +6494,6 @@ class EmailLinkAuthentication( BaseHandler ):
 			logit( "User login was denied due to their account being disabled!" )
 			self.write( "Your account is currently disabled, please contact customer support for more information." )
 			raise gen.Return()
-		
-		# Pull the user's organization
-		user_organization = session.query( Organization ).filter_by(
-			id=email_authentication_token.user.organization_id
-		).first()
 		
 		# Check if the user's organization is disabled
 		# If it's disabled don't allow the user to log in at all.
@@ -6283,7 +6704,6 @@ class GetBillingDateRangeForecast( BaseHandler ):
 		self.write( forecast_data )
 
 class RunBillingWatchdogJob( BaseHandler ):
-	@authenticated
 	@gen.coroutine
 	def get( self ):
 		"""
@@ -6302,7 +6722,6 @@ class RunBillingWatchdogJob( BaseHandler ):
 		yield local_tasks.enforce_account_limits( aws_account_running_cost_list )
 		
 class RunMonthlyStripeBillingJob( BaseHandler ):
-	@authenticated
 	@gen.coroutine
 	def get( self ):
 		"""
@@ -6682,6 +7101,33 @@ class BuildLibrariesPackage( BaseHandler ):
 			"success": True,
 		})
 		
+class MaintainAWSAccountReserves( BaseHandler ):
+	@gen.coroutine
+	def get( self ):
+		"""
+		This job checks the number of AWS accounts in the reserve pool and will
+		automatically create accounts for the pool if there are less than the
+		target amount. This job is run regularly (every minute) to ensure that
+		we always have enough AWS accounts ready to use.
+		"""
+		self.write({
+			"success": True,
+			"msg": "AWS account maintenance job has been kicked off!"
+		})
+		self.finish()
+		
+		reserved_aws_pool_target_amount = int( os.environ.get( "reserved_aws_pool_target_amount" ) )
+			
+		current_aws_account_count = session.query( AWSAccount ).filter_by(
+			is_reserved_account=True
+		).count()
+		
+		logit( "Current AWS account(s) in pool is " + str( current_aws_account_count ) + " we have a target of " + str( reserved_aws_pool_target_amount ) )
+		
+		if current_aws_account_count < reserved_aws_pool_target_amount:
+			logit( "We are under our target, creating new AWS account for the pool..." )
+			local_tasks.provision_new_sub_aws_account()
+		
 def make_app( is_debug ):
 	tornado_app_settings = {
 		"debug": is_debug,
@@ -6726,6 +7172,7 @@ def make_app( is_debug ):
 		
 		# These are "services" which are only called by external crons, etc.
 		# External users are blocked from ever reaching these routes
+		( r"/services/v1/maintain_aws_account_pool", MaintainAWSAccountReserves ),
 		( r"/services/v1/billing_watchdog", RunBillingWatchdogJob ),
 		( r"/services/v1/bill_customers", RunMonthlyStripeBillingJob )
 	], **tornado_app_settings)
