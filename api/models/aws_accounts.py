@@ -18,7 +18,10 @@ class AWSAccount( Base ):
 	account_label = Column(Text())
 	
 	# AWS account ID
-	account_id = Column(Text())
+	account_id = Column(
+		Text(),
+		unique=True
+	)
 	
 	# AWS region
 	region = Column(Text())
@@ -26,6 +29,9 @@ class AWSAccount( Base ):
 	# S3 bucket suffix, used to generate the full
 	# bucket names for sub-accounts
 	s3_bucket_suffix = Column(Text())
+	
+	# AWS account email - just useful
+	aws_account_email = Column(Text())
 	
 	# AWS IAM Console Admin username
 	iam_admin_username = Column(Text())
@@ -44,6 +50,15 @@ class AWSAccount( Base ):
 	
 	# Redis secret prefix
 	redis_secret_prefix = Column(Text())
+	
+	# Terraform latest state
+	terraform_state = Column(Text())
+	
+	# The SSH public key for customer operations
+	ssh_public_key = Column(Text())
+	
+	# The SSH private key for customer operations
+	ssh_private_key = Column(Text())
 	
 	# The AWS account type, which can be any of the following:
 	# MANAGED || UNMANAGED
@@ -70,14 +85,24 @@ class AWSAccount( Base ):
 	# Deployments this AWS account is associated with
 	deployments = relationship(
 		"Deployment",
-		lazy="dynamic"
+		lazy="dynamic",
+		cascade="all, delete-orphan"
 	)
 	
 	# The cached billing collections for this AWS account
 	cached_billing_collections = relationship(
 		"CachedBillingCollection",
 		back_populates="aws_account",
-		lazy="dynamic"
+		lazy="dynamic",
+		cascade="all, delete-orphan"
+	)
+	
+	# Child users to the organization
+	terraform_state_versions = relationship(
+		"TerraformStateVersion",
+		back_populates="aws_account",
+		lazy="dynamic",
+		cascade="all, delete-orphan"
 	)
 	
 	def __init__( self ):
