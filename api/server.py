@@ -641,6 +641,11 @@ def get_billing_rounded_float( input_price_float ):
 # Custom exceptions
 class CardIsPrimaryException(Exception):
     pass
+    
+class BuildException(Exception):
+    def __init__( self, input_dict ):
+    	self.msg = input_dict[ "msg" ]
+    	self.build_output = input_dict[ "build_output" ]
 
 class TaskSpawner(object):
 		def __init__(self, loop=None):
@@ -2790,7 +2795,22 @@ class TaskSpawner(object):
 				time.sleep( 2 )
 			
 			if build_status != "SUCCEEDED":
-				raise "Build ID " + build_id + " failed with status code '" + build_status + "'!"
+				# Pull log group
+				log_group_name = build_info[ "logs" ][ "groupName" ]
+				
+				# Pull stream name
+				log_stream_name = build_info[ "logs" ][ "streamName" ]
+				
+				log_output = TaskSpawner._get_lambda_cloudwatch_logs(
+					credentials,
+					log_group_name,
+					log_stream_name
+				)
+				
+				raise BuildException({
+					"msg": "Build ID " + build_id + " failed with status code '" + build_status + "'!",
+					"build_output": log_output,
+				})
 			
 			# We now copy this artifact to a location with a deterministic hash name
 			# so that we can query for its existence and cache previously-build packages.
@@ -3475,28 +3495,26 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def get_lambda_cloudwatch_logs( self, credentials, arn ):
+		def get_lambda_cloudwatch_logs( self, credentials, log_group_name, stream_id ):
+			return TaskSpawner._get_lambda_cloudwatch_logs( credentials, log_group_name, stream_id )
+		
+		@staticmethod
+		def _get_lambda_cloudwatch_logs( credentials, log_group_name, stream_id ):
 			cloudwatch_logs_client = get_aws_client(
 				"logs",
 				credentials
 			)
 			
-			"""
-			Pull the full logs from CloudWatch
-			"""
-			arn_parts = arn.split( ":" )
-			lambda_name = arn_parts[ -1 ]
-			log_group_name = "/aws/lambda/" + lambda_name
-			
-			# Pull the last stream from CloudWatch
-			# Streams take time to propogate so wait if needed
-			streams_data = cloudwatch_logs_client.describe_log_streams(
-				logGroupName=log_group_name,
-				orderBy="LastEventTime",
-				limit=50
-			)
-			
-			stream_id = streams_data[ "logStreams" ][ 0 ][ "logStreamName" ]
+			if stream_id == False:
+				# Pull the last stream from CloudWatch
+				# Streams take time to propogate so wait if needed
+				streams_data = cloudwatch_logs_client.describe_log_streams(
+					logGroupName=log_group_name,
+					orderBy="LastEventTime",
+					limit=50
+				)
+				
+				stream_id = streams_data[ "logStreams" ][ 0 ][ "logStreamName" ]
 			
 			log_output = ""
 			attempts_remaining = 4
@@ -4194,29 +4212,37 @@ class RunTmpLambda( BaseHandler ):
 		
 		random_node_id = get_random_node_id()
 		
-		lambda_info = yield deploy_lambda(
-			credentials,
-			random_node_id,
-			random_node_id,
-			self.json[ "language" ],
-			self.json[ "code" ],
-			self.json[ "libraries" ],
-			self.json[ "max_execution_time" ],
-			self.json[ "memory" ], # MB of execution memory
-			{
-				"then": [],
-				"exception": [],
-				"fan-out": [],
-				"else": [],
-				"fan-in": [],
-				"if": []
-			},
-			"REGULAR",
-			"SHOULD_NEVER_HAPPEN_TMP_LAMBDA_RUN", # Doesn't matter no logging is enabled
-			"LOG_NONE",
-			self.json[ "environment_variables" ], # Env list
-			self.json[ "layers" ]
-		)
+		try:
+			lambda_info = yield deploy_lambda(
+				credentials,
+				random_node_id,
+				random_node_id,
+				self.json[ "language" ],
+				self.json[ "code" ],
+				self.json[ "libraries" ],
+				self.json[ "max_execution_time" ],
+				self.json[ "memory" ], # MB of execution memory
+				{
+					"then": [],
+					"exception": [],
+					"fan-out": [],
+					"else": [],
+					"fan-in": [],
+					"if": []
+				},
+				"REGULAR",
+				"SHOULD_NEVER_HAPPEN_TMP_LAMBDA_RUN", # Doesn't matter no logging is enabled
+				"LOG_NONE",
+				self.json[ "environment_variables" ], # Env list
+				self.json[ "layers" ]
+			)
+		except BuildException as build_exception:
+			self.write({
+				"success": False,
+				"msg": "An error occurred while building the Lambda package.",
+				"log_output": build_exception.build_output
+			})
+			raise gen.Return()
 		
 		# Try to parse Lambda input as JSON
 		try:
@@ -6339,9 +6365,15 @@ class GetCloudWatchLogsForLambda( BaseHandler ):
 		
 		logit( "Retrieving CloudWatch logs..." )
 		
+		arn = self.json[ "arn" ]
+		arn_parts = arn.split( ":" )
+		lambda_name = arn_parts[ -1 ]
+		log_group_name = "/aws/lambda/" + lambda_name
+		
 		log_output = yield local_tasks.get_lambda_cloudwatch_logs(
 			self.get_authenticated_user_cloud_configuration(),
-			self.json[ "arn" ]
+			log_group_name,
+			False
 		)
 		
 		truncated = True

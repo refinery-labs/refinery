@@ -955,6 +955,32 @@ function run_deployed_lambda( arn, input_data ) {
 	);
 }
 
+/*
+	Response format is the following for success:
+	{
+	    "result": {
+	        "error": {},
+	        "retries": 0,
+	        "is_error": false,
+	        "version": "$LATEST",
+	        "logs": "START RequestId: 2f715dbe-08a8-4c5f-8864-07a6456a37f8 Version: $LATEST\nhi\nEND RequestId: 2f715dbe-08a8-4c5f-8864-07a6456a37f8\nREPORT RequestId: 2f715dbe-08a8-4c5f-8864-07a6456a37f8\tDuration: 891.30 ms\tBilled Duration: 900 ms \tMemory Size: 128 MB\tMax Memory Used: 61 MB\t\n",
+	        "truncated": false,
+	        "status_code": 200,
+	        "request_id": "2f715dbe-08a8-4c5f-8864-07a6456a37f8",
+	        "response": "pewpew",
+	        "arn": "arn:aws:lambda:us-west-2:575012226766:function:n62bdb81b18ae4eb7b04e9681bd9a26c7"
+	    },
+	    "success": true
+	}
+	
+	Response format for errors:
+	{
+	    "msg": "An error occurred while building the Lambda package.",
+	    "log_output": "[Container] 2019/05/30 20:52:51...raw build log output...",
+	    "success": false
+	}
+	
+*/
 function run_tmp_lambda( language, code, libraries, memory, max_execution_time, input_data, environment_variables, layers ) {
 	return api_request(
 		"POST",
@@ -3252,24 +3278,38 @@ def example( parameter ):
             	environment_variables = app.project_config[ "environment_variables" ][ app.selected_node ];
             }
             
-            // Execute the Lambda
-			var results = await run_tmp_lambda(
-				app.lambda_language,
-				app.lambda_code,
-				app.lambda_libraries,
-				app.lambda_memory,
-				app.lambda_max_execution_time,
-				app.lambda_input,
-				environment_variables,
-				app.lambda_layers,
-			);
-			
+            try {
+	            // Execute the Lambda
+				var results = await run_tmp_lambda(
+					app.lambda_language,
+					app.lambda_code,
+					app.lambda_libraries,
+					app.lambda_memory,
+					app.lambda_max_execution_time,
+					app.lambda_input,
+					environment_variables,
+					app.lambda_layers,
+				);
+				
+				app.lambda_exec_result = results.result;
+				
+				// Ensure we have un-truncated results
+				app.full_output_checker();
+            } catch ( e ) {
+				// If the build step fails then print out the
+				// full build log so the user can see why
+				app.lambda_exec_result = {
+					"logs": e.log_output,
+					"is_error": true,
+					"error": {
+						"type": "Build Error",
+						"message": "An error occurred while building this Lambda."
+					}
+				}
+            }
+            
 			var delta = Date.now() - start_time;
 			app.lambda_build_time = ( delta / 1000 );
-			app.lambda_exec_result = results.result;
-			
-			// Ensure we have un-truncated results
-			app.full_output_checker();
 		},
 		full_output_checker: async function() {
 			// If logs are full we don't need to poll CloudWatch
