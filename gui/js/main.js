@@ -18,6 +18,35 @@ function main( $lambda_input, $context ) {
 	return false;
 }
 `,
+	"go1.12": `package main
+
+import (
+	// The following imports are required
+	// by the Refinery runtime do not remove them!
+	"os"
+	"fmt"
+	"encoding/json"
+	"runtime/debug"
+	// Add your imports below this line
+)
+
+// Modify BlockInput to conform to your input data schema
+type BlockInput struct {
+	Example string \`json:"example"\`
+}
+
+// Modify block_main() appropriately.
+// It must return a JSON-serializable value
+func block_main(block_input []byte, context map[string]interface{}) bool {
+	var unmarshalled_input BlockInput
+	
+	// lambda_input is a byte array of the input to this code block
+	// This is a JSON-serialized value returned from another block.
+	json.Unmarshal(block_input, &unmarshalled_input)
+	
+	return false
+}
+`
 }
 
 var GRAPH_ICONS_ARRAY = [
@@ -1515,6 +1544,7 @@ var app = new Vue({
 	    	"python2.7": "python",
 	    	"nodejs8.10": "javascript",
 	    	"php7.3": "php",
+	    	"go1.12": "golang",
 	    },
 	    node_types_with_simple_transitions: [
 			{

@@ -98,6 +98,7 @@ def on_start():
 	CUSTOM_RUNTIME_LANGUAGES = [
 		"nodejs8.10",
 		"php7.3",
+		"go1.12"
 	]
 	
 	LAMBDA_BASE_LIBRARIES = {
@@ -106,12 +107,14 @@ def on_start():
 		],
 		"nodejs8.10": [],
 		"php7.3": [],
+		"go1.12": [],
 	}
 	
 	LAMBDA_SUPPORTED_LANGUAGES = [
 		"python2.7",
 		"nodejs8.10",
 		"php7.3",
+		"go1.12"
 	]
 	
 	CUSTOM_RUNTIME_CODE = ""
@@ -2136,6 +2139,8 @@ class TaskSpawner(object):
 				package_zip_data = TaskSpawner._build_php_73_lambda( credentials, code, libraries )
 			elif language == "nodejs8.10":
 				package_zip_data = TaskSpawner._build_nodejs_810_lambda( credentials, code, libraries )
+			elif language == "go1.12":
+				package_zip_data = TaskSpawner.get_go112_zip( credentials, code )
 				
 			return package_zip_data
 			
@@ -2325,6 +2330,126 @@ class TaskSpawner(object):
 				build_id,
 				final_s3_package_zip_path
 			)
+			
+		@staticmethod
+		def get_go112_zip( credentials, code ):
+			# Kick off CodeBuild
+			build_id = TaskSpawner.start_go112_codebuild(
+				credentials,
+				code
+			)
+			
+			# Since go doesn't have the traditional libraries
+			# files like requirements.txt or package.json we
+			# just use the code as a hash here.
+			libraries_object = { "code": code }
+			
+			final_s3_package_zip_path = TaskSpawner._get_final_zip_package_path(
+				"go1.12",
+				libraries_object
+			)
+			
+			if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
+				return TaskSpawner._read_from_s3(
+					credentials,
+					credentials[ "lambda_packages_bucket" ],
+					final_s3_package_zip_path
+				)
+			
+			# This continually polls for the CodeBuild build to finish
+			# Once it does it returns the raw artifact zip data.
+			return TaskSpawner._get_codebuild_artifact_zip_data(
+				credentials,
+				build_id,
+				final_s3_package_zip_path
+			)
+			
+		@staticmethod
+		def start_go112_codebuild( credentials, code ):
+			code = code + "\n\n" + LAMDBA_BASE_CODES[ "go1.12" ]
+			
+			codebuild_client = get_aws_client(
+				"codebuild",
+				credentials
+			)
+			
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
+			# Create empty zip file
+			codebuild_zip = io.BytesIO( EMPTY_ZIP_DATA )
+			
+			buildspec_template = {
+				"artifacts": {
+					"files": [
+						 "**/*"
+					]
+				},
+				"phases": {
+					"build": {
+						"commands": [
+							"go build lambda.go"
+						]
+					},
+					"install": {
+						"runtime-versions": {
+							"golang": 1.12
+						}
+					}
+				},
+				"run-as": "root",
+				"version": 0.2
+			}
+			
+			with zipfile.ZipFile( codebuild_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+				# Write buildspec.yml defining the build process
+				buildspec = zipfile.ZipInfo(
+					"buildspec.yml"
+				)
+				buildspec.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					buildspec,
+					yaml.dump(
+						buildspec_template
+					)
+				)
+				
+				# Write the main.go file
+				main_go_file = zipfile.ZipInfo(
+					"lambda.go"
+				)
+				main_go_file.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					main_go_file,
+					str( code )
+				)
+			
+			codebuild_zip_data = codebuild_zip.getvalue()
+			codebuild_zip.close()
+			
+			# S3 object key of the build package, randomly generated.
+			s3_key = "buildspecs/" + str( uuid.uuid4() ) + ".zip"
+			
+			# Write the CodeBuild build package to S3
+			s3_response = s3_client.put_object(
+				Bucket=credentials[ "lambda_packages_bucket" ],
+				Body=codebuild_zip_data,
+				Key=s3_key,
+				ACL="public-read", # THIS HAS TO BE PUBLIC READ FOR SOME FUCKED UP REASON I DONT KNOW WHY
+			)
+			
+			# Fire-off the build
+			codebuild_response = codebuild_client.start_build(
+				projectName="refinery-builds",
+				sourceTypeOverride="S3",
+				sourceLocationOverride=credentials[ "lambda_packages_bucket" ] + "/" + s3_key,
+			)
+			
+			build_id = codebuild_response[ "build" ][ "id" ]
+			
+			return build_id
 			
 		@run_on_executor
 		def start_python27_codebuild( self, credentials, libraries_object ):
@@ -4193,6 +4318,10 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	elif language == "php7.3":
 		layers.append(
 			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-php73-custom-runtime:1"
+		)
+	elif language == "go1.12":
+		layers.append(
+			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-go112-custom-runtime:1"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(

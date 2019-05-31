@@ -1,0 +1,23 @@
+type InputData struct {
+	Context map[string]interface{} `json:"context"`
+	LambdaInput interface{} `json:"lambda_input"`
+}
+
+func main() {
+	var input_data InputData
+	json.Unmarshal([]byte(os.Args[1:][0]), &input_data)
+	lambda_input, _ := json.Marshal(input_data.LambdaInput)
+    defer func() {
+        if r := recover(); r != nil {
+            fmt.Println("<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_START_MARKER>")
+            fmt.Println(r)
+            debug.PrintStack()
+            fmt.Println("<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_END_MARKER>")
+            os.Exit(-1)
+        }
+    }()
+	return_data := block_main([]byte(lambda_input), input_data.Context)
+	output, _ := json.Marshal(return_data)
+	fmt.Println("<REFINERY_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + string(output) + "<REFINERY_OUTPUT_CUSTOM_RUNTIME_END_MARKER>")
+	os.Exit(0)
+}
