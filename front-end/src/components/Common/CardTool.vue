@@ -70,7 +70,7 @@
                 const animate = function(item, cb) {
                     if ('onanimationend' in window) { // animation supported
                         item.addEventListener('animationend', cb.bind(this));
-                        item.className += ' animated bounceOut'; // requires animate.css
+                        item.class += ' animated bounceOut'; // requires animate.css
                     } else cb.call(this) // no animation, just remove
                 };
 

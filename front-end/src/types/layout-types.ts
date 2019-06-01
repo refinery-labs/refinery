@@ -1,3 +1,5 @@
+import {LEFT_SIDEBAR_PANE} from '@/types/project-editor-types';
+
 export type MenuItemLabel = {
   value: number|string,
   color: string
@@ -12,5 +14,14 @@ export type MenuItem = {
   submenu?: MenuItem[],
   heading?: string
 };
+
+export interface NavbarItem {
+  name: string,
+  icon: string,
+  label: string,
+  translate: string,
+  buttonVariant: string,
+  editorPane: LEFT_SIDEBAR_PANE
+}
 
 export type MenuItemList = MenuItem[];

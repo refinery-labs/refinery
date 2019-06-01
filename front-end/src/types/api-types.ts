@@ -338,7 +338,7 @@ export interface SaveProjectRequest extends BaseApiRequest {
    */
   version: string | boolean,
   /**
-   * JSON serialized RefineryProject
+   * JSON serialized config data (env variables and sheit)
    * TODO: Make this part of the JSON object instead of a string
    */
   config: string
