@@ -1295,6 +1295,25 @@ function get_billing_date_range_forecast( start_date, end_date ) {
 }
 
 /*
+	Returns credentials in the following format:
+	{
+	    "success": true,
+	    "console_credentials": {
+	        "username": "refinery-customer",
+	        "signin_url": "https://575012226766.signin.aws.amazon.com/console/?region=us-west-2",
+	        "password": "..."
+	    }
+	}
+*/
+function get_aws_console_credentials() {
+	return api_request(
+		"GET",
+		"api/v1/iam/console_credentials",
+		false
+	);
+}
+
+/*
     Make API request
 */
 async function api_request( method, endpoint, body ) {

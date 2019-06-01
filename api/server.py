@@ -7317,6 +7317,29 @@ class MaintainAWSAccountReserves( BaseHandler ):
 		if current_aws_account_count < reserved_aws_pool_target_amount:
 			logit( "We are under our target, creating new AWS account for the pool..." )
 			local_tasks.provision_new_sub_aws_account()
+			
+class GetAWSConsoleCredentials( BaseHandler ):
+	@authenticated
+	@disable_on_overdue_payment
+	@gen.coroutine
+	def get( self ):
+		"""
+		Pull the AWS credentials for the customer to log into the console.
+		This is important early on so that they can still get all the serverless
+		advantages that we haven't abstracted upon (and to use Cloudwatch, etc).
+		"""
+		credentials = self.get_authenticated_user_cloud_configuration()
+		
+		aws_console_signin_url = "https://" + credentials[ "account_id" ] + ".signin.aws.amazon.com/console/?region=" + os.environ.get( "region_name" )
+		
+		self.write({
+			"success": True,
+			"console_credentials": {
+				"username": credentials[ "iam_admin_username" ],
+				"password": credentials[ "iam_admin_password" ],
+				"signin_url": aws_console_signin_url,
+			}
+		})
 		
 def make_app( is_debug ):
 	tornado_app_settings = {
@@ -7357,6 +7380,7 @@ def make_app( is_debug ):
 		( r"/api/v1/billing/creditcards/list", ListCreditCards ),
 		( r"/api/v1/billing/creditcards/delete", DeleteCreditCard ),
 		( r"/api/v1/billing/creditcards/make_primary", MakeCreditCardPrimary ),
+		( r"/api/v1/iam/console_credentials", GetAWSConsoleCredentials ),
 		# Temporarily disabled since it doesn't cache the CostExplorer results
 		#( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast ),
 		
