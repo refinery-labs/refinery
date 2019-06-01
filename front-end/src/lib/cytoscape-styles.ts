@@ -1,7 +1,16 @@
+import {
+  CollectionReturnValue,
+  ElementAnimateOptionRen,
+  ElementDefinition, EventObject,
+  SingularAnimationOptionsPos,
+  SingularElementReturnValue
+} from 'cytoscape';
 
 export enum STYLE_CLASSES {
   SELECTED = 'selected',
-  HIGHLIGHT = 'highlight'
+  HIGHLIGHT = 'highlight',
+  SELECTION_ANIMATION_ENABLED = 'selection-animation-enabled',
+  DISABLED = 'disabled'
 }
 
 /*
@@ -49,7 +58,7 @@ export const baseCytoscapeStyles = [
   {
     selector: `node.${STYLE_CLASSES.HIGHLIGHT}`,
     style: {
-      'background-blacken': -0.2,
+      // 'background-blacken': -0.2,
       color: '#fff',
       'text-background-color': '#333'
     }
@@ -63,15 +72,20 @@ export const baseCytoscapeStyles = [
       'target-arrow-color': '#6391dd',
     }
   },
-  // Used for a 'fade out' effect on mouseover, but honestly looks bad.
-  // {
-  //   selector: 'node.semitransp',
-  //   style:{ 'opacity': '0.95' }
-  // },
-  // {
-  //   selector: 'edge.semitransp',
-  //   style:{ 'opacity': '0.95' }
-  // },
+  {
+    selector: 'node.disabled',
+    style: {
+      'background-blacken': 0.4,
+      'opacity': '0.8'
+    }
+  },
+  {
+    selector: 'edge.disabled',
+    style: {
+      'line-color': '#59729e',
+      'target-arrow-color': '#59729e'
+    }
+  },
   {
     selector: `node.${STYLE_CLASSES.SELECTED}`,
     style: {
@@ -86,5 +100,47 @@ export const baseCytoscapeStyles = [
       'target-arrow-color': '#ff4444',
       color: '#000'
     }
-  }
+  },
+  // {
+  //   selector: `node.${STYLE_CLASSES.SELECTION_ANIMATION_ENABLED}`,
+  //   style: {
+  //     'border-width': '4px',
+  //     'border-color': 'red'
+  //   }
+  // }
 ];
+
+// Bad type declarations bite again!
+// @ts-ignore
+export const animationBegin: SingularAnimationOptionsPos = {
+  style: {
+    opacity: '0.7',
+    'background-blacken': -0.6
+  },
+  duration: 600,
+  easing: 'ease-in-sine'
+};
+
+// @ts-ignore
+export const animationEnd: SingularAnimationOptionsPos = {
+  style: {
+    opacity: '1',
+    'background-blacken': 0
+  },
+  duration: 600,
+  easing: 'ease-in-sine'
+};
+
+export const selectableAnimation = async (ele: CollectionReturnValue): Promise<EventObject> => {
+  return (
+    // Annoying bad type declarations...
+    // @ts-ignore
+    ele
+      .animate(animationBegin)
+      .delay(600)
+      .animate(animationEnd, {complete(): void {
+        selectableAnimation(ele);
+      }})
+      .delay(600)
+  );
+};

@@ -7,12 +7,27 @@ export enum AllProjectsMutators {
 
 export enum ProjectViewMutators {
   setOpenedProject = 'setOpenedProject',
+  setOpenedProjectConfig = 'setOpenedProjectConfig',
+  setOpenedProjectOriginal = 'setOpenedProjectOriginal',
+  setOpenedProjectConfigOriginal = 'setOpenedProjectConfigOriginal',
   selectedResource = 'selectedResource',
   isLoadingProject = 'isLoadingProject',
+  isProjectBusy = 'isProjectBusy',
+  markProjectDirtyStatus = 'markProjectDirtyStatus',
   setCytoscapeElements = 'setCytoscapeElements',
   setCytoscapeStyle = 'setCytoscapeStyle',
   setCytoscapeLayout = 'setCytoscapeLayout',
-  setCytoscapeConfig = 'setCytoscapeConfig'
+  setCytoscapeConfig = 'setCytoscapeConfig',
+  setLeftSidebarPaneState = 'setLeftSidebarPaneState',
+  setLeftSidebarPane = 'setLeftSidebarPane',
+  
+  // Add Block Pane
+  setSelectedBlockIndex = 'setSelectedBlockIndex',
+  
+  // Add Transition Pane
+  setAddingTransitionStatus = 'setAddingTransitionStatus',
+  setAddingTransitionType = 'setAddingTransitionType',
+  setValidTransitions = 'setValidTransitions'
 }
 
 export enum SettingsMutators {

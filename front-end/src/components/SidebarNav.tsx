@@ -1,36 +1,55 @@
 import {CreateElement, VNode} from 'vue';
 import {Component, Prop, Vue} from 'vue-property-decorator';
-import {MenuItem, MenuItemList} from '@/types/layout-types';
+import {NavbarItem} from '@/types/layout-types';
+import {LEFT_SIDEBAR_PANE} from '@/types/project-editor-types';
 
 @Component
 export default class SidebarNav extends Vue {
-  @Prop({default: () => []}) private navItems!: MenuItemList;
+  @Prop({required: true}) private navItems!: NavbarItem[];
+  @Prop({required: true}) private onNavItemClicked!: (s: LEFT_SIDEBAR_PANE) => {};
+  @Prop({required: true}) private activeLeftSidebarPane!: LEFT_SIDEBAR_PANE | null;
+  @Prop({default: () => ({})}) private leftSidebarPaneTypeToEnabledCheckFunction!: {[index: string]: () => boolean};
   
-  public renderNavItem(navItem: MenuItem) {
-    const labelColor = navItem.label && navItem.label.color || 'default';
+  public getIfButtonEnabled(paneType: string) {
+    if (this.leftSidebarPaneTypeToEnabledCheckFunction[paneType]) {
+      return this.leftSidebarPaneTypeToEnabledCheckFunction[paneType]();
+    }
     
-    const liClasses = {
-      // 'center--all': true,
+    return true;
+  }
+  
+  public renderNavItem(navItem: NavbarItem) {
+    const isActive = navItem.editorPane === this.activeLeftSidebarPane;
+    
+    const enabled = this.getIfButtonEnabled(navItem.editorPane);
+    
+    const buttonClasses = {
       'content-sidebar__item': true,
-      'display--flex': true,
-      [`content-sidebar__item--${labelColor}`]: true
+      'active': isActive,
+      'focus': isActive
     };
     
+    const splitContent = navItem.name.split(' ');
+    
     return (
-      <li class={liClasses}>
-        <router-link title={navItem.label} to={navItem.path}>
-          <em class={navItem.icon} />
-          <span>{navItem.name}</span>
-        </router-link>
-      </li>
+      <b-button class={buttonClasses} variant={navItem.buttonVariant}
+                disabled={!enabled}
+                on={{click: () => this.onNavItemClicked(navItem.editorPane)}}>
+        <em class={navItem.icon} />
+        <br />
+        <span>
+          {splitContent[0]}
+          <br />
+          {splitContent[1] && splitContent[1]}
+        </span>
+      </b-button>
     );
   }
   
   public render(h: CreateElement): VNode {
-    const navItems: MenuItemList = this.$props.navItems;
     return (
       <ul class="content-sidebar display--flex flex-direction--column padding-left--none">
-        {navItems.map((item) => this.renderNavItem(item))}
+        {this.navItems.map((item) => this.renderNavItem(item))}
       </ul>
     );
   }

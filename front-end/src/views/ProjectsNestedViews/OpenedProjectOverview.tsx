@@ -8,13 +8,21 @@ import {GetSavedProjectRequest} from '@/types/api-types';
 import {namespace} from 'vuex-class';
 import SidebarNav from '@/components/SidebarNav';
 import {SidebarMenuItems} from '@/menu';
+import ProjectEditorLeftPaneContainer from '@/containers/ProjectEditorLeftPaneContainer';
+import {LEFT_SIDEBAR_PANE} from '@/types/project-editor-types';
 
 const project = namespace('project');
 
 @Component
 export default class OpenedProjectOverview extends Vue {
   @project.State isLoadingProject!: boolean;
+  @project.State activeLeftSidebarPane!: LEFT_SIDEBAR_PANE | null;
+  
+  @project.Getter canSaveProject!: boolean;
+  @project.Getter transitionAddButtonEnabled!: boolean;
+  
   @project.Action openProject!: (projectId: GetSavedProjectRequest) => {};
+  @project.Action openLeftSidebarPane!: (paneType: LEFT_SIDEBAR_PANE) => {};
   
   @Watch('$route', {immediate: true})
   private routeChanged(val: Route, oldVal: Route) {
@@ -26,8 +34,16 @@ export default class OpenedProjectOverview extends Vue {
     this.openProject({id: val.params.projectId});
   }
   
-  public render(h: CreateElement): VNode {
+  renderLeftPaneOverlay() {
+    return (
+      <div class="project-left-pane-overlay-container">
+        <ProjectEditorLeftPaneContainer />
+      </div>
+    );
+  }
   
+  public render(h: CreateElement): VNode {
+    
     // TODO: Add validation of the ID structure
     if (!this.$route.params.projectId) {
       return (
@@ -53,10 +69,24 @@ export default class OpenedProjectOverview extends Vue {
       );
     }
     
+    const sidebarNavProps = {
+      navItems: SidebarMenuItems,
+      activeLeftSidebarPane: this.activeLeftSidebarPane,
+      onNavItemClicked: this.openLeftSidebarPane,
+      leftSidebarPaneTypeToEnabledCheckFunction: {
+        [LEFT_SIDEBAR_PANE.addTransition]: () => this.transitionAddButtonEnabled,
+        [LEFT_SIDEBAR_PANE.saveProject]: () => this.canSaveProject
+      }
+    };
+    
     return (
       <div class={containerClasses}>
-        <SidebarNav props={{navItems: SidebarMenuItems}} />
+        <div class="project-sidebar-container">
+          <SidebarNav props={sidebarNavProps} />
+        </div>
   
+        {this.renderLeftPaneOverlay()}
+        
         <OpenedProjectGraphContainer />
   
         <Offsidebar/>

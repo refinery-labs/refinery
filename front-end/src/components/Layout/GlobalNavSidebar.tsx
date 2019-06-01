@@ -101,7 +101,7 @@ export default class GlobalNavSidebar extends Vue {
     const itemColor = item.label && item.label.color || 'default';
     
     const spanToRender = item.label && (
-      <span className={'float-right badge badge-' + itemColor}>
+      <span class={'float-right badge badge-' + itemColor}>
         {item.label && item.label.value || 'Unknown Subitem'}
       </span>
     );
@@ -162,7 +162,7 @@ export default class GlobalNavSidebar extends Vue {
             <span>{item.name}</span>
           </a>
           <b-collapse tag="ul" class="sidebar-nav sidebar-subnav" id="item.name" visible={this.collapse[item.name]}>
-            <li bar={true} className="sidebar-subnav-header" />
+            <li bar={true} class="sidebar-subnav-header" />
             <div class="sidebar-subnav-header" />
             {item.submenu.map(submenu => this.renderSubmenuItem(submenu))}
           </b-collapse>

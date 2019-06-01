@@ -1,24 +1,42 @@
 import {CreateElement, VNode} from 'vue';
 import {Component, Prop, Vue, Watch} from 'vue-property-decorator';
-import cytoscape, {EventObject, LayoutOptions, NodeCollection} from 'cytoscape';
+import cytoscape, {AnimationManipulation, EventObject, LayoutOptions, NodeCollection} from 'cytoscape';
 import dagre from 'cytoscape-dagre';
 import {CyElements, CyStyle, WorkflowRelationship, WorkflowState} from '@/types/graph';
-import {baseCytoscapeStyles, STYLE_CLASSES} from '@/lib/cytoscape-styles';
+import {
+  animationBegin,
+  animationEnd,
+  baseCytoscapeStyles,
+  selectableAnimation,
+  STYLE_CLASSES
+} from '@/lib/cytoscape-styles';
 
+type animationTuple = {
+  ani: AnimationManipulation,
+  prom: Promise<EventObject>
+};
+
+function timeout(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 cytoscape.use(dagre);
 
 @Component
 export default class CytoscapeGraph extends Vue {
   cy!: cytoscape.Core;
+  playAnimation!: boolean;
+  currentAnimationGroupNonce!: number;
   
   @Prop({required: true}) private elements!: CyElements;
   @Prop() private layout!: LayoutOptions;
   @Prop({required: true}) private stylesheet!: CyStyle;
   
+  @Prop({required: true}) private clearSelection!: () => {};
   @Prop({required: true}) private selectNode!: (element: WorkflowState) => {};
   @Prop({required: true}) private selectEdge!: (element: WorkflowRelationship) => {};
   @Prop() private selected!: string;
+  @Prop() private enabledNodeIds!: string[];
   
   // This is a catch-all for any additional options that need to be specified
   @Prop({default: () => {}}) private config!: cytoscape.CytoscapeOptions;
@@ -34,7 +52,7 @@ export default class CytoscapeGraph extends Vue {
     this.cy.json(this.generateInitialCytoscapeConfig());
     
     // Re-select the node on the graph
-    this.selectNodeOrEdgeInInstance(this.cy.elements(`#${this.selected}`));
+    this.selectNodeOrEdgeInInstance(this.selected);
   }
   
   @Watch('elements', {deep: true})
@@ -79,16 +97,107 @@ export default class CytoscapeGraph extends Vue {
       return;
     }
     
-    this.selectNodeOrEdgeInInstance(this.cy.elements(`#${val}`));
+    this.selectNodeOrEdgeInInstance(val);
+  }
+  
+  @Watch('enabledNodeIds', {immediate: true})
+  private enabledNodeIdsChanged(val: string[], oldVal: string[]) {
+    if (val === oldVal || !this.cy) {
+      return;
+    }
+    
+    this.playAnimation = false;
+    
+    const animationNonce = Math.round(Math.random() * 10000000000000000);
+    this.currentAnimationGroupNonce = animationNonce;
+    
+    const elements = val && val.map(id => this.cy.getElementById(id));
+    
+    // This optimizes performance by only running the calculations "once" afterwards
+    this.cy.batch(() => {
+  
+      // Reset all elements
+      this.cy.elements()
+        .removeClass(STYLE_CLASSES.DISABLED)
+        // Kill all ongoing animations
+        .stop(true, true);
+      
+      // We don't need to disable any elements, so return
+      if (!val || val.length === 0) {
+        return;
+      }
+      
+      // Disable everything. We will manually re-enable things that we want to keep enabled.
+      this.cy.elements('node').addClass(STYLE_CLASSES.DISABLED);
+      
+      // TODO: Figure out if we want to "disable" edges?
+      // this.cy.elements('edge').addClass(STYLE_CLASSES.DISABLED);
+  
+      // Don't "disable" the main node.
+      this.cy.elements(`#${this.selected}`).removeClass(STYLE_CLASSES.DISABLED);
+      
+      this.playAnimation = true;
+  
+      elements.forEach(
+        ele => ele.addClass(STYLE_CLASSES.SELECTION_ANIMATION_ENABLED).removeClass(STYLE_CLASSES.DISABLED)
+      );
+    });
+    
+    // Skip animation if we don't have any values.
+    if (!val) {
+      return;
+    }
+  
+    // This is so garbage, but it works pretty well.
+    const runAnimationLoop = async () => {
+      // Break out of this looping animation hellscape
+      if (animationNonce !== this.currentAnimationGroupNonce) {
+        return;
+      }
+      
+      const startPromises = elements.map(
+        ele => ele.animation(animationBegin).play().promise('completed')
+      );
+    
+      await Promise.all(startPromises);
+      
+      const endPromises = elements.map(
+        ele => ele.animation(animationEnd).play().promise('completed')
+      );
+    
+      await Promise.all(endPromises);
+  
+      // Break out of this looping animation hellscape
+      if (animationNonce !== this.currentAnimationGroupNonce) {
+        return;
+      }
+      
+      await timeout(1200);
+  
+      // Break out of this looping animation hellscape
+      if (this.playAnimation && animationNonce === this.currentAnimationGroupNonce) {
+        runAnimationLoop();
+      }
+    };
+  
+    runAnimationLoop();
   }
   
   /**
    * Luckily for us, we don't have to actually use Cytoscape!
    * We use CSS styles to "convey" a selected node to the user. But we don't actually "select" a node
    * in Cytoscape, as one might regularly.
-   * @param sel The ID of the node that we want to render as "selected". Can be an edge or node.
+   * @param nodeId The ID of the node that we want to render as "selected". Can be an edge or node.
    */
-  private selectNodeOrEdgeInInstance(sel: NodeCollection) {
+  private selectNodeOrEdgeInInstance(nodeId: string) {
+    // We don't have a valid selector, so just deselect everything (unless it is a number)
+    if (typeof nodeId !== 'number' && !nodeId) {
+      this.cy.elements().removeClass(STYLE_CLASSES.SELECTED);
+      return;
+    }
+    
+    const sel = this.cy.elements(`#${this.selected}`);
+    
     // "de-selects" all of the other nodes
     this.cy.elements().not(sel).removeClass(STYLE_CLASSES.SELECTED);
   
@@ -106,7 +215,7 @@ export default class CytoscapeGraph extends Vue {
         animate: true,
         // animationEasing: 'cubic',
         spacingFactor: 1.15,
-        padding: 10,
+        padding: 100,
         // @ts-ignore
         edgeSep: 100,
         ...this.layout
@@ -146,20 +255,24 @@ export default class CytoscapeGraph extends Vue {
     cy.on('mouseover', 'edge', addHighlight);
     cy.on('mouseout', 'edge', removeHighlight);
   
+  
+    cy.on('tap', e => {
+      // Tap on background of canvas
+      if (e.target === cy) {
+        this.clearSelection();
+      }
+    });
+    
     // Apparently 'tap' isn't in the type definitions for this package... But it's in the docs!
     // Tap is a "click" that works for both Touch and Mouse based interfaces.
     // @ts-ignore
     cy.on('tap', 'node', e => {
-      this.selectNodeOrEdgeInInstance(e.target);
-      
-      this.selectNode(e.target._private.data.id);
+      this.selectNode(e.target.id());
     });
     
     // @ts-ignore
     cy.on('tap', 'edge', e => {
-      this.selectNodeOrEdgeInInstance(e.target);
-  
-      this.selectEdge(e.target._private.data.id);
+      this.selectEdge(e.target.id());
     });
   }
   
@@ -176,6 +289,9 @@ export default class CytoscapeGraph extends Vue {
     this.cy = cytoscape(config);
     
     this.setupEventHandlers(this.cy);
+    
+    // Re-select the node on the graph
+    this.selectNodeOrEdgeInInstance(this.selected);
     
     this.$forceUpdate();
     
