@@ -2395,6 +2395,9 @@ class TaskSpawner(object):
 				"phases": {
 					"build": {
 						"commands": [
+							"export GOPATH=\"$(pwd)\"",
+							"export GOBIN=$GOPATH/bin",
+							"go get",
 							"go build lambda.go"
 						]
 					},
@@ -2407,6 +2410,12 @@ class TaskSpawner(object):
 				"run-as": "root",
 				"version": 0.2
 			}
+			
+			empty_folders = [
+				"bin",
+				"pkg",
+				"src"
+			]
 			
 			with zipfile.ZipFile( codebuild_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
 				# Write buildspec.yml defining the build process
@@ -2430,12 +2439,27 @@ class TaskSpawner(object):
 					main_go_file,
 					str( code )
 				)
+				
+				# Create empty folders for bin, pkg, and src
+				for empty_folder in empty_folders:
+					blank_file = zipfile.ZipInfo(
+						empty_folder + "/blank"
+					)
+					blank_file.external_attr = 0777 << 16L
+					zip_file_handler.writestr(
+						blank_file,
+						""
+					)
+				
 			
 			codebuild_zip_data = codebuild_zip.getvalue()
 			codebuild_zip.close()
 			
 			# S3 object key of the build package, randomly generated.
 			s3_key = "buildspecs/" + str( uuid.uuid4() ) + ".zip"
+			
+			print( "S3 key: " )
+			print( s3_key )
 			
 			# Write the CodeBuild build package to S3
 			s3_response = s3_client.put_object(
