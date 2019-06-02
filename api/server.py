@@ -4365,7 +4365,7 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		layers.append(
-			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-node810-custom-runtime:1"
+			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-node810-custom-runtime:3"
 		)
 	elif language == "php7.3":
 		layers.append(

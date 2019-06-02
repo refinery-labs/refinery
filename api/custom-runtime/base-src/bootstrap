@@ -29,1473 +29,1485 @@ import subprocess
 http = urllib3.PoolManager()
 
 class AlreadyInvokedException( Exception ):
-    def __init__( self, message="This function has already been invoked!" ):
-        # Call the base class constructor with the parameters it needs
-        super( AlreadyInvokedException, self ).__init__( message )
+	def __init__( self, message="This function has already been invoked!" ):
+		# Call the base class constructor with the parameters it needs
+		super( AlreadyInvokedException, self ).__init__( message )
 
 class InvokeQueueEmptyException( Exception ):
-    def __init__( self, message="We've exhausted all of the invocations we have to do!" ):
-        # Call the base class constructor with the parameters it needs
-        super( InvokeQueueEmptyException, self ).__init__( message )
+	def __init__( self, message="We've exhausted all of the invocations we have to do!" ):
+		# Call the base class constructor with the parameters it needs
+		super( InvokeQueueEmptyException, self ).__init__( message )
 
 class Refinery_Memory:
-    # 16 minutes default return data expire
-    # TODO in the future count the number of nodes in between and set timeout to be max
-    # time allocated for all the Lambdas in the path to run
-    return_data_timeout = ( 60 * 16 )
-
-    json_types = [
-        list,
-        dict
-    ]
-
-    regular_types = [
-        str,
-        int,
-        float,
-        complex,
-        bool,
-    ]
-
-    def __init__( self, in_hostname, in_password, in_port, namespace ):
-        self.redis_client = False
-        self.namespace = namespace
-        self.hostname = in_hostname
-        self.password = in_password
-        self.port = in_port
-
-    def connect( self ):
-        self.redis_client = redis.StrictRedis(
-            host=self.hostname,
-            port=self.port,
-            db=0,
-            socket_timeout=5,
-            password=self.password,
-        )
-
-    def _get_namespace( self, kwargs ):
-        if not self.namespace:
-            return ""
-
-        if "raw" in kwargs and kwargs[ "raw" ]:
-            return ""
-
-        return self.namespace + "."
-
-    def _get_input_data_format( self, input_data ):
-        if type( input_data ) in self.regular_types:
-            return input_data
-
-        if type( input_data ) in self.json_types:
-            return json.dumps(
-                input_data
-            )
-
-        return pickle.dumps(
-            input_data
-        )
-
-    def set( self, key, input_data, **kwargs ):
-        if not self.redis_client:
-            self.connect()
-
-        namespace = self._get_namespace( kwargs )
-
-        self.redis_client.set(
-            namespace + key,
-            self._get_input_data_format(input_data)
-        )
-
-    def get( self, key, **kwargs ):
-        if not self.redis_client:
-            self.connect()
-
-        namespace = self._get_namespace( kwargs )
-
-        data = self.redis_client.get(
-            namespace + key
-        )
-
-        try:
-            return json.loads(
-                data
-            )
-        except:
-            pass
-
-        try:
-            return pickle.loads(
-                data
-            )
-        except:
-            pass
-
-        return data
-
-    def exists( self, key, **kwargs ):
-        if not self.redis_client:
-            self.connect()
-
-        namespace = self._get_namespace( kwargs )
-
-        return self.redis_client.exists(
-            namespace + key
-        )
+	# 16 minutes default return data expire
+	# TODO in the future count the number of nodes in between and set timeout to be max
+	# time allocated for all the Lambdas in the path to run
+	return_data_timeout = ( 60 * 16 )
+
+	json_types = [
+		list,
+		dict
+	]
+
+	regular_types = [
+		str,
+		int,
+		float,
+		complex,
+		bool,
+	]
+
+	def __init__( self, in_hostname, in_password, in_port, namespace ):
+		self.redis_client = False
+		self.namespace = namespace
+		self.hostname = in_hostname
+		self.password = in_password
+		self.port = in_port
+
+	def connect( self ):
+		self.redis_client = redis.StrictRedis(
+			host=self.hostname,
+			port=self.port,
+			db=0,
+			socket_timeout=5,
+			password=self.password,
+		)
+
+	def _get_namespace( self, kwargs ):
+		if not self.namespace:
+			return ""
+
+		if "raw" in kwargs and kwargs[ "raw" ]:
+			return ""
+
+		return self.namespace + "."
+
+	def _get_input_data_format( self, input_data ):
+		if type( input_data ) in self.regular_types:
+			return input_data
+
+		if type( input_data ) in self.json_types:
+			return json.dumps(
+				input_data
+			)
+
+		return pickle.dumps(
+			input_data
+		)
+
+	def set( self, key, input_data, **kwargs ):
+		if not self.redis_client:
+			self.connect()
+
+		namespace = self._get_namespace( kwargs )
+
+		self.redis_client.set(
+			namespace + key,
+			self._get_input_data_format(input_data)
+		)
+
+	def get( self, key, **kwargs ):
+		if not self.redis_client:
+			self.connect()
+
+		namespace = self._get_namespace( kwargs )
+
+		data = self.redis_client.get(
+			namespace + key
+		)
+
+		try:
+			return json.loads(
+				data
+			)
+		except:
+			pass
+
+		try:
+			return pickle.loads(
+				data
+			)
+		except:
+			pass
+
+		return data
+
+	def exists( self, key, **kwargs ):
+		if not self.redis_client:
+			self.connect()
+
+		namespace = self._get_namespace( kwargs )
+
+		return self.redis_client.exists(
+			namespace + key
+		)
 
-    def delete( self, key, **kwargs ):
-        if not self.redis_client:
-            self.connect()
+	def delete( self, key, **kwargs ):
+		if not self.redis_client:
+			self.connect()
 
-        namespace = self._get_namespace( kwargs )
+		namespace = self._get_namespace( kwargs )
 
-        return self.redis_client.dek(
-            namespace + key
-        )
+		return self.redis_client.dek(
+			namespace + key
+		)
 
-    def rename( self, key, new_key, **kwargs ):
-        if not self.redis_client:
-            self.connect()
+	def rename( self, key, new_key, **kwargs ):
+		if not self.redis_client:
+			self.connect()
 
-        namespace = self._get_namespace( kwargs )
+		namespace = self._get_namespace( kwargs )
 
-        return self.redis_client.rename(
-            namespace + key,
-            new_key
-        )
+		return self.redis_client.rename(
+			namespace + key,
+			new_key
+		)
 
-    def expire_at( self, key, unix_timestamp, **kwargs ):
-        if not self.redis_client:
-            self.connect()
+	def expire_at( self, key, unix_timestamp, **kwargs ):
+		if not self.redis_client:
+			self.connect()
 
-        namespace = self._get_namespace( kwargs )
+		namespace = self._get_namespace( kwargs )
 
-        return self.redis_client.expireat(
-            namespace + key,
-            unix_timestamp
-        )
+		return self.redis_client.expireat(
+			namespace + key,
+			unix_timestamp
+		)
 
-    def expire_in( self, key, seconds, **kwargs ):
-        if not self.redis_client:
-            self.connect()
+	def expire_in( self, key, seconds, **kwargs ):
+		if not self.redis_client:
+			self.connect()
 
-        namespace = self._get_namespace( kwargs )
+		namespace = self._get_namespace( kwargs )
 
-        return self.redis_client.expire(
-            namespace + key,
-            seconds
-        )
+		return self.redis_client.expire(
+			namespace + key,
+			seconds
+		)
 
-    def _get_input_data_from_redis( self, key, **kwargs ):
-        if not self.redis_client:
-            self.connect()
+	def _get_input_data_from_redis( self, key, **kwargs ):
+		if not self.redis_client:
+			self.connect()
 
-        pipeline = self.redis_client.pipeline()
-        pipeline.get( key )
-        pipeline.delete( key )
-        returned_data = pipeline.execute()
+		pipeline = self.redis_client.pipeline()
+		pipeline.get( key )
+		pipeline.delete( key )
+		returned_data = pipeline.execute()
 
-        # Raise an exception if the GET fails
-        # This is how we achieve idempotency
-        if returned_data[ 0 ] == None:
-            raise AlreadyInvokedException()
+		# Raise an exception if the GET fails
+		# This is how we achieve idempotency
+		if returned_data[ 0 ] == None:
+			raise AlreadyInvokedException()
 
-        try:
-            return json.loads( returned_data[ 0 ] )
-        except:
-            pass
+		try:
+			return json.loads( returned_data[ 0 ] )
+		except:
+			pass
 
-        return returned_data[ 0 ]
+		return returned_data[ 0 ]
 
-    def _store_return_data_to_redis( self, return_data, **kwargs ):
-        if not self.redis_client:
-            self.connect()
+	def _store_return_data_to_redis( self, return_data, **kwargs ):
+		if not self.redis_client:
+			self.connect()
 
-        new_key = str( uuid.uuid4() )
+		new_key = str( uuid.uuid4() )
 
-        self.redis_client.setex(
-            new_key,
-            self.return_data_timeout,
-            json.dumps(
-                return_data
-            )
-        )
+		self.redis_client.setex(
+			new_key,
+			self.return_data_timeout,
+			json.dumps(
+				return_data
+			)
+		)
 
-        return new_key
-
-    def _set_fan_in_data( self, fan_out_id, invocation_list, **kwargs ):
-        if not self.redis_client:
-            self.connect()
-
-        # Generate an invocation array ID
-        invocation_array_id = "INVOCATION_QUEUE_" + str( uuid.uuid4() )
-
-        # Do a redis pipeline transaction
-        pipeline = self.redis_client.pipeline()
-
-        # Set up the counter for fan-in
-        pipeline.setex(
-            "FAN_IN_COUNTER_" + fan_out_id,
-            ( 60 * 15 * 3 ), # TODO dynamically calculate based off of nodes in path worst-case
-            len( invocation_list )
-        )
-
-        # Store all invocation data in redis in a list
-        pipeline.rpush(
-            invocation_array_id,
-            *invocation_list
-        )
-
-        returned_data = pipeline.execute()
-
-        return invocation_array_id
-
-    def _get_invocation_input_from_queue( self, invocation_id ):
-        """
-        Pops an invocation input off of the array.
-
-        If the array has been exhausted then it raises InvokeQueueEmptyException
-        """
-        if not self.redis_client:
-            self.connect()
-
-        # Do a redis pipeline transaction
-        pipeline = self.redis_client.pipeline()
-
-        pipeline.lpop( invocation_id )
-
-        returned_data = pipeline.execute()
-
-        if returned_data[0] == None:
-            raise InvokeQueueEmptyException()
-
-        return json.loads( returned_data[0] )
-
-    def _fan_in_get_results_data( self, fan_out_id, **kwargs ):
-        """
-        Gets the fan-in data and deletes it immediately
-        """
-        if not self.redis_client:
-            self.connect()
-
-        # Do a redis pipeline transaction
-        pipeline = self.redis_client.pipeline()
-
-        # Get array of returned data from fan-in
-        pipeline.lrange(
-            "FAN_IN_RESULTS_" + fan_out_id,
-            0,
-            -1
-        )
-
-        # Delete the return data
-        pipeline.delete(
-            "FAN_IN_RESULTS_" + fan_out_id
-        )
-
-        returned_data = pipeline.execute()
-
-        # Raise an exception if the GET fails
-        # This is how we achieve idempotency
-        if returned_data[ 0 ] == None:
-            raise AlreadyInvokedException()
-
-        # Decode returned data
-        decoded_return_data = []
-
-        for returned_data_segment in returned_data[0]:
-            # Try to JSON-decode each segment
-            try:
-                decoded_return_data.append(
-                    json.loads(
-                        returned_data_segment
-                    )
-                )
-            except:
-                decoded_return_data.append(
-                    returned_data_segment
-                )
-
-        return decoded_return_data
-
-    def _fan_in_operations( self, fan_out_id, return_data, **kwargs ):
-        """
-        This function either returns False if we're not the last Lambda
-        in the fan-in to be invoked or it returns a key of the data to be
-        passed to the next function after the fan-in as input.
-        """
-        if not self.redis_client:
-            self.connect()
-
-        # Do a redis pipeline transaction
-        pipeline = self.redis_client.pipeline()
-
-        # Push return data into redis
-        pipeline.lpush(
-            "FAN_IN_RESULTS_" + fan_out_id,
-            json.dumps(
-                return_data
-            )
-        )
-
-        # Update expiration
-        pipeline.expire(
-            "FAN_IN_RESULTS_" + fan_out_id,
-            ( 60 * 15 * 3 ), # TODO dynamically calculate based off of nodes in path worst-case
-        )
-
-        # Decrement fan-in counter
-        pipeline.decr(
-            "FAN_IN_COUNTER_" + fan_out_id
-        )
-
-        # Get fan-in counter latest value
-        pipeline.get(
-            "FAN_IN_COUNTER_" + fan_out_id
-        )
-
-        returned_data = pipeline.execute()
-
-        # Check fan-in counter value
-        # If it's zero, we must move to invoke the next function
-        fan_in_counter_result = int( returned_data[3] )
-
-        if fan_in_counter_result == 0:
-            # Clean up previous data
-            pipeline = self.redis_client.pipeline()
-
-            # Delete fan-in counter
-            pipeline.delete(
-                "FAN_IN_COUNTER_" + fan_out_id
-            )
-
-            returned_data = pipeline.execute()
-
-            return "FAN_IN_RESULTS_" + fan_out_id
-
-        return False
-
-    def _bulk_store_input_data( self, lambda_invocation_list ):
-        """
-        Uses a redis pipeline to quickly store all the input data
-        in the input lambda_invocation_list and replace "input_data"
-        with a redis key for each.
-        """
-        if not self.redis_client:
-            self.connect()
-
-        # Do a redis pipeline transaction
-        pipeline = self.redis_client.pipeline()
-
-        for i in range( 0, len( lambda_invocation_list ) ):
-            new_input_data_key = str( uuid.uuid4() )
-
-            pipeline.setex(
-                new_input_data_key,
-                self.return_data_timeout,
-                json.dumps(
-                    lambda_invocation_list[ i ][ "input_data" ]
-                )
-            )
-
-            del lambda_invocation_list[ i ][ "input_data" ]
-            lambda_invocation_list[ i ][ "input_data_key" ] = new_input_data_key
-
-        # Execute in one quick transaction
-        returned_data = pipeline.execute()
-
-        return lambda_invocation_list
+		return new_key
+
+	def _set_fan_in_data( self, fan_out_id, invocation_list, **kwargs ):
+		if not self.redis_client:
+			self.connect()
+
+		# Generate an invocation array ID
+		invocation_array_id = "INVOCATION_QUEUE_" + str( uuid.uuid4() )
+
+		# Do a redis pipeline transaction
+		pipeline = self.redis_client.pipeline()
+
+		# Set up the counter for fan-in
+		pipeline.setex(
+			"FAN_IN_COUNTER_" + fan_out_id,
+			( 60 * 15 * 3 ), # TODO dynamically calculate based off of nodes in path worst-case
+			len( invocation_list )
+		)
+
+		# Store all invocation data in redis in a list
+		pipeline.rpush(
+			invocation_array_id,
+			*invocation_list
+		)
+
+		returned_data = pipeline.execute()
+
+		return invocation_array_id
+
+	def _get_invocation_input_from_queue( self, invocation_id ):
+		"""
+		Pops an invocation input off of the array.
+
+		If the array has been exhausted then it raises InvokeQueueEmptyException
+		"""
+		if not self.redis_client:
+			self.connect()
+
+		# Do a redis pipeline transaction
+		pipeline = self.redis_client.pipeline()
+
+		pipeline.lpop( invocation_id )
+
+		returned_data = pipeline.execute()
+
+		if returned_data[0] == None:
+			raise InvokeQueueEmptyException()
+
+		return json.loads( returned_data[0] )
+
+	def _fan_in_get_results_data( self, fan_out_id, **kwargs ):
+		"""
+		Gets the fan-in data and deletes it immediately
+		"""
+		if not self.redis_client:
+			self.connect()
+
+		# Do a redis pipeline transaction
+		pipeline = self.redis_client.pipeline()
+
+		# Get array of returned data from fan-in
+		pipeline.lrange(
+			"FAN_IN_RESULTS_" + fan_out_id,
+			0,
+			-1
+		)
+
+		# Delete the return data
+		pipeline.delete(
+			"FAN_IN_RESULTS_" + fan_out_id
+		)
+
+		returned_data = pipeline.execute()
+
+		# Raise an exception if the GET fails
+		# This is how we achieve idempotency
+		if returned_data[ 0 ] == None:
+			raise AlreadyInvokedException()
+
+		# Decode returned data
+		decoded_return_data = []
+
+		for returned_data_segment in returned_data[0]:
+			# Try to JSON-decode each segment
+			try:
+				decoded_return_data.append(
+					json.loads(
+						returned_data_segment
+					)
+				)
+			except:
+				decoded_return_data.append(
+					returned_data_segment
+				)
+
+		return decoded_return_data
+
+	def _fan_in_operations( self, fan_out_id, return_data, **kwargs ):
+		"""
+		This function either returns False if we're not the last Lambda
+		in the fan-in to be invoked or it returns a key of the data to be
+		passed to the next function after the fan-in as input.
+		"""
+		if not self.redis_client:
+			self.connect()
+
+		# Do a redis pipeline transaction
+		pipeline = self.redis_client.pipeline()
+
+		# Push return data into redis
+		pipeline.lpush(
+			"FAN_IN_RESULTS_" + fan_out_id,
+			json.dumps(
+				return_data
+			)
+		)
+
+		# Update expiration
+		pipeline.expire(
+			"FAN_IN_RESULTS_" + fan_out_id,
+			( 60 * 15 * 3 ), # TODO dynamically calculate based off of nodes in path worst-case
+		)
+
+		# Decrement fan-in counter
+		pipeline.decr(
+			"FAN_IN_COUNTER_" + fan_out_id
+		)
+
+		# Get fan-in counter latest value
+		pipeline.get(
+			"FAN_IN_COUNTER_" + fan_out_id
+		)
+
+		returned_data = pipeline.execute()
+
+		# Check fan-in counter value
+		# If it's zero, we must move to invoke the next function
+		fan_in_counter_result = int( returned_data[3] )
+
+		if fan_in_counter_result == 0:
+			# Clean up previous data
+			pipeline = self.redis_client.pipeline()
+
+			# Delete fan-in counter
+			pipeline.delete(
+				"FAN_IN_COUNTER_" + fan_out_id
+			)
+
+			returned_data = pipeline.execute()
+
+			return "FAN_IN_RESULTS_" + fan_out_id
+
+		return False
+
+	def _bulk_store_input_data( self, lambda_invocation_list ):
+		"""
+		Uses a redis pipeline to quickly store all the input data
+		in the input lambda_invocation_list and replace "input_data"
+		with a redis key for each.
+		"""
+		if not self.redis_client:
+			self.connect()
+
+		# Do a redis pipeline transaction
+		pipeline = self.redis_client.pipeline()
+
+		for i in range( 0, len( lambda_invocation_list ) ):
+			new_input_data_key = str( uuid.uuid4() )
+
+			pipeline.setex(
+				new_input_data_key,
+				self.return_data_timeout,
+				json.dumps(
+					lambda_invocation_list[ i ][ "input_data" ]
+				)
+			)
+
+			del lambda_invocation_list[ i ][ "input_data" ]
+			lambda_invocation_list[ i ][ "input_data_key" ] = new_input_data_key
+
+		# Execute in one quick transaction
+		returned_data = pipeline.execute()
+
+		return lambda_invocation_list
 
 def _parallel_invoke( invoke_queue ):
-    # List of active threads
-    active_threads = []
+	# List of active threads
+	active_threads = []
 
-    # Maximum number of threads
-    max_threads = 50
+	# Maximum number of threads
+	max_threads = 50
 
-    # Invokes a Lambda directly with input_data asynchronously
-    def lambda_invoker_worker_direct_input( execution_id, fan_out_ids, arn, input_data ):
-        return_wrapper_data = {
-            "_refinery": {
-                "input_data": input_data,
-                "parallel": False,
-                "execution_id": execution_id,
-                "fan_out_ids": fan_out_ids,
-            }
-        }
+	# Invokes a Lambda directly with input_data asynchronously
+	def lambda_invoker_worker_direct_input( execution_id, fan_out_ids, arn, input_data ):
+		return_wrapper_data = {
+			"_refinery": {
+				"input_data": input_data,
+				"parallel": False,
+				"execution_id": execution_id,
+				"fan_out_ids": fan_out_ids,
+			}
+		}
 
-        lambda_client = boto3.client(
-            "lambda"
-        )
+		lambda_client = boto3.client(
+			"lambda"
+		)
 
-        response = lambda_client.invoke(
-            FunctionName=arn,
-            InvocationType="Event",
-            LogType="None",
-            Payload=json.dumps(
-                return_wrapper_data
-            )
-        )
+		response = lambda_client.invoke(
+			FunctionName=arn,
+			InvocationType="Event",
+			LogType="None",
+			Payload=json.dumps(
+				return_wrapper_data
+			)
+		)
 
-        raise SystemExit
+		raise SystemExit
 
-    # Invokes a Lambda asynchronously
-    def lambda_invoker_worker_redis( execution_id, fan_out_ids, arn, return_key ):
-        return_wrapper_data = {
-            "_refinery": {
-                "indirect": {
-                    "type": "redis",
-                    "key": return_key,
-                },
-                "parallel": False,
-                "execution_id": execution_id,
-                "fan_out_ids": fan_out_ids,
-            }
-        }
+	# Invokes a Lambda asynchronously
+	def lambda_invoker_worker_redis( execution_id, fan_out_ids, arn, return_key ):
+		return_wrapper_data = {
+			"_refinery": {
+				"indirect": {
+					"type": "redis",
+					"key": return_key,
+				},
+				"parallel": False,
+				"execution_id": execution_id,
+				"fan_out_ids": fan_out_ids,
+			}
+		}
 
-        lambda_client = boto3.client(
-            "lambda"
-        )
+		lambda_client = boto3.client(
+			"lambda"
+		)
 
-        response = lambda_client.invoke(
-            FunctionName=arn,
-            InvocationType="Event",
-            LogType="None",
-            Payload=json.dumps(
-                return_wrapper_data
-            )
-        )
+		response = lambda_client.invoke(
+			FunctionName=arn,
+			InvocationType="Event",
+			LogType="None",
+			Payload=json.dumps(
+				return_wrapper_data
+			)
+		)
 
-        raise SystemExit
+		raise SystemExit
 
-    # Self-invocation for a fan-out transition
-    def lambda_invoker_fan_out( arn, return_key, invocation_id ):
-        return_wrapper_data = {
-            "_refinery": {
-                "invoke": invocation_id,
-                "indirect": {
-                    "type": "redis",
-                    "key": return_key,
-                },
-                "parallel": False
-            }
-        }
+	# Self-invocation for a fan-out transition
+	def lambda_invoker_fan_out( arn, return_key, invocation_id ):
+		return_wrapper_data = {
+			"_refinery": {
+				"invoke": invocation_id,
+				"indirect": {
+					"type": "redis",
+					"key": return_key,
+				},
+				"parallel": False
+			}
+		}
 
-        lambda_client = boto3.client(
-            "lambda"
-        )
+		lambda_client = boto3.client(
+			"lambda"
+		)
 
-        response = lambda_client.invoke(
-            FunctionName=arn,
-            InvocationType="Event",
-            LogType="None",
-            Payload=json.dumps(
-                return_wrapper_data
-            )
-        )
+		response = lambda_client.invoke(
+			FunctionName=arn,
+			InvocationType="Event",
+			LogType="None",
+			Payload=json.dumps(
+				return_wrapper_data
+			)
+		)
 
-        raise SystemExit
+		raise SystemExit
 
-    # Invokes a Lambda asynchronously with fan-in results as input
-    def lambda_invoker_worker_fan_in( execution_id, fan_out_ids, arn, fan_out_id ):
-        return_wrapper_data = {
-            "_refinery": {
-                "indirect": {
-                    "type": "redis_fan_in",
-                    "key": fan_out_id,
-                },
-                "parallel": False,
-                "execution_id": execution_id,
-                "fan_out_ids": fan_out_ids,
-            }
-        }
+	# Invokes a Lambda asynchronously with fan-in results as input
+	def lambda_invoker_worker_fan_in( execution_id, fan_out_ids, arn, fan_out_id ):
+		return_wrapper_data = {
+			"_refinery": {
+				"indirect": {
+					"type": "redis_fan_in",
+					"key": fan_out_id,
+				},
+				"parallel": False,
+				"execution_id": execution_id,
+				"fan_out_ids": fan_out_ids,
+			}
+		}
 
-        lambda_client = boto3.client(
-            "lambda"
-        )
+		lambda_client = boto3.client(
+			"lambda"
+		)
 
-        response = lambda_client.invoke(
-            FunctionName=arn,
-            InvocationType="Event",
-            LogType="None",
-            Payload=json.dumps(
-                return_wrapper_data
-            )
-        )
+		response = lambda_client.invoke(
+			FunctionName=arn,
+			InvocationType="Event",
+			LogType="None",
+			Payload=json.dumps(
+				return_wrapper_data
+			)
+		)
 
-        raise SystemExit
+		raise SystemExit
 
-    # Publishes to an SNS topic
-    def sns_topic_publish_worker( execution_id, fan_out_ids, arn, input_data ):
-        # Handle large data that won't fit in the 256K SNS max size
-        sns_client = boto3.client(
-            "sns"
-        )
+	# Publishes to an SNS topic
+	def sns_topic_publish_worker( execution_id, fan_out_ids, arn, input_data ):
+		# Handle large data that won't fit in the 256K SNS max size
+		sns_client = boto3.client(
+			"sns"
+		)
 
-        return_wrapper_data = {
-            "_refinery": {
-                "indirect": False,
-                "parallel": False,
-                "execution_id": execution_id,
-                "fan_out_ids": fan_out_ids,
-                "input_data": input_data,
-            }
-        }
+		return_wrapper_data = {
+			"_refinery": {
+				"indirect": False,
+				"parallel": False,
+				"execution_id": execution_id,
+				"fan_out_ids": fan_out_ids,
+				"input_data": input_data,
+			}
+		}
 
-        response = sns_client.publish(
-            TopicArn=arn,
-            Message=json.dumps(
-                return_wrapper_data
-            )
-        )
+		response = sns_client.publish(
+			TopicArn=arn,
+			Message=json.dumps(
+				return_wrapper_data
+			)
+		)
 
-        raise SystemExit
+		raise SystemExit
 
-    # Publishes to redis to be picked up by a polling API Gateway Lambda
-    def api_gateway_response( execution_id, arn, input_data ):
-        # Store with expiration in redis
-        gmemory.redis_client.setex(
-            execution_id,
-            gmemory.return_data_timeout,
-            json.dumps(
-                input_data
-            )
-        )
+	# Publishes to redis to be picked up by a polling API Gateway Lambda
+	def api_gateway_response( execution_id, arn, input_data ):
+		# Store with expiration in redis
+		gmemory.redis_client.setex(
+			execution_id,
+			gmemory.return_data_timeout,
+			json.dumps(
+				input_data
+			)
+		)
 
-        raise SystemExit
+		raise SystemExit
 
-    # Spawns a new worked and adds it to active_threads
-    def spawn_new_worker():
-        new_invoke_data = invoke_queue.pop()
+	# Spawns a new worked and adds it to active_threads
+	def spawn_new_worker():
+		new_invoke_data = invoke_queue.pop()
 
-        # Check type and invoke appropriately
-        if new_invoke_data[ "type" ] == "lambda" and "input_data_key" in new_invoke_data:
-            new_thread = threading.Thread(
-                target=lambda_invoker_worker_redis,
-                args=(
-                    new_invoke_data[ "execution_id" ],
-                    new_invoke_data[ "fan_out_ids" ],
-                    new_invoke_data[ "arn" ],
-                    new_invoke_data[ "input_data_key" ]
-                )
-            )
-            new_thread.start()
-            time.sleep(0.05) # Annoying wedge due to boto3 bug
-        elif new_invoke_data[ "type" ] == "lambda" and "input_data" in new_invoke_data:
-            new_thread = threading.Thread(
-                target=lambda_invoker_worker_direct_input,
-                args=(
-                    new_invoke_data[ "execution_id" ],
-                    new_invoke_data[ "fan_out_ids" ],
-                    new_invoke_data[ "arn" ],
-                    new_invoke_data[ "input_data" ]
-                )
-            )
-            new_thread.start()
-            time.sleep(0.05) # Annoying wedge due to boto3 bug
-        elif new_invoke_data[ "type" ] == "lambda_fan_out":
-            new_thread = threading.Thread(
-                target=lambda_invoker_fan_out,
-                args=(
-                    new_invoke_data[ "arn" ],
-                    new_invoke_data[ "input_data_key" ],
-                    new_invoke_data[ "invocation_id" ]
-                )
-            )
-            new_thread.start()
-            time.sleep(0.05) # Annoying wedge due to boto3 bug
-        elif new_invoke_data[ "type" ] == "lambda_fan_in":
-            new_thread = threading.Thread(
-                target=lambda_invoker_worker_fan_in,
-                args=(
-                    new_invoke_data[ "execution_id" ],
-                    new_invoke_data[ "fan_out_ids" ],
-                    new_invoke_data[ "arn" ],
-                    new_invoke_data[ "fan_out_id" ]
-                )
-            )
-            new_thread.start()
-            time.sleep(0.05) # Annoying wedge due to boto3 bug
-        elif new_invoke_data[ "type" ] == "sns_topic":
-            new_thread = threading.Thread(
-                target=sns_topic_publish_worker,
-                args=(
-                    new_invoke_data[ "execution_id" ],
-                    new_invoke_data[ "fan_out_ids" ],
-                    new_invoke_data[ "arn" ],
-                    new_invoke_data[ "input_data" ]
-                )
-            )
-            new_thread.start()
-            time.sleep(0.05) # Annoying wedge due to boto3 bug
-        elif new_invoke_data[ "type" ] == "api_gateway_response":
-            new_thread = threading.Thread(
-                target=api_gateway_response,
-                args=(
-                    new_invoke_data[ "execution_id" ],
-                    new_invoke_data[ "arn" ],
-                    new_invoke_data[ "input_data" ]
-                )
-            )
-            new_thread.start()
+		# Check type and invoke appropriately
+		if new_invoke_data[ "type" ] == "lambda" and "input_data_key" in new_invoke_data:
+			new_thread = threading.Thread(
+				target=lambda_invoker_worker_redis,
+				args=(
+					new_invoke_data[ "execution_id" ],
+					new_invoke_data[ "fan_out_ids" ],
+					new_invoke_data[ "arn" ],
+					new_invoke_data[ "input_data_key" ]
+				)
+			)
+			new_thread.start()
+			time.sleep(0.05) # Annoying wedge due to boto3 bug
+		elif new_invoke_data[ "type" ] == "lambda" and "input_data" in new_invoke_data:
+			new_thread = threading.Thread(
+				target=lambda_invoker_worker_direct_input,
+				args=(
+					new_invoke_data[ "execution_id" ],
+					new_invoke_data[ "fan_out_ids" ],
+					new_invoke_data[ "arn" ],
+					new_invoke_data[ "input_data" ]
+				)
+			)
+			new_thread.start()
+			time.sleep(0.05) # Annoying wedge due to boto3 bug
+		elif new_invoke_data[ "type" ] == "lambda_fan_out":
+			new_thread = threading.Thread(
+				target=lambda_invoker_fan_out,
+				args=(
+					new_invoke_data[ "arn" ],
+					new_invoke_data[ "input_data_key" ],
+					new_invoke_data[ "invocation_id" ]
+				)
+			)
+			new_thread.start()
+			time.sleep(0.05) # Annoying wedge due to boto3 bug
+		elif new_invoke_data[ "type" ] == "lambda_fan_in":
+			new_thread = threading.Thread(
+				target=lambda_invoker_worker_fan_in,
+				args=(
+					new_invoke_data[ "execution_id" ],
+					new_invoke_data[ "fan_out_ids" ],
+					new_invoke_data[ "arn" ],
+					new_invoke_data[ "fan_out_id" ]
+				)
+			)
+			new_thread.start()
+			time.sleep(0.05) # Annoying wedge due to boto3 bug
+		elif new_invoke_data[ "type" ] == "sns_topic":
+			new_thread = threading.Thread(
+				target=sns_topic_publish_worker,
+				args=(
+					new_invoke_data[ "execution_id" ],
+					new_invoke_data[ "fan_out_ids" ],
+					new_invoke_data[ "arn" ],
+					new_invoke_data[ "input_data" ]
+				)
+			)
+			new_thread.start()
+			time.sleep(0.05) # Annoying wedge due to boto3 bug
+		elif new_invoke_data[ "type" ] == "api_gateway_response":
+			new_thread = threading.Thread(
+				target=api_gateway_response,
+				args=(
+					new_invoke_data[ "execution_id" ],
+					new_invoke_data[ "arn" ],
+					new_invoke_data[ "input_data" ]
+				)
+			)
+			new_thread.start()
 
-        return new_thread
+		return new_thread
 
-    # Bug fix
-    lambda_client = boto3.client(
-        "lambda"
-    )
+	# Bug fix
+	lambda_client = boto3.client(
+		"lambda"
+	)
 
-    # First iterate over all the invocations and load the input data
-    # into redis in a single transaction/pipeline to speed it up.
-    new_invoke_queue = []
+	# First iterate over all the invocations and load the input data
+	# into redis in a single transaction/pipeline to speed it up.
+	new_invoke_queue = []
 
-    # Create a special list for Lambdas to load the input data at once
-    lambda_invoke_list = []
+	# Create a special list for Lambdas to load the input data at once
+	lambda_invoke_list = []
 
-    while len( invoke_queue ) > 0:
-        new_invoke_data = invoke_queue.pop()
-        """
-        Currently removed due to the issues around idempotency
-        if new_invoke_data[ "type" ] == "lambda" and len( json.dumps( new_invoke_data[ "input_data" ] ) ) < _MAX_EVENT_LAMBDA_INVOKE_SIZE:
-            new_invoke_queue.append(
-                new_invoke_data
-            )
-        """
-        if new_invoke_data[ "type" ] == "lambda" or new_invoke_data[ "type" ] == "lambda_fan_out":
-            lambda_invoke_list.append(
-                new_invoke_data
-            )
-        else:
-            new_invoke_queue.append(
-                new_invoke_data
-            )
+	while len( invoke_queue ) > 0:
+		new_invoke_data = invoke_queue.pop()
+		"""
+		Currently removed due to the issues around idempotency
+		if new_invoke_data[ "type" ] == "lambda" and len( json.dumps( new_invoke_data[ "input_data" ] ) ) < _MAX_EVENT_LAMBDA_INVOKE_SIZE:
+			new_invoke_queue.append(
+				new_invoke_data
+			)
+		"""
+		if new_invoke_data[ "type" ] == "lambda" or new_invoke_data[ "type" ] == "lambda_fan_out":
+			lambda_invoke_list.append(
+				new_invoke_data
+			)
+		else:
+			new_invoke_queue.append(
+				new_invoke_data
+			)
 
-    # Process the Lambda's input_data
-    # input_data is replaced with return_key
-    lambda_invoke_list = gmemory._bulk_store_input_data(
-        lambda_invoke_list
-    )
+	# Process the Lambda's input_data
+	# input_data is replaced with return_key
+	lambda_invoke_list = gmemory._bulk_store_input_data(
+		lambda_invoke_list
+	)
 
-    # Combine resulting lists
-    invoke_queue = new_invoke_queue + lambda_invoke_list
+	# Combine resulting lists
+	invoke_queue = new_invoke_queue + lambda_invoke_list
 
-    # Keep looping while there's still Lambdas to invoke
-    while len( invoke_queue ) > 0:
-        # If we've not maxing out acive threads then spawn new ones
-        if len( active_threads ) < max_threads:
-            active_threads.append(
-                spawn_new_worker()
-            )
-        else:
-            # Iterate over our active threads and remove finished
-            new_active_thread_list = []
-            already_spawned = False
+	# Keep looping while there's still Lambdas to invoke
+	while len( invoke_queue ) > 0:
+		# If we've not maxing out acive threads then spawn new ones
+		if len( active_threads ) < max_threads:
+			active_threads.append(
+				spawn_new_worker()
+			)
+		else:
+			# Iterate over our active threads and remove finished
+			new_active_thread_list = []
+			already_spawned = False
 
-            # Check if any threads are finished
-            for active_thread in active_threads:
-                if active_thread.is_alive():
-                    new_active_thread_list.append( active_thread )
-                elif already_spawned == False:
-                    new_active_thread_list.append(
-                        spawn_new_worker()
-                    )
-                    already_spawned = True
+			# Check if any threads are finished
+			for active_thread in active_threads:
+				if active_thread.is_alive():
+					new_active_thread_list.append( active_thread )
+				elif already_spawned == False:
+					new_active_thread_list.append(
+						spawn_new_worker()
+					)
+					already_spawned = True
 
-            active_threads = new_active_thread_list
+			active_threads = new_active_thread_list
 
-    # Wait until all threads finish
-    for thread in active_threads:
-        thread.join()
+	# Wait until all threads finish
+	for thread in active_threads:
+		thread.join()
 
-    # We're all done
-    return
+	# We're all done
+	return
 
 def _api_endpoint( lambda_input, execution_id, context ):
-    # This will spin and continually query redis until either
-    # we time out without getting our HTTP response OR we return
-    # our response to the client.
+	# This will spin and continually query redis until either
+	# we time out without getting our HTTP response OR we return
+	# our response to the client.
 
-    # Continually loop until we have only two seconds left
-    # Max execution time is 30 seconds, so that's 28 seconds
-    timed_out = True
+	# Continually loop until we have only two seconds left
+	# Max execution time is 30 seconds, so that's 28 seconds
+	timed_out = True
 
-    # As long as we have ~2 seconds of runway left continue
-    # to query redis for our HTTP response data.
-    while context.get_remaining_time_in_millis() > ( 2 * 1000 ):
-        try:
-            http_response = gmemory._get_input_data_from_redis(
-                execution_id
-            )
-        except AlreadyInvokedException as e:
-            http_response = False
+	# As long as we have ~2 seconds of runway left continue
+	# to query redis for our HTTP response data.
+	while context.get_remaining_time_in_millis() > ( 2 * 1000 ):
+		try:
+			http_response = gmemory._get_input_data_from_redis(
+				execution_id
+			)
+		except AlreadyInvokedException as e:
+			http_response = False
 
-        # When we have a non-None http_response we can
-        # break out of the loop and declare we've not timed out.
-        if http_response:
-            timed_out = False
-            break
+		# When we have a non-None http_response we can
+		# break out of the loop and declare we've not timed out.
+		if http_response:
+			timed_out = False
+			break
 
-        # Wait a moment before checking again
-        time.sleep( 0.01 )
+		# Wait a moment before checking again
+		time.sleep( 0.01 )
 
-    # We've timed out, return an error
-    if timed_out:
-        return {
-            "statusCode": 504,
-            "headers": {},
-            "body": json.dumps({
-                "msg": "The request to the backend has timed out.",
-                "success": False
-            }),
-            "isBase64Encoded": False
-        }
+	# We've timed out, return an error
+	if timed_out:
+		return {
+			"statusCode": 504,
+			"headers": {},
+			"body": json.dumps({
+				"msg": "The request to the backend has timed out.",
+				"success": False
+			}),
+			"isBase64Encoded": False
+		}
 
-    # Check if the response is actually in an API Gateway already
-    # If not return as just regular JSON, if it is then return raw
-    if type( http_response ) == dict and "body" in http_response:
-        return http_response
+	# Check if the response is actually in an API Gateway already
+	# If not return as just regular JSON, if it is then return raw
+	if type( http_response ) == dict and "body" in http_response:
+		return http_response
 
-    # Return JSON response with the data
-    return {
-        "statusCode": 200,
-        "headers": {
-            "Content-Type": "application/json",
-            "X-Frame-Options": "deny",
-            "X-Content-Type-Options": "nosniff",
-            "X-XSS-Protection": "1; mode=block",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0",
-            "Server": "refinery"
-        },
-        "body": json.dumps( http_response ),
-        "isBase64Encoded": False
-    }
+	# Return JSON response with the data
+	return {
+		"statusCode": 200,
+		"headers": {
+			"Content-Type": "application/json",
+			"X-Frame-Options": "deny",
+			"X-Content-Type-Options": "nosniff",
+			"X-XSS-Protection": "1; mode=block",
+			"Cache-Control": "no-cache, no-store, must-revalidate",
+			"Pragma": "no-cache",
+			"Expires": "0",
+			"Server": "refinery"
+		},
+		"body": json.dumps( http_response ),
+		"isBase64Encoded": False
+	}
 
 def _write_pipeline_logs( s3_log_bucket, project_id, lambda_arn, lambda_name, execution_pipeline_id, log_type, log_data, execution_details ):
-    def get_nearest_five_minutes():
-        round_to = ( 60 * 5 )
-        dt = datetime.datetime.now()
-        seconds = ( dt.replace( tzinfo=None ) - dt.min ).seconds
-        rounding = (
-                           seconds + round_to / 2
-                   ) // round_to * round_to
-        return dt + datetime.timedelta( 0, rounding - seconds, - dt.microsecond )
+	def get_nearest_five_minutes():
+		round_to = ( 60 * 5 )
+		dt = datetime.datetime.now()
+		seconds = ( dt.replace( tzinfo=None ) - dt.min ).seconds
+		rounding = (
+						   seconds + round_to / 2
+				   ) // round_to * round_to
+		return dt + datetime.timedelta( 0, rounding - seconds, - dt.microsecond )
 
-    s3_client = boto3.client(
-        "s3"
-    )
+	s3_client = boto3.client(
+		"s3"
+	)
 
-    log_id = str( uuid.uuid4() )
+	log_id = str( uuid.uuid4() )
 
-    """
-    We get our "timestamp" by taking the largest timestamp value (in UTF-8 binary)
-    and subtracting our current timestamp from it. For example:
-    01/13/2019 @ 8:44pm (UTC) = 1547412285 -> ( 9999999999 - 1547412285 ) = 8452587714
-    01/13/2019 @ 8:45pm (UTC) = 1547412326 -> ( 9999999999 - 1547412326 ) = 8452587673
-    01/13/2019 @ 9:03pm (UTC) = 1547413430 -> ( 9999999999 - 1547413430 ) = 8452586569
-    """
-    nearest_minute = get_nearest_five_minutes()
-    unix_timestamp = int( nearest_minute.strftime( "%s" ) )
-    reversed_timestamp = str( 9999999999 - unix_timestamp )
+	"""
+	We get our "timestamp" by taking the largest timestamp value (in UTF-8 binary)
+	and subtracting our current timestamp from it. For example:
+	01/13/2019 @ 8:44pm (UTC) = 1547412285 -> ( 9999999999 - 1547412285 ) = 8452587714
+	01/13/2019 @ 8:45pm (UTC) = 1547412326 -> ( 9999999999 - 1547412326 ) = 8452587673
+	01/13/2019 @ 9:03pm (UTC) = 1547413430 -> ( 9999999999 - 1547413430 ) = 8452586569
+	"""
+	nearest_minute = get_nearest_five_minutes()
+	unix_timestamp = int( nearest_minute.strftime( "%s" ) )
+	reversed_timestamp = str( 9999999999 - unix_timestamp )
 
-    s3_path = project_id + "/" + reversed_timestamp + "/" + execution_pipeline_id + "/" + log_type + "~" + lambda_name + "~" + log_id + "~" + str( int( time.time() ) )
+	s3_path = project_id + "/" + reversed_timestamp + "/" + execution_pipeline_id + "/" + log_type + "~" + lambda_name + "~" + log_id + "~" + str( int( time.time() ) )
 
-    s3_data = {
-        "id": log_id,
-        "project_id": project_id,
-        "arn": lambda_arn,
-        "name": lambda_name,
-        "type": log_type, # INPUT, EXCEPTION, COMPLETE
-        "data": log_data,
-        "timestamp": int( time.time() )
-    }
+	s3_data = {
+		"id": log_id,
+		"project_id": project_id,
+		"arn": lambda_arn,
+		"name": lambda_name,
+		"type": log_type, # INPUT, EXCEPTION, COMPLETE
+		"data": log_data,
+		"timestamp": int( time.time() )
+	}
 
-    # Merge in execution_details
-    for key, value in execution_details.iteritems():
-        s3_data[ key ] = value
+	# Merge in execution_details
+	for key, value in execution_details.iteritems():
+		s3_data[ key ] = value
 
-    response = s3_client.put_object(
-        Bucket=s3_log_bucket,
-        Key=s3_path,
-        Body=json.dumps(
-            s3_data,
-            indent=4,
-            sort_keys=True
-        )
-    )
+	response = s3_client.put_object(
+		Bucket=s3_log_bucket,
+		Key=s3_path,
+		Body=json.dumps(
+			s3_data,
+			indent=4,
+			sort_keys=True
+		)
+	)
 
 def _spawner( invocation_id, context ):
-    """
-    Fan-out invocations work in essentially the following stages:
-    * A Lambda is invoked which has a fan-out transition
-    * This Lambda sets up the counter in redis to prepare for fan-in
-    * The Lambda also stores all invocation data in redis as a list
-    * The Lambda then invokes itself with the ["_refinery"]["invoke"] options
+	"""
+	Fan-out invocations work in essentially the following stages:
+	* A Lambda is invoked which has a fan-out transition
+	* This Lambda sets up the counter in redis to prepare for fan-in
+	* The Lambda also stores all invocation data in redis as a list
+	* The Lambda then invokes itself with the ["_refinery"]["invoke"] options
 
-    The value of ["_refinery"]["invoke"] is the following:
-    {
-        "invoke_id": {{UUID_OF_REDIS_LIST}},
-        "invoke_speed": {{INTEGER_OF_PARALELL_SPAWNERS}},
-    }
+	The value of ["_refinery"]["invoke"] is the following:
+	{
+		"invoke_id": {{UUID_OF_REDIS_LIST}},
+		"invoke_speed": {{INTEGER_OF_PARALELL_SPAWNERS}},
+	}
 
-    The "invoke_id" refers to the ID of the list of invoke input(s)
-    stored inside of redis. The "invoke_speed" refers to how many
-    "spawner" Lambdas will be invoked.
+	The "invoke_id" refers to the ID of the list of invoke input(s)
+	stored inside of redis. The "invoke_speed" refers to how many
+	"spawner" Lambdas will be invoked.
 
-    A "spawner" Lambda is just the Lambda invoking itself into a
-    specific new mode of operation. This mode of operation works
-    by spawning off multiple invocation threads which are continously
-    looped over and fed more invoke requests. In each loop the remaining
-    execution time is also checked. If the remaining execution time is
-    less than 5 seconds the Lambda will then invoke itself again once
-    to continue the invocation work (and will finish out it's pending
-    invocations). If the invoke queue is finished the Lambda simply
-    immediately exits.
+	A "spawner" Lambda is just the Lambda invoking itself into a
+	specific new mode of operation. This mode of operation works
+	by spawning off multiple invocation threads which are continously
+	looped over and fed more invoke requests. In each loop the remaining
+	execution time is also checked. If the remaining execution time is
+	less than 5 seconds the Lambda will then invoke itself again once
+	to continue the invocation work (and will finish out it's pending
+	invocations). If the invoke queue is finished the Lambda simply
+	immediately exits.
 
-    The "invoke_speed" determines the number of "spawner" Lambdas will
-    run at the same time. In any case the spawners will always invoke
-    all of the requested Lambdas for the returned data. The only thing
-    that varies is the speed at which this will occur. It could be at
-    the speed of 10 Lambdas invoking at ~18 invokes a second, or it could
-    be at 100 Lambdas at ~18 invokes a second.
-    """
-    print( "I am a spawner lambda who's spawned with an invocation ID of " + invocation_id )
+	The "invoke_speed" determines the number of "spawner" Lambdas will
+	run at the same time. In any case the spawners will always invoke
+	all of the requested Lambdas for the returned data. The only thing
+	that varies is the speed at which this will occur. It could be at
+	the speed of 10 Lambdas invoking at ~18 invokes a second, or it could
+	be at 100 Lambdas at ~18 invokes a second.
+	"""
+	print( "I am a spawner lambda who's spawned with an invocation ID of " + invocation_id )
 
-    remaining_time_limit = ( 1000 * 10 )
-    parallel_invocation_number = 15
-    queue_exhausted = False
+	remaining_time_limit = ( 1000 * 10 )
+	parallel_invocation_number = 15
+	queue_exhausted = False
 
-    while queue_exhausted == False:
-        # Reset list of Lambdas to invoke
-        lambdas_to_invoke = []
+	while queue_exhausted == False:
+		# Reset list of Lambdas to invoke
+		lambdas_to_invoke = []
 
-        # Check if we're close to a timeout, if we are we should invoke ourselfs
-        # and then dip out of performing more invocations.
-        remaining_milliseconds = context.get_remaining_time_in_millis()
-        if remaining_milliseconds <= remaining_time_limit:
-            lambdas_to_invoke.append({
-                "type": "lambda_fan_out",
-                "arn": context.invoked_function_arn,
-                "invocation_id": invocation_id,
-                # Input data is purely to ensure we get idempotency
-                "input_data": {
-                    "why": "idempotency"
-                }
-            })
-            start_time = time.time()
-            _parallel_invoke( lambdas_to_invoke )
-            return
+		# Check if we're close to a timeout, if we are we should invoke ourselfs
+		# and then dip out of performing more invocations.
+		remaining_milliseconds = context.get_remaining_time_in_millis()
+		if remaining_milliseconds <= remaining_time_limit:
+			lambdas_to_invoke.append({
+				"type": "lambda_fan_out",
+				"arn": context.invoked_function_arn,
+				"invocation_id": invocation_id,
+				# Input data is purely to ensure we get idempotency
+				"input_data": {
+					"why": "idempotency"
+				}
+			})
+			start_time = time.time()
+			_parallel_invoke( lambdas_to_invoke )
+			return
 
-        # Pull at least parallel_invocation_number number of inputs of the queue
-        for i in range( 0, parallel_invocation_number ):
-            try:
-                lambdas_to_invoke.append(
-                    gmemory._get_invocation_input_from_queue(
-                        invocation_id
-                    )
-                )
-            except InvokeQueueEmptyException as e:
-                queue_exhausted = True
-                # Break out of immediate for loop
-                break
+		# Pull at least parallel_invocation_number number of inputs of the queue
+		for i in range( 0, parallel_invocation_number ):
+			try:
+				lambdas_to_invoke.append(
+					gmemory._get_invocation_input_from_queue(
+						invocation_id
+					)
+				)
+			except InvokeQueueEmptyException as e:
+				queue_exhausted = True
+				# Break out of immediate for loop
+				break
 
-        start_time = time.time()
-        _parallel_invoke( lambdas_to_invoke )
+		start_time = time.time()
+		_parallel_invoke( lambdas_to_invoke )
 
-    return
+	return
 
 def _pprint( input_dict ):
-    try:
-        print( json.dumps( input_dict, sort_keys=True, indent=4, separators=( ",", ": " ) ) )
-    except:
-        print( input_dict )
+	try:
+		print( json.dumps( input_dict, sort_keys=True, indent=4, separators=( ",", ": " ) ) )
+	except:
+		print( input_dict )
 
 def _init( custom_runtime, request_id, lambda_input, context ):
-    start_time = time.time()
-
-    global gmemory
-
-    _start_clock( "Refinery_Memory intialization" )
-    # Make global to enable caching of redis connection
-    gmemory = Refinery_Memory(
-        os.environ[ "REDIS_HOSTNAME" ],
-        os.environ[ "REDIS_PASSWORD" ],
-        os.environ[ "REDIS_PORT" ],
-        context.function_name
-    )
-    _stop_clock( "Refinery_Memory intialization" )
-
-    execution_pipeline_id = os.environ[ "EXECUTION_PIPELINE_ID" ]
-    s3_log_bucket = os.environ[ "LOG_BUCKET_NAME" ]
-    execution_pipeline_logging_level = os.environ[ "PIPELINE_LOGGING_LEVEL" ]
-
-    # If pipeline logging is enabled
-    # We initialize the S3 client to prevent threading bugs
-    if execution_pipeline_logging_level != "LOG_NONE":
-        _start_clock( "S3 Boto Client Initialization" )
-        # Bug fix test
-        s3_client = boto3.client(
-            "s3"
-        )
-        _stop_clock( "S3 Boto Client Initialization" )
-
-    # Bake in AWS region
-    aws_region = os.environ[ "AWS_REGION" ]
-
-    # Indicate a special execution condition
-    # For example, an API Gateway Lambda
-    execution_mode = os.environ[ "EXECUTION_MODE" ]
-
-    # Construct log details for debugging
-    execution_details = {
-        "initialization_time": int( start_time ),
-        "aws_region": aws_region,
-        "group_name": context.log_group_name,
-        "stream_name": context.log_stream_name,
-        "function_name": context.function_name,
-        "function_version": context.function_version,
-        "invoked_function_arn": context.invoked_function_arn,
-        "memory_limit_in_mb": int( context.memory_limit_in_mb ),
-        "aws_request_id": context.aws_request_id
-    }
-
-    # Execution ID, this is an ID which correlates to an execution chain
-    execution_id = False
-
-    # Bake in transition data
-    transitions = json.loads( os.environ[ "TRANSITION_DATA" ] )
-
-    # Set default fan-out IDs list to be empty
-    fan_out_ids = []
-
-    # Throw exceptions fully (for use in tmp-runs, etc)
-    throw_exceptions_fully = False
-
-    _start_clock( "Loading Input Data" )
-
-    # Detect refinery wrapper and unwrap if existant
-    # Else just leave it unmodified
-    if type( lambda_input ) == dict and "_refinery" in lambda_input:
-        # Set execution ID if set
-        if "execution_id" in lambda_input[ "_refinery" ]:
-            execution_id = lambda_input[ "_refinery" ][ "execution_id" ]
-
-        # Set/propogate fan-out ID list if set
-        if "fan_out_ids" in lambda_input[ "_refinery" ]:
-            fan_out_ids = lambda_input[ "_refinery" ][ "fan_out_ids" ]
-
-        # Throw exceptions fully (for use in tmp-runs, etc)
-        if "throw_exceptions_fully" in lambda_input[ "_refinery" ]:
-            throw_exceptions_fully = True
-
-        # Set is invoke status
-        is_spawner_invocation = False
-
-        # We don't immediately invoke ourselves until after loading
-        # useless return data to ensure idempotency
-        if "invoke" in lambda_input[ "_refinery" ]:
-            is_spawner_invocation = True
-            invocation_id = lambda_input[ "_refinery" ][ "invoke" ]
-
-        _side_loaded = False
-        if "indirect" in lambda_input[ "_refinery" ] and "type" in lambda_input[ "_refinery" ][ "indirect" ]:
-            # Input data is stored in redis
-            if lambda_input[ "_refinery" ][ "indirect" ][ "type" ] == "redis":
-                try:
-                    lambda_input = gmemory._get_input_data_from_redis(
-                        lambda_input[ "_refinery" ][ "indirect" ][ "key" ]
-                    )
-                except AlreadyInvokedException as e:
-                    print( "This Lambda has already been invoked (or the return data has expired). For this reason we are quitting out." )
-                    return
-                _side_loaded = True
-            # Input data is stored in redis as a list from a fan-in
-            elif lambda_input[ "_refinery" ][ "indirect" ][ "type" ] == "redis_fan_in":
-                try:
-                    lambda_input = gmemory._fan_in_get_results_data(
-                        lambda_input[ "_refinery" ][ "indirect" ][ "key" ]
-                    )
-                except AlreadyInvokedException as e:
-                    print( "This Lambda has already been invoked (or the return data has expired). For this reason we are quitting out." )
-                    return
-                _side_loaded = True
-
-        # If there's an "invoke" key it means we're doing a self-invocation fan-out
-        if is_spawner_invocation:
-            return _spawner(
-                invocation_id,
-                context
-            )
-
-        # Just directly passed input data
-        if not _side_loaded and "input_data" in lambda_input[ "_refinery" ]:
-            lambda_input = lambda_input[ "_refinery" ][ "input_data" ]
-
-    _stop_clock( "Loading Input Data" )
-
-    # If we don't have an execution ID, generate and set one!
-    if not execution_id:
-        execution_id = str( uuid.uuid4() )
-
-    # Set execution ID on Lambda context
-    # This is needed so it can be accessed inside of the Lambdas
-    # regular code.
-    setattr(
-        context,
-        "execution_id",
-        execution_id
-    )
-
-    return_data = {}
-
-    if execution_mode == "REGULAR":
-        # Catch any exception that occurs and handle it if a catch is defined.
-        handler_parts = os.getenv( "_HANDLER" ).split( "." )
-        executable_path = os.getenv( "LAMBDA_TASK_ROOT" ) + "/" + handler_parts[0]
-
-        _start_clock( "Executing Lambda" )
-
-        process_handler = subprocess.Popen(
-            [
-                os.path.dirname(os.path.realpath(__file__)) + "/runtime",
-                executable_path,
-                json.dumps({
-                    "lambda_input": lambda_input,
-                    "context": context.context_dict,
-                })
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            shell=False,
-            universal_newlines=True,
-            cwd=os.getenv( "LAMBDA_TASK_ROOT" ) + "/",
-        )
-
-        process_stdout, process_stderr = process_handler.communicate()
-
-        _stop_clock( "Executing Lambda" )
-
-        return_data = str( process_stderr ) + str( process_stdout )
-        return_data = return_data.strip()
-
-        if process_handler.returncode == 0:
-            return_data = str( process_stderr ) + str( process_stdout )
-            return_data = return_data.strip()
-
-            # We now look for the markers to indicate data is being returned.
-            start_marker = "<REFINERY_OUTPUT_CUSTOM_RUNTIME_START_MARKER>"
-            end_marker = "<REFINERY_OUTPUT_CUSTOM_RUNTIME_END_MARKER>"
-            program_output = ""
-
-            # If we have the marker, pull it out.
-            if start_marker in return_data and end_marker in return_data:
-                return_data_parts = return_data.split( start_marker )
-                program_output = return_data_parts[0]
-                return_data_sub_parts = return_data_parts[1].split( end_marker )
-                return_data_string = return_data_sub_parts[0]
-                try:
-                    return_data = json.loads(
-                        return_data_string
-                    )
-                except:
-                    return_data = return_data_string
-                # Write the output for logging
-                sys.stdout.write( program_output )
-                sys.stdout.flush()
-            else:
-                # Write the output for logging
-                sys.stdout.write( return_data )
-                sys.stdout.flush()
-                # If there's no marker we're not returning anything.
-                # Just return nothing
-                return_data = ""
-        else:
-            error_output = return_data
-
-            error_start_marker = "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_START_MARKER>"
-            error_end_marker = "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_END_MARKER>"
-
-            if error_start_marker in str( error_output ) and error_end_marker in str( error_output ):
-                exception_parts = error_output.split( error_start_marker )
-                error_output = error_output.replace(
-                    error_start_marker,
-                    ""
-                ).replace(
-                    error_end_marker,
-                    ""
-                )
-                exception_data_sub_parts = exception_parts[1].split( error_end_marker )
-                exception_string = exception_data_sub_parts[0]
-            else:
-                exception_string = ""
-
-            _stop_clock( "Executing Lambda" )
-
-            # Invoke all Lambdas to be run when an exception occurs
-            if len( transitions[ "exception" ] ) > 0:
-                if execution_pipeline_logging_level == "LOG_ERRORS" or execution_pipeline_logging_level == "LOG_ALL":
-                    _write_pipeline_logs(
-                        s3_log_bucket,
-                        execution_pipeline_id,
-                        context.invoked_function_arn,
-                        context.function_name,
-                        execution_id,
-                        "CAUGHT_EXCEPTION",
-                        {
-                            "input_data": lambda_input,
-                            "output": error_output,
-                            "exception": exception_string,
-                        },
-                        execution_details
-                    )
-
-                invocation_input_list = []
-                for exception_transition_data in transitions[ "exception" ]:
-                    invocation_input_list.append({
-                        "execution_id": execution_id,
-                        "fan_out_ids": fan_out_ids,
-                        "type": exception_transition_data[ "type" ],
-                        "arn": exception_transition_data[ "arn" ],
-                        "input_data": {
-                            "version": _VERSION,
-                            "exception_text": exception_string,
-                            "input_data": json.loads(
-                                json.dumps(
-                                    lambda_input
-                                )
-                            )
-                        }
-                    })
-
-                # If there's an exception we should stop after invoking the exception case(s).
-                _parallel_invoke( invocation_input_list )
-
-                # Write error to stderr for logging
-                sys.stderr.write( error_output )
-                sys.stderr.flush()
-                custom_runtime.send_error(
-                    request_id,
-                    "", # Just blank output for errors
-                )
-                return
-            else:
-                if execution_pipeline_logging_level == "LOG_ERRORS" or execution_pipeline_logging_level == "LOG_ALL":
-                    _write_pipeline_logs(
-                        s3_log_bucket,
-                        execution_pipeline_id,
-                        context.invoked_function_arn,
-                        context.function_name,
-                        execution_id,
-                        "EXCEPTION",
-                        {
-                            "input_data": lambda_input,
-                            "output": error_output,
-                            "exception": exception_string,
-                        },
-                        execution_details
-                    )
-
-                # Write error to stderr for logging
-                sys.stderr.write( error_output )
-                sys.stderr.flush()
-                custom_runtime.send_error(
-                    request_id,
-                    "", # Just blank output for errors
-                )
-                return
-
-        # Attempt to convert return_data into an actual
-        # object if it's JSON
-        try:
-            return_data = json.loads(
-                return_data
-            )
-        except:
-            pass
-
-    elif execution_mode == "API_ENDPOINT":
-        # Just return the HTTP request event data
-        return_data = lambda_input
-
-    # Stores the invocation data for "if"s and "then"s
-    invocation_input_list = []
-
-    # For fan-outs
-    for fan_out_transition_data in transitions[ "fan-out" ]:
-        if type( return_data ) != list:
-            # Write error to stderr for logging
-            sys.stderr.write(
-                "Error, tried to fan-out without returning a list, returned type " + str( type( return_data ) )
-            )
-            sys.stderr.flush()
-            custom_runtime.send_error(
-                request_id,
-                "", # Just blank output for errors
-            )
-            return
-
-        # Generate fan-out ID
-        fan_out_id = str( uuid.uuid4() )
-
-        # Add to our fan-out IDs
-        new_fan_out_ids = fan_out_ids
-        new_fan_out_ids.append(
-            fan_out_id
-        )
-
-        # Create a list of invocation inputs
-        invocation_list = []
-
-        # Iterate over each item in the return list
-        for return_item_data in return_data:
-            # Create an invocation for it
-            # Convert into JSON so it can be stored in redis
-            invocation_list.append(
-                json.dumps({
-                    "execution_id": execution_id,
-                    "fan_out_ids": new_fan_out_ids,
-                    "type": fan_out_transition_data[ "type" ],
-                    "arn": fan_out_transition_data[ "arn" ],
-                    "input_data": json.loads(
-                        json.dumps(
-                            return_item_data
-                        )
-                    )
-                })
-            )
-
-        # Sets up atomic counter for fan-in
-        invocation_id = gmemory._set_fan_in_data(
-            fan_out_id,
-            invocation_list
-        )
-
-        """
-        Calculate the fan-out invocation speed (A.K.A. the
-        number of spawners we'll spin up to invoke it all).
-        
-        There are three factors for this:
-        * Remaining execution time (to invoke the spawners).
-        * Execution memory (affects how invocating can be done)
-        * Number of invocations to perform
-        
-        The remaining execution time is used as the ceiling
-        and the number of invocations to perform is used to
-        figure out the velocity.
-        """
-        total_lambda_execution_time = int( math.ceil( time.time() - start_time ) ) + int( context.get_remaining_time_in_millis() / 1000 )
-        remaining_seconds = int(
-            math.floor(
-                ( context.get_remaining_time_in_millis() / 1000 )
-            )
-        )
-
-        # Conservative estimates of how many lambdas can
-        # be executed per second for each memory range.
-        # These are pretty low balls but better safe than sorry!
-        if int( context.memory_limit_in_mb ) <= 256:
-            lambdas_per_second = 2
-        elif int( context.memory_limit_in_mb ) <= 576:
-            lambdas_per_second = 10
-        elif int( context.memory_limit_in_mb ) > 576:
-            lambdas_per_second = 13
-
-        # Calculate max number of Lambdas we //could// execute
-        max_lambda_invocations_possible = ( lambdas_per_second * remaining_seconds )
-
-        # Number of invocations we actually have to execute
-        number_of_executions_to_perform = len( invocation_list )
-
-        # Number of invocations a fresh-started Lambda could do
-        # Minus one for the initialization cost that may be incurred
-        total_lambda_executions_per_run = ( lambdas_per_second * ( total_lambda_execution_time - 2 ) )
-
-        # Calculate the number of full runs it'd take to process all the invocations
-        number_of_runs_to_complete = int( math.ceil( float( number_of_executions_to_perform ) / float( total_lambda_executions_per_run ) ) )
-
-        # Now calculate the number of spawners to kick off.
-        if number_of_runs_to_complete <= max_lambda_invocations_possible:
-            # If the number of runs to complete the work is less than the
-            # number of invocations possible we'll just invoke that many
-            # spawner Lambda(s)!
-            fan_out_invocation_speed = number_of_runs_to_complete
-        else:
-            # Otherwise we'll just invoke the max possible
-            fan_out_invocation_speed = max_lambda_invocations_possible
-
-
-        def get_seconds_to_completion( number_of_executions_to_perform, lambdas_per_second, fan_out_invocation_speed ):
-            return ( float( number_of_executions_to_perform ) / float( lambdas_per_second * fan_out_invocation_speed ) )
-
-        seconds_to_complete = get_seconds_to_completion(
-            number_of_executions_to_perform,
-            lambdas_per_second,
-            fan_out_invocation_speed
-        )
-
-        # This is the target seconds we shoot for to spawn everything.
-        target_seconds = 10
-
-        # Keep boosting
-        while seconds_to_complete > target_seconds:
-            seconds_to_complete = get_seconds_to_completion(
-                number_of_executions_to_perform,
-                lambdas_per_second,
-                ( fan_out_invocation_speed + 1 )
-            )
-
-            # If boosting would push us over max Lambda invocations quit out
-            if ( fan_out_invocation_speed + 1 ) > max_lambda_invocations_possible:
-                break
-
-            # Meets criteria so we can up it
-            fan_out_invocation_speed += 1
-
-            # If we meet our target time then we can stop
-            if seconds_to_complete <= target_seconds:
-                break
-
-        seconds_to_complete = get_seconds_to_completion(
-            number_of_executions_to_perform,
-            lambdas_per_second,
-            fan_out_invocation_speed
-        )
-
-        # Invoke self in "spawner" mode X times
-        # where X is invocation speed
-        for i in range( 0, fan_out_invocation_speed ):
-            invocation_input_list.append({
-                "type": "lambda_fan_out",
-                "arn": context.invoked_function_arn,
-                "invocation_id": invocation_id,
-                # Input data is purely to ensure we get idempotency
-                "input_data": {
-                    "why": "idempotency"
-                }
-            })
-
-    # For fan-in
-    for fan_in_transition_data in transitions[ "fan-in" ]:
-        # Get last fan-out ID
-        fan_out_id = fan_out_ids.pop()
-
-        # First we push our returned data into the results list
-        fan_in_results = gmemory._fan_in_operations(
-            fan_out_id,
-            return_data
-        )
-
-        # If we're the final invocation in the fan-in we
-        # will invoke the next Lambda with the return data
-        # array as the input.
-        if fan_in_results:
-            invocation_input_list.append({
-                "execution_id": execution_id,
-                "fan_out_ids": fan_out_ids,
-                "type": "lambda_fan_in",
-                "arn": fan_in_transition_data[ "arn" ],
-                "fan_out_id": fan_out_id
-            })
-
-    # If it's just a then, just invoke the next Lambda
-    for then_transition_data in transitions[ "then" ]:
-        invocation_input_list.append({
-            "execution_id": execution_id,
-            "fan_out_ids": fan_out_ids,
-            "type": then_transition_data[ "type" ],
-            "arn": then_transition_data[ "arn" ],
-            "input_data": json.loads(
-                json.dumps(
-                    return_data
-                )
-            )
-        })
-
-    # If it's an API gateway Lambda we can end it here.
-    if execution_mode == "API_ENDPOINT":
-        # Now we invoke all the queued Lambdas!
-        _parallel_invoke( invocation_input_list )
-
-        custom_runtime.send_response(
-            request_id,
-            json.dumps(
-                _api_endpoint(
-                    lambda_input,
-                    execution_id,
-                    context
-                )
-            )
-        )
-        return
-
-    # Variable to hold if any "if" statements evaluated to true
-    # if one has then we don't execute any "else" statements
-    true_if_evaluation_occured = False
-
-    # Iterate over every if
-    for if_statement_data in transitions[ "if" ]:
-        expression_eval_result = eval( if_statement_data[ "expression" ] )
-
-        if expression_eval_result:
-            invocation_input_list.append({
-                "execution_id": execution_id,
-                "fan_out_ids": fan_out_ids,
-                "type": if_statement_data[ "type" ],
-                "arn": if_statement_data[ "arn" ],
-                "input_data": json.loads(
-                    json.dumps(
-                        return_data
-                    )
-                )
-            })
-
-            true_if_evaluation_occured = True
-
-    # If else is set, call that now
-    if true_if_evaluation_occured == False:
-        for else_transition_data in transitions[ "else" ]:
-            invocation_input_list.append({
-                "execution_id": execution_id,
-                "fan_out_ids": fan_out_ids,
-                "type": else_transition_data[ "type" ],
-                "arn": else_transition_data[ "arn" ],
-                "input_data": json.loads(
-                    json.dumps(
-                        return_data
-                    )
-                )
-            })
-
-    # Now we invoke all the queued Lambdas!
-    _parallel_invoke( invocation_input_list )
-
-    # If pipeline logging is enabled
-    # Write the return data of this Lambda
-    if execution_pipeline_logging_level == "LOG_ALL":
-        _write_pipeline_logs(
-            s3_log_bucket,
-            execution_pipeline_id,
-            context.invoked_function_arn,
-            context.function_name,
-            execution_id,
-            "RETURN",
-            {
-                "input_data": lambda_input,
-                "output": program_output,
-                "return_data": return_data
-            },
-            execution_details
-        )
-
-    # Return the return data as usual
-    custom_runtime.send_response(
-        request_id,
-        json.dumps(
-            return_data
-        )
-    )
-    return
+	start_time = time.time()
+
+	global gmemory
+
+	_start_clock( "Refinery_Memory intialization" )
+	# Make global to enable caching of redis connection
+	gmemory = Refinery_Memory(
+		os.environ[ "REDIS_HOSTNAME" ],
+		os.environ[ "REDIS_PASSWORD" ],
+		os.environ[ "REDIS_PORT" ],
+		context.function_name
+	)
+	_stop_clock( "Refinery_Memory intialization" )
+
+	execution_pipeline_id = os.environ[ "EXECUTION_PIPELINE_ID" ]
+	s3_log_bucket = os.environ[ "LOG_BUCKET_NAME" ]
+	execution_pipeline_logging_level = os.environ[ "PIPELINE_LOGGING_LEVEL" ]
+
+	# If pipeline logging is enabled
+	# We initialize the S3 client to prevent threading bugs
+	if execution_pipeline_logging_level != "LOG_NONE":
+		_start_clock( "S3 Boto Client Initialization" )
+		# Bug fix test
+		s3_client = boto3.client(
+			"s3"
+		)
+		_stop_clock( "S3 Boto Client Initialization" )
+
+	# Bake in AWS region
+	aws_region = os.environ[ "AWS_REGION" ]
+
+	# Indicate a special execution condition
+	# For example, an API Gateway Lambda
+	execution_mode = os.environ[ "EXECUTION_MODE" ]
+
+	# Construct log details for debugging
+	execution_details = {
+		"initialization_time": int( start_time ),
+		"aws_region": aws_region,
+		"group_name": context.log_group_name,
+		"stream_name": context.log_stream_name,
+		"function_name": context.function_name,
+		"function_version": context.function_version,
+		"invoked_function_arn": context.invoked_function_arn,
+		"memory_limit_in_mb": int( context.memory_limit_in_mb ),
+		"aws_request_id": context.aws_request_id
+	}
+
+	# Execution ID, this is an ID which correlates to an execution chain
+	execution_id = False
+
+	# Bake in transition data
+	transitions = json.loads( os.environ[ "TRANSITION_DATA" ] )
+
+	# Set default fan-out IDs list to be empty
+	fan_out_ids = []
+
+	# Throw exceptions fully (for use in tmp-runs, etc)
+	throw_exceptions_fully = False
+
+	_start_clock( "Loading Input Data" )
+	
+	# This is for the SNS topic message case, we just attempt to parse
+	# the JSON at the location we expect it to be. If it fails it's just
+	# because it's not a SNS message and so we can skip it.
+	try:
+		lambda_input = json.loads(
+			lambda_input[ "Records" ][ 0 ][ "Sns" ][ "Message" ]
+		)
+	except:
+		# If we get an exception it's just because it isn't an SNS topic message.
+		# So we just continue on as usual.
+		pass
+
+	# Detect refinery wrapper and unwrap if existant
+	# Else just leave it unmodified
+	if type( lambda_input ) == dict and "_refinery" in lambda_input:
+		# Set execution ID if set
+		if "execution_id" in lambda_input[ "_refinery" ]:
+			execution_id = lambda_input[ "_refinery" ][ "execution_id" ]
+
+		# Set/propogate fan-out ID list if set
+		if "fan_out_ids" in lambda_input[ "_refinery" ]:
+			fan_out_ids = lambda_input[ "_refinery" ][ "fan_out_ids" ]
+
+		# Throw exceptions fully (for use in tmp-runs, etc)
+		if "throw_exceptions_fully" in lambda_input[ "_refinery" ]:
+			throw_exceptions_fully = True
+
+		# Set is invoke status
+		is_spawner_invocation = False
+
+		# We don't immediately invoke ourselves until after loading
+		# useless return data to ensure idempotency
+		if "invoke" in lambda_input[ "_refinery" ]:
+			is_spawner_invocation = True
+			invocation_id = lambda_input[ "_refinery" ][ "invoke" ]
+
+		_side_loaded = False
+		if "indirect" in lambda_input[ "_refinery" ] and lambda_input[ "_refinery" ][ "indirect" ] and "type" in lambda_input[ "_refinery" ][ "indirect" ]:
+			# Input data is stored in redis
+			if lambda_input[ "_refinery" ][ "indirect" ][ "type" ] == "redis":
+				try:
+					lambda_input = gmemory._get_input_data_from_redis(
+						lambda_input[ "_refinery" ][ "indirect" ][ "key" ]
+					)
+				except AlreadyInvokedException as e:
+					print( "This Lambda has already been invoked (or the return data has expired). For this reason we are quitting out." )
+					return
+				_side_loaded = True
+			# Input data is stored in redis as a list from a fan-in
+			elif lambda_input[ "_refinery" ][ "indirect" ][ "type" ] == "redis_fan_in":
+				try:
+					lambda_input = gmemory._fan_in_get_results_data(
+						lambda_input[ "_refinery" ][ "indirect" ][ "key" ]
+					)
+				except AlreadyInvokedException as e:
+					print( "This Lambda has already been invoked (or the return data has expired). For this reason we are quitting out." )
+					return
+				_side_loaded = True
+
+		# If there's an "invoke" key it means we're doing a self-invocation fan-out
+		if is_spawner_invocation:
+			return _spawner(
+				invocation_id,
+				context
+			)
+
+		# Just directly passed input data
+		if not _side_loaded and "input_data" in lambda_input[ "_refinery" ]:
+			lambda_input = lambda_input[ "_refinery" ][ "input_data" ]
+
+	_stop_clock( "Loading Input Data" )
+
+	# If we don't have an execution ID, generate and set one!
+	if not execution_id:
+		execution_id = str( uuid.uuid4() )
+
+	# Set execution ID on Lambda context
+	# This is needed so it can be accessed inside of the Lambdas
+	# regular code.
+	setattr(
+		context,
+		"execution_id",
+		execution_id
+	)
+
+	return_data = {}
+
+	if execution_mode == "REGULAR":
+		# Catch any exception that occurs and handle it if a catch is defined.
+		handler_parts = os.getenv( "_HANDLER" ).split( "." )
+		executable_path = os.getenv( "LAMBDA_TASK_ROOT" ) + "/" + handler_parts[0]
+
+		_start_clock( "Executing Lambda" )
+
+		process_handler = subprocess.Popen(
+			[
+				os.path.dirname(os.path.realpath(__file__)) + "/runtime",
+				executable_path,
+				json.dumps({
+					"lambda_input": lambda_input,
+					"context": context.context_dict,
+				})
+			],
+			stdout=subprocess.PIPE,
+			stderr=subprocess.PIPE,
+			shell=False,
+			universal_newlines=True,
+			cwd=os.getenv( "LAMBDA_TASK_ROOT" ) + "/",
+		)
+
+		process_stdout, process_stderr = process_handler.communicate()
+
+		_stop_clock( "Executing Lambda" )
+
+		return_data = str( process_stderr ) + str( process_stdout )
+		return_data = return_data.strip()
+
+		if process_handler.returncode == 0:
+			return_data = str( process_stderr ) + str( process_stdout )
+			return_data = return_data.strip()
+
+			# We now look for the markers to indicate data is being returned.
+			start_marker = "<REFINERY_OUTPUT_CUSTOM_RUNTIME_START_MARKER>"
+			end_marker = "<REFINERY_OUTPUT_CUSTOM_RUNTIME_END_MARKER>"
+			program_output = ""
+
+			# If we have the marker, pull it out.
+			if start_marker in return_data and end_marker in return_data:
+				return_data_parts = return_data.split( start_marker )
+				program_output = return_data_parts[0]
+				return_data_sub_parts = return_data_parts[1].split( end_marker )
+				return_data_string = return_data_sub_parts[0]
+				try:
+					return_data = json.loads(
+						return_data_string
+					)
+				except:
+					return_data = return_data_string
+				# Write the output for logging
+				sys.stdout.write( program_output )
+				sys.stdout.flush()
+			else:
+				# Write the output for logging
+				sys.stdout.write( return_data )
+				sys.stdout.flush()
+				# If there's no marker we're not returning anything.
+				# Just return nothing
+				return_data = ""
+		else:
+			error_output = return_data
+
+			error_start_marker = "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_START_MARKER>"
+			error_end_marker = "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_END_MARKER>"
+
+			if error_start_marker in str( error_output ) and error_end_marker in str( error_output ):
+				exception_parts = error_output.split( error_start_marker )
+				error_output = error_output.replace(
+					error_start_marker,
+					""
+				).replace(
+					error_end_marker,
+					""
+				)
+				exception_data_sub_parts = exception_parts[1].split( error_end_marker )
+				exception_string = exception_data_sub_parts[0]
+			else:
+				exception_string = ""
+
+			_stop_clock( "Executing Lambda" )
+
+			# Invoke all Lambdas to be run when an exception occurs
+			if len( transitions[ "exception" ] ) > 0:
+				if execution_pipeline_logging_level == "LOG_ERRORS" or execution_pipeline_logging_level == "LOG_ALL":
+					_write_pipeline_logs(
+						s3_log_bucket,
+						execution_pipeline_id,
+						context.invoked_function_arn,
+						context.function_name,
+						execution_id,
+						"CAUGHT_EXCEPTION",
+						{
+							"input_data": lambda_input,
+							"output": error_output,
+							"exception": exception_string,
+						},
+						execution_details
+					)
+
+				invocation_input_list = []
+				for exception_transition_data in transitions[ "exception" ]:
+					invocation_input_list.append({
+						"execution_id": execution_id,
+						"fan_out_ids": fan_out_ids,
+						"type": exception_transition_data[ "type" ],
+						"arn": exception_transition_data[ "arn" ],
+						"input_data": {
+							"version": _VERSION,
+							"exception_text": exception_string,
+							"input_data": json.loads(
+								json.dumps(
+									lambda_input
+								)
+							)
+						}
+					})
+
+				# If there's an exception we should stop after invoking the exception case(s).
+				_parallel_invoke( invocation_input_list )
+
+				# Write error to stderr for logging
+				sys.stderr.write( error_output )
+				sys.stderr.flush()
+				custom_runtime.send_error(
+					request_id,
+					"", # Just blank output for errors
+				)
+				return
+			else:
+				if execution_pipeline_logging_level == "LOG_ERRORS" or execution_pipeline_logging_level == "LOG_ALL":
+					_write_pipeline_logs(
+						s3_log_bucket,
+						execution_pipeline_id,
+						context.invoked_function_arn,
+						context.function_name,
+						execution_id,
+						"EXCEPTION",
+						{
+							"input_data": lambda_input,
+							"output": error_output,
+							"exception": exception_string,
+						},
+						execution_details
+					)
+
+				# Write error to stderr for logging
+				sys.stderr.write( error_output )
+				sys.stderr.flush()
+				custom_runtime.send_error(
+					request_id,
+					"", # Just blank output for errors
+				)
+				return
+
+		# Attempt to convert return_data into an actual
+		# object if it's JSON
+		try:
+			return_data = json.loads(
+				return_data
+			)
+		except:
+			pass
+
+	elif execution_mode == "API_ENDPOINT":
+		# Just return the HTTP request event data
+		return_data = lambda_input
+
+	# Stores the invocation data for "if"s and "then"s
+	invocation_input_list = []
+
+	# For fan-outs
+	for fan_out_transition_data in transitions[ "fan-out" ]:
+		if type( return_data ) != list:
+			# Write error to stderr for logging
+			sys.stderr.write(
+				"Error, tried to fan-out without returning a list, returned type " + str( type( return_data ) )
+			)
+			sys.stderr.flush()
+			custom_runtime.send_error(
+				request_id,
+				"", # Just blank output for errors
+			)
+			return
+
+		# Generate fan-out ID
+		fan_out_id = str( uuid.uuid4() )
+
+		# Add to our fan-out IDs
+		new_fan_out_ids = fan_out_ids
+		new_fan_out_ids.append(
+			fan_out_id
+		)
+
+		# Create a list of invocation inputs
+		invocation_list = []
+
+		# Iterate over each item in the return list
+		for return_item_data in return_data:
+			# Create an invocation for it
+			# Convert into JSON so it can be stored in redis
+			invocation_list.append(
+				json.dumps({
+					"execution_id": execution_id,
+					"fan_out_ids": new_fan_out_ids,
+					"type": fan_out_transition_data[ "type" ],
+					"arn": fan_out_transition_data[ "arn" ],
+					"input_data": json.loads(
+						json.dumps(
+							return_item_data
+						)
+					)
+				})
+			)
+
+		# Sets up atomic counter for fan-in
+		invocation_id = gmemory._set_fan_in_data(
+			fan_out_id,
+			invocation_list
+		)
+
+		"""
+		Calculate the fan-out invocation speed (A.K.A. the
+		number of spawners we'll spin up to invoke it all).
+		
+		There are three factors for this:
+		* Remaining execution time (to invoke the spawners).
+		* Execution memory (affects how invocating can be done)
+		* Number of invocations to perform
+		
+		The remaining execution time is used as the ceiling
+		and the number of invocations to perform is used to
+		figure out the velocity.
+		"""
+		total_lambda_execution_time = int( math.ceil( time.time() - start_time ) ) + int( context.get_remaining_time_in_millis() / 1000 )
+		remaining_seconds = int(
+			math.floor(
+				( context.get_remaining_time_in_millis() / 1000 )
+			)
+		)
+
+		# Conservative estimates of how many lambdas can
+		# be executed per second for each memory range.
+		# These are pretty low balls but better safe than sorry!
+		if int( context.memory_limit_in_mb ) <= 256:
+			lambdas_per_second = 2
+		elif int( context.memory_limit_in_mb ) <= 576:
+			lambdas_per_second = 10
+		elif int( context.memory_limit_in_mb ) > 576:
+			lambdas_per_second = 13
+
+		# Calculate max number of Lambdas we //could// execute
+		max_lambda_invocations_possible = ( lambdas_per_second * remaining_seconds )
+
+		# Number of invocations we actually have to execute
+		number_of_executions_to_perform = len( invocation_list )
+
+		# Number of invocations a fresh-started Lambda could do
+		# Minus one for the initialization cost that may be incurred
+		total_lambda_executions_per_run = ( lambdas_per_second * ( total_lambda_execution_time - 2 ) )
+
+		# Calculate the number of full runs it'd take to process all the invocations
+		number_of_runs_to_complete = int( math.ceil( float( number_of_executions_to_perform ) / float( total_lambda_executions_per_run ) ) )
+
+		# Now calculate the number of spawners to kick off.
+		if number_of_runs_to_complete <= max_lambda_invocations_possible:
+			# If the number of runs to complete the work is less than the
+			# number of invocations possible we'll just invoke that many
+			# spawner Lambda(s)!
+			fan_out_invocation_speed = number_of_runs_to_complete
+		else:
+			# Otherwise we'll just invoke the max possible
+			fan_out_invocation_speed = max_lambda_invocations_possible
+
+
+		def get_seconds_to_completion( number_of_executions_to_perform, lambdas_per_second, fan_out_invocation_speed ):
+			return ( float( number_of_executions_to_perform ) / float( lambdas_per_second * fan_out_invocation_speed ) )
+
+		seconds_to_complete = get_seconds_to_completion(
+			number_of_executions_to_perform,
+			lambdas_per_second,
+			fan_out_invocation_speed
+		)
+
+		# This is the target seconds we shoot for to spawn everything.
+		target_seconds = 10
+
+		# Keep boosting
+		while seconds_to_complete > target_seconds:
+			seconds_to_complete = get_seconds_to_completion(
+				number_of_executions_to_perform,
+				lambdas_per_second,
+				( fan_out_invocation_speed + 1 )
+			)
+
+			# If boosting would push us over max Lambda invocations quit out
+			if ( fan_out_invocation_speed + 1 ) > max_lambda_invocations_possible:
+				break
+
+			# Meets criteria so we can up it
+			fan_out_invocation_speed += 1
+
+			# If we meet our target time then we can stop
+			if seconds_to_complete <= target_seconds:
+				break
+
+		seconds_to_complete = get_seconds_to_completion(
+			number_of_executions_to_perform,
+			lambdas_per_second,
+			fan_out_invocation_speed
+		)
+
+		# Invoke self in "spawner" mode X times
+		# where X is invocation speed
+		for i in range( 0, fan_out_invocation_speed ):
+			invocation_input_list.append({
+				"type": "lambda_fan_out",
+				"arn": context.invoked_function_arn,
+				"invocation_id": invocation_id,
+				# Input data is purely to ensure we get idempotency
+				"input_data": {
+					"why": "idempotency"
+				}
+			})
+
+	# For fan-in
+	for fan_in_transition_data in transitions[ "fan-in" ]:
+		# Get last fan-out ID
+		fan_out_id = fan_out_ids.pop()
+
+		# First we push our returned data into the results list
+		fan_in_results = gmemory._fan_in_operations(
+			fan_out_id,
+			return_data
+		)
+
+		# If we're the final invocation in the fan-in we
+		# will invoke the next Lambda with the return data
+		# array as the input.
+		if fan_in_results:
+			invocation_input_list.append({
+				"execution_id": execution_id,
+				"fan_out_ids": fan_out_ids,
+				"type": "lambda_fan_in",
+				"arn": fan_in_transition_data[ "arn" ],
+				"fan_out_id": fan_out_id
+			})
+
+	# If it's just a then, just invoke the next Lambda
+	for then_transition_data in transitions[ "then" ]:
+		invocation_input_list.append({
+			"execution_id": execution_id,
+			"fan_out_ids": fan_out_ids,
+			"type": then_transition_data[ "type" ],
+			"arn": then_transition_data[ "arn" ],
+			"input_data": json.loads(
+				json.dumps(
+					return_data
+				)
+			)
+		})
+
+	# If it's an API gateway Lambda we can end it here.
+	if execution_mode == "API_ENDPOINT":
+		# Now we invoke all the queued Lambdas!
+		_parallel_invoke( invocation_input_list )
+
+		custom_runtime.send_response(
+			request_id,
+			json.dumps(
+				_api_endpoint(
+					lambda_input,
+					execution_id,
+					context
+				)
+			)
+		)
+		return
+
+	# Variable to hold if any "if" statements evaluated to true
+	# if one has then we don't execute any "else" statements
+	true_if_evaluation_occured = False
+
+	# Iterate over every if
+	for if_statement_data in transitions[ "if" ]:
+		expression_eval_result = eval( if_statement_data[ "expression" ] )
+
+		if expression_eval_result:
+			invocation_input_list.append({
+				"execution_id": execution_id,
+				"fan_out_ids": fan_out_ids,
+				"type": if_statement_data[ "type" ],
+				"arn": if_statement_data[ "arn" ],
+				"input_data": json.loads(
+					json.dumps(
+						return_data
+					)
+				)
+			})
+
+			true_if_evaluation_occured = True
+
+	# If else is set, call that now
+	if true_if_evaluation_occured == False:
+		for else_transition_data in transitions[ "else" ]:
+			invocation_input_list.append({
+				"execution_id": execution_id,
+				"fan_out_ids": fan_out_ids,
+				"type": else_transition_data[ "type" ],
+				"arn": else_transition_data[ "arn" ],
+				"input_data": json.loads(
+					json.dumps(
+						return_data
+					)
+				)
+			})
+
+	# Now we invoke all the queued Lambdas!
+	_parallel_invoke( invocation_input_list )
+
+	# If pipeline logging is enabled
+	# Write the return data of this Lambda
+	if execution_pipeline_logging_level == "LOG_ALL":
+		_write_pipeline_logs(
+			s3_log_bucket,
+			execution_pipeline_id,
+			context.invoked_function_arn,
+			context.function_name,
+			execution_id,
+			"RETURN",
+			{
+				"input_data": lambda_input,
+				"output": program_output,
+				"return_data": return_data
+			},
+			execution_details
+		)
+
+	# Return the return data as usual
+	custom_runtime.send_response(
+		request_id,
+		json.dumps(
+			return_data
+		)
+	)
+	return
 
 """
 {
@@ -1508,135 +1520,135 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 """
 _CLOCK_TIMES = {}
 def _start_clock( action_name ):
-    return
-    global _CLOCK_TIMES
-    _CLOCK_TIMES[ action_name ] = {
-        "start": datetime.datetime.now(),
-        "end": 0,
-        "total": 0,
-    }
+	return
+	global _CLOCK_TIMES
+	_CLOCK_TIMES[ action_name ] = {
+		"start": datetime.datetime.now(),
+		"end": 0,
+		"total": 0,
+	}
 
 def _stop_clock( action_name ):
-    return
-    global _CLOCK_TIMES
-    _CLOCK_TIMES[ action_name ][ "end" ] = datetime.datetime.now()
-    _CLOCK_TIMES[ action_name ][ "total" ] = (
-            (
-                    time.mktime(_CLOCK_TIMES[ action_name ][ "end" ].timetuple())*1e3 + _CLOCK_TIMES[ action_name ][ "end" ].microsecond/1e3
-            ) - (
-                    time.mktime(_CLOCK_TIMES[ action_name ][ "start" ].timetuple())*1e3 + _CLOCK_TIMES[ action_name ][ "start" ].microsecond/1e3
-            )
-    )
-    print( "[ INFO ] The action '" + action_name + "' took " + str( ( _CLOCK_TIMES[ action_name ][ "total" ] * 0.001 ) ) + " second(s)." )
+	return
+	global _CLOCK_TIMES
+	_CLOCK_TIMES[ action_name ][ "end" ] = datetime.datetime.now()
+	_CLOCK_TIMES[ action_name ][ "total" ] = (
+			(
+					time.mktime(_CLOCK_TIMES[ action_name ][ "end" ].timetuple())*1e3 + _CLOCK_TIMES[ action_name ][ "end" ].microsecond/1e3
+			) - (
+					time.mktime(_CLOCK_TIMES[ action_name ][ "start" ].timetuple())*1e3 + _CLOCK_TIMES[ action_name ][ "start" ].microsecond/1e3
+			)
+	)
+	print( "[ INFO ] The action '" + action_name + "' took " + str( ( _CLOCK_TIMES[ action_name ][ "total" ] * 0.001 ) ) + " second(s)." )
 
 class CustomRuntime():
-    """
-    This custom runtime will run a given script with a custom interpreter.
+	"""
+	This custom runtime will run a given script with a custom interpreter.
 
-    The executed script is expected to return data in the following format:
+	The executed script is expected to return data in the following format:
 
-    {
-        "output": "Running script...\nDone!",
-        "return_data": "123",
-    }
-    """
-    def __init__( self ):
-        runtime_endpoint = os.getenv( "AWS_LAMBDA_RUNTIME_API" )
-        handler = os.getenv( "_HANDLER" )
-        handler_parts = handler.split( "." )
-        handler_file = handler_parts[0]
-        handler_function = handler_parts[1]
-        self.base_invocation_uri = "http://" + runtime_endpoint + "/2018-06-01/runtime/invocation"
+	{
+		"output": "Running script...\nDone!",
+		"return_data": "123",
+	}
+	"""
+	def __init__( self ):
+		runtime_endpoint = os.getenv( "AWS_LAMBDA_RUNTIME_API" )
+		handler = os.getenv( "_HANDLER" )
+		handler_parts = handler.split( "." )
+		handler_file = handler_parts[0]
+		handler_function = handler_parts[1]
+		self.base_invocation_uri = "http://" + runtime_endpoint + "/2018-06-01/runtime/invocation"
 
-    def process_next_event( self ):
-        event_data = self.get_next_invocation()
+	def process_next_event( self ):
+		event_data = self.get_next_invocation()
 
-        context_dict = {
-            "function_name": os.getenv( "AWS_LAMBDA_FUNCTION_NAME" ),
-            "function_version": os.getenv( "AWS_LAMBDA_FUNCTION_VERSION" ),
-            "invoked_function_arn": event_data[ "invoked_arn" ],
-            "memory_limit_in_mb": os.getenv( "AWS_LAMBDA_FUNCTION_MEMORY_SIZE" ),
-            "aws_request_id": event_data[ "request_id" ],
-            "log_group_name": os.getenv( "AWS_LAMBDA_LOG_GROUP_NAME" ),
-            "log_stream_name": os.getenv( "AWS_LAMBDA_LOG_STREAM_NAME" ),
-            "deadline_ms": event_data[ "deadline_ms" ]
-        }
+		context_dict = {
+			"function_name": os.getenv( "AWS_LAMBDA_FUNCTION_NAME" ),
+			"function_version": os.getenv( "AWS_LAMBDA_FUNCTION_VERSION" ),
+			"invoked_function_arn": event_data[ "invoked_arn" ],
+			"memory_limit_in_mb": os.getenv( "AWS_LAMBDA_FUNCTION_MEMORY_SIZE" ),
+			"aws_request_id": event_data[ "request_id" ],
+			"log_group_name": os.getenv( "AWS_LAMBDA_LOG_GROUP_NAME" ),
+			"log_stream_name": os.getenv( "AWS_LAMBDA_LOG_STREAM_NAME" ),
+			"deadline_ms": event_data[ "deadline_ms" ]
+		}
 
-        # Create a context object
-        class ContextObject():
-            def __init__( self, context_dict ):
-                # Set values of context object to context dict
-                for key, value in context_dict.iteritems():
-                    setattr( self, key, value )
+		# Create a context object
+		class ContextObject():
+			def __init__( self, context_dict ):
+				# Set values of context object to context dict
+				for key, value in context_dict.iteritems():
+					setattr( self, key, value )
 
-                # Set inner dict
-                self.context_dict = context_dict
+				# Set inner dict
+				self.context_dict = context_dict
 
-            def get_remaining_time_in_millis( self ):
-                return self.deadline_ms - int( time.time() * 1000 )
+			def get_remaining_time_in_millis( self ):
+				return self.deadline_ms - int( time.time() * 1000 )
 
-        _start_clock( "Context Object Initialization" )
-        new_context = ContextObject( context_dict )
-        _stop_clock( "Context Object Initialization" )
+		_start_clock( "Context Object Initialization" )
+		new_context = ContextObject( context_dict )
+		_stop_clock( "Context Object Initialization" )
 
-        lambda_input = event_data[ "event_data" ]
+		lambda_input = event_data[ "event_data" ]
 
-        try:
-            lambda_input = json.loads(
-                lambda_input
-            )
-        except:
-            pass
+		try:
+			lambda_input = json.loads(
+				lambda_input
+			)
+		except:
+			pass
 
-        # Run through the custom Refinery runtime.
-        return _init(
-            self,
-            event_data[ "request_id" ],
-            lambda_input,
-            new_context
-        )
+		# Run through the custom Refinery runtime.
+		return _init(
+			self,
+			event_data[ "request_id" ],
+			lambda_input,
+			new_context
+		)
 
-    def get_next_invocation( self ):
-        response = http.request(
-            "GET",
-            self.base_invocation_uri + "/next"
-        )
+	def get_next_invocation( self ):
+		response = http.request(
+			"GET",
+			self.base_invocation_uri + "/next"
+		)
 
-        return {
-            "deadline_ms": int( response.headers[ "Lambda-Runtime-Deadline-Ms" ] ),
-            "invoked_arn": response.headers[ "Lambda-Runtime-Invoked-Function-Arn" ],
-            "request_id": response.headers[ "Lambda-Runtime-Aws-Request-Id" ],
-            "event_data": response.data
-        }
+		return {
+			"deadline_ms": int( response.headers[ "Lambda-Runtime-Deadline-Ms" ] ),
+			"invoked_arn": response.headers[ "Lambda-Runtime-Invoked-Function-Arn" ],
+			"request_id": response.headers[ "Lambda-Runtime-Aws-Request-Id" ],
+			"event_data": response.data
+		}
 
-    def send_response( self, request_id, return_data ):
-        response = http.request(
-            "POST",
-            self.base_invocation_uri + "/" + request_id + "/response",
-            body=json.dumps(
-                return_data
-            ),
-            headers={
-                "Content-Type": "application/json",
-            }
-        )
+	def send_response( self, request_id, return_data ):
+		response = http.request(
+			"POST",
+			self.base_invocation_uri + "/" + request_id + "/response",
+			body=json.dumps(
+				return_data
+			),
+			headers={
+				"Content-Type": "application/json",
+			}
+		)
 
-    def send_error( self, request_id, error_data ):
-        response = http.request(
-            "POST",
-            self.base_invocation_uri + "/" + request_id + "/error",
-            body=json.dumps(
-                error_data
-            ),
-            headers={
-                "Content-Type": "application/json",
-            }
-        )
+	def send_error( self, request_id, error_data ):
+		response = http.request(
+			"POST",
+			self.base_invocation_uri + "/" + request_id + "/error",
+			body=json.dumps(
+				error_data
+			),
+			headers={
+				"Content-Type": "application/json",
+			}
+		)
 
 # We'll be called by the AWS Custom Runtime agent
 if __name__ == "__main__":
-    new_runtime = CustomRuntime()
+	new_runtime = CustomRuntime()
 
-    # Loop infinitely to keep processing events
-    while True:
-        new_runtime.process_next_event()
+	# Loop infinitely to keep processing events
+	while True:
+		new_runtime.process_next_event()
