@@ -2458,9 +2458,6 @@ class TaskSpawner(object):
 			# S3 object key of the build package, randomly generated.
 			s3_key = "buildspecs/" + str( uuid.uuid4() ) + ".zip"
 			
-			print( "S3 key: " )
-			print( s3_key )
-			
 			# Write the CodeBuild build package to S3
 			s3_response = s3_client.put_object(
 				Bucket=credentials[ "lambda_packages_bucket" ],
@@ -3868,10 +3865,15 @@ class TaskSpawner(object):
 				credentials
 			)
 			
-			response = api_gateway_client.delete_resource(
-				restApiId=rest_api_id,
-				resourceId=resource_id,
-			)
+			try:
+				response = api_gateway_client.delete_resource(
+					restApiId=rest_api_id,
+					resourceId=resource_id,
+				)
+			except botocore.exceptions.ClientError as boto_error:
+				# If it's not an NotFoundException exception it's not what we except so we re-raise
+				if boto_error.response[ "Error" ][ "Code" ] != "NotFoundException":
+					raise
 			
 			return {
 				"rest_api_id": rest_api_id,
@@ -4838,7 +4840,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 			for workflow_state in diagram_data[ "workflow_states" ]:
 				if workflow_state[ "id" ] == deployed_api_endpoint[ "id" ]:
 					logit( "Setting up route " + workflow_state[ "http_method" ] + " " + workflow_state[ "api_path" ] + " for API Endpoint '" + workflow_state[ "name" ] + "'..." )
-					
+					"""
 					api_route_futures.append(
 						create_lambda_api_route(
 							credentials,
@@ -4849,9 +4851,19 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 							True
 						)
 					)
+					"""
+					yield create_lambda_api_route(
+						credentials,
+						api_gateway_id,
+						workflow_state[ "http_method" ],
+						workflow_state[ "api_path" ],
+						deployed_api_endpoint[ "name" ],
+						True
+					)
+					
 					
 		logit( "Waiting until all routes are deployed..." )
-		yield api_route_futures
+		#yield api_route_futures
 		
 		logit( "Now deploying API gateway to stage..." )
 		deploy_stage_results = yield local_tasks.deploy_api_gateway_to_stage(
@@ -5909,6 +5921,7 @@ def create_lambda_api_route( credentials, api_gateway_id, http_method, route, la
 		credentials,
 		api_gateway_id
 	)
+	
 	base_resource_id = resources[ 0 ][ "id" ]
 	
 	# Create a map of paths to verify existance later
@@ -6639,9 +6652,6 @@ class EmailLinkAuthentication( BaseHandler ):
 		user_organization = session.query( Organization ).filter_by(
 			id=email_authentication_token.user.organization_id
 		).first()
-		
-		print( "User organization: " )
-		print( user_organization )
 		
 		# Check if the user has previously authenticated via
 		# their email address. If not we'll mark their email

@@ -752,7 +752,7 @@ def _api_endpoint( lambda_input, execution_id, context ):
 
     # Check if the response is actually in an API Gateway already
     # If not return as just regular JSON, if it is then return raw
-    if "body" in http_response:
+    if type( http_response ) == dict and "body" in http_response:
         return http_response
 
     # Return JSON response with the data
