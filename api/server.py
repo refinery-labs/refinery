@@ -98,13 +98,12 @@ def on_start():
 	CUSTOM_RUNTIME_LANGUAGES = [
 		"nodejs8.10",
 		"php7.3",
-		"go1.12"
+		"go1.12",
+		"python2.7"
 	]
 	
 	LAMBDA_BASE_LIBRARIES = {
-		"python2.7": [
-			"redis",
-		],
+		"python2.7": [],
 		"nodejs8.10": [],
 		"php7.3": [],
 		"go1.12": [],
@@ -3058,12 +3057,6 @@ class TaskSpawner(object):
 
 			# Get customized base code
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "python2.7" ]
-			
-			for init_library in LAMBDA_BASE_LIBRARIES[ "python2.7" ]:
-				if not init_library in libraries:
-					libraries.append(
-						init_library
-					)
 					
 			base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
 			if len( libraries ) > 0:
@@ -3077,7 +3070,7 @@ class TaskSpawner(object):
 				
 			with zipfile.ZipFile( lambda_package_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
 				info = zipfile.ZipInfo(
-					"lambda.py"
+					"lambda"
 				)
 				info.external_attr = 0777 << 16L
 				
@@ -4365,7 +4358,7 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		layers.append(
-			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-node810-custom-runtime:3"
+			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-node810-custom-runtime:1"
 		)
 	elif language == "php7.3":
 		layers.append(
@@ -4374,6 +4367,10 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	elif language == "go1.12":
 		layers.append(
 			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-go112-custom-runtime:1"
+		)
+	elif language == "python2.7":
+		layers.append(
+			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-python27-custom-runtime:1"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
@@ -7149,13 +7146,6 @@ def get_user_free_trial_information( input_user ):
 	
 @gen.coroutine
 def is_build_package_cached( credentials, language, libraries ):
-	# Edge case for python2.7 because of the tight custom-runtime
-	# integration which requires the redis library
-	if language == "python2.7" and not ( "redis" in libraries ):
-		libraries.append(
-			"redis"
-		)
-	
 	# TODO just accept a dict/object in of an
 	# array followed by converting it to one.
 	libraries_dict = {}
@@ -7245,13 +7235,6 @@ class BuildLibrariesPackage( BaseHandler ):
 		
 		current_user = self.get_authenticated_user()
 		credentials = self.get_authenticated_user_cloud_configuration()
-		
-		# Edge case for python2.7 because of the tight custom-runtime
-		# integration which requires the redis library
-		if self.json[ "language" ] == "python2.7" and not ( "redis" in self.json[ "libraries" ] ):
-			self.json[ "libraries" ].append(
-				"redis"
-			)
 		
 		# TODO just accept a dict/object in of an
 		# array followed by converting it to one.
