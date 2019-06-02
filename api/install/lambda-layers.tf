@@ -21,3 +21,11 @@ resource "aws_lambda_layer_version" "refinery-go112-custom-runtime" {
 
   compatible_runtimes = ["provided"]
 }
+
+resource "aws_lambda_layer_version" "refinery-python27-custom-runtime" {
+  filename = "python2.7-custom-runtime.zip"
+  layer_name = "refinery-python27-custom-runtime"
+  description = "Refinery Python 2.7 custom runtime layer."
+
+  compatible_runtimes = ["provided"]
+}

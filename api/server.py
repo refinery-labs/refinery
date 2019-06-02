@@ -98,13 +98,12 @@ def on_start():
 	CUSTOM_RUNTIME_LANGUAGES = [
 		"nodejs8.10",
 		"php7.3",
-		"go1.12"
+		"go1.12",
+		"python2.7"
 	]
 	
 	LAMBDA_BASE_LIBRARIES = {
-		"python2.7": [
-			"redis",
-		],
+		"python2.7": [],
 		"nodejs8.10": [],
 		"php7.3": [],
 		"go1.12": [],
@@ -2458,9 +2457,6 @@ class TaskSpawner(object):
 			# S3 object key of the build package, randomly generated.
 			s3_key = "buildspecs/" + str( uuid.uuid4() ) + ".zip"
 			
-			print( "S3 key: " )
-			print( s3_key )
-			
 			# Write the CodeBuild build package to S3
 			s3_response = s3_client.put_object(
 				Bucket=credentials[ "lambda_packages_bucket" ],
@@ -3061,12 +3057,6 @@ class TaskSpawner(object):
 
 			# Get customized base code
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "python2.7" ]
-			
-			for init_library in LAMBDA_BASE_LIBRARIES[ "python2.7" ]:
-				if not init_library in libraries:
-					libraries.append(
-						init_library
-					)
 					
 			base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
 			if len( libraries ) > 0:
@@ -3080,7 +3070,7 @@ class TaskSpawner(object):
 				
 			with zipfile.ZipFile( lambda_package_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
 				info = zipfile.ZipInfo(
-					"lambda.py"
+					"lambda"
 				)
 				info.external_attr = 0777 << 16L
 				
@@ -3868,10 +3858,15 @@ class TaskSpawner(object):
 				credentials
 			)
 			
-			response = api_gateway_client.delete_resource(
-				restApiId=rest_api_id,
-				resourceId=resource_id,
-			)
+			try:
+				response = api_gateway_client.delete_resource(
+					restApiId=rest_api_id,
+					resourceId=resource_id,
+				)
+			except botocore.exceptions.ClientError as boto_error:
+				# If it's not an NotFoundException exception it's not what we except so we re-raise
+				if boto_error.response[ "Error" ][ "Code" ] != "NotFoundException":
+					raise
 			
 			return {
 				"rest_api_id": rest_api_id,
@@ -4373,6 +4368,10 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		layers.append(
 			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-go112-custom-runtime:1"
 		)
+	elif language == "python2.7":
+		layers.append(
+			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-python27-custom-runtime:1"
+		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
 		credentials,
@@ -4838,7 +4837,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 			for workflow_state in diagram_data[ "workflow_states" ]:
 				if workflow_state[ "id" ] == deployed_api_endpoint[ "id" ]:
 					logit( "Setting up route " + workflow_state[ "http_method" ] + " " + workflow_state[ "api_path" ] + " for API Endpoint '" + workflow_state[ "name" ] + "'..." )
-					
+					"""
 					api_route_futures.append(
 						create_lambda_api_route(
 							credentials,
@@ -4849,9 +4848,19 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 							True
 						)
 					)
+					"""
+					yield create_lambda_api_route(
+						credentials,
+						api_gateway_id,
+						workflow_state[ "http_method" ],
+						workflow_state[ "api_path" ],
+						deployed_api_endpoint[ "name" ],
+						True
+					)
+					
 					
 		logit( "Waiting until all routes are deployed..." )
-		yield api_route_futures
+		#yield api_route_futures
 		
 		logit( "Now deploying API gateway to stage..." )
 		deploy_stage_results = yield local_tasks.deploy_api_gateway_to_stage(
@@ -5909,6 +5918,7 @@ def create_lambda_api_route( credentials, api_gateway_id, http_method, route, la
 		credentials,
 		api_gateway_id
 	)
+	
 	base_resource_id = resources[ 0 ][ "id" ]
 	
 	# Create a map of paths to verify existance later
@@ -6640,9 +6650,6 @@ class EmailLinkAuthentication( BaseHandler ):
 			id=email_authentication_token.user.organization_id
 		).first()
 		
-		print( "User organization: " )
-		print( user_organization )
-		
 		# Check if the user has previously authenticated via
 		# their email address. If not we'll mark their email
 		# as validated as well.
@@ -7139,13 +7146,6 @@ def get_user_free_trial_information( input_user ):
 	
 @gen.coroutine
 def is_build_package_cached( credentials, language, libraries ):
-	# Edge case for python2.7 because of the tight custom-runtime
-	# integration which requires the redis library
-	if language == "python2.7" and not ( "redis" in libraries ):
-		libraries.append(
-			"redis"
-		)
-	
 	# TODO just accept a dict/object in of an
 	# array followed by converting it to one.
 	libraries_dict = {}
@@ -7235,13 +7235,6 @@ class BuildLibrariesPackage( BaseHandler ):
 		
 		current_user = self.get_authenticated_user()
 		credentials = self.get_authenticated_user_cloud_configuration()
-		
-		# Edge case for python2.7 because of the tight custom-runtime
-		# integration which requires the redis library
-		if self.json[ "language" ] == "python2.7" and not ( "redis" in self.json[ "libraries" ] ):
-			self.json[ "libraries" ].append(
-				"redis"
-			)
 		
 		# TODO just accept a dict/object in of an
 		# array followed by converting it to one.
