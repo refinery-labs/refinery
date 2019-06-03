@@ -18,6 +18,35 @@ function main( $lambda_input, $context ) {
 	return false;
 }
 `,
+	"go1.12": `package main
+
+import (
+	// The following imports are required
+	// by the Refinery runtime do not remove them!
+	"os"
+	"fmt"
+	"encoding/json"
+	"runtime/debug"
+	// Add your imports below this line
+)
+
+// Modify BlockInput to conform to your input data schema
+type BlockInput struct {
+	Example string \`json:"example"\`
+}
+
+// Modify block_main() appropriately.
+// It must return a JSON-serializable value
+func block_main(block_input []byte, context map[string]interface{}) bool {
+	var unmarshalled_input BlockInput
+	
+	// lambda_input is a byte array of the input to this code block
+	// This is a JSON-serialized value returned from another block.
+	json.Unmarshal(block_input, &unmarshalled_input)
+	
+	return false
+}
+`
 }
 
 var GRAPH_ICONS_ARRAY = [
@@ -926,6 +955,32 @@ function run_deployed_lambda( arn, input_data ) {
 	);
 }
 
+/*
+	Response format is the following for success:
+	{
+	    "result": {
+	        "error": {},
+	        "retries": 0,
+	        "is_error": false,
+	        "version": "$LATEST",
+	        "logs": "START RequestId: 2f715dbe-08a8-4c5f-8864-07a6456a37f8 Version: $LATEST\nhi\nEND RequestId: 2f715dbe-08a8-4c5f-8864-07a6456a37f8\nREPORT RequestId: 2f715dbe-08a8-4c5f-8864-07a6456a37f8\tDuration: 891.30 ms\tBilled Duration: 900 ms \tMemory Size: 128 MB\tMax Memory Used: 61 MB\t\n",
+	        "truncated": false,
+	        "status_code": 200,
+	        "request_id": "2f715dbe-08a8-4c5f-8864-07a6456a37f8",
+	        "response": "pewpew",
+	        "arn": "arn:aws:lambda:us-west-2:575012226766:function:n62bdb81b18ae4eb7b04e9681bd9a26c7"
+	    },
+	    "success": true
+	}
+	
+	Response format for errors:
+	{
+	    "msg": "An error occurred while building the Lambda package.",
+	    "log_output": "[Container] 2019/05/30 20:52:51...raw build log output...",
+	    "success": false
+	}
+	
+*/
 function run_tmp_lambda( language, code, libraries, memory, max_execution_time, input_data, environment_variables, layers ) {
 	return api_request(
 		"POST",
@@ -1240,6 +1295,25 @@ function get_billing_date_range_forecast( start_date, end_date ) {
 }
 
 /*
+	Returns credentials in the following format:
+	{
+	    "success": true,
+	    "console_credentials": {
+	        "username": "refinery-customer",
+	        "signin_url": "https://575012226766.signin.aws.amazon.com/console/?region=us-west-2",
+	        "password": "..."
+	    }
+	}
+*/
+function get_aws_console_credentials() {
+	return api_request(
+		"GET",
+		"api/v1/iam/console_credentials",
+		false
+	);
+}
+
+/*
     Make API request
 */
 async function api_request( method, endpoint, body ) {
@@ -1515,6 +1589,7 @@ var app = new Vue({
 	    	"python2.7": "python",
 	    	"nodejs8.10": "javascript",
 	    	"php7.3": "php",
+	    	"go1.12": "golang",
 	    },
 	    node_types_with_simple_transitions: [
 			{
@@ -3222,24 +3297,38 @@ def example( parameter ):
             	environment_variables = app.project_config[ "environment_variables" ][ app.selected_node ];
             }
             
-            // Execute the Lambda
-			var results = await run_tmp_lambda(
-				app.lambda_language,
-				app.lambda_code,
-				app.lambda_libraries,
-				app.lambda_memory,
-				app.lambda_max_execution_time,
-				app.lambda_input,
-				environment_variables,
-				app.lambda_layers,
-			);
-			
+            try {
+	            // Execute the Lambda
+				var results = await run_tmp_lambda(
+					app.lambda_language,
+					app.lambda_code,
+					app.lambda_libraries,
+					app.lambda_memory,
+					app.lambda_max_execution_time,
+					app.lambda_input,
+					environment_variables,
+					app.lambda_layers,
+				);
+				
+				app.lambda_exec_result = results.result;
+				
+				// Ensure we have un-truncated results
+				app.full_output_checker();
+            } catch ( e ) {
+				// If the build step fails then print out the
+				// full build log so the user can see why
+				app.lambda_exec_result = {
+					"logs": e.log_output,
+					"is_error": true,
+					"error": {
+						"type": "Build Error",
+						"message": "An error occurred while building this Lambda."
+					}
+				}
+            }
+            
 			var delta = Date.now() - start_time;
 			app.lambda_build_time = ( delta / 1000 );
-			app.lambda_exec_result = results.result;
-			
-			// Ensure we have un-truncated results
-			app.full_output_checker();
 		},
 		full_output_checker: async function() {
 			// If logs are full we don't need to poll CloudWatch

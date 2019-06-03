@@ -98,20 +98,22 @@ def on_start():
 	CUSTOM_RUNTIME_LANGUAGES = [
 		"nodejs8.10",
 		"php7.3",
+		"go1.12",
+		"python2.7"
 	]
 	
 	LAMBDA_BASE_LIBRARIES = {
-		"python2.7": [
-			"redis",
-		],
+		"python2.7": [],
 		"nodejs8.10": [],
 		"php7.3": [],
+		"go1.12": [],
 	}
 	
 	LAMBDA_SUPPORTED_LANGUAGES = [
 		"python2.7",
 		"nodejs8.10",
 		"php7.3",
+		"go1.12"
 	]
 	
 	CUSTOM_RUNTIME_CODE = ""
@@ -638,6 +640,11 @@ def get_billing_rounded_float( input_price_float ):
 # Custom exceptions
 class CardIsPrimaryException(Exception):
     pass
+    
+class BuildException(Exception):
+    def __init__( self, input_dict ):
+    	self.msg = input_dict[ "msg" ]
+    	self.build_output = input_dict[ "build_output" ]
 
 class TaskSpawner(object):
 		def __init__(self, loop=None):
@@ -2137,6 +2144,8 @@ class TaskSpawner(object):
 				package_zip_data = TaskSpawner._build_php_73_lambda( credentials, code, libraries )
 			elif language == "nodejs8.10":
 				package_zip_data = TaskSpawner._build_nodejs_810_lambda( credentials, code, libraries )
+			elif language == "go1.12":
+				package_zip_data = TaskSpawner.get_go112_zip( credentials, code )
 				
 			return package_zip_data
 			
@@ -2326,6 +2335,147 @@ class TaskSpawner(object):
 				build_id,
 				final_s3_package_zip_path
 			)
+			
+		@staticmethod
+		def get_go112_zip( credentials, code ):
+			# Kick off CodeBuild
+			build_id = TaskSpawner.start_go112_codebuild(
+				credentials,
+				code
+			)
+			
+			# Since go doesn't have the traditional libraries
+			# files like requirements.txt or package.json we
+			# just use the code as a hash here.
+			libraries_object = { "code": code }
+			
+			final_s3_package_zip_path = TaskSpawner._get_final_zip_package_path(
+				"go1.12",
+				libraries_object
+			)
+			
+			if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
+				return TaskSpawner._read_from_s3(
+					credentials,
+					credentials[ "lambda_packages_bucket" ],
+					final_s3_package_zip_path
+				)
+			
+			# This continually polls for the CodeBuild build to finish
+			# Once it does it returns the raw artifact zip data.
+			return TaskSpawner._get_codebuild_artifact_zip_data(
+				credentials,
+				build_id,
+				final_s3_package_zip_path
+			)
+			
+		@staticmethod
+		def start_go112_codebuild( credentials, code ):
+			code = code + "\n\n" + LAMDBA_BASE_CODES[ "go1.12" ]
+			
+			codebuild_client = get_aws_client(
+				"codebuild",
+				credentials
+			)
+			
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
+			# Create empty zip file
+			codebuild_zip = io.BytesIO( EMPTY_ZIP_DATA )
+			
+			buildspec_template = {
+				"artifacts": {
+					"files": [
+						 "**/*"
+					]
+				},
+				"phases": {
+					"build": {
+						"commands": [
+							"export GOPATH=\"$(pwd)\"",
+							"export GOBIN=$GOPATH/bin",
+							"go get",
+							"go build lambda.go"
+						]
+					},
+					"install": {
+						"runtime-versions": {
+							"golang": 1.12
+						}
+					}
+				},
+				"run-as": "root",
+				"version": 0.2
+			}
+			
+			empty_folders = [
+				"bin",
+				"pkg",
+				"src"
+			]
+			
+			with zipfile.ZipFile( codebuild_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+				# Write buildspec.yml defining the build process
+				buildspec = zipfile.ZipInfo(
+					"buildspec.yml"
+				)
+				buildspec.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					buildspec,
+					yaml.dump(
+						buildspec_template
+					)
+				)
+				
+				# Write the main.go file
+				main_go_file = zipfile.ZipInfo(
+					"lambda.go"
+				)
+				main_go_file.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					main_go_file,
+					str( code )
+				)
+				
+				# Create empty folders for bin, pkg, and src
+				for empty_folder in empty_folders:
+					blank_file = zipfile.ZipInfo(
+						empty_folder + "/blank"
+					)
+					blank_file.external_attr = 0777 << 16L
+					zip_file_handler.writestr(
+						blank_file,
+						""
+					)
+				
+			
+			codebuild_zip_data = codebuild_zip.getvalue()
+			codebuild_zip.close()
+			
+			# S3 object key of the build package, randomly generated.
+			s3_key = "buildspecs/" + str( uuid.uuid4() ) + ".zip"
+			
+			# Write the CodeBuild build package to S3
+			s3_response = s3_client.put_object(
+				Bucket=credentials[ "lambda_packages_bucket" ],
+				Body=codebuild_zip_data,
+				Key=s3_key,
+				ACL="public-read", # THIS HAS TO BE PUBLIC READ FOR SOME FUCKED UP REASON I DONT KNOW WHY
+			)
+			
+			# Fire-off the build
+			codebuild_response = codebuild_client.start_build(
+				projectName="refinery-builds",
+				sourceTypeOverride="S3",
+				sourceLocationOverride=credentials[ "lambda_packages_bucket" ] + "/" + s3_key,
+			)
+			
+			build_id = codebuild_response[ "build" ][ "id" ]
+			
+			return build_id
 			
 		@run_on_executor
 		def start_python27_codebuild( self, credentials, libraries_object ):
@@ -2666,7 +2816,22 @@ class TaskSpawner(object):
 				time.sleep( 2 )
 			
 			if build_status != "SUCCEEDED":
-				raise "Build ID " + build_id + " failed with status code '" + build_status + "'!"
+				# Pull log group
+				log_group_name = build_info[ "logs" ][ "groupName" ]
+				
+				# Pull stream name
+				log_stream_name = build_info[ "logs" ][ "streamName" ]
+				
+				log_output = TaskSpawner._get_lambda_cloudwatch_logs(
+					credentials,
+					log_group_name,
+					log_stream_name
+				)
+				
+				raise BuildException({
+					"msg": "Build ID " + build_id + " failed with status code '" + build_status + "'!",
+					"build_output": log_output,
+				})
 			
 			# We now copy this artifact to a location with a deterministic hash name
 			# so that we can query for its existence and cache previously-build packages.
@@ -2893,12 +3058,6 @@ class TaskSpawner(object):
 
 			# Get customized base code
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "python2.7" ]
-			
-			for init_library in LAMBDA_BASE_LIBRARIES[ "python2.7" ]:
-				if not init_library in libraries:
-					libraries.append(
-						init_library
-					)
 					
 			base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
 			if len( libraries ) > 0:
@@ -2912,7 +3071,7 @@ class TaskSpawner(object):
 				
 			with zipfile.ZipFile( lambda_package_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
 				info = zipfile.ZipInfo(
-					"lambda.py"
+					"lambda"
 				)
 				info.external_attr = 0777 << 16L
 				
@@ -3351,28 +3510,26 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def get_lambda_cloudwatch_logs( self, credentials, arn ):
+		def get_lambda_cloudwatch_logs( self, credentials, log_group_name, stream_id ):
+			return TaskSpawner._get_lambda_cloudwatch_logs( credentials, log_group_name, stream_id )
+		
+		@staticmethod
+		def _get_lambda_cloudwatch_logs( credentials, log_group_name, stream_id ):
 			cloudwatch_logs_client = get_aws_client(
 				"logs",
 				credentials
 			)
 			
-			"""
-			Pull the full logs from CloudWatch
-			"""
-			arn_parts = arn.split( ":" )
-			lambda_name = arn_parts[ -1 ]
-			log_group_name = "/aws/lambda/" + lambda_name
-			
-			# Pull the last stream from CloudWatch
-			# Streams take time to propogate so wait if needed
-			streams_data = cloudwatch_logs_client.describe_log_streams(
-				logGroupName=log_group_name,
-				orderBy="LastEventTime",
-				limit=50
-			)
-			
-			stream_id = streams_data[ "logStreams" ][ 0 ][ "logStreamName" ]
+			if stream_id == False:
+				# Pull the last stream from CloudWatch
+				# Streams take time to propogate so wait if needed
+				streams_data = cloudwatch_logs_client.describe_log_streams(
+					logGroupName=log_group_name,
+					orderBy="LastEventTime",
+					limit=50
+				)
+				
+				stream_id = streams_data[ "logStreams" ][ 0 ][ "logStreamName" ]
 			
 			log_output = ""
 			attempts_remaining = 4
@@ -3702,10 +3859,15 @@ class TaskSpawner(object):
 				credentials
 			)
 			
-			response = api_gateway_client.delete_resource(
-				restApiId=rest_api_id,
-				resourceId=resource_id,
-			)
+			try:
+				response = api_gateway_client.delete_resource(
+					restApiId=rest_api_id,
+					resourceId=resource_id,
+				)
+			except botocore.exceptions.ClientError as boto_error:
+				# If it's not an NotFoundException exception it's not what we except so we re-raise
+				if boto_error.response[ "Error" ][ "Code" ] != "NotFoundException":
+					raise
 			
 			return {
 				"rest_api_id": rest_api_id,
@@ -4070,29 +4232,37 @@ class RunTmpLambda( BaseHandler ):
 		
 		random_node_id = get_random_node_id()
 		
-		lambda_info = yield deploy_lambda(
-			credentials,
-			random_node_id,
-			random_node_id,
-			self.json[ "language" ],
-			self.json[ "code" ],
-			self.json[ "libraries" ],
-			self.json[ "max_execution_time" ],
-			self.json[ "memory" ], # MB of execution memory
-			{
-				"then": [],
-				"exception": [],
-				"fan-out": [],
-				"else": [],
-				"fan-in": [],
-				"if": []
-			},
-			"REGULAR",
-			"SHOULD_NEVER_HAPPEN_TMP_LAMBDA_RUN", # Doesn't matter no logging is enabled
-			"LOG_NONE",
-			self.json[ "environment_variables" ], # Env list
-			self.json[ "layers" ]
-		)
+		try:
+			lambda_info = yield deploy_lambda(
+				credentials,
+				random_node_id,
+				random_node_id,
+				self.json[ "language" ],
+				self.json[ "code" ],
+				self.json[ "libraries" ],
+				self.json[ "max_execution_time" ],
+				self.json[ "memory" ], # MB of execution memory
+				{
+					"then": [],
+					"exception": [],
+					"fan-out": [],
+					"else": [],
+					"fan-in": [],
+					"if": []
+				},
+				"REGULAR",
+				"SHOULD_NEVER_HAPPEN_TMP_LAMBDA_RUN", # Doesn't matter no logging is enabled
+				"LOG_NONE",
+				self.json[ "environment_variables" ], # Env list
+				self.json[ "layers" ]
+			)
+		except BuildException as build_exception:
+			self.write({
+				"success": False,
+				"msg": "An error occurred while building the Lambda package.",
+				"log_output": build_exception.build_output
+			})
+			raise gen.Return()
 		
 		# Try to parse Lambda input as JSON
 		try:
@@ -4194,6 +4364,14 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	elif language == "php7.3":
 		layers.append(
 			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-php73-custom-runtime:1"
+		)
+	elif language == "go1.12":
+		layers.append(
+			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-go112-custom-runtime:1"
+		)
+	elif language == "python2.7":
+		layers.append(
+			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-python27-custom-runtime:1"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
@@ -4660,7 +4838,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 			for workflow_state in diagram_data[ "workflow_states" ]:
 				if workflow_state[ "id" ] == deployed_api_endpoint[ "id" ]:
 					logit( "Setting up route " + workflow_state[ "http_method" ] + " " + workflow_state[ "api_path" ] + " for API Endpoint '" + workflow_state[ "name" ] + "'..." )
-					
+					"""
 					api_route_futures.append(
 						create_lambda_api_route(
 							credentials,
@@ -4671,9 +4849,19 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 							True
 						)
 					)
+					"""
+					yield create_lambda_api_route(
+						credentials,
+						api_gateway_id,
+						workflow_state[ "http_method" ],
+						workflow_state[ "api_path" ],
+						deployed_api_endpoint[ "name" ],
+						True
+					)
+					
 					
 		logit( "Waiting until all routes are deployed..." )
-		yield api_route_futures
+		#yield api_route_futures
 		
 		logit( "Now deploying API gateway to stage..." )
 		deploy_stage_results = yield local_tasks.deploy_api_gateway_to_stage(
@@ -5731,6 +5919,7 @@ def create_lambda_api_route( credentials, api_gateway_id, http_method, route, la
 		credentials,
 		api_gateway_id
 	)
+	
 	base_resource_id = resources[ 0 ][ "id" ]
 	
 	# Create a map of paths to verify existance later
@@ -6211,9 +6400,15 @@ class GetCloudWatchLogsForLambda( BaseHandler ):
 		
 		logit( "Retrieving CloudWatch logs..." )
 		
+		arn = self.json[ "arn" ]
+		arn_parts = arn.split( ":" )
+		lambda_name = arn_parts[ -1 ]
+		log_group_name = "/aws/lambda/" + lambda_name
+		
 		log_output = yield local_tasks.get_lambda_cloudwatch_logs(
 			self.get_authenticated_user_cloud_configuration(),
-			self.json[ "arn" ]
+			log_group_name,
+			False
 		)
 		
 		truncated = True
@@ -6459,9 +6654,6 @@ class EmailLinkAuthentication( BaseHandler ):
 		user_organization = session.query( Organization ).filter_by(
 			id=email_authentication_token.user.organization_id
 		).first()
-		
-		print( "User organization: " )
-		print( user_organization )
 		
 		# Check if the user has previously authenticated via
 		# their email address. If not we'll mark their email
@@ -6961,13 +7153,6 @@ def get_user_free_trial_information( input_user ):
 	
 @gen.coroutine
 def is_build_package_cached( credentials, language, libraries ):
-	# Edge case for python2.7 because of the tight custom-runtime
-	# integration which requires the redis library
-	if language == "python2.7" and not ( "redis" in libraries ):
-		libraries.append(
-			"redis"
-		)
-	
 	# TODO just accept a dict/object in of an
 	# array followed by converting it to one.
 	libraries_dict = {}
@@ -7058,13 +7243,6 @@ class BuildLibrariesPackage( BaseHandler ):
 		current_user = self.get_authenticated_user()
 		credentials = self.get_authenticated_user_cloud_configuration()
 		
-		# Edge case for python2.7 because of the tight custom-runtime
-		# integration which requires the redis library
-		if self.json[ "language" ] == "python2.7" and not ( "redis" in self.json[ "libraries" ] ):
-			self.json[ "libraries" ].append(
-				"redis"
-			)
-		
 		# TODO just accept a dict/object in of an
 		# array followed by converting it to one.
 		libraries_dict = {}
@@ -7139,6 +7317,29 @@ class MaintainAWSAccountReserves( BaseHandler ):
 		if current_aws_account_count < reserved_aws_pool_target_amount:
 			logit( "We are under our target, creating new AWS account for the pool..." )
 			local_tasks.provision_new_sub_aws_account()
+			
+class GetAWSConsoleCredentials( BaseHandler ):
+	@authenticated
+	@disable_on_overdue_payment
+	@gen.coroutine
+	def get( self ):
+		"""
+		Pull the AWS credentials for the customer to log into the console.
+		This is important early on so that they can still get all the serverless
+		advantages that we haven't abstracted upon (and to use Cloudwatch, etc).
+		"""
+		credentials = self.get_authenticated_user_cloud_configuration()
+		
+		aws_console_signin_url = "https://" + credentials[ "account_id" ] + ".signin.aws.amazon.com/console/?region=" + os.environ.get( "region_name" )
+		
+		self.write({
+			"success": True,
+			"console_credentials": {
+				"username": credentials[ "iam_admin_username" ],
+				"password": credentials[ "iam_admin_password" ],
+				"signin_url": aws_console_signin_url,
+			}
+		})
 		
 def make_app( is_debug ):
 	tornado_app_settings = {
@@ -7179,6 +7380,7 @@ def make_app( is_debug ):
 		( r"/api/v1/billing/creditcards/list", ListCreditCards ),
 		( r"/api/v1/billing/creditcards/delete", DeleteCreditCard ),
 		( r"/api/v1/billing/creditcards/make_primary", MakeCreditCardPrimary ),
+		( r"/api/v1/iam/console_credentials", GetAWSConsoleCredentials ),
 		# Temporarily disabled since it doesn't cache the CostExplorer results
 		#( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast ),
 		
