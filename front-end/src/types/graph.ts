@@ -6,7 +6,9 @@ export interface BaseRefineryResource {
   id: string,
 }
 
-export interface RefineryProject extends BaseRefineryResource {
+export interface RefineryProject {
+  name: string,
+  project_id: string,
   version: number,
   workflow_states: WorkflowState[],
   workflow_relationships: WorkflowRelationship[]

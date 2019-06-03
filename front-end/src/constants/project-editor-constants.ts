@@ -1,4 +1,7 @@
 import {WorkflowRelationshipType, WorkflowStateType} from '@/types/graph';
+import {ActiveSidebarPaneToContainerMapping, SIDEBAR_PANE} from '@/types/project-editor-types';
+import AddBlockPane from '@/components/ProjectEditor/AddBlockPane';
+import AddTransitionPane from '@/components/ProjectEditor/AddTransitionPane';
 
 export const BlockSelectionType = {
   ...WorkflowStateType,
@@ -89,7 +92,7 @@ export type TransitionTypeToConfig = {
 export const transitionTypeToConfigLookup: TransitionTypeToConfig = {
   [WorkflowRelationshipType.IF]: {
     name: 'If Transition',
-    description: 'Runs another block if the returned data from the first block matches the specified conditional. ' +
+    description: 'Runs another block if the returSearchSavedProjectsResultned data from the first block matches the specified conditional. ' +
       'For example, if the output of a block equals “success” run the next block.'
   },
   [WorkflowRelationshipType.THEN]: {
@@ -197,3 +200,40 @@ export const nodeTypesWithSimpleTransitions: ValidTransitionConfig[] = [
     toType: WorkflowStateType.API_GATEWAY_RESPONSE,
   }
 ];
+
+export const DEFAULT_PROJECT_CONFIG = {
+  "version": "1.0.0",
+  /*
+    {
+      {{node_id}}: [
+        {
+          "key": "value"
+        }
+      ]
+    }
+  */
+  "environment_variables": {},
+  /*
+    {
+      "api_gateway_id": {{api_gateway_id}}
+    }
+  */
+  "api_gateway": {
+    "gateway_id": false,
+  },
+  
+  "logging": {
+    "level": "LOG_ALL",
+  }
+};
+
+export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
+  [SIDEBAR_PANE.addBlock]: AddBlockPane,
+  [SIDEBAR_PANE.addTransition]: AddTransitionPane,
+  [SIDEBAR_PANE.allBlocks]: AddBlockPane,
+  [SIDEBAR_PANE.allVersions]: AddBlockPane,
+  [SIDEBAR_PANE.deployProject]: AddBlockPane,
+  [SIDEBAR_PANE.saveProject]: AddBlockPane,
+  [SIDEBAR_PANE.editBlock]: AddBlockPane,
+  [SIDEBAR_PANE.editTransition]: AddBlockPane
+};

@@ -9,20 +9,20 @@ import {namespace} from 'vuex-class';
 import SidebarNav from '@/components/SidebarNav';
 import {SidebarMenuItems} from '@/menu';
 import ProjectEditorLeftPaneContainer from '@/containers/ProjectEditorLeftPaneContainer';
-import {LEFT_SIDEBAR_PANE} from '@/types/project-editor-types';
+import {SIDEBAR_PANE} from '@/types/project-editor-types';
 
 const project = namespace('project');
 
 @Component
 export default class OpenedProjectOverview extends Vue {
   @project.State isLoadingProject!: boolean;
-  @project.State activeLeftSidebarPane!: LEFT_SIDEBAR_PANE | null;
+  @project.State activeLeftSidebarPane!: SIDEBAR_PANE | null;
   
   @project.Getter canSaveProject!: boolean;
   @project.Getter transitionAddButtonEnabled!: boolean;
   
   @project.Action openProject!: (projectId: GetSavedProjectRequest) => {};
-  @project.Action openLeftSidebarPane!: (paneType: LEFT_SIDEBAR_PANE) => {};
+  @project.Action openLeftSidebarPane!: (paneType: SIDEBAR_PANE) => {};
   
   @Watch('$route', {immediate: true})
   private routeChanged(val: Route, oldVal: Route) {
@@ -31,7 +31,7 @@ export default class OpenedProjectOverview extends Vue {
       return;
     }
     
-    this.openProject({id: val.params.projectId});
+    this.openProject({project_id: val.params.projectId});
   }
   
   renderLeftPaneOverlay() {
@@ -74,8 +74,8 @@ export default class OpenedProjectOverview extends Vue {
       activeLeftSidebarPane: this.activeLeftSidebarPane,
       onNavItemClicked: this.openLeftSidebarPane,
       leftSidebarPaneTypeToEnabledCheckFunction: {
-        [LEFT_SIDEBAR_PANE.addTransition]: () => this.transitionAddButtonEnabled,
-        [LEFT_SIDEBAR_PANE.saveProject]: () => this.canSaveProject
+        [SIDEBAR_PANE.addTransition]: () => this.transitionAddButtonEnabled,
+        [SIDEBAR_PANE.saveProject]: () => this.canSaveProject
       }
     };
     

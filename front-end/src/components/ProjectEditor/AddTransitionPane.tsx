@@ -7,7 +7,7 @@ import {
 } from '@/constants/project-editor-constants';
 import {WorkflowRelationshipType} from '@/types/graph';
 
-const project = namespace('project');
+const project = namespace('project/pane-name');
 
 @Component
 export default class AddTransitionPane extends Vue {

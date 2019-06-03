@@ -1,4 +1,4 @@
-import {LEFT_SIDEBAR_PANE} from '@/types/project-editor-types';
+import {SIDEBAR_PANE} from '@/types/project-editor-types';
 
 export type MenuItemLabel = {
   value: number|string,
@@ -21,7 +21,7 @@ export interface NavbarItem {
   label: string,
   translate: string,
   buttonVariant: string,
-  editorPane: LEFT_SIDEBAR_PANE
+  editorPane: SIDEBAR_PANE
 }
 
 export type MenuItemList = MenuItem[];

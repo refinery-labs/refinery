@@ -17,9 +17,27 @@ export default class Search extends Vue {
   @allProjects.State isSearching!: Boolean;
   @allProjects.State searchBoxText!: string;
   
-  @allProjects.Action performSearch!: () => {};
+  @allProjects.State deleteModalVisible!: boolean;
+  @allProjects.State deleteProjectId!: string | null;
+  @allProjects.State deleteProjectName!: string | null;
   
-  @allProjects.Mutation setSearchBoxInput!: (text: string) => {};
+  @allProjects.State newProjectInput!: string;
+  @allProjects.State newProjectInputValid!: boolean | null;
+  @allProjects.State newProjectErrorMessage!: string | null;
+  
+  @allProjects.Mutation setSearchBoxInput!: (text: string) => void;
+  @allProjects.Mutation setNewProjectInput!: (text: string) => void;
+  @allProjects.Mutation setDeleteModalVisibility!: (val: boolean) => void;
+  
+  @allProjects.Action performSearch!: () => {};
+  @allProjects.Action createProject!: () => void;
+  @allProjects.Action startDeleteProject!: (project: SearchSavedProjectsResult) => void;
+  @allProjects.Action deleteProject!: () => void;
+  
+  onCreateProjectSubmit(e: Event) {
+    e.preventDefault();
+    this.createProject();
+  }
   
   onSearchClicked(e: Event) {
     if (!e || !e.target) {
@@ -53,9 +71,9 @@ export default class Search extends Vue {
     
     return (
       <ul class="pagination pagination-sm">
-        <li class="page-item active">
-          <a class="page-link" href="#">1</a>
-        </li>
+        {/*<li class="page-item active">*/}
+          {/*<a class="page-link" href="#">1</a>*/}
+        {/*</li>*/}
         {/*TODO: Add Pagination support*/}
         {/*<li class="page-item">*/}
         {/*<a class="page-link" href="#">2</a>*/}
@@ -76,6 +94,10 @@ export default class Search extends Vue {
     // TODO: Add Pagination support
     const chunked = availableProjects; //.slice().slice(0, 10);
     
+    const headerTitle = availableProjects.length === 0 ? 'No projects found!' : 'Description';
+    
+    const createProjectErrorMessage = this.newProjectErrorMessage || 'Must provide name for new project!';
+    
     return (
       <div class="col-lg-9">
         <div class="card card-default">
@@ -87,7 +109,7 @@ export default class Search extends Vue {
             <table class="table table-striped table-bordered table-hover">
               <thead>
               <tr>
-                <th>Description</th>
+                <th>{headerTitle}</th>
               </tr>
               </thead>
               <tbody>
@@ -101,6 +123,19 @@ export default class Search extends Vue {
               <nav class="ml-auto">
                 {this.renderPaginationTable()}
               </nav>
+              <b-form inline on={{submit: this.onCreateProjectSubmit}}>
+                <label class="mr-sm-2" for="new-project-input">Project Name</label>
+                <b-input
+                  id="new-project-input"
+                  class="mb-2 mr-sm-2 mb-sm-0"
+                  state={this.newProjectInputValid}
+                  on={{change: this.setNewProjectInput}}
+                  placeholder="eg, Personal Website" />
+                <b-button variant="primary" type="submit">Create Project</b-button>
+                <b-form-invalid-feedback state={this.newProjectErrorMessage === null && this.newProjectInputValid}>
+                  {createProjectErrorMessage}
+                </b-form-invalid-feedback>
+              </b-form>
             </div>
           </div>
         </div>
@@ -125,7 +160,12 @@ export default class Search extends Vue {
                 <p>If I had a description, this is where I would put it! Thanks, Mandatory. This is why we can't have nice things.</p>
               </div>
               <div class="ml-auto">
-                <router-link class="btn btn-info btn-sm" to={viewProjectLink}>View</router-link>
+                <b-button variant="danger" on={{click: () => this.startDeleteProject(project)}}>
+                  <span class="fas fa-trash" />
+                </b-button>
+              </div>
+              <div style={{'margin-left': '8px'}}>
+                <b-button variant="primary" to={viewProjectLink}>View</b-button>
               </div>
             </div>
           </div>
@@ -162,6 +202,23 @@ export default class Search extends Vue {
             </div>
           </div>
         </div>
+        
+        <b-modal ref="my-modal" hide-footer title="Delete Project Confirmation" visible={this.deleteModalVisible}>
+          <div class="d-block text-center">
+            <h3>Are you sure that you want to delete this project?</h3>
+            <br/>
+            <h2>{this.deleteProjectName}</h2>
+            <br/>
+            <h3 style="color: red">This change is permanent!</h3>
+          </div>
+          <b-button class="mt-3" variant="outline-danger" block
+                    on={{click: this.deleteProject}}>
+            Delete Project
+          </b-button>
+          <b-button class="mt-2" variant="primary" block on={{click: () => this.setDeleteModalVisibility(false)}}>
+            Cancel
+          </b-button>
+        </b-modal>
       </ContentWrapper>
     );
   }

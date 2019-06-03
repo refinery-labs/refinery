@@ -58,7 +58,8 @@ export default new Vuex.Store<RootState>({
         // Is this a good idea in production? It allows people to refresh their browser and not lose progress.
         // But it also means that we may encounter... "weird" bugs with the state.
         return {
-          ...state,
+          // ...state,
+          setting: state.setting,
           user: {
             // If we want to "remember" the user's username.
             loginEmailInput: state.user.rememberMeToggled ? state.user.loginEmailInput : '',

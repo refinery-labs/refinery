@@ -1,5 +1,4 @@
 import {
-  BaseRefineryResource,
   CyElements,
   CyStyle, ProjectConfig,
   RefineryProject,
@@ -8,8 +7,8 @@ import {
 } from '@/types/graph';
 import {LayoutOptions} from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
-import {GetAuthenticationStatusResponse, SearchSavedProjectsResult, TrialInformation} from '@/types/api-types';
-import {LeftSidebarPaneState, LEFT_SIDEBAR_PANE} from '@/types/project-editor-types';
+import {SearchSavedProjectsResult, TrialInformation} from '@/types/api-types';
+import {LeftSidebarPaneState, SIDEBAR_PANE} from '@/types/project-editor-types';
 import {ValidTransitionConfig} from '@/constants/project-editor-constants';
 
 export interface RootState {
@@ -96,7 +95,8 @@ export interface ProjectViewState {
   hasProjectBeenModified: boolean,
   
   leftSidebarPaneState: LeftSidebarPaneState,
-  activeLeftSidebarPane: LEFT_SIDEBAR_PANE | null,
+  activeLeftSidebarPane: SIDEBAR_PANE | null,
+  activeRightSidebarPane: SIDEBAR_PANE | null,
   
   // Shared Graph State
   selectedResource: string | null,
@@ -121,7 +121,15 @@ export interface ProjectViewState {
 export interface AllProjectsState {
   availableProjects: SearchSavedProjectsResult[],
   searchBoxText: string,
-  isSearching: boolean
+  isSearching: boolean,
+  
+  deleteModalVisible: boolean,
+  deleteProjectId: string | null,
+  deleteProjectName: string | null,
+  
+  newProjectInput: string,
+  newProjectInputValid: boolean | null,
+  newProjectErrorMessage: string | null
 }
 
 export interface UserState {
