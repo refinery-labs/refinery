@@ -1,7 +1,7 @@
 version: "3"
 services:
     refinery:
-        build: .
+        build: ./api
         depends_on:
             - postgresdb
         environment:

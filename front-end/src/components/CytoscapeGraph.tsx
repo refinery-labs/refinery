@@ -10,15 +10,12 @@ import {
   selectableAnimation,
   STYLE_CLASSES
 } from '@/lib/cytoscape-styles';
+import {timeout} from '@/utils/async-utils';
 
 type animationTuple = {
   ani: AnimationManipulation,
   prom: Promise<EventObject>
 };
-
-function timeout(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
 
 cytoscape.use(dagre);
 

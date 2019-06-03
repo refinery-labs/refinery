@@ -2,51 +2,63 @@ import {HttpUtil} from '@/utils/make-request';
 import {
   BaseApiRequest,
   BaseApiResponse,
-  SearchSavedProjectsRequest,
-  SearchSavedProjectsResponse,
-  DeployDiagramResponse,
-  UpdateEnvironmentVariablesRequest,
-  GetProjectExecutionLogsRequest,
-  GetProjectExecutionsRequest,
   CreateScheduleTriggerRequest,
-  InfraCollisionCheckResponse,
   CreateScheduleTriggerResponse,
-  DeployDiagramRequest,
-  RunLambdaRequest,
-  GetLatestProjectDeploymentRequest,
-  GetSavedProjectResponse,
-  InfraCollisionCheckRequest,
-  SavedLambdaDeleteRequest,
-  UpdateEnvironmentVariablesResponse,
-  RunLambdaResponse,
-  SaveProjectResponse,
-  SavedLambdaCreateRequest,
-  GetProjectExecutionLogsResponse,
-  GetCloudWatchLogsForLambdaResponse,
-  GetProjectConfigRequest,
-  SaveProjectRequest,
-  SavedLambdaDeleteResponse,
-  GetProjectConfigResponse,
+  CreateSQSQueueTriggerRequest,
+  CreateSQSQueueTriggerResponse,
   DeleteDeploymentsInProjectRequest,
-  RunTmpLambdaRequest,
-  GetProjectExecutionsResponse,
-  GetLatestProjectDeploymentResponse,
-  RunTmpLambdaResponse,
-  InfraTearDownRequest,
+  DeleteDeploymentsInProjectResponse,
   DeleteSavedProjectRequest,
+  DeleteSavedProjectResponse,
+  DeployDiagramRequest,
+  DeployDiagramResponse,
+  GetAuthenticationStatusRequest,
+  GetAuthenticationStatusResponse,
+  GetCloudWatchLogsForLambdaRequest,
+  GetCloudWatchLogsForLambdaResponse,
+  GetLatestProjectDeploymentRequest,
+  GetLatestProjectDeploymentResponse,
+  GetProjectConfigRequest,
+  GetProjectConfigResponse,
+  GetProjectExecutionLogsRequest,
+  GetProjectExecutionLogsResponse,
+  GetProjectExecutionsRequest,
+  GetProjectExecutionsResponse,
+  GetSavedProjectRequest,
+  GetSavedProjectResponse,
+  HealthCheckRequest,
+  HealthCheckResponse,
+  InfraCollisionCheckRequest,
+  InfraCollisionCheckResponse,
+  InfraTearDownRequest,
   InfraTearDownResponse,
+  LoginRequest,
+  LoginResponse,
+  LogoutRequest,
+  LogoutResponse,
+  NewRegistrationRequest,
+  NewRegistrationResponse,
+  RunLambdaRequest,
+  RunLambdaResponse,
+  RunTmpLambdaRequest,
+  RunTmpLambdaResponse,
+  SavedLambdaCreateRequest,
+  SavedLambdaCreateResponse,
+  SavedLambdaDeleteRequest,
+  SavedLambdaDeleteResponse,
   SavedLambdaSearchRequest,
   SavedLambdaSearchResponse,
-  GetCloudWatchLogsForLambdaRequest,
-  SavedLambdaCreateResponse,
-  DeleteSavedProjectResponse,
-  DeleteDeploymentsInProjectResponse,
-  GetSavedProjectRequest, CreateSQSQueueTriggerRequest, CreateSQSQueueTriggerResponse
+  SaveProjectRequest,
+  SaveProjectResponse,
+  SearchSavedProjectsRequest,
+  SearchSavedProjectsResponse,
+  UpdateEnvironmentVariablesRequest,
+  UpdateEnvironmentVariablesResponse
 } from '@/types/api-types';
 import {API_ENDPOINT, ApiConfigMap} from '@/constants/api-constants';
 
 export type RefineryApiCall<TRequest extends BaseApiRequest, TResponse extends BaseApiResponse>
-  = (request: TRequest) => Promise<TResponse>;
+  = (request: TRequest) => Promise<TResponse | null>;
 
 export type RefineryApiMap = {
   [key in API_ENDPOINT]: RefineryApiCall<BaseApiRequest, BaseApiResponse>
@@ -58,11 +70,12 @@ export interface RefineryApiTypeMap extends RefineryApiMap {
 function makeApiClient<TRequest extends BaseApiRequest, TResponse extends BaseApiResponse>(apiEndpoint: API_ENDPOINT) {
   return async <TRequest, TResponse>(request: TRequest) => {
     const config = ApiConfigMap[apiEndpoint];
-
+  
     const httpResponse
       = await HttpUtil[config.method]<TRequest, TResponse>(`${process.env.VUE_APP_API_HOST}${config.path}`, request);
 
     if (!httpResponse.parsedBody) {
+      console.error('Missing or invalid body received for request', httpResponse);
       throw new Error('Malformed API Response');
     }
 
@@ -73,6 +86,11 @@ function makeApiClient<TRequest extends BaseApiRequest, TResponse extends BaseAp
 }
 
 export class RefineryApi implements RefineryApiTypeMap {
+  [API_ENDPOINT.HealthHandler] = makeApiClient<HealthCheckRequest, HealthCheckResponse>(API_ENDPOINT.HealthHandler);
+  [API_ENDPOINT.GetAuthenticationStatus] = makeApiClient<GetAuthenticationStatusRequest, GetAuthenticationStatusResponse>(API_ENDPOINT.GetAuthenticationStatus);
+  [API_ENDPOINT.NewRegistration] = makeApiClient<NewRegistrationRequest, NewRegistrationResponse>(API_ENDPOINT.NewRegistration);
+  [API_ENDPOINT.Login] = makeApiClient<LoginRequest, LoginResponse>(API_ENDPOINT.Login);
+  [API_ENDPOINT.Logout] = makeApiClient<LogoutRequest, LogoutResponse>(API_ENDPOINT.Logout);
   [API_ENDPOINT.CreateSQSQueueTrigger] = makeApiClient<CreateSQSQueueTriggerRequest, CreateSQSQueueTriggerResponse>(API_ENDPOINT.CreateSQSQueueTrigger);
   [API_ENDPOINT.CreateScheduleTrigger] = makeApiClient<CreateScheduleTriggerRequest, CreateScheduleTriggerResponse>(API_ENDPOINT.CreateScheduleTrigger);
   [API_ENDPOINT.DeleteDeploymentsInProject] = makeApiClient<DeleteDeploymentsInProjectRequest, DeleteDeploymentsInProjectResponse>(API_ENDPOINT.DeleteDeploymentsInProject);

@@ -36,3 +36,26 @@ export enum SettingsMutators {
   toggleSettingOn = 'toggleSettingOn',
   changeSetting = 'changeSetting'
 }
+
+export enum UserMutators {
+  setAuthenticationState = 'setAuthenticationState',
+  setLoginAttemptMessage = 'setLoginAttemptMessage',
+  setRedirectState = 'setRedirectState',
+  setIsBusyStatus = 'setIsBusyStatus',
+  setLoginErrorMessage = 'setLoginErrorMessage',
+  
+  // Login form
+  setRememberMeState = 'setRememberMeState',
+  setEmailInputValue = 'setEmailInputValue',
+
+  // Register form
+  setRegisterEmailInputValue = 'setRegisterEmailInputValue',
+  setRegisterNameInputValue = 'setRegisterNameInputValue',
+  setRegisterPhoneInputValue = 'setRegisterPhoneInputValue',
+  setRegisterOrgNameInputValue = 'setRegisterOrgNameInputValue',
+  setAgreeToTermsValue = 'setAgreeToTermsValue',
+
+  setRegistrationUsernameErrorMessage = 'setRegistrationUsernameErrorMessage',
+  setRegistrationErrorMessage = 'setRegistrationErrorMessage',
+  setRegistrationSuccessMessage = 'setRegistrationSuccessMessage'
+}

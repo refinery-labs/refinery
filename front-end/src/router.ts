@@ -1,34 +1,68 @@
 import Vue from 'vue';
-import Router from 'vue-router';
+import Router, {Route} from 'vue-router';
+import store from './store/index';
 import Home from './views/Home.vue';
 import Settings from './views/Settings.vue';
 import Marketplace from './views/Marketplace.vue';
 import AdminPanel from './views/Admin';
 import AllProjects from './views/AllProjects';
 import ViewProject from './views/ViewProject';
-import OpenedProjectOverview from './views/ProjectsNestedViews/OpenedProjectOverview';
-import AllProjectWorkflows from './views/ProjectsNestedViews/AllProjectWorkflows';
-import ViewWorkflow from '@/views/ProjectsNestedViews/ViewWorkflow';
 import OpenedWorkflowWrapper from '@/views/ProjectsNestedViews/OpenedWorkflowWrapper';
-import EditWorkflow from '@/views/ProjectsNestedViews/EditWorkflow';
 import ProjectDeployments from '@/views/ProjectsNestedViews/ProjectDeployments';
 import ViewProjectDeployment from '@/views/ProjectsNestedViews/ViewProjectDeployment';
 import EditProjectDeployment from '@/views/ProjectsNestedViews/EditProjectDeployment';
 import Layout from '@/components/Layout/Layout';
 import {baseLinks, projectViewLinks} from '@/constants/router-constants';
-import OpenedProjectGraphContainer from '@/containers/OpenedProjectGraphContainer';
 import PageNotFound from '@/views/PageNotFound';
 import ProjectNotFound from '@/views/ProjectsNestedViews/ProjectNotFound';
+import LoginPage from '@/views/Authentication/LoginPage';
+import {UserMutators} from '@/constants/store-constants';
+import RegistrationPage from '@/views/Authentication/RegistrationPage';
 
 Vue.use(Router);
 
-export default new Router({
+async function guardLoggedIn(to: Route, from: Route, next: Function) {
+  
+  if (store.state.user.authenticated) {
+    // allow to enter route
+    next();
+    return;
+  }
+  
+  await store.dispatch(`user/fetchAuthenticationState`);
+  
+  // We haven't any login data, so go fetch it and keep going...
+  if (store.state.user.authenticated) {
+    // allow to enter route
+    next();
+    return;
+  }
+  
+  // Throw the data into the store for later redirect usage
+  store.commit(`user/${UserMutators.setRedirectState}`, to.fullPath);
+  
+  // go to '/login';
+  next('/login');
+}
+
+const router = new Router({
   mode: 'history',
   base: process.env.BASE_URL,
   routes: [
     {
+      path: '/login',
+      name: 'login',
+      component: LoginPage
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: RegistrationPage
+    },
+    {
       path: '/',
       component: Layout,
+      beforeEnter: guardLoggedIn,
       children: [
         {
           path: '',
@@ -141,3 +175,4 @@ export default new Router({
   ]
 });
 
+export default router;

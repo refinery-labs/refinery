@@ -408,3 +408,72 @@ export interface UpdateEnvironmentVariablesResult {
   // This is potentially not a string, it will be type DiagramData if it is not.
   deployment_diagram: string
 }
+
+// Health
+export interface HealthCheckRequest extends BaseApiRequest {
+  // Empty
+}
+
+export interface HealthCheckResponse extends BaseApiResponse {
+  status: string;
+}
+
+// GetAuthenticationStatus
+export interface GetAuthenticationStatusRequest extends BaseApiRequest {
+  // Empty
+}
+
+export interface GetAuthenticationStatusResponse extends BaseApiResponse {
+  authenticated: boolean;
+  name?: string;
+  email?: string;
+  permission_level?: string;
+  trial_information?: TrialInformation;
+}
+
+export interface TrialInformation {
+  trial_end_timestamp: number;
+  trial_started_timestamp: number;
+  trial_over: boolean;
+  is_using_trial: boolean;
+}
+
+// NewRegistration
+export interface NewRegistrationRequest extends BaseApiRequest {
+  organization_name: string | undefined;
+  name: string;
+  email: string;
+  phone: string | undefined;
+}
+
+export interface NewRegistrationResponse extends BaseApiResponse {
+  result: NewRegistrationResult;
+}
+
+export interface NewRegistrationResult {
+  msg: string;
+  code: NewRegistrationErrorType;
+}
+
+export enum NewRegistrationErrorType {
+  INVALID_EMAIL = "INVALID_EMAIL",
+  USER_ALREADY_EXISTS = "USER_ALREADY_EXISTS"
+}
+
+// Login
+export interface LoginRequest extends BaseApiRequest {
+  email: string;
+}
+
+export interface LoginResponse extends BaseApiResponse {
+  msg: string;
+}
+
+// Logout
+export interface LogoutRequest extends BaseApiRequest {
+  // Empty
+}
+
+export interface LogoutResponse extends BaseApiResponse {
+  // Empty
+}

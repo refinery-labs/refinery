@@ -8,7 +8,7 @@ import {
 } from '@/types/graph';
 import {LayoutOptions} from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
-import {SearchSavedProjectsResult} from '@/types/api-types';
+import {GetAuthenticationStatusResponse, SearchSavedProjectsResult, TrialInformation} from '@/types/api-types';
 import {LeftSidebarPaneState, LEFT_SIDEBAR_PANE} from '@/types/project-editor-types';
 import {ValidTransitionConfig} from '@/constants/project-editor-constants';
 
@@ -16,6 +16,7 @@ export interface RootState {
   setting: UserInterfaceState,
   project: ProjectViewState,
   allProjects: AllProjectsState
+  user: UserState
 }
 
 export enum UserInterfaceSettings {
@@ -121,4 +122,42 @@ export interface AllProjectsState {
   availableProjects: SearchSavedProjectsResult[],
   searchBoxText: string,
   isSearching: boolean
+}
+
+export interface UserState {
+  // Server populated data
+  authenticated: boolean,
+  name: string | null,
+  email: string | null,
+  permissionLevel: string | null,
+  trialInformation: TrialInformation | null,
+  
+  // State about the login process
+  redirectState: string | null,
+  loginAttemptMessage: string | null,
+  loginErrorMessage: string | null,
+  isBusy: boolean,
+  
+  // Local data
+  rememberMeToggled: boolean,
+  loginEmailInput: string,
+  
+  loginEmailInputValid: boolean | null,
+  
+  // Registration page data
+  registrationEmailInput: string,
+  registrationNameInput: string,
+  registrationPhoneInput: string,
+  registrationOrgNameInput: string,
+  termsAndConditionsAgreed: boolean,
+  
+  registrationEmailErrorMessage: string | null,
+  registrationErrorMessage: string | null,
+  registrationSuccessMessage: string | null,
+  
+  registrationEmailInputValid: boolean | null,
+  registrationNameInputValid: boolean | null,
+  registrationPhoneInputValid: boolean | null,
+  registrationOrgNameInputValid: boolean | null,
+  termsAndConditionsAgreedValid: boolean | null
 }

@@ -9,5 +9,13 @@ module.exports = {
         data: `@import "~@/styles/variables.scss";`,
       }
     }
-  }
+  },
+  chainWebpack: config => {
+    config.module
+      .rule(/\.(j|t)sx$/)
+      .test(/\.(j|t)sx$/)
+      .use('vue-jsx-hot-loader')
+      .before('babel-loader')
+      .loader('vue-jsx-hot-loader');
+  },
 };

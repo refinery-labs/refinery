@@ -1,6 +1,9 @@
-import {BaseApiRequest, BaseApiResponse} from '@/types/api-types';
-
 export enum API_ENDPOINT {
+  HealthHandler = 'HealthHandler',
+  GetAuthenticationStatus = 'GetAuthenticationStatus',
+  NewRegistration = 'NewRegistration',
+  Login = 'Login',
+  Logout = 'Logout',
   GetProjectExecutionLogs = 'GetProjectExecutionLogs',
   GetProjectExecutions = 'GetProjectExecutions',
   DeployDiagram = 'DeployDiagram',
@@ -32,13 +35,35 @@ export enum HTTP_METHOD {
 }
 
 export interface ApiEndpointConfig {
-  path: API_ENDPOINT,
-  method: HTTP_METHOD,
-  requestType: BaseApiRequest,
-  responseType: BaseApiResponse
+  path: string,
+  method: HTTP_METHOD
 }
 
-export const ApiConfigMap = {
+export type ApiConfigMapType = {
+  [key in API_ENDPOINT]: ApiEndpointConfig
+}
+
+export const ApiConfigMap: ApiConfigMapType = {
+  [API_ENDPOINT.HealthHandler]: {
+    path: '/api/v1/health',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.GetAuthenticationStatus]: {
+    path: '/api/v1/auth/me',
+    method: HTTP_METHOD.GET
+  },
+  [API_ENDPOINT.NewRegistration]: {
+    path: '/api/v1/auth/register',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.Login]: {
+    path: '/api/v1/auth/login',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.Logout]: {
+    path: '/api/v1/auth/logout',
+    method: HTTP_METHOD.POST
+  },
   [API_ENDPOINT.SearchSavedProjects]: {
     path: '/api/v1/projects/search',
     method: HTTP_METHOD.POST

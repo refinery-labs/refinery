@@ -834,6 +834,7 @@ class TaskSpawner(object):
 					)
 					break
 				except botocore.exceptions.ClientError as boto_error:
+					print( boto_error )
 					# If it's not an AccessDenied exception it's not what we except so we re-raise
 					if boto_error.response[ "Error" ][ "Code" ] != "AccessDenied":
 						logit( "Unexpected Boto3 response: " + boto_error.response[ "Error" ][ "Code" ] )
@@ -6333,8 +6334,10 @@ class NewRegistration( BaseHandler ):
 			logit( "Invalid email provided during signup!" )
 			self.write({
 				"success": False,
-				"code": "INVALID_EMAIL",
-				"msg": str( e ) # The exception string is user-friendly by design.
+				"result": {
+					"code": "INVALID_EMAIL",
+					"msg": str( e ) # The exception string is user-friendly by design.
+				}
 			})
 			raise gen.Return()
 			
@@ -6356,8 +6359,10 @@ class NewRegistration( BaseHandler ):
 		if user != None:
 			self.write({
 				"success": False,
-				"code": "USER_ALREADY_EXISTS",
-				"msg": "A user with that email address already exists!"
+				"result": {
+					"code": "USER_ALREADY_EXISTS",
+					"msg": "A user with that email address already exists!"
+				}
 			})
 			raise gen.Return()
 		
@@ -6538,6 +6543,7 @@ class GetAuthenticationStatus( BaseHandler ):
 			return
 		
 		self.write({
+			"success": True,
 			"authenticated": False
 		})
 
@@ -6755,6 +6761,7 @@ class HealthHandler( BaseHandler ):
 		# Just run a dummy database query to ensure it's working
 		session.query( User ).first()
 		self.write({
+			"success": True,
 			"status": "ok"
 		})
 		
