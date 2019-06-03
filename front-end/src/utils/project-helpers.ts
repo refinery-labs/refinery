@@ -1,4 +1,4 @@
-import {RefineryProject, WorkflowRelationshipType, WorkflowState, WorkflowStateType} from '@/types/graph';
+import {RefineryProject, WorkflowRelationshipType, WorkflowState} from '@/types/graph';
 import {
   nodeTypesWithSimpleTransitions,
   validBlockToBlockTransitionLookup,
@@ -6,7 +6,7 @@ import {
 } from '@/constants/project-editor-constants';
 import {AvailableTransitionsByType, ProjectViewState} from '@/store/store-types';
 import {GetSavedProjectResponse} from '@/types/api-types';
-import uuid from '@/store/modules/project-view';
+import uuid from 'uuid/v4'
 
 export function getNodeDataById(project: RefineryProject, nodeId: string ) {
   const targetStates = project.workflow_states;
@@ -83,12 +83,18 @@ export function wrapJson(obj: any) {
   }
 }
 
-export function unwrapProjectJson(response: GetSavedProjectResponse) {
+export function unwrapProjectJson(response: GetSavedProjectResponse): RefineryProject | null {
   try {
     const project = JSON.parse(response.project_json) as RefineryProject;
-    project.id = response.id;
-    project.version = response.version;
-    return project;
+    
+    // could probably have used spread, oh well
+    return {
+      name: project.name || 'Unknown Project',
+      project_id: response.project_id || project.project_id || uuid(),
+      workflow_relationships: project.workflow_relationships || [],
+      workflow_states: project.workflow_states || [],
+      version: project.version || 1
+    };
   } catch {
     return null;
   }

@@ -2,7 +2,15 @@
 export enum AllProjectsMutators {
   setSearchingStatus = 'setSearchingStatus',
   setAvailableProjects = 'setAvailableProjects',
-  setSearchBoxInput = 'setSearchBoxInput'
+  setSearchBoxInput = 'setSearchBoxInput',
+
+  setDeleteModalVisibility = 'setDeleteModalVisibility',
+  setDeleteProjectId = 'setDeleteProjectId',
+  setDeleteProjectName = 'setDeleteProjectName',
+  
+  setNewProjectInput = 'setNewProjectInput',
+  setNewProjectInputValid = 'setNewProjectInputValid',
+  setNewProjectErrorMessage = 'setNewProjectErrorMessage'
 }
 
 export enum ProjectViewMutators {
@@ -20,6 +28,7 @@ export enum ProjectViewMutators {
   setCytoscapeConfig = 'setCytoscapeConfig',
   setLeftSidebarPaneState = 'setLeftSidebarPaneState',
   setLeftSidebarPane = 'setLeftSidebarPane',
+  setRightSidebarPane = 'setRightSidebarPane',
   
   // Add Block Pane
   setSelectedBlockIndex = 'setSelectedBlockIndex',

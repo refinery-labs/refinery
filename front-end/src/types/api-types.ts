@@ -142,8 +142,7 @@ export interface GetProjectConfigRequest extends BaseApiRequest {
 }
 
 export interface GetProjectConfigResponse extends BaseApiResponse {
-  // This is JSON of type ProjectConfig, most likely
-  result: string;
+  result: ProjectConfig;
 }
 
 // GetProjectExecutionLogs
@@ -205,14 +204,14 @@ export interface Execution {
 
 // GetSavedProject
 export interface GetSavedProjectRequest extends BaseApiRequest {
-  id: string;
+  project_id: string;
   version?: number;
 }
 
 export interface GetSavedProjectResponse extends BaseApiResponse {
   project_json: string;
   version:      number;
-  id:           string;
+  project_id:   string;
   success:      boolean;
 }
 

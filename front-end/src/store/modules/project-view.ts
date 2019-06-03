@@ -28,7 +28,7 @@ import {
   SaveProjectRequest,
   SaveProjectResponse
 } from '@/types/api-types';
-import {LEFT_SIDEBAR_PANE, OpenProjectMutation, UpdateLeftSidebarPaneStateMutation} from '@/types/project-editor-types';
+import {SIDEBAR_PANE, OpenProjectMutation, UpdateLeftSidebarPaneStateMutation} from '@/types/project-editor-types';
 import {
   getNodeDataById,
   getValidBlockToBlockTransitions,
@@ -37,6 +37,8 @@ import {
   unwrapProjectJson,
   wrapJson
 } from '@/utils/project-helpers';
+import {blockTypeToImageLookup} from '@/constants/project-editor-constants';
+import EditBlockPaneModule from '@/store/modules/panes/edit-block-pane';
 
 const moduleState: ProjectViewState = {
   openedProject: null,
@@ -50,14 +52,17 @@ const moduleState: ProjectViewState = {
   hasProjectBeenModified: false,
   
   leftSidebarPaneState: {
-    [LEFT_SIDEBAR_PANE.addBlock]: {},
-    [LEFT_SIDEBAR_PANE.addTransition]: {},
-    [LEFT_SIDEBAR_PANE.allBlocks]: {},
-    [LEFT_SIDEBAR_PANE.allVersions]: {},
-    [LEFT_SIDEBAR_PANE.deployProject]: {},
-    [LEFT_SIDEBAR_PANE.saveProject]: {}
+    [SIDEBAR_PANE.addBlock]: {},
+    [SIDEBAR_PANE.addTransition]: {},
+    [SIDEBAR_PANE.allBlocks]: {},
+    [SIDEBAR_PANE.allVersions]: {},
+    [SIDEBAR_PANE.deployProject]: {},
+    [SIDEBAR_PANE.saveProject]: {},
+    [SIDEBAR_PANE.editBlock]: {},
+    [SIDEBAR_PANE.editTransition]: {}
   },
   activeLeftSidebarPane: null,
+  activeRightSidebarPane: null,
   
   // Shared Graph State
   selectedResource: null,
@@ -81,6 +86,9 @@ const moduleState: ProjectViewState = {
 
 const ProjectViewModule: Module<ProjectViewState, RootState> = {
   namespaced: true,
+  modules: {
+    'my-pane-name': EditBlockPaneModule
+  },
   state: moduleState,
   getters: {
     transitionAddButtonEnabled: state => {
@@ -128,11 +136,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     canSaveProject: state => state.hasProjectBeenModified && !state.isProjectBusy && !state.isAddingTransitionCurrently
   },
   mutations: {
-    [ProjectViewMutators.setOpenedProject](state, project) {
+    [ProjectViewMutators.setOpenedProject](state, project: RefineryProject) {
       state.openedProject = project;
     },
-    [ProjectViewMutators.setOpenedProjectConfig](state, config) {
-      state.openedProject = config;
+    [ProjectViewMutators.setOpenedProjectConfig](state, config: ProjectConfig) {
+      state.openedProjectConfig = config;
     },
     [ProjectViewMutators.setOpenedProjectOriginal](state, project: RefineryProject) {
       state.openedProjectOriginal = unwrapJson<RefineryProject>(wrapJson(project));
@@ -164,14 +172,19 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     [ProjectViewMutators.setCytoscapeConfig](state, config: cytoscape.CytoscapeOptions) {
       state.cytoscapeConfig = config;
     },
+    
+    // Pane Logic
     [ProjectViewMutators.setLeftSidebarPaneState](state, mutation: UpdateLeftSidebarPaneStateMutation) {
       state.leftSidebarPaneState[mutation.leftSidebarPane] = {
         ...state.leftSidebarPaneState[mutation.leftSidebarPane],
         ...mutation.newState
       };
     },
-    [ProjectViewMutators.setLeftSidebarPane](state, leftSidebarPaneType: LEFT_SIDEBAR_PANE | null) {
+    [ProjectViewMutators.setLeftSidebarPane](state, leftSidebarPaneType: SIDEBAR_PANE | null) {
       state.activeLeftSidebarPane = leftSidebarPaneType;
+    },
+    [ProjectViewMutators.setRightSidebarPane](state, paneType: SIDEBAR_PANE | null) {
+      state.activeRightSidebarPane = paneType;
     },
     
     // Add New Pane
@@ -223,18 +236,18 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const getProjectConfigClient = getApiClient(API_ENDPOINT.GetProjectConfig);
       
       const getConfigRequest: GetProjectConfigRequest = {
-        project_id: project.id
+        project_id: project.project_id
       };
       
       const projectConfigResult = await getProjectConfigClient(getConfigRequest) as GetProjectConfigResponse;
       
-      if (!projectConfigResult.success) {
+      if (!projectConfigResult || !projectConfigResult.success || !projectConfigResult.result) {
         // TODO: Handle error gracefully
         console.error('Unable to open project, missing config');
         return;
       }
       
-      const projectConfig = unwrapJson<ProjectConfig>(projectConfigResult.result);
+      const projectConfig = projectConfigResult.result;
       
       if (!projectConfig) {
         console.error('Unable to deserialize project config');
@@ -292,9 +305,10 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       
       const request: SaveProjectRequest = {
         diagram_data: projectJson,
-        project_id: context.state.openedProject.id,
+        project_id: context.state.openedProject.project_id,
         config: configJson,
-        version: context.state.openedProjectConfig.version + 1
+        // We can set this to false and let the backend bump versions for us. :)
+        version: false // context.state.openedProjectConfig.version + 1
       };
       
       const saveProjectApiClient = getApiClient(API_ENDPOINT.SaveProject);
@@ -306,14 +320,13 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
       
-      const newConfig = {
-        ...context.state.openedProjectConfig,
-        version: context.state.openedProjectConfig.version + 1
-      };
-      
       const params: OpenProjectMutation = {
-        project: context.state.openedProject,
-        config: newConfig,
+        project: {
+          ...context.state.openedProject,
+          // We need to sync the version against what the server has
+          version: response.project_version || context.state.openedProject.version
+        },
+        config: context.state.openedProjectConfig,
         markAsDirty: false
       };
       
@@ -415,14 +428,14 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
   
       await context.dispatch('updateAvailableTransitions');
     },
-    async openLeftSidebarPane(context, leftSidebarPaneType: LEFT_SIDEBAR_PANE) {
+    async openLeftSidebarPane(context, leftSidebarPaneType: SIDEBAR_PANE) {
       if (context.state.isAddingTransitionCurrently) {
         // TODO: Add a shake or something? Tell the user that it's bjorked.
         return;
       }
       
       // Special case because Mandatory and I agreed that having a pane pop out is annoying af
-      if (leftSidebarPaneType === LEFT_SIDEBAR_PANE.saveProject) {
+      if (leftSidebarPaneType === SIDEBAR_PANE.saveProject) {
         await context.dispatch('saveProject');
         return;
       }
@@ -458,24 +471,47 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         console.error('Adding block but not project was opened');
         return;
       }
+  
+      const openedProject = context.state.openedProject as RefineryProject;
       
-      let newBlock: WorkflowState;
       if (blockType === 'saved_lambda') {
-        // TODO: Set pane to search
-        
-        
-      } else if (Object.values(WorkflowStateType).includes(blockType)) {
-        newBlock = {
-          id: uuid(),
-          name: 'New Code Block',
-          type: blockType as WorkflowStateType
-        };
-      } else {
+        await context.dispatch('addSavedBlock');
+        return;
+      }
+      
+      if (!Object.values(WorkflowStateType).includes(blockType)) {
         console.error('Unknown block type requested to be added!');
         return;
       }
       
-      //await context.dispatch('updateProject', null);
+      const newBlock: WorkflowState = {
+        id: uuid(),
+        // TODO: Make this use a friendly human name
+        name: `New ${blockTypeToImageLookup[blockType].name}`,
+        type: blockType as WorkflowStateType
+      };
+  
+      // This creates a new pointer for the main object, which makes Vuex very pleased.
+      const newProject: RefineryProject = {
+        ...openedProject,
+        workflow_states: [
+          ...openedProject.workflow_states,
+          newBlock
+        ]
+      };
+  
+      const params: OpenProjectMutation = {
+        project: newProject,
+        config: null,
+        markAsDirty: true
+      };
+  
+      await context.dispatch('updateProject', params);
+      await context.dispatch('selectNode', newBlock.id);
+      await context.dispatch('closeLeftSidebarPane');
+    },
+    async addSavedBlock(context) {
+      // TODO: Set pane to search
     },
     
     // Add Transition Pane

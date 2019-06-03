@@ -13,7 +13,7 @@ export default class AddBlockPane extends Vue {
   public render(h: CreateElement): VNode {
     
     const containerClasses = {
-      'editor-left-pane-instance': true,
+      'editor-pane-instance': true,
       'add-block-left-pane': true,
       'display--flex': true,
       'flex-grow--1': true

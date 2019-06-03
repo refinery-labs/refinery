@@ -1,6 +1,6 @@
 import {baseLinks} from '@/constants/router-constants';
 import {MenuItemList, NavbarItem} from '@/types/layout-types';
-import {LEFT_SIDEBAR_PANE} from '@/types/project-editor-types';
+import {SIDEBAR_PANE} from '@/types/project-editor-types';
 
 export const GlobalNavMenuItems: MenuItemList = [
   {
@@ -85,71 +85,73 @@ export const WorkflowEditorMenuItems: MenuItemList = [
 ];
 
 export type EditorPaneTypeToName = {
-  [key in LEFT_SIDEBAR_PANE]: string;
+  [key in SIDEBAR_PANE]: string;
 }
 
 export const paneTypeToNameLookup: EditorPaneTypeToName = {
-  [LEFT_SIDEBAR_PANE.addBlock]: 'Add Block',
-  [LEFT_SIDEBAR_PANE.addTransition]: 'Add Transition',
-  [LEFT_SIDEBAR_PANE.allBlocks]: 'All Blocks',
-  [LEFT_SIDEBAR_PANE.allVersions]: 'All Versions',
-  [LEFT_SIDEBAR_PANE.saveProject]: 'Save Project',
-  [LEFT_SIDEBAR_PANE.deployProject]: 'Deploy Project'
+  [SIDEBAR_PANE.addBlock]: 'Add Block',
+  [SIDEBAR_PANE.addTransition]: 'Add Transition',
+  [SIDEBAR_PANE.allBlocks]: 'All Blocks',
+  [SIDEBAR_PANE.allVersions]: 'All Versions',
+  [SIDEBAR_PANE.saveProject]: 'Save Project',
+  [SIDEBAR_PANE.deployProject]: 'Deploy Project',
+  [SIDEBAR_PANE.editBlock]: 'Edit Block',
+  [SIDEBAR_PANE.editTransition]: 'Edit Transition'
 };
 
 export const paneTypeToWindowNameLookup: EditorPaneTypeToName = {
   ...paneTypeToNameLookup,
-  [LEFT_SIDEBAR_PANE.addBlock]: `Click to ${paneTypeToNameLookup[LEFT_SIDEBAR_PANE.addBlock]}`
+  [SIDEBAR_PANE.addBlock]: `Click to ${paneTypeToNameLookup[SIDEBAR_PANE.addBlock]}`
 };
 
 // TODO: Make a small helper to generate these instead of copy-pasting
 export const SidebarMenuItems: NavbarItem[] = [
   {
-    name: paneTypeToNameLookup[LEFT_SIDEBAR_PANE.addBlock],
+    name: paneTypeToNameLookup[SIDEBAR_PANE.addBlock],
     icon: 'icon-plus',
     translate: 'sidebar.nav.ADD_BLOCK',
-    label: paneTypeToNameLookup[LEFT_SIDEBAR_PANE.addBlock],
+    label: paneTypeToNameLookup[SIDEBAR_PANE.addBlock],
     buttonVariant: 'outline-primary',
-    editorPane: LEFT_SIDEBAR_PANE.addBlock
+    editorPane: SIDEBAR_PANE.addBlock
   },
   {
-    name: paneTypeToNameLookup[LEFT_SIDEBAR_PANE.addTransition],
+    name: paneTypeToNameLookup[SIDEBAR_PANE.addTransition],
     icon: 'icon-cursor-move',
     translate: 'sidebar.nav.ADD_TRANSITION',
-    label: paneTypeToNameLookup[LEFT_SIDEBAR_PANE.addTransition],
+    label: paneTypeToNameLookup[SIDEBAR_PANE.addTransition],
     buttonVariant: 'outline-primary',
-    editorPane: LEFT_SIDEBAR_PANE.addTransition
+    editorPane: SIDEBAR_PANE.addTransition
   },
   {
-    name: paneTypeToNameLookup[LEFT_SIDEBAR_PANE.allBlocks],
+    name: paneTypeToNameLookup[SIDEBAR_PANE.allBlocks],
     icon: 'icon-grid',
     translate: 'sidebar.nav.ALL_BLOCKS',
-    label: paneTypeToNameLookup[LEFT_SIDEBAR_PANE.allBlocks],
+    label: paneTypeToNameLookup[SIDEBAR_PANE.allBlocks],
     buttonVariant: 'outline-info',
-    editorPane: LEFT_SIDEBAR_PANE.allBlocks
+    editorPane: SIDEBAR_PANE.allBlocks
   },
   {
-    name: paneTypeToNameLookup[LEFT_SIDEBAR_PANE.allVersions],
+    name: paneTypeToNameLookup[SIDEBAR_PANE.allVersions],
     icon: 'icon-chart',
     translate: 'sidebar.nav.ALL_VERSIONS',
-    label: paneTypeToNameLookup[LEFT_SIDEBAR_PANE.allVersions],
+    label: paneTypeToNameLookup[SIDEBAR_PANE.allVersions],
     buttonVariant: 'outline-info',
-    editorPane: LEFT_SIDEBAR_PANE.allVersions
+    editorPane: SIDEBAR_PANE.allVersions
   },
   {
-    name: paneTypeToNameLookup[LEFT_SIDEBAR_PANE.saveProject],
+    name: paneTypeToNameLookup[SIDEBAR_PANE.saveProject],
     icon: 'icon-check',
     translate: 'sidebar.nav.SAVE_PROJECT',
-    label: paneTypeToNameLookup[LEFT_SIDEBAR_PANE.saveProject],
+    label: paneTypeToNameLookup[SIDEBAR_PANE.saveProject],
     buttonVariant: 'success',
-    editorPane: LEFT_SIDEBAR_PANE.saveProject
+    editorPane: SIDEBAR_PANE.saveProject
   },
   {
-    name: paneTypeToNameLookup[LEFT_SIDEBAR_PANE.deployProject],
+    name: paneTypeToNameLookup[SIDEBAR_PANE.deployProject],
     icon: 'icon-cloud-upload',
     translate: 'sidebar.nav.DEPLOY_PROJECT',
-    label: paneTypeToNameLookup[LEFT_SIDEBAR_PANE.deployProject],
+    label: paneTypeToNameLookup[SIDEBAR_PANE.deployProject],
     buttonVariant: 'primary',
-    editorPane: LEFT_SIDEBAR_PANE.deployProject
+    editorPane: SIDEBAR_PANE.deployProject
   }
 ];

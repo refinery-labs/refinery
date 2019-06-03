@@ -1,13 +1,13 @@
 import {CreateElement, VNode} from 'vue';
 import {Component, Prop, Vue} from 'vue-property-decorator';
 import {NavbarItem} from '@/types/layout-types';
-import {LEFT_SIDEBAR_PANE} from '@/types/project-editor-types';
+import {SIDEBAR_PANE} from '@/types/project-editor-types';
 
 @Component
 export default class SidebarNav extends Vue {
   @Prop({required: true}) private navItems!: NavbarItem[];
-  @Prop({required: true}) private onNavItemClicked!: (s: LEFT_SIDEBAR_PANE) => {};
-  @Prop({required: true}) private activeLeftSidebarPane!: LEFT_SIDEBAR_PANE | null;
+  @Prop({required: true}) private onNavItemClicked!: (s: SIDEBAR_PANE) => {};
+  @Prop({required: true}) private activeLeftSidebarPane!: SIDEBAR_PANE | null;
   @Prop({default: () => ({})}) private leftSidebarPaneTypeToEnabledCheckFunction!: {[index: string]: () => boolean};
   
   public getIfButtonEnabled(paneType: string) {

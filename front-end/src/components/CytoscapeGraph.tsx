@@ -59,6 +59,10 @@ export default class CytoscapeGraph extends Vue {
     }
     
     this.cytoscapeValueModified();
+    
+    // Re-run the layout...
+    const layout = this.cy.layout(this.getLayoutConfig());
+    layout.run();
   }
   
   @Watch('layout', {deep: true})
@@ -203,20 +207,24 @@ export default class CytoscapeGraph extends Vue {
       sel.addClass(STYLE_CLASSES.SELECTED);
     }
   }
+  
+  public getLayoutConfig() {
+    return {
+      name: 'dagre',
+      nodeDimensionsIncludeLabels: true,
+      animate: true,
+      // animationEasing: 'cubic',
+      spacingFactor: 1.15,
+      padding: 100,
+      // @ts-ignore
+      edgeSep: 100,
+      ...this.layout
+    };
+  }
 
   public generateInitialCytoscapeConfig(): cytoscape.CytoscapeOptions {
     return {
-      layout: {
-        name: 'dagre',
-        nodeDimensionsIncludeLabels: true,
-        animate: true,
-        // animationEasing: 'cubic',
-        spacingFactor: 1.15,
-        padding: 100,
-        // @ts-ignore
-        edgeSep: 100,
-        ...this.layout
-      },
+      layout: this.getLayoutConfig(),
   
       boxSelectionEnabled: false,
       autounselectify: true,

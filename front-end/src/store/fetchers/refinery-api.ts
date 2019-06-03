@@ -117,3 +117,10 @@ export class RefineryApi implements RefineryApiTypeMap {
 export const apiClientMap: RefineryApiTypeMap = new RefineryApi();
 
 export const getApiClient = <T extends API_ENDPOINT>(t: T): RefineryApiMap[T] => apiClientMap[t];
+
+export async function makeApiRequest<TReq extends BaseApiRequest, TRes extends BaseApiResponse>(type: API_ENDPOINT, request: TReq) {
+  
+  const client = getApiClient(type);
+  
+  return await client(request) as TRes;
+}

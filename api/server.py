@@ -5561,7 +5561,7 @@ class GetSavedProject( BaseHandler ):
 		schema = {
 			"type": "object",
 			"properties": {
-				"id": {
+				"project_id": {
 					"type": "string",
 				},
 				"version": {
@@ -5569,8 +5569,7 @@ class GetSavedProject( BaseHandler ):
 				}
 			},
 			"required": [
-				"id",
-				"version"
+				"project_id"
 			]
 		}
 		
@@ -5579,7 +5578,7 @@ class GetSavedProject( BaseHandler ):
 		logit( "Retrieving saved project..." )
 
 		# Ensure user is owner of the project
-		if not self.is_owner_of_project( self.json[ "id" ] ):
+		if not self.is_owner_of_project( self.json[ "project_id" ] ):
 			self.write({
 				"success": False,
 				"code": "ACCESS_DENIED",
@@ -5591,16 +5590,16 @@ class GetSavedProject( BaseHandler ):
 
 		self.write({
 			"success": True,
-			"id": project.id,
+			"project_id": project.project_id,
 			"version": project.version,
 			"project_json": project.project_json
 		})
 
 	def fetch_project( self ):
 		if 'version' not in self.json:
-			return self.fetch_project_without_version(self.json[ "id" ])
+			return self.fetch_project_without_version(self.json[ "project_id" ])
 
-		return self.fetch_project_by_version(self.json[ "id" ], self.json[ "version" ])
+		return self.fetch_project_by_version(self.json[ "project_id" ], self.json[ "version" ])
 
 	def fetch_project_by_version( self, id, version ):
 		project_version_result = session.query( ProjectVersion ).filter_by(
@@ -5653,21 +5652,10 @@ class DeleteSavedProject( BaseHandler ):
 		project_config = session.query( ProjectConfig ).filter_by(
 			project_id=self.json[ "id" ]
 		).first()
-		project_config_data = project_config.to_dict()
-		project_config_dict = project_config_data[ "config_json" ]
-		
-		# Delete the API Gateway associated with this project
-		if "api_gateway" in project_config_dict:
-			api_gateway_id = project_config_dict[ "api_gateway" ][ "gateway_id" ]
-			
-			if api_gateway_id:
-				logit( "Deleting associated API Gateway '" + api_gateway_id + "'..." )
-				
-				yield local_tasks.delete_rest_api(
-					self.get_authenticated_user_cloud_configuration(),
-					api_gateway_id
-				)
-		
+
+		if project_config is not None:
+			self.delete_api_gateway(project_config)
+
 		saved_project_result = session.query( Project ).filter_by(
 			id=self.json[ "id" ]
 		).first()
@@ -5678,7 +5666,23 @@ class DeleteSavedProject( BaseHandler ):
 		self.write({
 			"success": True
 		})
-		
+
+	def delete_api_gateway( self, project_config ):
+		project_config_data = project_config.to_dict()
+		project_config_dict = project_config_data[ "config_json" ]
+
+		# Delete the API Gateway associated with this project
+		if "api_gateway" in project_config_dict:
+			api_gateway_id = project_config_dict[ "api_gateway" ][ "gateway_id" ]
+
+			if api_gateway_id:
+				logit( "Deleting associated API Gateway '" + api_gateway_id + "'..." )
+
+				yield local_tasks.delete_rest_api(
+					self.get_authenticated_user_cloud_configuration(),
+					api_gateway_id
+				)
+
 class DeployDiagram( BaseHandler ):
 	@authenticated
 	@disable_on_overdue_payment
