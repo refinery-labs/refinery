@@ -83,7 +83,7 @@ resource "aws_instance" "refinery_redis_instance" {
 		private_key = "${tls_private_key.refinery_redis_ssh_key.private_key_pem}"
 	}
 	
-	instance_type = "t2.nano"
+	instance_type = "t2.micro"
 	
 	# Pull the AMI ID from the config
 	# The variables tf has all the AMIs for each region already mapped
