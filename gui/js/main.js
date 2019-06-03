@@ -847,7 +847,7 @@ function login( user_email ) {
 	);
 }
 
-function register( organization_name, user_full_name, email ) {
+function register( organization_name, user_full_name, email, phone_number ) {
 	return api_request(
 		"POST",
 		"api/v1/auth/register",
@@ -855,6 +855,7 @@ function register( organization_name, user_full_name, email ) {
 			"organization_name": organization_name,
 			"name": user_full_name,
 			"email": email,
+			"phone": phone_number
 		}
 	);
 }

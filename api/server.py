@@ -899,27 +899,51 @@ class TaskSpawner(object):
 			logit( "Finished waiting, applying Terraform plan to newly created account..." )
 			logit( "Running 'terraform apply' to configure the account..." )
 			
-			# Terraform apply
-			process_handler = subprocess.Popen(
-				[
-					base_dir + "terraform",
-					"apply",
-					"-auto-approve",
-					"-var-file",
-					customer_aws_config_path,
-				],
-				stdout=subprocess.PIPE,
-				stderr=subprocess.PIPE,
-				shell=False,
-				universal_newlines=True,
-				cwd=base_dir,
-			)
-			process_stdout, process_stderr = process_handler.communicate()
+			# Retry terraform apply up to three times.
+			terraform_apply_remaining_attempts = 7
 			
-			if process_stderr.strip() != "":
-				logit( "The Terraform provisioning has failed!" )
-				# TODO - Notify us via an email alert to cancel the account.
-				raise Exception( "Terraform provisioning failed!" )
+			# Timeout, this is an exponential back-off
+			# 1 min, 2 min, 4 min, 8 min, 16 min, 32 min, 64 min.
+			backoff_timeout = 60
+			
+			while terraform_apply_remaining_attempts > 0:
+				# Terraform apply
+				process_handler = subprocess.Popen(
+					[
+						base_dir + "terraform",
+						"apply",
+						"-auto-approve",
+						"-var-file",
+						customer_aws_config_path,
+					],
+					stdout=subprocess.PIPE,
+					stderr=subprocess.PIPE,
+					shell=False,
+					universal_newlines=True,
+					cwd=base_dir,
+				)
+				process_stdout, process_stderr = process_handler.communicate()
+				
+				if process_stderr.strip() != "":
+					logit( "The Terraform provisioning has failed!", "error" )
+					logit( process_stderr, "error" )
+					logit( process_stdout, "error" )
+					terraform_apply_remaining_attempts = terraform_apply_remaining_attempts - 1
+					
+					if terraform_apply_remaining_attempts == 0:
+						logit( "Hit the maximum retry amount for 'terraform apply', quitting out...", "error" )
+						# TODO - Notify us via an email alert to cancel the account.
+						raise Exception( "Terraform provisioning failed!" )
+						break
+					
+					logit( "Retrying the 'terraform apply' in " + str( backoff_timeout ) + " seconds..." )
+					time.sleep( backoff_timeout )
+					
+					# Double our backoff time
+					backoff_timeout = backoff_timeout * 2
+				else:
+					logit( "'terraform apply' appears to have completed successfully!" )
+					break
 			
 			logit( "Running 'terraform output' to pull the account details..." )
 			
@@ -6505,12 +6529,16 @@ class NewRegistration( BaseHandler ):
 				},
 				"email": {
 					"type": "string",
-				}
+				},
+				"phone": {
+					"type": "string",
+				},
 			},
 			"required": [
 				"organization_name",
 				"name",
-				"email"
+				"email",
+				"phone"
 			]
 		}
 		
@@ -6560,6 +6588,7 @@ class NewRegistration( BaseHandler ):
 		new_user = User()
 		new_user.name = self.json[ "name" ]
 		new_user.email = self.json[ "email" ]
+		new_user.phone = self.json[ "phone" ]
 		
 		# Create a new email auth token as well
 		email_auth_token = EmailAuthToken()
