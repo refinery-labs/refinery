@@ -1221,7 +1221,6 @@ class TaskSpawner(object):
 				account_id=credentials[ "account_id" ]
 			).first()
 			aws_account.iam_admin_password = new_console_user_password
-			session.flush()
 			session.commit()
 			
 			# Get Lambda ARNs
@@ -7396,7 +7395,8 @@ class MaintainAWSAccountReserves( BaseHandler ):
 		# via Terraform on this iteration
 		# At a MINIMUM we have to wait 60 seconds from the time of account creation
 		# to actually perform the Terraform step.
-		minimum_account_age_seconds = ( 60 * 5 )
+		# We'll do 20 because it usually takes 15 to get the "Account Verified" email.
+		minimum_account_age_seconds = ( 60 * 20 )
 		current_timestamp = int( time.time() )
 		non_setup_aws_accounts = session.query( AWSAccount ).filter(
 			AWSAccount.aws_account_status == "CREATED",
