@@ -26,6 +26,18 @@ class AWSAccount( Base ):
 	# AWS region
 	region = Column(Text())
 	
+	# The account status, this can be any of the followin:
+	# CREATED: This means the account has been created but
+	# not-yet set up via Terraform.
+	# AVAILABLE: The AWS account has been set up via Terraform
+	# and is ready to be used.
+	# IN_USE: The account is currently being used by a customer.
+	# NEEDS_CLOSING: The AWS account is no longer used and
+	# needs to be manually closed.
+	# CORRUPT: The AWS account is in a broken state due to an
+	# issue with the Terraform setup/provisioning.
+	aws_account_status = Column(Text())
+	
 	# S3 bucket suffix, used to generate the full
 	# bucket names for sub-accounts
 	s3_bucket_suffix = Column(Text())
@@ -66,12 +78,6 @@ class AWSAccount( Base ):
 	# UNMANAGED is for third-party AWS accounts we don't manage.
 	account_type = Column(Text())
 	
-	# Whether the AWS Account is a "reserved account"
-	# Reserved accounts are sub-accounts of the main Refinery
-	# account. They are allocated to new users in order to do
-	# reseller pricing of AWS usage.
-	is_reserved_account = Column(Boolean())
-	
 	timestamp = Column(Integer())
 	
 	# Parent organization the AWS account belongs to
@@ -107,7 +113,6 @@ class AWSAccount( Base ):
 	
 	def __init__( self ):
 		self.id = str( uuid.uuid4() )
-		self.is_reserved_account = False
 		self.timestamp = int( time.time() )
 
 	def to_dict( self ):
@@ -122,7 +127,7 @@ class AWSAccount( Base ):
 			"redis_password",
 			"redis_port",
 			"account_type",
-			"is_reserved_account",
+			"aws_account_status",
 			"timestamp"
 		]
 		
