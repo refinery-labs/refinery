@@ -59,8 +59,6 @@ services:
             # We have a per-account ceiling of 1-hour, but we should basically always
             # be assuming for less time than that.
             assume_role_session_lifetime_seconds: "900"
-            # Alerts for when a free-trial account goes over the limit
-            free_trial_freeze_alerts: REPLACE_ME_WITH_SES_VERIFIED_SEND_TO_EMAIL
             # Shared secret for /service/ endpoints to be triggered
             service_shared_secret: SUPER_SECRET_SERVICE_VALUE_1234
             # The email suffix for customer AWS accounts
@@ -74,6 +72,8 @@ services:
             # The target amount of AWS accounts in the pool, these are the
             # AWS accounts which are frozen for customers to start using.
             reserved_aws_pool_target_amount: 5
+            # Alerts for when a free-trial account goes over the limit
+            alerts_email: "example@refinerylabs.io"
         ports:
             - "80:1234"
         volumes:

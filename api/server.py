@@ -688,7 +688,10 @@ class TaskSpawner(object):
 				account_status_data = response[ "CreateAccountStatus" ]
 		
 		@staticmethod
-		def _get_assume_role_credentials( role_arn, session_lifetime ):
+		def _get_assume_role_credentials( aws_account_id, session_lifetime ):
+			# Generate ARN for the sub-account AWS administrator role
+			sub_account_admin_role_arn = "arn:aws:iam::" + str( aws_account_id ) + ":role/" + os.environ.get( "customer_aws_admin_assume_role" )
+			
 			# Session lifetime must be a minimum of 15 minutes
 			# https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts.html#STS.Client.assume_role
 			min_session_lifetime_seconds = 900
@@ -698,7 +701,7 @@ class TaskSpawner(object):
 			role_session_name = "Refinery-Managed-Account-Support-" + get_urand_password( 12 )
 			
 			response = STS_CLIENT.assume_role(
-				RoleArn=role_arn,
+				RoleArn=sub_account_admin_role_arn,
 				RoleSessionName=role_session_name,
 				DurationSeconds=session_lifetime
 			)
@@ -761,72 +764,48 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def provision_new_sub_aws_account( self ):
-			return TaskSpawner._provision_new_sub_aws_account()
+		def create_new_sub_aws_account( self ):
+			return TaskSpawner._create_new_sub_aws_account()
 			
 		@staticmethod
-		def _provision_new_sub_aws_account():
-			# Create a temporary working directory for the work.
-			# Even if there's some exception thrown during the process
-			# we will still delete the underlying state.
-			temporary_dir = "/tmp/" + str( uuid.uuid4() ) + "/"
-			
-			try:
-				# Recursively copy files to the directory
-				shutil.copytree(
-					"/work/install/",
-					temporary_dir
-				)
-				
-				TaskSpawner.__provision_new_sub_aws_account(
-					temporary_dir
-				)
-			finally:
-				# Delete the temporary directory reguardless.
-				shutil.rmtree( temporary_dir )
-			
-			return True
-			
-		@staticmethod
-		def __provision_new_sub_aws_account( base_dir ):
-			logit( "Provisioning a new AWS sub-account..." )
-			
-			# Used to keep all of the account details in one place
-			# for later insert into the database
-			account_details = {}
-			
+		def _create_new_sub_aws_account():
 			# Create a unique ID for the Refinery AWS account
-			account_details[ "id" ] = get_urand_password( 16 ).lower()
+			aws_unique_account_id = get_urand_password( 16 ).lower()
 			
-			# Generate and set some secrets
-			account_details[ "refinery_customer_aws_console_username" ] = "refinery-customer"
-			account_details[ "refinery_customer_aws_console_password" ] = get_urand_password( 128 )
-			account_details[ "s3_bucket_suffix" ] = str( get_urand_password( 32 ) ).lower()
-			account_details[ "redis_password" ] = get_urand_password( 64 )
-			account_details[ "redis_prefix" ] = get_urand_password( 40 )
-			account_details[ "email" ] = os.environ.get( "customer_aws_email_prefix" ) + account_details[ "id" ] + os.environ.get( "customer_aws_email_suffix" )
+			# Store the AWS account in the database
+			new_aws_account = AWSAccount()
+			new_aws_account.account_label = ""
+			new_aws_account.region = os.environ.get( "region_name" )
+			new_aws_account.s3_bucket_suffix = str( get_urand_password( 32 ) ).lower()
+			new_aws_account.iam_admin_username = "refinery-customer"
+			new_aws_account.iam_admin_password = get_urand_password( 32 )
+			new_aws_account.redis_hostname = ""
+			new_aws_account.redis_password = get_urand_password( 64 )
+			new_aws_account.redis_port = 6379
+			new_aws_account.redis_secret_prefix = get_urand_password( 40 )
+			new_aws_account.account_type = "MANAGED"
+			new_aws_account.terraform_state = ""
+			new_aws_account.ssh_public_key = ""
+			new_aws_account.ssh_private_key = ""
+			new_aws_account.aws_account_email = os.environ.get( "customer_aws_email_prefix" ) + aws_unique_account_id + os.environ.get( "customer_aws_email_suffix" )
+			new_aws_account.terraform_state_versions = []
+			new_aws_account.aws_account_status = "CREATED"
 			
 			# Create AWS sub-account
-			logit( "Creating AWS sub-account '" + account_details[ "email" ] + "'..." )
+			logit( "Creating AWS sub-account '" + str( new_aws_account.aws_account_email ) + "'..." )
 			
 			# Create sub-AWS account
 			account_creation_response = TaskSpawner._create_aws_org_sub_account(
-				account_details[ "id" ],
-				account_details[ "email" ],
+				aws_unique_account_id,
+				str( new_aws_account.aws_account_email ),
 			)
 			
 			if account_creation_response == False:
 				raise Exception( "Account creation failed, quitting out!" )
 			
-			account_details[ "account_name" ] = account_creation_response[ "account_name" ]
-			account_details[ "account_id" ] = account_creation_response[ "account_id" ]
+			new_aws_account.account_id = account_creation_response[ "account_id" ]
 			
-			logit( "Sub-account created! AWS account ID is " + account_details[ "account_id" ] + " and the name is '" + account_details[ "account_name" ] + "'" )
-			
-			# Generate ARN for the sub-account AWS administrator role
-			sub_account_admin_role_arn = "arn:aws:iam::" + str( account_details[ "account_id" ] ) + ":role/" + os.environ.get( "customer_aws_admin_assume_role" )
-			
-			logit( "Sub-account role ARN is '" + sub_account_admin_role_arn + "'." )
+			logit( "Sub-account created! AWS account ID is " + new_aws_account.account_id + "." )
 			
 			assumed_role_credentials = {}
 			
@@ -836,7 +815,7 @@ class TaskSpawner(object):
 				try:
 					# We then assume the administrator role for the sub-account we created
 					assumed_role_credentials = TaskSpawner._get_assume_role_credentials(
-						sub_account_admin_role_arn,
+						str( new_aws_account.account_id ),
 						3600 # One hour - TODO CHANGEME
 					)
 					break
@@ -861,12 +840,57 @@ class TaskSpawner(object):
 				assumed_role_credentials[ "access_key_id" ],
 				assumed_role_credentials[ "secret_access_key" ],
 				assumed_role_credentials[ "session_token" ],
-				account_details[ "refinery_customer_aws_console_username" ],
-				account_details[ "refinery_customer_aws_console_password" ]
+				str( new_aws_account.iam_admin_username ),
+				str( new_aws_account.iam_admin_password )
 			)
 			
-			logit( "Successfully minted a console user account!" )
-			logit( "Writing Terraform input variables to file..." )
+			# Add AWS account to database
+			session.add( new_aws_account )
+			session.commit()
+			
+			return True
+			
+		@run_on_executor
+		def terraform_configure_aws_account( self, aws_account_object ):
+			return TaskSpawner._terraform_configure_aws_account(
+				aws_account_object
+			)
+			
+		@staticmethod
+		def _terraform_configure_aws_account( aws_account_object ):
+			# Create a temporary working directory for the work.
+			# Even if there's some exception thrown during the process
+			# we will still delete the underlying state.
+			temporary_dir = "/tmp/" + str( uuid.uuid4() ) + "/"
+			
+			try:
+				# Recursively copy files to the directory
+				shutil.copytree(
+					"/work/install/",
+					temporary_dir
+				)
+				
+				TaskSpawner.__terraform_configure_aws_account(
+					aws_account_object,
+					temporary_dir
+				)
+			finally:
+				# Delete the temporary directory reguardless.
+				shutil.rmtree( temporary_dir )
+			
+			return True
+			
+		@staticmethod
+		def __terraform_configure_aws_account( aws_account_data, base_dir ):
+			logit( "Setting up AWS account with terraform (AWS Acc. ID '" + aws_account_data.account_id + "')..." )
+			
+			# Get some temporary assume role credentials for the account
+			assumed_role_credentials = TaskSpawner._get_assume_role_credentials(
+				str( aws_account_data.account_id ),
+				3600 # One hour - TODO CHANGEME
+			)
+			
+			sub_account_admin_role_arn = "arn:aws:iam::" + str( aws_account_data.account_id ) + ":role/" + os.environ.get( "customer_aws_admin_assume_role" )
 			
 			# Write out the terraform configuration data
 			terraform_configuration_data = {
@@ -876,12 +900,14 @@ class TaskSpawner(object):
 				"access_key": assumed_role_credentials[ "access_key_id" ],
 				"secret_key": assumed_role_credentials[ "secret_access_key" ],
 				"region": os.environ.get( "region_name" ),
-				"s3_bucket_suffix": account_details[ "s3_bucket_suffix" ],
+				"s3_bucket_suffix": aws_account_data.s3_bucket_suffix,
 				"redis_secrets": {
-					"password": account_details[ "redis_password" ],
-					"secret_prefix": account_details[ "redis_prefix" ],
+					"password": aws_account_data.redis_password,
+					"secret_prefix": aws_account_data.redis_secret_prefix,
 				}
 			}
+			
+			logit( "Writing Terraform input variables to file..." )
 			
 			# Customer config path
 			customer_aws_config_path = base_dir + "customer_config.json"
@@ -895,56 +921,42 @@ class TaskSpawner(object):
 				)
 				
 			logit( "Terraform input variables successfully written to disk. " )
-			logit( "Waiting 60 seconds before running Terraform due to AWS propogation requirements..." )
-			time.sleep( 60 )
 			logit( "Finished waiting, applying Terraform plan to newly created account..." )
 			logit( "Running 'terraform apply' to configure the account..." )
 			
-			# Retry terraform apply up to three times.
-			terraform_apply_remaining_attempts = 7
+			# Terraform apply
+			process_handler = subprocess.Popen(
+				[
+					base_dir + "terraform",
+					"apply",
+					"-auto-approve",
+					"-var-file",
+					customer_aws_config_path,
+				],
+				stdout=subprocess.PIPE,
+				stderr=subprocess.PIPE,
+				shell=False,
+				universal_newlines=True,
+				cwd=base_dir,
+			)
+			process_stdout, process_stderr = process_handler.communicate()
 			
-			# Timeout, this is an exponential back-off
-			# 1 min, 2 min, 4 min, 8 min, 16 min, 32 min, 64 min.
-			backoff_timeout = 60
-			
-			while terraform_apply_remaining_attempts > 0:
-				# Terraform apply
-				process_handler = subprocess.Popen(
-					[
-						base_dir + "terraform",
-						"apply",
-						"-auto-approve",
-						"-var-file",
-						customer_aws_config_path,
-					],
-					stdout=subprocess.PIPE,
-					stderr=subprocess.PIPE,
-					shell=False,
-					universal_newlines=True,
-					cwd=base_dir,
-				)
-				process_stdout, process_stderr = process_handler.communicate()
+			if process_stderr.strip() != "":
+				logit( "The Terraform provisioning has failed!", "error" )
+				logit( process_stderr, "error" )
+				logit( process_stdout, "error" )
 				
-				if process_stderr.strip() != "":
-					logit( "The Terraform provisioning has failed!", "error" )
-					logit( process_stderr, "error" )
-					logit( process_stdout, "error" )
-					terraform_apply_remaining_attempts = terraform_apply_remaining_attempts - 1
-					
-					if terraform_apply_remaining_attempts == 0:
-						logit( "Hit the maximum retry amount for 'terraform apply', quitting out...", "error" )
-						# TODO - Notify us via an email alert to cancel the account.
-						raise Exception( "Terraform provisioning failed!" )
-						break
-					
-					logit( "Retrying the 'terraform apply' in " + str( backoff_timeout ) + " seconds..." )
-					time.sleep( backoff_timeout )
-					
-					# Double our backoff time
-					backoff_timeout = backoff_timeout * 2
-				else:
-					logit( "'terraform apply' appears to have completed successfully!" )
-					break
+				# Mark the account as corrupt since the provisioning failed.
+				aws_account_data.aws_account_status = "CORRUPT"
+				
+				# Alert us of the provisioning error so we can get ahead of
+				# it with AWS support.
+				TaskSpawner.send_terraform_provisioning_error(
+					aws_account_data.account_id,
+					str( process_stderr )
+				)
+				
+				raise Exception( "Terraform provisioning failed, AWS account marked as \"CORRUPT\"" )
 			
 			logit( "Running 'terraform output' to pull the account details..." )
 			
@@ -976,44 +988,28 @@ class TaskSpawner(object):
 			with open( base_dir + "terraform.tfstate", "r" ) as file_handler:
 				terraform_state = file_handler.read()
 				
-			logit( "Adding AWS account to the database reserve pool..." )
+			logit( "Adding AWS account to the database the pool of \"AVAILABLE\" accounts..." )
 			
-			# Store the AWS account in the database
-			new_aws_account = AWSAccount()
-			new_aws_account.account_label = ""
-			new_aws_account.account_id = terraform_provisioned_account_details[ "aws_account_id" ][ "value" ]
-			new_aws_account.region = terraform_provisioned_account_details[ "aws_region" ][ "value" ]
-			new_aws_account.s3_bucket_suffix = terraform_provisioned_account_details[ "s3_suffix" ][ "value" ]
-			new_aws_account.iam_admin_username = account_details[ "refinery_customer_aws_console_username" ]
-			new_aws_account.iam_admin_password = account_details[ "refinery_customer_aws_console_password" ]
-			new_aws_account.redis_hostname = terraform_provisioned_account_details[ "redis_elastic_ip" ][ "value" ]
-			new_aws_account.redis_password = account_details[ "redis_password" ]
-			new_aws_account.redis_port = 6379
-			new_aws_account.redis_secret_prefix = account_details[ "redis_prefix" ]
-			new_aws_account.account_type = "MANAGED"
-			new_aws_account.is_reserved_account = True
-			new_aws_account.terraform_state = terraform_state
-			new_aws_account.ssh_public_key = terraform_provisioned_account_details[ "refinery_redis_ssh_key_public_key_openssh" ][ "value" ]
-			new_aws_account.ssh_private_key = terraform_provisioned_account_details[ "refinery_redis_ssh_key_private_key_pem" ][ "value" ]
-			new_aws_account.aws_account_email = account_details[ "email" ]
-			new_aws_account.terraform_state_versions = []
+			# Update the AWS account with this new information
+			aws_account_data.redis_hostname = terraform_provisioned_account_details[ "redis_elastic_ip" ][ "value" ]
+			aws_account_data.terraform_state = terraform_state
+			aws_account_data.ssh_public_key = terraform_provisioned_account_details[ "refinery_redis_ssh_key_public_key_openssh" ][ "value" ]
+			aws_account_data.ssh_private_key = terraform_provisioned_account_details[ "refinery_redis_ssh_key_private_key_pem" ][ "value" ]
+			aws_account_data.aws_account_status = "AVAILABLE"
 			
 			# Create a new terraform state version
 			terraform_state_version = TerraformStateVersion()
 			terraform_state_version.terraform_state = terraform_state
-			new_aws_account.terraform_state_versions.append(
+			aws_account_data.terraform_state_versions.append(
 				terraform_state_version
 			)
-			
-			session.add( new_aws_account )
-			session.commit()
 			
 			logit( "Added AWS account to the pool successfully!" )
 			
 			logit( "Freezing the account until it's used by someone..." )
 			
 			TaskSpawner._freeze_aws_account(
-				new_aws_account.to_dict()
+				aws_account_data.to_dict()
 			)
 			
 			logit( "Account frozen successfully." )
@@ -1183,7 +1179,7 @@ class TaskSpawner(object):
 			iam_policy_arn = "arn:aws:iam::" + credentials[ "account_id" ] + ":policy/RefineryCustomerPolicy"
 			
 			# Generate a new user console password
-			new_console_user_password = get_urand_password( 128 )
+			new_console_user_password = get_urand_password( 32 )
 			
 			# Delete the current AWS console user
 			delete_user_profile_response = iam_client.delete_login_profile(
@@ -1287,12 +1283,41 @@ class TaskSpawner(object):
 			return False
 			
 		@staticmethod
+		def send_terraform_provisioning_error( aws_account_id, error_output ):
+			response = SES_EMAIL_CLIENT.send_email(
+				Source=os.environ.get( "ses_emails_from_email" ),
+				Destination={
+					"ToAddresses": [
+						os.environ.get( "alerts_email" ),
+					]
+				},
+				Message={
+					"Subject": {
+						"Data": "[AWS Account Provisioning Error] The Refinery AWS Account #" + aws_account_id + " Encountered a Fatal Error During Terraform Provisioning",
+						"Charset": "UTF-8"
+					},
+					"Body": {
+						"Text": {
+							"Data": pystache.render(
+								EMAIL_TEMPLATES[ "terraform_provisioning_error_alert" ],
+								{
+									"aws_account_id": aws_account_id,
+									"error_output": error_output,
+								}
+							),
+							"Charset": "UTF-8"
+						}
+					}
+				}
+			)
+			
+		@staticmethod
 		def send_account_freeze_email( aws_account_id, amount_accumulated, organization_admin_email ):
 			response = SES_EMAIL_CLIENT.send_email(
 				Source=os.environ.get( "ses_emails_from_email" ),
 				Destination={
 					"ToAddresses": [
-						os.environ.get( "free_trial_freeze_alerts" ),
+						os.environ.get( "alerts_email" ),
 					]
 				},
 				Message={
@@ -1695,7 +1720,7 @@ class TaskSpawner(object):
 				# Pull relevant AWS account
 				aws_account = session.query( AWSAccount ).filter_by(
 					account_id=aws_account_info[ "aws_account_id" ],
-					is_reserved_account=False,
+					aws_account_status="IN_USE",
 				).first()
 				
 				# If there's no related AWS account in the database
@@ -6696,13 +6721,13 @@ class EmailLinkAuthentication( BaseHandler ):
 			
 			# Check if there are reserved AWS accounts available
 			aws_reserved_account = session.query( AWSAccount ).filter_by(
-				is_reserved_account=True
+				aws_account_status="AVAILABLE"
 			).first()
 			
 			# If one exists, add it to the account
 			if aws_reserved_account != None:
 				logit( "Adding a reserved AWS account to the newly registered Refinery account..." )
-				aws_reserved_account.is_reserved_account = False
+				aws_reserved_account.aws_account_status = "IN_USE"
 				aws_reserved_account.organization_id = user_organization.id
 				session.commit()
 				
@@ -7323,34 +7348,7 @@ class BuildLibrariesPackage( BaseHandler ):
 		self.write({
 			"success": True,
 		})
-		
-class MaintainAWSAccountReserves( BaseHandler ):
-	@gen.coroutine
-	def get( self ):
-		"""
-		This job checks the number of AWS accounts in the reserve pool and will
-		automatically create accounts for the pool if there are less than the
-		target amount. This job is run regularly (every minute) to ensure that
-		we always have enough AWS accounts ready to use.
-		"""
-		self.write({
-			"success": True,
-			"msg": "AWS account maintenance job has been kicked off!"
-		})
-		self.finish()
-		
-		reserved_aws_pool_target_amount = int( os.environ.get( "reserved_aws_pool_target_amount" ) )
-			
-		current_aws_account_count = session.query( AWSAccount ).filter_by(
-			is_reserved_account=True
-		).count()
-		
-		logit( "Current AWS account(s) in pool is " + str( current_aws_account_count ) + " we have a target of " + str( reserved_aws_pool_target_amount ) )
-		
-		if current_aws_account_count < reserved_aws_pool_target_amount:
-			logit( "We are under our target, creating new AWS account for the pool..." )
-			local_tasks.provision_new_sub_aws_account()
-			
+
 class GetAWSConsoleCredentials( BaseHandler ):
 	@authenticated
 	@disable_on_overdue_payment
@@ -7373,6 +7371,89 @@ class GetAWSConsoleCredentials( BaseHandler ):
 				"signin_url": aws_console_signin_url,
 			}
 		})
+		
+		
+class MaintainAWSAccountReserves( BaseHandler ):
+	@gen.coroutine
+	def get( self ):
+		"""
+		This job checks the number of AWS accounts in the reserve pool and will
+		automatically create accounts for the pool if there are less than the
+		target amount. This job is run regularly (every minute) to ensure that
+		we always have enough AWS accounts ready to use.
+		"""
+		self.write({
+			"success": True,
+			"msg": "AWS account maintenance job has been kicked off!"
+		})
+		self.finish()
+		
+		reserved_aws_pool_target_amount = int( os.environ.get( "reserved_aws_pool_target_amount" ) )
+		
+		# Get the number of AWS accounts which are ready to be
+		# assigned to new users that are signing up ("AVAILABLE").
+		available_accounts_count = session.query( AWSAccount ).filter_by(
+			aws_account_status="AVAILABLE"
+		).count()
+		
+		# Get the number of AWS accounts which have been created
+		# but are not yet provision via Terraform ("CREATED").
+		created_accounts_count = session.query( AWSAccount ).filter_by(
+			aws_account_status="CREATED"
+		).count()
+		
+		# Get the number of AWS accounts that need to be provision
+		# via Terraform on this iteration
+		# At a MINIMUM we have to wait 60 seconds from the time of account creation
+		# to actually perform the Terraform step.
+		# We'll do 20 because it usually takes 15 to get the "Account Verified" email.
+		minimum_account_age_seconds = ( 60 * 20 )
+		current_timestamp = int( time.time() )
+		non_setup_aws_accounts = session.query( AWSAccount ).filter(
+			AWSAccount.aws_account_status == "CREATED",
+			AWSAccount.timestamp <= ( current_timestamp - minimum_account_age_seconds )
+		).all()
+		non_setup_aws_accounts_count = len( non_setup_aws_accounts )
+		
+		# Calculate the number of accounts that have been created but not provisioned
+		# That way we know how many, if any, that we need to create.
+		accounts_to_create = ( reserved_aws_pool_target_amount - available_accounts_count - created_accounts_count )
+		if accounts_to_create < 0:
+			accounts_to_create = 0
+		
+		logit( "--- AWS Account Stats ---" )
+		logit( "Ready for customer use: " + str( available_accounts_count ) )
+		logit( "Ready for terraform provisioning: " + str( non_setup_aws_accounts_count ) )
+		logit( "Not ready for terraform provisioning: " + str( ( created_accounts_count - non_setup_aws_accounts_count ) ) )
+		logit( "Target pool amount: " + str( reserved_aws_pool_target_amount ) )
+		logit( "Number of accounts to be created: " + str( accounts_to_create ) )
+		
+		# Kick off the terraform apply jobs for the accounts which are "aged" for it.
+		for non_setup_aws_account in non_setup_aws_accounts:
+			logit( "Kicking off terraform set-up for AWS account '" + non_setup_aws_account.account_id + "'..." )
+			try:
+				yield local_tasks.terraform_configure_aws_account(
+					non_setup_aws_account
+				)
+			except:
+				logit( "An error occurred while provision AWS account '" + non_setup_aws_account.account_id + "' with terraform!", "error" )
+				pass
+			
+			# Do session.add() to ensure it's reflected in the commit.
+			session.add( non_setup_aws_account )
+			
+		session.commit()
+			
+		# Create sub-accounts and let them age before applying terraform
+		for i in range( 0, accounts_to_create ):
+			logit( "Creating a new AWS sub-account for later terraform use..." )
+			# We have to yield because you can't mint more than one sub-account at a time
+			# (AWS can litterally only process one request at a time).
+			try:
+				yield local_tasks.create_new_sub_aws_account()
+			except:
+				logit( "An error occurred while creating an AWS sub-account.", "error" )
+				pass
 		
 def make_app( is_debug ):
 	tornado_app_settings = {
@@ -7437,6 +7518,8 @@ if __name__ == "__main__":
 		7777
 	)
 	Base.metadata.create_all( engine )
+	
+	#tornado.ioloop.IOLoop.current().run_sync( test )
 	
 	if os.environ.get( "cf_enabled" ).lower() == "true":
 		tornado.ioloop.IOLoop.current().run_sync( get_cloudflare_keys )
