@@ -118,8 +118,6 @@ export default class OpenedProjectOverview extends Vue {
         <OpenedProjectGraphContainer />
   
         {this.renderPaneOverlay(PANE_POSITION.right, this.activeRightSidebarPane)}
-  
-        <Offsidebar/>
       </div>
     );
   }
