@@ -1,34 +1,25 @@
 import {Module} from 'vuex';
 import {RootState} from '../../store-types';
 
-export enum EditBlockState {
+// Enums
+export enum BaseBlockMutators {
 
 }
 
-export enum EditBlockGetter {
+export enum BaseBlockActions {
 
 }
 
-export enum EditBlockMutators {
+// Types
+export interface BaseBlockPaneState {
 
 }
 
-export enum EditBlockActions {
-
-}
-
-export type EditBlockPaneStateKeys = {
-  [key in EditBlockState]: any
-}
-
-export interface EditBlockPaneState extends EditBlockPaneStateKeys {
-
-}
-
-const moduleState: EditBlockPaneState = {
+// Initial State
+const moduleState: BaseBlockPaneState = {
 };
 
-const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
+const BaseBlockPaneModule: Module<BaseBlockPaneState, RootState> = {
   namespaced: true,
   state: moduleState,
   getters: {
@@ -42,4 +33,4 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
   }
 };
 
-export default EditBlockPaneModule;
+export default BaseBlockPaneModule;

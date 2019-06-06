@@ -29,7 +29,7 @@ $nav-top-item-desktop-active:   $nav-top-item-mobile-active;
     -webkit-backface-visibility: hidden; /* fixes chrome jump */
     margin-bottom: 0;
     border-radius: 0;
-    z-index: 1050;
+    z-index: 5;
     border: 0;
     padding: 0;
     min-height: $navbar-height;

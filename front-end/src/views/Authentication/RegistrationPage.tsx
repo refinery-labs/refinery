@@ -66,7 +66,7 @@ export default class RegistrationPage extends Vue {
           <p class="text-center py-2">Register and receive free, instant access!</p>
           <b-form on={{submit: this.onSubmit, reset: this.onReset}} class="mb-3 text-align--left">
             <b-form-group id="user-email-group">
-              <label class="text-muted d-block" htmlFor="user-email-input" id="user-email-group">
+              <label class="text-muted d-block" htmlFor="user-email-input">
                 Email address:
               </label>
               

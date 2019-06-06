@@ -28,7 +28,12 @@ import {
   SaveProjectRequest,
   SaveProjectResponse
 } from '@/types/api-types';
-import {SIDEBAR_PANE, OpenProjectMutation, UpdateLeftSidebarPaneStateMutation} from '@/types/project-editor-types';
+import {
+  OpenProjectMutation,
+  PANE_POSITION,
+  SIDEBAR_PANE,
+  UpdateLeftSidebarPaneStateMutation
+} from '@/types/project-editor-types';
 import {
   getNodeDataById,
   getValidBlockToBlockTransitions,
@@ -37,8 +42,12 @@ import {
   unwrapProjectJson,
   wrapJson
 } from '@/utils/project-helpers';
-import {blockTypeToImageLookup} from '@/constants/project-editor-constants';
-import EditBlockPaneModule from '@/store/modules/panes/edit-block-pane';
+import {
+  blockTypeToDefaultStateMapping,
+  blockTypeToImageLookup,
+  CODE_BLOCK_DEFAULT_STATE
+} from '@/constants/project-editor-constants';
+import EditBlockPaneModule, {EditBlockActions} from '@/store/modules/panes/edit-block-pane';
 
 const moduleState: ProjectViewState = {
   openedProject: null,
@@ -87,7 +96,7 @@ const moduleState: ProjectViewState = {
 const ProjectViewModule: Module<ProjectViewState, RootState> = {
   namespaced: true,
   modules: {
-    'my-pane-name': EditBlockPaneModule
+    editBlockPane: EditBlockPaneModule
   },
   state: moduleState,
   getters: {
@@ -254,6 +263,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         context.commit(ProjectViewMutators.isLoadingProject, false);
         return;
       }
+  
+      // Ensures that we have all fields, especially if the schema changes.
+      project.workflow_states = project.workflow_states.map(wfs => ({
+        ...CODE_BLOCK_DEFAULT_STATE,
+        ...wfs
+      }));
       
       const params: OpenProjectMutation = {
         project: project,
@@ -378,6 +393,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
       
+      // TODO: Check if we currently have changes that we need to save in a panel...
+      
       await context.dispatch('clearSelection');
       
       if (!context.state.openedProject) {
@@ -396,12 +413,13 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       
       const node = nodes[0];
       
-      // TODO: Figure out how to check for "dirty" state, likely via using:
-      // context.rootState
-      
       context.commit(ProjectViewMutators.selectedResource, node.id);
       
       await context.dispatch('updateAvailableTransitions');
+      
+      // Opens up the Edit block pane
+      await context.dispatch('openRightSidebarPane', SIDEBAR_PANE.editBlock);
+      await context.dispatch(`editBlockPane/${EditBlockActions.selectCurrentlySelectedProjectNode}`);
     },
     async selectEdge(context, edgeId: string) {
       if (context.state.isAddingTransitionCurrently) {
@@ -447,8 +465,37 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // That also feels wrong because it violates to "one direction" principal, in a way.
       context.commit(ProjectViewMutators.setLeftSidebarPane, leftSidebarPaneType);
     },
-    closeLeftSidebarPane(context) {
-      context.commit(ProjectViewMutators.setLeftSidebarPane, null);
+    closePane(context, pos: PANE_POSITION) {
+      if (pos === PANE_POSITION.left) {
+        context.commit(ProjectViewMutators.setLeftSidebarPane, null);
+        return;
+      }
+      
+      if (pos === PANE_POSITION.right) {
+        context.commit(ProjectViewMutators.setRightSidebarPane, null);
+        return;
+      }
+      
+      console.error('Attempted to close unknown pane', pos);
+    },
+    async openRightSidebarPane(context, paneType: SIDEBAR_PANE) {
+      if (context.state.isAddingTransitionCurrently) {
+        // TODO: Add a shake or something? Tell the user that it's bjorked.
+        return;
+      }
+    
+      // Special case because Mandatory and I agreed that having a pane pop out is annoying af
+      if (paneType === SIDEBAR_PANE.saveProject) {
+        await context.dispatch('saveProject');
+        return;
+      }
+    
+      // TODO: Somehow fire a callback on each left pane so that it can reset itself?
+      // Using a watcher seems gross... A plugin could work but that feels a little bit too "loose".
+      // Better would be a map of Type -> Callback probably? Just trigger other actions to fire?
+      // Or have the ProjectEditorLeftPaneContainer fire a callback on the child component?
+      // That also feels wrong because it violates to "one direction" principal, in a way.
+      context.commit(ProjectViewMutators.setRightSidebarPane, paneType);
     },
     async resetProjectState(context) {
       context.commit(ProjectViewMutators.selectedResource, null);
@@ -462,7 +509,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
     
     // Add Block Pane
-    async addBlock(context, blockType: string) {
+    async addBlock(context, rawBlockType: string) {
       // Call this, for sure
       // await context.dispatch('updateAvailableTransitions')
   
@@ -474,21 +521,25 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
   
       const openedProject = context.state.openedProject as RefineryProject;
       
-      if (blockType === 'saved_lambda') {
+      if (rawBlockType === 'saved_lambda') {
         await context.dispatch('addSavedBlock');
         return;
       }
       
-      if (!Object.values(WorkflowStateType).includes(blockType)) {
+      // Catches the case of "unknown" block types causing craziness later!
+      if (!Object.values(WorkflowStateType).includes(rawBlockType)) {
         console.error('Unknown block type requested to be added!');
         return;
       }
       
+      const blockType = rawBlockType as WorkflowStateType;
+      
       const newBlock: WorkflowState = {
+        ...blockTypeToDefaultStateMapping[blockType],
         id: uuid(),
         // TODO: Make this use a friendly human name
         name: `New ${blockTypeToImageLookup[blockType].name}`,
-        type: blockType as WorkflowStateType
+        type: blockType
       };
   
       // This creates a new pointer for the main object, which makes Vuex very pleased.

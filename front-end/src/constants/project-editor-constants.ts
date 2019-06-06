@@ -1,7 +1,8 @@
-import {WorkflowRelationshipType, WorkflowStateType} from '@/types/graph';
+import {SupportedLanguage, WorkflowRelationshipType, WorkflowStateType} from '@/types/graph';
 import {ActiveSidebarPaneToContainerMapping, SIDEBAR_PANE} from '@/types/project-editor-types';
 import AddBlockPane from '@/components/ProjectEditor/AddBlockPane';
 import AddTransitionPane from '@/components/ProjectEditor/AddTransitionPane';
+import EditBlockPane from '@/components/ProjectEditor/EditBlockPane';
 
 export const BlockSelectionType = {
   ...WorkflowStateType,
@@ -227,6 +228,83 @@ export const DEFAULT_PROJECT_CONFIG = {
   }
 };
 
+export type DefaultCodeFromLanguage = {
+  [key in SupportedLanguage]: string
+}
+
+export const DEFAULT_LANGUAGE_CODE: DefaultCodeFromLanguage = {
+  [SupportedLanguage.PYTHON_2]: `
+def main( lambda_input, context ):
+    return False
+`,
+  [SupportedLanguage.NODEJS_8]: `
+async function main( lambda_input, context ) {
+	return false;
+}
+`,
+  [SupportedLanguage.PHP7]: `
+<?php
+// Uncomment if you specified libraries
+// require __DIR__ . "/vendor/autoload.php";
+function main( $lambda_input, $context ) {
+	return false;
+}
+`,
+  [SupportedLanguage.GO1_12]: `package main
+
+import (
+	// The following imports are required
+	// by the Refinery runtime do not remove them!
+	"os"
+	"fmt"
+	"encoding/json"
+	"runtime/debug"
+	// Add your imports below this line
+)
+
+// Modify BlockInput to conform to your input data schema
+type BlockInput struct {
+	Example string \`json:"example"\`
+}
+
+// Modify block_main() appropriately.
+// It must return a JSON-serializable value
+func block_main(block_input []byte, context map[string]interface{}) bool {
+	var unmarshalled_input BlockInput
+	
+	// lambda_input is a byte array of the input to this code block
+	// This is a JSON-serialized value returned from another block.
+	json.Unmarshal(block_input, &unmarshalled_input)
+	
+	return false
+}
+`
+};
+
+export const CODE_BLOCK_DEFAULT_STATE = {
+  'language': 'python2.7',
+  'code': DEFAULT_LANGUAGE_CODE[SupportedLanguage.PYTHON_2],
+  'memory': 768,
+  'libraries': [],
+  'layers': [],
+  'max_execution_time': 120,
+  'type': 'lambda'
+};
+
+export type BlockTypeToDefaultState = {
+  [key in WorkflowStateType]: Object
+}
+
+export const blockTypeToDefaultStateMapping: BlockTypeToDefaultState = {
+  [WorkflowStateType.LAMBDA]: CODE_BLOCK_DEFAULT_STATE,
+  [WorkflowStateType.SQS_QUEUE]: {},
+  [WorkflowStateType.API_GATEWAY_RESPONSE]: {},
+  [WorkflowStateType.API_ENDPOINT]: {},
+  [WorkflowStateType.SCHEDULE_TRIGGER]: {},
+  [WorkflowStateType.SNS_TOPIC]: {},
+  [WorkflowStateType.API_GATEWAY]: {}
+};
+
 export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
   [SIDEBAR_PANE.addBlock]: AddBlockPane,
   [SIDEBAR_PANE.addTransition]: AddTransitionPane,
@@ -234,6 +312,6 @@ export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
   [SIDEBAR_PANE.allVersions]: AddBlockPane,
   [SIDEBAR_PANE.deployProject]: AddBlockPane,
   [SIDEBAR_PANE.saveProject]: AddBlockPane,
-  [SIDEBAR_PANE.editBlock]: AddBlockPane,
+  [SIDEBAR_PANE.editBlock]: EditBlockPane,
   [SIDEBAR_PANE.editTransition]: AddBlockPane
 };

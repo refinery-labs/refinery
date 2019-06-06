@@ -1,7 +1,7 @@
 import Vue, {CreateElement, VNode} from 'vue';
 import Component from 'vue-class-component';
 import {namespace} from 'vuex-class';
-import {LeftSidebarPaneState, SIDEBAR_PANE} from '@/types/project-editor-types';
+import {LeftSidebarPaneState, PANE_POSITION, SIDEBAR_PANE} from '@/types/project-editor-types';
 import {paneTypeToWindowNameLookup} from '@/menu';
 import {paneToContainerMapping} from '@/constants/project-editor-constants';
 
@@ -11,7 +11,7 @@ const project = namespace('project');
 export default class ProjectEditorLeftPaneContainer extends Vue {
   @project.State activeLeftSidebarPane!: SIDEBAR_PANE | null;
   @project.State leftSidebarPaneState!: LeftSidebarPaneState;
-  @project.Action closeLeftSidebarPane!: () => void;
+  @project.Action closePane!: (p: PANE_POSITION) => void;
   
   public render(h: CreateElement): VNode {
   
@@ -30,7 +30,7 @@ export default class ProjectEditorLeftPaneContainer extends Vue {
     };
     
     const containerClasses = {
-      'project-left-pane-container display--flex': true
+      'project-pane-container display--flex': true
     };
     
     return (
@@ -42,7 +42,7 @@ export default class ProjectEditorLeftPaneContainer extends Vue {
                 {paneTypeToWindowNameLookup[this.activeLeftSidebarPane]}
               </h4>
               <button type="button" class="close text-white editor-pane-instance__close-button" data-dismiss="modal"
-                      aria-label="Close" on={{click: this.closeLeftSidebarPane}}>
+                      aria-label="Close" on={{click: () => this.closePane(PANE_POSITION.left)}}>
                 <span aria-hidden="true">&times;</span>
               </button>
             </div>
