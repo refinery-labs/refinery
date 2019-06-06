@@ -105,12 +105,21 @@ $padding-steps: (
   }
   &--scroll {
     overflow: scroll;
+    &-auto {
+      overflow: auto;
+    }
   }
   &--scroll-x {
     overflow-x: scroll;
+    &-auto {
+      overflow-x: auto;
+    }
   }
   &--scroll-y {
     overflow-y: scroll;
+    &-auto {
+      overflow-y: auto;
+    }
   }
 }
 

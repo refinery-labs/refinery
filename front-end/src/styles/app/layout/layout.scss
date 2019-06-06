@@ -88,8 +88,9 @@ body {
         bottom: 0;
         height: $footer-hg;
         border-top: 1px solid $gray-light;
-        padding: $content-padding;
-        z-index: $z-index-main-section - 2;
+        padding: 5px;
+        // This z-index is busted for modals
+        z-index: 0; //$z-index-main-section - 2;
         font-size: .875rem;
         p {
             margin: 0;
@@ -443,7 +444,7 @@ body {
             position: fixed;
             top: 0;
             width: 100%;
-            z-index: $z-index-main-section + 10;
+            z-index: 5;
         }
         .aside-container,
         .offsidebar {
