@@ -10,6 +10,7 @@ export default class LoginPage extends Vue {
   @user.State loginEmailInput!: string;
   @user.State loginEmailInputValid!: boolean;
   @user.State isBusy!: boolean;
+  @user.State loginAttemptMessage!: string | null;
   @user.State loginErrorMessage!: string | null;
   
   @user.Mutation setRememberMeState!: (s: boolean) => void;
@@ -25,6 +26,12 @@ export default class LoginPage extends Vue {
   onReset(evt: Event) {
     evt.preventDefault();
     // Reset inputs
+  }
+  
+  mounted() {
+    if (this.rememberMeToggled) {
+      this.setEmailInputValue(this.loginEmailInput);
+    }
   }
   
   onRememberMeUpdated(e: Event) {
@@ -92,6 +99,9 @@ export default class LoginPage extends Vue {
             <b-form-invalid-feedback state={this.loginErrorMessage === null}>
               {this.loginErrorMessage}
             </b-form-invalid-feedback>
+            <b-form-valid-feedback state={this.loginAttemptMessage !== null}>
+              {this.loginAttemptMessage}
+            </b-form-valid-feedback>
           </b-form>
           <p class="pt-3 text-center">Need to Signup?</p>
           <router-link class="btn btn-block btn-secondary" to="/register">Register Now</router-link>

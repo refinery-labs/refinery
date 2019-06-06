@@ -48,6 +48,8 @@ import {
   CODE_BLOCK_DEFAULT_STATE
 } from '@/constants/project-editor-constants';
 import EditBlockPaneModule, {EditBlockActions} from '@/store/modules/panes/edit-block-pane';
+import {createToast} from '@/utils/toasts-utils';
+import {ToastVariant} from '@/types/toasts-types';
 
 const moduleState: ProjectViewState = {
   openedProject: null,
@@ -359,43 +361,13 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
     async selectNode(context, nodeId: string) {
       if (context.state.isAddingTransitionCurrently) {
-        const validTransitions = getValidBlockToBlockTransitions(context.state);
-        
-        // This should never happen... But just in case.
-        if (!validTransitions) {
-          await context.dispatch('cancelAddingTransition');
-          return;
-        }
-        
-        const transitions = validTransitions.map(t => t.toNode.id === nodeId);
-        
-        // Something has gone wrong... There are nodes with the same ID somewhere!
-        if (transitions.length === 0
-          || !context.state.selectedResource || !context.state.newTransitionTypeSpecifiedInAddFlow) {
-          await context.dispatch('cancelAddingTransition');
-          return;
-        }
-        
-        const newTransition: WorkflowRelationship = {
-          node: context.state.selectedResource,
-          next: nodeId,
-          type: context.state.newTransitionTypeSpecifiedInAddFlow,
-          name: context.state.newTransitionTypeSpecifiedInAddFlow,
-          expression: '',
-          id: uuid()
-        };
-        
-        await context.dispatch('addTransition', newTransition);
-        await context.dispatch('cancelAddingTransition');
-        await context.dispatch('closeLeftSidebarPane');
-        
-        // TODO: Open right sidebar pane
+        await context.dispatch('completeTransitionAdd', nodeId);
         return;
       }
       
       // TODO: Check if we currently have changes that we need to save in a panel...
       
-      await context.dispatch('clearSelection');
+      //await context.dispatch('clearSelection');
       
       if (!context.state.openedProject) {
         console.error('Attempted to select node without opened project', nodeId);
@@ -445,6 +417,45 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       context.commit(ProjectViewMutators.selectedResource, edges[0].id);
   
       await context.dispatch('updateAvailableTransitions');
+    },
+    async completeTransitionAdd(context, nodeId: string) {
+      if (!context.state.isAddingTransitionCurrently) {
+        console.error('Attempted to add transition but was not in correct state');
+        return;
+      }
+      
+      const validTransitions = getValidBlockToBlockTransitions(context.state);
+  
+      // This should never happen... But just in case.
+      if (!validTransitions) {
+        console.error('Add transition was not in correct state, canceling');
+        await context.dispatch('cancelAddingTransition');
+        return;
+      }
+  
+      const transitions = validTransitions.map(t => t.toNode.id === nodeId);
+  
+      // Something has gone wrong... There are nodes with the same ID somewhere!
+      if (transitions.length === 0
+        || !context.state.selectedResource || !context.state.newTransitionTypeSpecifiedInAddFlow) {
+        await context.dispatch('cancelAddingTransition');
+        return;
+      }
+  
+      const newTransition: WorkflowRelationship = {
+        node: context.state.selectedResource,
+        next: nodeId,
+        type: context.state.newTransitionTypeSpecifiedInAddFlow,
+        name: context.state.newTransitionTypeSpecifiedInAddFlow,
+        expression: '',
+        id: uuid()
+      };
+  
+      await context.dispatch('addTransition', newTransition);
+      await context.dispatch('cancelAddingTransition');
+      await context.dispatch('closePane', PANE_POSITION.left);
+  
+      // TODO: Open right sidebar pane
     },
     async openLeftSidebarPane(context, leftSidebarPaneType: SIDEBAR_PANE) {
       if (context.state.isAddingTransitionCurrently) {
@@ -504,8 +515,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       context.commit(ProjectViewMutators.setCytoscapeStyle, null);
       context.commit(ProjectViewMutators.setSelectedBlockIndex, null);
       context.commit(ProjectViewMutators.setValidTransitions, null);
-      
-      await context.dispatch('closeLeftSidebarPane');
+      context.commit(ProjectViewMutators.setAddingTransitionStatus, false);
+  
+      // TODO: Add "close all panes"
+      await context.dispatch('closePane', PANE_POSITION.left);
+      await context.dispatch('closePane', PANE_POSITION.right);
     },
     
     // Add Block Pane
@@ -556,10 +570,16 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         config: null,
         markAsDirty: true
       };
+      
+      await createToast(context.dispatch, {
+        title: 'Block Added',
+        content: `New block added to project, ${newBlock.name}`,
+        variant: ToastVariant.info
+      });
   
       await context.dispatch('updateProject', params);
       await context.dispatch('selectNode', newBlock.id);
-      await context.dispatch('closeLeftSidebarPane');
+      await context.dispatch('closePane', PANE_POSITION.left);
     },
     async addSavedBlock(context) {
       // TODO: Set pane to search
@@ -600,6 +620,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       };
       
       await context.dispatch('updateProject', params);
+      await context.dispatch('selectEdge', newTransition.id);
     },
     async updateAvailableTransitions(context) {
       const resetTransitions = () => context.commit(ProjectViewMutators.setValidTransitions, null);
@@ -637,6 +658,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       context.commit(ProjectViewMutators.setAddingTransitionType, null);
     },
     async selectTransitionTypeToAdd(context, transitionType: WorkflowRelationshipType) {
+      await context.dispatch('closePane', PANE_POSITION.right);
       context.commit(ProjectViewMutators.setAddingTransitionStatus, true);
       context.commit(ProjectViewMutators.setAddingTransitionType, transitionType);
     }

@@ -4,6 +4,7 @@ import SidebarNav from '@/components/SidebarNav';
 import TopNavbar from '@/components/TopNavbar';
 import {UserInterfaceSettings, UserInterfaceState} from '@/store/store-types';
 import {Getter} from 'vuex-class';
+import ToastContainer from '@/containers/ToastContainer';
 
 @Component({
   components: {
@@ -37,6 +38,7 @@ export default class App extends Vue {
         <div class="flex-grow--3">
           <router-view />
         </div>
+        <ToastContainer />
       </div>
     );
   }

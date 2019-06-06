@@ -6,6 +6,7 @@ import Footer from './Footer';
 import ContentWrapper from './ContentWrapper.vue';
 import {Component} from 'vue-property-decorator';
 import GlobalNavSidebar from '@/components/Layout/GlobalNavSidebar';
+import OffsideContentBar from '@/components/Layout/OffsideContentBar';
 
 Vue.component('ContentWrapper', ContentWrapper);
 
@@ -37,6 +38,8 @@ export default class Layout extends Vue {
           </section>
       
           <Footer/>
+  
+          <OffsideContentBar />
           
         </div>
       </div>

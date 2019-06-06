@@ -131,13 +131,24 @@ export class EditLambdaBlock extends Vue {
   }
   
   public renderCodeEditorContainer() {
+    const selectedNode = this.selectedNode;
+    
     const buttonOnclick = {click: () => this.setCodeModalVisibility(true)};
     
     return (
-      <div class="edit-block-container__code-editor">
-        <b-button on={buttonOnclick} class="edit-block-container__expand-button">Expand</b-button>
-        {this.renderCodeEditor('pane')}
-      </div>
+      <b-form-group
+        id={`code-editor-group-${selectedNode.id}`}
+        description={codeEditorText}>
+        <div class="display--flex">
+          <label class="d-block flex-grow--1" htmlFor={`code-editor-${selectedNode.id}`}>
+            Edit Block Code:
+          </label>
+          <b-button on={buttonOnclick} class="edit-block-container__expand-button">Expand</b-button>
+        </div>
+        <div class="input-group with-focus edit-block-container__code-editor">
+          {this.renderCodeEditor('pane')}
+        </div>
+      </b-form-group>
     );
   }
   
@@ -228,7 +239,9 @@ export class EditLambdaBlock extends Vue {
         <div class="row edit-block-container__bottom-buttons">
           <b-button-group class="col-12">
             <b-button variant="secondary" class="col-6" type="reset">Cancel</b-button>
-            <b-button variant="primary" class="col-6" type="submit">Save Block</b-button>
+            <b-button variant="primary" class="col-6" type="submit">
+              Save Block
+            </b-button>
           </b-button-group>
         </div>
         {this.renderCodeEditorModal()}

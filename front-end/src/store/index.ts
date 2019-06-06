@@ -7,23 +7,9 @@ import createPersistedState from 'vuex-persistedstate';
 import ProjectView from './modules/project-view';
 import AllProjects from './modules/all-projects';
 import {RootState, UserInterfaceSettings} from '@/store/store-types';
+import ToastPaneModule from '@/store/modules/toasts';
 
 Vue.use(Vuex);
-
-// states which we don't want to persist.
-const whiteListedStates = [
-  UserInterfaceSettings.isFixed,
-  UserInterfaceSettings.isBoxed,
-  UserInterfaceSettings.isGlobalNavCollapsed,
-  UserInterfaceSettings.isSidebarCollapsed,
-  UserInterfaceSettings.asideHover,
-  UserInterfaceSettings.asideScrollbar,
-  UserInterfaceSettings.asideToggled,
-  UserInterfaceSettings.hiddenFooter,
-  UserInterfaceSettings.isCollapsedText,
-  UserInterfaceSettings.isFloat,
-  UserInterfaceSettings.useFullLayout
-];
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
@@ -42,6 +28,7 @@ export default new Vuex.Store<RootState>({
     setting: SettingModule,
     project: ProjectView,
     allProjects: AllProjects,
+    toasts: ToastPaneModule,
     user: UserModule
   },
   plugins: [
