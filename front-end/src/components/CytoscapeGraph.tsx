@@ -255,7 +255,7 @@ export default class CytoscapeGraph extends Vue {
       animate,
       // animationEasing: 'cubic',
       spacingFactor: 1.15,
-      padding: 120,
+      padding: 108,
       // @ts-ignore
       edgeSep: 100,
       ...this.layout

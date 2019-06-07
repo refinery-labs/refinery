@@ -17,9 +17,12 @@ export enum ProjectViewMutators {
   setOpenedProjectConfig = "setOpenedProjectConfig",
   setOpenedProjectOriginal = "setOpenedProjectOriginal",
   setOpenedProjectConfigOriginal = "setOpenedProjectConfigOriginal",
+
   selectedResource = "selectedResource",
   isLoadingProject = "isLoadingProject",
   isProjectBusy = "isProjectBusy",
+  isDeployingProject = 'isDeployingProject',
+
   markProjectDirtyStatus = "markProjectDirtyStatus",
   setCytoscapeElements = "setCytoscapeElements",
   setCytoscapeStyle = "setCytoscapeStyle",
@@ -42,6 +45,7 @@ export enum ProjectViewActions {
   openProject = 'openProject',
   updateProject = 'updateProject',
   saveProject = 'saveProject',
+  deployProject = 'deployProject',
   clearSelection = 'clearSelection',
   selectNode = 'selectNode',
   selectEdge = 'selectEdge',

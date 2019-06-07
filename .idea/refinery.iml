@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+  <component name="FacetManager">
+    <facet type="Python" name="Python">
+      <configuration sdkName="" />
+    </facet>
+  </component>
+  <component name="NewModuleRootManager" inherit-compiler-output="true">
+    <exclude-output />
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/front-end/node_modules" type="java-resource" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/boto3" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/boto3-1.9.96.dist-info" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/botocore" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/botocore-1.12.96.dist-info" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/concurrent" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/dateutil" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/docutils" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/docutils-0.14.dist-info" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/futures-3.2.0.dist-info" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/jmespath" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/jmespath-0.9.3.dist-info" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/pkg_resources" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/pkg_resources-0.0.0.dist-info" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/python_dateutil-2.8.0.dist-info" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/redis" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/redis-3.1.0.dist-info" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/s3transfer" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/s3transfer-0.2.0.dist-info" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/setuptools" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/setuptools-40.8.0.dist-info" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/six-1.12.0.dist-info" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/urllib3" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/urllib3-1.24.1.dist-info" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/wheel" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/wheel-0.33.0.dist-info" />
+      <excludeFolder url="file://$MODULE_DIR$/gui/js/vendor" />
+      <excludeFolder url="file://$MODULE_DIR$/install/env" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>
