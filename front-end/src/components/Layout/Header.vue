@@ -141,14 +141,14 @@
 </template>
 
 <script>
-import Vue from "vue";
-import { mapMutations } from "vuex";
-import HeaderSearch from "./HeaderSearch";
-import ToggleFullscreen from "../Common/ToggleFullscreen";
-import { UserInterfaceSettings } from "../../store/store-types";
+import Vue from 'vue';
+import { mapMutations } from 'vuex';
+import HeaderSearch from './HeaderSearch';
+import ToggleFullscreen from '../Common/ToggleFullscreen';
+import { UserInterfaceSettings } from '../../store/store-types';
 
 export default Vue.extend({
-  name: "Header",
+  name: 'Header',
   components: {
     HeaderSearch,
     ToggleFullscreen
@@ -160,13 +160,13 @@ export default Vue.extend({
      */
     resize: e => {
       // all IE friendly dispatchEvent
-      var evt = document.createEvent("UIEvents");
-      evt.initUIEvent("resize", true, false, window, 0);
+      var evt = document.createEvent('UIEvents');
+      evt.initUIEvent('resize', true, false, window, 0);
       window.dispatchEvent(evt);
       // modern dispatchEvent way
       // window.dispatchEvent(new Event('resize'));
     },
-    ...mapMutations(["toggleSetting"]),
+    ...mapMutations(['toggleSetting']),
     toggleOffsidebar() {
       this.toggleSetting(UserInterfaceSettings.offsidebarOpen);
     },

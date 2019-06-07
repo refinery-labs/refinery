@@ -1,5 +1,5 @@
-import Vue, { CreateElement, VNode } from "vue";
-import Component from "vue-class-component";
+import Vue, { CreateElement, VNode } from 'vue';
+import Component from 'vue-class-component';
 
 @Component
 export default class ViewWorkflow extends Vue {

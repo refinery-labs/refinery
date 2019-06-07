@@ -1,69 +1,73 @@
-import Vue from "vue";
+import Vue from 'vue';
 import moment from 'moment';
-import { Component, Watch } from "vue-property-decorator";
-import { Route } from "vue-router";
-import { UserInterfaceSettings } from "@/store/store-types";
-import { Action, Getter, Mutation, namespace } from "vuex-class";
-import { ToastConfig } from "@/types/toasts-types";
+import { Component, Watch } from 'vue-property-decorator';
+import { Route } from 'vue-router';
+import { UserInterfaceSettings } from '@/store/store-types';
+import { Action, Getter, Mutation, namespace } from 'vuex-class';
+import { ToastConfig } from '@/types/toasts-types';
 
-const toasts = namespace("toasts");
+const toasts = namespace('toasts');
 
 @Component
 export default class OffsideContentBar extends Vue {
   @toasts.State activeToasts!: ToastConfig[];
-  
+
   @Mutation toggleSettingOn!: (name: UserInterfaceSettings) => {};
   @Mutation toggleSettingOff!: (name: UserInterfaceSettings) => {};
   @Action closeGlobalNav!: () => {};
-  
-  @Watch("$route", { deep: true })
+
+  @Watch('$route', { deep: true })
   private elementsModified(val: Route, oldVal: Route) {
     this.toggleGlobalNavOff();
   }
-  
+
   public toggleGlobalNavOff() {
     this.closeGlobalNav();
   }
-  
+
   mounted() {
     const sidebarElement = this.$refs.sidebarElement as HTMLElement;
-    
+
     if (!sidebarElement) {
       return;
     }
-    
+
     // const sidebarHtmlElement = sidebarElement as HTMLElement;
-    
+
     // unhide offsidebar on mounted
-    sidebarElement.classList.remove("d-none");
+    sidebarElement.classList.remove('d-none');
   }
-  
+
   renderEmptyNotifications() {
     if (this.activeToasts && this.activeToasts.length > 0) {
       return null;
     }
-    
+
     return (
       <h4 class="text-muted text-thin">
         No notification history to display...
       </h4>
     );
   }
-  
+
   renderNotification(toast: ToastConfig) {
     const updatedTime = moment(toast.timestamp);
-    const durationSinceUpdated = moment.duration(-moment().diff(updatedTime)).humanize(true);
+    const durationSinceUpdated = moment
+      .duration(-moment().diff(updatedTime))
+      .humanize(true);
     return (
       <div class="p-2">
-        <div role="alert" aria-live="assertive" aria-atomic="true"
-             class="b-toast b-toast-prepend">
+        <div
+          role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
+          class="b-toast b-toast-prepend"
+        >
           <div class="toast">
             <header class="toast-header">
               <strong class="mr-2">{toast.title}</strong>
             </header>
-            <div class="toast-body">
-              {toast.content}
-            </div>
+            <div class="toast-body">{toast.content}</div>
             <span class="toast-footer text-muted text-thin">
               {durationSinceUpdated}
             </span>
@@ -72,7 +76,7 @@ export default class OffsideContentBar extends Vue {
       </div>
     );
   }
-  
+
   render() {
     return (
       <aside class="offsidebar d-none" ref="sidebarElement">
@@ -82,7 +86,7 @@ export default class OffsideContentBar extends Vue {
               <em class="icon-equalizer fa-lg" />
             </template>
             <h3 class="text-center text-thin mt-4">Notifications</h3>
-  
+
             {this.renderEmptyNotifications()}
             {this.activeToasts.map(t => this.renderNotification(t))}
           </b-tab>

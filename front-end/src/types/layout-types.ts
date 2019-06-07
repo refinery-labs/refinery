@@ -1,4 +1,4 @@
-import { SIDEBAR_PANE } from "@/types/project-editor-types";
+import { SIDEBAR_PANE } from '@/types/project-editor-types';
 
 export type MenuItemLabel = {
   value: number | string;

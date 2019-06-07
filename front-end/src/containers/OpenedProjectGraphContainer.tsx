@@ -1,18 +1,18 @@
-import Vue, { CreateElement, VNode } from "vue";
-import Component from "vue-class-component";
-import CytoscapeGraph from "@/components/CytoscapeGraph";
-import { namespace } from "vuex-class";
+import Vue, { CreateElement, VNode } from 'vue';
+import Component from 'vue-class-component';
+import CytoscapeGraph from '@/components/CytoscapeGraph';
+import { namespace } from 'vuex-class';
 import {
   CyElements,
   CyStyle,
   RefineryProject,
   WorkflowRelationship,
   WorkflowState
-} from "@/types/graph";
-import { LayoutOptions } from "cytoscape";
-import { AvailableTransition } from "@/store/store-types";
+} from '@/types/graph';
+import { LayoutOptions } from 'cytoscape';
+import { AvailableTransition } from '@/store/store-types';
 
-const project = namespace("project");
+const project = namespace('project');
 
 @Component
 export default class OpenedProjectGraphContainer extends Vue {
@@ -41,7 +41,7 @@ export default class OpenedProjectGraphContainer extends Vue {
 
   public render(h: CreateElement): VNode {
     if (!this.cytoscapeElements || !this.cytoscapeStyle) {
-      const errorMessage = "Graph unable to render, missing data!";
+      const errorMessage = 'Graph unable to render, missing data!';
       console.error(errorMessage);
       return <h2>{errorMessage}</h2>;
     }

@@ -1,8 +1,8 @@
-import Vue, { CreateElement, VNode } from "vue";
-import Component from "vue-class-component";
-import { namespace } from "vuex-class";
+import Vue, { CreateElement, VNode } from 'vue';
+import Component from 'vue-class-component';
+import { namespace } from 'vuex-class';
 
-const user = namespace("user");
+const user = namespace('user');
 
 @Component
 export default class LoginPage extends Vue {
@@ -48,8 +48,8 @@ export default class LoginPage extends Vue {
 
   public renderLoginForm() {
     const classes = {
-      "block-center mt-4 wd-xl": true,
-      "whirl standard": this.isBusy
+      'block-center mt-4 wd-xl': true,
+      'whirl standard': this.isBusy
     };
 
     // Modified Designer code... Hence not being Vue-Bootstrap entirely.

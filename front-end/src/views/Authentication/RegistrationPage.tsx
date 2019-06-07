@@ -1,9 +1,9 @@
-import Vue, { CreateElement, VNode } from "vue";
-import Component from "vue-class-component";
-import { namespace } from "vuex-class";
-import StripeAddPaymentCard from "@/components/Common/StripeAddPaymentCard.vue";
+import Vue, { CreateElement, VNode } from 'vue';
+import Component from 'vue-class-component';
+import { namespace } from 'vuex-class';
+import StripeAddPaymentCard from '@/components/Common/StripeAddPaymentCard.vue';
 
-const user = namespace("user");
+const user = namespace('user');
 
 @Component
 export default class RegistrationPage extends Vue {
@@ -55,13 +55,13 @@ export default class RegistrationPage extends Vue {
 
   public renderLoginForm() {
     const classes = {
-      "block-center mt-4 wd-xl": true,
-      "whirl standard": this.isBusy
+      'block-center mt-4 wd-xl': true,
+      'whirl standard': this.isBusy
     };
 
     const emailInputErrorMessage =
       this.registrationEmailErrorMessage ||
-      "Your must register with a valid email address.";
+      'Your must register with a valid email address.';
 
     // Modified Designer code... Hence not being Vue-Bootstrap entirely.
     return (
@@ -222,7 +222,7 @@ export default class RegistrationPage extends Vue {
               <br />
               {/*TODO: Replace Pricing page with actual link.*/}
               <small class="text-muted d-block">
-                For more information about our pricing, see our{" "}
+                For more information about our pricing, see our{' '}
                 <a href="#" target="_blank">
                   Pricing page
                 </a>

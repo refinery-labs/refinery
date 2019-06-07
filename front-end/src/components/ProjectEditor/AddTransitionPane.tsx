@@ -1,14 +1,14 @@
-import Vue, { CreateElement, VNode } from "vue";
-import Component from "vue-class-component";
-import { namespace } from "vuex-class";
+import Vue, { CreateElement, VNode } from 'vue';
+import Component from 'vue-class-component';
+import { namespace } from 'vuex-class';
 import {
   AddGraphElementConfig,
   transitionTypeToConfigLookup,
   availableTransitions
-} from "@/constants/project-editor-constants";
-import { WorkflowRelationshipType } from "@/types/graph";
+} from '@/constants/project-editor-constants';
+import { WorkflowRelationshipType } from '@/types/graph';
 
-const project = namespace("project");
+const project = namespace('project');
 
 @Component
 export default class AddTransitionPane extends Vue {
@@ -39,17 +39,17 @@ export default class AddTransitionPane extends Vue {
     const choosingTransition = !this.newTransitionTypeSpecifiedInAddFlow;
 
     const groupItemClasses = {
-      "display--flex": true,
-      "add-block--disabled": !isTransitionEnabled
+      'display--flex': true,
+      'add-block--disabled': !isTransitionEnabled
     };
 
     const icon = (
-      <span class={!isTransitionEnabled ? "icon-ban" : "icon-check"} />
+      <span class={!isTransitionEnabled ? 'icon-ban' : 'icon-check'} />
     );
 
     const collapsedContent = (
       <div>
-        {transition.name + " "}
+        {transition.name + ' '}
         {icon}
       </div>
     );
@@ -58,7 +58,7 @@ export default class AddTransitionPane extends Vue {
       <div class="flex-column align-items-start add-block__content">
         <div class="d-flex w-100 justify-content-between">
           <h4 class="mb-1">
-            {transition.name + " "}
+            {transition.name + ' '}
             {icon}
           </h4>
         </div>
@@ -84,7 +84,7 @@ export default class AddTransitionPane extends Vue {
     return (
       <b-list-group
         class="add-transition-container"
-        style={{ margin: "0 0 2px 0" }}
+        style={{ margin: '0 0 2px 0' }}
       >
         <div>
           <b-list-group horizontal>
@@ -123,7 +123,7 @@ export default class AddTransitionPane extends Vue {
     return (
       <b-list-group
         class="add-transition-container"
-        style={{ margin: "0 0 2px 0" }}
+        style={{ margin: '0 0 2px 0' }}
       >
         {availableTransitions.map(key =>
           this.renderTransitionSelect(key, transitionTypeToConfigLookup[key])

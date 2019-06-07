@@ -2,18 +2,18 @@ import {
   RefineryProject,
   WorkflowRelationshipType,
   WorkflowState
-} from "@/types/graph";
+} from '@/types/graph';
 import {
   nodeTypesWithSimpleTransitions,
   validBlockToBlockTransitionLookup,
   ValidTransitionConfig
-} from "@/constants/project-editor-constants";
+} from '@/constants/project-editor-constants';
 import {
   AvailableTransitionsByType,
   ProjectViewState
-} from "@/store/store-types";
-import { GetSavedProjectResponse } from "@/types/api-types";
-import uuid from "uuid/v4";
+} from '@/store/store-types';
+import { GetSavedProjectResponse } from '@/types/api-types';
+import uuid from 'uuid/v4';
 
 export function getNodeDataById(project: RefineryProject, nodeId: string) {
   const targetStates = project.workflow_states;
@@ -105,7 +105,7 @@ export function unwrapProjectJson(
 
     // could probably have used spread, oh well
     return {
-      name: project.name || "Unknown Project",
+      name: project.name || 'Unknown Project',
       project_id: response.project_id || project.project_id || uuid(),
       workflow_relationships: project.workflow_relationships || [],
       workflow_states: project.workflow_states || [],

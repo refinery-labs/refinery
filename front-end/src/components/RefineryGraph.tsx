@@ -1,9 +1,9 @@
-import { CreateElement, VNode } from "vue";
-import { Component, Vue } from "vue-property-decorator";
-import { Layer } from "konva/types/Layer";
-import { Shape, ShapeConfig } from "konva/types/Shape";
-import Konva from "konva";
-import { Stage } from "konva/types/Stage";
+import { CreateElement, VNode } from 'vue';
+import { Component, Vue } from 'vue-property-decorator';
+import { Layer } from 'konva/types/Layer';
+import { Shape, ShapeConfig } from 'konva/types/Shape';
+import Konva from 'konva';
+import { Stage } from 'konva/types/Stage';
 
 export declare type KonvaLayer = {
   getNode: () => Layer;
@@ -38,8 +38,8 @@ export default class RefineryGraph extends Vue {
     shape.setAttrs({
       shadowOffsetX: 15,
       shadowOffsetY: 15,
-      scaleX: shape.getAttr("startScale") * 1.2,
-      scaleY: shape.getAttr("startScale") * 1.2
+      scaleX: shape.getAttr('startScale') * 1.2,
+      scaleY: shape.getAttr('startScale') * 1.2
     });
   }
 
@@ -57,8 +57,8 @@ export default class RefineryGraph extends Vue {
     shape.to({
       duration: 0.5,
       easing: Konva.Easings.ElasticEaseOut,
-      scaleX: shape.getAttr("startScale"),
-      scaleY: shape.getAttr("startScale"),
+      scaleX: shape.getAttr('startScale'),
+      scaleY: shape.getAttr('startScale'),
       shadowOffsetX: 5,
       shadowOffsetY: 5
     });
@@ -80,12 +80,12 @@ export default class RefineryGraph extends Vue {
         numPoints: 5,
         innerRadius: 30,
         outerRadius: 50,
-        fill: "#89b717",
+        fill: '#89b717',
         opacity: 0.8,
         draggable: true,
         scaleX: scale,
         scaleY: scale,
-        shadowColor: "black",
+        shadowColor: 'black',
         shadowBlur: 10,
         shadowOffsetX: 5,
         shadowOffsetY: 5,

@@ -1,10 +1,10 @@
-import Vue, { CreateElement, VNode } from "vue";
-import Component from "vue-class-component";
-import { namespace } from "vuex-class";
-import { Prop, Watch } from "vue-property-decorator";
-import { ToastConfig } from "@/types/toasts-types";
+import Vue, { CreateElement, VNode } from 'vue';
+import Component from 'vue-class-component';
+import { namespace } from 'vuex-class';
+import { Prop, Watch } from 'vue-property-decorator';
+import { ToastConfig } from '@/types/toasts-types';
 
-const toasts = namespace("toasts");
+const toasts = namespace('toasts');
 
 @Component
 export class ToastComponent extends Vue {
@@ -12,7 +12,7 @@ export class ToastComponent extends Vue {
   @Prop({ required: true }) markToastShown!: (t: ToastConfig) => void;
   @Prop({ required: true }) markToastDone!: (t: ToastConfig) => void;
 
-  @Watch("activeToasts", { immediate: true })
+  @Watch('activeToasts', { immediate: true })
   private activeToastsChanged(val: ToastConfig[], oldVal: ToastConfig[]) {
     if (val && oldVal && val === oldVal) {
       return;

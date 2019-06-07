@@ -1,23 +1,23 @@
-import Vue from "vue";
-import Router, { Route } from "vue-router";
-import store from "./store/index";
-import Home from "./views/Home.vue";
-import Settings from "./views/Settings.vue";
-import Marketplace from "./views/Marketplace.vue";
-import AdminPanel from "./views/Admin";
-import AllProjects from "./views/AllProjects";
-import ViewProject from "./views/ViewProject";
-import OpenedWorkflowWrapper from "@/views/ProjectsNestedViews/OpenedWorkflowWrapper";
-import ProjectDeployments from "@/views/ProjectsNestedViews/ProjectDeployments";
-import ViewProjectDeployment from "@/views/ProjectsNestedViews/ViewProjectDeployment";
-import EditProjectDeployment from "@/views/ProjectsNestedViews/EditProjectDeployment";
-import Layout from "@/components/Layout/Layout";
-import { baseLinks, projectViewLinks } from "@/constants/router-constants";
-import PageNotFound from "@/views/PageNotFound";
-import ProjectNotFound from "@/views/ProjectsNestedViews/ProjectNotFound";
-import LoginPage from "@/views/Authentication/LoginPage";
-import { UserMutators } from "@/constants/store-constants";
-import RegistrationPage from "@/views/Authentication/RegistrationPage";
+import Vue from 'vue';
+import Router, { Route } from 'vue-router';
+import store from './store/index';
+import Home from './views/Home.vue';
+import Settings from './views/Settings.vue';
+import Marketplace from './views/Marketplace.vue';
+import AdminPanel from './views/Admin';
+import AllProjects from './views/AllProjects';
+import ViewProject from './views/ViewProject';
+import OpenedWorkflowWrapper from '@/views/ProjectsNestedViews/OpenedWorkflowWrapper';
+import ProjectDeployments from '@/views/ProjectsNestedViews/ProjectDeployments';
+import ViewProjectDeployment from '@/views/ProjectsNestedViews/ViewProjectDeployment';
+import EditProjectDeployment from '@/views/ProjectsNestedViews/EditProjectDeployment';
+import Layout from '@/components/Layout/Layout';
+import { baseLinks, projectViewLinks } from '@/constants/router-constants';
+import PageNotFound from '@/views/PageNotFound';
+import ProjectNotFound from '@/views/ProjectsNestedViews/ProjectNotFound';
+import LoginPage from '@/views/Authentication/LoginPage';
+import { UserMutators } from '@/constants/store-constants';
+import RegistrationPage from '@/views/Authentication/RegistrationPage';
 
 Vue.use(Router);
 
@@ -41,58 +41,58 @@ async function guardLoggedIn(to: Route, from: Route, next: Function) {
   store.commit(`user/${UserMutators.setRedirectState}`, to.fullPath);
 
   // go to '/login';
-  next("/login");
+  next('/login');
 }
 
 const router = new Router({
-  mode: "history",
+  mode: 'history',
   base: process.env.BASE_URL,
   routes: [
     {
-      path: "/login",
-      name: "login",
+      path: '/login',
+      name: 'login',
       component: LoginPage
     },
     {
-      path: "/register",
-      name: "register",
+      path: '/register',
+      name: 'register',
       component: RegistrationPage
     },
     {
-      path: "/",
+      path: '/',
       component: Layout,
       beforeEnter: guardLoggedIn,
       children: [
         {
-          path: "",
+          path: '',
           component: Home
         },
         {
           path: baseLinks.about,
-          name: "about",
+          name: 'about',
           // route level code-splitting
           // this generates a separate chunk (about.[hash].js) for this route
           // which is lazy-loaded when the route is visited.
           component: () =>
-            import(/* webpackChunkName: "about" */ "./views/About.vue")
+            import(/* webpackChunkName: "about" */ './views/About.vue')
         },
         // Account-level settings page
         {
           path: baseLinks.settings,
-          name: "settings",
+          name: 'settings',
           component: Settings
         },
         // Gives info about billing and usage on the platform.
         // Will likely contain children for pages like billing and specific endpoint hits.
         {
           path: baseLinks.stats,
-          name: "stats",
+          name: 'stats',
           component: Settings
         },
         // View all available projects
         {
           path: baseLinks.projects,
-          name: "allProjects",
+          name: 'allProjects',
           component: AllProjects
         },
         // Everything specific to a project is nested under the projectId in the path.
@@ -100,73 +100,73 @@ const router = new Router({
         // Most people using Refinery will probably only have 1 project for a while, so we can hide this functionality.
         {
           path: projectViewLinks.viewProject,
-          name: "project",
+          name: 'project',
           // components: {default: ViewProject, graph: RefineryGraph},
           component: ViewProject,
           children: [
             // View all deployments for project
             {
-              path: "deployments",
-              name: "allDeployments",
+              path: 'deployments',
+              name: 'allDeployments',
               // View all deployments
               component: ProjectDeployments
             },
             // View deployment by ID
             {
-              path: "d/:deploymentId",
+              path: 'd/:deploymentId',
               component: OpenedWorkflowWrapper,
 
               children: [
                 // Overview of deployment
                 {
-                  path: "",
-                  name: "deployment",
+                  path: '',
+                  name: 'deployment',
                   component: ViewProjectDeployment
                 },
                 // Edit deployment
                 {
-                  path: "edit",
-                  name: "editDeployment",
+                  path: 'edit',
+                  name: 'editDeployment',
                   component: EditProjectDeployment
                 }
               ]
             },
             // View Usage information for project
             {
-              path: "usage",
-              name: "projectUsage",
+              path: 'usage',
+              name: 'projectUsage',
               component: ProjectDeployments
             },
             // View settings for a project
             {
-              path: "settings",
-              name: "projectSettings",
+              path: 'settings',
+              name: 'projectSettings',
               component: ProjectDeployments
             },
             {
-              path: "*",
+              path: '*',
               component: ProjectNotFound
             }
           ]
         },
         {
           path: baseLinks.marketplace,
-          name: "marketplace",
+          name: 'marketplace',
           // This will likely need to have children eventually... but not today.
           component: Marketplace
         },
         {
           path: baseLinks.help,
-          name: "help",
+          name: 'help',
           component: Marketplace
         },
         {
           path: baseLinks.admin,
-          name: "admin",
+          name: 'admin',
           component: AdminPanel
         },
         {
-          path: "*",
+          path: '*',
           component: PageNotFound
         }
       ]

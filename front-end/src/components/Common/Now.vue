@@ -5,14 +5,14 @@
 </template>
 
 <script>
-import moment from "moment";
+import moment from 'moment';
 
 /**
  * Updates every second the content of the element
  * with the current time formated
  */
 export default {
-  name: "Now",
+  name: 'Now',
   props: {
     /** string to format current date */
     format: String
@@ -20,7 +20,7 @@ export default {
   data() {
     return {
       currentTime: null,
-      interval: ""
+      interval: ''
     };
   },
   mounted() {

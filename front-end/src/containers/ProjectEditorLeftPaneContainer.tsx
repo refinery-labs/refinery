@@ -1,15 +1,15 @@
-import Vue, { CreateElement, VNode } from "vue";
-import Component from "vue-class-component";
-import { namespace } from "vuex-class";
+import Vue, { CreateElement, VNode } from 'vue';
+import Component from 'vue-class-component';
+import { namespace } from 'vuex-class';
 import {
   LeftSidebarPaneState,
   PANE_POSITION,
   SIDEBAR_PANE
-} from "@/types/project-editor-types";
-import { paneTypeToWindowNameLookup } from "@/menu";
-import { paneToContainerMapping } from "@/constants/project-editor-constants";
+} from '@/types/project-editor-types';
+import { paneTypeToWindowNameLookup } from '@/menu';
+import { paneToContainerMapping } from '@/constants/project-editor-constants';
 
-const project = namespace("project");
+const project = namespace('project');
 
 @Component
 export default class ProjectEditorLeftPaneContainer extends Vue {
@@ -28,14 +28,14 @@ export default class ProjectEditorLeftPaneContainer extends Vue {
     ];
 
     const headerClasses = {
-      "editor-pane-instance__modal-header": true,
-      "modal-header": true,
-      "bg-dark": true,
-      "text-light": true
+      'editor-pane-instance__modal-header': true,
+      'modal-header': true,
+      'bg-dark': true,
+      'text-light': true
     };
 
     const containerClasses = {
-      "project-pane-container display--flex": true
+      'project-pane-container display--flex': true
     };
 
     return (

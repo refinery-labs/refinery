@@ -1,4 +1,4 @@
-import { HttpUtil } from "@/utils/make-request";
+import { HttpUtil } from '@/utils/make-request';
 import {
   BaseApiRequest,
   BaseApiResponse,
@@ -54,8 +54,8 @@ import {
   SearchSavedProjectsResponse,
   UpdateEnvironmentVariablesRequest,
   UpdateEnvironmentVariablesResponse
-} from "@/types/api-types";
-import { API_ENDPOINT, ApiConfigMap } from "@/constants/api-constants";
+} from '@/types/api-types';
+import { API_ENDPOINT, ApiConfigMap } from '@/constants/api-constants';
 
 export type RefineryApiCall<
   TRequest extends BaseApiRequest,
@@ -82,10 +82,10 @@ function makeApiClient<
 
     if (!httpResponse.parsedBody) {
       console.error(
-        "Missing or invalid body received for request",
+        'Missing or invalid body received for request',
         httpResponse
       );
-      throw new Error("Malformed API Response");
+      throw new Error('Malformed API Response');
     }
 
     const parsedBody = httpResponse.parsedBody as unknown;

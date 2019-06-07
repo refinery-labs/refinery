@@ -1,4 +1,4 @@
-import { HTTP_METHOD } from "@/constants/api-constants";
+import { HTTP_METHOD } from '@/constants/api-constants';
 
 export interface IHttpResponse<T> extends Response {
   parsedBody?: T;
@@ -29,11 +29,11 @@ export const http = <T>(request: RequestInfo): Promise<IHttpResponse<T>> => {
 export async function getRequest<T>(path: string, args: {}) {
   return await http<T>(
     new Request(path, {
-      method: "get",
-      credentials: "include",
-      mode: "cors",
+      method: 'get',
+      credentials: 'include',
+      mode: 'cors',
       headers: {
-        "X-CSRF-Validation-Header": "False"
+        'X-CSRF-Validation-Header': 'False'
       },
       ...args
     })
@@ -47,12 +47,12 @@ export async function postRequest<TReq, TRes>(
 ) {
   return await http<TRes>(
     new Request(path, {
-      method: "post",
-      credentials: "include",
-      mode: "cors",
+      method: 'post',
+      credentials: 'include',
+      mode: 'cors',
       headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-Validation-Header": "False"
+        'Content-Type': 'application/json',
+        'X-CSRF-Validation-Header': 'False'
       },
       body: JSON.stringify(body),
       ...args
@@ -67,12 +67,12 @@ export async function putRequest<TReq, TRes>(
 ) {
   return await http<TRes>(
     new Request(path, {
-      method: "put",
-      credentials: "include",
-      mode: "cors",
+      method: 'put',
+      credentials: 'include',
+      mode: 'cors',
       headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-Validation-Header": "False"
+        'Content-Type': 'application/json',
+        'X-CSRF-Validation-Header': 'False'
       },
       body: JSON.stringify(body),
       ...args
@@ -87,12 +87,12 @@ export async function deleteRequest<TReq, TRes>(
 ) {
   return await http<TRes>(
     new Request(path, {
-      method: "delete",
-      credentials: "include",
-      mode: "cors",
+      method: 'delete',
+      credentials: 'include',
+      mode: 'cors',
       headers: {
-        "Content-Type": "application/json",
-        "X-CSRF-Validation-Header": "False"
+        'Content-Type': 'application/json',
+        'X-CSRF-Validation-Header': 'False'
       },
       body: JSON.stringify(body),
       ...args

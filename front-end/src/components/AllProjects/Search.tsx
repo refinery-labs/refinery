@@ -1,13 +1,13 @@
-import { CreateElement, VNode } from "vue";
-import { Component, Prop, Vue } from "vue-property-decorator";
-import moment from "moment";
-import ContentWrapper from "@/components/Layout/ContentWrapper.vue";
-import { SearchSavedProjectsResult } from "@/types/api-types";
-import { namespace } from "vuex-class";
-import CardToolTsx from "@/components/Common/CardToolTsx";
-import { linkFormatterUtils } from "@/constants/router-constants";
+import { CreateElement, VNode } from 'vue';
+import { Component, Prop, Vue } from 'vue-property-decorator';
+import moment from 'moment';
+import ContentWrapper from '@/components/Layout/ContentWrapper.vue';
+import { SearchSavedProjectsResult } from '@/types/api-types';
+import { namespace } from 'vuex-class';
+import CardToolTsx from '@/components/Common/CardToolTsx';
+import { linkFormatterUtils } from '@/constants/router-constants';
 
-const allProjects = namespace("allProjects");
+const allProjects = namespace('allProjects');
 
 @Component({
   components: { ContentWrapper }
@@ -99,10 +99,10 @@ export default class Search extends Vue {
     const chunked = availableProjects; //.slice().slice(0, 10);
 
     const headerTitle =
-      availableProjects.length === 0 ? "No projects found!" : "Description";
+      availableProjects.length === 0 ? 'No projects found!' : 'Description';
 
     const createProjectErrorMessage =
-      this.newProjectErrorMessage || "Must provide name for new project!";
+      this.newProjectErrorMessage || 'Must provide name for new project!';
 
     return (
       <div class="col-lg-9">
@@ -188,7 +188,7 @@ export default class Search extends Vue {
                   <span class="fas fa-trash" />
                 </b-button>
               </div>
-              <div style={{ "margin-left": "8px" }}>
+              <div style={{ 'margin-left': '8px' }}>
                 <b-button variant="primary" to={viewProjectLink}>
                   View
                 </b-button>

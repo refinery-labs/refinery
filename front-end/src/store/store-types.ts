@@ -5,15 +5,15 @@ import {
   RefineryProject,
   WorkflowRelationshipType,
   WorkflowState
-} from "@/types/graph";
-import { LayoutOptions } from "cytoscape";
-import cytoscape from "@/components/CytoscapeGraph";
-import { SearchSavedProjectsResult, TrialInformation } from "@/types/api-types";
+} from '@/types/graph';
+import { LayoutOptions } from 'cytoscape';
+import cytoscape from '@/components/CytoscapeGraph';
+import { SearchSavedProjectsResult, TrialInformation } from '@/types/api-types';
 import {
   LeftSidebarPaneState,
   SIDEBAR_PANE
-} from "@/types/project-editor-types";
-import { ValidTransitionConfig } from "@/constants/project-editor-constants";
+} from '@/types/project-editor-types';
+import { ValidTransitionConfig } from '@/constants/project-editor-constants';
 
 export interface RootState {
   setting: UserInterfaceState;
@@ -23,21 +23,21 @@ export interface RootState {
 }
 
 export enum UserInterfaceSettings {
-  isFixed = "isFixed",
-  isGlobalNavCollapsed = "isGlobalNavCollapsed",
-  isGlobalNavClosing = "isGlobalNavClosing",
-  isSidebarCollapsed = "isSidebarCollapsed",
-  isBoxed = "isBoxed",
-  isFloat = "isFloat",
-  asideHover = "asideHover",
-  asideScrollbar = "asideScrollbar",
-  isCollapsedText = "isCollapsedText",
-  offsidebarOpen = "offsidebarOpen",
-  asideToggled = "asideToggled",
-  showUserBlock = "showUserBlock",
-  horizontal = "horizontal",
-  useFullLayout = "useFullLayout",
-  hiddenFooter = "hiddenFooter"
+  isFixed = 'isFixed',
+  isGlobalNavCollapsed = 'isGlobalNavCollapsed',
+  isGlobalNavClosing = 'isGlobalNavClosing',
+  isSidebarCollapsed = 'isSidebarCollapsed',
+  isBoxed = 'isBoxed',
+  isFloat = 'isFloat',
+  asideHover = 'asideHover',
+  asideScrollbar = 'asideScrollbar',
+  isCollapsedText = 'isCollapsedText',
+  offsidebarOpen = 'offsidebarOpen',
+  asideToggled = 'asideToggled',
+  showUserBlock = 'showUserBlock',
+  horizontal = 'horizontal',
+  useFullLayout = 'useFullLayout',
+  hiddenFooter = 'hiddenFooter'
 }
 
 export interface UserInterfaceState {

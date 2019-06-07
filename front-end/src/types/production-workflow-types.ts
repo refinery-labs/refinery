@@ -4,8 +4,8 @@ import {
   WorkflowRelationshipType,
   WorkflowState,
   WorkflowStateType
-} from "@/types/graph";
-import { HTTP_METHOD } from "@/constants/api-constants";
+} from '@/types/graph';
+import { HTTP_METHOD } from '@/constants/api-constants';
 
 // This is missing `id` so it can't extend BaseRefineryResource :(
 export interface ProductionDeploymentRefineryProject {

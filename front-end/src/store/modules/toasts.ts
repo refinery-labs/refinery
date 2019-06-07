@@ -1,22 +1,22 @@
-import { Module } from "vuex";
-import uuid from "uuid/v4";
-import { RootState } from "../store-types";
+import { Module } from 'vuex';
+import uuid from 'uuid/v4';
+import { RootState } from '../store-types';
 import {
   ToastConfig,
   ToastLocation,
   ToastNotification,
   ToastVariant
-} from "@/types/toasts-types";
+} from '@/types/toasts-types';
 
 // Enums
 export enum ToastMutators {
-  addToast = "addToast",
-  removeToast = "removeToast",
-  markToastShown = "markToastShown"
+  addToast = 'addToast',
+  removeToast = 'removeToast',
+  markToastShown = 'markToastShown'
 }
 
 export enum ToastActions {
-  displayToast = "displayToast"
+  displayToast = 'displayToast'
 }
 
 // Types
@@ -54,7 +54,7 @@ const ToastPaneModule: Module<ToastPaneState, RootState> = {
   actions: {
     [ToastActions.displayToast](context, toast: ToastNotification) {
       if (!toast || !toast.content || !toast.title) {
-        console.error("Tried to show invalid toast");
+        console.error('Tried to show invalid toast');
         return;
       }
 

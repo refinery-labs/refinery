@@ -1,20 +1,20 @@
-import { VueConstructor } from "vue";
-import { ProjectConfig, RefineryProject } from "@/types/graph";
+import { VueConstructor } from 'vue';
+import { ProjectConfig, RefineryProject } from '@/types/graph';
 
 export enum SIDEBAR_PANE {
-  addBlock = "addBlock",
-  addTransition = "addTransition",
-  allBlocks = "allBlocks",
-  allVersions = "allVersions",
-  saveProject = "saveProject",
-  deployProject = "deployProject",
-  editBlock = "editBlock",
-  editTransition = "editTransition"
+  addBlock = 'addBlock',
+  addTransition = 'addTransition',
+  allBlocks = 'allBlocks',
+  allVersions = 'allVersions',
+  saveProject = 'saveProject',
+  deployProject = 'deployProject',
+  editBlock = 'editBlock',
+  editTransition = 'editTransition'
 }
 
 export enum PANE_POSITION {
-  left = "left",
-  right = "right"
+  left = 'left',
+  right = 'right'
   // TODO: This is gonna be so lit
   // float = 'float'
 }

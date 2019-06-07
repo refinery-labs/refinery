@@ -1,23 +1,23 @@
-import Vue, { CreateElement, VNode } from "vue";
-import Component from "vue-class-component";
-import OpenedProjectGraphContainer from "@/containers/OpenedProjectGraphContainer";
-import OpenedProjectOverview from "@/views/ProjectsNestedViews/OpenedProjectOverview";
+import Vue, { CreateElement, VNode } from 'vue';
+import Component from 'vue-class-component';
+import OpenedProjectGraphContainer from '@/containers/OpenedProjectGraphContainer';
+import OpenedProjectOverview from '@/views/ProjectsNestedViews/OpenedProjectOverview';
 
 @Component
 export default class ViewProject extends Vue {
   isGraphVisible() {
-    return this.$route.name !== "project";
+    return this.$route.name !== 'project';
   }
 
   renderGraph() {
     const hideGraph = this.isGraphVisible();
 
     const classes = {
-      "graph-visibility": true,
-      "graph-visibility--hidden": hideGraph,
+      'graph-visibility': true,
+      'graph-visibility--hidden': hideGraph,
 
-      "flex-grow--1": true,
-      "display--flex": true
+      'flex-grow--1': true,
+      'display--flex': true
     };
 
     return (
@@ -31,8 +31,8 @@ export default class ViewProject extends Vue {
     const hideRouter = !this.isGraphVisible();
 
     const classes = {
-      "project-router-container": true,
-      "project-router-container--hidden": hideRouter
+      'project-router-container': true,
+      'project-router-container--hidden': hideRouter
     };
 
     return (
