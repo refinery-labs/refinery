@@ -32,6 +32,7 @@
     "register-service-worker": "^1.6.2",
     "screenfull": "^4.2.0",
     "simple-line-icons": "^2.4.1",
+    "tslint": "^5.17.0",
     "uuid": "^3.3.2",
     "validator": "^11.0.0",
     "vue": "^2.6.6",
