@@ -1,6 +1,12 @@
 import {CreateElement, VNode} from 'vue';
 import {Component, Prop, Vue, Watch} from 'vue-property-decorator';
-import cytoscape, {AnimationManipulation, EventObject, LayoutOptions, NodeCollection} from 'cytoscape';
+import cytoscape, {
+  AnimationManipulation,
+  ElementDefinition,
+  EventObject,
+  LayoutOptions,
+  NodeCollection
+} from 'cytoscape';
 import dagre from 'cytoscape-dagre';
 import {CyElements, CyStyle, WorkflowRelationship, WorkflowState} from '@/types/graph';
 import {
@@ -23,6 +29,7 @@ cytoscape.use(dagre);
 export default class CytoscapeGraph extends Vue {
   cy!: cytoscape.Core;
   playAnimation!: boolean;
+  isLayoutRunning!: boolean;
   currentAnimationGroupNonce!: number;
   
   @Prop({required: true}) private elements!: CyElements;
@@ -47,21 +54,36 @@ export default class CytoscapeGraph extends Vue {
   
     // Tells the Cytoscape graph to update. The library internally diffs elements based on their ID.
     this.cy.json(this.generateInitialCytoscapeConfig());
-    
-    // Re-select the node on the graph
+  
     this.selectNodeOrEdgeInInstance(this.selected);
   }
   
-  @Watch('elements', {deep: true})
-  private elementsModified(val: CyElements, oldVal: CyElements) {
+  getNewElements(valArray: [], oldValArray: []) {
+  
+    // @ts-ignore
+    const oldIds = oldValArray.map(t => t.data.id);
+    // @ts-ignore
+    return valArray.filter(t => oldIds.indexOf(t.data.id) === -1);
+  }
+  
+  @Watch('elements')
+  private async elementsModified(val: CyElements, oldVal: CyElements) {
     if (val === oldVal) {
       return;
     }
+    this.isLayoutRunning = true;
     
     this.cytoscapeValueModified();
     
     // Re-run the layout...
-    const layout = this.cy.layout(this.getLayoutConfig());
+    const layout = this.cy.layout(this.getLayoutConfig(false));
+    layout.promiseOn('layoutstop').then(async () => {
+      // Small delay while we wait for the layout
+      await timeout(50);
+
+      this.isLayoutRunning = false;
+    });
+
     layout.run();
   }
   
@@ -197,22 +219,40 @@ export default class CytoscapeGraph extends Vue {
       return;
     }
     
-    const sel = this.cy.elements(`#${this.selected}`);
+    const selectById = `[id = "${this.selected}"]`;
     
+    const sel = this.cy.elements(selectById);
+  
     // "de-selects" all of the other nodes
     this.cy.elements().not(sel).removeClass(STYLE_CLASSES.SELECTED);
   
-    if (sel) {
+    if (sel && sel.length > 0) {
       // Causes the node to render as "selected" in the UI.
       sel.addClass(STYLE_CLASSES.SELECTED);
+  
+      // Skip the animation
+      if (this.isLayoutRunning) {
+        this.cy.center(sel);
+        
+        return;
+      }
+      
+      this.cy.animate({
+        center: {
+          eles: sel
+        },
+        easing: 'ease-out'
+      }, {
+        duration: 200
+      });
     }
   }
   
-  public getLayoutConfig() {
+  public getLayoutConfig(animate: boolean) {
     return {
       name: 'dagre',
       nodeDimensionsIncludeLabels: true,
-      animate: true,
+      animate,
       // animationEasing: 'cubic',
       spacingFactor: 1.15,
       padding: 120,
@@ -224,7 +264,7 @@ export default class CytoscapeGraph extends Vue {
 
   public generateInitialCytoscapeConfig(): cytoscape.CytoscapeOptions {
     return {
-      layout: this.getLayoutConfig(),
+      layout: this.getLayoutConfig(true),
   
       boxSelectionEnabled: false,
       autounselectify: true,
@@ -259,7 +299,6 @@ export default class CytoscapeGraph extends Vue {
     cy.on('mouseout', 'node', removeHighlight);
     cy.on('mouseover', 'edge', addHighlight);
     cy.on('mouseout', 'edge', removeHighlight);
-  
   
     cy.on('tap', e => {
       // Tap on background of canvas

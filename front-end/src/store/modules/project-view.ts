@@ -399,7 +399,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
       
-      await context.dispatch(ProjectViewActions.clearSelection);
+      // await context.dispatch(ProjectViewActions.clearSelection);
       
       if (!context.state.openedProject) {
         context.commit(ProjectViewMutators.selectedResource, null);
@@ -454,6 +454,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.addTransition, newTransition);
       await context.dispatch(ProjectViewActions.cancelAddingTransition);
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
+      await context.dispatch(ProjectViewActions.selectEdge, newTransition.id);
   
       // TODO: Open right sidebar pane
     },
