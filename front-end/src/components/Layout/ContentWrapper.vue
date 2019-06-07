@@ -8,9 +8,9 @@
 </template>
 
 <script>
-import Vue from "vue";
+import Vue from 'vue';
 export default Vue.extend({
-  name: "ContentWrapper",
+  name: 'ContentWrapper',
   props: {
     unwrap: Boolean
   }

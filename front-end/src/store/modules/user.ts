@@ -1,23 +1,23 @@
-import { Module } from "vuex";
-import validator from "validator";
+import { Module } from 'vuex';
+import validator from 'validator';
 import phone from 'phone';
-import router from "../../router";
-import { RootState, UserState } from "@/store/store-types";
-import { UserMutators } from "@/constants/store-constants";
+import router from '../../router';
+import { RootState, UserState } from '@/store/store-types';
+import { UserMutators } from '@/constants/store-constants';
 import {
   GetAuthenticationStatusResponse,
   LoginResponse,
   NewRegistrationErrorType,
   NewRegistrationRequest,
   NewRegistrationResponse
-} from "@/types/api-types";
-import { getApiClient } from "@/store/fetchers/refinery-api";
-import { API_ENDPOINT } from "@/constants/api-constants";
-import { timeout } from "@/utils/async-utils";
+} from '@/types/api-types';
+import { getApiClient } from '@/store/fetchers/refinery-api';
+import { API_ENDPOINT } from '@/constants/api-constants';
+import { timeout } from '@/utils/async-utils';
 import {
   LOGIN_STATUS_CHECK_INTERVAL,
   MAX_LOGIN_CHECK_ATTEMPTS
-} from "@/constants/user-constants";
+} from '@/constants/user-constants';
 
 const nameRegex = /^(\D{1,32} )+\D{1,32}$/;
 
@@ -31,7 +31,7 @@ async function checkLoginStatus() {
       {}
     )) as GetAuthenticationStatusResponse;
   } catch (e) {
-    console.error("Unable to get user login status");
+    console.error('Unable to get user login status');
     return null;
   }
 }
@@ -45,7 +45,7 @@ interface LoopLoginResult {
 async function loopLoginWaiting(attempts: number): Promise<LoopLoginResult> {
   if (attempts > MAX_LOGIN_CHECK_ATTEMPTS) {
     const message =
-      "Unable to determine login status. Please refresh this page to continue...";
+      'Unable to determine login status. Please refresh this page to continue...';
     console.error(message);
     return {
       success: false,
@@ -60,7 +60,7 @@ async function loopLoginWaiting(attempts: number): Promise<LoopLoginResult> {
 
   if (!response) {
     const message =
-      "Unable to hit Login server when polling for status. Please refresh this page to continue...";
+      'Unable to hit Login server when polling for status. Please refresh this page to continue...';
     console.error(message);
     return {
       success: false,
@@ -93,15 +93,15 @@ const moduleState: UserState = {
   isBusy: false,
 
   rememberMeToggled: false,
-  loginEmailInput: "",
+  loginEmailInput: '',
 
   loginEmailInputValid: null,
 
-  registrationEmailInput: "",
-  registrationNameInput: "",
-  registrationPhoneInput: "",
-  registrationOrgNameInput: "",
-  registrationStripeToken: "",
+  registrationEmailInput: '',
+  registrationNameInput: '',
+  registrationPhoneInput: '',
+  registrationOrgNameInput: '',
+  registrationStripeToken: '',
   termsAndConditionsAgreed: false,
 
   registrationEmailErrorMessage: null,
@@ -166,12 +166,12 @@ const UserModule: Module<UserState, RootState> = {
       state.registrationEmailErrorMessage = value;
     },
     [UserMutators.setRegisterNameInputValue](state, value: string) {
-      state.registrationNameInputValid = value === "" || nameRegex.test(value);
+      state.registrationNameInputValid = value === '' || nameRegex.test(value);
       state.registrationNameInput = value;
     },
     [UserMutators.setRegisterPhoneInputValue](state, value: string) {
-      const checkOne = validator.isMobilePhone(phone(value)[0] || '', "any");
-      const checkTwo = validator.isMobilePhone(value, "any");
+      const checkOne = validator.isMobilePhone(phone(value)[0] || '', 'any');
+      const checkTwo = validator.isMobilePhone(value, 'any');
 
       state.registrationPhoneInputValid = checkOne || checkTwo;
       state.registrationPhoneInput = value;
@@ -195,7 +195,7 @@ const UserModule: Module<UserState, RootState> = {
 
       if (!response) {
         // TODO: Display this error to the user somehow.
-        console.error("Unable to log user in, response was null");
+        console.error('Unable to log user in, response was null');
         return;
       }
 
@@ -206,13 +206,13 @@ const UserModule: Module<UserState, RootState> = {
 
       if (response && response.authenticated) {
         router.push({
-          name: "allProjects"
+          name: 'allProjects'
         });
       }
     },
     async loginUser(context) {
       if (!context.state.loginEmailInputValid) {
-        const message = "Please verify your email and try again";
+        const message = 'Please verify your email and try again';
         console.error(message);
         context.commit(UserMutators.setLoginErrorMessage, message);
         return;
@@ -232,9 +232,9 @@ const UserModule: Module<UserState, RootState> = {
         if (!response) {
           context.commit(
             UserMutators.setLoginErrorMessage,
-            "Unknown error! Refresh this page."
+            'Unknown error! Refresh this page.'
           );
-          console.error("Unable to log user in, response was null");
+          console.error('Unable to log user in, response was null');
           return;
         }
 
@@ -248,7 +248,7 @@ const UserModule: Module<UserState, RootState> = {
         context.commit(UserMutators.setIsBusyStatus, false);
         context.commit(
           UserMutators.setRegistrationErrorMessage,
-          "Unknown error! Refresh this page."
+          'Unknown error! Refresh this page.'
         );
       }
 
@@ -256,7 +256,7 @@ const UserModule: Module<UserState, RootState> = {
 
       if (!success || !data) {
         const message =
-          "Timeout exceeded waiting for email confirmation. Please refresh the page to continue.";
+          'Timeout exceeded waiting for email confirmation. Please refresh the page to continue.';
         context.commit(UserMutators.setLoginAttemptMessage, err || message);
         return;
       }
@@ -264,7 +264,7 @@ const UserModule: Module<UserState, RootState> = {
       context.commit(UserMutators.setAuthenticationState, data);
 
       // Put the user back where they were, or on the home page
-      router.push(context.state.redirectState || "/");
+      router.push(context.state.redirectState || '/');
     },
     async registerUser(context) {
       const validationSucceeded =
@@ -276,7 +276,7 @@ const UserModule: Module<UserState, RootState> = {
 
       if (!context.state.registrationPaymentCardInputValid) {
         const message =
-          "You must provide valid payment information to continue.";
+          'You must provide valid payment information to continue.';
         console.error(message);
         context.commit(UserMutators.setRegistrationErrorMessage, message);
         return;
@@ -284,7 +284,7 @@ const UserModule: Module<UserState, RootState> = {
 
       if (!validationSucceeded) {
         const message =
-          "Validation check failed, please verify your information and try again";
+          'Validation check failed, please verify your information and try again';
         console.error(message);
         context.commit(UserMutators.setRegistrationErrorMessage, message);
         return;
@@ -304,10 +304,10 @@ const UserModule: Module<UserState, RootState> = {
         name: context.state.registrationNameInput,
 
         // Only send this value if it was specified
-        organization_name: registrationOrgName || "",
+        organization_name: registrationOrgName || '',
 
         // Only send this value if it was specified
-        phone: registrationPhone || "",
+        phone: registrationPhone || '',
 
         // Stripe token data
         stripe_token: context.state.registrationStripeToken
@@ -321,9 +321,9 @@ const UserModule: Module<UserState, RootState> = {
         context.commit(UserMutators.setIsBusyStatus, false);
 
         if (!response) {
-          const message = "Unknown error! Refresh this page and try again.";
+          const message = 'Unknown error! Refresh this page and try again.';
           context.commit(UserMutators.setRegistrationErrorMessage, message);
-          console.error("Unable to register user, response was null");
+          console.error('Unable to register user, response was null');
           return;
         }
 
@@ -347,7 +347,7 @@ const UserModule: Module<UserState, RootState> = {
         context.commit(UserMutators.setIsBusyStatus, false);
         context.commit(
           UserMutators.setRegistrationErrorMessage,
-          "Unknown error! Refresh this page."
+          'Unknown error! Refresh this page.'
         );
       }
 
@@ -355,7 +355,7 @@ const UserModule: Module<UserState, RootState> = {
 
       if (!success || !data) {
         const message =
-          "Timeout exceeded waiting for email confirmation. Please refresh the page to continue.";
+          'Timeout exceeded waiting for email confirmation. Please refresh the page to continue.';
         context.commit(
           UserMutators.setRegistrationErrorMessage,
           err || message
@@ -366,7 +366,7 @@ const UserModule: Module<UserState, RootState> = {
       context.commit(UserMutators.setAuthenticationState, data);
 
       // Put the user back where they were, or on the home page
-      router.push(context.state.redirectState || "/");
+      router.push(context.state.redirectState || '/');
     }
   }
 };

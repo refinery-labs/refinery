@@ -3,9 +3,9 @@
 </template>
 
 <script lang="ts">
-import Vue from "vue";
-import { mapMutations, mapState } from "vuex";
-import { UserMutators } from "@/constants/store-constants";
+import Vue from 'vue';
+import { mapMutations, mapState } from 'vuex';
+import { UserMutators } from '@/constants/store-constants';
 
 // @ts-ignore
 let stripe = Stripe(`${process.env.VUE_APP_STRIPE_PUBLISHABLE_KEY}`),
@@ -13,10 +13,10 @@ let stripe = Stripe(`${process.env.VUE_APP_STRIPE_PUBLISHABLE_KEY}`),
   card: any = undefined;
 
 export default Vue.extend({
-  name: "StripeAddPaymentCard",
+  name: 'StripeAddPaymentCard',
   created: function() {
-    card = elements.create("card");
-    card.addEventListener("change", async (event: any) => {
+    card = elements.create('card');
+    card.addEventListener('change', async (event: any) => {
       // "complete" is true when the user has finished entering
       // their card information into the Stripe element.
       if (event.complete) {
@@ -25,7 +25,7 @@ export default Vue.extend({
         });
 
         if (error) {
-          console.error("An error occurred while generating Stripe token!:");
+          console.error('An error occurred while generating Stripe token!:');
           console.error(error);
         }
 
@@ -40,9 +40,9 @@ export default Vue.extend({
     card.unmount();
   },
   methods: {
-    ...mapMutations("user", [UserMutators.setRegistrationStripeTokenValue])
+    ...mapMutations('user', [UserMutators.setRegistrationStripeTokenValue])
   },
-  computed: mapState("user", ["registrationNameInput"])
+  computed: mapState('user', ['registrationNameInput'])
 });
 </script>
 

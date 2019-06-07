@@ -6,7 +6,7 @@
 </template>
 
 <script>
-import Vue from "vue";
+import Vue from 'vue';
 // Card Tools
 // -----------------------------------
 
@@ -16,7 +16,7 @@ import Vue from "vue";
  */
 function getCardParent(item) {
   var el = item.parentElement;
-  while (el && !el.classList.contains("card")) el = el.parentElement;
+  while (el && !el.classList.contains('card')) el = el.parentElement;
   return el;
 }
 
@@ -25,7 +25,7 @@ function getCardParent(item) {
  * refresh data or remove a card element
  */
 export default Vue.extend({
-  name: "CardTool",
+  name: 'CardTool',
   props: {
     /** show the refreshe icon */
     refresh: Boolean,
@@ -49,7 +49,7 @@ export default Vue.extend({
     /** name if the icon class to use as spinner */
     spinner: {
       type: String,
-      default: "standard"
+      default: 'standard'
     },
     forceSpin: Boolean
   },
@@ -67,10 +67,10 @@ export default Vue.extend({
       };
 
       const animate = function(item, cb) {
-        if ("onanimationend" in window) {
+        if ('onanimationend' in window) {
           // animation supported
-          item.addEventListener("animationend", cb.bind(this));
-          item.class += " animated bounceOut"; // requires animate.css
+          item.addEventListener('animationend', cb.bind(this));
+          item.class += ' animated bounceOut'; // requires animate.css
         } else cb.call(this); // no animation, just remove
       };
 
@@ -84,7 +84,7 @@ export default Vue.extend({
       this.onRemove(card, confirmRemove);
     },
     handleRefresh(e) {
-      const WHIRL_CLASS = "whirl";
+      const WHIRL_CLASS = 'whirl';
       const card = getCardParent(this.$refs.cardRef);
 
       function showSpinner(card, spinner) {
@@ -99,7 +99,7 @@ export default Vue.extend({
         card.classList.remove(WHIRL_CLASS);
       };
       // start showing the spinner
-      showSpinner(card, this.spinner.split(" "));
+      showSpinner(card, this.spinner.split(' '));
       // event to remove spinner when refres is done
       this.onRefresh(card, done);
     }

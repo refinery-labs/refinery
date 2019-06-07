@@ -1,13 +1,13 @@
 /**
  * Setting store to control layout behavior
  */
-import { Module } from "vuex";
+import { Module } from 'vuex';
 import {
   RootState,
   UserInterfaceSettings,
   UserInterfaceState
-} from "@/store/store-types";
-import { SettingsMutators } from "@/constants/store-constants";
+} from '@/store/store-types';
+import { SettingsMutators } from '@/constants/store-constants';
 
 const moduleState: UserInterfaceState = {
   /* Layout fixed. Scroll content only */

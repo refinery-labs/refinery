@@ -14,8 +14,8 @@ module.exports = {
     config.module
       .rule(/\.(j|t)sx$/)
       .test(/\.(j|t)sx$/)
-      .use("vue-jsx-hot-loader")
-      .before("babel-loader")
-      .loader("vue-jsx-hot-loader");
+      .use('vue-jsx-hot-loader')
+      .before('babel-loader')
+      .loader('vue-jsx-hot-loader');
   }
 };

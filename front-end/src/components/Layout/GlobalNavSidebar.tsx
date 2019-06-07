@@ -1,10 +1,10 @@
-import Vue from "vue";
-import { Component, Watch } from "vue-property-decorator";
-import { Route } from "vue-router";
-import { UserInterfaceSettings, UserInterfaceState } from "@/store/store-types";
-import { Action, Getter, Mutation } from "vuex-class";
-import { MenuItem, MenuItemList } from "@/types/layout-types";
-import { GlobalNavMenuItems } from "@/menu";
+import Vue from 'vue';
+import { Component, Watch } from 'vue-property-decorator';
+import { Route } from 'vue-router';
+import { UserInterfaceSettings, UserInterfaceState } from '@/store/store-types';
+import { Action, Getter, Mutation } from 'vuex-class';
+import { MenuItem, MenuItemList } from '@/types/layout-types';
+import { GlobalNavMenuItems } from '@/menu';
 
 @Component
 export default class GlobalNavSidebar extends Vue {
@@ -14,7 +14,7 @@ export default class GlobalNavSidebar extends Vue {
   @Mutation toggleSettingOff!: (name: UserInterfaceSettings) => {};
   @Action closeGlobalNav!: () => {};
 
-  @Watch("$route", { deep: true })
+  @Watch('$route', { deep: true })
   private elementsModified(val: Route, oldVal: Route) {
     this.toggleGlobalNavOff();
   }
@@ -100,11 +100,11 @@ export default class GlobalNavSidebar extends Vue {
   }
 
   renderSubmenuItem(item: MenuItem) {
-    const itemColor = (item.label && item.label.color) || "default";
+    const itemColor = (item.label && item.label.color) || 'default';
 
     const spanToRender = item.label && (
-      <span class={"float-right badge badge-" + itemColor}>
-        {(item.label && item.label.value) || "Unknown Subitem"}
+      <span class={'float-right badge badge-' + itemColor}>
+        {(item.label && item.label.value) || 'Unknown Subitem'}
       </span>
     );
 
@@ -127,7 +127,7 @@ export default class GlobalNavSidebar extends Vue {
     if (item.heading) {
       return (
         <li class="nav-heading">
-          <span>{item.heading || "STUBBED"}</span>
+          <span>{item.heading || 'STUBBED'}</span>
         </li>
       );
     }
@@ -145,7 +145,7 @@ export default class GlobalNavSidebar extends Vue {
             <span
               class={`float-right badge badge-${(item.label &&
                 item.label.color) ||
-                "default"}`}
+                'default'}`}
             >
               {item.label}
             </span>
@@ -172,11 +172,11 @@ export default class GlobalNavSidebar extends Vue {
           >
             <span
               class={
-                "float-right badge badge-" +
-                ((item.label && item.label.color) || "default")
+                'float-right badge badge-' +
+                ((item.label && item.label.color) || 'default')
               }
             >
-              {(item.label && item.label.value) || "Unknown Label"}
+              {(item.label && item.label.value) || 'Unknown Label'}
             </span>
             <em class={item.icon} />
             <span>{item.name}</span>

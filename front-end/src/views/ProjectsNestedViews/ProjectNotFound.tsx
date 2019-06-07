@@ -1,5 +1,5 @@
-import Vue, { CreateElement, VNode } from "vue";
-import Component from "vue-class-component";
+import Vue, { CreateElement, VNode } from 'vue';
+import Component from 'vue-class-component';
 
 @Component
 export default class ProjectNotFound extends Vue {
@@ -7,7 +7,7 @@ export default class ProjectNotFound extends Vue {
     // Redirect to the projectId base (if a project id exists in the path)
     if (this.$route.params.projectId) {
       this.$router.push({
-        name: "project",
+        name: 'project',
         params: {
           projectId: this.$route.params.projectId
         }
@@ -16,7 +16,7 @@ export default class ProjectNotFound extends Vue {
     }
 
     // Redirect to view all projects
-    this.$router.push({ name: "allProjects" });
+    this.$router.push({ name: 'allProjects' });
   }
 
   public render(h: CreateElement): VNode {

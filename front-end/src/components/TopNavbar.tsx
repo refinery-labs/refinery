@@ -1,5 +1,5 @@
-import { CreateElement, VNode } from "vue";
-import { Component, Prop, Vue } from "vue-property-decorator";
+import { CreateElement, VNode } from 'vue';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 @Component
 export default class TopNavbar extends Vue {

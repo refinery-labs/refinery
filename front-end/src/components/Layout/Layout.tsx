@@ -1,14 +1,14 @@
-import Vue from "vue";
-import Header from "./Header.vue";
-import Sidebar from "./Sidebar.vue";
-import Offsidebar from "./Offsidebar.vue";
-import Footer from "./Footer";
-import ContentWrapper from "./ContentWrapper.vue";
-import { Component } from "vue-property-decorator";
-import GlobalNavSidebar from "@/components/Layout/GlobalNavSidebar";
-import OffsideContentBar from "@/components/Layout/OffsideContentBar";
+import Vue from 'vue';
+import Header from './Header.vue';
+import Sidebar from './Sidebar.vue';
+import Offsidebar from './Offsidebar.vue';
+import Footer from './Footer';
+import ContentWrapper from './ContentWrapper.vue';
+import { Component } from 'vue-property-decorator';
+import GlobalNavSidebar from '@/components/Layout/GlobalNavSidebar';
+import OffsideContentBar from '@/components/Layout/OffsideContentBar';
 
-Vue.component("ContentWrapper", ContentWrapper);
+Vue.component('ContentWrapper', ContentWrapper);
 
 @Component({
   components: {

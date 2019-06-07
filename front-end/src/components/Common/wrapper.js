@@ -17,7 +17,7 @@
 export default (function() {
   // HELPERS
   function arrayFrom(obj) {
-    return "length" in obj && obj !== window ? [].slice.call(obj) : [obj];
+    return 'length' in obj && obj !== window ? [].slice.call(obj) : [obj];
   }
 
   function filter(ctx, fn) {
@@ -41,7 +41,7 @@ export default (function() {
   EventHandler.prototype = {
     // event accepts: 'click' or 'click.scope'
     bind: function(event, listener, target) {
-      const type = event.split(".")[0];
+      const type = event.split('.')[0];
       target.addEventListener(type, listener, false);
       this.events[event] = {
         type: type,
@@ -83,9 +83,9 @@ export default (function() {
       // empty object
       if (!this.selector) return this;
       // selector === string
-      if (typeof this.selector === "string") {
+      if (typeof this.selector === 'string') {
         // if looks like markup, try to create an element
-        if (this.selector[0] === "<") {
+        if (this.selector[0] === '<') {
           const elem = this._setup([this._create(this.selector)]);
           return attrs ? elem.attr(attrs) : elem;
         } else
@@ -96,7 +96,7 @@ export default (function() {
       // selector === DOMElement
       if (this.selector.nodeType) return this._setup([this.selector]);
       // shorthand for DOMReady
-      else if (typeof this.selector === "function")
+      else if (typeof this.selector === 'function')
         return this._setup([document]).ready(this.selector);
       // Array like objects (e.g. NodeList/HTMLCollection)
       return this._setup(arrayFrom(this.selector));
@@ -107,8 +107,8 @@ export default (function() {
      */
     _create: function(str) {
       const nodeName = str
-        .substr(str.indexOf("<") + 1, str.indexOf(">") - 1)
-        .replace("/", "");
+        .substr(str.indexOf('<') + 1, str.indexOf('>') - 1)
+        .replace('/', '');
       return document.createElement(nodeName);
     },
     /** setup properties and array to element set */
@@ -126,15 +126,15 @@ export default (function() {
     },
     /** Common function for class manipulation  */
     _classes: function(method, classname) {
-      const cls = classname.split(" ");
+      const cls = classname.split(' ');
       if (cls.length > 1) {
         cls.forEach(this._classes.bind(this, method));
       } else {
-        if (method === "contains") {
+        if (method === 'contains') {
           const elem = this._first();
           return elem ? elem.classList.contains(classname) : false;
         }
-        return classname === ""
+        return classname === ''
           ? this
           : this.each(function(i, item) {
               item.classList[method](classname);
@@ -147,7 +147,7 @@ export default (function() {
      * key can be an object in the form {key: value, ...}
      */
     _access: function(key, value, fn) {
-      if (typeof key === "object") {
+      if (typeof key === 'object') {
         for (let k in key) {
           this._access(k, key[k], fn);
         }
@@ -180,16 +180,16 @@ export default (function() {
   Wrap.extend({
     ready: function(fn) {
       if (document.attachEvent) {
-        if (document.readyState === "complete") {
+        if (document.readyState === 'complete') {
           fn();
         } else {
-          document.addEventListener("DOMContentLoaded", fn);
+          document.addEventListener('DOMContentLoaded', fn);
         }
       } else {
-        if (document.readyState !== "loading") {
+        if (document.readyState !== 'loading') {
           fn();
         } else {
-          document.addEventListener("DOMContentLoaded", fn);
+          document.addEventListener('DOMContentLoaded', fn);
         }
       }
       return this;
@@ -203,7 +203,7 @@ export default (function() {
         return e.style[k] || getComputedStyle(e)[k];
       };
       return this._access(key, value, function(item, k, val) {
-        const unit = typeof val === "number" ? "px" : "";
+        const unit = typeof val === 'number' ? 'px' : '';
         return val === undefined
           ? getStyle(item, k)
           : (item.style[k] = val + unit);
@@ -229,7 +229,7 @@ export default (function() {
       });
     },
     scrollTop: function(value) {
-      return this._access("scrollTop", value || 0, function(item, k, val) {
+      return this._access('scrollTop', value || 0, function(item, k, val) {
         return val === undefined ? item[k] : (item[k] = val);
       });
     },
@@ -387,15 +387,15 @@ export default (function() {
      */
     data: function(key, value) {
       const hasJSON = /^(?:{[\w\W]*}|\[[\w\W]*])$/,
-        dataAttr = "data-" + key.replace(/[A-Z]/g, "-$&").toLowerCase();
+        dataAttr = 'data-' + key.replace(/[A-Z]/g, '-$&').toLowerCase();
       if (value === undefined) {
         return this._first(function(el) {
           if (el.data && el.data[key]) return el.data[key];
           else {
             const data = el.getAttribute(dataAttr);
-            if (data === "true") return true;
-            if (data === "false") return false;
-            if (data === +data + "") return +data;
+            if (data === 'true') return true;
+            if (data === 'false') return false;
+            if (data === +data + '') return +data;
             if (hasJSON.test(data)) return JSON.parse(data);
             return data;
           }
@@ -411,23 +411,23 @@ export default (function() {
   // EVENTS
   Wrap.extend({
     trigger: function(type) {
-      type = type.split(".")[0]; // ignore namespace
-      const event = document.createEvent("HTMLEvents");
+      type = type.split('.')[0]; // ignore namespace
+      const event = document.createEvent('HTMLEvents');
       event.initEvent(type, true, false);
       return this.each(function(i, item) {
         item.dispatchEvent(event);
       });
     },
     blur: function() {
-      return this.trigger("blur");
+      return this.trigger('blur');
     },
     focus: function() {
-      return this.trigger("focus");
+      return this.trigger('focus');
     },
     on: function(event, callback) {
       return this.each(function(i, item) {
         if (!item.events) item.events = new EventHandler();
-        event.split(" ").forEach(function(ev) {
+        event.split(' ').forEach(function(ev) {
           item.events.bind(ev, callback, item);
         });
       });
@@ -444,16 +444,16 @@ export default (function() {
   // CLASSES
   Wrap.extend({
     toggleClass: function(classname) {
-      return this._classes("toggle", classname);
+      return this._classes('toggle', classname);
     },
     addClass: function(classname) {
-      return this._classes("add", classname);
+      return this._classes('add', classname);
     },
     removeClass: function(classname) {
-      return this._classes("remove", classname);
+      return this._classes('remove', classname);
     },
     hasClass: function(classname) {
-      return this._classes("contains", classname);
+      return this._classes('contains', classname);
     }
   });
 

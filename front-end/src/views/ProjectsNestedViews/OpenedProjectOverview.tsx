@@ -1,19 +1,19 @@
-import Vue, { CreateElement, VNode } from "vue";
-import Component from "vue-class-component";
-import Offsidebar from "@/components/Layout/Offsidebar.vue";
-import OpenedProjectGraphContainer from "@/containers/OpenedProjectGraphContainer";
-import { Watch } from "vue-property-decorator";
-import { Route } from "vue-router";
-import { GetSavedProjectRequest } from "@/types/api-types";
-import { namespace } from "vuex-class";
-import SidebarNav from "@/components/SidebarNav";
-import { paneTypeToNameLookup, SidebarMenuItems } from "@/menu";
-import ProjectEditorLeftPaneContainer from "@/containers/ProjectEditorLeftPaneContainer";
-import { PANE_POSITION, SIDEBAR_PANE } from "@/types/project-editor-types";
-import EditorPaneWrapper from "@/components/EditorPaneWrapper";
-import { paneToContainerMapping } from "@/constants/project-editor-constants";
+import Vue, { CreateElement, VNode } from 'vue';
+import Component from 'vue-class-component';
+import Offsidebar from '@/components/Layout/Offsidebar.vue';
+import OpenedProjectGraphContainer from '@/containers/OpenedProjectGraphContainer';
+import { Watch } from 'vue-property-decorator';
+import { Route } from 'vue-router';
+import { GetSavedProjectRequest } from '@/types/api-types';
+import { namespace } from 'vuex-class';
+import SidebarNav from '@/components/SidebarNav';
+import { paneTypeToNameLookup, SidebarMenuItems } from '@/menu';
+import ProjectEditorLeftPaneContainer from '@/containers/ProjectEditorLeftPaneContainer';
+import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
+import EditorPaneWrapper from '@/components/EditorPaneWrapper';
+import { paneToContainerMapping } from '@/constants/project-editor-constants';
 
-const project = namespace("project");
+const project = namespace('project');
 
 @Component
 export default class OpenedProjectOverview extends Vue {
@@ -29,7 +29,7 @@ export default class OpenedProjectOverview extends Vue {
 
   @project.Action closePane!: (p: PANE_POSITION) => void;
 
-  @Watch("$route", { immediate: true })
+  @Watch('$route', { immediate: true })
   private routeChanged(val: Route, oldVal: Route) {
     // Project is already opened
     if (
@@ -82,9 +82,9 @@ export default class OpenedProjectOverview extends Vue {
     }
 
     const containerClasses = {
-      "opened-project-overview": true,
-      "display--flex": true,
-      "flex-grow--1": true
+      'opened-project-overview': true,
+      'display--flex': true,
+      'flex-grow--1': true
     };
 
     // Show a nice loading animation

@@ -143,13 +143,13 @@
 </template>
 
 <script>
-import { mapMutations } from "vuex";
-import HeaderSearch from "@/components/Layout/HeaderSearch";
-import ToggleFullscreen from "@/components/Common/ToggleFullscreen";
-import Menu from "../../menu.js";
+import { mapMutations } from 'vuex';
+import HeaderSearch from '@/components/Layout/HeaderSearch';
+import ToggleFullscreen from '@/components/Common/ToggleFullscreen';
+import Menu from '../../menu.js';
 
 export default {
-  name: "Header",
+  name: 'Header',
   components: {
     HeaderSearch,
     ToggleFullscreen
@@ -160,9 +160,9 @@ export default {
     };
   },
   methods: {
-    ...mapMutations(["toggleSetting"]),
+    ...mapMutations(['toggleSetting']),
     toggleOffsidebar() {
-      this.toggleSetting("offsidebarOpen");
+      this.toggleSetting('offsidebarOpen');
     }
   }
 };

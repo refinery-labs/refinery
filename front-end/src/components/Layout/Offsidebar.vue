@@ -267,9 +267,9 @@
 </template>
 
 <script>
-import { mapMutations, mapGetters } from "vuex";
-import Vue from "vue";
-import { UserInterfaceSettings } from "../../store/store-types";
+import { mapMutations, mapGetters } from 'vuex';
+import Vue from 'vue';
+import { UserInterfaceSettings } from '../../store/store-types';
 
 export default Vue.extend({
   computed: {
@@ -338,10 +338,10 @@ export default Vue.extend({
         });
       }
     },
-    ...mapGetters(["settings"])
+    ...mapGetters(['settings'])
   },
   methods: {
-    ...mapMutations(["changeSetting", "toggleSetting"])
+    ...mapMutations(['changeSetting', 'toggleSetting'])
   },
   mounted() {
     const sidebarElement = this.$refs.sidebarElement;
@@ -353,7 +353,7 @@ export default Vue.extend({
     // const sidebarHtmlElement = sidebarElement as HTMLElement;
 
     // unhide offsidebar on mounted
-    sidebarElement.classList.remove("d-none");
+    sidebarElement.classList.remove('d-none');
   }
 });
 </script>

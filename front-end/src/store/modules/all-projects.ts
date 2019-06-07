@@ -1,11 +1,11 @@
 /**
  * Setting store to control layout behavior
  */
-import { Module } from "vuex";
-import { AllProjectsState, RootState } from "@/store/store-types";
-import { AllProjectsMutators } from "@/constants/store-constants";
-import { getApiClient, makeApiRequest } from "@/store/fetchers/refinery-api";
-import { API_ENDPOINT } from "@/constants/api-constants";
+import { Module } from 'vuex';
+import { AllProjectsState, RootState } from '@/store/store-types';
+import { AllProjectsMutators } from '@/constants/store-constants';
+import { getApiClient, makeApiRequest } from '@/store/fetchers/refinery-api';
+import { API_ENDPOINT } from '@/constants/api-constants';
 import {
   DeleteSavedProjectRequest,
   DeleteSavedProjectResponse,
@@ -14,21 +14,21 @@ import {
   SearchSavedProjectsRequest,
   SearchSavedProjectsResponse,
   SearchSavedProjectsResult
-} from "@/types/api-types";
-import router from "@/router";
-import { DEFAULT_PROJECT_CONFIG } from "@/constants/project-editor-constants";
-import { RefineryProject } from "@/types/graph";
+} from '@/types/api-types';
+import router from '@/router';
+import { DEFAULT_PROJECT_CONFIG } from '@/constants/project-editor-constants';
+import { RefineryProject } from '@/types/graph';
 
 const moduleState: AllProjectsState = {
   availableProjects: [],
-  searchBoxText: "",
+  searchBoxText: '',
   isSearching: false,
 
   deleteModalVisible: false,
   deleteProjectId: null,
   deleteProjectName: null,
 
-  newProjectInput: "",
+  newProjectInput: '',
   newProjectInputValid: null,
   newProjectErrorMessage: null
 };
@@ -72,18 +72,21 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
   actions: {
     async performSearch(context) {
       context.commit(AllProjectsMutators.setSearchingStatus, true);
-  
-      const result = await makeApiRequest<SearchSavedProjectsRequest, SearchSavedProjectsResponse>(API_ENDPOINT.SearchSavedProjects, {
+
+      const result = await makeApiRequest<
+        SearchSavedProjectsRequest,
+        SearchSavedProjectsResponse
+      >(API_ENDPOINT.SearchSavedProjects, {
         query: context.state.searchBoxText
       });
-      
+
       if (!result.success) {
         // TODO: Handle this error case
         console.error('Failure to retrieve available projects');
         context.commit(AllProjectsMutators.setSearchingStatus, false);
         return;
       }
-      
+
       context.commit(AllProjectsMutators.setAvailableProjects, result.results);
       context.commit(AllProjectsMutators.setSearchingStatus, false);
     },
@@ -92,25 +95,31 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
         context.commit(AllProjectsMutators.setNewProjectInputValid, false);
         return;
       }
-      
+
       context.commit(AllProjectsMutators.setNewProjectInputValid, true);
       context.commit(AllProjectsMutators.setSearchingStatus, true);
-      
+
       try {
-        const response = await makeApiRequest<SaveProjectRequest, SaveProjectResponse>(API_ENDPOINT.SaveProject, {
+        const response = await makeApiRequest<
+          SaveProjectRequest,
+          SaveProjectResponse
+        >(API_ENDPOINT.SaveProject, {
           version: false,
           project_id: false,
-          diagram_data: JSON.stringify({name: context.state.newProjectInput}),
+          diagram_data: JSON.stringify({ name: context.state.newProjectInput }),
           config: JSON.stringify(DEFAULT_PROJECT_CONFIG)
         });
-  
+
         context.commit(AllProjectsMutators.setSearchingStatus, false);
-        
+
         if (!response || !response.success) {
-          context.commit(AllProjectsMutators.setNewProjectErrorMessage, 'Error creating project!');
+          context.commit(
+            AllProjectsMutators.setNewProjectErrorMessage,
+            'Error creating project!'
+          );
           return;
         }
-  
+
         router.push({
           name: 'project',
           params: {
@@ -118,7 +127,10 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
           }
         });
       } catch (e) {
-        context.commit(AllProjectsMutators.setNewProjectErrorMessage, 'Error creating project!');
+        context.commit(
+          AllProjectsMutators.setNewProjectErrorMessage,
+          'Error creating project!'
+        );
       }
     },
     startDeleteProject(context, project: SearchSavedProjectsResult) {
@@ -128,30 +140,33 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
     },
     async deleteProject(context) {
       const projectId = context.state.deleteProjectId;
-      
+
       if (!projectId) {
         console.error('Attempted to delete project but did not specify an ID');
         return;
       }
-      
+
       context.commit(AllProjectsMutators.setDeleteProjectId, null);
       context.commit(AllProjectsMutators.setDeleteProjectName, null);
       context.commit(AllProjectsMutators.setDeleteModalVisibility, false);
-      
+
       context.commit(AllProjectsMutators.setSearchingStatus, true);
-  
+
       try {
-        const response = await makeApiRequest<DeleteSavedProjectRequest, DeleteSavedProjectResponse>(API_ENDPOINT.DeleteSavedProject, {
+        const response = await makeApiRequest<
+          DeleteSavedProjectRequest,
+          DeleteSavedProjectResponse
+        >(API_ENDPOINT.DeleteSavedProject, {
           id: projectId
         });
-        
+
         context.commit(AllProjectsMutators.setSearchingStatus, false);
-        
+
         if (!response || !response.success) {
           console.error('Unable to delete project');
           return;
         }
-        
+
         await context.dispatch('performSearch');
       } catch (e) {
         console.error('Unable to delete project');

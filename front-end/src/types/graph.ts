@@ -1,5 +1,5 @@
-import { ElementDefinition, ElementsDefinition, Stylesheet } from "cytoscape";
-import { HTTP_METHOD } from "@/constants/api-constants";
+import { ElementDefinition, ElementsDefinition, Stylesheet } from 'cytoscape';
+import { HTTP_METHOD } from '@/constants/api-constants';
 
 export interface BaseRefineryResource {
   name: string;
@@ -15,36 +15,36 @@ export interface RefineryProject {
 }
 
 export enum SupportedLanguage {
-  PYTHON_2 = "python2.7",
-  NODEJS_8 = "nodejs8.10",
-  PHP7 = "php7.3",
-  GO1_12 = "go1.12"
+  PYTHON_2 = 'python2.7',
+  NODEJS_8 = 'nodejs8.10',
+  PHP7 = 'php7.3',
+  GO1_12 = 'go1.12'
 }
 
 export enum WorkflowStateType {
-  LAMBDA = "lambda",
-  API_GATEWAY_RESPONSE = "api_gateway_response",
+  LAMBDA = 'lambda',
+  API_GATEWAY_RESPONSE = 'api_gateway_response',
   // TODO: What is this?
-  API_GATEWAY = "api_gateway",
-  API_ENDPOINT = "api_endpoint",
-  SNS_TOPIC = "sns_topic",
-  SQS_QUEUE = "sqs_queue",
-  SCHEDULE_TRIGGER = "schedule_trigger"
+  API_GATEWAY = 'api_gateway',
+  API_ENDPOINT = 'api_endpoint',
+  SNS_TOPIC = 'sns_topic',
+  SQS_QUEUE = 'sqs_queue',
+  SCHEDULE_TRIGGER = 'schedule_trigger'
 }
 
 export enum WorkflowRelationshipType {
-  THEN = "then",
-  IF = "if",
-  FAN_OUT = "fan-out",
-  FAN_IN = "fan-in",
-  EXCEPTION = "exception",
-  ELSE = "else"
+  THEN = 'then',
+  IF = 'if',
+  FAN_OUT = 'fan-out',
+  FAN_IN = 'fan-in',
+  EXCEPTION = 'exception',
+  ELSE = 'else'
 }
 
 export enum ProjectLogLevel {
-  LOG_ALL = "LOG_ALL",
-  LOG_ERRORS = "LOG_ERRORS",
-  LOG_NONE = "LOG_NONE"
+  LOG_ALL = 'LOG_ALL',
+  LOG_ERRORS = 'LOG_ERRORS',
+  LOG_NONE = 'LOG_NONE'
 }
 
 export interface WorkflowState extends BaseRefineryResource {

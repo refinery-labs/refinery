@@ -1,44 +1,44 @@
 export enum AllProjectsMutators {
-  setSearchingStatus = "setSearchingStatus",
-  setAvailableProjects = "setAvailableProjects",
-  setSearchBoxInput = "setSearchBoxInput",
+  setSearchingStatus = 'setSearchingStatus',
+  setAvailableProjects = 'setAvailableProjects',
+  setSearchBoxInput = 'setSearchBoxInput',
 
-  setDeleteModalVisibility = "setDeleteModalVisibility",
-  setDeleteProjectId = "setDeleteProjectId",
-  setDeleteProjectName = "setDeleteProjectName",
+  setDeleteModalVisibility = 'setDeleteModalVisibility',
+  setDeleteProjectId = 'setDeleteProjectId',
+  setDeleteProjectName = 'setDeleteProjectName',
 
-  setNewProjectInput = "setNewProjectInput",
-  setNewProjectInputValid = "setNewProjectInputValid",
-  setNewProjectErrorMessage = "setNewProjectErrorMessage"
+  setNewProjectInput = 'setNewProjectInput',
+  setNewProjectInputValid = 'setNewProjectInputValid',
+  setNewProjectErrorMessage = 'setNewProjectErrorMessage'
 }
 
 export enum ProjectViewMutators {
-  setOpenedProject = "setOpenedProject",
-  setOpenedProjectConfig = "setOpenedProjectConfig",
-  setOpenedProjectOriginal = "setOpenedProjectOriginal",
-  setOpenedProjectConfigOriginal = "setOpenedProjectConfigOriginal",
+  setOpenedProject = 'setOpenedProject',
+  setOpenedProjectConfig = 'setOpenedProjectConfig',
+  setOpenedProjectOriginal = 'setOpenedProjectOriginal',
+  setOpenedProjectConfigOriginal = 'setOpenedProjectConfigOriginal',
 
-  selectedResource = "selectedResource",
-  isLoadingProject = "isLoadingProject",
-  isProjectBusy = "isProjectBusy",
+  selectedResource = 'selectedResource',
+  isLoadingProject = 'isLoadingProject',
+  isProjectBusy = 'isProjectBusy',
   isDeployingProject = 'isDeployingProject',
 
-  markProjectDirtyStatus = "markProjectDirtyStatus",
-  setCytoscapeElements = "setCytoscapeElements",
-  setCytoscapeStyle = "setCytoscapeStyle",
-  setCytoscapeLayout = "setCytoscapeLayout",
-  setCytoscapeConfig = "setCytoscapeConfig",
-  setLeftSidebarPaneState = "setLeftSidebarPaneState",
-  setLeftSidebarPane = "setLeftSidebarPane",
-  setRightSidebarPane = "setRightSidebarPane",
+  markProjectDirtyStatus = 'markProjectDirtyStatus',
+  setCytoscapeElements = 'setCytoscapeElements',
+  setCytoscapeStyle = 'setCytoscapeStyle',
+  setCytoscapeLayout = 'setCytoscapeLayout',
+  setCytoscapeConfig = 'setCytoscapeConfig',
+  setLeftSidebarPaneState = 'setLeftSidebarPaneState',
+  setLeftSidebarPane = 'setLeftSidebarPane',
+  setRightSidebarPane = 'setRightSidebarPane',
 
   // Add Block Pane
-  setSelectedBlockIndex = "setSelectedBlockIndex",
+  setSelectedBlockIndex = 'setSelectedBlockIndex',
 
   // Add Transition Pane
-  setAddingTransitionStatus = "setAddingTransitionStatus",
-  setAddingTransitionType = "setAddingTransitionType",
-  setValidTransitions = "setValidTransitions"
+  setAddingTransitionStatus = 'setAddingTransitionStatus',
+  setAddingTransitionType = 'setAddingTransitionType',
+  setValidTransitions = 'setValidTransitions'
 }
 
 export enum ProjectViewActions {
@@ -64,32 +64,32 @@ export enum ProjectViewActions {
 }
 
 export enum SettingsMutators {
-  toggleSetting = "toggleSetting",
-  toggleSettingOff = "toggleSettingOff",
-  toggleSettingOn = "toggleSettingOn",
-  changeSetting = "changeSetting"
+  toggleSetting = 'toggleSetting',
+  toggleSettingOff = 'toggleSettingOff',
+  toggleSettingOn = 'toggleSettingOn',
+  changeSetting = 'changeSetting'
 }
 
 export enum UserMutators {
-  setAuthenticationState = "setAuthenticationState",
-  setLoginAttemptMessage = "setLoginAttemptMessage",
-  setRedirectState = "setRedirectState",
-  setIsBusyStatus = "setIsBusyStatus",
-  setLoginErrorMessage = "setLoginErrorMessage",
+  setAuthenticationState = 'setAuthenticationState',
+  setLoginAttemptMessage = 'setLoginAttemptMessage',
+  setRedirectState = 'setRedirectState',
+  setIsBusyStatus = 'setIsBusyStatus',
+  setLoginErrorMessage = 'setLoginErrorMessage',
 
   // Login form
-  setRememberMeState = "setRememberMeState",
-  setEmailInputValue = "setEmailInputValue",
+  setRememberMeState = 'setRememberMeState',
+  setEmailInputValue = 'setEmailInputValue',
 
   // Register form
-  setRegisterEmailInputValue = "setRegisterEmailInputValue",
-  setRegisterNameInputValue = "setRegisterNameInputValue",
-  setRegisterPhoneInputValue = "setRegisterPhoneInputValue",
-  setRegisterOrgNameInputValue = "setRegisterOrgNameInputValue",
-  setRegistrationStripeTokenValue = "setRegistrationStripeTokenValue",
-  setAgreeToTermsValue = "setAgreeToTermsValue",
+  setRegisterEmailInputValue = 'setRegisterEmailInputValue',
+  setRegisterNameInputValue = 'setRegisterNameInputValue',
+  setRegisterPhoneInputValue = 'setRegisterPhoneInputValue',
+  setRegisterOrgNameInputValue = 'setRegisterOrgNameInputValue',
+  setRegistrationStripeTokenValue = 'setRegistrationStripeTokenValue',
+  setAgreeToTermsValue = 'setAgreeToTermsValue',
 
-  setRegistrationUsernameErrorMessage = "setRegistrationUsernameErrorMessage",
-  setRegistrationErrorMessage = "setRegistrationErrorMessage",
-  setRegistrationSuccessMessage = "setRegistrationSuccessMessage"
+  setRegistrationUsernameErrorMessage = 'setRegistrationUsernameErrorMessage',
+  setRegistrationErrorMessage = 'setRegistrationErrorMessage',
+  setRegistrationSuccessMessage = 'setRegistrationSuccessMessage'
 }

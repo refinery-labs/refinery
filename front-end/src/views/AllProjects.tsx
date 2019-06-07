@@ -1,10 +1,10 @@
-import Vue, { CreateElement, VNode } from "vue";
-import Component from "vue-class-component";
-import { namespace } from "vuex-class";
-import { SearchSavedProjectsResult } from "@/types/api-types";
-import Search from "@/components/AllProjects/Search";
+import Vue, { CreateElement, VNode } from 'vue';
+import Component from 'vue-class-component';
+import { namespace } from 'vuex-class';
+import { SearchSavedProjectsResult } from '@/types/api-types';
+import Search from '@/components/AllProjects/Search';
 
-const allProjects = namespace("allProjects");
+const allProjects = namespace('allProjects');
 
 @Component({
   components: { Search }

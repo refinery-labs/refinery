@@ -1,11 +1,12 @@
-import Vue, {CreateElement, VNode, VueConstructor} from 'vue';
+import Vue, { CreateElement, VNode, VueConstructor } from 'vue';
 import Component from 'vue-class-component';
-import {namespace} from 'vuex-class';
+import { namespace } from 'vuex-class';
 import AceEditor from '@/components/Common/AceEditor.vue';
-import {Prop} from 'vue-property-decorator';
+import { Prop } from 'vue-property-decorator';
 import {
   LambdaWorkflowState,
-  ScheduleTriggerWorkflowState, SnsTopicWorkflowState,
+  ScheduleTriggerWorkflowState,
+  SnsTopicWorkflowState,
   SupportedLanguage,
   WorkflowState,
   WorkflowStateType
@@ -18,8 +19,10 @@ const returnDataText = 'Data returned from the Lambda.';
 const languagesText = 'Language of code block.';
 const importLibsText = 'Dependencies for the code.';
 const codeEditorText = 'Code to be executed by the block.';
-const maxExecutionTimeText = 'Maximum time the code may execute before being killed in seconds.';
-const maxExecutionMemoryText = 'Maximum memory for the code to use during execution.';
+const maxExecutionTimeText =
+  'Maximum time the code may execute before being killed in seconds.';
+const maxExecutionMemoryText =
+  'Maximum memory for the code to use during execution.';
 // TODO: Add support for Layers
 // const layersText = <span>
 //   The ARN(s) of the
@@ -40,22 +43,30 @@ export class BlockScheduleExpressionInput extends Vue {
     const selectedNode = this.selectedNode;
 
     return (
-        <b-form-group
-            id={`block-name-group-${selectedNode.id}`}>
-          <label class="d-block" htmlFor={`block-name-${selectedNode.id}`}>
-            Schedule Expression:
-          </label>
-          <div class="input-group with-focus">
-            <b-form-input
-                id={`block-schedule-expression-${selectedNode.id}`}
-                type="text"
-                required
-                value={selectedNode.schedule_expression}
-                on={{input: this.setScheduleExpression}}
-                placeholder="cron(15 10 * * ? *)"/>
-          </div>
-          <small class="form-text text-muted"><a href="https://docs.aws.amazon.com/lambda/latest/dg/tutorial-scheduled-events-schedule-expressions.html" target="_blank">Schedule expression</a> indicating how often the attached blocks should be run.</small>
-        </b-form-group>
+      <b-form-group id={`block-name-group-${selectedNode.id}`}>
+        <label class="d-block" htmlFor={`block-name-${selectedNode.id}`}>
+          Schedule Expression:
+        </label>
+        <div class="input-group with-focus">
+          <b-form-input
+            id={`block-schedule-expression-${selectedNode.id}`}
+            type="text"
+            required
+            value={selectedNode.schedule_expression}
+            on={{ input: this.setScheduleExpression }}
+            placeholder="cron(15 10 * * ? *)"
+          />
+        </div>
+        <small class="form-text text-muted">
+          <a
+            href="https://docs.aws.amazon.com/lambda/latest/dg/tutorial-scheduled-events-schedule-expressions.html"
+            target="_blank"
+          >
+            Schedule expression
+          </a>{' '}
+          indicating how often the attached blocks should be run.
+        </small>
+      </b-form-group>
     );
   }
 }
@@ -73,41 +84,41 @@ export class BlockNameInput extends Vue {
     const selectedNode = this.selectedNode;
 
     return (
-        <b-form-group
-            id={`block-name-group-${selectedNode.id}`}
-            description={blockNameText}>
-          <label class="d-block" htmlFor={`block-name-${selectedNode.id}`}>
-            Block Name:
-          </label>
-          <div class="input-group with-focus">
-            <b-form-input
-                id={`block-name-${selectedNode.id}`}
-                type="text"
-                required
-                value={selectedNode.name}
-                on={{input: this.setBlockName}}
-                placeholder="My Amazing Block"/>
-          </div>
-        </b-form-group>
+      <b-form-group
+        id={`block-name-group-${selectedNode.id}`}
+        description={blockNameText}
+      >
+        <label class="d-block" htmlFor={`block-name-${selectedNode.id}`}>
+          Block Name:
+        </label>
+        <div class="input-group with-focus">
+          <b-form-input
+            id={`block-name-${selectedNode.id}`}
+            type="text"
+            required
+            value={selectedNode.name}
+            on={{ input: this.setBlockName }}
+            placeholder="My Amazing Block"
+          />
+        </div>
+      </b-form-group>
     );
   }
 }
 
 export interface FormProps {
-  [index: string]: any,
+  [index: string]: any;
 
-  idPrefix: string,
-  description: string,
-  placeholder: string,
-  name: string,
-  type?: string,
-  value: any,
-  on: { change: Function }
+  idPrefix: string;
+  description: string;
+  placeholder: string;
+  name: string;
+  type?: string;
+  value: any;
+  on: { change: Function };
 }
 
-export type LanguageToAceLang = {
-  [key in SupportedLanguage]: string
-}
+export type LanguageToAceLang = { [key in SupportedLanguage]: string };
 
 export const languageToAceLangMap: LanguageToAceLang = {
   [SupportedLanguage.NODEJS_8]: 'javascript',
@@ -122,9 +133,9 @@ export class EditTopicBlock extends Vue {
 
   public render(h: CreateElement): VNode {
     return (
-        <div>
-          <BlockNameInput/>
-        </div>
+      <div>
+        <BlockNameInput />
+      </div>
     );
   }
 }
@@ -138,54 +149,64 @@ export class EditScheduleTriggerBlock extends Vue {
   @editBlock.Mutation setInputData!: (input_data: string) => void;
   @editBlock.Mutation setWidePanel!: (wide: boolean) => void;
 
-
   public renderCodeEditor(id: string) {
-
     const editorProps = {
       'editor-id': `editor-${this.selectedNode.id}-${id}`,
       lang: 'text',
       theme: 'monokai',
       content: this.selectedNode.input_string,
-      on: {'change-content': this.setInputData}
+      on: { 'change-content': this.setInputData }
     };
 
     return (
-        // @ts-ignore
-        <AceEditor editor-id={editorProps['editor-id']} lang={editorProps.lang}
-                   theme="monokai" content={editorProps.content} on={editorProps.on}/>
+      // @ts-ignore
+      <AceEditor
+        editor-id={editorProps['editor-id']}
+        lang={editorProps.lang}
+        theme="monokai"
+        content={editorProps.content}
+        on={editorProps.on}
+      />
     );
   }
 
   public renderCodeEditorContainer() {
     const selectedNode = this.selectedNode;
-    const expandOnClick = {click: () => this.setWidePanel(!this.wideMode)};
+    const expandOnClick = { click: () => this.setWidePanel(!this.wideMode) };
 
     return (
-        <b-form-group
-            id={`code-editor-group-${selectedNode.id}`}
-            description="Some data to be passed to the connected Code Blocks as input.">
-          <div class="display--flex">
-            <label class="d-block flex-grow--1" htmlFor={`code-editor-${selectedNode.id}`}>
-              Edit Return Data:
-            </label>
-            <b-button on={expandOnClick} class="edit-block-container__expand-button">
-              <span class="fa fa-angle-double-left"/>
-            </b-button>
-          </div>
-          <div class="input-group with-focus edit-block-container__code-editor">
-            {this.renderCodeEditor('pane')}
-          </div>
-        </b-form-group>
+      <b-form-group
+        id={`code-editor-group-${selectedNode.id}`}
+        description="Some data to be passed to the connected Code Blocks as input."
+      >
+        <div class="display--flex">
+          <label
+            class="d-block flex-grow--1"
+            htmlFor={`code-editor-${selectedNode.id}`}
+          >
+            Edit Return Data:
+          </label>
+          <b-button
+            on={expandOnClick}
+            class="edit-block-container__expand-button"
+          >
+            <span class="fa fa-angle-double-left" />
+          </b-button>
+        </div>
+        <div class="input-group with-focus edit-block-container__code-editor">
+          {this.renderCodeEditor('pane')}
+        </div>
+      </b-form-group>
     );
   }
 
   public render(h: CreateElement): VNode {
     return (
-        <div>
-          <BlockNameInput/>
-          <BlockScheduleExpressionInput/>
-          {this.renderCodeEditorContainer()}
-        </div>
+      <div>
+        <BlockNameInput />
+        <BlockScheduleExpressionInput />
+        {this.renderCodeEditorContainer()}
+      </div>
     );
   }
 }
@@ -208,111 +229,137 @@ export class EditLambdaBlock extends Vue {
   @editBlock.Mutation setLayers!: (layers: string[]) => void;
 
   public renderCodeEditorModal() {
-    const nameString = `Edit Code for \'${this.selectedNode.name}\'`;
+    const nameString = `Edit Code for '${this.selectedNode.name}'`;
 
     const modalOnHandlers = {
-      hidden: () => this.setCodeModalVisibility(false),
+      hidden: () => this.setCodeModalVisibility(false)
     };
 
     return (
-        <b-modal ref={`code-modal-${this.selectedNode.id}`}
-                 on={modalOnHandlers} ok-only
-                 size="xl" title={nameString} visible={this.showCodeModal}>
-          <div class="d-block text-center display--flex code-modal-editor-container">
-            <div class="height--100percent width--100percent flex-grow--1">
-              {this.renderCodeEditor('modal')}
-            </div>
+      <b-modal
+        ref={`code-modal-${this.selectedNode.id}`}
+        on={modalOnHandlers}
+        ok-only
+        size="xl"
+        title={nameString}
+        visible={this.showCodeModal}
+      >
+        <div class="d-block text-center display--flex code-modal-editor-container">
+          <div class="height--100percent width--100percent flex-grow--1">
+            {this.renderCodeEditor('modal')}
           </div>
-        </b-modal>
+        </div>
+      </b-modal>
     );
   }
 
   public renderCodeEditor(id: string) {
-
     const editorProps = {
       'editor-id': `editor-${this.selectedNode.id}-${id}`,
       lang: languageToAceLangMap[this.selectedNode.language],
       theme: 'monokai',
       content: this.selectedNode.code,
-      on: {'change-content': this.setCodeInput}
+      on: { 'change-content': this.setCodeInput }
     };
 
     return (
-        // @ts-ignore
-        <AceEditor editor-id={editorProps['editor-id']} lang={editorProps.lang}
-                   theme="monokai" content={editorProps.content} on={editorProps.on}/>
+      // @ts-ignore
+      <AceEditor
+        editor-id={editorProps['editor-id']}
+        lang={editorProps.lang}
+        theme="monokai"
+        content={editorProps.content}
+        on={editorProps.on}
+      />
     );
   }
 
   public renderCodeEditorContainer() {
     const selectedNode = this.selectedNode;
 
-    const expandOnClick = {click: () => this.setWidePanel(!this.wideMode)};
-    const fullscreenOnClick = {click: () => this.setCodeModalVisibility(true)};
+    const expandOnClick = { click: () => this.setWidePanel(!this.wideMode) };
+    const fullscreenOnClick = {
+      click: () => this.setCodeModalVisibility(true)
+    };
 
     return (
-        <b-form-group
-            id={`code-editor-group-${selectedNode.id}`}
-            description={codeEditorText}>
-          <div class="display--flex">
-            <label class="d-block flex-grow--1" htmlFor={`code-editor-${selectedNode.id}`}>
-              Edit Block Code:
-            </label>
-            <b-button on={fullscreenOnClick} class="edit-block-container__expand-button">
-              <span class="fa fa-expand"/>
-            </b-button>
-            <b-button on={expandOnClick} class="edit-block-container__expand-button">
-              <span class="fa fa-angle-double-left"/>
-            </b-button>
-          </div>
-          <div class="input-group with-focus edit-block-container__code-editor">
-            {this.renderCodeEditor('pane')}
-          </div>
-        </b-form-group>
+      <b-form-group
+        id={`code-editor-group-${selectedNode.id}`}
+        description={codeEditorText}
+      >
+        <div class="display--flex">
+          <label
+            class="d-block flex-grow--1"
+            htmlFor={`code-editor-${selectedNode.id}`}
+          >
+            Edit Block Code:
+          </label>
+          <b-button
+            on={fullscreenOnClick}
+            class="edit-block-container__expand-button"
+          >
+            <span class="fa fa-expand" />
+          </b-button>
+          <b-button
+            on={expandOnClick}
+            class="edit-block-container__expand-button"
+          >
+            <span class="fa fa-angle-double-left" />
+          </b-button>
+        </div>
+        <div class="input-group with-focus edit-block-container__code-editor">
+          {this.renderCodeEditor('pane')}
+        </div>
+      </b-form-group>
     );
   }
 
   public renderForm(selectedNode: WorkflowState, inputProps: FormProps) {
-    const {idPrefix, name, description, type} = inputProps;
+    const { idPrefix, name, description, type } = inputProps;
 
     return (
-        <b-form-group
-            id={`${idPrefix}-group-${selectedNode.id}`}
-            description={description}>
-          <label class="d-block" htmlFor={`${idPrefix}-${selectedNode.id}`}>
-            {name}:
-          </label>
-          <div class="input-group with-focus">
-            <b-form-input
-                id={`${idPrefix}-${selectedNode.id}`}
-                type={type || 'text'}
-                required
-                max={inputProps.max}
-                min={inputProps.min}
-                step={inputProps.step}
-                value={inputProps.value}
-                {...inputProps} />
-          </div>
-        </b-form-group>
+      <b-form-group
+        id={`${idPrefix}-group-${selectedNode.id}`}
+        description={description}
+      >
+        <label class="d-block" htmlFor={`${idPrefix}-${selectedNode.id}`}>
+          {name}:
+        </label>
+        <div class="input-group with-focus">
+          <b-form-input
+            id={`${idPrefix}-${selectedNode.id}`}
+            type={type || 'text'}
+            required
+            max={inputProps.max}
+            min={inputProps.min}
+            step={inputProps.step}
+            value={inputProps.value}
+            {...inputProps}
+          />
+        </div>
+      </b-form-group>
     );
   }
 
   public renderLanguageSelector() {
     const selectedNode = this.selectedNode;
     return (
-        <b-form-group
-            id={`block-language-group-${selectedNode.id}`}
-            description={languagesText}>
-          <label class="d-block" htmlFor={`block-language-${selectedNode.id}`}>
-            Block Runtime:
-          </label>
-          <div class="input-group with-focus">
-            <b-form-select id={`block-language-${selectedNode.id}`}
-                           value={this.selectedNode.language}
-                           on={{input: this.setCodeLanguage}}
-                           options={Object.values(SupportedLanguage)}/>
-          </div>
-        </b-form-group>
+      <b-form-group
+        id={`block-language-group-${selectedNode.id}`}
+        description={languagesText}
+      >
+        <label class="d-block" htmlFor={`block-language-${selectedNode.id}`}>
+          Block Runtime:
+        </label>
+        <div class="input-group with-focus">
+          <b-form-select
+            id={`block-language-${selectedNode.id}`}
+            value={this.selectedNode.language}
+            on={{ input: this.setCodeLanguage }}
+            options={Object.values(SupportedLanguage)}
+          />
+        </div>
+      </b-form-group>
     );
   }
 
@@ -328,7 +375,7 @@ export class EditLambdaBlock extends Vue {
 
       type: 'number',
       value: this.selectedNode.max_execution_time.toString(),
-      on: {change: this.setMaxExecutionTime}
+      on: { change: this.setMaxExecutionTime }
     };
 
     const maxMemoryProps: FormProps = {
@@ -342,28 +389,32 @@ export class EditLambdaBlock extends Vue {
       min: 128,
       step: 64,
       value: this.selectedNode.memory.toString(),
-      on: {change: this.setExecutionMemory}
+      on: { change: this.setExecutionMemory }
     };
 
     return (
-        <div>
-          <BlockNameInput/>
-          {this.renderLanguageSelector()}
-          {this.renderCodeEditorContainer()}
-          {this.renderForm(this.selectedNode, maxExecutionTimeProps)}
-          {this.renderForm(this.selectedNode, maxMemoryProps)}
-          <b-button variant="dark" class="col-12 mb-3">Edit Environment Variables</b-button>
-          <b-button variant="outline-danger" class="col-12 mb-3">Delete Block</b-button>
+      <div>
+        <BlockNameInput />
+        {this.renderLanguageSelector()}
+        {this.renderCodeEditorContainer()}
+        {this.renderForm(this.selectedNode, maxExecutionTimeProps)}
+        {this.renderForm(this.selectedNode, maxMemoryProps)}
+        <b-button variant="dark" class="col-12 mb-3">
+          Edit Environment Variables
+        </b-button>
+        <b-button variant="outline-danger" class="col-12 mb-3">
+          Delete Block
+        </b-button>
 
-          {this.renderCodeEditorModal()}
-        </div>
+        {this.renderCodeEditorModal()}
+      </div>
     );
   }
 }
 
 export type BlockTypeToEditorComponent = {
   [key in WorkflowStateType]: VueConstructor
-}
+};
 
 export const blockTypeToEditorComponentLookup: BlockTypeToEditorComponent = {
   [WorkflowStateType.LAMBDA]: EditLambdaBlock,
@@ -382,7 +433,9 @@ export default class EditBlockPane extends Vue {
   @editBlock.State isStateDirty!: boolean;
   @editBlock.State wideMode!: boolean;
 
-  @editBlock.Mutation setConfirmDiscardModalVisibility!: (visibility: boolean) => void;
+  @editBlock.Mutation setConfirmDiscardModalVisibility!: (
+    visibility: boolean
+  ) => void;
 
   @editBlock.Action cancelAndResetBlock!: () => void;
   @editBlock.Action tryToCloseBlock!: () => void;
@@ -398,7 +451,9 @@ export default class EditBlockPane extends Vue {
       return;
     }
 
-    const nameString = `Are you sure you want to discard changes to \'${this.selectedNode.name}\'?`;
+    const nameString = `Are you sure you want to discard changes to '${
+      this.selectedNode.name
+    }'?`;
 
     const modalOnHandlers = {
       hidden: () => this.setConfirmDiscardModalVisibility(false),
@@ -406,24 +461,28 @@ export default class EditBlockPane extends Vue {
     };
 
     return (
-        <b-modal ref={`confirm-discard-${this.selectedNode.id}`}
-                 on={modalOnHandlers} ok-variant="danger"
-                 footer-class="p-2"
-                 title={nameString} visible={this.confirmDiscardModalVisibility}>
-          You will lose any changes made to the block!
-        </b-modal>
+      <b-modal
+        ref={`confirm-discard-${this.selectedNode.id}`}
+        on={modalOnHandlers}
+        ok-variant="danger"
+        footer-class="p-2"
+        title={nameString}
+        visible={this.confirmDiscardModalVisibility}
+      >
+        You will lose any changes made to the block!
+      </b-modal>
     );
   }
 
   public renderContentWrapper() {
-
     if (!this.selectedNode) {
-      return <div/>;
+      return <div />;
     }
 
-    const ActiveEditorComponent = blockTypeToEditorComponentLookup[this.selectedNode.type];
+    const ActiveEditorComponent =
+      blockTypeToEditorComponentLookup[this.selectedNode.type];
 
-    const props = {selectedNode: this.selectedNode as Object};
+    const props = { selectedNode: this.selectedNode as Object };
 
     const formClasses = {
       'mb-3 mt-3 text-align--left': true,
@@ -432,34 +491,39 @@ export default class EditBlockPane extends Vue {
     };
 
     return (
-        <b-form class={formClasses}
-                on={{submit: this.saveBlockClicked}}>
-          <div class="edit-block-container__scrollable overflow--scroll-y-auto">
-            <ActiveEditorComponent props={props}/>
-          </div>
-          <div class="row edit-block-container__bottom-buttons">
-            <b-button-group class="col-12">
-              <b-button variant="secondary" class="col-6"
-                        on={{click: this.tryToCloseBlock}}>
-                {this.isStateDirty ? 'Cancel' : 'Close'}
-              </b-button>
-              <b-button variant="primary" class="col-6" type="submit"
-                        disabled={!this.isStateDirty}>
-                Save Block
-              </b-button>
-            </b-button-group>
-          </div>
-        </b-form>
+      <b-form class={formClasses} on={{ submit: this.saveBlockClicked }}>
+        <div class="edit-block-container__scrollable overflow--scroll-y-auto">
+          <ActiveEditorComponent props={props} />
+        </div>
+        <div class="row edit-block-container__bottom-buttons">
+          <b-button-group class="col-12">
+            <b-button
+              variant="secondary"
+              class="col-6"
+              on={{ click: this.tryToCloseBlock }}
+            >
+              {this.isStateDirty ? 'Cancel' : 'Close'}
+            </b-button>
+            <b-button
+              variant="primary"
+              class="col-6"
+              type="submit"
+              disabled={!this.isStateDirty}
+            >
+              Save Block
+            </b-button>
+          </b-button-group>
+        </div>
+      </b-form>
     );
   }
 
   public render(h: CreateElement): VNode {
-
     return (
-        <b-container class="edit-block-container">
-          {this.renderContentWrapper()}
-          {this.renderConfirmDiscardModal()}
-        </b-container>
+      <b-container class="edit-block-container">
+        {this.renderContentWrapper()}
+        {this.renderConfirmDiscardModal()}
+      </b-container>
     );
   }
 }

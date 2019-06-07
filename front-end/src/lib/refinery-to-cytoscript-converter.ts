@@ -8,15 +8,15 @@ import {
   SqsQueueWorkflow,
   WorkflowState,
   WorkflowStateType
-} from "@/types/graph";
-import cytoscape from "cytoscape";
+} from '@/types/graph';
+import cytoscape from 'cytoscape';
 import {
   CssStyleDeclaration,
   EdgeDefinition,
   ElementsDefinition,
   NodeDefinition
-} from "cytoscape";
-import { baseEdgeStyle, baseNodeStyle } from "@/lib/cytoscape-styles";
+} from 'cytoscape';
+import { baseEdgeStyle, baseNodeStyle } from '@/lib/cytoscape-styles';
 
 const baseElementProperties = {
   // group: 'nodes' as ElementGroup,
@@ -91,7 +91,7 @@ export function generateCytoscapeElements(
   const nodes = project.workflow_states.map(workflowState => {
     if (!workflowStateTypeToConverter[workflowState.type]) {
       const error = new Error(
-        "Unknown type to convert when mapping project to graph types"
+        'Unknown type to convert when mapping project to graph types'
       );
       console.error(error, workflowState);
       throw error;
@@ -103,7 +103,7 @@ export function generateCytoscapeElements(
   const edges: EdgeDefinition[] = project.workflow_relationships.map(edge => {
     if (!edge) {
       const error = new Error(
-        "Unknown type to convert when mapping project to graph edges"
+        'Unknown type to convert when mapping project to graph edges'
       );
       console.error(error, edge);
       throw error;
@@ -133,22 +133,22 @@ type CytoscapeStyleConfigLookup = {
 
 const cytoscapeConfigLookup: CytoscapeStyleConfigLookup = {
   [WorkflowStateType.API_ENDPOINT]: {
-    "background-image": require("../../public/img/node-icons/api-gateway.png")
+    'background-image': require('../../public/img/node-icons/api-gateway.png')
   },
   [WorkflowStateType.API_GATEWAY_RESPONSE]: {
-    "background-image": require("../../public/img/node-icons/api-gateway.png")
+    'background-image': require('../../public/img/node-icons/api-gateway.png')
   },
   [WorkflowStateType.LAMBDA]: {
-    "background-image": require("../../public/img/node-icons/code-icon.png")
+    'background-image': require('../../public/img/node-icons/code-icon.png')
   },
   [WorkflowStateType.SCHEDULE_TRIGGER]: {
-    "background-image": require("../../public/img/node-icons/clock-icon.png")
+    'background-image': require('../../public/img/node-icons/clock-icon.png')
   },
   [WorkflowStateType.SNS_TOPIC]: {
-    "background-image": require("../../public/img/node-icons/sns-topic.png")
+    'background-image': require('../../public/img/node-icons/sns-topic.png')
   },
   [WorkflowStateType.SQS_QUEUE]: {
-    "background-image": require("../../public/img/node-icons/sqs_queue.png")
+    'background-image': require('../../public/img/node-icons/sqs_queue.png')
   }
 };
 

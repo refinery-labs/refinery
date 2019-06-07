@@ -1,7 +1,7 @@
-import { CreateElement, VNode } from "vue";
-import { Component, Prop, Vue } from "vue-property-decorator";
-import { NavbarItem } from "@/types/layout-types";
-import { SIDEBAR_PANE } from "@/types/project-editor-types";
+import { CreateElement, VNode } from 'vue';
+import { Component, Prop, Vue } from 'vue-property-decorator';
+import { NavbarItem } from '@/types/layout-types';
+import { SIDEBAR_PANE } from '@/types/project-editor-types';
 
 @Component
 export default class SidebarNav extends Vue {
@@ -27,12 +27,12 @@ export default class SidebarNav extends Vue {
     const enabled = this.getIfButtonEnabled(navItem.editorPane);
 
     const buttonClasses = {
-      "content-sidebar__item": true,
+      'content-sidebar__item': true,
       active: isActive,
       focus: isActive
     };
 
-    const splitContent = navItem.name.split(" ");
+    const splitContent = navItem.name.split(' ');
 
     return (
       <b-button

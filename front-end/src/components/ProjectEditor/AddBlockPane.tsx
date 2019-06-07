@@ -1,13 +1,13 @@
-import Vue, { CreateElement, VNode } from "vue";
-import Component from "vue-class-component";
-import { namespace } from "vuex-class";
+import Vue, { CreateElement, VNode } from 'vue';
+import Component from 'vue-class-component';
+import { namespace } from 'vuex-class';
 import {
   availableBlocks,
   AddGraphElementConfig,
   blockTypeToImageLookup
-} from "@/constants/project-editor-constants";
+} from '@/constants/project-editor-constants';
 
-const project = namespace("project");
+const project = namespace('project');
 
 @Component
 export default class AddBlockPane extends Vue {

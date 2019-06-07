@@ -5,11 +5,11 @@ import {
   WorkflowRelationship,
   WorkflowState,
   WorkflowStateType
-} from "@/types/graph";
+} from '@/types/graph';
 import {
   ProductionDeploymentRefineryProject,
   ProductionWorkflowState
-} from "@/types/production-workflow-types";
+} from '@/types/production-workflow-types';
 
 export interface BaseApiResponse {
   success: boolean;
@@ -455,8 +455,8 @@ export interface NewRegistrationResult {
 }
 
 export enum NewRegistrationErrorType {
-  INVALID_EMAIL = "INVALID_EMAIL",
-  USER_ALREADY_EXISTS = "USER_ALREADY_EXISTS"
+  INVALID_EMAIL = 'INVALID_EMAIL',
+  USER_ALREADY_EXISTS = 'USER_ALREADY_EXISTS'
 }
 
 // Login

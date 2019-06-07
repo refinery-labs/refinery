@@ -7,17 +7,17 @@
 <script>
 // FULLSCREEN
 // -----------------------------------
-import screenfull from "screenfull";
+import screenfull from 'screenfull';
 
-const FULLSCREEN_ON_ICON = "fa fa-expand";
-const FULLSCREEN_OFF_ICON = "fa fa-compress";
+const FULLSCREEN_ON_ICON = 'fa fa-expand';
+const FULLSCREEN_OFF_ICON = 'fa fa-compress';
 
 export default {
-  name: "ToggleFullscreen",
+  name: 'ToggleFullscreen',
   props: {
     tag: {
       type: String,
-      default: "A"
+      default: 'A'
     }
   },
   data() {
@@ -28,8 +28,8 @@ export default {
   mounted() {
     // Not supported under IE
     const ua = window.navigator.userAgent;
-    if (ua.indexOf("MSIE ") > 0 || !!ua.match(/Trident.*rv:11\./)) {
-      this.$el.classList.add("d-none");
+    if (ua.indexOf('MSIE ') > 0 || !!ua.match(/Trident.*rv:11\./)) {
+      this.$el.classList.add('d-none');
     }
   },
   methods: {
@@ -41,7 +41,7 @@ export default {
 
         this.toggleFSIcon();
       } else {
-        console.log("Fullscreen not enabled");
+        console.log('Fullscreen not enabled');
       }
     },
     toggleFSIcon() {
