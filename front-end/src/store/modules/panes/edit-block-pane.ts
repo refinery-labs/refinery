@@ -1,19 +1,19 @@
-import { Module } from 'vuex';
-import { RootState } from '../../store-types';
+import {Module} from 'vuex';
+import {RootState} from '../../store-types';
 import {
   LambdaWorkflowState,
   ScheduleTriggerWorkflowState,
-  SnsTopicWorkflowState,
+  SqsQueueWorkflowState,
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import { getNodeDataById } from '@/utils/project-helpers';
-import { createToast } from '@/utils/toasts-utils';
-import { ToastVariant } from '@/types/toasts-types';
-import { ProjectViewActions } from '@/constants/store-constants';
-import { PANE_POSITION } from '@/types/project-editor-types';
-import { DEFAULT_LANGUAGE_CODE } from '@/constants/project-editor-constants';
-import { EditTopicBlock } from '@/components/ProjectEditor/EditBlockPane';
+import {getNodeDataById} from '@/utils/project-helpers';
+import {createToast} from '@/utils/toasts-utils';
+import {ToastVariant} from '@/types/toasts-types';
+import {ProjectViewActions} from '@/constants/store-constants';
+import {PANE_POSITION} from '@/types/project-editor-types';
+import {DEFAULT_LANGUAGE_CODE} from '@/constants/project-editor-constants';
+import {EditTopicBlock} from '@/components/ProjectEditor/EditBlockPane';
 
 // Enums
 export enum EditBlockMutators {
@@ -37,7 +37,10 @@ export enum EditBlockMutators {
 
   // Timer Block Inputs
   setScheduleExpression = 'setScheduleExpression',
-  setInputData = 'setInputData'
+  setInputData = 'setInputData',
+
+  // Queue Block Inputs
+  setBatchSize = 'setBatchSize'
 }
 
 export enum EditBlockActions {
@@ -81,9 +84,9 @@ function modifyBlock<T extends WorkflowState>(state: EditBlockPaneState, fn: (bl
 }
 
 function getBlockAsType<T extends WorkflowState>(
-  state: EditBlockPaneState,
-  type: WorkflowStateType,
-  fn: (block: T) => void
+    state: EditBlockPaneState,
+    type: WorkflowStateType,
+    fn: (block: T) => void
 ) {
   if (!state.selectedNode || state.selectedNode.type !== type) {
     return null;
@@ -99,8 +102,8 @@ function scheduleExpressionChange(state: EditBlockPaneState, fn: (block: Schedul
   getBlockAsType<ScheduleTriggerWorkflowState>(state, WorkflowStateType.SCHEDULE_TRIGGER, fn);
 }
 
-function topicChange(state: EditBlockPaneState, fn: (block: SnsTopicWorkflowState) => void) {
-  getBlockAsType<SnsTopicWorkflowState>(state, WorkflowStateType.SNS_TOPIC, fn);
+function sqsQueueChange(state: EditBlockPaneState, fn: (block: SqsQueueWorkflowState) => void) {
+  getBlockAsType<SqsQueueWorkflowState>(state, WorkflowStateType.SQS_QUEUE, fn);
 }
 
 const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
@@ -156,6 +159,9 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     },
     [EditBlockMutators.setInputData](state, input_string: string) {
       scheduleExpressionChange(state, block => (block.input_string = input_string));
+    },
+    [EditBlockMutators.setBatchSize](state, batch_size: number) {
+      sqsQueueChange(state, block => (block.batch_size = batch_size));
     },
     [EditBlockMutators.setWidePanel](state, wide) {
       state.wideMode = wide;
@@ -239,7 +245,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       await context.dispatch(EditBlockActions.resetPaneState);
 
       // Close this pane
-      await context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.right, { root: true });
+      await context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.right, {root: true});
     }
   }
 };

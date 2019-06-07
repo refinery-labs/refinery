@@ -3261,7 +3261,7 @@ class TaskSpawner(object):
 			}
 		
 		@run_on_executor
-		def create_sqs_queue( self, credentials, id, queue_name, content_based_deduplication, batch_size ):
+		def create_sqs_queue( self, credentials, id, queue_name, batch_size ):
 			sqs_client = get_aws_client(
 				"sqs",
 				credentials
@@ -4749,8 +4749,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				credentials,
 				sqs_queue_node[ "id" ],
 				sqs_queue_name,
-				sqs_queue_node[ "content_based_deduplication" ],
-				sqs_queue_node[ "batch_size" ] # Not used, passed along
+				int( sqs_queue_node[ "batch_size" ] ) # Not used, passed along
 			)
 		})
 		
@@ -5006,7 +5005,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				credentials,
 				sqs_queue_trigger[ "sqs_queue_trigger" ][ "arn" ],
 				sqs_queue_trigger[ "target_lambda" ][ "arn" ],
-				sqs_queue_trigger[ "sqs_queue_trigger" ][ "batch_size" ]
+				int( sqs_queue_trigger[ "sqs_queue_trigger" ][ "batch_size" ] )
 			)
 		)
 	

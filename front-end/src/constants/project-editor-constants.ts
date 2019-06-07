@@ -309,7 +309,6 @@ export const TOPIC_BLOCK_DEFAULT_STATE = {
 };
 
 export const QUEUE_BLOCK_DEFAULT_STATE = {
-  content_based_deduplication: false,
   batch_size: 1,
   type: WorkflowStateType.SQS_QUEUE
 };

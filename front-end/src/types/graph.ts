@@ -69,8 +69,7 @@ export interface ApiGatewayResponseWorkflowState extends WorkflowState {}
 
 export interface SnsTopicWorkflowState extends WorkflowState {}
 
-export interface SqsQueueWorkflow extends WorkflowState {
-  content_based_deduplication: boolean;
+export interface SqsQueueWorkflowState extends WorkflowState {
   batch_size: number;
 }
 

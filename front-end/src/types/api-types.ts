@@ -33,7 +33,6 @@ export interface SearchSavedProjectsResult {
 // CreateSQSQueueTrigger
 export interface CreateSQSQueueTriggerRequest extends BaseApiRequest {
   batch_size: number;
-  content_based_deduplication: boolean;
   lambda_arn: string;
 }
 
