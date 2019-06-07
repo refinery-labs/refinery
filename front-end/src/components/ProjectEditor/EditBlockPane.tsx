@@ -5,7 +5,7 @@ import AceEditor from '@/components/Common/AceEditor.vue';
 import {Prop} from 'vue-property-decorator';
 import {
   LambdaWorkflowState,
-  ScheduleTriggerWorkflowState,
+  ScheduleTriggerWorkflowState, SnsTopicWorkflowState,
   SupportedLanguage,
   WorkflowState,
   WorkflowStateType
@@ -115,6 +115,19 @@ export const languageToAceLangMap: LanguageToAceLang = {
   [SupportedLanguage.GO1_12]: 'golang',
   [SupportedLanguage.PHP7]: 'php'
 };
+
+@Component
+export class EditTopicBlock extends Vue {
+  @Prop() selectedNode!: SnsTopicWorkflowState;
+
+  public render(h: CreateElement): VNode {
+    return (
+        <div>
+          <BlockNameInput/>
+        </div>
+    );
+  }
+}
 
 @Component
 export class EditScheduleTriggerBlock extends Vue {
@@ -354,7 +367,7 @@ export type BlockTypeToEditorComponent = {
 
 export const blockTypeToEditorComponentLookup: BlockTypeToEditorComponent = {
   [WorkflowStateType.LAMBDA]: EditLambdaBlock,
-  [WorkflowStateType.SNS_TOPIC]: EditLambdaBlock,
+  [WorkflowStateType.SNS_TOPIC]: EditTopicBlock,
   [WorkflowStateType.SCHEDULE_TRIGGER]: EditScheduleTriggerBlock,
   [WorkflowStateType.API_ENDPOINT]: EditLambdaBlock,
   [WorkflowStateType.API_GATEWAY]: EditLambdaBlock,

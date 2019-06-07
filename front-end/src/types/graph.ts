@@ -67,9 +67,7 @@ export interface ApiEndpointWorkflowState extends WorkflowState {
 
 export interface ApiGatewayResponseWorkflowState extends WorkflowState {}
 
-export interface SnsTopicWorkflowState extends WorkflowState {
-  topic_name: string;
-}
+export interface SnsTopicWorkflowState extends WorkflowState {}
 
 export interface SqsQueueWorkflow extends WorkflowState {
   queue_name: string;

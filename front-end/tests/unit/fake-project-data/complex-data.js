@@ -23,7 +23,6 @@ export default {
       name: "Bad Timer"
     },
     {
-      topic_name: "Debug Topic",
       type: "sns_topic",
       id: "n0ae3b1fbfee84d2791747148e28235b3",
       name: "Debug Topic"
@@ -85,7 +84,6 @@ export default {
       max_execution_time: 60
     },
     {
-      topic_name: "Debug Output",
       type: "sns_topic",
       id: "nd64e36910ccf4ecfb57b1075d305a1ba",
       name: "Debug Output"
