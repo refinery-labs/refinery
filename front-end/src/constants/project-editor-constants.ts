@@ -308,11 +308,17 @@ export const TOPIC_BLOCK_DEFAULT_STATE = {
   type: WorkflowStateType.SNS_TOPIC
 };
 
+export const QUEUE_BLOCK_DEFAULT_STATE = {
+  content_based_deduplication: false,
+  batch_size: 1,
+  type: WorkflowStateType.SQS_QUEUE
+};
+
 export type BlockTypeToDefaultState = { [key in WorkflowStateType]: Object };
 
 export const blockTypeToDefaultStateMapping: BlockTypeToDefaultState = {
   [WorkflowStateType.LAMBDA]: CODE_BLOCK_DEFAULT_STATE,
-  [WorkflowStateType.SQS_QUEUE]: {},
+  [WorkflowStateType.SQS_QUEUE]: QUEUE_BLOCK_DEFAULT_STATE,
   [WorkflowStateType.API_GATEWAY_RESPONSE]: {},
   [WorkflowStateType.API_ENDPOINT]: {},
   [WorkflowStateType.SCHEDULE_TRIGGER]: SCHEDULE_EXPRESSION_BLOCK_DEFAULT_STATE,

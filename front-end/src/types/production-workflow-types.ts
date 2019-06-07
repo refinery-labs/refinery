@@ -54,7 +54,6 @@ export interface ProductionApiGatewayResponseWorkflowState extends ProductionWor
 export interface ProductionSnsTopicWorkflowState extends ProductionWorkflowState {}
 
 export interface ProductionSqsQueueWorkflow extends ProductionWorkflowState {
-  queue_name: string;
   content_based_deduplication: boolean;
   batch_size: number;
 }

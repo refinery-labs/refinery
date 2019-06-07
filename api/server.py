@@ -3292,7 +3292,7 @@ class TaskSpawner(object):
 			
 			return {
 				"id": id,
-				"queue_name": queue_name,
+				"name": queue_name,
 				"arn": sqs_arn,
 				"batch_size": batch_size
 			}
@@ -4947,8 +4947,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		for workflow_state in diagram_data[ "workflow_states" ]:
 			if workflow_state[ "id" ] == deployed_sqs_queue[ "id" ]:
 				workflow_state[ "arn" ] = deployed_sqs_queue[ "arn" ]
-				workflow_state[ "name" ] = deployed_sqs_queue[ "queue_name" ]
-				workflow_state[ "queue_name" ] = deployed_sqs_queue[ "queue_name" ]
+				workflow_state[ "name" ] = deployed_sqs_queue[ "name" ]
 				
 	# Update SNS topics with arn
 	for deployed_sns_topic in deployed_sns_topics:
