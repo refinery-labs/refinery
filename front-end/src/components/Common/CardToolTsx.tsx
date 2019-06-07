@@ -115,7 +115,8 @@ export default class CardToolTsx extends Vue {
       })
     };
   
-    if (this.onRemove) {
+    // Only call the callback if we are not in "force spin" mode
+    if (this.onRemove || !this.onRefresh) {
       // Trigger the event and finally remove the element
       this.onRemove(card, confirmRemove);
     }
@@ -137,7 +138,8 @@ export default class CardToolTsx extends Vue {
     // start showing the spinner
     this.addWhirlClass(card);
     
-    if (this.onRefresh) {
+    // Only call the callback if we are not in "force spin" mode
+    if (this.onRefresh && !this.forceSpin) {
       // event to remove spinner when refresh is done
       this.onRefresh(card, this.removeWhirlClass);
     }

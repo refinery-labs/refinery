@@ -14,7 +14,6 @@ import {
 } from '@/types/api-types';
 import router from '@/router';
 import {DEFAULT_PROJECT_CONFIG} from '@/constants/project-editor-constants';
-import {RefineryProject} from '@/types/graph';
 
 const moduleState: AllProjectsState = {
   availableProjects: [],

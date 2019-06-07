@@ -1,4 +1,5 @@
 import Vue from 'vue';
+import moment from 'moment';
 import {Component, Watch} from 'vue-property-decorator';
 import {Route} from 'vue-router';
 import {UserInterfaceSettings} from '@/store/store-types';
@@ -11,19 +12,6 @@ const toasts = namespace('toasts');
 export default class OffsideContentBar extends Vue {
   @toasts.State activeToasts!: ToastConfig[];
   
-  @Mutation toggleSettingOn!: (name: UserInterfaceSettings) => {};
-  @Mutation toggleSettingOff!: (name: UserInterfaceSettings) => {};
-  @Action closeGlobalNav!: () => {};
-  
-  @Watch('$route', {deep: true})
-  private elementsModified(val: Route, oldVal: Route) {
-    this.toggleGlobalNavOff();
-  }
-  
-  public toggleGlobalNavOff() {
-    this.closeGlobalNav();
-  }
-  
   mounted() {
     
     const sidebarElement = this.$refs.sidebarElement as HTMLElement;
@@ -31,8 +19,6 @@ export default class OffsideContentBar extends Vue {
     if (!sidebarElement) {
       return;
     }
-    
-    // const sidebarHtmlElement = sidebarElement as HTMLElement;
     
     // unhide offsidebar on mounted
     sidebarElement.classList.remove('d-none');
@@ -49,6 +35,8 @@ export default class OffsideContentBar extends Vue {
   }
   
   renderNotification(toast: ToastConfig) {
+    const updatedTime = moment(toast.timestamp);
+    const durationSinceUpdated = moment.duration(-moment().diff(updatedTime)).humanize(true);
     return (
       <div class="p-2">
         <div role="alert" aria-live="assertive" aria-atomic="true"
@@ -60,6 +48,9 @@ export default class OffsideContentBar extends Vue {
             <div class="toast-body">
               {toast.content}
             </div>
+            <span class="toast-footer text-muted text-thin">
+              {durationSinceUpdated}
+            </span>
           </div>
         </div>
       </div>
@@ -75,7 +66,7 @@ export default class OffsideContentBar extends Vue {
               <em class="icon-equalizer fa-lg"></em>
             </template>
             <h3 class="text-center text-thin mt-4">Notifications</h3>
-        
+            {this.renderEmptyNotifications()}
             {this.activeToasts.map(t => this.renderNotification(t))}
           </b-tab>
           <b-tab title="second">

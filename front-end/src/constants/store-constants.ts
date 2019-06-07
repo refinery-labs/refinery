@@ -39,6 +39,27 @@ export enum ProjectViewMutators {
   setValidTransitions = 'setValidTransitions'
 }
 
+export enum ProjectViewActions {
+  openProject = 'openProject',
+  updateProject = 'updateProject',
+  saveProject = 'saveProject',
+  clearSelection = 'clearSelection',
+  selectNode = 'selectNode',
+  selectEdge = 'selectEdge',
+  completeTransitionAdd = 'completeTransitionAdd',
+  openLeftSidebarPane = 'openLeftSidebarPane',
+  closePane = 'closePane',
+  openRightSidebarPane = 'openRightSidebarPane',
+  resetProjectState = 'resetProjectState',
+  addBlock = 'addBlock',
+  addSavedBlock = 'addSavedBlock',
+  updateExistingBlock = 'updateExistingBlock',
+  addTransition = 'addTransition',
+  updateAvailableTransitions = 'updateAvailableTransitions',
+  cancelAddingTransition = 'cancelAddingTransition',
+  selectTransitionTypeToAdd = 'selectTransitionTypeToAdd'
+}
+
 export enum SettingsMutators {
   toggleSetting = 'toggleSetting',
   toggleSettingOff = 'toggleSettingOff',

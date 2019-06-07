@@ -1,12 +1,20 @@
-import Vue from 'vue';
 import {Module} from 'vuex';
 import {RootState} from '../../store-types';
 import {LambdaWorkflowState, WorkflowState, WorkflowStateType} from '@/types/graph';
 import {getNodeDataById} from '@/utils/project-helpers';
+import {createToast} from '@/utils/toasts-utils';
+import {ToastVariant} from '@/types/toasts-types';
+import {ProjectViewActions} from '@/constants/store-constants';
+import {PANE_POSITION} from '@/types/project-editor-types';
+import {DEFAULT_LANGUAGE_CODE} from '@/constants/project-editor-constants';
 
 // Enums
 export enum EditBlockMutators {
   setSelectedNode = 'setSelectedNode',
+  setDirtyState = 'setDirtyState',
+
+  setConfirmDiscardModalVisibility = 'setConfirmDiscardModalVisibility',
+  setWidePanel = 'setWidePanel',
   
   // Inputs
   setBlockName = 'setBlockName',
@@ -24,10 +32,12 @@ export enum EditBlockMutators {
 export enum EditBlockActions {
   selectNodeFromOpenProject = 'selectNodeFromOpenProject',
   selectCurrentlySelectedProjectNode = 'selectCurrentlySelectedProjectNode',
+  resetPaneState = 'resetPaneState',
   
   // Shared Actions
   saveBlock = 'saveBlock',
-  resetBlock = 'resetBlock',
+  tryToCloseBlock = 'tryToCloseBlock',
+  cancelAndResetBlock = 'cancelAndResetBlock',
   duplicateBlock = 'duplicateBlock',
   
   // Code Block specific
@@ -37,18 +47,25 @@ export enum EditBlockActions {
 // Types
 export interface EditBlockPaneState {
   selectedNode: WorkflowState | null,
-  showCodeModal: boolean
+  confirmDiscardModalVisibility: false,
+  showCodeModal: boolean,
+  isStateDirty: boolean,
+  wideMode: boolean
 }
 
 // Initial State
 const moduleState: EditBlockPaneState = {
   selectedNode: null,
-  showCodeModal: false
+  confirmDiscardModalVisibility: false,
+  showCodeModal: false,
+  isStateDirty: false,
+  wideMode: false
 };
 
 function modifyBlock<T extends WorkflowState>(state: EditBlockPaneState, fn: (block: T) => void) {
   const block = state.selectedNode as T;
   fn(block);
+  state.isStateDirty = true;
   state.selectedNode = Object.assign({}, block);
 }
 
@@ -77,6 +94,12 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     [EditBlockMutators.setSelectedNode](state, node) {
       state.selectedNode = node;
     },
+    [EditBlockMutators.setDirtyState](state, dirtyState) {
+      state.isStateDirty = dirtyState;
+    },
+    [EditBlockMutators.setConfirmDiscardModalVisibility](state, visibility) {
+      state.confirmDiscardModalVisibility = visibility;
+    },
     
     // Shared mutations
     [EditBlockMutators.setBlockName](state, name) {
@@ -88,7 +111,10 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       lambdaChange(state, block => block.code = code);
     },
     [EditBlockMutators.setCodeLanguage](state, language) {
-      lambdaChange(state, block => block.language = language);
+      lambdaChange(state, block => {
+        block.language = language;
+        block.code = DEFAULT_LANGUAGE_CODE[block.language];
+      });
     },
     [EditBlockMutators.setDependencyImports](state, libraries) {
       lambdaChange(state, block => block.libraries = libraries);
@@ -107,9 +133,21 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     },
     [EditBlockMutators.setCodeModalVisibility](state, visible) {
       state.showCodeModal = visible;
+    },
+    [EditBlockMutators.setWidePanel](state, wide) {
+      state.wideMode = wide;
     }
   },
   actions: {
+    /**
+     * Resets the state of the pane back to it's default.
+     * @param context
+     */
+    async [EditBlockActions.resetPaneState](context) {
+      context.commit(EditBlockMutators.setSelectedNode, null);
+      context.commit(EditBlockMutators.setDirtyState, false);
+      context.commit(EditBlockMutators.setCodeModalVisibility, false);
+    },
     async [EditBlockActions.selectNodeFromOpenProject](context, nodeId: string) {
       const projectStore = context.rootState.project;
       
@@ -117,6 +155,8 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
         console.error('Attempted to open edit block pane without loaded project');
         return;
       }
+      
+      await context.dispatch(EditBlockActions.resetPaneState);
       
       const node = getNodeDataById(projectStore.openedProject, nodeId);
       
@@ -136,6 +176,49 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       }
       
       await context.dispatch(EditBlockActions.selectNodeFromOpenProject, projectStore.selectedResource);
+    },
+    async [EditBlockActions.saveBlock](context) {
+      const projectStore = context.rootState.project;
+  
+      if (!projectStore.openedProject) {
+        console.error('Attempted to open edit block pane without loaded project');
+        return;
+      }
+      
+      if (!context.state.isStateDirty || !context.state.selectedNode) {
+        console.error('Unable to perform save -- state is invalid of edited block');
+        return;
+      }
+      
+      await context.dispatch(
+        `project/${ProjectViewActions.updateExistingBlock}`,
+        context.state.selectedNode,
+        {root: true}
+      );
+      context.commit(EditBlockMutators.setDirtyState, false);
+      
+      await createToast(context.dispatch, {
+        title: 'Block saved!',
+        content: `Successfully saved changes to block with name: ${context.state.selectedNode}`,
+        variant: ToastVariant.success
+      });
+    },
+    async [EditBlockActions.tryToCloseBlock](context) {
+      // If we have changes that we are going to discard, then ask the user to confirm destruction.
+      if (context.state.isStateDirty) {
+        context.commit(EditBlockMutators.setConfirmDiscardModalVisibility, true);
+        return;
+      }
+      
+      // Otherwise, close the pane!
+      await context.dispatch(EditBlockActions.cancelAndResetBlock);
+    },
+    async [EditBlockActions.cancelAndResetBlock](context) {
+      // Reset this pane state
+      await context.dispatch(EditBlockActions.resetPaneState);
+      
+      // Close this pane
+      await context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.right, {root: true});
     }
   }
 };

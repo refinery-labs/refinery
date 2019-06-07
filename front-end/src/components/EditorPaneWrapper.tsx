@@ -37,7 +37,7 @@ export default class EditorPaneWrapper extends Vue {
     
     return (
       <div class={containerClasses}>
-        <div class="modal-dialog editor-pane-instance__modal-dialog" role="document">
+        <div class="editor-pane-instance__modal-dialog" role="document">
           <div class="modal-content">
             {this.renderHeader()}
             {this.$slots.pane}

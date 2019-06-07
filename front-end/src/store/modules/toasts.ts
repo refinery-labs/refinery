@@ -63,8 +63,9 @@ const ToastPaneModule: Module<ToastPaneState, RootState> = {
         toaster: ToastLocation.TopRight,
         ...toast,
         id: uuid(),
-        autoHideDelay: 4000,
-        shown: false
+        autoHideDelay: 3000,
+        shown: false,
+        timestamp: new Date().getTime()
       };
       
       context.commit(ToastMutators.addToast, newToast);
