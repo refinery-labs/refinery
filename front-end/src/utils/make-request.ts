@@ -40,11 +40,7 @@ export async function getRequest<T>(path: string, args: {}) {
   );
 }
 
-export async function postRequest<TReq, TRes>(
-  path: string,
-  body: TReq,
-  args: {}
-) {
+export async function postRequest<TReq, TRes>(path: string, body: TReq, args: {}) {
   return await http<TRes>(
     new Request(path, {
       method: 'post',
@@ -60,11 +56,7 @@ export async function postRequest<TReq, TRes>(
   );
 }
 
-export async function putRequest<TReq, TRes>(
-  path: string,
-  body: TReq,
-  args: {}
-) {
+export async function putRequest<TReq, TRes>(path: string, body: TReq, args: {}) {
   return await http<TRes>(
     new Request(path, {
       method: 'put',
@@ -80,11 +72,7 @@ export async function putRequest<TReq, TRes>(
   );
 }
 
-export async function deleteRequest<TReq, TRes>(
-  path: string,
-  body: TReq,
-  args: {}
-) {
+export async function deleteRequest<TReq, TRes>(path: string, body: TReq, args: {}) {
   return await http<TRes>(
     new Request(path, {
       method: 'delete',
@@ -101,18 +89,12 @@ export async function deleteRequest<TReq, TRes>(
 }
 
 export type HttpMethodLookup = {
-  [key in HTTP_METHOD]: <TReq, TRes>(
-    path: string,
-    req: TReq
-  ) => Promise<IHttpResponse<TRes>>
+  [key in HTTP_METHOD]: <TReq, TRes>(path: string, req: TReq) => Promise<IHttpResponse<TRes>>
 };
 
 export const HttpUtil: HttpMethodLookup = {
   [HTTP_METHOD.GET]: async (path, args?) => await getRequest(path, args),
-  [HTTP_METHOD.POST]: async (path, body, args?) =>
-    await postRequest(path, body, args),
-  [HTTP_METHOD.DELETE]: async (path, body, args?) =>
-    await deleteRequest(path, body, args),
-  [HTTP_METHOD.PUT]: async (path, body, args?) =>
-    await putRequest(path, body, args)
+  [HTTP_METHOD.POST]: async (path, body, args?) => await postRequest(path, body, args),
+  [HTTP_METHOD.DELETE]: async (path, body, args?) => await deleteRequest(path, body, args),
+  [HTTP_METHOD.PUT]: async (path, body, args?) => await putRequest(path, body, args)
 };

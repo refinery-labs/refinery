@@ -2,11 +2,7 @@
  * Setting store to control layout behavior
  */
 import { Module } from 'vuex';
-import {
-  RootState,
-  UserInterfaceSettings,
-  UserInterfaceState
-} from '@/store/store-types';
+import { RootState, UserInterfaceSettings, UserInterfaceState } from '@/store/store-types';
 import { SettingsMutators } from '@/constants/store-constants';
 
 const moduleState: UserInterfaceState = {
@@ -73,10 +69,7 @@ const SettingModule: Module<UserInterfaceState, RootState> = {
      * payload.name: name of the setting prop to change
      * payload.value: new value to apply
      */
-    [SettingsMutators.changeSetting](
-      state,
-      { name, value }: { name: UserInterfaceSettings; value: boolean }
-    ) {
+    [SettingsMutators.changeSetting](state, { name, value }: { name: UserInterfaceSettings; value: boolean }) {
       if (name in state) state[name] = value;
     }
   },
@@ -86,22 +79,13 @@ const SettingModule: Module<UserInterfaceState, RootState> = {
         return;
       }
 
-      context.commit(
-        SettingsMutators.toggleSettingOn,
-        UserInterfaceSettings.isGlobalNavClosing
-      );
+      context.commit(SettingsMutators.toggleSettingOn, UserInterfaceSettings.isGlobalNavClosing);
 
       // We throw this timer in here to allow the CSS to do it's magic.
       // Sure, we could listen to the animation events and trigger this there... But we're lazy, okay?
       setTimeout(() => {
-        context.commit(
-          SettingsMutators.toggleSetting,
-          UserInterfaceSettings.isGlobalNavCollapsed
-        );
-        context.commit(
-          SettingsMutators.toggleSettingOff,
-          UserInterfaceSettings.isGlobalNavClosing
-        );
+        context.commit(SettingsMutators.toggleSetting, UserInterfaceSettings.isGlobalNavCollapsed);
+        context.commit(SettingsMutators.toggleSettingOff, UserInterfaceSettings.isGlobalNavClosing);
       }, 220);
     }
   }

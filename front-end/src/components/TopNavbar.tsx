@@ -6,13 +6,7 @@ export default class TopNavbar extends Vue {
   public render(h: CreateElement): VNode {
     return (
       <div class="top-navbar">
-        <b-navbar
-          toggleable="lg"
-          type="dark"
-          variant="info"
-          fixed="top"
-          sticky={true}
-        >
+        <b-navbar toggleable="lg" type="dark" variant="info" fixed="top" sticky={true}>
           <b-navbar-brand to="/">
             <img src="https://placekitten.com/g/120/32" alt="Kitten" />
           </b-navbar-brand>
@@ -41,9 +35,7 @@ export default class TopNavbar extends Vue {
                 </template>
                 <b-dropdown-item to="/profile">Profile</b-dropdown-item>
                 {/* TODO: Make these links trigger via POST to avoid CSRF */}
-                <b-dropdown-item to="/switch-account">
-                  Switch Account
-                </b-dropdown-item>
+                <b-dropdown-item to="/switch-account">Switch Account</b-dropdown-item>
                 <b-dropdown-item to="/sign-out">Sign Out</b-dropdown-item>
               </b-nav-item-dropdown>
             </b-navbar-nav>

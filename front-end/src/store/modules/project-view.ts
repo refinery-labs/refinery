@@ -14,16 +14,10 @@ import {
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import {
-  generateCytoscapeElements,
-  generateCytoscapeStyle
-} from '@/lib/refinery-to-cytoscript-converter';
+import { generateCytoscapeElements, generateCytoscapeStyle } from '@/lib/refinery-to-cytoscript-converter';
 import { LayoutOptions } from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
-import {
-  ProjectViewActions,
-  ProjectViewMutators
-} from '@/constants/store-constants';
+import { ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
 import { getApiClient } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
 import {
@@ -53,9 +47,7 @@ import {
   blockTypeToImageLookup,
   CODE_BLOCK_DEFAULT_STATE
 } from '@/constants/project-editor-constants';
-import EditBlockPaneModule, {
-  EditBlockActions
-} from '@/store/modules/panes/edit-block-pane';
+import EditBlockPaneModule, { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
 
@@ -115,17 +107,13 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return false;
       }
 
-      return (
-        state.availableTransitions.simple.length > 0 ||
-        state.availableTransitions.complex.length > 0
-      );
+      return state.availableTransitions.simple.length > 0 || state.availableTransitions.complex.length > 0;
     },
     /**
      * Returns the list of "next" valid blocks to select
      * @param state Vuex state object
      */
-    getValidBlockToBlockTransitions: state =>
-      getValidBlockToBlockTransitions(state),
+    getValidBlockToBlockTransitions: state => getValidBlockToBlockTransitions(state),
     /**
      * Returns which menu items are able to be displayed by the Add Transition pane
      * @param state Vuex state object
@@ -156,10 +144,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // There are no valid transitions available
       return [];
     },
-    canSaveProject: state =>
-      state.hasProjectBeenModified &&
-      !state.isProjectBusy &&
-      !state.isAddingTransitionCurrently
+    canSaveProject: state => state.hasProjectBeenModified && !state.isProjectBusy && !state.isAddingTransitionCurrently
   },
   mutations: {
     [ProjectViewMutators.setOpenedProject](state, project: RefineryProject) {
@@ -168,22 +153,13 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     [ProjectViewMutators.setOpenedProjectConfig](state, config: ProjectConfig) {
       state.openedProjectConfig = config;
     },
-    [ProjectViewMutators.setOpenedProjectOriginal](
-      state,
-      project: RefineryProject
-    ) {
-      state.openedProjectOriginal = unwrapJson<RefineryProject>(
-        wrapJson(project)
-      );
+    [ProjectViewMutators.setOpenedProjectOriginal](state, project: RefineryProject) {
+      state.openedProjectOriginal = unwrapJson<RefineryProject>(wrapJson(project));
     },
-    [ProjectViewMutators.setOpenedProjectConfigOriginal](
-      state,
-      config: ProjectConfig
-    ) {
-      state.openedProjectConfigOriginal = unwrapJson<ProjectConfig>(
-        wrapJson(config)
-      );
+    [ProjectViewMutators.setOpenedProjectConfigOriginal](state, config: ProjectConfig) {
+      state.openedProjectConfigOriginal = unwrapJson<ProjectConfig>(wrapJson(config));
     },
+
     [ProjectViewMutators.isLoadingProject](state, value: boolean) {
       state.isLoadingProject = value;
     },
@@ -205,55 +181,34 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     [ProjectViewMutators.setCytoscapeLayout](state, layout: LayoutOptions) {
       state.cytoscapeLayoutOptions = layout;
     },
-    [ProjectViewMutators.setCytoscapeConfig](
-      state,
-      config: cytoscape.CytoscapeOptions
-    ) {
+    [ProjectViewMutators.setCytoscapeConfig](state, config: cytoscape.CytoscapeOptions) {
       state.cytoscapeConfig = config;
     },
 
     // Pane Logic
-    [ProjectViewMutators.setLeftSidebarPaneState](
-      state,
-      mutation: UpdateLeftSidebarPaneStateMutation
-    ) {
+    [ProjectViewMutators.setLeftSidebarPaneState](state, mutation: UpdateLeftSidebarPaneStateMutation) {
       state.leftSidebarPaneState[mutation.leftSidebarPane] = {
         ...state.leftSidebarPaneState[mutation.leftSidebarPane],
         ...mutation.newState
       };
     },
-    [ProjectViewMutators.setLeftSidebarPane](
-      state,
-      leftSidebarPaneType: SIDEBAR_PANE | null
-    ) {
+    [ProjectViewMutators.setLeftSidebarPane](state, leftSidebarPaneType: SIDEBAR_PANE | null) {
       state.activeLeftSidebarPane = leftSidebarPaneType;
     },
-    [ProjectViewMutators.setRightSidebarPane](
-      state,
-      paneType: SIDEBAR_PANE | null
-    ) {
+    [ProjectViewMutators.setRightSidebarPane](state, paneType: SIDEBAR_PANE | null) {
       state.activeRightSidebarPane = paneType;
     },
 
     // Add New Pane
-    [ProjectViewMutators.setSelectedBlockIndex](
-      state,
-      selectedIndex: number | null
-    ) {
+    [ProjectViewMutators.setSelectedBlockIndex](state, selectedIndex: number | null) {
       state.selectedBlockIndex = selectedIndex;
     },
 
     // Add Transition Pane
-    [ProjectViewMutators.setAddingTransitionStatus](
-      state,
-      addingCurrently: boolean
-    ) {
+    [ProjectViewMutators.setAddingTransitionStatus](state, addingCurrently: boolean) {
       state.isAddingTransitionCurrently = addingCurrently;
     },
-    [ProjectViewMutators.setAddingTransitionType](
-      state,
-      transitionType: WorkflowRelationshipType | null
-    ) {
+    [ProjectViewMutators.setAddingTransitionType](state, transitionType: WorkflowRelationshipType | null) {
       state.newTransitionTypeSpecifiedInAddFlow = transitionType;
     },
     [ProjectViewMutators.setValidTransitions](state, node: WorkflowState) {
@@ -263,24 +218,16 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       // Assigning this in a mutator because this algorithm is O(n^2) and that feels bad in a getter
-      state.availableTransitions = getValidTransitionsForNode(
-        state.openedProject,
-        node
-      );
+      state.availableTransitions = getValidTransitionsForNode(state.openedProject, node);
     }
   },
   actions: {
-    async [ProjectViewActions.openProject](
-      context,
-      request: GetSavedProjectRequest
-    ) {
+    async [ProjectViewActions.openProject](context, request: GetSavedProjectRequest) {
       context.commit(ProjectViewMutators.isLoadingProject, true);
 
       const getProjectClient = getApiClient(API_ENDPOINT.GetSavedProject);
 
-      const projectResult = (await getProjectClient(
-        request
-      )) as GetSavedProjectResponse;
+      const projectResult = (await getProjectClient(request)) as GetSavedProjectResponse;
 
       if (!projectResult.success) {
         // TODO: Handle error gracefully
@@ -298,23 +245,15 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      const getProjectConfigClient = getApiClient(
-        API_ENDPOINT.GetProjectConfig
-      );
+      const getProjectConfigClient = getApiClient(API_ENDPOINT.GetProjectConfig);
 
       const getConfigRequest: GetProjectConfigRequest = {
         project_id: project.project_id
       };
 
-      const projectConfigResult = (await getProjectConfigClient(
-        getConfigRequest
-      )) as GetProjectConfigResponse;
+      const projectConfigResult = (await getProjectConfigClient(getConfigRequest)) as GetProjectConfigResponse;
 
-      if (
-        !projectConfigResult ||
-        !projectConfigResult.success ||
-        !projectConfigResult.result
-      ) {
+      if (!projectConfigResult || !projectConfigResult.success || !projectConfigResult.result) {
         // TODO: Handle error gracefully
         console.error('Unable to open project, missing config');
         return;
@@ -344,10 +283,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       context.commit(ProjectViewMutators.isLoadingProject, false);
     },
-    async [ProjectViewActions.updateProject](
-      context,
-      params: OpenProjectMutation
-    ) {
+    async [ProjectViewActions.updateProject](context, params: OpenProjectMutation) {
       const elements = generateCytoscapeElements(params.project);
 
       const stylesheet = generateCytoscapeStyle();
@@ -355,41 +291,23 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       context.commit(ProjectViewMutators.setOpenedProject, params.project);
 
       if (params.config) {
-        context.commit(
-          ProjectViewMutators.setOpenedProjectConfig,
-          params.config
-        );
+        context.commit(ProjectViewMutators.setOpenedProjectConfig, params.config);
       }
 
       if (!params.markAsDirty) {
-        context.commit(
-          ProjectViewMutators.setOpenedProjectOriginal,
-          params.project
-        );
-        context.commit(
-          ProjectViewMutators.setOpenedProjectConfig,
-          params.config
-        );
+        context.commit(ProjectViewMutators.setOpenedProjectOriginal, params.project);
+        context.commit(ProjectViewMutators.setOpenedProjectConfig, params.config);
       }
 
       // TODO: Make this actually compare IDs or something... But maybe we can hack it with Undo?
-      context.commit(
-        ProjectViewMutators.markProjectDirtyStatus,
-        params.markAsDirty
-      );
+      context.commit(ProjectViewMutators.markProjectDirtyStatus, params.markAsDirty);
 
       context.commit(ProjectViewMutators.setCytoscapeElements, elements);
       context.commit(ProjectViewMutators.setCytoscapeStyle, stylesheet);
     },
     async [ProjectViewActions.saveProject](context) {
-      if (
-        !context.state.openedProject ||
-        !context.state.openedProjectConfig ||
-        !context.state.hasProjectBeenModified
-      ) {
-        console.error(
-          'Project attempted to be saved but it was not in a valid state'
-        );
+      if (!context.state.openedProject || !context.state.openedProjectConfig || !context.state.hasProjectBeenModified) {
+        console.error('Project attempted to be saved but it was not in a valid state');
         return;
       }
 
@@ -413,9 +331,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       const saveProjectApiClient = getApiClient(API_ENDPOINT.SaveProject);
 
-      const response = (await saveProjectApiClient(
-        request
-      )) as SaveProjectResponse;
+      const response = (await saveProjectApiClient(request)) as SaveProjectResponse;
 
       if (!response.success) {
         console.error('Unable to save project!');
@@ -426,8 +342,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         project: {
           ...context.state.openedProject,
           // We need to sync the version against what the server has
-          version:
-            response.project_version || context.state.openedProject.version
+          version: response.project_version || context.state.openedProject.version
         },
         config: context.state.openedProjectConfig,
         markAsDirty: false
@@ -456,17 +371,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       //await context.dispatch(ProjectViewActions.clearSelection);
 
       if (!context.state.openedProject) {
-        console.error(
-          'Attempted to select node without opened project',
-          nodeId
-        );
+        console.error('Attempted to select node without opened project', nodeId);
         context.commit(ProjectViewMutators.selectedResource, null);
         return;
       }
 
-      const nodes = context.state.openedProject.workflow_states.filter(
-        e => e.id === nodeId
-      );
+      const nodes = context.state.openedProject.workflow_states.filter(e => e.id === nodeId);
 
       if (nodes.length === 0) {
         console.error('No node was found with id', nodeId);
@@ -481,13 +391,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.updateAvailableTransitions);
 
       // Opens up the Edit block pane
-      await context.dispatch(
-        ProjectViewActions.openRightSidebarPane,
-        SIDEBAR_PANE.editBlock
-      );
-      await context.dispatch(
-        `editBlockPane/${EditBlockActions.selectCurrentlySelectedProjectNode}`
-      );
+      await context.dispatch(ProjectViewActions.openRightSidebarPane, SIDEBAR_PANE.editBlock);
+      await context.dispatch(`editBlockPane/${EditBlockActions.selectCurrentlySelectedProjectNode}`);
     },
     async [ProjectViewActions.selectEdge](context, edgeId: string) {
       if (context.state.isAddingTransitionCurrently) {
@@ -502,9 +407,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      const edges = context.state.openedProject.workflow_relationships.filter(
-        e => e.id === edgeId
-      );
+      const edges = context.state.openedProject.workflow_relationships.filter(e => e.id === edgeId);
 
       if (edges.length === 0) {
         console.error('No edge was found with id', edgeId);
@@ -518,9 +421,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
     async [ProjectViewActions.completeTransitionAdd](context, nodeId: string) {
       if (!context.state.isAddingTransitionCurrently) {
-        console.error(
-          'Attempted to add transition but was not in correct state'
-        );
+        console.error('Attempted to add transition but was not in correct state');
         return;
       }
 
@@ -561,10 +462,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       // TODO: Open right sidebar pane
     },
-    async [ProjectViewActions.openLeftSidebarPane](
-      context,
-      leftSidebarPaneType: SIDEBAR_PANE
-    ) {
+    async [ProjectViewActions.openLeftSidebarPane](context, leftSidebarPaneType: SIDEBAR_PANE) {
       if (context.state.isAddingTransitionCurrently) {
         // TODO: Add a shake or something? Tell the user that it's bjorked.
         return;
@@ -581,10 +479,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Better would be a map of Type -> Callback probably? Just trigger other actions to fire?
       // Or have the ProjectEditorLeftPaneContainer fire a callback on the child component?
       // That also feels wrong because it violates to "one direction" principal, in a way.
-      context.commit(
-        ProjectViewMutators.setLeftSidebarPane,
-        leftSidebarPaneType
-      );
+      context.commit(ProjectViewMutators.setLeftSidebarPane, leftSidebarPaneType);
     },
     [ProjectViewActions.closePane](context, pos: PANE_POSITION) {
       if (pos === PANE_POSITION.left) {
@@ -599,10 +494,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       console.error('Attempted to close unknown pane', pos);
     },
-    async [ProjectViewActions.openRightSidebarPane](
-      context,
-      paneType: SIDEBAR_PANE
-    ) {
+    async [ProjectViewActions.openRightSidebarPane](context, paneType: SIDEBAR_PANE) {
       if (context.state.isAddingTransitionCurrently) {
         // TODO: Add a shake or something? Tell the user that it's bjorked.
         return;
@@ -695,10 +587,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     async [ProjectViewActions.addSavedBlock](context) {
       // TODO: Set pane to search
     },
-    async [ProjectViewActions.updateExistingBlock](
-      context,
-      node: WorkflowState
-    ) {
+    async [ProjectViewActions.updateExistingBlock](context, node: WorkflowState) {
       // This should not happen
       if (!context.state.openedProject) {
         console.error('Adding block but not project was opened');
@@ -707,15 +596,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       const openedProject = context.state.openedProject as RefineryProject;
 
-      const otherBlocks = openedProject.workflow_states.filter(
-        wfs => wfs.id !== node.id
-      );
+      const otherBlocks = openedProject.workflow_states.filter(wfs => wfs.id !== node.id);
 
       if (otherBlocks.length === openedProject.workflow_states.length) {
         await createToast(context.dispatch, {
           title: 'Invalid Action detected',
-          content:
-            'Updating existing block failed. Block to be updated is not a part of the current project.',
+          content: 'Updating existing block failed. Block to be updated is not a part of the current project.',
           variant: ToastVariant.danger
         });
         return;
@@ -737,10 +623,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
 
     // Add Transition Pane
-    async [ProjectViewActions.addTransition](
-      context,
-      newTransition: WorkflowRelationship
-    ) {
+    async [ProjectViewActions.addTransition](context, newTransition: WorkflowRelationship) {
       // This should not happen
       if (!context.state.openedProject) {
         console.error('Adding transition but not project was opened');
@@ -750,12 +633,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const openedProject = context.state.openedProject as RefineryProject;
 
       // Validate that the new transition can hit nodes
-      const hasValidToNode = openedProject.workflow_states.some(
-        ws => ws.id === newTransition.next
-      );
-      const hasValidFromNode = openedProject.workflow_states.some(
-        ws => ws.id === newTransition.node
-      );
+      const hasValidToNode = openedProject.workflow_states.some(ws => ws.id === newTransition.next);
+      const hasValidFromNode = openedProject.workflow_states.some(ws => ws.id === newTransition.node);
 
       if (!hasValidToNode || !hasValidFromNode) {
         console.error('Tried adding transition to graph with missing nodes!');
@@ -765,10 +644,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // This creates a new pointer for the main object, which makes Vuex very pleased.
       const newProject: RefineryProject = {
         ...openedProject,
-        workflow_relationships: [
-          ...openedProject.workflow_relationships,
-          newTransition
-        ]
+        workflow_relationships: [...openedProject.workflow_relationships, newTransition]
       };
 
       const params: OpenProjectMutation = {
@@ -781,8 +657,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.selectEdge, newTransition.id);
     },
     async [ProjectViewActions.updateAvailableTransitions](context) {
-      const resetTransitions = () =>
-        context.commit(ProjectViewMutators.setValidTransitions, null);
+      const resetTransitions = () => context.commit(ProjectViewMutators.setValidTransitions, null);
 
       // This probably should never happen
       if (!context.state.openedProject) {
@@ -816,16 +691,10 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       context.commit(ProjectViewMutators.setAddingTransitionStatus, false);
       context.commit(ProjectViewMutators.setAddingTransitionType, null);
     },
-    async [ProjectViewActions.selectTransitionTypeToAdd](
-      context,
-      transitionType: WorkflowRelationshipType
-    ) {
+    async [ProjectViewActions.selectTransitionTypeToAdd](context, transitionType: WorkflowRelationshipType) {
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
       context.commit(ProjectViewMutators.setAddingTransitionStatus, true);
-      context.commit(
-        ProjectViewMutators.setAddingTransitionType,
-        transitionType
-      );
+      context.commit(ProjectViewMutators.setAddingTransitionType, transitionType);
     }
   }
 };

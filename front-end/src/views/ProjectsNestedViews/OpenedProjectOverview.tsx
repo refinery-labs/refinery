@@ -32,12 +32,7 @@ export default class OpenedProjectOverview extends Vue {
   @Watch('$route', { immediate: true })
   private routeChanged(val: Route, oldVal: Route) {
     // Project is already opened
-    if (
-      val &&
-      oldVal &&
-      val.params.projectId &&
-      val.params.projectId === oldVal.params.projectId
-    ) {
+    if (val && oldVal && val.params.projectId && val.params.projectId === oldVal.params.projectId) {
       return;
     }
 
@@ -67,9 +62,7 @@ export default class OpenedProjectOverview extends Vue {
     const instance = <ActivePane slot="pane" />;
 
     return (
-      <div
-        class={`project-pane-overlay-container project-pane-overlay-container--${position}`}
-      >
+      <div class={`project-pane-overlay-container project-pane-overlay-container--${position}`}>
         <EditorPaneWrapper props={paneProps}>{instance}</EditorPaneWrapper>
       </div>
     );
@@ -120,10 +113,7 @@ export default class OpenedProjectOverview extends Vue {
 
         <OpenedProjectGraphContainer />
 
-        {this.renderPaneOverlay(
-          PANE_POSITION.right,
-          this.activeRightSidebarPane
-        )}
+        {this.renderPaneOverlay(PANE_POSITION.right, this.activeRightSidebarPane)}
       </div>
     );
   }

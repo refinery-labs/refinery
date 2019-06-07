@@ -59,12 +59,7 @@
             <ToggleFullscreen tag="A" class="nav-link" href="#" />
           </li>
           <!-- START Alert menu-->
-          <b-nav-item-dropdown
-            class="dropdown-list"
-            no-caret
-            menuClass="animated flipInX"
-            right
-          >
+          <b-nav-item-dropdown class="dropdown-list" no-caret menuClass="animated flipInX" right>
             <template slot="button-content">
               <em class="icon-bell"></em>
               <span class="badge badge-danger">11</span>
@@ -124,11 +119,7 @@
           <!-- END Alert menu-->
           <!-- START Offsidebar button-->
           <li class="nav-item">
-            <a
-              href=""
-              class="nav-link"
-              @click.prevent.prevent="toggleOffsidebar"
-            >
+            <a href="" class="nav-link" @click.prevent.prevent="toggleOffsidebar">
               <em class="icon-notebook"></em>
             </a>
           </li>

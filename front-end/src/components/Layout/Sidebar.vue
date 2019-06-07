@@ -117,13 +117,9 @@ export default Vue.extend({
     buildCollapseList() {
       /** prepare initial state of collapse menus. Doesnt allow same route names */
       let collapse = {};
-      Menu.filter(({ heading }) => !heading).forEach(
-        ({ name, path, submenu }) => {
-          collapse[name] = this.isRouteActive(
-            submenu ? submenu.map(({ path }) => path) : path
-          );
-        }
-      );
+      Menu.filter(({ heading }) => !heading).forEach(({ name, path, submenu }) => {
+        collapse[name] = this.isRouteActive(submenu ? submenu.map(({ path }) => path) : path);
+      });
       return collapse;
     },
     getSubRoutes(item) {
@@ -144,8 +140,7 @@ export default Vue.extend({
     },
     toggleItemCollapse(collapseName) {
       for (let c in this.collapse) {
-        if (this.collapse[c] === true && c !== collapseName)
-          this.collapse[c] = false;
+        if (this.collapse[c] === true && c !== collapseName) this.collapse[c] = false;
       }
       this.collapse[collapseName] = !this.collapse[collapseName];
     }

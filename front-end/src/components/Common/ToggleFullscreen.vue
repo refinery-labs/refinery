@@ -45,9 +45,7 @@ export default {
       }
     },
     toggleFSIcon() {
-      this.iconClass = screenfull.isFullscreen
-        ? FULLSCREEN_ON_ICON
-        : FULLSCREEN_OFF_ICON;
+      this.iconClass = screenfull.isFullscreen ? FULLSCREEN_ON_ICON : FULLSCREEN_OFF_ICON;
     }
   }
 };

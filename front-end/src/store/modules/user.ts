@@ -14,22 +14,15 @@ import {
 import { getApiClient } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
 import { timeout } from '@/utils/async-utils';
-import {
-  LOGIN_STATUS_CHECK_INTERVAL,
-  MAX_LOGIN_CHECK_ATTEMPTS
-} from '@/constants/user-constants';
+import { LOGIN_STATUS_CHECK_INTERVAL, MAX_LOGIN_CHECK_ATTEMPTS } from '@/constants/user-constants';
 
 const nameRegex = /^(\D{1,32} )+\D{1,32}$/;
 
 async function checkLoginStatus() {
-  const getAuthenticationStatusClient = getApiClient(
-    API_ENDPOINT.GetAuthenticationStatus
-  );
+  const getAuthenticationStatusClient = getApiClient(API_ENDPOINT.GetAuthenticationStatus);
 
   try {
-    return (await getAuthenticationStatusClient(
-      {}
-    )) as GetAuthenticationStatusResponse;
+    return (await getAuthenticationStatusClient({})) as GetAuthenticationStatusResponse;
   } catch (e) {
     console.error('Unable to get user login status');
     return null;
@@ -44,8 +37,7 @@ interface LoopLoginResult {
 
 async function loopLoginWaiting(attempts: number): Promise<LoopLoginResult> {
   if (attempts > MAX_LOGIN_CHECK_ATTEMPTS) {
-    const message =
-      'Unable to determine login status. Please refresh this page to continue...';
+    const message = 'Unable to determine login status. Please refresh this page to continue...';
     console.error(message);
     return {
       success: false,
@@ -59,8 +51,7 @@ async function loopLoginWaiting(attempts: number): Promise<LoopLoginResult> {
   const response = await checkLoginStatus();
 
   if (!response) {
-    const message =
-      'Unable to hit Login server when polling for status. Please refresh this page to continue...';
+    const message = 'Unable to hit Login server when polling for status. Please refresh this page to continue...';
     console.error(message);
     return {
       success: false,
@@ -121,10 +112,7 @@ const UserModule: Module<UserState, RootState> = {
   state: moduleState,
   getters: {},
   mutations: {
-    [UserMutators.setAuthenticationState](
-      state,
-      authenticationState: GetAuthenticationStatusResponse
-    ) {
+    [UserMutators.setAuthenticationState](state, authenticationState: GetAuthenticationStatusResponse) {
       state.authenticated = authenticationState.authenticated;
       state.name = authenticationState.name || null;
       state.email = authenticationState.email || null;
@@ -230,33 +218,24 @@ const UserModule: Module<UserState, RootState> = {
         context.commit(UserMutators.setIsBusyStatus, false);
 
         if (!response) {
-          context.commit(
-            UserMutators.setLoginErrorMessage,
-            'Unknown error! Refresh this page.'
-          );
+          context.commit(UserMutators.setLoginErrorMessage, 'Unknown error! Refresh this page.');
           console.error('Unable to log user in, response was null');
           return;
         }
 
         // Depending on success, we set either the informative message or the error.
-        const messageType = response.success
-          ? UserMutators.setLoginAttemptMessage
-          : UserMutators.setLoginErrorMessage;
+        const messageType = response.success ? UserMutators.setLoginAttemptMessage : UserMutators.setLoginErrorMessage;
 
         context.commit(messageType, response.msg);
       } catch (e) {
         context.commit(UserMutators.setIsBusyStatus, false);
-        context.commit(
-          UserMutators.setRegistrationErrorMessage,
-          'Unknown error! Refresh this page.'
-        );
+        context.commit(UserMutators.setRegistrationErrorMessage, 'Unknown error! Refresh this page.');
       }
 
       const { success, data, err } = await loopLoginWaiting(0);
 
       if (!success || !data) {
-        const message =
-          'Timeout exceeded waiting for email confirmation. Please refresh the page to continue.';
+        const message = 'Timeout exceeded waiting for email confirmation. Please refresh the page to continue.';
         context.commit(UserMutators.setLoginAttemptMessage, err || message);
         return;
       }
@@ -275,16 +254,14 @@ const UserModule: Module<UserState, RootState> = {
         context.state.registrationPaymentCardInputValid;
 
       if (!context.state.registrationPaymentCardInputValid) {
-        const message =
-          'You must provide valid payment information to continue.';
+        const message = 'You must provide valid payment information to continue.';
         console.error(message);
         context.commit(UserMutators.setRegistrationErrorMessage, message);
         return;
       }
 
       if (!validationSucceeded) {
-        const message =
-          'Validation check failed, please verify your information and try again';
+        const message = 'Validation check failed, please verify your information and try again';
         console.error(message);
         context.commit(UserMutators.setRegistrationErrorMessage, message);
         return;
@@ -314,9 +291,7 @@ const UserModule: Module<UserState, RootState> = {
       };
 
       try {
-        const response = (await registrationClient(
-          request
-        )) as NewRegistrationResponse;
+        const response = (await registrationClient(request)) as NewRegistrationResponse;
 
         context.commit(UserMutators.setIsBusyStatus, false);
 
@@ -335,31 +310,19 @@ const UserModule: Module<UserState, RootState> = {
         context.commit(messageType, response.result.msg);
 
         // Mark the "validation" of the email as bad and set a message.
-        if (
-          response.result.code === NewRegistrationErrorType.USER_ALREADY_EXISTS
-        ) {
-          context.commit(
-            UserMutators.setRegistrationUsernameErrorMessage,
-            response.result.msg
-          );
+        if (response.result.code === NewRegistrationErrorType.USER_ALREADY_EXISTS) {
+          context.commit(UserMutators.setRegistrationUsernameErrorMessage, response.result.msg);
         }
       } catch (e) {
         context.commit(UserMutators.setIsBusyStatus, false);
-        context.commit(
-          UserMutators.setRegistrationErrorMessage,
-          'Unknown error! Refresh this page.'
-        );
+        context.commit(UserMutators.setRegistrationErrorMessage, 'Unknown error! Refresh this page.');
       }
 
       const { success, data, err } = await loopLoginWaiting(0);
 
       if (!success || !data) {
-        const message =
-          'Timeout exceeded waiting for email confirmation. Please refresh the page to continue.';
-        context.commit(
-          UserMutators.setRegistrationErrorMessage,
-          err || message
-        );
+        const message = 'Timeout exceeded waiting for email confirmation. Please refresh the page to continue.';
+        context.commit(UserMutators.setRegistrationErrorMessage, err || message);
         return;
       }
 

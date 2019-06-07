@@ -73,10 +73,7 @@ const moduleState: EditBlockPaneState = {
   wideMode: false
 };
 
-function modifyBlock<T extends WorkflowState>(
-  state: EditBlockPaneState,
-  fn: (block: T) => void
-) {
+function modifyBlock<T extends WorkflowState>(state: EditBlockPaneState, fn: (block: T) => void) {
   const block = state.selectedNode as T;
   fn(block);
   state.isStateDirty = true;
@@ -94,28 +91,15 @@ function getBlockAsType<T extends WorkflowState>(
   modifyBlock<T>(state, fn);
 }
 
-function lambdaChange(
-  state: EditBlockPaneState,
-  fn: (block: LambdaWorkflowState) => void
-) {
+function lambdaChange(state: EditBlockPaneState, fn: (block: LambdaWorkflowState) => void) {
   getBlockAsType<LambdaWorkflowState>(state, WorkflowStateType.LAMBDA, fn);
 }
 
-function scheduleExpressionChange(
-  state: EditBlockPaneState,
-  fn: (block: ScheduleTriggerWorkflowState) => void
-) {
-  getBlockAsType<ScheduleTriggerWorkflowState>(
-    state,
-    WorkflowStateType.SCHEDULE_TRIGGER,
-    fn
-  );
+function scheduleExpressionChange(state: EditBlockPaneState, fn: (block: ScheduleTriggerWorkflowState) => void) {
+  getBlockAsType<ScheduleTriggerWorkflowState>(state, WorkflowStateType.SCHEDULE_TRIGGER, fn);
 }
 
-function topicChange(
-  state: EditBlockPaneState,
-  fn: (block: SnsTopicWorkflowState) => void
-) {
+function topicChange(state: EditBlockPaneState, fn: (block: SnsTopicWorkflowState) => void) {
   getBlockAsType<SnsTopicWorkflowState>(state, WorkflowStateType.SNS_TOPIC, fn);
 }
 
@@ -153,10 +137,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       lambdaChange(state, block => (block.libraries = libraries));
     },
     [EditBlockMutators.setMaxExecutionTime](state, maxExecTime) {
-      lambdaChange(
-        state,
-        block => (block.max_execution_time = parseInt(maxExecTime, 10))
-      );
+      lambdaChange(state, block => (block.max_execution_time = parseInt(maxExecTime, 10)));
     },
     [EditBlockMutators.setExecutionMemory](state, memory) {
       memory = Math.min(memory, 3072);
@@ -171,16 +152,10 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       state.showCodeModal = visible;
     },
     [EditBlockMutators.setScheduleExpression](state, expression: string) {
-      scheduleExpressionChange(
-        state,
-        block => (block.schedule_expression = expression)
-      );
+      scheduleExpressionChange(state, block => (block.schedule_expression = expression));
     },
     [EditBlockMutators.setInputData](state, input_string: string) {
-      scheduleExpressionChange(
-        state,
-        block => (block.input_string = input_string)
-      );
+      scheduleExpressionChange(state, block => (block.input_string = input_string));
     },
     [EditBlockMutators.setWidePanel](state, wide) {
       state.wideMode = wide;
@@ -196,16 +171,11 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       context.commit(EditBlockMutators.setDirtyState, false);
       context.commit(EditBlockMutators.setCodeModalVisibility, false);
     },
-    async [EditBlockActions.selectNodeFromOpenProject](
-      context,
-      nodeId: string
-    ) {
+    async [EditBlockActions.selectNodeFromOpenProject](context, nodeId: string) {
       const projectStore = context.rootState.project;
 
       if (!projectStore.openedProject) {
-        console.error(
-          'Attempted to open edit block pane without loaded project'
-        );
+        console.error('Attempted to open edit block pane without loaded project');
         return;
       }
 
@@ -224,56 +194,40 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       const projectStore = context.rootState.project;
 
       if (!projectStore.openedProject || !projectStore.selectedResource) {
-        console.error(
-          'Attempted to open edit block pane without loaded project or selected resource'
-        );
+        console.error('Attempted to open edit block pane without loaded project or selected resource');
         return;
       }
 
-      await context.dispatch(
-        EditBlockActions.selectNodeFromOpenProject,
-        projectStore.selectedResource
-      );
+      await context.dispatch(EditBlockActions.selectNodeFromOpenProject, projectStore.selectedResource);
     },
     async [EditBlockActions.saveBlock](context) {
       const projectStore = context.rootState.project;
 
       if (!projectStore.openedProject) {
-        console.error(
-          'Attempted to open edit block pane without loaded project'
-        );
+        console.error('Attempted to open edit block pane without loaded project');
         return;
       }
 
       if (!context.state.isStateDirty || !context.state.selectedNode) {
-        console.error(
-          'Unable to perform save -- state is invalid of edited block'
-        );
+        console.error('Unable to perform save -- state is invalid of edited block');
         return;
       }
 
-      await context.dispatch(
-        `project/${ProjectViewActions.updateExistingBlock}`,
-        context.state.selectedNode,
-        { root: true }
-      );
+      await context.dispatch(`project/${ProjectViewActions.updateExistingBlock}`, context.state.selectedNode, {
+        root: true
+      });
       context.commit(EditBlockMutators.setDirtyState, false);
 
       await createToast(context.dispatch, {
         title: 'Block saved!',
-        content: `Successfully saved changes to block with name: ${
-          context.state.selectedNode.name
-        }`,
+        content: `Successfully saved changes to block with name: ${context.state.selectedNode.name}`,
         variant: ToastVariant.success
       });
     },
     async [EditBlockActions.tryToCloseBlock](context) {
       // If we have changes that we are going to discard, then ask the user to confirm destruction.
       if (context.state.isStateDirty) {
-        context.commit(
-          EditBlockMutators.setConfirmDiscardModalVisibility,
-          true
-        );
+        context.commit(EditBlockMutators.setConfirmDiscardModalVisibility, true);
         return;
       }
 
@@ -285,11 +239,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       await context.dispatch(EditBlockActions.resetPaneState);
 
       // Close this pane
-      await context.dispatch(
-        `project/${ProjectViewActions.closePane}`,
-        PANE_POSITION.right,
-        { root: true }
-      );
+      await context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.right, { root: true });
     }
   }
 };

@@ -132,9 +132,7 @@ export const animationEnd: SingularAnimationOptionsPos = {
   easing: 'ease-in-sine'
 };
 
-export const selectableAnimation = async (
-  ele: CollectionReturnValue
-): Promise<EventObject> => {
+export const selectableAnimation = async (ele: CollectionReturnValue): Promise<EventObject> => {
   return (
     // Annoying bad type declarations...
     // @ts-ignore

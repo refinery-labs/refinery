@@ -9,10 +9,7 @@ import {
 import { LayoutOptions } from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
 import { SearchSavedProjectsResult, TrialInformation } from '@/types/api-types';
-import {
-  LeftSidebarPaneState,
-  SIDEBAR_PANE
-} from '@/types/project-editor-types';
+import { LeftSidebarPaneState, SIDEBAR_PANE } from '@/types/project-editor-types';
 import { ValidTransitionConfig } from '@/constants/project-editor-constants';
 
 export interface RootState {

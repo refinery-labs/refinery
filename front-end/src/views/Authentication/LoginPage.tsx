@@ -63,19 +63,9 @@ export default class LoginPage extends Vue {
             Welcome to Refinery! <br />
             Please sign in to continue.
           </p>
-          <b-form
-            on={{ submit: this.onSubmit, reset: this.onReset }}
-            class="mb-3 text-align--left"
-          >
-            <b-form-group
-              id="user-email-group"
-              description="You will receive an email with a magical link to log in."
-            >
-              <label
-                class="text-muted d-block"
-                for="user-email-input"
-                id="user-email-group"
-              >
+          <b-form on={{ submit: this.onSubmit, reset: this.onReset }} class="mb-3 text-align--left">
+            <b-form-group id="user-email-group" description="You will receive an email with a magical link to log in.">
+              <label class="text-muted d-block" for="user-email-input" id="user-email-group">
                 Email address:
               </label>
               <div class="input-group with-focus">
@@ -97,8 +87,7 @@ export default class LoginPage extends Vue {
                 </div>
               </div>
               <b-form-invalid-feedback state={this.loginEmailInputValid}>
-                Your name must contain First + Last name and not contain
-                numbers.
+                Your name must contain First + Last name and not contain numbers.
               </b-form-invalid-feedback>
             </b-form-group>
             <div class="text-align--left">

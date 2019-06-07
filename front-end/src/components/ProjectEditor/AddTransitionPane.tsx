@@ -18,19 +18,14 @@ export default class AddTransitionPane extends Vue {
   @project.Getter
   getValidMenuDisplayTransitionTypes!: WorkflowRelationshipType[];
 
-  @project.Action selectTransitionTypeToAdd!: (
-    key: WorkflowRelationshipType
-  ) => {};
+  @project.Action selectTransitionTypeToAdd!: (key: WorkflowRelationshipType) => {};
   @project.Action cancelAddingTransition!: () => {};
 
   private checkIfTransitionEnabled(key: WorkflowRelationshipType) {
     return this.getValidMenuDisplayTransitionTypes.some(t => t === key);
   }
 
-  public renderTransitionSelect(
-    key: WorkflowRelationshipType,
-    transition: AddGraphElementConfig | null
-  ) {
+  public renderTransitionSelect(key: WorkflowRelationshipType, transition: AddGraphElementConfig | null) {
     if (!transition) {
       return null;
     }
@@ -43,9 +38,7 @@ export default class AddTransitionPane extends Vue {
       'add-block--disabled': !isTransitionEnabled
     };
 
-    const icon = (
-      <span class={!isTransitionEnabled ? 'icon-ban' : 'icon-check'} />
-    );
+    const icon = <span class={!isTransitionEnabled ? 'icon-ban' : 'icon-check'} />;
 
     const collapsedContent = (
       <div>
@@ -82,32 +75,17 @@ export default class AddTransitionPane extends Vue {
 
   renderHelpText() {
     return (
-      <b-list-group
-        class="add-transition-container"
-        style={{ margin: '0 0 2px 0' }}
-      >
+      <b-list-group class="add-transition-container" style={{ margin: '0 0 2px 0' }}>
         <div>
           <b-list-group horizontal>
-            {availableTransitions.map(key =>
-              this.renderTransitionSelect(
-                key,
-                transitionTypeToConfigLookup[key]
-              )
-            )}
+            {availableTransitions.map(key => this.renderTransitionSelect(key, transitionTypeToConfigLookup[key]))}
           </b-list-group>
         </div>
         <b-list-group-item class="text-align--center">
-          <h4>
-            Click on a glowing Block to select the second element for the
-            transition.
-          </h4>
+          <h4>Click on a glowing Block to select the second element for the transition.</h4>
         </b-list-group-item>
         <b-list-group-item>
-          <b-button
-            variant="danger"
-            class="col-md-12"
-            on={{ click: this.cancelAddingTransition }}
-          >
+          <b-button variant="danger" class="col-md-12" on={{ click: this.cancelAddingTransition }}>
             Cancel Adding Transition
           </b-button>
         </b-list-group-item>
@@ -121,13 +99,8 @@ export default class AddTransitionPane extends Vue {
     }
 
     return (
-      <b-list-group
-        class="add-transition-container"
-        style={{ margin: '0 0 2px 0' }}
-      >
-        {availableTransitions.map(key =>
-          this.renderTransitionSelect(key, transitionTypeToConfigLookup[key])
-        )}
+      <b-list-group class="add-transition-container" style={{ margin: '0 0 2px 0' }}>
+        {availableTransitions.map(key => this.renderTransitionSelect(key, transitionTypeToConfigLookup[key]))}
       </b-list-group>
     );
   }

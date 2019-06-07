@@ -1,12 +1,5 @@
-import {
-  SupportedLanguage,
-  WorkflowRelationshipType,
-  WorkflowStateType
-} from '@/types/graph';
-import {
-  ActiveSidebarPaneToContainerMapping,
-  SIDEBAR_PANE
-} from '@/types/project-editor-types';
+import { SupportedLanguage, WorkflowRelationshipType, WorkflowStateType } from '@/types/graph';
+import { ActiveSidebarPaneToContainerMapping, SIDEBAR_PANE } from '@/types/project-editor-types';
 import AddBlockPane from '@/components/ProjectEditor/AddBlockPane';
 import AddTransitionPane from '@/components/ProjectEditor/AddTransitionPane';
 import EditBlockPane from '@/components/ProjectEditor/EditBlockPane';
@@ -23,9 +16,7 @@ export interface AddGraphElementConfig {
   description: string;
 }
 
-export type BlockTypeToImage = {
-  [key in WorkflowStateType]: AddGraphElementConfig
-};
+export type BlockTypeToImage = { [key in WorkflowStateType]: AddGraphElementConfig };
 
 export interface BlockTypeConfig extends BlockTypeToImage {
   [index: string]: AddGraphElementConfig;
@@ -99,9 +90,7 @@ export const availableBlocks: string[] = [
   WorkflowStateType.SQS_QUEUE
 ];
 
-export type TransitionTypeToConfig = {
-  [key in WorkflowRelationshipType]: AddGraphElementConfig
-};
+export type TransitionTypeToConfig = { [key in WorkflowRelationshipType]: AddGraphElementConfig };
 
 export const transitionTypeToConfigLookup: TransitionTypeToConfig = {
   [WorkflowRelationshipType.IF]: {

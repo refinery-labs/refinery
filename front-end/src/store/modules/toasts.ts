@@ -1,12 +1,7 @@
 import { Module } from 'vuex';
 import uuid from 'uuid/v4';
 import { RootState } from '../store-types';
-import {
-  ToastConfig,
-  ToastLocation,
-  ToastNotification,
-  ToastVariant
-} from '@/types/toasts-types';
+import { ToastConfig, ToastLocation, ToastNotification, ToastVariant } from '@/types/toasts-types';
 
 // Enums
 export enum ToastMutators {

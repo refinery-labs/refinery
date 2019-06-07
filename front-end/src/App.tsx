@@ -19,21 +19,11 @@ export default class App extends Vue {
     const activeClasses = {
       'layout-fixed': this.settings[UserInterfaceSettings.isFixed],
       'layout-boxed': this.settings[UserInterfaceSettings.isBoxed],
-      'global-nav-collapsed': !this.settings[
-        UserInterfaceSettings.isGlobalNavCollapsed
-      ],
-      'global-nav-closing': this.settings[
-        UserInterfaceSettings.isGlobalNavClosing
-      ],
-      'global-nav-visible': this.settings[
-        UserInterfaceSettings.isGlobalNavCollapsed
-      ],
-      'aside-collapsed': this.settings[
-        UserInterfaceSettings.isSidebarCollapsed
-      ],
-      'aside-collapsed-text': this.settings[
-        UserInterfaceSettings.isCollapsedText
-      ],
+      'global-nav-collapsed': !this.settings[UserInterfaceSettings.isGlobalNavCollapsed],
+      'global-nav-closing': this.settings[UserInterfaceSettings.isGlobalNavClosing],
+      'global-nav-visible': this.settings[UserInterfaceSettings.isGlobalNavCollapsed],
+      'aside-collapsed': this.settings[UserInterfaceSettings.isSidebarCollapsed],
+      'aside-collapsed-text': this.settings[UserInterfaceSettings.isCollapsedText],
       'aside-float': this.settings[UserInterfaceSettings.isFloat],
       'aside-hover': this.settings[UserInterfaceSettings.asideHover],
       'offsidebar-open': this.settings[UserInterfaceSettings.offsidebarOpen],
