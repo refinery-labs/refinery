@@ -3175,15 +3175,6 @@ class TaskSpawner(object):
 				"lambda",
 				credentials,
 			)
-
-			# Attempt to JSON parse the input string just to
-			# set types appropriately if possible.
-			try:
-				input_string = json.loads(
-					input_string
-				)
-			except:
-				pass
 			
 			targets_data =	 {
 				"Id": target_id,
