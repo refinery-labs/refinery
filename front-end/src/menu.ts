@@ -99,9 +99,7 @@ export const paneTypeToNameLookup: EditorPaneTypeToName = {
 
 export const paneTypeToWindowNameLookup: EditorPaneTypeToName = {
   ...paneTypeToNameLookup,
-  [SIDEBAR_PANE.addBlock]: `Click to ${
-    paneTypeToNameLookup[SIDEBAR_PANE.addBlock]
-  }`
+  [SIDEBAR_PANE.addBlock]: `Click to ${paneTypeToNameLookup[SIDEBAR_PANE.addBlock]}`
 };
 
 // TODO: Make a small helper to generate these instead of copy-pasting

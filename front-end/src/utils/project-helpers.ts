@@ -1,17 +1,10 @@
-import {
-  RefineryProject,
-  WorkflowRelationshipType,
-  WorkflowState
-} from '@/types/graph';
+import { RefineryProject, WorkflowRelationshipType, WorkflowState } from '@/types/graph';
 import {
   nodeTypesWithSimpleTransitions,
   validBlockToBlockTransitionLookup,
   ValidTransitionConfig
 } from '@/constants/project-editor-constants';
-import {
-  AvailableTransitionsByType,
-  ProjectViewState
-} from '@/store/store-types';
+import { AvailableTransitionsByType, ProjectViewState } from '@/store/store-types';
 import { GetSavedProjectResponse } from '@/types/api-types';
 import uuid from 'uuid/v4';
 
@@ -29,12 +22,8 @@ export function getNodeDataById(project: RefineryProject, nodeId: string) {
   return null;
 }
 
-export function findTransitionsBetweenNodes(
-  fromNode: WorkflowState,
-  toNode: WorkflowState
-) {
-  const validateTransition = (t: ValidTransitionConfig) =>
-    t.fromType === fromNode.type && t.toType === toNode.type;
+export function findTransitionsBetweenNodes(fromNode: WorkflowState, toNode: WorkflowState) {
+  const validateTransition = (t: ValidTransitionConfig) => t.fromType === fromNode.type && t.toType === toNode.type;
 
   const simple = nodeTypesWithSimpleTransitions.filter(validateTransition);
 
@@ -97,9 +86,7 @@ export function wrapJson(obj: any) {
   }
 }
 
-export function unwrapProjectJson(
-  response: GetSavedProjectResponse
-): RefineryProject | null {
+export function unwrapProjectJson(response: GetSavedProjectResponse): RefineryProject | null {
   try {
     const project = JSON.parse(response.project_json) as RefineryProject;
 
@@ -130,23 +117,15 @@ export function getValidBlockToBlockTransitions(state: ProjectViewState) {
     return null;
   }
 
-  const selectedNode = getNodeDataById(
-    state.openedProject,
-    state.selectedResource
-  );
+  const selectedNode = getNodeDataById(state.openedProject, state.selectedResource);
 
   if (!selectedNode) {
     return null;
   }
 
   // Enabled all transitions
-  if (
-    state.newTransitionTypeSpecifiedInAddFlow === WorkflowRelationshipType.THEN
-  ) {
-    return [
-      ...state.availableTransitions.simple,
-      ...state.availableTransitions.complex
-    ];
+  if (state.newTransitionTypeSpecifiedInAddFlow === WorkflowRelationshipType.THEN) {
+    return [...state.availableTransitions.simple, ...state.availableTransitions.complex];
   }
 
   // Return only complex transitions for anything else

@@ -31,9 +31,7 @@ export default class Search extends Vue {
 
   @allProjects.Action performSearch!: () => {};
   @allProjects.Action createProject!: () => void;
-  @allProjects.Action startDeleteProject!: (
-    project: SearchSavedProjectsResult
-  ) => void;
+  @allProjects.Action startDeleteProject!: (project: SearchSavedProjectsResult) => void;
   @allProjects.Action deleteProject!: () => void;
 
   onCreateProjectSubmit(e: Event) {
@@ -98,11 +96,9 @@ export default class Search extends Vue {
     // TODO: Add Pagination support
     const chunked = availableProjects; //.slice().slice(0, 10);
 
-    const headerTitle =
-      availableProjects.length === 0 ? 'No projects found!' : 'Description';
+    const headerTitle = availableProjects.length === 0 ? 'No projects found!' : 'Description';
 
-    const createProjectErrorMessage =
-      this.newProjectErrorMessage || 'Must provide name for new project!';
+    const createProjectErrorMessage = this.newProjectErrorMessage || 'Must provide name for new project!';
 
     return (
       <div class="col-lg-9">
@@ -118,9 +114,7 @@ export default class Search extends Vue {
                   <th>{headerTitle}</th>
                 </tr>
               </thead>
-              <tbody>
-                {chunked.map(project => this.renderSearchResult(project))}
-              </tbody>
+              <tbody>{chunked.map(project => this.renderSearchResult(project))}</tbody>
             </table>
           </div>
           <div class="card-footer">
@@ -141,12 +135,7 @@ export default class Search extends Vue {
                 <b-button variant="primary" type="submit">
                   Create Project
                 </b-button>
-                <b-form-invalid-feedback
-                  state={
-                    this.newProjectErrorMessage === null &&
-                    this.newProjectInputValid
-                  }
-                >
+                <b-form-invalid-feedback state={this.newProjectErrorMessage === null && this.newProjectInputValid}>
                   {createProjectErrorMessage}
                 </b-form-invalid-feedback>
               </b-form>
@@ -159,9 +148,7 @@ export default class Search extends Vue {
 
   public renderSearchResult(project: SearchSavedProjectsResult) {
     const updatedTime = moment(project.timestamp * 1000);
-    const durationSinceUpdated = moment
-      .duration(-moment().diff(updatedTime))
-      .humanize(true);
+    const durationSinceUpdated = moment.duration(-moment().diff(updatedTime)).humanize(true);
 
     const viewProjectLink = linkFormatterUtils.viewProjectFormatter(project.id);
 
@@ -172,19 +159,14 @@ export default class Search extends Vue {
             <div class="media-body d-flex">
               <div>
                 <h4 class="m-0">{project.name}</h4>
-                <small class="text-muted">
-                  Last updated {durationSinceUpdated}
-                </small>
+                <small class="text-muted">Last updated {durationSinceUpdated}</small>
                 <p>
-                  If I had a description, this is where I would put it! Thanks,
-                  Mandatory. This is why we can't have nice things.
+                  If I had a description, this is where I would put it! Thanks, Mandatory. This is why we can't have
+                  nice things.
                 </p>
               </div>
               <div class="ml-auto">
-                <b-button
-                  variant="danger"
-                  on={{ click: () => this.startDeleteProject(project) }}
-                >
+                <b-button variant="danger" on={{ click: () => this.startDeleteProject(project) }}>
                   <span class="fas fa-trash" />
                 </b-button>
               </div>
@@ -228,22 +210,14 @@ export default class Search extends Vue {
                   on={{ change: this.onSearchClicked }}
                 />
               </div>
-              <button
-                class="btn btn-secondary btn-lg"
-                on={{ click: this.performSearch }}
-              >
+              <button class="btn btn-secondary btn-lg" on={{ click: this.performSearch }}>
                 Search
               </button>
             </div>
           </div>
         </div>
 
-        <b-modal
-          ref="my-modal"
-          hide-footer
-          title="Delete Project Confirmation"
-          visible={this.deleteModalVisible}
-        >
+        <b-modal ref="my-modal" hide-footer title="Delete Project Confirmation" visible={this.deleteModalVisible}>
           <div class="d-block text-center">
             <h3>Are you sure that you want to delete this project?</h3>
             <br />
@@ -251,20 +225,10 @@ export default class Search extends Vue {
             <br />
             <h3 style="color: red">This change is permanent!</h3>
           </div>
-          <b-button
-            class="mt-3"
-            variant="outline-danger"
-            block
-            on={{ click: this.deleteProject }}
-          >
+          <b-button class="mt-3" variant="outline-danger" block on={{ click: this.deleteProject }}>
             Delete Project
           </b-button>
-          <b-button
-            class="mt-2"
-            variant="primary"
-            block
-            on={{ click: () => this.setDeleteModalVisibility(false) }}
-          >
+          <b-button class="mt-2" variant="primary" block on={{ click: () => this.setDeleteModalVisibility(false) }}>
             Cancel
           </b-button>
         </b-modal>

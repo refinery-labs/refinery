@@ -1,11 +1,7 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
-import {
-  LeftSidebarPaneState,
-  PANE_POSITION,
-  SIDEBAR_PANE
-} from '@/types/project-editor-types';
+import { LeftSidebarPaneState, PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import { paneTypeToWindowNameLookup } from '@/menu';
 import { paneToContainerMapping } from '@/constants/project-editor-constants';
 
@@ -23,9 +19,7 @@ export default class ProjectEditorLeftPaneContainer extends Vue {
     }
 
     const ActiveLeftPane = paneToContainerMapping[this.activeLeftSidebarPane];
-    const activeLeftSidebarPaneState = this.leftSidebarPaneState[
-      this.activeLeftSidebarPane
-    ];
+    const activeLeftSidebarPaneState = this.leftSidebarPaneState[this.activeLeftSidebarPane];
 
     const headerClasses = {
       'editor-pane-instance__modal-header': true,
@@ -40,15 +34,10 @@ export default class ProjectEditorLeftPaneContainer extends Vue {
 
     return (
       <div class={containerClasses}>
-        <div
-          class="modal-dialog editor-pane-instance__modal-dialog"
-          role="document"
-        >
+        <div class="modal-dialog editor-pane-instance__modal-dialog" role="document">
           <div class="modal-content">
             <div class={headerClasses}>
-              <h4 class="modal-title">
-                {paneTypeToWindowNameLookup[this.activeLeftSidebarPane]}
-              </h4>
+              <h4 class="modal-title">{paneTypeToWindowNameLookup[this.activeLeftSidebarPane]}</h4>
               <button
                 type="button"
                 class="close text-white editor-pane-instance__close-button"

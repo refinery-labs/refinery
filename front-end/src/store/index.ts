@@ -40,9 +40,7 @@ const plugins = [
         setting: state.setting,
         user: {
           // If we want to "remember" the user's username.
-          loginEmailInput: state.user.rememberMeToggled
-            ? state.user.loginEmailInput
-            : '',
+          loginEmailInput: state.user.rememberMeToggled ? state.user.loginEmailInput : '',
           rememberMeToggled: state.user.rememberMeToggled
         }
       };

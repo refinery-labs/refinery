@@ -8,12 +8,7 @@ import cytoscape, {
   NodeCollection
 } from 'cytoscape';
 import dagre from 'cytoscape-dagre';
-import {
-  CyElements,
-  CyStyle,
-  WorkflowRelationship,
-  WorkflowState
-} from '@/types/graph';
+import { CyElements, CyStyle, WorkflowRelationship, WorkflowState } from '@/types/graph';
 import {
   animationBegin,
   animationEnd,
@@ -43,9 +38,7 @@ export default class CytoscapeGraph extends Vue {
 
   @Prop({ required: true }) private clearSelection!: () => {};
   @Prop({ required: true }) private selectNode!: (element: WorkflowState) => {};
-  @Prop({ required: true }) private selectEdge!: (
-    element: WorkflowRelationship
-  ) => {};
+  @Prop({ required: true }) private selectEdge!: (element: WorkflowRelationship) => {};
   @Prop() private selected!: string;
   @Prop() private enabledNodeIds!: string[];
 
@@ -112,10 +105,7 @@ export default class CytoscapeGraph extends Vue {
   }
 
   @Watch('config', { deep: true })
-  private configModified(
-    val: cytoscape.CytoscapeOptions,
-    oldVal: cytoscape.CytoscapeOptions
-  ) {
+  private configModified(val: cytoscape.CytoscapeOptions, oldVal: cytoscape.CytoscapeOptions) {
     if (val === oldVal) {
       return;
     }
@@ -171,9 +161,7 @@ export default class CytoscapeGraph extends Vue {
       this.playAnimation = true;
 
       elements.forEach(ele =>
-        ele
-          .addClass(STYLE_CLASSES.SELECTION_ANIMATION_ENABLED)
-          .removeClass(STYLE_CLASSES.DISABLED)
+        ele.addClass(STYLE_CLASSES.SELECTION_ANIMATION_ENABLED).removeClass(STYLE_CLASSES.DISABLED)
       );
     });
 
@@ -215,10 +203,7 @@ export default class CytoscapeGraph extends Vue {
       await timeout(1200);
 
       // Break out of this looping animation hellscape
-      if (
-        this.playAnimation &&
-        animationNonce === this.currentAnimationGroupNonce
-      ) {
+      if (this.playAnimation && animationNonce === this.currentAnimationGroupNonce) {
         runAnimationLoop();
       }
     };

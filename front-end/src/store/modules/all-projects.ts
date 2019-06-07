@@ -73,12 +73,12 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
     async performSearch(context) {
       context.commit(AllProjectsMutators.setSearchingStatus, true);
 
-      const result = await makeApiRequest<
-        SearchSavedProjectsRequest,
-        SearchSavedProjectsResponse
-      >(API_ENDPOINT.SearchSavedProjects, {
-        query: context.state.searchBoxText
-      });
+      const result = await makeApiRequest<SearchSavedProjectsRequest, SearchSavedProjectsResponse>(
+        API_ENDPOINT.SearchSavedProjects,
+        {
+          query: context.state.searchBoxText
+        }
+      );
 
       if (!result.success) {
         // TODO: Handle this error case
@@ -100,10 +100,7 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
       context.commit(AllProjectsMutators.setSearchingStatus, true);
 
       try {
-        const response = await makeApiRequest<
-          SaveProjectRequest,
-          SaveProjectResponse
-        >(API_ENDPOINT.SaveProject, {
+        const response = await makeApiRequest<SaveProjectRequest, SaveProjectResponse>(API_ENDPOINT.SaveProject, {
           version: false,
           project_id: false,
           diagram_data: JSON.stringify({ name: context.state.newProjectInput }),
@@ -113,10 +110,7 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
         context.commit(AllProjectsMutators.setSearchingStatus, false);
 
         if (!response || !response.success) {
-          context.commit(
-            AllProjectsMutators.setNewProjectErrorMessage,
-            'Error creating project!'
-          );
+          context.commit(AllProjectsMutators.setNewProjectErrorMessage, 'Error creating project!');
           return;
         }
 
@@ -127,10 +121,7 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
           }
         });
       } catch (e) {
-        context.commit(
-          AllProjectsMutators.setNewProjectErrorMessage,
-          'Error creating project!'
-        );
+        context.commit(AllProjectsMutators.setNewProjectErrorMessage, 'Error creating project!');
       }
     },
     startDeleteProject(context, project: SearchSavedProjectsResult) {
@@ -153,12 +144,12 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
       context.commit(AllProjectsMutators.setSearchingStatus, true);
 
       try {
-        const response = await makeApiRequest<
-          DeleteSavedProjectRequest,
-          DeleteSavedProjectResponse
-        >(API_ENDPOINT.DeleteSavedProject, {
-          id: projectId
-        });
+        const response = await makeApiRequest<DeleteSavedProjectRequest, DeleteSavedProjectResponse>(
+          API_ENDPOINT.DeleteSavedProject,
+          {
+            id: projectId
+          }
+        );
 
         context.commit(AllProjectsMutators.setSearchingStatus, false);
 

@@ -2,11 +2,7 @@
 import { RootState } from '@/store/store-types';
 import { Store } from 'vuex';
 
-function updateElementClass(
-  el: Element | null,
-  stat: boolean | undefined,
-  name: string
-) {
+function updateElementClass(el: Element | null, stat: boolean | undefined, name: string) {
   return el && el.classList[stat ? 'add' : 'remove'](name);
 }
 function updateBodyClass(stat: boolean | undefined, name: string) {
@@ -29,11 +25,7 @@ function updateClasses(state: RootState) {
   // // layout horizontal
   // updateBodyClass(state.setting.horizontal, 'layout-h');
   // apply change to the sidebar element
-  updateElementClass(
-    document.querySelector('.sidebar'),
-    state.setting.asideScrollbar,
-    'show-scrollbar'
-  );
+  updateElementClass(document.querySelector('.sidebar'), state.setting.asideScrollbar, 'show-scrollbar');
 }
 
 /*
@@ -41,15 +33,10 @@ function updateClasses(state: RootState) {
 */
 function SettingPlugin(store: Store<RootState>) {
   // wait for dom ready
-  document.addEventListener('DOMContentLoaded', () =>
-    updateClasses(store.state)
-  );
+  document.addEventListener('DOMContentLoaded', () => updateClasses(store.state));
 
   store.subscribe((mutation, state) => {
-    if (
-      mutation.type === 'changeSetting' ||
-      mutation.type === 'toggleSetting'
-    ) {
+    if (mutation.type === 'changeSetting' || mutation.type === 'toggleSetting') {
       updateClasses(state);
     }
   });

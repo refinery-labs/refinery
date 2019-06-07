@@ -16,8 +16,7 @@ export default (router, closeSidebar) => {
   const sidebarCollapse = $sidebar.find('.collapse');
   sidebarCollapse.on('show.bs.collapse', function(event) {
     event.stopPropagation();
-    if ($(this).parents('.collapse').length === 0)
-      sidebarCollapse.filter('.show').collapse('hide');
+    if ($(this).parents('.collapse').length === 0) sidebarCollapse.filter('.show').collapse('hide');
   });
 
   // SIDEBAR COLLAPSED ITEM HANDLER
@@ -57,11 +56,9 @@ export default (router, closeSidebar) => {
 
   function sidebarAddBackdrop() {
     const $backdrop = $('<div/>', { class: 'sidebar-backdrop' });
-    $backdrop
-      .insertAfter('.aside-container')
-      .on('click mouseenter', function() {
-        removeFloatingNav();
-      });
+    $backdrop.insertAfter('.aside-container').on('click mouseenter', function() {
+      removeFloatingNav();
+    });
   }
 
   // Open the collapse sidebar submenu items when on touch devices
@@ -87,9 +84,7 @@ export default (router, closeSidebar) => {
     const $aside = $('.aside-container');
     const $asideInner = $('.aside-inner'); // for top offset calculation
     // float aside uses extra padding on aside
-    const mar =
-      parseInt($asideInner.css('padding-top'), 0) +
-      parseInt($aside.css('padding-top'), 0);
+    const mar = parseInt($asideInner.css('padding-top'), 0) + parseInt($aside.css('padding-top'), 0);
 
     const subNav = ul.clone().appendTo($aside);
 
@@ -130,10 +125,7 @@ export default (router, closeSidebar) => {
   }
 
   function isSidebarCollapsed() {
-    return (
-      $body.hasClass('aside-collapsed') ||
-      $body.hasClass('aside-collapsed-text')
-    );
+    return $body.hasClass('aside-collapsed') || $body.hasClass('aside-collapsed-text');
   }
   /*function isSidebarToggled() {
         return $body.hasClass('aside-toggled');

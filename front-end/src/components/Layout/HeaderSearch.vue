@@ -2,11 +2,7 @@
   <!-- START Search form-->
   <form class="navbar-form" role="search" action="search.html">
     <div class="form-group">
-      <input
-        class="form-control"
-        type="text"
-        placeholder="Type and hit enter ..."
-      />
+      <input class="form-control" type="text" placeholder="Type and hit enter ..." />
       <div class="fas fa-times navbar-form-close" data-search-dismiss=""></div>
     </div>
     <button class="d-none" type="submit">Submit</button>

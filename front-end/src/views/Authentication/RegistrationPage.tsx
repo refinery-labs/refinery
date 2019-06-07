@@ -60,8 +60,7 @@ export default class RegistrationPage extends Vue {
     };
 
     const emailInputErrorMessage =
-      this.registrationEmailErrorMessage ||
-      'Your must register with a valid email address.';
+      this.registrationEmailErrorMessage || 'Your must register with a valid email address.';
 
     // Modified Designer code... Hence not being Vue-Bootstrap entirely.
     return (
@@ -71,13 +70,8 @@ export default class RegistrationPage extends Vue {
             {/*<img class="block-center rounded" src="img/logo.png" alt="Image"/>*/}
             Refinery
           </a>
-          <p class="text-center py-2">
-            Register and receive free, instant access!
-          </p>
-          <b-form
-            on={{ submit: this.onSubmit, reset: this.onReset }}
-            class="mb-3 text-align--left"
-          >
+          <p class="text-center py-2">Register and receive free, instant access!</p>
+          <b-form on={{ submit: this.onSubmit, reset: this.onReset }} class="mb-3 text-align--left">
             <b-form-group
               id="user-email-group"
               description="You must provide a valid email address in order to log in to your account. No password required!"
@@ -112,11 +106,7 @@ export default class RegistrationPage extends Vue {
               id="user-name-group"
               description="Please use the same name as the one that appears on your credit card."
             >
-              <label
-                class="text-muted d-block"
-                htmlFor="user-name-input"
-                id="user-name-group"
-              >
+              <label class="text-muted d-block" htmlFor="user-name-input" id="user-name-group">
                 Full Name:
               </label>
 
@@ -139,19 +129,14 @@ export default class RegistrationPage extends Vue {
                 </div>
               </div>
               <b-form-invalid-feedback state={this.registrationNameInputValid}>
-                Your name must contain First + Last name and not contain
-                numbers.
+                Your name must contain First + Last name and not contain numbers.
               </b-form-invalid-feedback>
             </b-form-group>
             <b-form-group
               id="user-phone-group"
               description="Please provide a real phone number. This helps us prevent abuse of our service and helps us improve our customer experience."
             >
-              <label
-                class="text-muted d-block"
-                htmlFor="user-phone-input"
-                id="user-phone-group"
-              >
+              <label class="text-muted d-block" htmlFor="user-phone-input" id="user-phone-group">
                 Phone Number:
               </label>
               <div class="input-group with-focus">
@@ -180,11 +165,7 @@ export default class RegistrationPage extends Vue {
               id="org-name-group"
               description="If you are not part of an organization, you can just leave this blank."
             >
-              <label
-                class="text-muted d-block"
-                htmlFor="org-name-input"
-                id="org-name-group"
-              >
+              <label class="text-muted d-block" htmlFor="org-name-input" id="org-name-group">
                 Organization Name (optional):
               </label>
               <div class="input-group with-focus">
@@ -204,18 +185,12 @@ export default class RegistrationPage extends Vue {
                   </span>
                 </div>
               </div>
-              <b-form-invalid-feedback
-                state={this.registrationOrgNameInputValid}
-              >
+              <b-form-invalid-feedback state={this.registrationOrgNameInputValid}>
                 Your must provide a valid Organization name.
               </b-form-invalid-feedback>
             </b-form-group>
             <b-form-group id="stripe-payment">
-              <label
-                class="text-muted d-block"
-                htmlFor="user-name-input"
-                id="user-name-group"
-              >
+              <label class="text-muted d-block" htmlFor="user-name-input" id="user-name-group">
                 Payment Information
               </label>
               <StripeAddPaymentCard />
@@ -245,23 +220,17 @@ export default class RegistrationPage extends Vue {
                 .
               </b-form-checkbox>
 
-              <b-form-invalid-feedback
-                state={this.termsAndConditionsAgreedValid}
-              >
+              <b-form-invalid-feedback state={this.termsAndConditionsAgreedValid}>
                 Your must agree to the terms and conditions.
               </b-form-invalid-feedback>
             </b-form-group>
-            <b-form-invalid-feedback
-              state={this.registrationErrorMessage === null}
-            >
+            <b-form-invalid-feedback state={this.registrationErrorMessage === null}>
               {this.registrationErrorMessage}
             </b-form-invalid-feedback>
             <button class="btn btn-block btn-primary mt-3" type="submit">
               Create account
             </button>
-            <b-form-valid-feedback
-              state={this.registrationSuccessMessage !== null}
-            >
+            <b-form-valid-feedback state={this.registrationSuccessMessage !== null}>
               {this.registrationSuccessMessage}
             </b-form-valid-feedback>
           </b-form>

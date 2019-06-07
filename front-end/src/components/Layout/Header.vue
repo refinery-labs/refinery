@@ -19,18 +19,11 @@
       <ul class="navbar-nav mr-auto flex-row">
         <li class="nav-item">
           <!-- Button used to collapse the left sidebar. Only visible on tablet and desktops-->
-          <a
-            class="nav-link d-none d-md-block d-lg-block d-xl-block"
-            @click.prevent="toggleGlobalNavCollapsed"
-          >
+          <a class="nav-link d-none d-md-block d-lg-block d-xl-block" @click.prevent="toggleGlobalNavCollapsed">
             <em class="fas fa-bars"></em>
           </a>
           <!-- Button to show/hide the sidebar on mobile. Visible on mobile only.-->
-          <a
-            href=""
-            class="nav-link sidebar-toggle d-md-none"
-            @click.prevent="toggleOffcanvas"
-          >
+          <a href="" class="nav-link sidebar-toggle d-md-none" @click.prevent="toggleOffcanvas">
             <em class="fas fa-bars"></em>
           </a>
         </li>
@@ -64,12 +57,7 @@
           <ToggleFullscreen tag="A" class="nav-link" href="#" />
         </li>
         <!-- START Alert menu-->
-        <b-nav-item-dropdown
-          class="dropdown-list"
-          no-caret
-          menuClass="animated flipInX"
-          right
-        >
+        <b-nav-item-dropdown class="dropdown-list" no-caret menuClass="animated flipInX" right>
           <template slot="button-content">
             <em class="icon-bell"></em>
             <span class="badge badge-danger">11</span>

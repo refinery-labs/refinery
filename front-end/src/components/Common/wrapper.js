@@ -29,9 +29,7 @@ export default (function() {
   }
 
   function matches(item, selector) {
-    return (
-      Element.prototype.matches || Element.prototype.msMatchesSelector
-    ).call(item, selector);
+    return (Element.prototype.matches || Element.prototype.msMatchesSelector).call(item, selector);
   }
 
   // Events handler with simple scoped events support
@@ -50,11 +48,7 @@ export default (function() {
     },
     unbind: function(event, target) {
       if (event in this.events) {
-        target.removeEventListener(
-          this.events[event].type,
-          this.events[event].listener,
-          false
-        );
+        target.removeEventListener(this.events[event].type, this.events[event].listener, false);
         delete this.events[event];
       }
     }
@@ -88,16 +82,12 @@ export default (function() {
         if (this.selector[0] === '<') {
           const elem = this._setup([this._create(this.selector)]);
           return attrs ? elem.attr(attrs) : elem;
-        } else
-          return this._setup(
-            arrayFrom(document.querySelectorAll(this.selector))
-          );
+        } else return this._setup(arrayFrom(document.querySelectorAll(this.selector)));
       }
       // selector === DOMElement
       if (this.selector.nodeType) return this._setup([this.selector]);
       // shorthand for DOMReady
-      else if (typeof this.selector === 'function')
-        return this._setup([document]).ready(this.selector);
+      else if (typeof this.selector === 'function') return this._setup([document]).ready(this.selector);
       // Array like objects (e.g. NodeList/HTMLCollection)
       return this._setup(arrayFrom(this.selector));
     },
@@ -106,9 +96,7 @@ export default (function() {
      * Strictly supports the form: '<tag>' or '<tag/>'
      */
     _create: function(str) {
-      const nodeName = str
-        .substr(str.indexOf('<') + 1, str.indexOf('>') - 1)
-        .replace('/', '');
+      const nodeName = str.substr(str.indexOf('<') + 1, str.indexOf('>') - 1).replace('/', '');
       return document.createElement(nodeName);
     },
     /** setup properties and array to element set */
@@ -204,17 +192,13 @@ export default (function() {
       };
       return this._access(key, value, function(item, k, val) {
         const unit = typeof val === 'number' ? 'px' : '';
-        return val === undefined
-          ? getStyle(item, k)
-          : (item.style[k] = val + unit);
+        return val === undefined ? getStyle(item, k) : (item.style[k] = val + unit);
       });
     },
     /** Get an attribute or set it */
     attr: function(key, value) {
       return this._access(key, value, function(item, k, val) {
-        return val === undefined
-          ? item.getAttribute(k)
-          : item.setAttribute(k, val);
+        return val === undefined ? item.getAttribute(k) : item.setAttribute(k, val);
       });
     },
     /** Get a property or set it */
@@ -236,9 +220,7 @@ export default (function() {
     outerHeight: function(includeMargin) {
       return this._first(function(elem) {
         const style = getComputedStyle(elem);
-        const margins = includeMargin
-          ? parseInt(style.marginTop, 10) + parseInt(style.marginBottom, 10)
-          : 0;
+        const margins = includeMargin ? parseInt(style.marginTop, 10) + parseInt(style.marginBottom, 10) : 0;
         return elem.offsetHeight + margins;
       });
     },
@@ -299,9 +281,7 @@ export default (function() {
       let found = [];
       this.each(function(i, item) {
         found = found.concat(
-          map(item.querySelectorAll(/*':scope ' + */ selector), function(
-            fitem
-          ) {
+          map(item.querySelectorAll(/*':scope ' + */ selector), function(fitem) {
             return fitem;
           })
         );

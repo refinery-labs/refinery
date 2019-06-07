@@ -29,9 +29,7 @@ export default class GlobalNavSidebar extends Vue {
     // I hate this code, it's pulled from a theme we used... I'm sorry.
     /** prepare initial state of collapse menus. Doesnt allow same route names */
     let collapse: { [key: string]: boolean } = {};
-    GlobalNavMenuItems.filter(
-      (menuItem: MenuItem) => !menuItem.heading
-    ).forEach((menuItem: MenuItem) => {
+    GlobalNavMenuItems.filter((menuItem: MenuItem) => !menuItem.heading).forEach((menuItem: MenuItem) => {
       const { name, path, submenu } = menuItem;
 
       if (!name) {
@@ -43,9 +41,7 @@ export default class GlobalNavSidebar extends Vue {
           return;
         }
 
-        const paths = submenu
-          .map(({ path }) => path)
-          .filter(v => v) as string[];
+        const paths = submenu.map(({ path }) => path).filter(v => v) as string[];
 
         collapse[name] = this.isRouteActive(paths);
         return;
@@ -93,8 +89,7 @@ export default class GlobalNavSidebar extends Vue {
 
   toggleItemCollapse(collapseName: string) {
     for (let c in this.collapse) {
-      if (this.collapse[c] === true && c !== collapseName)
-        this.collapse[c] = false;
+      if (this.collapse[c] === true && c !== collapseName) this.collapse[c] = false;
     }
     this.collapse[collapseName] = !this.collapse[collapseName];
   }
@@ -135,20 +130,9 @@ export default class GlobalNavSidebar extends Vue {
     // Plain menu item
     if (!item.heading && !item.submenu) {
       return (
-        <router-link
-          to={item.path}
-          active-class="active"
-          tag="li"
-          exact={item.path && item.path.length === 1}
-        >
+        <router-link to={item.path} active-class="active" tag="li" exact={item.path && item.path.length === 1}>
           <a title={item.name}>
-            <span
-              class={`float-right badge badge-${(item.label &&
-                item.label.color) ||
-                'default'}`}
-            >
-              {item.label}
-            </span>
+            <span class={`float-right badge badge-${(item.label && item.label.color) || 'default'}`}>{item.label}</span>
             <em class={item.icon} />
             <span>{item.name}</span>
           </a>
@@ -166,27 +150,14 @@ export default class GlobalNavSidebar extends Vue {
 
       return (
         <li class={this.routeActiveClass(subRoutes)}>
-          <a
-            title={item.name}
-            on={{ click: this.toggleItemCollapse.bind(this, item.name) }}
-          >
-            <span
-              class={
-                'float-right badge badge-' +
-                ((item.label && item.label.color) || 'default')
-              }
-            >
+          <a title={item.name} on={{ click: this.toggleItemCollapse.bind(this, item.name) }}>
+            <span class={'float-right badge badge-' + ((item.label && item.label.color) || 'default')}>
               {(item.label && item.label.value) || 'Unknown Label'}
             </span>
             <em class={item.icon} />
             <span>{item.name}</span>
           </a>
-          <b-collapse
-            tag="ul"
-            class="sidebar-nav sidebar-subnav"
-            id="item.name"
-            visible={this.collapse[item.name]}
-          >
+          <b-collapse tag="ul" class="sidebar-nav sidebar-subnav" id="item.name" visible={this.collapse[item.name]}>
             <li bar={true} class="sidebar-subnav-header" />
             <div class="sidebar-subnav-header" />
             {item.submenu.map(submenu => this.renderSubmenuItem(submenu))}
@@ -209,11 +180,7 @@ export default class GlobalNavSidebar extends Vue {
         />
         <aside class="global-nav-container-inner position--fixed sidebar--left overflow-hidden">
           <nav class="sidebar">
-            <ul class="sidebar-nav">
-              {GlobalNavMenuItems.map((menuItem: MenuItem) =>
-                this.renderNavItem(menuItem)
-              )}
-            </ul>
+            <ul class="sidebar-nav">{GlobalNavMenuItems.map((menuItem: MenuItem) => this.renderNavItem(menuItem))}</ul>
           </nav>
         </aside>
       </aside>

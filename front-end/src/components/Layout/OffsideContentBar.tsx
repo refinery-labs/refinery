@@ -43,34 +43,21 @@ export default class OffsideContentBar extends Vue {
       return null;
     }
 
-    return (
-      <h4 class="text-muted text-thin">
-        No notification history to display...
-      </h4>
-    );
+    return <h4 class="text-muted text-thin">No notification history to display...</h4>;
   }
 
   renderNotification(toast: ToastConfig) {
     const updatedTime = moment(toast.timestamp);
-    const durationSinceUpdated = moment
-      .duration(-moment().diff(updatedTime))
-      .humanize(true);
+    const durationSinceUpdated = moment.duration(-moment().diff(updatedTime)).humanize(true);
     return (
       <div class="p-2">
-        <div
-          role="alert"
-          aria-live="assertive"
-          aria-atomic="true"
-          class="b-toast b-toast-prepend"
-        >
+        <div role="alert" aria-live="assertive" aria-atomic="true" class="b-toast b-toast-prepend">
           <div class="toast">
             <header class="toast-header">
               <strong class="mr-2">{toast.title}</strong>
             </header>
             <div class="toast-body">{toast.content}</div>
-            <span class="toast-footer text-muted text-thin">
-              {durationSinceUpdated}
-            </span>
+            <span class="toast-footer text-muted text-thin">{durationSinceUpdated}</span>
           </div>
         </div>
       </div>

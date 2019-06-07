@@ -31,9 +31,7 @@ export interface ProductionTransition {
   arn: string;
 }
 
-export type ProductionTransitionLookup = {
-  [key in WorkflowRelationshipType]: ProductionTransition[]
-};
+export type ProductionTransitionLookup = { [key in WorkflowRelationshipType]: ProductionTransition[] };
 
 export interface ProductionLambdaWorkflowState extends ProductionWorkflowState {
   layers: string[];
@@ -45,18 +43,15 @@ export interface ProductionLambdaWorkflowState extends ProductionWorkflowState {
   environment_variables: ProductionLambdaEnvironmentVariable[];
 }
 
-export interface ProductionApiEndpointWorkflowState
-  extends ProductionWorkflowState {
+export interface ProductionApiEndpointWorkflowState extends ProductionWorkflowState {
   api_path: string;
   http_method: HTTP_METHOD;
   rest_api_id?: string;
 }
 
-export interface ProductionApiGatewayResponseWorkflowState
-  extends ProductionWorkflowState {}
+export interface ProductionApiGatewayResponseWorkflowState extends ProductionWorkflowState {}
 
-export interface ProductionSnsTopicWorkflowState
-  extends ProductionWorkflowState {}
+export interface ProductionSnsTopicWorkflowState extends ProductionWorkflowState {}
 
 export interface ProductionSqsQueueWorkflow extends ProductionWorkflowState {
   queue_name: string;
@@ -64,8 +59,7 @@ export interface ProductionSqsQueueWorkflow extends ProductionWorkflowState {
   batch_size: number;
 }
 
-export interface ProductionScheduleTriggerWorkflowState
-  extends ProductionWorkflowState {
+export interface ProductionScheduleTriggerWorkflowState extends ProductionWorkflowState {
   schedule_expression: string;
   description: string;
   input_string: string;
