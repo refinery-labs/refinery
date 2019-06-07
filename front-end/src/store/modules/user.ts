@@ -180,6 +180,15 @@ const UserModule: Module<UserState, RootState> = {
       
       context.commit(UserMutators.setAuthenticationState, response);
     },
+    async redirectIfAuthenticated(context) {
+      const response = await checkLoginStatus();
+
+      if(response.authenticated) {
+        router.push({
+          "name": "allProjects"
+        });
+      }
+    },
     async loginUser(context) {
       if (!context.state.loginEmailInputValid) {
         const message = 'Please verify your email and try again';

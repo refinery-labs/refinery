@@ -30,6 +30,7 @@ export default class RegistrationPage extends Vue {
   @user.Mutation setAgreeToTermsValue!: (s: boolean) => void;
   
   @user.Action registerUser!: () => void;
+  @user.Action redirectIfAuthenticated!: () => void;
   
   onSubmit(evt: Event) {
     evt.preventDefault();
@@ -44,6 +45,10 @@ export default class RegistrationPage extends Vue {
   onTermsCheckboxUpdated(e: Event) {
     this.setAgreeToTermsValue(!this.termsAndConditionsAgreed);
   };
+
+  mounted() {
+    this.redirectIfAuthenticated();
+  }
   
   public renderLoginForm() {
     const classes = {

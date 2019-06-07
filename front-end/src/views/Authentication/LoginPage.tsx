@@ -12,11 +12,13 @@ export default class LoginPage extends Vue {
   @user.State isBusy!: boolean;
   @user.State loginAttemptMessage!: string | null;
   @user.State loginErrorMessage!: string | null;
+  @user.State authenticated!: boolean;
   
   @user.Mutation setRememberMeState!: (s: boolean) => void;
   @user.Mutation setEmailInputValue!: (s: string) => void;
   
   @user.Action loginUser!: () => void;
+  @user.Action redirectIfAuthenticated!: () => void;
   
   onSubmit(evt: Event) {
     evt.preventDefault();
@@ -29,6 +31,8 @@ export default class LoginPage extends Vue {
   }
   
   mounted() {
+    this.redirectIfAuthenticated();
+
     if (this.rememberMeToggled) {
       this.setEmailInputValue(this.loginEmailInput);
     }
@@ -53,10 +57,10 @@ export default class LoginPage extends Vue {
       <div class={classes}>
         <b-card border-variant="dark"
                 header-bg-variant="dark">
-          <a slot="header" class="mb-0 text-center" href="https://refinerylabs.io/">
+          <a slot="header" class="mb-0 text-center" href="/">
             <img class="block-center rounded" src="img/logo.png" alt="Image"/>
           </a>
-          <p class="text-center py-2">Please sign in to continue.</p>
+          <p class="text-center py-2">Welcome to Refinery! <br />Please sign in to continue.</p>
           <b-form on={{submit: this.onSubmit, reset: this.onReset}} class="mb-3 text-align--left">
             <b-form-group
               id="user-email-group"
@@ -72,7 +76,7 @@ export default class LoginPage extends Vue {
                   on={{change: this.onEmailInputUpdated}}
                   type="email"
                   required
-                  placeholder="eg: afl@fuzzybunnies.com"
+                  placeholder="user@example.com"
                   state={this.loginEmailInputValid}
                   autofocus={true}
                 />
