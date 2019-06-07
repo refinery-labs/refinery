@@ -17,7 +17,7 @@ import {
 import {generateCytoscapeElements, generateCytoscapeStyle} from '@/lib/refinery-to-cytoscript-converter';
 import {LayoutOptions} from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
-import {ProjectViewMutators} from '@/constants/store-constants';
+import {ProjectViewActions, ProjectViewMutators} from '@/constants/store-constants';
 import {getApiClient} from '@/store/fetchers/refinery-api';
 import {API_ENDPOINT} from '@/constants/api-constants';
 import {
@@ -221,7 +221,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     }
   },
   actions: {
-    async openProject(context, request: GetSavedProjectRequest) {
+    async [ProjectViewActions.openProject](context, request: GetSavedProjectRequest) {
       context.commit(ProjectViewMutators.isLoadingProject, true);
       
       const getProjectClient = getApiClient(API_ENDPOINT.GetSavedProject);
@@ -278,11 +278,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         markAsDirty: false
       };
       
-      await context.dispatch('updateProject', params);
+      await context.dispatch(ProjectViewActions.updateProject, params);
       
       context.commit(ProjectViewMutators.isLoadingProject, false);
     },
-    async updateProject(context, params: OpenProjectMutation) {
+    async [ProjectViewActions.updateProject](context, params: OpenProjectMutation) {
       const elements = generateCytoscapeElements(params.project);
   
       const stylesheet = generateCytoscapeStyle();
@@ -304,7 +304,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       context.commit(ProjectViewMutators.setCytoscapeElements, elements);
       context.commit(ProjectViewMutators.setCytoscapeStyle, stylesheet);
     },
-    async saveProject(context) {
+    async [ProjectViewActions.saveProject](context) {
       if (!context.state.openedProject || !context.state.openedProjectConfig || !context.state.hasProjectBeenModified) {
         console.error('Project attempted to be saved but it was not in a valid state');
         return;
@@ -347,27 +347,27 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         markAsDirty: false
       };
       
-      await context.dispatch('updateProject', params);
+      await context.dispatch(ProjectViewActions.updateProject, params);
   
       context.commit(ProjectViewMutators.isProjectBusy, true);
     },
-    async clearSelection(context) {
+    async [ProjectViewActions.clearSelection](context) {
       if (context.state.isAddingTransitionCurrently) {
         return;
       }
       
       context.commit(ProjectViewMutators.selectedResource, null);
-      await context.dispatch('updateAvailableTransitions');
+      await context.dispatch(ProjectViewActions.updateAvailableTransitions);
     },
-    async selectNode(context, nodeId: string) {
+    async [ProjectViewActions.selectNode](context, nodeId: string) {
       if (context.state.isAddingTransitionCurrently) {
-        await context.dispatch('completeTransitionAdd', nodeId);
+        await context.dispatch(ProjectViewActions.completeTransitionAdd, nodeId);
         return;
       }
       
       // TODO: Check if we currently have changes that we need to save in a panel...
       
-      //await context.dispatch('clearSelection');
+      //await context.dispatch(ProjectViewActions.clearSelection);
       
       if (!context.state.openedProject) {
         console.error('Attempted to select node without opened project', nodeId);
@@ -387,19 +387,19 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       
       context.commit(ProjectViewMutators.selectedResource, node.id);
       
-      await context.dispatch('updateAvailableTransitions');
+      await context.dispatch(ProjectViewActions.updateAvailableTransitions);
       
       // Opens up the Edit block pane
-      await context.dispatch('openRightSidebarPane', SIDEBAR_PANE.editBlock);
+      await context.dispatch(ProjectViewActions.openRightSidebarPane, SIDEBAR_PANE.editBlock);
       await context.dispatch(`editBlockPane/${EditBlockActions.selectCurrentlySelectedProjectNode}`);
     },
-    async selectEdge(context, edgeId: string) {
+    async [ProjectViewActions.selectEdge](context, edgeId: string) {
       if (context.state.isAddingTransitionCurrently) {
         // TODO: Add a shake or something? Tell the user that it's bjorked.
         return;
       }
       
-      await context.dispatch('clearSelection');
+      await context.dispatch(ProjectViewActions.clearSelection);
       
       if (!context.state.openedProject) {
         context.commit(ProjectViewMutators.selectedResource, null);
@@ -416,9 +416,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       
       context.commit(ProjectViewMutators.selectedResource, edges[0].id);
   
-      await context.dispatch('updateAvailableTransitions');
+      await context.dispatch(ProjectViewActions.updateAvailableTransitions);
     },
-    async completeTransitionAdd(context, nodeId: string) {
+    async [ProjectViewActions.completeTransitionAdd](context, nodeId: string) {
       if (!context.state.isAddingTransitionCurrently) {
         console.error('Attempted to add transition but was not in correct state');
         return;
@@ -429,7 +429,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // This should never happen... But just in case.
       if (!validTransitions) {
         console.error('Add transition was not in correct state, canceling');
-        await context.dispatch('cancelAddingTransition');
+        await context.dispatch(ProjectViewActions.cancelAddingTransition);
         return;
       }
   
@@ -438,7 +438,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Something has gone wrong... There are nodes with the same ID somewhere!
       if (transitions.length === 0
         || !context.state.selectedResource || !context.state.newTransitionTypeSpecifiedInAddFlow) {
-        await context.dispatch('cancelAddingTransition');
+        await context.dispatch(ProjectViewActions.cancelAddingTransition);
         return;
       }
   
@@ -451,13 +451,13 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         id: uuid()
       };
   
-      await context.dispatch('addTransition', newTransition);
-      await context.dispatch('cancelAddingTransition');
-      await context.dispatch('closePane', PANE_POSITION.left);
+      await context.dispatch(ProjectViewActions.addTransition, newTransition);
+      await context.dispatch(ProjectViewActions.cancelAddingTransition);
+      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
   
       // TODO: Open right sidebar pane
     },
-    async openLeftSidebarPane(context, leftSidebarPaneType: SIDEBAR_PANE) {
+    async [ProjectViewActions.openLeftSidebarPane](context, leftSidebarPaneType: SIDEBAR_PANE) {
       if (context.state.isAddingTransitionCurrently) {
         // TODO: Add a shake or something? Tell the user that it's bjorked.
         return;
@@ -465,7 +465,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       
       // Special case because Mandatory and I agreed that having a pane pop out is annoying af
       if (leftSidebarPaneType === SIDEBAR_PANE.saveProject) {
-        await context.dispatch('saveProject');
+        await context.dispatch(ProjectViewActions.saveProject);
         return;
       }
       
@@ -476,7 +476,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // That also feels wrong because it violates to "one direction" principal, in a way.
       context.commit(ProjectViewMutators.setLeftSidebarPane, leftSidebarPaneType);
     },
-    closePane(context, pos: PANE_POSITION) {
+    [ProjectViewActions.closePane](context, pos: PANE_POSITION) {
       if (pos === PANE_POSITION.left) {
         context.commit(ProjectViewMutators.setLeftSidebarPane, null);
         return;
@@ -489,7 +489,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       
       console.error('Attempted to close unknown pane', pos);
     },
-    async openRightSidebarPane(context, paneType: SIDEBAR_PANE) {
+    async [ProjectViewActions.openRightSidebarPane](context, paneType: SIDEBAR_PANE) {
       if (context.state.isAddingTransitionCurrently) {
         // TODO: Add a shake or something? Tell the user that it's bjorked.
         return;
@@ -497,7 +497,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     
       // Special case because Mandatory and I agreed that having a pane pop out is annoying af
       if (paneType === SIDEBAR_PANE.saveProject) {
-        await context.dispatch('saveProject');
+        await context.dispatch(ProjectViewActions.saveProject);
         return;
       }
     
@@ -508,7 +508,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // That also feels wrong because it violates to "one direction" principal, in a way.
       context.commit(ProjectViewMutators.setRightSidebarPane, paneType);
     },
-    async resetProjectState(context) {
+    async [ProjectViewActions.resetProjectState](context) {
       context.commit(ProjectViewMutators.selectedResource, null);
       context.commit(ProjectViewMutators.setCytoscapeConfig, null);
       context.commit(ProjectViewMutators.setCytoscapeElements, null);
@@ -518,14 +518,14 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       context.commit(ProjectViewMutators.setAddingTransitionStatus, false);
   
       // TODO: Add "close all panes"
-      await context.dispatch('closePane', PANE_POSITION.left);
-      await context.dispatch('closePane', PANE_POSITION.right);
+      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
+      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
     },
     
     // Add Block Pane
-    async addBlock(context, rawBlockType: string) {
+    async [ProjectViewActions.addBlock](context, rawBlockType: string) {
       // Call this, for sure
-      // await context.dispatch('updateAvailableTransitions')
+      // await context.dispatch(ProjectViewActions.updateAvailableTransitions)
   
       // This should not happen
       if (!context.state.openedProject) {
@@ -536,7 +536,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const openedProject = context.state.openedProject as RefineryProject;
       
       if (rawBlockType === 'saved_lambda') {
-        await context.dispatch('addSavedBlock');
+        await context.dispatch(ProjectViewActions.addSavedBlock);
         return;
       }
       
@@ -557,6 +557,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       };
   
       // This creates a new pointer for the main object, which makes Vuex very pleased.
+      // TODO: Probably pull this out into a helper function
       const newProject: RefineryProject = {
         ...openedProject,
         workflow_states: [
@@ -577,16 +578,51 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         variant: ToastVariant.info
       });
   
-      await context.dispatch('updateProject', params);
-      await context.dispatch('selectNode', newBlock.id);
-      await context.dispatch('closePane', PANE_POSITION.left);
+      await context.dispatch(ProjectViewActions.updateProject, params);
+      await context.dispatch(ProjectViewActions.selectNode, newBlock.id);
+      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
     },
-    async addSavedBlock(context) {
+    async [ProjectViewActions.addSavedBlock](context) {
       // TODO: Set pane to search
+    },
+    async [ProjectViewActions.updateExistingBlock](context, node: WorkflowState) {
+  
+      // This should not happen
+      if (!context.state.openedProject) {
+        console.error('Adding block but not project was opened');
+        return;
+      }
+  
+      const openedProject = context.state.openedProject as RefineryProject;
+      
+      const otherBlocks = openedProject.workflow_states.filter(wfs => wfs.id !== node.id);
+      
+      if (otherBlocks.length === openedProject.workflow_states.length) {
+        await createToast(context.dispatch, {
+          title: 'Invalid Action detected',
+          content: 'Updating existing block failed. Block to be updated is not a part of the current project.',
+          variant: ToastVariant.danger
+        });
+        return;
+      }
+  
+      otherBlocks.push(node);
+      
+      // TODO: Probably pull this out into a helper function
+      const params: OpenProjectMutation = {
+        project: {
+          ...openedProject,
+          workflow_states: otherBlocks
+        },
+        config: null,
+        markAsDirty: true
+      };
+      
+      await context.dispatch(ProjectViewActions.updateProject, params);
     },
     
     // Add Transition Pane
-    async addTransition(context, newTransition: WorkflowRelationship) {
+    async [ProjectViewActions.addTransition](context, newTransition: WorkflowRelationship) {
       // This should not happen
       if (!context.state.openedProject) {
         console.error('Adding transition but not project was opened');
@@ -619,16 +655,16 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         markAsDirty: true
       };
       
-      await context.dispatch('updateProject', params);
-      await context.dispatch('selectEdge', newTransition.id);
+      await context.dispatch(ProjectViewActions.updateProject, params);
+      await context.dispatch(ProjectViewActions.selectEdge, newTransition.id);
     },
-    async updateAvailableTransitions(context) {
+    async [ProjectViewActions.updateAvailableTransitions](context) {
       const resetTransitions = () => context.commit(ProjectViewMutators.setValidTransitions, null);
       
       // This probably should never happen
       if (!context.state.openedProject) {
         // Should we reset the entire state? Feels like it violates the "single responsibility" principle
-        // context.dispatch('resetProjectState');
+        // context.dispatch(ProjectViewActions.resetProjectState);
         
         // Just going to do this as a "safe" measure
         return await resetTransitions();
@@ -653,12 +689,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Validation has all passed, so commit the transitions into the state.
       context.commit(ProjectViewMutators.setValidTransitions, selectedNode);
     },
-    cancelAddingTransition(context) {
+    [ProjectViewActions.cancelAddingTransition](context) {
       context.commit(ProjectViewMutators.setAddingTransitionStatus, false);
       context.commit(ProjectViewMutators.setAddingTransitionType, null);
     },
-    async selectTransitionTypeToAdd(context, transitionType: WorkflowRelationshipType) {
-      await context.dispatch('closePane', PANE_POSITION.right);
+    async [ProjectViewActions.selectTransitionTypeToAdd](context, transitionType: WorkflowRelationshipType) {
+      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
       context.commit(ProjectViewMutators.setAddingTransitionStatus, true);
       context.commit(ProjectViewMutators.setAddingTransitionType, transitionType);
     }

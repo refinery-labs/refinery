@@ -6,7 +6,8 @@ export interface ToastConfig {
   autoHideDelay: number,
   variant: ToastVariant,
   toaster: ToastLocation,
-  shown: boolean
+  shown: boolean,
+  timestamp: number
 }
 
 export enum ToastVariant {
