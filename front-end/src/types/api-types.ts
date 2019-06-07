@@ -55,7 +55,7 @@ export interface CreateScheduleTriggerRequest {
   target_arn: string;
   target_id: string;
   target_type: string;
-  input_dict: {};
+  input_string: string;
 }
 
 export interface CreateScheduleTriggerResponse extends BaseApiResponse {

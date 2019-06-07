@@ -48,7 +48,7 @@ import {
 import {
   blockTypeToDefaultStateMapping,
   blockTypeToImageLookup,
-  CODE_BLOCK_DEFAULT_STATE
+  CODE_BLOCK_DEFAULT_STATE,
 } from "@/constants/project-editor-constants";
 import EditBlockPaneModule, {
   EditBlockActions
@@ -324,7 +324,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       // Ensures that we have all fields, especially if the schema changes.
       project.workflow_states = project.workflow_states.map(wfs => ({
-        ...CODE_BLOCK_DEFAULT_STATE,
+        ...blockTypeToDefaultStateMapping[wfs.type],
         ...wfs
       }));
 

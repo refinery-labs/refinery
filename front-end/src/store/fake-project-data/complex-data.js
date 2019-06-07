@@ -16,8 +16,7 @@ export default {
     },
     {
       description: "Example scheduled rule description.",
-      unformatted_input_data: "{}",
-      input_dict: {},
+      input_string: "",
       schedule_expression: "rate(1 hour)",
       type: "schedule_trigger",
       id: "n4201e0162e6a4f1897dd750271c9a73a",
