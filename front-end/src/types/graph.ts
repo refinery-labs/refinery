@@ -80,12 +80,7 @@ export interface SqsQueueWorkflow extends WorkflowState {
 export interface ScheduleTriggerWorkflowState extends WorkflowState {
   schedule_expression: string;
   description: string;
-  unformatted_input_data: string;
-  input_dict: ScheduleTriggerInputDict;
-}
-
-export interface ScheduleTriggerInputDict {
-  [key: string]: {} | string;
+  input_string: string;
 }
 
 export interface WorkflowRelationship extends BaseRefineryResource {

@@ -1,6 +1,6 @@
 import {Module} from 'vuex';
 import {RootState} from '../../store-types';
-import {LambdaWorkflowState, WorkflowState, WorkflowStateType} from '@/types/graph';
+import {LambdaWorkflowState, ScheduleTriggerWorkflowState, WorkflowState, WorkflowStateType} from '@/types/graph';
 import {getNodeDataById} from '@/utils/project-helpers';
 import {createToast} from '@/utils/toasts-utils';
 import {ToastVariant} from '@/types/toasts-types';
@@ -26,7 +26,11 @@ export enum EditBlockMutators {
   setExecutionMemory = 'setExecutionMemory',
   setMaxExecutionTime = 'setMaxExecutionTime',
   setLayers = 'setLayers',
-  setCodeModalVisibility = 'setCodeModalVisibility'
+  setCodeModalVisibility = 'setCodeModalVisibility',
+
+  // Timer Block Inputs
+  setScheduleExpression = 'setScheduleExpression',
+  setInputData = 'setInputData'
 }
 
 export enum EditBlockActions {
@@ -84,11 +88,18 @@ function lambdaChange(state: EditBlockPaneState, fn: (block: LambdaWorkflowState
   );
 }
 
+function scheduleExpressionChange(state: EditBlockPaneState, fn: (block: ScheduleTriggerWorkflowState) => void) {
+  getBlockAsType<ScheduleTriggerWorkflowState>(
+    state,
+    WorkflowStateType.SCHEDULE_TRIGGER,
+    fn
+  );
+}
+
 const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
   namespaced: true,
   state: moduleState,
   getters: {
-  
   },
   mutations: {
     [EditBlockMutators.setSelectedNode](state, node) {
@@ -133,6 +144,12 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     },
     [EditBlockMutators.setCodeModalVisibility](state, visible) {
       state.showCodeModal = visible;
+    },
+    [EditBlockMutators.setScheduleExpression](state, expression: string) {
+      scheduleExpressionChange(state, block => block.schedule_expression = expression);
+    },
+    [EditBlockMutators.setInputData](state, input_string: string) {
+      scheduleExpressionChange(state, block => block.input_string = input_string);
     },
     [EditBlockMutators.setWidePanel](state, wide) {
       state.wideMode = wide;
@@ -199,7 +216,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       
       await createToast(context.dispatch, {
         title: 'Block saved!',
-        content: `Successfully saved changes to block with name: ${context.state.selectedNode}`,
+        content: `Successfully saved changes to block with name: ${context.state.selectedNode.name}`,
         variant: ToastVariant.success
       });
     },

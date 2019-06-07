@@ -70,6 +70,5 @@ export interface ProductionScheduleTriggerWorkflowState
   extends ProductionWorkflowState {
   schedule_expression: string;
   description: string;
-  unformatted_input_data: string;
-  input_dict: { [key: string]: {} | string };
+  input_string: string;
 }

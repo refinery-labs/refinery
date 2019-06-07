@@ -3139,7 +3139,7 @@ class TaskSpawner(object):
 			return lambda_package_zip_data
 			
 		@run_on_executor
-		def create_cloudwatch_rule( self, credentials, id, name, schedule_expression, description, input_dict ):
+		def create_cloudwatch_rule( self, credentials, id, name, schedule_expression, description, input_string ):
 			events_client = get_aws_client(
 				"events",
 				credentials,
@@ -3161,11 +3161,11 @@ class TaskSpawner(object):
 				"id": id,
 				"name": name,
 				"arn": response[ "RuleArn" ],
-				"input_dict": input_dict,
+				"input_string": input_string,
 			}
 			
 		@run_on_executor
-		def add_rule_target( self, credentials, rule_name, target_id, target_arn, input_dict ):
+		def add_rule_target( self, credentials, rule_name, target_id, target_arn, input_string ):
 			events_client = get_aws_client(
 				"events",
 				credentials,
@@ -3175,13 +3175,20 @@ class TaskSpawner(object):
 				"lambda",
 				credentials,
 			)
+
+			# Attempt to JSON parse the input string just to
+			# set types appropriately if possible.
+			try:
+				input_string = json.loads(
+					input_string
+				)
+			except:
+				pass
 			
 			targets_data =	 {
 				"Id": target_id,
 				"Arn": target_arn,
-				"Input": json.dumps(
-					input_dict
-				)
+				"Input": input_string
 			}
 			
 			rule_creation_response = events_client.put_targets(
@@ -4735,7 +4742,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				schedule_trigger_name,
 				schedule_trigger_node[ "schedule_expression" ],
 				schedule_trigger_node[ "description" ],
-				schedule_trigger_node[ "input_dict" ],
+				schedule_trigger_node[ "input_string" ],
 			)
 		})
 		
@@ -4988,7 +4995,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				schedule_trigger_pair[ "scheduled_trigger" ][ "name" ],
 				schedule_trigger_pair[ "target_lambda" ][ "name" ],
 				schedule_trigger_pair[ "target_lambda" ][ "arn" ],
-				schedule_trigger_pair[ "scheduled_trigger" ][ "input_dict" ]
+				schedule_trigger_pair[ "scheduled_trigger" ][ "input_string" ]
 			)
 		)
 		

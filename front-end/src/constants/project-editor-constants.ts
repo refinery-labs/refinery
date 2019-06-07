@@ -305,8 +305,16 @@ export const CODE_BLOCK_DEFAULT_STATE = {
   libraries: [],
   layers: [],
   max_execution_time: 120,
-  type: "lambda"
+  type: WorkflowStateType.LAMBDA
 };
+
+export const SCHEDULE_EXPRESSION_BLOCK_DEFAULT_STATE = {
+  description: "Deployed by Refinery",
+  input_string: "",
+  schedule_expression: "rate(2 minutes)",
+  type: WorkflowStateType.SCHEDULE_TRIGGER
+};
+
 
 export type BlockTypeToDefaultState = { [key in WorkflowStateType]: Object };
 
@@ -315,7 +323,7 @@ export const blockTypeToDefaultStateMapping: BlockTypeToDefaultState = {
   [WorkflowStateType.SQS_QUEUE]: {},
   [WorkflowStateType.API_GATEWAY_RESPONSE]: {},
   [WorkflowStateType.API_ENDPOINT]: {},
-  [WorkflowStateType.SCHEDULE_TRIGGER]: {},
+  [WorkflowStateType.SCHEDULE_TRIGGER]: SCHEDULE_EXPRESSION_BLOCK_DEFAULT_STATE,
   [WorkflowStateType.SNS_TOPIC]: {},
   [WorkflowStateType.API_GATEWAY]: {}
 };

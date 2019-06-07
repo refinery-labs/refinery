@@ -83,7 +83,7 @@ export default class LoginPage extends Vue {
                   id="user-email-input"
                   class="form-control border-right-0"
                   value={this.loginEmailInput}
-                  on={{ change: this.onEmailInputUpdated }}
+                  on={{ input: this.onEmailInputUpdated }}
                   type="email"
                   required
                   placeholder="user@example.com"
