@@ -56,9 +56,7 @@ export interface ProductionApiGatewayResponseWorkflowState
   extends ProductionWorkflowState {}
 
 export interface ProductionSnsTopicWorkflowState
-  extends ProductionWorkflowState {
-  topic_name: string;
-}
+  extends ProductionWorkflowState {}
 
 export interface ProductionSqsQueueWorkflow extends ProductionWorkflowState {
   queue_name: string;

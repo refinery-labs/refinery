@@ -3219,12 +3219,11 @@ class TaskSpawner(object):
 			return {
 				"id": id,
 				"name": topic_name,
-				"arn": response[ "TopicArn" ],
-				"topic_name": topic_name
+				"arn": response[ "TopicArn" ]
 			}
 			
 		@run_on_executor
-		def subscribe_lambda_to_sns_topic( self, credentials, topic_name, topic_arn, lambda_arn ):
+		def subscribe_lambda_to_sns_topic( self, credentials, topic_arn, lambda_arn ):
 			"""
 			For AWS Lambda you need to add a permission to the Lambda function itself
 			via the add_permission API call to allow invocation via the SNS event.
@@ -4483,9 +4482,6 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		# Update all of the workflow states with new random deploy ID
 		if "name" in workflow_state:
 			workflow_state[ "name" ] += unique_deploy_id
-		# Edge case for SNS topics - TODO should be fixed so that SNS topics have "name" like any other node
-		if "topic_name" in workflow_state:
-			workflow_state[ "topic_name" ] += unique_deploy_id
 		
 		# If there are environment variables in project_config, add them to the Lambda node data
 		if workflow_state[ "type" ] == "lambda":
@@ -4774,7 +4770,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 			"future": local_tasks.create_sns_topic(
 				credentials,
 				sns_topic_node[ "id" ],
-				sns_topic_node[ "topic_name" ],
+				sns_topic_name,
 			)
 		})
 		
@@ -4959,8 +4955,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		for workflow_state in diagram_data[ "workflow_states" ]:
 			if workflow_state[ "id" ] == deployed_sns_topic[ "id" ]:
 				workflow_state[ "arn" ] = deployed_sns_topic[ "arn" ]
-				workflow_state[ "name" ] = deployed_sns_topic[ "topic_name" ]
-				workflow_state[ "topic_name" ] = deployed_sns_topic[ "topic_name" ]
+				workflow_state[ "name" ] = deployed_sns_topic[ "name" ]
 	
 	
 	"""
@@ -5036,7 +5031,6 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		sns_topic_trigger_targeting_futures.append(
 			local_tasks.subscribe_lambda_to_sns_topic(
 				credentials,
-				sns_topic_trigger[ "sns_topic_trigger" ][ "topic_name" ],
 				sns_topic_trigger[ "sns_topic_trigger" ][ "arn" ],
 				sns_topic_trigger[ "target_lambda" ][ "arn" ],
 			)

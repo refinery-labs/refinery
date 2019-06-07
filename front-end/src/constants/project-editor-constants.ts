@@ -315,6 +315,9 @@ export const SCHEDULE_EXPRESSION_BLOCK_DEFAULT_STATE = {
   type: WorkflowStateType.SCHEDULE_TRIGGER
 };
 
+export const TOPIC_BLOCK_DEFAULT_STATE = {
+  type: WorkflowStateType.SNS_TOPIC
+};
 
 export type BlockTypeToDefaultState = { [key in WorkflowStateType]: Object };
 
@@ -324,7 +327,7 @@ export const blockTypeToDefaultStateMapping: BlockTypeToDefaultState = {
   [WorkflowStateType.API_GATEWAY_RESPONSE]: {},
   [WorkflowStateType.API_ENDPOINT]: {},
   [WorkflowStateType.SCHEDULE_TRIGGER]: SCHEDULE_EXPRESSION_BLOCK_DEFAULT_STATE,
-  [WorkflowStateType.SNS_TOPIC]: {},
+  [WorkflowStateType.SNS_TOPIC]: TOPIC_BLOCK_DEFAULT_STATE,
   [WorkflowStateType.API_GATEWAY]: {}
 };
 

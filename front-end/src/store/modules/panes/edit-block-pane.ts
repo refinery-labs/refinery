@@ -1,12 +1,19 @@
 import {Module} from 'vuex';
 import {RootState} from '../../store-types';
-import {LambdaWorkflowState, ScheduleTriggerWorkflowState, WorkflowState, WorkflowStateType} from '@/types/graph';
+import {
+  LambdaWorkflowState,
+  ScheduleTriggerWorkflowState,
+  SnsTopicWorkflowState,
+  WorkflowState,
+  WorkflowStateType
+} from '@/types/graph';
 import {getNodeDataById} from '@/utils/project-helpers';
 import {createToast} from '@/utils/toasts-utils';
 import {ToastVariant} from '@/types/toasts-types';
 import {ProjectViewActions} from '@/constants/store-constants';
 import {PANE_POSITION} from '@/types/project-editor-types';
 import {DEFAULT_LANGUAGE_CODE} from '@/constants/project-editor-constants';
+import {EditTopicBlock} from "@/components/ProjectEditor/EditBlockPane";
 
 // Enums
 export enum EditBlockMutators {
@@ -92,6 +99,14 @@ function scheduleExpressionChange(state: EditBlockPaneState, fn: (block: Schedul
   getBlockAsType<ScheduleTriggerWorkflowState>(
     state,
     WorkflowStateType.SCHEDULE_TRIGGER,
+    fn
+  );
+}
+
+function topicChange(state: EditBlockPaneState, fn: (block: SnsTopicWorkflowState) => void) {
+  getBlockAsType<SnsTopicWorkflowState>(
+    state,
+    WorkflowStateType.SNS_TOPIC,
     fn
   );
 }
