@@ -59,13 +59,14 @@ export default class RegistrationPage extends Vue {
       <div class={classes}>
         <b-card border-variant="dark"
                 header-bg-variant="dark">
-          <a slot="header" class="mb-0 text-center" href="https://refinerylabs.io/">
+          <a slot="header" class="mb-0 text-center" href="/">
             {/*<img class="block-center rounded" src="img/logo.png" alt="Image"/>*/}
             Refinery
           </a>
           <p class="text-center py-2">Register and receive free, instant access!</p>
           <b-form on={{submit: this.onSubmit, reset: this.onReset}} class="mb-3 text-align--left">
-            <b-form-group id="user-email-group">
+            <b-form-group id="user-email-group"
+            description="You must provide a valid email address in order to log in to your account. No password required!">
               <label class="text-muted d-block" htmlFor="user-email-input">
                 Email address:
               </label>
@@ -78,7 +79,7 @@ export default class RegistrationPage extends Vue {
                   on={{change: this.setRegisterEmailInputValue}}
                   type="email"
                   required
-                  placeholder="eg: afl@fuzzybunnies.com"
+                  placeholder="user@example.com"
                   state={this.registrationEmailInputValid}
                   autofocus={true}
                 />
@@ -105,13 +106,13 @@ export default class RegistrationPage extends Vue {
                   on={{change: this.setRegisterNameInputValue}}
                   type="text"
                   required
-                  placeholder="eg, Elle Candiff"
+                  placeholder="John Doe"
                   state={this.registrationNameInputValid}
                   autofocus={true}
                 />
                 <div class="input-group-append">
                   <span class="input-group-text text-muted bg-transparent border-left-0">
-                    <em class="fa fa-lock"/>
+                    <em class="fa fa-file-signature"/>
                   </span>
                 </div>
               </div>
@@ -121,9 +122,9 @@ export default class RegistrationPage extends Vue {
             </b-form-group>
             <b-form-group
               id="user-phone-group"
-              description="We will only contact you about application related notifications.">
+              description="We will only use this phone number to contact you about your account.">
               <label class="text-muted d-block" htmlFor="user-phone-input" id="user-phone-group">
-                Phone Number (optional):
+                Phone Number:
               </label>
               <div class="input-group with-focus">
                 <b-form-input
@@ -132,13 +133,14 @@ export default class RegistrationPage extends Vue {
                   value={this.registrationPhoneInput}
                   on={{change: this.setRegisterPhoneInputValue}}
                   type="text"
-                  placeholder="eg, +1089-997-1091"
+                  placeholder="+1 (555) 555-5555"
+                  required
                   state={this.registrationPhoneInputValid}
                   autofocus={true}
                 />
                 <div class="input-group-append">
                   <span class="input-group-text text-muted bg-transparent border-left-0">
-                    <em class="fa fa-lock"/>
+                    <em class="fa fa-phone"/>
                   </span>
                 </div>
               </div>
@@ -157,13 +159,13 @@ export default class RegistrationPage extends Vue {
                   value={this.registrationOrgNameInput}
                   on={{change: this.setRegisterOrgNameInputValue}}
                   type="text"
-                  placeholder="eg, Fuzzy Bunnies Banking"
+                  placeholder="Startup Company Inc."
                   state={this.registrationOrgNameInputValid}
                   autofocus={true}
                 />
                 <div class="input-group-append">
                   <span class="input-group-text text-muted bg-transparent border-left-0">
-                    <em class="fa fa-lock"/>
+                    <em class="fa fa-users"/>
                   </span>
                 </div>
               </div>
@@ -177,7 +179,7 @@ export default class RegistrationPage extends Vue {
                                on={{change: this.onTermsCheckboxUpdated}}
                                state={this.termsAndConditionsAgreedValid}
                                checked={this.termsAndConditionsAgreed}>
-                I agree with the<a class="ml-1" href="#">terms</a>
+                I have read and agree with the<a class="ml-1" href="#">terms and conditions</a>.
               </b-form-checkbox>
   
               <b-form-invalid-feedback state={this.termsAndConditionsAgreedValid}>
