@@ -1,171 +1,177 @@
 import {
   CyElements,
-  CyStyle, ProjectConfig,
+  CyStyle,
+  ProjectConfig,
   RefineryProject,
   WorkflowRelationshipType,
   WorkflowState
-} from '@/types/graph';
-import {LayoutOptions} from 'cytoscape';
-import cytoscape from '@/components/CytoscapeGraph';
-import {SearchSavedProjectsResult, TrialInformation} from '@/types/api-types';
-import {LeftSidebarPaneState, SIDEBAR_PANE} from '@/types/project-editor-types';
-import {ValidTransitionConfig} from '@/constants/project-editor-constants';
+} from "@/types/graph";
+import { LayoutOptions } from "cytoscape";
+import cytoscape from "@/components/CytoscapeGraph";
+import { SearchSavedProjectsResult, TrialInformation } from "@/types/api-types";
+import {
+  LeftSidebarPaneState,
+  SIDEBAR_PANE
+} from "@/types/project-editor-types";
+import { ValidTransitionConfig } from "@/constants/project-editor-constants";
 
 export interface RootState {
-  setting: UserInterfaceState,
-  project: ProjectViewState,
-  allProjects: AllProjectsState
-  user: UserState
+  setting: UserInterfaceState;
+  project: ProjectViewState;
+  allProjects: AllProjectsState;
+  user: UserState;
 }
 
 export enum UserInterfaceSettings {
-  isFixed = 'isFixed',
-  isGlobalNavCollapsed = 'isGlobalNavCollapsed',
-  isGlobalNavClosing = 'isGlobalNavClosing',
-  isSidebarCollapsed = 'isSidebarCollapsed',
-  isBoxed = 'isBoxed',
-  isFloat = 'isFloat',
-  asideHover = 'asideHover',
-  asideScrollbar = 'asideScrollbar',
-  isCollapsedText = 'isCollapsedText',
-  offsidebarOpen = 'offsidebarOpen',
-  asideToggled = 'asideToggled',
-  showUserBlock = 'showUserBlock',
-  horizontal = 'horizontal',
-  useFullLayout = 'useFullLayout',
-  hiddenFooter = 'hiddenFooter'
+  isFixed = "isFixed",
+  isGlobalNavCollapsed = "isGlobalNavCollapsed",
+  isGlobalNavClosing = "isGlobalNavClosing",
+  isSidebarCollapsed = "isSidebarCollapsed",
+  isBoxed = "isBoxed",
+  isFloat = "isFloat",
+  asideHover = "asideHover",
+  asideScrollbar = "asideScrollbar",
+  isCollapsedText = "isCollapsedText",
+  offsidebarOpen = "offsidebarOpen",
+  asideToggled = "asideToggled",
+  showUserBlock = "showUserBlock",
+  horizontal = "horizontal",
+  useFullLayout = "useFullLayout",
+  hiddenFooter = "hiddenFooter"
 }
 
 export interface UserInterfaceState {
   /* Layout fixed. Scroll content only */
-  [UserInterfaceSettings.isFixed]?: boolean,
+  [UserInterfaceSettings.isFixed]?: boolean;
   /* Global Nav collapsed */
-  [UserInterfaceSettings.isGlobalNavCollapsed]?: boolean,
+  [UserInterfaceSettings.isGlobalNavCollapsed]?: boolean;
   /* Global Nav closing, fires when nav is closed */
-  [UserInterfaceSettings.isGlobalNavClosing]?: boolean,
+  [UserInterfaceSettings.isGlobalNavClosing]?: boolean;
   /* Sidebar collapsed */
-  [UserInterfaceSettings.isSidebarCollapsed]?: boolean,
+  [UserInterfaceSettings.isSidebarCollapsed]?: boolean;
   /* Boxed layout */
-  [UserInterfaceSettings.isBoxed]?: boolean,
+  [UserInterfaceSettings.isBoxed]?: boolean;
   /* Floating sidebar */
-  [UserInterfaceSettings.isFloat]?: boolean,
+  [UserInterfaceSettings.isFloat]?: boolean;
   /* Sidebar show menu on hover only */
-  [UserInterfaceSettings.asideHover]?: boolean,
+  [UserInterfaceSettings.asideHover]?: boolean;
   /* Show sidebar scrollbar (dont' hide it) */
-  [UserInterfaceSettings.asideScrollbar]?: boolean,
+  [UserInterfaceSettings.asideScrollbar]?: boolean;
   /* Sidebar collapsed with big icons and text */
-  [UserInterfaceSettings.isCollapsedText]?: boolean,
+  [UserInterfaceSettings.isCollapsedText]?: boolean;
   /* Toggle for the offsidebar */
-  [UserInterfaceSettings.offsidebarOpen]?: boolean,
+  [UserInterfaceSettings.offsidebarOpen]?: boolean;
   /* Toggle for the sidebar offcanvas (mobile) */
-  [UserInterfaceSettings.asideToggled]?: boolean,
+  [UserInterfaceSettings.asideToggled]?: boolean;
   /* Toggle for the sidebar user block */
-  [UserInterfaceSettings.showUserBlock]?: boolean,
+  [UserInterfaceSettings.showUserBlock]?: boolean;
   /* Enables layout horizontal */
-  [UserInterfaceSettings.horizontal]?: boolean,
+  [UserInterfaceSettings.horizontal]?: boolean;
   /* Full size layout */
-  [UserInterfaceSettings.useFullLayout]?: boolean,
+  [UserInterfaceSettings.useFullLayout]?: boolean;
   /* Hide footer */
-  [UserInterfaceSettings.hiddenFooter]?: boolean
+  [UserInterfaceSettings.hiddenFooter]?: boolean;
 }
 
 export interface AvailableTransition {
-  valid: boolean,
-  transitionConfig: ValidTransitionConfig,
-  fromNode: WorkflowState,
-  toNode: WorkflowState,
-  simple: boolean
+  valid: boolean;
+  transitionConfig: ValidTransitionConfig;
+  fromNode: WorkflowState;
+  toNode: WorkflowState;
+  simple: boolean;
 }
 
 export interface AvailableTransitionsByType {
-  simple: AvailableTransition[],
-  complex: AvailableTransition[]
+  simple: AvailableTransition[];
+  complex: AvailableTransition[];
 }
 
 export interface ProjectViewState {
-  openedProject: RefineryProject | null,
-  openedProjectConfig: ProjectConfig | null,
-  
+  openedProject: RefineryProject | null;
+  openedProjectConfig: ProjectConfig | null;
+
   // Disgusting backup copies so that we can revert or whatever later
-  openedProjectOriginal: RefineryProject | null,
-  openedProjectConfigOriginal: ProjectConfig | null,
-  
-  isLoadingProject: boolean,
-  isProjectBusy: boolean,
-  hasProjectBeenModified: boolean,
-  
-  leftSidebarPaneState: LeftSidebarPaneState,
-  activeLeftSidebarPane: SIDEBAR_PANE | null,
-  activeRightSidebarPane: SIDEBAR_PANE | null,
-  
+  openedProjectOriginal: RefineryProject | null;
+  openedProjectConfigOriginal: ProjectConfig | null;
+
+  isLoadingProject: boolean;
+  isProjectBusy: boolean;
+  hasProjectBeenModified: boolean;
+
+  leftSidebarPaneState: LeftSidebarPaneState;
+  activeLeftSidebarPane: SIDEBAR_PANE | null;
+  activeRightSidebarPane: SIDEBAR_PANE | null;
+
   // Shared Graph State
-  selectedResource: string | null,
+  selectedResource: string | null;
   // If this is "null" then it enables all elements
-  enabledGraphElements: string[] | null,
-  
+  enabledGraphElements: string[] | null;
+
   // Cytoscape Specific state
-  cytoscapeElements: CyElements | null,
-  cytoscapeStyle: CyStyle | null,
-  cytoscapeLayoutOptions: LayoutOptions | null,
-  cytoscapeConfig: cytoscape.CytoscapeOptions | null,
-  
+  cytoscapeElements: CyElements | null;
+  cytoscapeStyle: CyStyle | null;
+  cytoscapeLayoutOptions: LayoutOptions | null;
+  cytoscapeConfig: cytoscape.CytoscapeOptions | null;
+
   // Add Block Pane
-  selectedBlockIndex: number | null,
-  
+  selectedBlockIndex: number | null;
+
   // Add Transition Pane
-  isAddingTransitionCurrently: boolean,
-  newTransitionTypeSpecifiedInAddFlow: WorkflowRelationshipType | null,
-  availableTransitions: AvailableTransitionsByType | null
+  isAddingTransitionCurrently: boolean;
+  newTransitionTypeSpecifiedInAddFlow: WorkflowRelationshipType | null;
+  availableTransitions: AvailableTransitionsByType | null;
 }
 
 export interface AllProjectsState {
-  availableProjects: SearchSavedProjectsResult[],
-  searchBoxText: string,
-  isSearching: boolean,
-  
-  deleteModalVisible: boolean,
-  deleteProjectId: string | null,
-  deleteProjectName: string | null,
-  
-  newProjectInput: string,
-  newProjectInputValid: boolean | null,
-  newProjectErrorMessage: string | null
+  availableProjects: SearchSavedProjectsResult[];
+  searchBoxText: string;
+  isSearching: boolean;
+
+  deleteModalVisible: boolean;
+  deleteProjectId: string | null;
+  deleteProjectName: string | null;
+
+  newProjectInput: string;
+  newProjectInputValid: boolean | null;
+  newProjectErrorMessage: string | null;
 }
 
 export interface UserState {
   // Server populated data
-  authenticated: boolean,
-  name: string | null,
-  email: string | null,
-  permissionLevel: string | null,
-  trialInformation: TrialInformation | null,
-  
+  authenticated: boolean;
+  name: string | null;
+  email: string | null;
+  permissionLevel: string | null;
+  trialInformation: TrialInformation | null;
+
   // State about the login process
-  redirectState: string | null,
-  loginAttemptMessage: string | null,
-  loginErrorMessage: string | null,
-  isBusy: boolean,
-  
+  redirectState: string | null;
+  loginAttemptMessage: string | null;
+  loginErrorMessage: string | null;
+  isBusy: boolean;
+
   // Local data
-  rememberMeToggled: boolean,
-  loginEmailInput: string,
-  
-  loginEmailInputValid: boolean | null,
-  
+  rememberMeToggled: boolean;
+  loginEmailInput: string;
+
+  loginEmailInputValid: boolean | null;
+
   // Registration page data
-  registrationEmailInput: string,
-  registrationNameInput: string,
-  registrationPhoneInput: string,
-  registrationOrgNameInput: string,
-  termsAndConditionsAgreed: boolean,
-  
-  registrationEmailErrorMessage: string | null,
-  registrationErrorMessage: string | null,
-  registrationSuccessMessage: string | null,
-  
-  registrationEmailInputValid: boolean | null,
-  registrationNameInputValid: boolean | null,
-  registrationPhoneInputValid: boolean | null,
-  registrationOrgNameInputValid: boolean | null,
-  termsAndConditionsAgreedValid: boolean | null
+  registrationEmailInput: string;
+  registrationNameInput: string;
+  registrationPhoneInput: string;
+  registrationOrgNameInput: string;
+  registrationStripeToken: string;
+  termsAndConditionsAgreed: boolean;
+
+  registrationEmailErrorMessage: string | null;
+  registrationErrorMessage: string | null;
+  registrationSuccessMessage: string | null;
+
+  registrationEmailInputValid: boolean | null;
+  registrationNameInputValid: boolean | null;
+  registrationPhoneInputValid: boolean | null;
+  registrationOrgNameInputValid: boolean | null;
+  registrationPaymentCardInputValid: boolean | null;
+  termsAndConditionsAgreedValid: boolean | null;
 }

@@ -12,7 +12,7 @@ import {DEFAULT_LANGUAGE_CODE} from '@/constants/project-editor-constants';
 export enum EditBlockMutators {
   setSelectedNode = 'setSelectedNode',
   setDirtyState = 'setDirtyState',
-
+  
   setConfirmDiscardModalVisibility = 'setConfirmDiscardModalVisibility',
   setWidePanel = 'setWidePanel',
   
@@ -169,7 +169,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     },
     async [EditBlockActions.selectCurrentlySelectedProjectNode](context) {
       const projectStore = context.rootState.project;
-  
+      
       if (!projectStore.openedProject || !projectStore.selectedResource) {
         console.error('Attempted to open edit block pane without loaded project or selected resource');
         return;
@@ -179,7 +179,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     },
     async [EditBlockActions.saveBlock](context) {
       const projectStore = context.rootState.project;
-  
+      
       if (!projectStore.openedProject) {
         console.error('Attempted to open edit block pane without loaded project');
         return;

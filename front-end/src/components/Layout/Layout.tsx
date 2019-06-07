@@ -1,14 +1,14 @@
-import Vue from 'vue';
-import Header from './Header.vue';
-import Sidebar from './Sidebar.vue';
-import Offsidebar from './Offsidebar.vue';
-import Footer from './Footer';
-import ContentWrapper from './ContentWrapper.vue';
-import {Component} from 'vue-property-decorator';
-import GlobalNavSidebar from '@/components/Layout/GlobalNavSidebar';
-import OffsideContentBar from '@/components/Layout/OffsideContentBar';
+import Vue from "vue";
+import Header from "./Header.vue";
+import Sidebar from "./Sidebar.vue";
+import Offsidebar from "./Offsidebar.vue";
+import Footer from "./Footer";
+import ContentWrapper from "./ContentWrapper.vue";
+import { Component } from "vue-property-decorator";
+import GlobalNavSidebar from "@/components/Layout/GlobalNavSidebar";
+import OffsideContentBar from "@/components/Layout/OffsideContentBar";
 
-Vue.component('ContentWrapper', ContentWrapper);
+Vue.component("ContentWrapper", ContentWrapper);
 
 @Component({
   components: {
@@ -20,27 +20,24 @@ Vue.component('ContentWrapper', ContentWrapper);
   }
 })
 export default class Layout extends Vue {
-  
   render() {
-    
     return (
       <div class="app-content height--100percent">
         <GlobalNavSidebar />
-    
+
         <div class="wrapper">
           {/*top navbar*/}
-          <Header/>
-      
+          <Header />
+
           {/*Main section*/}
           <section class="section-container">
             {/*Page content*/}
-            <router-view/>
+            <router-view />
           </section>
-      
-          <Footer/>
-  
+
+          <Footer />
+
           <OffsideContentBar />
-          
         </div>
       </div>
     );

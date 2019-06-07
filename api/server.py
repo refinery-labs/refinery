@@ -1419,11 +1419,14 @@ class TaskSpawner(object):
 			)
 			
 		@run_on_executor
-		def stripe_create_customer( self, email, name ):
+		def stripe_create_customer( self, email, name, phone_number, source_token, metadata_dict ):
 			# Create a customer in Stripe
 			customer = stripe.Customer.create(
 				email=email,
 				name=name,
+				phone=phone_number,
+				source=source_token,
+				metadata=metadata_dict
 			)
 			
 			return customer[ "id" ]
@@ -6563,12 +6566,16 @@ class NewRegistration( BaseHandler ):
 				"phone": {
 					"type": "string",
 				},
+				"stripe_token": {
+					"type": "string",
+				}
 			},
 			"required": [
 				"organization_name",
 				"name",
 				"email",
-				"phone"
+				"phone",
+				"stripe_token",
 			]
 		}
 		
@@ -6644,6 +6651,29 @@ class NewRegistration( BaseHandler ):
 		new_organization.billing_admin_id = new_user.id
 		
 		session.add( new_organization )
+
+		# Stash some information about the signup incase we need it later
+		# for fraud-style investigations.
+		user_agent = self.request.headers.get( "User-Agent", "Unknown" )
+		x_forwarded_for = self.request.headers.get( "X-Forwarded-For", "Unknown" )
+		client_ip = self.request.remote_ip
+
+		# Additionally since they've validated their email we'll add them to Stripe
+		customer_id = yield local_tasks.stripe_create_customer(
+			new_user.email,
+			new_user.name,
+			new_user.phone,
+			self.json[ "stripe_token" ],
+			{
+				"user_agent": user_agent,
+				"client_ip": client_ip,
+				"x_forwarded_for": x_forwarded_for,
+			}
+		)
+
+		# Set user's payment_id to the Stripe customer ID
+		new_user.payment_id = customer_id
+
 		session.commit()
 		
 		# Send registration confirmation link to user's email address
@@ -6737,15 +6767,6 @@ class EmailLinkAuthentication( BaseHandler ):
 				local_tasks.unfreeze_aws_account(
 					aws_reserved_account.to_dict()
 				)
-			
-			# Additionally since they've validated their email we'll add them to Stripe
-			customer_id = yield local_tasks.stripe_create_customer(
-				email_authentication_token.user.email,
-				email_authentication_token.user.name,
-			)
-			
-			# Set user's payment_id to the Stripe customer ID
-			email_authentication_token.user.payment_id = customer_id
 		
 		session.commit()
 		

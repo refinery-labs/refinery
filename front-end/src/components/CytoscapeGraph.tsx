@@ -51,15 +51,15 @@ export default class CytoscapeGraph extends Vue {
       console.error('Graph not loaded yet and elements were modified!');
       return;
     }
-  
+    
     // Tells the Cytoscape graph to update. The library internally diffs elements based on their ID.
     this.cy.json(this.generateInitialCytoscapeConfig());
-  
+    
     this.selectNodeOrEdgeInInstance(this.selected);
   }
   
   getNewElements(valArray: [], oldValArray: []) {
-  
+    
     // @ts-ignore
     const oldIds = oldValArray.map(t => t.data.id);
     // @ts-ignore
@@ -80,10 +80,10 @@ export default class CytoscapeGraph extends Vue {
     layout.promiseOn('layoutstop').then(async () => {
       // Small delay while we wait for the layout
       await timeout(50);
-
+      
       this.isLayoutRunning = false;
     });
-
+    
     layout.run();
   }
   
@@ -92,7 +92,7 @@ export default class CytoscapeGraph extends Vue {
     if (val === oldVal) {
       return;
     }
-  
+    
     this.cytoscapeValueModified();
   }
   
@@ -101,7 +101,7 @@ export default class CytoscapeGraph extends Vue {
     if (val === oldVal) {
       return;
     }
-  
+    
     this.cytoscapeValueModified();
   }
   
@@ -110,7 +110,7 @@ export default class CytoscapeGraph extends Vue {
     if (val === oldVal) {
       return;
     }
-  
+    
     this.cytoscapeValueModified();
   }
   
@@ -138,7 +138,7 @@ export default class CytoscapeGraph extends Vue {
     
     // This optimizes performance by only running the calculations "once" afterwards
     this.cy.batch(() => {
-  
+      
       // Reset all elements
       this.cy.elements()
         .removeClass(STYLE_CLASSES.DISABLED)
@@ -155,12 +155,12 @@ export default class CytoscapeGraph extends Vue {
       
       // TODO: Figure out if we want to "disable" edges?
       // this.cy.elements('edge').addClass(STYLE_CLASSES.DISABLED);
-  
+      
       // Don't "disable" the main node.
       this.cy.elements(`#${this.selected}`).removeClass(STYLE_CLASSES.DISABLED);
       
       this.playAnimation = true;
-  
+      
       elements.forEach(
         ele => ele.addClass(STYLE_CLASSES.SELECTION_ANIMATION_ENABLED).removeClass(STYLE_CLASSES.DISABLED)
       );
@@ -170,7 +170,7 @@ export default class CytoscapeGraph extends Vue {
     if (!val) {
       return;
     }
-  
+    
     // This is so garbage, but it works pretty well.
     const runAnimationLoop = async () => {
       // Break out of this looping animation hellscape
@@ -181,28 +181,28 @@ export default class CytoscapeGraph extends Vue {
       const startPromises = elements.map(
         ele => ele.animation(animationBegin).play().promise('completed')
       );
-    
+      
       await Promise.all(startPromises);
       
       const endPromises = elements.map(
         ele => ele.animation(animationEnd).play().promise('completed')
       );
-    
+      
       await Promise.all(endPromises);
-  
+      
       // Break out of this looping animation hellscape
       if (animationNonce !== this.currentAnimationGroupNonce) {
         return;
       }
       
       await timeout(1200);
-  
+      
       // Break out of this looping animation hellscape
       if (this.playAnimation && animationNonce === this.currentAnimationGroupNonce) {
         runAnimationLoop();
       }
     };
-  
+    
     runAnimationLoop();
   }
   
@@ -222,14 +222,14 @@ export default class CytoscapeGraph extends Vue {
     const selectById = `[id = "${this.selected}"]`;
     
     const sel = this.cy.elements(selectById);
-  
+    
     // "de-selects" all of the other nodes
     this.cy.elements().not(sel).removeClass(STYLE_CLASSES.SELECTED);
-  
+    
     if (sel && sel.length > 0) {
       // Causes the node to render as "selected" in the UI.
       sel.addClass(STYLE_CLASSES.SELECTED);
-  
+      
       // Skip the animation
       if (this.isLayoutRunning) {
         this.cy.center(sel);
@@ -261,18 +261,18 @@ export default class CytoscapeGraph extends Vue {
       ...this.layout
     };
   }
-
+  
   public generateInitialCytoscapeConfig(): cytoscape.CytoscapeOptions {
     return {
       layout: this.getLayoutConfig(true),
-  
+      
       boxSelectionEnabled: false,
       autounselectify: true,
       minZoom: 0.5,
       maxZoom: 4,
-  
+      
       style: [...Object.values(this.stylesheet), ...baseCytoscapeStyles],
-  
+      
       elements: this.elements || {
         // Prevents a "default" node from rendering when the list is empty...
         nodes: []
@@ -299,7 +299,7 @@ export default class CytoscapeGraph extends Vue {
     cy.on('mouseout', 'node', removeHighlight);
     cy.on('mouseover', 'edge', addHighlight);
     cy.on('mouseout', 'edge', removeHighlight);
-  
+    
     cy.on('tap', e => {
       // Tap on background of canvas
       if (e.target === cy) {
@@ -326,7 +326,7 @@ export default class CytoscapeGraph extends Vue {
     }
     
     const config = this.generateInitialCytoscapeConfig();
-  
+    
     // Have to cast to specifically HTMLElement for this to work.
     config.container = this.$refs.container as HTMLElement;
     
@@ -349,7 +349,7 @@ export default class CytoscapeGraph extends Vue {
     // Kill the container gracefully
     this.cy.destroy();
   }
- 
+  
   public render(h: CreateElement): VNode {
     if (!this.$refs.container) {
       return (

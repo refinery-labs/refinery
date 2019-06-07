@@ -1,5 +1,5 @@
-import Vue, {CreateElement, VNode} from 'vue';
-import Component from 'vue-class-component';
+import Vue, { CreateElement, VNode } from "vue";
+import Component from "vue-class-component";
 
 @Component
 export default class ViewProjectDeployment extends Vue {
@@ -8,7 +8,7 @@ export default class ViewProjectDeployment extends Vue {
       <div class="view-project-deployment">
         <h2>View Project Deployment</h2>
         Id: {this.$route.params.deploymentId}
-        <router-view/>
+        <router-view />
       </div>
     );
   }

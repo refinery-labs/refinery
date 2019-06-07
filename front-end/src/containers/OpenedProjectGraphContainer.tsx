@@ -1,20 +1,18 @@
-import Vue, {CreateElement, VNode} from 'vue';
-import Component from 'vue-class-component';
-import CytoscapeGraph from '@/components/CytoscapeGraph';
-import {
-  namespace
-} from 'vuex-class'
+import Vue, { CreateElement, VNode } from "vue";
+import Component from "vue-class-component";
+import CytoscapeGraph from "@/components/CytoscapeGraph";
+import { namespace } from "vuex-class";
 import {
   CyElements,
   CyStyle,
   RefineryProject,
   WorkflowRelationship,
   WorkflowState
-} from '@/types/graph';
-import {LayoutOptions} from 'cytoscape';
-import {AvailableTransition} from '@/store/store-types';
+} from "@/types/graph";
+import { LayoutOptions } from "cytoscape";
+import { AvailableTransition } from "@/store/store-types";
 
-const project = namespace('project');
+const project = namespace("project");
 
 @Component
 export default class OpenedProjectGraphContainer extends Vue {
@@ -24,31 +22,30 @@ export default class OpenedProjectGraphContainer extends Vue {
   @project.State cytoscapeStyle!: CyStyle | null;
   @project.State cytoscapeLayoutOptions!: LayoutOptions | null;
   @project.State cytoscapeConfig!: cytoscape.CytoscapeOptions | null;
-  
-  @project.Getter getValidBlockToBlockTransitions!: AvailableTransition[] | null;
-  
+
+  @project.Getter getValidBlockToBlockTransitions!:
+    | AvailableTransition[]
+    | null;
+
   @project.Action clearSelection!: () => {};
   @project.Action selectNode!: (element: WorkflowState) => {};
   @project.Action selectEdge!: (element: WorkflowRelationship) => {};
-  
+
   public getEnabledNodeIds() {
     if (!this.getValidBlockToBlockTransitions) {
       return null;
     }
-   
+
     return this.getValidBlockToBlockTransitions.map(v => v.toNode.id);
   }
-  
+
   public render(h: CreateElement): VNode {
-    
     if (!this.cytoscapeElements || !this.cytoscapeStyle) {
-      const errorMessage = 'Graph unable to render, missing data!';
+      const errorMessage = "Graph unable to render, missing data!";
       console.error(errorMessage);
-      return (
-        <h2>{errorMessage}</h2>
-      );
+      return <h2>{errorMessage}</h2>;
     }
-   
+
     // By holding these in the stores, we can compare pointers because the data is "immutable".
     const graphProps = {
       clearSelection: this.clearSelection,
@@ -61,7 +58,7 @@ export default class OpenedProjectGraphContainer extends Vue {
       selected: this.selectedResource,
       enabledNodeIds: this.getEnabledNodeIds()
     };
-    
+
     return (
       <div class="opened-project-graph-container flex-grow--1">
         <CytoscapeGraph props={graphProps} />

@@ -115,7 +115,7 @@ export class EditLambdaBlock extends Vue {
   }
   
   public renderCodeEditor(id: string) {
-
+    
     const editorProps = {
       'editor-id': `editor-${this.selectedNode.id}-${id}`,
       lang: languageToAceLangMap[this.selectedNode.language],
@@ -133,7 +133,7 @@ export class EditLambdaBlock extends Vue {
   
   public renderCodeEditorContainer() {
     const selectedNode = this.selectedNode;
-  
+    
     const expandOnClick = {click: () => this.setWidePanel(!this.wideMode)};
     const fullscreenOnClick = {click: () => this.setCodeModalVisibility(true)};
     
@@ -212,12 +212,12 @@ export class EditLambdaBlock extends Vue {
       min: 15,
       max: 60 * 15,
       step: 15,
-    
+      
       type: 'number',
       value: this.selectedNode.max_execution_time.toString(),
       on: {change: this.setMaxExecutionTime}
     };
-  
+    
     const maxMemoryProps: FormProps = {
       idPrefix: 'max-memory',
       description: maxExecutionMemoryText,
@@ -284,7 +284,7 @@ export default class EditBlockPane extends Vue {
     if (!this.selectedNode) {
       return;
     }
-  
+    
     const nameString = `Are you sure you want to discard changes to \'${this.selectedNode.name}\'?`;
     
     const modalOnHandlers = {
@@ -303,13 +303,13 @@ export default class EditBlockPane extends Vue {
   }
   
   public renderContentWrapper() {
-  
+    
     if (!this.selectedNode) {
       return <div />;
     }
-  
+    
     const ActiveEditorComponent = blockTypeToEditorComponentLookup[this.selectedNode.type];
-  
+    
     const props = {selectedNode: this.selectedNode as Object};
     
     const formClasses = {

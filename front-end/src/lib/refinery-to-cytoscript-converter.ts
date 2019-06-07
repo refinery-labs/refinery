@@ -1,18 +1,22 @@
 import {
   ApiEndpointWorkflowState,
-  ApiGatewayResponseWorkflowState, LambdaWorkflowState,
-  RefineryProject, ScheduleTriggerWorkflowState, SnsTopicWorkflowState, SqsQueueWorkflow,
+  ApiGatewayResponseWorkflowState,
+  LambdaWorkflowState,
+  RefineryProject,
+  ScheduleTriggerWorkflowState,
+  SnsTopicWorkflowState,
+  SqsQueueWorkflow,
   WorkflowState,
   WorkflowStateType
-} from '@/types/graph';
-import cytoscape from 'cytoscape';
+} from "@/types/graph";
+import cytoscape from "cytoscape";
 import {
   CssStyleDeclaration,
   EdgeDefinition,
   ElementsDefinition,
-  NodeDefinition,
-} from 'cytoscape';
-import {baseEdgeStyle, baseNodeStyle} from '@/lib/cytoscape-styles';
+  NodeDefinition
+} from "cytoscape";
+import { baseEdgeStyle, baseNodeStyle } from "@/lib/cytoscape-styles";
 
 const baseElementProperties = {
   // group: 'nodes' as ElementGroup,
@@ -20,9 +24,12 @@ const baseElementProperties = {
   grabbable: false
 };
 
-function basicConverter<T extends WorkflowState>(workflowState: WorkflowState, classname: string): NodeDefinition {
+function basicConverter<T extends WorkflowState>(
+  workflowState: WorkflowState,
+  classname: string
+): NodeDefinition {
   const convertedState = workflowState as T;
-  
+
   return {
     ...baseElementProperties,
     data: {
@@ -41,12 +48,14 @@ function basicConverter<T extends WorkflowState>(workflowState: WorkflowState, c
   };
 }
 
-function classOnlyConverter<T extends WorkflowState>(classname: string): (e: WorkflowState) => NodeDefinition {
+function classOnlyConverter<T extends WorkflowState>(
+  classname: string
+): (e: WorkflowState) => NodeDefinition {
   return e => basicConverter(e, classname);
 }
 
 export type WorkflowStateTypeConverterLookup = {
-  [key: string]: (w: WorkflowState) => NodeDefinition
+  [key: string]: (w: WorkflowState) => NodeDefinition;
 };
 
 /**
@@ -54,34 +63,52 @@ export type WorkflowStateTypeConverterLookup = {
  * configuration format.
  */
 export const workflowStateTypeToConverter: WorkflowStateTypeConverterLookup = {
-  [WorkflowStateType.API_ENDPOINT]: classOnlyConverter<ApiEndpointWorkflowState>(WorkflowStateType.API_ENDPOINT),
-  [WorkflowStateType.API_GATEWAY_RESPONSE]: classOnlyConverter<ApiGatewayResponseWorkflowState>(WorkflowStateType.API_GATEWAY_RESPONSE),
-  [WorkflowStateType.LAMBDA]: classOnlyConverter<LambdaWorkflowState>(WorkflowStateType.LAMBDA),
-  [WorkflowStateType.SCHEDULE_TRIGGER]: classOnlyConverter<ScheduleTriggerWorkflowState>(WorkflowStateType.SCHEDULE_TRIGGER),
-  [WorkflowStateType.SNS_TOPIC]: classOnlyConverter<SnsTopicWorkflowState>(WorkflowStateType.SNS_TOPIC),
-  [WorkflowStateType.SQS_QUEUE]: classOnlyConverter<SqsQueueWorkflow>(WorkflowStateType.SQS_QUEUE)
+  [WorkflowStateType.API_ENDPOINT]: classOnlyConverter<
+    ApiEndpointWorkflowState
+  >(WorkflowStateType.API_ENDPOINT),
+  [WorkflowStateType.API_GATEWAY_RESPONSE]: classOnlyConverter<
+    ApiGatewayResponseWorkflowState
+  >(WorkflowStateType.API_GATEWAY_RESPONSE),
+  [WorkflowStateType.LAMBDA]: classOnlyConverter<LambdaWorkflowState>(
+    WorkflowStateType.LAMBDA
+  ),
+  [WorkflowStateType.SCHEDULE_TRIGGER]: classOnlyConverter<
+    ScheduleTriggerWorkflowState
+  >(WorkflowStateType.SCHEDULE_TRIGGER),
+  [WorkflowStateType.SNS_TOPIC]: classOnlyConverter<SnsTopicWorkflowState>(
+    WorkflowStateType.SNS_TOPIC
+  ),
+  [WorkflowStateType.SQS_QUEUE]: classOnlyConverter<SqsQueueWorkflow>(
+    WorkflowStateType.SQS_QUEUE
+  )
 };
 
-export function generateCytoscapeElements(project: RefineryProject): ElementsDefinition {
+export function generateCytoscapeElements(
+  project: RefineryProject
+): ElementsDefinition {
   // Creates the "nodes" on the graph in Cytoscape format
   // http://js.cytoscape.org/#notation/elements-json
   const nodes = project.workflow_states.map(workflowState => {
     if (!workflowStateTypeToConverter[workflowState.type]) {
-      const error = new Error('Unknown type to convert when mapping project to graph types');
+      const error = new Error(
+        "Unknown type to convert when mapping project to graph types"
+      );
       console.error(error, workflowState);
       throw error;
     }
-    
+
     return workflowStateTypeToConverter[workflowState.type](workflowState);
   });
-  
+
   const edges: EdgeDefinition[] = project.workflow_relationships.map(edge => {
     if (!edge) {
-      const error = new Error('Unknown type to convert when mapping project to graph edges');
+      const error = new Error(
+        "Unknown type to convert when mapping project to graph edges"
+      );
       console.error(error, edge);
       throw error;
     }
-    
+
     // Cytoscape edge format
     // http://js.cytoscape.org/#notation/elements-json
     return {
@@ -93,7 +120,7 @@ export function generateCytoscapeElements(project: RefineryProject): ElementsDef
       }
     };
   });
-  
+
   return {
     nodes,
     edges
@@ -101,49 +128,44 @@ export function generateCytoscapeElements(project: RefineryProject): ElementsDef
 }
 
 type CytoscapeStyleConfigLookup = {
-  [key: string]: {}
-}
+  [key: string]: {};
+};
 
 const cytoscapeConfigLookup: CytoscapeStyleConfigLookup = {
   [WorkflowStateType.API_ENDPOINT]: {
-    'background-image': require('../../public/img/node-icons/api-gateway.png')
+    "background-image": require("../../public/img/node-icons/api-gateway.png")
   },
   [WorkflowStateType.API_GATEWAY_RESPONSE]: {
-    'background-image': require('../../public/img/node-icons/api-gateway.png')
+    "background-image": require("../../public/img/node-icons/api-gateway.png")
   },
   [WorkflowStateType.LAMBDA]: {
-    'background-image': require('../../public/img/node-icons/code-icon.png')
+    "background-image": require("../../public/img/node-icons/code-icon.png")
   },
   [WorkflowStateType.SCHEDULE_TRIGGER]: {
-    'background-image': require('../../public/img/node-icons/clock-icon.png')
+    "background-image": require("../../public/img/node-icons/clock-icon.png")
   },
   [WorkflowStateType.SNS_TOPIC]: {
-    'background-image': require('../../public/img/node-icons/sns-topic.png')
+    "background-image": require("../../public/img/node-icons/sns-topic.png")
   },
   [WorkflowStateType.SQS_QUEUE]: {
-    'background-image': require('../../public/img/node-icons/sqs_queue.png')
-  },
+    "background-image": require("../../public/img/node-icons/sqs_queue.png")
+  }
 };
 
 export function generateCytoscapeStyle(): CssStyleDeclaration {
-  
   // Generate styles for each node
-  const filledStyleHelper = Object.keys(cytoscapeConfigLookup).map(
-    key => ({
-      // CSS-style syntax
-      selector: `.${key}`,
-      style: cytoscapeConfigLookup[key]
-    })
-  );
-  
-  return [
-    baseNodeStyle,
-    baseEdgeStyle,
-    ...filledStyleHelper
-  ];
+  const filledStyleHelper = Object.keys(cytoscapeConfigLookup).map(key => ({
+    // CSS-style syntax
+    selector: `.${key}`,
+    style: cytoscapeConfigLookup[key]
+  }));
+
+  return [baseNodeStyle, baseEdgeStyle, ...filledStyleHelper];
 }
 
-export function convertRefineryProjectToCytoscape(project: RefineryProject): cytoscape.CytoscapeOptions {
+export function convertRefineryProjectToCytoscape(
+  project: RefineryProject
+): cytoscape.CytoscapeOptions {
   return {
     elements: generateCytoscapeElements(project),
     // Per spec here: http://js.cytoscape.org/#style

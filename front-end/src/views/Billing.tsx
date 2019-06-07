@@ -1,5 +1,5 @@
-import Vue, {CreateElement, VNode} from 'vue';
-import Component from 'vue-class-component';
+import Vue, { CreateElement, VNode } from "vue";
+import Component from "vue-class-component";
 
 @Component
 export default class Billing extends Vue {
@@ -10,7 +10,7 @@ export default class Billing extends Vue {
         <b-container>
           <b-row>
             <b-col>1</b-col>
-  
+
             <b-col>2</b-col>
           </b-row>
         </b-container>

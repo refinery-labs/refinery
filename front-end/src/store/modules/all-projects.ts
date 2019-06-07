@@ -1,30 +1,34 @@
 /**
  * Setting store to control layout behavior
  */
-import {Module} from 'vuex';
-import {AllProjectsState, RootState} from '@/store/store-types';
-import {AllProjectsMutators} from '@/constants/store-constants';
-import {getApiClient, makeApiRequest} from '@/store/fetchers/refinery-api';
-import {API_ENDPOINT} from '@/constants/api-constants';
+import { Module } from "vuex";
+import { AllProjectsState, RootState } from "@/store/store-types";
+import { AllProjectsMutators } from "@/constants/store-constants";
+import { getApiClient, makeApiRequest } from "@/store/fetchers/refinery-api";
+import { API_ENDPOINT } from "@/constants/api-constants";
 import {
-  DeleteSavedProjectRequest, DeleteSavedProjectResponse,
+  DeleteSavedProjectRequest,
+  DeleteSavedProjectResponse,
   SaveProjectRequest,
-  SaveProjectResponse, SearchSavedProjectsRequest,
-  SearchSavedProjectsResponse, SearchSavedProjectsResult
-} from '@/types/api-types';
-import router from '@/router';
-import {DEFAULT_PROJECT_CONFIG} from '@/constants/project-editor-constants';
+  SaveProjectResponse,
+  SearchSavedProjectsRequest,
+  SearchSavedProjectsResponse,
+  SearchSavedProjectsResult
+} from "@/types/api-types";
+import router from "@/router";
+import { DEFAULT_PROJECT_CONFIG } from "@/constants/project-editor-constants";
+import { RefineryProject } from "@/types/graph";
 
 const moduleState: AllProjectsState = {
   availableProjects: [],
-  searchBoxText: '',
+  searchBoxText: "",
   isSearching: false,
-  
+
   deleteModalVisible: false,
   deleteProjectId: null,
   deleteProjectName: null,
-  
-  newProjectInput: '',
+
+  newProjectInput: "",
   newProjectInputValid: null,
   newProjectErrorMessage: null
 };
@@ -43,7 +47,7 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
     [AllProjectsMutators.setSearchBoxInput](state, text) {
       state.searchBoxText = text;
     },
-    
+
     [AllProjectsMutators.setDeleteModalVisibility](state, visible) {
       state.deleteModalVisible = visible;
     },
@@ -53,7 +57,7 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
     [AllProjectsMutators.setDeleteProjectName](state, name) {
       state.deleteProjectName = name;
     },
-    
+
     [AllProjectsMutators.setNewProjectInput](state, text) {
       state.newProjectInputValid = true;
       state.newProjectInput = text;
