@@ -1,5 +1,5 @@
-import Vue, {CreateElement, VNode} from 'vue';
-import Component from 'vue-class-component';
+import Vue, { CreateElement, VNode } from "vue";
+import Component from "vue-class-component";
 
 // The @Component decorator indicates the class is a Vue component
 @Component

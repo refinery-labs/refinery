@@ -1,22 +1,21 @@
 import {
-  LambdaWorkflowState, ProjectConfig,
+  LambdaWorkflowState,
+  ProjectConfig,
   ProjectEnvironmentVariableConfig,
   WorkflowRelationship,
   WorkflowState,
   WorkflowStateType
-} from '@/types/graph';
+} from "@/types/graph";
 import {
   ProductionDeploymentRefineryProject,
   ProductionWorkflowState
-} from '@/types/production-workflow-types';
+} from "@/types/production-workflow-types";
 
 export interface BaseApiResponse {
-  success: boolean
+  success: boolean;
 }
 
-export interface BaseApiRequest {
-
-}
+export interface BaseApiRequest {}
 
 // SearchSavedProjects
 export interface SearchSavedProjectsRequest extends BaseApiRequest {
@@ -36,10 +35,10 @@ export interface SearchSavedProjectsResult {
 
 // CreateSQSQueueTrigger
 export interface CreateSQSQueueTriggerRequest extends BaseApiRequest {
-  batch_size:                  number;
+  batch_size: number;
   content_based_deduplication: boolean;
-  lambda_arn:                  string;
-  queue_name:                  string;
+  lambda_arn: string;
+  queue_name: string;
 }
 
 export interface CreateSQSQueueTriggerResponse extends BaseApiResponse {
@@ -50,22 +49,22 @@ export interface CreateSQSQueueTriggerResponse extends BaseApiResponse {
  * Creates a scheduled trigger for a given SFN or Lambda.
  */
 export interface CreateScheduleTriggerRequest {
-  description:         string;
-  name:                string;
+  description: string;
+  name: string;
   schedule_expression: string;
-  target_arn:          string;
-  target_id:           string;
-  target_type:         string;
-  input_dict:          {};
+  target_arn: string;
+  target_id: string;
+  target_type: string;
+  input_dict: {};
 }
 
 export interface CreateScheduleTriggerResponse extends BaseApiResponse {
-  result: CreateScheduleTriggerResult
+  result: CreateScheduleTriggerResult;
 }
 
 export interface CreateScheduleTriggerResult {
-  rule_arn: string,
-  url: string
+  rule_arn: string;
+  url: string;
 }
 
 // DeleteDeploymentsInProject
@@ -86,54 +85,54 @@ export interface DeleteSavedProjectResponse extends BaseApiResponse {}
 
 // DeployDiagram
 export interface DeployDiagramRequest extends BaseApiRequest {
-  project_name:   string;
-  project_id:     string;
+  project_name: string;
+  project_id: string;
   project_config: ProjectConfig;
-  diagram_data:   string;
+  diagram_data: string;
 }
 
 export interface DeployDiagramResponse extends BaseApiResponse {
-  result:  DeployDiagramResponseResult;
+  result: DeployDiagramResponseResult;
 }
 
 export interface DeployDiagramResponseResult {
-  project_id:         string;
-  deployment_id:      string;
+  project_id: string;
+  deployment_id: string;
   deployment_success: boolean;
-  diagram_data:       DiagramData;
+  diagram_data: DiagramData;
 }
 
 export interface DiagramData {
   workflow_relationships: WorkflowRelationship[];
-  version:                number;
-  name:                   string;
-  workflow_states:        WorkflowState[];
+  version: number;
+  name: string;
+  workflow_states: WorkflowState[];
 }
 
 // GetCloudWatchLogsForLambda
 export interface GetCloudWatchLogsForLambdaRequest extends BaseApiRequest {
-  arn: string
+  arn: string;
 }
 
 export interface GetCloudWatchLogsForLambdaResponse extends BaseApiResponse {
-  result: GetCloudWatchLogsForLambdaResult
+  result: GetCloudWatchLogsForLambdaResult;
 }
 
 export interface GetCloudWatchLogsForLambdaResult {
-  truncated: boolean,
-  log_output: string
+  truncated: boolean;
+  log_output: string;
 }
 
 // GetLatestProjectDeployment
 export interface GetLatestProjectDeploymentRequest extends BaseApiRequest {
-  project_id: string
+  project_id: string;
 }
 
 export interface GetLatestProjectDeploymentResponse extends BaseApiResponse {
   deployment_json: ProductionDeploymentRefineryProject;
-  project_id:      string;
-  id:              string;
-  timestamp:       number;
+  project_id: string;
+  id: string;
+  timestamp: number;
 }
 
 // GetProjectConfig
@@ -151,32 +150,32 @@ export interface GetProjectExecutionLogsRequest extends BaseApiRequest {
 }
 
 export interface GetProjectExecutionLogsResponse extends BaseApiResponse {
-  result: {[key: string]: GetProjectExecutionLogsResult};
+  result: { [key: string]: GetProjectExecutionLogsResult };
 }
 
 export interface GetProjectExecutionLogsResult {
-  stream_name:          string;
-  memory_limit_in_mb:   number;
-  initialization_time:  number;
-  aws_request_id:       string;
-  name:                 string;
-  timestamp:            number;
-  aws_region:           string;
-  group_name:           string;
-  project_id:           string;
-  type:                 string;
-  id:                   string;
+  stream_name: string;
+  memory_limit_in_mb: number;
+  initialization_time: number;
+  aws_request_id: string;
+  name: string;
+  timestamp: number;
+  aws_region: string;
+  group_name: string;
+  project_id: string;
+  type: string;
+  id: string;
   invoked_function_arn: string;
-  data:                 ExecutionLogData;
-  function_version:     string;
-  arn:                  string;
-  function_name:        string;
+  data: ExecutionLogData;
+  function_version: string;
+  arn: string;
+  function_name: string;
 }
 
 export interface ExecutionLogData {
-  input_data:  string;
+  input_data: string;
   return_data: boolean;
-  output:      string;
+  output: string;
 }
 
 /**
@@ -184,22 +183,22 @@ export interface ExecutionLogData {
  */
 export interface GetProjectExecutionsRequest extends BaseApiRequest {
   continuation_token?: string;
-  project_id:          string;
+  project_id: string;
 }
 
 export interface GetProjectExecutionsResponse extends BaseApiResponse {
-  result:  GetProjectExecutionsResponseResult;
+  result: GetProjectExecutionsResponseResult;
 }
 
 export interface GetProjectExecutionsResponseResult {
   continuation_token: boolean;
-  executions:         { [key: string]: Execution };
+  executions: { [key: string]: Execution };
 }
 
 export interface Execution {
   oldest_observed_timestamp: number;
-  logs:                      string[];
-  error:                     boolean;
+  logs: string[];
+  error: boolean;
 }
 
 // GetSavedProject
@@ -210,74 +209,74 @@ export interface GetSavedProjectRequest extends BaseApiRequest {
 
 export interface GetSavedProjectResponse extends BaseApiResponse {
   project_json: string;
-  version:      number;
-  project_id:   string;
-  success:      boolean;
+  version: number;
+  project_id: string;
+  success: boolean;
 }
 
 // InfraCollisionCheck
 export interface InfraCollisionCheckRequest extends BaseApiRequest {
-  diagram_data: DiagramData
+  diagram_data: DiagramData;
 }
 
 export interface InfraCollisionCheckResponse extends BaseApiResponse {
-  result: InfraCollisionResult[]
+  result: InfraCollisionResult[];
 }
 
 export interface InfraCollisionResult {
-  id: string,
-  arn: string,
-  name: string,
-  type: WorkflowStateType
+  id: string;
+  arn: string;
+  name: string;
+  type: WorkflowStateType;
 }
 
 // InfraTearDown
 export interface InfraTearDownRequest extends BaseApiRequest {
   teardown_nodes: ProductionWorkflowState[];
-  project_id:     string;
+  project_id: string;
 }
 
 export interface InfraTearDownResponse extends BaseApiResponse {
-  result:  Array<InfraTearDownResult | string>;
+  result: Array<InfraTearDownResult | string>;
 }
 
 export interface InfraTearDownResult {
   deleted: boolean;
-  type:    string;
-  id:      string;
-  arn:     string;
-  name:    string;
+  type: string;
+  id: string;
+  arn: string;
+  name: string;
 }
 
 /**
  * Run a Lambda which has been deployed in production.
  */
 export interface RunLambdaRequest extends BaseApiRequest {
-  arn: string,
-  input_data: string
+  arn: string;
+  input_data: string;
 }
 
 export interface RunLambdaResponse extends BaseApiResponse {
-  result:  RunLambdaResult;
+  result: RunLambdaResult;
 }
 
 export interface RunLambdaResult {
-  error:       RunLambdaError;
-  retries:     number;
-  is_error:    boolean;
-  version:     string;
-  logs:        string;
-  truncated:   boolean;
+  error: RunLambdaError;
+  retries: number;
+  is_error: boolean;
+  version: string;
+  logs: string;
+  truncated: boolean;
   status_code: number;
-  request_id:  string;
-  response:    boolean;
-  arn:         string;
+  request_id: string;
+  response: boolean;
+  arn: string;
 }
 
 export interface RunLambdaError {
-  message: string,
-  type: string,
-  trace: string
+  message: string;
+  type: string;
+  trace: string;
 }
 
 /**
@@ -285,37 +284,37 @@ export interface RunLambdaError {
  * Always upon completion the Lambda should be deleted!
  */
 export interface RunTmpLambdaRequest extends BaseApiRequest {
-  code:                  string;
+  code: string;
   environment_variables: any[];
-  input_data:            any;
-  language:              string;
-  layers:                any[];
-  libraries:             any[];
-  max_execution_time:    number;
-  memory:                number;
+  input_data: any;
+  language: string;
+  layers: any[];
+  libraries: any[];
+  max_execution_time: number;
+  memory: number;
 }
 
 export interface RunTmpLambdaResponse extends BaseApiResponse {
-  result:  RunTmpLambdaResponseResult;
+  result: RunTmpLambdaResponseResult;
 }
 
 export interface RunTmpLambdaResponseResult {
-  error:       Error;
-  retries:     number;
-  is_error:    boolean;
-  version:     string;
-  logs:        string;
-  truncated:   boolean;
+  error: Error;
+  retries: number;
+  is_error: boolean;
+  version: string;
+  logs: string;
+  truncated: boolean;
   status_code: number;
-  request_id:  string;
-  response:    boolean;
-  arn:         string;
+  request_id: string;
+  response: boolean;
+  arn: string;
 }
 
 export interface Error {
   message?: string;
-  type?:    string;
-  trace?:   Array<Array<number | string>>;
+  type?: string;
+  trace?: Array<Array<number | string>>;
 }
 
 // SaveProject
@@ -325,40 +324,40 @@ export interface SaveProjectRequest extends BaseApiRequest {
    * TODO: Is this a mis-feature?
    * TODO: Make this nullable instead of using false
    */
-  project_id: string | boolean,
+  project_id: string | boolean;
   /**
    * JSON serialized DiagramData
    * TODO: Make this part of the JSON object instead of a string
    */
-  diagram_data: string,
+  diagram_data: string;
   /**
    * Version to save the project with
    * TODO: Make this nullable instead of using false
    */
-  version: string | boolean,
+  version: string | boolean;
   /**
    * JSON serialized config data (env variables and sheit)
    * TODO: Make this part of the JSON object instead of a string
    */
-  config: string
+  config: string;
 }
 
 export interface SaveProjectResponse extends BaseApiResponse {
   project_version: number;
-  project_id:      string;
+  project_id: string;
 }
 
 /**
  * Create a Lambda to save for later use.
  */
 export interface SavedLambdaCreateRequest {
-  code:               string;
-  description:        string;
-  language:           string;
-  libraries:          string[];
+  code: string;
+  description: string;
+  language: string;
+  libraries: string[];
   max_execution_time: number;
-  memory:             number;
-  name:               string;
+  memory: number;
+  name: string;
 }
 
 export interface SavedLambdaCreateResponse extends BaseApiResponse {
@@ -394,18 +393,18 @@ export interface SavedLambdaSearchResponseResult extends LambdaWorkflowState {
 
 // UpdateEnvironmentVariables
 export interface UpdateEnvironmentVariablesRequest extends BaseApiRequest {
-  project_id: string,
-  arn: string,
-  environment_variables: ProjectEnvironmentVariableConfig
+  project_id: string;
+  arn: string;
+  environment_variables: ProjectEnvironmentVariableConfig;
 }
 
 export interface UpdateEnvironmentVariablesResponse extends BaseApiResponse {
-  result: UpdateEnvironmentVariablesResult
+  result: UpdateEnvironmentVariablesResult;
 }
 
 export interface UpdateEnvironmentVariablesResult {
   // This is potentially not a string, it will be type DiagramData if it is not.
-  deployment_diagram: string
+  deployment_diagram: string;
 }
 
 // Health
@@ -443,7 +442,7 @@ export interface NewRegistrationRequest extends BaseApiRequest {
   name: string;
   email: string;
   phone: string | undefined;
-  stripe_token: string,
+  stripe_token: string;
 }
 
 export interface NewRegistrationResponse extends BaseApiResponse {

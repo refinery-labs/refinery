@@ -6,7 +6,7 @@ module.exports = {
       sass: {
         // @/ is an alias to src/
         // so this assumes you have a file named `src/variables.scss`
-        data: `@import "~@/styles/variables.scss";`,
+        data: `@import "~@/styles/variables.scss";`
       }
     }
   },
@@ -14,8 +14,8 @@ module.exports = {
     config.module
       .rule(/\.(j|t)sx$/)
       .test(/\.(j|t)sx$/)
-      .use('vue-jsx-hot-loader')
-      .before('babel-loader')
-      .loader('vue-jsx-hot-loader');
-  },
+      .use("vue-jsx-hot-loader")
+      .before("babel-loader")
+      .loader("vue-jsx-hot-loader");
+  }
 };

@@ -1,5 +1,5 @@
-import Vue, {CreateElement, VNode} from 'vue';
-import Component from 'vue-class-component';
+import Vue, { CreateElement, VNode } from "vue";
+import Component from "vue-class-component";
 
 @Component
 export default class EditWorkflow extends Vue {
@@ -8,7 +8,7 @@ export default class EditWorkflow extends Vue {
       <div class="edit-workflow">
         <h2>Edit Workflow</h2>
         Id: {this.$route.params.workflowId}
-        <router-view/>
+        <router-view />
       </div>
     );
   }

@@ -1,4 +1,3 @@
-
 // time in ms between login status checks for authentication status
 export const LOGIN_STATUS_CHECK_INTERVAL = 10000;
 

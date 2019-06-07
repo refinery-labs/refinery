@@ -10,7 +10,7 @@
             <span class="main-logo">REFINERY</span>
           </div>
           <div class="brand-logo-collapsed">
-            <img class="img-fluid" src="img/logo-single.png" alt="App">
+            <img class="img-fluid" src="img/logo-single.png" alt="App" />
           </div>
         </router-link>
       </div>
@@ -19,12 +19,18 @@
       <ul class="navbar-nav mr-auto flex-row">
         <li class="nav-item">
           <!-- Button used to collapse the left sidebar. Only visible on tablet and desktops-->
-          <a class="nav-link d-none d-md-block d-lg-block d-xl-block"
-             @click.prevent="toggleGlobalNavCollapsed">
+          <a
+            class="nav-link d-none d-md-block d-lg-block d-xl-block"
+            @click.prevent="toggleGlobalNavCollapsed"
+          >
             <em class="fas fa-bars"></em>
           </a>
           <!-- Button to show/hide the sidebar on mobile. Visible on mobile only.-->
-          <a href="" class="nav-link sidebar-toggle d-md-none" @click.prevent="toggleOffcanvas">
+          <a
+            href=""
+            class="nav-link sidebar-toggle d-md-none"
+            @click.prevent="toggleOffcanvas"
+          >
             <em class="fas fa-bars"></em>
           </a>
         </li>
@@ -55,10 +61,15 @@
         </li>
         <!-- Fullscreen (only desktops)-->
         <li class="nav-item d-none d-md-block">
-          <ToggleFullscreen tag="A" class="nav-link" href="#"/>
+          <ToggleFullscreen tag="A" class="nav-link" href="#" />
         </li>
         <!-- START Alert menu-->
-        <b-nav-item-dropdown class="dropdown-list" no-caret menuClass="animated flipInX" right>
+        <b-nav-item-dropdown
+          class="dropdown-list"
+          no-caret
+          menuClass="animated flipInX"
+          right
+        >
           <template slot="button-content">
             <em class="icon-bell"></em>
             <span class="badge badge-danger">11</span>
@@ -106,9 +117,8 @@
               <div class="list-group-item list-group-item-action">
                 <span class="d-flex align-items-center">
                   <span class="text-sm">More notifications</span>
-                  <span class="badge badge-danger ml-auto">14</span>
-                </span><span class="text-sm">More notifications</span>
-                    <
+                  <span class="badge badge-danger ml-auto">14</span> </span
+                ><span class="text-sm">More notifications</span>
               </div>
             </div>
             <!-- END list group-->
@@ -124,54 +134,52 @@
         <!-- END Offsidebar.prevent menu-->
       </ul>
       <!-- END Right Navbar-->
-      <HeaderSearch/>
+      <HeaderSearch />
     </nav>
     <!-- END Top Navbar-->
   </header>
 </template>
 
 <script>
-    import Vue from 'vue';
-    import {mapMutations} from 'vuex'
-    import HeaderSearch from './HeaderSearch'
-    import ToggleFullscreen from '../Common/ToggleFullscreen'
-    import {UserInterfaceSettings} from "../../store/store-types";
+import Vue from "vue";
+import { mapMutations } from "vuex";
+import HeaderSearch from "./HeaderSearch";
+import ToggleFullscreen from "../Common/ToggleFullscreen";
+import { UserInterfaceSettings } from "../../store/store-types";
 
-    export default Vue.extend({
-        name: 'Header',
-        components: {
-            HeaderSearch,
-            ToggleFullscreen
-        },
-        methods: {
-            /**
-             * Triggers a window resize event when clicked
-             * for plugins that needs to be redrawed
-             */
-            resize: e => {
-                // all IE friendly dispatchEvent
-                var evt = document.createEvent('UIEvents');
-                evt.initUIEvent('resize', true, false, window, 0);
-                window.dispatchEvent(evt);
-                // modern dispatchEvent way
-                // window.dispatchEvent(new Event('resize'));
-            },
-            ...mapMutations([
-                'toggleSetting'
-            ]),
-            toggleOffsidebar() {
-                this.toggleSetting(UserInterfaceSettings.offsidebarOpen);
-            },
-            toggleOffcanvas() {
-                this.toggleSetting(UserInterfaceSettings.asideToggled);
-            },
-            toggleGlobalNavCollapsed() {
-                this.toggleSetting(UserInterfaceSettings.isGlobalNavCollapsed);
-                this.resize();
-            },
-            toggleUserBlock() {
-                this.toggleSetting(UserInterfaceSettings.showUserBlock);
-            }
-        }
-    });
+export default Vue.extend({
+  name: "Header",
+  components: {
+    HeaderSearch,
+    ToggleFullscreen
+  },
+  methods: {
+    /**
+     * Triggers a window resize event when clicked
+     * for plugins that needs to be redrawed
+     */
+    resize: e => {
+      // all IE friendly dispatchEvent
+      var evt = document.createEvent("UIEvents");
+      evt.initUIEvent("resize", true, false, window, 0);
+      window.dispatchEvent(evt);
+      // modern dispatchEvent way
+      // window.dispatchEvent(new Event('resize'));
+    },
+    ...mapMutations(["toggleSetting"]),
+    toggleOffsidebar() {
+      this.toggleSetting(UserInterfaceSettings.offsidebarOpen);
+    },
+    toggleOffcanvas() {
+      this.toggleSetting(UserInterfaceSettings.asideToggled);
+    },
+    toggleGlobalNavCollapsed() {
+      this.toggleSetting(UserInterfaceSettings.isGlobalNavCollapsed);
+      this.resize();
+    },
+    toggleUserBlock() {
+      this.toggleSetting(UserInterfaceSettings.showUserBlock);
+    }
+  }
+});
 </script>
