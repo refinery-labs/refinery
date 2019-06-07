@@ -443,6 +443,7 @@ export interface NewRegistrationRequest extends BaseApiRequest {
   name: string;
   email: string;
   phone: string | undefined;
+  stripe_token: string,
 }
 
 export interface NewRegistrationResponse extends BaseApiResponse {

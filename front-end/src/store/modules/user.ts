@@ -90,6 +90,7 @@ const moduleState: UserState = {
   registrationNameInput: '',
   registrationPhoneInput: '',
   registrationOrgNameInput: '',
+  registrationStripeToken: '',
   termsAndConditionsAgreed: false,
   
   registrationEmailErrorMessage: null,
@@ -101,13 +102,13 @@ const moduleState: UserState = {
   registrationPhoneInputValid: null,
   registrationOrgNameInputValid: null,
   termsAndConditionsAgreedValid: null,
+  registrationPaymentCardInputValid: false,
 };
 
 const UserModule: Module<UserState, RootState> = {
   namespaced: true,
   state: moduleState,
-  getters: {
-  },
+  getters: {},
   mutations: {
     
     [UserMutators.setAuthenticationState](state, authenticationState: GetAuthenticationStatusResponse) {
@@ -166,7 +167,11 @@ const UserModule: Module<UserState, RootState> = {
     [UserMutators.setAgreeToTermsValue](state, value: boolean) {
       state.termsAndConditionsAgreedValid = value;
       state.termsAndConditionsAgreed = value;
-    }
+    },
+    [UserMutators.setRegistrationStripeTokenValue](state, value: string) {
+      state.registrationPaymentCardInputValid = true;
+      state.registrationStripeToken = value;
+    },
   },
   actions: {
     async fetchAuthenticationState(context) {
@@ -183,7 +188,7 @@ const UserModule: Module<UserState, RootState> = {
     async redirectIfAuthenticated(context) {
       const response = await checkLoginStatus();
 
-      if(response.authenticated) {
+      if(response && response.authenticated) {
         router.push({
           "name": "allProjects"
         });
@@ -244,12 +249,20 @@ const UserModule: Module<UserState, RootState> = {
         context.state.registrationNameInputValid &&
         context.state.registrationPhoneInputValid &&
         context.state.registrationEmailInputValid &&
-        context.state.termsAndConditionsAgreedValid;
+        context.state.termsAndConditionsAgreedValid &&
+        context.state.registrationPaymentCardInputValid;
+
+      if(!context.state.registrationPaymentCardInputValid) {
+        const message = 'You must provide valid payment information to continue.';
+        console.error(message);
+        context.commit(UserMutators.setRegistrationErrorMessage, message);
+        return;
+      }
   
       if (!validationSucceeded) {
         const message = 'Validation check failed, please verify your information and try again';
         console.error(message);
-        context.commit(UserMutators.setLoginErrorMessage, message);
+        context.commit(UserMutators.setRegistrationErrorMessage, message);
         return;
       }
   
@@ -270,7 +283,10 @@ const UserModule: Module<UserState, RootState> = {
         organization_name: registrationOrgName || '',
   
         // Only send this value if it was specified
-        phone: registrationPhone || ''
+        phone: registrationPhone || '',
+
+        // Stripe token data
+        stripe_token: context.state.registrationStripeToken,
       };
       
       try {

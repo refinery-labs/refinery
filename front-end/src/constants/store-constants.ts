@@ -83,6 +83,7 @@ export enum UserMutators {
   setRegisterNameInputValue = 'setRegisterNameInputValue',
   setRegisterPhoneInputValue = 'setRegisterPhoneInputValue',
   setRegisterOrgNameInputValue = 'setRegisterOrgNameInputValue',
+  setRegistrationStripeTokenValue = 'setRegistrationStripeTokenValue',
   setAgreeToTermsValue = 'setAgreeToTermsValue',
 
   setRegistrationUsernameErrorMessage = 'setRegistrationUsernameErrorMessage',

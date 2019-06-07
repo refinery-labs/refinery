@@ -157,6 +157,7 @@ export interface UserState {
   registrationNameInput: string,
   registrationPhoneInput: string,
   registrationOrgNameInput: string,
+  registrationStripeToken: string,
   termsAndConditionsAgreed: boolean,
   
   registrationEmailErrorMessage: string | null,
@@ -167,5 +168,6 @@ export interface UserState {
   registrationNameInputValid: boolean | null,
   registrationPhoneInputValid: boolean | null,
   registrationOrgNameInputValid: boolean | null,
+  registrationPaymentCardInputValid: boolean | null,
   termsAndConditionsAgreedValid: boolean | null
 }
