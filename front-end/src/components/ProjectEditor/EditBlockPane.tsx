@@ -1,12 +1,13 @@
-import Vue, { CreateElement, VNode, VueConstructor } from 'vue';
+import Vue, {CreateElement, VNode, VueConstructor} from 'vue';
 import Component from 'vue-class-component';
-import { namespace } from 'vuex-class';
+import {namespace} from 'vuex-class';
 import AceEditor from '@/components/Common/AceEditor.vue';
-import { Prop } from 'vue-property-decorator';
+import {Prop} from 'vue-property-decorator';
 import {
   LambdaWorkflowState,
   ScheduleTriggerWorkflowState,
   SnsTopicWorkflowState,
+  SqsQueueWorkflowState,
   SupportedLanguage,
   WorkflowState,
   WorkflowStateType
@@ -51,7 +52,7 @@ export class BlockScheduleExpressionInput extends Vue {
             type="text"
             required
             value={selectedNode.schedule_expression}
-            on={{ input: this.setScheduleExpression }}
+            on={{input: this.setScheduleExpression}}
             placeholder="cron(15 10 * * ? *)"
           />
         </div>
@@ -61,7 +62,7 @@ export class BlockScheduleExpressionInput extends Vue {
             target="_blank"
           >
             Schedule expression
-          </a>{' '}
+          </a>
           indicating how often the attached blocks should be run.
         </small>
       </b-form-group>
@@ -92,7 +93,7 @@ export class BlockNameInput extends Vue {
             type="text"
             required
             value={selectedNode.name}
-            on={{ input: this.setBlockName }}
+            on={{input: this.setBlockName}}
             placeholder="My Amazing Block"
           />
         </div>
@@ -123,13 +124,53 @@ export const languageToAceLangMap: LanguageToAceLang = {
 };
 
 @Component
+export class EditQueueBlock extends Vue {
+  @Prop() selectedNode!: SqsQueueWorkflowState;
+
+  @editBlock.Mutation setBatchSize!: (batch_size: number) => void;
+
+  public renderBatchSize() {
+    return (
+      <b-form-group id={`block-batch-size-group-${this.selectedNode.id}`}>
+        <label class="d-block" htmlFor={`block-batch-size-${this.selectedNode.id}`}>
+          Batch Size:
+        </label>
+        <div class="input-group with-focus">
+          <b-form-input
+            type="number"
+            required
+            value={this.selectedNode.batch_size}
+            on={{input: this.setBatchSize}}
+            placeholder="1"
+            min="1"
+            max="10"
+          />
+        </div>
+        <small class="form-text text-muted">
+          The number of messages to be passed to the connected Code Blocks at once (e.g. 2 at a time).
+        </small>
+      </b-form-group>
+    )
+  }
+
+  public render(h: CreateElement): VNode {
+    return (
+      <div>
+        <BlockNameInput/>
+        {this.renderBatchSize()}
+      </div>
+    );
+  }
+}
+
+@Component
 export class EditTopicBlock extends Vue {
   @Prop() selectedNode!: SnsTopicWorkflowState;
 
   public render(h: CreateElement): VNode {
     return (
       <div>
-        <BlockNameInput />
+        <BlockNameInput/>
       </div>
     );
   }
@@ -150,7 +191,7 @@ export class EditScheduleTriggerBlock extends Vue {
       lang: 'text',
       theme: 'monokai',
       content: this.selectedNode.input_string,
-      on: { 'change-content': this.setInputData }
+      on: {'change-content': this.setInputData}
     };
 
     return (
@@ -167,7 +208,7 @@ export class EditScheduleTriggerBlock extends Vue {
 
   public renderCodeEditorContainer() {
     const selectedNode = this.selectedNode;
-    const expandOnClick = { click: () => this.setWidePanel(!this.wideMode) };
+    const expandOnClick = {click: () => this.setWidePanel(!this.wideMode)};
 
     return (
       <b-form-group
@@ -179,7 +220,7 @@ export class EditScheduleTriggerBlock extends Vue {
             Edit Return Data:
           </label>
           <b-button on={expandOnClick} class="edit-block-container__expand-button">
-            <span class="fa fa-angle-double-left" />
+            <span class="fa fa-angle-double-left"/>
           </b-button>
         </div>
         <div class="input-group with-focus edit-block-container__code-editor">{this.renderCodeEditor('pane')}</div>
@@ -190,8 +231,8 @@ export class EditScheduleTriggerBlock extends Vue {
   public render(h: CreateElement): VNode {
     return (
       <div>
-        <BlockNameInput />
-        <BlockScheduleExpressionInput />
+        <BlockNameInput/>
+        <BlockScheduleExpressionInput/>
         {this.renderCodeEditorContainer()}
       </div>
     );
@@ -244,7 +285,7 @@ export class EditLambdaBlock extends Vue {
       lang: languageToAceLangMap[this.selectedNode.language],
       theme: 'monokai',
       content: this.selectedNode.code,
-      on: { 'change-content': this.setCodeInput }
+      on: {'change-content': this.setCodeInput}
     };
 
     return (
@@ -262,7 +303,7 @@ export class EditLambdaBlock extends Vue {
   public renderCodeEditorContainer() {
     const selectedNode = this.selectedNode;
 
-    const expandOnClick = { click: () => this.setWidePanel(!this.wideMode) };
+    const expandOnClick = {click: () => this.setWidePanel(!this.wideMode)};
     const fullscreenOnClick = {
       click: () => this.setCodeModalVisibility(true)
     };
@@ -274,10 +315,10 @@ export class EditLambdaBlock extends Vue {
             Edit Block Code:
           </label>
           <b-button on={fullscreenOnClick} class="edit-block-container__expand-button">
-            <span class="fa fa-expand" />
+            <span class="fa fa-expand"/>
           </b-button>
           <b-button on={expandOnClick} class="edit-block-container__expand-button">
-            <span class="fa fa-angle-double-left" />
+            <span class="fa fa-angle-double-left"/>
           </b-button>
         </div>
         <div class="input-group with-focus edit-block-container__code-editor">{this.renderCodeEditor('pane')}</div>
@@ -286,7 +327,7 @@ export class EditLambdaBlock extends Vue {
   }
 
   public renderForm(selectedNode: WorkflowState, inputProps: FormProps) {
-    const { idPrefix, name, description, type } = inputProps;
+    const {idPrefix, name, description, type} = inputProps;
 
     return (
       <b-form-group id={`${idPrefix}-group-${selectedNode.id}`} description={description}>
@@ -320,7 +361,7 @@ export class EditLambdaBlock extends Vue {
           <b-form-select
             id={`block-language-${selectedNode.id}`}
             value={this.selectedNode.language}
-            on={{ input: this.setCodeLanguage }}
+            on={{input: this.setCodeLanguage}}
             options={Object.values(SupportedLanguage)}
           />
         </div>
@@ -340,7 +381,7 @@ export class EditLambdaBlock extends Vue {
 
       type: 'number',
       value: this.selectedNode.max_execution_time.toString(),
-      on: { change: this.setMaxExecutionTime }
+      on: {change: this.setMaxExecutionTime}
     };
 
     const maxMemoryProps: FormProps = {
@@ -354,12 +395,12 @@ export class EditLambdaBlock extends Vue {
       min: 128,
       step: 64,
       value: this.selectedNode.memory.toString(),
-      on: { change: this.setExecutionMemory }
+      on: {change: this.setExecutionMemory}
     };
 
     return (
       <div>
-        <BlockNameInput />
+        <BlockNameInput/>
         {this.renderLanguageSelector()}
         {this.renderCodeEditorContainer()}
         {this.renderForm(this.selectedNode, maxExecutionTimeProps)}
@@ -386,7 +427,7 @@ export const blockTypeToEditorComponentLookup: BlockTypeToEditorComponent = {
   [WorkflowStateType.API_ENDPOINT]: EditLambdaBlock,
   [WorkflowStateType.API_GATEWAY]: EditLambdaBlock,
   [WorkflowStateType.API_GATEWAY_RESPONSE]: EditLambdaBlock,
-  [WorkflowStateType.SQS_QUEUE]: EditLambdaBlock
+  [WorkflowStateType.SQS_QUEUE]: EditQueueBlock
 };
 
 @Component
@@ -435,12 +476,12 @@ export default class EditBlockPane extends Vue {
 
   public renderContentWrapper() {
     if (!this.selectedNode) {
-      return <div />;
+      return <div/>;
     }
 
     const ActiveEditorComponent = blockTypeToEditorComponentLookup[this.selectedNode.type];
 
-    const props = { selectedNode: this.selectedNode as Object };
+    const props = {selectedNode: this.selectedNode as Object};
 
     const formClasses = {
       'mb-3 mt-3 text-align--left': true,
@@ -449,13 +490,13 @@ export default class EditBlockPane extends Vue {
     };
 
     return (
-      <b-form class={formClasses} on={{ submit: this.saveBlockClicked }}>
+      <b-form class={formClasses} on={{submit: this.saveBlockClicked}}>
         <div class="edit-block-container__scrollable overflow--scroll-y-auto">
-          <ActiveEditorComponent props={props} />
+          <ActiveEditorComponent props={props}/>
         </div>
         <div class="row edit-block-container__bottom-buttons">
           <b-button-group class="col-12">
-            <b-button variant="secondary" class="col-6" on={{ click: this.tryToCloseBlock }}>
+            <b-button variant="secondary" class="col-6" on={{click: this.tryToCloseBlock}}>
               {this.isStateDirty ? 'Cancel' : 'Close'}
             </b-button>
             <b-button variant="primary" class="col-6" type="submit" disabled={!this.isStateDirty}>

@@ -3261,7 +3261,7 @@ class TaskSpawner(object):
 			}
 		
 		@run_on_executor
-		def create_sqs_queue( self, credentials, id, queue_name, content_based_deduplication, batch_size ):
+		def create_sqs_queue( self, credentials, id, queue_name, batch_size ):
 			sqs_client = get_aws_client(
 				"sqs",
 				credentials
@@ -3292,7 +3292,7 @@ class TaskSpawner(object):
 			
 			return {
 				"id": id,
-				"queue_name": queue_name,
+				"name": queue_name,
 				"arn": sqs_arn,
 				"batch_size": batch_size
 			}
@@ -4749,8 +4749,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				credentials,
 				sqs_queue_node[ "id" ],
 				sqs_queue_name,
-				sqs_queue_node[ "content_based_deduplication" ],
-				sqs_queue_node[ "batch_size" ] # Not used, passed along
+				int( sqs_queue_node[ "batch_size" ] ) # Not used, passed along
 			)
 		})
 		
@@ -4947,8 +4946,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		for workflow_state in diagram_data[ "workflow_states" ]:
 			if workflow_state[ "id" ] == deployed_sqs_queue[ "id" ]:
 				workflow_state[ "arn" ] = deployed_sqs_queue[ "arn" ]
-				workflow_state[ "name" ] = deployed_sqs_queue[ "queue_name" ]
-				workflow_state[ "queue_name" ] = deployed_sqs_queue[ "queue_name" ]
+				workflow_state[ "name" ] = deployed_sqs_queue[ "name" ]
 				
 	# Update SNS topics with arn
 	for deployed_sns_topic in deployed_sns_topics:
@@ -5007,7 +5005,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				credentials,
 				sqs_queue_trigger[ "sqs_queue_trigger" ][ "arn" ],
 				sqs_queue_trigger[ "target_lambda" ][ "arn" ],
-				sqs_queue_trigger[ "sqs_queue_trigger" ][ "batch_size" ]
+				int( sqs_queue_trigger[ "sqs_queue_trigger" ][ "batch_size" ] )
 			)
 		)
 	

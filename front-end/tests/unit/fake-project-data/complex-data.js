@@ -29,9 +29,7 @@ export default {
     },
     {
       name: 'Debug Queue',
-      queue_name: 'Debug Queue',
       batch_size: 1,
-      content_based_deduplication: true,
       type: 'sqs_queue',
       id: 'nf3929bb9d27a49e09bcc93c372cf9be9'
     },

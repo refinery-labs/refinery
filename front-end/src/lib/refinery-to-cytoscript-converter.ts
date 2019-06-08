@@ -5,7 +5,7 @@ import {
   RefineryProject,
   ScheduleTriggerWorkflowState,
   SnsTopicWorkflowState,
-  SqsQueueWorkflow,
+  SqsQueueWorkflowState,
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
@@ -62,7 +62,7 @@ export const workflowStateTypeToConverter: WorkflowStateTypeConverterLookup = {
     WorkflowStateType.SCHEDULE_TRIGGER
   ),
   [WorkflowStateType.SNS_TOPIC]: classOnlyConverter<SnsTopicWorkflowState>(WorkflowStateType.SNS_TOPIC),
-  [WorkflowStateType.SQS_QUEUE]: classOnlyConverter<SqsQueueWorkflow>(WorkflowStateType.SQS_QUEUE)
+  [WorkflowStateType.SQS_QUEUE]: classOnlyConverter<SqsQueueWorkflowState>(WorkflowStateType.SQS_QUEUE)
 };
 
 export function generateCytoscapeElements(project: RefineryProject): ElementsDefinition {
