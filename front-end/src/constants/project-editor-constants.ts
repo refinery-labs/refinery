@@ -40,7 +40,7 @@ export const blockTypeToImageLookup: BlockTypeConfig = {
   },
   [WorkflowStateType.API_GATEWAY_RESPONSE]: {
     path: require('../../public/img/node-icons/api-gateway.png'),
-    name: 'API Gateway Response Block',
+    name: 'API Endpoint Response Block',
     description:
       'Returns the output from a Lambda Block to the web request started by the API Endpoint block. ' +
       'Must be downstream from an API Endpoint block, ' +
@@ -320,12 +320,16 @@ export const API_ENDPOINT_BLOCK_DEFAULT_STATE = {
   type: WorkflowStateType.API_ENDPOINT
 };
 
+export const API_GATEWAY_RESPONSE_BLOCK_DEFAULT_STATE = {
+  type: WorkflowStateType.API_GATEWAY_RESPONSE
+};
+
 export type BlockTypeToDefaultState = { [key in WorkflowStateType]: Object };
 
 export const blockTypeToDefaultStateMapping: BlockTypeToDefaultState = {
   [WorkflowStateType.LAMBDA]: CODE_BLOCK_DEFAULT_STATE,
   [WorkflowStateType.SQS_QUEUE]: QUEUE_BLOCK_DEFAULT_STATE,
-  [WorkflowStateType.API_GATEWAY_RESPONSE]: {},
+  [WorkflowStateType.API_GATEWAY_RESPONSE]: API_GATEWAY_RESPONSE_BLOCK_DEFAULT_STATE,
   [WorkflowStateType.API_ENDPOINT]: API_ENDPOINT_BLOCK_DEFAULT_STATE,
   [WorkflowStateType.SCHEDULE_TRIGGER]: SCHEDULE_EXPRESSION_BLOCK_DEFAULT_STATE,
   [WorkflowStateType.SNS_TOPIC]: TOPIC_BLOCK_DEFAULT_STATE,

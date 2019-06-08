@@ -1,9 +1,9 @@
 /**
  * Setting store to control layout behavior
  */
-import { Module } from 'vuex';
+import {Module} from 'vuex';
 import uuid from 'uuid/v4';
-import { ProjectViewState, RootState } from '@/store/store-types';
+import {ProjectViewState, RootState} from '@/store/store-types';
 import {
   CyElements,
   CyStyle,
@@ -14,12 +14,12 @@ import {
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import { generateCytoscapeElements, generateCytoscapeStyle } from '@/lib/refinery-to-cytoscript-converter';
-import { LayoutOptions } from 'cytoscape';
+import {generateCytoscapeElements, generateCytoscapeStyle} from '@/lib/refinery-to-cytoscript-converter';
+import {LayoutOptions} from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
-import { ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
-import { getApiClient } from '@/store/fetchers/refinery-api';
-import { API_ENDPOINT } from '@/constants/api-constants';
+import {ProjectViewActions, ProjectViewMutators} from '@/constants/store-constants';
+import {getApiClient} from '@/store/fetchers/refinery-api';
+import {API_ENDPOINT} from '@/constants/api-constants';
 import {
   GetProjectConfigRequest,
   GetProjectConfigResponse,
@@ -42,14 +42,15 @@ import {
   unwrapProjectJson,
   wrapJson
 } from '@/utils/project-helpers';
-import {
-  blockTypeToDefaultStateMapping,
-  blockTypeToImageLookup,
-  CODE_BLOCK_DEFAULT_STATE
-} from '@/constants/project-editor-constants';
-import EditBlockPaneModule, { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
-import { createToast } from '@/utils/toasts-utils';
-import { ToastVariant } from '@/types/toasts-types';
+import {blockTypeToDefaultStateMapping, blockTypeToImageLookup} from '@/constants/project-editor-constants';
+import EditBlockPaneModule, {EditBlockActions} from '@/store/modules/panes/edit-block-pane';
+import {createToast} from '@/utils/toasts-utils';
+import {ToastVariant} from '@/types/toasts-types';
+
+interface AddBlockArguments {
+  rawBlockType: string;
+  selectAfterAdding: boolean,
+}
 
 const moduleState: ProjectViewState = {
   openedProject: null,
@@ -526,9 +527,25 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
     },
-
-    // Add Block Pane
     async [ProjectViewActions.addBlock](context, rawBlockType: string) {
+      let blocks_to_add: string[] = [
+        rawBlockType
+      ];
+      if (rawBlockType === WorkflowStateType.API_ENDPOINT) {
+        blocks_to_add.push(WorkflowStateType.API_GATEWAY_RESPONSE);
+      }
+
+      var firstBlockSelect:boolean = true;
+      for (let i: number = 0; i < blocks_to_add.length; i++) {
+        await context.dispatch(ProjectViewActions._addBlock, {
+          "rawBlockType": blocks_to_add[i],
+          "selectAfterAdding": firstBlockSelect,
+        });
+        firstBlockSelect = false;
+      }
+    },
+    // Add Block Pane
+    async [ProjectViewActions._addBlock](context, addBlockArgs: AddBlockArguments) {
       // Call this, for sure
       // await context.dispatch(ProjectViewActions.updateAvailableTransitions)
 
@@ -540,24 +557,36 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       const openedProject = context.state.openedProject as RefineryProject;
 
-      if (rawBlockType === 'saved_lambda') {
+      if (addBlockArgs.rawBlockType === 'saved_lambda') {
         await context.dispatch(ProjectViewActions.addSavedBlock);
         return;
       }
 
       // Catches the case of "unknown" block types causing craziness later!
-      if (!Object.values(WorkflowStateType).includes(rawBlockType)) {
+      if (!Object.values(WorkflowStateType).includes(addBlockArgs.rawBlockType)) {
         console.error('Unknown block type requested to be added!');
+        console.error(addBlockArgs.rawBlockType);
         return;
       }
 
-      const blockType = rawBlockType as WorkflowStateType;
+      const blockType = addBlockArgs.rawBlockType as WorkflowStateType;
+
+      // Special casing for the API Response block which should never
+      // have it's name changed. Certain blocks will likely make sense for this.
+      const immutable_names: WorkflowStateType[] = [
+        WorkflowStateType.API_GATEWAY_RESPONSE
+      ];
+
+      let newBlockName: string = `Untitled ${blockTypeToImageLookup[blockType].name}`
+      if( immutable_names.includes( blockType ) ) {
+        newBlockName = blockTypeToImageLookup[blockType].name;
+      }
 
       const newBlock: WorkflowState = {
         ...blockTypeToDefaultStateMapping[blockType],
         id: uuid(),
         // TODO: Make this use a friendly human name
-        name: `New ${blockTypeToImageLookup[blockType].name}`,
+        name: newBlockName,
         type: blockType
       };
 
@@ -581,8 +610,10 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       });
 
       await context.dispatch(ProjectViewActions.updateProject, params);
-      await context.dispatch(ProjectViewActions.selectNode, newBlock.id);
-      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
+      if (addBlockArgs.selectAfterAdding) {
+        await context.dispatch(ProjectViewActions.selectNode, newBlock.id);
+        await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
+      }
     },
     async [ProjectViewActions.addSavedBlock](context) {
       // TODO: Set pane to search

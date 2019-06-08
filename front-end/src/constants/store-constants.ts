@@ -55,6 +55,7 @@ export enum ProjectViewActions {
   openRightSidebarPane = 'openRightSidebarPane',
   resetProjectState = 'resetProjectState',
   addBlock = 'addBlock',
+  _addBlock = '_addBlock',
   addSavedBlock = 'addSavedBlock',
   updateExistingBlock = 'updateExistingBlock',
   addTransition = 'addTransition',
