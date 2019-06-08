@@ -528,17 +528,17 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
     },
     async [ProjectViewActions.addBlock](context, rawBlockType: string) {
-      let blocks_to_add: string[] = [
+      let blocksToAdd: string[] = [
         rawBlockType
       ];
       if (rawBlockType === WorkflowStateType.API_ENDPOINT) {
-        blocks_to_add.push(WorkflowStateType.API_GATEWAY_RESPONSE);
+        blocksToAdd.push(WorkflowStateType.API_GATEWAY_RESPONSE);
       }
 
       var firstBlockSelect:boolean = true;
-      for (let i: number = 0; i < blocks_to_add.length; i++) {
+      for (let i: number = 0; i < blocksToAdd.length; i++) {
         await context.dispatch(ProjectViewActions._addBlock, {
-          "rawBlockType": blocks_to_add[i],
+          "rawBlockType": blocksToAdd[i],
           "selectAfterAdding": firstBlockSelect,
         });
         firstBlockSelect = false;
