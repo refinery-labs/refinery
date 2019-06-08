@@ -3,6 +3,7 @@ import { ActiveSidebarPaneToContainerMapping, SIDEBAR_PANE } from '@/types/proje
 import AddBlockPane from '@/components/ProjectEditor/AddBlockPane';
 import AddTransitionPane from '@/components/ProjectEditor/AddTransitionPane';
 import EditBlockPane from '@/components/ProjectEditor/EditBlockPane';
+import {HTTP_METHOD} from "@/constants/api-constants";
 
 export const BlockSelectionType = {
   ...WorkflowStateType,
@@ -313,13 +314,19 @@ export const QUEUE_BLOCK_DEFAULT_STATE = {
   type: WorkflowStateType.SQS_QUEUE
 };
 
+export const API_ENDPOINT_BLOCK_DEFAULT_STATE = {
+  api_path: "/",
+  http_method: HTTP_METHOD.GET,
+  type: WorkflowStateType.API_ENDPOINT
+};
+
 export type BlockTypeToDefaultState = { [key in WorkflowStateType]: Object };
 
 export const blockTypeToDefaultStateMapping: BlockTypeToDefaultState = {
   [WorkflowStateType.LAMBDA]: CODE_BLOCK_DEFAULT_STATE,
   [WorkflowStateType.SQS_QUEUE]: QUEUE_BLOCK_DEFAULT_STATE,
   [WorkflowStateType.API_GATEWAY_RESPONSE]: {},
-  [WorkflowStateType.API_ENDPOINT]: {},
+  [WorkflowStateType.API_ENDPOINT]: API_ENDPOINT_BLOCK_DEFAULT_STATE,
   [WorkflowStateType.SCHEDULE_TRIGGER]: SCHEDULE_EXPRESSION_BLOCK_DEFAULT_STATE,
   [WorkflowStateType.SNS_TOPIC]: TOPIC_BLOCK_DEFAULT_STATE,
   [WorkflowStateType.API_GATEWAY]: {}
