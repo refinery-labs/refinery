@@ -54,7 +54,31 @@ if (isDevelopment) {
   // plugins.push(ActionLoggerPlugin);
 }
 
+/**
+ * This logic is used to guard the app navigation and prevent problems from occurring.
+ * When navigation occurs, we will show a modal to the user.
+ * @param state Root state of the store.
+ * @return If true, do not allow the app to navigate.
+ */
+function isUnsafeToNavigate(state: RootState) {
+  const isStateDirty = state.project.editBlockPane && state.project.editBlockPane.isStateDirty;
+  return state.project.hasProjectBeenModified || isStateDirty;
+}
+
+/**
+ * This logic is used to "freeze" the app while a dangerous operation is taking place.
+ * @param state Root state of the store.
+ * @return If true, show the app as "busy".
+ */
+function isAppBusy(state: RootState) {
+  return state.project.isDeployingProject;
+}
+
 export default new Vuex.Store<RootState>({
+  getters: {
+    isUnsafeToNavigate,
+    isAppBusy
+  },
   mutations: {},
   actions: {},
   modules: {
