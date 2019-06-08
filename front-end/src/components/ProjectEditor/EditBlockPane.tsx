@@ -11,6 +11,7 @@ import {
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
+import {FormProps, languageToAceLangMap} from '@/types/project-editor-types';
 
 const editBlock = namespace('project/editBlockPane');
 
@@ -100,27 +101,6 @@ export class BlockNameInput extends Vue {
     );
   }
 }
-
-export interface FormProps {
-  [index: string]: any;
-
-  idPrefix: string;
-  description: string;
-  placeholder: string;
-  name: string;
-  type?: string;
-  value: any;
-  on: { change: Function };
-}
-
-export type LanguageToAceLang = { [key in SupportedLanguage]: string };
-
-export const languageToAceLangMap: LanguageToAceLang = {
-  [SupportedLanguage.NODEJS_8]: 'javascript',
-  [SupportedLanguage.PYTHON_2]: 'python',
-  [SupportedLanguage.GO1_12]: 'golang',
-  [SupportedLanguage.PHP7]: 'php'
-};
 
 @Component
 export class EditTopicBlock extends Vue {

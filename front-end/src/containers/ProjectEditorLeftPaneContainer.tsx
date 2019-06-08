@@ -34,8 +34,8 @@ export default class ProjectEditorLeftPaneContainer extends Vue {
 
     return (
       <div class={containerClasses}>
-        <div class="modal-dialog editor-pane-instance__modal-dialog" role="document">
-          <div class="modal-content">
+        <div class="editor-pane-instance__modal-dialog" role="document">
+          <div class="display--flex flex-direction--column editor-pane-instance__modal-content">
             <div class={headerClasses}>
               <h4 class="modal-title">{paneTypeToWindowNameLookup[this.activeLeftSidebarPane]}</h4>
               <button

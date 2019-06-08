@@ -113,13 +113,13 @@ const router = new Router({
             // View deployment by ID
             {
               path: 'd/:deploymentId',
+              name: 'deployment',
               component: OpenedWorkflowWrapper,
 
               children: [
                 // Overview of deployment
                 {
                   path: '',
-                  name: 'deployment',
                   component: ViewProjectDeployment
                 },
                 // Edit deployment

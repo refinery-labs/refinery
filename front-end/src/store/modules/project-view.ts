@@ -1,9 +1,9 @@
 /**
  * Setting store to control layout behavior
  */
-import { Module } from 'vuex';
+import {Module} from 'vuex';
 import uuid from 'uuid/v4';
-import { ProjectViewState, RootState } from '@/store/store-types';
+import {ProjectViewState, RootState} from '@/store/store-types';
 import {
   CyElements,
   CyStyle,
@@ -14,13 +14,16 @@ import {
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import { generateCytoscapeElements, generateCytoscapeStyle } from '@/lib/refinery-to-cytoscript-converter';
-import { LayoutOptions } from 'cytoscape';
+import {generateCytoscapeElements, generateCytoscapeStyle} from '@/lib/refinery-to-cytoscript-converter';
+import {LayoutOptions} from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
-import { ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
-import { getApiClient } from '@/store/fetchers/refinery-api';
-import { API_ENDPOINT } from '@/constants/api-constants';
+import {ProjectViewActions, ProjectViewGetters, ProjectViewMutators} from '@/constants/store-constants';
+import {getApiClient, makeApiRequest} from '@/store/fetchers/refinery-api';
+import {API_ENDPOINT} from '@/constants/api-constants';
 import {
+  DeleteDeploymentsInProjectRequest, DeleteDeploymentsInProjectResponse, DeployDiagramRequest, DeployDiagramResponse,
+  GetLatestProjectDeploymentRequest,
+  GetLatestProjectDeploymentResponse,
   GetProjectConfigRequest,
   GetProjectConfigResponse,
   GetSavedProjectRequest,
@@ -42,14 +45,11 @@ import {
   unwrapProjectJson,
   wrapJson
 } from '@/utils/project-helpers';
-import {
-  blockTypeToDefaultStateMapping,
-  blockTypeToImageLookup,
-  CODE_BLOCK_DEFAULT_STATE
-} from '@/constants/project-editor-constants';
-import EditBlockPaneModule, { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
-import { createToast } from '@/utils/toasts-utils';
-import { ToastVariant } from '@/types/toasts-types';
+import {blockTypeToDefaultStateMapping, blockTypeToImageLookup} from '@/constants/project-editor-constants';
+import EditBlockPaneModule, {EditBlockActions} from '@/store/modules/panes/edit-block-pane';
+import {createToast} from '@/utils/toasts-utils';
+import {ToastVariant} from '@/types/toasts-types';
+import router from '@/router';
 
 const moduleState: ProjectViewState = {
   openedProject: null,
@@ -60,6 +60,7 @@ const moduleState: ProjectViewState = {
 
   isLoadingProject: true,
   isProjectBusy: false,
+  isDeployingProject: false,
   hasProjectBeenModified: false,
 
   leftSidebarPaneState: {
@@ -67,6 +68,7 @@ const moduleState: ProjectViewState = {
     [SIDEBAR_PANE.addTransition]: {},
     [SIDEBAR_PANE.allBlocks]: {},
     [SIDEBAR_PANE.allVersions]: {},
+    [SIDEBAR_PANE.exportProject]: {},
     [SIDEBAR_PANE.deployProject]: {},
     [SIDEBAR_PANE.saveProject]: {},
     [SIDEBAR_PANE.editBlock]: {},
@@ -74,6 +76,10 @@ const moduleState: ProjectViewState = {
   },
   activeLeftSidebarPane: null,
   activeRightSidebarPane: null,
+
+  // Deployment State
+  latestDeploymentState: null,
+  deploymentError: null,
 
   // Shared Graph State
   selectedResource: null,
@@ -102,7 +108,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
   },
   state: moduleState,
   getters: {
-    transitionAddButtonEnabled: state => {
+    [ProjectViewGetters.transitionAddButtonEnabled]: state => {
       if (!state.availableTransitions) {
         return false;
       }
@@ -113,12 +119,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
      * Returns the list of "next" valid blocks to select
      * @param state Vuex state object
      */
-    getValidBlockToBlockTransitions: state => getValidBlockToBlockTransitions(state),
+    [ProjectViewGetters.getValidBlockToBlockTransitions]: state => getValidBlockToBlockTransitions(state),
     /**
      * Returns which menu items are able to be displayed by the Add Transition pane
      * @param state Vuex state object
      */
-    getValidMenuDisplayTransitionTypes: state => {
+    [ProjectViewGetters.getValidMenuDisplayTransitionTypes]: state => {
       if (!state.availableTransitions) {
         // Return an empty list because our state is invalid, but we also hate null types :)
         return [];
@@ -144,7 +150,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // There are no valid transitions available
       return [];
     },
-    canSaveProject: state => state.hasProjectBeenModified && !state.isProjectBusy && !state.isAddingTransitionCurrently
+    [ProjectViewGetters.canSaveProject]: state => state.hasProjectBeenModified && !state.isProjectBusy && !state.isAddingTransitionCurrently,
+    [ProjectViewGetters.canDeployProject]: state =>
+      !state.hasProjectBeenModified && !state.isProjectBusy && !state.isAddingTransitionCurrently
   },
   mutations: {
     [ProjectViewMutators.setOpenedProject](state, project: RefineryProject) {
@@ -159,7 +167,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     [ProjectViewMutators.setOpenedProjectConfigOriginal](state, config: ProjectConfig) {
       state.openedProjectConfigOriginal = unwrapJson<ProjectConfig>(wrapJson(config));
     },
-
+    [ProjectViewMutators.isDeployingProject](state, value: boolean) {
+      state.isDeployingProject = value;
+    },
     [ProjectViewMutators.isLoadingProject](state, value: boolean) {
       state.isLoadingProject = value;
     },
@@ -183,6 +193,14 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
     [ProjectViewMutators.setCytoscapeConfig](state, config: cytoscape.CytoscapeOptions) {
       state.cytoscapeConfig = config;
+    },
+
+    // Deployment Logic
+    [ProjectViewMutators.setLatestDeploymentState](state, response: GetLatestProjectDeploymentResponse | null) {
+      state.latestDeploymentState = response;
+    },
+    [ProjectViewMutators.setDeploymentError](state, error: string | null) {
+      state.deploymentError = error;
     },
 
     // Pane Logic
@@ -352,6 +370,119 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       context.commit(ProjectViewMutators.isProjectBusy, true);
     },
+    async [ProjectViewActions.fetchLatestDeploymentState](context) {
+      if (!context.state.openedProject) {
+        console.error('Tried to fetch project deploy status without opened project');
+        return;
+      }
+
+      const openedProject = context.state.openedProject as RefineryProject;
+
+      const latestDeploymentResponse = await makeApiRequest<GetLatestProjectDeploymentRequest, GetLatestProjectDeploymentResponse>(
+        API_ENDPOINT.GetLatestProjectDeployment,
+        {
+          project_id: openedProject.project_id
+        }
+      );
+
+      context.commit(ProjectViewMutators.setLatestDeploymentState, latestDeploymentResponse);
+    },
+    async [ProjectViewActions.deployProject](context) {
+      const handleDeploymentError = async (message: string) => {
+        context.commit(ProjectViewMutators.isDeployingProject, false);
+        console.error(message);
+        await createToast(context.dispatch, {
+          title: 'Deployment Error',
+          content: message,
+          variant: ToastVariant.danger
+        });
+      };
+
+      if (!context.state.openedProject || !context.state.openedProjectConfig || !context.getters[ProjectViewGetters.canDeployProject]) {
+        console.error('Tried to deploy project but should not have been enabled');
+        return;
+      }
+
+      context.commit(ProjectViewMutators.setDeploymentError, null);
+      context.commit(ProjectViewMutators.isDeployingProject, true);
+
+      const openedProject = context.state.openedProject as RefineryProject;
+
+      if (!context.state.latestDeploymentState) {
+        return await handleDeploymentError('Missing latest project deployment information');
+      }
+
+      if (context.state.latestDeploymentState.deployment_json) {
+        const deleteDeploymentResponse = await makeApiRequest<DeleteDeploymentsInProjectRequest, DeleteDeploymentsInProjectResponse>(
+          API_ENDPOINT.DeleteDeploymentsInProject,
+          {
+            project_id: openedProject.project_id
+          }
+        );
+
+        if (!deleteDeploymentResponse) {
+          return await handleDeploymentError('Unable to delete existing deployment.');
+        }
+      }
+
+      const projectJson = wrapJson(openedProject);
+
+      if (!projectJson) {
+        return await handleDeploymentError('Unable to send project to server.');
+      }
+
+      const createDeploymentResponse = await makeApiRequest<DeployDiagramRequest, DeployDiagramResponse>(
+        API_ENDPOINT.DeployDiagram,
+        {
+          diagram_data: projectJson,
+          project_config: context.state.openedProjectConfig,
+          project_id: context.state.openedProject.project_id,
+          project_name: context.state.openedProject.name
+        }
+      );
+
+      if (!createDeploymentResponse) {
+        return await handleDeploymentError('Unable to create new deployment.');
+      }
+
+      context.commit(ProjectViewMutators.isDeployingProject, false);
+
+      router.push({
+        name: 'deployment',
+        params: {
+          projectId: openedProject.project_id
+        }
+      });
+    },
+    async [ProjectViewActions.showDeploymentPane](context) {
+      if (!context.state.openedProject || !context.getters[ProjectViewGetters.canDeployProject]) {
+        console.error('Tried to show deployment pane with missing state');
+        context.commit(ProjectViewMutators.setDeploymentError, 'Error: Invalid state for Deployment');
+        return;
+      }
+
+      context.commit(ProjectViewMutators.setDeploymentError, null);
+
+      await context.dispatch(ProjectViewActions.fetchLatestDeploymentState);
+
+      if (!context.state.latestDeploymentState) {
+        context.commit(ProjectViewMutators.isDeployingProject, false);
+        const message = 'Unable to retrieve latest project deployment information';
+        console.error(message);
+        await createToast(context.dispatch, {
+          title: 'Deployment Error',
+          content: message,
+          variant: ToastVariant.danger
+        });
+        return;
+      }
+    },
+    async [ProjectViewActions.resetDeploymentPane](context) {
+      context.commit(ProjectViewMutators.setLatestDeploymentState, null);
+      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
+      context.commit(ProjectViewMutators.setDeploymentError, null);
+    },
+
     async [ProjectViewActions.clearSelection](context) {
       if (context.state.isAddingTransitionCurrently) {
         return;
@@ -480,6 +611,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Or have the ProjectEditorLeftPaneContainer fire a callback on the child component?
       // That also feels wrong because it violates to "one direction" principal, in a way.
       context.commit(ProjectViewMutators.setLeftSidebarPane, leftSidebarPaneType);
+
+      if (leftSidebarPaneType === SIDEBAR_PANE.deployProject) {
+        // TODO: Is this better inside of a `mounted` hook?
+        await context.dispatch(ProjectViewActions.showDeploymentPane);
+        return;
+      }
     },
     [ProjectViewActions.closePane](context, pos: PANE_POSITION) {
       if (pos === PANE_POSITION.left) {

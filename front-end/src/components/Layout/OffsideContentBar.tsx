@@ -18,7 +18,8 @@ export default class OffsideContentBar extends Vue {
 
   @Watch('$route', { deep: true })
   private elementsModified(val: Route, oldVal: Route) {
-    this.toggleGlobalNavOff();
+    // Don't do this anymore because it causes a double hit to occur.
+    // this.toggleGlobalNavOff();
   }
 
   public toggleGlobalNavOff() {
@@ -31,8 +32,6 @@ export default class OffsideContentBar extends Vue {
     if (!sidebarElement) {
       return;
     }
-
-    // const sidebarHtmlElement = sidebarElement as HTMLElement;
 
     // unhide offsidebar on mounted
     sidebarElement.classList.remove('d-none');
