@@ -49,10 +49,6 @@ import {blockTypeToDefaultStateMapping, blockTypeToImageLookup} from '@/constant
 import EditBlockPaneModule, {EditBlockActions} from '@/store/modules/panes/edit-block-pane';
 import {createToast} from '@/utils/toasts-utils';
 import {ToastVariant} from '@/types/toasts-types';
-interface AddBlockArguments {
-  rawBlockType: string;
-  selectAfterAdding: boolean,
-}
 import router from '@/router';
 
 const moduleState: ProjectViewState = {
@@ -328,8 +324,17 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       context.commit(ProjectViewMutators.setCytoscapeStyle, stylesheet);
     },
     async [ProjectViewActions.saveProject](context) {
+      const handleSaveError = async (message: string) => {
+        context.commit(ProjectViewMutators.isProjectBusy, false);
+        console.error(message);
+        await createToast(context.dispatch, {
+          title: 'Save Error',
+          content: message,
+          variant: ToastVariant.danger
+        });
+      };
       if (!context.state.openedProject || !context.state.openedProjectConfig || !context.state.hasProjectBeenModified) {
-        console.error('Project attempted to be saved but it was not in a valid state');
+        await handleSaveError('Project attempted to be saved but it was not in a valid state');
         return;
       }
 
@@ -356,7 +361,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const response = (await saveProjectApiClient(request)) as SaveProjectResponse;
 
       if (!response.success) {
-        console.error('Unable to save project!');
+        await handleSaveError('Unable to save project: server failure.');
         return;
       }
 
@@ -372,7 +377,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       await context.dispatch('updateProject', params);
 
-      context.commit(ProjectViewMutators.isProjectBusy, true);
+      context.commit(ProjectViewMutators.isProjectBusy, false);
     },
     async [ProjectViewActions.fetchLatestDeploymentState](context) {
       if (!context.state.openedProject) {
@@ -667,23 +672,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
     },
-    async [ProjectViewActions.addBlock](context, rawBlockType: string) {
-      const addBlockWithType = async (addBlockArgs: AddBlockArguments) => await context.dispatch(ProjectViewActions.addIndividualBlock, addBlockArgs);
 
-      await addBlockWithType({
-         rawBlockType,
-         selectAfterAdding: true
-      });
-
-      if (rawBlockType === WorkflowStateType.API_ENDPOINT) {
-        await addBlockWithType({
-          rawBlockType: WorkflowStateType.API_GATEWAY_RESPONSE,
-          selectAfterAdding: false
-        });
-      }
-    },
     // Add Block Pane
-    async [ProjectViewActions.addIndividualBlock](context, addBlockArgs: AddBlockArguments) {
+    async [ProjectViewActions.addBlock](context, rawBlockType: string) {
       // Call this, for sure
       // await context.dispatch(ProjectViewActions.updateAvailableTransitions)
 
@@ -695,35 +686,24 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       const openedProject = context.state.openedProject as RefineryProject;
 
-      if (addBlockArgs.rawBlockType === 'saved_lambda') {
+      if (rawBlockType === 'saved_lambda') {
         await context.dispatch(ProjectViewActions.addSavedBlock);
         return;
       }
 
       // Catches the case of "unknown" block types causing craziness later!
-      if (!Object.values(WorkflowStateType).includes(addBlockArgs.rawBlockType)) {
-        console.error('Unknown block type requested to be added!', addBlockArgs.rawBlockType);
+      if (!Object.values(WorkflowStateType).includes(rawBlockType)) {
+        console.error('Unknown block type requested to be added!');
         return;
       }
 
-      const blockType = addBlockArgs.rawBlockType as WorkflowStateType;
-
-      // Special casing for the API Response block which should never
-      // have it's name changed. Certain blocks will likely make sense for this.
-      const immutable_names: WorkflowStateType[] = [
-        WorkflowStateType.API_GATEWAY_RESPONSE
-      ];
-
-      let newBlockName: string = `Untitled ${blockTypeToImageLookup[blockType].name}`
-      if( immutable_names.includes( blockType ) ) {
-        newBlockName = blockTypeToImageLookup[blockType].name;
-      }
+      const blockType = rawBlockType as WorkflowStateType;
 
       const newBlock: WorkflowState = {
         ...blockTypeToDefaultStateMapping[blockType],
         id: uuid(),
         // TODO: Make this use a friendly human name
-        name: newBlockName,
+        name: `New ${blockTypeToImageLookup[blockType].name}`,
         type: blockType
       };
 
@@ -747,10 +727,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       });
 
       await context.dispatch(ProjectViewActions.updateProject, params);
-      if (addBlockArgs.selectAfterAdding) {
-        await context.dispatch(ProjectViewActions.selectNode, newBlock.id);
-        await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
-      }
+      await context.dispatch(ProjectViewActions.selectNode, newBlock.id);
+      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
     },
     async [ProjectViewActions.addSavedBlock](context) {
       // TODO: Set pane to search

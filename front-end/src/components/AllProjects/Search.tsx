@@ -160,10 +160,10 @@ export default class Search extends Vue {
               <div>
                 <h4 class="m-0">{project.name}</h4>
                 <small class="text-muted">Last updated {durationSinceUpdated}</small>
-                <p>
-                  If I had a description, this is where I would put it! Thanks, Mandatory. This is why we can't have
-                  nice things.
-                </p>
+                {/*<p>*/}
+                {/*  If I had a description, this is where I would put it! Thanks, Mandatory. This is why we can't have*/}
+                {/*  nice things.*/}
+                {/*</p>*/}
               </div>
               <div class="ml-auto">
                 <b-button variant="danger" on={{ click: () => this.startDeleteProject(project) }}>

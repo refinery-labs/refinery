@@ -18,6 +18,7 @@ import ProjectNotFound from '@/views/ProjectsNestedViews/ProjectNotFound';
 import LoginPage from '@/views/Authentication/LoginPage';
 import { UserMutators } from '@/constants/store-constants';
 import RegistrationPage from '@/views/Authentication/RegistrationPage';
+import HelpPage from '@/views/Help';
 
 Vue.use(Router);
 
@@ -106,14 +107,13 @@ const router = new Router({
             // View all deployments for project
             {
               path: 'deployments',
-              name: 'allDeployments',
+              name: 'deployment',
               // View all deployments
               component: ProjectDeployments
             },
             // View deployment by ID
             {
               path: 'd/:deploymentId',
-              name: 'deployment',
               component: OpenedWorkflowWrapper,
 
               children: [
@@ -157,7 +157,7 @@ const router = new Router({
         {
           path: baseLinks.help,
           name: 'help',
-          component: Marketplace
+          component: HelpPage
         },
         {
           path: baseLinks.admin,
