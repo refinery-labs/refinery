@@ -730,9 +730,37 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.selectNode, newBlock.id);
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
     },
+    async [ProjectViewActions.deleteExistingTransition](context, transition: WorkflowRelationship) {
+
+      // This should not happen
+      if (!context.state.openedProject) {
+        console.error('Tried to delete a transition but no project was open!');
+        return;
+      }
+
+      const openedProject = context.state.openedProject as RefineryProject;
+
+      const otherTransitions = JSON.parse(
+        JSON.stringify(
+          openedProject.workflow_relationships.filter(wfs => wfs.id !== transition.id)
+        )
+      );
+
+      // TODO: Probably pull this out into a helper function
+      const params: OpenProjectMutation = {
+        project: {
+          ...openedProject,
+          workflow_relationships: otherTransitions
+        },
+        config: null,
+        markAsDirty: true
+      };
+
+      await context.dispatch(ProjectViewActions.updateProject, params);
+    },
     async [ProjectViewActions.deleteExistingBlock](context, node: WorkflowState) {
       // Delete an existing block from the WorkflowStates
-      console.log( "Delete block:" );
+      console.log("Delete block:");
       console.log(node);
 
       // This should not happen

@@ -35,6 +35,14 @@ export function findTransitionsBetweenNodes(fromNode: WorkflowState, toNode: Wor
   };
 }
 
+export function getTransitionsForNode( project: RefineryProject, node: WorkflowState ) {
+  const connectionTransitions = project.workflow_relationships.filter(transition => (
+    transition.next === node.id || transition.node === node.id
+  ));
+
+  return connectionTransitions;
+}
+
 export function getValidTransitionsForNode(
   project: RefineryProject,
   fromNode: WorkflowState
