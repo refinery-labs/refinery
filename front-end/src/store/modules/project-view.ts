@@ -524,7 +524,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      const node = nodes[0];
+      const node = JSON.parse(JSON.stringify(nodes[0]));
 
       context.commit(ProjectViewMutators.selectedResource, node.id);
 
@@ -742,7 +742,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       const openedProject = context.state.openedProject as RefineryProject;
 
-      const otherBlocks = openedProject.workflow_states.filter(wfs => wfs.id !== node.id);
+      const otherBlocks = JSON.parse(JSON.stringify(openedProject.workflow_states.filter(wfs => wfs.id !== node.id)));
 
       if (otherBlocks.length === openedProject.workflow_states.length) {
         await createToast(context.dispatch, {
@@ -753,7 +753,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      otherBlocks.push(node);
+      otherBlocks.push(JSON.parse(JSON.stringify(node)));
 
       // TODO: Probably pull this out into a helper function
       const params: OpenProjectMutation = {

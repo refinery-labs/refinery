@@ -253,7 +253,7 @@ export class EditScheduleTriggerBlock extends Vue {
 
   public renderCodeEditor(id: string) {
     const editorProps = {
-      'editor-id': `editor-${this.selectedNode.id}-${id}`,
+      'editor-id': `schedule-trigger-editor-${this.selectedNode.id}-${id}`,
       lang: 'text',
       theme: 'monokai',
       content: this.selectedNode.input_string,
@@ -347,7 +347,7 @@ export class EditLambdaBlock extends Vue {
 
   public renderCodeEditor(id: string) {
     const editorProps = {
-      'editor-id': `editor-${this.selectedNode.id}-${id}`,
+      'editor-id': `code-editor-${this.selectedNode.id}-${id}`,
       lang: languageToAceLangMap[this.selectedNode.language],
       theme: 'monokai',
       content: this.selectedNode.code,

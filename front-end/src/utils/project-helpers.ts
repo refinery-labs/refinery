@@ -16,7 +16,7 @@ export function getNodeDataById(project: RefineryProject, nodeId: string) {
   });
 
   if (results.length > 0) {
-    return results[0];
+    return JSON.parse(JSON.stringify(results[0]));
   }
 
   return null;
