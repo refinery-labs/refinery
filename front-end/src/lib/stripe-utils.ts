@@ -1,6 +1,6 @@
-import {STRIPE_LIB_URL} from '@/constants/user-constants';
+export const STRIPE_LIB_URL = 'https://js.stripe.com/v3/';
 
-function loadScript(src: string) {
+export function loadScript(src: string) {
 
   const scriptTagElement = document.querySelector(`script[src="${src}"]`);
 
