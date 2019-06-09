@@ -166,5 +166,10 @@ export async function makeApiRequest<TReq extends BaseApiRequest, TRes extends B
 ) {
   const client = getApiClient(type);
 
-  return (await client(request)) as TRes;
+  try {
+    return (await client(request)) as TRes;
+  } catch (e) {
+    console.error('Error making API request', e);
+    return null;
+  }
 }

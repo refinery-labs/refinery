@@ -95,7 +95,11 @@ export const paneTypeToNameLookup: EditorPaneTypeToName = {
   [SIDEBAR_PANE.saveProject]: 'Save Project',
   [SIDEBAR_PANE.deployProject]: 'Deploy Project',
   [SIDEBAR_PANE.editBlock]: 'Edit Block',
-  [SIDEBAR_PANE.editTransition]: 'Edit Transition'
+  [SIDEBAR_PANE.editTransition]: 'Edit Transition',
+  [SIDEBAR_PANE.viewApiEndpoints]: 'API Endpoints',
+  [SIDEBAR_PANE.viewExecutions]: 'Block Executions',
+  [SIDEBAR_PANE.viewDeployedBlock]: 'Inspect Deployed Block',
+  [SIDEBAR_PANE.viewDeployedTransition]: 'Inspect Deployed Transition'
 };
 
 export const paneTypeToWindowNameLookup: EditorPaneTypeToName = {
@@ -160,5 +164,24 @@ export const SidebarMenuItems: NavbarItem[] = [
     label: paneTypeToNameLookup[SIDEBAR_PANE.deployProject],
     buttonVariant: 'primary',
     editorPane: SIDEBAR_PANE.deployProject
+  }
+];
+
+export const DeploymentSidebarMenuItems: NavbarItem[] = [
+  {
+    name: paneTypeToNameLookup[SIDEBAR_PANE.viewApiEndpoints],
+    icon: 'icon-list',
+    translate: 'sidebar.nav.VIEW_API_ENDPOINTS',
+    label: paneTypeToNameLookup[SIDEBAR_PANE.viewApiEndpoints],
+    buttonVariant: 'outline-info',
+    editorPane: SIDEBAR_PANE.viewApiEndpoints
+  },
+  {
+    name: paneTypeToNameLookup[SIDEBAR_PANE.viewExecutions],
+    icon: 'icon-organization',
+    translate: 'sidebar.nav.VIEW_EXECUTIONS',
+    label: paneTypeToNameLookup[SIDEBAR_PANE.viewExecutions],
+    buttonVariant: 'outline-info',
+    editorPane: SIDEBAR_PANE.viewExecutions
   }
 ];

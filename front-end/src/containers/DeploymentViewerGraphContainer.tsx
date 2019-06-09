@@ -6,35 +6,24 @@ import { CyElements, CyStyle, RefineryProject, WorkflowRelationship, WorkflowSta
 import { LayoutOptions } from 'cytoscape';
 import { AvailableTransition } from '@/store/store-types';
 
-const project = namespace('project');
+const deployment = namespace('deployment');
 
 @Component
-export default class OpenedProjectGraphContainer extends Vue {
-  @project.State openedProject!: RefineryProject | null;
-  @project.State selectedResource!: string | null;
-  @project.State cytoscapeElements!: CyElements | null;
-  @project.State cytoscapeStyle!: CyStyle | null;
-  @project.State cytoscapeLayoutOptions!: LayoutOptions | null;
-  @project.State cytoscapeConfig!: cytoscape.CytoscapeOptions | null;
+export default class DeploymentViewerGraphContainer extends Vue {
+  @deployment.State selectedResource!: string | null;
+  @deployment.State cytoscapeElements!: CyElements | null;
+  @deployment.State cytoscapeStyle!: CyStyle | null;
+  @deployment.State cytoscapeLayoutOptions!: LayoutOptions | null;
+  @deployment.State cytoscapeConfig!: cytoscape.CytoscapeOptions | null;
 
-  @project.State isLoadingProject!: boolean;
+  @deployment.State isLoadingDeployment!: boolean;
 
-  @project.Getter getValidBlockToBlockTransitions!: AvailableTransition[] | null;
-
-  @project.Action clearSelection!: () => {};
-  @project.Action selectNode!: (element: WorkflowState) => {};
-  @project.Action selectEdge!: (element: WorkflowRelationship) => {};
-
-  public getEnabledNodeIds() {
-    if (!this.getValidBlockToBlockTransitions) {
-      return null;
-    }
-
-    return this.getValidBlockToBlockTransitions.map(v => v.toNode.id);
-  }
+  @deployment.Action clearSelection!: () => {};
+  @deployment.Action selectNode!: (element: WorkflowState) => {};
+  @deployment.Action selectEdge!: (element: WorkflowRelationship) => {};
 
   public render(h: CreateElement): VNode {
-    if (this.isLoadingProject) {
+    if (this.isLoadingDeployment) {
       return <h2>Waiting for data...</h2>;
     }
 
@@ -54,11 +43,11 @@ export default class OpenedProjectGraphContainer extends Vue {
       layout: this.cytoscapeLayoutOptions,
       config: this.cytoscapeConfig,
       selected: this.selectedResource,
-      enabledNodeIds: this.getEnabledNodeIds()
+      enabledNodeIds: null
     };
 
     return (
-      <div class="opened-project-graph-container flex-grow--1">
+      <div class="deployment-viewer-graph-container flex-grow--1">
         <CytoscapeGraph props={graphProps} />
       </div>
     );

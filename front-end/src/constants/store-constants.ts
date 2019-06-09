@@ -84,6 +84,41 @@ export enum ProjectViewActions {
   deleteExistingTransition = 'deleteExistingTransition'
 }
 
+export enum DeploymentViewGetters {
+  hasValidDeployment = 'hasValidDeployment'
+}
+
+export enum DeploymentViewMutators {
+  setOpenedDeployment = 'setOpenedDeployment',
+
+  selectedResource = 'selectedResource',
+  isLoadingDeployment = 'isLoadingDeployment',
+
+  setCytoscapeElements = 'setCytoscapeElements',
+  setCytoscapeStyle = 'setCytoscapeStyle',
+  setCytoscapeLayout = 'setCytoscapeLayout',
+  setCytoscapeConfig = 'setCytoscapeConfig',
+  setLeftSidebarPane = 'setLeftSidebarPane',
+  setRightSidebarPane = 'setRightSidebarPane',
+
+  // View Block Pane
+  setSelectedBlockIndex = 'setSelectedBlockIndex'
+}
+
+export enum DeploymentViewActions {
+  openDeployment = 'openDeployment',
+  updateDeployment = 'updateDeployment',
+  saveDeployment = 'saveDeployment',
+
+  clearSelection = 'clearSelection',
+  selectNode = 'selectNode',
+  selectEdge = 'selectEdge',
+  openLeftSidebarPane = 'openLeftSidebarPane',
+  closePane = 'closePane',
+  openRightSidebarPane = 'openRightSidebarPane',
+  resetDeploymentState = 'resetDeploymentState'
+}
+
 export enum SettingsMutators {
   toggleSetting = 'toggleSetting',
   toggleSettingOff = 'toggleSettingOff',

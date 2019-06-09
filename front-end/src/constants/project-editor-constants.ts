@@ -6,6 +6,10 @@ import EditBlockPane from '@/components/ProjectEditor/EditBlockPane';
 import {HTTP_METHOD} from "@/constants/api-constants";
 import DeployProjectPane from '@/components/ProjectEditor/DeployProjectPane';
 import ExportProjectPane from '@/components/ProjectEditor/ExportProjectPane';
+import ViewApiEndpointsPane from '@/components/DeploymentViewer/ViewApiEndpointsPane';
+import ViewExecutionsPane from '@/components/DeploymentViewer/ViewExecutionsPane';
+import ViewDeployedBlockPane from '@/components/DeploymentViewer/ViewDeployedBlockPane';
+import ViewDeployedTransitionPane from '@/components/DeploymentViewer/ViewDeployedTransitionPane';
 
 export const BlockSelectionType = {
   ...WorkflowStateType,
@@ -347,5 +351,9 @@ export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
   [SIDEBAR_PANE.deployProject]: DeployProjectPane,
   [SIDEBAR_PANE.saveProject]: AddBlockPane,
   [SIDEBAR_PANE.editBlock]: EditBlockPane,
-  [SIDEBAR_PANE.editTransition]: AddBlockPane
+  [SIDEBAR_PANE.editTransition]: AddBlockPane,
+  [SIDEBAR_PANE.viewApiEndpoints]: ViewApiEndpointsPane,
+  [SIDEBAR_PANE.viewExecutions]: ViewExecutionsPane,
+  [SIDEBAR_PANE.viewDeployedBlock]: ViewDeployedBlockPane,
+  [SIDEBAR_PANE.viewDeployedTransition]: ViewDeployedTransitionPane
 };

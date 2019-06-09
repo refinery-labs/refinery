@@ -6,9 +6,9 @@ import UserModule from './modules/user';
 import createPersistedState from 'vuex-persistedstate';
 import ProjectView from './modules/project-view';
 import AllProjects from './modules/all-projects';
-import { RootState, UserInterfaceSettings } from '@/store/store-types';
+import { RootState } from '@/store/store-types';
 import ToastPaneModule from '@/store/modules/toasts';
-import ActionLoggerPlugin from '@/store/plugins/action-logger';
+import DeploymentViewModule from '@/store/modules/deployment-view';
 
 Vue.use(Vuex);
 
@@ -83,6 +83,7 @@ export default new Vuex.Store<RootState>({
   actions: {},
   modules: {
     setting: SettingModule,
+    deployment: DeploymentViewModule,
     project: ProjectView,
     allProjects: AllProjects,
     toasts: ToastPaneModule,
