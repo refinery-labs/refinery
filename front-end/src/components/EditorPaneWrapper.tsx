@@ -6,6 +6,7 @@ import { Prop } from 'vue-property-decorator';
 export default class EditorPaneWrapper extends Vue {
   @Prop() paneTitle!: string;
   @Prop() closePane!: () => void;
+  @Prop() tryToCloseBlock!: () => void;
 
   public renderHeader() {
     const headerClasses = {
@@ -23,7 +24,7 @@ export default class EditorPaneWrapper extends Vue {
           class="close text-white editor-pane-instance__close-button"
           data-dismiss="modal"
           aria-label="Close"
-          on={{ click: this.closePane }}
+          on={{ click: this.tryToCloseBlock }}
         >
           <span aria-hidden="true">&times;</span>
         </button>

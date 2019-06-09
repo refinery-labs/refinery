@@ -79,7 +79,9 @@ export enum ProjectViewActions {
   addTransition = 'addTransition',
   updateAvailableTransitions = 'updateAvailableTransitions',
   cancelAddingTransition = 'cancelAddingTransition',
-  selectTransitionTypeToAdd = 'selectTransitionTypeToAdd'
+  selectTransitionTypeToAdd = 'selectTransitionTypeToAdd',
+  deleteExistingBlock = 'deleteExistingBlock',
+  deleteExistingTransition = 'deleteExistingTransition'
 }
 
 export enum SettingsMutators {

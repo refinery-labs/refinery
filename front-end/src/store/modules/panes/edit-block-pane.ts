@@ -4,11 +4,11 @@ import {
   ApiEndpointWorkflowState,
   LambdaWorkflowState,
   ScheduleTriggerWorkflowState,
-  SqsQueueWorkflowState,
+  SqsQueueWorkflowState, WorkflowRelationship,
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import {getNodeDataById} from '@/utils/project-helpers';
+import {getNodeDataById, getTransitionsForNode} from '@/utils/project-helpers';
 import {createToast} from '@/utils/toasts-utils';
 import {ToastVariant} from '@/types/toasts-types';
 import {ProjectViewActions} from '@/constants/store-constants';
@@ -60,7 +60,7 @@ export enum EditBlockActions {
   tryToCloseBlock = 'tryToCloseBlock',
   cancelAndResetBlock = 'cancelAndResetBlock',
   duplicateBlock = 'duplicateBlock',
-
+  deleteBlock = 'deleteBlock',
   // Code Block specific
   saveCodeBlockToDatabase = 'saveCodeBlockToDatabase'
 }
@@ -246,6 +246,47 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
         content: `Successfully saved changes to block with name: ${context.state.selectedNode.name}`,
         variant: ToastVariant.success
       });
+    },
+    async [EditBlockActions.deleteBlock](context) {
+      const projectStore = context.rootState.project;
+
+      if (!projectStore.openedProject) {
+        console.error('Attempted to open edit block pane without loaded project');
+        return;
+      }
+
+      if (!context.state.selectedNode) {
+        console.error('Unable to perform delete -- state is invalid of edited block');
+        return;
+      }
+
+      // The array of transitions we need to delete
+      const transitions_to_delete: WorkflowRelationship[] = getTransitionsForNode(
+        projectStore.openedProject,
+        context.state.selectedNode
+      );
+
+      // Dispatch an action to delete all of them.
+      await Promise.all(transitions_to_delete.map(async transition => {
+        await context.dispatch(`project/${ProjectViewActions.deleteExistingTransition}`, transition, {
+          root: true
+        });
+      }));
+
+      await context.dispatch(`project/${ProjectViewActions.deleteExistingBlock}`, context.state.selectedNode, {
+        root: true
+      });
+
+      context.commit(EditBlockMutators.setDirtyState, false);
+
+      await createToast(context.dispatch, {
+        title: 'Block deleted!',
+        content: `Successfully deleted block with name: ${context.state.selectedNode.name}`,
+        variant: ToastVariant.success
+      });
+
+      // We need to close the pane and reset the state
+      await context.dispatch(EditBlockActions.cancelAndResetBlock);
     },
     async [EditBlockActions.tryToCloseBlock](context) {
       // If we have changes that we are going to discard, then ask the user to confirm destruction.
