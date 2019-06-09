@@ -1,11 +1,15 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { Prop } from 'vue-property-decorator';
+import {namespace} from "vuex-class";
+
+const editBlock = namespace('project/editBlockPane');
 
 @Component
 export default class EditorPaneWrapper extends Vue {
   @Prop() paneTitle!: string;
   @Prop() closePane!: () => void;
+  @editBlock.Action tryToCloseBlock!: () => void;
 
   public renderHeader() {
     const headerClasses = {
@@ -23,7 +27,7 @@ export default class EditorPaneWrapper extends Vue {
           class="close text-white editor-pane-instance__close-button"
           data-dismiss="modal"
           aria-label="Close"
-          on={{ click: this.closePane }}
+          on={{ click: this.tryToCloseBlock }}
         >
           <span aria-hidden="true">&times;</span>
         </button>

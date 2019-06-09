@@ -60,7 +60,7 @@ export enum EditBlockActions {
   tryToCloseBlock = 'tryToCloseBlock',
   cancelAndResetBlock = 'cancelAndResetBlock',
   duplicateBlock = 'duplicateBlock',
-
+  deleteBlock = 'deleteBlock',
   // Code Block specific
   saveCodeBlockToDatabase = 'saveCodeBlockToDatabase'
 }
@@ -244,6 +244,33 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       await createToast(context.dispatch, {
         title: 'Block saved!',
         content: `Successfully saved changes to block with name: ${context.state.selectedNode.name}`,
+        variant: ToastVariant.success
+      });
+    },
+    async [EditBlockActions.deleteBlock](context) {
+      const projectStore = context.rootState.project;
+
+      console.log("Context passed to deleteBlock:" );
+      console.log(context);
+
+      if (!projectStore.openedProject) {
+        console.error('Attempted to open edit block pane without loaded project');
+        return;
+      }
+
+      if (!context.state.isStateDirty || !context.state.selectedNode) {
+        console.error('Unable to perform delete -- state is invalid of edited block');
+        return;
+      }
+
+      await context.dispatch(`project/${ProjectViewActions.deleteExistingBlock}`, context.state.selectedNode, {
+        root: true
+      });
+      context.commit(EditBlockMutators.setDirtyState, false);
+
+      await createToast(context.dispatch, {
+        title: 'Block deleted!',
+        content: `Successfully deleted block with name: ${context.state.selectedNode.name}`,
         variant: ToastVariant.success
       });
     },

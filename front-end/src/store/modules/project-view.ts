@@ -98,7 +98,7 @@ const moduleState: ProjectViewState = {
   // Add New Transition Pane
   isAddingTransitionCurrently: false,
   newTransitionTypeSpecifiedInAddFlow: null,
-  availableTransitions: null
+  availableTransitions: null,
 };
 
 const ProjectViewModule: Module<ProjectViewState, RootState> = {
@@ -729,6 +729,37 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.updateProject, params);
       await context.dispatch(ProjectViewActions.selectNode, newBlock.id);
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
+    },
+    async [ProjectViewActions.deleteExistingBlock](context, node: WorkflowState) {
+      // Delete an existing block from the WorkflowStates
+      console.log( "Delete block:" );
+      console.log(node);
+
+      // This should not happen
+      if (!context.state.openedProject) {
+        console.error('Adding block but no project was open!');
+        return;
+      }
+
+      const openedProject = context.state.openedProject as RefineryProject;
+
+      const otherBlocks = JSON.parse(
+        JSON.stringify(
+          openedProject.workflow_states.filter(wfs => wfs.id !== node.id)
+        )
+      );
+
+      // TODO: Probably pull this out into a helper function
+      const params: OpenProjectMutation = {
+        project: {
+          ...openedProject,
+          workflow_states: otherBlocks
+        },
+        config: null,
+        markAsDirty: true
+      };
+
+      await context.dispatch(ProjectViewActions.updateProject, params);
     },
     async [ProjectViewActions.addSavedBlock](context) {
       // TODO: Set pane to search

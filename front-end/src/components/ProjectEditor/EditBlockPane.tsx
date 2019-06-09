@@ -153,14 +153,25 @@ export class EditAPIResponseBlock extends Vue {
     return (
       <div>
         <p>
-          An API response is a block which will cause the data returned from the preceding linked Lambda to be sent as an HTTP response (encoded as JSON).
-        </p><p>
+          An API response is a block which will cause the data returned from the preceding linked Lambda to be sent as
+          an HTTP response (encoded as JSON).
+        </p>
+        <p>
           Some important points to note:
           <ul>
-            <li>The execution flow must be started by an API Endpoint Block (otherwise where would the response be written?).</li>
-            <li>This block only returns a response the first time it is transitioned to. Future transitions are effectively no-operations.</li>
-            <li>If it takes over 29 seconds to transition from an API Endpoint Block to an API Response Block the request will timeout. <a href="https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html#api-gateway-execution-service-limits-table" target="_blank">This is a hard limit of AWS.</a></li>
-            <li>An API Response Block is not tied to a particular API Endpoint Block, you can share an API Response Block with multiple API Endpoint Blocks.</li>
+            <li>The execution flow must be started by an API Endpoint Block (otherwise where would the response be
+              written?).
+            </li>
+            <li>This block only returns a response the first time it is transitioned to. Future transitions are
+              effectively no-operations.
+            </li>
+            <li>If it takes over 29 seconds to transition from an API Endpoint Block to an API Response Block the
+              request will timeout. <a
+                href="https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html#api-gateway-execution-service-limits-table"
+                target="_blank">This is a hard limit of AWS.</a></li>
+            <li>An API Response Block is not tied to a particular API Endpoint Block, you can share an API Response
+              Block with multiple API Endpoint Blocks.
+            </li>
           </ul>
         </p>
       </div>
@@ -474,10 +485,6 @@ export class EditLambdaBlock extends Vue {
         <b-button variant="dark" class="col-12 mb-3">
           Edit Environment Variables
         </b-button>
-        <b-button variant="outline-danger" class="col-12 mb-3">
-          Delete Block
-        </b-button>
-
         {this.renderCodeEditorModal()}
       </div>
     );
@@ -508,10 +515,16 @@ export default class EditBlockPane extends Vue {
   @editBlock.Action cancelAndResetBlock!: () => void;
   @editBlock.Action tryToCloseBlock!: () => void;
   @editBlock.Action saveBlock!: () => void;
+  @editBlock.Action deleteBlock!: () => void;
 
   public saveBlockClicked(e: Event) {
     e.preventDefault();
     this.saveBlock();
+  }
+
+  public deleteBlockClicked(e: Event) {
+    e.preventDefault();
+    this.deleteBlock();
   }
 
   public renderConfirmDiscardModal() {
@@ -562,11 +575,11 @@ export default class EditBlockPane extends Vue {
         </div>
         <div class="row edit-block-container__bottom-buttons">
           <b-button-group class="col-12">
-            <b-button variant="secondary" class="col-6" on={{click: this.tryToCloseBlock}}>
-              {this.isStateDirty ? 'Cancel' : 'Close'}
-            </b-button>
-            <b-button variant="primary" class="col-6" type="submit" disabled={!this.isStateDirty}>
+            <b-button variant="primary" class="col-8" type="submit" disabled={!this.isStateDirty}>
               Save Block
+            </b-button>
+            <b-button variant="danger" class="col-4" on={{click: this.deleteBlockClicked}}>
+              Delete
             </b-button>
           </b-button-group>
         </div>
