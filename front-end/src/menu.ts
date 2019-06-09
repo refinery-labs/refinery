@@ -91,6 +91,7 @@ export const paneTypeToNameLookup: EditorPaneTypeToName = {
   [SIDEBAR_PANE.addTransition]: 'Add Transition',
   [SIDEBAR_PANE.allBlocks]: 'All Blocks',
   [SIDEBAR_PANE.allVersions]: 'All Versions',
+  [SIDEBAR_PANE.exportProject]: 'Export Project',
   [SIDEBAR_PANE.saveProject]: 'Save Project',
   [SIDEBAR_PANE.deployProject]: 'Deploy Project',
   [SIDEBAR_PANE.editBlock]: 'Edit Block',
@@ -135,6 +136,14 @@ export const SidebarMenuItems: NavbarItem[] = [
     label: paneTypeToNameLookup[SIDEBAR_PANE.allVersions],
     buttonVariant: 'outline-info',
     editorPane: SIDEBAR_PANE.allVersions
+  },
+  {
+    name: paneTypeToNameLookup[SIDEBAR_PANE.exportProject],
+    icon: 'icon-cloud-download',
+    translate: 'sidebar.nav.EXPORT_PROJECT',
+    label: paneTypeToNameLookup[SIDEBAR_PANE.exportProject],
+    buttonVariant: 'outline-info',
+    editorPane: SIDEBAR_PANE.exportProject
   },
   {
     name: paneTypeToNameLookup[SIDEBAR_PANE.saveProject],

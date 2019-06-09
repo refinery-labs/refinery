@@ -4,6 +4,8 @@ import AddBlockPane from '@/components/ProjectEditor/AddBlockPane';
 import AddTransitionPane from '@/components/ProjectEditor/AddTransitionPane';
 import EditBlockPane from '@/components/ProjectEditor/EditBlockPane';
 import {HTTP_METHOD} from "@/constants/api-constants";
+import DeployProjectPane from '@/components/ProjectEditor/DeployProjectPane';
+import ExportProjectPane from '@/components/ProjectEditor/ExportProjectPane';
 
 export const BlockSelectionType = {
   ...WorkflowStateType,
@@ -97,7 +99,7 @@ export const transitionTypeToConfigLookup: TransitionTypeToConfig = {
   [WorkflowRelationshipType.IF]: {
     name: 'If Transition',
     description:
-      'Runs another block if the returSearchSavedProjectsResultned data from the first block matches the specified conditional. ' +
+      'Runs another block if the returned data from the first block matches the specified conditional. ' +
       'For example, if the output of a block equals “success” run the next block.'
   },
   [WorkflowRelationshipType.THEN]: {
@@ -341,7 +343,8 @@ export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
   [SIDEBAR_PANE.addTransition]: AddTransitionPane,
   [SIDEBAR_PANE.allBlocks]: AddBlockPane,
   [SIDEBAR_PANE.allVersions]: AddBlockPane,
-  [SIDEBAR_PANE.deployProject]: AddBlockPane,
+  [SIDEBAR_PANE.exportProject]: ExportProjectPane,
+  [SIDEBAR_PANE.deployProject]: DeployProjectPane,
   [SIDEBAR_PANE.saveProject]: AddBlockPane,
   [SIDEBAR_PANE.editBlock]: EditBlockPane,
   [SIDEBAR_PANE.editTransition]: AddBlockPane

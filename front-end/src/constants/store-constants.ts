@@ -12,6 +12,14 @@ export enum AllProjectsMutators {
   setNewProjectErrorMessage = 'setNewProjectErrorMessage'
 }
 
+export enum ProjectViewGetters {
+  transitionAddButtonEnabled = 'transitionAddButtonEnabled',
+  getValidBlockToBlockTransitions = 'getValidBlockToBlockTransitions',
+  getValidMenuDisplayTransitionTypes = 'getValidMenuDisplayTransitionTypes',
+  canSaveProject = 'canSaveProject',
+  canDeployProject = 'canDeployProject'
+}
+
 export enum ProjectViewMutators {
   setOpenedProject = 'setOpenedProject',
   setOpenedProjectConfig = 'setOpenedProjectConfig',
@@ -32,6 +40,10 @@ export enum ProjectViewMutators {
   setLeftSidebarPane = 'setLeftSidebarPane',
   setRightSidebarPane = 'setRightSidebarPane',
 
+  // Deployment
+  setLatestDeploymentState = 'setLatestDeploymentState',
+  setDeploymentError = 'setDeploymentError',
+
   // Add Block Pane
   setSelectedBlockIndex = 'setSelectedBlockIndex',
 
@@ -45,7 +57,13 @@ export enum ProjectViewActions {
   openProject = 'openProject',
   updateProject = 'updateProject',
   saveProject = 'saveProject',
+
+  // Deployment
   deployProject = 'deployProject',
+  fetchLatestDeploymentState = 'fetchLatestDeploymentState',
+  showDeploymentPane = 'showDeploymentPane',
+  resetDeploymentPane = 'resetDeploymentPane',
+
   clearSelection = 'clearSelection',
   selectNode = 'selectNode',
   selectEdge = 'selectEdge',

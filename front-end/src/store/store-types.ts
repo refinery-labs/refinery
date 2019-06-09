@@ -8,9 +8,10 @@ import {
 } from '@/types/graph';
 import { LayoutOptions } from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
-import { SearchSavedProjectsResult, TrialInformation } from '@/types/api-types';
+import {GetLatestProjectDeploymentResponse, SearchSavedProjectsResult, TrialInformation} from '@/types/api-types';
 import { LeftSidebarPaneState, SIDEBAR_PANE } from '@/types/project-editor-types';
 import { ValidTransitionConfig } from '@/constants/project-editor-constants';
+import { EditBlockPaneState } from '@/store/modules/panes/edit-block-pane';
 
 export interface RootState {
   setting: UserInterfaceState;
@@ -84,6 +85,10 @@ export interface AvailableTransitionsByType {
 }
 
 export interface ProjectViewState {
+  // Submodules
+  editBlockPane?: EditBlockPaneState;
+
+  // Project State
   openedProject: RefineryProject | null;
   openedProjectConfig: ProjectConfig | null;
 
@@ -93,11 +98,16 @@ export interface ProjectViewState {
 
   isLoadingProject: boolean;
   isProjectBusy: boolean;
+  isDeployingProject: boolean;
   hasProjectBeenModified: boolean;
 
   leftSidebarPaneState: LeftSidebarPaneState;
   activeLeftSidebarPane: SIDEBAR_PANE | null;
   activeRightSidebarPane: SIDEBAR_PANE | null;
+
+  // Deployment State
+  latestDeploymentState: GetLatestProjectDeploymentResponse | null,
+  deploymentError: string | null,
 
   // Shared Graph State
   selectedResource: string | null;

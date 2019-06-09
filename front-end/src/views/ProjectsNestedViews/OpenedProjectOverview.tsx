@@ -1,17 +1,16 @@
-import Vue, { CreateElement, VNode } from 'vue';
+import Vue, {CreateElement, VNode} from 'vue';
 import Component from 'vue-class-component';
-import Offsidebar from '@/components/Layout/Offsidebar.vue';
 import OpenedProjectGraphContainer from '@/containers/OpenedProjectGraphContainer';
-import { Watch } from 'vue-property-decorator';
-import { Route } from 'vue-router';
-import { GetSavedProjectRequest } from '@/types/api-types';
-import { namespace } from 'vuex-class';
+import {Watch} from 'vue-property-decorator';
+import {Route} from 'vue-router';
+import {GetSavedProjectRequest} from '@/types/api-types';
+import {namespace} from 'vuex-class';
 import SidebarNav from '@/components/SidebarNav';
-import { paneTypeToNameLookup, SidebarMenuItems } from '@/menu';
+import {paneTypeToNameLookup, SidebarMenuItems} from '@/menu';
 import ProjectEditorLeftPaneContainer from '@/containers/ProjectEditorLeftPaneContainer';
-import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
+import {PANE_POSITION, SIDEBAR_PANE} from '@/types/project-editor-types';
 import EditorPaneWrapper from '@/components/EditorPaneWrapper';
-import { paneToContainerMapping } from '@/constants/project-editor-constants';
+import {paneToContainerMapping} from '@/constants/project-editor-constants';
 
 const project = namespace('project');
 
@@ -22,6 +21,7 @@ export default class OpenedProjectOverview extends Vue {
   @project.State activeRightSidebarPane!: SIDEBAR_PANE | null;
 
   @project.Getter canSaveProject!: boolean;
+  @project.Getter canDeployProject!: boolean;
   @project.Getter transitionAddButtonEnabled!: boolean;
 
   @project.Action openProject!: (projectId: GetSavedProjectRequest) => {};
@@ -37,6 +37,16 @@ export default class OpenedProjectOverview extends Vue {
     }
 
     this.openProject({ project_id: val.params.projectId });
+  }
+
+  public handleItemClicked(pane: SIDEBAR_PANE) {
+    // Handle us clicking the same pane twice.
+    if (this.activeLeftSidebarPane === pane) {
+      this.closePane(PANE_POSITION.left);
+      return;
+    }
+
+    this.openLeftSidebarPane(pane);
   }
 
   renderLeftPaneOverlay() {
@@ -96,10 +106,11 @@ export default class OpenedProjectOverview extends Vue {
     const sidebarNavProps = {
       navItems: SidebarMenuItems,
       activeLeftSidebarPane: this.activeLeftSidebarPane,
-      onNavItemClicked: this.openLeftSidebarPane,
+      onNavItemClicked: this.handleItemClicked,
       leftSidebarPaneTypeToEnabledCheckFunction: {
         [SIDEBAR_PANE.addTransition]: () => this.transitionAddButtonEnabled,
-        [SIDEBAR_PANE.saveProject]: () => this.canSaveProject
+        [SIDEBAR_PANE.saveProject]: () => this.canSaveProject,
+        [SIDEBAR_PANE.deployProject]: () => this.canDeployProject
       }
     };
 

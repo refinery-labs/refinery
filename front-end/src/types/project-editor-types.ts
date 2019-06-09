@@ -1,11 +1,12 @@
 import { VueConstructor } from 'vue';
-import { ProjectConfig, RefineryProject } from '@/types/graph';
+import {ProjectConfig, RefineryProject, SupportedLanguage} from '@/types/graph';
 
 export enum SIDEBAR_PANE {
   addBlock = 'addBlock',
   addTransition = 'addTransition',
   allBlocks = 'allBlocks',
   allVersions = 'allVersions',
+  exportProject = 'exportProject',
   saveProject = 'saveProject',
   deployProject = 'deployProject',
   editBlock = 'editBlock',
@@ -40,3 +41,24 @@ export interface OpenProjectMutation {
   config: ProjectConfig | null;
   markAsDirty: boolean;
 }
+
+export interface FormProps {
+  [index: string]: any;
+
+  idPrefix: string;
+  description: string;
+  placeholder: string;
+  name: string;
+  type?: string;
+  value: any;
+  on: { change: Function };
+}
+
+export type LanguageToAceLang = { [key in SupportedLanguage]: string };
+
+export const languageToAceLangMap: LanguageToAceLang = {
+  [SupportedLanguage.NODEJS_8]: 'javascript',
+  [SupportedLanguage.PYTHON_2]: 'python',
+  [SupportedLanguage.GO1_12]: 'golang',
+  [SupportedLanguage.PHP7]: 'php'
+};
