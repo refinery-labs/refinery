@@ -2,8 +2,6 @@ import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import StripeAddPaymentCard from '@/components/Common/StripeAddPaymentCard.vue';
-import {STRIPE_LIB_URL} from '@/constants/user-constants';
-import {addStripeTagToPage} from '@/lib/stripe-utils';
 
 const user = namespace('user');
 

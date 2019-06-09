@@ -6,9 +6,7 @@ import Search from '@/components/AllProjects/Search';
 
 const allProjects = namespace('allProjects');
 
-@Component({
-  components: { Search }
-})
+@Component
 export default class AllProjects extends Vue {
   @allProjects.State availableProjects!: SearchSavedProjectsResult[];
 
