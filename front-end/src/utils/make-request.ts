@@ -88,6 +88,53 @@ export async function deleteRequest<TReq, TRes>(path: string, body: TReq, args: 
   );
 }
 
+export async function optionsRequest<TReq, TRes>(path: string, body: TReq, args: {}) {
+  return await http<TRes>(
+    new Request(path, {
+      method: 'options',
+      credentials: 'include',
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Validation-Header': 'False'
+      },
+      body: JSON.stringify(body),
+      ...args
+    })
+  );
+}
+
+export async function headRequest<TReq, TRes>(path: string, body: TReq, args: {}) {
+  return await http<TRes>(
+    new Request(path, {
+      method: 'head',
+      credentials: 'include',
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Validation-Header': 'False'
+      },
+      ...args
+    })
+  );
+}
+
+export async function patchRequest<TReq, TRes>(path: string, body: TReq, args: {}) {
+  return await http<TRes>(
+    new Request(path, {
+      method: 'options',
+      credentials: 'include',
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Validation-Header': 'False'
+      },
+      body: JSON.stringify(body),
+      ...args
+    })
+  );
+}
+
 export type HttpMethodLookup = {
   [key in HTTP_METHOD]: <TReq, TRes>(path: string, req: TReq) => Promise<IHttpResponse<TRes>>
 };
@@ -96,5 +143,8 @@ export const HttpUtil: HttpMethodLookup = {
   [HTTP_METHOD.GET]: async (path, args?) => await getRequest(path, args),
   [HTTP_METHOD.POST]: async (path, body, args?) => await postRequest(path, body, args),
   [HTTP_METHOD.DELETE]: async (path, body, args?) => await deleteRequest(path, body, args),
+  [HTTP_METHOD.OPTIONS]: async (path, body, args?) => await optionsRequest(path, body, args),
+  [HTTP_METHOD.HEAD]: async (path, body, args?) => await headRequest(path, body, args),
+  [HTTP_METHOD.PATCH]: async (path, body, args?) => await patchRequest(path, body, args),
   [HTTP_METHOD.PUT]: async (path, body, args?) => await putRequest(path, body, args)
 };

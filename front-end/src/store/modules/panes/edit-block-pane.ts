@@ -1,6 +1,7 @@
 import {Module} from 'vuex';
 import {RootState} from '../../store-types';
 import {
+  ApiEndpointWorkflowState,
   LambdaWorkflowState,
   ScheduleTriggerWorkflowState,
   SqsQueueWorkflowState,
@@ -14,6 +15,8 @@ import {ProjectViewActions} from '@/constants/store-constants';
 import {PANE_POSITION} from '@/types/project-editor-types';
 import {DEFAULT_LANGUAGE_CODE} from '@/constants/project-editor-constants';
 import {EditTopicBlock} from '@/components/ProjectEditor/EditBlockPane';
+import {HTTP_METHOD} from "@/constants/api-constants";
+import {validatePath} from "@/utils/block-utils";
 
 // Enums
 export enum EditBlockMutators {
@@ -40,7 +43,11 @@ export enum EditBlockMutators {
   setInputData = 'setInputData',
 
   // Queue Block Inputs
-  setBatchSize = 'setBatchSize'
+  setBatchSize = 'setBatchSize',
+
+  // API Endpoint Inputs
+  setHTTPMethod = 'setHTTPMethod',
+  setHTTPPath = 'setHTTPPath'
 }
 
 export enum EditBlockActions {
@@ -84,9 +91,9 @@ function modifyBlock<T extends WorkflowState>(state: EditBlockPaneState, fn: (bl
 }
 
 function getBlockAsType<T extends WorkflowState>(
-    state: EditBlockPaneState,
-    type: WorkflowStateType,
-    fn: (block: T) => void
+  state: EditBlockPaneState,
+  type: WorkflowStateType,
+  fn: (block: T) => void
 ) {
   if (!state.selectedNode || state.selectedNode.type !== type) {
     return null;
@@ -104,6 +111,10 @@ function scheduleExpressionChange(state: EditBlockPaneState, fn: (block: Schedul
 
 function sqsQueueChange(state: EditBlockPaneState, fn: (block: SqsQueueWorkflowState) => void) {
   getBlockAsType<SqsQueueWorkflowState>(state, WorkflowStateType.SQS_QUEUE, fn);
+}
+
+function apiEndpointChange(state: EditBlockPaneState, fn: (block: ApiEndpointWorkflowState) => void) {
+  getBlockAsType<ApiEndpointWorkflowState>(state, WorkflowStateType.API_ENDPOINT, fn);
 }
 
 const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
@@ -162,6 +173,12 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     },
     [EditBlockMutators.setBatchSize](state, batch_size: number) {
       sqsQueueChange(state, block => (block.batch_size = batch_size));
+    },
+    [EditBlockMutators.setHTTPMethod](state, http_method: HTTP_METHOD) {
+      apiEndpointChange(state, block => (block.http_method = http_method));
+    },
+    [EditBlockMutators.setHTTPPath](state, api_path: string) {
+      apiEndpointChange(state, block => (block.api_path = validatePath(api_path)));
     },
     [EditBlockMutators.setWidePanel](state, wide) {
       state.wideMode = wide;
