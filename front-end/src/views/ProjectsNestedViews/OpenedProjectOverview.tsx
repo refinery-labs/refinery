@@ -13,6 +13,7 @@ import EditorPaneWrapper from '@/components/EditorPaneWrapper';
 import {paneToContainerMapping} from '@/constants/project-editor-constants';
 
 const project = namespace('project');
+const editBlock = namespace('project/editBlockPane');
 
 @Component
 export default class OpenedProjectOverview extends Vue {
@@ -28,6 +29,8 @@ export default class OpenedProjectOverview extends Vue {
   @project.Action openLeftSidebarPane!: (paneType: SIDEBAR_PANE) => {};
 
   @project.Action closePane!: (p: PANE_POSITION) => void;
+
+  @editBlock.Action tryToCloseBlock!: () => void;
 
   @Watch('$route', { immediate: true })
   private routeChanged(val: Route, oldVal: Route) {
@@ -64,7 +67,8 @@ export default class OpenedProjectOverview extends Vue {
 
     const paneProps = {
       paneTitle: paneTypeToNameLookup[paneType],
-      closePane: () => this.closePane(position)
+      closePane: () => this.closePane(position),
+      tryToCloseBlock: () => this.tryToCloseBlock(),
     };
 
     const ActivePane = paneToContainerMapping[paneType];

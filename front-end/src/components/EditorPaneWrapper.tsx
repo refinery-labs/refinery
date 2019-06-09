@@ -1,15 +1,12 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { Prop } from 'vue-property-decorator';
-import {namespace} from "vuex-class";
-
-const editBlock = namespace('project/editBlockPane');
 
 @Component
 export default class EditorPaneWrapper extends Vue {
   @Prop() paneTitle!: string;
   @Prop() closePane!: () => void;
-  @editBlock.Action tryToCloseBlock!: () => void;
+  @Prop() tryToCloseBlock!: () => void;
 
   public renderHeader() {
     const headerClasses = {
