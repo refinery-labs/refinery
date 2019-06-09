@@ -528,24 +528,22 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
     },
     async [ProjectViewActions.addBlock](context, rawBlockType: string) {
-      let blocksToAdd: string[] = [
-        rawBlockType
-      ];
-      if (rawBlockType === WorkflowStateType.API_ENDPOINT) {
-        blocksToAdd.push(WorkflowStateType.API_GATEWAY_RESPONSE);
-      }
+      const addBlockWithType = async (addBlockArgs: AddBlockArguments) => await context.dispatch(ProjectViewActions.addIndividualBlock, addBlockArgs);
 
-      var firstBlockSelect:boolean = true;
-      for (let i: number = 0; i < blocksToAdd.length; i++) {
-        await context.dispatch(ProjectViewActions._addBlock, {
-          "rawBlockType": blocksToAdd[i],
-          "selectAfterAdding": firstBlockSelect,
+      await addBlockWithType({
+         rawBlockType,
+         selectAfterAdding: true
+      });
+
+      if (rawBlockType === WorkflowStateType.API_ENDPOINT) {
+        await addBlockWithType({
+          rawBlockType: WorkflowStateType.API_GATEWAY_RESPONSE,
+          selectAfterAdding: false
         });
-        firstBlockSelect = false;
       }
     },
     // Add Block Pane
-    async [ProjectViewActions._addBlock](context, addBlockArgs: AddBlockArguments) {
+    async [ProjectViewActions.addIndividualBlock](context, addBlockArgs: AddBlockArguments) {
       // Call this, for sure
       // await context.dispatch(ProjectViewActions.updateAvailableTransitions)
 
