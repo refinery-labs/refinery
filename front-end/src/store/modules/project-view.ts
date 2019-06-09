@@ -324,8 +324,17 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       context.commit(ProjectViewMutators.setCytoscapeStyle, stylesheet);
     },
     async [ProjectViewActions.saveProject](context) {
+      const handleSaveError = async (message: string) => {
+        context.commit(ProjectViewMutators.isProjectBusy, false);
+        console.error(message);
+        await createToast(context.dispatch, {
+          title: 'Save Error',
+          content: message,
+          variant: ToastVariant.danger
+        });
+      };
       if (!context.state.openedProject || !context.state.openedProjectConfig || !context.state.hasProjectBeenModified) {
-        console.error('Project attempted to be saved but it was not in a valid state');
+        await handleSaveError('Project attempted to be saved but it was not in a valid state');
         return;
       }
 
@@ -352,7 +361,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const response = (await saveProjectApiClient(request)) as SaveProjectResponse;
 
       if (!response.success) {
-        console.error('Unable to save project!');
+        await handleSaveError('Unable to save project: server failure.');
         return;
       }
 
@@ -368,7 +377,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       await context.dispatch('updateProject', params);
 
-      context.commit(ProjectViewMutators.isProjectBusy, true);
+      context.commit(ProjectViewMutators.isProjectBusy, false);
     },
     async [ProjectViewActions.fetchLatestDeploymentState](context) {
       if (!context.state.openedProject) {

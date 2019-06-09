@@ -106,14 +106,13 @@ const router = new Router({
             // View all deployments for project
             {
               path: 'deployments',
-              name: 'allDeployments',
+              name: 'deployment',
               // View all deployments
               component: ProjectDeployments
             },
             // View deployment by ID
             {
               path: 'd/:deploymentId',
-              name: 'deployment',
               component: OpenedWorkflowWrapper,
 
               children: [

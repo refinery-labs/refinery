@@ -2,6 +2,8 @@ import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import StripeAddPaymentCard from '@/components/Common/StripeAddPaymentCard.vue';
+import {STRIPE_LIB_URL} from '@/constants/user-constants';
+import {addStripeTagToPage} from '@/lib/stripe-utils';
 
 const user = namespace('user');
 
@@ -50,6 +52,10 @@ export default class RegistrationPage extends Vue {
   }
 
   mounted() {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Yo dev friend, use this card number to register: 5555555555554444');
+    }
+
     this.redirectIfAuthenticated();
   }
 
