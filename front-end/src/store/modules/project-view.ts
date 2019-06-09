@@ -756,10 +756,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.updateProject, params);
     },
     async [ProjectViewActions.deleteExistingBlock](context, node: WorkflowState) {
-      // Delete an existing block from the WorkflowStates
-      console.log("Delete block:");
-      console.log(node);
-
       // This should not happen
       if (!context.state.openedProject) {
         console.error('Adding block but no project was open!');
