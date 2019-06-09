@@ -16,6 +16,7 @@ import {PANE_POSITION} from '@/types/project-editor-types';
 import {DEFAULT_LANGUAGE_CODE} from '@/constants/project-editor-constants';
 import {EditTopicBlock} from '@/components/ProjectEditor/EditBlockPane';
 import {HTTP_METHOD} from "@/constants/api-constants";
+import {validatePath} from "@/utils/block-utils";
 
 // Enums
 export enum EditBlockMutators {
@@ -177,17 +178,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       apiEndpointChange(state, block => (block.http_method = http_method));
     },
     [EditBlockMutators.setHTTPPath](state, api_path: string) {
-      // Must start with a forward slash
-      if(!api_path.startsWith("/")) {
-        api_path = "/" + api_path;
-      }
-
-      // Can't end with a forward slash
-      if(api_path != "/" && api_path.endsWith("/")) {
-        api_path = api_path.slice(0, -1);
-      }
-
-      apiEndpointChange(state, block => (block.api_path = api_path));
+      apiEndpointChange(state, block => (block.api_path = validatePath(api_path)));
     },
     [EditBlockMutators.setWidePanel](state, wide) {
       state.wideMode = wide;
