@@ -266,9 +266,6 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
         context.state.selectedNode
       );
 
-      console.log("Connected transitions to delete: ");
-      console.log(transitions_to_delete);
-
       // Dispatch an action to delete all of them.
       await Promise.all(transitions_to_delete.map(async transition => {
         await context.dispatch(`project/${ProjectViewActions.deleteExistingTransition}`, transition, {

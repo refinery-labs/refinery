@@ -7,6 +7,7 @@ import {
 import { AvailableTransitionsByType, ProjectViewState } from '@/store/store-types';
 import { GetSavedProjectResponse } from '@/types/api-types';
 import uuid from 'uuid/v4';
+import {deepJSONCopy} from "@/lib/general-utils";
 
 export function getNodeDataById(project: RefineryProject, nodeId: string) {
   const targetStates = project.workflow_states;
@@ -16,7 +17,7 @@ export function getNodeDataById(project: RefineryProject, nodeId: string) {
   });
 
   if (results.length > 0) {
-    return JSON.parse(JSON.stringify(results[0]));
+    return deepJSONCopy(results[0]);
   }
 
   return null;

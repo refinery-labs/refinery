@@ -50,6 +50,7 @@ import EditBlockPaneModule, {EditBlockActions} from '@/store/modules/panes/edit-
 import {createToast} from '@/utils/toasts-utils';
 import {ToastVariant} from '@/types/toasts-types';
 import router from '@/router';
+import {deepJSONCopy} from "@/lib/general-utils";
 
 const moduleState: ProjectViewState = {
   openedProject: null,
@@ -524,7 +525,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      const node = JSON.parse(JSON.stringify(nodes[0]));
+      const node = deepJSONCopy(nodes[0]);
 
       context.commit(ProjectViewMutators.selectedResource, node.id);
 
@@ -740,11 +741,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       const openedProject = context.state.openedProject as RefineryProject;
 
-      const otherTransitions = JSON.parse(
-        JSON.stringify(
-          openedProject.workflow_relationships.filter(wfs => wfs.id !== transition.id)
-        )
-      );
+      const otherTransitions = deepJSONCopy(openedProject.workflow_relationships.filter(wfs => wfs.id !== transition.id));
 
       // TODO: Probably pull this out into a helper function
       const params: OpenProjectMutation = {
@@ -771,11 +768,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       const openedProject = context.state.openedProject as RefineryProject;
 
-      const otherBlocks = JSON.parse(
-        JSON.stringify(
-          openedProject.workflow_states.filter(wfs => wfs.id !== node.id)
-        )
-      );
+      const otherBlocks = deepJSONCopy(openedProject.workflow_states.filter(wfs => wfs.id !== node.id));
 
       // TODO: Probably pull this out into a helper function
       const params: OpenProjectMutation = {
@@ -801,7 +794,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       const openedProject = context.state.openedProject as RefineryProject;
 
-      const otherBlocks = JSON.parse(JSON.stringify(openedProject.workflow_states.filter(wfs => wfs.id !== node.id)));
+      const otherBlocks = deepJSONCopy(openedProject.workflow_states.filter(wfs => wfs.id !== node.id));
 
       if (otherBlocks.length === openedProject.workflow_states.length) {
         await createToast(context.dispatch, {
@@ -812,7 +805,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      otherBlocks.push(JSON.parse(JSON.stringify(node)));
+      otherBlocks.push(deepJSONCopy(node));
 
       // TODO: Probably pull this out into a helper function
       const params: OpenProjectMutation = {
