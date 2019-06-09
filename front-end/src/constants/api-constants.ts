@@ -31,7 +31,11 @@ export enum HTTP_METHOD {
   GET = 'GET',
   POST = 'POST',
   PUT = 'PUT',
-  DELETE = 'DELETE'
+  DELETE = 'DELETE',
+  OPTIONS = 'OPTIONS',
+  HEAD = 'HEAD',
+  PATCH = 'PATCH',
+  // '*' = '*' // Technically supported by AWS but the cross-over to our actually API fetch() breaks this.
 }
 
 export interface ApiEndpointConfig {

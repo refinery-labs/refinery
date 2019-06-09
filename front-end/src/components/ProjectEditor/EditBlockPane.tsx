@@ -4,6 +4,7 @@ import {namespace} from 'vuex-class';
 import AceEditor from '@/components/Common/AceEditor.vue';
 import {Prop} from 'vue-property-decorator';
 import {
+  ApiEndpointWorkflowState, ApiGatewayResponseWorkflowState,
   LambdaWorkflowState,
   ScheduleTriggerWorkflowState,
   SnsTopicWorkflowState,
@@ -12,6 +13,7 @@ import {
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
+import {HTTP_METHOD} from "@/constants/api-constants";
 import {FormProps, languageToAceLangMap} from '@/types/project-editor-types';
 
 const editBlock = namespace('project/editBlockPane');
@@ -43,8 +45,8 @@ export class BlockScheduleExpressionInput extends Vue {
     const selectedNode = this.selectedNode;
 
     return (
-      <b-form-group id={`block-name-group-${selectedNode.id}`}>
-        <label class="d-block" htmlFor={`block-name-${selectedNode.id}`}>
+      <b-form-group id={`block-schedule-expression-group-${selectedNode.id}`}>
+        <label class="d-block" htmlFor={`block-schedule-expression-${selectedNode.id}`}>
           Schedule Expression:
         </label>
         <div class="input-group with-focus">
@@ -138,6 +140,90 @@ export class EditQueueBlock extends Vue {
       <div>
         <BlockNameInput/>
         {this.renderBatchSize()}
+      </div>
+    );
+  }
+}
+
+@Component
+export class EditAPIResponseBlock extends Vue {
+  @Prop() selectedNode!: ApiGatewayResponseWorkflowState;
+
+  public render(h: CreateElement): VNode {
+    return (
+      <div>
+        <p>
+          An API response is a block which will cause the data returned from the preceding linked Lambda to be sent as an HTTP response (encoded as JSON).
+        </p><p>
+          Some important points to note:
+          <ul>
+            <li>The execution flow must be started by an API Endpoint Block (otherwise where would the response be written?).</li>
+            <li>This block only returns a response the first time it is transitioned to. Future transitions are effectively no-operations.</li>
+            <li>If it takes over 29 seconds to transition from an API Endpoint Block to an API Response Block the request will timeout. <a href="https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html#api-gateway-execution-service-limits-table" target="_blank">This is a hard limit of AWS.</a></li>
+            <li>An API Response Block is not tied to a particular API Endpoint Block, you can share an API Response Block with multiple API Endpoint Blocks.</li>
+          </ul>
+        </p>
+      </div>
+    );
+  }
+}
+
+@Component
+export class EditAPIEndpointBlock extends Vue {
+  @Prop() selectedNode!: ApiEndpointWorkflowState;
+
+  @editBlock.Mutation setHTTPMethod!: (http_method: HTTP_METHOD) => void;
+  @editBlock.Mutation setHTTPPath!: (api_path: string) => void;
+
+  public renderHTTPMethodInput() {
+    return (
+      <b-form-group id={`block-http-method-group-${this.selectedNode.id}`}>
+        <label class="d-block" htmlFor={`block-http-method-${this.selectedNode.id}`}>
+          Schedule Expression:
+        </label>
+        <div class="input-group with-focus">
+          <b-form-select
+            options={Object.values(HTTP_METHOD)}
+            value={this.selectedNode.http_method}
+            on={{change: this.setHTTPMethod}}>
+          </b-form-select>
+        </div>
+        <small class="form-text text-muted">
+          The HTTP method this API Endpoint will accept. Can be <code>POST</code>/<code>GET</code>/etc.
+        </small>
+      </b-form-group>
+    );
+  };
+
+  public renderHTTPPathInput() {
+    return (
+      <b-form-group id={`block-http-path-group-${this.selectedNode.id}`}>
+        <label class="d-block" htmlFor={`block-http-path-${this.selectedNode.id}`}>
+          HTTP Path:
+        </label>
+        <div class="input-group with-focus">
+          <div class="input-group-prepend"><span class="input-group-text">/refinery</span></div>
+          <b-form-input
+            type="text"
+            required
+            value={this.selectedNode.api_path}
+            on={{input: this.setHTTPPath}}
+            placeholder="/"
+          />
+        </div>
+        <small class="form-text text-muted">
+          The path to your API Endpoint, e.g: <code>/api/v1/example</code>.
+        </small>
+      </b-form-group>
+    );
+  };
+
+  public render(h: CreateElement): VNode {
+    return (
+      <div>
+        <BlockNameInput/>
+        {this.renderHTTPMethodInput()}
+        {this.renderHTTPPathInput()}
       </div>
     );
   }
@@ -404,9 +490,9 @@ export const blockTypeToEditorComponentLookup: BlockTypeToEditorComponent = {
   [WorkflowStateType.LAMBDA]: EditLambdaBlock,
   [WorkflowStateType.SNS_TOPIC]: EditTopicBlock,
   [WorkflowStateType.SCHEDULE_TRIGGER]: EditScheduleTriggerBlock,
-  [WorkflowStateType.API_ENDPOINT]: EditLambdaBlock,
-  [WorkflowStateType.API_GATEWAY]: EditLambdaBlock,
-  [WorkflowStateType.API_GATEWAY_RESPONSE]: EditLambdaBlock,
+  [WorkflowStateType.API_ENDPOINT]: EditAPIEndpointBlock,
+  [WorkflowStateType.API_GATEWAY]: EditAPIEndpointBlock,
+  [WorkflowStateType.API_GATEWAY_RESPONSE]: EditAPIResponseBlock,
   [WorkflowStateType.SQS_QUEUE]: EditQueueBlock
 };
 
