@@ -52,6 +52,11 @@ import {ToastVariant} from '@/types/toasts-types';
 import router from '@/router';
 import {deepJSONCopy} from "@/lib/general-utils";
 
+interface AddBlockArguments {
+  rawBlockType: string;
+  selectAfterAdding: boolean,
+}
+
 const moduleState: ProjectViewState = {
   openedProject: null,
   openedProjectConfig: null,
@@ -673,9 +678,22 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
     },
-
-    // Add Block Pane
     async [ProjectViewActions.addBlock](context, rawBlockType: string) {
+      const addBlockWithType = async (addBlockArgs: AddBlockArguments) => await context.dispatch(ProjectViewActions.addIndividualBlock, addBlockArgs);
+
+      await addBlockWithType({
+         rawBlockType,
+         selectAfterAdding: true
+      });
+
+      if (rawBlockType === WorkflowStateType.API_ENDPOINT) {
+        await addBlockWithType({
+          rawBlockType: WorkflowStateType.API_GATEWAY_RESPONSE,
+          selectAfterAdding: false
+        });
+      }
+    },
+    async [ProjectViewActions.addIndividualBlock](context, addBlockArgs: AddBlockArguments) {
       // Call this, for sure
       // await context.dispatch(ProjectViewActions.updateAvailableTransitions)
 
@@ -687,24 +705,35 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       const openedProject = context.state.openedProject as RefineryProject;
 
-      if (rawBlockType === 'saved_lambda') {
+      if (addBlockArgs.rawBlockType === 'saved_lambda') {
         await context.dispatch(ProjectViewActions.addSavedBlock);
         return;
       }
 
       // Catches the case of "unknown" block types causing craziness later!
-      if (!Object.values(WorkflowStateType).includes(rawBlockType)) {
-        console.error('Unknown block type requested to be added!');
+      if (!Object.values(WorkflowStateType).includes(addBlockArgs.rawBlockType)) {
+        console.error('Unknown block type requested to be added!', addBlockArgs.rawBlockType);
         return;
       }
 
-      const blockType = rawBlockType as WorkflowStateType;
+      const blockType = addBlockArgs.rawBlockType as WorkflowStateType;
+
+      // Special casing for the API Response block which should never
+      // have it's name changed. Certain blocks will likely make sense for this.
+      const immutable_names: WorkflowStateType[] = [
+        WorkflowStateType.API_GATEWAY_RESPONSE
+      ];
+
+      let newBlockName: string = `Untitled ${blockTypeToImageLookup[blockType].name}`
+      if (immutable_names.includes(blockType)) {
+        newBlockName = blockTypeToImageLookup[blockType].name;
+      }
 
       const newBlock: WorkflowState = {
         ...blockTypeToDefaultStateMapping[blockType],
         id: uuid(),
         // TODO: Make this use a friendly human name
-        name: `New ${blockTypeToImageLookup[blockType].name}`,
+        name: newBlockName,
         type: blockType
       };
 
@@ -728,8 +757,10 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       });
 
       await context.dispatch(ProjectViewActions.updateProject, params);
-      await context.dispatch(ProjectViewActions.selectNode, newBlock.id);
-      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
+      if (addBlockArgs.selectAfterAdding) {
+        await context.dispatch(ProjectViewActions.selectNode, newBlock.id);
+        await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
+      }
     },
     async [ProjectViewActions.deleteExistingTransition](context, transition: WorkflowRelationship) {
 
