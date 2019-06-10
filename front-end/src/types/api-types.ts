@@ -6,7 +6,11 @@ import {
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import { ProductionDeploymentRefineryProject, ProductionWorkflowState } from '@/types/production-workflow-types';
+import {
+  ProductionDeploymentRefineryProject,
+  ProductionWorkflowRelationship,
+  ProductionWorkflowState
+} from '@/types/production-workflow-types';
 
 export interface BaseApiResponse {
   success: boolean;
@@ -124,10 +128,21 @@ export interface GetLatestProjectDeploymentRequest extends BaseApiRequest {
 }
 
 export interface GetLatestProjectDeploymentResponse extends BaseApiResponse {
-  deployment_json: ProductionDeploymentRefineryProject;
+  result: GetLatestProjectDeploymentResult | null;
+}
+
+export interface GetLatestProjectDeploymentResult {
+  deployment_json: ProductionDeploymentRefineryProjectJson;
   project_id: string;
   id: string;
   timestamp: number;
+}
+
+export interface ProductionDeploymentRefineryProjectJson {
+  version: number;
+  name: string;
+  workflow_states: ProductionWorkflowState[];
+  workflow_relationships: ProductionWorkflowRelationship[];
 }
 
 // GetProjectConfig

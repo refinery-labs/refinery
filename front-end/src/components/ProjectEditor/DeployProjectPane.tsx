@@ -35,6 +35,7 @@ export default class DeployProjectPane extends Vue {
         <span>Waiting for data...</span>
       );
     }
+    console.log(this.latestDeploymentState);
 
     if (!this.latestDeploymentState.deployment_json) {
       return (

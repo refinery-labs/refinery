@@ -17,7 +17,12 @@ import {
 import {generateCytoscapeElements, generateCytoscapeStyle} from '@/lib/refinery-to-cytoscript-converter';
 import {LayoutOptions} from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
-import {ProjectViewActions, ProjectViewGetters, ProjectViewMutators} from '@/constants/store-constants';
+import {
+  DeploymentViewActions,
+  ProjectViewActions,
+  ProjectViewGetters,
+  ProjectViewMutators
+} from '@/constants/store-constants';
 import {getApiClient, makeApiRequest} from '@/store/fetchers/refinery-api';
 import {API_ENDPOINT} from '@/constants/api-constants';
 import {
@@ -78,7 +83,11 @@ const moduleState: ProjectViewState = {
     [SIDEBAR_PANE.deployProject]: {},
     [SIDEBAR_PANE.saveProject]: {},
     [SIDEBAR_PANE.editBlock]: {},
-    [SIDEBAR_PANE.editTransition]: {}
+    [SIDEBAR_PANE.editTransition]: {},
+    [SIDEBAR_PANE.viewApiEndpoints]: {},
+    [SIDEBAR_PANE.viewExecutions]: {},
+    [SIDEBAR_PANE.viewDeployedBlock]: {},
+    [SIDEBAR_PANE.viewDeployedTransition]: {},
   },
   activeLeftSidebarPane: null,
   activeRightSidebarPane: null,
@@ -427,7 +436,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return await handleDeploymentError('Missing latest project deployment information');
       }
 
-      if (context.state.latestDeploymentState.deployment_json) {
+      if (context.state.latestDeploymentState.result && context.state.latestDeploymentState.result.deployment_json) {
         const deleteDeploymentResponse = await makeApiRequest<DeleteDeploymentsInProjectRequest, DeleteDeploymentsInProjectResponse>(
           API_ENDPOINT.DeleteDeploymentsInProject,
           {
@@ -562,6 +571,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       context.commit(ProjectViewMutators.selectedResource, edges[0].id);
+
+      // TODO: Make this actually allow editing a transition
+      await context.dispatch(DeploymentViewActions.openRightSidebarPane, SIDEBAR_PANE.editTransition);
 
       await context.dispatch(ProjectViewActions.updateAvailableTransitions);
     },

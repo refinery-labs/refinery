@@ -1,6 +1,5 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
-import OpenedProjectGraphContainer from '@/containers/OpenedProjectGraphContainer';
 import OpenedProjectOverview from '@/views/ProjectsNestedViews/OpenedProjectOverview';
 
 @Component
@@ -32,6 +31,7 @@ export default class ViewProject extends Vue {
 
     const classes = {
       'project-router-container': true,
+      'display--flex': true,
       'project-router-container--hidden': hideRouter
     };
 

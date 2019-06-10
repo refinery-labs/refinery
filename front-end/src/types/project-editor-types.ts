@@ -2,6 +2,7 @@ import { VueConstructor } from 'vue';
 import {ProjectConfig, RefineryProject, SupportedLanguage} from '@/types/graph';
 
 export enum SIDEBAR_PANE {
+  // Project Editor
   addBlock = 'addBlock',
   addTransition = 'addTransition',
   allBlocks = 'allBlocks',
@@ -10,7 +11,13 @@ export enum SIDEBAR_PANE {
   saveProject = 'saveProject',
   deployProject = 'deployProject',
   editBlock = 'editBlock',
-  editTransition = 'editTransition'
+  editTransition = 'editTransition',
+
+  // Deployment Viewer
+  viewApiEndpoints = 'viewApiEndpoints',
+  viewExecutions = 'viewExecutions',
+  viewDeployedBlock = 'viewDeployedBlock',
+  viewDeployedTransition = 'viewDeployedTransition'
 }
 
 export enum PANE_POSITION {

@@ -12,6 +12,7 @@ import {GetLatestProjectDeploymentResponse, SearchSavedProjectsResult, TrialInfo
 import { LeftSidebarPaneState, SIDEBAR_PANE } from '@/types/project-editor-types';
 import { ValidTransitionConfig } from '@/constants/project-editor-constants';
 import { EditBlockPaneState } from '@/store/modules/panes/edit-block-pane';
+import {ProductionDeploymentRefineryProject} from '@/types/production-workflow-types';
 
 export interface RootState {
   setting: UserInterfaceState;
@@ -141,6 +142,38 @@ export interface AllProjectsState {
   newProjectInput: string;
   newProjectInputValid: boolean | null;
   newProjectErrorMessage: string | null;
+}
+
+export interface DeploymentViewState {
+  // Deployment State
+  openedDeployment: ProductionDeploymentRefineryProject | null;
+  openedDeploymentId: string | null,
+  openedDeploymentProjectId: string | null,
+  openedDeploymentTimestamp: number | null,
+
+  isLoadingDeployment: boolean;
+
+  activeLeftSidebarPane: SIDEBAR_PANE | null;
+  activeRightSidebarPane: SIDEBAR_PANE | null;
+
+  // Deployment State
+  latestDeploymentState: GetLatestProjectDeploymentResponse | null,
+  deploymentError: string | null,
+
+  // Shared Graph State
+  selectedResource: string | null;
+  // If this is "null" then it enables all elements
+  enabledGraphElements: string[] | null;
+
+  // Cytoscape Specific state
+  cytoscapeElements: CyElements | null;
+  cytoscapeStyle: CyStyle | null;
+  cytoscapeLayoutOptions: LayoutOptions | null;
+  cytoscapeConfig: cytoscape.CytoscapeOptions | null;
+
+  // View Block Pane
+  selectedBlockIndex: number | null;
+
 }
 
 export interface UserState {
