@@ -2621,7 +2621,6 @@ class TaskSpawner(object):
 			)
 			
 			build_id = codebuild_response[ "build" ][ "id" ]
-			
 			return build_id
 		
 		@run_on_executor
@@ -5274,6 +5273,9 @@ def teardown_infrastructure( credentials, teardown_nodes ):
 			teardown_operation_futures.append(
 				strip_api_gateway(
 					credentials,
+					teardown_node[ "id" ],
+					teardown_node[ "type" ],
+					teardown_node[ "name" ],
 					teardown_node[ "rest_api_id" ],
 				)
 			)
@@ -6471,7 +6473,7 @@ class GetCloudWatchLogsForLambda( BaseHandler ):
 		})
 		
 @gen.coroutine
-def strip_api_gateway( credentials, api_gateway_id ):
+def strip_api_gateway( credentials, node_id, node_type, node_name, api_gateway_id ):
 	"""
 	Strip a given API Gateway of all of it's:
 	* Resources
@@ -6528,8 +6530,16 @@ def strip_api_gateway( credentials, api_gateway_id ):
 		)
 	
 	yield deletion_futures
+
+	return_data = {
+		"deleted": True,
+		"type": node_type,
+		"id": node_id,
+		"arn": "arn:aws:apigateway:" + credentials[ "region" ] + "::/restapis/" + api_gateway_id,
+		"name": node_name,
+	}
 	
-	raise gen.Return( api_gateway_id )
+	raise gen.Return( return_data )
 	
 class NewRegistration( BaseHandler ):
 	@gen.coroutine
