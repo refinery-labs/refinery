@@ -71,6 +71,7 @@ const moduleState: ProjectViewState = {
 
   isLoadingProject: true,
   isProjectBusy: false,
+  isSavingProject: false,
   isDeployingProject: false,
   hasProjectBeenModified: false,
 
@@ -181,6 +182,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
     [ProjectViewMutators.setOpenedProjectConfigOriginal](state, config: ProjectConfig) {
       state.openedProjectConfigOriginal = unwrapJson<ProjectConfig>(wrapJson(config));
+    },
+    [ProjectViewMutators.isSavingProject](state, value: boolean) {
+      state.isSavingProject = value;
     },
     [ProjectViewMutators.isDeployingProject](state, value: boolean) {
       state.isDeployingProject = value;
@@ -340,7 +344,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
     async [ProjectViewActions.saveProject](context) {
       const handleSaveError = async (message: string) => {
-        context.commit(ProjectViewMutators.isProjectBusy, false);
+        context.commit(ProjectViewMutators.isSavingProject, false);
         console.error(message);
         await createToast(context.dispatch, {
           title: 'Save Error',
@@ -353,7 +357,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      context.commit(ProjectViewMutators.isProjectBusy, true);
+      context.commit(ProjectViewMutators.isSavingProject, true);
 
       const projectJson = wrapJson(context.state.openedProject);
       const configJson = wrapJson(context.state.openedProjectConfig);
@@ -392,7 +396,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       await context.dispatch('updateProject', params);
 
-      context.commit(ProjectViewMutators.isProjectBusy, false);
+      context.commit(ProjectViewMutators.isSavingProject, false);
     },
     async [ProjectViewActions.fetchLatestDeploymentState](context) {
       if (!context.state.openedProject) {
@@ -628,6 +632,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       // Special case because Mandatory and I agreed that having a pane pop out is annoying af
       if (leftSidebarPaneType === SIDEBAR_PANE.saveProject) {
+        // Close any existing panes... Because it's ridiculous otherwise.
+        context.commit(ProjectViewMutators.setLeftSidebarPane, null);
         await context.dispatch(ProjectViewActions.saveProject);
         return;
       }

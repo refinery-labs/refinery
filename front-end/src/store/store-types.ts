@@ -99,6 +99,7 @@ export interface ProjectViewState {
 
   isLoadingProject: boolean;
   isProjectBusy: boolean;
+  isSavingProject: boolean;
   isDeployingProject: boolean;
   hasProjectBeenModified: boolean;
 

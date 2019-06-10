@@ -18,6 +18,7 @@ const editBlock = namespace('project/editBlockPane');
 @Component
 export default class OpenedProjectOverview extends Vue {
   @project.State isLoadingProject!: boolean;
+  @project.State isSavingProject!: boolean;
   @project.State activeLeftSidebarPane!: SIDEBAR_PANE | null;
   @project.State activeRightSidebarPane!: SIDEBAR_PANE | null;
 
@@ -50,6 +51,19 @@ export default class OpenedProjectOverview extends Vue {
     }
 
     this.openLeftSidebarPane(pane);
+  }
+
+  renderSaveButtonContent() {
+    if (!this.isSavingProject) {
+      return null;
+    }
+
+    return (
+      <div class="display--flex flex-direction--column align-items-center">
+        <b-spinner small={true} type="grow" />
+        <span>Saving...</span>
+      </div>
+    );
   }
 
   renderLeftPaneOverlay() {
@@ -111,10 +125,13 @@ export default class OpenedProjectOverview extends Vue {
       navItems: SidebarMenuItems,
       activeLeftSidebarPane: this.activeLeftSidebarPane,
       onNavItemClicked: this.handleItemClicked,
-      leftSidebarPaneTypeToEnabledCheckFunction: {
+      paneTypeToEnabledCheckFunction: {
         [SIDEBAR_PANE.addTransition]: () => this.transitionAddButtonEnabled,
         [SIDEBAR_PANE.saveProject]: () => this.canSaveProject,
         [SIDEBAR_PANE.deployProject]: () => this.canDeployProject
+      },
+      paneTypeToCustomContentFunction: {
+        [SIDEBAR_PANE.saveProject]: () => this.renderSaveButtonContent()
       }
     };
 

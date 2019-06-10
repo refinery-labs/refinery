@@ -29,6 +29,7 @@ export enum ProjectViewMutators {
   selectedResource = 'selectedResource',
   isLoadingProject = 'isLoadingProject',
   isProjectBusy = 'isProjectBusy',
+  isSavingProject = 'isSavingProject ',
   isDeployingProject = 'isDeployingProject',
 
   markProjectDirtyStatus = 'markProjectDirtyStatus',

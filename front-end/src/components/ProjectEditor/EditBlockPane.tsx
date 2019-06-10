@@ -63,10 +63,7 @@ export class BlockScheduleExpressionInput extends Vue {
           <a
             href="https://docs.aws.amazon.com/lambda/latest/dg/tutorial-scheduled-events-schedule-expressions.html"
             target="_blank"
-          >
-            Schedule expression
-          </a>
-          indicating how often the attached blocks should be run.
+          >Schedule expression</a> indicating how often the attached blocks should be run.
         </small>
       </b-form-group>
     );
