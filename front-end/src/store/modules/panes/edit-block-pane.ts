@@ -14,9 +14,9 @@ import {ToastVariant} from '@/types/toasts-types';
 import {ProjectViewActions} from '@/constants/store-constants';
 import {PANE_POSITION} from '@/types/project-editor-types';
 import {DEFAULT_LANGUAGE_CODE} from '@/constants/project-editor-constants';
-import {EditTopicBlock} from '@/components/ProjectEditor/EditBlockPane';
 import {HTTP_METHOD} from "@/constants/api-constants";
 import {validatePath} from "@/utils/block-utils";
+import {EditTopicBlock} from '@/components/ProjectEditor/block-components/EditTopicBlockPane';
 
 // Enums
 export enum EditBlockMutators {

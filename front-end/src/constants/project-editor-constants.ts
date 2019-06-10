@@ -10,6 +10,14 @@ import ViewApiEndpointsPane from '@/components/DeploymentViewer/ViewApiEndpoints
 import ViewExecutionsPane from '@/components/DeploymentViewer/ViewExecutionsPane';
 import ViewDeployedBlockPane from '@/components/DeploymentViewer/ViewDeployedBlockPane';
 import ViewDeployedTransitionPane from '@/components/DeploymentViewer/ViewDeployedTransitionPane';
+import DestroyDeploymentPane from '@/components/DeploymentViewer/DestroyDeploymentPane';
+import {VueConstructor} from 'vue';
+import {EditLambdaBlock} from '@/components/ProjectEditor/block-components/EditLambdaBlockPane';
+import {EditAPIEndpointBlock} from '@/components/ProjectEditor/block-components/EditAPIEndpointBlockPane';
+import {EditQueueBlock} from '@/components/ProjectEditor/block-components/EditQueuePane';
+import {EditAPIResponseBlock} from '@/components/ProjectEditor/block-components/EditAPIResponseBlockPane';
+import {EditScheduleTriggerBlock} from '@/components/ProjectEditor/block-components/EditScheduleTriggerBlockPane';
+import {EditTopicBlock} from '@/components/ProjectEditor/block-components/EditTopicBlockPane';
 
 export const BlockSelectionType = {
   ...WorkflowStateType,
@@ -354,6 +362,27 @@ export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
   [SIDEBAR_PANE.editTransition]: AddBlockPane,
   [SIDEBAR_PANE.viewApiEndpoints]: ViewApiEndpointsPane,
   [SIDEBAR_PANE.viewExecutions]: ViewExecutionsPane,
+  [SIDEBAR_PANE.destroyDeploy]: DestroyDeploymentPane,
   [SIDEBAR_PANE.viewDeployedBlock]: ViewDeployedBlockPane,
   [SIDEBAR_PANE.viewDeployedTransition]: ViewDeployedTransitionPane
+};
+
+export const blockNameText = 'Name of the block.';
+export const returnDataText = 'Data returned from the Lambda.';
+export const languagesText = 'Language of code block.';
+export const importLibsText = 'Dependencies for the code.';
+export const codeEditorText = 'Code to be executed by the block.';
+export const maxExecutionTimeText = 'Maximum time the code may execute before being killed in seconds.';
+export const maxExecutionMemoryText = 'Maximum memory for the code to use during execution.';
+
+export type BlockTypeToEditorComponent = { [key in WorkflowStateType]: VueConstructor };
+
+export const blockTypeToEditorComponentLookup: BlockTypeToEditorComponent = {
+  [WorkflowStateType.LAMBDA]: EditLambdaBlock,
+  [WorkflowStateType.SNS_TOPIC]: EditTopicBlock,
+  [WorkflowStateType.SCHEDULE_TRIGGER]: EditScheduleTriggerBlock,
+  [WorkflowStateType.API_ENDPOINT]: EditAPIEndpointBlock,
+  [WorkflowStateType.API_GATEWAY]: EditAPIEndpointBlock,
+  [WorkflowStateType.API_GATEWAY_RESPONSE]: EditAPIResponseBlock,
+  [WorkflowStateType.SQS_QUEUE]: EditQueueBlock
 };

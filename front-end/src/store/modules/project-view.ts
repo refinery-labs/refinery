@@ -87,6 +87,7 @@ const moduleState: ProjectViewState = {
     [SIDEBAR_PANE.editTransition]: {},
     [SIDEBAR_PANE.viewApiEndpoints]: {},
     [SIDEBAR_PANE.viewExecutions]: {},
+    [SIDEBAR_PANE.destroyDeploy]: {},
     [SIDEBAR_PANE.viewDeployedBlock]: {},
     [SIDEBAR_PANE.viewDeployedTransition]: {},
   },
