@@ -98,6 +98,7 @@ export const paneTypeToNameLookup: EditorPaneTypeToName = {
   [SIDEBAR_PANE.editTransition]: 'Edit Transition',
   [SIDEBAR_PANE.viewApiEndpoints]: 'API Endpoints',
   [SIDEBAR_PANE.viewExecutions]: 'Block Executions',
+  [SIDEBAR_PANE.destroyDeploy]: 'Destroy Deploy',
   [SIDEBAR_PANE.viewDeployedBlock]: 'Inspect Deployed Block',
   [SIDEBAR_PANE.viewDeployedTransition]: 'Inspect Deployed Transition'
 };
@@ -183,5 +184,13 @@ export const DeploymentSidebarMenuItems: NavbarItem[] = [
     label: paneTypeToNameLookup[SIDEBAR_PANE.viewExecutions],
     buttonVariant: 'outline-info',
     editorPane: SIDEBAR_PANE.viewExecutions
+  },
+  {
+    name: paneTypeToNameLookup[SIDEBAR_PANE.destroyDeploy],
+    icon: 'icon-ban',
+    translate: 'sidebar.nav.DESTROY_DEPLOY',
+    label: paneTypeToNameLookup[SIDEBAR_PANE.destroyDeploy],
+    buttonVariant: 'danger',
+    editorPane: SIDEBAR_PANE.destroyDeploy
   }
 ];
