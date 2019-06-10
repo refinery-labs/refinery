@@ -11,6 +11,7 @@ export default class DeployProjectPane extends Vue {
   @project.State isDeployingProject!: boolean;
   @project.State latestDeploymentState!: GetLatestProjectDeploymentResponse | null;
   @project.State deploymentError!: string | null;
+  @project.State hasProjectBeenModified!: boolean;
 
   @project.Action deployProject!: () => void;
   @project.Action resetDeploymentPane!: () => void;
@@ -18,6 +19,21 @@ export default class DeployProjectPane extends Vue {
   public deployProjectClicked(e: Event) {
     e.preventDefault();
     this.deployProject();
+  }
+
+  public renderTooltips() {
+    const deployButtonMessage = this.hasProjectBeenModified
+      ? 'You must save changes to project before you may deploy.'
+      : 'Click to begin the deployment process';
+
+    return (
+      <div>
+        <b-tooltip target={() => this.$refs.confirmDeployButton} placement="bottom"
+                   show={this.hasProjectBeenModified}>
+          {deployButtonMessage}
+        </b-tooltip>
+      </div>
+    );
   }
 
   public renderDeploymentDetails() {
@@ -32,21 +48,21 @@ export default class DeployProjectPane extends Vue {
 
     if (!this.latestDeploymentState) {
       return (
-        <span>Waiting for data...</span>
+        <h3>Waiting for data...</h3>
       );
     }
-    console.log(this.latestDeploymentState);
 
-    if (!this.latestDeploymentState.deployment_json) {
+    if (!this.latestDeploymentState.result) {
       return (
-        <span>This will create a new deploy for the project.</span>
+        <h3>This will create a new deploy for the project.</h3>
       );
     }
+
+    const displayTime = moment(this.latestDeploymentState.result.timestamp * 1000).format('LLLL');
 
     return (
-      <div class="display--flex flex-direction--column">
-        <label class="text-muted text-align--left">Existing Deployment:</label>
-        <span>Timestamp: {moment(this.latestDeploymentState.timestamp).toISOString()}</span>
+      <div class="display--flex flex-direction--column text-align--left">
+        <label class="text-align--left">Last deployed: {displayTime}</label>
       </div>
     );
   }
@@ -55,7 +71,7 @@ export default class DeployProjectPane extends Vue {
 
     const formClasses = {
       'mb-3 mt-3 text-align--left deploy-pane-container': true,
-      'whirl standard': !this.latestDeploymentState
+      'whirl standard': !this.deploymentError && (this.isDeployingProject || !this.latestDeploymentState)
     };
 
     return (
@@ -65,14 +81,17 @@ export default class DeployProjectPane extends Vue {
         </div>
         <div class="row deploy-pane-container__bottom-buttons">
           <b-button-group class="col-12">
-            <b-button variant="secondary" class="col-6" on={{ click: this.resetDeploymentPane }}>
+            <b-button variant="secondary" class="col-6" on={{ click: this.resetDeploymentPane }}
+                      disabled={this.isDeployingProject}>
               Cancel Deploy
             </b-button>
-            <b-button variant="primary" class="col-6" type="submit">
+            <b-button variant="primary" class="col-6" type="submit" ref="confirmDeployButton"
+                      disabled={this.isDeployingProject || this.hasProjectBeenModified}>
               Confirm Deploy
             </b-button>
           </b-button-group>
         </div>
+        {this.renderTooltips()}
       </b-form>
     );
   }
