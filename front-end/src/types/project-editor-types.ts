@@ -16,6 +16,7 @@ export enum SIDEBAR_PANE {
   // Deployment Viewer
   viewApiEndpoints = 'viewApiEndpoints',
   viewExecutions = 'viewExecutions',
+  // destroyDeploy = 'destroyDeploy',
   viewDeployedBlock = 'viewDeployedBlock',
   viewDeployedTransition = 'viewDeployedTransition'
 }
