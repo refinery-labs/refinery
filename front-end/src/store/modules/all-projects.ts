@@ -80,7 +80,7 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
         }
       );
 
-      if (!result.success) {
+      if (!result || !result.success) {
         // TODO: Handle this error case
         console.error('Failure to retrieve available projects');
         context.commit(AllProjectsMutators.setSearchingStatus, false);
