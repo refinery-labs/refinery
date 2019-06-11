@@ -1,4 +1,4 @@
-import { RefineryProject, WorkflowRelationshipType, WorkflowState } from '@/types/graph';
+import {RefineryProject, WorkflowRelationship, WorkflowRelationshipType, WorkflowState} from '@/types/graph';
 import {
   nodeTypesWithSimpleTransitions,
   validBlockToBlockTransitionLookup,
@@ -14,6 +14,20 @@ export function getNodeDataById(project: RefineryProject, nodeId: string): Workf
 
   const results = targetStates.filter(workflowState => {
     return workflowState.id === nodeId;
+  });
+
+  if (results.length > 0) {
+    return deepJSONCopy(results[0]);
+  }
+
+  return null;
+}
+
+export function getTransitionDataById(project: RefineryProject, transitionId: string): WorkflowRelationship | null {
+  const targetRelationships = project.workflow_relationships;
+
+  const results = targetRelationships.filter(workflowRelationship => {
+    return workflowRelationship.id === transitionId;
   });
 
   if (results.length > 0) {

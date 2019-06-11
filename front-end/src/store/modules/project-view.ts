@@ -59,6 +59,7 @@ import {createToast} from '@/utils/toasts-utils';
 import {ToastVariant} from '@/types/toasts-types';
 import router from '@/router';
 import {deepJSONCopy} from '@/lib/general-utils';
+import EditTransitionPaneModule, {EditTransitionActions} from "@/store/modules/panes/edit-transition-pane";
 
 interface AddBlockArguments {
   rawBlockType: string;
@@ -126,7 +127,8 @@ const moduleState: ProjectViewState = {
 const ProjectViewModule: Module<ProjectViewState, RootState> = {
   namespaced: true,
   modules: {
-    editBlockPane: EditBlockPaneModule
+    editBlockPane: EditBlockPaneModule,
+    editTransitionPanel: EditTransitionPaneModule,
   },
   state: moduleState,
   getters: {
@@ -603,8 +605,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       // TODO: Make this actually allow editing a transition
       await context.dispatch(DeploymentViewActions.openRightSidebarPane, SIDEBAR_PANE.editTransition);
-
       await context.dispatch(ProjectViewActions.updateAvailableTransitions);
+      await context.dispatch(`editTransitionPanel/${EditTransitionActions.selectCurrentlySelectedProjectEdge}`);
     },
     async [ProjectViewActions.completeTransitionAdd](context, nodeId: string) {
       if (!context.state.isAddingTransitionCurrently) {
@@ -963,7 +965,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
       context.commit(ProjectViewMutators.setAddingTransitionStatus, true);
       context.commit(ProjectViewMutators.setAddingTransitionType, transitionType);
-    }
+    },
   }
 };
 
