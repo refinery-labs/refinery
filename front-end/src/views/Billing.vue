@@ -3,16 +3,44 @@
     <div class="content-heading display-flex billing-main-container">
       <div class="layout--constrain flex-grow--1">
         <div class="text-align--center">
-          <!-- Main card-->
+          <!-- Payment methods card -->
           <div class="card b">
             <div class="card-header">
               <h2 class="my-2">
                 <span>Billing Information</span>
               </h2>
             </div>
-            <div class="card-body text-align--left">
+            <b-card-group>
               <div class="col-xl-6">
-                <div class="card card-default" v-bind:class="{ 'whirl standard': isLoading }">
+                <div class="card card-default" v-bind:class="{ 'whirl standard': isMonthBillLoading }">
+                  <div class="card-header">
+                    Current Billing Information for {{getCurrentMonthHuman()}} <i>(Updated Daily)</i>
+                    <div class="card-tool float-right" v-on:click="getLatestMonthBill"><em class="fas fa-sync"></em>
+                    </div>
+                  </div>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-bordered table-hover">
+                      <tbody>
+                      <tr v-for="BillChargeItem in serviceBillingBreakDownArray">
+                        <td class="text-align--left">{{BillChargeItem.service_name}}</td>
+                        <td class="text-align--right">${{BillChargeItem.total}}</td>
+                      </tr>
+                      <tr class="table-info">
+                        <td class="text-align--left">Total Bill Amount</td>
+                        <td class="text-align--right">${{billingTotal.bill_total}}</td>
+                      </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="card-footer">
+                    <small>Please note this bill may not be up to date. You can generally expect your billing totals
+                      to be refreshed every 24 hours. For help with your bill, or for more information, contact <code>billing@refinerylabs.io</code>
+                    </small>
+                  </div>
+                </div>
+              </div>
+              <div class="col-xl-6">
+                <div class="card card-default" v-bind:class="{ 'whirl standard': isPaymentMethodsLoading }">
                   <div class="card-header">
                     Payment Methods
                     <div class="card-tool float-right" v-on:click="getCards"><em class="fas fa-sync"></em></div>
@@ -40,7 +68,8 @@
                                   <em v-if="paymentMethod.brand.toLowerCase() === 'unknown'"
                                       class="fab fa-credit-card"></em>
                                   •••• •••• •••• {{paymentMethod.last4}} <i>{{paymentMethod.exp_month.toString()}}/{{paymentMethod.exp_year.toString()}}</i>
-                                  <div class="px-2 mr-2 float-left badge badge-success" v-if="paymentMethod.is_primary">
+                                  <div class="px-2 mr-2 float-left badge badge-success"
+                                       v-if="paymentMethod.is_primary">
                                     Primary
                                   </div>
                                   <div class="px-2 mr-2 float-left badge badge-secondary"
@@ -74,7 +103,7 @@
                   </div>
                 </div>
               </div>
-            </div>
+            </b-card-group>
           </div>
         </div>
       </div>
@@ -86,8 +115,9 @@
 <script lang="ts">
   import {Component, Vue} from 'vue-property-decorator';
   import {namespace} from "vuex-class";
-  import {PaymentCardResult} from "@/types/api-types";
+  import {BillChargeItem, BillTotal, PaymentCardResult} from "@/types/api-types";
   import StripeAddPaymentCard from '@/components/Common/StripeAddPaymentCard.vue';
+  import moment from "moment";
 
   const billing = namespace('billing');
 
@@ -101,9 +131,23 @@
     @billing.Action deletePaymentMethod!: (paymentMethodId: string) => void;
     @billing.Action makePrimaryPaymentMethod!: (paymentMethodId: string) => void;
     @billing.Action addPaymentMethod!: (paymentMethodId: string) => void;
+    @billing.Action getMonthBill!: (billingMonth: string) => void;
 
+    @billing.State billingTotal!: () => BillTotal;
+    @billing.State serviceBillingBreakDownArray!: () => BillChargeItem[];
     @billing.State paymentMethods!: () => PaymentCardResult[];
-    @billing.State isLoading!: () => Boolean;
+    @billing.State isPaymentMethodsLoading!: () => Boolean;
+    @billing.State isMonthBillLoading!: () => Boolean;
+
+    getCurrentMonthHuman() {
+      return moment().format("MMMM YYYY");
+    }
+
+    async getLatestMonthBill() {
+      await this.getMonthBill(
+        moment().format('YYYY-MM')
+      );
+    }
 
     async setStripeToken(paymentTokenId: string) {
       // Add this card to our payment methods
@@ -135,6 +179,7 @@
 
     async mounted() {
       this.getPaymentMethods();
+      this.getLatestMonthBill();
     }
   }
 </script>

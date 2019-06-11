@@ -6915,7 +6915,10 @@ class GetBillingMonthTotals( BaseHandler ):
 			True
 		)
 		
-		self.write( billing_data )
+		self.write({
+			"success": True,
+			"billing_data": billing_data,
+		})
 		
 def get_current_month_start_and_end_date_strings():
 	"""

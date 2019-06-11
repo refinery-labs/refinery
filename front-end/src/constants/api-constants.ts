@@ -28,7 +28,8 @@ export enum API_ENDPOINT {
   GetPaymentMethods = 'GetPaymentMethods',
   DeletePaymentMethod = 'DeletePaymentMethod',
   MakePrimaryPaymentMethod = 'MakePrimaryPaymentMethod',
-  AddPaymentMethod = 'AddPaymentMethod'
+  AddPaymentMethod = 'AddPaymentMethod',
+  GetLatestMonthBill = 'GetLatestMonthBill'
 }
 
 export enum HTTP_METHOD {
@@ -168,6 +169,10 @@ export const ApiConfigMap: ApiConfigMapType = {
   },
   [API_ENDPOINT.AddPaymentMethod]: {
     path: '/api/v1/billing/creditcards/add',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.GetLatestMonthBill]: {
+    path: '/api/v1/billing/get_month_totals',
     method: HTTP_METHOD.POST
   },
 };

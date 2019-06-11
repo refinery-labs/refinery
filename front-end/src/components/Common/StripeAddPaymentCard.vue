@@ -17,7 +17,7 @@ export default class StripeAddPaymentCard extends Vue {
   card!: stripe.elements.Element;
 
   @Prop() registrationNameInput!: string;
-  @Prop() setRegistrationStripeTokenValue!: (s: string) => void;
+  @Prop({ required: true }) setRegistrationStripeTokenValue!: (s: string) => void;
 
   async mounted() {
     await addStripeTagToPage();

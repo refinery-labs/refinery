@@ -528,9 +528,34 @@ export interface MakePrimaryMethodResponse extends BaseApiResponse {
 
 // Billing add card
 export interface AddPaymentMethodRequest extends BaseApiRequest {
-  token: string;
+  // Nothing
 }
 
 export interface AddPaymentMethodResponse extends BaseApiResponse {
   msg: string;
+}
+
+// Get latest monthly bill
+export interface GetLatestMonthlyBillRequest extends BaseApiRequest {
+  billing_month: string;
+}
+
+export interface BillTotal {
+  bill_total: string,
+  unit: string,
+}
+
+export interface BillChargeItem {
+  service_name: string,
+  total: string,
+  unit: string,
+}
+
+export interface BillingData {
+  bill_total: BillTotal,
+  service_breakdown: BillChargeItem[],
+}
+
+export interface GetLatestMonthlyBillResponse extends BaseApiResponse {
+  billing_data: BillingData,
 }
