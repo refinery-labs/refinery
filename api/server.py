@@ -4217,9 +4217,9 @@ class RunLambda( BaseHandler ):
 			{
 				"_refinery": {
 					"throw_exceptions_fully": True,
-					self.json[ "input_data" ],
+					"input_data": self.json[ "input_data" ]
 				}
-			},
+			}
 		)
 
 		self.write({
