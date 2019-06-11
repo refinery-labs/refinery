@@ -9,7 +9,7 @@ import { GetSavedProjectResponse } from '@/types/api-types';
 import uuid from 'uuid/v4';
 import {deepJSONCopy} from "@/lib/general-utils";
 
-export function getNodeDataById(project: RefineryProject, nodeId: string) {
+export function getNodeDataById(project: RefineryProject, nodeId: string): WorkflowState | null {
   const targetStates = project.workflow_states;
 
   const results = targetStates.filter(workflowState => {

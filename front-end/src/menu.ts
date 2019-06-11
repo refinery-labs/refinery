@@ -1,6 +1,6 @@
-import { baseLinks } from '@/constants/router-constants';
-import { MenuItemList, NavbarItem } from '@/types/layout-types';
-import { SIDEBAR_PANE } from '@/types/project-editor-types';
+import {baseLinks} from '@/constants/router-constants';
+import {MenuItemList, NavbarItem} from '@/types/layout-types';
+import {SIDEBAR_PANE} from '@/types/project-editor-types';
 
 export const GlobalNavMenuItems: MenuItemList = [
   {
@@ -51,39 +51,6 @@ export const GlobalNavMenuItems: MenuItemList = [
   }
 ];
 
-export const WorkflowEditorMenuItems: MenuItemList = [
-  {
-    heading: 'Main Navigation',
-    translate: 'sidebar.heading.HEADER'
-  },
-  {
-    name: 'Blocks',
-    icon: 'icon-plus',
-    translate: 'sidebar.nav.BLOCKS'
-  },
-  {
-    name: 'Entrypoints',
-    icon: 'icon-layers',
-    translate: 'sidebar.nav.ENTRYPOINTS'
-  }
-  // {
-  //   name: 'Widgets',
-  //   icon: 'icon-grid',
-  //   path: '/widgets',
-  //   label: { value: 30, color: 'success' },
-  //   translate: 'sidebar.nav.WIDGETS'
-  // },
-  // {
-  //   name: 'Layout',
-  //   icon: 'icon-layers',
-  //   submenu: [{
-  //     name: 'Horizontal',
-  //     path: '/dashboard'
-  //   }
-  //   ]
-  // },
-];
-
 export type EditorPaneTypeToName = { [key in SIDEBAR_PANE]: string };
 
 export const paneTypeToNameLookup: EditorPaneTypeToName = {
@@ -100,97 +67,53 @@ export const paneTypeToNameLookup: EditorPaneTypeToName = {
   [SIDEBAR_PANE.viewExecutions]: 'Block Executions',
   [SIDEBAR_PANE.destroyDeploy]: 'Destroy Deploy',
   [SIDEBAR_PANE.viewDeployedBlock]: 'Inspect Deployed Block',
-  [SIDEBAR_PANE.viewDeployedTransition]: 'Inspect Deployed Transition'
+  [SIDEBAR_PANE.viewDeployedTransition]: 'Inspect Deployed Transition',
+  [SIDEBAR_PANE.runEditorCodeBlock]: 'Run Code',
+  [SIDEBAR_PANE.runDeployedCodeBlock]: 'Run Code'
 };
 
 export const paneTypeToWindowNameLookup: EditorPaneTypeToName = {
   ...paneTypeToNameLookup,
-  [SIDEBAR_PANE.addBlock]: `Click to ${paneTypeToNameLookup[SIDEBAR_PANE.addBlock]}`
+  [SIDEBAR_PANE.addBlock]: `Click to ${paneTypeToNameLookup[SIDEBAR_PANE.addBlock]}`,
+  [SIDEBAR_PANE.runEditorCodeBlock]: 'Execute Editor Code Block',
+  [SIDEBAR_PANE.runDeployedCodeBlock]: 'Execute Deployed Code Block',
 };
+
+function makeSidebarMenuItem(type: SIDEBAR_PANE, icon: string, translate: string, variant: string): NavbarItem {
+  return {
+    name: paneTypeToNameLookup[type],
+    icon,
+    translate: `sidebar.nav.${translate}`,
+    label: paneTypeToNameLookup[type],
+    buttonVariant: variant,
+    editorPane: type
+  };
+}
 
 // TODO: Make a small helper to generate these instead of copy-pasting
 export const SidebarMenuItems: NavbarItem[] = [
-  {
-    name: paneTypeToNameLookup[SIDEBAR_PANE.addBlock],
-    icon: 'icon-plus',
-    translate: 'sidebar.nav.ADD_BLOCK',
-    label: paneTypeToNameLookup[SIDEBAR_PANE.addBlock],
-    buttonVariant: 'outline-primary',
-    editorPane: SIDEBAR_PANE.addBlock
-  },
-  {
-    name: paneTypeToNameLookup[SIDEBAR_PANE.addTransition],
-    icon: 'icon-cursor-move',
-    translate: 'sidebar.nav.ADD_TRANSITION',
-    label: paneTypeToNameLookup[SIDEBAR_PANE.addTransition],
-    buttonVariant: 'outline-primary',
-    editorPane: SIDEBAR_PANE.addTransition
-  },
-  {
-    name: paneTypeToNameLookup[SIDEBAR_PANE.allBlocks],
-    icon: 'icon-grid',
-    translate: 'sidebar.nav.ALL_BLOCKS',
-    label: paneTypeToNameLookup[SIDEBAR_PANE.allBlocks],
-    buttonVariant: 'outline-info',
-    editorPane: SIDEBAR_PANE.allBlocks
-  },
-  {
-    name: paneTypeToNameLookup[SIDEBAR_PANE.allVersions],
-    icon: 'icon-chart',
-    translate: 'sidebar.nav.ALL_VERSIONS',
-    label: paneTypeToNameLookup[SIDEBAR_PANE.allVersions],
-    buttonVariant: 'outline-info',
-    editorPane: SIDEBAR_PANE.allVersions
-  },
-  {
-    name: paneTypeToNameLookup[SIDEBAR_PANE.exportProject],
-    icon: 'icon-cloud-download',
-    translate: 'sidebar.nav.EXPORT_PROJECT',
-    label: paneTypeToNameLookup[SIDEBAR_PANE.exportProject],
-    buttonVariant: 'outline-info',
-    editorPane: SIDEBAR_PANE.exportProject
-  },
-  {
-    name: paneTypeToNameLookup[SIDEBAR_PANE.saveProject],
-    icon: 'icon-check',
-    translate: 'sidebar.nav.SAVE_PROJECT',
-    label: paneTypeToNameLookup[SIDEBAR_PANE.saveProject],
-    buttonVariant: 'success',
-    editorPane: SIDEBAR_PANE.saveProject
-  },
-  {
-    name: paneTypeToNameLookup[SIDEBAR_PANE.deployProject],
-    icon: 'icon-cloud-upload',
-    translate: 'sidebar.nav.DEPLOY_PROJECT',
-    label: paneTypeToNameLookup[SIDEBAR_PANE.deployProject],
-    buttonVariant: 'primary',
-    editorPane: SIDEBAR_PANE.deployProject
-  }
+  makeSidebarMenuItem(SIDEBAR_PANE.addBlock, 'icon-plus', 'sidebar.nav.ADD_BLOCK', 'outline-primary'),
+  makeSidebarMenuItem(SIDEBAR_PANE.addTransition, 'icon-cursor-move', 'sidebar.nav.ADD_TRANSITION', 'outline-primary'),
+  makeSidebarMenuItem(
+    SIDEBAR_PANE.runEditorCodeBlock, 'icon-control-play',
+    'RUN_CODE_BLOCK',
+    'outline-success'
+  ),
+  // makeSidebarMenuItem(SIDEBAR_PANE.allBlocks, 'icon-grid', 'sidebar.nav.ALL_BLOCKS', 'outline-info'),
+  // makeSidebarMenuItem(SIDEBAR_PANE.allVersions, 'icon-chart', 'sidebar.nav.ALL_VERSIONS', 'outline-info'),
+  makeSidebarMenuItem(SIDEBAR_PANE.exportProject, 'icon-cloud-download', 'sidebar.nav.EXPORT_PROJECT', 'outline-info'),
+  makeSidebarMenuItem(SIDEBAR_PANE.saveProject, 'icon-check', 'sidebar.nav.SAVE_PROJECT', 'success'),
+  makeSidebarMenuItem(SIDEBAR_PANE.deployProject, 'icon-cloud-upload', 'sidebar.nav.DEPLOY_PROJECT', 'primary')
 ];
 
 export const DeploymentSidebarMenuItems: NavbarItem[] = [
-  {
-    name: paneTypeToNameLookup[SIDEBAR_PANE.viewApiEndpoints],
-    icon: 'icon-list',
-    translate: 'sidebar.nav.VIEW_API_ENDPOINTS',
-    label: paneTypeToNameLookup[SIDEBAR_PANE.viewApiEndpoints],
-    buttonVariant: 'outline-info',
-    editorPane: SIDEBAR_PANE.viewApiEndpoints
-  },
-  {
-    name: paneTypeToNameLookup[SIDEBAR_PANE.viewExecutions],
-    icon: 'icon-organization',
-    translate: 'sidebar.nav.VIEW_EXECUTIONS',
-    label: paneTypeToNameLookup[SIDEBAR_PANE.viewExecutions],
-    buttonVariant: 'outline-info',
-    editorPane: SIDEBAR_PANE.viewExecutions
-  },
-  {
-    name: paneTypeToNameLookup[SIDEBAR_PANE.destroyDeploy],
-    icon: 'icon-ban',
-    translate: 'sidebar.nav.DESTROY_DEPLOY',
-    label: paneTypeToNameLookup[SIDEBAR_PANE.destroyDeploy],
-    buttonVariant: 'danger',
-    editorPane: SIDEBAR_PANE.destroyDeploy
-  }
+  makeSidebarMenuItem(SIDEBAR_PANE.viewApiEndpoints, 'icon-list', 'sidebar.nav.VIEW_API_ENDPOINTS', 'outline-info'),
+  makeSidebarMenuItem(SIDEBAR_PANE.viewExecutions, 'icon-organization', 'sidebar.nav.VIEW_EXECUTIONS', 'outline-info'),
+  makeSidebarMenuItem(
+    SIDEBAR_PANE.runDeployedCodeBlock,
+    'icon-control-play',
+    'RUN_CODE_BLOCK',
+    'outline-success'
+  ),
+  makeSidebarMenuItem(SIDEBAR_PANE.destroyDeploy, 'icon-ban', 'sidebar.nav.DESTROY_DEPLOY', 'danger')
 ];
