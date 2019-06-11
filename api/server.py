@@ -7062,9 +7062,6 @@ class AddCreditCardToken( BaseHandler ):
 		validate_schema( self.json, schema )
 		
 		current_user = self.get_authenticated_user()
-
-		print( "Derp: " )
-		print( self.json[ "token" ] )
 		
 		yield local_tasks.associate_card_token_with_customer_account(
 			current_user.payment_id,
