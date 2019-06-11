@@ -4214,9 +4214,14 @@ class RunLambda( BaseHandler ):
 		lambda_result = yield local_tasks.execute_aws_lambda(
 			self.get_authenticated_user_cloud_configuration(),
 			self.json[ "arn" ],
-			self.json[ "input_data" ],
+			{
+				"_refinery": {
+					"throw_exceptions_fully": True,
+					self.json[ "input_data" ],
+				}
+			},
 		)
-		
+
 		self.write({
 			"success": True,
 			"result": lambda_result
