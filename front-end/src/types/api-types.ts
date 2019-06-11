@@ -286,9 +286,9 @@ export interface RunLambdaResult {
 }
 
 export interface RunLambdaError {
-  message: string;
-  type: string;
-  trace: string;
+  message?: string;
+  type?: string;
+  trace?: Array<Array<number | string>> | string;
 }
 
 /**
@@ -306,27 +306,8 @@ export interface RunTmpLambdaRequest extends BaseApiRequest {
   memory: number;
 }
 
-export interface RunTmpLambdaResponse extends BaseApiResponse {
-  result: RunTmpLambdaResponseResult;
-}
-
-export interface RunTmpLambdaResponseResult {
-  error: Error;
-  retries: number;
-  is_error: boolean;
-  version: string;
-  logs: string;
-  truncated: boolean;
-  status_code: number;
-  request_id: string;
-  response: boolean;
-  arn: string;
-}
-
-export interface Error {
-  message?: string;
-  type?: string;
-  trace?: Array<Array<number | string>>;
+// This is the same thing as RunLambdaResponse but gonna leave the types split out and solve with inheritance
+export interface RunTmpLambdaResponse extends RunLambdaResponse {
 }
 
 // SaveProject

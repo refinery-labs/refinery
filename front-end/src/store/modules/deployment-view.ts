@@ -225,6 +225,7 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
     },
 
     async [DeploymentViewActions.clearSelection](context) {
+      // TODO: Make this a mutator?
       context.commit(DeploymentViewMutators.selectedResource, null);
     },
     async [DeploymentViewActions.selectNode](context, nodeId: string) {
