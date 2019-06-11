@@ -2104,26 +2104,12 @@ class TaskSpawner(object):
 				pass
 			
 			# Detect from response if it was an error
-			is_error = False
-			error_data = {}
-			if type( full_response ) == dict and "errorMessage" in full_response and "errorType" in full_response and "stackTrace" in full_response:
-				is_error = True
-				error_data = {
-					"message": full_response[ "errorMessage" ],
-					"type": full_response[ "errorType" ],
-					"trace": full_response[ "stackTrace" ]
-				}
-			
-			# Null response data
-			if is_error:
-				full_response = False
-			
 			del response[ "Payload" ]
 			
-			function_error = False
+			is_error = False
 			
 			if "FunctionError" in response:
-				function_error = response[ "FunctionError" ]
+				is_error = True
 			
 			log_output = base64.b64decode(
 				response[ "LogResult" ]
@@ -2142,13 +2128,9 @@ class TaskSpawner(object):
 				"truncated": truncated,
 				"arn": arn,
 				"version": response[ "ExecutedVersion" ],
-				"response": full_response,
-				"request_id": response[ "ResponseMetadata" ][ "RequestId" ],
 				"status_code": response[ "StatusCode" ],
-				"retries": response[ "ResponseMetadata" ][ "RetryAttempts" ],
 				"logs": log_output,
 				"is_error": is_error,
-				"error": error_data
 			}
 			
 		@run_on_executor
