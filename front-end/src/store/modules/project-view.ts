@@ -498,6 +498,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       context.commit(ProjectViewMutators.isDeployingProject, false);
+      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
 
       router.push({
         name: 'deployment',

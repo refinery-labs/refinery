@@ -201,7 +201,7 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
         project_id: context.state.openedDeploymentProjectId
       });
 
-      if (!deleteAllInProjectResult || deleteAllInProjectResult.success) {
+      if (!deleteAllInProjectResult || !deleteAllInProjectResult.success) {
         await handleError('Server failed to handle Delete Deployment request');
         return;
       }
@@ -219,6 +219,9 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
           projectId: context.state.openedDeploymentProjectId
         }
       });
+
+      // Destroy the state because it's donezo now.
+      await context.dispatch(DeploymentViewActions.resetDeploymentState);
     },
 
     async [DeploymentViewActions.clearSelection](context) {
