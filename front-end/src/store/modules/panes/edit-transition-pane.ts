@@ -60,7 +60,7 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
       const projectStore = context.rootState.project;
 
       if (!projectStore.openedProject || !projectStore.selectedResource) {
-        console.error('Attempted to open edit block pane without loaded project or selected resource');
+        console.error('Attempted to open edit transition pane without loaded project or selected resource');
         return;
       }
 
@@ -70,7 +70,7 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
       const projectStore = context.rootState.project;
 
       if (!projectStore.openedProject) {
-        console.error('Attempted to open edit block pane without loaded project');
+        console.error('Attempted to open edit transition pane without loaded project');
         return;
       }
 
@@ -89,7 +89,7 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
       const projectStore = context.rootState.project;
 
       if (!projectStore.openedProject) {
-        console.error('Attempted to open edit block pane without loaded project');
+        console.error('Attempted to open edit transition pane without loaded project');
         return;
       }
       ;

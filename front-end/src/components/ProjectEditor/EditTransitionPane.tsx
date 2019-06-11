@@ -28,6 +28,9 @@ export default class EditTransitionPane extends Vue {
   @editTransition.Action deleteTransition!: () => void;
 
   private checkIfTransitionEnabled(key: WorkflowRelationshipType) {
+    console.log( "Valid transitions: " );
+    console.log( findTransitionsBetweenNodes() );
+
     return this.getValidMenuDisplayTransitionTypes.some(t => t === key);
   }
 

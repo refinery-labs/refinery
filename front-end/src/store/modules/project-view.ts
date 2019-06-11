@@ -192,6 +192,36 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // There are no valid transitions available
       return [];
     },
+    /**
+     * Returns which menu items are able to be displayed by the Edit Transition pane
+     * @param state Vuex state object
+     */
+    [ProjectViewGetters.getValidEditMenuDisplayTransitionTypes]: state => {
+      if (!state.availableTransitions) {
+        // Return an empty list because our state is invalid, but we also hate null types :)
+        return [];
+      }
+
+      if (state.availableTransitions.complex.length > 0) {
+        // Return every type as available
+        return [
+          WorkflowRelationshipType.IF,
+          WorkflowRelationshipType.THEN,
+          WorkflowRelationshipType.ELSE,
+          WorkflowRelationshipType.EXCEPTION,
+          WorkflowRelationshipType.FAN_OUT,
+          WorkflowRelationshipType.FAN_IN
+        ];
+      }
+
+      if (state.availableTransitions.simple.length > 0) {
+        // Only return "then" being enabled
+        return [WorkflowRelationshipType.THEN];
+      }
+
+      // There are no valid transitions available
+      return [];
+    },
     [ProjectViewGetters.canSaveProject]: state => state.hasProjectBeenModified && !state.isProjectBusy && !state.isAddingTransitionCurrently,
     [ProjectViewGetters.canDeployProject]: state =>
       !state.hasProjectBeenModified && !state.isProjectBusy && !state.isAddingTransitionCurrently
