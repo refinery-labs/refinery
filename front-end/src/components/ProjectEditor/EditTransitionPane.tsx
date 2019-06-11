@@ -20,18 +20,13 @@ export default class EditTransitionPane extends Vue {
   @project.State selectedResource!: string;
 
   @project.Getter
-  getValidMenuDisplayTransitionTypes!: WorkflowRelationshipType[];
-
-  @project.Action selectTransitionTypeToAdd!: (key: WorkflowRelationshipType) => {};
-  @project.Action cancelAddingTransition!: () => {};
+  getValidEditMenuDisplayTransitionTypes!: WorkflowRelationshipType[];
 
   @editTransition.Action deleteTransition!: () => void;
+  @editTransition.Action changeTransitionType!: (RelationshipType: WorkflowRelationshipType) => void;
 
   private checkIfTransitionEnabled(key: WorkflowRelationshipType) {
-    console.log( "Valid transitions: " );
-    console.log( findTransitionsBetweenNodes() );
-
-    return this.getValidMenuDisplayTransitionTypes.some(t => t === key);
+    return this.getValidEditMenuDisplayTransitionTypes.some(t => t === key);
   }
 
   public renderTransitionSelect(key: WorkflowRelationshipType, transition: AddGraphElementConfig | null) {
@@ -71,7 +66,7 @@ export default class EditTransitionPane extends Vue {
 
     return (
       <b-list-group-item
-        on={{click: () => this.selectTransitionTypeToAdd(key)}}
+        on={{click: () => this.changeTransitionType(key)}}
         disabled={!isTransitionEnabled}
         active={this.newTransitionTypeSpecifiedInAddFlow === key}
         class={groupItemClasses}
@@ -82,35 +77,11 @@ export default class EditTransitionPane extends Vue {
     );
   }
 
-  renderHelpText() {
-    return (
-      <b-list-group class="add-transition-container" style={{margin: '0 0 2px 0'}}>
-        <div>
-          <b-list-group horizontal>
-            {availableTransitions.map(key => this.renderTransitionSelect(key, transitionTypeToConfigLookup[key]))}
-          </b-list-group>
-        </div>
-        <b-list-group-item class="text-align--center">
-          <h4>Click on a glowing Block to select the second element for the transition.</h4>
-        </b-list-group-item>
-        <b-list-group-item>
-          <b-button variant="danger" class="col-md-12" on={{click: this.cancelAddingTransition}}>
-            Cancel Adding Transition
-          </b-button>
-        </b-list-group-item>
-      </b-list-group>
-    );
-  }
-
   deleteSelectedTransition() {
     this.deleteTransition();
   }
 
   public render(h: CreateElement): VNode {
-    if (this.newTransitionTypeSpecifiedInAddFlow) {
-      return this.renderHelpText();
-    }
-
     return (
       <div>
         <b-list-group class="add-transition-container" style={{margin: '0 0 2px 0'}}>

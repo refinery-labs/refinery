@@ -1,13 +1,14 @@
 import {Module} from 'vuex';
 import {RootState} from '../../store-types';
 import {
-  SqsQueueWorkflowState, WorkflowRelationship,
+  SqsQueueWorkflowState, WorkflowRelationship, WorkflowRelationshipType,
 } from '@/types/graph';
 import {getTransitionDataById} from "@/utils/project-helpers";
-import {ProjectViewActions} from "@/constants/store-constants";
+import {ProjectViewActions, ProjectViewMutators} from "@/constants/store-constants";
 import {createToast} from "@/utils/toasts-utils";
 import {ToastVariant} from "@/types/toasts-types";
 import {PANE_POSITION} from "@/types/project-editor-types";
+import {ChangeTransitionArguments} from "@/store/modules/project-view";
 
 // Enums
 export enum EditTransitionMutators {
@@ -19,7 +20,8 @@ export enum EditTransitionActions {
   deleteTransition = 'deleteTransition',
   selectCurrentlySelectedProjectEdge = 'selectCurrentlySelectedProjectEdge',
   selectEdgeFromOpenProject = 'selectEdgeFromOpenProject',
-  cancelAndResetBlock = 'cancelAndResetBlock'
+  cancelAndResetBlock = 'cancelAndResetBlock',
+  changeTransitionType = 'changeTransitionType'
 }
 
 // Types
@@ -48,6 +50,7 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
      */
     async [EditTransitionActions.resetPaneState](context) {
       context.commit(EditTransitionMutators.setSelectedEdge, null);
+      await context.dispatch(`project/${ProjectViewActions.deselectResources}`, null,{root: true});
     },
     async [EditTransitionActions.cancelAndResetBlock](context) {
       // Reset this pane state
@@ -74,7 +77,7 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
         return;
       }
 
-      await context.dispatch(EditTransitionActions.resetPaneState);
+      //await context.dispatch(EditTransitionActions.resetPaneState);
 
       const edge = getTransitionDataById(projectStore.openedProject, edgeId);
 
@@ -92,7 +95,6 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
         console.error('Attempted to open edit transition pane without loaded project');
         return;
       }
-      ;
 
       if (!context.state.selectedEdge) {
         console.error('Unable to perform delete -- state is invalid of edited edge');
@@ -104,14 +106,45 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
       });
 
       await createToast(context.dispatch, {
-        title: 'Block deleted!',
+        title: 'Transition deleted!',
         content: `Successfully deleted transition!`,
         variant: ToastVariant.success
       });
 
       // We need to close the pane and reset the state
       await context.dispatch(EditTransitionActions.cancelAndResetBlock);
-    }
+    },
+    async [EditTransitionActions.changeTransitionType](context, transitionType: WorkflowRelationshipType) {
+      const projectStore = context.rootState.project;
+
+      if (!projectStore.openedProject) {
+        console.error('Attempted to open edit transition pane without loaded project');
+        return;
+      }
+
+      if (!context.state.selectedEdge) {
+        console.error('Unable to perform delete -- state is invalid of edited edge');
+        return;
+      }
+
+      const changeTransitionArguments: ChangeTransitionArguments = {
+        "transition": context.state.selectedEdge,
+        "transitionType": transitionType,
+      }
+
+      await context.dispatch(`project/${ProjectViewActions.changeExistingTransition}`, changeTransitionArguments, {
+        root: true
+      });
+
+      await createToast(context.dispatch, {
+        title: 'Transition changed!',
+        content: `Successfully changed transition!`,
+        variant: ToastVariant.success
+      });
+
+      // We need to close the pane and reset the state
+      await context.dispatch(EditTransitionActions.cancelAndResetBlock);
+    },
   }
 }
 

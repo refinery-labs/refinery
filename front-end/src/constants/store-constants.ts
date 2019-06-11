@@ -53,7 +53,10 @@ export enum ProjectViewMutators {
   // Add Transition Pane
   setAddingTransitionStatus = 'setAddingTransitionStatus',
   setAddingTransitionType = 'setAddingTransitionType',
-  setValidTransitions = 'setValidTransitions'
+  setValidTransitions = 'setValidTransitions',
+
+  // Edit Transition Pane
+  setValidEditTransitions = 'setValidEditTransitions'
 }
 
 export enum ProjectViewActions {
@@ -81,10 +84,13 @@ export enum ProjectViewActions {
   updateExistingBlock = 'updateExistingBlock',
   addTransition = 'addTransition',
   updateAvailableTransitions = 'updateAvailableTransitions',
+  updateAvailableEditTransitions = 'updateAvailableEditTransitions',
   cancelAddingTransition = 'cancelAddingTransition',
   selectTransitionTypeToAdd = 'selectTransitionTypeToAdd',
   deleteExistingBlock = 'deleteExistingBlock',
-  deleteExistingTransition = 'deleteExistingTransition'
+  deleteExistingTransition = 'deleteExistingTransition',
+  changeExistingTransition = 'changeExistingTransition',
+  deselectResources = 'deselectResources'
 }
 
 export enum DeploymentViewGetters {

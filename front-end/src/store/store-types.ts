@@ -131,6 +131,9 @@ export interface ProjectViewState {
   isAddingTransitionCurrently: boolean;
   newTransitionTypeSpecifiedInAddFlow: WorkflowRelationshipType | null;
   availableTransitions: AvailableTransitionsByType | null;
+
+  // Edit Transition Pane
+  availableEditTransitions: AvailableTransitionsByType | null;
 }
 
 export interface AllProjectsState {
