@@ -355,3 +355,13 @@ $content-sidebar-width: 92px;
   margin-top: 2px;
   width: 200px;
 }
+
+.refinery-code-editor-container {
+  min-width: 200px;
+  min-height: 100px;
+}
+
+.run-lambda-container__col {
+  // Should force the blocks next to each other
+  min-width: 200px;
+}

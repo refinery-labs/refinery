@@ -154,6 +154,9 @@ export interface DeploymentViewState {
   openedDeploymentProjectId: string | null,
   openedDeploymentTimestamp: number | null,
 
+  destroyModalVisible: boolean,
+  isDestroyingDeployment: boolean,
+
   isLoadingDeployment: boolean;
 
   activeLeftSidebarPane: SIDEBAR_PANE | null;

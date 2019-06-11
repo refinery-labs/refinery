@@ -12,13 +12,15 @@ export enum SIDEBAR_PANE {
   deployProject = 'deployProject',
   editBlock = 'editBlock',
   editTransition = 'editTransition',
+  runEditorCodeBlock = 'runEditorCodeBlock',
 
   // Deployment Viewer
   viewApiEndpoints = 'viewApiEndpoints',
   viewExecutions = 'viewExecutions',
   destroyDeploy = 'destroyDeploy',
   viewDeployedBlock = 'viewDeployedBlock',
-  viewDeployedTransition = 'viewDeployedTransition'
+  viewDeployedTransition = 'viewDeployedTransition',
+  runDeployedCodeBlock = 'runDeployedCodeBlock'
 }
 
 export enum PANE_POSITION {

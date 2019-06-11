@@ -16,6 +16,8 @@ export default class EditorPaneWrapper extends Vue {
       'text-light': true
     };
 
+    const closeFunction = this.tryToCloseBlock || this.closePane;
+
     return (
       <div class={headerClasses}>
         <h4 class="modal-title">{this.paneTitle}</h4>
@@ -24,7 +26,7 @@ export default class EditorPaneWrapper extends Vue {
           class="close text-white editor-pane-instance__close-button"
           data-dismiss="modal"
           aria-label="Close"
-          on={{ click: this.tryToCloseBlock }}
+          on={{ click: closeFunction }}
         >
           <span aria-hidden="true">&times;</span>
         </button>

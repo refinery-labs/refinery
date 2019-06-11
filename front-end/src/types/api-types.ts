@@ -249,7 +249,7 @@ export interface InfraTearDownRequest extends BaseApiRequest {
 }
 
 export interface InfraTearDownResponse extends BaseApiResponse {
-  result: Array<InfraTearDownResult | string>;
+  result: Array<InfraTearDownResult>;
 }
 
 export interface InfraTearDownResult {

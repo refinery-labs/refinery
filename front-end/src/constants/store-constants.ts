@@ -17,7 +17,8 @@ export enum ProjectViewGetters {
   getValidBlockToBlockTransitions = 'getValidBlockToBlockTransitions',
   getValidMenuDisplayTransitionTypes = 'getValidMenuDisplayTransitionTypes',
   canSaveProject = 'canSaveProject',
-  canDeployProject = 'canDeployProject'
+  canDeployProject = 'canDeployProject',
+  hasCodeBlockSelected = 'hasCodeBlockSelected',
 }
 
 export enum ProjectViewMutators {
@@ -92,6 +93,9 @@ export enum DeploymentViewGetters {
 export enum DeploymentViewMutators {
   setOpenedDeployment = 'setOpenedDeployment',
 
+  setDestroyDeploymentModalVisibility = 'setDestroyDeploymentModalVisibility',
+  setIsDestroyingDeployment = 'setIsDestroyingDeployment',
+
   selectedResource = 'selectedResource',
   isLoadingDeployment = 'isLoadingDeployment',
 
@@ -108,8 +112,7 @@ export enum DeploymentViewMutators {
 
 export enum DeploymentViewActions {
   openDeployment = 'openDeployment',
-  updateDeployment = 'updateDeployment',
-  saveDeployment = 'saveDeployment',
+  destroyDeployment = 'destroyDeployment',
 
   clearSelection = 'clearSelection',
   selectNode = 'selectNode',
