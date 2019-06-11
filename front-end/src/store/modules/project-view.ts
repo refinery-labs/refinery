@@ -26,7 +26,10 @@ import {
 import {getApiClient, makeApiRequest} from '@/store/fetchers/refinery-api';
 import {API_ENDPOINT} from '@/constants/api-constants';
 import {
-  DeleteDeploymentsInProjectRequest, DeleteDeploymentsInProjectResponse, DeployDiagramRequest, DeployDiagramResponse,
+  DeleteDeploymentsInProjectRequest,
+  DeleteDeploymentsInProjectResponse,
+  DeployDiagramRequest,
+  DeployDiagramResponse,
   GetLatestProjectDeploymentRequest,
   GetLatestProjectDeploymentResponse,
   GetProjectConfigRequest,
@@ -55,7 +58,7 @@ import EditBlockPaneModule, {EditBlockActions} from '@/store/modules/panes/edit-
 import {createToast} from '@/utils/toasts-utils';
 import {ToastVariant} from '@/types/toasts-types';
 import router from '@/router';
-import {deepJSONCopy} from "@/lib/general-utils";
+import {deepJSONCopy} from '@/lib/general-utils';
 
 interface AddBlockArguments {
   rawBlockType: string;
@@ -76,6 +79,8 @@ const moduleState: ProjectViewState = {
   hasProjectBeenModified: false,
 
   leftSidebarPaneState: {
+    [SIDEBAR_PANE.runDeployedCodeBlock]: {},
+    [SIDEBAR_PANE.runEditorCodeBlock]: {},
     [SIDEBAR_PANE.addBlock]: {},
     [SIDEBAR_PANE.addTransition]: {},
     [SIDEBAR_PANE.allBlocks]: {},
@@ -131,6 +136,24 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       return state.availableTransitions.simple.length > 0 || state.availableTransitions.complex.length > 0;
+    },
+    /**
+     * Used to allow "run code" button to enable only in valid states
+     * @param state Vuex state object
+     * @return Boolean representing if the button should be enabled
+     */
+    [ProjectViewGetters.hasCodeBlockSelected]: state => {
+      if (!state.selectedResource || !state.openedProject) {
+        return false;
+      }
+
+      const locatedNode = getNodeDataById(state.openedProject, state.selectedResource);
+
+      if (!locatedNode) {
+        return false;
+      }
+
+      return locatedNode.type === WorkflowStateType.LAMBDA;
     },
     /**
      * Returns the list of "next" valid blocks to select
@@ -475,6 +498,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       context.commit(ProjectViewMutators.isDeployingProject, false);
+      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
 
       router.push({
         name: 'deployment',

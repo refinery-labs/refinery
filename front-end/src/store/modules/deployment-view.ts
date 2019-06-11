@@ -1,9 +1,6 @@
 import {Module} from 'vuex';
 import {DeploymentViewState, RootState} from '@/store/store-types';
-import {
-  CyElements,
-  CyStyle,
-} from '@/types/graph';
+import {CyElements, CyStyle} from '@/types/graph';
 import {generateCytoscapeElements, generateCytoscapeStyle} from '@/lib/refinery-to-cytoscript-converter';
 import {LayoutOptions} from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
@@ -11,19 +8,28 @@ import {DeploymentViewActions, DeploymentViewGetters, DeploymentViewMutators} fr
 import {makeApiRequest} from '@/store/fetchers/refinery-api';
 import {API_ENDPOINT} from '@/constants/api-constants';
 import {
+  DeleteDeploymentsInProjectRequest,
+  DeleteDeploymentsInProjectResponse,
   GetLatestProjectDeploymentRequest,
-  GetLatestProjectDeploymentResponse, GetLatestProjectDeploymentResult,
+  GetLatestProjectDeploymentResponse,
+  GetLatestProjectDeploymentResult,
+  InfraTearDownRequest,
+  InfraTearDownResponse
 } from '@/types/api-types';
 import {PANE_POSITION, SIDEBAR_PANE} from '@/types/project-editor-types';
-import {EditBlockActions} from '@/store/modules/panes/edit-block-pane';
 import {createToast} from '@/utils/toasts-utils';
 import {ToastVariant} from '@/types/toasts-types';
+import router from '@/router';
+
 
 const moduleState: DeploymentViewState = {
   openedDeployment: null,
   openedDeploymentId: null,
   openedDeploymentProjectId: null,
   openedDeploymentTimestamp: null,
+
+  destroyModalVisible: false,
+  isDestroyingDeployment: false,
 
   isLoadingDeployment: true,
   
@@ -77,6 +83,13 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
       state.openedDeploymentId = deployment.id;
       state.openedDeploymentProjectId = deployment.project_id;
       state.openedDeploymentTimestamp = deployment.timestamp;
+    },
+
+    [DeploymentViewMutators.setDestroyDeploymentModalVisibility](state, value: boolean) {
+      state.destroyModalVisible = value;
+    },
+    [DeploymentViewMutators.setIsDestroyingDeployment](state, value: boolean) {
+      state.isDestroyingDeployment = value;
     },
     [DeploymentViewMutators.isLoadingDeployment](state, value: boolean) {
       state.isLoadingDeployment = value;
@@ -148,6 +161,67 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
       context.commit(DeploymentViewMutators.setCytoscapeStyle, stylesheet);
 
       context.commit(DeploymentViewMutators.isLoadingDeployment, false);
+    },
+    async [DeploymentViewActions.destroyDeployment](context) {
+      const handleError = async (message: string) => {
+        context.commit(DeploymentViewMutators.setIsDestroyingDeployment, false);
+        console.error('Unable to destroy deployment', message);
+        await createToast(context.dispatch, {
+          title: 'Destroy Deployment Error',
+          content: message,
+          variant: ToastVariant.danger
+        });
+      };
+
+      if (!context.state.openedDeploymentProjectId || !context.state.openedDeployment) {
+        await handleError('Must have valid opened project to initiate Destroy Deployment');
+        return;
+      }
+
+      context.commit(DeploymentViewMutators.setIsDestroyingDeployment, true);
+
+      const destroyDeploymentResult = await makeApiRequest<InfraTearDownRequest, InfraTearDownResponse>(API_ENDPOINT.InfraTearDown, {
+        project_id: context.state.openedDeploymentProjectId,
+        teardown_nodes: context.state.openedDeployment.workflow_states
+      });
+
+      if (!destroyDeploymentResult || !destroyDeploymentResult.success) {
+        await handleError('Server failed to handle Destroy Deployment request');
+        return;
+      }
+
+      const failedToDeleteNodes = destroyDeploymentResult.result.filter(res => !res.deleted);
+
+      if (failedToDeleteNodes.length > 0) {
+        await handleError('Unable to delete nodes of IDs:\n' + failedToDeleteNodes.map(n => n.name).join('\n'));
+        return;
+      }
+
+      const deleteAllInProjectResult = await makeApiRequest<DeleteDeploymentsInProjectRequest, DeleteDeploymentsInProjectResponse>(API_ENDPOINT.DeleteDeploymentsInProject, {
+        project_id: context.state.openedDeploymentProjectId
+      });
+
+      if (!deleteAllInProjectResult || !deleteAllInProjectResult.success) {
+        await handleError('Server failed to handle Delete Deployment request');
+        return;
+      }
+
+      context.commit(DeploymentViewMutators.setIsDestroyingDeployment, false);
+      await createToast(context.dispatch, {
+        title: 'Deployment Deleted Successfully',
+        content: 'The deployment was successfully removed from production. Redirecting to the project view now...',
+        variant: ToastVariant.success
+      });
+
+      router.push({
+        name: 'project',
+        params: {
+          projectId: context.state.openedDeploymentProjectId
+        }
+      });
+
+      // Destroy the state because it's donezo now.
+      await context.dispatch(DeploymentViewActions.resetDeploymentState);
     },
 
     async [DeploymentViewActions.clearSelection](context) {
@@ -230,6 +304,9 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
       context.commit(DeploymentViewMutators.setCytoscapeStyle, null);
       context.commit(DeploymentViewMutators.setSelectedBlockIndex, null);
       context.commit(DeploymentViewMutators.setOpenedDeployment, null);
+      context.commit(DeploymentViewMutators.isLoadingDeployment, false);
+      context.commit(DeploymentViewMutators.setIsDestroyingDeployment, false);
+      context.commit(DeploymentViewMutators.setDestroyDeploymentModalVisibility, false);
 
       // TODO: Add "close all panes"
       await context.dispatch(DeploymentViewActions.closePane, PANE_POSITION.left);
