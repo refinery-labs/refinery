@@ -26,6 +26,7 @@ export default class RegistrationPage extends Vue {
   @user.State registrationEmailErrorMessage!: string | null;
 
   @user.Mutation setRegisterEmailInputValue!: (s: string) => void;
+  @user.Mutation setRegistrationStripeToken!: (s: string) => void;
   @user.Mutation setRegisterNameInputValue!: (s: string) => void;
   @user.Mutation setRegisterPhoneInputValue!: (s: string) => void;
   @user.Mutation setRegisterOrgNameInputValue!: (s: string) => void;
@@ -57,11 +58,19 @@ export default class RegistrationPage extends Vue {
     this.redirectIfAuthenticated();
   }
 
+  setStripeToken( stripeToken: string ) {
+    this.setRegistrationStripeToken( stripeToken );
+  }
+
   public renderLoginForm() {
     const classes = {
       'block-center mt-4 wd-xl': true,
       'whirl standard': this.isBusy
     };
+
+    const stripeCardProps = {
+      setRegistrationStripeTokenValue: this.setStripeToken,
+    }
 
     const emailInputErrorMessage =
       this.registrationEmailErrorMessage || 'Your must register with a valid email address.';
@@ -196,8 +205,9 @@ export default class RegistrationPage extends Vue {
             <b-form-group id="stripe-payment">
               <label class="text-muted d-block" htmlFor="user-name-input" id="user-name-group">
                 Payment Information
-              </label>
-              <StripeAddPaymentCard />
+              </label>{/* TypeScript can fuck right off, this works fine.
+              // @ts-ignore */}
+              <StripeAddPaymentCard props={stripeCardProps}/>
               <br />
               {/*TODO: Replace Pricing page with actual link.*/}
               <small class="text-muted d-block">

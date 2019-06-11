@@ -1500,16 +1500,14 @@ class TaskSpawner(object):
 			# Throw an exception if this is the default source for the user
 			if customer_information[ "default_source" ] == card_id:
 				raise CardIsPrimaryException()
-				
-			return True
 			
 			# Delete the card from STripe
 			delete_response = stripe.Customer.delete_source(
 				stripe_customer_id,
 				card_id
 			)
-			
-			return cards[ "data" ]
+
+			return True
 			
 		@run_on_executor
 		def generate_managed_accounts_invoices( self, start_date_string, end_date_string ):
@@ -6908,8 +6906,7 @@ class GetBillingMonthTotals( BaseHandler ):
 		}
 		
 		validate_schema( self.json, schema )
-		
-		current_user = self.get_authenticated_user()
+
 		credentials = self.get_authenticated_user_cloud_configuration()
 		
 		billing_data = yield local_tasks.get_sub_account_month_billing_data(
@@ -6918,7 +6915,10 @@ class GetBillingMonthTotals( BaseHandler ):
 			True
 		)
 		
-		self.write( billing_data )
+		self.write({
+			"success": True,
+			"billing_data": billing_data,
+		})
 		
 def get_current_month_start_and_end_date_strings():
 	"""
@@ -7062,6 +7062,9 @@ class AddCreditCardToken( BaseHandler ):
 		validate_schema( self.json, schema )
 		
 		current_user = self.get_authenticated_user()
+
+		print( "Derp: " )
+		print( self.json[ "token" ] )
 		
 		yield local_tasks.associate_card_token_with_customer_account(
 			current_user.payment_id,

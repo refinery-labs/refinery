@@ -1,5 +1,6 @@
 import { HttpUtil } from '@/utils/make-request';
 import {
+  AddPaymentMethodRequest, AddPaymentMethodResponse,
   BaseApiRequest,
   BaseApiResponse,
   CreateScheduleTriggerRequest,
@@ -7,7 +8,7 @@ import {
   CreateSQSQueueTriggerRequest,
   CreateSQSQueueTriggerResponse,
   DeleteDeploymentsInProjectRequest,
-  DeleteDeploymentsInProjectResponse,
+  DeleteDeploymentsInProjectResponse, DeletePaymentMethodRequest, DeletePaymentMethodResponse,
   DeleteSavedProjectRequest,
   DeleteSavedProjectResponse,
   DeployDiagramRequest,
@@ -15,9 +16,9 @@ import {
   GetAuthenticationStatusRequest,
   GetAuthenticationStatusResponse,
   GetCloudWatchLogsForLambdaRequest,
-  GetCloudWatchLogsForLambdaResponse,
+  GetCloudWatchLogsForLambdaResponse, GetLatestMonthlyBillRequest, GetLatestMonthlyBillResponse,
   GetLatestProjectDeploymentRequest,
-  GetLatestProjectDeploymentResponse,
+  GetLatestProjectDeploymentResponse, GetPaymentMethodsRequest, GetPaymentMethodsResponse,
   GetProjectConfigRequest,
   GetProjectConfigResponse,
   GetProjectExecutionLogsRequest,
@@ -35,7 +36,7 @@ import {
   LoginRequest,
   LoginResponse,
   LogoutRequest,
-  LogoutResponse,
+  LogoutResponse, MakePrimaryMethodRequest, MakePrimaryMethodResponse,
   NewRegistrationRequest,
   NewRegistrationResponse,
   RunLambdaRequest,
@@ -154,6 +155,11 @@ export class RefineryApi implements RefineryApiTypeMap {
     UpdateEnvironmentVariablesRequest,
     UpdateEnvironmentVariablesResponse
   >(API_ENDPOINT.UpdateEnvironmentVariables);
+  [API_ENDPOINT.GetPaymentMethods] = makeApiClient<GetPaymentMethodsRequest, GetPaymentMethodsResponse>(API_ENDPOINT.GetPaymentMethods);
+  [API_ENDPOINT.DeletePaymentMethod] = makeApiClient<DeletePaymentMethodRequest, DeletePaymentMethodResponse>(API_ENDPOINT.DeletePaymentMethod);
+  [API_ENDPOINT.MakePrimaryPaymentMethod] = makeApiClient<MakePrimaryMethodRequest, MakePrimaryMethodResponse>(API_ENDPOINT.MakePrimaryPaymentMethod);
+  [API_ENDPOINT.AddPaymentMethod] = makeApiClient<AddPaymentMethodRequest, AddPaymentMethodResponse>(API_ENDPOINT.AddPaymentMethod);
+  [API_ENDPOINT.GetLatestMonthBill] = makeApiClient<GetLatestMonthlyBillRequest, GetLatestMonthlyBillResponse>(API_ENDPOINT.GetLatestMonthBill);
 }
 
 export const apiClientMap: RefineryApiTypeMap = new RefineryApi();

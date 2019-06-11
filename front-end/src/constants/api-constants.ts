@@ -24,7 +24,12 @@ export enum API_ENDPOINT {
   DeleteSavedProject = 'DeleteSavedProject',
   GetProjectConfig = 'GetProjectConfig',
   GetLatestProjectDeployment = 'GetLatestProjectDeployment',
-  DeleteDeploymentsInProject = 'DeleteDeploymentsInProject'
+  DeleteDeploymentsInProject = 'DeleteDeploymentsInProject',
+  GetPaymentMethods = 'GetPaymentMethods',
+  DeletePaymentMethod = 'DeletePaymentMethod',
+  MakePrimaryPaymentMethod = 'MakePrimaryPaymentMethod',
+  AddPaymentMethod = 'AddPaymentMethod',
+  GetLatestMonthBill = 'GetLatestMonthBill'
 }
 
 export enum HTTP_METHOD {
@@ -146,8 +151,28 @@ export const ApiConfigMap: ApiConfigMapType = {
     path: '/api/v1/deployments/get_latest',
     method: HTTP_METHOD.POST
   },
+  [API_ENDPOINT.GetPaymentMethods]: {
+    path: '/api/v1/billing/creditcards/list',
+    method: HTTP_METHOD.GET
+  },
   [API_ENDPOINT.DeleteDeploymentsInProject]: {
     path: '/api/v1/deployments/delete_all_in_project',
     method: HTTP_METHOD.POST
-  }
+  },
+  [API_ENDPOINT.DeletePaymentMethod]: {
+    path: '/api/v1/billing/creditcards/delete',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.MakePrimaryPaymentMethod]: {
+    path: '/api/v1/billing/creditcards/make_primary',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.AddPaymentMethod]: {
+    path: '/api/v1/billing/creditcards/add',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.GetLatestMonthBill]: {
+    path: '/api/v1/billing/get_month_totals',
+    method: HTTP_METHOD.POST
+  },
 };

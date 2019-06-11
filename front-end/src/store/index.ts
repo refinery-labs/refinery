@@ -9,6 +9,7 @@ import AllProjects from './modules/all-projects';
 import { RootState } from '@/store/store-types';
 import ToastPaneModule from '@/store/modules/toasts';
 import DeploymentViewModule from '@/store/modules/deployment-view';
+import BillingPaneModule from "@/store/modules/billing";
 
 Vue.use(Vuex);
 
@@ -87,7 +88,8 @@ export default new Vuex.Store<RootState>({
     project: ProjectView,
     allProjects: AllProjects,
     toasts: ToastPaneModule,
-    user: UserModule
+    user: UserModule,
+    billing: BillingPaneModule,
   },
   plugins,
   // Dev Only: Causes Vuex to get angry when mutations are done to it's state outside of a mutator
