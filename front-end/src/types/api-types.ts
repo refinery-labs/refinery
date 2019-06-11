@@ -525,3 +525,12 @@ export interface MakePrimaryMethodRequest extends BaseApiRequest {
 export interface MakePrimaryMethodResponse extends BaseApiResponse {
   msg: string;
 }
+
+// Billing add card
+export interface AddPaymentMethodRequest extends BaseApiRequest {
+  token: string;
+}
+
+export interface AddPaymentMethodResponse extends BaseApiResponse {
+  msg: string;
+}

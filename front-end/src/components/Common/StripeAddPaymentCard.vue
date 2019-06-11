@@ -16,10 +16,7 @@ const user = namespace('user');
 export default class StripeAddPaymentCard extends Vue {
   card!: stripe.elements.Element;
 
-  //@user.State registrationNameInput!: string;
-
   @Prop() registrationNameInput!: string;
-
   @Prop() setRegistrationStripeTokenValue!: (s: string) => void;
 
   async mounted() {

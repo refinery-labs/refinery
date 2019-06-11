@@ -6906,8 +6906,7 @@ class GetBillingMonthTotals( BaseHandler ):
 		}
 		
 		validate_schema( self.json, schema )
-		
-		current_user = self.get_authenticated_user()
+
 		credentials = self.get_authenticated_user_cloud_configuration()
 		
 		billing_data = yield local_tasks.get_sub_account_month_billing_data(
@@ -7060,6 +7059,9 @@ class AddCreditCardToken( BaseHandler ):
 		validate_schema( self.json, schema )
 		
 		current_user = self.get_authenticated_user()
+
+		print( "Derp: " )
+		print( self.json[ "token" ] )
 		
 		yield local_tasks.associate_card_token_with_customer_account(
 			current_user.payment_id,

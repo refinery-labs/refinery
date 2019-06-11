@@ -1,5 +1,6 @@
 import { HttpUtil } from '@/utils/make-request';
 import {
+  AddPaymentMethodRequest, AddPaymentMethodResponse,
   BaseApiRequest,
   BaseApiResponse,
   CreateScheduleTriggerRequest,
@@ -157,6 +158,7 @@ export class RefineryApi implements RefineryApiTypeMap {
   [API_ENDPOINT.GetPaymentMethods] = makeApiClient<GetPaymentMethodsRequest, GetPaymentMethodsResponse>(API_ENDPOINT.GetPaymentMethods);
   [API_ENDPOINT.DeletePaymentMethod] = makeApiClient<DeletePaymentMethodRequest, DeletePaymentMethodResponse>(API_ENDPOINT.DeletePaymentMethod);
   [API_ENDPOINT.MakePrimaryPaymentMethod] = makeApiClient<MakePrimaryMethodRequest, MakePrimaryMethodResponse>(API_ENDPOINT.MakePrimaryPaymentMethod);
+  [API_ENDPOINT.AddPaymentMethod] = makeApiClient<AddPaymentMethodRequest, AddPaymentMethodResponse>(API_ENDPOINT.AddPaymentMethod);
 }
 
 export const apiClientMap: RefineryApiTypeMap = new RefineryApi();

@@ -27,7 +27,8 @@ export enum API_ENDPOINT {
   DeleteDeploymentsInProject = 'DeleteDeploymentsInProject',
   GetPaymentMethods = 'GetPaymentMethods',
   DeletePaymentMethod = 'DeletePaymentMethod',
-  MakePrimaryPaymentMethod = 'MakePrimaryPaymentMethod'
+  MakePrimaryPaymentMethod = 'MakePrimaryPaymentMethod',
+  AddPaymentMethod = 'AddPaymentMethod'
 }
 
 export enum HTTP_METHOD {
@@ -164,5 +165,9 @@ export const ApiConfigMap: ApiConfigMapType = {
   [API_ENDPOINT.MakePrimaryPaymentMethod]: {
     path: '/api/v1/billing/creditcards/make_primary',
     method: HTTP_METHOD.POST
-  }
+  },
+  [API_ENDPOINT.AddPaymentMethod]: {
+    path: '/api/v1/billing/creditcards/add',
+    method: HTTP_METHOD.POST
+  },
 };

@@ -2,6 +2,7 @@ import {Module} from 'vuex';
 import {RootState} from '../store-types';
 import {makeApiRequest} from "@/store/fetchers/refinery-api";
 import {
+  AddPaymentMethodRequest, AddPaymentMethodResponse,
   DeletePaymentMethodRequest,
   DeletePaymentMethodResponse,
   GetPaymentMethodsRequest,
@@ -13,27 +14,27 @@ import {API_ENDPOINT} from "@/constants/api-constants";
 export enum BillingMutators {
   setPaymentMethods = 'setPaymentMethods',
   setIsLoading = 'setIsLoading',
-  setRegistrationStripeTokenValue = 'setRegistrationStripeTokenValue'
+  setRegistrationStripeTokenValue = 'setRegistrationStripeTokenValue',
 }
 
 export enum BillingActions {
   getPaymentMethods = 'getPaymentMethods',
   deletePaymentMethod = 'deletePaymentMethod',
-  makePrimaryPaymentMethod = 'makePrimaryPaymentMethod'
+  makePrimaryPaymentMethod = 'makePrimaryPaymentMethod',
+  setRegistrationStripeToken = 'setRegistrationStripeToken',
+  addPaymentMethod = 'addPaymentMethod'
 }
 
 // Types
 export interface BillingPaneState {
   paymentMethods: PaymentMethodData[],
   isLoading: boolean,
-  stripeCardToken: string | null,
 }
 
 // Initial State
 const moduleState: BillingPaneState = {
   paymentMethods: [],
   isLoading: true,
-  stripeCardToken: null,
 };
 
 const BillingPaneModule: Module<BillingPaneState, RootState> = {
@@ -46,11 +47,6 @@ const BillingPaneModule: Module<BillingPaneState, RootState> = {
     },
     [BillingMutators.setIsLoading](state, isLoading: boolean) {
       state.isLoading = isLoading;
-    },
-    [BillingMutators.setRegistrationStripeTokenValue](state, stripeCardToken: string) {
-      console.log( "STRIPE TOKEN: " );
-      console.log( stripeCardToken );
-      state.stripeCardToken = stripeCardToken;
     },
   },
   actions: {
@@ -92,6 +88,21 @@ const BillingPaneModule: Module<BillingPaneState, RootState> = {
         API_ENDPOINT.MakePrimaryPaymentMethod,
         {
           id: paymentMethodId,
+        }
+      );
+      context.commit(BillingMutators.setIsLoading, false);
+      if (!result || !result.success) {
+        // TODO: Handle this error case
+        console.error('Failed to get payment methods!');
+        return;
+      }
+    },
+    async [BillingActions.addPaymentMethod](context, stripeCardToken: string) {
+      context.commit(BillingMutators.setIsLoading, true);
+      const result = await makeApiRequest<AddPaymentMethodRequest, AddPaymentMethodResponse>(
+        API_ENDPOINT.AddPaymentMethod,
+        {
+          token: stripeCardToken,
         }
       );
       context.commit(BillingMutators.setIsLoading, false);
