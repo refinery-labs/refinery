@@ -669,9 +669,12 @@
 		        </button>
 		            </div>
 		            <div class="modal-body">
-		            	<div v-if="lambda_exec_result && !lambda_exec_result.is_error">
+		            	<div v-if="lambda_exec_result">
 							<b>Build Time: </b><code>{{lambda_build_time}}</code> seconds
 							<br />
+							<p>
+								<b>Ran successfully: </b><code>{{!lambda_exec_result.is_error}}</code>
+							</p>
 							<center>
 								<h3>Lambda Full Output</h3>
 								<p v-if="lambda_exec_result.truncated" style="display: inline; font-style: italic; color: #ff0000">
@@ -688,22 +691,7 @@
 							<p>
 								<pre style="background-color: #000000; color: #FFFFFF !important; border-radius: 4px; padding: 10px">{{lambda_exec_result.response}}</pre>
 							</p>
-		            	</div>
-		            	<div v-if="lambda_exec_result && lambda_exec_result.is_error">
-							<b>Build Time: </b><code>{{lambda_build_time}}</code> seconds
-							<br />
-							<b>Error Type: </b><code>{{lambda_exec_result.error.type}}</code>
-							<br />
-							<b>Error Message: </b><code>{{lambda_exec_result.error.message}}</code>
-							<br />
-							<hr />
-							<center>
-								<h3>Full Error Logs</h3>
-							</center>
-							<p>
-								<pre style="background-color: #000000; color: #FFFFFF !important; border-radius: 4px; padding: 10px">{{lambda_exec_result.logs}}</pre>
-							</p>
-		            	</div>
+						</div>
 						<div v-if="!lambda_exec_result">
 							<center>
 								<img src="/img/loading.gif" />

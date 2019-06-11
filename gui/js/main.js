@@ -3297,36 +3297,23 @@ def example( parameter ):
             if( app.selected_node in app.project_config[ "environment_variables" ] ) {
             	environment_variables = app.project_config[ "environment_variables" ][ app.selected_node ];
             }
-            
-            try {
-	            // Execute the Lambda
-				var results = await run_tmp_lambda(
-					app.lambda_language,
-					app.lambda_code,
-					app.lambda_libraries,
-					app.lambda_memory,
-					app.lambda_max_execution_time,
-					app.lambda_input,
-					environment_variables,
-					app.lambda_layers,
-				);
-				
-				app.lambda_exec_result = results.result;
-				
-				// Ensure we have un-truncated results
-				app.full_output_checker();
-            } catch ( e ) {
-				// If the build step fails then print out the
-				// full build log so the user can see why
-				app.lambda_exec_result = {
-					"logs": e.log_output,
-					"is_error": true,
-					"error": {
-						"type": "Build Error",
-						"message": "An error occurred while building this Lambda."
-					}
-				}
-            }
+
+            // Execute the Lambda
+			var results = await run_tmp_lambda(
+				app.lambda_language,
+				app.lambda_code,
+				app.lambda_libraries,
+				app.lambda_memory,
+				app.lambda_max_execution_time,
+				app.lambda_input,
+				environment_variables,
+				app.lambda_layers,
+			);
+			
+			app.lambda_exec_result = results.result;
+			
+			// Ensure we have un-truncated results
+			app.full_output_checker();
             
 			var delta = Date.now() - start_time;
 			app.lambda_build_time = ( delta / 1000 );
