@@ -7,7 +7,7 @@ import {
   CreateSQSQueueTriggerRequest,
   CreateSQSQueueTriggerResponse,
   DeleteDeploymentsInProjectRequest,
-  DeleteDeploymentsInProjectResponse,
+  DeleteDeploymentsInProjectResponse, DeletePaymentMethodRequest, DeletePaymentMethodResponse,
   DeleteSavedProjectRequest,
   DeleteSavedProjectResponse,
   DeployDiagramRequest,
@@ -17,7 +17,7 @@ import {
   GetCloudWatchLogsForLambdaRequest,
   GetCloudWatchLogsForLambdaResponse,
   GetLatestProjectDeploymentRequest,
-  GetLatestProjectDeploymentResponse,
+  GetLatestProjectDeploymentResponse, GetPaymentMethodsRequest, GetPaymentMethodsResponse,
   GetProjectConfigRequest,
   GetProjectConfigResponse,
   GetProjectExecutionLogsRequest,
@@ -35,7 +35,7 @@ import {
   LoginRequest,
   LoginResponse,
   LogoutRequest,
-  LogoutResponse,
+  LogoutResponse, MakePrimaryMethodRequest, MakePrimaryMethodResponse,
   NewRegistrationRequest,
   NewRegistrationResponse,
   RunLambdaRequest,
@@ -154,6 +154,9 @@ export class RefineryApi implements RefineryApiTypeMap {
     UpdateEnvironmentVariablesRequest,
     UpdateEnvironmentVariablesResponse
   >(API_ENDPOINT.UpdateEnvironmentVariables);
+  [API_ENDPOINT.GetPaymentMethods] = makeApiClient<GetPaymentMethodsRequest, GetPaymentMethodsResponse>(API_ENDPOINT.GetPaymentMethods);
+  [API_ENDPOINT.DeletePaymentMethod] = makeApiClient<DeletePaymentMethodRequest, DeletePaymentMethodResponse>(API_ENDPOINT.DeletePaymentMethod);
+  [API_ENDPOINT.MakePrimaryPaymentMethod] = makeApiClient<MakePrimaryMethodRequest, MakePrimaryMethodResponse>(API_ENDPOINT.MakePrimaryPaymentMethod);
 }
 
 export const apiClientMap: RefineryApiTypeMap = new RefineryApi();

@@ -197,7 +197,7 @@ export default class RegistrationPage extends Vue {
               <label class="text-muted d-block" htmlFor="user-name-input" id="user-name-group">
                 Payment Information
               </label>
-              <StripeAddPaymentCard />
+              <StripeAddPaymentCard/>
               <br />
               {/*TODO: Replace Pricing page with actual link.*/}
               <small class="text-muted d-block">

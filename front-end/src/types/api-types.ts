@@ -16,7 +16,8 @@ export interface BaseApiResponse {
   success: boolean;
 }
 
-export interface BaseApiRequest {}
+export interface BaseApiRequest {
+}
 
 // SearchSavedProjects
 export interface SearchSavedProjectsRequest extends BaseApiRequest {
@@ -80,7 +81,8 @@ export interface DeleteSavedProjectRequest extends BaseApiRequest {
   id: string;
 }
 
-export interface DeleteSavedProjectResponse extends BaseApiResponse {}
+export interface DeleteSavedProjectResponse extends BaseApiResponse {
+}
 
 // DeployDiagram
 export interface DeployDiagramRequest extends BaseApiRequest {
@@ -485,4 +487,41 @@ export interface LogoutRequest extends BaseApiRequest {
 
 export interface LogoutResponse extends BaseApiResponse {
   // Empty
+}
+
+// Billing Get Credits
+export interface GetPaymentMethodsRequest extends BaseApiRequest {
+  // Empty
+}
+
+export interface GetPaymentMethodsResponse extends BaseApiResponse {
+  cards: PaymentCardResult[];
+}
+
+export interface PaymentCardResult {
+  "id": string,
+  "brand": string,
+  "country": string,
+  "exp_month": number,
+  "exp_year": number,
+  "last4": string,
+  "is_primary": boolean
+}
+
+// Billing delete card
+export interface DeletePaymentMethodRequest extends BaseApiRequest {
+  id: string;
+}
+
+export interface DeletePaymentMethodResponse extends BaseApiResponse {
+  msg: string;
+}
+
+// Billing make primary card
+export interface MakePrimaryMethodRequest extends BaseApiRequest {
+  id: string;
+}
+
+export interface MakePrimaryMethodResponse extends BaseApiResponse {
+  msg: string;
 }

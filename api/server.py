@@ -1500,16 +1500,14 @@ class TaskSpawner(object):
 			# Throw an exception if this is the default source for the user
 			if customer_information[ "default_source" ] == card_id:
 				raise CardIsPrimaryException()
-				
-			return True
 			
 			# Delete the card from STripe
 			delete_response = stripe.Customer.delete_source(
 				stripe_customer_id,
 				card_id
 			)
-			
-			return cards[ "data" ]
+
+			return True
 			
 		@run_on_executor
 		def generate_managed_accounts_invoices( self, start_date_string, end_date_string ):

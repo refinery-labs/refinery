@@ -5,13 +5,22 @@
 <script lang="ts">
 /// <reference types="stripe-v3" />
 import Vue from 'vue';
-import { mapMutations, mapState } from 'vuex';
-import { UserMutators } from '@/constants/store-constants';
 import {addStripeTagToPage} from '@/lib/stripe-utils';
+import Component from 'vue-class-component';
+import {namespace} from 'vuex-class';
+import {Prop} from "vue-property-decorator";
 
-export default Vue.extend({
+const user = namespace('user');
 
-  name: 'StripeAddPaymentCard',
+@Component
+export default class StripeAddPaymentCard extends Vue {
+  card!: stripe.elements.Element;
+
+  //@user.State registrationNameInput!: string;
+
+  @Prop() registrationNameInput!: string;
+
+  @Prop() setRegistrationStripeTokenValue!: (s: string) => void;
 
   async mounted() {
     await addStripeTagToPage();
@@ -41,15 +50,11 @@ export default Vue.extend({
     this.card = card;
 
     card.mount(this.$refs.card);
-  },
+  }
   beforeDestroy() {
     this.card && this.card.unmount();
-  },
-  methods: {
-    ...mapMutations('user', [UserMutators.setRegistrationStripeTokenValue])
-  },
-  computed: mapState('user', ['registrationNameInput'])
-});
+  }
+}
 </script>
 
 <style scoped></style>

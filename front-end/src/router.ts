@@ -19,6 +19,7 @@ import LoginPage from '@/views/Authentication/LoginPage';
 import { UserMutators } from '@/constants/store-constants';
 import RegistrationPage from '@/views/Authentication/RegistrationPage';
 import HelpPage from '@/views/Help';
+import Billing from "@/views/Billing.vue";
 
 Vue.use(Router);
 
@@ -153,6 +154,11 @@ const router = new Router({
           name: 'marketplace',
           // This will likely need to have children eventually... but not today.
           component: Marketplace
+        },
+        {
+          path: baseLinks.billing,
+          name: 'billing',
+          component: Billing
         },
         {
           path: baseLinks.help,

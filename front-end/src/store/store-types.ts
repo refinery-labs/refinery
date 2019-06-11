@@ -13,12 +13,14 @@ import { LeftSidebarPaneState, SIDEBAR_PANE } from '@/types/project-editor-types
 import { ValidTransitionConfig } from '@/constants/project-editor-constants';
 import { EditBlockPaneState } from '@/store/modules/panes/edit-block-pane';
 import {ProductionDeploymentRefineryProject} from '@/types/production-workflow-types';
+import {BillingPaneState} from "@/store/modules/billing";
 
 export interface RootState {
   setting: UserInterfaceState;
   project: ProjectViewState;
   allProjects: AllProjectsState;
   user: UserState;
+  billing: BillingPaneState;
 }
 
 export enum UserInterfaceSettings {
