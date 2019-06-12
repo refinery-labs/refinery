@@ -49,7 +49,7 @@ import {
   findTransitionsBetweenNodes,
   getNodeDataById, getTransitionDataById,
   getValidBlockToBlockTransitions, getValidTransitionsForEdge,
-  getValidTransitionsForNode,
+  getValidTransitionsForNode, isValidTransition,
   unwrapJson,
   unwrapProjectJson,
   wrapJson
@@ -696,6 +696,32 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         id: uuid()
       };
 
+      if(context.state.openedProject === null) {
+        console.error("Something odd has occurred, you're trying to add a transition with no project opened!");
+        await context.dispatch(ProjectViewActions.cancelAddingTransition);
+        return;
+      }
+
+      // Ensure we have a valid transition
+      const toNode = getNodeDataById(context.state.openedProject, nodeId);
+      const fromNode = getNodeDataById(context.state.openedProject, context.state.selectedResource);
+
+      if(toNode === null || fromNode === null) {
+        console.error("Something odd has occurred, you have an unknown node selected for this transition!");
+        await context.dispatch(ProjectViewActions.cancelAddingTransition);
+        return;
+      }
+
+      // Validate the transition is possible. e.g. Not Code Block -> Timer Block
+      if (!isValidTransition(fromNode, toNode)) {
+        await createToast(context.dispatch, {
+          title: 'Error, invalid transition!',
+          content: "That is not a valid transition, please select one of the flashing blocks to add a valid transition.",
+          variant: ToastVariant.danger
+        });
+        return;
+      }
+
       await context.dispatch(ProjectViewActions.addTransition, newTransition);
       await context.dispatch(ProjectViewActions.cancelAddingTransition);
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
@@ -989,6 +1015,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Validate that the new transition can hit nodes
       const hasValidToNode = openedProject.workflow_states.some(ws => ws.id === newTransition.next);
       const hasValidFromNode = openedProject.workflow_states.some(ws => ws.id === newTransition.node);
+
 
       if (!hasValidToNode || !hasValidFromNode) {
         console.error('Tried adding transition to graph with missing nodes!');

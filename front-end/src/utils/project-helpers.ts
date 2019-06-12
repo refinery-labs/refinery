@@ -37,6 +37,22 @@ export function getTransitionDataById(project: RefineryProject, transitionId: st
   return null;
 }
 
+export function isValidTransition(fromNode: WorkflowState, toNode: WorkflowState): boolean {
+  const transitionData = findTransitionsBetweenNodes(fromNode, toNode);
+
+  // The transition is to the same block.
+  if(fromNode.id === toNode.id) {
+    return false;
+  }
+
+  // If there are no simple or complex transitions, return false
+  if(transitionData.complex.length === 0 && transitionData.simple.length === 0 ) {
+    return false;
+  }
+
+  return true;
+}
+
 export function findTransitionsBetweenNodes(fromNode: WorkflowState, toNode: WorkflowState) {
   const validateTransition = (t: ValidTransitionConfig) => t.fromType === fromNode.type && t.toType === toNode.type;
 
