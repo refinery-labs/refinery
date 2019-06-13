@@ -61,7 +61,11 @@ import {
   unwrapProjectJson,
   wrapJson
 } from '@/utils/project-helpers';
-import {blockTypeToDefaultStateMapping, blockTypeToImageLookup} from '@/constants/project-editor-constants';
+import {
+  availableTransitions,
+  blockTypeToDefaultStateMapping,
+  blockTypeToImageLookup
+} from '@/constants/project-editor-constants';
 import EditBlockPaneModule, {EditBlockActions} from '@/store/modules/panes/edit-block-pane';
 import {createToast} from '@/utils/toasts-utils';
 import {ToastVariant} from '@/types/toasts-types';
@@ -194,14 +198,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       if (state.availableTransitions.complex.length > 0) {
         // Return every type as available
-        return [
-          WorkflowRelationshipType.IF,
-          WorkflowRelationshipType.THEN,
-          WorkflowRelationshipType.ELSE,
-          WorkflowRelationshipType.EXCEPTION,
-          WorkflowRelationshipType.FAN_OUT,
-          WorkflowRelationshipType.FAN_IN
-        ];
+        return availableTransitions;
       }
 
       if (state.availableTransitions.simple.length > 0) {
@@ -224,14 +221,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       if (state.availableEditTransitions.complex.length > 0) {
         // Return every type as available
-        return [
-          WorkflowRelationshipType.IF,
-          WorkflowRelationshipType.THEN,
-          WorkflowRelationshipType.ELSE,
-          WorkflowRelationshipType.EXCEPTION,
-          WorkflowRelationshipType.FAN_OUT,
-          WorkflowRelationshipType.FAN_IN
-        ];
+        return availableTransitions;
       }
 
       if (state.availableEditTransitions.simple.length > 0) {
