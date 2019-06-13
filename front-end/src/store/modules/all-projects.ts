@@ -33,6 +33,13 @@ const moduleState: AllProjectsState = {
   newProjectErrorMessage: null
 };
 
+export enum AllProjectsActions {
+  performSearch = 'performSearch',
+  createProject = 'createProject',
+  startDeleteProject = 'startDeleteProject',
+  deleteProject = 'deleteProject',
+}
+
 const AllProjectsModule: Module<AllProjectsState, RootState> = {
   namespaced: true,
   state: moduleState,
@@ -70,7 +77,7 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
     }
   },
   actions: {
-    async performSearch(context) {
+    async [AllProjectsActions.performSearch](context) {
       context.commit(AllProjectsMutators.setSearchingStatus, true);
 
       const result = await makeApiRequest<SearchSavedProjectsRequest, SearchSavedProjectsResponse>(
@@ -90,7 +97,7 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
       context.commit(AllProjectsMutators.setAvailableProjects, result.results);
       context.commit(AllProjectsMutators.setSearchingStatus, false);
     },
-    async createProject(context) {
+    async [AllProjectsActions.createProject](context) {
       if (context.state.newProjectInput === '') {
         context.commit(AllProjectsMutators.setNewProjectInputValid, false);
         return;
@@ -124,12 +131,12 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
         context.commit(AllProjectsMutators.setNewProjectErrorMessage, 'Error creating project!');
       }
     },
-    startDeleteProject(context, project: SearchSavedProjectsResult) {
+    [AllProjectsActions.startDeleteProject](context, project: SearchSavedProjectsResult) {
       context.commit(AllProjectsMutators.setDeleteProjectId, project.id);
       context.commit(AllProjectsMutators.setDeleteProjectName, project.name);
       context.commit(AllProjectsMutators.setDeleteModalVisibility, true);
     },
-    async deleteProject(context) {
+    async [AllProjectsActions.deleteProject](context) {
       const projectId = context.state.deleteProjectId;
 
       if (!projectId) {
@@ -158,7 +165,7 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
           return;
         }
 
-        await context.dispatch('performSearch');
+        await context.dispatch(AllProjectsActions.performSearch);
       } catch (e) {
         console.error('Unable to delete project');
       }

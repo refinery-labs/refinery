@@ -19,6 +19,7 @@ export enum ProjectViewGetters {
   canSaveProject = 'canSaveProject',
   canDeployProject = 'canDeployProject',
   hasCodeBlockSelected = 'hasCodeBlockSelected',
+  getValidEditMenuDisplayTransitionTypes = 'getValidEditMenuDisplayTransitionTypes',
 }
 
 export enum ProjectViewMutators {
@@ -52,7 +53,14 @@ export enum ProjectViewMutators {
   // Add Transition Pane
   setAddingTransitionStatus = 'setAddingTransitionStatus',
   setAddingTransitionType = 'setAddingTransitionType',
-  setValidTransitions = 'setValidTransitions'
+  setValidTransitions = 'setValidTransitions',
+  setIfDropdownSelection = 'setIfDropdownSelection',
+  setIfExpression = 'setIfExpression',
+
+  // Edit Transition Pane
+  setValidEditTransitions = 'setValidEditTransitions',
+  setEditingTransitionStatus = 'setEditingTransitionStatus',
+  setEditingTransitionType = 'setEditingTransitionType'
 }
 
 export enum ProjectViewActions {
@@ -80,10 +88,18 @@ export enum ProjectViewActions {
   updateExistingBlock = 'updateExistingBlock',
   addTransition = 'addTransition',
   updateAvailableTransitions = 'updateAvailableTransitions',
+  updateAvailableEditTransitions = 'updateAvailableEditTransitions',
   cancelAddingTransition = 'cancelAddingTransition',
   selectTransitionTypeToAdd = 'selectTransitionTypeToAdd',
   deleteExistingBlock = 'deleteExistingBlock',
-  deleteExistingTransition = 'deleteExistingTransition'
+  deleteExistingTransition = 'deleteExistingTransition',
+  changeExistingTransition = 'changeExistingTransition',
+  deselectResources = 'deselectResources',
+  ifDropdownSelection = 'ifDropdownSelection',
+  setIfExpression = 'setIfExpression',
+  selectTransitionTypeToEdit = 'selectTransitionTypeToEdit',
+  cancelEditingTransition = 'cancelEditingTransition',
+  resetPanelStates = 'resetPanelStates'
 }
 
 export enum DeploymentViewGetters {

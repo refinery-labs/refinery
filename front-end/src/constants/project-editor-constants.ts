@@ -19,6 +19,7 @@ import {EditAPIResponseBlock} from '@/components/ProjectEditor/block-components/
 import {EditScheduleTriggerBlock} from '@/components/ProjectEditor/block-components/EditScheduleTriggerBlockPane';
 import {EditTopicBlock} from '@/components/ProjectEditor/block-components/EditTopicBlockPane';
 import RunEditorCodeBlockPane from '@/components/ProjectEditor/RunEditorCodeBlockPane';
+import EditTransitionPane from "@/components/ProjectEditor/EditTransitionPane";
 
 export const BlockSelectionType = {
   ...WorkflowStateType,
@@ -362,7 +363,7 @@ export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
   [SIDEBAR_PANE.deployProject]: DeployProjectPane,
   [SIDEBAR_PANE.saveProject]: AddBlockPane,
   [SIDEBAR_PANE.editBlock]: EditBlockPane,
-  [SIDEBAR_PANE.editTransition]: AddBlockPane,
+  [SIDEBAR_PANE.editTransition]: EditTransitionPane,
   [SIDEBAR_PANE.viewApiEndpoints]: ViewApiEndpointsPane,
   [SIDEBAR_PANE.viewExecutions]: ViewExecutionsPane,
   [SIDEBAR_PANE.destroyDeploy]: DestroyDeploymentPane,

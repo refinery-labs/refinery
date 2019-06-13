@@ -61,6 +61,7 @@ export enum EditBlockActions {
   cancelAndResetBlock = 'cancelAndResetBlock',
   duplicateBlock = 'duplicateBlock',
   deleteBlock = 'deleteBlock',
+  deleteTransition = 'deleteTransition',
   // Code Block specific
   saveCodeBlockToDatabase = 'saveCodeBlockToDatabase'
 }
@@ -68,6 +69,7 @@ export enum EditBlockActions {
 // Types
 export interface EditBlockPaneState {
   selectedNode: WorkflowState | null;
+  selectedTransition: WorkflowRelationship | null;
   confirmDiscardModalVisibility: false;
   showCodeModal: boolean;
   isStateDirty: boolean;
@@ -77,6 +79,7 @@ export interface EditBlockPaneState {
 // Initial State
 const moduleState: EditBlockPaneState = {
   selectedNode: null,
+  selectedTransition: null,
   confirmDiscardModalVisibility: false,
   showCodeModal: false,
   isStateDirty: false,
@@ -306,6 +309,6 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       await context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.right, {root: true});
     }
   }
-};
+}
 
 export default EditBlockPaneModule;
