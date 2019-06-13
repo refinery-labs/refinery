@@ -354,7 +354,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
     async [ProjectViewActions.ifDropdownSelection](context, dropdownSelection: IfDropDownSelectionTypes | null) {
       if (dropdownSelection === null) {
-        await context.commit(ProjectViewMutators.setIfExpression, "");
+        await context.commit(ProjectViewMutators.setIfExpression, IfDropdownSelectionExpressionValues.DEFAULT);
         await context.commit(ProjectViewMutators.setIfDropdownSelection, dropdownSelection);
         return;
       }
@@ -500,7 +500,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         markAsDirty: false
       };
 
-      await context.dispatch('updateProject', params);
+      await context.dispatch(ProjectViewActions.updateProject, params);
 
       context.commit(ProjectViewMutators.isSavingProject, false);
     },
@@ -628,12 +628,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       context.commit(ProjectViewMutators.selectedResource, null);
-      await context.dispatch('updateAvailableTransitions');
-      await context.dispatch('updateAvailableEditTransitions');
+      await context.dispatch(ProjectViewActions.updateAvailableTransitions)
+      await context.dispatch(ProjectViewActions.updateAvailableEditTransitions);
     },
     async [ProjectViewActions.selectNode](context, nodeId: string) {
       if (context.state.isAddingTransitionCurrently) {
-        await context.dispatch('completeTransitionAdd', nodeId);
+        await context.dispatch(ProjectViewActions.completeTransitionAdd, nodeId);
         return;
       }
 
