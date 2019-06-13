@@ -57,7 +57,7 @@ export default class LoginPage extends Vue {
       <div class={classes}>
         <b-card border-variant="dark" header-bg-variant="dark">
           <a slot="header" class="mb-0 text-center" href="/">
-            <img class="block-center rounded" src="img/logo.png" class="logo-fit" alt="The World's First Drag-and-Drop Serverless IDE!" />
+            <img class="block-center rounded logo-fit" src="/img/logo.png" alt="The World's First Drag-and-Drop Serverless IDE!" />
           </a>
           <p class="text-center py-2">
             Welcome to Refinery! <br />
