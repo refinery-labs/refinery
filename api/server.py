@@ -3779,7 +3779,12 @@ class TaskSpawner(object):
 					QueueUrl=queue_url_response[ "QueueUrl" ],
 				)
 			except ClientError as e:
-				if e.response[ "Error" ][ "Code" ] != "ResourceNotFoundException":
+				acceptable_errors = [
+					"ResourceNotFoundException",
+					"AWS.SimpleQueueService.NonExistentQueue"
+				]
+				
+				if not ( e.response[ "Error" ][ "Code" ] in acceptable_errors ):
 					raise
 			
 			return {
