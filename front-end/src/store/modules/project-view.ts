@@ -5,7 +5,7 @@ import {Module} from 'vuex';
 import uuid from 'uuid/v4';
 import {
   IfDropdownSelectionExpressionValues,
-  IfDropDownSelectionTypes,
+  IfDropDownSelectionType,
   ProjectViewState,
   RootState
 } from '@/store/store-types';
@@ -139,7 +139,7 @@ const moduleState: ProjectViewState = {
   isAddingTransitionCurrently: false,
   newTransitionTypeSpecifiedInAddFlow: null,
   availableTransitions: null,
-  ifSelectDropdownValue: IfDropDownSelectionTypes.DEFAULT,
+  ifSelectDropdownValue: IfDropDownSelectionType.DEFAULT,
   ifExpression: IfDropdownSelectionExpressionValues.DEFAULT,
 
   // Edit Transition Pane
@@ -315,7 +315,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       state.newTransitionTypeSpecifiedInAddFlow = transitionType;
     },
 
-    [ProjectViewMutators.setIfDropdownSelection](state, dropdownSelection: IfDropDownSelectionTypes) {
+    [ProjectViewMutators.setIfDropdownSelection](state, dropdownSelection: IfDropDownSelectionType) {
       state.ifSelectDropdownValue = dropdownSelection;
     },
     [ProjectViewMutators.setIfExpression](state, ifExpression: string) {
@@ -352,7 +352,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     async [ProjectViewActions.setIfExpression](context, ifExpressionValue: string) {
       await context.commit(ProjectViewMutators.setIfExpression, ifExpressionValue);
     },
-    async [ProjectViewActions.ifDropdownSelection](context, dropdownSelection: IfDropDownSelectionTypes | null) {
+    async [ProjectViewActions.ifDropdownSelection](context, dropdownSelection: IfDropDownSelectionType | null) {
       if (dropdownSelection === null) {
         await context.commit(ProjectViewMutators.setIfExpression, IfDropdownSelectionExpressionValues.DEFAULT);
         await context.commit(ProjectViewMutators.setIfDropdownSelection, dropdownSelection);
@@ -1159,13 +1159,13 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       context.commit(ProjectViewMutators.setValidEditTransitions, selectedEdge);
     },
     async [ProjectViewActions.cancelAddingTransition](context) {
-      await context.dispatch(ProjectViewActions.ifDropdownSelection, IfDropDownSelectionTypes.DEFAULT);
+      await context.dispatch(ProjectViewActions.ifDropdownSelection, IfDropDownSelectionType.DEFAULT);
       await context.dispatch(ProjectViewActions.setIfExpression, IfDropdownSelectionExpressionValues.DEFAULT);
       context.commit(ProjectViewMutators.setAddingTransitionStatus, false);
       context.commit(ProjectViewMutators.setAddingTransitionType, null);
     },
     async [ProjectViewActions.cancelEditingTransition](context) {
-      await context.dispatch(ProjectViewActions.ifDropdownSelection, IfDropDownSelectionTypes.DEFAULT);
+      await context.dispatch(ProjectViewActions.ifDropdownSelection, IfDropDownSelectionType.DEFAULT);
       await context.dispatch(ProjectViewActions.setIfExpression, IfDropdownSelectionExpressionValues.DEFAULT);
       context.commit(ProjectViewMutators.setEditingTransitionStatus, false);
       context.commit(ProjectViewMutators.setEditingTransitionType, null);

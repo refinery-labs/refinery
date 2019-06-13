@@ -9,7 +9,7 @@ import {
 import {SupportedLanguage, WorkflowRelationshipType} from '@/types/graph';
 import {languageToAceLangMap} from "@/types/project-editor-types";
 import AceEditor from "@/components/Common/AceEditor.vue";
-import {IfDropDownSelectionTypes} from "@/store/store-types";
+import {IfDropDownSelectionType} from "@/store/store-types";
 import {PropsDefinition} from "vue/types/options";
 import {Prop} from "vue-property-decorator";
 
@@ -29,7 +29,7 @@ export default class EditTransitionSelector extends Vue {
   @Prop({required: true}) hasSaveModificationButton!: boolean;
 
   @project.State
-  ifSelectDropdownValue!: IfDropDownSelectionTypes;
+  ifSelectDropdownValue!: IfDropDownSelectionType;
   @project.State
   ifExpression!: string;
 
@@ -131,15 +131,15 @@ export default class EditTransitionSelector extends Vue {
           value={this.ifSelectDropdownValue}
           class="mb-3"
         >
-          <option value={IfDropDownSelectionTypes.DEFAULT}>-- Select an option to get an example conditional expression
+          <option value={IfDropDownSelectionType.DEFAULT}>-- Select an option to get an example conditional expression
             --
           </option>
-          <option value={IfDropDownSelectionTypes.EQUALS_VALUE}>Returned value equals a specific value.</option>
-          <option value={IfDropDownSelectionTypes.NOT_EQUALS_VALUE}>Returned value does NOT equal a specific value.
+          <option value={IfDropDownSelectionType.EQUALS_VALUE}>Returned value equals a specific value.</option>
+          <option value={IfDropDownSelectionType.NOT_EQUALS_VALUE}>Returned value does NOT equal a specific value.
           </option>
-          <option value={IfDropDownSelectionTypes.EQUALS_TRUE}>Returned value is true.</option>
-          <option value={IfDropDownSelectionTypes.EQUALS_FALSE}>Returned value is false.</option>
-          <option value={IfDropDownSelectionTypes.CUSTOM_CONDITIONAL}>[Advanced] Write a custom Python conditional.
+          <option value={IfDropDownSelectionType.EQUALS_TRUE}>Returned value is true.</option>
+          <option value={IfDropDownSelectionType.EQUALS_FALSE}>Returned value is false.</option>
+          <option value={IfDropDownSelectionType.CUSTOM_CONDITIONAL}>[Advanced] Write a custom Python conditional.
           </option>
         </b-form-select>
         <div class="d-block text-center display--flex">
