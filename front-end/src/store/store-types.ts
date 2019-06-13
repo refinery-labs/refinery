@@ -149,9 +149,9 @@ export enum IfDropDownSelectionTypes {
   DEFAULT = 'DEFAULT'
 }
 
-export type ifDropdownSelectionKeys = { [key in IfDropDownSelectionTypes]: string };
+export type IfDropdownSelectionKeys = { [key in IfDropDownSelectionTypes]: string };
 
-export const IfDropdownSelectionExpressionValues: ifDropdownSelectionKeys = {
+export const IfDropdownSelectionExpressionValues: IfDropdownSelectionKeys = {
   [IfDropDownSelectionTypes.DEFAULT]: 'return_data == "SOME_STRING"',
   [IfDropDownSelectionTypes.EQUALS_VALUE]: 'return_data == "SOME_STRING"',
   [IfDropDownSelectionTypes.NOT_EQUALS_VALUE]: 'return_data != "SOME_STRING"',
