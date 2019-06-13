@@ -956,11 +956,10 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         if (ChangeTransitionArgumentsValue.transition.id === workflowRelationship.id) {
           workflowRelationship.name = ChangeTransitionArgumentsValue.transitionType;
           workflowRelationship.type = ChangeTransitionArgumentsValue.transitionType;
+          workflowRelationship.expression = "";
 
           if (workflowRelationship.type === WorkflowRelationshipType.IF) {
             workflowRelationship.expression = context.state.ifExpression;
-          } else {
-            workflowRelationship.expression = "";
           }
         }
         return workflowRelationship;
