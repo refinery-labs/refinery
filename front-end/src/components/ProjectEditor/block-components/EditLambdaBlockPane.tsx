@@ -145,6 +145,20 @@ export class EditLambdaBlock extends Vue {
     );
   }
 
+  public renderLibrarySelector() {
+    const selectedNode = this.selectedNode;
+    return (
+      <b-form-group description="The libraries to install for your Block Code.">
+        <label class="d-block">
+          Block Imported Libraries:
+        </label>
+        <b-button variant="dark" class="col-12">
+          Modify Libraries (<i>{this.selectedNode.libraries.length.toString()} Imported</i>)
+        </b-button>
+      </b-form-group>
+    );
+  }
+
   public render(h: CreateElement): VNode {
     const maxExecutionTimeProps: FormProps = {
       idPrefix: 'max-execution',
@@ -178,6 +192,7 @@ export class EditLambdaBlock extends Vue {
       <div>
         <BlockNameInput/>
         {this.renderLanguageSelector()}
+        {this.renderLibrarySelector()}
         {this.renderCodeEditorContainer()}
         {this.renderForm(this.selectedNode, maxExecutionTimeProps)}
         {this.renderForm(this.selectedNode, maxMemoryProps)}
