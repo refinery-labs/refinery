@@ -21,10 +21,14 @@ export default class RefineryCodeEditor extends Vue {
     // The "rest" is everything except id and lang. It's "the rest" of the object.
     const {id, lang, ...rest} = props;
 
+    // This is super gross but gonna leave it for now. Eventually (if we add a 2nd) we will need to do an Enum lookup
+    // Like "is this in the enum" in order for the mapping to work. Typescript will yell so not afraid :)
+    const editorLanguage = lang === 'text' ? 'text' : languageToAceLangMap[lang];
+
     const editorProps = {
       'editor-id': `editor-run-lambda-input-${id}`,
       theme: 'monokai',
-      lang: languageToAceLangMap[lang],
+      lang: editorLanguage,
       ...rest
     };
 
@@ -41,7 +45,7 @@ export default class RefineryCodeEditor extends Vue {
 
   public render(h: CreateElement): VNode {
     return (
-      <div class="refinery-code-editor-container width--100percent height--100percent">
+      <div class="refinery-code-editor-container width--100percent">
         {this.renderEditor()}
       </div>
     );

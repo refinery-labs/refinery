@@ -9,7 +9,8 @@ import {
 } from '@/types/api-types';
 import {makeApiRequest} from '@/store/fetchers/refinery-api';
 import {API_ENDPOINT} from '@/constants/api-constants';
-import {LambdaWorkflowState, ProjectConfig, WorkflowState} from '@/types/graph';
+import {LambdaWorkflowState, ProjectConfig, WorkflowState, WorkflowStateType} from '@/types/graph';
+import {RunCodeBlockLambdaConfig} from '@/types/run-lambda-types';
 
 // Enums
 export enum RunLambdaMutators {
@@ -53,15 +54,39 @@ const moduleState: RunLambdaState = {
   devLambdaInputData: ''
 };
 
-export interface RunCodeBlockLambdaConfig {
-  codeBlock: LambdaWorkflowState,
-  projectConfig: ProjectConfig
-}
-
 const RunLambdaModule: Module<RunLambdaState, RootState> = {
   namespaced: true,
   state: moduleState,
-  getters: {},
+  getters: {
+    /**
+     * Absolutely disgusting that this exists here... Because it doesn't use state from this module!
+     * But the logic _is_ associated with RunLambda so I'm going to leave this here for now.
+     * This feels like the least dirty thing.
+     * @param state Vuex state for RunLambdaModule
+     * @param getters All getters in RunLambdaModule
+     * @param rootState Vuex state for the entire application
+     */
+    getRunLambdaConfig: (state, getters, rootState) => {
+      const projectState = rootState.project;
+      // This will never happen...
+      if (!projectState.editBlockPane) {
+        return null;
+      }
+
+      const editBlockPaneState = projectState.editBlockPane;
+      const hasValidSelectedNode
+        = editBlockPaneState.selectedNode && editBlockPaneState.selectedNode.type === WorkflowStateType.LAMBDA;
+
+      if (!hasValidSelectedNode || !projectState.openedProjectConfig) {
+        return null;
+      }
+
+      return {
+        codeBlock: editBlockPaneState.selectedNode as LambdaWorkflowState,
+        projectConfig: projectState.openedProjectConfig
+      };
+    }
+  },
   mutations: {
     [RunLambdaMutators.setLambdaRunningStatus](state, val) {
       state.isRunningLambda = val;
@@ -129,6 +154,8 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       await context.dispatch(RunLambdaActions.makeDevLambdaRequest, request);
     },
     async [RunLambdaActions.makeDevLambdaRequest](context, request: RunTmpLambdaRequest) {
+      context.commit(RunLambdaMutators.setLambdaRunningStatus, true);
+
       const runTmpLambdaResult = await makeApiRequest<RunTmpLambdaRequest, RunTmpLambdaResponse>(API_ENDPOINT.RunTmpLambda, request);
 
       if (!runTmpLambdaResult || !runTmpLambdaResult.success || !runTmpLambdaResult.result) {

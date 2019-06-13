@@ -90,6 +90,9 @@ $padding-steps: (
     &--column {
       flex-direction: column;
     }
+    &--row {
+      flex-direction: row;
+    }
   }
 }
 
@@ -158,12 +161,16 @@ $padding-steps: (
 }
 
 .width {
-  &--max-viewheight {
-    height: 100vh;
+  &--max-viewwidth {
+    width: 100vh;
   }
   &--100percent {
-    height: 100%;
+    width: 100%;
   }
+}
+
+.no-max-width {
+  max-width: none !important;
 }
 
 .text-align {

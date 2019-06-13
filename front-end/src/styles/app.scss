@@ -286,10 +286,10 @@ $content-sidebar-width: 92px;
 
   &__form {
     &--normal {
-      width: 320px;
+      width: 340px;
     }
     &--wide {
-      width: 600px;
+      width: 640px;
     }
   }
 
@@ -309,13 +309,12 @@ $content-sidebar-width: 92px;
 }
 
 .code-modal-editor-container {
-  height: 85vh;
+  height: 77vh;
   //width: 90vw;
   //max-width: 1000px
 }
 
 .deploy-pane-container {
-
   width: 300px;
   padding: 0 8px;
 
@@ -358,7 +357,7 @@ $content-sidebar-width: 92px;
 
 .refinery-code-editor-container {
   min-width: 200px;
-  min-height: 100px;
+  height: 240px;
   margin-bottom: 16px;
   padding-bottom: 8px;
 }
@@ -368,11 +367,11 @@ $content-sidebar-width: 92px;
 .run-lambda-pane-container {
   // This lives in the side pane
   max-width: 600px;
-  padding-left: 8px;
-  padding-right: 8px;
+  padding-left: 1em;
+  padding-right: 1em;
 
   .run-lambda-container {
-    height: 220px;
+    //height: 220px;
     flex-direction: column;
   }
 }
@@ -386,11 +385,20 @@ $content-sidebar-width: 92px;
     width: 100%;
     min-width: 320px;
     min-height: 200px;
-    padding-bottom: 20px;
+    margin-bottom: -20px;
+    //padding-bottom: 28px;
+  }
+
+  &__modal {
+    margin-left: 8px;
   }
 
   &__buttons {
     margin-top: 8px;
+  }
+
+  &__expand-button {
+    margin-bottom: 4px;
   }
 }
 
