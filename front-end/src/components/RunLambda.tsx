@@ -119,7 +119,8 @@ export default class RunLambda extends Vue {
   public render(h: CreateElement): VNode {
 
     const containerClasses = {
-      'run-lambda-container display--flex flex-direction--column': true
+      'run-lambda-container display--flex flex-direction--column': true,
+      'whirl standard': !this.showFullscreenButton && this.isCurrentlyRunning
     };
 
     return (
