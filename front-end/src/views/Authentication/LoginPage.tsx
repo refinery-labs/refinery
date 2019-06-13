@@ -57,7 +57,7 @@ export default class LoginPage extends Vue {
       <div class={classes}>
         <b-card border-variant="dark" header-bg-variant="dark">
           <a slot="header" class="mb-0 text-center" href="/">
-            <img class="block-center rounded" src="img/logo.png" alt="Image" />
+            <img class="block-center rounded" src="img/logo.png" class="logo-fit" alt="The World's First Drag-and-Drop Serverless IDE!" />
           </a>
           <p class="text-center py-2">
             Welcome to Refinery! <br />
@@ -116,10 +116,7 @@ export default class LoginPage extends Vue {
           </router-link>
         </b-card>
         <div class="p-3 text-center">
-          <span class="mr-2">&copy;</span>
-          <span>2019</span>
-          <span class="mr-2">-</span>
-          <span>Refinery Labs, Inc.</span>
+          <span>&copy; 2019 - Refinery Labs, Inc.</span>
         </div>
       </div>
     );
@@ -128,7 +125,6 @@ export default class LoginPage extends Vue {
   public render(h: CreateElement): VNode {
     return (
       <div class="login-page">
-        <h2>Login To Refinery</h2>
         {this.renderLoginForm()}
         <router-view />
       </div>
