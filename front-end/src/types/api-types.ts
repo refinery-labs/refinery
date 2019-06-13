@@ -273,22 +273,12 @@ export interface RunLambdaResponse extends BaseApiResponse {
 }
 
 export interface RunLambdaResult {
-  error: RunLambdaError;
-  retries: number;
   is_error: boolean;
   version: string;
   logs: string;
   truncated: boolean;
   status_code: number;
-  request_id: string;
-  response: boolean;
   arn: string;
-}
-
-export interface RunLambdaError {
-  message?: string;
-  type?: string;
-  trace?: Array<Array<number | string>> | string;
 }
 
 /**

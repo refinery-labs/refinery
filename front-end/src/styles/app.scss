@@ -359,11 +359,39 @@ $content-sidebar-width: 92px;
 .refinery-code-editor-container {
   min-width: 200px;
   min-height: 100px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
 }
 
-.run-lambda-container__col {
-  // Should force the blocks next to each other
-  min-width: 200px;
+// I realize this name is horrible and confusing with the lower class...
+// Forgive me?
+.run-lambda-pane-container {
+  // This lives in the side pane
+  max-width: 600px;
+  padding-left: 8px;
+  padding-right: 8px;
+
+  .run-lambda-container {
+    height: 220px;
+    flex-direction: column;
+  }
+}
+
+.run-lambda-container {
+  // This is the shared container between the Sidepane and the Full screen editor
+  min-height: 250px;
+
+  &__col {
+    // Should force the blocks next to each other
+    width: 100%;
+    min-width: 320px;
+    min-height: 200px;
+    padding-bottom: 20px;
+  }
+
+  &__buttons {
+    margin-top: 8px;
+  }
 }
 
 .logo-fit {

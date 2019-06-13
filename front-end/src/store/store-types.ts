@@ -14,11 +14,16 @@ import {ValidTransitionConfig} from '@/constants/project-editor-constants';
 import {EditBlockPaneState} from '@/store/modules/panes/edit-block-pane';
 import {ProductionDeploymentRefineryProject} from '@/types/production-workflow-types';
 import {BillingPaneState} from "@/store/modules/billing";
+import {RunLambdaState} from '@/store/modules/run-lambda';
+import {ToastPaneState} from '@/store/modules/toasts';
 
 export interface RootState {
   setting: UserInterfaceState;
+  deployment: DeploymentViewState;
   project: ProjectViewState;
   allProjects: AllProjectsState;
+  runLambda: RunLambdaState;
+  toasts: ToastPaneState;
   user: UserState;
   billing: BillingPaneState;
 }
@@ -158,7 +163,7 @@ export const IfDropdownSelectionExpressionValues: IfDropdownSelectionKeys = {
   [IfDropDownSelectionType.EQUALS_TRUE]: 'return_data == True',
   [IfDropDownSelectionType.EQUALS_FALSE]: 'return_data == False',
   [IfDropDownSelectionType.CUSTOM_CONDITIONAL]: '"test" in return_data'
-}
+};
 
 export interface AllProjectsState {
   availableProjects: SearchSavedProjectsResult[];

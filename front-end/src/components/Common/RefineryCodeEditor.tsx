@@ -41,7 +41,7 @@ export default class RefineryCodeEditor extends Vue {
 
   public render(h: CreateElement): VNode {
     return (
-      <div class="refinery-code-editor-container width--100percent height--100percent display--flex">
+      <div class="refinery-code-editor-container width--100percent height--100percent">
         {this.renderEditor()}
       </div>
     );
