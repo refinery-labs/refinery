@@ -41,12 +41,12 @@ export function isValidTransition(fromNode: WorkflowState, toNode: WorkflowState
   const transitionData = findTransitionsBetweenNodes(fromNode, toNode);
 
   // The transition is to the same block.
-  if(fromNode.id === toNode.id) {
+  if (fromNode.id === toNode.id) {
     return false;
   }
 
   // If there are no simple or complex transitions, return false
-  if(transitionData.complex.length === 0 && transitionData.simple.length === 0 ) {
+  if (transitionData.complex.length === 0 && transitionData.simple.length === 0) {
     return false;
   }
 
@@ -72,6 +72,16 @@ export function getTransitionsForNode(project: RefineryProject, node: WorkflowSt
   ));
 
   return connectionTransitions;
+}
+
+export function isComplexTransition(transitionType: WorkflowRelationshipType): boolean {
+  return (
+    transitionType === WorkflowRelationshipType.IF ||
+    transitionType === WorkflowRelationshipType.ELSE ||
+    transitionType === WorkflowRelationshipType.EXCEPTION ||
+    transitionType === WorkflowRelationshipType.FAN_OUT ||
+    transitionType === WorkflowRelationshipType.FAN_IN
+  );
 }
 
 export function getValidTransitionsForEdge(

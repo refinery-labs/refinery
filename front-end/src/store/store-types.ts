@@ -6,12 +6,12 @@ import {
   WorkflowRelationshipType,
   WorkflowState
 } from '@/types/graph';
-import { LayoutOptions } from 'cytoscape';
+import {LayoutOptions} from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
 import {GetLatestProjectDeploymentResponse, SearchSavedProjectsResult, TrialInformation} from '@/types/api-types';
-import { LeftSidebarPaneState, SIDEBAR_PANE } from '@/types/project-editor-types';
-import { ValidTransitionConfig } from '@/constants/project-editor-constants';
-import { EditBlockPaneState } from '@/store/modules/panes/edit-block-pane';
+import {LeftSidebarPaneState, SIDEBAR_PANE} from '@/types/project-editor-types';
+import {ValidTransitionConfig} from '@/constants/project-editor-constants';
+import {EditBlockPaneState} from '@/store/modules/panes/edit-block-pane';
 import {ProductionDeploymentRefineryProject} from '@/types/production-workflow-types';
 import {BillingPaneState} from "@/store/modules/billing";
 
@@ -131,9 +131,33 @@ export interface ProjectViewState {
   isAddingTransitionCurrently: boolean;
   newTransitionTypeSpecifiedInAddFlow: WorkflowRelationshipType | null;
   availableTransitions: AvailableTransitionsByType | null;
+  ifSelectDropdownValue: IfDropDownSelectionTypes | null,
+  ifExpression: string,
 
   // Edit Transition Pane
   availableEditTransitions: AvailableTransitionsByType | null;
+  isEditingTransitionCurrently: boolean;
+  newTransitionTypeSpecifiedInEditFlow: WorkflowRelationshipType | null,
+}
+
+export enum IfDropDownSelectionTypes {
+  EQUALS_VALUE = 'EQUALS_VALUE',
+  NOT_EQUALS_VALUE = 'NOT_EQUALS_VALUE',
+  EQUALS_TRUE = 'EQUALS_TRUE',
+  EQUALS_FALSE = 'EQUALS_FALSE',
+  CUSTOM_CONDITIONAL = 'CUSTOM_CONDITIONAL',
+  DEFAULT = 'DEFAULT'
+}
+
+export type ifDropdownSelectionKeys = { [key in IfDropDownSelectionTypes]: string };
+
+export const IfDropdownSelectionExpressionValues: ifDropdownSelectionKeys = {
+  [IfDropDownSelectionTypes.DEFAULT]: 'return_data == "SOME_STRING"',
+  [IfDropDownSelectionTypes.EQUALS_VALUE]: 'return_data == "SOME_STRING"',
+  [IfDropDownSelectionTypes.NOT_EQUALS_VALUE]: 'return_data != "SOME_STRING"',
+  [IfDropDownSelectionTypes.EQUALS_TRUE]: 'return_data == True',
+  [IfDropDownSelectionTypes.EQUALS_FALSE]: 'return_data == False',
+  [IfDropDownSelectionTypes.CUSTOM_CONDITIONAL]: '"test" in return_data'
 }
 
 export interface AllProjectsState {

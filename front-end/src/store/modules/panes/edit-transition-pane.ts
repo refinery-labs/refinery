@@ -136,12 +136,6 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
         root: true
       });
 
-      await createToast(context.dispatch, {
-        title: 'Transition changed!',
-        content: `Successfully changed transition!`,
-        variant: ToastVariant.success
-      });
-
       // We need to close the pane and reset the state
       await context.dispatch(EditTransitionActions.cancelAndResetBlock);
     },

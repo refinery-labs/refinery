@@ -3,7 +3,12 @@
  */
 import {Module} from 'vuex';
 import uuid from 'uuid/v4';
-import {AvailableTransitionsByType, ProjectViewState, RootState} from '@/store/store-types';
+import {
+  IfDropdownSelectionExpressionValues,
+  IfDropDownSelectionTypes,
+  ProjectViewState,
+  RootState
+} from '@/store/store-types';
 import {
   CyElements,
   CyStyle,
@@ -46,10 +51,12 @@ import {
   UpdateLeftSidebarPaneStateMutation
 } from '@/types/project-editor-types';
 import {
-  findTransitionsBetweenNodes,
-  getNodeDataById, getTransitionDataById,
-  getValidBlockToBlockTransitions, getValidTransitionsForEdge,
-  getValidTransitionsForNode, isValidTransition,
+  getNodeDataById,
+  getTransitionDataById,
+  getValidBlockToBlockTransitions,
+  getValidTransitionsForEdge,
+  getValidTransitionsForNode,
+  isValidTransition,
   unwrapJson,
   unwrapProjectJson,
   wrapJson
@@ -128,9 +135,13 @@ const moduleState: ProjectViewState = {
   isAddingTransitionCurrently: false,
   newTransitionTypeSpecifiedInAddFlow: null,
   availableTransitions: null,
+  ifSelectDropdownValue: IfDropDownSelectionTypes.DEFAULT,
+  ifExpression: IfDropdownSelectionExpressionValues.DEFAULT,
 
   // Edit Transition Pane
   availableEditTransitions: null,
+  isEditingTransitionCurrently: false,
+  newTransitionTypeSpecifiedInEditFlow: null,
 };
 
 const ProjectViewModule: Module<ProjectViewState, RootState> = {
@@ -233,7 +244,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
     [ProjectViewGetters.canSaveProject]: state => state.hasProjectBeenModified && !state.isProjectBusy && !state.isAddingTransitionCurrently,
     [ProjectViewGetters.canDeployProject]: state =>
-      !state.hasProjectBeenModified && !state.isProjectBusy && !state.isAddingTransitionCurrently
+      !state.hasProjectBeenModified && !state.isProjectBusy && !state.isAddingTransitionCurrently && !state.isEditingTransitionCurrently
   },
   mutations: {
     [ProjectViewMutators.setOpenedProject](state, project: RefineryProject) {
@@ -313,6 +324,13 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     [ProjectViewMutators.setAddingTransitionType](state, transitionType: WorkflowRelationshipType | null) {
       state.newTransitionTypeSpecifiedInAddFlow = transitionType;
     },
+
+    [ProjectViewMutators.setIfDropdownSelection](state, dropdownSelection: IfDropDownSelectionTypes) {
+      state.ifSelectDropdownValue = dropdownSelection;
+    },
+    [ProjectViewMutators.setIfExpression](state, ifExpression: string) {
+      state.ifExpression = ifExpression;
+    },
     [ProjectViewMutators.setValidTransitions](state, node: WorkflowState) {
       if (!node || !state.openedProject) {
         state.availableTransitions = null;
@@ -322,6 +340,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Assigning this in a mutator because this algorithm is O(n^2) and that feels bad in a getter
       state.availableTransitions = getValidTransitionsForNode(state.openedProject, node);
     },
+
+    // Edit Transition Pane
     [ProjectViewMutators.setValidEditTransitions](state, edge: WorkflowRelationship) {
       if (!edge || !state.openedProject) {
         state.availableEditTransitions = null;
@@ -331,8 +351,27 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Assigning this in a mutator because this algorithm is O(n^2) and that feels bad in a getter
       state.availableEditTransitions = getValidTransitionsForEdge(state.openedProject, edge);
     },
+    [ProjectViewMutators.setEditingTransitionStatus](state, editingCurrently: boolean) {
+      state.isEditingTransitionCurrently = editingCurrently;
+    },
+    [ProjectViewMutators.setEditingTransitionType](state, transitionType: WorkflowRelationshipType | null) {
+      state.newTransitionTypeSpecifiedInEditFlow = transitionType;
+    },
   },
   actions: {
+    async [ProjectViewActions.setIfExpression](context, ifExpressionValue: string) {
+      await context.commit(ProjectViewMutators.setIfExpression, ifExpressionValue);
+    },
+    async [ProjectViewActions.ifDropdownSelection](context, dropdownSelection: IfDropDownSelectionTypes | null) {
+      if (dropdownSelection === null) {
+        await context.commit(ProjectViewMutators.setIfExpression, "");
+        await context.commit(ProjectViewMutators.setIfDropdownSelection, dropdownSelection);
+        return;
+      }
+      const ifExpressionValue: string = IfDropdownSelectionExpressionValues[dropdownSelection];
+      await context.commit(ProjectViewMutators.setIfExpression, ifExpressionValue);
+      await context.commit(ProjectViewMutators.setIfDropdownSelection, dropdownSelection);
+    },
     async [ProjectViewActions.deselectResources](context) {
       await context.commit(ProjectViewMutators.selectedResource, null);
     },
@@ -594,6 +633,10 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
+      if (context.state.isEditingTransitionCurrently) {
+        return;
+      }
+
       context.commit(ProjectViewMutators.selectedResource, null);
       await context.dispatch('updateAvailableTransitions');
       await context.dispatch('updateAvailableEditTransitions');
@@ -603,6 +646,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         await context.dispatch('completeTransitionAdd', nodeId);
         return;
       }
+
+      await context.dispatch(ProjectViewActions.resetPanelStates);
 
       // TODO: Check if we currently have changes that we need to save in a panel...
 
@@ -633,10 +678,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(`editBlockPane/${EditBlockActions.selectCurrentlySelectedProjectNode}`);
     },
     async [ProjectViewActions.selectEdge](context, edgeId: string) {
-      if (context.state.isAddingTransitionCurrently) {
-        // TODO: Add a shake or something? Tell the user that it's bjorked.
-        return;
-      }
+      // I don't have a good answer for this, but my best guess is that
+      // just having a reset pane state call for edge and node selection is
+      // the best way to go about this? This may cause users to lose their
+      // current state though :( so maybe detect it and stop it?
+      await context.dispatch(ProjectViewActions.resetPanelStates);
 
       // await context.dispatch(ProjectViewActions.clearSelection);
 
@@ -653,9 +699,15 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      context.commit(ProjectViewMutators.selectedResource, edges[0].id);
+      const selectedEdge = edges[0];
 
-      // TODO: Make this actually allow editing a transition
+      context.commit(ProjectViewMutators.selectedResource, selectedEdge.id);
+
+      // If we're editing an "IF" transition, skip directly to the secondary transition panel
+      if(selectedEdge.type === WorkflowRelationshipType.IF) {
+        await context.dispatch(ProjectViewActions.selectTransitionTypeToEdit, WorkflowRelationshipType.IF);
+      }
+
       await context.dispatch(DeploymentViewActions.openRightSidebarPane, SIDEBAR_PANE.editTransition);
       await context.dispatch(ProjectViewActions.updateAvailableEditTransitions);
       await context.dispatch(`editTransitionPanel/${EditTransitionActions.selectCurrentlySelectedProjectEdge}`);
@@ -692,11 +744,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         next: nodeId,
         type: context.state.newTransitionTypeSpecifiedInAddFlow,
         name: context.state.newTransitionTypeSpecifiedInAddFlow,
-        expression: '',
+        expression: context.state.ifExpression,
         id: uuid()
       };
 
-      if(context.state.openedProject === null) {
+      if (context.state.openedProject === null) {
         console.error("Something odd has occurred, you're trying to add a transition with no project opened!");
         await context.dispatch(ProjectViewActions.cancelAddingTransition);
         return;
@@ -706,7 +758,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const toNode = getNodeDataById(context.state.openedProject, nodeId);
       const fromNode = getNodeDataById(context.state.openedProject, context.state.selectedResource);
 
-      if(toNode === null || fromNode === null) {
+      if (toNode === null || fromNode === null) {
         console.error("Something odd has occurred, you have an unknown node selected for this transition!");
         await context.dispatch(ProjectViewActions.cancelAddingTransition);
         return;
@@ -788,15 +840,28 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // That also feels wrong because it violates to "one direction" principal, in a way.
       context.commit(ProjectViewMutators.setRightSidebarPane, paneType);
     },
-    async [ProjectViewActions.resetProjectState](context) {
+    async [ProjectViewActions.resetPanelStates](context) {
       context.commit(ProjectViewMutators.selectedResource, null);
+      context.commit(ProjectViewMutators.setSelectedBlockIndex, null);
+
+      context.commit(ProjectViewMutators.setValidTransitions, null);
+      context.commit(ProjectViewMutators.setValidEditTransitions, null);
+
+      await context.dispatch(ProjectViewActions.cancelAddingTransition);
+      await context.dispatch(ProjectViewActions.cancelEditingTransition);
+
+      // TODO: Add "close all panes"
+      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
+      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
+    },
+    async [ProjectViewActions.resetProjectState](context) {
+      // All state relating to panels/editing
+      await context.dispatch(ProjectViewActions.resetPanelStates);
+
+      // Cytoscape
       context.commit(ProjectViewMutators.setCytoscapeConfig, null);
       context.commit(ProjectViewMutators.setCytoscapeElements, null);
       context.commit(ProjectViewMutators.setCytoscapeStyle, null);
-      context.commit(ProjectViewMutators.setSelectedBlockIndex, null);
-      context.commit(ProjectViewMutators.setValidTransitions, null);
-      context.commit(ProjectViewMutators.setValidEditTransitions, null);
-      context.commit(ProjectViewMutators.setAddingTransitionStatus, false);
 
       // TODO: Add "close all panes"
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
@@ -895,16 +960,21 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       const openedProject = context.state.openedProject as RefineryProject;
 
-      // TODO: This will break when we end up having actual transition metadata
-      // attached to each relationship.
-      const modifiedTransitions = deepJSONCopy(openedProject.workflow_relationships.map(wfr => {
+      const modifiedTransitions = openedProject.workflow_relationships.map(wfr => {
         // Careful there boy
         const workflowRelationship = deepJSONCopy(wfr);
         if (ChangeTransitionArgumentsValue.transition.id === workflowRelationship.id) {
+          workflowRelationship.name = ChangeTransitionArgumentsValue.transitionType;
           workflowRelationship.type = ChangeTransitionArgumentsValue.transitionType;
+
+          if (workflowRelationship.type === WorkflowRelationshipType.IF) {
+            workflowRelationship.expression = context.state.ifExpression;
+          } else {
+            workflowRelationship.expression = "";
+          }
         }
         return workflowRelationship;
-      }));
+      });
 
       // TODO: Probably pull this out into a helper function
       const params: OpenProjectMutation = {
@@ -1099,9 +1169,51 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Validation has all passed, so commit the transitions into the state.
       context.commit(ProjectViewMutators.setValidEditTransitions, selectedEdge);
     },
-    [ProjectViewActions.cancelAddingTransition](context) {
+    async [ProjectViewActions.cancelAddingTransition](context) {
+      await context.dispatch(ProjectViewActions.ifDropdownSelection, IfDropDownSelectionTypes.DEFAULT);
+      await context.dispatch(ProjectViewActions.setIfExpression, IfDropdownSelectionExpressionValues.DEFAULT);
       context.commit(ProjectViewMutators.setAddingTransitionStatus, false);
       context.commit(ProjectViewMutators.setAddingTransitionType, null);
+    },
+    async [ProjectViewActions.cancelEditingTransition](context) {
+      await context.dispatch(ProjectViewActions.ifDropdownSelection, IfDropDownSelectionTypes.DEFAULT);
+      await context.dispatch(ProjectViewActions.setIfExpression, IfDropdownSelectionExpressionValues.DEFAULT);
+      context.commit(ProjectViewMutators.setEditingTransitionStatus, false);
+      context.commit(ProjectViewMutators.setEditingTransitionType, null);
+    },
+    async [ProjectViewActions.selectTransitionTypeToEdit](context, transitionType: WorkflowRelationshipType) {
+      if (context.state.selectedResource === null) {
+        console.error("For some reason the selected resource is null, that shouldn't happen!");
+        return;
+      }
+
+      // If we're editing we only open the secondary panel when the "IF" transition is selected
+      if (transitionType === WorkflowRelationshipType.IF) {
+        const selectedResource = context.state.selectedResource as string;
+        const openedProject = context.state.openedProject as RefineryProject;
+
+        const selectedEdge = getTransitionDataById(openedProject, selectedResource);
+
+        if (selectedEdge === null) {
+          console.error("You've somehow selected an edge that no longer exists, how'd you do that?");
+          return;
+        }
+
+        // Set the ifExpression to reflect the selected transition
+        if (selectedEdge.expression !== "") {
+          await context.dispatch(ProjectViewActions.setIfExpression, selectedEdge.expression);
+        }
+
+        await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
+        context.commit(ProjectViewMutators.setEditingTransitionStatus, true);
+        context.commit(ProjectViewMutators.setEditingTransitionType, transitionType);
+        return;
+      }
+      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
+
+      // Change the transition to the new type
+      await context.dispatch(`editTransitionPanel/${EditTransitionActions.changeTransitionType}`, transitionType);
+      await context.dispatch(ProjectViewActions.cancelEditingTransition);
     },
     async [ProjectViewActions.selectTransitionTypeToAdd](context, transitionType: WorkflowRelationshipType) {
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);

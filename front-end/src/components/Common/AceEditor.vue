@@ -10,7 +10,7 @@ window.require = ace.require;
 
 // Lord, please help me
 export default Vue.component('AceEditor', {
-  props: ['editorId', 'content', 'lang', 'theme', 'disabled'],
+  props: ['editorId', 'content', 'lang', 'theme', 'disabled', 'wrapText'],
   data() {
     return {
       editor: Object,
@@ -37,6 +37,7 @@ export default Vue.component('AceEditor', {
     const lang = this.lang || 'python';
     const theme = this.theme || 'monokai';
     const disabled = this.disabled || false;
+    const wrapText = this.wrapText || false;
 
     this.editor = window.ace.edit(this.editorId);
     this.editor.setValue(this.content, 1);
@@ -55,6 +56,8 @@ export default Vue.component('AceEditor', {
     this.editor.setTheme(`ace/theme/${theme}`);
 
     this.editor.setReadOnly(disabled);
+
+    this.editor.getSession().setUseWrapMode(wrapText);
 
     this.editor.on('change', () => {
       this.beforeContent = this.editor.getValue();

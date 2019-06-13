@@ -8,6 +8,7 @@ import {
 } from '@/constants/project-editor-constants';
 import {WorkflowRelationship, WorkflowRelationshipType} from '@/types/graph';
 import {getTransitionDataById} from "@/utils/project-helpers";
+import EditTransitionSelector from "@/components/ProjectEditor/transition-components/EditTransitionSelector";
 
 const project = namespace('project');
 const editTransition = namespace('project/editTransitionPanel');
@@ -25,73 +26,36 @@ export default class EditTransitionPane extends Vue {
   @editTransition.Action deleteTransition!: () => void;
   @editTransition.Action changeTransitionType!: (RelationshipType: WorkflowRelationshipType) => void;
 
-  private checkIfTransitionEnabled(key: WorkflowRelationshipType) {
-    return this.getValidEditMenuDisplayTransitionTypes.some(t => t === key);
-  }
+  @project.Action selectTransitionTypeToEdit!: (transitionType: WorkflowRelationshipType) => void;
+  @project.Action cancelEditingTransition!: () => {};
 
-  public renderTransitionSelect(key: WorkflowRelationshipType, transition: AddGraphElementConfig | null) {
-    if (!transition) {
-      return null;
-    }
-
-    const isTransitionEnabled = this.checkIfTransitionEnabled(key);
-    const choosingTransition = !this.newTransitionTypeSpecifiedInAddFlow;
-
-    const groupItemClasses = {
-      'display--flex': true,
-      'add-block--disabled': !isTransitionEnabled
-    };
-
-    const icon = <span class={!isTransitionEnabled ? 'icon-ban' : 'icon-check'}/>;
-
-    const collapsedContent = (
-      <div>
-        {transition.name + ' '}
-        {icon}
-      </div>
-    );
-
-    const expandedContent = (
-      <div class="flex-column align-items-start add-block__content">
-        <div class="d-flex w-100 justify-content-between">
-          <h4 class="mb-1">
-            {transition.name + ' '}
-            {icon}
-          </h4>
-        </div>
-
-        <p class="mb-1">{transition.description}</p>
-      </div>
-    );
-
-    return (
-      <b-list-group-item
-        on={{click: () => this.changeTransitionType(key)}}
-        disabled={!isTransitionEnabled}
-        active={this.newTransitionTypeSpecifiedInAddFlow === key}
-        class={groupItemClasses}
-        button
-      >
-        {choosingTransition ? expandedContent : collapsedContent}
-      </b-list-group-item>
-    );
-  }
+  @project.State
+  newTransitionTypeSpecifiedInEditFlow!: WorkflowRelationshipType | null;
 
   deleteSelectedTransition() {
     this.deleteTransition();
   }
 
   public render(h: CreateElement): VNode {
+    const editTransitionSelectorProps = {
+      "checkIfValidTransitionGetter": this.getValidEditMenuDisplayTransitionTypes,
+      "selectTransitionAction": this.selectTransitionTypeToEdit,
+      "newTransitionTypeSpecifiedInFlowState": this.newTransitionTypeSpecifiedInEditFlow,
+      "helperText": "Click the Save Transition button to save your changes.",
+      "cancelModifyingTransition": this.cancelEditingTransition,
+      "hasSaveModificationButton": true,
+      "saveModificationButtonAction": this.changeTransitionType,
+    }
+
     return (
       <div>
-        <b-list-group class="add-transition-container" style={{margin: '0 0 2px 0'}}>
-          {availableTransitions.map(key => this.renderTransitionSelect(key, transitionTypeToConfigLookup[key]))}
-        </b-list-group>
-        <div>
-          <b-button on={{click: () => this.deleteSelectedTransition()}} block variant="danger">Delete Transition
+        <EditTransitionSelector props={editTransitionSelectorProps}/>
+        <b-list-group-item>
+          <b-button on={{click: () => this.deleteSelectedTransition()}} class="col-md-12" variant="danger">Delete Transition
           </b-button>
-        </div>
+        </b-list-group-item>
       </div>
-    );
+
+    )
   }
 }
