@@ -1,6 +1,6 @@
-import Vue, { CreateElement, VNode } from 'vue';
+import Vue, {CreateElement, VNode} from 'vue';
 import Component from 'vue-class-component';
-import { namespace } from 'vuex-class';
+import {namespace} from 'vuex-class';
 import StripeAddPaymentCard from '@/components/Common/StripeAddPaymentCard.vue';
 
 const user = namespace('user');
@@ -58,8 +58,8 @@ export default class RegistrationPage extends Vue {
     this.redirectIfAuthenticated();
   }
 
-  setStripeToken( stripeToken: string ) {
-    this.setRegistrationStripeToken( stripeToken );
+  setStripeToken(stripeToken: string) {
+    this.setRegistrationStripeToken(stripeToken);
   }
 
   public renderLoginForm() {
@@ -80,11 +80,11 @@ export default class RegistrationPage extends Vue {
       <div class={classes}>
         <b-card border-variant="dark" header-bg-variant="dark">
           <a slot="header" class="mb-0 text-center" href="/">
-            {/*<img class="block-center rounded" src="img/logo.png" alt="Image"/>*/}
-            Refinery
+            <img class="block-center rounded" src="img/logo.png" class="logo-fit"
+                 alt="The World's First Drag-and-Drop Serverless IDE!"/>
           </a>
           <p class="text-center py-2">Register and receive free, instant access!</p>
-          <b-form on={{ submit: this.onSubmit, reset: this.onReset }} class="mb-3 text-align--left">
+          <b-form on={{submit: this.onSubmit, reset: this.onReset}} class="mb-3 text-align--left">
             <b-form-group
               id="user-email-group"
               description="You must provide a valid email address in order to log in to your account. No password required!"
@@ -98,7 +98,7 @@ export default class RegistrationPage extends Vue {
                   id="user-email-input"
                   class="form-control border-right-0"
                   value={this.registrationEmailInput}
-                  on={{ change: this.setRegisterEmailInputValue }}
+                  on={{change: this.setRegisterEmailInputValue}}
                   type="email"
                   required
                   placeholder="user@example.com"
@@ -107,7 +107,7 @@ export default class RegistrationPage extends Vue {
                 />
                 <div class="input-group-append">
                   <span class="input-group-text text-muted bg-transparent border-left-0">
-                    <em class="fa fa-envelope" />
+                    <em class="fa fa-envelope"/>
                   </span>
                 </div>
               </div>
@@ -128,7 +128,7 @@ export default class RegistrationPage extends Vue {
                   id="user-name-input"
                   class="form-control border-right-0"
                   value={this.registrationNameInput}
-                  on={{ change: this.setRegisterNameInputValue }}
+                  on={{change: this.setRegisterNameInputValue}}
                   type="text"
                   required
                   placeholder="John Doe"
@@ -137,7 +137,7 @@ export default class RegistrationPage extends Vue {
                 />
                 <div class="input-group-append">
                   <span class="input-group-text text-muted bg-transparent border-left-0">
-                    <em class="fa fa-file-signature" />
+                    <em class="fa fa-file-signature"/>
                   </span>
                 </div>
               </div>
@@ -157,7 +157,7 @@ export default class RegistrationPage extends Vue {
                   id="user-phone-input"
                   class="form-control border-right-0"
                   value={this.registrationPhoneInput}
-                  on={{ change: this.setRegisterPhoneInputValue }}
+                  on={{change: this.setRegisterPhoneInputValue}}
                   type="tel"
                   placeholder="+1 (555) 555-5555"
                   required
@@ -166,7 +166,7 @@ export default class RegistrationPage extends Vue {
                 />
                 <div class="input-group-append">
                   <span class="input-group-text text-muted bg-transparent border-left-0">
-                    <em class="fa fa-phone" />
+                    <em class="fa fa-phone"/>
                   </span>
                 </div>
               </div>
@@ -186,7 +186,7 @@ export default class RegistrationPage extends Vue {
                   id="org-name-input"
                   class="form-control border-right-0"
                   value={this.registrationOrgNameInput}
-                  on={{ change: this.setRegisterOrgNameInputValue }}
+                  on={{change: this.setRegisterOrgNameInputValue}}
                   type="text"
                   placeholder="Startup Company Inc."
                   state={this.registrationOrgNameInputValid}
@@ -194,7 +194,7 @@ export default class RegistrationPage extends Vue {
                 />
                 <div class="input-group-append">
                   <span class="input-group-text text-muted bg-transparent border-left-0">
-                    <em class="fa fa-users" />
+                    <em class="fa fa-users"/>
                   </span>
                 </div>
               </div>
@@ -208,7 +208,7 @@ export default class RegistrationPage extends Vue {
               </label>{/* TypeScript can fuck right off, this works fine.
               // @ts-ignore */}
               <StripeAddPaymentCard props={stripeCardProps}/>
-              <br />
+              <br/>
               {/*TODO: Replace Pricing page with actual link.*/}
               <small class="text-muted d-block">
                 For more information about our pricing, see our{' '}
@@ -223,7 +223,7 @@ export default class RegistrationPage extends Vue {
                 id="checkbox-1"
                 name="checkbox-1"
                 required
-                on={{ change: this.onTermsCheckboxUpdated }}
+                on={{change: this.onTermsCheckboxUpdated}}
                 state={this.termsAndConditionsAgreedValid}
                 checked={this.termsAndConditionsAgreed}
               >
@@ -254,10 +254,7 @@ export default class RegistrationPage extends Vue {
           </router-link>
         </b-card>
         <div class="p-3 text-center">
-          <span class="mr-2">&copy;</span>
-          <span>2019</span>
-          <span class="mr-2"> -</span>
-          <span>Refinery Labs, Inc.</span>
+          <span>&copy; 2019 - Refinery Labs, Inc.</span>
         </div>
       </div>
     );
@@ -266,9 +263,8 @@ export default class RegistrationPage extends Vue {
   public render(h: CreateElement): VNode {
     return (
       <div class="register-page">
-        <h2>Register for Refinery</h2>
         {this.renderLoginForm()}
-        <router-view />
+        <router-view/>
       </div>
     );
   }
