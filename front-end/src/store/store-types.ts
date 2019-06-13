@@ -131,7 +131,7 @@ export interface ProjectViewState {
   isAddingTransitionCurrently: boolean;
   newTransitionTypeSpecifiedInAddFlow: WorkflowRelationshipType | null;
   availableTransitions: AvailableTransitionsByType | null;
-  ifSelectDropdownValue: IfDropDownSelectionTypes | null,
+  ifSelectDropdownValue: IfDropDownSelectionType | null,
   ifExpression: string,
 
   // Edit Transition Pane
@@ -140,7 +140,7 @@ export interface ProjectViewState {
   newTransitionTypeSpecifiedInEditFlow: WorkflowRelationshipType | null,
 }
 
-export enum IfDropDownSelectionTypes {
+export enum IfDropDownSelectionType {
   EQUALS_VALUE = 'EQUALS_VALUE',
   NOT_EQUALS_VALUE = 'NOT_EQUALS_VALUE',
   EQUALS_TRUE = 'EQUALS_TRUE',
@@ -149,15 +149,15 @@ export enum IfDropDownSelectionTypes {
   DEFAULT = 'DEFAULT'
 }
 
-export type IfDropdownSelectionKeys = { [key in IfDropDownSelectionTypes]: string };
+export type IfDropdownSelectionKeys = { [key in IfDropDownSelectionType]: string };
 
 export const IfDropdownSelectionExpressionValues: IfDropdownSelectionKeys = {
-  [IfDropDownSelectionTypes.DEFAULT]: 'return_data == "SOME_STRING"',
-  [IfDropDownSelectionTypes.EQUALS_VALUE]: 'return_data == "SOME_STRING"',
-  [IfDropDownSelectionTypes.NOT_EQUALS_VALUE]: 'return_data != "SOME_STRING"',
-  [IfDropDownSelectionTypes.EQUALS_TRUE]: 'return_data == True',
-  [IfDropDownSelectionTypes.EQUALS_FALSE]: 'return_data == False',
-  [IfDropDownSelectionTypes.CUSTOM_CONDITIONAL]: '"test" in return_data'
+  [IfDropDownSelectionType.DEFAULT]: 'return_data == "SOME_STRING"',
+  [IfDropDownSelectionType.EQUALS_VALUE]: 'return_data == "SOME_STRING"',
+  [IfDropDownSelectionType.NOT_EQUALS_VALUE]: 'return_data != "SOME_STRING"',
+  [IfDropDownSelectionType.EQUALS_TRUE]: 'return_data == True',
+  [IfDropDownSelectionType.EQUALS_FALSE]: 'return_data == False',
+  [IfDropDownSelectionType.CUSTOM_CONDITIONAL]: '"test" in return_data'
 }
 
 export interface AllProjectsState {
