@@ -2097,17 +2097,7 @@ class TaskSpawner(object):
 			
 			full_response = response[ "Payload" ].read()
 			
-			# Convert to dict/list if valid JSON
-			try:
-				full_response = json.loads(
-					full_response
-				)
-			except:
-				pass
-			
 			# Detect from response if it was an error
-			del response[ "Payload" ]
-			
 			is_error = False
 			
 			if "FunctionError" in response:
@@ -2133,6 +2123,7 @@ class TaskSpawner(object):
 				"status_code": response[ "StatusCode" ],
 				"logs": log_output,
 				"is_error": is_error,
+				"returned_data": full_response,
 			}
 			
 		@run_on_executor
