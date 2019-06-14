@@ -5128,7 +5128,7 @@ class SavedBlockSearch( BaseHandler ):
 				SavedBlock.name.ilike( "%" + self.json[ "search_string" ] + "%" ),
 				SavedBlock.description.ilike( "%" + self.json[ "search_string" ] + "%" ),
 			)
-		).all()
+		).limit(25).all()
 		
 		return_list = []
 		
