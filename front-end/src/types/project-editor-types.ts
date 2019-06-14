@@ -72,3 +72,21 @@ export const languageToAceLangMap: LanguageToAceLang = {
   [SupportedLanguage.GO1_12]: 'golang',
   [SupportedLanguage.PHP7]: 'php'
 };
+
+export type LanguageToBaseRepoURL = { [key in SupportedLanguage]: string | null };
+
+export const LanguageToBaseRepoURLMap: LanguageToBaseRepoURL = {
+  [SupportedLanguage.NODEJS_8]: 'https://www.npmjs.com',
+  [SupportedLanguage.PYTHON_2]: 'https://pypi.org',
+  [SupportedLanguage.GO1_12]: null,
+  [SupportedLanguage.PHP7]: 'https://packagist.org'
+};
+
+export type LanguageToLibraryRepoURL = { [key in SupportedLanguage]: string | null };
+
+export const LanguageToLibraryRepoURLMap: LanguageToLibraryRepoURL = {
+  [SupportedLanguage.NODEJS_8]: LanguageToBaseRepoURLMap[SupportedLanguage.NODEJS_8] + '/package/',
+  [SupportedLanguage.PYTHON_2]: LanguageToBaseRepoURLMap[SupportedLanguage.PYTHON_2] + '/project/',
+  [SupportedLanguage.GO1_12]: null,
+  [SupportedLanguage.PHP7]: LanguageToBaseRepoURLMap[SupportedLanguage.PHP7] + '/packages/psr/'
+};

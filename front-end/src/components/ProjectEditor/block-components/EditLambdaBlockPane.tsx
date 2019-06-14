@@ -2,7 +2,12 @@ import Component from 'vue-class-component';
 import Vue, {CreateElement, VNode} from 'vue';
 import {Prop} from 'vue-property-decorator';
 import {LambdaWorkflowState, ProjectConfig, SupportedLanguage, WorkflowState, WorkflowStateType} from '@/types/graph';
-import {FormProps, languageToAceLangMap} from '@/types/project-editor-types';
+import {
+  FormProps,
+  languageToAceLangMap,
+  LanguageToBaseRepoURLMap,
+  LanguageToLibraryRepoURLMap
+} from '@/types/project-editor-types';
 import AceEditor from '@/components/Common/AceEditor.vue';
 import {BlockNameInput} from '@/components/ProjectEditor/block-components/EditBlockNamePane';
 import {namespace} from 'vuex-class';
@@ -12,6 +17,7 @@ import {
   maxExecutionMemoryText,
   maxExecutionTimeText
 } from '@/constants/project-editor-constants';
+import {deepJSONCopy} from "@/lib/general-utils";
 import RunLambda from '@/components/RunLambda';
 import {RunCodeBlockLambdaConfig} from '@/types/run-lambda-types';
 import RunEditorCodeBlockContainer from '@/components/ProjectEditor/RunEditorCodeBlockContainer';
@@ -28,16 +34,22 @@ export class EditLambdaBlock extends Vue {
 
   @editBlock.State showCodeModal!: boolean;
   @editBlock.State wideMode!: boolean;
+  @editBlock.State librariesModalVisibility!: boolean;
+  @editBlock.State enteredLibrary!: string;
 
   @editBlock.Mutation setCodeModalVisibility!: (visible: boolean) => void;
   @editBlock.Mutation setWidePanel!: (wide: boolean) => void;
 
+  @editBlock.Mutation setLibrariesModalVisibility!: (visibility: boolean) => void;
   @editBlock.Mutation setCodeInput!: (code: string) => void;
   @editBlock.Mutation setCodeLanguage!: (lang: SupportedLanguage) => void;
   @editBlock.Mutation setDependencyImports!: (libraries: string[]) => void;
   @editBlock.Mutation setMaxExecutionTime!: (maxExecTime: number) => void;
   @editBlock.Mutation setExecutionMemory!: (memory: number) => void;
   @editBlock.Mutation setLayers!: (layers: string[]) => void;
+  @editBlock.Mutation setEnteredLibrary!: (libraryName: string) => void;
+  @editBlock.Mutation deleteDependencyImport!: (libraryName: string) => void;
+  @editBlock.Mutation addDependencyImport!: (libraryName: string) => void;
 
   public renderCodeEditorModal() {
     const nameString = `Edit Code for '${this.selectedNode.name}'`;
@@ -138,6 +150,13 @@ export class EditLambdaBlock extends Vue {
     );
   }
 
+  public changeCodeLanguage(language: SupportedLanguage) {
+    // We need to reset the libraries
+    // Otherwise you'll have npm libraries when you switch to Python :/
+    this.setDependencyImports([]);
+    this.setCodeLanguage(language);
+  }
+
   public renderLanguageSelector() {
     const selectedNode = this.selectedNode;
     return (
@@ -149,10 +168,130 @@ export class EditLambdaBlock extends Vue {
           <b-form-select
             id={`block-language-${selectedNode.id}`}
             value={this.selectedNode.language}
-            on={{input: this.setCodeLanguage}}
+            on={{input: this.changeCodeLanguage}}
             options={Object.values(SupportedLanguage)}
           />
         </div>
+      </b-form-group>
+    );
+  }
+
+  deleteLibrary(library: string) {
+    this.deleteDependencyImport(library);
+  }
+
+  addLibrary(e: Event) {
+    e.preventDefault();
+    this.addDependencyImport(this.enteredLibrary);
+
+    // Reset input
+    this.setEnteredLibrary("");
+  }
+
+  public renderLibraryTable() {
+    // If there are no currently-added libraries
+    if (this.selectedNode.libraries.length === 0) {
+      return (
+        <div class="text-center">
+          <i>You currently have no libraries! Add one below.</i>
+          <br />
+          <a href={LanguageToBaseRepoURLMap[this.selectedNode.language]} target="_blank">Click here to find a library for your Code Block.</a>
+        </div>
+      )
+    }
+
+    const libraryTable = this.selectedNode.libraries.map(library => {
+        const packageRepoLink = LanguageToLibraryRepoURLMap[this.selectedNode.language] + encodeURIComponent(library);
+        return (
+          <b-list-group-item class="d-flex">
+            <span class="float-left d-inline">
+              <a href={packageRepoLink} target="_blank">{library}</a>
+            </span>
+            <div class="ml-auto float-right d-inline">
+              <button type="button"
+                      on={{click: this.deleteLibrary.bind(this, library)}}
+                      class="btn btn-danger">
+                <span class="fas fa-trash"></span>
+              </button>
+            </div>
+
+          </b-list-group-item>
+        );
+      }
+    );
+    return (
+      <b-list-group>
+        {libraryTable}
+      </b-list-group>
+    );
+  }
+
+  public renderLibrariesModal() {
+    if (!this.selectedNode) {
+      return;
+    }
+
+    const modalOnHandlers = {
+      hidden: () => this.setLibrariesModalVisibility(false),
+      ok: () => this.setLibrariesModalVisibility(false),
+    };
+
+    return (
+      <b-modal
+        ref={`libraries-modal-${this.selectedNode.id}`}
+        on={modalOnHandlers}
+        footer-class="p-2"
+        title="Select the libraries for your Code Block"
+        visible={this.librariesModalVisibility}
+        ok-only
+        ok-variant="secondary"
+        ok-title="Close"
+      >
+        {this.renderLibraryTable()}
+
+        <hr/>
+        <b-form on={{submit: this.addLibrary}}>
+          <b-form-group
+            label="Library name:"
+            label-for="library-input-field"
+            description="The name of the library you want to install as a dependency."
+          >
+            <b-form-input
+              id="library-input-field"
+              type="text"
+              required
+              placeholder="Enter your library name"
+              value={this.enteredLibrary}
+              on={{input: this.setEnteredLibrary}}
+            ></b-form-input>
+          </b-form-group>
+          <b-button type="submit" variant="primary">Add Library</b-button>
+        </b-form>
+      </b-modal>
+    );
+  }
+
+  private viewLibraryModal() {
+    // Reset library name input
+    this.setEnteredLibrary("");
+    this.setLibrariesModalVisibility(true);
+  }
+
+  public renderLibrarySelector() {
+    // Go has no libraries, it's done via in-code imports
+    if(this.selectedNode.language === SupportedLanguage.GO1_12) {
+      return (
+        <div></div>
+      )
+    }
+    return (
+      <b-form-group description="The libraries to install for your Block Code.">
+        <label class="d-block">
+          Block Imported Libraries:
+        </label>
+        <b-button variant="dark" class="col-12" on={{click: this.viewLibraryModal}}>
+          Modify Libraries (<i>{this.selectedNode.libraries.length.toString()} Imported</i>)
+        </b-button>
       </b-form-group>
     );
   }
@@ -190,6 +329,7 @@ export class EditLambdaBlock extends Vue {
       <div>
         <BlockNameInput/>
         {this.renderLanguageSelector()}
+        {this.renderLibrarySelector()}
         {this.renderCodeEditorContainer()}
         {this.renderForm(this.selectedNode, maxExecutionTimeProps)}
         {this.renderForm(this.selectedNode, maxMemoryProps)}
@@ -197,6 +337,7 @@ export class EditLambdaBlock extends Vue {
           Edit Environment Variables
         </b-button>
         {this.renderCodeEditorModal()}
+        {this.renderLibrariesModal()}
       </div>
     );
   }
