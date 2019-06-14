@@ -42,7 +42,7 @@ from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from email_validator import validate_email, EmailNotValidError
 
 from models.initiate_database import *
-from models.saved_lambda import SavedLambda
+from models.saved_block import SavedBlock
 from models.project_versions import ProjectVersion
 from models.projects import Project
 from models.organizations import Organization
@@ -3717,7 +3717,7 @@ class TaskSpawner(object):
 			except ClientError as e:
 				if e.response[ "Error" ][ "Code" ] != "ResourceNotFoundException":
 					raise
-				pass
+				
 			
 			return {
 				"id": id,
@@ -3779,7 +3779,12 @@ class TaskSpawner(object):
 					QueueUrl=queue_url_response[ "QueueUrl" ],
 				)
 			except ClientError as e:
-				if e.response[ "Error" ][ "Code" ] != "ResourceNotFoundException":
+				acceptable_errors = [
+					"ResourceNotFoundException",
+					"AWS.SimpleQueueService.NonExistentQueue"
+				]
+				
+				if not ( e.response[ "Error" ][ "Code" ] in acceptable_errors ):
 					raise
 			
 			return {
@@ -4461,11 +4466,13 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	# TODO do more research into collision probability
 	unique_deploy_id = get_random_deploy_id()
 	
+	unique_name_counter = 0
+	
 	# First just set an empty array for each lambda node
 	for workflow_state in diagram_data[ "workflow_states" ]:
 		# Update all of the workflow states with new random deploy ID
 		if "name" in workflow_state:
-			workflow_state[ "name" ] += unique_deploy_id
+			workflow_state[ "name" ] += unique_deploy_id + str(unique_name_counter)
 		
 		# If there are environment variables in project_config, add them to the Lambda node data
 		if workflow_state[ "type" ] == "lambda":
@@ -4483,6 +4490,8 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 			workflow_state[ "transitions" ][ "then" ] = []
 			workflow_state[ "transitions" ][ "fan-out" ] = []
 			workflow_state[ "transitions" ][ "fan-in" ] = []
+			
+		unique_name_counter = unique_name_counter + 1
 		
 	"""
 	Here we calculate the teardown data ahead of time.
@@ -5031,7 +5040,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		"project_config": project_config
 	})
 		
-class SavedLambdaCreate( BaseHandler ):
+class SavedBlocksCreate( BaseHandler ):
 	@authenticated
 	def post( self ):
 		"""
@@ -5040,69 +5049,56 @@ class SavedLambdaCreate( BaseHandler ):
 		schema = {
 			"type": "object",
 			"properties": {
-				"name": {
-					"type": "string",
-				},
 				"description": {
 					"type": "string",
 				},
-				"code": {
-					"type": "string",
-				},
-				"language": {
-					"type": "string",
-				},
-				"libraries": {
-					"type": "array",
-				},
-				"memory": {
-					"type": "integer",
-					"minimum": 128,
-					"maximum": 3008,
-					"multipleOf": 64
-				},
-				"max_execution_time": {
-					"type": "integer",
-					"minimum": 1,
-					"maximum": 900
-				},
+				"block_object": {
+					"type": "object",
+					"properties": {
+						"name": {
+							"type": "string",
+						},
+						"type": {
+							"type": "string",
+						},
+						"id": {
+							"id": "string",
+						},
+					},
+					"required": [
+						"name",
+						"type",
+						"id"
+					]
+				}
 			},
 			"required": [
-				"name",
 				"description",
-				"code",
-				"language",
-				"libraries",
-				"memory",
-				"max_execution_time"
+				"block_object"
 			]
 		}
 		
 		validate_schema( self.json, schema )
 		
-		logit( "Saving Lambda data..." )
+		logit( "Saving Block data..." )
 		
-		new_lambda = SavedLambda()
-		new_lambda.name = self.json[ "name" ]
-		new_lambda.language = self.json[ "language" ]
-		new_lambda.libraries = json.dumps(
-			self.json[ "libraries" ]
+		new_block = SavedBlock()
+		new_block.name = self.json[ "block_object" ][ "name" ]
+		new_block.type = self.json[ "block_object" ][ "type" ]
+		new_block.description = self.json[ "description" ]
+		new_block.block_object = json.dumps(
+			self.json[ "block_object" ]
 		)
-		new_lambda.code = self.json[ "code" ]
-		new_lambda.memory = self.json[ "memory" ]
-		new_lambda.max_execution_time = self.json[ "max_execution_time" ]
-		new_lambda.description = self.json[ "description" ]
-		new_lambda.user_id = self.get_authenticated_user_id()
-
-		session.add( new_lambda )
+		new_block.user_id = self.get_authenticated_user_id()
+		session.add( new_block )
 		session.commit()
 		
 		self.write({
 			"success": True,
-			"id": new_lambda.id
+			"id": new_block.id
 		})
 		
-class SavedLambdaSearch( BaseHandler ):
+class SavedBlockSearch( BaseHandler ):
 	@authenticated
 	def post( self ):
 		"""
@@ -5111,61 +5107,58 @@ class SavedLambdaSearch( BaseHandler ):
 		schema = {
 			"type": "object",
 			"properties": {
-				"query": {
+				"search_string": {
 					"type": "string",
 				}
 			},
 			"required": [
-				"query",
+				"search_string",
 			]
 		}
 		
 		validate_schema( self.json, schema )
 		
-		logit( "Searching saved Lambdas..." )
+		logit( "Searching saved Blocks..." )
 		
 		# Get user's saved lambdas and search through them
-		saved_lambdas = session.query( SavedLambda ).filter_by(
-			user_id=self.get_authenticated_user_id()
-		).all()
+		saved_blocks = session.query( SavedBlock ).filter_by(
+			user_id=self.get_authenticated_user_id(),
+		).filter(
+			sql_or(
+				SavedBlock.name.ilike( "%" + self.json[ "search_string" ] + "%" ),
+				SavedBlock.description.ilike( "%" + self.json[ "search_string" ] + "%" ),
+			)
+		).limit(25).all()
 		
-		# List of already returned result IDs
-		existing_ids = []
+		return_list = []
 		
-		# List of results
-		results_list = []
-		
-		# Searchable attributes
-		searchable_attributes = [
-			"name",
-			"description"
-		]
-		
-		# Search and add results in order of the searchable attributes
-		for searchable_attribute in searchable_attributes:
-			for saved_lambda in saved_lambdas:
-				if self.json[ "query" ].lower() in getattr( saved_lambda, searchable_attribute ).lower() and not ( saved_lambda.id in existing_ids ):
-					# Add to results
-					results_list.append(
-						saved_lambda.to_dict()
-					)
-					
-					# Add to existing IDs so we don't have duplicates
-					existing_ids.append(
-						saved_lambda.id
-					)
+		for saved_block in saved_blocks:
+			# We automatically randomize the ID for the returned block
+			# This is to prevent weird collisions from importing JSON/etc.
+			block_object = json.loads(
+				saved_block.block_object
+			)
+			block_object[ "id" ] = str( uuid.uuid4() )
+			
+			return_list.append({
+				"id": saved_block.id,
+				"description": saved_block.description,
+				"name": saved_block.name,
+				"type": saved_block.type,
+				"block_object": block_object,
+				"timestamp": saved_block.timestamp,
+			})
 		
 		self.write({
 			"success": True,
-			"results": results_list
+			"results": return_list
 		})
 		
-class SavedLambdaDelete( BaseHandler ):
+class SavedBlockDelete( BaseHandler ):
 	@authenticated
-	@gen.coroutine
 	def delete( self ):
 		"""
-		Delete a saved Lambda
+		Delete a saved Block
 		"""
 		schema = {
 			"type": "object",
@@ -5181,9 +5174,9 @@ class SavedLambdaDelete( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		logit( "Deleting Lambda data..." )
+		logit( "Deleting Block data..." )
 		
-		session.query( SavedLambda ).filter_by(
+		session.query( SavedBlock ).filter_by(
 			user_id=self.get_authenticated_user_id(),
 			id=self.json[ "id" ]
 		).delete()
@@ -7479,9 +7472,9 @@ def make_app( is_debug ):
 		( r"/api/v1/logs/executions/get", GetProjectExecutionLogs ),
 		( r"/api/v1/logs/executions", GetProjectExecutions ),
 		( r"/api/v1/aws/deploy_diagram", DeployDiagram ),
-		( r"/api/v1/lambdas/create", SavedLambdaCreate ),
-		( r"/api/v1/lambdas/search", SavedLambdaSearch ),
-		( r"/api/v1/lambdas/delete", SavedLambdaDelete ),
+		( r"/api/v1/saved_blocks/create", SavedBlocksCreate ),
+		( r"/api/v1/saved_blocks/search", SavedBlockSearch ),
+		( r"/api/v1/saved_blocks/delete", SavedBlockDelete ),
 		( r"/api/v1/lambdas/run", RunLambda ),
 		( r"/api/v1/lambdas/logs", GetCloudWatchLogsForLambda ),
 		( r"/api/v1/lambdas/env_vars/update", UpdateEnvironmentVariables ),
@@ -7526,8 +7519,6 @@ if __name__ == "__main__":
 		7777
 	)
 	Base.metadata.create_all( engine )
-	
-	#tornado.ioloop.IOLoop.current().run_sync( test )
 	
 	if os.environ.get( "cf_enabled" ).lower() == "true":
 		tornado.ioloop.IOLoop.current().run_sync( get_cloudflare_keys )

@@ -4,18 +4,14 @@ import uuid
 import time
 import os
 
-class SavedLambda( Base ):
-	__tablename__ = "saved_lambdas"
+class SavedBlock( Base ):
+	__tablename__ = "saved_blocks"
 
 	id = Column(CHAR(36), primary_key=True)
 	name = Column(Text())
-	language = Column(Text())
-	libraries = Column(Text())
-	code = Column(Text())
-	memory = Column(Integer())
-	max_execution_time = Column(Integer())
-	
+	type = Column(Text())
 	description = Column(Text())
+	block_object = Column(Text())
 	timestamp = Column(Integer())
 	
 	# Parent user the saved function
@@ -34,16 +30,13 @@ class SavedLambda( Base ):
 		exposed_attributes = [
 			"id",
 			"name",
-			"language",
-			"libraries",
-			"code",
-			"memory",
-			"max_execution_time",
+			"type",
+			"block_object",
 			"description",
 			"timestamp"
 		]
 		
-		json_attributes = [ "libraries" ]
+		json_attributes = [ "block_object" ]
 		return_dict = {}
 
 		for attribute in exposed_attributes:

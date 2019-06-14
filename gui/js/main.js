@@ -860,85 +860,31 @@ function register( organization_name, user_full_name, email, phone_number ) {
 	);
 }
 
-function delete_saved_function( id ) {
+function created_saved_block( description, block_object ) {
+	return api_request(
+		"POST",
+		"api/v1/saved_blocks/create",
+		{
+			"description": description,
+			"block_object": block_object
+		}
+	);
+}
+
+function search_saved_blocks( search_string ) {
+	return api_request(
+		"POST",
+		"api/v1/saved_blocks/search",
+		{
+			"search_string": search_string,
+		}
+	);
+}
+
+function delete_saved_block( id ) {
 	return api_request(
 		"DELETE",
-		"api/v1/functions/delete",
-		{
-			"id": id,
-		}
-	);
-}
-
-function search_saved_functions( query ) {
-	return api_request(
-		"POST",
-		"api/v1/functions/search",
-		{
-			"query": query,
-		}
-	);
-}
-
-function update_saved_function( id, name, description, code, language, libraries ) {
-	return api_request(
-		"POST",
-		"api/v1/functions/update",
-		{
-			"id": id,
-			"name": name,
-			"description": description,
-			"code": code,
-			"language": language,
-			"libraries": libraries,
-		}
-	);
-}
-
-function create_saved_function( name, description, code, language, libraries ) {
-	return api_request(
-		"POST",
-		"api/v1/functions/create",
-		{
-			"name": name,
-			"description": description,
-			"code": code,
-			"language": language,
-			"libraries": libraries,
-		}
-	);
-}
-
-function created_saved_lambda( name, description, code, language, libraries, memory, max_execution_time ) {
-	return api_request(
-		"POST",
-		"api/v1/lambdas/create",
-		{
-			"name": name,
-			"description": description,
-			"code": code,
-			"language": language,
-			"libraries": libraries,
-			"memory": parseInt( memory ),
-			"max_execution_time": parseInt( max_execution_time )
-		}
-	);
-}
-
-function search_saved_lambdas( query ) {
-	return api_request(
-		"POST",
-		"api/v1/lambdas/search",
-		{
-			"query": query,
-		}
-	);
-}
-
-function delete_saved_lambdas( id ) {
-	return api_request(
-		"DELETE",
-		"api/v1/lambdas/delete",
+		"api/v1/saved_blocks/delete",
 		{
 			"id": id,
 		}

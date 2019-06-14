@@ -231,6 +231,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       context.commit(EditBlockMutators.setSelectedNode, null);
       context.commit(EditBlockMutators.setDirtyState, false);
       context.commit(EditBlockMutators.setCodeModalVisibility, false);
+      context.commit(EditBlockMutators.setConfirmDiscardModalVisibility, false);
     },
     async [EditBlockActions.selectNodeFromOpenProject](context, nodeId: string) {
       const projectStore = context.rootState.project;

@@ -1,7 +1,7 @@
 import Component from 'vue-class-component';
 import Vue, {CreateElement, VNode} from 'vue';
 import {Prop} from 'vue-property-decorator';
-import {LambdaWorkflowState, SupportedLanguage, WorkflowState} from '@/types/graph';
+import {LambdaWorkflowState, ProjectConfig, SupportedLanguage, WorkflowState, WorkflowStateType} from '@/types/graph';
 import {
   FormProps,
   languageToAceLangMap,
@@ -18,12 +18,19 @@ import {
   maxExecutionTimeText
 } from '@/constants/project-editor-constants';
 import {deepJSONCopy} from "@/lib/general-utils";
+import RunLambda from '@/components/RunLambda';
+import {RunCodeBlockLambdaConfig} from '@/types/run-lambda-types';
+import RunEditorCodeBlockContainer from '@/components/ProjectEditor/RunEditorCodeBlockContainer';
 
+const project = namespace('project');
 const editBlock = namespace('project/editBlockPane');
 
 @Component
 export class EditLambdaBlock extends Vue {
   @Prop() selectedNode!: LambdaWorkflowState;
+
+  // TODO: Figure out a cleaner solution for getting the project config...
+  @project.State openedProjectConfig!: ProjectConfig | null;
 
   @editBlock.State showCodeModal!: boolean;
   @editBlock.State wideMode!: boolean;
@@ -55,13 +62,18 @@ export class EditLambdaBlock extends Vue {
       <b-modal
         ref={`code-modal-${this.selectedNode.id}`}
         on={modalOnHandlers}
-        ok-only
-        size="xl"
+        ok-only={true}
+        size="xl no-max-width"
         title={nameString}
         visible={this.showCodeModal}
       >
-        <div class="d-block text-center display--flex code-modal-editor-container">
-          <div class="height--100percent width--100percent flex-grow--1">{this.renderCodeEditor('modal')}</div>
+        <div class="text-center display--flex flex-direction--column code-modal-editor-container">
+          <div class="width--100percent flex-grow--1">
+            {this.renderCodeEditor('modal')}
+          </div>
+          <div class="width--100percent">
+            <RunEditorCodeBlockContainer props={{showFullscreenButton: false}} />
+          </div>
         </div>
       </b-modal>
     );
@@ -99,7 +111,7 @@ export class EditLambdaBlock extends Vue {
     return (
       <b-form-group id={`code-editor-group-${selectedNode.id}`} description={codeEditorText}>
         <div class="display--flex">
-          <label class="d-block flex-grow--1" htmlFor={`code-editor-${selectedNode.id}`}>
+          <label class="d-block flex-grow--1 padding-top--normal" htmlFor={`code-editor-${selectedNode.id}`}>
             Edit Block Code:
           </label>
           <b-button on={fullscreenOnClick} class="edit-block-container__expand-button">
@@ -126,7 +138,7 @@ export class EditLambdaBlock extends Vue {
           <b-form-input
             id={`${idPrefix}-${selectedNode.id}`}
             type={type || 'text'}
-            required
+            required={true}
             max={inputProps.max}
             min={inputProps.min}
             step={inputProps.step}

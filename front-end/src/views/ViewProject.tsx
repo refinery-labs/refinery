@@ -52,7 +52,7 @@ export default class ViewProject extends Vue {
             Overview
           </b-nav-item>
           <b-nav-item to={`${basePath}/deployments`}>Deployments</b-nav-item>
-          <b-nav-item to={`${basePath}/usage`}>Usage</b-nav-item>
+          {/*<b-nav-item to={`${basePath}/usage`}>Usage</b-nav-item>*/}
           <b-nav-item to={`${basePath}/settings`}>Settings</b-nav-item>
         </b-nav>
 

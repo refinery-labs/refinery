@@ -22,7 +22,7 @@ export default class ProjectNotFound extends Vue {
   public render(h: CreateElement): VNode {
     return (
       <div class="page-not-found-page">
-        <h2>Project Not Found, sorry about that!</h2>
+        <h2>Project Page Not Found, sorry about that!</h2>
         <router-view />
       </div>
     );

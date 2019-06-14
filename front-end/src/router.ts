@@ -20,6 +20,7 @@ import { UserMutators } from '@/constants/store-constants';
 import RegistrationPage from '@/views/Authentication/RegistrationPage';
 import HelpPage from '@/views/Help';
 import Billing from "@/views/Billing.vue";
+import ProjectSettings from '@/views/ProjectsNestedViews/ProjectSettings';
 
 Vue.use(Router);
 
@@ -141,7 +142,7 @@ const router = new Router({
             {
               path: 'settings',
               name: 'projectSettings',
-              component: ProjectDeployments
+              component: ProjectSettings
             },
             {
               path: '*',
