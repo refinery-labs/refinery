@@ -64,7 +64,9 @@ export default class RunLambda extends Vue {
       id: `result-${this.lambdaId}-${this.getModeForIdString()}`,
       // This is very nice for rendering non-programming text
       lang: 'text',
-      content: this.getRunLambdaOutput()
+      content: this.getRunLambdaOutput(),
+      wrapText: true,
+      readOnly: true
     };
 
     const colClasses = {
@@ -87,6 +89,7 @@ export default class RunLambda extends Vue {
       // Using NodeJS for JSON support
       lang: SupportedLanguage.NODEJS_8,
       content: this.inputData,
+      onChange: this.onUpdateInputData
     };
 
     const inputDataEditor = (
