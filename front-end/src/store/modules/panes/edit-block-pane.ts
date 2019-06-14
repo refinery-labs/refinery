@@ -37,6 +37,8 @@ export enum EditBlockMutators {
   setMaxExecutionTime = 'setMaxExecutionTime',
   setLayers = 'setLayers',
   setCodeModalVisibility = 'setCodeModalVisibility',
+  setLibrariesModalVisibility = 'setLibrariesModalVisibility',
+  setEnteredLibrary = 'setEnteredLibrary',
 
   // Timer Block Inputs
   setScheduleExpression = 'setScheduleExpression',
@@ -74,6 +76,11 @@ export interface EditBlockPaneState {
   showCodeModal: boolean;
   isStateDirty: boolean;
   wideMode: boolean;
+
+  // This doesn't really make sense here
+  // but neither does having it in a selectedNode...
+  librariesModalVisibility: boolean;
+  enteredLibrary: string,
 }
 
 // Initial State
@@ -83,7 +90,9 @@ const moduleState: EditBlockPaneState = {
   confirmDiscardModalVisibility: false,
   showCodeModal: false,
   isStateDirty: false,
-  wideMode: false
+  wideMode: false,
+  librariesModalVisibility: false,
+  enteredLibrary: "",
 };
 
 function modifyBlock<T extends WorkflowState>(state: EditBlockPaneState, fn: (block: T) => void) {
@@ -185,7 +194,13 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     },
     [EditBlockMutators.setWidePanel](state, wide) {
       state.wideMode = wide;
-    }
+    },
+    [EditBlockMutators.setLibrariesModalVisibility](state, visibility) {
+      state.librariesModalVisibility = visibility;
+    },
+    [EditBlockMutators.setEnteredLibrary](state, libraryName: string) {
+      state.enteredLibrary = libraryName;
+    },
   },
   actions: {
     /**
