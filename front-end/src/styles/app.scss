@@ -104,7 +104,7 @@ $content-sidebar-width: 92px;
 .view-project-page {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 115px);
+  height: calc(100vh - 85px);
   width: 100%;
 
   .router-link-active {
@@ -286,10 +286,10 @@ $content-sidebar-width: 92px;
 
   &__form {
     &--normal {
-      width: 320px;
+      width: 340px;
     }
     &--wide {
-      width: 600px;
+      width: 640px;
     }
   }
 
@@ -309,13 +309,12 @@ $content-sidebar-width: 92px;
 }
 
 .code-modal-editor-container {
-  height: 85vh;
+  height: 77vh;
   //width: 90vw;
   //max-width: 1000px
 }
 
 .deploy-pane-container {
-
   width: 300px;
   padding: 0 8px;
 
@@ -358,12 +357,49 @@ $content-sidebar-width: 92px;
 
 .refinery-code-editor-container {
   min-width: 200px;
-  min-height: 100px;
+  height: 240px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
 }
 
-.run-lambda-container__col {
-  // Should force the blocks next to each other
-  min-width: 200px;
+// I realize this name is horrible and confusing with the lower class...
+// Forgive me?
+.run-lambda-pane-container {
+  // This lives in the side pane
+  max-width: 600px;
+  padding-left: 1em;
+  padding-right: 1em;
+
+  .run-lambda-container {
+    //height: 220px;
+    flex-direction: column;
+  }
+}
+
+.run-lambda-container {
+  // This is the shared container between the Sidepane and the Full screen editor
+  min-height: 250px;
+
+  &__col {
+    // Should force the blocks next to each other
+    width: 100%;
+    min-width: 320px;
+    min-height: 200px;
+    margin-bottom: -20px;
+    //padding-bottom: 28px;
+  }
+
+  &__modal {
+    margin-left: 8px;
+  }
+
+  &__buttons {
+    margin-top: 8px;
+  }
+
+  &__expand-button {
+    margin-bottom: 4px;
+  }
 }
 
 .logo-fit {

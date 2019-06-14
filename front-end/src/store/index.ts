@@ -10,6 +10,7 @@ import { RootState } from '@/store/store-types';
 import ToastPaneModule from '@/store/modules/toasts';
 import DeploymentViewModule from '@/store/modules/deployment-view';
 import BillingPaneModule from "@/store/modules/billing";
+import RunLambdaModule from '@/store/modules/run-lambda';
 
 Vue.use(Vuex);
 
@@ -87,6 +88,7 @@ export default new Vuex.Store<RootState>({
     deployment: DeploymentViewModule,
     project: ProjectView,
     allProjects: AllProjects,
+    runLambda: RunLambdaModule,
     toasts: ToastPaneModule,
     user: UserModule,
     billing: BillingPaneModule,

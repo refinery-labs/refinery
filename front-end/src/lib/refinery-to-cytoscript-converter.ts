@@ -45,7 +45,7 @@ function classOnlyConverter<T extends WorkflowState>(classname: string): (e: Wor
 }
 
 export type WorkflowStateTypeConverterLookup = {
-  [key: string]: (w: WorkflowState) => NodeDefinition;
+  [key in WorkflowStateType]: ((w: WorkflowState) => NodeDefinition) | null;
 };
 
 /**
@@ -62,20 +62,28 @@ export const workflowStateTypeToConverter: WorkflowStateTypeConverterLookup = {
     WorkflowStateType.SCHEDULE_TRIGGER
   ),
   [WorkflowStateType.SNS_TOPIC]: classOnlyConverter<SnsTopicWorkflowState>(WorkflowStateType.SNS_TOPIC),
-  [WorkflowStateType.SQS_QUEUE]: classOnlyConverter<SqsQueueWorkflowState>(WorkflowStateType.SQS_QUEUE)
+  [WorkflowStateType.SQS_QUEUE]: classOnlyConverter<SqsQueueWorkflowState>(WorkflowStateType.SQS_QUEUE),
+  [WorkflowStateType.API_GATEWAY]: null
 };
 
 export function generateCytoscapeElements(project: RefineryProject): ElementsDefinition {
   // Creates the "nodes" on the graph in Cytoscape format
   // http://js.cytoscape.org/#notation/elements-json
   const nodes = project.workflow_states.map(workflowState => {
-    if (!workflowStateTypeToConverter[workflowState.type]) {
+    if (Object.keys(workflowStateTypeToConverter).indexOf(workflowState.type) === -1) {
       const error = new Error('Unknown type to convert when mapping project to graph types');
       console.error(error, workflowState);
       throw error;
     }
 
-    return workflowStateTypeToConverter[workflowState.type](workflowState);
+    const converter = workflowStateTypeToConverter[workflowState.type];
+
+    // Some types do not map to anything.
+    if (!converter) {
+      return null;
+    }
+
+    return converter(workflowState);
   });
 
   const edges: EdgeDefinition[] = project.workflow_relationships.map(edge => {
@@ -97,8 +105,11 @@ export function generateCytoscapeElements(project: RefineryProject): ElementsDef
     };
   });
 
+  // Ensure that there are not any null blocks
+  const filteredNodes = nodes.filter(t => t !== null) as NodeDefinition[];
+
   return {
-    nodes,
+    nodes: filteredNodes,
     edges
   };
 }

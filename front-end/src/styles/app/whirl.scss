@@ -24,7 +24,7 @@ $whirl-base-color: #555 !default;
 }
 .whirl:before {
   content: "";
-  z-index: 1;
+  z-index: 10;
   position: absolute;
   top: 0;
   left: 0;
@@ -35,7 +35,7 @@ $whirl-base-color: #555 !default;
   opacity: 0.6;
 }
 .whirl:after {
-  z-index: 2;
+  z-index: 20;
   content: "";
   height: $whirl-height;
   width: $whirl-width;
