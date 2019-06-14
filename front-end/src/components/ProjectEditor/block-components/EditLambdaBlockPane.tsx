@@ -41,6 +41,8 @@ export class EditLambdaBlock extends Vue {
   @editBlock.Mutation setExecutionMemory!: (memory: number) => void;
   @editBlock.Mutation setLayers!: (layers: string[]) => void;
   @editBlock.Mutation setEnteredLibrary!: (libraryName: string) => void;
+  @editBlock.Mutation deleteDependencyImport!: (libraryName: string) => void;
+  @editBlock.Mutation addDependencyImport!: (libraryName: string) => void;
 
   public renderCodeEditorModal() {
     const nameString = `Edit Code for '${this.selectedNode.name}'`;
@@ -162,20 +164,13 @@ export class EditLambdaBlock extends Vue {
     );
   }
 
-  deleteLibrary(input: string) {
-    const newLibrariesArray = this.selectedNode.libraries.filter(library => {
-      return (library !== input);
-    });
-    this.setDependencyImports(newLibrariesArray);
+  deleteLibrary(library: string) {
+    this.deleteDependencyImport(library);
   }
 
   addLibrary(e: Event) {
     e.preventDefault();
-    const canonicalizedLibrary = this.enteredLibrary.trim();
-    if (!this.selectedNode.libraries.includes(canonicalizedLibrary)) {
-      const newLibrariesArray = deepJSONCopy(this.selectedNode.libraries).concat(canonicalizedLibrary);
-      this.setDependencyImports(newLibrariesArray);
-    }
+    this.addDependencyImport(this.enteredLibrary);
 
     // Reset input
     this.setEnteredLibrary("");
@@ -233,7 +228,6 @@ export class EditLambdaBlock extends Vue {
       <b-modal
         ref={`libraries-modal-${this.selectedNode.id}`}
         on={modalOnHandlers}
-        ok-variant="primary"
         footer-class="p-2"
         title="Select the libraries for your Code Block"
         visible={this.librariesModalVisibility}

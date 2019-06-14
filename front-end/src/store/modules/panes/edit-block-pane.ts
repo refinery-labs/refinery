@@ -17,6 +17,7 @@ import {DEFAULT_LANGUAGE_CODE} from '@/constants/project-editor-constants';
 import {HTTP_METHOD} from "@/constants/api-constants";
 import {validatePath} from "@/utils/block-utils";
 import {EditTopicBlock} from '@/components/ProjectEditor/block-components/EditTopicBlockPane';
+import {deepJSONCopy} from "@/lib/general-utils";
 
 // Enums
 export enum EditBlockMutators {
@@ -39,6 +40,8 @@ export enum EditBlockMutators {
   setCodeModalVisibility = 'setCodeModalVisibility',
   setLibrariesModalVisibility = 'setLibrariesModalVisibility',
   setEnteredLibrary = 'setEnteredLibrary',
+  deleteDependencyImport = 'deleteDependencyImport',
+  addDependencyImport = 'addDependencyImport',
 
   // Timer Block Inputs
   setScheduleExpression = 'setScheduleExpression',
@@ -161,6 +164,23 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     },
     [EditBlockMutators.setDependencyImports](state, libraries) {
       lambdaChange(state, block => (block.libraries = libraries));
+    },
+    [EditBlockMutators.deleteDependencyImport](state, library: string) {
+      lambdaChange(state, block => {
+        const newLibrariesArray = block.libraries.filter(existingLibrary => {
+          return (existingLibrary !== library);
+        });
+        block.libraries = newLibrariesArray
+      });
+    },
+    [EditBlockMutators.addDependencyImport](state, library: string) {
+      lambdaChange(state, block => {
+        const canonicalizedLibrary = library.trim();
+        if (!block.libraries.includes(canonicalizedLibrary)) {
+          const newLibrariesArray = deepJSONCopy(block.libraries).concat(canonicalizedLibrary);
+          block.libraries = newLibrariesArray;
+        }
+      });
     },
     [EditBlockMutators.setMaxExecutionTime](state, maxExecTime) {
       lambdaChange(state, block => (block.max_execution_time = parseInt(maxExecTime, 10)));
