@@ -488,12 +488,16 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      const response = await makeApiRequest<SaveProjectConfigRequest, SaveProjectConfigResponse>(API_ENDPOINT.SaveProjectConfig, {
-        project_id: context.state.openedProject.project_id,
-        config: configJson
-      });
-
-      if (response === null || !response.success) {
+      try {
+        const response = await makeApiRequest<SaveProjectConfigRequest, SaveProjectConfigResponse>(API_ENDPOINT.SaveProjectConfig, {
+          project_id: context.state.openedProject.project_id,
+          config: configJson
+        });
+        if (response === null || !response.success) {
+          await handleSaveError('Unable to save project config: server failure.');
+          return;
+        }
+      } catch (e) {
         await handleSaveError('Unable to save project config: server failure.');
         return;
       }
