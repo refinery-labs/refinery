@@ -11,6 +11,7 @@ import {makeApiRequest} from '@/store/fetchers/refinery-api';
 import {API_ENDPOINT} from '@/constants/api-constants';
 import {LambdaWorkflowState, ProjectConfig, WorkflowState, WorkflowStateType} from '@/types/graph';
 import {RunCodeBlockLambdaConfig} from '@/types/run-lambda-types';
+import {ProductionLambdaWorkflowState} from '@/types/production-workflow-types';
 
 // Enums
 export enum RunLambdaMutators {
@@ -20,6 +21,7 @@ export enum RunLambdaMutators {
   setDeployedLambdaInputData = 'setDeployedLambdaInputData',
 
   setDevLambdaRunResult = 'setDevLambdaRunResult',
+  setDevLambdaRunResultId = 'setDevLambdaRunResultId',
   setDevLambdaInputData = 'setDevLambdaInputData'
 
 }
@@ -40,6 +42,8 @@ export interface RunLambdaState {
   deployedLambdaInputData: string,
 
   devLambdaResult: RunLambdaResult | null,
+  // ID of the last lambda run
+  devLambdaResultId: string | null,
   devLambdaInputData: string
 }
 
@@ -51,6 +55,10 @@ const moduleState: RunLambdaState = {
   deployedLambdaInputData: '',
 
   devLambdaResult: null,
+  /**
+   * Used to "identify" run results and associate them against the selected block.
+   */
+  devLambdaResultId: null,
   devLambdaInputData: ''
 };
 
@@ -101,19 +109,32 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
     [RunLambdaMutators.setDevLambdaRunResult](state, response) {
       state.devLambdaResult = response;
     },
+    [RunLambdaMutators.setDevLambdaRunResultId](state, id) {
+      state.devLambdaResultId = id;
+    },
     [RunLambdaMutators.setDevLambdaInputData](state, inputData) {
       state.devLambdaInputData = inputData;
     }
   },
   actions: {
-    async [RunLambdaActions.runSelectedDeployedCodeBlock](context) {
-      // Get selected node from Deployment UI
-      // Create request object and fire off `makeDeployedLambdaRequest`
+    async [RunLambdaActions.runSelectedDeployedCodeBlock](context, arn: string | null) {
+
+      if (!arn) {
+        console.error('Invalid ARN specified for Run Code Block request');
+        return;
+      }
+
+      const request: RunLambdaRequest = {
+        input_data: context.state.deployedLambdaInputData,
+        arn: arn
+      };
+
+      await context.dispatch(RunLambdaActions.makeDeployedLambdaRequest, request);
     },
     async [RunLambdaActions.makeDeployedLambdaRequest](context, request: RunLambdaRequest) {
 
       // Should not ever happen because of types...
-      if (!request.arn || !request.input_data) {
+      if (!request.arn) {
         console.error('Attempted to run invalid code, no ARN specified');
         return;
       }
@@ -148,7 +169,8 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         layers: block.layers,
         libraries: block.libraries,
         max_execution_time: block.max_execution_time,
-        memory: block.memory
+        memory: block.memory,
+        block_id: block.id
       };
 
       await context.dispatch(RunLambdaActions.makeDevLambdaRequest, request);
@@ -166,6 +188,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
 
       context.commit(RunLambdaMutators.setLambdaRunningStatus, false);
       context.commit(RunLambdaMutators.setDevLambdaRunResult, runTmpLambdaResult.result);
+      context.commit(RunLambdaMutators.setDevLambdaRunResultId, request.block_id);
     }
   }
 };

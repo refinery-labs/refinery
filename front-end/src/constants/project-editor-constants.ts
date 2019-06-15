@@ -20,6 +20,7 @@ import {EditScheduleTriggerBlock} from '@/components/ProjectEditor/block-compone
 import {EditTopicBlock} from '@/components/ProjectEditor/block-components/EditTopicBlockPane';
 import RunEditorCodeBlockPane from '@/components/ProjectEditor/RunEditorCodeBlockPane';
 import EditTransitionPane from "@/components/ProjectEditor/EditTransitionPane";
+import RunDeployedCodeBlockPane from '@/components/DeploymentViewer/RunDeployedCodeBlockPane';
 
 export const BlockSelectionType = {
   ...WorkflowStateType,
@@ -354,7 +355,7 @@ export const blockTypeToDefaultStateMapping: BlockTypeToDefaultState = {
 
 export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
   [SIDEBAR_PANE.runEditorCodeBlock]: RunEditorCodeBlockPane,
-  [SIDEBAR_PANE.runDeployedCodeBlock]: RunEditorCodeBlockPane,
+  [SIDEBAR_PANE.runDeployedCodeBlock]: RunDeployedCodeBlockPane,
   [SIDEBAR_PANE.addBlock]: AddBlockPane,
   [SIDEBAR_PANE.addTransition]: AddTransitionPane,
   [SIDEBAR_PANE.allBlocks]: AddBlockPane,

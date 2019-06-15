@@ -298,6 +298,7 @@ export interface RunTmpLambdaRequest extends BaseApiRequest {
   libraries: any[];
   max_execution_time: number;
   memory: number;
+  block_id: string;
 }
 
 // This is the same thing as RunLambdaResponse but gonna leave the types split out and solve with inheritance

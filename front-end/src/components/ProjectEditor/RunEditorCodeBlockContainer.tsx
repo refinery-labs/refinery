@@ -6,7 +6,7 @@ import {
   WorkflowStateType
 } from '@/types/graph';
 import {PANE_POSITION} from '@/types/project-editor-types';
-import RunLambda from '@/components/RunLambda';
+import RunLambda, {RunLambdaDisplayLocation, RunLambdaDisplayMode} from '@/components/RunLambda';
 import {RunLambdaResult} from '@/types/api-types';
 import {RunCodeBlockLambdaConfig} from '@/types/run-lambda-types';
 import {Prop} from 'vue-property-decorator';
@@ -22,6 +22,7 @@ export default class RunEditorCodeBlockContainer extends Vue {
 
   @runLambda.State isRunningLambda!: boolean;
   @runLambda.State devLambdaResult!: RunLambdaResult | null;
+  @runLambda.State devLambdaResultId!: string | null;
   @runLambda.State devLambdaInputData!: string;
 
   // Getters
@@ -31,7 +32,7 @@ export default class RunEditorCodeBlockContainer extends Vue {
   @editBlock.Mutation setCodeModalVisibility!: (visible: boolean) => void;
   @runLambda.Mutation setDevLambdaInputData!: (inputData: string) => void;
 
-  @Prop({required: true}) showFullscreenButton!: boolean;
+  @Prop({required: true}) displayMode!: RunLambdaDisplayMode;
 
   // Actions
   @project.Action closePane!: (p: PANE_POSITION) => void;
@@ -57,11 +58,13 @@ export default class RunEditorCodeBlockContainer extends Vue {
       onRunLambda: () => this.runSpecifiedEditorCodeBlock(config),
       onUpdateInputData: this.setDevLambdaInputData,
       fullScreenClicked: () => this.setCodeModalVisibility(true),
-      lambdaId: this.selectedNode.id,
+      lambdaIdOrArn: this.selectedNode.id,
       runResultOutput: this.devLambdaResult,
+      runResultOutputId: this.devLambdaResultId,
       inputData: this.devLambdaInputData,
       isCurrentlyRunning: this.isRunningLambda,
-      showFullscreenButton: this.showFullscreenButton
+      displayLocation: RunLambdaDisplayLocation.editor,
+      displayMode: this.displayMode
     };
 
     return (

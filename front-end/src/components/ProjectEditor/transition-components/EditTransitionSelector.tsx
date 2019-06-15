@@ -23,6 +23,7 @@ export default class EditTransitionSelector extends Vue {
   @Prop({required: true}) helperText!: string;
   @Prop({required: true}) cancelModifyingTransition!: () => {};
   @Prop({required: false}) saveModificationButtonAction!: (key: WorkflowRelationshipType | null) => {};
+  @Prop() currentlySelectedTransitionType!: WorkflowRelationshipType | null;
 
   // This isn't as symmetric as I'd like, but the method for adding and
   // editing transitions is fundamentally different \o/
@@ -79,7 +80,7 @@ export default class EditTransitionSelector extends Vue {
       <b-list-group-item
         on={{click: () => this.selectTransitionAction(key)}}
         disabled={!isTransitionEnabled}
-        active={this.newTransitionTypeSpecifiedInFlowState === key}
+        active={(this.newTransitionTypeSpecifiedInFlowState || this.currentlySelectedTransitionType) === key}
         class={groupItemClasses}
         button
       >
@@ -158,20 +159,18 @@ export default class EditTransitionSelector extends Vue {
   }
 
   private renderSaveModificationButton() {
-    if (this.hasSaveModificationButton) {
-      return (
-        <b-list-group-item>
-          <b-button variant="primary" class="col-md-12"
-                    on={{click: this.saveModificationButtonActionEvent}}>
-            Save Transition
-          </b-button>
-        </b-list-group-item>
-      )
+    if (!this.hasSaveModificationButton) {
+      return null;
     }
 
     return (
-      <div></div>
-    )
+      <b-list-group-item>
+        <b-button variant="primary" class="col-md-12"
+                  on={{click: this.saveModificationButtonActionEvent}}>
+          Save Transition
+        </b-button>
+      </b-list-group-item>
+    );
   }
 
   private renderBlockSelectionHelpText() {
