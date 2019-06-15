@@ -11,6 +11,13 @@ export default class ProjectSettings extends Vue {
 
   @project.Action setProjectConfigLoggingLevel!: (projectConfigLoggingLevel: ProjectLogLevel) => void;
 
+  private getLogLevelValue() {
+    if (!this.openedProjectConfig || !this.openedProjectConfig.logging || !this.openedProjectConfig.logging.level) {
+      return ProjectLogLevel.LOG_ALL;
+    }
+    return this.openedProjectConfig.logging.level;
+  }
+
   public render(h: CreateElement): VNode {
     return (
       <div class="content-wrapper">
@@ -38,8 +45,8 @@ export default class ProjectSettings extends Vue {
                       <b-form-select
                         id="logging-level-input-select"
                         /* Maybe Free won't notice this, I'm not sure what I'm supposed to do instead. */
-                        value={(this.openedProjectConfig === null) ? ProjectLogLevel.LOG_ALL : this.openedProjectConfig.logging.level}
-                        on={{input: this.setProjectConfigLoggingLevel}}
+                        value={this.getLogLevelValue()}
+                        on={{change: this.setProjectConfigLoggingLevel}}
                       >
                         <option value={ProjectLogLevel.LOG_ALL}>Log all executions</option>
                         <option value={ProjectLogLevel.LOG_ERRORS}>Log only errors</option>
