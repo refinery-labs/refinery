@@ -5369,7 +5369,6 @@ class InfraCollisionCheck( BaseHandler ):
 		
 class SaveProject( BaseHandler ):
 	@authenticated
-	@gen.coroutine
 	def post( self ):
 		"""
 		{
@@ -5400,7 +5399,7 @@ class SaveProject( BaseHandler ):
 						"code": "PROJECT_NAME_EXISTS",
 						"msg": "A project with this name already exists!"
 					})
-					raise gen.Return()
+					return
 		
 		# Check if project already exists
 		if project_id:
@@ -5420,7 +5419,7 @@ class SaveProject( BaseHandler ):
 					"code": "ACCESS_DENIED",
 					"msg": "You do not have the permissions required to save this project."
 				})
-				raise gen.Return()
+				return
 		
 		# If there is a previous project and the name doesn't match, update it.
 		if previous_project and previous_project.name != project_name:
@@ -5486,6 +5485,43 @@ class SaveProject( BaseHandler ):
 			"success": True,
 			"project_id": project_id,
 			"project_version": project_version
+		})
+	
+class SaveProjectConfig( BaseHandler ):
+	@authenticated
+	def post( self ):
+		"""
+		{
+			"project_id": {{project id uuid}} || False # If False create a new project
+			"config": {{project_config_data}} # Project config such as ENV variables, etc.
+		}
+		
+		TODO:
+			* The logic for each branch of project exists and project doesn't exist should be refactored
+		"""
+		logit( "Saving project config to database..." )
+		
+		project_id = self.json[ "project_id" ]
+		project_config = self.json[ "config" ]
+		
+		# Deny if they don't have access
+		if not self.is_owner_of_project( project_id ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have the permissions required to save this project config."
+			})
+			return
+		
+		# Update project config
+		update_project_config(
+			project_id,
+			project_config
+		)
+		
+		self.write({
+			"success": True,
+			"project_id": project_id,
 		})
 		
 def update_project_config( project_id, project_config ):
@@ -7483,6 +7519,7 @@ def make_app( is_debug ):
 		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda ),
 		( r"/api/v1/aws/infra_tear_down", InfraTearDown ),
 		( r"/api/v1/aws/infra_collision_check", InfraCollisionCheck ),
+		( r"/api/v1/projects/config/save", SaveProjectConfig ),
 		( r"/api/v1/projects/save", SaveProject ),
 		( r"/api/v1/projects/search", SearchSavedProjects ),
 		( r"/api/v1/projects/get", GetSavedProject ),

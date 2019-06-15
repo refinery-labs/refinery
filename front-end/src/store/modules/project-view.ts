@@ -12,7 +12,7 @@ import {
 import {
   CyElements,
   CyStyle,
-  ProjectConfig,
+  ProjectConfig, ProjectLogLevel,
   RefineryProject,
   WorkflowRelationship,
   WorkflowRelationshipType,
@@ -40,7 +40,7 @@ import {
   GetProjectConfigRequest,
   GetProjectConfigResponse,
   GetSavedProjectRequest,
-  GetSavedProjectResponse,
+  GetSavedProjectResponse, SaveProjectConfigRequest, SaveProjectConfigResponse,
   SaveProjectRequest,
   SaveProjectResponse
 } from '@/types/api-types';
@@ -72,6 +72,7 @@ import {ToastVariant} from '@/types/toasts-types';
 import router from '@/router';
 import {deepJSONCopy} from '@/lib/general-utils';
 import EditTransitionPaneModule, {EditTransitionActions} from "@/store/modules/panes/edit-transition-pane";
+import RefineryCodeEditor from "@/components/Common/RefineryCodeEditor";
 
 interface AddBlockArguments {
   rawBlockType: string;
@@ -279,6 +280,14 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     [ProjectViewMutators.setCytoscapeConfig](state, config: cytoscape.CytoscapeOptions) {
       state.cytoscapeConfig = config;
     },
+    // Project Config
+    [ProjectViewMutators.setProjectLogLevel](state, projectLoggingLevel: ProjectLogLevel) {
+      state.openedProjectConfig = Object.assign(state.openedProjectConfig, {
+        logging: {
+          level: projectLoggingLevel
+        }
+      });
+    },
 
     // Deployment Logic
     [ProjectViewMutators.setLatestDeploymentState](state, response: GetLatestProjectDeploymentResponse | null) {
@@ -349,6 +358,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
   },
   actions: {
+    async [ProjectViewActions.setProjectConfigLoggingLevel](context, projectLoggingLevel: ProjectLogLevel) {
+      context.commit(ProjectViewMutators.setProjectLogLevel, projectLoggingLevel);
+
+      // Save new config to the backend
+      await context.dispatch(ProjectViewActions.saveProjectConfig);
+    },
     async [ProjectViewActions.setIfExpression](context, ifExpressionValue: string) {
       await context.commit(ProjectViewMutators.setIfExpression, ifExpressionValue);
     },
@@ -447,6 +462,51 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       context.commit(ProjectViewMutators.setCytoscapeElements, elements);
       context.commit(ProjectViewMutators.setCytoscapeStyle, stylesheet);
+    },
+    async [ProjectViewActions.saveProjectConfig](context) {
+      const handleSaveError = async (message: string) => {
+        context.commit(ProjectViewMutators.isSavingProject, false);
+        console.error(message);
+        await createToast(context.dispatch, {
+          title: 'Save Config Error',
+          content: message,
+          variant: ToastVariant.danger
+        });
+      };
+
+      if (!context.state.openedProject || !context.state.openedProjectConfig) {
+        await handleSaveError('Project attempted to be saved but it was not in a valid state');
+        return;
+      }
+
+      context.commit(ProjectViewMutators.isSavingProject, true);
+
+      const configJson = wrapJson(context.state.openedProjectConfig);
+
+      if (!configJson) {
+        console.error('Unable to serialize project config into JSON data');
+        return;
+      }
+
+      const request: SaveProjectConfigRequest = {
+        project_id: context.state.openedProject.project_id,
+        config: configJson,
+      };
+
+      const saveProjectConfigApiClient = getApiClient(API_ENDPOINT.SaveProjectConfig);
+
+      const response = (await saveProjectConfigApiClient(request)) as SaveProjectConfigResponse;
+
+      if (!response.success) {
+        await handleSaveError('Unable to save project config: server failure.');
+        return;
+      }
+
+      await createToast(context.dispatch, {
+        title: 'Project Config Updated',
+        content: 'Project settings saved successfully!',
+        variant: ToastVariant.success
+      });
     },
     async [ProjectViewActions.saveProject](context) {
       const handleSaveError = async (message: string) => {
@@ -694,7 +754,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       context.commit(ProjectViewMutators.selectedResource, selectedEdge.id);
 
       // If we're editing an "IF" transition, skip directly to the secondary transition panel
-      if(selectedEdge.type === WorkflowRelationshipType.IF) {
+      if (selectedEdge.type === WorkflowRelationshipType.IF) {
         await context.dispatch(ProjectViewActions.selectTransitionTypeToEdit, WorkflowRelationshipType.IF);
       }
 
