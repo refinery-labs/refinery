@@ -4,7 +4,6 @@ import {SupportedLanguage} from '@/types/graph';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import {EditorProps} from '@/types/component-types';
 import {RunLambdaResult} from '@/types/api-types';
-import {PANE_POSITION} from '@/types/project-editor-types';
 
 @Component
 export default class RunLambda extends Vue {
@@ -56,18 +55,51 @@ export default class RunLambda extends Vue {
   public renderOutputData() {
     const isInSidepane = this.showFullscreenButton;
 
+    const noDataText = [
+      'No output data to display.',
+      <br />,
+      'Click "Execute with Data" to generate output.'
+    ];
+
     if (!this.runResultOutput && isInSidepane) {
-      return null;
+      return <label class="mt-3 mb-3">{noDataText}</label>;
     }
 
+    const resultDataEditorProps: EditorProps = {
+      id: `result-data-${this.lambdaId}-${this.getModeForIdString()}`,
+      // This is very nice for rendering non-programming text
+      lang: 'text',
+      content: this.runResultOutput && this.runResultOutput.returned_data || '',
+      wrapText: true,
+      readOnly: true
+    };
+
     const resultOutputEditorProps: EditorProps = {
-      id: `result-${this.lambdaId}-${this.getModeForIdString()}`,
+      id: `result-output-${this.lambdaId}-${this.getModeForIdString()}`,
       // This is very nice for rendering non-programming text
       lang: 'text',
       content: this.getRunLambdaOutput(),
       wrapText: true,
       readOnly: true
     };
+
+    const resultDataTab = (
+      <b-tab title="first" active>
+        <template slot="title">
+          <span>Returned Data <em class="fas fa-code" /></span>
+        </template>
+        <RefineryCodeEditor props={{editorProps: resultDataEditorProps}} />
+      </b-tab>
+    );
+
+    const outputDataTab = (
+      <b-tab title="second">
+        <template slot="title">
+          <span>Execution Output <em class="fas fa-terminal" /></span>
+        </template>
+        <RefineryCodeEditor props={{editorProps: resultOutputEditorProps}} />
+      </b-tab>
+    );
 
     const colClasses = {
       'run-lambda-container__col text-align--left': true,
@@ -76,8 +108,13 @@ export default class RunLambda extends Vue {
 
     return (
       <div class={colClasses}>
-        <label class="flex-grow--1 padding-top--normal">Execution Output:</label>
-        <RefineryCodeEditor props={{editorProps: resultOutputEditorProps}} />
+        <b-tabs nav-class="nav-justified">
+          {this.runResultOutput && resultDataTab}
+          {this.runResultOutput && outputDataTab}
+          <div slot="empty">
+            <h4 class="mt-3 mb-3">{noDataText}</h4>
+          </div>
+        </b-tabs>
       </div>
     );
   }
@@ -92,10 +129,15 @@ export default class RunLambda extends Vue {
       onChange: this.onUpdateInputData
     };
 
+    const inputDataLabelClasses = {
+      'flex-grow--1 run-lambda-container__input-data': true,
+      'run-lambda-container__input-data--top-padding': !this.showFullscreenButton
+    };
+
     const inputDataEditor = (
       <div class="run-lambda-container__col">
         <div class="display--flex text-align--left">
-          <label class="flex-grow--1 padding-top--normal">Input Data:</label>
+          <label class={inputDataLabelClasses}> Input Data</label>
           {this.renderFullscreenButton()}
         </div>
         <RefineryCodeEditor props={{editorProps: inputDataEditorProps}} />

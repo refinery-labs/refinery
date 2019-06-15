@@ -62,7 +62,7 @@ export class EditLambdaBlock extends Vue {
       <b-modal
         ref={`code-modal-${this.selectedNode.id}`}
         on={modalOnHandlers}
-        ok-only={true}
+        hide-footer={true}
         size="xl no-max-width"
         title={nameString}
         visible={this.showCodeModal}
@@ -243,7 +243,7 @@ export class EditLambdaBlock extends Vue {
         footer-class="p-2"
         title="Select the libraries for your Code Block"
         visible={this.librariesModalVisibility}
-        ok-only
+        ok-only={true}
         ok-variant="secondary"
         ok-title="Close"
       >
@@ -259,11 +259,10 @@ export class EditLambdaBlock extends Vue {
             <b-form-input
               id="library-input-field"
               type="text"
-              required
+              required={true}
               placeholder="Enter your library name"
               value={this.enteredLibrary}
-              on={{input: this.setEnteredLibrary}}
-            ></b-form-input>
+              on={{input: this.setEnteredLibrary}} />
           </b-form-group>
           <b-button type="submit" variant="primary">Add Library</b-button>
         </b-form>
@@ -279,10 +278,10 @@ export class EditLambdaBlock extends Vue {
 
   public renderLibrarySelector() {
     // Go has no libraries, it's done via in-code imports
-    if(this.selectedNode.language === SupportedLanguage.GO1_12) {
+    if (this.selectedNode.language === SupportedLanguage.GO1_12) {
       return (
         <div></div>
-      )
+      );
     }
     return (
       <b-form-group description="The libraries to install for your Block Code.">
@@ -328,14 +327,14 @@ export class EditLambdaBlock extends Vue {
     return (
       <div>
         <BlockNameInput/>
-        {this.renderLanguageSelector()}
-        {this.renderLibrarySelector()}
         {this.renderCodeEditorContainer()}
+        {this.renderLibrarySelector()}
+        {/*<b-button variant="dark" class="col-12 mb-3">*/}
+        {/*  Edit Environment Variables*/}
+        {/*</b-button>*/}
+        {this.renderLanguageSelector()}
         {this.renderForm(this.selectedNode, maxExecutionTimeProps)}
         {this.renderForm(this.selectedNode, maxMemoryProps)}
-        <b-button variant="dark" class="col-12 mb-3">
-          Edit Environment Variables
-        </b-button>
         {this.renderCodeEditorModal()}
         {this.renderLibrariesModal()}
       </div>
