@@ -386,7 +386,14 @@ $content-sidebar-width: 92px;
     min-width: 320px;
     min-height: 200px;
     margin-bottom: -20px;
-    //padding-bottom: 28px;
+  }
+
+  &__input-data {
+    font-weight: bold;
+    color: #656565;
+    &--top-padding {
+      padding-top: 24px;
+    }
   }
 
   &__modal {
