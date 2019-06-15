@@ -62,7 +62,7 @@ export class EditLambdaBlock extends Vue {
       <b-modal
         ref={`code-modal-${this.selectedNode.id}`}
         on={modalOnHandlers}
-        ok-only={true}
+        hide-footer={true}
         size="xl no-max-width"
         title={nameString}
         visible={this.showCodeModal}

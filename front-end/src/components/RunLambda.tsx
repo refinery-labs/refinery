@@ -55,8 +55,14 @@ export default class RunLambda extends Vue {
   public renderOutputData() {
     const isInSidepane = this.showFullscreenButton;
 
+    const noDataText = [
+      'No output data to display.',
+      <br />,
+      'Click "Execute with Data" to generate output.'
+    ];
+
     if (!this.runResultOutput && isInSidepane) {
-      return null;
+      return <label class="mt-3 mb-3">{noDataText}</label>;
     }
 
     const resultDataEditorProps: EditorProps = {
@@ -106,7 +112,7 @@ export default class RunLambda extends Vue {
           {this.runResultOutput && resultDataTab}
           {this.runResultOutput && outputDataTab}
           <div slot="empty">
-            <h4 class="mt-3 mb-3">No output data to display. Click "Execute with Data" to generate output.</h4>
+            <h4 class="mt-3 mb-3">{noDataText}</h4>
           </div>
         </b-tabs>
       </div>

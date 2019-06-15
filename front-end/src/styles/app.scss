@@ -383,7 +383,7 @@ $content-sidebar-width: 92px;
   &__col {
     // Should force the blocks next to each other
     width: 100%;
-    min-width: 320px;
+    min-width: 340px;
     min-height: 200px;
     margin-bottom: -20px;
   }
@@ -391,6 +391,7 @@ $content-sidebar-width: 92px;
   &__input-data {
     font-weight: bold;
     color: #656565;
+
     &--top-padding {
       padding-top: 24px;
     }
