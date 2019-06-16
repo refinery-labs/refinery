@@ -696,7 +696,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       context.commit(ProjectViewMutators.selectedResource, null);
-      await context.dispatch(ProjectViewActions.updateAvailableTransitions)
+      await context.dispatch(ProjectViewActions.updateAvailableTransitions);
       await context.dispatch(ProjectViewActions.updateAvailableEditTransitions);
     },
     async [ProjectViewActions.selectNode](context, nodeId: string) {
@@ -705,9 +705,16 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      await context.dispatch(ProjectViewActions.resetPanelStates);
+      if (context.state.editBlockPane && context.state.editBlockPane.isStateDirty) {
+        await createToast(context.dispatch, {
+          title: 'Unsaved Block Detected',
+          content: 'Please save or discard changes to block before selecting another block.',
+          variant: ToastVariant.warning
+        });
+        return;
+      }
 
-      // TODO: Check if we currently have changes that we need to save in a panel...
+      await context.dispatch(ProjectViewActions.resetPanelStates);
 
       //await context.dispatch(ProjectViewActions.clearSelection);
 

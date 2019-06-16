@@ -17,6 +17,7 @@ import {DEFAULT_LANGUAGE_CODE} from '@/constants/project-editor-constants';
 import {HTTP_METHOD} from "@/constants/api-constants";
 import {validatePath} from "@/utils/block-utils";
 import {EditTopicBlock} from '@/components/ProjectEditor/block-components/EditTopicBlockPane';
+import {deepJSONCopy} from "@/lib/general-utils";
 
 // Enums
 export enum EditBlockMutators {
@@ -37,6 +38,10 @@ export enum EditBlockMutators {
   setMaxExecutionTime = 'setMaxExecutionTime',
   setLayers = 'setLayers',
   setCodeModalVisibility = 'setCodeModalVisibility',
+  setLibrariesModalVisibility = 'setLibrariesModalVisibility',
+  setEnteredLibrary = 'setEnteredLibrary',
+  deleteDependencyImport = 'deleteDependencyImport',
+  addDependencyImport = 'addDependencyImport',
 
   // Timer Block Inputs
   setScheduleExpression = 'setScheduleExpression',
@@ -74,6 +79,11 @@ export interface EditBlockPaneState {
   showCodeModal: boolean;
   isStateDirty: boolean;
   wideMode: boolean;
+
+  // This doesn't really make sense here
+  // but neither does having it in a selectedNode...
+  librariesModalVisibility: boolean;
+  enteredLibrary: string,
 }
 
 // Initial State
@@ -83,7 +93,9 @@ const moduleState: EditBlockPaneState = {
   confirmDiscardModalVisibility: false,
   showCodeModal: false,
   isStateDirty: false,
-  wideMode: false
+  wideMode: false,
+  librariesModalVisibility: false,
+  enteredLibrary: "",
 };
 
 function modifyBlock<T extends WorkflowState>(state: EditBlockPaneState, fn: (block: T) => void) {
@@ -153,6 +165,23 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     [EditBlockMutators.setDependencyImports](state, libraries) {
       lambdaChange(state, block => (block.libraries = libraries));
     },
+    [EditBlockMutators.deleteDependencyImport](state, library: string) {
+      lambdaChange(state, block => {
+        const newLibrariesArray = block.libraries.filter(existingLibrary => {
+          return (existingLibrary !== library);
+        });
+        block.libraries = newLibrariesArray
+      });
+    },
+    [EditBlockMutators.addDependencyImport](state, library: string) {
+      lambdaChange(state, block => {
+        const canonicalizedLibrary = library.trim();
+        if (!block.libraries.includes(canonicalizedLibrary)) {
+          const newLibrariesArray = deepJSONCopy(block.libraries).concat(canonicalizedLibrary);
+          block.libraries = newLibrariesArray;
+        }
+      });
+    },
     [EditBlockMutators.setMaxExecutionTime](state, maxExecTime) {
       lambdaChange(state, block => (block.max_execution_time = parseInt(maxExecTime, 10)));
     },
@@ -185,7 +214,13 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     },
     [EditBlockMutators.setWidePanel](state, wide) {
       state.wideMode = wide;
-    }
+    },
+    [EditBlockMutators.setLibrariesModalVisibility](state, visibility) {
+      state.librariesModalVisibility = visibility;
+    },
+    [EditBlockMutators.setEnteredLibrary](state, libraryName: string) {
+      state.enteredLibrary = libraryName;
+    },
   },
   actions: {
     /**

@@ -279,6 +279,10 @@ export interface RunLambdaResult {
   truncated: boolean;
   status_code: number;
   arn: string;
+  /**
+   * This is the JSON formatted data returned from the code execution result.
+   */
+  returned_data: string;
 }
 
 /**
@@ -294,6 +298,7 @@ export interface RunTmpLambdaRequest extends BaseApiRequest {
   libraries: any[];
   max_execution_time: number;
   memory: number;
+  block_id: string;
 }
 
 // This is the same thing as RunLambdaResponse but gonna leave the types split out and solve with inheritance

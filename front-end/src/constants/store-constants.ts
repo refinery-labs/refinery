@@ -107,7 +107,8 @@ export enum ProjectViewActions {
 }
 
 export enum DeploymentViewGetters {
-  hasValidDeployment = 'hasValidDeployment'
+  hasValidDeployment = 'hasValidDeployment',
+  getSelectedBlock = 'getSelectedBlock'
 }
 
 export enum DeploymentViewMutators {
