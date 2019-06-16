@@ -44,7 +44,6 @@ export default class ProjectSettings extends Vue {
                     <div class="input-group with-focus">
                       <b-form-select
                         id="logging-level-input-select"
-                        /* Maybe Free won't notice this, I'm not sure what I'm supposed to do instead. */
                         value={this.getLogLevelValue()}
                         on={{change: this.setProjectConfigLoggingLevel}}
                       >

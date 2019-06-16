@@ -282,11 +282,19 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
     // Project Config
     [ProjectViewMutators.setProjectLogLevel](state, projectLoggingLevel: ProjectLogLevel) {
-      state.openedProjectConfig = Object.assign(state.openedProjectConfig, {
-        logging: {
-          level: projectLoggingLevel
-        }
-      });
+      if (state.openedProjectConfig === null) {
+        console.error("Could not set project log level due to no project being opened.");
+        return;
+      }
+      state.openedProjectConfig = Object.assign(
+        {},
+        state.openedProjectConfig,
+        {
+          logging: {
+            ...state.openedProjectConfig.logging,
+            level: projectLoggingLevel
+          }
+        });
     },
 
     // Deployment Logic
