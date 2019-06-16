@@ -11,6 +11,7 @@ import ToastPaneModule from '@/store/modules/toasts';
 import DeploymentViewModule from '@/store/modules/deployment-view';
 import BillingPaneModule from "@/store/modules/billing";
 import RunLambdaModule from '@/store/modules/run-lambda';
+import ViewBlockPaneModule from '@/store/modules/panes/view-block-pane';
 
 Vue.use(Vuex);
 
@@ -86,6 +87,7 @@ export default new Vuex.Store<RootState>({
   modules: {
     setting: SettingModule,
     deployment: DeploymentViewModule,
+    viewBlock: ViewBlockPaneModule,
     project: ProjectView,
     allProjects: AllProjects,
     runLambda: RunLambdaModule,

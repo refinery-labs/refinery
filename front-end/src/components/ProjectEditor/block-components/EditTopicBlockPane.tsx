@@ -6,12 +6,13 @@ import Component from 'vue-class-component';
 
 @Component
 export class EditTopicBlock extends Vue {
-  @Prop() selectedNode!: SnsTopicWorkflowState;
+  @Prop({required: true}) selectedNode!: SnsTopicWorkflowState;
+  @Prop({required: true}) readOnly!: boolean;
 
   public render(h: CreateElement): VNode {
     return (
       <div>
-        <BlockNameInput/>
+        <BlockNameInput props={{selectedNode: this.selectedNode, readOnly: this.readOnly}}/>
       </div>
     );
   }

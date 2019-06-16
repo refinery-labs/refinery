@@ -1417,7 +1417,7 @@ class TaskSpawner(object):
 					}
 				}
 			)
-			
+
 		@run_on_executor
 		def stripe_create_customer( self, email, name, phone_number, source_token, metadata_dict ):
 			# Create a customer in Stripe

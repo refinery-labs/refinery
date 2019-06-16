@@ -17,6 +17,8 @@ const runLambda = namespace('runLambda');
 
 @Component
 export default class RunDeployedCodeBlockContainer extends Vue {
+  @Prop({required: true}) displayMode!: RunLambdaDisplayMode;
+
   // State
   @runLambda.State isRunningLambda!: boolean;
   @runLambda.State deployedLambdaResult!: RunLambdaResult | null;
@@ -53,7 +55,7 @@ export default class RunDeployedCodeBlockContainer extends Vue {
       inputData: this.deployedLambdaInputData,
       isCurrentlyRunning: this.isRunningLambda,
       displayLocation: RunLambdaDisplayLocation.deployment,
-      displayMode: RunLambdaDisplayMode.sidepane
+      displayMode: this.displayMode
     };
 
     return (

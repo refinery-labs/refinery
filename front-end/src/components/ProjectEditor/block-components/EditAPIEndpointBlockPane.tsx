@@ -5,17 +5,21 @@ import {ApiEndpointWorkflowState} from '@/types/graph';
 import {HTTP_METHOD} from '@/constants/api-constants';
 import {BlockNameInput} from '@/components/ProjectEditor/block-components/EditBlockNamePane';
 import {namespace} from 'vuex-class';
+import {nopWrite} from '@/utils/block-utils';
 
 const editBlock = namespace('project/editBlockPane');
 
 @Component
 export class EditAPIEndpointBlock extends Vue {
-  @Prop() selectedNode!: ApiEndpointWorkflowState;
+  @Prop({required: true}) selectedNode!: ApiEndpointWorkflowState;
+  @Prop({required: true}) readOnly!: boolean;
 
   @editBlock.Mutation setHTTPMethod!: (http_method: HTTP_METHOD) => void;
   @editBlock.Mutation setHTTPPath!: (api_path: string) => void;
 
   public renderHTTPMethodInput() {
+    const onChangeHTTPMethod = this.readOnly ? nopWrite : this.setHTTPMethod;
+
     return (
       <b-form-group id={`block-http-method-group-${this.selectedNode.id}`}>
         <label class="d-block" htmlFor={`block-http-method-${this.selectedNode.id}`}>
@@ -25,7 +29,7 @@ export class EditAPIEndpointBlock extends Vue {
           <b-form-select
             options={Object.values(HTTP_METHOD)}
             value={this.selectedNode.http_method}
-            on={{change: this.setHTTPMethod}}>
+            on={{change: onChangeHTTPMethod}}>
           </b-form-select>
         </div>
         <small class="form-text text-muted">
@@ -36,6 +40,8 @@ export class EditAPIEndpointBlock extends Vue {
   };
 
   public renderHTTPPathInput() {
+    const onChangeHTTPPath = this.readOnly ? nopWrite : this.setHTTPPath;
+
     return (
       <b-form-group id={`block-http-path-group-${this.selectedNode.id}`}>
         <label class="d-block" htmlFor={`block-http-path-${this.selectedNode.id}`}>
@@ -47,7 +53,7 @@ export class EditAPIEndpointBlock extends Vue {
             type="text"
             required
             value={this.selectedNode.api_path}
-            on={{input: this.setHTTPPath}}
+            on={{input: onChangeHTTPPath}}
             placeholder="/"
           />
         </div>
@@ -61,7 +67,7 @@ export class EditAPIEndpointBlock extends Vue {
   public render(h: CreateElement): VNode {
     return (
       <div>
-        <BlockNameInput/>
+        <BlockNameInput props={{selectedNode: this.selectedNode, readOnly: this.readOnly}}/>
         {this.renderHTTPMethodInput()}
         {this.renderHTTPPathInput()}
       </div>

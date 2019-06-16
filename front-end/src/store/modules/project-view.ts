@@ -848,8 +848,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.cancelEditingTransition);
 
       // TODO: Add "close all panes"
-      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
-      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
+      // await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
+      // await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
     },
     async [ProjectViewActions.resetProjectState](context) {
       // All state relating to panels/editing

@@ -1,13 +1,18 @@
 import Component from 'vue-class-component';
 import Vue from 'vue';
-import {ScheduleTriggerWorkflowState} from '@/types/graph';
+import {ScheduleTriggerWorkflowState, WorkflowState} from '@/types/graph';
 import {namespace} from 'vuex-class';
+import {Prop} from 'vue-property-decorator';
+import {nopWrite} from '@/utils/block-utils';
 
 const editBlock = namespace('project/editBlockPane');
 
 @Component
 export class BlockScheduleExpressionInput extends Vue {
-  @editBlock.State selectedNode!: ScheduleTriggerWorkflowState | null;
+  @Prop({required: true}) selectedNode!: ScheduleTriggerWorkflowState | null;
+
+  @Prop({required: true}) readOnly!: boolean;
+
   @editBlock.Mutation setScheduleExpression!: (name: string) => void;
 
   public render() {
@@ -16,6 +21,8 @@ export class BlockScheduleExpressionInput extends Vue {
     }
 
     const selectedNode = this.selectedNode;
+
+    const setScheduleExpression = this.readOnly ? nopWrite : this.setScheduleExpression;
 
     return (
       <b-form-group id={`block-schedule-expression-group-${selectedNode.id}`}>
@@ -28,7 +35,7 @@ export class BlockScheduleExpressionInput extends Vue {
             type="text"
             required
             value={selectedNode.schedule_expression}
-            on={{input: this.setScheduleExpression}}
+            on={{input: setScheduleExpression}}
             placeholder="cron(15 10 * * ? *)"
           />
         </div>

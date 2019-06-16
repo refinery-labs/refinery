@@ -6,13 +6,21 @@ import AceEditor from '@/components/Common/AceEditor.vue';
 import {BlockNameInput} from '@/components/ProjectEditor/block-components/EditBlockNamePane';
 import {BlockScheduleExpressionInput} from '@/components/ProjectEditor/block-components/EditBlockScheduleExpressionPane';
 import {namespace} from 'vuex-class';
+import {nopWrite} from '@/utils/block-utils';
 
 const editBlock = namespace('project/editBlockPane');
+const viewBlock = namespace('viewBlock');
 
 @Component
 export class EditScheduleTriggerBlock extends Vue {
-  @Prop() selectedNode!: ScheduleTriggerWorkflowState;
+  @Prop({required: true}) selectedNode!: ScheduleTriggerWorkflowState;
+  @Prop({required: true}) readOnly!: boolean;
 
+  // Deployment
+  @viewBlock.State('wideMode') wideModeDeployment!: boolean;
+  @viewBlock.Mutation('setWidePanel') setWidePanelDeployment!: (wide: boolean) => void;
+
+  // Project Editor
   @editBlock.State wideMode!: boolean;
 
   @editBlock.Mutation setInputData!: (input_data: string) => void;
@@ -33,6 +41,7 @@ export class EditScheduleTriggerBlock extends Vue {
         editor-id={editorProps['editor-id']}
         lang={editorProps.lang}
         theme="monokai"
+        disabled={this.readOnly}
         content={editorProps.content}
         on={editorProps.on}
       />
@@ -41,7 +50,11 @@ export class EditScheduleTriggerBlock extends Vue {
 
   public renderCodeEditorContainer() {
     const selectedNode = this.selectedNode;
-    const expandOnClick = {click: () => this.setWidePanel(!this.wideMode)};
+
+    const setWidePanel = this.readOnly ? this.setWidePanelDeployment : this.setWidePanel;
+    const wideMode = this.readOnly ? this.wideModeDeployment : this.wideMode;
+
+    const expandOnClick = {click: () => setWidePanel(!wideMode)};
 
     return (
       <b-form-group
@@ -64,8 +77,8 @@ export class EditScheduleTriggerBlock extends Vue {
   public render(h: CreateElement): VNode {
     return (
       <div>
-        <BlockNameInput/>
-        <BlockScheduleExpressionInput/>
+        <BlockNameInput props={{selectedNode: this.selectedNode, readOnly: this.readOnly}}/>
+        <BlockScheduleExpressionInput props={{selectedNode: this.selectedNode, readOnly: this.readOnly}} />
         {this.renderCodeEditorContainer()}
       </div>
     );

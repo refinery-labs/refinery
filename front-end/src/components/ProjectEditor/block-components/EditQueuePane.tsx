@@ -4,15 +4,18 @@ import {Prop} from 'vue-property-decorator';
 import {SqsQueueWorkflowState} from '@/types/graph';
 import {BlockNameInput} from '@/components/ProjectEditor/block-components/EditBlockNamePane';
 import {namespace} from 'vuex-class';
+import {nopWrite} from '@/utils/block-utils';
 const editBlock = namespace('project/editBlockPane');
 
 @Component
 export class EditQueueBlock extends Vue {
-  @Prop() selectedNode!: SqsQueueWorkflowState;
+  @Prop({required: true}) selectedNode!: SqsQueueWorkflowState;
+  @Prop({required: true}) readOnly!: boolean;
 
   @editBlock.Mutation setBatchSize!: (batch_size: number) => void;
 
   public renderBatchSize() {
+    const setBatchSize = this.readOnly ? nopWrite : this.setBatchSize;
     return (
       <b-form-group id={`block-batch-size-group-${this.selectedNode.id}`}>
         <label class="d-block" htmlFor={`block-batch-size-${this.selectedNode.id}`}>
@@ -22,8 +25,9 @@ export class EditQueueBlock extends Vue {
           <b-form-input
             type="number"
             required
+            readonly={this.readOnly}
             value={this.selectedNode.batch_size}
-            on={{input: this.setBatchSize}}
+            on={{input: setBatchSize}}
             placeholder="1"
             min="1"
             max="10"
@@ -39,7 +43,7 @@ export class EditQueueBlock extends Vue {
   public render(h: CreateElement): VNode {
     return (
       <div>
-        <BlockNameInput/>
+        <BlockNameInput props={{selectedNode: this.selectedNode, readOnly: this.readOnly}}/>
         {this.renderBatchSize()}
       </div>
     );

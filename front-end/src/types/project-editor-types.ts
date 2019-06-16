@@ -60,6 +60,7 @@ export interface FormProps {
   placeholder: string;
   name: string;
   type?: string;
+  readonly: boolean;
   value: any;
   on: { change: Function };
 }
