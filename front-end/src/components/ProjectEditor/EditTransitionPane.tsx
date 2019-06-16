@@ -15,10 +15,7 @@ const editTransition = namespace('project/editTransitionPanel');
 
 @Component
 export default class EditTransitionPane extends Vue {
-  @project.State
-  newTransitionTypeSpecifiedInAddFlow!: WorkflowRelationshipType | null;
-
-  @project.State selectedResource!: string;
+  @editTransition.State selectedEdge!: WorkflowRelationship | null;
 
   @project.Getter
   getValidEditMenuDisplayTransitionTypes!: WorkflowRelationshipType[];
@@ -38,24 +35,25 @@ export default class EditTransitionPane extends Vue {
 
   public render(h: CreateElement): VNode {
     const editTransitionSelectorProps = {
-      "checkIfValidTransitionGetter": this.getValidEditMenuDisplayTransitionTypes,
-      "selectTransitionAction": this.selectTransitionTypeToEdit,
-      "newTransitionTypeSpecifiedInFlowState": this.newTransitionTypeSpecifiedInEditFlow,
-      "helperText": "Click the Save Transition button to save your changes.",
-      "cancelModifyingTransition": this.cancelEditingTransition,
-      "hasSaveModificationButton": true,
-      "saveModificationButtonAction": this.changeTransitionType,
-    }
+      checkIfValidTransitionGetter: this.getValidEditMenuDisplayTransitionTypes,
+      selectTransitionAction: this.selectTransitionTypeToEdit,
+      newTransitionTypeSpecifiedInFlowState: this.newTransitionTypeSpecifiedInEditFlow,
+      helperText: 'Click the Save Transition button to save your changes.',
+      cancelModifyingTransition: this.cancelEditingTransition,
+      hasSaveModificationButton: true,
+      saveModificationButtonAction: this.changeTransitionType,
+      currentlySelectedTransitionType: this.selectedEdge && this.selectedEdge.type
+    };
 
     return (
       <div>
         <EditTransitionSelector props={editTransitionSelectorProps}/>
         <b-list-group-item>
-          <b-button on={{click: () => this.deleteSelectedTransition()}} class="col-md-12" variant="danger">Delete Transition
+          <b-button on={{click: () => this.deleteSelectedTransition()}} class="col-md-12" variant="danger">
+            Delete Transition
           </b-button>
         </b-list-group-item>
       </div>
-
-    )
+    );
   }
 }

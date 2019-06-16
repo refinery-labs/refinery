@@ -18,7 +18,7 @@ import {
   maxExecutionTimeText
 } from '@/constants/project-editor-constants';
 import {deepJSONCopy} from "@/lib/general-utils";
-import RunLambda from '@/components/RunLambda';
+import RunLambda, {RunLambdaDisplayMode} from '@/components/RunLambda';
 import {RunCodeBlockLambdaConfig} from '@/types/run-lambda-types';
 import RunEditorCodeBlockContainer from '@/components/ProjectEditor/RunEditorCodeBlockContainer';
 
@@ -72,7 +72,7 @@ export class EditLambdaBlock extends Vue {
             {this.renderCodeEditor('modal')}
           </div>
           <div class="width--100percent">
-            <RunEditorCodeBlockContainer props={{showFullscreenButton: false}} />
+            <RunEditorCodeBlockContainer props={{displayMode: RunLambdaDisplayMode.fullscreen}} />
           </div>
         </div>
       </b-modal>

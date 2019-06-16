@@ -20,6 +20,7 @@ import {PANE_POSITION, SIDEBAR_PANE} from '@/types/project-editor-types';
 import {createToast} from '@/utils/toasts-utils';
 import {ToastVariant} from '@/types/toasts-types';
 import router from '@/router';
+import {getNodeDataById} from '@/utils/project-helpers';
 
 
 const moduleState: DeploymentViewState = {
@@ -60,7 +61,15 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
   modules: {},
   state: moduleState,
   getters: {
-    [DeploymentViewGetters.hasValidDeployment]: state => state.openedDeployment !== null
+    [DeploymentViewGetters.hasValidDeployment]: state => state.openedDeployment !== null,
+    [DeploymentViewGetters.getSelectedBlock]: state => {
+      if (!state.openedDeployment || !state.selectedResource) {
+        return null;
+      }
+
+      // Will only return a Block and automatically excludes edges
+      return getNodeDataById(state.openedDeployment, state.selectedResource);
+    }
   },
   mutations: {
     [DeploymentViewMutators.setOpenedDeployment](state, deployment: GetLatestProjectDeploymentResult) {

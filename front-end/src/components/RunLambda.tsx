@@ -5,18 +5,53 @@ import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import {EditorProps} from '@/types/component-types';
 import {RunLambdaResult} from '@/types/api-types';
 
+export enum RunLambdaDisplayLocation {
+  editor = 'editor',
+  deployment = 'deployment'
+}
+
+export enum RunLambdaDisplayMode {
+  sidepane = 'sidepane',
+  fullscreen = 'fullscreen'
+}
+
 @Component
 export default class RunLambda extends Vue {
   @Prop({ required: true }) private onRunLambda!: () => void;
   @Prop({ required: true }) private onUpdateInputData!: (s: string) => void;
-  @Prop({ required: true }) private fullScreenClicked!: () => void;
+  @Prop() private fullScreenClicked!: () => void;
 
-  @Prop({ required: true }) private lambdaId!: string;
+  /**
+   * Allows us to associated the selected block with prior results.
+   */
+  @Prop({ required: true }) private lambdaIdOrArn!: string;
+
   @Prop({ required: true }) private runResultOutput!: RunLambdaResult | null;
+  @Prop() private runResultOutputId!: string | null;
   @Prop({ required: true }) private inputData!: string;
   @Prop({ required: true }) private isCurrentlyRunning!: boolean;
-  // Useful because it allows us to use the same component on the side pane and the modal... Leaky but not terrible.
-  @Prop({ required: true }) private showFullscreenButton!: boolean;
+
+  @Prop({ required: true }) private displayLocation!: RunLambdaDisplayLocation;
+  @Prop({ required: true }) private displayMode!: RunLambdaDisplayMode;
+
+  public checkIfValidRunLambdaOutput() {
+    if (!this.runResultOutput) {
+      return false;
+    }
+
+    // If we have a valid Lambda ARN and the output matches it, we have valid output.
+    if (this.lambdaIdOrArn && this.runResultOutput.arn === this.lambdaIdOrArn) {
+      return true;
+    }
+
+    // If we have valid output for a Lambda based on it's ID.
+    if (this.lambdaIdOrArn && this.runResultOutputId === this.lambdaIdOrArn) {
+      return true;
+    }
+
+    // Otherwise, false. This is not valid output.
+    return false;
+  }
 
   public getRunLambdaOutput() {
     // Need to check this because Ace will shit the bed if given a *gasp* null value!
@@ -27,12 +62,13 @@ export default class RunLambda extends Vue {
     return this.runResultOutput.logs;
   }
 
-  public getModeForIdString() {
-    return this.showFullscreenButton ? 'pane' : 'modal';
+  getIdSuffix() {
+    return `${this.displayLocation}-${this.displayMode}`;
   }
 
   public renderFullscreenButton() {
-    if (!this.showFullscreenButton) {
+    if (this.displayMode === RunLambdaDisplayMode.fullscreen
+      || this.displayLocation === RunLambdaDisplayLocation.deployment) {
       return null;
     }
 
@@ -53,20 +89,21 @@ export default class RunLambda extends Vue {
   }
 
   public renderOutputData() {
-    const isInSidepane = this.showFullscreenButton;
-
     const noDataText = [
       'No output data to display.',
       <br />,
       'Click "Execute with Data" to generate output.'
     ];
 
-    if (!this.runResultOutput && isInSidepane) {
+    const isInSidepane = this.displayMode === RunLambdaDisplayMode.sidepane;
+    const hasValidOutput = this.checkIfValidRunLambdaOutput();
+
+    if (!hasValidOutput && isInSidepane) {
       return <label class="mt-3 mb-3">{noDataText}</label>;
     }
 
     const resultDataEditorProps: EditorProps = {
-      id: `result-data-${this.lambdaId}-${this.getModeForIdString()}`,
+      id: `result-data-${this.lambdaIdOrArn}-${this.getIdSuffix()}`,
       // This is very nice for rendering non-programming text
       lang: 'text',
       content: this.runResultOutput && this.runResultOutput.returned_data || '',
@@ -75,7 +112,7 @@ export default class RunLambda extends Vue {
     };
 
     const resultOutputEditorProps: EditorProps = {
-      id: `result-output-${this.lambdaId}-${this.getModeForIdString()}`,
+      id: `result-output-${this.lambdaIdOrArn}-${this.getIdSuffix()}`,
       // This is very nice for rendering non-programming text
       lang: 'text',
       content: this.getRunLambdaOutput(),
@@ -103,14 +140,14 @@ export default class RunLambda extends Vue {
 
     const colClasses = {
       'run-lambda-container__col text-align--left': true,
-      'run-lambda-container__modal': !this.showFullscreenButton
+      'run-lambda-container__modal': !isInSidepane
     };
 
     return (
       <div class={colClasses}>
         <b-tabs nav-class="nav-justified">
-          {this.runResultOutput && resultDataTab}
-          {this.runResultOutput && outputDataTab}
+          {hasValidOutput && resultDataTab}
+          {hasValidOutput && outputDataTab}
           <div slot="empty">
             <h4 class="mt-3 mb-3">{noDataText}</h4>
           </div>
@@ -122,7 +159,7 @@ export default class RunLambda extends Vue {
   public renderEditors() {
 
     const inputDataEditorProps: EditorProps = {
-      id: `input-${this.lambdaId}-${this.getModeForIdString()}`,
+      id: `input-${this.lambdaIdOrArn}-${this.getIdSuffix()}`,
       // Using NodeJS for JSON support
       lang: SupportedLanguage.NODEJS_8,
       content: this.inputData,
@@ -131,7 +168,7 @@ export default class RunLambda extends Vue {
 
     const inputDataLabelClasses = {
       'flex-grow--1 run-lambda-container__input-data': true,
-      'run-lambda-container__input-data--top-padding': !this.showFullscreenButton
+      'run-lambda-container__input-data--top-padding': this.displayMode === RunLambdaDisplayMode.fullscreen
     };
 
     const inputDataEditor = (
@@ -146,13 +183,15 @@ export default class RunLambda extends Vue {
 
     const outputDataEditor = this.renderOutputData();
 
-    if (this.showFullscreenButton) {
+    // Column layout
+    if (this.displayMode === RunLambdaDisplayMode.sidepane) {
       return [
         inputDataEditor,
         outputDataEditor
       ];
     }
 
+    // Row layout
     return (
       <div class="display--flex flex-direction--row">
         {inputDataEditor}
@@ -165,7 +204,7 @@ export default class RunLambda extends Vue {
 
     const containerClasses = {
       'run-lambda-container display--flex flex-direction--column': true,
-      'whirl standard': !this.showFullscreenButton && this.isCurrentlyRunning
+      'whirl standard': this.isCurrentlyRunning && this.displayMode === RunLambdaDisplayMode.fullscreen
     };
 
     return (
