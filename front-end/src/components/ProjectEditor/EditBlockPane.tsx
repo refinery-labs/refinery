@@ -70,7 +70,10 @@ export default class EditBlockPane extends Vue {
 
     const ActiveEditorComponent = blockTypeToEditorComponentLookup[this.selectedNode.type];
 
-    const props = {selectedNode: this.selectedNode as Object};
+    const props = {
+      selectedNode: this.selectedNode as Object,
+      readOnly: false as Object
+    };
 
     const formClasses = {
       'mb-3 mt-3 text-align--left': true,

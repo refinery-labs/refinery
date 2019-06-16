@@ -5,7 +5,7 @@ import Component from 'vue-class-component';
 
 @Component
 export class EditAPIResponseBlock extends Vue {
-  @Prop() selectedNode!: ApiGatewayResponseWorkflowState;
+  @Prop({required: true}) selectedNode!: ApiGatewayResponseWorkflowState;
 
   public render(h: CreateElement): VNode {
     return (

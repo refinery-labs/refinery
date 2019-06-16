@@ -16,10 +16,12 @@ import {ProductionDeploymentRefineryProject} from '@/types/production-workflow-t
 import {BillingPaneState} from "@/store/modules/billing";
 import {RunLambdaState} from '@/store/modules/run-lambda';
 import {ToastPaneState} from '@/store/modules/toasts';
+import {ViewBlockPaneState} from '@/store/modules/panes/view-block-pane';
 
 export interface RootState {
   setting: UserInterfaceState;
   deployment: DeploymentViewState;
+  viewBlock: ViewBlockPaneState;
   project: ProjectViewState;
   allProjects: AllProjectsState;
   runLambda: RunLambdaState;

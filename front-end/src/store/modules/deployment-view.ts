@@ -21,6 +21,8 @@ import {createToast} from '@/utils/toasts-utils';
 import {ToastVariant} from '@/types/toasts-types';
 import router from '@/router';
 import {getNodeDataById} from '@/utils/project-helpers';
+import {EditBlockActions} from '@/store/modules/panes/edit-block-pane';
+import {ViewBlockActions} from '@/store/modules/panes/view-block-pane';
 
 
 const moduleState: DeploymentViewState = {
@@ -258,6 +260,9 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
       context.commit(DeploymentViewMutators.selectedResource, node.id);
 
       await context.dispatch(DeploymentViewActions.openRightSidebarPane, SIDEBAR_PANE.viewDeployedBlock);
+
+      await context.dispatch(`viewBlock/${ViewBlockActions.selectCurrentlySelectedProjectNode}`, null, {root: true});
+
     },
     async [DeploymentViewActions.selectEdge](context, edgeId: string) {
       if (!context.state.openedDeployment) {

@@ -13,3 +13,7 @@ function validatePathTail(apiPath: string) {
 export function validatePath(apiPath: string) {
   return validatePathTail(validatePathHasLeadingSlash(apiPath));
 }
+
+export function nopWrite() {
+  // Does nothing on purpose
+}

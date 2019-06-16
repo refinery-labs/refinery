@@ -16,7 +16,6 @@ import {PANE_POSITION} from '@/types/project-editor-types';
 import {DEFAULT_LANGUAGE_CODE} from '@/constants/project-editor-constants';
 import {HTTP_METHOD} from "@/constants/api-constants";
 import {validatePath} from "@/utils/block-utils";
-import {EditTopicBlock} from '@/components/ProjectEditor/block-components/EditTopicBlockPane';
 import {deepJSONCopy} from "@/lib/general-utils";
 
 // Enums
