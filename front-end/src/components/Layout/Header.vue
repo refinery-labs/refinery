@@ -10,7 +10,12 @@
             <span class="main-logo">REFINERY</span>
           </div>
           <div class="brand-logo-collapsed">
-            <img class="img-fluid" style="max-width: 40px; max-height: 40px" src="/img/logo-icon.png" alt="Refinery - The World's First Drag-and-Drop Serverless IDE!" />
+            <img
+              class="img-fluid"
+              style="max-width: 40px; max-height: 40px"
+              src="/img/logo-icon.png"
+              alt="Refinery - The World's First Drag-and-Drop Serverless IDE!"
+            />
           </div>
         </router-link>
       </div>

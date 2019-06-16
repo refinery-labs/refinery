@@ -3,7 +3,7 @@ import { ActiveSidebarPaneToContainerMapping, SIDEBAR_PANE } from '@/types/proje
 import AddBlockPane from '@/components/ProjectEditor/AddBlockPane';
 import AddTransitionPane from '@/components/ProjectEditor/AddTransitionPane';
 import EditBlockPane from '@/components/ProjectEditor/EditBlockPane';
-import {HTTP_METHOD} from "@/constants/api-constants";
+import { HTTP_METHOD } from '@/constants/api-constants';
 import DeployProjectPane from '@/components/ProjectEditor/DeployProjectPane';
 import ExportProjectPane from '@/components/ProjectEditor/ExportProjectPane';
 import ViewApiEndpointsPane from '@/components/DeploymentViewer/ViewApiEndpointsPane';
@@ -11,15 +11,15 @@ import ViewExecutionsPane from '@/components/DeploymentViewer/ViewExecutionsPane
 import ViewDeployedBlockPane from '@/components/DeploymentViewer/ViewDeployedBlockPane';
 import ViewDeployedTransitionPane from '@/components/DeploymentViewer/ViewDeployedTransitionPane';
 import DestroyDeploymentPane from '@/components/DeploymentViewer/DestroyDeploymentPane';
-import {VueConstructor} from 'vue';
-import {EditLambdaBlock} from '@/components/ProjectEditor/block-components/EditLambdaBlockPane';
-import {EditAPIEndpointBlock} from '@/components/ProjectEditor/block-components/EditAPIEndpointBlockPane';
-import {EditQueueBlock} from '@/components/ProjectEditor/block-components/EditQueuePane';
-import {EditAPIResponseBlock} from '@/components/ProjectEditor/block-components/EditAPIResponseBlockPane';
-import {EditScheduleTriggerBlock} from '@/components/ProjectEditor/block-components/EditScheduleTriggerBlockPane';
-import {EditTopicBlock} from '@/components/ProjectEditor/block-components/EditTopicBlockPane';
+import { VueConstructor } from 'vue';
+import { EditLambdaBlock } from '@/components/ProjectEditor/block-components/EditLambdaBlockPane';
+import { EditAPIEndpointBlock } from '@/components/ProjectEditor/block-components/EditAPIEndpointBlockPane';
+import { EditQueueBlock } from '@/components/ProjectEditor/block-components/EditQueuePane';
+import { EditAPIResponseBlock } from '@/components/ProjectEditor/block-components/EditAPIResponseBlockPane';
+import { EditScheduleTriggerBlock } from '@/components/ProjectEditor/block-components/EditScheduleTriggerBlockPane';
+import { EditTopicBlock } from '@/components/ProjectEditor/block-components/EditTopicBlockPane';
 import RunEditorCodeBlockPane from '@/components/ProjectEditor/RunEditorCodeBlockPane';
-import EditTransitionPane from "@/components/ProjectEditor/EditTransitionPane";
+import EditTransitionPane from '@/components/ProjectEditor/EditTransitionPane';
 import RunDeployedCodeBlockPane from '@/components/DeploymentViewer/RunDeployedCodeBlockPane';
 
 export const BlockSelectionType = {
@@ -332,7 +332,7 @@ export const QUEUE_BLOCK_DEFAULT_STATE = {
 };
 
 export const API_ENDPOINT_BLOCK_DEFAULT_STATE = {
-  api_path: "/",
+  api_path: '/',
   http_method: HTTP_METHOD.GET,
   type: WorkflowStateType.API_ENDPOINT
 };

@@ -1,18 +1,16 @@
-import {Module} from 'vuex';
-import {RootState} from '../../store-types';
-import {
-  SqsQueueWorkflowState, WorkflowRelationship, WorkflowRelationshipType,
-} from '@/types/graph';
-import {getTransitionDataById} from "@/utils/project-helpers";
-import {ProjectViewActions, ProjectViewMutators} from "@/constants/store-constants";
-import {createToast} from "@/utils/toasts-utils";
-import {ToastVariant} from "@/types/toasts-types";
-import {PANE_POSITION} from "@/types/project-editor-types";
-import {ChangeTransitionArguments} from "@/store/modules/project-view";
+import { Module } from 'vuex';
+import { RootState } from '../../store-types';
+import { SqsQueueWorkflowState, WorkflowRelationship, WorkflowRelationshipType } from '@/types/graph';
+import { getTransitionDataById } from '@/utils/project-helpers';
+import { ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
+import { createToast } from '@/utils/toasts-utils';
+import { ToastVariant } from '@/types/toasts-types';
+import { PANE_POSITION } from '@/types/project-editor-types';
+import { ChangeTransitionArguments } from '@/store/modules/project-view';
 
 // Enums
 export enum EditTransitionMutators {
-  setSelectedEdge = 'setSelectedEdge',
+  setSelectedEdge = 'setSelectedEdge'
 }
 
 export enum EditTransitionActions {
@@ -31,7 +29,7 @@ export interface EditTransitionPaneState {
 
 // Initial State
 const moduleState: EditTransitionPaneState = {
-  selectedEdge: null,
+  selectedEdge: null
 };
 
 const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
@@ -41,7 +39,7 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
   mutations: {
     [EditTransitionMutators.setSelectedEdge](state, edge) {
       state.selectedEdge = edge;
-    },
+    }
   },
   actions: {
     /**
@@ -50,14 +48,14 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
      */
     async [EditTransitionActions.resetPaneState](context) {
       context.commit(EditTransitionMutators.setSelectedEdge, null);
-      await context.dispatch(`project/${ProjectViewActions.deselectResources}`, null,{root: true});
+      await context.dispatch(`project/${ProjectViewActions.deselectResources}`, null, { root: true });
     },
     async [EditTransitionActions.cancelAndResetBlock](context) {
       // Reset this pane state
       await context.dispatch(EditTransitionActions.resetPaneState);
 
       // Close this pane
-      await context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.right, {root: true});
+      await context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.right, { root: true });
     },
     async [EditTransitionActions.selectCurrentlySelectedProjectEdge](context) {
       const projectStore = context.rootState.project;
@@ -128,9 +126,9 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
       }
 
       const changeTransitionArguments: ChangeTransitionArguments = {
-        "transition": context.state.selectedEdge,
-        "transitionType": transitionType,
-      }
+        transition: context.state.selectedEdge,
+        transitionType: transitionType
+      };
 
       await context.dispatch(`project/${ProjectViewActions.changeExistingTransition}`, changeTransitionArguments, {
         root: true
@@ -138,8 +136,8 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
 
       // We need to close the pane and reset the state
       await context.dispatch(EditTransitionActions.cancelAndResetBlock);
-    },
+    }
   }
-}
+};
 
 export default EditTransitionPaneModule;

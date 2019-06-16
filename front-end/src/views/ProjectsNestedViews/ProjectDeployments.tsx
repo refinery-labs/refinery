@@ -1,13 +1,13 @@
-import Vue, {CreateElement, VNode} from 'vue';
+import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
-import {Watch} from 'vue-property-decorator';
-import {Route} from 'vue-router';
-import {namespace} from 'vuex-class';
+import { Watch } from 'vue-property-decorator';
+import { Route } from 'vue-router';
+import { namespace } from 'vuex-class';
 import SidebarNav from '@/components/SidebarNav';
-import {paneTypeToNameLookup, DeploymentSidebarMenuItems} from '@/menu';
-import {PANE_POSITION, SIDEBAR_PANE} from '@/types/project-editor-types';
+import { paneTypeToNameLookup, DeploymentSidebarMenuItems } from '@/menu';
+import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import EditorPaneWrapper from '@/components/EditorPaneWrapper';
-import {paneToContainerMapping} from '@/constants/project-editor-constants';
+import { paneToContainerMapping } from '@/constants/project-editor-constants';
 import DeploymentViewerGraphContainer from '@/containers/DeploymentViewerGraphContainer';
 
 const deployment = namespace('deployment');
@@ -27,7 +27,6 @@ export default class ProjectDeployments extends Vue {
 
   @Watch('$route', { immediate: true })
   private routeChanged(val: Route, oldVal: Route) {
-
     // Project is already opened
     if (val && oldVal) {
       const isProjectAlreadyOpen = val.params.projectId && val.params.projectId === oldVal.params.projectId;
@@ -79,7 +78,12 @@ export default class ProjectDeployments extends Vue {
     }
 
     if (!this.hasValidDeployment) {
-      return <h2>You must deploy this project before you can view a project's deployment. You may do this from the Overview pane.</h2>;
+      return (
+        <h2>
+          You must deploy this project before you can view a project's deployment. You may do this from the Overview
+          pane.
+        </h2>
+      );
     }
 
     const containerClasses = {

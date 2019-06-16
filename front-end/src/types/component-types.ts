@@ -1,18 +1,18 @@
-import {SupportedLanguage, WorkflowRelationshipType} from '@/types/graph';
-import {IfDropDownSelectionType} from '@/store/store-types';
+import { SupportedLanguage, WorkflowRelationshipType } from '@/types/graph';
+import { IfDropDownSelectionType } from '@/store/store-types';
 
 export interface EditorProps {
-  id: string,
-  lang: SupportedLanguage | 'text',
-  content: string,
-  theme?: string,
-  onChange?: (s: string) => void,
-  onChangeContext?: (c: {value: string, this: any}) => void,
+  id: string;
+  lang: SupportedLanguage | 'text';
+  content: string;
+  theme?: string;
+  onChange?: (s: string) => void;
+  onChangeContext?: (c: { value: string; this: any }) => void;
 
   // Ace Props
-  readOnly?: boolean,
-  disabled?: boolean,
-  wrapText?: boolean
+  readOnly?: boolean;
+  disabled?: boolean;
+  wrapText?: boolean;
 }
 
 export interface EditTransitionSelectorProps {

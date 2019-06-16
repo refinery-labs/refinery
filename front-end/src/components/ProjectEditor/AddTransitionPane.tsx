@@ -1,11 +1,11 @@
-import Vue, {CreateElement, VNode} from 'vue';
+import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
-import {namespace} from 'vuex-class';
-import {WorkflowRelationshipType} from '@/types/graph';
-import EditTransitionSelector from "@/components/ProjectEditor/transition-components/EditTransitionSelector";
-import {EditTransitionSelectorProps} from '@/types/component-types';
-import {nopWrite} from '@/utils/block-utils';
-import {IfDropDownSelectionType} from '@/store/store-types';
+import { namespace } from 'vuex-class';
+import { WorkflowRelationshipType } from '@/types/graph';
+import EditTransitionSelector from '@/components/ProjectEditor/transition-components/EditTransitionSelector';
+import { EditTransitionSelectorProps } from '@/types/component-types';
+import { nopWrite } from '@/utils/block-utils';
+import { IfDropDownSelectionType } from '@/store/store-types';
 
 const project = namespace('project');
 
@@ -41,8 +41,6 @@ export default class AddTransitionPane extends Vue {
       setIfExpression: this.setIfExpression
     };
 
-    return (
-      <EditTransitionSelector props={editTransitionSelectorProps}/>
-    );
+    return <EditTransitionSelector props={editTransitionSelectorProps} />;
   }
 }

@@ -1,23 +1,20 @@
 import Vue from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
-import {
-  WorkflowState,
-  WorkflowStateType
-} from '@/types/graph';
-import {PANE_POSITION} from '@/types/project-editor-types';
-import RunLambda, {RunLambdaDisplayLocation, RunLambdaDisplayMode} from '@/components/RunLambda';
-import {RunLambdaResult} from '@/types/api-types';
-import {RunCodeBlockLambdaConfig} from '@/types/run-lambda-types';
-import {Prop} from 'vue-property-decorator';
-import {ProductionLambdaWorkflowState} from '@/types/production-workflow-types';
+import { WorkflowState, WorkflowStateType } from '@/types/graph';
+import { PANE_POSITION } from '@/types/project-editor-types';
+import RunLambda, { RunLambdaDisplayLocation, RunLambdaDisplayMode } from '@/components/RunLambda';
+import { RunLambdaResult } from '@/types/api-types';
+import { RunCodeBlockLambdaConfig } from '@/types/run-lambda-types';
+import { Prop } from 'vue-property-decorator';
+import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
 
 const deployment = namespace('deployment');
 const runLambda = namespace('runLambda');
 
 @Component
 export default class RunDeployedCodeBlockContainer extends Vue {
-  @Prop({required: true}) displayMode!: RunLambdaDisplayMode;
+  @Prop({ required: true }) displayMode!: RunLambdaDisplayMode;
 
   // State
   @runLambda.State isRunningLambda!: boolean;
@@ -35,13 +32,10 @@ export default class RunDeployedCodeBlockContainer extends Vue {
   @runLambda.Action runSelectedDeployedCodeBlock!: (arn: string) => void;
 
   public render() {
-
     const selectedBlock = this.getSelectedBlock as ProductionLambdaWorkflowState;
 
     if (!selectedBlock || selectedBlock.type !== WorkflowStateType.LAMBDA || !selectedBlock.arn) {
-      return (
-        <span>Select a Code Block to execute code.</span>
-      );
+      return <span>Select a Code Block to execute code.</span>;
     }
 
     // The if check above doesn't make the function below happy...
@@ -58,8 +52,6 @@ export default class RunDeployedCodeBlockContainer extends Vue {
       displayMode: this.displayMode
     };
 
-    return (
-      <RunLambda props={runLambdaProps} />
-    );
+    return <RunLambda props={runLambdaProps} />;
   }
 }

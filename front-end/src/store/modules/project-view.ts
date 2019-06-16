@@ -1,7 +1,4 @@
-/**
- * Setting store to control layout behavior
- */
-import {Module} from 'vuex';
+import { Module } from 'vuex';
 import uuid from 'uuid/v4';
 import {
   IfDropdownSelectionExpressionValues,
@@ -12,15 +9,16 @@ import {
 import {
   CyElements,
   CyStyle,
-  ProjectConfig, ProjectLogLevel,
+  ProjectConfig,
+  ProjectLogLevel,
   RefineryProject,
   WorkflowRelationship,
   WorkflowRelationshipType,
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import {generateCytoscapeElements, generateCytoscapeStyle} from '@/lib/refinery-to-cytoscript-converter';
-import {LayoutOptions} from 'cytoscape';
+import { generateCytoscapeElements, generateCytoscapeStyle } from '@/lib/refinery-to-cytoscript-converter';
+import { LayoutOptions } from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
 import {
   DeploymentViewActions,
@@ -28,8 +26,8 @@ import {
   ProjectViewGetters,
   ProjectViewMutators
 } from '@/constants/store-constants';
-import {getApiClient, makeApiRequest} from '@/store/fetchers/refinery-api';
-import {API_ENDPOINT} from '@/constants/api-constants';
+import { getApiClient, makeApiRequest } from '@/store/fetchers/refinery-api';
+import { API_ENDPOINT } from '@/constants/api-constants';
 import {
   DeleteDeploymentsInProjectRequest,
   DeleteDeploymentsInProjectResponse,
@@ -40,7 +38,9 @@ import {
   GetProjectConfigRequest,
   GetProjectConfigResponse,
   GetSavedProjectRequest,
-  GetSavedProjectResponse, SaveProjectConfigRequest, SaveProjectConfigResponse,
+  GetSavedProjectResponse,
+  SaveProjectConfigRequest,
+  SaveProjectConfigResponse,
   SaveProjectRequest,
   SaveProjectResponse
 } from '@/types/api-types';
@@ -66,22 +66,21 @@ import {
   blockTypeToDefaultStateMapping,
   blockTypeToImageLookup
 } from '@/constants/project-editor-constants';
-import EditBlockPaneModule, {EditBlockActions} from '@/store/modules/panes/edit-block-pane';
-import {createToast} from '@/utils/toasts-utils';
-import {ToastVariant} from '@/types/toasts-types';
+import EditBlockPaneModule, { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
+import { createToast } from '@/utils/toasts-utils';
+import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
-import {deepJSONCopy} from '@/lib/general-utils';
-import EditTransitionPaneModule, {EditTransitionActions} from "@/store/modules/panes/edit-transition-pane";
-import RefineryCodeEditor from "@/components/Common/RefineryCodeEditor";
+import { deepJSONCopy } from '@/lib/general-utils';
+import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
 
 interface AddBlockArguments {
   rawBlockType: string;
-  selectAfterAdding: boolean,
+  selectAfterAdding: boolean;
 }
 
 export interface ChangeTransitionArguments {
-  transition: WorkflowRelationship,
-  transitionType: WorkflowRelationshipType
+  transition: WorkflowRelationship;
+  transitionType: WorkflowRelationshipType;
 }
 
 const moduleState: ProjectViewState = {
@@ -113,7 +112,7 @@ const moduleState: ProjectViewState = {
     [SIDEBAR_PANE.viewExecutions]: {},
     [SIDEBAR_PANE.destroyDeploy]: {},
     [SIDEBAR_PANE.viewDeployedBlock]: {},
-    [SIDEBAR_PANE.viewDeployedTransition]: {},
+    [SIDEBAR_PANE.viewDeployedTransition]: {}
   },
   activeLeftSidebarPane: null,
   activeRightSidebarPane: null,
@@ -146,14 +145,14 @@ const moduleState: ProjectViewState = {
   // Edit Transition Pane
   availableEditTransitions: null,
   isEditingTransitionCurrently: false,
-  newTransitionTypeSpecifiedInEditFlow: null,
+  newTransitionTypeSpecifiedInEditFlow: null
 };
 
 const ProjectViewModule: Module<ProjectViewState, RootState> = {
   namespaced: true,
   modules: {
     editBlockPane: EditBlockPaneModule,
-    editTransitionPanel: EditTransitionPaneModule,
+    editTransitionPanel: EditTransitionPaneModule
   },
   state: moduleState,
   getters: {
@@ -233,9 +232,13 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // There are no valid transitions available
       return [];
     },
-    [ProjectViewGetters.canSaveProject]: state => state.hasProjectBeenModified && !state.isProjectBusy && !state.isAddingTransitionCurrently,
+    [ProjectViewGetters.canSaveProject]: state =>
+      state.hasProjectBeenModified && !state.isProjectBusy && !state.isAddingTransitionCurrently,
     [ProjectViewGetters.canDeployProject]: state =>
-      !state.hasProjectBeenModified && !state.isProjectBusy && !state.isAddingTransitionCurrently && !state.isEditingTransitionCurrently
+      !state.hasProjectBeenModified &&
+      !state.isProjectBusy &&
+      !state.isAddingTransitionCurrently &&
+      !state.isEditingTransitionCurrently
   },
   mutations: {
     [ProjectViewMutators.setOpenedProject](state, project: RefineryProject) {
@@ -283,18 +286,15 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     // Project Config
     [ProjectViewMutators.setProjectLogLevel](state, projectLoggingLevel: ProjectLogLevel) {
       if (state.openedProjectConfig === null) {
-        console.error("Could not set project log level due to no project being opened.");
+        console.error('Could not set project log level due to no project being opened.');
         return;
       }
-      state.openedProjectConfig = Object.assign(
-        {},
-        state.openedProjectConfig,
-        {
-          logging: {
-            ...state.openedProjectConfig.logging,
-            level: projectLoggingLevel
-          }
-        });
+      state.openedProjectConfig = Object.assign({}, state.openedProjectConfig, {
+        logging: {
+          ...state.openedProjectConfig.logging,
+          level: projectLoggingLevel
+        }
+      });
     },
 
     // Deployment Logic
@@ -363,7 +363,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
     [ProjectViewMutators.setEditingTransitionType](state, transitionType: WorkflowRelationshipType | null) {
       state.newTransitionTypeSpecifiedInEditFlow = transitionType;
-    },
+    }
   },
   actions: {
     async [ProjectViewActions.setProjectConfigLoggingLevel](context, projectLoggingLevel: ProjectLogLevel) {
@@ -389,13 +389,21 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.commit(ProjectViewMutators.selectedResource, null);
     },
     async [ProjectViewActions.openProject](context, request: GetSavedProjectRequest) {
+      if (!request) {
+        // TODO: Handle error gracefully
+        console.error('Unable to open project, missing request');
+        context.commit(ProjectViewMutators.isLoadingProject, false);
+        return;
+      }
+
       context.commit(ProjectViewMutators.isLoadingProject, true);
 
-      const getProjectClient = getApiClient(API_ENDPOINT.GetSavedProject);
+      const projectResult = await makeApiRequest<GetSavedProjectRequest, GetSavedProjectResponse>(
+        API_ENDPOINT.GetSavedProject,
+        request
+      );
 
-      const projectResult = (await getProjectClient(request)) as GetSavedProjectResponse;
-
-      if (!projectResult.success) {
+      if (!projectResult || !projectResult.success) {
         // TODO: Handle error gracefully
         console.error('Unable to open project, missing project');
         context.commit(ProjectViewMutators.isLoadingProject, false);
@@ -411,13 +419,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      const getProjectConfigClient = getApiClient(API_ENDPOINT.GetProjectConfig);
-
-      const getConfigRequest: GetProjectConfigRequest = {
-        project_id: project.project_id
-      };
-
-      const projectConfigResult = (await getProjectConfigClient(getConfigRequest)) as GetProjectConfigResponse;
+      const projectConfigResult = await makeApiRequest<GetProjectConfigRequest, GetProjectConfigResponse>(
+        API_ENDPOINT.GetProjectConfig,
+        {
+          project_id: project.project_id
+        }
+      );
 
       if (!projectConfigResult || !projectConfigResult.success || !projectConfigResult.result) {
         // TODO: Handle error gracefully
@@ -497,10 +504,13 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       try {
-        const response = await makeApiRequest<SaveProjectConfigRequest, SaveProjectConfigResponse>(API_ENDPOINT.SaveProjectConfig, {
-          project_id: context.state.openedProject.project_id,
-          config: configJson
-        });
+        const response = await makeApiRequest<SaveProjectConfigRequest, SaveProjectConfigResponse>(
+          API_ENDPOINT.SaveProjectConfig,
+          {
+            project_id: context.state.openedProject.project_id,
+            config: configJson
+          }
+        );
         if (response === null || !response.success) {
           await handleSaveError('Unable to save project config: server failure.');
           return;
@@ -580,12 +590,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       const openedProject = context.state.openedProject as RefineryProject;
 
-      const latestDeploymentResponse = await makeApiRequest<GetLatestProjectDeploymentRequest, GetLatestProjectDeploymentResponse>(
-        API_ENDPOINT.GetLatestProjectDeployment,
-        {
-          project_id: openedProject.project_id
-        }
-      );
+      const latestDeploymentResponse = await makeApiRequest<
+        GetLatestProjectDeploymentRequest,
+        GetLatestProjectDeploymentResponse
+      >(API_ENDPOINT.GetLatestProjectDeployment, {
+        project_id: openedProject.project_id
+      });
 
       context.commit(ProjectViewMutators.setLatestDeploymentState, latestDeploymentResponse);
     },
@@ -600,7 +610,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         });
       };
 
-      if (!context.state.openedProject || !context.state.openedProjectConfig || !context.getters[ProjectViewGetters.canDeployProject]) {
+      if (
+        !context.state.openedProject ||
+        !context.state.openedProjectConfig ||
+        !context.getters[ProjectViewGetters.canDeployProject]
+      ) {
         console.error('Tried to deploy project but should not have been enabled');
         return;
       }
@@ -615,12 +629,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       if (context.state.latestDeploymentState.result && context.state.latestDeploymentState.result.deployment_json) {
-        const deleteDeploymentResponse = await makeApiRequest<DeleteDeploymentsInProjectRequest, DeleteDeploymentsInProjectResponse>(
-          API_ENDPOINT.DeleteDeploymentsInProject,
-          {
-            project_id: openedProject.project_id
-          }
-        );
+        const deleteDeploymentResponse = await makeApiRequest<
+          DeleteDeploymentsInProjectRequest,
+          DeleteDeploymentsInProjectResponse
+        >(API_ENDPOINT.DeleteDeploymentsInProject, {
+          project_id: openedProject.project_id
+        });
 
         if (!deleteDeploymentResponse) {
           return await handleDeploymentError('Unable to delete existing deployment.');
@@ -824,7 +838,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const fromNode = getNodeDataById(context.state.openedProject, context.state.selectedResource);
 
       if (toNode === null || fromNode === null) {
-        console.error("Something odd has occurred, you have an unknown node selected for this transition!");
+        console.error('Something odd has occurred, you have an unknown node selected for this transition!');
         await context.dispatch(ProjectViewActions.cancelAddingTransition);
         return;
       }
@@ -833,7 +847,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       if (!isValidTransition(fromNode, toNode)) {
         await createToast(context.dispatch, {
           title: 'Error, invalid transition!',
-          content: "That is not a valid transition, please select one of the flashing blocks to add a valid transition.",
+          content:
+            'That is not a valid transition, please select one of the flashing blocks to add a valid transition.',
           variant: ToastVariant.danger
         });
         return;
@@ -933,7 +948,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
     },
     async [ProjectViewActions.addBlock](context, rawBlockType: string) {
-      const addBlockWithType = async (addBlockArgs: AddBlockArguments) => await context.dispatch(ProjectViewActions.addIndividualBlock, addBlockArgs);
+      const addBlockWithType = async (addBlockArgs: AddBlockArguments) =>
+        await context.dispatch(ProjectViewActions.addIndividualBlock, addBlockArgs);
 
       await addBlockWithType({
         rawBlockType,
@@ -974,11 +990,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       // Special casing for the API Response block which should never
       // have it's name changed. Certain blocks will likely make sense for this.
-      const immutable_names: WorkflowStateType[] = [
-        WorkflowStateType.API_GATEWAY_RESPONSE
-      ];
+      const immutable_names: WorkflowStateType[] = [WorkflowStateType.API_GATEWAY_RESPONSE];
 
-      let newBlockName: string = `Untitled ${blockTypeToImageLookup[blockType].name}`
+      let newBlockName: string = `Untitled ${blockTypeToImageLookup[blockType].name}`;
       if (immutable_names.includes(blockType)) {
         newBlockName = blockTypeToImageLookup[blockType].name;
       }
@@ -1016,7 +1030,10 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
       }
     },
-    async [ProjectViewActions.changeExistingTransition](context, ChangeTransitionArgumentsValue: ChangeTransitionArguments) {
+    async [ProjectViewActions.changeExistingTransition](
+      context,
+      ChangeTransitionArgumentsValue: ChangeTransitionArguments
+    ) {
       // This should not happen
       if (!context.state.openedProject) {
         console.error('Tried to delete a transition but no project was open!');
@@ -1031,7 +1048,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         if (ChangeTransitionArgumentsValue.transition.id === workflowRelationship.id) {
           workflowRelationship.name = ChangeTransitionArgumentsValue.transitionType;
           workflowRelationship.type = ChangeTransitionArgumentsValue.transitionType;
-          workflowRelationship.expression = "";
+          workflowRelationship.expression = '';
 
           if (workflowRelationship.type === WorkflowRelationshipType.IF) {
             workflowRelationship.expression = context.state.ifExpression;
@@ -1061,7 +1078,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       const openedProject = context.state.openedProject as RefineryProject;
 
-      const otherTransitions = deepJSONCopy(openedProject.workflow_relationships.filter(wfs => wfs.id !== transition.id));
+      const otherTransitions = deepJSONCopy(
+        openedProject.workflow_relationships.filter(wfs => wfs.id !== transition.id)
+      );
 
       // TODO: Probably pull this out into a helper function
       const params: OpenProjectMutation = {
@@ -1149,7 +1168,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Validate that the new transition can hit nodes
       const hasValidToNode = openedProject.workflow_states.some(ws => ws.id === newTransition.next);
       const hasValidFromNode = openedProject.workflow_states.some(ws => ws.id === newTransition.node);
-
 
       if (!hasValidToNode || !hasValidFromNode) {
         console.error('Tried adding transition to graph with missing nodes!');
@@ -1264,7 +1282,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         }
 
         // Set the ifExpression to reflect the selected transition
-        if (selectedEdge.expression !== "") {
+        if (selectedEdge.expression !== '') {
           await context.dispatch(ProjectViewActions.setIfExpression, selectedEdge.expression);
         }
 
@@ -1283,7 +1301,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
       context.commit(ProjectViewMutators.setAddingTransitionStatus, true);
       context.commit(ProjectViewMutators.setAddingTransitionType, transitionType);
-    },
+    }
   }
 };
 

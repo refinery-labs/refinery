@@ -1,9 +1,9 @@
-import {Module} from 'vuex';
+import { Module } from 'vuex';
 import validator from 'validator';
 import phone from 'phone';
 import router from '../../router';
-import {RootState, UserState} from '@/store/store-types';
-import {UserMutators} from '@/constants/store-constants';
+import { RootState, UserState } from '@/store/store-types';
+import { UserMutators } from '@/constants/store-constants';
 import {
   GetAuthenticationStatusResponse,
   LoginResponse,
@@ -11,10 +11,10 @@ import {
   NewRegistrationRequest,
   NewRegistrationResponse
 } from '@/types/api-types';
-import {getApiClient} from '@/store/fetchers/refinery-api';
-import {API_ENDPOINT} from '@/constants/api-constants';
-import {timeout} from '@/utils/async-utils';
-import {LOGIN_STATUS_CHECK_INTERVAL, MAX_LOGIN_CHECK_ATTEMPTS} from '@/constants/user-constants';
+import { getApiClient } from '@/store/fetchers/refinery-api';
+import { API_ENDPOINT } from '@/constants/api-constants';
+import { timeout } from '@/utils/async-utils';
+import { LOGIN_STATUS_CHECK_INTERVAL, MAX_LOGIN_CHECK_ATTEMPTS } from '@/constants/user-constants';
 
 const nameRegex = /^(\D{1,32} )+\D{1,32}$/;
 
@@ -232,7 +232,7 @@ const UserModule: Module<UserState, RootState> = {
         context.commit(UserMutators.setRegistrationErrorMessage, 'Unknown error! Refresh this page.');
       }
 
-      const {success, data, err} = await loopLoginWaiting(0);
+      const { success, data, err } = await loopLoginWaiting(0);
 
       if (!success || !data) {
         const message = 'Timeout exceeded waiting for email confirmation. Please refresh the page to continue.';
@@ -318,7 +318,7 @@ const UserModule: Module<UserState, RootState> = {
         context.commit(UserMutators.setRegistrationErrorMessage, 'Unknown error! Refresh this page.');
       }
 
-      const {success, data, err} = await loopLoginWaiting(0);
+      const { success, data, err } = await loopLoginWaiting(0);
 
       if (!success || !data) {
         const message = 'Timeout exceeded waiting for email confirmation. Please refresh the page to continue.';

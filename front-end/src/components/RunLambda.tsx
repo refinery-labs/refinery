@@ -1,9 +1,9 @@
-import {CreateElement, VNode} from 'vue';
-import {Component, Prop, Vue} from 'vue-property-decorator';
-import {SupportedLanguage} from '@/types/graph';
+import { CreateElement, VNode } from 'vue';
+import { Component, Prop, Vue } from 'vue-property-decorator';
+import { SupportedLanguage } from '@/types/graph';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
-import {EditorProps} from '@/types/component-types';
-import {RunLambdaResult} from '@/types/api-types';
+import { EditorProps } from '@/types/component-types';
+import { RunLambdaResult } from '@/types/api-types';
 
 export enum RunLambdaDisplayLocation {
   editor = 'editor',
@@ -67,8 +67,10 @@ export default class RunLambda extends Vue {
   }
 
   public renderFullscreenButton() {
-    if (this.displayMode === RunLambdaDisplayMode.fullscreen
-      || this.displayLocation === RunLambdaDisplayLocation.deployment) {
+    if (
+      this.displayMode === RunLambdaDisplayMode.fullscreen ||
+      this.displayLocation === RunLambdaDisplayLocation.deployment
+    ) {
       return null;
     }
 
@@ -80,7 +82,7 @@ export default class RunLambda extends Vue {
 
     return (
       <b-button on={fullscreenOnClick} class="run-lambda-container__expand-button">
-        <span class="fa fa-expand"/>
+        <span class="fa fa-expand" />
         {/*<b-button on={expandOnClick} class="edit-block-container__expand-button">*/}
         {/*  <span class="fa fa-angle-double-left"/>*/}
         {/*</b-button>*/}
@@ -89,11 +91,7 @@ export default class RunLambda extends Vue {
   }
 
   public renderOutputData() {
-    const noDataText = [
-      'No output data to display.',
-      <br />,
-      'Click "Execute with Data" to generate output.'
-    ];
+    const noDataText = ['No output data to display.', <br />, 'Click "Execute with Data" to generate output.'];
 
     const isInSidepane = this.displayMode === RunLambdaDisplayMode.sidepane;
     const hasValidOutput = this.checkIfValidRunLambdaOutput();
@@ -106,7 +104,7 @@ export default class RunLambda extends Vue {
       id: `result-data-${this.lambdaIdOrArn}-${this.getIdSuffix()}`,
       // This is very nice for rendering non-programming text
       lang: 'text',
-      content: this.runResultOutput && this.runResultOutput.returned_data || '',
+      content: (this.runResultOutput && this.runResultOutput.returned_data) || '',
       wrapText: true,
       readOnly: true
     };
@@ -123,18 +121,22 @@ export default class RunLambda extends Vue {
     const resultDataTab = (
       <b-tab title="first" active>
         <template slot="title">
-          <span>Returned Data <em class="fas fa-code" /></span>
+          <span>
+            Returned Data <em class="fas fa-code" />
+          </span>
         </template>
-        <RefineryCodeEditor props={{editorProps: resultDataEditorProps}} />
+        <RefineryCodeEditor props={{ editorProps: resultDataEditorProps }} />
       </b-tab>
     );
 
     const outputDataTab = (
       <b-tab title="second">
         <template slot="title">
-          <span>Execution Output <em class="fas fa-terminal" /></span>
+          <span>
+            Execution Output <em class="fas fa-terminal" />
+          </span>
         </template>
-        <RefineryCodeEditor props={{editorProps: resultOutputEditorProps}} />
+        <RefineryCodeEditor props={{ editorProps: resultOutputEditorProps }} />
       </b-tab>
     );
 
@@ -157,7 +159,6 @@ export default class RunLambda extends Vue {
   }
 
   public renderEditors() {
-
     const inputDataEditorProps: EditorProps = {
       id: `input-${this.lambdaIdOrArn}-${this.getIdSuffix()}`,
       // Using NodeJS for JSON support
@@ -177,7 +178,7 @@ export default class RunLambda extends Vue {
           <label class={inputDataLabelClasses}> Input Data</label>
           {this.renderFullscreenButton()}
         </div>
-        <RefineryCodeEditor props={{editorProps: inputDataEditorProps}} />
+        <RefineryCodeEditor props={{ editorProps: inputDataEditorProps }} />
       </div>
     );
 
@@ -185,10 +186,7 @@ export default class RunLambda extends Vue {
 
     // Column layout
     if (this.displayMode === RunLambdaDisplayMode.sidepane) {
-      return [
-        inputDataEditor,
-        outputDataEditor
-      ];
+      return [inputDataEditor, outputDataEditor];
     }
 
     // Row layout
@@ -201,7 +199,6 @@ export default class RunLambda extends Vue {
   }
 
   public render(h: CreateElement): VNode {
-
     const containerClasses = {
       'run-lambda-container display--flex flex-direction--column': true,
       'whirl standard': this.isCurrentlyRunning && this.displayMode === RunLambdaDisplayMode.fullscreen
@@ -215,7 +212,7 @@ export default class RunLambda extends Vue {
             {/*<b-button variant="info" disabled on={{click: () => this.onRunLambda()}}>*/}
             {/*  View Last Execution*/}
             {/*</b-button>*/}
-            <b-button variant="primary" on={{click: () => this.onRunLambda()}}>
+            <b-button variant="primary" on={{ click: () => this.onRunLambda() }}>
               Execute With Data
             </b-button>
           </b-button-group>

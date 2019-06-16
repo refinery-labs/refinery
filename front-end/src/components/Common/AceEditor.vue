@@ -39,7 +39,6 @@ export default Vue.component('AceEditor', {
     const disabled = this.disabled || false;
     const wrapText = this.wrapText || false;
 
-
     this.editor = window.ace.edit(this.editorId);
     this.editor.setValue(this.content, 1);
 

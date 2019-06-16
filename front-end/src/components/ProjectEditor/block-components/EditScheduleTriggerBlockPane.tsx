@@ -1,20 +1,20 @@
-import Vue, {CreateElement, VNode} from 'vue';
+import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
-import {Prop} from 'vue-property-decorator';
-import {ScheduleTriggerWorkflowState} from '@/types/graph';
+import { Prop } from 'vue-property-decorator';
+import { ScheduleTriggerWorkflowState } from '@/types/graph';
 import AceEditor from '@/components/Common/AceEditor.vue';
-import {BlockNameInput} from '@/components/ProjectEditor/block-components/EditBlockNamePane';
-import {BlockScheduleExpressionInput} from '@/components/ProjectEditor/block-components/EditBlockScheduleExpressionPane';
-import {namespace} from 'vuex-class';
-import {nopWrite} from '@/utils/block-utils';
+import { BlockNameInput } from '@/components/ProjectEditor/block-components/EditBlockNamePane';
+import { BlockScheduleExpressionInput } from '@/components/ProjectEditor/block-components/EditBlockScheduleExpressionPane';
+import { namespace } from 'vuex-class';
+import { nopWrite } from '@/utils/block-utils';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
 
 @Component
 export class EditScheduleTriggerBlock extends Vue {
-  @Prop({required: true}) selectedNode!: ScheduleTriggerWorkflowState;
-  @Prop({required: true}) readOnly!: boolean;
+  @Prop({ required: true }) selectedNode!: ScheduleTriggerWorkflowState;
+  @Prop({ required: true }) readOnly!: boolean;
 
   // Deployment
   @viewBlock.State('wideMode') wideModeDeployment!: boolean;
@@ -32,7 +32,7 @@ export class EditScheduleTriggerBlock extends Vue {
       lang: 'text',
       theme: 'monokai',
       content: this.selectedNode.input_string,
-      on: {'change-content': this.setInputData}
+      on: { 'change-content': this.setInputData }
     };
 
     return (
@@ -54,7 +54,7 @@ export class EditScheduleTriggerBlock extends Vue {
     const setWidePanel = this.readOnly ? this.setWidePanelDeployment : this.setWidePanel;
     const wideMode = this.readOnly ? this.wideModeDeployment : this.wideMode;
 
-    const expandOnClick = {click: () => setWidePanel(!wideMode)};
+    const expandOnClick = { click: () => setWidePanel(!wideMode) };
 
     return (
       <b-form-group
@@ -66,7 +66,7 @@ export class EditScheduleTriggerBlock extends Vue {
             Edit Return Data:
           </label>
           <b-button on={expandOnClick} class="edit-block-container__expand-button">
-            <span class="fa fa-angle-double-left"/>
+            <span class="fa fa-angle-double-left" />
           </b-button>
         </div>
         <div class="input-group with-focus edit-block-container__code-editor">{this.renderCodeEditor('pane')}</div>
@@ -77,8 +77,8 @@ export class EditScheduleTriggerBlock extends Vue {
   public render(h: CreateElement): VNode {
     return (
       <div>
-        <BlockNameInput props={{selectedNode: this.selectedNode, readOnly: this.readOnly}}/>
-        <BlockScheduleExpressionInput props={{selectedNode: this.selectedNode, readOnly: this.readOnly}} />
+        <BlockNameInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
+        <BlockScheduleExpressionInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
         {this.renderCodeEditorContainer()}
       </div>
     );

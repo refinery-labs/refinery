@@ -1,7 +1,7 @@
 import Component from 'vue-class-component';
-import Vue, {VNode} from 'vue';
-import {Prop} from 'vue-property-decorator';
-import {LambdaWorkflowState, SupportedLanguage, WorkflowState} from '@/types/graph';
+import Vue, { VNode } from 'vue';
+import { Prop } from 'vue-property-decorator';
+import { LambdaWorkflowState, SupportedLanguage, WorkflowState } from '@/types/graph';
 import {
   FormProps,
   languageToAceLangMap,
@@ -9,26 +9,26 @@ import {
   LanguageToLibraryRepoURLMap
 } from '@/types/project-editor-types';
 import AceEditor from '@/components/Common/AceEditor.vue';
-import {BlockNameInput} from '@/components/ProjectEditor/block-components/EditBlockNamePane';
-import {namespace} from 'vuex-class';
+import { BlockNameInput } from '@/components/ProjectEditor/block-components/EditBlockNamePane';
+import { namespace } from 'vuex-class';
 import {
   codeEditorText,
   languagesText,
   maxExecutionMemoryText,
   maxExecutionTimeText
 } from '@/constants/project-editor-constants';
-import {RunLambdaDisplayMode} from '@/components/RunLambda';
+import { RunLambdaDisplayMode } from '@/components/RunLambda';
 import RunEditorCodeBlockContainer from '@/components/ProjectEditor/RunEditorCodeBlockContainer';
 import RunDeployedCodeBlockContainer from '@/components/DeploymentViewer/RunDeployedCodeBlockContainer';
-import {nopWrite} from '@/utils/block-utils';
+import { nopWrite } from '@/utils/block-utils';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
 
 @Component
 export class EditLambdaBlock extends Vue {
-  @Prop({required: true}) selectedNode!: LambdaWorkflowState;
-  @Prop({required: true}) readOnly!: boolean;
+  @Prop({ required: true }) selectedNode!: LambdaWorkflowState;
+  @Prop({ required: true }) readOnly!: boolean;
 
   // State pulled from Deployment view.
   @viewBlock.State('showCodeModal') showCodeModalDeployment!: boolean;
@@ -37,7 +37,9 @@ export class EditLambdaBlock extends Vue {
 
   @viewBlock.Mutation('setCodeModalVisibility') setCodeModalVisibilityDeployment!: (visible: boolean) => void;
   @viewBlock.Mutation('setWidePanel') setWidePanelDeployment!: (wide: boolean) => void;
-  @viewBlock.Mutation('setLibrariesModalVisibility') setLibrariesModalVisibilityDeployment!: (visibility: boolean) => void;
+  @viewBlock.Mutation('setLibrariesModalVisibility') setLibrariesModalVisibilityDeployment!: (
+    visibility: boolean
+  ) => void;
 
   // State pulled from Project view
   @editBlock.State showCodeModal!: boolean;
@@ -81,11 +83,9 @@ export class EditLambdaBlock extends Vue {
         visible={showCodeModal}
       >
         <div class="text-center display--flex flex-direction--column code-modal-editor-container">
-          <div class="width--100percent flex-grow--1">
-            {this.renderCodeEditor('modal')}
-          </div>
+          <div class="width--100percent flex-grow--1">{this.renderCodeEditor('modal')}</div>
           <div class="width--100percent">
-            <RunLambdaContainer props={{displayMode: RunLambdaDisplayMode.fullscreen}} />
+            <RunLambdaContainer props={{ displayMode: RunLambdaDisplayMode.fullscreen }} />
           </div>
         </div>
       </b-modal>
@@ -100,7 +100,7 @@ export class EditLambdaBlock extends Vue {
       lang: languageToAceLangMap[this.selectedNode.language],
       theme: 'monokai',
       content: this.selectedNode.code,
-      on: {'change-content': setCodeInput}
+      on: { 'change-content': setCodeInput }
     };
 
     return (
@@ -123,7 +123,7 @@ export class EditLambdaBlock extends Vue {
     const wideMode = this.readOnly ? this.wideModeDeployment : this.wideMode;
     const setCodeModalVisibility = this.readOnly ? this.setCodeModalVisibilityDeployment : this.setCodeModalVisibility;
 
-    const expandOnClick = {click: () => setWidePanel(!wideMode)};
+    const expandOnClick = { click: () => setWidePanel(!wideMode) };
     const fullscreenOnClick = {
       click: () => setCodeModalVisibility(true)
     };
@@ -135,10 +135,10 @@ export class EditLambdaBlock extends Vue {
             Edit Block Code:
           </label>
           <b-button on={fullscreenOnClick} class="edit-block-container__expand-button">
-            <span class="fa fa-expand"/>
+            <span class="fa fa-expand" />
           </b-button>
           <b-button on={expandOnClick} class="edit-block-container__expand-button">
-            <span class="fa fa-angle-double-left"/>
+            <span class="fa fa-angle-double-left" />
           </b-button>
         </div>
         <div class="input-group with-focus edit-block-container__code-editor">{this.renderCodeEditor('pane')}</div>
@@ -147,7 +147,7 @@ export class EditLambdaBlock extends Vue {
   }
 
   public renderForm(selectedNode: WorkflowState, inputProps: FormProps) {
-    const {idPrefix, name, description, type} = inputProps;
+    const { idPrefix, name, description, type } = inputProps;
 
     return (
       <b-form-group id={`${idPrefix}-group-${selectedNode.id}`} description={description}>
@@ -192,7 +192,7 @@ export class EditLambdaBlock extends Vue {
             id={`block-language-${selectedNode.id}`}
             value={this.selectedNode.language}
             readonly={this.readOnly}
-            on={{input: changeCodeLanguage}}
+            on={{ input: changeCodeLanguage }}
             options={Object.values(SupportedLanguage)}
           />
         </div>
@@ -220,7 +220,7 @@ export class EditLambdaBlock extends Vue {
     this.addDependencyImport(this.enteredLibrary);
 
     // Reset input
-    this.setEnteredLibrary("");
+    this.setEnteredLibrary('');
   }
 
   public renderLibraryTable() {
@@ -230,35 +230,31 @@ export class EditLambdaBlock extends Vue {
         <div class="text-center">
           <i>You currently have no libraries! Add one below.</i>
           <br />
-          <a href={LanguageToBaseRepoURLMap[this.selectedNode.language]} target="_blank">Click here to find a library for your Code Block.</a>
+          <a href={LanguageToBaseRepoURLMap[this.selectedNode.language]} target="_blank">
+            Click here to find a library for your Code Block.
+          </a>
         </div>
-      )
+      );
     }
 
     const libraryTable = this.selectedNode.libraries.map(library => {
-        const packageRepoLink = LanguageToLibraryRepoURLMap[this.selectedNode.language] + encodeURIComponent(library);
-        return (
-          <b-list-group-item class="d-flex">
-            <span class="float-left d-inline">
-              <a href={packageRepoLink} target="_blank">{library}</a>
-            </span>
-            <div class="ml-auto float-right d-inline">
-              <button type="button"
-                      on={{click: this.deleteLibrary.bind(this, library)}}
-                      class="btn btn-danger">
-                <span class="fas fa-trash"></span>
-              </button>
-            </div>
-
-          </b-list-group-item>
-        );
-      }
-    );
-    return (
-      <b-list-group>
-        {libraryTable}
-      </b-list-group>
-    );
+      const packageRepoLink = LanguageToLibraryRepoURLMap[this.selectedNode.language] + encodeURIComponent(library);
+      return (
+        <b-list-group-item class="d-flex">
+          <span class="float-left d-inline">
+            <a href={packageRepoLink} target="_blank">
+              {library}
+            </a>
+          </span>
+          <div class="ml-auto float-right d-inline">
+            <button type="button" on={{ click: this.deleteLibrary.bind(this, library) }} class="btn btn-danger">
+              <span class="fas fa-trash" />
+            </button>
+          </div>
+        </b-list-group-item>
+      );
+    });
+    return <b-list-group>{libraryTable}</b-list-group>;
   }
 
   public renderLibrariesModal() {
@@ -266,15 +262,19 @@ export class EditLambdaBlock extends Vue {
       return;
     }
 
-    const setLibrariesModalVisibility = this.readOnly ? this.setLibrariesModalVisibilityDeployment : this.setLibrariesModalVisibility;
-    const librariesModalVisibility = this.readOnly ? this.librariesModalVisibilityDeployment : this.librariesModalVisibility;
+    const setLibrariesModalVisibility = this.readOnly
+      ? this.setLibrariesModalVisibilityDeployment
+      : this.setLibrariesModalVisibility;
+    const librariesModalVisibility = this.readOnly
+      ? this.librariesModalVisibilityDeployment
+      : this.librariesModalVisibility;
 
     const enteredLibrary = this.readOnly ? '' : this.enteredLibrary;
     const setEnteredLibrary = this.readOnly ? nopWrite : this.setEnteredLibrary;
 
     const modalOnHandlers = {
       hidden: () => setLibrariesModalVisibility(false),
-      ok: () => setLibrariesModalVisibility(false),
+      ok: () => setLibrariesModalVisibility(false)
     };
 
     return (
@@ -290,8 +290,8 @@ export class EditLambdaBlock extends Vue {
       >
         {this.renderLibraryTable()}
 
-        <hr/>
-        <b-form on={{submit: this.addLibrary}}>
+        <hr />
+        <b-form on={{ submit: this.addLibrary }}>
           <b-form-group
             label="Library name:"
             label-for="library-input-field"
@@ -304,9 +304,12 @@ export class EditLambdaBlock extends Vue {
               placeholder="Enter your library name"
               readonly={this.readOnly}
               value={enteredLibrary}
-              on={{input: setEnteredLibrary}} />
+              on={{ input: setEnteredLibrary }}
+            />
           </b-form-group>
-          <b-button type="submit" variant="primary">Add Library</b-button>
+          <b-button type="submit" variant="primary">
+            Add Library
+          </b-button>
         </b-form>
       </b-modal>
     );
@@ -316,23 +319,19 @@ export class EditLambdaBlock extends Vue {
     const setEnteredLibrary = this.readOnly ? nopWrite : this.setEnteredLibrary;
 
     // Reset library name input
-    setEnteredLibrary("");
+    setEnteredLibrary('');
     this.setLibrariesModalVisibility(true);
   }
 
   public renderLibrarySelector() {
     // Go has no libraries, it's done via in-code imports
     if (this.selectedNode.language === SupportedLanguage.GO1_12) {
-      return (
-        <div></div>
-      );
+      return <div />;
     }
     return (
       <b-form-group description="The libraries to install for your Block Code.">
-        <label class="d-block">
-          Block Imported Libraries:
-        </label>
-        <b-button variant="dark" class="col-12" on={{click: this.viewLibraryModal}}>
+        <label class="d-block">Block Imported Libraries:</label>
+        <b-button variant="dark" class="col-12" on={{ click: this.viewLibraryModal }}>
           Modify Libraries (<i>{this.selectedNode.libraries.length.toString()} Imported</i>)
         </b-button>
       </b-form-group>
@@ -355,7 +354,7 @@ export class EditLambdaBlock extends Vue {
       type: 'number',
       readonly: this.readOnly,
       value: this.selectedNode.max_execution_time.toString(),
-      on: {change: setMaxExecutionTime}
+      on: { change: setMaxExecutionTime }
     };
 
     const maxMemoryProps: FormProps = {
@@ -370,12 +369,12 @@ export class EditLambdaBlock extends Vue {
       step: 64,
       readonly: this.readOnly,
       value: this.selectedNode.memory.toString(),
-      on: {change: setExecutionMemory}
+      on: { change: setExecutionMemory }
     };
 
     return (
       <div>
-        <BlockNameInput props={{selectedNode: this.selectedNode, readOnly: this.readOnly}}/>
+        <BlockNameInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
         {this.renderCodeEditorContainer()}
         {this.renderLibrarySelector()}
         {/*<b-button variant="dark" class="col-12 mb-3">*/}

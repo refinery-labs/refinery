@@ -1,5 +1,5 @@
-import {Module} from 'vuex';
-import {RootState} from '../store-types';
+import { Module } from 'vuex';
+import { RootState } from '../store-types';
 import {
   RunLambdaRequest,
   RunLambdaResponse,
@@ -7,11 +7,11 @@ import {
   RunTmpLambdaRequest,
   RunTmpLambdaResponse
 } from '@/types/api-types';
-import {makeApiRequest} from '@/store/fetchers/refinery-api';
-import {API_ENDPOINT} from '@/constants/api-constants';
-import {LambdaWorkflowState, ProjectConfig, WorkflowState, WorkflowStateType} from '@/types/graph';
-import {RunCodeBlockLambdaConfig} from '@/types/run-lambda-types';
-import {ProductionLambdaWorkflowState} from '@/types/production-workflow-types';
+import { makeApiRequest } from '@/store/fetchers/refinery-api';
+import { API_ENDPOINT } from '@/constants/api-constants';
+import { LambdaWorkflowState, ProjectConfig, WorkflowState, WorkflowStateType } from '@/types/graph';
+import { RunCodeBlockLambdaConfig } from '@/types/run-lambda-types';
+import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
 
 // Enums
 export enum RunLambdaMutators {
@@ -23,7 +23,6 @@ export enum RunLambdaMutators {
   setDevLambdaRunResult = 'setDevLambdaRunResult',
   setDevLambdaRunResultId = 'setDevLambdaRunResultId',
   setDevLambdaInputData = 'setDevLambdaInputData'
-
 }
 
 export enum RunLambdaActions {
@@ -36,15 +35,15 @@ export enum RunLambdaActions {
 
 // Types
 export interface RunLambdaState {
-  isRunningLambda: boolean,
+  isRunningLambda: boolean;
 
-  deployedLambdaResult: RunLambdaResult | null,
-  deployedLambdaInputData: string,
+  deployedLambdaResult: RunLambdaResult | null;
+  deployedLambdaInputData: string;
 
-  devLambdaResult: RunLambdaResult | null,
+  devLambdaResult: RunLambdaResult | null;
   // ID of the last lambda run
-  devLambdaResultId: string | null,
-  devLambdaInputData: string
+  devLambdaResultId: string | null;
+  devLambdaInputData: string;
 }
 
 // Initial State
@@ -82,8 +81,8 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       }
 
       const editBlockPaneState = projectState.editBlockPane;
-      const hasValidSelectedNode
-        = editBlockPaneState.selectedNode && editBlockPaneState.selectedNode.type === WorkflowStateType.LAMBDA;
+      const hasValidSelectedNode =
+        editBlockPaneState.selectedNode && editBlockPaneState.selectedNode.type === WorkflowStateType.LAMBDA;
 
       if (!hasValidSelectedNode || !projectState.openedProjectConfig) {
         return null;
@@ -118,7 +117,6 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
   },
   actions: {
     async [RunLambdaActions.runSelectedDeployedCodeBlock](context, arn: string | null) {
-
       if (!arn) {
         console.error('Invalid ARN specified for Run Code Block request');
         return;
@@ -132,7 +130,6 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       await context.dispatch(RunLambdaActions.makeDeployedLambdaRequest, request);
     },
     async [RunLambdaActions.makeDeployedLambdaRequest](context, request: RunLambdaRequest) {
-
       // Should not ever happen because of types...
       if (!request.arn) {
         console.error('Attempted to run invalid code, no ARN specified');
@@ -140,7 +137,10 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       }
       context.commit(RunLambdaMutators.setLambdaRunningStatus, true);
 
-      const runLambdaResult = await makeApiRequest<RunLambdaRequest, RunLambdaResponse>(API_ENDPOINT.RunLambda, request);
+      const runLambdaResult = await makeApiRequest<RunLambdaRequest, RunLambdaResponse>(
+        API_ENDPOINT.RunLambda,
+        request
+      );
 
       if (!runLambdaResult || !runLambdaResult.success || !runLambdaResult.result) {
         context.commit(RunLambdaMutators.setLambdaRunningStatus, false);
@@ -178,7 +178,10 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
     async [RunLambdaActions.makeDevLambdaRequest](context, request: RunTmpLambdaRequest) {
       context.commit(RunLambdaMutators.setLambdaRunningStatus, true);
 
-      const runTmpLambdaResult = await makeApiRequest<RunTmpLambdaRequest, RunTmpLambdaResponse>(API_ENDPOINT.RunTmpLambda, request);
+      const runTmpLambdaResult = await makeApiRequest<RunTmpLambdaRequest, RunTmpLambdaResponse>(
+        API_ENDPOINT.RunTmpLambda,
+        request
+      );
 
       if (!runTmpLambdaResult || !runTmpLambdaResult.success || !runTmpLambdaResult.result) {
         context.commit(RunLambdaMutators.setLambdaRunningStatus, false);

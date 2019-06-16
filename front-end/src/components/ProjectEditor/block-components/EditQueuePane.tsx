@@ -1,16 +1,16 @@
 import Component from 'vue-class-component';
-import Vue, {CreateElement, VNode} from 'vue';
-import {Prop} from 'vue-property-decorator';
-import {SqsQueueWorkflowState} from '@/types/graph';
-import {BlockNameInput} from '@/components/ProjectEditor/block-components/EditBlockNamePane';
-import {namespace} from 'vuex-class';
-import {nopWrite} from '@/utils/block-utils';
+import Vue, { CreateElement, VNode } from 'vue';
+import { Prop } from 'vue-property-decorator';
+import { SqsQueueWorkflowState } from '@/types/graph';
+import { BlockNameInput } from '@/components/ProjectEditor/block-components/EditBlockNamePane';
+import { namespace } from 'vuex-class';
+import { nopWrite } from '@/utils/block-utils';
 const editBlock = namespace('project/editBlockPane');
 
 @Component
 export class EditQueueBlock extends Vue {
-  @Prop({required: true}) selectedNode!: SqsQueueWorkflowState;
-  @Prop({required: true}) readOnly!: boolean;
+  @Prop({ required: true }) selectedNode!: SqsQueueWorkflowState;
+  @Prop({ required: true }) readOnly!: boolean;
 
   @editBlock.Mutation setBatchSize!: (batch_size: number) => void;
 
@@ -27,7 +27,7 @@ export class EditQueueBlock extends Vue {
             required
             readonly={this.readOnly}
             value={this.selectedNode.batch_size}
-            on={{input: setBatchSize}}
+            on={{ input: setBatchSize }}
             placeholder="1"
             min="1"
             max="10"
@@ -43,7 +43,7 @@ export class EditQueueBlock extends Vue {
   public render(h: CreateElement): VNode {
     return (
       <div>
-        <BlockNameInput props={{selectedNode: this.selectedNode, readOnly: this.readOnly}}/>
+        <BlockNameInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
         {this.renderBatchSize()}
       </div>
     );

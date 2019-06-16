@@ -2,7 +2,7 @@ import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import moment from 'moment';
-import {GetLatestProjectDeploymentResponse} from '@/types/api-types';
+import { GetLatestProjectDeploymentResponse } from '@/types/api-types';
 
 const project = namespace('project');
 
@@ -28,8 +28,7 @@ export default class DeployProjectPane extends Vue {
 
     return (
       <div>
-        <b-tooltip target={() => this.$refs.confirmDeployButton} placement="bottom"
-                   show={this.hasProjectBeenModified}>
+        <b-tooltip target={() => this.$refs.confirmDeployButton} placement="bottom" show={this.hasProjectBeenModified}>
           {deployButtonMessage}
         </b-tooltip>
       </div>
@@ -47,15 +46,11 @@ export default class DeployProjectPane extends Vue {
     }
 
     if (!this.latestDeploymentState) {
-      return (
-        <h3>Waiting for data...</h3>
-      );
+      return <h3>Waiting for data...</h3>;
     }
 
     if (!this.latestDeploymentState.result) {
-      return (
-        <h3>This will create a new deploy for the project.</h3>
-      );
+      return <h3>This will create a new deploy for the project.</h3>;
     }
 
     const displayTime = moment(this.latestDeploymentState.result.timestamp * 1000).format('LLLL');
@@ -68,7 +63,6 @@ export default class DeployProjectPane extends Vue {
   }
 
   public render(h: CreateElement): VNode {
-
     const formClasses = {
       'mb-3 mt-3 text-align--left deploy-pane-container': true,
       'whirl standard': !this.deploymentError && (this.isDeployingProject || !this.latestDeploymentState)
@@ -76,17 +70,24 @@ export default class DeployProjectPane extends Vue {
 
     return (
       <b-form class={formClasses} on={{ submit: this.deployProjectClicked }}>
-        <div class="deploy-pane-container__content overflow--scroll-y-auto">
-          {this.renderDeploymentDetails()}
-        </div>
+        <div class="deploy-pane-container__content overflow--scroll-y-auto">{this.renderDeploymentDetails()}</div>
         <div class="row deploy-pane-container__bottom-buttons">
           <b-button-group class="col-12">
-            <b-button variant="secondary" class="col-6" on={{ click: this.resetDeploymentPane }}
-                      disabled={this.isDeployingProject}>
+            <b-button
+              variant="secondary"
+              class="col-6"
+              on={{ click: this.resetDeploymentPane }}
+              disabled={this.isDeployingProject}
+            >
               Cancel Deploy
             </b-button>
-            <b-button variant="primary" class="col-6" type="submit" ref="confirmDeployButton"
-                      disabled={this.isDeployingProject || this.hasProjectBeenModified}>
+            <b-button
+              variant="primary"
+              class="col-6"
+              type="submit"
+              ref="confirmDeployButton"
+              disabled={this.isDeployingProject || this.hasProjectBeenModified}
+            >
               Confirm Deploy
             </b-button>
           </b-button-group>

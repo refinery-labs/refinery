@@ -1,8 +1,8 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
-import {WorkflowState} from '@/types/graph';
-import {blockTypeToEditorComponentLookup} from '@/constants/project-editor-constants';
+import { WorkflowState } from '@/types/graph';
+import { blockTypeToEditorComponentLookup } from '@/constants/project-editor-constants';
 
 const viewBlock = namespace('viewBlock');
 
@@ -17,7 +17,7 @@ export default class ViewDeployedBlockPane extends Vue {
 
   public renderContentWrapper() {
     if (!this.selectedNode) {
-      return <div/>;
+      return <div />;
     }
 
     const ActiveEditorComponent = blockTypeToEditorComponentLookup[this.selectedNode.type];
@@ -35,19 +35,15 @@ export default class ViewDeployedBlockPane extends Vue {
     };
 
     return (
-      <b-form class={formClasses} on={{submit: (e: Event) => e.preventDefault()}}>
+      <b-form class={formClasses} on={{ submit: (e: Event) => e.preventDefault() }}>
         <div class="edit-block-container__scrollable overflow--scroll-y-auto">
-          <ActiveEditorComponent props={props}/>
+          <ActiveEditorComponent props={props} />
         </div>
       </b-form>
     );
   }
 
   public render(h: CreateElement): VNode {
-    return (
-      <b-list-group class="view-deployed-block-pane-container">
-        {this.renderContentWrapper()}
-      </b-list-group>
-    );
+    return <b-list-group class="view-deployed-block-pane-container">{this.renderContentWrapper()}</b-list-group>;
   }
 }

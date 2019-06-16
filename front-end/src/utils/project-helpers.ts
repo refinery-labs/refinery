@@ -1,13 +1,13 @@
-import {RefineryProject, WorkflowRelationship, WorkflowRelationshipType, WorkflowState} from '@/types/graph';
+import { RefineryProject, WorkflowRelationship, WorkflowRelationshipType, WorkflowState } from '@/types/graph';
 import {
   nodeTypesWithSimpleTransitions,
   validBlockToBlockTransitionLookup,
   ValidTransitionConfig
 } from '@/constants/project-editor-constants';
-import {AvailableTransition, AvailableTransitionsByType, ProjectViewState} from '@/store/store-types';
-import {GetSavedProjectResponse} from '@/types/api-types';
+import { AvailableTransition, AvailableTransitionsByType, ProjectViewState } from '@/store/store-types';
+import { GetSavedProjectResponse } from '@/types/api-types';
 import uuid from 'uuid/v4';
-import {deepJSONCopy} from "@/lib/general-utils";
+import { deepJSONCopy } from '@/lib/general-utils';
 
 export function getNodeDataById(project: RefineryProject, nodeId: string): WorkflowState | null {
   const targetStates = project.workflow_states;
@@ -67,9 +67,9 @@ export function findTransitionsBetweenNodes(fromNode: WorkflowState, toNode: Wor
 }
 
 export function getTransitionsForNode(project: RefineryProject, node: WorkflowState) {
-  const connectionTransitions = project.workflow_relationships.filter(transition => (
-    transition.next === node.id || transition.node === node.id
-  ));
+  const connectionTransitions = project.workflow_relationships.filter(
+    transition => transition.next === node.id || transition.node === node.id
+  );
 
   return connectionTransitions;
 }
@@ -88,7 +88,6 @@ export function getValidTransitionsForEdge(
   project: RefineryProject,
   transition: WorkflowRelationship
 ): AvailableTransitionsByType {
-
   // Get edges that match the transition ID
   const edges = project.workflow_relationships.filter(e => e.id === transition.id);
 
@@ -96,25 +95,19 @@ export function getValidTransitionsForEdge(
   const startNodeId: string = edges[0].node;
   const nextNodeId: string = edges[0].next;
 
-  const startNode = getNodeDataById(
-    project,
-    startNodeId
-  );
+  const startNode = getNodeDataById(project, startNodeId);
 
-  const nextNode = getNodeDataById(
-    project,
-    nextNodeId
-  );
+  const nextNode = getNodeDataById(project, nextNodeId);
 
   if (startNode === null || nextNode === null) {
-    console.error('You\'ve got a very borked transition!', startNode, nextNode);
+    console.error("You've got a very borked transition!", startNode, nextNode);
     return {
       simple: [],
       complex: []
-    }
+    };
   }
 
-  const {simple, complex} = findTransitionsBetweenNodes(startNode, nextNode);
+  const { simple, complex } = findTransitionsBetweenNodes(startNode, nextNode);
 
   const availableTransitions = [
     {
@@ -142,7 +135,7 @@ export function getValidTransitionsForNode(
   const otherNodes = project.workflow_states.filter(n => n.id !== fromNode.id);
 
   const availableTransitions = otherNodes.map(toNode => {
-    const {simple, complex} = findTransitionsBetweenNodes(fromNode, toNode);
+    const { simple, complex } = findTransitionsBetweenNodes(fromNode, toNode);
 
     return {
       // Simple boolean that we can filter on later.

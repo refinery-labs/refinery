@@ -40,7 +40,7 @@ export enum HTTP_METHOD {
   DELETE = 'DELETE',
   OPTIONS = 'OPTIONS',
   HEAD = 'HEAD',
-  PATCH = 'PATCH',
+  PATCH = 'PATCH'
   // '*' = '*' // Technically supported by AWS but the cross-over to our actually API fetch() breaks this.
 }
 
@@ -179,5 +179,5 @@ export const ApiConfigMap: ApiConfigMapType = {
   [API_ENDPOINT.GetLatestMonthBill]: {
     path: '/api/v1/billing/get_month_totals',
     method: HTTP_METHOD.POST
-  },
+  }
 };

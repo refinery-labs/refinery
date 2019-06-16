@@ -1,12 +1,12 @@
 function validatePathHasLeadingSlash(apiPath: string) {
-  const pathHead = apiPath.startsWith("/") ? '' : '/';
+  const pathHead = apiPath.startsWith('/') ? '' : '/';
   return `${pathHead}${apiPath}`;
 }
 
 function validatePathTail(apiPath: string) {
-  if (apiPath != "/" && apiPath.endsWith("/")) {
+  if (apiPath != '/' && apiPath.endsWith('/')) {
     return apiPath.slice(0, -1);
-   }
+  }
   return apiPath;
 }
 
