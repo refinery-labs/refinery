@@ -1,18 +1,18 @@
 import Component from 'vue-class-component';
 import Vue from 'vue';
-import {WorkflowState} from '@/types/graph';
-import {namespace} from 'vuex-class';
-import {blockNameText} from '@/constants/project-editor-constants';
-import {Prop} from 'vue-property-decorator';
-import {nopWrite} from '@/utils/block-utils';
+import { WorkflowState } from '@/types/graph';
+import { namespace } from 'vuex-class';
+import { blockNameText } from '@/constants/project-editor-constants';
+import { Prop } from 'vue-property-decorator';
+import { nopWrite } from '@/utils/block-utils';
 
 const editBlock = namespace('project/editBlockPane');
 
 @Component
 export class BlockNameInput extends Vue {
-  @Prop({required: true}) selectedNode!: WorkflowState | null;
+  @Prop({ required: true }) selectedNode!: WorkflowState | null;
 
-  @Prop({required: true}) readOnly!: boolean;
+  @Prop({ required: true }) readOnly!: boolean;
 
   @editBlock.Mutation setBlockName!: (name: string) => void;
 
@@ -36,7 +36,7 @@ export class BlockNameInput extends Vue {
             type="text"
             required
             value={selectedNode.name}
-            on={{input: setBlockName}}
+            on={{ input: setBlockName }}
             placeholder="My Amazing Block"
           />
         </div>

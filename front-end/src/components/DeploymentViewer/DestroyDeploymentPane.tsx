@@ -17,8 +17,7 @@ export default class DestroyDeploymentPane extends Vue {
           <br />
           This change is permanent!
         </h4>
-        <b-button variant="danger" class="mt-2"
-                  on={{click: this.destroyDeployment}}>
+        <b-button variant="danger" class="mt-2" on={{ click: this.destroyDeployment }}>
           Destroy Deployment
         </b-button>
       </b-list-group>

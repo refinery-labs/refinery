@@ -37,7 +37,7 @@ export enum AllProjectsActions {
   performSearch = 'performSearch',
   createProject = 'createProject',
   startDeleteProject = 'startDeleteProject',
-  deleteProject = 'deleteProject',
+  deleteProject = 'deleteProject'
 }
 
 const AllProjectsModule: Module<AllProjectsState, RootState> = {

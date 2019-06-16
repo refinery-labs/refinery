@@ -6,12 +6,7 @@ const deployment = namespace('deployment');
 
 @Component
 export default class ViewApiEndpointsPane extends Vue {
-
   public render(h: CreateElement): VNode {
-    return (
-      <b-list-group class="view-api-endpoints-pane-container">
-        API Endpoints
-      </b-list-group>
-    );
+    return <b-list-group class="view-api-endpoints-pane-container">API Endpoints</b-list-group>;
   }
 }

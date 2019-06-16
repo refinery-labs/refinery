@@ -1,17 +1,17 @@
 import Component from 'vue-class-component';
 import Vue from 'vue';
-import {ScheduleTriggerWorkflowState, WorkflowState} from '@/types/graph';
-import {namespace} from 'vuex-class';
-import {Prop} from 'vue-property-decorator';
-import {nopWrite} from '@/utils/block-utils';
+import { ScheduleTriggerWorkflowState, WorkflowState } from '@/types/graph';
+import { namespace } from 'vuex-class';
+import { Prop } from 'vue-property-decorator';
+import { nopWrite } from '@/utils/block-utils';
 
 const editBlock = namespace('project/editBlockPane');
 
 @Component
 export class BlockScheduleExpressionInput extends Vue {
-  @Prop({required: true}) selectedNode!: ScheduleTriggerWorkflowState | null;
+  @Prop({ required: true }) selectedNode!: ScheduleTriggerWorkflowState | null;
 
-  @Prop({required: true}) readOnly!: boolean;
+  @Prop({ required: true }) readOnly!: boolean;
 
   @editBlock.Mutation setScheduleExpression!: (name: string) => void;
 
@@ -35,7 +35,7 @@ export class BlockScheduleExpressionInput extends Vue {
             type="text"
             required
             value={selectedNode.schedule_expression}
-            on={{input: setScheduleExpression}}
+            on={{ input: setScheduleExpression }}
             placeholder="cron(15 10 * * ? *)"
           />
         </div>
@@ -43,7 +43,10 @@ export class BlockScheduleExpressionInput extends Vue {
           <a
             href="https://docs.aws.amazon.com/lambda/latest/dg/tutorial-scheduled-events-schedule-expressions.html"
             target="_blank"
-          >Schedule expression</a> indicating how often the attached blocks should be run.
+          >
+            Schedule expression
+          </a>{' '}
+          indicating how often the attached blocks should be run.
         </small>
       </b-form-group>
     );

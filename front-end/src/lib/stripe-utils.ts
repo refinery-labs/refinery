@@ -1,7 +1,6 @@
 export const STRIPE_LIB_URL = 'https://js.stripe.com/v3/';
 
 export function loadScript(src: string) {
-
   const scriptTagElement = document.querySelector(`script[src="${src}"]`);
 
   // Check if the tag was already mounted on the page.
@@ -33,7 +32,7 @@ export function loadScript(src: string) {
 
     // Catch any errors while loading the script
     script.addEventListener('error', () => {
-      reject(new Error(`Script failed to load (${src}).`))
+      reject(new Error(`Script failed to load (${src}).`));
     });
   });
 }

@@ -1,7 +1,7 @@
-import Vue, {CreateElement, VNode} from 'vue';
+import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
-import {ProjectConfig, ProjectLogLevel} from "@/types/graph";
-import {namespace} from "vuex-class";
+import { ProjectConfig, ProjectLogLevel } from '@/types/graph';
+import { namespace } from 'vuex-class';
 
 const project = namespace('project');
 
@@ -23,7 +23,8 @@ export default class ProjectSettings extends Vue {
       <div class="content-wrapper">
         <div class="content-heading display-flex">
           <div class="layout--constrain flex-grow--1">
-            <div>Project Settings
+            <div>
+              Project Settings
               <small>The settings for this project.</small>
             </div>
           </div>
@@ -32,12 +33,9 @@ export default class ProjectSettings extends Vue {
           <div class="row justify-content-lg-center">
             <div class="col-lg-8 align-self-center">
               <div class="card card-default">
-                <div class="card-header">
-                  Project Settings
-                </div>
+                <div class="card-header">Project Settings</div>
                 <div class="card-body text-align--left">
-                  <b-form-group
-                    description="The logging level to use when Code Blocks run in production. Note that changing this level requires a re-deploy to take effect!">
+                  <b-form-group description="The logging level to use when Code Blocks run in production. Note that changing this level requires a re-deploy to take effect!">
                     <label class="d-block" htmlFor="logging-level-input-select">
                       Logging Level
                     </label>
@@ -45,7 +43,7 @@ export default class ProjectSettings extends Vue {
                       <b-form-select
                         id="logging-level-input-select"
                         value={this.getLogLevelValue()}
-                        on={{change: this.setProjectConfigLoggingLevel}}
+                        on={{ change: this.setProjectConfigLoggingLevel }}
                       >
                         <option value={ProjectLogLevel.LOG_ALL}>Log all executions</option>
                         <option value={ProjectLogLevel.LOG_ERRORS}>Log only errors</option>

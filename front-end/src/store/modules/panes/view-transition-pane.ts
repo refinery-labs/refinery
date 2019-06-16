@@ -1,18 +1,16 @@
-import {Module} from 'vuex';
-import {RootState} from '../../store-types';
-import {
-  SqsQueueWorkflowState, WorkflowRelationship, WorkflowRelationshipType,
-} from '@/types/graph';
-import {getTransitionDataById} from "@/utils/project-helpers";
-import {ProjectViewActions, ProjectViewMutators} from "@/constants/store-constants";
-import {createToast} from "@/utils/toasts-utils";
-import {ToastVariant} from "@/types/toasts-types";
-import {PANE_POSITION} from "@/types/project-editor-types";
-import {ChangeTransitionArguments} from "@/store/modules/project-view";
+import { Module } from 'vuex';
+import { RootState } from '../../store-types';
+import { SqsQueueWorkflowState, WorkflowRelationship, WorkflowRelationshipType } from '@/types/graph';
+import { getTransitionDataById } from '@/utils/project-helpers';
+import { ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
+import { createToast } from '@/utils/toasts-utils';
+import { ToastVariant } from '@/types/toasts-types';
+import { PANE_POSITION } from '@/types/project-editor-types';
+import { ChangeTransitionArguments } from '@/store/modules/project-view';
 
 // Enums
 export enum ViewTransitionMutators {
-  setSelectedEdge = 'setSelectedEdge',
+  setSelectedEdge = 'setSelectedEdge'
 }
 
 export enum ViewTransitionActions {
@@ -28,7 +26,7 @@ export interface ViewTransitionPaneState {
 
 // Initial State
 const moduleState: ViewTransitionPaneState = {
-  selectedEdge: null,
+  selectedEdge: null
 };
 
 const ViewTransitionPaneModule: Module<ViewTransitionPaneState, RootState> = {
@@ -38,7 +36,7 @@ const ViewTransitionPaneModule: Module<ViewTransitionPaneState, RootState> = {
   mutations: {
     [ViewTransitionMutators.setSelectedEdge](state, edge) {
       state.selectedEdge = edge;
-    },
+    }
   },
   actions: {
     /**

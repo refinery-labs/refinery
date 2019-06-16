@@ -1,9 +1,7 @@
-import {Module} from 'vuex';
-import {RootState} from '../../store-types';
-import {
-  WorkflowState,
-} from '@/types/graph';
-import {getNodeDataById, getTransitionsForNode} from '@/utils/project-helpers';
+import { Module } from 'vuex';
+import { RootState } from '../../store-types';
+import { WorkflowState } from '@/types/graph';
+import { getNodeDataById, getTransitionsForNode } from '@/utils/project-helpers';
 
 // Enums
 export enum ViewBlockMutators {
@@ -36,7 +34,7 @@ const moduleState: ViewBlockPaneState = {
   selectedNode: null,
   showCodeModal: false,
   wideMode: false,
-  librariesModalVisibility: false,
+  librariesModalVisibility: false
 };
 
 const ViewBlockPaneModule: Module<ViewBlockPaneState, RootState> = {
@@ -55,7 +53,7 @@ const ViewBlockPaneModule: Module<ViewBlockPaneState, RootState> = {
     },
     [ViewBlockMutators.setCodeModalVisibility](state, visible) {
       state.showCodeModal = visible;
-    },
+    }
   },
   actions: {
     /**

@@ -1,16 +1,16 @@
-import Vue, {CreateElement, VNode} from 'vue';
+import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import OpenedProjectGraphContainer from '@/containers/OpenedProjectGraphContainer';
-import {Watch} from 'vue-property-decorator';
-import {Route} from 'vue-router';
-import {GetSavedProjectRequest} from '@/types/api-types';
-import {namespace} from 'vuex-class';
+import { Watch } from 'vue-property-decorator';
+import { Route } from 'vue-router';
+import { GetSavedProjectRequest } from '@/types/api-types';
+import { namespace } from 'vuex-class';
 import SidebarNav from '@/components/SidebarNav';
-import {paneTypeToNameLookup, SidebarMenuItems} from '@/menu';
+import { paneTypeToNameLookup, SidebarMenuItems } from '@/menu';
 import ProjectEditorLeftPaneContainer from '@/containers/ProjectEditorLeftPaneContainer';
-import {PANE_POSITION, SIDEBAR_PANE} from '@/types/project-editor-types';
+import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import EditorPaneWrapper from '@/components/EditorPaneWrapper';
-import {paneToContainerMapping} from '@/constants/project-editor-constants';
+import { paneToContainerMapping } from '@/constants/project-editor-constants';
 
 const project = namespace('project');
 const editBlock = namespace('project/editBlockPane');
@@ -83,7 +83,7 @@ export default class OpenedProjectOverview extends Vue {
     const paneProps = {
       paneTitle: paneTypeToNameLookup[paneType],
       closePane: () => this.closePane(position),
-      tryToCloseBlock: () => this.tryToCloseBlock(),
+      tryToCloseBlock: () => this.tryToCloseBlock()
     };
 
     const ActivePane = paneToContainerMapping[paneType];

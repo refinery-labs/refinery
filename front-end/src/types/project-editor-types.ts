@@ -1,5 +1,5 @@
 import { VueConstructor } from 'vue';
-import {ProjectConfig, RefineryProject, SupportedLanguage} from '@/types/graph';
+import { ProjectConfig, RefineryProject, SupportedLanguage } from '@/types/graph';
 
 export enum SIDEBAR_PANE {
   // Project Editor

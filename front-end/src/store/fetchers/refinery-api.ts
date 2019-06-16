@@ -1,6 +1,7 @@
 import { HttpUtil } from '@/utils/make-request';
 import {
-  AddPaymentMethodRequest, AddPaymentMethodResponse,
+  AddPaymentMethodRequest,
+  AddPaymentMethodResponse,
   BaseApiRequest,
   BaseApiResponse,
   CreateScheduleTriggerRequest,
@@ -8,7 +9,9 @@ import {
   CreateSQSQueueTriggerRequest,
   CreateSQSQueueTriggerResponse,
   DeleteDeploymentsInProjectRequest,
-  DeleteDeploymentsInProjectResponse, DeletePaymentMethodRequest, DeletePaymentMethodResponse,
+  DeleteDeploymentsInProjectResponse,
+  DeletePaymentMethodRequest,
+  DeletePaymentMethodResponse,
   DeleteSavedProjectRequest,
   DeleteSavedProjectResponse,
   DeployDiagramRequest,
@@ -16,9 +19,13 @@ import {
   GetAuthenticationStatusRequest,
   GetAuthenticationStatusResponse,
   GetCloudWatchLogsForLambdaRequest,
-  GetCloudWatchLogsForLambdaResponse, GetLatestMonthlyBillRequest, GetLatestMonthlyBillResponse,
+  GetCloudWatchLogsForLambdaResponse,
+  GetLatestMonthlyBillRequest,
+  GetLatestMonthlyBillResponse,
   GetLatestProjectDeploymentRequest,
-  GetLatestProjectDeploymentResponse, GetPaymentMethodsRequest, GetPaymentMethodsResponse,
+  GetLatestProjectDeploymentResponse,
+  GetPaymentMethodsRequest,
+  GetPaymentMethodsResponse,
   GetProjectConfigRequest,
   GetProjectConfigResponse,
   GetProjectExecutionLogsRequest,
@@ -36,7 +43,9 @@ import {
   LoginRequest,
   LoginResponse,
   LogoutRequest,
-  LogoutResponse, MakePrimaryMethodRequest, MakePrimaryMethodResponse,
+  LogoutResponse,
+  MakePrimaryMethodRequest,
+  MakePrimaryMethodResponse,
   NewRegistrationRequest,
   NewRegistrationResponse,
   RunLambdaRequest,
@@ -48,7 +57,9 @@ import {
   SavedLambdaDeleteRequest,
   SavedLambdaDeleteResponse,
   SavedLambdaSearchRequest,
-  SavedLambdaSearchResponse, SaveProjectConfigRequest, SaveProjectConfigResponse,
+  SavedLambdaSearchResponse,
+  SaveProjectConfigRequest,
+  SaveProjectConfigResponse,
   SaveProjectRequest,
   SaveProjectResponse,
   SearchSavedProjectsRequest,
@@ -155,12 +166,24 @@ export class RefineryApi implements RefineryApiTypeMap {
     UpdateEnvironmentVariablesRequest,
     UpdateEnvironmentVariablesResponse
   >(API_ENDPOINT.UpdateEnvironmentVariables);
-  [API_ENDPOINT.GetPaymentMethods] = makeApiClient<GetPaymentMethodsRequest, GetPaymentMethodsResponse>(API_ENDPOINT.GetPaymentMethods);
-  [API_ENDPOINT.DeletePaymentMethod] = makeApiClient<DeletePaymentMethodRequest, DeletePaymentMethodResponse>(API_ENDPOINT.DeletePaymentMethod);
-  [API_ENDPOINT.MakePrimaryPaymentMethod] = makeApiClient<MakePrimaryMethodRequest, MakePrimaryMethodResponse>(API_ENDPOINT.MakePrimaryPaymentMethod);
-  [API_ENDPOINT.AddPaymentMethod] = makeApiClient<AddPaymentMethodRequest, AddPaymentMethodResponse>(API_ENDPOINT.AddPaymentMethod);
-  [API_ENDPOINT.GetLatestMonthBill] = makeApiClient<GetLatestMonthlyBillRequest, GetLatestMonthlyBillResponse>(API_ENDPOINT.GetLatestMonthBill);
-  [API_ENDPOINT.SaveProjectConfig] = makeApiClient<SaveProjectConfigRequest, SaveProjectConfigResponse>(API_ENDPOINT.SaveProjectConfig);
+  [API_ENDPOINT.GetPaymentMethods] = makeApiClient<GetPaymentMethodsRequest, GetPaymentMethodsResponse>(
+    API_ENDPOINT.GetPaymentMethods
+  );
+  [API_ENDPOINT.DeletePaymentMethod] = makeApiClient<DeletePaymentMethodRequest, DeletePaymentMethodResponse>(
+    API_ENDPOINT.DeletePaymentMethod
+  );
+  [API_ENDPOINT.MakePrimaryPaymentMethod] = makeApiClient<MakePrimaryMethodRequest, MakePrimaryMethodResponse>(
+    API_ENDPOINT.MakePrimaryPaymentMethod
+  );
+  [API_ENDPOINT.AddPaymentMethod] = makeApiClient<AddPaymentMethodRequest, AddPaymentMethodResponse>(
+    API_ENDPOINT.AddPaymentMethod
+  );
+  [API_ENDPOINT.GetLatestMonthBill] = makeApiClient<GetLatestMonthlyBillRequest, GetLatestMonthlyBillResponse>(
+    API_ENDPOINT.GetLatestMonthBill
+  );
+  [API_ENDPOINT.SaveProjectConfig] = makeApiClient<SaveProjectConfigRequest, SaveProjectConfigResponse>(
+    API_ENDPOINT.SaveProjectConfig
+  );
 }
 
 export const apiClientMap: RefineryApiTypeMap = new RefineryApi();

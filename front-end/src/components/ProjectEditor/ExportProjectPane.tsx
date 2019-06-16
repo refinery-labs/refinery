@@ -1,9 +1,9 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
-import {RefineryProject, SupportedLanguage} from '@/types/graph';
+import { RefineryProject, SupportedLanguage } from '@/types/graph';
 import AceEditor from '@/components/Common/AceEditor.vue';
-import {languageToAceLangMap, PANE_POSITION} from '@/types/project-editor-types';
+import { languageToAceLangMap, PANE_POSITION } from '@/types/project-editor-types';
 
 const project = namespace('project');
 
@@ -13,12 +13,9 @@ export default class ExportProjectPane extends Vue {
 
   @project.Action closePane!: (p: PANE_POSITION) => void;
 
-
   public renderCodeEditor() {
     if (!this.openedProject) {
-      return (
-        <span>Please open project!</span>
-      );
+      return <span>Please open project!</span>;
     }
 
     const editorProps = {
@@ -41,16 +38,13 @@ export default class ExportProjectPane extends Vue {
   }
 
   public render(h: CreateElement): VNode {
-
     const formClasses = {
       'mb-3 mt-3 text-align--left export-project-container': true
     };
 
     return (
       <div class={formClasses}>
-        <div class="export-project-container__content overflow--scroll-y-auto">
-          {this.renderCodeEditor()}
-        </div>
+        <div class="export-project-container__content overflow--scroll-y-auto">{this.renderCodeEditor()}</div>
         <div class="row export-project-container__bottom-buttons">
           <b-button-group class="col-12">
             {/*This is hacky to make this close itself but meh we can fix it later*/}

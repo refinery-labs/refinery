@@ -12,9 +12,9 @@ export default class SidebarNav extends Vue {
   private paneTypeToEnabledCheckFunction!: {
     [index: string]: () => boolean;
   };
-  @Prop({default: () => ({}) })
+  @Prop({ default: () => ({}) })
   private paneTypeToCustomContentFunction!: {
-    [index: string]: () => []
+    [index: string]: () => [];
   };
 
   public getIfButtonEnabled(paneType: string) {
@@ -56,9 +56,11 @@ export default class SidebarNav extends Vue {
     };
 
     if (customContent) {
-      return <b-button class={buttonClasses} props={buttonProps} on={buttonOnClicks}>
-        {customContent}
-      </b-button>
+      return (
+        <b-button class={buttonClasses} props={buttonProps} on={buttonOnClicks}>
+          {customContent}
+        </b-button>
+      );
     }
 
     return (

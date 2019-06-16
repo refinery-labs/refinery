@@ -5,10 +5,10 @@
 <script lang="ts">
 /// <reference types="stripe-v3" />
 import Vue from 'vue';
-import {addStripeTagToPage} from '@/lib/stripe-utils';
+import { addStripeTagToPage } from '@/lib/stripe-utils';
 import Component from 'vue-class-component';
-import {namespace} from 'vuex-class';
-import {Prop} from "vue-property-decorator";
+import { namespace } from 'vuex-class';
+import { Prop } from 'vue-property-decorator';
 
 const user = namespace('user');
 

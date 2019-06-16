@@ -1,12 +1,12 @@
-import {Module} from 'vuex';
-import {DeploymentViewState, RootState} from '@/store/store-types';
-import {CyElements, CyStyle} from '@/types/graph';
-import {generateCytoscapeElements, generateCytoscapeStyle} from '@/lib/refinery-to-cytoscript-converter';
-import {LayoutOptions} from 'cytoscape';
+import { Module } from 'vuex';
+import { DeploymentViewState, RootState } from '@/store/store-types';
+import { CyElements, CyStyle } from '@/types/graph';
+import { generateCytoscapeElements, generateCytoscapeStyle } from '@/lib/refinery-to-cytoscript-converter';
+import { LayoutOptions } from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
-import {DeploymentViewActions, DeploymentViewGetters, DeploymentViewMutators} from '@/constants/store-constants';
-import {makeApiRequest} from '@/store/fetchers/refinery-api';
-import {API_ENDPOINT} from '@/constants/api-constants';
+import { DeploymentViewActions, DeploymentViewGetters, DeploymentViewMutators } from '@/constants/store-constants';
+import { makeApiRequest } from '@/store/fetchers/refinery-api';
+import { API_ENDPOINT } from '@/constants/api-constants';
 import {
   DeleteDeploymentsInProjectRequest,
   DeleteDeploymentsInProjectResponse,
@@ -16,15 +16,14 @@ import {
   InfraTearDownRequest,
   InfraTearDownResponse
 } from '@/types/api-types';
-import {PANE_POSITION, SIDEBAR_PANE} from '@/types/project-editor-types';
-import {createToast} from '@/utils/toasts-utils';
-import {ToastVariant} from '@/types/toasts-types';
+import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
+import { createToast } from '@/utils/toasts-utils';
+import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
-import {getNodeDataById} from '@/utils/project-helpers';
-import {EditBlockActions} from '@/store/modules/panes/edit-block-pane';
-import {ViewBlockActions} from '@/store/modules/panes/view-block-pane';
-import {ViewTransitionActions} from '@/store/modules/panes/view-transition-pane';
-
+import { getNodeDataById } from '@/utils/project-helpers';
+import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
+import { ViewBlockActions } from '@/store/modules/panes/view-block-pane';
+import { ViewTransitionActions } from '@/store/modules/panes/view-transition-pane';
 
 const moduleState: DeploymentViewState = {
   openedDeployment: null,
@@ -36,7 +35,7 @@ const moduleState: DeploymentViewState = {
   isDestroyingDeployment: false,
 
   isLoadingDeployment: true,
-  
+
   activeLeftSidebarPane: null,
   activeRightSidebarPane: null,
 
@@ -76,7 +75,6 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
   },
   mutations: {
     [DeploymentViewMutators.setOpenedDeployment](state, deployment: GetLatestProjectDeploymentResult) {
-
       if (!deployment) {
         state.openedDeployment = null;
         state.openedDeploymentId = null;
@@ -149,7 +147,10 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
 
       context.commit(DeploymentViewMutators.isLoadingDeployment, true);
 
-      const deploymentResponse = await makeApiRequest<GetLatestProjectDeploymentRequest, GetLatestProjectDeploymentResponse>(API_ENDPOINT.GetLatestProjectDeployment, {
+      const deploymentResponse = await makeApiRequest<
+        GetLatestProjectDeploymentRequest,
+        GetLatestProjectDeploymentResponse
+      >(API_ENDPOINT.GetLatestProjectDeployment, {
         project_id: projectId
       });
 
@@ -192,10 +193,13 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
 
       context.commit(DeploymentViewMutators.setIsDestroyingDeployment, true);
 
-      const destroyDeploymentResult = await makeApiRequest<InfraTearDownRequest, InfraTearDownResponse>(API_ENDPOINT.InfraTearDown, {
-        project_id: context.state.openedDeploymentProjectId,
-        teardown_nodes: context.state.openedDeployment.workflow_states
-      });
+      const destroyDeploymentResult = await makeApiRequest<InfraTearDownRequest, InfraTearDownResponse>(
+        API_ENDPOINT.InfraTearDown,
+        {
+          project_id: context.state.openedDeploymentProjectId,
+          teardown_nodes: context.state.openedDeployment.workflow_states
+        }
+      );
 
       if (!destroyDeploymentResult || !destroyDeploymentResult.success) {
         await handleError('Server failed to handle Destroy Deployment request');
@@ -209,7 +213,10 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
         return;
       }
 
-      const deleteAllInProjectResult = await makeApiRequest<DeleteDeploymentsInProjectRequest, DeleteDeploymentsInProjectResponse>(API_ENDPOINT.DeleteDeploymentsInProject, {
+      const deleteAllInProjectResult = await makeApiRequest<
+        DeleteDeploymentsInProjectRequest,
+        DeleteDeploymentsInProjectResponse
+      >(API_ENDPOINT.DeleteDeploymentsInProject, {
         project_id: context.state.openedDeploymentProjectId
       });
 
@@ -241,7 +248,6 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
       context.commit(DeploymentViewMutators.selectedResource, null);
     },
     async [DeploymentViewActions.selectNode](context, nodeId: string) {
-
       if (!context.state.openedDeployment) {
         console.error('Attempted to select node without opened deployment', nodeId);
         context.commit(DeploymentViewMutators.selectedResource, null);
@@ -262,8 +268,7 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
 
       await context.dispatch(DeploymentViewActions.openRightSidebarPane, SIDEBAR_PANE.viewDeployedBlock);
 
-      await context.dispatch(`viewBlock/${ViewBlockActions.selectCurrentlySelectedProjectNode}`, null, {root: true});
-
+      await context.dispatch(`viewBlock/${ViewBlockActions.selectCurrentlySelectedProjectNode}`, null, { root: true });
     },
     async [DeploymentViewActions.selectEdge](context, edgeId: string) {
       if (!context.state.openedDeployment) {
@@ -283,7 +288,9 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
 
       await context.dispatch(DeploymentViewActions.openRightSidebarPane, SIDEBAR_PANE.viewDeployedTransition);
 
-      await context.dispatch(`viewTransition/${ViewTransitionActions.selectCurrentlySelectedDeploymentEdge}`, null, {root: true});
+      await context.dispatch(`viewTransition/${ViewTransitionActions.selectCurrentlySelectedDeploymentEdge}`, null, {
+        root: true
+      });
     },
     async [DeploymentViewActions.openLeftSidebarPane](context, leftSidebarPaneType: SIDEBAR_PANE) {
       // TODO: Somehow fire a callback on each left pane so that it can reset itself?
@@ -292,7 +299,6 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
       // Or have the ProjectEditorLeftPaneContainer fire a callback on the child component?
       // That also feels wrong because it violates to "one direction" principal, in a way.
       context.commit(DeploymentViewMutators.setLeftSidebarPane, leftSidebarPaneType);
-
     },
     [DeploymentViewActions.closePane](context, pos: PANE_POSITION) {
       if (pos === PANE_POSITION.left) {
@@ -330,7 +336,6 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
       await context.dispatch(DeploymentViewActions.closePane, PANE_POSITION.left);
       await context.dispatch(DeploymentViewActions.closePane, PANE_POSITION.right);
     }
-
   }
 };
 

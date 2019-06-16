@@ -1,22 +1,23 @@
-import {Module} from 'vuex';
-import {RootState} from '../../store-types';
+import { Module } from 'vuex';
+import { RootState } from '../../store-types';
 import {
   ApiEndpointWorkflowState,
   LambdaWorkflowState,
   ScheduleTriggerWorkflowState,
-  SqsQueueWorkflowState, WorkflowRelationship,
+  SqsQueueWorkflowState,
+  WorkflowRelationship,
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import {getNodeDataById, getTransitionsForNode} from '@/utils/project-helpers';
-import {createToast} from '@/utils/toasts-utils';
-import {ToastVariant} from '@/types/toasts-types';
-import {ProjectViewActions} from '@/constants/store-constants';
-import {PANE_POSITION} from '@/types/project-editor-types';
-import {DEFAULT_LANGUAGE_CODE} from '@/constants/project-editor-constants';
-import {HTTP_METHOD} from "@/constants/api-constants";
-import {validatePath} from "@/utils/block-utils";
-import {deepJSONCopy} from "@/lib/general-utils";
+import { getNodeDataById, getTransitionsForNode } from '@/utils/project-helpers';
+import { createToast } from '@/utils/toasts-utils';
+import { ToastVariant } from '@/types/toasts-types';
+import { ProjectViewActions } from '@/constants/store-constants';
+import { PANE_POSITION } from '@/types/project-editor-types';
+import { DEFAULT_LANGUAGE_CODE } from '@/constants/project-editor-constants';
+import { HTTP_METHOD } from '@/constants/api-constants';
+import { validatePath } from '@/utils/block-utils';
+import { deepJSONCopy } from '@/lib/general-utils';
 
 // Enums
 export enum EditBlockMutators {
@@ -82,7 +83,7 @@ export interface EditBlockPaneState {
   // This doesn't really make sense here
   // but neither does having it in a selectedNode...
   librariesModalVisibility: boolean;
-  enteredLibrary: string,
+  enteredLibrary: string;
 }
 
 // Initial State
@@ -94,7 +95,7 @@ const moduleState: EditBlockPaneState = {
   isStateDirty: false,
   wideMode: false,
   librariesModalVisibility: false,
-  enteredLibrary: "",
+  enteredLibrary: ''
 };
 
 function modifyBlock<T extends WorkflowState>(state: EditBlockPaneState, fn: (block: T) => void) {
@@ -167,9 +168,9 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     [EditBlockMutators.deleteDependencyImport](state, library: string) {
       lambdaChange(state, block => {
         const newLibrariesArray = block.libraries.filter(existingLibrary => {
-          return (existingLibrary !== library);
+          return existingLibrary !== library;
         });
-        block.libraries = newLibrariesArray
+        block.libraries = newLibrariesArray;
       });
     },
     [EditBlockMutators.addDependencyImport](state, library: string) {
@@ -219,7 +220,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     },
     [EditBlockMutators.setEnteredLibrary](state, libraryName: string) {
       state.enteredLibrary = libraryName;
-    },
+    }
   },
   actions: {
     /**
@@ -305,11 +306,13 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       );
 
       // Dispatch an action to delete all of them.
-      await Promise.all(transitions_to_delete.map(async transition => {
-        await context.dispatch(`project/${ProjectViewActions.deleteExistingTransition}`, transition, {
-          root: true
-        });
-      }));
+      await Promise.all(
+        transitions_to_delete.map(async transition => {
+          await context.dispatch(`project/${ProjectViewActions.deleteExistingTransition}`, transition, {
+            root: true
+          });
+        })
+      );
 
       await context.dispatch(`project/${ProjectViewActions.deleteExistingBlock}`, context.state.selectedNode, {
         root: true
@@ -341,9 +344,9 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       await context.dispatch(EditBlockActions.resetPaneState);
 
       // Close this pane
-      await context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.right, {root: true});
+      await context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.right, { root: true });
     }
   }
-}
+};
 
 export default EditBlockPaneModule;

@@ -6,6 +6,7 @@
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
     "lint": "vue-cli-service lint",
+    "lint-fix": "vue-cli-service lint --fix",
     "modernizr": "modernizr -c modernizr-config.json -d node_modules/modernizr/modernizr.custom.js",
     "postinstall": "mkdir tmp-build; npm run modernizr",
     "test:e2e": "vue-cli-service test:e2e",

@@ -6,17 +6,17 @@ import {
   WorkflowRelationshipType,
   WorkflowState
 } from '@/types/graph';
-import {LayoutOptions} from 'cytoscape';
+import { LayoutOptions } from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
-import {GetLatestProjectDeploymentResponse, SearchSavedProjectsResult, TrialInformation} from '@/types/api-types';
-import {LeftSidebarPaneState, SIDEBAR_PANE} from '@/types/project-editor-types';
-import {ValidTransitionConfig} from '@/constants/project-editor-constants';
-import {EditBlockPaneState} from '@/store/modules/panes/edit-block-pane';
-import {ProductionDeploymentRefineryProject} from '@/types/production-workflow-types';
-import {BillingPaneState} from "@/store/modules/billing";
-import {RunLambdaState} from '@/store/modules/run-lambda';
-import {ToastPaneState} from '@/store/modules/toasts';
-import {ViewBlockPaneState} from '@/store/modules/panes/view-block-pane';
+import { GetLatestProjectDeploymentResponse, SearchSavedProjectsResult, TrialInformation } from '@/types/api-types';
+import { LeftSidebarPaneState, SIDEBAR_PANE } from '@/types/project-editor-types';
+import { ValidTransitionConfig } from '@/constants/project-editor-constants';
+import { EditBlockPaneState } from '@/store/modules/panes/edit-block-pane';
+import { ProductionDeploymentRefineryProject } from '@/types/production-workflow-types';
+import { BillingPaneState } from '@/store/modules/billing';
+import { RunLambdaState } from '@/store/modules/run-lambda';
+import { ToastPaneState } from '@/store/modules/toasts';
+import { ViewBlockPaneState } from '@/store/modules/panes/view-block-pane';
 
 export interface RootState {
   setting: UserInterfaceState;
@@ -117,8 +117,8 @@ export interface ProjectViewState {
   activeRightSidebarPane: SIDEBAR_PANE | null;
 
   // Deployment State
-  latestDeploymentState: GetLatestProjectDeploymentResponse | null,
-  deploymentError: string | null,
+  latestDeploymentState: GetLatestProjectDeploymentResponse | null;
+  deploymentError: string | null;
 
   // Shared Graph State
   selectedResource: string | null;
@@ -138,13 +138,13 @@ export interface ProjectViewState {
   isAddingTransitionCurrently: boolean;
   newTransitionTypeSpecifiedInAddFlow: WorkflowRelationshipType | null;
   availableTransitions: AvailableTransitionsByType | null;
-  ifSelectDropdownValue: IfDropDownSelectionType | null,
-  ifExpression: string,
+  ifSelectDropdownValue: IfDropDownSelectionType | null;
+  ifExpression: string;
 
   // Edit Transition Pane
   availableEditTransitions: AvailableTransitionsByType | null;
   isEditingTransitionCurrently: boolean;
-  newTransitionTypeSpecifiedInEditFlow: WorkflowRelationshipType | null,
+  newTransitionTypeSpecifiedInEditFlow: WorkflowRelationshipType | null;
 }
 
 export enum IfDropDownSelectionType {
@@ -184,12 +184,12 @@ export interface AllProjectsState {
 export interface DeploymentViewState {
   // Deployment State
   openedDeployment: ProductionDeploymentRefineryProject | null;
-  openedDeploymentId: string | null,
-  openedDeploymentProjectId: string | null,
-  openedDeploymentTimestamp: number | null,
+  openedDeploymentId: string | null;
+  openedDeploymentProjectId: string | null;
+  openedDeploymentTimestamp: number | null;
 
-  destroyModalVisible: boolean,
-  isDestroyingDeployment: boolean,
+  destroyModalVisible: boolean;
+  isDestroyingDeployment: boolean;
 
   isLoadingDeployment: boolean;
 
@@ -197,8 +197,8 @@ export interface DeploymentViewState {
   activeRightSidebarPane: SIDEBAR_PANE | null;
 
   // Deployment State
-  latestDeploymentState: GetLatestProjectDeploymentResponse | null,
-  deploymentError: string | null,
+  latestDeploymentState: GetLatestProjectDeploymentResponse | null;
+  deploymentError: string | null;
 
   // Shared Graph State
   selectedResource: string | null;
@@ -213,7 +213,6 @@ export interface DeploymentViewState {
 
   // View Block Pane
   selectedBlockIndex: number | null;
-
 }
 
 export interface UserState {

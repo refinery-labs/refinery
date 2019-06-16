@@ -1,14 +1,20 @@
-import {Module} from 'vuex';
-import {RootState} from '../store-types';
-import {makeApiRequest} from "@/store/fetchers/refinery-api";
+import { Module } from 'vuex';
+import { RootState } from '../store-types';
+import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import {
-  AddPaymentMethodRequest, AddPaymentMethodResponse, BillChargeItem, BillingData, BillTotal,
+  AddPaymentMethodRequest,
+  AddPaymentMethodResponse,
+  BillChargeItem,
+  BillingData,
+  BillTotal,
   DeletePaymentMethodRequest,
-  DeletePaymentMethodResponse, GetLatestMonthlyBillRequest, GetLatestMonthlyBillResponse,
+  DeletePaymentMethodResponse,
+  GetLatestMonthlyBillRequest,
+  GetLatestMonthlyBillResponse,
   GetPaymentMethodsRequest,
   GetPaymentMethodsResponse
-} from "@/types/api-types";
-import {API_ENDPOINT} from "@/constants/api-constants";
+} from '@/types/api-types';
+import { API_ENDPOINT } from '@/constants/api-constants';
 
 // Enums
 export enum BillingMutators {
@@ -29,11 +35,11 @@ export enum BillingActions {
 
 // Types
 export interface BillingPaneState {
-  paymentMethods: PaymentMethodData[],
-  isPaymentMethodsLoading: boolean,
-  isMonthBillLoading: boolean,
-  billingTotal: BillTotal,
-  serviceBillingBreakDownArray: BillChargeItem[],
+  paymentMethods: PaymentMethodData[];
+  isPaymentMethodsLoading: boolean;
+  isMonthBillLoading: boolean;
+  billingTotal: BillTotal;
+  serviceBillingBreakDownArray: BillChargeItem[];
 }
 
 // Initial State
@@ -42,8 +48,8 @@ const moduleState: BillingPaneState = {
   isPaymentMethodsLoading: true,
   isMonthBillLoading: true,
   billingTotal: {
-    "bill_total": "0.00",
-    "unit": "USD"
+    bill_total: '0.00',
+    unit: 'USD'
   },
   serviceBillingBreakDownArray: []
 };
@@ -67,7 +73,7 @@ const BillingPaneModule: Module<BillingPaneState, RootState> = {
     },
     [BillingMutators.setBillingBreakDownArray](state, serviceBillingBreakDownArray: BillChargeItem[]) {
       state.serviceBillingBreakDownArray = serviceBillingBreakDownArray;
-    },
+    }
   },
   actions: {
     async [BillingActions.getMonthBill](context, billingMonth: string) {
@@ -82,7 +88,7 @@ const BillingPaneModule: Module<BillingPaneState, RootState> = {
 
       if (!result || !result.success) {
         // TODO: Handle this error case
-        console.error('Failed to get latest month\'s bill!');
+        console.error("Failed to get latest month's bill!");
         return;
       }
 
@@ -110,7 +116,7 @@ const BillingPaneModule: Module<BillingPaneState, RootState> = {
       const result = await makeApiRequest<DeletePaymentMethodRequest, DeletePaymentMethodResponse>(
         API_ENDPOINT.DeletePaymentMethod,
         {
-          id: paymentMethodId,
+          id: paymentMethodId
         }
       );
       context.commit(BillingMutators.setisPaymentMethodsLoading, false);
@@ -126,7 +132,7 @@ const BillingPaneModule: Module<BillingPaneState, RootState> = {
       const result = await makeApiRequest<DeletePaymentMethodRequest, DeletePaymentMethodResponse>(
         API_ENDPOINT.MakePrimaryPaymentMethod,
         {
-          id: paymentMethodId,
+          id: paymentMethodId
         }
       );
       context.commit(BillingMutators.setisPaymentMethodsLoading, false);
@@ -141,7 +147,7 @@ const BillingPaneModule: Module<BillingPaneState, RootState> = {
       const result = await makeApiRequest<AddPaymentMethodRequest, AddPaymentMethodResponse>(
         API_ENDPOINT.AddPaymentMethod,
         {
-          token: stripeCardToken,
+          token: stripeCardToken
         }
       );
       context.commit(BillingMutators.setisPaymentMethodsLoading, false);
@@ -150,7 +156,7 @@ const BillingPaneModule: Module<BillingPaneState, RootState> = {
         console.error('Failed to get payment methods!');
         return;
       }
-    },
+    }
   }
 };
 

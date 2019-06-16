@@ -16,8 +16,7 @@ export interface BaseApiResponse {
   success: boolean;
 }
 
-export interface BaseApiRequest {
-}
+export interface BaseApiRequest {}
 
 // SearchSavedProjects
 export interface SearchSavedProjectsRequest extends BaseApiRequest {
@@ -81,8 +80,7 @@ export interface DeleteSavedProjectRequest extends BaseApiRequest {
   id: string;
 }
 
-export interface DeleteSavedProjectResponse extends BaseApiResponse {
-}
+export interface DeleteSavedProjectResponse extends BaseApiResponse {}
 
 // DeployDiagram
 export interface DeployDiagramRequest extends BaseApiRequest {
@@ -302,8 +300,7 @@ export interface RunTmpLambdaRequest extends BaseApiRequest {
 }
 
 // This is the same thing as RunLambdaResponse but gonna leave the types split out and solve with inheritance
-export interface RunTmpLambdaResponse extends RunLambdaResponse {
-}
+export interface RunTmpLambdaResponse extends RunLambdaResponse {}
 
 // SaveProject
 export interface SaveProjectRequest extends BaseApiRequest {
@@ -485,13 +482,13 @@ export interface GetPaymentMethodsResponse extends BaseApiResponse {
 }
 
 export interface PaymentCardResult {
-  "id": string,
-  "brand": string,
-  "country": string,
-  "exp_month": number,
-  "exp_year": number,
-  "last4": string,
-  "is_primary": boolean
+  id: string;
+  brand: string;
+  country: string;
+  exp_month: number;
+  exp_year: number;
+  last4: string;
+  is_primary: boolean;
 }
 
 // Billing delete card
@@ -527,21 +524,21 @@ export interface GetLatestMonthlyBillRequest extends BaseApiRequest {
 }
 
 export interface BillTotal {
-  bill_total: string,
-  unit: string,
+  bill_total: string;
+  unit: string;
 }
 
 export interface BillChargeItem {
-  service_name: string,
-  total: string,
-  unit: string,
+  service_name: string;
+  total: string;
+  unit: string;
 }
 
 export interface BillingData {
-  bill_total: BillTotal,
-  service_breakdown: BillChargeItem[],
+  bill_total: BillTotal;
+  service_breakdown: BillChargeItem[];
 }
 
 export interface GetLatestMonthlyBillResponse extends BaseApiResponse {
-  billing_data: BillingData,
+  billing_data: BillingData;
 }

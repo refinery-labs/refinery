@@ -19,7 +19,7 @@ export enum ProjectViewGetters {
   canSaveProject = 'canSaveProject',
   canDeployProject = 'canDeployProject',
   hasCodeBlockSelected = 'hasCodeBlockSelected',
-  getValidEditMenuDisplayTransitionTypes = 'getValidEditMenuDisplayTransitionTypes',
+  getValidEditMenuDisplayTransitionTypes = 'getValidEditMenuDisplayTransitionTypes'
 }
 
 export enum ProjectViewMutators {
@@ -172,5 +172,5 @@ export enum UserMutators {
 
   setRegistrationUsernameErrorMessage = 'setRegistrationUsernameErrorMessage',
   setRegistrationErrorMessage = 'setRegistrationErrorMessage',
-  setRegistrationSuccessMessage = 'setRegistrationSuccessMessage',
+  setRegistrationSuccessMessage = 'setRegistrationSuccessMessage'
 }

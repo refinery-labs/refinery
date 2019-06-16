@@ -1,6 +1,6 @@
-import {baseLinks} from '@/constants/router-constants';
-import {MenuItemList, NavbarItem} from '@/types/layout-types';
-import {SIDEBAR_PANE} from '@/types/project-editor-types';
+import { baseLinks } from '@/constants/router-constants';
+import { MenuItemList, NavbarItem } from '@/types/layout-types';
+import { SIDEBAR_PANE } from '@/types/project-editor-types';
 
 export const GlobalNavMenuItems: MenuItemList = [
   {
@@ -76,7 +76,7 @@ export const paneTypeToWindowNameLookup: EditorPaneTypeToName = {
   ...paneTypeToNameLookup,
   [SIDEBAR_PANE.addBlock]: `Click to ${paneTypeToNameLookup[SIDEBAR_PANE.addBlock]}`,
   [SIDEBAR_PANE.runEditorCodeBlock]: 'Execute Editor Code Block',
-  [SIDEBAR_PANE.runDeployedCodeBlock]: 'Execute Deployed Code Block',
+  [SIDEBAR_PANE.runDeployedCodeBlock]: 'Execute Deployed Code Block'
 };
 
 function makeSidebarMenuItem(type: SIDEBAR_PANE, icon: string, translate: string, variant: string): NavbarItem {
@@ -94,11 +94,7 @@ function makeSidebarMenuItem(type: SIDEBAR_PANE, icon: string, translate: string
 export const SidebarMenuItems: NavbarItem[] = [
   makeSidebarMenuItem(SIDEBAR_PANE.addBlock, 'icon-plus', 'sidebar.nav.ADD_BLOCK', 'outline-primary'),
   makeSidebarMenuItem(SIDEBAR_PANE.addTransition, 'icon-cursor-move', 'sidebar.nav.ADD_TRANSITION', 'outline-primary'),
-  makeSidebarMenuItem(
-    SIDEBAR_PANE.runEditorCodeBlock, 'icon-control-play',
-    'RUN_CODE_BLOCK',
-    'outline-success'
-  ),
+  makeSidebarMenuItem(SIDEBAR_PANE.runEditorCodeBlock, 'icon-control-play', 'RUN_CODE_BLOCK', 'outline-success'),
   // makeSidebarMenuItem(SIDEBAR_PANE.allBlocks, 'icon-grid', 'sidebar.nav.ALL_BLOCKS', 'outline-info'),
   // makeSidebarMenuItem(SIDEBAR_PANE.allVersions, 'icon-chart', 'sidebar.nav.ALL_VERSIONS', 'outline-info'),
   makeSidebarMenuItem(SIDEBAR_PANE.exportProject, 'icon-cloud-download', 'sidebar.nav.EXPORT_PROJECT', 'outline-info'),
@@ -109,11 +105,6 @@ export const SidebarMenuItems: NavbarItem[] = [
 export const DeploymentSidebarMenuItems: NavbarItem[] = [
   makeSidebarMenuItem(SIDEBAR_PANE.viewApiEndpoints, 'icon-list', 'sidebar.nav.VIEW_API_ENDPOINTS', 'outline-info'),
   makeSidebarMenuItem(SIDEBAR_PANE.viewExecutions, 'icon-organization', 'sidebar.nav.VIEW_EXECUTIONS', 'outline-info'),
-  makeSidebarMenuItem(
-    SIDEBAR_PANE.runDeployedCodeBlock,
-    'icon-control-play',
-    'RUN_CODE_BLOCK',
-    'outline-success'
-  ),
+  makeSidebarMenuItem(SIDEBAR_PANE.runDeployedCodeBlock, 'icon-control-play', 'RUN_CODE_BLOCK', 'outline-success'),
   makeSidebarMenuItem(SIDEBAR_PANE.destroyDeploy, 'icon-ban', 'sidebar.nav.DESTROY_DEPLOY', 'danger')
 ];

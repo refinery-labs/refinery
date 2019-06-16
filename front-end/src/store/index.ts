@@ -9,7 +9,7 @@ import AllProjects from './modules/all-projects';
 import { RootState } from '@/store/store-types';
 import ToastPaneModule from '@/store/modules/toasts';
 import DeploymentViewModule from '@/store/modules/deployment-view';
-import BillingPaneModule from "@/store/modules/billing";
+import BillingPaneModule from '@/store/modules/billing';
 import RunLambdaModule from '@/store/modules/run-lambda';
 import ViewBlockPaneModule from '@/store/modules/panes/view-block-pane';
 import ViewTransitionPaneModule from '@/store/modules/panes/view-transition-pane';
@@ -95,7 +95,7 @@ export default new Vuex.Store<RootState>({
     runLambda: RunLambdaModule,
     toasts: ToastPaneModule,
     user: UserModule,
-    billing: BillingPaneModule,
+    billing: BillingPaneModule
   },
   plugins,
   // Dev Only: Causes Vuex to get angry when mutations are done to it's state outside of a mutator
