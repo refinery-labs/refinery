@@ -335,6 +335,16 @@ export interface SaveProjectResponse extends BaseApiResponse {
   project_id: string;
 }
 
+// SaveProjectConfig
+export interface SaveProjectConfigRequest extends BaseApiRequest {
+  project_id: string | boolean;
+  config: string;
+}
+
+export interface SaveProjectConfigResponse extends BaseApiResponse {
+  project_id: string;
+}
+
 /**
  * Create a Lambda to save for later use.
  */

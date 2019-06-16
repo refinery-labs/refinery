@@ -34,6 +34,8 @@ export enum ProjectViewMutators {
   isSavingProject = 'isSavingProject ',
   isDeployingProject = 'isDeployingProject',
 
+  setProjectLogLevel = 'setProjectLogLevel',
+
   markProjectDirtyStatus = 'markProjectDirtyStatus',
   setCytoscapeElements = 'setCytoscapeElements',
   setCytoscapeStyle = 'setCytoscapeStyle',
@@ -99,7 +101,9 @@ export enum ProjectViewActions {
   setIfExpression = 'setIfExpression',
   selectTransitionTypeToEdit = 'selectTransitionTypeToEdit',
   cancelEditingTransition = 'cancelEditingTransition',
-  resetPanelStates = 'resetPanelStates'
+  resetPanelStates = 'resetPanelStates',
+  setProjectConfigLoggingLevel = 'setProjectConfigLoggingLevel',
+  saveProjectConfig = 'saveProjectConfig'
 }
 
 export enum DeploymentViewGetters {

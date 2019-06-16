@@ -29,7 +29,8 @@ export enum API_ENDPOINT {
   DeletePaymentMethod = 'DeletePaymentMethod',
   MakePrimaryPaymentMethod = 'MakePrimaryPaymentMethod',
   AddPaymentMethod = 'AddPaymentMethod',
-  GetLatestMonthBill = 'GetLatestMonthBill'
+  GetLatestMonthBill = 'GetLatestMonthBill',
+  SaveProjectConfig = 'SaveProjectConfig'
 }
 
 export enum HTTP_METHOD {
@@ -133,6 +134,10 @@ export const ApiConfigMap: ApiConfigMapType = {
   },
   [API_ENDPOINT.SaveProject]: {
     path: '/api/v1/projects/save',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.SaveProjectConfig]: {
+    path: '/api/v1/projects/config/save',
     method: HTTP_METHOD.POST
   },
   [API_ENDPOINT.GetSavedProject]: {
