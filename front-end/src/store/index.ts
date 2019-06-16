@@ -12,6 +12,7 @@ import DeploymentViewModule from '@/store/modules/deployment-view';
 import BillingPaneModule from "@/store/modules/billing";
 import RunLambdaModule from '@/store/modules/run-lambda';
 import ViewBlockPaneModule from '@/store/modules/panes/view-block-pane';
+import ViewTransitionPaneModule from '@/store/modules/panes/view-transition-pane';
 
 Vue.use(Vuex);
 
@@ -88,6 +89,7 @@ export default new Vuex.Store<RootState>({
     setting: SettingModule,
     deployment: DeploymentViewModule,
     viewBlock: ViewBlockPaneModule,
+    viewTransition: ViewTransitionPaneModule,
     project: ProjectView,
     allProjects: AllProjects,
     runLambda: RunLambdaModule,
