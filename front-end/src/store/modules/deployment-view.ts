@@ -23,6 +23,7 @@ import router from '@/router';
 import {getNodeDataById} from '@/utils/project-helpers';
 import {EditBlockActions} from '@/store/modules/panes/edit-block-pane';
 import {ViewBlockActions} from '@/store/modules/panes/view-block-pane';
+import {ViewTransitionActions} from '@/store/modules/panes/view-transition-pane';
 
 
 const moduleState: DeploymentViewState = {
@@ -281,6 +282,8 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
       context.commit(DeploymentViewMutators.selectedResource, edges[0].id);
 
       await context.dispatch(DeploymentViewActions.openRightSidebarPane, SIDEBAR_PANE.viewDeployedTransition);
+
+      await context.dispatch(`viewTransition/${ViewTransitionActions.selectCurrentlySelectedDeploymentEdge}`, null, {root: true});
     },
     async [DeploymentViewActions.openLeftSidebarPane](context, leftSidebarPaneType: SIDEBAR_PANE) {
       // TODO: Somehow fire a callback on each left pane so that it can reset itself?

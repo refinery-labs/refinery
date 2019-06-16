@@ -12,33 +12,33 @@ import AceEditor from "@/components/Common/AceEditor.vue";
 import {IfDropDownSelectionType} from "@/store/store-types";
 import {PropsDefinition} from "vue/types/options";
 import {Prop} from "vue-property-decorator";
-
-const project = namespace('project');
+import {nopWrite} from '@/utils/block-utils';
+import {EditTransitionSelectorProps} from '@/types/component-types';
 
 @Component
-export default class EditTransitionSelector extends Vue {
-  @Prop({required: true}) checkIfValidTransitionGetter!: WorkflowRelationshipType[];
-  @Prop({required: true}) selectTransitionAction!: (key: WorkflowRelationshipType) => {};
+export default class EditTransitionSelector extends Vue implements EditTransitionSelectorProps {
+  @Prop({required: true}) readOnly!: boolean;
+
+  @Prop({required: true}) checkIfValidTransitionGetter!: WorkflowRelationshipType[] | null;
   @Prop({required: true}) newTransitionTypeSpecifiedInFlowState!: WorkflowRelationshipType | null;
-  @Prop({required: true}) helperText!: string;
-  @Prop({required: true}) cancelModifyingTransition!: () => {};
-  @Prop({required: false}) saveModificationButtonAction!: (key: WorkflowRelationshipType | null) => {};
+  @Prop({required: true}) helperText!: string | null;
+  @Prop() selectTransitionAction!: (key: WorkflowRelationshipType) => void;
+  @Prop() cancelModifyingTransition!: () => {};
+  @Prop() saveModificationButtonAction!: (key: WorkflowRelationshipType | null) => void;
   @Prop() currentlySelectedTransitionType!: WorkflowRelationshipType | null;
 
   // This isn't as symmetric as I'd like, but the method for adding and
   // editing transitions is fundamentally different \o/
   @Prop({required: true}) hasSaveModificationButton!: boolean;
 
-  @project.State
-  ifSelectDropdownValue!: IfDropDownSelectionType;
-  @project.State
-  ifExpression!: string;
+  @Prop({required: true}) ifSelectDropdownValue!: IfDropDownSelectionType;
+  @Prop({required: true}) ifExpression!: string;
 
-  @project.Action ifDropdownSelection!: (dropdownSelection: string) => {};
-  @project.Action setIfExpression!: (ifExpression: string) => {};
+  @Prop({required: true}) ifDropdownSelection!: (dropdownSelection: string) => void;
+  @Prop({required: true}) setIfExpression!: (ifExpression: string) => void;
 
   private checkIfTransitionEnabled(key: WorkflowRelationshipType) {
-    return this.checkIfValidTransitionGetter.some(t => t === key);
+    return this.checkIfValidTransitionGetter && this.checkIfValidTransitionGetter.some(t => t === key);
   }
 
   public renderTransitionSelect(key: WorkflowRelationshipType, transition: AddGraphElementConfig | null) {
@@ -48,6 +48,8 @@ export default class EditTransitionSelector extends Vue {
 
     const isTransitionEnabled = this.checkIfTransitionEnabled(key);
     const choosingTransition = !this.newTransitionTypeSpecifiedInFlowState;
+
+    const selectTransitionAction = this.readOnly ? nopWrite : this.selectTransitionAction;
 
     const groupItemClasses = {
       'display--flex': true,
@@ -78,7 +80,7 @@ export default class EditTransitionSelector extends Vue {
 
     return (
       <b-list-group-item
-        on={{click: () => this.selectTransitionAction(key)}}
+        on={{click: () => selectTransitionAction(key)}}
         disabled={!isTransitionEnabled}
         active={(this.newTransitionTypeSpecifiedInFlowState || this.currentlySelectedTransitionType) === key}
         class={groupItemClasses}
@@ -102,13 +104,16 @@ export default class EditTransitionSelector extends Vue {
   }
 
   public renderCodeEditor() {
+    const setIfExpression = this.readOnly ? nopWrite : this.setIfExpression;
+
     const editorProps = {
       'editor-id': `editor-export-project-if-conditional-dropdown`,
       // Set Nodejs because it supports JSON
       lang: languageToAceLangMap[SupportedLanguage.PYTHON_2],
       theme: 'monokai',
-      content: this.ifExpression,
-      on: {'change-content': this.setIfExpression}
+      content: this.ifExpression || '',
+      disabled: this.readOnly,
+      on: {'change-content': setIfExpression}
     };
 
     return (
@@ -119,30 +124,38 @@ export default class EditTransitionSelector extends Vue {
         lang={editorProps.lang}
         theme={editorProps.theme}
         content={editorProps.content}
+        disabled={editorProps.disabled}
         on={editorProps.on}
       />
     );
   }
 
   private renderIfConditionalSettings() {
+    const ifDropdownSelection = this.readOnly ? nopWrite : this.ifDropdownSelection;
+
+    // This only renders in edit mode.
+    const selector = (
+      <b-form-select
+        on={{input: ifDropdownSelection}}
+        value={this.ifSelectDropdownValue}
+        className="mb-3"
+      >
+        <option value={IfDropDownSelectionType.DEFAULT}>-- Select an option to get an example conditional expression
+          --
+        </option>
+        <option value={IfDropDownSelectionType.EQUALS_VALUE}>Returned value equals a specific value.</option>
+        <option value={IfDropDownSelectionType.NOT_EQUALS_VALUE}>Returned value does NOT equal a specific value.
+        </option>
+        <option value={IfDropDownSelectionType.EQUALS_TRUE}>Returned value is true.</option>
+        <option value={IfDropDownSelectionType.EQUALS_FALSE}>Returned value is false.</option>
+        <option value={IfDropDownSelectionType.CUSTOM_CONDITIONAL}>[Advanced] Write a custom Python conditional.
+        </option>
+      </b-form-select>
+    );
+
     return (
       <div>
-        <b-form-select
-          on={{input: this.ifDropdownSelection}}
-          value={this.ifSelectDropdownValue}
-          class="mb-3"
-        >
-          <option value={IfDropDownSelectionType.DEFAULT}>-- Select an option to get an example conditional expression
-            --
-          </option>
-          <option value={IfDropDownSelectionType.EQUALS_VALUE}>Returned value equals a specific value.</option>
-          <option value={IfDropDownSelectionType.NOT_EQUALS_VALUE}>Returned value does NOT equal a specific value.
-          </option>
-          <option value={IfDropDownSelectionType.EQUALS_TRUE}>Returned value is true.</option>
-          <option value={IfDropDownSelectionType.EQUALS_FALSE}>Returned value is false.</option>
-          <option value={IfDropDownSelectionType.CUSTOM_CONDITIONAL}>[Advanced] Write a custom Python conditional.
-          </option>
-        </b-form-select>
+        {!this.readOnly && selector}
         <div class="d-block text-center display--flex">
           <div class="width--100percent flex-grow--1" style="height: 200px;">{this.renderCodeEditor()}</div>
         </div>
@@ -155,11 +168,15 @@ export default class EditTransitionSelector extends Vue {
   }
 
   private saveModificationButtonActionEvent() {
+    if (this.readOnly) {
+      return;
+    }
+
     this.saveModificationButtonAction(this.newTransitionTypeSpecifiedInFlowState);
   }
 
   private renderSaveModificationButton() {
-    if (!this.hasSaveModificationButton) {
+    if (!this.hasSaveModificationButton || this.readOnly) {
       return null;
     }
 
@@ -173,6 +190,20 @@ export default class EditTransitionSelector extends Vue {
     );
   }
 
+  private renderCancelButton() {
+    if (this.readOnly) {
+      return null;
+    }
+
+    return (
+      <b-list-group-item>
+        <b-button variant="danger" class="col-md-12" on={{click: this.cancelModifyingTransition}}>
+          Cancel
+        </b-button>
+      </b-list-group-item>
+    );
+  }
+
   private renderBlockSelectionHelpText() {
     return (
       <div>
@@ -180,13 +211,9 @@ export default class EditTransitionSelector extends Vue {
           <h4>{this.helperText}</h4>
         </b-list-group-item>
         {this.renderSaveModificationButton()}
-        <b-list-group-item>
-          <b-button variant="danger" class="col-md-12" on={{click: this.cancelModifyingTransition}}>
-            Cancel
-          </b-button>
-        </b-list-group-item>
+        {this.renderCancelButton()}
       </div>
-    )
+    );
   }
 
   public render(h: CreateElement): VNode {
@@ -199,15 +226,15 @@ export default class EditTransitionSelector extends Vue {
             {this.renderBlockSelectionHelpText()}
           </b-list-group>
         </div>
-      )
+      );
     }
     if (this.newTransitionTypeSpecifiedInFlowState) {
       return (
-        <b-list-group class="add-transition-container" style={{margin: '0 0  0'}}>
+        <b-list-group class="add-transition-container" style={{margin: '0 0 0 0'}}>
           {this.renderHelpText()}
           {this.renderBlockSelectionHelpText()}
         </b-list-group>
-      )
+      );
     }
 
     return (
