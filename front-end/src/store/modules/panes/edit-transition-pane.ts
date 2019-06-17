@@ -1,16 +1,24 @@
 import { Module } from 'vuex';
-import { RootState } from '../../store-types';
-import { SqsQueueWorkflowState, WorkflowRelationship, WorkflowRelationshipType } from '@/types/graph';
-import { getTransitionDataById } from '@/utils/project-helpers';
+import {IfDropDownSelectionType, RootState} from '../../store-types';
+import {SqsQueueWorkflowState, WorkflowRelationship, WorkflowRelationshipType, WorkflowState} from '@/types/graph';
+import {getTransitionDataById, getValidTransitionsForNode} from '@/utils/project-helpers';
 import { ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
 import { PANE_POSITION } from '@/types/project-editor-types';
 import { ChangeTransitionArguments } from '@/store/modules/project-view';
+import deepEqual from "fast-deep-equal";
+import {deepJSONCopy} from '@/lib/general-utils';
+import {EditBlockMutators} from '@/store/modules/panes/edit-block-pane';
 
 // Enums
 export enum EditTransitionMutators {
-  setSelectedEdge = 'setSelectedEdge'
+  setSelectedEdge = 'setSelectedEdge',
+  setSelectedEdgeOriginal = 'setSelectedEdgeOriginal',
+
+  setIfDropdownSelection = 'setIfDropdownSelection',
+  setIfExpression = 'setIfExpression',
+  setValidTransitions = 'setValidTransitions'
 }
 
 export enum EditTransitionActions {
@@ -25,21 +33,51 @@ export enum EditTransitionActions {
 // Types
 export interface EditTransitionPaneState {
   selectedEdge: WorkflowRelationship | null;
+  selectedEdgeOriginal: WorkflowRelationship | null;
+
+  ifSelectDropdownValue: IfDropDownSelectionType | null;
+  ifExpression: string;
 }
 
 // Initial State
 const moduleState: EditTransitionPaneState = {
-  selectedEdge: null
+  selectedEdge: null,
+  selectedEdgeOriginal: null,
+
+  ifSelectDropdownValue: null,
+  ifExpression: ''
 };
 
 const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
   namespaced: true,
   state: moduleState,
-  getters: {},
+  getters: {
+    isStateDirty: state => state.selectedEdge && state.selectedEdgeOriginal && !deepEqual(state.selectedEdge, state.selectedEdgeOriginal)
+  },
   mutations: {
     [EditTransitionMutators.setSelectedEdge](state, edge) {
       state.selectedEdge = edge;
-    }
+    },
+    [EditTransitionMutators.setSelectedEdgeOriginal](state, edge) {
+      state.selectedEdgeOriginal = deepJSONCopy(edge);
+    },
+
+    // TODO: Finish implementing this functionality here.
+    // [ProjectViewMutators.setIfDropdownSelection](state, dropdownSelection: IfDropDownSelectionType) {
+    //   state.ifSelectDropdownValue = dropdownSelection;
+    // },
+    // [ProjectViewMutators.setIfExpression](state, ifExpression: string) {
+    //   state.ifExpression = ifExpression;
+    // },
+    // [ProjectViewMutators.setValidTransitions](state, node: WorkflowState) {
+    //   if (!node || !state.openedProject) {
+    //     state.availableTransitions = null;
+    //     return;
+    //   }
+    //
+    //   // Assigning this in a mutator because this algorithm is O(n^2) and that feels bad in a getter
+    //   state.availableTransitions = getValidTransitionsForNode(state.openedProject, node);
+    // },
   },
   actions: {
     /**
@@ -48,6 +86,7 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
      */
     async [EditTransitionActions.resetPaneState](context) {
       context.commit(EditTransitionMutators.setSelectedEdge, null);
+      context.commit(EditTransitionMutators.setSelectedEdgeOriginal, null);
       await context.dispatch(`project/${ProjectViewActions.deselectResources}`, null, { root: true });
     },
     async [EditTransitionActions.cancelAndResetBlock](context) {
@@ -85,6 +124,7 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
       }
 
       context.commit(EditTransitionMutators.setSelectedEdge, edge);
+      context.commit(EditTransitionMutators.setSelectedEdgeOriginal, edge);
     },
     async [EditTransitionActions.deleteTransition](context) {
       const projectStore = context.rootState.project;

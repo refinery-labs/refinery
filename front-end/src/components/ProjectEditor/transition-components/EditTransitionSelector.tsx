@@ -6,12 +6,10 @@ import {
   transitionTypeToConfigLookup
 } from '@/constants/project-editor-constants';
 import { SupportedLanguage, WorkflowRelationshipType } from '@/types/graph';
-import { languageToAceLangMap } from '@/types/project-editor-types';
 import { IfDropDownSelectionType } from '@/store/store-types';
 import { Prop } from 'vue-property-decorator';
 import { nopWrite } from '@/utils/block-utils';
 import { EditorProps, EditTransitionSelectorProps } from '@/types/component-types';
-import AceEditor from '@/components/Common/AceEditor.vue';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 
 @Component

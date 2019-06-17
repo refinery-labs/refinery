@@ -66,8 +66,11 @@ if (isDevelopment) {
  * @return If true, do not allow the app to navigate.
  */
 function isUnsafeToNavigate(state: RootState) {
-  const isStateDirty = state.project.editBlockPane && state.project.editBlockPane.isStateDirty;
-  return state.project.hasProjectBeenModified || isStateDirty;
+  // TODO: Actually implement this check
+  // Use something like this to get the state
+  // context.getters['editBlockPane/isStateDirty']
+  // const isStateDirty = state.project.editBlockPane && state.project.editBlockPane.isStateDirty;
+  return state.project.hasProjectBeenModified; // || isStateDirty;
 }
 
 /**

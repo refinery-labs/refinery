@@ -25,6 +25,7 @@
     "bootstrap-vue": "^2.0.0-rc.22",
     "cytoscape": "^3.5.7",
     "cytoscape-dagre": "^2.2.2",
+    "fast-deep-equal": "^2.0.1",
     "konva": "^3.2.6",
     "modernizr": "^3.7.1",
     "moment": "^2.24.0",
