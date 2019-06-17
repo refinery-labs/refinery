@@ -1,14 +1,14 @@
 import Vue from 'vue';
 import Component from 'vue-class-component';
-import {namespace} from 'vuex-class';
-import {LambdaWorkflowState, SupportedLanguage, WorkflowState, WorkflowStateType} from '@/types/graph';
-import {PANE_POSITION} from '@/types/project-editor-types';
-import RunLambda, {RunLambdaDisplayLocation, RunLambdaDisplayMode} from '@/components/RunLambda';
-import {RunLambdaResult} from '@/types/api-types';
-import {RunCodeBlockLambdaConfig} from '@/types/run-lambda-types';
-import {Prop} from 'vue-property-decorator';
-import {libraryBuildArguments} from "@/store/modules/project-view";
-import {deepJSONCopy} from "@/lib/general-utils";
+import { namespace } from 'vuex-class';
+import { LambdaWorkflowState, SupportedLanguage, WorkflowState, WorkflowStateType } from '@/types/graph';
+import { PANE_POSITION } from '@/types/project-editor-types';
+import RunLambda, { RunLambdaDisplayLocation, RunLambdaDisplayMode } from '@/components/RunLambda';
+import { RunLambdaResult } from '@/types/api-types';
+import { RunCodeBlockLambdaConfig } from '@/types/run-lambda-types';
+import { Prop } from 'vue-property-decorator';
+import { libraryBuildArguments } from '@/store/modules/project-view';
+import { deepJSONCopy } from '@/lib/general-utils';
 
 const project = namespace('project');
 const editBlock = namespace('project/editBlockPane');
@@ -33,7 +33,7 @@ export default class RunEditorCodeBlockContainer extends Vue {
   @runLambda.Mutation setDevLambdaInputData!: (inputData: string) => void;
   @runLambda.Mutation setLoadingText!: (loadingText: string) => void;
 
-  @Prop({required: true}) displayMode!: RunLambdaDisplayMode;
+  @Prop({ required: true }) displayMode!: RunLambdaDisplayMode;
 
   // Actions
   @project.Action closePane!: (p: PANE_POSITION) => void;
@@ -42,15 +42,15 @@ export default class RunEditorCodeBlockContainer extends Vue {
   @runLambda.Action runSpecifiedEditorCodeBlock!: (config: RunCodeBlockLambdaConfig) => void;
 
   private getLoadingText(isBuildCached: boolean) {
-    if(isBuildCached) {
-      return "Running Lambda...";
+    if (isBuildCached) {
+      return 'Running Lambda...';
     }
 
-    return "Building Lambda libraries and then running Lambda...";
+    return 'Building Lambda libraries and then running Lambda...';
   }
 
   private async checkBuildRequired(config: RunCodeBlockLambdaConfig) {
-    if(this.selectedNode === null || this.selectedNode.type !== WorkflowStateType.LAMBDA) {
+    if (this.selectedNode === null || this.selectedNode.type !== WorkflowStateType.LAMBDA) {
       console.error("You don't have a node currently selected so I can't check the build status!");
       return;
     }
@@ -61,10 +61,8 @@ export default class RunEditorCodeBlockContainer extends Vue {
       libraries: selectedLambda.libraries
     } as libraryBuildArguments;
     const isLibraryBuildCached = await this.checkBuildStatus(params);
-    this.setLoadingText(
-      this.getLoadingText(isLibraryBuildCached)
-    );
-    this.runSpecifiedEditorCodeBlock(config)
+    this.setLoadingText(this.getLoadingText(isLibraryBuildCached));
+    this.runSpecifiedEditorCodeBlock(config);
   }
 
   public render() {
@@ -89,9 +87,9 @@ export default class RunEditorCodeBlockContainer extends Vue {
       isCurrentlyRunning: this.isRunningLambda,
       displayLocation: RunLambdaDisplayLocation.editor,
       displayMode: this.displayMode,
-      loadingText: this.loadingText,
+      loadingText: this.loadingText
     };
 
-    return <RunLambda props={runLambdaProps}/>;
+    return <RunLambda props={runLambdaProps} />;
   }
 }

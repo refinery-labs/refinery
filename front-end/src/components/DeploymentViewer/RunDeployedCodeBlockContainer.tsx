@@ -50,7 +50,7 @@ export default class RunDeployedCodeBlockContainer extends Vue {
       isCurrentlyRunning: this.isRunningLambda,
       displayLocation: RunLambdaDisplayLocation.deployment,
       displayMode: this.displayMode,
-      loadingText: "Running deployed Lambda...",
+      loadingText: 'Running deployed Lambda...'
     };
 
     return <RunLambda props={runLambdaProps} />;

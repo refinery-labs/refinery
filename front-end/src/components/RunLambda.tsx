@@ -5,7 +5,7 @@ import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { EditorProps } from '@/types/component-types';
 import { RunLambdaResult } from '@/types/api-types';
 import Loading from '@/components/Common/Loading.vue';
-import {namespace} from "vuex-class";
+import { namespace } from 'vuex-class';
 
 export enum RunLambdaDisplayLocation {
   editor = 'editor',
@@ -126,7 +126,7 @@ export default class RunLambda extends Vue {
       lang: 'text',
       content: this.getRunLambdaOutput(),
       wrapText: true,
-      readOnly: true,
+      readOnly: true
     };
 
     const resultDataTab = (

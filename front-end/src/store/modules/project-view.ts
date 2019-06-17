@@ -12,7 +12,8 @@ import {
   LambdaWorkflowState,
   ProjectConfig,
   ProjectLogLevel,
-  RefineryProject, SupportedLanguage,
+  RefineryProject,
+  SupportedLanguage,
   WorkflowRelationship,
   WorkflowRelationshipType,
   WorkflowState,
@@ -79,8 +80,8 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
 
 export interface libraryBuildArguments {
-  language: SupportedLanguage,
-  libraries: string[]
+  language: SupportedLanguage;
+  libraries: string[];
 }
 
 interface AddBlockArguments {
