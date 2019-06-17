@@ -10,7 +10,7 @@ import { languageToAceLangMap } from '@/types/project-editor-types';
 import { IfDropDownSelectionType } from '@/store/store-types';
 import { Prop } from 'vue-property-decorator';
 import { nopWrite } from '@/utils/block-utils';
-import {EditorProps, EditTransitionSelectorProps} from '@/types/component-types';
+import { EditorProps, EditTransitionSelectorProps } from '@/types/component-types';
 import AceEditor from '@/components/Common/AceEditor.vue';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 
@@ -115,9 +115,7 @@ export default class EditTransitionSelector extends Vue implements EditTransitio
       onChange: setIfExpression
     };
 
-    return (
-      <RefineryCodeEditor props={editorProps} />
-    );
+    return <RefineryCodeEditor props={editorProps} />;
   }
 
   private renderIfConditionalSettings() {

@@ -3,7 +3,7 @@ import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import { RefineryProject, SupportedLanguage } from '@/types/graph';
 import { languageToAceLangMap, PANE_POSITION } from '@/types/project-editor-types';
-import {EditorProps} from '@/types/component-types';
+import { EditorProps } from '@/types/component-types';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 
 const project = namespace('project');
@@ -26,9 +26,7 @@ export default class ExportProjectPane extends Vue {
       content: JSON.stringify(this.openedProject, null, '  ')
     };
 
-    return (
-      <RefineryCodeEditor props={editorProps} />
-    );
+    return <RefineryCodeEditor props={editorProps} />;
   }
 
   public render(h: CreateElement): VNode {

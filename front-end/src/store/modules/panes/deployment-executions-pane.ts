@@ -1,7 +1,7 @@
-import {Module} from 'vuex';
-import {RootState} from '../../store-types';
-import {Execution} from '@/types/api-types';
-import {getProjectExecutions} from '@/store/fetchers/api-helpers';
+import { Module } from 'vuex';
+import { RootState } from '../../store-types';
+import { Execution } from '@/types/api-types';
+import { getProjectExecutions } from '@/store/fetchers/api-helpers';
 
 // Enums
 export enum DeploymentExecutionsMutators {
@@ -15,9 +15,9 @@ export enum DeploymentExecutionsActions {
 
 // Types
 export interface DeploymentExecutionsPaneState {
-  isBusy: boolean,
+  isBusy: boolean;
 
-  projectExecutions: { [key: string]: Execution } | null
+  projectExecutions: { [key: string]: Execution } | null;
 }
 
 // Initial State
@@ -40,7 +40,6 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
     }
   },
   actions: {
-
     async [DeploymentExecutionsActions.getExecutionsForOpenedDeployment](context) {
       const deploymentStore = context.rootState.deployment;
 
@@ -56,7 +55,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       // This is kind of a gross way to make the UI more responsive... But it feels reasonable for now.
       // TODO: Gut out the "non-async" flow code to decrease the complexity of this? Maybe use an EventEmitter?
-      const executionsResponse = await getProjectExecutions(deploymentStore.openedDeployment.project_id, (result) => {
+      const executionsResponse = await getProjectExecutions(deploymentStore.openedDeployment.project_id, result => {
         hasIncrementallyAddedResults = true;
 
         // We have the first result of many, so set busy to false while we stuff data into the UI

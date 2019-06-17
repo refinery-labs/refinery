@@ -8,7 +8,7 @@ import { namespace } from 'vuex-class';
 import { nopWrite } from '@/utils/block-utils';
 
 import uuid from 'uuid/v4';
-import {EditorProps} from '@/types/component-types';
+import { EditorProps } from '@/types/component-types';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
@@ -37,9 +37,7 @@ export class EditScheduleTriggerBlock extends Vue {
       readOnly: this.readOnly
     };
 
-    return (
-      <RefineryCodeEditor props={editorProps} />
-    );
+    return <RefineryCodeEditor props={editorProps} />;
   }
 
   public renderCodeEditorContainer() {

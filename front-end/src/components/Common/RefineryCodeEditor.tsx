@@ -4,7 +4,7 @@ import { languageToAceLangMap } from '@/types/project-editor-types';
 import AceEditor from '@/components/Common/AceEditor.vue';
 import { EditorProps } from '@/types/component-types';
 import uuid from 'uuid/v4';
-import {SupportedLanguage} from '@/types/graph';
+import { SupportedLanguage } from '@/types/graph';
 
 @Component
 export default class RefineryCodeEditor extends Vue implements EditorProps {
