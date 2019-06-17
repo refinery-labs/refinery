@@ -1,12 +1,12 @@
 import Vue from 'vue';
 import Component from 'vue-class-component';
-import {namespace} from 'vuex-class';
-import {WorkflowState, WorkflowStateType} from '@/types/graph';
-import {PANE_POSITION} from '@/types/project-editor-types';
-import RunLambda, {RunLambdaDisplayLocation, RunLambdaDisplayMode} from '@/components/RunLambda';
-import {RunLambdaResult} from '@/types/api-types';
-import {RunCodeBlockLambdaConfig} from '@/types/run-lambda-types';
-import {Prop} from 'vue-property-decorator';
+import { namespace } from 'vuex-class';
+import { WorkflowState, WorkflowStateType } from '@/types/graph';
+import { PANE_POSITION } from '@/types/project-editor-types';
+import RunLambda, { RunLambdaDisplayLocation, RunLambdaDisplayMode } from '@/components/RunLambda';
+import { RunLambdaResult } from '@/types/api-types';
+import { RunCodeBlockLambdaConfig } from '@/types/run-lambda-types';
+import { Prop } from 'vue-property-decorator';
 
 const project = namespace('project');
 const editBlock = namespace('project/editBlockPane');
@@ -29,7 +29,7 @@ export default class RunEditorCodeBlockContainer extends Vue {
   @editBlock.Mutation setCodeModalVisibility!: (visible: boolean) => void;
   @runLambda.Mutation setDevLambdaInputData!: (inputData: string) => void;
 
-  @Prop({required: true}) displayMode!: RunLambdaDisplayMode;
+  @Prop({ required: true }) displayMode!: RunLambdaDisplayMode;
 
   // Actions
   @project.Action closePane!: (p: PANE_POSITION) => void;
@@ -59,8 +59,6 @@ export default class RunEditorCodeBlockContainer extends Vue {
       displayMode: this.displayMode
     };
 
-    return (
-      <RunLambda props={runLambdaProps}/>
-    );
+    return <RunLambda props={runLambdaProps} />;
   }
 }

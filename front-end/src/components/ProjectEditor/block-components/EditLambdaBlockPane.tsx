@@ -25,6 +25,7 @@ import { EditorProps } from '@/types/component-types';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
+const project = namespace('project');
 
 @Component
 export class EditLambdaBlock extends Vue {
@@ -62,7 +63,7 @@ export class EditLambdaBlock extends Vue {
   @editBlock.Mutation deleteDependencyImport!: (libraryName: string) => void;
   @editBlock.Mutation addDependencyImport!: (libraryName: string) => void;
 
-  @editBlock.Action StartLibraryBuild!: () => void;
+  @project.Action startLibraryBuild!: () => void;
 
   public renderCodeEditorModal() {
     const nameString = `Edit Code for '${this.selectedNode.name}'`;
@@ -252,7 +253,7 @@ export class EditLambdaBlock extends Vue {
   }
 
   public closeLibraryModal() {
-    this.StartLibraryBuild();
+    this.startLibraryBuild();
     this.setLibrariesModalVisibility(false);
   }
 

@@ -77,8 +77,6 @@ export enum EditBlockActions {
   deleteTransition = 'deleteTransition',
   // Code Block specific
   saveCodeBlockToDatabase = 'saveCodeBlockToDatabase',
-  checkBuildStatus = 'checkBuildStatus',
-  StartLibraryBuild = 'StartLibraryBuild'
 }
 
 // Types
@@ -356,58 +354,6 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
 
       // Close this pane
       await context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.right, { root: true });
-    },
-    async [EditBlockActions.checkBuildStatus](context) {
-      if (context.state.selectedNode === null || context.state.selectedNode.type !== WorkflowStateType.LAMBDA) {
-        console.error("Cannot kick off build for libraries because user doesn't have a node selected.");
-        return;
-      }
-
-      const lambdaBlock = context.state.selectedNode as LambdaWorkflowState;
-
-      const response = await makeApiRequest<GetBuildStatusRequest, GetBuildStatusResponse>(
-        API_ENDPOINT.GetBuildStatus,
-        {
-          libraries: lambdaBlock.libraries,
-          language: lambdaBlock.language
-        }
-      );
-
-      if (!response || !response.success) {
-        console.error('Unable to check library build cache: server error.');
-        throw 'Server error occurred while checking library build cache!';
-      }
-
-      return response.is_already_cached;
-    },
-    async [EditBlockActions.StartLibraryBuild](context) {
-      if (context.state.selectedNode === null || context.state.selectedNode.type !== WorkflowStateType.LAMBDA) {
-        console.error("Cannot kick off build for libraries because user doesn't have a node selected.");
-        return;
-      }
-
-      const lambdaBlock = context.state.selectedNode as LambdaWorkflowState;
-
-      // Check if we're already build this before
-      const buildIsCached = await context.dispatch(EditBlockActions.checkBuildStatus);
-
-      // If so no need to kick it off
-      if (buildIsCached) {
-        return;
-      }
-
-      const response = await makeApiRequest<StartLibraryBuildRequest, StartLibraryBuildResponse>(
-        API_ENDPOINT.StartLibraryBuild,
-        {
-          libraries: lambdaBlock.libraries,
-          language: lambdaBlock.language
-        }
-      );
-
-      if (!response || !response.success) {
-        console.error('Unable kick off library build: server error.');
-        throw 'Server error occurred while kicking off library build!';
-      }
     }
   }
 };
