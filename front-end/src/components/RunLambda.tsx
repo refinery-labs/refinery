@@ -62,7 +62,10 @@ export default class RunLambda extends Vue {
     return this.runResultOutput.logs;
   }
 
-  getIdSuffix() {
+  /**
+   * This is only helpful for inspecting the elements on the page. Not needed for any other purpose.
+   */
+  getNameSuffix() {
     return `${this.displayLocation}-${this.displayMode}`;
   }
 
@@ -101,7 +104,7 @@ export default class RunLambda extends Vue {
     }
 
     const resultDataEditorProps: EditorProps = {
-      id: `result-data-${this.lambdaIdOrArn}-${this.getIdSuffix()}`,
+      name: `result-data-${this.getNameSuffix()}`,
       // This is very nice for rendering non-programming text
       lang: 'text',
       content: (this.runResultOutput && this.runResultOutput.returned_data) || '',
@@ -110,7 +113,7 @@ export default class RunLambda extends Vue {
     };
 
     const resultOutputEditorProps: EditorProps = {
-      id: `result-output-${this.lambdaIdOrArn}-${this.getIdSuffix()}`,
+      name: `result-output-${this.getNameSuffix()}`,
       // This is very nice for rendering non-programming text
       lang: 'text',
       content: this.getRunLambdaOutput(),
@@ -125,7 +128,7 @@ export default class RunLambda extends Vue {
             Returned Data <em class="fas fa-code" />
           </span>
         </template>
-        <RefineryCodeEditor props={{ editorProps: resultDataEditorProps }} />
+        <RefineryCodeEditor props={resultDataEditorProps} />
       </b-tab>
     );
 
@@ -136,7 +139,7 @@ export default class RunLambda extends Vue {
             Execution Output <em class="fas fa-terminal" />
           </span>
         </template>
-        <RefineryCodeEditor props={{ editorProps: resultOutputEditorProps }} />
+        <RefineryCodeEditor props={resultOutputEditorProps} />
       </b-tab>
     );
 
@@ -160,7 +163,7 @@ export default class RunLambda extends Vue {
 
   public renderEditors() {
     const inputDataEditorProps: EditorProps = {
-      id: `input-${this.lambdaIdOrArn}-${this.getIdSuffix()}`,
+      name: `input-${this.getNameSuffix()}`,
       // Using NodeJS for JSON support
       lang: SupportedLanguage.NODEJS_8,
       content: this.inputData,
@@ -178,7 +181,7 @@ export default class RunLambda extends Vue {
           <label class={inputDataLabelClasses}> Input Data</label>
           {this.renderFullscreenButton()}
         </div>
-        <RefineryCodeEditor props={{ editorProps: inputDataEditorProps }} />
+        <RefineryCodeEditor props={inputDataEditorProps} />
       </div>
     );
 
@@ -191,7 +194,7 @@ export default class RunLambda extends Vue {
 
     // Row layout
     return (
-      <div class="display--flex flex-direction--row">
+      <div class="display--flex flex-direction--row flex-grow--1">
         {inputDataEditor}
         {outputDataEditor}
       </div>

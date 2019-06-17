@@ -3,55 +3,72 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import { languageToAceLangMap } from '@/types/project-editor-types';
 import AceEditor from '@/components/Common/AceEditor.vue';
 import { EditorProps } from '@/types/component-types';
+import uuid from 'uuid/v4';
+import {SupportedLanguage} from '@/types/graph';
 
 @Component
-export default class RefineryCodeEditor extends Vue {
-  @Prop({ required: true }) private editorProps!: EditorProps | null;
+export default class RefineryCodeEditor extends Vue implements EditorProps {
+  @Prop({ required: true }) name!: string;
+  @Prop({ required: true }) lang!: SupportedLanguage | 'text';
+  @Prop({ required: true }) content!: string;
+  @Prop() theme?: string;
+  @Prop() onChange?: (s: string) => void;
+  @Prop() onChangeContext?: (c: { value: string; this: any }) => void;
 
-  public getChangeHandlers(props: EditorProps) {
+  // Ace Props
+  @Prop() readOnly?: boolean;
+  @Prop() wrapText?: boolean;
+
+  @Prop() extraClasses?: string;
+
+  // Internal value used to prevent editors from colliding IDs. Colliding causes breaking + performance issues.
+  randId: string = uuid();
+
+  public getChangeHandlers() {
     const handlers: { [key: string]: Function } = {};
 
-    if (props.onChange) {
-      handlers['change-content'] = props.onChange;
+    if (this.onChange) {
+      handlers['change-content'] = this.onChange;
     }
 
-    if (props.onChangeContext) {
-      handlers['change-content-context'] = props.onChangeContext;
+    if (this.onChangeContext) {
+      handlers['change-content-context'] = this.onChangeContext;
     }
 
     return handlers;
   }
 
   public renderEditor() {
-    const props = this.editorProps;
-
     // If we don't have valid state, tell the user.
-    if (!props) {
+    if (this.content === null) {
       return <h3>Could not display code editor.</h3>;
     }
 
-    // The "rest" is everything except id and lang. It's "the rest" of the object.
-    const { id, lang, readOnly, ...rest } = props;
-
     // This is super gross but gonna leave it for now. Eventually (if we add a 2nd) we will need to do an Enum lookup
     // Like "is this in the enum" in order for the mapping to work. Typescript will yell so not afraid :)
-    const editorLanguage = lang === 'text' ? 'text' : languageToAceLangMap[lang];
+    const editorLanguage = this.lang === 'text' ? 'text' : languageToAceLangMap[this.lang];
 
     const aceProps = {
-      editorId: `editor-run-lambda-input-${id}`,
-      theme: 'monokai',
+      editorId: `${this.name}-${this.randId}`,
+      theme: this.theme || 'monokai',
       lang: editorLanguage,
-      disabled: readOnly,
-      ...rest
+      disabled: this.readOnly,
+      content: this.content,
+      wrapText: this.wrapText
     };
 
     return (
       // @ts-ignore
-      <AceEditor props={aceProps} on={this.getChangeHandlers(props)} />
+      <AceEditor props={aceProps} on={this.getChangeHandlers()} />
     );
   }
 
   public render(h: CreateElement): VNode {
-    return <div class="refinery-code-editor-container width--100percent">{this.renderEditor()}</div>;
+    const containerClasses = {
+      'refinery-code-editor-container width--100percent flex-grow--1 display--flex': true,
+      [this.extraClasses || '']: Boolean(this.extraClasses)
+    };
+
+    return <div class={containerClasses}>{this.renderEditor()}</div>;
   }
 }

@@ -1,6 +1,5 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
-import { namespace } from 'vuex-class';
 import {
   AddGraphElementConfig,
   availableTransitions,
@@ -8,12 +7,12 @@ import {
 } from '@/constants/project-editor-constants';
 import { SupportedLanguage, WorkflowRelationshipType } from '@/types/graph';
 import { languageToAceLangMap } from '@/types/project-editor-types';
-import AceEditor from '@/components/Common/AceEditor.vue';
 import { IfDropDownSelectionType } from '@/store/store-types';
-import { PropsDefinition } from 'vue/types/options';
 import { Prop } from 'vue-property-decorator';
 import { nopWrite } from '@/utils/block-utils';
-import { EditTransitionSelectorProps } from '@/types/component-types';
+import {EditorProps, EditTransitionSelectorProps} from '@/types/component-types';
+import AceEditor from '@/components/Common/AceEditor.vue';
+import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 
 @Component
 export default class EditTransitionSelector extends Vue implements EditTransitionSelectorProps {
@@ -106,27 +105,18 @@ export default class EditTransitionSelector extends Vue implements EditTransitio
   public renderCodeEditor() {
     const setIfExpression = this.readOnly ? nopWrite : this.setIfExpression;
 
-    const editorProps = {
-      'editor-id': `editor-export-project-if-conditional-dropdown`,
+    const editorProps: EditorProps = {
+      name: `editor-export-project-if-conditional-dropdown`,
       // Set Nodejs because it supports JSON
-      lang: languageToAceLangMap[SupportedLanguage.PYTHON_2],
-      theme: 'monokai',
+      lang: SupportedLanguage.PYTHON_2,
       content: this.ifExpression || '',
-      disabled: this.readOnly,
-      on: { 'change-content': setIfExpression }
+      readOnly: this.readOnly,
+      wrapText: true,
+      onChange: setIfExpression
     };
 
     return (
-      // @ts-ignore
-      <AceEditor
-        wrapText={true}
-        editor-id={editorProps['editor-id']}
-        lang={editorProps.lang}
-        theme={editorProps.theme}
-        content={editorProps.content}
-        disabled={editorProps.disabled}
-        on={editorProps.on}
-      />
+      <RefineryCodeEditor props={editorProps} />
     );
   }
 

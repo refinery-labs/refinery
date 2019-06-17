@@ -8,7 +8,6 @@ import {
   LanguageToBaseRepoURLMap,
   LanguageToLibraryRepoURLMap
 } from '@/types/project-editor-types';
-import AceEditor from '@/components/Common/AceEditor.vue';
 import { BlockNameInput } from '@/components/ProjectEditor/block-components/EditBlockNamePane';
 import { namespace } from 'vuex-class';
 import {
@@ -21,6 +20,8 @@ import { RunLambdaDisplayMode } from '@/components/RunLambda';
 import RunEditorCodeBlockContainer from '@/components/ProjectEditor/RunEditorCodeBlockContainer';
 import RunDeployedCodeBlockContainer from '@/components/DeploymentViewer/RunDeployedCodeBlockContainer';
 import { nopWrite } from '@/utils/block-utils';
+import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
+import {EditorProps} from '@/types/component-types';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
@@ -83,7 +84,7 @@ export class EditLambdaBlock extends Vue {
         visible={showCodeModal}
       >
         <div class="text-center display--flex flex-direction--column code-modal-editor-container">
-          <div class="width--100percent flex-grow--1">{this.renderCodeEditor('modal')}</div>
+          <div class="width--100percent flex-grow--1 display--flex">{this.renderCodeEditor()}</div>
           <div class="width--100percent">
             <RunLambdaContainer props={{ displayMode: RunLambdaDisplayMode.fullscreen }} />
           </div>
@@ -92,27 +93,20 @@ export class EditLambdaBlock extends Vue {
     );
   }
 
-  public renderCodeEditor(id: string) {
+  public renderCodeEditor() {
     const setCodeInput = this.readOnly ? nopWrite : this.setCodeInput;
 
-    const editorProps = {
-      'editor-id': `code-editor-${this.selectedNode.id}-${id}`,
-      lang: languageToAceLangMap[this.selectedNode.language],
-      theme: 'monokai',
+    const editorProps: EditorProps = {
+      name: 'block-code',
+      lang: this.selectedNode.language,
+      readOnly: this.readOnly,
       content: this.selectedNode.code,
-      on: { 'change-content': setCodeInput }
+      onChange: setCodeInput,
+      extraClasses: 'height--100percent'
     };
 
     return (
-      // @ts-ignore
-      <AceEditor
-        editor-id={editorProps['editor-id']}
-        lang={editorProps.lang}
-        theme="monokai"
-        content={editorProps.content}
-        disabled={this.readOnly}
-        on={editorProps.on}
-      />
+      <RefineryCodeEditor props={editorProps} />
     );
   }
 
@@ -141,7 +135,7 @@ export class EditLambdaBlock extends Vue {
             <span class="fa fa-angle-double-left" />
           </b-button>
         </div>
-        <div class="input-group with-focus edit-block-container__code-editor">{this.renderCodeEditor('pane')}</div>
+        <div class="input-group with-focus edit-block-container__code-editor">{this.renderCodeEditor()}</div>
       </b-form-group>
     );
   }
