@@ -10,7 +10,6 @@ const viewBlock = namespace('viewBlock');
 export default class ViewDeployedBlockPane extends Vue {
   @viewBlock.State selectedNode!: WorkflowState | null;
   @viewBlock.State confirmDiscardModalVisibility!: boolean;
-  @viewBlock.State isStateDirty!: boolean;
   @viewBlock.State wideMode!: boolean;
 
   @viewBlock.Mutation setConfirmDiscardModalVisibility!: (visibility: boolean) => void;

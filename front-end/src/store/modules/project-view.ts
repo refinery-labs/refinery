@@ -238,7 +238,14 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       !state.hasProjectBeenModified &&
       !state.isProjectBusy &&
       !state.isAddingTransitionCurrently &&
-      !state.isEditingTransitionCurrently
+      !state.isEditingTransitionCurrently,
+    [ProjectViewGetters.selectedResourceDirty]: (state, getters) => {
+      // Yes, this getter syntax is real.
+      const isBlockStateDirty = state.editBlockPane && getters['editBlockPane/isStateDirty'];
+      const isTransitionStateDirty = state.editTransitionPanel && getters['editTransitionPane/isStateDirty'];
+
+      return isBlockStateDirty || isTransitionStateDirty;
+    }
   },
   mutations: {
     [ProjectViewMutators.setOpenedProject](state, project: RefineryProject) {
@@ -719,10 +726,10 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      if (context.state.editBlockPane && context.state.editBlockPane.isStateDirty) {
+      if (context.getters.selectedResourceDirty) {
         await createToast(context.dispatch, {
           title: 'Unsaved Block Detected',
-          content: 'Please save or discard changes to block before selecting another block.',
+          content: 'Please save or discard changes to block before selecting another resource.',
           variant: ToastVariant.warning
         });
         return;
@@ -757,6 +764,16 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(`editBlockPane/${EditBlockActions.selectCurrentlySelectedProjectNode}`);
     },
     async [ProjectViewActions.selectEdge](context, edgeId: string) {
+
+      if (context.getters.selectedResourceDirty) {
+        await createToast(context.dispatch, {
+          title: 'Unsaved Transition Detected',
+          content: 'Please save or discard changes to transition before selecting another resource.',
+          variant: ToastVariant.warning
+        });
+        return;
+      }
+
       // I don't have a good answer for this, but my best guess is that
       // just having a reset pane state call for edge and node selection is
       // the best way to go about this? This may cause users to lose their

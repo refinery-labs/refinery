@@ -19,6 +19,7 @@ export enum ProjectViewGetters {
   canSaveProject = 'canSaveProject',
   canDeployProject = 'canDeployProject',
   hasCodeBlockSelected = 'hasCodeBlockSelected',
+  selectedResourceDirty = 'selectedResourceDirty',
   getValidEditMenuDisplayTransitionTypes = 'getValidEditMenuDisplayTransitionTypes'
 }
 

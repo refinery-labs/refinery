@@ -1,4 +1,5 @@
 import { Module } from 'vuex';
+import deepEqual from 'fast-deep-equal';
 import { RootState } from '../../store-types';
 import {
   ApiEndpointWorkflowState,
@@ -12,7 +13,7 @@ import {
 import { getNodeDataById, getTransitionsForNode } from '@/utils/project-helpers';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
-import { ProjectViewActions } from '@/constants/store-constants';
+import {ProjectViewActions, ProjectViewMutators} from '@/constants/store-constants';
 import { PANE_POSITION } from '@/types/project-editor-types';
 import { DEFAULT_LANGUAGE_CODE } from '@/constants/project-editor-constants';
 import { HTTP_METHOD } from '@/constants/api-constants';
@@ -22,7 +23,7 @@ import { deepJSONCopy } from '@/lib/general-utils';
 // Enums
 export enum EditBlockMutators {
   setSelectedNode = 'setSelectedNode',
-  setDirtyState = 'setDirtyState',
+  setSelectedNodeOriginal = 'setSelectedNodeOriginal',
 
   setConfirmDiscardModalVisibility = 'setConfirmDiscardModalVisibility',
   setWidePanel = 'setWidePanel',
@@ -74,10 +75,9 @@ export enum EditBlockActions {
 // Types
 export interface EditBlockPaneState {
   selectedNode: WorkflowState | null;
-  selectedTransition: WorkflowRelationship | null;
+  selectedNodeOriginal: WorkflowState | null;
   confirmDiscardModalVisibility: false;
   showCodeModal: boolean;
-  isStateDirty: boolean;
   wideMode: boolean;
 
   // This doesn't really make sense here
@@ -89,10 +89,9 @@ export interface EditBlockPaneState {
 // Initial State
 const moduleState: EditBlockPaneState = {
   selectedNode: null,
-  selectedTransition: null,
+  selectedNodeOriginal: null,
   confirmDiscardModalVisibility: false,
   showCodeModal: false,
-  isStateDirty: false,
   wideMode: false,
   librariesModalVisibility: false,
   enteredLibrary: ''
@@ -101,7 +100,6 @@ const moduleState: EditBlockPaneState = {
 function modifyBlock<T extends WorkflowState>(state: EditBlockPaneState, fn: (block: T) => void) {
   const block = state.selectedNode as T;
   fn(block);
-  state.isStateDirty = true;
   state.selectedNode = Object.assign({}, block);
 }
 
@@ -135,13 +133,15 @@ function apiEndpointChange(state: EditBlockPaneState, fn: (block: ApiEndpointWor
 const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
   namespaced: true,
   state: moduleState,
-  getters: {},
+  getters: {
+    isStateDirty: state => state.selectedNode && state.selectedNodeOriginal && !deepEqual(state.selectedNode, state.selectedNodeOriginal)
+  },
   mutations: {
     [EditBlockMutators.setSelectedNode](state, node) {
       state.selectedNode = node;
     },
-    [EditBlockMutators.setDirtyState](state, dirtyState) {
-      state.isStateDirty = dirtyState;
+    [EditBlockMutators.setSelectedNodeOriginal](state, node) {
+      state.selectedNodeOriginal = deepJSONCopy(node);
     },
     [EditBlockMutators.setConfirmDiscardModalVisibility](state, visibility) {
       state.confirmDiscardModalVisibility = visibility;
@@ -229,7 +229,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
      */
     async [EditBlockActions.resetPaneState](context) {
       context.commit(EditBlockMutators.setSelectedNode, null);
-      context.commit(EditBlockMutators.setDirtyState, false);
+      context.commit(EditBlockMutators.setSelectedNodeOriginal, null);
       context.commit(EditBlockMutators.setCodeModalVisibility, false);
       context.commit(EditBlockMutators.setConfirmDiscardModalVisibility, false);
     },
@@ -251,6 +251,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       }
 
       context.commit(EditBlockMutators.setSelectedNode, node);
+      context.commit(EditBlockMutators.setSelectedNodeOriginal, node);
     },
     async [EditBlockActions.selectCurrentlySelectedProjectNode](context) {
       const projectStore = context.rootState.project;
@@ -270,7 +271,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
         return;
       }
 
-      if (!context.state.isStateDirty || !context.state.selectedNode) {
+      if (!context.getters.isStateDirty || !context.state.selectedNode) {
         console.error('Unable to perform save -- state is invalid of edited block');
         return;
       }
@@ -278,7 +279,9 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       await context.dispatch(`project/${ProjectViewActions.updateExistingBlock}`, context.state.selectedNode, {
         root: true
       });
-      context.commit(EditBlockMutators.setDirtyState, false);
+
+      // Set the "original" to the new block.
+      context.commit(EditBlockMutators.setSelectedNodeOriginal, context.state.selectedNode);
 
       await createToast(context.dispatch, {
         title: 'Block saved!',
@@ -318,8 +321,6 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
         root: true
       });
 
-      context.commit(EditBlockMutators.setDirtyState, false);
-
       await createToast(context.dispatch, {
         title: 'Block deleted!',
         content: `Successfully deleted block with name: ${context.state.selectedNode.name}`,
@@ -331,7 +332,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     },
     async [EditBlockActions.tryToCloseBlock](context) {
       // If we have changes that we are going to discard, then ask the user to confirm destruction.
-      if (context.state.isStateDirty) {
+      if (context.getters.isStateDirty) {
         context.commit(EditBlockMutators.setConfirmDiscardModalVisibility, true);
         return;
       }

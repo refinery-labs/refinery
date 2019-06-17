@@ -17,8 +17,9 @@ const editBlock = namespace('project/editBlockPane');
 export default class EditBlockPane extends Vue {
   @editBlock.State selectedNode!: WorkflowState | null;
   @editBlock.State confirmDiscardModalVisibility!: boolean;
-  @editBlock.State isStateDirty!: boolean;
   @editBlock.State wideMode!: boolean;
+
+  @editBlock.Getter isStateDirty!: boolean;
 
   @editBlock.Mutation setConfirmDiscardModalVisibility!: (visibility: boolean) => void;
 
