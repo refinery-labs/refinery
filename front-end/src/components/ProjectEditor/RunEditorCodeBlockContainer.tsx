@@ -43,10 +43,10 @@ export default class RunEditorCodeBlockContainer extends Vue {
 
   private getLoadingText(isBuildCached: boolean) {
     if (isBuildCached) {
-      return 'Running Lambda...';
+      return 'Running Code Block...';
     }
 
-    return 'Building Lambda libraries and then running Lambda...';
+    return 'Building libraries and then running Code Block...';
   }
 
   private async checkBuildRequired(config: RunCodeBlockLambdaConfig) {

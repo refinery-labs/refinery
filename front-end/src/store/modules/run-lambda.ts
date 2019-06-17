@@ -64,7 +64,7 @@ const moduleState: RunLambdaState = {
   devLambdaResultId: null,
   devLambdaInputData: '',
 
-  loadingText: 'Running Lambda...'
+  loadingText: 'Running Code Block...'
 };
 
 const RunLambdaModule: Module<RunLambdaState, RootState> = {
