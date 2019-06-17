@@ -1,7 +1,8 @@
 import {
   LambdaWorkflowState,
   ProjectConfig,
-  ProjectEnvironmentVariableConfig, SupportedLanguage,
+  ProjectEnvironmentVariableConfig,
+  SupportedLanguage,
   WorkflowRelationship,
   WorkflowState,
   WorkflowStateType

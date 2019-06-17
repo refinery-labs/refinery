@@ -1,6 +1,6 @@
-import {Module} from 'vuex';
+import { Module } from 'vuex';
 import deepEqual from 'fast-deep-equal';
-import {RootState} from '../../store-types';
+import { RootState } from '../../store-types';
 import {
   ApiEndpointWorkflowState,
   LambdaWorkflowState,
@@ -10,22 +10,22 @@ import {
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import {getNodeDataById, getTransitionsForNode} from '@/utils/project-helpers';
-import {createToast} from '@/utils/toasts-utils';
-import {ToastVariant} from '@/types/toasts-types';
-import {ProjectViewActions, ProjectViewMutators} from '@/constants/store-constants';
-import {PANE_POSITION} from '@/types/project-editor-types';
-import {DEFAULT_LANGUAGE_CODE} from '@/constants/project-editor-constants';
-import {API_ENDPOINT, HTTP_METHOD} from '@/constants/api-constants';
-import {validatePath} from '@/utils/block-utils';
-import {deepJSONCopy} from '@/lib/general-utils';
+import { getNodeDataById, getTransitionsForNode } from '@/utils/project-helpers';
+import { createToast } from '@/utils/toasts-utils';
+import { ToastVariant } from '@/types/toasts-types';
+import { ProjectViewActions , ProjectViewMutators} from '@/constants/store-constants';
+import { PANE_POSITION } from '@/types/project-editor-types';
+import { DEFAULT_LANGUAGE_CODE } from '@/constants/project-editor-constants';
+import { API_ENDPOINT, HTTP_METHOD } from '@/constants/api-constants';
+import { validatePath } from '@/utils/block-utils';
+import { deepJSONCopy } from '@/lib/general-utils';
 import {
   GetBuildStatusRequest,
   GetBuildStatusResponse,
   StartLibraryBuildRequest,
   StartLibraryBuildResponse
-} from "@/types/api-types";
-import {makeApiRequest} from "@/store/fetchers/refinery-api";
+} from '@/types/api-types';
+import { makeApiRequest } from '@/store/fetchers/refinery-api';
 
 // Enums
 export enum EditBlockMutators {
@@ -355,7 +355,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       await context.dispatch(EditBlockActions.resetPaneState);
 
       // Close this pane
-      await context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.right, {root: true});
+      await context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.right, { root: true });
     },
     async [EditBlockActions.checkBuildStatus](context) {
       if (context.state.selectedNode === null || context.state.selectedNode.type !== WorkflowStateType.LAMBDA) {
@@ -375,7 +375,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
 
       if (!response || !response.success) {
         console.error('Unable to check library build cache: server error.');
-        throw "Server error occurred while checking library build cache!";
+        throw 'Server error occurred while checking library build cache!';
       }
 
       return response.is_already_cached;
@@ -406,9 +406,9 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
 
       if (!response || !response.success) {
         console.error('Unable kick off library build: server error.');
-        throw "Server error occurred while kicking off library build!";
+        throw 'Server error occurred while kicking off library build!';
       }
-    },
+    }
   }
 };
 

@@ -1,9 +1,10 @@
-import { CreateElement, VNode } from 'vue';
-import { Component, Prop, Vue } from 'vue-property-decorator';
-import { SupportedLanguage } from '@/types/graph';
+import {CreateElement, VNode} from 'vue';
+import {Component, Prop, Vue} from 'vue-property-decorator';
+import {SupportedLanguage} from '@/types/graph';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
-import { EditorProps } from '@/types/component-types';
-import { RunLambdaResult } from '@/types/api-types';
+import {EditorProps} from '@/types/component-types';
+import {RunLambdaResult} from '@/types/api-types';
+import Loading from "@/components/Common/Loading.vue";
 
 export enum RunLambdaDisplayLocation {
   editor = 'editor',
@@ -15,24 +16,28 @@ export enum RunLambdaDisplayMode {
   fullscreen = 'fullscreen'
 }
 
-@Component
+@Component({
+  components: {
+    Loading
+  }
+})
 export default class RunLambda extends Vue {
-  @Prop({ required: true }) private onRunLambda!: () => void;
-  @Prop({ required: true }) private onUpdateInputData!: (s: string) => void;
+  @Prop({required: true}) private onRunLambda!: () => void;
+  @Prop({required: true}) private onUpdateInputData!: (s: string) => void;
   @Prop() private fullScreenClicked!: () => void;
 
   /**
    * Allows us to associated the selected block with prior results.
    */
-  @Prop({ required: true }) private lambdaIdOrArn!: string;
+  @Prop({required: true}) private lambdaIdOrArn!: string;
 
-  @Prop({ required: true }) private runResultOutput!: RunLambdaResult | null;
+  @Prop({required: true}) private runResultOutput!: RunLambdaResult | null;
   @Prop() private runResultOutputId!: string | null;
-  @Prop({ required: true }) private inputData!: string;
-  @Prop({ required: true }) private isCurrentlyRunning!: boolean;
+  @Prop({required: true}) private inputData!: string;
+  @Prop({required: true}) private isCurrentlyRunning!: boolean;
 
-  @Prop({ required: true }) private displayLocation!: RunLambdaDisplayLocation;
-  @Prop({ required: true }) private displayMode!: RunLambdaDisplayMode;
+  @Prop({required: true}) private displayLocation!: RunLambdaDisplayLocation;
+  @Prop({required: true}) private displayMode!: RunLambdaDisplayMode;
 
   public checkIfValidRunLambdaOutput() {
     if (!this.runResultOutput) {
@@ -85,7 +90,7 @@ export default class RunLambda extends Vue {
 
     return (
       <b-button on={fullscreenOnClick} class="run-lambda-container__expand-button">
-        <span class="fa fa-expand" />
+        <span class="fa fa-expand"/>
         {/*<b-button on={expandOnClick} class="edit-block-container__expand-button">*/}
         {/*  <span class="fa fa-angle-double-left"/>*/}
         {/*</b-button>*/}
@@ -94,7 +99,7 @@ export default class RunLambda extends Vue {
   }
 
   public renderOutputData() {
-    const noDataText = ['No output data to display.', <br />, 'Click "Execute with Data" to generate output.'];
+    const noDataText = ['No output data to display.', <br/>, 'Click "Execute with Data" to generate output.'];
 
     const isInSidepane = this.displayMode === RunLambdaDisplayMode.sidepane;
     const hasValidOutput = this.checkIfValidRunLambdaOutput();
@@ -125,10 +130,10 @@ export default class RunLambda extends Vue {
       <b-tab title="first" active>
         <template slot="title">
           <span>
-            Returned Data <em class="fas fa-code" />
+            Returned Data <em class="fas fa-code"/>
           </span>
         </template>
-        <RefineryCodeEditor props={resultDataEditorProps} />
+        <RefineryCodeEditor props={resultDataEditorProps}/>
       </b-tab>
     );
 
@@ -136,10 +141,10 @@ export default class RunLambda extends Vue {
       <b-tab title="second">
         <template slot="title">
           <span>
-            Execution Output <em class="fas fa-terminal" />
+            Execution Output <em class="fas fa-terminal"/>
           </span>
         </template>
-        <RefineryCodeEditor props={resultOutputEditorProps} />
+        <RefineryCodeEditor props={resultOutputEditorProps}/>
       </b-tab>
     );
 
@@ -181,7 +186,7 @@ export default class RunLambda extends Vue {
           <label class={inputDataLabelClasses}> Input Data</label>
           {this.renderFullscreenButton()}
         </div>
-        <RefineryCodeEditor props={inputDataEditorProps} />
+        <RefineryCodeEditor props={inputDataEditorProps}/>
       </div>
     );
 
@@ -202,24 +207,30 @@ export default class RunLambda extends Vue {
   }
 
   public render(h: CreateElement): VNode {
-    const containerClasses = {
-      'run-lambda-container display--flex flex-direction--column': true,
-      'whirl standard': this.isCurrentlyRunning && this.displayMode === RunLambdaDisplayMode.fullscreen
-    };
+    const loadingProps = {
+      "show": this.isCurrentlyRunning,
+      "label": "Running Lambda, please wait..."
+    }
 
     return (
-      <div class={containerClasses}>
-        {this.renderEditors()}
-        <div class="run-lambda-container__buttons">
-          <b-button-group class="width--100percent">
-            {/*<b-button variant="info" disabled on={{click: () => this.onRunLambda()}}>*/}
-            {/*  View Last Execution*/}
-            {/*</b-button>*/}
-            <b-button variant="primary" on={{ click: () => this.onRunLambda() }}>
-              Execute With Data
-            </b-button>
-          </b-button-group>
-        </div>
+      <div>
+        {/*
+              // @ts-ignore */}
+        <Loading props={loadingProps}>
+          <div class="run-lambda-container display--flex flex-direction--column">
+            {this.renderEditors()}
+            <div class="run-lambda-container__buttons">
+              <b-button-group class="width--100percent">
+                {/*<b-button variant="info" disabled on={{click: () => this.onRunLambda()}}>*/}
+                {/*  View Last Execution*/}
+                {/*</b-button>*/}
+                <b-button variant="primary" on={{click: () => this.onRunLambda()}}>
+                  Execute With Data
+                </b-button>
+              </b-button-group>
+            </div>
+          </div>
+        </Loading>
       </div>
     );
   }

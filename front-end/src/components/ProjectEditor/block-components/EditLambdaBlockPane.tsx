@@ -272,7 +272,7 @@ export class EditLambdaBlock extends Vue {
     const setEnteredLibrary = this.readOnly ? nopWrite : this.setEnteredLibrary;
 
     const modalOnHandlers = {
-      hidden: () => this.closeLibraryModal(),
+      hidden: () => this.closeLibraryModal()
     };
 
     return (

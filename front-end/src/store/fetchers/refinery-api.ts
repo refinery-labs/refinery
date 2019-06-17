@@ -1,4 +1,4 @@
-import {HttpUtil} from '@/utils/make-request';
+import { HttpUtil } from '@/utils/make-request';
 import {
   AddPaymentMethodRequest,
   AddPaymentMethodResponse,
@@ -17,7 +17,9 @@ import {
   DeployDiagramRequest,
   DeployDiagramResponse,
   GetAuthenticationStatusRequest,
-  GetAuthenticationStatusResponse, GetBuildStatusRequest, GetBuildStatusResponse,
+  GetAuthenticationStatusResponse,
+  GetBuildStatusRequest,
+  GetBuildStatusResponse,
   GetCloudWatchLogsForLambdaRequest,
   GetCloudWatchLogsForLambdaResponse,
   GetLatestMonthlyBillRequest,
@@ -63,11 +65,13 @@ import {
   SaveProjectRequest,
   SaveProjectResponse,
   SearchSavedProjectsRequest,
-  SearchSavedProjectsResponse, StartLibraryBuildRequest, StartLibraryBuildResponse,
+  SearchSavedProjectsResponse,
+  StartLibraryBuildRequest,
+  StartLibraryBuildResponse,
   UpdateEnvironmentVariablesRequest,
   UpdateEnvironmentVariablesResponse
 } from '@/types/api-types';
-import {API_ENDPOINT, ApiConfigMap} from '@/constants/api-constants';
+import { API_ENDPOINT, ApiConfigMap } from '@/constants/api-constants';
 
 export type RefineryApiCall<TRequest extends BaseApiRequest, TResponse extends BaseApiResponse> = (
   request: TRequest
@@ -75,8 +79,7 @@ export type RefineryApiCall<TRequest extends BaseApiRequest, TResponse extends B
 
 export type RefineryApiMap = { [key in API_ENDPOINT]: RefineryApiCall<BaseApiRequest, BaseApiResponse> };
 
-export interface RefineryApiTypeMap extends RefineryApiMap {
-}
+export interface RefineryApiTypeMap extends RefineryApiMap {}
 
 function makeApiClient<TRequest extends BaseApiRequest, TResponse extends BaseApiResponse>(apiEndpoint: API_ENDPOINT) {
   return async <TRequest, TResponse>(request: TRequest) => {
@@ -100,8 +103,10 @@ function makeApiClient<TRequest extends BaseApiRequest, TResponse extends BaseAp
 
 export class RefineryApi implements RefineryApiTypeMap {
   [API_ENDPOINT.HealthHandler] = makeApiClient<HealthCheckRequest, HealthCheckResponse>(API_ENDPOINT.HealthHandler);
-  [API_ENDPOINT.GetAuthenticationStatus] = makeApiClient<GetAuthenticationStatusRequest,
-    GetAuthenticationStatusResponse>(API_ENDPOINT.GetAuthenticationStatus);
+  [API_ENDPOINT.GetAuthenticationStatus] = makeApiClient<
+    GetAuthenticationStatusRequest,
+    GetAuthenticationStatusResponse
+  >(API_ENDPOINT.GetAuthenticationStatus);
   [API_ENDPOINT.NewRegistration] = makeApiClient<NewRegistrationRequest, NewRegistrationResponse>(
     API_ENDPOINT.NewRegistration
   );
@@ -113,21 +118,29 @@ export class RefineryApi implements RefineryApiTypeMap {
   [API_ENDPOINT.CreateScheduleTrigger] = makeApiClient<CreateScheduleTriggerRequest, CreateScheduleTriggerResponse>(
     API_ENDPOINT.CreateScheduleTrigger
   );
-  [API_ENDPOINT.DeleteDeploymentsInProject] = makeApiClient<DeleteDeploymentsInProjectRequest,
-    DeleteDeploymentsInProjectResponse>(API_ENDPOINT.DeleteDeploymentsInProject);
+  [API_ENDPOINT.DeleteDeploymentsInProject] = makeApiClient<
+    DeleteDeploymentsInProjectRequest,
+    DeleteDeploymentsInProjectResponse
+  >(API_ENDPOINT.DeleteDeploymentsInProject);
   [API_ENDPOINT.DeleteSavedProject] = makeApiClient<DeleteSavedProjectRequest, DeleteSavedProjectResponse>(
     API_ENDPOINT.DeleteSavedProject
   );
   [API_ENDPOINT.DeployDiagram] = makeApiClient<DeployDiagramRequest, DeployDiagramResponse>(API_ENDPOINT.DeployDiagram);
-  [API_ENDPOINT.GetCloudWatchLogsForLambda] = makeApiClient<GetCloudWatchLogsForLambdaRequest,
-    GetCloudWatchLogsForLambdaResponse>(API_ENDPOINT.GetCloudWatchLogsForLambda);
-  [API_ENDPOINT.GetLatestProjectDeployment] = makeApiClient<GetLatestProjectDeploymentRequest,
-    GetLatestProjectDeploymentResponse>(API_ENDPOINT.GetLatestProjectDeployment);
+  [API_ENDPOINT.GetCloudWatchLogsForLambda] = makeApiClient<
+    GetCloudWatchLogsForLambdaRequest,
+    GetCloudWatchLogsForLambdaResponse
+  >(API_ENDPOINT.GetCloudWatchLogsForLambda);
+  [API_ENDPOINT.GetLatestProjectDeployment] = makeApiClient<
+    GetLatestProjectDeploymentRequest,
+    GetLatestProjectDeploymentResponse
+  >(API_ENDPOINT.GetLatestProjectDeployment);
   [API_ENDPOINT.GetProjectConfig] = makeApiClient<GetProjectConfigRequest, GetProjectConfigResponse>(
     API_ENDPOINT.GetProjectConfig
   );
-  [API_ENDPOINT.GetProjectExecutionLogs] = makeApiClient<GetProjectExecutionLogsRequest,
-    GetProjectExecutionLogsResponse>(API_ENDPOINT.GetProjectExecutionLogs);
+  [API_ENDPOINT.GetProjectExecutionLogs] = makeApiClient<
+    GetProjectExecutionLogsRequest,
+    GetProjectExecutionLogsResponse
+  >(API_ENDPOINT.GetProjectExecutionLogs);
   [API_ENDPOINT.GetProjectExecutions] = makeApiClient<GetProjectExecutionsRequest, GetProjectExecutionsResponse>(
     API_ENDPOINT.GetProjectExecutions
   );
@@ -153,8 +166,10 @@ export class RefineryApi implements RefineryApiTypeMap {
   [API_ENDPOINT.SearchSavedProjects] = makeApiClient<SearchSavedProjectsRequest, SearchSavedProjectsResponse>(
     API_ENDPOINT.SearchSavedProjects
   );
-  [API_ENDPOINT.UpdateEnvironmentVariables] = makeApiClient<UpdateEnvironmentVariablesRequest,
-    UpdateEnvironmentVariablesResponse>(API_ENDPOINT.UpdateEnvironmentVariables);
+  [API_ENDPOINT.UpdateEnvironmentVariables] = makeApiClient<
+    UpdateEnvironmentVariablesRequest,
+    UpdateEnvironmentVariablesResponse
+  >(API_ENDPOINT.UpdateEnvironmentVariables);
   [API_ENDPOINT.GetPaymentMethods] = makeApiClient<GetPaymentMethodsRequest, GetPaymentMethodsResponse>(
     API_ENDPOINT.GetPaymentMethods
   );

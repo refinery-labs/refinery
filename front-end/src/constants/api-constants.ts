@@ -189,5 +189,5 @@ export const ApiConfigMap: ApiConfigMapType = {
   [API_ENDPOINT.StartLibraryBuild]: {
     path: '/api/v1/lambdas/build_libraries',
     method: HTTP_METHOD.POST
-  },
+  }
 };
