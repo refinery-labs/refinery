@@ -5,6 +5,7 @@ import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { EditorProps } from '@/types/component-types';
 import { RunLambdaResult } from '@/types/api-types';
 import Loading from '@/components/Common/Loading.vue';
+import {namespace} from "vuex-class";
 
 export enum RunLambdaDisplayLocation {
   editor = 'editor',
@@ -38,6 +39,8 @@ export default class RunLambda extends Vue {
 
   @Prop({ required: true }) private displayLocation!: RunLambdaDisplayLocation;
   @Prop({ required: true }) private displayMode!: RunLambdaDisplayMode;
+
+  @Prop({ required: true }) private loadingText!: string;
 
   public checkIfValidRunLambdaOutput() {
     if (!this.runResultOutput) {
@@ -123,7 +126,7 @@ export default class RunLambda extends Vue {
       lang: 'text',
       content: this.getRunLambdaOutput(),
       wrapText: true,
-      readOnly: true
+      readOnly: true,
     };
 
     const resultDataTab = (
@@ -209,7 +212,7 @@ export default class RunLambda extends Vue {
   public render(h: CreateElement): VNode {
     const loadingProps = {
       show: this.isCurrentlyRunning,
-      label: 'Running Lambda, please wait...'
+      label: this.loadingText
     };
 
     return (

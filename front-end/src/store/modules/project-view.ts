@@ -12,7 +12,7 @@ import {
   LambdaWorkflowState,
   ProjectConfig,
   ProjectLogLevel,
-  RefineryProject,
+  RefineryProject, SupportedLanguage,
   WorkflowRelationship,
   WorkflowRelationshipType,
   WorkflowState,
@@ -77,6 +77,11 @@ import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
 import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
+
+export interface libraryBuildArguments {
+  language: SupportedLanguage,
+  libraries: string[]
+}
 
 interface AddBlockArguments {
   rawBlockType: string;
@@ -1323,21 +1328,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       context.commit(ProjectViewMutators.setAddingTransitionStatus, true);
       context.commit(ProjectViewMutators.setAddingTransitionType, transitionType);
     },
-    async [ProjectViewActions.checkBuildStatus](context) {
-      const openedProject = context.state.openedProject as RefineryProject;
-      const selectedResource = context.state.selectedResource as string;
-      const selectedNode = getNodeDataById(openedProject, selectedResource);
-      if (selectedNode === null || selectedNode.type !== WorkflowStateType.LAMBDA) {
-        console.error("Cannot check library build cache because user doesn't have a node selected.");
-        return;
-      }
-      const lambdaBlock = selectedNode as LambdaWorkflowState;
-
+    async [ProjectViewActions.checkBuildStatus](context, libraryBuildArgs: libraryBuildArguments) {
       const response = await makeApiRequest<GetBuildStatusRequest, GetBuildStatusResponse>(
         API_ENDPOINT.GetBuildStatus,
         {
-          libraries: lambdaBlock.libraries,
-          language: lambdaBlock.language
+          libraries: libraryBuildArgs.libraries,
+          language: libraryBuildArgs.language
         }
       );
 
@@ -1348,18 +1344,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       return response.is_already_cached;
     },
-    async [ProjectViewActions.startLibraryBuild](context) {
-      const openedProject = context.state.openedProject as RefineryProject;
-      const selectedResource = context.state.selectedResource as string;
-      const selectedNode = getNodeDataById(openedProject, selectedResource);
-      if (selectedNode === null || selectedNode.type !== WorkflowStateType.LAMBDA) {
-        console.error("Cannot kick off build for libraries because user doesn't have a node selected.");
-        return;
-      }
-      const lambdaBlock = selectedNode as LambdaWorkflowState;
-
+    async [ProjectViewActions.startLibraryBuild](context, libraryBuildArgs: libraryBuildArguments) {
       // Check if we're already build this before
-      const buildIsCached = await context.dispatch(ProjectViewActions.checkBuildStatus);
+      const buildIsCached = await context.dispatch(ProjectViewActions.checkBuildStatus, libraryBuildArgs);
 
       // If so no need to kick it off
       if (buildIsCached) {
@@ -1369,8 +1356,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const response = await makeApiRequest<StartLibraryBuildRequest, StartLibraryBuildResponse>(
         API_ENDPOINT.StartLibraryBuild,
         {
-          libraries: lambdaBlock.libraries,
-          language: lambdaBlock.language
+          libraries: libraryBuildArgs.libraries,
+          language: libraryBuildArgs.language
         }
       );
 

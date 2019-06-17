@@ -1,5 +1,5 @@
-import { Module } from 'vuex';
-import { RootState } from '../store-types';
+import {Module} from 'vuex';
+import {RootState} from '../store-types';
 import {
   RunLambdaRequest,
   RunLambdaResponse,
@@ -7,10 +7,10 @@ import {
   RunTmpLambdaRequest,
   RunTmpLambdaResponse
 } from '@/types/api-types';
-import { makeApiRequest } from '@/store/fetchers/refinery-api';
-import { API_ENDPOINT } from '@/constants/api-constants';
-import { LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
-import { RunCodeBlockLambdaConfig } from '@/types/run-lambda-types';
+import {makeApiRequest} from '@/store/fetchers/refinery-api';
+import {API_ENDPOINT} from '@/constants/api-constants';
+import {LambdaWorkflowState,  WorkflowStateType} from '@/types/graph';
+import {RunCodeBlockLambdaConfig} from '@/types/run-lambda-types';
 
 // Enums
 export enum RunLambdaMutators {
@@ -21,7 +21,8 @@ export enum RunLambdaMutators {
 
   setDevLambdaRunResult = 'setDevLambdaRunResult',
   setDevLambdaRunResultId = 'setDevLambdaRunResultId',
-  setDevLambdaInputData = 'setDevLambdaInputData'
+  setDevLambdaInputData = 'setDevLambdaInputData',
+  setLoadingText = 'setLoadingText'
 }
 
 export enum RunLambdaActions {
@@ -43,6 +44,9 @@ export interface RunLambdaState {
   // ID of the last lambda run
   devLambdaResultId: string | null;
   devLambdaInputData: string;
+
+  // Text to display while Lambda is being run
+  loadingText: string,
 }
 
 // Initial State
@@ -57,7 +61,9 @@ const moduleState: RunLambdaState = {
    * Used to "identify" run results and associate them against the selected block.
    */
   devLambdaResultId: null,
-  devLambdaInputData: ''
+  devLambdaInputData: '',
+
+  loadingText: "Running Lambda..."
 };
 
 const RunLambdaModule: Module<RunLambdaState, RootState> = {
@@ -112,7 +118,10 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
     },
     [RunLambdaMutators.setDevLambdaInputData](state, inputData) {
       state.devLambdaInputData = inputData;
-    }
+    },
+    [RunLambdaMutators.setLoadingText](state, loadingText: string) {
+      state.loadingText = loadingText;
+    },
   },
   actions: {
     async [RunLambdaActions.runSelectedDeployedCodeBlock](context, arn: string | null) {

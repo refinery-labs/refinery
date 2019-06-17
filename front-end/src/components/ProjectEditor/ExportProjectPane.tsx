@@ -23,7 +23,8 @@ export default class ExportProjectPane extends Vue {
       name: `editor-export-project`,
       // Set Nodejs because it supports JSON
       lang: SupportedLanguage.NODEJS_8,
-      content: JSON.stringify(this.openedProject, null, '  ')
+      content: JSON.stringify(this.openedProject, null, '  '),
+      extraClasses: 'height--100percent'
     };
 
     return <RefineryCodeEditor props={editorProps} />;
