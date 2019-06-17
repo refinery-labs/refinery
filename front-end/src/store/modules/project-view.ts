@@ -764,7 +764,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(`editBlockPane/${EditBlockActions.selectCurrentlySelectedProjectNode}`);
     },
     async [ProjectViewActions.selectEdge](context, edgeId: string) {
-
       if (context.getters.selectedResourceDirty) {
         await createToast(context.dispatch, {
           title: 'Unsaved Transition Detected',

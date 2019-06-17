@@ -1,15 +1,15 @@
 import { Module } from 'vuex';
-import {IfDropDownSelectionType, RootState} from '../../store-types';
-import {SqsQueueWorkflowState, WorkflowRelationship, WorkflowRelationshipType, WorkflowState} from '@/types/graph';
-import {getTransitionDataById, getValidTransitionsForNode} from '@/utils/project-helpers';
+import { IfDropDownSelectionType, RootState } from '../../store-types';
+import { SqsQueueWorkflowState, WorkflowRelationship, WorkflowRelationshipType, WorkflowState } from '@/types/graph';
+import { getTransitionDataById, getValidTransitionsForNode } from '@/utils/project-helpers';
 import { ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
 import { PANE_POSITION } from '@/types/project-editor-types';
 import { ChangeTransitionArguments } from '@/store/modules/project-view';
-import deepEqual from "fast-deep-equal";
-import {deepJSONCopy} from '@/lib/general-utils';
-import {EditBlockMutators} from '@/store/modules/panes/edit-block-pane';
+import deepEqual from 'fast-deep-equal';
+import { deepJSONCopy } from '@/lib/general-utils';
+import { EditBlockMutators } from '@/store/modules/panes/edit-block-pane';
 
 // Enums
 export enum EditTransitionMutators {
@@ -52,7 +52,8 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
   namespaced: true,
   state: moduleState,
   getters: {
-    isStateDirty: state => state.selectedEdge && state.selectedEdgeOriginal && !deepEqual(state.selectedEdge, state.selectedEdgeOriginal)
+    isStateDirty: state =>
+      state.selectedEdge && state.selectedEdgeOriginal && !deepEqual(state.selectedEdge, state.selectedEdgeOriginal)
   },
   mutations: {
     [EditTransitionMutators.setSelectedEdge](state, edge) {
@@ -60,7 +61,7 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
     },
     [EditTransitionMutators.setSelectedEdgeOriginal](state, edge) {
       state.selectedEdgeOriginal = deepJSONCopy(edge);
-    },
+    }
 
     // TODO: Finish implementing this functionality here.
     // [ProjectViewMutators.setIfDropdownSelection](state, dropdownSelection: IfDropDownSelectionType) {

@@ -13,7 +13,7 @@ import {
 import { getNodeDataById, getTransitionsForNode } from '@/utils/project-helpers';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
-import {ProjectViewActions, ProjectViewMutators} from '@/constants/store-constants';
+import { ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
 import { PANE_POSITION } from '@/types/project-editor-types';
 import { DEFAULT_LANGUAGE_CODE } from '@/constants/project-editor-constants';
 import { HTTP_METHOD } from '@/constants/api-constants';
@@ -134,7 +134,8 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
   namespaced: true,
   state: moduleState,
   getters: {
-    isStateDirty: state => state.selectedNode && state.selectedNodeOriginal && !deepEqual(state.selectedNode, state.selectedNodeOriginal)
+    isStateDirty: state =>
+      state.selectedNode && state.selectedNodeOriginal && !deepEqual(state.selectedNode, state.selectedNodeOriginal)
   },
   mutations: {
     [EditBlockMutators.setSelectedNode](state, node) {
