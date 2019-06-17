@@ -46,7 +46,7 @@ export default class RunEditorCodeBlockContainer extends Vue {
       return 'Running Code Block...';
     }
 
-    return 'Building libraries and then running Code Block...';
+    return 'Building libraries and then running Code Block...\n(Note: The first run after adding a new library may take up to two minutes longer to finish.)';
   }
 
   private async checkBuildRequired(config: RunCodeBlockLambdaConfig) {
