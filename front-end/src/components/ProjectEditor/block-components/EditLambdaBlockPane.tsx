@@ -21,7 +21,7 @@ import RunEditorCodeBlockContainer from '@/components/ProjectEditor/RunEditorCod
 import RunDeployedCodeBlockContainer from '@/components/DeploymentViewer/RunDeployedCodeBlockContainer';
 import { nopWrite } from '@/utils/block-utils';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
-import {EditorProps} from '@/types/component-types';
+import { EditorProps } from '@/types/component-types';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
@@ -105,9 +105,7 @@ export class EditLambdaBlock extends Vue {
       extraClasses: 'height--100percent'
     };
 
-    return (
-      <RefineryCodeEditor props={editorProps} />
-    );
+    return <RefineryCodeEditor props={editorProps} />;
   }
 
   public renderCodeEditorContainer() {
