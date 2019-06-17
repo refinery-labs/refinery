@@ -9,9 +9,8 @@ import {
 } from '@/types/api-types';
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
-import { LambdaWorkflowState, ProjectConfig, WorkflowState, WorkflowStateType } from '@/types/graph';
+import { LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
 import { RunCodeBlockLambdaConfig } from '@/types/run-lambda-types';
-import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
 
 // Enums
 export enum RunLambdaMutators {
