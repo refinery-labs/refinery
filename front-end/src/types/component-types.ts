@@ -2,7 +2,7 @@ import { SupportedLanguage, WorkflowRelationshipType } from '@/types/graph';
 import { IfDropDownSelectionType } from '@/store/store-types';
 
 export interface EditorProps {
-  id: string;
+  name: string;
   lang: SupportedLanguage | 'text';
   content: string;
   theme?: string;
@@ -11,8 +11,10 @@ export interface EditorProps {
 
   // Ace Props
   readOnly?: boolean;
-  disabled?: boolean;
   wrapText?: boolean;
+
+  // Ace is garbage and we need this
+  extraClasses?: string;
 }
 
 export interface EditTransitionSelectorProps {

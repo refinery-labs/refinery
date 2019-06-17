@@ -7,6 +7,10 @@ const deployment = namespace('deployment');
 @Component
 export default class ViewExecutionsPane extends Vue {
   public render(h: CreateElement): VNode {
-    return <b-list-group class="view-executions-pane-container">View Executions</b-list-group>;
+    return (
+      <div class="view-executions-pane-container">
+        View Executions
+      </div>
+    );
   }
 }

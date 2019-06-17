@@ -201,7 +201,7 @@ export interface GetProjectExecutionsResponse extends BaseApiResponse {
 }
 
 export interface GetProjectExecutionsResponseResult {
-  continuation_token: boolean;
+  continuation_token: string;
   executions: { [key: string]: Execution };
 }
 

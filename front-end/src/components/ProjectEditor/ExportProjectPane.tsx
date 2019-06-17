@@ -2,8 +2,9 @@ import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import { RefineryProject, SupportedLanguage } from '@/types/graph';
-import AceEditor from '@/components/Common/AceEditor.vue';
 import { languageToAceLangMap, PANE_POSITION } from '@/types/project-editor-types';
+import {EditorProps} from '@/types/component-types';
+import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 
 const project = namespace('project');
 
@@ -18,22 +19,15 @@ export default class ExportProjectPane extends Vue {
       return <span>Please open project!</span>;
     }
 
-    const editorProps = {
-      'editor-id': `editor-export-project-${this.openedProject.project_id}`,
+    const editorProps: EditorProps = {
+      name: `editor-export-project`,
       // Set Nodejs because it supports JSON
-      lang: languageToAceLangMap[SupportedLanguage.NODEJS_8],
-      theme: 'monokai',
+      lang: SupportedLanguage.NODEJS_8,
       content: JSON.stringify(this.openedProject, null, '  ')
     };
 
     return (
-      // @ts-ignore
-      <AceEditor
-        editor-id={editorProps['editor-id']}
-        lang={editorProps.lang}
-        theme="monokai"
-        content={editorProps.content}
-      />
+      <RefineryCodeEditor props={editorProps} />
     );
   }
 

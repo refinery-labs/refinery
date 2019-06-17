@@ -2,12 +2,14 @@ import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { Prop } from 'vue-property-decorator';
 import { ScheduleTriggerWorkflowState } from '@/types/graph';
-import AceEditor from '@/components/Common/AceEditor.vue';
 import { BlockNameInput } from '@/components/ProjectEditor/block-components/EditBlockNamePane';
 import { BlockScheduleExpressionInput } from '@/components/ProjectEditor/block-components/EditBlockScheduleExpressionPane';
 import { namespace } from 'vuex-class';
 import { nopWrite } from '@/utils/block-utils';
 
+import uuid from 'uuid/v4';
+import {EditorProps} from '@/types/component-types';
+import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
 
@@ -27,24 +29,16 @@ export class EditScheduleTriggerBlock extends Vue {
   @editBlock.Mutation setWidePanel!: (wide: boolean) => void;
 
   public renderCodeEditor(id: string) {
-    const editorProps = {
-      'editor-id': `schedule-trigger-editor-${this.selectedNode.id}-${id}`,
+    const editorProps: EditorProps = {
+      name: `schedule-trigger-editor`,
       lang: 'text',
-      theme: 'monokai',
       content: this.selectedNode.input_string,
-      on: { 'change-content': this.setInputData }
+      onChange: this.setInputData,
+      readOnly: this.readOnly
     };
 
     return (
-      // @ts-ignore
-      <AceEditor
-        editor-id={editorProps['editor-id']}
-        lang={editorProps.lang}
-        theme="monokai"
-        disabled={this.readOnly}
-        content={editorProps.content}
-        on={editorProps.on}
-      />
+      <RefineryCodeEditor props={editorProps} />
     );
   }
 

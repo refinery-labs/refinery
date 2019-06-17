@@ -1,5 +1,5 @@
 <template>
-  <div :id="editorId" style="width: 100%; height: 100%;"></div>
+  <div :id="editorId" class="height--100percent width--100percent"></div>
 </template>
 <script>
 import Vue from 'vue';

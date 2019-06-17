@@ -14,7 +14,7 @@
 <body>
     <div id="app">
     	<!-- modals -->
-    	
+
     	<!-- "Previous infrastructure exists, tear it down?" modal -->
 		<div class="modal fade" id="previous_infrastructure_warning" tabindex="-1" role="dialog" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -38,7 +38,7 @@
 		        </div>
 		    </div>
 		</div>
-    	
+
 		<!-- Search Projects modal -->
 		<div class="modal fade" id="searchprojects_output" tabindex="-1" role="dialog" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -88,7 +88,7 @@
 		        </div>
 		    </div>
 		</div>
-    	
+
     	<!-- Generic error modal -->
 		<div class="modal fade" id="error_output" tabindex="-1" role="dialog" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -110,7 +110,7 @@
 		        </div>
 		    </div>
 		</div>
-    	
+
 		<!-- Search Lambda modal -->
 		<div class="modal fade" id="searchsavedlambda_output" tabindex="-1" role="dialog" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -158,7 +158,7 @@
 		        </div>
 		    </div>
 		</div>
-    	
+
     	<!-- Save Lambda in database modal -->
 		<div class="modal fade" id="savelambdaindb_output" tabindex="-1" role="dialog" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -186,7 +186,7 @@
 		        </div>
 		    </div>
 		</div>
-		
+
 		<!-- Edit Lambda layers modal -->
 		<!--
 		<div class="modal fade" id="lambda_layers_modal_output" tabindex="-1" role="dialog" aria-hidden="true">
@@ -226,7 +226,7 @@
 		    </div>
 		</div>
 		-->
-		
+
 		<!-- Edit Lambda environment variables modal -->
 		<div class="modal fade" id="lambda_environment_variables_output" tabindex="-1" role="dialog" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -274,7 +274,7 @@
 		        </div>
 		    </div>
 		</div>
-		
+
     	<!-- Infrastructure teardown modal -->
 		<div class="modal fade" id="infrastructureteardown_modal" tabindex="-1" role="dialog" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -298,7 +298,7 @@
 		        </div>
 		    </div>
 		</div>
-		
+
     	<!-- Deploy diagram output modal -->
 		<div class="modal fade" id="deploydiagram_output" tabindex="-1" role="dialog" aria-labelledby="deploydiagram_label" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -361,7 +361,7 @@
 		        </div>
 		    </div>
 		</div>
-    	
+
 		<!-- View saved function modal -->
 		<div class="modal fade" id="viewsavefunction_output" tabindex="-1" role="dialog" aria-labelledby="viewsavefunction_label" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -404,9 +404,9 @@
 	            		<br />
 	            		<center>
 	            			<button type="button" class="btn btn-lg btn-primary" v-on:click="update_saved_function" data-dismiss="modal">Update Function</button>
-	            			
+
 	            			<button type="button" class="btn btn-lg btn-primary" v-on:click="merge_saved_function" style="margin-left: 10px;" data-dismiss="modal" v-if="page == 'modify-lambda'">Merge into Lambda</button>
-	            			
+
 	            			<button type="button" class="btn btn-lg btn-danger" v-on:click="delete_saved_function" style="margin-left: 10px;" data-dismiss="modal">Delete Function</button>
 	            		</center>
 		            </div>
@@ -416,7 +416,7 @@
 		        </div>
 		    </div>
 		</div>
-    	
+
 		<!-- Search Saved functions modal -->
 		<div class="modal fade" id="searchsavedfunction_output" tabindex="-1" role="dialog" aria-labelledby="searchsavedfunction_label" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -461,7 +461,7 @@
 		        </div>
 		    </div>
 		</div>
-    	
+
 		<!-- Create new saved function modal -->
 		<div class="modal fade" id="savefunction_output" tabindex="-1" role="dialog" aria-labelledby="savefunction_label" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -512,7 +512,7 @@
 		        </div>
 		    </div>
 		</div>
-    	
+
     	<!-- Change Project Name -->
 		<div class="modal fade" id="project_name_rename_output" tabindex="-1" role="dialog" aria-labelledby="project_name_rename_label" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -541,7 +541,7 @@
 		        </div>
 		    </div>
 		</div>
-		
+
 		<!-- Import project modal -->
 		<div class="modal fade" id="importproject_output" tabindex="-1" role="dialog" aria-labelledby="importproject_label" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -573,7 +573,7 @@
 		        </div>
 		    </div>
 		</div>
-		
+
     	<!-- Export project modal -->
 		<div class="modal fade" id="exportproject_output" tabindex="-1" role="dialog" aria-labelledby="exportproject_label" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -599,7 +599,7 @@
 		        </div>
 		    </div>
 		</div>
-		
+
 		<!-- Fullscreen text viewer -->
 		<div class="modal fade" id="text_viewer_popup" tabindex="-1" role="dialog" aria-hidden="true">
 		    <div class="modal-dialog modal-lg modal-full-screen" role="document">
@@ -657,7 +657,7 @@
 		        </div>
 		    </div>
 		</div>
-    	
+
     	<!-- Run Lambda Output -->
 		<div class="modal fade" id="runtmplambda_output" tabindex="-1" role="dialog" aria-labelledby="runtmplambda_label" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -706,7 +706,7 @@
 		        </div>
 		    </div>
 		</div>
-		
+
 		<!-- Deploy Lambda output -->
 		<div class="modal fade" id="deploylambda_output" tabindex="-1" role="dialog" aria-labelledby="deploylambda_label" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -747,7 +747,7 @@
 		        </div>
 		    </div>
 		</div>
-		
+
 		<!-- Project Settings Modal -->
 		<div class="modal fade" id="project_settings_modal" tabindex="-1" role="dialog" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -776,7 +776,7 @@
 		        </div>
 		    </div>
 		</div>
-		
+
     	<!-- Login modal -->
 		<div class="modal fade" id="login_in_modal" tabindex="-1" role="dialog" aria-hidden="true" data-keyboard="false" data-backdrop="static">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -801,7 +801,7 @@
 		        </div>
 		    </div>
 		</div>
-		
+
     	<!-- Authentication email sent modal -->
 		<div class="modal fade" id="authentication_email_sent_modal" tabindex="-1" role="dialog" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -823,7 +823,7 @@
 		        </div>
 		    </div>
 		</div>
-		
+
     	<!-- TODO Modal - for unfinished stuff -->
 		<div class="modal fade" id="todo_output" tabindex="-1" role="dialog" aria-labelledby="todo_label" aria-hidden="true">
 		    <div class="modal-dialog modal-lg" role="document">
@@ -845,7 +845,7 @@
 		        </div>
 		    </div>
 		</div>
-		
+
 		<!-- Header -->
         <div id="header">
 			<nav class="navbar navbar-expand-lg navbar-light bg-light" style="background-color: #eee !important;">
@@ -855,7 +855,7 @@
 			    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
 				<span class="navbar-toggler-icon"></span>
 				</button>
-				
+
 				<!-- Local IDE project name -->
 			    <div class="collapse navbar-collapse" v-if="ide_mode == 'LOCAL_IDE'">
 			        <ul class="navbar-nav">
@@ -866,11 +866,11 @@
 			                </a>
 			            </li>
 			            <li class="nav-item">
-			                
+
 			            </li>
 			        </ul>
 			    </div>
-			    
+
 			    <!-- Local IDE project name -->
 			    <div class="collapse navbar-collapse" v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
 			        <ul class="navbar-nav">
@@ -882,11 +882,11 @@
 			                </a>
 			            </li>
 			            <li class="nav-item">
-			                
+
 			            </li>
 			        </ul>
 			    </div>
-			    
+
 			    <!-- Local IDE mode navbar -->
 			    <div class="form-inline my-2 my-lg-0" v-if="ide_mode == 'LOCAL_IDE'">
 					<div class="btn-group">
@@ -932,7 +932,7 @@
 			    	<button type="button" class="btn btn-success" v-on:click="deploy_first_step" style="margin-left: 10px;" v-if="project_id">Deploy to Production</button>
 			    	<button type="button" class="btn btn-secondary" v-on:click="log_out" style="margin-left: 10px;" v-if="user_is_authenticated">Sign out</button>
 			    </div>
-			    
+
 			    <!-- Deployment viewer mode navbar -->
 			    <div class="form-inline my-2 my-lg-0" v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
 			    	<button type="button" class="btn btn-danger" v-on:click="teardown_infrastructure" style="margin-left: 10px;" v-if="!selected_execution_id_data">Tear Down Deployment</button>
@@ -942,10 +942,10 @@
 			    </div>
 			</nav>
         </div>
-        
+
         <!-- Body -->
         <div id="panes" class="split split-horizontal">
-        	
+
         	<!-- Welcome panel -->
             <div v-if="page == 'welcome'" class="split left-panel">
             	<center>
@@ -953,7 +953,7 @@
             		<i>Please select a menu option to start.</i>
             	</center>
             </div>
-            
+
             <!-- Add state transition -->
             <div v-if="page == 'add-state-transition' || page == 'modify-state-transition'" class="split left-panel">
             	<div>
@@ -1016,7 +1016,7 @@
 					</div>
             	</div>
             </div>
-            
+
             <!-- Schedule trigger panel -->
             <div v-if="page == 'modify-schedule_trigger'" class="split left-panel">
             	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
@@ -1063,7 +1063,7 @@
 	                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete Schedule Trigger</button>
 	            </div>
 			</div>
-			
+
             <!-- SNS Topic Node Panel -->
             <div v-if="page == 'modify-sns_topic'" class="split left-panel">
             	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
@@ -1090,7 +1090,7 @@
 	                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete SNS Topic</button>
 	            </div>
 			</div>
-            
+
             <!-- SQS Queue Node Panel -->
             <div v-if="page == 'modify-sqs_queue'" class="split left-panel">
             	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
@@ -1124,7 +1124,7 @@
 					<input type="checkbox" v-model="sqs_trigger_data.content_based_deduplication" :disabled="ide_mode == 'DEPLOYMENT_VIEWER'"> <label>Content-Based De-duplication</label>
 					<small class="form-text text-muted">Should messages be de-duplicated based off of their message contents (5 minute rolling window)?</small>
 				</div>
-				
+
 				<hr />
 				<div v-if="ide_mode == 'LOCAL_IDE'">
 					<button type="submit" class="btn btn-primary" style="width: 100%" v-on:click="update_sqs_queue">Update SQS Queue</button>
@@ -1134,7 +1134,7 @@
 	                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete SQS Queue</button>
 				</div>
 			</div>
-			
+
             <!-- API Endpoint Panel -->
             <div v-if="page == 'modify-api_endpoint'" class="split left-panel">
             	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER'">
@@ -1188,7 +1188,7 @@
 	                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete API Endpoint</button>
 	            </div>
 			</div>
-			
+
             <!-- API Gateway Response Panel -->
             <div v-if="page == 'modify-api_gateway_response'" class="split left-panel">
 				<h2>API Response</h2>
@@ -1212,7 +1212,7 @@
 	                <button type="submit" class="btn btn-danger" style="width: 100%" v-on:click="delete_node">Delete API Response</button>
 	            </div>
 			</div>
-            
+
             <!-- Modify Lambda panel -->
             <div v-if="page == 'modify-lambda'" class="split left-panel" style="max-width: 400px">
             	<div v-if="ide_mode == 'DEPLOYMENT_VIEWER' && !selected_execution_id_data">
@@ -1286,7 +1286,7 @@
 						</div>
 						<small class="form-text text-muted">Input passed to the Lambda.</small>
 					</div>
-					
+
 					<div class="form-group" v-if="'exception' in selected_log_id_data.data">
 						<label><b>Exception Details</b></label>
 						<div style="height: 100px">
@@ -1297,7 +1297,7 @@
 						</div>
 						<small class="form-text text-muted">Text of the exception which occured during this Lambda's execution.</small>
 					</div>
-					
+
 					<div class="form-group" v-if="'output' in selected_log_id_data.data">
 						<label><b>Lambda Output (<code>stdout</code>/<code>stderr</code>)</b></label>
 						<div style="height: 100px">
@@ -1308,7 +1308,7 @@
 						</div>
 						<small class="form-text text-muted">Output from <code>stdout</code> and <code>stderr</code> during execution.</small>
 					</div>
-					
+
 					<div class="form-group" v-if="'return_data' in selected_log_id_data.data">
 						<label><b>Return Data</b></label>
 						<div style="height: 100px">
@@ -1320,7 +1320,7 @@
 						<small class="form-text text-muted">Data returned from the Lambda.</small>
 					</div>
             	</div>
-            	
+
             	<!-- Don't display while viewing a specific execution result -->
             	<div v-if="!selected_log_id_data">
 	            	<div v-if="ide_mode == 'LOCAL_IDE'">
@@ -1424,7 +1424,7 @@
 					</div>
             	</div>
             </div>
-            
+
         	<!-- Deployment viewer welcome panel -->
             <div v-if="page == 'deployment_viewer_welcome'" class="split left-panel">
             	<center>
@@ -1432,7 +1432,7 @@
             		<i>Select a node to see information about its deployment in production.</i>
             	</center>
             </div>
-            
+
         	<!-- Deployment log execution ID(s) viewer -->
             <div v-if="page == 'project_logs_execution_ids'" class="split left-panel">
             	<center>
@@ -1471,7 +1471,7 @@
 					</div>
             	</div>
             </div>
-            
+
         	<!-- Information on the execution ID log viewer -->
             <div v-if="page == 'project_logs_execution_id_info'" style="width: 200px;" class="split left-panel">
             	<button type="button" class="btn btn-primary" v-on:click="navigate_page('project_logs_execution_ids')" style="width: 100%"><< Back</button>
@@ -1492,7 +1492,7 @@
             		</div>
             	</center>
             </div>
-            
+
             <!-- Graph -->
             <div id="graph" class="split">
                 <div id="output">
@@ -1504,11 +1504,11 @@
     <script src="./js/vendor/moment-with-locales.min.js"></script>
     <script src="./js/vendor/jquery-3.3.1.min.js"></script>
 	<script src="./js/vendor/bootstrap.min.js"></script>
-	
+
 	<!-- Ace Editor -->
     <script src="./js/vendor/ace.js"></script>
     <script src="./js/vendor/ext-language_tools.js"></script>
-    
+
     <script src="./js/viz.js"></script>
     <script src="./js/vendor/fabric.min.js"></script>
     <script src="./js/vendor/split.min.js"></script>
