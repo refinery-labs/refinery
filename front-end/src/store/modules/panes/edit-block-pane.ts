@@ -76,7 +76,7 @@ export enum EditBlockActions {
   deleteBlock = 'deleteBlock',
   deleteTransition = 'deleteTransition',
   // Code Block specific
-  saveCodeBlockToDatabase = 'saveCodeBlockToDatabase',
+  saveCodeBlockToDatabase = 'saveCodeBlockToDatabase'
 }
 
 // Types

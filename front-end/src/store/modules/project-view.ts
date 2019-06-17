@@ -1,4 +1,4 @@
-import {Module} from 'vuex';
+import { Module } from 'vuex';
 import uuid from 'uuid/v4';
 import {
   IfDropdownSelectionExpressionValues,
@@ -8,7 +8,8 @@ import {
 } from '@/store/store-types';
 import {
   CyElements,
-  CyStyle, LambdaWorkflowState,
+  CyStyle,
+  LambdaWorkflowState,
   ProjectConfig,
   ProjectLogLevel,
   RefineryProject,
@@ -17,8 +18,8 @@ import {
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import {generateCytoscapeElements, generateCytoscapeStyle} from '@/lib/refinery-to-cytoscript-converter';
-import {LayoutOptions} from 'cytoscape';
+import { generateCytoscapeElements, generateCytoscapeStyle } from '@/lib/refinery-to-cytoscript-converter';
+import { LayoutOptions } from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
 import {
   DeploymentViewActions,
@@ -26,13 +27,15 @@ import {
   ProjectViewGetters,
   ProjectViewMutators
 } from '@/constants/store-constants';
-import {getApiClient, makeApiRequest} from '@/store/fetchers/refinery-api';
-import {API_ENDPOINT} from '@/constants/api-constants';
+import { getApiClient, makeApiRequest } from '@/store/fetchers/refinery-api';
+import { API_ENDPOINT } from '@/constants/api-constants';
 import {
   DeleteDeploymentsInProjectRequest,
   DeleteDeploymentsInProjectResponse,
   DeployDiagramRequest,
-  DeployDiagramResponse, GetBuildStatusRequest, GetBuildStatusResponse,
+  DeployDiagramResponse,
+  GetBuildStatusRequest,
+  GetBuildStatusResponse,
   GetLatestProjectDeploymentRequest,
   GetLatestProjectDeploymentResponse,
   GetProjectConfigRequest,
@@ -42,7 +45,9 @@ import {
   SaveProjectConfigRequest,
   SaveProjectConfigResponse,
   SaveProjectRequest,
-  SaveProjectResponse, StartLibraryBuildRequest, StartLibraryBuildResponse
+  SaveProjectResponse,
+  StartLibraryBuildRequest,
+  StartLibraryBuildResponse
 } from '@/types/api-types';
 import {
   OpenProjectMutation,
@@ -66,12 +71,12 @@ import {
   blockTypeToDefaultStateMapping,
   blockTypeToImageLookup
 } from '@/constants/project-editor-constants';
-import EditBlockPaneModule, {EditBlockActions} from '@/store/modules/panes/edit-block-pane';
-import {createToast} from '@/utils/toasts-utils';
-import {ToastVariant} from '@/types/toasts-types';
+import EditBlockPaneModule, { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
+import { createToast } from '@/utils/toasts-utils';
+import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
-import {deepJSONCopy} from '@/lib/general-utils';
-import EditTransitionPaneModule, {EditTransitionActions} from '@/store/modules/panes/edit-transition-pane';
+import { deepJSONCopy } from '@/lib/general-utils';
+import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
 
 interface AddBlockArguments {
   rawBlockType: string;
@@ -597,8 +602,10 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       const openedProject = context.state.openedProject as RefineryProject;
 
-      const latestDeploymentResponse = await makeApiRequest<GetLatestProjectDeploymentRequest,
-        GetLatestProjectDeploymentResponse>(API_ENDPOINT.GetLatestProjectDeployment, {
+      const latestDeploymentResponse = await makeApiRequest<
+        GetLatestProjectDeploymentRequest,
+        GetLatestProjectDeploymentResponse
+      >(API_ENDPOINT.GetLatestProjectDeployment, {
         project_id: openedProject.project_id
       });
 
@@ -634,8 +641,10 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       if (context.state.latestDeploymentState.result && context.state.latestDeploymentState.result.deployment_json) {
-        const deleteDeploymentResponse = await makeApiRequest<DeleteDeploymentsInProjectRequest,
-          DeleteDeploymentsInProjectResponse>(API_ENDPOINT.DeleteDeploymentsInProject, {
+        const deleteDeploymentResponse = await makeApiRequest<
+          DeleteDeploymentsInProjectRequest,
+          DeleteDeploymentsInProjectResponse
+        >(API_ENDPOINT.DeleteDeploymentsInProject, {
           project_id: openedProject.project_id
         });
 
@@ -1317,7 +1326,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     async [ProjectViewActions.checkBuildStatus](context) {
       const openedProject = context.state.openedProject as RefineryProject;
       const selectedResource = context.state.selectedResource as string;
-      const selectedNode = getNodeDataById(openedProject, selectedResource)
+      const selectedNode = getNodeDataById(openedProject, selectedResource);
       if (selectedNode === null || selectedNode.type !== WorkflowStateType.LAMBDA) {
         console.error("Cannot check library build cache because user doesn't have a node selected.");
         return;
@@ -1342,7 +1351,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     async [ProjectViewActions.startLibraryBuild](context) {
       const openedProject = context.state.openedProject as RefineryProject;
       const selectedResource = context.state.selectedResource as string;
-      const selectedNode = getNodeDataById(openedProject, selectedResource)
+      const selectedNode = getNodeDataById(openedProject, selectedResource);
       if (selectedNode === null || selectedNode.type !== WorkflowStateType.LAMBDA) {
         console.error("Cannot kick off build for libraries because user doesn't have a node selected.");
         return;

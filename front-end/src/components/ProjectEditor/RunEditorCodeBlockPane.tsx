@@ -1,8 +1,8 @@
-import Vue, {CreateElement, VNode} from 'vue';
+import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import RunEditorCodeBlockContainer from '@/components/ProjectEditor/RunEditorCodeBlockContainer';
-import {namespace} from 'vuex-class';
-import {RunLambdaDisplayMode} from '@/components/RunLambda';
+import { namespace } from 'vuex-class';
+import { RunLambdaDisplayMode } from '@/components/RunLambda';
 import Loading from '@/components/Common/Loading.vue';
 
 const runLambda = namespace('runLambda');
@@ -16,7 +16,7 @@ export default class RunEditorCodeBlockPane extends Vue {
     return (
       <div class="text-align--left run-lambda-pane-container">
         <div class="run-lambda-pane-container__content overflow--scroll-y-auto mb-3 mt-3">
-          <RunEditorCodeBlockContainer props={{displayMode: RunLambdaDisplayMode.sidepane}}/>
+          <RunEditorCodeBlockContainer props={{ displayMode: RunLambdaDisplayMode.sidepane }} />
         </div>
       </div>
     );
