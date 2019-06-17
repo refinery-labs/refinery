@@ -62,6 +62,8 @@ export class EditLambdaBlock extends Vue {
   @editBlock.Mutation deleteDependencyImport!: (libraryName: string) => void;
   @editBlock.Mutation addDependencyImport!: (libraryName: string) => void;
 
+  @editBlock.Action StartLibraryBuild!: () => void;
+
   public renderCodeEditorModal() {
     const nameString = `Edit Code for '${this.selectedNode.name}'`;
 
@@ -249,6 +251,11 @@ export class EditLambdaBlock extends Vue {
     return <b-list-group>{libraryTable}</b-list-group>;
   }
 
+  public closeLibraryModal() {
+    this.StartLibraryBuild();
+    this.setLibrariesModalVisibility(false);
+  }
+
   public renderLibrariesModal() {
     if (!this.selectedNode) {
       return;
@@ -265,8 +272,7 @@ export class EditLambdaBlock extends Vue {
     const setEnteredLibrary = this.readOnly ? nopWrite : this.setEnteredLibrary;
 
     const modalOnHandlers = {
-      hidden: () => setLibrariesModalVisibility(false),
-      ok: () => setLibrariesModalVisibility(false)
+      hidden: () => this.closeLibraryModal(),
     };
 
     return (
