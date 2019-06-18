@@ -7,8 +7,8 @@ import RunLambda, { RunLambdaDisplayLocation, RunLambdaDisplayMode } from '@/com
 import { RunLambdaResult } from '@/types/api-types';
 import { RunCodeBlockLambdaConfig } from '@/types/run-lambda-types';
 import { Prop } from 'vue-property-decorator';
-import { libraryBuildArguments } from '@/store/modules/project-view';
 import { deepJSONCopy } from '@/lib/general-utils';
+import { checkBuildStatus, libraryBuildArguments } from '@/store/fetchers/api-helpers';
 
 const project = namespace('project');
 const editBlock = namespace('project/editBlockPane');
@@ -37,33 +37,8 @@ export default class RunEditorCodeBlockContainer extends Vue {
 
   // Actions
   @project.Action closePane!: (p: PANE_POSITION) => void;
-  @project.Action checkBuildStatus!: (libraryBuildArgs: libraryBuildArguments) => boolean;
 
-  @runLambda.Action runSpecifiedEditorCodeBlock!: (config: RunCodeBlockLambdaConfig) => void;
-
-  private getLoadingText(isBuildCached: boolean) {
-    if (isBuildCached) {
-      return 'Running Code Block...';
-    }
-
-    return 'Building libraries and then running Code Block...\n(Note: The first run after adding a new library may take up to two minutes longer to finish.)';
-  }
-
-  private async checkBuildRequired(config: RunCodeBlockLambdaConfig) {
-    if (this.selectedNode === null || this.selectedNode.type !== WorkflowStateType.LAMBDA) {
-      console.error("You don't have a node currently selected so I can't check the build status!");
-      return;
-    }
-    const selectedLambda = deepJSONCopy(this.selectedNode) as LambdaWorkflowState;
-
-    const params = {
-      language: selectedLambda.language as SupportedLanguage,
-      libraries: selectedLambda.libraries
-    } as libraryBuildArguments;
-    const isLibraryBuildCached = await this.checkBuildStatus(params);
-    this.setLoadingText(this.getLoadingText(isLibraryBuildCached));
-    this.runSpecifiedEditorCodeBlock(config);
-  }
+  @runLambda.Action runLambdaCode!: (config: RunCodeBlockLambdaConfig) => void;
 
   public render() {
     if (!this.selectedNode || this.selectedNode.type !== WorkflowStateType.LAMBDA) {
@@ -77,7 +52,7 @@ export default class RunEditorCodeBlockContainer extends Vue {
     }
 
     const runLambdaProps = {
-      onRunLambda: () => this.checkBuildRequired(config),
+      onRunLambda: () => this.runLambdaCode(config),
       onUpdateInputData: this.setDevLambdaInputData,
       fullScreenClicked: () => this.setCodeModalVisibility(true),
       lambdaIdOrArn: this.selectedNode.id,

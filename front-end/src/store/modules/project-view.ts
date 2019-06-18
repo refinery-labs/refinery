@@ -79,11 +79,6 @@ import router from '@/router';
 import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
 
-export interface libraryBuildArguments {
-  language: SupportedLanguage;
-  libraries: string[];
-}
-
 interface AddBlockArguments {
   rawBlockType: string;
   selectAfterAdding: boolean;
@@ -1328,44 +1323,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
       context.commit(ProjectViewMutators.setAddingTransitionStatus, true);
       context.commit(ProjectViewMutators.setAddingTransitionType, transitionType);
-    },
-    async [ProjectViewActions.checkBuildStatus](context, libraryBuildArgs: libraryBuildArguments) {
-      const response = await makeApiRequest<GetBuildStatusRequest, GetBuildStatusResponse>(
-        API_ENDPOINT.GetBuildStatus,
-        {
-          libraries: libraryBuildArgs.libraries,
-          language: libraryBuildArgs.language
-        }
-      );
-
-      if (!response || !response.success) {
-        console.error('Unable to check library build cache: server error.');
-        throw 'Server error occurred while checking library build cache!';
-      }
-
-      return response.is_already_cached;
-    },
-    async [ProjectViewActions.startLibraryBuild](context, libraryBuildArgs: libraryBuildArguments) {
-      // Check if we're already build this before
-      const buildIsCached = await context.dispatch(ProjectViewActions.checkBuildStatus, libraryBuildArgs);
-
-      // If so no need to kick it off
-      if (buildIsCached) {
-        return;
-      }
-
-      const response = await makeApiRequest<StartLibraryBuildRequest, StartLibraryBuildResponse>(
-        API_ENDPOINT.StartLibraryBuild,
-        {
-          libraries: libraryBuildArgs.libraries,
-          language: libraryBuildArgs.language
-        }
-      );
-
-      if (!response || !response.success) {
-        console.error('Unable kick off library build: server error.');
-        throw 'Server error occurred while kicking off library build!';
-      }
     }
   }
 };

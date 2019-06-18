@@ -22,8 +22,8 @@ import RunDeployedCodeBlockContainer from '@/components/DeploymentViewer/RunDepl
 import { nopWrite } from '@/utils/block-utils';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { EditorProps } from '@/types/component-types';
-import { libraryBuildArguments } from '@/store/modules/project-view';
 import { deepJSONCopy } from '@/lib/general-utils';
+import { libraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-helpers';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
@@ -64,8 +64,6 @@ export class EditLambdaBlock extends Vue {
   @editBlock.Mutation setEnteredLibrary!: (libraryName: string) => void;
   @editBlock.Mutation deleteDependencyImport!: (libraryName: string) => void;
   @editBlock.Mutation addDependencyImport!: (libraryName: string) => void;
-
-  @project.Action startLibraryBuild!: (libraryBuildArgs: libraryBuildArguments) => void;
 
   public renderCodeEditorModal() {
     const nameString = `Edit Code for '${this.selectedNode.name}'`;
@@ -260,11 +258,11 @@ export class EditLambdaBlock extends Vue {
       return;
     }
     const libraries = deepJSONCopy(this.selectedNode.libraries);
-    const params = {
+    const params: libraryBuildArguments = {
       language: this.selectedNode.language as SupportedLanguage,
       libraries: libraries
-    } as libraryBuildArguments;
-    this.startLibraryBuild(params);
+    };
+    startLibraryBuild(params);
     this.setLibrariesModalVisibility(false);
   }
 
