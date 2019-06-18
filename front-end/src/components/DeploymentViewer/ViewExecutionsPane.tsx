@@ -41,6 +41,20 @@ export default class ViewExecutionsPane extends Vue {
       );
     }
 
+    if (Object.keys(this.projectExecutions).length === 0) {
+      return (
+        <div class={containerClasses}>
+          <h4>
+            There are not any executions of this pipeline. For more information on, please read{' '}
+            <a href="https://docs.refinerylabs.io/debugging/" target="_blank">
+              these docs
+            </a>
+            .
+          </h4>
+        </div>
+      );
+    }
+
     return <b-list-group class={containerClasses} />;
   }
 }
