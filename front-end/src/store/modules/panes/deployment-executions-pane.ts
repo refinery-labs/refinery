@@ -10,7 +10,8 @@ export enum DeploymentExecutionsMutators {
 }
 
 export enum DeploymentExecutionsActions {
-  getExecutionsForOpenedDeployment = 'getExecutionsForOpenedDeployment'
+  getExecutionsForOpenedDeployment = 'getExecutionsForOpenedDeployment',
+  openExecutionGroup = 'openExecutionGroup'
 }
 
 // Types
@@ -80,7 +81,8 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       context.commit(DeploymentExecutionsMutators.setProjectExecutions, executionsResponse);
       context.commit(DeploymentExecutionsMutators.setIsBusy, false);
-    }
+    },
+    async [DeploymentExecutionsActions.openExecutionGroup](context, executionId: string) {}
   }
 };
 
