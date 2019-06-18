@@ -23,7 +23,7 @@ export class EditAPIEndpointBlock extends Vue {
     return (
       <b-form-group id={`block-http-method-group-${this.selectedNode.id}`}>
         <label class="d-block" htmlFor={`block-http-method-${this.selectedNode.id}`}>
-          Schedule Expression:
+          HTTP Method:
         </label>
         <div class="input-group with-focus">
           <b-form-select
