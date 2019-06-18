@@ -17,7 +17,7 @@ export default class HelpPage extends Vue {
         <br />
 
         <h4>
-          Please <a href="mailto:support@refinerylabs.io">email</a> us with any questions you have!
+          Please <a href="mailto:support@refinery.io">email</a> us with any questions you have!
         </h4>
       </div>
     );

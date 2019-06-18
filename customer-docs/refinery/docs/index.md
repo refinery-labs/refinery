@@ -2,6 +2,6 @@
 
 This documentation explains all of Refinery's various options and features.
 
-Please note that since Refinery is in active development some of the information here may be outdated.
+If you have a question which is not answered in this documentation please contact us at <code>support@refinery.io</code> and one of us will reach out to you as soon as possible!
 
 **[Click here to read to the Getting Started intro!](quickstart/intro/)**

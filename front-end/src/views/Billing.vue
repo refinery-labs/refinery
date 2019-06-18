@@ -37,7 +37,7 @@
                     <small
                       >Please note this bill may not be up to date. You can generally expect your billing totals to be
                       refreshed every 24 hours. For help with your bill, or for more information, contact
-                      <code>billing@refinerylabs.io</code>
+                      <code>billing@refinery.io</code>
                     </small>
                   </div>
                 </div>
