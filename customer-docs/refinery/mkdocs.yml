@@ -1,0 +1,13 @@
+site_name: Refinery Docs
+nav:
+  - Home: "index.md"
+  - "What is Refinery?": "what-is-refinery/index.md"
+  - "Architecture": "architecture/index.md"
+  - "Getting Started": "quickstart/intro.md"
+  - "Blocks": "blocks/index.md"
+  - "Transitions": "transitions/index.md"
+  - "Debugging & Logging": "debugging/index.md"
+theme: material
+markdown_extensions:
+  - admonition
+  - codehilite

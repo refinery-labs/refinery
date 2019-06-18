@@ -2,130 +2,97 @@
 
 This intro will walk you through creating a new Refinery project and deploying it to production.
 
-## Creating a Project
+For our example app we will make a simple "Hello World" script which will execute on a five minute interval.
 
-First navigate to your version of Refinery. You will be greeted with an empty canvas along with a greeting of `Welcome to Refinery!`.
+## Creating a New Project
 
-In the top-left corner you'll see the text `New Project`. This is the default name of a project in Refinery. Click on this red text to change the name of your current project:
+<video style="width: 100%" controls autoplay muted loop>
+	<source src="/quickstart/images/create-new-project.webm" type="video/webm" />
+</video>
 
-<center>
-![New Project](images/new-project.png)
-</center>
+Create a new project by navigating to the [All Projects](https://app.refinery.io/projects). Enter the project name into the `Project Name` textbox and click `Create Project`.
 
-Upon clicking this text you'll see the follow dialogue:
+## Adding a Block
 
-<center>
-![Project Name Dialogue](images/new-project-dialogue.png)
-</center>
+<video style="width: 100%" controls autoplay muted loop>
+	<source src="/quickstart/images/add-code-block.webm" type="video/webm" />
+</video>
 
-Here you can change your project's name to whatever you'd prefer. The only restriction is that project names must be unique and Refinery won't let you use a name which is in use for another project. For this demo, just set the name to `Example Project` (or whatever you'd prefer). Keep the version at `1` and click the `Close` button to close the dialogue.
+Now we'll add our Code Block to project. We'll start by click on the `Add Block` button on the left side of the project. Change the `Block Name` to be `Example Block` and click on the `Save Block` button to save the change.
 
-## Saving the Project
+Now that you have a new Code Block, select one of the following languages under the `Block Runtime` block editor section which you are the most familiar with:
 
-To save the project, click on the `Project Options` button and select `Save Project to Current Version`:
+* Node 8.10
+* Python 2.7
+* PHP 7.3
+* Go 1.12
 
-<center>
-![](images/save-to-current-version.png)
-</center>
+<video style="width: 100%" controls autoplay muted loop>
+	<source src="/quickstart/images/writing-hello-world-python.webm" type="video/webm" />
+</video>
 
-Once you've done this you've now created your first (empty) project! You'll notice that the `Save Project` and `Deploy to Production` buttons have now appeared in the top-right corner of the page. These are for easy access to these actions while you develop your serverless applications.
-
-!!! warning
-	It's important to ensure that you always save your progress. If you leave the page without saving your project you can loss all of the changes you've made. Nothing is more frusterating than lost work so ensure that you save your progress often. Additionally, if you make changes you wish you hadn't you can just refresh the page and re-open your project without saving to revert your change(s).
-	
-## Adding your first Lambda
-
-An empty project isn't useful for much, let's add something to the canvas! Start by clicking on the `Add New Resource` dropdown menu and selecting `Lambda`:
-
-<center>
-![](images/add-lambda-menu.png)
-</center>
-
-This will add a Lambda named `New Lambda` to your canvas. Click on the Lambda icon to get options for editing it.
-
-You can now see some of the options you have for editing the Lambda. We'll start by renaming it to something new. In the `Name` field change `New Lambda` to `Get Page` and then scroll down the menu to the `Update Lambda` button. Click the button to save the new name to the Lambda. It's important to note that saving the Lambda does **not** save the project, these are explicitly different things. You will need to make sure to save the changes to the nodes you're working on as well as saving the entire project when you want to persist the changes.
-
-Now we will add the "meat" to our Lambda. We're going to make this Lambda grab a webpage and print the results. We'll start by adding the Python `requests` library to our `Import(s)` for our Lambda. Just add the text `requests` to the `Import(s)` text box similar to what is shown in the following screenshot:
-
-<center>
-![](images/lambda-imports.png)
-</center>
-
-The items listed under `Import(s)` refer to Python `pip` packages. You can do just the regular package name such as `requests` or you can do a specific version like `requests==2.21.0`. For the Python 2.7 language, any valid syntax for `pip` requirements files will work here. For more information on the format see [the `pip` documentation](https://pip.pypa.io/en/stable/user_guide/#requirements-files).
-
-Now we'll add code to our Lambda, since it's hard to code in a tiny screen click the `View Fullscreen` button under the `Code` section of the Lambda menu. The following is the example code we'll be adding:
+Once you've selected a language you can now start writing some code. In our example we'll choose Python 2.7 and we'll edit the block code to be the following:
 
 ```python
-import requests
-
-def main( lambda_input, context ):
-    print( "Grabbing webpage..." )
-    response = requests.get("https://www.google.com/robots.txt")
-    print( "...done!" )
-    return {
-        "html": response.text,
-        "status": response.status_code,
-    }
+def main(lambda_input, context):
+    print("Hello world!")
+    return False
 ```
 
-Feel free to just paste the above code in. Now, in the fullscreen editor click the `Run Lambda` button to try running the code. Once you do you'll see the following:
+This is a simple script which will just print `Hello world!` upon executing. Once you've written your `Hello World` script you can save the block by clicking the blue `Save Block` button.
 
-<center>
-![](images/running-lambda-inline.png)
-</center>
+## Adding a Timer Block
 
-Here we can see the full Lambda output, (ignore the `START`, `END`, and `REPORT` lines for now, as these are part of Lambda's internals). We can see the lines that we've printed along with the JSON that we returned. This brings us to an important point which is that in Refinery you always need to return data in a JSON-serializable format. This means that you can return things like strings, integers, and arrays, but full "complex" objects cannot be returned.
+Now, let's make our script run every five minutes. Click on the `Add Block` button on the right panel to add another block. This time click on the `Timer Block` to add a block which will automatically trigger all blocks connected to it on a set interval.
 
-Now that we've added some code let's save our progress by clicking the `Save Lambda & Project` button. This will both save our changes to the Lambda and save our entire project. Now we can close our fullscreen editor by clicking outside of the box, or by clicking the `Close` button.
+<video style="width: 100%" controls autoplay muted loop>
+	<source src="/quickstart/images/adding-timer-block.webm" type="video/webm" />
+</video>
 
-## Deploying the project
+Just like with the `Code Block`, with the `Timer Block` we can rename the block and save the changes by clicking on the `Save Block` button.
 
-We'll now actually deploy our project to production. Unlike with many conventional build systems, building and deploying to production doesn't take very long in Refinery.
+By default the `Timer Block` is set to trigger every 2 minutes. Change the `Schedule Expression` to be `rate(5 minutes)` instead of `rate(2 minutes)` to achieve this.
 
-!!! note
-	Refinery makes heavy use of dependency caching. The first time you add or change the `Import(s)` that you Lambda uses you will notice that deploying and running your Lambdas will take slightly longer. This is because Refinery builds Lambda "templates" out of these libraries and then injects your code into the cached templates during deployment/running. Once the cache has been built all future runs and deploys will take seconds. So entire deploys may take a minute or two the first time, but the second time they will take only a few seconds.
-	
-Click the `Deploy to Production` button in the top right corner of the page to deploy your project. This should only take a few seconds, afterwards you'll be presented with the following:
+<video style="width: 100%" controls autoplay muted loop>
+	<source src="/quickstart/images/change-timer-block-interval.webm" type="video/webm" />
+</video>
 
-![](images/deployment-result.png)
+## Connecting Blocks
 
-Click on the `View Deployment Information` button, this will take you to the Deployment Viewer. The deployment viewer allows you to see your deployed project's state and allows you to do things like view logs, debug pipelines, and see your deployment in the AWS console. Click on the Lambda you just created to see more information about it, as well as the options you can do with it.
+We now have all the blocks for our service but we still need to link them together. Click on the `Add Transition` button in the left side of the project to view the possible transitions. Next click on the `Then Transition` option. You will now see that the `Example Block` is flashing. This indicates that you can transition to it from the selected `Timer Block` via the transition that you selected. Click on the flashing `Example Block` to create a transition between the blocks.
 
-For now we're just going to run this Lambda while it's deployed. Click on the `Run Lambda` button to get a screen similar to the previous code editor. This is mostly the same, but you're not able to edit the code since it's currently deployed. Click `Run Lambda` to again run our created Lambda, you'll see the very familiar screen showing the output and the return value of the Lambda.
+<video style="width: 100%" controls autoplay muted loop>
+	<source src="/quickstart/images/adding-transition-example.webm" type="video/webm" />
+</video>
 
-Of course, just creating single Lambdas without any chaining doesn't show off Refinery's real power which lies in it's transitions and triggers. To show some of this off we're going to make this an API endpoint without writing any additional code!
+Great! You've now created your first Refinery service. Click on the `Save Project` button on the left side of the screen to save your progress.
 
-## Painless API Endpoints
+<video style="width: 100%" controls autoplay muted loop>
+	<source src="/quickstart/images/saving-project.webm" type="video/webm" />
+</video>
 
-Click the `Tear Down Deployment` button to tear down our deployed project and bring us back to the regular editor.
+## Deploying a Project
 
-!!! note
-	Tearing down deployments in Refinery is always a very fast operation. Unlike conventional build systems and production infrastructure, there's no servers to turn down or terminate so deleting things is easy.
-	
-Under the `Add New Resources` dropdown menu, select `API Endpoint`. Do so again, this time selecting `API Response` to add an `API Response` node to the canvas.
+Now that we have our service created, let's deploy it! Click on the `Deploy Project` button on the left side of the page. A dialogue box will confirm that you want to deploy the project, click the `Confirm Deploy` button to do so. After a few seconds your service will be deployed and you'll be shown your newly-deployed project.
 
-We now have a bunch of nodes which we can link together. Click on the `API Endpoint` node and click the `Add Transition` button. You will now see a menu similar to the following:
+<video style="width: 100%" controls autoplay muted loop>
+	<source src="/quickstart/images/deploy-project.webm" type="video/webm" />
+</video>
 
-<center>
-![](images/add-state-transition.png)
-</center>
+Congratulations, you've deployed your first service with Refinery! Your script will now be executed every five minutes until you destroy your deployment. Since Refinery deploys to serverless you'll never have to manage the servers that run your script and you'll only be billed for the time the script is actually being run.
 
-These default options are fine, we're adding a transition from the `API Endpoint` to the Lambda we created. Click the `Add State Transition` button to add this transition. Now, click on the `Get Page` Lambda node, and select `Add Transition` once again and under `Next State`, select `API Response` and click `Add State Transition`.
+## Destroying a Project
 
-You should now have a pipeline similar to the following:
+Since you probably don't want this simple script executing forever, let's tear it down. Click the `Destroy Deploy` button to delete your newly-deployed service. Confirm your intention by clicking on the `Destroy Deployment` button in the confirmation prompt.
 
-<center>
-![](images/getting-start-graph-example.png)
-</center>
+<video style="width: 100%" controls autoplay muted loop>
+	<source src="/quickstart/images/destroy-project.webm" type="video/webm" />
+</video>
 
-We've now done all we need to do to make this Lambda an API endpoint! Click the `Deploy to Production` button to deploy it. Now click `View Deployment Information` to see the newly-deployed project.
+## Moving Forward
 
-To view your newly created `API Endpoint`, click the `API Endpoint` node and select the `Deployed Endpoint URL`. This link will open a new tab with your API Endpoint URL and the returned JSON response is simply what was returned from the Lambda:
+Now that you've build something really simple with Refinery, why not build something a bit more complex? Head over to some of these articles to learn about more Refinery features:
 
-```json
-{"status": 200, "html": "User-agent: *\nDisallow: /search\nAllow: ...trimmed for brevity...
-```
-
-## Going Forward
-
-You've now made a simple project in Refinery, check out other parts of this documentation to create more complex pipelines!
+* Refinery Blocks
+* Refinery Transitions
+* Debugging & Logging
