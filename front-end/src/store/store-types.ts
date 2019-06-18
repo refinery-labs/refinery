@@ -18,10 +18,12 @@ import { RunLambdaState } from '@/store/modules/run-lambda';
 import { ToastPaneState } from '@/store/modules/toasts';
 import { ViewBlockPaneState } from '@/store/modules/panes/view-block-pane';
 import { EditTransitionPaneState } from '@/store/modules/panes/edit-transition-pane';
+import { DeploymentExecutionsPaneState } from '@/store/modules/panes/deployment-executions-pane';
 
 export interface RootState {
   setting: UserInterfaceState;
   deployment: DeploymentViewState;
+  deploymentExecutions: DeploymentExecutionsPaneState;
   viewBlock: ViewBlockPaneState;
   project: ProjectViewState;
   allProjects: AllProjectsState;

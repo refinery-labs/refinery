@@ -19,6 +19,7 @@ export enum SIDEBAR_PANE {
   viewExecutions = 'viewExecutions',
   destroyDeploy = 'destroyDeploy',
   viewDeployedBlock = 'viewDeployedBlock',
+  viewDeployedBlockLogs = 'viewDeployedBlockLogs',
   viewDeployedTransition = 'viewDeployedTransition',
   runDeployedCodeBlock = 'runDeployedCodeBlock'
 }

@@ -27,7 +27,6 @@ import { libraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-h
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
-const project = namespace('project');
 
 @Component
 export class EditLambdaBlock extends Vue {
