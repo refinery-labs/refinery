@@ -41,7 +41,10 @@ export default class ViewExecutionsPane extends Vue {
       );
     }
 
-    if (Object.keys(this.projectExecutions).length === 0) {
+    const projectExecutions = this.projectExecutions;
+    const executions = Object.keys(this.projectExecutions);
+
+    if (executions.length === 0) {
       return (
         <div class={containerClasses}>
           <h4>
@@ -55,6 +58,10 @@ export default class ViewExecutionsPane extends Vue {
       );
     }
 
-    return <b-list-group class={containerClasses} />;
+    return (
+      <b-list-group class={containerClasses}>
+        {executions.map(key => this.renderExecution(key, projectExecutions[key]))}
+      </b-list-group>
+    );
   }
 }
