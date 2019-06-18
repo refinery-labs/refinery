@@ -9,8 +9,19 @@ import {
 } from '@/types/api-types';
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
-import { LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
+import {
+  LambdaWorkflowState,
+  ProjectConfig,
+  RefineryProject,
+  SupportedLanguage,
+  WorkflowState,
+  WorkflowStateType
+} from '@/types/graph';
 import { RunCodeBlockLambdaConfig } from '@/types/run-lambda-types';
+import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
+import { deepJSONCopy } from '@/lib/general-utils';
+import { checkBuildStatus, libraryBuildArguments } from '@/store/fetchers/api-helpers';
+import { getNodeDataById } from '@/utils/project-helpers';
 
 // Enums
 export enum RunLambdaMutators {
@@ -21,7 +32,8 @@ export enum RunLambdaMutators {
 
   setDevLambdaRunResult = 'setDevLambdaRunResult',
   setDevLambdaRunResultId = 'setDevLambdaRunResultId',
-  setDevLambdaInputData = 'setDevLambdaInputData'
+  setDevLambdaInputData = 'setDevLambdaInputData',
+  setLoadingText = 'setLoadingText'
 }
 
 export enum RunLambdaActions {
@@ -29,7 +41,8 @@ export enum RunLambdaActions {
   makeDeployedLambdaRequest = 'makeDeployedLambdaRequest',
 
   runSpecifiedEditorCodeBlock = 'runSpecifiedEditorCodeBlock',
-  makeDevLambdaRequest = 'makeDevLambdaRequest'
+  makeDevLambdaRequest = 'makeDevLambdaRequest',
+  runLambdaCode = 'runLambdaCode'
 }
 
 // Types
@@ -43,6 +56,9 @@ export interface RunLambdaState {
   // ID of the last lambda run
   devLambdaResultId: string | null;
   devLambdaInputData: string;
+
+  // Text to display while Lambda is being run
+  loadingText: string;
 }
 
 // Initial State
@@ -57,7 +73,9 @@ const moduleState: RunLambdaState = {
    * Used to "identify" run results and associate them against the selected block.
    */
   devLambdaResultId: null,
-  devLambdaInputData: ''
+  devLambdaInputData: '',
+
+  loadingText: 'Running Code Block...'
 };
 
 const RunLambdaModule: Module<RunLambdaState, RootState> = {
@@ -112,6 +130,9 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
     },
     [RunLambdaMutators.setDevLambdaInputData](state, inputData) {
       state.devLambdaInputData = inputData;
+    },
+    [RunLambdaMutators.setLoadingText](state, loadingText: string) {
+      state.loadingText = loadingText;
     }
   },
   actions: {
@@ -150,7 +171,6 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       context.commit(RunLambdaMutators.setLambdaRunningStatus, false);
       context.commit(RunLambdaMutators.setDeployedLambdaRunResult, runLambdaResult.result);
     },
-
     async [RunLambdaActions.runSpecifiedEditorCodeBlock](context, config: RunCodeBlockLambdaConfig) {
       if (!config || !config.codeBlock || !config.projectConfig) {
         console.error('Invalid block config specified to execute');
@@ -191,6 +211,38 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       context.commit(RunLambdaMutators.setLambdaRunningStatus, false);
       context.commit(RunLambdaMutators.setDevLambdaRunResult, runTmpLambdaResult.result);
       context.commit(RunLambdaMutators.setDevLambdaRunResultId, request.block_id);
+    },
+    async [RunLambdaActions.runLambdaCode](context, config: RunCodeBlockLambdaConfig) {
+      function getLoadingText(isBuildCached: boolean) {
+        if (isBuildCached) {
+          return 'Running Code Block...';
+        }
+        return 'Building libraries and then running Code Block...\n(Note: The first run after adding a new library may take up to two minutes longer to finish.)';
+      }
+
+      const projectStore = context.rootState.project;
+
+      if (projectStore.openedProject === null || projectStore.selectedResource === null) {
+        console.error("User doesn't currently have a project opened.");
+        return;
+      }
+      const selectedNodeData = getNodeDataById(projectStore.openedProject, projectStore.selectedResource);
+
+      if (selectedNodeData === null || selectedNodeData.type !== WorkflowStateType.LAMBDA) {
+        console.error("You don't have a node currently selected so I can't check the build status!");
+        return;
+      }
+      const selectedLambda = deepJSONCopy(selectedNodeData) as LambdaWorkflowState;
+      context.commit(RunLambdaMutators.setLambdaRunningStatus, true);
+
+      const params: libraryBuildArguments = {
+        language: selectedLambda.language as SupportedLanguage,
+        libraries: selectedLambda.libraries
+      };
+      const isLibraryBuildCached = await checkBuildStatus(params);
+      context.commit(RunLambdaMutators.setLoadingText, getLoadingText(isLibraryBuildCached));
+
+      await context.dispatch(RunLambdaActions.runSpecifiedEditorCodeBlock, config);
     }
   }
 };

@@ -104,7 +104,9 @@ export enum ProjectViewActions {
   cancelEditingTransition = 'cancelEditingTransition',
   resetPanelStates = 'resetPanelStates',
   setProjectConfigLoggingLevel = 'setProjectConfigLoggingLevel',
-  saveProjectConfig = 'saveProjectConfig'
+  saveProjectConfig = 'saveProjectConfig',
+  checkBuildStatus = 'checkBuildStatus',
+  startLibraryBuild = 'startLibraryBuild'
 }
 
 export enum DeploymentViewGetters {

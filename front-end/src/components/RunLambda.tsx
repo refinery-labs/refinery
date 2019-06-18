@@ -2,8 +2,10 @@ import { CreateElement, VNode } from 'vue';
 import { Component, Prop, Vue } from 'vue-property-decorator';
 import { SupportedLanguage } from '@/types/graph';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
-import { EditorProps } from '@/types/component-types';
+import { EditorProps, LoadingContainerProps } from '@/types/component-types';
 import { RunLambdaResult } from '@/types/api-types';
+import Loading from '@/components/Common/Loading.vue';
+import { namespace } from 'vuex-class';
 
 export enum RunLambdaDisplayLocation {
   editor = 'editor',
@@ -15,7 +17,11 @@ export enum RunLambdaDisplayMode {
   fullscreen = 'fullscreen'
 }
 
-@Component
+@Component({
+  components: {
+    Loading
+  }
+})
 export default class RunLambda extends Vue {
   @Prop({ required: true }) private onRunLambda!: () => void;
   @Prop({ required: true }) private onUpdateInputData!: (s: string) => void;
@@ -33,6 +39,8 @@ export default class RunLambda extends Vue {
 
   @Prop({ required: true }) private displayLocation!: RunLambdaDisplayLocation;
   @Prop({ required: true }) private displayMode!: RunLambdaDisplayMode;
+
+  @Prop({ required: true }) private loadingText!: string;
 
   public checkIfValidRunLambdaOutput() {
     if (!this.runResultOutput) {
@@ -202,24 +210,28 @@ export default class RunLambda extends Vue {
   }
 
   public render(h: CreateElement): VNode {
-    const containerClasses = {
-      'run-lambda-container display--flex flex-direction--column': true,
-      'whirl standard': this.isCurrentlyRunning && this.displayMode === RunLambdaDisplayMode.fullscreen
+    const loadingProps: LoadingContainerProps = {
+      show: this.isCurrentlyRunning,
+      label: this.loadingText
     };
 
     return (
-      <div class={containerClasses}>
-        {this.renderEditors()}
-        <div class="run-lambda-container__buttons">
-          <b-button-group class="width--100percent">
-            {/*<b-button variant="info" disabled on={{click: () => this.onRunLambda()}}>*/}
-            {/*  View Last Execution*/}
-            {/*</b-button>*/}
-            <b-button variant="primary" on={{ click: () => this.onRunLambda() }}>
-              Execute With Data
-            </b-button>
-          </b-button-group>
-        </div>
+      <div>
+        <Loading props={loadingProps}>
+          <div class="run-lambda-container display--flex flex-direction--column">
+            {this.renderEditors()}
+            <div class="run-lambda-container__buttons">
+              <b-button-group class="width--100percent">
+                {/*<b-button variant="info" disabled on={{click: () => this.onRunLambda()}}>*/}
+                {/*  View Last Execution*/}
+                {/*</b-button>*/}
+                <b-button variant="primary" on={{ click: () => this.onRunLambda() }}>
+                  Execute With Data
+                </b-button>
+              </b-button-group>
+            </div>
+          </div>
+        </Loading>
       </div>
     );
   }

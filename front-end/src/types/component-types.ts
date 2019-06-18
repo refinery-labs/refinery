@@ -32,3 +32,9 @@ export interface EditTransitionSelectorProps {
   ifDropdownSelection: (dropdownSelection: string) => void;
   setIfExpression: (ifExpression: string) => void;
 }
+
+export interface LoadingContainerProps {
+  [key: string]: any;
+  label?: string;
+  show: boolean;
+}

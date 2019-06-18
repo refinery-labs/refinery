@@ -1,7 +1,7 @@
 import Component from 'vue-class-component';
 import Vue, { VNode } from 'vue';
 import { Prop } from 'vue-property-decorator';
-import { LambdaWorkflowState, SupportedLanguage, WorkflowState } from '@/types/graph';
+import { LambdaWorkflowState, SupportedLanguage, WorkflowState, WorkflowStateType } from '@/types/graph';
 import {
   FormProps,
   languageToAceLangMap,
@@ -22,9 +22,12 @@ import RunDeployedCodeBlockContainer from '@/components/DeploymentViewer/RunDepl
 import { nopWrite } from '@/utils/block-utils';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { EditorProps } from '@/types/component-types';
+import { deepJSONCopy } from '@/lib/general-utils';
+import { libraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-helpers';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
+const project = namespace('project');
 
 @Component
 export class EditLambdaBlock extends Vue {
@@ -249,6 +252,20 @@ export class EditLambdaBlock extends Vue {
     return <b-list-group>{libraryTable}</b-list-group>;
   }
 
+  public closeLibraryModal() {
+    if (this.selectedNode === null || this.selectedNode.type !== WorkflowStateType.LAMBDA) {
+      console.error("You don't have a node currently selected so I can't check the build status!");
+      return;
+    }
+    const libraries = deepJSONCopy(this.selectedNode.libraries);
+    const params: libraryBuildArguments = {
+      language: this.selectedNode.language as SupportedLanguage,
+      libraries: libraries
+    };
+    startLibraryBuild(params);
+    this.setLibrariesModalVisibility(false);
+  }
+
   public renderLibrariesModal() {
     if (!this.selectedNode) {
       return;
@@ -265,8 +282,7 @@ export class EditLambdaBlock extends Vue {
     const setEnteredLibrary = this.readOnly ? nopWrite : this.setEnteredLibrary;
 
     const modalOnHandlers = {
-      hidden: () => setLibrariesModalVisibility(false),
-      ok: () => setLibrariesModalVisibility(false)
+      hidden: () => this.closeLibraryModal()
     };
 
     return (

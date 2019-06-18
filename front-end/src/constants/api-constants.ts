@@ -30,7 +30,9 @@ export enum API_ENDPOINT {
   MakePrimaryPaymentMethod = 'MakePrimaryPaymentMethod',
   AddPaymentMethod = 'AddPaymentMethod',
   GetLatestMonthBill = 'GetLatestMonthBill',
-  SaveProjectConfig = 'SaveProjectConfig'
+  SaveProjectConfig = 'SaveProjectConfig',
+  GetBuildStatus = 'GetBuildStatus',
+  StartLibraryBuild = 'StartLibraryBuild'
 }
 
 export enum HTTP_METHOD {
@@ -178,6 +180,14 @@ export const ApiConfigMap: ApiConfigMapType = {
   },
   [API_ENDPOINT.GetLatestMonthBill]: {
     path: '/api/v1/billing/get_month_totals',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.GetBuildStatus]: {
+    path: '/api/v1/lambdas/libraries_cache_check',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.StartLibraryBuild]: {
+    path: '/api/v1/lambdas/build_libraries',
     method: HTTP_METHOD.POST
   }
 };

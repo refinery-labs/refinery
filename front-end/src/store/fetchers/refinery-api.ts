@@ -18,6 +18,8 @@ import {
   DeployDiagramResponse,
   GetAuthenticationStatusRequest,
   GetAuthenticationStatusResponse,
+  GetBuildStatusRequest,
+  GetBuildStatusResponse,
   GetCloudWatchLogsForLambdaRequest,
   GetCloudWatchLogsForLambdaResponse,
   GetLatestMonthlyBillRequest,
@@ -64,6 +66,8 @@ import {
   SaveProjectResponse,
   SearchSavedProjectsRequest,
   SearchSavedProjectsResponse,
+  StartLibraryBuildRequest,
+  StartLibraryBuildResponse,
   UpdateEnvironmentVariablesRequest,
   UpdateEnvironmentVariablesResponse
 } from '@/types/api-types';
@@ -183,6 +187,12 @@ export class RefineryApi implements RefineryApiTypeMap {
   );
   [API_ENDPOINT.SaveProjectConfig] = makeApiClient<SaveProjectConfigRequest, SaveProjectConfigResponse>(
     API_ENDPOINT.SaveProjectConfig
+  );
+  [API_ENDPOINT.GetBuildStatus] = makeApiClient<GetBuildStatusRequest, GetBuildStatusResponse>(
+    API_ENDPOINT.GetBuildStatus
+  );
+  [API_ENDPOINT.StartLibraryBuild] = makeApiClient<StartLibraryBuildRequest, StartLibraryBuildResponse>(
+    API_ENDPOINT.StartLibraryBuild
   );
 }
 

@@ -110,7 +110,8 @@ export default class EditTransitionSelector extends Vue implements EditTransitio
       content: this.ifExpression || '',
       readOnly: this.readOnly,
       wrapText: true,
-      onChange: setIfExpression
+      onChange: setIfExpression,
+      extraClasses: 'height--100percent'
     };
 
     return <RefineryCodeEditor props={editorProps} />;

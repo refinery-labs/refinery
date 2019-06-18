@@ -12,13 +12,8 @@ export default class RunDeployedCodeBlockPane extends Vue {
   @runLambda.State isRunningLambda!: boolean;
 
   public render(h: CreateElement): VNode {
-    const formClasses = {
-      'text-align--left run-lambda-pane-container': true,
-      'whirl standard': this.isRunningLambda
-    };
-
     return (
-      <div class={formClasses}>
+      <div class="text-align--left run-lambda-pane-container">
         <div class="run-lambda-pane-container__content overflow--scroll-y-auto mb-3 mt-3">
           <RunDeployedCodeBlockContainer props={{ displayMode: RunLambdaDisplayMode.sidepane }} />
         </div>

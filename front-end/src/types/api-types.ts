@@ -2,6 +2,7 @@ import {
   LambdaWorkflowState,
   ProjectConfig,
   ProjectEnvironmentVariableConfig,
+  SupportedLanguage,
   WorkflowRelationship,
   WorkflowState,
   WorkflowStateType
@@ -291,7 +292,7 @@ export interface RunTmpLambdaRequest extends BaseApiRequest {
   code: string;
   environment_variables: any[];
   input_data: any;
-  language: string;
+  language: SupportedLanguage;
   layers: any[];
   libraries: any[];
   max_execution_time: number;
@@ -348,7 +349,7 @@ export interface SaveProjectConfigResponse extends BaseApiResponse {
 export interface SavedLambdaCreateRequest {
   code: string;
   description: string;
-  language: string;
+  language: SupportedLanguage;
   libraries: string[];
   max_execution_time: number;
   memory: number;
@@ -542,3 +543,19 @@ export interface BillingData {
 export interface GetLatestMonthlyBillResponse extends BaseApiResponse {
   billing_data: BillingData;
 }
+
+export interface GetBuildStatusRequest extends BaseApiRequest {
+  libraries: string[];
+  language: SupportedLanguage;
+}
+
+export interface GetBuildStatusResponse extends BaseApiResponse {
+  is_already_cached: boolean;
+}
+
+export interface StartLibraryBuildRequest extends BaseApiRequest {
+  libraries: string[];
+  language: SupportedLanguage;
+}
+
+export interface StartLibraryBuildResponse extends BaseApiResponse {}
