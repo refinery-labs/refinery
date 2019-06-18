@@ -59,7 +59,7 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
         <div class={containerClasses}>
           <h4>
             There are not any executions of this pipeline. For more information on, please read{' '}
-            <a href="https://docs.refinerylabs.io/debugging/" target="_blank">
+            <a href="https://docs.refinery.io/debugging/" target="_blank">
               these docs
             </a>
             .

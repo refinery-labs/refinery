@@ -26,17 +26,8 @@ export default class ProjectDeployments extends Vue {
   @deployment.Action closePane!: (p: PANE_POSITION) => void;
 
   @Watch('$route', { immediate: true })
-  private routeChanged(val: Route, oldVal: Route) {
-    // Project is already opened
-    if (val && oldVal) {
-      const isProjectAlreadyOpen = val.params.projectId && val.params.projectId === oldVal.params.projectId;
-      const isDeploymentAlreadyOpen = val.name === 'deployment' && oldVal.name === 'deployment';
-
-      if (isProjectAlreadyOpen && isDeploymentAlreadyOpen) {
-        return;
-      }
-    }
-
+  private routeChanged(val: Route) {
+    // TODO: Check if the state is still valid to allow caching + faster UX
     this.openDeployment(val.params.projectId);
   }
 

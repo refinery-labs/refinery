@@ -115,6 +115,7 @@ export enum DeploymentViewGetters {
 }
 
 export enum DeploymentViewMutators {
+  resetState = 'resetState',
   setOpenedDeployment = 'setOpenedDeployment',
 
   setDestroyDeploymentModalVisibility = 'setDestroyDeploymentModalVisibility',

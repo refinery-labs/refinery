@@ -1,5 +1,7 @@
 <template>
-  <div :id="editorId" class="height--100percent width--100percent"></div>
+  <div class="flex-grow--1 position--relative">
+    <div :id="editorId" class="ace-hack"></div>
+  </div>
 </template>
 <script>
 import Vue from 'vue';

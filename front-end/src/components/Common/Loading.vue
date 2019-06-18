@@ -1,7 +1,7 @@
 <template>
-  <div class="container">
-    <div v-if="show" class="overlay">
-      <div class="loading-text">
+  <div class="loading-helper__container">
+    <div v-if="show" class="loading-helper__overlay">
+      <div class="loading-helper__loading-text">
         <div class="spinner-border text-primary" role="status">
           <span class="sr-only">Loading...</span>
         </div>
@@ -27,13 +27,13 @@ export default class LoadingContainer extends Vue implements LoadingContainerPro
 </script>
 
 <style scoped>
-.container {
+.loading-helper__container {
   position: relative;
   margin: 0px;
   max-width: unset;
 }
 
-.overlay {
+.loading-helper__overlay {
   background-color: #f0f0f0;
   z-index: 9998;
   position: absolute;
@@ -46,7 +46,7 @@ export default class LoadingContainer extends Vue implements LoadingContainerPro
   opacity: 0.9;
 }
 
-.loading-text {
+.loading-helper__loading-text {
   text-align: center;
   color: #000000;
   z-index: 9999;

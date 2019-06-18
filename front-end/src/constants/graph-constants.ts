@@ -1,3 +1,6 @@
+import { ExecutionStatusType } from '@/types/api-types';
+import { STYLE_CLASSES } from '@/lib/cytoscape-styles';
+
 export const GRAPH_ICONS = {
   lambda: {
     url: '/img/code-icon.png',
@@ -23,4 +26,12 @@ export const GRAPH_ICONS = {
     url: '/img/api-gateway.png',
     id: 'api_gateway_response'
   }
+};
+
+export type ExecutionStatusTypeToClass = { [key in ExecutionStatusType]: STYLE_CLASSES };
+
+export const excecutionStatusTypeToClass: ExecutionStatusTypeToClass = {
+  [ExecutionStatusType.EXCEPTION]: STYLE_CLASSES.EXECUTION_FAILURE,
+  [ExecutionStatusType.CAUGHT_EXCEPTION]: STYLE_CLASSES.EXECUTION_CAUGHT,
+  [ExecutionStatusType.RETURN]: STYLE_CLASSES.EXECUTION_SUCCESS
 };

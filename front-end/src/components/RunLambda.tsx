@@ -117,7 +117,8 @@ export default class RunLambda extends Vue {
       lang: 'text',
       content: (this.runResultOutput && this.runResultOutput.returned_data) || '',
       wrapText: true,
-      readOnly: true
+      readOnly: true,
+      extraClasses: 'run-lambda-container__min-height'
     };
 
     const resultOutputEditorProps: EditorProps = {
@@ -126,7 +127,8 @@ export default class RunLambda extends Vue {
       lang: 'text',
       content: this.getRunLambdaOutput(),
       wrapText: true,
-      readOnly: true
+      readOnly: true,
+      extraClasses: 'run-lambda-container__min-height'
     };
 
     const resultDataTab = (
@@ -175,7 +177,8 @@ export default class RunLambda extends Vue {
       // Using NodeJS for JSON support
       lang: SupportedLanguage.NODEJS_8,
       content: this.inputData,
-      onChange: this.onUpdateInputData
+      onChange: this.onUpdateInputData,
+      extraClasses: 'run-lambda-container__min-height'
     };
 
     const inputDataLabelClasses = {

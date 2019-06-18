@@ -24,6 +24,7 @@ import { LayoutOptions } from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
 import {
   DeploymentViewActions,
+  DeploymentViewMutators,
   ProjectViewActions,
   ProjectViewGetters,
   ProjectViewMutators
@@ -78,6 +79,7 @@ import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
 import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
+import { teardownProject } from '@/store/fetchers/api-helpers';
 
 interface AddBlockArguments {
   rawBlockType: string;
@@ -643,15 +645,17 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       if (context.state.latestDeploymentState.result && context.state.latestDeploymentState.result.deployment_json) {
-        const deleteDeploymentResponse = await makeApiRequest<
-          DeleteDeploymentsInProjectRequest,
-          DeleteDeploymentsInProjectResponse
-        >(API_ENDPOINT.DeleteDeploymentsInProject, {
-          project_id: openedProject.project_id
-        });
-
-        if (!deleteDeploymentResponse) {
-          return await handleDeploymentError('Unable to delete existing deployment.');
+        try {
+          await teardownProject(
+            openedProject.project_id,
+            context.state.latestDeploymentState.result.deployment_json.workflow_states
+          );
+          // Reset the state
+          await context.dispatch(`deployment/${DeploymentViewActions.resetDeploymentState}`, null, { root: true });
+        } catch (e) {
+          console.log(e);
+          await handleDeploymentError('Unable to delete existing deployment.');
+          return;
         }
       }
 

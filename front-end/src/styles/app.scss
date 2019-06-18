@@ -292,6 +292,12 @@ $content-sidebar-width: 92px;
     height: 240px;
     margin-bottom: 16px;
     border-bottom: 1px dashed #eee;
+
+    &--small {
+      height: 180px;
+      margin-bottom: 8px;
+      border-bottom: 1px dashed #eee;
+    }
   }
 
   &__expand-button {
@@ -348,9 +354,17 @@ $content-sidebar-width: 92px;
 
 .refinery-code-editor-container {
   min-width: 200px;
-  height: 240px;
+  min-height: 180px;
   margin-bottom: 16px;
   padding-bottom: 8px;
+}
+
+.ace-hack {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
 }
 
 // I realize this name is horrible and confusing with the lower class...
@@ -370,6 +384,10 @@ $content-sidebar-width: 92px;
 .run-lambda-container {
   // This is the shared container between the Sidepane and the Full screen editor
   min-height: 250px;
+
+  &__min-height {
+    min-height: 240px
+  }
 
   &__col {
     // Should force the blocks next to each other
@@ -411,4 +429,14 @@ $content-sidebar-width: 92px;
 
 .view-executions-pane-container {
   padding: 8px;
+}
+
+// This is because of some gross interactions between Vue Bootstrap components...
+.disgusting-card-offset {
+  margin: -1px 5px 5px;
+}
+
+.shift-block-nastily-into-tabs {
+  margin-top: -13px;
+  padding-top: 15px;
 }
