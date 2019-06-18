@@ -94,7 +94,7 @@ export default class RunLambda extends Vue {
     return (
       <b-button on={fullscreenOnClick} class="run-lambda-container__expand-button">
         <span class="fa fa-expand" />
-        {/*<b-button on={expandOnClick} class="edit-block-container__expand-button">*/}
+        {/*<b-button on={expandOnClick} class="show-block-container__expand-button">*/}
         {/*  <span class="fa fa-angle-double-left"/>*/}
         {/*</b-button>*/}
       </b-button>

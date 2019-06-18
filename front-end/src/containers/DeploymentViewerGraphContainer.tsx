@@ -7,6 +7,7 @@ import { LayoutOptions } from 'cytoscape';
 import { AvailableTransition } from '@/store/store-types';
 
 const deployment = namespace('deployment');
+const deploymentExecutions = namespace('deploymentExecutions');
 
 @Component
 export default class DeploymentViewerGraphContainer extends Vue {
@@ -17,6 +18,8 @@ export default class DeploymentViewerGraphContainer extends Vue {
   @deployment.State cytoscapeConfig!: cytoscape.CytoscapeOptions | null;
 
   @deployment.State isLoadingDeployment!: boolean;
+
+  @deploymentExecutions.Getter graphElementsWithExecutionStatus!: CyElements | null;
 
   @deployment.Action clearSelection!: () => {};
   @deployment.Action selectNode!: (element: WorkflowState) => {};
@@ -38,7 +41,7 @@ export default class DeploymentViewerGraphContainer extends Vue {
       clearSelection: this.clearSelection,
       selectNode: this.selectNode,
       selectEdge: this.selectEdge,
-      elements: this.cytoscapeElements,
+      elements: this.graphElementsWithExecutionStatus || this.cytoscapeElements,
       stylesheet: this.cytoscapeStyle,
       layout: this.cytoscapeLayoutOptions,
       config: this.cytoscapeConfig,

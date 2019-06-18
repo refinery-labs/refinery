@@ -29,13 +29,13 @@ export default class ViewDeployedBlockPane extends Vue {
 
     const formClasses = {
       'mb-3 mt-3 text-align--left': true,
-      'edit-block-container__form--normal': !this.wideMode,
-      'edit-block-container__form--wide': this.wideMode
+      'show-block-container__form--normal': !this.wideMode,
+      'show-block-container__form--wide': this.wideMode
     };
 
     return (
       <b-form class={formClasses} on={{ submit: (e: Event) => e.preventDefault() }}>
-        <div class="edit-block-container__scrollable overflow--scroll-y-auto">
+        <div class="scrollable-pane-container padding-left--normal padding-right--normal">
           <ActiveEditorComponent props={props} />
         </div>
       </b-form>
@@ -43,6 +43,6 @@ export default class ViewDeployedBlockPane extends Vue {
   }
 
   public render(h: CreateElement): VNode {
-    return <b-list-group class="view-deployed-block-pane-container">{this.renderContentWrapper()}</b-list-group>;
+    return <div class="show-block-container container">{this.renderContentWrapper()}</div>;
   }
 }

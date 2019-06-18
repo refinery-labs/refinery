@@ -1,62 +1,70 @@
 import {
-  Execution,
-  GetBuildStatusRequest,
-  GetBuildStatusResponse,
+  GetBuildStatusRequest, GetBuildStatusResponse,
+  GetProjectExecutionLogsRequest,
+  GetProjectExecutionLogsResponse,
   GetProjectExecutionsRequest,
-  GetProjectExecutionsResponse,
-  StartLibraryBuildRequest,
-  StartLibraryBuildResponse
+  GetProjectExecutionsResponse, StartLibraryBuildRequest, StartLibraryBuildResponse
 } from '@/types/api-types';
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
-import { SupportedLanguage } from '@/types/graph';
+import { ProductionExecution, ProductionExecutionResponse } from '@/types/deployment-executions-types';
+import { convertExecutionResponseToProjectExecutions } from '@/utils/project-execution-utils';
+import {SupportedLanguage} from '@/types/graph';
 
 export interface libraryBuildArguments {
   language: SupportedLanguage;
   libraries: string[];
 }
 
-export type ExecutionResult = { [key: string]: Execution };
-
 export async function getProjectExecutions(
   projectId: string,
-  onResult?: (result: ExecutionResult) => void,
-  token?: string
-): Promise<ExecutionResult | null> {
+  token: string | null
+): Promise<ProductionExecutionResponse | null> {
+  const request: GetProjectExecutionsRequest = {
+    project_id: projectId
+  };
+
+  // Pass the token if we have one
+  if (token) {
+    request.continuation_token = token;
+  }
+
   const executionsResponse = await makeApiRequest<GetProjectExecutionsRequest, GetProjectExecutionsResponse>(
     API_ENDPOINT.GetProjectExecutions,
+    request
+  );
+
+  if (
+    !executionsResponse ||
+    !executionsResponse.success ||
+    !executionsResponse.result ||
+    !executionsResponse.result.executions
+  ) {
+    return null;
+  }
+
+  const convertedExecutions = convertExecutionResponseToProjectExecutions(executionsResponse.result.executions);
+
+  return {
+    continuationToken: executionsResponse.result.continuation_token,
+    executions: convertedExecutions
+  };
+}
+
+export async function getLogsForExecutions(execution: ProductionExecution) {
+  const response = await makeApiRequest<GetProjectExecutionLogsRequest, GetProjectExecutionLogsResponse>(
+    API_ENDPOINT.GetProjectExecutionLogs,
     {
-      project_id: projectId,
-      continuation_token: token
+      logs: execution.logs
     }
   );
 
-  if (!executionsResponse || !executionsResponse.success || !executionsResponse.result) {
-    return null;
+  if (!response || !response.success || !response.result) {
+    console.error('Unable to retrieve execution logs.');
+    return;
   }
 
-  if (onResult) {
-    onResult(executionsResponse.result.executions);
-  }
-
-  if (!executionsResponse.result.continuation_token) {
-    return executionsResponse.result.executions;
-  }
-
-  const additionalExecutions = await getProjectExecutions(
-    projectId,
-    onResult,
-    executionsResponse.result.continuation_token
-  );
-
-  if (!additionalExecutions) {
-    return null;
-  }
-
-  return {
-    ...executionsResponse.result.executions,
-    ...additionalExecutions
-  };
+  return response.result;
 }
 
 export async function checkBuildStatus(libraryBuildArgs: libraryBuildArguments) {

@@ -78,16 +78,16 @@ export default class EditBlockPane extends Vue {
 
     const formClasses = {
       'mb-3 mt-3 text-align--left': true,
-      'edit-block-container__form--normal': !this.wideMode,
-      'edit-block-container__form--wide': this.wideMode
+      'show-block-container__form--normal': !this.wideMode,
+      'show-block-container__form--wide': this.wideMode
     };
 
     return (
       <b-form class={formClasses} on={{ submit: this.saveBlockClicked }}>
-        <div class="edit-block-container__scrollable overflow--scroll-y-auto">
+        <div class="scrollable-pane-container padding-left--normal padding-right--normal">
           <ActiveEditorComponent props={props} />
         </div>
-        <div class="row edit-block-container__bottom-buttons">
+        <div class="row show-block-container__bottom-buttons">
           <b-button-group class="col-12">
             <b-button variant="primary" class="col-8" type="submit" disabled={!this.isStateDirty}>
               Save Block
@@ -103,7 +103,7 @@ export default class EditBlockPane extends Vue {
 
   public render(h: CreateElement): VNode {
     return (
-      <b-container class="edit-block-container">
+      <b-container class="show-block-container">
         {this.renderContentWrapper()}
         {this.renderConfirmDiscardModal()}
       </b-container>

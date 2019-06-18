@@ -308,7 +308,11 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
 
       if (leftSidebarPaneType === SIDEBAR_PANE.viewExecutions) {
         // TODO: Is this better inside of a `mounted` hook?
-        await context.dispatch(DeploymentExecutionsActions.getExecutionsForOpenedDeployment, null, { root: true });
+        await context.dispatch(
+          `deploymentExecutions/${DeploymentExecutionsActions.getExecutionsForOpenedDeployment}`,
+          null,
+          { root: true }
+        );
         return;
       }
     },
