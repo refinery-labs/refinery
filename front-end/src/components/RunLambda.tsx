@@ -2,7 +2,7 @@ import { CreateElement, VNode } from 'vue';
 import { Component, Prop, Vue } from 'vue-property-decorator';
 import { SupportedLanguage } from '@/types/graph';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
-import { EditorProps } from '@/types/component-types';
+import { EditorProps, LoadingContainerProps } from '@/types/component-types';
 import { RunLambdaResult } from '@/types/api-types';
 import Loading from '@/components/Common/Loading.vue';
 import { namespace } from 'vuex-class';
@@ -210,15 +210,13 @@ export default class RunLambda extends Vue {
   }
 
   public render(h: CreateElement): VNode {
-    const loadingProps = {
+    const loadingProps: LoadingContainerProps = {
       show: this.isCurrentlyRunning,
       label: this.loadingText
     };
 
     return (
       <div>
-        {/*
-              // @ts-ignore */}
         <Loading props={loadingProps}>
           <div class="run-lambda-container display--flex flex-direction--column">
             {this.renderEditors()}

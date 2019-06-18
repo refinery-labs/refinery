@@ -1,6 +1,6 @@
 <template>
   <div class="container">
-    <div v-if="showing" class="overlay">
+    <div v-if="show" class="overlay">
       <div class="loading-text">
         <div class="spinner-border text-primary" role="status">
           <span class="sr-only">Loading...</span>
@@ -13,28 +13,17 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'Loading',
-  props: {
-    label: {
-      default: 'Loading...'
-    },
-    show: {
-      default: false
-    }
-  },
-  data() {
-    return {
-      showing: false
-    };
-  },
-  watch: {
-    show(val) {
-      this.showing = val;
-    }
-  }
-};
+<script lang="ts">
+import Component from 'vue-class-component';
+import { Prop } from 'vue-property-decorator';
+import Vue from 'vue';
+import { LoadingContainerProps } from '@/types/component-types';
+
+@Component
+export default class LoadingContainer extends Vue implements LoadingContainerProps {
+  @Prop({ default: 'Loading...' }) label!: string;
+  @Prop({ default: false, required: true }) show!: boolean;
+}
 </script>
 
 <style scoped>
