@@ -33,44 +33,49 @@
           </a>
         </li>
         <!-- START User avatar toggle-->
+        <!--
         <li class="nav-item d-none d-md-block">
-          <!-- Button used to collapse the left sidebar. Only visible on tablet and desktops-->
           <a class="nav-link" @click.prevent="toggleUserBlock">
             <em class="icon-user"></em>
           </a>
         </li>
+        -->
         <!-- END User avatar toggle-->
         <!-- START lock screen-->
+        <!--
         <li class="nav-item d-none d-md-block">
           <router-link class="nav-link" to="/lock" title="Lock screen">
             <em class="icon-lock"></em>
           </router-link>
         </li>
+        -->
         <!-- END lock screen-->
       </ul>
       <!-- END Left navbar-->
       <!-- START Right Navbar-->
       <ul class="navbar-nav flex-row">
         <!-- Search icon-->
+        <!--
         <li class="nav-item">
           <a class="nav-link" href="#" data-search-open="">
             <em class="icon-magnifier"></em>
           </a>
         </li>
+        -->
         <!-- Fullscreen (only desktops)-->
         <li class="nav-item d-none d-md-block">
           <ToggleFullscreen tag="A" class="nav-link" href="#" />
         </li>
         <!-- START Alert menu-->
+        <!--
         <b-nav-item-dropdown class="dropdown-list" no-caret menuClass="animated flipInX" right>
+
           <template slot="button-content">
             <em class="icon-bell"></em>
             <span class="badge badge-danger">11</span>
           </template>
           <b-dropdown-item>
-            <!-- START list group-->
             <div class="list-group">
-              <!-- list item-->
               <div class="list-group-item list-group-item-action">
                 <div class="media">
                   <div class="align-self-start mr-2">
@@ -82,7 +87,6 @@
                   </div>
                 </div>
               </div>
-              <!-- list item-->
               <div class="list-group-item list-group-item-action">
                 <div class="media">
                   <div class="align-self-start mr-2">
@@ -94,7 +98,6 @@
                   </div>
                 </div>
               </div>
-              <!-- list item-->
               <div class="list-group-item list-group-item-action">
                 <div class="media">
                   <div class="align-self-start mr-2">
@@ -106,7 +109,6 @@
                   </div>
                 </div>
               </div>
-              <!-- last list item-->
               <div class="list-group-item list-group-item-action">
                 <span class="d-flex align-items-center">
                   <span class="text-sm">More notifications</span>
@@ -114,9 +116,9 @@
                 ><span class="text-sm">More notifications</span>
               </div>
             </div>
-            <!-- END list group-->
           </b-dropdown-item>
         </b-nav-item-dropdown>
+        -->
         <!-- END Alert menu-->
         <!-- START Offsidebar button-->
         <li class="nav-item">

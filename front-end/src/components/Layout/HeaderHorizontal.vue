@@ -42,18 +42,22 @@
         <!-- START Right Navbar-->
         <ul class="navbar-nav flex-row">
           <!-- START lock screen-->
+          <!--
           <li class="nav-item d-none d-md-block">
             <router-link class="nav-link" to="/lock" title="Lock screen">
               <em class="icon-lock"></em>
             </router-link>
           </li>
+          -->
           <!-- END lock screen-->
           <!-- Search icon-->
+          <!--
           <li class="nav-item">
             <a class="nav-link" href="#" data-search-open="">
               <em class="icon-magnifier"></em>
             </a>
           </li>
+          -->
           <!-- Fullscreen (only desktops)-->
           <li class="nav-item d-none d-md-block">
             <ToggleFullscreen tag="A" class="nav-link" href="#" />

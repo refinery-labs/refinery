@@ -19,24 +19,24 @@ export const GlobalNavMenuItems: MenuItemList = [
     icon: 'icon-chemistry',
     translate: 'global.nav.PROJECTS'
   },
-  {
+  /*  {
     name: 'Marketplace',
     path: baseLinks.marketplace,
     icon: 'icon-basket',
     translate: 'global.nav.MARKETPLACE'
-  },
+  },*/
   {
     name: 'Settings',
     path: baseLinks.settings,
     icon: 'icon-settings',
     translate: 'global.nav.SETTINGS'
   },
-  {
+  /*  {
     name: 'About',
     path: baseLinks.about,
     icon: 'icon-info',
     translate: 'global.nav.ABOUT'
-  },
+  },*/
   {
     name: 'Billing',
     path: baseLinks.billing,
