@@ -129,14 +129,14 @@ export class EditLambdaBlock extends Vue {
           <label class="d-block flex-grow--1 padding-top--normal" htmlFor={`code-editor-${selectedNode.id}`}>
             Edit Block Code:
           </label>
-          <b-button on={fullscreenOnClick} class="edit-block-container__expand-button">
+          <b-button on={fullscreenOnClick} class="show-block-container__expand-button">
             <span class="fa fa-expand" />
           </b-button>
-          <b-button on={expandOnClick} class="edit-block-container__expand-button">
+          <b-button on={expandOnClick} class="show-block-container__expand-button">
             <span class="fa fa-angle-double-left" />
           </b-button>
         </div>
-        <div class="input-group with-focus edit-block-container__code-editor">{this.renderCodeEditor()}</div>
+        <div class="input-group with-focus show-block-container__code-editor">{this.renderCodeEditor()}</div>
       </b-form-group>
     );
   }

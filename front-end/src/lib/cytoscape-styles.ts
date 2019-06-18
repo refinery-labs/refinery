@@ -1,17 +1,12 @@
-import {
-  CollectionReturnValue,
-  ElementAnimateOptionRen,
-  ElementDefinition,
-  EventObject,
-  SingularAnimationOptionsPos,
-  SingularElementReturnValue
-} from 'cytoscape';
+import { CollectionReturnValue, EventObject, SingularAnimationOptionsPos } from 'cytoscape';
 
 export enum STYLE_CLASSES {
   SELECTED = 'selected',
   HIGHLIGHT = 'highlight',
   SELECTION_ANIMATION_ENABLED = 'selection-animation-enabled',
-  DISABLED = 'disabled'
+  DISABLED = 'disabled',
+  EXECUTION_SUCCESS = 'execution-success',
+  EXECUTION_FAILURE = 'execution-failure'
 }
 
 /*
@@ -100,6 +95,22 @@ export const baseCytoscapeStyles = [
       'line-color': '#ff4444',
       'target-arrow-color': '#ff4444',
       color: '#000'
+    }
+  },
+  {
+    selector: `node.${STYLE_CLASSES.EXECUTION_SUCCESS}`,
+    style: {
+      'background-color': 'green',
+      'background-opacity': 1,
+      'background-image-opacity': 0.7
+    }
+  },
+  {
+    selector: `node.${STYLE_CLASSES.EXECUTION_FAILURE}`,
+    style: {
+      'background-color': 'red',
+      'background-opacity': 1,
+      'background-image-opacity': 0.7
     }
   }
   // {

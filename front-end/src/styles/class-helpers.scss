@@ -186,3 +186,12 @@ $padding-steps: (
     margin-right: auto !important;
   }
 }
+
+.scrollable-pane-container {
+  max-height: calc(100vh - 248px);
+
+  box-shadow: inset 0 0 4px rgba(0,0,0,0.2);
+  border: 1px solid #ccc;
+
+  overflow-y: auto;
+}

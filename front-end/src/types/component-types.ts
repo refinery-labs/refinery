@@ -1,5 +1,6 @@
 import { SupportedLanguage, WorkflowRelationshipType } from '@/types/graph';
 import { IfDropDownSelectionType } from '@/store/store-types';
+import { ProductionExecution } from '@/types/deployment-executions-types';
 
 export interface EditorProps {
   name: string;
@@ -37,4 +38,9 @@ export interface LoadingContainerProps {
   [key: string]: any;
   label?: string;
   show: boolean;
+}
+
+export interface ViewExecutionsListProps {
+  projectExecutions: ProductionExecution[] | null;
+  openExecutionGroup: (id: string) => void;
 }

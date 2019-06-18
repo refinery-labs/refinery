@@ -1,27 +1,10 @@
 import { CreateElement, VNode } from 'vue';
 import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
-import cytoscape, {
-  AnimationManipulation,
-  ElementDefinition,
-  EventObject,
-  LayoutOptions,
-  NodeCollection
-} from 'cytoscape';
+import cytoscape, { AnimationManipulation, EventObject, LayoutOptions } from 'cytoscape';
 import dagre from 'cytoscape-dagre';
 import { CyElements, CyStyle, WorkflowRelationship, WorkflowState } from '@/types/graph';
-import {
-  animationBegin,
-  animationEnd,
-  baseCytoscapeStyles,
-  selectableAnimation,
-  STYLE_CLASSES
-} from '@/lib/cytoscape-styles';
+import { animationBegin, animationEnd, baseCytoscapeStyles, STYLE_CLASSES } from '@/lib/cytoscape-styles';
 import { timeout } from '@/utils/async-utils';
-
-type animationTuple = {
-  ani: AnimationManipulation;
-  prom: Promise<EventObject>;
-};
 
 cytoscape.use(dagre);
 
@@ -56,13 +39,6 @@ export default class CytoscapeGraph extends Vue {
     this.cy.json(this.generateInitialCytoscapeConfig());
 
     this.selectNodeOrEdgeInInstance(this.selected);
-  }
-
-  getNewElements(valArray: [], oldValArray: []) {
-    // @ts-ignore
-    const oldIds = oldValArray.map(t => t.data.id);
-    // @ts-ignore
-    return valArray.filter(t => oldIds.indexOf(t.data.id) === -1);
   }
 
   @Watch('elements')
@@ -286,7 +262,8 @@ export default class CytoscapeGraph extends Vue {
 
       elements: this.elements || {
         // Prevents a "default" node from rendering when the list is empty...
-        nodes: []
+        nodes: [],
+        edges: []
       },
 
       ...this.config

@@ -1,12 +1,35 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
+import ViewExecutionsList from '@/components/ViewExecutions/ViewExecutionsList';
+import { ViewExecutionsListProps } from '@/types/component-types';
+import { ProductionExecution } from '@/types/deployment-executions-types';
 
-const deployment = namespace('deployment');
+const deploymentExecutions = namespace('deploymentExecutions');
 
 @Component
 export default class ViewExecutionsPane extends Vue {
+  @deploymentExecutions.State isBusy!: boolean;
+  @deploymentExecutions.Getter sortedExecutions!: ProductionExecution[] | null;
+
+  @deploymentExecutions.Action openExecutionGroup!: (id: string) => void;
+
   public render(h: CreateElement): VNode {
-    return <div class="view-executions-pane-container">View Executions</div>;
+    const containerClasses = {
+      'view-executions-pane-container': true,
+      // TODO: Swap this with loading component
+      'whirl standard': this.isBusy
+    };
+
+    const viewExecutionsListProps: ViewExecutionsListProps = {
+      openExecutionGroup: this.openExecutionGroup,
+      projectExecutions: this.sortedExecutions
+    };
+
+    return (
+      <div class={containerClasses}>
+        <ViewExecutionsList props={viewExecutionsListProps} />
+      </div>
+    );
   }
 }

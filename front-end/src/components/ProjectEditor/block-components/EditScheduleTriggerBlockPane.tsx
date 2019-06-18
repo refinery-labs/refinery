@@ -58,11 +58,11 @@ export class EditScheduleTriggerBlock extends Vue {
           <label class="d-block flex-grow--1" htmlFor={`code-editor-${selectedNode.id}`}>
             Edit Return Data:
           </label>
-          <b-button on={expandOnClick} class="edit-block-container__expand-button">
+          <b-button on={expandOnClick} class="show-block-container__expand-button">
             <span class="fa fa-angle-double-left" />
           </b-button>
         </div>
-        <div class="input-group with-focus edit-block-container__code-editor">{this.renderCodeEditor('pane')}</div>
+        <div class="input-group with-focus show-block-container__code-editor">{this.renderCodeEditor('pane')}</div>
       </b-form-group>
     );
   }

@@ -4,7 +4,12 @@ import { CyElements, CyStyle } from '@/types/graph';
 import { generateCytoscapeElements, generateCytoscapeStyle } from '@/lib/refinery-to-cytoscript-converter';
 import { LayoutOptions } from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
-import { DeploymentViewActions, DeploymentViewGetters, DeploymentViewMutators } from '@/constants/store-constants';
+import {
+  DeploymentViewActions,
+  DeploymentViewGetters,
+  DeploymentViewMutators,
+  ProjectViewActions
+} from '@/constants/store-constants';
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
 import {
@@ -24,6 +29,7 @@ import { getNodeDataById } from '@/utils/project-helpers';
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 import { ViewBlockActions } from '@/store/modules/panes/view-block-pane';
 import { ViewTransitionActions } from '@/store/modules/panes/view-transition-pane';
+import { DeploymentExecutionsActions } from '@/store/modules/panes/deployment-executions-pane';
 
 const moduleState: DeploymentViewState = {
   openedDeployment: null,
@@ -299,6 +305,16 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
       // Or have the ProjectEditorLeftPaneContainer fire a callback on the child component?
       // That also feels wrong because it violates to "one direction" principal, in a way.
       context.commit(DeploymentViewMutators.setLeftSidebarPane, leftSidebarPaneType);
+
+      if (leftSidebarPaneType === SIDEBAR_PANE.viewExecutions) {
+        // TODO: Is this better inside of a `mounted` hook?
+        await context.dispatch(
+          `deploymentExecutions/${DeploymentExecutionsActions.getExecutionsForOpenedDeployment}`,
+          null,
+          { root: true }
+        );
+        return;
+      }
     },
     [DeploymentViewActions.closePane](context, pos: PANE_POSITION) {
       if (pos === PANE_POSITION.left) {

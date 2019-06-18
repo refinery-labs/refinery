@@ -174,13 +174,18 @@ export interface GetProjectExecutionLogsResult {
   aws_region: string;
   group_name: string;
   project_id: string;
-  type: string;
+  type: ExecutionStatusType;
   id: string;
   invoked_function_arn: string;
   data: ExecutionLogData;
   function_version: string;
   arn: string;
   function_name: string;
+}
+
+export enum ExecutionStatusType {
+  EXCEPTION = 'EXCEPTION',
+  RETURN = 'RETURN'
 }
 
 export interface ExecutionLogData {
