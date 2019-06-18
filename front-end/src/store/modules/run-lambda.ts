@@ -233,6 +233,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         return;
       }
       const selectedLambda = deepJSONCopy(selectedNodeData) as LambdaWorkflowState;
+      context.commit(RunLambdaMutators.setLambdaRunningStatus, true);
 
       const params: libraryBuildArguments = {
         language: selectedLambda.language as SupportedLanguage,
