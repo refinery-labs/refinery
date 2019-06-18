@@ -67,6 +67,7 @@ export const paneTypeToNameLookup: EditorPaneTypeToName = {
   [SIDEBAR_PANE.viewExecutions]: 'Block Executions',
   [SIDEBAR_PANE.destroyDeploy]: 'Destroy Deploy',
   [SIDEBAR_PANE.viewDeployedBlock]: 'Inspect Deployed Block',
+  [SIDEBAR_PANE.viewDeployedBlockLogs]: 'Block Execution Logs',
   [SIDEBAR_PANE.viewDeployedTransition]: 'Inspect Deployed Transition',
   [SIDEBAR_PANE.runEditorCodeBlock]: 'Run Code',
   [SIDEBAR_PANE.runDeployedCodeBlock]: 'Run Code'

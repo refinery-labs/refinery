@@ -21,6 +21,7 @@ import { EditTopicBlock } from '@/components/ProjectEditor/block-components/Edit
 import RunEditorCodeBlockPane from '@/components/ProjectEditor/RunEditorCodeBlockPane';
 import EditTransitionPane from '@/components/ProjectEditor/EditTransitionPane';
 import RunDeployedCodeBlockPane from '@/components/DeploymentViewer/RunDeployedCodeBlockPane';
+import ViewDeployedBlockLogsPane from '@/components/DeploymentViewer/ViewDeployedBlockLogsPane';
 
 export const BlockSelectionType = {
   ...WorkflowStateType,
@@ -369,6 +370,7 @@ export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
   [SIDEBAR_PANE.viewExecutions]: ViewExecutionsPane,
   [SIDEBAR_PANE.destroyDeploy]: DestroyDeploymentPane,
   [SIDEBAR_PANE.viewDeployedBlock]: ViewDeployedBlockPane,
+  [SIDEBAR_PANE.viewDeployedBlockLogs]: ViewDeployedBlockLogsPane,
   [SIDEBAR_PANE.viewDeployedTransition]: ViewDeployedTransitionPane
 };
 

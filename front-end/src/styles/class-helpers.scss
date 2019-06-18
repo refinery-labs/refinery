@@ -65,6 +65,10 @@ $padding-steps: (
 
 .padding {
   @include padding-generator($padding-sides, $padding-steps);
+
+  &--none {
+    padding: 0;
+  }
 }
 
 .flex {

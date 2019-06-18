@@ -272,7 +272,11 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
 
       context.commit(DeploymentViewMutators.selectedResource, node.id);
 
-      await context.dispatch(DeploymentViewActions.openRightSidebarPane, SIDEBAR_PANE.viewDeployedBlock);
+      const paneToOpen = context.rootState.deploymentExecutions.selectedExecutionGroup
+        ? SIDEBAR_PANE.viewDeployedBlockLogs
+        : SIDEBAR_PANE.viewDeployedBlock;
+
+      await context.dispatch(DeploymentViewActions.openRightSidebarPane, paneToOpen);
 
       await context.dispatch(`viewBlock/${ViewBlockActions.selectCurrentlySelectedProjectNode}`, null, { root: true });
     },

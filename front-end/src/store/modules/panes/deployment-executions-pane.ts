@@ -174,6 +174,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       const response = await getLogsForExecutions(projectExecution);
 
+      context.commit(DeploymentExecutionsMutators.setSelectedExecutionGroup, projectExecution);
       context.commit(DeploymentExecutionsMutators.setExecutionGroupLogs, response);
 
       context.commit(DeploymentExecutionsMutators.setIsBusy, false);

@@ -118,6 +118,7 @@ const moduleState: ProjectViewState = {
     [SIDEBAR_PANE.viewExecutions]: {},
     [SIDEBAR_PANE.destroyDeploy]: {},
     [SIDEBAR_PANE.viewDeployedBlock]: {},
+    [SIDEBAR_PANE.viewDeployedBlockLogs]: {},
     [SIDEBAR_PANE.viewDeployedTransition]: {}
   },
   activeLeftSidebarPane: null,
