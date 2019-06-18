@@ -1,6 +1,6 @@
 # Transitions
 
-Transitions are a large part of what makes Refinery an extremely powerful platform. Transitions allow different node types to be connected in a variety of ways in order to build large pipelines.
+Transitions are a large part of what makes Refinery an extremely powerful platform. Transitions allow different block types to be connected in a variety of ways in order to build large services and pipelines.
 
 ## Transition Types
 * [`then`](#then)
@@ -12,15 +12,15 @@ Transitions are a large part of what makes Refinery an extremely powerful platfo
 
 ## `then`
 
-`then` is the most simple of the transitions. It will simply always pass the return data from a node to another node as input. The only time that `then` will not occur is when an exception occurs (which can be caught using the [`exception`](#exception) transition).
+`then` is the most simple of the transitions. It will simply always pass the return data from a block to another block as input. The only time that `then` will not occur is when an exception occurs (which can be caught using the [`exception`](#exception) transition).
 
 ## `if`
 
-`if` is useful for situations where you only want to perform a transition if the return data from a node matches a certain condition. For example, only transition if the returned `array` or `list` has a length greater than zero. This transition carries the unique property of having a `Conditional Expression`. These are expressions which are written in Python that will cause the transition to occur if the expression returns a value of `True`.
+`if` is useful for situations where you only want to perform a transition if the return data from a `Code Block` matches a certain condition. For example, only transition if the returned `array` or `list` has a length greater than zero. This transition carries the unique property of having a `Conditional Expression`. These are expressions which are written in Python that will cause the transition to occur if the expression evaluates to a value of `True`.
 
 ## `else`
 
-`else` is a conditional transition which will execute if no other conditions are valid. For example, if a node has a `then` transition along with an `if` transition with a condition expression of `len(return_data) > 0` and the `return_data` has a length of `0`, the `then` transition would be followed.
+`else` is a conditional transition which will execute if no other conditions are valid. For example, if a `Code Block` has a `then` transition along with an `if` transition with a condition expression of `len(return_data) > 0` and the `return_data` has a length of `0`, the `then` transition would be followed.
 
 ## `exception`
 
@@ -49,7 +49,7 @@ The `fan-out` transition takes a return value of a list of items and invokes the
 
 ## `fan-in`
 
-The `fan-in` transition is the sister-transition of the `fan-out` transition. Using `fan-in` you can take the output of all of the concurrently invoked Lambdas and pass the return values as an array to a single Lambda. For example, if a `fan-out` transition executes three Lambdas concurrently and they return `1`, `2`, and `3` the input to the node connected by the `fan-in` transition will be `[2, 1, 3]`.
+The `fan-in` transition is the sister-transition of the `fan-out` transition. Using `fan-in` you can take the output of all of the concurrently invoked Lambdas and pass the return values as an array to a single Lambda. For example, if a `fan-out` transition executes three `Code Blocks` concurrently and they return `1`, `2`, and `3` the input to the `Code Block` connected by the `fan-in` transition will be `[2, 1, 3]`.
 
 !!! warning
 	If any uncaught exceptions occur during a `fan-out` chain the `fan-in` transition will fail to execute. It's important to ensure that all exceptions are caught to prevent breaking a down-stream `fan-in` transition.
@@ -58,4 +58,4 @@ The `fan-in` transition is the sister-transition of the `fan-out` transition. Us
 	The order of the returned values in the array is non-deterministic.
 
 !!! note
-	You can also have multiple nodes chained together before ending in a `fan-in` transition (instead of just a `fan-out` to a Lambda node to a `fan-in`). However, if all of the Lambdas do not `fan-in` properly the transition will fail. This can occur in situations such as a Lambda reaching its max execution time, for example.
+	You can also have multiple nodes chained together before ending in a `fan-in` transition (instead of just a `fan-out` to a Lambda node to a `fan-in`). However, if all of the Lambdas do not `fan-in` properly the transition will fail. This can occur in situations such as a `Code Block` reaching its max execution time, for example.

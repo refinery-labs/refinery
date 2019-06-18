@@ -93,6 +93,5 @@ Since you probably don't want this simple script executing forever, let's tear i
 
 Now that you've build something really simple with Refinery, why not build something a bit more complex? Head over to some of these articles to learn about more Refinery features:
 
-* Refinery Blocks
-* Refinery Transitions
-* Debugging & Logging
+* [The Refinery Blocks](/blocks/)
+* [The Refinery Transitions](/transitions/)

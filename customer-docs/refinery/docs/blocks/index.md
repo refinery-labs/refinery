@@ -8,8 +8,8 @@ Refinery supports a number of different node types, this documentation offers an
 * [Timer Block](#timer-block)
 * [Topic Block](#topic-block)
 * [Queue Block](#queue-block)
-* [API Endpoint Block](#api-endpoint)
-* [API Response Block](#api-response)
+* [API Endpoint Block](#api-endpoint-block)
+* [API Response Block](#api-response-block)
 
 ## Code Block
 
@@ -93,11 +93,11 @@ For more advanced reading on this topic, see [`AWS Lambda Execution Context`](ht
 
 ## Timer Block
 
-Executes the nodes which are linked to the `Timer Block` at a set interval. This can be something like every two minutes (`rate(2 minutes)`), every day at 5:00 PM, etc. Useful for operations which need to occur on a regular schedule in an a highly-reliable manner (e.g. an uptime checker).
+Executes the `Code Blocks` which are linked to the `Timer Block` at a set interval. This can be something like every two minutes (`rate(2 minutes)`), every day at 5:00 PM, etc. Useful for operations which need to occur on a regular schedule in an a highly-reliable manner (e.g. an uptime checker).
 
 ### Settings
 * `Block Name`: The name of the `Timer Block`
-* `Schedule Expression`: An expression which defines how often the trigger should fire the connected nodes. This follows the [AWS CloudWatch expression formats which are described here.](https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html) Valid values include `rate(1 minute)` and `cron(*/2 * * * ? *)`.
+* `Schedule Expression`: An expression which defines how often the trigger should fire the connected `Code Blocks`. This follows the [AWS CloudWatch expression formats which are described here.](https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html) Valid values include `rate(1 minute)` and `cron(*/2 * * * ? *)`.
 * `Input Data`: JSON-serializable data which can be optionally passed as input to the connected `Code Blocks` when the `Timer Block` fires.
 
 ## Topic Block
@@ -120,9 +120,9 @@ Creates an queue which can be linked to a `Code Block` in order to trigger the b
 * `Name`: The name of the `Queue Block`
 * `Batch Size`: The number of messages to pass into the connect `Code Blocks` as JSON-serializable input. This can be up to 10 total messages at a time. This is useful when you want to "batch" your processing to save on computation costs or to speed up processing.
 
-## API Endpoint
+## API Endpoint Block
 
-The API Endpoint node represents a single RESTful HTTP endpoint. Upon hitting the generated HTTP endpoint the connected Lambda nodes will be triggered with the parameters and other HTTP request metadata passed as input. API endpoints are useful for situations such as building a REST API on top of serverless, creating pipelines triggered by [webhooks](https://sendgrid.com/blog/whats-webhook/), and more. It's important to note that at a minimum an API Endpoint must be connected to a Lambda node and the Lambda node (or some Lambda node in the pipeline) must transition into an `API Response` node.
+The `API Endpoint Block` represents a single RESTful HTTP endpoint. Upon hitting the generated HTTP endpoint the connected `Code Blocks` will be triggered with the parameters and other HTTP request metadata passed as input. `API Endpoints Block` are useful for situations such as building a REST API on top of serverless, creating pipelines triggered by [webhooks](https://sendgrid.com/blog/whats-webhook/), and more. It's important to note that at a minimum an `API Endpoint Block` must be connected to a `Code Block` and the `Code Block` (or some `Code Block` in the pipeline) must transition into an `API Response` block.
 
 !!! warning
 	As of this time, AWS has a [hard limit](https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html#api-gateway-execution-service-limits-table) of 29 seconds before timing out HTTP requests made to [API Gateways](https://docs.aws.amazon.com/apigateway/latest/developerguide/welcome.html) (which are what API Endpoints deploy as). This complicates using API Endpoints for RESTful APIs because of the likelyhood of the computation taking longer than 29 seconds to finish (resulting in the API Gateway timing out).
@@ -132,8 +132,8 @@ The API Endpoint node represents a single RESTful HTTP endpoint. Upon hitting th
 * `HTTP Method`: The HTTP method for the API Endpoint to accept. Note that there can be multiple endpoints with the same path but with different HTTP methods.
 * `Path`: The HTTP path.
 
-## API Response
+## API Response Block
 
-API Response is a node which will return the data returned from a linked Lambda as an HTTP response. An API Response node is used downstream in a chain of Lambdas which started with an API Endpoint trigger. Note that due to the [hard AWS  limit](https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html#api-gateway-execution-service-limits-table) of 29 seconds before API Endpoints time out, the transition to an API Response must occur in this time frame. If the pipeline execution starts with an API Endpoint and the intermediary node executions take longer than 29 seconds the request will time out.
+`API Response Block` is a block which will return the data returned from a linked `Code Block` as an HTTP response. An `API Response Block` is used downstream in a chain of Lambdas which started with an API Endpoint trigger. Note that due to the [hard AWS  limit](https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html#api-gateway-execution-service-limits-table) of 29 seconds before API Endpoints time out, the transition to an API Response must occur in this time frame. If the pipeline execution starts with an API Endpoint and the intermediary `Code Block` executions take longer than 29 seconds the request will time out.
 
-If the data passed as input to the API Response node does not contain the `body` key, then the data will be returned as a JSON blob in a HTTP response with the `Content-Type` set to `application/json`. For finer-grained control over the HTTP response, such as the ability to set headers, status codes, and more, return a JSON structure which complies with the proper format for [AWS HTTP responses](https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-output-format).
+If the data passed as input to the `API Response Block` does not contain the `body` key, then the data will be returned as a JSON blob in a HTTP response with the `Content-Type` set to `application/json`. For finer-grained control over the HTTP response, such as the ability to set headers, status codes, and more, return a JSON structure which complies with the proper format for [AWS HTTP responses](https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-output-format).
