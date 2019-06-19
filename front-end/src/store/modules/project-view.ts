@@ -536,6 +536,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
+      context.commit(ProjectViewMutators.isSavingProject, false);
+
       await createToast(context.dispatch, {
         title: 'Project Config Updated',
         content: 'Project settings saved successfully!',
