@@ -65,8 +65,9 @@ You also may have noticed that `Code Block A` and `Code Block B` are written in 
 * `Block Name`: The name of the `Code Block`.
 * `Block Code`: This is the core code which will execute upon the Lambda being invoked. This must include the declaration of the function `main` which accepts two arguments `lambda_input` and `context`. `lambda_input` is the JSON-serializable input the `Code Block` was called with, and `context` contains metadata related to the Lambda's runtime.
 
-<video style="width: 100%" controls autoplay muted loop>
+<video style="width: 100%" playsinlines controls autoplay muted loop>
 	<source src="/blocks/images/running-code-block-fullscreen.webm" type="video/webm" />
+	<source src="/blocks/images/running-code-block-fullscreen.mp4" type="video/mp4" />
 </video>
 
 You can also use the full screen editor to test and iterate on your scripts. The full screen editor allows for specifying custom input data to your script as well. This is useful for replaying issues you've encountered in your deployed service. By taking the input data from the logs and replaying it in the editor you can quickly reproduce problems and fix them accordingly.
@@ -77,8 +78,9 @@ You can also use the full screen editor to test and iterate on your scripts. The
 	* `PHP 7.3`: [`composer` packages.](https://packagist.org/)
 	* `Go 1.12`: This option is disabled in Go, but you can install packages by simple importing them in your Go script.
 
-<video style="width: 100%" controls autoplay muted loop>
+<video style="width: 100%" playsinlines controls autoplay muted loop>
 	<source src="/blocks/images/adding-library-code-block.webm" type="video/webm" />
+	<source src="/blocks/images/adding-library-code-block.mp4" type="video/mp4" />
 </video>
 	
 * `Block Runtime`: The programming language for the `Code Block`. `Node 8.10`, `Python 2.7`, `PHP 7.3` and `Go 1.12` are currently the languages supported.
