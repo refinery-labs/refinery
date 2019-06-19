@@ -12,7 +12,7 @@ export default class DestroyDeploymentPane extends Vue {
     return (
       <b-list-group class="destroy-deployment-pane-container mb-2 mt-2 mr-2 ml-2">
         <h4>
-          You sure you want to destroy this deployment?
+          Are you sure you want to destroy this deployment?
           <br />
           <br />
           This change is permanent!
