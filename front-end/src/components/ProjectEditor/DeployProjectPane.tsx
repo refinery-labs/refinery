@@ -57,6 +57,12 @@ export default class DeployProjectPane extends Vue {
 
     return (
       <div class="display--flex flex-direction--column text-align--left">
+        <h4>
+          Deploying this project will replace your current deployment!
+          <br />
+          <br />
+          Are you sure you want to proceed?
+        </h4>
         <label class="text-align--left">Last deployed: {displayTime}</label>
       </div>
     );

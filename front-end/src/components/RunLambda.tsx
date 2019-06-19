@@ -132,7 +132,7 @@ export default class RunLambda extends Vue {
     };
 
     const resultDataTab = (
-      <b-tab title="first" active>
+      <b-tab title="first">
         <template slot="title">
           <span>
             Returned Data <em class="fas fa-code" />
@@ -143,7 +143,7 @@ export default class RunLambda extends Vue {
     );
 
     const outputDataTab = (
-      <b-tab title="second">
+      <b-tab title="second" active>
         <template slot="title">
           <span>
             Execution Output <em class="fas fa-terminal" />
