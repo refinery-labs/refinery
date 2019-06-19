@@ -103,8 +103,7 @@ export class EditLambdaBlock extends Vue {
       lang: this.selectedNode.language,
       readOnly: this.readOnly,
       content: this.selectedNode.code,
-      onChange: setCodeInput,
-      extraClasses: 'height--100percent'
+      onChange: setCodeInput
     };
 
     return <RefineryCodeEditor props={editorProps} />;

@@ -161,7 +161,7 @@ export interface GetProjectExecutionLogsRequest extends BaseApiRequest {
 }
 
 export interface GetProjectExecutionLogsResponse extends BaseApiResponse {
-  result: { [key: string]: GetProjectExecutionLogsResult };
+  result: { [key: string]: GetProjectExecutionLogsResult[] };
 }
 
 export interface GetProjectExecutionLogsResult {
@@ -185,6 +185,7 @@ export interface GetProjectExecutionLogsResult {
 
 export enum ExecutionStatusType {
   EXCEPTION = 'EXCEPTION',
+  CAUGHT_EXCEPTION = 'CAUGHT_EXCEPTION',
   RETURN = 'RETURN'
 }
 

@@ -6,6 +6,7 @@ export enum STYLE_CLASSES {
   SELECTION_ANIMATION_ENABLED = 'selection-animation-enabled',
   DISABLED = 'disabled',
   EXECUTION_SUCCESS = 'execution-success',
+  EXECUTION_CAUGHT = 'execution-caught',
   EXECUTION_FAILURE = 'execution-failure'
 }
 
@@ -100,17 +101,19 @@ export const baseCytoscapeStyles = [
   {
     selector: `node.${STYLE_CLASSES.EXECUTION_SUCCESS}`,
     style: {
-      'background-color': 'green',
-      'background-opacity': 1,
-      'background-image-opacity': 0.7
+      'background-image': require('../../public/img/node-icons/code-block-success.png')
+    }
+  },
+  {
+    selector: `node.${STYLE_CLASSES.EXECUTION_CAUGHT}`,
+    style: {
+      'background-image': require('../../public/img/node-icons/code-block-caught.png')
     }
   },
   {
     selector: `node.${STYLE_CLASSES.EXECUTION_FAILURE}`,
     style: {
-      'background-color': 'red',
-      'background-opacity': 1,
-      'background-image-opacity': 0.7
+      'background-image': require('../../public/img/node-icons/code-block-error.png')
     }
   }
   // {

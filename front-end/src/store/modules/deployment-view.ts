@@ -29,7 +29,12 @@ import { getNodeDataById } from '@/utils/project-helpers';
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 import { ViewBlockActions } from '@/store/modules/panes/view-block-pane';
 import { ViewTransitionActions } from '@/store/modules/panes/view-transition-pane';
-import { DeploymentExecutionsActions } from '@/store/modules/panes/deployment-executions-pane';
+import {
+  DeploymentExecutionsActions,
+  DeploymentExecutionsMutators
+} from '@/store/modules/panes/deployment-executions-pane';
+import { teardownProject } from '@/store/fetchers/api-helpers';
+import { deepJSONCopy } from '@/lib/general-utils';
 
 const moduleState: DeploymentViewState = {
   openedDeployment: null,
@@ -67,7 +72,7 @@ const moduleState: DeploymentViewState = {
 const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
   namespaced: true,
   modules: {},
-  state: moduleState,
+  state: deepJSONCopy(moduleState),
   getters: {
     [DeploymentViewGetters.hasValidDeployment]: state => state.openedDeployment !== null,
     [DeploymentViewGetters.getSelectedBlock]: state => {
@@ -80,6 +85,11 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
     }
   },
   mutations: {
+    [DeploymentViewMutators.resetState](state) {
+      // TODO: Turn this into a helper function.
+      // @ts-ignore
+      Object.keys(moduleState).forEach(key => (state[key] = moduleState[key]));
+    },
     [DeploymentViewMutators.setOpenedDeployment](state, deployment: GetLatestProjectDeploymentResult) {
       if (!deployment) {
         state.openedDeployment = null;
@@ -151,6 +161,8 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
         });
       };
 
+      await context.dispatch(DeploymentViewActions.resetDeploymentState);
+
       context.commit(DeploymentViewMutators.isLoadingDeployment, true);
 
       const deploymentResponse = await makeApiRequest<
@@ -199,35 +211,10 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
 
       context.commit(DeploymentViewMutators.setIsDestroyingDeployment, true);
 
-      const destroyDeploymentResult = await makeApiRequest<InfraTearDownRequest, InfraTearDownResponse>(
-        API_ENDPOINT.InfraTearDown,
-        {
-          project_id: context.state.openedDeploymentProjectId,
-          teardown_nodes: context.state.openedDeployment.workflow_states
-        }
-      );
-
-      if (!destroyDeploymentResult || !destroyDeploymentResult.success) {
-        await handleError('Server failed to handle Destroy Deployment request');
-        return;
-      }
-
-      const failedToDeleteNodes = destroyDeploymentResult.result.filter(res => !res.deleted);
-
-      if (failedToDeleteNodes.length > 0) {
-        await handleError('Unable to delete nodes of IDs:\n' + failedToDeleteNodes.map(n => n.name).join('\n'));
-        return;
-      }
-
-      const deleteAllInProjectResult = await makeApiRequest<
-        DeleteDeploymentsInProjectRequest,
-        DeleteDeploymentsInProjectResponse
-      >(API_ENDPOINT.DeleteDeploymentsInProject, {
-        project_id: context.state.openedDeploymentProjectId
-      });
-
-      if (!deleteAllInProjectResult || !deleteAllInProjectResult.success) {
-        await handleError('Server failed to handle Delete Deployment request');
+      try {
+        await teardownProject(context.state.openedDeploymentProjectId, context.state.openedDeployment.workflow_states);
+      } catch (e) {
+        await handleError(e.message);
         return;
       }
 
@@ -312,11 +299,9 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
 
       if (leftSidebarPaneType === SIDEBAR_PANE.viewExecutions) {
         // TODO: Is this better inside of a `mounted` hook?
-        await context.dispatch(
-          `deploymentExecutions/${DeploymentExecutionsActions.getExecutionsForOpenedDeployment}`,
-          null,
-          { root: true }
-        );
+        await context.dispatch(`deploymentExecutions/${DeploymentExecutionsActions.activatePane}`, null, {
+          root: true
+        });
         return;
       }
     },
@@ -342,19 +327,8 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
       context.commit(DeploymentViewMutators.setRightSidebarPane, paneType);
     },
     async [DeploymentViewActions.resetDeploymentState](context) {
-      context.commit(DeploymentViewMutators.selectedResource, null);
-      context.commit(DeploymentViewMutators.setCytoscapeConfig, null);
-      context.commit(DeploymentViewMutators.setCytoscapeElements, null);
-      context.commit(DeploymentViewMutators.setCytoscapeStyle, null);
-      context.commit(DeploymentViewMutators.setSelectedBlockIndex, null);
-      context.commit(DeploymentViewMutators.setOpenedDeployment, null);
-      context.commit(DeploymentViewMutators.isLoadingDeployment, false);
-      context.commit(DeploymentViewMutators.setIsDestroyingDeployment, false);
-      context.commit(DeploymentViewMutators.setDestroyDeploymentModalVisibility, false);
-
-      // TODO: Add "close all panes"
-      await context.dispatch(DeploymentViewActions.closePane, PANE_POSITION.left);
-      await context.dispatch(DeploymentViewActions.closePane, PANE_POSITION.right);
+      context.commit(DeploymentViewMutators.resetState);
+      context.commit(`deploymentExecutions/${DeploymentExecutionsMutators.resetPane}`, null, { root: true });
     }
   }
 };

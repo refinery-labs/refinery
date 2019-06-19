@@ -34,8 +34,7 @@ export class EditScheduleTriggerBlock extends Vue {
       lang: 'text',
       content: this.selectedNode.input_string,
       onChange: this.setInputData,
-      readOnly: this.readOnly,
-      extraClasses: 'height--100percent'
+      readOnly: this.readOnly
     };
 
     return <RefineryCodeEditor props={editorProps} />;

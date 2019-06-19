@@ -23,8 +23,7 @@ export default class ExportProjectPane extends Vue {
       name: `editor-export-project`,
       // Set Nodejs because it supports JSON
       lang: SupportedLanguage.NODEJS_8,
-      content: JSON.stringify(this.openedProject, null, '  '),
-      extraClasses: 'height--100percent'
+      content: JSON.stringify(this.openedProject, null, '  ')
     };
 
     return <RefineryCodeEditor props={editorProps} />;
@@ -37,7 +36,9 @@ export default class ExportProjectPane extends Vue {
 
     return (
       <div class={formClasses}>
-        <div class="export-project-container__content overflow--scroll-y-auto">{this.renderCodeEditor()}</div>
+        <div class="export-project-container__content overflow--scroll-y-auto display--flex">
+          {this.renderCodeEditor()}
+        </div>
         <div class="row export-project-container__bottom-buttons">
           <b-button-group class="col-12">
             {/*This is hacky to make this close itself but meh we can fix it later*/}

@@ -5,20 +5,23 @@ import { ProductionExecution } from '@/types/deployment-executions-types';
 import { sortExecutions } from '@/utils/project-execution-utils';
 import { ExecutionStatusType, GetProjectExecutionLogsResult } from '@/types/api-types';
 import { STYLE_CLASSES } from '@/lib/cytoscape-styles';
+import { deepJSONCopy } from '@/lib/general-utils';
 
 // Enums
 export enum DeploymentExecutionsMutators {
+  resetPane = 'resetPane',
   setIsBusy = 'setIsBusy',
   setIsFetchingMoreExecutions = 'setIsFetchingMoreExecutions',
   setProjectExecutions = 'setProjectExecutions',
   setContinuationToken = 'setContinuationToken',
 
   setSelectedExecutionGroup = 'setSelectedExecutionGroup',
-  setExecutionGroupLogs = 'setExecutionGroupLogs'
+  setExecutionGroupLogs = 'setExecutionGroupLogs',
+  setSelectedExecutionIndexForNode = 'setSelectedExecutionIndexForNode'
 }
 
 export enum DeploymentExecutionsActions {
-  resetPane = 'resetPane',
+  activatePane = 'activatePane',
   getExecutionsForOpenedDeployment = 'getExecutionsForOpenedDeployment',
   openExecutionGroup = 'openExecutionGroup'
 }
@@ -32,7 +35,9 @@ export interface DeploymentExecutionsPaneState {
   continuationToken: string | null;
 
   selectedExecutionGroup: ProductionExecution | null;
-  executionGroupLogs: { [key: string]: GetProjectExecutionLogsResult } | null;
+  executionGroupLogs: { [key: string]: GetProjectExecutionLogsResult[] } | null;
+
+  selectedExecutionIndexForNode: number;
 }
 
 // Initial State
@@ -44,14 +49,45 @@ const moduleState: DeploymentExecutionsPaneState = {
   continuationToken: null,
 
   selectedExecutionGroup: null,
-  executionGroupLogs: null
+  executionGroupLogs: null,
+
+  selectedExecutionIndexForNode: 0
 };
+
+function getExecutionStatusStyleForLogs(logs: GetProjectExecutionLogsResult[]) {
+  if (logs.some(ele => ele.type === ExecutionStatusType.EXCEPTION)) {
+    return STYLE_CLASSES.EXECUTION_FAILURE;
+  }
+
+  if (logs.some(ele => ele.type === ExecutionStatusType.CAUGHT_EXCEPTION)) {
+    return STYLE_CLASSES.EXECUTION_CAUGHT;
+  }
+
+  return STYLE_CLASSES.EXECUTION_SUCCESS;
+}
 
 const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, RootState> = {
   namespaced: true,
-  state: moduleState,
+  state: deepJSONCopy(moduleState),
   getters: {
     sortedExecutions: state => state.projectExecutions && sortExecutions(Object.values(state.projectExecutions)),
+    getAllExecutionsForNode: (state, getters, rootState) => {
+      if (!rootState.viewBlock.selectedNode || !state.executionGroupLogs) {
+        return null;
+      }
+
+      const selectedResourceName = rootState.viewBlock.selectedNode.name;
+
+      return state.executionGroupLogs[selectedResourceName];
+    },
+    getSelectedExecutionForNode: (state, getters) => {
+      const allExecutions = getters.getAllExecutionsForNode;
+      if (!allExecutions || allExecutions.length === 0) {
+        return null;
+      }
+
+      return allExecutions[state.selectedExecutionIndexForNode] || allExecutions[0];
+    },
     graphElementsWithExecutionStatus: (state, getters, rootState) => {
       if (!rootState.deployment.cytoscapeElements || !state.executionGroupLogs) {
         return null;
@@ -67,15 +103,12 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         elements.nodes.map(element => {
           const matchingElement = logs[element.data.name];
 
-          if (!matchingElement) {
+          if (!matchingElement || matchingElement.length === 0) {
             return element;
           }
 
-          // Sets to either green or red
-          const executionStatusColorClass =
-            matchingElement.type === ExecutionStatusType.EXCEPTION
-              ? STYLE_CLASSES.EXECUTION_FAILURE
-              : STYLE_CLASSES.EXECUTION_SUCCESS;
+          // Sets to either a color
+          const executionStatusColorClass = getExecutionStatusStyleForLogs(matchingElement);
 
           // Extend and return a new element
           return {
@@ -92,6 +125,11 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
     }
   },
   mutations: {
+    [DeploymentExecutionsMutators.resetPane](state) {
+      // TODO: Turn this into a helper function.
+      // @ts-ignore
+      Object.keys(moduleState).forEach(key => (state[key] = moduleState[key]));
+    },
     [DeploymentExecutionsMutators.setIsBusy](state, busy) {
       state.isBusy = busy;
     },
@@ -109,14 +147,15 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
     },
     [DeploymentExecutionsMutators.setExecutionGroupLogs](state, logs) {
       state.executionGroupLogs = logs;
+    },
+    [DeploymentExecutionsMutators.setSelectedExecutionIndexForNode](state, index) {
+      state.selectedExecutionIndexForNode = index;
     }
   },
   actions: {
-    [DeploymentExecutionsActions.resetPane](context) {
-      context.commit(DeploymentExecutionsMutators.setIsFetchingMoreExecutions, false);
-      context.commit(DeploymentExecutionsMutators.setIsBusy, false);
-      context.commit(DeploymentExecutionsMutators.setContinuationToken, null);
-      context.commit(DeploymentExecutionsMutators.setProjectExecutions, null);
+    async [DeploymentExecutionsActions.activatePane](context) {
+      // TODO: Set a different busy symbol when refreshing
+      await context.dispatch(DeploymentExecutionsActions.getExecutionsForOpenedDeployment);
     },
     async [DeploymentExecutionsActions.getExecutionsForOpenedDeployment](context, withExistingToken?: boolean) {
       const deploymentStore = context.rootState.deployment;

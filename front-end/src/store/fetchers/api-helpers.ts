@@ -1,15 +1,23 @@
 import {
-  GetBuildStatusRequest, GetBuildStatusResponse,
+  DeleteDeploymentsInProjectRequest,
+  DeleteDeploymentsInProjectResponse,
+  GetBuildStatusRequest,
+  GetBuildStatusResponse,
   GetProjectExecutionLogsRequest,
   GetProjectExecutionLogsResponse,
   GetProjectExecutionsRequest,
-  GetProjectExecutionsResponse, StartLibraryBuildRequest, StartLibraryBuildResponse
+  GetProjectExecutionsResponse,
+  InfraTearDownRequest,
+  InfraTearDownResponse,
+  StartLibraryBuildRequest,
+  StartLibraryBuildResponse
 } from '@/types/api-types';
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
 import { ProductionExecution, ProductionExecutionResponse } from '@/types/deployment-executions-types';
 import { convertExecutionResponseToProjectExecutions } from '@/utils/project-execution-utils';
-import {SupportedLanguage} from '@/types/graph';
+import { SupportedLanguage, WorkflowState } from '@/types/graph';
+import { ProductionWorkflowState } from '@/types/production-workflow-types';
 
 export interface libraryBuildArguments {
   language: SupportedLanguage;
@@ -101,5 +109,30 @@ export async function startLibraryBuild(libraryBuildArgs: libraryBuildArguments)
   if (!response || !response.success) {
     console.error('Unable kick off library build: server error.');
     throw 'Server error occurred while kicking off library build!';
+  }
+}
+
+export async function teardownProject(openedDeploymentProjectId: string, states: ProductionWorkflowState[]) {
+  const destroyDeploymentResult = await makeApiRequest<InfraTearDownRequest, InfraTearDownResponse>(
+    API_ENDPOINT.InfraTearDown,
+    {
+      project_id: openedDeploymentProjectId,
+      teardown_nodes: states
+    }
+  );
+
+  if (!destroyDeploymentResult || !destroyDeploymentResult.success) {
+    throw new Error('Server failed to handle Destroy Deployment request');
+  }
+
+  const deleteAllInProjectResult = await makeApiRequest<
+    DeleteDeploymentsInProjectRequest,
+    DeleteDeploymentsInProjectResponse
+  >(API_ENDPOINT.DeleteDeploymentsInProject, {
+    project_id: openedDeploymentProjectId
+  });
+
+  if (!deleteAllInProjectResult || !deleteAllInProjectResult.success) {
+    throw new Error('Server failed to handle Delete Deployment request');
   }
 }
