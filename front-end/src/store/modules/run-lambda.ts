@@ -219,25 +219,11 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         }
         return 'Building libraries and then running Code Block...\n(Note: The first run after adding a new library may take up to two minutes longer to finish.)';
       }
-
-      const projectStore = context.rootState.project;
-
-      if (projectStore.openedProject === null || projectStore.selectedResource === null) {
-        console.error("User doesn't currently have a project opened.");
-        return;
-      }
-      const selectedNodeData = getNodeDataById(projectStore.openedProject, projectStore.selectedResource);
-
-      if (selectedNodeData === null || selectedNodeData.type !== WorkflowStateType.LAMBDA) {
-        console.error("You don't have a node currently selected so I can't check the build status!");
-        return;
-      }
-      const selectedLambda = deepJSONCopy(selectedNodeData) as LambdaWorkflowState;
       context.commit(RunLambdaMutators.setLambdaRunningStatus, true);
 
       const params: libraryBuildArguments = {
-        language: selectedLambda.language as SupportedLanguage,
-        libraries: selectedLambda.libraries
+        language: config.codeBlock.language as SupportedLanguage,
+        libraries: config.codeBlock.libraries
       };
       const isLibraryBuildCached = await checkBuildStatus(params);
       context.commit(RunLambdaMutators.setLoadingText, getLoadingText(isLibraryBuildCached));
