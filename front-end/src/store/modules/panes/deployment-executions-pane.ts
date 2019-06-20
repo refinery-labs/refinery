@@ -102,12 +102,9 @@ async function autoRefreshJob(conf: AutoRefreshJobConfig, iterations: number = 0
     return;
   }
 
-  console.log(conf.nonce, 'requesting');
   await conf.makeRequest();
-  console.log(conf.nonce, 'waiting');
 
   await timeout(conf.timeoutMs);
-  console.log(conf.nonce, 'timeout done');
 
   await autoRefreshJob(conf, iterations + 1);
 }
