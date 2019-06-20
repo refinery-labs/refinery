@@ -1,4 +1,5 @@
 import { Module } from 'vuex';
+import uuid from 'uuid/v4';
 import { RootState } from '../../store-types';
 import { getLogsForExecutions, getProjectExecutions } from '@/store/fetchers/api-helpers';
 import { ProductionExecution } from '@/types/deployment-executions-types';
@@ -6,6 +7,7 @@ import { sortExecutions } from '@/utils/project-execution-utils';
 import { ExecutionStatusType, GetProjectExecutionLogsResult } from '@/types/api-types';
 import { STYLE_CLASSES } from '@/lib/cytoscape-styles';
 import { deepJSONCopy } from '@/lib/general-utils';
+import { timeout } from '@/utils/async-utils';
 
 // Enums
 export enum DeploymentExecutionsMutators {
@@ -14,6 +16,10 @@ export enum DeploymentExecutionsMutators {
   setIsFetchingMoreExecutions = 'setIsFetchingMoreExecutions',
   setProjectExecutions = 'setProjectExecutions',
   setContinuationToken = 'setContinuationToken',
+
+  setAutoRefreshJobRunning = 'setAutoRefreshJobRunning',
+  setAutoRefreshJobIterations = 'setAutoRefreshJobIterations',
+  setAutoRefreshJobNonce = 'setAutoRefreshJobNonce',
 
   setSelectedExecutionGroup = 'setSelectedExecutionGroup',
   setExecutionGroupLogs = 'setExecutionGroupLogs',
@@ -33,6 +39,9 @@ export interface DeploymentExecutionsPaneState {
 
   projectExecutions: { [key: string]: ProductionExecution } | null;
   continuationToken: string | null;
+  autoRefreshJobRunning: boolean;
+  autoRefreshJobIterations: number;
+  autoRefreshJobNonce: string | null;
 
   selectedExecutionGroup: ProductionExecution | null;
   executionGroupLogs: { [key: string]: GetProjectExecutionLogsResult[] } | null;
@@ -47,6 +56,9 @@ const moduleState: DeploymentExecutionsPaneState = {
 
   projectExecutions: null,
   continuationToken: null,
+  autoRefreshJobRunning: false,
+  autoRefreshJobIterations: 0,
+  autoRefreshJobNonce: null,
 
   selectedExecutionGroup: null,
   executionGroupLogs: null,
@@ -64,6 +76,37 @@ function getExecutionStatusStyleForLogs(logs: GetProjectExecutionLogsResult[]) {
   }
 
   return STYLE_CLASSES.EXECUTION_SUCCESS;
+}
+
+interface AutoRefreshJobConfig {
+  nonce: string;
+  timeoutMs: number;
+  maxIterations: number;
+  makeRequest: () => Promise<void>;
+  isStillValid: (nonce: string, iteration: number) => boolean;
+}
+
+/**
+ * Job to go do something on an interval. Attempts to kill itself by leveraging callbacks for state checking.
+ * @param conf Parameters for the job to function.
+ * @param iterations Incremented each time and used to kill itself later by limiting max iterations.
+ */
+async function autoRefreshJob(conf: AutoRefreshJobConfig, iterations: number = 0) {
+  if (iterations > conf.maxIterations) {
+    return;
+  }
+
+  const valid = conf.isStillValid(conf.nonce, iterations);
+
+  if (!valid) {
+    return;
+  }
+
+  await conf.makeRequest();
+
+  await timeout(conf.timeoutMs);
+
+  await autoRefreshJob(conf, iterations + 1);
 }
 
 const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, RootState> = {
@@ -142,6 +185,17 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
     [DeploymentExecutionsMutators.setContinuationToken](state, token) {
       state.continuationToken = token;
     },
+
+    [DeploymentExecutionsMutators.setAutoRefreshJobRunning](state, status) {
+      state.autoRefreshJobRunning = status;
+    },
+    [DeploymentExecutionsMutators.setAutoRefreshJobIterations](state, iteration) {
+      state.autoRefreshJobIterations = iteration;
+    },
+    [DeploymentExecutionsMutators.setAutoRefreshJobNonce](state, nonce) {
+      state.autoRefreshJobNonce = nonce;
+    },
+
     [DeploymentExecutionsMutators.setSelectedExecutionGroup](state, group) {
       state.selectedExecutionGroup = group;
     },
@@ -156,6 +210,35 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
     async [DeploymentExecutionsActions.activatePane](context) {
       // TODO: Set a different busy symbol when refreshing
       await context.dispatch(DeploymentExecutionsActions.getExecutionsForOpenedDeployment);
+
+      const nonce = uuid();
+      context.commit(DeploymentExecutionsMutators.setAutoRefreshJobNonce, nonce);
+
+      // Wait for the old job to die
+      if (context.state.autoRefreshJobRunning) {
+        await timeout(5000);
+      }
+
+      autoRefreshJob({
+        timeoutMs: 5000,
+        maxIterations: 125, // 5 minutes
+        nonce: nonce,
+        makeRequest: async () => {
+          await context.dispatch(DeploymentExecutionsActions.getExecutionsForOpenedDeployment, false);
+        },
+        isStillValid: (nonce, iteration) => {
+          const valid = nonce === context.state.autoRefreshJobNonce;
+
+          // If another job is running, kill this one.
+          if (!valid) {
+            return false;
+          }
+
+          // Only commit if we are still wanted
+          context.commit(DeploymentExecutionsMutators.setAutoRefreshJobIterations, iteration);
+          return true;
+        }
+      });
     },
     async [DeploymentExecutionsActions.getExecutionsForOpenedDeployment](context, withExistingToken?: boolean) {
       const deploymentStore = context.rootState.deployment;
@@ -166,9 +249,10 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       }
 
       // We can set this either for the module or for the sub-pane
-      const statusMessageType = withExistingToken
-        ? DeploymentExecutionsMutators.setIsFetchingMoreExecutions
-        : DeploymentExecutionsMutators.setIsBusy;
+      const statusMessageType =
+        context.state.projectExecutions !== null
+          ? DeploymentExecutionsMutators.setIsFetchingMoreExecutions
+          : DeploymentExecutionsMutators.setIsBusy;
 
       context.commit(statusMessageType, true);
 
