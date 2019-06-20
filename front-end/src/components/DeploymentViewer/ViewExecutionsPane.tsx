@@ -11,6 +11,7 @@ const deploymentExecutions = namespace('deploymentExecutions');
 export default class ViewExecutionsPane extends Vue {
   @deploymentExecutions.State isBusy!: boolean;
   @deploymentExecutions.State isFetchingMoreExecutions!: boolean;
+  @deploymentExecutions.State continuationToken!: string | null;
   @deploymentExecutions.Getter sortedExecutions!: ProductionExecution[] | null;
 
   @deploymentExecutions.Action openExecutionGroup!: (id: string) => void;
@@ -27,6 +28,7 @@ export default class ViewExecutionsPane extends Vue {
       openExecutionGroup: this.openExecutionGroup,
       projectExecutions: this.sortedExecutions,
       isBusyRefreshing: this.isFetchingMoreExecutions,
+      hasMoreExecutionsToLoad: Boolean(this.continuationToken),
       showMoreExecutions: () => this.getExecutionsForOpenedDeployment(true)
     };
 

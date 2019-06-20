@@ -45,4 +45,5 @@ export interface ViewExecutionsListProps {
   openExecutionGroup: (id: string) => void;
   showMoreExecutions: () => void;
   isBusyRefreshing: boolean;
+  hasMoreExecutionsToLoad: boolean;
 }

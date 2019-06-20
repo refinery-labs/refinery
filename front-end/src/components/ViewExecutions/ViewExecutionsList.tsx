@@ -11,6 +11,7 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
   @Prop({ required: true }) openExecutionGroup!: (id: string) => void;
   @Prop({ required: true }) isBusyRefreshing!: boolean;
   @Prop({ required: true }) showMoreExecutions!: () => void;
+  @Prop({ required: true }) hasMoreExecutionsToLoad!: boolean;
 
   public renderExecution(execution: ProductionExecution) {
     const durationSinceUpdated = moment
@@ -43,7 +44,12 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
   renderLoadButton() {
     if (!this.isBusyRefreshing) {
       return (
-        <b-button variant="primary" on={{ click: this.showMoreExecutions }} class="col-10 m-1">
+        <b-button
+          variant="primary"
+          on={{ click: this.showMoreExecutions }}
+          class="col-10 m-1"
+          disabled={!this.hasMoreExecutionsToLoad}
+        >
           Load More
         </b-button>
       );
@@ -51,8 +57,7 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
 
     return (
       <b-button variant="primary" disabled class="col-10 m-1">
-        <b-spinner small />
-        Loading...
+        <b-spinner small /> Refreshing...
       </b-button>
     );
   }
