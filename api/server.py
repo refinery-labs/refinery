@@ -4519,10 +4519,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	Process workflow relationships and tag Lambda
 	nodes with an array of transitions.
 	"""
-	
-	print( "Project config: " )
-	logit( project_config )
-	
+
 	# Random ID to keep deploy ARNs unique
 	# TODO do more research into collision probability
 	unique_deploy_id = get_random_deploy_id()
@@ -4943,18 +4940,6 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 			for workflow_state in diagram_data[ "workflow_states" ]:
 				if workflow_state[ "id" ] == deployed_api_endpoint[ "id" ]:
 					logit( "Setting up route " + workflow_state[ "http_method" ] + " " + workflow_state[ "api_path" ] + " for API Endpoint '" + workflow_state[ "name" ] + "'..." )
-					"""
-					api_route_futures.append(
-						create_lambda_api_route(
-							credentials,
-							api_gateway_id,
-							workflow_state[ "http_method" ],
-							workflow_state[ "api_path" ],
-							deployed_api_endpoint[ "name" ],
-							True
-						)
-					)
-					"""
 					yield create_lambda_api_route(
 						credentials,
 						api_gateway_id,
