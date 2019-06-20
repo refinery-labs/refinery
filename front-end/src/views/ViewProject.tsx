@@ -1,9 +1,15 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import OpenedProjectOverview from '@/views/ProjectsNestedViews/OpenedProjectOverview';
+import { namespace } from 'vuex-class';
+import { GetLatestProjectDeploymentResponse } from '@/types/api-types';
+
+const project = namespace('project');
 
 @Component
 export default class ViewProject extends Vue {
+  @project.State latestDeploymentState!: GetLatestProjectDeploymentResponse | null;
+
   isGraphVisible() {
     return this.$route.name !== 'project';
   }
@@ -42,16 +48,37 @@ export default class ViewProject extends Vue {
     );
   }
 
+  renderDeploymentsTab() {
+    const basePath = `/p/${this.$route.params.projectId}`;
+    const deploymentToolTip = 'You currently do not have anything deployed. Click "Deploy Project" to do so.';
+
+    if (!this.latestDeploymentState || !this.latestDeploymentState.result) {
+      return (
+        <b-nav-item ref="deploymentTab" to={`${basePath}/deployments`} disabled>
+          Deployment
+          <b-tooltip target={() => this.$refs.deploymentTab} placement="bottom">
+            {deploymentToolTip}
+          </b-tooltip>
+        </b-nav-item>
+      );
+    }
+
+    return (
+      <b-nav-item ref="deploymentTab" to={`${basePath}/deployments`}>
+        Deployment
+      </b-nav-item>
+    );
+  }
+
   public render(h: CreateElement): VNode {
     const basePath = `/p/${this.$route.params.projectId}`;
-
     return (
       <div class="view-project-page">
         <b-nav tabs justified>
           <b-nav-item exact to={basePath} active-nav-item-class="active">
-            Overview
+            Editor
           </b-nav-item>
-          <b-nav-item to={`${basePath}/deployments`}>Deployments</b-nav-item>
+          {this.renderDeploymentsTab()}
           {/*<b-nav-item to={`${basePath}/usage`}>Usage</b-nav-item>*/}
           <b-nav-item to={`${basePath}/settings`}>Settings</b-nav-item>
         </b-nav>

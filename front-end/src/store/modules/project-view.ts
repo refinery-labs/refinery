@@ -684,6 +684,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       context.commit(ProjectViewMutators.isDeployingProject, false);
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
 
+      // Updates the latest deployment state so the "Deployment" tab is kept updated.
+      await context.dispatch(ProjectViewActions.fetchLatestDeploymentState);
+
       router.push({
         name: 'deployment',
         params: {

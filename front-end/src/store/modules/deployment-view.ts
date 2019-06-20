@@ -329,6 +329,9 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
     async [DeploymentViewActions.resetDeploymentState](context) {
       context.commit(DeploymentViewMutators.resetState);
       context.commit(`deploymentExecutions/${DeploymentExecutionsMutators.resetPane}`, null, { root: true });
+
+      // Updates the latest deployment state so the "Deployment" tab is kept updated.
+      await context.dispatch(`project/${ProjectViewActions.fetchLatestDeploymentState}`, null, { root: true });
     }
   }
 };
