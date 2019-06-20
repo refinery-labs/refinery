@@ -92,6 +92,16 @@ class User( Base ):
 		backref="user",
 	)
 	
+	# One user can have many state logs
+	state_logs = relationship(
+		"StateLog",
+		lazy="dynamic",
+		# When a user is deleted all session state logs
+		# should be deleted as well.
+		cascade="all, delete-orphan",
+		backref="user",
+	)
+	
 	timestamp = Column(Integer())
 
 	def __init__( self ):

@@ -819,6 +819,17 @@ function project_file_uploaded( event_data ) {
 	reader.readAsText( file_data );
 }
 
+function send_backend_state( session_id, state_data ) {
+	return api_request(
+		"POST",
+		"api/v1/internal/log",
+		{
+			"session_id": session_id,
+			"state": state_data
+		}
+	);
+}
+
 function get_authenticated_user_info() {
 	return api_request(
 		"GET",
