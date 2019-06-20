@@ -54,6 +54,7 @@ from models.project_config import ProjectConfig
 from models.cached_billing_collections import CachedBillingCollection
 from models.cached_billing_items import CachedBillingItem
 from models.terraform_state_versions import TerraformStateVersion
+from models.state_logs import StateLog
 
 from botocore.client import Config
 
@@ -3108,12 +3109,50 @@ class TaskSpawner(object):
 
 			return lambda_package_zip_data
 			
+		@staticmethod
+		def automatically_fix_schedule_expression( schedule_expression ):
+			# Trim whitespace
+			schedule_expression = schedule_expression.strip()
+			
+			# Common typos, AWS is so mad for doing this to people.
+			if schedule_expression == "rate(1 minutes)":
+				return "rate(1 minute)"
+				
+			if schedule_expression == "rate(1 hours)":
+				return "rate(1 hour)"
+				
+			if schedule_expression == "rate(1 days)":
+				return "rate(1 day)"
+				
+			# Outside of the above cases it should always be plural
+			if "minute)" in schedule_expression:
+				schedule_expression.replace(
+					"minute)",
+					"minutes)"
+				)
+				
+			if "hour)" in schedule_expression:
+				schedule_expression.replace(
+					"hour)",
+					"hours)"
+				)
+				
+			if "day)" in schedule_expression:
+				schedule_expression.replace(
+					"day)",
+					"days)"
+				)
+			
+			return schedule_expression
+			
 		@run_on_executor
 		def create_cloudwatch_rule( self, credentials, id, name, schedule_expression, description, input_string ):
 			events_client = get_aws_client(
 				"events",
 				credentials,
 			)
+			
+			schedule_expression = TaskSpawner.automatically_fix_schedule_expression( schedule_expression )
 			
 			# Events role ARN is able to be generated off of the account ID
 			# The role name should be the same for all accounts.
@@ -7482,6 +7521,44 @@ class MaintainAWSAccountReserves( BaseHandler ):
 			except:
 				logit( "An error occurred while creating an AWS sub-account.", "error" )
 				pass
+			
+class StashStateLog( BaseHandler ):
+	def post( self ):
+		"""
+		For storing state logs that the frontend sends
+		to the backend to later be used for replaying sessions, etc.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"session_id": {
+					"type": "string"
+				},
+				"state": {
+					"type": "object",
+				}
+			},
+			"required": [
+				"session_id",
+				"state"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		authenticated_user_id = self.get_authenticated_user_id()
+		
+		state_log = StateLog()
+		state_log.session_id = self.json[ "session_id" ]
+		state_log.state = self.json[ "state" ]
+		state_log.user_id = authenticated_user_id
+		
+		session.add( state_log )
+		session.commit()
+		
+		self.write({
+			"success": True,
+		})
 		
 def make_app( is_debug ):
 	tornado_app_settings = {
@@ -7524,6 +7601,7 @@ def make_app( is_debug ):
 		( r"/api/v1/billing/creditcards/delete", DeleteCreditCard ),
 		( r"/api/v1/billing/creditcards/make_primary", MakeCreditCardPrimary ),
 		( r"/api/v1/iam/console_credentials", GetAWSConsoleCredentials ),
+		( r"/api/v1/internal/log", StashStateLog ),
 		# Temporarily disabled since it doesn't cache the CostExplorer results
 		#( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast ),
 		
