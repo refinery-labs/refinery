@@ -1437,12 +1437,10 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 
 		custom_runtime.send_response(
 			request_id,
-			json.dumps(
-				_api_endpoint(
-					lambda_input,
-					execution_id,
-					context
-				)
+			_api_endpoint(
+				lambda_input,
+				execution_id,
+				context
 			)
 		)
 		return
