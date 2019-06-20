@@ -3,6 +3,8 @@ import {
   DeleteDeploymentsInProjectResponse,
   GetBuildStatusRequest,
   GetBuildStatusResponse,
+  GetConsoleCredentialsRequest,
+  GetConsoleCredentialsResponse,
   GetProjectExecutionLogsRequest,
   GetProjectExecutionLogsResponse,
   GetProjectExecutionsRequest,
@@ -135,4 +137,18 @@ export async function teardownProject(openedDeploymentProjectId: string, states:
   if (!deleteAllInProjectResult || !deleteAllInProjectResult.success) {
     throw new Error('Server failed to handle Delete Deployment request');
   }
+}
+
+export async function getConsoleCredentials() {
+  const response = await makeApiRequest<GetConsoleCredentialsRequest, GetConsoleCredentialsResponse>(
+    API_ENDPOINT.GetConsoleCredentials,
+    {}
+  );
+
+  if (!response || !response.success) {
+    console.error('An error occurred while obtained AWS console credentials.');
+    return;
+  }
+
+  return response.console_credentials;
 }

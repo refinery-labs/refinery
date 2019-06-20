@@ -152,7 +152,14 @@ export enum SettingsMutators {
   toggleSetting = 'toggleSetting',
   toggleSettingOff = 'toggleSettingOff',
   toggleSettingOn = 'toggleSettingOn',
-  changeSetting = 'changeSetting'
+  changeSetting = 'changeSetting',
+  setIsAWSConsoleCredentialModalVisible = 'setIsAWSConsoleCredentialModalVisible',
+  setAWSConsoleCredentials = 'setAWSConsoleCredentials'
+}
+
+export enum SettingsActions {
+  getAWSConsoleCredentials = 'getAWSConsoleCredentials',
+  setIsAWSConsoleCredentialModalVisibleValue = 'setIsAWSConsoleCredentialModalVisibleValue'
 }
 
 export enum UserMutators {

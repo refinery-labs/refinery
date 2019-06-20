@@ -32,7 +32,8 @@ export enum API_ENDPOINT {
   GetLatestMonthBill = 'GetLatestMonthBill',
   SaveProjectConfig = 'SaveProjectConfig',
   GetBuildStatus = 'GetBuildStatus',
-  StartLibraryBuild = 'StartLibraryBuild'
+  StartLibraryBuild = 'StartLibraryBuild',
+  GetConsoleCredentials = 'GetConsoleCredentials'
 }
 
 export enum HTTP_METHOD {
@@ -189,5 +190,9 @@ export const ApiConfigMap: ApiConfigMapType = {
   [API_ENDPOINT.StartLibraryBuild]: {
     path: '/api/v1/lambdas/build_libraries',
     method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.GetConsoleCredentials]: {
+    path: '/api/v1/iam/console_credentials',
+    method: HTTP_METHOD.GET
   }
 };

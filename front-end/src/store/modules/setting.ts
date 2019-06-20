@@ -3,7 +3,9 @@
  */
 import { Module } from 'vuex';
 import { RootState, UserInterfaceSettings, UserInterfaceState } from '@/store/store-types';
-import { SettingsMutators } from '@/constants/store-constants';
+import { SettingsActions, SettingsMutators } from '@/constants/store-constants';
+import { ConsoleCredentials } from '@/types/api-types';
+import { getConsoleCredentials } from '@/store/fetchers/api-helpers';
 
 const moduleState: UserInterfaceState = {
   /* Layout fixed. Scroll content only */
@@ -35,7 +37,11 @@ const moduleState: UserInterfaceState = {
   /* Full size layout */
   [UserInterfaceSettings.useFullLayout]: false,
   /* Hide footer */
-  [UserInterfaceSettings.hiddenFooter]: false
+  [UserInterfaceSettings.hiddenFooter]: false,
+  /* Boolean to display the AWS console credentials */
+  [UserInterfaceSettings.isAWSConsoleCredentialModalVisible]: false,
+  /* AWS console credentials */
+  [UserInterfaceSettings.AWSConsoleCredentials]: null
 };
 
 const SettingModule: Module<UserInterfaceState, RootState> = {
@@ -71,9 +77,33 @@ const SettingModule: Module<UserInterfaceState, RootState> = {
      */
     [SettingsMutators.changeSetting](state, { name, value }: { name: UserInterfaceSettings; value: boolean }) {
       if (name in state) state[name] = value;
+    },
+    /**
+     * Toggle displaying the AWS Console Credentials modal
+     */
+    [SettingsMutators.setIsAWSConsoleCredentialModalVisible](state, visible: boolean) {
+      state.isAWSConsoleCredentialModalVisible = visible;
+    },
+    /**
+     * Store the AWS credentials for users to log into their AWS console
+     */
+    [SettingsMutators.setAWSConsoleCredentials](state, credentials: ConsoleCredentials) {
+      state.AWSConsoleCredentials = credentials;
     }
   },
   actions: {
+    setIsAWSConsoleCredentialModalVisibleValue(context, visible: boolean) {
+      // If view modal is true we'll kick off loading the credentials as well.
+      if (visible === true) {
+        context.dispatch('getAWSConsoleCredentials');
+      }
+
+      context.commit(SettingsMutators.setIsAWSConsoleCredentialModalVisible, visible);
+    },
+    async getAWSConsoleCredentials(context) {
+      const newConsoleCredentials = await getConsoleCredentials();
+      context.commit(SettingsMutators.setAWSConsoleCredentials, newConsoleCredentials);
+    },
     closeGlobalNav(context) {
       if (!context.state.isGlobalNavCollapsed) {
         return;

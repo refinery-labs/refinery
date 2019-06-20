@@ -565,3 +565,15 @@ export interface StartLibraryBuildRequest extends BaseApiRequest {
 }
 
 export interface StartLibraryBuildResponse extends BaseApiResponse {}
+
+export interface GetConsoleCredentialsRequest extends BaseApiRequest {}
+
+export interface ConsoleCredentials {
+  username: string;
+  password: string;
+  signin_url: string;
+}
+
+export interface GetConsoleCredentialsResponse extends BaseApiResponse {
+  console_credentials: ConsoleCredentials;
+}
