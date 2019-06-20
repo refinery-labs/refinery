@@ -224,7 +224,6 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         maxIterations: 125, // 5 minutes
         nonce: nonce,
         makeRequest: async () => {
-          console.log('request going out');
           await context.dispatch(DeploymentExecutionsActions.getExecutionsForOpenedDeployment, false);
         },
         isStillValid: (nonce, iteration) => {
