@@ -7523,7 +7523,6 @@ class MaintainAWSAccountReserves( BaseHandler ):
 				pass
 			
 class StashStateLog( BaseHandler ):
-	@authenticated
 	def post( self ):
 		"""
 		For storing state logs that the frontend sends
