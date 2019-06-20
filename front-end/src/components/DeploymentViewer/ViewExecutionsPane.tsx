@@ -10,9 +10,11 @@ const deploymentExecutions = namespace('deploymentExecutions');
 @Component
 export default class ViewExecutionsPane extends Vue {
   @deploymentExecutions.State isBusy!: boolean;
+  @deploymentExecutions.State isFetchingMoreExecutions!: boolean;
   @deploymentExecutions.Getter sortedExecutions!: ProductionExecution[] | null;
 
   @deploymentExecutions.Action openExecutionGroup!: (id: string) => void;
+  @deploymentExecutions.Action getExecutionsForOpenedDeployment!: (resume: boolean) => void;
 
   public render(h: CreateElement): VNode {
     const containerClasses = {
@@ -23,7 +25,9 @@ export default class ViewExecutionsPane extends Vue {
 
     const viewExecutionsListProps: ViewExecutionsListProps = {
       openExecutionGroup: this.openExecutionGroup,
-      projectExecutions: this.sortedExecutions
+      projectExecutions: this.sortedExecutions,
+      isBusyRefreshing: this.isFetchingMoreExecutions,
+      showMoreExecutions: () => this.getExecutionsForOpenedDeployment(true)
     };
 
     return (

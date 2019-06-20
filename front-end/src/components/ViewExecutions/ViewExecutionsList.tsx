@@ -1,6 +1,5 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
-import { Execution } from '@/types/api-types';
 import { Prop } from 'vue-property-decorator';
 import { ViewExecutionsListProps } from '@/types/component-types';
 import moment from 'moment';
@@ -10,6 +9,8 @@ import { ProductionExecution } from '@/types/deployment-executions-types';
 export default class ViewExecutionsList extends Vue implements ViewExecutionsListProps {
   @Prop({ required: true }) projectExecutions!: ProductionExecution[] | null;
   @Prop({ required: true }) openExecutionGroup!: (id: string) => void;
+  @Prop({ required: true }) isBusyRefreshing!: boolean;
+  @Prop({ required: true }) showMoreExecutions!: () => void;
 
   public renderExecution(execution: ProductionExecution) {
     const durationSinceUpdated = moment
@@ -36,6 +37,23 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
           </b-badge>
         </div>
       </b-list-group-item>
+    );
+  }
+
+  renderLoadButton() {
+    if (!this.isBusyRefreshing) {
+      return (
+        <b-button variant="primary" on={{ click: this.showMoreExecutions }} class="col-10 m-1">
+          Load More
+        </b-button>
+      );
+    }
+
+    return (
+      <b-button variant="primary" disabled class="col-10 m-1">
+        <b-spinner small />
+        Loading...
+      </b-button>
     );
   }
 
@@ -71,6 +89,7 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
     return (
       <div class={containerClasses}>
         <b-list-group>{projectExecutions.map(execution => this.renderExecution(execution))}</b-list-group>
+        {this.renderLoadButton()}
       </div>
     );
   }
