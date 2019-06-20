@@ -39,7 +39,7 @@ export type BlockTypeToImage = { [key in WorkflowStateType]: AddGraphElementConf
 
 export interface BlockTypeConfig extends BlockTypeToImage {
   [index: string]: AddGraphElementConfig;
-  saved_lambda: AddGraphElementConfig;
+  // saved_lambda: AddGraphElementConfig;
 }
 
 // A little bit of impedance mismatch going on, unfortunately.
@@ -68,7 +68,7 @@ export const blockTypeToImageLookup: BlockTypeConfig = {
     path: require('../../public/img/node-icons/code-icon.png'),
     name: 'Code Block',
     description:
-      'Runs a user-defined script in PHP/Python/Node. ' +
+      'Runs a user-defined script in PHP/Python/Node/Go. ' +
       'Takes output from a previous block as input to the script and returns the result returned from it.'
   },
   [WorkflowStateType.SCHEDULE_TRIGGER]: {
@@ -92,12 +92,12 @@ export const blockTypeToImageLookup: BlockTypeConfig = {
       'Takes input items to process and sends them to the connected Lambda Block. ' +
       'This block will automatically increase concurrent executions of the connected Lambda Block until ' +
       'either the concurrency ceiling is hit or the queue empties.'
-  },
-  saved_lambda: {
-    path: require('../../public/img/node-icons/code-icon.png'),
-    name: 'Saved Code Block',
-    description: 'Adds a previously-saved Lambda block to the workflow.'
   }
+  // saved_lambda: {
+  //   path: require('../../public/img/node-icons/code-icon.png'),
+  //   name: 'Saved Code Block',
+  //   description: 'Adds a previously-saved Lambda block to the workflow.'
+  // }
 };
 
 export const availableBlocks: string[] = [
