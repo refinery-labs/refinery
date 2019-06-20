@@ -63,6 +63,11 @@
         </li>
         -->
         <!-- Fullscreen (only desktops)-->
+        <li class="nav-item">
+          <a href="" class="nav-link" v-on:click="showAWSConsoleCredentialModal">
+            <em class="fab fa-aws"></em> View Console Credentials
+          </a>
+        </li>
         <li class="nav-item d-none d-md-block">
           <ToggleFullscreen tag="A" class="nav-link" href="#" />
         </li>
@@ -135,46 +140,55 @@
   </header>
 </template>
 
-<script>
+<script lang="ts">
+import Component from 'vue-class-component';
+import { Prop } from 'vue-property-decorator';
 import Vue from 'vue';
-import { mapMutations } from 'vuex';
-import HeaderSearch from './HeaderSearch';
-import ToggleFullscreen from '../Common/ToggleFullscreen';
-import { UserInterfaceSettings } from '../../store/store-types';
+import { LoadingContainerProps } from '@/types/component-types';
+import HeaderSearch from '@/components/Layout/HeaderSearch.vue';
+import ToggleFullscreen from '@/components/Common/ToggleFullscreen.vue';
+import { Mutation } from 'vuex-class';
+import { UserInterfaceSettings } from '@/store/store-types';
+import { SettingsActions } from '@/constants/store-constants';
 
-export default Vue.extend({
-  name: 'Header',
+@Component({
   components: {
     HeaderSearch,
     ToggleFullscreen
-  },
-  methods: {
-    /**
-     * Triggers a window resize event when clicked
-     * for plugins that needs to be redrawed
-     */
-    resize: e => {
-      // all IE friendly dispatchEvent
-      var evt = document.createEvent('UIEvents');
-      evt.initUIEvent('resize', true, false, window, 0);
-      window.dispatchEvent(evt);
-      // modern dispatchEvent way
-      // window.dispatchEvent(new Event('resize'));
-    },
-    ...mapMutations(['toggleSetting']),
-    toggleOffsidebar() {
-      this.toggleSetting(UserInterfaceSettings.offsidebarOpen);
-    },
-    toggleOffcanvas() {
-      this.toggleSetting(UserInterfaceSettings.asideToggled);
-    },
-    toggleGlobalNavCollapsed() {
-      this.toggleSetting(UserInterfaceSettings.isGlobalNavCollapsed);
-      this.resize();
-    },
-    toggleUserBlock() {
-      this.toggleSetting(UserInterfaceSettings.showUserBlock);
-    }
   }
-});
+})
+export default class Header extends Vue {
+  @Mutation toggleSetting!: (s: string) => void;
+  @Mutation setIsAWSConsoleCredentialModalVisible!: (s: boolean) => void;
+
+  /**
+   * Triggers a window resize event when clicked
+   * for plugins that needs to be redrawed
+   */
+  resize(e: Event) {
+    // all IE friendly dispatchEvent
+    var evt = document.createEvent('UIEvents');
+    evt.initUIEvent('resize', true, false, window, 0);
+    window.dispatchEvent(evt);
+    // modern dispatchEvent way
+    // window.dispatchEvent(new Event('resize'));
+  }
+  toggleOffsidebar() {
+    this.toggleSetting(UserInterfaceSettings.offsidebarOpen);
+  }
+  toggleOffcanvas() {
+    this.toggleSetting(UserInterfaceSettings.asideToggled);
+  }
+  toggleGlobalNavCollapsed() {
+    this.toggleSetting(UserInterfaceSettings.isGlobalNavCollapsed);
+    //this.resize();
+  }
+  toggleUserBlock() {
+    this.toggleSetting(UserInterfaceSettings.showUserBlock);
+  }
+  async showAWSConsoleCredentialModal(e: Event) {
+    e.preventDefault();
+    await this.setIsAWSConsoleCredentialModalVisible(true);
+  }
+}
 </script>

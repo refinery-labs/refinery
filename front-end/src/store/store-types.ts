@@ -8,7 +8,12 @@ import {
 } from '@/types/graph';
 import { LayoutOptions } from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
-import { GetLatestProjectDeploymentResponse, SearchSavedProjectsResult, TrialInformation } from '@/types/api-types';
+import {
+  ConsoleCredentials,
+  GetLatestProjectDeploymentResponse,
+  SearchSavedProjectsResult,
+  TrialInformation
+} from '@/types/api-types';
 import { LeftSidebarPaneState, SIDEBAR_PANE } from '@/types/project-editor-types';
 import { ValidTransitionConfig } from '@/constants/project-editor-constants';
 import { EditBlockPaneState } from '@/store/modules/panes/edit-block-pane';
@@ -48,7 +53,9 @@ export enum UserInterfaceSettings {
   showUserBlock = 'showUserBlock',
   horizontal = 'horizontal',
   useFullLayout = 'useFullLayout',
-  hiddenFooter = 'hiddenFooter'
+  hiddenFooter = 'hiddenFooter',
+  isAWSConsoleCredentialModalVisible = 'isAWSConsoleCredentialModalVisible',
+  AWSConsoleCredentials = 'AWSConsoleCredentials'
 }
 
 export interface UserInterfaceState {
@@ -82,6 +89,10 @@ export interface UserInterfaceState {
   [UserInterfaceSettings.useFullLayout]?: boolean;
   /* Hide footer */
   [UserInterfaceSettings.hiddenFooter]?: boolean;
+  /* Boolean to display the AWS console credentials */
+  [UserInterfaceSettings.isAWSConsoleCredentialModalVisible]: boolean;
+  /* AWS console credentials */
+  [UserInterfaceSettings.AWSConsoleCredentials]: ConsoleCredentials | null;
 }
 
 export interface AvailableTransition {

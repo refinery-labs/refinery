@@ -22,6 +22,8 @@ import {
   GetBuildStatusResponse,
   GetCloudWatchLogsForLambdaRequest,
   GetCloudWatchLogsForLambdaResponse,
+  GetConsoleCredentialsRequest,
+  GetConsoleCredentialsResponse,
   GetLatestMonthlyBillRequest,
   GetLatestMonthlyBillResponse,
   GetLatestProjectDeploymentRequest,
@@ -193,6 +195,9 @@ export class RefineryApi implements RefineryApiTypeMap {
   );
   [API_ENDPOINT.StartLibraryBuild] = makeApiClient<StartLibraryBuildRequest, StartLibraryBuildResponse>(
     API_ENDPOINT.StartLibraryBuild
+  );
+  [API_ENDPOINT.GetConsoleCredentials] = makeApiClient<GetConsoleCredentialsRequest, GetConsoleCredentialsResponse>(
+    API_ENDPOINT.GetConsoleCredentials
   );
 }
 
