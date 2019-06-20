@@ -3126,19 +3126,19 @@ class TaskSpawner(object):
 				
 			# Outside of the above cases it should always be plural
 			if "minute)" in schedule_expression:
-				schedule_expression.replace(
+				schedule_expression = schedule_expression.replace(
 					"minute)",
 					"minutes)"
 				)
 				
 			if "hour)" in schedule_expression:
-				schedule_expression.replace(
+				schedule_expression = schedule_expression.replace(
 					"hour)",
 					"hours)"
 				)
 				
 			if "day)" in schedule_expression:
-				schedule_expression.replace(
+				schedule_expression = schedule_expression.replace(
 					"day)",
 					"days)"
 				)

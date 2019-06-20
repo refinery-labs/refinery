@@ -69,12 +69,7 @@ export default class ProjectDeployments extends Vue {
     }
 
     if (!this.hasValidDeployment) {
-      return (
-        <h2>
-          You must deploy this project before you can view a project's deployment. You may do this from the Overview
-          pane.
-        </h2>
-      );
+      return <h2>Please wait...</h2>;
     }
 
     const containerClasses = {

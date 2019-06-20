@@ -34,6 +34,7 @@ export default class OpenedProjectOverview extends Vue {
 
   @project.Action openProject!: (projectId: GetSavedProjectRequest) => {};
   @project.Action openLeftSidebarPane!: (paneType: SIDEBAR_PANE) => {};
+  @project.Action fetchLatestDeploymentState!: () => void;
 
   @project.Action closePane!: (p: PANE_POSITION) => void;
 
@@ -46,7 +47,14 @@ export default class OpenedProjectOverview extends Vue {
       return;
     }
 
-    this.openProject({ project_id: val.params.projectId });
+    this.projectOpenActions(val, oldVal);
+  }
+
+  private async projectOpenActions(val: Route, oldVal: Route) {
+    await this.openProject({ project_id: val.params.projectId });
+
+    // Load latest deployment state as well
+    await this.fetchLatestDeploymentState();
   }
 
   public handleItemClicked(pane: SIDEBAR_PANE) {
