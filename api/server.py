@@ -4424,22 +4424,50 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	
 	lambda_role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/refinery_default_aws_lambda_role"
 	
+	"""
+	IGNORE THIS NOTICE AT YOUR OWN PERIL. YOU HAVE BEEN WARNED.
+	
+	All layers are managed under our root AWS account at 134071937287.
+	
+	When a new layer is published the ARNs must be updated in source intentionally
+	so that whoever does so must read this notice and understand what MUST
+	be done before updating the Refinery customer runtime for customers.
+	
+	You must do the following:
+	* Extensively test the new custom runtime.
+	* Upload the new layer version to the root AWS account.
+	* Run the following command on the root account to publically allow use of the layer:
+	
+	aws lambda add-layer-version-permission \
+	--layer-name REPLACE_ME_WITH_LAYER_NAME \
+	--version-number REPLACE_ME_WITH_LAYER_VERSION \
+	--statement-id public \
+	--action lambda:GetLayerVersion \
+	--principal "*" \
+	--region us-west-2
+	
+	* Test the layer in a development version of Refinery to ensure it works.
+	* Update the source code with the new layer ARN
+	
+	Once this is done all future deployments will use the new layers.
+	"""
+	
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		layers.append(
-			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-node810-custom-runtime:1"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:1"
 		)
 	elif language == "php7.3":
 		layers.append(
-			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-php73-custom-runtime:1"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:1"
 		)
 	elif language == "go1.12":
 		layers.append(
-			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-go112-custom-runtime:1"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:1"
 		)
 	elif language == "python2.7":
 		layers.append(
-			"arn:aws:lambda:" + str( credentials[ "region" ] ) + ":" + str( credentials[ "account_id" ] ) + ":layer:refinery-python27-custom-runtime:1"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:1"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
@@ -7278,6 +7306,10 @@ def get_user_free_trial_information( input_user ):
 	
 @gen.coroutine
 def is_build_package_cached( credentials, language, libraries ):
+	# If it's an empty list just return True
+	if len( libraries ) == 0:
+		raise gen.Return( True )
+	
 	# TODO just accept a dict/object in of an
 	# array followed by converting it to one.
 	libraries_dict = {}
