@@ -4520,6 +4520,9 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	nodes with an array of transitions.
 	"""
 	
+	print( "Project config: " )
+	logit( project_config )
+	
 	# Random ID to keep deploy ARNs unique
 	# TODO do more research into collision probability
 	unique_deploy_id = get_random_deploy_id()
@@ -4909,11 +4912,17 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		
 		# Create a new API Gateway if one does not already exist
 		if api_gateway_id == False:
-			rest_api_name = get_lambda_safe_name( project_name )
+			# We just generate a random ID for the API Gateway, no great other way to do it.
+			# e.g. when you change the project name now it's hard to know what the API Gateway
+			# is...
+			rest_api_name = "Refinery-API-Gateway_" + str( uuid.uuid4() ).replace(
+				"-",
+				""
+			)
 			create_gateway_result = yield local_tasks.create_rest_api(
 				credentials,
 				rest_api_name,
-				rest_api_name, # Human readable name, just do the ID for now
+				"API Gateway created by Refinery. Associated with project ID " + project_id,
 				"1.0.0"
 			)
 			
@@ -6702,6 +6711,7 @@ class NewRegistration( BaseHandler ):
 		new_user.name = self.json[ "name" ]
 		new_user.email = self.json[ "email" ]
 		new_user.phone = self.json[ "phone" ]
+		new_user.has_valid_payment_method_on_file = True
 		
 		# Create a new email auth token as well
 		email_auth_token = EmailAuthToken()
