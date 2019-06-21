@@ -5,6 +5,7 @@
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
+    "build-and-copy": "npm run build && cp -r /work/front-end/dist/* /work/output",
     "lint": "vue-cli-service lint",
     "lint-fix": "vue-cli-service lint --fix",
     "modernizr": "modernizr -c modernizr-config.json -d node_modules/modernizr/modernizr.custom.js",
