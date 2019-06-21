@@ -6677,7 +6677,7 @@ class NewRegistration( BaseHandler ):
 		new_user = User()
 		new_user.name = self.json[ "name" ]
 		new_user.email = self.json[ "email" ]
-		new_user.phone = self.json[ "phone" ]
+		new_user.phone_number = self.json[ "phone" ]
 		new_user.has_valid_payment_method_on_file = True
 		
 		# Create a new email auth token as well
@@ -6711,7 +6711,7 @@ class NewRegistration( BaseHandler ):
 		customer_id = yield local_tasks.stripe_create_customer(
 			new_user.email,
 			new_user.name,
-			new_user.phone,
+			new_user.phone_number,
 			self.json[ "stripe_token" ],
 			{
 				"user_agent": user_agent,
