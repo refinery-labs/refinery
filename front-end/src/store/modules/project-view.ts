@@ -435,27 +435,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      const projectConfigResult = await makeApiRequest<GetProjectConfigRequest, GetProjectConfigResponse>(
-        API_ENDPOINT.GetProjectConfig,
-        {
-          project_id: project.project_id
-        }
-      );
-
-      if (!projectConfigResult || !projectConfigResult.success || !projectConfigResult.result) {
-        // TODO: Handle error gracefully
-        console.error('Unable to open project, missing config');
-        return;
-      }
-
-      const projectConfig = projectConfigResult.result;
-
-      if (!projectConfig) {
-        console.error('Unable to deserialize project config');
-        context.commit(ProjectViewMutators.isLoadingProject, false);
-        return;
-      }
-
       // Ensures that we have all fields, especially if the schema changes.
       project.workflow_states = project.workflow_states.map(wfs => ({
         ...blockTypeToDefaultStateMapping[wfs.type],
@@ -464,34 +443,40 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       const params: OpenProjectMutation = {
         project: project,
-        config: projectConfig,
+        config: null,
         markAsDirty: false
       };
 
       await context.dispatch(ProjectViewActions.updateProject, params);
 
+      await context.dispatch(ProjectViewActions.loadProjectConfig);
+
       context.commit(ProjectViewMutators.isLoadingProject, false);
     },
     async [ProjectViewActions.updateProject](context, params: OpenProjectMutation) {
-      const elements = generateCytoscapeElements(params.project);
-
       const stylesheet = generateCytoscapeStyle();
-
-      context.commit(ProjectViewMutators.setOpenedProject, params.project);
 
       if (params.config) {
         context.commit(ProjectViewMutators.setOpenedProjectConfig, params.config);
       }
 
-      if (!params.markAsDirty) {
+      if (!params.markAsDirty && params.project) {
         context.commit(ProjectViewMutators.setOpenedProjectOriginal, params.project);
+      }
+
+      if (!params.markAsDirty && params.config) {
         context.commit(ProjectViewMutators.setOpenedProjectConfig, params.config);
       }
 
       // TODO: Make this actually compare IDs or something... But maybe we can hack it with Undo?
       context.commit(ProjectViewMutators.markProjectDirtyStatus, params.markAsDirty);
 
-      context.commit(ProjectViewMutators.setCytoscapeElements, elements);
+      if (params.project) {
+        const elements = generateCytoscapeElements(params.project);
+        context.commit(ProjectViewMutators.setOpenedProject, params.project);
+        context.commit(ProjectViewMutators.setCytoscapeElements, elements);
+      }
+
       context.commit(ProjectViewMutators.setCytoscapeStyle, stylesheet);
     },
     async [ProjectViewActions.saveProjectConfig](context) {
@@ -677,7 +662,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         }
       );
 
-      if (!createDeploymentResponse) {
+      if (!createDeploymentResponse || !createDeploymentResponse.success) {
         return await handleDeploymentError('Unable to create new deployment.');
       }
 
@@ -687,12 +672,54 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Updates the latest deployment state so the "Deployment" tab is kept updated.
       await context.dispatch(ProjectViewActions.fetchLatestDeploymentState);
 
+      // Update project config
+      await context.dispatch(ProjectViewActions.loadProjectConfig);
+
       router.push({
         name: 'deployment',
         params: {
           projectId: openedProject.project_id
         }
       });
+    },
+    async [ProjectViewActions.loadProjectConfig](context) {
+      const project = context.state.openedProject;
+
+      if (!project) {
+        console.error('Somehow you tried to load the project config without having an opened project!');
+        return;
+      }
+
+      context.commit(ProjectViewMutators.isLoadingProject, true);
+      const projectConfigResult = await makeApiRequest<GetProjectConfigRequest, GetProjectConfigResponse>(
+        API_ENDPOINT.GetProjectConfig,
+        {
+          project_id: project.project_id
+        }
+      );
+
+      if (!projectConfigResult || !projectConfigResult.success || !projectConfigResult.result) {
+        // TODO: Handle error gracefully
+        console.error('Unable to open project, missing config');
+        return;
+      }
+
+      const projectConfig = projectConfigResult.result;
+
+      if (!projectConfig) {
+        console.error('Unable to deserialize project config');
+        context.commit(ProjectViewMutators.isLoadingProject, false);
+        return;
+      }
+
+      const params: OpenProjectMutation = {
+        project: null,
+        config: projectConfig,
+        markAsDirty: false
+      };
+
+      await context.dispatch(ProjectViewActions.updateProject, params);
+      context.commit(ProjectViewMutators.isLoadingProject, false);
     },
     async [ProjectViewActions.showDeploymentPane](context) {
       if (!context.state.openedProject || !context.getters[ProjectViewGetters.canDeployProject]) {

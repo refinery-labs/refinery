@@ -4896,6 +4896,9 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	# The API Gateway ID
 	api_gateway_id = False
 	
+	print( "Project config:" )
+	logit(project_config)
+	
 	# Pull previous API Gateway ID if it exists
 	if project_config[ "api_gateway" ][ "gateway_id" ]:
 		api_gateway_id = project_config[ "api_gateway" ][ "gateway_id" ]
