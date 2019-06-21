@@ -126,13 +126,13 @@ export default class ViewDeployedBlockLogsPane extends Vue {
 
       return (
         <b-dropdown-item on={onHandlers} active={isActive}>
-          Invocation #{i}
+          Invocation #{i + 1}
         </b-dropdown-item>
       );
     });
 
     return (
-      <b-dropdown right text={`Invocation #${this.selectedExecutionIndexForNode}`} variant="primary" class="m-2">
+      <b-dropdown right text={`Invocation #${this.selectedExecutionIndexForNode + 1}`} variant="primary" class="m-2">
         {invocationItemList}
       </b-dropdown>
     );
