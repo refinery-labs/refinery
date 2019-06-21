@@ -9,23 +9,37 @@ function ServerStateLoggerPlugin(store: Store<RootState>) {
   // This ID persists alongside the browser session.
   const sessionId = uuid();
 
-  store.subscribeAction((action, state) => {
+  let stack: object[] = [];
+
+  setInterval(() => {
+    if (stack.length === 0) {
+      return;
+    }
+
     makeApiRequest<StashStateLogRequest, StashStateLogResponse>(API_ENDPOINT.StashStateLog, {
       session_id: sessionId,
       state: {
-        vueType: 'action',
-        ...action
+        vueType: 'stack',
+        stack
       }
+    });
+
+    stack = [];
+  }, 1000);
+
+  store.subscribeAction((action, state) => {
+    stack.push({
+      vueType: 'action',
+      localTimestamp: Date.now(),
+      ...action
     });
   });
 
   store.subscribe((mutation, state) => {
-    makeApiRequest<StashStateLogRequest, StashStateLogResponse>(API_ENDPOINT.StashStateLog, {
-      session_id: sessionId,
-      state: {
-        vueType: 'mutation',
-        ...mutation
-      }
+    stack.push({
+      vueType: 'mutation',
+      localTimestamp: Date.now(),
+      ...mutation
     });
   });
 }
