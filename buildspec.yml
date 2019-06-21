@@ -21,7 +21,7 @@ phases:
       - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
       - cd front-end
       - ./build-production-assets.sh
-      - mv front-end-dist ../elasticbeanstalk-config
+      - mv front-end-dist ../elasticbeanstalk-config/front-end-dist
       - cd ..
   post_build:
     commands:
