@@ -21,7 +21,7 @@ Vue.use(Vuex);
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
 const persistedStorePaths = [
-  'setting',
+  // 'setting',
   // 'project',
   // 'allProjects',
   'user.loginEmailInput',
@@ -43,7 +43,7 @@ const plugins = [
       // But it also means that we may encounter... "weird" bugs with the state.
       return {
         // ...state,
-        setting: state.setting,
+        // setting: state.setting,
         user: {
           // If we want to "remember" the user's username.
           loginEmailInput: state.user.rememberMeToggled ? state.user.loginEmailInput : '',

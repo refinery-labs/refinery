@@ -19,25 +19,27 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
       .humanize(true);
 
     return (
-      <b-list-group-item
-        button={true}
-        class="d-flex justify-content-between align-items-center"
-        on={{ click: () => this.openExecutionGroup(execution.executionId) }}
-      >
-        <label class="text-muted mb-0 text-align--left" style="width: 80px">
-          {durationSinceUpdated}
-        </label>
-        <div style="width: 80px" class="text-align--right padding-right--small">
-          <b-badge variant={execution.error ? 'danger' : 'success'} pill>
-            {execution.error ? 'error' : 'pass'}
-          </b-badge>
-        </div>
-        <div style="width: 80px" class="text-align--left">
-          <b-badge variant="info" pill>
-            {execution.logs.length} execution{execution.logs.length > 1 ? 's' : ''}
-          </b-badge>
-        </div>
-      </b-list-group-item>
+      <div>
+        <b-list-group-item
+          button={true}
+          class="d-flex justify-content-between align-items-center"
+          on={{ click: () => this.openExecutionGroup(execution.executionId) }}
+        >
+          <label class="text-muted mb-0 text-align--left" style="width: 80px">
+            {durationSinceUpdated}
+          </label>
+          <div style="width: 80px" class="text-align--right padding-right--small">
+            <b-badge variant={execution.error ? 'danger' : 'success'} pill>
+              {execution.error ? 'error' : 'pass'}
+            </b-badge>
+          </div>
+          <div style="width: 80px" class="text-align--left">
+            <b-badge variant="info" pill>
+              {execution.logs.length} execution{execution.logs.length > 1 ? 's' : ''}
+            </b-badge>
+          </div>
+        </b-list-group-item>
+      </div>
     );
   }
 

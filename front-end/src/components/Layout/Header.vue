@@ -147,7 +147,7 @@ import Vue from 'vue';
 import { LoadingContainerProps } from '@/types/component-types';
 import HeaderSearch from '@/components/Layout/HeaderSearch.vue';
 import ToggleFullscreen from '@/components/Common/ToggleFullscreen.vue';
-import { Mutation } from 'vuex-class';
+import { Action, Mutation } from 'vuex-class';
 import { UserInterfaceSettings } from '@/store/store-types';
 import { SettingsActions } from '@/constants/store-constants';
 
@@ -159,7 +159,7 @@ import { SettingsActions } from '@/constants/store-constants';
 })
 export default class Header extends Vue {
   @Mutation toggleSetting!: (s: string) => void;
-  @Mutation setIsAWSConsoleCredentialModalVisible!: (s: boolean) => void;
+  @Action setIsAWSConsoleCredentialModalVisibleValue!: (s: boolean) => void;
 
   /**
    * Triggers a window resize event when clicked
@@ -188,7 +188,7 @@ export default class Header extends Vue {
   }
   async showAWSConsoleCredentialModal(e: Event) {
     e.preventDefault();
-    await this.setIsAWSConsoleCredentialModalVisible(true);
+    await this.setIsAWSConsoleCredentialModalVisibleValue(true);
   }
 }
 </script>

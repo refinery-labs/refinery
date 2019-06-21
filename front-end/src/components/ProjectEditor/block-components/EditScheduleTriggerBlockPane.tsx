@@ -21,6 +21,7 @@ export class EditScheduleTriggerBlock extends Vue {
   // Deployment
   @viewBlock.State('wideMode') wideModeDeployment!: boolean;
   @viewBlock.Mutation('setWidePanel') setWidePanelDeployment!: (wide: boolean) => void;
+  @viewBlock.Action openAwsConsoleForBlock!: () => void;
 
   // Project Editor
   @editBlock.State wideMode!: boolean;
@@ -28,7 +29,7 @@ export class EditScheduleTriggerBlock extends Vue {
   @editBlock.Mutation setInputData!: (input_data: string) => void;
   @editBlock.Mutation setWidePanel!: (wide: boolean) => void;
 
-  public renderCodeEditor(id: string) {
+  public renderCodeEditor() {
     const editorProps: EditorProps = {
       name: `schedule-trigger-editor`,
       lang: 'text',
@@ -38,6 +39,21 @@ export class EditScheduleTriggerBlock extends Vue {
     };
 
     return <RefineryCodeEditor props={editorProps} />;
+  }
+
+  public renderAwsLink() {
+    if (!this.readOnly) {
+      return null;
+    }
+
+    return (
+      <b-form-group description="Click to open this resource in the AWS Console.">
+        <label class="d-block">View in AWS Console:</label>
+        <b-button variant="dark" class="col-12" on={{ click: this.openAwsConsoleForBlock }}>
+          Open AWS Console
+        </b-button>
+      </b-form-group>
+    );
   }
 
   public renderCodeEditorContainer() {
@@ -61,7 +77,7 @@ export class EditScheduleTriggerBlock extends Vue {
             <span class="fa fa-angle-double-left" />
           </b-button>
         </div>
-        <div class="input-group with-focus show-block-container__code-editor">{this.renderCodeEditor('pane')}</div>
+        <div class="input-group with-focus show-block-container__code-editor">{this.renderCodeEditor()}</div>
       </b-form-group>
     );
   }
@@ -72,6 +88,7 @@ export class EditScheduleTriggerBlock extends Vue {
         <BlockNameInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
         <BlockScheduleExpressionInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
         {this.renderCodeEditorContainer()}
+        {this.renderAwsLink()}
       </div>
     );
   }

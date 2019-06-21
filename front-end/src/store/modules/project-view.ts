@@ -569,19 +569,15 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      const request: SaveProjectRequest = {
+      const response = await makeApiRequest<SaveProjectRequest, SaveProjectResponse>(API_ENDPOINT.SaveProject, {
         diagram_data: projectJson,
         project_id: context.state.openedProject.project_id,
         config: configJson,
         // We can set this to false and let the backend bump versions for us. :)
         version: false // context.state.openedProjectConfig.version + 1
-      };
+      });
 
-      const saveProjectApiClient = getApiClient(API_ENDPOINT.SaveProject);
-
-      const response = (await saveProjectApiClient(request)) as SaveProjectResponse;
-
-      if (!response.success) {
+      if (!response || !response.success) {
         await handleSaveError('Unable to save project: server failure.');
         return;
       }

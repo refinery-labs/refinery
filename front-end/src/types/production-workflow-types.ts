@@ -44,6 +44,7 @@ export interface ProductionLambdaWorkflowState extends ProductionWorkflowState {
 export interface ProductionApiEndpointWorkflowState extends ProductionWorkflowState {
   api_path: string;
   http_method: HTTP_METHOD;
+  url: string;
   rest_api_id?: string;
 }
 

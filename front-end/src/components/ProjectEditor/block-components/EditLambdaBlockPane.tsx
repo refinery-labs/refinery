@@ -2,12 +2,7 @@ import Component from 'vue-class-component';
 import Vue, { VNode } from 'vue';
 import { Prop } from 'vue-property-decorator';
 import { LambdaWorkflowState, SupportedLanguage, WorkflowState, WorkflowStateType } from '@/types/graph';
-import {
-  FormProps,
-  languageToAceLangMap,
-  LanguageToBaseRepoURLMap,
-  LanguageToLibraryRepoURLMap
-} from '@/types/project-editor-types';
+import { FormProps, LanguageToBaseRepoURLMap, LanguageToLibraryRepoURLMap } from '@/types/project-editor-types';
 import { BlockNameInput } from '@/components/ProjectEditor/block-components/EditBlockNamePane';
 import { namespace } from 'vuex-class';
 import {
@@ -24,6 +19,7 @@ import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { EditorProps } from '@/types/component-types';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { libraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-helpers';
+import { preventDefaultWrapper } from '@/utils/dom-utils';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
@@ -38,11 +34,18 @@ export class EditLambdaBlock extends Vue {
   @viewBlock.State('wideMode') wideModeDeployment!: boolean;
   @viewBlock.State('librariesModalVisibility') librariesModalVisibilityDeployment!: boolean;
 
+  @viewBlock.Getter getAwsConsoleUri!: string | null;
+  @viewBlock.Getter getLambdaMonitorUri!: string | null;
+  @viewBlock.Getter getLambdaCloudWatchUri!: string | null;
+
   @viewBlock.Mutation('setCodeModalVisibility') setCodeModalVisibilityDeployment!: (visible: boolean) => void;
   @viewBlock.Mutation('setWidePanel') setWidePanelDeployment!: (wide: boolean) => void;
   @viewBlock.Mutation('setLibrariesModalVisibility') setLibrariesModalVisibilityDeployment!: (
     visibility: boolean
   ) => void;
+  @viewBlock.Action openAwsConsoleForBlock!: () => void;
+  @viewBlock.Action openAwsMonitorForCodeBlock!: () => void;
+  @viewBlock.Action openAwsCloudwatchForCodeBlock!: () => void;
 
   // State pulled from Project view
   @editBlock.State showCodeModal!: boolean;
@@ -269,9 +272,6 @@ export class EditLambdaBlock extends Vue {
       return;
     }
 
-    const setLibrariesModalVisibility = this.readOnly
-      ? this.setLibrariesModalVisibilityDeployment
-      : this.setLibrariesModalVisibility;
     const librariesModalVisibility = this.readOnly
       ? this.librariesModalVisibilityDeployment
       : this.librariesModalVisibility;
@@ -344,6 +344,42 @@ export class EditLambdaBlock extends Vue {
     );
   }
 
+  public renderAwsLink() {
+    if (!this.readOnly) {
+      return null;
+    }
+
+    return (
+      <b-form-group description="Click to open this resource in the AWS Console.">
+        <label class="d-block">View in AWS Console:</label>
+        <b-button
+          variant="dark"
+          class="col-12 mb-1"
+          href={this.getAwsConsoleUri}
+          on={{ click: preventDefaultWrapper(this.openAwsConsoleForBlock) }}
+        >
+          Inspect Lambda Instance
+        </b-button>
+        <b-button
+          variant="dark"
+          class="col-12 mb-1"
+          href={this.getLambdaMonitorUri}
+          on={{ click: preventDefaultWrapper(this.openAwsMonitorForCodeBlock) }}
+        >
+          CloudWatch Logs
+        </b-button>
+        <b-button
+          variant="dark"
+          class="col-12"
+          href={this.getLambdaCloudWatchUri}
+          on={{ click: preventDefaultWrapper(this.openAwsCloudwatchForCodeBlock) }}
+        >
+          Lambda History Monitor
+        </b-button>
+      </b-form-group>
+    );
+  }
+
   public render(): VNode {
     const setMaxExecutionTime = this.readOnly ? nopWrite : this.setMaxExecutionTime;
     const setExecutionMemory = this.readOnly ? nopWrite : this.setExecutionMemory;
@@ -382,6 +418,7 @@ export class EditLambdaBlock extends Vue {
       <div>
         <BlockNameInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
         {this.renderCodeEditorContainer()}
+        {this.renderAwsLink()}
         {this.renderLibrarySelector()}
         {/*<b-button variant="dark" class="col-12 mb-3">*/}
         {/*  Edit Environment Variables*/}

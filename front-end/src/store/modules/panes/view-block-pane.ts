@@ -1,7 +1,13 @@
 import { Module } from 'vuex';
 import { RootState } from '../../store-types';
 import { WorkflowState } from '@/types/graph';
-import { getNodeDataById, getTransitionsForNode } from '@/utils/project-helpers';
+import { getNodeDataById } from '@/utils/project-helpers';
+import { ProductionLambdaWorkflowState, ProductionWorkflowState } from '@/types/production-workflow-types';
+import {
+  getCloudWatchLinkForCodeBlockArn,
+  getLinkForArn,
+  getMonitorLinkForCodeBlockArn
+} from '@/utils/code-block-utils';
 
 // Enums
 export enum ViewBlockMutators {
@@ -15,7 +21,10 @@ export enum ViewBlockMutators {
 export enum ViewBlockActions {
   selectNodeFromOpenProject = 'selectNodeFromOpenProject',
   selectCurrentlySelectedProjectNode = 'selectCurrentlySelectedProjectNode',
-  resetPaneState = 'resetPaneState'
+  resetPaneState = 'resetPaneState',
+  openAwsConsoleForBlock = 'openAwsConsoleForBlock',
+  openAwsMonitorForCodeBlock = 'openAwsMonitorForCodeBlock',
+  openAwsCloudwatchForCodeBlock = 'openAwsCloudwatchForCodeBlock'
 }
 
 // Types
@@ -37,10 +46,46 @@ const moduleState: ViewBlockPaneState = {
   librariesModalVisibility: false
 };
 
+function getLinkForBlock(getLink: (arn: string) => string | null) {
+  return (state: ViewBlockPaneState) => {
+    if (!state.selectedNode) {
+      return null;
+    }
+
+    const block = state.selectedNode as ProductionWorkflowState;
+
+    if (!block.arn) {
+      return null;
+    }
+
+    return getLink(block.arn);
+  };
+}
+
+function openLinkForBlock(block: ProductionWorkflowState, getLink: (arn: string) => string | null) {
+  if (!block.arn) {
+    console.error('Unable to open block in AWS console due to missing ARN data');
+    return;
+  }
+
+  const consoleLink = getLink(block.arn);
+
+  if (!consoleLink) {
+    console.error('Unable to read AWS console link for block, likely invalid ARN supplied');
+    return;
+  }
+
+  window.open(consoleLink, '_blank');
+}
+
 const ViewBlockPaneModule: Module<ViewBlockPaneState, RootState> = {
   namespaced: true,
   state: moduleState,
-  getters: {},
+  getters: {
+    getAwsConsoleUri: getLinkForBlock(getLinkForArn),
+    getLambdaMonitorUri: getLinkForBlock(getMonitorLinkForCodeBlockArn),
+    getLambdaCloudWatchUri: getLinkForBlock(getCloudWatchLinkForCodeBlockArn)
+  },
   mutations: {
     [ViewBlockMutators.setSelectedNode](state, node) {
       state.selectedNode = node;
@@ -87,11 +132,35 @@ const ViewBlockPaneModule: Module<ViewBlockPaneState, RootState> = {
       const deploymentStore = context.rootState.deployment;
 
       if (!deploymentStore.openedDeployment || !deploymentStore.selectedResource) {
-        console.error('Attempted to open edit block pane without loaded project or selected resource');
+        console.error('Attempted to open view block pane without loaded deployment or selected resource');
         return;
       }
 
       await context.dispatch(ViewBlockActions.selectNodeFromOpenProject, deploymentStore.selectedResource);
+    },
+    async [ViewBlockActions.openAwsConsoleForBlock](context) {
+      if (!context.state.selectedNode) {
+        console.error('Attempted to view Block in AWS Console without selected node');
+        return;
+      }
+
+      openLinkForBlock(context.state.selectedNode as ProductionWorkflowState, getLinkForArn);
+    },
+    async [ViewBlockActions.openAwsMonitorForCodeBlock](context) {
+      if (!context.state.selectedNode) {
+        console.error('Attempted to view Block in AWS Console without selected node');
+        return;
+      }
+
+      openLinkForBlock(context.state.selectedNode as ProductionLambdaWorkflowState, getMonitorLinkForCodeBlockArn);
+    },
+    async [ViewBlockActions.openAwsCloudwatchForCodeBlock](context) {
+      if (!context.state.selectedNode) {
+        console.error('Attempted to view Block in AWS Console without selected node');
+        return;
+      }
+
+      openLinkForBlock(context.state.selectedNode as ProductionLambdaWorkflowState, getCloudWatchLinkForCodeBlockArn);
     }
   }
 };

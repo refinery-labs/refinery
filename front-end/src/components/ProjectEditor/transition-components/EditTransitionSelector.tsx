@@ -121,7 +121,7 @@ export default class EditTransitionSelector extends Vue implements EditTransitio
 
     // This only renders in edit mode.
     const selector = (
-      <b-form-select on={{ input: ifDropdownSelection }} value={this.ifSelectDropdownValue} className="mb-3">
+      <b-form-select on={{ input: ifDropdownSelection }} value={this.ifSelectDropdownValue} class="mb-3">
         <option value={IfDropDownSelectionType.DEFAULT}>
           -- Select an option to get an example conditional expression --
         </option>

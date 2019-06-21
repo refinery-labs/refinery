@@ -1,11 +1,13 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
+import moment from 'moment';
 import { SupportedLanguage, WorkflowState } from '@/types/graph';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import ViewDeployedBlockPane from '@/components/DeploymentViewer/ViewDeployedBlockPane';
 import { EditorProps } from '@/types/component-types';
-import { GetProjectExecutionLogsResult } from '@/types/api-types';
+import { ExecutionStatusType, GetProjectExecutionLogsResult } from '@/types/api-types';
+import { ProductionExecution } from '@/types/deployment-executions-types';
 
 const viewBlock = namespace('viewBlock');
 const deploymentExecutions = namespace('deploymentExecutions');
@@ -22,6 +24,22 @@ function formatDataForAce(data: any) {
   return JSON.stringify(data, null, '  ') || '';
 }
 
+function executionTypeToString(executionType: ExecutionStatusType) {
+  if (executionType === ExecutionStatusType.EXCEPTION) {
+    return 'Uncaught Exception';
+  }
+
+  if (executionType === ExecutionStatusType.CAUGHT_EXCEPTION) {
+    return 'Caught Exception';
+  }
+
+  if (executionType === ExecutionStatusType.RETURN) {
+    return 'Success';
+  }
+
+  return 'Unknown';
+}
+
 @Component
 export default class ViewDeployedBlockLogsPane extends Vue {
   @viewBlock.State selectedNode!: WorkflowState | null;
@@ -32,6 +50,24 @@ export default class ViewDeployedBlockLogsPane extends Vue {
   @deploymentExecutions.Getter getSelectedExecutionForNode!: GetProjectExecutionLogsResult | null;
 
   @deploymentExecutions.Mutation setSelectedExecutionIndexForNode!: (i: number) => void;
+
+  public renderExecutionLabels(execution: GetProjectExecutionLogsResult) {
+    const durationSinceUpdated = moment.duration(-moment().diff(execution.timestamp * 1000)).humanize(true);
+    return (
+      <div class="text-align--left">
+        <label class="text-bold">Time: &nbsp;</label>
+        <label> {durationSinceUpdated}</label>
+        <br />
+        <label class="text-bold">Status: &nbsp;</label>
+        <label> {executionTypeToString(execution.type)}</label>
+        <br />
+        <label class="text-bold">Log Id: &nbsp;</label>
+        <label style="font-size: 0.8rem"> {execution.id}</label>
+      </div>
+    );
+  }
+
+  public renderLogLinks(execution: ProductionExecution) {}
 
   renderCodeEditor(label: string, name: string, content: string, json: boolean) {
     const editorProps: EditorProps = {
@@ -61,9 +97,11 @@ export default class ViewDeployedBlockLogsPane extends Vue {
 
     return (
       <div class="display--flex flex-direction--column">
+        {this.renderExecutionLabels(this.getSelectedExecutionForNode)}
         {this.renderCodeEditor('Input Data', 'input-data', formatDataForAce(executionData.input_data), true)}
         {this.renderCodeEditor('Execution Output', 'output', executionData.output || '', false)}
         {this.renderCodeEditor('Return Data', 'return-data', formatDataForAce(executionData.return_data), true)}
+        {/*{this.renderLogLinks()}*/}
       </div>
     );
   }
@@ -94,7 +132,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
     });
 
     return (
-      <b-dropdown right text={`Invocation #${this.selectedExecutionIndexForNode}`} variant="primary" className="m-2">
+      <b-dropdown right text={`Invocation #${this.selectedExecutionIndexForNode}`} variant="primary" class="m-2">
         {invocationItemList}
       </b-dropdown>
     );
