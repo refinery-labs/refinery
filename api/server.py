@@ -849,6 +849,8 @@ class TaskSpawner(object):
 			session.add( new_aws_account )
 			session.commit()
 			
+			logit( "New AWS account created successfully and stored in database as 'CREATED'!" )
+			
 			return True
 			
 		@run_on_executor
@@ -864,6 +866,8 @@ class TaskSpawner(object):
 			# we will still delete the underlying state.
 			temporary_dir = "/tmp/" + str( uuid.uuid4() ) + "/"
 			
+			result = False
+			
 			try:
 				# Recursively copy files to the directory
 				shutil.copytree(
@@ -871,7 +875,7 @@ class TaskSpawner(object):
 					temporary_dir
 				)
 				
-				TaskSpawner.__terraform_configure_aws_account(
+				result = TaskSpawner.__terraform_configure_aws_account(
 					aws_account_object,
 					temporary_dir
 				)
@@ -879,7 +883,7 @@ class TaskSpawner(object):
 				# Delete the temporary directory reguardless.
 				shutil.rmtree( temporary_dir )
 			
-			return True
+			return result
 			
 		@staticmethod
 		def __terraform_configure_aws_account( aws_account_data, base_dir ):
@@ -947,9 +951,6 @@ class TaskSpawner(object):
 				logit( process_stderr, "error" )
 				logit( process_stdout, "error" )
 				
-				# Mark the account as corrupt since the provisioning failed.
-				aws_account_data.aws_account_status = "CORRUPT"
-				
 				# Alert us of the provisioning error so we can get ahead of
 				# it with AWS support.
 				TaskSpawner.send_terraform_provisioning_error(
@@ -988,34 +989,15 @@ class TaskSpawner(object):
 			terraform_state = ""
 			with open( base_dir + "terraform.tfstate", "r" ) as file_handler:
 				terraform_state = file_handler.read()
-				
-			logit( "Adding AWS account to the database the pool of \"AVAILABLE\" accounts..." )
-			
-			# Update the AWS account with this new information
-			aws_account_data.redis_hostname = terraform_provisioned_account_details[ "redis_elastic_ip" ][ "value" ]
-			aws_account_data.terraform_state = terraform_state
-			aws_account_data.ssh_public_key = terraform_provisioned_account_details[ "refinery_redis_ssh_key_public_key_openssh" ][ "value" ]
-			aws_account_data.ssh_private_key = terraform_provisioned_account_details[ "refinery_redis_ssh_key_private_key_pem" ][ "value" ]
-			aws_account_data.aws_account_status = "AVAILABLE"
-			
-			# Create a new terraform state version
-			terraform_state_version = TerraformStateVersion()
-			terraform_state_version.terraform_state = terraform_state
-			aws_account_data.terraform_state_versions.append(
-				terraform_state_version
-			)
 			
 			logit( "Added AWS account to the pool successfully!" )
 			
-			logit( "Freezing the account until it's used by someone..." )
+			terraform_configuration_data[ "terraform_state" ] = terraform_state
+			terraform_configuration_data[ "redis_hostname" ] = terraform_provisioned_account_details[ "redis_elastic_ip" ][ "value" ]
+			terraform_configuration_data[ "ssh_public_key" ] = terraform_provisioned_account_details[ "refinery_redis_ssh_key_public_key_openssh" ][ "value" ]
+			terraform_configuration_data[ "ssh_private_key" ] = terraform_provisioned_account_details[ "refinery_redis_ssh_key_private_key_pem" ][ "value" ]
 			
-			TaskSpawner._freeze_aws_account(
-				aws_account_data.to_dict()
-			)
-			
-			logit( "Account frozen successfully." )
-			
-			return True
+			return terraform_configuration_data
 		
 		@run_on_executor
 		def unfreeze_aws_account( self, credentials ):
@@ -7501,13 +7483,20 @@ class MaintainAWSAccountReserves( BaseHandler ):
 		# At a MINIMUM we have to wait 60 seconds from the time of account creation
 		# to actually perform the Terraform step.
 		# We'll do 20 because it usually takes 15 to get the "Account Verified" email.
-		minimum_account_age_seconds = ( 60 * 20 )
+		minimum_account_age_seconds = ( 60 * 5 )
 		current_timestamp = int( time.time() )
 		non_setup_aws_accounts = session.query( AWSAccount ).filter(
 			AWSAccount.aws_account_status == "CREATED",
 			AWSAccount.timestamp <= ( current_timestamp - minimum_account_age_seconds )
 		).all()
 		non_setup_aws_accounts_count = len( non_setup_aws_accounts )
+		
+		# Pull the list of AWS account IDs to work on.
+		aws_account_ids = []
+		for non_setup_aws_account in non_setup_aws_accounts:
+			aws_account_ids.append(
+				non_setup_aws_account.account_id
+			)
 		
 		# Calculate the number of accounts that have been created but not provisioned
 		# That way we know how many, if any, that we need to create.
@@ -7523,19 +7512,51 @@ class MaintainAWSAccountReserves( BaseHandler ):
 		logit( "Number of accounts to be created: " + str( accounts_to_create ) )
 		
 		# Kick off the terraform apply jobs for the accounts which are "aged" for it.
-		for non_setup_aws_account in non_setup_aws_accounts:
-			logit( "Kicking off terraform set-up for AWS account '" + non_setup_aws_account.account_id + "'..." )
-			try:
-				yield local_tasks.terraform_configure_aws_account(
-					non_setup_aws_account
-				)
-			except:
-				logit( "An error occurred while provision AWS account '" + non_setup_aws_account.account_id + "' with terraform!", "error" )
-				pass
+		for aws_account_id in aws_account_ids:
+			current_aws_account = session.query( AWSAccount ).filter(
+				AWSAccount.account_id == aws_account_id,
+			).first()
 			
-			# Do session.add() to ensure it's reflected in the commit.
-			session.add( non_setup_aws_account )
+			logit( "Kicking off terraform set-up for AWS account '" + current_aws_account.account_id + "'..." )
+			try:
+				account_provisioning_details = yield local_tasks.terraform_configure_aws_account(
+					current_aws_account
+				)
+				
+				logit( "Adding AWS account to the database the pool of \"AVAILABLE\" accounts..." )
+				
+				# Update the AWS account with this new information
+				current_aws_account.redis_hostname = account_provisioning_details[ "redis_hostname" ]
+				current_aws_account.terraform_state = account_provisioning_details[ "terraform_state" ]
+				current_aws_account.ssh_public_key = account_provisioning_details[ "ssh_public_key" ]
+				current_aws_account.ssh_private_key = account_provisioning_details[ "ssh_private_key" ]
+				current_aws_account.aws_account_status = "AVAILABLE"
+				
+				# Create a new terraform state version
+				terraform_state_version = TerraformStateVersion()
+				terraform_state_version.terraform_state = account_provisioning_details[ "terraform_state" ]
+				current_aws_account.terraform_state_versions.append(
+					terraform_state_version
+				)
+			except Exception as e:
+				logit( "An error occurred while provision AWS account '" + current_aws_account.account_id + "' with terraform!", "error" )
+				logit( e )
+				logit( "Marking the account as 'CORRUPT'..." )
+				
+				# Mark the account as corrupt since the provisioning failed.
+				current_aws_account.aws_account_status = "CORRUPT"
+			
+			logit( "Commiting new account state of '" + current_aws_account.aws_account_status + "' to database..." )
+			session.add(current_aws_account)
 			session.commit()
+			
+			logit( "Freezing the account until it's used by someone..." )
+			
+			TaskSpawner._freeze_aws_account(
+				current_aws_account.to_dict()
+			)
+			
+			logit( "Account frozen successfully." )
 			
 		# Create sub-accounts and let them age before applying terraform
 		for i in range( 0, accounts_to_create ):
