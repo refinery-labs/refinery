@@ -71,7 +71,7 @@ export async function getLogsForExecutions(execution: ProductionExecution) {
 
   if (!response || !response.success || !response.result) {
     console.error('Unable to retrieve execution logs.');
-    return;
+    return null;
   }
 
   return response.result;

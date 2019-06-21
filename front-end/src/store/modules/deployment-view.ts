@@ -13,20 +13,15 @@ import {
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
 import {
-  DeleteDeploymentsInProjectRequest,
-  DeleteDeploymentsInProjectResponse,
   GetLatestProjectDeploymentRequest,
   GetLatestProjectDeploymentResponse,
-  GetLatestProjectDeploymentResult,
-  InfraTearDownRequest,
-  InfraTearDownResponse
+  GetLatestProjectDeploymentResult
 } from '@/types/api-types';
 import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
 import { getNodeDataById } from '@/utils/project-helpers';
-import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 import { ViewBlockActions } from '@/store/modules/panes/view-block-pane';
 import { ViewTransitionActions } from '@/store/modules/panes/view-transition-pane';
 import {
@@ -259,13 +254,15 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
 
       context.commit(DeploymentViewMutators.selectedResource, node.id);
 
-      const paneToOpen = context.rootState.deploymentExecutions.selectedExecutionGroup
-        ? SIDEBAR_PANE.viewDeployedBlockLogs
-        : SIDEBAR_PANE.viewDeployedBlock;
+      await context.dispatch(`viewBlock/${ViewBlockActions.selectCurrentlySelectedProjectNode}`, null, { root: true });
+
+      const paneToOpen =
+        context.rootState.deploymentExecutions.selectedExecutionGroup &&
+        context.rootGetters['deploymentExecutions/getSelectedExecutionForNode']
+          ? SIDEBAR_PANE.viewDeployedBlockLogs
+          : SIDEBAR_PANE.viewDeployedBlock;
 
       await context.dispatch(DeploymentViewActions.openRightSidebarPane, paneToOpen);
-
-      await context.dispatch(`viewBlock/${ViewBlockActions.selectCurrentlySelectedProjectNode}`, null, { root: true });
     },
     async [DeploymentViewActions.selectEdge](context, edgeId: string) {
       if (!context.state.openedDeployment) {

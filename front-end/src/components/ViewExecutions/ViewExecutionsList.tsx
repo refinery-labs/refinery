@@ -8,6 +8,7 @@ import { ProductionExecution } from '@/types/deployment-executions-types';
 @Component
 export default class ViewExecutionsList extends Vue implements ViewExecutionsListProps {
   @Prop({ required: true }) projectExecutions!: ProductionExecution[] | null;
+  @Prop({ required: true }) selectedExecutionGroup!: string | null;
   @Prop({ required: true }) openExecutionGroup!: (id: string) => void;
   @Prop({ required: true }) isBusyRefreshing!: boolean;
   @Prop({ required: true }) showMoreExecutions!: () => void;
@@ -18,14 +19,22 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
       .duration(-moment().diff(execution.oldest_observed_timestamp * 1000))
       .humanize(true);
 
+    const isActive = execution.executionId === this.selectedExecutionGroup;
+
+    const labelClasses = {
+      'text-muted mb-0 text-align--left': true,
+      'text-white': isActive
+    };
+
     return (
       <div>
         <b-list-group-item
           button={true}
+          active={isActive}
           class="d-flex justify-content-between align-items-center"
           on={{ click: () => this.openExecutionGroup(execution.executionId) }}
         >
-          <label class="text-muted mb-0 text-align--left" style="width: 80px">
+          <label class={labelClasses} style="width: 80px">
             {durationSinceUpdated}
           </label>
           <div style="width: 80px" class="text-align--right padding-right--small">
