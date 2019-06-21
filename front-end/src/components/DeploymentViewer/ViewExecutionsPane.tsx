@@ -12,6 +12,7 @@ export default class ViewExecutionsPane extends Vue {
   @deploymentExecutions.State isBusy!: boolean;
   @deploymentExecutions.State isFetchingMoreExecutions!: boolean;
   @deploymentExecutions.State continuationToken!: string | null;
+  @deploymentExecutions.State selectedExecutionGroup!: string | null;
   @deploymentExecutions.Getter sortedExecutions!: ProductionExecution[] | null;
 
   @deploymentExecutions.Action openExecutionGroup!: (id: string) => void;
@@ -26,6 +27,7 @@ export default class ViewExecutionsPane extends Vue {
 
     const viewExecutionsListProps: ViewExecutionsListProps = {
       openExecutionGroup: this.openExecutionGroup,
+      selectedExecutionGroup: this.selectedExecutionGroup,
       projectExecutions: this.sortedExecutions,
       isBusyRefreshing: this.isFetchingMoreExecutions,
       hasMoreExecutionsToLoad: Boolean(this.continuationToken),

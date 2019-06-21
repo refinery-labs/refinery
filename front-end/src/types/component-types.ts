@@ -42,6 +42,7 @@ export interface LoadingContainerProps {
 
 export interface ViewExecutionsListProps {
   projectExecutions: ProductionExecution[] | null;
+  selectedExecutionGroup: string | null;
   openExecutionGroup: (id: string) => void;
   showMoreExecutions: () => void;
   isBusyRefreshing: boolean;

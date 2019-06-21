@@ -1,12 +1,77 @@
 import { CreateElement, VNode } from 'vue';
 import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
-import cytoscape, { AnimationManipulation, EventObject, LayoutOptions } from 'cytoscape';
+import cytoscape, { EdgeDefinition, EventObject, LayoutOptions, NodeDefinition } from 'cytoscape';
 import dagre from 'cytoscape-dagre';
+import deepEqual from 'fast-deep-equal';
 import { CyElements, CyStyle, WorkflowRelationship, WorkflowState } from '@/types/graph';
 import { animationBegin, animationEnd, baseCytoscapeStyles, STYLE_CLASSES } from '@/lib/cytoscape-styles';
 import { timeout } from '@/utils/async-utils';
 
 cytoscape.use(dagre);
+
+function areCytoResourcesTheSame(a: NodeDefinition | EdgeDefinition, b: NodeDefinition | EdgeDefinition): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+
+  if (aKeys.length !== bKeys.length) {
+    return false;
+  }
+
+  const ignoredKeys = ['scratch', 'scatch'];
+
+  // If anything returns true, the output will be true.
+  const differencesExist = aKeys.some(key => {
+    // Ignore these keys because they are known to be "dirty" data for plugins, etc
+    if (ignoredKeys.indexOf(key) !== -1) {
+      return false;
+    }
+
+    // Key doesn't exist on object
+    if (!b.hasOwnProperty(key)) {
+      return true;
+    }
+
+    // This is a safe operation because we know that both objects have the following key
+    // @ts-ignore
+    return !deepEqual(a[key], b[key]);
+  });
+
+  return !differencesExist;
+}
+
+// TODO: Likely we just want to use fast-deep-equal but probably not look at Scratch data?
+function areCytoGraphsTheSame(val: CyElements, oldVal: CyElements) {
+  // Something is null, graphs are definitely different.
+  // TODO: Do we need to compare is the nodes or edges are both null from previous values?
+  // For now, lets assume that all input is well-formed. Typescript lets up have it be well-formed...
+  if (!val || !val.nodes || !val.edges || !oldVal || !oldVal.nodes || !oldVal.edges) {
+    return false;
+  }
+
+  const graphsAreSameLength = val.nodes.length === oldVal.nodes.length && val.edges.length === oldVal.edges.length;
+
+  // If graphs have different lengths, then they have certainly changed.
+  if (!graphsAreSameLength) {
+    return false;
+  }
+
+  // Ensure that all nodes haven't moved or anything funky
+  const nodesHaveDifferences = val.nodes.some((node, i) => !areCytoResourcesTheSame(node, oldVal.nodes[i]));
+
+  if (nodesHaveDifferences) {
+    return false;
+  }
+
+  // Ensure that all edges haven't moved or anything funky
+  const edgesHaveDifferences = val.edges.some((edge, i) => !areCytoResourcesTheSame(edge, oldVal.edges[i]));
+
+  if (edgesHaveDifferences) {
+    return false;
+  }
+
+  // The graphs are equivalent according to our limited logic.
+  return true;
+}
 
 @Component
 export default class CytoscapeGraph extends Vue {
@@ -46,6 +111,12 @@ export default class CytoscapeGraph extends Vue {
     if (val === oldVal) {
       return;
     }
+
+    // Don't re-layout because the graphs haven't changed
+    if (areCytoGraphsTheSame(val, oldVal)) {
+      return;
+    }
+
     this.isLayoutRunning = true;
 
     this.cytoscapeValueModified();

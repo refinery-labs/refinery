@@ -8,6 +8,8 @@ import { ExecutionStatusType, GetProjectExecutionLogsResult } from '@/types/api-
 import { STYLE_CLASSES } from '@/lib/cytoscape-styles';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { timeout } from '@/utils/async-utils';
+import { SIDEBAR_PANE } from '@/types/project-editor-types';
+import { DeploymentViewActions } from '@/constants/store-constants';
 
 // Enums
 export enum DeploymentExecutionsMutators {
@@ -29,7 +31,8 @@ export enum DeploymentExecutionsMutators {
 export enum DeploymentExecutionsActions {
   activatePane = 'activatePane',
   getExecutionsForOpenedDeployment = 'getExecutionsForOpenedDeployment',
-  openExecutionGroup = 'openExecutionGroup'
+  openExecutionGroup = 'openExecutionGroup',
+  updateExecutionGroupLogs = 'updateExecutionGroupLogs'
 }
 
 // Types
@@ -43,7 +46,7 @@ export interface DeploymentExecutionsPaneState {
   autoRefreshJobIterations: number;
   autoRefreshJobNonce: string | null;
 
-  selectedExecutionGroup: ProductionExecution | null;
+  selectedExecutionGroup: string | null;
   executionGroupLogs: { [key: string]: GetProjectExecutionLogsResult[] } | null;
 
   selectedExecutionIndexForNode: number;
@@ -248,6 +251,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         return;
       }
 
+      // TODO: Do we need to check if an existing network request is already in-flight?
       // We can set this either for the module or for the sub-pane
       const statusMessageType =
         context.state.projectExecutions !== null
@@ -278,29 +282,55 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       context.commit(DeploymentExecutionsMutators.setProjectExecutions, executions);
       context.commit(DeploymentExecutionsMutators.setContinuationToken, executionsResponse.continuationToken);
+
+      if (context.state.selectedExecutionGroup !== null) {
+        await context.dispatch(DeploymentExecutionsActions.updateExecutionGroupLogs);
+      }
+
       context.commit(statusMessageType, false);
     },
     async [DeploymentExecutionsActions.openExecutionGroup](context, executionId: string) {
-      if (!context.state.projectExecutions) {
-        console.error('Attempted to open project execution without any project executions loaded');
+      context.commit(DeploymentExecutionsMutators.setSelectedExecutionGroup, executionId);
+
+      context.commit(DeploymentExecutionsMutators.setIsBusy, true);
+
+      await context.dispatch(DeploymentExecutionsActions.updateExecutionGroupLogs);
+
+      // "Convert" the currently opened pane into the execution view pane
+      if (
+        context.rootState.deployment.activeRightSidebarPane === SIDEBAR_PANE.viewDeployedBlock &&
+        context.getters.getSelectedExecutionForNode
+      ) {
+        await context.dispatch(
+          `deployment/${DeploymentViewActions.openRightSidebarPane}`,
+          SIDEBAR_PANE.viewDeployedBlockLogs,
+          { root: true }
+        );
+      }
+
+      context.commit(DeploymentExecutionsMutators.setIsBusy, false);
+    },
+    async [DeploymentExecutionsActions.updateExecutionGroupLogs](context) {
+      if (!context.state.projectExecutions || !context.state.selectedExecutionGroup) {
+        console.error('Attempted to open project execution with invalid execution group');
         return;
       }
 
-      const projectExecution = context.state.projectExecutions[executionId];
+      const projectExecution = context.state.projectExecutions[context.state.selectedExecutionGroup];
 
       if (!projectExecution) {
         console.error('Unable to locate execution to retrieve logs for');
         return;
       }
 
-      context.commit(DeploymentExecutionsMutators.setIsBusy, true);
-
       const response = await getLogsForExecutions(projectExecution);
 
-      context.commit(DeploymentExecutionsMutators.setSelectedExecutionGroup, projectExecution);
-      context.commit(DeploymentExecutionsMutators.setExecutionGroupLogs, response);
+      if (!response) {
+        console.error('Unable to retrieve logs for execution');
+        return;
+      }
 
-      context.commit(DeploymentExecutionsMutators.setIsBusy, false);
+      context.commit(DeploymentExecutionsMutators.setExecutionGroupLogs, response);
     }
   }
 };
