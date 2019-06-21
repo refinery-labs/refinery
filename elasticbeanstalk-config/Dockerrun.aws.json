@@ -8,8 +8,20 @@
       "essential": true,
       "portMappings": [
         {
-          "hostPort": 80,
+          "hostPort": 8080,
           "containerPort": 7777
+        }
+      ]
+    },
+    {
+      "name": "refinery-api-server",
+      "memory": 1024,
+      "image": "134071937287.dkr.ecr.us-west-2.amazonaws.com/refinery-nginx-server",
+      "essential": true,
+      "portMappings": [
+        {
+          "hostPort": 80,
+          "containerPort": 80
         }
       ]
     }

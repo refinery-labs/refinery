@@ -9,6 +9,7 @@ docker-compose.yml
 install/config.yaml
 front-end/node_modules/
 auto-reload.sh
+nginx-container/front-end-dist/
 
 # Created by https://www.gitignore.io/api/intellij
 # Edit at https://www.gitignore.io/?templates=intellij

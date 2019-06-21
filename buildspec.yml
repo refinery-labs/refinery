@@ -10,6 +10,7 @@ phases:
       - aws --version
       - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
       - REPOSITORY_URI=134071937287.dkr.ecr.us-west-2.amazonaws.com/refinery-api-server-prod
+      - REPOSITORY_NGINX_URI=134071937287.dkr.ecr.us-west-2.amazonaws.com/refinery-nginx-server
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
       - IMAGE_TAG=${COMMIT_HASH:=latest}
       - VUE_APP_API_HOST="https://app.refinery.io"
@@ -21,14 +22,18 @@ phases:
       - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
       - cd front-end
       - ./build-production-assets.sh
-      - mv front-end-dist ../elasticbeanstalk-config/front-end-dist
+      - mv front-end-dist ../nginx-container/front-end-dist
       - cd ..
+      - docker build -t $REPOSITORY_NGINX_URI:latest ./nginx-container/
+      - docker tag $REPOSITORY_NGINX_URI:latest $REPOSITORY_NGINX_URI:$IMAGE_TAG
   post_build:
     commands:
       - echo Build completed on `date`
       - echo Pushing the Docker API server images...
       - docker push $REPOSITORY_URI:latest
       - docker push $REPOSITORY_URI:$IMAGE_TAG
+      - docker push $REPOSITORY_NGINX_URI:latest
+      - docker push $REPOSITORY_NGINX_URI:$IMAGE_TAG
 artifacts:
     base-directory: elasticbeanstalk-config/
     files: "**/*"
