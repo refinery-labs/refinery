@@ -11,6 +11,9 @@ DROP TABLE users;
 DROP TABLE projects;
 DROP TABLE cached_billing_collections;
 DROP TABLE cached_billing_items;
+DROP TABLE saved_blocks;
+DROP TABLE statelogs;
+DROP TABLE users;
 DROP TABLE organizations CASCADE;
 
 \d+;

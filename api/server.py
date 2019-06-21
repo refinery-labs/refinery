@@ -7535,8 +7535,7 @@ class MaintainAWSAccountReserves( BaseHandler ):
 			
 			# Do session.add() to ensure it's reflected in the commit.
 			session.add( non_setup_aws_account )
-			
-		session.commit()
+			session.commit()
 			
 		# Create sub-accounts and let them age before applying terraform
 		for i in range( 0, accounts_to_create ):
