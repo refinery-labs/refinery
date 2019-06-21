@@ -460,11 +460,13 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         context.commit(ProjectViewMutators.setOpenedProjectConfig, params.config);
       }
 
-      if (!params.markAsDirty && params.project) {
+      const cleanProject = !params.markAsDirty;
+
+      if (cleanProject && params.project) {
         context.commit(ProjectViewMutators.setOpenedProjectOriginal, params.project);
       }
 
-      if (!params.markAsDirty && params.config) {
+      if (cleanProject && params.config) {
         context.commit(ProjectViewMutators.setOpenedProjectConfig, params.config);
       }
 
