@@ -1,7 +1,41 @@
 <template>
   <div class="home">
-    <h2>Welcome to Refinery!</h2>
-    <router-link to="/projects">View Projects</router-link>
+    <h1>Welcome to Refinery!</h1>
+    <br />
+    <h3>Getting Started</h3>
+    <div class="display--flex justify-content-center">
+      <div class="text-align--left" style="max-width: 400px; margin-left: 20px">
+        <p>
+          We recommend taking a look at the
+          <a href="https://docs.refinery.io/quickstart/intro/" target="_blank">Quick Start Guide</a>.
+        </p>
+        <p>
+          You may also look at the example projects in your project list.
+          <br />
+          To find all of the projects in your account, <router-link to="/projects">go here</router-link>.
+        </p>
+        <p>
+          If you would like to contact us for any reason, head over to the
+          <router-link to="/help">Help Page</router-link> for more information.
+        </p>
+        <p>
+          Even if you're just having a great day and want to share, we'd love to here from you!
+        </p>
+      </div>
+    </div>
+    <div class="display--flex justify-content-center">
+      <div>
+        <h3>Useful Links</h3>
+        <ul class="text-align--left" style="max-width: 400px; font-size: 1.25em; margin-left: 36px">
+          <li><a href="https://docs.refinery.io/quickstart/intro/" target="_blank">Quick Start Guide</a></li>
+          <li><router-link to="/projects">View & Search Projects</router-link></li>
+          <li><router-link to="/help">Help & Contact Page</router-link></li>
+          <li><router-link to="/billing">Billing & Usage Information</router-link></li>
+        </ul>
+      </div>
+    </div>
+    <h4>We really appreciate you being here. :)</h4>
+    <img src="/img/loading.gif" />
   </div>
 </template>
 
