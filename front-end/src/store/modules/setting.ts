@@ -95,7 +95,6 @@ const SettingModule: Module<UserInterfaceState, RootState> = {
     setIsAWSConsoleCredentialModalVisibleValue(context, visible: boolean) {
       // If view modal is true we'll kick off loading the credentials as well.
       if (visible) {
-        console.log('in visible', visible);
         context.dispatch('getAWSConsoleCredentials');
       }
 
