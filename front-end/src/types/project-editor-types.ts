@@ -48,7 +48,7 @@ export interface ActivePaneState {
 export type ActiveSidebarPaneToContainerMapping = { [key in SIDEBAR_PANE]: VueConstructor };
 
 export interface OpenProjectMutation {
-  project: RefineryProject;
+  project: RefineryProject | null;
   config: ProjectConfig | null;
   markAsDirty: boolean;
 }

@@ -106,7 +106,8 @@ export enum ProjectViewActions {
   setProjectConfigLoggingLevel = 'setProjectConfigLoggingLevel',
   saveProjectConfig = 'saveProjectConfig',
   checkBuildStatus = 'checkBuildStatus',
-  startLibraryBuild = 'startLibraryBuild'
+  startLibraryBuild = 'startLibraryBuild',
+  loadProjectConfig = 'loadProjectConfig'
 }
 
 export enum DeploymentViewGetters {
