@@ -70,6 +70,8 @@ import {
   SearchSavedProjectsResponse,
   StartLibraryBuildRequest,
   StartLibraryBuildResponse,
+  StashStateLogRequest,
+  StashStateLogResponse,
   UpdateEnvironmentVariablesRequest,
   UpdateEnvironmentVariablesResponse
 } from '@/types/api-types';
@@ -197,6 +199,9 @@ export class RefineryApi implements RefineryApiTypeMap {
     API_ENDPOINT.StartLibraryBuild
   );
   [API_ENDPOINT.GetConsoleCredentials] = makeApiClient<GetConsoleCredentialsRequest, GetConsoleCredentialsResponse>(
+    API_ENDPOINT.GetConsoleCredentials
+  );
+  [API_ENDPOINT.StashStateLog] = makeApiClient<StashStateLogRequest, StashStateLogResponse>(
     API_ENDPOINT.GetConsoleCredentials
   );
 }

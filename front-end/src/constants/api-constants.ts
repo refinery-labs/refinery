@@ -33,7 +33,8 @@ export enum API_ENDPOINT {
   SaveProjectConfig = 'SaveProjectConfig',
   GetBuildStatus = 'GetBuildStatus',
   StartLibraryBuild = 'StartLibraryBuild',
-  GetConsoleCredentials = 'GetConsoleCredentials'
+  GetConsoleCredentials = 'GetConsoleCredentials',
+  StashStateLog = 'StashStateLog'
 }
 
 export enum HTTP_METHOD {
@@ -194,5 +195,9 @@ export const ApiConfigMap: ApiConfigMapType = {
   [API_ENDPOINT.GetConsoleCredentials]: {
     path: '/api/v1/iam/console_credentials',
     method: HTTP_METHOD.GET
+  },
+  [API_ENDPOINT.StashStateLog]: {
+    path: '/api/v1/internal/log',
+    method: HTTP_METHOD.POST
   }
 };
