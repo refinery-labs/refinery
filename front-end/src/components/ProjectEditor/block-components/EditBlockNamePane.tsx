@@ -35,6 +35,7 @@ export class BlockNameInput extends Vue {
             id={`block-name-${selectedNode.id}`}
             type="text"
             required
+            readonly={this.readOnly}
             value={selectedNode.name}
             on={{ input: setBlockName }}
             placeholder="My Amazing Block"

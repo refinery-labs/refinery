@@ -6,6 +6,7 @@ import { HTTP_METHOD } from '@/constants/api-constants';
 import { BlockNameInput } from '@/components/ProjectEditor/block-components/EditBlockNamePane';
 import { namespace } from 'vuex-class';
 import { nopWrite } from '@/utils/block-utils';
+import { ProductionApiEndpointWorkflowState } from '@/types/production-workflow-types';
 
 const editBlock = namespace('project/editBlockPane');
 
@@ -16,6 +17,24 @@ export class EditAPIEndpointBlock extends Vue {
 
   @editBlock.Mutation setHTTPMethod!: (http_method: HTTP_METHOD) => void;
   @editBlock.Mutation setHTTPPath!: (api_path: string) => void;
+
+  public renderApiEndpointInformation() {
+    // Only render for deployed blocks
+    if (!this.readOnly) {
+      return null;
+    }
+
+    const productionState = this.selectedNode as ProductionApiEndpointWorkflowState;
+
+    return (
+      <b-form-group description="View the link above to access your API Endpoint.">
+        <label class="d-block">Endpoint URI:</label>
+        <a class="text-align--center display--block" href={productionState.url} target="_blank">
+          {productionState.url}
+        </a>
+      </b-form-group>
+    );
+  }
 
   public renderHTTPMethodInput() {
     const onChangeHTTPMethod = this.readOnly ? nopWrite : this.setHTTPMethod;
@@ -28,6 +47,7 @@ export class EditAPIEndpointBlock extends Vue {
         <div class="input-group with-focus">
           <b-form-select
             options={Object.values(HTTP_METHOD)}
+            disabled={this.readOnly}
             value={this.selectedNode.http_method}
             on={{ change: onChangeHTTPMethod }}
           />
@@ -54,6 +74,7 @@ export class EditAPIEndpointBlock extends Vue {
           <b-form-input
             type="text"
             required
+            readonly={this.readOnly}
             value={this.selectedNode.api_path}
             on={{ input: onChangeHTTPPath }}
             placeholder="/"
@@ -70,6 +91,7 @@ export class EditAPIEndpointBlock extends Vue {
     return (
       <div>
         <BlockNameInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
+        {this.renderApiEndpointInformation()}
         {this.renderHTTPMethodInput()}
         {this.renderHTTPPathInput()}
       </div>
