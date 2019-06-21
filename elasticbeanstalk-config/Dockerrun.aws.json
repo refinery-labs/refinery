@@ -14,7 +14,7 @@
       ]
     },
     {
-      "name": "refinery-api-server",
+      "name": "refinery-nginx-server",
       "memory": 1024,
       "image": "134071937287.dkr.ecr.us-west-2.amazonaws.com/refinery-nginx-server",
       "essential": true,
