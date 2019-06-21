@@ -13,7 +13,6 @@ phases:
       - REPOSITORY_NGINX_URI=134071937287.dkr.ecr.us-west-2.amazonaws.com/refinery-nginx-server
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
       - IMAGE_TAG=${COMMIT_HASH:=latest}
-      - VUE_APP_API_HOST="https://app.refinery.io"
   build:
     commands:
       - echo Build started on `date`
