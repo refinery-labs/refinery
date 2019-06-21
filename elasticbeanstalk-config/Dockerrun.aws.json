@@ -15,7 +15,7 @@
     },
     {
       "name": "refinery-nginx-server",
-      "memory": 1024,
+      "memory": 768,
       "image": "134071937287.dkr.ecr.us-west-2.amazonaws.com/refinery-nginx-server",
       "essential": true,
       "portMappings": [
