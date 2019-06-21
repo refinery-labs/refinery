@@ -566,6 +566,7 @@ export interface StartLibraryBuildRequest extends BaseApiRequest {
 
 export interface StartLibraryBuildResponse extends BaseApiResponse {}
 
+// GetConsoleCredentialsRequest
 export interface GetConsoleCredentialsRequest extends BaseApiRequest {}
 
 export interface ConsoleCredentials {
@@ -577,3 +578,11 @@ export interface ConsoleCredentials {
 export interface GetConsoleCredentialsResponse extends BaseApiResponse {
   console_credentials: ConsoleCredentials;
 }
+
+// StashStateLog
+export interface StashStateLogRequest extends BaseApiRequest {
+  session_id: string;
+  state: object;
+}
+
+export interface StashStateLogResponse extends BaseApiResponse {}

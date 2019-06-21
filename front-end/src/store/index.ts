@@ -15,6 +15,7 @@ import ViewBlockPaneModule from '@/store/modules/panes/view-block-pane';
 import ViewTransitionPaneModule from '@/store/modules/panes/view-transition-pane';
 import DeploymentExecutionsPaneModule from '@/store/modules/panes/deployment-executions-pane';
 import ActionLoggerPlugin from '@/store/plugins/action-logger';
+import ServerStateLoggerPlugin from '@/store/plugins/server-state-logger';
 
 Vue.use(Vuex);
 
@@ -58,6 +59,7 @@ const plugins = [
 // Add all dev-only plugins
 if (isDevelopment) {
   // plugins.push(ActionLoggerPlugin);
+  plugins.push(ServerStateLoggerPlugin);
 }
 
 /**
