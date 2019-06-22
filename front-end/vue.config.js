@@ -19,12 +19,23 @@ module.exports = {
       .loader('vue-jsx-hot-loader');
   },
   pwa: {
-    runtimeCaching: {
-      handler: 'NetworkFirst',
-      options: {
-        // Fall back to the cache after 10 seconds.
-        networkTimeoutSeconds: 10
+    runtimeCaching: [
+      {
+        urlPattern: /img/,
+        handler: 'NetworkFirst',
+        options: {
+          // Fall back to the cache after 10 seconds.
+          networkTimeoutSeconds: 10,
+          expiration: {
+            maxEntries: 5,
+            maxAgeSeconds: 60
+          }
+        }
+      },
+      {
+        urlPattern: new RegExp('^'),
+        handler: 'NetworkOnly'
       }
-    }
+    ]
   }
 };
