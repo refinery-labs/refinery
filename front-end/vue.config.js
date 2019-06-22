@@ -17,5 +17,14 @@ module.exports = {
       .use('vue-jsx-hot-loader')
       .before('babel-loader')
       .loader('vue-jsx-hot-loader');
+  },
+  pwa: {
+    runtimeCaching: {
+      handler: 'NetworkFirst',
+      options: {
+        // Fall back to the cache after 10 seconds.
+        networkTimeoutSeconds: 10
+      }
+    }
   }
 };

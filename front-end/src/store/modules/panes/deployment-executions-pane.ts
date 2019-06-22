@@ -174,7 +174,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
     [DeploymentExecutionsMutators.resetPane](state) {
       // TODO: Turn this into a helper function.
       // @ts-ignore
-      Object.keys(moduleState).forEach(key => (state[key] = moduleState[key]));
+      Object.keys(moduleState).forEach(key => (state[key] = deepJSONCopy(moduleState[key])));
     },
     [DeploymentExecutionsMutators.setIsBusy](state, busy) {
       state.isBusy = busy;
