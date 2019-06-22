@@ -1,6 +1,8 @@
 /* eslint-disable no-console */
 
 import { register } from 'register-service-worker';
+import { globalDispatchToast } from '@/utils/toasts-utils';
+import { ToastVariant } from '@/types/toasts-types';
 
 if (process.env.NODE_ENV === 'production') {
   register(`${process.env.BASE_URL}service-worker.js`, {
@@ -19,12 +21,28 @@ if (process.env.NODE_ENV === 'production') {
       console.log('New content is downloading.');
     },
     updated() {
-      console.log('New content is available; please refresh.');
+      globalDispatchToast({
+        title: 'Update Available',
+        content: 'Please refresh the page :)',
+        variant: ToastVariant.info
+      });
+      console.log('New content is available. Please refresh the page.');
     },
     offline() {
+      globalDispatchToast({
+        title: 'No Connection Detected',
+        content: 'Please ensure you have an internet connection. App is running in offline mode.',
+        variant: ToastVariant.warning
+      });
       console.log('No internet connection found. App is running in offline mode.');
     },
     error(error) {
+      globalDispatchToast({
+        title: 'Unknown Load Error',
+        content:
+          'App had trouble starting up. Try refreshing the page. If this error persists, clear your browser cache and/or contact support.',
+        variant: ToastVariant.danger
+      });
       console.error('Error during service worker registration:', error);
     }
   });
