@@ -2,9 +2,11 @@ import Vue, { CreateElement, VNode } from 'vue';
 import Component, { mixins } from 'vue-class-component';
 import OpenedProjectOverview from '@/views/ProjectsNestedViews/OpenedProjectOverview';
 import { namespace } from 'vuex-class';
-import { GetLatestProjectDeploymentResponse } from '@/types/api-types';
+import { GetLatestProjectDeploymentResponse, GetSavedProjectRequest } from '@/types/api-types';
 import { Route } from 'vue-router';
 import CreateToastMixin from '@/mixins/CreateToastMixin';
+import store from '@/store/index';
+import { ProjectViewActions } from '@/constants/store-constants';
 
 const project = namespace('project');
 
@@ -13,6 +15,19 @@ export default class ViewProject extends mixins(CreateToastMixin) {
   @project.State latestDeploymentState!: GetLatestProjectDeploymentResponse | null;
   @project.Getter canSaveProject!: boolean;
   @project.Getter selectedResourceDirty!: boolean;
+  @project.Action openProject!: (projectId: GetSavedProjectRequest) => {};
+  @project.Action fetchLatestDeploymentState!: () => void;
+
+  // This handles fetching the data for the UI upon route entry
+  // Note: We don't block the call to next because that allows the user to "see" the UI first, including a loading animation.
+  // Maybe that is a mistake... But it feels reasonable also. Could re-evaluate this in the future?
+  public async beforeRouteEnter(to: Route, from: Route, next: () => void) {
+    next();
+
+    await store.dispatch(`project/${ProjectViewActions.openProject}`, { project_id: to.params.projectId });
+
+    await store.dispatch(`project/${ProjectViewActions.fetchLatestDeploymentState}`);
+  }
 
   public beforeRouteLeave(to: Route, from: Route, next: () => void) {
     if (this.canSaveProject || this.selectedResourceDirty) {

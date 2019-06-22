@@ -32,30 +32,11 @@ export default class OpenedProjectOverview extends Vue {
   @project.Getter transitionAddButtonEnabled!: boolean;
   @project.Getter hasCodeBlockSelected!: boolean;
 
-  @project.Action openProject!: (projectId: GetSavedProjectRequest) => {};
   @project.Action openLeftSidebarPane!: (paneType: SIDEBAR_PANE) => {};
-  @project.Action fetchLatestDeploymentState!: () => void;
 
   @project.Action closePane!: (p: PANE_POSITION) => void;
 
   @editBlock.Action tryToCloseBlock!: () => void;
-
-  @Watch('$route', { immediate: true })
-  private routeChanged(val: Route, oldVal: Route) {
-    // Project is already opened
-    if (val && oldVal && val.params.projectId && val.params.projectId === oldVal.params.projectId) {
-      return;
-    }
-
-    this.projectOpenActions(val, oldVal);
-  }
-
-  private async projectOpenActions(val: Route, oldVal: Route) {
-    await this.openProject({ project_id: val.params.projectId });
-
-    // Load latest deployment state as well
-    await this.fetchLatestDeploymentState();
-  }
 
   public handleItemClicked(pane: SIDEBAR_PANE) {
     // Handle us clicking the same pane twice.
