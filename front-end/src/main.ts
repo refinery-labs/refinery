@@ -1,6 +1,9 @@
 import Vue from 'vue';
+
+// Must be called before any components are loaded
+import './lib/class-component-hooks';
+
 import BootstrapVue from 'bootstrap-vue';
-import VueKonva from 'vue-konva';
 import { sync } from 'vuex-router-sync';
 
 import './vendor';
@@ -17,7 +20,6 @@ import store from './store/index';
 import './registerServiceWorker';
 
 Vue.use(BootstrapVue);
-Vue.use(VueKonva);
 
 Vue.config.productionTip = false;
 

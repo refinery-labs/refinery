@@ -182,6 +182,26 @@ export default class Search extends Vue {
     );
   }
 
+  public renderDeleteProjectModal() {
+    return (
+      <b-modal ref="my-modal" hide-footer title="Delete Project Confirmation" visible={this.deleteModalVisible}>
+        <div class="d-block text-center">
+          <h3>Are you sure that you want to delete this project?</h3>
+          <br />
+          <h2>{this.deleteProjectName}</h2>
+          <br />
+          <h3 style="color: red">This change is permanent!</h3>
+        </div>
+        <b-button class="mt-3" variant="outline-danger" block on={{ click: this.deleteProject }}>
+          Delete Project
+        </b-button>
+        <b-button class="mt-2" variant="primary" block on={{ click: () => this.setDeleteModalVisibility(false) }}>
+          Cancel
+        </b-button>
+      </b-modal>
+    );
+  }
+
   public render(h: CreateElement): VNode {
     return (
       <ContentWrapper>
@@ -217,21 +237,7 @@ export default class Search extends Vue {
           </div>
         </div>
 
-        <b-modal ref="my-modal" hide-footer title="Delete Project Confirmation" visible={this.deleteModalVisible}>
-          <div class="d-block text-center">
-            <h3>Are you sure that you want to delete this project?</h3>
-            <br />
-            <h2>{this.deleteProjectName}</h2>
-            <br />
-            <h3 style="color: red">This change is permanent!</h3>
-          </div>
-          <b-button class="mt-3" variant="outline-danger" block on={{ click: this.deleteProject }}>
-            Delete Project
-          </b-button>
-          <b-button class="mt-2" variant="primary" block on={{ click: () => this.setDeleteModalVisibility(false) }}>
-            Cancel
-          </b-button>
-        </b-modal>
+        {this.renderDeleteProjectModal()}
       </ContentWrapper>
     );
   }
