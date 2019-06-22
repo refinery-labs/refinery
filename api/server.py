@@ -138,9 +138,9 @@ def on_start():
 # regular operations (e.g. authentication via email code, etc).
 SES_EMAIL_CLIENT = boto3.client(
 	"ses",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" )
+	aws_access_key_id=os.environ.get( "ses_access_key" ),
+	aws_secret_access_key=os.environ.get( "ses_secret_key" ),
+	region_name=os.environ.get( "ses_region" )
 )
 
 # This is another global Boto3 client because we need root access
@@ -1265,6 +1265,9 @@ class TaskSpawner(object):
 		@staticmethod
 		def send_terraform_provisioning_error( aws_account_id, error_output ):
 			response = SES_EMAIL_CLIENT.send_email(
+				ReplyToAddresses=[
+					os.environ.get( "ses_reply_to" ),
+				],
 				Source=os.environ.get( "ses_emails_from_email" ),
 				Destination={
 					"ToAddresses": [
@@ -1294,6 +1297,9 @@ class TaskSpawner(object):
 		@staticmethod
 		def send_account_freeze_email( aws_account_id, amount_accumulated, organization_admin_email ):
 			response = SES_EMAIL_CLIENT.send_email(
+				ReplyToAddresses=[
+					os.environ.get( "ses_reply_to" ),
+				],
 				Source=os.environ.get( "ses_emails_from_email" ),
 				Destination={
 					"ToAddresses": [
@@ -1326,6 +1332,9 @@ class TaskSpawner(object):
 		def send_registration_confirmation_email( self, email_address, auth_token ):
 			registration_confirmation_link = os.environ.get( "web_origin" ) + "/authentication/email/" + auth_token
 			response = SES_EMAIL_CLIENT.send_email(
+				ReplyToAddresses=[
+					os.environ.get( "ses_reply_to" ),
+				],
 				Source=os.environ.get( "ses_emails_from_email" ),
 				Destination={
 					"ToAddresses": [
@@ -1334,7 +1343,7 @@ class TaskSpawner(object):
 				},
 				Message={
 					"Subject": {
-						"Data": "RefineryLabs.io - Confirm your Refinery registration",
+						"Data": "Refinery.io - Confirm your Refinery registration",
 						"Charset": "UTF-8"
 					},
 					"Body": {
@@ -1364,6 +1373,9 @@ class TaskSpawner(object):
 		def send_authentication_email( self, email_address, auth_token ):
 			authentication_link = os.environ.get( "web_origin" ) + "/authentication/email/" + auth_token
 			response = SES_EMAIL_CLIENT.send_email(
+				ReplyToAddresses=[
+					os.environ.get( "ses_reply_to" ),
+				],
 				Source=os.environ.get( "ses_emails_from_email" ),
 				Destination={
 					"ToAddresses": [
@@ -1372,7 +1384,7 @@ class TaskSpawner(object):
 				},
 				Message={
 					"Subject": {
-						"Data": "RefineryLabs.io - Login by email confirmation",
+						"Data": "Refinery.io - Login by email confirmation",
 						"Charset": "UTF-8"
 					},
 					"Body": {
@@ -1607,6 +1619,9 @@ class TaskSpawner(object):
 			
 			# Notify finance department that they have an hour to review the
 			response = SES_EMAIL_CLIENT.send_email(
+				ReplyToAddresses=[
+					os.environ.get( "ses_reply_to" ),
+				],
 				Source=os.environ.get( "ses_emails_from_email" ),
 				Destination={
 					"ToAddresses": [
