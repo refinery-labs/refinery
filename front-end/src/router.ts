@@ -150,12 +150,13 @@ const router = new Router({
             }
           ]
         },
-        {
-          path: baseLinks.marketplace,
-          name: 'marketplace',
-          // This will likely need to have children eventually... but not today.
-          component: Marketplace
-        },
+        // Disabled until we implement this page
+        // {
+        //   path: baseLinks.marketplace,
+        //   name: 'marketplace',
+        //   // This will likely need to have children eventually... but not today.
+        //   component: Marketplace
+        // },
         {
           path: baseLinks.billing,
           name: 'billing',
