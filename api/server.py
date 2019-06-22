@@ -28,6 +28,7 @@ import math
 import time
 import jwt
 import sys
+import re
 import os
 import io
 
@@ -3108,33 +3109,32 @@ class TaskSpawner(object):
 			# Trim whitespace
 			schedule_expression = schedule_expression.strip()
 			
-			# Common typos, AWS is so mad for doing this to people.
-			if schedule_expression == "rate(1 minutes)":
-				return "rate(1 minute)"
+			# The known bad cases we want to auto-fix
+			known_bad_cases = [
+				"rate(1 minutes)",
+				"rate(1 hours)",
+				"rate(1 days)",
+			]
+			
+			if schedule_expression in known_bad_cases:
+				return re.sub(
+					"s\)$",
+					")",
+					schedule_expression
+				)
 				
-			if schedule_expression == "rate(1 hours)":
-				return "rate(1 hour)"
-				
-			if schedule_expression == "rate(1 days)":
-				return "rate(1 day)"
-				
+			# Check if they're doing the explicitly-correct non-plural case
+			# If so we can just return it as-is
+			for known_bad_case in known_bad_cases:
+				if schedule_expression == known_bad_case.replace( "s)", ")" ):
+					return schedule_expression
+			
 			# Outside of the above cases it should always be plural
-			if "minute)" in schedule_expression:
-				schedule_expression = schedule_expression.replace(
-					"minute)",
-					"minutes)"
-				)
-				
-			if "hour)" in schedule_expression:
-				schedule_expression = schedule_expression.replace(
-					"hour)",
-					"hours)"
-				)
-				
-			if "day)" in schedule_expression:
-				schedule_expression = schedule_expression.replace(
-					"day)",
-					"days)"
+			if not ( schedule_expression.endswith( "s)" ) ):
+				return re.sub(
+					"\)$",
+					"s)",
+					schedule_expression
 				)
 			
 			return schedule_expression
@@ -3146,7 +3146,11 @@ class TaskSpawner(object):
 				credentials,
 			)
 			
+			print( "Schedule expression before formatting: " )
+			print( schedule_expression )
 			schedule_expression = TaskSpawner.automatically_fix_schedule_expression( schedule_expression )
+			print( "Schedule expression after formatting: " )
+			print( schedule_expression )
 			
 			# Events role ARN is able to be generated off of the account ID
 			# The role name should be the same for all accounts.
