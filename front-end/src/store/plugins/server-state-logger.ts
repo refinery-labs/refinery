@@ -36,6 +36,17 @@ function ServerStateLoggerPlugin(store: Store<RootState>) {
   });
 
   store.subscribe((mutation, state) => {
+    // Special case for when the router changes location
+    if (mutation.type === 'route/ROUTE_CHANGED') {
+      stack.push({
+        vueType: 'route-change',
+        localTimestamp: Date.now(),
+        fromPath: (mutation.payload && mutation.payload.from && mutation.payload.from.fullPath) || null,
+        toPath: (mutation.payload && mutation.payload.to && mutation.payload.to.fullPath) || null
+      });
+      return;
+    }
+
     stack.push({
       vueType: 'mutation',
       localTimestamp: Date.now(),

@@ -1,14 +1,26 @@
 import Vue, { CreateElement, VNode } from 'vue';
-import Component from 'vue-class-component';
+import Component, { mixins } from 'vue-class-component';
 import OpenedProjectOverview from '@/views/ProjectsNestedViews/OpenedProjectOverview';
 import { namespace } from 'vuex-class';
 import { GetLatestProjectDeploymentResponse } from '@/types/api-types';
+import { Route } from 'vue-router';
+import CreateToastMixin from '@/mixins/CreateToastMixin';
 
 const project = namespace('project');
 
 @Component
-export default class ViewProject extends Vue {
+export default class ViewProject extends mixins(CreateToastMixin) {
   @project.State latestDeploymentState!: GetLatestProjectDeploymentResponse | null;
+  @project.Getter canSaveProject!: boolean;
+  @project.Getter selectedResourceDirty!: boolean;
+
+  public beforeRouteLeave(to: Route, from: Route, next: () => void) {
+    if (this.canSaveProject || this.selectedResourceDirty) {
+      this.displayErrorToast('Unable to Navigate', 'Please save the current project or resource before continuing.');
+      return;
+    }
+    next();
+  }
 
   isGraphVisible() {
     return this.$route.name !== 'project';
