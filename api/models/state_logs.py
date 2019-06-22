@@ -18,8 +18,7 @@ class StateLog( Base ):
 	
 	# ID the frontend uses to track sessions
 	session_id = Column(
-		Text(),
-		index=True
+		Text()
 	)
 	
 	# The JSON contents of the log

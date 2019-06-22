@@ -315,7 +315,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 		
 	def is_owner_of_project( self, project_id ):
 		# Check to ensure the user owns the project
-		project = session.query( Project ).filter_by(
+		project = dbsession.query( Project ).filter_by(
 			id=project_id
 		).first()
 		
@@ -378,7 +378,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 			return None
 		
 		# Get organization user is a part of
-		user_org = session.query( Organization ).filter_by(
+		user_org = dbsession.query( Organization ).filter_by(
 			id=authentication_user.organization_id
 		).first()
 		
@@ -419,7 +419,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 			return None
 		
 		# Pull related user
-		authenticated_user = session.query( User ).filter_by(
+		authenticated_user = dbsession.query( User ).filter_by(
 			id=str( user_id )
 		).first()
 		
@@ -518,9 +518,6 @@ class BaseHandler( tornado.web.RequestHandler ):
 	def throw_404( self ):
 		self.set_status(404)
 		self.write("Resource not found")
-		
-	def on_finish( self ):
-		session.close()
 
 	def error( self, error_message, error_id ):
 		self.set_status( 500 )
@@ -846,8 +843,8 @@ class TaskSpawner(object):
 			)
 			
 			# Add AWS account to database
-			session.add( new_aws_account )
-			session.commit()
+			dbsession.add( new_aws_account )
+			dbsession.commit()
 			
 			logit( "New AWS account created successfully and stored in database as 'CREATED'!" )
 			
@@ -1201,11 +1198,11 @@ class TaskSpawner(object):
 			)
 			
 			# Update the console login in the database
-			aws_account = session.query( AWSAccount ).filter_by(
+			aws_account = dbsession.query( AWSAccount ).filter_by(
 				account_id=credentials[ "account_id" ]
 			).first()
 			aws_account.iam_admin_password = new_console_user_password
-			session.commit()
+			dbsession.commit()
 			
 			# Get Lambda ARNs
 			lambda_arn_list = TaskSpawner.get_lambda_arns( credentials )
@@ -1504,7 +1501,7 @@ class TaskSpawner(object):
 			bill the customer.
 			"""
 			# Pull a list of organizations to generate invoices for
-			organizations = session.query( Organization )
+			organizations = dbsession.query( Organization )
 			
 			# List of invoices to send out at the end
 			"""
@@ -1702,7 +1699,7 @@ class TaskSpawner(object):
 			# Iterate over the input list and pull the related accounts
 			for aws_account_info in aws_account_running_cost_list:
 				# Pull relevant AWS account
-				aws_account = session.query( AWSAccount ).filter_by(
+				aws_account = dbsession.query( AWSAccount ).filter_by(
 					account_id=aws_account_info[ "aws_account_id" ],
 					aws_account_status="IN_USE",
 				).first()
@@ -1714,7 +1711,7 @@ class TaskSpawner(object):
 					continue
 				
 				# Pull related organization
-				owner_organization = session.query( Organization ).filter_by(
+				owner_organization = dbsession.query( Organization ).filter_by(
 					id=aws_account.organization_id
 				).first()
 				
@@ -1853,7 +1850,7 @@ class TaskSpawner(object):
 			]
 			"""
 			# Pull related AWS account and get the database ID for it
-			aws_account = session.query( AWSAccount ).filter_by(
+			aws_account = dbsession.query( AWSAccount ).filter_by(
 				account_id=account_id,
 			).first()
 
@@ -1866,7 +1863,7 @@ class TaskSpawner(object):
 				current_timestamp = int( time.time() )
 				# Basically 24 hours before the current time.
 				oldest_usable_cached_result_timestamp = current_timestamp - ( 60 * 60 * 24 )
-				billing_collection = session.query( CachedBillingCollection ).filter_by(
+				billing_collection = dbsession.query( CachedBillingCollection ).filter_by(
 					billing_start_date=start_date,
 					billing_end_date=end_date,
 					billing_granularity=granularity,
@@ -1920,8 +1917,8 @@ class TaskSpawner(object):
 					billing_item
 				)
 			
-			session.add( new_billing_collection )
-			session.commit()
+			dbsession.add( new_billing_collection )
+			dbsession.commit()
 			
 			return service_breakdown_list
 		
@@ -5124,8 +5121,8 @@ class SavedBlocksCreate( BaseHandler ):
 			self.json[ "block_object" ]
 		)
 		new_block.user_id = self.get_authenticated_user_id()
-		session.add( new_block )
-		session.commit()
+		dbsession.add( new_block )
+		dbsession.commit()
 		
 		self.write({
 			"success": True,
@@ -5155,7 +5152,7 @@ class SavedBlockSearch( BaseHandler ):
 		logit( "Searching saved Blocks..." )
 		
 		# Get user's saved lambdas and search through them
-		saved_blocks = session.query( SavedBlock ).filter_by(
+		saved_blocks = dbsession.query( SavedBlock ).filter_by(
 			user_id=self.get_authenticated_user_id(),
 		).filter(
 			sql_or(
@@ -5210,12 +5207,12 @@ class SavedBlockDelete( BaseHandler ):
 		
 		logit( "Deleting Block data..." )
 		
-		session.query( SavedBlock ).filter_by(
+		dbsession.query( SavedBlock ).filter_by(
 			user_id=self.get_authenticated_user_id(),
 			id=self.json[ "id" ]
 		).delete()
 		
-		session.commit()
+		dbsession.commit()
 		
 		self.write({
 			"success": True
@@ -5437,7 +5434,7 @@ class SaveProject( BaseHandler ):
 		
 		# Check if project already exists
 		if project_id:
-			previous_project = session.query( Project ).filter_by(
+			previous_project = dbsession.query( Project ).filter_by(
 				id=project_id
 			).first()
 		else:
@@ -5458,7 +5455,7 @@ class SaveProject( BaseHandler ):
 		# If there is a previous project and the name doesn't match, update it.
 		if previous_project and previous_project.name != project_name:
 			previous_project.name = project_name
-			session.commit()
+			dbsession.commit()
 		
 		# If there's no previous project, create a new one
 		if previous_project == None:
@@ -5470,8 +5467,8 @@ class SaveProject( BaseHandler ):
 				self.authenticated_user
 			)
 			
-			session.add( previous_project )
-			session.commit()
+			dbsession.add( previous_project )
+			dbsession.commit()
 			
 			# Set project ID to newly generated ID
 			project_id = previous_project.id
@@ -5479,7 +5476,7 @@ class SaveProject( BaseHandler ):
 		# If project version isn't set we'll update it to be an incremented version
 		# from the latest saved version.
 		if project_version == False:
-			latest_project_version = session.query( ProjectVersion ).filter_by(
+			latest_project_version = dbsession.query( ProjectVersion ).filter_by(
 				project_id=project_id
 			).order_by( ProjectVersion.version.desc() ).first()
 
@@ -5488,15 +5485,15 @@ class SaveProject( BaseHandler ):
 			else:
 				project_version = ( latest_project_version.version + 1 )
 		else:
-			previous_project_version = session.query( ProjectVersion ).filter_by(
+			previous_project_version = dbsession.query( ProjectVersion ).filter_by(
 				project_id=project_id,
 				version=project_version,
 			).first()
 
 			# Delete previous version with same ID since we're updating it
 			if previous_project_version != None:
-				session.delete( previous_project_version )
-				session.commit()
+				dbsession.delete( previous_project_version )
+				dbsession.commit()
 		
 		# Now save new project version
 		new_project_version = ProjectVersion()
@@ -5566,7 +5563,7 @@ def update_project_config( project_id, project_config ):
 		)
 	
 	# Check to see if there's a previous project config
-	previous_project_config = session.query( ProjectConfig ).filter_by(
+	previous_project_config = dbsession.query( ProjectConfig ).filter_by(
 		project_id=project_id
 	).first()
 	
@@ -5575,12 +5572,12 @@ def update_project_config( project_id, project_config ):
 		new_project_config = ProjectConfig()
 		new_project_config.project_id = project_id
 		new_project_config.config_json = project_config
-		session.add( new_project_config )
+		dbsession.add( new_project_config )
 	else: # Otherwise update the current config
 		previous_project_config.project_id = project_id
 		previous_project_config.config_json = project_config
 	
-	session.commit()
+	dbsession.commit()
 		
 class SearchSavedProjects( BaseHandler ):
 	@authenticated
@@ -5694,7 +5691,7 @@ class GetSavedProject( BaseHandler ):
 		return self.fetch_project_by_version(self.json[ "project_id" ], self.json[ "version" ])
 
 	def fetch_project_by_version( self, id, version ):
-		project_version_result = session.query( ProjectVersion ).filter_by(
+		project_version_result = dbsession.query( ProjectVersion ).filter_by(
 			project_id=id,
 			version=version
 		).first()
@@ -5702,7 +5699,7 @@ class GetSavedProject( BaseHandler ):
 		return project_version_result
 
 	def fetch_project_without_version( self, id ):
-		project_version_result = session.query( ProjectVersion ).filter_by(
+		project_version_result = dbsession.query( ProjectVersion ).filter_by(
 			project_id=id
 		).order_by(ProjectVersion.version.desc()).first()
 
@@ -5741,19 +5738,19 @@ class DeleteSavedProject( BaseHandler ):
 			raise gen.Return()
 			
 		# Pull the latest project config
-		project_config = session.query( ProjectConfig ).filter_by(
+		project_config = dbsession.query( ProjectConfig ).filter_by(
 			project_id=self.json[ "id" ]
 		).first()
 
 		if project_config is not None:
 			self.delete_api_gateway(project_config)
 
-		saved_project_result = session.query( Project ).filter_by(
+		saved_project_result = dbsession.query( Project ).filter_by(
 			id=self.json[ "id" ]
 		).first()
 		
-		session.delete( saved_project_result )
-		session.commit()
+		dbsession.delete( saved_project_result )
+		dbsession.commit()
 
 		self.write({
 			"success": True
@@ -5829,7 +5826,7 @@ class DeployDiagram( BaseHandler ):
 		# TODO: Update the project data? Deployments should probably
 		# be an explicit "Save Project" action.
 		
-		existing_project = session.query( Project ).filter_by(
+		existing_project = dbsession.query( Project ).filter_by(
 			id=project_id
 		).first()
 		
@@ -5843,7 +5840,7 @@ class DeployDiagram( BaseHandler ):
 			new_deployment
 		)
 		
-		session.commit()
+		dbsession.commit()
 		
 		# Update project config
 		logit( "Updating database with new project config..." )
@@ -5894,7 +5891,7 @@ class GetProjectConfig( BaseHandler ):
 			})
 			raise gen.Return()
 		
-		project_config = session.query( ProjectConfig ).filter_by(
+		project_config = dbsession.query( ProjectConfig ).filter_by(
 			project_id=self.json[ "project_id" ]
 		).first()
 		
@@ -5937,7 +5934,7 @@ class GetLatestProjectDeployment( BaseHandler ):
 			})
 			raise gen.Return()
 		
-		latest_deployment = session.query( Deployment ).filter_by(
+		latest_deployment = dbsession.query( Deployment ).filter_by(
 			project_id=self.json[ "project_id" ]
 		).order_by(
 			Deployment.timestamp.desc()
@@ -5985,11 +5982,11 @@ class DeleteDeploymentsInProject( BaseHandler ):
 			})
 			raise gen.Return()
 		
-		session.query( Deployment ).filter_by(
+		dbsession.query( Deployment ).filter_by(
 			project_id=self.json[ "project_id" ]
 		).delete()
 		
-		session.commit()
+		dbsession.commit()
 		
 		self.write({
 			"success": True
@@ -6445,7 +6442,7 @@ class UpdateEnvironmentVariables( BaseHandler ):
 		)
 		
 		# Update the deployment diagram to reflect the new environment variables
-		latest_deployment = session.query( Deployment ).filter_by(
+		latest_deployment = dbsession.query( Deployment ).filter_by(
 			project_id=self.json[ "project_id" ]
 		).order_by(
 			Deployment.timestamp.desc()
@@ -6460,7 +6457,7 @@ class UpdateEnvironmentVariables( BaseHandler ):
 				workflow_state[ "environment_variables" ] = self.json[ "environment_variables" ]
 		
 		latest_deployment.deployment_json = json.dumps( deployment_diagram_data )
-		session.commit()
+		dbsession.commit()
 		
 		self.write({
 			"success": True,
@@ -6656,7 +6653,7 @@ class NewRegistration( BaseHandler ):
 		new_organization.payments_overdue = False
 		
 		# Check if the user is already registered
-		user = session.query( User ).filter_by(
+		user = dbsession.query( User ).filter_by(
 			email=self.json[ "email" ]
 		).first()
 		
@@ -6699,7 +6696,7 @@ class NewRegistration( BaseHandler ):
 		# Set this user as the billing admin
 		new_organization.billing_admin_id = new_user.id
 		
-		session.add( new_organization )
+		dbsession.add( new_organization )
 
 		# Stash some information about the signup incase we need it later
 		# for fraud-style investigations.
@@ -6723,7 +6720,7 @@ class NewRegistration( BaseHandler ):
 		# Set user's payment_id to the Stripe customer ID
 		new_user.payment_id = customer_id
 
-		session.commit()
+		dbsession.commit()
 		
 		# Send registration confirmation link to user's email address
 		# The first time they authenticate via this link it will both confirm
@@ -6753,7 +6750,7 @@ class EmailLinkAuthentication( BaseHandler ):
 		logit( "User is authenticating via email link" )
 		
 		# Query for the provided authentication token
-		email_authentication_token = session.query( EmailAuthToken ).filter_by(
+		email_authentication_token = dbsession.query( EmailAuthToken ).filter_by(
 			token=str( email_authentication_token )
 		).first()
 		
@@ -6778,7 +6775,7 @@ class EmailLinkAuthentication( BaseHandler ):
 			
 			# Mark the token as expired in the database
 			email_authentication_token.is_expired = True
-			session.commit()
+			dbsession.commit()
 			
 			self.write( "That email token has expired, please try authenticating again to request a new one." )
 			raise gen.Return()
@@ -6788,7 +6785,7 @@ class EmailLinkAuthentication( BaseHandler ):
 		email_authentication_token.is_expired = True
 		
 		# Pull the user's organization
-		user_organization = session.query( Organization ).filter_by(
+		user_organization = dbsession.query( Organization ).filter_by(
 			id=email_authentication_token.user.organization_id
 		).first()
 		
@@ -6799,7 +6796,7 @@ class EmailLinkAuthentication( BaseHandler ):
 			email_authentication_token.user.email_verified = True
 			
 			# Check if there are reserved AWS accounts available
-			aws_reserved_account = session.query( AWSAccount ).filter_by(
+			aws_reserved_account = dbsession.query( AWSAccount ).filter_by(
 				aws_account_status="AVAILABLE"
 			).first()
 			
@@ -6808,7 +6805,7 @@ class EmailLinkAuthentication( BaseHandler ):
 				logit( "Adding a reserved AWS account to the newly registered Refinery account..." )
 				aws_reserved_account.aws_account_status = "IN_USE"
 				aws_reserved_account.organization_id = user_organization.id
-				session.commit()
+				dbsession.commit()
 				
 				# Don't yield because we don't care about the result
 				# Unfreeze/thaw the account so that it's ready for the new user
@@ -6817,7 +6814,7 @@ class EmailLinkAuthentication( BaseHandler ):
 					aws_reserved_account.to_dict()
 				)
 		
-		session.commit()
+		dbsession.commit()
 		
 		# Check if the user's account is disabled
 		# If it's disabled don't allow the user to log in at all.
@@ -6888,7 +6885,7 @@ class Authenticate( BaseHandler ):
 		validate_schema( self.json, schema )
 		
 		# Get user based off of the provided email
-		user = session.query( User ).filter_by(
+		user = dbsession.query( User ).filter_by(
 			email=self.json[ "email" ]
 		).first()
 		
@@ -6912,7 +6909,7 @@ class Authenticate( BaseHandler ):
 			email_auth_token
 		)
 		
-		session.commit()
+		dbsession.commit()
 		
 		yield local_tasks.send_authentication_email(
 			user.email,
@@ -7081,7 +7078,7 @@ class RunMonthlyStripeBillingJob( BaseHandler ):
 class HealthHandler( BaseHandler ):
 	def get( self ):
 		# Just run a dummy database query to ensure it's working
-		session.query( User ).first()
+		dbsession.query( User ).first()
 		self.write({
 			"success": True,
 			"status": "ok"
@@ -7468,13 +7465,13 @@ class MaintainAWSAccountReserves( BaseHandler ):
 		
 		# Get the number of AWS accounts which are ready to be
 		# assigned to new users that are signing up ("AVAILABLE").
-		available_accounts_count = session.query( AWSAccount ).filter_by(
+		available_accounts_count = dbsession.query( AWSAccount ).filter_by(
 			aws_account_status="AVAILABLE"
 		).count()
 		
 		# Get the number of AWS accounts which have been created
 		# but are not yet provision via Terraform ("CREATED").
-		created_accounts_count = session.query( AWSAccount ).filter_by(
+		created_accounts_count = dbsession.query( AWSAccount ).filter_by(
 			aws_account_status="CREATED"
 		).count()
 		
@@ -7485,7 +7482,7 @@ class MaintainAWSAccountReserves( BaseHandler ):
 		# We'll do 20 because it usually takes 15 to get the "Account Verified" email.
 		minimum_account_age_seconds = ( 60 * 5 )
 		current_timestamp = int( time.time() )
-		non_setup_aws_accounts = session.query( AWSAccount ).filter(
+		non_setup_aws_accounts = dbsession.query( AWSAccount ).filter(
 			AWSAccount.aws_account_status == "CREATED",
 			AWSAccount.timestamp <= ( current_timestamp - minimum_account_age_seconds )
 		).all()
@@ -7513,7 +7510,7 @@ class MaintainAWSAccountReserves( BaseHandler ):
 		
 		# Kick off the terraform apply jobs for the accounts which are "aged" for it.
 		for aws_account_id in aws_account_ids:
-			current_aws_account = session.query( AWSAccount ).filter(
+			current_aws_account = dbsession.query( AWSAccount ).filter(
 				AWSAccount.account_id == aws_account_id,
 			).first()
 			
@@ -7547,8 +7544,8 @@ class MaintainAWSAccountReserves( BaseHandler ):
 				current_aws_account.aws_account_status = "CORRUPT"
 			
 			logit( "Commiting new account state of '" + current_aws_account.aws_account_status + "' to database..." )
-			session.add(current_aws_account)
-			session.commit()
+			dbsession.add(current_aws_account)
+			dbsession.commit()
 			
 			logit( "Freezing the account until it's used by someone..." )
 			
@@ -7600,8 +7597,8 @@ class StashStateLog( BaseHandler ):
 		state_log.state = self.json[ "state" ]
 		state_log.user_id = authenticated_user_id
 		
-		session.add( state_log )
-		session.commit()
+		dbsession.add( state_log )
+		dbsession.commit()
 		
 		self.write({
 			"success": True,

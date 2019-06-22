@@ -8,24 +8,39 @@ Base = declarative_base()
 from sqlalchemy import or_ as sql_or
 from sqlalchemy import Column, Integer, String, func, update, Text, Binary, Boolean, BigInteger, event, select, exc, CHAR, ForeignKey, JSON, Table
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship
-Session = scoped_session(sessionmaker(bind=engine))
-session = Session()
+from contextlib import contextmanager
+
+_Session = scoped_session(sessionmaker(bind=engine))
+StartSession = lambda: _Session(autoflush=True)
+dbsession = StartSession()
+
+@contextmanager
+def cxt_dbsession():
+	session = StartSession()
+	try:
+		yield session
+		session.commit()
+	except:
+		session.rollback()
+		raise
+	finally:
+		session.close()
 
 users_projects_association_table = Table(
 	"user_projects_association",
 	Base.metadata,
-    Column(
-    	"users",
-    	CHAR(36),
-    	ForeignKey(
-    		"users.id"
-    	)
-    ),
-    Column(
-    	"projects",
-    	CHAR(36),
-    	ForeignKey(
-    		"projects.id"
-    	)
-    )
+	Column(
+		"users",
+		CHAR(36),
+		ForeignKey(
+			"users.id"
+		)
+	),
+	Column(
+		"projects",
+		CHAR(36),
+		ForeignKey(
+			"projects.id"
+		)
+	)
 )
