@@ -19,6 +19,8 @@ module.exports = {
       .loader('vue-jsx-hot-loader');
   },
   pwa: {
+    clientsClaim: true,
+    skipWaiting: true,
     runtimeCaching: [
       {
         urlPattern: /img/,
