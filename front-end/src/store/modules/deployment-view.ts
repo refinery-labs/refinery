@@ -220,6 +220,9 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
         variant: ToastVariant.success
       });
 
+      // Updates the latest deployment state so the "Deployment" tab is kept updated.
+      await context.dispatch(`project/${ProjectViewActions.fetchLatestDeploymentState}`, null, { root: true });
+
       router.push({
         name: 'project',
         params: {
@@ -326,9 +329,6 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
     async [DeploymentViewActions.resetDeploymentState](context) {
       context.commit(DeploymentViewMutators.resetState);
       context.commit(`deploymentExecutions/${DeploymentExecutionsMutators.resetPane}`, null, { root: true });
-
-      // Updates the latest deployment state so the "Deployment" tab is kept updated.
-      await context.dispatch(`project/${ProjectViewActions.fetchLatestDeploymentState}`, null, { root: true });
     }
   }
 };
