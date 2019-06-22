@@ -83,7 +83,7 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
     [DeploymentViewMutators.resetState](state) {
       // TODO: Turn this into a helper function.
       // @ts-ignore
-      Object.keys(moduleState).forEach(key => (state[key] = moduleState[key]));
+      Object.keys(moduleState).forEach(key => (state[key] = deepJSONCopy(moduleState[key])));
     },
     [DeploymentViewMutators.setOpenedDeployment](state, deployment: GetLatestProjectDeploymentResult) {
       if (!deployment) {
