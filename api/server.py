@@ -3146,11 +3146,7 @@ class TaskSpawner(object):
 				credentials,
 			)
 			
-			print( "Schedule expression before formatting: " )
-			print( schedule_expression )
 			schedule_expression = TaskSpawner.automatically_fix_schedule_expression( schedule_expression )
-			print( "Schedule expression after formatting: " )
-			print( schedule_expression )
 			
 			# Events role ARN is able to be generated off of the account ID
 			# The role name should be the same for all accounts.
