@@ -15,7 +15,6 @@ export default class ViewProject extends mixins(CreateToastMixin) {
   @project.Getter selectedResourceDirty!: boolean;
 
   public beforeRouteLeave(to: Route, from: Route, next: () => void) {
-    console.log('checked');
     if (this.canSaveProject || this.selectedResourceDirty) {
       this.displayErrorToast('Unable to Navigate', 'Please save the current project or resource before continuing.');
       return;
