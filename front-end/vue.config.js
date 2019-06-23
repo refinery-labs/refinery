@@ -27,15 +27,15 @@ module.exports = {
         handler: 'NetworkFirst',
         options: {
           // Fall back to the cache after 10 seconds.
-          networkTimeoutSeconds: 10,
+          networkTimeoutSeconds: 30,
           expiration: {
-            maxEntries: 5,
-            maxAgeSeconds: 60
+            maxEntries: 50,
+            maxAgeSeconds: 21600
           }
         }
       },
       {
-        urlPattern: new RegExp('^'),
+        urlPattern: /^/,
         handler: 'NetworkOnly'
       }
     ]
