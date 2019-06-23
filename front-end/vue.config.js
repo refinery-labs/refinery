@@ -19,32 +19,26 @@ module.exports = {
       .loader('vue-jsx-hot-loader');
   },
   pwa: {
-    clientsClaim: true,
-    skipWaiting: true,
-    workboxPluginMode: 'InjectManifest',
+    // workboxPluginMode: 'InjectManifest',
+    workboxPluginMode: 'GenerateSW',
     workboxOptions: {
-      swSrc: 'service-worker.js'
-      // runtimeCaching: [
-      //   {
-      //     urlPattern: /img/,
-      //     handler: 'NetworkFirst',
-      //     options: {
-      //       // Fall back to the cache after 30 seconds.
-      //       networkTimeoutSeconds: 10
-      //     }
-      //   },
-      //   {
-      //     urlPattern: /^/,
-      //     handler: 'NetworkFirst',
-      //     options: {
-      //       // Fall back to the cache after 30 seconds.
-      //       networkTimeoutSeconds: 30,
-      //       expiration: {
-      //         maxAgeSeconds: 85000
-      //       }
-      //     }
-      //   }
-      // ]
+      // swSrc: 'src/service-worker.js',
+      swDest: 'service-worker.js',
+      clientsClaim: true,
+      skipWaiting: true,
+      runtimeCaching: [
+        {
+          urlPattern: new RegExp('^https://app.refinery.io/'),
+          handler: 'networkFirst',
+          options: {
+            networkTimeoutSeconds: 10,
+            cacheName: 'app',
+            expiration: {
+              maxAgeSeconds: 60 * 60 * 24
+            }
+          }
+        }
+      ]
     }
   }
 };

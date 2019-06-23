@@ -20,13 +20,15 @@ if (process.env.NODE_ENV === 'production') {
     updatefound() {
       console.log('New content is downloading.');
     },
-    updated() {
+    updated(registration) {
       globalDispatchToast({
         title: 'Update Available',
         content: 'Please refresh the page :)',
         variant: ToastVariant.info
       });
       console.log('New content is available. Please refresh the page.');
+      // let worker = registration.waiting;
+      // worker.postMessage({action: 'skipWaiting'})
     },
     offline() {
       globalDispatchToast({
