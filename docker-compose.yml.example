@@ -76,6 +76,10 @@ services:
             reserved_aws_pool_target_amount: 5
             # Alerts for when a free-trial account goes over the limit
             alerts_email: "example@refinerylabs.io"
+            # Mailgun for sending email
+            mailgun_api_key: REPLACE_ME
+            # The send from email
+            from_email: reply-for-help@mail.refinery.io
         ports:
             - "80:1234"
         volumes:
