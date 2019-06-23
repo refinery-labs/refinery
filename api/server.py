@@ -85,7 +85,18 @@ CF_ACCESS_PUBLIC_KEYS = []
 allowed_origins = json.loads( os.environ.get( "access_control_allow_origins" ) )
 			
 def on_start():
-	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES, CUSTOMER_IAM_POLICY
+	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES, CUSTOMER_IAM_POLICY, DEFAULT_PROJECT_ARRAY, DEFAULT_PROJECT_CONFIG
+	
+	DEFAULT_PROJECT_CONFIG = {
+		"version": "1.0.0",
+		"environment_variables": {},
+		"api_gateway": {
+			"gateway_id": False,
+		},
+		"logging": {
+			"level": "LOG_ALL",
+		}
+	}
 	
 	# Email templates
 	email_templates_folder = "./email_templates/"
@@ -123,11 +134,13 @@ def on_start():
 	
 	CUSTOMER_IAM_POLICY = ""
 	
+	# Load the default customer IAM policy
 	with open( "./install/refinery-customer-iam-policy.json", "r" ) as file_handler:
 		CUSTOMER_IAM_POLICY = json.loads(
 			file_handler.read()
 		)
 	
+	# Load the default bootstrap code
 	with open( "./custom-runtime/base-src/bootstrap", "r" ) as file_handler:
 		CUSTOM_RUNTIME_CODE = file_handler.read()
 
@@ -135,6 +148,18 @@ def on_start():
 		# Load Lambda base templates
 		with open( "./lambda_bases/" + language_name, "r" ) as file_handler:
 			LAMDBA_BASE_CODES[ language_name ] = file_handler.read()
+			
+	DEFAULT_PROJECT_ARRAY = []
+	
+	default_project_directory = "./default_projects/"
+	
+	for filename in os.listdir( default_project_directory ):
+		with open( default_project_directory + filename, "r" ) as file_handler:
+			DEFAULT_PROJECT_ARRAY.append(
+				json.loads(
+					file_handler.read()
+				)
+			)
 
 mailgun_api_key = os.environ.get( "mailgun_api_key" )
 
@@ -4074,6 +4099,57 @@ class TaskSpawner(object):
 					)
 			
 			return {}
+		
+		@run_on_executor
+		def add_default_projects_to_account( self, user_id ):
+			return TaskSpawner._add_default_projects_to_account(
+				user_id
+			)
+		
+		@staticmethod
+		def _add_default_projects_to_account( user_id ):
+			user = dbsession.query( User ).filter_by(
+				id=user_id
+			).first()
+		
+			for default_project_data in DEFAULT_PROJECT_ARRAY:
+				project_name = default_project_data[ "name" ]
+				
+				logit( "Adding default project name '" + project_name + "' to the user's account..." )
+				
+				new_project = Project()
+				new_project.name = project_name
+				
+				# Add the user to the project so they can access it
+				new_project.users.append(
+					user
+				)
+				
+				new_project_version = ProjectVersion()
+				new_project_version.version = 1
+				new_project_version.project_json = json.dumps(
+					default_project_data
+				)
+				
+				# Add new version to the project
+				new_project.versions.append(
+					new_project_version
+				)
+				
+				new_project_config = ProjectConfig()
+				new_project_config.project_id = new_project.id
+				new_project_config.config_json = json.dumps(
+					DEFAULT_PROJECT_CONFIG
+				)
+			
+				# Add project config to the new project
+				new_project.configs.append(
+					new_project_config
+				)
+				
+				dbsession.add( new_project )
+				
+			dbsession.commit()
 			
 		@run_on_executor
 		def link_api_method_to_lambda( self, credentials, rest_api_id, resource_id, http_method, api_path, lambda_name ):
@@ -6693,6 +6769,11 @@ class NewRegistration( BaseHandler ):
 
 		dbsession.commit()
 		
+		# Add default projects to the user's account
+		yield local_tasks.add_default_projects_to_account(
+			new_user.id
+		)
+		
 		# Send registration confirmation link to user's email address
 		# The first time they authenticate via this link it will both confirm
 		# their email address and authenticate them.
@@ -7630,6 +7711,7 @@ def make_app( is_debug ):
 if __name__ == "__main__":
 	logit( "Starting the Refinery service...", "info" )
 	on_start()
+		
 	app = make_app(
 		( os.environ.get( "is_debug" ).lower() == "true" )
 	)
@@ -7640,7 +7722,7 @@ if __name__ == "__main__":
 		7777
 	)
 	Base.metadata.create_all( engine )
-	
+
 	if os.environ.get( "cf_enabled" ).lower() == "true":
 		tornado.ioloop.IOLoop.current().run_sync( get_cloudflare_keys )
 		
