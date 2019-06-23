@@ -21,23 +21,30 @@ module.exports = {
   pwa: {
     clientsClaim: true,
     skipWaiting: true,
-    runtimeCaching: [
-      {
-        urlPattern: /img/,
-        handler: 'NetworkFirst',
-        options: {
-          // Fall back to the cache after 10 seconds.
-          networkTimeoutSeconds: 30,
-          expiration: {
-            maxEntries: 50,
-            maxAgeSeconds: 21600
+    workboxPluginMode: 'InjectManifest',
+    workboxOptions: {
+      swSrc: 'service-worker.js',
+      runtimeCaching: [
+        {
+          urlPattern: /img/,
+          handler: 'NetworkFirst',
+          options: {
+            // Fall back to the cache after 30 seconds.
+            networkTimeoutSeconds: 10
+          }
+        },
+        {
+          urlPattern: /^/,
+          handler: 'NetworkFirst',
+          options: {
+            // Fall back to the cache after 30 seconds.
+            networkTimeoutSeconds: 30,
+            expiration: {
+              maxAgeSeconds: 85000
+            }
           }
         }
-      },
-      {
-        urlPattern: /^/,
-        handler: 'NetworkOnly'
-      }
-    ]
+      ]
+    }
   }
 };
