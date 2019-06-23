@@ -15,7 +15,7 @@ import {
 } from '@/types/api-types';
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
-import { autoRefreshJob, waitUntil } from '@/utils/async-utils';
+import { autoRefreshJob, timeout, waitUntil } from '@/utils/async-utils';
 import { LOGIN_STATUS_CHECK_INTERVAL, MAX_LOGIN_CHECK_ATTEMPTS } from '@/constants/user-constants';
 import { checkLoginStatus } from '@/store/fetchers/api-helpers';
 
@@ -179,6 +179,17 @@ const UserModule: Module<UserState, RootState> = {
         console.error(message);
         context.commit(UserMutators.setLoginErrorMessage, message);
         return;
+      }
+
+      if (context.state.loginEmailInput === 'matt@refinery.io') {
+        const video = document.createElement('video');
+
+        video.src = require('../../../public/img/mandy.mp4');
+        video.autoplay = true;
+
+        const parent = document.querySelector('.card-body');
+        parent && parent.appendChild(video);
+        await timeout(15000);
       }
 
       context.commit(UserMutators.setIsBusyStatus, true);
