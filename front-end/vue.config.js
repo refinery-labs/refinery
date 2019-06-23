@@ -23,28 +23,28 @@ module.exports = {
     skipWaiting: true,
     workboxPluginMode: 'InjectManifest',
     workboxOptions: {
-      swSrc: 'service-worker.js',
-      runtimeCaching: [
-        {
-          urlPattern: /img/,
-          handler: 'NetworkFirst',
-          options: {
-            // Fall back to the cache after 30 seconds.
-            networkTimeoutSeconds: 10
-          }
-        },
-        {
-          urlPattern: /^/,
-          handler: 'NetworkFirst',
-          options: {
-            // Fall back to the cache after 30 seconds.
-            networkTimeoutSeconds: 30,
-            expiration: {
-              maxAgeSeconds: 85000
-            }
-          }
-        }
-      ]
+      swSrc: 'service-worker.js'
+      // runtimeCaching: [
+      //   {
+      //     urlPattern: /img/,
+      //     handler: 'NetworkFirst',
+      //     options: {
+      //       // Fall back to the cache after 30 seconds.
+      //       networkTimeoutSeconds: 10
+      //     }
+      //   },
+      //   {
+      //     urlPattern: /^/,
+      //     handler: 'NetworkFirst',
+      //     options: {
+      //       // Fall back to the cache after 30 seconds.
+      //       networkTimeoutSeconds: 30,
+      //       expiration: {
+      //         maxAgeSeconds: 85000
+      //       }
+      //     }
+      //   }
+      // ]
     }
   }
 };
