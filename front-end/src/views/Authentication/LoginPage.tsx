@@ -98,7 +98,7 @@ export default class LoginPage extends Vue {
               </div>
             </div>
             <b-form-invalid-feedback state={this.loginEmailInputValid}>
-              Your name must contain First + Last name and not contain numbers.
+              Email address must be supplied. Eg, user@example.com
             </b-form-invalid-feedback>
           </b-form-group>
           <div class="text-align--left">
