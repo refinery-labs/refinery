@@ -244,6 +244,10 @@ export interface UserState {
   loginErrorMessage: string | null;
   isBusy: boolean;
 
+  autoRefreshJobRunning: boolean;
+  autoRefreshJobIterations: number;
+  autoRefreshJobNonce: string | null;
+
   // Local data
   rememberMeToggled: boolean;
   loginEmailInput: string;

@@ -36,6 +36,8 @@ services:
             cf_certs_url: https://refinery.cloudflareaccess.com/cdn-cgi/access/certs
             # The SES send-from email - this must be verified in SES
             ses_emails_from_email: REPLACE_ME_WITH_SES_SEND_FROM_EMAIL
+            ses_region: us-west-2
+            ses_reply_to: REPLACE_ME_WITH_SES_SEND_FROM_EMAIL
             # How long the email token should last before expiring
             email_token_lifetime: 10800 # 3 hours before the email authentication token no longer works
             # Secret value for the HMACed cookies

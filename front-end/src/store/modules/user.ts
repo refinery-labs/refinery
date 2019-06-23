@@ -1,75 +1,25 @@
 import { Module } from 'vuex';
 import validator from 'validator';
 import phone from 'phone';
+import uuid from 'uuid/v4';
 import router from '../../router';
 import { RootState, UserState } from '@/store/store-types';
-import { UserMutators } from '@/constants/store-constants';
+import { UserActions, UserMutators } from '@/constants/store-constants';
 import {
   GetAuthenticationStatusResponse,
+  LoginRequest,
   LoginResponse,
   NewRegistrationErrorType,
   NewRegistrationRequest,
   NewRegistrationResponse
 } from '@/types/api-types';
-import { getApiClient } from '@/store/fetchers/refinery-api';
+import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
-import { timeout } from '@/utils/async-utils';
+import { autoRefreshJob, waitUntil } from '@/utils/async-utils';
 import { LOGIN_STATUS_CHECK_INTERVAL, MAX_LOGIN_CHECK_ATTEMPTS } from '@/constants/user-constants';
+import { checkLoginStatus } from '@/store/fetchers/api-helpers';
 
 const nameRegex = /^(\D{1,32} )+\D{1,32}$/;
-
-async function checkLoginStatus() {
-  const getAuthenticationStatusClient = getApiClient(API_ENDPOINT.GetAuthenticationStatus);
-
-  try {
-    return (await getAuthenticationStatusClient({})) as GetAuthenticationStatusResponse;
-  } catch (e) {
-    console.error('Unable to get user login status');
-    return null;
-  }
-}
-
-interface LoopLoginResult {
-  success: boolean;
-  data: GetAuthenticationStatusResponse | null;
-  err: string | null;
-}
-
-async function loopLoginWaiting(attempts: number): Promise<LoopLoginResult> {
-  if (attempts > MAX_LOGIN_CHECK_ATTEMPTS) {
-    const message = 'Unable to determine login status. Please refresh this page to continue...';
-    console.error(message);
-    return {
-      success: false,
-      data: null,
-      err: message
-    };
-  }
-
-  await timeout(LOGIN_STATUS_CHECK_INTERVAL);
-
-  const response = await checkLoginStatus();
-
-  if (!response) {
-    const message = 'Unable to hit Login server when polling for status. Please refresh this page to continue...';
-    console.error(message);
-    return {
-      success: false,
-      data: null,
-      err: message
-    };
-  }
-
-  if (!response.authenticated) {
-    return await loopLoginWaiting(attempts + 1);
-  }
-
-  return {
-    success: true,
-    data: response,
-    err: null
-  };
-}
 
 const moduleState: UserState = {
   authenticated: false,
@@ -82,6 +32,10 @@ const moduleState: UserState = {
   loginAttemptMessage: null,
   loginErrorMessage: null,
   isBusy: false,
+
+  autoRefreshJobRunning: false,
+  autoRefreshJobIterations: 0,
+  autoRefreshJobNonce: null,
 
   rememberMeToggled: false,
   loginEmailInput: '',
@@ -137,6 +91,22 @@ const UserModule: Module<UserState, RootState> = {
     [UserMutators.setIsBusyStatus](state, status: boolean) {
       state.isBusy = status;
     },
+
+    [UserMutators.setAutoRefreshJobRunning](state, status) {
+      state.autoRefreshJobRunning = status;
+    },
+    [UserMutators.setAutoRefreshJobIterations](state, iteration) {
+      state.autoRefreshJobIterations = iteration;
+    },
+    [UserMutators.setAutoRefreshJobNonce](state, nonce) {
+      state.autoRefreshJobNonce = nonce;
+    },
+    [UserMutators.cancelAutoRefreshJob](state) {
+      state.autoRefreshJobRunning = false;
+      state.autoRefreshJobIterations = 0;
+      state.autoRefreshJobNonce = null;
+    },
+
     [UserMutators.setRememberMeState](state, rememberme: boolean) {
       state.rememberMeToggled = rememberme;
     },
@@ -178,27 +148,32 @@ const UserModule: Module<UserState, RootState> = {
     }
   },
   actions: {
-    async fetchAuthenticationState(context) {
-      const response = await checkLoginStatus();
+    async [UserActions.fetchAuthenticationState](context) {
+      try {
+        const response = await checkLoginStatus();
 
-      if (!response) {
-        // TODO: Display this error to the user somehow.
-        console.error('Unable to log user in, response was null');
-        return;
-      }
+        if (!response) {
+          // TODO: Display this error to the user somehow.
+          console.error('Unable to log user in, response was null');
+          return;
+        }
 
-      context.commit(UserMutators.setAuthenticationState, response);
-    },
-    async redirectIfAuthenticated(context) {
-      const response = await checkLoginStatus();
-
-      if (response && response.authenticated) {
-        router.push({
-          name: 'allProjects'
-        });
+        context.commit(UserMutators.setAuthenticationState, response);
+      } catch (e) {
+        const message = 'Unable to hit Login server when polling for status. Please refresh this page to continue...';
+        console.error(message);
       }
     },
-    async loginUser(context) {
+    async [UserActions.redirectIfAuthenticated](context) {
+      if (!context.state.authenticated) {
+        await context.dispatch(UserActions.fetchAuthenticationState);
+      }
+
+      if (context.state.authenticated) {
+        router.push(context.state.redirectState || '/');
+      }
+    },
+    async [UserActions.loginUser](context) {
       if (!context.state.loginEmailInputValid) {
         const message = 'Please verify your email and try again';
         console.error(message);
@@ -208,44 +183,31 @@ const UserModule: Module<UserState, RootState> = {
 
       context.commit(UserMutators.setIsBusyStatus, true);
 
-      const loginClient = getApiClient(API_ENDPOINT.Login);
+      const response = await makeApiRequest<LoginRequest, LoginResponse>(API_ENDPOINT.Login, {
+        email: context.state.loginEmailInput
+      });
 
-      try {
-        const response = (await loginClient({
-          email: context.state.loginEmailInput
-        })) as LoginResponse;
-
-        context.commit(UserMutators.setIsBusyStatus, false);
-
-        if (!response) {
-          context.commit(UserMutators.setLoginErrorMessage, 'Unknown error! Refresh this page.');
-          console.error('Unable to log user in, response was null');
-          return;
-        }
-
-        // Depending on success, we set either the informative message or the error.
-        const messageType = response.success ? UserMutators.setLoginAttemptMessage : UserMutators.setLoginErrorMessage;
-
-        context.commit(messageType, response.msg);
-      } catch (e) {
-        context.commit(UserMutators.setIsBusyStatus, false);
-        context.commit(UserMutators.setRegistrationErrorMessage, 'Unknown error! Refresh this page.');
-      }
-
-      const { success, data, err } = await loopLoginWaiting(0);
-
-      if (!success || !data) {
-        const message = 'Timeout exceeded waiting for email confirmation. Please refresh the page to continue.';
-        context.commit(UserMutators.setLoginAttemptMessage, err || message);
+      if (!response) {
+        context.commit(UserMutators.setLoginErrorMessage, 'Unknown error! Refresh this page.');
+        console.error('Unable to log user in, response was null');
         return;
       }
 
-      context.commit(UserMutators.setAuthenticationState, data);
+      // Depending on success, we set either the informative message or the error.
+      const messageType = response.success ? UserMutators.setLoginAttemptMessage : UserMutators.setLoginErrorMessage;
 
-      // Put the user back where they were, or on the home page
-      router.push(context.state.redirectState || '/');
+      context.commit(messageType, response.msg);
+
+      context.commit(UserMutators.setIsBusyStatus, false);
+
+      // Skip checking if the user is logged in because we have an error state.
+      if (!response.success) {
+        return;
+      }
+
+      await context.dispatch(UserActions.loopWaitingLogin);
     },
-    async registerUser(context) {
+    async [UserActions.registerUser](context) {
       const validationSucceeded =
         context.state.registrationNameInputValid &&
         context.state.registrationPhoneInputValid &&
@@ -271,65 +233,101 @@ const UserModule: Module<UserState, RootState> = {
       context.commit(UserMutators.setRegistrationErrorMessage, null);
       context.commit(UserMutators.setRegistrationSuccessMessage, null);
 
-      const registrationClient = getApiClient(API_ENDPOINT.NewRegistration);
-
       const registrationOrgName = context.state.registrationOrgNameInput;
       const registrationPhone = context.state.registrationPhoneInput;
 
-      const request: NewRegistrationRequest = {
-        email: context.state.registrationEmailInput,
-        name: context.state.registrationNameInput,
+      const response = await makeApiRequest<NewRegistrationRequest, NewRegistrationResponse>(
+        API_ENDPOINT.NewRegistration,
+        {
+          email: context.state.registrationEmailInput,
+          name: context.state.registrationNameInput,
 
-        // Only send this value if it was specified
-        organization_name: registrationOrgName || '',
+          // Only send this value if it was specified
+          organization_name: registrationOrgName || '',
 
-        // Only send this value if it was specified
-        phone: registrationPhone || '',
+          // Only send this value if it was specified
+          phone: registrationPhone || '',
 
-        // Stripe token data
-        stripe_token: context.state.registrationStripeToken
-      };
-
-      try {
-        const response = (await registrationClient(request)) as NewRegistrationResponse;
-
-        context.commit(UserMutators.setIsBusyStatus, false);
-
-        if (!response) {
-          const message = 'Unknown error! Refresh this page and try again.';
-          context.commit(UserMutators.setRegistrationErrorMessage, message);
-          console.error('Unable to register user, response was null');
-          return;
+          // Stripe token data
+          stripe_token: context.state.registrationStripeToken
         }
+      );
 
-        // Depending on success, we set either the informative message or the error.
-        const messageType = response.success
-          ? UserMutators.setRegistrationSuccessMessage
-          : UserMutators.setRegistrationErrorMessage;
-
-        context.commit(messageType, response.result.msg);
-
-        // Mark the "validation" of the email as bad and set a message.
-        if (response.result.code === NewRegistrationErrorType.USER_ALREADY_EXISTS) {
-          context.commit(UserMutators.setRegistrationUsernameErrorMessage, response.result.msg);
-        }
-      } catch (e) {
-        context.commit(UserMutators.setIsBusyStatus, false);
-        context.commit(UserMutators.setRegistrationErrorMessage, 'Unknown error! Refresh this page.');
-      }
-
-      const { success, data, err } = await loopLoginWaiting(0);
-
-      if (!success || !data) {
-        const message = 'Timeout exceeded waiting for email confirmation. Please refresh the page to continue.';
-        context.commit(UserMutators.setRegistrationErrorMessage, err || message);
+      if (!response) {
+        const message = 'Unknown error! Refresh this page and try again.';
+        context.commit(UserMutators.setRegistrationErrorMessage, message);
+        console.error('Unable to register user, response was null');
         return;
       }
 
-      context.commit(UserMutators.setAuthenticationState, data);
+      // Depending on success, we set either the informative message or the error.
+      const messageType = response.success
+        ? UserMutators.setRegistrationSuccessMessage
+        : UserMutators.setRegistrationErrorMessage;
 
-      // Put the user back where they were, or on the home page
-      router.push(context.state.redirectState || '/');
+      context.commit(messageType, response.result.msg);
+
+      // Mark the "validation" of the email as bad and set a message.
+      if (response.result.code === NewRegistrationErrorType.USER_ALREADY_EXISTS) {
+        context.commit(UserMutators.setRegistrationUsernameErrorMessage, response.result.msg);
+      }
+
+      context.commit(UserMutators.setIsBusyStatus, false);
+
+      // Skip checking if the user is logged in because we have an error state.
+      if (!response.success) {
+        return;
+      }
+
+      await context.dispatch(UserActions.loopWaitingLogin);
+    },
+    async [UserActions.loopWaitingLogin](context) {
+      const nonce = uuid();
+      context.commit(UserMutators.setAutoRefreshJobNonce, nonce);
+
+      // Wait for the old job to die
+      if (context.state.autoRefreshJobRunning) {
+        // Wait for the previous job to finish
+        await waitUntil(3000, 10, () => context.state.autoRefreshJobRunning);
+      }
+
+      context.commit(UserMutators.setAutoRefreshJobRunning, true);
+
+      // TODO: Probably create a store of these jobs
+      await autoRefreshJob({
+        timeoutMs: LOGIN_STATUS_CHECK_INTERVAL,
+        maxIterations: MAX_LOGIN_CHECK_ATTEMPTS,
+        nonce: nonce,
+        makeRequest: async () => {
+          await context.dispatch(UserActions.fetchAuthenticationState);
+        },
+        isStillValid: async (nonce, iteration) => {
+          if (context.state.authenticated) {
+            return false;
+          }
+
+          const valid = nonce === context.state.autoRefreshJobNonce;
+
+          // If another job is running, kill this one.
+          if (!valid) {
+            return false;
+          }
+
+          // Only commit if we are still wanted
+          context.commit(UserMutators.setAutoRefreshJobIterations, iteration);
+          return true;
+        },
+        onComplete: async (timedOut: boolean) => {
+          if (timedOut) {
+            const message = 'Timeout exceeded waiting for email confirmation. Please refresh the page to continue.';
+            context.commit(UserMutators.setLoginAttemptMessage, message);
+          }
+
+          context.commit(UserMutators.setAutoRefreshJobRunning, false);
+        }
+      });
+
+      await context.dispatch(UserActions.redirectIfAuthenticated);
     }
   }
 };
