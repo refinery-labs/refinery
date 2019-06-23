@@ -1590,30 +1590,14 @@ class TaskSpawner(object):
 					if finalize_invoices_enabled:
 						customer_invoice.send_invoice()
 			
-			# Notify finance department that they have an hour to review the
-			response = SES_EMAIL_CLIENT.send_email(
-				ReplyToAddresses=[
-					os.environ.get( "ses_reply_to" ),
-				],
-				Source=os.environ.get( "ses_emails_from_email" ),
-				Destination={
-					"ToAddresses": [
-						os.environ.get( "billing_alert_email" ),
-					]
-				},
-				Message={
-					"Subject": {
-						"Data": "[URGENT][IMPORTANT]: Monthly customer invoice generation has completed. One hour to auto-finalization.",
-						"Charset": "UTF-8"
-					},
-					"Body": {
-						"Html": {
-							"Data": "The monthly Stripe invoice generation has completed. You have <b>one hour</b> to review invoices before they go out to customers.<br /><a href=\"https://dashboard.stripe.com/invoices\"><b>Click here to review the generated invoices</b></a><br /><br />",
-							"Charset": "UTF-8"
-						}
-					}
-				}
+			# Notify finance department that they have an hour to review the invoices
+			return TaskSpawner._send_email(
+				os.environ.get( "billing_alert_email" ),
+				"[URGENT][IMPORTANT]: Monthly customer invoice generation has completed. One hour to auto-finalization.",
+				False,
+				"The monthly Stripe invoice generation has completed. You have <b>one hour</b> to review invoices before they go out to customers.<br /><a href=\"https://dashboard.stripe.com/invoices\"><b>Click here to review the generated invoices</b></a><br /><br />",
 			)
+
 		@run_on_executor
 		def pull_current_month_running_account_totals( self ):
 			"""
