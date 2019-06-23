@@ -2,6 +2,7 @@ import Vue, { CreateElement, VNode } from 'vue';
 import { Prop } from 'vue-property-decorator';
 import { ApiGatewayResponseWorkflowState } from '@/types/graph';
 import Component from 'vue-class-component';
+import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
 
 @Component
 export class EditAPIResponseBlock extends Vue {
@@ -10,6 +11,9 @@ export class EditAPIResponseBlock extends Vue {
   public render(h: CreateElement): VNode {
     return (
       <div>
+        <BlockDocumentationButton
+          props={{ docLink: 'https://docs.refinery.io/blocks/#api-response-block', offsetButton: false }}
+        />
         <p>
           An API response is a block which will cause the data returned from the preceding linked Lambda to be sent as
           an HTTP response (encoded as JSON).

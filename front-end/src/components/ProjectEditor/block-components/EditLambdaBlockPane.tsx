@@ -20,6 +20,7 @@ import { EditorProps } from '@/types/component-types';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { libraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-helpers';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
+import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
@@ -416,6 +417,7 @@ export class EditLambdaBlock extends Vue {
 
     return (
       <div>
+        <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#code-block' }} />
         <BlockNameInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
         {this.renderCodeEditorContainer()}
         {this.renderAwsLink()}

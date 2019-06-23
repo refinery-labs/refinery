@@ -6,7 +6,7 @@ nav:
   - "Getting Started": "quickstart/intro.md"
   - "Blocks": "blocks/index.md"
   - "Transitions": "transitions/index.md"
-  #- "Debugging & Logging": "debugging/index.md"
+  - "Debugging & Logging": "debugging/index.md"
 theme: material
 markdown_extensions:
   - admonition

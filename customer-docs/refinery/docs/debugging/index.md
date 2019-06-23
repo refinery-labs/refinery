@@ -23,74 +23,54 @@ Refinery allows for configuring different levels of logging for when your servic
 
 The major tradeoff with logging all executions, error only logging, and no logging is cost. The Lambdas that Refinery deploys make use of S3 for storing of all of the created log objects. This means that you will incur the appropriate level of cost for each write you do to S3. As of the time of this writing, saving an object to S3 is billed at [$0.005 per 1,000 requests](https://aws.amazon.com/s3/pricing/#S3_Standard). While this may seem inexpensive, it can add up if you're doing full verbosity logging on pipelines with a large number of executions. It's important to always be mindful about the amount of resources you're consuming when using Refinery.
 
-In order to configure your logging level for a given project, select `Project Settings` under the `Project Options` menu:
+In order to configure your logging level for a given project, navigate to the `Settings` tab for your project. Change the drop-down selection for `Logging Level` to change your logging level.
 
-<center>
-![](images/project-settings-selection.png)
-</center>
-
-The following dialogue will be presented which allows for changing the logging level:
-
-<center>
-![](images/project-settings-dialogue.png)
-</center>
+<video style="width: 100%" controls autoplay muted loop>
+	<source src="/debugging/images/changing-logging-level.webm" type="video/webm" />
+	<source src="/debugging/images/changing-logging-level.mp4" type="video/mp4" />
+</video>
 
 !!! note
-	Changes in the logging level require a re-deploy to take effect.
-	
-## Viewing Logs of a Deployed Project
+	Changes in logging level currently require a re-deploy to take effect. Just changing the setting will not automatically change an existing deployment's logging settings.
 
-After deploying a project with the logging level set to `Log all executions` or `Log only errors` you can then review the logs by clicking on `View Production Deployment` followed by clicking `View Log(s)`.
+## Debugging a Deployment
 
-<center>
-![](images/pipeline-executions.png)
-</center>
+<video style="width: 100%" controls autoplay muted loop>
+	<source src="/debugging/images/finding-errors-with-block-executions.webm" type="video/webm" />
+	<source src="/debugging/images/finding-errors-with-block-executions.mp4" type="video/mp4" />
+</video>
 
-The above screenshot demonstrates an example execution log group. In Refinery, logging is grouped by unique triggers of the deployed pipeline. What this means is that anytime a trigger (such as a [Schedule Trigger](/nodes/#schedule-trigger), or an [API Endpoint](/nodes/#api-endpoint)) starts a pipeline's execution, a new execution ID will be generated. Multiple Lambda executions can be contained under a single pipeline execution ID.
+To debug an existing deployment navigate to the `Deployment` tab of your project. Once you've done so click on the `Block Executions` button on the left side of the page.
 
-In the above screenshot you can see that the pipeline execution group is colored red. This is because somewhere in this pipeline's execution an uncaught exception occured. In Refinery if even a single Lambda in a pipeline's execution results in an uncaught exception being thrown the entire pipeline execution will be marked red. This is to ensure that errors do not go unmissed and to provide a clear distinction between a pipeline which executed completely without errors and a pipline which experienced no issues.
+The `Block Executions` panel shows a list of executions which have occurred for this deployment. These executions are grouped into "execution pipelines", which means that you can follow a chain of executions from the start to the end of the chain. This allows you to follow the flow of execution in your deployed service and better understand the chain of events that led to a particular error or bug.
 
-Click on the pipeline execution box to view details about it. You'll see that upon viewing a specific pipeline execution that your deployment will have green and red boxes drawn over each Lambda:
+Once you select a given execution pipeline from the list you'll see that the `Code Blocks` are marked as successful <img src="/debugging/images/code-block-success.png" style="width: 25px; height: 25px;" /> or unsuccessful <img src="/debugging/images/code-block-error.png" style="width: 25px; height: 25px;" />. These indicate whether or not your `Code Block` encountered an uncaught exception or if it executed successfully without issue.
 
-<center>
-![](images/debugging-coloring.png)
-</center>
+For ongoing executions the `Code Blocks` will automatically update as the execution continues. As can be seen in the above video the final code block in the execution pipeline automatically updates after its execution completes.
 
-This works in a very similar way to how coloring works for the pipeline execution log groups. If a Lambda is executed three times and one of the executions results in an uncaught exception the box will be red. If none of the executions of a given Lambda resulted in an uncaught exception the box with be green. If the Lambda was never executed in that pipeline execution it will not be colored.
+## Investigate a Code Block Execution
 
-To view more information about a Lambda's execution(s), simply click on the Lambda itself. In this case we'll view the `100x` Lambda's executions to understand what caused the uncaught exception. Upon clicking on the Lambda we get the following:
+To investigate a given `Code Block` in an execution pipeline you can click on the relevant `Code Block` (<img src="/debugging/images/code-block-success.png" style="width: 25px; height: 25px;" />/<img src="/debugging/images/code-block-error.png" style="width: 25px; height: 25px;" />) to see information about its execution. This information is displayed under the `Execution Details` tab of the `Block Execution Logs` pane.
 
-<center>
-![](images/lambda-executions.png)
-</center>
+The following information is provided about `Code Block` execution:
 
-The above screenshot shows that the Lambda executed successfully five times and encountered an uncaught exception once. Since we want to understand what caused this exception we'll click on the red line to get more information about that specific execution:
+* `Time`: The time the `Code Block` executed.
+* `Status`: This is the execution status of the selected `Code Block`. For example, this would be `Success` if the block executed successfully or `Uncaught Exception` if an uncaught exception occurred.
+* `Input Data`: This is the data that was passed to the `Code Block` from a previous block. For example, if the previous `Code Block` returned `[1,2,3,4]` and transitioned to the current block its input data would be `[1,2,3,4]`.
+* `Execution Output`: The execution output is all of the output your `Code Block` produced during its execution. This includes statements intentionally printed or logged as well as full stack-traces when errors occur.
+* `Return Data`: The data returned from the selected `Code Block`. If the currently-selected `Code Block` returned the string `"example"`, this would be shown in the return data section.
 
-<center>
-![](images/pipeline-execution-details.png)
-</center>
+Additionally you can view read-only information about the deployed `Code Block` (such as the code contents) by selecting the `Selected Block` tab.
 
-The above screenshot shows the details of the execution. We can see that the input to the Lambda was the integer `0` and the stack trace was the following:
+## Reproduce a Deployed Code Block Issue in the Editor
 
-```python
-Traceback (most recent call last):
-  File "/var/task/lambda.py", line 1089, in _init
-    return_data = main( lambda_input, context )
-  File "/var/task/lambda.py", line 4, in main
-    return ( 100 / lambda_input )
-ZeroDivisionError: integer division or modulo by zero
-```
+<video style="width: 100%" controls autoplay muted loop>
+	<source src="/debugging/images/replay-input-in-editor.webm" type="video/webm" />
+	<source src="/debugging/images/replay-input-in-editor.mp4" type="video/mp4" />
+</video>
 
-The code, which you can probably infer from the stack trace, was the following:
+Refinery allows you to very easily reproduce errors encountered in deployed `Code Blocks` due to the fact that it can log the full input data passed to the block at execution time. You can reproduce the bug and fix the problem by copying the `Input Data` and pasting it into the `Input Data` field when running the same block in the `Editor` tab.
 
-```python
-def main( lambda_input, context ):
-    print( "Dividing 100 by " + str( lambda_input ) + "..." )
-    return ( 100 / lambda_input )
-```
+## Execution Pipeline Grouping
 
-We can clearly see that the cause of this problem was the input to the Lambda being `0` which we divided the number `100` by. This caused an uncaught `ZeroDivisionError` exception which was logged by Refinery as a failure. While this particular issue was easy to spot, in more complex scenarios it may be harder to find the root cause of an error. In these situations you can better debug the problem by copying the input under the `Input Data` section and running it through the Lambda in the IDE. The following screenshot demonstrates this process:
-
-![](images/replaying-input-example.png)
-
-The above screenshot shows our simplistic example of passing in the `0` as input to this particular Lambda in the IDE. We get the same exception as we did in production and we can easily modify the code here to find the root cause without touching the production deployment. Once we have a fix we can simply deploy it to production to remediate the problem.
+These execution pipelines are grouped by the initiating trigger that caused the pipeline to start executing. For example, if a deployed project had a `Timer Block` connected to two `Code Blocks` each attached Code Block would be grouped into it's own execution pipeline. However if a deployed project had a `Timer Block` connected to a `Code Block` which is connected to another `Code Block` - they would all be grouped into the same execution pipeline.

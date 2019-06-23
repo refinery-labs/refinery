@@ -178,7 +178,10 @@ COST_EXPLORER = boto3.client(
 	"ce",
 	aws_access_key_id=os.environ.get( "aws_access_key" ),
 	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" )
+	region_name=os.environ.get( "region_name" ),
+	config=Config(
+		max_pool_connections=( 1000 * 2 )
+	)
 )
 
 # This client is used to assume role into all of our customer's
@@ -187,7 +190,10 @@ STS_CLIENT = boto3.client(
 	"sts",
 	aws_access_key_id=os.environ.get( "aws_access_key" ),
 	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" )
+	region_name=os.environ.get( "region_name" ),
+	config=Config(
+		max_pool_connections=( 1000 * 2 )
+	)
 )
 
 # The AWS organization API for provisioning new AWS sub-accounts
@@ -196,7 +202,10 @@ ORGANIZATION_CLIENT = boto3.client(
 	"organizations",
 	aws_access_key_id=os.environ.get( "aws_access_key" ),
 	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" )
+	region_name=os.environ.get( "region_name" ),
+	config=Config(
+		max_pool_connections=( 1000 * 2 )
+	)
 )
 
 # For generating crytographically-secure random strings
@@ -255,16 +264,17 @@ def get_aws_client( client_type, credentials ):
 	)
 	
 	# Options for boto3 client
-	client_options = {}
+	client_options = {
+		"config": Config(
+			max_pool_connections=( 1000 * 2 )
+		)
+	}
 	
 	# Custom configurations depending on the client type
 	if client_type == "lambda":
 		client_options[ "config" ] = Config(
 			connect_timeout=50,
-			read_timeout=( 60 * 15 )
-		)
-	elif client_type == "s3":
-		client_options[ "config" ] = Config(
+			read_timeout=( 60 * 15 ),
 			max_pool_connections=( 1000 * 2 )
 		)
 	
