@@ -184,7 +184,7 @@ const UserModule: Module<UserState, RootState> = {
       if (context.state.loginEmailInput === 'matt@refinery.io') {
         const video = document.createElement('video');
 
-        video.src = '/img/mandy.mp4';
+        video.src = require('../../../public/img/mandy.mp4');
         video.autoplay = true;
 
         const parent = document.querySelector('.card-body');
