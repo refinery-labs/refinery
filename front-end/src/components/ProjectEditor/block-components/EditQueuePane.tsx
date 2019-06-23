@@ -5,6 +5,7 @@ import { SqsQueueWorkflowState } from '@/types/graph';
 import { BlockNameInput } from '@/components/ProjectEditor/block-components/EditBlockNamePane';
 import { namespace } from 'vuex-class';
 import { nopWrite } from '@/utils/block-utils';
+import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
@@ -61,6 +62,7 @@ export class EditQueueBlock extends Vue {
   public render(h: CreateElement): VNode {
     return (
       <div>
+        <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#queue-block' }} />
         <BlockNameInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
         {this.renderBatchSize()}
         {this.renderAwsLink()}

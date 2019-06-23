@@ -10,6 +10,7 @@ import { nopWrite } from '@/utils/block-utils';
 import uuid from 'uuid/v4';
 import { EditorProps } from '@/types/component-types';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
+import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
 
@@ -85,6 +86,7 @@ export class EditScheduleTriggerBlock extends Vue {
   public render(h: CreateElement): VNode {
     return (
       <div>
+        <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#timer-block' }} />
         <BlockNameInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
         <BlockScheduleExpressionInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
         {this.renderCodeEditorContainer()}

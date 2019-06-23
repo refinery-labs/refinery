@@ -7,6 +7,7 @@ import { BlockNameInput } from '@/components/ProjectEditor/block-components/Edit
 import { namespace } from 'vuex-class';
 import { nopWrite } from '@/utils/block-utils';
 import { ProductionApiEndpointWorkflowState } from '@/types/production-workflow-types';
+import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
 
 const editBlock = namespace('project/editBlockPane');
 
@@ -90,6 +91,7 @@ export class EditAPIEndpointBlock extends Vue {
   public render(h: CreateElement): VNode {
     return (
       <div>
+        <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#api-endpoint-block' }} />
         <BlockNameInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
         {this.renderApiEndpointInformation()}
         {this.renderHTTPMethodInput()}

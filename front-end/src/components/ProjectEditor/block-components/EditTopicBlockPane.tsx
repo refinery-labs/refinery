@@ -4,6 +4,7 @@ import { SnsTopicWorkflowState } from '@/types/graph';
 import { BlockNameInput } from '@/components/ProjectEditor/block-components/EditBlockNamePane';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
+import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
 
 const viewBlock = namespace('viewBlock');
 
@@ -32,6 +33,7 @@ export class EditTopicBlock extends Vue {
   public render(h: CreateElement): VNode {
     return (
       <div>
+        <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#topic-block' }} />
         <BlockNameInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
         {this.renderAwsLink()}
       </div>
