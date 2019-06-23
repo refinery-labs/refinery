@@ -7,5 +7,8 @@ mkdir front-end-dist
 docker build -t front-end-image .
 
 # Run the container with a specific npm command and mount our output volume
-docker run -v "$(pwd)"/front-end-dist:/work/output -t front-end-image build-and-copy
-
+docker run \
+  -e AWS_DEFAULT_REGION \
+  -e AWS_CONTAINER_CREDENTIALS_RELATIVE_URI \
+  -v "$(pwd)"/front-end-dist:/work/output \
+  -t front-end-image build-and-copy
