@@ -1,5 +1,7 @@
 module.exports = {
   lintOnSave: false,
+  publicPath: process.env.NODE_ENV === 'production' ? 'https://d3asw1bke2pwdg.cloudfront.net/' : '/',
+  integrity: true,
   css: {
     loaderOptions: {
       // pass options to sass-loader
@@ -47,6 +49,16 @@ module.exports = {
           }
         }
       ]
+    }
+  },
+  pluginOptions: {
+    s3Deploy: {
+      awsProfile: 'default',
+      region: 'us-east-1',
+      bucket: 'app.refinery.io',
+      pwa: true,
+      pwaFiles: 'index.html,service-worker.js,manifest.json',
+      uploadConcurrency: 10
     }
   }
 };
