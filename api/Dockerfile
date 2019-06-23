@@ -11,6 +11,7 @@ RUN pip install -r /work/requirements.txt
 COPY ./__init__.py /work/
 COPY ./install/ /work/install/
 COPY ./models/ /work/models/
+COPY ./default_projects/ /work/default_projects/
 COPY ./lambda_bases/ /work/lambda_bases/
 COPY ./email_templates/ /work/email_templates/
 COPY ./custom-runtime/ /work/custom-runtime/
