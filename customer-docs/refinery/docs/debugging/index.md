@@ -4,10 +4,10 @@ Debugging in serverless environments can often be a complex chore which feels li
 
 ## What Refinery Logs
 
-Before we dive into debugging your service, we first have to talk about logging. Refinery logs a large amount of metadata about a Lambda's given execution. For example, some of the data which is logged is the following:
+Before we dive into debugging your service, we first have to talk about logging. Refinery logs a large amount of metadata about a `Code Block`'s given execution. For example, some of the data which is logged is the following:
 
-* The full input to the Lambda.
-* The full returned output of the Lambda.
+* The full input to the `Code Block`.
+* The full returned output of the `Code Block`.
 * All `stdout` and `stderr` outputted during execution.
 * Time of execution.
 
@@ -17,11 +17,11 @@ The reason for this level of verbosity is to allow easy reproduction of issues. 
 
 Refinery allows for configuring different levels of logging for when your service is deployed in production. The levels of logging available are:
 
-* `Log all executions`: Every time a Lambda is executed a log file is written.
-* `Log only errors`: A log file is written only when a Lambda encounters an uncaught exception.
+* `Log all executions`: Every time a `Code Block` is executed a log file is written.
+* `Log only errors`: A log file is written only when a `Code Block` encounters an uncaught exception.
 * `No logging`: No logs are written under any circumstance.
 
-The major tradeoff with logging all executions, error only logging, and no logging is cost. The Lambdas that Refinery deploys make use of S3 for storing of all of the created log objects. This means that you will incur the appropriate level of cost for each write you do to S3. As of the time of this writing, saving an object to S3 is billed at [$0.005 per 1,000 requests](https://aws.amazon.com/s3/pricing/#S3_Standard). While this may seem inexpensive, it can add up if you're doing full verbosity logging on pipelines with a large number of executions. It's important to always be mindful about the amount of resources you're consuming when using Refinery.
+The major tradeoff with logging all executions, error only logging, and no logging is cost. The `Code Blocks` that Refinery deploys make use of S3 for storing of all of the created log objects. This means that you will incur the appropriate level of cost for each write you do to S3. As of the time of this writing, saving an object to S3 is billed at [$0.005 per 1,000 requests](https://aws.amazon.com/s3/pricing/#S3_Standard). While this may seem inexpensive, it can add up if you're doing full verbosity logging on pipelines with a large number of executions. It's important to always be mindful about the amount of resources you're consuming when using Refinery.
 
 In order to configure your logging level for a given project, navigate to the `Settings` tab for your project. Change the drop-down selection for `Logging Level` to change your logging level.
 

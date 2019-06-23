@@ -63,7 +63,7 @@ You also may have noticed that `Code Block A` and `Code Block B` are written in 
 ### Block Options
 
 * `Block Name`: The name of the `Code Block`.
-* `Block Code`: This is the core code which will execute upon the Lambda being invoked. This must include the declaration of the function `main` which accepts two arguments `lambda_input` and `context`. `lambda_input` is the JSON-serializable input the `Code Block` was called with, and `context` contains metadata related to the Lambda's runtime.
+* `Block Code`: This is the core code which will execute upon the `Code Block` being invoked. This must include the declaration of the function `main` which accepts two arguments `lambda_input` and `context`. `lambda_input` is the JSON-serializable input the `Code Block` was called with, and `context` contains metadata related to the `Code Block`'s runtime.
 
 <video style="width: 100%" playsinlines controls autoplay muted loop>
 	<source src="/blocks/images/running-code-block-fullscreen.webm" type="video/webm" />
@@ -136,6 +136,6 @@ The `API Endpoint Block` represents a single RESTful HTTP endpoint. Upon hitting
 
 ## API Response Block
 
-`API Response Block` is a block which will return the data returned from a linked `Code Block` as an HTTP response. An `API Response Block` is used downstream in a chain of Lambdas which started with an API Endpoint trigger. Note that due to the [hard AWS  limit](https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html#api-gateway-execution-service-limits-table) of 29 seconds before API Endpoints time out, the transition to an API Response must occur in this time frame. If the pipeline execution starts with an API Endpoint and the intermediary `Code Block` executions take longer than 29 seconds the request will time out.
+`API Response Block` is a block which will return the data returned from a linked `Code Block` as an HTTP response. An `API Response Block` is used downstream in a chain of `Code Blocks` which started with an API Endpoint trigger. Note that due to the [hard AWS  limit](https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html#api-gateway-execution-service-limits-table) of 29 seconds before API Endpoints time out, the transition to an API Response must occur in this time frame. If the pipeline execution starts with an API Endpoint and the intermediary `Code Block` executions take longer than 29 seconds the request will time out.
 
 If the data passed as input to the `API Response Block` does not contain the `body` key, then the data will be returned as a JSON blob in a HTTP response with the `Content-Type` set to `application/json`. For finer-grained control over the HTTP response, such as the ability to set headers, status codes, and more, return a JSON structure which complies with the proper format for [AWS HTTP responses](https://docs.aws.amazon.com/apigateway/latest/developerguide/set-up-lambda-proxy-integrations.html#api-gateway-simple-proxy-for-lambda-output-format).

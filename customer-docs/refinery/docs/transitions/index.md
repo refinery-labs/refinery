@@ -24,7 +24,7 @@ Transitions are a large part of what makes Refinery an extremely powerful platfo
 
 ## `exception`
 
-The `exception` transition is followed when the base Lambda raises an exception which is uncaught. This can be useful for situations where alerting on exceptions is necessary, or situations where recovering from a specific exception is necessary.
+The `exception` transition is followed when the base `Code Block` raises an exception which is uncaught. This can be useful for situations where alerting on exceptions is necessary, or situations where recovering from a specific exception is necessary.
 
 The following is an example of the data which is returned in an `exception` transition:
 ```json
@@ -38,18 +38,18 @@ The following is an example of the data which is returned in an `exception` tran
 You can use this information to react differently depending on the specific details of the exception.
 
 !!! note
-	An `exception` transition will result in the Lambda execution not being marked as failed in the debugging view.
+	An `exception` transition will result in the `Code Block` execution not being marked as failed in the debugging view.
 
 ## `fan-out`
 
-The `fan-out` transition takes a return value of a list of items and invokes the connected block with each item in the list as a single input. For example, if a Lambda block returned an array of `[1, 2, 3, 4, 5]` the next Lambda linked with the `fan-out` transition would be called five times with the inputs of `1`, `2`, `3`, `4`, and `5` respectively. This allows for performing quick and simple concurrent processing of data.
+The `fan-out` transition takes a return value of a list of items and invokes the connected block with each item in the list as a single input. For example, if a `Code Block` returned an array of `[1, 2, 3, 4, 5]` the next `Code Block` linked with the `fan-out` transition would be called five times with the inputs of `1`, `2`, `3`, `4`, and `5` respectively. This allows for performing quick and simple concurrent processing of data.
 
 !!! warning
-	The `fan-out` transition is a powerful construct. It allows for developers to easily perform a large number of Lambda invocations without much effort. If not used carefully it can result in an excessive usage of Lambdas, causing a higher-than-expected AWS bill. It should also be noted that you still have to obey your AWS account's [Lambda concurrency limits](https://docs.aws.amazon.com/lambda/latest/dg/concurrent-executions.html#per-function-concurrency), which may result in [throttling](https://docs.aws.amazon.com/lambda/latest/dg/concurrent-executions.html#throttling-behavior).
+	The `fan-out` transition is a powerful construct. It allows for developers to easily perform a large number of `Code Block` invocations without much effort. If not used carefully it can result in an excessive usage of `Code Blocks`, causing a higher-than-expected AWS bill. It should also be noted that you still have to obey your AWS account's [Lambda concurrency limits](https://docs.aws.amazon.com/lambda/latest/dg/concurrent-executions.html#per-function-concurrency), which may result in [throttling](https://docs.aws.amazon.com/lambda/latest/dg/concurrent-executions.html#throttling-behavior).
 
 ## `fan-in`
 
-The `fan-in` transition is the sister-transition of the `fan-out` transition. Using `fan-in` you can take the output of all of the concurrently invoked Lambdas and pass the return values as an array to a single Lambda. For example, if a `fan-out` transition executes three `Code Blocks` concurrently and they return `1`, `2`, and `3` the input to the `Code Block` connected by the `fan-in` transition will be `[2, 1, 3]`.
+The `fan-in` transition is the sister-transition of the `fan-out` transition. Using `fan-in` you can take the output of all of the concurrently invoked `Code Blocks` and pass the return values as an array to a single `Code Block`. For example, if a `fan-out` transition executes three `Code Blocks` concurrently and they return `1`, `2`, and `3` the input to the `Code Block` connected by the `fan-in` transition will be `[2, 1, 3]`.
 
 !!! warning
 	If any uncaught exceptions occur during a `fan-out` chain the `fan-in` transition will fail to execute. It's important to ensure that all exceptions are caught to prevent breaking a down-stream `fan-in` transition.
@@ -58,4 +58,4 @@ The `fan-in` transition is the sister-transition of the `fan-out` transition. Us
 	The order of the returned values in the array is non-deterministic.
 
 !!! note
-	You can also have multiple nodes chained together before ending in a `fan-in` transition (instead of just a `fan-out` to a Lambda node to a `fan-in`). However, if all of the Lambdas do not `fan-in` properly the transition will fail. This can occur in situations such as a `Code Block` reaching its max execution time, for example.
+	You can also have multiple nodes chained together before ending in a `fan-in` transition (instead of just a `fan-out` to a `Code Block` node to a `fan-in`). However, if all of the `Code Blocks` do not `fan-in` properly the transition will fail. This can occur in situations such as a `Code Block` reaching its max execution time, for example.
