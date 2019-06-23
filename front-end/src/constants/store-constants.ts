@@ -170,6 +170,11 @@ export enum UserMutators {
   setIsBusyStatus = 'setIsBusyStatus',
   setLoginErrorMessage = 'setLoginErrorMessage',
 
+  setAutoRefreshJobRunning = 'setAutoRefreshJobRunning',
+  setAutoRefreshJobIterations = 'setAutoRefreshJobIterations',
+  setAutoRefreshJobNonce = 'setAutoRefreshJobNonce',
+  cancelAutoRefreshJob = 'cancelAutoRefreshJob',
+
   // Login form
   setRememberMeState = 'setRememberMeState',
   setEmailInputValue = 'setEmailInputValue',
@@ -185,4 +190,13 @@ export enum UserMutators {
   setRegistrationUsernameErrorMessage = 'setRegistrationUsernameErrorMessage',
   setRegistrationErrorMessage = 'setRegistrationErrorMessage',
   setRegistrationSuccessMessage = 'setRegistrationSuccessMessage'
+}
+
+export enum UserActions {
+  fetchAuthenticationState = 'fetchAuthenticationState',
+  redirectIfAuthenticated = 'redirectIfAuthenticated',
+  loginUser = 'loginUser',
+  registerUser = 'registerUser',
+
+  loopWaitingLogin = 'loopWaitingLogin'
 }

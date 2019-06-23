@@ -135,12 +135,20 @@ def on_start():
 		with open( "./lambda_bases/" + language_name, "r" ) as file_handler:
 			LAMDBA_BASE_CODES[ language_name ] = file_handler.read()
 
+ses_access_key = os.environ.get( "ses_access_key" )
+ses_secret_key = os.environ.get( "ses_secret_key" )
+
+if ses_access_key is None or ses_secret_key is None:
+	print('Missing access key for SES, falling back to AWS key')
+	ses_access_key = os.environ.get( "aws_access_key" )
+	ses_secret_key = os.environ.get( "aws_secret_key" )
+
 # This is purely for sending emails as part of Refinery's
 # regular operations (e.g. authentication via email code, etc).
 SES_EMAIL_CLIENT = boto3.client(
 	"ses",
-	aws_access_key_id=os.environ.get( "ses_access_key" ),
-	aws_secret_access_key=os.environ.get( "ses_secret_key" ),
+	aws_access_key_id=ses_access_key,
+	aws_secret_access_key=ses_secret_key,
 	region_name=os.environ.get( "ses_region" )
 )
 
@@ -1262,7 +1270,7 @@ class TaskSpawner(object):
 			)
 			
 			return False
-			
+
 		@staticmethod
 		def send_terraform_provisioning_error( aws_account_id, error_output ):
 			response = SES_EMAIL_CLIENT.send_email(
@@ -6918,7 +6926,7 @@ class Authenticate( BaseHandler ):
 		
 		# Pull out the authentication token
 		raw_email_authentication_token = email_auth_token.token
-		
+
 		# Add the token to the list of the user's token
 		user.email_auth_tokens.append(
 			email_auth_token
