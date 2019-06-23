@@ -28,7 +28,15 @@ module.exports = {
       skipWaiting: true,
       runtimeCaching: [
         {
-          urlPattern: new RegExp('^https://app.refinery.io/'),
+          urlPattern: new RegExp('.(?:css|js|)$', 'i'),
+          handler: 'networkFirst'
+        },
+        {
+          urlPattern: new RegExp('.(?:png|gif|jpg|jpeg|svg)$', 'i'),
+          handler: 'cacheFirst'
+        },
+        {
+          urlPattern: new RegExp('^https://app.refinery.io/', 'i'),
           handler: 'networkFirst',
           options: {
             networkTimeoutSeconds: 10,
