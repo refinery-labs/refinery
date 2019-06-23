@@ -6,8 +6,7 @@
       <div class="navbar-header">
         <router-link class="navbar-brand" to="/">
           <div class="brand-logo">
-            <!--<img class="img-fluid" src="img/logo.png" alt="App Logo">-->
-            <span class="main-logo">REFINERY</span>
+            <img class="img-fluid" src="/img/logo-icon.png" alt="App" style="height: 36px" />
           </div>
           <div class="brand-logo-collapsed">
             <img
@@ -28,7 +27,7 @@
             <em class="fas fa-bars"></em>
           </a>
           <!-- Button to show/hide the sidebar on mobile. Visible on mobile only.-->
-          <a href="" class="nav-link sidebar-toggle d-md-none" @click.prevent="toggleOffcanvas">
+          <a href="" class="nav-link sidebar-toggle d-md-none" @click.prevent="toggleGlobalNavCollapsed">
             <em class="fas fa-bars"></em>
           </a>
         </li>

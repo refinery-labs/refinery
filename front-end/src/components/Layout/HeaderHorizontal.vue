@@ -6,8 +6,7 @@
       <div class="navbar-header">
         <a class="navbar-brand" href="#/">
           <div class="brand-logo">
-            <!--<img class="img-fluid" src="img/logo.png" alt="App Logo">-->
-            <span class="main-logo">REFINERY</span>
+            <img class="img-fluid" src="/img/logo.png" alt="App" />
           </div>
           <div class="brand-logo-collapsed">
             <img class="img-fluid" src="/img/logo.png" alt="App" />
