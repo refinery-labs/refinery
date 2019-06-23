@@ -1,0 +1,85 @@
+{
+  "name": "Refinery Example Project: API Endpoint With Fan-out/Fan-in",
+  "workflow_relationships": [
+    {
+      "node": "5219d48b-5db1-4a85-8b58-00dd557ad3ee",
+      "next": "e051c822-3073-4aa9-94cd-3b3b5227fd65",
+      "type": "fan-out",
+      "name": "fan-out",
+      "expression": "return_data == \"SOME_STRING\"",
+      "id": "cc72f6dc-0f57-4c58-8c2e-8a28af807578"
+    },
+    {
+      "node": "317c3f14-0b19-42ef-9669-2aacb2f683ec",
+      "next": "5219d48b-5db1-4a85-8b58-00dd557ad3ee",
+      "type": "then",
+      "name": "then",
+      "expression": "return_data == \"SOME_STRING\"",
+      "id": "1c39bc93-6edb-49a6-9c55-701b827fce07"
+    },
+    {
+      "node": "e051c822-3073-4aa9-94cd-3b3b5227fd65",
+      "next": "1e89a16d-de26-40d3-9b2d-a96c8e56366d",
+      "type": "fan-in",
+      "name": "fan-in",
+      "expression": "return_data == \"SOME_STRING\"",
+      "id": "c272413d-6c9c-4576-8d71-f7a92791065c"
+    },
+    {
+      "node": "1e89a16d-de26-40d3-9b2d-a96c8e56366d",
+      "next": "44ca5f97-dd8b-4b58-9fb3-7ff87d0830fd",
+      "type": "then",
+      "name": "then",
+      "expression": "return_data == \"SOME_STRING\"",
+      "id": "dcdafb42-7893-450d-9f8a-34320329d5f8"
+    }
+  ],
+  "workflow_states": [
+    {
+      "type": "api_gateway_response",
+      "id": "44ca5f97-dd8b-4b58-9fb3-7ff87d0830fd",
+      "name": "API Endpoint Response Block"
+    },
+    {
+      "api_path": "/",
+      "http_method": "GET",
+      "type": "api_endpoint",
+      "id": "317c3f14-0b19-42ef-9669-2aacb2f683ec",
+      "name": "API Endpoint Block"
+    },
+    {
+      "language": "python2.7",
+      "code": "\ndef main( lambda_input, context ):\n    return \"Hello There\" + str(lambda_input)\n",
+      "memory": 768,
+      "libraries": [],
+      "layers": [],
+      "max_execution_time": 120,
+      "type": "lambda",
+      "id": "e051c822-3073-4aa9-94cd-3b3b5227fd65",
+      "name": "Process Individual Item"
+    },
+    {
+      "language": "python2.7",
+      "code": "\ndef main( lambda_input, context ):\n    return lambda_input\n",
+      "memory": 768,
+      "libraries": [],
+      "layers": [],
+      "max_execution_time": 120,
+      "type": "lambda",
+      "id": "1e89a16d-de26-40d3-9b2d-a96c8e56366d",
+      "name": "Collect Data (Fan In)"
+    },
+    {
+      "language": "python2.7",
+      "code": "\ndef main( lambda_input, context ):\n    return [1,2,3]\n",
+      "memory": 768,
+      "libraries": [],
+      "layers": [],
+      "max_execution_time": 120,
+      "type": "lambda",
+      "id": "5219d48b-5db1-4a85-8b58-00dd557ad3ee",
+      "name": "Create Array of Data for Fan Out"
+    }
+  ],
+  "version": 1
+}

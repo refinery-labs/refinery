@@ -1,0 +1,54 @@
+{
+  "name": "Refinery Example Project: Daily Scheduled Job",
+  "workflow_relationships": [
+    {
+      "node": "bd5509ab-7cfc-40ac-ac04-eb9d0d89a36e",
+      "name": "then",
+      "type": "then",
+      "next": "29f31f57-13d7-4fb4-be37-5078f510688c",
+      "expression": "return_data == \"SOME_STRING\"",
+      "id": "871d5bba-65b2-4040-9f2c-89825ebaf5c8"
+    },
+    {
+      "node": "29f31f57-13d7-4fb4-be37-5078f510688c",
+      "name": "fan-out",
+      "type": "fan-out",
+      "next": "1e8167f9-d312-4d0f-83da-5cda64b5272e",
+      "expression": "",
+      "id": "ec8a47c8-3420-4a85-acaf-f0b3896c5c38"
+    }
+  ],
+  "workflow_states": [
+    {
+      "language": "python2.7",
+      "code": "\ndef main( lambda_input, context ):\n    # Could be pulled via SQL, etc\n    return [\n        \"sam@example.com\",\n        \"fred@example.com\",\n        \"eric@example.com\"\n    ]\n",
+      "memory": 768,
+      "libraries": [],
+      "layers": [],
+      "max_execution_time": 120,
+      "type": "lambda",
+      "id": "29f31f57-13d7-4fb4-be37-5078f510688c",
+      "name": "Get Customer List"
+    },
+    {
+      "description": "Deployed by Refinery",
+      "input_string": "",
+      "schedule_expression": "rate(1 day)",
+      "type": "schedule_trigger",
+      "id": "bd5509ab-7cfc-40ac-ac04-eb9d0d89a36e",
+      "name": "Every Day"
+    },
+    {
+      "language": "python2.7",
+      "code": "\ndef main( lambda_input, context ):\n    return send_email(lambda_input)\n\ndef send_email(name):\n    print(name)\n    # If this were production code, we would do something here\n    return \"Send email to: \" + name\n",
+      "memory": 768,
+      "libraries": [],
+      "layers": [],
+      "max_execution_time": 120,
+      "type": "lambda",
+      "id": "1e8167f9-d312-4d0f-83da-5cda64b5272e",
+      "name": "Send Email"
+    }
+  ],
+  "version": 1
+}

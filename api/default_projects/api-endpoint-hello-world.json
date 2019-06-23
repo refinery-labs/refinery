@@ -1,0 +1,66 @@
+{
+  "name": "Refinery Example Project: Basic API Endpoint",
+  "workflow_relationships": [
+    {
+      "node": "eeae81b5-9a6a-4d0d-bb1d-b185bbe67f14",
+      "name": "then",
+      "type": "then",
+      "next": "f329c6ce-99ea-4aa9-b91b-700be6d8b0a6",
+      "expression": "return_data == \"SOME_STRING\"",
+      "id": "007c54b1-5f25-4ebf-b3e0-c69b88878a8d"
+    },
+    {
+      "node": "f329c6ce-99ea-4aa9-b91b-700be6d8b0a6",
+      "next": "60f3bec8-f4a2-4c3f-819c-dcba80e11ea0",
+      "type": "then",
+      "name": "then",
+      "expression": "return_data == \"SOME_STRING\"",
+      "id": "2026d19d-2d8c-4ab0-8a98-44e3164b4945"
+    },
+    {
+      "node": "60f3bec8-f4a2-4c3f-819c-dcba80e11ea0",
+      "next": "3c01a1cf-a87c-4663-92d8-8023f0487d9e",
+      "type": "then",
+      "name": "then",
+      "expression": "return_data == \"SOME_STRING\"",
+      "id": "076015c1-e573-4079-a293-4acce4af360e"
+    }
+  ],
+  "workflow_states": [
+    {
+      "type": "api_gateway_response",
+      "id": "3c01a1cf-a87c-4663-92d8-8023f0487d9e",
+      "name": "API Endpoint Response Block"
+    },
+    {
+      "api_path": "/",
+      "http_method": "GET",
+      "type": "api_endpoint",
+      "id": "eeae81b5-9a6a-4d0d-bb1d-b185bbe67f14",
+      "name": "API Endpoint Block"
+    },
+    {
+      "language": "python2.7",
+      "code": "\ndef main( lambda_input, context ):\n    return \"Hello \" + lambda_input + \"!\"\n",
+      "memory": 768,
+      "libraries": [],
+      "layers": [],
+      "max_execution_time": 120,
+      "type": "lambda",
+      "id": "60f3bec8-f4a2-4c3f-819c-dcba80e11ea0",
+      "name": "Say Hello"
+    },
+    {
+      "language": "python2.7",
+      "code": "\ndef main( lambda_input, context ):\n    return \"World\"\n",
+      "memory": 768,
+      "libraries": [],
+      "layers": [],
+      "max_execution_time": 120,
+      "type": "lambda",
+      "id": "f329c6ce-99ea-4aa9-b91b-700be6d8b0a6",
+      "name": "Print \"World\""
+    }
+  ],
+  "version": 1
+}
