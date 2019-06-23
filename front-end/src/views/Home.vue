@@ -12,7 +12,7 @@
         <p>
           You may also look at the example projects in your project list.
           <br />
-          To find all of the projects in your account, <router-link to="/projects">go here</router-link>.
+          To find all of the projects in your account, <router-link to="/projects">click here</router-link>.
         </p>
         <p>
           If you would like to contact us for any reason, head over to the
@@ -34,8 +34,6 @@
         </ul>
       </div>
     </div>
-    <h4>We really appreciate you being here. :)</h4>
-    <img src="/img/loading.gif" />
   </div>
 </template>
 
