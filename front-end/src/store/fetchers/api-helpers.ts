@@ -1,6 +1,8 @@
 import {
   DeleteDeploymentsInProjectRequest,
   DeleteDeploymentsInProjectResponse,
+  GetAuthenticationStatusRequest,
+  GetAuthenticationStatusResponse,
   GetBuildStatusRequest,
   GetBuildStatusResponse,
   GetConsoleCredentialsRequest,
@@ -151,4 +153,18 @@ export async function getConsoleCredentials() {
   }
 
   return response.console_credentials;
+}
+
+export async function checkLoginStatus() {
+  const response = await makeApiRequest<GetAuthenticationStatusRequest, GetAuthenticationStatusResponse>(
+    API_ENDPOINT.GetAuthenticationStatus,
+    {}
+  );
+
+  if (!response) {
+    console.error('Unable to get user login status');
+    return null;
+  }
+
+  return response;
 }

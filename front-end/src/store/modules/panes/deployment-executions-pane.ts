@@ -7,9 +7,10 @@ import { sortExecutions } from '@/utils/project-execution-utils';
 import { ExecutionStatusType, GetProjectExecutionLogsResult } from '@/types/api-types';
 import { STYLE_CLASSES } from '@/lib/cytoscape-styles';
 import { deepJSONCopy } from '@/lib/general-utils';
-import { timeout } from '@/utils/async-utils';
+import { autoRefreshJob, timeout, waitUntil } from '@/utils/async-utils';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { DeploymentViewActions } from '@/constants/store-constants';
+import { globalDispatchToast } from '@/utils/toasts-utils';
 
 // Enums
 export enum DeploymentExecutionsMutators {
@@ -79,37 +80,6 @@ function getExecutionStatusStyleForLogs(logs: GetProjectExecutionLogsResult[]) {
   }
 
   return STYLE_CLASSES.EXECUTION_SUCCESS;
-}
-
-interface AutoRefreshJobConfig {
-  nonce: string;
-  timeoutMs: number;
-  maxIterations: number;
-  makeRequest: () => Promise<void>;
-  isStillValid: (nonce: string, iteration: number) => boolean;
-}
-
-/**
- * Job to go do something on an interval. Attempts to kill itself by leveraging callbacks for state checking.
- * @param conf Parameters for the job to function.
- * @param iterations Incremented each time and used to kill itself later by limiting max iterations.
- */
-async function autoRefreshJob(conf: AutoRefreshJobConfig, iterations: number = 0) {
-  if (iterations > conf.maxIterations) {
-    return;
-  }
-
-  const valid = conf.isStillValid(conf.nonce, iterations);
-
-  if (!valid) {
-    return;
-  }
-
-  await conf.makeRequest();
-
-  await timeout(conf.timeoutMs);
-
-  await autoRefreshJob(conf, iterations + 1);
 }
 
 const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, RootState> = {
@@ -215,21 +185,26 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       await context.dispatch(DeploymentExecutionsActions.getExecutionsForOpenedDeployment);
 
       const nonce = uuid();
+
+      // Setting this will tell the previous job that it's no longer in control.
       context.commit(DeploymentExecutionsMutators.setAutoRefreshJobNonce, nonce);
 
       // Wait for the old job to die
       if (context.state.autoRefreshJobRunning) {
-        await timeout(5000);
+        // Wait for the previous job to finish
+        await waitUntil(3000, 10, () => context.state.autoRefreshJobRunning);
       }
 
-      autoRefreshJob({
+      context.commit(DeploymentExecutionsMutators.setAutoRefreshJobRunning, true);
+
+      await autoRefreshJob({
         timeoutMs: 5000,
         maxIterations: 125, // 5 minutes
         nonce: nonce,
         makeRequest: async () => {
           await context.dispatch(DeploymentExecutionsActions.getExecutionsForOpenedDeployment, false);
         },
-        isStillValid: (nonce, iteration) => {
+        isStillValid: async (nonce, iteration) => {
           const valid = nonce === context.state.autoRefreshJobNonce;
 
           // If another job is running, kill this one.
@@ -240,6 +215,9 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
           // Only commit if we are still wanted
           context.commit(DeploymentExecutionsMutators.setAutoRefreshJobIterations, iteration);
           return true;
+        },
+        onComplete: async () => {
+          context.commit(DeploymentExecutionsMutators.setAutoRefreshJobRunning, false);
         }
       });
     },
