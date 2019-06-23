@@ -11,7 +11,7 @@ if (process.env.NODE_ENV === 'production') {
         'App is being served from cache by a service worker.\n' + 'For more details, visit https://goo.gl/AFskqB'
       );
     },
-    registered() {
+    registered(registration) {
       console.log('Service worker has been registered.');
     },
     cached() {
@@ -24,7 +24,8 @@ if (process.env.NODE_ENV === 'production') {
       globalDispatchToast({
         title: 'Update Available',
         content: 'Please refresh the page :)',
-        variant: ToastVariant.info
+        variant: ToastVariant.info,
+        specialForceRefresh: true
       });
       console.log('New content is available. Please refresh the page.');
       // let worker = registration.waiting;

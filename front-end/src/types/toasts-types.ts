@@ -7,6 +7,7 @@ export interface ToastConfig {
   toaster: ToastLocation;
   shown: boolean;
   timestamp: number;
+  specialForceRefresh?: boolean;
 }
 
 export enum ToastVariant {
@@ -35,4 +36,5 @@ export interface ToastNotification {
   title: string;
   variant?: ToastVariant;
   toaster?: ToastLocation;
+  specialForceRefresh?: boolean;
 }

@@ -12,6 +12,18 @@ export class ToastComponent extends Vue {
   @Prop({ required: true }) markToastShown!: (t: ToastConfig) => void;
   @Prop({ required: true }) markToastDone!: (t: ToastConfig) => void;
 
+  public specialForceRefreshAppToast() {
+    return (
+      <div>
+        Please refresh the page to get the new version of the app!
+        <br />
+        <b-button class="col-6" variant="primary" on={{ click: () => window.location.reload(true) }}>
+          Click Force Refresh App
+        </b-button>
+      </div>
+    );
+  }
+
   @Watch('activeToasts', { immediate: true })
   private activeToastsChanged(val: ToastConfig[], oldVal: ToastConfig[]) {
     if (val && oldVal && val === oldVal) {
@@ -25,9 +37,16 @@ export class ToastComponent extends Vue {
         // Splits object properties such that "rest" contains everything except "content".
         const { content, ...rest } = t;
 
-        // We don't have type definitions for this
-        // @ts-ignore
+        if (t.specialForceRefresh) {
+          this.$bvToast.toast(this.specialForceRefreshAppToast(), {
+            ...rest,
+            noAutoHide: true
+          });
+          this.markToastShown(t);
+          return;
+        }
 
+        // We don't have type definitions for this
         this.$bvToast.toast(content, rest);
 
         // Allows us to prevent the toast from showing up again.
