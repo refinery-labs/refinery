@@ -58,7 +58,18 @@ module.exports = {
       bucket: 'app.refinery.io',
       pwa: true,
       pwaFiles: 'index.html,service-worker.js,manifest.json',
-      uploadConcurrency: 10
+      uploadConcurrency: 5,
+      registry: undefined,
+      createBucket: false,
+      staticHosting: true,
+      staticIndexPage: 'index.html',
+      staticErrorPage: 'error.html',
+      assetPath: 'dist',
+      assetMatch: '**',
+      deployPath: '/',
+      acl: 'public-read',
+      enableCloudfront: false,
+      pluginVersion: '3.0.0'
     }
   }
 };

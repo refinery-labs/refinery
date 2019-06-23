@@ -3,6 +3,8 @@
 # Create the folder where the output files will go
 mkdir front-end-dist
 
+printenv
+
 # Build the front-end assets
 docker build -t front-end-image .
 
