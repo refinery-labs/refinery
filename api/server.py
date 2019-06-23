@@ -9,6 +9,7 @@ import subprocess
 import traceback
 import botocore
 import datetime
+import requests
 import pystache
 import logging
 import hashlib
@@ -135,22 +136,16 @@ def on_start():
 		with open( "./lambda_bases/" + language_name, "r" ) as file_handler:
 			LAMDBA_BASE_CODES[ language_name ] = file_handler.read()
 
-ses_access_key = os.environ.get( "ses_access_key" )
-ses_secret_key = os.environ.get( "ses_secret_key" )
+mailgun_api_key = os.environ.get( "mailgun_api_key" )
 
-if ses_access_key is None or ses_secret_key is None:
-	print('Missing access key for SES, falling back to AWS key')
-	ses_access_key = os.environ.get( "aws_access_key" )
-	ses_secret_key = os.environ.get( "aws_secret_key" )
+if mailgun_api_key is None:
+	print( "Please configure a Mailgun API key, this is needed for authentication and regular operations." )
+	exit()
 
 # This is purely for sending emails as part of Refinery's
 # regular operations (e.g. authentication via email code, etc).
-SES_EMAIL_CLIENT = boto3.client(
-	"ses",
-	aws_access_key_id=ses_access_key,
-	aws_secret_access_key=ses_secret_key,
-	region_name=os.environ.get( "ses_region" )
-)
+# This is Mailgun because SES is a huge PITA and is dragging their
+# feet on verifying.
 
 # This is another global Boto3 client because we need root access
 # to pull the billing for all of our sub-accounts
@@ -1270,153 +1265,122 @@ class TaskSpawner(object):
 			)
 			
 			return False
-
+			
+		def send_email( self, to_email_string, subject_string, message_text_string, message_html_string ):
+			"""
+			to_email_string: "example@refinery.io"
+			subject_string: "Your important email"
+			message_text_string: "You have an important email here!"
+			message_html_string: "<h1>ITS IMPORTANT AF!</h1>"
+			"""
+			return TaskSpawner._send_email(
+				to_email_string,
+				subject_string,
+				message_text_string,
+				message_html_string
+			)
+			
+		@staticmethod
+		def _send_email( to_email_string, subject_string, message_text_string, message_html_string ):
+			logit( "Sending email to '" + to_email_string + "' with subject '" + subject_string + "'..." )
+			
+			requests_options = {
+				"auth": ( "api", os.environ.get( "mailgun_api_key" ) ),
+				"data": {
+					"from": os.environ.get( "from_email" ),
+					"h:Reply-To": "support@refinery.io",
+					"to": [
+						to_email_string
+					],
+					"subject": subject_string,
+				}
+			}
+			
+			if message_text_string:
+				requests_options[ "data" ][ "text" ] = message_text_string
+				
+			if message_html_string:
+				requests_options[ "data" ][ "html" ] = message_html_string
+			
+			response = requests.post(
+				"https://api.mailgun.net/v3/mail.refinery.io/messages",
+				**requests_options
+			)
+			
+			return response.text
+			
 		@staticmethod
 		def send_terraform_provisioning_error( aws_account_id, error_output ):
-			response = SES_EMAIL_CLIENT.send_email(
-				ReplyToAddresses=[
-					os.environ.get( "ses_reply_to" ),
-				],
-				Source=os.environ.get( "ses_emails_from_email" ),
-				Destination={
-					"ToAddresses": [
-						os.environ.get( "alerts_email" ),
-					]
-				},
-				Message={
-					"Subject": {
-						"Data": "[AWS Account Provisioning Error] The Refinery AWS Account #" + aws_account_id + " Encountered a Fatal Error During Terraform Provisioning",
-						"Charset": "UTF-8"
-					},
-					"Body": {
-						"Text": {
-							"Data": pystache.render(
-								EMAIL_TEMPLATES[ "terraform_provisioning_error_alert" ],
-								{
-									"aws_account_id": aws_account_id,
-									"error_output": error_output,
-								}
-							),
-							"Charset": "UTF-8"
-						}
+			TaskSpawner._send_email(
+				os.environ.get( "alerts_email" ),
+				"[AWS Account Provisioning Error] The Refinery AWS Account #" + aws_account_id + " Encountered a Fatal Error During Terraform Provisioning",
+				pystache.render(
+					EMAIL_TEMPLATES[ "terraform_provisioning_error_alert" ],
+					{
+						"aws_account_id": aws_account_id,
+						"error_output": error_output,
 					}
-				}
+				),
+				False,
 			)
 			
 		@staticmethod
 		def send_account_freeze_email( aws_account_id, amount_accumulated, organization_admin_email ):
-			response = SES_EMAIL_CLIENT.send_email(
-				ReplyToAddresses=[
-					os.environ.get( "ses_reply_to" ),
-				],
-				Source=os.environ.get( "ses_emails_from_email" ),
-				Destination={
-					"ToAddresses": [
-						os.environ.get( "alerts_email" ),
-					]
-				},
-				Message={
-					"Subject": {
-						"Data": "[Freeze Alert] The Refinery AWS Account #" + aws_account_id + " has been frozen for going over its account limit!",
-						"Charset": "UTF-8"
-					},
-					"Body": {
-						"Html": {
-							"Data": pystache.render(
-								EMAIL_TEMPLATES[ "account_frozen_alert" ],
-								{
-									"aws_account_id": aws_account_id,
-									"free_trial_billing_limit": os.environ.get( "free_trial_billing_limit" ),
-									"amount_accumulated": amount_accumulated,
-									"organization_admin_email": organization_admin_email,
-								}
-							),
-							"Charset": "UTF-8"
-						}
+			TaskSpawner._send_email(
+				os.environ.get( "alerts_email" ),
+				"[Freeze Alert] The Refinery AWS Account #" + aws_account_id + " has been frozen for going over its account limit!",
+				False,
+				pystache.render(
+					EMAIL_TEMPLATES[ "account_frozen_alert" ],
+					{
+						"aws_account_id": aws_account_id,
+						"free_trial_billing_limit": os.environ.get( "free_trial_billing_limit" ),
+						"amount_accumulated": amount_accumulated,
+						"organization_admin_email": organization_admin_email,
 					}
-				}
+				),
 			)
 		
 		@run_on_executor
 		def send_registration_confirmation_email( self, email_address, auth_token ):
 			registration_confirmation_link = os.environ.get( "web_origin" ) + "/authentication/email/" + auth_token
-			response = SES_EMAIL_CLIENT.send_email(
-				ReplyToAddresses=[
-					os.environ.get( "ses_reply_to" ),
-				],
-				Source=os.environ.get( "ses_emails_from_email" ),
-				Destination={
-					"ToAddresses": [
-						email_address,
-					]
-				},
-				Message={
-					"Subject": {
-						"Data": "Refinery.io - Confirm your Refinery registration",
-						"Charset": "UTF-8"
-					},
-					"Body": {
-						"Text": {
-							"Data": pystache.render(
-								EMAIL_TEMPLATES[ "registration_confirmation_text" ],
-								{
-									"registration_confirmation_link": registration_confirmation_link,
-								}
-							),
-							"Charset": "UTF-8"
-						},
-						"Html": {
-							"Data": pystache.render(
-								EMAIL_TEMPLATES[ "registration_confirmation" ],
-								{
-									"registration_confirmation_link": registration_confirmation_link,
-								}
-							),
-							"Charset": "UTF-8"
-						}
+			
+			TaskSpawner._send_email(
+				email_address,
+				"Refinery.io - Confirm your Refinery registration",
+				pystache.render(
+					EMAIL_TEMPLATES[ "registration_confirmation_text" ],
+					{
+						"registration_confirmation_link": registration_confirmation_link,
 					}
-				}
+				),
+				pystache.render(
+					EMAIL_TEMPLATES[ "registration_confirmation" ],
+					{
+						"registration_confirmation_link": registration_confirmation_link,
+					}
+				),
 			)
 	
 		@run_on_executor
 		def send_authentication_email( self, email_address, auth_token ):
 			authentication_link = os.environ.get( "web_origin" ) + "/authentication/email/" + auth_token
-			response = SES_EMAIL_CLIENT.send_email(
-				ReplyToAddresses=[
-					os.environ.get( "ses_reply_to" ),
-				],
-				Source=os.environ.get( "ses_emails_from_email" ),
-				Destination={
-					"ToAddresses": [
-						email_address,
-					]
-				},
-				Message={
-					"Subject": {
-						"Data": "Refinery.io - Login by email confirmation",
-						"Charset": "UTF-8"
-					},
-					"Body": {
-						"Text": {
-							"Data": pystache.render(
-								EMAIL_TEMPLATES[ "authentication_email_text" ],
-								{
-									"email_authentication_link": authentication_link,
-								}
-							),
-							"Charset": "UTF-8"
-						},
-						"Html": {
-							"Data": pystache.render(
-								EMAIL_TEMPLATES[ "authentication_email" ],
-								{
-									"email_authentication_link": authentication_link,
-								}
-							),
-							"Charset": "UTF-8"
-						}
+			
+			TaskSpawner._send_email(
+				email_address,
+				"Refinery.io - Login by email confirmation",
+				pystache.render(
+					EMAIL_TEMPLATES[ "authentication_email_text" ],
+					{
+						"email_authentication_link": authentication_link,
 					}
-				}
+				),
+				pystache.render(
+					EMAIL_TEMPLATES[ "authentication_email" ],
+					{
+						"email_authentication_link": authentication_link,
+					}
+				),
 			)
 
 		@run_on_executor
@@ -1626,30 +1590,14 @@ class TaskSpawner(object):
 					if finalize_invoices_enabled:
 						customer_invoice.send_invoice()
 			
-			# Notify finance department that they have an hour to review the
-			response = SES_EMAIL_CLIENT.send_email(
-				ReplyToAddresses=[
-					os.environ.get( "ses_reply_to" ),
-				],
-				Source=os.environ.get( "ses_emails_from_email" ),
-				Destination={
-					"ToAddresses": [
-						os.environ.get( "billing_alert_email" ),
-					]
-				},
-				Message={
-					"Subject": {
-						"Data": "[URGENT][IMPORTANT]: Monthly customer invoice generation has completed. One hour to auto-finalization.",
-						"Charset": "UTF-8"
-					},
-					"Body": {
-						"Html": {
-							"Data": "The monthly Stripe invoice generation has completed. You have <b>one hour</b> to review invoices before they go out to customers.<br /><a href=\"https://dashboard.stripe.com/invoices\"><b>Click here to review the generated invoices</b></a><br /><br />",
-							"Charset": "UTF-8"
-						}
-					}
-				}
+			# Notify finance department that they have an hour to review the invoices
+			return TaskSpawner._send_email(
+				os.environ.get( "billing_alert_email" ),
+				"[URGENT][IMPORTANT]: Monthly customer invoice generation has completed. One hour to auto-finalization.",
+				False,
+				"The monthly Stripe invoice generation has completed. You have <b>one hour</b> to review invoices before they go out to customers.<br /><a href=\"https://dashboard.stripe.com/invoices\"><b>Click here to review the generated invoices</b></a><br /><br />",
 			)
+
 		@run_on_executor
 		def pull_current_month_running_account_totals( self ):
 			"""
