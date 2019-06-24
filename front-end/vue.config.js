@@ -1,7 +1,7 @@
 module.exports = {
   lintOnSave: false,
   publicPath: process.env.NODE_ENV === 'production' ? 'https://d3asw1bke2pwdg.cloudfront.net/' : '/',
-  integrity: true,
+  // integrity: true,
   css: {
     loaderOptions: {
       // pass options to sass-loader
