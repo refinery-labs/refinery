@@ -3961,9 +3961,6 @@ class TaskSpawner(object):
 			
 			deployment_id = deployment_response[ "id" ]
 			
-			logit( "Deployment response: " )
-			logit( deployment_response )
-			
 			return {
 				"id": rest_api_id,
 				"stage_name": stage_name,
@@ -4491,19 +4488,19 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:2"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:3"
 		)
 	elif language == "php7.3":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:2"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:3"
 		)
 	elif language == "go1.12":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:2"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:3"
 		)
 	elif language == "python2.7":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:2"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:3"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
@@ -4963,6 +4960,12 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 			
 			# Update project config
 			project_config[ "api_gateway" ][ "gateway_id" ] = api_gateway_id
+		else:
+			# We do another strip of the gateway just to be sure
+			yield strip_api_gateway(
+				credentials,
+				project_config[ "api_gateway" ][ "gateway_id" ],
+			)
 		
 		# Add the API Gateway as a new node
 		diagram_data[ "workflow_states" ].append({
@@ -5339,9 +5342,6 @@ def teardown_infrastructure( credentials, teardown_nodes ):
 			teardown_operation_futures.append(
 				strip_api_gateway(
 					credentials,
-					teardown_node[ "id" ],
-					teardown_node[ "type" ],
-					teardown_node[ "name" ],
 					teardown_node[ "rest_api_id" ],
 				)
 			)
@@ -6070,7 +6070,10 @@ def create_lambda_api_route( credentials, api_gateway_id, http_method, route, la
 		api_gateway_id
 	)
 	
-	base_resource_id = resources[ 0 ][ "id" ]
+	for resource in resources:
+		if resource[ "path" ] == "/":
+			base_resource_id = resource[ "id" ]
+			break
 	
 	# Create a map of paths to verify existance later
 	# so we don't overwrite existing resources
@@ -6575,7 +6578,7 @@ class GetCloudWatchLogsForLambda( BaseHandler ):
 		})
 		
 @gen.coroutine
-def strip_api_gateway( credentials, node_id, node_type, node_name, api_gateway_id ):
+def strip_api_gateway( credentials, api_gateway_id ):
 	"""
 	Strip a given API Gateway of all of it's:
 	* Resources
@@ -6635,10 +6638,10 @@ def strip_api_gateway( credentials, node_id, node_type, node_name, api_gateway_i
 
 	return_data = {
 		"deleted": True,
-		"type": node_type,
-		"id": node_id,
+		"type": "api_gateway",
+		"id": get_random_node_id(),
 		"arn": "arn:aws:apigateway:" + credentials[ "region" ] + "::/restapis/" + api_gateway_id,
-		"name": node_name,
+		"name": "__api_gateway__",
 	}
 	
 	raise gen.Return( return_data )
