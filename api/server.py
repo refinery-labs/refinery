@@ -1396,6 +1396,29 @@ class TaskSpawner(object):
 					}
 				),
 			)
+
+		@run_on_executor
+		def send_internal_registration_confirmation_email( self, customer_email_address, customer_name, customer_phone ):
+			TaskSpawner._send_email(
+				"signup-notifications@refinerylabs.io",
+				"Refinery User Signup, " + customer_email_address,
+				pystache.render(
+					EMAIL_TEMPLATES[ "internal_registration_notification_text" ],
+					{
+						"customer_email_address": customer_email_address,
+						"customer_name": customer_name,
+						"customer_phone": customer_phone
+					}
+				),
+				pystache.render(
+					EMAIL_TEMPLATES[ "internal_registration_notification" ],
+					{
+						"customer_email_address": customer_email_address,
+						"customer_name": customer_name,
+						"customer_phone": customer_phone
+					}
+				),
+			)
 	
 		@run_on_executor
 		def send_authentication_email( self, email_address, auth_token ):
@@ -6802,6 +6825,13 @@ class NewRegistration( BaseHandler ):
 				"msg": "Registration was successful! Please check your inbox to validate your email address and to log in."
 			}
 		})
+
+		# This is sent internally so that we can keep tabs on new users coming through.
+		yield local_tasks.send_internal_registration_confirmation_email(
+			self.json[ "email" ],
+			self.json[ "name" ],
+			self.json[ "phone" ]
+		)
 		
 class EmailLinkAuthentication( BaseHandler ):
 	@gen.coroutine
