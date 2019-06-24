@@ -267,7 +267,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       // We ignore project_id because we just don't want it in the JSON
-      const { project_id, workflow_states, workflow_relationships, ...rest } = state.openedProject;
+      const { project_id, ...rest } = state.openedProject;
 
       return JSON.stringify(rest, null, '  ');
     }
