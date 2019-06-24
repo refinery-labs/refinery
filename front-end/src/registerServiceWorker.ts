@@ -5,7 +5,8 @@ import { globalDispatchToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
 
 if (process.env.NODE_ENV === 'production') {
-  register(`${process.env.BASE_URL}service-worker.js`, {
+  const serviceWorkerBase = process.env.VUE_APP_SERVICE_WORKER_BASE || process.env.BASE_URL;
+  register(`${serviceWorkerBase}service-worker.js`, {
     ready() {
       console.log(
         'App is being served from cache by a service worker.\n' + 'For more details, visit https://goo.gl/AFskqB'
