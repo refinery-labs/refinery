@@ -1,7 +1,7 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
-import { WorkflowState } from '@/types/graph';
+import { ApiEndpointWorkflowState, WorkflowState } from '@/types/graph';
 import { blockTypeToEditorComponentLookup } from '@/constants/project-editor-constants';
 
 const editBlock = namespace('project/editBlockPane');
@@ -20,6 +20,7 @@ export default class EditBlockPane extends Vue {
   @editBlock.State wideMode!: boolean;
 
   @editBlock.Getter isStateDirty!: boolean;
+  @editBlock.Getter isEditedBlockValid!: boolean;
 
   @editBlock.Mutation setConfirmDiscardModalVisibility!: (visibility: boolean) => void;
 
@@ -89,7 +90,12 @@ export default class EditBlockPane extends Vue {
         </div>
         <div class="row show-block-container__bottom-buttons">
           <b-button-group class="col-12">
-            <b-button variant="primary" class="col-8" type="submit" disabled={!this.isStateDirty}>
+            <b-button
+              variant="primary"
+              class="col-8"
+              type="submit"
+              disabled={!this.isStateDirty || !this.isEditedBlockValid}
+            >
               Save Block
             </b-button>
             <b-button variant="danger" class="col-4" on={{ click: this.deleteBlockClicked }}>

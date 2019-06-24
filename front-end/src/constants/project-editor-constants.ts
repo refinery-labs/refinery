@@ -22,6 +22,7 @@ import RunEditorCodeBlockPane from '@/components/ProjectEditor/RunEditorCodeBloc
 import EditTransitionPane from '@/components/ProjectEditor/EditTransitionPane';
 import RunDeployedCodeBlockPane from '@/components/DeploymentViewer/RunDeployedCodeBlockPane';
 import ViewDeployedBlockLogsPane from '@/components/DeploymentViewer/ViewDeployedBlockLogsPane';
+import generateStupidName from '@/lib/silly-names';
 
 export const BlockSelectionType = {
   ...WorkflowStateType,
@@ -344,16 +345,22 @@ export const API_GATEWAY_RESPONSE_BLOCK_DEFAULT_STATE = {
   type: WorkflowStateType.API_GATEWAY_RESPONSE
 };
 
-export type BlockTypeToDefaultState = { [key in WorkflowStateType]: Object };
+export type BlockTypeToDefaultState = { [key in WorkflowStateType]: () => Object };
 
 export const blockTypeToDefaultStateMapping: BlockTypeToDefaultState = {
-  [WorkflowStateType.LAMBDA]: CODE_BLOCK_DEFAULT_STATE,
-  [WorkflowStateType.SQS_QUEUE]: QUEUE_BLOCK_DEFAULT_STATE,
-  [WorkflowStateType.API_GATEWAY_RESPONSE]: API_GATEWAY_RESPONSE_BLOCK_DEFAULT_STATE,
-  [WorkflowStateType.API_ENDPOINT]: API_ENDPOINT_BLOCK_DEFAULT_STATE,
-  [WorkflowStateType.SCHEDULE_TRIGGER]: SCHEDULE_EXPRESSION_BLOCK_DEFAULT_STATE,
-  [WorkflowStateType.SNS_TOPIC]: TOPIC_BLOCK_DEFAULT_STATE,
-  [WorkflowStateType.API_GATEWAY]: {}
+  [WorkflowStateType.LAMBDA]: () => CODE_BLOCK_DEFAULT_STATE,
+  [WorkflowStateType.SQS_QUEUE]: () => QUEUE_BLOCK_DEFAULT_STATE,
+  [WorkflowStateType.API_GATEWAY_RESPONSE]: () => API_GATEWAY_RESPONSE_BLOCK_DEFAULT_STATE,
+  [WorkflowStateType.API_ENDPOINT]: () => ({
+    ...API_ENDPOINT_BLOCK_DEFAULT_STATE,
+    api_path: `/replaceme/${generateStupidName()
+      .toLowerCase()
+      .split(' ')
+      .join('')}`
+  }),
+  [WorkflowStateType.SCHEDULE_TRIGGER]: () => SCHEDULE_EXPRESSION_BLOCK_DEFAULT_STATE,
+  [WorkflowStateType.SNS_TOPIC]: () => TOPIC_BLOCK_DEFAULT_STATE,
+  [WorkflowStateType.API_GATEWAY]: () => ({})
 };
 
 export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
