@@ -12,6 +12,8 @@ const project = namespace('project');
 export default class ExportProjectPane extends Vue {
   @project.State openedProject!: RefineryProject | null;
 
+  @project.Getter exportProjectJson!: string;
+
   @project.Action closePane!: (p: PANE_POSITION) => void;
 
   public renderCodeEditor() {
@@ -23,7 +25,7 @@ export default class ExportProjectPane extends Vue {
       name: `editor-export-project`,
       // Set Nodejs because it supports JSON
       lang: SupportedLanguage.NODEJS_8,
-      content: JSON.stringify(this.openedProject, null, '  ')
+      content: this.exportProjectJson
     };
 
     return <RefineryCodeEditor props={editorProps} />;

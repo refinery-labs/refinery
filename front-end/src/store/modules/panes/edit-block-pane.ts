@@ -13,19 +13,12 @@ import {
 import { getNodeDataById, getTransitionsForNode } from '@/utils/project-helpers';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
-import { ProjectViewActions , ProjectViewMutators} from '@/constants/store-constants';
+import { ProjectViewActions } from '@/constants/store-constants';
 import { PANE_POSITION } from '@/types/project-editor-types';
 import { DEFAULT_LANGUAGE_CODE } from '@/constants/project-editor-constants';
-import { API_ENDPOINT, HTTP_METHOD } from '@/constants/api-constants';
+import { HTTP_METHOD } from '@/constants/api-constants';
 import { validatePath } from '@/utils/block-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
-import {
-  GetBuildStatusRequest,
-  GetBuildStatusResponse,
-  StartLibraryBuildRequest,
-  StartLibraryBuildResponse
-} from '@/types/api-types';
-import { makeApiRequest } from '@/store/fetchers/refinery-api';
 
 // Enums
 export enum EditBlockMutators {
@@ -77,6 +70,13 @@ export enum EditBlockActions {
   deleteTransition = 'deleteTransition',
   // Code Block specific
   saveCodeBlockToDatabase = 'saveCodeBlockToDatabase'
+}
+
+export enum EditBlockGetters {
+  isStateDirty = 'isStateDirty',
+  isEditedBlockValid = 'isEditedBlockValid',
+  collidingApiEndpointBlocks = 'collidingApiEndpointBlocks',
+  isApiEndpointPathValid = 'isApiEndpointPathValid'
 }
 
 // Types
@@ -141,8 +141,52 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
   namespaced: true,
   state: moduleState,
   getters: {
-    isStateDirty: state =>
-      state.selectedNode && state.selectedNodeOriginal && !deepEqual(state.selectedNode, state.selectedNodeOriginal)
+    [EditBlockGetters.isStateDirty]: state =>
+      state.selectedNode && state.selectedNodeOriginal && !deepEqual(state.selectedNode, state.selectedNodeOriginal),
+    [EditBlockGetters.isEditedBlockValid]: (state, getters) => {
+      if (!state.selectedNode) {
+        return true;
+      }
+
+      if (state.selectedNode.type === WorkflowStateType.API_ENDPOINT) {
+        // Not a huge fan of this being here...
+        // But this prevents painful server issues from existing so it feels like the best move.
+        const collidingBlocks = getters[EditBlockGetters.collidingApiEndpointBlocks];
+
+        const validApiEndpointConfig = !collidingBlocks || collidingBlocks.length === 0;
+
+        return validApiEndpointConfig && getters[EditBlockGetters.isApiEndpointPathValid];
+      }
+
+      return true;
+    },
+    [EditBlockGetters.collidingApiEndpointBlocks]: (state, getters, rootState) => {
+      if (
+        !rootState.project.openedProject ||
+        !state.selectedNode ||
+        state.selectedNode.type !== WorkflowStateType.API_ENDPOINT
+      ) {
+        return null;
+      }
+
+      const selectedNode = state.selectedNode as ApiEndpointWorkflowState;
+
+      return rootState.project.openedProject.workflow_states
+        .filter(w => w.type === WorkflowStateType.API_ENDPOINT)
+        .filter(w => w.id !== selectedNode.id)
+        .filter(w => {
+          const apiW = w as ApiEndpointWorkflowState;
+          // If both of these match, we have an invalid ApiEndpoint configuration
+          return apiW.api_path === selectedNode.api_path && apiW.http_method === selectedNode.http_method;
+        });
+    },
+    [EditBlockGetters.isApiEndpointPathValid]: state => {
+      if (!state.selectedNode || state.selectedNode.type !== WorkflowStateType.API_ENDPOINT) {
+        return true;
+      }
+      // If we have invalid characters, this will return false.
+      return /^\/[a-zA-Z0-9/]*$/.test((state.selectedNode as ApiEndpointWorkflowState).api_path);
+    }
   },
   mutations: {
     [EditBlockMutators.setSelectedNode](state, node) {

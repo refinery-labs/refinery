@@ -73,13 +73,14 @@ import {
   blockTypeToDefaultStateMapping,
   blockTypeToImageLookup
 } from '@/constants/project-editor-constants';
-import EditBlockPaneModule, { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
+import EditBlockPaneModule, { EditBlockActions, EditBlockGetters } from '@/store/modules/panes/edit-block-pane';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
 import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
 import { teardownProject } from '@/store/fetchers/api-helpers';
+import generateStupidName from '@/lib/silly-names';
 
 interface AddBlockArguments {
   rawBlockType: string;
@@ -241,8 +242,13 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // There are no valid transitions available
       return [];
     },
-    [ProjectViewGetters.canSaveProject]: state =>
-      state.hasProjectBeenModified && !state.isProjectBusy && !state.isAddingTransitionCurrently,
+    [ProjectViewGetters.canSaveProject]: (state, getters, rootState, rootGetters) => {
+      const editedBlockIsValid = rootGetters[`project/editBlockPane/${EditBlockGetters.isEditedBlockValid}`];
+
+      return (
+        state.hasProjectBeenModified && !state.isProjectBusy && !state.isAddingTransitionCurrently && editedBlockIsValid
+      );
+    },
     [ProjectViewGetters.canDeployProject]: state =>
       !state.hasProjectBeenModified &&
       !state.isProjectBusy &&
@@ -254,6 +260,16 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const isTransitionStateDirty = state.editTransitionPanel && getters['editTransitionPane/isStateDirty'];
 
       return isBlockStateDirty || isTransitionStateDirty;
+    },
+    [ProjectViewGetters.exportProjectJson]: state => {
+      if (!state.openedProject) {
+        return '';
+      }
+
+      // We ignore project_id because we just don't want it in the JSON
+      const { project_id, workflow_states, workflow_relationships, ...rest } = state.openedProject;
+
+      return JSON.stringify(rest, null, '  ');
     }
   },
   mutations: {
@@ -1055,9 +1071,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       const newBlock: WorkflowState = {
-        ...blockTypeToDefaultStateMapping[blockType],
+        ...blockTypeToDefaultStateMapping[blockType](),
         id: uuid(),
-        // TODO: Make this use a friendly human name
         name: newBlockName,
         type: blockType
       };

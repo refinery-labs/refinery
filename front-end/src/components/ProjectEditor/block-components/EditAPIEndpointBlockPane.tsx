@@ -19,6 +19,9 @@ export class EditAPIEndpointBlock extends Vue {
   @editBlock.Mutation setHTTPMethod!: (http_method: HTTP_METHOD) => void;
   @editBlock.Mutation setHTTPPath!: (api_path: string) => void;
 
+  @editBlock.Getter collidingApiEndpointBlocks!: ApiEndpointWorkflowState[] | null;
+  @editBlock.Getter isApiEndpointPathValid!: boolean;
+
   public renderApiEndpointInformation() {
     // Only render for deployed blocks
     if (!this.readOnly) {
@@ -30,7 +33,7 @@ export class EditAPIEndpointBlock extends Vue {
     return (
       <b-form-group description="View the link above to access your API Endpoint.">
         <label class="d-block">Endpoint URI:</label>
-        <a class="text-align--center display--block" href={productionState.url} target="_blank">
+        <a class="text-align--center display--inline-block" href={productionState.url} target="_blank">
           {productionState.url}
         </a>
       </b-form-group>
@@ -84,6 +87,9 @@ export class EditAPIEndpointBlock extends Vue {
         <small class="form-text text-muted">
           The path to your API Endpoint, e.g: <code>/api/v1/example</code>.
         </small>
+        <b-form-invalid-feedback state={this.isApiEndpointPathValid}>
+          HTTP Path must contain only letters, numbers, and forward slashes (/).
+        </b-form-invalid-feedback>
       </b-form-group>
     );
   }
@@ -96,6 +102,15 @@ export class EditAPIEndpointBlock extends Vue {
         {this.renderApiEndpointInformation()}
         {this.renderHTTPMethodInput()}
         {this.renderHTTPPathInput()}
+
+        <b-form-invalid-feedback
+          state={this.collidingApiEndpointBlocks && this.collidingApiEndpointBlocks.length === 0}
+        >
+          Error: HTTP Path and Method collision with the following blocks:
+          <br />
+          <ul>{this.collidingApiEndpointBlocks && this.collidingApiEndpointBlocks.map(w => <li>{w.name}</li>)}</ul>
+          You must change this block's configuration before you may save changes.
+        </b-form-invalid-feedback>
       </div>
     );
   }
