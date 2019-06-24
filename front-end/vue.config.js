@@ -1,7 +1,6 @@
 module.exports = {
   lintOnSave: false,
-  // Uncomment once the CDN stuff is finished
-  // publicPath: process.env.NODE_ENV === 'production' ? 'https://d3asw1bke2pwdg.cloudfront.net/' : '/',
+  publicPath: process.env.NODE_ENV === 'production' ? 'https://d3asw1bke2pwdg.cloudfront.net/' : '/',
   integrity: true,
   css: {
     loaderOptions: {
