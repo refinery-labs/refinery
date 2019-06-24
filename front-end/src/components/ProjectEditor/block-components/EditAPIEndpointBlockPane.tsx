@@ -33,9 +33,11 @@ export class EditAPIEndpointBlock extends Vue {
     return (
       <b-form-group description="View the link above to access your API Endpoint.">
         <label class="d-block">Endpoint URI:</label>
-        <a class="text-align--center display--inline-block" href={productionState.url} target="_blank">
-          {productionState.url}
-        </a>
+        <div class="text-align--center display--inline-block">
+          <a href={productionState.url} target="_blank">
+            {productionState.url}
+          </a>
+        </div>
       </b-form-group>
     );
   }
