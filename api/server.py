@@ -1396,29 +1396,6 @@ class TaskSpawner(object):
 					}
 				),
 			)
-
-		@run_on_executor
-		def send_internal_registration_confirmation_email( self, customer_email_address, customer_name, customer_phone ):
-			TaskSpawner._send_email(
-				os.environ.get( "internal_signup_notification_email" ),
-				"Refinery User Signup, " + customer_email_address,
-				pystache.render(
-					EMAIL_TEMPLATES[ "internal_registration_notification_text" ],
-					{
-						"customer_email_address": customer_email_address,
-						"customer_name": customer_name,
-						"customer_phone": customer_phone
-					}
-				),
-				pystache.render(
-					EMAIL_TEMPLATES[ "internal_registration_notification" ],
-					{
-						"customer_email_address": customer_email_address,
-						"customer_name": customer_name,
-						"customer_phone": customer_phone
-					}
-				),
-			)
 	
 		@run_on_executor
 		def send_authentication_email( self, email_address, auth_token ):
@@ -4541,7 +4518,8 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		)
 	elif language == "python2.7":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:3"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:3"
+			"arn:aws:lambda:us-west-2:532121572788:layer:test:25"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
@@ -6843,13 +6821,6 @@ class NewRegistration( BaseHandler ):
 				"msg": "Registration was successful! Please check your inbox to validate your email address and to log in."
 			}
 		})
-
-		# This is sent internally so that we can keep tabs on new users coming through.
-		local_tasks.send_internal_registration_confirmation_email(
-			self.json[ "email" ],
-			self.json[ "name" ],
-			self.json[ "phone" ]
-		)
 		
 class EmailLinkAuthentication( BaseHandler ):
 	@gen.coroutine
