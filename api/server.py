@@ -6827,7 +6827,7 @@ class NewRegistration( BaseHandler ):
 		})
 
 		# This is sent internally so that we can keep tabs on new users coming through.
-		yield local_tasks.send_internal_registration_confirmation_email(
+		local_tasks.send_internal_registration_confirmation_email(
 			self.json[ "email" ],
 			self.json[ "name" ],
 			self.json[ "phone" ]
