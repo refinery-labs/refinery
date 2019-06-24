@@ -31,7 +31,7 @@ module.exports = {
       runtimeCaching: [
         {
           urlPattern: new RegExp('.(?:css|js|)$', 'i'),
-          handler: 'networkFirst'
+          handler: 'cacheFirst'
         },
         {
           urlPattern: new RegExp('.(?:png|gif|jpg|jpeg|svg)$', 'i'),

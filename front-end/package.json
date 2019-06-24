@@ -7,7 +7,7 @@
     "build": "vue-cli-service build",
     "lint": "vue-cli-service lint",
     "deploy": "vue-cli-service s3-deploy --mode production",
-    "build-and-copy": "npm run build && cp -r /work/front-end/dist/* /work/output && npm run deploy",
+    "build-and-copy": "npm run build && ./replace-service-worker-paths.sh && cp -r /work/front-end/dist/index.html /work/output/index.html && npm run deploy",
     "lint-fix": "vue-cli-service lint --fix",
     "modernizr": "modernizr -c modernizr-config.json -d node_modules/modernizr/modernizr.custom.js",
     "postinstall": "mkdir tmp-build; npm run modernizr",
