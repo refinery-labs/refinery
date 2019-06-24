@@ -189,7 +189,7 @@ const UserModule: Module<UserState, RootState> = {
 
         const parent = document.querySelector('.card-body');
         parent && parent.appendChild(video);
-        await timeout(15000);
+        await timeout(5000);
       }
 
       context.commit(UserMutators.setIsBusyStatus, true);
