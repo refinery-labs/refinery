@@ -285,7 +285,7 @@ export default class RegistrationPage extends Vue {
           <a slot="header" class="mb-0 text-center" href="/">
             <img
               class="block-center rounded logo-fit"
-              src="/img/logo.png"
+              src={require('../../../public/img/logo.png')}
               alt="The World's First Drag-and-Drop Serverless IDE!"
             />
           </a>

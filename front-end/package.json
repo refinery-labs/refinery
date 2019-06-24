@@ -5,8 +5,9 @@
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "build-and-copy": "npm run build && cp -r /work/front-end/dist/* /work/output",
     "lint": "vue-cli-service lint",
+    "deploy": "vue-cli-service s3-deploy --mode production",
+    "build-and-copy": "npm run build && ./build/replace-service-worker-paths.sh && ./build/copy-assets-from-dist-to-output-volume.sh && npm run deploy",
     "lint-fix": "vue-cli-service lint --fix",
     "modernizr": "modernizr -c modernizr-config.json -d node_modules/modernizr/modernizr.custom.js",
     "postinstall": "mkdir tmp-build; npm run modernizr",
@@ -75,6 +76,7 @@
     "sass-loader": "^7.1.0",
     "ts-jest": "^23.0.0",
     "typescript": "^3.2.1",
+    "vue-cli-plugin-s3-deploy": "^3.0.0",
     "vue-template-compiler": "^2.5.21"
   },
   "husky": {

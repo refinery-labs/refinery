@@ -49,7 +49,7 @@ async function guardLoggedIn(to: Route, from: Route, next: Function) {
 
 const router = new Router({
   mode: 'history',
-  base: process.env.BASE_URL,
+  base: '/',
   routes: [
     {
       path: '/login',

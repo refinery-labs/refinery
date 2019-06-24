@@ -1,5 +1,7 @@
 module.exports = {
   lintOnSave: false,
+  publicPath: process.env.NODE_ENV === 'production' ? 'https://d3asw1bke2pwdg.cloudfront.net/' : '/',
+  // integrity: true,
   css: {
     loaderOptions: {
       // pass options to sass-loader
@@ -28,8 +30,12 @@ module.exports = {
       skipWaiting: true,
       runtimeCaching: [
         {
+          urlPattern: new RegExp('^https://app.refinery.io/api', 'i'),
+          handler: 'networkOnly'
+        },
+        {
           urlPattern: new RegExp('.(?:css|js|)$', 'i'),
-          handler: 'networkFirst'
+          handler: 'cacheFirst'
         },
         {
           urlPattern: new RegExp('.(?:png|gif|jpg|jpeg|svg)$', 'i'),
@@ -47,6 +53,27 @@ module.exports = {
           }
         }
       ]
+    }
+  },
+  pluginOptions: {
+    s3Deploy: {
+      awsProfile: 'default',
+      region: 'us-east-1',
+      bucket: 'app.refinery.io',
+      pwa: true,
+      pwaFiles: 'index.html,service-worker.js,manifest.json',
+      uploadConcurrency: 5,
+      registry: undefined,
+      createBucket: false,
+      staticHosting: true,
+      staticIndexPage: 'index.html',
+      staticErrorPage: 'error.html',
+      assetPath: 'dist',
+      assetMatch: '**',
+      deployPath: '/',
+      acl: 'public-read',
+      enableCloudfront: false,
+      pluginVersion: '3.0.0'
     }
   }
 };

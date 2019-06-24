@@ -97,7 +97,7 @@ export default (router, closeSidebar) => {
     subNav.find('a').on('click.subnav', function(e) {
       e.preventDefault();
       let href = $(this).attr('href');
-      if (process.env.BASE_URL) href = href.replace(process.env.BASE_URL, '');
+      // if (process.env.BASE_URL) href = href.replace(process.env.BASE_URL, '');
       router.push(href);
     });
     subNav.addClass('nav-floating').css({
