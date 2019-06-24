@@ -4273,6 +4273,9 @@ class RunLambda( BaseHandler ):
 				"input_data": {},
 				"arn": {
 					"type": "string",
+				},
+				"execution_id": {
+					"type": "string",
 				}
 			},
 			"required": [
@@ -4293,18 +4296,23 @@ class RunLambda( BaseHandler ):
 		except:
 			pass
 		
+		lambda_input_data = {
+			"_refinery": {
+				"throw_exceptions_fully": True,
+				"input_data": self.json[ "input_data" ]
+			}
+		}
+		
+		if "execution_id" in self.json and self.json[ "execution_id" ]:
+			lambda_input_data[ "_refinery" ][ "execution_id" ] = str( self.json[ "execution_id" ] )
+		
 		logit( "Executing Lambda..." )
 		lambda_result = yield local_tasks.execute_aws_lambda(
 			self.get_authenticated_user_cloud_configuration(),
 			self.json[ "arn" ],
-			{
-				"_refinery": {
-					"throw_exceptions_fully": True,
-					"input_data": self.json[ "input_data" ]
-				}
-			}
+			lambda_input_data
 		)
-
+		
 		self.write({
 			"success": True,
 			"result": lambda_result
