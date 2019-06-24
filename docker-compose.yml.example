@@ -80,6 +80,8 @@ services:
             mailgun_api_key: REPLACE_ME
             # The send from email
             from_email: reply-for-help@mail.refinery.io
+            # Place where to receive signup emails
+            internal_signup_notification_email: REPLACE_ME_PROBABLY_SOMETHING_LIKE_whoami@refinerylabs.io
         ports:
             - "80:1234"
         volumes:
