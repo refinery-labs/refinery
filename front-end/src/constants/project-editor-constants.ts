@@ -312,7 +312,9 @@ export const CODE_BLOCK_DEFAULT_STATE = {
   memory: 768,
   libraries: [],
   layers: [],
-  max_execution_time: 120,
+  // Changing this to max allowed time by default because
+  // that's likely what people would prefer
+  max_execution_time: 900,
   type: WorkflowStateType.LAMBDA
 };
 
