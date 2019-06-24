@@ -30,6 +30,10 @@ module.exports = {
       skipWaiting: true,
       runtimeCaching: [
         {
+          urlPattern: new RegExp('^https://app.refinery.io/api', 'i'),
+          handler: 'networkOnly'
+        },
+        {
           urlPattern: new RegExp('.(?:css|js|)$', 'i'),
           handler: 'cacheFirst'
         },
