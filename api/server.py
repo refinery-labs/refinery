@@ -3160,6 +3160,14 @@ class TaskSpawner(object):
 			
 		@run_on_executor
 		def add_rule_target( self, credentials, rule_name, target_id, target_arn, input_string ):
+			# Automatically parse JSON
+			try:
+				input_string = json.loads(
+					input_string
+				)
+			except:
+				pass
+			
 			events_client = get_aws_client(
 				"events",
 				credentials,
@@ -3173,7 +3181,9 @@ class TaskSpawner(object):
 			targets_data =	 {
 				"Id": target_id,
 				"Arn": target_arn,
-				"Input": input_string
+				"Input": json.dumps(
+					input_string
+				)
 			}
 			
 			rule_creation_response = events_client.put_targets(
