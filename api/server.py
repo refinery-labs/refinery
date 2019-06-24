@@ -1400,7 +1400,7 @@ class TaskSpawner(object):
 		@run_on_executor
 		def send_internal_registration_confirmation_email( self, customer_email_address, customer_name, customer_phone ):
 			TaskSpawner._send_email(
-				"signup-notifications@refinerylabs.io",
+				os.environ.get( "internal_signup_notification_email" ),
 				"Refinery User Signup, " + customer_email_address,
 				pystache.render(
 					EMAIL_TEMPLATES[ "internal_registration_notification_text" ],
