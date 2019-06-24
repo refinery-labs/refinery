@@ -565,6 +565,9 @@ def _parallel_invoke( invoke_queue ):
 
 	# Publishes to redis to be picked up by a polling API Gateway Lambda
 	def api_gateway_response( execution_id, arn, input_data ):
+		if input_data == False:
+			input_data = "<FIX_REDIS_FALSE_BOOL_PASSING_ISSUE>"
+		
 		# Store with expiration in redis
 		gmemory.redis_client.setex(
 			execution_id,
@@ -735,14 +738,21 @@ def _api_endpoint( lambda_input, execution_id, context ):
 		except AlreadyInvokedException as e:
 			http_response = False
 
-		# When we have a non-None http_response we can
+		# When we have a non-False http_response we can
 		# break out of the loop and declare we've not timed out.
-		if http_response:
+		if http_response != False:
 			timed_out = False
 			break
 
 		# Wait a moment before checking again
 		time.sleep( 0.01 )
+		
+	# If it matches our magic value, replace the response
+	# with "False" instead. This is to get around an issue with
+	# the Python redis library using "False" as a "not found" default
+	# value. So this is how we distinguish the difference.
+	if http_response == "<FIX_REDIS_FALSE_BOOL_PASSING_ISSUE>":
+		http_response = False
 
 	# We've timed out, return an error
 	if timed_out:
