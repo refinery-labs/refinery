@@ -164,7 +164,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     editBlockPane: EditBlockPaneModule,
     editTransitionPanel: EditTransitionPaneModule
   },
-  state: moduleState,
+  state: deepJSONCopy(moduleState),
   getters: {
     [ProjectViewGetters.transitionAddButtonEnabled]: state => {
       if (!state.availableTransitions) {
@@ -273,6 +273,13 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     }
   },
   mutations: {
+    [ProjectViewMutators.resetState](state) {
+      // TODO: Turn this into a helper function.
+      Object.keys(moduleState).forEach(key => {
+        // @ts-ignore
+        state[key] = deepJSONCopy(moduleState[key]);
+      });
+    },
     [ProjectViewMutators.setOpenedProject](state, project: RefineryProject) {
       state.openedProject = project;
     },

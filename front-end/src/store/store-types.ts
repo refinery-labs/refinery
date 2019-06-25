@@ -191,9 +191,17 @@ export interface AllProjectsState {
   deleteProjectId: string | null;
   deleteProjectName: string | null;
 
-  newProjectInput: string;
-  newProjectInputValid: boolean | null;
+  newProjectInput: string | null;
   newProjectErrorMessage: string | null;
+  newProjectBusy: boolean;
+
+  uploadProjectInput: string | null;
+  uploadProjectErrorMessage: string | null;
+  uploadProjectBusy: boolean;
+
+  importProjectInput: string | null;
+  importProjectErrorMessage: string | null;
+  importProjectBusy: boolean;
 }
 
 export interface DeploymentViewState {

@@ -32,20 +32,32 @@ export default class ExportProjectPane extends Vue {
   }
 
   public render(h: CreateElement): VNode {
+    if (!this.openedProject) {
+      return <span>Please open project!</span>;
+    }
+
     const formClasses = {
-      'mb-3 mt-3 text-align--left export-project-container': true
+      'mb-3 mt-3 export-project-container': true
     };
 
     return (
       <div class={formClasses}>
-        <div class="export-project-container__content overflow--scroll-y-auto display--flex">
+        <div class="export-project-container__content overflow--scroll-y-auto display--flex text-align--left">
           {this.renderCodeEditor()}
         </div>
-        <div class="row export-project-container__bottom-buttons">
+        <div class="row export-project-container__bottom-buttons justify-content-center">
           <b-button-group class="col-12">
-            {/*This is hacky to make this close itself but meh we can fix it later*/}
-            <b-button variant="secondary" class="col-12" on={{ click: () => this.closePane(PANE_POSITION.left) }}>
-              Close
+            <b-button
+              variant="primary"
+              class="col-12"
+              target="_blank"
+              href={`data:text/json;charset=utf-8,${encodeURIComponent(this.exportProjectJson)}`}
+              download={`${this.openedProject.name
+                .toLowerCase()
+                .split(' ')
+                .join('-')}.json`}
+            >
+              Download as JSON
             </b-button>
           </b-button-group>
         </div>

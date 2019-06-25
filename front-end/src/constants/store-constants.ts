@@ -8,8 +8,16 @@ export enum AllProjectsMutators {
   setDeleteProjectName = 'setDeleteProjectName',
 
   setNewProjectInput = 'setNewProjectInput',
-  setNewProjectInputValid = 'setNewProjectInputValid',
-  setNewProjectErrorMessage = 'setNewProjectErrorMessage'
+  setNewProjectErrorMessage = 'setNewProjectErrorMessage',
+  setNewProjectBusy = 'setNewProjectBusy',
+
+  setUploadProjectInput = 'setUploadProjectInput',
+  setUploadProjectErrorMessage = 'setUploadProjectErrorMessage',
+  setUploadProjectBusy = 'setUploadProjectBusy',
+
+  setImportProjectInput = 'setImportProjectInput',
+  setImportProjectErrorMessage = 'setImportProjectErrorMessage',
+  setImportProjectBusy = 'setImportProjectBusy'
 }
 
 export enum ProjectViewGetters {
@@ -25,6 +33,8 @@ export enum ProjectViewGetters {
 }
 
 export enum ProjectViewMutators {
+  resetState = 'resetState',
+
   setOpenedProject = 'setOpenedProject',
   setOpenedProjectConfig = 'setOpenedProjectConfig',
   setOpenedProjectOriginal = 'setOpenedProjectOriginal',

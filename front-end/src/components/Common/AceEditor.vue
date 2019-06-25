@@ -33,6 +33,9 @@ export default Vue.component('AceEditor', {
     },
     disabled(disabled_boolean) {
       this.editor.setReadOnly(disabled_boolean);
+      if (disabled_boolean) {
+        this.editor.renderer.$cursorLayer.element.style.display = 'none';
+      }
     }
   },
   mounted() {
@@ -58,6 +61,9 @@ export default Vue.component('AceEditor', {
     this.editor.setTheme(`ace/theme/${theme}`);
 
     this.editor.setReadOnly(disabled);
+    if (disabled) {
+      this.editor.renderer.$cursorLayer.element.style.display = 'none';
+    }
 
     this.editor.getSession().setUseWrapMode(wrapText);
 

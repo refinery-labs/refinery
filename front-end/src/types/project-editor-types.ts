@@ -62,6 +62,7 @@ export interface FormProps {
   name: string;
   type?: string;
   readonly: boolean;
+  disabled: boolean;
   value: any;
   on: { change: Function };
 }
