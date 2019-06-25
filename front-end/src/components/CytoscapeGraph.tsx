@@ -1,13 +1,16 @@
 import { CreateElement, VNode } from 'vue';
 import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 import cytoscape, { EdgeDefinition, EventObject, LayoutOptions, NodeDefinition } from 'cytoscape';
+import cyCanvas, { CytoscapeCanvasInstance } from '../lib/cytoscape-canvas';
 import dagre from 'cytoscape-dagre';
 import deepEqual from 'fast-deep-equal';
-import { CyElements, CyStyle, WorkflowRelationship, WorkflowState } from '@/types/graph';
+import { WorkflowRelationship, WorkflowState } from '@/types/graph';
 import { animationBegin, animationEnd, baseCytoscapeStyles, STYLE_CLASSES } from '@/lib/cytoscape-styles';
 import { timeout } from '@/utils/async-utils';
+import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
 
 cytoscape.use(dagre);
+cyCanvas(cytoscape);
 
 function areCytoResourcesTheSame(a: NodeDefinition | EdgeDefinition, b: NodeDefinition | EdgeDefinition): boolean {
   const aKeys = Object.keys(a);
@@ -74,24 +77,25 @@ function areCytoGraphsTheSame(val: CyElements, oldVal: CyElements) {
 }
 
 @Component
-export default class CytoscapeGraph extends Vue {
+export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
   cy!: cytoscape.Core;
   playAnimation!: boolean;
   isLayoutRunning!: boolean;
   currentAnimationGroupNonce!: number;
 
-  @Prop({ required: true }) private elements!: CyElements;
-  @Prop() private layout!: LayoutOptions;
-  @Prop({ required: true }) private stylesheet!: CyStyle;
+  @Prop({ required: true }) public elements!: CyElements;
+  @Prop() public layout!: LayoutOptions | null;
+  @Prop({ required: true }) public stylesheet!: CyStyle;
 
-  @Prop({ required: true }) private clearSelection!: () => {};
-  @Prop({ required: true }) private selectNode!: (element: WorkflowState) => {};
-  @Prop({ required: true }) private selectEdge!: (element: WorkflowRelationship) => {};
-  @Prop() private selected!: string;
-  @Prop() private enabledNodeIds!: string[];
+  @Prop({ required: true }) public clearSelection!: () => {};
+  @Prop({ required: true }) public selectNode!: (element: WorkflowState) => {};
+  @Prop({ required: true }) public selectEdge!: (element: WorkflowRelationship) => {};
+  @Prop() public selected!: string | null;
+  @Prop() public enabledNodeIds!: string[] | null;
+  @Prop() public backgroundGrid!: boolean;
 
   // This is a catch-all for any additional options that need to be specified
-  @Prop({ default: () => {} }) private config!: cytoscape.CytoscapeOptions;
+  @Prop({ default: () => {} }) public config!: cytoscape.CytoscapeOptions | null;
 
   public cytoscapeValueModified() {
     if (!this.cy) {
@@ -264,7 +268,7 @@ export default class CytoscapeGraph extends Vue {
    * in Cytoscape, as one might regularly.
    * @param nodeId The ID of the node that we want to render as "selected". Can be an edge or node.
    */
-  private selectNodeOrEdgeInInstance(nodeId: string) {
+  private selectNodeOrEdgeInInstance(nodeId: string | null) {
     // We don't have a valid selector, so just deselect everything (unless it is a number)
     if (typeof nodeId !== 'number' && !nodeId) {
       this.cy.elements().removeClass(STYLE_CLASSES.SELECTED);
@@ -381,6 +385,34 @@ export default class CytoscapeGraph extends Vue {
     });
   }
 
+  public setupCanvasBackground(cy: cytoscape.Core) {
+    // @ts-ignore
+    const getLayer: (args?: any) => CytoscapeCanvasInstance = args => cy.cyCanvas(args);
+
+    const bottomLayer = getLayer({
+      zIndex: -1
+    });
+    const canvas = bottomLayer.getCanvas();
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      return;
+    }
+
+    // Draw a background
+    cy.on('render cyCanvas.resize', evt => {
+      if (!this.backgroundGrid) {
+        return;
+      }
+
+      bottomLayer.resetTransform(ctx);
+      bottomLayer.clear(ctx);
+      bottomLayer.setTransform(ctx);
+
+      bottomLayer.drawGrid(ctx);
+    });
+  }
+
   public mounted() {
     if (!this.$refs.container) {
       return null;
@@ -397,6 +429,8 @@ export default class CytoscapeGraph extends Vue {
 
     // Re-select the node on the graph
     this.selectNodeOrEdgeInInstance(this.selected);
+
+    this.setupCanvasBackground(this.cy);
 
     this.$forceUpdate();
   }
