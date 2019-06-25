@@ -50,7 +50,7 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
 
     const aceProps = {
       editorId: `${this.name}-${this.randId}`,
-      theme: this.theme || 'monokai',
+      theme: this.theme || this.readOnly ? 'monokai-disabled' : 'monokai',
       lang: editorLanguage,
       disabled: this.readOnly,
       content: this.content,

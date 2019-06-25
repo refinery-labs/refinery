@@ -52,26 +52,43 @@ $padding-steps: (
   tiny: 2px,
   small: 4px,
   normal: 8px,
+  normal-small: 12px,
   big: 16px,
   huge: 32px
 );
 
 @mixin padding-generator($sides, $steps) {
-  @each $side in $sides {
-    @each $step, $size in $steps {
+  @each $step, $size in $steps {
+    @each $side in $sides {
       &-#{$side}--#{$step} {
         padding-#{$side}: $size;
       }
+    }
+    &--#{$step} {
+      padding: $size;
     }
   }
 }
 
 .padding {
   @include padding-generator($padding-sides, $padding-steps);
+}
 
-  &--none {
-    padding: 0;
+@mixin margin-generator($sides, $steps) {
+  @each $step, $size in $steps {
+    @each $side in $sides {
+      &-#{$side}--#{$step} {
+        margin-#{$side}: $size;
+      }
+    }
+    &--#{$step} {
+      margin: $size;
+    }
   }
+}
+
+.margin {
+  @include margin-generator($padding-sides, $padding-steps);
 }
 
 .flex {

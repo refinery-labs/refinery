@@ -13,6 +13,8 @@ import {
   GetProjectExecutionsResponse,
   InfraTearDownRequest,
   InfraTearDownResponse,
+  SaveProjectRequest,
+  SaveProjectResponse,
   StartLibraryBuildRequest,
   StartLibraryBuildResponse
 } from '@/types/api-types';
@@ -22,6 +24,8 @@ import { ProductionExecution, ProductionExecutionResponse } from '@/types/deploy
 import { convertExecutionResponseToProjectExecutions } from '@/utils/project-execution-utils';
 import { SupportedLanguage, WorkflowState } from '@/types/graph';
 import { ProductionWorkflowState } from '@/types/production-workflow-types';
+import { DEFAULT_PROJECT_CONFIG } from '@/constants/project-editor-constants';
+import { AllProjectsMutators } from '@/constants/store-constants';
 
 export interface libraryBuildArguments {
   language: SupportedLanguage;
@@ -167,4 +171,16 @@ export async function checkLoginStatus() {
   }
 
   return response;
+}
+export async function importProject(json: string) {
+  return await makeApiRequest<SaveProjectRequest, SaveProjectResponse>(API_ENDPOINT.SaveProject, {
+    version: false,
+    project_id: false,
+    diagram_data: json,
+    config: JSON.stringify(DEFAULT_PROJECT_CONFIG)
+  });
+}
+
+export async function createProject(name: string) {
+  return await importProject(JSON.stringify({ name }));
 }

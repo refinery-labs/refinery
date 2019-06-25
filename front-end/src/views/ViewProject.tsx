@@ -6,7 +6,7 @@ import { GetLatestProjectDeploymentResponse, GetSavedProjectRequest } from '@/ty
 import { Route } from 'vue-router';
 import CreateToastMixin from '@/mixins/CreateToastMixin';
 import store from '@/store/index';
-import { ProjectViewActions } from '@/constants/store-constants';
+import { DeploymentViewMutators, ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
 
 const project = namespace('project');
 
@@ -34,6 +34,9 @@ export default class ViewProject extends mixins(CreateToastMixin) {
       this.displayErrorToast('Unable to Navigate', 'Please save the current project or resource before continuing.');
       return;
     }
+
+    store.commit(`project/${ProjectViewMutators.resetState}`);
+    store.commit(`deployment/${DeploymentViewMutators.resetState}`);
     next();
   }
 

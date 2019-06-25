@@ -338,6 +338,8 @@ export interface SaveProjectRequest extends BaseApiRequest {
 export interface SaveProjectResponse extends BaseApiResponse {
   project_version: number;
   project_id: string;
+  code?: string;
+  msg?: string;
 }
 
 // SaveProjectConfig

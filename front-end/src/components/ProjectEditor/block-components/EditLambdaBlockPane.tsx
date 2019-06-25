@@ -160,6 +160,7 @@ export class EditLambdaBlock extends Vue {
             min={inputProps.min}
             step={inputProps.step}
             readonly={inputProps.readOnly}
+            disabled={inputProps.disabled}
             value={inputProps.value}
             {...inputProps}
           />
@@ -189,6 +190,7 @@ export class EditLambdaBlock extends Vue {
             id={`block-language-${selectedNode.id}`}
             value={this.selectedNode.language}
             readonly={this.readOnly}
+            disabled={this.readOnly}
             on={{ input: changeCodeLanguage }}
             options={Object.values(SupportedLanguage)}
           />
@@ -310,6 +312,7 @@ export class EditLambdaBlock extends Vue {
               required={true}
               placeholder="Enter your library name"
               readonly={this.readOnly}
+              disabled={this.readOnly}
               value={enteredLibrary}
               on={{ input: setEnteredLibrary }}
             />
@@ -396,6 +399,7 @@ export class EditLambdaBlock extends Vue {
 
       type: 'number',
       readonly: this.readOnly,
+      disabled: this.readOnly,
       value: this.selectedNode.max_execution_time.toString(),
       on: { change: setMaxExecutionTime }
     };
@@ -411,6 +415,7 @@ export class EditLambdaBlock extends Vue {
       min: 128,
       step: 64,
       readonly: this.readOnly,
+      disabled: this.readOnly,
       value: this.selectedNode.memory.toString(),
       on: { change: setExecutionMemory }
     };

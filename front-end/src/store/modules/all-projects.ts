@@ -18,6 +18,11 @@ import {
 import router from '@/router';
 import { DEFAULT_PROJECT_CONFIG } from '@/constants/project-editor-constants';
 import { RefineryProject } from '@/types/graph';
+import { createProject } from '@/store/fetchers/api-helpers';
+import { viewProject } from '@/utils/router-utils';
+import { createNewProjectFromConfig } from '@/utils/new-project-utils';
+import { readFileAsText } from '@/utils/dom-utils';
+import { unwrapJson } from '@/utils/project-helpers';
 
 const moduleState: AllProjectsState = {
   availableProjects: [],
@@ -28,14 +33,31 @@ const moduleState: AllProjectsState = {
   deleteProjectId: null,
   deleteProjectName: null,
 
-  newProjectInput: '',
-  newProjectInputValid: null,
-  newProjectErrorMessage: null
+  newProjectInput: null,
+  newProjectErrorMessage: null,
+  newProjectBusy: false,
+
+  uploadProjectInput: null,
+  uploadProjectErrorMessage: null,
+  uploadProjectBusy: false,
+
+  importProjectInput: null,
+  importProjectErrorMessage: null,
+  importProjectBusy: false
 };
+
+export enum AllProjectsGetters {
+  newProjectInputValid = 'newProjectInputValid',
+  uploadProjectInputValid = 'uploadProjectInputValid',
+  importProjectInputValid = 'importProjectInputValid'
+}
 
 export enum AllProjectsActions {
   performSearch = 'performSearch',
   createProject = 'createProject',
+  uploadProject = 'uploadProject',
+  getUploadFileContents = 'getUploadFileContents',
+  importProject = 'importProject',
   startDeleteProject = 'startDeleteProject',
   deleteProject = 'deleteProject'
 }
@@ -43,7 +65,13 @@ export enum AllProjectsActions {
 const AllProjectsModule: Module<AllProjectsState, RootState> = {
   namespaced: true,
   state: moduleState,
-  getters: {},
+  getters: {
+    [AllProjectsGetters.newProjectInputValid]: state => state.newProjectInput !== '',
+    [AllProjectsGetters.uploadProjectInputValid]: state =>
+      state.uploadProjectInput !== '' && unwrapJson(state.uploadProjectInput) !== null,
+    [AllProjectsGetters.importProjectInputValid]: state =>
+      state.importProjectInput !== '' && unwrapJson(state.importProjectInput) !== null
+  },
   mutations: {
     [AllProjectsMutators.setSearchingStatus](state, isSearching) {
       state.isSearching = isSearching;
@@ -66,14 +94,33 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
     },
 
     [AllProjectsMutators.setNewProjectInput](state, text) {
-      state.newProjectInputValid = true;
       state.newProjectInput = text;
-    },
-    [AllProjectsMutators.setNewProjectInputValid](state, val) {
-      state.newProjectInputValid = val;
     },
     [AllProjectsMutators.setNewProjectErrorMessage](state, val) {
       state.newProjectErrorMessage = val;
+    },
+    [AllProjectsMutators.setNewProjectBusy](state, val) {
+      state.newProjectBusy = val;
+    },
+
+    [AllProjectsMutators.setUploadProjectInput](state, text) {
+      state.uploadProjectInput = text;
+    },
+    [AllProjectsMutators.setUploadProjectErrorMessage](state, val) {
+      state.uploadProjectErrorMessage = val;
+    },
+    [AllProjectsMutators.setUploadProjectBusy](state, val) {
+      state.uploadProjectBusy = val;
+    },
+
+    [AllProjectsMutators.setImportProjectInput](state, text) {
+      state.importProjectInput = text;
+    },
+    [AllProjectsMutators.setImportProjectErrorMessage](state, val) {
+      state.importProjectErrorMessage = val;
+    },
+    [AllProjectsMutators.setImportProjectBusy](state, val) {
+      state.importProjectBusy = val;
     }
   },
   actions: {
@@ -98,37 +145,65 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
       context.commit(AllProjectsMutators.setSearchingStatus, false);
     },
     async [AllProjectsActions.createProject](context) {
-      if (context.state.newProjectInput === '') {
-        context.commit(AllProjectsMutators.setNewProjectInputValid, false);
+      if (!context.getters[AllProjectsGetters.newProjectInputValid] || context.state.newProjectInput === null) {
         return;
       }
 
-      context.commit(AllProjectsMutators.setNewProjectInputValid, true);
-      context.commit(AllProjectsMutators.setSearchingStatus, true);
+      await createNewProjectFromConfig({
+        setStatus: status => context.commit(AllProjectsMutators.setNewProjectBusy, status),
+        setError: (message: string | null) => context.commit(AllProjectsMutators.setNewProjectErrorMessage, message),
+        unknownError: 'Error creating project!',
+        navigateToNewProject: true,
+        name: context.state.newProjectInput
+      });
 
+      // Reset if we didn't hit any errors
+      if (!context.state.newProjectErrorMessage) {
+        context.commit(AllProjectsMutators.setNewProjectInput, null);
+      }
+    },
+    async [AllProjectsActions.uploadProject](context) {
+      if (!context.getters[AllProjectsGetters.uploadProjectInputValid] || context.state.uploadProjectInput === null) {
+        return;
+      }
+
+      await createNewProjectFromConfig({
+        setStatus: status => context.commit(AllProjectsMutators.setUploadProjectBusy, status),
+        setError: (message: string | null) => context.commit(AllProjectsMutators.setUploadProjectErrorMessage, message),
+        unknownError: 'Error uploading project!',
+        navigateToNewProject: true,
+        json: context.state.uploadProjectInput
+      });
+
+      // Reset if we didn't hit any errors
+      if (!context.state.uploadProjectErrorMessage) {
+        context.commit(AllProjectsMutators.setUploadProjectInput, null);
+      }
+    },
+    async [AllProjectsActions.importProject](context) {
+      if (!context.getters[AllProjectsGetters.importProjectInputValid] || context.state.importProjectInput === null) {
+        return;
+      }
+
+      await createNewProjectFromConfig({
+        setStatus: status => context.commit(AllProjectsMutators.setImportProjectBusy, status),
+        setError: (message: string | null) => context.commit(AllProjectsMutators.setImportProjectErrorMessage, message),
+        unknownError: 'Error importing project!',
+        navigateToNewProject: true,
+        json: context.state.importProjectInput
+      });
+
+      // Reset if we didn't hit any errors
+      if (!context.state.importProjectErrorMessage) {
+        context.commit(AllProjectsMutators.setImportProjectInput, null);
+      }
+    },
+    async [AllProjectsActions.getUploadFileContents](context, e: Event) {
       try {
-        const response = await makeApiRequest<SaveProjectRequest, SaveProjectResponse>(API_ENDPOINT.SaveProject, {
-          version: false,
-          project_id: false,
-          diagram_data: JSON.stringify({ name: context.state.newProjectInput }),
-          config: JSON.stringify(DEFAULT_PROJECT_CONFIG)
-        });
-
-        context.commit(AllProjectsMutators.setSearchingStatus, false);
-
-        if (!response || !response.success) {
-          context.commit(AllProjectsMutators.setNewProjectErrorMessage, 'Error creating project!');
-          return;
-        }
-
-        router.push({
-          name: 'project',
-          params: {
-            projectId: response.project_id
-          }
-        });
+        const fileContents = await readFileAsText(e);
+        context.commit(AllProjectsMutators.setUploadProjectInput, fileContents);
       } catch (e) {
-        context.commit(AllProjectsMutators.setNewProjectErrorMessage, 'Error creating project!');
+        context.commit(AllProjectsMutators.setUploadProjectErrorMessage, 'Unable to read file.');
       }
     },
     [AllProjectsActions.startDeleteProject](context, project: SearchSavedProjectsResult) {
