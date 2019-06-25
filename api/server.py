@@ -1396,7 +1396,7 @@ class TaskSpawner(object):
 					}
 				),
 			)
-
+			
 		@run_on_executor
 		def send_internal_registration_confirmation_email( self, customer_email_address, customer_name, customer_phone ):
 			TaskSpawner._send_email(
@@ -4529,19 +4529,19 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:3"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:4"
 		)
 	elif language == "php7.3":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:3"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:4"
 		)
 	elif language == "go1.12":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:3"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:4"
 		)
 	elif language == "python2.7":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:3"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:4"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
@@ -6843,7 +6843,7 @@ class NewRegistration( BaseHandler ):
 				"msg": "Registration was successful! Please check your inbox to validate your email address and to log in."
 			}
 		})
-
+		
 		# This is sent internally so that we can keep tabs on new users coming through.
 		local_tasks.send_internal_registration_confirmation_email(
 			self.json[ "email" ],

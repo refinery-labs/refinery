@@ -564,7 +564,7 @@ def _parallel_invoke( invoke_queue ):
 		raise SystemExit
 
 	# Publishes to redis to be picked up by a polling API Gateway Lambda
-	def api_gateway_response( execution_id, arn, input_data ):
+	def api_gateway_response( execution_id, input_data ):
 		if input_data == False:
 			input_data = "<FIX_REDIS_FALSE_BOOL_PASSING_ISSUE>"
 		
@@ -648,7 +648,6 @@ def _parallel_invoke( invoke_queue ):
 				target=api_gateway_response,
 				args=(
 					new_invoke_data[ "execution_id" ],
-					new_invoke_data[ "arn" ],
 					new_invoke_data[ "input_data" ]
 				)
 			)
@@ -926,6 +925,14 @@ def _pprint( input_dict ):
 		print( json.dumps( input_dict, sort_keys=True, indent=4, separators=( ",", ": " ) ) )
 	except:
 		print( input_dict )
+		
+def _transition_type_in_transitions( transitions, transition_type ):
+	if "then" in transitions and type( transitions[ "then" ] ) == list:
+		for transition in transitions[ "then" ]:
+			if "type" in transition and transition[ "type" ] == transition_type:
+				return True
+			
+	return False
 
 def _init( custom_runtime, request_id, lambda_input, context ):
 	start_time = time.time()
@@ -1035,7 +1042,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 						lambda_input[ "_refinery" ][ "indirect" ][ "key" ]
 					)
 				except AlreadyInvokedException as e:
-					print( "This Lambda has already been invoked (or the return data has expired). For this reason we are quitting out." )
+					print( "This Lambda has already been invoked (or the return data has expired). For this reason we are quitting out (indirect return data)." )
 					return
 				_side_loaded = True
 			# Input data is stored in redis as a list from a fan-in
@@ -1045,7 +1052,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 						lambda_input[ "_refinery" ][ "indirect" ][ "key" ]
 					)
 				except AlreadyInvokedException as e:
-					print( "This Lambda has already been invoked (or the return data has expired). For this reason we are quitting out." )
+					print( "This Lambda has already been invoked (or the return data has expired). For this reason we are quitting out (direct return data)." )
 					return
 				_side_loaded = True
 
@@ -1159,6 +1166,8 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 				exception_string = ""
 
 			_stop_clock( "Executing Lambda" )
+			
+			invocation_input_list = []
 
 			# Invoke all Lambdas to be run when an exception occurs
 			if len( transitions[ "exception" ] ) > 0:
@@ -1178,7 +1187,6 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 						execution_details
 					)
 
-				invocation_input_list = []
 				for exception_transition_data in transitions[ "exception" ]:
 					invocation_input_list.append({
 						"execution_id": execution_id,
@@ -1195,44 +1203,55 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 							)
 						}
 					})
-
-				# If there's an exception we should stop after invoking the exception case(s).
-				_parallel_invoke( invocation_input_list )
-
-				# Write error to stderr for logging
-				sys.stderr.write( error_output )
-				sys.stderr.flush()
+			elif execution_pipeline_logging_level == "LOG_ERRORS" or execution_pipeline_logging_level == "LOG_ALL":
+				_write_pipeline_logs(
+					s3_log_bucket,
+					execution_pipeline_id,
+					context.invoked_function_arn,
+					context.function_name,
+					execution_id,
+					"EXCEPTION",
+					{
+						"input_data": lambda_input,
+						"output": error_output,
+						"exception": exception_string,
+					},
+					execution_details
+				)
+			
+			# If we've got an API Gateway response coming up we'll write an error
+			# to it so that it's more obvious what's happening.
+			if _transition_type_in_transitions( transitions, "api_gateway_response" ):
+				invocation_input_list.append({
+					"execution_id": execution_id,
+					"type": "api_gateway_response",
+					"input_data": {
+						"success": False,
+						"msg": "An exception occurred while computing the response to the request. Please see the block execution logs for more information."
+					}
+				})
+				
+			# If there's an exception we should stop after invoking the exception case(s).
+			_parallel_invoke( invocation_input_list )
+			
+			# Write error to stderr for logging
+			sys.stderr.write( error_output )
+			sys.stderr.flush()
+			
+			# We only want to do this if we've been asked to fully throw exceptions
+			if throw_exceptions_fully:
 				custom_runtime.send_error(
 					request_id,
 					"", # Just blank output for errors
 				)
 				return
-			else:
-				if execution_pipeline_logging_level == "LOG_ERRORS" or execution_pipeline_logging_level == "LOG_ALL":
-					_write_pipeline_logs(
-						s3_log_bucket,
-						execution_pipeline_id,
-						context.invoked_function_arn,
-						context.function_name,
-						execution_id,
-						"EXCEPTION",
-						{
-							"input_data": lambda_input,
-							"output": error_output,
-							"exception": exception_string,
-						},
-						execution_details
-					)
-
-				# Write error to stderr for logging
-				sys.stderr.write( error_output )
-				sys.stderr.flush()
-				custom_runtime.send_error(
-					request_id,
-					"", # Just blank output for errors
-				)
-				return
-
+			
+			custom_runtime.send_response(
+				request_id,
+				""
+			)
+			return
+		
 		# Attempt to convert return_data into an actual
 		# object if it's JSON
 		try:
@@ -1257,9 +1276,9 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 				"Error, tried to fan-out without returning a list, returned type " + str( type( return_data ) )
 			)
 			sys.stderr.flush()
-			custom_runtime.send_error(
+			custom_runtime.send_response(
 				request_id,
-				"", # Just blank output for errors
+				"" # Just blank output for errors
 			)
 			return
 
