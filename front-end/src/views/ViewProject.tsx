@@ -51,6 +51,7 @@ export default class ViewProject extends mixins(CreateToastMixin) {
       'graph-visibility': true,
       'graph-visibility--hidden': hideGraph,
 
+      'graph-with-grid': true,
       'flex-grow--1': true,
       'display--flex': true
     };

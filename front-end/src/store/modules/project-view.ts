@@ -7,8 +7,6 @@ import {
   RootState
 } from '@/store/store-types';
 import {
-  CyElements,
-  CyStyle,
   LambdaWorkflowState,
   ProjectConfig,
   ProjectLogLevel,
@@ -81,6 +79,7 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
 import { teardownProject } from '@/store/fetchers/api-helpers';
 import generateStupidName from '@/lib/silly-names';
+import { CyElements, CyStyle } from '@/types/cytoscape-types';
 
 interface AddBlockArguments {
   rawBlockType: string;

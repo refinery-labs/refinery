@@ -1,11 +1,4 @@
-import {
-  CyElements,
-  CyStyle,
-  ProjectConfig,
-  RefineryProject,
-  WorkflowRelationshipType,
-  WorkflowState
-} from '@/types/graph';
+import { ProjectConfig, RefineryProject, WorkflowRelationshipType, WorkflowState } from '@/types/graph';
 import { LayoutOptions } from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
 import {
@@ -24,6 +17,7 @@ import { ToastPaneState } from '@/store/modules/toasts';
 import { ViewBlockPaneState } from '@/store/modules/panes/view-block-pane';
 import { EditTransitionPaneState } from '@/store/modules/panes/edit-transition-pane';
 import { DeploymentExecutionsPaneState } from '@/store/modules/panes/deployment-executions-pane';
+import { CyElements, CyStyle } from '@/types/cytoscape-types';
 
 export interface RootState {
   setting: UserInterfaceState;

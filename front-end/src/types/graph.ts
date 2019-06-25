@@ -1,4 +1,3 @@
-import { ElementDefinition, ElementsDefinition, Stylesheet } from 'cytoscape';
 import { HTTP_METHOD } from '@/constants/api-constants';
 
 export interface BaseRefineryResource {
@@ -102,7 +101,4 @@ export interface ProjectEnvironmentVariable {
   value: string;
 }
 
-export type CyElements = ElementsDefinition;
-
-// Let's just not support promises in our API style. If we need it we'll figure it out
-export type CyStyle = Stylesheet[]; // | Promise<Stylesheet[]>;
+// | Promise<Stylesheet[]>;

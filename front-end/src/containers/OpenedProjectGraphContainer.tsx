@@ -2,9 +2,10 @@ import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import CytoscapeGraph from '@/components/CytoscapeGraph';
 import { namespace } from 'vuex-class';
-import { CyElements, CyStyle, RefineryProject, WorkflowRelationship, WorkflowState } from '@/types/graph';
+import { RefineryProject, WorkflowRelationship, WorkflowState } from '@/types/graph';
 import { LayoutOptions } from 'cytoscape';
 import { AvailableTransition } from '@/store/store-types';
+import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
 
 const project = namespace('project');
 
@@ -45,7 +46,7 @@ export default class OpenedProjectGraphContainer extends Vue {
     }
 
     // By holding these in the stores, we can compare pointers because the data is "immutable".
-    const graphProps = {
+    const graphProps: CytoscapeGraphProps = {
       clearSelection: this.clearSelection,
       selectNode: this.selectNode,
       selectEdge: this.selectEdge,
@@ -54,7 +55,8 @@ export default class OpenedProjectGraphContainer extends Vue {
       layout: this.cytoscapeLayoutOptions,
       config: this.cytoscapeConfig,
       selected: this.selectedResource,
-      enabledNodeIds: this.getEnabledNodeIds()
+      enabledNodeIds: this.getEnabledNodeIds(),
+      backgroundGrid: true
     };
 
     return (

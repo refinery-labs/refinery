@@ -1,6 +1,5 @@
 import { Module } from 'vuex';
 import { DeploymentViewState, RootState } from '@/store/store-types';
-import { CyElements, CyStyle } from '@/types/graph';
 import { generateCytoscapeElements, generateCytoscapeStyle } from '@/lib/refinery-to-cytoscript-converter';
 import { LayoutOptions } from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
@@ -30,6 +29,7 @@ import {
 } from '@/store/modules/panes/deployment-executions-pane';
 import { teardownProject } from '@/store/fetchers/api-helpers';
 import { deepJSONCopy } from '@/lib/general-utils';
+import { CyElements, CyStyle } from '@/types/cytoscape-types';
 
 const moduleState: DeploymentViewState = {
   openedDeployment: null,
