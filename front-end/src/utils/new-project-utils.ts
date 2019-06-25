@@ -119,7 +119,6 @@ function reassignProjectIds(project: RefineryProject): RefineryProject {
     workflow_states: newStates
   };
 }
-
 export function remapImportedProjectJsonProperties(json: string, generateNewName: boolean) {
   const project = unwrapJson<RefineryProject>(json);
 

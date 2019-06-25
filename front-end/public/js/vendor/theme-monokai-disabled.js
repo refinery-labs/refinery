@@ -1,8 +1,12 @@
-ace.define("ace/theme/monokai-disabled",["require","exports","module","ace/lib/dom"], function(require, exports, module) {
-
-exports.isDark = true;
-exports.cssClass = "ace-monokai";
-exports.cssText = ".ace-monokai .ace_gutter {\
+ace.define('ace/theme/monokai-disabled', ['require', 'exports', 'module', 'ace/lib/dom'], function(
+  require,
+  exports,
+  module
+) {
+  exports.isDark = true;
+  exports.cssClass = 'ace-monokai';
+  exports.cssText =
+    '.ace-monokai .ace_gutter {\
 background: #2F3129;\
 color: #8F908A\
 }\
@@ -92,15 +96,15 @@ color: #75715E\
 }\
 .ace-monokai .ace_indent-guide {\
 background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAACCAYAAACZgbYnAAAAEklEQVQImWPQ0FD0ZXBzd/wPAAjVAoxeSgNeAAAAAElFTkSuQmCC) right repeat-y\
-}";
+}';
 
-var dom = require("../lib/dom");
-dom.importCssString(exports.cssText, exports.cssClass);
-});                (function() {
-                    ace.require(["ace/theme/monokai-disabled"], function(m) {
-                        if (typeof module == "object" && typeof exports == "object" && module) {
-                            module.exports = m;
-                        }
-                    });
-                })();
-            
+  var dom = require('../lib/dom');
+  dom.importCssString(exports.cssText, exports.cssClass);
+});
+(function() {
+  ace.require(['ace/theme/monokai-disabled'], function(m) {
+    if (typeof module == 'object' && typeof exports == 'object' && module) {
+      module.exports = m;
+    }
+  });
+})();

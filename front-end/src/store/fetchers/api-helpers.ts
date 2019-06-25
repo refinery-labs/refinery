@@ -172,7 +172,6 @@ export async function checkLoginStatus() {
 
   return response;
 }
-
 export async function importProject(json: string) {
   return await makeApiRequest<SaveProjectRequest, SaveProjectResponse>(API_ENDPOINT.SaveProject, {
     version: false,

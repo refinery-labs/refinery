@@ -103,10 +103,8 @@ export default class Search extends Vue {
       </ul>
     );
   }
-
   public renderCreateProjectCard() {
     const createProjectErrorMessage = this.newProjectErrorMessage || 'Must provide name for new project!';
-
     return (
       <b-card class="card-default" header="Create New Project">
         <b-form on={{ submit: preventDefaultWrapper(this.createProject) }}>
@@ -176,7 +174,6 @@ export default class Search extends Vue {
 
   public renderImportProjectCard() {
     const importProjectErrorMessage = this.importProjectErrorMessage || 'Invalid JSON supplied.';
-
     const state = this.importProjectInput !== null ? this.importProjectInputValid : null;
 
     return (
