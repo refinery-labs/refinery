@@ -35,7 +35,14 @@ module.exports = {
         },
         {
           urlPattern: new RegExp('.(?:css|js|)$', 'i'),
-          handler: 'cacheFirst'
+          handler: 'networkFirst',
+          options: {
+            networkTimeoutSeconds: 30,
+            cacheName: 'app',
+            expiration: {
+              maxAgeSeconds: 60 * 60 * 6
+            }
+          }
         },
         {
           urlPattern: new RegExp('.(?:png|gif|jpg|jpeg|svg)$', 'i'),
@@ -45,7 +52,7 @@ module.exports = {
           urlPattern: new RegExp('^https://app.refinery.io/', 'i'),
           handler: 'networkFirst',
           options: {
-            networkTimeoutSeconds: 10,
+            networkTimeoutSeconds: 30,
             cacheName: 'app',
             expiration: {
               maxAgeSeconds: 60 * 60 * 24
