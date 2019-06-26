@@ -154,8 +154,7 @@ export default class RunLambda extends Vue {
     );
 
     const colClasses = {
-      'run-lambda-container__col text-align--left': true,
-      'run-lambda-container__modal': !isInSidepane
+      'run-lambda-container__col text-align--left col-md-6': true
     };
 
     return (
@@ -187,7 +186,7 @@ export default class RunLambda extends Vue {
     };
 
     const inputDataEditor = (
-      <div class="run-lambda-container__col">
+      <div class="run-lambda-container__col col-md-6">
         <div class="display--flex text-align--left">
           <label class={inputDataLabelClasses}>Block Input Data</label>
           {this.renderFullscreenButton()}
@@ -205,7 +204,7 @@ export default class RunLambda extends Vue {
 
     // Row layout
     return (
-      <div class="display--flex flex-direction--row flex-grow--1">
+      <div class="display--flex flex-direction--row flex-grow--1 row">
         {inputDataEditor}
         {outputDataEditor}
       </div>
