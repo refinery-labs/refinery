@@ -56,7 +56,7 @@ The following information is provided about `Code Block` execution:
 
 * `Time`: The time the `Code Block` executed.
 * `Status`: This is the execution status of the selected `Code Block`. For example, this would be `Success` if the block executed successfully or `Uncaught Exception` if an uncaught exception occurred.
-* `Input Data`: This is the data that was passed to the `Code Block` from a previous block. For example, if the previous `Code Block` returned `[1,2,3,4]` and transitioned to the current block its input data would be `[1,2,3,4]`.
+* `Block Input Data`: This is the data that was passed to the `Code Block` from a previous block. For example, if the previous `Code Block` returned `[1,2,3,4]` and transitioned to the current block its Block Input Data would be `[1,2,3,4]`.
 * `Execution Output`: The execution output is all of the output your `Code Block` produced during its execution. This includes statements intentionally printed or logged as well as full stack-traces when errors occur.
 * `Return Data`: The data returned from the selected `Code Block`. If the currently-selected `Code Block` returned the string `"example"`, this would be shown in the return data section.
 
@@ -69,7 +69,7 @@ Additionally you can view read-only information about the deployed `Code Block` 
 	<source src="/debugging/images/replay-input-in-editor.mp4" type="video/mp4" />
 </video>
 
-Refinery allows you to very easily reproduce errors encountered in deployed `Code Blocks` due to the fact that it can log the full input data passed to the block at execution time. You can reproduce the bug and fix the problem by copying the `Input Data` and pasting it into the `Input Data` field when running the same block in the `Editor` tab.
+Refinery allows you to very easily reproduce errors encountered in deployed `Code Blocks` due to the fact that it can log the full Block Input Data passed to the block at execution time. You can reproduce the bug and fix the problem by copying the `Block Input Data` and pasting it into the `Block Input Data` field when running the same block in the `Editor` tab.
 
 ## Execution Pipeline Grouping
 

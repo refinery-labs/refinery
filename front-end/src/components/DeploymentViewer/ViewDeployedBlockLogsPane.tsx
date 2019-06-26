@@ -98,7 +98,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
     return (
       <div class="display--flex flex-direction--column">
         {this.renderExecutionLabels(this.getSelectedExecutionForNode)}
-        {this.renderCodeEditor('Input Data', 'input-data', formatDataForAce(executionData.input_data), true)}
+        {this.renderCodeEditor('Block Input Data', 'input-data', formatDataForAce(executionData.input_data), true)}
         {this.renderCodeEditor('Execution Output', 'output', executionData.output || '', false)}
         {this.renderCodeEditor('Return Data', 'return-data', formatDataForAce(executionData.return_data), true)}
         {/*{this.renderLogLinks()}*/}

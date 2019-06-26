@@ -66,6 +66,7 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
   public render(h: CreateElement): VNode {
     const containerClasses = {
       'refinery-code-editor-container width--100percent flex-grow--1 display--flex': true,
+      'refinery-code-editor-container--read-only': this.readOnly,
       [this.extraClasses || '']: Boolean(this.extraClasses)
     };
 

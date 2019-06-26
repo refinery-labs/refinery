@@ -290,8 +290,6 @@ $content-sidebar-width: 92px;
 
   &__code-editor {
     height: 240px;
-    margin-bottom: 16px;
-    border-bottom: 1px dashed #eee;
 
     &--small {
       height: 180px;
@@ -361,6 +359,11 @@ $content-sidebar-width: 92px;
   min-height: 180px;
   margin-bottom: 16px;
   padding-bottom: 8px;
+  &--read-only {
+    .ace_scroller {
+      cursor: auto;
+    }
+  }
 }
 
 .ace-hack {

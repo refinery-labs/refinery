@@ -16,6 +16,33 @@ export class BlockNameInput extends Vue {
 
   @editBlock.Mutation setBlockName!: (name: string) => void;
 
+  public getDescription(isEditor: boolean) {
+    if (!isEditor) {
+      return null;
+    }
+
+    return blockNameText;
+  }
+
+  public renderReadOnlyName(selectedNode: WorkflowState) {
+    return <h4>{selectedNode.name}</h4>;
+  }
+
+  public renderEditableName(selectedNode: WorkflowState) {
+    return (
+      <div class="input-group with-focus">
+        <b-form-input
+          id={`block-name-${selectedNode.id}`}
+          type="text"
+          required
+          value={selectedNode.name}
+          on={{ input: this.setBlockName }}
+          placeholder="My Amazing Block"
+        />
+      </div>
+    );
+  }
+
   public render() {
     if (!this.selectedNode) {
       return null;
@@ -23,24 +50,15 @@ export class BlockNameInput extends Vue {
 
     const selectedNode = this.selectedNode;
 
-    const setBlockName = this.readOnly ? nopWrite : this.setBlockName;
+    const isEditor = !this.readOnly;
 
     return (
-      <b-form-group id={`block-name-group-${selectedNode.id}`} description={blockNameText}>
-        <label class="d-block" htmlFor={`block-name-${selectedNode.id}`}>
-          Block Name:
+      <b-form-group id={`block-name-group-${selectedNode.id}`} description={this.getDescription(isEditor)}>
+        <label class="d-block" htmlFor={isEditor && `block-name-${selectedNode.id}`}>
+          {this.readOnly ? 'Deployed ' : null}Block Name:
         </label>
-        <div class="input-group with-focus">
-          <b-form-input
-            id={`block-name-${selectedNode.id}`}
-            type="text"
-            required
-            readonly={this.readOnly}
-            value={selectedNode.name}
-            on={{ input: setBlockName }}
-            placeholder="My Amazing Block"
-          />
-        </div>
+
+        {this.readOnly ? this.renderReadOnlyName(selectedNode) : this.renderEditableName(selectedNode)}
       </b-form-group>
     );
   }

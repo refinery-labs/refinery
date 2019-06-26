@@ -125,11 +125,13 @@ export class EditLambdaBlock extends Vue {
       click: () => setCodeModalVisibility(true)
     };
 
+    const descriptionText = this.readOnly ? null : codeEditorText;
+
     return (
-      <b-form-group id={`code-editor-group-${selectedNode.id}`} description={codeEditorText}>
+      <b-form-group id={`code-editor-group-${selectedNode.id}`} description={descriptionText}>
         <div class="display--flex">
           <label class="d-block flex-grow--1 padding-top--normal" htmlFor={`code-editor-${selectedNode.id}`}>
-            Edit Block Code:
+            {this.readOnly ? 'View' : 'Edit'} Block Code:
           </label>
           <b-button on={fullscreenOnClick} class="show-block-container__expand-button">
             <span class="fa fa-expand" />
@@ -362,7 +364,7 @@ export class EditLambdaBlock extends Vue {
           href={this.getAwsConsoleUri}
           on={{ click: preventDefaultWrapper(this.openAwsConsoleForBlock) }}
         >
-          Inspect Lambda Instance
+          Inspect Block Instance
         </b-button>
         <b-button
           variant="dark"
@@ -378,7 +380,7 @@ export class EditLambdaBlock extends Vue {
           href={this.getLambdaCloudWatchUri}
           on={{ click: preventDefaultWrapper(this.openAwsCloudwatchForCodeBlock) }}
         >
-          Lambda History Monitor
+          Block History Monitor
         </b-button>
       </b-form-group>
     );
@@ -419,6 +421,22 @@ export class EditLambdaBlock extends Vue {
       value: this.selectedNode.memory.toString(),
       on: { change: setExecutionMemory }
     };
+
+    // Fork the display for read-only/deployment view to make the UX more clear for what pane the user is in.
+    if (this.readOnly) {
+      return (
+        <div>
+          <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#code-block' }} />
+          <BlockNameInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
+          {this.renderAwsLink()}
+          {this.renderCodeEditorContainer()}
+          {this.renderLanguageSelector()}
+          {this.renderForm(this.selectedNode, maxExecutionTimeProps)}
+          {this.renderForm(this.selectedNode, maxMemoryProps)}
+          {this.renderCodeEditorModal()}
+        </div>
+      );
+    }
 
     return (
       <div>
