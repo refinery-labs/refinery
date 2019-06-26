@@ -24,7 +24,7 @@ Generally speaking, `Code Blocks` make up the "meat" of a Refinery project. They
 
 ### Input & Output
 
-`Code Blocks` can be connected to one another in order to make more complex services. A given `Code Block` can return some data at the end of the script which will be passed as input data to any block connected to it.
+`Code Blocks` can be connected to one another in order to make more complex services. A given `Code Block` can return some data at the end of the script which will be passed as Block Input Data to any block connected to it.
 
 For example, say we have two blocks: `Code Block A` and `Code Block B`. Say that `Code Block A` has the following code:
 
@@ -70,7 +70,7 @@ You also may have noticed that `Code Block A` and `Code Block B` are written in 
 	<source src="/blocks/images/running-code-block-fullscreen.mp4" type="video/mp4" />
 </video>
 
-You can also use the full screen editor to test and iterate on your scripts. The full screen editor allows for specifying custom input data to your script as well. This is useful for replaying issues you've encountered in your deployed service. By taking the input data from the logs and replaying it in the editor you can quickly reproduce problems and fix them accordingly.
+You can also use the full screen editor to test and iterate on your scripts. The full screen editor allows for specifying custom Block Input Data to your script as well. This is useful for replaying issues you've encountered in your deployed service. By taking the Block Input Data from the logs and replaying it in the editor you can quickly reproduce problems and fix them accordingly.
 
 * `Block Imported Libraries`: The libraries that should be pulled in for your `Code Block` script. Each language has support for it's own package-manager.
 	* `Python 2.7`: [`pip` packages.](https://pypi.org/)
@@ -100,13 +100,13 @@ Executes the `Code Blocks` which are linked to the `Timer Block` at a set interv
 ### Settings
 * `Block Name`: The name of the `Timer Block`
 * `Schedule Expression`: An expression which defines how often the trigger should fire the connected `Code Blocks`. This follows the [AWS CloudWatch expression formats which are described here.](https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/ScheduledEvents.html) Valid values include `rate(1 minute)` and `cron(*/2 * * * ? *)`.
-* `Input Data`: JSON-serializable data which can be optionally passed as input to the connected `Code Blocks` when the `Timer Block` fires.
+* `Block Input Data`: JSON-serializable data which can be optionally passed as input to the connected `Code Blocks` when the `Timer Block` fires.
 
 ## Topic Block
 
 Execute `Code Blocks` which are linked to it with the contents of the published topic. `Topic Blocks` are useful for situations where you want to execute multiple `Code Blocks` at the same time with the same input. This is often referred to as a ["pub-sub" pattern](https://en.wikipedia.org/wiki/Publish%E2%80%93subscribe_pattern). In contrast to the `Queue Block`, for example, an `Topic Block` has no concept of retries, queueing or polling.
 
-As an example, if you passed some input data of `[1,2,3,4,5]` to a `Topic Block` and the block was connected to three `Code Blocks`, every connected `Code Block` would be executed in parallel with the input of `[1,2,3,4,5]`.
+As an example, if you passed some Block Input Data of `[1,2,3,4,5]` to a `Topic Block` and the block was connected to three `Code Blocks`, every connected `Code Block` would be executed in parallel with the input of `[1,2,3,4,5]`.
 
 ### Settings
 * `Name`: The name of the `Topic Block`

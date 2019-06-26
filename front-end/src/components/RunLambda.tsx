@@ -189,7 +189,7 @@ export default class RunLambda extends Vue {
     const inputDataEditor = (
       <div class="run-lambda-container__col">
         <div class="display--flex text-align--left">
-          <label class={inputDataLabelClasses}> Input Data</label>
+          <label class={inputDataLabelClasses}>Block Input Data</label>
           {this.renderFullscreenButton()}
         </div>
         <RefineryCodeEditor props={inputDataEditorProps} />
