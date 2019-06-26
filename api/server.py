@@ -2117,9 +2117,26 @@ class TaskSpawner(object):
 				response[ "LogResult" ]
 			)
 			
-			# Will be filled with parsed lines
+			# Strip the Lambda stuff from the output
 			if "START RequestId:" in log_output:
 				log_lines = log_output.split( "\n" )
+				returned_log_lines = []
+				
+				for log_line in log_lines:
+					if log_line.startswith( "START RequestId: " ):
+						continue
+					
+					if log_line.startswith( "END RequestId: " ):
+						continue
+					
+					if log_line.startswith( "REPORT RequestId: " ):
+						continue
+					
+					returned_log_lines.append(
+						log_line
+					)
+					
+				log_output = "\n".join( returned_log_lines )
 				
 			# Mark truncated if logs are not complete
 			truncated = True
