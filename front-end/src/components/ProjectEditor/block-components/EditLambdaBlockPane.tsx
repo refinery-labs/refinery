@@ -89,7 +89,7 @@ export class EditLambdaBlock extends Vue {
         title={nameString}
         visible={showCodeModal}
       >
-        <div class="text-center display--flex flex-direction--column code-modal-editor-container">
+        <div class="text-center display--flex flex-direction--column code-modal-editor-container overflow--scroll-y-auto overflow--hidden-x">
           <div class="width--100percent flex-grow--1 display--flex">{this.renderCodeEditor()}</div>
           <div class="width--100percent">
             <RunLambdaContainer props={{ displayMode: RunLambdaDisplayMode.fullscreen }} />
