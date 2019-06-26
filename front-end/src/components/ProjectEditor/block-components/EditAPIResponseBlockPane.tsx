@@ -15,8 +15,8 @@ export class EditAPIResponseBlock extends Vue {
           props={{ docLink: 'https://docs.refinery.io/blocks/#api-response-block', offsetButton: false }}
         />
         <p>
-          An API response is a block which will cause the data returned from the preceding linked Lambda to be sent as
-          an HTTP response (encoded as JSON).
+          An API response is a block which will cause the data returned from the preceding linked Code Block to be sent
+          as an HTTP response (encoded as JSON).
         </p>
         <p>
           Some important points to note:

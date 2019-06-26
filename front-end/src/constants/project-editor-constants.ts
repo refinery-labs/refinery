@@ -49,7 +49,7 @@ export const blockTypeToImageLookup: BlockTypeConfig = {
     path: require('../../public/img/node-icons/api-gateway.png'),
     name: 'API Endpoint Block',
     description:
-      'Creates a web endpoint and passes web request data to the connected Lambda Block. ' +
+      'Creates a web endpoint and passes web request data to the connected Code Block. ' +
       'Must be used with an API Response block to return a web response.'
   },
   [WorkflowStateType.API_GATEWAY]: {
@@ -61,7 +61,7 @@ export const blockTypeToImageLookup: BlockTypeConfig = {
     path: require('../../public/img/node-icons/api-gateway.png'),
     name: 'API Endpoint Response Block',
     description:
-      'Returns the output from a Lambda Block to the web request started by the API Endpoint block. ' +
+      'Returns the output from a Code Block to the web request started by the API Endpoint block. ' +
       'Must be downstream from an API Endpoint block, ' +
       'responses which take over 29 seconds will time out the API Endpoint response.'
   },
@@ -83,21 +83,21 @@ export const blockTypeToImageLookup: BlockTypeConfig = {
     path: require('../../public/img/node-icons/sns-topic.png'),
     name: 'Topic Block',
     description:
-      'Concurrently executes all Lambda Blocks connected to it and passes the input to the connected ' +
-      'blocks. For example, take some input data and then immediately execute three Lambda blocks with that input.'
+      'Concurrently executes all Code Blocks connected to it and passes the input to the connected ' +
+      'blocks. For example, take some input data and then immediately execute three Code blocks with that input.'
   },
   [WorkflowStateType.SQS_QUEUE]: {
     path: require('../../public/img/node-icons/sqs_queue.png'),
     name: 'Queue Block',
     description:
-      'Takes input items to process and sends them to the connected Lambda Block. ' +
-      'This block will automatically increase concurrent executions of the connected Lambda Block until ' +
+      'Takes input items to process and sends them to the connected Code Block. ' +
+      'This block will automatically increase concurrent executions of the connected Code Block until ' +
       'either the concurrency ceiling is hit or the queue empties.'
   }
   // saved_lambda: {
   //   path: require('../../public/img/node-icons/code-icon.png'),
   //   name: 'Saved Code Block',
-  //   description: 'Adds a previously-saved Lambda block to the workflow.'
+  //   description: 'Adds a previously-saved Code block to the workflow.'
   // }
 };
 
@@ -260,11 +260,11 @@ export type DefaultCodeFromLanguage = { [key in SupportedLanguage]: string };
 
 export const DEFAULT_LANGUAGE_CODE: DefaultCodeFromLanguage = {
   [SupportedLanguage.PYTHON_2]: `
-def main( lambda_input, context ):
+def main( block_input, context ):
     return False
 `,
   [SupportedLanguage.NODEJS_8]: `
-async function main( lambda_input, context ) {
+async function main( block_input, context ) {
 	return false;
 }
 `,
@@ -272,7 +272,7 @@ async function main( lambda_input, context ) {
 <?php
 // Uncomment if you specified libraries
 // require __DIR__ . "/vendor/autoload.php";
-function main( $lambda_input, $context ) {
+function main( $block_input, $context ) {
 	return false;
 }
 `,
@@ -384,7 +384,7 @@ export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
 };
 
 export const blockNameText = 'Name of the block.';
-export const returnDataText = 'Data returned from the Lambda.';
+export const returnDataText = 'Data returned from the Code.';
 export const languagesText = 'Language of code block.';
 export const importLibsText = 'Dependencies for the code.';
 export const codeEditorText = 'Code to be executed by the block.';
