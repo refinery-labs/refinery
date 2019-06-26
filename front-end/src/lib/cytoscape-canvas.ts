@@ -93,8 +93,8 @@ const register = function(cytoscape: (extensionName: string, foo: string, bar: a
       },
       drawGrid(ctx: CanvasRenderingContext2D) {
         const pan = cy.pan();
-        const width = cy.width();
-        const height = cy.height();
+        const width = cy.width() * pixelRatio;
+        const height = cy.height() * pixelRatio;
         const zoom = cy.zoom() * pixelRatio;
 
         const panX = pan.x * pixelRatio;

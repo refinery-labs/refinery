@@ -11,7 +11,6 @@ import {
   WorkflowStateType
 } from '@/types/graph';
 import { getNodeDataById, getTransitionsForNode } from '@/utils/project-helpers';
-import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { PANE_POSITION } from '@/types/project-editor-types';
@@ -334,12 +333,6 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
 
       // Set the "original" to the new block.
       context.commit(EditBlockMutators.setSelectedNodeOriginal, context.state.selectedNode);
-
-      await createToast(context.dispatch, {
-        title: 'Block saved!',
-        content: `Successfully saved changes to block with name: ${context.state.selectedNode.name}`,
-        variant: ToastVariant.success
-      });
     },
     async [EditBlockActions.deleteBlock](context) {
       const projectStore = context.rootState.project;
@@ -371,12 +364,6 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
 
       await context.dispatch(`project/${ProjectViewActions.deleteExistingBlock}`, context.state.selectedNode, {
         root: true
-      });
-
-      await createToast(context.dispatch, {
-        title: 'Block deleted!',
-        content: `Successfully deleted block with name: ${context.state.selectedNode.name}`,
-        variant: ToastVariant.success
       });
 
       // We need to close the pane and reset the state

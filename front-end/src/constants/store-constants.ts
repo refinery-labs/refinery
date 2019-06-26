@@ -27,6 +27,10 @@ export enum ProjectViewGetters {
   canSaveProject = 'canSaveProject',
   canDeployProject = 'canDeployProject',
   hasCodeBlockSelected = 'hasCodeBlockSelected',
+
+  selectedBlockDirty = 'selectedBlockDirty',
+
+  selectedTransitionDirty = 'selectedTransitionDirty',
   selectedResourceDirty = 'selectedResourceDirty',
   getValidEditMenuDisplayTransitionTypes = 'getValidEditMenuDisplayTransitionTypes',
   exportProjectJson = 'exportProjectJson'
