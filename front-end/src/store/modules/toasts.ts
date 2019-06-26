@@ -30,7 +30,7 @@ const ToastPaneModule: Module<ToastPaneState, RootState> = {
   getters: {},
   mutations: {
     [ToastMutators.addToast](state, toast: ToastConfig) {
-      state.activeToasts = [toast, ...state.activeToasts];
+      state.activeToasts = [...state.activeToasts, toast];
     },
     [ToastMutators.removeToast](state, toast: ToastConfig) {
       state.activeToasts = state.activeToasts.filter(t => t.id !== toast.id);

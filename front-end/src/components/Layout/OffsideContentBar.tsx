@@ -64,6 +64,12 @@ export default class OffsideContentBar extends Vue {
   }
 
   render() {
+    const toasts = [];
+
+    for (let i = this.activeToasts.length - 1; i >= 0; i--) {
+      toasts.push(this.renderNotification(this.activeToasts[i]));
+    }
+
     return (
       <aside class="offsidebar d-none" ref="sidebarElement">
         <b-tabs nav-class="nav-justified">
@@ -74,7 +80,7 @@ export default class OffsideContentBar extends Vue {
             <h3 class="text-center text-thin mt-4">Notifications</h3>
 
             {this.renderEmptyNotifications()}
-            {this.activeToasts.map(t => this.renderNotification(t))}
+            {toasts}
           </b-tab>
           <b-tab title="second">
             <template slot="title">

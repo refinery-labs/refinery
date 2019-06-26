@@ -244,22 +244,30 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     [ProjectViewGetters.canSaveProject]: (state, getters, rootState, rootGetters) => {
       const editedBlockIsValid = rootGetters[`project/editBlockPane/${EditBlockGetters.isEditedBlockValid}`];
 
-      return (
-        state.hasProjectBeenModified && !state.isProjectBusy && !state.isAddingTransitionCurrently && editedBlockIsValid
-      );
+      const isEditorStateValid = !state.isProjectBusy && !state.isAddingTransitionCurrently && editedBlockIsValid;
+
+      if (!isEditorStateValid) {
+        return false;
+      }
+
+      // If the block is dirty, we will save it + then save the project.
+      if (rootGetters[`project/editBlockPane/${EditBlockGetters.isStateDirty}`]) {
+        return true;
+      }
+
+      return state.hasProjectBeenModified;
     },
     [ProjectViewGetters.canDeployProject]: state =>
       !state.hasProjectBeenModified &&
       !state.isProjectBusy &&
       !state.isAddingTransitionCurrently &&
       !state.isEditingTransitionCurrently,
-    [ProjectViewGetters.selectedResourceDirty]: (state, getters) => {
-      // Yes, this getter syntax is real.
-      const isBlockStateDirty = state.editBlockPane && getters['editBlockPane/isStateDirty'];
-      const isTransitionStateDirty = state.editTransitionPanel && getters['editTransitionPane/isStateDirty'];
-
-      return isBlockStateDirty || isTransitionStateDirty;
-    },
+    [ProjectViewGetters.selectedBlockDirty]: (state, getters) =>
+      state.editBlockPane && getters['editBlockPane/isStateDirty'],
+    [ProjectViewGetters.selectedTransitionDirty]: (state, getters) =>
+      state.editTransitionPanel && getters['editTransitionPane/isStateDirty'],
+    [ProjectViewGetters.selectedResourceDirty]: (state, getters) =>
+      getters[ProjectViewGetters.selectedBlockDirty] || getters[ProjectViewGetters.selectedTransitionDirty],
     [ProjectViewGetters.exportProjectJson]: state => {
       if (!state.openedProject) {
         return '';
@@ -528,19 +536,14 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      try {
-        const response = await makeApiRequest<SaveProjectConfigRequest, SaveProjectConfigResponse>(
-          API_ENDPOINT.SaveProjectConfig,
-          {
-            project_id: context.state.openedProject.project_id,
-            config: configJson
-          }
-        );
-        if (response === null || !response.success) {
-          await handleSaveError('Unable to save project config: server failure.');
-          return;
+      const response = await makeApiRequest<SaveProjectConfigRequest, SaveProjectConfigResponse>(
+        API_ENDPOINT.SaveProjectConfig,
+        {
+          project_id: context.state.openedProject.project_id,
+          config: configJson
         }
-      } catch (e) {
+      );
+      if (response === null || !response.success) {
         await handleSaveError('Unable to save project config: server failure.');
         return;
       }
@@ -563,9 +566,21 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
           variant: ToastVariant.danger
         });
       };
-      if (!context.state.openedProject || !context.state.openedProjectConfig || !context.state.hasProjectBeenModified) {
+
+      // Check that the "canSaveProject" getter is passing, that way we centralize our logic in one place.
+      if (
+        !context.getters[ProjectViewGetters.canSaveProject] ||
+        !context.state.openedProject ||
+        !context.state.openedProjectConfig
+      ) {
         await handleSaveError('Project attempted to be saved but it was not in a valid state');
         return;
+      }
+
+      // If a block is "dirty", we need to save it before continuing.
+      // TODO: Implement this for transitions too
+      if (context.getters[ProjectViewGetters.selectedBlockDirty]) {
+        await context.dispatch(`project/editBlockPane/${EditBlockActions.saveBlock}`, null, { root: true });
       }
 
       context.commit(ProjectViewMutators.isSavingProject, true);
@@ -701,6 +716,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
           projectId: openedProject.project_id
         }
       });
+
+      await createToast(context.dispatch, {
+        title: 'Project Deployed',
+        content: `Successfully created deployment for project: ${openedProject.name}`,
+        variant: ToastVariant.success
+      });
     },
     async [ProjectViewActions.loadProjectConfig](context) {
       const project = context.state.openedProject;
@@ -787,6 +808,20 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       if (context.state.isAddingTransitionCurrently) {
         await context.dispatch(ProjectViewActions.completeTransitionAdd, nodeId);
         return;
+      }
+
+      if (context.getters.selectedResourceDirty && !context.getters[ProjectViewGetters.canSaveProject]) {
+        await createToast(context.dispatch, {
+          title: 'Invalid Block State Detected',
+          content: 'Please fix or discard changes to block before selecting another resource.',
+          variant: ToastVariant.warning
+        });
+        return;
+      }
+
+      // If a block is "dirty", we need to save it before continuing.
+      if (context.getters[ProjectViewGetters.selectedBlockDirty]) {
+        await context.dispatch(`project/editBlockPane/${EditBlockActions.saveBlock}`, null, { root: true });
       }
 
       if (context.getters.selectedResourceDirty) {
@@ -1095,12 +1130,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         config: null,
         markAsDirty: true
       };
-
-      await createToast(context.dispatch, {
-        title: 'Block Added',
-        content: `New block added to project, ${newBlock.name}`,
-        variant: ToastVariant.info
-      });
 
       await context.dispatch(ProjectViewActions.updateProject, params);
       if (addBlockArgs.selectAfterAdding) {
