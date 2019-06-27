@@ -5264,6 +5264,7 @@ class SavedBlocksCreate( BaseHandler ):
 		# a new saved block in the database.
 		if not saved_block:
 			saved_block = SavedBlock()
+			saved_block.share_status = "PRIVATE"
 		
 		saved_block.user_id = self.get_authenticated_user_id()
 		saved_block.name = self.json[ "block_object" ][ "name" ]
@@ -5273,10 +5274,22 @@ class SavedBlocksCreate( BaseHandler ):
 		if "description" in self.json:
 			saved_block.description = self.json[ "description" ]
 			
-		saved_block.share_status = "PRIVATE"
+		new_share_status = "PRIVATE"
 		
 		if "share_status" in self.json:
-			saved_block.share_status = self.json[ "share_status" ]
+			new_share_status = self.json[ "share_status" ]
+		
+		# Ensure that a user can only make a PRIVATE saved block PUBLISHER
+		# We don't allow the other way around
+		if saved_block.share_status == "PUBLISHED" and new_share_status == "PRIVATE":
+			self.write({
+				"success": False,
+				"code": "CANNOT_UNPUBLISH_SAVED_BLOCKS",
+				"msg": "You cannot un-publish an already-published block!"
+			})
+			return
+		
+		saved_block.share_status = new_share_status
 			
 		dbsession.commit()
 			
