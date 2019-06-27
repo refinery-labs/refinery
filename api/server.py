@@ -5342,28 +5342,26 @@ class SavedBlockSearch( BaseHandler ):
 		
 		if "share_status" in self.json:
 			share_status = self.json[ "share_status" ]
-			
-		if share_status == "PRIVATE":
-			# Get user's saved lambdas and search through them
-			saved_blocks = dbsession.query( SavedBlock ).filter_by(
-				user_id=self.get_authenticated_user_id(),
-			).filter(
-				sql_or(
-					SavedBlock.name.ilike( "%" + self.json[ "search_string" ] + "%" ),
-					SavedBlock.description.ilike( "%" + self.json[ "search_string" ] + "%" ),
-				)
-			).limit(25).all()
+		
+		# Default is to just search your own saved blocks
+		saved_block_search_params = {
+			"user_id": self.get_authenticated_user_id()
+		}
 		
 		if share_status == "PUBLISHED":
-			# Search through all published saved blocks
-			saved_blocks = dbsession.query( SavedBlock ).filter_by(
-				share_status="PUBLISHED",
-			).filter(
-				sql_or(
-					SavedBlock.name.ilike( "%" + self.json[ "search_string" ] + "%" ),
-					SavedBlock.description.ilike( "%" + self.json[ "search_string" ] + "%" ),
-				)
-			).limit(25).all()
+			saved_block_search_params = {
+				"share_status": "PUBLISHED"
+			}
+			
+		# Search through all published saved blocks
+		saved_blocks = dbsession.query( SavedBlock ).filter_by(
+			**saved_block_search_params
+		).filter(
+			sql_or(
+				SavedBlock.name.ilike( "%" + self.json[ "search_string" ] + "%" ),
+				SavedBlock.description.ilike( "%" + self.json[ "search_string" ] + "%" ),
+			)
+		).limit(25).all()
 		
 		return_list = []
 		
