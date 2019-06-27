@@ -5274,7 +5274,7 @@ class SavedBlocksCreate( BaseHandler ):
 		if "description" in self.json:
 			saved_block.description = self.json[ "description" ]
 			
-		new_share_status = "PRIVATE"
+		new_share_status = saved_block.share_status
 		
 		if "share_status" in self.json:
 			new_share_status = self.json[ "share_status" ]
