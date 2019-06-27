@@ -11,7 +11,12 @@ class SavedBlock( Base ):
 	name = Column(Text())
 	type = Column(Text())
 	description = Column(Text())
-	block_object = Column(Text())
+	
+	# Share status of the block
+	# Valid values are PRIVATE, PUBLISHED
+	# A block version cannot go from PUBLISHED to PRIVATE
+	share_status = Column(Text())
+	
 	timestamp = Column(Integer())
 	
 	# Parent user the saved function
@@ -22,8 +27,17 @@ class SavedBlock( Base ):
 		)
 	)
 
+	# Versions of the saved block
+	versions = relationship(
+		"SavedBlockVersion",
+		backref="saved_blocks",
+		lazy="dynamic",
+		cascade="all, delete-orphan"
+	)
+
 	def __init__( self ):
 		self.id = str( uuid.uuid4() )
+		self.share_status = "PRIVATE"
 		self.timestamp = int( time.time() )
 
 	def to_dict( self ):
@@ -31,12 +45,11 @@ class SavedBlock( Base ):
 			"id",
 			"name",
 			"type",
-			"block_object",
 			"description",
 			"timestamp"
 		]
 		
-		json_attributes = [ "block_object" ]
+		json_attributes = []
 		return_dict = {}
 
 		for attribute in exposed_attributes:

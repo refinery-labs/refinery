@@ -34,7 +34,10 @@ export enum API_ENDPOINT {
   GetBuildStatus = 'GetBuildStatus',
   StartLibraryBuild = 'StartLibraryBuild',
   GetConsoleCredentials = 'GetConsoleCredentials',
-  StashStateLog = 'StashStateLog'
+  StashStateLog = 'StashStateLog',
+  CreateSavedBlock = 'CreateSavedBlock',
+  SearchSavedBlocks = 'SearchSavedBlocks',
+  DeleteSavedBlock = 'DeleteSavedBlock'
 }
 
 export enum HTTP_METHOD {
@@ -198,6 +201,18 @@ export const ApiConfigMap: ApiConfigMapType = {
   },
   [API_ENDPOINT.StashStateLog]: {
     path: '/api/v1/internal/log',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.CreateSavedBlock]: {
+    path: '/api/v1/saved_blocks/create',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.SearchSavedBlocks]: {
+    path: '/api/v1/saved_blocks/search',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.DeleteSavedBlock]: {
+    path: '/api/v1/saved_blocks/delete',
     method: HTTP_METHOD.POST
   }
 };
