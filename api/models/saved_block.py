@@ -40,27 +40,5 @@ class SavedBlock( Base ):
 		self.share_status = "PRIVATE"
 		self.timestamp = int( time.time() )
 
-	def to_dict( self ):
-		exposed_attributes = [
-			"id",
-			"name",
-			"type",
-			"description",
-			"timestamp"
-		]
-		
-		json_attributes = []
-		return_dict = {}
-
-		for attribute in exposed_attributes:
-			if attribute in json_attributes:
-				return_dict[ attribute ] = json.loads(
-					getattr( self, attribute )
-				)
-			else:
-				return_dict[ attribute ] = getattr( self, attribute )
-
-		return return_dict
-
 	def __str__( self ):
 		return self.id
