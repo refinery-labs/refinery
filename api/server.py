@@ -6503,20 +6503,6 @@ def get_logs_data( credentials, log_paths_array ):
 		"lambda_name": []
 	}
 	"""
-	
-	"""
-	s3_object_retrieval_futures = []
-	for log_file_path in log_paths_array:
-		s3_object_retrieval_futures.append(
-			local_tasks.read_from_s3_and_return_input(
-				credentials,
-				credentials[ "logs_bucket" ],
-				log_file_path
-			)
-		)
-		
-	s3_object_retrieval_data_results = yield s3_object_retrieval_futures
-	"""
 	max_concurrent_pulls = 20
 	counter = 0
 	
