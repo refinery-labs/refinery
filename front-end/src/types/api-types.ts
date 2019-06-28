@@ -589,3 +589,48 @@ export interface StashStateLogRequest extends BaseApiRequest {
 }
 
 export interface StashStateLogResponse extends BaseApiResponse {}
+
+// CreateSavedBlock for creating new saved block versions
+export interface CreateSavedBlockRequest extends BaseApiRequest {
+  id?: string;
+  description?: string;
+  block_object: WorkflowState;
+  version?: number;
+  share_status?: SharedBlockPublishStatus;
+}
+
+export interface CreateSavedBlockResponse extends BaseApiResponse {
+  saved_block_id: string;
+}
+
+export enum SharedBlockPublishStatus {
+  PUBLISHED = 'PUBLISHED',
+  PRIVATE = 'PRIVATE'
+}
+
+// SearchSavedBlocks
+export interface SearchSavedBlocksRequest extends BaseApiRequest {
+  search_string: string;
+  share_status: SharedBlockPublishStatus;
+}
+
+export interface SearchSavedBlocksResponse extends BaseApiResponse {
+  results: SavedBlockSearchResult[];
+}
+
+export interface SavedBlockSearchResult {
+  id: string;
+  description: string;
+  name: string;
+  type: WorkflowStateType;
+  block_object: WorkflowState;
+  version: number;
+  timestamp: number;
+}
+
+// DeleteSavedBlock
+export interface DeleteSavedBlockRequest extends BaseApiRequest {
+  id: string;
+}
+
+export interface DeleteSavedBlockResponse extends BaseApiResponse {}

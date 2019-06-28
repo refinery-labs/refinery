@@ -4,6 +4,8 @@ import {
   AddPaymentMethodResponse,
   BaseApiRequest,
   BaseApiResponse,
+  CreateSavedBlockRequest,
+  CreateSavedBlockResponse,
   CreateScheduleTriggerRequest,
   CreateScheduleTriggerResponse,
   CreateSQSQueueTriggerRequest,
@@ -12,6 +14,8 @@ import {
   DeleteDeploymentsInProjectResponse,
   DeletePaymentMethodRequest,
   DeletePaymentMethodResponse,
+  DeleteSavedBlockRequest,
+  DeleteSavedBlockResponse,
   DeleteSavedProjectRequest,
   DeleteSavedProjectResponse,
   DeployDiagramRequest,
@@ -66,6 +70,8 @@ import {
   SaveProjectConfigResponse,
   SaveProjectRequest,
   SaveProjectResponse,
+  SearchSavedBlocksRequest,
+  SearchSavedBlocksResponse,
   SearchSavedProjectsRequest,
   SearchSavedProjectsResponse,
   StartLibraryBuildRequest,
@@ -202,6 +208,15 @@ export class RefineryApi implements RefineryApiTypeMap {
     API_ENDPOINT.GetConsoleCredentials
   );
   [API_ENDPOINT.StashStateLog] = makeApiClient<StashStateLogRequest, StashStateLogResponse>(API_ENDPOINT.StashStateLog);
+  [API_ENDPOINT.CreateSavedBlock] = makeApiClient<CreateSavedBlockRequest, CreateSavedBlockResponse>(
+    API_ENDPOINT.CreateSavedBlock
+  );
+  [API_ENDPOINT.SearchSavedBlocks] = makeApiClient<SearchSavedBlocksRequest, SearchSavedBlocksResponse>(
+    API_ENDPOINT.SearchSavedBlocks
+  );
+  [API_ENDPOINT.DeleteSavedBlock] = makeApiClient<DeleteSavedBlockRequest, DeleteSavedBlockResponse>(
+    API_ENDPOINT.DeleteSavedBlock
+  );
 }
 
 export const apiClientMap: RefineryApiTypeMap = new RefineryApi();

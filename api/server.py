@@ -45,6 +45,7 @@ from email_validator import validate_email, EmailNotValidError
 
 from models.initiate_database import *
 from models.saved_block import SavedBlock
+from models.saved_block_version import SavedBlockVersion
 from models.project_versions import ProjectVersion
 from models.projects import Project
 from models.organizations import Organization
@@ -546,6 +547,12 @@ class BaseHandler( tornado.web.RequestHandler ):
 				self.json = json_data
 			except ValueError:
 				pass
+	
+	def on_finish(self):
+		if self.get_status() >= 500:
+			dbsession.rollback()
+		else:
+			dbsession.commit()
 
 	def options(self):
 		pass
@@ -5193,13 +5200,16 @@ class SavedBlocksCreate( BaseHandler ):
 	@authenticated
 	def post( self ):
 		"""
-		Create a Lambda to save for later use.
+		Create a saved block to import into other projects.
 		"""
 		schema = {
 			"type": "object",
 			"properties": {
+				"id": {
+					"type": "string"
+				},
 				"description": {
-					"type": "string",
+					"type": "string"
 				},
 				"block_object": {
 					"type": "object",
@@ -5209,42 +5219,113 @@ class SavedBlocksCreate( BaseHandler ):
 						},
 						"type": {
 							"type": "string",
-						},
-						"id": {
-							"id": "string",
-						},
+						}
 					},
 					"required": [
 						"name",
-						"type",
-						"id"
+						"type"
+					]
+				},
+				"version": {
+					"type": "integer",
+				},
+				"share_status": {
+					"type": "string",
+					"enum": [
+						"PRIVATE",
+						"PUBLISHED"
 					]
 				}
 			},
 			"required": [
-				"description",
 				"block_object"
 			]
 		}
 		
 		validate_schema( self.json, schema )
-		
 		logit( "Saving Block data..." )
 		
-		new_block = SavedBlock()
-		new_block.name = self.json[ "block_object" ][ "name" ]
-		new_block.type = self.json[ "block_object" ][ "type" ]
-		new_block.description = self.json[ "description" ]
-		new_block.block_object = json.dumps(
+		saved_block = None
+		
+		if "id" in self.json:
+			saved_block = dbsession.query( SavedBlock ).filter_by(
+				user_id=self.get_authenticated_user_id(),
+				id=self.json[ "id" ]
+			).first()
+			
+			# If we didn't find the block return an error
+			if not saved_block:
+				self.write({
+					"success": False,
+					"code": "SAVED_BLOCK_NOT_FOUND",
+					"msg": "The saved block you're attempting to save could not be found!"
+				})
+				return
+			
+			block_version = saved_block.versions
+		
+		block_version = 1
+		
+		# If the block ID is not specified then we are creating
+		# a new saved block in the database.
+		if not saved_block:
+			saved_block = SavedBlock()
+			saved_block.share_status = "PRIVATE"
+		
+		saved_block.user_id = self.get_authenticated_user_id()
+		saved_block.name = self.json[ "block_object" ][ "name" ]
+		saved_block.type = self.json[ "block_object" ][ "type" ]
+		saved_block.description = ""
+		
+		if "description" in self.json:
+			saved_block.description = self.json[ "description" ]
+			
+		new_share_status = saved_block.share_status
+		
+		if "share_status" in self.json:
+			new_share_status = self.json[ "share_status" ]
+		
+		# Ensure that a user can only make a PRIVATE saved block PUBLISHER
+		# We don't allow the other way around
+		if saved_block.share_status == "PUBLISHED" and new_share_status == "PRIVATE":
+			self.write({
+				"success": False,
+				"code": "CANNOT_UNPUBLISH_SAVED_BLOCKS",
+				"msg": "You cannot un-publish an already-published block!"
+			})
+			return
+		
+		saved_block.share_status = new_share_status
+			
+		dbsession.commit()
+			
+		# Get the latest saved block verison
+		saved_block_latest_version = dbsession.query( SavedBlockVersion ).filter_by(
+			saved_block_id=saved_block.id
+		).order_by( SavedBlockVersion.version.desc() ).first()
+		
+		# If we have an old version bump it
+		if saved_block_latest_version:
+			block_version = saved_block_latest_version.version + 1
+		
+		# Now we add the block version
+		new_saved_block_version = SavedBlockVersion()
+		new_saved_block_version.saved_block_id = saved_block.id
+		new_saved_block_version.version = block_version
+		new_saved_block_version.block_object = json.dumps(
 			self.json[ "block_object" ]
 		)
-		new_block.user_id = self.get_authenticated_user_id()
-		dbsession.add( new_block )
+			
+		saved_block.versions.append(
+			new_saved_block_version
+		)
+			
+		dbsession.add( saved_block )
 		dbsession.commit()
 		
 		self.write({
 			"success": True,
-			"id": new_block.id
+			"saved_block_id": saved_block.id
 		})
 		
 class SavedBlockSearch( BaseHandler ):
@@ -5258,6 +5339,13 @@ class SavedBlockSearch( BaseHandler ):
 			"properties": {
 				"search_string": {
 					"type": "string",
+				},
+				"share_status": {
+					"type": "string",
+					"enum": [
+						"PRIVATE",
+						"PUBLISHED"
+					]
 				}
 			},
 			"required": [
@@ -5269,9 +5357,24 @@ class SavedBlockSearch( BaseHandler ):
 		
 		logit( "Searching saved Blocks..." )
 		
-		# Get user's saved lambdas and search through them
+		share_status = "PRIVATE"
+		
+		if "share_status" in self.json:
+			share_status = self.json[ "share_status" ]
+		
+		# Default is to just search your own saved blocks
+		saved_block_search_params = {
+			"user_id": self.get_authenticated_user_id()
+		}
+		
+		if share_status == "PUBLISHED":
+			saved_block_search_params = {
+				"share_status": "PUBLISHED"
+			}
+			
+		# Search through all published saved blocks
 		saved_blocks = dbsession.query( SavedBlock ).filter_by(
-			user_id=self.get_authenticated_user_id(),
+			**saved_block_search_params
 		).filter(
 			sql_or(
 				SavedBlock.name.ilike( "%" + self.json[ "search_string" ] + "%" ),
@@ -5282,10 +5385,13 @@ class SavedBlockSearch( BaseHandler ):
 		return_list = []
 		
 		for saved_block in saved_blocks:
-			# We automatically randomize the ID for the returned block
-			# This is to prevent weird collisions from importing JSON/etc.
+			# Get the latest saved block verison
+			saved_block_latest_version = dbsession.query( SavedBlockVersion ).filter_by(
+				saved_block_id=saved_block.id
+			).order_by( SavedBlockVersion.version.desc() ).first()
+			
 			block_object = json.loads(
-				saved_block.block_object
+				saved_block_latest_version.block_object
 			)
 			block_object[ "id" ] = str( uuid.uuid4() )
 			
@@ -5295,7 +5401,8 @@ class SavedBlockSearch( BaseHandler ):
 				"name": saved_block.name,
 				"type": saved_block.type,
 				"block_object": block_object,
-				"timestamp": saved_block.timestamp,
+				"version": saved_block_latest_version.version,
+				"timestamp": saved_block_latest_version.timestamp,
 			})
 		
 		self.write({
@@ -5325,11 +5432,28 @@ class SavedBlockDelete( BaseHandler ):
 		
 		logit( "Deleting Block data..." )
 		
-		dbsession.query( SavedBlock ).filter_by(
+		saved_block = dbsession.query( SavedBlock ).filter_by(
 			user_id=self.get_authenticated_user_id(),
 			id=self.json[ "id" ]
-		).delete()
+		).first()
 		
+		if saved_block.share_status == "PUBLISHED":
+			self.write({
+				"success": False,
+				"msg": "You cannot delete an already-published block!",
+				"code": "ERROR_CANNOT_DELETE_PUBLISHED_BLOCK"
+			})
+			return
+		
+		if saved_block == None:
+			self.write({
+				"success": False,
+				"msg": "This block does not exist!",
+				"code": "BLOCK_NOT_FOUND"
+			})
+			return
+		
+		dbsession.delete(saved_block)
 		dbsession.commit()
 		
 		self.write({
@@ -6097,10 +6221,11 @@ class DeleteDeploymentsInProject( BaseHandler ):
 			})
 			raise gen.Return()
 		
-		dbsession.query( Deployment ).filter_by(
+		deployment = dbsession.query( Deployment ).filter_by(
 			project_id=self.json[ "project_id" ]
-		).delete()
+		).first()
 		
+		dbsession.delete(deployment)
 		dbsession.commit()
 		
 		self.write({
