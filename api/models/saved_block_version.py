@@ -8,9 +8,9 @@ import os
 class SavedBlockVersion( Base ):
 	__tablename__ = "saved_block_versions"
 	
-	id = Column(CHAR(36), primary_key=True)
+	id = Column(Text(), primary_key=True)
 	saved_block_id = Column(
-		CHAR(36),
+		Text(),
 		ForeignKey( SavedBlock.id ),
 		primary_key=True
 	)

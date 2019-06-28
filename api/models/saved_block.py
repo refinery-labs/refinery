@@ -7,7 +7,7 @@ import os
 class SavedBlock( Base ):
 	__tablename__ = "saved_blocks"
 
-	id = Column(CHAR(36), primary_key=True)
+	id = Column(Text(), primary_key=True)
 	name = Column(Text())
 	type = Column(Text())
 	description = Column(Text())
