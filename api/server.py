@@ -264,10 +264,16 @@ def get_aws_client( client_type, credentials ):
 		region_name=credentials[ "region" ],
 	)
 	
+	
+	def inject_header(params, **kwargs):
+		params["headers"]["Connection"] = "Keep-Alive"
+	
+	boto3_session.events.register("before-call.s3", inject_header)
+	
 	# Options for boto3 client
 	client_options = {
 		"config": Config(
-			max_pool_connections=( 1000 * 2 )
+			max_pool_connections=( 250 * 1 ),
 		)
 	}
 	
@@ -6387,7 +6393,7 @@ def get_project_id_execution_log_groups( credentials, project_id, max_results, c
 	}
 	"""
 	results_dict = {}
-	
+
 	execution_log_timestamp_prefix_data = yield local_tasks.get_s3_pipeline_timestamp_prefixes(
 		credentials,
 		project_id,
@@ -6413,7 +6419,7 @@ def get_project_id_execution_log_groups( credentials, project_id, max_results, c
 		)
 		
 	execution_id_prefixes_data = yield timestamp_prefix_fetch_futures
-	
+
 	# Flat list of prefixes
 	execution_id_prefixes = []
 	
@@ -6434,7 +6440,7 @@ def get_project_id_execution_log_groups( credentials, project_id, max_results, c
 		)
 			
 	s3_log_file_paths = yield s3_log_path_promises
-	
+
 	# Merge list of lists into just a list
 	tmp_log_path_list = []
 	for s3_log_file_path_array in s3_log_file_paths:
@@ -6497,6 +6503,8 @@ def get_logs_data( credentials, log_paths_array ):
 		"lambda_name": []
 	}
 	"""
+	
+	"""
 	s3_object_retrieval_futures = []
 	for log_file_path in log_paths_array:
 		s3_object_retrieval_futures.append(
@@ -6508,6 +6516,33 @@ def get_logs_data( credentials, log_paths_array ):
 		)
 		
 	s3_object_retrieval_data_results = yield s3_object_retrieval_futures
+	"""
+	max_concurrent_pulls = 20
+	counter = 0
+	
+	s3_object_retrieval_futures = []
+	s3_object_retrieval_data_results = []
+	
+	for log_file_path in log_paths_array:
+		s3_object_retrieval_futures.append(
+			local_tasks.read_from_s3_and_return_input(
+				credentials,
+				credentials[ "logs_bucket" ],
+				log_file_path
+			)
+		)
+		counter = counter + 1
+		
+		# Every max_concurrent_pulls kick off the futures
+		if counter >= max_concurrent_pulls:
+			s3_objects = yield s3_object_retrieval_futures
+			s3_object_retrieval_data_results = s3_object_retrieval_data_results + s3_objects
+			s3_object_retrieval_futures = []
+			counter = 0
+			
+	# Finish the remaining
+	s3_objects = yield s3_object_retrieval_futures
+	s3_object_retrieval_data_results = s3_object_retrieval_data_results + s3_objects
 	
 	return_data = {}
 	
