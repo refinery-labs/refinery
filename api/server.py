@@ -547,6 +547,12 @@ class BaseHandler( tornado.web.RequestHandler ):
 				self.json = json_data
 			except ValueError:
 				pass
+	
+	def on_finish(self):
+		if self.get_status() >= 500:
+			dbsession.rollback()
+		else:
+			dbsession.commit()
 
 	def options(self):
 		pass
