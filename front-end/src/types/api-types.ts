@@ -1,7 +1,7 @@
 import {
   LambdaWorkflowState,
   ProjectConfig,
-  ProjectEnvironmentVariableConfig,
+  ProjectEnvironmentVariableList,
   SupportedLanguage,
   WorkflowRelationship,
   WorkflowState,
@@ -297,7 +297,7 @@ export interface RunLambdaResult {
  */
 export interface RunTmpLambdaRequest extends BaseApiRequest {
   code: string;
-  environment_variables: any[];
+  environment_variables: RunTmpLambdaEnvironmentVariable[];
   input_data: any;
   language: SupportedLanguage;
   layers: any[];
@@ -305,6 +305,11 @@ export interface RunTmpLambdaRequest extends BaseApiRequest {
   max_execution_time: number;
   memory: number;
   block_id: string;
+}
+
+export interface RunTmpLambdaEnvironmentVariable {
+  key: string;
+  value: string;
 }
 
 // This is the same thing as RunLambdaResponse but gonna leave the types split out and solve with inheritance
@@ -400,7 +405,7 @@ export interface SavedLambdaSearchResponseResult extends LambdaWorkflowState {
 export interface UpdateEnvironmentVariablesRequest extends BaseApiRequest {
   project_id: string;
   arn: string;
-  environment_variables: ProjectEnvironmentVariableConfig;
+  environment_variables: ProjectEnvironmentVariableList;
 }
 
 export interface UpdateEnvironmentVariablesResponse extends BaseApiResponse {

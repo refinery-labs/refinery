@@ -4,6 +4,7 @@ import {
   RunLambdaRequest,
   RunLambdaResponse,
   RunLambdaResult,
+  RunTmpLambdaEnvironmentVariable,
   RunTmpLambdaRequest,
   RunTmpLambdaResponse
 } from '@/types/api-types';
@@ -17,7 +18,7 @@ import {
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import { RunCodeBlockLambdaConfig } from '@/types/run-lambda-types';
+import { RunCodeBlockLambdaConfig, RunTmpCodeBlockLambdaConfig } from '@/types/run-lambda-types';
 import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { checkBuildStatus, libraryBuildArguments } from '@/store/fetchers/api-helpers';
@@ -171,7 +172,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       context.commit(RunLambdaMutators.setLambdaRunningStatus, false);
       context.commit(RunLambdaMutators.setDeployedLambdaRunResult, runLambdaResult.result);
     },
-    async [RunLambdaActions.runSpecifiedEditorCodeBlock](context, config: RunCodeBlockLambdaConfig) {
+    async [RunLambdaActions.runSpecifiedEditorCodeBlock](context, config: RunTmpCodeBlockLambdaConfig) {
       if (!config || !config.codeBlock || !config.projectConfig) {
         console.error('Invalid block config specified to execute');
         return;
@@ -179,8 +180,27 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
 
       const block = config.codeBlock;
 
+      const runLambdaEnvironmentVariables = Object.keys(block.environment_variables).reduce(
+        (envVarsOut, id) => {
+          const configVariable = config.projectConfig.environment_variables[id];
+
+          // Missing value... Just keep going.
+          if (!configVariable) {
+            return envVarsOut;
+          }
+
+          envVarsOut.push({
+            key: block.environment_variables[id].name,
+            value: configVariable.value
+          });
+
+          return envVarsOut;
+        },
+        [] as RunTmpLambdaEnvironmentVariable[]
+      );
+
       const request: RunTmpLambdaRequest = {
-        environment_variables: config.projectConfig.environment_variables[config.codeBlock.id] || [],
+        environment_variables: runLambdaEnvironmentVariables,
         input_data: context.state.devLambdaInputData,
 
         code: block.code,

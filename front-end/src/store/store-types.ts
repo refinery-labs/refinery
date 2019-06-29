@@ -18,11 +18,13 @@ import { ViewBlockPaneState } from '@/store/modules/panes/view-block-pane';
 import { EditTransitionPaneState } from '@/store/modules/panes/edit-transition-pane';
 import { DeploymentExecutionsPaneState } from '@/store/modules/panes/deployment-executions-pane';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
+import { EnvironmentVariablesEditorPaneState } from '@/store/modules/panes/environment-variables-editor';
 
 export interface RootState {
   setting: UserInterfaceState;
   deployment: DeploymentViewState;
   deploymentExecutions: DeploymentExecutionsPaneState;
+  EnvironmentVariablesEditorPaneState: EnvironmentVariablesEditorPaneState;
   viewBlock: ViewBlockPaneState;
   project: ProjectViewState;
   allProjects: AllProjectsState;
@@ -48,6 +50,10 @@ export enum UserInterfaceSettings {
   horizontal = 'horizontal',
   useFullLayout = 'useFullLayout',
   hiddenFooter = 'hiddenFooter',
+
+  windowWidth = 'windowWidth',
+  windowHeight = 'windowHeight',
+
   isAWSConsoleCredentialModalVisible = 'isAWSConsoleCredentialModalVisible',
   AWSConsoleCredentials = 'AWSConsoleCredentials'
 }
@@ -83,6 +89,11 @@ export interface UserInterfaceState {
   [UserInterfaceSettings.useFullLayout]?: boolean;
   /* Hide footer */
   [UserInterfaceSettings.hiddenFooter]?: boolean;
+
+  /* Used to get the current size of the page */
+  [UserInterfaceSettings.windowWidth]?: number;
+  [UserInterfaceSettings.windowHeight]?: number;
+
   /* Boolean to display the AWS console credentials */
   [UserInterfaceSettings.isAWSConsoleCredentialModalVisible]: boolean;
   /* AWS console credentials */

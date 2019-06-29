@@ -78,6 +78,13 @@ const SettingModule: Module<UserInterfaceState, RootState> = {
     [SettingsMutators.changeSetting](state, { name, value }: { name: UserInterfaceSettings; value: boolean }) {
       if (name in state) state[name] = value;
     },
+
+    [SettingsMutators.setWindowWidth](state, width: number) {
+      state.windowWidth = width;
+    },
+    [SettingsMutators.setWindowHeight](state, height: number) {
+      state.windowHeight = height;
+    },
     /**
      * Toggle displaying the AWS Console Credentials modal
      */

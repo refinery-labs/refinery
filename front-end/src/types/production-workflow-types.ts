@@ -14,7 +14,11 @@ export interface ProductionDeploymentRefineryProject extends RefineryProject {
 }
 
 export interface ProductionLambdaEnvironmentVariable {
-  [key: string]: string;
+  name: string;
+  value: string;
+  id: string;
+  description: string;
+  required: boolean;
 }
 
 export interface ProductionWorkflowState extends WorkflowState {

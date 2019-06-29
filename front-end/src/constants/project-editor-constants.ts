@@ -1,4 +1,15 @@
-import { SupportedLanguage, WorkflowRelationshipType, WorkflowStateType } from '@/types/graph';
+import {
+  ApiEndpointWorkflowState,
+  ApiGatewayResponseWorkflowState,
+  LambdaWorkflowState,
+  ScheduleTriggerWorkflowState,
+  SnsTopicWorkflowState,
+  SqsQueueWorkflowState,
+  SupportedLanguage,
+  WorkflowRelationshipType,
+  WorkflowState,
+  WorkflowStateType
+} from '@/types/graph';
 import { ActiveSidebarPaneToContainerMapping, SIDEBAR_PANE } from '@/types/project-editor-types';
 import AddBlockPane from '@/components/ProjectEditor/AddBlockPane';
 import AddTransitionPane from '@/components/ProjectEditor/AddTransitionPane';
@@ -307,8 +318,18 @@ func block_main(block_input []byte, context map[string]interface{}) bool {
 `
 };
 
-export const CODE_BLOCK_DEFAULT_STATE = {
-  language: 'python2.7',
+const SHARED_BLOCK_DEFAULTS: WorkflowState = {
+  id: 'YOU-SHOULD-NEVER-SEE-THIS',
+  name: 'You Should Not Ever See This!',
+  version: '1.0.0',
+  // This is purposefully invalid
+  // @ts-ignore
+  type: 'unknown'
+};
+
+export const CODE_BLOCK_DEFAULT_STATE: LambdaWorkflowState = {
+  ...SHARED_BLOCK_DEFAULTS,
+  language: SupportedLanguage.PYTHON_2,
   code: DEFAULT_LANGUAGE_CODE[SupportedLanguage.PYTHON_2],
   memory: 768,
   libraries: [],
@@ -316,36 +337,42 @@ export const CODE_BLOCK_DEFAULT_STATE = {
   // Changing this to max allowed time by default because
   // that's likely what people would prefer
   max_execution_time: 900,
-  type: WorkflowStateType.LAMBDA
+  type: WorkflowStateType.LAMBDA,
+  environment_variables: {}
 };
 
-export const SCHEDULE_EXPRESSION_BLOCK_DEFAULT_STATE = {
+export const SCHEDULE_EXPRESSION_BLOCK_DEFAULT_STATE: ScheduleTriggerWorkflowState = {
+  ...SHARED_BLOCK_DEFAULTS,
   description: 'Deployed by Refinery',
   input_string: '',
   schedule_expression: 'rate(2 minutes)',
   type: WorkflowStateType.SCHEDULE_TRIGGER
 };
 
-export const TOPIC_BLOCK_DEFAULT_STATE = {
+export const TOPIC_BLOCK_DEFAULT_STATE: SnsTopicWorkflowState = {
+  ...SHARED_BLOCK_DEFAULTS,
   type: WorkflowStateType.SNS_TOPIC
 };
 
-export const QUEUE_BLOCK_DEFAULT_STATE = {
+export const QUEUE_BLOCK_DEFAULT_STATE: SqsQueueWorkflowState = {
+  ...SHARED_BLOCK_DEFAULTS,
   batch_size: 1,
   type: WorkflowStateType.SQS_QUEUE
 };
 
-export const API_ENDPOINT_BLOCK_DEFAULT_STATE = {
+export const API_ENDPOINT_BLOCK_DEFAULT_STATE: ApiEndpointWorkflowState = {
+  ...SHARED_BLOCK_DEFAULTS,
   api_path: '/',
   http_method: HTTP_METHOD.GET,
   type: WorkflowStateType.API_ENDPOINT
 };
 
-export const API_GATEWAY_RESPONSE_BLOCK_DEFAULT_STATE = {
+export const API_GATEWAY_RESPONSE_BLOCK_DEFAULT_STATE: ApiGatewayResponseWorkflowState = {
+  ...SHARED_BLOCK_DEFAULTS,
   type: WorkflowStateType.API_GATEWAY_RESPONSE
 };
 
-export type BlockTypeToDefaultState = { [key in WorkflowStateType]: () => Object };
+export type BlockTypeToDefaultState = { [key in WorkflowStateType]: () => WorkflowState };
 
 export const blockTypeToDefaultStateMapping: BlockTypeToDefaultState = {
   [WorkflowStateType.LAMBDA]: () => CODE_BLOCK_DEFAULT_STATE,
@@ -360,7 +387,7 @@ export const blockTypeToDefaultStateMapping: BlockTypeToDefaultState = {
   }),
   [WorkflowStateType.SCHEDULE_TRIGGER]: () => SCHEDULE_EXPRESSION_BLOCK_DEFAULT_STATE,
   [WorkflowStateType.SNS_TOPIC]: () => TOPIC_BLOCK_DEFAULT_STATE,
-  [WorkflowStateType.API_GATEWAY]: () => ({})
+  [WorkflowStateType.API_GATEWAY]: () => SHARED_BLOCK_DEFAULTS
 };
 
 export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {

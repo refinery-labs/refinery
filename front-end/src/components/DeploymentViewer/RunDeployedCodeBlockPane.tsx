@@ -14,7 +14,7 @@ export default class RunDeployedCodeBlockPane extends Vue {
   public render(h: CreateElement): VNode {
     return (
       <div class="text-align--left run-lambda-pane-container">
-        <div class="run-lambda-pane-container__content overflow--scroll-y-auto mb-3 mt-3">
+        <div class="run-lambda-pane-container__content row overflow--scroll-y-auto mb-3 mt-3">
           <RunDeployedCodeBlockContainer props={{ displayMode: RunLambdaDisplayMode.sidepane }} />
         </div>
       </div>

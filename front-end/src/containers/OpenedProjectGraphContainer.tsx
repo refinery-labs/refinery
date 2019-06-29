@@ -1,7 +1,7 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import CytoscapeGraph from '@/components/CytoscapeGraph';
-import { namespace } from 'vuex-class';
+import { namespace, State } from 'vuex-class';
 import { RefineryProject, WorkflowRelationship, WorkflowState } from '@/types/graph';
 import { LayoutOptions } from 'cytoscape';
 import { AvailableTransition } from '@/store/store-types';
@@ -19,6 +19,7 @@ export default class OpenedProjectGraphContainer extends Vue {
   @project.State cytoscapeConfig!: cytoscape.CytoscapeOptions | null;
 
   @project.State isLoadingProject!: boolean;
+  @State windowWidth?: number;
 
   @project.Getter getValidBlockToBlockTransitions!: AvailableTransition[] | null;
 
@@ -56,7 +57,8 @@ export default class OpenedProjectGraphContainer extends Vue {
       config: this.cytoscapeConfig,
       selected: this.selectedResource,
       enabledNodeIds: this.getEnabledNodeIds(),
-      backgroundGrid: true
+      backgroundGrid: true,
+      windowWidth: this.windowWidth
     };
 
     return (
