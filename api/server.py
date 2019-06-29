@@ -2120,6 +2120,30 @@ class TaskSpawner(object):
 			
 			full_response = response[ "Payload" ].read()
 			
+			# Decode it all the way
+			try:
+				full_response = json.loads(
+					json.loads(
+						full_response
+					)
+				)
+			except:
+				pass
+			
+			prettify_types = [
+				dict,
+				list
+			]
+			
+			if type( full_response ) in prettify_types:
+				full_response = json.dumps(
+					full_response,
+					indent=4
+				)
+				
+			if type( full_response ) != str:
+				full_response = str( full_response )
+			
 			# Detect from response if it was an error
 			is_error = False
 			
@@ -2144,6 +2168,15 @@ class TaskSpawner(object):
 					
 					if log_line.startswith( "REPORT RequestId: " ):
 						continue
+					
+					if "START RequestId: " in log_line:
+						log_line = log_line.split( "START RequestId: " )[0]
+						
+					if "END RequestId: " in log_line:
+						log_line = log_line.split( "END RequestId: " )[0]
+						
+					if "REPORT RequestId: " in log_line:
+						log_line = log_line.split( "REPORT RequestId: " )[0]
 					
 					returned_log_lines.append(
 						log_line
@@ -4039,7 +4072,10 @@ class TaskSpawner(object):
 			
 			response = api_gateway_client.get_resources(
 				restApiId=rest_api_id,
-				limit=500
+				limit=500,
+				embed=[
+					"GET /restapis/" + rest_api_id + "/resources?embed=methods"
+				]
 			)
 			
 			return response[ "items" ]
@@ -5031,12 +5067,14 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 			
 			# Update project config
 			project_config[ "api_gateway" ][ "gateway_id" ] = api_gateway_id
+		"""
 		else:
 			# We do another strip of the gateway just to be sure
 			yield strip_api_gateway(
 				credentials,
 				project_config[ "api_gateway" ][ "gateway_id" ],
 			)
+		"""
 		
 		# Add the API Gateway as a new node
 		diagram_data[ "workflow_states" ].append({
@@ -5060,9 +5098,6 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 					)
 					
 					
-		logit( "Waiting until all routes are deployed..." )
-		#yield api_route_futures
-		
 		logit( "Now deploying API gateway to stage..." )
 		deploy_stage_results = yield local_tasks.deploy_api_gateway_to_stage(
 			credentials,
@@ -5526,6 +5561,7 @@ def teardown_infrastructure( credentials, teardown_nodes ):
 					teardown_node[ "arn" ],
 				)
 			)
+		"""
 		elif teardown_node[ "type" ] == "api_gateway":
 			teardown_operation_futures.append(
 				strip_api_gateway(
@@ -5533,6 +5569,7 @@ def teardown_infrastructure( credentials, teardown_nodes ):
 					teardown_node[ "rest_api_id" ],
 				)
 			)
+		"""
 	
 	teardown_operation_results = yield teardown_operation_futures
 	
