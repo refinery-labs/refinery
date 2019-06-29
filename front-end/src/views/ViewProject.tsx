@@ -9,7 +9,6 @@ import store from '@/store/index';
 import { DeploymentViewMutators, ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
 
 const project = namespace('project');
-const deployment = namespace('deployment');
 
 @Component
 export default class ViewProject extends mixins(CreateToastMixin) {
@@ -18,8 +17,6 @@ export default class ViewProject extends mixins(CreateToastMixin) {
   @project.Getter selectedResourceDirty!: boolean;
   @project.Action openProject!: (projectId: GetSavedProjectRequest) => {};
   @project.Action fetchLatestDeploymentState!: () => void;
-
-  @deployment.Action openViewExecutionsPane!: () => void;
 
   // This handles fetching the data for the UI upon route entry
   // Note: We don't block the call to next because that allows the user to "see" the UI first, including a loading animation.
@@ -97,14 +94,8 @@ export default class ViewProject extends mixins(CreateToastMixin) {
       );
     }
 
-    const tabOnEvents = {
-      click: () => {
-        this.openViewExecutionsPane();
-      }
-    };
-
     return (
-      <b-nav-item on={tabOnEvents} ref="deploymentTab" to={`${basePath}/deployments`}>
+      <b-nav-item ref="deploymentTab" to={`${basePath}/deployments`}>
         Deployment
       </b-nav-item>
     );

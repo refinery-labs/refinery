@@ -357,8 +357,6 @@ $content-sidebar-width: 92px;
 .refinery-code-editor-container {
   min-width: 200px;
   min-height: 180px;
-  margin-bottom: 16px;
-  padding-bottom: 8px;
   &--read-only {
     .ace_scroller {
       cursor: auto;
@@ -450,4 +448,30 @@ $content-sidebar-width: 92px;
 
 .home {
   margin-top: 100px;
+}
+
+.modal {
+  .environment-variable-cards-container {
+    max-height: 76vh;
+
+    .card-columns {
+      @media (min-width: 576px) {
+        column-count: 1;
+      }
+
+      @media (min-width: 992px) {
+        column-count: 2;
+      }
+
+      @media (min-width: 1200px) {
+        column-count: 3;
+      }
+    }
+  }
+}
+
+.environment-variable {
+  &__delete {
+    margin-top: -8px;
+  }
 }

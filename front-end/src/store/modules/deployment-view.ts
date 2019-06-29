@@ -187,6 +187,8 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
       context.commit(DeploymentViewMutators.setCytoscapeStyle, stylesheet);
 
       context.commit(DeploymentViewMutators.isLoadingDeployment, false);
+
+      await context.dispatch(DeploymentViewActions.openViewExecutionsPane);
     },
     async [DeploymentViewActions.destroyDeployment](context) {
       const handleError = async (message: string) => {
@@ -290,7 +292,7 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
       });
     },
     async [DeploymentViewActions.openViewExecutionsPane](context) {
-      context.dispatch(DeploymentViewActions.openLeftSidebarPane, SIDEBAR_PANE.viewExecutions);
+      await context.dispatch(DeploymentViewActions.openLeftSidebarPane, SIDEBAR_PANE.viewExecutions);
     },
     async [DeploymentViewActions.openLeftSidebarPane](context, leftSidebarPaneType: SIDEBAR_PANE) {
       // TODO: Somehow fire a callback on each left pane so that it can reset itself?

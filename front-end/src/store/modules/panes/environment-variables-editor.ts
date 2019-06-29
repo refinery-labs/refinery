@@ -16,6 +16,7 @@ import { RootState } from '@/store/store-types';
 
 export interface EnvironmentVariablesEditorPaneState {
   isModalVisible: boolean;
+  isReadOnlyModalVisible: boolean;
 
   activeBlockId: string | null;
   activeBlockName: string | null;
@@ -24,7 +25,7 @@ export interface EnvironmentVariablesEditorPaneState {
 
 export interface EnvVariableRow {
   id: string;
-  value: string;
+  value: string | null;
   name: string;
   description: string;
   required: boolean;
@@ -36,7 +37,9 @@ export interface OpenEnvironmentVariablesParams {
 }
 
 export const baseState: EnvironmentVariablesEditorPaneState = {
+  // TODO: Make it so that modals are instantiated by ID or something so that we can have more than two...
   isModalVisible: false,
+  isReadOnlyModalVisible: false,
   activeBlockId: null,
   activeBlockName: null,
   envVariableList: []
@@ -49,6 +52,7 @@ const initialState = deepJSONCopy(baseState);
 class EnvironmentVariablesEditorStore extends VuexModule<ThisType<EnvironmentVariablesEditorPaneState>, RootState>
   implements EnvironmentVariablesEditorPaneState {
   public isModalVisible: boolean = initialState.isModalVisible;
+  public isReadOnlyModalVisible: boolean = initialState.isModalVisible;
 
   public activeBlockId: string | null = initialState.activeBlockId;
   public activeBlockName: string | null = initialState.activeBlockName;
@@ -60,7 +64,11 @@ class EnvironmentVariablesEditorStore extends VuexModule<ThisType<EnvironmentVar
   }
 
   @Mutation
-  public setModalVisibility(modalVisibility: boolean) {
+  public setModalVisibility({ modalVisibility, readOnly }: { modalVisibility: boolean; readOnly: boolean }) {
+    if (readOnly) {
+      this.isReadOnlyModalVisible = modalVisibility;
+      return;
+    }
     this.isModalVisible = modalVisibility;
   }
 
@@ -93,6 +101,15 @@ class EnvironmentVariablesEditorStore extends VuexModule<ThisType<EnvironmentVar
   }
 
   @Mutation
+  public deleteVariable(id: string) {
+    if (!this.activeBlockId) {
+      return;
+    }
+
+    this.envVariableList = this.envVariableList.filter(row => row.id !== id);
+  }
+
+  @Mutation
   private editNewBlock(params: OpenEnvironmentVariablesParams) {
     const { block, config } = params;
 
@@ -121,7 +138,16 @@ class EnvironmentVariablesEditorStore extends VuexModule<ThisType<EnvironmentVar
 
   @Mutation
   private viewNewBlock(block: ProductionLambdaWorkflowState) {
-    this.envVariableList = block.environment_variables;
+    this.envVariableList = Object.keys(block.environment_variables).map(key => {
+      const envVariable = block.environment_variables[key];
+      return {
+        id: key,
+        value: envVariable.value,
+        description: envVariable.description,
+        required: envVariable.required,
+        name: envVariable.name
+      };
+    });
 
     this.activeBlockId = block.id;
     this.activeBlockName = block.name;
@@ -154,7 +180,7 @@ class EnvironmentVariablesEditorStore extends VuexModule<ThisType<EnvironmentVar
     }
 
     this.editNewBlock(params);
-    this.setModalVisibility(true);
+    this.setModalVisibility({ modalVisibility: true, readOnly: false });
   }
 
   @Action
@@ -164,15 +190,15 @@ class EnvironmentVariablesEditorStore extends VuexModule<ThisType<EnvironmentVar
     }
 
     this.viewNewBlock(block);
-    this.setModalVisibility(true);
+    this.setModalVisibility({ modalVisibility: true, readOnly: true });
   }
 
-  @Action closeModal() {
-    this.setModalVisibility(false);
+  @Action closeModal(readOnly: boolean) {
+    this.setModalVisibility({ modalVisibility: false, readOnly });
   }
 
-  @Action closeEditor(discard: boolean) {
-    this.setModalVisibility(false);
+  @Action closeEditor({ discard, readOnly }: { discard: boolean; readOnly: boolean }) {
+    this.setModalVisibility({ modalVisibility: false, readOnly: readOnly });
 
     if (discard) {
       this.resetState();

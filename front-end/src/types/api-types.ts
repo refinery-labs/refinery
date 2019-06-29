@@ -7,11 +7,7 @@ import {
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import {
-  ProductionDeploymentRefineryProject,
-  ProductionWorkflowRelationship,
-  ProductionWorkflowState
-} from '@/types/production-workflow-types';
+import { ProductionWorkflowRelationship, ProductionWorkflowState } from '@/types/production-workflow-types';
 
 export interface BaseApiResponse {
   success: boolean;

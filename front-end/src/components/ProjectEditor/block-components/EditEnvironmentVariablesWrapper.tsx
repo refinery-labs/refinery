@@ -8,9 +8,9 @@ import {
 } from '@/components/ProjectEditor/EnvironmentVariablesEditor';
 import { EnvironmentVariablesEditorModule } from '@/store/modules/panes/environment-variables-editor';
 import { namespace } from 'vuex-class';
+import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
 
 const project = namespace('project');
-const deployment = namespace('deployment');
 
 export interface EditEnvironmentVariablesWrapperProps {
   selectedNode: LambdaWorkflowState;
@@ -23,7 +23,6 @@ export class EditEnvironmentVariablesWrapper extends Vue implements EditEnvironm
   @Prop({ required: true }) readOnly!: boolean;
 
   @project.State openedProjectConfig!: ProjectConfig | null;
-  @deployment.State openedDeploymentProjectConfig!: ProjectConfig | null;
 
   public onOpenModal() {
     if (!this.selectedNode) {
@@ -31,6 +30,7 @@ export class EditEnvironmentVariablesWrapper extends Vue implements EditEnvironm
     }
 
     if (this.readOnly) {
+      EnvironmentVariablesEditorModule.viewProductionBlockInModal(this.selectedNode as ProductionLambdaWorkflowState);
       return;
     }
 
@@ -50,10 +50,14 @@ export class EditEnvironmentVariablesWrapper extends Vue implements EditEnvironm
       activeBlockId: EnvironmentVariablesEditorModule.activeBlockId,
       activeBlockName: EnvironmentVariablesEditorModule.activeBlockName,
       envVariableList: EnvironmentVariablesEditorModule.envVariableList,
-      isModalVisible: EnvironmentVariablesEditorModule.isModalVisible,
-      onModalHidden: () => EnvironmentVariablesEditorModule.closeModal(),
+      isModalVisible: this.readOnly
+        ? EnvironmentVariablesEditorModule.isReadOnlyModalVisible
+        : EnvironmentVariablesEditorModule.isModalVisible,
+      onModalHidden: () => EnvironmentVariablesEditorModule.closeModal(this.readOnly),
       addNewVariable: () => EnvironmentVariablesEditorModule.addNewVariable(),
-      closeEditor: EnvironmentVariablesEditorModule.closeEditor,
+      deleteVariable: id => EnvironmentVariablesEditorModule.deleteVariable(id),
+      closeEditor: (discard: boolean) =>
+        EnvironmentVariablesEditorModule.closeEditor({ discard, readOnly: this.readOnly }),
       setVariableDescription: (id, description) =>
         EnvironmentVariablesEditorModule.setVariableDescription({ id, description }),
       setVariableName: (id, name) => EnvironmentVariablesEditorModule.setVariableName({ id, name }),
@@ -64,7 +68,7 @@ export class EditEnvironmentVariablesWrapper extends Vue implements EditEnvironm
     return (
       <div>
         <b-button class="col-12" variant="dark" on={{ click: this.onOpenModal }}>
-          Edit Block Variables
+          {this.readOnly ? 'View' : 'Edit'} Block Variables
         </b-button>
         <EnvironmentVariablesEditor props={environmentVariablesEditorProps} />
       </div>

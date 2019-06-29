@@ -16,7 +16,6 @@ export interface ProductionDeploymentRefineryProject extends RefineryProject {
 export interface ProductionLambdaEnvironmentVariable {
   name: string;
   value: string;
-  id: string;
   description: string;
   required: boolean;
 }
@@ -42,7 +41,7 @@ export interface ProductionLambdaWorkflowState extends ProductionWorkflowState {
   libraries: string[];
   memory: number;
   max_execution_time: number;
-  environment_variables: ProductionLambdaEnvironmentVariable[];
+  environment_variables: { [key: string]: ProductionLambdaEnvironmentVariable };
 }
 
 export interface ProductionApiEndpointWorkflowState extends ProductionWorkflowState {
