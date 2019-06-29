@@ -4072,7 +4072,10 @@ class TaskSpawner(object):
 			
 			response = api_gateway_client.get_resources(
 				restApiId=rest_api_id,
-				limit=500
+				limit=500,
+				embed=[
+					"GET /restapis/" + rest_api_id + "/resources?embed=methods"
+				]
 			)
 			
 			return response[ "items" ]
@@ -4663,18 +4666,27 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	
 	unique_name_counter = 0
 	
+	# Environment variable map
+	# { "LAMBDA_UUID": [{ "key": "", "value": ""}] }
+	env_var_dict = {}
+	
 	# First just set an empty array for each lambda node
 	for workflow_state in diagram_data[ "workflow_states" ]:
 		# Update all of the workflow states with new random deploy ID
 		if "name" in workflow_state:
 			workflow_state[ "name" ] += unique_deploy_id + str(unique_name_counter)
+			
+		# Make an environment variable array if there isn't one already
+		env_var_dict[ workflow_state[ "id" ] ] = []
 		
 		# If there are environment variables in project_config, add them to the Lambda node data
-		if workflow_state[ "type" ] == "lambda":
-			if workflow_state[ "id" ] in project_config[ "environment_variables" ]:
-				workflow_state[ "environment_variables" ] = project_config[ "environment_variables" ][ workflow_state[ "id" ] ]
-			else:
-				workflow_state[ "environment_variables" ] = []
+		if workflow_state[ "type" ] == "lambda" and "environment_variables" in workflow_state:
+			for env_var_uuid, env_data in workflow_state[ "environment_variables" ].iteritems():
+				if env_var_uuid in project_config[ "environment_variables" ]:
+					env_var_dict[ workflow_state[ "id" ] ].append({
+						"key": workflow_state[ "environment_variables" ][ env_var_uuid ][ "name" ],
+						"value": project_config[ "environment_variables" ][ env_var_uuid ][ "value" ]
+					})
 		
 		if workflow_state[ "type" ] == "lambda" or workflow_state[ "type" ] == "api_endpoint":
 			# Set up default transitions data
@@ -4864,7 +4876,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				"REGULAR",
 				project_id,
 				project_config[ "logging" ][ "level" ],
-				lambda_node[ "environment_variables" ],
+				env_var_dict[ lambda_node[ "id" ] ],
 				lambda_node[ "layers" ],
 			)
 		})
@@ -5093,9 +5105,6 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 					)
 					
 					
-		logit( "Waiting until all routes are deployed..." )
-		#yield api_route_futures
-		
 		logit( "Now deploying API gateway to stage..." )
 		deploy_stage_results = yield local_tasks.deploy_api_gateway_to_stage(
 			credentials,
@@ -5559,6 +5568,7 @@ def teardown_infrastructure( credentials, teardown_nodes ):
 					teardown_node[ "arn" ],
 				)
 			)
+		"""
 		elif teardown_node[ "type" ] == "api_gateway":
 			teardown_operation_futures.append(
 				strip_api_gateway(
@@ -5566,6 +5576,7 @@ def teardown_infrastructure( credentials, teardown_nodes ):
 					teardown_node[ "rest_api_id" ],
 				)
 			)
+		"""
 	
 	teardown_operation_results = yield teardown_operation_futures
 	
