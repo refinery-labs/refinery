@@ -4647,6 +4647,8 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		if workflow_state[ "type" ] == "lambda" and "environment_variables" in workflow_state:
 			for env_var_uuid, env_data in workflow_state[ "environment_variables" ].iteritems():
 				if env_var_uuid in project_config[ "environment_variables" ]:
+					# Add value to match schema
+					workflow_state[ "environment_variables" ][ env_var_uuid ][ "value" ] = project_config[ "environment_variables" ][ env_var_uuid ][ "value" ]
 					env_var_dict[ workflow_state[ "id" ] ].append({
 						"key": workflow_state[ "environment_variables" ][ env_var_uuid ][ "name" ],
 						"value": project_config[ "environment_variables" ][ env_var_uuid ][ "value" ]
