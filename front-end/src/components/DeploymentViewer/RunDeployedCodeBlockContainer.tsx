@@ -35,7 +35,11 @@ export default class RunDeployedCodeBlockContainer extends Vue {
     const selectedBlock = this.getSelectedBlock as ProductionLambdaWorkflowState;
 
     if (!selectedBlock || selectedBlock.type !== WorkflowStateType.LAMBDA || !selectedBlock.arn) {
-      return <span>Select a Code Block to execute code.</span>;
+      return (
+        <div class="text-align--center width--100percent">
+          <span class="m-2">Select a Code Block to execute code.</span>
+        </div>
+      );
     }
 
     // The if check above doesn't make the function below happy...

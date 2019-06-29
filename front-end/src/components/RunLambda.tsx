@@ -114,7 +114,7 @@ export default class RunLambda extends Vue {
     const resultDataEditorProps: EditorProps = {
       name: `result-data-${this.getNameSuffix()}`,
       // This is very nice for rendering non-programming text
-      lang: 'text',
+      lang: 'json',
       content: (this.runResultOutput && this.runResultOutput.returned_data) || '',
       wrapText: true,
       readOnly: true,

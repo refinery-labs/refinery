@@ -373,7 +373,7 @@ export class EditLambdaBlock extends Vue {
           href={this.getAwsConsoleUri}
           on={{ click: preventDefaultWrapper(this.openAwsConsoleForBlock) }}
         >
-          Inspect Block Instance
+          Open Lambda in AWS
         </b-button>
         <b-button
           variant="dark"
@@ -381,7 +381,7 @@ export class EditLambdaBlock extends Vue {
           href={this.getLambdaMonitorUri}
           on={{ click: preventDefaultWrapper(this.openAwsMonitorForCodeBlock) }}
         >
-          CloudWatch Logs
+          CloudWatch Graphs
         </b-button>
         <b-button
           variant="dark"
@@ -389,7 +389,7 @@ export class EditLambdaBlock extends Vue {
           href={this.getLambdaCloudWatchUri}
           on={{ click: preventDefaultWrapper(this.openAwsCloudwatchForCodeBlock) }}
         >
-          Block History Monitor
+          CloudWatch Logs
         </b-button>
       </b-form-group>
     );
@@ -451,9 +451,9 @@ export class EditLambdaBlock extends Vue {
         <div>
           <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#code-block' }} />
           <BlockNameInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
-          {this.renderAwsLink()}
           {this.renderCodeEditorContainer()}
           {this.renderBlockVariables()}
+          {this.renderAwsLink()}
           {this.renderLanguageSelector()}
           {this.renderForm(this.selectedNode, maxExecutionTimeProps)}
           {this.renderForm(this.selectedNode, maxMemoryProps)}

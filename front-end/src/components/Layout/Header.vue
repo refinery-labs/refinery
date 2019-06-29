@@ -4,7 +4,7 @@
     <nav class="navbar topnavbar">
       <!-- START navbar header-->
       <div class="navbar-header">
-        <router-link class="navbar-brand" to="/">
+        <router-link class="navbar-brand" to="/projects">
           <div class="brand-logo">
             <img class="img-fluid" src="../../../public/img/logo-icon.png" alt="App" style="height: 36px" />
           </div>
