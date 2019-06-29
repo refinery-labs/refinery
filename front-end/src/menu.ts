@@ -24,14 +24,14 @@ export const GlobalNavMenuItems: MenuItemList = [
     path: baseLinks.marketplace,
     icon: 'icon-basket',
     translate: 'global.nav.MARKETPLACE'
-  },*/
+  },
   {
     name: 'Settings',
     path: baseLinks.settings,
     icon: 'icon-settings',
     translate: 'global.nav.SETTINGS'
   },
-  /*  {
+  {
     name: 'About',
     path: baseLinks.about,
     icon: 'icon-info',

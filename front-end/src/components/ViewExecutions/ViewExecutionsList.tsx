@@ -81,7 +81,9 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
     if (!this.projectExecutions) {
       return (
         <div class={containerClasses}>
-          <h4>Please wait while executions are loaded...</h4>
+          <h4 style="margin: 10px">
+            <b-spinner small /> Please wait while executions are loaded...
+          </h4>
         </div>
       );
     }
@@ -91,12 +93,19 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
     if (projectExecutions.length === 0) {
       return (
         <div class={containerClasses}>
-          <h4>
-            There are not any executions of this pipeline. For more information on, please read{' '}
+          <h4 style="margin: 10px;">
+            There are not any executions of this pipeline yet.
+            <br />
+            Click on "Code Runner" to manually run a block.
+            <br />
+            For more information please read{' '}
             <a href="https://docs.refinery.io/debugging/" target="_blank">
               these docs
             </a>
             .
+          </h4>
+          <h4>
+            <b-spinner small /> Polling for execution logs...
           </h4>
         </div>
       );

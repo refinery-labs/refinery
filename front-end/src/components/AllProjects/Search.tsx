@@ -103,6 +103,7 @@ export default class Search extends Vue {
       </ul>
     );
   }
+
   public renderCreateProjectCard() {
     const createProjectErrorMessage = this.newProjectErrorMessage || 'Must provide name for new project!';
     return (
@@ -276,8 +277,19 @@ export default class Search extends Vue {
   }
 
   public renderDeleteProjectModal() {
+    const modalOnHandlers = {
+      hidden: () => this.setDeleteModalVisibility(false),
+      ok: () => this.setDeleteModalVisibility(false)
+    };
+
     return (
-      <b-modal ref="my-modal" hide-footer title="Delete Project Confirmation" visible={this.deleteModalVisible}>
+      <b-modal
+        on={modalOnHandlers}
+        ref="my-modal"
+        hide-footer
+        title="Delete Project Confirmation"
+        visible={this.deleteModalVisible}
+      >
         <div class="d-block text-center">
           <h3>Are you sure that you want to delete this project?</h3>
           <br />

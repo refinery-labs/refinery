@@ -5,6 +5,7 @@ import moment from 'moment';
 import { GetLatestProjectDeploymentResponse } from '@/types/api-types';
 
 const project = namespace('project');
+const deployment = namespace('deployment');
 
 @Component
 export default class DeployProjectPane extends Vue {
@@ -16,9 +17,12 @@ export default class DeployProjectPane extends Vue {
   @project.Action deployProject!: () => void;
   @project.Action resetDeploymentPane!: () => void;
 
-  public deployProjectClicked(e: Event) {
+  @deployment.Action openViewExecutionsPane!: () => void;
+
+  public async deployProjectClicked(e: Event) {
     e.preventDefault();
-    this.deployProject();
+    await this.deployProject();
+    this.openViewExecutionsPane();
   }
 
   public renderTooltips() {

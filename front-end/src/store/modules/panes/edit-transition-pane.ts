@@ -89,6 +89,8 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
       context.commit(EditTransitionMutators.setSelectedEdge, null);
       context.commit(EditTransitionMutators.setSelectedEdgeOriginal, null);
       await context.dispatch(`project/${ProjectViewActions.deselectResources}`, null, { root: true });
+      // Close the panel since we're done.
+      await context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.right, { root: true });
     },
     async [EditTransitionActions.cancelAndResetBlock](context) {
       // Reset this pane state
