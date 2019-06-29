@@ -11,7 +11,6 @@ import {
   WorkflowStateType
 } from '@/types/graph';
 import { getNodeDataById, getTransitionsForNode } from '@/utils/project-helpers';
-import { ToastVariant } from '@/types/toasts-types';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { PANE_POSITION } from '@/types/project-editor-types';
 import { DEFAULT_LANGUAGE_CODE } from '@/constants/project-editor-constants';
@@ -37,8 +36,11 @@ export enum EditBlockMutators {
   setExecutionMemory = 'setExecutionMemory',
   setMaxExecutionTime = 'setMaxExecutionTime',
   setLayers = 'setLayers',
+  setEnvironmentVariables = 'setEnvironmentVariables',
+
   setCodeModalVisibility = 'setCodeModalVisibility',
   setLibrariesModalVisibility = 'setLibrariesModalVisibility',
+
   setEnteredLibrary = 'setEnteredLibrary',
   deleteDependencyImport = 'deleteDependencyImport',
   addDependencyImport = 'addDependencyImport',
@@ -244,6 +246,9 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     },
     [EditBlockMutators.setLayers](state, layers) {
       lambdaChange(state, block => (block.layers = layers));
+    },
+    [EditBlockMutators.setEnvironmentVariables](state, environmentVariables) {
+      lambdaChange(state, block => (block.environment_variables = environmentVariables));
     },
     [EditBlockMutators.setCodeModalVisibility](state, visible) {
       state.showCodeModal = visible;

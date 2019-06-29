@@ -96,6 +96,7 @@ export default new Vuex.Store<RootState>({
     setting: SettingModule,
     deployment: DeploymentViewModule,
     deploymentExecutions: DeploymentExecutionsPaneModule,
+    // environmentVariablesEditor: EnvironmentVariablesEditorModule,
     viewBlock: ViewBlockPaneModule,
     viewTransition: ViewTransitionPaneModule,
     project: ProjectView,

@@ -10,6 +10,8 @@ Some of the values in this YAML file with have to be obtained from running the A
 
 Once you've properly filled out your `docker-compose.yaml` file you can then build Refinery with the command `docker-compose up --build` (depending on your Docker configuration you may need to use `sudo`). Both `docker` and `docker-compose` are required to do this.
 
+### Setup 
+
 ### Using docker-machine
 You might not want to run everything on your host OS for a variety of reasons. Because development of this app uses Docker, in order to use Docker without "sudo" you need to add your user to the docker group. Unfortunately, this has the side effect that all code executed as your user now also effectively have Root because Docker allows binding all folder paths via mount. That means that an attacker can bind your /proc and /etc paths to the container, which you probably don't want.
 

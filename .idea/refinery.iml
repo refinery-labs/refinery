@@ -40,6 +40,7 @@
       <excludeFolder url="file://$MODULE_DIR$/gui/js/vendor" />
       <excludeFolder url="file://$MODULE_DIR$/install/env" />
       <excludeFolder url="file://$MODULE_DIR$/nginx-container/front-end-dist" />
+      <excludeFolder url="file://$MODULE_DIR$/www" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

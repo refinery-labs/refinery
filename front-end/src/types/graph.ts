@@ -3,6 +3,7 @@ import { HTTP_METHOD } from '@/constants/api-constants';
 export interface BaseRefineryResource {
   name: string;
   id: string;
+  version: string;
 }
 
 export interface RefineryProject {
@@ -57,6 +58,17 @@ export interface LambdaWorkflowState extends WorkflowState {
   libraries: string[];
   memory: number;
   max_execution_time: number;
+  environment_variables: BlockEnvironmentVariableList;
+}
+
+export interface BlockEnvironmentVariableList {
+  [key: string]: BlockEnvironmentVariable;
+}
+
+export interface BlockEnvironmentVariable {
+  name: string;
+  required: boolean;
+  description: string;
 }
 
 export interface ApiEndpointWorkflowState extends WorkflowState {
@@ -86,19 +98,17 @@ export interface WorkflowRelationship extends BaseRefineryResource {
 }
 
 export interface ProjectConfig {
-  environment_variables: ProjectEnvironmentVariableConfig;
+  environment_variables: ProjectEnvironmentVariableList;
   api_gateway: { gateway_id: string };
   version: string;
   logging: { level: ProjectLogLevel };
 }
 
-export interface ProjectEnvironmentVariableConfig {
-  [key: string]: ProjectEnvironmentVariable[];
+export interface ProjectEnvironmentVariableList {
+  [key: string]: ProjectConfigEnvironmentVariable;
 }
 
-export interface ProjectEnvironmentVariable {
-  key: string;
+export interface ProjectConfigEnvironmentVariable {
   value: string;
+  timestamp: number;
 }
-
-// | Promise<Stylesheet[]>;

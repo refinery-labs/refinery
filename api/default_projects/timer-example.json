@@ -25,7 +25,7 @@
       "memory": 768,
       "libraries": [],
       "layers": [],
-      "max_execution_time": 120,
+      "max_execution_time": 900,
       "type": "lambda",
       "id": "29f31f57-13d7-4fb4-be37-5078f510688c",
       "name": "Get Customer List"
@@ -44,7 +44,7 @@
       "memory": 768,
       "libraries": [],
       "layers": [],
-      "max_execution_time": 120,
+      "max_execution_time": 900,
       "type": "lambda",
       "id": "1e8167f9-d312-4d0f-83da-5cda64b5272e",
       "name": "Send Email"

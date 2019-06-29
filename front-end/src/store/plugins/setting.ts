@@ -1,6 +1,7 @@
-// Helpers to change class attribute
+import debounce from 'debounce';
 import { RootState } from '@/store/store-types';
 import { Store } from 'vuex';
+import { SettingsMutators } from '@/constants/store-constants';
 
 function updateElementClass(el: Element | null, stat: boolean | undefined, name: string) {
   return el && el.classList[stat ? 'add' : 'remove'](name);
@@ -34,6 +35,13 @@ function updateClasses(state: RootState) {
 function SettingPlugin(store: Store<RootState>) {
   // wait for dom ready
   document.addEventListener('DOMContentLoaded', () => updateClasses(store.state));
+
+  // Waits 200ms after the last event has fired before triggering the resize event
+  document.onresize = debounce(resize, 200);
+
+  function resize() {
+    store.commit(SettingsMutators.setWindowWidth, window.innerWidth);
+  }
 
   store.subscribe((mutation, state) => {
     if (mutation.type === 'changeSetting' || mutation.type === 'toggleSetting') {

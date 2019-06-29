@@ -45,7 +45,7 @@
       "memory": 768,
       "libraries": [],
       "layers": [],
-      "max_execution_time": 120,
+      "max_execution_time": 900,
       "type": "lambda",
       "id": "60f3bec8-f4a2-4c3f-819c-dcba80e11ea0",
       "name": "Say Hello"
@@ -56,7 +56,7 @@
       "memory": 768,
       "libraries": [],
       "layers": [],
-      "max_execution_time": 120,
+      "max_execution_time": 900,
       "type": "lambda",
       "id": "f329c6ce-99ea-4aa9-b91b-700be6d8b0a6",
       "name": "Print \"World\""

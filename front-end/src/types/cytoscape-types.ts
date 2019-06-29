@@ -17,4 +17,5 @@ export interface CytoscapeGraphProps {
   selected: string | null;
   enabledNodeIds: string[] | null;
   config: cytoscape.CytoscapeOptions | null;
+  windowWidth?: number;
 }

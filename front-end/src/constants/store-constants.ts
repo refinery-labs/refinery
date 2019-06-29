@@ -170,6 +170,8 @@ export enum SettingsMutators {
   toggleSettingOff = 'toggleSettingOff',
   toggleSettingOn = 'toggleSettingOn',
   changeSetting = 'changeSetting',
+  setWindowWidth = 'setWindowWidth',
+  setWindowHeight = 'setWindowHeight',
   setIsAWSConsoleCredentialModalVisible = 'setIsAWSConsoleCredentialModalVisible',
   setAWSConsoleCredentials = 'setAWSConsoleCredentials'
 }

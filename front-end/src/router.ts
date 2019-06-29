@@ -16,36 +16,13 @@ import { baseLinks, projectViewLinks } from '@/constants/router-constants';
 import PageNotFound from '@/views/PageNotFound';
 import ProjectNotFound from '@/views/ProjectsNestedViews/ProjectNotFound';
 import LoginPage from '@/views/Authentication/LoginPage';
-import { UserMutators } from '@/constants/store-constants';
 import RegistrationPage from '@/views/Authentication/RegistrationPage';
 import HelpPage from '@/views/Help';
 import Billing from '@/views/Billing.vue';
 import ProjectSettings from '@/views/ProjectsNestedViews/ProjectSettings';
+import { guardLoggedIn } from '@/utils/auth-utils';
 
 Vue.use(Router);
-
-async function guardLoggedIn(to: Route, from: Route, next: Function) {
-  if (store.state.user.authenticated) {
-    // allow to enter route
-    next();
-    return;
-  }
-
-  await store.dispatch(`user/fetchAuthenticationState`);
-
-  // We haven't any login data, so go fetch it and keep going...
-  if (store.state.user.authenticated) {
-    // allow to enter route
-    next();
-    return;
-  }
-
-  // Throw the data into the store for later redirect usage
-  store.commit(`user/${UserMutators.setRedirectState}`, to.fullPath);
-
-  // go to '/login';
-  next('/login');
-}
 
 const router = new Router({
   mode: 'history',
@@ -64,7 +41,7 @@ const router = new Router({
     {
       path: '/',
       component: Layout,
-      beforeEnter: guardLoggedIn,
+      beforeEnter: (to: Route, from: Route, next: Function) => guardLoggedIn(to, from, next),
       children: [
         {
           path: '',

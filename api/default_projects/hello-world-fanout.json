@@ -53,7 +53,7 @@
       "memory": 768,
       "libraries": [],
       "layers": [],
-      "max_execution_time": 120,
+      "max_execution_time": 900,
       "type": "lambda",
       "id": "e051c822-3073-4aa9-94cd-3b3b5227fd65",
       "name": "Process Individual Item"
@@ -64,7 +64,7 @@
       "memory": 768,
       "libraries": [],
       "layers": [],
-      "max_execution_time": 120,
+      "max_execution_time": 900,
       "type": "lambda",
       "id": "1e89a16d-de26-40d3-9b2d-a96c8e56366d",
       "name": "Collect Data (Fan In)"
@@ -75,7 +75,7 @@
       "memory": 768,
       "libraries": [],
       "layers": [],
-      "max_execution_time": 120,
+      "max_execution_time": 900,
       "type": "lambda",
       "id": "5219d48b-5db1-4a85-8b58-00dd557ad3ee",
       "name": "Create Array of Data for Fan Out"
