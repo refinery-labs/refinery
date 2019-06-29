@@ -4,7 +4,7 @@ import { ProductionExecution } from '@/types/deployment-executions-types';
 
 export interface EditorProps {
   name: string;
-  lang: SupportedLanguage | 'text';
+  lang: SupportedLanguage | 'text' | 'json';
   content: string;
   theme?: string;
   onChange?: (s: string) => void;
