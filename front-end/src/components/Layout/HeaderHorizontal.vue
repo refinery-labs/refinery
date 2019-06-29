@@ -4,7 +4,7 @@
     <nav class="navbar topnavbar navbar-expand-lg navbar-light">
       <!-- START navbar header-->
       <div class="navbar-header">
-        <a class="navbar-brand" href="#/">
+        <a class="navbar-brand" href="#/projects">
           <div class="brand-logo">
             <img class="img-fluid" src="../../../public/img/logo.png" alt="App" />
           </div>

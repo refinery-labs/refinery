@@ -161,7 +161,8 @@ export enum DeploymentViewActions {
   openLeftSidebarPane = 'openLeftSidebarPane',
   closePane = 'closePane',
   openRightSidebarPane = 'openRightSidebarPane',
-  resetDeploymentState = 'resetDeploymentState'
+  resetDeploymentState = 'resetDeploymentState',
+  openViewExecutionsPane = 'openViewExecutionsPane'
 }
 
 export enum SettingsMutators {

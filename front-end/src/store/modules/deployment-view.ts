@@ -289,6 +289,9 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
         root: true
       });
     },
+    async [DeploymentViewActions.openViewExecutionsPane](context) {
+      context.dispatch(DeploymentViewActions.openLeftSidebarPane, SIDEBAR_PANE.viewExecutions);
+    },
     async [DeploymentViewActions.openLeftSidebarPane](context, leftSidebarPaneType: SIDEBAR_PANE) {
       // TODO: Somehow fire a callback on each left pane so that it can reset itself?
       // Using a watcher seems gross... A plugin could work but that feels a little bit too "loose".
