@@ -84,6 +84,12 @@ $padding-steps: (
     &--#{$step} {
       margin: $size;
     }
+    &-between-sides--#{$step} > * + * {
+      margin-left: $size;
+    }
+    &-between-tops--#{$step} > * + * {
+      margin-top: $size;
+    }
   }
 }
 
@@ -218,4 +224,22 @@ $padding-steps: (
   border: 1px solid #ccc;
 
   overflow-y: auto;
+}
+
+.border {
+  &-divider--top {
+    border-top: 1px solid $content-heading-border;
+  }
+  &-divider--bottom {
+    border-bottom: 1px solid $content-heading-border;
+  }
+  &-divider--all {
+    border: 1px solid $content-heading-border;
+  }
+}
+
+.background {
+  &--content {
+    background-color: $content-heading-bg;
+  }
 }

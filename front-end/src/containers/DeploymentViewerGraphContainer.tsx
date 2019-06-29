@@ -1,7 +1,7 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import CytoscapeGraph from '@/components/CytoscapeGraph';
-import { namespace } from 'vuex-class';
+import { namespace, State } from 'vuex-class';
 import { RefineryProject, WorkflowRelationship, WorkflowState } from '@/types/graph';
 import { LayoutOptions } from 'cytoscape';
 import { AvailableTransition } from '@/store/store-types';
@@ -19,6 +19,7 @@ export default class DeploymentViewerGraphContainer extends Vue {
   @deployment.State cytoscapeConfig!: cytoscape.CytoscapeOptions | null;
 
   @deployment.State isLoadingDeployment!: boolean;
+  @State windowWidth?: number;
 
   @deploymentExecutions.Getter graphElementsWithExecutionStatus!: CyElements | null;
 
@@ -48,7 +49,8 @@ export default class DeploymentViewerGraphContainer extends Vue {
       config: this.cytoscapeConfig,
       selected: this.selectedResource,
       enabledNodeIds: null,
-      backgroundGrid: false
+      backgroundGrid: false,
+      windowWidth: this.windowWidth
     };
 
     return (

@@ -93,6 +93,7 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
   @Prop() public selected!: string | null;
   @Prop() public enabledNodeIds!: string[] | null;
   @Prop() public backgroundGrid!: boolean;
+  @Prop() public windowWidth?: number;
 
   // This is a catch-all for any additional options that need to be specified
   @Prop({ default: () => {} }) public config!: cytoscape.CytoscapeOptions | null;
@@ -171,6 +172,16 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
     }
 
     this.selectNodeOrEdgeInInstance(val);
+  }
+
+  @Watch('windowWidth')
+  private windowWidthModified(val?: number, oldVal?: number) {
+    if (val === oldVal || !this.cy) {
+      return;
+    }
+
+    // Fixes the issue of Cytoscape getting funky when the window size changes.
+    this.cy.resize();
   }
 
   @Watch('enabledNodeIds', { immediate: true })

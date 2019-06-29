@@ -77,9 +77,10 @@ import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
 import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
-import { teardownProject } from '@/store/fetchers/api-helpers';
+import { openProject, teardownProject } from '@/store/fetchers/api-helpers';
 import generateStupidName from '@/lib/silly-names';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
+import { createNewBlock, createNewTransition } from '@/utils/block-utils';
 
 interface AddBlockArguments {
   rawBlockType: string;
@@ -258,10 +259,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       return state.hasProjectBeenModified;
     },
     [ProjectViewGetters.canDeployProject]: state =>
-      !state.hasProjectBeenModified &&
-      !state.isProjectBusy &&
-      !state.isAddingTransitionCurrently &&
-      !state.isEditingTransitionCurrently,
+      !state.isProjectBusy && !state.isAddingTransitionCurrently && !state.isEditingTransitionCurrently,
     [ProjectViewGetters.selectedBlockDirty]: (state, getters) =>
       state.editBlockPane && getters['editBlockPane/isStateDirty'],
     [ProjectViewGetters.selectedTransitionDirty]: (state, getters) =>
@@ -444,32 +442,14 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       context.commit(ProjectViewMutators.isLoadingProject, true);
 
-      const projectResult = await makeApiRequest<GetSavedProjectRequest, GetSavedProjectResponse>(
-        API_ENDPOINT.GetSavedProject,
-        request
-      );
-
-      if (!projectResult || !projectResult.success) {
-        // TODO: Handle error gracefully
-        console.error('Unable to open project, missing project');
-        context.commit(ProjectViewMutators.isLoadingProject, false);
-        return;
-      }
-
-      const project = unwrapProjectJson(projectResult);
+      const project = await openProject(request);
 
       if (!project) {
         // TODO: Handle error gracefully
-        console.error('Unable to read project from server');
+        console.error('Unable to open project missing project');
         context.commit(ProjectViewMutators.isLoadingProject, false);
         return;
       }
-
-      // Ensures that we have all fields, especially if the schema changes.
-      project.workflow_states = project.workflow_states.map(wfs => ({
-        ...blockTypeToDefaultStateMapping[wfs.type],
-        ...wfs
-      }));
 
       const params: OpenProjectMutation = {
         project: project,
@@ -655,6 +635,16 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       ) {
         console.error('Tried to deploy project but should not have been enabled');
         return;
+      }
+
+      if (context.getters[ProjectViewGetters.canSaveProject]) {
+        await context.dispatch(ProjectViewActions.saveProject);
+
+        // If still dirty, throw an error.
+        if (context.getters[ProjectViewGetters.canSaveProject]) {
+          await handleDeploymentError('Project could not be saved before the deploy. Check for errors.');
+          return;
+        }
       }
 
       context.commit(ProjectViewMutators.setDeploymentError, null);
@@ -932,14 +922,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      const newTransition: WorkflowRelationship = {
-        node: context.state.selectedResource,
-        next: nodeId,
-        type: context.state.newTransitionTypeSpecifiedInAddFlow,
-        name: context.state.newTransitionTypeSpecifiedInAddFlow,
-        expression: context.state.ifExpression,
-        id: uuid()
-      };
+      const newTransition = createNewTransition(
+        context.state.newTransitionTypeSpecifiedInAddFlow,
+        context.state.selectedResource,
+        nodeId,
+        context.state.ifExpression
+      );
 
       if (context.state.openedProject === null) {
         console.error("Something odd has occurred, you're trying to add a transition with no project opened!");
@@ -971,7 +959,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.addTransition, newTransition);
       await context.dispatch(ProjectViewActions.cancelAddingTransition);
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
-      await context.dispatch(ProjectViewActions.selectEdge, newTransition.id);
+      // await context.dispatch(ProjectViewActions.selectEdge, newTransition.id);
 
       // TODO: Open right sidebar pane
     },
@@ -1111,12 +1099,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         newBlockName = blockTypeToImageLookup[blockType].name;
       }
 
-      const newBlock: WorkflowState = {
-        ...blockTypeToDefaultStateMapping[blockType](),
-        id: uuid(),
-        name: newBlockName,
-        type: blockType
-      };
+      const newBlock = createNewBlock(blockType, newBlockName);
 
       // This creates a new pointer for the main object, which makes Vuex very pleased.
       // TODO: Probably pull this out into a helper function
@@ -1294,7 +1277,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       };
 
       await context.dispatch(ProjectViewActions.updateProject, params);
-      await context.dispatch(ProjectViewActions.selectEdge, newTransition.id);
+      // await context.dispatch(ProjectViewActions.selectEdge, newTransition.id);
     },
     async [ProjectViewActions.updateAvailableTransitions](context) {
       const resetTransitions = () => context.commit(ProjectViewMutators.setValidTransitions, null);

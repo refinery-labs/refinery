@@ -1,6 +1,7 @@
 import Component from 'vue-class-component';
 import Vue, { VNode } from 'vue';
 import { Prop } from 'vue-property-decorator';
+import { EnvironmentVariablesEditorModule } from '@/store/modules/panes/environment-variables-editor';
 import { LambdaWorkflowState, SupportedLanguage, WorkflowState, WorkflowStateType } from '@/types/graph';
 import { FormProps, LanguageToBaseRepoURLMap, LanguageToLibraryRepoURLMap } from '@/types/project-editor-types';
 import { BlockNameInput } from '@/components/ProjectEditor/block-components/EditBlockNamePane';
@@ -21,6 +22,14 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import { libraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-helpers';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
+import {
+  EnvironmentVariablesEditor,
+  EnvironmentVariablesEditorProps
+} from '@/components/ProjectEditor/EnvironmentVariablesEditor';
+import {
+  EditEnvironmentVariablesWrapper,
+  EditEnvironmentVariablesWrapperProps
+} from '@/components/ProjectEditor/block-components/EditEnvironmentVariablesWrapper';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
@@ -67,6 +76,58 @@ export class EditLambdaBlock extends Vue {
   @editBlock.Mutation setEnteredLibrary!: (libraryName: string) => void;
   @editBlock.Mutation deleteDependencyImport!: (libraryName: string) => void;
   @editBlock.Mutation addDependencyImport!: (libraryName: string) => void;
+
+  deleteLibrary(library: string) {
+    // Do nothing
+    if (this.readOnly) {
+      return;
+    }
+
+    this.deleteDependencyImport(library);
+  }
+
+  addLibrary(e: Event) {
+    e.preventDefault();
+
+    // Do nothing
+    if (this.readOnly) {
+      return;
+    }
+
+    this.addDependencyImport(this.enteredLibrary);
+
+    // Reset input
+    this.setEnteredLibrary('');
+  }
+
+  public changeCodeLanguage(language: SupportedLanguage) {
+    // We need to reset the libraries
+    // Otherwise you'll have npm libraries when you switch to Python :/
+    this.setDependencyImports([]);
+    this.setCodeLanguage(language);
+  }
+
+  public closeLibraryModal() {
+    if (this.selectedNode === null || this.selectedNode.type !== WorkflowStateType.LAMBDA) {
+      console.error("You don't have a node currently selected so I can't check the build status!");
+      return;
+    }
+    const libraries = deepJSONCopy(this.selectedNode.libraries);
+    const params: libraryBuildArguments = {
+      language: this.selectedNode.language as SupportedLanguage,
+      libraries: libraries
+    };
+    startLibraryBuild(params);
+    this.setLibrariesModalVisibility(false);
+  }
+
+  private viewLibraryModal() {
+    const setEnteredLibrary = this.readOnly ? nopWrite : this.setEnteredLibrary;
+
+    // Reset library name input
+    setEnteredLibrary('');
+    this.setLibrariesModalVisibility(true);
+  }
 
   public renderCodeEditorModal() {
     const nameString = `Edit Code for '${this.selectedNode.name}'`;
@@ -171,13 +232,6 @@ export class EditLambdaBlock extends Vue {
     );
   }
 
-  public changeCodeLanguage(language: SupportedLanguage) {
-    // We need to reset the libraries
-    // Otherwise you'll have npm libraries when you switch to Python :/
-    this.setDependencyImports([]);
-    this.setCodeLanguage(language);
-  }
-
   public renderLanguageSelector() {
     const selectedNode = this.selectedNode;
     const changeCodeLanguage = this.readOnly ? nopWrite : this.changeCodeLanguage;
@@ -199,29 +253,6 @@ export class EditLambdaBlock extends Vue {
         </div>
       </b-form-group>
     );
-  }
-
-  deleteLibrary(library: string) {
-    // Do nothing
-    if (this.readOnly) {
-      return;
-    }
-
-    this.deleteDependencyImport(library);
-  }
-
-  addLibrary(e: Event) {
-    e.preventDefault();
-
-    // Do nothing
-    if (this.readOnly) {
-      return;
-    }
-
-    this.addDependencyImport(this.enteredLibrary);
-
-    // Reset input
-    this.setEnteredLibrary('');
   }
 
   public renderLibraryTable() {
@@ -256,20 +287,6 @@ export class EditLambdaBlock extends Vue {
       );
     });
     return <b-list-group>{libraryTable}</b-list-group>;
-  }
-
-  public closeLibraryModal() {
-    if (this.selectedNode === null || this.selectedNode.type !== WorkflowStateType.LAMBDA) {
-      console.error("You don't have a node currently selected so I can't check the build status!");
-      return;
-    }
-    const libraries = deepJSONCopy(this.selectedNode.libraries);
-    const params: libraryBuildArguments = {
-      language: this.selectedNode.language as SupportedLanguage,
-      libraries: libraries
-    };
-    startLibraryBuild(params);
-    this.setLibrariesModalVisibility(false);
   }
 
   public renderLibrariesModal() {
@@ -327,14 +344,6 @@ export class EditLambdaBlock extends Vue {
     );
   }
 
-  private viewLibraryModal() {
-    const setEnteredLibrary = this.readOnly ? nopWrite : this.setEnteredLibrary;
-
-    // Reset library name input
-    setEnteredLibrary('');
-    this.setLibrariesModalVisibility(true);
-  }
-
   public renderLibrarySelector() {
     // Go has no libraries, it's done via in-code imports
     if (this.selectedNode.language === SupportedLanguage.GO1_12) {
@@ -386,6 +395,20 @@ export class EditLambdaBlock extends Vue {
     );
   }
 
+  public renderBlockVariables() {
+    const editEnvironmentVariablesWrapperProps: EditEnvironmentVariablesWrapperProps = {
+      selectedNode: this.selectedNode,
+      readOnly: this.readOnly
+    };
+
+    return (
+      <b-form-group description="Click to view the variables passed to the block at runtime.">
+        <label class="d-block">Block Variable Configuration:</label>
+        <EditEnvironmentVariablesWrapper props={editEnvironmentVariablesWrapperProps} />
+      </b-form-group>
+    );
+  }
+
   public render(): VNode {
     const setMaxExecutionTime = this.readOnly ? nopWrite : this.setMaxExecutionTime;
     const setExecutionMemory = this.readOnly ? nopWrite : this.setExecutionMemory;
@@ -429,6 +452,7 @@ export class EditLambdaBlock extends Vue {
           <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#code-block' }} />
           <BlockNameInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
           {this.renderCodeEditorContainer()}
+          {this.renderBlockVariables()}
           {this.renderAwsLink()}
           {this.renderLanguageSelector()}
           {this.renderForm(this.selectedNode, maxExecutionTimeProps)}
@@ -444,6 +468,7 @@ export class EditLambdaBlock extends Vue {
         <BlockNameInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
         {this.renderCodeEditorContainer()}
         {this.renderAwsLink()}
+        {this.renderBlockVariables()}
         {this.renderLibrarySelector()}
         {/*<b-button variant="dark" class="col-12 mb-3">*/}
         {/*  Edit Environment Variables*/}

@@ -11,6 +11,8 @@ import {
   GetProjectExecutionLogsResponse,
   GetProjectExecutionsRequest,
   GetProjectExecutionsResponse,
+  GetSavedProjectRequest,
+  GetSavedProjectResponse,
   InfraTearDownRequest,
   InfraTearDownResponse,
   SaveProjectRequest,
@@ -24,8 +26,9 @@ import { ProductionExecution, ProductionExecutionResponse } from '@/types/deploy
 import { convertExecutionResponseToProjectExecutions } from '@/utils/project-execution-utils';
 import { SupportedLanguage, WorkflowState } from '@/types/graph';
 import { ProductionWorkflowState } from '@/types/production-workflow-types';
-import { DEFAULT_PROJECT_CONFIG } from '@/constants/project-editor-constants';
-import { AllProjectsMutators } from '@/constants/store-constants';
+import { blockTypeToDefaultStateMapping, DEFAULT_PROJECT_CONFIG } from '@/constants/project-editor-constants';
+import { AllProjectsMutators, ProjectViewMutators } from '@/constants/store-constants';
+import { unwrapProjectJson } from '@/utils/project-helpers';
 
 export interface libraryBuildArguments {
   language: SupportedLanguage;
@@ -183,4 +186,29 @@ export async function importProject(json: string) {
 
 export async function createProject(name: string) {
   return await importProject(JSON.stringify({ name }));
+}
+
+export async function openProject(request: GetSavedProjectRequest) {
+  const projectResult = await makeApiRequest<GetSavedProjectRequest, GetSavedProjectResponse>(
+    API_ENDPOINT.GetSavedProject,
+    request
+  );
+
+  if (!projectResult || !projectResult.success) {
+    return null;
+  }
+
+  const project = unwrapProjectJson(projectResult);
+
+  if (!project) {
+    return null;
+  }
+
+  // Ensures that we have all fields, especially if the schema changes.
+  project.workflow_states = project.workflow_states.map(wfs => ({
+    ...blockTypeToDefaultStateMapping[wfs.type](),
+    ...wfs
+  }));
+
+  return project;
 }

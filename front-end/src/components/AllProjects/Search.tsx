@@ -44,7 +44,7 @@ export default class Search extends Vue {
   @allProjects.Mutation setSearchBoxInput!: (text: string) => void;
   @allProjects.Mutation setDeleteModalVisibility!: (val: boolean) => void;
 
-  @allProjects.Action performSearch!: () => {};
+  @allProjects.Action performSearch!: (e: string) => {};
   @allProjects.Action createProject!: () => void;
   @allProjects.Action uploadProject!: () => void;
   @allProjects.Action importProject!: () => void;
@@ -56,12 +56,13 @@ export default class Search extends Vue {
       return;
     }
 
+    e.preventDefault();
     // This is certainly annoying
-    this.setSearchBoxInput((e.target as HTMLInputElement).value);
+    this.performSearch((e.target as HTMLInputElement).value);
   }
 
   public mounted() {
-    this.performSearch();
+    this.performSearch('');
   }
 
   public renderCardTool() {

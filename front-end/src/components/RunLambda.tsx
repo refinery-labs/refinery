@@ -108,7 +108,7 @@ export default class RunLambda extends Vue {
     const hasValidOutput = this.checkIfValidRunLambdaOutput();
 
     if (!hasValidOutput && isInSidepane) {
-      return <label class="mt-3 mb-3">{noDataText}</label>;
+      return <label class="m-3">{noDataText}</label>;
     }
 
     const resultDataEditorProps: EditorProps = {
@@ -197,9 +197,28 @@ export default class RunLambda extends Vue {
 
     const outputDataEditor = this.renderOutputData();
 
+    const buttons = (
+      <div class="run-lambda-container__buttons col-md-12">
+        <b-button-group class="width--100percent">
+          {/*<b-button variant="info" disabled on={{click: () => this.onRunLambda()}}>*/}
+          {/*  View Last Execution*/}
+          {/*</b-button>*/}
+          <b-button variant="primary" on={{ click: () => this.onRunLambda() }}>
+            Execute With Data
+          </b-button>
+        </b-button-group>
+      </div>
+    );
+
     // Column layout
     if (this.displayMode === RunLambdaDisplayMode.sidepane) {
-      return [inputDataEditor, outputDataEditor];
+      return (
+        <div class="display--flex flex-direction--column flex-grow--1">
+          {inputDataEditor}
+          {outputDataEditor}
+          {buttons}
+        </div>
+      );
     }
 
     // Row layout
@@ -207,6 +226,7 @@ export default class RunLambda extends Vue {
       <div class="display--flex flex-direction--row flex-grow--1 row">
         {inputDataEditor}
         {outputDataEditor}
+        {buttons}
       </div>
     );
   }
@@ -220,19 +240,7 @@ export default class RunLambda extends Vue {
     return (
       <div>
         <Loading props={loadingProps}>
-          <div class="run-lambda-container display--flex flex-direction--column">
-            {this.renderEditors()}
-            <div class="run-lambda-container__buttons">
-              <b-button-group class="width--100percent">
-                {/*<b-button variant="info" disabled on={{click: () => this.onRunLambda()}}>*/}
-                {/*  View Last Execution*/}
-                {/*</b-button>*/}
-                <b-button variant="primary" on={{ click: () => this.onRunLambda() }}>
-                  Execute With Data
-                </b-button>
-              </b-button-group>
-            </div>
-          </div>
+          <div class="run-lambda-container display--flex flex-direction--column">{this.renderEditors()}</div>
         </Loading>
       </div>
     );
