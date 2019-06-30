@@ -2120,6 +2120,30 @@ class TaskSpawner(object):
 			
 			full_response = response[ "Payload" ].read()
 			
+			# Decode it all the way
+			try:
+				full_response = json.loads(
+					json.loads(
+						full_response
+					)
+				)
+			except:
+				pass
+
+			prettify_types = [
+				dict,
+				list
+			]
+
+			if type( full_response ) in prettify_types:
+				full_response = json.dumps(
+					full_response,
+					indent=4
+				)
+
+			if type( full_response ) != str:
+				full_response = str( full_response )
+			
 			# Detect from response if it was an error
 			is_error = False
 			
@@ -2144,6 +2168,15 @@ class TaskSpawner(object):
 					
 					if log_line.startswith( "REPORT RequestId: " ):
 						continue
+						
+					if "START RequestId: " in log_line:
+						log_line = log_line.split( "START RequestId: " )[0]
+
+					if "END RequestId: " in log_line:
+						log_line = log_line.split( "END RequestId: " )[0]
+
+					if "REPORT RequestId: " in log_line:
+						log_line = log_line.split( "REPORT RequestId: " )[0]
 					
 					returned_log_lines.append(
 						log_line
