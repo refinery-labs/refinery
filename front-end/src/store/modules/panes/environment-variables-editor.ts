@@ -229,7 +229,7 @@ class EnvironmentVariablesEditorStore extends VuexModule<ThisType<EnvironmentVar
       ...openedProjectConfig,
       environment_variables: this.envVariableList.reduce((outVars: ProjectEnvironmentVariableList, envVariable) => {
         outVars[envVariable.id] = {
-          value: envVariable.value,
+          value: envVariable.value !== null ? envVariable.value : '',
           timestamp: Date.now()
         };
         return outVars;
