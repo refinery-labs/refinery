@@ -1,23 +1,51 @@
-import { Module } from 'vuex';
-import { RootState } from '../../store-types';
+import { VuexModule, Module, Mutation, Action, getModule } from 'vuex-module-decorators';
+import store from '@/store/index';
+import { resetStoreState } from '@/utils/store-utils';
+import { deepJSONCopy } from '@/lib/general-utils';
+import { RootState } from '@/store/store-types';
 
-// Enums
-export enum BaseBlockMutators {}
+// This is the name that this will be added to the Vuex store with.
+// You will need to add to the `RootState` interface if you want to access this state via `rootState` from anywhere.
+const storeName = 'REPLACE_ME_BASE_STORE';
 
-export enum BaseBlockActions {}
+export interface ExampleBaseState {
+  example: string;
+}
 
-// Types
-export interface BaseBlockPaneState {}
-
-// Initial State
-const moduleState: BaseBlockPaneState = {};
-
-const BaseBlockPaneModule: Module<BaseBlockPaneState, RootState> = {
-  namespaced: true,
-  state: moduleState,
-  getters: {},
-  mutations: {},
-  actions: {}
+export const baseState: ExampleBaseState = {
+  example: 'delete me'
 };
 
-export default BaseBlockPaneModule;
+// Must copy so that we can not thrash the pointers...
+const initialState = deepJSONCopy(baseState);
+
+// We need to leave this as a "dynamic" module so that we can use the fancy `this` rebinding. Otherwise we have to use
+// The old school `context.commit` and `context.dispatch` style syntax.
+@Module({ namespaced: true, dynamic: true, store, name: storeName })
+class ExampleBaseStore extends VuexModule<ThisType<ExampleBaseState>, RootState> implements ExampleBaseState {
+  public example: string = initialState.example;
+
+  // Example of "getter" syntax.
+  get currentExampleValue() {
+    return this.example;
+  }
+
+  @Mutation
+  public resetState() {
+    resetStoreState(this, initialState);
+  }
+
+  // Note: Mutators cannot call other Mutators. If you need to do that, use an Action.
+  @Mutation
+  public setExample(value: string) {
+    this.example = value;
+  }
+
+  // This is able to call a Mutator via the `this` context because of magic.
+  @Action
+  public setExampleViaAction(value: string) {
+    this.setExample(value);
+  }
+}
+
+export const ExampleBaseStoreModule = getModule(ExampleBaseStore);
