@@ -1,23 +1,32 @@
 type InputData struct {
-	Context map[string]interface{} `json:"context"`
+	Backpack map[string]interface{} `json:"backpack"`
 	LambdaInput interface{} `json:"lambda_input"`
+}
+
+type ReturnData struct {
+    Backpack string `json:"backpack"`
+    Output string `json:"output"`
 }
 
 func main() {
 	var input_data InputData
 	json.Unmarshal([]byte(os.Args[1:][0]), &input_data)
 	lambda_input, _ := json.Marshal(input_data.LambdaInput)
-    defer func() {
-        if r := recover(); r != nil {
-            fmt.Println("<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_START_MARKER>")
-            fmt.Println(r)
-            debug.PrintStack()
-            fmt.Println("<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_END_MARKER>")
-            os.Exit(-1)
-        }
-    }()
-	return_data := block_main([]byte(lambda_input), input_data.Context)
-	output, _ := json.Marshal(return_data)
+	backpack, _ := json.Marshal(input_data.Backpack)
+	defer func() {
+		if r := recover(); r != nil {
+			stacktrace := make([]byte, (1024 * 100))
+			runtime.Stack(stacktrace, false)
+			stacktrace = bytes.Trim(stacktrace, "\x00")
+			error_data := fmt.Sprintf("%s", r)
+			output, _ := json.Marshal(ReturnData{Backpack: string( backpack ), Output: ( error_data + "\n" + string(stacktrace) )})
+			fmt.Println("<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + string(output) + "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_END_MARKER>")
+			os.Exit(-1)
+		}
+	}()
+	return_data, new_backpack := block_main([]byte(lambda_input), backpack)
+	serialized_return_data, _ := json.Marshal(return_data)
+	output, _ := json.Marshal(ReturnData{Backpack: string( new_backpack ), Output: string(serialized_return_data)})
 	fmt.Println("<REFINERY_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + string(output) + "<REFINERY_OUTPUT_CUSTOM_RUNTIME_END_MARKER>")
 	os.Exit(0)
 }

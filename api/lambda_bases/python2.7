@@ -5,12 +5,21 @@ import sys
 def _init():
 	input_data = json.loads( sys.argv[1] )
 	lambda_input = input_data[ "lambda_input" ]
-	context = input_data[ "context" ]
+	backpack = input_data[ "backpack" ]
+
 	try:
-		output = main( lambda_input, context )
-		print( "<REFINERY_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + json.dumps( output ) + "<REFINERY_OUTPUT_CUSTOM_RUNTIME_END_MARKER>" )
+		output = main( lambda_input, backpack )
+		print( "<REFINERY_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + json.dumps({
+			"backpack": backpack,
+			"output": output,
+		}) + "<REFINERY_OUTPUT_CUSTOM_RUNTIME_END_MARKER>" )
+		backpack = {}
 	except:
-		print( "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + traceback.format_exc() + "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_END_MARKER>" )
+		print( "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + json.dumps({
+			"backpack": backpack,
+			"output": traceback.format_exc()
+		}) + "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_END_MARKER>" )
+		backpack = {}
 		exit(-1)
 		
 	exit(0)

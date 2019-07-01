@@ -314,23 +314,31 @@ class Refinery_Memory:
 
 		# Decode returned data
 		decoded_return_data = []
+		
+		# Combine all of the collective backpacks into one
+		# final backpack. Colliding keys are overwritten.
+		combined_backpack = {}
 
 		for returned_data_segment in returned_data[0]:
+			returned_data_dict = json.loads(
+				returned_data_segment
+			)
+			
+			if type( returned_data_dict ) == dict:
+				for backpack_key, backpack_value in returned_data_dict[ "backpack" ].iteritems():
+					combined_backpack[ backpack_key ] = backpack_value
+			
 			# Try to JSON-decode each segment
-			try:
-				decoded_return_data.append(
-					json.loads(
-						returned_data_segment
-					)
-				)
-			except:
-				decoded_return_data.append(
-					returned_data_segment
-				)
+			decoded_return_data.append(
+				returned_data_dict[ "output" ]
+			)
 
-		return decoded_return_data
+		return {
+			"input_data": decoded_return_data,
+			"backpack": combined_backpack
+		}
 
-	def _fan_in_operations( self, fan_out_id, return_data, **kwargs ):
+	def _fan_in_operations( self, fan_out_id, return_data, backpack, **kwargs ):
 		"""
 		This function either returns False if we're not the last Lambda
 		in the fan-in to be invoked or it returns a key of the data to be
@@ -345,9 +353,10 @@ class Refinery_Memory:
 		# Push return data into redis
 		pipeline.lpush(
 			"FAN_IN_RESULTS_" + fan_out_id,
-			json.dumps(
-				return_data
-			)
+			json.dumps({
+				"backpack": backpack,
+				"output": return_data
+			})
 		)
 
 		# Update expiration
@@ -405,9 +414,10 @@ class Refinery_Memory:
 			pipeline.setex(
 				new_input_data_key,
 				self.return_data_timeout,
-				json.dumps(
-					lambda_invocation_list[ i ][ "input_data" ]
-				)
+				json.dumps({
+					"input_data": lambda_invocation_list[ i ][ "input_data" ],
+					"backpack": lambda_invocation_list[ i ][ "backpack" ]
+				})
 			)
 
 			del lambda_invocation_list[ i ][ "input_data" ]
@@ -538,7 +548,7 @@ def _parallel_invoke( invoke_queue ):
 		raise SystemExit
 
 	# Publishes to an SNS topic
-	def sns_topic_publish_worker( execution_id, fan_out_ids, arn, input_data ):
+	def sns_topic_publish_worker( execution_id, fan_out_ids, arn, input_data, backpack ):
 		# Handle large data that won't fit in the 256K SNS max size
 		sns_client = boto3.client(
 			"sns"
@@ -551,6 +561,7 @@ def _parallel_invoke( invoke_queue ):
 				"execution_id": execution_id,
 				"fan_out_ids": fan_out_ids,
 				"input_data": input_data,
+				"backpack": backpack
 			}
 		}
 
@@ -638,7 +649,8 @@ def _parallel_invoke( invoke_queue ):
 					new_invoke_data[ "execution_id" ],
 					new_invoke_data[ "fan_out_ids" ],
 					new_invoke_data[ "arn" ],
-					new_invoke_data[ "input_data" ]
+					new_invoke_data[ "input_data" ],
+					new_invoke_data[ "backpack" ]
 				)
 			)
 			new_thread.start()
@@ -994,6 +1006,14 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 
 	# Throw exceptions fully (for use in tmp-runs, etc)
 	throw_exceptions_fully = False
+	
+	# The backpack variable is a variable that is automatically passed
+	# between code block executions and is an arbitrary map/dict/object
+	# that you can set key/values on. This is useful for storing some data
+	# to be used in a non-immediate code block in the workflow. This way you
+	# don't have to always return all of your data in a weird format in order
+	# to pass it along.
+	backpack = {}
 
 	_start_clock( "Loading Input Data" )
 	
@@ -1032,15 +1052,21 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 		if "invoke" in lambda_input[ "_refinery" ]:
 			is_spawner_invocation = True
 			invocation_id = lambda_input[ "_refinery" ][ "invoke" ]
+			
+		# This is for non-redis calls, e.g. through SNS or SQS
+		if "backpack" in lambda_input[ "_refinery" ]:
+			backpack = lambda_input[ "_refinery" ][ "backpack" ]
 
 		_side_loaded = False
 		if "indirect" in lambda_input[ "_refinery" ] and lambda_input[ "_refinery" ][ "indirect" ] and "type" in lambda_input[ "_refinery" ][ "indirect" ]:
 			# Input data is stored in redis
 			if lambda_input[ "_refinery" ][ "indirect" ][ "type" ] == "redis":
 				try:
-					lambda_input = gmemory._get_input_data_from_redis(
+					stored_input = gmemory._get_input_data_from_redis(
 						lambda_input[ "_refinery" ][ "indirect" ][ "key" ]
 					)
+					lambda_input = stored_input[ "input_data" ]
+					backpack = stored_input[ "backpack" ]
 				except AlreadyInvokedException as e:
 					print( "This Lambda has already been invoked (or the return data has expired). For this reason we are quitting out (indirect return data)." )
 					return
@@ -1048,9 +1074,11 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 			# Input data is stored in redis as a list from a fan-in
 			elif lambda_input[ "_refinery" ][ "indirect" ][ "type" ] == "redis_fan_in":
 				try:
-					lambda_input = gmemory._fan_in_get_results_data(
+					stored_input = gmemory._fan_in_get_results_data(
 						lambda_input[ "_refinery" ][ "indirect" ][ "key" ]
 					)
+					lambda_input = stored_input[ "input_data" ]
+					backpack = stored_input[ "backpack" ]
 				except AlreadyInvokedException as e:
 					print( "This Lambda has already been invoked (or the return data has expired). For this reason we are quitting out (direct return data)." )
 					return
@@ -1097,7 +1125,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 				executable_path,
 				json.dumps({
 					"lambda_input": lambda_input,
-					"context": context.context_dict,
+					"backpack": backpack,
 				})
 			],
 			stdout=subprocess.PIPE,
@@ -1133,6 +1161,8 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 					return_data = json.loads(
 						return_data_string
 					)
+					backpack = return_data[ "backpack" ]
+					return_data = return_data[ "output" ]
 				except:
 					return_data = return_data_string
 				# Write the output for logging
@@ -1153,17 +1183,23 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 
 			if error_start_marker in str( error_output ) and error_end_marker in str( error_output ):
 				exception_parts = error_output.split( error_start_marker )
-				error_output = error_output.replace(
-					error_start_marker,
-					""
-				).replace(
-					error_end_marker,
-					""
-				)
+				error_output = exception_parts[0]
 				exception_data_sub_parts = exception_parts[1].split( error_end_marker )
 				exception_string = exception_data_sub_parts[0]
 			else:
 				exception_string = ""
+				
+			try:
+				output_data = json.loads(
+					exception_string
+				)
+				exception_string = output_data[ "output" ]
+				backpack = output_data[ "backpack" ]
+				error_output = error_output + exception_string
+			except:
+				# We pass here since the result is the same
+				# Just an unmodified backpack
+				pass
 
 			_stop_clock( "Executing Lambda" )
 			
@@ -1180,6 +1216,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 						execution_id,
 						"CAUGHT_EXCEPTION",
 						{
+							"backpack": backpack,
 							"input_data": lambda_input,
 							"output": error_output,
 							"exception": exception_string,
@@ -1193,6 +1230,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 						"fan_out_ids": fan_out_ids,
 						"type": exception_transition_data[ "type" ],
 						"arn": exception_transition_data[ "arn" ],
+						"backpack": backpack,
 						"input_data": {
 							"version": _VERSION,
 							"exception_text": exception_string,
@@ -1212,6 +1250,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 					execution_id,
 					"EXCEPTION",
 					{
+						"backpack": backpack,
 						"input_data": lambda_input,
 						"output": error_output,
 						"exception": exception_string,
@@ -1223,6 +1262,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 			# to it so that it's more obvious what's happening.
 			if _transition_type_in_transitions( transitions, "api_gateway_response" ):
 				invocation_input_list.append({
+					"backpack": backpack,
 					"execution_id": execution_id,
 					"type": "api_gateway_response",
 					"input_data": {
@@ -1300,6 +1340,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 			# Convert into JSON so it can be stored in redis
 			invocation_list.append(
 				json.dumps({
+					"backpack": backpack,
 					"execution_id": execution_id,
 					"fan_out_ids": new_fan_out_ids,
 					"type": fan_out_transition_data[ "type" ],
@@ -1416,6 +1457,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 				"type": "lambda_fan_out",
 				"arn": context.invoked_function_arn,
 				"invocation_id": invocation_id,
+				"backpack": backpack,
 				# Input data is purely to ensure we get idempotency
 				"input_data": {
 					"why": "idempotency"
@@ -1430,7 +1472,8 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 		# First we push our returned data into the results list
 		fan_in_results = gmemory._fan_in_operations(
 			fan_out_id,
-			return_data
+			return_data,
+			backpack
 		)
 
 		# If we're the final invocation in the fan-in we
@@ -1438,6 +1481,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 		# array as the input.
 		if fan_in_results:
 			invocation_input_list.append({
+				"backpack": backpack,
 				"execution_id": execution_id,
 				"fan_out_ids": fan_out_ids,
 				"type": "lambda_fan_in",
@@ -1448,6 +1492,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 	# If it's just a then, just invoke the next Lambda
 	for then_transition_data in transitions[ "then" ]:
 		invocation_input_list.append({
+			"backpack": backpack,
 			"execution_id": execution_id,
 			"fan_out_ids": fan_out_ids,
 			"type": then_transition_data[ "type" ],
@@ -1484,6 +1529,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 
 		if expression_eval_result:
 			invocation_input_list.append({
+				"backpack": backpack,
 				"execution_id": execution_id,
 				"fan_out_ids": fan_out_ids,
 				"type": if_statement_data[ "type" ],
@@ -1501,6 +1547,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 	if true_if_evaluation_occured == False:
 		for else_transition_data in transitions[ "else" ]:
 			invocation_input_list.append({
+				"backpack": backpack,
 				"execution_id": execution_id,
 				"fan_out_ids": fan_out_ids,
 				"type": else_transition_data[ "type" ],
@@ -1526,6 +1573,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 			execution_id,
 			"RETURN",
 			{
+				"backpack": backpack,
 				"input_data": lambda_input,
 				"output": program_output,
 				"return_data": return_data

@@ -1,3 +1,5 @@
+backpack = {};
+
 function return_result( program_output ) {
 	console.log(
 		"<REFINERY_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + JSON.stringify(
@@ -11,15 +13,28 @@ function return_result( program_output ) {
 (async function() {
 	var input_data = JSON.parse( process.argv[2] );
 	var lambda_input = input_data[ "lambda_input" ];
-	var context = input_data[ "context" ];
+	backpack = input_data[ "backpack" ];
 	try {
-		var output = await main( lambda_input, context );
-		return_result( output );
+		var output = await main( lambda_input );
+		return_result({
+			"output": output,
+			"backpack": backpack,
+		});
+		backpack = {};
 		process.exit(0);
 	} catch ( e ) {
+		if( e.stack ) {
+			e = e.stack.toString()
+		} else {
+			e = e.toString();
+		}
 		console.log(
-			"<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + e.stack.toString() + "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_END_MARKER>"
+			"<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + JSON.stringify({
+				"output": e,
+				"backpack": backpack
+			}) + "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_END_MARKER>"
 		);
+		backpack = {};
 		process.exit(-1);
 	}
 })();

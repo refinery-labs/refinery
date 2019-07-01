@@ -260,11 +260,11 @@ export type DefaultCodeFromLanguage = { [key in SupportedLanguage]: string };
 
 export const DEFAULT_LANGUAGE_CODE: DefaultCodeFromLanguage = {
   [SupportedLanguage.PYTHON_2]: `
-def main( block_input, context ):
+def main( block_input, backpack ):
     return False
 `,
   [SupportedLanguage.NODEJS_8]: `
-async function main( block_input, context ) {
+async function main( block_input, backpack ) {
 	return false;
 }
 `,
@@ -272,7 +272,7 @@ async function main( block_input, context ) {
 <?php
 // Uncomment if you specified libraries
 // require __DIR__ . "/vendor/autoload.php";
-function main( $block_input, $context ) {
+function main( $block_input, $backpack ) {
 	return false;
 }
 `,
@@ -283,8 +283,9 @@ import (
 	// by the Refinery runtime do not remove them!
 	"os"
 	"fmt"
+	"bytes"
+	"runtime"
 	"encoding/json"
-	"runtime/debug"
 	// Add your imports below this line
 )
 
@@ -295,14 +296,17 @@ type BlockInput struct {
 
 // Modify block_main() appropriately.
 // It must return a JSON-serializable value
-func block_main(block_input []byte, context map[string]interface{}) bool {
+func block_main(block_input []byte, backpack []byte) (bool, []byte) {
 	var unmarshalled_input BlockInput
 	
-	// lambda_input is a byte array of the input to this code block
+	// lambda_input is a byte array of the input to this code block11
 	// This is a JSON-serialized value returned from another block.
 	json.Unmarshal(block_input, &unmarshalled_input)
 	
-	return false
+	// backpack is a byte array of the backpack variable passed to this code block
+	// You must return the backpack, modified or unchanged, as your secondary return value.
+	// e.g: return return_value, backpack
+	return false, backpack
 }
 `
 };

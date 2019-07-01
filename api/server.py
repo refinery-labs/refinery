@@ -2120,30 +2120,6 @@ class TaskSpawner(object):
 			
 			full_response = response[ "Payload" ].read()
 			
-			# Decode it all the way
-			try:
-				full_response = json.loads(
-					json.loads(
-						full_response
-					)
-				)
-			except:
-				pass
-			
-			prettify_types = [
-				dict,
-				list
-			]
-			
-			if type( full_response ) in prettify_types:
-				full_response = json.dumps(
-					full_response,
-					indent=4
-				)
-				
-			if type( full_response ) != str:
-				full_response = str( full_response )
-			
 			# Detect from response if it was an error
 			is_error = False
 			
@@ -2168,15 +2144,6 @@ class TaskSpawner(object):
 					
 					if log_line.startswith( "REPORT RequestId: " ):
 						continue
-					
-					if "START RequestId: " in log_line:
-						log_line = log_line.split( "START RequestId: " )[0]
-						
-					if "END RequestId: " in log_line:
-						log_line = log_line.split( "END RequestId: " )[0]
-						
-					if "REPORT RequestId: " in log_line:
-						log_line = log_line.split( "REPORT RequestId: " )[0]
 					
 					returned_log_lines.append(
 						log_line
@@ -3078,6 +3045,12 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def _build_php_73_lambda( credentials, code, libraries ):
+			code = re.sub(
+				r"function main\([^\)]+\)[^{]\{",
+				"function main( $block_input ) {global $backpack;\n",
+				code
+			)
+			
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "php7.3" ]
 			
 			# Use CodeBuilder to get a base zip of the libraries
@@ -3110,6 +3083,12 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def _build_nodejs_810_lambda( credentials, code, libraries ):
+			code = re.sub(
+				r"function main\([^\)]+\)[^{]\{",
+				"function main( block_input ) {",
+				code
+			)
+			
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "nodejs8.10" ]
 			
 			# Use CodeBuilder to get a base zip of the libraries
@@ -4596,15 +4575,15 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		)
 	elif language == "php7.3":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:4"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:5"
 		)
 	elif language == "go1.12":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:4"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:5"
 		)
 	elif language == "python2.7":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:4"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:5"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
@@ -4663,18 +4642,29 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	
 	unique_name_counter = 0
 	
+	# Environment variable map
+	# { "LAMBDA_UUID": [{ "key": "", "value": ""}] }
+	env_var_dict = {}
+	
 	# First just set an empty array for each lambda node
 	for workflow_state in diagram_data[ "workflow_states" ]:
 		# Update all of the workflow states with new random deploy ID
 		if "name" in workflow_state:
 			workflow_state[ "name" ] += unique_deploy_id + str(unique_name_counter)
+			
+		# Make an environment variable array if there isn't one already
+		env_var_dict[ workflow_state[ "id" ] ] = []
 		
 		# If there are environment variables in project_config, add them to the Lambda node data
-		if workflow_state[ "type" ] == "lambda":
-			if workflow_state[ "id" ] in project_config[ "environment_variables" ]:
-				workflow_state[ "environment_variables" ] = project_config[ "environment_variables" ][ workflow_state[ "id" ] ]
-			else:
-				workflow_state[ "environment_variables" ] = []
+		if workflow_state[ "type" ] == "lambda" and "environment_variables" in workflow_state:
+			for env_var_uuid, env_data in workflow_state[ "environment_variables" ].iteritems():
+				if env_var_uuid in project_config[ "environment_variables" ]:
+					# Add value to match schema
+					workflow_state[ "environment_variables" ][ env_var_uuid ][ "value" ] = project_config[ "environment_variables" ][ env_var_uuid ][ "value" ]
+					env_var_dict[ workflow_state[ "id" ] ].append({
+						"key": workflow_state[ "environment_variables" ][ env_var_uuid ][ "name" ],
+						"value": project_config[ "environment_variables" ][ env_var_uuid ][ "value" ]
+					})
 		
 		if workflow_state[ "type" ] == "lambda" or workflow_state[ "type" ] == "api_endpoint":
 			# Set up default transitions data
@@ -4864,7 +4854,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				"REGULAR",
 				project_id,
 				project_config[ "logging" ][ "level" ],
-				lambda_node[ "environment_variables" ],
+				env_var_dict[ lambda_node[ "id" ] ],
 				lambda_node[ "layers" ],
 			)
 		})
@@ -5093,9 +5083,6 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 					)
 					
 					
-		logit( "Waiting until all routes are deployed..." )
-		#yield api_route_futures
-		
 		logit( "Now deploying API gateway to stage..." )
 		deploy_stage_results = yield local_tasks.deploy_api_gateway_to_stage(
 			credentials,
