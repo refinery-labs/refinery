@@ -3078,6 +3078,12 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def _build_php_73_lambda( credentials, code, libraries ):
+			code = re.sub(
+				r"function main\([^\)]+\)[^{]\{",
+				"function main( $block_input ) {global $backpack;\n",
+				code
+			)
+			
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "php7.3" ]
 			
 			# Use CodeBuilder to get a base zip of the libraries
@@ -3110,6 +3116,12 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def _build_nodejs_810_lambda( credentials, code, libraries ):
+			code = re.sub(
+				r"function main\([^\)]+\)[^{]\{",
+				"function main( block_input ) {",
+				code
+			)
+			
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "nodejs8.10" ]
 			
 			# Use CodeBuilder to get a base zip of the libraries
@@ -4596,15 +4608,15 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		)
 	elif language == "php7.3":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:4"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:5"
 		)
 	elif language == "go1.12":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:4"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:5"
 		)
 	elif language == "python2.7":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:4"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:5"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(

@@ -1,20 +1,28 @@
+$backpack = array();
+
 (function( $lambda_data ) {
+	global $backpack;
 	$input_data = json_decode(
 		$lambda_data,
 		true
 	);
 
 	$lambda_input = $input_data[ "lambda_input" ];
-	$context = $input_data[ "context" ];
+	$backpack = $input_data[ "backpack" ];
 	
 	try {
-		$output = main( $lambda_input, $context );
+		$output = main( $lambda_input );
 		echo( "\n" );
-		echo( "<REFINERY_OUTPUT_CUSTOM_RUNTIME_START_MARKER>".json_encode( $output )."<REFINERY_OUTPUT_CUSTOM_RUNTIME_END_MARKER>" );
+		echo( "<REFINERY_OUTPUT_CUSTOM_RUNTIME_START_MARKER>".json_encode(array(
+			"output" => $output,
+			"backpack" => $backpack,
+		))."<REFINERY_OUTPUT_CUSTOM_RUNTIME_END_MARKER>" );
+		$backpack = array();
 		exit(0);
 	} catch ( Exception $e ) {
 		$error_message = $e->getMessage();
-		echo( "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_START_MARKER>".$error_message."<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_END_MARKER>" );
+		echo( "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_START_MARKER>".json_encode(array( "output" => $error_message, "backpack" => $backpack))."<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_END_MARKER>" );
+		$backpack = array();
 		exit(-1);
 	}
 })( $argv[1] );
