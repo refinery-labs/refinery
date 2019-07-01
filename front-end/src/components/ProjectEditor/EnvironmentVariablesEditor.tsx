@@ -76,49 +76,51 @@ export class EnvironmentVariablesEditor extends Vue implements EnvironmentVariab
     };
 
     return (
-      <b-card class="card-default">
-        {this.readOnly ? null : deleteButton}
-        <b-form on={{ submit: preventDefaultWrapper(() => {}) }}>
-          <label for={nameInputId}>Name</label>
-          <b-input
-            id={nameInputId}
-            disabled={this.readOnly}
-            class="mb-2 mr-sm-2 mb-sm-0"
-            placeholder="eg, EndpointPath"
-            value={name}
-            on={{ change: (name: string) => this.setVariableName(id, name) }}
-          />
-
-          <label class="mr-sm-2 mt-2" for={valueInputId}>
-            Description
-          </label>
-          <b-input-group className="mb-2 mr-sm-2 mb-sm-0">
+      <div class="col-md-6 col-lg-4 environment-variable__card">
+        <b-card class="card-default">
+          {this.readOnly ? null : deleteButton}
+          <b-form on={{ submit: preventDefaultWrapper(() => {}) }}>
+            <label for={nameInputId}>Name</label>
             <b-input
-              id={valueInputId}
+              id={nameInputId}
               disabled={this.readOnly}
-              placeholder="eg, Path to the Get Foo Bar endpoint"
-              value={description}
-              on={{ change: (description: string) => this.setVariableDescription(id, description) }}
+              class="mb-2 mr-sm-2 mb-sm-0"
+              placeholder="eg, EndpointPath"
+              value={name}
+              on={{ change: (name: string) => this.setVariableName(id, name) }}
             />
-          </b-input-group>
 
-          <label class="mr-sm-2 mt-2" for={valueInputId}>
-            Value
-          </label>
-          <b-input-group class="mb-2 mb-sm-0">
-            <RefineryCodeEditor props={editorProps} />
-          </b-input-group>
+            <label class="mr-sm-2 mt-2" for={valueInputId}>
+              Description
+            </label>
+            <b-input-group className="mb-2 mr-sm-2 mb-sm-0">
+              <b-input
+                id={valueInputId}
+                disabled={this.readOnly}
+                placeholder="eg, Path to the Get Foo Bar endpoint"
+                value={description}
+                on={{ change: (description: string) => this.setVariableDescription(id, description) }}
+              />
+            </b-input-group>
 
-          <b-form-checkbox
-            class="mr-sm-2 mb-sm-0"
-            disabled={this.readOnly}
-            on={{ change: () => this.setVariableRequired(id, !required) }}
-            checked={required}
-          >
-            Required
-          </b-form-checkbox>
-        </b-form>
-      </b-card>
+            <label class="mr-sm-2 mt-2" for={valueInputId}>
+              Value
+            </label>
+            <b-input-group class="mb-2 mb-sm-0">
+              <RefineryCodeEditor props={editorProps} />
+            </b-input-group>
+
+            <b-form-checkbox
+              class="mr-sm-2 mb-sm-0"
+              disabled={this.readOnly}
+              on={{ change: () => this.setVariableRequired(id, !required) }}
+              checked={required}
+            >
+              Required
+            </b-form-checkbox>
+          </b-form>
+        </b-card>
+      </div>
     );
   }
 
@@ -143,7 +145,9 @@ export class EnvironmentVariablesEditor extends Vue implements EnvironmentVariab
 
     return (
       <div class={contentsClasses}>
-        <b-card-group columns>{this.envVariableList.map(this.renderEnvVariableRow)}</b-card-group>
+        <div class="environment-variable__card-group display--flex flex-wrap">
+          {this.envVariableList.map(this.renderEnvVariableRow)}
+        </div>
         {this.envVariableList.length === 0 ? helperText : null}
       </div>
     );

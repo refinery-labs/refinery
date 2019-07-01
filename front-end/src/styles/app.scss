@@ -476,4 +476,15 @@ $content-sidebar-width: 92px;
   &__delete {
     margin-top: -8px;
   }
+
+  &__card-group {
+    & > * {
+      padding-left: 8px !important;
+      padding-right: 8px !important;
+    }
+  }
+
+  &__card {
+    min-width: 340px;
+  }
 }

@@ -62,19 +62,23 @@ margin: 0px;\
 background: #f0f0f0;\
 }";
 dom.importCssString(cssText);
-module.exports.overlayPage = function overlayPage(editor, contentElement, top, right, bottom, left) {
-    top = top ? 'top: ' + top + ';' : '';
-    bottom = bottom ? 'bottom: ' + bottom + ';' : '';
-    right = right ? 'right: ' + right + ';' : '';
-    left = left ? 'left: ' + left + ';' : '';
 
+module.exports.overlayPage = function overlayPage(editor, contentElement, callback) {
     var closer = document.createElement('div');
-    var contentContainer = document.createElement('div');
 
     function documentEscListener(e) {
         if (e.keyCode === 27) {
-            closer.click();
+            close();
         }
+    }
+
+    function close() {
+        if (!closer) return;
+        document.removeEventListener('keydown', documentEscListener);
+        closer.parentNode.removeChild(closer);
+        editor.focus();
+        closer = null;
+        callback && callback();
     }
 
     closer.style.cssText = 'margin: 0; padding: 0; ' +
@@ -82,34 +86,20 @@ module.exports.overlayPage = function overlayPage(editor, contentElement, top, r
         'z-index: 9990; ' +
         'background-color: rgba(0, 0, 0, 0.3);';
     closer.addEventListener('click', function() {
-        document.removeEventListener('keydown', documentEscListener);
-        closer.parentNode.removeChild(closer);
-        editor.focus();
-        closer = null;
+        close();
     });
     document.addEventListener('keydown', documentEscListener);
 
-    contentContainer.style.cssText = top + right + bottom + left;
-    contentContainer.addEventListener('click', function(e) {
+    contentElement.addEventListener('click', function (e) {
         e.stopPropagation();
     });
 
-    var wrapper = dom.createElement("div");
-    wrapper.style.position = "relative";
-
-    var closeButton = dom.createElement("div");
-    closeButton.className = "ace_closeButton";
-    closeButton.addEventListener('click', function() {
-        closer.click();
-    });
-
-    wrapper.appendChild(closeButton);
-    contentContainer.appendChild(wrapper);
-
-    contentContainer.appendChild(contentElement);
-    closer.appendChild(contentContainer);
+    closer.appendChild(contentElement);
     document.body.appendChild(closer);
     editor.blur();
+    return {
+        close: close
+    };
 };
 
 });
@@ -161,10 +151,11 @@ var supportedModes = {
     Assembly_x86:["asm|a"],
     AutoHotKey:  ["ahk"],
     Apex:        ["apex|cls|trigger|tgr"],
+    AQL:         ["aql"],
     BatchFile:   ["bat|cmd"],
-    Bro:         ["bro"],
     C_Cpp:       ["cpp|c|cc|cxx|h|hh|hpp|ino"],
     C9Search:    ["c9search_results"],
+    Crystal:     ["cr"],
     Cirru:       ["cirru|cr"],
     Clojure:     ["clj|cljs"],
     Cobol:       ["CBL|COB"],
@@ -242,7 +233,9 @@ var supportedModes = {
     MIXAL:       ["mixal"],
     MUSHCode:    ["mc|mush"],
     MySQL:       ["mysql"],
+    Nginx:       ["nginx|conf"],
     Nix:         ["nix"],
+    Nim:         ["nim"],
     NSIS:        ["nsi|nsh"],
     ObjectiveC:  ["m|mm"],
     OCaml:       ["ml|mli"],
@@ -270,7 +263,7 @@ var supportedModes = {
     Rust:        ["rs"],
     SASS:        ["sass"],
     SCAD:        ["scad"],
-    Scala:       ["scala"],
+    Scala:       ["scala|sbt"],
     Scheme:      ["scm|sm|rkt|oak|scheme"],
     SCSS:        ["scss"],
     SH:          ["sh|bash|^.bashrc"],
@@ -304,6 +297,7 @@ var supportedModes = {
     XML:         ["xml|rdf|rss|wsdl|xslt|atom|mathml|mml|xul|xbl|xaml"],
     XQuery:      ["xq"],
     YAML:        ["yaml|yml"],
+    Zeek:        ["zeek|bro"],
     Django:      ["html"]
 };
 
@@ -373,7 +367,6 @@ var themeData = [
     ["Merbivore Soft"       ,"merbivore_soft"          ,  "dark"],
     ["Mono Industrial"      ,"mono_industrial"         ,  "dark"],
     ["Monokai"              ,"monokai"                 ,  "dark"],
-    ["Monokai Disabled"              ,"monokai-disabled"                 ,  "dark"],
     ["Pastel on dark"       ,"pastel_on_dark"          ,  "dark"],
     ["Solarized Dark"       ,"solarized_dark"          ,  "dark"],
     ["Terminal"             ,"terminal"                ,  "dark"],
@@ -401,13 +394,14 @@ exports.themes = themeData.map(function(data) {
 
 });
 
-ace.define("ace/ext/options",["require","exports","module","ace/ext/menu_tools/overlay_page","ace/lib/dom","ace/lib/oop","ace/lib/event_emitter","ace/ext/modelist","ace/ext/themelist"], function(require, exports, module) {
+ace.define("ace/ext/options",["require","exports","module","ace/ext/menu_tools/overlay_page","ace/lib/dom","ace/lib/oop","ace/config","ace/lib/event_emitter","ace/ext/modelist","ace/ext/themelist"], function(require, exports, module) {
 "use strict";
 var overlayPage = require('./menu_tools/overlay_page').overlayPage;
 
-
+ 
 var dom = require("../lib/dom");
 var oop = require("../lib/oop");
+var config = require("../config");
 var EventEmitter = require("../lib/event_emitter").EventEmitter;
 var buildDom = dom.buildDom;
 
@@ -419,8 +413,8 @@ themelist.themes.forEach(function(x) {
     themes[x.isDark ? "Dark" : "Bright"].push({ caption: x.caption, value: x.theme });
 });
 
-var modes = modelist.modes.map(function(x){
-    return { caption: x.caption, value: x.mode };
+var modes = modelist.modes.map(function(x){ 
+    return { caption: x.caption, value: x.mode }; 
 });
 
 
@@ -594,28 +588,29 @@ var OptionPanel = function(editor, element) {
 };
 
 (function() {
-
+    
     oop.implement(this, EventEmitter);
-
+    
     this.add = function(config) {
         if (config.Main)
             oop.mixin(optionGroups.Main, config.Main);
         if (config.More)
             oop.mixin(optionGroups.More, config.More);
     };
-
+    
     this.render = function() {
         this.container.innerHTML = "";
-        buildDom(["table", {id: "controls"},
+        buildDom(["table", {id: "controls"}, 
             this.renderOptionGroup(optionGroups.Main),
             ["tr", null, ["td", {colspan: 2},
-                ["table", {id: "more-controls"},
+                ["table", {id: "more-controls"}, 
                     this.renderOptionGroup(optionGroups.More)
                 ]
-            ]]
+            ]],
+            ["tr", null, ["td", {colspan: 2}, "version " + config.version]]
         ], this.container);
     };
-
+    
     this.renderOptionGroup = function(group) {
         return Object.keys(group).map(function(key, i) {
             var item = group[key];
@@ -630,7 +625,7 @@ var OptionPanel = function(editor, element) {
             return this.renderOption(item.label, item);
         }, this);
     };
-
+    
     this.renderOptionControl = function(key, option) {
         var self = this;
         if (Array.isArray(option)) {
@@ -639,9 +634,9 @@ var OptionPanel = function(editor, element) {
             });
         }
         var control;
-
+        
         var value = self.getOption(option);
-
+        
         if (option.values && option.type != "checkbox") {
             if (typeof option.values == "string")
                 option.values = option.values.split("|");
@@ -649,12 +644,12 @@ var OptionPanel = function(editor, element) {
                 return { value: v, name: v };
             });
         }
-
+        
         if (option.type == "buttonBar") {
             control = ["div", option.items.map(function(item) {
-                return ["button", {
-                    value: item.value,
-                    ace_selected_button: value == item.value,
+                return ["button", { 
+                    value: item.value, 
+                    ace_selected_button: value == item.value, 
                     onclick: function() {
                         self.setOption(option, item.value);
                         var nodes = this.parentNode.querySelectorAll("[ace_selected_button]");
@@ -662,7 +657,7 @@ var OptionPanel = function(editor, element) {
                             nodes[i].removeAttribute("ace_selected_button");
                         }
                         this.setAttribute("ace_selected_button", true);
-                    }
+                    } 
                 }, item.desc || item.caption || item.name];
             })];
         } else if (option.type == "number") {
@@ -684,8 +679,8 @@ var OptionPanel = function(editor, element) {
                     return ["option", { value: item.value || item.name }, item.desc || item.caption || item.name];
                 });
             };
-
-            var items = Array.isArray(option.items)
+            
+            var items = Array.isArray(option.items) 
                 ? buildItems(option.items)
                 : Object.keys(option.items).map(function(key) {
                     return ["optgroup", {"label": key}, buildItems(option.items[key])];
@@ -708,7 +703,7 @@ var OptionPanel = function(editor, element) {
         }
         return control;
     };
-
+    
     this.renderOption = function(key, option) {
         if (option.path && !option.onchange && !this.editor.$options[option.path])
             return;
@@ -719,7 +714,7 @@ var OptionPanel = function(editor, element) {
             ["label", {for: safeKey}, key]
         ], ["td", control]];
     };
-
+    
     this.setOption = function(option, value) {
         if (typeof option == "string")
             option = this.options[option];
@@ -735,13 +730,13 @@ var OptionPanel = function(editor, element) {
             this.editor.setOption(option.path, value);
         this._signal("setOption", {name: option.path, value: value});
     };
-
+    
     this.getOption = function(option) {
         if (option.getValue)
             return option.getValue();
         return this.editor.getOption(option.path);
     };
-
+    
 }).call(OptionPanel.prototype);
 
 exports.OptionPanel = OptionPanel;
@@ -753,3 +748,4 @@ exports.OptionPanel = OptionPanel;
                         }
                     });
                 })();
+            
