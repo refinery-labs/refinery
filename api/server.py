@@ -2168,7 +2168,7 @@ class TaskSpawner(object):
 					
 					if log_line.startswith( "REPORT RequestId: " ):
 						continue
-						
+					
 					if "START RequestId: " in log_line:
 						log_line = log_line.split( "START RequestId: " )[0]
 
@@ -4604,7 +4604,7 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:4"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:5"
 		)
 	elif language == "php7.3":
 		layers.append(
