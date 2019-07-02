@@ -27,7 +27,11 @@ export default class AddSavedBlockPane extends Vue {
     const durationSinceUpdated = moment.duration(-moment().diff(block.timestamp * 1000)).humanize(true);
 
     return (
-      <b-list-group-item class="display--flex" button>
+      <b-list-group-item
+        class="display--flex"
+        button
+        on={{ click: () => AddSavedBlockPaneStoreModule.addChosenBlock(block.id) }}
+      >
         <img class="add-block__image" src={imagePath} alt={block.name} />
         <div class="flex-column align-items-start add-block__content">
           <div class="d-flex w-100 justify-content-between">

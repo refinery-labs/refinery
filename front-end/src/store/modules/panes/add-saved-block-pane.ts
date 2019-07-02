@@ -154,6 +154,7 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
     };
 
     await this.context.dispatch(`project/${ProjectViewActions.addIndividualBlock}`, addBlockArgs, { root: true });
+    this.resetState();
   }
 
   /**
