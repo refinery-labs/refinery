@@ -4,6 +4,7 @@ import { ProjectConfig, RefineryProject, SupportedLanguage } from '@/types/graph
 export enum SIDEBAR_PANE {
   // Project Editor
   addBlock = 'addBlock',
+  addSavedBlock = 'addSavedBlock',
   addTransition = 'addTransition',
   allBlocks = 'allBlocks',
   allVersions = 'allVersions',

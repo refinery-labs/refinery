@@ -1,18 +1,14 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import OpenedProjectGraphContainer from '@/containers/OpenedProjectGraphContainer';
-import { Watch } from 'vue-property-decorator';
-import { Route } from 'vue-router';
-import { GetSavedProjectRequest } from '@/types/api-types';
-import { Action, Getter, namespace } from 'vuex-class';
+import { Getter, namespace } from 'vuex-class';
 import SidebarNav from '@/components/SidebarNav';
 import { paneTypeToNameLookup, SidebarMenuItems } from '@/menu';
 import ProjectEditorLeftPaneContainer from '@/containers/ProjectEditorLeftPaneContainer';
 import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import EditorPaneWrapper from '@/components/EditorPaneWrapper';
 import { paneToContainerMapping } from '@/constants/project-editor-constants';
-import { UserInterfaceSettings, UserInterfaceState } from '@/store/store-types';
-import { SettingsMutators } from '@/constants/store-constants';
+import { UserInterfaceState } from '@/store/store-types';
 
 const project = namespace('project');
 const editBlock = namespace('project/editBlockPane');
@@ -119,6 +115,11 @@ export default class OpenedProjectOverview extends Vue {
       navItems: SidebarMenuItems,
       activeLeftSidebarPane: this.activeLeftSidebarPane,
       onNavItemClicked: this.handleItemClicked,
+      paneTypeToActiveCheckFunction: {
+        [SIDEBAR_PANE.addBlock]: () =>
+          this.activeLeftSidebarPane === SIDEBAR_PANE.addBlock ||
+          this.activeLeftSidebarPane === SIDEBAR_PANE.addSavedBlock
+      },
       paneTypeToEnabledCheckFunction: {
         [SIDEBAR_PANE.addTransition]: () => this.transitionAddButtonEnabled,
         [SIDEBAR_PANE.saveProject]: () => this.canSaveProject,

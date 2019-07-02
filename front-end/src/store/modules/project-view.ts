@@ -22,32 +22,24 @@ import { LayoutOptions } from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
 import {
   DeploymentViewActions,
-  DeploymentViewMutators,
   ProjectViewActions,
   ProjectViewGetters,
   ProjectViewMutators
 } from '@/constants/store-constants';
-import { getApiClient, makeApiRequest } from '@/store/fetchers/refinery-api';
+import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
 import {
-  DeleteDeploymentsInProjectRequest,
-  DeleteDeploymentsInProjectResponse,
   DeployDiagramRequest,
   DeployDiagramResponse,
-  GetBuildStatusRequest,
-  GetBuildStatusResponse,
   GetLatestProjectDeploymentRequest,
   GetLatestProjectDeploymentResponse,
   GetProjectConfigRequest,
   GetProjectConfigResponse,
   GetSavedProjectRequest,
-  GetSavedProjectResponse,
   SaveProjectConfigRequest,
   SaveProjectConfigResponse,
   SaveProjectRequest,
-  SaveProjectResponse,
-  StartLibraryBuildRequest,
-  StartLibraryBuildResponse
+  SaveProjectResponse
 } from '@/types/api-types';
 import {
   OpenProjectMutation,
@@ -63,14 +55,9 @@ import {
   getValidTransitionsForNode,
   isValidTransition,
   unwrapJson,
-  unwrapProjectJson,
   wrapJson
 } from '@/utils/project-helpers';
-import {
-  availableTransitions,
-  blockTypeToDefaultStateMapping,
-  blockTypeToImageLookup
-} from '@/constants/project-editor-constants';
+import { availableTransitions, blockTypeToImageLookup, savedBlockType } from '@/constants/project-editor-constants';
 import EditBlockPaneModule, { EditBlockActions, EditBlockGetters } from '@/store/modules/panes/edit-block-pane';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
@@ -78,13 +65,16 @@ import router from '@/router';
 import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
 import { openProject, teardownProject } from '@/store/fetchers/api-helpers';
-import generateStupidName from '@/lib/silly-names';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
 import { createNewBlock, createNewTransition } from '@/utils/block-utils';
 
-interface AddBlockArguments {
+export interface AddBlockArguments {
   rawBlockType: string;
   selectAfterAdding: boolean;
+  /**
+   * This block is "extended" from during the add flow, if specified. Example use case: Adding a saved block.
+   */
+  customBlockProperties?: WorkflowState;
 }
 
 export interface ChangeTransitionArguments {
@@ -109,6 +99,7 @@ const moduleState: ProjectViewState = {
     [SIDEBAR_PANE.runDeployedCodeBlock]: {},
     [SIDEBAR_PANE.runEditorCodeBlock]: {},
     [SIDEBAR_PANE.addBlock]: {},
+    [SIDEBAR_PANE.addSavedBlock]: {},
     [SIDEBAR_PANE.addTransition]: {},
     [SIDEBAR_PANE.allBlocks]: {},
     [SIDEBAR_PANE.allVersions]: {},
@@ -316,16 +307,16 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       state.selectedResource = resourceId;
     },
     [ProjectViewMutators.setCytoscapeElements](state, elements: CyElements) {
-      state.cytoscapeElements = elements;
+      state.cytoscapeElements = deepJSONCopy(elements);
     },
     [ProjectViewMutators.setCytoscapeStyle](state, stylesheet: CyStyle) {
-      state.cytoscapeStyle = stylesheet;
+      state.cytoscapeStyle = deepJSONCopy(stylesheet);
     },
     [ProjectViewMutators.setCytoscapeLayout](state, layout: LayoutOptions) {
-      state.cytoscapeLayoutOptions = layout;
+      state.cytoscapeLayoutOptions = deepJSONCopy(layout);
     },
     [ProjectViewMutators.setCytoscapeConfig](state, config: cytoscape.CytoscapeOptions) {
-      state.cytoscapeConfig = config;
+      state.cytoscapeConfig = deepJSONCopy(config);
     },
     // Project Config
     [ProjectViewMutators.setProjectLogLevel](state, projectLoggingLevel: ProjectLogLevel) {
@@ -1050,6 +1041,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
     },
     async [ProjectViewActions.addBlock](context, rawBlockType: string) {
+      // If the block is saved
+      if (rawBlockType === savedBlockType) {
+        await context.dispatch(ProjectViewActions.openLeftSidebarPane, SIDEBAR_PANE.addSavedBlock);
+        return;
+      }
+
       const addBlockWithType = async (addBlockArgs: AddBlockArguments) =>
         await context.dispatch(ProjectViewActions.addIndividualBlock, addBlockArgs);
 
@@ -1066,9 +1063,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
     },
     async [ProjectViewActions.addIndividualBlock](context, addBlockArgs: AddBlockArguments) {
-      // Call this, for sure
-      // await context.dispatch(ProjectViewActions.updateAvailableTransitions)
-
       // This should not happen
       if (!context.state.openedProject) {
         console.error('Adding block but not project was opened');
@@ -1076,11 +1070,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       const openedProject = context.state.openedProject as RefineryProject;
-
-      if (addBlockArgs.rawBlockType === 'saved_lambda') {
-        await context.dispatch(ProjectViewActions.addSavedBlock);
-        return;
-      }
 
       // Catches the case of "unknown" block types causing craziness later!
       if (!Object.values(WorkflowStateType).includes(addBlockArgs.rawBlockType)) {
@@ -1099,7 +1088,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         newBlockName = blockTypeToImageLookup[blockType].name;
       }
 
-      const newBlock = createNewBlock(blockType, newBlockName);
+      const newBlock = createNewBlock(blockType, newBlockName, addBlockArgs.customBlockProperties);
 
       // This creates a new pointer for the main object, which makes Vuex very pleased.
       // TODO: Probably pull this out into a helper function
