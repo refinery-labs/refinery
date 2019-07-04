@@ -7,11 +7,12 @@ import { IfDropDownSelectionType } from '@/store/store-types';
 import { EditTransitionSelectorProps } from '@/types/component-types';
 
 const project = namespace('project');
-const editTransition = namespace('project/editTransitionPanel');
+const editTransition = namespace('project/editTransitionPane');
 
 @Component
 export default class EditTransitionPane extends Vue {
   @editTransition.State selectedEdge!: WorkflowRelationship | null;
+  @editTransition.State confirmDiscardModalVisibility!: boolean;
 
   @project.Getter getValidEditMenuDisplayTransitionTypes!: WorkflowRelationshipType[];
 
@@ -26,11 +27,40 @@ export default class EditTransitionPane extends Vue {
   @project.State ifSelectDropdownValue!: IfDropDownSelectionType;
   @project.State ifExpression!: string;
 
+  @editTransition.Mutation setConfirmDiscardModalVisibility!: (visibility: boolean) => void;
+
   @project.Action ifDropdownSelection!: (dropdownSelection: string) => {};
   @project.Action setIfExpression!: (ifExpression: string) => {};
+  @editTransition.Action cancelAndResetBlock!: () => void;
 
   deleteSelectedTransition() {
     this.deleteTransition();
+  }
+
+  public renderConfirmDiscardModal() {
+    if (!this.selectedEdge) {
+      return;
+    }
+
+    const nameString = `Are you sure you want to discard changes to '${this.selectedEdge.name}'?`;
+
+    const modalOnHandlers = {
+      hidden: () => this.setConfirmDiscardModalVisibility(false),
+      ok: () => this.cancelAndResetBlock()
+    };
+
+    return (
+      <b-modal
+        ref={`confirm-discard-${this.selectedEdge.id}`}
+        on={modalOnHandlers}
+        ok-variant="danger"
+        footer-class="p-2"
+        title={nameString}
+        visible={this.confirmDiscardModalVisibility}
+      >
+        You will lose any changes made to the transition!
+      </b-modal>
+    );
   }
 
   public render(h: CreateElement): VNode {
@@ -38,10 +68,6 @@ export default class EditTransitionPane extends Vue {
       checkIfValidTransitionGetter: this.getValidEditMenuDisplayTransitionTypes,
       selectTransitionAction: this.selectTransitionTypeToEdit,
       newTransitionTypeSpecifiedInFlowState: this.newTransitionTypeSpecifiedInEditFlow,
-      helperText: 'Click the Save Transition button to save your changes.',
-      cancelModifyingTransition: this.cancelEditingTransition,
-      hasSaveModificationButton: true,
-      saveModificationButtonAction: this.changeTransitionType,
       currentlySelectedTransitionType: this.selectedEdge && this.selectedEdge.type,
 
       readOnly: false,
@@ -60,6 +86,7 @@ export default class EditTransitionPane extends Vue {
           </b-button>
         </b-list-group-item>
         <EditTransitionSelector props={editTransitionSelectorProps} />
+        {this.renderConfirmDiscardModal()}
       </div>
     );
   }

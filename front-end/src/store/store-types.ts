@@ -120,7 +120,7 @@ export interface AvailableTransitionsByType {
 export interface ProjectViewState {
   // Submodules
   editBlockPane?: EditBlockPaneState;
-  editTransitionPanel?: EditTransitionPaneState;
+  editTransitionPane?: EditTransitionPaneState;
 
   // Project State
   openedProject: RefineryProject | null;

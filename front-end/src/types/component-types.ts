@@ -23,11 +23,8 @@ export interface EditTransitionSelectorProps {
   checkIfValidTransitionGetter: WorkflowRelationshipType[] | null;
   selectTransitionAction: (key: WorkflowRelationshipType) => void;
   newTransitionTypeSpecifiedInFlowState: WorkflowRelationshipType | null;
-  helperText: string | null;
-  cancelModifyingTransition: () => void;
-  saveModificationButtonAction: (key: WorkflowRelationshipType | null) => void;
+  cancelModifyingTransition?: () => void;
   currentlySelectedTransitionType: WorkflowRelationshipType | null;
-  hasSaveModificationButton: boolean;
   ifSelectDropdownValue: IfDropDownSelectionType | null;
   ifExpression: string | null;
   ifDropdownSelection: (dropdownSelection: string) => void;

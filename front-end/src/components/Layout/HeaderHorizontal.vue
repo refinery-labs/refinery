@@ -58,7 +58,7 @@
           </li>
           -->
           <!-- Fullscreen (only desktops)-->
-          <li class="nav-item d-none d-md-block">
+          <li class="nav-item d-block">
             <ToggleFullscreen tag="A" class="nav-link" href="#" />
           </li>
           <!-- START Alert menu-->

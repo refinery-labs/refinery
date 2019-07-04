@@ -17,9 +17,13 @@ import { DEFAULT_LANGUAGE_CODE } from '@/constants/project-editor-constants';
 import { HTTP_METHOD } from '@/constants/api-constants';
 import { validatePath } from '@/utils/block-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
+import store from '@/store';
+import { resetStoreState } from '@/utils/store-utils';
 
 // Enums
 export enum EditBlockMutators {
+  resetState = 'resetState',
+
   setSelectedNode = 'setSelectedNode',
   setSelectedNodeOriginal = 'setSelectedNodeOriginal',
 
@@ -60,7 +64,6 @@ export enum EditBlockMutators {
 export enum EditBlockActions {
   selectNodeFromOpenProject = 'selectNodeFromOpenProject',
   selectCurrentlySelectedProjectNode = 'selectCurrentlySelectedProjectNode',
-  resetPaneState = 'resetPaneState',
 
   // Shared Actions
   saveBlock = 'saveBlock',
@@ -140,7 +143,7 @@ function apiEndpointChange(state: EditBlockPaneState, fn: (block: ApiEndpointWor
 
 const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
   namespaced: true,
-  state: moduleState,
+  state: deepJSONCopy(moduleState),
   getters: {
     [EditBlockGetters.isStateDirty]: state =>
       state.selectedNode && state.selectedNodeOriginal && !deepEqual(state.selectedNode, state.selectedNodeOriginal),
@@ -190,6 +193,12 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     }
   },
   mutations: {
+    /**
+     * Resets the state of the pane back to it's default.
+     */
+    [EditBlockMutators.resetState](state) {
+      resetStoreState(state, moduleState);
+    },
     [EditBlockMutators.setSelectedNode](state, node) {
       state.selectedNode = node;
     },
@@ -279,16 +288,6 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     }
   },
   actions: {
-    /**
-     * Resets the state of the pane back to it's default.
-     * @param context
-     */
-    async [EditBlockActions.resetPaneState](context) {
-      context.commit(EditBlockMutators.setSelectedNode, null);
-      context.commit(EditBlockMutators.setSelectedNodeOriginal, null);
-      context.commit(EditBlockMutators.setCodeModalVisibility, false);
-      context.commit(EditBlockMutators.setConfirmDiscardModalVisibility, false);
-    },
     async [EditBlockActions.selectNodeFromOpenProject](context, nodeId: string) {
       const projectStore = context.rootState.project;
 
@@ -297,7 +296,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
         return;
       }
 
-      await context.dispatch(EditBlockActions.resetPaneState);
+      await context.commit(EditBlockMutators.resetState);
 
       const node = getNodeDataById(projectStore.openedProject, nodeId);
 
@@ -327,14 +326,25 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
         return;
       }
 
-      if (!context.getters.isStateDirty || !context.state.selectedNode) {
-        console.error('Unable to perform save -- state is invalid of edited block');
+      const node = context.state.selectedNode;
+
+      if (!node) {
+        console.error('Missing selected node to save');
+        return;
+      }
+
+      if (!context.getters.isStateDirty) {
+        console.error('Unable to perform save, no changes to save');
         return;
       }
 
       await context.dispatch(`project/${ProjectViewActions.updateExistingBlock}`, context.state.selectedNode, {
         root: true
       });
+
+      if (context.getters.isStateDirty) {
+        throw new Error('State is still dirty after saving (likely invalid block state), aborting');
+      }
 
       // Set the "original" to the new block.
       context.commit(EditBlockMutators.setSelectedNodeOriginal, context.state.selectedNode);
@@ -375,6 +385,11 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       await context.dispatch(EditBlockActions.cancelAndResetBlock);
     },
     async [EditBlockActions.tryToCloseBlock](context) {
+      // We don't have a selected node, so we don't need to do anything.
+      if (!context.state.selectedNode) {
+        return;
+      }
+
       // If we have changes that we are going to discard, then ask the user to confirm destruction.
       if (context.getters.isStateDirty) {
         context.commit(EditBlockMutators.setConfirmDiscardModalVisibility, true);
@@ -386,7 +401,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     },
     async [EditBlockActions.cancelAndResetBlock](context) {
       // Reset this pane state
-      await context.dispatch(EditBlockActions.resetPaneState);
+      context.commit(EditBlockMutators.resetState);
 
       // Close this pane
       await context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.right, { root: true });

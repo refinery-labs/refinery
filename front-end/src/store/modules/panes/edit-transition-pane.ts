@@ -1,66 +1,88 @@
 import { Module } from 'vuex';
 import { IfDropDownSelectionType, RootState } from '../../store-types';
-import { SqsQueueWorkflowState, WorkflowRelationship, WorkflowRelationshipType, WorkflowState } from '@/types/graph';
-import { getTransitionDataById, getValidTransitionsForNode } from '@/utils/project-helpers';
-import { ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
+import { WorkflowRelationship, WorkflowRelationshipType } from '@/types/graph';
+import { getTransitionDataById } from '@/utils/project-helpers';
+import { ProjectViewActions } from '@/constants/store-constants';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
 import { PANE_POSITION } from '@/types/project-editor-types';
 import { ChangeTransitionArguments } from '@/store/modules/project-view';
-import deepEqual from 'fast-deep-equal';
 import { deepJSONCopy } from '@/lib/general-utils';
-import { EditBlockMutators } from '@/store/modules/panes/edit-block-pane';
+import { resetStoreState } from '@/utils/store-utils';
 
 // Enums
 export enum EditTransitionMutators {
+  resetState = 'resetState',
+
   setSelectedEdge = 'setSelectedEdge',
-  setSelectedEdgeOriginal = 'setSelectedEdgeOriginal',
 
   setIfDropdownSelection = 'setIfDropdownSelection',
   setIfExpression = 'setIfExpression',
-  setValidTransitions = 'setValidTransitions'
+  setValidTransitions = 'setValidTransitions',
+
+  setConfirmDiscardModalVisibility = 'setConfirmDiscardModalVisibility'
 }
 
 export enum EditTransitionActions {
-  resetPaneState = 'resetPaneState',
   deleteTransition = 'deleteTransition',
   selectCurrentlySelectedProjectEdge = 'selectCurrentlySelectedProjectEdge',
   selectEdgeFromOpenProject = 'selectEdgeFromOpenProject',
   cancelAndResetBlock = 'cancelAndResetBlock',
-  changeTransitionType = 'changeTransitionType'
+  changeTransitionType = 'changeTransitionType',
+  tryToClose = 'tryToClose'
 }
 
 // Types
 export interface EditTransitionPaneState {
   selectedEdge: WorkflowRelationship | null;
-  selectedEdgeOriginal: WorkflowRelationship | null;
 
   ifSelectDropdownValue: IfDropDownSelectionType | null;
   ifExpression: string;
+
+  confirmDiscardModalVisibility: boolean;
 }
 
 // Initial State
 const moduleState: EditTransitionPaneState = {
   selectedEdge: null,
-  selectedEdgeOriginal: null,
 
   ifSelectDropdownValue: null,
-  ifExpression: ''
+  ifExpression: '',
+
+  confirmDiscardModalVisibility: false
 };
 
 const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
   namespaced: true,
-  state: moduleState,
+  state: deepJSONCopy(moduleState),
   getters: {
-    isStateDirty: state =>
-      state.selectedEdge && state.selectedEdgeOriginal && !deepEqual(state.selectedEdge, state.selectedEdgeOriginal)
+    isStateDirty: (state, getters, rootState) => {
+      if (!state.selectedEdge) {
+        return false;
+      }
+
+      if (rootState.project.newTransitionTypeSpecifiedInEditFlow !== WorkflowRelationshipType.IF) {
+        return false;
+      }
+
+      const edge = state.selectedEdge;
+
+      // Check if the ifExpression was modified
+      return edge.expression !== rootState.project.ifExpression;
+    }
   },
   mutations: {
+    /**
+     * Resets the state of the pane back to it's default.
+     */
+    [EditTransitionMutators.resetState](state) {
+      resetStoreState(state, moduleState);
+    },
     [EditTransitionMutators.setSelectedEdge](state, edge) {
       state.selectedEdge = edge;
     },
-    [EditTransitionMutators.setSelectedEdgeOriginal](state, edge) {
-      state.selectedEdgeOriginal = deepJSONCopy(edge);
+    [EditTransitionMutators.setConfirmDiscardModalVisibility](state, visibility) {
+      state.confirmDiscardModalVisibility = visibility;
     }
 
     // TODO: Finish implementing this functionality here.
@@ -81,23 +103,27 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
     // },
   },
   actions: {
-    /**
-     * Resets the state of the pane back to it's default.
-     * @param context
-     */
-    async [EditTransitionActions.resetPaneState](context) {
-      context.commit(EditTransitionMutators.setSelectedEdge, null);
-      context.commit(EditTransitionMutators.setSelectedEdgeOriginal, null);
-      await context.dispatch(`project/${ProjectViewActions.deselectResources}`, null, { root: true });
-      // Close the panel since we're done.
-      await context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.right, { root: true });
-    },
     async [EditTransitionActions.cancelAndResetBlock](context) {
       // Reset this pane state
-      await context.dispatch(EditTransitionActions.resetPaneState);
+      await context.commit(EditTransitionMutators.resetState);
 
       // Close this pane
       await context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.right, { root: true });
+    },
+    async [EditTransitionActions.tryToClose](context) {
+      // We don't have a selected node, so we don't need to do anything.
+      if (!context.state.selectedEdge) {
+        return;
+      }
+
+      // If we have changes that we are going to discard, then ask the user to confirm destruction.
+      if (context.getters.isStateDirty) {
+        context.commit(EditTransitionMutators.setConfirmDiscardModalVisibility, true);
+        return;
+      }
+
+      // Otherwise, close the pane!
+      await context.dispatch(EditTransitionActions.cancelAndResetBlock);
     },
     async [EditTransitionActions.selectCurrentlySelectedProjectEdge](context) {
       const projectStore = context.rootState.project;
@@ -127,7 +153,6 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
       }
 
       context.commit(EditTransitionMutators.setSelectedEdge, edge);
-      context.commit(EditTransitionMutators.setSelectedEdgeOriginal, edge);
     },
     async [EditTransitionActions.deleteTransition](context) {
       const projectStore = context.rootState.project;
@@ -164,7 +189,7 @@ const EditTransitionPaneModule: Module<EditTransitionPaneState, RootState> = {
       }
 
       if (!context.state.selectedEdge) {
-        console.error('Unable to perform delete -- state is invalid of edited edge');
+        console.error('Unable to perform transition change -- state is invalid of edited edge');
         return;
       }
 
