@@ -34,6 +34,7 @@
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/urllib3-1.24.1.dist-info" />
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/wheel" />
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/wheel-0.33.0.dist-info" />
+      <excludeFolder url="file://$MODULE_DIR$/api/env" />
       <excludeFolder url="file://$MODULE_DIR$/env" />
       <excludeFolder url="file://$MODULE_DIR$/front-end/dist" />
       <excludeFolder url="file://$MODULE_DIR$/front-end/public/js" />

@@ -60,7 +60,7 @@ export default class CreateSavedBlockView extends Vue implements CreateSavedBloc
             }}
             checked={CreateSavedBlockViewStoreModule.publishStatus}
           >
-            Publish Block to Refinery Marketplace?
+            Publish to the Refinery Block Repository?
           </b-form-checkbox>
         </b-form-group>
         <div class="text-align--center">
