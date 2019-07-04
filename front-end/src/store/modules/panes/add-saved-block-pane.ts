@@ -88,43 +88,34 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
   }
 
   @Action
-  public async searchSavedBlocksWithPublishStatus(status: SharedBlockPublishStatus) {
-    const result = await searchSavedBlocks(this.searchInput, status);
+  public async searchSavedBlocks() {
+    AddSavedBlockPaneStoreModule.setIsBusySearching(true);
 
-    if (!result) {
+    const privateSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.PRIVATE);
+    const publicSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.PUBLISHED);
+
+    const privateResult = await privateSearch;
+
+    if (!privateResult) {
       console.error('Unable to perform saved block search, server did not yield a response');
       return;
     }
 
-    if (status === SharedBlockPublishStatus.PRIVATE) {
-      this.setSearchResultsPrivate(result);
+    const publicResult = await publicSearch;
+
+    if (!publicResult) {
+      console.error('Unable to perform saved block search, server did not yield a response');
       return;
     }
 
-    if (status === SharedBlockPublishStatus.PUBLISHED) {
-      this.setSearchResultsPublished(result);
-      return;
-    }
+    this.setSearchResultsPrivate(privateResult);
 
-    console.error('Unknown block publish status to set response value for');
-  }
+    // Only add unique results. This strips out all public blocks that are in our saved blocks already.
+    const filteredPublicResults = publicResult.filter(
+      result => !privateResult.some(privateResult => privateResult.id === result.id)
+    );
 
-  @Action
-  public async searchSavedBlocks() {
-    AddSavedBlockPaneStoreModule.setIsBusySearching(true);
-
-    // We push all jobs to this array of promises and then we await them below
-    const searchJobs = [];
-
-    if (this.searchPrivateToggleValue) {
-      searchJobs.push(this.searchSavedBlocksWithPublishStatus(SharedBlockPublishStatus.PRIVATE));
-    }
-
-    if (this.searchPublishedToggleValue) {
-      searchJobs.push(this.searchSavedBlocksWithPublishStatus(SharedBlockPublishStatus.PUBLISHED));
-    }
-
-    await Promise.all(searchJobs);
+    this.setSearchResultsPublished(filteredPublicResults);
 
     AddSavedBlockPaneStoreModule.setIsBusySearching(false);
   }
