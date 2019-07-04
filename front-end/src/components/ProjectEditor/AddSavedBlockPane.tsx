@@ -1,18 +1,21 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import moment from 'moment';
-import { availableBlocks, AddGraphElementConfig, blockTypeToImageLookup } from '@/constants/project-editor-constants';
+import { blockTypeToImageLookup } from '@/constants/project-editor-constants';
 import { debounce } from 'debounce';
 import { AddSavedBlockPaneStoreModule, SavedBlockSearchResult } from '@/store/modules/panes/add-saved-block-pane';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 
 @Component
 export default class AddSavedBlockPane extends Vue {
-  runSearchAutomatically: () => void = debounce(function() {
-    AddSavedBlockPaneStoreModule.searchSavedBlocks();
-  }, 200);
+  runSearchAutomatically: () => void = () => {};
 
   mounted() {
+    // We have to add this at run time or else it seems to get bjorked
+    this.runSearchAutomatically = debounce(function() {
+      AddSavedBlockPaneStoreModule.searchSavedBlocks();
+    }, 200);
+
     AddSavedBlockPaneStoreModule.searchSavedBlocks();
   }
 
@@ -80,7 +83,10 @@ export default class AddSavedBlockPane extends Vue {
           class="padding-bottom--normal-small margin-bottom--normal-small"
           description="Please specify some text to search for saved blocks with."
         >
-          <label class="d-block">Search by Name:</label>
+          <div class="display--flex">
+            <label class="flex-grow--1">Search by Name:</label>
+            {AddSavedBlockPaneStoreModule.isBusySearching && <b-spinner class="ml-auto" small={true} />}
+          </div>
           <b-form-input
             type="text"
             autofocus={true}

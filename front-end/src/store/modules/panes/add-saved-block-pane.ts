@@ -82,6 +82,11 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
     this.searchResultsPublished = results;
   }
 
+  @Mutation
+  public setIsBusySearching(val: boolean) {
+    this.isBusySearching = val;
+  }
+
   @Action
   public async searchSavedBlocksWithPublishStatus(status: SharedBlockPublishStatus) {
     const result = await searchSavedBlocks(this.searchInput, status);
@@ -106,7 +111,7 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
 
   @Action
   public async searchSavedBlocks() {
-    // this.isBusySearching = true;
+    AddSavedBlockPaneStoreModule.setIsBusySearching(true);
 
     // We push all jobs to this array of promises and then we await them below
     const searchJobs = [];
@@ -121,7 +126,7 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
 
     await Promise.all(searchJobs);
 
-    // this.isBusySearching = false;
+    AddSavedBlockPaneStoreModule.setIsBusySearching(false);
   }
 
   @Action
