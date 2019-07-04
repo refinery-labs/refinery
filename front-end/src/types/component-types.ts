@@ -48,3 +48,7 @@ export interface ViewExecutionsListProps {
   isBusyRefreshing: boolean;
   hasMoreExecutionsToLoad: boolean;
 }
+
+export interface CreateSavedBlockViewProps {
+  modalMode: boolean;
+}

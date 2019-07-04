@@ -11,18 +11,29 @@ import { API_ENDPOINT } from '@/constants/api-constants';
 const storeName = 'createSavedBlockView';
 
 export interface CreateSavedBlockViewState {
-  nameInput: string;
-  descriptionInput: string;
+  nameInput: string | null;
+
+  descriptionInput: string | null;
+
   publishStatus: boolean;
   modalVisibility: boolean;
 }
 
 export const baseState: CreateSavedBlockViewState = {
-  nameInput: '',
-  descriptionInput: '',
+  nameInput: null,
+
+  descriptionInput: null,
   publishStatus: false,
   modalVisibility: false
 };
+
+function isNotEmptyStringButPreserveNull(str: string | null) {
+  if (str === null) {
+    return null;
+  }
+
+  return str !== '';
+}
 
 // Must copy so that we can not thrash the pointers...
 const initialState = deepJSONCopy(baseState);
@@ -31,9 +42,19 @@ const initialState = deepJSONCopy(baseState);
 class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockViewState>, RootState>
   implements CreateSavedBlockViewState {
   public nameInput = initialState.nameInput;
+
   public descriptionInput = initialState.descriptionInput;
+
   public publishStatus = initialState.publishStatus;
   public modalVisibility = initialState.modalVisibility;
+
+  get nameInputValid() {
+    return isNotEmptyStringButPreserveNull(this.nameInput);
+  }
+
+  get descriptionInputValid() {
+    return isNotEmptyStringButPreserveNull(this.descriptionInput);
+  }
 
   @Mutation
   public resetState() {
@@ -82,10 +103,23 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
       return;
     }
 
+    if (!this.nameInputValid || this.nameInput === null) {
+      console.error('Invalid name specified while attempting to create saved block');
+      return;
+    }
+
+    if (!this.descriptionInputValid || this.descriptionInput === null) {
+      console.error('Invalid description specified while attempting to create saved block');
+      return;
+    }
+
     const response = await makeApiRequest<CreateSavedBlockRequest, CreateSavedBlockResponse>(
       API_ENDPOINT.CreateSavedBlock,
       {
-        block_object: editBlockPaneStore.selectedNode,
+        block_object: {
+          ...editBlockPaneStore.selectedNode,
+          name: this.nameInput
+        },
         description: this.descriptionInput,
         // id: uuid(),
         share_status: this.publishStatus ? SharedBlockPublishStatus.PUBLISHED : SharedBlockPublishStatus.PRIVATE,
