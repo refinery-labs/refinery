@@ -96,8 +96,8 @@ export default class AddSavedBlockPane extends Vue {
             placeholder="eg, Daily Timer"
           />
         </b-form-group>
-        {this.renderResultsByCategory('Private', privateBlocks)}
-        {this.renderResultsByCategory('Published', publishedBlocks)}
+        {this.renderResultsByCategory('From Saved Blocks', privateBlocks)}
+        {this.renderResultsByCategory('From Block Repository', publishedBlocks)}
         {zeroResults && <h4 class="text-align--center">No saved blocks were found.</h4>}
       </div>
     );
