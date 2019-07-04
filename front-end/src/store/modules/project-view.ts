@@ -774,7 +774,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       context.commit(ProjectViewMutators.setDeploymentError, null);
     },
 
-    async saveSelectedResource(context) {
+    async [ProjectViewActions.saveSelectedResource](context) {
       if (context.getters.selectedResourceDirty && !context.getters[ProjectViewGetters.canSaveProject]) {
         await createToast(context.dispatch, {
           title: 'Invalid Block State Detected',
@@ -818,7 +818,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      await context.dispatch('saveSelectedResource');
+      await context.dispatch(ProjectViewActions.saveSelectedResource);
 
       context.commit(ProjectViewMutators.selectedResource, null);
       await context.dispatch(ProjectViewActions.updateAvailableTransitions);
@@ -836,7 +836,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      await context.dispatch('saveSelectedResource');
+      await context.dispatch(ProjectViewActions.saveSelectedResource);
 
       // TODO: Is this necessary?
       await context.dispatch(ProjectViewActions.resetPanelStates);
@@ -865,7 +865,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      await context.dispatch('saveSelectedResource');
+      await context.dispatch(ProjectViewActions.saveSelectedResource);
 
       // I don't have a good answer for this, but my best guess is that
       // just having a reset pane state call for edge and node selection is
