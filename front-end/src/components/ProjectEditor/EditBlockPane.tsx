@@ -3,6 +3,11 @@ import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import { ApiEndpointWorkflowState, WorkflowState } from '@/types/graph';
 import { blockTypeToEditorComponentLookup } from '@/constants/project-editor-constants';
+import { CreateSavedBlockViewStoreModule } from '@/store/modules/panes/create-saved-block-view';
+import { Prop } from 'vue-property-decorator';
+import { preventDefaultWrapper } from '@/utils/dom-utils';
+import { CreateSavedBlockViewProps } from '@/types/component-types';
+import CreateSavedBlockView from '@/components/ProjectEditor/CreateSavedBlockView';
 
 const editBlock = namespace('project/editBlockPane');
 
@@ -26,12 +31,13 @@ export default class EditBlockPane extends Vue {
 
   @editBlock.Action cancelAndResetBlock!: () => void;
   @editBlock.Action tryToCloseBlock!: () => void;
-  @editBlock.Action saveBlock!: () => void;
+  @editBlock.Action saveBlock!: () => Promise<void>;
   @editBlock.Action deleteBlock!: () => void;
 
-  public saveBlockClicked(e: Event) {
+  public async saveBlockClicked(e: Event) {
     e.preventDefault();
-    this.saveBlock();
+    await this.saveBlock();
+    CreateSavedBlockViewStoreModule.openModal();
   }
 
   public deleteBlockClicked(e: Event) {
@@ -84,34 +90,34 @@ export default class EditBlockPane extends Vue {
     };
 
     return (
-      <b-form class={formClasses} on={{ submit: this.saveBlockClicked }}>
+      <div class={formClasses}>
         <div class="scrollable-pane-container padding-left--normal padding-right--normal">
           <ActiveEditorComponent props={props} />
         </div>
         <div class="row show-block-container__bottom-buttons">
           <b-button-group class="col-12">
-            <b-button
-              variant="primary"
-              class="col-8"
-              type="submit"
-              disabled={!this.isStateDirty || !this.isEditedBlockValid}
-            >
-              Save Block
+            <b-button variant="primary" class="col-8" on={{ click: this.saveBlockClicked }}>
+              Create Saved Block
             </b-button>
             <b-button variant="danger" class="col-4" on={{ click: this.deleteBlockClicked }}>
               Delete
             </b-button>
           </b-button-group>
         </div>
-      </b-form>
+      </div>
     );
   }
 
   public render(h: CreateElement): VNode {
+    const createSavedBlockProps: CreateSavedBlockViewProps = {
+      modalMode: true
+    };
+
     return (
       <b-container class="show-block-container">
         {this.renderContentWrapper()}
         {this.renderConfirmDiscardModal()}
+        <CreateSavedBlockView props={createSavedBlockProps} />
       </b-container>
     );
   }

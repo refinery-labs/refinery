@@ -17,6 +17,9 @@ import {
   InfraTearDownResponse,
   SaveProjectRequest,
   SaveProjectResponse,
+  SearchSavedBlocksRequest,
+  SearchSavedBlocksResponse,
+  SharedBlockPublishStatus,
   StartLibraryBuildRequest,
   StartLibraryBuildResponse
 } from '@/types/api-types';
@@ -211,4 +214,20 @@ export async function openProject(request: GetSavedProjectRequest) {
   }));
 
   return project;
+}
+
+export async function searchSavedBlocks(query: string, status: SharedBlockPublishStatus) {
+  const searchResult = await makeApiRequest<SearchSavedBlocksRequest, SearchSavedBlocksResponse>(
+    API_ENDPOINT.SearchSavedBlocks,
+    {
+      search_string: query,
+      share_status: status
+    }
+  );
+
+  if (!searchResult || !searchResult.success) {
+    return null;
+  }
+
+  return searchResult.results;
 }

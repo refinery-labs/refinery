@@ -37,6 +37,7 @@ export interface EditTransitionSelectorProps {
 export interface LoadingContainerProps {
   [key: string]: any;
   label?: string;
+  showLabel?: boolean;
   show: boolean;
 }
 
@@ -47,4 +48,8 @@ export interface ViewExecutionsListProps {
   showMoreExecutions: () => void;
   isBusyRefreshing: boolean;
   hasMoreExecutionsToLoad: boolean;
+}
+
+export interface CreateSavedBlockViewProps {
+  modalMode: boolean;
 }

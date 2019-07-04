@@ -8,6 +8,11 @@ export default class SidebarNav extends Vue {
   @Prop({ required: true }) private navItems!: NavbarItem[];
   @Prop({ required: true }) private onNavItemClicked!: (s: SIDEBAR_PANE) => {};
   @Prop({ required: true }) private activeLeftSidebarPane!: SIDEBAR_PANE | null;
+
+  @Prop({ default: () => ({}) })
+  private paneTypeToActiveCheckFunction!: {
+    [index: string]: () => boolean;
+  };
   @Prop({ default: () => ({}) })
   private paneTypeToEnabledCheckFunction!: {
     [index: string]: () => boolean;
@@ -16,6 +21,14 @@ export default class SidebarNav extends Vue {
   private paneTypeToCustomContentFunction!: {
     [index: string]: () => [];
   };
+
+  public getIfButtonActive(paneType: string) {
+    if (this.paneTypeToActiveCheckFunction[paneType]) {
+      return this.paneTypeToActiveCheckFunction[paneType]();
+    }
+
+    return paneType === this.activeLeftSidebarPane;
+  }
 
   public getIfButtonEnabled(paneType: string) {
     if (this.paneTypeToEnabledCheckFunction[paneType]) {
@@ -34,7 +47,7 @@ export default class SidebarNav extends Vue {
   }
 
   public renderNavItem(navItem: NavbarItem) {
-    const isActive = navItem.editorPane === this.activeLeftSidebarPane;
+    const isActive = this.getIfButtonActive(navItem.editorPane);
 
     const enabled = this.getIfButtonEnabled(navItem.editorPane);
 

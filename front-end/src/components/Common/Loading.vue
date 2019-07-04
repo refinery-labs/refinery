@@ -5,8 +5,10 @@
         <div class="spinner-border text-primary" role="status">
           <span class="sr-only">Loading...</span>
         </div>
-        <br />
-        {{ label }}
+        <div v-if="showLabel">
+          <br />
+          {{ label }}
+        </div>
       </div>
     </div>
     <slot></slot>
@@ -22,6 +24,7 @@ import { LoadingContainerProps } from '@/types/component-types';
 @Component
 export default class LoadingContainer extends Vue implements LoadingContainerProps {
   @Prop({ default: 'Loading...' }) label!: string;
+  @Prop({ default: true }) showLabel?: boolean;
   @Prop({ default: false, required: true }) show!: boolean;
 }
 </script>

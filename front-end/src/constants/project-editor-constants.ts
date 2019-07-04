@@ -34,10 +34,13 @@ import EditTransitionPane from '@/components/ProjectEditor/EditTransitionPane';
 import RunDeployedCodeBlockPane from '@/components/DeploymentViewer/RunDeployedCodeBlockPane';
 import ViewDeployedBlockLogsPane from '@/components/DeploymentViewer/ViewDeployedBlockLogsPane';
 import generateStupidName from '@/lib/silly-names';
+import AddSavedBlockPane from '@/components/ProjectEditor/AddSavedBlockPane';
+
+export const savedBlockType = 'saved_block';
 
 export const BlockSelectionType = {
   ...WorkflowStateType,
-  saved_lambda: 'saved_lambda'
+  saved_block: savedBlockType
 };
 
 export interface AddGraphElementConfig {
@@ -104,17 +107,17 @@ export const blockTypeToImageLookup: BlockTypeConfig = {
       'Takes input items to process and sends them to the connected Code Block. ' +
       'This block will automatically increase concurrent executions of the connected Code Block until ' +
       'either the concurrency ceiling is hit or the queue empties.'
+  },
+  [BlockSelectionType.saved_block]: {
+    path: require('../../public/img/node-icons/code-icon.png'),
+    name: 'Saved Block',
+    description: 'Choose a previously saved block to add to the project graph.'
   }
-  // saved_lambda: {
-  //   path: require('../../public/img/node-icons/code-icon.png'),
-  //   name: 'Saved Code Block',
-  //   description: 'Adds a previously-saved Code block to the workflow.'
-  // }
 };
 
 export const availableBlocks: string[] = [
   WorkflowStateType.LAMBDA,
-  BlockSelectionType.saved_lambda,
+  BlockSelectionType.saved_block,
   WorkflowStateType.SCHEDULE_TRIGGER,
   WorkflowStateType.API_ENDPOINT,
   WorkflowStateType.SNS_TOPIC,
@@ -271,20 +274,20 @@ export type DefaultCodeFromLanguage = { [key in SupportedLanguage]: string };
 
 export const DEFAULT_LANGUAGE_CODE: DefaultCodeFromLanguage = {
   [SupportedLanguage.PYTHON_2]: `
-def main( block_input, backpack ):
-    return False
+def main(block_input, backpack):
+    return "Hello World!"
 `,
   [SupportedLanguage.NODEJS_8]: `
-async function main( block_input, backpack ) {
-	return false;
+async function main(blockInput, backpack) {
+	return 'Hello World!';
 }
 `,
   [SupportedLanguage.PHP7]: `
 <?php
 // Uncomment if you specified libraries
 // require __DIR__ . "/vendor/autoload.php";
-function main( $block_input, $backpack ) {
-	return false;
+function main($block_input, $backpack) {
+	return 'Hello World!';
 }
 `,
   [SupportedLanguage.GO1_12]: `package main
@@ -398,6 +401,7 @@ export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
   [SIDEBAR_PANE.runEditorCodeBlock]: RunEditorCodeBlockPane,
   [SIDEBAR_PANE.runDeployedCodeBlock]: RunDeployedCodeBlockPane,
   [SIDEBAR_PANE.addBlock]: AddBlockPane,
+  [SIDEBAR_PANE.addSavedBlock]: AddSavedBlockPane,
   [SIDEBAR_PANE.addTransition]: AddTransitionPane,
   [SIDEBAR_PANE.allBlocks]: AddBlockPane,
   [SIDEBAR_PANE.allVersions]: AddBlockPane,

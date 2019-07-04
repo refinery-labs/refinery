@@ -93,7 +93,7 @@ export class EnvironmentVariablesEditor extends Vue implements EnvironmentVariab
             <label class="mr-sm-2 mt-2" for={valueInputId}>
               Description
             </label>
-            <b-input-group className="mb-2 mr-sm-2 mb-sm-0">
+            <b-input-group class="mb-2 mr-sm-2 mb-sm-0">
               <b-input
                 id={valueInputId}
                 disabled={this.readOnly}
