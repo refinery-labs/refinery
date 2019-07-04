@@ -131,7 +131,7 @@ export class EnvironmentVariablesEditor extends Vue implements EnvironmentVariab
           You currently do not have any block variables set. To get started adding a new variable, click the button
           below.
           <br />
-          For more information on what block variables are used for, please see the documentation here.
+          {/*For more information on what block variables are used for, please see the documentation here.*/}
         </h4>
       </div>
     );

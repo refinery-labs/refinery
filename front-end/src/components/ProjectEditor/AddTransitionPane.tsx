@@ -4,7 +4,6 @@ import { namespace } from 'vuex-class';
 import { WorkflowRelationshipType } from '@/types/graph';
 import EditTransitionSelector from '@/components/ProjectEditor/transition-components/EditTransitionSelector';
 import { EditTransitionSelectorProps } from '@/types/component-types';
-import { nopWrite } from '@/utils/block-utils';
 import { IfDropDownSelectionType } from '@/store/store-types';
 
 const project = namespace('project');
@@ -29,7 +28,6 @@ export default class AddTransitionPane extends Vue {
       checkIfValidTransitionGetter: this.getValidMenuDisplayTransitionTypes,
       selectTransitionAction: this.selectTransitionTypeToAdd,
       newTransitionTypeSpecifiedInFlowState: this.newTransitionTypeSpecifiedInAddFlow,
-      helperText: 'Click on a glowing Block to select the second element for the transition.',
       cancelModifyingTransition: this.cancelAddingTransition,
       readOnly: false,
       currentlySelectedTransitionType: null,
