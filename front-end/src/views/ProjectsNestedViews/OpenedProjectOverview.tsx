@@ -12,6 +12,7 @@ import { UserInterfaceState } from '@/store/store-types';
 
 const project = namespace('project');
 const editBlock = namespace('project/editBlockPane');
+const editTransition = namespace('project/editTransitionPane');
 
 @Component
 export default class OpenedProjectOverview extends Vue {
@@ -32,6 +33,7 @@ export default class OpenedProjectOverview extends Vue {
   @project.Action closePane!: (p: PANE_POSITION) => void;
 
   @editBlock.Action tryToCloseBlock!: () => void;
+  @editTransition.Action('tryToClose') tryToCloseTransition!: () => void;
 
   public handleItemClicked(pane: SIDEBAR_PANE) {
     // Handle us clicking the same pane twice.
@@ -69,11 +71,18 @@ export default class OpenedProjectOverview extends Vue {
       return null;
     }
 
-    const paneProps = {
+    const paneProps: { paneTitle: string; closePane: () => void; tryToCloseBlock?: () => void } = {
       paneTitle: paneTypeToNameLookup[paneType],
-      closePane: () => this.closePane(position),
-      tryToCloseBlock: () => this.tryToCloseBlock()
+      closePane: () => this.closePane(position)
     };
+
+    if (paneType === SIDEBAR_PANE.editBlock) {
+      paneProps.tryToCloseBlock = () => this.tryToCloseBlock();
+    }
+
+    if (paneType === SIDEBAR_PANE.editTransition) {
+      paneProps.tryToCloseBlock = () => this.tryToCloseTransition();
+    }
 
     const ActivePane = paneToContainerMapping[paneType];
     // @ts-ignore

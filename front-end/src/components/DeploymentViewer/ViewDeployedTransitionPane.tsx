@@ -32,9 +32,6 @@ export default class ViewDeployedTransitionPane extends Vue {
       selectTransitionAction: nopWrite,
       newTransitionTypeSpecifiedInFlowState: this.selectedEdge.type,
       helperText: null,
-      cancelModifyingTransition: nopWrite,
-      hasSaveModificationButton: false,
-      saveModificationButtonAction: nopWrite,
       currentlySelectedTransitionType: this.selectedEdge.type,
 
       readOnly: true,
