@@ -3363,7 +3363,7 @@ class TaskSpawner(object):
 			}
 		
 		@run_on_executor
-		def create_sqs_queue( self, credentials, id, queue_name, batch_size ):
+		def create_sqs_queue( self, credentials, id, queue_name, batch_size, visibility_timeout ):
 			sqs_client = get_aws_client(
 				"sqs",
 				credentials
@@ -3380,7 +3380,7 @@ class TaskSpawner(object):
 						Attributes={
 							"DelaySeconds": str( 0 ),
 							"MaximumMessageSize": "262144",
-							"VisibilityTimeout": str( 300 + 10 ), # Lambda max time plus ten seconds
+							"VisibilityTimeout": str( visibility_timeout ), # Lambda max time plus ten seconds
 						}
 					)
 					
@@ -4604,7 +4604,8 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:5"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:5"
+			"arn:aws:lambda:us-west-2:532121572788:layer:nodetest:11"
 		)
 	elif language == "php7.3":
 		layers.append(
@@ -4616,7 +4617,8 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		)
 	elif language == "python2.7":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:5"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:5"
+			"arn:aws:lambda:us-west-2:532121572788:layer:pythontest:22"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
@@ -4792,6 +4794,8 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 			elif target_node_data[ "type" ] == "api_gateway_response":
 				# API Gateway responses are a pseudo node and don't have an ARN
 				target_arn = False
+			elif target_node_data[ "type" ] == "sqs_queue":
+				target_arn = "arn:aws:sqs:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + get_lambda_safe_name( target_node_data[ "name" ] )
 			
 			if workflow_relationship[ "type" ] == "then":
 				origin_node_data[ "transitions" ][ "then" ].append({
@@ -4960,7 +4964,8 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				credentials,
 				sqs_queue_node[ "id" ],
 				sqs_queue_name,
-				int( sqs_queue_node[ "batch_size" ] ) # Not used, passed along
+				int( sqs_queue_node[ "batch_size" ] ), # Not used, passed along
+				900, # Max Lambda runtime - TODO set this to the linked Lambda amount
 			)
 		})
 		

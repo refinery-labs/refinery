@@ -234,6 +234,103 @@ class Refinery_Memory:
 		)
 
 		return new_key
+		
+	def _get_queue_input_from_redis( self, queue_insert_id, pop_number ):
+		"""
+		Pull pop_number of items off of the redis list to be thrown onto SQS.
+		"""
+		if not self.redis_client:
+			self.connect()
+			
+		# List of items pulled from redis
+		return_items = []
+
+		# Do a redis pipeline transaction
+		pipeline = self.redis_client.pipeline()
+
+		for i in range( 0, pop_number ):
+			pipeline.lpop( "SQS_QUEUE_DATA_" + queue_insert_id )
+
+		returned_data_list = pipeline.execute()
+		
+		for return_data in returned_data_list:
+			if return_data != None:
+				return_items.append(
+					json.loads(
+						return_data
+					)
+				)
+
+		return return_items
+		
+	def _get_queue_url( self, queue_insert_id ):
+		if not self.redis_client:
+			self.connect()
+			
+		return self.redis_client.get(
+			"SQS_TARGET_QUEUE_URL_" + queue_insert_id
+		)
+		
+	def _get_queue_backpack( self, queue_insert_id ):
+		if not self.redis_client:
+			self.connect()
+			
+		return json.loads(
+			self.redis_client.get(
+				"SQS_BACKPACK_DATA_" + queue_insert_id
+			)
+		)
+		
+	def _set_queue_data( self, queue_url, queue_items, backpack ):
+		if not self.redis_client:
+			self.connect()
+			
+		# Generate a unique ID
+		queue_insert_id = str( uuid.uuid4() )
+			
+		# Generate a queue storage ID
+		queue_storage_id = "SQS_QUEUE_DATA_" + queue_insert_id
+		
+		# Generate a redis key for storing the queue URL
+		sqs_target_queue_url = "SQS_TARGET_QUEUE_URL_" + queue_insert_id
+		
+		# Generate a redis key for the backpack
+		sqs_backpack_key = "SQS_BACKPACK_DATA_" + queue_insert_id
+		
+		# Do a redis pipeline transaction
+		pipeline = self.redis_client.pipeline()
+
+		# Set the queue URL
+		pipeline.setex(
+			sqs_target_queue_url,
+			( 60 * 60 * 24 ), # 1-Day expiration
+			queue_url
+		)
+		
+		# Set the backpack
+		pipeline.setex(
+			sqs_backpack_key,
+			( 60 * 60 * 24 ), # 1-Day expiration
+			json.dumps(
+				backpack
+			)
+		)
+
+		# Store all the queue data in redis in a list
+		pipeline.rpush(
+			queue_storage_id,
+			*queue_items
+		)
+		
+		# Set expiration of items
+		pipeline.expire(
+			queue_storage_id,
+			( 60 * 60 * 24 ), # 1-Day expiration
+		)
+
+		pipeline.execute()
+
+		return queue_insert_id
 
 	def _set_fan_in_data( self, fan_out_id, invocation_list, **kwargs ):
 		if not self.redis_client:
@@ -256,6 +353,12 @@ class Refinery_Memory:
 		pipeline.rpush(
 			invocation_array_id,
 			*invocation_list
+		)
+		
+		# Set expiration of items
+		pipeline.expire(
+			invocation_array_id,
+			( 60 * 60 * 24 ), # 1-Day expiration
 		)
 
 		returned_data = pipeline.execute()
@@ -546,6 +649,76 @@ def _parallel_invoke( invoke_queue ):
 		)
 
 		raise SystemExit
+		
+	# Mass-inserts return data into SQS queue
+	def sqs_insert_data( execution_id, fan_out_ids, arn, input_data, backpack, context ):
+		# Generate queue URL from SQS ARN
+		arn_parts = arn.split( ":" )
+		queue_url = "https://sqs." + arn_parts[3] + ".amazonaws.com/" + arn_parts[4] + "/" + arn_parts[5]
+		
+		queue_items = input_data
+		
+		if type( input_data ) != list:
+			queue_items = [
+				input_data
+			]
+		
+		# Insert all the data into redis as a temporary holding zone
+		queue_insert_id = gmemory._set_queue_data(
+			queue_url,
+			queue_items,
+			backpack
+		)
+		
+		# TODO calculate the number of workers to spawn
+		# 1K inserts takes 2.5 seconds at 1 concurrency
+		# 5K inserts takes 12.5 seconds at 1 concurrency
+		# 10K inserts takes 25 seconds at 1 concurrency
+		
+		
+		number_of_workers = 1
+		"""
+		if len( queue_items ) > ( 5 * 1000 ):
+			number_of_workers = 2
+		elif len( queue_items ) > ( 10 * 1000 ):
+			number_of_workers = 3
+		elif len( queue_items ) > ( 20 * 1000 ):
+			number_of_workers = 5
+		"""
+		
+		lambda_client = boto3.client(
+			"lambda"
+		)
+		
+		# Invoke data for the self-invokes to spawn SQS workers
+		for i in range( 0, number_of_workers ):
+			lambda_invoke_data = {
+				"_refinery": {
+					"sqs_worker": {
+						"queue_insert_id": queue_insert_id,
+						"execution_id": execution_id,
+						"fan_out_ids": fan_out_ids,
+					}
+				}
+			}
+			
+			response = lambda_client.invoke(
+				FunctionName=context.invoked_function_arn,
+				InvocationType="Event",
+				LogType="None",
+				Payload=json.dumps(
+					lambda_invoke_data
+				)
+			)
+			
+			# Check how much runway we have. If it's less than five seconds
+			# we'll dip out and it'll just have to be a slower drip into SQS.
+			# This is after the first-invoke intentionally so that we always
+			# have at least one going.
+			if context.get_remaining_time_in_millis() <= ( 5 * 1000 ):
+				break
+	
+		raise SystemExit
 
 	# Publishes to an SNS topic
 	def sns_topic_publish_worker( execution_id, fan_out_ids, arn, input_data, backpack ):
@@ -664,6 +837,20 @@ def _parallel_invoke( invoke_queue ):
 				)
 			)
 			new_thread.start()
+		elif new_invoke_data[ "type" ] == "sqs_queue":
+			new_thread = threading.Thread(
+				target=sqs_insert_data,
+				args=(
+					new_invoke_data[ "execution_id" ],
+					new_invoke_data[ "fan_out_ids" ],
+					new_invoke_data[ "arn" ],
+					new_invoke_data[ "input_data" ],
+					new_invoke_data[ "backpack" ],
+					new_invoke_data[ "context" ],
+				)
+			)
+			new_thread.start()
+			time.sleep(0.05) # Annoying wedge due to boto3 bug
 
 		return new_thread
 
@@ -851,6 +1038,205 @@ def _write_pipeline_logs( s3_log_bucket, project_id, lambda_arn, lambda_name, ex
 			sort_keys=True
 		)
 	)
+	
+def _send_sqs_message_in_batches( sqs_url, sqs_message_list ):
+	sqs_message_list = sqs_message_list
+	new_sqs_client = boto3.client( "sqs" )
+	
+	while True:
+		# Pull last ten messages off the list
+		message_batch = sqs_message_list[-10:]
+		
+		# Remove them from the original messages
+		sqs_message_list = sqs_message_list[:-10]
+		
+		if len( message_batch ) == 0:
+			break
+		
+		_send_sqs_messages(
+			new_sqs_client,
+			sqs_url,
+			message_batch
+		)
+		
+		if len( sqs_message_list ) == 0:
+			break
+	
+	raise SystemExit
+
+def _send_sqs_messages( sqs_client, sqs_url, sqs_message_list ):
+	sqs_entries = []
+	
+	# Generate SQS entries
+	for sqs_message in sqs_message_list:
+		sqs_entries.append({
+			"Id": str( uuid.uuid4() ),
+			"MessageBody": json.dumps(
+				sqs_message
+			)
+		})
+		
+	response = sqs_client.send_message_batch(
+		QueueUrl=sqs_url,
+		Entries=sqs_entries
+	)
+	
+def _spawn_off_sqs_worker( queue_url, queue_insert_id, execution_id, fan_out_ids ):
+	exhausted_queue = False
+	new_thread = False
+	
+	queue_items = gmemory._get_queue_input_from_redis(
+		queue_insert_id,
+		100
+	)
+	
+	enriched_queue_items = []
+	
+	# Add metadata to queue items
+	for queue_item in queue_items:
+		enriched_queue_items.append({
+			"_refinery": {
+				"queue_insert_id": queue_insert_id,
+				"execution_id": execution_id,
+				"fan_out_ids": fan_out_ids,
+				"input_data": queue_item,
+			}
+		})
+	
+	if len( enriched_queue_items ) == 0:
+		exhausted_queue = True
+	else:
+		new_thread = threading.Thread(
+			target=_send_sqs_message_in_batches,
+			args=(
+				queue_url,
+				enriched_queue_items
+			)
+		)
+		
+		new_thread.start()
+		
+		# Wedge for Boto3 bug: https://github.com/boto/botocore/issues/1246
+		time.sleep(0.2)
+	
+	return {
+		"thread": new_thread,
+		"exhausted_queue": exhausted_queue
+	}
+	
+def _sqs_worker( queue_insert_id, execution_id, fan_out_ids, context ):
+	"""
+	An SQS worker takes the messages stored in Redis and loads them into
+	an SQS queue. The Refinery "magic" which takes place is the ability to
+	return a large number of items (e.g. 100K, 1M) from a code block and have
+	them all be loaded into SQS without any additional code. Of course, this is
+	not quite so simple to do in implementation. SQS allows a maximum of 10 messages
+	to be stored in the queue per API request. While the throughput is unlimited, it
+	would almost certainly take longer than the max-timeout of a given Lambda to store
+	all of this data in SQS. So instead we opt for loading all of the data into redis
+	first (very fast) and then self-invoke the Lambda in the SQS Worker mode. The SQS
+	Worker mode just pulls things off of the redis queue and loads them into SQS 10
+	messages at a time. If the timeout for the function is close at hand the SQS worker
+	will automatically finish it's current load and then invoke itself again to extend
+	the work infinitely until it is done.
+	
+	Basically the steps are the following:
+	* A Code Block returns a large array of values to be stored in SQS.
+	* The custom runtime receives this array and stores it in redis as a list (fast).
+	* The custom runtime self-invokes as many SQS workers as calculated to be necessary.
+	* The SQS workers pull 10 messages a time out (multi-threaded) of redis and insert them into SQS
+	* Upon getting close to their timeout the SQS workers finish up and then invoke themselves
+	* This continues until the redis list has been exhaused.
+	
+	Each SQS worker can do 10 messages at a time, and this is multi-threaded.
+	Performance measurements show the ideal thread number to be 15. Using this
+	we can achieve about 1K SQS inserts per 2.5 seconds (for every worker instance).
+	
+	Assuming ~400 inserts a second, that's 24K a minute (and 360K in 15 minutes).
+	5 SQS workers is 120K a minute
+	10 SQS works is 240K a minute
+	"""
+	
+	print( "I'm an SQS worker spawned with queue_insert_id of: " + queue_insert_id )
+	
+	# If we have less than or equal to ten seconds of
+	# remaining runtime we should quit out.
+	remaining_time_limit = ( 1000 * 10 )
+	
+	# Get target queue URL
+	queue_url = gmemory._get_queue_url(
+		queue_insert_id
+	)
+	
+	# 15 is about the golden number of effective threads
+	max_threads = 15
+	
+	while True:
+		print( "looping..." )
+		active_threads = []
+		exhausted_queue = False
+		
+		# Spawn up threads to put things on SQS
+		for i in range( 0, max_threads ):
+			if exhausted_queue == False:
+				print( "Spawning another thread to throw 100 items onto SQS..." )
+				worker_spawn_data = _spawn_off_sqs_worker(
+					queue_url,
+					queue_insert_id,
+					execution_id,
+					fan_out_ids
+				)
+				
+				if worker_spawn_data[ "thread" ]:
+					active_threads.append(
+						worker_spawn_data[ "thread" ]
+					)
+					
+				if worker_spawn_data[ "exhausted_queue" ]:
+					exhausted_queue = True
+		
+		# Wait until all threads finish
+		for thread in active_threads:
+			thread.join()
+			
+		# If we've finished up our queue we should quit out
+		if exhausted_queue:
+			print( "We've exhausted the queue, quitting out!" )
+			break
+			
+		# Now check how much time we have left before timeout
+		remaining_milliseconds = context.get_remaining_time_in_millis()
+		if remaining_milliseconds <= remaining_time_limit:
+			print( "We're at our time limit, self-invoking and quitting out!" )
+			
+			# Self invoke and quit
+			lambda_client = boto3.client(
+				"lambda"
+			)
+			
+			lambda_invoke_data = {
+				"_refinery": {
+					"sqs_worker": {
+						"queue_insert_id": queue_insert_id,
+						"execution_id": execution_id,
+						"fan_out_ids": fan_out_ids,
+					}
+				}
+			}
+			
+			response = lambda_client.invoke(
+				FunctionName=context.invoked_function_arn,
+				InvocationType="Event",
+				LogType="None",
+				Payload=json.dumps(
+					lambda_invoke_data
+				)
+			)
+			break
+	
+	sys.stdout.flush()
+	time.sleep(1)
+	return
 
 def _spawner( invocation_id, context ):
 	"""
@@ -1028,10 +1414,66 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 		# If we get an exception it's just because it isn't an SNS topic message.
 		# So we just continue on as usual.
 		pass
+	
+	# This is for messages coming off an SQS queue, the regular output is confusing
+	# So we format it to be regular input
+	try:
+		# This is just to check if it's an SQS "shaped" message
+		receipt_handle = lambda_input[ "Records" ][0][ "receiptHandle" ]
+		
+		lambda_input_list = []
+		
+		# Set metadata from items in queue batch
+		for batch_item in lambda_input[ "Records" ]:
+			batch_input_data = json.loads(
+				batch_item[ "body" ]
+			)
+			
+			if "_refinery" in batch_input_data:
+				# Set the metadata
+				execution_id = batch_input_data[ "_refinery" ][ "execution_id" ]
+				fan_out_ids = batch_input_data[ "_refinery" ][ "fan_out_ids" ]
+				queue_insert_id = batch_input_data[ "_refinery" ][ "queue_insert_id" ]
+				
+			lambda_input_list.append(
+				batch_input_data[ "_refinery" ][ "input_data" ]
+			)
+				
+		# Let's grab the backpack
+		backpack = gmemory._get_queue_backpack(
+			queue_insert_id
+		)
+		
+		# Set the Lambda input data
+		lambda_input = lambda_input_list
+
+		# If that didn't throw an exception it's certainly SQS and we need to format
+		# the returned data.
+	except Exception as e:
+		pass
+	
+	# DELETE ME
+	sys.stdout.flush()
 
 	# Detect refinery wrapper and unwrap if existant
 	# Else just leave it unmodified
 	if type( lambda_input ) == dict and "_refinery" in lambda_input:
+		# Check if it's an SQS queue worker
+		if "sqs_worker" in lambda_input[ "_refinery" ]:
+			print( "I'm an SQS worker! Going to work..." )
+			sys.stdout.flush()
+			_sqs_worker(
+				lambda_input[ "_refinery" ][ "sqs_worker" ][ "queue_insert_id" ],
+				lambda_input[ "_refinery" ][ "sqs_worker" ][ "execution_id" ],
+				lambda_input[ "_refinery" ][ "sqs_worker" ][ "fan_out_ids" ],
+				context
+			)
+			custom_runtime.send_response(
+				request_id,
+				""
+			)
+			return
+		
 		# Set execution ID if set
 		if "execution_id" in lambda_input[ "_refinery" ]:
 			execution_id = lambda_input[ "_refinery" ][ "execution_id" ]
@@ -1069,6 +1511,10 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 					backpack = stored_input[ "backpack" ]
 				except AlreadyInvokedException as e:
 					print( "This Lambda has already been invoked (or the return data has expired). For this reason we are quitting out (indirect return data)." )
+					custom_runtime.send_response(
+						request_id,
+						""
+					)
 					return
 				_side_loaded = True
 			# Input data is stored in redis as a list from a fan-in
@@ -1081,16 +1527,24 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 					backpack = stored_input[ "backpack" ]
 				except AlreadyInvokedException as e:
 					print( "This Lambda has already been invoked (or the return data has expired). For this reason we are quitting out (direct return data)." )
+					custom_runtime.send_response(
+						request_id,
+						""
+					)
 					return
 				_side_loaded = True
 
 		# If there's an "invoke" key it means we're doing a self-invocation fan-out
 		if is_spawner_invocation:
-			return _spawner(
+			_spawner(
 				invocation_id,
 				context
 			)
-
+			custom_runtime.send_response(
+				request_id,
+				""
+			)
+			return
 		# Just directly passed input data
 		if not _side_loaded and "input_data" in lambda_input[ "_refinery" ]:
 			lambda_input = lambda_input[ "_refinery" ][ "input_data" ]
@@ -1497,6 +1951,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 			"fan_out_ids": fan_out_ids,
 			"type": then_transition_data[ "type" ],
 			"arn": then_transition_data[ "arn" ],
+			"context": context,
 			"input_data": json.loads(
 				json.dumps(
 					return_data

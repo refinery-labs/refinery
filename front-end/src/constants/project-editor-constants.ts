@@ -51,6 +51,7 @@ export type BlockTypeToImage = { [key in WorkflowStateType]: AddGraphElementConf
 
 export interface BlockTypeConfig extends BlockTypeToImage {
   [index: string]: AddGraphElementConfig;
+
   // saved_lambda: AddGraphElementConfig;
 }
 
@@ -190,6 +191,10 @@ export const validBlockToBlockTransitionLookup: ValidTransitionConfig[] = [
     toType: WorkflowStateType.LAMBDA
   },
   {
+    fromType: WorkflowStateType.LAMBDA,
+    toType: WorkflowStateType.SQS_QUEUE
+  },
+  {
     fromType: WorkflowStateType.SCHEDULE_TRIGGER,
     toType: WorkflowStateType.LAMBDA
   },
@@ -238,6 +243,10 @@ export const nodeTypesWithSimpleTransitions: ValidTransitionConfig[] = [
   {
     fromType: WorkflowStateType.LAMBDA,
     toType: WorkflowStateType.API_GATEWAY_RESPONSE
+  },
+  {
+    fromType: WorkflowStateType.SQS_QUEUE,
+    toType: WorkflowStateType.LAMBDA
   }
 ];
 
