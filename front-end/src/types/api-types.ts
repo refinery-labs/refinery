@@ -621,7 +621,6 @@ export interface SearchSavedBlocksResponse extends BaseApiResponse {
 
 export interface SavedBlockSearchResult {
   id: string;
-  is_block_owner: boolean;
   description: string;
   name: string;
   type: WorkflowStateType;
@@ -636,3 +635,21 @@ export interface DeleteSavedBlockRequest extends BaseApiRequest {
 }
 
 export interface DeleteSavedBlockResponse extends BaseApiResponse {}
+
+// SavedBlockStatusCheck
+export interface SavedBlockStatusCheckRequest extends BaseApiRequest {
+  block_ids: string[];
+}
+
+export interface SavedBlockStatusCheckResponse extends BaseApiResponse {
+  results: SavedBlockStatusCheckResult[];
+}
+
+export interface SavedBlockStatusCheckResult {
+  id: string;
+  is_block_owner: boolean;
+  description: string;
+  name: string;
+  version: number;
+  timestamp: number;
+}

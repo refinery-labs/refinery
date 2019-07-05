@@ -38,7 +38,6 @@ export const baseState: AddSavedBlockPaneState = {
 
 export interface SavedBlockSearchResult {
   id: string;
-  is_block_owner: boolean;
   description: string;
   name: string;
   type: WorkflowStateType;
@@ -151,11 +150,8 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
         ...match.block_object,
         saved_block_metadata: {
           id: match.id,
-          name: match.name,
-          description: match.description,
           version: match.version,
           timestamp: match.timestamp,
-          is_block_owner: match.is_block_owner,
           added_timestamp: Date.now()
         }
       }

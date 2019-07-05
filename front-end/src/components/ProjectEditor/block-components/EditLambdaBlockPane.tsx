@@ -373,16 +373,16 @@ export class EditLambdaBlock extends Vue {
       return null;
     }
 
-    if (this.selectedNode.saved_block_metadata && this.selectedNode.saved_block_metadata.is_block_owner) {
-      return (
-        <b-form-group description="Save this block to use in other projects.">
-          <label class="d-block">Update Saved Block:</label>
-          <b-button variant="dark" class="col-12" on={{ click: this.saveBlockClicked }}>
-            Edit in Block Publisher
-          </b-button>
-        </b-form-group>
-      );
-    }
+    // if (this.selectedNode.saved_block_metadata && this.selectedNode.saved_block_metadata.is_block_owner) {
+    //   return (
+    //     <b-form-group description="Save this block to use in other projects.">
+    //       <label class="d-block">Update Saved Block:</label>
+    //       <b-button variant="dark" class="col-12" on={{ click: this.saveBlockClicked }}>
+    //         Edit in Block Publisher
+    //       </b-button>
+    //     </b-form-group>
+    //   );
+    // }
 
     return (
       <b-form-group description="Save this block to use in other projects.">

@@ -37,6 +37,7 @@ export enum API_ENDPOINT {
   StashStateLog = 'StashStateLog',
   CreateSavedBlock = 'CreateSavedBlock',
   SearchSavedBlocks = 'SearchSavedBlocks',
+  SavedBlockStatusCheck = 'SavedBlockStatusCheck',
   DeleteSavedBlock = 'DeleteSavedBlock'
 }
 
@@ -209,6 +210,10 @@ export const ApiConfigMap: ApiConfigMapType = {
   },
   [API_ENDPOINT.SearchSavedBlocks]: {
     path: '/api/v1/saved_blocks/search',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.SavedBlockStatusCheck]: {
+    path: '/api/v1/saved_blocks/status_check',
     method: HTTP_METHOD.POST
   },
   [API_ENDPOINT.DeleteSavedBlock]: {

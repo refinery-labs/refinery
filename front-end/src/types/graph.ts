@@ -54,9 +54,6 @@ export interface WorkflowState extends BaseRefineryResource {
 
 export interface SavedBlockMetadata {
   id: string;
-  is_block_owner: boolean;
-  description: string;
-  name: string;
   version: number;
   timestamp: number;
   added_timestamp: number;
