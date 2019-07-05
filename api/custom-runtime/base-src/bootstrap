@@ -685,10 +685,6 @@ def _parallel_invoke( invoke_queue ):
 		# reasonable
 		if number_of_workers > 20:
 			number_of_workers = 20
-			
-		print( "Number of workers: " )
-		print( number_of_workers )
-		sys.stdout.flush()
 		
 		lambda_client = boto3.client(
 			"lambda"
@@ -1162,6 +1158,7 @@ def _sqs_worker( queue_insert_id, execution_id, fan_out_ids, context ):
 	"""
 	
 	print( "I'm an SQS worker spawned with queue_insert_id of: " + queue_insert_id )
+	sys.stdout.flush()
 	
 	# If we have less than or equal to ten seconds of
 	# remaining runtime we should quit out.
@@ -1176,14 +1173,12 @@ def _sqs_worker( queue_insert_id, execution_id, fan_out_ids, context ):
 	max_threads = 15
 	
 	while True:
-		print( "looping..." )
 		active_threads = []
 		exhausted_queue = False
 		
 		# Spawn up threads to put things on SQS
 		for i in range( 0, max_threads ):
 			if exhausted_queue == False:
-				print( "Spawning another thread to throw 100 items onto SQS..." )
 				worker_spawn_data = _spawn_off_sqs_worker(
 					queue_url,
 					queue_insert_id,
@@ -1205,14 +1200,11 @@ def _sqs_worker( queue_insert_id, execution_id, fan_out_ids, context ):
 			
 		# If we've finished up our queue we should quit out
 		if exhausted_queue:
-			print( "We've exhausted the queue, quitting out!" )
 			break
 			
 		# Now check how much time we have left before timeout
 		remaining_milliseconds = context.get_remaining_time_in_millis()
 		if remaining_milliseconds <= remaining_time_limit:
-			print( "We're at our time limit, self-invoking and quitting out!" )
-			
 			# Self invoke and quit
 			lambda_client = boto3.client(
 				"lambda"
@@ -1237,9 +1229,6 @@ def _sqs_worker( queue_insert_id, execution_id, fan_out_ids, context ):
 				)
 			)
 			break
-	
-	sys.stdout.flush()
-	time.sleep(1)
 	return
 
 def _spawner( invocation_id, context ):
@@ -1278,6 +1267,7 @@ def _spawner( invocation_id, context ):
 	be at 100 Lambdas at ~18 invokes a second.
 	"""
 	print( "I am a spawner lambda who's spawned with an invocation ID of " + invocation_id )
+	sys.stdout.flush()
 
 	remaining_time_limit = ( 1000 * 10 )
 	parallel_invocation_number = 15
@@ -1455,17 +1445,12 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 		# the returned data.
 	except Exception as e:
 		pass
-	
-	# DELETE ME
-	sys.stdout.flush()
 
 	# Detect refinery wrapper and unwrap if existant
 	# Else just leave it unmodified
 	if type( lambda_input ) == dict and "_refinery" in lambda_input:
 		# Check if it's an SQS queue worker
 		if "sqs_worker" in lambda_input[ "_refinery" ]:
-			print( "I'm an SQS worker! Going to work..." )
-			sys.stdout.flush()
 			_sqs_worker(
 				lambda_input[ "_refinery" ][ "sqs_worker" ][ "queue_insert_id" ],
 				lambda_input[ "_refinery" ][ "sqs_worker" ][ "execution_id" ],
