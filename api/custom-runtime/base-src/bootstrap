@@ -670,21 +670,25 @@ def _parallel_invoke( invoke_queue ):
 			backpack
 		)
 		
-		# TODO calculate the number of workers to spawn
-		# 1K inserts takes 2.5 seconds at 1 concurrency
-		# 5K inserts takes 12.5 seconds at 1 concurrency
-		# 10K inserts takes 25 seconds at 1 concurrency
+		# We calculate the number of workers to spin up by
+		# having a target of 1 minute of time to fill up the SQS
+		# queue with the messages previously stored in redis.
+		# This is to balance the additional invoke and compute
+		# cost with the speed of insertion into SQS.
+		# A multi-threaded SQS worker generally can insert at a
+		# rate of 400 messages per second.
 		
+		number_of_workers = len( queue_items ) / ( 400 * 60 ) # 400/sec for 60 seconds
+		number_of_workers = int( math.ceil( number_of_workers ) )
 		
-		number_of_workers = 1
-		"""
-		if len( queue_items ) > ( 5 * 1000 ):
-			number_of_workers = 2
-		elif len( queue_items ) > ( 10 * 1000 ):
-			number_of_workers = 3
-		elif len( queue_items ) > ( 20 * 1000 ):
-			number_of_workers = 5
-		"""
+		# We cap the number of workers at 20 just to make the cost
+		# reasonable
+		if number_of_workers > 20:
+			number_of_workers = 20
+			
+		print( "Number of workers: " )
+		print( number_of_workers )
+		sys.stdout.flush()
 		
 		lambda_client = boto3.client(
 			"lambda"
