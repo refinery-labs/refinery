@@ -52,10 +52,13 @@ class InvokeQueueEmptyException( Exception ):
 		super( InvokeQueueEmptyException, self ).__init__( message )
 
 class Refinery_Memory:
-	# 16 minutes default return data expire
-	# TODO in the future count the number of nodes in between and set timeout to be max
-	# time allocated for all the Lambdas in the path to run
-	return_data_timeout = ( 60 * 16 )
+	# 6 hours is the timeout here because it's the max retry
+	# time for async Lambda invokes:
+	# "If your Lambda function is invoked asynchronously and is throttled,
+	# AWS Lambda automatically retries the throttled event for up to six
+	# hours, with delays between retries."
+	# https://docs.aws.amazon.com/lambda/latest/dg/concurrent-executions.html#throttling-behavior
+	return_data_timeout = ( 60 * 60 * 6 )
 
 	json_types = [
 		list,
@@ -345,7 +348,7 @@ class Refinery_Memory:
 		# Set up the counter for fan-in
 		pipeline.setex(
 			"FAN_IN_COUNTER_" + fan_out_id,
-			( 60 * 15 * 3 ), # TODO dynamically calculate based off of nodes in path worst-case
+			self.return_data_timeout,
 			len( invocation_list )
 		)
 
@@ -465,7 +468,7 @@ class Refinery_Memory:
 		# Update expiration
 		pipeline.expire(
 			"FAN_IN_RESULTS_" + fan_out_id,
-			( 60 * 15 * 3 ), # TODO dynamically calculate based off of nodes in path worst-case
+			self.return_data_timeout, # TODO dynamically calculate based off of nodes in path worst-case
 		)
 
 		# Decrement fan-in counter
