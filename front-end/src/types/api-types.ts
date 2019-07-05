@@ -621,6 +621,7 @@ export interface SearchSavedBlocksResponse extends BaseApiResponse {
 
 export interface SavedBlockSearchResult {
   id: string;
+  is_block_owner: boolean;
   description: string;
   name: string;
   type: WorkflowStateType;

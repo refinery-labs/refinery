@@ -31,14 +31,7 @@ export default class EditBlockPane extends Vue {
 
   @editBlock.Action cancelAndResetBlock!: () => void;
   @editBlock.Action tryToCloseBlock!: () => void;
-  @editBlock.Action saveBlock!: () => Promise<void>;
   @editBlock.Action deleteBlock!: () => void;
-
-  public async saveBlockClicked(e: Event) {
-    e.preventDefault();
-    await this.saveBlock();
-    CreateSavedBlockViewStoreModule.openModal();
-  }
 
   public deleteBlockClicked(e: Event) {
     e.preventDefault();
@@ -94,15 +87,10 @@ export default class EditBlockPane extends Vue {
         <div class="scrollable-pane-container padding-left--normal padding-right--normal">
           <ActiveEditorComponent props={props} />
         </div>
-        <div class="row show-block-container__bottom-buttons">
-          <b-button-group class="col-12">
-            <b-button variant="primary" class="col-8" on={{ click: this.saveBlockClicked }}>
-              Create Saved Block
-            </b-button>
-            <b-button variant="danger" class="col-4" on={{ click: this.deleteBlockClicked }}>
-              Delete
-            </b-button>
-          </b-button-group>
+        <div class="row show-block-container__bottom-buttons ml-0 mr-0">
+          <b-button variant="danger" class="col-12" on={{ click: this.deleteBlockClicked }}>
+            Delete Block
+          </b-button>
         </div>
       </div>
     );

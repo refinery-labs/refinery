@@ -30,6 +30,7 @@ import {
   EditEnvironmentVariablesWrapper,
   EditEnvironmentVariablesWrapperProps
 } from '@/components/ProjectEditor/block-components/EditEnvironmentVariablesWrapper';
+import { CreateSavedBlockViewStoreModule } from '@/store/modules/panes/create-saved-block-view';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
@@ -77,6 +78,8 @@ export class EditLambdaBlock extends Vue {
   @editBlock.Mutation deleteDependencyImport!: (libraryName: string) => void;
   @editBlock.Mutation addDependencyImport!: (libraryName: string) => void;
 
+  @editBlock.Action saveBlock!: () => Promise<void>;
+
   deleteLibrary(library: string) {
     // Do nothing
     if (this.readOnly) {
@@ -84,6 +87,12 @@ export class EditLambdaBlock extends Vue {
     }
 
     this.deleteDependencyImport(library);
+  }
+
+  public async saveBlockClicked(e: Event) {
+    e.preventDefault();
+    await this.saveBlock();
+    CreateSavedBlockViewStoreModule.openModal();
   }
 
   addLibrary(e: Event) {
@@ -359,6 +368,32 @@ export class EditLambdaBlock extends Vue {
     );
   }
 
+  public renderCreateSavedBlockButton() {
+    if (this.readOnly) {
+      return null;
+    }
+
+    if (this.selectedNode.saved_block_metadata && this.selectedNode.saved_block_metadata.is_block_owner) {
+      return (
+        <b-form-group description="Save this block to use in other projects.">
+          <label class="d-block">Update Saved Block:</label>
+          <b-button variant="dark" class="col-12" on={{ click: this.saveBlockClicked }}>
+            Edit in Block Publisher
+          </b-button>
+        </b-form-group>
+      );
+    }
+
+    return (
+      <b-form-group description="Save this block to use in other projects.">
+        <label class="d-block">Create Saved Block:</label>
+        <b-button variant="dark" class="col-12" on={{ click: this.saveBlockClicked }}>
+          Open Block Publisher
+        </b-button>
+      </b-form-group>
+    );
+  }
+
   public renderAwsLink() {
     if (!this.readOnly) {
       return null;
@@ -470,6 +505,7 @@ export class EditLambdaBlock extends Vue {
         {this.renderAwsLink()}
         {this.renderBlockVariables()}
         {this.renderLibrarySelector()}
+        {this.renderCreateSavedBlockButton()}
         {/*<b-button variant="dark" class="col-12 mb-3">*/}
         {/*  Edit Environment Variables*/}
         {/*</b-button>*/}

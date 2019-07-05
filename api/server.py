@@ -5444,7 +5444,7 @@ class SavedBlockSearch( BaseHandler ):
 		return_list = []
 		
 		for saved_block in saved_blocks:
-			# Get the latest saved block verison
+			# Get the latest saved block version
 			saved_block_latest_version = dbsession.query( SavedBlockVersion ).filter_by(
 				saved_block_id=saved_block.id
 			).order_by( SavedBlockVersion.version.desc() ).first()
@@ -5456,6 +5456,7 @@ class SavedBlockSearch( BaseHandler ):
 			
 			return_list.append({
 				"id": saved_block.id,
+				"is_block_owner": saved_block.user_id == self.get_authenticated_user_id(),
 				"description": saved_block.description,
 				"name": saved_block.name,
 				"type": saved_block.type,
