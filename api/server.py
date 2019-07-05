@@ -37,6 +37,7 @@ from tornado import gen
 from datetime import timedelta
 from tornado.web import asynchronous
 from expiringdict import ExpiringDict
+from ansi2html import Ansi2HTMLConverter
 from botocore.exceptions import ClientError
 from jsonschema import validate as validate_schema
 from tornado.concurrent import run_on_executor, futures
@@ -908,8 +909,14 @@ class TaskSpawner(object):
 				aws_account_object
 			)
 			
+		@run_on_executor
+		def write_terraform_base_files( self, aws_account_object ):
+			return TaskSpawner._write_terraform_base_files(
+				aws_account_object
+			)
+			
 		@staticmethod
-		def _terraform_configure_aws_account( aws_account_object ):
+		def _write_terraform_base_files( aws_account_object ):
 			# Create a temporary working directory for the work.
 			# Even if there's some exception thrown during the process
 			# we will still delete the underlying state.
@@ -924,19 +931,24 @@ class TaskSpawner(object):
 					temporary_dir
 				)
 				
-				result = TaskSpawner.__terraform_configure_aws_account(
+				TaskSpawner.__write_terraform_base_files(
 					aws_account_object,
 					temporary_dir
 				)
-			finally:
+			except Exception as e:
+				logit( "An exception occurred while writing terraform base files for AWS account ID " + aws_account_object.account_id )
+				logit( e )
+				
 				# Delete the temporary directory reguardless.
 				shutil.rmtree( temporary_dir )
+				
+				raise
 			
-			return result
-			
+			return temporary_dir
+		
 		@staticmethod
-		def __terraform_configure_aws_account( aws_account_data, base_dir ):
-			logit( "Setting up AWS account with terraform (AWS Acc. ID '" + aws_account_data.account_id + "')..." )
+		def __write_terraform_base_files( aws_account_data, base_dir ):
+			logit( "Setting up the base Terraform files (AWS Acc. ID '" + aws_account_data.account_id + "')..." )
 			
 			# Get some temporary assume role credentials for the account
 			assumed_role_credentials = TaskSpawner._get_assume_role_credentials(
@@ -963,89 +975,241 @@ class TaskSpawner(object):
 			
 			logit( "Writing Terraform input variables to file..." )
 			
-			# Customer config path
-			customer_aws_config_path = base_dir + "customer_config.json"
-			
 			# Write configuration data to a file for Terraform to use.
-			with open( customer_aws_config_path, "w" ) as file_handler:
+			with open( base_dir + "customer_config.json", "w" ) as file_handler:
 				file_handler.write(
 					json.dumps(
 						terraform_configuration_data
 					)
 				)
 				
-			logit( "Terraform input variables successfully written to disk. " )
-			logit( "Finished waiting, applying Terraform plan to newly created account..." )
-			logit( "Running 'terraform apply' to configure the account..." )
-			
-			# Terraform apply
-			process_handler = subprocess.Popen(
-				[
-					base_dir + "terraform",
-					"apply",
-					"-auto-approve",
-					"-var-file",
-					customer_aws_config_path,
-				],
-				stdout=subprocess.PIPE,
-				stderr=subprocess.PIPE,
-				shell=False,
-				universal_newlines=True,
-				cwd=base_dir,
-			)
-			process_stdout, process_stderr = process_handler.communicate()
-			
-			if process_stderr.strip() != "":
-				logit( "The Terraform provisioning has failed!", "error" )
-				logit( process_stderr, "error" )
-				logit( process_stdout, "error" )
+			# Write the latest terraform state to terraform.tfstate
+			# If we have any state at all.
+			if aws_account_data.terraform_state != "":
+				# First we write the current version to the database as a version to keep track
 				
-				# Alert us of the provisioning error so we can get ahead of
-				# it with AWS support.
-				TaskSpawner.send_terraform_provisioning_error(
-					aws_account_data.account_id,
-					str( process_stderr )
+				terraform_state_file_path = base_dir + "terraform.tfstate"
+				
+				logit( "A previous terraform state file exists! Writing it to '" + terraform_state_file_path + "'..." )
+				
+				with open( terraform_state_file_path, "w" ) as file_handler:
+					file_handler.write(
+						aws_account_data.terraform_state
+					)
+				
+			logit( "The base terraform files have been created successfully at " + base_dir )
+			
+		@run_on_executor
+		def terraform_apply( self, aws_account_data ):
+			"""
+			This applies the latest terraform config to an account.
+			
+			THIS IS DANGEROUS, MAKE SURE YOU DID A FLEET TERRAFORM PLAN
+			FIRST. NO EXCUSES, THIS IS ONE OF THE FEW WAYS TO BREAK PROD
+			FOR OUR CUSTOMERS.
+			
+			-mandatory
+			"""
+			return TaskSpawner._terraform_apply(
+				aws_account_data
+			)
+		
+		@staticmethod
+		def _terraform_apply( aws_account_data ):
+			# The return data
+			return_data = {
+				"success": True,
+				"stdout": "",
+				"stderr": "",
+				"original_tfstate": str(
+					copy.copy(
+						aws_account_data.terraform_state
+					)
+				),
+				"new_tfstate": "",
+			}
+			
+			temporary_directory = TaskSpawner._write_terraform_base_files(
+				aws_account_data
+			)
+			
+			try:
+				logit( "Performing 'terraform apply' to AWS Account " + aws_account_data.account_id + "..." )
+				
+				# Terraform plan
+				process_handler = subprocess.Popen(
+					[
+						temporary_directory + "terraform",
+						"apply",
+						"-auto-approve",
+						"-var-file",
+						temporary_directory + "customer_config.json",
+					],
+					stdout=subprocess.PIPE,
+					stderr=subprocess.PIPE,
+					shell=False,
+					universal_newlines=True,
+					cwd=temporary_directory,
+				)
+				process_stdout, process_stderr = process_handler.communicate()
+				return_data[ "stdout" ] = process_stdout
+				return_data[ "stderr" ] = process_stderr
+				
+				# Pull the latest terraform state and return it
+				# We need to do this regardless of if an error occurred.
+				with open( temporary_directory + "terraform.tfstate", "r" ) as file_handler:
+					return_data[ "new_tfstate" ] = file_handler.read()
+				
+				if process_stderr.strip() != "":
+					logit( "The 'terraform apply' has failed!", "error" )
+					logit( process_stderr, "error" )
+					logit( process_stdout, "error" )
+					
+					# Alert us of the provisioning error so we can response to it
+					TaskSpawner.send_terraform_provisioning_error(
+						aws_account_data.account_id,
+						str( process_stderr )
+					)
+					
+					return_data[ "success" ] = False
+			finally:
+				# Ensure we clear the temporary directory no matter what
+				shutil.rmtree( temporary_directory )
+			
+			logit( "'terraform apply' completed, returning results..." )
+			
+			return return_data
+		
+		@run_on_executor
+		def terraform_plan( self, aws_account_data ):
+			"""
+			This does a terraform plan to an account and sends an email
+			with the results. This allows us to see the impact of a new
+			terraform change before we roll it out across our customer's
+			AWS accounts.
+			"""
+			return TaskSpawner._terraform_plan(
+				aws_account_data
+			)
+		
+		@staticmethod
+		def _terraform_plan( aws_account_data ):
+			temporary_directory = TaskSpawner._write_terraform_base_files(
+				aws_account_data
+			)
+			
+			try:
+				logit( "Performing 'terraform plan' to AWS account " + aws_account_data.account_id + "..." )
+				
+				# Terraform plan
+				process_handler = subprocess.Popen(
+					[
+						temporary_directory + "terraform",
+						"plan",
+						"-var-file",
+						temporary_directory + "customer_config.json",
+					],
+					stdout=subprocess.PIPE,
+					stderr=subprocess.PIPE,
+					shell=False,
+					universal_newlines=True,
+					cwd=temporary_directory,
+				)
+				process_stdout, process_stderr = process_handler.communicate()
+				
+				if process_stderr.strip() != "":
+					logit( "The 'terraform plan' has failed!", "error" )
+					logit( process_stderr, "error" )
+					logit( process_stdout, "error" )
+					
+					raise Exception( "Terraform plan failed." )
+			finally:
+				# Ensure we clear the temporary directory no matter what
+				shutil.rmtree( temporary_directory )
+			
+			logit( "Terraform plan completed successfully, returning output." )
+			return process_stdout
+			
+		@staticmethod
+		def _terraform_configure_aws_account( aws_account_data ):
+			base_dir = TaskSpawner._write_terraform_base_files(
+				aws_account_data
+			)
+			
+			try:
+				logit( "Setting up AWS account with terraform (AWS Acc. ID '" + aws_account_data.account_id + "')..." )
+				
+				# Terraform apply
+				process_handler = subprocess.Popen(
+					[
+						base_dir + "terraform",
+						"apply",
+						"-auto-approve",
+						"-var-file",
+						base_dir + "customer_config.json",
+					],
+					stdout=subprocess.PIPE,
+					stderr=subprocess.PIPE,
+					shell=False,
+					universal_newlines=True,
+					cwd=base_dir,
+				)
+				process_stdout, process_stderr = process_handler.communicate()
+				
+				if process_stderr.strip() != "":
+					logit( "The Terraform provisioning has failed!", "error" )
+					logit( process_stderr, "error" )
+					logit( process_stdout, "error" )
+					
+					# Alert us of the provisioning error so we can get ahead of
+					# it with AWS support.
+					TaskSpawner.send_terraform_provisioning_error(
+						aws_account_data.account_id,
+						str( process_stderr )
+					)
+					
+					raise Exception( "Terraform provisioning failed, AWS account marked as \"CORRUPT\"" )
+				
+				logit( "Running 'terraform output' to pull the account details..." )
+				
+				# Print Terraform output as JSON so we can read it.
+				process_handler = subprocess.Popen(
+					[
+						base_dir + "terraform",
+						"output",
+						"-json"
+					],
+					stdout=subprocess.PIPE,
+					stderr=subprocess.PIPE,
+					shell=False,
+					universal_newlines=True,
+					cwd=base_dir,
+				)
+				process_stdout, process_stderr = process_handler.communicate()
+				
+				# Parse Terraform JSON output
+				terraform_provisioned_account_details = json.loads(
+					process_stdout
 				)
 				
-				raise Exception( "Terraform provisioning failed, AWS account marked as \"CORRUPT\"" )
-			
-			logit( "Running 'terraform output' to pull the account details..." )
-			
-			# Print Terraform output as JSON so we can read it.
-			process_handler = subprocess.Popen(
-				[
-					base_dir + "terraform",
-					"output",
-					"-json"
-				],
-				stdout=subprocess.PIPE,
-				stderr=subprocess.PIPE,
-				shell=False,
-				universal_newlines=True,
-				cwd=base_dir,
-			)
-			process_stdout, process_stderr = process_handler.communicate()
-			
-			# Parse Terraform JSON output
-			terraform_provisioned_account_details = json.loads(
-				process_stdout
-			)
-			
-			logit( "Pulled Terraform output successfully." )
-			
-			# Pull the terraform state and pull it so we can later
-			# make terraform changes to user accounts.
-			terraform_state = ""
-			with open( base_dir + "terraform.tfstate", "r" ) as file_handler:
-				terraform_state = file_handler.read()
-			
-			logit( "Added AWS account to the pool successfully!" )
-			
-			terraform_configuration_data[ "terraform_state" ] = terraform_state
-			terraform_configuration_data[ "redis_hostname" ] = terraform_provisioned_account_details[ "redis_elastic_ip" ][ "value" ]
-			terraform_configuration_data[ "ssh_public_key" ] = terraform_provisioned_account_details[ "refinery_redis_ssh_key_public_key_openssh" ][ "value" ]
-			terraform_configuration_data[ "ssh_private_key" ] = terraform_provisioned_account_details[ "refinery_redis_ssh_key_private_key_pem" ][ "value" ]
-			
+				logit( "Pulled Terraform output successfully." )
+				
+				# Pull the terraform state and pull it so we can later
+				# make terraform changes to user accounts.
+				terraform_state = ""
+				with open( base_dir + "terraform.tfstate", "r" ) as file_handler:
+					terraform_state = file_handler.read()
+				
+				logit( "Added AWS account to the pool successfully!" )
+				
+				terraform_configuration_data[ "terraform_state" ] = terraform_state
+				terraform_configuration_data[ "redis_hostname" ] = terraform_provisioned_account_details[ "redis_elastic_ip" ][ "value" ]
+				terraform_configuration_data[ "ssh_public_key" ] = terraform_provisioned_account_details[ "refinery_redis_ssh_key_public_key_openssh" ][ "value" ]
+				terraform_configuration_data[ "ssh_private_key" ] = terraform_provisioned_account_details[ "refinery_redis_ssh_key_private_key_pem" ][ "value" ]
+			finally:
+				# Ensure we clear the temporary directory no matter what
+				shutil.rmtree( base_dir )
+				
 			return terraform_configuration_data
 		
 		@run_on_executor
@@ -1313,7 +1477,8 @@ class TaskSpawner(object):
 			)
 			
 			return False
-			
+		
+		@run_on_executor
 		def send_email( self, to_email_string, subject_string, message_text_string, message_html_string ):
 			"""
 			to_email_string: "example@refinery.io"
@@ -7838,7 +8003,7 @@ class MaintainAWSAccountReserves( BaseHandler ):
 		logit( "--- AWS Account Stats ---" )
 		logit( "Ready for customer use: " + str( available_accounts_count ) )
 		logit( "Ready for terraform provisioning: " + str( non_setup_aws_accounts_count ) )
-		logit( "Not ready for terraform provisioning: " + str( ( created_accounts_count - non_setup_aws_accounts_count ) ) )
+		logit( "Not ready for initial terraform provisioning: " + str( ( created_accounts_count - non_setup_aws_accounts_count ) ) )
 		logit( "Target pool amount: " + str( reserved_aws_pool_target_amount ) )
 		logit( "Number of accounts to be created: " + str( accounts_to_create ) )
 		
@@ -7899,6 +8064,145 @@ class MaintainAWSAccountReserves( BaseHandler ):
 			except:
 				logit( "An error occurred while creating an AWS sub-account.", "error" )
 				pass
+			
+class PerformTerraformUpdateOnFleet( BaseHandler ):
+	@gen.coroutine
+	def get( self ):
+		self.write({
+			"success": True,
+			"msg": "Terraform apply job has been kicked off, I hope you planned first!"
+		})
+		self.finish()
+		
+		aws_accounts = dbsession.query( AWSAccount ).filter(
+			sql_or(
+				AWSAccount.aws_account_status == "IN_USE",
+				AWSAccount.aws_account_status == "AVAILABLE",
+			)
+		).all()
+		
+		final_email_html = """
+		<h1>Terraform Apply Results Across the Customer Fleet</h1>
+		If the subject line doesn't read <b>APPLY SUCCEEDED</b> you have some work to do!
+		"""
+		
+		issue_occurred_during_updates = False
+		
+		# Pull the list of AWS account IDs to work on.
+		aws_account_ids = []
+		for aws_account in aws_accounts:
+			aws_account_ids.append(
+				aws_account.account_id
+			)
+		
+		for aws_account_id in aws_account_ids:
+			current_aws_account = dbsession.query( AWSAccount ).filter(
+				AWSAccount.account_id == aws_account_id,
+			).first()
+			
+			logit( "Running 'terraform apply' against AWS Account " + current_aws_account.account_id )
+			terraform_apply_results = yield local_tasks.terraform_apply(
+				current_aws_account
+			)
+			
+			# Write the old terraform version to the database
+			logit( "Updating current tfstate for the AWS account..." )
+			previous_terraform_state = TerraformStateVersion()
+			previous_terraform_state.aws_account_id = current_aws_account.id
+			previous_terraform_state.terraform_state = terraform_apply_results[ "original_tfstate" ]
+			current_aws_account.terraform_state_versions.append(
+				previous_terraform_state
+			)
+			
+			# Update the current terraform state as well.
+			current_aws_account.terraform_state = terraform_apply_results[ "new_tfstate" ]
+			
+			dbsession.add( current_aws_account )
+			dbsession.commit()
+			
+			# Convert terraform plan terminal output to HTML
+			ansiconverter = Ansi2HTMLConverter()
+			
+			if terraform_apply_results[ "success" ]:
+				terraform_output_html = ansiconverter.convert(
+					terraform_apply_results[ "stdout" ]
+				)
+			else:
+				terraform_output_html = ansiconverter.convert(
+					terraform_apply_results[ "stderr" ]
+				)
+				issue_occurred_during_updates = True
+				
+			final_email_html += "<hr /><h1>AWS Account " + current_aws_account.account_id + "</h1>"
+			final_email_html += terraform_output_html
+			
+		final_email_html += "<hr /><b>That is all.</b>"
+		
+		logit( "Sending email with results from 'terraform apply'..." )
+		
+		final_email_subject = "Terraform Apply Results from Across the Fleet " + str( int( time.time() ) ) # Make subject unique so Gmail doesn't group
+		if issue_occurred_during_updates:
+			final_email_subject = "[ APPLY FAILED ] " + final_email_subject
+		else:
+			final_email_subject = "[ APPLY SUCCEEDED ] " + final_email_subject
+		
+		yield local_tasks.send_email(
+			"matt@refinery.io",
+			final_email_subject,
+			False, # No text version of email
+			final_email_html
+		)
+			
+class PerformTerraformPlanOnFleet( BaseHandler ):
+	@gen.coroutine
+	def get( self ):
+		self.write({
+			"success": True,
+			"msg": "Terraform plan job has been kicked off!"
+		})
+		self.finish()
+		
+		aws_accounts = dbsession.query( AWSAccount ).filter(
+			sql_or(
+				AWSAccount.aws_account_status == "IN_USE",
+				AWSAccount.aws_account_status == "AVAILABLE",
+			)
+		).all()
+		
+		final_email_html = """
+		<h1>Terraform Plan Results Across the Customer Fleet</h1>
+		Please note that this is <b>not</b> applying these changes.
+		It is purely to understand what would happen if we did.
+		"""
+		
+		total_accounts = len( aws_accounts )
+		counter = 1
+		
+		for aws_account in aws_accounts:
+			logit( "Performing a terraform plan for AWS account " + str( counter ) + "/" + str( total_accounts ) + "..." )
+			terraform_plan_output = yield local_tasks.terraform_plan(
+				aws_account
+			)
+			
+			# Convert terraform plan terminal output to HTML
+			ansiconverter = Ansi2HTMLConverter()
+			terraform_output_html = ansiconverter.convert(
+				terraform_plan_output
+			)
+			
+			final_email_html += "<hr /><h1>AWS Account " + aws_account.account_id + "</h1>"
+			final_email_html += terraform_output_html
+			counter = counter + 1
+			
+		final_email_html += "<hr /><b>That is all.</b>"
+		
+		logit( "Sending email with results from terraform plan..." )
+		yield local_tasks.send_email(
+			"matt@refinery.io",
+			"Terraform Plan Results from Across the Fleet " + str( int( time.time() ) ), # Make subject unique so Gmail doesn't group
+			False, # No text version of email
+			final_email_html
+		)
 			
 class StashStateLog( BaseHandler ):
 	def post( self ):
@@ -7987,7 +8291,9 @@ def make_app( is_debug ):
 		# External users are blocked from ever reaching these routes
 		( r"/services/v1/maintain_aws_account_pool", MaintainAWSAccountReserves ),
 		( r"/services/v1/billing_watchdog", RunBillingWatchdogJob ),
-		( r"/services/v1/bill_customers", RunMonthlyStripeBillingJob )
+		( r"/services/v1/bill_customers", RunMonthlyStripeBillingJob ),
+		( r"/services/v1/perform_terraform_plan_on_fleet", PerformTerraformPlanOnFleet ),
+		( r"/services/v1/dangerously_terraform_update_fleet", PerformTerraformUpdateOnFleet )
 	], **tornado_app_settings)
 
 if __name__ == "__main__":
