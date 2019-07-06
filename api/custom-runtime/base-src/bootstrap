@@ -15,6 +15,7 @@ from Refinery Labs Inc.
 """
 
 _VERSION = "1.0.0"
+_QUEUE_METADATA_EXPIRATION = ( 60 * 60 * 24 )
 
 """
 Base redis connection for pulling configs/etc.
@@ -306,14 +307,14 @@ class Refinery_Memory:
 		# Set the queue URL
 		pipeline.setex(
 			sqs_target_queue_url,
-			( 60 * 60 * 24 ), # 1-Day expiration
+			_QUEUE_METADATA_EXPIRATION, # 1-Day expiration
 			queue_url
 		)
 		
 		# Set the backpack
 		pipeline.setex(
 			sqs_backpack_key,
-			( 60 * 60 * 24 ), # 1-Day expiration
+			_QUEUE_METADATA_EXPIRATION, # 1-Day expiration
 			json.dumps(
 				backpack
 			)
@@ -328,7 +329,7 @@ class Refinery_Memory:
 		# Set expiration of items
 		pipeline.expire(
 			queue_storage_id,
-			( 60 * 60 * 24 ), # 1-Day expiration
+			_QUEUE_METADATA_EXPIRATION, # 1-Day expiration
 		)
 
 		pipeline.execute()
@@ -361,7 +362,7 @@ class Refinery_Memory:
 		# Set expiration of items
 		pipeline.expire(
 			invocation_array_id,
-			( 60 * 60 * 24 ), # 1-Day expiration
+			_QUEUE_METADATA_EXPIRATION, # 1-Day expiration
 		)
 
 		returned_data = pipeline.execute()
