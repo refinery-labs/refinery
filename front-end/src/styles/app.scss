@@ -118,6 +118,7 @@ $content-sidebar-width: 92px;
   height: 100%;
   flex-grow: 1;
   text-align: initial;
+  width: 100vw;
 }
 
 .graph-visibility {
@@ -245,6 +246,7 @@ $content-sidebar-width: 92px;
   &__content {
     margin-left: 8px;
     margin-bottom: 8px;
+    width: 100%;
   }
 
   &__image {
@@ -331,7 +333,8 @@ $content-sidebar-width: 92px;
 }
 
 .add-transition-container,
-.add-block-container {
+.add-block-container,
+.add-saved-block-container {
   max-width: 500px;
 }
 

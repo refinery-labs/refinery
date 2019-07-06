@@ -19,12 +19,16 @@ import { EditTransitionPaneState } from '@/store/modules/panes/edit-transition-p
 import { DeploymentExecutionsPaneState } from '@/store/modules/panes/deployment-executions-pane';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
 import { EnvironmentVariablesEditorPaneState } from '@/store/modules/panes/environment-variables-editor';
+import { AddSavedBlockPaneState } from '@/store/modules/panes/add-saved-block-pane';
+import { CreateSavedBlockViewState } from '@/store/modules/panes/create-saved-block-view';
 
 export interface RootState {
+  addSavedBlockPane: AddSavedBlockPaneState;
+  createSavedBlockView: CreateSavedBlockViewState;
   setting: UserInterfaceState;
   deployment: DeploymentViewState;
   deploymentExecutions: DeploymentExecutionsPaneState;
-  EnvironmentVariablesEditorPaneState: EnvironmentVariablesEditorPaneState;
+  environmentVariablesEditor: EnvironmentVariablesEditorPaneState;
   viewBlock: ViewBlockPaneState;
   project: ProjectViewState;
   allProjects: AllProjectsState;
@@ -116,7 +120,7 @@ export interface AvailableTransitionsByType {
 export interface ProjectViewState {
   // Submodules
   editBlockPane?: EditBlockPaneState;
-  editTransitionPanel?: EditTransitionPaneState;
+  editTransitionPane?: EditTransitionPaneState;
 
   // Project State
   openedProject: RefineryProject | null;

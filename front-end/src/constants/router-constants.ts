@@ -4,7 +4,7 @@ export const baseLinks = {
   settings: '/settings',
   stats: '/stats',
   projects: '/projects',
-  marketplace: '/marketplace',
+  blockRepository: '/block-repository',
   billing: '/billing',
   help: '/help',
   admin: '/admin'

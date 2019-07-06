@@ -18,15 +18,9 @@ export default class EditTransitionSelector extends Vue implements EditTransitio
 
   @Prop({ required: true }) checkIfValidTransitionGetter!: WorkflowRelationshipType[] | null;
   @Prop({ required: true }) newTransitionTypeSpecifiedInFlowState!: WorkflowRelationshipType | null;
-  @Prop({ required: true }) helperText!: string | null;
   @Prop() selectTransitionAction!: (key: WorkflowRelationshipType) => void;
-  @Prop() cancelModifyingTransition!: () => {};
-  @Prop() saveModificationButtonAction!: (key: WorkflowRelationshipType | null) => void;
+  @Prop() cancelModifyingTransition?: () => {};
   @Prop() currentlySelectedTransitionType!: WorkflowRelationshipType | null;
-
-  // This isn't as symmetric as I'd like, but the method for adding and
-  // editing transitions is fundamentally different \o/
-  @Prop({ required: true }) hasSaveModificationButton!: boolean;
 
   @Prop({ required: true }) ifSelectDropdownValue!: IfDropDownSelectionType;
   @Prop({ required: true }) ifExpression!: string;
@@ -155,30 +149,8 @@ export default class EditTransitionSelector extends Vue implements EditTransitio
     );
   }
 
-  private saveModificationButtonActionEvent() {
-    if (this.readOnly) {
-      return;
-    }
-
-    this.saveModificationButtonAction(this.newTransitionTypeSpecifiedInFlowState);
-  }
-
-  private renderSaveModificationButton() {
-    if (!this.hasSaveModificationButton || this.readOnly) {
-      return null;
-    }
-
-    return (
-      <b-list-group-item>
-        <b-button variant="primary" class="col-md-12" on={{ click: this.saveModificationButtonActionEvent }}>
-          Save Transition
-        </b-button>
-      </b-list-group-item>
-    );
-  }
-
   private renderCancelButton() {
-    if (this.readOnly) {
+    if (!this.cancelModifyingTransition) {
       return null;
     }
 
@@ -188,18 +160,6 @@ export default class EditTransitionSelector extends Vue implements EditTransitio
           Cancel
         </b-button>
       </b-list-group-item>
-    );
-  }
-
-  private renderBlockSelectionHelpText() {
-    return (
-      <div>
-        <b-list-group-item class="text-align--center">
-          <h4>{this.helperText}</h4>
-        </b-list-group-item>
-        {this.renderSaveModificationButton()}
-        {this.renderCancelButton()}
-      </div>
     );
   }
 
@@ -213,7 +173,7 @@ export default class EditTransitionSelector extends Vue implements EditTransitio
           {this.renderHelpText()}
           {this.renderIfConditionalSettings()}
           <b-list-group class="add-transition-container" style={{ margin: '0 0 0 0' }}>
-            {this.renderBlockSelectionHelpText()}
+            {this.renderCancelButton()}
           </b-list-group>
         </div>
       );
@@ -222,7 +182,7 @@ export default class EditTransitionSelector extends Vue implements EditTransitio
       return (
         <b-list-group class="add-transition-container" style={{ margin: '0 0 0 0' }}>
           {this.renderHelpText()}
-          {this.renderBlockSelectionHelpText()}
+          {this.renderCancelButton()}
         </b-list-group>
       );
     }

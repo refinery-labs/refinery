@@ -1,6 +1,7 @@
 import Component from 'vue-class-component';
 import Vue from 'vue';
 import { Prop } from 'vue-property-decorator';
+import { EditBlockPaneProps } from '@/types/component-types';
 
 @Component
 export class BlockDocumentationButton extends Vue {

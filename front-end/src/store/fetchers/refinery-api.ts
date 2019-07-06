@@ -60,6 +60,8 @@ import {
   RunLambdaResponse,
   RunTmpLambdaRequest,
   RunTmpLambdaResponse,
+  SavedBlockStatusCheckRequest,
+  SavedBlockStatusCheckResponse,
   SavedLambdaCreateRequest,
   SavedLambdaCreateResponse,
   SavedLambdaDeleteRequest,
@@ -213,6 +215,9 @@ export class RefineryApi implements RefineryApiTypeMap {
   );
   [API_ENDPOINT.SearchSavedBlocks] = makeApiClient<SearchSavedBlocksRequest, SearchSavedBlocksResponse>(
     API_ENDPOINT.SearchSavedBlocks
+  );
+  [API_ENDPOINT.SavedBlockStatusCheck] = makeApiClient<SavedBlockStatusCheckRequest, SavedBlockStatusCheckResponse>(
+    API_ENDPOINT.SavedBlockStatusCheck
   );
   [API_ENDPOINT.DeleteSavedBlock] = makeApiClient<DeleteSavedBlockRequest, DeleteSavedBlockResponse>(
     API_ENDPOINT.DeleteSavedBlock

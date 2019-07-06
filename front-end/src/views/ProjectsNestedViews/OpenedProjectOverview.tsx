@@ -1,21 +1,18 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import OpenedProjectGraphContainer from '@/containers/OpenedProjectGraphContainer';
-import { Watch } from 'vue-property-decorator';
-import { Route } from 'vue-router';
-import { GetSavedProjectRequest } from '@/types/api-types';
-import { Action, Getter, namespace } from 'vuex-class';
+import { Getter, namespace } from 'vuex-class';
 import SidebarNav from '@/components/SidebarNav';
 import { paneTypeToNameLookup, SidebarMenuItems } from '@/menu';
 import ProjectEditorLeftPaneContainer from '@/containers/ProjectEditorLeftPaneContainer';
 import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import EditorPaneWrapper from '@/components/EditorPaneWrapper';
 import { paneToContainerMapping } from '@/constants/project-editor-constants';
-import { UserInterfaceSettings, UserInterfaceState } from '@/store/store-types';
-import { SettingsMutators } from '@/constants/store-constants';
+import { UserInterfaceState } from '@/store/store-types';
 
 const project = namespace('project');
 const editBlock = namespace('project/editBlockPane');
+const editTransition = namespace('project/editTransitionPane');
 
 @Component
 export default class OpenedProjectOverview extends Vue {
@@ -36,6 +33,7 @@ export default class OpenedProjectOverview extends Vue {
   @project.Action closePane!: (p: PANE_POSITION) => void;
 
   @editBlock.Action tryToCloseBlock!: () => void;
+  @editTransition.Action('tryToClose') tryToCloseTransition!: () => void;
 
   public handleItemClicked(pane: SIDEBAR_PANE) {
     // Handle us clicking the same pane twice.
@@ -73,11 +71,18 @@ export default class OpenedProjectOverview extends Vue {
       return null;
     }
 
-    const paneProps = {
+    const paneProps: { paneTitle: string; closePane: () => void; tryToCloseBlock?: () => void } = {
       paneTitle: paneTypeToNameLookup[paneType],
-      closePane: () => this.closePane(position),
-      tryToCloseBlock: () => this.tryToCloseBlock()
+      closePane: () => this.closePane(position)
     };
+
+    if (paneType === SIDEBAR_PANE.editBlock) {
+      paneProps.tryToCloseBlock = () => this.tryToCloseBlock();
+    }
+
+    if (paneType === SIDEBAR_PANE.editTransition) {
+      paneProps.tryToCloseBlock = () => this.tryToCloseTransition();
+    }
 
     const ActivePane = paneToContainerMapping[paneType];
     // @ts-ignore
@@ -119,6 +124,11 @@ export default class OpenedProjectOverview extends Vue {
       navItems: SidebarMenuItems,
       activeLeftSidebarPane: this.activeLeftSidebarPane,
       onNavItemClicked: this.handleItemClicked,
+      paneTypeToActiveCheckFunction: {
+        [SIDEBAR_PANE.addBlock]: () =>
+          this.activeLeftSidebarPane === SIDEBAR_PANE.addBlock ||
+          this.activeLeftSidebarPane === SIDEBAR_PANE.addSavedBlock
+      },
       paneTypeToEnabledCheckFunction: {
         [SIDEBAR_PANE.addTransition]: () => this.transitionAddButtonEnabled,
         [SIDEBAR_PANE.saveProject]: () => this.canSaveProject,

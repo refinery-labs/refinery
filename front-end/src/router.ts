@@ -1,9 +1,8 @@
 import Vue from 'vue';
 import Router, { Route } from 'vue-router';
-import store from './store/index';
 import Home from './views/Home.vue';
 import Settings from './views/Settings.vue';
-import Marketplace from './views/Marketplace.vue';
+import BlockRepository from './views/BlockRepository';
 import AdminPanel from './views/Admin';
 import AllProjects from './views/AllProjects';
 import ViewProject from './views/ViewProject';
@@ -127,13 +126,11 @@ const router = new Router({
             }
           ]
         },
-        // Disabled until we implement this page
-        // {
-        //   path: baseLinks.marketplace,
-        //   name: 'marketplace',
-        //   // This will likely need to have children eventually... but not today.
-        //   component: Marketplace
-        // },
+        {
+          path: baseLinks.blockRepository,
+          name: 'blockRepository',
+          component: BlockRepository
+        },
         {
           path: baseLinks.billing,
           name: 'billing',

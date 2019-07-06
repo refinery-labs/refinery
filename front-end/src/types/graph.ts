@@ -49,6 +49,14 @@ export enum ProjectLogLevel {
 
 export interface WorkflowState extends BaseRefineryResource {
   type: WorkflowStateType;
+  saved_block_metadata?: SavedBlockMetadata;
+}
+
+export interface SavedBlockMetadata {
+  id: string;
+  version: number;
+  timestamp: number;
+  added_timestamp: number;
 }
 
 export interface LambdaWorkflowState extends WorkflowState {

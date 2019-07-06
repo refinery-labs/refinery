@@ -6,13 +6,16 @@ import { BlockNameInput } from '@/components/ProjectEditor/block-components/Edit
 import { namespace } from 'vuex-class';
 import { nopWrite } from '@/utils/block-utils';
 import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
+import { EditBlockPaneProps } from '@/types/component-types';
+import { SavedBlockStatusCheckResult } from '@/types/api-types';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
 
 @Component
-export class EditQueueBlock extends Vue {
+export class EditQueueBlock extends Vue implements EditBlockPaneProps {
   @Prop({ required: true }) selectedNode!: SqsQueueWorkflowState;
+  @Prop({ required: true }) selectedNodeMetadata!: SavedBlockStatusCheckResult | null;
   @Prop({ required: true }) readOnly!: boolean;
   @viewBlock.Action openAwsConsoleForBlock!: () => void;
 

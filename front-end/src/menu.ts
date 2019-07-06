@@ -55,6 +55,7 @@ export type EditorPaneTypeToName = { [key in SIDEBAR_PANE]: string };
 
 export const paneTypeToNameLookup: EditorPaneTypeToName = {
   [SIDEBAR_PANE.addBlock]: 'Add Block',
+  [SIDEBAR_PANE.addSavedBlock]: 'Add Saved Block',
   [SIDEBAR_PANE.addTransition]: 'Add Transition',
   [SIDEBAR_PANE.allBlocks]: 'All Blocks',
   [SIDEBAR_PANE.allVersions]: 'All Versions',

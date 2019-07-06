@@ -8,15 +8,17 @@ import { namespace } from 'vuex-class';
 import { nopWrite } from '@/utils/block-utils';
 
 import uuid from 'uuid/v4';
-import { EditorProps } from '@/types/component-types';
+import { EditBlockPaneProps, EditorProps } from '@/types/component-types';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
+import { SavedBlockStatusCheckResult } from '@/types/api-types';
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
 
 @Component
-export class EditScheduleTriggerBlock extends Vue {
+export class EditScheduleTriggerBlock extends Vue implements EditBlockPaneProps {
   @Prop({ required: true }) selectedNode!: ScheduleTriggerWorkflowState;
+  @Prop({ required: true }) selectedNodeMetadata!: SavedBlockStatusCheckResult | null;
   @Prop({ required: true }) readOnly!: boolean;
 
   // Deployment

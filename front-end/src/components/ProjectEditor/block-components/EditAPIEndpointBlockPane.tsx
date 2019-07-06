@@ -8,12 +8,15 @@ import { namespace } from 'vuex-class';
 import { nopWrite } from '@/utils/block-utils';
 import { ProductionApiEndpointWorkflowState } from '@/types/production-workflow-types';
 import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
+import { EditBlockPaneProps } from '@/types/component-types';
+import { SavedBlockStatusCheckResult } from '@/types/api-types';
 
 const editBlock = namespace('project/editBlockPane');
 
 @Component
-export class EditAPIEndpointBlock extends Vue {
+export class EditAPIEndpointBlock extends Vue implements EditBlockPaneProps {
   @Prop({ required: true }) selectedNode!: ApiEndpointWorkflowState;
+  @Prop({ required: true }) selectedNodeMetadata!: SavedBlockStatusCheckResult | null;
   @Prop({ required: true }) readOnly!: boolean;
 
   @editBlock.Mutation setHTTPMethod!: (http_method: HTTP_METHOD) => void;

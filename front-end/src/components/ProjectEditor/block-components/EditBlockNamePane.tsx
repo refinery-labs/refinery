@@ -4,13 +4,15 @@ import { WorkflowState } from '@/types/graph';
 import { namespace } from 'vuex-class';
 import { blockNameText } from '@/constants/project-editor-constants';
 import { Prop } from 'vue-property-decorator';
-import { nopWrite } from '@/utils/block-utils';
+import { EditBlockPaneProps } from '@/types/component-types';
+import { SavedBlockStatusCheckResult } from '@/types/api-types';
 
 const editBlock = namespace('project/editBlockPane');
 
 @Component
-export class BlockNameInput extends Vue {
-  @Prop({ required: true }) selectedNode!: WorkflowState | null;
+export class BlockNameInput extends Vue implements EditBlockPaneProps {
+  @Prop({ required: true }) selectedNode!: WorkflowState;
+  @Prop({ default: null }) selectedNodeMetadata!: SavedBlockStatusCheckResult | null;
 
   @Prop({ required: true }) readOnly!: boolean;
 

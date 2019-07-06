@@ -3,7 +3,6 @@ import Component from 'vue-class-component';
 import RunEditorCodeBlockContainer from '@/components/ProjectEditor/RunEditorCodeBlockContainer';
 import { namespace } from 'vuex-class';
 import { RunLambdaDisplayMode } from '@/components/RunLambda';
-import Loading from '@/components/Common/Loading.vue';
 
 const runLambda = namespace('runLambda');
 

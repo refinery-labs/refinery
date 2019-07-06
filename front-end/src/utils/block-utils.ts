@@ -23,13 +23,18 @@ export function nopWrite() {
   // Does nothing on purpose
 }
 
-export function createNewBlock<K extends keyof BlockTypeToDefaultState>(blockType: K, name: string): WorkflowState {
+export function createNewBlock<K extends keyof BlockTypeToDefaultState>(
+  blockType: K,
+  name: string,
+  blockToExtend?: WorkflowState
+): WorkflowState {
   return {
     ...blockTypeToDefaultStateMapping[blockType](),
-    id: uuid(),
     name: name,
+    ...blockToExtend,
     type: blockType,
-    version: CURRENT_BLOCK_SCHEMA
+    version: CURRENT_BLOCK_SCHEMA,
+    id: uuid()
   };
 }
 

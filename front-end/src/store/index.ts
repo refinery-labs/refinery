@@ -53,13 +53,13 @@ const plugins = [
       };
     }
   }),
-  SettingPlugin
+  SettingPlugin,
+  ServerStateLoggerPlugin
 ];
 
 // Add all dev-only plugins
 if (isDevelopment) {
   // plugins.push(ActionLoggerPlugin);
-  plugins.push(ServerStateLoggerPlugin);
 }
 
 /**
