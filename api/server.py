@@ -8145,7 +8145,7 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 			final_email_subject = "[ APPLY SUCCEEDED ] " + final_email_subject
 		
 		yield local_tasks.send_email(
-			alerts_email,
+			os.environ.get( "alerts_email" ),
 			final_email_subject,
 			False, # No text version of email
 			final_email_html

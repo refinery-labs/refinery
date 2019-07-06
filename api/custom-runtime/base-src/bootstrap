@@ -468,7 +468,7 @@ class Refinery_Memory:
 		# Update expiration
 		pipeline.expire(
 			"FAN_IN_RESULTS_" + fan_out_id,
-			self.return_data_timeout, # TODO dynamically calculate based off of nodes in path worst-case
+			self.return_data_timeout,
 		)
 
 		# Decrement fan-in counter
@@ -688,6 +688,11 @@ def _parallel_invoke( invoke_queue ):
 		# reasonable
 		if number_of_workers > 20:
 			number_of_workers = 20
+			
+		# If the float is to small it will occassionally be brought
+		# down to zero so we set a minimum of one worker
+		if number_of_workers < 1:
+			number_of_workers = 1
 		
 		lambda_client = boto3.client(
 			"lambda"

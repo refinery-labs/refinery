@@ -32,10 +32,12 @@ resource "aws_iam_policy" "refinery_default_aws_lambda_policy" {
       "Sid": "VisualEditor1",
       "Effect": "Allow",
       "Action": [
-      "sqs:ChangeMessageVisibilityBatch",
+        "sqs:ChangeMessageVisibilityBatch",
         "sqs:ChangeMessageVisibility",
         "sqs:GetQueueAttributes",
         "sqs:DeleteMessageBatch",
+        "sqs:SendMessageBatch",
+        "sqs:SendMessage",
         "sqs:ReceiveMessage",
         "sqs:DeleteMessage",
         "sns:Publish",
