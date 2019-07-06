@@ -16,6 +16,7 @@ export default class CreateSavedBlockViewContainer extends Vue implements Create
   render() {
     const createSavedBlockViewProps: CreateSavedBlockViewProps = {
       modalMode: this.modalMode,
+      isBusyPublishing: CreateSavedBlockViewStoreModule.busyPublishingBlock,
       existingBlockMetadata: CreateSavedBlockViewStoreModule.existingBlockMetadata,
       descriptionInput: CreateSavedBlockViewStoreModule.descriptionInput,
       descriptionInputValid: CreateSavedBlockViewStoreModule.descriptionInputValid,

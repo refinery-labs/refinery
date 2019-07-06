@@ -28,6 +28,7 @@ export enum EditBlockMutators {
   setSelectedNode = 'setSelectedNode',
   setSelectedNodeOriginal = 'setSelectedNodeOriginal',
   setSelectedNodeMetadata = 'setSelectedNodeMetadata',
+  setIsLoadingMetadata = 'setIsLoadingMetadata',
 
   setConfirmDiscardModalVisibility = 'setConfirmDiscardModalVisibility',
   setWidePanel = 'setWidePanel',
@@ -91,6 +92,7 @@ export interface EditBlockPaneState {
   selectedNodeOriginal: WorkflowState | null;
 
   selectedNodeMetadata: SavedBlockStatusCheckResult | null;
+  isLoadingMetadata: boolean;
 
   confirmDiscardModalVisibility: false;
   showCodeModal: boolean;
@@ -107,6 +109,7 @@ const moduleState: EditBlockPaneState = {
   selectedNode: null,
   selectedNodeOriginal: null,
   selectedNodeMetadata: null,
+  isLoadingMetadata: false,
 
   confirmDiscardModalVisibility: false,
   showCodeModal: false,
@@ -215,6 +218,9 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     [EditBlockMutators.setSelectedNodeMetadata](state, metadata) {
       state.selectedNodeMetadata = deepJSONCopy(metadata);
     },
+    [EditBlockMutators.setIsLoadingMetadata](state, loading) {
+      state.isLoadingMetadata = loading;
+    },
     [EditBlockMutators.setConfirmDiscardModalVisibility](state, visibility) {
       state.confirmDiscardModalVisibility = visibility;
     },
@@ -315,14 +321,27 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
         return;
       }
 
-      const savedBlockStatus = await getSavedBlockStatus(node);
-
-      if (savedBlockStatus) {
-        context.commit(EditBlockMutators.setSelectedNodeMetadata, savedBlockStatus);
-      }
-
       context.commit(EditBlockMutators.setSelectedNode, node);
       context.commit(EditBlockMutators.setSelectedNodeOriginal, node);
+
+      context.commit(EditBlockMutators.setIsLoadingMetadata, true);
+
+      const savedBlockStatus = await getSavedBlockStatus(node);
+
+      if (savedBlockStatus && context.state.selectedNode) {
+        const hasNode = context.state.selectedNode;
+        const nodeIdIsSameAsRequestId =
+          context.state.selectedNode.saved_block_metadata &&
+          context.state.selectedNode.saved_block_metadata.id === savedBlockStatus.id;
+
+        // Check that we still have the same selected node as when this request went out...
+        // On slow connections this check is important.
+        if (hasNode && nodeIdIsSameAsRequestId) {
+          context.commit(EditBlockMutators.setSelectedNodeMetadata, savedBlockStatus);
+        }
+      }
+
+      context.commit(EditBlockMutators.setIsLoadingMetadata, false);
     },
     async [EditBlockActions.selectCurrentlySelectedProjectNode](context) {
       const projectStore = context.rootState.project;

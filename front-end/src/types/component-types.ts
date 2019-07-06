@@ -56,6 +56,7 @@ export interface ViewExecutionsListProps {
 
 export interface CreateSavedBlockViewProps {
   modalMode: boolean;
+  isBusyPublishing: boolean;
 
   existingBlockMetadata: SavedBlockStatusCheckResult | null;
 
@@ -80,14 +81,4 @@ export interface EditBlockPaneProps {
   selectedNode: WorkflowState;
   selectedNodeMetadata: SavedBlockStatusCheckResult | null;
   readOnly: boolean;
-}
-
-export interface SavedBlockSearchResult {
-  id: string;
-  description: string;
-  name: string;
-  type: WorkflowStateType;
-  block_object: WorkflowState;
-  version: number;
-  timestamp: number;
 }

@@ -4,6 +4,7 @@ import { Prop } from 'vue-property-decorator';
 import { LambdaWorkflowState, SupportedLanguage, WorkflowState, WorkflowStateType } from '@/types/graph';
 import { FormProps, LanguageToBaseRepoURLMap, LanguageToLibraryRepoURLMap } from '@/types/project-editor-types';
 import { BlockNameInput } from '@/components/ProjectEditor/block-components/EditBlockNamePane';
+import Loading from '@/components/Common/Loading.vue';
 import { namespace } from 'vuex-class';
 import {
   codeEditorText,
@@ -16,7 +17,7 @@ import RunEditorCodeBlockContainer from '@/components/ProjectEditor/RunEditorCod
 import RunDeployedCodeBlockContainer from '@/components/DeploymentViewer/RunDeployedCodeBlockContainer';
 import { nopWrite } from '@/utils/block-utils';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
-import { EditBlockPaneProps, EditorProps } from '@/types/component-types';
+import { EditBlockPaneProps, EditorProps, LoadingContainerProps } from '@/types/component-types';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { libraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-helpers';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
@@ -60,6 +61,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @editBlock.State wideMode!: boolean;
   @editBlock.State librariesModalVisibility!: boolean;
   @editBlock.State enteredLibrary!: string;
+  @editBlock.State isLoadingMetadata!: boolean;
 
   @editBlock.Getter isEditedBlockValid!: boolean;
 
@@ -370,6 +372,19 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   public renderCreateSavedBlockButton() {
     if (this.readOnly) {
       return null;
+    }
+
+    if (this.isLoadingMetadata) {
+      const loadingProps: LoadingContainerProps = {
+        label: 'Loading saved block status...',
+        show: true
+      };
+
+      return (
+        <Loading props={loadingProps}>
+          <div style={{ height: '100px' }} />
+        </Loading>
+      );
     }
 
     if (this.selectedNodeMetadata && this.selectedNodeMetadata.is_block_owner) {

@@ -6,9 +6,8 @@ import { RootState } from '@/store/store-types';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { searchSavedBlocks } from '@/store/fetchers/api-helpers';
-import { SharedBlockPublishStatus } from '@/types/api-types';
+import { SavedBlockSearchResult, SharedBlockPublishStatus } from '@/types/api-types';
 import { AddBlockArguments } from '@/store/modules/project-view';
-import { SavedBlockSearchResult } from '@/types/component-types';
 
 const storeName = 'addSavedBlockPane';
 

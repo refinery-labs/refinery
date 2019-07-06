@@ -5,7 +5,7 @@ import { blockTypeToImageLookup } from '@/constants/project-editor-constants';
 import { debounce } from 'debounce';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { Prop } from 'vue-property-decorator';
-import { SavedBlockSearchResult } from '@/types/component-types';
+import { SavedBlockSearchResult, SharedBlockPublishStatus } from '@/types/api-types';
 
 export interface AddSavedBlockPaneProps {
   searchResultsPrivate: SavedBlockSearchResult[];
@@ -45,16 +45,21 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
     this.runSearchAutomatically();
   }
 
-  public renderBlockSelect(block: SavedBlockSearchResult) {
+  public renderBlockSelect(showStatus: boolean, block: SavedBlockSearchResult) {
     const imagePath = blockTypeToImageLookup[block.type].path;
     const durationSinceUpdated = moment.duration(-moment().diff(block.timestamp * 1000)).humanize(true);
 
+    const shareStatusText = showStatus && <div class="text-muted text-align--center">{block.share_status}</div>;
+
     return (
       <b-list-group-item class="display--flex" button on={{ click: () => this.addChosenBlock(block.id) }}>
-        <img class="add-block__image" src={imagePath} alt={block.name} />
+        <div>
+          <img class="add-block__image" src={imagePath} alt={block.name} />
+          {shareStatusText}
+        </div>
         <div class="flex-column align-items-start add-block__content">
           <div class="d-flex w-100 justify-content-between">
-            <h5 class="mb-1">{block.name}</h5>
+            <b class="mb-1">{block.name}</b>
             <small>{durationSinceUpdated}</small>
           </div>
 
@@ -64,17 +69,19 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
     );
   }
 
-  public renderResultsByCategory(category: string, searchResults: SavedBlockSearchResult[]) {
+  public renderResultsByCategory(privateBlocks: boolean, searchResults: SavedBlockSearchResult[]) {
     // Only display the section if we have results.
     if (!searchResults || searchResults.length === 0) {
       return null;
     }
 
+    const categoryHeaderText = privateBlocks ? 'Your Saved Blocks' : 'From Block Repository';
+
     return (
       <div>
-        <h4>{category}:</h4>
+        <h4>{categoryHeaderText}:</h4>
         <b-list-group class="add-saved-block-container add-block-container">
-          {searchResults.map(this.renderBlockSelect)}
+          {searchResults.map(result => this.renderBlockSelect(privateBlocks, result))}
         </b-list-group>
       </div>
     );
@@ -112,8 +119,8 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
             placeholder="eg, Daily Timer"
           />
         </b-form-group>
-        {this.renderResultsByCategory('From Saved Blocks', privateBlocks)}
-        {this.renderResultsByCategory('From Block Repository', publishedBlocks)}
+        {this.renderResultsByCategory(true, privateBlocks)}
+        {this.renderResultsByCategory(false, publishedBlocks)}
         {zeroResults && <h4 class="text-align--center">No saved blocks were found.</h4>}
       </div>
     );

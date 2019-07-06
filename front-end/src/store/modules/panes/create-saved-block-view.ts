@@ -25,6 +25,8 @@ export interface CreateSavedBlockViewState {
 
   publishStatus: boolean;
   modalVisibility: boolean;
+
+  busyPublishingBlock: boolean;
 }
 
 export const baseState: CreateSavedBlockViewState = {
@@ -33,7 +35,9 @@ export const baseState: CreateSavedBlockViewState = {
 
   descriptionInput: null,
   publishStatus: false,
-  modalVisibility: false
+  modalVisibility: false,
+
+  busyPublishingBlock: false
 };
 
 function isNotEmptyStringButPreserveNull(str: string | null) {
@@ -57,6 +61,7 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
 
   public publishStatus = initialState.publishStatus;
   public modalVisibility = initialState.modalVisibility;
+  public busyPublishingBlock = initialState.busyPublishingBlock;
 
   get nameInputValid() {
     return isNotEmptyStringButPreserveNull(this.nameInput);
@@ -96,6 +101,11 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
     this.existingBlockMetadata = existingBlock;
   }
 
+  @Mutation
+  public setBusyPublishing(busy: boolean) {
+    this.busyPublishingBlock = busy;
+  }
+
   @Action
   public openModal() {
     // TODO: Copy block from main store?
@@ -123,6 +133,11 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
 
   @Action
   public closeModal() {
+    if (this.busyPublishingBlock) {
+      console.error('Tried to close publish modal while busy, please wait!');
+      return;
+    }
+
     this.setModalVisibility(false);
 
     this.resetState();
@@ -146,6 +161,8 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
       return;
     }
 
+    this.setBusyPublishing(true);
+
     const request: CreateSavedBlockRequest = {
       block_object: {
         ...editBlockPaneStore.selectedNode,
@@ -168,11 +185,15 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
 
     if (!response || !response.success) {
       console.error('Unable to publish block. Server did not return with success');
+
+      this.setBusyPublishing(false);
       return;
     }
 
     if (!response.block) {
       console.error('Create saved block did not return a new block');
+
+      this.setBusyPublishing(false);
       return;
     }
 
@@ -192,6 +213,8 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
     await this.context.dispatch(`project/editBlockPane/${EditBlockActions.selectNodeFromOpenProject}`, newNode.id, {
       root: true
     });
+
+    this.setBusyPublishing(false);
 
     this.closeModal();
   }
