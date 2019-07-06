@@ -4769,21 +4769,19 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		layers.append(
-			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:5"
-			"arn:aws:lambda:us-west-2:532121572788:layer:nodetest:11"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:6"
 		)
 	elif language == "php7.3":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:5"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:6"
 		)
 	elif language == "go1.12":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:5"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:6"
 		)
 	elif language == "python2.7":
 		layers.append(
-			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:5"
-			"arn:aws:lambda:us-west-2:532121572788:layer:pythontest:25"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:6"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
@@ -8147,7 +8145,7 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 			final_email_subject = "[ APPLY SUCCEEDED ] " + final_email_subject
 		
 		yield local_tasks.send_email(
-			"matt@refinery.io",
+			alerts_email,
 			final_email_subject,
 			False, # No text version of email
 			final_email_html
@@ -8198,7 +8196,7 @@ class PerformTerraformPlanOnFleet( BaseHandler ):
 		
 		logit( "Sending email with results from terraform plan..." )
 		yield local_tasks.send_email(
-			"matt@refinery.io",
+			os.environ.get( "alerts_email" ),
 			"Terraform Plan Results from Across the Fleet " + str( int( time.time() ) ), # Make subject unique so Gmail doesn't group
 			False, # No text version of email
 			final_email_html
