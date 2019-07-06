@@ -22,7 +22,6 @@ import ViewExecutionsPane from '@/components/DeploymentViewer/ViewExecutionsPane
 import ViewDeployedBlockPane from '@/components/DeploymentViewer/ViewDeployedBlockPane';
 import ViewDeployedTransitionPane from '@/components/DeploymentViewer/ViewDeployedTransitionPane';
 import DestroyDeploymentPane from '@/components/DeploymentViewer/DestroyDeploymentPane';
-import { VueConstructor } from 'vue';
 import { EditLambdaBlock } from '@/components/ProjectEditor/block-components/EditLambdaBlockPane';
 import { EditAPIEndpointBlock } from '@/components/ProjectEditor/block-components/EditAPIEndpointBlockPane';
 import { EditQueueBlock } from '@/components/ProjectEditor/block-components/EditQueuePane';
@@ -34,7 +33,9 @@ import EditTransitionPane from '@/components/ProjectEditor/EditTransitionPane';
 import RunDeployedCodeBlockPane from '@/components/DeploymentViewer/RunDeployedCodeBlockPane';
 import ViewDeployedBlockLogsPane from '@/components/DeploymentViewer/ViewDeployedBlockLogsPane';
 import generateStupidName from '@/lib/silly-names';
-import AddSavedBlockPane from '@/components/ProjectEditor/AddSavedBlockPane';
+import { Vue } from 'vue/types/vue';
+import { VueClass } from 'vue-class-component/lib/declarations';
+import AddSavedBlockPaneContainer from '@/components/ProjectEditor/saved-blocks-components/AddSavedBlockPaneContainer';
 
 export const savedBlockType = 'saved_block';
 
@@ -401,7 +402,7 @@ export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
   [SIDEBAR_PANE.runEditorCodeBlock]: RunEditorCodeBlockPane,
   [SIDEBAR_PANE.runDeployedCodeBlock]: RunDeployedCodeBlockPane,
   [SIDEBAR_PANE.addBlock]: AddBlockPane,
-  [SIDEBAR_PANE.addSavedBlock]: AddSavedBlockPane,
+  [SIDEBAR_PANE.addSavedBlock]: AddSavedBlockPaneContainer,
   [SIDEBAR_PANE.addTransition]: AddTransitionPane,
   [SIDEBAR_PANE.allBlocks]: AddBlockPane,
   [SIDEBAR_PANE.allVersions]: AddBlockPane,
@@ -426,14 +427,15 @@ export const codeEditorText = 'Code to be executed by the block.';
 export const maxExecutionTimeText = 'Maximum time the code may execute before being killed in seconds.';
 export const maxExecutionMemoryText = 'Maximum memory for the code to use during execution.';
 
-export type BlockTypeToEditorComponent = { [key in WorkflowStateType]: VueConstructor };
+// This returns a function because it will allow dynamic component refreshes
+export type BlockTypeToEditorComponent = { [key in WorkflowStateType]: () => VueClass<Vue> };
 
 export const blockTypeToEditorComponentLookup: BlockTypeToEditorComponent = {
-  [WorkflowStateType.LAMBDA]: EditLambdaBlock,
-  [WorkflowStateType.SNS_TOPIC]: EditTopicBlock,
-  [WorkflowStateType.SCHEDULE_TRIGGER]: EditScheduleTriggerBlock,
-  [WorkflowStateType.API_ENDPOINT]: EditAPIEndpointBlock,
-  [WorkflowStateType.API_GATEWAY]: EditAPIEndpointBlock,
-  [WorkflowStateType.API_GATEWAY_RESPONSE]: EditAPIResponseBlock,
-  [WorkflowStateType.SQS_QUEUE]: EditQueueBlock
+  [WorkflowStateType.LAMBDA]: () => EditLambdaBlock,
+  [WorkflowStateType.SNS_TOPIC]: () => EditTopicBlock,
+  [WorkflowStateType.SCHEDULE_TRIGGER]: () => EditScheduleTriggerBlock,
+  [WorkflowStateType.API_ENDPOINT]: () => EditAPIEndpointBlock,
+  [WorkflowStateType.API_GATEWAY]: () => EditAPIEndpointBlock,
+  [WorkflowStateType.API_GATEWAY_RESPONSE]: () => EditAPIResponseBlock,
+  [WorkflowStateType.SQS_QUEUE]: () => EditQueueBlock
 };

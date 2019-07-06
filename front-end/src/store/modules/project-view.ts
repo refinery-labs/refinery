@@ -1206,9 +1206,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       await context.dispatch(ProjectViewActions.updateProject, params);
     },
-    async [ProjectViewActions.addSavedBlock](context) {
-      // TODO: Set pane to search
-    },
     async [ProjectViewActions.updateExistingBlock](context, node: WorkflowState) {
       // This should not happen
       if (!context.state.openedProject) {

@@ -19,7 +19,7 @@ export default class ViewDeployedBlockPane extends Vue {
       return <div />;
     }
 
-    const ActiveEditorComponent = blockTypeToEditorComponentLookup[this.selectedNode.type];
+    const ActiveEditorComponent = blockTypeToEditorComponentLookup[this.selectedNode.type]();
 
     // The Typescript support here is a huge pain... Just cast to Object and it will work. *shakes head*
     const props = {

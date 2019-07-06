@@ -3,25 +3,45 @@ import Component from 'vue-class-component';
 import moment from 'moment';
 import { blockTypeToImageLookup } from '@/constants/project-editor-constants';
 import { debounce } from 'debounce';
-import { AddSavedBlockPaneStoreModule, SavedBlockSearchResult } from '@/store/modules/panes/add-saved-block-pane';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
+import { Prop } from 'vue-property-decorator';
+import { SavedBlockSearchResult } from '@/types/component-types';
+
+export interface AddSavedBlockPaneProps {
+  searchResultsPrivate: SavedBlockSearchResult[];
+  searchResultsPublished: SavedBlockSearchResult[];
+  searchInput: string;
+  isBusySearching: boolean;
+
+  addChosenBlock: (id: string) => void;
+  goBackToAddBlockPane: () => void;
+  searchSavedBlocks: () => void;
+  setSearchInputValue: (value: string) => void;
+}
 
 @Component
-export default class AddSavedBlockPane extends Vue {
+export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneProps {
   runSearchAutomatically: () => void = () => {};
+
+  @Prop({ required: true }) searchResultsPrivate!: SavedBlockSearchResult[];
+  @Prop({ required: true }) searchResultsPublished!: SavedBlockSearchResult[];
+  @Prop({ required: true }) searchInput!: string;
+  @Prop({ required: true }) isBusySearching!: boolean;
+
+  @Prop({ required: true }) addChosenBlock!: (id: string) => void;
+  @Prop({ required: true }) goBackToAddBlockPane!: () => void;
+  @Prop({ required: true }) searchSavedBlocks!: () => void;
+  @Prop({ required: true }) setSearchInputValue!: (value: string) => void;
 
   mounted() {
     // We have to add this at run time or else it seems to get bjorked
-    this.runSearchAutomatically = debounce(function() {
-      AddSavedBlockPaneStoreModule.searchSavedBlocks();
-    }, 200);
+    this.runSearchAutomatically = debounce(this.searchSavedBlocks, 200);
 
-    AddSavedBlockPaneStoreModule.searchSavedBlocks();
+    this.searchSavedBlocks();
   }
 
   onSearchBoxInputChanged(value: string) {
-    AddSavedBlockPaneStoreModule.setSearchInputValue(value);
-    // AddSavedBlockPaneStoreModule.searchSavedBlocks();
+    this.setSearchInputValue(value);
     this.runSearchAutomatically();
   }
 
@@ -30,11 +50,7 @@ export default class AddSavedBlockPane extends Vue {
     const durationSinceUpdated = moment.duration(-moment().diff(block.timestamp * 1000)).humanize(true);
 
     return (
-      <b-list-group-item
-        class="display--flex"
-        button
-        on={{ click: () => AddSavedBlockPaneStoreModule.addChosenBlock(block.id) }}
-      >
+      <b-list-group-item class="display--flex" button on={{ click: () => this.addChosenBlock(block.id) }}>
         <img class="add-block__image" src={imagePath} alt={block.name} />
         <div class="flex-column align-items-start add-block__content">
           <div class="d-flex w-100 justify-content-between">
@@ -65,8 +81,8 @@ export default class AddSavedBlockPane extends Vue {
   }
 
   public render(h: CreateElement): VNode {
-    const privateBlocks = AddSavedBlockPaneStoreModule.searchResultsPrivate;
-    const publishedBlocks = AddSavedBlockPaneStoreModule.searchResultsPublished;
+    const privateBlocks = this.searchResultsPrivate;
+    const publishedBlocks = this.searchResultsPublished;
     const zeroResults = privateBlocks.length === 0 && publishedBlocks.length === 0;
 
     return (
@@ -75,7 +91,7 @@ export default class AddSavedBlockPane extends Vue {
           href=""
           class="mb-2 padding-bottom--normal mt-2 d-block"
           style="border-bottom: 1px dashed #eee;"
-          on={{ click: preventDefaultWrapper(AddSavedBlockPaneStoreModule.goBackToAddBlockPane) }}
+          on={{ click: preventDefaultWrapper(this.goBackToAddBlockPane) }}
         >
           {'<< Go Back'}
         </a>
@@ -85,13 +101,13 @@ export default class AddSavedBlockPane extends Vue {
         >
           <div class="display--flex">
             <label class="flex-grow--1">Search by Name:</label>
-            {AddSavedBlockPaneStoreModule.isBusySearching && <b-spinner class="ml-auto" small={true} />}
+            {this.isBusySearching && <b-spinner class="ml-auto" small={true} />}
           </div>
           <b-form-input
             type="text"
             autofocus={true}
             required={true}
-            value={AddSavedBlockPaneStoreModule.searchInput}
+            value={this.searchInput}
             on={{ input: this.onSearchBoxInputChanged }}
             placeholder="eg, Daily Timer"
           />

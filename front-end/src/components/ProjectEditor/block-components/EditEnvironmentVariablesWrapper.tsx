@@ -9,6 +9,8 @@ import {
 import { EnvironmentVariablesEditorModule } from '@/store/modules/panes/environment-variables-editor';
 import { namespace } from 'vuex-class';
 import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
+import { EditBlockPaneProps } from '@/types/component-types';
+import { SavedBlockStatusCheckResult } from '@/types/api-types';
 
 const project = namespace('project');
 
@@ -18,8 +20,10 @@ export interface EditEnvironmentVariablesWrapperProps {
 }
 
 @Component
-export class EditEnvironmentVariablesWrapper extends Vue implements EditEnvironmentVariablesWrapperProps {
+export class EditEnvironmentVariablesWrapper extends Vue
+  implements EditEnvironmentVariablesWrapperProps, EditBlockPaneProps {
   @Prop({ required: true }) selectedNode!: LambdaWorkflowState;
+  @Prop({ required: true }) selectedNodeMetadata!: SavedBlockStatusCheckResult | null;
   @Prop({ required: true }) readOnly!: boolean;
 
   @project.State openedProjectConfig!: ProjectConfig | null;

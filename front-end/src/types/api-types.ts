@@ -601,7 +601,7 @@ export interface CreateSavedBlockRequest extends BaseApiRequest {
 }
 
 export interface CreateSavedBlockResponse extends BaseApiResponse {
-  saved_block_id: string;
+  block: SavedBlockSearchResult;
 }
 
 export enum SharedBlockPublishStatus {
@@ -623,6 +623,7 @@ export interface SavedBlockSearchResult {
   id: string;
   description: string;
   name: string;
+  share_status: SharedBlockPublishStatus;
   type: WorkflowStateType;
   block_object: WorkflowState;
   version: number;
@@ -650,6 +651,7 @@ export interface SavedBlockStatusCheckResult {
   is_block_owner: boolean;
   description: string;
   name: string;
+  share_status: SharedBlockPublishStatus;
   version: number;
   timestamp: number;
 }

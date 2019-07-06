@@ -1,13 +1,14 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
-import { ApiEndpointWorkflowState, WorkflowState } from '@/types/graph';
+import { WorkflowState } from '@/types/graph';
 import { blockTypeToEditorComponentLookup } from '@/constants/project-editor-constants';
-import { CreateSavedBlockViewStoreModule } from '@/store/modules/panes/create-saved-block-view';
-import { Prop } from 'vue-property-decorator';
-import { preventDefaultWrapper } from '@/utils/dom-utils';
-import { CreateSavedBlockViewProps } from '@/types/component-types';
-import CreateSavedBlockView from '@/components/ProjectEditor/CreateSavedBlockView';
+import { CreateSavedBlockViewProps, EditBlockPaneProps } from '@/types/component-types';
+import CreateSavedBlockView from '@/components/ProjectEditor/saved-blocks-components/CreateSavedBlockView';
+import { SavedBlockStatusCheckResult } from '@/types/api-types';
+import CreateSavedBlockViewContainer, {
+  CreateSavedBlockViewContainerProps
+} from '@/components/ProjectEditor/saved-blocks-components/CreateSavedBlockViewContainer';
 
 const editBlock = namespace('project/editBlockPane');
 
@@ -21,6 +22,7 @@ const editBlock = namespace('project/editBlockPane');
 @Component
 export default class EditBlockPane extends Vue {
   @editBlock.State selectedNode!: WorkflowState | null;
+  @editBlock.State selectedNodeMetadata!: SavedBlockStatusCheckResult | null;
   @editBlock.State confirmDiscardModalVisibility!: boolean;
   @editBlock.State wideMode!: boolean;
 
@@ -69,11 +71,12 @@ export default class EditBlockPane extends Vue {
       return <div />;
     }
 
-    const ActiveEditorComponent = blockTypeToEditorComponentLookup[this.selectedNode.type];
+    const ActiveEditorComponent = blockTypeToEditorComponentLookup[this.selectedNode.type]();
 
-    const props = {
-      selectedNode: this.selectedNode as Object,
-      readOnly: false as Object
+    const props: EditBlockPaneProps = {
+      selectedNode: this.selectedNode,
+      readOnly: false,
+      selectedNodeMetadata: this.selectedNodeMetadata
     };
 
     const formClasses = {
@@ -82,11 +85,13 @@ export default class EditBlockPane extends Vue {
       'show-block-container__form--wide': this.wideMode
     };
 
+    // I have no idea how to manage this with Typescript support, blast!
+    // @ts-ignore
+    const componentInstance = <ActiveEditorComponent props={props} />;
+
     return (
       <div class={formClasses}>
-        <div class="scrollable-pane-container padding-left--normal padding-right--normal">
-          <ActiveEditorComponent props={props} />
-        </div>
+        <div class="scrollable-pane-container padding-left--normal padding-right--normal">{componentInstance}</div>
         <div class="row show-block-container__bottom-buttons ml-0 mr-0">
           <b-button variant="danger" class="col-12" on={{ click: this.deleteBlockClicked }}>
             Delete Block
@@ -97,7 +102,7 @@ export default class EditBlockPane extends Vue {
   }
 
   public render(h: CreateElement): VNode {
-    const createSavedBlockProps: CreateSavedBlockViewProps = {
+    const createSavedBlockViewContainerProps: CreateSavedBlockViewContainerProps = {
       modalMode: true
     };
 
@@ -105,7 +110,7 @@ export default class EditBlockPane extends Vue {
       <b-container class="show-block-container">
         {this.renderContentWrapper()}
         {this.renderConfirmDiscardModal()}
-        <CreateSavedBlockView props={createSavedBlockProps} />
+        <CreateSavedBlockViewContainer props={createSavedBlockViewContainerProps} />
       </b-container>
     );
   }

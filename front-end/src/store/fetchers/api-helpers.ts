@@ -15,6 +15,8 @@ import {
   GetSavedProjectResponse,
   InfraTearDownRequest,
   InfraTearDownResponse,
+  SavedBlockStatusCheckRequest,
+  SavedBlockStatusCheckResponse,
   SaveProjectRequest,
   SaveProjectResponse,
   SearchSavedBlocksRequest,
@@ -30,7 +32,6 @@ import { convertExecutionResponseToProjectExecutions } from '@/utils/project-exe
 import { SupportedLanguage, WorkflowState } from '@/types/graph';
 import { ProductionWorkflowState } from '@/types/production-workflow-types';
 import { blockTypeToDefaultStateMapping, DEFAULT_PROJECT_CONFIG } from '@/constants/project-editor-constants';
-import { AllProjectsMutators, ProjectViewMutators } from '@/constants/store-constants';
 import { unwrapProjectJson } from '@/utils/project-helpers';
 
 export interface libraryBuildArguments {
@@ -230,4 +231,29 @@ export async function searchSavedBlocks(query: string, status: SharedBlockPublis
   }
 
   return searchResult.results;
+}
+
+export async function getSavedBlockStatus(block: WorkflowState) {
+  if (!block.saved_block_metadata) {
+    return null;
+  }
+
+  const savedBlockId = block.saved_block_metadata.id;
+
+  const response = await makeApiRequest<SavedBlockStatusCheckRequest, SavedBlockStatusCheckResponse>(
+    API_ENDPOINT.SavedBlockStatusCheck,
+    {
+      block_ids: [savedBlockId]
+    }
+  );
+
+  if (!response || !response.success) {
+    return null;
+  }
+
+  if (!response.results || response.results.length === 0) {
+    return null;
+  }
+
+  return response.results[0];
 }

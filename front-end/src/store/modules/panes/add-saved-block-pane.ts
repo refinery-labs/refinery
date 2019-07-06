@@ -3,12 +3,12 @@ import store from '@/store/index';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState } from '@/store/store-types';
-import { WorkflowState, WorkflowStateType } from '@/types/graph';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { searchSavedBlocks } from '@/store/fetchers/api-helpers';
 import { SharedBlockPublishStatus } from '@/types/api-types';
 import { AddBlockArguments } from '@/store/modules/project-view';
+import { SavedBlockSearchResult } from '@/types/component-types';
 
 const storeName = 'addSavedBlockPane';
 
@@ -35,16 +35,6 @@ export const baseState: AddSavedBlockPaneState = {
   searchResultsPrivate: [],
   searchResultsPublished: []
 };
-
-export interface SavedBlockSearchResult {
-  id: string;
-  description: string;
-  name: string;
-  type: WorkflowStateType;
-  block_object: WorkflowState;
-  version: number;
-  timestamp: number;
-}
 
 // Must copy so that we can not thrash the pointers...
 const initialState = deepJSONCopy(baseState);
