@@ -26,3 +26,4 @@ numpy==1.16.3
 stripe==2.28.2
 expiringdict==1.1.4
 requests==2.22.0
+ansi2html==1.5.2
