@@ -2319,8 +2319,6 @@ class TaskSpawner(object):
 				response[ "LogResult" ]
 			)
 			
-			print( log_output )
-			
 			# Strip the Lambda stuff from the output
 			if "RequestId:" in log_output:
 				log_lines = log_output.split( "\n" )
