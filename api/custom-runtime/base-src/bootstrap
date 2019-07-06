@@ -259,10 +259,14 @@ class Refinery_Memory:
 		
 		for return_data in returned_data_list:
 			if return_data != None:
-				return_items.append(
-					json.loads(
+				try:
+					return_data = json.loads(
 						return_data
 					)
+				except:
+					pass
+				return_items.append(
+					return_data
 				)
 
 		return return_items
