@@ -6,7 +6,6 @@
           <span class="sr-only">Loading...</span>
         </div>
         <div v-if="showLabel">
-          <br />
           {{ label }}
         </div>
       </div>

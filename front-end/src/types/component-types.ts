@@ -1,6 +1,13 @@
-import { SupportedLanguage, WorkflowRelationshipType } from '@/types/graph';
+import {
+  LambdaWorkflowState,
+  SupportedLanguage,
+  WorkflowRelationshipType,
+  WorkflowState,
+  WorkflowStateType
+} from '@/types/graph';
 import { IfDropDownSelectionType } from '@/store/store-types';
 import { ProductionExecution } from '@/types/deployment-executions-types';
+import { SavedBlockStatusCheckResult } from '@/types/api-types';
 
 export interface EditorProps {
   name: string;
@@ -49,4 +56,29 @@ export interface ViewExecutionsListProps {
 
 export interface CreateSavedBlockViewProps {
   modalMode: boolean;
+  isBusyPublishing: boolean;
+
+  existingBlockMetadata: SavedBlockStatusCheckResult | null;
+
+  nameInput: string | null;
+  nameInputValid: boolean | null;
+  descriptionInput: string | null;
+  descriptionInputValid: boolean | null;
+
+  publishStatus: boolean;
+
+  setName: (s: string) => void;
+  setDescription: (s: string) => void;
+  setPublishStatus: (s: boolean) => void;
+
+  publishBlock: () => void;
+
+  modalVisibility?: boolean;
+  setModalVisibility?: (b: boolean) => void;
+}
+
+export interface EditBlockPaneProps {
+  selectedNode: WorkflowState;
+  selectedNodeMetadata: SavedBlockStatusCheckResult | null;
+  readOnly: boolean;
 }

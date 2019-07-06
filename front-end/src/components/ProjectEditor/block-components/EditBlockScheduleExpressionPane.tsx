@@ -4,12 +4,15 @@ import { ScheduleTriggerWorkflowState, WorkflowState } from '@/types/graph';
 import { namespace } from 'vuex-class';
 import { Prop } from 'vue-property-decorator';
 import { nopWrite } from '@/utils/block-utils';
+import { EditBlockPaneProps } from '@/types/component-types';
+import { SavedBlockStatusCheckResult } from '@/types/api-types';
 
 const editBlock = namespace('project/editBlockPane');
 
 @Component
-export class BlockScheduleExpressionInput extends Vue {
-  @Prop({ required: true }) selectedNode!: ScheduleTriggerWorkflowState | null;
+export class BlockScheduleExpressionInput extends Vue implements EditBlockPaneProps {
+  @Prop({ required: true }) selectedNode!: ScheduleTriggerWorkflowState;
+  @Prop({ required: true }) selectedNodeMetadata!: SavedBlockStatusCheckResult | null;
 
   @Prop({ required: true }) readOnly!: boolean;
 

@@ -1,10 +1,10 @@
 import Component from 'vue-class-component';
 import Vue, { VNode } from 'vue';
 import { Prop } from 'vue-property-decorator';
-import { EnvironmentVariablesEditorModule } from '@/store/modules/panes/environment-variables-editor';
 import { LambdaWorkflowState, SupportedLanguage, WorkflowState, WorkflowStateType } from '@/types/graph';
 import { FormProps, LanguageToBaseRepoURLMap, LanguageToLibraryRepoURLMap } from '@/types/project-editor-types';
 import { BlockNameInput } from '@/components/ProjectEditor/block-components/EditBlockNamePane';
+import Loading from '@/components/Common/Loading.vue';
 import { namespace } from 'vuex-class';
 import {
   codeEditorText,
@@ -17,26 +17,25 @@ import RunEditorCodeBlockContainer from '@/components/ProjectEditor/RunEditorCod
 import RunDeployedCodeBlockContainer from '@/components/DeploymentViewer/RunDeployedCodeBlockContainer';
 import { nopWrite } from '@/utils/block-utils';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
-import { EditorProps } from '@/types/component-types';
+import { EditBlockPaneProps, EditorProps, LoadingContainerProps } from '@/types/component-types';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { libraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-helpers';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
 import {
-  EnvironmentVariablesEditor,
-  EnvironmentVariablesEditorProps
-} from '@/components/ProjectEditor/EnvironmentVariablesEditor';
-import {
   EditEnvironmentVariablesWrapper,
   EditEnvironmentVariablesWrapperProps
 } from '@/components/ProjectEditor/block-components/EditEnvironmentVariablesWrapper';
+import { CreateSavedBlockViewStoreModule } from '@/store/modules/panes/create-saved-block-view';
+import { SavedBlockStatusCheckResult } from '@/types/api-types';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
 
 @Component
-export class EditLambdaBlock extends Vue {
+export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @Prop({ required: true }) selectedNode!: LambdaWorkflowState;
+  @Prop({ required: true }) selectedNodeMetadata!: SavedBlockStatusCheckResult | null;
   @Prop({ required: true }) readOnly!: boolean;
 
   // State pulled from Deployment view.
@@ -62,6 +61,9 @@ export class EditLambdaBlock extends Vue {
   @editBlock.State wideMode!: boolean;
   @editBlock.State librariesModalVisibility!: boolean;
   @editBlock.State enteredLibrary!: string;
+  @editBlock.State isLoadingMetadata!: boolean;
+
+  @editBlock.Getter isEditedBlockValid!: boolean;
 
   @editBlock.Mutation setCodeModalVisibility!: (visible: boolean) => void;
   @editBlock.Mutation setWidePanel!: (wide: boolean) => void;
@@ -77,6 +79,8 @@ export class EditLambdaBlock extends Vue {
   @editBlock.Mutation deleteDependencyImport!: (libraryName: string) => void;
   @editBlock.Mutation addDependencyImport!: (libraryName: string) => void;
 
+  @editBlock.Action saveBlock!: () => Promise<void>;
+
   deleteLibrary(library: string) {
     // Do nothing
     if (this.readOnly) {
@@ -84,6 +88,12 @@ export class EditLambdaBlock extends Vue {
     }
 
     this.deleteDependencyImport(library);
+  }
+
+  public async beginPublishBlockClicked(e: Event) {
+    e.preventDefault();
+    await this.saveBlock();
+    CreateSavedBlockViewStoreModule.openModal();
   }
 
   addLibrary(e: Event) {
@@ -359,6 +369,60 @@ export class EditLambdaBlock extends Vue {
     );
   }
 
+  public renderCreateSavedBlockButton() {
+    if (this.readOnly) {
+      return null;
+    }
+
+    if (this.isLoadingMetadata) {
+      const loadingProps: LoadingContainerProps = {
+        label: 'Loading saved block status...',
+        show: true
+      };
+
+      return (
+        <Loading props={loadingProps}>
+          <div style={{ height: '100px' }} />
+        </Loading>
+      );
+    }
+
+    if (this.selectedNodeMetadata && this.selectedNodeMetadata.is_block_owner) {
+      return (
+        <b-form-group description="Allows you to publish a new version of this block.">
+          <label class="d-block">Update Saved Block:</label>
+          <b-button
+            variant="dark"
+            class="col-12"
+            disabled={!this.isEditedBlockValid}
+            on={{ click: this.beginPublishBlockClicked }}
+          >
+            Publish New Block Version
+          </b-button>
+        </b-form-group>
+      );
+    }
+
+    // Just don't show this... For now. Eventually when we implement update this should be an "Update Block" button.
+    if (this.selectedNodeMetadata) {
+      return null;
+    }
+
+    return (
+      <b-form-group description="Save this block to use in other projects.">
+        <label class="d-block">Create Saved Block:</label>
+        <b-button
+          variant="dark"
+          class="col-12"
+          disabled={!this.isEditedBlockValid}
+          on={{ click: this.beginPublishBlockClicked }}
+        >
+          Open Block Publisher
+        </b-button>
+      </b-form-group>
+    );
+  }
+
   public renderAwsLink() {
     if (!this.readOnly) {
       return null;
@@ -396,8 +460,9 @@ export class EditLambdaBlock extends Vue {
   }
 
   public renderBlockVariables() {
-    const editEnvironmentVariablesWrapperProps: EditEnvironmentVariablesWrapperProps = {
+    const editEnvironmentVariablesWrapperProps: EditEnvironmentVariablesWrapperProps & EditBlockPaneProps = {
       selectedNode: this.selectedNode,
+      selectedNodeMetadata: null,
       readOnly: this.readOnly
     };
 
@@ -470,6 +535,7 @@ export class EditLambdaBlock extends Vue {
         {this.renderAwsLink()}
         {this.renderBlockVariables()}
         {this.renderLibrarySelector()}
+        {this.renderCreateSavedBlockButton()}
         {/*<b-button variant="dark" class="col-12 mb-3">*/}
         {/*  Edit Environment Variables*/}
         {/*</b-button>*/}

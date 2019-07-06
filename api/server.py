@@ -5305,6 +5305,8 @@ class SavedBlocksCreate( BaseHandler ):
 		logit( "Saving Block data..." )
 		
 		saved_block = None
+
+		block_version = 1
 		
 		if "id" in self.json:
 			saved_block = dbsession.query( SavedBlock ).filter_by(
@@ -5322,8 +5324,6 @@ class SavedBlocksCreate( BaseHandler ):
 				return
 			
 			block_version = saved_block.versions
-		
-		block_version = 1
 		
 		# If the block ID is not specified then we are creating
 		# a new saved block in the database.
@@ -5358,7 +5358,7 @@ class SavedBlocksCreate( BaseHandler ):
 			
 		dbsession.commit()
 			
-		# Get the latest saved block verison
+		# Get the latest saved block version
 		saved_block_latest_version = dbsession.query( SavedBlockVersion ).filter_by(
 			saved_block_id=saved_block.id
 		).order_by( SavedBlockVersion.version.desc() ).first()
@@ -5384,7 +5384,16 @@ class SavedBlocksCreate( BaseHandler ):
 		
 		self.write({
 			"success": True,
-			"saved_block_id": saved_block.id
+			"block": {
+				"id": saved_block.id,
+				"description": saved_block.description,
+				"name": saved_block.name,
+				"share_status": new_share_status,
+				"type": saved_block.type,
+				"block_object": new_saved_block_version.block_object,
+				"version": new_saved_block_version.version,
+				"timestamp": new_saved_block_version.timestamp
+			}
 		})
 		
 class SavedBlockSearch( BaseHandler ):
@@ -5444,7 +5453,7 @@ class SavedBlockSearch( BaseHandler ):
 		return_list = []
 		
 		for saved_block in saved_blocks:
-			# Get the latest saved block verison
+			# Get the latest saved block version
 			saved_block_latest_version = dbsession.query( SavedBlockVersion ).filter_by(
 				saved_block_id=saved_block.id
 			).order_by( SavedBlockVersion.version.desc() ).first()
@@ -5458,6 +5467,7 @@ class SavedBlockSearch( BaseHandler ):
 				"id": saved_block.id,
 				"description": saved_block.description,
 				"name": saved_block.name,
+				"share_status": saved_block.share_status,
 				"type": saved_block.type,
 				"block_object": block_object,
 				"version": saved_block_latest_version.version,
@@ -5468,7 +5478,68 @@ class SavedBlockSearch( BaseHandler ):
 			"success": True,
 			"results": return_list
 		})
-		
+
+
+class SavedBlockStatusCheck( BaseHandler ):
+	@authenticated
+	def post( self ):
+		"""
+		Given a list of blocks, return metadata about them.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"block_ids": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"minItems": 1,
+					"maxItems": 100
+				}
+			},
+			"required": [
+				"block_ids",
+			]
+		}
+
+		validate_schema( self.json, schema )
+
+		logit( "Fetching saved Block metadata..." )
+
+		# Search through all published saved blocks
+		saved_blocks = dbsession.query( SavedBlock ).filter(
+			SavedBlock.id.in_(self.json[ "block_ids" ]),
+			sql_or(
+				SavedBlock.user_id == self.get_authenticated_user_id(),
+				SavedBlock.share_status == "PUBLISHED"
+			)
+		).limit(100).all()
+
+		return_list = []
+
+		for saved_block in saved_blocks:
+			# Get the latest saved block version
+			saved_block_latest_version = dbsession.query( SavedBlockVersion ).filter_by(
+				saved_block_id=saved_block.id
+			).order_by( SavedBlockVersion.version.desc() ).first()
+
+			return_list.append({
+				"id": saved_block.id,
+				"is_block_owner": saved_block.user_id == self.get_authenticated_user_id(),
+				"description": saved_block.description,
+				"name": saved_block.name,
+				"share_status": saved_block.share_status,
+				"version": saved_block_latest_version.version,
+				"timestamp": saved_block_latest_version.timestamp,
+			})
+
+		self.write({
+			"success": True,
+			"results": return_list
+		})
+
+
 class SavedBlockDelete( BaseHandler ):
 	@authenticated
 	def delete( self ):
@@ -7951,6 +8022,7 @@ def make_app( is_debug ):
 		( r"/api/v1/aws/deploy_diagram", DeployDiagram ),
 		( r"/api/v1/saved_blocks/create", SavedBlocksCreate ),
 		( r"/api/v1/saved_blocks/search", SavedBlockSearch ),
+		( r"/api/v1/saved_blocks/status_check", SavedBlockStatusCheck ),
 		( r"/api/v1/saved_blocks/delete", SavedBlockDelete ),
 		( r"/api/v1/lambdas/run", RunLambda ),
 		( r"/api/v1/lambdas/logs", GetCloudWatchLogsForLambda ),

@@ -5,12 +5,15 @@ import { BlockNameInput } from '@/components/ProjectEditor/block-components/Edit
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
+import { EditBlockPaneProps } from '@/types/component-types';
+import { SavedBlockStatusCheckResult } from '@/types/api-types';
 
 const viewBlock = namespace('viewBlock');
 
 @Component
-export class EditTopicBlock extends Vue {
+export class EditTopicBlock extends Vue implements EditBlockPaneProps {
   @Prop({ required: true }) selectedNode!: SnsTopicWorkflowState;
+  @Prop({ required: true }) selectedNodeMetadata!: SavedBlockStatusCheckResult | null;
   @Prop({ required: true }) readOnly!: boolean;
 
   @viewBlock.Action openAwsConsoleForBlock!: () => void;

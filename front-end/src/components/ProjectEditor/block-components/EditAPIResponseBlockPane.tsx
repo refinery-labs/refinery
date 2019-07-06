@@ -3,10 +3,14 @@ import { Prop } from 'vue-property-decorator';
 import { ApiGatewayResponseWorkflowState } from '@/types/graph';
 import Component from 'vue-class-component';
 import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
+import { EditBlockPaneProps } from '@/types/component-types';
+import { SavedBlockStatusCheckResult } from '@/types/api-types';
 
 @Component
-export class EditAPIResponseBlock extends Vue {
+export class EditAPIResponseBlock extends Vue implements EditBlockPaneProps {
   @Prop({ required: true }) selectedNode!: ApiGatewayResponseWorkflowState;
+  @Prop({ required: true }) selectedNodeMetadata!: SavedBlockStatusCheckResult | null;
+  @Prop({ required: true }) readOnly!: boolean;
 
   public render(h: CreateElement): VNode {
     return (

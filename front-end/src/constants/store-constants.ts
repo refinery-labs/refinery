@@ -102,7 +102,6 @@ export enum ProjectViewActions {
   resetProjectState = 'resetProjectState',
   addBlock = 'addBlock',
   addIndividualBlock = 'addIndividualBlock',
-  addSavedBlock = 'addSavedBlock',
   updateExistingBlock = 'updateExistingBlock',
   saveSelectedResource = 'saveSelectedResource',
   addTransition = 'addTransition',

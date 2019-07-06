@@ -3,11 +3,10 @@ import store from '@/store/index';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState } from '@/store/store-types';
-import { WorkflowState, WorkflowStateType } from '@/types/graph';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { searchSavedBlocks } from '@/store/fetchers/api-helpers';
-import { SharedBlockPublishStatus } from '@/types/api-types';
+import { SavedBlockSearchResult, SharedBlockPublishStatus } from '@/types/api-types';
 import { AddBlockArguments } from '@/store/modules/project-view';
 
 const storeName = 'addSavedBlockPane';
@@ -35,16 +34,6 @@ export const baseState: AddSavedBlockPaneState = {
   searchResultsPrivate: [],
   searchResultsPublished: []
 };
-
-export interface SavedBlockSearchResult {
-  id: string;
-  description: string;
-  name: string;
-  type: WorkflowStateType;
-  block_object: WorkflowState;
-  version: number;
-  timestamp: number;
-}
 
 // Must copy so that we can not thrash the pointers...
 const initialState = deepJSONCopy(baseState);
@@ -146,7 +135,15 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
     const addBlockArgs: AddBlockArguments = {
       rawBlockType: match.type,
       selectAfterAdding: true,
-      customBlockProperties: match.block_object
+      customBlockProperties: {
+        ...match.block_object,
+        saved_block_metadata: {
+          id: match.id,
+          version: match.version,
+          timestamp: match.timestamp,
+          added_timestamp: Date.now()
+        }
+      }
     };
 
     await this.context.dispatch(`project/${ProjectViewActions.addIndividualBlock}`, addBlockArgs, { root: true });
