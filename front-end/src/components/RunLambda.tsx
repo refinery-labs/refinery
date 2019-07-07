@@ -65,7 +65,7 @@ export default class RunLambda extends Vue {
   public getRunLambdaOutput() {
     // Need to check this because Ace will shit the bed if given a *gasp* null value!
     if (!this.runResultOutput) {
-      return '';
+      return 'No return data to display.';
     }
 
     return this.runResultOutput.logs;
@@ -102,75 +102,6 @@ export default class RunLambda extends Vue {
     );
   }
 
-  public renderOutputData() {
-    const noDataText = ['No output data to display.', <br />, 'Click "Execute with Data" to generate output.'];
-
-    const isInSidepane = this.displayMode === RunLambdaDisplayMode.sidepane;
-    const hasValidOutput = this.checkIfValidRunLambdaOutput();
-
-    if (!hasValidOutput && isInSidepane) {
-      return <label class="m-3">{noDataText}</label>;
-    }
-
-    const resultDataEditorProps: EditorProps = {
-      name: `result-data-${this.getNameSuffix()}`,
-      // This is very nice for rendering non-programming text
-      lang: 'json',
-      content: (this.runResultOutput && this.runResultOutput.returned_data) || '',
-      wrapText: true,
-      readOnly: true,
-      extraClasses: 'run-lambda-container__min-height'
-    };
-
-    const resultOutputEditorProps: EditorProps = {
-      name: `result-output-${this.getNameSuffix()}`,
-      // This is very nice for rendering non-programming text
-      lang: 'text',
-      content: this.getRunLambdaOutput(),
-      wrapText: true,
-      readOnly: true,
-      extraClasses: 'run-lambda-container__min-height'
-    };
-
-    const resultDataTab = (
-      <b-tab title="first">
-        <template slot="title">
-          <span>
-            Returned Data <em class="fas fa-code" />
-          </span>
-        </template>
-        <RefineryCodeEditor props={resultDataEditorProps} />
-      </b-tab>
-    );
-
-    const outputDataTab = (
-      <b-tab title="second" active>
-        <template slot="title">
-          <span>
-            Execution Output <em class="fas fa-terminal" />
-          </span>
-        </template>
-        <RefineryCodeEditor props={resultOutputEditorProps} />
-      </b-tab>
-    );
-
-    const colClasses = {
-      'run-lambda-container__col text-align--left col-md-6': true
-    };
-
-    return (
-      <div class={colClasses}>
-        <b-tabs nav-class="nav-justified">
-          {hasValidOutput && resultDataTab}
-          {hasValidOutput && outputDataTab}
-          <div slot="empty">
-            <h4 class="mt-3 mb-3">{noDataText}</h4>
-          </div>
-        </b-tabs>
-      </div>
-    );
-  }
-
   public renderEditors() {
     const sharedEditorProps = {
       collapsible: true,
@@ -186,36 +117,18 @@ export default class RunLambda extends Vue {
       onChange: this.onUpdateInputData,
     };
 
-    const inputDataLabelClasses = {
-      'flex-grow--1': true,
-      'run-lambda-container__input-data--top-padding': this.displayMode === RunLambdaDisplayMode.fullscreen
-    };
-
     const inputDataEditor = (
       <div>
-        {/*<div class="display--flex text-align--left">*/}
-        {/*  <label class={inputDataLabelClasses}>Block Input Data</label>*/}
-        {/*  {this.renderFullscreenButton()}*/}
-        {/*</div>*/}
         <RefineryCodeEditor props={inputDataEditorProps} />
       </div>
     );
-
-    const noDataText = ['No output data to display.', <br />, 'Click "Execute with Data" to generate output.'];
-
-    const isInSidepane = this.displayMode === RunLambdaDisplayMode.sidepane;
-    const hasValidOutput = this.checkIfValidRunLambdaOutput();
-    //
-    // if (!hasValidOutput && isInSidepane) {
-    //   return <label class="m-3">{noDataText}</label>;
-    // }
 
     const resultDataEditorProps: EditorProps = {
       ...sharedEditorProps,
       name: `result-data-${this.getNameSuffix()}`,
       // This is very nice for rendering non-programming text
       lang: 'json',
-      content: (this.runResultOutput && this.runResultOutput.returned_data) || '',
+      content: (this.runResultOutput && this.runResultOutput.returned_data) || 'Click "Execute with Data" to see output.',
       wrapText: true,
       readOnly: true,
     };
@@ -283,7 +196,7 @@ export default class RunLambda extends Vue {
     if (this.displayMode === RunLambdaDisplayMode.sidepane) {
       return (
         <div class="display--flex flex-direction--column flex-grow--1 width--100percent"
-             style={{'height': '500px', 'min-width': '300px'}}>
+             style={{'height': '500px', 'min-width': '354px'}}>
           {editors}
         </div>
       );
