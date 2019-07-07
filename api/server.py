@@ -361,6 +361,8 @@ class BaseHandler( tornado.web.RequestHandler ):
 		)
 		
 	def is_owner_of_project( self, project_id ):
+		dbsession = DBSession()
+		
 		# Check to ensure the user owns the project
 		project = dbsession.query( Project ).filter_by(
 			id=project_id
@@ -423,8 +425,9 @@ class BaseHandler( tornado.web.RequestHandler ):
 		
 		if authentication_user == None:
 			return None
-		
+			
 		# Get organization user is a part of
+		dbsession = DBSession()
 		user_org = dbsession.query( Organization ).filter_by(
 			id=authentication_user.organization_id
 		).first()
@@ -466,6 +469,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 			return None
 		
 		# Pull related user
+		dbsession = DBSession()
 		authenticated_user = dbsession.query( User ).filter_by(
 			id=str( user_id )
 		).first()
@@ -554,12 +558,6 @@ class BaseHandler( tornado.web.RequestHandler ):
 				self.json = json_data
 			except ValueError:
 				pass
-	
-	def on_finish(self):
-		if self.get_status() >= 500:
-			dbsession.rollback()
-		else:
-			dbsession.commit()
 
 	def options(self):
 		pass
@@ -896,6 +894,7 @@ class TaskSpawner(object):
 			)
 			
 			# Add AWS account to database
+			dbsession = DBSession()
 			dbsession.add( new_aws_account )
 			dbsession.commit()
 			
@@ -1414,6 +1413,7 @@ class TaskSpawner(object):
 			)
 			
 			# Update the console login in the database
+			dbsession = DBSession()
 			aws_account = dbsession.query( AWSAccount ).filter_by(
 				account_id=credentials[ "account_id" ]
 			).first()
@@ -1722,6 +1722,7 @@ class TaskSpawner(object):
 			bill the customer.
 			"""
 			# Pull a list of organizations to generate invoices for
+			dbsession = DBSession()
 			organizations = dbsession.query( Organization )
 			
 			# List of invoices to send out at the end
@@ -1901,6 +1902,8 @@ class TaskSpawner(object):
 				"unit": "USD",
 			}
 			"""
+			dbsession = DBSession()
+			
 			# Pull the configured free trial account limits
 			free_trial_user_max_amount = float( os.environ.get( "free_trial_billing_limit" ) )
 			
@@ -2057,6 +2060,7 @@ class TaskSpawner(object):
 				...
 			]
 			"""
+			dbsession = DBSession()
 			# Pull related AWS account and get the database ID for it
 			aws_account = dbsession.query( AWSAccount ).filter_by(
 				account_id=account_id,
@@ -2125,6 +2129,7 @@ class TaskSpawner(object):
 					billing_item
 				)
 			
+			dbsession = DBSession()
 			dbsession.add( new_billing_collection )
 			dbsession.commit()
 			
@@ -4388,6 +4393,7 @@ class TaskSpawner(object):
 		
 		@staticmethod
 		def _add_default_projects_to_account( user_id ):
+			dbsession = DBSession()
 			user = dbsession.query( User ).filter_by(
 				id=user_id
 			).first()
@@ -5476,6 +5482,8 @@ class SavedBlocksCreate( BaseHandler ):
 
 		block_version = 1
 		
+		dbsession = DBSession()
+		
 		if "id" in self.json:
 			saved_block = dbsession.query( SavedBlock ).filter_by(
 				user_id=self.get_authenticated_user_id(),
@@ -5593,6 +5601,8 @@ class SavedBlockSearch( BaseHandler ):
 		
 		logit( "Searching saved Blocks..." )
 		
+		dbsession = DBSession()
+		
 		share_status = "PRIVATE"
 		
 		if "share_status" in self.json:
@@ -5674,6 +5684,8 @@ class SavedBlockStatusCheck( BaseHandler ):
 		validate_schema( self.json, schema )
 
 		logit( "Fetching saved Block metadata..." )
+		
+		dbsession = DBSession()
 
 		# Search through all published saved blocks
 		saved_blocks = dbsession.query( SavedBlock ).filter(
@@ -5729,6 +5741,8 @@ class SavedBlockDelete( BaseHandler ):
 		validate_schema( self.json, schema )
 		
 		logit( "Deleting Block data..." )
+		
+		dbsession = DBSession()
 		
 		saved_block = dbsession.query( SavedBlock ).filter_by(
 			user_id=self.get_authenticated_user_id(),
@@ -5956,6 +5970,7 @@ class SaveProject( BaseHandler ):
 		project_name = diagram_data[ "name" ]
 		project_version = self.json[ "version" ]
 		project_config = self.json[ "config" ]
+		dbsession = DBSession()
 		
 		# If this is a new project and the name already exists
 		# Throw an error to indicate this can't be the case
@@ -6093,6 +6108,8 @@ class SaveProjectConfig( BaseHandler ):
 		})
 		
 def update_project_config( project_id, project_config ):
+	dbsession = DBSession()
+	
 	# Convert to JSON if not already
 	if type( project_config ) == dict:
 		project_config = json.dumps(
@@ -6228,6 +6245,7 @@ class GetSavedProject( BaseHandler ):
 		return self.fetch_project_by_version(self.json[ "project_id" ], self.json[ "version" ])
 
 	def fetch_project_by_version( self, id, version ):
+		dbsession = DBSession()
 		project_version_result = dbsession.query( ProjectVersion ).filter_by(
 			project_id=id,
 			version=version
@@ -6236,6 +6254,7 @@ class GetSavedProject( BaseHandler ):
 		return project_version_result
 
 	def fetch_project_without_version( self, id ):
+		dbsession = DBSession()
 		project_version_result = dbsession.query( ProjectVersion ).filter_by(
 			project_id=id
 		).order_by(ProjectVersion.version.desc()).first()
@@ -6264,6 +6283,8 @@ class DeleteSavedProject( BaseHandler ):
 		validate_schema( self.json, schema )
 		
 		logit( "Deleting saved project..." )
+		
+		dbsession = DBSession()
 		
 		# Ensure user is owner of the project
 		if not self.is_owner_of_project( self.json[ "id" ] ):
@@ -6317,6 +6338,8 @@ class DeployDiagram( BaseHandler ):
 		# TODO: Add jsonschema
 		
 		logit( "Deploying diagram to production..." )
+		
+		dbsession = DBSession()
 		
 		# Ensure user is owner of the project
 		if not self.is_owner_of_project( self.json[ "project_id" ] ):
@@ -6419,6 +6442,8 @@ class GetProjectConfig( BaseHandler ):
 		
 		logit( "Retrieving project deployments..." )
 		
+		dbsession = DBSession()
+		
 		# Ensure user is owner of the project
 		if not self.is_owner_of_project( self.json[ "project_id" ] ):
 			self.write({
@@ -6461,6 +6486,8 @@ class GetLatestProjectDeployment( BaseHandler ):
 		validate_schema( self.json, schema )
 		
 		logit( "Retrieving project deployments..." )
+		
+		dbsession = DBSession()
 		
 		# Ensure user is owner of the project
 		if not self.is_owner_of_project( self.json[ "project_id" ] ):
@@ -6509,6 +6536,8 @@ class DeleteDeploymentsInProject( BaseHandler ):
 		validate_schema( self.json, schema )
 		
 		logit( "Deleting deployments from database..." )
+		
+		dbsession = DBSession()
 		
 		# Ensure user is owner of the project
 		if not self.is_owner_of_project( self.json[ "project_id" ] ):
@@ -6991,6 +7020,8 @@ class UpdateEnvironmentVariables( BaseHandler ):
 		
 		logit( "Updating environment variables..." )
 		
+		dbsession = DBSession()
+		
 		response = yield local_tasks.update_lambda_environment_variables(
 			self.get_authenticated_user_cloud_configuration(),
 			self.json[ "arn" ],
@@ -7184,6 +7215,8 @@ class NewRegistration( BaseHandler ):
 		
 		logit( "Processing user registration..." )
 		
+		dbsession = DBSession()
+		
 		# Before we continue, check if the email is valid
 		try:
 			email_validator = validate_email(
@@ -7316,6 +7349,8 @@ class EmailLinkAuthentication( BaseHandler ):
 		another REST-API endpoint.
 		"""
 		logit( "User is authenticating via email link" )
+		
+		dbsession = DBSession()
 		
 		# Query for the provided authentication token
 		email_authentication_token = dbsession.query( EmailAuthToken ).filter_by(
@@ -7451,6 +7486,8 @@ class Authenticate( BaseHandler ):
 		}
 		
 		validate_schema( self.json, schema )
+		
+		dbsession = DBSession()
 		
 		# Get user based off of the provided email
 		user = dbsession.query( User ).filter_by(
@@ -7646,6 +7683,7 @@ class RunMonthlyStripeBillingJob( BaseHandler ):
 class HealthHandler( BaseHandler ):
 	def get( self ):
 		# Just run a dummy database query to ensure it's working
+		dbsession = DBSession()
 		dbsession.query( User ).first()
 		self.write({
 			"success": True,
@@ -8029,6 +8067,8 @@ class MaintainAWSAccountReserves( BaseHandler ):
 		})
 		self.finish()
 		
+		dbsession = DBSession()
+		
 		reserved_aws_pool_target_amount = int( os.environ.get( "reserved_aws_pool_target_amount" ) )
 		
 		# Get the number of AWS accounts which are ready to be
@@ -8143,6 +8183,8 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 		})
 		self.finish()
 		
+		dbsession = DBSession()
+		
 		aws_accounts = dbsession.query( AWSAccount ).filter(
 			sql_or(
 				AWSAccount.aws_account_status == "IN_USE",
@@ -8231,6 +8273,8 @@ class PerformTerraformPlanOnFleet( BaseHandler ):
 		})
 		self.finish()
 		
+		dbsession = DBSession()
+		
 		aws_accounts = dbsession.query( AWSAccount ).filter(
 			sql_or(
 				AWSAccount.aws_account_status == "IN_USE",
@@ -8304,6 +8348,7 @@ class StashStateLog( BaseHandler ):
 		state_log.state = self.json[ "state" ]
 		state_log.user_id = authenticated_user_id
 		
+		dbsession = DBSession()
 		dbsession.add( state_log )
 		dbsession.commit()
 		
