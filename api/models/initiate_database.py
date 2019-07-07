@@ -10,21 +10,11 @@ from sqlalchemy import Column, Integer, String, func, update, Text, Binary, Bool
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship
 from contextlib import contextmanager
 
-_Session = scoped_session(sessionmaker(bind=engine))
-StartSession = lambda: _Session(autoflush=True)
-dbsession = StartSession()
-
-@contextmanager
-def cxt_dbsession():
-	session = StartSession()
-	try:
-		yield session
-		session.commit()
-	except:
-		session.rollback()
-		raise
-	finally:
-		session.close()
+DBSession = scoped_session(sessionmaker(
+	bind=engine,
+	autocommit=False,
+	autoflush=True
+))
 
 users_projects_association_table = Table(
 	"user_projects_association",
