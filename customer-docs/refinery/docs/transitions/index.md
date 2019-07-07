@@ -31,7 +31,7 @@ The following is an example of the data which is returned in an `exception` tran
 {
     "input_data": 0,
     "version": "1.0.0",
-    "exception_text": "Traceback (most recent call last):\n  File \"/var/task/lambda.py\", line 1089, in _init\n    return_data = main( lambda_input, context )\n  File \"/var/task/lambda.py\", line 4, in main\n    return ( 100 / lambda_input )\nZeroDivisionError: integer division or modulo by zero\n"
+    "exception_text": "Traceback (most recent call last):\n  File \"/var/task/lambda.py\", line 1089, in _init\n    return_data = main( block_input, context )\n  File \"/var/task/lambda.py\", line 4, in main\n    return ( 100 / lambda_input )\nZeroDivisionError: integer division or modulo by zero\n"
 }
 ```
 
@@ -42,10 +42,13 @@ You can use this information to react differently depending on the specific deta
 
 ## `fan-out`
 
-The `fan-out` transition takes a return value of a list of items and invokes the connected block with each item in the list as a single input. For example, if a `Code Block` returned an array of `[1, 2, 3, 4, 5]` the next `Code Block` linked with the `fan-out` transition would be called five times with the inputs of `1`, `2`, `3`, `4`, and `5` respectively. This allows for performing quick and simple concurrent processing of data.
+The `fan-out` transition takes a return value of a list of items and invokes the connected block with each item in the list as a single input. For example, if a `Code Block` returned an array of `[1, 2, 3, 4, 5]` the next `Code Block` linked with the `fan-out` transition would be called five times with the inputs of `1`, `2`, `3`, `4`, and `5` respectively. This allows for performing quick and simple concurrent processing of data. It's important to note that you are spinning up a virtual server for each item in the returned array. This is useful for when you need many machines to perform some work (converting 100 images concurrently across many machines) but it's overkill when you're attempting to do simple operations which could be accomplished in a `for` loop, for example.
 
 !!! warning
-	The `fan-out` transition is a powerful construct. It allows for developers to easily perform a large number of `Code Block` invocations without much effort. If not used carefully it can result in an excessive usage of `Code Blocks`, causing a higher-than-expected AWS bill. It should also be noted that you still have to obey your AWS account's [Lambda concurrency limits](https://docs.aws.amazon.com/lambda/latest/dg/concurrent-executions.html#per-function-concurrency), which may result in [throttling](https://docs.aws.amazon.com/lambda/latest/dg/concurrent-executions.html#throttling-behavior).
+	`fan-out` transitions should only be used for less than 1,000 items. If you `fan-out` more than 1,000 items you may encounter invocation throttling which will slow down or potentially break your pipeline.
+
+!!! warning
+	The `fan-out` transition is a powerful construct. It allows for developers to easily perform a large number of `Code Block` invocations without much effort. If not used carefully it can result in an excessive usage of `Code Blocks`, causing a higher-than-expected AWS bill.
 
 ## `fan-in`
 
