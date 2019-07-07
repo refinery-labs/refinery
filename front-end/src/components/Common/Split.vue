@@ -1,139 +1,148 @@
 <template>
-  <div class="split">
+  <div v-bind:class="{split: true, [`split-${direction}`]: true, [extraClasses]: !!extraClasses}">
     <slot></slot>
   </div>
 </template>
 
 <script lang="ts">
-  import Vue from 'vue';
-  import Component, { mixins } from 'vue-class-component';
-  import Emitter from '../../mixins/emitter';
-  import SplitJs from 'split.js';
-  import {Prop, Watch} from 'vue-property-decorator';
+import Vue from 'vue';
+import Component, { mixins } from 'vue-class-component';
+import Emitter from '../../mixins/emitter';
+import SplitJs from 'split.js';
+import {Prop, Watch} from 'vue-property-decorator';
 
-  interface SplitInstanceData {
-    elements: Array<string | HTMLElement>,
-    sizes: number[],
-    minSizes: any[],
-    instance: Split.Instance | null
+interface SplitInstanceData {
+  elements: Array<string | HTMLElement>,
+  sizes: number[],
+  minSizes: any[],
+  instance: SplitJs.Instance | null
+}
+
+@Component
+export default class SplitComponent extends mixins(Emitter) implements SplitInstanceData {
+  elements: Array<string | HTMLElement> = [];
+  instance: SplitJs.Instance | null = null;
+  minSizes: any[] = [];
+  sizes: number[] = [];
+
+  @Prop({required: true}) direction!: 'horizontal' | 'vertical';
+  @Prop({default: 8}) gutterSize!: number;
+  @Prop() extraClasses?: string;
+
+  @Watch('direction')
+  onDirectionChanged() {
+
+    this.init();
   }
 
-  @Component
-  export class SplitComponent extends mixins(Emitter) implements SplitInstanceData {
-    elements: Array<string | HTMLElement> = [];
-    instance: Split.Instance | null = null;
-    minSizes: any[] = [];
-    sizes: number[] = [];
+  @Watch('gutterSize')
+  onGutterSizeChanged() {
 
-    @Prop({required: true}) direction!: 'horizontal' | 'vertical';
-    @Prop({default: 8}) gutterSize!: number;
+    this.init();
+  }
 
-    @Watch('direction')
-    onDirectionChanged() {
-
-      this.init();
-    }
-
-    @Watch('gutterSize')
-    onGutterSizeChanged() {
-
-      this.init();
-    }
-
-    mounted() {
-      this.elements = [];
-      this.sizes = [];
-      this.minSizes = [];
-      if (this.$slots && this.$slots.default) {
-        this.$slots.default.forEach(vnode => {
-          if (vnode && vnode.tag && vnode.tag.indexOf('SplitArea') > -1) {
-            // vnode.componentOptions.propsData     ******** Get Prop data
-            if (vnode.elm) {
-              // @ts-ignore
-              this.elements.push(vnode.elm);
-            }
-
-            if (!vnode.componentInstance) {
-              return;
-            }
-
+  mounted() {
+    this.elements = [];
+    this.sizes = [];
+    this.minSizes = [];
+    if (this.$slots && this.$slots.default) {
+      this.$slots.default.forEach(vnode => {
+        if (vnode && vnode.tag && vnode.tag.indexOf('SplitArea') > -1) {
+          // vnode.componentOptions.propsData     ******** Get Prop data
+          if (vnode.elm) {
             // @ts-ignore
-            if (vnode.componentInstance.size !== null && vnode.componentInstance.size !== undefined) {
-              // @ts-ignore
-              this.sizes.push(vnode.componentInstance.size);
-            }
-            // @ts-ignore
-            if (vnode.componentInstance.minSize !== null && vnode.componentInstance.minSize !== undefined) {
-              // @ts-ignore
-              this.minSizes.push(vnode.componentInstance.minSize);
-            }
+            this.elements.push(vnode.elm);
           }
-        });
-      }
-      this.init();
-    }
 
-    init() {
-      if (this.instance !== null) {
-        this.instance.destroy();
-        this.instance = null;
-      }
-      const direction = this.direction === 'horizontal' ? 'horizontal' : this.direction === 'vertical' ? 'vertical' : undefined;
+          if (!vnode.componentInstance) {
+            return;
+          }
 
-      this.instance = SplitJs(this.elements, {
-        direction: direction,
-        sizes: this.sizes,
-        minSize: this.minSizes,
-        gutterSize: this.gutterSize,
-        cursor: this.direction === 'horizontal' ? 'col-resize' : 'row-resize',
-        onDrag: () => {
-          this.$emit('onDrag', this.instance && this.instance.getSizes());
-        },
-        onDragStart: () => {
-          this.$emit('onDragStart', this.instance && this.instance.getSizes());
-        },
-        onDragEnd: () => {
-          this.$emit('onDragEnd', this.instance && this.instance.getSizes());
+          // @ts-ignore
+          if (vnode.componentInstance.size !== null && vnode.componentInstance.size !== undefined) {
+            // @ts-ignore
+            this.sizes.push(vnode.componentInstance.size);
+          }
+          // @ts-ignore
+          if (vnode.componentInstance.minSize !== null && vnode.componentInstance.minSize !== undefined) {
+            // @ts-ignore
+            this.minSizes.push(vnode.componentInstance.minSize);
+          }
         }
       });
     }
-    changeAreaSize() {
-      this.sizes = [];
-      this.minSizes = [];
-
-      if (this.$slots && this.$slots.default) {
-        this.$slots.default.forEach(vnode => {
-          if (vnode && vnode.tag && vnode.tag.indexOf('SplitArea') > -1) {
-            if (!vnode.componentInstance) {
-              return;
-            }
-
-            // @ts-ignore
-            if (vnode.componentInstance.size !== null && vnode.componentInstance.size !== undefined) {
-              // @ts-ignore
-              this.sizes.push(vnode.componentInstance.size);
-            }
-
-            // @ts-ignore
-            if (vnode.componentInstance.minSize !== null && vnode.componentInstance.minSize !== undefined) {
-              // @ts-ignore
-              this.minSizes.push(vnode.componentInstance.minSize);
-            }
-          }
-        });
-      }
-      this.init();
-    }
-    reset() {
-      this.init();
-    }
-    getSizes() {
-      return this.instance && this.instance.getSizes();
-    }
+    this.init();
   }
+
+  init() {
+    if (this.instance !== null) {
+      this.instance.destroy();
+      this.instance = null;
+    }
+
+    if (this.elements.length === 0) {
+      return;
+    }
+
+    const direction = this.direction === 'horizontal' ? 'horizontal' : this.direction === 'vertical' ? 'vertical' : undefined;
+
+    this.instance = SplitJs(this.elements, {
+      direction: direction,
+      sizes: this.sizes,
+      minSize: this.minSizes,
+      gutterSize: this.gutterSize,
+      cursor: this.direction === 'horizontal' ? 'col-resize' : 'row-resize',
+      onDrag: () => {
+        this.$emit('onDrag', this.instance && this.instance.getSizes());
+      },
+      onDragStart: () => {
+        this.$emit('onDragStart', this.instance && this.instance.getSizes());
+      },
+      onDragEnd: () => {
+        this.$emit('onDragEnd', this.instance && this.instance.getSizes());
+      }
+    });
+  }
+
+  changeAreaSize() {
+    this.sizes = [];
+    this.minSizes = [];
+
+    if (this.$slots && this.$slots.default) {
+      this.$slots.default.forEach(vnode => {
+        if (vnode && vnode.tag && vnode.tag.indexOf('SplitArea') > -1) {
+          if (!vnode.componentInstance) {
+            return;
+          }
+
+          // @ts-ignore
+          if (vnode.componentInstance.size !== null && vnode.componentInstance.size !== undefined) {
+            // @ts-ignore
+            this.sizes.push(vnode.componentInstance.size);
+          }
+
+          // @ts-ignore
+          if (vnode.componentInstance.minSize !== null && vnode.componentInstance.minSize !== undefined) {
+            // @ts-ignore
+            this.minSizes.push(vnode.componentInstance.minSize);
+          }
+        }
+      });
+    }
+    this.init();
+  }
+
+  reset() {
+    this.init();
+  }
+
+  getSizes() {
+    return this.instance && this.instance.getSizes();
+  }
+}
 </script>
 
-<style>
+<style lang="scss">
   .split {
     -webkit-box-sizing: border-box;
     -moz-box-sizing: border-box;
@@ -142,6 +151,10 @@
     overflow-x: hidden;
     height: 100%;
     width: 100%;
+
+    &-vertical {
+      flex-direction: column;
+    }
   }
 
   .gutter {

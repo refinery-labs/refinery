@@ -78,19 +78,19 @@ resource "aws_instance" "refinery_redis_instance" {
 	connection {
 		# The default username for our AMI
 		user = "ubuntu"
-		
+
 		# The path to your keyfile
 		private_key = "${tls_private_key.refinery_redis_ssh_key.private_key_pem}"
 	}
-	
+
 	instance_type = "t2.micro"
-	
+
 	# Pull the AMI ID from the config
 	# The variables tf has all the AMIs for each region already mapped
 	ami = "${lookup(var.regional_amis, var.region)}"
-	
+
 	key_name = "${var.ssh_key_name}"
-	
+
 	security_groups = ["${aws_security_group.refinery_redis_security_group.name}"]
 
 	# Copy over some Docker files
@@ -98,13 +98,13 @@ resource "aws_instance" "refinery_redis_instance" {
 		source = "./redis-instance-config/redis-docker"
 		destination = "/home/ubuntu/"
 	}
-	
+
 	# Write docker-compose.yml configuration
 	provisioner "file" {
 		content = "${data.template_file.docker_compose_yaml.rendered}"
 		destination = "/home/ubuntu/redis-docker/docker-compose.yml"
 	}
-	
+
 	# Write redis.conf configuration
 	provisioner "file" {
 		content = "${data.template_file.redis_conf.rendered}"
@@ -116,7 +116,7 @@ resource "aws_instance" "refinery_redis_instance" {
 		source = "./redis-instance-config/setup-redis-instance.sh"
 		destination = "/tmp/setup-redis-instance.sh"
 	}
-	
+
 	# Run install script
 	provisioner "remote-exec" {
 		inline = [
@@ -125,7 +125,7 @@ resource "aws_instance" "refinery_redis_instance" {
 			"sudo /tmp/setup-redis-instance.sh"
 		]
 	}
-	
+
 	depends_on = [
 		"aws_eip.refinery_redis_elastic_ip",
 		"aws_security_group.refinery_redis_security_group",

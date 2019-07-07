@@ -3,6 +3,7 @@ import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import { WorkflowState } from '@/types/graph';
 import { blockTypeToEditorComponentLookup } from '@/constants/project-editor-constants';
+import {EditBlockPaneProps} from '@/types/component-types';
 
 const viewBlock = namespace('viewBlock');
 
@@ -22,9 +23,10 @@ export default class ViewDeployedBlockPane extends Vue {
     const ActiveEditorComponent = blockTypeToEditorComponentLookup[this.selectedNode.type]();
 
     // The Typescript support here is a huge pain... Just cast to Object and it will work. *shakes head*
-    const props = {
-      selectedNode: this.selectedNode as Object,
-      readOnly: true as Object
+    const props: EditBlockPaneProps = {
+      selectedNode: this.selectedNode,
+      selectedNodeMetadata: null,
+      readOnly: true
     };
 
     const formClasses = {
@@ -33,10 +35,14 @@ export default class ViewDeployedBlockPane extends Vue {
       'show-block-container__form--wide': this.wideMode
     };
 
+    // I have no idea how to manage this with Typescript support, blast!
+    // @ts-ignore
+    const componentInstance = <ActiveEditorComponent props={props} />;
+
     return (
       <b-form class={formClasses} on={{ submit: (e: Event) => e.preventDefault() }}>
         <div class="scrollable-pane-container padding-left--normal padding-right--normal">
-          <ActiveEditorComponent props={props} />
+          {componentInstance}
         </div>
       </b-form>
     );

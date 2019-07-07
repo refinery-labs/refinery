@@ -5,7 +5,8 @@ import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { EditorProps, LoadingContainerProps } from '@/types/component-types';
 import { RunLambdaResult } from '@/types/api-types';
 import Loading from '@/components/Common/Loading.vue';
-import { namespace } from 'vuex-class';
+import Split from '@/components/Common/Split.vue';
+import SplitArea from '@/components/Common/SplitArea.vue';
 
 export enum RunLambdaDisplayLocation {
   editor = 'editor',
@@ -171,34 +172,66 @@ export default class RunLambda extends Vue {
   }
 
   public renderEditors() {
+    const sharedEditorProps = {
+      collapsible: true,
+      extraClasses: 'ace-hack'
+    };
+
     const inputDataEditorProps: EditorProps = {
+      ...sharedEditorProps,
       name: `input-${this.getNameSuffix()}`,
       // Using NodeJS for JSON support
       lang: SupportedLanguage.NODEJS_8,
       content: this.inputData,
       onChange: this.onUpdateInputData,
-      extraClasses: 'run-lambda-container__min-height'
     };
 
     const inputDataLabelClasses = {
-      'flex-grow--1 run-lambda-container__input-data': true,
+      'flex-grow--1': true,
       'run-lambda-container__input-data--top-padding': this.displayMode === RunLambdaDisplayMode.fullscreen
     };
 
     const inputDataEditor = (
-      <div class="run-lambda-container__col col-md-6">
-        <div class="display--flex text-align--left">
-          <label class={inputDataLabelClasses}>Block Input Data</label>
-          {this.renderFullscreenButton()}
-        </div>
+      <div>
+        {/*<div class="display--flex text-align--left">*/}
+        {/*  <label class={inputDataLabelClasses}>Block Input Data</label>*/}
+        {/*  {this.renderFullscreenButton()}*/}
+        {/*</div>*/}
         <RefineryCodeEditor props={inputDataEditorProps} />
       </div>
     );
 
-    const outputDataEditor = this.renderOutputData();
+    const noDataText = ['No output data to display.', <br />, 'Click "Execute with Data" to generate output.'];
+
+    const isInSidepane = this.displayMode === RunLambdaDisplayMode.sidepane;
+    const hasValidOutput = this.checkIfValidRunLambdaOutput();
+
+    if (!hasValidOutput && isInSidepane) {
+      return <label class="m-3">{noDataText}</label>;
+    }
+
+    const resultDataEditorProps: EditorProps = {
+      ...sharedEditorProps,
+      name: `result-data-${this.getNameSuffix()}`,
+      // This is very nice for rendering non-programming text
+      lang: 'json',
+      content: (this.runResultOutput && this.runResultOutput.returned_data) || '',
+      wrapText: true,
+      readOnly: true,
+    };
+
+    const resultOutputEditorProps: EditorProps = {
+      ...sharedEditorProps,
+      name: `result-output-${this.getNameSuffix()}`,
+      // This is very nice for rendering non-programming text
+      lang: 'text',
+      content: this.getRunLambdaOutput(),
+      wrapText: true,
+      readOnly: true,
+    };
 
     const buttons = (
-      <div class="run-lambda-container__buttons col-md-12">
+      <div class="m-2">
         <b-button-group class="width--100percent">
           {/*<b-button variant="info" disabled on={{click: () => this.onRunLambda()}}>*/}
           {/*  View Last Execution*/}
@@ -214,18 +247,46 @@ export default class RunLambda extends Vue {
     if (this.displayMode === RunLambdaDisplayMode.sidepane) {
       return (
         <div class="display--flex flex-direction--column flex-grow--1">
-          {inputDataEditor}
-          {outputDataEditor}
-          {buttons}
+
+
+
         </div>
       );
     }
 
+    const renderEditorWrapper = (text: string, editor: any) => (
+      <div class="display--flex flex-direction--column height--100percent">
+
+        <div class="text-align--left run-lambda-container__text-label">
+          <label class="text-light padding--none mt-0 mb-0 ml-2">
+            {text}:
+          </label>
+        </div>
+        <div class="flex-grow--1">
+          <div class="height--100percent position--relative">
+
+            {editor}
+          </div>
+        </div>
+      </div>
+    );
+
     // Row layout
     return (
-      <div class="display--flex flex-direction--row flex-grow--1 row">
-        {inputDataEditor}
-        {outputDataEditor}
+      <div class="display--flex flex-direction--column height--100percent">
+        <div class="display--flex flex-grow--1">
+          <Split props={{direction: 'vertical' as Object, extraClasses: 'flex-grow--1' as Object}}>
+            <SplitArea props={{size: 34 as Object}}>
+              {renderEditorWrapper('Block Input Data', inputDataEditor)}
+            </SplitArea>
+            <SplitArea props={{size: 33 as Object}}>
+              {renderEditorWrapper('Execution Output', <RefineryCodeEditor props={resultDataEditorProps} />)}
+            </SplitArea>
+            <SplitArea props={{size: 33 as Object}}>
+              {renderEditorWrapper('Return Data', <RefineryCodeEditor props={resultOutputEditorProps} />)}
+            </SplitArea>
+          </Split>
+        </div>
         {buttons}
       </div>
     );
@@ -234,15 +295,16 @@ export default class RunLambda extends Vue {
   public render(h: CreateElement): VNode {
     const loadingProps: LoadingContainerProps = {
       show: this.isCurrentlyRunning,
-      label: this.loadingText
+      label: this.loadingText,
+      classes: 'height--100percent'
     };
 
     return (
-      <div>
-        <Loading props={loadingProps}>
-          <div class="run-lambda-container display--flex flex-direction--column">{this.renderEditors()}</div>
-        </Loading>
-      </div>
+      <Loading props={loadingProps}>
+        <div class="run-lambda-container display--flex flex-direction--column height--100percent">
+          {this.renderEditors()}
+        </div>
+      </Loading>
     );
   }
 }

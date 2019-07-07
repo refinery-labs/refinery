@@ -20,6 +20,7 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
   @Prop() wrapText?: boolean;
 
   @Prop() extraClasses?: string;
+  @Prop() collapsible?: boolean;
 
   // Internal value used to prevent editors from colliding IDs. Colliding causes breaking + performance issues.
   randId: string = uuid();
@@ -67,6 +68,7 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
     const containerClasses = {
       'refinery-code-editor-container width--100percent flex-grow--1 display--flex': true,
       'refinery-code-editor-container--read-only': this.readOnly,
+      'refinery-code-editor-container--collapsible': this.collapsible,
       [this.extraClasses || '']: Boolean(this.extraClasses)
     };
 
