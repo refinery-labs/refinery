@@ -205,10 +205,10 @@ export default class RunLambda extends Vue {
 
     const isInSidepane = this.displayMode === RunLambdaDisplayMode.sidepane;
     const hasValidOutput = this.checkIfValidRunLambdaOutput();
-
-    if (!hasValidOutput && isInSidepane) {
-      return <label class="m-3">{noDataText}</label>;
-    }
+    //
+    // if (!hasValidOutput && isInSidepane) {
+    //   return <label class="m-3">{noDataText}</label>;
+    // }
 
     const resultDataEditorProps: EditorProps = {
       ...sharedEditorProps,
@@ -243,17 +243,6 @@ export default class RunLambda extends Vue {
       </div>
     );
 
-    // Column layout
-    if (this.displayMode === RunLambdaDisplayMode.sidepane) {
-      return (
-        <div class="display--flex flex-direction--column flex-grow--1">
-
-
-
-        </div>
-      );
-    }
-
     const renderEditorWrapper = (text: string, editor: any) => (
       <div class="display--flex flex-direction--column height--100percent">
 
@@ -271,8 +260,7 @@ export default class RunLambda extends Vue {
       </div>
     );
 
-    // Row layout
-    return (
+    const editors = (
       <div class="display--flex flex-direction--column height--100percent">
         <div class="display--flex flex-grow--1">
           <Split props={{direction: 'vertical' as Object, extraClasses: 'flex-grow--1' as Object}}>
@@ -290,13 +278,26 @@ export default class RunLambda extends Vue {
         {buttons}
       </div>
     );
+
+    // Column layout
+    if (this.displayMode === RunLambdaDisplayMode.sidepane) {
+      return (
+        <div class="display--flex flex-direction--column flex-grow--1 width--100percent"
+             style={{'height': '500px', 'min-width': '300px'}}>
+          {editors}
+        </div>
+      );
+    }
+
+    // Row layout
+    return editors;
   }
 
   public render(h: CreateElement): VNode {
     const loadingProps: LoadingContainerProps = {
       show: this.isCurrentlyRunning,
       label: this.loadingText,
-      classes: 'height--100percent'
+      classes: 'height--100percent width--100percent'
     };
 
     return (
