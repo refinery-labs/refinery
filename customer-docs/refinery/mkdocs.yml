@@ -3,6 +3,7 @@ nav:
   - Home: "index.md"
   - "What is Refinery?": "what-is-refinery/index.md"
   - "Architecture": "architecture/index.md"
+  - "Getting Started v2": "getting-started/index.md"
   - "Getting Started": "quickstart/intro.md"
   - "Blocks": "blocks/index.md"
   - "Transitions": "transitions/index.md"
