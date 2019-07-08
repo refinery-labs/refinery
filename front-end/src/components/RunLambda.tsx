@@ -62,9 +62,9 @@ export default class RunLambda extends Vue {
     return false;
   }
 
-  public getRunLambdaOutput() {
+  public getRunLambdaOutput(hasValidOutput: boolean) {
     // Need to check this because Ace will shit the bed if given a *gasp* null value!
-    if (!this.runResultOutput) {
+    if (!hasValidOutput || !this.runResultOutput) {
       return 'No return data to display.';
     }
 
@@ -78,6 +78,9 @@ export default class RunLambda extends Vue {
     return `${this.displayLocation}-${this.displayMode}`;
   }
 
+  /**
+   * TODO: Determine if we still want this feature on the Code Runner pane
+   */
   public renderFullscreenButton() {
     if (
       this.displayMode === RunLambdaDisplayMode.fullscreen ||
@@ -103,6 +106,8 @@ export default class RunLambda extends Vue {
   }
 
   public renderEditors() {
+    const hasValidOutput = this.checkIfValidRunLambdaOutput();
+
     const sharedEditorProps = {
       collapsible: true,
       extraClasses: 'ace-hack'
@@ -128,7 +133,7 @@ export default class RunLambda extends Vue {
       name: `result-data-${this.getNameSuffix()}`,
       // This is very nice for rendering non-programming text
       lang: 'json',
-      content: (this.runResultOutput && this.runResultOutput.returned_data) || 'Click "Execute with Data" to see output.',
+      content: (hasValidOutput && this.runResultOutput && this.runResultOutput.returned_data) || 'Click Execute button for run output.',
       wrapText: true,
       readOnly: true,
     };
@@ -138,7 +143,7 @@ export default class RunLambda extends Vue {
       name: `result-output-${this.getNameSuffix()}`,
       // This is very nice for rendering non-programming text
       lang: 'text',
-      content: this.getRunLambdaOutput(),
+      content: this.getRunLambdaOutput(hasValidOutput),
       wrapText: true,
       readOnly: true,
     };
@@ -181,10 +186,10 @@ export default class RunLambda extends Vue {
               {renderEditorWrapper('Block Input Data', inputDataEditor)}
             </SplitArea>
             <SplitArea props={{size: 33 as Object}}>
-              {renderEditorWrapper('Execution Output', <RefineryCodeEditor props={resultDataEditorProps} />)}
+              {renderEditorWrapper('Return Data', <RefineryCodeEditor props={resultDataEditorProps} />)}
             </SplitArea>
             <SplitArea props={{size: 33 as Object}}>
-              {renderEditorWrapper('Return Data', <RefineryCodeEditor props={resultOutputEditorProps} />)}
+              {renderEditorWrapper('Execution Output', <RefineryCodeEditor props={resultOutputEditorProps} />)}
             </SplitArea>
           </Split>
         </div>
