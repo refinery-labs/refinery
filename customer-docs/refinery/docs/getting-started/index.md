@@ -141,5 +141,7 @@ Although it has been fun, you probably don't want to run the Hello World project
 Now that you've deployed your first project on Refinery, why not try something a bit more complicated?
 
 * [Learn about Debugging & Logging a deployed project](/debugging/)
+* [Learn about the "backpack" parameter (carrying data across block executions)](/backpack/)
 * [Learn about the different Refinery Transition types.](/transitions/)
 * [Learn about the different Refinery Block types.](/blocks/)
+* [Learn about making an API Endpoint in Refinery.](/tutorials/api-endpoints/)
