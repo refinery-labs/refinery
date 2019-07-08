@@ -21,7 +21,7 @@
   "workflow_states": [
     {
       "language": "python2.7",
-      "code": "\ndef main( block_input, context ):\n    # Could be pulled via SQL, etc\n    return [\n        \"sam@example.com\",\n        \"fred@example.com\",\n        \"eric@example.com\"\n    ]\n",
+      "code": "\ndef main( block_input, backpack ):\n    # Could be pulled via SQL, etc\n    return [\n        \"sam@example.com\",\n        \"fred@example.com\",\n        \"eric@example.com\"\n    ]\n",
       "memory": 768,
       "libraries": [],
       "layers": [],
@@ -40,7 +40,7 @@
     },
     {
       "language": "python2.7",
-      "code": "\ndef main( block_input, context ):\n    return send_email(block_input)\n\ndef send_email(name):\n    print(name)\n    # If this were production code, we would do something here\n    return \"Send email to: \" + name\n",
+      "code": "\ndef main( block_input, backpack ):\n    return send_email(block_input)\n\ndef send_email(name):\n    print(name)\n    # If this were production code, we would do something here\n    return \"Send email to: \" + name\n",
       "memory": 768,
       "libraries": [],
       "layers": [],

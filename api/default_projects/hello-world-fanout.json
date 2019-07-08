@@ -49,7 +49,7 @@
     },
     {
       "language": "python2.7",
-      "code": "\ndef main( block_input, context ):\n    return \"Hello There\" + str(block_input)\n",
+      "code": "\ndef main( block_input, backpack ):\n    return \"Hello There\" + str(block_input)\n",
       "memory": 768,
       "libraries": [],
       "layers": [],
@@ -60,7 +60,7 @@
     },
     {
       "language": "python2.7",
-      "code": "\ndef main( block_input, context ):\n    return block_input\n",
+      "code": "\ndef main( block_input, backpack ):\n    return block_input\n",
       "memory": 768,
       "libraries": [],
       "layers": [],
@@ -71,7 +71,7 @@
     },
     {
       "language": "python2.7",
-      "code": "\ndef main( block_input, context ):\n    return [1,2,3]\n",
+      "code": "\ndef main( block_input, backpack ):\n    return [1,2,3]\n",
       "memory": 768,
       "libraries": [],
       "layers": [],
