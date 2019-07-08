@@ -41,7 +41,7 @@
     },
     {
       "language": "python2.7",
-      "code": "\ndef main( block_input, context ):\n    return \"Hello \" + block_input + \"!\"\n",
+      "code": "\ndef main( block_input, backpack ):\n    return \"Hello \" + block_input + \"!\"\n",
       "memory": 768,
       "libraries": [],
       "layers": [],
@@ -52,7 +52,7 @@
     },
     {
       "language": "python2.7",
-      "code": "\ndef main( block_input, context ):\n    return \"World\"\n",
+      "code": "\ndef main( block_input, backpack ):\n    return \"World\"\n",
       "memory": 768,
       "libraries": [],
       "layers": [],
