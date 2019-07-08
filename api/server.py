@@ -3303,7 +3303,7 @@ class TaskSpawner(object):
 		def _build_nodejs_810_lambda( credentials, code, libraries ):
 			code = re.sub(
 				r"function main\([^\)]+\)[^{]\{",
-				"function main( block_input ) {",
+				"function main( blockInput ) {",
 				code
 			)
 			
