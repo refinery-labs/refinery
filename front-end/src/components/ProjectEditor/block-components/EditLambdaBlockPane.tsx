@@ -12,7 +12,6 @@ import {
   maxExecutionMemoryText,
   maxExecutionTimeText
 } from '@/constants/project-editor-constants';
-import { RunLambdaDisplayMode } from '@/components/RunLambda';
 import RunEditorCodeBlockContainer from '@/components/ProjectEditor/RunEditorCodeBlockContainer';
 import RunDeployedCodeBlockContainer from '@/components/DeploymentViewer/RunDeployedCodeBlockContainer';
 import { nopWrite } from '@/utils/block-utils';
@@ -28,6 +27,9 @@ import {
 } from '@/components/ProjectEditor/block-components/EditEnvironmentVariablesWrapper';
 import { CreateSavedBlockViewStoreModule } from '@/store/modules/panes/create-saved-block-view';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
+import Split from '@/components/Common/Split.vue';
+import SplitArea from '@/components/Common/SplitArea.vue';
+import {RunLambdaDisplayMode} from '@/components/RunLambda';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
@@ -151,26 +153,34 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       hidden: () => setCodeModalVisibility(false)
     };
 
+    const props = {
+      'splitpanes-size': 65
+    }
+
     return (
       <b-modal
         ref={`code-modal-${this.selectedNode.id}`}
         on={modalOnHandlers}
         hide-footer={true}
-        size="xl no-max-width"
+        size="xl no-max-width no-modal-body-padding dark-modal"
         title={nameString}
         visible={showCodeModal}
       >
-        <div class="text-center display--flex flex-direction--column code-modal-editor-container overflow--scroll-y-auto overflow--hidden-x">
-          <div class="width--100percent flex-grow--1 display--flex">{this.renderCodeEditor()}</div>
-          <div class="width--100percent">
-            <RunLambdaContainer props={{ displayMode: RunLambdaDisplayMode.fullscreen }} />
-          </div>
+        <div class="text-center display--flex code-modal-editor-container overflow--hidden-x">
+          <Split props={{direction: 'horizontal' as Object, extraClasses: 'height--100percent flex-grow--1 display--flex' as Object}}>
+            <SplitArea props={{size: 67 as Object, positionRelative: true as Object}}>
+              {this.renderCodeEditor('ace-hack')}
+            </SplitArea>
+            <SplitArea props={{size: 33 as Object}}>
+              <RunLambdaContainer props={{ displayMode: RunLambdaDisplayMode.fullscreen }} />
+            </SplitArea>
+          </Split>
         </div>
       </b-modal>
     );
   }
 
-  public renderCodeEditor() {
+  public renderCodeEditor(extraClasses?: string) {
     const setCodeInput = this.readOnly ? nopWrite : this.setCodeInput;
 
     const editorProps: EditorProps = {
@@ -178,7 +188,8 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       lang: this.selectedNode.language,
       readOnly: this.readOnly,
       content: this.selectedNode.code,
-      onChange: setCodeInput
+      onChange: setCodeInput,
+      extraClasses: extraClasses
     };
 
     return <RefineryCodeEditor props={editorProps} />;

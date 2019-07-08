@@ -1,5 +1,5 @@
 <template>
-  <div class="loading-helper__container">
+  <div v-bind:class="{'loading-helper__container': true, [classes]: classes}">
     <div v-if="show" class="loading-helper__overlay">
       <div class="loading-helper__loading-text">
         <div class="spinner-border text-primary" role="status">
@@ -25,6 +25,7 @@ export default class LoadingContainer extends Vue implements LoadingContainerPro
   @Prop({ default: 'Loading...' }) label!: string;
   @Prop({ default: true }) showLabel?: boolean;
   @Prop({ default: false, required: true }) show!: boolean;
+  @Prop() classes?: string;
 }
 </script>
 

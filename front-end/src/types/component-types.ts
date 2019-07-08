@@ -23,6 +23,7 @@ export interface EditorProps {
 
   // Ace is garbage and we need this
   extraClasses?: string;
+  collapsible?: boolean;
 }
 
 export interface EditTransitionSelectorProps {
@@ -43,6 +44,7 @@ export interface LoadingContainerProps {
   label?: string;
   showLabel?: boolean;
   show: boolean;
+  classes?: string;
 }
 
 export interface ViewExecutionsListProps {
