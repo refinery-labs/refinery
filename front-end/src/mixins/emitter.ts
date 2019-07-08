@@ -1,3 +1,6 @@
+import Vue from 'vue';
+import Component from 'vue-class-component';
+
 function broadcast(context: Vue, componentName: string, eventName: string, params: string) {
   context.$children.forEach(child => {
     const name = child.$options.name;
@@ -13,17 +16,8 @@ function broadcast(context: Vue, componentName: string, eventName: string, param
   });
 }
 
-import Vue from 'vue';
-import Component from 'vue-class-component';
-import { namespace } from 'vuex-class';
-import { ToastNotification, ToastVariant } from '@/types/toasts-types';
-
-const toasts = namespace('toasts');
-
 @Component
 export default class EmitterMixin extends Vue {
-  @toasts.Action displayToast!: (toast: ToastNotification) => void;
-
   dispatch(componentName: string, eventName: string, params: string[]) {
     let parent = this.$parent || this.$root;
     let name = parent.$options.name;
@@ -42,13 +36,5 @@ export default class EmitterMixin extends Vue {
   }
   broadcast(componentName: string, eventName: string, params: string) {
     broadcast(this, componentName, eventName, params);
-  }
-
-  public displayErrorToast(title: string, content: string) {
-    this.displayToast({
-      content,
-      title,
-      variant: ToastVariant.danger
-    });
   }
 }

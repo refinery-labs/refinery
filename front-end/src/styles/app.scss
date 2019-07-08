@@ -378,8 +378,7 @@ $content-sidebar-width: 92px;
 .refinery-code-editor-container {
   min-width: 200px;
   min-height: 180px;
-  //margin-bottom: 16px;
-  //padding-bottom: 8px;
+
   &--read-only {
     .ace_scroller {
       cursor: auto;
