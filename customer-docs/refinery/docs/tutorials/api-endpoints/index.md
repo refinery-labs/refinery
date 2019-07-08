@@ -23,7 +23,7 @@ Additionally, if you transition into multiple API Response blocks - that's compl
 
 ## Retrieving URL Parameters (e.g. `/?parameter=value`)
 
-In your `Code Block` you can retrieve URL parameters by using the `queryStringParameters` key of the block input object.
+In your `Code Block` you can retrieve URL parameters by using the `queryStringParameters` key of the `block_input` object.
 
 The following code snippets demonstrate grabbing the URL parameter `number` and returning a response that multiplies the specified number by `2`:
 
