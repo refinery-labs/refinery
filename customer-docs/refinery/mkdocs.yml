@@ -3,12 +3,14 @@ nav:
   - Home: "index.md"
   - "What is Refinery?": "what-is-refinery/index.md"
   - "Architecture": "architecture/index.md"
-  - "Getting Started v2": "getting-started/index.md"
-  - "Getting Started": "quickstart/intro.md"
+  - "Getting Started": "getting-started/index.md"
   - "Blocks": "blocks/index.md"
   - "Transitions": "transitions/index.md"
   - "Debugging & Logging": "debugging/index.md"
+  - Tutorials:
+    - "Making an API Endpoint": "tutorials/api-endpoints/index.md"
 theme: material
 markdown_extensions:
   - admonition
   - codehilite
+  - pymdownx.superfences
