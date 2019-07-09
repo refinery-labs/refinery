@@ -1,4 +1,4 @@
-# Creating an API Endpoint With Refinery
+# Creating a Highly Scalable API Endpoint
 
 This tutorial will guide you through creating a scalable web API Endpoint in Refinery. It will cover topics like getting HTTP parameters, headers, and other data about a web request to your newly-created endpoint.
 

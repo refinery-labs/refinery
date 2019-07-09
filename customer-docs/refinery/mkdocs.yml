@@ -9,7 +9,7 @@ nav:
   - "The Backpack Parameter": "backpack/index.md"
   - "Debugging & Logging": "debugging/index.md"
   - Tutorials:
-    - "Making an API Endpoint": "tutorials/api-endpoints/index.md"
+    - "Creating a Highly Scalable API Endpoint": "tutorials/api-endpoints/index.md"
     - "Effortless Serverless Map Reduce": "tutorials/fan-out-fan-in/index.md"
     - "Scraping a Million URLs in a Lunch Break": "tutorials/scraping-a-million-urls/index.md"
 theme: material
