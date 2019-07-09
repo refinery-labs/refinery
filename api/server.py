@@ -6826,7 +6826,7 @@ def get_logs_data( credentials, log_paths_array ):
 	"""
 	Return data format is the following:
 	{
-		"lambda_name": []
+		"log_path_from_s3": {} <- Log Data
 	}
 	"""
 	max_concurrent_pulls = 20
@@ -6871,11 +6871,6 @@ def get_logs_data( credentials, log_paths_array ):
 		)
 			
 		return_data[ s3_object_retrieval_data[ "path" ] ] = log_data
-
-    
-	# Reverse order for return values
-	# for key, value in return_data.iteritems():
-	# 	return_data[ key ] = return_data[ key ][::-1]
 		
 	raise gen.Return( return_data )
 
