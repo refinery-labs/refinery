@@ -7,7 +7,7 @@ import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import ViewDeployedBlockPane from '@/components/DeploymentViewer/ViewDeployedBlockPane';
 import { EditorProps } from '@/types/component-types';
 import { ExecutionStatusType, GetProjectExecutionLogsResult } from '@/types/api-types';
-import { ProductionExecution } from '@/types/deployment-executions-types';
+import {BlockExecutionGroup, ProductionExecution} from '@/types/deployment-executions-types';
 
 const viewBlock = namespace('viewBlock');
 const deploymentExecutions = namespace('deploymentExecutions');
@@ -46,8 +46,8 @@ export default class ViewDeployedBlockLogsPane extends Vue {
 
   @deploymentExecutions.State selectedExecutionIndexForNode!: number;
 
-  @deploymentExecutions.Getter getAllExecutionsForNode!: GetProjectExecutionLogsResult[] | null;
-  @deploymentExecutions.Getter getSelectedExecutionForNode!: GetProjectExecutionLogsResult | null;
+  @deploymentExecutions.Getter getAllExecutionsForNode!: BlockExecutionGroup | null;
+  @deploymentExecutions.Getter getSelectedExecutionForNode!: GetProjectExecutionLogsResult & {missing: boolean} | null;
 
   @deploymentExecutions.Mutation setSelectedExecutionIndexForNode!: (i: number) => void;
 
@@ -66,8 +66,6 @@ export default class ViewDeployedBlockLogsPane extends Vue {
       </div>
     );
   }
-
-  public renderLogLinks(execution: ProductionExecution) {}
 
   renderCodeEditor(label: string, name: string, content: string, json: boolean) {
     const editorProps: EditorProps = {
@@ -93,6 +91,10 @@ export default class ViewDeployedBlockLogsPane extends Vue {
       return <div>Please select an execution.</div>;
     }
 
+    if (this.getSelectedExecutionForNode.missing) {
+      return <div>Loading execution data...</div>;
+    }
+
     const executionData = this.getSelectedExecutionForNode.data;
 
     return (
@@ -111,12 +113,12 @@ export default class ViewDeployedBlockLogsPane extends Vue {
       return null;
     }
 
-    if (this.getAllExecutionsForNode.length === 1) {
+    if (this.getAllExecutionsForNode.logs.length === 1) {
       // TODO: Show something about the current execution being singular?
       return null;
     }
 
-    const invocationItemList = this.getAllExecutionsForNode.map((exec, i) => {
+    const invocationItemList = this.getAllExecutionsForNode.logs.map((exec, i) => {
       const onHandlers = {
         // Sets the current index to be active
         click: () => this.setSelectedExecutionIndexForNode(i)

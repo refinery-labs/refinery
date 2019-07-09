@@ -7,7 +7,7 @@ import {
   DeploymentViewActions,
   DeploymentViewGetters,
   DeploymentViewMutators,
-  ProjectViewActions
+  ProjectViewActions, ProjectViewMutators
 } from '@/constants/store-constants';
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
@@ -24,7 +24,7 @@ import { getNodeDataById } from '@/utils/project-helpers';
 import { ViewBlockActions } from '@/store/modules/panes/view-block-pane';
 import { ViewTransitionActions } from '@/store/modules/panes/view-transition-pane';
 import {
-  DeploymentExecutionsActions,
+  DeploymentExecutionsActions, DeploymentExecutionsGetters,
   DeploymentExecutionsMutators
 } from '@/store/modules/panes/deployment-executions-pane';
 import { teardownProject } from '@/store/fetchers/api-helpers';
@@ -247,25 +247,31 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
         return;
       }
 
-      const nodes = context.state.openedDeployment.workflow_states.filter(e => e.id === nodeId);
+      const rawNode = getNodeDataById(context.state.openedDeployment, nodeId);
 
-      if (nodes.length === 0) {
+      if (!rawNode) {
         console.error('No node was found with id', nodeId);
         context.commit(DeploymentViewMutators.selectedResource, null);
         return;
       }
 
-      const node = nodes[0];
+      const node = deepJSONCopy(rawNode);
 
       context.commit(DeploymentViewMutators.selectedResource, node.id);
 
       await context.dispatch(`viewBlock/${ViewBlockActions.selectCurrentlySelectedProjectNode}`, null, { root: true });
 
-      const paneToOpen =
-        context.rootState.deploymentExecutions.selectedExecutionGroup &&
-        context.rootGetters['deploymentExecutions/getSelectedExecutionForNode']
-          ? SIDEBAR_PANE.viewDeployedBlockLogs
-          : SIDEBAR_PANE.viewDeployedBlock;
+      const selectedExecutionGroup = context.rootState.deploymentExecutions.selectedExecutionGroup;
+      const selectedExecutionGroupForNode = context.rootGetters[`deploymentExecutions/${DeploymentExecutionsGetters.getSelectedExecutionForNode}`];
+
+      const viewBlockLogs = selectedExecutionGroup && selectedExecutionGroupForNode;
+
+      const paneToOpen = viewBlockLogs ? SIDEBAR_PANE.viewDeployedBlockLogs : SIDEBAR_PANE.viewDeployedBlock;
+
+      // Kick off grabbing the logs
+      if (viewBlockLogs) {
+        context.dispatch(`deploymentExecutions/${DeploymentExecutionsActions.fetchLogsForSelectedBlock}`, null, {root: true});
+      }
 
       await context.dispatch(DeploymentViewActions.openRightSidebarPane, paneToOpen);
     },

@@ -1,6 +1,5 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
-import { Watch } from 'vue-property-decorator';
 import { Route } from 'vue-router';
 import { namespace } from 'vuex-class';
 import SidebarNav from '@/components/SidebarNav';
@@ -9,6 +8,11 @@ import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import EditorPaneWrapper from '@/components/EditorPaneWrapper';
 import { paneToContainerMapping } from '@/constants/project-editor-constants';
 import DeploymentViewerGraphContainer from '@/containers/DeploymentViewerGraphContainer';
+import store from '@/store/index';
+import {
+  DeploymentViewActions,
+} from '@/constants/store-constants';
+import {DeploymentExecutionsMutators} from '@/store/modules/panes/deployment-executions-pane';
 
 const deployment = namespace('deployment');
 
@@ -25,10 +29,20 @@ export default class ProjectDeployments extends Vue {
 
   @deployment.Action closePane!: (p: PANE_POSITION) => void;
 
-  @Watch('$route', { immediate: true })
-  private routeChanged(val: Route) {
+  // This handles fetching the data for the UI upon route entry
+  // Note: We don't block the call to next because that allows the user to "see" the UI first, including a loading animation.
+  // Maybe that is a mistake... But it feels reasonable also. Could re-evaluate this in the future?
+  public async beforeRouteEnter(to: Route, from: Route, next: () => void) {
+    next();
+
     // TODO: Check if the state is still valid to allow caching + faster UX
-    this.openDeployment(val.params.projectId);
+    await store.dispatch(`deployment/${DeploymentViewActions.openDeployment}`, to.params.projectId);
+  }
+
+  public beforeRouteLeave(to: Route, from: Route, next: () => void) {
+    // Don't continue execution fetching job after we leave
+    store.commit(`deploymentExecutions/${DeploymentExecutionsMutators.setAutoRefreshJobNonce}`, null);
+    next();
   }
 
   public handleItemClicked(pane: SIDEBAR_PANE) {

@@ -6869,17 +6869,13 @@ def get_logs_data( credentials, log_paths_array ):
 		log_data = json.loads(
 			s3_object_retrieval_data[ "body" ]
 		)
-		
-		if not ( log_data[ "function_name" ] in return_data ):
-			return_data[ log_data[ "function_name" ] ] = []
 			
-		return_data[ log_data[ "function_name" ] ].append(
-			log_data
-		)
+		return_data[ s3_object_retrieval_data[ "path" ] ] = log_data
+
     
 	# Reverse order for return values
-	for key, value in return_data.iteritems():
-		return_data[ key ] = return_data[ key ][::-1]
+	# for key, value in return_data.iteritems():
+	# 	return_data[ key ] = return_data[ key ][::-1]
 		
 	raise gen.Return( return_data )
 

@@ -3,20 +3,20 @@ import Component from 'vue-class-component';
 import { Prop } from 'vue-property-decorator';
 import { ViewExecutionsListProps } from '@/types/component-types';
 import moment from 'moment';
-import { ProductionExecution } from '@/types/deployment-executions-types';
+import {ProductionExecution, ProjectExecution} from '@/types/deployment-executions-types';
 
 @Component
 export default class ViewExecutionsList extends Vue implements ViewExecutionsListProps {
-  @Prop({ required: true }) projectExecutions!: ProductionExecution[] | null;
+  @Prop({ required: true }) projectExecutions!: { [key: string]: ProjectExecution } | null;
   @Prop({ required: true }) selectedExecutionGroup!: string | null;
   @Prop({ required: true }) openExecutionGroup!: (id: string) => void;
   @Prop({ required: true }) isBusyRefreshing!: boolean;
   @Prop({ required: true }) showMoreExecutions!: () => void;
   @Prop({ required: true }) hasMoreExecutionsToLoad!: boolean;
 
-  public renderExecution(execution: ProductionExecution) {
+  public renderExecution(execution: ProjectExecution) {
     const durationSinceUpdated = moment
-      .duration(-moment().diff(execution.oldest_observed_timestamp * 1000))
+      .duration(-moment().diff(execution.oldestTimestamp * 1000))
       .humanize(true);
 
     const isActive = execution.executionId === this.selectedExecutionGroup;
@@ -44,7 +44,7 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
           </div>
           <div style="width: 80px" class="text-align--left">
             <b-badge variant="info" pill>
-              {execution.logs.length} execution{execution.logs.length > 1 ? 's' : ''}
+              {execution.numberOfLogs} execution{execution.numberOfLogs > 1 ? 's' : ''}
             </b-badge>
           </div>
         </b-list-group-item>
@@ -90,7 +90,7 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
 
     const projectExecutions = this.projectExecutions;
 
-    if (projectExecutions.length === 0) {
+    if (Object.keys(projectExecutions).length === 0) {
       return (
         <div class={containerClasses}>
           <h4 style="margin: 10px;">
@@ -113,7 +113,7 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
 
     return (
       <div class={containerClasses}>
-        <b-list-group>{projectExecutions.map(execution => this.renderExecution(execution))}</b-list-group>
+        <b-list-group>{Object.values(projectExecutions).map(execution => this.renderExecution(execution))}</b-list-group>
         {this.renderLoadButton()}
       </div>
     );

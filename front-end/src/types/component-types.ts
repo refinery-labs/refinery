@@ -6,7 +6,7 @@ import {
   WorkflowStateType
 } from '@/types/graph';
 import { IfDropDownSelectionType } from '@/store/store-types';
-import { ProductionExecution } from '@/types/deployment-executions-types';
+import {ProductionExecution, ProjectExecution} from '@/types/deployment-executions-types';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
 
 export interface EditorProps {
@@ -48,7 +48,7 @@ export interface LoadingContainerProps {
 }
 
 export interface ViewExecutionsListProps {
-  projectExecutions: ProductionExecution[] | null;
+  projectExecutions: { [key: string]: ProjectExecution } | null;
   selectedExecutionGroup: string | null;
   openExecutionGroup: (id: string) => void;
   showMoreExecutions: () => void;
