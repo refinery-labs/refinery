@@ -59,7 +59,7 @@ const plugins = [
 
 // Add all dev-only plugins
 if (isDevelopment) {
-  plugins.push(ActionLoggerPlugin);
+  // plugins.push(ActionLoggerPlugin);
 }
 
 /**
