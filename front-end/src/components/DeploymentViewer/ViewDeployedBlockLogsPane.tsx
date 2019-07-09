@@ -117,26 +117,23 @@ export default class ViewDeployedBlockLogsPane extends Vue {
       // TODO: Show something about the current execution being singular?
       return null;
     }
+    const onHandlers = {
+      // Sets the current index to be active
+      change: (i: number) => this.setSelectedExecutionIndexForNode(i)
+    };
 
     const invocationItemList = this.getAllExecutionsForNode.logs.map((exec, i) => {
-      const onHandlers = {
-        // Sets the current index to be active
-        click: () => this.setSelectedExecutionIndexForNode(i)
+      return {
+        value: i,
+        text: `Invocation #${i + 1}`
       };
-
-      const isActive = this.selectedExecutionIndexForNode === i;
-
-      return (
-        <b-dropdown-item on={onHandlers} active={isActive}>
-          Invocation #{i + 1}
-        </b-dropdown-item>
-      );
     });
 
     return (
-      <b-dropdown right text={`Invocation #${this.selectedExecutionIndexForNode + 1}`} variant="primary" class="m-2">
-        {invocationItemList}
-      </b-dropdown>
+      <b-form-select class="padding--small mt-2 mb-2"
+                     value={this.selectedExecutionIndexForNode}
+                     on={onHandlers}
+                     options={invocationItemList} />
     );
   }
 

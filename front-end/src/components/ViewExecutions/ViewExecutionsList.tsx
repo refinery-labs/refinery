@@ -34,15 +34,15 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
           class="d-flex justify-content-between align-items-center"
           on={{ click: () => this.openExecutionGroup(execution.executionId) }}
         >
-          <label class={labelClasses} style="width: 80px">
+          <label class={labelClasses} style="min-width: 80px">
             {durationSinceUpdated}
           </label>
-          <div style="width: 80px" class="text-align--right padding-right--small">
+          <div style="min-width: 80px" class="text-align--right padding-right--small">
             <b-badge variant={execution.error ? 'danger' : 'success'} pill>
               {execution.error ? 'error' : 'pass'}
             </b-badge>
           </div>
-          <div style="width: 80px" class="text-align--left">
+          <div style="min-width: 80px" class="text-align--left">
             <b-badge variant="info" pill>
               {execution.numberOfLogs} execution{execution.numberOfLogs > 1 ? 's' : ''}
             </b-badge>
