@@ -6,8 +6,7 @@
 
 <script lang="ts">
 import Vue from 'vue';
-import Component, { mixins } from 'vue-class-component';
-import Emitter from '../../mixins/emitter';
+import Component from 'vue-class-component';
 import SplitJs from 'split.js';
 import {Prop, Watch} from 'vue-property-decorator';
 
@@ -19,7 +18,7 @@ interface SplitInstanceData {
 }
 
 @Component
-export default class SplitComponent extends mixins(Emitter) implements SplitInstanceData {
+export default class SplitComponent extends Vue implements SplitInstanceData {
   elements: Array<string | HTMLElement> = [];
   instance: SplitJs.Instance | null = null;
   minSizes: any[] = [];

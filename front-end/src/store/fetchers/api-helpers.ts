@@ -8,7 +8,7 @@ import {
   GetConsoleCredentialsRequest,
   GetConsoleCredentialsResponse,
   GetProjectExecutionLogsRequest,
-  GetProjectExecutionLogsResponse,
+  GetProjectExecutionLogsResponse, GetProjectExecutionLogsResult,
   GetProjectExecutionsRequest,
   GetProjectExecutionsResponse,
   GetSavedProjectRequest,
@@ -28,8 +28,8 @@ import {
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
 import { ProductionExecution, ProductionExecutionResponse } from '@/types/deployment-executions-types';
-import { convertExecutionResponseToProjectExecutions } from '@/utils/project-execution-utils';
-import { SupportedLanguage, WorkflowState } from '@/types/graph';
+import { convertExecutionResponseToProjectExecutionGroup } from '@/utils/project-execution-utils';
+import {RefineryProject, SupportedLanguage, WorkflowState} from '@/types/graph';
 import { ProductionWorkflowState } from '@/types/production-workflow-types';
 import { blockTypeToDefaultStateMapping, DEFAULT_PROJECT_CONFIG } from '@/constants/project-editor-constants';
 import { unwrapProjectJson } from '@/utils/project-helpers';
@@ -40,11 +40,11 @@ export interface libraryBuildArguments {
 }
 
 export async function getProjectExecutions(
-  projectId: string,
+  project: RefineryProject,
   token: string | null
 ): Promise<ProductionExecutionResponse | null> {
   const request: GetProjectExecutionsRequest = {
-    project_id: projectId
+    project_id: project.project_id
   };
 
   // Pass the token if we have one
@@ -66,7 +66,7 @@ export async function getProjectExecutions(
     return null;
   }
 
-  const convertedExecutions = convertExecutionResponseToProjectExecutions(executionsResponse.result.executions);
+  const convertedExecutions = convertExecutionResponseToProjectExecutionGroup(project, executionsResponse.result.executions);
 
   return {
     continuationToken: executionsResponse.result.continuation_token,
@@ -74,11 +74,16 @@ export async function getProjectExecutions(
   };
 }
 
-export async function getLogsForExecutions(execution: ProductionExecution) {
+export async function getLogsForExecutions(project: RefineryProject, execution: string[]): Promise<{ [key: string]: GetProjectExecutionLogsResult[] } | null> {
+  if (!project) {
+    console.error('Tried to fetch logs without specified project');
+    return null;
+  }
+
   const response = await makeApiRequest<GetProjectExecutionLogsRequest, GetProjectExecutionLogsResponse>(
     API_ENDPOINT.GetProjectExecutionLogs,
     {
-      logs: execution.logs
+      logs: execution
     }
   );
 
@@ -88,6 +93,20 @@ export async function getLogsForExecutions(execution: ProductionExecution) {
   }
 
   return response.result;
+
+  // Replace "names" with IDs for the associative lookup
+  // return Object.keys(response.result)
+  //   .reduce((prev, blockName) => {
+  //     const matchingBlock = project.workflow_states.find(s => s.name === blockName);
+  //
+  //     if (!matchingBlock) {
+  //       return prev;
+  //     }
+  //
+  //     prev[matchingBlock.id] = response.result[blockName];
+  //
+  //     return prev;
+  //   }, {} as typeof response.result);
 }
 
 export async function checkBuildStatus(libraryBuildArgs: libraryBuildArguments) {

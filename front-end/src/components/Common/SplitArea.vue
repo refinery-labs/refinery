@@ -6,11 +6,9 @@
 
 <script lang="ts">
   import Vue from 'vue';
-  import Emitter from '../../mixins/emitter';
 
   export default Vue.extend({
     name: 'SplitArea',
-    mixins: [Emitter],
     props: {
       size: {
         type: Number,

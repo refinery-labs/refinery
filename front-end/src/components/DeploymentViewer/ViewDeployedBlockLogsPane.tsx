@@ -5,9 +5,10 @@ import moment from 'moment';
 import { SupportedLanguage, WorkflowState } from '@/types/graph';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import ViewDeployedBlockPane from '@/components/DeploymentViewer/ViewDeployedBlockPane';
-import { EditorProps } from '@/types/component-types';
+import {EditorProps, LoadingContainerProps} from '@/types/component-types';
 import { ExecutionStatusType, GetProjectExecutionLogsResult } from '@/types/api-types';
-import { ProductionExecution } from '@/types/deployment-executions-types';
+import {BlockExecutionGroup, ProductionExecution} from '@/types/deployment-executions-types';
+import Loading from '@/components/Common/Loading.vue';
 
 const viewBlock = namespace('viewBlock');
 const deploymentExecutions = namespace('deploymentExecutions');
@@ -46,8 +47,8 @@ export default class ViewDeployedBlockLogsPane extends Vue {
 
   @deploymentExecutions.State selectedExecutionIndexForNode!: number;
 
-  @deploymentExecutions.Getter getAllExecutionsForNode!: GetProjectExecutionLogsResult[] | null;
-  @deploymentExecutions.Getter getSelectedExecutionForNode!: GetProjectExecutionLogsResult | null;
+  @deploymentExecutions.Getter getAllExecutionsForNode!: BlockExecutionGroup | null;
+  @deploymentExecutions.Getter getSelectedExecutionForNode!: GetProjectExecutionLogsResult & {missing: boolean} | null;
 
   @deploymentExecutions.Mutation setSelectedExecutionIndexForNode!: (i: number) => void;
 
@@ -66,8 +67,6 @@ export default class ViewDeployedBlockLogsPane extends Vue {
       </div>
     );
   }
-
-  public renderLogLinks(execution: ProductionExecution) {}
 
   renderCodeEditor(label: string, name: string, content: string, json: boolean) {
     const editorProps: EditorProps = {
@@ -93,6 +92,16 @@ export default class ViewDeployedBlockLogsPane extends Vue {
       return <div>Please select an execution.</div>;
     }
 
+    if (this.getSelectedExecutionForNode.missing) {
+      const loadingProps:LoadingContainerProps = {
+        show: true,
+        label: 'Loading execution logs...'
+      };
+      return <div style="margin-top: 30px; min-height: 60px">
+        <Loading props={loadingProps} />
+      </div>;
+    }
+
     const executionData = this.getSelectedExecutionForNode.data;
 
     return (
@@ -111,30 +120,27 @@ export default class ViewDeployedBlockLogsPane extends Vue {
       return null;
     }
 
-    if (this.getAllExecutionsForNode.length === 1) {
+    if (this.getAllExecutionsForNode.logs.length === 1) {
       // TODO: Show something about the current execution being singular?
       return null;
     }
+    const onHandlers = {
+      // Sets the current index to be active
+      change: (i: number) => this.setSelectedExecutionIndexForNode(i)
+    };
 
-    const invocationItemList = this.getAllExecutionsForNode.map((exec, i) => {
-      const onHandlers = {
-        // Sets the current index to be active
-        click: () => this.setSelectedExecutionIndexForNode(i)
+    const invocationItemList = this.getAllExecutionsForNode.logs.map((exec, i) => {
+      return {
+        value: i,
+        text: `Invocation #${i + 1}`
       };
-
-      const isActive = this.selectedExecutionIndexForNode === i;
-
-      return (
-        <b-dropdown-item on={onHandlers} active={isActive}>
-          Invocation #{i + 1}
-        </b-dropdown-item>
-      );
     });
 
     return (
-      <b-dropdown right text={`Invocation #${this.selectedExecutionIndexForNode + 1}`} variant="primary" class="m-2">
-        {invocationItemList}
-      </b-dropdown>
+      <b-form-select class="padding--small mt-2 mb-2"
+                     value={this.selectedExecutionIndexForNode}
+                     on={onHandlers}
+                     options={invocationItemList} />
     );
   }
 

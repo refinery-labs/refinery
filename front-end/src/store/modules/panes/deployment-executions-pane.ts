@@ -2,21 +2,31 @@ import { Module } from 'vuex';
 import uuid from 'uuid/v4';
 import { RootState } from '../../store-types';
 import { getLogsForExecutions, getProjectExecutions } from '@/store/fetchers/api-helpers';
-import { ProductionExecution } from '@/types/deployment-executions-types';
+import {BlockExecutionGroup, ProjectExecution} from '@/types/deployment-executions-types';
 import { sortExecutions } from '@/utils/project-execution-utils';
 import { ExecutionStatusType, GetProjectExecutionLogsResult } from '@/types/api-types';
 import { STYLE_CLASSES } from '@/lib/cytoscape-styles';
 import { deepJSONCopy } from '@/lib/general-utils';
-import { autoRefreshJob, timeout, waitUntil } from '@/utils/async-utils';
+import {autoRefreshJob, timeout, waitUntil} from '@/utils/async-utils';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { DeploymentViewActions } from '@/constants/store-constants';
-import { globalDispatchToast } from '@/utils/toasts-utils';
 
 // Enums
+export enum DeploymentExecutionsGetters {
+  sortedExecutions = 'sortedExecutions',
+  getSelectedProjectExecution = 'getSelectedProjectExecution',
+  getAllExecutionsForNode = 'getAllExecutionsForNode',
+  getMissingLogsForNode = 'getMissingLogsForNode',
+  getSelectedExecutionForNode = 'getSelectedExecutionForNode',
+  graphElementsWithExecutionStatus = 'graphElementsWithExecutionStatus'
+
+}
+
 export enum DeploymentExecutionsMutators {
   resetPane = 'resetPane',
   setIsBusy = 'setIsBusy',
   setIsFetchingMoreExecutions = 'setIsFetchingMoreExecutions',
+  setIsFetchingLogs = 'setIsFetchingLogs',
   setProjectExecutions = 'setProjectExecutions',
   setContinuationToken = 'setContinuationToken',
 
@@ -33,22 +43,24 @@ export enum DeploymentExecutionsActions {
   activatePane = 'activatePane',
   getExecutionsForOpenedDeployment = 'getExecutionsForOpenedDeployment',
   openExecutionGroup = 'openExecutionGroup',
-  updateExecutionGroupLogs = 'updateExecutionGroupLogs'
+  fetchLogsForSelectedBlock = 'fetchLogsForSelectedBlock'
 }
 
 // Types
 export interface DeploymentExecutionsPaneState {
   isBusy: boolean;
   isFetchingMoreExecutions: boolean;
+  isFetchingLogs: boolean;
 
-  projectExecutions: { [key: string]: ProductionExecution } | null;
+  projectExecutions: { [key: string]: ProjectExecution } | null;
+
   continuationToken: string | null;
   autoRefreshJobRunning: boolean;
   autoRefreshJobIterations: number;
   autoRefreshJobNonce: string | null;
 
   selectedExecutionGroup: string | null;
-  executionGroupLogs: { [key: string]: GetProjectExecutionLogsResult[] } | null;
+  executionGroupLogs: { [key: string]: GetProjectExecutionLogsResult[] };
 
   selectedExecutionIndexForNode: number;
 }
@@ -57,6 +69,7 @@ export interface DeploymentExecutionsPaneState {
 const moduleState: DeploymentExecutionsPaneState = {
   isBusy: false,
   isFetchingMoreExecutions: false,
+  isFetchingLogs: false,
 
   projectExecutions: null,
   continuationToken: null,
@@ -65,17 +78,17 @@ const moduleState: DeploymentExecutionsPaneState = {
   autoRefreshJobNonce: null,
 
   selectedExecutionGroup: null,
-  executionGroupLogs: null,
+  executionGroupLogs: {},
 
   selectedExecutionIndexForNode: 0
 };
 
-function getExecutionStatusStyleForLogs(logs: GetProjectExecutionLogsResult[]) {
-  if (logs.some(ele => ele.type === ExecutionStatusType.EXCEPTION)) {
+function getExecutionStatusStyleForLogs(logs: BlockExecutionGroup) {
+  if (logs.groupExecutionStatus === ExecutionStatusType.EXCEPTION) {
     return STYLE_CLASSES.EXECUTION_FAILURE;
   }
 
-  if (logs.some(ele => ele.type === ExecutionStatusType.CAUGHT_EXCEPTION)) {
+  if (logs.groupExecutionStatus === ExecutionStatusType.CAUGHT_EXCEPTION) {
     return STYLE_CLASSES.EXECUTION_CAUGHT;
   }
 
@@ -86,30 +99,52 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
   namespaced: true,
   state: deepJSONCopy(moduleState),
   getters: {
-    sortedExecutions: state => state.projectExecutions && sortExecutions(Object.values(state.projectExecutions)),
-    getAllExecutionsForNode: (state, getters, rootState) => {
-      if (!rootState.viewBlock.selectedNode || !state.executionGroupLogs) {
+    [DeploymentExecutionsGetters.sortedExecutions]: state => state.projectExecutions && sortExecutions(Object.values(state.projectExecutions)),
+    [DeploymentExecutionsGetters.getSelectedProjectExecution]: state => state.selectedExecutionGroup && state.projectExecutions && state.projectExecutions[state.selectedExecutionGroup],
+    [DeploymentExecutionsGetters.getAllExecutionsForNode]: (state, getters, rootState) => {
+      const selectedExecutionGroup: ProjectExecution | null = getters[DeploymentExecutionsGetters.getSelectedProjectExecution];
+
+      if (!rootState.viewBlock.selectedNode || !selectedExecutionGroup) {
         return null;
       }
 
-      const selectedResourceName = rootState.viewBlock.selectedNode.name;
-
-      return state.executionGroupLogs[selectedResourceName];
+      return selectedExecutionGroup.logsGroupedByBlockId[rootState.viewBlock.selectedNode.id];
     },
-    getSelectedExecutionForNode: (state, getters) => {
-      const allExecutions = getters.getAllExecutionsForNode;
-      if (!allExecutions || allExecutions.length === 0) {
+    [DeploymentExecutionsGetters.getMissingLogsForNode]: (state, getters) => {
+      const allExecutionsForNodeRaw = getters[DeploymentExecutionsGetters.getAllExecutionsForNode] as BlockExecutionGroup;
+
+      if (!allExecutionsForNodeRaw || !state.executionGroupLogs) {
         return null;
       }
 
-      return allExecutions[state.selectedExecutionIndexForNode] || allExecutions[0];
+      const allExecutionsForNode = allExecutionsForNodeRaw as BlockExecutionGroup;
+      const executionGroupLogs = state.executionGroupLogs;
+
+      // Generate a list of all missing execution logs
+      return allExecutionsForNode.logs.reduce((previousValue, currentValue) => {
+        if (!executionGroupLogs[currentValue.rawLog]) {
+          previousValue.push(currentValue.rawLog);
+        }
+        return previousValue;
+      }, [] as string[]);
+
     },
-    graphElementsWithExecutionStatus: (state, getters, rootState) => {
-      if (!rootState.deployment.cytoscapeElements || !state.executionGroupLogs) {
+    [DeploymentExecutionsGetters.getSelectedExecutionForNode]: (state, getters) => {
+      const allExecutions = getters[DeploymentExecutionsGetters.getAllExecutionsForNode] as BlockExecutionGroup;
+      if (!allExecutions || allExecutions.logs.length === 0) {
         return null;
       }
 
-      const logs = state.executionGroupLogs;
+      const selectedExecution = allExecutions.logs[state.selectedExecutionIndexForNode] || allExecutions.logs[0];
+
+      return state.executionGroupLogs[selectedExecution.rawLog] || {missing: true, rawLog: selectedExecution.rawLog};
+    },
+    [DeploymentExecutionsGetters.graphElementsWithExecutionStatus]: (state, getters, rootState) => {
+      if (!rootState.deployment.cytoscapeElements || !state.projectExecutions || state.selectedExecutionGroup === null) {
+        return null;
+      }
+
+      const executionGroup = state.projectExecutions[state.selectedExecutionGroup];
 
       const elements = rootState.deployment.cytoscapeElements;
 
@@ -117,9 +152,14 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       const nodes =
         elements.nodes &&
         elements.nodes.map(element => {
-          const matchingElement = logs[element.data.name];
 
-          if (!matchingElement || matchingElement.length === 0) {
+          if (element.data.id === undefined) {
+            return element;
+          }
+
+          const matchingElement = executionGroup.logsGroupedByBlockId[element.data.id];
+
+          if (!matchingElement) {
             return element;
           }
 
@@ -151,6 +191,9 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
     },
     [DeploymentExecutionsMutators.setIsFetchingMoreExecutions](state, isFetching) {
       state.isFetchingMoreExecutions = isFetching;
+    },
+    [DeploymentExecutionsMutators.setIsFetchingLogs](state, isFetching) {
+      state.isFetchingLogs = isFetching;
     },
     [DeploymentExecutionsMutators.setProjectExecutions](state, executions) {
       state.projectExecutions = executions;
@@ -242,7 +285,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       const tokenToContinueWith = withExistingToken ? context.state.continuationToken : null;
 
       const executionsResponse = await getProjectExecutions(
-        deploymentStore.openedDeployment.project_id,
+        deploymentStore.openedDeployment,
         tokenToContinueWith
       );
 
@@ -262,7 +305,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       context.commit(DeploymentExecutionsMutators.setContinuationToken, executionsResponse.continuationToken);
 
       if (context.state.selectedExecutionGroup !== null) {
-        await context.dispatch(DeploymentExecutionsActions.updateExecutionGroupLogs);
+        await context.dispatch(DeploymentExecutionsActions.fetchLogsForSelectedBlock);
       }
 
       context.commit(statusMessageType, false);
@@ -272,12 +315,12 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       context.commit(DeploymentExecutionsMutators.setIsBusy, true);
 
-      await context.dispatch(DeploymentExecutionsActions.updateExecutionGroupLogs);
+      await context.dispatch(DeploymentExecutionsActions.fetchLogsForSelectedBlock);
 
       // "Convert" the currently opened pane into the execution view pane
       if (
         context.rootState.deployment.activeRightSidebarPane === SIDEBAR_PANE.viewDeployedBlock &&
-        context.getters.getSelectedExecutionForNode
+        context.getters[DeploymentExecutionsGetters.getSelectedExecutionForNode]
       ) {
         await context.dispatch(
           `deployment/${DeploymentViewActions.openRightSidebarPane}`,
@@ -288,8 +331,8 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       context.commit(DeploymentExecutionsMutators.setIsBusy, false);
     },
-    async [DeploymentExecutionsActions.updateExecutionGroupLogs](context) {
-      if (!context.state.projectExecutions || !context.state.selectedExecutionGroup) {
+    async [DeploymentExecutionsActions.fetchLogsForSelectedBlock](context) {
+      if (!context.state.projectExecutions || !context.state.selectedExecutionGroup || !context.rootState.deployment.openedDeployment) {
         console.error('Attempted to open project execution with invalid execution group');
         return;
       }
@@ -301,14 +344,53 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         return;
       }
 
-      const response = await getLogsForExecutions(projectExecution);
+      const executionsForNode = context.getters[DeploymentExecutionsGetters.getAllExecutionsForNode] as BlockExecutionGroup;
+      const missingExecutions = context.getters[DeploymentExecutionsGetters.getMissingLogsForNode] as string[];
 
-      if (!response) {
-        console.error('Unable to retrieve logs for execution');
+      if (!executionsForNode || !missingExecutions || missingExecutions.length === 0) {
         return;
       }
 
-      context.commit(DeploymentExecutionsMutators.setExecutionGroupLogs, response);
+      if (context.state.isFetchingLogs) {
+        return;
+      }
+
+      context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, true);
+
+      const tooManyExecutions = missingExecutions.length > 50;
+
+      // Cap at retrieving 50 executions at a time... To keep from melting the server.
+      const executionsToFetch = tooManyExecutions ? missingExecutions.slice(0, 50) : missingExecutions;
+
+      const selectedExecution = context.getters[DeploymentExecutionsGetters.getSelectedExecutionForNode];
+
+      // Prioritize fetching the execution that is currently missing but is selected
+      if (selectedExecution && selectedExecution.missing && !executionsToFetch.includes(selectedExecution.rawLog)) {
+        executionsToFetch.push(selectedExecution.rawLog)
+      }
+
+      const response = await getLogsForExecutions(context.rootState.deployment.openedDeployment, executionsToFetch);
+
+      context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, false);
+
+      if (!response) {
+        console.error('Unable to retrieve logs for execution');
+        if (tooManyExecutions) {
+          await timeout(10000);
+          await context.dispatch(DeploymentExecutionsActions.fetchLogsForSelectedBlock);
+        }
+
+        return;
+      }
+
+      context.commit(DeploymentExecutionsMutators.setExecutionGroupLogs, {
+        ...context.state.executionGroupLogs,
+        ...response
+      });
+
+      if (tooManyExecutions) {
+        await context.dispatch(DeploymentExecutionsActions.fetchLogsForSelectedBlock);
+      }
     }
   }
 };
