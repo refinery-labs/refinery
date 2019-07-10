@@ -30,7 +30,7 @@ For example, say we have two blocks: `Code Block A` and `Code Block B`. Say that
 
 ```python
 # Code Block A
-def main( lambda_input, context ):
+def main( block_input, context ):
     print( "Let's return some data!" )
     return [1,2,3,4,5]
 ```
@@ -38,9 +38,9 @@ def main( lambda_input, context ):
 And `Code Block B` has the following code:
 ```javascript
 // Code Block B
-async function main( lambda_input, context ) {
+async function main( block_input, context ) {
 	console.log("Let's print out our input:");
-	console.log(lambda_input);
+	console.log(block_input);
 	return false;
 }
 ```
@@ -63,7 +63,7 @@ You also may have noticed that `Code Block A` and `Code Block B` are written in 
 ### Block Options
 
 * `Block Name`: The name of the `Code Block`.
-* `Block Code`: This is the core code which will execute upon the `Code Block` being invoked. This must include the declaration of the function `main` which accepts two arguments `lambda_input` and `context`. `lambda_input` is the JSON-serializable input the `Code Block` was called with, and `context` contains metadata related to the `Code Block`'s runtime.
+* `Block Code`: This is the core code which will execute upon the `Code Block` being invoked. This must include the declaration of the function `main` which accepts two arguments `block_input` and `backpack`. `block_input` is the JSON-serializable input the `Code Block` was called with, and `backpack` is an object you can store data in which will be passed to future block executions automatically.
 
 <video style="width: 100%" playsinlines controls autoplay muted loop>
 	<source src="/blocks/images/running-code-block-fullscreen.webm" type="video/webm" />

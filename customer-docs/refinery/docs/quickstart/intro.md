@@ -20,7 +20,7 @@ Create a new project by navigating to the [All Projects](https://app.refinery.io
 	<source src="/quickstart/images/add-code-block.mp4" type="video/mp4" />
 </video>
 
-Now we'll add our Code Block to project. We'll start by click on the `Add Block` button on the left side of the project. Change the `Block Name` to be `Example Block` and click on the `Save Block` button to save the change.
+Now we'll add our Code Block to project. We'll start by click on the `Add Block` button on the left side of the project. Change the `Block Name` to be `Example Block`.
 
 Now that you have a new Code Block, select one of the following languages under the `Block Runtime` block editor section which you are the most familiar with:
 
@@ -37,12 +37,11 @@ Now that you have a new Code Block, select one of the following languages under 
 Once you've selected a language you can now start writing some code. In our example we'll choose Python 2.7 and we'll edit the block code to be the following:
 
 ```python
-def main(lambda_input, context):
-    print("Hello world!")
-    return False
+def main(block_input, backpack):
+    return "Hello World!"
 ```
 
-This is a simple script which will just print `Hello world!` upon executing. Once you've written your `Hello World` script you can save the block by clicking the blue `Save Block` button.
+This is a simple script which will just print `Hello world!` upon executing.
 
 ## Adding a Timer Block
 
@@ -102,5 +101,6 @@ Since you probably don't want this simple script executing forever, let's tear i
 
 Now that you've build something really simple with Refinery, why not build something a bit more complex? Head over to some of these articles to learn about more Refinery features:
 
+* [Debugging & Logging](/debugging/)
 * [The Refinery Blocks](/blocks/)
 * [The Refinery Transitions](/transitions/)
