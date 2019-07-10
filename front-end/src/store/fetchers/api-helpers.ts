@@ -93,20 +93,6 @@ export async function getLogsForExecutions(project: RefineryProject, execution: 
   }
 
   return response.result;
-
-  // Replace "names" with IDs for the associative lookup
-  // return Object.keys(response.result)
-  //   .reduce((prev, blockName) => {
-  //     const matchingBlock = project.workflow_states.find(s => s.name === blockName);
-  //
-  //     if (!matchingBlock) {
-  //       return prev;
-  //     }
-  //
-  //     prev[matchingBlock.id] = response.result[blockName];
-  //
-  //     return prev;
-  //   }, {} as typeof response.result);
 }
 
 export async function checkBuildStatus(libraryBuildArgs: libraryBuildArguments) {

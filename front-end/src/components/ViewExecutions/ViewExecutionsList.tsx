@@ -7,7 +7,7 @@ import {ProductionExecution, ProjectExecution} from '@/types/deployment-executio
 
 @Component
 export default class ViewExecutionsList extends Vue implements ViewExecutionsListProps {
-  @Prop({ required: true }) projectExecutions!: { [key: string]: ProjectExecution } | null;
+  @Prop({ required: true }) projectExecutions!: ProjectExecution[] | null;
   @Prop({ required: true }) selectedExecutionGroup!: string | null;
   @Prop({ required: true }) openExecutionGroup!: (id: string) => void;
   @Prop({ required: true }) isBusyRefreshing!: boolean;
