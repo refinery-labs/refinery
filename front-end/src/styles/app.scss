@@ -306,6 +306,7 @@ $content-sidebar-width: 92px;
 }
 
 .dark-modal {
+  margin: 0 -1px;
   .modal-content {
     color: $light;
     background-color: $dark;
@@ -324,9 +325,7 @@ $content-sidebar-width: 92px;
 }
 
 .code-modal-editor-container {
-  height: 87.5vh;
-  //width: 90vw;
-  //max-width: 1000px
+  height: calc(100vh - 59px);
 }
 
 .deploy-pane-container {
