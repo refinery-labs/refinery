@@ -4,7 +4,7 @@ Refinery makes it easy to do a large amount of distributed computation without h
 
 One common architecture that is created when a large amount of work needs to be done is a [job queue](https://en.wikipedia.org/wiki/Job_queue) with distributed workers. In this pattern you have a queue which is used to dispatch jobs to workers which do some operation with the job data. This pattern is useful because you can horizontally scale up the number of workers to do more things in parallel.
 
-However, while the design pattern is fairly simple to describe it is much more challenging to actually implement. To put it bluntly "easier said than done". With convention cloud services you would have to learn and configure multiple cloud services to do queue management, job dispatching to workers, auto-scaling compute instances, key management, and more. This normally would take even an engineer who is experienced with AWS a few days or even weeks to create. With Refinery however, you just have to link together three blocks in our editor and we'll do the rest.
+However, while the design pattern is fairly simple to describe it is much more challenging to actually implement. To put it bluntly "easier said than done". With convention cloud services you would have to learn and configure multiple APIs to do queue management, job dispatching to workers, auto-scaling compute instances, key management, and more. This is something that often takes days or even a weeks for an engineer experienced with cloud architecture to create. With Refinery however, you just have to link together three blocks in our editor and we'll do the rest.
 
 !!! note
 	This tutorial assumes you have some familiarity with the Refinery editor. If you've never used Refinery before you should read through the [Getting Started](/getting-started/) documentation.
@@ -148,9 +148,20 @@ Now we just have to connect our blocks together. Select the `Return URL Array` b
 
 Now that you've finished building your distributed worker queue system, you can deploy it into production by clicking the `Deploy Project` button on the left-side of the page. Confirm the action by clicking the `Confirm Deploy` button on the pop up panel. After a short wait your code will be deployed into production and is now ready to run!
 
+!!! note
+	The `Queue Block` takes about 45 seconds to initialize its connection with the downstream `Code Block` (Scrape URL, in this case). While you can start inserting data into the queue immediately after deploy there will be a slight delay before the connected `Code Block` begins executing and being ramped-up. This only happens once after you first deploy your project.
+
 ### Running Your Production Pipeline
 
+<video style="width: 100%" playsinline controls autoplay muted loop>
+	<source src="/tutorials/scraping-a-million-urls/media/running-deployed-pipeline.webm" type="video/webm" />
+	<source src="/tutorials/scraping-a-million-urls/media/running-deployed-pipeline.mp4" type="video/mp4" />
+</video>
+
 You can now kick off your production project by clicking the `Return URL Array` block and clicking the `Code Runner` button. Click the `Execute with Data` button to kick off your execution pipeline. Once you've started it you can monitor the status of it by clicking on the `Block Executions` button. To get detailed information on the executions as they occur you can click on the execution pipeline logs from the list of executions.
+
+!!! note
+	Due to the ability of the `Queue Block` to have essentially unlimited throughput, messages are delivered at-least-once. It's important to note that at-least-once delivery doesn't mean "exactly once". In extremely rare cases you may see a message delivered more than once. Depending on the amount of queue usage you are doing you may never see this behavior, but it's important to note the possibility and to consider it for your use case.
 
 ### That's All Folks
 
