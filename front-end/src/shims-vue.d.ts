@@ -3,12 +3,6 @@ declare module '*.vue' {
   export default Vue;
 }
 
-declare module 'vue-konva' {
-  import { PluginFunction, PluginObject } from 'vue';
-  const konvaPlugin: PluginObject<{}> | PluginFunction<{}>;
-  export default konvaPlugin;
-}
-
 declare module 'cytoscape-dagre' {
   import { Ext } from 'cytoscape';
   export default function register(foo: Object): Ext;
