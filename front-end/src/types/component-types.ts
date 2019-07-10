@@ -48,7 +48,7 @@ export interface LoadingContainerProps {
 }
 
 export interface ViewExecutionsListProps {
-  projectExecutions: { [key: string]: ProjectExecution } | null;
+  projectExecutions: ProjectExecution[] | null;
   selectedExecutionGroup: string | null;
   openExecutionGroup: (id: string) => void;
   showMoreExecutions: () => void;

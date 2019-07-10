@@ -3,7 +3,7 @@ import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import ViewExecutionsList from '@/components/ViewExecutions/ViewExecutionsList';
 import { ViewExecutionsListProps } from '@/types/component-types';
-import { ProductionExecution } from '@/types/deployment-executions-types';
+import {ProductionExecution, ProjectExecution} from '@/types/deployment-executions-types';
 
 const deploymentExecutions = namespace('deploymentExecutions');
 
@@ -13,7 +13,7 @@ export default class ViewExecutionsPane extends Vue {
   @deploymentExecutions.State isFetchingMoreExecutions!: boolean;
   @deploymentExecutions.State continuationToken!: string | null;
   @deploymentExecutions.State selectedExecutionGroup!: string | null;
-  @deploymentExecutions.Getter sortedExecutions!: ProductionExecution[] | null;
+  @deploymentExecutions.Getter sortedExecutions!: ProjectExecution[] | null;
 
   @deploymentExecutions.Action openExecutionGroup!: (id: string) => void;
   @deploymentExecutions.Action getExecutionsForOpenedDeployment!: (resume: boolean) => void;
