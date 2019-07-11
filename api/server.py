@@ -6720,13 +6720,15 @@ def get_project_id_execution_log_groups( credentials, project_id, max_results, c
 	"""
 	results_dict = {}
 
+	start_time = time.time()
 	execution_log_timestamp_prefix_data = yield local_tasks.get_s3_pipeline_timestamp_prefixes(
 		credentials,
 		project_id,
 		max_results,
 		continuation_token
 	)
-
+	print("--- %s seconds for execution_log_timestamp_prefix_data ---" % (time.time() - start_time))
+	
 	results_dict[ "continuation_token" ] = execution_log_timestamp_prefix_data[ "continuation_token" ]
 	results_dict[ "executions" ] = {}
 	
@@ -6734,6 +6736,7 @@ def get_project_id_execution_log_groups( credentials, project_id, max_results, c
 	
 	timestamp_prefix_fetch_futures = []
 	
+	start_time = time.time()
 	for execution_log_timestamp_prefix in execution_log_timestamp_prefixes:
 		timestamp_prefix_fetch_futures.append(
 			local_tasks.get_s3_pipeline_execution_ids(
@@ -6743,8 +6746,10 @@ def get_project_id_execution_log_groups( credentials, project_id, max_results, c
 				False
 			)
 		)
-		
+	
+	
 	execution_id_prefixes_data = yield timestamp_prefix_fetch_futures
+	print("--- %s seconds for execution_log_timestamp_prefixes ---" % (time.time() - start_time))
 
 	# Flat list of prefixes
 	execution_id_prefixes = []
@@ -6756,16 +6761,22 @@ def get_project_id_execution_log_groups( credentials, project_id, max_results, c
 	# Now take all of the prefixes and get the full file paths under them
 	s3_log_path_promises = []
 
+	start_time = time.time()
+	
+	s3_log_file_paths = []
+	
 	for execution_id_prefix in execution_id_prefixes:
-		s3_log_path_promises.append(
-			local_tasks.get_s3_pipeline_execution_logs(
-				credentials,
-				execution_id_prefix,
-				-1
-			)
+		current_segment = yield local_tasks.get_s3_pipeline_execution_logs(
+			credentials,
+			execution_id_prefix,
+			-1
 		)
-			
-	s3_log_file_paths = yield s3_log_path_promises
+		s3_log_file_paths.append(
+			current_segment
+		)
+	
+	#s3_log_file_paths = yield s3_log_path_promises
+	print("--- %s seconds for s3_log_path_promises ---" % (time.time() - start_time))
 
 	# Merge list of lists into just a list
 	tmp_log_path_list = []
@@ -6780,6 +6791,7 @@ def get_project_id_execution_log_groups( credentials, project_id, max_results, c
 
 	oldest_observed_timestamp = False
 	
+	start_time = time.time()
 	for s3_log_file_path in s3_log_file_paths:
 		path_parts = s3_log_file_path.split( "/" )
 		execution_id = path_parts[ 2 ]
@@ -6818,6 +6830,8 @@ def get_project_id_execution_log_groups( credentials, project_id, max_results, c
 		# If we've observed and older timestamp
 		if timestamp < oldest_observed_timestamp:
 			oldest_observed_timestamp = timestamp
+			
+	print("--- %s seconds for the splitting ---" % (time.time() - start_time))
 	
 	raise gen.Return( results_dict )
 	
@@ -6900,9 +6914,10 @@ class GetProjectExecutions( BaseHandler ):
 		
 		validate_schema( self.json, schema )
 		
-		logit( "Retrieving execution ID(s) and their metadata..." )
-		
 		credentials = self.get_authenticated_user_cloud_configuration()
+		authenticated_user = self.get_authenticated_user()
+		
+		logit( "[" + authenticated_user.email + "] Retrieving execution ID(s) and their metadata..." )
 		
 		# Ensure user is owner of the project
 		if not self.is_owner_of_project( self.json[ "project_id" ] ):
@@ -6918,12 +6933,14 @@ class GetProjectExecutions( BaseHandler ):
 		if "continuation_token" in self.json:
 			continuation_token = self.json[ "continuation_token" ]
 		
+		start_time = time.time()
 		execution_ids_metadata = yield get_project_id_execution_log_groups(
 			credentials,
 			self.json[ "project_id" ],
 			100,
 			continuation_token
 		)
+		print("--- %s seconds for get_project_id_execution_log_groups ---" % (time.time() - start_time))
 		
 		self.write({
 			"success": True,
