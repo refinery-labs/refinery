@@ -75,11 +75,11 @@ $nav-top-item-desktop-active:   $nav-top-item-mobile-active;
         }
         .brand-logo {
             display: block;
-            padding: 10px 15px;
+            padding: 0 15px;
         }
         .brand-logo-collapsed {
             display: none;
-            padding: 6px 15px;
+            padding: 4px 10px;
         }
     }
 
@@ -113,7 +113,7 @@ $nav-top-item-desktop-active:   $nav-top-item-mobile-active;
     }
 
     .navbar-nav>.nav-item>.nav-link {
-        padding: 1.1rem .95rem;
+        padding: 0.7rem .95rem;
         font-size: .85rem;
     }
     .navbar-nav>.nav-item>.nav-link,

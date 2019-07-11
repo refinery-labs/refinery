@@ -526,7 +526,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       return (
         <div>
           <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#code-block' }} />
-          <BlockNameInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
+          <BlockNameInput props={{ selectedNode: this.selectedNode, selectedNodeMetadata: this.selectedNodeMetadata, readOnly: this.readOnly } as EditBlockPaneProps} />
           {this.renderCodeEditorContainer()}
           {this.renderBlockVariables()}
           {this.renderAwsLink()}
@@ -541,7 +541,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     return (
       <div>
         <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#code-block' }} />
-        <BlockNameInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
+        <BlockNameInput props={{ selectedNode: this.selectedNode, selectedNodeMetadata: this.selectedNodeMetadata, readOnly: this.readOnly } as EditBlockPaneProps} />
         {this.renderCodeEditorContainer()}
         {this.renderAwsLink()}
         {this.renderBlockVariables()}

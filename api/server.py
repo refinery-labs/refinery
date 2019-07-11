@@ -6757,7 +6757,7 @@ def get_project_id_execution_log_groups( credentials, project_id, max_results, c
 	# Consolidate all data into just a final list of data
 	for execution_id_prefix_data in execution_id_prefixes_data:
 		execution_id_prefixes = execution_id_prefixes + execution_id_prefix_data[ "prefixes" ]
-	
+
 	# Now take all of the prefixes and get the full file paths under them
 	s3_log_path_promises = []
 
@@ -6788,7 +6788,7 @@ def get_project_id_execution_log_groups( credentials, project_id, max_results, c
 			
 	s3_log_file_paths = tmp_log_path_list
 	del tmp_log_path_list
-	
+
 	oldest_observed_timestamp = False
 	
 	start_time = time.time()

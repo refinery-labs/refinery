@@ -18,30 +18,49 @@ export enum RunLambdaDisplayMode {
   fullscreen = 'fullscreen'
 }
 
+export interface RunLambdaProps {
+  onRunLambda: () => void;
+  onUpdateInputData: (s: string) => void;
+  onSaveInputData?: () => void;
+  fullScreenClicked?: () => void;
+  lambdaIdOrArn: string;
+
+  runResultOutput: RunLambdaResult | null;
+  runResultOutputId: string | null;
+  inputData: string;
+  isCurrentlyRunning: boolean;
+
+  displayLocation: RunLambdaDisplayLocation;
+  displayMode: RunLambdaDisplayMode;
+
+  loadingText: string;
+}
+
 @Component({
   components: {
     Loading
   }
 })
-export default class RunLambda extends Vue {
-  @Prop({ required: true }) private onRunLambda!: () => void;
-  @Prop({ required: true }) private onUpdateInputData!: (s: string) => void;
-  @Prop() private fullScreenClicked!: () => void;
+export default class RunLambda extends Vue implements RunLambdaProps {
+  @Prop({ required: true }) onRunLambda!: () => void;
+  @Prop({ required: true }) onUpdateInputData!: (s: string) => void;
+  @Prop() onSaveInputData?: () => void;
+  @Prop() fullScreenClicked?: () => void;
 
   /**
    * Allows us to associated the selected block with prior results.
    */
-  @Prop({ required: true }) private lambdaIdOrArn!: string;
+  @Prop({ required: true }) lambdaIdOrArn!: string;
 
-  @Prop({ required: true }) private runResultOutput!: RunLambdaResult | null;
-  @Prop() private runResultOutputId!: string | null;
-  @Prop({ required: true }) private inputData!: string;
-  @Prop({ required: true }) private isCurrentlyRunning!: boolean;
+  @Prop() runResultOutputId!: string | null;
+  @Prop({ required: true }) runResultOutput!: RunLambdaResult | null;
+  @Prop({ required: true }) inputData!: string;
+  @Prop({ required: true }) isCurrentlyRunning!: boolean;
 
-  @Prop({ required: true }) private displayLocation!: RunLambdaDisplayLocation;
-  @Prop({ required: true }) private displayMode!: RunLambdaDisplayMode;
+  @Prop({ required: true }) displayLocation!: RunLambdaDisplayLocation;
+  @Prop({ required: true }) displayMode!: RunLambdaDisplayMode;
 
-  @Prop({ required: true }) private loadingText!: string;
+  @Prop({ required: true }) loadingText!: string;
 
   public checkIfValidRunLambdaOutput() {
     if (!this.runResultOutput) {
@@ -83,16 +102,19 @@ export default class RunLambda extends Vue {
    */
   public renderFullscreenButton() {
     if (
+      !this.fullScreenClicked ||
       this.displayMode === RunLambdaDisplayMode.fullscreen ||
       this.displayLocation === RunLambdaDisplayLocation.deployment
     ) {
       return null;
     }
 
+    const fullScreenClicked = this.fullScreenClicked;
+
     // TODO: Potentially add this feature here too
     // const expandOnClick = {click: () => this.setWidePanel(!this.wideMode)};
     const fullscreenOnClick = {
-      click: () => this.fullScreenClicked()
+      click: () => fullScreenClicked()
     };
 
     return (
@@ -145,15 +167,19 @@ export default class RunLambda extends Vue {
       lang: 'text',
       content: this.getRunLambdaOutput(hasValidOutput),
       wrapText: true,
-      readOnly: true,
+      readOnly: true
     };
+
+    const saveInputDataButton = (
+      <b-button variant="outline-info" on={{ click: () => this.onSaveInputData && this.onSaveInputData() }}>
+        Save Input Data
+      </b-button>
+    );
 
     const buttons = (
       <div class="m-2">
         <b-button-group class="width--100percent">
-          {/*<b-button variant="info" disabled on={{click: () => this.onRunLambda()}}>*/}
-          {/*  View Last Execution*/}
-          {/*</b-button>*/}
+          {this.displayLocation === RunLambdaDisplayLocation.editor && this.onSaveInputData && saveInputDataButton}
           <b-button variant="primary" on={{ click: () => this.onRunLambda() }}>
             Execute With Data
           </b-button>
@@ -171,14 +197,13 @@ export default class RunLambda extends Vue {
         </div>
         <div class="flex-grow--1">
           <div class="height--100percent position--relative">
-
             {editor}
           </div>
         </div>
       </div>
     );
 
-    const editors = (
+    return (
       <div class="display--flex flex-direction--column height--100percent">
         <div class="display--flex flex-grow--1">
           <Split props={{direction: 'vertical' as Object, extraClasses: 'flex-grow--1' as Object}}>
@@ -196,31 +221,24 @@ export default class RunLambda extends Vue {
         {buttons}
       </div>
     );
-
-    // Column layout
-    if (this.displayMode === RunLambdaDisplayMode.sidepane) {
-      return (
-        <div class="display--flex flex-direction--column flex-grow--1 width--100percent"
-             style={{'height': '500px', 'min-width': '354px'}}>
-          {editors}
-        </div>
-      );
-    }
-
-    // Row layout
-    return editors;
   }
 
   public render(h: CreateElement): VNode {
     const loadingProps: LoadingContainerProps = {
       show: this.isCurrentlyRunning,
+      dark: true,
       label: this.loadingText,
       classes: 'height--100percent width--100percent'
     };
 
+    const classes = {
+      'run-lambda-container display--flex flex-direction--column': true,
+      [`run-lambda-container__${this.displayMode}`]: true
+    };
+
     return (
       <Loading props={loadingProps}>
-        <div class="run-lambda-container display--flex flex-direction--column height--100percent">
+        <div class={classes}>
           {this.renderEditors()}
         </div>
       </Loading>

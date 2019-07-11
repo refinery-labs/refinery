@@ -66,6 +66,7 @@ export interface LambdaWorkflowState extends WorkflowState {
   libraries: string[];
   memory: number;
   max_execution_time: number;
+  saved_input_data?: string;
   environment_variables: BlockEnvironmentVariableList;
 }
 

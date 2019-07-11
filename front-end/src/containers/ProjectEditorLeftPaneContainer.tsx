@@ -33,22 +33,24 @@ export default class ProjectEditorLeftPaneContainer extends Vue {
     };
 
     return (
-      <div class={containerClasses}>
-        <div class="editor-pane-instance__modal-dialog" role="document">
-          <div class="display--flex flex-direction--column editor-pane-instance__modal-content">
-            <div class={headerClasses}>
-              <h4 class="modal-title">{paneTypeToWindowNameLookup[this.activeLeftSidebarPane]}</h4>
-              <button
-                type="button"
-                class="close text-white editor-pane-instance__close-button"
-                data-dismiss="modal"
-                aria-label="Close"
-                on={{ click: () => this.closePane(PANE_POSITION.left) }}
-              >
-                <span aria-hidden="true">&times;</span>
-              </button>
+      <div class="project-pane-overlay-container project-pane-overlay-container--left">
+        <div class={containerClasses}>
+          <div class="editor-pane-instance__modal-dialog" role="document">
+            <div class="display--flex flex-direction--column editor-pane-instance__modal-content">
+              <div class={headerClasses}>
+                <h4 class="modal-title">{paneTypeToWindowNameLookup[this.activeLeftSidebarPane]}</h4>
+                <button
+                  type="button"
+                  class="close text-white editor-pane-instance__close-button"
+                  data-dismiss="modal"
+                  aria-label="Close"
+                  on={{ click: () => this.closePane(PANE_POSITION.left) }}
+                >
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </div>
+              <ActiveLeftPane props={{ paneState: activeLeftSidebarPaneState }} />
             </div>
-            <ActiveLeftPane props={{ paneState: activeLeftSidebarPaneState }} />
           </div>
         </div>
       </div>
