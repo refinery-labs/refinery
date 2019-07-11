@@ -205,7 +205,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       const inputData = context.state.deployedLambdaInputData !== null ? context.state.deployedLambdaInputData : block.saved_input_data;
 
       const request: RunLambdaRequest = {
-        input_data: inputData === undefined ? '': inputData,
+        input_data: (inputData === undefined || inputData === null) ? '': inputData,
         arn: block.arn
       };
 
@@ -264,7 +264,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
 
       const request: RunTmpLambdaRequest = {
         environment_variables: runLambdaEnvironmentVariables,
-        input_data: inputData,
+        input_data: (inputData === undefined || inputData === null) ? '' : inputData,
 
         code: block.code,
         language: block.language,
