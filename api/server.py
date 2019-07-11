@@ -32,6 +32,8 @@ import sys
 import re
 import os
 import io
+import cProfile
+import pstats
 
 from tornado import gen
 from datetime import timedelta
@@ -85,6 +87,8 @@ CF_ACCESS_PUBLIC_KEYS = []
 
 # Pull list of allowed Access-Control-Allow-Origin values from environment var
 allowed_origins = json.loads( os.environ.get( "access_control_allow_origins" ) )
+
+stats = pstats.Stats('/tmp/foobar-perf')
 			
 def on_start():
 	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES, CUSTOMER_IAM_POLICY, DEFAULT_PROJECT_ARRAY, DEFAULT_PROJECT_CONFIG
@@ -6718,6 +6722,10 @@ def get_project_id_execution_log_groups( credentials, project_id, max_results, c
 		"continuation_token": "aASDWQ...",
 	}
 	"""
+
+	pr = cProfile.Profile()
+	pr.enable()
+
 	results_dict = {}
 
 	execution_log_timestamp_prefix_data = yield local_tasks.get_s3_pipeline_timestamp_prefixes(
@@ -6818,7 +6826,10 @@ def get_project_id_execution_log_groups( credentials, project_id, max_results, c
 		# If we've observed and older timestamp
 		if timestamp < oldest_observed_timestamp:
 			oldest_observed_timestamp = timestamp
-	
+
+	pr.disable()
+	stats.add(pr)
+
 	raise gen.Return( results_dict )
 	
 @gen.coroutine
@@ -6871,7 +6882,9 @@ def get_logs_data( credentials, log_paths_array ):
 		)
 			
 		return_data[ s3_object_retrieval_data[ "path" ] ] = log_data
-		
+
+	stats.dump_stats('/work/foobar-perf')
+	stats.print_stats()
 	raise gen.Return( return_data )
 
 class GetProjectExecutions( BaseHandler ):
@@ -6897,7 +6910,9 @@ class GetProjectExecutions( BaseHandler ):
 				"project_id"
 			]
 		}
-		
+
+		pr = cProfile.Profile()
+		pr.enable()
 		validate_schema( self.json, schema )
 		
 		logit( "Retrieving execution ID(s) and their metadata..." )
@@ -6929,6 +6944,8 @@ class GetProjectExecutions( BaseHandler ):
 			"success": True,
 			"result": execution_ids_metadata
 		})
+		pr.disable()
+		stats.add(pr)
 		
 class GetProjectExecutionLogs( BaseHandler ):
 	@authenticated
