@@ -3694,7 +3694,7 @@ class TaskSpawner(object):
 			response = s3_client.list_objects_v2(
 				Bucket=s3_bucket,
 				Prefix=prefix,
-				MaxKeys=10, # Max keys you can request at once
+				MaxKeys=max_keys, # Max keys you can request at once
 				**kwargs
 			)
 			
