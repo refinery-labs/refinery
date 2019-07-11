@@ -19,9 +19,10 @@ export enum RunLambdaDisplayMode {
 }
 
 export interface RunLambdaProps {
-  onRunLambda: () => void
+  onRunLambda: () => void;
   onUpdateInputData: (s: string) => void;
-  fullScreenClicked: () => void;
+  onSaveInputData?: () => void;
+  fullScreenClicked?: () => void;
   lambdaIdOrArn: string;
 
   runResultOutput: RunLambdaResult | null;
@@ -43,7 +44,8 @@ export interface RunLambdaProps {
 export default class RunLambda extends Vue implements RunLambdaProps {
   @Prop({ required: true }) onRunLambda!: () => void;
   @Prop({ required: true }) onUpdateInputData!: (s: string) => void;
-  @Prop() fullScreenClicked!: () => void;
+  @Prop() onSaveInputData?: () => void;
+  @Prop() fullScreenClicked?: () => void;
 
   /**
    * Allows us to associated the selected block with prior results.
@@ -100,16 +102,19 @@ export default class RunLambda extends Vue implements RunLambdaProps {
    */
   public renderFullscreenButton() {
     if (
+      !this.fullScreenClicked ||
       this.displayMode === RunLambdaDisplayMode.fullscreen ||
       this.displayLocation === RunLambdaDisplayLocation.deployment
     ) {
       return null;
     }
 
+    const fullScreenClicked = this.fullScreenClicked;
+
     // TODO: Potentially add this feature here too
     // const expandOnClick = {click: () => this.setWidePanel(!this.wideMode)};
     const fullscreenOnClick = {
-      click: () => this.fullScreenClicked()
+      click: () => fullScreenClicked()
     };
 
     return (
@@ -162,11 +167,11 @@ export default class RunLambda extends Vue implements RunLambdaProps {
       lang: 'text',
       content: this.getRunLambdaOutput(hasValidOutput),
       wrapText: true,
-      readOnly: true,
+      readOnly: true
     };
 
     const saveInputDataButton = (
-      <b-button variant="outline-info" on={{ click: () => this.onRunLambda() }}>
+      <b-button variant="outline-info" on={{ click: () => this.onSaveInputData && this.onSaveInputData() }}>
         Save Input Data
       </b-button>
     );
@@ -174,10 +179,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
     const buttons = (
       <div class="m-2">
         <b-button-group class="width--100percent">
-          {/*<b-button variant="info" disabled on={{click: () => this.onRunLambda()}}>*/}
-          {/*  View Last Execution*/}
-          {/*</b-button>*/}
-          {this.displayLocation === RunLambdaDisplayLocation.editor && saveInputDataButton}
+          {this.displayLocation === RunLambdaDisplayLocation.editor && this.onSaveInputData && saveInputDataButton}
           <b-button variant="primary" on={{ click: () => this.onRunLambda() }}>
             Execute With Data
           </b-button>
@@ -195,7 +197,6 @@ export default class RunLambda extends Vue implements RunLambdaProps {
         </div>
         <div class="flex-grow--1">
           <div class="height--100percent position--relative">
-
             {editor}
           </div>
         </div>

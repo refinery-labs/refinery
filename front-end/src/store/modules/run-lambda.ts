@@ -1,5 +1,5 @@
-import { Module } from 'vuex';
-import { RootState } from '../store-types';
+import {Module} from 'vuex';
+import {RootState} from '../store-types';
 import {
   RunLambdaRequest,
   RunLambdaResponse,
@@ -8,32 +8,32 @@ import {
   RunTmpLambdaRequest,
   RunTmpLambdaResponse
 } from '@/types/api-types';
-import { makeApiRequest } from '@/store/fetchers/refinery-api';
-import { API_ENDPOINT } from '@/constants/api-constants';
-import {
-  LambdaWorkflowState,
-  ProjectConfig,
-  RefineryProject,
-  SupportedLanguage,
-  WorkflowState,
-  WorkflowStateType
-} from '@/types/graph';
-import { RunCodeBlockLambdaConfig, RunTmpCodeBlockLambdaConfig } from '@/types/run-lambda-types';
-import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
-import { deepJSONCopy } from '@/lib/general-utils';
-import { checkBuildStatus, libraryBuildArguments } from '@/store/fetchers/api-helpers';
-import { getNodeDataById } from '@/utils/project-helpers';
+import {makeApiRequest} from '@/store/fetchers/refinery-api';
+import {API_ENDPOINT} from '@/constants/api-constants';
+import {LambdaWorkflowState, SupportedLanguage, WorkflowStateType} from '@/types/graph';
+import {RunCodeBlockLambdaConfig, RunTmpCodeBlockLambdaConfig} from '@/types/run-lambda-types';
+import {checkBuildStatus, libraryBuildArguments} from '@/store/fetchers/api-helpers';
+import {ProductionLambdaWorkflowState} from '@/types/production-workflow-types';
+import {resetStoreState} from '@/utils/store-utils';
+import {deepJSONCopy} from '@/lib/general-utils';
+
+export interface InputDataCache {
+  [key: string]: string;
+}
 
 // Enums
 export enum RunLambdaMutators {
+  resetState = 'resetState',
   setLambdaRunningStatus = 'setLambdaRunningStatus',
 
   setDeployedLambdaRunResult = 'setDeployedLambdaRunResult',
   setDeployedLambdaInputData = 'setDeployedLambdaInputData',
+  setDeployedLambdaInputDataCacheEntry = 'setDeployedLambdaInputDataCacheEntry',
 
   setDevLambdaRunResult = 'setDevLambdaRunResult',
   setDevLambdaRunResultId = 'setDevLambdaRunResultId',
   setDevLambdaInputData = 'setDevLambdaInputData',
+  setDevLambdaInputDataCacheEntry = 'setDevLambdaInputDataCacheEntry',
   setLoadingText = 'setLoadingText'
 }
 
@@ -43,7 +43,9 @@ export enum RunLambdaActions {
 
   runSpecifiedEditorCodeBlock = 'runSpecifiedEditorCodeBlock',
   makeDevLambdaRequest = 'makeDevLambdaRequest',
-  runLambdaCode = 'runLambdaCode'
+  runLambdaCode = 'runLambdaCode',
+  changeDeployedLambdaInputData = 'changeDeployedLambdaInputData',
+  changeDevLambdaInputData = 'changeDevLambdaInputData'
 }
 
 // Types
@@ -51,12 +53,14 @@ export interface RunLambdaState {
   isRunningLambda: boolean;
 
   deployedLambdaResult: RunLambdaResult | null;
-  deployedLambdaInputData: string;
+  deployedLambdaInputData: string | null;
+  deployedLambdaInputDataCache: InputDataCache
 
   devLambdaResult: RunLambdaResult | null;
   // ID of the last lambda run
   devLambdaResultId: string | null;
-  devLambdaInputData: string;
+  devLambdaInputData: string | null;
+  devLambdaInputDataCache: InputDataCache
 
   // Text to display while Lambda is being run
   loadingText: string;
@@ -67,21 +71,23 @@ const moduleState: RunLambdaState = {
   isRunningLambda: false,
 
   deployedLambdaResult: null,
-  deployedLambdaInputData: '',
+  deployedLambdaInputData: null,
+  deployedLambdaInputDataCache: {},
 
   devLambdaResult: null,
   /**
    * Used to "identify" run results and associate them against the selected block.
    */
   devLambdaResultId: null,
-  devLambdaInputData: '',
+  devLambdaInputData: null,
+  devLambdaInputDataCache: {},
 
   loadingText: 'Running Code Block...'
 };
 
 const RunLambdaModule: Module<RunLambdaState, RootState> = {
   namespaced: true,
-  state: moduleState,
+  state: deepJSONCopy(moduleState),
   getters: {
     /**
      * Absolutely disgusting that this exists here... Because it doesn't use state from this module!
@@ -110,9 +116,50 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         codeBlock: editBlockPaneState.selectedNode as LambdaWorkflowState,
         projectConfig: projectState.openedProjectConfig
       };
+    },
+    getDeployedLambdaInputData: (state, getters, rootState) => (id: string) => {
+      if (state.deployedLambdaInputDataCache[id]) {
+        return state.deployedLambdaInputDataCache[id];
+      }
+
+      const viewBlockState = rootState.viewBlock;
+
+      if (viewBlockState.selectedNode && viewBlockState.selectedNode.type === WorkflowStateType.LAMBDA) {
+        const lambdaBlock = viewBlockState.selectedNode as LambdaWorkflowState;
+        if (lambdaBlock.saved_input_data !== undefined) {
+          return lambdaBlock.saved_input_data;
+        }
+      }
+
+      return '';
+    },
+    getDevLambdaInputData: (state, getters, rootState) => (id: string) => {
+      if (state.devLambdaInputDataCache[id]) {
+        return state.devLambdaInputDataCache[id];
+      }
+
+      const projectState = rootState.project;
+      // This will never happen...
+      if (!projectState.editBlockPane) {
+        return null;
+      }
+
+      const editBlockPaneState = projectState.editBlockPane;
+      if (editBlockPaneState.selectedNode && editBlockPaneState.selectedNode.type === WorkflowStateType.LAMBDA) {
+        const lambdaBlock = editBlockPaneState.selectedNode as LambdaWorkflowState;
+        if (lambdaBlock.saved_input_data !== undefined) {
+          return lambdaBlock.saved_input_data;
+        }
+      }
+
+      return '';
     }
-  },
+  }
+  ,
   mutations: {
+    [RunLambdaMutators.resetState](state) {
+      resetStoreState(state, moduleState);
+    },
     [RunLambdaMutators.setLambdaRunningStatus](state, val) {
       state.isRunningLambda = val;
     },
@@ -121,6 +168,12 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
     },
     [RunLambdaMutators.setDeployedLambdaInputData](state, inputData) {
       state.deployedLambdaInputData = inputData;
+    },
+    [RunLambdaMutators.setDeployedLambdaInputDataCacheEntry](state, [id, value]: [string, string]) {
+      state.deployedLambdaInputDataCache = {
+        ...state.deployedLambdaInputDataCache,
+        [id]: value
+      };
     },
 
     [RunLambdaMutators.setDevLambdaRunResult](state, response) {
@@ -132,20 +185,28 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
     [RunLambdaMutators.setDevLambdaInputData](state, inputData) {
       state.devLambdaInputData = inputData;
     },
+    [RunLambdaMutators.setDevLambdaInputDataCacheEntry](state, [id, value]: [string, string]) {
+      state.devLambdaInputDataCache = {
+        ...state.devLambdaInputDataCache,
+        [id]: value
+      };
+    },
     [RunLambdaMutators.setLoadingText](state, loadingText: string) {
       state.loadingText = loadingText;
     }
   },
   actions: {
-    async [RunLambdaActions.runSelectedDeployedCodeBlock](context, arn: string | null) {
-      if (!arn) {
+    async [RunLambdaActions.runSelectedDeployedCodeBlock](context, block: ProductionLambdaWorkflowState) {
+      if (!block || !block.arn) {
         console.error('Invalid ARN specified for Run Code Block request');
         return;
       }
 
+      const inputData = context.state.deployedLambdaInputData !== null ? context.state.deployedLambdaInputData : block.saved_input_data;
+
       const request: RunLambdaRequest = {
-        input_data: context.state.deployedLambdaInputData,
-        arn: arn
+        input_data: inputData === undefined ? '': inputData,
+        arn: block.arn
       };
 
       await context.dispatch(RunLambdaActions.makeDeployedLambdaRequest, request);
@@ -199,9 +260,11 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         [] as RunTmpLambdaEnvironmentVariable[]
       );
 
+      const inputData = context.state.devLambdaInputData !== null ? context.state.devLambdaInputData : config.codeBlock.saved_input_data;
+
       const request: RunTmpLambdaRequest = {
         environment_variables: runLambdaEnvironmentVariables,
-        input_data: context.state.devLambdaInputData,
+        input_data: inputData,
 
         code: block.code,
         language: block.language,
@@ -249,6 +312,14 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       context.commit(RunLambdaMutators.setLoadingText, getLoadingText(isLibraryBuildCached));
 
       await context.dispatch(RunLambdaActions.runSpecifiedEditorCodeBlock, config);
+    },
+    async [RunLambdaActions.changeDevLambdaInputData](context, [id, inputData]: [string, string]) {
+      context.commit(RunLambdaMutators.setDevLambdaInputData, inputData);
+      context.commit(RunLambdaMutators.setDevLambdaInputDataCacheEntry, [id, inputData]);
+    },
+    async [RunLambdaActions.changeDeployedLambdaInputData](context, [id, inputData]: [string, string]) {
+      context.commit(RunLambdaMutators.setDeployedLambdaInputData, inputData);
+      context.commit(RunLambdaMutators.setDeployedLambdaInputDataCacheEntry, [id, inputData]);
     }
   }
 };
