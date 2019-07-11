@@ -294,7 +294,7 @@ export interface RunLambdaResult {
 export interface RunTmpLambdaRequest extends BaseApiRequest {
   code: string;
   environment_variables: RunTmpLambdaEnvironmentVariable[];
-  input_data: any;
+  input_data: string;
   language: SupportedLanguage;
   layers: any[];
   libraries: any[];
