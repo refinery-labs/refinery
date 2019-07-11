@@ -8,6 +8,7 @@ nav:
   - "Transitions": "transitions/index.md"
   - "The Backpack Parameter": "backpack/index.md"
   - "Debugging & Logging": "debugging/index.md"
+  - "Pricing Details": "pricing/index.md"
   - Tutorials:
     - "Creating a Highly Scalable API Endpoint": "tutorials/api-endpoints/index.md"
     - "Effortless Serverless Map Reduce": "tutorials/fan-out-fan-in/index.md"
