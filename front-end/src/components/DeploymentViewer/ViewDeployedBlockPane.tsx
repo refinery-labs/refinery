@@ -31,6 +31,7 @@ export default class ViewDeployedBlockPane extends Vue {
 
     const formClasses = {
       'mb-3 mt-3 text-align--left': true,
+      'show-block-container__form': true,
       'show-block-container__form--normal': !this.wideMode,
       'show-block-container__form--wide': this.wideMode
     };

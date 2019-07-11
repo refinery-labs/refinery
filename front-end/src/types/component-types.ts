@@ -41,6 +41,7 @@ export interface EditTransitionSelectorProps {
 
 export interface LoadingContainerProps {
   [key: string]: any;
+  dark?: boolean;
   label?: string;
   showLabel?: boolean;
   show: boolean;

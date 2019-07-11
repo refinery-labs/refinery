@@ -62,7 +62,7 @@ export default class OpenedProjectGraphContainer extends Vue {
     };
 
     return (
-      <div class="opened-project-graph-container flex-grow--1">
+      <div class="opened-project-graph-container project-graph-container">
         <CytoscapeGraph props={graphProps} />
       </div>
     );

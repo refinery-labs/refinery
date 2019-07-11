@@ -54,7 +54,7 @@ export default class DeploymentViewerGraphContainer extends Vue {
     };
 
     return (
-      <div class="deployment-viewer-graph-container flex-grow--1">
+      <div class="deployment-viewer-graph-container project-graph-container">
         <CytoscapeGraph props={graphProps} />
       </div>
     );
