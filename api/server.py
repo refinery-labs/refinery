@@ -1044,6 +1044,10 @@ class TaskSpawner(object):
 			
 			query_status_results = {}
 			
+			# Max amount of times we'll attempt to query the execution
+			# status. If the counter hits zero we break out.
+			max_counter = 40
+			
 			# Poll for query status
 			while True:
 				# Check the status of the query
@@ -1067,6 +1071,12 @@ class TaskSpawner(object):
 					break
 				
 				time.sleep(0.5)
+				
+				# Decrement counter
+				max_counter = max_counter - 1
+				
+				if max_counter <= 0:
+					break
 				
 			s3_object_location = query_status_results[ "QueryExecutions" ][0][ "ResultConfiguration" ][ "OutputLocation" ]
 			
