@@ -4,15 +4,15 @@ import { AddSavedBlockPaneStoreModule } from '@/store/modules/panes/add-saved-bl
 import AddSavedBlockPane, {
   AddSavedBlockPaneProps
 } from '@/components/ProjectEditor/saved-blocks-components/AddSavedBlockPane';
-import ViewChosenSavedBlockPane, {ViewChosenSavedBlockPaneProps} from '@/components/ProjectEditor/saved-blocks-components/ViewChosenSavedBlockPane';
-import {ChosenBlock} from '@/types/add-block-types';
+import ViewChosenSavedBlockPane, {
+  ViewChosenSavedBlockPaneProps
+} from '@/components/ProjectEditor/saved-blocks-components/ViewChosenSavedBlockPane';
+import { ChosenBlock } from '@/types/add-block-types';
 
 @Component
 export default class AddSavedBlockPaneContainer extends Vue {
-
   // First step of the process to "choose" a block
   public renderChooseBlockPane() {
-
     const addSavedBlockPaneProps: AddSavedBlockPaneProps = {
       searchResultsPrivate: AddSavedBlockPaneStoreModule.searchResultsPrivate,
       searchResultsPublished: AddSavedBlockPaneStoreModule.searchResultsPublished,
@@ -29,7 +29,6 @@ export default class AddSavedBlockPaneContainer extends Vue {
 
   // Second step of the process to "add" the block
   public renderViewBlockPane(block: ChosenBlock) {
-
     const viewChosenSavedBlockPane: ViewChosenSavedBlockPaneProps = {
       addChosenBlock: () => AddSavedBlockPaneStoreModule.addChosenBlock(),
       chosenBlock: block,

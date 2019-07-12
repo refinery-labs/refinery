@@ -5,9 +5,9 @@ import moment from 'moment';
 import { SupportedLanguage, WorkflowState } from '@/types/graph';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import ViewDeployedBlockPane from '@/components/DeploymentViewer/ViewDeployedBlockPane';
-import {EditorProps, LoadingContainerProps} from '@/types/component-types';
+import { EditorProps, LoadingContainerProps } from '@/types/component-types';
 import { ExecutionStatusType, GetProjectExecutionLogsResult } from '@/types/api-types';
-import {BlockExecutionGroup, ProductionExecution} from '@/types/deployment-executions-types';
+import { BlockExecutionGroup, ProductionExecution } from '@/types/deployment-executions-types';
 import Loading from '@/components/Common/Loading.vue';
 
 const viewBlock = namespace('viewBlock');
@@ -48,7 +48,9 @@ export default class ViewDeployedBlockLogsPane extends Vue {
   @deploymentExecutions.State selectedExecutionIndexForNode!: number;
 
   @deploymentExecutions.Getter getAllExecutionsForNode!: BlockExecutionGroup | null;
-  @deploymentExecutions.Getter getSelectedExecutionForNode!: GetProjectExecutionLogsResult & {missing: boolean} | null;
+  @deploymentExecutions.Getter getSelectedExecutionForNode!:
+    | GetProjectExecutionLogsResult & { missing: boolean }
+    | null;
 
   @deploymentExecutions.Mutation setSelectedExecutionIndexForNode!: (i: number) => void;
 
@@ -93,13 +95,15 @@ export default class ViewDeployedBlockLogsPane extends Vue {
     }
 
     if (this.getSelectedExecutionForNode.missing) {
-      const loadingProps:LoadingContainerProps = {
+      const loadingProps: LoadingContainerProps = {
         show: true,
         label: 'Loading execution logs...'
       };
-      return <div style="margin-top: 30px; min-height: 60px">
-        <Loading props={loadingProps} />
-      </div>;
+      return (
+        <div style="margin-top: 30px; min-height: 60px">
+          <Loading props={loadingProps} />
+        </div>
+      );
     }
 
     const executionData = this.getSelectedExecutionForNode.data;
@@ -137,10 +141,12 @@ export default class ViewDeployedBlockLogsPane extends Vue {
     });
 
     return (
-      <b-form-select class="padding--small mt-2 mb-2"
-                     value={this.selectedExecutionIndexForNode}
-                     on={onHandlers}
-                     options={invocationItemList} />
+      <b-form-select
+        class="padding--small mt-2 mb-2"
+        value={this.selectedExecutionIndexForNode}
+        on={onHandlers}
+        options={invocationItemList}
+      />
     );
   }
 

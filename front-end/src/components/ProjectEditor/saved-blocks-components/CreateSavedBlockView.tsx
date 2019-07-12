@@ -4,7 +4,7 @@ import { Prop } from 'vue-property-decorator';
 import VueMarkdown from 'vue-markdown';
 import Loading from '@/components/Common/Loading.vue';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
-import {CreateSavedBlockViewProps, EditorProps, LoadingContainerProps} from '@/types/component-types';
+import { CreateSavedBlockViewProps, EditorProps, LoadingContainerProps } from '@/types/component-types';
 import { SavedBlockStatusCheckResult, SharedBlockPublishStatus } from '@/types/api-types';
 import {
   addModeTitle,
@@ -14,12 +14,12 @@ import {
   newPublishText
 } from '@/constants/saved-block-constants';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
-import {SupportedLanguage} from '@/types/graph';
+import { SupportedLanguage } from '@/types/graph';
 
 @Component({
- components: {
-   'vue-markdown': VueMarkdown
- }
+  components: {
+    'vue-markdown': VueMarkdown
+  }
 })
 export default class CreateSavedBlockView extends Vue implements CreateSavedBlockViewProps {
   @Prop({ required: true }) public modalMode!: boolean;
@@ -58,7 +58,7 @@ export default class CreateSavedBlockView extends Vue implements CreateSavedBloc
     return (
       <div>
         <label class="mt-2 d-block">Description Preview:</label>
-        <vue-markdown html={false} source={this.descriptionInput}></vue-markdown>
+        <vue-markdown html={false} source={this.descriptionInput} />
       </div>
     );
   }
@@ -74,7 +74,9 @@ export default class CreateSavedBlockView extends Vue implements CreateSavedBloc
 
     const description = [
       'Please specify a description for future reference. You may use ',
-      <a href="https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet" target="_blank">Markdown</a>,
+      <a href="https://github.com/adam-p/markdown-here/wiki/Markdown-Cheatsheet" target="_blank">
+        Markdown
+      </a>,
       ' for this field.'
     ];
 

@@ -68,7 +68,7 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
             <small>{durationSinceUpdated}</small>
           </div>
           <div class="add-saved-block-container__description mb-1">
-            <vue-markdown html={false} source={block.description}></vue-markdown>
+            <vue-markdown html={false} source={block.description} />
           </div>
         </div>
       </b-list-group-item>

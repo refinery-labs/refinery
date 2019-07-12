@@ -3,7 +3,7 @@ import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import { LambdaWorkflowState, SupportedLanguage, WorkflowState, WorkflowStateType } from '@/types/graph';
 import { PANE_POSITION } from '@/types/project-editor-types';
-import RunLambda, {RunLambdaDisplayLocation, RunLambdaDisplayMode, RunLambdaProps} from '@/components/RunLambda';
+import RunLambda, { RunLambdaDisplayLocation, RunLambdaDisplayMode, RunLambdaProps } from '@/components/RunLambda';
 import { RunLambdaResult } from '@/types/api-types';
 import { RunCodeBlockLambdaConfig } from '@/types/run-lambda-types';
 import { Prop } from 'vue-property-decorator';

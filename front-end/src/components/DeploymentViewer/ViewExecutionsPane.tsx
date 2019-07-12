@@ -3,7 +3,7 @@ import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import ViewExecutionsList from '@/components/ViewExecutions/ViewExecutionsList';
 import { ViewExecutionsListProps } from '@/types/component-types';
-import {ProductionExecution, ProjectExecution} from '@/types/deployment-executions-types';
+import { ProductionExecution, ProjectExecution } from '@/types/deployment-executions-types';
 
 const deploymentExecutions = namespace('deploymentExecutions');
 

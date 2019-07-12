@@ -1,5 +1,5 @@
-import {Module} from 'vuex';
-import {RootState} from '../store-types';
+import { Module } from 'vuex';
+import { RootState } from '../store-types';
 import {
   RunLambdaRequest,
   RunLambdaResponse,
@@ -8,14 +8,14 @@ import {
   RunTmpLambdaRequest,
   RunTmpLambdaResponse
 } from '@/types/api-types';
-import {makeApiRequest} from '@/store/fetchers/refinery-api';
-import {API_ENDPOINT} from '@/constants/api-constants';
-import {LambdaWorkflowState, SupportedLanguage, WorkflowStateType} from '@/types/graph';
-import {RunCodeBlockLambdaConfig, RunTmpCodeBlockLambdaConfig} from '@/types/run-lambda-types';
-import {checkBuildStatus, libraryBuildArguments} from '@/store/fetchers/api-helpers';
-import {ProductionLambdaWorkflowState} from '@/types/production-workflow-types';
-import {resetStoreState} from '@/utils/store-utils';
-import {deepJSONCopy} from '@/lib/general-utils';
+import { makeApiRequest } from '@/store/fetchers/refinery-api';
+import { API_ENDPOINT } from '@/constants/api-constants';
+import { LambdaWorkflowState, SupportedLanguage, WorkflowStateType } from '@/types/graph';
+import { RunCodeBlockLambdaConfig, RunTmpCodeBlockLambdaConfig } from '@/types/run-lambda-types';
+import { checkBuildStatus, libraryBuildArguments } from '@/store/fetchers/api-helpers';
+import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
+import { resetStoreState } from '@/utils/store-utils';
+import { deepJSONCopy } from '@/lib/general-utils';
 
 export interface InputDataCache {
   [key: string]: string;
@@ -54,13 +54,13 @@ export interface RunLambdaState {
 
   deployedLambdaResult: RunLambdaResult | null;
   deployedLambdaInputData: string | null;
-  deployedLambdaInputDataCache: InputDataCache
+  deployedLambdaInputDataCache: InputDataCache;
 
   devLambdaResult: RunLambdaResult | null;
   // ID of the last lambda run
   devLambdaResultId: string | null;
   devLambdaInputData: string | null;
-  devLambdaInputDataCache: InputDataCache
+  devLambdaInputDataCache: InputDataCache;
 
   // Text to display while Lambda is being run
   loadingText: string;
@@ -154,8 +154,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
 
       return '';
     }
-  }
-  ,
+  },
   mutations: {
     [RunLambdaMutators.resetState](state) {
       resetStoreState(state, moduleState);
@@ -202,10 +201,11 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         return;
       }
 
-      const inputData = context.state.deployedLambdaInputData !== null ? context.state.deployedLambdaInputData : block.saved_input_data;
+      const inputData =
+        context.state.deployedLambdaInputData !== null ? context.state.deployedLambdaInputData : block.saved_input_data;
 
       const request: RunLambdaRequest = {
-        input_data: (inputData === undefined || inputData === null) ? '': inputData,
+        input_data: inputData === undefined || inputData === null ? '' : inputData,
         arn: block.arn
       };
 
@@ -260,11 +260,14 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         [] as RunTmpLambdaEnvironmentVariable[]
       );
 
-      const inputData = context.state.devLambdaInputData !== null ? context.state.devLambdaInputData : config.codeBlock.saved_input_data;
+      const inputData =
+        context.state.devLambdaInputData !== null
+          ? context.state.devLambdaInputData
+          : config.codeBlock.saved_input_data;
 
       const request: RunTmpLambdaRequest = {
         environment_variables: runLambdaEnvironmentVariables,
-        input_data: (inputData === undefined || inputData === null) ? '' : inputData,
+        input_data: inputData === undefined || inputData === null ? '' : inputData,
 
         code: block.code,
         language: block.language,
