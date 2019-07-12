@@ -5,7 +5,7 @@ import { blockTypeToImageLookup } from '@/constants/project-editor-constants';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { Prop } from 'vue-property-decorator';
 import VueMarkdown from 'vue-markdown';
-import {ChosenBlock} from '@/types/add-block-types';
+import { ChosenBlock } from '@/types/add-block-types';
 
 export interface ViewChosenSavedBlockPaneProps {
   chosenBlock: ChosenBlock;
@@ -36,7 +36,7 @@ export default class ViewChosenSavedBlockPane extends Vue implements ViewChosenS
 
     return (
       <div class="width--100percent">
-        <div class="display--flex flex-grow--1 width--100percent" style={{'min-width': '320px'}}>
+        <div class="display--flex flex-grow--1 width--100percent" style={{ 'min-width': '320px' }}>
           <div>
             <img class="add-block__image" src={imagePath} alt={block.name} />
             {shareStatusText}
@@ -47,7 +47,7 @@ export default class ViewChosenSavedBlockPane extends Vue implements ViewChosenS
               <small>{durationSinceUpdated}</small>
             </div>
             <div class="add-saved-block-container__description mb-1">
-              <vue-markdown html={false} source={block.description}></vue-markdown>
+              <vue-markdown html={false} source={block.description} />
             </div>
           </div>
         </div>
@@ -59,7 +59,6 @@ export default class ViewChosenSavedBlockPane extends Vue implements ViewChosenS
   }
 
   public render(h: CreateElement): VNode {
-
     return (
       <div class="container text-align--left mb-3">
         <a

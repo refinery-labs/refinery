@@ -12,9 +12,9 @@ import {
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
 import { ProjectViewActions } from '@/constants/store-constants';
-import {LambdaWorkflowState, WorkflowState} from '@/types/graph';
+import { LambdaWorkflowState, WorkflowState } from '@/types/graph';
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
-import {inputDataExample} from '@/constants/saved-block-constants';
+import { inputDataExample } from '@/constants/saved-block-constants';
 
 const storeName = 'createSavedBlockView';
 

@@ -2,13 +2,14 @@ import * as R from 'ramda';
 import {
   BlockExecutionGroup,
   BlockExecutionMetadata,
-  ProductionExecution, ProjectExecution,
+  ProductionExecution,
+  ProjectExecution,
   ProjectExecutions
 } from '@/types/deployment-executions-types';
-import {Execution, ExecutionStatusType} from '@/types/api-types';
-import {groupToArrayBy, mapObjToKeyValueTuple, sortByTimestamp} from '@/lib/ramda-extensions';
-import {parseS3LogFilename} from '@/utils/code-block-utils';
-import {RefineryProject} from '@/types/graph';
+import { Execution, ExecutionStatusType } from '@/types/api-types';
+import { groupToArrayBy, mapObjToKeyValueTuple, sortByTimestamp } from '@/lib/ramda-extensions';
+import { parseS3LogFilename } from '@/utils/code-block-utils';
+import { RefineryProject } from '@/types/graph';
 
 export function sortExecutions(arr: ProjectExecution[]) {
   const sorted = sortByTimestamp((i: ProjectExecution) => i.oldestTimestamp, arr);
@@ -78,7 +79,6 @@ function convertLogFilenameToBlockExecutionMetadata(project: RefineryProject, lo
  * @param metadata Array of BlockExecutionMetadata objects
  */
 function createBlockExecutionGroupWithBlockIdAndMetadata(metadata: BlockExecutionMetadata[]): BlockExecutionGroup {
-
   if (metadata.length === 0) {
     throw new Error('Cannot create block execution group with missing metadata array');
   }
@@ -107,18 +107,22 @@ function createBlockExecutionGroupWithBlockIdAndMetadata(metadata: BlockExecutio
  * @param project Project used to get data for the association
  * @param execution A specific execution of a project returned from the API server
  */
-function convertExecutionToProjectExecution(project: RefineryProject, execution: ProductionExecution): ProjectExecution {
-
+function convertExecutionToProjectExecution(
+  project: RefineryProject,
+  execution: ProductionExecution
+): ProjectExecution {
   // Get metadata from S3 filename and convert to metadata data structure
-  const metadata: BlockExecutionMetadata [] = execution.logs.map(
-    log => convertLogFilenameToBlockExecutionMetadata(project, log)
+  const metadata: BlockExecutionMetadata[] = execution.logs.map(log =>
+    convertLogFilenameToBlockExecutionMetadata(project, log)
   );
 
   // Takes in the raw array and groups them by blockId. Key is blockId, value is array of executions for that blockId
   const groupedExecutionsByBlockId = groupToArrayBy(t => t.blockId, metadata);
 
   // Creates a BlockExecutionGroup array to hold metadata about a all executions of a specific block
-  const blockExecutionGroups = Object.values(groupedExecutionsByBlockId).map(createBlockExecutionGroupWithBlockIdAndMetadata);
+  const blockExecutionGroups = Object.values(groupedExecutionsByBlockId).map(
+    createBlockExecutionGroupWithBlockIdAndMetadata
+  );
 
   // Puts the key as the blockId. If we didn't do this, the output would just be an array.
   const blockExecutionGroupIndexByBlockId = R.indexBy(p => p.blockId, blockExecutionGroups);
@@ -139,22 +143,22 @@ function convertExecutionToProjectExecution(project: RefineryProject, execution:
  * @returns Object of ProductionExecution instances
  * @throws Will throw whenever an invalid state is detected
  */
-export function convertExecutionResponseToProjectExecutionGroup(project: RefineryProject, executions: ProjectExecutions) {
-
+export function convertExecutionResponseToProjectExecutionGroup(
+  project: RefineryProject,
+  executions: ProjectExecutions
+) {
   // Converts from the API type to ProjectExecution
   const productionExecutions = mapObjToKeyValueTuple(createProductionExecutionFromExecutionAndId, executions);
 
   // List of project execution instances with metadata fully associated from the specified project
-  const unfilteredProjectExecutions = productionExecutions.map(
-    execution => {
-      try {
-        return convertExecutionToProjectExecution(project, execution);
-      } catch (e) {
-        console.log('Failed to convert project execution, likely invalid logs for the current project', e);
-        return null;
-      }
+  const unfilteredProjectExecutions = productionExecutions.map(execution => {
+    try {
+      return convertExecutionToProjectExecution(project, execution);
+    } catch (e) {
+      console.log('Failed to convert project execution, likely invalid logs for the current project', e);
+      return null;
     }
-  );
+  });
 
   // If there were any exceptions converting an execution, filter it out
   const projectExecutions = unfilteredProjectExecutions.filter(t => t !== null) as ProjectExecution[];

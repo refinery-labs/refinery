@@ -1,5 +1,5 @@
-import {BlockExecutionMetadata, ExecutionLogMetadata} from '@/types/deployment-executions-types';
-import {ExecutionStatusType} from '@/types/api-types';
+import { BlockExecutionMetadata, ExecutionLogMetadata } from '@/types/deployment-executions-types';
+import { ExecutionStatusType } from '@/types/api-types';
 
 function getResourceName(resource_type: string, arnParts: string[]) {
   if (resource_type === 'lambda') {
@@ -38,15 +38,14 @@ export function parseArn(input_arn: string) {
  * @param logName Super long filename that contains concatenated chunks of data that will be parsed out.
  */
 export function parseS3LogFilename(logName: string): ExecutionLogMetadata {
-
-  const pathParts = logName.split( "/" );
-  const executionId = pathParts[ 2 ];
-  const logFileName = pathParts[ 3 ];
-  const logFileNameParts = logFileName.split( "~" );
-  const logType = logFileNameParts[ 0 ];
-  const lambdaName = logFileNameParts[ 1 ];
-  const logId = logFileNameParts[ 2 ];
-  const timestamp = parseInt(logFileNameParts[ 3 ], 10);
+  const pathParts = logName.split('/');
+  const executionId = pathParts[2];
+  const logFileName = pathParts[3];
+  const logFileNameParts = logFileName.split('~');
+  const logType = logFileNameParts[0];
+  const lambdaName = logFileNameParts[1];
+  const logId = logFileNameParts[2];
+  const timestamp = parseInt(logFileNameParts[3], 10);
 
   return {
     executionId,

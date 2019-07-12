@@ -1,4 +1,4 @@
-import {SavedBlockSearchResult} from '@/types/api-types';
+import { SavedBlockSearchResult } from '@/types/api-types';
 
 export interface ChosenBlock {
   block: SavedBlockSearchResult;

@@ -6,7 +6,7 @@ import {
   WorkflowStateType
 } from '@/types/graph';
 import { IfDropDownSelectionType } from '@/store/store-types';
-import {ProductionExecution, ProjectExecution} from '@/types/deployment-executions-types';
+import { ProductionExecution, ProjectExecution } from '@/types/deployment-executions-types';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
 
 export interface EditorProps {

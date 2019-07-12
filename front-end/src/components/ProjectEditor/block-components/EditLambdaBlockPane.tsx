@@ -29,7 +29,7 @@ import { CreateSavedBlockViewStoreModule } from '@/store/modules/panes/create-sa
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
 import Split from '@/components/Common/Split.vue';
 import SplitArea from '@/components/Common/SplitArea.vue';
-import {RunLambdaDisplayMode} from '@/components/RunLambda';
+import { RunLambdaDisplayMode } from '@/components/RunLambda';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
@@ -155,7 +155,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
     const props = {
       'splitpanes-size': 65
-    }
+    };
 
     return (
       <b-modal
@@ -167,11 +167,16 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         visible={showCodeModal}
       >
         <div class="text-center display--flex code-modal-editor-container overflow--hidden-x">
-          <Split props={{direction: 'horizontal' as Object, extraClasses: 'height--100percent flex-grow--1 display--flex' as Object}}>
-            <SplitArea props={{size: 67 as Object, positionRelative: true as Object}}>
+          <Split
+            props={{
+              direction: 'horizontal' as Object,
+              extraClasses: 'height--100percent flex-grow--1 display--flex' as Object
+            }}
+          >
+            <SplitArea props={{ size: 67 as Object, positionRelative: true as Object }}>
               {this.renderCodeEditor('ace-hack')}
             </SplitArea>
-            <SplitArea props={{size: 33 as Object}}>
+            <SplitArea props={{ size: 33 as Object }}>
               <RunLambdaContainer props={{ displayMode: RunLambdaDisplayMode.fullscreen }} />
             </SplitArea>
           </Split>
@@ -526,7 +531,15 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       return (
         <div>
           <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#code-block' }} />
-          <BlockNameInput props={{ selectedNode: this.selectedNode, selectedNodeMetadata: this.selectedNodeMetadata, readOnly: this.readOnly } as EditBlockPaneProps} />
+          <BlockNameInput
+            props={
+              {
+                selectedNode: this.selectedNode,
+                selectedNodeMetadata: this.selectedNodeMetadata,
+                readOnly: this.readOnly
+              } as EditBlockPaneProps
+            }
+          />
           {this.renderCodeEditorContainer()}
           {this.renderBlockVariables()}
           {this.renderAwsLink()}
@@ -541,7 +554,15 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     return (
       <div>
         <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#code-block' }} />
-        <BlockNameInput props={{ selectedNode: this.selectedNode, selectedNodeMetadata: this.selectedNodeMetadata, readOnly: this.readOnly } as EditBlockPaneProps} />
+        <BlockNameInput
+          props={
+            {
+              selectedNode: this.selectedNode,
+              selectedNodeMetadata: this.selectedNodeMetadata,
+              readOnly: this.readOnly
+            } as EditBlockPaneProps
+          }
+        />
         {this.renderCodeEditorContainer()}
         {this.renderAwsLink()}
         {this.renderBlockVariables()}

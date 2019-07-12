@@ -1,4 +1,3 @@
-
 export const editModeTitle = 'Update Saved Block Version';
 export const addModeTitle = 'Create New Saved Block';
 

@@ -1,14 +1,14 @@
-import {Action, getModule, Module, Mutation, VuexModule} from 'vuex-module-decorators';
+import { Action, getModule, Module, Mutation, VuexModule } from 'vuex-module-decorators';
 import store from '@/store/index';
-import {resetStoreState} from '@/utils/store-utils';
-import {deepJSONCopy} from '@/lib/general-utils';
-import {RootState} from '@/store/store-types';
-import {ProjectViewActions} from '@/constants/store-constants';
-import {SIDEBAR_PANE} from '@/types/project-editor-types';
-import {searchSavedBlocks} from '@/store/fetchers/api-helpers';
-import {SavedBlockSearchResult, SharedBlockPublishStatus} from '@/types/api-types';
-import {AddBlockArguments} from '@/store/modules/project-view';
-import {ChosenBlock} from '@/types/add-block-types';
+import { resetStoreState } from '@/utils/store-utils';
+import { deepJSONCopy } from '@/lib/general-utils';
+import { RootState } from '@/store/store-types';
+import { ProjectViewActions } from '@/constants/store-constants';
+import { SIDEBAR_PANE } from '@/types/project-editor-types';
+import { searchSavedBlocks } from '@/store/fetchers/api-helpers';
+import { SavedBlockSearchResult, SharedBlockPublishStatus } from '@/types/api-types';
+import { AddBlockArguments } from '@/store/modules/project-view';
+import { ChosenBlock } from '@/types/add-block-types';
 
 const storeName = 'addSavedBlockPane';
 
@@ -132,10 +132,7 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
 
     const privateMatches = this.searchResultsPrivate.filter(searchMatchFn);
 
-    const matches = [
-      ...privateMatches,
-      ...this.searchResultsPublished.filter(searchMatchFn)
-    ];
+    const matches = [...privateMatches, ...this.searchResultsPublished.filter(searchMatchFn)];
 
     if (matches.length > 1) {
       console.error(

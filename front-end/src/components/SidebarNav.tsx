@@ -82,23 +82,19 @@ export default class SidebarNav extends Vue {
 
     return (
       <div class={divClasses}>
-      <b-button class={buttonClasses} props={buttonProps} on={buttonOnClicks}>
-        <em class={navItem.icon} />
-        <span>
-          {splitContent[0]}
-          <br />
-          {splitContent[1] && splitContent[1]}
-        </span>
-      </b-button>
+        <b-button class={buttonClasses} props={buttonProps} on={buttonOnClicks}>
+          <em class={navItem.icon} />
+          <span>
+            {splitContent[0]}
+            <br />
+            {splitContent[1] && splitContent[1]}
+          </span>
+        </b-button>
       </div>
     );
   }
 
   public render(h: CreateElement): VNode {
-    return (
-      <div class="content-sidebar display--flex">
-        {this.navItems.map(item => this.renderNavItem(item))}
-      </div>
-    );
+    return <div class="content-sidebar display--flex">{this.navItems.map(item => this.renderNavItem(item))}</div>;
   }
 }

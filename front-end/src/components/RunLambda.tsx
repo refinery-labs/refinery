@@ -141,7 +141,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
       // Using NodeJS for JSON support
       lang: SupportedLanguage.NODEJS_8,
       content: this.inputData,
-      onChange: this.onUpdateInputData,
+      onChange: this.onUpdateInputData
     };
 
     const inputDataEditor = (
@@ -155,9 +155,11 @@ export default class RunLambda extends Vue implements RunLambdaProps {
       name: `result-data-${this.getNameSuffix()}`,
       // This is very nice for rendering non-programming text
       lang: 'json',
-      content: (hasValidOutput && this.runResultOutput && this.runResultOutput.returned_data) || 'Click Execute button for run output.',
+      content:
+        (hasValidOutput && this.runResultOutput && this.runResultOutput.returned_data) ||
+        'Click Execute button for run output.',
       wrapText: true,
-      readOnly: true,
+      readOnly: true
     };
 
     const resultOutputEditorProps: EditorProps = {
@@ -189,16 +191,11 @@ export default class RunLambda extends Vue implements RunLambdaProps {
 
     const renderEditorWrapper = (text: string, editor: any) => (
       <div class="display--flex flex-direction--column height--100percent">
-
         <div class="text-align--left run-lambda-container__text-label">
-          <label class="text-light padding--none mt-0 mb-0 ml-2">
-            {text}:
-          </label>
+          <label class="text-light padding--none mt-0 mb-0 ml-2">{text}:</label>
         </div>
         <div class="flex-grow--1">
-          <div class="height--100percent position--relative">
-            {editor}
-          </div>
+          <div class="height--100percent position--relative">{editor}</div>
         </div>
       </div>
     );
@@ -206,14 +203,14 @@ export default class RunLambda extends Vue implements RunLambdaProps {
     return (
       <div class="display--flex flex-direction--column height--100percent">
         <div class="display--flex flex-grow--1">
-          <Split props={{direction: 'vertical' as Object, extraClasses: 'flex-grow--1' as Object}}>
-            <SplitArea props={{size: 34 as Object}}>
+          <Split props={{ direction: 'vertical' as Object, extraClasses: 'flex-grow--1' as Object }}>
+            <SplitArea props={{ size: 34 as Object }}>
               {renderEditorWrapper('Block Input Data', inputDataEditor)}
             </SplitArea>
-            <SplitArea props={{size: 33 as Object}}>
+            <SplitArea props={{ size: 33 as Object }}>
               {renderEditorWrapper('Return Data', <RefineryCodeEditor props={resultDataEditorProps} />)}
             </SplitArea>
-            <SplitArea props={{size: 33 as Object}}>
+            <SplitArea props={{ size: 33 as Object }}>
               {renderEditorWrapper('Execution Output', <RefineryCodeEditor props={resultOutputEditorProps} />)}
             </SplitArea>
           </Split>
@@ -238,9 +235,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
 
     return (
       <Loading props={loadingProps}>
-        <div class={classes}>
-          {this.renderEditors()}
-        </div>
+        <div class={classes}>{this.renderEditors()}</div>
       </Loading>
     );
   }

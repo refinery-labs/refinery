@@ -140,7 +140,7 @@ export default class OpenedProjectOverview extends Vue {
 
         <ProjectEditorLeftPaneContainer />
 
-        <div class="project-sidebar-container__filler"></div>
+        <div class="project-sidebar-container__filler" />
 
         {this.renderPaneOverlay(PANE_POSITION.right, this.activeRightSidebarPane)}
 

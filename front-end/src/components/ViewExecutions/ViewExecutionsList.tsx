@@ -3,7 +3,7 @@ import Component from 'vue-class-component';
 import { Prop } from 'vue-property-decorator';
 import { ViewExecutionsListProps } from '@/types/component-types';
 import moment from 'moment';
-import {ProductionExecution, ProjectExecution} from '@/types/deployment-executions-types';
+import { ProductionExecution, ProjectExecution } from '@/types/deployment-executions-types';
 
 @Component
 export default class ViewExecutionsList extends Vue implements ViewExecutionsListProps {
@@ -15,9 +15,7 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
   @Prop({ required: true }) hasMoreExecutionsToLoad!: boolean;
 
   public renderExecution(execution: ProjectExecution) {
-    const durationSinceUpdated = moment
-      .duration(-moment().diff(execution.oldestTimestamp * 1000))
-      .humanize(true);
+    const durationSinceUpdated = moment.duration(-moment().diff(execution.oldestTimestamp * 1000)).humanize(true);
 
     const isActive = execution.executionId === this.selectedExecutionGroup;
 
@@ -113,7 +111,9 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
 
     return (
       <div class={containerClasses}>
-        <b-list-group>{Object.values(projectExecutions).map(execution => this.renderExecution(execution))}</b-list-group>
+        <b-list-group>
+          {Object.values(projectExecutions).map(execution => this.renderExecution(execution))}
+        </b-list-group>
         {this.renderLoadButton()}
       </div>
     );

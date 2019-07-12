@@ -8,7 +8,8 @@ import {
   GetConsoleCredentialsRequest,
   GetConsoleCredentialsResponse,
   GetProjectExecutionLogsRequest,
-  GetProjectExecutionLogsResponse, GetProjectExecutionLogsResult,
+  GetProjectExecutionLogsResponse,
+  GetProjectExecutionLogsResult,
   GetProjectExecutionsRequest,
   GetProjectExecutionsResponse,
   GetSavedProjectRequest,
@@ -29,7 +30,7 @@ import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
 import { ProductionExecution, ProductionExecutionResponse } from '@/types/deployment-executions-types';
 import { convertExecutionResponseToProjectExecutionGroup } from '@/utils/project-execution-utils';
-import {RefineryProject, SupportedLanguage, WorkflowState} from '@/types/graph';
+import { RefineryProject, SupportedLanguage, WorkflowState } from '@/types/graph';
 import { ProductionWorkflowState } from '@/types/production-workflow-types';
 import { blockTypeToDefaultStateMapping, DEFAULT_PROJECT_CONFIG } from '@/constants/project-editor-constants';
 import { unwrapProjectJson } from '@/utils/project-helpers';
@@ -66,7 +67,10 @@ export async function getProjectExecutions(
     return null;
   }
 
-  const convertedExecutions = convertExecutionResponseToProjectExecutionGroup(project, executionsResponse.result.executions);
+  const convertedExecutions = convertExecutionResponseToProjectExecutionGroup(
+    project,
+    executionsResponse.result.executions
+  );
 
   return {
     continuationToken: executionsResponse.result.continuation_token,
@@ -74,7 +78,10 @@ export async function getProjectExecutions(
   };
 }
 
-export async function getLogsForExecutions(project: RefineryProject, execution: string[]): Promise<{ [key: string]: GetProjectExecutionLogsResult[] } | null> {
+export async function getLogsForExecutions(
+  project: RefineryProject,
+  execution: string[]
+): Promise<{ [key: string]: GetProjectExecutionLogsResult[] } | null> {
   if (!project) {
     console.error('Tried to fetch logs without specified project');
     return null;
