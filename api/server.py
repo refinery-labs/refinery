@@ -771,7 +771,10 @@ class TaskSpawner(object):
 
 			# Format query results
 			for query_result in query_results:
+				# For the front-end
+				query_result[ "log_id" ] = query_result[ "id" ]
 				query_result[ "timestamp" ] = int( query_result[ "timestamp" ] )
+				del query_result[ "id" ]
 
 			return query_results
 
