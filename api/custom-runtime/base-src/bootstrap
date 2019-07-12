@@ -999,7 +999,7 @@ def _api_endpoint( lambda_input, execution_id, context ):
 		"isBase64Encoded": False
 	}
 
-def _write_pipeline_logs( s3_log_bucket, project_id, lambda_arn, lambda_name, execution_pipeline_id, log_type, log_data, execution_details ):
+def _write_pipeline_logs( s3_log_bucket, project_id, lambda_arn, lambda_name, execution_pipeline_id, log_type, execution_details, program_output, backpack, input_data, return_data ):
 	def get_nearest_five_minutes():
 		round_to = ( 60 * 5 )
 		dt = datetime.datetime.now()
@@ -1023,19 +1023,22 @@ def _write_pipeline_logs( s3_log_bucket, project_id, lambda_arn, lambda_name, ex
 	01/13/2019 @ 9:03pm (UTC) = 1547413430 -> ( 9999999999 - 1547413430 ) = 8452586569
 	"""
 	nearest_minute = get_nearest_five_minutes()
-	unix_timestamp = int( nearest_minute.strftime( "%s" ) )
-	reversed_timestamp = str( 9999999999 - unix_timestamp )
+	date_shard_string = "dt=" + nearest_minute.strftime( "%Y-%m-%d-%H-%M" )
 
-	s3_path = project_id + "/" + reversed_timestamp + "/" + execution_pipeline_id + "/" + log_type + "~" + lambda_name + "~" + log_id + "~" + str( int( time.time() ) )
+	s3_path = project_id + "/" + date_shard_string + "/" + execution_pipeline_id + "/" + log_type + "~" + lambda_name + "~" + log_id + "~" + str( int( time.time() ) )
 
 	s3_data = {
 		"id": log_id,
+		"execution_pipeline_id": execution_pipeline_id,
 		"project_id": project_id,
 		"arn": lambda_arn,
 		"name": lambda_name,
 		"type": log_type, # INPUT, EXCEPTION, COMPLETE
-		"data": log_data,
-		"timestamp": int( time.time() )
+		"timestamp": int( time.time() ),
+		"program_output": program_output,
+		"backpack": backpack,
+		"input_data": input_data,
+		"return_data": return_data,
 	}
 
 	# Merge in execution_details
@@ -1047,7 +1050,6 @@ def _write_pipeline_logs( s3_log_bucket, project_id, lambda_arn, lambda_name, ex
 		Key=s3_path,
 		Body=json.dumps(
 			s3_data,
-			indent=4,
 			sort_keys=True
 		)
 	)
@@ -1671,13 +1673,11 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 						context.function_name,
 						execution_id,
 						"CAUGHT_EXCEPTION",
-						{
-							"backpack": backpack,
-							"input_data": lambda_input,
-							"output": error_output,
-							"exception": exception_string,
-						},
-						execution_details
+						execution_details,
+						error_output,
+						backpack,
+						lambda_input,
+						""
 					)
 
 				for exception_transition_data in transitions[ "exception" ]:
@@ -1705,13 +1705,11 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 					context.function_name,
 					execution_id,
 					"EXCEPTION",
-					{
-						"backpack": backpack,
-						"input_data": lambda_input,
-						"output": error_output,
-						"exception": exception_string,
-					},
-					execution_details
+					execution_details,
+					error_output,
+					backpack,
+					lambda_input,
+					""
 				)
 			
 			# If we've got an API Gateway response coming up we'll write an error
@@ -2028,14 +2026,12 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 			context.invoked_function_arn,
 			context.function_name,
 			execution_id,
-			"RETURN",
-			{
-				"backpack": backpack,
-				"input_data": lambda_input,
-				"output": program_output,
-				"return_data": return_data
-			},
-			execution_details
+			"SUCCESS",
+			execution_details,
+			program_output,
+			backpack,
+			lambda_input,
+			return_data
 		)
 
 	# Return the return data as usual
