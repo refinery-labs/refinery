@@ -921,7 +921,7 @@ class TaskSpawner(object):
 		
 		@staticmethod
 		def _load_project_id_log_table_partitions( credentials, project_id ):
-			project_id = re.sub( r"[^a-zA-Z0-9\-]+", "", project_id )
+			project_id = re.sub( REGEX_WHITELISTS[ "project_id" ], "", project_id )
 			query_template = "MSCK REPAIR TABLE {{REPLACE_ME_PROJECT_TABLE_NAME}};"
 			
 			# Replace with the formatted Athena table name
