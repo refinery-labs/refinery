@@ -3,7 +3,7 @@ import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import { WorkflowState } from '@/types/graph';
 import { blockTypeToEditorComponentLookup } from '@/constants/project-editor-constants';
-import {EditBlockPaneProps} from '@/types/component-types';
+import { EditBlockPaneProps } from '@/types/component-types';
 
 const viewBlock = namespace('viewBlock');
 
@@ -31,6 +31,7 @@ export default class ViewDeployedBlockPane extends Vue {
 
     const formClasses = {
       'mb-3 mt-3 text-align--left': true,
+      'show-block-container__form': true,
       'show-block-container__form--normal': !this.wideMode,
       'show-block-container__form--wide': this.wideMode
     };
@@ -41,9 +42,7 @@ export default class ViewDeployedBlockPane extends Vue {
 
     return (
       <b-form class={formClasses} on={{ submit: (e: Event) => e.preventDefault() }}>
-        <div class="scrollable-pane-container padding-left--normal padding-right--normal">
-          {componentInstance}
-        </div>
+        <div class="scrollable-pane-container padding-left--normal padding-right--normal">{componentInstance}</div>
       </b-form>
     );
   }

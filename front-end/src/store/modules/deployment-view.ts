@@ -7,7 +7,8 @@ import {
   DeploymentViewActions,
   DeploymentViewGetters,
   DeploymentViewMutators,
-  ProjectViewActions, ProjectViewMutators
+  ProjectViewActions,
+  ProjectViewMutators
 } from '@/constants/store-constants';
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
@@ -24,7 +25,8 @@ import { getNodeDataById } from '@/utils/project-helpers';
 import { ViewBlockActions } from '@/store/modules/panes/view-block-pane';
 import { ViewTransitionActions } from '@/store/modules/panes/view-transition-pane';
 import {
-  DeploymentExecutionsActions, DeploymentExecutionsGetters,
+  DeploymentExecutionsActions,
+  DeploymentExecutionsGetters,
   DeploymentExecutionsMutators
 } from '@/store/modules/panes/deployment-executions-pane';
 import { teardownProject } from '@/store/fetchers/api-helpers';
@@ -262,7 +264,8 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
       await context.dispatch(`viewBlock/${ViewBlockActions.selectCurrentlySelectedProjectNode}`, null, { root: true });
 
       const selectedExecutionGroup = context.rootState.deploymentExecutions.selectedExecutionGroup;
-      const selectedExecutionGroupForNode = context.rootGetters[`deploymentExecutions/${DeploymentExecutionsGetters.getSelectedExecutionForNode}`];
+      const selectedExecutionGroupForNode =
+        context.rootGetters[`deploymentExecutions/${DeploymentExecutionsGetters.getSelectedExecutionForNode}`];
 
       const viewBlockLogs = selectedExecutionGroup && selectedExecutionGroupForNode;
 
@@ -270,7 +273,9 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
 
       // Kick off grabbing the logs
       if (viewBlockLogs) {
-        context.dispatch(`deploymentExecutions/${DeploymentExecutionsActions.fetchLogsForSelectedBlock}`, null, {root: true});
+        context.dispatch(`deploymentExecutions/${DeploymentExecutionsActions.fetchLogsForSelectedBlock}`, null, {
+          root: true
+        });
       }
 
       await context.dispatch(DeploymentViewActions.openRightSidebarPane, paneToOpen);

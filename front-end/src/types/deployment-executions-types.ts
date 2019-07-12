@@ -1,4 +1,4 @@
-import {Execution, ExecutionStatusType} from '@/types/api-types';
+import { Execution, ExecutionStatusType } from '@/types/api-types';
 
 export interface ProductionExecutionResponse {
   executions: { [key: string]: ProjectExecution };
@@ -10,34 +10,33 @@ export interface ProjectExecution {
   oldestTimestamp: number;
   executionId: string;
   numberOfLogs: number;
-  logsGroupedByBlockId: { [key: string]: BlockExecutionGroup }
+  logsGroupedByBlockId: { [key: string]: BlockExecutionGroup };
 }
 
 export interface BlockExecutionGroup {
-  groupExecutionStatus: ExecutionStatusType,
+  groupExecutionStatus: ExecutionStatusType;
   executionId: string;
   blockId: string;
   blockName: string;
-  logs: BlockExecutionMetadata[]
+  logs: BlockExecutionMetadata[];
 }
 
 export interface BlockExecutionMetadata {
-  executionId: string,
-  executionStatus: ExecutionStatusType,
-  blockName: string,
-  blockId: string,
-  logId: string,
-  rawLog: string,
-  timestamp: number
+  executionId: string;
+  executionStatus: ExecutionStatusType;
+  blockName: string;
+  blockId: string;
+  logId: string;
+  rawLog: string;
+  timestamp: number;
 }
-
 
 //////////////////////////////////
 // Intermediate data structures //
 //////////////////////////////////
 
 export interface ProjectExecutions {
-  [key: string]: Execution
+  [key: string]: Execution;
 }
 
 export interface ProductionExecution extends Execution {
@@ -45,10 +44,10 @@ export interface ProductionExecution extends Execution {
 }
 
 export interface ExecutionLogMetadata {
-  executionId: string,
-  executionStatus: ExecutionStatusType,
-  blockName: string,
-  logId: string,
-  rawLog: string,
-  timestamp: number
+  executionId: string;
+  executionStatus: ExecutionStatusType;
+  blockName: string;
+  logId: string;
+  rawLog: string;
+  timestamp: number;
 }

@@ -8,6 +8,7 @@ import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { searchSavedBlocks } from '@/store/fetchers/api-helpers';
 import { SavedBlockSearchResult, SharedBlockPublishStatus } from '@/types/api-types';
 import { AddBlockArguments } from '@/store/modules/project-view';
+import { ChosenBlock } from '@/types/add-block-types';
 
 const storeName = 'addSavedBlockPane';
 
@@ -21,6 +22,8 @@ export interface AddSavedBlockPaneState {
 
   searchResultsPrivate: SavedBlockSearchResult[];
   searchResultsPublished: SavedBlockSearchResult[];
+
+  chosenBlock: ChosenBlock | null;
 }
 
 export const baseState: AddSavedBlockPaneState = {
@@ -32,7 +35,9 @@ export const baseState: AddSavedBlockPaneState = {
   searchPublishedToggleValue: true,
 
   searchResultsPrivate: [],
-  searchResultsPublished: []
+  searchResultsPublished: [],
+
+  chosenBlock: null
 };
 
 // Must copy so that we can not thrash the pointers...
@@ -50,6 +55,8 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
 
   public searchResultsPrivate: SavedBlockSearchResult[] = initialState.searchResultsPrivate;
   public searchResultsPublished: SavedBlockSearchResult[] = initialState.searchResultsPublished;
+
+  public chosenBlock: ChosenBlock | null = initialState.chosenBlock;
 
   @Mutation
   public resetState() {
@@ -74,6 +81,16 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
   @Mutation
   public setIsBusySearching(val: boolean) {
     this.isBusySearching = val;
+  }
+
+  @Mutation
+  public setChosenBlock(chosenBlock: ChosenBlock) {
+    this.chosenBlock = chosenBlock;
+  }
+
+  @Mutation
+  public clearChosenBlock() {
+    this.chosenBlock = null;
   }
 
   @Action
@@ -110,13 +127,12 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
   }
 
   @Action
-  public async addChosenBlock(id: string) {
+  public async selectBlockToAdd(id: string) {
     const searchMatchFn = (result: SavedBlockSearchResult) => result.id === id;
 
-    const matches = [
-      ...this.searchResultsPrivate.filter(searchMatchFn),
-      ...this.searchResultsPublished.filter(searchMatchFn)
-    ];
+    const privateMatches = this.searchResultsPrivate.filter(searchMatchFn);
+
+    const matches = [...privateMatches, ...this.searchResultsPublished.filter(searchMatchFn)];
 
     if (matches.length > 1) {
       console.error(
@@ -130,7 +146,22 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
       return;
     }
 
-    const match = matches[0];
+    this.setChosenBlock({
+      block: matches[0],
+      blockSource: privateMatches.length > 0 ? 'private' : 'public'
+    });
+  }
+
+  @Action
+  public async addChosenBlock() {
+    const chosenBlock = this.chosenBlock;
+
+    if (!chosenBlock) {
+      console.error('Unable to add saved block, no chosen block was found to add');
+      return;
+    }
+
+    const match = chosenBlock.block;
 
     const addBlockArgs: AddBlockArguments = {
       rawBlockType: match.type,

@@ -3,7 +3,7 @@ import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import { WorkflowState, WorkflowStateType } from '@/types/graph';
 import { PANE_POSITION } from '@/types/project-editor-types';
-import RunLambda, { RunLambdaDisplayLocation, RunLambdaDisplayMode } from '@/components/RunLambda';
+import RunLambda, { RunLambdaDisplayLocation, RunLambdaDisplayMode, RunLambdaProps } from '@/components/RunLambda';
 import { RunLambdaResult } from '@/types/api-types';
 import { RunCodeBlockLambdaConfig } from '@/types/run-lambda-types';
 import { Prop } from 'vue-property-decorator';
@@ -19,17 +19,19 @@ export default class RunDeployedCodeBlockContainer extends Vue {
   // State
   @runLambda.State isRunningLambda!: boolean;
   @runLambda.State deployedLambdaResult!: RunLambdaResult | null;
-  @runLambda.State deployedLambdaInputData!: string;
+  @runLambda.State deployedLambdaInputData!: string | null;
 
   // Getters
   @deployment.Getter getSelectedBlock!: WorkflowState | null;
+  @runLambda.Getter getDeployedLambdaInputData!: (id: string) => string;
 
   // Mutations
   @runLambda.Mutation setDeployedLambdaInputData!: (inputData: string) => void;
 
   // Actions
   @deployment.Action closePane!: (p: PANE_POSITION) => void;
-  @runLambda.Action runSelectedDeployedCodeBlock!: (arn: string) => void;
+  @runLambda.Action runSelectedDeployedCodeBlock!: (block: ProductionLambdaWorkflowState) => void;
+  @runLambda.Action changeDeployedLambdaInputData!: (input: [string, string]) => void;
 
   public render() {
     const selectedBlock = this.getSelectedBlock as ProductionLambdaWorkflowState;
@@ -44,13 +46,15 @@ export default class RunDeployedCodeBlockContainer extends Vue {
 
     // The if check above doesn't make the function below happy...
     const selectedBlockArn = selectedBlock.arn as string;
+    const inputData = this.getDeployedLambdaInputData(selectedBlock.id);
 
-    const runLambdaProps = {
-      onRunLambda: () => this.runSelectedDeployedCodeBlock(selectedBlockArn),
-      onUpdateInputData: this.setDeployedLambdaInputData,
+    const runLambdaProps: RunLambdaProps = {
+      onRunLambda: () => this.runSelectedDeployedCodeBlock(selectedBlock),
+      onUpdateInputData: (s: string) => this.changeDeployedLambdaInputData([selectedBlock.id, s]),
       lambdaIdOrArn: selectedBlockArn,
       runResultOutput: this.deployedLambdaResult,
-      inputData: this.deployedLambdaInputData,
+      runResultOutputId: null,
+      inputData: inputData,
       isCurrentlyRunning: this.isRunningLambda,
       displayLocation: RunLambdaDisplayLocation.deployment,
       displayMode: this.displayMode,

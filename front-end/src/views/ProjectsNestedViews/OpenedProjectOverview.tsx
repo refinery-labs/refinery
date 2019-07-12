@@ -58,14 +58,6 @@ export default class OpenedProjectOverview extends Vue {
     );
   }
 
-  renderLeftPaneOverlay() {
-    return (
-      <div class="project-pane-overlay-container project-pane-overlay-container--left">
-        <ProjectEditorLeftPaneContainer />
-      </div>
-    );
-  }
-
   renderPaneOverlay(position: PANE_POSITION, paneType: SIDEBAR_PANE | null) {
     if (!paneType) {
       return null;
@@ -146,11 +138,13 @@ export default class OpenedProjectOverview extends Vue {
           <SidebarNav props={sidebarNavProps} />
         </div>
 
-        {this.renderLeftPaneOverlay()}
+        <ProjectEditorLeftPaneContainer />
 
-        <OpenedProjectGraphContainer />
+        <div class="project-sidebar-container__filler" />
 
         {this.renderPaneOverlay(PANE_POSITION.right, this.activeRightSidebarPane)}
+
+        <OpenedProjectGraphContainer />
       </div>
     );
   }

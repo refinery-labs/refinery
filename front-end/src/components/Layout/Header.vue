@@ -6,12 +6,12 @@
       <div class="navbar-header">
         <router-link class="navbar-brand" to="/projects">
           <div class="brand-logo">
-            <img class="img-fluid" src="../../../public/img/logo-icon.png" alt="App" style="height: 36px" />
+            <img class="img-fluid" src="../../../public/img/logo-icon.png" alt="App" style="height: 35px" />
           </div>
           <div class="brand-logo-collapsed">
             <img
               class="img-fluid"
-              style="max-width: 40px; max-height: 40px"
+              style="max-width: 35px; max-height: 35px"
               src="../../../public/img/logo-icon.png"
               alt="Refinery - The World's First Drag-and-Drop Serverless IDE!"
             />

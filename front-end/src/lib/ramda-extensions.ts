@@ -1,5 +1,5 @@
 import * as R from 'ramda';
-import {StringIndexable} from '@/types/generic-types';
+import { StringIndexable } from '@/types/generic-types';
 
 export function sortByTimestamp<T>(fn: (i: T) => number, arr: T[]): T[] {
   return R.sort((a: T, b: T) => fn(a) - fn(b), arr);
@@ -37,7 +37,7 @@ export function mapObjToKeyValueTuple<T1, T2>(fn: (key: string, a: T1) => T2, ar
 export function groupToArrayBy<T1>(fn: (t: T1) => string | number, arr: T1[]): StringIndexable<T1[]> {
   const outArr: StringIndexable<T1[]> = {};
 
-  return arr.reduce(((previousValue, currentValue) => {
+  return arr.reduce((previousValue, currentValue) => {
     const key = fn(currentValue);
 
     // Create an array to hold the values
@@ -48,5 +48,5 @@ export function groupToArrayBy<T1>(fn: (t: T1) => string | number, arr: T1[]): S
     previousValue[key].push(currentValue);
 
     return previousValue;
-  }), outArr);
+  }, outArr);
 }

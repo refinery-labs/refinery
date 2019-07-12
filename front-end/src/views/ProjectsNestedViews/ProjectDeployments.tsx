@@ -9,10 +9,8 @@ import EditorPaneWrapper from '@/components/EditorPaneWrapper';
 import { paneToContainerMapping } from '@/constants/project-editor-constants';
 import DeploymentViewerGraphContainer from '@/containers/DeploymentViewerGraphContainer';
 import store from '@/store/index';
-import {
-  DeploymentViewActions,
-} from '@/constants/store-constants';
-import {DeploymentExecutionsMutators} from '@/store/modules/panes/deployment-executions-pane';
+import { DeploymentViewActions } from '@/constants/store-constants';
+import { DeploymentExecutionsMutators } from '@/store/modules/panes/deployment-executions-pane';
 
 const deployment = namespace('deployment');
 

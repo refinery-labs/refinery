@@ -6,7 +6,7 @@ import {
   WorkflowStateType
 } from '@/types/graph';
 import { IfDropDownSelectionType } from '@/store/store-types';
-import {ProductionExecution, ProjectExecution} from '@/types/deployment-executions-types';
+import { ProductionExecution, ProjectExecution } from '@/types/deployment-executions-types';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
 
 export interface EditorProps {
@@ -41,6 +41,7 @@ export interface EditTransitionSelectorProps {
 
 export interface LoadingContainerProps {
   [key: string]: any;
+  dark?: boolean;
   label?: string;
   showLabel?: boolean;
   show: boolean;
@@ -66,11 +67,13 @@ export interface CreateSavedBlockViewProps {
   nameInputValid: boolean | null;
   descriptionInput: string | null;
   descriptionInputValid: boolean | null;
+  savedDataInput: string | null;
 
   publishStatus: boolean;
 
   setName: (s: string) => void;
   setDescription: (s: string) => void;
+  setSavedDataInput: (s: string) => void;
   setPublishStatus: (s: boolean) => void;
 
   publishBlock: () => void;

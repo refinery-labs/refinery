@@ -12,8 +12,9 @@ import {
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
 import { ProjectViewActions } from '@/constants/store-constants';
-import { WorkflowState } from '@/types/graph';
+import { LambdaWorkflowState, WorkflowState } from '@/types/graph';
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
+import { inputDataExample } from '@/constants/saved-block-constants';
 
 const storeName = 'createSavedBlockView';
 
@@ -22,6 +23,7 @@ export interface CreateSavedBlockViewState {
   existingBlockMetadata: SavedBlockStatusCheckResult | null;
 
   descriptionInput: string | null;
+  savedDataInput: string | null;
 
   publishStatus: boolean;
   modalVisibility: boolean;
@@ -34,6 +36,7 @@ export const baseState: CreateSavedBlockViewState = {
   existingBlockMetadata: null,
 
   descriptionInput: null,
+  savedDataInput: inputDataExample,
   publishStatus: false,
   modalVisibility: false,
 
@@ -58,6 +61,7 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
   public existingBlockMetadata = initialState.existingBlockMetadata;
 
   public descriptionInput = initialState.descriptionInput;
+  public savedDataInput = initialState.savedDataInput;
 
   public publishStatus = initialState.publishStatus;
   public modalVisibility = initialState.modalVisibility;
@@ -84,6 +88,11 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
   @Mutation
   public setDescription(descriptionInput: string) {
     this.descriptionInput = descriptionInput;
+  }
+
+  @Mutation
+  public setSavedData(savedDataInput: string) {
+    this.savedDataInput = savedDataInput;
   }
 
   @Mutation
@@ -166,8 +175,9 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
     const request: CreateSavedBlockRequest = {
       block_object: {
         ...editBlockPaneStore.selectedNode,
-        name: this.nameInput
-      },
+        name: this.nameInput,
+        saved_input_data: this.savedDataInput
+      } as LambdaWorkflowState,
       description: this.descriptionInput,
       share_status: this.publishStatus ? SharedBlockPublishStatus.PUBLISHED : SharedBlockPublishStatus.PRIVATE,
       version: 1

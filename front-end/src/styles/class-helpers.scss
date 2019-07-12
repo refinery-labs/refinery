@@ -204,6 +204,15 @@ $padding-steps: (
   max-width: none !important;
 }
 
+.max-width {
+  &--600px {
+    max-width: 600px !important;
+  }
+  &--800px {
+    max-width: 800px !important;
+  }
+}
+
 .text-align {
   &--left {
     text-align: left;
@@ -219,8 +228,6 @@ $padding-steps: (
 }
 
 .scrollable-pane-container {
-  max-height: calc(100vh - 248px);
-
   box-shadow: inset 0 0 4px rgba(0,0,0,0.2);
   border: 1px solid #ccc;
 
@@ -248,6 +255,12 @@ $padding-steps: (
 .no-modal-body-padding {
   .modal-body {
     padding: 0;
+  }
+}
+
+.textarea {
+  &--big {
+    min-height: 120px;
   }
 }
 

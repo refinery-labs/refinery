@@ -51,8 +51,12 @@ export default class SidebarNav extends Vue {
 
     const enabled = this.getIfButtonEnabled(navItem.editorPane);
 
+    const divClasses = {
+      'content-sidebar__item': true
+    };
+
     const buttonClasses = {
-      'content-sidebar__item': true,
+      'width--100percent': true,
       active: isActive,
       focus: isActive
     };
@@ -77,23 +81,20 @@ export default class SidebarNav extends Vue {
     }
 
     return (
-      <b-button class={buttonClasses} props={buttonProps} on={buttonOnClicks}>
-        <em class={navItem.icon} />
-        <br />
-        <span>
-          {splitContent[0]}
-          <br />
-          {splitContent[1] && splitContent[1]}
-        </span>
-      </b-button>
+      <div class={divClasses}>
+        <b-button class={buttonClasses} props={buttonProps} on={buttonOnClicks}>
+          <em class={navItem.icon} />
+          <span>
+            {splitContent[0]}
+            <br />
+            {splitContent[1] && splitContent[1]}
+          </span>
+        </b-button>
+      </div>
     );
   }
 
   public render(h: CreateElement): VNode {
-    return (
-      <ul class="content-sidebar display--flex flex-direction--column padding-left--none">
-        {this.navItems.map(item => this.renderNavItem(item))}
-      </ul>
-    );
+    return <div class="content-sidebar display--flex">{this.navItems.map(item => this.renderNavItem(item))}</div>;
   }
 }

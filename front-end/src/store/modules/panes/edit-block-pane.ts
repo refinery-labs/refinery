@@ -44,6 +44,7 @@ export enum EditBlockMutators {
   setMaxExecutionTime = 'setMaxExecutionTime',
   setLayers = 'setLayers',
   setEnvironmentVariables = 'setEnvironmentVariables',
+  setSavedInputData = 'setSavedInputData',
 
   setCodeModalVisibility = 'setCodeModalVisibility',
   setLibrariesModalVisibility = 'setLibrariesModalVisibility',
@@ -76,7 +77,8 @@ export enum EditBlockActions {
   deleteBlock = 'deleteBlock',
   deleteTransition = 'deleteTransition',
   // Code Block specific
-  saveCodeBlockToDatabase = 'saveCodeBlockToDatabase'
+  saveCodeBlockToDatabase = 'saveCodeBlockToDatabase',
+  saveInputData = 'saveInputData'
 }
 
 export enum EditBlockGetters {
@@ -268,6 +270,9 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       memory = Math.max(memory, 128);
 
       lambdaChange(state, block => (block.memory = memory));
+    },
+    [EditBlockMutators.setSavedInputData](state, inputData) {
+      lambdaChange(state, block => (block.saved_input_data = inputData));
     },
     [EditBlockMutators.setLayers](state, layers) {
       lambdaChange(state, block => (block.layers = layers));

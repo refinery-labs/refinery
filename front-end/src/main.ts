@@ -4,6 +4,7 @@ import Vue from 'vue';
 import './lib/class-component-hooks';
 
 import BootstrapVue from 'bootstrap-vue';
+import VueMarkdown from 'vue-markdown';
 import { sync } from 'vuex-router-sync';
 
 import './vendor';
@@ -20,6 +21,8 @@ import store from './store/index';
 import './registerServiceWorker';
 
 Vue.use(BootstrapVue);
+// @ts-ignore
+Vue.use(VueMarkdown);
 
 Vue.config.productionTip = false;
 
