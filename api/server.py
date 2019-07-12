@@ -710,6 +710,13 @@ class BuildException(Exception):
     	self.msg = input_dict[ "msg" ]
     	self.build_output = input_dict[ "build_output" ]
 
+# Regex for character whitelists for different fields
+REGEX_WHITELISTS = {
+	"arn": r"[^a-zA-Z0-9\:\_\-]+",
+	"execution_pipeline_id": r"[^a-zA-Z0-9\-]+",
+	"project_id": r"[^a-zA-Z0-9\-]+",
+}
+
 class TaskSpawner(object):
 		def __init__(self, loop=None):
 			self.executor = futures.ThreadPoolExecutor( 60 )
@@ -728,51 +735,31 @@ class TaskSpawner(object):
 		@staticmethod
 		def _get_block_executions( credentials, project_id, execution_pipeline_id, arn, oldest_timestamp ):
 			timestamp_datetime = datetime.datetime.fromtimestamp( oldest_timestamp )
-			
-			# Since there's no parameterized querying for Athena we're gonna get ghetto with
-			# the SQL injection mitigation. Joe, if you ever join this company or review this code
-			# I blame this all on Free even though the git blame will say otherwise.;
-			arn = re.sub( r"[^a-zA-Z0-9\:\_\-]+", "", arn )
-			execution_pipeline_id = re.sub( r"[^a-zA-Z0-9\-]+", "", execution_pipeline_id )
-			project_id = re.sub( r"[^a-zA-Z0-9\-]+", "", project_id )
-			table_name = "PRJ_" + project_id.replace( "-", "_" )
-			
+
 			query_template = """
 			SELECT id, arn, timestamp, program_output, input_data, backpack, return_data, dt
-			FROM "refinery"."{{REPLACE_ME_PROJECT_TABLE_NAME}}"
-			WHERE arn = '{{REPLACE_ME_ARN}}' AND
-			project_id = '{{PROJECT_ID_REPLACE_ME}}' AND
-			execution_pipeline_id = '{{REPLACE_ME_PIPELINE_ID}}' AND
-			dt > '{{OLDEST_TIMESTAMP_REPLACE_ME}}'
+			FROM "refinery"."{{{project_id_table_name}}}"
+			WHERE arn = '{{{arn}}}' AND
+			project_id = '{{{project_id}}}' AND
+			execution_pipeline_id = '{{{execution_pipeline_id}}}' AND
+			dt > '{{{oldest_timestamp}}}'
 			ORDER BY timestamp
 			"""
 			
-			query = query_template.replace(
-				"{{REPLACE_ME_PROJECT_TABLE_NAME}}",
-				table_name
-			)
+			# Since there's no parameterized querying for Athena we're gonna get ghetto with
+			# the SQL injection mitigation. Joe, if you ever join this company or review this code
+			# I blame this all on Free even though the git blame will say otherwise.
+			query_template_data = {
+				"execution_pipeline_id": re.sub( REGEX_WHITELISTS[ "execution_pipeline_id" ], "", execution_pipeline_id ),
+				"project_id_table_name": "PRJ_" + project_id.replace( "-", "_" ),
+				"arn": re.sub( REGEX_WHITELISTS[ "arn" ], "", arn ),
+				"project_id": re.sub( REGEX_WHITELISTS[ "project_id" ], "", project_id ),
+				"oldest_timestamp": timestamp_datetime.strftime( "%Y-%m-%d-%H-%M" ),
+			}
 			
-			query = query.replace(
-				"{{REPLACE_ME_PIPELINE_ID}}",
-				execution_pipeline_id
-			)
-			
-			query = query.replace(
-				"{{REPLACE_ME_ARN}}",
-				arn
-			)
-			
-			query = query.replace(
-				"{{PROJECT_ID_REPLACE_ME}}",
-				project_id
-			)
-			
-			# This is important to limit the raw amount of data
-			# that is being queried via Athena. They charge for
-			# the amount of data queried.
-			query = query.replace(
-				"{{OLDEST_TIMESTAMP_REPLACE_ME}}",
-				timestamp_datetime.strftime( "%Y-%m-%d-%H-%M" )
+			query = pystache.render(
+				query_template,
+				query_template_data
 			)
 			
 			# Query for project execution logs
@@ -795,40 +782,12 @@ class TaskSpawner(object):
 				project_id,
 				oldest_timestamp
 			)
-		
+
 		@staticmethod
-		def _get_project_execution_logs( credentials, project_id, oldest_timestamp ):
-			timestamp_datetime = datetime.datetime.fromtimestamp( oldest_timestamp )
-			table_name = "PRJ_" + project_id.replace( "-", "_" )
-			query_template = """
-			SELECT arn, type, execution_pipeline_id, timestamp, dt, COUNT(*) as count
-			FROM "refinery"."{{REPLACE_ME_PROJECT_TABLE_NAME}}"
-			WHERE dt >= '{{OLDEST_TIMESTAMP_REPLACE_ME}}'
-			GROUP BY arn, type, execution_pipeline_id, timestamp, dt ORDER BY timestamp LIMIT 100000
+		def _execution_log_query_results_to_pipeline_id_dict( query_results ):
 			"""
-			
-			query = query_template.replace(
-				"{{REPLACE_ME_PROJECT_TABLE_NAME}}",
-				table_name
-			)
-			
-			# This is important to limit the raw amount of data
-			# that is being queried via Athena. They charge for
-			# the amount of data queried.
-			query = query.replace(
-				"{{OLDEST_TIMESTAMP_REPLACE_ME}}",
-				timestamp_datetime.strftime( "%Y-%m-%d-%H-%M" )
-			)
-			
-			# Query for project execution logs
-			query_results = TaskSpawner._perform_athena_query(
-				credentials,
-				query,
-				True
-			)
-			
-			"""
-			execution_pipeline_id_dict format:
+			This is the final format we return from the input query
+			results (the list returned from Athena):
 			
 			{
 				"{{execution_pipeline_id}}": {
@@ -863,13 +822,15 @@ class TaskSpawner(object):
 				# If the timestamp is more recent that what is in the
 				# execution pipeline data then update the field with the value
 				# This is because we'd sort that by time (most recent) on the front end
-				if int( query_result[ "timestamp" ] ) > execution_pipeline_id_dict[ query_result[ "execution_pipeline_id" ] ][ "timestamp" ]:
-					execution_pipeline_id_dict[ query_result[ "execution_pipeline_id" ] ][ "timestamp" ] = int( query_result[ "timestamp" ] )
+				execution_pipeline_timestamp = execution_pipeline_id_dict[ query_result[ "execution_pipeline_id" ] ][ "timestamp" ]
+				if int( query_result[ "timestamp" ] ) > execution_pipeline_timestamp:
+					execution_pipeline_timestamp = int( query_result[ "timestamp" ] )
 				
 				# If this is the first ARN we've seen for this execution ID we'll set it up
 				# with the default object template as well.
-				if not ( query_result[ "arn" ] in execution_pipeline_id_dict[ query_result[ "execution_pipeline_id" ] ][ "block_executions" ] ):
-					execution_pipeline_id_dict[ query_result[ "execution_pipeline_id" ] ][ "block_executions" ][ query_result[ "arn" ] ] = {
+				block_executions = execution_pipeline_id_dict[ query_result[ "execution_pipeline_id" ] ][ "block_executions" ]
+				if not ( query_result[ "arn" ] in block_executions ):
+					block_executions[ query_result[ "arn" ] ] = {
 						"SUCCESS": 0,
 						"EXCEPTION": 0,
 						"CAUGHT_EXCEPTION": 0
@@ -882,9 +843,48 @@ class TaskSpawner(object):
 				execution_pipeline_id_dict[ query_result[ "execution_pipeline_id" ] ][ query_result[ "type" ]  ] += execution_int_count
 				
 				# Add execution count to ARN execution totals
-				execution_pipeline_id_dict[ query_result[ "execution_pipeline_id" ] ][ "block_executions" ][ query_result[ "arn" ] ][ query_result[ "type" ] ] += execution_int_count
-				
-			
+				block_executions[ query_result[ "arn" ] ][ query_result[ "type" ] ] += execution_int_count
+
+			return execution_pipeline_id_dict
+
+		@staticmethod
+		def _get_project_execution_logs( credentials, project_id, oldest_timestamp ):
+			timestamp_datetime = datetime.datetime.fromtimestamp( oldest_timestamp )
+			project_id = re.sub( REGEX_WHITELISTS[ "project_id" ], "", project_id )
+
+			query_template = """
+			SELECT arn, type, execution_pipeline_id, timestamp, dt, COUNT(*) as count
+			FROM "refinery"."{{{project_id_table_name}}}"
+			WHERE dt >= '{{{oldest_timestamp}}}'
+			GROUP BY arn, type, execution_pipeline_id, timestamp, dt ORDER BY timestamp LIMIT 100000
+			"""
+
+			query_template_data = {
+				"project_id_table_name": "PRJ_" + project_id.replace( "-", "_" ),
+				"oldest_timestamp": timestamp_datetime.strftime( "%Y-%m-%d-%H-%M" )
+			}
+
+			query = pystache.render(
+				query_template,
+				query_template_data
+			)
+
+			# Query for project execution logs
+			query_results = TaskSpawner._perform_athena_query(
+				credentials,
+				query,
+				True
+			)
+
+			# Convert the Athena query results into an execution pipeline ID with the
+			# results sorted into a dictionary with the key beign the execution pipeline ID
+			# and the value being an object with information about the total executions for
+			# the execution pipeline ID and the block ARN execution totals contained within
+			# that execution pipeline.
+			execution_pipeline_id_dict = TaskSpawner._execution_log_query_results_to_pipeline_id_dict(
+				query_results
+			)
+
 			final_return_format = []
 			
 			# Now convert it into the usable front-end format
@@ -947,6 +947,7 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def _create_project_id_log_table( credentials, project_id ):
+			project_id = re.sub( REGEX_WHITELISTS[ "project_id" ], "", project_id )
 			table_name = "PRJ_" + project_id.replace( "-", "_" )
 			
 			query_template = """
@@ -4085,6 +4086,34 @@ class TaskSpawner(object):
 				max_results
 			)
 		
+		@run_on_executor
+		def get_s3_list_from_prefix( self, credentials, s3_bucket, s3_prefix ):
+			s3_client = get_aws_client(
+				"s3",
+				credentials,
+			)
+
+			object_list_response = s3_client.list_objects_v2(
+				Bucket=s3_bucket,
+				Prefix=s3_prefix,
+				Delimiter="/",
+				MaxKeys=1000
+			)
+
+			common_prefixes = []
+
+			for result in object_list_response[ "CommonPrefixes" ]:
+				common_prefixes.append(
+					result[ "Prefix" ]
+				)
+
+			# Sort list of prefixs to keep then canonicalized
+			# for the hash key used to determine if we need to
+			# re-partition the Athena table.
+			common_prefixes.sort()
+
+			return common_prefixes
+
 		@staticmethod
 		def get_all_s3_paths( credentials, s3_bucket, prefix, max_results, **kwargs ):
 			s3_client = get_aws_client(
@@ -7117,226 +7146,44 @@ def get_cloudflare_keys():
 		time.time() + public_keys_update_interval,
 		get_cloudflare_keys
 	)
-	
-@gen.coroutine
-def get_project_id_execution_log_groups( credentials, project_id, max_results, continuation_token ):
-	"""
-	@project_id: The ID of the project deployed into production
-	@max_results: The max number of timestamp groups you want to search
-	for logs under. They are in 5 minute blocks so each result is AT LEAST
-	(not at most) 5 minutes of logs.
-	
-	The result for this is the following format:
-	
-	results_dict = {
-		"executions": {
-			"execution_id": {
-				"logs": [
-					"full_s3_log_path"
-				],
-				"error": True, # If we find a log file with prefix of "EXCEPTION"
-				"oldest_observed_timestamp": 1543785335,
-			}
-		},
-		"continuation_token": "aASDWQ...",
-	}
-	"""
-	results_dict = {}
-
-	start_time = time.time()
-	execution_log_timestamp_prefix_data = yield local_tasks.get_s3_pipeline_timestamp_prefixes(
-		credentials,
-		project_id,
-		max_results,
-		continuation_token
-	)
-	print("--- %s seconds for execution_log_timestamp_prefix_data ---" % (time.time() - start_time))
-	
-	results_dict[ "continuation_token" ] = execution_log_timestamp_prefix_data[ "continuation_token" ]
-	results_dict[ "executions" ] = {}
-	
-	execution_log_timestamp_prefixes = execution_log_timestamp_prefix_data[ "prefixes" ]
-	
-	timestamp_prefix_fetch_futures = []
-	
-	start_time = time.time()
-	for execution_log_timestamp_prefix in execution_log_timestamp_prefixes:
-		timestamp_prefix_fetch_futures.append(
-			local_tasks.get_s3_pipeline_execution_ids(
-				credentials,
-				execution_log_timestamp_prefix,
-				-1,
-				False
-			)
-		)
-	
-	
-	execution_id_prefixes_data = yield timestamp_prefix_fetch_futures
-	print("--- %s seconds for execution_log_timestamp_prefixes ---" % (time.time() - start_time))
-
-	# Flat list of prefixes
-	execution_id_prefixes = []
-	
-	# Consolidate all data into just a final list of data
-	for execution_id_prefix_data in execution_id_prefixes_data:
-		execution_id_prefixes = execution_id_prefixes + execution_id_prefix_data[ "prefixes" ]
-
-	# Now take all of the prefixes and get the full file paths under them
-	s3_log_path_promises = []
-
-	start_time = time.time()
-	
-	s3_log_file_paths = []
-	
-	for execution_id_prefix in execution_id_prefixes:
-		current_segment = yield local_tasks.get_s3_pipeline_execution_logs(
-			credentials,
-			execution_id_prefix,
-			-1
-		)
-		s3_log_file_paths.append(
-			current_segment
-		)
-	
-	#s3_log_file_paths = yield s3_log_path_promises
-	print("--- %s seconds for s3_log_path_promises ---" % (time.time() - start_time))
-
-	# Merge list of lists into just a list
-	tmp_log_path_list = []
-	for s3_log_file_path_array in s3_log_file_paths:
-		for s3_log_file_path in s3_log_file_path_array:
-			tmp_log_path_list.append(
-				s3_log_file_path
-			)
-			
-	s3_log_file_paths = tmp_log_path_list
-	del tmp_log_path_list
-
-	oldest_observed_timestamp = False
-	
-	start_time = time.time()
-	for s3_log_file_path in s3_log_file_paths:
-		path_parts = s3_log_file_path.split( "/" )
-		execution_id = path_parts[ 2 ]
-		log_file_name = path_parts[ 3 ]
-		log_file_name_parts = log_file_name.split( "~" )
-		log_type = log_file_name_parts[ 0 ]
-		lambda_name = log_file_name_parts[ 1 ]
-		log_id = log_file_name_parts[ 2 ]
-		timestamp = int( log_file_name_parts[ 3 ] )
-		
-		# Initialize if it doesn't already exist
-		if not ( execution_id in results_dict[ "executions" ] ):
-			results_dict[ "executions" ][ execution_id ] = {
-				"logs": [],
-				"error": False,
-				"oldest_observed_timestamp": timestamp
-			}
-			
-		# Append the log path
-		results_dict[ "executions" ][ execution_id ][ "logs" ].append(
-			s3_log_file_path
-		)
-		
-		# If the prefix is "EXCEPTION" we know we encountered an error
-		if log_file_name.startswith( "EXCEPTION~" ):
-			results_dict[ "executions" ][ execution_id ][ "error" ] = True
-			
-		# If the timestamp is older than the current, replace it
-		if timestamp < results_dict[ "executions" ][ execution_id ][ "oldest_observed_timestamp" ]:
-			results_dict[ "executions" ][ execution_id ][ "oldest_observed_timestamp" ] = timestamp
-		
-		# For the first timestamp
-		if oldest_observed_timestamp == False:
-			oldest_observed_timestamp = timestamp
-			
-		# If we've observed and older timestamp
-		if timestamp < oldest_observed_timestamp:
-			oldest_observed_timestamp = timestamp
-			
-	print("--- %s seconds for the splitting ---" % (time.time() - start_time))
-	
-	raise gen.Return( results_dict )
-	
-@gen.coroutine
-def get_logs_data( credentials, log_paths_array ):
-	"""
-	Return data format is the following:
-	{
-		"log_path_from_s3": {} <- Log Data
-	}
-	"""
-	max_concurrent_pulls = 20
-	counter = 0
-	
-	s3_object_retrieval_futures = []
-	s3_object_retrieval_data_results = []
-	
-	for log_file_path in log_paths_array:
-		s3_object_retrieval_futures.append(
-			local_tasks.read_from_s3_and_return_input(
-				credentials,
-				credentials[ "logs_bucket" ],
-				log_file_path
-			)
-		)
-		counter = counter + 1
-		
-		# Every max_concurrent_pulls kick off the futures
-		if counter >= max_concurrent_pulls:
-			s3_objects = yield s3_object_retrieval_futures
-			s3_object_retrieval_data_results = s3_object_retrieval_data_results + s3_objects
-			s3_object_retrieval_futures = []
-			counter = 0
-			
-	# Finish the remaining
-	s3_objects = yield s3_object_retrieval_futures
-	s3_object_retrieval_data_results = s3_object_retrieval_data_results + s3_objects
-	
-	return_data = {}
-	
-	for s3_object_retrieval_data in s3_object_retrieval_data_results:
-		s3_path_parts = s3_object_retrieval_data[ "path" ].split( "/" )
-		log_file_name = s3_path_parts[ 3 ]
-		log_file_name_parts = log_file_name.split( "~" )
-		log_type = log_file_name_parts[ 0 ]
-		lambda_name = log_file_name_parts[ 1 ]
-		log_id = log_file_name_parts[ 2 ]
-		timestamp = int( log_file_name_parts[ 3 ] )
-		log_data = json.loads(
-			s3_object_retrieval_data[ "body" ]
-		)
-			
-		return_data[ s3_object_retrieval_data[ "path" ] ] = log_data
-		
-	raise gen.Return( return_data )
 
 LAST_TABLE_PARTITION_REFRESH_TABLE = ExpiringDict(
 	max_len=( 1000 * 10 ),
 	max_age_seconds=( 60 * 6 )
 )
 
-# This is the same function as used in the custom runtime
-# That way we can keep it clean across the shards in S3
-def get_nearest_five_minutes():
-	round_to = ( 60 * 5 )
-	dt = datetime.datetime.now()
-	seconds = ( dt.replace( tzinfo=None ) - dt.min ).seconds
-	rounding = ( seconds + round_to / 2 ) // round_to * round_to
-	return dt + datetime.timedelta( 0, rounding - seconds, - dt.microsecond )
-
-def partition_refresh_needed( project_id ):
+@gen.coroutine
+def is_partition_refresh_needed( credentials, project_id ):
 	global LAST_TABLE_PARTITION_REFRESH_TABLE
 	
-	nearest_five_dt = get_nearest_five_minutes()
-	nearest_five_string = nearest_five_dt.strftime( "%Y-%m-%d-%H-%M" )
-	hash_key = project_id + ":" + nearest_five_string
+	date_shard_prefix = project_id + "/dt="
+	date_shard_prefix += datetime.datetime.now().strftime( "%Y-%m-%d-" )
+
+	# Get list of shards by doing an S3 prefix grouping query
+	shard_list = yield local_tasks.get_s3_list_from_prefix(
+		credentials,
+		"refinery-lambda-logging-" + credentials[ "s3_bucket_suffix" ],
+		date_shard_prefix
+	)
+
+	# Hash the shards along with the project ID
+	hash_input = project_id + ":" + json.dumps(
+		shard_list,
+		sort_keys=True
+	)
+
+	hash_key = hashlib.sha256(
+		hash_input
+	).hexdigest()
 	
 	exists_already = ( hash_key in LAST_TABLE_PARTITION_REFRESH_TABLE )
 	
 	LAST_TABLE_PARTITION_REFRESH_TABLE[ hash_key ] = True
 	
-	return exists_already
+	if exists_already == False:
+		logit( "Partition refresh is needed to get all log data." )
+
+	raise gen.Return( exists_already )
 
 class GetProjectExecutions( BaseHandler ):
 	@authenticated
@@ -7379,13 +7226,17 @@ class GetProjectExecutions( BaseHandler ):
 			})
 			raise gen.Return()
 		
+		# Do a lightweight S3 pre-flight request to check if we need to do a heavy
+		# partition refresh in Athena.
+		partition_refresh_needed = yield is_partition_refresh_needed( credentials, self.json[ "project_id" ] )
+
 		# Only pull the partition when we've crossed the date shard line
-		# if not partition_refresh_needed( self.json[ "project_id" ] ):
-		logit( "Loading latest partition data for project logs table..." )
-		yield local_tasks.load_project_id_log_table_partitions(
-			credentials,
-			self.json[ "project_id" ]
-		)
+		if not partition_refresh_needed:
+			logit( "Loading latest partition data for project logs table..." )
+			yield local_tasks.load_project_id_log_table_partitions(
+				credentials,
+				self.json[ "project_id" ]
+			)
 		
 		logit( "Pulling the relevant logs for the project ID specified..." )
 		
@@ -7439,13 +7290,17 @@ class GetProjectExecutionLogs( BaseHandler ):
 		
 		credentials = self.get_authenticated_user_cloud_configuration()
 		
+		# Do a lightweight S3 pre-flight request to check if we need to do a heavy
+		# partition refresh in Athena.
+		partition_refresh_needed = yield is_partition_refresh_needed( credentials, self.json[ "project_id" ] )
+
 		# Only pull the partition when we've crossed the date shard line
-		# if not partition_refresh_needed( self.json[ "project_id" ] ):
-		# logit( "Loading latest partition data for project logs table..." )
-		# yield local_tasks.load_project_id_log_table_partitions(
-		#	credentials,
-		#	self.json[ "project_id" ]
-		#)
+		if not partition_refresh_needed:
+			logit( "Loading latest partition data for project logs table..." )
+			yield local_tasks.load_project_id_log_table_partitions(
+				credentials,
+				self.json[ "project_id" ]
+			)
 		
 		results = yield local_tasks.get_block_executions(
 			credentials,
