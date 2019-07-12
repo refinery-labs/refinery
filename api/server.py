@@ -29,6 +29,7 @@ import math
 import time
 import jwt
 import sys
+import csv
 import re
 import os
 import io
@@ -67,7 +68,13 @@ logging.basicConfig(
 	level=logging.INFO
 )
 
-import StringIO
+try:
+	# for Python 2.x
+	from StringIO import StringIO
+except ImportError:
+	# for Python 3.x
+	from io import StringIO
+	
 import zipfile
 
 from expiringdict import ExpiringDict
@@ -707,6 +714,410 @@ class TaskSpawner(object):
 		def __init__(self, loop=None):
 			self.executor = futures.ThreadPoolExecutor( 60 )
 			self.loop = loop or tornado.ioloop.IOLoop.current()
+			
+		@run_on_executor
+		def get_block_executions( self, credentials, project_id, execution_pipeline_id, arn, oldest_timestamp ):
+			return TaskSpawner._get_block_executions(
+				credentials,
+				project_id,
+				execution_pipeline_id,
+				arn,
+				oldest_timestamp
+			)
+		
+		@staticmethod
+		def _get_block_executions( credentials, project_id, execution_pipeline_id, arn, oldest_timestamp ):
+			timestamp_datetime = datetime.datetime.fromtimestamp( oldest_timestamp )
+			
+			# Since there's no parameterized querying for Athena we're gonna get ghetto with
+			# the SQL injection mitigation. Joe, if you ever join this company or review this code
+			# I blame this all on Free even though the git blame will say otherwise.;
+			arn = re.sub( r"[^a-zA-Z0-9\:\_\-]+", "", arn )
+			execution_pipeline_id = re.sub( r"[^a-zA-Z0-9\-]+", "", execution_pipeline_id )
+			project_id = re.sub( r"[^a-zA-Z0-9\-]+", "", project_id )
+			table_name = "PRJ_" + project_id.replace( "-", "_" )
+			
+			query_template = """
+			SELECT id, arn, timestamp, program_output, input_data, backpack, return_data, dt
+			FROM "refinery"."{{REPLACE_ME_PROJECT_TABLE_NAME}}"
+			WHERE arn = '{{REPLACE_ME_ARN}}' AND
+			project_id = '{{PROJECT_ID_REPLACE_ME}}' AND
+			execution_pipeline_id = '{{REPLACE_ME_PIPELINE_ID}}' AND
+			dt > '{{OLDEST_TIMESTAMP_REPLACE_ME}}'
+			ORDER BY timestamp
+			"""
+			
+			query = query_template.replace(
+				"{{REPLACE_ME_PROJECT_TABLE_NAME}}",
+				table_name
+			)
+			
+			query = query.replace(
+				"{{REPLACE_ME_PIPELINE_ID}}",
+				execution_pipeline_id
+			)
+			
+			query = query.replace(
+				"{{REPLACE_ME_ARN}}",
+				arn
+			)
+			
+			query = query.replace(
+				"{{PROJECT_ID_REPLACE_ME}}",
+				project_id
+			)
+			
+			# This is important to limit the raw amount of data
+			# that is being queried via Athena. They charge for
+			# the amount of data queried.
+			query = query.replace(
+				"{{OLDEST_TIMESTAMP_REPLACE_ME}}",
+				timestamp_datetime.strftime( "%Y-%m-%d-%H-%M" )
+			)
+			
+			# Query for project execution logs
+			query_results = TaskSpawner._perform_athena_query(
+				credentials,
+				query,
+				True
+			)
+			
+			# Format query results
+			for query_result in query_results:
+				query_result[ "timestamp" ] = int( query_result[ "timestamp" ] )
+			
+			return query_results
+			
+		@run_on_executor
+		def get_project_execution_logs( self, credentials, project_id, oldest_timestamp ):
+			return TaskSpawner._get_project_execution_logs(
+				credentials,
+				project_id,
+				oldest_timestamp
+			)
+		
+		@staticmethod
+		def _get_project_execution_logs( credentials, project_id, oldest_timestamp ):
+			timestamp_datetime = datetime.datetime.fromtimestamp( oldest_timestamp )
+			table_name = "PRJ_" + project_id.replace( "-", "_" )
+			query_template = """
+			SELECT arn, type, execution_pipeline_id, timestamp, dt, COUNT(*) as count
+			FROM "refinery"."{{REPLACE_ME_PROJECT_TABLE_NAME}}"
+			WHERE dt >= '{{OLDEST_TIMESTAMP_REPLACE_ME}}'
+			GROUP BY arn, type, execution_pipeline_id, timestamp, dt ORDER BY timestamp LIMIT 100000
+			"""
+			
+			query = query_template.replace(
+				"{{REPLACE_ME_PROJECT_TABLE_NAME}}",
+				table_name
+			)
+			
+			# This is important to limit the raw amount of data
+			# that is being queried via Athena. They charge for
+			# the amount of data queried.
+			query = query.replace(
+				"{{OLDEST_TIMESTAMP_REPLACE_ME}}",
+				timestamp_datetime.strftime( "%Y-%m-%d-%H-%M" )
+			)
+			
+			# Query for project execution logs
+			query_results = TaskSpawner._perform_athena_query(
+				credentials,
+				query,
+				True
+			)
+			
+			"""
+			execution_pipeline_id_dict format:
+			
+			{
+				"{{execution_pipeline_id}}": {
+					"SUCCESS": 0,
+					"EXCEPTION": 2,
+					"CAUGHT_EXCEPTION": 10,
+					"block_executions": {
+						"{{arn}}": {
+							"SUCCESS": 0,
+							"EXCEPTION": 2,
+							"CAUGHT_EXCEPTION": 10,
+						}
+					}
+				}
+			}
+			"""
+			execution_pipeline_id_dict = {}
+			
+			for query_result in query_results:
+				# If this is the first execution ID we've encountered then set that key
+				# up with the default object structure
+				if not ( query_result[ "execution_pipeline_id" ] in execution_pipeline_id_dict ):
+					execution_pipeline_id_dict[ query_result[ "execution_pipeline_id" ] ] = {
+						"SUCCESS": 0,
+						"EXCEPTION": 0,
+						"CAUGHT_EXCEPTION": 0,
+						"timestamp": int( query_result[ "timestamp" ] ),
+						"block_executions": {}
+					}
+					
+					
+				# If the timestamp is more recent that what is in the
+				# execution pipeline data then update the field with the value
+				# This is because we'd sort that by time (most recent) on the front end
+				if int( query_result[ "timestamp" ] ) > execution_pipeline_id_dict[ query_result[ "execution_pipeline_id" ] ][ "timestamp" ]:
+					execution_pipeline_id_dict[ query_result[ "execution_pipeline_id" ] ][ "timestamp" ] = int( query_result[ "timestamp" ] )
+				
+				# If this is the first ARN we've seen for this execution ID we'll set it up
+				# with the default object template as well.
+				if not ( query_result[ "arn" ] in execution_pipeline_id_dict[ query_result[ "execution_pipeline_id" ] ][ "block_executions" ] ):
+					execution_pipeline_id_dict[ query_result[ "execution_pipeline_id" ] ][ "block_executions" ][ query_result[ "arn" ] ] = {
+						"SUCCESS": 0,
+						"EXCEPTION": 0,
+						"CAUGHT_EXCEPTION": 0
+					}
+				
+				# Convert execution count to integer
+				execution_int_count = int( query_result[ "count" ] )
+				
+				# Add execution count to execution ID totals
+				execution_pipeline_id_dict[ query_result[ "execution_pipeline_id" ] ][ query_result[ "type" ]  ] += execution_int_count
+				
+				# Add execution count to ARN execution totals
+				execution_pipeline_id_dict[ query_result[ "execution_pipeline_id" ] ][ "block_executions" ][ query_result[ "arn" ] ][ query_result[ "type" ] ] += execution_int_count
+				
+			
+			final_return_format = []
+			
+			# Now convert it into the usable front-end format
+			for execution_pipeline_id, aggregate_data in execution_pipeline_id_dict.iteritems():
+				block_executions = []
+
+				for block_arn, execution_status_counts in aggregate_data[ "block_executions" ].iteritems():
+					block_executions.append({
+						"arn": block_arn,
+						"SUCCESS": execution_status_counts[ "SUCCESS" ],
+						"CAUGHT_EXCEPTION": execution_status_counts[ "CAUGHT_EXCEPTION" ],
+						"EXCEPTION": execution_status_counts[ "EXCEPTION" ],
+					})
+				
+				final_return_format.append({
+					"execution_pipeline_id": execution_pipeline_id,
+					"block_executions": block_executions,
+					"execution_pipeline_totals": {
+						"SUCCESS": aggregate_data[ "SUCCESS" ],
+						"CAUGHT_EXCEPTION": aggregate_data[ "CAUGHT_EXCEPTION" ],
+						"EXCEPTION": aggregate_data[ "EXCEPTION" ],
+					},
+					"timestamp": aggregate_data[ "timestamp" ]
+				})
+				
+			return final_return_format
+			
+		@run_on_executor
+		def load_project_id_log_table_partitions( self, credentials, project_id ):
+			return TaskSpawner._load_project_id_log_table_partitions(
+				credentials,
+				project_id
+			)
+		
+		@staticmethod
+		def _load_project_id_log_table_partitions( credentials, project_id ):
+			project_id = re.sub( r"[^a-zA-Z0-9\-]+", "", project_id )
+			query_template = "MSCK REPAIR TABLE {{REPLACE_ME_PROJECT_TABLE_NAME}};"
+			
+			# Replace with the formatted Athena table name
+			table_name = "PRJ_" + project_id.replace( "-", "_" )
+			query = query_template.replace(
+				"{{REPLACE_ME_PROJECT_TABLE_NAME}}",
+				table_name
+			)
+			
+			# Perform the table creation query
+			query_results = TaskSpawner._perform_athena_query(
+				credentials,
+				query,
+				False
+			)
+			
+		@run_on_executor
+		def create_project_id_log_table( self, credentials, project_id ):
+			return TaskSpawner._create_project_id_log_table(
+				credentials,
+				project_id
+			)
+			
+		@staticmethod
+		def _create_project_id_log_table( credentials, project_id ):
+			table_name = "PRJ_" + project_id.replace( "-", "_" )
+			
+			query_template = """
+			CREATE EXTERNAL TABLE IF NOT EXISTS refinery.{{REPLACE_ME_PROJECT_TABLE_NAME}} (
+			  `arn` string,
+			  `aws_region` string,
+			  `aws_request_id` string,
+			  `function_name` string,
+			  `function_version` string,
+			  `group_name` string,
+			  `id` string,
+			  `initialization_time` int,
+			  `invoked_function_arn` string,
+			  `memory_limit_in_mb` int,
+			  `name` string,
+			  `project_id` string,
+			  `stream_name` string,
+			  `timestamp` int,
+			  `type` string,
+			  `program_output` string,
+			  `input_data` string,
+			  `backpack` string,
+			  `return_data` string,
+			  `execution_pipeline_id` string
+			)
+			PARTITIONED BY (dt string)
+			ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe'
+			WITH SERDEPROPERTIES (
+			  'serialization.format' = '1'
+			) LOCATION 's3://refinery-lambda-logging-{{S3_BUCKET_SUFFIX}}/{{REPLACE_ME_PROJECT_ID}}/'
+			TBLPROPERTIES ('has_encrypted_data'='false');
+			"""
+			
+			# Replace with the formatted Athena table name
+			query = query_template.replace(
+				"{{REPLACE_ME_PROJECT_TABLE_NAME}}",
+				table_name
+			)
+			
+			# Replace with the actually project UUID
+			query = query.replace(
+				"{{REPLACE_ME_PROJECT_ID}}",
+				project_id
+			)
+			
+			# Replace the S3 bucket name with the actual
+			# bucket
+			query = query.replace(
+				"{{S3_BUCKET_SUFFIX}}",
+				credentials[ "s3_bucket_suffix" ]
+			)
+			
+			# Perform the table creation query
+			query_results = TaskSpawner._perform_athena_query(
+				credentials,
+				query,
+				False
+			)
+			
+		@staticmethod
+		def _perform_athena_query( credentials, query, return_results ):
+			athena_client = get_aws_client(
+				"athena",
+				credentials,
+			)
+			
+			output_base_path = "s3://refinery-lambda-logging-" + credentials[ "s3_bucket_suffix" ] + "/athena/"
+			
+			# Start the query
+			query_start_response = athena_client.start_query_execution(
+				QueryString=query,
+				QueryExecutionContext={
+					"Database": "refinery"
+				},
+				ResultConfiguration={
+					"OutputLocation": output_base_path,
+					"EncryptionConfiguration": {
+						"EncryptionOption": "SSE_S3"
+					}
+				}
+			)
+			
+			# Ensure we have an execution ID to follow
+			if not ( "QueryExecutionId" in query_start_response ):
+				logit( query_start_response )
+				raise Exception( "No query execution ID in response!" )
+			
+			query_execution_id = query_start_response[ "QueryExecutionId" ]
+			
+			QUERY_FAILED_STATES = [
+				"CANCELLED",
+				"FAILED"
+			]
+			
+			query_status_results = {}
+			
+			# Poll for query status
+			while True:
+				# Check the status of the query
+				query_status_results = athena_client.batch_get_query_execution(
+					QueryExecutionIds=[
+						query_execution_id
+					]
+				)
+				
+				query_execution_results = {}
+				query_execution_status = "RUNNING"
+				
+				if "QueryExecutions" in query_status_results and len( query_status_results[ "QueryExecutions" ] ) > 0:
+					query_execution_status = query_status_results[ "QueryExecutions" ][0][ "Status" ][ "State" ]
+				
+				if query_execution_status in QUERY_FAILED_STATES:
+					logit( query_status_results )
+					raise Exception( "Athena query failed!" )
+					
+				if query_execution_status == "SUCCEEDED":
+					break
+				
+				time.sleep(0.5)
+				
+			s3_object_location = query_status_results[ "QueryExecutions" ][0][ "ResultConfiguration" ][ "OutputLocation" ]
+			
+			# Sometimes we don't care about the result
+			# In those cases we just return the S3 path in case the caller
+			# Wants to grab the results themselves later
+			if return_results == False:
+				return s3_object_location
+				
+			# Get S3 bucket and path from the s3 location string
+			# s3://refinery-lambda-logging-uoits4nibdlslbq97qhfyb6ngkvzyewf/athena/
+			s3_path = s3_object_location.replace(
+				"s3://refinery-lambda-logging-" + credentials[ "s3_bucket_suffix" ],
+				""
+			)
+			
+			return TaskSpawner._get_athena_results_from_s3(
+				credentials,
+				"refinery-lambda-logging-" + credentials[ "s3_bucket_suffix" ],
+				s3_path
+			)
+			
+		@run_on_executor
+		def get_athena_results_from_s3( self, credentials, s3_bucket, s3_path ):
+			return TaskSpawner._get_athena_results_from_s3(
+				credentials,
+				s3_bucket,
+				s3_path
+			)
+				
+		@staticmethod
+		def _get_athena_results_from_s3( credentials, s3_bucket, s3_path ):
+			csv_data = TaskSpawner._read_from_s3(
+				credentials,
+				s3_bucket,
+				s3_path
+			)
+			
+			csv_handler = StringIO( csv_data )
+			csv_reader = csv.DictReader(
+				csv_handler,
+				delimiter=","
+			)
+			
+			return_array = []
+
+			for row in csv_reader:
+				return_array.append(
+					row
+				)
+				
+			return return_array
 			
 		@staticmethod
 		def _create_aws_org_sub_account( refinery_aws_account_id, email ):
@@ -4793,19 +5204,19 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:7"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:8"
 		)
 	elif language == "php7.3":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:7"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:8"
 		)
 	elif language == "go1.12":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:7"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:8"
 		)
 	elif language == "python2.7":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:7"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:8"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
@@ -4857,6 +5268,14 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	Process workflow relationships and tag Lambda
 	nodes with an array of transitions.
 	"""
+
+	# Kick off the creation of the log table for the project ID
+	# This is fine to do if one already exists because the SQL
+	# query explicitly specifies not to create one if it exists.
+	project_log_table_future = local_tasks.create_project_id_log_table(
+		credentials,
+		project_id
+	)
 
 	# Random ID to keep deploy ARNs unique
 	# TODO do more research into collision probability
@@ -5438,6 +5857,10 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	deployed_schedule_trigger_targets = yield schedule_trigger_targeting_futures
 	sqs_queue_trigger_targets = yield sqs_queue_trigger_targeting_futures
 	sns_topic_trigger_targets = yield sns_topic_trigger_targeting_futures
+	
+	# Make sure that log table is set up
+	# It almost certainly is by this point
+	yield project_log_table_future
 	
 	raise gen.Return({
 		"success": True,
@@ -6888,6 +7311,33 @@ def get_logs_data( credentials, log_paths_array ):
 		
 	raise gen.Return( return_data )
 
+LAST_TABLE_PARTITION_REFRESH_TABLE = ExpiringDict(
+	max_len=( 1000 * 10 ),
+	max_age_seconds=( 60 * 6 )
+)
+
+# This is the same function as used in the custom runtime
+# That way we can keep it clean across the shards in S3
+def get_nearest_five_minutes():
+	round_to = ( 60 * 5 )
+	dt = datetime.datetime.now()
+	seconds = ( dt.replace( tzinfo=None ) - dt.min ).seconds
+	rounding = ( seconds + round_to / 2 ) // round_to * round_to
+	return dt + datetime.timedelta( 0, rounding - seconds, - dt.microsecond )
+
+def partition_refresh_needed( project_id ):
+	global LAST_TABLE_PARTITION_REFRESH_TABLE
+	
+	nearest_five_dt = get_nearest_five_minutes()
+	nearest_five_string = nearest_five_dt.strftime( "%Y-%m-%d-%H-%M" )
+	hash_key = project_id + ":" + nearest_five_string
+	
+	exists_already = ( hash_key in LAST_TABLE_PARTITION_REFRESH_TABLE )
+	
+	LAST_TABLE_PARTITION_REFRESH_TABLE[ hash_key ] = True
+	
+	return exists_already
+
 class GetProjectExecutions( BaseHandler ):
 	@authenticated
 	@disable_on_overdue_payment
@@ -6903,12 +7353,13 @@ class GetProjectExecutions( BaseHandler ):
 				"project_id": {
 					"type": "string",
 				},
-				"continuation_token": {
-					"type": "string",
+				"oldest_timestamp": {
+					"type": "integer"
 				}
 			},
 			"required": [
-				"project_id"
+				"project_id",
+				"oldest_timestamp"
 			]
 		}
 		
@@ -6927,24 +7378,27 @@ class GetProjectExecutions( BaseHandler ):
 				"msg": "You do not have priveleges to access that project's executions!",
 			})
 			raise gen.Return()
-      
-		continuation_token = False
 		
-		if "continuation_token" in self.json:
-			continuation_token = self.json[ "continuation_token" ]
+		# Only pull the partition when we've crossed the date shard line
+		# if not partition_refresh_needed( self.json[ "project_id" ] ):
+		logit( "Loading latest partition data for project logs table..." )
+		yield local_tasks.load_project_id_log_table_partitions(
+			credentials,
+			self.json[ "project_id" ]
+		)
 		
-		start_time = time.time()
-		execution_ids_metadata = yield get_project_id_execution_log_groups(
+		logit( "Pulling the relevant logs for the project ID specified..." )
+		
+		# Pull the logs
+		execution_pipeline_totals = yield local_tasks.get_project_execution_logs(
 			credentials,
 			self.json[ "project_id" ],
-			100,
-			continuation_token
+			int( self.json[ "oldest_timestamp" ] )
 		)
-		print("--- %s seconds for get_project_id_execution_log_groups ---" % (time.time() - start_time))
 		
 		self.write({
 			"success": True,
-			"result": execution_ids_metadata
+			"result": execution_pipeline_totals
 		})
 		
 class GetProjectExecutionLogs( BaseHandler ):
@@ -6958,13 +7412,24 @@ class GetProjectExecutionLogs( BaseHandler ):
 		schema = {
 			"type": "object",
 			"properties": {
-				"logs": {
-					"type": "array",
+				"execution_pipeline_id": {
+					"type": "string",
 				},
-				
+				"arn": {
+					"type": "string",
+				},
+				"project_id": {
+					"type": "string",
+				},
+				"oldest_timestamp": {
+					"type": "integer"
+				}
 			},
 			"required": [
-				"logs"
+				"arn",
+				"execution_pipeline_id",
+				"project_id",
+				"oldest_timestamp"
 			]
 		}
 		
@@ -6974,14 +7439,25 @@ class GetProjectExecutionLogs( BaseHandler ):
 		
 		credentials = self.get_authenticated_user_cloud_configuration()
 		
-		logs_data = yield get_logs_data(
+		# Only pull the partition when we've crossed the date shard line
+		# if not partition_refresh_needed( self.json[ "project_id" ] ):
+		# logit( "Loading latest partition data for project logs table..." )
+		# yield local_tasks.load_project_id_log_table_partitions(
+		#	credentials,
+		#	self.json[ "project_id" ]
+		#)
+		
+		results = yield local_tasks.get_block_executions(
 			credentials,
-			self.json[ "logs" ],
+			self.json[ "project_id" ],
+			self.json[ "execution_pipeline_id" ],
+			self.json[ "arn" ],
+			self.json[ "oldest_timestamp" ]
 		)
 		
 		self.write({
 			"success": True,
-			"result": logs_data
+			"result": results
 		})
 		
 @gen.coroutine
