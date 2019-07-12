@@ -737,7 +737,7 @@ class TaskSpawner(object):
 			timestamp_datetime = datetime.datetime.fromtimestamp( oldest_timestamp )
 
 			query_template = """
-			SELECT id, arn, timestamp, program_output, input_data, backpack, return_data, dt
+			SELECT id, arn, timestamp, program_output, input_data, backpack, return_data, type, dt
 			FROM "refinery"."{{{project_id_table_name}}}"
 			WHERE arn = '{{{arn}}}' AND
 			project_id = '{{{project_id}}}' AND
