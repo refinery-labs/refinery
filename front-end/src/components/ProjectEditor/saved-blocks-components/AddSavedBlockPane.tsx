@@ -1,11 +1,11 @@
-import Vue, { CreateElement, VNode } from 'vue';
+import Vue, {CreateElement, VNode} from 'vue';
 import Component from 'vue-class-component';
 import moment from 'moment';
-import { blockTypeToImageLookup } from '@/constants/project-editor-constants';
-import { debounce } from 'debounce';
-import { preventDefaultWrapper } from '@/utils/dom-utils';
-import { Prop } from 'vue-property-decorator';
-import { SavedBlockSearchResult, SharedBlockPublishStatus } from '@/types/api-types';
+import {blockTypeToImageLookup} from '@/constants/project-editor-constants';
+import {debounce} from 'debounce';
+import {preventDefaultWrapper} from '@/utils/dom-utils';
+import {Prop} from 'vue-property-decorator';
+import {SavedBlockSearchResult, SharedBlockPublishStatus} from '@/types/api-types';
 import VueMarkdown from 'vue-markdown';
 
 export interface AddSavedBlockPaneProps {
@@ -53,8 +53,8 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
   public renderBlockSelect(showStatus: boolean, block: SavedBlockSearchResult) {
     const imagePath = blockTypeToImageLookup[block.type].path;
     const durationSinceUpdated = moment.duration(-moment().diff(block.timestamp * 1000)).humanize(true);
-
-    const shareStatusText = showStatus && <div class="text-muted text-align--center">{block.share_status}</div>;
+    const sharePillVariable = block.share_status === SharedBlockPublishStatus.PRIVATE ? "success" : "primary";
+    const shareStatusText = showStatus && <div class="text-muted text-align--center"><b-badge variant={sharePillVariable}>{block.share_status}</b-badge></div>;
 
     return (
       <b-list-group-item class="display--flex" button on={{ click: () => this.addChosenBlock(block.id) }}>
@@ -81,7 +81,7 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
       return null;
     }
 
-    const categoryHeaderText = privateBlocks ? 'Your Saved Blocks' : 'From Block Repository';
+    const categoryHeaderText = privateBlocks ? 'Your Saved Blocks' : 'From Public Block Repository';
 
     return (
       <div>

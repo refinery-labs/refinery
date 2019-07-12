@@ -433,7 +433,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
           disabled={!this.isEditedBlockValid}
           on={{ click: this.beginPublishBlockClicked }}
         >
-          Open Block Publisher
+          Create/Update Saved Block
         </b-button>
       </b-form-group>
     );
@@ -484,7 +484,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
     return (
       <b-form-group description="Click to view the variables passed to the block at runtime.">
-        <label class="d-block">Block Variable Configuration:</label>
+        <label class="d-block">Block Settings (Environment Variables):</label>
         <EditEnvironmentVariablesWrapper props={editEnvironmentVariablesWrapperProps} />
       </b-form-group>
     );
