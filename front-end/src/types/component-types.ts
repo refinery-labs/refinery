@@ -67,11 +67,13 @@ export interface CreateSavedBlockViewProps {
   nameInputValid: boolean | null;
   descriptionInput: string | null;
   descriptionInputValid: boolean | null;
+  savedDataInput: string | null;
 
   publishStatus: boolean;
 
   setName: (s: string) => void;
   setDescription: (s: string) => void;
+  setSavedDataInput: (s: string) => void;
   setPublishStatus: (s: boolean) => void;
 
   publishBlock: () => void;

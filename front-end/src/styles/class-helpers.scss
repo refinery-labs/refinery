@@ -204,6 +204,15 @@ $padding-steps: (
   max-width: none !important;
 }
 
+.max-width {
+  &--600px {
+    max-width: 600px !important;
+  }
+  &--800px {
+    max-width: 800px !important;
+  }
+}
+
 .text-align {
   &--left {
     text-align: left;
@@ -246,6 +255,12 @@ $padding-steps: (
 .no-modal-body-padding {
   .modal-body {
     padding: 0;
+  }
+}
+
+.textarea {
+  &--big {
+    min-height: 120px;
   }
 }
 
