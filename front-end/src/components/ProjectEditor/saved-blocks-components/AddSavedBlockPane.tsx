@@ -6,6 +6,7 @@ import { debounce } from 'debounce';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { Prop } from 'vue-property-decorator';
 import { SavedBlockSearchResult, SharedBlockPublishStatus } from '@/types/api-types';
+import VueMarkdown from 'vue-markdown';
 
 export interface AddSavedBlockPaneProps {
   searchResultsPrivate: SavedBlockSearchResult[];
@@ -19,7 +20,11 @@ export interface AddSavedBlockPaneProps {
   setSearchInputValue: (value: string) => void;
 }
 
-@Component
+@Component({
+  components: {
+    'vue-markdown': VueMarkdown
+  }
+})
 export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneProps {
   runSearchAutomatically: () => void = () => {};
 
@@ -62,8 +67,9 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
             <b class="mb-1">{block.name}</b>
             <small>{durationSinceUpdated}</small>
           </div>
-
-          <p class="mb-1">{block.description}</p>
+          <div class="add-saved-block-container__description mb-1">
+            <vue-markdown html={false} source={block.description}></vue-markdown>
+          </div>
         </div>
       </b-list-group-item>
     );

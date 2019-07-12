@@ -415,6 +415,17 @@ $content-sidebar-width: 92px;
 .add-block-container,
 .add-saved-block-container {
   max-width: 500px;
+  &__description {
+    word-wrap: break-word;
+    max-width: 400px;
+  }
+}
+
+.add-saved-block-container {
+  &__description {
+    word-wrap: break-word;
+    max-width: 400px;
+  }
 }
 
 .add-transition-container {
