@@ -21,6 +21,7 @@ Vue.use(Vuex);
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
+// Note: Dynamic modules won't work here because they overwrite the state by default.
 const persistedStorePaths = [
   // 'setting',
   // 'project',
@@ -96,7 +97,6 @@ export default new Vuex.Store<RootState>({
     setting: SettingModule,
     deployment: DeploymentViewModule,
     deploymentExecutions: DeploymentExecutionsPaneModule,
-    // environmentVariablesEditor: EnvironmentVariablesEditorModule,
     viewBlock: ViewBlockPaneModule,
     viewTransition: ViewTransitionPaneModule,
     project: ProjectView,

@@ -5,6 +5,7 @@ import { Route } from 'vue-router';
 import { UserInterfaceSettings } from '@/store/store-types';
 import { Action, Getter, Mutation, namespace } from 'vuex-class';
 import { ToastConfig } from '@/types/toasts-types';
+import {KeyboardEditorMode, keyboardMapToAceConfigMap, SettingsAppStoreModule} from '@/store/modules/settings-app';
 
 const toasts = namespace('toasts');
 
@@ -70,6 +71,16 @@ export default class OffsideContentBar extends Vue {
       toasts.push(this.renderNotification(this.activeToasts[i]));
     }
 
+    const onHandlers = {
+      // Sets the current index to be active
+      change: (mode: KeyboardEditorMode) => SettingsAppStoreModule.setKeyboardMode(mode)
+    };
+
+    const itemList = Object.keys(keyboardMapToAceConfigMap).map(key => ({
+      value: key,
+      text: key
+    }));
+
     return (
       <aside class="offsidebar d-none" ref="sidebarElement">
         <b-tabs nav-class="nav-justified">
@@ -88,7 +99,14 @@ export default class OffsideContentBar extends Vue {
             </template>
             <h3 class="text-center text-thin mt-4">User Settings</h3>
             <div class="list-group">
-              <h4>Coming soon!</h4>
+              <b-form-group description="Keyboard mode for text editor blocks.">
+                <label class="d-block">Editor Key Mode:</label>
+                <b-form-select
+                  class="padding--small mt-2 mb-2"
+                  value={SettingsAppStoreModule.keyboardMode}
+                  on={onHandlers}
+                  options={itemList} />
+              </b-form-group>
             </div>
           </b-tab>
         </b-tabs>
