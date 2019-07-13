@@ -4148,6 +4148,10 @@ class TaskSpawner(object):
 			)
 
 			common_prefixes = []
+			
+			# Handle the case of no prefixs (no logs written yet)
+			if not ( "CommonPrefixes" in object_list_response ):
+				return []
 
 			for result in object_list_response[ "CommonPrefixes" ]:
 				common_prefixes.append(
