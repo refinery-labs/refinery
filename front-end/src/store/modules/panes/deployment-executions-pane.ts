@@ -436,6 +436,18 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         );
       }
 
+      // If the currently selected pane no longer has executions, "convert" back to view block pane
+      if (
+        context.rootState.deployment.activeRightSidebarPane === SIDEBAR_PANE.viewDeployedBlockLogs &&
+        !context.getters[DeploymentExecutionsGetters.doesSelectedBlockHaveExecutions]
+      ) {
+        await context.dispatch(
+          `deployment/${DeploymentViewActions.openRightSidebarPane}`,
+          SIDEBAR_PANE.viewDeployedBlock,
+          { root: true }
+        );
+      }
+
       context.commit(DeploymentExecutionsMutators.setIsBusy, false);
     },
     async [DeploymentExecutionsActions.fetchLogsForSelectedBlock](context) {

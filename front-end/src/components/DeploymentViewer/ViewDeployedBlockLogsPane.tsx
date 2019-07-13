@@ -84,7 +84,11 @@ export default class ViewDeployedBlockLogsPane extends Vue {
 
     return (
       <div class="display--flex flex-direction--column">
-        <label class="d-block padding-top--normal">{label}:</label>
+        <div class="text-align--left run-lambda-container__text-label">
+          <label class="text-light padding--none mt-0 mb-0 ml-2">
+            {label}:
+          </label>
+        </div>
         <div class="show-block-container__code-editor--small">
           <RefineryCodeEditor props={editorProps} />
         </div>
@@ -119,6 +123,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
         {this.renderCodeEditor('Block Input Data', 'input-data', formatDataForAce(executionData.input_data), true)}
         {this.renderCodeEditor('Execution Output', 'output', executionData.program_output || '', false)}
         {this.renderCodeEditor('Return Data', 'return-data', formatDataForAce(executionData.return_data), true)}
+        {this.renderCodeEditor('Backpack Data', 'backpack-data', formatDataForAce(executionData.backpack), true)}
         {/*{this.renderLogLinks()}*/}
       </div>
     );
@@ -153,10 +158,12 @@ export default class ViewDeployedBlockLogsPane extends Vue {
       text: `Invocation #${i + 1} (${executionTypeToString(this.blockExecutionLogByLogId[logId].type)})`
     }));
 
-    invocationItemList.push({
-      value: 'load-more',
-      text: 'Load More Executions...'
-    });
+    if (nodeExecutions.totalExecutionCount !== logIds.length) {
+      invocationItemList.push({
+        value: 'load-more',
+        text: 'Load More Executions...'
+      });
+    }
 
     return (
       <b-form-select
