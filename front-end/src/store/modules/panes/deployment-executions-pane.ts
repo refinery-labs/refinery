@@ -10,10 +10,10 @@ import {
   ProjectExecutionsByExecutionId
 } from '@/types/deployment-executions-types';
 import { sortExecutions } from '@/utils/project-execution-utils';
-import {ExecutionLogContents, ExecutionStatusType, GetProjectExecutionLogsResult} from '@/types/api-types';
+import { ExecutionStatusType} from '@/types/api-types';
 import { STYLE_CLASSES } from '@/lib/cytoscape-styles';
 import { deepJSONCopy } from '@/lib/general-utils';
-import { autoRefreshJob, timeout, waitUntil } from '@/utils/async-utils';
+import { autoRefreshJob, waitUntil } from '@/utils/async-utils';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { DeploymentViewActions } from '@/constants/store-constants';
 
@@ -22,7 +22,9 @@ export enum DeploymentExecutionsGetters {
   sortedExecutions = 'sortedExecutions',
   getSelectedProjectExecution = 'getSelectedProjectExecution',
   getBlockExecutionGroupForSelectedBlock = 'getBlockExecutionGroupForSelectedBlock',
-  getLogIdsForSelectedBlock = 'getLogIdsForSelectedBlock',
+  doesSelectedBlockHaveExecutions = 'doesSelectedBlockHaveExecutions',
+  currentlySelectedLogId = 'currentlySelectedLogId',
+  getAllLogIdsForSelectedBlock = 'getAllLogIdsForSelectedBlock',
   getLogForSelectedBlock = 'getLogForSelectedBlock',
   getBlockExecutionTotalsForSelectedBlock = 'getBlockExecutionTotalsForSelectedBlock',
   graphElementsWithExecutionStatus = 'graphElementsWithExecutionStatus'
@@ -42,6 +44,7 @@ export enum DeploymentExecutionsMutators {
   setAutoRefreshJobNonce = 'setAutoRefreshJobNonce',
 
   setSelectedExecutionGroup = 'setSelectedExecutionGroup',
+  resetLogState = 'resetLogState',
   addBlockExecutionLog = 'addBlockExecutionLog',
   addBlockExecutionPageResult = 'addBlockExecutionPageResult',
   setSelectedBlockExecutionLog = 'setSelectedBlockExecutionLog'
@@ -133,18 +136,53 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       return selectedProjectExecution.blockExecutionGroupByBlockId[rootState.viewBlock.selectedNode.id];
     },
-    [DeploymentExecutionsGetters.getLogIdsForSelectedBlock]: (state, getters, rootState) => {
+    [DeploymentExecutionsGetters.doesSelectedBlockHaveExecutions]: (state, getters) => {
+      const blockExecutions: BlockExecutionGroup | null =
+        getters[DeploymentExecutionsGetters.getBlockExecutionGroupForSelectedBlock];
+
+      if (!blockExecutions) {
+        return false;
+      }
+
+      return blockExecutions.totalExecutionCount > 0;
+    },
+    [DeploymentExecutionsGetters.currentlySelectedLogId]: (state, getters) => {
+      const selectedBlockLogsIds: string[] | null = getters[DeploymentExecutionsGetters.getAllLogIdsForSelectedBlock];
+
+      if (state.selectedBlockExecutionLog === null) {
+        // Return a default selection, if we have logs for the selected block
+        return selectedBlockLogsIds ? selectedBlockLogsIds[0] : null;
+      }
+
+      // We don't have logs for the selected block
+      if (!selectedBlockLogsIds || selectedBlockLogsIds.length === 0) {
+        return null;
+      }
+
+      // We have a selected log for another block, so return the first log.
+      if (!selectedBlockLogsIds.includes(state.selectedBlockExecutionLog)) {
+        return selectedBlockLogsIds[0];
+      }
+
+      // Return the selected log because it matches the currently selected block's logs :)
+      return state.selectedBlockExecutionLog;
+    },
+    [DeploymentExecutionsGetters.getAllLogIdsForSelectedBlock]: (state, getters, rootState) => {
       if (!rootState.viewBlock.selectedNode) {
         return null;
       }
 
       return state.blockExecutionLogsForBlockId[rootState.viewBlock.selectedNode.id];
     },
-    [DeploymentExecutionsGetters.getLogForSelectedBlock]: (state) => {
-      if (!state.selectedBlockExecutionLog) {
+    [DeploymentExecutionsGetters.getLogForSelectedBlock]: (state, getters) => {
+      const currentlySelectedLogId: string | null = getters[DeploymentExecutionsGetters.currentlySelectedLogId];
+
+      // We don't have any logs to render for the current block
+      if (currentlySelectedLogId === null) {
         return null;
       }
-      return state.blockExecutionLogByLogId[state.selectedBlockExecutionLog];
+
+      return state.blockExecutionLogByLogId[currentlySelectedLogId];
     },
     [DeploymentExecutionsGetters.getBlockExecutionTotalsForSelectedBlock]: (state, getters, rootState) => {
       if (!rootState.viewBlock.selectedNode) {
@@ -232,15 +270,27 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
     [DeploymentExecutionsMutators.setSelectedExecutionGroup](state, group) {
       state.selectedProjectExecution = group;
     },
+    [DeploymentExecutionsMutators.resetLogState](state) {
+
+      // We must reset the state between changing selected executions...
+      // TODO: Keep state around via ExecutionId instead of BlockId to allow "caching"? But that might explode memory usage too?
+      // blockExecutionLogByLogId: BlockExecutionLogContentsByLogId;
+      state.blockExecutionLogsForBlockId = deepJSONCopy(moduleState.blockExecutionLogsForBlockId);
+      state.blockExecutionTotalsByBlockId = deepJSONCopy(moduleState.blockExecutionTotalsByBlockId);
+      state.blockExecutionPagesByBlockId = deepJSONCopy(moduleState.blockExecutionPagesByBlockId);
+    },
     [DeploymentExecutionsMutators.addBlockExecutionLog](state, log: BlockExecutionLog) {
       state.blockExecutionLogByLogId = {
         ...state.blockExecutionLogByLogId,
         ...log.logs
       };
 
-      state.blockExecutionLogsForBlockId[log.blockId] = {
-        ...state.blockExecutionLogsForBlockId[log.blockId],
-        ...Object.keys(log.logs)
+      state.blockExecutionLogsForBlockId = {
+        ...state.blockExecutionLogsForBlockId,
+        [log.blockId]: [
+          ...(state.blockExecutionLogsForBlockId[log.blockId] || []),
+          ...Object.keys(log.logs)
+        ]
       };
       
       state.blockExecutionPagesByBlockId = {
@@ -250,13 +300,21 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       state.blockExecutionTotalsByBlockId = {
         ...state.blockExecutionTotalsByBlockId,
-        ...{[log.totalExecutions]: log.totalExecutions}
+        [log.blockId]: log.totalExecutions
       };
     },
     [DeploymentExecutionsMutators.addBlockExecutionPageResult](state, log: AdditionalBlockExecutionPage) {
       state.blockExecutionLogByLogId = {
         ...state.blockExecutionLogByLogId,
         ...log.logs
+      };
+
+      state.blockExecutionLogsForBlockId = {
+        ...state.blockExecutionLogsForBlockId,
+        [log.blockId]: [
+          ...(state.blockExecutionLogsForBlockId[log.blockId] || []),
+          ...Object.keys(log.logs)
+        ]
       };
 
       state.blockExecutionPagesByBlockId = {
@@ -355,6 +413,8 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       context.commit(statusMessageType, false);
     },
     async [DeploymentExecutionsActions.openExecutionGroup](context, executionId: string) {
+      context.commit(DeploymentExecutionsMutators.resetLogState);
+
       context.commit(DeploymentExecutionsMutators.setSelectedExecutionGroup, executionId);
 
       context.commit(DeploymentExecutionsMutators.setIsBusy, true);
@@ -364,7 +424,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       // "Convert" the currently opened pane into the execution view pane
       if (
         context.rootState.deployment.activeRightSidebarPane === SIDEBAR_PANE.viewDeployedBlock &&
-        context.getters[DeploymentExecutionsGetters.getLogForSelectedBlock]
+        context.getters[DeploymentExecutionsGetters.doesSelectedBlockHaveExecutions]
       ) {
         await context.dispatch(
           `deployment/${DeploymentViewActions.openRightSidebarPane}`,
@@ -375,7 +435,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       context.commit(DeploymentExecutionsMutators.setIsBusy, false);
     },
-    async [DeploymentExecutionsActions.fetchLogsForSelectedBlock](context, popPage: boolean = false) {
+    async [DeploymentExecutionsActions.fetchLogsForSelectedBlock](context) {
       const selectedProjectExecution: ProjectExecution = context.getters[DeploymentExecutionsGetters.getSelectedProjectExecution];
 
       if (!selectedProjectExecution || !context.rootState.deployment.openedDeployment) {
@@ -390,21 +450,11 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         return;
       }
 
-      const blockExecutionLogsForSelectedBlock: BlockExecutionLog | null = context.getters[DeploymentExecutionsGetters.getLogForSelectedBlock];
-
-      if (blockExecutionLogsForSelectedBlock && popPage) {
-        await context.dispatch(DeploymentExecutionsActions.fetchMoreLogsForSelectedBlock);
-        return;
-      }
+      const totalExecutionsForBlock: number | null = context.getters[DeploymentExecutionsGetters.getBlockExecutionTotalsForSelectedBlock];
 
       // If our current "view" of the log execution totals is correct, then don't fetch any more.
-      if (blockExecutionLogsForSelectedBlock
-        && blockExecutionLogsForSelectedBlock.totalExecutions === blockExecutionGroupForSelectedBlock.totalExecutionCount) {
-        return;
-      }
-
-      // If we're already fetching logs, bail
-      if (context.state.isFetchingLogs) {
+      if (totalExecutionsForBlock
+        && totalExecutionsForBlock === blockExecutionGroupForSelectedBlock.totalExecutionCount) {
         return;
       }
 
@@ -426,11 +476,6 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       if (!selectedProjectExecution) {
         console.error('Attempted to open project execution with invalid selected execution group');
-        return;
-      }
-
-      // If we're already fetching logs, bail
-      if (context.state.isFetchingMoreLogs) {
         return;
       }
 

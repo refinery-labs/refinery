@@ -263,16 +263,13 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
 
       await context.dispatch(`viewBlock/${ViewBlockActions.selectCurrentlySelectedProjectNode}`, null, { root: true });
 
-      const selectedProjectExecution = context.rootState.deploymentExecutions.selectedProjectExecution;
-      const selectedProjectExecutionForNode =
-        context.rootGetters[`deploymentExecutions/${DeploymentExecutionsGetters.getLogForSelectedBlock}`];
+      const doesBlockHaveExecutions: boolean =
+        context.rootGetters[`deploymentExecutions/${DeploymentExecutionsGetters.doesSelectedBlockHaveExecutions}`];
 
-      const viewBlockLogs = selectedProjectExecution && selectedProjectExecutionForNode;
-
-      const paneToOpen = viewBlockLogs ? SIDEBAR_PANE.viewDeployedBlockLogs : SIDEBAR_PANE.viewDeployedBlock;
+      const paneToOpen = doesBlockHaveExecutions ? SIDEBAR_PANE.viewDeployedBlockLogs : SIDEBAR_PANE.viewDeployedBlock;
 
       // Kick off grabbing the logs
-      if (viewBlockLogs) {
+      if (doesBlockHaveExecutions) {
         context.dispatch(`deploymentExecutions/${DeploymentExecutionsActions.fetchLogsForSelectedBlock}`, null, {
           root: true
         });

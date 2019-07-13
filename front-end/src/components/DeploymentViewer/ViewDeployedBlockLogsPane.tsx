@@ -49,7 +49,8 @@ export default class ViewDeployedBlockLogsPane extends Vue {
   @deploymentExecutions.State blockExecutionLogByLogId!: BlockExecutionLogContentsByLogId;
 
   @deploymentExecutions.Getter getBlockExecutionGroupForSelectedBlock!: BlockExecutionGroup | null;
-  @deploymentExecutions.Getter getLogIdsForSelectedBlock!: string[] | null;
+  @deploymentExecutions.Getter getAllLogIdsForSelectedBlock!: string[] | null;
+  @deploymentExecutions.Getter currentlySelectedLogId!: string | null;
   @deploymentExecutions.Getter getLogForSelectedBlock!: ExecutionLogContents | null;
 
   @deploymentExecutions.Mutation setSelectedBlockExecutionLog!: (logId: string) => void;
@@ -92,9 +93,6 @@ export default class ViewDeployedBlockLogsPane extends Vue {
   }
 
   public renderExecutionDetails() {
-    if (!this.selectedBlockExecutionLog) {
-      return <div>Please select an execution.</div>;
-    }
 
     // We have a valid section but no long, hopefully we're loading ;)
     if (!this.getLogForSelectedBlock) {
@@ -111,6 +109,10 @@ export default class ViewDeployedBlockLogsPane extends Vue {
 
     const executionData = this.getLogForSelectedBlock;
 
+    if (!this.selectedBlockExecutionLog && !executionData) {
+      return <div>Missing Executions for block. :(</div>;
+    }
+
     return (
       <div class="display--flex flex-direction--column">
         {this.renderExecutionLabels(executionData)}
@@ -124,7 +126,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
 
   public renderExecutionDropdown() {
     const nodeExecutions = this.getBlockExecutionGroupForSelectedBlock;
-    const logIds = this.getLogIdsForSelectedBlock;
+    const logIds = this.getAllLogIdsForSelectedBlock;
     if (!nodeExecutions || !logIds) {
       return null;
     }
@@ -147,7 +149,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
     return (
       <b-form-select
         class="padding--small mt-2 mb-2"
-        value={this.selectedBlockExecutionLog}
+        value={this.currentlySelectedLogId}
         on={onHandlers}
         options={invocationItemList}
       />
