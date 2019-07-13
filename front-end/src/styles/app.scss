@@ -329,6 +329,14 @@ $content-sidebar-width: 92px;
   }
 }
 
+.tab-pane {
+  .show-block-container {
+    &__form {
+      max-height: calc(100vh - 254px);
+    }
+  }
+}
+
 .show-block-container {
 
   .form-group {
@@ -560,11 +568,6 @@ $content-sidebar-width: 92px;
 
 .view-executions-pane-container {
   padding: 8px;
-}
-
-// This is because of some gross interactions between Vue Bootstrap components...
-.disgusting-card-offset {
-  margin: -1px 5px 5px;
 }
 
 .shift-block-nastily-into-tabs {

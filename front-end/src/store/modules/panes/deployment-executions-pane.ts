@@ -250,6 +250,9 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
     [DeploymentExecutionsMutators.setIsFetchingLogs](state, isFetching) {
       state.isFetchingLogs = isFetching;
     },
+    [DeploymentExecutionsMutators.setIsFetchingMoreLogs](state, isFetching) {
+      state.isFetchingMoreLogs = isFetching;
+    },
     [DeploymentExecutionsMutators.setLastRetrievedExecutionTimestamp](state, timestamp) {
       state.lastRetrievedExecutionTimestamp = timestamp;
     },
@@ -504,6 +507,15 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       }
 
       context.commit(DeploymentExecutionsMutators.addBlockExecutionPageResult, response);
+
+      const retrievedLogs = Object.keys(response.logs);
+
+      const selectedBlock = context.rootState.viewBlock.selectedNode;
+
+      // Select a default, plus make sure we're currently looking at the right block before selecting...
+      if (selectedBlock && selectedBlock.id === response.blockId && retrievedLogs.length > 0) {
+        context.commit(DeploymentExecutionsMutators.setSelectedBlockExecutionLog, response.logs[retrievedLogs[0]].log_id);
+      }
     }
   }
 };

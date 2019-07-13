@@ -139,7 +139,7 @@ export async function getAdditionalLogsByPage(
 ): Promise<AdditionalBlockExecutionPage | null> {
   // TODO: Add Retry logic
   const response = await makeApiRequest<GetLogContentsRequest, GetLogContentsResponse>(
-    API_ENDPOINT.GetProjectExecutionLogs,
+    API_ENDPOINT.GetLogContents,
     {
       id: page
     }

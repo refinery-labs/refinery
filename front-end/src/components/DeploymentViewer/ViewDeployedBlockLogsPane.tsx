@@ -138,13 +138,25 @@ export default class ViewDeployedBlockLogsPane extends Vue {
 
     const onHandlers = {
       // Sets the current index to be active
-      change: (logId: string) => this.setSelectedBlockExecutionLog(logId)
+      change: (logId: string) => {
+        if (logId === 'load-more') {
+          this.fetchMoreLogsForSelectedBlock();
+          return;
+        }
+
+        this.setSelectedBlockExecutionLog(logId);
+      }
     };
 
     const invocationItemList = logIds.map((logId, i) => ({
       value: logId,
       text: `Invocation #${i + 1} (${executionTypeToString(this.blockExecutionLogByLogId[logId].type)})`
     }));
+
+    invocationItemList.push({
+      value: 'load-more',
+      text: 'Load More Executions...'
+    });
 
     return (
       <b-form-select
@@ -158,38 +170,34 @@ export default class ViewDeployedBlockLogsPane extends Vue {
 
   public render(h: CreateElement): VNode {
     return (
-      <div class="show-block-container">
-        <b-card no-body={true} class="overflow-hidden mb-0">
-          <b-tabs nav-class="nav-justified" card={true} content-class="padding--none disgusting-card-offset">
-            <b-tab title="first" active={true} no-body={true}>
-              <template slot="title">
-                <span>
-                  Execution Details
-                  {/*<em class="fas fa-code" />*/}
-                </span>
-              </template>
-              <div class="show-block-container container">
-                <div class="mb-3 padding-top--big text-align--left show-block-container__form--normal">
-                  <div class="scrollable-pane-container padding-left--normal padding-right--normal">
-                    {this.renderExecutionDropdown()}
-                    {this.renderExecutionDetails()}
-                  </div>
+      <div class="display--flex flex-direction--column">
+        <b-tabs nav-class="nav-justified" content-class="padding--none">
+          <b-tab title="first" active={true} no-body={true}>
+            <template slot="title">
+              <span>
+                Execution Details
+                {/*<em class="fas fa-code" />*/}
+              </span>
+            </template>
+            <div class="show-block-container container">
+              <div class="mb-3 mt-3 text-align--left show-block-container__form show-block-container__form--normal">
+                <div class="scrollable-pane-container padding-left--normal padding-right--normal">
+                  {this.renderExecutionDropdown()}
+                  {this.renderExecutionDetails()}
                 </div>
               </div>
-            </b-tab>
-            <b-tab title="second" no-body={true}>
-              <template slot="title">
-                <span>
-                  Selected Block
-                  {/*<em class="fas fa-code" />*/}
-                </span>
-              </template>
-              <div class="shift-block-nastily-into-tabs">
-                <ViewDeployedBlockPane />
-              </div>
-            </b-tab>
-          </b-tabs>
-        </b-card>
+            </div>
+          </b-tab>
+          <b-tab title="second" no-body={true}>
+            <template slot="title">
+              <span>
+                Selected Block
+                {/*<em class="fas fa-code" />*/}
+              </span>
+            </template>
+            <ViewDeployedBlockPane />
+          </b-tab>
+        </b-tabs>
       </div>
     );
   }
