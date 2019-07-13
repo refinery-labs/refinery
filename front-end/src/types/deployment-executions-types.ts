@@ -1,8 +1,14 @@
-import { Execution, ExecutionStatusType } from '@/types/api-types';
+import {
+  GetProjectExecutionResult,
+  ExecutionStatusType,
+  BlockExecutionResult,
+  ExecutionLogContents
+} from '@/types/api-types';
+import {ProductionLambdaWorkflowState} from '@/types/production-workflow-types';
 
 export interface ProductionExecutionResponse {
-  executions: { [key: string]: ProjectExecution };
-  continuationToken: string | null;
+  executions: ProjectExecutionsByExecutionId;
+  oldestTimestamp: number;
 }
 
 export interface ProjectExecution {
@@ -10,25 +16,53 @@ export interface ProjectExecution {
   oldestTimestamp: number;
   executionId: string;
   numberOfLogs: number;
-  logsGroupedByBlockId: { [key: string]: BlockExecutionGroup };
+  blockExecutionGroupByBlockId: BlockExecutionGroupByBlockId;
+}
+
+export interface BlockExecutionGroupByBlockId {
+  [key: string]: BlockExecutionGroup
 }
 
 export interface BlockExecutionGroup {
-  groupExecutionStatus: ExecutionStatusType;
+  executionStatus: ExecutionStatusType;
+  executionResult: BlockExecutionMetadata;
+  totalExecutionCount: number;
   executionId: string;
   blockId: string;
   blockName: string;
-  logs: BlockExecutionMetadata[];
+  blockArn: string;
 }
 
-export interface BlockExecutionMetadata {
-  executionId: string;
-  executionStatus: ExecutionStatusType;
-  blockName: string;
+export interface BlockExecutionMetadata extends BlockExecutionResult {
+}
+
+export interface ProjectExecutionsByExecutionId {
+  [key: string]: ProjectExecution
+}
+
+export interface BlockExecutionPagesByBlockId {
+  [key: string]: string[]
+}
+
+export interface BlockExecutionTotalsByBlockId {
+  [key: string]: number
+}
+
+export interface BlockExecutionLog {
   blockId: string;
-  logId: string;
-  rawLog: string;
-  timestamp: number;
+  logs: BlockExecutionLogContentsByLogId;
+  pages: string[];
+  totalExecutions: number;
+}
+
+export interface BlockExecutionLogContentsByLogId {
+  [key: string]: ExecutionLogContents
+}
+
+export interface AdditionalBlockExecutionPage {
+  blockId: string,
+  page: string,
+  logs: { [key: string]: ExecutionLogContents }
 }
 
 //////////////////////////////////
@@ -36,11 +70,12 @@ export interface BlockExecutionMetadata {
 //////////////////////////////////
 
 export interface ProjectExecutions {
-  [key: string]: Execution;
+  [key: string]: GetProjectExecutionResult;
 }
 
-export interface ProductionExecution extends Execution {
-  executionId: string;
+export interface BlockExecutionTuple {
+  block: ProductionLambdaWorkflowState,
+  execution: BlockExecutionResult
 }
 
 export interface ExecutionLogMetadata {

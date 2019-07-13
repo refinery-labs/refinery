@@ -263,11 +263,11 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
 
       await context.dispatch(`viewBlock/${ViewBlockActions.selectCurrentlySelectedProjectNode}`, null, { root: true });
 
-      const selectedExecutionGroup = context.rootState.deploymentExecutions.selectedExecutionGroup;
-      const selectedExecutionGroupForNode =
-        context.rootGetters[`deploymentExecutions/${DeploymentExecutionsGetters.getSelectedExecutionForNode}`];
+      const selectedProjectExecution = context.rootState.deploymentExecutions.selectedProjectExecution;
+      const selectedProjectExecutionForNode =
+        context.rootGetters[`deploymentExecutions/${DeploymentExecutionsGetters.getLogForSelectedNode}`];
 
-      const viewBlockLogs = selectedExecutionGroup && selectedExecutionGroupForNode;
+      const viewBlockLogs = selectedProjectExecution && selectedProjectExecutionForNode;
 
       const paneToOpen = viewBlockLogs ? SIDEBAR_PANE.viewDeployedBlockLogs : SIDEBAR_PANE.viewDeployedBlock;
 

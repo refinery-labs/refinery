@@ -36,5 +36,5 @@ export type ExecutionStatusTypeToClass = { [key in ExecutionStatusType]: STYLE_C
 export const excecutionStatusTypeToClass: ExecutionStatusTypeToClass = {
   [ExecutionStatusType.EXCEPTION]: STYLE_CLASSES.EXECUTION_FAILURE,
   [ExecutionStatusType.CAUGHT_EXCEPTION]: STYLE_CLASSES.EXECUTION_CAUGHT,
-  [ExecutionStatusType.RETURN]: STYLE_CLASSES.EXECUTION_SUCCESS
+  [ExecutionStatusType.SUCCESS]: STYLE_CLASSES.EXECUTION_SUCCESS
 };

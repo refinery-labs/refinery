@@ -6,8 +6,8 @@ import { SupportedLanguage, WorkflowState } from '@/types/graph';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import ViewDeployedBlockPane from '@/components/DeploymentViewer/ViewDeployedBlockPane';
 import { EditorProps, LoadingContainerProps } from '@/types/component-types';
-import { ExecutionStatusType, GetProjectExecutionLogsResult } from '@/types/api-types';
-import { BlockExecutionGroup, ProductionExecution } from '@/types/deployment-executions-types';
+import {ExecutionLogContents, ExecutionStatusType, GetProjectExecutionLogsResult} from '@/types/api-types';
+import { BlockExecutionGroup } from '@/types/deployment-executions-types';
 import Loading from '@/components/Common/Loading.vue';
 
 const viewBlock = namespace('viewBlock');
@@ -34,7 +34,7 @@ function executionTypeToString(executionType: ExecutionStatusType) {
     return 'Caught Exception';
   }
 
-  if (executionType === ExecutionStatusType.RETURN) {
+  if (executionType === ExecutionStatusType.SUCCESS) {
     return 'Success';
   }
 
@@ -45,16 +45,16 @@ function executionTypeToString(executionType: ExecutionStatusType) {
 export default class ViewDeployedBlockLogsPane extends Vue {
   @viewBlock.State selectedNode!: WorkflowState | null;
 
-  @deploymentExecutions.State selectedExecutionIndexForNode!: number;
+  @deploymentExecutions.State selectedBlockExecutionLog!: string;
 
-  @deploymentExecutions.Getter getAllExecutionsForNode!: BlockExecutionGroup | null;
-  @deploymentExecutions.Getter getSelectedExecutionForNode!:
-    | GetProjectExecutionLogsResult & { missing: boolean }
-    | null;
+  @deploymentExecutions.Getter getBlockExecutionGroupForSelectedNode!: BlockExecutionGroup | null;
+  @deploymentExecutions.Getter getLogForSelectedNode!: ExecutionLogContents | null;
 
-  @deploymentExecutions.Mutation setSelectedExecutionIndexForNode!: (i: number) => void;
+  @deploymentExecutions.Mutation setSelectedBlockExecutionLog!: (logId: string) => void;
 
-  public renderExecutionLabels(execution: GetProjectExecutionLogsResult) {
+  @deploymentExecutions.Action fetchMoreLogsForSelectedBlock!: () => void;
+
+  public renderExecutionLabels(execution: ExecutionLogContents) {
     const durationSinceUpdated = moment.duration(-moment().diff(execution.timestamp * 1000)).humanize(true);
     return (
       <div class="text-align--left">
@@ -65,7 +65,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
         <label> {executionTypeToString(execution.type)}</label>
         <br />
         <label class="text-bold">Log Id: &nbsp;</label>
-        <label style="font-size: 0.8rem"> {execution.id}</label>
+        <label style="font-size: 0.8rem"> {execution.log_id}</label>
       </div>
     );
   }
@@ -90,11 +90,12 @@ export default class ViewDeployedBlockLogsPane extends Vue {
   }
 
   public renderExecutionDetails() {
-    if (!this.getSelectedExecutionForNode) {
+    if (!this.selectedBlockExecutionLog) {
       return <div>Please select an execution.</div>;
     }
 
-    if (this.getSelectedExecutionForNode.missing) {
+    // We have a valid section but no long, hopefully we're loading ;)
+    if (!this.getLogForSelectedNode) {
       const loadingProps: LoadingContainerProps = {
         show: true,
         label: 'Loading execution logs...'
@@ -106,13 +107,13 @@ export default class ViewDeployedBlockLogsPane extends Vue {
       );
     }
 
-    const executionData = this.getSelectedExecutionForNode.data;
+    const executionData = this.getLogForSelectedNode;
 
     return (
       <div class="display--flex flex-direction--column">
-        {this.renderExecutionLabels(this.getSelectedExecutionForNode)}
+        {this.renderExecutionLabels(executionData)}
         {this.renderCodeEditor('Block Input Data', 'input-data', formatDataForAce(executionData.input_data), true)}
-        {this.renderCodeEditor('Execution Output', 'output', executionData.output || '', false)}
+        {this.renderCodeEditor('Execution Output', 'output', executionData.program_output || '', false)}
         {this.renderCodeEditor('Return Data', 'return-data', formatDataForAce(executionData.return_data), true)}
         {/*{this.renderLogLinks()}*/}
       </div>
@@ -120,30 +121,34 @@ export default class ViewDeployedBlockLogsPane extends Vue {
   }
 
   public renderExecutionDropdown() {
-    if (!this.getAllExecutionsForNode) {
+    const nodeExecutions = this.getBlockExecutionGroupForSelectedNode;
+    if (!nodeExecutions) {
       return null;
     }
 
-    if (this.getAllExecutionsForNode.logs.length === 1) {
+    if (nodeExecutions.totalExecutionCount === 1) {
       // TODO: Show something about the current execution being singular?
       return null;
     }
+
     const onHandlers = {
       // Sets the current index to be active
-      change: (i: number) => this.setSelectedExecutionIndexForNode(i)
+      change: (logId: string) => this.setSelectedBlockExecutionLog(logId)
     };
 
-    const invocationItemList = this.getAllExecutionsForNode.logs.map((exec, i) => {
-      return {
+    const invocationItemList = [];
+
+    for (let i = 0; i < nodeExecutions.totalExecutionCount; i++) {
+      invocationItemList.push({
         value: i,
         text: `Invocation #${i + 1}`
-      };
-    });
+      });
+    }
 
     return (
       <b-form-select
         class="padding--small mt-2 mb-2"
-        value={this.selectedExecutionIndexForNode}
+        value={this.selectedBlockExecutionLog}
         on={onHandlers}
         options={invocationItemList}
       />

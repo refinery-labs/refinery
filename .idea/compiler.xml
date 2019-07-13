@@ -2,5 +2,6 @@
 <project version="4">
   <component name="TypeScriptCompiler">
     <option name="showAllErrors" value="true" />
+    <option name="typeScriptCompilerParams" value="--outDir /dev/null" />
   </component>
 </project>
