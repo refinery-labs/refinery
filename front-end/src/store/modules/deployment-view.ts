@@ -265,7 +265,7 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
 
       const selectedProjectExecution = context.rootState.deploymentExecutions.selectedProjectExecution;
       const selectedProjectExecutionForNode =
-        context.rootGetters[`deploymentExecutions/${DeploymentExecutionsGetters.getLogForSelectedNode}`];
+        context.rootGetters[`deploymentExecutions/${DeploymentExecutionsGetters.getLogForSelectedBlock}`];
 
       const viewBlockLogs = selectedProjectExecution && selectedProjectExecutionForNode;
 
