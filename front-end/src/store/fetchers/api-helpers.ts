@@ -1,12 +1,14 @@
+import moment from 'moment';
+import R from 'ramda';
 import {
   DeleteDeploymentsInProjectRequest,
-  DeleteDeploymentsInProjectResponse,
+  DeleteDeploymentsInProjectResponse, ExecutionLogContents,
   GetAuthenticationStatusRequest,
   GetAuthenticationStatusResponse,
   GetBuildStatusRequest,
   GetBuildStatusResponse,
   GetConsoleCredentialsRequest,
-  GetConsoleCredentialsResponse,
+  GetConsoleCredentialsResponse, GetLogContentsRequest, GetLogContentsResponse,
   GetProjectExecutionLogsRequest,
   GetProjectExecutionLogsResponse,
   GetProjectExecutionLogsResult,
@@ -28,8 +30,14 @@ import {
 } from '@/types/api-types';
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
-import { ProductionExecution, ProductionExecutionResponse } from '@/types/deployment-executions-types';
-import { convertExecutionResponseToProjectExecutionGroup } from '@/utils/project-execution-utils';
+import {
+  AdditionalBlockExecutionPage,
+  BlockExecutionGroup, BlockExecutionLog,
+  ProductionExecutionResponse
+} from '@/types/deployment-executions-types';
+import {
+  convertExecutionResponseToProjectExecutionGroup
+} from '@/utils/project-execution-utils';
 import { RefineryProject, SupportedLanguage, WorkflowState } from '@/types/graph';
 import { ProductionWorkflowState } from '@/types/production-workflow-types';
 import { blockTypeToDefaultStateMapping, DEFAULT_PROJECT_CONFIG } from '@/constants/project-editor-constants';
@@ -40,18 +48,24 @@ export interface libraryBuildArguments {
   libraries: string[];
 }
 
+export function getDefaultOffsetTimestamp() {
+  // 6 hours ago
+  return moment().subtract(6, 'hours').unix();
+}
+
 export async function getProjectExecutions(
   project: RefineryProject,
-  token: string | null
+  oldestTimestamp: number | null
 ): Promise<ProductionExecutionResponse | null> {
-  const request: GetProjectExecutionsRequest = {
-    project_id: project.project_id
-  };
+  const defaultTimestamp = getDefaultOffsetTimestamp();
 
-  // Pass the token if we have one
-  if (token) {
-    request.continuation_token = token;
-  }
+  const timestampForQuery = oldestTimestamp !== null && oldestTimestamp || defaultTimestamp;
+
+  const request: GetProjectExecutionsRequest = {
+    project_id: project.project_id,
+    // Fetch with the specified time or query by the default
+    oldest_timestamp: timestampForQuery
+  };
 
   const executionsResponse = await makeApiRequest<GetProjectExecutionsRequest, GetProjectExecutionsResponse>(
     API_ENDPOINT.GetProjectExecutions,
@@ -61,36 +75,45 @@ export async function getProjectExecutions(
   if (
     !executionsResponse ||
     !executionsResponse.success ||
-    !executionsResponse.result ||
-    !executionsResponse.result.executions
+    !executionsResponse.result
   ) {
     return null;
   }
 
   const convertedExecutions = convertExecutionResponseToProjectExecutionGroup(
     project,
-    executionsResponse.result.executions
+    executionsResponse.result
   );
 
+  // If we want to "load more", then this is the timestamp for where to begin loading more items.
+  // TODO: We are probably "widening" the window with this method. We may need to specify a "from" timestamp too?
+  const nextTimestampToQuery = moment(timestampForQuery).subtract(6, 'hours').unix();
+
   return {
-    continuationToken: executionsResponse.result.continuation_token,
+    oldestTimestamp: nextTimestampToQuery,
     executions: convertedExecutions
   };
 }
 
 export async function getLogsForExecutions(
   project: RefineryProject,
-  execution: string[]
-): Promise<{ [key: string]: GetProjectExecutionLogsResult[] } | null> {
+  executionGroup: BlockExecutionGroup
+): Promise<BlockExecutionLog | null> {
   if (!project) {
     console.error('Tried to fetch logs without specified project');
     return null;
   }
 
+  const defaultTimestamp = getDefaultOffsetTimestamp();
+
+  // TODO: Add Retry logic
   const response = await makeApiRequest<GetProjectExecutionLogsRequest, GetProjectExecutionLogsResponse>(
     API_ENDPOINT.GetProjectExecutionLogs,
     {
-      logs: execution
+      arn: executionGroup.blockArn,
+      execution_pipeline_id: executionGroup.executionId,
+      oldest_timestamp: defaultTimestamp,
+      project_id: project.project_id
     }
   );
 
@@ -99,7 +122,42 @@ export async function getLogsForExecutions(
     return null;
   }
 
-  return response.result;
+  // Create an object with log_id as the key
+  const logs = R.indexBy(r => r.log_id, response.result.results);
+
+  return {
+    logs,
+    pages: response.result.pages,
+    blockId: executionGroup.blockId,
+    totalExecutions: executionGroup.totalExecutionCount
+  };
+}
+
+export async function getAdditionalLogsByPage(
+  blockId: string,
+  page: string
+): Promise<AdditionalBlockExecutionPage | null> {
+  // TODO: Add Retry logic
+  const response = await makeApiRequest<GetLogContentsRequest, GetLogContentsResponse>(
+    API_ENDPOINT.GetProjectExecutionLogs,
+    {
+      id: page
+    }
+  );
+
+  if (!response || !response.success || !response.result) {
+    console.error('Unable to retrieve more execution logs.');
+    return null;
+  }
+
+  // Create an object with log_id as the key
+  const logs = R.indexBy(r => r.log_id, response.result.results);
+
+  return {
+    blockId,
+    logs,
+    page
+  };
 }
 
 export async function checkBuildStatus(libraryBuildArgs: libraryBuildArguments) {

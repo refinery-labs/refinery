@@ -1,13 +1,11 @@
 import {
-  LambdaWorkflowState,
   SupportedLanguage,
   WorkflowRelationshipType,
-  WorkflowState,
-  WorkflowStateType
+  WorkflowState
 } from '@/types/graph';
 import { IfDropDownSelectionType } from '@/store/store-types';
-import { ProductionExecution, ProjectExecution } from '@/types/deployment-executions-types';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
+import {ProjectExecution} from '@/types/deployment-executions-types';
 
 export interface EditorProps {
   name: string;
@@ -50,7 +48,7 @@ export interface LoadingContainerProps {
 
 export interface ViewExecutionsListProps {
   projectExecutions: ProjectExecution[] | null;
-  selectedExecutionGroup: string | null;
+  selectedProjectExecution: string | null;
   openExecutionGroup: (id: string) => void;
   showMoreExecutions: () => void;
   isBusyRefreshing: boolean;

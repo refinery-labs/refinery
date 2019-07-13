@@ -31,7 +31,7 @@ import {
   GetLatestMonthlyBillRequest,
   GetLatestMonthlyBillResponse,
   GetLatestProjectDeploymentRequest,
-  GetLatestProjectDeploymentResponse,
+  GetLatestProjectDeploymentResponse, GetLogContentsRequest, GetLogContentsResponse,
   GetPaymentMethodsRequest,
   GetPaymentMethodsResponse,
   GetProjectConfigRequest,
@@ -156,6 +156,10 @@ export class RefineryApi implements RefineryApiTypeMap {
   [API_ENDPOINT.GetProjectExecutions] = makeApiClient<GetProjectExecutionsRequest, GetProjectExecutionsResponse>(
     API_ENDPOINT.GetProjectExecutions
   );
+  [API_ENDPOINT.GetLogContents] = makeApiClient<
+    GetLogContentsRequest,
+    GetLogContentsResponse
+    >(API_ENDPOINT.GetLogContents);
   [API_ENDPOINT.GetSavedProject] = makeApiClient<GetSavedProjectRequest, GetSavedProjectResponse>(
     API_ENDPOINT.GetSavedProject
   );

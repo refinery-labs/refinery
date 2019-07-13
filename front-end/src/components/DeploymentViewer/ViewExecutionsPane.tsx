@@ -3,7 +3,7 @@ import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import ViewExecutionsList from '@/components/ViewExecutions/ViewExecutionsList';
 import { ViewExecutionsListProps } from '@/types/component-types';
-import { ProductionExecution, ProjectExecution } from '@/types/deployment-executions-types';
+import { ProjectExecution } from '@/types/deployment-executions-types';
 
 const deploymentExecutions = namespace('deploymentExecutions');
 
@@ -12,7 +12,7 @@ export default class ViewExecutionsPane extends Vue {
   @deploymentExecutions.State isBusy!: boolean;
   @deploymentExecutions.State isFetchingMoreExecutions!: boolean;
   @deploymentExecutions.State continuationToken!: string | null;
-  @deploymentExecutions.State selectedExecutionGroup!: string | null;
+  @deploymentExecutions.State selectedProjectExecution!: string | null;
   @deploymentExecutions.Getter sortedExecutions!: ProjectExecution[] | null;
 
   @deploymentExecutions.Action openExecutionGroup!: (id: string) => void;
@@ -27,7 +27,7 @@ export default class ViewExecutionsPane extends Vue {
 
     const viewExecutionsListProps: ViewExecutionsListProps = {
       openExecutionGroup: this.openExecutionGroup,
-      selectedExecutionGroup: this.selectedExecutionGroup,
+      selectedProjectExecution: this.selectedProjectExecution,
       projectExecutions: this.sortedExecutions,
       isBusyRefreshing: this.isFetchingMoreExecutions,
       hasMoreExecutionsToLoad: Boolean(this.continuationToken),

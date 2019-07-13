@@ -1,7 +1,7 @@
 import Vue from 'vue';
 import Router, { Route } from 'vue-router';
 import Home from './views/Home.vue';
-import Settings from './views/Settings.vue';
+import Settings from './views/Settings';
 import BlockRepository from './views/BlockRepository';
 import AdminPanel from './views/Admin';
 import AllProjects from './views/AllProjects';
