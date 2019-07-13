@@ -721,6 +721,40 @@ class TaskSpawner(object):
 		def __init__(self, loop=None):
 			self.executor = futures.ThreadPoolExecutor( 60 )
 			self.loop = loop or tornado.ioloop.IOLoop.current()
+		
+		@run_on_executor
+		def get_json_from_s3( self, credentials, s3_bucket, s3_path ):
+			# Create S3 client
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
+			response = s3_client.get_object(
+				Bucket=s3_bucket,
+				Key=s3_path
+			)
+			
+			return json.loads(
+				response[ "Body" ].read()
+			)
+			
+		@run_on_executor
+		def write_json_to_s3( self, credentials, s3_bucket, s3_path, input_data ):
+			# Create S3 client
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
+			response = s3_client.put_object(
+				Bucket=s3_bucket,
+				Key=s3_path,
+				ACL="private",
+				Body=json.dumps(
+					input_data
+				)
+			)
 			
 		@run_on_executor
 		def get_block_executions( self, credentials, project_id, execution_pipeline_id, arn, oldest_timestamp ):
@@ -740,7 +774,7 @@ class TaskSpawner(object):
 			SELECT type, id, arn, timestamp, program_output, input_data, backpack, return_data, dt
 			FROM "refinery"."{{{project_id_table_name}}}"
 			WHERE project_id = '{{{project_id}}}' AND
-			WHERE arn = '{{{arn}}}' AND
+			arn = '{{{arn}}}' AND
 			execution_pipeline_id = '{{{execution_pipeline_id}}}' AND
 			dt > '{{{oldest_timestamp}}}'
 			ORDER BY type, timestamp DESC
@@ -7288,7 +7322,59 @@ class GetProjectExecutions( BaseHandler ):
 			"success": True,
 			"result": execution_pipeline_totals
 		})
+
+def chunk_list( input_list, chunk_size ):
+	"""
+	Chunk an input list into a list of lists
+	of size chunk_size. (e.g. 10 lists of size 100)
+	"""
+	def _chunk_list( input_list, chunk_size ):
+		for i in range( 0, len( input_list ), chunk_size ):
+			yield input_list[i:i + chunk_size]
+	return list(_chunk_list(
+		input_list,
+		chunk_size
+	))
+	
+@gen.coroutine
+def write_remaining_project_execution_log_pages( credentials, data_to_write_list ):
+	# How many logs to write to S3 in parallel
+	parallel_write_num = 5
+	
+	# Futures for the writes
+	s3_write_futures = []
+	
+	# Write results to S3
+	for i in range( 0, parallel_write_num ):
+		if len( data_to_write_list ) == 0:
+			break
 		
+		data_to_write = data_to_write_list.pop(0)
+		s3_write_futures.append(
+			local_tasks.write_json_to_s3(
+				credentials,
+				credentials[ "logs_bucket" ],
+				data_to_write[ "s3_path" ],
+				data_to_write[ "chunked_data" ]
+			)
+		)
+		
+		# If we've hit our parallel write number
+		# We should yield and wait for the results
+		s3_write_futures_number = len( s3_write_futures )
+		if s3_write_futures_number >= 5:
+			logit( "Writing batch of #" + str( s3_write_futures_number ) + " page(s) of search results to S3..." )
+			yield s3_write_futures
+			
+			# Clear list of futures
+			s3_write_futures = []
+	
+	# If there are remaining futures we need to yield them
+	s3_write_futures_number = len( s3_write_futures )
+	if s3_write_futures_number > 0:
+		logit( "Writing remaining batch of #" + str( s3_write_futures_number ) + " page(s) of search results to S3..." )
+		yield s3_write_futures
+
 class GetProjectExecutionLogs( BaseHandler ):
 	@authenticated
 	@disable_on_overdue_payment
@@ -7347,9 +7433,106 @@ class GetProjectExecutionLogs( BaseHandler ):
 			self.json[ "oldest_timestamp" ]
 		)
 		
+		# Split out shards
+		chunked_results = chunk_list(
+			results,
+			50
+		)
+		
+		# The final return format
+		final_return_data = {
+			"results": [],
+			"pages": []
+		}
+		
+		# Take the first 50 results and stuff it into "results"
+		if len( chunked_results ) > 0:
+			# Pop first list of list of lists
+			final_return_data[ "results" ] = chunked_results.pop(0)
+			
+		# We batch up the work to do but we don't yield on it until
+		# after we write the response. This allows for fast response times
+		# and by the time they actually request a later page we've already
+		# written it.
+		data_to_write_list = []
+			
+		# Turn the rest into S3 chunks which can be loaded later
+		# by the frontend on demand.
+		for chunked_result in chunked_results:
+			result_uuid = str( uuid.uuid4() )
+			s3_path = "log_pagination_result_pages/" + result_uuid + ".json"
+			data_to_write_list.append({
+				"s3_path": s3_path,
+				"chunked_data": chunked_result
+			})
+			
+			# We just add the UUID to the response as if we've
+			# already written it
+			final_return_data[ "pages" ].append(
+				result_uuid
+			)
+			
+		# Clear that memory ASAP
+		del chunked_results
+		
 		self.write({
 			"success": True,
-			"result": results
+			"result": final_return_data
+		})
+		
+		# Write the remaining results
+		yield write_remaining_project_execution_log_pages(
+			credentials,
+			data_to_write_list
+		)
+			
+class GetProjectExecutionLogsPage( BaseHandler ):
+	@authenticated
+	@disable_on_overdue_payment
+	@gen.coroutine
+	def post( self ):
+		"""
+		Get a page of results which was previously written in a
+		chunk to S3 as JSON. This is to allow lazy-loading of results
+		for logs of a given Code Block in an execution ID.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"id"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		logit( "Retrieving results page of log results from S3..." )
+		
+		credentials = self.get_authenticated_user_cloud_configuration()
+		
+		success = False
+		
+		try:
+			results = yield local_tasks.get_json_from_s3(
+				credentials,
+				credentials[ "logs_bucket" ],
+				"log_pagination_result_pages/" + self.json[ "id" ] + ".json"
+			)
+			success = True
+		except Exception, e:
+			logit( "Error occurred while reading results page from S3, potentially it's expired?" )
+			logit( e )
+			results = []
+		
+		self.write({
+			"success": success,
+			"result": {
+				"results": results
+			}
 		})
 		
 @gen.coroutine
@@ -8752,6 +8935,7 @@ def make_app( is_debug ):
 		( r"/api/v1/auth/register", NewRegistration ),
 		( r"/api/v1/auth/login", Authenticate ),
 		( r"/api/v1/auth/logout", Logout ),
+		( r"/api/v1/logs/executions/get-contents", GetProjectExecutionLogsPage ),
 		( r"/api/v1/logs/executions/get", GetProjectExecutionLogs ),
 		( r"/api/v1/logs/executions", GetProjectExecutions ),
 		( r"/api/v1/aws/deploy_diagram", DeployDiagram ),
