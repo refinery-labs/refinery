@@ -12,7 +12,7 @@ window.require = ace.require;
 
 // Lord, please help me
 export default Vue.component('AceEditor', {
-  props: ['editorId', 'content', 'lang', 'theme', 'disabled', 'wrapText'],
+  props: ['editorId', 'content', 'lang', 'theme', 'disabled', 'wrapText', 'keyboardMode'],
   data() {
     return {
       editor: Object,
@@ -36,6 +36,9 @@ export default Vue.component('AceEditor', {
       if (disabled_boolean) {
         this.editor.renderer.$cursorLayer.element.style.display = 'none';
       }
+    },
+    keyboardMode(mode) {
+      this.editor.setKeyboardHandler(mode);
     }
   },
   mounted() {
@@ -59,6 +62,7 @@ export default Vue.component('AceEditor', {
       enableLiveAutocompletion: true
     });
     this.editor.setTheme(`ace/theme/${theme}`);
+    this.editor.setKeyboardHandler(this.keyboardMode);
 
     this.editor.setReadOnly(disabled);
     if (disabled) {

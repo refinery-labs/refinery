@@ -5,6 +5,7 @@ import AceEditor from '@/components/Common/AceEditor.vue';
 import { EditorProps } from '@/types/component-types';
 import uuid from 'uuid/v4';
 import { SupportedLanguage } from '@/types/graph';
+import { SettingsAppStoreModule } from '@/store/modules/settings-app';
 
 @Component
 export default class RefineryCodeEditor extends Vue implements EditorProps {
@@ -55,7 +56,8 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
       lang: editorLanguage,
       disabled: this.readOnly,
       content: this.content,
-      wrapText: this.wrapText
+      wrapText: this.wrapText,
+      keyboardMode: SettingsAppStoreModule.keyboardModeToAceConfig
     };
 
     return (
