@@ -1,3 +1,4 @@
+/* eslint-disable */
 // Type definitions for js-cookie 2.2
 // Project: https://github.com/js-cookie/js-cookie
 // Definitions by: Theodore Brown <https://github.com/theodorejb>
@@ -53,7 +54,7 @@ declare namespace Cookies {
     /**
      * Read all available cookies
      */
-    get(): {[key: string]: string};
+    get(): { [key: string]: string };
 
     /**
      * Returns the parsed representation of the string
@@ -65,7 +66,7 @@ declare namespace Cookies {
      * Returns the parsed representation of
      * all cookies according to JSON.parse
      */
-    getJSON(): {[key: string]: any};
+    getJSON(): { [key: string]: any };
 
     /**
      * Delete cookie
@@ -89,7 +90,9 @@ declare namespace Cookies {
      * will run the converter first for each cookie. The returned
      * string will be used as the cookie value.
      */
-    withConverter<TConv extends object>(converter: CookieReadConverter | { write?: CookieWriteConverter<TConv>; read?: CookieReadConverter; }): CookiesStatic<TConv>;
+    withConverter<TConv extends object>(
+      converter: CookieReadConverter | { write?: CookieWriteConverter<TConv>; read?: CookieReadConverter }
+    ): CookiesStatic<TConv>;
   }
 
   type CookieWriteConverter<T extends object> = (value: string | T, name: string) => string;

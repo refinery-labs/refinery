@@ -1,3 +1,4 @@
+/* eslint-disable */
 /*!
  * JavaScript Cookie v2.2.0
  * https://github.com/js-cookie/js-cookie
@@ -6,11 +7,11 @@
  * Released under the MIT license
  */
 export default (function factory() {
-  function extend () {
+  function extend() {
     var i = 0;
     var result = {};
     for (; i < arguments.length; i++) {
-      var attributes = arguments[ i ];
+      var attributes = arguments[i];
       for (var key in attributes) {
         result[key] = attributes[key];
       }
@@ -18,24 +19,28 @@ export default (function factory() {
     return result;
   }
 
-  function decode (s) {
+  function decode(s) {
     return s.replace(/(%[0-9A-Z]{2})+/g, decodeURIComponent);
   }
 
-  function init (converter) {
+  function init(converter) {
     function api() {}
 
-    function set (key, value, attributes) {
+    function set(key, value, attributes) {
       if (typeof document === 'undefined') {
         return;
       }
 
-      attributes = extend({
-        path: '/'
-      }, api.defaults, attributes);
+      attributes = extend(
+        {
+          path: '/'
+        },
+        api.defaults,
+        attributes
+      );
 
       if (typeof attributes.expires === 'number') {
-        attributes.expires = new Date(new Date() * 1 + attributes.expires * 864e+5);
+        attributes.expires = new Date(new Date() * 1 + attributes.expires * 864e5);
       }
 
       // We're using "expires" because "max-age" is not supported by IE
@@ -48,10 +53,12 @@ export default (function factory() {
         }
       } catch (e) {}
 
-      value = converter.write ?
-        converter.write(value, key) :
-        encodeURIComponent(String(value))
-          .replace(/%(23|24|26|2B|3A|3C|3E|3D|2F|3F|40|5B|5D|5E|60|7B|7D|7C)/g, decodeURIComponent);
+      value = converter.write
+        ? converter.write(value, key)
+        : encodeURIComponent(String(value)).replace(
+            /%(23|24|26|2B|3A|3C|3E|3D|2F|3F|40|5B|5D|5E|60|7B|7D|7C)/g,
+            decodeURIComponent
+          );
 
       key = encodeURIComponent(String(key))
         .replace(/%(23|24|26|2B|5E|60|7C)/g, decodeURIComponent)
@@ -80,7 +87,7 @@ export default (function factory() {
       return (document.cookie = key + '=' + value + stringifiedAttributes);
     }
 
-    function get (key, json) {
+    function get(key, json) {
       if (typeof document === 'undefined') {
         return;
       }
@@ -101,8 +108,7 @@ export default (function factory() {
 
         try {
           var name = decode(parts[0]);
-          cookie = (converter.read || converter)(cookie, name) ||
-            decode(cookie);
+          cookie = (converter.read || converter)(cookie, name) || decode(cookie);
 
           if (json) {
             try {
@@ -122,16 +128,20 @@ export default (function factory() {
     }
 
     api.set = set;
-    api.get = function (key) {
+    api.get = function(key) {
       return get(key, false /* read as raw */);
     };
-    api.getJSON = function (key) {
+    api.getJSON = function(key) {
       return get(key, true /* read as json */);
     };
-    api.remove = function (key, attributes) {
-      set(key, '', extend(attributes, {
-        expires: -1
-      }));
+    api.remove = function(key, attributes) {
+      set(
+        key,
+        '',
+        extend(attributes, {
+          expires: -1
+        })
+      );
     };
 
     api.defaults = {};
@@ -141,5 +151,5 @@ export default (function factory() {
     return api;
   }
 
-  return init(function () {});
+  return init(function() {});
 })();

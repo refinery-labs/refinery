@@ -5,7 +5,7 @@ import { Route } from 'vue-router';
 import { UserInterfaceSettings } from '@/store/store-types';
 import { Action, Getter, Mutation, namespace } from 'vuex-class';
 import { ToastConfig } from '@/types/toasts-types';
-import {KeyboardEditorMode, keyboardMapToAceConfigMap, SettingsAppStoreModule} from '@/store/modules/settings-app';
+import { KeyboardEditorMode, keyboardMapToAceConfigMap, SettingsAppStoreModule } from '@/store/modules/settings-app';
 
 const toasts = namespace('toasts');
 
@@ -105,7 +105,8 @@ export default class OffsideContentBar extends Vue {
                   class="padding--small mt-2 mb-2"
                   value={SettingsAppStoreModule.keyboardMode}
                   on={onHandlers}
-                  options={itemList} />
+                  options={itemList}
+                />
               </b-form-group>
             </div>
           </b-tab>

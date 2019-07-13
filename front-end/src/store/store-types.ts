@@ -21,7 +21,7 @@ import { CyElements, CyStyle } from '@/types/cytoscape-types';
 import { EnvironmentVariablesEditorPaneState } from '@/store/modules/panes/environment-variables-editor';
 import { AddSavedBlockPaneState } from '@/store/modules/panes/add-saved-block-pane';
 import { CreateSavedBlockViewState } from '@/store/modules/panes/create-saved-block-view';
-import {SettingsAppState} from '@/store/modules/settings-app';
+import { SettingsAppState } from '@/store/modules/settings-app';
 
 export interface RootState {
   addSavedBlockPane: AddSavedBlockPaneState;

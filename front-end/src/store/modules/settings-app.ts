@@ -17,11 +17,10 @@ export enum KeyboardEditorMode {
 }
 
 const cookieKeyboardMode = jsCookie.get(cookieName);
-const savedKeyboardMode = cookieKeyboardMode && cookieKeyboardMode in KeyboardEditorMode && cookieKeyboardMode as KeyboardEditorMode;
+const savedKeyboardMode =
+  cookieKeyboardMode && cookieKeyboardMode in KeyboardEditorMode && (cookieKeyboardMode as KeyboardEditorMode);
 
-export type KeyboardModeToAceConfig = {
-  [key in KeyboardEditorMode]: string | null
-}
+export type KeyboardModeToAceConfig = { [key in KeyboardEditorMode]: string | null };
 
 export const keyboardMapToAceConfigMap: KeyboardModeToAceConfig = {
   [KeyboardEditorMode.standard]: null,
@@ -31,7 +30,7 @@ export const keyboardMapToAceConfigMap: KeyboardModeToAceConfig = {
 };
 
 export interface SettingsAppState {
-  keyboardMode: KeyboardEditorMode
+  keyboardMode: KeyboardEditorMode;
 }
 
 export const baseState: SettingsAppState = {
@@ -60,7 +59,7 @@ class SettingsAppStore extends VuexModule<ThisType<SettingsAppState>, RootState>
   @Mutation
   public setKeyboardMode(value: KeyboardEditorMode) {
     // Because the module is dynamic, just set this as a cookie... Screw it
-    document.cookie = `${cookieName}=${value};path=/;max-age=${60*60*24*365}`;
+    document.cookie = `${cookieName}=${value};path=/;max-age=${60 * 60 * 24 * 365}`;
     this.keyboardMode = value;
   }
 }
