@@ -5144,22 +5144,27 @@ class RunTmpLambda( BaseHandler ):
 			},
 		)
 		
-		return_data = json.loads(
-			lambda_result[ "returned_data" ]
-		)
-		s3_object = yield local_tasks.read_from_s3(
-			credentials,
-			credentials[ "logs_bucket" ],
-			return_data[ "_refinery" ][ "indirect" ][ "s3_path" ]
-		)
-		s3_dict = json.loads(
-			s3_object
-		)
-		lambda_result[ "returned_data" ] = json.dumps(
-			s3_dict[ "return_data" ],
-			indent=4,
-		)
-		lambda_result[ "logs" ] = s3_dict[ "program_output" ]
+		try:
+			return_data = json.loads(
+				lambda_result[ "returned_data" ]
+			)
+			s3_object = yield local_tasks.read_from_s3(
+				credentials,
+				credentials[ "logs_bucket" ],
+				return_data[ "_refinery" ][ "indirect" ][ "s3_path" ]
+			)
+			s3_dict = json.loads(
+				s3_object
+			)
+			lambda_result[ "returned_data" ] = json.dumps(
+				s3_dict[ "return_data" ],
+				indent=4,
+			)
+			lambda_result[ "logs" ] = s3_dict[ "program_output" ]
+		except Exception, e:
+			logit( "Exception occurred while loading temporary Lambda return data: " )
+			logit( e )
+			pass
 		
 		logit( "Deleting Lambda..." )
 		
