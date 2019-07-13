@@ -737,13 +737,13 @@ class TaskSpawner(object):
 			timestamp_datetime = datetime.datetime.fromtimestamp( oldest_timestamp )
 
 			query_template = """
-			SELECT id, arn, timestamp, program_output, input_data, backpack, return_data, type, dt
+			SELECT type, id, arn, timestamp, program_output, input_data, backpack, return_data, dt
 			FROM "refinery"."{{{project_id_table_name}}}"
+			WHERE project_id = '{{{project_id}}}' AND
 			WHERE arn = '{{{arn}}}' AND
-			project_id = '{{{project_id}}}' AND
 			execution_pipeline_id = '{{{execution_pipeline_id}}}' AND
 			dt > '{{{oldest_timestamp}}}'
-			ORDER BY timestamp
+			ORDER BY type, timestamp DESC
 			"""
 
 			# Since there's no parameterized querying for Athena we're gonna get ghetto with
@@ -5138,11 +5138,29 @@ class RunTmpLambda( BaseHandler ):
 			{
 				"_refinery": {
 					"throw_exceptions_fully": True,
-					"input_data": self.json[ "input_data" ]
+					"input_data": self.json[ "input_data" ],
+					"temporary_execution": True,
 				}
 			},
 		)
-
+		
+		return_data = json.loads(
+			lambda_result[ "returned_data" ]
+		)
+		s3_object = yield local_tasks.read_from_s3(
+			credentials,
+			credentials[ "logs_bucket" ],
+			return_data[ "_refinery" ][ "indirect" ][ "s3_path" ]
+		)
+		s3_dict = json.loads(
+			s3_object
+		)
+		lambda_result[ "returned_data" ] = json.dumps(
+			s3_dict[ "return_data" ],
+			indent=4,
+		)
+		lambda_result[ "logs" ] = s3_dict[ "program_output" ]
+		
 		logit( "Deleting Lambda..." )
 		
 		# Now we delete the lambda, don't yield because we don't need to wait
@@ -5258,7 +5276,8 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		)
 	elif language == "python2.7":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:8"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:8"
+			"arn:aws:lambda:us-west-2:532121572788:layer:pythontest:42"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
