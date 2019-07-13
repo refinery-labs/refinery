@@ -7,7 +7,7 @@ import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import ViewDeployedBlockPane from '@/components/DeploymentViewer/ViewDeployedBlockPane';
 import { EditorProps, LoadingContainerProps } from '@/types/component-types';
 import {ExecutionLogContents, ExecutionStatusType, GetProjectExecutionLogsResult} from '@/types/api-types';
-import { BlockExecutionGroup } from '@/types/deployment-executions-types';
+import {BlockExecutionGroup, BlockExecutionLogContentsByLogId} from '@/types/deployment-executions-types';
 import Loading from '@/components/Common/Loading.vue';
 
 const viewBlock = namespace('viewBlock');
@@ -46,9 +46,11 @@ export default class ViewDeployedBlockLogsPane extends Vue {
   @viewBlock.State selectedNode!: WorkflowState | null;
 
   @deploymentExecutions.State selectedBlockExecutionLog!: string;
+  @deploymentExecutions.State blockExecutionLogByLogId!: BlockExecutionLogContentsByLogId;
 
-  @deploymentExecutions.Getter getBlockExecutionGroupForSelectedNode!: BlockExecutionGroup | null;
-  @deploymentExecutions.Getter getLogForSelectedNode!: ExecutionLogContents | null;
+  @deploymentExecutions.Getter getBlockExecutionGroupForSelectedBlock!: BlockExecutionGroup | null;
+  @deploymentExecutions.Getter getLogIdsForSelectedBlock!: string[] | null;
+  @deploymentExecutions.Getter getLogForSelectedBlock!: ExecutionLogContents | null;
 
   @deploymentExecutions.Mutation setSelectedBlockExecutionLog!: (logId: string) => void;
 
@@ -95,7 +97,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
     }
 
     // We have a valid section but no long, hopefully we're loading ;)
-    if (!this.getLogForSelectedNode) {
+    if (!this.getLogForSelectedBlock) {
       const loadingProps: LoadingContainerProps = {
         show: true,
         label: 'Loading execution logs...'
@@ -107,7 +109,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
       );
     }
 
-    const executionData = this.getLogForSelectedNode;
+    const executionData = this.getLogForSelectedBlock;
 
     return (
       <div class="display--flex flex-direction--column">
@@ -121,8 +123,9 @@ export default class ViewDeployedBlockLogsPane extends Vue {
   }
 
   public renderExecutionDropdown() {
-    const nodeExecutions = this.getBlockExecutionGroupForSelectedNode;
-    if (!nodeExecutions) {
+    const nodeExecutions = this.getBlockExecutionGroupForSelectedBlock;
+    const logIds = this.getLogIdsForSelectedBlock;
+    if (!nodeExecutions || !logIds) {
       return null;
     }
 
@@ -136,14 +139,10 @@ export default class ViewDeployedBlockLogsPane extends Vue {
       change: (logId: string) => this.setSelectedBlockExecutionLog(logId)
     };
 
-    const invocationItemList = [];
-
-    for (let i = 0; i < nodeExecutions.totalExecutionCount; i++) {
-      invocationItemList.push({
-        value: i,
-        text: `Invocation #${i + 1}`
-      });
-    }
+    const invocationItemList = logIds.map((logId, i) => ({
+      value: logId,
+      text: `Invocation #${i + 1} (${executionTypeToString(this.blockExecutionLogByLogId[logId].type)})`
+    }));
 
     return (
       <b-form-select

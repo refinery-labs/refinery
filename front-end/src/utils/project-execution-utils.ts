@@ -16,21 +16,6 @@ export function sortExecutions(arr: ProjectExecution[]) {
   return sorted.reverse();
 }
 
-// export function mergeExistingExecutionGroupsWithLogs(project: RefineryProject) {
-//
-//   const lambdaBlocks = getProductionLambdaBlocksFromProject(project);
-//
-//   // Associate the log
-//   return R.groupBy(t => {
-//     const match = lambdaBlocks.find(b => b.arn === t.arn);
-//     if (!match) {
-//       console.error('Unknown log returned from server, could not associate with existing project blocks by ARN');
-//       return 'unknown';
-//     }
-//     return match.id;
-//   }, response.result);
-// }
-
 export function getProductionLambdaBlocksFromProject(project: RefineryProject) {
   // Make an array of Production Lambda blocks
   return project.workflow_states.filter(

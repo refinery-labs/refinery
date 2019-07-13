@@ -4,7 +4,7 @@ import { RootState } from '../../store-types';
 import {getAdditionalLogsByPage, getLogsForExecutions, getProjectExecutions} from '@/store/fetchers/api-helpers';
 import {
   AdditionalBlockExecutionPage,
-  BlockExecutionGroup, BlockExecutionLog, BlockExecutionLogContentsByLogId,
+  BlockExecutionGroup, BlockExecutionLog, BlockExecutionLogContentsByLogId, BlockExecutionLogsForBlockId,
   BlockExecutionPagesByBlockId, BlockExecutionTotalsByBlockId,
   ProjectExecution,
   ProjectExecutionsByExecutionId
@@ -21,9 +21,10 @@ import { DeploymentViewActions } from '@/constants/store-constants';
 export enum DeploymentExecutionsGetters {
   sortedExecutions = 'sortedExecutions',
   getSelectedProjectExecution = 'getSelectedProjectExecution',
-  getBlockExecutionGroupForSelectedNode = 'getBlockExecutionGroupForSelectedNode',
-  getLogForSelectedNode = 'getLogForSelectedNode',
-  getBlockExecutionTotalsForSelectedNode = 'getBlockExecutionTotalsForSelectedNode',
+  getBlockExecutionGroupForSelectedBlock = 'getBlockExecutionGroupForSelectedBlock',
+  getLogIdsForSelectedBlock = 'getLogIdsForSelectedBlock',
+  getLogForSelectedBlock = 'getLogForSelectedBlock',
+  getBlockExecutionTotalsForSelectedBlock = 'getBlockExecutionTotalsForSelectedBlock',
   graphElementsWithExecutionStatus = 'graphElementsWithExecutionStatus'
 }
 
@@ -65,6 +66,7 @@ export interface DeploymentExecutionsPaneState {
   selectedProjectExecution: string | null;
 
   blockExecutionLogByLogId: BlockExecutionLogContentsByLogId;
+  blockExecutionLogsForBlockId: BlockExecutionLogsForBlockId;
   blockExecutionTotalsByBlockId: BlockExecutionTotalsByBlockId;
   blockExecutionPagesByBlockId: BlockExecutionPagesByBlockId;
 
@@ -87,6 +89,7 @@ const moduleState: DeploymentExecutionsPaneState = {
   selectedProjectExecution: null,
 
   blockExecutionLogByLogId: {},
+  blockExecutionLogsForBlockId: {},
   blockExecutionTotalsByBlockId: {},
   blockExecutionPagesByBlockId: {},
 
@@ -120,7 +123,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
     [DeploymentExecutionsGetters.getSelectedProjectExecution]: state =>
       state.selectedProjectExecution && state.projectExecutions && state.projectExecutions[state.selectedProjectExecution],
     
-    [DeploymentExecutionsGetters.getBlockExecutionGroupForSelectedNode]: (state, getters, rootState) => {
+    [DeploymentExecutionsGetters.getBlockExecutionGroupForSelectedBlock]: (state, getters, rootState) => {
       const selectedProjectExecution: ProjectExecution | null =
         getters[DeploymentExecutionsGetters.getSelectedProjectExecution];
 
@@ -130,13 +133,20 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       return selectedProjectExecution.blockExecutionGroupByBlockId[rootState.viewBlock.selectedNode.id];
     },
-    [DeploymentExecutionsGetters.getLogForSelectedNode]: (state) => {
+    [DeploymentExecutionsGetters.getLogIdsForSelectedBlock]: (state, getters, rootState) => {
+      if (!rootState.viewBlock.selectedNode) {
+        return null;
+      }
+
+      return state.blockExecutionLogsForBlockId[rootState.viewBlock.selectedNode.id];
+    },
+    [DeploymentExecutionsGetters.getLogForSelectedBlock]: (state) => {
       if (!state.selectedBlockExecutionLog) {
         return null;
       }
       return state.blockExecutionLogByLogId[state.selectedBlockExecutionLog];
     },
-    [DeploymentExecutionsGetters.getBlockExecutionTotalsForSelectedNode]: (state, getters, rootState) => {
+    [DeploymentExecutionsGetters.getBlockExecutionTotalsForSelectedBlock]: (state, getters, rootState) => {
       if (!rootState.viewBlock.selectedNode) {
         return null;
       }
@@ -228,6 +238,11 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         ...log.logs
       };
 
+      state.blockExecutionLogsForBlockId[log.blockId] = {
+        ...state.blockExecutionLogsForBlockId[log.blockId],
+        ...Object.keys(log.logs)
+      };
+      
       state.blockExecutionPagesByBlockId = {
         ...state.blockExecutionPagesByBlockId,
         ...{[log.blockId]: log.pages}
@@ -349,7 +364,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       // "Convert" the currently opened pane into the execution view pane
       if (
         context.rootState.deployment.activeRightSidebarPane === SIDEBAR_PANE.viewDeployedBlock &&
-        context.getters[DeploymentExecutionsGetters.getLogForSelectedNode]
+        context.getters[DeploymentExecutionsGetters.getLogForSelectedBlock]
       ) {
         await context.dispatch(
           `deployment/${DeploymentViewActions.openRightSidebarPane}`,
@@ -368,23 +383,23 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         return;
       }
 
-      const blockExecutionGroupForSelectedNode: BlockExecutionGroup = context.getters[DeploymentExecutionsGetters.getBlockExecutionGroupForSelectedNode];
+      const blockExecutionGroupForSelectedBlock: BlockExecutionGroup = context.getters[DeploymentExecutionsGetters.getBlockExecutionGroupForSelectedBlock];
 
       // No logs to fetch for selected block, probably
-      if (!blockExecutionGroupForSelectedNode) {
+      if (!blockExecutionGroupForSelectedBlock) {
         return;
       }
 
-      const blockExecutionLogsForSelectedNode: BlockExecutionLog | null = context.getters[DeploymentExecutionsGetters.getLogForSelectedNode];
+      const blockExecutionLogsForSelectedBlock: BlockExecutionLog | null = context.getters[DeploymentExecutionsGetters.getLogForSelectedBlock];
 
-      if (blockExecutionLogsForSelectedNode && popPage) {
+      if (blockExecutionLogsForSelectedBlock && popPage) {
         await context.dispatch(DeploymentExecutionsActions.fetchMoreLogsForSelectedBlock);
         return;
       }
 
       // If our current "view" of the log execution totals is correct, then don't fetch any more.
-      if (blockExecutionLogsForSelectedNode
-        && blockExecutionLogsForSelectedNode.totalExecutions === blockExecutionGroupForSelectedNode.totalExecutionCount) {
+      if (blockExecutionLogsForSelectedBlock
+        && blockExecutionLogsForSelectedBlock.totalExecutions === blockExecutionGroupForSelectedBlock.totalExecutionCount) {
         return;
       }
 
@@ -395,7 +410,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, true);
 
-      const response = await getLogsForExecutions(context.rootState.deployment.openedDeployment, blockExecutionGroupForSelectedNode);
+      const response = await getLogsForExecutions(context.rootState.deployment.openedDeployment, blockExecutionGroupForSelectedBlock);
 
       context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, false);
 

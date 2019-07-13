@@ -59,6 +59,10 @@ export interface BlockExecutionLogContentsByLogId {
   [key: string]: ExecutionLogContents
 }
 
+export interface BlockExecutionLogsForBlockId {
+  [key: string]: string[]
+}
+
 export interface AdditionalBlockExecutionPage {
   blockId: string,
   page: string,
