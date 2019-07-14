@@ -9072,7 +9072,8 @@ class AdministrativeAssumeAccount( BaseHandler ):
 def make_app( is_debug ):
 	tornado_app_settings = {
 		"debug": is_debug,
-		"cookie_secret": os.environ.get( "cookie_secret_value" )
+		"cookie_secret": os.environ.get( "cookie_secret_value" ),
+		"compress_response": True
 	}
 	
 	return tornado.web.Application([
