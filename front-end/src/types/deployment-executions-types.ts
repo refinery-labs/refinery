@@ -28,6 +28,7 @@ export interface BlockExecutionGroupByBlockId {
 export interface BlockExecutionGroup {
   executionStatus: ExecutionStatusType;
   executionResult: BlockExecutionMetadata;
+  timestamp: number;
   totalExecutionCount: number;
   executionId: string;
   blockId: string;

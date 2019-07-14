@@ -78,6 +78,7 @@ function createLogsGroupedByBlockId(
     const out: BlockExecutionGroup = {
       executionStatus: getExecutionStatusForBlockExecution(execution),
       executionResult: execution,
+      timestamp: executionResult.timestamp,
       totalExecutionCount,
       executionId: executionResult.execution_pipeline_id,
       blockId: block.id,

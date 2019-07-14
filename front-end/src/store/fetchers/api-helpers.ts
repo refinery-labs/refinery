@@ -104,15 +104,15 @@ export async function getLogsForExecutions(
     return null;
   }
 
-  const defaultTimestamp = getDefaultOffsetTimestamp();
-
   // TODO: Add Retry logic
   const response = await makeApiRequest<GetProjectExecutionLogsRequest, GetProjectExecutionLogsResponse>(
     API_ENDPOINT.GetProjectExecutionLogs,
     {
       arn: executionGroup.blockArn,
       execution_pipeline_id: executionGroup.executionId,
-      oldest_timestamp: defaultTimestamp,
+      // Subtract 300 so that we make sure to get the right 5 minute shard in Athena.
+      // If this isn't a leaking abstraction, I don't know what is! -Free
+      oldest_timestamp: executionGroup.timestamp - 301,
       project_id: project.project_id
     }
   );

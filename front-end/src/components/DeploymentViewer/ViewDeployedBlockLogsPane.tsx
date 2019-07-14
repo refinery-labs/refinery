@@ -63,6 +63,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
 
   @deploymentExecutions.State selectedBlockExecutionLog!: string;
   @deploymentExecutions.State blockExecutionLogByLogId!: BlockExecutionLogContentsByLogId;
+  @deploymentExecutions.State isFetchingLogs!: boolean;
 
   @deploymentExecutions.Getter getBlockExecutionGroupForSelectedBlock!: BlockExecutionGroup | null;
   @deploymentExecutions.Getter getAllLogIdsForSelectedBlock!: string[] | null;
@@ -118,8 +119,14 @@ export default class ViewDeployedBlockLogsPane extends Vue {
 
   public renderExecutionDetails() {
 
+    const executionData = this.getLogForSelectedBlock;
+
+    if (!this.selectedBlockExecutionLog && !executionData && !this.isFetchingLogs) {
+      return <div>Missing Executions for block. This should never happen. :(</div>;
+    }
+
     // We have a valid section but no long, hopefully we're loading ;)
-    if (!this.getLogForSelectedBlock) {
+    if (!executionData) {
       const loadingProps: LoadingContainerProps = {
         show: true,
         label: 'Loading execution logs...'
@@ -129,12 +136,6 @@ export default class ViewDeployedBlockLogsPane extends Vue {
           <Loading props={loadingProps} />
         </div>
       );
-    }
-
-    const executionData = this.getLogForSelectedBlock;
-
-    if (!this.selectedBlockExecutionLog && !executionData) {
-      return <div>Missing Executions for block. :(</div>;
     }
 
     return (
@@ -156,7 +157,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
       return null;
     }
 
-    if (nodeExecutions.totalExecutionCount === 1) {
+    if (nodeExecutions.totalExecutionCount <= 1) {
       // TODO: Show something about the current execution being singular?
       return null;
     }
