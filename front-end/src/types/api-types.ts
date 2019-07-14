@@ -153,65 +153,80 @@ export interface GetProjectConfigResponse extends BaseApiResponse {
 
 // GetProjectExecutionLogs
 export interface GetProjectExecutionLogsRequest extends BaseApiRequest {
-  logs: string[];
+  execution_pipeline_id: string;
+  arn: string;
+  project_id: string;
+  oldest_timestamp: number;
 }
 
 export interface GetProjectExecutionLogsResponse extends BaseApiResponse {
-  result: { [key: string]: GetProjectExecutionLogsResult[] };
+  result: GetProjectExecutionLogsResult;
 }
 
 export interface GetProjectExecutionLogsResult {
-  stream_name: string;
-  memory_limit_in_mb: number;
-  initialization_time: number;
-  aws_request_id: string;
-  name: string;
-  timestamp: number;
-  aws_region: string;
-  group_name: string;
-  project_id: string;
-  type: ExecutionStatusType;
-  id: string;
-  invoked_function_arn: string;
-  data: ExecutionLogData;
-  function_version: string;
-  arn: string;
-  function_name: string;
+  results: ExecutionLogContents[],
+  pages: string[]
 }
 
 export enum ExecutionStatusType {
   EXCEPTION = 'EXCEPTION',
   CAUGHT_EXCEPTION = 'CAUGHT_EXCEPTION',
-  RETURN = 'RETURN'
-}
-
-export interface ExecutionLogData {
-  input_data: string;
-  return_data: boolean;
-  output: string;
+  SUCCESS = 'SUCCESS'
 }
 
 /**
  * Get past execution ID(s) for a given deployed project and their respective metadata.
  */
 export interface GetProjectExecutionsRequest extends BaseApiRequest {
-  continuation_token?: string;
+  oldest_timestamp: number;
   project_id: string;
 }
 
 export interface GetProjectExecutionsResponse extends BaseApiResponse {
-  result: GetProjectExecutionsResponseResult;
+  result: GetProjectExecutionResult[];
 }
 
-export interface GetProjectExecutionsResponseResult {
-  continuation_token: string;
-  executions: { [key: string]: Execution };
+export type ExecutionStatusByType = {
+  [key in ExecutionStatusType]: number;
+};
+
+export interface GetProjectExecutionResult {
+  timestamp: number;
+  execution_pipeline_totals: ExecutionStatusByType;
+  block_executions: BlockExecutionResult[];
+  execution_pipeline_id: string;
 }
 
-export interface Execution {
-  oldest_observed_timestamp: number;
-  logs: string[];
-  error: boolean;
+export interface BlockExecutionResult extends ExecutionStatusByType {
+  arn: string;
+}
+
+// GetLogContents
+export interface GetLogContentsRequest extends BaseApiRequest {
+  id: string;
+}
+
+export interface GetLogContentsResponse extends BaseApiResponse {
+  result: GetLogContentsResult
+}
+
+export interface GetLogContentsResult {
+  results: ExecutionLogContents[]
+}
+
+export interface ExecutionLogContents {
+  timestamp: number;
+  /**
+   * JSON formatted data
+   */
+  backpack: string;
+  input_data: string;
+  dt: string;
+  arn: string;
+  return_data: string;
+  log_id: string;
+  program_output: string;
+  type: ExecutionStatusType;
 }
 
 // GetSavedProject

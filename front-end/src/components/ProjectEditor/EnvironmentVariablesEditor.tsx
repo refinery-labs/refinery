@@ -128,10 +128,10 @@ export class EnvironmentVariablesEditor extends Vue implements EnvironmentVariab
     const helperText = (
       <div class="text-align--center padding-top--big padding-bottom--big">
         <h4>
-          You currently do not have any block variables set. To get started adding a new variable, click the button
+          You currently do not have any block settings set. To get started adding a new setting, click the button
           below.
           <br />
-          {/*For more information on what block variables are used for, please see the documentation here.*/}
+          {/*For more information on what block settings are used for, please see the documentation here.*/}
         </h4>
       </div>
     );
@@ -154,11 +154,11 @@ export class EnvironmentVariablesEditor extends Vue implements EnvironmentVariab
   }
 
   public renderModal() {
-    const nameString = `${this.readOnly ? 'View' : 'Edit'} Block Variables for '${this.activeBlockName}'`;
+    const nameString = `${this.readOnly ? 'View' : 'Edit'} Block Settings for '${this.activeBlockName}'`;
 
     const addNewVariableButton = (
       <b-button variant="primary" on={{ click: this.addNewVariable }}>
-        Add New Variable
+        Add New Block Setting
       </b-button>
     );
 
@@ -188,7 +188,7 @@ export class EnvironmentVariablesEditor extends Vue implements EnvironmentVariab
       >
         <div class="display--flex justify-content-end mb-2">
           <div class="flex-grow--1 text-align--left padding-top--normal-small">
-            <label class="mb-0">Block Variables:</label>
+            <label class="mb-0">Block Settings (Environment Variables):</label>
           </div>
           {this.readOnly ? null : addNewVariableButton}
         </div>

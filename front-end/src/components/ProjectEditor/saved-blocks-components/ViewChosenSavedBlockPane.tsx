@@ -6,6 +6,7 @@ import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { Prop } from 'vue-property-decorator';
 import VueMarkdown from 'vue-markdown';
 import { ChosenBlock } from '@/types/add-block-types';
+import {SharedBlockPublishStatus} from "@/types/api-types";
 
 export interface ViewChosenSavedBlockPaneProps {
   chosenBlock: ChosenBlock;
@@ -32,7 +33,8 @@ export default class ViewChosenSavedBlockPane extends Vue implements ViewChosenS
     const durationSinceUpdated = moment.duration(-moment().diff(block.timestamp * 1000)).humanize(true);
 
     const isPrivateBlock = this.chosenBlock.blockSource === 'private';
-    const shareStatusText = isPrivateBlock && <div class="text-muted text-align--center">{block.share_status}</div>;
+    const sharePillVariable = block.share_status === SharedBlockPublishStatus.PRIVATE ? "success" : "primary";
+    const shareStatusText = isPrivateBlock && <div class="text-muted text-align--center"><b-badge variant={sharePillVariable}>{block.share_status}</b-badge></div>;
 
     return (
       <div class="width--100percent">

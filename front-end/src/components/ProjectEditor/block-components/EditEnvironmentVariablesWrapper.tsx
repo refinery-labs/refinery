@@ -72,7 +72,7 @@ export class EditEnvironmentVariablesWrapper extends Vue
     return (
       <div>
         <b-button class="col-12" variant="dark" on={{ click: this.onOpenModal }}>
-          {this.readOnly ? 'View' : 'Edit'} Block Variables
+          {this.readOnly ? 'View' : 'Edit'} Block Settings
         </b-button>
         <EnvironmentVariablesEditor props={environmentVariablesEditorProps} />
       </div>

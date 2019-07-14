@@ -433,7 +433,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
           disabled={!this.isEditedBlockValid}
           on={{ click: this.beginPublishBlockClicked }}
         >
-          Open Block Publisher
+          Create/Update Saved Block
         </b-button>
       </b-form-group>
     );
@@ -484,7 +484,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
     return (
       <b-form-group description="Click to view the variables passed to the block at runtime.">
-        <label class="d-block">Block Variable Configuration:</label>
+        <label class="d-block">Block Settings (Environment Variables):</label>
         <EditEnvironmentVariablesWrapper props={editEnvironmentVariablesWrapperProps} />
       </b-form-group>
     );
@@ -526,20 +526,18 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       on: { change: setExecutionMemory }
     };
 
+    const editBlockProps: EditBlockPaneProps = {
+      selectedNode: this.selectedNode,
+      selectedNodeMetadata: this.selectedNodeMetadata,
+      readOnly: this.readOnly
+    };
+
     // Fork the display for read-only/deployment view to make the UX more clear for what pane the user is in.
     if (this.readOnly) {
       return (
         <div>
           <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#code-block' }} />
-          <BlockNameInput
-            props={
-              {
-                selectedNode: this.selectedNode,
-                selectedNodeMetadata: this.selectedNodeMetadata,
-                readOnly: this.readOnly
-              } as EditBlockPaneProps
-            }
-          />
+          <BlockNameInput props={editBlockProps} />
           {this.renderCodeEditorContainer()}
           {this.renderBlockVariables()}
           {this.renderAwsLink()}
@@ -554,15 +552,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     return (
       <div>
         <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#code-block' }} />
-        <BlockNameInput
-          props={
-            {
-              selectedNode: this.selectedNode,
-              selectedNodeMetadata: this.selectedNodeMetadata,
-              readOnly: this.readOnly
-            } as EditBlockPaneProps
-          }
-        />
+        <BlockNameInput props={editBlockProps}/>
         {this.renderCodeEditorContainer()}
         {this.renderAwsLink()}
         {this.renderBlockVariables()}

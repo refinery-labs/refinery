@@ -5,6 +5,57 @@
 resource "aws_s3_bucket" "lambda-logging" {
     bucket = "refinery-lambda-logging-${var.s3_bucket_suffix}"
     acl    = "private"
+    
+	lifecycle_rule {
+		id = "athena_query_output"
+		prefix = "athena/"
+	
+		enabled = true
+		
+		expiration {
+			days = 1
+		}
+		
+		noncurrent_version_expiration {
+			days = 1
+		}
+		
+		abort_incomplete_multipart_upload_days = 1
+	}
+	
+	lifecycle_rule {
+		id = "code_block_log_result_pages"
+		prefix = "log_pagination_result_pages/"
+	
+		enabled = true
+		
+		expiration {
+			days = 1
+		}
+		
+		noncurrent_version_expiration {
+			days = 1
+		}
+		
+		abort_incomplete_multipart_upload_days = 1
+	}
+	
+	lifecycle_rule {
+		id = "temporary_code_block_execution_outputs"
+		prefix = "temporary_executions/"
+	
+		enabled = true
+		
+		expiration {
+			days = 1
+		}
+		
+		noncurrent_version_expiration {
+			days = 1
+		}
+		
+		abort_incomplete_multipart_upload_days = 1
+	}
 }
 
 /*

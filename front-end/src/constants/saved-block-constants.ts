@@ -4,7 +4,7 @@ export const addModeTitle = 'Create New Saved Block';
 export const alreadyPublishedText =
   'This option is disabled. You cannot make a published block private again. If you have done this accidentally and need this block unpublished, please contact support';
 export const newPublishText =
-  'This will make the block available for other people to use. Only publish blocks that you are okay with other people seeing! You cannot remove a public block without contacting support.';
+  'This will make the Saved Block, the example input, and the documentation available for other people to use. Only publish blocks that you are okay with other people seeing! You cannot remove a public block without contacting support.';
 
 export const inputDataExample = `{
   "what": "This is some example data that your block requires",

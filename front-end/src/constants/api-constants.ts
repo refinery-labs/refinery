@@ -6,6 +6,7 @@ export enum API_ENDPOINT {
   Logout = 'Logout',
   GetProjectExecutionLogs = 'GetProjectExecutionLogs',
   GetProjectExecutions = 'GetProjectExecutions',
+  GetLogContents = 'GetLogContents',
   DeployDiagram = 'DeployDiagram',
   SavedLambdaCreate = 'SavedLambdaCreate',
   SavedLambdaSearch = 'SavedLambdaSearch',
@@ -90,6 +91,10 @@ export const ApiConfigMap: ApiConfigMapType = {
   },
   [API_ENDPOINT.GetProjectExecutions]: {
     path: '/api/v1/logs/executions',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.GetLogContents]: {
+    path: '/api/v1/logs/executions/get-contents',
     method: HTTP_METHOD.POST
   },
   [API_ENDPOINT.DeployDiagram]: {

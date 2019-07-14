@@ -329,6 +329,14 @@ $content-sidebar-width: 92px;
   }
 }
 
+.tab-pane {
+  .show-block-container {
+    &__form {
+      max-height: calc(100vh - 254px);
+    }
+  }
+}
+
 .show-block-container {
 
   .form-group {
@@ -357,8 +365,7 @@ $content-sidebar-width: 92px;
 
     &--small {
       height: 180px;
-      margin-bottom: 8px;
-      border-bottom: 1px dashed #eee;
+      margin-bottom: 4px;
     }
   }
 
@@ -562,9 +569,12 @@ $content-sidebar-width: 92px;
   padding: 8px;
 }
 
-// This is because of some gross interactions between Vue Bootstrap components...
-.disgusting-card-offset {
-  margin: -1px 5px 5px;
+.view-executions-list-container {
+  max-height: calc(100vh - 194px);
+
+  &__badges > .badge + .badge {
+    margin-top: 4px;
+  }
 }
 
 .shift-block-nastily-into-tabs {

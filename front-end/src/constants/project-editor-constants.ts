@@ -112,8 +112,8 @@ export const blockTypeToImageLookup: BlockTypeConfig = {
   },
   [BlockSelectionType.saved_block]: {
     path: require('../../public/img/node-icons/code-icon.png'),
-    name: 'Saved Block',
-    description: 'Choose a previously saved block to add to the project graph.'
+    name: 'Saved Block / Community Repository Block',
+    description: 'Import a previously created Saved Block into your current project. This can be a Saved Block you created or any of the Saved Blocks publicly published by other Refinery users.'
   }
 };
 

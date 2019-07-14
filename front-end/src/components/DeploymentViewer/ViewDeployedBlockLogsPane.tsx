@@ -6,8 +6,8 @@ import { SupportedLanguage, WorkflowState } from '@/types/graph';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import ViewDeployedBlockPane from '@/components/DeploymentViewer/ViewDeployedBlockPane';
 import { EditorProps, LoadingContainerProps } from '@/types/component-types';
-import { ExecutionStatusType, GetProjectExecutionLogsResult } from '@/types/api-types';
-import { BlockExecutionGroup, ProductionExecution } from '@/types/deployment-executions-types';
+import {ExecutionLogContents, ExecutionStatusType, GetProjectExecutionLogsResult} from '@/types/api-types';
+import {BlockExecutionGroup, BlockExecutionLogContentsByLogId} from '@/types/deployment-executions-types';
 import Loading from '@/components/Common/Loading.vue';
 
 const viewBlock = namespace('viewBlock');
@@ -25,6 +25,22 @@ function formatDataForAce(data: any) {
   return JSON.stringify(data, null, '  ') || '';
 }
 
+function executionTypeToVariable(executionType: ExecutionStatusType) {
+  if (executionType === ExecutionStatusType.EXCEPTION) {
+    return 'danger';
+  }
+
+  if (executionType === ExecutionStatusType.CAUGHT_EXCEPTION) {
+    return 'warning';
+  }
+
+  if (executionType === ExecutionStatusType.SUCCESS) {
+    return 'success';
+  }
+
+  return 'info';
+}
+
 function executionTypeToString(executionType: ExecutionStatusType) {
   if (executionType === ExecutionStatusType.EXCEPTION) {
     return 'Uncaught Exception';
@@ -34,7 +50,7 @@ function executionTypeToString(executionType: ExecutionStatusType) {
     return 'Caught Exception';
   }
 
-  if (executionType === ExecutionStatusType.RETURN) {
+  if (executionType === ExecutionStatusType.SUCCESS) {
     return 'Success';
   }
 
@@ -45,16 +61,20 @@ function executionTypeToString(executionType: ExecutionStatusType) {
 export default class ViewDeployedBlockLogsPane extends Vue {
   @viewBlock.State selectedNode!: WorkflowState | null;
 
-  @deploymentExecutions.State selectedExecutionIndexForNode!: number;
+  @deploymentExecutions.State selectedBlockExecutionLog!: string;
+  @deploymentExecutions.State blockExecutionLogByLogId!: BlockExecutionLogContentsByLogId;
+  @deploymentExecutions.State isFetchingLogs!: boolean;
 
-  @deploymentExecutions.Getter getAllExecutionsForNode!: BlockExecutionGroup | null;
-  @deploymentExecutions.Getter getSelectedExecutionForNode!:
-    | GetProjectExecutionLogsResult & { missing: boolean }
-    | null;
+  @deploymentExecutions.Getter getBlockExecutionGroupForSelectedBlock!: BlockExecutionGroup | null;
+  @deploymentExecutions.Getter getAllLogIdsForSelectedBlock!: string[] | null;
+  @deploymentExecutions.Getter currentlySelectedLogId!: string | null;
+  @deploymentExecutions.Getter getLogForSelectedBlock!: ExecutionLogContents | null;
 
-  @deploymentExecutions.Mutation setSelectedExecutionIndexForNode!: (i: number) => void;
+  @deploymentExecutions.Mutation setSelectedBlockExecutionLog!: (logId: string) => void;
 
-  public renderExecutionLabels(execution: GetProjectExecutionLogsResult) {
+  @deploymentExecutions.Action fetchMoreLogsForSelectedBlock!: () => void;
+
+  public renderExecutionLabels(execution: ExecutionLogContents) {
     const durationSinceUpdated = moment.duration(-moment().diff(execution.timestamp * 1000)).humanize(true);
     return (
       <div class="text-align--left">
@@ -62,10 +82,14 @@ export default class ViewDeployedBlockLogsPane extends Vue {
         <label> {durationSinceUpdated}</label>
         <br />
         <label class="text-bold">Status: &nbsp;</label>
-        <label> {executionTypeToString(execution.type)}</label>
+        <label>
+          <b-badge variant={executionTypeToVariable(execution.type)} pill>
+            {executionTypeToString(execution.type)}
+          </b-badge>
+        </label>
         <br />
         <label class="text-bold">Log Id: &nbsp;</label>
-        <label style="font-size: 0.8rem"> {execution.id}</label>
+        <label style="font-size: 0.8rem"> {execution.log_id}</label>
       </div>
     );
   }
@@ -81,7 +105,11 @@ export default class ViewDeployedBlockLogsPane extends Vue {
 
     return (
       <div class="display--flex flex-direction--column">
-        <label class="d-block padding-top--normal">{label}:</label>
+        <div class="text-align--left run-lambda-container__text-label">
+          <label class="text-light padding--none mt-0 mb-0 ml-2">
+            {label}:
+          </label>
+        </div>
         <div class="show-block-container__code-editor--small">
           <RefineryCodeEditor props={editorProps} />
         </div>
@@ -90,60 +118,78 @@ export default class ViewDeployedBlockLogsPane extends Vue {
   }
 
   public renderExecutionDetails() {
-    if (!this.getSelectedExecutionForNode) {
-      return <div>Please select an execution.</div>;
+
+    const executionData = this.getLogForSelectedBlock;
+
+    if (!this.selectedBlockExecutionLog && !executionData && !this.isFetchingLogs) {
+      return <div>Missing Executions for block. This should never happen. :(</div>;
     }
 
-    if (this.getSelectedExecutionForNode.missing) {
+    // We have a valid section but no long, hopefully we're loading ;)
+    if (!executionData) {
       const loadingProps: LoadingContainerProps = {
         show: true,
         label: 'Loading execution logs...'
       };
       return (
-        <div style="margin-top: 30px; min-height: 60px">
+        <div style="margin-top: 60px; min-height: 60px">
           <Loading props={loadingProps} />
         </div>
       );
     }
 
-    const executionData = this.getSelectedExecutionForNode.data;
-
     return (
       <div class="display--flex flex-direction--column">
-        {this.renderExecutionLabels(this.getSelectedExecutionForNode)}
+        {this.renderExecutionLabels(executionData)}
         {this.renderCodeEditor('Block Input Data', 'input-data', formatDataForAce(executionData.input_data), true)}
-        {this.renderCodeEditor('Execution Output', 'output', executionData.output || '', false)}
+        {this.renderCodeEditor('Execution Output', 'output', executionData.program_output || '', false)}
         {this.renderCodeEditor('Return Data', 'return-data', formatDataForAce(executionData.return_data), true)}
+        {this.renderCodeEditor('Backpack Data', 'backpack-data', formatDataForAce(executionData.backpack), true)}
         {/*{this.renderLogLinks()}*/}
       </div>
     );
   }
 
   public renderExecutionDropdown() {
-    if (!this.getAllExecutionsForNode) {
+    const nodeExecutions = this.getBlockExecutionGroupForSelectedBlock;
+    const logIds = this.getAllLogIdsForSelectedBlock;
+    if (!nodeExecutions || !logIds) {
       return null;
     }
 
-    if (this.getAllExecutionsForNode.logs.length === 1) {
+    if (nodeExecutions.totalExecutionCount <= 1) {
       // TODO: Show something about the current execution being singular?
       return null;
     }
+
     const onHandlers = {
       // Sets the current index to be active
-      change: (i: number) => this.setSelectedExecutionIndexForNode(i)
+      change: (logId: string) => {
+        if (logId === 'load-more') {
+          this.fetchMoreLogsForSelectedBlock();
+          return;
+        }
+
+        this.setSelectedBlockExecutionLog(logId);
+      }
     };
 
-    const invocationItemList = this.getAllExecutionsForNode.logs.map((exec, i) => {
-      return {
-        value: i,
-        text: `Invocation #${i + 1}`
-      };
-    });
+    const invocationItemList = logIds.map((logId, i) => ({
+      value: logId,
+      text: `Invocation #${i + 1} (${executionTypeToString(this.blockExecutionLogByLogId[logId].type)})`
+    }));
+
+    if (nodeExecutions.totalExecutionCount !== logIds.length) {
+      invocationItemList.push({
+        value: 'load-more',
+        text: 'Load More Executions...'
+      });
+    }
 
     return (
       <b-form-select
         class="padding--small mt-2 mb-2"
-        value={this.selectedExecutionIndexForNode}
+        value={this.currentlySelectedLogId}
         on={onHandlers}
         options={invocationItemList}
       />
@@ -152,38 +198,34 @@ export default class ViewDeployedBlockLogsPane extends Vue {
 
   public render(h: CreateElement): VNode {
     return (
-      <div class="show-block-container">
-        <b-card no-body={true} class="overflow-hidden mb-0">
-          <b-tabs nav-class="nav-justified" card={true} content-class="padding--none disgusting-card-offset">
-            <b-tab title="first" active={true} no-body={true}>
-              <template slot="title">
-                <span>
-                  Execution Details
-                  {/*<em class="fas fa-code" />*/}
-                </span>
-              </template>
-              <div class="show-block-container container">
-                <div class="mb-3 padding-top--big text-align--left show-block-container__form--normal">
-                  <div class="scrollable-pane-container padding-left--normal padding-right--normal">
-                    {this.renderExecutionDropdown()}
-                    {this.renderExecutionDetails()}
-                  </div>
+      <div class="display--flex flex-direction--column">
+        <b-tabs nav-class="nav-justified" content-class="padding--none">
+          <b-tab title="first" active={true} no-body={true}>
+            <template slot="title">
+              <span>
+                Execution Details
+                {/*<em class="fas fa-code" />*/}
+              </span>
+            </template>
+            <div class="show-block-container container">
+              <div class="mb-3 mt-3 text-align--left show-block-container__form show-block-container__form--normal">
+                <div class="scrollable-pane-container padding-left--normal padding-right--normal">
+                  {this.renderExecutionDropdown()}
+                  {this.renderExecutionDetails()}
                 </div>
               </div>
-            </b-tab>
-            <b-tab title="second" no-body={true}>
-              <template slot="title">
-                <span>
-                  Selected Block
-                  {/*<em class="fas fa-code" />*/}
-                </span>
-              </template>
-              <div class="shift-block-nastily-into-tabs">
-                <ViewDeployedBlockPane />
-              </div>
-            </b-tab>
-          </b-tabs>
-        </b-card>
+            </div>
+          </b-tab>
+          <b-tab title="second" no-body={true}>
+            <template slot="title">
+              <span>
+                Selected Block
+                {/*<em class="fas fa-code" />*/}
+              </span>
+            </template>
+            <ViewDeployedBlockPane />
+          </b-tab>
+        </b-tabs>
       </div>
     );
   }

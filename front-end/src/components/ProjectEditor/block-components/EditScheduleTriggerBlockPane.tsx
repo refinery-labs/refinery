@@ -86,11 +86,17 @@ export class EditScheduleTriggerBlock extends Vue implements EditBlockPaneProps 
   }
 
   public render(h: CreateElement): VNode {
+    const blockInputProps: EditBlockPaneProps = {
+      selectedNode: this.selectedNode,
+      selectedNodeMetadata: this.selectedNodeMetadata,
+      readOnly: this.readOnly
+    };
+
     return (
       <div>
         <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#timer-block' }} />
-        <BlockNameInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
-        <BlockScheduleExpressionInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
+        <BlockNameInput props={blockInputProps} />
+        <BlockScheduleExpressionInput props={blockInputProps} />
         {this.renderCodeEditorContainer()}
         {this.renderAwsLink()}
       </div>

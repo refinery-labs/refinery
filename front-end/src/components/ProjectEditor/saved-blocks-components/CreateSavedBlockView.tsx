@@ -128,7 +128,7 @@ export default class CreateSavedBlockView extends Vue implements CreateSavedBloc
 
           <b-form-group
             className="padding-bottom--normal-small margin-bottom--normal-small"
-            description="This data will help your users understand how to use the block. Please fill out the schema with the data that your block will require."
+            description="This data will help other users and yourself understand how to use the block. Please fill out the schema with the data that your block will require. It's important to use dummy data here. If you choose to publish your Saved Block publicly all Refinery users will be able to see the example input data."
           >
             <label class="d-block">Example Input Data:</label>
             <RefineryCodeEditor props={editorProps} />
@@ -148,12 +148,12 @@ export default class CreateSavedBlockView extends Vue implements CreateSavedBloc
             >
               {publishDisabled
                 ? 'This block has already been publicly published.'
-                : 'Publish to the Refinery Block Repository?'}
+                : 'Publish to the public Refinery Block Repository?'}
             </b-form-checkbox>
           </b-form-group>
           <div class="text-align--center">
             <b-button variant="primary" class="col-lg-8 mt-3" type="submit">
-              {hasExistingBlock ? 'Update' : 'Publish'} Saved Block
+              {hasExistingBlock ? 'Update' : 'Create'} Saved Block
             </b-button>
           </div>
         </b-form>

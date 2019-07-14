@@ -3,50 +3,71 @@ import Component from 'vue-class-component';
 import { Prop } from 'vue-property-decorator';
 import { ViewExecutionsListProps } from '@/types/component-types';
 import moment from 'moment';
-import { ProductionExecution, ProjectExecution } from '@/types/deployment-executions-types';
+import { ProjectExecution } from '@/types/deployment-executions-types';
 
 @Component
 export default class ViewExecutionsList extends Vue implements ViewExecutionsListProps {
   @Prop({ required: true }) projectExecutions!: ProjectExecution[] | null;
-  @Prop({ required: true }) selectedExecutionGroup!: string | null;
+  @Prop({ required: true }) selectedProjectExecution!: string | null;
   @Prop({ required: true }) openExecutionGroup!: (id: string) => void;
   @Prop({ required: true }) isBusyRefreshing!: boolean;
   @Prop({ required: true }) showMoreExecutions!: () => void;
   @Prop({ required: true }) hasMoreExecutionsToLoad!: boolean;
 
+  renderStatusPill(count: number, name: string, variant: string) {
+    if (count === 0) {
+      return null;
+    }
+
+    return (
+      <b-badge variant={variant} pill>
+        {`${count} ${name}`}
+      </b-badge>
+    );
+  }
+
   public renderExecution(execution: ProjectExecution) {
     const durationSinceUpdated = moment.duration(-moment().diff(execution.oldestTimestamp * 1000)).humanize(true);
 
-    const isActive = execution.executionId === this.selectedExecutionGroup;
+    const isActive = execution.executionId === this.selectedProjectExecution;
 
     const labelClasses = {
       'text-muted mb-0 text-align--left': true,
       'text-white': isActive
     };
 
+    const badgesClasses = {
+      'view-executions-list-container__badges': true,
+      'text-align--right padding-left--normal padding-right--normal': true,
+      'display--flex flex-direction--column': true
+    };
+
+    const badges = [
+      this.renderStatusPill(execution.errorCount, 'error', 'danger'),
+      this.renderStatusPill(execution.caughtErrorCount, 'caught', 'warning'),
+      this.renderStatusPill(execution.successCount, 'success', 'success')
+    ];
+
     return (
-      <div>
-        <b-list-group-item
-          button={true}
-          active={isActive}
-          class="d-flex justify-content-between align-items-center"
-          on={{ click: () => this.openExecutionGroup(execution.executionId) }}
-        >
-          <label class={labelClasses} style="min-width: 80px">
-            {durationSinceUpdated}
-          </label>
-          <div style="min-width: 80px" class="text-align--right padding-right--small">
-            <b-badge variant={execution.error ? 'danger' : 'success'} pill>
-              {execution.error ? 'error' : 'pass'}
-            </b-badge>
-          </div>
-          <div style="min-width: 80px" class="text-align--left">
-            <b-badge variant="info" pill>
-              {execution.numberOfLogs} execution{execution.numberOfLogs > 1 ? 's' : ''}
-            </b-badge>
-          </div>
-        </b-list-group-item>
-      </div>
+      <b-list-group-item
+        button={true}
+        active={isActive}
+        class="d-flex justify-content-between align-items-center"
+        on={{click: () => this.openExecutionGroup(execution.executionId)}}
+      >
+        <label class={labelClasses} style="min-width: 80px">
+          {durationSinceUpdated}
+        </label>
+
+        <div style="min-width: 80px" class={badgesClasses}>
+          {badges}
+        </div>
+        <div style="min-width: 80px" class="text-align--left">
+          <b-badge variant="info" pill>
+            {execution.numberOfLogs} execution{execution.numberOfLogs > 1 ? 's' : ''}
+          </b-badge>
+        </div>
+      </b-list-group-item>
     );
   }
 

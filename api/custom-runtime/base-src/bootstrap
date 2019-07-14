@@ -998,8 +998,51 @@ def _api_endpoint( lambda_input, execution_id, context ):
 		"body": json.dumps( http_response ),
 		"isBase64Encoded": False
 	}
+	
+def _write_temporary_execution_results( s3_log_bucket, program_output, return_data ):
+	"""
+	This is for getting around all of Lambda's extremely painful limitations
+	when you run something manually, mainly:
+	* Truncation of output data
+	* Truncation of return data
+	* Slow writing/flushing to Cloudwatch to retrieve output data
+	
+	This function is called when you pass special input to the Lambda
+	(Code Block) when running it. It will cause the return data to
+	indicate that the results are stored in S3.
+	"""
+	
+	unique_id = str( uuid.uuid4() )
+	
+	# Full details of the execution
+	temporary_run_data = {
+		"program_output": program_output,
+		"return_data": return_data,
+	}
+	
+	# The S3 path we're storing the data at
+	s3_object_path = "temporary_executions/" + unique_id + ".json"
+	
+	s3_client = boto3.client(
+		"s3"
+	)
+	
+	# Write data to S3
+	response = s3_client.put_object(
+		Bucket=s3_log_bucket,
+		Key=s3_object_path,
+		Body=json.dumps(
+			temporary_run_data,
+			sort_keys=True
+		)
+	)
+	
+	return {
+		"s3_bucket": s3_log_bucket,
+		"s3_path": s3_object_path,
+	}
 
-def _write_pipeline_logs( s3_log_bucket, project_id, lambda_arn, lambda_name, execution_pipeline_id, log_type, log_data, execution_details ):
+def _write_pipeline_logs( s3_log_bucket, project_id, lambda_arn, lambda_name, execution_pipeline_id, log_type, execution_details, program_output, backpack, input_data, return_data ):
 	def get_nearest_five_minutes():
 		round_to = ( 60 * 5 )
 		dt = datetime.datetime.now()
@@ -1015,27 +1058,23 @@ def _write_pipeline_logs( s3_log_bucket, project_id, lambda_arn, lambda_name, ex
 
 	log_id = str( uuid.uuid4() )
 
-	"""
-	We get our "timestamp" by taking the largest timestamp value (in UTF-8 binary)
-	and subtracting our current timestamp from it. For example:
-	01/13/2019 @ 8:44pm (UTC) = 1547412285 -> ( 9999999999 - 1547412285 ) = 8452587714
-	01/13/2019 @ 8:45pm (UTC) = 1547412326 -> ( 9999999999 - 1547412326 ) = 8452587673
-	01/13/2019 @ 9:03pm (UTC) = 1547413430 -> ( 9999999999 - 1547413430 ) = 8452586569
-	"""
 	nearest_minute = get_nearest_five_minutes()
-	unix_timestamp = int( nearest_minute.strftime( "%s" ) )
-	reversed_timestamp = str( 9999999999 - unix_timestamp )
+	date_shard_string = "dt=" + nearest_minute.strftime( "%Y-%m-%d-%H-%M" )
 
-	s3_path = project_id + "/" + reversed_timestamp + "/" + execution_pipeline_id + "/" + log_type + "~" + lambda_name + "~" + log_id + "~" + str( int( time.time() ) )
+	s3_path = project_id + "/" + date_shard_string + "/" + execution_pipeline_id + "/" + log_type + "~" + lambda_name + "~" + log_id + "~" + str( int( time.time() ) )
 
 	s3_data = {
 		"id": log_id,
+		"execution_pipeline_id": execution_pipeline_id,
 		"project_id": project_id,
 		"arn": lambda_arn,
 		"name": lambda_name,
 		"type": log_type, # INPUT, EXCEPTION, COMPLETE
-		"data": log_data,
-		"timestamp": int( time.time() )
+		"timestamp": int( time.time() ),
+		"program_output": program_output,
+		"backpack": backpack,
+		"input_data": input_data,
+		"return_data": return_data,
 	}
 
 	# Merge in execution_details
@@ -1047,7 +1086,6 @@ def _write_pipeline_logs( s3_log_bucket, project_id, lambda_arn, lambda_name, ex
 		Key=s3_path,
 		Body=json.dumps(
 			s3_data,
-			indent=4,
 			sort_keys=True
 		)
 	)
@@ -1400,6 +1438,10 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 	# Throw exceptions fully (for use in tmp-runs, etc)
 	throw_exceptions_fully = False
 	
+	# If the execution is a temporary execution, for example if the
+	# Lambda is being execute in the Refinery editor.
+	is_temporary_execution = False
+	
 	# The backpack variable is a variable that is automatically passed
 	# between code block executions and is an arbitrary map/dict/object
 	# that you can set key/values on. This is useful for storing some data
@@ -1462,6 +1504,10 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 	# Detect refinery wrapper and unwrap if existant
 	# Else just leave it unmodified
 	if type( lambda_input ) == dict and "_refinery" in lambda_input:
+		# Check if it's a temporary execution
+		if "temporary_execution" in lambda_input[ "_refinery" ]:
+			is_temporary_execution = True
+		
 		# Check if it's an SQS queue worker
 		if "sqs_worker" in lambda_input[ "_refinery" ]:
 			_sqs_worker(
@@ -1671,13 +1717,11 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 						context.function_name,
 						execution_id,
 						"CAUGHT_EXCEPTION",
-						{
-							"backpack": backpack,
-							"input_data": lambda_input,
-							"output": error_output,
-							"exception": exception_string,
-						},
-						execution_details
+						execution_details,
+						error_output,
+						backpack,
+						lambda_input,
+						""
 					)
 
 				for exception_transition_data in transitions[ "exception" ]:
@@ -1705,13 +1749,11 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 					context.function_name,
 					execution_id,
 					"EXCEPTION",
-					{
-						"backpack": backpack,
-						"input_data": lambda_input,
-						"output": error_output,
-						"exception": exception_string,
-					},
-					execution_details
+					execution_details,
+					error_output,
+					backpack,
+					lambda_input,
+					""
 				)
 			
 			# If we've got an API Gateway response coming up we'll write an error
@@ -1734,17 +1776,39 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 			sys.stderr.write( error_output )
 			sys.stderr.flush()
 			
+			return_data = ""
+			
+			# If we're doing a temporary execution we want to format the returned
+			# data in the special format for the API server to pull the full data out
+			# of S3.
+			if is_temporary_execution:
+				execution_result_details = _write_temporary_execution_results(
+					s3_log_bucket,
+					error_output,
+					""
+				)
+				
+				return_data = {
+					"_refinery": {
+						"indirect": {
+							"type": "s3",
+							"s3_bucket": execution_result_details[ "s3_bucket" ],
+							"s3_path": execution_result_details[ "s3_path" ]
+						}
+					}
+				}
+			
 			# We only want to do this if we've been asked to fully throw exceptions
 			if throw_exceptions_fully:
 				custom_runtime.send_error(
 					request_id,
-					"", # Just blank output for errors
+					return_data, # Just blank output for errors
 				)
 				return
 			
 			custom_runtime.send_response(
 				request_id,
-				""
+				return_data
 			)
 			return
 		
@@ -1760,6 +1824,32 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 	elif execution_mode == "API_ENDPOINT":
 		# Just return the HTTP request event data
 		return_data = lambda_input
+		
+	# If it's a temporary execution we can stop here
+	# and just immediately return our special format
+	if is_temporary_execution:
+		execution_result_details = _write_temporary_execution_results(
+			s3_log_bucket,
+			program_output,
+			return_data
+		)
+		
+		return_data = {
+			"_refinery": {
+				"indirect": {
+					"type": "s3",
+					"s3_bucket": execution_result_details[ "s3_bucket" ],
+					"s3_path": execution_result_details[ "s3_path" ]
+				}
+			}
+		}
+		
+		custom_runtime.send_response(
+			request_id,
+			return_data
+		)
+		
+		return
 
 	# Stores the invocation data for "if"s and "then"s
 	invocation_input_list = []
@@ -2028,14 +2118,12 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 			context.invoked_function_arn,
 			context.function_name,
 			execution_id,
-			"RETURN",
-			{
-				"backpack": backpack,
-				"input_data": lambda_input,
-				"output": program_output,
-				"return_data": return_data
-			},
-			execution_details
+			"SUCCESS",
+			execution_details,
+			program_output,
+			backpack,
+			lambda_input,
+			return_data
 		)
 
 	# Return the return data as usual
