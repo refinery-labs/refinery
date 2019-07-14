@@ -53,7 +53,7 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
         button={true}
         active={isActive}
         class="d-flex justify-content-between align-items-center"
-        on={{click: () => this.openExecutionGroup(execution.executionId)}}
+        on={{ click: () => this.openExecutionGroup(execution.executionId) }}
       >
         <label class={labelClasses} style="min-width: 80px">
           {durationSinceUpdated}
@@ -94,15 +94,17 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
 
   public render(h: CreateElement): VNode {
     const containerClasses = {
-      'view-executions-list-container scrollable-pane-container': true
+      'view-executions-list-container scrollable-pane-container': true,
+      'padding--big': false
     };
 
     if (!this.projectExecutions) {
+      containerClasses['padding--big'] = true;
+
       return (
         <div class={containerClasses}>
-          <h4 style="margin: 10px">
-            <b-spinner small /> Please wait while executions are loaded...
-          </h4>
+          <h4>Please wait while executions are loaded...</h4>
+          <h5>(This may take up to 15 seconds)</h5>
         </div>
       );
     }

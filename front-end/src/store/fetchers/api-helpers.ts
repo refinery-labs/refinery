@@ -2,16 +2,19 @@ import moment from 'moment';
 import * as R from 'ramda';
 import {
   DeleteDeploymentsInProjectRequest,
-  DeleteDeploymentsInProjectResponse, ExecutionLogContents,
+  DeleteDeploymentsInProjectResponse,
   GetAuthenticationStatusRequest,
   GetAuthenticationStatusResponse,
   GetBuildStatusRequest,
   GetBuildStatusResponse,
   GetConsoleCredentialsRequest,
-  GetConsoleCredentialsResponse, GetLogContentsRequest, GetLogContentsResponse,
+  GetConsoleCredentialsResponse,
+  GetProjectExecutionLogObjectsRequest,
+  GetProjectExecutionLogObjectsResponse,
+  GetProjectExecutionLogsPageRequest,
+  GetProjectExecutionLogsPageResponse,
   GetProjectExecutionLogsRequest,
   GetProjectExecutionLogsResponse,
-  GetProjectExecutionLogsResult,
   GetProjectExecutionsRequest,
   GetProjectExecutionsResponse,
   GetSavedProjectRequest,
@@ -32,16 +35,16 @@ import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
 import {
   AdditionalBlockExecutionPage,
-  BlockExecutionGroup, BlockExecutionLog,
+  BlockExecutionGroup,
+  BlockExecutionLog,
   ProductionExecutionResponse
 } from '@/types/deployment-executions-types';
-import {
-  convertExecutionResponseToProjectExecutionGroup
-} from '@/utils/project-execution-utils';
+import { convertExecutionResponseToProjectExecutionGroup } from '@/utils/project-execution-utils';
 import { RefineryProject, SupportedLanguage, WorkflowState } from '@/types/graph';
 import { ProductionWorkflowState } from '@/types/production-workflow-types';
 import { blockTypeToDefaultStateMapping, DEFAULT_PROJECT_CONFIG } from '@/constants/project-editor-constants';
 import { unwrapProjectJson } from '@/utils/project-helpers';
+import { ExecutionLogContents, ExecutionLogMetadata } from '@/types/execution-logs-types';
 
 export interface libraryBuildArguments {
   language: SupportedLanguage;
@@ -50,7 +53,9 @@ export interface libraryBuildArguments {
 
 export function getDefaultOffsetTimestamp() {
   // 6 hours ago
-  return moment().subtract(6, 'hours').unix();
+  return moment()
+    .subtract(6, 'hours')
+    .unix();
 }
 
 export async function getProjectExecutions(
@@ -59,7 +64,7 @@ export async function getProjectExecutions(
 ): Promise<ProductionExecutionResponse | null> {
   const defaultTimestamp = getDefaultOffsetTimestamp();
 
-  const timestampForQuery = oldestTimestamp !== null && oldestTimestamp || defaultTimestamp;
+  const timestampForQuery = (oldestTimestamp !== null && oldestTimestamp) || defaultTimestamp;
 
   const request: GetProjectExecutionsRequest = {
     project_id: project.project_id,
@@ -72,22 +77,17 @@ export async function getProjectExecutions(
     request
   );
 
-  if (
-    !executionsResponse ||
-    !executionsResponse.success ||
-    !executionsResponse.result
-  ) {
+  if (!executionsResponse || !executionsResponse.success || !executionsResponse.result) {
     return null;
   }
 
-  const convertedExecutions = convertExecutionResponseToProjectExecutionGroup(
-    project,
-    executionsResponse.result
-  );
+  const convertedExecutions = convertExecutionResponseToProjectExecutionGroup(project, executionsResponse.result);
 
   // If we want to "load more", then this is the timestamp for where to begin loading more items.
   // TODO: We are probably "widening" the window with this method. We may need to specify a "from" timestamp too?
-  const nextTimestampToQuery = moment(timestampForQuery).subtract(6, 'hours').unix();
+  const nextTimestampToQuery = moment(timestampForQuery)
+    .subtract(6, 'hours')
+    .unix();
 
   return {
     oldestTimestamp: nextTimestampToQuery,
@@ -122,8 +122,15 @@ export async function getLogsForExecutions(
     return null;
   }
 
+  const logContents = await getContentsForLogs(response.result.results);
+
+  if (!logContents) {
+    console.error('Unable to retrieve execution logs contents.');
+    return null;
+  }
+
   // Create an object with log_id as the key
-  const logs = R.indexBy(r => r.log_id, response.result.results);
+  const logs = R.indexBy(r => r.log_id, logContents);
 
   return {
     logs,
@@ -138,8 +145,8 @@ export async function getAdditionalLogsByPage(
   page: string
 ): Promise<AdditionalBlockExecutionPage | null> {
   // TODO: Add Retry logic
-  const response = await makeApiRequest<GetLogContentsRequest, GetLogContentsResponse>(
-    API_ENDPOINT.GetLogContents,
+  const response = await makeApiRequest<GetProjectExecutionLogsPageRequest, GetProjectExecutionLogsPageResponse>(
+    API_ENDPOINT.GetProjectExecutionLogsPage,
     {
       id: page
     }
@@ -150,14 +157,52 @@ export async function getAdditionalLogsByPage(
     return null;
   }
 
+  const logContents = await getContentsForLogs(response.result.results);
+
+  if (!logContents) {
+    console.error('Unable to retrieve more execution logs contents.');
+    return null;
+  }
+
   // Create an object with log_id as the key
-  const logs = R.indexBy(r => r.log_id, response.result.results);
+  const logs = R.indexBy(r => r.log_id, logContents);
 
   return {
     blockId,
     logs,
     page
   };
+}
+
+export async function getContentsForLogs(logs: ExecutionLogMetadata[]): Promise<ExecutionLogContents[] | null> {
+  // Nothing to fetch
+  if (!logs || logs.length === 0) {
+    return null;
+  }
+
+  // TODO: Add Retry logic
+  const response = await makeApiRequest<GetProjectExecutionLogObjectsRequest, GetProjectExecutionLogObjectsResponse>(
+    API_ENDPOINT.GetProjectExecutionLogObjects,
+    {
+      logs_to_fetch: logs.map(log => ({
+        log_id: log.log_id,
+        s3_key: log.s3_key
+      }))
+    }
+  );
+
+  if (!response || !response.success || !response.result || !response.result.results) {
+    console.error('Unable to retrieve log contents for logs');
+    return null;
+  }
+
+  return response.result.results.map(result => {
+    // Merge in log_id since we need it for the data store.
+    return {
+      ...result.log_data,
+      log_id: result.log_id
+    };
+  });
 }
 
 export async function checkBuildStatus(libraryBuildArgs: libraryBuildArguments) {

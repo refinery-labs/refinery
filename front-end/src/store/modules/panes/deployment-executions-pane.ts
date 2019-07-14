@@ -1,21 +1,25 @@
 import { Module } from 'vuex';
 import uuid from 'uuid/v4';
 import { RootState } from '../../store-types';
-import {getAdditionalLogsByPage, getLogsForExecutions, getProjectExecutions} from '@/store/fetchers/api-helpers';
+import { getAdditionalLogsByPage, getLogsForExecutions, getProjectExecutions } from '@/store/fetchers/api-helpers';
 import {
   AdditionalBlockExecutionPage,
-  BlockExecutionGroup, BlockExecutionLog, BlockExecutionLogContentsByLogId, BlockExecutionLogsForBlockId,
-  BlockExecutionPagesByBlockId, BlockExecutionTotalsByBlockId,
+  BlockExecutionGroup,
+  BlockExecutionLog,
+  BlockExecutionLogContentsByLogId,
+  BlockExecutionLogsForBlockId,
+  BlockExecutionPagesByBlockId,
+  BlockExecutionTotalsByBlockId,
   ProjectExecution,
   ProjectExecutionsByExecutionId
 } from '@/types/deployment-executions-types';
 import { sortExecutions } from '@/utils/project-execution-utils';
-import { ExecutionStatusType} from '@/types/api-types';
 import { STYLE_CLASSES } from '@/lib/cytoscape-styles';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { autoRefreshJob, waitUntil } from '@/utils/async-utils';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { DeploymentViewActions } from '@/constants/store-constants';
+import { ExecutionStatusType } from '@/types/execution-logs-types';
 
 // Enums
 export enum DeploymentExecutionsGetters {
@@ -97,7 +101,7 @@ const moduleState: DeploymentExecutionsPaneState = {
   blockExecutionPagesByBlockId: {},
 
   selectedBlockExecutionLog: null,
-  
+
   nextTimestampToRetreive: null,
   autoRefreshJobRunning: false,
   autoRefreshJobIterations: 0,
@@ -122,10 +126,12 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
   getters: {
     [DeploymentExecutionsGetters.sortedExecutions]: state =>
       state.projectExecutions && sortExecutions(Object.values(state.projectExecutions)),
-    
+
     [DeploymentExecutionsGetters.getSelectedProjectExecution]: state =>
-      state.selectedProjectExecution && state.projectExecutions && state.projectExecutions[state.selectedProjectExecution],
-    
+      state.selectedProjectExecution &&
+      state.projectExecutions &&
+      state.projectExecutions[state.selectedProjectExecution],
+
     [DeploymentExecutionsGetters.getBlockExecutionGroupForSelectedBlock]: (state, getters, rootState) => {
       const selectedProjectExecution: ProjectExecution | null =
         getters[DeploymentExecutionsGetters.getSelectedProjectExecution];
@@ -274,7 +280,6 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       state.selectedProjectExecution = group;
     },
     [DeploymentExecutionsMutators.resetLogState](state) {
-
       // We must reset the state between changing selected executions...
       // TODO: Keep state around via ExecutionId instead of BlockId to allow "caching"? But that might explode memory usage too?
       // blockExecutionLogByLogId: BlockExecutionLogContentsByLogId;
@@ -290,15 +295,12 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       state.blockExecutionLogsForBlockId = {
         ...state.blockExecutionLogsForBlockId,
-        [log.blockId]: [
-          ...(state.blockExecutionLogsForBlockId[log.blockId] || []),
-          ...Object.keys(log.logs)
-        ]
+        [log.blockId]: [...(state.blockExecutionLogsForBlockId[log.blockId] || []), ...Object.keys(log.logs)]
       };
-      
+
       state.blockExecutionPagesByBlockId = {
         ...state.blockExecutionPagesByBlockId,
-        ...{[log.blockId]: log.pages}
+        ...{ [log.blockId]: log.pages }
       };
 
       state.blockExecutionTotalsByBlockId = {
@@ -314,17 +316,14 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       state.blockExecutionLogsForBlockId = {
         ...state.blockExecutionLogsForBlockId,
-        [log.blockId]: [
-          ...(state.blockExecutionLogsForBlockId[log.blockId] || []),
-          ...Object.keys(log.logs)
-        ]
+        [log.blockId]: [...(state.blockExecutionLogsForBlockId[log.blockId] || []), ...Object.keys(log.logs)]
       };
 
       state.blockExecutionPagesByBlockId = {
         ...state.blockExecutionPagesByBlockId,
         // Remove the page we just retrieved
         [log.blockId]: state.blockExecutionPagesByBlockId[log.blockId].filter(page => page !== log.page)
-      }
+      };
     },
     [DeploymentExecutionsMutators.setSelectedBlockExecutionLog](state, index) {
       state.selectedBlockExecutionLog = index;
@@ -451,31 +450,39 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       context.commit(DeploymentExecutionsMutators.setIsBusy, false);
     },
     async [DeploymentExecutionsActions.fetchLogsForSelectedBlock](context) {
-      const selectedProjectExecution: ProjectExecution = context.getters[DeploymentExecutionsGetters.getSelectedProjectExecution];
+      const selectedProjectExecution: ProjectExecution =
+        context.getters[DeploymentExecutionsGetters.getSelectedProjectExecution];
 
       if (!selectedProjectExecution || !context.rootState.deployment.openedDeployment) {
         console.error('Attempted to open project execution with invalid selected execution group');
         return;
       }
 
-      const blockExecutionGroupForSelectedBlock: BlockExecutionGroup = context.getters[DeploymentExecutionsGetters.getBlockExecutionGroupForSelectedBlock];
+      const blockExecutionGroupForSelectedBlock: BlockExecutionGroup =
+        context.getters[DeploymentExecutionsGetters.getBlockExecutionGroupForSelectedBlock];
 
       // No logs to fetch for selected block, probably
       if (!blockExecutionGroupForSelectedBlock) {
         return;
       }
 
-      const totalExecutionsForBlock: number | null = context.getters[DeploymentExecutionsGetters.getBlockExecutionTotalsForSelectedBlock];
+      const totalExecutionsForBlock: number | null =
+        context.getters[DeploymentExecutionsGetters.getBlockExecutionTotalsForSelectedBlock];
 
       // If our current "view" of the log execution totals is correct, then don't fetch any more.
-      if (totalExecutionsForBlock
-        && totalExecutionsForBlock === blockExecutionGroupForSelectedBlock.totalExecutionCount) {
+      if (
+        totalExecutionsForBlock &&
+        totalExecutionsForBlock === blockExecutionGroupForSelectedBlock.totalExecutionCount
+      ) {
         return;
       }
 
       context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, true);
 
-      const response = await getLogsForExecutions(context.rootState.deployment.openedDeployment, blockExecutionGroupForSelectedBlock);
+      const response = await getLogsForExecutions(
+        context.rootState.deployment.openedDeployment,
+        blockExecutionGroupForSelectedBlock
+      );
 
       context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, false);
 
@@ -487,7 +494,8 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       context.commit(DeploymentExecutionsMutators.addBlockExecutionLog, response);
     },
     async [DeploymentExecutionsActions.fetchMoreLogsForSelectedBlock](context) {
-      const selectedProjectExecution: ProjectExecution = context.getters[DeploymentExecutionsGetters.getSelectedProjectExecution];
+      const selectedProjectExecution: ProjectExecution =
+        context.getters[DeploymentExecutionsGetters.getSelectedProjectExecution];
 
       if (!selectedProjectExecution) {
         console.error('Attempted to open project execution with invalid selected execution group');
@@ -526,7 +534,10 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       // Select a default, plus make sure we're currently looking at the right block before selecting...
       if (selectedBlock && selectedBlock.id === response.blockId && retrievedLogs.length > 0) {
-        context.commit(DeploymentExecutionsMutators.setSelectedBlockExecutionLog, response.logs[retrievedLogs[0]].log_id);
+        context.commit(
+          DeploymentExecutionsMutators.setSelectedBlockExecutionLog,
+          response.logs[retrievedLogs[0]].log_id
+        );
       }
     }
   }

@@ -6,9 +6,9 @@ import { SupportedLanguage, WorkflowState } from '@/types/graph';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import ViewDeployedBlockPane from '@/components/DeploymentViewer/ViewDeployedBlockPane';
 import { EditorProps, LoadingContainerProps } from '@/types/component-types';
-import {ExecutionLogContents, ExecutionStatusType, GetProjectExecutionLogsResult} from '@/types/api-types';
-import {BlockExecutionGroup, BlockExecutionLogContentsByLogId} from '@/types/deployment-executions-types';
+import { BlockExecutionGroup, BlockExecutionLogContentsByLogId } from '@/types/deployment-executions-types';
 import Loading from '@/components/Common/Loading.vue';
+import { ExecutionLogContents, ExecutionStatusType } from '@/types/execution-logs-types';
 
 const viewBlock = namespace('viewBlock');
 const deploymentExecutions = namespace('deploymentExecutions');
@@ -106,9 +106,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
     return (
       <div class="display--flex flex-direction--column">
         <div class="text-align--left run-lambda-container__text-label">
-          <label class="text-light padding--none mt-0 mb-0 ml-2">
-            {label}:
-          </label>
+          <label class="text-light padding--none mt-0 mb-0 ml-2">{label}:</label>
         </div>
         <div class="show-block-container__code-editor--small">
           <RefineryCodeEditor props={editorProps} />
@@ -118,7 +116,6 @@ export default class ViewDeployedBlockLogsPane extends Vue {
   }
 
   public renderExecutionDetails() {
-
     const executionData = this.getLogForSelectedBlock;
 
     if (!this.selectedBlockExecutionLog && !executionData && !this.isFetchingLogs) {

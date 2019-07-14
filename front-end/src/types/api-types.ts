@@ -8,6 +8,13 @@ import {
   WorkflowStateType
 } from '@/types/graph';
 import { ProductionWorkflowRelationship, ProductionWorkflowState } from '@/types/production-workflow-types';
+import {
+  ExecutionLogMetadata,
+  ExecutionStatusType,
+  GetProjectExecutionLogObjectsResult,
+  GetProjectExecutionLogsPageResult,
+  GetProjectExecutionResult
+} from '@/types/execution-logs-types';
 
 export interface BaseApiResponse {
   success: boolean;
@@ -164,14 +171,8 @@ export interface GetProjectExecutionLogsResponse extends BaseApiResponse {
 }
 
 export interface GetProjectExecutionLogsResult {
-  results: ExecutionLogContents[],
-  pages: string[]
-}
-
-export enum ExecutionStatusType {
-  EXCEPTION = 'EXCEPTION',
-  CAUGHT_EXCEPTION = 'CAUGHT_EXCEPTION',
-  SUCCESS = 'SUCCESS'
+  results: ExecutionLogMetadata[];
+  pages: string[];
 }
 
 /**
@@ -186,47 +187,26 @@ export interface GetProjectExecutionsResponse extends BaseApiResponse {
   result: GetProjectExecutionResult[];
 }
 
-export type ExecutionStatusByType = {
-  [key in ExecutionStatusType]: number;
-};
-
-export interface GetProjectExecutionResult {
-  timestamp: number;
-  execution_pipeline_totals: ExecutionStatusByType;
-  block_executions: BlockExecutionResult[];
-  execution_pipeline_id: string;
-}
-
-export interface BlockExecutionResult extends ExecutionStatusByType {
-  arn: string;
-}
-
-// GetLogContents
-export interface GetLogContentsRequest extends BaseApiRequest {
+// GetProjectExecutionLogsPage
+export interface GetProjectExecutionLogsPageRequest extends BaseApiRequest {
   id: string;
 }
 
-export interface GetLogContentsResponse extends BaseApiResponse {
-  result: GetLogContentsResult
+export interface GetProjectExecutionLogsPageResponse extends BaseApiResponse {
+  result: GetProjectExecutionLogsPageResult;
 }
 
-export interface GetLogContentsResult {
-  results: ExecutionLogContents[]
+// GetProjectExecutionLogObjects
+export interface GetProjectExecutionLogObjectsRequest extends BaseApiRequest {
+  // min length: 1, max length 50
+  logs_to_fetch: {
+    s3_key: string;
+    log_id: string;
+  }[];
 }
 
-export interface ExecutionLogContents {
-  timestamp: number;
-  /**
-   * JSON formatted data
-   */
-  backpack: string;
-  input_data: string;
-  dt: string;
-  arn: string;
-  return_data: string;
-  log_id: string;
-  program_output: string;
-  type: ExecutionStatusType;
+export interface GetProjectExecutionLogObjectsResponse extends BaseApiResponse {
+  result: GetProjectExecutionLogObjectsResult;
 }
 
 // GetSavedProject
