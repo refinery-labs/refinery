@@ -8889,10 +8889,21 @@ class PerformTerraformPlanOnFleet( BaseHandler ):
 		total_accounts = len( aws_accounts )
 		counter = 1
 		
+		# Pull the list of AWS account IDs to work on.
+		aws_account_ids = []
 		for aws_account in aws_accounts:
+			aws_account_ids.append(
+				aws_account.account_id
+			)
+		
+		for aws_account_id in aws_account_ids:
+			current_aws_account = dbsession.query( AWSAccount ).filter(
+				AWSAccount.account_id == aws_account_id,
+			).first()
+			
 			logit( "Performing a terraform plan for AWS account " + str( counter ) + "/" + str( total_accounts ) + "..." )
 			terraform_plan_output = yield local_tasks.terraform_plan(
-				aws_account
+				current_aws_account
 			)
 			
 			# Convert terraform plan terminal output to HTML
@@ -8901,7 +8912,7 @@ class PerformTerraformPlanOnFleet( BaseHandler ):
 				terraform_plan_output
 			)
 			
-			final_email_html += "<hr /><h1>AWS Account " + aws_account.account_id + "</h1>"
+			final_email_html += "<hr /><h1>AWS Account " + current_aws_account.account_id + "</h1>"
 			final_email_html += terraform_output_html
 			counter = counter + 1
 			
