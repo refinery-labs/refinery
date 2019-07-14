@@ -25,6 +25,22 @@ function formatDataForAce(data: any) {
   return JSON.stringify(data, null, '  ') || '';
 }
 
+function executionTypeToVariable(executionType: ExecutionStatusType) {
+  if (executionType === ExecutionStatusType.EXCEPTION) {
+    return 'danger';
+  }
+
+  if (executionType === ExecutionStatusType.CAUGHT_EXCEPTION) {
+    return 'warning';
+  }
+
+  if (executionType === ExecutionStatusType.SUCCESS) {
+    return 'primary';
+  }
+
+  return 'info';
+}
+
 function executionTypeToString(executionType: ExecutionStatusType) {
   if (executionType === ExecutionStatusType.EXCEPTION) {
     return 'Uncaught Exception';
@@ -35,7 +51,7 @@ function executionTypeToString(executionType: ExecutionStatusType) {
   }
 
   if (executionType === ExecutionStatusType.SUCCESS) {
-    return 'Success';
+    return 'Successful';
   }
 
   return 'Unknown';
@@ -65,7 +81,11 @@ export default class ViewDeployedBlockLogsPane extends Vue {
         <label> {durationSinceUpdated}</label>
         <br />
         <label class="text-bold">Status: &nbsp;</label>
-        <label> {executionTypeToString(execution.type)}</label>
+        <label>
+          <b-badge variant={executionTypeToVariable(execution.type)} pill>
+            {executionTypeToString(execution.type)}
+          </b-badge>
+        </label>
         <br />
         <label class="text-bold">Log Id: &nbsp;</label>
         <label style="font-size: 0.8rem"> {execution.log_id}</label>

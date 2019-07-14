@@ -106,7 +106,9 @@ function convertExecutionToProjectExecution(
   const numberOfLogs = totals.EXCEPTION + totals.CAUGHT_EXCEPTION + totals.SUCCESS;
 
   return {
-    error: totals.EXCEPTION > 0,
+    errorCount: totals.EXCEPTION,
+    caughtErrorCount: totals.CAUGHT_EXCEPTION,
+    successCount: totals.SUCCESS,
     oldestTimestamp: executionResult.timestamp,
     executionId: executionResult.execution_pipeline_id,
     blockExecutionGroupByBlockId: createLogsGroupedByBlockId(project, executionResult),

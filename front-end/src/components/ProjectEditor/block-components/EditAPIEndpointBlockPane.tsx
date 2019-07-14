@@ -100,10 +100,17 @@ export class EditAPIEndpointBlock extends Vue implements EditBlockPaneProps {
   }
 
   public render(h: CreateElement): VNode {
+
+    const editBlockProps: EditBlockPaneProps = {
+      selectedNode: this.selectedNode,
+      selectedNodeMetadata: this.selectedNodeMetadata,
+      readOnly: this.readOnly
+    };
+
     return (
       <div>
         <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#api-endpoint-block' }} />
-        <BlockNameInput props={{ selectedNode: this.selectedNode, readOnly: this.readOnly }} />
+        <BlockNameInput props={editBlockProps} />
         {this.renderApiEndpointInformation()}
         {this.renderHTTPMethodInput()}
         {this.renderHTTPPathInput()}

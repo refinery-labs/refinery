@@ -569,6 +569,14 @@ $content-sidebar-width: 92px;
   padding: 8px;
 }
 
+.view-executions-list-container {
+  max-height: calc(100vh - 194px);
+
+  &__badges > .badge + .badge {
+    margin-top: 4px;
+  }
+}
+
 .shift-block-nastily-into-tabs {
   margin-top: -13px;
   padding-top: 15px;

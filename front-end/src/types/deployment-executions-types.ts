@@ -12,7 +12,9 @@ export interface ProductionExecutionResponse {
 }
 
 export interface ProjectExecution {
-  error: boolean;
+  errorCount: number;
+  caughtErrorCount: number;
+  successCount: number;
   oldestTimestamp: number;
   executionId: string;
   numberOfLogs: number;
