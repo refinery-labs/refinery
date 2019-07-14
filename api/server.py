@@ -809,6 +809,28 @@ class TaskSpawner(object):
 				query_result[ "log_id" ] = query_result[ "id" ]
 				query_result[ "timestamp" ] = int( query_result[ "timestamp" ] )
 				del query_result[ "id" ]
+				
+				# Auto-format return data, input data, and backpack
+				try:
+					query_result[ "input_data" ] = json.loads(
+						query_result[ "input_data" ]
+					)
+				except:
+					pass
+				
+				try:
+					query_result[ "backpack" ] = json.loads(
+						query_result[ "backpack" ]
+					)
+				except:
+					pass
+				
+				try:
+					query_result[ "return_data" ] = json.loads(
+						query_result[ "return_data" ]
+					)
+				except:
+					pass
 
 			return query_results
 
@@ -7519,17 +7541,23 @@ class GetProjectExecutionLogsPage( BaseHandler ):
 		
 		success = False
 		
-		try:
-			results = yield local_tasks.get_json_from_s3(
-				credentials,
-				credentials[ "logs_bucket" ],
-				"log_pagination_result_pages/" + self.json[ "id" ] + ".json"
-			)
-			success = True
-		except Exception, e:
-			logit( "Error occurred while reading results page from S3, potentially it's expired?" )
-			logit( e )
-			results = []
+		# Try grabbing the logs twice because the front-end is being
+		# all sensitive again :)
+		for i in range( 0, 2 ):
+			try:
+				results = yield local_tasks.get_json_from_s3(
+					credentials,
+					credentials[ "logs_bucket" ],
+					"log_pagination_result_pages/" + self.json[ "id" ] + ".json"
+				)
+				success = True
+				break
+			except Exception, e:
+				logit( "Error occurred while reading results page from S3, potentially it's expired?" )
+				logit( e )
+				results = []
+				
+			logit( "Retrying again just in case it's not propogated yet..." )
 		
 		self.write({
 			"success": success,

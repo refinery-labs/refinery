@@ -35,7 +35,7 @@ function executionTypeToVariable(executionType: ExecutionStatusType) {
   }
 
   if (executionType === ExecutionStatusType.SUCCESS) {
-    return 'primary';
+    return 'success';
   }
 
   return 'info';
@@ -51,7 +51,7 @@ function executionTypeToString(executionType: ExecutionStatusType) {
   }
 
   if (executionType === ExecutionStatusType.SUCCESS) {
-    return 'Successful';
+    return 'Success';
   }
 
   return 'Unknown';

@@ -43,9 +43,9 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
     };
 
     const badges = [
-      this.renderStatusPill(execution.errorCount, 'uncaught', 'danger'),
+      this.renderStatusPill(execution.errorCount, 'error', 'danger'),
       this.renderStatusPill(execution.caughtErrorCount, 'caught', 'warning'),
-      this.renderStatusPill(execution.successCount, 'successful', 'primary')
+      this.renderStatusPill(execution.successCount, 'success', 'success')
     ];
 
     return (
@@ -63,7 +63,7 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
           {badges}
         </div>
         <div style="min-width: 80px" class="text-align--left">
-          <b-badge variant="secondary" pill>
+          <b-badge variant="info" pill>
             {execution.numberOfLogs} execution{execution.numberOfLogs > 1 ? 's' : ''}
           </b-badge>
         </div>
