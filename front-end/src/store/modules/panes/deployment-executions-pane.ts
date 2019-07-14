@@ -37,7 +37,7 @@ export enum DeploymentExecutionsMutators {
   setIsFetchingLogs = 'setIsFetchingLogs',
   setIsFetchingMoreLogs = 'setIsFetchingMoreLogs',
   setProjectExecutions = 'setProjectExecutions',
-  setLastRetrievedExecutionTimestamp = 'setLastRetrievedExecutionTimestamp',
+  setNextTimestampToRetreive = 'setNextTimestampToRetreive',
 
   setAutoRefreshJobRunning = 'setAutoRefreshJobRunning',
   setAutoRefreshJobIterations = 'setAutoRefreshJobIterations',
@@ -75,7 +75,7 @@ export interface DeploymentExecutionsPaneState {
 
   selectedBlockExecutionLog: string | null;
 
-  lastRetrievedExecutionTimestamp: number | null;
+  nextTimestampToRetreive: number | null;
   autoRefreshJobRunning: boolean;
   autoRefreshJobIterations: number;
   autoRefreshJobNonce: string | null;
@@ -98,7 +98,7 @@ const moduleState: DeploymentExecutionsPaneState = {
 
   selectedBlockExecutionLog: null,
   
-  lastRetrievedExecutionTimestamp: null,
+  nextTimestampToRetreive: null,
   autoRefreshJobRunning: false,
   autoRefreshJobIterations: 0,
   autoRefreshJobNonce: null
@@ -253,8 +253,8 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
     [DeploymentExecutionsMutators.setIsFetchingMoreLogs](state, isFetching) {
       state.isFetchingMoreLogs = isFetching;
     },
-    [DeploymentExecutionsMutators.setLastRetrievedExecutionTimestamp](state, timestamp) {
-      state.lastRetrievedExecutionTimestamp = timestamp;
+    [DeploymentExecutionsMutators.setNextTimestampToRetreive](state, timestamp) {
+      state.nextTimestampToRetreive = timestamp;
     },
 
     [DeploymentExecutionsMutators.setAutoRefreshJobRunning](state, status) {
@@ -390,7 +390,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       context.commit(statusMessageType, true);
 
       // We may either use the last timestamp or not.
-      const timestampToContinueWith = withExistingToken ? context.state.lastRetrievedExecutionTimestamp : null;
+      const timestampToContinueWith = withExistingToken ? context.state.nextTimestampToRetreive : null;
 
       const executionsResponse = await getProjectExecutions(deploymentStore.openedDeployment, timestampToContinueWith);
 
@@ -407,7 +407,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       };
 
       context.commit(DeploymentExecutionsMutators.setProjectExecutions, executions);
-      context.commit(DeploymentExecutionsMutators.setLastRetrievedExecutionTimestamp, executionsResponse.oldestTimestamp);
+      context.commit(DeploymentExecutionsMutators.setNextTimestampToRetreive, executionsResponse.oldestTimestamp);
 
       if (context.state.selectedProjectExecution !== null) {
         await context.dispatch(DeploymentExecutionsActions.fetchLogsForSelectedBlock);

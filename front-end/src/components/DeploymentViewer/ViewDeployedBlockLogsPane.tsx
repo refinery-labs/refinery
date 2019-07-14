@@ -125,7 +125,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
         label: 'Loading execution logs...'
       };
       return (
-        <div style="margin-top: 30px; min-height: 60px">
+        <div style="margin-top: 60px; min-height: 60px">
           <Loading props={loadingProps} />
         </div>
       );
