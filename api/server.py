@@ -8953,6 +8953,26 @@ class StashStateLog( BaseHandler ):
 			"success": True,
 		})
 		
+class AdministrativeAssumeAccount( BaseHandler ):
+	def get( self, user_id=None ):
+		"""
+		For helping customers with their accounts.
+		"""
+		if not user_id:
+			self.write({
+				"success": False,
+				"msg": "You must specify a user_id via the URL (/UUID/)."
+			})
+		
+		# Authenticate the user via secure cookie
+		self.authenticate_user_id(
+			user_id
+		)
+		
+		self.redirect(
+			"/"
+		)
+		
 def make_app( is_debug ):
 	tornado_app_settings = {
 		"debug": is_debug,
@@ -9002,6 +9022,7 @@ def make_app( is_debug ):
 		
 		# These are "services" which are only called by external crons, etc.
 		# External users are blocked from ever reaching these routes
+		( r"/services/v1/assume_account_role/([a-f0-9\-]+)", AdministrativeAssumeAccount ),
 		( r"/services/v1/maintain_aws_account_pool", MaintainAWSAccountReserves ),
 		( r"/services/v1/billing_watchdog", RunBillingWatchdogJob ),
 		( r"/services/v1/bill_customers", RunMonthlyStripeBillingJob ),
