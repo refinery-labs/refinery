@@ -13,6 +13,7 @@ import requests
 import pystache
 import logging
 import hashlib
+import ctypes
 import random
 import shutil
 import stripe
@@ -20,6 +21,7 @@ import base64
 import string
 import boto3
 import numpy
+import codecs
 import struct
 import uuid
 import json
@@ -29,12 +31,12 @@ import math
 import time
 import jwt
 import sys
-import csv
 import re
 import os
 import io
 
 from tornado import gen
+import unicodecsv as csv
 from datetime import timedelta
 from tornado.web import asynchronous
 from expiringdict import ExpiringDict
@@ -92,6 +94,9 @@ CF_ACCESS_PUBLIC_KEYS = []
 
 # Pull list of allowed Access-Control-Allow-Origin values from environment var
 allowed_origins = json.loads( os.environ.get( "access_control_allow_origins" ) )
+
+# Increase CSV field size to be the max
+csv.field_size_limit( sys.maxsize )
 			
 def on_start():
 	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES, CUSTOMER_IAM_POLICY, DEFAULT_PROJECT_ARRAY, DEFAULT_PROJECT_CONFIG
@@ -282,6 +287,7 @@ def get_aws_client( client_type, credentials ):
 	client_options = {
 		"config": Config(
 			max_pool_connections=( 250 * 1 ),
+			connect_timeout=( 60 * 10 ) # For large files
 		)
 	}
 	
@@ -771,7 +777,7 @@ class TaskSpawner(object):
 			timestamp_datetime = datetime.datetime.fromtimestamp( oldest_timestamp )
 
 			query_template = """
-			SELECT type, id, arn, timestamp, program_output, input_data, backpack, return_data, dt
+			SELECT type, id, function_name, timestamp, dt
 			FROM "refinery"."{{{project_id_table_name}}}"
 			WHERE project_id = '{{{project_id}}}' AND
 			arn = '{{{arn}}}' AND
@@ -797,11 +803,14 @@ class TaskSpawner(object):
 			)
 
 			# Query for project execution logs
+			logit( "Performing Athena query..." )
 			query_results = TaskSpawner._perform_athena_query(
 				credentials,
 				query,
 				True
 			)
+
+			logit( "Processing Athena results..." )
 
 			# Format query results
 			for query_result in query_results:
@@ -810,27 +819,21 @@ class TaskSpawner(object):
 				query_result[ "timestamp" ] = int( query_result[ "timestamp" ] )
 				del query_result[ "id" ]
 				
-				# Auto-format return data, input data, and backpack
-				try:
-					query_result[ "input_data" ] = json.loads(
-						query_result[ "input_data" ]
-					)
-				except:
-					pass
+				# Generate a log path from the available data
+				# example: PROJECT_ID/dt=DATE_SHARD/EXECUTION_PIPELINE_ID/TYPE~NAME~LOG_ID~TIMESTAMP
 				
-				try:
-					query_result[ "backpack" ] = json.loads(
-						query_result[ "backpack" ]
-					)
-				except:
-					pass
+				log_file_path = project_id + "/dt=" + query_result[ "dt" ]
+				log_file_path += "/" + execution_pipeline_id + "/"
+				log_file_path += query_result[ "type" ] + "~"
+				log_file_path += query_result[ "function_name" ] + "~"
+				log_file_path += query_result[ "log_id" ] + "~"
+				log_file_path += str( query_result[ "timestamp" ] )
 				
-				try:
-					query_result[ "return_data" ] = json.loads(
-						query_result[ "return_data" ]
-					)
-				except:
-					pass
+				query_result[ "s3_key" ] = log_file_path
+				
+				del query_result[ "dt" ]
+				
+			logit( "Athena results have been processed.")
 
 			return query_results
 
@@ -970,6 +973,7 @@ class TaskSpawner(object):
 				})
 
 			return final_return_format
+			
 
 		@run_on_executor
 		def load_project_id_log_table_partitions( self, credentials, project_id ):
@@ -1075,6 +1079,8 @@ class TaskSpawner(object):
 
 			output_base_path = "s3://refinery-lambda-logging-" + credentials[ "s3_bucket_suffix" ] + "/athena/"
 
+			logit( "Starting query execution..." )
+
 			# Start the query
 			query_start_response = athena_client.start_query_execution(
 				QueryString=query,
@@ -1105,7 +1111,7 @@ class TaskSpawner(object):
 
 			# Max amount of times we'll attempt to query the execution
 			# status. If the counter hits zero we break out.
-			max_counter = 40
+			max_counter = 600
 
 			# Poll for query status
 			while True:
@@ -1136,6 +1142,8 @@ class TaskSpawner(object):
 
 				if max_counter <= 0:
 					break
+				
+			logit( "Athena query completed." )
 
 			s3_object_location = query_status_results[ "QueryExecutions" ][0][ "ResultConfiguration" ][ "OutputLocation" ]
 
@@ -1177,7 +1185,8 @@ class TaskSpawner(object):
 			csv_handler = StringIO( csv_data )
 			csv_reader = csv.DictReader(
 				csv_handler,
-				delimiter=","
+				delimiter=",",
+				quotechar='"'
 			)
 
 			return_array = []
@@ -2508,8 +2517,21 @@ class TaskSpawner(object):
 				"Amazon",
 			]
 			
+			# Keywords which remove the item from the billing line
+			not_billed_words = [
+				"Elastic Compute Cloud",
+				"EC2"
+			]
+			
 			# Markup multiplier
 			markup_multiplier = 1 + ( int( os.environ.get( "mark_up_percent" ) ) / 100 )
+			
+			# Add the $5 base fee
+			return_data[ "service_breakdown" ].append({
+				"service_name": "Base Service Fee",
+				"unit": "usd",
+				"total": ( "%.2f" % 5.00 ),
+			})
 			
 			for service_breakdown_info in service_breakdown_list:
 				# Remove branding words from service name
@@ -2519,6 +2541,18 @@ class TaskSpawner(object):
 						aws_branding_word,
 						""
 					).strip()
+					
+				# If it's an AWS EC2-related billing item we strike it
+				# because it's part of our $5 base fee
+				should_be_ignored = False
+				for not_billed_word in not_billed_words:
+					if not_billed_word in service_name:
+						should_be_ignored = True
+				
+				# If it matches our keywords we'll strike it from
+				# the bill
+				if should_be_ignored:
+					continue
 				
 				# Mark up the total for the service
 				service_total = float( service_breakdown_info[ "total" ] )
@@ -7566,6 +7600,57 @@ class GetProjectExecutionLogsPage( BaseHandler ):
 			}
 		})
 		
+class GetProjectExecutionLogObjects( BaseHandler ):
+	@authenticated
+	@disable_on_overdue_payment
+	@gen.coroutine
+	def post( self ):
+		"""
+		Return contents of provided list of S3 object paths.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"s3_keys": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"minItems": 1,
+					"maxItems": 50
+				}
+			},
+			"required": [
+				"s3_keys"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		logit( "Retrieving requested log files..." )
+		
+		credentials = self.get_authenticated_user_cloud_configuration()
+		
+		results_list = []
+		
+		for s3_key in self.json[ "s3_keys" ]:
+			log_data = yield local_tasks.get_json_from_s3(
+				credentials,
+				credentials[ "logs_bucket" ],
+				s3_key
+			)
+			
+			results_list.append(
+				log_data
+			)
+			
+		self.write({
+			"success": True,
+			"result": {
+				"results": results_list
+			}
+		})
+		
 @gen.coroutine
 def delete_logs( credentials, project_id ):
 	while True:
@@ -8997,6 +9082,7 @@ def make_app( is_debug ):
 		( r"/api/v1/auth/register", NewRegistration ),
 		( r"/api/v1/auth/login", Authenticate ),
 		( r"/api/v1/auth/logout", Logout ),
+		( r"/api/v1/logs/executions/get-logs", GetProjectExecutionLogObjects ),
 		( r"/api/v1/logs/executions/get-contents", GetProjectExecutionLogsPage ),
 		( r"/api/v1/logs/executions/get", GetProjectExecutionLogs ),
 		( r"/api/v1/logs/executions", GetProjectExecutions ),
