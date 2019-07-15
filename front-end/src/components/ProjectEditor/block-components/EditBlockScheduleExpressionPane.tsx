@@ -34,7 +34,7 @@ export class BlockScheduleExpressionInput extends Vue implements ScheduleExpress
             required={true}
             value={this.scheduleExpression}
             on={{ input: setScheduleExpression }}
-            placeholder="cron(15 10 * * ? *)"
+            placeholder="rate(2 minutes)"
           />
         </div>
         <small class="form-text text-muted">
