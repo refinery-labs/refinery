@@ -433,7 +433,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
           disabled={!this.isEditedBlockValid}
           on={{ click: this.beginPublishBlockClicked }}
         >
-          Create/Update Saved Block
+          Create Saved Block
         </b-button>
       </b-form-group>
     );
@@ -552,7 +552,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     return (
       <div>
         <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#code-block' }} />
-        <BlockNameInput props={editBlockProps}/>
+        <BlockNameInput props={editBlockProps} />
         {this.renderCodeEditorContainer()}
         {this.renderAwsLink()}
         {this.renderBlockVariables()}

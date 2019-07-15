@@ -3,8 +3,7 @@ import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import { WorkflowState } from '@/types/graph';
 import { blockTypeToEditorComponentLookup } from '@/constants/project-editor-constants';
-import { CreateSavedBlockViewProps, EditBlockPaneProps } from '@/types/component-types';
-import CreateSavedBlockView from '@/components/ProjectEditor/saved-blocks-components/CreateSavedBlockView';
+import { EditBlockPaneProps } from '@/types/component-types';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
 import CreateSavedBlockViewContainer, {
   CreateSavedBlockViewContainerProps
@@ -80,7 +79,7 @@ export default class EditBlockPane extends Vue {
     };
 
     const formClasses = {
-      'mb-3 mt-3 text-align--left': true,
+      'mb-2 mt-2 text-align--left': true,
       'show-block-container__form': true,
       'show-block-container__form--normal': !this.wideMode,
       'show-block-container__form--wide': this.wideMode
@@ -93,7 +92,7 @@ export default class EditBlockPane extends Vue {
     return (
       <div class={formClasses}>
         <div class="scrollable-pane-container padding-left--normal padding-right--normal">{componentInstance}</div>
-        <div class="row show-block-container__bottom-buttons ml-0 mr-0">
+        <div class="row show-block-container__bottom-buttons ml-0 mr-0 mt-2">
           <b-button variant="danger" class="col-12" on={{ click: this.deleteBlockClicked }}>
             Delete Block
           </b-button>
@@ -108,11 +107,11 @@ export default class EditBlockPane extends Vue {
     };
 
     return (
-      <b-container class="show-block-container">
+      <div class="show-block-container ml-2 mr-2">
         {this.renderContentWrapper()}
         {this.renderConfirmDiscardModal()}
         <CreateSavedBlockViewContainer props={createSavedBlockViewContainerProps} />
-      </b-container>
+      </div>
     );
   }
 }

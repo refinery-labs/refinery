@@ -32,7 +32,11 @@ export default class AddSavedBlockPaneContainer extends Vue {
     const viewChosenSavedBlockPane: ViewChosenSavedBlockPaneProps = {
       addChosenBlock: () => AddSavedBlockPaneStoreModule.addChosenBlock(),
       chosenBlock: block,
-      goBackToAddBlockPane: () => AddSavedBlockPaneStoreModule.clearChosenBlock()
+      goBackToAddBlockPane: () => AddSavedBlockPaneStoreModule.clearChosenBlock(),
+
+      environmentVariables: AddSavedBlockPaneStoreModule.environmentVariableEntries,
+      setEnvironmentVariablesValue: (name: string, value: string) =>
+        AddSavedBlockPaneStoreModule.setEnvironmentVariablesValue({ name, value })
     };
 
     return <ViewChosenSavedBlockPane props={viewChosenSavedBlockPane} />;

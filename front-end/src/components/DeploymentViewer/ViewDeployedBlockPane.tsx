@@ -30,7 +30,7 @@ export default class ViewDeployedBlockPane extends Vue {
     };
 
     const formClasses = {
-      'mb-3 mt-3 text-align--left': true,
+      'mb-2 mt-2 text-align--left': true,
       'show-block-container__form': true,
       'show-block-container__form--normal': !this.wideMode,
       'show-block-container__form--wide': this.wideMode
@@ -48,6 +48,6 @@ export default class ViewDeployedBlockPane extends Vue {
   }
 
   public render(h: CreateElement): VNode {
-    return <div class="show-block-container container">{this.renderContentWrapper()}</div>;
+    return <div class="show-block-container ml-2 mr-2">{this.renderContentWrapper()}</div>;
   }
 }

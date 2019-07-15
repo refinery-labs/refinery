@@ -73,37 +73,38 @@ export default class DeployProjectPane extends Vue {
   }
 
   public render(h: CreateElement): VNode {
-    const formClasses = {
-      'mb-3 mt-3 text-align--left deploy-pane-container': true,
+    const loadingClasses = {
       'whirl standard': !this.deploymentError && (this.isDeployingProject || !this.latestDeploymentState)
     };
 
     return (
-      <b-form class={formClasses} on={{ submit: this.deployProjectClicked }}>
-        <div class="deploy-pane-container__content overflow--scroll-y-auto">{this.renderDeploymentDetails()}</div>
-        <div class="row deploy-pane-container__bottom-buttons">
-          <b-button-group class="col-12">
-            <b-button
-              variant="secondary"
-              class="col-6"
-              on={{ click: this.resetDeploymentPane }}
-              disabled={this.isDeployingProject}
-            >
-              Cancel Deploy
-            </b-button>
-            <b-button
-              variant="primary"
-              class="col-6"
-              type="submit"
-              ref="confirmDeployButton"
-              disabled={this.isDeployingProject || this.hasProjectBeenModified}
-            >
-              Confirm Deploy
-            </b-button>
-          </b-button-group>
-        </div>
-        {this.renderTooltips()}
-      </b-form>
+      <div class={loadingClasses}>
+        <b-form class="mb-2 mt-2 text-align--left deploy-pane-container" on={{ submit: this.deployProjectClicked }}>
+          <div class="deploy-pane-container__content overflow--scroll-y-auto">{this.renderDeploymentDetails()}</div>
+          <div class="row deploy-pane-container__bottom-buttons">
+            <b-button-group class="col-12">
+              <b-button
+                variant="secondary"
+                class="col-6"
+                on={{ click: this.resetDeploymentPane }}
+                disabled={this.isDeployingProject}
+              >
+                Cancel Deploy
+              </b-button>
+              <b-button
+                variant="primary"
+                class="col-6"
+                type="submit"
+                ref="confirmDeployButton"
+                disabled={this.isDeployingProject || this.hasProjectBeenModified}
+              >
+                Confirm Deploy
+              </b-button>
+            </b-button-group>
+          </div>
+          {this.renderTooltips()}
+        </b-form>
+      </div>
     );
   }
 }

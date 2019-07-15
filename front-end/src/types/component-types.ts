@@ -1,11 +1,7 @@
-import {
-  SupportedLanguage,
-  WorkflowRelationshipType,
-  WorkflowState
-} from '@/types/graph';
+import { SupportedLanguage, WorkflowRelationshipType, WorkflowState } from '@/types/graph';
 import { IfDropDownSelectionType } from '@/store/store-types';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
-import {ProjectExecution} from '@/types/deployment-executions-types';
+import { ProjectExecution } from '@/types/deployment-executions-types';
 
 export interface EditorProps {
   name: string;
@@ -22,6 +18,11 @@ export interface EditorProps {
   // Ace is garbage and we need this
   extraClasses?: string;
   collapsible?: boolean;
+}
+
+export interface MarkdownProps {
+  content: string;
+  stripMarkup?: boolean;
 }
 
 export interface EditTransitionSelectorProps {
