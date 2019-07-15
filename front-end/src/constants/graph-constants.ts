@@ -1,5 +1,5 @@
-import { ExecutionStatusType } from '@/types/api-types';
 import { STYLE_CLASSES } from '@/lib/cytoscape-styles';
+import { ExecutionStatusType } from '@/types/execution-logs-types';
 
 export const CURRENT_BLOCK_SCHEMA = '1.0.0';
 export const CURRENT_TRANSITION_SCHEMA = '1.0.0';

@@ -1,13 +1,9 @@
 import * as R from 'ramda';
-import {
-  BlockExecutionGroup,
-  BlockExecutionTuple,
-  ProjectExecution
-} from '@/types/deployment-executions-types';
-import {BlockExecutionResult, ExecutionStatusType, GetProjectExecutionResult} from '@/types/api-types';
-import {sortByTimestamp} from '@/lib/ramda-extensions';
-import {RefineryProject, WorkflowStateType} from '@/types/graph';
-import {ProductionLambdaWorkflowState} from '@/types/production-workflow-types';
+import { BlockExecutionGroup, BlockExecutionTuple, ProjectExecution } from '@/types/deployment-executions-types';
+import { sortByTimestamp } from '@/lib/ramda-extensions';
+import { RefineryProject, WorkflowStateType } from '@/types/graph';
+import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
+import { BlockExecutionResult, ExecutionStatusType, GetProjectExecutionResult } from '@/types/execution-logs-types';
 
 export function sortExecutions(arr: ProjectExecution[]) {
   const sorted = sortByTimestamp((i: ProjectExecution) => i.oldestTimestamp, arr);
@@ -23,10 +19,7 @@ export function getProductionLambdaBlocksFromProject(project: RefineryProject) {
   ) as ProductionLambdaWorkflowState[];
 }
 
-export function pairExecutionWithBlock(
-  project: RefineryProject,
-  executionResult: GetProjectExecutionResult
-) {
+export function pairExecutionWithBlock(project: RefineryProject, executionResult: GetProjectExecutionResult) {
   const lambdaBlocks = getProductionLambdaBlocksFromProject(project);
 
   // Get a ghetto "tuple" of type [block, execution] by pairing an execution to a block by ARN
@@ -37,7 +30,7 @@ export function pairExecutionWithBlock(
       throw new Error('Could not find matching block for block execution');
     }
 
-    return {block: matchingBlock, execution};
+    return { block: matchingBlock, execution };
   });
 }
 
@@ -58,21 +51,20 @@ function getExecutionStatusForBlockExecution(execution: BlockExecutionResult) {
  * @param project Project to pull data from
  * @param executionResult List of results to use for the association
  */
-function createLogsGroupedByBlockId(
-  project: RefineryProject,
-  executionResult: GetProjectExecutionResult
-) {
-
+function createLogsGroupedByBlockId(project: RefineryProject, executionResult: GetProjectExecutionResult) {
   const pairedExecutionWithBlock = pairExecutionWithBlock(project, executionResult);
 
   // Put the ID of the element as the key and the execution result as the value.
-  const executionTuplesByBlockId = pairedExecutionWithBlock.reduce((acc, elem) => {
-    acc[elem.block.id] = elem;
-    return acc;
-  }, {} as {[key: string]: BlockExecutionTuple});
+  const executionTuplesByBlockId = pairedExecutionWithBlock.reduce(
+    (acc, elem) => {
+      acc[elem.block.id] = elem;
+      return acc;
+    },
+    {} as { [key: string]: BlockExecutionTuple }
+  );
 
   // Iterate through the Object's values and create a BlockExecutionGroup from the values.
-  return R.mapObjIndexed(({block, execution}: BlockExecutionTuple) => {
+  return R.mapObjIndexed(({ block, execution }: BlockExecutionTuple) => {
     const totalExecutionCount = execution.EXCEPTION + execution.CAUGHT_EXCEPTION + execution.SUCCESS;
 
     const out: BlockExecutionGroup = {
@@ -100,8 +92,6 @@ function convertExecutionToProjectExecution(
   project: RefineryProject,
   executionResult: GetProjectExecutionResult
 ): ProjectExecution {
-
-
   const totals = executionResult.execution_pipeline_totals;
 
   const numberOfLogs = totals.EXCEPTION + totals.CAUGHT_EXCEPTION + totals.SUCCESS;
@@ -128,7 +118,6 @@ export function convertExecutionResponseToProjectExecutionGroup(
   project: RefineryProject,
   executions: GetProjectExecutionResult[]
 ) {
-
   // List of project execution instances with metadata fully associated from the specified project
   const unfilteredProjectExecutions = executions.map(execution => {
     try {
