@@ -4946,59 +4946,6 @@ class TaskSpawner(object):
 					)
 			
 			return {}
-		
-		@run_on_executor
-		def add_default_projects_to_account( self, user_id ):
-			return TaskSpawner._add_default_projects_to_account(
-				user_id
-			)
-		
-		@staticmethod
-		def _add_default_projects_to_account( user_id ):
-			dbsession = DBSession()
-			user = dbsession.query( User ).filter_by(
-				id=user_id
-			).first()
-		
-			for default_project_data in DEFAULT_PROJECT_ARRAY:
-				project_name = default_project_data[ "name" ]
-				
-				logit( "Adding default project name '" + project_name + "' to the user's account..." )
-				
-				new_project = Project()
-				new_project.name = project_name
-				
-				# Add the user to the project so they can access it
-				new_project.users.append(
-					user
-				)
-				
-				new_project_version = ProjectVersion()
-				new_project_version.version = 1
-				new_project_version.project_json = json.dumps(
-					default_project_data
-				)
-				
-				# Add new version to the project
-				new_project.versions.append(
-					new_project_version
-				)
-				
-				new_project_config = ProjectConfig()
-				new_project_config.project_id = new_project.id
-				new_project_config.config_json = json.dumps(
-					DEFAULT_PROJECT_CONFIG
-				)
-			
-				# Add project config to the new project
-				new_project.configs.append(
-					new_project_config
-				)
-				
-				dbsession.add( new_project )
-				
-			dbsession.commit()
-			dbsession.close()
 			
 		@run_on_executor
 		def link_api_method_to_lambda( self, credentials, rest_api_id, resource_id, http_method, api_path, lambda_name ):
@@ -7611,26 +7558,17 @@ class GetProjectExecutionLogObjects( BaseHandler ):
 		schema = {
 			"type": "object",
 			"properties": {
-				"logs_to_fetch": {
+				"s3_keys": {
 					"type": "array",
 					"items": {
-						"type": "object",
-						"properties": {
-							"s3_key": {
-								"type": "string"
-							},
-							"log_id": {
-								"type": "string"
-							}
-						},
-						"required": ["s3_key", "log_id"]
+						"type": "string"
 					},
 					"minItems": 1,
 					"maxItems": 50
 				}
 			},
 			"required": [
-				"logs_to_fetch"
+				"s3_keys"
 			]
 		}
 		
@@ -7642,20 +7580,16 @@ class GetProjectExecutionLogObjects( BaseHandler ):
 		
 		results_list = []
 		
-		for log_to_fetch in self.json[ "logs_to_fetch" ]:
-			s3_key = log_to_fetch[ "s3_key" ]
-			log_id = log_to_fetch[ "log_id" ]
-
+		for s3_key in self.json[ "s3_keys" ]:
 			log_data = yield local_tasks.get_json_from_s3(
 				credentials,
 				credentials[ "logs_bucket" ],
 				s3_key
 			)
 			
-			results_list.append({
-				"log_data": log_data,
-				"log_id": log_id
-			})
+			results_list.append(
+				log_data
+			)
 			
 		self.write({
 			"success": True,
@@ -8005,13 +7939,48 @@ class NewRegistration( BaseHandler ):
 
 		# Set user's payment_id to the Stripe customer ID
 		new_user.payment_id = customer_id
-
+		
 		self.dbsession.commit()
 		
 		# Add default projects to the user's account
-		yield local_tasks.add_default_projects_to_account(
-			new_user.id
-		)
+		for default_project_data in DEFAULT_PROJECT_ARRAY:
+			project_name = default_project_data[ "name" ]
+			
+			logit( "Adding default project name '" + project_name + "' to the user's account..." )
+			
+			new_project = Project()
+			new_project.name = project_name
+			
+			# Add the user to the project so they can access it
+			new_project.users.append(
+				new_user
+			)
+			
+			new_project_version = ProjectVersion()
+			new_project_version.version = 1
+			new_project_version.project_json = json.dumps(
+				default_project_data
+			)
+			
+			# Add new version to the project
+			new_project.versions.append(
+				new_project_version
+			)
+			
+			new_project_config = ProjectConfig()
+			new_project_config.project_id = new_project.id
+			new_project_config.config_json = json.dumps(
+				DEFAULT_PROJECT_CONFIG
+			)
+		
+			# Add project config to the new project
+			new_project.configs.append(
+				new_project_config
+			)
+			
+			self.dbsession.add( new_project )
+			
+		self.dbsession.commit()
 		
 		# Send registration confirmation link to user's email address
 		# The first time they authenticate via this link it will both confirm
