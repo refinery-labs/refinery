@@ -1,5 +1,4 @@
-import { BlockExecutionMetadata, ExecutionLogMetadata } from '@/types/deployment-executions-types';
-import { ExecutionStatusType } from '@/types/api-types';
+import { ExecutionS3FilenameMetadata, ExecutionStatusType } from '@/types/execution-logs-types';
 
 function getResourceName(resource_type: string, arnParts: string[]) {
   if (resource_type === 'lambda') {
