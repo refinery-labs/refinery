@@ -8,9 +8,14 @@ import {
   getLinkForArn,
   getMonitorLinkForCodeBlockArn
 } from '@/utils/code-block-utils';
+import { resetStoreState } from '@/utils/store-utils';
+import { deepJSONCopy } from '@/lib/general-utils';
+import { ProjectViewActions } from '@/constants/store-constants';
+import { PANE_POSITION } from '@/types/project-editor-types';
 
 // Enums
 export enum ViewBlockMutators {
+  resetState = 'resetState',
   setSelectedNode = 'setSelectedNode',
   setCodeModalVisibility = 'setCodeModalVisibility',
   setLibrariesModalVisibility = 'setLibrariesModalVisibility',
@@ -21,7 +26,6 @@ export enum ViewBlockMutators {
 export enum ViewBlockActions {
   selectNodeFromOpenProject = 'selectNodeFromOpenProject',
   selectCurrentlySelectedProjectNode = 'selectCurrentlySelectedProjectNode',
-  resetPaneState = 'resetPaneState',
   openAwsConsoleForBlock = 'openAwsConsoleForBlock',
   openAwsMonitorForCodeBlock = 'openAwsMonitorForCodeBlock',
   openAwsCloudwatchForCodeBlock = 'openAwsCloudwatchForCodeBlock'
@@ -80,13 +84,24 @@ function openLinkForBlock(block: ProductionWorkflowState, getLink: (arn: string)
 
 const ViewBlockPaneModule: Module<ViewBlockPaneState, RootState> = {
   namespaced: true,
-  state: moduleState,
+  state: deepJSONCopy(moduleState),
   getters: {
     getAwsConsoleUri: getLinkForBlock(getLinkForArn),
     getLambdaMonitorUri: getLinkForBlock(getMonitorLinkForCodeBlockArn),
     getLambdaCloudWatchUri: getLinkForBlock(getCloudWatchLinkForCodeBlockArn)
   },
   mutations: {
+    [ViewBlockMutators.resetState](state, keepSomeSettings = true) {
+      // This is a gnarly hack but meh. We'll just have to move this to "settings" or something later.
+      const stateToResetTo = {
+        ...moduleState,
+        ...(keepSomeSettings && {
+          wideMode: state.wideMode
+        })
+      };
+
+      resetStoreState(state, stateToResetTo);
+    },
     [ViewBlockMutators.setSelectedNode](state, node) {
       state.selectedNode = node;
     },
@@ -101,14 +116,6 @@ const ViewBlockPaneModule: Module<ViewBlockPaneState, RootState> = {
     }
   },
   actions: {
-    /**
-     * Resets the state of the pane back to it's default.
-     * @param context
-     */
-    async [ViewBlockActions.resetPaneState](context) {
-      context.commit(ViewBlockMutators.setSelectedNode, null);
-      context.commit(ViewBlockMutators.setCodeModalVisibility, false);
-    },
     async [ViewBlockActions.selectNodeFromOpenProject](context, nodeId: string) {
       const deploymentStore = context.rootState.deployment;
 
@@ -116,8 +123,6 @@ const ViewBlockPaneModule: Module<ViewBlockPaneState, RootState> = {
         console.error('Attempted to open edit block pane without loaded project');
         return;
       }
-
-      await context.dispatch(ViewBlockActions.resetPaneState);
 
       const node = getNodeDataById(deploymentStore.openedDeployment, nodeId);
 
@@ -131,8 +136,13 @@ const ViewBlockPaneModule: Module<ViewBlockPaneState, RootState> = {
     async [ViewBlockActions.selectCurrentlySelectedProjectNode](context) {
       const deploymentStore = context.rootState.deployment;
 
-      if (!deploymentStore.openedDeployment || !deploymentStore.selectedResource) {
-        console.error('Attempted to open view block pane without loaded deployment or selected resource');
+      if (!deploymentStore.openedDeployment) {
+        console.error('Attempted to open view block pane without loaded deployment');
+        return;
+      }
+
+      if (!deploymentStore.selectedResource) {
+        context.commit(ViewBlockMutators.setSelectedNode, null);
         return;
       }
 

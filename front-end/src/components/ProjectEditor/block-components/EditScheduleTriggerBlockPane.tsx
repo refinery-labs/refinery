@@ -8,7 +8,7 @@ import { namespace } from 'vuex-class';
 import { nopWrite } from '@/utils/block-utils';
 
 import uuid from 'uuid/v4';
-import { EditBlockPaneProps, EditorProps } from '@/types/component-types';
+import { EditBlockPaneProps, EditorProps, ScheduleExpressionInputProps } from '@/types/component-types';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
@@ -29,8 +29,12 @@ export class EditScheduleTriggerBlock extends Vue implements EditBlockPaneProps 
   // Project Editor
   @editBlock.State wideMode!: boolean;
 
+  @editBlock.Getter scheduleExpressionValid!: boolean;
+
   @editBlock.Mutation setInputData!: (input_data: string) => void;
   @editBlock.Mutation setWidePanel!: (wide: boolean) => void;
+
+  @editBlock.Mutation setScheduleExpression!: (name: string) => void;
 
   public renderCodeEditor() {
     const editorProps: EditorProps = {
@@ -92,11 +96,18 @@ export class EditScheduleTriggerBlock extends Vue implements EditBlockPaneProps 
       readOnly: this.readOnly
     };
 
+    const scheduleExpressionProps: ScheduleExpressionInputProps = {
+      scheduleExpression: this.selectedNode.schedule_expression,
+      scheduleExpressionValid: this.scheduleExpressionValid,
+      readOnly: this.readOnly,
+      setScheduleExpression: this.setScheduleExpression
+    };
+
     return (
       <div>
         <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#timer-block' }} />
         <BlockNameInput props={blockInputProps} />
-        <BlockScheduleExpressionInput props={blockInputProps} />
+        <BlockScheduleExpressionInput props={scheduleExpressionProps} />
         {this.renderCodeEditorContainer()}
         {this.renderAwsLink()}
       </div>

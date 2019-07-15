@@ -69,7 +69,7 @@ export class EnvironmentVariablesEditor extends Vue implements EnvironmentVariab
 
     const editorProps: EditorProps = {
       name: name,
-      content: value !== null ? value : '',
+      content: value !== null && value !== undefined ? value : '',
       readOnly: this.readOnly,
       lang: 'text',
       onChange: (value: string) => this.setVariableValue(id, value)
@@ -128,8 +128,7 @@ export class EnvironmentVariablesEditor extends Vue implements EnvironmentVariab
     const helperText = (
       <div class="text-align--center padding-top--big padding-bottom--big">
         <h4>
-          You currently do not have any block settings set. To get started adding a new setting, click the button
-          below.
+          You currently do not have any block settings set. To get started adding a new setting, click the button below.
           <br />
           {/*For more information on what block settings are used for, please see the documentation here.*/}
         </h4>

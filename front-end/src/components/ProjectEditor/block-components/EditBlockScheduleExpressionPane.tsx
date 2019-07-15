@@ -1,56 +1,49 @@
 import Component from 'vue-class-component';
 import Vue from 'vue';
-import { ScheduleTriggerWorkflowState, WorkflowState } from '@/types/graph';
-import { namespace } from 'vuex-class';
 import { Prop } from 'vue-property-decorator';
 import { nopWrite } from '@/utils/block-utils';
-import { EditBlockPaneProps } from '@/types/component-types';
-import { SavedBlockStatusCheckResult } from '@/types/api-types';
-
-const editBlock = namespace('project/editBlockPane');
+import { ScheduleExpressionInputProps } from '@/types/component-types';
 
 @Component
-export class BlockScheduleExpressionInput extends Vue implements EditBlockPaneProps {
-  @Prop({ required: true }) selectedNode!: ScheduleTriggerWorkflowState;
-  @Prop({ required: true }) selectedNodeMetadata!: SavedBlockStatusCheckResult | null;
+export class BlockScheduleExpressionInput extends Vue implements ScheduleExpressionInputProps {
+  @Prop({ required: true }) scheduleExpression!: string | null;
+  @Prop({ required: true }) scheduleExpressionValid!: boolean;
 
   @Prop({ required: true }) readOnly!: boolean;
 
-  @editBlock.Mutation setScheduleExpression!: (name: string) => void;
+  @Prop({ required: true }) setScheduleExpression!: (name: string) => void;
 
   public render() {
-    if (!this.selectedNode) {
-      return null;
-    }
-
-    const selectedNode = this.selectedNode;
-
     const setScheduleExpression = this.readOnly ? nopWrite : this.setScheduleExpression;
 
+    const scheduleExpressionLink = (
+      <a
+        href="https://docs.aws.amazon.com/lambda/latest/dg/tutorial-scheduled-events-schedule-expressions.html"
+        target="_blank"
+      >
+        Schedule expression
+      </a>
+    );
+
     return (
-      <b-form-group id={`block-schedule-expression-group-${selectedNode.id}`}>
-        <label class="d-block" htmlFor={`block-schedule-expression-${selectedNode.id}`}>
-          Schedule Expression:
-        </label>
+      <b-form-group>
+        <label class="d-block">Schedule Expression:</label>
         <div class="input-group with-focus">
           <b-form-input
-            id={`block-schedule-expression-${selectedNode.id}`}
             type="text"
-            required
-            value={selectedNode.schedule_expression}
+            required={true}
+            value={this.scheduleExpression}
             on={{ input: setScheduleExpression }}
-            placeholder="cron(15 10 * * ? *)"
+            placeholder="rate(2 minutes)"
           />
         </div>
         <small class="form-text text-muted">
-          <a
-            href="https://docs.aws.amazon.com/lambda/latest/dg/tutorial-scheduled-events-schedule-expressions.html"
-            target="_blank"
-          >
-            Schedule expression
-          </a>{' '}
-          indicating how often the attached blocks should be run.
+          {scheduleExpressionLink} indicating how often the attached blocks should be run.
         </small>
+        <b-form-invalid-feedback state={this.scheduleExpressionValid}>
+          Value provided for the expression is invalid. Please refer to the {scheduleExpressionLink} docs for how to
+          configure a valid expression.
+        </b-form-invalid-feedback>
       </b-form-group>
     );
   }
