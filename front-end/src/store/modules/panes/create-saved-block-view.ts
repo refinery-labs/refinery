@@ -12,7 +12,7 @@ import {
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
 import { ProjectViewActions } from '@/constants/store-constants';
-import { LambdaWorkflowState, WorkflowState } from '@/types/graph';
+import { LambdaWorkflowState, WorkflowState, WorkflowStateType } from '@/types/graph';
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 import { inputDataExample } from '@/constants/saved-block-constants';
 
@@ -125,6 +125,14 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
       return;
     }
 
+    if (editBlockPaneState.selectedNode.type === WorkflowStateType.LAMBDA) {
+      const lambdaBlock = editBlockPaneState.selectedNode as LambdaWorkflowState;
+
+      if (lambdaBlock.saved_input_data !== undefined && lambdaBlock.saved_input_data !== null) {
+        this.setSavedData(lambdaBlock.saved_input_data);
+      }
+    }
+
     const isBlockOwner =
       editBlockPaneState.selectedNodeMetadata && editBlockPaneState.selectedNodeMetadata.is_block_owner;
 
@@ -132,6 +140,7 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
       const metadata = editBlockPaneState.selectedNodeMetadata as SavedBlockStatusCheckResult;
 
       this.setExistingBlockMetadata(metadata);
+      // this.setSavedData(metadata.)
       this.setName(metadata.name);
       this.setDescription(metadata.description);
       this.setPublishStatus(metadata.share_status === SharedBlockPublishStatus.PUBLISHED);

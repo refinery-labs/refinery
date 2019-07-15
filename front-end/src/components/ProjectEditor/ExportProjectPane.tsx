@@ -37,7 +37,7 @@ export default class ExportProjectPane extends Vue {
     }
 
     const formClasses = {
-      'mb-3 mt-3 export-project-container': true
+      'mb-2 mt-2 export-project-container': true
     };
 
     return (
@@ -45,11 +45,11 @@ export default class ExportProjectPane extends Vue {
         <div class="export-project-container__content overflow--scroll-y-auto display--flex text-align--left">
           {this.renderCodeEditor()}
         </div>
-        <div class="row export-project-container__bottom-buttons justify-content-center">
-          <b-button-group class="col-12">
+        <div class="ml-2 mr-2 mt-2 justify-content-center">
+          <b-button-group class="col-12 mr-0 ml-0 padding--none">
             <b-button
               variant="primary"
-              class="col-12"
+              class="col-12 mr-0 ml-0"
               target="_blank"
               href={`data:text/json;charset=utf-8,${encodeURIComponent(this.exportProjectJson)}`}
               download={`${this.openedProject.name

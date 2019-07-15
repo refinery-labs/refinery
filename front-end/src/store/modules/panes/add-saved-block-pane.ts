@@ -9,6 +9,7 @@ import { searchSavedBlocks } from '@/store/fetchers/api-helpers';
 import { SavedBlockSearchResult, SharedBlockPublishStatus } from '@/types/api-types';
 import { AddBlockArguments } from '@/store/modules/project-view';
 import { ChosenBlock } from '@/types/add-block-types';
+import { BlockEnvironmentVariable, LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
 
 const storeName = 'addSavedBlockPane';
 
@@ -23,6 +24,8 @@ export interface AddSavedBlockPaneState {
   searchResultsPrivate: SavedBlockSearchResult[];
   searchResultsPublished: SavedBlockSearchResult[];
 
+  environmentVariablesInputs: { [key: string]: string };
+
   chosenBlock: ChosenBlock | null;
 }
 
@@ -36,6 +39,8 @@ export const baseState: AddSavedBlockPaneState = {
 
   searchResultsPrivate: [],
   searchResultsPublished: [],
+
+  environmentVariablesInputs: {},
 
   chosenBlock: null
 };
@@ -56,7 +61,44 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
   public searchResultsPrivate: SavedBlockSearchResult[] = initialState.searchResultsPrivate;
   public searchResultsPublished: SavedBlockSearchResult[] = initialState.searchResultsPublished;
 
+  public environmentVariablesInputs: { [key: string]: string } = initialState.environmentVariablesInputs;
+
   public chosenBlock: ChosenBlock | null = initialState.chosenBlock;
+
+  get environmentVariableEntries() {
+    if (!this.chosenBlock || this.chosenBlock.block.type !== WorkflowStateType.LAMBDA) {
+      return null;
+    }
+
+    const block = this.chosenBlock.block.block_object as LambdaWorkflowState;
+
+    const envVariables = Object.values(block.environment_variables);
+    // Check that any env variables need to be set, else do nothing.
+    if (envVariables.length === 0 || !envVariables.some(env => env.required)) {
+      return null;
+    }
+
+    const isVariableValid = (env: BlockEnvironmentVariable) => {
+      const value = this.environmentVariablesInputs[env.name];
+
+      if (value === undefined) {
+        return null;
+      }
+
+      // If the variable isn't required, it's always valid
+      if (!env.required) {
+        return true;
+      }
+
+      return value !== '';
+    };
+
+    return envVariables.map(env => ({
+      ...env,
+      valid: isVariableValid(env),
+      value: this.environmentVariablesInputs[env.name]
+    }));
+  }
 
   @Mutation
   public resetState() {
@@ -91,6 +133,14 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
   @Mutation
   public clearChosenBlock() {
     this.chosenBlock = null;
+  }
+
+  @Mutation
+  public setEnvironmentVariablesValue({ name, value }: { name: string; value: string }) {
+    this.environmentVariablesInputs = {
+      ...this.environmentVariablesInputs,
+      [name]: value
+    };
   }
 
   @Action

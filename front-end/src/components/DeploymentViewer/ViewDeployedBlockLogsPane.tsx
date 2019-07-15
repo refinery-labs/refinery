@@ -213,8 +213,8 @@ export default class ViewDeployedBlockLogsPane extends Vue {
                 {/*<em class="fas fa-code" />*/}
               </span>
             </template>
-            <div class="show-block-container container">
-              <div class="mb-3 mt-3 text-align--left show-block-container__form show-block-container__form--normal">
+            <div class="show-block-container mr-2 ml-2">
+              <div class="mb-2 mt-2 text-align--left show-block-container__form show-block-container__form--normal">
                 <div class="scrollable-pane-container padding-left--normal padding-right--normal">
                   {this.renderExecutionDropdown()}
                   {this.renderExecutionDetails()}

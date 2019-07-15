@@ -35,7 +35,7 @@ hr {
     font-size: 0.75rem;
     border-radius: 0.625rem;
     &.badge-warning {
-        color: #fff !important;
+        color: #fff;
     }
     &.badge-secondary {
         background-color: $gray-dark;

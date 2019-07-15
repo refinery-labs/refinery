@@ -1,10 +1,9 @@
 import Vue from 'vue';
 import Component from 'vue-class-component';
 import { Prop } from 'vue-property-decorator';
-import VueMarkdown from 'vue-markdown';
 import Loading from '@/components/Common/Loading.vue';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
-import { CreateSavedBlockViewProps, EditorProps, LoadingContainerProps } from '@/types/component-types';
+import { CreateSavedBlockViewProps, EditorProps, LoadingContainerProps, MarkdownProps } from '@/types/component-types';
 import { SavedBlockStatusCheckResult, SharedBlockPublishStatus } from '@/types/api-types';
 import {
   addModeTitle,
@@ -15,12 +14,9 @@ import {
 } from '@/constants/saved-block-constants';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { SupportedLanguage } from '@/types/graph';
+import RefineryMarkdown from '@/components/Common/RefineryMarkdown';
 
-@Component({
-  components: {
-    'vue-markdown': VueMarkdown
-  }
-})
+@Component
 export default class CreateSavedBlockView extends Vue implements CreateSavedBlockViewProps {
   @Prop({ required: true }) public modalMode!: boolean;
 
@@ -55,10 +51,14 @@ export default class CreateSavedBlockView extends Vue implements CreateSavedBloc
       return null;
     }
 
+    const markdownProps: MarkdownProps = {
+      content: this.descriptionInput
+    };
+
     return (
       <div>
         <label class="mt-2 d-block">Description Preview:</label>
-        <vue-markdown html={false} source={this.descriptionInput} />
+        <RefineryMarkdown props={markdownProps} />
       </div>
     );
   }
@@ -127,7 +127,7 @@ export default class CreateSavedBlockView extends Vue implements CreateSavedBloc
           </b-form-group>
 
           <b-form-group
-            className="padding-bottom--normal-small margin-bottom--normal-small"
+            class="padding-bottom--normal-small margin-bottom--normal-small"
             description="This data will help other users and yourself understand how to use the block. Please fill out the schema with the data that your block will require. It's important to use dummy data here. If you choose to publish your Saved Block publicly all Refinery users will be able to see the example input data."
           >
             <label class="d-block">Example Input Data:</label>
