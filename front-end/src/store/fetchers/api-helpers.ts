@@ -37,6 +37,7 @@ import {
   AdditionalBlockExecutionPage,
   BlockExecutionGroup,
   BlockExecutionLog,
+  BlockExecutionLogContentsByLogId,
   ProductionExecutionResponse
 } from '@/types/deployment-executions-types';
 import { convertExecutionResponseToProjectExecutionGroup } from '@/utils/project-execution-utils';
@@ -122,15 +123,8 @@ export async function getLogsForExecutions(
     return null;
   }
 
-  const logContents = await getContentsForLogs(response.result.results);
-
-  if (!logContents) {
-    console.error('Unable to retrieve execution logs contents.');
-    return null;
-  }
-
   // Create an object with log_id as the key
-  const logs = R.indexBy(r => r.log_id, logContents);
+  const logs = R.indexBy(r => r.log_id, response.result.results);
 
   return {
     logs,
@@ -157,15 +151,8 @@ export async function getAdditionalLogsByPage(
     return null;
   }
 
-  const logContents = await getContentsForLogs(response.result.results);
-
-  if (!logContents) {
-    console.error('Unable to retrieve more execution logs contents.');
-    return null;
-  }
-
   // Create an object with log_id as the key
-  const logs = R.indexBy(r => r.log_id, logContents);
+  const logs = R.indexBy(r => r.log_id, response.result.results);
 
   return {
     blockId,
@@ -174,7 +161,9 @@ export async function getAdditionalLogsByPage(
   };
 }
 
-export async function getContentsForLogs(logs: ExecutionLogMetadata[]): Promise<ExecutionLogContents[] | null> {
+export async function getContentsForLogs(
+  logs: ExecutionLogMetadata[]
+): Promise<BlockExecutionLogContentsByLogId | null> {
   // Nothing to fetch
   if (!logs || logs.length === 0) {
     return null;
@@ -196,13 +185,15 @@ export async function getContentsForLogs(logs: ExecutionLogMetadata[]): Promise<
     return null;
   }
 
-  return response.result.results.map(result => {
+  const contents = response.result.results.map(result => {
     // Merge in log_id since we need it for the data store.
     return {
       ...result.log_data,
       log_id: result.log_id
     };
   });
+
+  return R.indexBy(r => r.log_id, contents);
 }
 
 export async function checkBuildStatus(libraryBuildArgs: libraryBuildArguments) {

@@ -6,9 +6,13 @@ import { SupportedLanguage, WorkflowState } from '@/types/graph';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import ViewDeployedBlockPane from '@/components/DeploymentViewer/ViewDeployedBlockPane';
 import { EditorProps, LoadingContainerProps } from '@/types/component-types';
-import { BlockExecutionGroup, BlockExecutionLogContentsByLogId } from '@/types/deployment-executions-types';
+import {
+  BlockExecutionGroup,
+  BlockExecutionLogContentsByLogId,
+  BlockExecutionLogsForBlockId
+} from '@/types/deployment-executions-types';
 import Loading from '@/components/Common/Loading.vue';
-import { ExecutionLogContents, ExecutionStatusType } from '@/types/execution-logs-types';
+import { ExecutionLogContents, ExecutionLogMetadata, ExecutionStatusType } from '@/types/execution-logs-types';
 
 const viewBlock = namespace('viewBlock');
 const deploymentExecutions = namespace('deploymentExecutions');
@@ -64,15 +68,15 @@ export default class ViewDeployedBlockLogsPane extends Vue {
   @deploymentExecutions.State selectedBlockExecutionLog!: string;
   @deploymentExecutions.State blockExecutionLogByLogId!: BlockExecutionLogContentsByLogId;
   @deploymentExecutions.State isFetchingLogs!: boolean;
+  @deploymentExecutions.State isFetchingMoreLogs!: boolean;
 
   @deploymentExecutions.Getter getBlockExecutionGroupForSelectedBlock!: BlockExecutionGroup | null;
-  @deploymentExecutions.Getter getAllLogIdsForSelectedBlock!: string[] | null;
+  @deploymentExecutions.Getter getAllLogMetadataForSelectedBlock!: ExecutionLogMetadata[] | null;
   @deploymentExecutions.Getter currentlySelectedLogId!: string | null;
   @deploymentExecutions.Getter getLogForSelectedBlock!: ExecutionLogContents | null;
 
-  @deploymentExecutions.Mutation setSelectedBlockExecutionLog!: (logId: string) => void;
-
   @deploymentExecutions.Action fetchMoreLogsForSelectedBlock!: () => void;
+  @deploymentExecutions.Action selectLogByLogId!: (logId: string) => void;
 
   public renderExecutionLabels(execution: ExecutionLogContents) {
     const durationSinceUpdated = moment.duration(-moment().diff(execution.timestamp * 1000)).humanize(true);
@@ -118,7 +122,9 @@ export default class ViewDeployedBlockLogsPane extends Vue {
   public renderExecutionDetails() {
     const executionData = this.getLogForSelectedBlock;
 
-    if (!this.selectedBlockExecutionLog && !executionData && !this.isFetchingLogs) {
+    const isLoading = this.isFetchingLogs || this.isFetchingMoreLogs;
+
+    if (!this.selectedBlockExecutionLog && !executionData && !isLoading) {
       return <div>Missing Executions for block. This should never happen. :(</div>;
     }
 
@@ -149,8 +155,9 @@ export default class ViewDeployedBlockLogsPane extends Vue {
 
   public renderExecutionDropdown() {
     const nodeExecutions = this.getBlockExecutionGroupForSelectedBlock;
-    const logIds = this.getAllLogIdsForSelectedBlock;
-    if (!nodeExecutions || !logIds) {
+    const logsMetadata = this.getAllLogMetadataForSelectedBlock;
+
+    if (!nodeExecutions || !logsMetadata) {
       return null;
     }
 
@@ -167,16 +174,18 @@ export default class ViewDeployedBlockLogsPane extends Vue {
           return;
         }
 
-        this.setSelectedBlockExecutionLog(logId);
+        this.selectLogByLogId(logId);
       }
     };
 
-    const invocationItemList = logIds.map((logId, i) => ({
-      value: logId,
-      text: `Invocation #${i + 1} (${executionTypeToString(this.blockExecutionLogByLogId[logId].type)})`
-    }));
+    const invocationItemList = Object.values(logsMetadata).map((metadata, i) => {
+      return {
+        value: metadata.log_id,
+        text: `Invocation #${i + 1} (${executionTypeToString(metadata.type)})`
+      };
+    });
 
-    if (nodeExecutions.totalExecutionCount !== logIds.length) {
+    if (nodeExecutions.totalExecutionCount !== logsMetadata.length) {
       invocationItemList.push({
         value: 'load-more',
         text: 'Load More Executions...'

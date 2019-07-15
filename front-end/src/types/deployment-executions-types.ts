@@ -1,5 +1,10 @@
 import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
-import { BlockExecutionResult, ExecutionLogContents, ExecutionStatusType } from '@/types/execution-logs-types';
+import {
+  BlockExecutionResult,
+  ExecutionLogContents,
+  ExecutionLogMetadata,
+  ExecutionStatusType
+} from '@/types/execution-logs-types';
 
 export interface ProductionExecutionResponse {
   executions: ProjectExecutionsByExecutionId;
@@ -47,9 +52,13 @@ export interface BlockExecutionTotalsByBlockId {
 
 export interface BlockExecutionLog {
   blockId: string;
-  logs: BlockExecutionLogContentsByLogId;
+  logs: BlockExecutionLogMetadataByLogId;
   pages: string[];
   totalExecutions: number;
+}
+
+export interface BlockExecutionLogMetadataByLogId {
+  [key: string]: ExecutionLogMetadata;
 }
 
 export interface BlockExecutionLogContentsByLogId {
@@ -57,13 +66,13 @@ export interface BlockExecutionLogContentsByLogId {
 }
 
 export interface BlockExecutionLogsForBlockId {
-  [key: string]: string[];
+  [key: string]: ExecutionLogMetadata[];
 }
 
 export interface AdditionalBlockExecutionPage {
   blockId: string;
   page: string;
-  logs: { [key: string]: ExecutionLogContents };
+  logs: BlockExecutionLogMetadataByLogId;
 }
 
 //////////////////////////////////

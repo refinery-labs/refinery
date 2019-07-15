@@ -1,12 +1,18 @@
 import { Module } from 'vuex';
 import uuid from 'uuid/v4';
 import { RootState } from '../../store-types';
-import { getAdditionalLogsByPage, getLogsForExecutions, getProjectExecutions } from '@/store/fetchers/api-helpers';
+import {
+  getAdditionalLogsByPage,
+  getContentsForLogs,
+  getLogsForExecutions,
+  getProjectExecutions
+} from '@/store/fetchers/api-helpers';
 import {
   AdditionalBlockExecutionPage,
   BlockExecutionGroup,
   BlockExecutionLog,
   BlockExecutionLogContentsByLogId,
+  BlockExecutionLogMetadataByLogId,
   BlockExecutionLogsForBlockId,
   BlockExecutionPagesByBlockId,
   BlockExecutionTotalsByBlockId,
@@ -19,7 +25,7 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import { autoRefreshJob, waitUntil } from '@/utils/async-utils';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { DeploymentViewActions } from '@/constants/store-constants';
-import { ExecutionStatusType } from '@/types/execution-logs-types';
+import { ExecutionLogMetadata, ExecutionStatusType } from '@/types/execution-logs-types';
 
 // Enums
 export enum DeploymentExecutionsGetters {
@@ -29,6 +35,7 @@ export enum DeploymentExecutionsGetters {
   doesSelectedBlockHaveExecutions = 'doesSelectedBlockHaveExecutions',
   currentlySelectedLogId = 'currentlySelectedLogId',
   getAllLogIdsForSelectedBlock = 'getAllLogIdsForSelectedBlock',
+  getAllLogMetadataForSelectedBlock = 'getAllLogMetadataForSelectedBlock',
   getLogForSelectedBlock = 'getLogForSelectedBlock',
   getBlockExecutionTotalsForSelectedBlock = 'getBlockExecutionTotalsForSelectedBlock',
   graphElementsWithExecutionStatus = 'graphElementsWithExecutionStatus'
@@ -49,8 +56,9 @@ export enum DeploymentExecutionsMutators {
 
   setSelectedExecutionGroup = 'setSelectedExecutionGroup',
   resetLogState = 'resetLogState',
-  addBlockExecutionLog = 'addBlockExecutionLog',
+  addBlockExecutionLogMetadata = 'addBlockExecutionLogMetadata',
   addBlockExecutionPageResult = 'addBlockExecutionPageResult',
+  addBlockExecutionLogContents = 'addBlockExecutionLogContents',
   setSelectedBlockExecutionLog = 'setSelectedBlockExecutionLog'
 }
 
@@ -59,6 +67,9 @@ export enum DeploymentExecutionsActions {
   getExecutionsForOpenedDeployment = 'getExecutionsForOpenedDeployment',
   openExecutionGroup = 'openExecutionGroup',
   fetchLogsForSelectedBlock = 'fetchLogsForSelectedBlock',
+  selectLogByLogId = 'selectLogByLogId',
+  fetchLogsByIds = 'fetchLogsByIds',
+  warmLogCacheAndSelectDefault = 'warmLogCacheAndSelectDefault',
   fetchMoreLogsForSelectedBlock = 'fetchMoreLogsForSelectedBlock'
 }
 
@@ -153,32 +164,40 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       return blockExecutions.totalExecutionCount > 0;
     },
     [DeploymentExecutionsGetters.currentlySelectedLogId]: (state, getters) => {
-      const selectedBlockLogsIds: string[] | null = getters[DeploymentExecutionsGetters.getAllLogIdsForSelectedBlock];
-
-      if (state.selectedBlockExecutionLog === null) {
-        // Return a default selection, if we have logs for the selected block
-        return selectedBlockLogsIds ? selectedBlockLogsIds[0] : null;
-      }
+      const blockLogIds: string[] | null = getters[DeploymentExecutionsGetters.getAllLogIdsForSelectedBlock];
 
       // We don't have logs for the selected block
-      if (!selectedBlockLogsIds || selectedBlockLogsIds.length === 0) {
+      if (!blockLogIds) {
         return null;
       }
 
-      // We have a selected log for another block, so return the first log.
-      if (!selectedBlockLogsIds.includes(state.selectedBlockExecutionLog)) {
-        return selectedBlockLogsIds[0];
+      // We have an invalid selection, so return the first log available.
+      if (state.selectedBlockExecutionLog === null || !blockLogIds.includes(state.selectedBlockExecutionLog)) {
+        // Return a default selection, if we have default logs available for the selected block
+        return blockLogIds[0] ? blockLogIds[0] : null;
       }
 
       // Return the selected log because it matches the currently selected block's logs :)
       return state.selectedBlockExecutionLog;
     },
-    [DeploymentExecutionsGetters.getAllLogIdsForSelectedBlock]: (state, getters, rootState) => {
+    [DeploymentExecutionsGetters.getAllLogIdsForSelectedBlock]: (state, getters) => {
+      const allLogMetadata: ExecutionLogMetadata[] | null =
+        getters[DeploymentExecutionsGetters.getAllLogMetadataForSelectedBlock];
+
+      return allLogMetadata ? allLogMetadata.map(log => log.log_id) : null;
+    },
+    [DeploymentExecutionsGetters.getAllLogMetadataForSelectedBlock]: (state, getters, rootState) => {
       if (!rootState.viewBlock.selectedNode) {
         return null;
       }
 
-      return state.blockExecutionLogsForBlockId[rootState.viewBlock.selectedNode.id];
+      const selectedBlockLogs = state.blockExecutionLogsForBlockId[rootState.viewBlock.selectedNode.id];
+
+      if (!selectedBlockLogs) {
+        return null;
+      }
+
+      return selectedBlockLogs;
     },
     [DeploymentExecutionsGetters.getLogForSelectedBlock]: (state, getters) => {
       const currentlySelectedLogId: string | null = getters[DeploymentExecutionsGetters.currentlySelectedLogId];
@@ -287,15 +306,10 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       state.blockExecutionTotalsByBlockId = deepJSONCopy(moduleState.blockExecutionTotalsByBlockId);
       state.blockExecutionPagesByBlockId = deepJSONCopy(moduleState.blockExecutionPagesByBlockId);
     },
-    [DeploymentExecutionsMutators.addBlockExecutionLog](state, log: BlockExecutionLog) {
-      state.blockExecutionLogByLogId = {
-        ...state.blockExecutionLogByLogId,
-        ...log.logs
-      };
-
+    [DeploymentExecutionsMutators.addBlockExecutionLogMetadata](state, log: BlockExecutionLog) {
       state.blockExecutionLogsForBlockId = {
         ...state.blockExecutionLogsForBlockId,
-        [log.blockId]: [...(state.blockExecutionLogsForBlockId[log.blockId] || []), ...Object.keys(log.logs)]
+        [log.blockId]: [...(state.blockExecutionLogsForBlockId[log.blockId] || []), ...Object.values(log.logs)]
       };
 
       state.blockExecutionPagesByBlockId = {
@@ -309,20 +323,21 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       };
     },
     [DeploymentExecutionsMutators.addBlockExecutionPageResult](state, log: AdditionalBlockExecutionPage) {
-      state.blockExecutionLogByLogId = {
-        ...state.blockExecutionLogByLogId,
-        ...log.logs
-      };
-
       state.blockExecutionLogsForBlockId = {
         ...state.blockExecutionLogsForBlockId,
-        [log.blockId]: [...(state.blockExecutionLogsForBlockId[log.blockId] || []), ...Object.keys(log.logs)]
+        [log.blockId]: [...(state.blockExecutionLogsForBlockId[log.blockId] || []), ...Object.values(log.logs)]
       };
 
       state.blockExecutionPagesByBlockId = {
         ...state.blockExecutionPagesByBlockId,
         // Remove the page we just retrieved
         [log.blockId]: state.blockExecutionPagesByBlockId[log.blockId].filter(page => page !== log.page)
+      };
+    },
+    [DeploymentExecutionsMutators.addBlockExecutionLogContents](state, logs: BlockExecutionLogContentsByLogId) {
+      state.blockExecutionLogByLogId = {
+        ...state.blockExecutionLogByLogId,
+        ...logs
       };
     },
     [DeploymentExecutionsMutators.setSelectedBlockExecutionLog](state, index) {
@@ -491,8 +506,11 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         return;
       }
 
-      context.commit(DeploymentExecutionsMutators.addBlockExecutionLog, response);
+      context.commit(DeploymentExecutionsMutators.addBlockExecutionLogMetadata, response);
+
+      await context.dispatch(DeploymentExecutionsActions.warmLogCacheAndSelectDefault, response);
     },
+    // TODO: Merge this with the above logic because it's gross af.
     async [DeploymentExecutionsActions.fetchMoreLogsForSelectedBlock](context) {
       const selectedProjectExecution: ProjectExecution =
         context.getters[DeploymentExecutionsGetters.getSelectedProjectExecution];
@@ -528,15 +546,86 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       context.commit(DeploymentExecutionsMutators.addBlockExecutionPageResult, response);
 
-      const retrievedLogs = Object.keys(response.logs);
+      await context.dispatch(DeploymentExecutionsActions.warmLogCacheAndSelectDefault, response);
+    },
+    async [DeploymentExecutionsActions.selectLogByLogId](context, logId: string) {
+      // We already have the log, so just set it as selected and move on.
+      if (context.state.blockExecutionLogByLogId[logId]) {
+        context.commit(DeploymentExecutionsMutators.setSelectedBlockExecutionLog, logId);
+        return;
+      }
+
+      const selectedNode = context.rootState.viewBlock.selectedNode;
+
+      if (!selectedNode) {
+        console.error('Unable to fetch logs, no block selected');
+        return;
+      }
+
+      const executionLogs = context.state.blockExecutionLogsForBlockId[selectedNode.id];
+
+      if (!executionLogs) {
+        console.error('Unable to fetch logs, could not find selected block in executions');
+        return;
+      }
+
+      const logMetadata = executionLogs.find(execution => execution.log_id === logId);
+
+      if (!logMetadata) {
+        console.error('Unable to fetch log, missing log metadata for specified log id');
+        return;
+      }
+
+      context.commit(DeploymentExecutionsMutators.setIsFetchingMoreLogs, true);
+
+      context.commit(DeploymentExecutionsMutators.setSelectedBlockExecutionLog, logId);
+
+      await context.dispatch(DeploymentExecutionsActions.fetchLogsByIds, [logMetadata]);
+
+      // Setting the end of loading after we set the result.
+      context.commit(DeploymentExecutionsMutators.setIsFetchingMoreLogs, false);
+    },
+    async [DeploymentExecutionsActions.fetchLogsByIds](context, logsToFetch: ExecutionLogMetadata[]) {
+      if (!logsToFetch || logsToFetch.length === 0) {
+        return;
+      }
+
+      const logContents = await getContentsForLogs(logsToFetch);
+
+      if (!logContents) {
+        console.error('Unable to fetch log contents, api request did not succeed');
+        return;
+      }
+
+      context.commit(DeploymentExecutionsMutators.addBlockExecutionLogContents, logContents);
+    },
+    async [DeploymentExecutionsActions.warmLogCacheAndSelectDefault](
+      context,
+      logMetadataByLogId: AdditionalBlockExecutionPage | BlockExecutionLog
+    ) {
+      if (!logMetadataByLogId) {
+        return;
+      }
+
+      const logIds = Object.keys(logMetadataByLogId.logs);
+
+      if (logIds.length === 0) {
+        return;
+      }
 
       const selectedBlock = context.rootState.viewBlock.selectedNode;
 
       // Select a default, plus make sure we're currently looking at the right block before selecting...
-      if (selectedBlock && selectedBlock.id === response.blockId && retrievedLogs.length > 0) {
-        context.commit(
-          DeploymentExecutionsMutators.setSelectedBlockExecutionLog,
-          response.logs[retrievedLogs[0]].log_id
+      if (selectedBlock && selectedBlock.id === logMetadataByLogId.blockId) {
+        await context.dispatch(DeploymentExecutionsActions.selectLogByLogId, logIds[0]);
+      }
+
+      const fourMoreLogs = logIds.slice(1, 5);
+
+      if (fourMoreLogs.length > 0) {
+        await context.dispatch(
+          DeploymentExecutionsActions.fetchLogsByIds,
+          fourMoreLogs.map(id => logMetadataByLogId.logs[id])
         );
       }
     }
