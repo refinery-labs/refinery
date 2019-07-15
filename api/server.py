@@ -7611,17 +7611,26 @@ class GetProjectExecutionLogObjects( BaseHandler ):
 		schema = {
 			"type": "object",
 			"properties": {
-				"s3_keys": {
+				"logs_to_fetch": {
 					"type": "array",
 					"items": {
-						"type": "string"
+						"type": "object",
+						"properties": {
+							"s3_key": {
+								"type": "string"
+							},
+							"log_id": {
+								"type": "string"
+							}
+						},
+						"required": ["s3_key", "log_id"]
 					},
 					"minItems": 1,
 					"maxItems": 50
 				}
 			},
 			"required": [
-				"s3_keys"
+				"logs_to_fetch"
 			]
 		}
 		
@@ -7633,16 +7642,20 @@ class GetProjectExecutionLogObjects( BaseHandler ):
 		
 		results_list = []
 		
-		for s3_key in self.json[ "s3_keys" ]:
+		for log_to_fetch in self.json[ "logs_to_fetch" ]:
+			s3_key = log_to_fetch[ "s3_key" ]
+			log_id = log_to_fetch[ "log_id" ]
+
 			log_data = yield local_tasks.get_json_from_s3(
 				credentials,
 				credentials[ "logs_bucket" ],
 				s3_key
 			)
 			
-			results_list.append(
-				log_data
-			)
+			results_list.append({
+				"log_data": log_data,
+				"log_id": log_id
+			})
 			
 		self.write({
 			"success": True,

@@ -31,7 +31,9 @@ import {
   GetLatestMonthlyBillRequest,
   GetLatestMonthlyBillResponse,
   GetLatestProjectDeploymentRequest,
-  GetLatestProjectDeploymentResponse, GetLogContentsRequest, GetLogContentsResponse,
+  GetLatestProjectDeploymentResponse,
+  GetProjectExecutionLogsPageRequest,
+  GetProjectExecutionLogsPageResponse,
   GetPaymentMethodsRequest,
   GetPaymentMethodsResponse,
   GetProjectConfigRequest,
@@ -81,7 +83,9 @@ import {
   StashStateLogRequest,
   StashStateLogResponse,
   UpdateEnvironmentVariablesRequest,
-  UpdateEnvironmentVariablesResponse
+  UpdateEnvironmentVariablesResponse,
+  GetProjectExecutionLogObjectsResponse,
+  GetProjectExecutionLogObjectsRequest
 } from '@/types/api-types';
 import { API_ENDPOINT, ApiConfigMap } from '@/constants/api-constants';
 
@@ -156,10 +160,14 @@ export class RefineryApi implements RefineryApiTypeMap {
   [API_ENDPOINT.GetProjectExecutions] = makeApiClient<GetProjectExecutionsRequest, GetProjectExecutionsResponse>(
     API_ENDPOINT.GetProjectExecutions
   );
-  [API_ENDPOINT.GetLogContents] = makeApiClient<
-    GetLogContentsRequest,
-    GetLogContentsResponse
-    >(API_ENDPOINT.GetLogContents);
+  [API_ENDPOINT.GetProjectExecutionLogsPage] = makeApiClient<
+    GetProjectExecutionLogsPageRequest,
+    GetProjectExecutionLogsPageResponse
+  >(API_ENDPOINT.GetProjectExecutionLogsPage);
+  [API_ENDPOINT.GetProjectExecutionLogObjects] = makeApiClient<
+    GetProjectExecutionLogObjectsRequest,
+    GetProjectExecutionLogObjectsResponse
+  >(API_ENDPOINT.GetProjectExecutionLogObjects);
   [API_ENDPOINT.GetSavedProject] = makeApiClient<GetSavedProjectRequest, GetSavedProjectResponse>(
     API_ENDPOINT.GetSavedProject
   );
