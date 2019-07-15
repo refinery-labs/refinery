@@ -774,6 +774,7 @@ class TaskSpawner(object):
 
 		@staticmethod
 		def _get_block_executions( credentials, project_id, execution_pipeline_id, arn, oldest_timestamp ):
+			project_id = re.sub( REGEX_WHITELISTS[ "project_id" ], "", project_id )
 			timestamp_datetime = datetime.datetime.fromtimestamp( oldest_timestamp )
 
 			query_template = """
@@ -973,33 +974,6 @@ class TaskSpawner(object):
 				})
 
 			return final_return_format
-			
-
-		@run_on_executor
-		def load_project_id_log_table_partitions( self, credentials, project_id ):
-			return TaskSpawner._load_project_id_log_table_partitions(
-				credentials,
-				project_id
-			)
-
-		@staticmethod
-		def _load_project_id_log_table_partitions( credentials, project_id ):
-			project_id = re.sub( REGEX_WHITELISTS[ "project_id" ], "", project_id )
-			query_template = "MSCK REPAIR TABLE {{REPLACE_ME_PROJECT_TABLE_NAME}};"
-
-			# Replace with the formatted Athena table name
-			table_name = "PRJ_" + project_id.replace( "-", "_" )
-			query = query_template.replace(
-				"{{REPLACE_ME_PROJECT_TABLE_NAME}}",
-				table_name
-			)
-
-			# Perform the table creation query
-			query_results = TaskSpawner._perform_athena_query(
-				credentials,
-				query,
-				False
-			)
 
 		@run_on_executor
 		def create_project_id_log_table( self, credentials, project_id ):
@@ -1069,6 +1043,14 @@ class TaskSpawner(object):
 				query,
 				False
 			)
+			
+		@run_on_executor
+		def perform_athena_query( self, credentials, query, return_results ):
+			return TaskSpawner._perform_athena_query(
+				credentials,
+				query,
+				return_results
+			)
 
 		@staticmethod
 		def _perform_athena_query( credentials, query, return_results ):
@@ -1078,8 +1060,6 @@ class TaskSpawner(object):
 			)
 
 			output_base_path = "s3://refinery-lambda-logging-" + credentials[ "s3_bucket_suffix" ] + "/athena/"
-
-			logit( "Starting query execution..." )
 
 			# Start the query
 			query_start_response = athena_client.start_query_execution(
@@ -1142,8 +1122,6 @@ class TaskSpawner(object):
 
 				if max_counter <= 0:
 					break
-				
-			logit( "Athena query completed." )
 
 			s3_object_location = query_status_results[ "QueryExecutions" ][0][ "ResultConfiguration" ][ "OutputLocation" ]
 
@@ -4190,36 +4168,55 @@ class TaskSpawner(object):
 			)
 		
 		@run_on_executor
-		def get_s3_list_from_prefix( self, credentials, s3_bucket, s3_prefix ):
+		def get_s3_list_from_prefix( self, credentials, s3_bucket, s3_prefix, continuation_token, start_after ):
 			s3_client = get_aws_client(
 				"s3",
 				credentials,
 			)
+			
+			s3_options = {
+				"Bucket": s3_bucket,
+				"Prefix": s3_prefix,
+				"Delimiter": "/",
+				"MaxKeys": 1000,
+			}
+			
+			if continuation_token:
+				s3_options[ "ContinuationToken" ] = continuation_token
+				
+			if start_after:
+				s3_options[ "StartAfter" ] = start_after
 
 			object_list_response = s3_client.list_objects_v2(
-				Bucket=s3_bucket,
-				Prefix=s3_prefix,
-				Delimiter="/",
-				MaxKeys=1000
+				**s3_options
 			)
 
 			common_prefixes = []
 			
 			# Handle the case of no prefixs (no logs written yet)
 			if not ( "CommonPrefixes" in object_list_response ):
-				return []
+				return {
+					"common_prefixes": [],
+					"continuation_token": False
+				}
 
 			for result in object_list_response[ "CommonPrefixes" ]:
 				common_prefixes.append(
 					result[ "Prefix" ]
 				)
+				
+			if "NextContinuationToken" in object_list_response:
+				continuation_token = object_list_response[ "NextContinuationToken" ]
 
 			# Sort list of prefixs to keep then canonicalized
 			# for the hash key used to determine if we need to
 			# re-partition the Athena table.
 			common_prefixes.sort()
 
-			return common_prefixes
+			return {
+				"common_prefixes": common_prefixes,
+				"continuation_token": continuation_token
+			}
 
 		@staticmethod
 		def get_all_s3_paths( credentials, s3_bucket, prefix, max_results, **kwargs ):
@@ -7223,44 +7220,131 @@ def get_cloudflare_keys():
 		time.time() + public_keys_update_interval,
 		get_cloudflare_keys
 	)
-
-LAST_TABLE_PARTITION_REFRESH_TABLE = ExpiringDict(
-	max_len=( 1000 * 10 ),
-	max_age_seconds=( 60 * 6 )
-)
-
+	
 @gen.coroutine
-def is_partition_refresh_needed( credentials, project_id ):
-	global LAST_TABLE_PARTITION_REFRESH_TABLE
+def load_further_partitions( credentials, project_id, new_shards_list ):
+	project_id = re.sub( REGEX_WHITELISTS[ "project_id" ], "", project_id )
 	
-	date_shard_prefix = project_id + "/dt="
-	date_shard_prefix += datetime.datetime.now().strftime( "%Y-%m-%d-" )
-
-	# Get list of shards by doing an S3 prefix grouping query
-	shard_list = yield local_tasks.get_s3_list_from_prefix(
+	query_template = "ALTER TABLE PRJ_{{PROJECT_ID_REPLACE_ME}} ADD IF NOT EXISTS\n"
+	
+	query = query_template.replace(
+		"{{PROJECT_ID_REPLACE_ME}}",
+		project_id.replace(
+			"-",
+			"_"
+		)
+	)
+	
+	for new_shard in new_shards_list:
+		query += "PARTITION (dt = '" + new_shard.replace( "dt=", "" ) + "') "
+		query += "LOCATION 's3://" + credentials[ "logs_bucket" ] + "/"
+		query += project_id + "/" + new_shard + "/'\n"
+	
+	logit( "Updating previously un-indexed partitions... " )
+	yield local_tasks.perform_athena_query(
 		credentials,
-		"refinery-lambda-logging-" + credentials[ "s3_bucket_suffix" ],
-		date_shard_prefix
+		query,
+		False
 	)
-
-	# Hash the shards along with the project ID
-	hash_input = project_id + ":" + json.dumps(
-		shard_list,
-		sort_keys=True
+	
+@gen.coroutine
+def check_partitions( credentials, project_id ):
+	"""
+	Check all the partitions that are in the Athena project table and
+	check S3 to see if there are any partitions which need to be added to the
+	table. If there are then kick off a query to load the new partitions.
+	"""
+	project_id = re.sub( REGEX_WHITELISTS[ "project_id" ], "", project_id )
+	query_template = "SHOW PARTITIONS PRJ_{{PROJECT_ID_REPLACE_ME}}"
+	
+	query = query_template.replace(
+		"{{PROJECT_ID_REPLACE_ME}}",
+		project_id.replace(
+			"-",
+			"_"
+		)
 	)
-
-	hash_key = hashlib.sha256(
-		hash_input
-	).hexdigest()
 	
-	exists_already = ( hash_key in LAST_TABLE_PARTITION_REFRESH_TABLE )
+	logit( "Retrieving table partitions... " )
+	results = yield local_tasks.perform_athena_query(
+		credentials,
+		query,
+		True
+	)
 	
-	LAST_TABLE_PARTITION_REFRESH_TABLE[ hash_key ] = True
-
-	if exists_already == False:
-		logit( "Partition refresh is needed to get all log data." )
-
-	raise gen.Return( exists_already )
+	athena_known_shards = []
+	
+	for result in results:
+		for key, shard_string in result.iteritems():
+			if not ( shard_string in athena_known_shards ):
+				athena_known_shards.append(
+					shard_string
+				)
+				
+	athena_known_shards.sort()
+	
+	# S3 pulled shards
+	s3_pulled_shards = []
+	
+	continuation_token = False
+	
+	s3_prefix = project_id + "/"
+	
+	latest_athena_known_shard = False
+	if len( athena_known_shards ) > 0:
+		latest_athena_known_shard = s3_prefix + athena_known_shards[-1]
+		
+	while True:
+		s3_list_results = yield local_tasks.get_s3_list_from_prefix(
+			credentials,
+			credentials[ "logs_bucket" ],
+			s3_prefix,
+			continuation_token,
+			latest_athena_known_shard
+		)
+		
+		s3_shards = s3_list_results[ "common_prefixes" ]
+		continuation_token = s3_list_results[ "continuation_token" ]
+		
+		# Add all new shards to the list
+		for s3_shard in s3_shards:
+			if not ( s3_shard in s3_pulled_shards ):
+				s3_pulled_shards.append(
+					s3_shard
+				)
+				
+		# No further to go, we've exhausted the continuation token
+		if continuation_token == False:
+			break
+	
+	# The list of shards which have not been imported into Athena
+	new_s3_shards = []
+	
+	for s3_pulled_shard in s3_pulled_shards:
+		# Clean it up so it's just dt=2019-07-15-04-45
+		s3_pulled_shard = s3_pulled_shard.replace(
+			project_id,
+			""
+		)
+		s3_pulled_shard = s3_pulled_shard.replace(
+			"/",
+			""
+		)
+		
+		if not ( s3_pulled_shard in athena_known_shards ):
+			new_s3_shards.append(
+				s3_pulled_shard
+			)
+	
+	# If we have new partitions let's load them.
+	if len( new_s3_shards ) > 0:
+		yield load_further_partitions(
+			credentials,
+			project_id,
+			new_s3_shards
+		)
+	
+	raise gen.Return()
 
 class GetProjectExecutions( BaseHandler ):
 	@authenticated
@@ -7290,9 +7374,11 @@ class GetProjectExecutions( BaseHandler ):
 		validate_schema( self.json, schema )
 		
 		credentials = self.get_authenticated_user_cloud_configuration()
-		authenticated_user = self.get_authenticated_user()
 		
-		logit( "[" + authenticated_user.email + "] Retrieving execution ID(s) and their metadata..." )
+		yield check_partitions(
+			credentials,
+			self.json[ "project_id" ]
+		)
 		
 		# Ensure user is owner of the project
 		if not self.is_owner_of_project( self.json[ "project_id" ] ):
@@ -7302,18 +7388,6 @@ class GetProjectExecutions( BaseHandler ):
 				"msg": "You do not have priveleges to access that project's executions!",
 			})
 			raise gen.Return()
-
-		# Do a lightweight S3 pre-flight request to check if we need to do a heavy
-		# partition refresh in Athena.
-		partition_refresh_needed = yield is_partition_refresh_needed( credentials, self.json[ "project_id" ] )
-
-		# Only pull the partition when we've crossed the date shard line
-		if not partition_refresh_needed:
-			logit( "Loading latest partition data for project logs table..." )
-			yield local_tasks.load_project_id_log_table_partitions(
-				credentials,
-				self.json[ "project_id" ]
-			)
 		
 		logit( "Pulling the relevant logs for the project ID specified..." )
 
@@ -7418,18 +7492,6 @@ class GetProjectExecutionLogs( BaseHandler ):
 		logit( "Retrieving requested logs..." )
 		
 		credentials = self.get_authenticated_user_cloud_configuration()
-		
-		# Do a lightweight S3 pre-flight request to check if we need to do a heavy
-		# partition refresh in Athena.
-		partition_refresh_needed = yield is_partition_refresh_needed( credentials, self.json[ "project_id" ] )
-
-		# Only pull the partition when we've crossed the date shard line
-		if not partition_refresh_needed:
-			logit( "Loading latest partition data for project logs table..." )
-			yield local_tasks.load_project_id_log_table_partitions(
-				credentials,
-				self.json[ "project_id" ]
-			)
 
 		results = yield local_tasks.get_block_executions(
 			credentials,
@@ -7558,39 +7620,52 @@ class GetProjectExecutionLogObjects( BaseHandler ):
 		schema = {
 			"type": "object",
 			"properties": {
-				"s3_keys": {
+				"logs_to_fetch": {
 					"type": "array",
 					"items": {
-						"type": "string"
+						"type": "object",
+						"properties": {
+							"s3_key": {
+								"type": "string"
+							},
+							"log_id": {
+								"type": "string"
+							}
+						},
+						"required": ["s3_key", "log_id"]
 					},
 					"minItems": 1,
 					"maxItems": 50
 				}
 			},
 			"required": [
-				"s3_keys"
+				"logs_to_fetch"
 			]
 		}
-		
+
 		validate_schema( self.json, schema )
-		
+
 		logit( "Retrieving requested log files..." )
-		
+
 		credentials = self.get_authenticated_user_cloud_configuration()
-		
+
 		results_list = []
-		
-		for s3_key in self.json[ "s3_keys" ]:
+
+		for log_to_fetch in self.json[ "logs_to_fetch" ]:
+			s3_key = log_to_fetch[ "s3_key" ]
+			log_id = log_to_fetch[ "log_id" ]
+
 			log_data = yield local_tasks.get_json_from_s3(
 				credentials,
 				credentials[ "logs_bucket" ],
 				s3_key
 			)
-			
-			results_list.append(
-				log_data
-			)
-			
+
+			results_list.append({
+				"log_data": log_data,
+				"log_id": log_id
+			})
+
 		self.write({
 			"success": True,
 			"result": {
