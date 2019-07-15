@@ -7314,6 +7314,102 @@ def is_partition_refresh_needed( credentials, project_id ):
 		logit( "Partition refresh is needed to get all log data." )
 
 	raise gen.Return( exists_already )
+	
+def get_five_minute_dt_from_dt( input_datetime ):
+	round_to = ( 60 * 5 )
+	
+	seconds = ( input_datetime.replace( tzinfo=None ) - input_datetime.min ).seconds
+	rounding = (
+					   seconds + round_to / 2
+			   ) // round_to * round_to
+	nearest_datetime = input_datetime + datetime.timedelta( 0, rounding - seconds, - input_datetime.microsecond )
+	return nearest_datetime
+	
+def dt_to_shard( input_dt ):
+	return input_dt.strftime( "%Y-%m-%d-%H-%M" )
+	
+@gen.coroutine
+def get_database_cached_shard_data( starting_dt, ending_dt ):
+	return []
+	
+@gen.coroutine
+def get_project_execution_logs( credentials, project_id, oldest_timestamp ):
+	# Grab a shard dt ten minutes in the future just to make sure
+	# we've captured everything appropriately
+	newest_shard_dt = get_five_minute_dt_from_dt(
+		datetime.datetime.now() + datetime.timedelta(minutes = 10)
+	)
+	
+	# Shard dt that we can be sure is actually done and the results
+	# pulled from S3 can be cached in the database.
+	assured_cachable_dt = get_five_minute_dt_from_dt(
+		datetime.datetime.now() - datetime.timedelta(minutes = 15)
+	)
+	
+	# Generate the shard dt for the oldest_timestamp
+	oldest_shard_dt = get_five_minute_dt_from_dt(
+		datetime.datetime.fromtimestamp(
+			oldest_timestamp
+		)
+	)
+	
+	# Generate all of the day-level shards between the newest_shard_dt
+	# and the oldest_shard_dt.
+	all_day_level_dt_shards = []
+	dt_pointer = oldest_shard_dt
+	while dt_pointer < newest_shard_dt:
+		dt_pointer = dt_pointer + datetime.timedelta(minutes = 5)
+		pointer_shard_string = dt_pointer.strftime(
+			"%Y-%m-%d-"
+		)
+		
+		if not ( pointer_shard_string in all_day_level_dt_shards ):
+			all_day_level_dt_shards.append(
+				pointer_shard_string
+			)
+	
+	logit( all_day_level_dt_shards )
+	
+	raise gen.Return()
+	
+	# Pull all of the shards between the newest_shard_dt
+	# and the oldest_shard_dt.
+	local_tasks.get_s3_pipeline_execution_logs(
+		credentials,
+		project_id + "/dt=",
+		max_results
+	)
+	
+	"""
+	# Generate all the shards in between the two
+	all_dt_shards = []
+	
+	# Need to add this as the oldest shard
+	all_dt_shards.append(
+		dt_to_shard(
+			oldest_shard_dt
+		)
+	)
+	
+	# Add everything in between
+	dt_pointer = oldest_shard_dt
+	while dt_pointer < newest_shard_dt:
+		dt_pointer = dt_pointer + datetime.timedelta(minutes = 5)
+		pointer_shard_string = dt_to_shard(
+			dt_pointer
+		)
+		all_dt_shards.append(
+			pointer_shard_string
+		)
+	
+	logit( all_dt_shards )
+	
+	print( "Future five minute shard: " )
+	print( dt_to_shard( newest_shard_dt ) )
+	
+	print( "Oldest timestamp shard: " )
+	print( dt_to_shard( oldest_shard_dt ) )
+	"""
 
 class GetProjectExecutions( BaseHandler ):
 	@authenticated
@@ -7355,6 +7451,25 @@ class GetProjectExecutions( BaseHandler ):
 				"msg": "You do not have priveleges to access that project's executions!",
 			})
 			raise gen.Return()
+			
+		
+		yield get_project_execution_logs(
+			credentials,
+			self.json[ "project_id" ],
+			self.json[ "oldest_timestamp" ]
+		)
+		raise gen.Return()
+
+		"""
+		results = yield local_tasks.get_s3_list_from_prefix(
+			credentials,
+			credentials[ "logs_bucket" ],
+			self.json[ "project_id" ] + "/"
+		)
+		
+		logit( results )
+		raise gen.Return()
+		"""
 
 		# Do a lightweight S3 pre-flight request to check if we need to do a heavy
 		# partition refresh in Athena.
