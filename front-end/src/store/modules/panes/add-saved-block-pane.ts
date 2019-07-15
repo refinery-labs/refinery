@@ -3,13 +3,20 @@ import store from '@/store/index';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState } from '@/store/store-types';
-import { ProjectViewActions } from '@/constants/store-constants';
+import { ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { searchSavedBlocks } from '@/store/fetchers/api-helpers';
 import { SavedBlockSearchResult, SharedBlockPublishStatus } from '@/types/api-types';
 import { AddBlockArguments } from '@/store/modules/project-view';
 import { ChosenBlock } from '@/types/add-block-types';
-import { BlockEnvironmentVariable, LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
+import {
+  BlockEnvironmentVariable,
+  LambdaWorkflowState,
+  ProjectConfig,
+  ProjectEnvironmentVariableList,
+  WorkflowStateType
+} from '@/types/graph';
+import { AddSavedBlockEnvironmentVariable } from '@/types/saved-blocks-types';
 
 const storeName = 'addSavedBlockPane';
 
@@ -65,16 +72,17 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
 
   public chosenBlock: ChosenBlock | null = initialState.chosenBlock;
 
-  get environmentVariableEntries() {
+  get environmentVariableEntries(): AddSavedBlockEnvironmentVariable[] | null {
     if (!this.chosenBlock || this.chosenBlock.block.type !== WorkflowStateType.LAMBDA) {
       return null;
     }
 
     const block = this.chosenBlock.block.block_object as LambdaWorkflowState;
 
-    const envVariables = Object.values(block.environment_variables);
+    const envVariables = block.environment_variables;
+    const envVariablesIds = Object.keys(envVariables);
     // Check that any env variables need to be set, else do nothing.
-    if (envVariables.length === 0 || !envVariables.some(env => env.required)) {
+    if (envVariablesIds.length === 0 || !envVariablesIds.some(id => envVariables[id].required)) {
       return null;
     }
 
@@ -93,10 +101,11 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
       return value !== '';
     };
 
-    return envVariables.map(env => ({
-      ...env,
-      valid: isVariableValid(env),
-      value: this.environmentVariablesInputs[env.name]
+    return envVariablesIds.map(id => ({
+      ...envVariables[id],
+      id: id,
+      valid: isVariableValid(envVariables[id]),
+      value: this.environmentVariablesInputs[envVariables[id].name]
     }));
   }
 
@@ -203,6 +212,30 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
   }
 
   @Action
+  public async writeEnvironmentVariablesToProject() {
+    if (!this.context.rootState.project.openedProjectConfig || !this.environmentVariableEntries) {
+      return;
+    }
+
+    const openedProjectConfig = this.context.rootState.project.openedProjectConfig;
+    const projectConfig: ProjectConfig = {
+      ...openedProjectConfig,
+      environment_variables: this.environmentVariableEntries.reduce(
+        (outVars: ProjectEnvironmentVariableList, envVariable) => {
+          outVars[envVariable.id] = {
+            value: envVariable.value !== undefined ? envVariable.value : '',
+            timestamp: Date.now()
+          };
+          return outVars;
+        },
+        {}
+      )
+    };
+
+    this.context.commit(`project/${ProjectViewMutators.setOpenedProjectConfig}`, projectConfig, { root: true });
+  }
+
+  @Action
   public async addChosenBlock() {
     const chosenBlock = this.chosenBlock;
 
@@ -211,7 +244,7 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
       return;
     }
 
-    const match = chosenBlock.block;
+    let match = chosenBlock.block;
 
     const addBlockArgs: AddBlockArguments = {
       rawBlockType: match.type,
@@ -228,6 +261,11 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
     };
 
     await this.context.dispatch(`project/${ProjectViewActions.addIndividualBlock}`, addBlockArgs, { root: true });
+
+    if (match.type === WorkflowStateType.LAMBDA) {
+      await this.writeEnvironmentVariablesToProject();
+    }
+
     this.resetState();
   }
 

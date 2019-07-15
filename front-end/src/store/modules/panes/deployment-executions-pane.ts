@@ -12,7 +12,6 @@ import {
   BlockExecutionGroup,
   BlockExecutionLog,
   BlockExecutionLogContentsByLogId,
-  BlockExecutionLogMetadataByLogId,
   BlockExecutionLogsForBlockId,
   BlockExecutionPagesByBlockId,
   BlockExecutionTotalsByBlockId,
@@ -435,6 +434,19 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       context.commit(DeploymentExecutionsMutators.setSelectedExecutionGroup, executionId);
 
       context.commit(DeploymentExecutionsMutators.setIsBusy, true);
+
+      const selectedNode = context.rootState.viewBlock.selectedNode;
+
+      // Select an element if we don't have something selected already.
+      if (!selectedNode) {
+        const selectedExecution: ProjectExecution =
+          context.getters[DeploymentExecutionsGetters.getSelectedProjectExecution];
+        await context.dispatch(
+          `deployment/${DeploymentViewActions.selectNode}`,
+          Object.keys(selectedExecution.blockExecutionGroupByBlockId)[0],
+          { root: true }
+        );
+      }
 
       await context.dispatch(DeploymentExecutionsActions.fetchLogsForSelectedBlock);
 

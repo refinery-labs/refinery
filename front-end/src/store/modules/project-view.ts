@@ -781,7 +781,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
           content: 'Please fix or discard changes to block before selecting another resource.',
           variant: ToastVariant.warning
         });
-        return;
+        throw new Error('Invalid block state detected, throwing to prevent further log from firing.');
       }
 
       // If a block is "dirty", we need to save it before continuing.
@@ -818,7 +818,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      await context.dispatch(ProjectViewActions.saveSelectedResource);
+      try {
+        await context.dispatch(ProjectViewActions.saveSelectedResource);
+      } catch (e) {
+        // Not possible to continue because the project is in an invalid state.
+        return;
+      }
 
       context.commit(ProjectViewMutators.selectedResource, null);
       await context.dispatch(ProjectViewActions.updateAvailableTransitions);
@@ -836,7 +841,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      await context.dispatch(ProjectViewActions.saveSelectedResource);
+      try {
+        await context.dispatch(ProjectViewActions.saveSelectedResource);
+      } catch (e) {
+        // Not possible to continue because the project is in an invalid state.
+        return;
+      }
 
       // TODO: Is this necessary?
       await context.dispatch(ProjectViewActions.resetPanelStates);
@@ -865,7 +875,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      await context.dispatch(ProjectViewActions.saveSelectedResource);
+      try {
+        await context.dispatch(ProjectViewActions.saveSelectedResource);
+      } catch (e) {
+        // Not possible to continue because the project is in an invalid state.
+        return;
+      }
 
       // I don't have a good answer for this, but my best guess is that
       // just having a reset pane state call for edge and node selection is

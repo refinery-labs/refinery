@@ -125,7 +125,7 @@ class EnvironmentVariablesEditorStore extends VuexModule<ThisType<EnvironmentVar
 
       return {
         id: key,
-        value: value || '',
+        value: value !== undefined && value !== null ? value : '',
         name: currentVariable.name,
         description: currentVariable.description,
         required: currentVariable.required

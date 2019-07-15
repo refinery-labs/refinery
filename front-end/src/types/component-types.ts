@@ -86,3 +86,10 @@ export interface EditBlockPaneProps {
   selectedNodeMetadata: SavedBlockStatusCheckResult | null;
   readOnly: boolean;
 }
+
+export interface ScheduleExpressionInputProps {
+  scheduleExpression: string | null;
+  scheduleExpressionValid: boolean;
+  readOnly: boolean;
+  setScheduleExpression: (name: string) => void;
+}

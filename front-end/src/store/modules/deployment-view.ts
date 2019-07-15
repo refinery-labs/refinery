@@ -239,8 +239,12 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
     },
 
     async [DeploymentViewActions.clearSelection](context) {
-      // TODO: Make this a mutator?
       context.commit(DeploymentViewMutators.selectedResource, null);
+
+      // Close the selected pane pane
+      await context.dispatch(DeploymentViewActions.closePane, PANE_POSITION.right);
+
+      await context.dispatch(`viewBlock/${ViewBlockActions.selectCurrentlySelectedProjectNode}`, null, { root: true });
     },
     async [DeploymentViewActions.selectNode](context, nodeId: string) {
       if (!context.state.openedDeployment) {
@@ -292,6 +296,8 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
       }
 
       context.commit(DeploymentViewMutators.selectedResource, edges[0].id);
+
+      await context.dispatch(`viewBlock/${ViewBlockActions.selectCurrentlySelectedProjectNode}`, null, { root: true });
 
       await context.dispatch(DeploymentViewActions.openRightSidebarPane, SIDEBAR_PANE.viewDeployedTransition);
 
