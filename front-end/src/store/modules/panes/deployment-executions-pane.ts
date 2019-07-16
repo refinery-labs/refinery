@@ -435,18 +435,23 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       context.commit(DeploymentExecutionsMutators.setIsBusy, true);
 
-      const selectedNode = context.rootState.viewBlock.selectedNode;
+      const selectedExecution: ProjectExecution =
+        context.getters[DeploymentExecutionsGetters.getSelectedProjectExecution];
 
-      // Select an element if we don't have something selected already.
-      if (!selectedNode) {
-        const selectedExecution: ProjectExecution =
-          context.getters[DeploymentExecutionsGetters.getSelectedProjectExecution];
-        await context.dispatch(
-          `deployment/${DeploymentViewActions.selectNode}`,
-          Object.keys(selectedExecution.blockExecutionGroupByBlockId)[0],
-          { root: true }
-        );
-      }
+      const blocks = selectedExecution.blockExecutionGroupByBlockId;
+      const blockIds = Object.keys(selectedExecution.blockExecutionGroupByBlockId);
+
+      // Find the block with the earliest timestamp so that we select the "first" execution
+      const lowestTimestampBlock = blockIds.reduce((lowestId, id) => {
+        // Compare timestamps and if the current block's timestamp is the lowest, use that.
+        if (blocks[id].timestamp < blocks[lowestId].timestamp) {
+          return id;
+        }
+
+        return lowestId;
+      }, blockIds[0]);
+
+      await context.dispatch(`deployment/${DeploymentViewActions.selectNode}`, lowestTimestampBlock, { root: true });
 
       await context.dispatch(DeploymentExecutionsActions.fetchLogsForSelectedBlock);
 
