@@ -236,6 +236,7 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
     this.setBusyPublishing(false);
 
     this.closeModal();
+    this.resetState();
   }
 }
 

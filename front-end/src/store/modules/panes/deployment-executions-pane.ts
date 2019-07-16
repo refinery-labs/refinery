@@ -21,7 +21,7 @@ import {
 import { sortExecutions } from '@/utils/project-execution-utils';
 import { STYLE_CLASSES } from '@/lib/cytoscape-styles';
 import { deepJSONCopy } from '@/lib/general-utils';
-import { autoRefreshJob, waitUntil } from '@/utils/async-utils';
+import { autoRefreshJob, timeout, waitUntil } from '@/utils/async-utils';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { DeploymentViewActions } from '@/constants/store-constants';
 import { ExecutionLogMetadata, ExecutionStatusType } from '@/types/execution-logs-types';
@@ -64,6 +64,7 @@ export enum DeploymentExecutionsMutators {
 export enum DeploymentExecutionsActions {
   activatePane = 'activatePane',
   getExecutionsForOpenedDeployment = 'getExecutionsForOpenedDeployment',
+  forceSelectExecutionGroup = 'forceSelectExecutionGroup',
   openExecutionGroup = 'openExecutionGroup',
   fetchLogsForSelectedBlock = 'fetchLogsForSelectedBlock',
   selectLogByLogId = 'selectLogByLogId',
@@ -427,6 +428,25 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       }
 
       context.commit(statusMessageType, false);
+    },
+
+    async [DeploymentExecutionsActions.forceSelectExecutionGroup](context, executionId: string) {
+      if (!context.state.projectExecutions) {
+        console.error('Missing project executions to check against');
+        return;
+      }
+
+      for (let i = 0; i < 150 && !context.state.projectExecutions[executionId]; i++) {
+        await timeout(200);
+      }
+
+      if (!context.state.projectExecutions[executionId]) {
+        console.error('Could not retrieve execution group in time to follow');
+        return;
+      }
+
+      // Ignore awaiting this because otherwise we block while the logs are fetched
+      context.dispatch(DeploymentExecutionsActions.openExecutionGroup, executionId);
     },
     async [DeploymentExecutionsActions.openExecutionGroup](context, executionId: string) {
       context.commit(DeploymentExecutionsMutators.resetLogState);

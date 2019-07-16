@@ -3,6 +3,8 @@ import * as R from 'ramda';
 import {
   DeleteDeploymentsInProjectRequest,
   DeleteDeploymentsInProjectResponse,
+  DeployDiagramRequest,
+  DeployDiagramResponse,
   GetAuthenticationStatusRequest,
   GetAuthenticationStatusResponse,
   GetBuildStatusRequest,
@@ -44,8 +46,9 @@ import { convertExecutionResponseToProjectExecutionGroup } from '@/utils/project
 import { RefineryProject, SupportedLanguage, WorkflowState } from '@/types/graph';
 import { ProductionWorkflowState } from '@/types/production-workflow-types';
 import { blockTypeToDefaultStateMapping, DEFAULT_PROJECT_CONFIG } from '@/constants/project-editor-constants';
-import { unwrapProjectJson } from '@/utils/project-helpers';
+import { unwrapProjectJson, wrapJson } from '@/utils/project-helpers';
 import { ExecutionLogContents, ExecutionLogMetadata } from '@/types/execution-logs-types';
+import { DeployProjectParams, DeployProjectResult } from '@/types/project-editor-types';
 
 export interface libraryBuildArguments {
   language: SupportedLanguage;
@@ -362,4 +365,40 @@ export async function getSavedBlockStatus(block: WorkflowState) {
   }
 
   return response.results[0];
+}
+
+export async function deployProject({ project, projectConfig }: DeployProjectParams): Promise<DeployProjectResult> {
+  if (!project || !projectConfig) {
+    console.error('Unable to deploy project, missing data');
+    throw new Error('Unable to deploy project, missing data');
+  }
+
+  const projectJson = wrapJson(project);
+
+  if (!projectJson) {
+    throw new Error('Unable to send project to server.');
+  }
+
+  const response = await makeApiRequest<DeployDiagramRequest, DeployDiagramResponse>(API_ENDPOINT.DeployDiagram, {
+    diagram_data: projectJson,
+    project_config: projectConfig,
+    project_id: project.project_id,
+    project_name: project.name
+  });
+
+  if (!response || !response.success) {
+    throw new Error('Unable to create new deployment.');
+  }
+
+  if (!response.result.deployment_success) {
+    const exceptions = response.result.exceptions;
+
+    if (!exceptions || exceptions.length === 0) {
+      throw new Error('Unable to create new deployment, unknown failure cause');
+    }
+
+    return exceptions;
+  }
+
+  return null;
 }

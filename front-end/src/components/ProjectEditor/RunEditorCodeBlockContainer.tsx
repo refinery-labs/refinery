@@ -47,7 +47,7 @@ export default class RunEditorCodeBlockContainer extends Vue {
     if (!this.selectedNode || this.selectedNode.type !== WorkflowStateType.LAMBDA) {
       return (
         <div class="text-align--center width--100percent">
-          <span class="m-2">Select a Code Block to execute code.</span>
+          <span class="m-2 padding--normal d-block">Select a Code Block to execute code.</span>
         </div>
       );
     }

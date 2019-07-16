@@ -39,7 +39,7 @@ export default class RunDeployedCodeBlockContainer extends Vue {
     if (!selectedBlock || selectedBlock.type !== WorkflowStateType.LAMBDA || !selectedBlock.arn) {
       return (
         <div class="text-align--center width--100percent">
-          <span class="m-2">Select a Code Block to execute code.</span>
+          <h4 class="m-2 padding--normal d-block">Select a Code Block to execute code.</h4>
         </div>
       );
     }

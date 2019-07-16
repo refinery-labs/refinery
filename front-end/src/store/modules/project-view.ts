@@ -61,7 +61,7 @@ import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
 import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
-import { openProject, teardownProject } from '@/store/fetchers/api-helpers';
+import { deployProject, openProject, teardownProject } from '@/store/fetchers/api-helpers';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
 import { createNewBlock, createNewTransition } from '@/utils/block-utils';
 import { saveEditBlockToProject } from '@/utils/store-utils';
@@ -338,7 +338,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     [ProjectViewMutators.setLatestDeploymentState](state, response: GetLatestProjectDeploymentResponse | null) {
       state.latestDeploymentState = response;
     },
-    [ProjectViewMutators.setDeploymentError](state, error: string | null) {
+    [ProjectViewMutators.setDeploymentError](state, error) {
       state.deploymentError = error;
     },
 
@@ -640,7 +640,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         }
       }
 
-      context.commit(ProjectViewMutators.setDeploymentError, null);
       context.commit(ProjectViewMutators.isDeployingProject, true);
 
       const openedProject = context.state.openedProject as RefineryProject;
@@ -658,34 +657,31 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
           // Reset the state
           await context.dispatch(`deployment/${DeploymentViewActions.resetDeploymentState}`, null, { root: true });
         } catch (e) {
-          console.log(e);
+          console.error(e);
           await handleDeploymentError('Unable to delete existing deployment.');
           return;
         }
       }
 
-      const projectJson = wrapJson(openedProject);
+      try {
+        const deploymentExceptions = await deployProject({
+          project: openedProject,
+          projectConfig: context.state.openedProjectConfig
+        });
 
-      if (!projectJson) {
-        return await handleDeploymentError('Unable to send project to server.');
-      }
-
-      const createDeploymentResponse = await makeApiRequest<DeployDiagramRequest, DeployDiagramResponse>(
-        API_ENDPOINT.DeployDiagram,
-        {
-          diagram_data: projectJson,
-          project_config: context.state.openedProjectConfig,
-          project_id: context.state.openedProject.project_id,
-          project_name: context.state.openedProject.name
+        if (deploymentExceptions) {
+          context.commit(ProjectViewMutators.setDeploymentError, deploymentExceptions);
+          return;
         }
-      );
-
-      if (!createDeploymentResponse || !createDeploymentResponse.success) {
-        return await handleDeploymentError('Unable to create new deployment.');
+      } catch (e) {
+        return await handleDeploymentError(e.message);
+      } finally {
+        context.commit(ProjectViewMutators.isDeployingProject, false);
       }
 
-      context.commit(ProjectViewMutators.isDeployingProject, false);
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
+
+      context.commit(ProjectViewMutators.setDeploymentError, null);
 
       // Updates the latest deployment state so the "Deployment" tab is kept updated.
       await context.dispatch(ProjectViewActions.fetchLatestDeploymentState);
@@ -748,11 +744,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     async [ProjectViewActions.showDeploymentPane](context) {
       if (!context.state.openedProject || !context.getters[ProjectViewGetters.canDeployProject]) {
         console.error('Tried to show deployment pane with missing state');
-        context.commit(ProjectViewMutators.setDeploymentError, 'Error: Invalid state for Deployment');
         return;
       }
-
-      context.commit(ProjectViewMutators.setDeploymentError, null);
 
       await context.dispatch(ProjectViewActions.fetchLatestDeploymentState);
 

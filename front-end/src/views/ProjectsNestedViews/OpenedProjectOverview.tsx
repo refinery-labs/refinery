@@ -5,7 +5,7 @@ import { Getter, namespace } from 'vuex-class';
 import SidebarNav from '@/components/SidebarNav';
 import { paneTypeToNameLookup, SidebarMenuItems } from '@/menu';
 import ProjectEditorLeftPaneContainer from '@/containers/ProjectEditorLeftPaneContainer';
-import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
+import { DeployProjectResult, PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import EditorPaneWrapper from '@/components/EditorPaneWrapper';
 import { paneToContainerMapping } from '@/constants/project-editor-constants';
 import { UserInterfaceState } from '@/store/store-types';

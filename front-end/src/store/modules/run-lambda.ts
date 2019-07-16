@@ -1,4 +1,5 @@
 import { Module } from 'vuex';
+import uuid from 'uuid/v4';
 import { RootState } from '../store-types';
 import {
   RunLambdaRequest,
@@ -16,6 +17,7 @@ import { checkBuildStatus, libraryBuildArguments } from '@/store/fetchers/api-he
 import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
+import { DeploymentExecutionsActions } from '@/store/modules/panes/deployment-executions-pane';
 
 export interface InputDataCache {
   [key: string]: string;
@@ -206,7 +208,8 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
 
       const request: RunLambdaRequest = {
         input_data: inputData === undefined || inputData === null ? '' : inputData,
-        arn: block.arn
+        arn: block.arn,
+        execution_id: uuid()
       };
 
       await context.dispatch(RunLambdaActions.makeDeployedLambdaRequest, request);
@@ -230,8 +233,17 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         return;
       }
 
-      context.commit(RunLambdaMutators.setLambdaRunningStatus, false);
       context.commit(RunLambdaMutators.setDeployedLambdaRunResult, runLambdaResult.result);
+
+      if (request.execution_id) {
+        await context.dispatch(
+          `deploymentExecutions/${DeploymentExecutionsActions.forceSelectExecutionGroup}`,
+          request.execution_id,
+          { root: true }
+        );
+      }
+
+      context.commit(RunLambdaMutators.setLambdaRunningStatus, false);
     },
     async [RunLambdaActions.runSpecifiedEditorCodeBlock](context, config: RunTmpCodeBlockLambdaConfig) {
       if (!config || !config.codeBlock || !config.projectConfig) {

@@ -1,5 +1,6 @@
 import { VueConstructor } from 'vue';
 import { ProjectConfig, RefineryProject, SupportedLanguage } from '@/types/graph';
+import { DeploymentException } from '@/types/api-types';
 
 export enum SIDEBAR_PANE {
   // Project Editor
@@ -94,3 +95,10 @@ export const LanguageToLibraryRepoURLMap: LanguageToLibraryRepoURL = {
   [SupportedLanguage.GO1_12]: null,
   [SupportedLanguage.PHP7]: LanguageToBaseRepoURLMap[SupportedLanguage.PHP7] + '/packages/psr/'
 };
+
+export interface DeployProjectParams {
+  project: RefineryProject;
+  projectConfig: ProjectConfig;
+}
+
+export type DeployProjectResult = DeploymentException[] | null;
