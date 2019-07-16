@@ -62,6 +62,7 @@ from models.cached_billing_collections import CachedBillingCollection
 from models.cached_billing_items import CachedBillingItem
 from models.terraform_state_versions import TerraformStateVersion
 from models.state_logs import StateLog
+from models.cached_execution_logs_shard import CachedExecutionLogsShard
 
 from botocore.client import Config
 
@@ -947,6 +948,13 @@ class TaskSpawner(object):
 			execution_pipeline_id_dict = TaskSpawner._execution_log_query_results_to_pipeline_id_dict(
 				query_results
 			)
+			
+			return TaskSpawner._execution_pipeline_id_dict_to_frontend_format(
+				execution_pipeline_id_dict
+			)
+			
+		@staticmethod
+		def _execution_pipeline_id_dict_to_frontend_format( execution_pipeline_id_dict ):
 
 			final_return_format = []
 
@@ -7086,6 +7094,14 @@ class DeleteDeploymentsInProject( BaseHandler ):
 		self.dbsession.delete(deployment)
 		self.dbsession.commit()
 		
+		# Delete the cached shards in the database
+		self.dbsession.query(
+			CachedExecutionLogsShard
+		).filter(
+			CachedExecutionLogsShard.project_id==self.json[ "project_id" ]
+		).delete()
+		self.dbsession.commit()
+		
 		self.write({
 			"success": True
 		})
@@ -7248,7 +7264,7 @@ def load_further_partitions( credentials, project_id, new_shards_list ):
 	)
 	
 @gen.coroutine
-def check_partitions( credentials, project_id ):
+def update_athena_table_partitions( credentials, project_id ):
 	"""
 	Check all the partitions that are in the Athena project table and
 	check S3 to see if there are any partitions which need to be added to the
@@ -7345,6 +7361,291 @@ def check_partitions( credentials, project_id ):
 		)
 	
 	raise gen.Return()
+	
+def get_five_minute_dt_from_dt( input_datetime ):
+	round_to = ( 60 * 5 )
+	
+	seconds = ( input_datetime.replace( tzinfo=None ) - input_datetime.min ).seconds
+	rounding = (
+					   seconds + round_to / 2
+			   ) // round_to * round_to
+	nearest_datetime = input_datetime + datetime.timedelta( 0, rounding - seconds, - input_datetime.microsecond )
+	return nearest_datetime
+	
+def dt_to_shard( input_dt ):
+	return input_dt.strftime( "%Y-%m-%d-%H-%M" )
+	
+def get_execution_metadata_from_s3_key( aws_region, account_id, input_s3_key ):
+	# 08757409-4bc8-4a29-ade7-371b1a46f99e/dt=2019-07-15-18-00/e4e3571e-ab59-4790-8072-3049805301c3/SUCCESS~Untitled_Code_Block_RFNItzJNn2~3233e08a-baf0-4f8f-a4c2-ee2d3153f75b~1563213635
+	s3_key_parts = input_s3_key.split(
+		"/"
+	)
+	
+	log_file_name = s3_key_parts[-1]
+	log_file_name_parts = log_file_name.split( "~" )
+	
+	return_data = {
+		"arn": "arn:aws:lambda:" + aws_region + ":" + account_id + ":function:" + log_file_name_parts[1],
+		"project_id": s3_key_parts[0],
+		"dt": s3_key_parts[1].replace( "dt=", "" ),
+		"execution_pipeline_id": s3_key_parts[2],
+		"type": log_file_name_parts[0],
+		"function_name": log_file_name_parts[1],
+		"log_id": log_file_name_parts[2],
+		"timestamp": int( log_file_name_parts[3] ),
+		"count": "1"
+	}
+	
+	return return_data
+	
+@gen.coroutine
+def get_execution_stats_since_timestamp( credentials, project_id, oldest_timestamp ):
+	# Database session for pulling cached data
+	dbsession = DBSession()
+	
+	# Grab a shard dt ten minutes in the future just to make sure
+	# we've captured everything appropriately
+	newest_shard_dt = get_five_minute_dt_from_dt(
+		datetime.datetime.now() + datetime.timedelta(minutes = 5)
+	)
+	newest_shard_dt_shard = dt_to_shard( newest_shard_dt )
+	
+	# Shard dt that we can be sure is actually done and the results
+	# pulled from S3 can be cached in the database.
+	assured_cachable_dt = get_five_minute_dt_from_dt(
+		datetime.datetime.now() - datetime.timedelta(minutes = 5)
+	)
+	assured_cachable_dt_shard = dt_to_shard( assured_cachable_dt )
+	
+	# Generate the shard dt for the oldest_timestamp
+	oldest_shard_dt = get_five_minute_dt_from_dt(
+		datetime.datetime.fromtimestamp(
+			oldest_timestamp
+		)
+	)
+	oldest_shard_dt_shard = dt_to_shard( oldest_shard_dt )
+	
+	# Standard S3 prefix before date for all S3 shards
+	s3_prefix = project_id + "/dt="
+	
+	example_shard = s3_prefix + oldest_shard_dt_shard
+	
+	all_s3_shards = []
+	
+	common_prefixes = []
+	
+	continuation_token = False
+	
+	while True:
+		# List shards in the S3 bucket starting at the oldest available shard
+		# That's because S3 buckets will start at the oldest time and end at
+		# the latest time (due to inverse binary UTF-8 sort order)
+		s3_list_results = yield local_tasks.get_s3_list_from_prefix(
+			credentials,
+			credentials[ "logs_bucket" ],
+			s3_prefix,
+			continuation_token,
+			example_shard
+		)
+		
+		current_common_prefixes = s3_list_results[ "common_prefixes" ]
+		continuation_token = s3_list_results[ "continuation_token" ]
+		
+		# Add all new shards to the list
+		for common_prefix in current_common_prefixes:
+			if not ( common_prefix in common_prefixes ):
+				common_prefixes.append(
+					common_prefix
+				)
+				
+		# No further to go, we've exhausted the continuation token
+		if continuation_token == False:
+			break
+	
+	for shard_full_path in common_prefixes:
+		# Clean it up so it's just dt=2019-07-15-04-45
+		shard_full_path = shard_full_path.replace(
+			project_id,
+			""
+		)
+		shard_full_path = shard_full_path.replace(
+			"/",
+			""
+		)
+		
+		if not ( shard_full_path in all_s3_shards ):
+			all_s3_shards.append(
+				shard_full_path
+			)
+		
+	# Array of all of the metadata for each execution
+	"""
+	execution_log_results example:
+	[
+		{
+		    "arn": "arn:aws:lambda:us-west-2:532121572788:function:Untitled_Code_Block_RFNItzJNn2",
+		    "count": "1",
+		    "dt": "2019-07-15-13-35",
+		    "execution_pipeline_id": "46b0fdd3-266d-4c6f-af7c-79198a112e96",
+		    "function_name": "Untitled_Code_Block_RFNItzJNn2",
+		    "log_id": "22e4625e-46d1-401a-b935-bcde17f8b667",
+		    "project_id": "08757409-4bc8-4a29-ade7-371b1a46f99e",
+		    "timestamp": 1563197795,
+		    "type": "SUCCESS"
+		}
+		{
+		    "arn": "arn:aws:lambda:us-west-2:532121572788:function:Untitled_Code_Block_RFNItzJNn3",
+		    "count": "1",
+		    "dt": "2019-07-15-13-35",
+		    "execution_pipeline_id": "46b0fdd3-266d-4c6f-af7c-79198a112e96",
+		    "function_name": "Untitled_Code_Block_RFNItzJNn3",
+		    "log_id": "40b02027-c856-4d2b-bd63-c62f300944e5",
+		    "project_id": "08757409-4bc8-4a29-ade7-371b1a46f99e",
+		    "timestamp": 1563197795,
+		    "type": "SUCCESS"
+		}
+	]
+	"""
+	execution_log_results = []
+	
+	start_time = time.time()
+	
+	# Before we do the next step we can save ourselves a lot of time
+	# by pulling all of the cached shard data from the database.
+	# All of the remaining shards we can go and scan out of S3.
+	cached_execution_shards = dbsession.query( CachedExecutionLogsShard ).filter(
+		CachedExecutionLogsShard.project_id == project_id
+	).filter(
+		CachedExecutionLogsShard.date_shard.in_(
+			all_s3_shards
+		)
+	).all()
+	
+	print("--- Pulling shards from database: %s seconds ---" % (time.time() - start_time))
+	
+	# Take the list of cached_execution_shards and remove all of the
+	# cached results contained in it from the list of shards we need to
+	# go scan S3 for.
+	cached_execution_log_results = []
+	
+	logit( "Number of cached shards in the DB we can skip S3 scanning for: " + str( len( cached_execution_shards ) ) )
+	
+	for cached_execution_shard in cached_execution_shards:
+		cached_execution_shard_dict = cached_execution_shard.to_dict()
+		
+		# Add the cached shard data to the cached executions
+		cached_execution_log_results = cached_execution_log_results + cached_execution_shard_dict[ "shard_data" ]
+		
+		# Remove this from the shards to go scan since we already have it
+		all_s3_shards.remove( cached_execution_shard_dict[ "date_shard" ] )
+		
+	logit( "Number of un-cached shards in S3 we have to scan: " + str( len( all_s3_shards ) ) )
+	
+	for s3_shard in all_s3_shards:
+		full_shard = project_id + "/" + s3_shard
+		
+		start_time = time.time()
+		execution_logs = yield local_tasks.get_s3_pipeline_execution_logs(
+			credentials,
+			full_shard,
+			-1
+		)
+		print("--- Pulling keys from S3: %s seconds ---" % (time.time() - start_time))
+		
+		start_time = time.time()
+		for execution_log in execution_logs:
+			execution_log_results.append(
+				get_execution_metadata_from_s3_key(
+					credentials[ "region" ],
+					credentials[ "account_id" ],
+					execution_log
+				)
+			)
+		print("--- Parsing S3 keys: %s seconds ---" % (time.time() - start_time))
+			
+	# We now got over all the execution log results to see what can be cached. The way
+	# we do this is we go over each execution log result and we check if the "dt" shard
+	# is less than or equal to the time specified in the assured_cachable_dt. If it is,
+	# we than add it to our cachable_dict (format below) and at the end we store all of
+	# the results in the database so that we never have to pull those shards again.
+	"""
+	{
+		"{{CACHEABLE_DT_SHARD}}": [
+			{
+			    "arn": "arn:aws:lambda:us-west-2:532121572788:function:Untitled_Code_Block_RFNItzJNn2",
+			    "count": "1",
+			    "dt": "2019-07-15-13-35",
+			    "execution_pipeline_id": "46b0fdd3-266d-4c6f-af7c-79198a112e96",
+			    "function_name": "Untitled_Code_Block_RFNItzJNn2",
+			    "log_id": "22e4625e-46d1-401a-b935-bcde17f8b667",
+			    "project_id": "08757409-4bc8-4a29-ade7-371b1a46f99e",
+			    "timestamp": 1563197795,
+			    "type": "SUCCESS"
+			}
+			{
+			    "arn": "arn:aws:lambda:us-west-2:532121572788:function:Untitled_Code_Block_RFNItzJNn3",
+			    "count": "1",
+			    "dt": "2019-07-15-13-35",
+			    "execution_pipeline_id": "46b0fdd3-266d-4c6f-af7c-79198a112e96",
+			    "function_name": "Untitled_Code_Block_RFNItzJNn3",
+			    "log_id": "40b02027-c856-4d2b-bd63-c62f300944e5",
+			    "project_id": "08757409-4bc8-4a29-ade7-371b1a46f99e",
+			    "timestamp": 1563197795,
+			    "type": "SUCCESS"
+			}
+		]
+		"2019-07-15-13-35": "",
+	}
+	"""
+	cachable_dict = {}
+	
+	for execution_log_result in execution_log_results:
+		# Check if dt share is within the cachable range
+		current_execution_log_result_dt = execution_log_result[ "dt" ]
+		shard_as_dt = datetime.datetime.strptime(
+			current_execution_log_result_dt,
+			"%Y-%m-%d-%H-%M"
+		)
+		
+		if shard_as_dt <= assured_cachable_dt:
+			if not ( current_execution_log_result_dt in cachable_dict ):
+				cachable_dict[ current_execution_log_result_dt ] = []
+				
+			cachable_dict[ current_execution_log_result_dt ].append(
+				execution_log_result
+			)
+			
+	# Now we add in the cached shard data
+	execution_log_results = execution_log_results + cached_execution_log_results
+			
+	start_time = time.time()
+	execution_pipeline_dict = TaskSpawner._execution_log_query_results_to_pipeline_id_dict(
+		execution_log_results
+	)
+	print("--- Converting to execution_pipeline_dict: %s seconds ---" % (time.time() - start_time))
+	
+	start_time = time.time()
+	frontend_format = TaskSpawner._execution_pipeline_id_dict_to_frontend_format(
+		execution_pipeline_dict
+	)
+	print("--- Converting to front-end-format: %s seconds ---" % (time.time() - start_time))
+	
+	start_time = time.time()
+	# We now store all cachable shard data in the database so we don't have
+	# to rescan those shards in S3.
+	for date_shard_key, cachable_execution_list in cachable_dict.iteritems():
+		new_execution_log_shard = CachedExecutionLogsShard()
+		new_execution_log_shard.date_shard = "dt=" + date_shard_key
+		new_execution_log_shard.shard_data = cachable_execution_list
+		new_execution_log_shard.project_id = project_id
+		dbsession.add( new_execution_log_shard )
+	
+	# Write the cache data to the database
+	dbsession.commit()
+	dbsession.close()
+	print("--- Caching results in database: %s seconds ---" % (time.time() - start_time))
+	
+	raise gen.Return( frontend_format )
 
 class GetProjectExecutions( BaseHandler ):
 	@authenticated
@@ -7375,7 +7676,9 @@ class GetProjectExecutions( BaseHandler ):
 		
 		credentials = self.get_authenticated_user_cloud_configuration()
 		
-		yield check_partitions(
+		# We do this to always keep Athena partitioned for the later
+		# steps of querying
+		update_athena_table_partitions(
 			credentials,
 			self.json[ "project_id" ]
 		)
@@ -7390,12 +7693,12 @@ class GetProjectExecutions( BaseHandler ):
 			raise gen.Return()
 		
 		logit( "Pulling the relevant logs for the project ID specified..." )
-
+		
 		# Pull the logs
-		execution_pipeline_totals = yield local_tasks.get_project_execution_logs(
+		execution_pipeline_totals = yield get_execution_stats_since_timestamp(
 			credentials,
 			self.json[ "project_id" ],
-			int( self.json[ "oldest_timestamp" ] )
+			self.json[ "oldest_timestamp" ]
 		)
 		
 		self.write({
@@ -7676,6 +7979,7 @@ class GetProjectExecutionLogObjects( BaseHandler ):
 @gen.coroutine
 def delete_logs( credentials, project_id ):
 	while True:
+		# Delete 1K logs at a time
 		log_paths = yield local_tasks.get_s3_pipeline_execution_logs(
 			credentials,
 			project_id + "/",
