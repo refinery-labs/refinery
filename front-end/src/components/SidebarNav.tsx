@@ -74,9 +74,11 @@ export default class SidebarNav extends Vue {
 
     if (customContent) {
       return (
-        <b-button class={buttonClasses} props={buttonProps} on={buttonOnClicks}>
-          {customContent}
-        </b-button>
+        <div class={divClasses}>
+          <b-button class={buttonClasses} props={buttonProps} on={buttonOnClicks}>
+            {customContent}
+          </b-button>
+        </div>
       );
     }
 

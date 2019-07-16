@@ -103,6 +103,7 @@ export interface DeployDiagramResponseResult {
   deployment_id: string;
   deployment_success: boolean;
   diagram_data: DiagramData;
+  exceptions?: DeploymentException[];
 }
 
 export interface DiagramData {
@@ -110,6 +111,13 @@ export interface DiagramData {
   version: number;
   name: string;
   workflow_states: WorkflowState[];
+}
+
+export interface DeploymentException {
+  id: string;
+  name: string;
+  type: string;
+  exception: string;
 }
 
 // GetCloudWatchLogsForLambda

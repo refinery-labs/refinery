@@ -32,7 +32,7 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
     const isActive = execution.executionId === this.selectedProjectExecution;
 
     const labelClasses = {
-      'text-muted mb-0 text-align--left': true,
+      'text-muted mb-0 text-align--left flex-grow--1': true,
       'text-white': isActive
     };
 
@@ -72,22 +72,14 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
   }
 
   renderLoadButton() {
-    if (!this.isBusyRefreshing) {
-      return (
-        <b-button
-          variant="primary"
-          on={{ click: this.showMoreExecutions }}
-          class="col-10 m-1"
-          disabled={!this.hasMoreExecutionsToLoad}
-        >
-          Load More
-        </b-button>
-      );
-    }
-
     return (
-      <b-button variant="primary" disabled class="col-10 m-1">
-        <b-spinner small /> Refreshing...
+      <b-button
+        variant="primary"
+        on={{ click: this.showMoreExecutions }}
+        class="col-10 m-1"
+        disabled={!this.hasMoreExecutionsToLoad}
+      >
+        Load More
       </b-button>
     );
   }

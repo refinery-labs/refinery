@@ -7,7 +7,7 @@ import {
   SearchSavedProjectsResult,
   TrialInformation
 } from '@/types/api-types';
-import { LeftSidebarPaneState, SIDEBAR_PANE } from '@/types/project-editor-types';
+import { DeployProjectResult, LeftSidebarPaneState, SIDEBAR_PANE } from '@/types/project-editor-types';
 import { ValidTransitionConfig } from '@/constants/project-editor-constants';
 import { EditBlockPaneState } from '@/store/modules/panes/edit-block-pane';
 import { ProductionDeploymentRefineryProject } from '@/types/production-workflow-types';
@@ -144,7 +144,7 @@ export interface ProjectViewState {
 
   // Deployment State
   latestDeploymentState: GetLatestProjectDeploymentResponse | null;
-  deploymentError: string | null;
+  deploymentError: DeployProjectResult;
 
   // Shared Graph State
   selectedResource: string | null;
