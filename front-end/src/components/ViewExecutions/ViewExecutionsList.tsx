@@ -32,7 +32,7 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
     const isActive = execution.executionId === this.selectedProjectExecution;
 
     const labelClasses = {
-      'text-muted mb-0 text-align--left': true,
+      'text-muted mb-0 text-align--left flex-grow--1': true,
       'text-white': isActive
     };
 

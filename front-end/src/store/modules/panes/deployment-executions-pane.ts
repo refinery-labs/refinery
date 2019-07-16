@@ -307,9 +307,20 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       state.blockExecutionPagesByBlockId = deepJSONCopy(moduleState.blockExecutionPagesByBlockId);
     },
     [DeploymentExecutionsMutators.addBlockExecutionLogMetadata](state, log: BlockExecutionLog) {
+      const existingLogs = state.blockExecutionLogsForBlockId[log.blockId] || [];
+
+      // Go through the existing logs and only add logs that we don't already have.
+      const logsToAdd = Object.values(log.logs).filter(
+        l =>
+          !existingLogs.some(
+            // Compare the IDs and if they match, we don't add the log.
+            e => e.log_id === l.log_id
+          )
+      );
+
       state.blockExecutionLogsForBlockId = {
         ...state.blockExecutionLogsForBlockId,
-        [log.blockId]: [...(state.blockExecutionLogsForBlockId[log.blockId] || []), ...Object.values(log.logs)]
+        [log.blockId]: [...existingLogs, ...logsToAdd]
       };
 
       state.blockExecutionPagesByBlockId = {
@@ -453,8 +464,6 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       context.commit(DeploymentExecutionsMutators.setSelectedExecutionGroup, executionId);
 
-      context.commit(DeploymentExecutionsMutators.setIsBusy, true);
-
       const selectedExecution: ProjectExecution =
         context.getters[DeploymentExecutionsGetters.getSelectedProjectExecution];
 
@@ -498,8 +507,6 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
           { root: true }
         );
       }
-
-      context.commit(DeploymentExecutionsMutators.setIsBusy, false);
     },
     async [DeploymentExecutionsActions.fetchLogsForSelectedBlock](context) {
       const selectedProjectExecution: ProjectExecution =
