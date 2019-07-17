@@ -85,7 +85,8 @@
                 "lambda:DeleteFunctionConcurrency",
                 "lambda:RemovePermission",
                 "sns:ListPlatformApplications",
-                "lambda:GetPolicy"
+                "lambda:GetPolicy",
+                "cloudwatch:GetMetricData"
             ],
             "Resource": "*"
         },
