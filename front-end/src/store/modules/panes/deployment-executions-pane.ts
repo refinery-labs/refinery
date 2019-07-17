@@ -543,14 +543,15 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         blockExecutionGroupForSelectedBlock
       );
 
-      context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, false);
-
       if (!response) {
         console.error('Unable to retrieve logs for execution');
+        context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, false);
         return;
       }
 
       context.commit(DeploymentExecutionsMutators.addBlockExecutionLogMetadata, response);
+
+      context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, false);
 
       await context.dispatch(DeploymentExecutionsActions.warmLogCacheAndSelectDefault, response);
     },
