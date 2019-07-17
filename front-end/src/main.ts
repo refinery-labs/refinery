@@ -4,6 +4,7 @@ import Vue from 'vue';
 import './lib/class-component-hooks';
 
 import BootstrapVue from 'bootstrap-vue';
+import VueIntercom from 'vue-intercom';
 import { sync } from 'vuex-router-sync';
 
 import './vendor';
