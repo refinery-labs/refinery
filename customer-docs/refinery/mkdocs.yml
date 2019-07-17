@@ -1,16 +1,16 @@
 site_name: Refinery Docs
 nav:
   - Home: "index.md"
-  - "What is Refinery?": "what-is-refinery/index.md"
-  - "Architecture": "architecture/index.md"
   - "Getting Started": "getting-started/index.md"
   - "Blocks": "blocks/index.md"
   - "Transitions": "transitions/index.md"
   - "The Backpack Parameter": "backpack/index.md"
   - "Debugging & Logging": "debugging/index.md"
+  - "Creating a API Endpoint": "tutorials/api-endpoints/index.md"
+  - "Using Saved Blocks": "saved-blocks/index.md"
   - "Pricing Details": "pricing/index.md"
+  #- "What is Refinery?": "what-is-refinery/index.md"
   - Tutorials:
-    - "Creating a Highly Scalable API Endpoint": "tutorials/api-endpoints/index.md"
     - "Effortless Serverless Map Reduce": "tutorials/fan-out-fan-in/index.md"
     - "Scraping a Million URLs in a Lunch Break": "tutorials/scraping-a-million-urls/index.md"
 theme: material
