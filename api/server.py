@@ -2518,6 +2518,7 @@ class TaskSpawner(object):
 				"unit": "usd",
 				"total": ( "%.2f" % 5.00 ),
 			})
+			total_amount = 5.00
 			
 			for service_breakdown_info in service_breakdown_list:
 				# Remove branding words from service name
@@ -9430,6 +9431,83 @@ class AdministrativeAssumeAccount( BaseHandler ):
 			"/"
 		)
 		
+class OnboardThirdPartyAWSAccount( BaseHandler ):
+	@gen.coroutine
+	def get( self, aws_account_id ):
+		self.write({
+			"success": True,
+			"msg": "Terraform apply job has been kicked off!"
+		})
+		self.finish()
+		
+		dbsession = DBSession()
+		
+		final_email_html = """
+		<h1>Terraform Apply Results to New Customer AWS Account</h1>
+		If the subject line doesn't read <b>APPLY SUCCEEDED</b> you have some work to do!
+		"""
+		
+		issue_occurred_during_updates = False
+		
+		current_aws_account = dbsession.query( AWSAccount ).filter(
+			AWSAccount.account_id == aws_account_id,
+		).first()
+		
+		logit( "Running 'terraform apply' against AWS Account " + current_aws_account.account_id )
+		terraform_apply_results = yield local_tasks.terraform_apply(
+			current_aws_account
+		)
+		
+		# Write the old terraform version to the database
+		logit( "Updating current tfstate for the AWS account..." )
+		previous_terraform_state = TerraformStateVersion()
+		previous_terraform_state.aws_account_id = current_aws_account.id
+		previous_terraform_state.terraform_state = terraform_apply_results[ "original_tfstate" ]
+		current_aws_account.terraform_state_versions.append(
+			previous_terraform_state
+		)
+		
+		# Update the current terraform state as well.
+		current_aws_account.terraform_state = terraform_apply_results[ "new_tfstate" ]
+		
+		dbsession.add( current_aws_account )
+		dbsession.commit()
+		
+		# Convert terraform plan terminal output to HTML
+		ansiconverter = Ansi2HTMLConverter()
+		
+		if terraform_apply_results[ "success" ]:
+			terraform_output_html = ansiconverter.convert(
+				terraform_apply_results[ "stdout" ]
+			)
+		else:
+			terraform_output_html = ansiconverter.convert(
+				terraform_apply_results[ "stderr" ]
+			)
+			issue_occurred_during_updates = True
+			
+		final_email_html += "<hr /><h1>AWS Account " + current_aws_account.account_id + "</h1>"
+		final_email_html += terraform_output_html
+			
+		final_email_html += "<hr /><b>That is all.</b>"
+		
+		logit( "Sending email with results from 'terraform apply'..." )
+		
+		final_email_subject = "Terraform Apply Results from Across the Fleet " + str( int( time.time() ) ) # Make subject unique so Gmail doesn't group
+		if issue_occurred_during_updates:
+			final_email_subject = "[ APPLY FAILED ] " + final_email_subject
+		else:
+			final_email_subject = "[ APPLY SUCCEEDED ] " + final_email_subject
+		
+		yield local_tasks.send_email(
+			os.environ.get( "alerts_email" ),
+			final_email_subject,
+			False, # No text version of email
+			final_email_html
+		)
+		
+		dbsession.close()
+		
 def make_app( is_debug ):
 	tornado_app_settings = {
 		"debug": is_debug,
@@ -9486,7 +9564,8 @@ def make_app( is_debug ):
 		( r"/services/v1/billing_watchdog", RunBillingWatchdogJob ),
 		( r"/services/v1/bill_customers", RunMonthlyStripeBillingJob ),
 		( r"/services/v1/perform_terraform_plan_on_fleet", PerformTerraformPlanOnFleet ),
-		( r"/services/v1/dangerously_terraform_update_fleet", PerformTerraformUpdateOnFleet )
+		( r"/services/v1/dangerously_terraform_update_fleet", PerformTerraformUpdateOnFleet ),
+		( r"/services/v1/onboard_third_party_aws_account/([0-9]+)", OnboardThirdPartyAWSAccount ),
 	], **tornado_app_settings)
 
 if __name__ == "__main__":
