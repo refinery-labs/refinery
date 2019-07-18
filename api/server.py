@@ -1408,6 +1408,8 @@ class TaskSpawner(object):
 			
 			result = False
 			
+			terraform_configuration_data = {}
+			
 			try:
 				# Recursively copy files to the directory
 				shutil.copytree(
@@ -1415,7 +1417,7 @@ class TaskSpawner(object):
 					temporary_dir
 				)
 				
-				TaskSpawner.__write_terraform_base_files(
+				terraform_configuration_data = TaskSpawner.__write_terraform_base_files(
 					aws_account_object,
 					temporary_dir
 				)
@@ -1428,7 +1430,7 @@ class TaskSpawner(object):
 				
 				raise
 			
-			return temporary_dir
+			return terraform_configuration_data
 		
 		@staticmethod
 		def __write_terraform_base_files( aws_account_data, base_dir ):
@@ -1483,6 +1485,10 @@ class TaskSpawner(object):
 				
 			logit( "The base terraform files have been created successfully at " + base_dir )
 			
+			terraform_configuration_data[ "base_dir" ] = base_dir
+			
+			return terraform_configuration_data
+			
 		@run_on_executor
 		def terraform_apply( self, aws_account_data ):
 			"""
@@ -1513,9 +1519,10 @@ class TaskSpawner(object):
 				"new_tfstate": "",
 			}
 			
-			temporary_directory = TaskSpawner._write_terraform_base_files(
+			terraform_configuration_data = TaskSpawner._write_terraform_base_files(
 				aws_account_data
 			)
+			temporary_directory = terraform_configuration_data[ "base_dir" ]
 			
 			try:
 				logit( "Performing 'terraform apply' to AWS Account " + aws_account_data.account_id + "..." )
@@ -1578,9 +1585,10 @@ class TaskSpawner(object):
 		
 		@staticmethod
 		def _terraform_plan( aws_account_data ):
-			temporary_directory = TaskSpawner._write_terraform_base_files(
+			terraform_configuration_data = TaskSpawner._write_terraform_base_files(
 				aws_account_data
 			)
+			temporary_directory = terraform_configuration_data[ "base_dir" ]
 			
 			try:
 				logit( "Performing 'terraform plan' to AWS account " + aws_account_data.account_id + "..." )
@@ -1616,9 +1624,10 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def _terraform_configure_aws_account( aws_account_data ):
-			base_dir = TaskSpawner._write_terraform_base_files(
+			terraform_configuration_data = TaskSpawner._write_terraform_base_files(
 				aws_account_data
 			)
+			base_dir = terraform_configuration_data[ "base_dir" ]
 			
 			try:
 				logit( "Setting up AWS account with terraform (AWS Acc. ID '" + aws_account_data.account_id + "')..." )
