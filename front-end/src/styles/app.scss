@@ -404,8 +404,20 @@ $content-sidebar-width: 92px;
 .export-project-container {
   &__content {
     height: 640px;
-    width: 600px;
-    margin-top: -16px;
+    width: 500px;
+    margin-top: -8px;
+  }
+}
+
+.opened-project-graph-container {
+  //position: relative;
+  &__project-name {
+    z-index: 1;
+    color: $gray-dark;
+    position: absolute;
+    left: 8px;
+    bottom: 0;
+    pointer-events:none;
   }
 }
 

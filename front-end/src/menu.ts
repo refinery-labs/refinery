@@ -59,7 +59,7 @@ export const paneTypeToNameLookup: EditorPaneTypeToName = {
   [SIDEBAR_PANE.addTransition]: 'Add Transition',
   [SIDEBAR_PANE.allBlocks]: 'All Blocks',
   [SIDEBAR_PANE.allVersions]: 'All Versions',
-  [SIDEBAR_PANE.exportProject]: 'Export Project',
+  [SIDEBAR_PANE.exportProject]: 'Share Project',
   [SIDEBAR_PANE.saveProject]: 'Save Project',
   [SIDEBAR_PANE.deployProject]: 'Deploy Project',
   [SIDEBAR_PANE.editBlock]: 'Edit Block',

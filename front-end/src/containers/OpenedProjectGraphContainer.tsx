@@ -63,6 +63,11 @@ export default class OpenedProjectGraphContainer extends Vue {
 
     return (
       <div class="opened-project-graph-container project-graph-container">
+        <div class="opened-project-graph-container__project-name">
+          <h4>
+            <i>{this.openedProject && this.openedProject.name}</i>
+          </h4>
+        </div>
         <CytoscapeGraph props={graphProps} />
       </div>
     );

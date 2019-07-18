@@ -1,4 +1,5 @@
 import { Module } from 'vuex';
+import LZString from 'lz-string';
 import {
   IfDropdownSelectionExpressionValues,
   IfDropDownSelectionType,
@@ -268,6 +269,18 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const { project_id, ...rest } = state.openedProject;
 
       return JSON.stringify(rest, null, '  ');
+    },
+    [ProjectViewGetters.shareProjectUrl]: state => {
+      if (!state.openedProject) {
+        return '';
+      }
+
+      // We ignore project_id because we just don't want it in the JSON
+      const { project_id, version, ...rest } = state.openedProject;
+
+      const compressedData = LZString.compressToEncodedURIComponent(JSON.stringify(rest));
+
+      return `https://app.refinery.io/import#${compressedData}`;
     }
   },
   mutations: {

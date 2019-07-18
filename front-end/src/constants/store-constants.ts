@@ -17,7 +17,10 @@ export enum AllProjectsMutators {
 
   setImportProjectInput = 'setImportProjectInput',
   setImportProjectErrorMessage = 'setImportProjectErrorMessage',
-  setImportProjectBusy = 'setImportProjectBusy'
+  setImportProjectBusy = 'setImportProjectBusy',
+
+  setImportProjectFromUrlContent = 'setImportProjectFromUrlContent',
+  setImportProjectFromUrlError = 'setImportProjectFromUrlError'
 }
 
 export enum ProjectViewGetters {
@@ -33,7 +36,8 @@ export enum ProjectViewGetters {
   selectedTransitionDirty = 'selectedTransitionDirty',
   selectedResourceDirty = 'selectedResourceDirty',
   getValidEditMenuDisplayTransitionTypes = 'getValidEditMenuDisplayTransitionTypes',
-  exportProjectJson = 'exportProjectJson'
+  exportProjectJson = 'exportProjectJson',
+  shareProjectUrl = 'shareProjectUrl'
 }
 
 export enum ProjectViewMutators {
