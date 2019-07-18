@@ -88,7 +88,7 @@ export default class ExportProjectPane extends Vue {
               </div>
               {this.renderExportJson()}
             </div>
-            <div class="ml-2 mr-2 mt-2 justify-content-center">
+            <div class="m-2 justify-content-center">
               <b-button
                 variant="primary"
                 class="col-12 ml-0 mr-0"
