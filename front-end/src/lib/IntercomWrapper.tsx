@@ -25,7 +25,9 @@ export default class IntercomWrapper extends Vue {
     this.$intercom.boot({
       // user_id: this.userId,
       name: this.name,
-      email: this.email
+      email: this.email,
+      custom_launcher_selector: '.intercom-open-chat-button',
+      hide_default_launcher: true
     });
   }
 

@@ -63,6 +63,12 @@
         -->
         <!-- Fullscreen (only desktops)-->
         <li class="nav-item">
+          <a href="" class="nav-link intercom-open-chat-button">
+            <i class="fas fa-headset"></i>
+            Live Chat
+          </a>
+        </li>
+        <li class="nav-item">
           <a href="" class="nav-link" v-on:click="showAWSConsoleCredentialModal">
             <em class="fab fa-aws"></em> View Console Credentials
           </a>
@@ -141,14 +147,11 @@
 
 <script lang="ts">
 import Component from 'vue-class-component';
-import { Prop } from 'vue-property-decorator';
 import Vue from 'vue';
-import { LoadingContainerProps } from '@/types/component-types';
 import HeaderSearch from '@/components/Layout/HeaderSearch.vue';
 import ToggleFullscreen from '@/components/Common/ToggleFullscreen.vue';
 import { Action, Mutation } from 'vuex-class';
 import { UserInterfaceSettings } from '@/store/store-types';
-import { SettingsActions } from '@/constants/store-constants';
 
 @Component({
   components: {
