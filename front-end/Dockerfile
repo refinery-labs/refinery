@@ -23,6 +23,7 @@ RUN npm install
 COPY . /work/front-end
 
 RUN npm run modernizr
+RUN npm run compile-validators
 
 # The "serve" mode will hot-reload components and watch for changes automatically.
 ENTRYPOINT ["npm", "run"]

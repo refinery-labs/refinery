@@ -31,3 +31,11 @@ declare module '@/styles/*.css' {
   const styles: any;
   export = styles;
 }
+
+declare module 'vue-intercom' {
+  import { PluginObject } from 'vue';
+
+  const VueIntercom: VueIntercomPlugin;
+  export default VueIntercom;
+  export interface VueIntercomPlugin extends PluginObject<{ appId: string }> {}
+}

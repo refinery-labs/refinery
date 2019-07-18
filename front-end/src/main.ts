@@ -21,6 +21,7 @@ import store from './store/index';
 import './registerServiceWorker';
 
 Vue.use(BootstrapVue);
+Vue.use(VueIntercom, { appId: 'sjaaunj7' });
 
 Vue.config.productionTip = false;
 
