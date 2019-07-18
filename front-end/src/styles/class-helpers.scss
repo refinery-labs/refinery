@@ -55,7 +55,8 @@ $padding-steps: (
   normal: 8px,
   normal-small: 12px,
   big: 16px,
-  huge: 32px
+  huge: 32px,
+  auto: auto
 );
 
 @mixin padding-generator($sides, $steps) {

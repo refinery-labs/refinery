@@ -49,6 +49,7 @@ import { blockTypeToDefaultStateMapping, DEFAULT_PROJECT_CONFIG } from '@/consta
 import { unwrapProjectJson, wrapJson } from '@/utils/project-helpers';
 import { ExecutionLogContents, ExecutionLogMetadata } from '@/types/execution-logs-types';
 import { DeployProjectParams, DeployProjectResult } from '@/types/project-editor-types';
+import { CURRENT_TRANSITION_SCHEMA } from '@/constants/graph-constants';
 
 export interface libraryBuildArguments {
   language: SupportedLanguage;
@@ -321,6 +322,11 @@ export async function openProject(request: GetSavedProjectRequest) {
   project.workflow_states = project.workflow_states.map(wfs => ({
     ...blockTypeToDefaultStateMapping[wfs.type](),
     ...wfs
+  }));
+
+  project.workflow_relationships = project.workflow_relationships.map(wr => ({
+    version: CURRENT_TRANSITION_SCHEMA,
+    ...wr
   }));
 
   return project;

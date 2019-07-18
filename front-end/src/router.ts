@@ -20,6 +20,7 @@ import HelpPage from '@/views/Help';
 import Billing from '@/views/Billing.vue';
 import ProjectSettings from '@/views/ProjectsNestedViews/ProjectSettings';
 import { guardLoggedIn } from '@/utils/auth-utils';
+import ImportProject from '@/views/ImportProject';
 
 Vue.use(Router);
 
@@ -36,6 +37,17 @@ const router = new Router({
       path: '/register',
       name: 'register',
       component: RegistrationPage
+    },
+    {
+      path: '/import',
+      component: Layout,
+      // beforeEnter: (to: Route, from: Route, next: Function) => guardLoggedIn(to, from, next),
+      children: [
+        {
+          path: '',
+          component: ImportProject
+        }
+      ]
     },
     {
       path: '/',

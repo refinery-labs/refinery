@@ -1,28 +1,33 @@
-/**
- * Setting store to control layout behavior
- */
 import { Module } from 'vuex';
+import LZString from 'lz-string';
 import { AllProjectsState, RootState } from '@/store/store-types';
 import { AllProjectsMutators } from '@/constants/store-constants';
-import { getApiClient, makeApiRequest } from '@/store/fetchers/refinery-api';
+import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
 import {
   DeleteSavedProjectRequest,
   DeleteSavedProjectResponse,
-  SaveProjectRequest,
-  SaveProjectResponse,
   SearchSavedProjectsRequest,
   SearchSavedProjectsResponse,
   SearchSavedProjectsResult
 } from '@/types/api-types';
-import router from '@/router';
-import { DEFAULT_PROJECT_CONFIG } from '@/constants/project-editor-constants';
-import { RefineryProject } from '@/types/graph';
-import { createProject } from '@/store/fetchers/api-helpers';
-import { viewProject } from '@/utils/router-utils';
 import { createNewProjectFromConfig } from '@/utils/new-project-utils';
 import { readFileAsText } from '@/utils/dom-utils';
 import { unwrapJson } from '@/utils/project-helpers';
+import validate from '../../types/export-project.validator';
+import ImportableRefineryProject from '@/types/export-project';
+
+let importProjectHashContent = null;
+
+const rawHash = window.location.hash;
+if (rawHash && rawHash.length > 0) {
+  const compressedData = window.location.hash.slice(1);
+  try {
+    importProjectHashContent = LZString.decompressFromEncodedURIComponent(compressedData);
+  } catch (e) {
+    console.error('Invalid project hash data', e);
+  }
+}
 
 const moduleState: AllProjectsState = {
   availableProjects: [],
@@ -43,13 +48,18 @@ const moduleState: AllProjectsState = {
 
   importProjectInput: null,
   importProjectErrorMessage: null,
-  importProjectBusy: false
+  importProjectBusy: false,
+
+  importProjectFromUrlContent: importProjectHashContent,
+  importProjectFromUrlError: null
 };
 
 export enum AllProjectsGetters {
   newProjectInputValid = 'newProjectInputValid',
   uploadProjectInputValid = 'uploadProjectInputValid',
-  importProjectInputValid = 'importProjectInputValid'
+  importProjectInputValid = 'importProjectInputValid',
+  importProjectFromUrlValid = 'importProjectFromUrlValid',
+  importProjectFromUrlJson = 'importProjectFromUrlJson'
 }
 
 export enum AllProjectsActions {
@@ -58,6 +68,7 @@ export enum AllProjectsActions {
   uploadProject = 'uploadProject',
   getUploadFileContents = 'getUploadFileContents',
   importProject = 'importProject',
+  importProjectByUrlHash = 'importProjectByUrlHash',
   startDeleteProject = 'startDeleteProject',
   deleteProject = 'deleteProject'
 }
@@ -70,7 +81,22 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
     [AllProjectsGetters.uploadProjectInputValid]: state =>
       state.uploadProjectInput !== '' && unwrapJson(state.uploadProjectInput) !== null,
     [AllProjectsGetters.importProjectInputValid]: state =>
-      state.importProjectInput !== '' && unwrapJson(state.importProjectInput) !== null
+      state.importProjectInput !== '' && unwrapJson(state.importProjectInput) !== null,
+    [AllProjectsGetters.importProjectFromUrlValid]: state => {
+      if (!state.importProjectFromUrlContent) {
+        return false;
+      }
+
+      try {
+        validate(JSON.parse(state.importProjectFromUrlContent));
+        return true;
+      } catch (e) {
+        console.error('Invalid JSON schema detected:', e);
+        return false;
+      }
+    },
+    [AllProjectsGetters.importProjectFromUrlJson]: state =>
+      unwrapJson<ImportableRefineryProject>(state.importProjectFromUrlContent)
   },
   mutations: {
     [AllProjectsMutators.setSearchingStatus](state, isSearching) {
@@ -121,6 +147,13 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
     },
     [AllProjectsMutators.setImportProjectBusy](state, val) {
       state.importProjectBusy = val;
+    },
+
+    [AllProjectsMutators.setImportProjectFromUrlContent](state, val) {
+      state.importProjectFromUrlContent = val;
+    },
+    [AllProjectsMutators.setImportProjectFromUrlError](state, error) {
+      state.importProjectFromUrlError = error;
     }
   },
   actions: {
@@ -196,6 +229,27 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
       // Reset if we didn't hit any errors
       if (!context.state.importProjectErrorMessage) {
         context.commit(AllProjectsMutators.setImportProjectInput, null);
+      }
+    },
+    async [AllProjectsActions.importProjectByUrlHash](context) {
+      const projectContents = context.state.importProjectFromUrlContent;
+
+      if (!projectContents) {
+        context.commit(AllProjectsMutators.setImportProjectFromUrlError);
+        return;
+      }
+
+      await createNewProjectFromConfig({
+        setStatus: status => context.commit(AllProjectsMutators.setImportProjectBusy, status),
+        setError: (message: string | null) => context.commit(AllProjectsMutators.setImportProjectFromUrlError, message),
+        unknownError: 'Error importing project!',
+        navigateToNewProject: true,
+        json: projectContents
+      });
+
+      // Reset if we didn't hit any errors
+      if (!context.state.importProjectFromUrlError) {
+        context.commit(AllProjectsMutators.setImportProjectFromUrlError, null);
       }
     },
     async [AllProjectsActions.getUploadFileContents](context, e: Event) {

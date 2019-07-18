@@ -213,6 +213,9 @@ export interface AllProjectsState {
   importProjectInput: string | null;
   importProjectErrorMessage: string | null;
   importProjectBusy: boolean;
+
+  importProjectFromUrlContent: string | null;
+  importProjectFromUrlError: string | null;
 }
 
 export interface DeploymentViewState {
