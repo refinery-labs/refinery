@@ -3,8 +3,11 @@ import Component from 'vue-class-component';
 import SidebarNav from '@/components/SidebarNav';
 import TopNavbar from '@/components/TopNavbar';
 import { UserInterfaceSettings, UserInterfaceState } from '@/store/store-types';
-import { Action, Getter } from 'vuex-class';
+import { Action, Getter, namespace } from 'vuex-class';
 import ToastContainer from '@/containers/ToastContainer';
+import IntercomWrapper from '@/lib/IntercomWrapper';
+
+const user = namespace('user');
 
 @Component({
   components: {
@@ -13,6 +16,9 @@ import ToastContainer from '@/containers/ToastContainer';
   }
 })
 export default class App extends Vue {
+  @user.State name!: string | null;
+  @user.State email!: string | null;
+
   @Getter settings!: UserInterfaceState;
   @Action setIsAWSConsoleCredentialModalVisibleValue!: (visible: boolean) => {};
 
@@ -133,6 +139,12 @@ export default class App extends Vue {
         </div>
         {this.renderAWSConsoleModal()}
         <ToastContainer />
+        <IntercomWrapper
+          props={{
+            name: this.name,
+            email: this.email
+          }}
+        />
       </div>
     );
   }

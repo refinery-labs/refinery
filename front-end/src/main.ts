@@ -4,6 +4,7 @@ import Vue from 'vue';
 import './lib/class-component-hooks';
 
 import BootstrapVue from 'bootstrap-vue';
+import VueIntercom from 'vue-intercom';
 import { sync } from 'vuex-router-sync';
 
 import './vendor';
@@ -20,6 +21,7 @@ import store from './store/index';
 import './registerServiceWorker';
 
 Vue.use(BootstrapVue);
+Vue.use(VueIntercom, { appId: 'sjaaunj7' });
 
 Vue.config.productionTip = false;
 
