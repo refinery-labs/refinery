@@ -142,7 +142,7 @@ export async function getLogsForExecutions(
     );
 
   const response = await makeRequestWithRetry(makeRequest, response =>
-    Boolean(response && response.success && response.result)
+    Boolean(response && response.success && response.result && response.result.results.length > 0)
   );
 
   if (!response) {
@@ -174,7 +174,7 @@ export async function getAdditionalLogsByPage(
     );
 
   const response = await makeRequestWithRetry(makeRequest, response =>
-    Boolean(response && response.success && response.result)
+    Boolean(response && response.success && response.result && response.result.results.length > 0)
   );
 
   if (!response) {
