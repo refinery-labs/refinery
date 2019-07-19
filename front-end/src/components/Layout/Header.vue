@@ -63,14 +63,14 @@
         -->
         <!-- Fullscreen (only desktops)-->
         <li class="nav-item">
-          <a href="" class="nav-link intercom-open-chat-button">
+          <a href="" to="Live Chat" class="nav-link intercom-open-chat-button">
             <i class="fas fa-headset"></i>
-            Live Chat
+            <span class="hide-on-mobile"> Live Chat</span>
           </a>
         </li>
         <li class="nav-item">
-          <a href="" class="nav-link" v-on:click="showAWSConsoleCredentialModal">
-            <em class="fab fa-aws"></em> View Console Credentials
+          <a href="" class="nav-link" to="View Console Credentials" v-on:click="showAWSConsoleCredentialModal">
+            <em class="fab fa-aws"></em><span class="hide-on-mobile"> View Console Credentials</span>
           </a>
         </li>
         <li class="nav-item d-none d-md-block">
