@@ -3006,9 +3006,6 @@ class TaskSpawner(object):
 				ReservedConcurrentExecutions=int( reserved_concurrency_amount )
 			)
 			
-			print( "Set concurrency response: " )
-			logit( set_concurrency_response )
-			
 		@run_on_executor
 		def deploy_aws_lambda( self, credentials, func_name, language, description, role_name, code, libraries, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
 			"""
