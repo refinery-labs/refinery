@@ -1388,19 +1388,19 @@ class TaskSpawner(object):
 			return True
 			
 		@run_on_executor
-		def terraform_configure_aws_account( self, aws_account_object ):
+		def terraform_configure_aws_account( self, aws_account_dict ):
 			return TaskSpawner._terraform_configure_aws_account(
-				aws_account_object
+				aws_account_dict
 			)
 			
 		@run_on_executor
-		def write_terraform_base_files( self, aws_account_object ):
+		def write_terraform_base_files( self, aws_account_dict ):
 			return TaskSpawner._write_terraform_base_files(
-				aws_account_object
+				aws_account_dict
 			)
 			
 		@staticmethod
-		def _write_terraform_base_files( aws_account_object ):
+		def _write_terraform_base_files( aws_account_dict ):
 			# Create a temporary working directory for the work.
 			# Even if there's some exception thrown during the process
 			# we will still delete the underlying state.
@@ -1418,11 +1418,11 @@ class TaskSpawner(object):
 				)
 				
 				terraform_configuration_data = TaskSpawner.__write_terraform_base_files(
-					aws_account_object,
+					aws_account_dict,
 					temporary_dir
 				)
 			except Exception as e:
-				logit( "An exception occurred while writing terraform base files for AWS account ID " + aws_account_object.account_id )
+				logit( "An exception occurred while writing terraform base files for AWS account ID " + aws_account_dict[ "account_id" ] )
 				logit( e )
 				
 				# Delete the temporary directory reguardless.
@@ -1434,15 +1434,15 @@ class TaskSpawner(object):
 		
 		@staticmethod
 		def __write_terraform_base_files( aws_account_data, base_dir ):
-			logit( "Setting up the base Terraform files (AWS Acc. ID '" + aws_account_data.account_id + "')..." )
+			logit( "Setting up the base Terraform files (AWS Acc. ID '" + aws_account_data[ "account_id" ] + "')..." )
 			
 			# Get some temporary assume role credentials for the account
 			assumed_role_credentials = TaskSpawner._get_assume_role_credentials(
-				str( aws_account_data.account_id ),
+				str( aws_account_data[ "account_id" ] ),
 				3600 # One hour - TODO CHANGEME
 			)
 			
-			sub_account_admin_role_arn = "arn:aws:iam::" + str( aws_account_data.account_id ) + ":role/" + os.environ.get( "customer_aws_admin_assume_role" )
+			sub_account_admin_role_arn = "arn:aws:iam::" + str( aws_account_data[ "account_id" ] ) + ":role/" + os.environ.get( "customer_aws_admin_assume_role" )
 			
 			# Write out the terraform configuration data
 			terraform_configuration_data = {
@@ -1452,10 +1452,10 @@ class TaskSpawner(object):
 				"access_key": assumed_role_credentials[ "access_key_id" ],
 				"secret_key": assumed_role_credentials[ "secret_access_key" ],
 				"region": os.environ.get( "region_name" ),
-				"s3_bucket_suffix": aws_account_data.s3_bucket_suffix,
+				"s3_bucket_suffix": aws_account_data[ "s3_bucket_suffix" ],
 				"redis_secrets": {
-					"password": aws_account_data.redis_password,
-					"secret_prefix": aws_account_data.redis_secret_prefix,
+					"password": aws_account_data[ "redis_password" ],
+					"secret_prefix": aws_account_data[ "redis_secret_prefix" ],
 				}
 			}
 			
@@ -1471,7 +1471,7 @@ class TaskSpawner(object):
 				
 			# Write the latest terraform state to terraform.tfstate
 			# If we have any state at all.
-			if aws_account_data.terraform_state != "":
+			if aws_account_data[ "terraform_state" ] != "":
 				# First we write the current version to the database as a version to keep track
 				
 				terraform_state_file_path = base_dir + "terraform.tfstate"
@@ -1480,7 +1480,7 @@ class TaskSpawner(object):
 				
 				with open( terraform_state_file_path, "w" ) as file_handler:
 					file_handler.write(
-						aws_account_data.terraform_state
+						aws_account_data[ "terraform_state" ]
 					)
 				
 			logit( "The base terraform files have been created successfully at " + base_dir )
@@ -1513,7 +1513,7 @@ class TaskSpawner(object):
 				"stderr": "",
 				"original_tfstate": str(
 					copy.copy(
-						aws_account_data.terraform_state
+						aws_account_data[ "terraform_state" ]
 					)
 				),
 				"new_tfstate": "",
@@ -1525,7 +1525,7 @@ class TaskSpawner(object):
 			temporary_directory = terraform_configuration_data[ "base_dir" ]
 			
 			try:
-				logit( "Performing 'terraform apply' to AWS Account " + aws_account_data.account_id + "..." )
+				logit( "Performing 'terraform apply' to AWS Account " + aws_account_data[ "account_id" ] + "..." )
 				
 				# Terraform plan
 				process_handler = subprocess.Popen(
@@ -1558,7 +1558,7 @@ class TaskSpawner(object):
 					
 					# Alert us of the provisioning error so we can response to it
 					TaskSpawner.send_terraform_provisioning_error(
-						aws_account_data.account_id,
+						aws_account_data[ "account_id" ],
 						str( process_stderr )
 					)
 					
@@ -1591,7 +1591,7 @@ class TaskSpawner(object):
 			temporary_directory = terraform_configuration_data[ "base_dir" ]
 			
 			try:
-				logit( "Performing 'terraform plan' to AWS account " + aws_account_data.account_id + "..." )
+				logit( "Performing 'terraform plan' to AWS account " + aws_account_data[ "account_id" ] + "..." )
 				
 				# Terraform plan
 				process_handler = subprocess.Popen(
@@ -1630,7 +1630,7 @@ class TaskSpawner(object):
 			base_dir = terraform_configuration_data[ "base_dir" ]
 			
 			try:
-				logit( "Setting up AWS account with terraform (AWS Acc. ID '" + aws_account_data.account_id + "')..." )
+				logit( "Setting up AWS account with terraform (AWS Acc. ID '" + aws_account_data[ "account_id" ] + "')..." )
 				
 				# Terraform apply
 				process_handler = subprocess.Popen(
@@ -1657,7 +1657,7 @@ class TaskSpawner(object):
 					# Alert us of the provisioning error so we can get ahead of
 					# it with AWS support.
 					TaskSpawner.send_terraform_provisioning_error(
-						aws_account_data.account_id,
+						aws_account_data[ "account_id" ],
 						str( process_stderr )
 					)
 					
@@ -9184,6 +9184,8 @@ class MaintainAWSAccountReserves( BaseHandler ):
 			aws_account_ids.append(
 				non_setup_aws_account.account_id
 			)
+			
+		dbsession.close()
 		
 		# Calculate the number of accounts that have been created but not provisioned
 		# That way we know how many, if any, that we need to create.
@@ -9200,17 +9202,25 @@ class MaintainAWSAccountReserves( BaseHandler ):
 		
 		# Kick off the terraform apply jobs for the accounts which are "aged" for it.
 		for aws_account_id in aws_account_ids:
+			dbsession = DBSession()
 			current_aws_account = dbsession.query( AWSAccount ).filter(
 				AWSAccount.account_id == aws_account_id,
 			).first()
+			current_aws_account_dict = current_aws_account.to_dict()
+			dbsession.close()
 			
-			logit( "Kicking off terraform set-up for AWS account '" + current_aws_account.account_id + "'..." )
+			logit( "Kicking off terraform set-up for AWS account '" + current_aws_account_dict[ "account_id" ] + "'..." )
 			try:
 				account_provisioning_details = yield local_tasks.terraform_configure_aws_account(
-					current_aws_account
+					current_aws_account_dict
 				)
 				
 				logit( "Adding AWS account to the database the pool of \"AVAILABLE\" accounts..." )
+				
+				dbsession = DBSession()
+				current_aws_account = dbsession.query( AWSAccount ).filter(
+					AWSAccount.account_id == aws_account_id,
+				).first()
 				
 				# Update the AWS account with this new information
 				current_aws_account.redis_hostname = account_provisioning_details[ "redis_hostname" ]
@@ -9289,19 +9299,30 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 			aws_account_ids.append(
 				aws_account.account_id
 			)
+			
+		dbsession.close()
 		
 		for aws_account_id in aws_account_ids:
+			dbsession = DBSession()
 			current_aws_account = dbsession.query( AWSAccount ).filter(
 				AWSAccount.account_id == aws_account_id,
 			).first()
+			current_aws_account_dict = current_aws_account.to_dict()
+			dbsession.close()
 			
-			logit( "Running 'terraform apply' against AWS Account " + current_aws_account.account_id )
+			logit( "Running 'terraform apply' against AWS Account " + current_aws_account_dict[ "account_id" ] )
 			terraform_apply_results = yield local_tasks.terraform_apply(
-				current_aws_account
+				current_aws_account_dict
 			)
 			
 			# Write the old terraform version to the database
 			logit( "Updating current tfstate for the AWS account..." )
+			
+			dbsession = DBSession()
+			current_aws_account = dbsession.query( AWSAccount ).filter(
+				AWSAccount.account_id == aws_account_id,
+			).first()
+			
 			previous_terraform_state = TerraformStateVersion()
 			previous_terraform_state.aws_account_id = current_aws_account.id
 			previous_terraform_state.terraform_state = terraform_apply_results[ "original_tfstate" ]
@@ -9314,6 +9335,7 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 			
 			dbsession.add( current_aws_account )
 			dbsession.commit()
+			dbsession.close()
 			
 			# Convert terraform plan terminal output to HTML
 			ansiconverter = Ansi2HTMLConverter()
@@ -9328,7 +9350,7 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 				)
 				issue_occurred_during_updates = True
 				
-			final_email_html += "<hr /><h1>AWS Account " + current_aws_account.account_id + "</h1>"
+			final_email_html += "<hr /><h1>AWS Account " + current_aws_account_dict[ "account_id" ] + "</h1>"
 			final_email_html += terraform_output_html
 			
 		final_email_html += "<hr /><b>That is all.</b>"
@@ -9383,11 +9405,16 @@ class PerformTerraformPlanOnFleet( BaseHandler ):
 			aws_account_ids.append(
 				aws_account.account_id
 			)
+			
+		dbsession.close()
 		
 		for aws_account_id in aws_account_ids:
+			dbsession = DBSession()
 			current_aws_account = dbsession.query( AWSAccount ).filter(
 				AWSAccount.account_id == aws_account_id,
 			).first()
+			current_aws_account = current_aws_account.to_dict()
+			dbsession.close()
 			
 			logit( "Performing a terraform plan for AWS account " + str( counter ) + "/" + str( total_accounts ) + "..." )
 			terraform_plan_output = yield local_tasks.terraform_plan(
@@ -9400,7 +9427,7 @@ class PerformTerraformPlanOnFleet( BaseHandler ):
 				terraform_plan_output
 			)
 			
-			final_email_html += "<hr /><h1>AWS Account " + current_aws_account.account_id + "</h1>"
+			final_email_html += "<hr /><h1>AWS Account " + current_aws_account[ "account_id" ] + "</h1>"
 			final_email_html += terraform_output_html
 			counter = counter + 1
 			

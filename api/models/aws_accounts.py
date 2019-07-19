@@ -126,8 +126,10 @@ class AWSAccount( Base ):
 			"redis_hostname",
 			"redis_password",
 			"redis_port",
+			"redis_secret_prefix",
 			"account_type",
 			"aws_account_status",
+			"terraform_state",
 			"timestamp"
 		]
 		
