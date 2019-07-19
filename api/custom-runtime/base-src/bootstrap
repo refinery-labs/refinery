@@ -307,6 +307,12 @@ class Refinery_Memory:
 		
 		# Do a redis pipeline transaction
 		pipeline = self.redis_client.pipeline()
+		
+		# JSON-encode queue items
+		for i in range( 0, len( queue_items ) ):
+			queue_items[i] = json.dumps(
+				queue_items[i]
+			)
 
 		# Set the queue URL
 		pipeline.setex(

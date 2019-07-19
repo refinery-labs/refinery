@@ -20,49 +20,87 @@ resource "aws_iam_policy" "refinery_default_aws_lambda_policy" {
     description = "Default Refinery AWS Lambda runtime IAM policy."
     policy      = <<POLICY
 {
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Sid": "VisualEditor0",
-      "Effect": "Allow",
-      "Action": "s3:PutObject",
-      "Resource": "arn:aws:s3:::refinery-lambda-logging-${var.s3_bucket_suffix}/*"
-    },
-    {
-      "Sid": "VisualEditor1",
-      "Effect": "Allow",
-      "Action": [
-        "sqs:ChangeMessageVisibilityBatch",
-        "sqs:ChangeMessageVisibility",
-        "sqs:GetQueueAttributes",
-        "sqs:DeleteMessageBatch",
-        "sqs:SendMessageBatch",
-        "sqs:SendMessage",
-        "sqs:ReceiveMessage",
-        "sqs:DeleteMessage",
-        "sns:Publish",
-        "lambda:InvokeFunction",
-        "lambda:InvokeAsync",
-        "logs:CreateLogGroup"
-      ],
-      "Resource": "*"
-    },
-    {
-        "Sid": "VisualEditor2",
-        "Effect": "Allow",
-        "Action": [
-            "logs:CreateLogStream",
-            "logs:PutLogEvents"
-        ],
-        "Resource": "arn:aws:logs:*:*:log-group:*"
-    },
-    {
-        "Sid": "VisualEditor3",
-        "Effect": "Allow",
-        "Action": "logs:PutLogEvents",
-        "Resource": "arn:aws:logs:*:*:log-group:*:*:*"
-    }
-  ]
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetLifecycleConfiguration",
+                "s3:ListBucketByTags",
+                "s3:GetBucketTagging",
+                "s3:GetInventoryConfiguration",
+                "s3:DeleteObjectVersion",
+                "s3:GetObjectVersionTagging",
+                "s3:GetBucketLogging",
+                "s3:ListBucketVersions",
+                "s3:GetAccelerateConfiguration",
+                "s3:ListBucket",
+                "s3:GetBucketPolicy",
+                "s3:GetEncryptionConfiguration",
+                "s3:GetObjectAcl",
+                "s3:GetObjectVersionTorrent",
+                "logs:CreateLogStream",
+                "s3:AbortMultipartUpload",
+                "s3:GetBucketRequestPayment",
+                "s3:GetObjectVersionAcl",
+                "s3:GetObjectTagging",
+                "s3:GetMetricsConfiguration",
+                "s3:DeleteObject",
+                "s3:GetBucketPolicyStatus",
+                "s3:GetBucketPublicAccessBlock",
+                "s3:ListBucketMultipartUploads",
+                "s3:GetObjectRetention",
+                "s3:GetBucketWebsite",
+                "s3:GetBucketVersioning",
+                "s3:GetBucketAcl",
+                "s3:GetBucketNotification",
+                "logs:PutLogEvents",
+                "s3:GetReplicationConfiguration",
+                "s3:ListMultipartUploadParts",
+                "s3:GetObject",
+                "s3:PutObject",
+                "s3:GetObjectTorrent",
+                "s3:DescribeJob",
+                "s3:GetBucketCORS",
+                "s3:GetAnalyticsConfiguration",
+                "s3:GetObjectVersionForReplication",
+                "s3:GetBucketLocation",
+                "s3:GetObjectVersion"
+            ],
+            "Resource": [
+                "arn:aws:s3:::*",
+                "arn:aws:logs:*:*:log-group:*"
+            ]
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "sqs:DeleteMessage",
+                "sqs:ChangeMessageVisibility",
+                "lambda:InvokeFunction",
+                "sqs:SendMessageBatch",
+                "s3:ListJobs",
+                "sqs:ReceiveMessage",
+                "sqs:SendMessage",
+                "lambda:InvokeAsync",
+                "sqs:GetQueueAttributes",
+                "logs:CreateLogGroup",
+                "sns:Publish",
+                "s3:GetAccountPublicAccessBlock",
+                "sqs:DeleteMessageBatch",
+                "sqs:ChangeMessageVisibilityBatch"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor2",
+            "Effect": "Allow",
+            "Action": "logs:PutLogEvents",
+            "Resource": "arn:aws:logs:*:*:log-group:*:*:*"
+        }
+    ]
 }
 POLICY
 }

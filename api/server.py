@@ -1388,19 +1388,19 @@ class TaskSpawner(object):
 			return True
 			
 		@run_on_executor
-		def terraform_configure_aws_account( self, aws_account_object ):
+		def terraform_configure_aws_account( self, aws_account_dict ):
 			return TaskSpawner._terraform_configure_aws_account(
-				aws_account_object
+				aws_account_dict
 			)
 			
 		@run_on_executor
-		def write_terraform_base_files( self, aws_account_object ):
+		def write_terraform_base_files( self, aws_account_dict ):
 			return TaskSpawner._write_terraform_base_files(
-				aws_account_object
+				aws_account_dict
 			)
 			
 		@staticmethod
-		def _write_terraform_base_files( aws_account_object ):
+		def _write_terraform_base_files( aws_account_dict ):
 			# Create a temporary working directory for the work.
 			# Even if there's some exception thrown during the process
 			# we will still delete the underlying state.
@@ -1418,11 +1418,11 @@ class TaskSpawner(object):
 				)
 				
 				terraform_configuration_data = TaskSpawner.__write_terraform_base_files(
-					aws_account_object,
+					aws_account_dict,
 					temporary_dir
 				)
 			except Exception as e:
-				logit( "An exception occurred while writing terraform base files for AWS account ID " + aws_account_object.account_id )
+				logit( "An exception occurred while writing terraform base files for AWS account ID " + aws_account_dict[ "account_id" ] )
 				logit( e )
 				
 				# Delete the temporary directory reguardless.
@@ -1434,15 +1434,15 @@ class TaskSpawner(object):
 		
 		@staticmethod
 		def __write_terraform_base_files( aws_account_data, base_dir ):
-			logit( "Setting up the base Terraform files (AWS Acc. ID '" + aws_account_data.account_id + "')..." )
+			logit( "Setting up the base Terraform files (AWS Acc. ID '" + aws_account_data[ "account_id" ] + "')..." )
 			
 			# Get some temporary assume role credentials for the account
 			assumed_role_credentials = TaskSpawner._get_assume_role_credentials(
-				str( aws_account_data.account_id ),
+				str( aws_account_data[ "account_id" ] ),
 				3600 # One hour - TODO CHANGEME
 			)
 			
-			sub_account_admin_role_arn = "arn:aws:iam::" + str( aws_account_data.account_id ) + ":role/" + os.environ.get( "customer_aws_admin_assume_role" )
+			sub_account_admin_role_arn = "arn:aws:iam::" + str( aws_account_data[ "account_id" ] ) + ":role/" + os.environ.get( "customer_aws_admin_assume_role" )
 			
 			# Write out the terraform configuration data
 			terraform_configuration_data = {
@@ -1452,10 +1452,10 @@ class TaskSpawner(object):
 				"access_key": assumed_role_credentials[ "access_key_id" ],
 				"secret_key": assumed_role_credentials[ "secret_access_key" ],
 				"region": os.environ.get( "region_name" ),
-				"s3_bucket_suffix": aws_account_data.s3_bucket_suffix,
+				"s3_bucket_suffix": aws_account_data[ "s3_bucket_suffix" ],
 				"redis_secrets": {
-					"password": aws_account_data.redis_password,
-					"secret_prefix": aws_account_data.redis_secret_prefix,
+					"password": aws_account_data[ "redis_password" ],
+					"secret_prefix": aws_account_data[ "redis_secret_prefix" ],
 				}
 			}
 			
@@ -1471,7 +1471,7 @@ class TaskSpawner(object):
 				
 			# Write the latest terraform state to terraform.tfstate
 			# If we have any state at all.
-			if aws_account_data.terraform_state != "":
+			if aws_account_data[ "terraform_state" ] != "":
 				# First we write the current version to the database as a version to keep track
 				
 				terraform_state_file_path = base_dir + "terraform.tfstate"
@@ -1480,7 +1480,7 @@ class TaskSpawner(object):
 				
 				with open( terraform_state_file_path, "w" ) as file_handler:
 					file_handler.write(
-						aws_account_data.terraform_state
+						aws_account_data[ "terraform_state" ]
 					)
 				
 			logit( "The base terraform files have been created successfully at " + base_dir )
@@ -1513,7 +1513,7 @@ class TaskSpawner(object):
 				"stderr": "",
 				"original_tfstate": str(
 					copy.copy(
-						aws_account_data.terraform_state
+						aws_account_data[ "terraform_state" ]
 					)
 				),
 				"new_tfstate": "",
@@ -1525,7 +1525,7 @@ class TaskSpawner(object):
 			temporary_directory = terraform_configuration_data[ "base_dir" ]
 			
 			try:
-				logit( "Performing 'terraform apply' to AWS Account " + aws_account_data.account_id + "..." )
+				logit( "Performing 'terraform apply' to AWS Account " + aws_account_data[ "account_id" ] + "..." )
 				
 				# Terraform plan
 				process_handler = subprocess.Popen(
@@ -1558,7 +1558,7 @@ class TaskSpawner(object):
 					
 					# Alert us of the provisioning error so we can response to it
 					TaskSpawner.send_terraform_provisioning_error(
-						aws_account_data.account_id,
+						aws_account_data[ "account_id" ],
 						str( process_stderr )
 					)
 					
@@ -1591,7 +1591,7 @@ class TaskSpawner(object):
 			temporary_directory = terraform_configuration_data[ "base_dir" ]
 			
 			try:
-				logit( "Performing 'terraform plan' to AWS account " + aws_account_data.account_id + "..." )
+				logit( "Performing 'terraform plan' to AWS account " + aws_account_data[ "account_id" ] + "..." )
 				
 				# Terraform plan
 				process_handler = subprocess.Popen(
@@ -1630,7 +1630,7 @@ class TaskSpawner(object):
 			base_dir = terraform_configuration_data[ "base_dir" ]
 			
 			try:
-				logit( "Setting up AWS account with terraform (AWS Acc. ID '" + aws_account_data.account_id + "')..." )
+				logit( "Setting up AWS account with terraform (AWS Acc. ID '" + aws_account_data[ "account_id" ] + "')..." )
 				
 				# Terraform apply
 				process_handler = subprocess.Popen(
@@ -1657,7 +1657,7 @@ class TaskSpawner(object):
 					# Alert us of the provisioning error so we can get ahead of
 					# it with AWS support.
 					TaskSpawner.send_terraform_provisioning_error(
-						aws_account_data.account_id,
+						aws_account_data[ "account_id" ],
 						str( process_stderr )
 					)
 					
@@ -1746,10 +1746,25 @@ class TaskSpawner(object):
 			
 			# Start EC2 instance(s)
 			ec2_instance_ids = TaskSpawner.get_ec2_instance_ids( credentials )
+			
+			# Max attempts
+			remaining_attempts = 20
 
-			start_instance_response = ec2_client.start_instances(
-				InstanceIds=ec2_instance_ids
-			)
+			# Prevents issue if a freeze happens too quickly after an un-freeze
+			while remaining_attempts > 0:
+				try:
+					start_instance_response = ec2_client.start_instances(
+						InstanceIds=ec2_instance_ids
+					)
+				except botocore.exceptions.ClientError as boto_error:
+					if boto_error.response[ "Error" ][ "Code" ] != "IncorrectInstanceState":
+						raise
+					
+					logit( "EC2 instance isn't ready to be started yet!" )
+					logit( "Waiting 2 seconds and trying again..." )
+					time.sleep(2)
+					
+				remaining_attempts = remaining_attempts - 1
 			
 			return True
 			
@@ -1859,51 +1874,10 @@ class TaskSpawner(object):
 				credentials
 			)
 			
-			logit( "Deleting AWS console user..." )
-			
-			# The only way to revoke an AWS Console user's session
-			# is to delete the console user and create a new one.
-			
-			# Generate the IAM policy ARN
-			iam_policy_arn = "arn:aws:iam::" + credentials[ "account_id" ] + ":policy/RefineryCustomerPolicy"
-			
-			# Generate a new user console password
-			new_console_user_password = get_urand_password( 32 )
-			
-			# Delete the current AWS console user
-			delete_user_profile_response = iam_client.delete_login_profile(
-				UserName=credentials[ "iam_admin_username" ],
-			)
-			
-			# Remove the policy from the user
-			detach_user_policy = iam_client.detach_user_policy(
-				UserName=credentials[ "iam_admin_username" ],
-				PolicyArn=iam_policy_arn
-			)
-			
-			# Delete the IAM user
-			delete_user_response = iam_client.delete_user(
-				UserName=credentials[ "iam_admin_username" ],
-			)
-			
-			logit( "Re-creating the AWS console user..." )
-			
-			# Create the IAM user again
-			delete_user_response = iam_client.create_user(
-				UserName=credentials[ "iam_admin_username" ],
-			)
-			
-			# Attach the limiting IAM policy to it.
-			attach_policy_response = iam_client.attach_user_policy(
-				UserName=credentials[ "iam_admin_username" ],
-				PolicyArn=iam_policy_arn
-			)
-			
-			# Create the console user again.
-			create_user_response = iam_client.create_login_profile(
-				UserName=credentials[ "iam_admin_username" ],
-				Password=new_console_user_password,
-				PasswordResetRequired=False
+			# Rotate and log out users from the AWS console
+			new_console_user_password = TaskSpawner._recreate_aws_console_account(
+				credentials,
+				True
 			)
 			
 			# Update the console login in the database
@@ -1972,6 +1946,84 @@ class TaskSpawner(object):
 			
 			dbsession.close()
 			return False
+			
+		@run_on_executor
+		def recreate_aws_console_account( self, credentials, rotate_password ):
+			return TaskSpawner._recreate_aws_console_account(
+				credentials,
+				rotate_password
+			)
+			
+		@staticmethod
+		def _recreate_aws_console_account( credentials, rotate_password ):
+			iam_client = get_aws_client(
+				"iam",
+				credentials
+			)
+			
+			# The only way to revoke an AWS Console user's session
+			# is to delete the console user and create a new one.
+			
+			# Generate the IAM policy ARN
+			iam_policy_arn = "arn:aws:iam::" + credentials[ "account_id" ] + ":policy/RefineryCustomerPolicy"
+			
+			logit( "Deleting AWS console user..." )
+			
+			# Delete the current AWS console user
+			delete_user_profile_response = iam_client.delete_login_profile(
+				UserName=credentials[ "iam_admin_username" ],
+			)
+		
+			# Remove the policy from the user
+			detach_user_policy = iam_client.detach_user_policy(
+				UserName=credentials[ "iam_admin_username" ],
+				PolicyArn=iam_policy_arn
+			)
+			
+			# Delete the IAM user
+			delete_user_response = iam_client.delete_user(
+				UserName=credentials[ "iam_admin_username" ],
+			)
+			
+			logit( "Re-creating the AWS console user..." )
+			
+			# Create the IAM user again
+			delete_user_response = iam_client.create_user(
+				UserName=credentials[ "iam_admin_username" ],
+			)
+			
+			# Create the IAM user again
+			delete_policy_response = iam_client.delete_policy(
+				PolicyArn=iam_policy_arn
+			)
+			
+			# Create IAM policy for the user
+			create_policy_response = iam_client.create_policy(
+				PolicyName="RefineryCustomerPolicy",
+				PolicyDocument=json.dumps( CUSTOMER_IAM_POLICY ),
+				Description="Refinery Labs managed AWS customer account policy."
+			)
+			
+			# Attach the limiting IAM policy to it.
+			attach_policy_response = iam_client.attach_user_policy(
+				UserName=credentials[ "iam_admin_username" ],
+				PolicyArn=iam_policy_arn
+			)
+				
+			# Generate a new user console password
+			new_console_user_password = get_urand_password( 32 )
+			
+			if rotate_password == False:
+				new_console_user_password = credentials[ "iam_admin_password" ]
+		
+			# Create the console user again.
+			create_user_response = iam_client.create_login_profile(
+				UserName=credentials[ "iam_admin_username" ],
+				Password=new_console_user_password,
+				PasswordResetRequired=False
+			)
+				
+			return new_console_user_password
 		
 		@run_on_executor
 		def send_email( self, to_email_string, subject_string, message_text_string, message_html_string ):
@@ -2940,6 +2992,19 @@ class TaskSpawner(object):
 				package_zip_data = TaskSpawner.get_go112_zip( credentials, code )
 				
 			return package_zip_data
+			
+		@run_on_executor
+		def set_lambda_reserved_concurrency( self, credentials, arn, reserved_concurrency_amount ):
+			# Create Lambda client
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
+			set_concurrency_response = lambda_client.put_function_concurrency(
+				FunctionName=arn,
+				ReservedConcurrentExecutions=int( reserved_concurrency_amount )
+			)
 			
 		@run_on_executor
 		def deploy_aws_lambda( self, credentials, func_name, language, description, role_name, code, libraries, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
@@ -5169,7 +5234,8 @@ class RunTmpLambda( BaseHandler ):
 				"SHOULD_NEVER_HAPPEN_TMP_LAMBDA_RUN", # Doesn't matter no logging is enabled
 				"LOG_NONE",
 				self.json[ "environment_variables" ], # Env list
-				self.json[ "layers" ]
+				self.json[ "layers" ],
+				False
 			)
 		except BuildException as build_exception:
 			self.write({
@@ -5241,7 +5307,7 @@ def get_lambda_safe_name( input_name ):
 	return "".join([c for c in input_name if c in whitelist])[:64]
 	
 @gen.coroutine
-def deploy_lambda( credentials, id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, execution_log_level, environment_variables, layers ):
+def deploy_lambda( credentials, id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, execution_log_level, environment_variables, layers, reserved_concurrency_amount ):
 	"""
 	Here we build the default required environment variables.
 	"""
@@ -5325,19 +5391,19 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:9"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:10"
 		)
 	elif language == "php7.3":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:9"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:10"
 		)
 	elif language == "go1.12":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:9"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:10"
 		)
 	elif language == "python2.7":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:9"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:10"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
@@ -5357,6 +5423,15 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		},
 		layers
 	)
+	
+	# If we have concurrency set, then we'll set that for our deployed Lambda
+	if reserved_concurrency_amount:
+		logit( "Setting reserved concurrency for Lambda '" + deployed_lambda_data[ "FunctionArn" ] + "' to " + str( reserved_concurrency_amount ) + "..." )
+		yield local_tasks.set_lambda_reserved_concurrency(
+			credentials,
+			deployed_lambda_data[ "FunctionArn" ],
+			reserved_concurrency_amount
+		)
 	
 	raise gen.Return({
 		"id": id,
@@ -5600,6 +5675,10 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	for lambda_node in lambda_nodes:
 		lambda_safe_name = get_lambda_safe_name( lambda_node[ "name" ] )
 		logit( "Deploying Lambda '" + lambda_safe_name + "'..." )
+		
+		# For backwards compatibility
+		if not ( "reserved_concurrency_count" in lambda_node ):
+			lambda_node[ "reserved_concurrency_count" ] = False
 
 		lambda_node_deploy_futures.append({
 			"id": lambda_node[ "id" ],
@@ -5620,6 +5699,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				project_config[ "logging" ][ "level" ],
 				env_var_dict[ lambda_node[ "id" ] ],
 				lambda_node[ "layers" ],
+				lambda_node[ "reserved_concurrency_count" ]
 			)
 		})
 		
@@ -5649,7 +5729,8 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				project_id,
 				project_config[ "logging" ][ "level" ],
 				[],
-				[]
+				[],
+				False
 			)
 		})
 		
@@ -9152,6 +9233,8 @@ class MaintainAWSAccountReserves( BaseHandler ):
 			aws_account_ids.append(
 				non_setup_aws_account.account_id
 			)
+			
+		dbsession.close()
 		
 		# Calculate the number of accounts that have been created but not provisioned
 		# That way we know how many, if any, that we need to create.
@@ -9168,17 +9251,25 @@ class MaintainAWSAccountReserves( BaseHandler ):
 		
 		# Kick off the terraform apply jobs for the accounts which are "aged" for it.
 		for aws_account_id in aws_account_ids:
+			dbsession = DBSession()
 			current_aws_account = dbsession.query( AWSAccount ).filter(
 				AWSAccount.account_id == aws_account_id,
 			).first()
+			current_aws_account_dict = current_aws_account.to_dict()
+			dbsession.close()
 			
-			logit( "Kicking off terraform set-up for AWS account '" + current_aws_account.account_id + "'..." )
+			logit( "Kicking off terraform set-up for AWS account '" + current_aws_account_dict[ "account_id" ] + "'..." )
 			try:
 				account_provisioning_details = yield local_tasks.terraform_configure_aws_account(
-					current_aws_account
+					current_aws_account_dict
 				)
 				
 				logit( "Adding AWS account to the database the pool of \"AVAILABLE\" accounts..." )
+				
+				dbsession = DBSession()
+				current_aws_account = dbsession.query( AWSAccount ).filter(
+					AWSAccount.account_id == aws_account_id,
+				).first()
 				
 				# Update the AWS account with this new information
 				current_aws_account.redis_hostname = account_provisioning_details[ "redis_hostname" ]
@@ -9257,19 +9348,30 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 			aws_account_ids.append(
 				aws_account.account_id
 			)
+			
+		dbsession.close()
 		
 		for aws_account_id in aws_account_ids:
+			dbsession = DBSession()
 			current_aws_account = dbsession.query( AWSAccount ).filter(
 				AWSAccount.account_id == aws_account_id,
 			).first()
+			current_aws_account_dict = current_aws_account.to_dict()
+			dbsession.close()
 			
-			logit( "Running 'terraform apply' against AWS Account " + current_aws_account.account_id )
+			logit( "Running 'terraform apply' against AWS Account " + current_aws_account_dict[ "account_id" ] )
 			terraform_apply_results = yield local_tasks.terraform_apply(
-				current_aws_account
+				current_aws_account_dict
 			)
 			
 			# Write the old terraform version to the database
 			logit( "Updating current tfstate for the AWS account..." )
+			
+			dbsession = DBSession()
+			current_aws_account = dbsession.query( AWSAccount ).filter(
+				AWSAccount.account_id == aws_account_id,
+			).first()
+			
 			previous_terraform_state = TerraformStateVersion()
 			previous_terraform_state.aws_account_id = current_aws_account.id
 			previous_terraform_state.terraform_state = terraform_apply_results[ "original_tfstate" ]
@@ -9282,6 +9384,7 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 			
 			dbsession.add( current_aws_account )
 			dbsession.commit()
+			dbsession.close()
 			
 			# Convert terraform plan terminal output to HTML
 			ansiconverter = Ansi2HTMLConverter()
@@ -9296,7 +9399,7 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 				)
 				issue_occurred_during_updates = True
 				
-			final_email_html += "<hr /><h1>AWS Account " + current_aws_account.account_id + "</h1>"
+			final_email_html += "<hr /><h1>AWS Account " + current_aws_account_dict[ "account_id" ] + "</h1>"
 			final_email_html += terraform_output_html
 			
 		final_email_html += "<hr /><b>That is all.</b>"
@@ -9351,11 +9454,16 @@ class PerformTerraformPlanOnFleet( BaseHandler ):
 			aws_account_ids.append(
 				aws_account.account_id
 			)
+			
+		dbsession.close()
 		
 		for aws_account_id in aws_account_ids:
+			dbsession = DBSession()
 			current_aws_account = dbsession.query( AWSAccount ).filter(
 				AWSAccount.account_id == aws_account_id,
 			).first()
+			current_aws_account = current_aws_account.to_dict()
+			dbsession.close()
 			
 			logit( "Performing a terraform plan for AWS account " + str( counter ) + "/" + str( total_accounts ) + "..." )
 			terraform_plan_output = yield local_tasks.terraform_plan(
@@ -9368,7 +9476,7 @@ class PerformTerraformPlanOnFleet( BaseHandler ):
 				terraform_plan_output
 			)
 			
-			final_email_html += "<hr /><h1>AWS Account " + current_aws_account.account_id + "</h1>"
+			final_email_html += "<hr /><h1>AWS Account " + current_aws_account[ "account_id" ] + "</h1>"
 			final_email_html += terraform_output_html
 			counter = counter + 1
 			
@@ -9440,6 +9548,43 @@ class AdministrativeAssumeAccount( BaseHandler ):
 			"/"
 		)
 		
+class UpdateIAMConsoleUserIAM( BaseHandler ):
+	@gen.coroutine
+	def get( self ):
+		"""
+		This blows away all the IAM policies for all customer AWS accounts
+		and updates it with the latest policy.
+		"""
+		self.write({
+			"success": True,
+			"msg": "Console accounts are being updated!"
+		})
+		self.finish()
+		
+		dbsession = DBSession()
+		aws_accounts = dbsession.query( AWSAccount ).filter(
+			sql_or(
+				AWSAccount.aws_account_status == "IN_USE",
+				AWSAccount.aws_account_status == "AVAILABLE",
+			)
+		).all()
+		
+		aws_account_dicts = []
+		for aws_account in aws_accounts:
+			aws_account_dicts.append(
+				aws_account.to_dict()
+			)
+		dbsession.close()
+		
+		for aws_account_dict in aws_account_dicts:
+			logit( "Updating console account for AWS account ID " + aws_account_dict[ "account_id" ] + "...")
+			yield local_tasks.recreate_aws_console_account(
+				aws_account_dict,
+				False
+			)
+		
+		logit( "AWS console accounts updated successfully!" )
+		
 def make_app( is_debug ):
 	tornado_app_settings = {
 		"debug": is_debug,
@@ -9496,7 +9641,8 @@ def make_app( is_debug ):
 		( r"/services/v1/billing_watchdog", RunBillingWatchdogJob ),
 		( r"/services/v1/bill_customers", RunMonthlyStripeBillingJob ),
 		( r"/services/v1/perform_terraform_plan_on_fleet", PerformTerraformPlanOnFleet ),
-		( r"/services/v1/dangerously_terraform_update_fleet", PerformTerraformUpdateOnFleet )
+		( r"/services/v1/dangerously_terraform_update_fleet", PerformTerraformUpdateOnFleet ),
+		( r"/services/v1/update_managed_console_users_iam", UpdateIAMConsoleUserIAM ),
 	], **tornado_app_settings)
 
 if __name__ == "__main__":
