@@ -1859,51 +1859,10 @@ class TaskSpawner(object):
 				credentials
 			)
 			
-			logit( "Deleting AWS console user..." )
-			
-			# The only way to revoke an AWS Console user's session
-			# is to delete the console user and create a new one.
-			
-			# Generate the IAM policy ARN
-			iam_policy_arn = "arn:aws:iam::" + credentials[ "account_id" ] + ":policy/RefineryCustomerPolicy"
-			
-			# Generate a new user console password
-			new_console_user_password = get_urand_password( 32 )
-			
-			# Delete the current AWS console user
-			delete_user_profile_response = iam_client.delete_login_profile(
-				UserName=credentials[ "iam_admin_username" ],
-			)
-			
-			# Remove the policy from the user
-			detach_user_policy = iam_client.detach_user_policy(
-				UserName=credentials[ "iam_admin_username" ],
-				PolicyArn=iam_policy_arn
-			)
-			
-			# Delete the IAM user
-			delete_user_response = iam_client.delete_user(
-				UserName=credentials[ "iam_admin_username" ],
-			)
-			
-			logit( "Re-creating the AWS console user..." )
-			
-			# Create the IAM user again
-			delete_user_response = iam_client.create_user(
-				UserName=credentials[ "iam_admin_username" ],
-			)
-			
-			# Attach the limiting IAM policy to it.
-			attach_policy_response = iam_client.attach_user_policy(
-				UserName=credentials[ "iam_admin_username" ],
-				PolicyArn=iam_policy_arn
-			)
-			
-			# Create the console user again.
-			create_user_response = iam_client.create_login_profile(
-				UserName=credentials[ "iam_admin_username" ],
-				Password=new_console_user_password,
-				PasswordResetRequired=False
+			# Rotate and log out users from the AWS console
+			new_console_user_password = TaskSpawner._recreate_aws_console_account(
+				credentials,
+				True
 			)
 			
 			# Update the console login in the database
@@ -1972,6 +1931,84 @@ class TaskSpawner(object):
 			
 			dbsession.close()
 			return False
+			
+		@run_on_executor
+		def recreate_aws_console_account( self, credentials, rotate_password ):
+			return TaskSpawner._recreate_aws_console_account(
+				credentials,
+				rotate_password
+			)
+			
+		@staticmethod
+		def _recreate_aws_console_account( credentials, rotate_password ):
+			iam_client = get_aws_client(
+				"iam",
+				credentials
+			)
+			
+			# The only way to revoke an AWS Console user's session
+			# is to delete the console user and create a new one.
+			
+			# Generate the IAM policy ARN
+			iam_policy_arn = "arn:aws:iam::" + credentials[ "account_id" ] + ":policy/RefineryCustomerPolicy"
+			
+			logit( "Deleting AWS console user..." )
+			
+			# Delete the current AWS console user
+			delete_user_profile_response = iam_client.delete_login_profile(
+				UserName=credentials[ "iam_admin_username" ],
+			)
+		
+			# Remove the policy from the user
+			detach_user_policy = iam_client.detach_user_policy(
+				UserName=credentials[ "iam_admin_username" ],
+				PolicyArn=iam_policy_arn
+			)
+			
+			# Delete the IAM user
+			delete_user_response = iam_client.delete_user(
+				UserName=credentials[ "iam_admin_username" ],
+			)
+			
+			logit( "Re-creating the AWS console user..." )
+			
+			# Create the IAM user again
+			delete_user_response = iam_client.create_user(
+				UserName=credentials[ "iam_admin_username" ],
+			)
+			
+			# Create the IAM user again
+			delete_policy_response = iam_client.delete_policy(
+				PolicyArn=iam_policy_arn
+			)
+			
+			# Create IAM policy for the user
+			create_policy_response = iam_client.create_policy(
+				PolicyName="RefineryCustomerPolicy",
+				PolicyDocument=json.dumps( CUSTOMER_IAM_POLICY ),
+				Description="Refinery Labs managed AWS customer account policy."
+			)
+			
+			# Attach the limiting IAM policy to it.
+			attach_policy_response = iam_client.attach_user_policy(
+				UserName=credentials[ "iam_admin_username" ],
+				PolicyArn=iam_policy_arn
+			)
+				
+			# Generate a new user console password
+			new_console_user_password = get_urand_password( 32 )
+			
+			if rotate_password == False:
+				new_console_user_password = credentials[ "iam_admin_password" ]
+		
+			# Create the console user again.
+			create_user_response = iam_client.create_login_profile(
+				UserName=credentials[ "iam_admin_username" ],
+				Password=new_console_user_password,
+				PasswordResetRequired=False
+			)
+				
+			return new_console_user_password
 		
 		@run_on_executor
 		def send_email( self, to_email_string, subject_string, message_text_string, message_html_string ):
@@ -9499,6 +9536,46 @@ class AdministrativeAssumeAccount( BaseHandler ):
 			"/"
 		)
 		
+class UpdateIAMConsoleUserIAM( BaseHandler ):
+	@gen.coroutine
+	def get( self ):
+		"""
+		This blows away all the IAM policies for all customer AWS accounts
+		and updates it with the latest policy.
+		"""
+		self.write({
+			"success": True,
+			"msg": "Console accounts are being updated!"
+		})
+		self.finish()
+		
+		dbsession = DBSession()
+		aws_accounts = dbsession.query( AWSAccount ).filter(
+			sql_or(
+				AWSAccount.aws_account_status == "IN_USE",
+				AWSAccount.aws_account_status == "AVAILABLE",
+			)
+		).all()
+		
+		aws_account_dicts = []
+		for aws_account in aws_accounts:
+			aws_account_dicts.append(
+				aws_account.to_dict()
+			)
+		dbsession.close()
+		
+		print( "Number of AWS accounts: " )
+		logit( len( aws_account_dicts ) )
+		
+		for aws_account_dict in aws_account_dicts:
+			logit( "Updating console account for AWS account ID " + aws_account_dict[ "account_id" ] + "...")
+			yield local_tasks.recreate_aws_console_account(
+				aws_account_dict,
+				False
+			)
+		
+		logit( "AWS console accounts updated successfully!" )
+		
 def make_app( is_debug ):
 	tornado_app_settings = {
 		"debug": is_debug,
@@ -9555,7 +9632,8 @@ def make_app( is_debug ):
 		( r"/services/v1/billing_watchdog", RunBillingWatchdogJob ),
 		( r"/services/v1/bill_customers", RunMonthlyStripeBillingJob ),
 		( r"/services/v1/perform_terraform_plan_on_fleet", PerformTerraformPlanOnFleet ),
-		( r"/services/v1/dangerously_terraform_update_fleet", PerformTerraformUpdateOnFleet )
+		( r"/services/v1/dangerously_terraform_update_fleet", PerformTerraformUpdateOnFleet ),
+		( r"/services/v1/update_managed_console_users_iam", UpdateIAMConsoleUserIAM ),
 	], **tornado_app_settings)
 
 if __name__ == "__main__":

@@ -107,19 +107,6 @@
             "Effect": "Allow",
             "Action": "s3:*",
             "Resource": "arn:aws:s3:::*"
-        },
-        {
-            "Sid": "VisualEditor3",
-            "Effect": "Deny",
-            "Action": [
-                "s3:PutAccountPublicAccessBlock",
-                "s3:GetAccountPublicAccessBlock",
-                "s3:ListAllMyBuckets",
-                "s3:ListJobs",
-                "s3:CreateJob",
-                "s3:HeadBucket"
-            ],
-            "Resource": "*"
         }
     ]
 }
