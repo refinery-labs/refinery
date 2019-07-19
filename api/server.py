@@ -9579,9 +9579,6 @@ class UpdateIAMConsoleUserIAM( BaseHandler ):
 			)
 		dbsession.close()
 		
-		print( "Number of AWS accounts: " )
-		logit( len( aws_account_dicts ) )
-		
 		for aws_account_dict in aws_account_dicts:
 			logit( "Updating console account for AWS account ID " + aws_account_dict[ "account_id" ] + "...")
 			yield local_tasks.recreate_aws_console_account(
