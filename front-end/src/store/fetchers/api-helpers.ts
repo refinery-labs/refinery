@@ -50,6 +50,7 @@ import { unwrapProjectJson, wrapJson } from '@/utils/project-helpers';
 import { ExecutionLogMetadata } from '@/types/execution-logs-types';
 import { DeployProjectParams, DeployProjectResult } from '@/types/project-editor-types';
 import { CURRENT_TRANSITION_SCHEMA } from '@/constants/graph-constants';
+import { timeout } from '@/utils/async-utils';
 
 export interface libraryBuildArguments {
   language: SupportedLanguage;
@@ -100,6 +101,24 @@ export async function getProjectExecutions(
   };
 }
 
+async function makeRequestWithRetry<T>(
+  makeRequest: () => Promise<T>,
+  validationCheck: (res: T) => boolean,
+  retryCount = 3
+) {
+  for (let i = 0; i < retryCount; i++) {
+    const response = await makeRequest();
+
+    if (validationCheck(response)) {
+      return response;
+    }
+
+    await timeout(1000);
+  }
+
+  return null;
+}
+
 export async function getLogsForExecutions(
   project: RefineryProject,
   executionGroup: BlockExecutionGroup
@@ -109,20 +128,24 @@ export async function getLogsForExecutions(
     return null;
   }
 
-  // TODO: Add Retry logic
-  const response = await makeApiRequest<GetProjectExecutionLogsRequest, GetProjectExecutionLogsResponse>(
-    API_ENDPOINT.GetProjectExecutionLogs,
-    {
-      arn: executionGroup.blockArn,
-      execution_pipeline_id: executionGroup.executionId,
-      // Subtract 300 so that we make sure to get the right 5 minute shard in Athena.
-      // If this isn't a leaking abstraction, I don't know what is! -Free
-      oldest_timestamp: executionGroup.timestamp - 301,
-      project_id: project.project_id
-    }
+  const makeRequest = async () =>
+    await makeApiRequest<GetProjectExecutionLogsRequest, GetProjectExecutionLogsResponse>(
+      API_ENDPOINT.GetProjectExecutionLogs,
+      {
+        arn: executionGroup.blockArn,
+        execution_pipeline_id: executionGroup.executionId,
+        // Subtract 300 so that we make sure to get the right 5 minute shard in Athena.
+        // If this isn't a leaking abstraction, I don't know what is! -Free
+        oldest_timestamp: executionGroup.timestamp - 301,
+        project_id: project.project_id
+      }
+    );
+
+  const response = await makeRequestWithRetry(makeRequest, response =>
+    Boolean(response && response.success && response.result && response.result.results.length > 0)
   );
 
-  if (!response || !response.success || !response.result) {
+  if (!response) {
     console.error('Unable to retrieve execution logs.');
     return null;
   }
@@ -142,15 +165,19 @@ export async function getAdditionalLogsByPage(
   blockId: string,
   page: string
 ): Promise<AdditionalBlockExecutionPageData | null> {
-  // TODO: Add Retry logic
-  const response = await makeApiRequest<GetProjectExecutionLogsPageRequest, GetProjectExecutionLogsPageResponse>(
-    API_ENDPOINT.GetProjectExecutionLogsPage,
-    {
-      id: page
-    }
+  const makeRequest = async () =>
+    await makeApiRequest<GetProjectExecutionLogsPageRequest, GetProjectExecutionLogsPageResponse>(
+      API_ENDPOINT.GetProjectExecutionLogsPage,
+      {
+        id: page
+      }
+    );
+
+  const response = await makeRequestWithRetry(makeRequest, response =>
+    Boolean(response && response.success && response.result && response.result.results.length > 0)
   );
 
-  if (!response || !response.success || !response.result) {
+  if (!response) {
     console.error('Unable to retrieve more execution logs.');
     return null;
   }
