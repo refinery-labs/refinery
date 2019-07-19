@@ -8,9 +8,8 @@ import {
   getProjectExecutions
 } from '@/store/fetchers/api-helpers';
 import {
-  AdditionalBlockExecutionPage,
+  AddBlockExecutionsPayload,
   BlockExecutionGroup,
-  BlockExecutionLog,
   BlockExecutionLogContentsByLogId,
   BlockExecutionLogsForBlockId,
   BlockExecutionPagesByBlockId,
@@ -56,7 +55,6 @@ export enum DeploymentExecutionsMutators {
   setSelectedExecutionGroup = 'setSelectedExecutionGroup',
   resetLogState = 'resetLogState',
   addBlockExecutionLogMetadata = 'addBlockExecutionLogMetadata',
-  addBlockExecutionPageResult = 'addBlockExecutionPageResult',
   addBlockExecutionLogContents = 'addBlockExecutionLogContents',
   setSelectedBlockExecutionLog = 'setSelectedBlockExecutionLog'
 }
@@ -306,7 +304,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       state.blockExecutionTotalsByBlockId = deepJSONCopy(moduleState.blockExecutionTotalsByBlockId);
       state.blockExecutionPagesByBlockId = deepJSONCopy(moduleState.blockExecutionPagesByBlockId);
     },
-    [DeploymentExecutionsMutators.addBlockExecutionLogMetadata](state, log: BlockExecutionLog) {
+    [DeploymentExecutionsMutators.addBlockExecutionLogMetadata](state, log: AddBlockExecutionsPayload) {
       const existingLogs = state.blockExecutionLogsForBlockId[log.blockId] || [];
 
       // Go through the existing logs and only add logs that we don't already have.
@@ -323,27 +321,27 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         [log.blockId]: [...existingLogs, ...logsToAdd]
       };
 
-      state.blockExecutionPagesByBlockId = {
-        ...state.blockExecutionPagesByBlockId,
-        ...{ [log.blockId]: log.pages }
-      };
+      if (log.pages) {
+        state.blockExecutionPagesByBlockId = {
+          ...state.blockExecutionPagesByBlockId,
+          ...{ [log.blockId]: log.pages }
+        };
+      }
 
-      state.blockExecutionTotalsByBlockId = {
-        ...state.blockExecutionTotalsByBlockId,
-        [log.blockId]: log.totalExecutions
-      };
-    },
-    [DeploymentExecutionsMutators.addBlockExecutionPageResult](state, log: AdditionalBlockExecutionPage) {
-      state.blockExecutionLogsForBlockId = {
-        ...state.blockExecutionLogsForBlockId,
-        [log.blockId]: [...(state.blockExecutionLogsForBlockId[log.blockId] || []), ...Object.values(log.logs)]
-      };
+      if (log.removePage) {
+        state.blockExecutionPagesByBlockId = {
+          ...state.blockExecutionPagesByBlockId,
+          // Remove the page
+          [log.blockId]: state.blockExecutionPagesByBlockId[log.blockId].filter(page => page !== log.removePage)
+        };
+      }
 
-      state.blockExecutionPagesByBlockId = {
-        ...state.blockExecutionPagesByBlockId,
-        // Remove the page we just retrieved
-        [log.blockId]: state.blockExecutionPagesByBlockId[log.blockId].filter(page => page !== log.page)
-      };
+      if (log.totalExecutions) {
+        state.blockExecutionTotalsByBlockId = {
+          ...state.blockExecutionTotalsByBlockId,
+          [log.blockId]: log.totalExecutions
+        };
+      }
     },
     [DeploymentExecutionsMutators.addBlockExecutionLogContents](state, logs: BlockExecutionLogContentsByLogId) {
       state.blockExecutionLogByLogId = {
@@ -549,7 +547,9 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         return;
       }
 
-      context.commit(DeploymentExecutionsMutators.addBlockExecutionLogMetadata, response);
+      const payload: AddBlockExecutionsPayload = response;
+
+      context.commit(DeploymentExecutionsMutators.addBlockExecutionLogMetadata, payload);
 
       context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, false);
 
@@ -573,12 +573,12 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       const pages = context.state.blockExecutionPagesByBlockId[selectedNode.id];
 
-      context.commit(DeploymentExecutionsMutators.setIsFetchingMoreLogs, true);
-
       if (!pages || pages.length === 0) {
         console.error('No more logs to retrieve');
         return;
       }
+
+      context.commit(DeploymentExecutionsMutators.setIsFetchingMoreLogs, true);
 
       const response = await getAdditionalLogsByPage(selectedNode.id, pages[0]);
 
@@ -589,7 +589,12 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         return;
       }
 
-      context.commit(DeploymentExecutionsMutators.addBlockExecutionPageResult, response);
+      const payload: AddBlockExecutionsPayload = {
+        ...response,
+        removePage: response.page
+      };
+
+      context.commit(DeploymentExecutionsMutators.addBlockExecutionLogMetadata, payload);
 
       await context.dispatch(DeploymentExecutionsActions.warmLogCacheAndSelectDefault, response);
     },
@@ -646,7 +651,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
     },
     async [DeploymentExecutionsActions.warmLogCacheAndSelectDefault](
       context,
-      logMetadataByLogId: AdditionalBlockExecutionPage | BlockExecutionLog
+      logMetadataByLogId: AddBlockExecutionsPayload
     ) {
       if (!logMetadataByLogId) {
         return;

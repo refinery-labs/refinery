@@ -50,7 +50,7 @@ export interface BlockExecutionTotalsByBlockId {
   [key: string]: number;
 }
 
-export interface BlockExecutionLog {
+export interface BlockExecutionLogData {
   blockId: string;
   logs: BlockExecutionLogMetadataByLogId;
   pages: string[];
@@ -69,10 +69,18 @@ export interface BlockExecutionLogsForBlockId {
   [key: string]: ExecutionLogMetadata[];
 }
 
-export interface AdditionalBlockExecutionPage {
+export interface AdditionalBlockExecutionPageData {
   blockId: string;
   page: string;
   logs: BlockExecutionLogMetadataByLogId;
+}
+
+export interface AddBlockExecutionsPayload {
+  blockId: string;
+  logs: BlockExecutionLogMetadataByLogId;
+  pages?: string[];
+  removePage?: string;
+  totalExecutions?: number;
 }
 
 //////////////////////////////////
