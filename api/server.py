@@ -2942,6 +2942,22 @@ class TaskSpawner(object):
 			return package_zip_data
 			
 		@run_on_executor
+		def set_lambda_reserved_concurrency( self, credentials, arn, reserved_concurrency_amount ):
+			# Create Lambda client
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			
+			set_concurrency_response = lambda_client.put_function_concurrency(
+				FunctionName=arn,
+				ReservedConcurrentExecutions=int( reserved_concurrency_amount )
+			)
+			
+			print( "Set concurrency response: " )
+			logit( set_concurrency_response )
+			
+		@run_on_executor
 		def deploy_aws_lambda( self, credentials, func_name, language, description, role_name, code, libraries, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
 			"""
 			Here we do caching to see if we've done this exact build before
@@ -5241,7 +5257,7 @@ def get_lambda_safe_name( input_name ):
 	return "".join([c for c in input_name if c in whitelist])[:64]
 	
 @gen.coroutine
-def deploy_lambda( credentials, id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, execution_log_level, environment_variables, layers ):
+def deploy_lambda( credentials, id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, execution_log_level, environment_variables, layers, reserved_concurrency_amount ):
 	"""
 	Here we build the default required environment variables.
 	"""
@@ -5357,6 +5373,15 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		},
 		layers
 	)
+	
+	# If we have concurrency set, then we'll set that for our deployed Lambda
+	if reserved_concurrency_amount:
+		logit( "Setting reserved concurrency for Lambda '" + deployed_lambda_data[ "FunctionArn" ] + "' to " + str( reserved_concurrency_amount ) + "..." )
+		yield local_tasks.set_lambda_reserved_concurrency(
+			credentials,
+			deployed_lambda_data[ "FunctionArn" ],
+			reserved_concurrency_amount
+		)
 	
 	raise gen.Return({
 		"id": id,
@@ -5600,6 +5625,10 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	for lambda_node in lambda_nodes:
 		lambda_safe_name = get_lambda_safe_name( lambda_node[ "name" ] )
 		logit( "Deploying Lambda '" + lambda_safe_name + "'..." )
+		
+		# For backwards compatibility
+		if not ( "reserved_concurrency_count" in lambda_node ):
+			lambda_node[ "reserved_concurrency_count" ] = False
 
 		lambda_node_deploy_futures.append({
 			"id": lambda_node[ "id" ],
@@ -5620,6 +5649,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				project_config[ "logging" ][ "level" ],
 				env_var_dict[ lambda_node[ "id" ] ],
 				lambda_node[ "layers" ],
+				lambda_node[ "reserved_concurrency_count" ]
 			)
 		})
 		
