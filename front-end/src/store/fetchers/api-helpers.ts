@@ -36,10 +36,10 @@ import {
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
 import {
-  AdditionalBlockExecutionPage,
+  AdditionalBlockExecutionPageData,
   BlockExecutionGroup,
-  BlockExecutionLog,
   BlockExecutionLogContentsByLogId,
+  BlockExecutionLogData,
   ProductionExecutionResponse
 } from '@/types/deployment-executions-types';
 import { convertExecutionResponseToProjectExecutionGroup } from '@/utils/project-execution-utils';
@@ -47,7 +47,7 @@ import { RefineryProject, SupportedLanguage, WorkflowState } from '@/types/graph
 import { ProductionWorkflowState } from '@/types/production-workflow-types';
 import { blockTypeToDefaultStateMapping, DEFAULT_PROJECT_CONFIG } from '@/constants/project-editor-constants';
 import { unwrapProjectJson, wrapJson } from '@/utils/project-helpers';
-import { ExecutionLogContents, ExecutionLogMetadata } from '@/types/execution-logs-types';
+import { ExecutionLogMetadata } from '@/types/execution-logs-types';
 import { DeployProjectParams, DeployProjectResult } from '@/types/project-editor-types';
 import { CURRENT_TRANSITION_SCHEMA } from '@/constants/graph-constants';
 
@@ -103,7 +103,7 @@ export async function getProjectExecutions(
 export async function getLogsForExecutions(
   project: RefineryProject,
   executionGroup: BlockExecutionGroup
-): Promise<BlockExecutionLog | null> {
+): Promise<BlockExecutionLogData | null> {
   if (!project) {
     console.error('Tried to fetch logs without specified project');
     return null;
@@ -141,7 +141,7 @@ export async function getLogsForExecutions(
 export async function getAdditionalLogsByPage(
   blockId: string,
   page: string
-): Promise<AdditionalBlockExecutionPage | null> {
+): Promise<AdditionalBlockExecutionPageData | null> {
   // TODO: Add Retry logic
   const response = await makeApiRequest<GetProjectExecutionLogsPageRequest, GetProjectExecutionLogsPageResponse>(
     API_ENDPOINT.GetProjectExecutionLogsPage,
