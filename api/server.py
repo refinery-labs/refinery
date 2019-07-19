@@ -1746,10 +1746,25 @@ class TaskSpawner(object):
 			
 			# Start EC2 instance(s)
 			ec2_instance_ids = TaskSpawner.get_ec2_instance_ids( credentials )
+			
+			# Max attempts
+			remaining_attempts = 20
 
-			start_instance_response = ec2_client.start_instances(
-				InstanceIds=ec2_instance_ids
-			)
+			# Prevents issue if a freeze happens too quickly after an un-freeze
+			while remaining_attempts > 0:
+				try:
+					start_instance_response = ec2_client.start_instances(
+						InstanceIds=ec2_instance_ids
+					)
+				except botocore.exceptions.ClientError as boto_error:
+					if boto_error.response[ "Error" ][ "Code" ] != "IncorrectInstanceState":
+						raise
+					
+					logit( "EC2 instance isn't ready to be started yet!" )
+					logit( "Waiting 2 seconds and trying again..." )
+					time.sleep(2)
+					
+				remaining_attempts = remaining_attempts - 1
 			
 			return True
 			
