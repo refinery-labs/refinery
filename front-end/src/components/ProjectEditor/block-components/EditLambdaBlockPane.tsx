@@ -605,7 +605,11 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       </b-col>
     );
 
-    const codeEditorRow = <b-col cols={12}>{this.renderCodeEditorContainer()}</b-col>;
+    const codeEditorRow = (
+      <b-col cols={12}>
+        <div class="shift-code-block-editor">{this.renderCodeEditorContainer()}</div>
+      </b-col>
+    );
 
     // Fork the display for read-only/deployment view to make the UX more clear for what pane the user is in.
     if (this.readOnly) {

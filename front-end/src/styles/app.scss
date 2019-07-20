@@ -361,7 +361,7 @@ $content-sidebar-width: 92px;
 
   &__code-editor {
     min-height: 240px;
-    height: 45vh;
+    height: 48vh;
 
     &--small {
       min-height: 180px;
@@ -396,6 +396,10 @@ $content-sidebar-width: 92px;
 
 .code-modal-editor-container {
   height: calc(100vh - 59px);
+}
+
+.shift-code-block-editor {
+  margin-top: -12px;
 }
 
 .deploy-pane-container {
