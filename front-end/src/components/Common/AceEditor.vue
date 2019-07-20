@@ -57,7 +57,8 @@ export default Vue.component('AceEditor', {
     this.editor.setOptions({
       tabSize: 4,
       useSoftTabs: true,
-      scrollPastEnd: true,
+      // Only overscroll for content that we can edit
+      scrollPastEnd: !disabled,
       enableBasicAutocompletion: true,
       enableLiveAutocompletion: true
     });

@@ -81,19 +81,23 @@ export default class ViewDeployedBlockLogsPane extends Vue {
   public renderExecutionLabels(execution: ExecutionLogContents) {
     const durationSinceUpdated = moment.duration(-moment().diff(execution.timestamp * 1000)).humanize(true);
     return (
-      <div class="text-align--left">
-        <label class="text-bold">Time: &nbsp;</label>
-        <label> {durationSinceUpdated}</label>
-        <br />
-        <label class="text-bold">Status: &nbsp;</label>
-        <label>
-          <b-badge variant={executionTypeToVariable(execution.type)} pill>
-            {executionTypeToString(execution.type)}
-          </b-badge>
-        </label>
-        <br />
-        <label class="text-bold">Log Id: &nbsp;</label>
-        <label style="font-size: 0.8rem"> {execution.log_id}</label>
+      <div class="text-align--left row">
+        <b-col xl={3}>
+          <label class="text-bold">Time: &nbsp;</label>
+          <label> {durationSinceUpdated}</label>
+        </b-col>
+        <b-col xl={3}>
+          <label class="text-bold">Status: &nbsp;</label>
+          <label>
+            <b-badge variant={executionTypeToVariable(execution.type)} pill>
+              {executionTypeToString(execution.type)}
+            </b-badge>
+          </label>
+        </b-col>
+        <b-col xl={6}>
+          <label class="text-bold">Log Id: &nbsp;</label>
+          <label style="font-size: 0.8rem"> {execution.log_id}</label>
+        </b-col>
       </div>
     );
   }
@@ -104,11 +108,12 @@ export default class ViewDeployedBlockLogsPane extends Vue {
       content,
       lang: json ? SupportedLanguage.NODEJS_8 : 'text',
       readOnly: true,
-      wrapText: true
+      wrapText: true,
+      extraClasses: 'height--100percent'
     };
 
     return (
-      <div class="display--flex flex-direction--column">
+      <div class="display--flex flex-grow--1 flex-direction--column">
         <div class="text-align--left run-lambda-container__text-label">
           <label class="text-light padding--none mt-0 mb-0 ml-2">{label}:</label>
         </div>
@@ -204,7 +209,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
 
   public render(h: CreateElement): VNode {
     return (
-      <div class="display--flex flex-direction--column">
+      <div class="display--flex flex-direction--column" style="min-width: 340px">
         <b-tabs nav-class="nav-justified" content-class="padding--none">
           <b-tab title="first" active={true} no-body={true}>
             <template slot="title">
@@ -215,7 +220,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
             </template>
             <div class="show-block-container mr-2 ml-2">
               <div class="mb-2 mt-2 text-align--left show-block-container__form show-block-container__form--normal">
-                <div class="scrollable-pane-container padding-left--normal padding-right--normal">
+                <div class="scrollable-pane-container padding-left--normal padding-right--normal container">
                   {this.renderExecutionDropdown()}
                   {this.renderExecutionDetails()}
                 </div>

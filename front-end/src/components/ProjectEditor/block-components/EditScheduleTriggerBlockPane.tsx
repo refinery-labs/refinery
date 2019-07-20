@@ -22,17 +22,12 @@ export class EditScheduleTriggerBlock extends Vue implements EditBlockPaneProps 
   @Prop({ required: true }) readOnly!: boolean;
 
   // Deployment
-  @viewBlock.State('wideMode') wideModeDeployment!: boolean;
-  @viewBlock.Mutation('setWidePanel') setWidePanelDeployment!: (wide: boolean) => void;
   @viewBlock.Action openAwsConsoleForBlock!: () => void;
 
   // Project Editor
-  @editBlock.State wideMode!: boolean;
-
   @editBlock.Getter scheduleExpressionValid!: boolean;
 
   @editBlock.Mutation setInputData!: (input_data: string) => void;
-  @editBlock.Mutation setWidePanel!: (wide: boolean) => void;
 
   @editBlock.Mutation setScheduleExpression!: (name: string) => void;
 
@@ -66,11 +61,6 @@ export class EditScheduleTriggerBlock extends Vue implements EditBlockPaneProps 
   public renderCodeEditorContainer() {
     const selectedNode = this.selectedNode;
 
-    const setWidePanel = this.readOnly ? this.setWidePanelDeployment : this.setWidePanel;
-    const wideMode = this.readOnly ? this.wideModeDeployment : this.wideMode;
-
-    const expandOnClick = { click: () => setWidePanel(!wideMode) };
-
     return (
       <b-form-group
         id={`code-editor-group-${selectedNode.id}`}
@@ -80,9 +70,6 @@ export class EditScheduleTriggerBlock extends Vue implements EditBlockPaneProps 
           <label class="d-block flex-grow--1" htmlFor={`code-editor-${selectedNode.id}`}>
             Edit Return Data:
           </label>
-          <b-button on={expandOnClick} class="show-block-container__expand-button">
-            <span class="fa fa-angle-double-left" />
-          </b-button>
         </div>
         <div class="input-group with-focus show-block-container__code-editor">{this.renderCodeEditor()}</div>
       </b-form-group>
@@ -104,7 +91,7 @@ export class EditScheduleTriggerBlock extends Vue implements EditBlockPaneProps 
     };
 
     return (
-      <div>
+      <div class="show-block-container__block">
         <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#timer-block' }} />
         <BlockNameInput props={blockInputProps} />
         <BlockScheduleExpressionInput props={scheduleExpressionProps} />

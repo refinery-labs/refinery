@@ -42,7 +42,6 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
   // State pulled from Deployment view.
   @viewBlock.State('showCodeModal') showCodeModalDeployment!: boolean;
-  @viewBlock.State('wideMode') wideModeDeployment!: boolean;
   @viewBlock.State('librariesModalVisibility') librariesModalVisibilityDeployment!: boolean;
 
   @viewBlock.Getter getAwsConsoleUri!: string | null;
@@ -50,7 +49,6 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @viewBlock.Getter getLambdaCloudWatchUri!: string | null;
 
   @viewBlock.Mutation('setCodeModalVisibility') setCodeModalVisibilityDeployment!: (visible: boolean) => void;
-  @viewBlock.Mutation('setWidePanel') setWidePanelDeployment!: (wide: boolean) => void;
   @viewBlock.Mutation('setLibrariesModalVisibility') setLibrariesModalVisibilityDeployment!: (
     visibility: boolean
   ) => void;
@@ -60,7 +58,6 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
   // State pulled from Project view
   @editBlock.State showCodeModal!: boolean;
-  @editBlock.State wideMode!: boolean;
   @editBlock.State librariesModalVisibility!: boolean;
   @editBlock.State enteredLibrary!: string;
   @editBlock.State isLoadingMetadata!: boolean;
@@ -68,7 +65,6 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @editBlock.Getter isEditedBlockValid!: boolean;
 
   @editBlock.Mutation setCodeModalVisibility!: (visible: boolean) => void;
-  @editBlock.Mutation setWidePanel!: (wide: boolean) => void;
 
   @editBlock.Mutation setLibrariesModalVisibility!: (visibility: boolean) => void;
   @editBlock.Mutation setCodeInput!: (code: string) => void;
@@ -204,11 +200,8 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   public renderCodeEditorContainer() {
     const selectedNode = this.selectedNode;
 
-    const setWidePanel = this.readOnly ? this.setWidePanelDeployment : this.setWidePanel;
-    const wideMode = this.readOnly ? this.wideModeDeployment : this.wideMode;
     const setCodeModalVisibility = this.readOnly ? this.setCodeModalVisibilityDeployment : this.setCodeModalVisibility;
 
-    const expandOnClick = { click: () => setWidePanel(!wideMode) };
     const fullscreenOnClick = {
       click: () => setCodeModalVisibility(true)
     };
@@ -223,9 +216,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
           </label>
           <b-button on={fullscreenOnClick} class="show-block-container__expand-button">
             <span class="fa fa-expand" />
-          </b-button>
-          <b-button on={expandOnClick} class="show-block-container__expand-button">
-            <span class="fa fa-angle-double-left" />
+            {'  '}Open Full {this.readOnly ? 'Viewer' : 'Editor'}
           </b-button>
         </div>
         <div class="input-group with-focus show-block-container__code-editor">{this.renderCodeEditor()}</div>
@@ -262,7 +253,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
   public renderConcurrencyLimit(selectedNode: LambdaWorkflowState) {
     const hasLimitSet =
-      selectedNode.reserved_concurrency_limit !== undefined && selectedNode.reserved_concurrency_limit !== false;
+      selectedNode.reserved_concurrency_count !== undefined && selectedNode.reserved_concurrency_count !== false;
     const description = <span>If toggled, this allows you to limit the maximum concurrency for a given block.</span>;
 
     const extendedDescription = (
@@ -296,12 +287,12 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
             disabled={!hasLimitSet}
             on={{
               update: this.setConcurrencyLimit,
-              blur: () => this.setConcurrencyLimit(selectedNode.reserved_concurrency_limit)
+              blur: () => this.setConcurrencyLimit(selectedNode.reserved_concurrency_count)
             }}
-            value={selectedNode.reserved_concurrency_limit}
+            value={selectedNode.reserved_concurrency_count}
           />
         </div>
-        <b-form-invalid-feedback state={selectedNode.reserved_concurrency_limit < 20}>
+        <b-form-invalid-feedback state={selectedNode.reserved_concurrency_count < 20}>
           Warning: Setting this high of a concurrency will limit will reduce your maximum concurrency for all other
           blocks.
         </b-form-invalid-feedback>
@@ -600,40 +591,51 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       readOnly: this.readOnly
     };
 
+    const blockNameRow = (
+      <b-col cols={12}>
+        <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#code-block' }} />
+        <BlockNameInput props={editBlockProps} />
+      </b-col>
+    );
+
+    const codeEditorRow = (
+      <b-col cols={12}>
+        <div class="shift-code-block-editor">{this.renderCodeEditorContainer()}</div>
+      </b-col>
+    );
+
     // Fork the display for read-only/deployment view to make the UX more clear for what pane the user is in.
     if (this.readOnly) {
       return (
-        <div>
-          <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#code-block' }} />
-          <BlockNameInput props={editBlockProps} />
-          {this.renderCodeEditorContainer()}
-          {this.renderBlockVariables()}
-          {this.renderAwsLink()}
-          {this.renderLanguageSelector()}
-          {this.renderForm(this.selectedNode, maxExecutionTimeProps)}
-          {this.renderForm(this.selectedNode, maxMemoryProps)}
-          {this.renderConcurrencyLimit(this.selectedNode)}
+        <div class="show-block-container__block row">
+          {blockNameRow}
+          {codeEditorRow}
+
+          <b-col xl={6}>{this.renderAwsLink()}</b-col>
+
+          <b-col xl={6}>{this.renderBlockVariables()}</b-col>
+          <b-col xl={6}>{this.renderLanguageSelector()}</b-col>
+          <b-col xl={6}>{this.renderForm(this.selectedNode, maxExecutionTimeProps)}</b-col>
+          <b-col xl={6}>{this.renderForm(this.selectedNode, maxMemoryProps)}</b-col>
+          <b-col xl={6}>{this.renderConcurrencyLimit(this.selectedNode)}</b-col>
           {this.renderCodeEditorModal()}
         </div>
       );
     }
 
     return (
-      <div>
-        <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#code-block' }} />
-        <BlockNameInput props={editBlockProps} />
-        {this.renderCodeEditorContainer()}
-        {this.renderAwsLink()}
-        {this.renderBlockVariables()}
-        {this.renderLibrarySelector()}
-        {this.renderCreateSavedBlockButton()}
-        {/*<b-button variant="dark" class="col-12 mb-3">*/}
-        {/*  Edit Environment Variables*/}
-        {/*</b-button>*/}
-        {this.renderLanguageSelector()}
-        {this.renderForm(this.selectedNode, maxExecutionTimeProps)}
-        {this.renderForm(this.selectedNode, maxMemoryProps)}
-        {this.renderConcurrencyLimit(this.selectedNode)}
+      <div class="show-block-container__block row">
+        {blockNameRow}
+        {codeEditorRow}
+
+        <b-col xl={6}>{this.renderCreateSavedBlockButton()}</b-col>
+        <b-col xl={6}>{this.renderBlockVariables()}</b-col>
+        <b-col xl={6}>{this.renderLibrarySelector()}</b-col>
+        <b-col xl={6} />
+        <b-col xl={6}>{this.renderLanguageSelector()}</b-col>
+        <b-col xl={6}>{this.renderForm(this.selectedNode, maxExecutionTimeProps)}</b-col>
+        <b-col xl={6}>{this.renderForm(this.selectedNode, maxMemoryProps)}</b-col>
+        <b-col xl={6}>{this.renderConcurrencyLimit(this.selectedNode)}</b-col>
         {this.renderCodeEditorModal()}
         {this.renderLibrariesModal()}
       </div>

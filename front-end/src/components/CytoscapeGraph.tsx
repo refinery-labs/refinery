@@ -126,6 +126,10 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
 
     this.cytoscapeValueModified();
 
+    if (!this.cy) {
+      return;
+    }
+
     // Re-run the layout...
     const layout = this.cy.layout(this.getLayoutConfig(false));
     layout.promiseOn('layoutstop').then(async () => {
@@ -133,6 +137,10 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
       await timeout(50);
 
       this.isLayoutRunning = false;
+
+      if (this.selected) {
+        this.selectNodeOrEdgeInInstance(this.selected);
+      }
     });
 
     layout.run();

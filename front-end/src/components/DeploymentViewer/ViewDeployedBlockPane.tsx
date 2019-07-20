@@ -11,7 +11,6 @@ const viewBlock = namespace('viewBlock');
 export default class ViewDeployedBlockPane extends Vue {
   @viewBlock.State selectedNode!: WorkflowState | null;
   @viewBlock.State confirmDiscardModalVisibility!: boolean;
-  @viewBlock.State wideMode!: boolean;
 
   @viewBlock.Mutation setConfirmDiscardModalVisibility!: (visibility: boolean) => void;
 
@@ -29,25 +28,27 @@ export default class ViewDeployedBlockPane extends Vue {
       readOnly: true
     };
 
-    const formClasses = {
-      'mb-2 mt-2 text-align--left': true,
-      'show-block-container__form': true,
-      'show-block-container__form--normal': !this.wideMode,
-      'show-block-container__form--wide': this.wideMode
-    };
-
     // I have no idea how to manage this with Typescript support, blast!
     // @ts-ignore
     const componentInstance = <ActiveEditorComponent props={props} />;
 
     return (
-      <b-form class={formClasses} on={{ submit: (e: Event) => e.preventDefault() }}>
-        <div class="scrollable-pane-container padding-left--normal padding-right--normal">{componentInstance}</div>
+      <b-form
+        class="mb-2 mt-2 text-align--left show-block-container__form"
+        on={{ submit: (e: Event) => e.preventDefault() }}
+      >
+        <div class="scrollable-pane-container padding-left--normal padding-right--normal container">
+          {componentInstance}
+        </div>
       </b-form>
     );
   }
 
   public render(h: CreateElement): VNode {
-    return <div class="show-block-container ml-2 mr-2">{this.renderContentWrapper()}</div>;
+    const formClasses = {
+      'show-block-container ml-2 mr-2': true
+    };
+
+    return <div class={formClasses}>{this.renderContentWrapper()}</div>;
   }
 }
