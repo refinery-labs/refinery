@@ -209,7 +209,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
 
   public render(h: CreateElement): VNode {
     return (
-      <div class="display--flex flex-direction--column">
+      <div class="display--flex flex-direction--column" style="min-width: 340px">
         <b-tabs nav-class="nav-justified" content-class="padding--none">
           <b-tab title="first" active={true} no-body={true}>
             <template slot="title">

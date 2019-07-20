@@ -308,7 +308,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
         concurrencyLimit = Math.max(concurrencyLimit, 1);
       }
 
-      lambdaChange(state, block => (block.reserved_concurrency_amount = concurrencyLimit));
+      lambdaChange(state, block => (block.reserved_concurrency_count = concurrencyLimit));
     },
     [EditBlockMutators.setLayers](state, layers) {
       lambdaChange(state, block => (block.layers = layers));

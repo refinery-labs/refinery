@@ -2994,7 +2994,7 @@ class TaskSpawner(object):
 			return package_zip_data
 			
 		@run_on_executor
-		def set_lambda_reserved_concurrency( self, credentials, arn, reserved_concurrency_amount ):
+		def set_lambda_reserved_concurrency( self, credentials, arn, reserved_concurrency_count ):
 			# Create Lambda client
 			lambda_client = get_aws_client(
 				"lambda",
@@ -3003,7 +3003,7 @@ class TaskSpawner(object):
 			
 			set_concurrency_response = lambda_client.put_function_concurrency(
 				FunctionName=arn,
-				ReservedConcurrentExecutions=int( reserved_concurrency_amount )
+				ReservedConcurrentExecutions=int( reserved_concurrency_count )
 			)
 			
 		@run_on_executor
@@ -5307,7 +5307,7 @@ def get_lambda_safe_name( input_name ):
 	return "".join([c for c in input_name if c in whitelist])[:64]
 	
 @gen.coroutine
-def deploy_lambda( credentials, id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, execution_log_level, environment_variables, layers, reserved_concurrency_amount ):
+def deploy_lambda( credentials, id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, execution_log_level, environment_variables, layers, reserved_concurrency_count ):
 	"""
 	Here we build the default required environment variables.
 	"""
@@ -5425,12 +5425,12 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	)
 	
 	# If we have concurrency set, then we'll set that for our deployed Lambda
-	if reserved_concurrency_amount:
-		logit( "Setting reserved concurrency for Lambda '" + deployed_lambda_data[ "FunctionArn" ] + "' to " + str( reserved_concurrency_amount ) + "..." )
+	if reserved_concurrency_count:
+		logit( "Setting reserved concurrency for Lambda '" + deployed_lambda_data[ "FunctionArn" ] + "' to " + str( reserved_concurrency_count ) + "..." )
 		yield local_tasks.set_lambda_reserved_concurrency(
 			credentials,
 			deployed_lambda_data[ "FunctionArn" ],
-			reserved_concurrency_amount
+			reserved_concurrency_count
 		)
 	
 	raise gen.Return({
