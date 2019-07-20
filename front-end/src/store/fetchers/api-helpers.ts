@@ -136,7 +136,7 @@ export async function getLogsForExecutions(
         execution_pipeline_id: executionGroup.executionId,
         // Subtract 300 so that we make sure to get the right 5 minute shard in Athena.
         // If this isn't a leaking abstraction, I don't know what is! -Free
-        oldest_timestamp: executionGroup.timestamp - 301,
+        oldest_timestamp: executionGroup.timestamp - 601,
         project_id: project.project_id
       }
     );
