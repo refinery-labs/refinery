@@ -112,6 +112,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
     const fullScreenClicked = this.fullScreenClicked;
 
     // TODO: Potentially add this feature here too
+    // const expandOnClick = {click: () => this.setWidePanel(!this.wideMode)};
     const fullscreenOnClick = {
       click: () => fullScreenClicked()
     };

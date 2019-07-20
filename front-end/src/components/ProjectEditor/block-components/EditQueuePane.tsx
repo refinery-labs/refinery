@@ -70,7 +70,7 @@ export class EditQueueBlock extends Vue implements EditBlockPaneProps {
     };
 
     return (
-      <div class="show-block-container__block--small">
+      <div>
         <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#queue-block' }} />
         <BlockNameInput props={editBlockProps} />
         {this.renderBatchSize()}

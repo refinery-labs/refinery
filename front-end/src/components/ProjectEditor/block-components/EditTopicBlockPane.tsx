@@ -41,7 +41,7 @@ export class EditTopicBlock extends Vue implements EditBlockPaneProps {
     };
 
     return (
-      <div class="show-block-container__block--small">
+      <div>
         <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#topic-block' }} />
         <BlockNameInput props={editBlockProps} />
         {this.renderAwsLink()}

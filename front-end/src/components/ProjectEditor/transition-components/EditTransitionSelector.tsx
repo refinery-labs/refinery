@@ -115,7 +115,7 @@ export default class EditTransitionSelector extends Vue implements EditTransitio
 
     // This only renders in edit mode.
     const selector = (
-      <b-form-select on={{ input: ifDropdownSelection }} value={this.ifSelectDropdownValue} class="mt-2 mb-2">
+      <b-form-select on={{ input: ifDropdownSelection }} value={this.ifSelectDropdownValue} class="mb-3">
         <option value={IfDropDownSelectionType.DEFAULT}>
           -- Select an option to get an example conditional expression --
         </option>
@@ -132,19 +132,19 @@ export default class EditTransitionSelector extends Vue implements EditTransitio
     );
 
     return (
-      <div class="m-2">
+      <div>
         {!this.readOnly && selector}
-        <div class="d-block text-align--left display--flex">
+        <div class="d-block text-center display--flex">
           <div class="width--100percent flex-grow--1" style="height: 200px;">
             {this.renderCodeEditor()}
-            <small class="mt-1 d-block text-muted">
-              For more information, see the{' '}
-              <a href="https://docs.refinerylabs.io/transitions/#if" target="_blank">
-                Refinery documentation on the <code>if</code> transition.
-              </a>
-            </small>
           </div>
         </div>
+        <small class="text-align--center mb-3 d-block">
+          For more information, see the{' '}
+          <a href="https://docs.refinerylabs.io/transitions/#if" target="_blank">
+            Refinery documentation on the <code>if</code> transition.
+          </a>
+        </small>
       </div>
     );
   }
@@ -155,11 +155,11 @@ export default class EditTransitionSelector extends Vue implements EditTransitio
     }
 
     return (
-      <div class="ml-2 mr-2 mb-2">
+      <b-list-group-item>
         <b-button variant="danger" class="col-md-12" on={{ click: this.cancelModifyingTransition }}>
           Cancel
         </b-button>
-      </div>
+      </b-list-group-item>
     );
   }
 

@@ -11,6 +11,7 @@ const viewBlock = namespace('viewBlock');
 export default class ViewDeployedBlockPane extends Vue {
   @viewBlock.State selectedNode!: WorkflowState | null;
   @viewBlock.State confirmDiscardModalVisibility!: boolean;
+  @viewBlock.State wideMode!: boolean;
 
   @viewBlock.Mutation setConfirmDiscardModalVisibility!: (visibility: boolean) => void;
 
@@ -46,7 +47,9 @@ export default class ViewDeployedBlockPane extends Vue {
 
   public render(h: CreateElement): VNode {
     const formClasses = {
-      'show-block-container ml-2 mr-2': true
+      'show-block-container ml-2 mr-2': true,
+      'show-block-container--normal': !this.wideMode,
+      'show-block-container--wide': this.wideMode
     };
 
     return <div class={formClasses}>{this.renderContentWrapper()}</div>;
