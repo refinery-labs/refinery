@@ -1,4 +1,5 @@
 import { Module } from 'vuex';
+import Vue from 'vue';
 import deepEqual from 'fast-deep-equal';
 import { RootState } from '../../store-types';
 import {
@@ -58,6 +59,8 @@ export enum EditBlockMutators {
   setEnteredLibrary = 'setEnteredLibrary',
   deleteDependencyImport = 'deleteDependencyImport',
   addDependencyImport = 'addDependencyImport',
+
+  setConcurrencyLimit = 'setConcurrencyLimit',
 
   // Timer Block Inputs
   setScheduleExpression = 'setScheduleExpression',
@@ -130,7 +133,8 @@ const moduleState: EditBlockPaneState = {
 function modifyBlock<T extends WorkflowState>(state: EditBlockPaneState, fn: (block: T) => void) {
   const block = state.selectedNode as T;
   fn(block);
-  state.selectedNode = Object.assign({}, block);
+  // Vue.set(state, 'selectedNode', block);
+  state.selectedNode = deepJSONCopy(block);
 }
 
 function getBlockAsType<T extends WorkflowState>(
@@ -290,13 +294,24 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       lambdaChange(state, block => (block.max_execution_time = parseInt(maxExecTime, 10)));
     },
     [EditBlockMutators.setExecutionMemory](state, memory) {
-      memory = Math.min(memory, 3072);
+      memory = Math.min(memory, 3008);
       memory = Math.max(memory, 128);
+
+      // Always make the value be an increment of 64
+      memory = memory % 64 !== 0 ? memory - (memory % 64) : memory;
 
       lambdaChange(state, block => (block.memory = memory));
     },
     [EditBlockMutators.setSavedInputData](state, inputData) {
       lambdaChange(state, block => (block.saved_input_data = inputData));
+    },
+    [EditBlockMutators.setConcurrencyLimit](state, concurrencyLimit) {
+      if (concurrencyLimit !== false) {
+        concurrencyLimit = Math.min(concurrencyLimit, 100);
+        concurrencyLimit = Math.max(concurrencyLimit, 1);
+      }
+
+      lambdaChange(state, block => (block.reserved_concurrency_limit = concurrencyLimit));
     },
     [EditBlockMutators.setLayers](state, layers) {
       lambdaChange(state, block => (block.layers = layers));
