@@ -357,7 +357,7 @@ export const CODE_BLOCK_DEFAULT_STATE: LambdaWorkflowState = {
   max_execution_time: 900,
   type: WorkflowStateType.LAMBDA,
   environment_variables: {},
-  reserved_concurrency_limit: false
+  reserved_concurrency_amount: false
 };
 
 export const SCHEDULE_EXPRESSION_BLOCK_DEFAULT_STATE: ScheduleTriggerWorkflowState = {

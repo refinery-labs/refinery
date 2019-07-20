@@ -253,7 +253,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
   public renderConcurrencyLimit(selectedNode: LambdaWorkflowState) {
     const hasLimitSet =
-      selectedNode.reserved_concurrency_limit !== undefined && selectedNode.reserved_concurrency_limit !== false;
+      selectedNode.reserved_concurrency_amount !== undefined && selectedNode.reserved_concurrency_amount !== false;
     const description = <span>If toggled, this allows you to limit the maximum concurrency for a given block.</span>;
 
     const extendedDescription = (
@@ -287,12 +287,12 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
             disabled={!hasLimitSet}
             on={{
               update: this.setConcurrencyLimit,
-              blur: () => this.setConcurrencyLimit(selectedNode.reserved_concurrency_limit)
+              blur: () => this.setConcurrencyLimit(selectedNode.reserved_concurrency_amount)
             }}
-            value={selectedNode.reserved_concurrency_limit}
+            value={selectedNode.reserved_concurrency_amount}
           />
         </div>
-        <b-form-invalid-feedback state={selectedNode.reserved_concurrency_limit < 20}>
+        <b-form-invalid-feedback state={selectedNode.reserved_concurrency_amount < 20}>
           Warning: Setting this high of a concurrency will limit will reduce your maximum concurrency for all other
           blocks.
         </b-form-invalid-feedback>

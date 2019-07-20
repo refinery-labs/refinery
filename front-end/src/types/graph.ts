@@ -68,7 +68,7 @@ export interface LambdaWorkflowState extends WorkflowState {
   max_execution_time: number;
   saved_input_data?: string;
   environment_variables: BlockEnvironmentVariableList;
-  reserved_concurrency_limit: number | false;
+  reserved_concurrency_amount: number | false;
 }
 
 export interface BlockEnvironmentVariableList {
