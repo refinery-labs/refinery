@@ -18,9 +18,7 @@ export enum ViewBlockMutators {
   resetState = 'resetState',
   setSelectedNode = 'setSelectedNode',
   setCodeModalVisibility = 'setCodeModalVisibility',
-  setLibrariesModalVisibility = 'setLibrariesModalVisibility',
-
-  setWidePanel = 'setWidePanel'
+  setLibrariesModalVisibility = 'setLibrariesModalVisibility'
 }
 
 export enum ViewBlockActions {
@@ -35,7 +33,6 @@ export enum ViewBlockActions {
 export interface ViewBlockPaneState {
   selectedNode: WorkflowState | null;
   showCodeModal: boolean;
-  wideMode: boolean;
 
   // This doesn't really make sense here
   // but neither does having it in a selectedNode...
@@ -46,7 +43,6 @@ export interface ViewBlockPaneState {
 const moduleState: ViewBlockPaneState = {
   selectedNode: null,
   showCodeModal: false,
-  wideMode: false,
   librariesModalVisibility: false
 };
 
@@ -92,21 +88,10 @@ const ViewBlockPaneModule: Module<ViewBlockPaneState, RootState> = {
   },
   mutations: {
     [ViewBlockMutators.resetState](state, keepSomeSettings = true) {
-      // This is a gnarly hack but meh. We'll just have to move this to "settings" or something later.
-      const stateToResetTo = {
-        ...moduleState,
-        ...(keepSomeSettings && {
-          wideMode: state.wideMode
-        })
-      };
-
-      resetStoreState(state, stateToResetTo);
+      resetStoreState(state, moduleState);
     },
     [ViewBlockMutators.setSelectedNode](state, node) {
       state.selectedNode = node;
-    },
-    [ViewBlockMutators.setWidePanel](state, wide) {
-      state.wideMode = wide;
     },
     [ViewBlockMutators.setLibrariesModalVisibility](state, visibility) {
       state.librariesModalVisibility = visibility;

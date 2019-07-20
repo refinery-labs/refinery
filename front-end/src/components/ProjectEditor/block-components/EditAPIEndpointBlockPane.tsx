@@ -107,7 +107,7 @@ export class EditAPIEndpointBlock extends Vue implements EditBlockPaneProps {
     };
 
     return (
-      <div>
+      <div class="show-block-container__block--small">
         <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#api-endpoint-block' }} />
         <BlockNameInput props={editBlockProps} />
         {this.renderApiEndpointInformation()}
