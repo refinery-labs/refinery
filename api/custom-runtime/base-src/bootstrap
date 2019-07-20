@@ -1873,6 +1873,11 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 				"" # Just blank output for errors
 			)
 			return
+		
+		# If there's an empty list returned from a block in a fan-out
+		# we can just skip the next transition.
+		if len( return_data ) == 0:
+			continue
 
 		# Generate fan-out ID
 		fan_out_id = str( uuid.uuid4() )
