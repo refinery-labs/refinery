@@ -80,6 +80,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @editBlock.Mutation setEnteredLibrary!: (libraryName: string) => void;
   @editBlock.Mutation deleteDependencyImport!: (libraryName: string) => void;
   @editBlock.Mutation addDependencyImport!: (libraryName: string) => void;
+  @editBlock.Mutation setConcurrencyLimit!: (limit: number | false) => void;
 
   @editBlock.Action saveBlock!: () => Promise<void>;
 
@@ -233,7 +234,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   }
 
   public renderForm(selectedNode: WorkflowState, inputProps: FormProps) {
-    const { idPrefix, name, description, type } = inputProps;
+    const { idPrefix, name, description, type, on } = inputProps;
 
     return (
       <b-form-group id={`${idPrefix}-group-${selectedNode.id}`} description={description}>
@@ -251,9 +252,74 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
             readonly={inputProps.readOnly}
             disabled={inputProps.disabled}
             value={inputProps.value}
+            on={inputProps.on}
             {...inputProps}
           />
         </div>
+      </b-form-group>
+    );
+  }
+
+  public renderConcurrencyLimit(selectedNode: LambdaWorkflowState) {
+    console.log('rendering', selectedNode.reserved_concurrency_limit);
+    const hasLimitSet = selectedNode.reserved_concurrency_limit !== false;
+    const description = <span>If toggled, this allows you to limit the maximum concurrency for a given block.</span>;
+
+    const extendedDescription = (
+      <span>
+        {description}
+        This behaviour also has other implications, which we recommend you familiarize yourself with before using this
+        feature by{' '}
+        <a
+          href="https://docs.aws.amazon.com/lambda/latest/dg/concurrent-executions.html#per-function-concurrency"
+          target="_blank"
+        >
+          reviewing the docs
+        </a>
+        .
+      </span>
+    );
+
+    const concurrentLimitInput = (
+      <div>
+        <label class="d-block" htmlFor={`concurrency-limit-amount-${selectedNode.id}`}>
+          Concurrency Limit:
+        </label>
+        <div class="input-group with-focus">
+          <b-form-input
+            id={`concurrency-limit-amount-${selectedNode.id}`}
+            type="number"
+            required={true}
+            max={100}
+            min={1}
+            readonly={this.readOnly}
+            disabled={!hasLimitSet}
+            on={{
+              update: this.setConcurrencyLimit,
+              blur: () => this.setConcurrencyLimit(selectedNode.reserved_concurrency_limit)
+            }}
+            value={selectedNode.reserved_concurrency_limit}
+          />
+        </div>
+        <b-form-invalid-feedback state={selectedNode.reserved_concurrency_limit < 20}>
+          Warning: Setting this high of a concurrency will limit will reduce your maximum concurrency for all other
+          blocks.
+        </b-form-invalid-feedback>
+      </div>
+    );
+
+    return (
+      <b-form-group id={`concurrency-limit-group-${selectedNode.id}`}>
+        <b-form-checkbox
+          id={`concurrency-limit-toggle-${selectedNode.id}`}
+          name="concurrency-limit-toggle"
+          on={{ change: () => this.setConcurrencyLimit(hasLimitSet ? false : 1) }}
+          checked={hasLimitSet}
+        >
+          Limit Block Concurrency
+        </b-form-checkbox>
+        {hasLimitSet && concurrentLimitInput}
+        <span class="form-text text-muted">{hasLimitSet ? extendedDescription : description}</span>
       </b-form-group>
     );
   }
@@ -506,8 +572,8 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       type: 'number',
       readonly: this.readOnly,
       disabled: this.readOnly,
-      value: this.selectedNode.max_execution_time.toString(),
-      on: { change: setMaxExecutionTime }
+      value: this.selectedNode.max_execution_time,
+      on: { change: setMaxExecutionTime, blur: () => setMaxExecutionTime(this.selectedNode.max_execution_time) }
     };
 
     const maxMemoryProps: FormProps = {
@@ -522,8 +588,8 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       step: 64,
       readonly: this.readOnly,
       disabled: this.readOnly,
-      value: this.selectedNode.memory.toString(),
-      on: { change: setExecutionMemory }
+      value: this.selectedNode.memory,
+      on: { change: setExecutionMemory, blur: () => setExecutionMemory(this.selectedNode.memory) }
     };
 
     const editBlockProps: EditBlockPaneProps = {
@@ -544,6 +610,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
           {this.renderLanguageSelector()}
           {this.renderForm(this.selectedNode, maxExecutionTimeProps)}
           {this.renderForm(this.selectedNode, maxMemoryProps)}
+          {this.renderConcurrencyLimit(this.selectedNode)}
           {this.renderCodeEditorModal()}
         </div>
       );
@@ -564,6 +631,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         {this.renderLanguageSelector()}
         {this.renderForm(this.selectedNode, maxExecutionTimeProps)}
         {this.renderForm(this.selectedNode, maxMemoryProps)}
+        {this.renderConcurrencyLimit(this.selectedNode)}
         {this.renderCodeEditorModal()}
         {this.renderLibrariesModal()}
       </div>

@@ -66,7 +66,7 @@ export interface FormProps {
   readonly: boolean;
   disabled: boolean;
   value: any;
-  on: { change: Function };
+  on: { change?: Function; update?: Function; blur?: Function };
 }
 
 export type LanguageToAceLang = { [key in SupportedLanguage]: string };

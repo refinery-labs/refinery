@@ -113,7 +113,8 @@ export const blockTypeToImageLookup: BlockTypeConfig = {
   [BlockSelectionType.saved_block]: {
     path: require('../../public/img/node-icons/code-icon.png'),
     name: 'Saved Block / Community Repository Block',
-    description: 'Import a previously created Saved Block into your current project. This can be a Saved Block you created or any of the Saved Blocks publicly published by other Refinery users.'
+    description:
+      'Import a previously created Saved Block into your current project. This can be a Saved Block you created or any of the Saved Blocks publicly published by other Refinery users.'
   }
 };
 
@@ -355,7 +356,8 @@ export const CODE_BLOCK_DEFAULT_STATE: LambdaWorkflowState = {
   // that's likely what people would prefer
   max_execution_time: 900,
   type: WorkflowStateType.LAMBDA,
-  environment_variables: {}
+  environment_variables: {},
+  reserved_concurrency_limit: false
 };
 
 export const SCHEDULE_EXPRESSION_BLOCK_DEFAULT_STATE: ScheduleTriggerWorkflowState = {
