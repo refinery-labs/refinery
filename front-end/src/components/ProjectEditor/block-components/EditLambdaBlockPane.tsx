@@ -223,9 +223,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
           </label>
           <b-button on={fullscreenOnClick} class="show-block-container__expand-button">
             <span class="fa fa-expand" />
-          </b-button>
-          <b-button on={expandOnClick} class="show-block-container__expand-button">
-            <span class="fa fa-angle-double-left" />
+            {'  '}Open Full Editor
           </b-button>
         </div>
         <div class="input-group with-focus show-block-container__code-editor">{this.renderCodeEditor()}</div>
@@ -600,40 +598,54 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       readOnly: this.readOnly
     };
 
+    const blockNameRow = (
+      <b-col cols={12}>
+        <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#code-block' }} />
+        <BlockNameInput props={editBlockProps} />
+      </b-col>
+    );
+
+    const codeEditorRow = <b-col cols={12}>{this.renderCodeEditorContainer()}</b-col>;
+
     // Fork the display for read-only/deployment view to make the UX more clear for what pane the user is in.
     if (this.readOnly) {
       return (
-        <div>
-          <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#code-block' }} />
-          <BlockNameInput props={editBlockProps} />
-          {this.renderCodeEditorContainer()}
-          {this.renderBlockVariables()}
-          {this.renderAwsLink()}
-          {this.renderLanguageSelector()}
-          {this.renderForm(this.selectedNode, maxExecutionTimeProps)}
-          {this.renderForm(this.selectedNode, maxMemoryProps)}
-          {this.renderConcurrencyLimit(this.selectedNode)}
+        <div class="row">
+          {blockNameRow}
+          {codeEditorRow}
+
+          <b-col xl={6}>{this.renderAwsLink()}</b-col>
+
+          <b-col xl={6}>{this.renderBlockVariables()}</b-col>
+          <b-col xl={6}>{this.renderLanguageSelector()}</b-col>
+          <b-col xl={6}>{this.renderForm(this.selectedNode, maxExecutionTimeProps)}</b-col>
+          <b-col xl={6}>{this.renderForm(this.selectedNode, maxMemoryProps)}</b-col>
+          <b-col xl={6}>{this.renderConcurrencyLimit(this.selectedNode)}</b-col>
           {this.renderCodeEditorModal()}
         </div>
       );
     }
 
     return (
-      <div>
-        <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#code-block' }} />
-        <BlockNameInput props={editBlockProps} />
-        {this.renderCodeEditorContainer()}
-        {this.renderAwsLink()}
-        {this.renderBlockVariables()}
-        {this.renderLibrarySelector()}
-        {this.renderCreateSavedBlockButton()}
-        {/*<b-button variant="dark" class="col-12 mb-3">*/}
-        {/*  Edit Environment Variables*/}
-        {/*</b-button>*/}
-        {this.renderLanguageSelector()}
-        {this.renderForm(this.selectedNode, maxExecutionTimeProps)}
-        {this.renderForm(this.selectedNode, maxMemoryProps)}
-        {this.renderConcurrencyLimit(this.selectedNode)}
+      <div class="row">
+        {blockNameRow}
+        {codeEditorRow}
+
+        <b-col xl={6}>{this.renderCreateSavedBlockButton()}</b-col>
+        <b-col xl={6}>{this.renderBlockVariables()}</b-col>
+        <b-col xl={6}>{this.renderLibrarySelector()}</b-col>
+        <b-col xl={6}>
+          <div />
+        </b-col>
+        <b-col xl={6}>
+          {/*<b-button variant="dark" class="col-12 mb-3">*/}
+          {/*  Edit Environment Variables*/}
+          {/*</b-button>*/}
+          {this.renderLanguageSelector()}
+        </b-col>
+        <b-col xl={6}>{this.renderForm(this.selectedNode, maxExecutionTimeProps)}</b-col>
+        <b-col xl={6}>{this.renderForm(this.selectedNode, maxMemoryProps)}</b-col>
+        <b-col xl={6}>{this.renderConcurrencyLimit(this.selectedNode)}</b-col>
         {this.renderCodeEditorModal()}
         {this.renderLibrariesModal()}
       </div>

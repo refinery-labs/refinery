@@ -337,6 +337,12 @@ $content-sidebar-width: 92px;
 }
 
 .show-block-container {
+  width: calc((100vw - 250px) / 2);
+  min-width: 340px;
+
+  &--wide {
+    min-width: 640px;
+  }
 
   .form-group {
     margin-bottom: 0.5rem;
@@ -347,12 +353,6 @@ $content-sidebar-width: 92px;
     max-height: calc(100vh - 184px);
     display: flex;
     flex-direction: column;
-    &--normal {
-      width: 340px;
-    }
-    &--wide {
-      width: 640px;
-    }
   }
 
   &__bottom-buttons {
@@ -360,10 +360,12 @@ $content-sidebar-width: 92px;
   }
 
   &__code-editor {
-    height: 240px;
+    min-height: 240px;
+    height: 45vh;
 
     &--small {
-      height: 180px;
+      min-height: 180px;
+      height: 30vh;
       margin-bottom: 4px;
     }
   }

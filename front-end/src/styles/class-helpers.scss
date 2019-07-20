@@ -233,6 +233,9 @@ $padding-steps: (
   border: 1px solid #ccc;
 
   overflow-y: auto;
+  // We may eventually come to regret this decision. But because Free is lazy and hates that this scrollbar only shows up /sometimes/,
+  // He is making the decision to hide this... Shame on me? Perhaps. But I leave this comment out of love (and shame)!
+  overflow-x: hidden;
 }
 
 .border {

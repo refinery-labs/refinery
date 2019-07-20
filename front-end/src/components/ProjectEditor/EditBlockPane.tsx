@@ -78,20 +78,15 @@ export default class EditBlockPane extends Vue {
       selectedNodeMetadata: this.selectedNodeMetadata
     };
 
-    const formClasses = {
-      'mb-2 mt-2 text-align--left': true,
-      'show-block-container__form': true,
-      'show-block-container__form--normal': !this.wideMode,
-      'show-block-container__form--wide': this.wideMode
-    };
-
     // I have no idea how to manage this with Typescript support, blast!
     // @ts-ignore
     const componentInstance = <ActiveEditorComponent props={props} />;
 
     return (
-      <div class={formClasses}>
-        <div class="scrollable-pane-container padding-left--normal padding-right--normal">{componentInstance}</div>
+      <div class="mb-2 mt-2 text-align--left show-block-container__form">
+        <div class="scrollable-pane-container padding-left--normal padding-right--normal container">
+          {componentInstance}
+        </div>
         <div class="row show-block-container__bottom-buttons ml-0 mr-0 mt-2">
           <b-button variant="danger" class="col-12" on={{ click: this.deleteBlockClicked }}>
             Delete Block
@@ -106,8 +101,14 @@ export default class EditBlockPane extends Vue {
       modalMode: true
     };
 
+    const formClasses = {
+      'show-block-container ml-2 mr-2': true,
+      'show-block-container--normal': !this.wideMode,
+      'show-block-container--wide': this.wideMode
+    };
+
     return (
-      <div class="show-block-container ml-2 mr-2">
+      <div class={formClasses}>
         {this.renderContentWrapper()}
         {this.renderConfirmDiscardModal()}
         <CreateSavedBlockViewContainer props={createSavedBlockViewContainerProps} />
