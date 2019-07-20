@@ -634,15 +634,8 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         <b-col xl={6}>{this.renderCreateSavedBlockButton()}</b-col>
         <b-col xl={6}>{this.renderBlockVariables()}</b-col>
         <b-col xl={6}>{this.renderLibrarySelector()}</b-col>
-        <b-col xl={6}>
-          <div />
-        </b-col>
-        <b-col xl={6}>
-          {/*<b-button variant="dark" class="col-12 mb-3">*/}
-          {/*  Edit Environment Variables*/}
-          {/*</b-button>*/}
-          {this.renderLanguageSelector()}
-        </b-col>
+        <b-col xl={6} />
+        <b-col xl={6}>{this.renderLanguageSelector()}</b-col>
         <b-col xl={6}>{this.renderForm(this.selectedNode, maxExecutionTimeProps)}</b-col>
         <b-col xl={6}>{this.renderForm(this.selectedNode, maxMemoryProps)}</b-col>
         <b-col xl={6}>{this.renderConcurrencyLimit(this.selectedNode)}</b-col>
