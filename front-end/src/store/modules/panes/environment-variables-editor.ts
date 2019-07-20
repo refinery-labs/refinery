@@ -225,15 +225,25 @@ class EnvironmentVariablesEditorStore extends VuexModule<ThisType<EnvironmentVar
       {}
     );
 
-    const projectConfig: ProjectConfig = {
-      ...openedProjectConfig,
-      environment_variables: this.envVariableList.reduce((outVars: ProjectEnvironmentVariableList, envVariable) => {
+    const currentBlockEnvironmentVars = this.envVariableList.reduce(
+      (outVars: ProjectEnvironmentVariableList, envVariable) => {
         outVars[envVariable.id] = {
           value: envVariable.value !== null ? envVariable.value : '',
           timestamp: Date.now()
         };
         return outVars;
-      }, {})
+      },
+      {}
+    );
+
+    const newProjectEnvironmentVars = Object.assign(
+      deepJSONCopy(openedProjectConfig.environment_variables),
+      deepJSONCopy(currentBlockEnvironmentVars)
+    );
+
+    const projectConfig: ProjectConfig = {
+      ...openedProjectConfig,
+      environment_variables: newProjectEnvironmentVars
     };
 
     this.resetState();
