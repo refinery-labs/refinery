@@ -42,7 +42,6 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
   // State pulled from Deployment view.
   @viewBlock.State('showCodeModal') showCodeModalDeployment!: boolean;
-  @viewBlock.State('wideMode') wideModeDeployment!: boolean;
   @viewBlock.State('librariesModalVisibility') librariesModalVisibilityDeployment!: boolean;
 
   @viewBlock.Getter getAwsConsoleUri!: string | null;
@@ -50,7 +49,6 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @viewBlock.Getter getLambdaCloudWatchUri!: string | null;
 
   @viewBlock.Mutation('setCodeModalVisibility') setCodeModalVisibilityDeployment!: (visible: boolean) => void;
-  @viewBlock.Mutation('setWidePanel') setWidePanelDeployment!: (wide: boolean) => void;
   @viewBlock.Mutation('setLibrariesModalVisibility') setLibrariesModalVisibilityDeployment!: (
     visibility: boolean
   ) => void;
@@ -60,7 +58,6 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
   // State pulled from Project view
   @editBlock.State showCodeModal!: boolean;
-  @editBlock.State wideMode!: boolean;
   @editBlock.State librariesModalVisibility!: boolean;
   @editBlock.State enteredLibrary!: string;
   @editBlock.State isLoadingMetadata!: boolean;
@@ -68,7 +65,6 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @editBlock.Getter isEditedBlockValid!: boolean;
 
   @editBlock.Mutation setCodeModalVisibility!: (visible: boolean) => void;
-  @editBlock.Mutation setWidePanel!: (wide: boolean) => void;
 
   @editBlock.Mutation setLibrariesModalVisibility!: (visibility: boolean) => void;
   @editBlock.Mutation setCodeInput!: (code: string) => void;
@@ -204,11 +200,8 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   public renderCodeEditorContainer() {
     const selectedNode = this.selectedNode;
 
-    const setWidePanel = this.readOnly ? this.setWidePanelDeployment : this.setWidePanel;
-    const wideMode = this.readOnly ? this.wideModeDeployment : this.wideMode;
     const setCodeModalVisibility = this.readOnly ? this.setCodeModalVisibilityDeployment : this.setCodeModalVisibility;
 
-    const expandOnClick = { click: () => setWidePanel(!wideMode) };
     const fullscreenOnClick = {
       click: () => setCodeModalVisibility(true)
     };
@@ -223,7 +216,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
           </label>
           <b-button on={fullscreenOnClick} class="show-block-container__expand-button">
             <span class="fa fa-expand" />
-            {'  '}Open Full Editor
+            {'  '}Open Full {this.readOnly ? 'Viewer' : 'Editor'}
           </b-button>
         </div>
         <div class="input-group with-focus show-block-container__code-editor">{this.renderCodeEditor()}</div>
@@ -614,7 +607,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     // Fork the display for read-only/deployment view to make the UX more clear for what pane the user is in.
     if (this.readOnly) {
       return (
-        <div class="row">
+        <div class="show-block-container__block row">
           {blockNameRow}
           {codeEditorRow}
 
@@ -631,7 +624,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     }
 
     return (
-      <div class="row">
+      <div class="show-block-container__block row">
         {blockNameRow}
         {codeEditorRow}
 

@@ -23,7 +23,6 @@ export default class EditBlockPane extends Vue {
   @editBlock.State selectedNode!: WorkflowState | null;
   @editBlock.State selectedNodeMetadata!: SavedBlockStatusCheckResult | null;
   @editBlock.State confirmDiscardModalVisibility!: boolean;
-  @editBlock.State wideMode!: boolean;
 
   @editBlock.Getter isStateDirty!: boolean;
   @editBlock.Getter isEditedBlockValid!: boolean;
@@ -102,9 +101,7 @@ export default class EditBlockPane extends Vue {
     };
 
     const formClasses = {
-      'show-block-container ml-2 mr-2': true,
-      'show-block-container--normal': !this.wideMode,
-      'show-block-container--wide': this.wideMode
+      'show-block-container ml-2 mr-2': true
     };
 
     return (

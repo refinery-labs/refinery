@@ -80,11 +80,11 @@ export default class EditTransitionPane extends Vue {
 
     return (
       <div>
-        <b-list-group-item>
+        <div class="m-2">
           <b-button on={{ click: () => this.deleteSelectedTransition() }} class="col-md-12" variant="danger">
             <span class="fas fa-trash" /> Delete Transition
           </b-button>
-        </b-list-group-item>
+        </div>
         <EditTransitionSelector props={editTransitionSelectorProps} />
         {this.renderConfirmDiscardModal()}
       </div>

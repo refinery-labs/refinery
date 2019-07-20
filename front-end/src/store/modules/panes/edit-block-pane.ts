@@ -38,7 +38,6 @@ export enum EditBlockMutators {
   setIsLoadingMetadata = 'setIsLoadingMetadata',
 
   setConfirmDiscardModalVisibility = 'setConfirmDiscardModalVisibility',
-  setWidePanel = 'setWidePanel',
 
   // Inputs
   setBlockName = 'setBlockName',
@@ -108,7 +107,6 @@ export interface EditBlockPaneState {
 
   confirmDiscardModalVisibility: false;
   showCodeModal: boolean;
-  wideMode: boolean;
 
   // This doesn't really make sense here
   // but neither does having it in a selectedNode...
@@ -125,7 +123,6 @@ const moduleState: EditBlockPaneState = {
 
   confirmDiscardModalVisibility: false,
   showCodeModal: false,
-  wideMode: false,
   librariesModalVisibility: false,
   enteredLibrary: ''
 };
@@ -336,9 +333,6 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     },
     [EditBlockMutators.setHTTPPath](state, api_path: string) {
       apiEndpointChange(state, block => (block.api_path = validatePath(api_path)));
-    },
-    [EditBlockMutators.setWidePanel](state, wide) {
-      state.wideMode = wide;
     },
     [EditBlockMutators.setLibrariesModalVisibility](state, visibility) {
       state.librariesModalVisibility = visibility;
