@@ -242,6 +242,7 @@ class EnvironmentVariablesEditorStore extends VuexModule<ThisType<EnvironmentVar
       root: true
     });
     this.context.commit(`project/${ProjectViewMutators.setOpenedProjectConfig}`, projectConfig, { root: true });
+    this.context.commit(`project/${ProjectViewMutators.markProjectDirtyStatus}`, true, { root: true });
   }
 }
 
