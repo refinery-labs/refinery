@@ -1,16 +1,16 @@
 import { CreateElement, VNode } from 'vue';
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import { languageToAceLangMap } from '@/types/project-editor-types';
-import AceEditor from '@/components/Common/AceEditor.vue';
+// @ts-ignore
+import elementResizeDetector from 'element-resize-detector';
 import { EditorProps } from '@/types/component-types';
-import uuid from 'uuid/v4';
 import { SupportedLanguage } from '@/types/graph';
-import { SettingsAppStoreModule } from '@/store/modules/settings-app';
+import { languageToAceLangMap } from '@/types/project-editor-types';
+import MonacoEditor from '@/lib/MonacoEditor';
 
 @Component
 export default class RefineryCodeEditor extends Vue implements EditorProps {
   @Prop({ required: true }) name!: string;
-  @Prop({ required: true }) lang!: SupportedLanguage | 'text';
+  @Prop({ required: true }) lang!: SupportedLanguage | 'text' | 'json';
   @Prop({ required: true }) content!: string;
   @Prop() theme?: string;
   @Prop() onChange?: (s: string) => void;
@@ -23,21 +23,40 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
   @Prop() extraClasses?: string;
   @Prop() collapsible?: boolean;
 
-  // Internal value used to prevent editors from colliding IDs. Colliding causes breaking + performance issues.
-  randId: string = uuid();
-
-  public getChangeHandlers() {
-    const handlers: { [key: string]: Function } = {};
-
-    if (this.onChange) {
-      handlers['change-content'] = this.onChange;
+  mounted() {
+    if (!this.$refs.editorParent || !this.$refs.editor) {
+      console.warn('Could not setup resize detected for code editor', name);
+      return;
     }
 
-    if (this.onChangeContext) {
-      handlers['change-content-context'] = this.onChangeContext;
+    //@ts-ignore
+    const editor = this.$refs.editor.getEditor();
+
+    if (this.readOnly) {
+      editor.updateOptions({
+        readOnly: true
+      });
     }
 
-    return handlers;
+    // Annoying but we can't easily use the normal change handlers...
+    // Because the library doesn't seem to be consuming them correctly?
+    editor.onDidChangeModelContent(() => {
+      const value = editor.getValue();
+      if (this.content !== value) {
+        this.onChange && this.onChange(value);
+      }
+    });
+
+    const resizeDetector = elementResizeDetector({
+      // This is a faster performance mode that is available
+      // Unfortunately this doesn't work for all cases, so we're falling back on the slower version.
+      // strategy: 'scroll'
+    });
+
+    resizeDetector.listenTo(this.$refs.editorParent, () => {
+      // @ts-ignore
+      this.$refs.editor.getEditor().layout();
+    });
   }
 
   public renderEditor() {
@@ -46,34 +65,36 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
       return <h3>Could not display code editor.</h3>;
     }
 
-    // This is super gross but gonna leave it for now. Eventually (if we add a 2nd) we will need to do an Enum lookup
-    // Like "is this in the enum" in order for the mapping to work. Typescript will yell so not afraid :)
-    const editorLanguage = this.lang === 'text' ? 'text' : languageToAceLangMap[this.lang];
+    const monacoProps = {
+      value: this.content,
+      language: languageToAceLangMap[this.lang],
+      readOnly: this.readOnly,
+      wordWrap: this.wrapText,
+      theme: this.theme || 'vs-dark'
+    };
 
-    const aceProps = {
-      editorId: `${this.name}-${this.randId}`,
-      theme: this.theme || this.readOnly ? 'monokai-disabled' : 'monokai',
-      lang: editorLanguage,
-      disabled: this.readOnly,
-      content: this.content,
-      wrapText: this.wrapText,
-      keyboardMode: SettingsAppStoreModule.keyboardModeToAceConfig
+    const monacoClasses = {
+      'width--100percent flex-grow--1 display--flex': true
     };
 
     return (
       // @ts-ignore
-      <AceEditor props={aceProps} on={this.getChangeHandlers()} />
+      <MonacoEditor ref="editor" class={monacoClasses} props={monacoProps} />
     );
   }
 
   public render(h: CreateElement): VNode {
     const containerClasses = {
-      'refinery-code-editor-container width--100percent flex-grow--1 display--flex': true,
+      'refinery-code-editor-container width--100percent height--100percent display--flex flex-grow--1': true,
       'refinery-code-editor-container--read-only': this.readOnly,
       'refinery-code-editor-container--collapsible': this.collapsible,
       [this.extraClasses || '']: Boolean(this.extraClasses)
     };
 
-    return <div class={containerClasses}>{this.renderEditor()}</div>;
+    return (
+      <div ref="editorParent" class={containerClasses}>
+        {this.renderEditor()}
+      </div>
+    );
   }
 }

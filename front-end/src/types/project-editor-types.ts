@@ -69,13 +69,20 @@ export interface FormProps {
   on: { change?: Function; update?: Function; blur?: Function };
 }
 
-export type LanguageToAceLang = { [key in SupportedLanguage]: string };
+export type SupportedLanguageToAceLang = { [key in SupportedLanguage]: string };
 
-export const languageToAceLangMap: LanguageToAceLang = {
+export interface MonacoLanguageLookup extends SupportedLanguageToAceLang {
+  text: 'text';
+  json: 'json';
+}
+
+export const languageToAceLangMap: MonacoLanguageLookup = {
   [SupportedLanguage.NODEJS_8]: 'javascript',
   [SupportedLanguage.PYTHON_2]: 'python',
-  [SupportedLanguage.GO1_12]: 'golang',
-  [SupportedLanguage.PHP7]: 'php'
+  [SupportedLanguage.GO1_12]: 'go',
+  [SupportedLanguage.PHP7]: 'php',
+  text: 'text',
+  json: 'json'
 };
 
 export type LanguageToBaseRepoURL = { [key in SupportedLanguage]: string | null };

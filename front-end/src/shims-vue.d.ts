@@ -39,3 +39,11 @@ declare module 'vue-intercom' {
   export default VueIntercom;
   export interface VueIntercomPlugin extends PluginObject<{ appId: string }> {}
 }
+
+declare module 'vue-monaco' {
+  import { PluginObject } from 'vue';
+
+  const VueMonaco: VueMonacoPlugin;
+  export default VueMonaco;
+  export interface VueMonacoPlugin extends PluginObject<{ appId: string }> {}
+}

@@ -163,7 +163,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         title={nameString}
         visible={showCodeModal}
       >
-        <div class="text-center display--flex code-modal-editor-container overflow--hidden-x">
+        <div class="display--flex code-modal-editor-container overflow--hidden-x">
           <Split
             props={{
               direction: 'horizontal' as Object,
