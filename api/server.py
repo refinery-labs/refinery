@@ -8589,6 +8589,7 @@ class GetAuthenticationStatus( BaseHandler ):
 				"authenticated": True,
 				"name": current_user.name,
 				"email": current_user.email,
+				"is_admin": check_email_is_admin_email(current_user.email),
 				"permission_level": current_user.permission_level,
 				"trial_information": get_user_free_trial_information(
 					self.get_authenticated_user()
@@ -9584,7 +9585,95 @@ class UpdateIAMConsoleUserIAM( BaseHandler ):
 			)
 		
 		logit( "AWS console accounts updated successfully!" )
-		
+
+def check_email_is_admin_email(email):
+	return email.endswith("@refinery.io") or email == "00free+5@gmail.com"
+
+class GetUserSessions( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def get( self ):
+
+		logit( "Retrieving user session list..." )
+
+		current_user = self.get_authenticated_user()
+
+		if not check_email_is_admin_email(current_user.email):
+			self.write({
+				"success": False,
+				"msg": "You are not allowed to access this, sorry mate!"
+			})
+			return
+
+		dbsession = DBSession()
+
+		output = dbsession\
+			.execute('SELECT session_id, COUNT(timestamp), MIN(timestamp), MAX(timestamp) FROM statelogs GROUP BY session_id ORDER BY MAX (timestamp) DESC LIMIT 5000;')\
+			.fetchall()
+
+		dbsession.close()
+
+		user_sessions = []
+
+		for session in output:
+			user_sessions.append({
+				"id": session[0],
+				"count": session[1],
+				"start_time": session[2],
+				"end_time": session[3]
+			})
+
+		self.write({
+			"success": True,
+			"user_sessions": user_sessions
+		})
+
+
+class GetUserSessionData( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def post( self ):
+
+		logit( "Retrieving user session data..." )
+
+		current_user = self.get_authenticated_user()
+
+		if not check_email_is_admin_email(current_user.email):
+			self.write({
+				"success": False,
+				"msg": "You are not allowed to access this, sorry mate!"
+			})
+			return
+
+		if not self.json[ "session_to_query" ]:
+			self.write({
+				"success": False,
+				"msg": "Missing session id, what you doing m8?"
+			})
+
+		session_to_query = self.json[ "session_to_query" ]
+
+		dbsession = DBSession()
+
+		# TODO: Ask Mandatory how to do parameterized queries when using execute
+		output = dbsession \
+			.execute("SELECT json_array_elements(state -> 'stack') from statelogs WHERE session_id = '" + session_to_query + "' AND state ->> 'vueType' = 'stack';") \
+			.fetchall()
+
+		dbsession.close()
+
+		events = []
+
+		for session in output:
+			events.append( session[0] )
+
+		self.write({
+			"success": True,
+			"session_id": session_to_query,
+			"events": events
+		})
+
+
 def make_app( is_debug ):
 	tornado_app_settings = {
 		"debug": is_debug,
@@ -9631,6 +9720,8 @@ def make_app( is_debug ):
 		( r"/api/v1/billing/creditcards/make_primary", MakeCreditCardPrimary ),
 		( r"/api/v1/iam/console_credentials", GetAWSConsoleCredentials ),
 		( r"/api/v1/internal/log", StashStateLog ),
+		( r"/api/v1/internal/all-sessions", GetUserSessions ),
+		( r"/api/v1/internal/session-data", GetUserSessionData ),
 		# Temporarily disabled since it doesn't cache the CostExplorer results
 		#( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast ),
 		

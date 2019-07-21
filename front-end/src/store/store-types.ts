@@ -257,6 +257,7 @@ export interface UserState {
   authenticated: boolean;
   name: string | null;
   email: string | null;
+  isAdmin: boolean;
   permissionLevel: string | null;
   trialInformation: TrialInformation | null;
 

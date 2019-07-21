@@ -434,6 +434,7 @@ export interface GetAuthenticationStatusResponse extends BaseApiResponse {
   authenticated: boolean;
   name?: string;
   email?: string;
+  is_admin: boolean;
   permission_level?: string;
   trial_information?: TrialInformation;
 }
@@ -657,4 +658,35 @@ export interface SavedBlockStatusCheckResult {
   share_status: SharedBlockPublishStatus;
   version: number;
   timestamp: number;
+}
+
+// GetUserSessions
+export interface GetUserSessionsRequest extends BaseApiRequest {}
+
+export interface GetUserSessionsResponse extends BaseApiResponse {
+  user_sessions: UserSessionMetadata[];
+}
+
+export interface UserSessionMetadata {
+  id: string;
+  count: number;
+  start_time: number;
+  end_time: number;
+}
+
+// GetUserSessionData
+export interface GetUserSessionDataRequest extends BaseApiRequest {
+  session_to_query: string;
+}
+
+export interface GetUserSessionDataResponse extends BaseApiResponse {
+  session_id: string;
+  events: UserSessionEvent[];
+}
+
+export interface UserSessionEvent {
+  payload: any;
+  type: string;
+  localTimestamp: number;
+  vueType: string;
 }

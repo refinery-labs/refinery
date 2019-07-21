@@ -85,7 +85,11 @@ import {
   UpdateEnvironmentVariablesRequest,
   UpdateEnvironmentVariablesResponse,
   GetProjectExecutionLogObjectsResponse,
-  GetProjectExecutionLogObjectsRequest
+  GetProjectExecutionLogObjectsRequest,
+  GetUserSessionsRequest,
+  GetUserSessionDataResponse,
+  GetUserSessionDataRequest,
+  GetUserSessionsResponse
 } from '@/types/api-types';
 import { API_ENDPOINT, ApiConfigMap } from '@/constants/api-constants';
 
@@ -233,6 +237,12 @@ export class RefineryApi implements RefineryApiTypeMap {
   );
   [API_ENDPOINT.DeleteSavedBlock] = makeApiClient<DeleteSavedBlockRequest, DeleteSavedBlockResponse>(
     API_ENDPOINT.DeleteSavedBlock
+  );
+  [API_ENDPOINT.GetUserSessions] = makeApiClient<GetUserSessionsRequest, GetUserSessionsResponse>(
+    API_ENDPOINT.GetUserSessions
+  );
+  [API_ENDPOINT.GetUserSessionData] = makeApiClient<GetUserSessionDataRequest, GetUserSessionDataResponse>(
+    API_ENDPOINT.GetUserSessionData
   );
 }
 

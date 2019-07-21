@@ -25,6 +25,7 @@ const moduleState: UserState = {
   authenticated: false,
   name: null,
   email: null,
+  isAdmin: false,
   permissionLevel: null,
   trialInformation: null,
 

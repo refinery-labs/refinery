@@ -40,7 +40,9 @@ export enum API_ENDPOINT {
   CreateSavedBlock = 'CreateSavedBlock',
   SearchSavedBlocks = 'SearchSavedBlocks',
   SavedBlockStatusCheck = 'SavedBlockStatusCheck',
-  DeleteSavedBlock = 'DeleteSavedBlock'
+  DeleteSavedBlock = 'DeleteSavedBlock',
+  GetUserSessions = 'GetUserSessions',
+  GetUserSessionData = 'GetUserSessionData'
 }
 
 export enum HTTP_METHOD {
