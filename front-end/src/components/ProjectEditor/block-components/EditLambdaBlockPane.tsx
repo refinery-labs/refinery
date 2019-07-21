@@ -150,10 +150,6 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       hidden: () => setCodeModalVisibility(false)
     };
 
-    const props = {
-      'splitpanes-size': 65
-    };
-
     return (
       <b-modal
         ref={`code-modal-${this.selectedNode.id}`}
