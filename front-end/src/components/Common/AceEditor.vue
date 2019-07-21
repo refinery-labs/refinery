@@ -1,10 +1,11 @@
 <template>
   <div class="flex-grow--1 position--relative">
-    <div :id="editorId" class="ace-hack"></div>
+    <div :id="editorId" ref="aceInstance" class="ace-hack"></div>
   </div>
 </template>
 <script>
 import Vue from 'vue';
+import elementResizeDetector from 'element-resize-detector';
 
 window.define = ace.define;
 window.require = ace.require;
@@ -80,6 +81,13 @@ export default Vue.component('AceEditor', {
         this: this
       });
     });
+
+    const resizeDetector = elementResizeDetector({
+      // This is a faster performance mode that is available
+      // Unfortunately this doesn't work for all cases, so we're falling back on the slower version.
+      // strategy: 'scroll'
+    });
+    resizeDetector(this.$refs.aceInstance, () => this.editor.resize());
   }
 });
 </script>
