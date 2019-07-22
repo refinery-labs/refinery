@@ -77,7 +77,7 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
 
   @Mutation
   public resetState() {
-    resetStoreState(this, initialState);
+    resetStoreState(this, baseState);
   }
 
   @Mutation
@@ -117,7 +117,7 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
 
   @Action
   public openModal() {
-    // TODO: Copy block from main store?
+    this.resetState();
 
     const editBlockPaneState = this.context.rootState.project.editBlockPane;
     if (!editBlockPaneState || !editBlockPaneState.selectedNode) {

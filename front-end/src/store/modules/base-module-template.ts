@@ -32,7 +32,7 @@ class ExampleBaseStore extends VuexModule<ThisType<ExampleBaseState>, RootState>
 
   @Mutation
   public resetState() {
-    resetStoreState(this, initialState);
+    resetStoreState(this, baseState);
   }
 
   // Note: Mutators cannot call other Mutators. If you need to do that, use an Action.
