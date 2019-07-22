@@ -4,7 +4,7 @@ import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState } from '@/store/store-types';
 import { ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
-import { SIDEBAR_PANE } from '@/types/project-editor-types';
+import { OpenProjectMutation, SIDEBAR_PANE } from '@/types/project-editor-types';
 import { searchSavedBlocks } from '@/store/fetchers/api-helpers';
 import { SavedBlockSearchResult, SharedBlockPublishStatus } from '@/types/api-types';
 import { AddBlockArguments } from '@/store/modules/project-view';
@@ -17,6 +17,7 @@ import {
   WorkflowStateType
 } from '@/types/graph';
 import { AddSavedBlockEnvironmentVariable } from '@/types/saved-blocks-types';
+import { safelyDuplicateBlock } from '@/utils/block-utils';
 
 const storeName = 'addSavedBlockPane';
 
@@ -212,30 +213,6 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
   }
 
   @Action
-  public async writeEnvironmentVariablesToProject() {
-    if (!this.context.rootState.project.openedProjectConfig || !this.environmentVariableEntries) {
-      return;
-    }
-
-    const openedProjectConfig = this.context.rootState.project.openedProjectConfig;
-    const projectConfig: ProjectConfig = {
-      ...openedProjectConfig,
-      environment_variables: this.environmentVariableEntries.reduce(
-        (outVars: ProjectEnvironmentVariableList, envVariable) => {
-          outVars[envVariable.id] = {
-            value: envVariable.value !== undefined ? envVariable.value : '',
-            timestamp: Date.now()
-          };
-          return outVars;
-        },
-        {}
-      )
-    };
-
-    this.context.commit(`project/${ProjectViewMutators.setOpenedProjectConfig}`, projectConfig, { root: true });
-  }
-
-  @Action
   public async addChosenBlock() {
     const chosenBlock = this.chosenBlock;
 
@@ -244,27 +221,42 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
       return;
     }
 
+    if (!this.context.rootState.project.openedProjectConfig) {
+      console.error('Missing project config, cannot add block');
+      return;
+    }
+
+    const openedProjectConfig = this.context.rootState.project.openedProjectConfig;
+
     let match = chosenBlock.block;
+
+    const duplicatedBlockAndConfig = safelyDuplicateBlock(openedProjectConfig, {
+      ...match.block_object,
+      saved_block_metadata: {
+        id: match.id,
+        version: match.version,
+        timestamp: match.timestamp,
+        added_timestamp: Date.now()
+      }
+    });
+
+    const openProjectMutation: OpenProjectMutation = {
+      config: duplicatedBlockAndConfig.projectConfig,
+      project: null,
+      markAsDirty: true
+    };
 
     const addBlockArgs: AddBlockArguments = {
       rawBlockType: match.type,
       selectAfterAdding: true,
-      customBlockProperties: {
-        ...match.block_object,
-        saved_block_metadata: {
-          id: match.id,
-          version: match.version,
-          timestamp: match.timestamp,
-          added_timestamp: Date.now()
-        }
-      }
+      customBlockProperties: duplicatedBlockAndConfig.block
     };
 
-    await this.context.dispatch(`project/${ProjectViewActions.addIndividualBlock}`, addBlockArgs, { root: true });
+    // Update the project config with any new block settings
+    await this.context.dispatch(`project/${ProjectViewActions.updateProject}`, openProjectMutation, { root: true });
 
-    if (match.type === WorkflowStateType.LAMBDA) {
-      await this.writeEnvironmentVariablesToProject();
-    }
+    // Add the new block to the project
+    await this.context.dispatch(`project/${ProjectViewActions.addIndividualBlock}`, addBlockArgs, { root: true });
 
     this.resetState();
   }

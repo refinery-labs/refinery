@@ -1,5 +1,5 @@
 import { Module } from 'vuex';
-import Vue from 'vue';
+import uuid from 'uuid/v4';
 import deepEqual from 'fast-deep-equal';
 import { RootState } from '../../store-types';
 import {
@@ -13,10 +13,10 @@ import {
 } from '@/types/graph';
 import { getNodeDataById, getTransitionsForNode } from '@/utils/project-helpers';
 import { ProjectViewActions } from '@/constants/store-constants';
-import { PANE_POSITION } from '@/types/project-editor-types';
+import { OpenProjectMutation, PANE_POSITION } from '@/types/project-editor-types';
 import { DEFAULT_LANGUAGE_CODE } from '@/constants/project-editor-constants';
 import { HTTP_METHOD } from '@/constants/api-constants';
-import { validatePath } from '@/utils/block-utils';
+import { safelyDuplicateBlock, validatePath } from '@/utils/block-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { resetStoreState } from '@/utils/store-utils';
 import { getSavedBlockStatus } from '@/store/fetchers/api-helpers';
@@ -429,16 +429,35 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
         return;
       }
 
+      const projectConfig = context.rootState.project.openedProjectConfig;
+
+      if (!projectConfig) {
+        console.error('Missing project config, cannot duplicate block');
+        return;
+      }
+
       // Save the block first.
       await context.dispatch(EditBlockActions.saveBlock);
 
+      const duplicatedBlockAndConfig = safelyDuplicateBlock(projectConfig, context.state.selectedNode);
+
+      const openProjectMutation: OpenProjectMutation = {
+        config: duplicatedBlockAndConfig.projectConfig,
+        project: null,
+        markAsDirty: true
+      };
+
       const addBlockArgs: AddBlockArguments = {
         // TODO: Make this have a non-duplicate name, for sanity.
-        customBlockProperties: context.state.selectedNode,
+        customBlockProperties: duplicatedBlockAndConfig.block,
         selectAfterAdding: true,
         rawBlockType: context.state.selectedNode.type
       };
 
+      // Update the project config with any new block settings
+      await context.dispatch(`project/${ProjectViewActions.updateProject}`, openProjectMutation, { root: true });
+
+      // Add the new block to the project
       await context.dispatch(`project/${ProjectViewActions.addIndividualBlock}`, addBlockArgs, {
         root: true
       });
