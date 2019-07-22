@@ -248,6 +248,9 @@ $padding-steps: (
   &-divider--all {
     border: 1px solid $content-heading-border;
   }
+  &--content {
+    border: 1px solid #ccc;
+  }
 }
 
 .background {

@@ -22,9 +22,11 @@ import { EnvironmentVariablesEditorPaneState } from '@/store/modules/panes/envir
 import { AddSavedBlockPaneState } from '@/store/modules/panes/add-saved-block-pane';
 import { CreateSavedBlockViewState } from '@/store/modules/panes/create-saved-block-view';
 import { SettingsAppState } from '@/store/modules/settings-app';
+import { BlockLayersState } from '@/store/modules/panes/block-layers-pane';
 
 export interface RootState {
   addSavedBlockPane: AddSavedBlockPaneState;
+  blockLayers: BlockLayersState;
   createSavedBlockView: CreateSavedBlockViewState;
   setting: UserInterfaceState;
   deployment: DeploymentViewState;
