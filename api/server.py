@@ -3883,6 +3883,12 @@ class TaskSpawner(object):
 				code
 			)
 			
+			code = re.sub(
+				r"function mainCallback\([^\)]+\)[^{]\{",
+				"function mainCallback( blockInput, callback ) {",
+				code
+			)
+			
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "nodejs8.10" ]
 			
 			# Use CodeBuilder to get a base zip of the libraries

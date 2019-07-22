@@ -59,7 +59,7 @@ function promisify(fn) {
 		// Identify which function we will call as our entry point based on what was defined in the script.
 		// If it's a callback, we wrap it with a promise so that we may await it.
 		const mainEntrypoint = mainDefined ? main : promisify(mainCallback);
-
+		
 		const output = await mainEntrypoint(lambdaInput);
 
 		returnResult({
