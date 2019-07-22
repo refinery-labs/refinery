@@ -34,8 +34,7 @@ export default class ExportProjectPane extends Vue {
 
     const editorProps: EditorProps = {
       name: `editor-export-project`,
-      // Set Nodejs because it supports JSON
-      lang: SupportedLanguage.NODEJS_8,
+      lang: 'json',
       content: this.exportProjectJson
     };
 
