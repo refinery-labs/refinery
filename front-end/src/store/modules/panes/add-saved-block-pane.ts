@@ -111,7 +111,7 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
 
   @Mutation
   public resetState() {
-    resetStoreState(this, initialState);
+    resetStoreState(this, baseState);
   }
 
   @Mutation

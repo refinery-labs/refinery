@@ -60,7 +60,7 @@ class EnvironmentVariablesEditorStore extends VuexModule<ThisType<EnvironmentVar
 
   @Mutation
   public resetState() {
-    resetStoreState(this, initialState);
+    resetStoreState(this, baseState);
   }
 
   @Mutation

@@ -52,7 +52,7 @@ class SettingsAppStore extends VuexModule<ThisType<SettingsAppState>, RootState>
 
   @Mutation
   public resetState() {
-    resetStoreState(this, initialState);
+    resetStoreState(this, baseState);
   }
 
   // Note: Mutators cannot call other Mutators. If you need to do that, use an Action.

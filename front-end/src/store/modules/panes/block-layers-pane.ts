@@ -44,7 +44,7 @@ class BlockLayersStore extends VuexModule<ThisType<BlockLayersState>, RootState>
 
   @Mutation
   public resetState() {
-    resetStoreState(this, initialState);
+    resetStoreState(this, baseState);
   }
 
   @Mutation

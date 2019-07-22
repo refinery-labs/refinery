@@ -77,7 +77,7 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
 
   @Mutation
   public resetState() {
-    resetStoreState(this, initialState);
+    resetStoreState(this, baseState);
   }
 
   @Mutation
