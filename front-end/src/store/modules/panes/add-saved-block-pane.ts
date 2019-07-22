@@ -82,8 +82,9 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
 
     const envVariables = block.environment_variables;
     const envVariablesIds = Object.keys(envVariables);
+
     // Check that any env variables need to be set, else do nothing.
-    if (envVariablesIds.length === 0 || !envVariablesIds.some(id => envVariables[id].required)) {
+    if (envVariablesIds.length === 0) {
       return null;
     }
 
@@ -230,33 +231,20 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
 
     let match = chosenBlock.block;
 
-    const duplicatedBlockAndConfig = safelyDuplicateBlock(openedProjectConfig, {
-      ...match.block_object,
-      saved_block_metadata: {
-        id: match.id,
-        version: match.version,
-        timestamp: match.timestamp,
-        added_timestamp: Date.now()
-      }
-    });
-
-    const openProjectMutation: OpenProjectMutation = {
-      config: duplicatedBlockAndConfig.projectConfig,
-      project: null,
-      markAsDirty: true
-    };
-
-    const addBlockArgs: AddBlockArguments = {
-      rawBlockType: match.type,
-      selectAfterAdding: true,
-      customBlockProperties: duplicatedBlockAndConfig.block
-    };
-
-    // Update the project config with any new block settings
-    await this.context.dispatch(`project/${ProjectViewActions.updateProject}`, openProjectMutation, { root: true });
-
-    // Add the new block to the project
-    await this.context.dispatch(`project/${ProjectViewActions.addIndividualBlock}`, addBlockArgs, { root: true });
+    await safelyDuplicateBlock(
+      this.context.dispatch,
+      openedProjectConfig,
+      {
+        ...match.block_object,
+        saved_block_metadata: {
+          id: match.id,
+          version: match.version,
+          timestamp: match.timestamp,
+          added_timestamp: Date.now()
+        }
+      },
+      this.environmentVariableEntries
+    );
 
     this.resetState();
   }

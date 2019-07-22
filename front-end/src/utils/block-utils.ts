@@ -15,6 +15,10 @@ import { CURRENT_BLOCK_SCHEMA, CURRENT_TRANSITION_SCHEMA } from '@/constants/gra
 import { BlockTypeToDefaultState, blockTypeToDefaultStateMapping } from '@/constants/project-editor-constants';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { AddSavedBlockEnvironmentVariable } from '@/types/saved-blocks-types';
+import { Dispatch } from 'vuex';
+import { OpenProjectMutation } from '@/types/project-editor-types';
+import { AddBlockArguments } from '@/store/modules/project-view';
+import { ProjectViewActions } from '@/constants/store-constants';
 
 function validatePathHasLeadingSlash(apiPath: string) {
   const pathHead = apiPath.startsWith('/') ? '' : '/';
@@ -68,7 +72,8 @@ export function createNewTransition(
   };
 }
 
-export function safelyDuplicateBlock(
+export async function safelyDuplicateBlock(
+  dispatch: Dispatch,
   projectConfig: ProjectConfig,
   block: WorkflowState,
   overrideEnvironmentVariables?: AddSavedBlockEnvironmentVariable[] | null
@@ -142,8 +147,21 @@ export function safelyDuplicateBlock(
     };
   }
 
-  return {
-    block: duplicateOfBlock,
-    projectConfig: duplicateOfProjectConfig
+  const openProjectMutation: OpenProjectMutation = {
+    config: duplicateOfProjectConfig,
+    project: null,
+    markAsDirty: true
   };
+
+  const addBlockArgs: AddBlockArguments = {
+    rawBlockType: duplicateOfBlock.type,
+    selectAfterAdding: true,
+    customBlockProperties: duplicateOfBlock
+  };
+
+  // Update the project config with any new block settings
+  await dispatch(`project/${ProjectViewActions.updateProject}`, openProjectMutation, { root: true });
+
+  // Add the new block to the project
+  await dispatch(`project/${ProjectViewActions.addIndividualBlock}`, addBlockArgs, { root: true });
 }

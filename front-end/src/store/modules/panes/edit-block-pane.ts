@@ -439,28 +439,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       // Save the block first.
       await context.dispatch(EditBlockActions.saveBlock);
 
-      const duplicatedBlockAndConfig = safelyDuplicateBlock(projectConfig, context.state.selectedNode);
-
-      const openProjectMutation: OpenProjectMutation = {
-        config: duplicatedBlockAndConfig.projectConfig,
-        project: null,
-        markAsDirty: true
-      };
-
-      const addBlockArgs: AddBlockArguments = {
-        // TODO: Make this have a non-duplicate name, for sanity.
-        customBlockProperties: duplicatedBlockAndConfig.block,
-        selectAfterAdding: true,
-        rawBlockType: context.state.selectedNode.type
-      };
-
-      // Update the project config with any new block settings
-      await context.dispatch(`project/${ProjectViewActions.updateProject}`, openProjectMutation, { root: true });
-
-      // Add the new block to the project
-      await context.dispatch(`project/${ProjectViewActions.addIndividualBlock}`, addBlockArgs, {
-        root: true
-      });
+      await safelyDuplicateBlock(context.dispatch, projectConfig, context.state.selectedNode);
     },
     async [EditBlockActions.deleteBlock](context) {
       const projectStore = context.rootState.project;
