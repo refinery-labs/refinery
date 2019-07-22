@@ -21,6 +21,7 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import { resetStoreState } from '@/utils/store-utils';
 import { getSavedBlockStatus } from '@/store/fetchers/api-helpers';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
+import { AddBlockArguments } from '@/store/modules/project-view';
 
 const cronRegex = new RegExp(
   '^\\s*($|#|\\w+\\s*=|(\\?|\\*|(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?(?:,(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?)*)\\s+(\\?|\\*|(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?(?:,(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?)*)\\s+(\\?|\\*|(?:[01]?\\d|2[0-3])(?:(?:-|/|\\,)(?:[01]?\\d|2[0-3]))?(?:,(?:[01]?\\d|2[0-3])(?:(?:-|/|\\,)(?:[01]?\\d|2[0-3]))?)*)\\s+(\\?|\\*|(?:0?[1-9]|[12]\\d|3[01])(?:(?:-|/|\\,)(?:0?[1-9]|[12]\\d|3[01]))?(?:,(?:0?[1-9]|[12]\\d|3[01])(?:(?:-|/|\\,)(?:0?[1-9]|[12]\\d|3[01]))?)*)\\s+(\\?|\\*|(?:[1-9]|1[012])(?:(?:-|/|\\,)(?:[1-9]|1[012]))?(?:L|W)?(?:,(?:[1-9]|1[012])(?:(?:-|/|\\,)(?:[1-9]|1[012]))?(?:L|W)?)*|\\?|\\*|(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(?:(?:-)(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))?(?:,(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(?:(?:-)(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))?)*)\\s+(\\?|\\*|(?:[0-6])(?:(?:-|/|\\,|#)(?:[0-6]))?(?:L)?(?:,(?:[0-6])(?:(?:-|/|\\,|#)(?:[0-6]))?(?:L)?)*|\\?|\\*|(?:MON|TUE|WED|THU|FRI|SAT|SUN)(?:(?:-)(?:MON|TUE|WED|THU|FRI|SAT|SUN))?(?:,(?:MON|TUE|WED|THU|FRI|SAT|SUN)(?:(?:-)(?:MON|TUE|WED|THU|FRI|SAT|SUN))?)*)(|\\s)+(\\?|\\*|(?:|\\d{4})(?:(?:-|/|\\,)(?:|\\d{4}))?(?:,(?:|\\d{4})(?:(?:-|/|\\,)(?:|\\d{4}))?)*))$'
@@ -396,17 +397,18 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
 
       if (!projectStore.openedProject) {
         console.error('Attempted to open edit block pane without loaded project');
-        return;
+        throw new Error('Attempted to open edit block pane without loaded project');
       }
 
       const node = context.state.selectedNode;
 
       if (!node) {
         console.error('Missing selected node to save');
-        return;
+        throw new Error('Missing selected node to save');
       }
 
       if (!context.getters.isEditedBlockValid) {
+        console.error('State of block is invalid to save, aborting save');
         throw new Error('State of block is invalid to save, aborting save');
       }
 
@@ -420,6 +422,26 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
 
       // Set the "original" to the new block.
       context.commit(EditBlockMutators.setSelectedNodeOriginal, context.state.selectedNode);
+    },
+    async [EditBlockActions.duplicateBlock](context) {
+      if (!context.state.selectedNode) {
+        console.error('Cannot duplicate block without a selected block');
+        return;
+      }
+
+      // Save the block first.
+      await context.dispatch(EditBlockActions.saveBlock);
+
+      const addBlockArgs: AddBlockArguments = {
+        // TODO: Make this have a non-duplicate name, for sanity.
+        customBlockProperties: context.state.selectedNode,
+        selectAfterAdding: true,
+        rawBlockType: context.state.selectedNode.type
+      };
+
+      await context.dispatch(`project/${ProjectViewActions.addIndividualBlock}`, addBlockArgs, {
+        root: true
+      });
     },
     async [EditBlockActions.deleteBlock](context) {
       const projectStore = context.rootState.project;
