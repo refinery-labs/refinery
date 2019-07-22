@@ -993,8 +993,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       // Special case because Mandatory and I agreed that having a pane pop out is annoying af
       if (leftSidebarPaneType === SIDEBAR_PANE.saveProject) {
-        // Close any existing panes... Because it's ridiculous otherwise.
-        context.commit(ProjectViewMutators.setLeftSidebarPane, null);
         await context.dispatch(ProjectViewActions.saveProject);
         return;
       }

@@ -138,7 +138,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
       ...sharedEditorProps,
       name: `input-${this.getNameSuffix()}`,
       // Using NodeJS for JSON support
-      lang: SupportedLanguage.NODEJS_8,
+      lang: 'json',
       content: this.inputData,
       onChange: this.onUpdateInputData
     };

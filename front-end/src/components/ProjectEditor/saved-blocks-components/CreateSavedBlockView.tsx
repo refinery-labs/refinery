@@ -83,7 +83,7 @@ export default class CreateSavedBlockView extends Vue implements CreateSavedBloc
     const editorProps: EditorProps = {
       name: `create-saved-block-data`,
       // Set Nodejs because it supports JSON
-      lang: SupportedLanguage.NODEJS_8,
+      lang: 'json',
       content: this.savedDataInput || inputDataExample,
       onChange: this.setSavedDataInput
     };
