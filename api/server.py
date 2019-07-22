@@ -7628,7 +7628,8 @@ def get_execution_stats_since_timestamp( credentials, project_id, oldest_timesta
 		cached_execution_log_results = cached_execution_log_results + cached_execution_shard_dict[ "shard_data" ]
 		
 		# Remove this from the shards to go scan since we already have it
-		all_s3_shards.remove( cached_execution_shard_dict[ "date_shard" ] )
+		if cached_execution_shard_dict[ "date_shard" ] in all_s3_shards:
+			all_s3_shards.remove( cached_execution_shard_dict[ "date_shard" ] )
 		
 	logit( "Number of un-cached shards in S3 we have to scan: " + str( len( all_s3_shards ) ) )
 	
