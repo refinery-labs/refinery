@@ -57,6 +57,11 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
       // @ts-ignore
       this.$refs.editor.getEditor().layout();
     });
+
+    setTimeout(() => {
+      // @ts-ignore
+      this.$refs.editor.getEditor().layout();
+    }, 1000);
   }
 
   public renderEditor() {
@@ -70,7 +75,8 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
       language: languageToAceLangMap[this.lang],
       readOnly: this.readOnly,
       wordWrap: this.wrapText,
-      theme: this.theme || 'vs-dark'
+      theme: this.theme || 'vs-dark',
+      automaticLayout: true
     };
 
     const monacoClasses = {
