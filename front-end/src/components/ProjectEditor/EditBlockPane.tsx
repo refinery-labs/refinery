@@ -32,6 +32,7 @@ export default class EditBlockPane extends Vue {
   @editBlock.Action cancelAndResetBlock!: () => void;
   @editBlock.Action tryToCloseBlock!: () => void;
   @editBlock.Action deleteBlock!: () => void;
+  @editBlock.Action duplicateBlock!: () => void;
 
   public deleteBlockClicked(e: Event) {
     e.preventDefault();
@@ -86,9 +87,16 @@ export default class EditBlockPane extends Vue {
         <div class="scrollable-pane-container padding-left--normal padding-right--normal container">
           {componentInstance}
         </div>
-        <div class="row show-block-container__bottom-buttons ml-0 mr-0 mt-2">
-          <b-button variant="danger" class="col-12" on={{ click: this.deleteBlockClicked }}>
-            Delete Block
+        <div class="display--flex show-block-container__bottom-buttons ml-0 mr-3 mt-2">
+          <b-button variant="info" class="mr-1 width--100percent flex-grow--1" on={{ click: this.duplicateBlock }}>
+            Duplicate
+          </b-button>
+          <b-button
+            variant="danger"
+            class="ml-1 width--100percent flex-grow--1"
+            on={{ click: this.deleteBlockClicked }}
+          >
+            Delete
           </b-button>
         </div>
       </div>
