@@ -29,12 +29,10 @@ export enum RunLambdaMutators {
   setLambdaRunningStatus = 'setLambdaRunningStatus',
 
   setDeployedLambdaRunResult = 'setDeployedLambdaRunResult',
-  setDeployedLambdaInputData = 'setDeployedLambdaInputData',
   setDeployedLambdaInputDataCacheEntry = 'setDeployedLambdaInputDataCacheEntry',
 
   setDevLambdaRunResult = 'setDevLambdaRunResult',
   setDevLambdaRunResultId = 'setDevLambdaRunResultId',
-  setDevLambdaInputData = 'setDevLambdaInputData',
   setDevLambdaInputDataCacheEntry = 'setDevLambdaInputDataCacheEntry',
   setLoadingText = 'setLoadingText'
 }
@@ -55,13 +53,11 @@ export interface RunLambdaState {
   isRunningLambda: boolean;
 
   deployedLambdaResult: RunLambdaResult | null;
-  deployedLambdaInputData: string | null;
   deployedLambdaInputDataCache: InputDataCache;
 
   devLambdaResult: RunLambdaResult | null;
   // ID of the last lambda run
   devLambdaResultId: string | null;
-  devLambdaInputData: string | null;
   devLambdaInputDataCache: InputDataCache;
 
   // Text to display while Lambda is being run
@@ -73,7 +69,6 @@ const moduleState: RunLambdaState = {
   isRunningLambda: false,
 
   deployedLambdaResult: null,
-  deployedLambdaInputData: null,
   deployedLambdaInputDataCache: {},
 
   devLambdaResult: null,
@@ -81,7 +76,6 @@ const moduleState: RunLambdaState = {
    * Used to "identify" run results and associate them against the selected block.
    */
   devLambdaResultId: null,
-  devLambdaInputData: null,
   devLambdaInputDataCache: {},
 
   loadingText: 'Running Code Block...'
@@ -167,9 +161,6 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
     [RunLambdaMutators.setDeployedLambdaRunResult](state, response) {
       state.deployedLambdaResult = response;
     },
-    [RunLambdaMutators.setDeployedLambdaInputData](state, inputData) {
-      state.deployedLambdaInputData = inputData;
-    },
     [RunLambdaMutators.setDeployedLambdaInputDataCacheEntry](state, [id, value]: [string, string]) {
       state.deployedLambdaInputDataCache = {
         ...state.deployedLambdaInputDataCache,
@@ -182,9 +173,6 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
     },
     [RunLambdaMutators.setDevLambdaRunResultId](state, id) {
       state.devLambdaResultId = id;
-    },
-    [RunLambdaMutators.setDevLambdaInputData](state, inputData) {
-      state.devLambdaInputData = inputData;
     },
     [RunLambdaMutators.setDevLambdaInputDataCacheEntry](state, [id, value]: [string, string]) {
       state.devLambdaInputDataCache = {
@@ -203,8 +191,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         return;
       }
 
-      const inputData =
-        context.state.deployedLambdaInputData !== null ? context.state.deployedLambdaInputData : block.saved_input_data;
+      const inputData = context.state.deployedLambdaInputDataCache[block.id] || block.saved_input_data;
 
       const request: RunLambdaRequest = {
         input_data: inputData === undefined || inputData === null ? '' : inputData,
@@ -272,10 +259,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         [] as RunTmpLambdaEnvironmentVariable[]
       );
 
-      const inputData =
-        context.state.devLambdaInputData !== null
-          ? context.state.devLambdaInputData
-          : config.codeBlock.saved_input_data;
+      const inputData = context.state.devLambdaInputDataCache[block.id] || config.codeBlock.saved_input_data;
 
       const request: RunTmpLambdaRequest = {
         environment_variables: runLambdaEnvironmentVariables,
@@ -329,11 +313,9 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       await context.dispatch(RunLambdaActions.runSpecifiedEditorCodeBlock, config);
     },
     async [RunLambdaActions.changeDevLambdaInputData](context, [id, inputData]: [string, string]) {
-      context.commit(RunLambdaMutators.setDevLambdaInputData, inputData);
       context.commit(RunLambdaMutators.setDevLambdaInputDataCacheEntry, [id, inputData]);
     },
     async [RunLambdaActions.changeDeployedLambdaInputData](context, [id, inputData]: [string, string]) {
-      context.commit(RunLambdaMutators.setDeployedLambdaInputData, inputData);
       context.commit(RunLambdaMutators.setDeployedLambdaInputDataCacheEntry, [id, inputData]);
     }
   }
