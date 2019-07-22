@@ -1,4 +1,5 @@
 import { Module } from 'vuex';
+import uuid from 'uuid/v4';
 import LZString from 'lz-string';
 import {
   IfDropdownSelectionExpressionValues,
@@ -7,6 +8,8 @@ import {
   RootState
 } from '@/store/store-types';
 import {
+  BlockEnvironmentVariableList,
+  LambdaWorkflowState,
   ProjectConfig,
   ProjectLogLevel,
   RefineryProject,
@@ -27,8 +30,6 @@ import {
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
 import {
-  DeployDiagramRequest,
-  DeployDiagramResponse,
   GetLatestProjectDeploymentRequest,
   GetLatestProjectDeploymentResponse,
   GetProjectConfigRequest,
