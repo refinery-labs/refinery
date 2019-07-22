@@ -17,6 +17,8 @@
 	<source src="/setup-third-party-aws-account/media/set-up-aws-account-video.mp4" type="video/mp4" />
 </video>
 
-You've now set up your AWS account to work with Refinery! All that's left to do is to get their AWS Account ID. Navigate to [https://console.aws.amazon.com/billing/home?#/account](https://console.aws.amazon.com/billing/home?#/account) and record the account number next to `Account Id`:
+You've now set up your AWS account to work with Refinery! All that's left to do is to send us your AWS Account ID. Navigate to [https://console.aws.amazon.com/billing/home?#/account](https://console.aws.amazon.com/billing/home?#/account) and record the account number next to `Account Id`:
 
 <img src="/setup-third-party-aws-account/media/aws-account-id.png" />
+
+Once you have that just send the AWS Account ID and your Refinery email address to us at `support@refinery.io` and we'll onboard you.

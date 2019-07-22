@@ -73,9 +73,9 @@ class AWSAccount( Base ):
 	ssh_private_key = Column(Text())
 	
 	# The AWS account type, which can be any of the following:
-	# MANAGED || UNMANAGED
+	# MANAGED || THIRDPARTY
 	# MANAGED is for sub-accounts that we manage
-	# UNMANAGED is for third-party AWS accounts we don't manage.
+	# THIRDPARTY is for third-party AWS accounts we don't manage.
 	account_type = Column(Text())
 	
 	timestamp = Column(Integer())
