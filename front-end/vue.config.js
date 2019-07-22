@@ -1,3 +1,5 @@
+const MonacoEditorPlugin = require('monaco-editor-webpack-plugin');
+
 module.exports = {
   lintOnSave: false,
   publicPath: process.env.NODE_ENV === 'production' ? 'https://d3asw1bke2pwdg.cloudfront.net/' : '/',
@@ -19,6 +21,9 @@ module.exports = {
       .use('vue-jsx-hot-loader')
       .before('babel-loader')
       .loader('vue-jsx-hot-loader');
+  },
+  configureWebpack: {
+    plugins: [new MonacoEditorPlugin(['javascript', 'php', 'python', 'go', 'json', 'markdown'])]
   },
   pwa: {
     // workboxPluginMode: 'InjectManifest',

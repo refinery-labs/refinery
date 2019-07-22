@@ -40,6 +40,8 @@
     "lz-string": "^1.4.4",
     "modernizr": "^3.7.1",
     "moment": "^2.24.0",
+    "monaco-editor": "^0.17.1",
+    "monaco-editor-webpack-plugin": "^1.7.0",
     "phone": "^2.3.14",
     "ramda": "^0.26.1",
     "register-service-worker": "^1.6.2",

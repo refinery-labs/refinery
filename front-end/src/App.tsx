@@ -5,7 +5,7 @@ import TopNavbar from '@/components/TopNavbar';
 import { UserInterfaceSettings, UserInterfaceState } from '@/store/store-types';
 import { Action, Getter, namespace } from 'vuex-class';
 import ToastContainer from '@/containers/ToastContainer';
-import IntercomWrapper from '@/lib/IntercomWrapper';
+import IntercomWrapper from './lib/IntercomWrapper';
 
 const user = namespace('user');
 

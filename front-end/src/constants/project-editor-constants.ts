@@ -450,3 +450,5 @@ export const blockTypeToEditorComponentLookup: BlockTypeToEditorComponent = {
   [WorkflowStateType.API_GATEWAY_RESPONSE]: () => EditAPIResponseBlock,
   [WorkflowStateType.SQS_QUEUE]: () => EditQueueBlock
 };
+
+export const arnRegex = /^arn:aws:lambda:us-west-2:\d+:layer:[a-zA-Z0-9-]+:\d+$/;

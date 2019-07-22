@@ -465,6 +465,14 @@ $content-sidebar-width: 92px;
   }
 }
 
+.monaco-editor {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+}
+
 .add-transition-container {
   text-align: left;
 }
@@ -487,6 +495,7 @@ $content-sidebar-width: 92px;
 .refinery-code-editor-container {
   min-width: 200px;
   min-height: 180px;
+  overflow-y: hidden;
 
   &--read-only {
     .ace_scroller {
@@ -512,7 +521,7 @@ $content-sidebar-width: 92px;
 // Forgive me?
 .run-lambda-pane-container {
   // This lives in the side pane
-  max-width: 600px;
+  max-width: 1100px;
   padding-left: 1em;
   padding-right: 1em;
   width: 100%;
@@ -541,6 +550,8 @@ $content-sidebar-width: 92px;
 
   &__sidepane {
     height: calc(100vh - 187px);
+    min-width: 340px;
+    width: calc(25vw);
   }
 
   &__min-height {

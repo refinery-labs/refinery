@@ -149,14 +149,14 @@ export default class RunLambda extends Vue implements RunLambdaProps {
       </div>
     );
 
+    const hasResultData = hasValidOutput && this.runResultOutput && this.runResultOutput.returned_data;
+
     const resultDataEditorProps: EditorProps = {
       ...sharedEditorProps,
       name: `result-data-${this.getNameSuffix()}`,
       // This is very nice for rendering non-programming text
-      lang: 'json',
-      content:
-        (hasValidOutput && this.runResultOutput && this.runResultOutput.returned_data) ||
-        'Click Execute button for run output.',
+      lang: hasResultData ? 'json' : 'text',
+      content: hasResultData || 'Click Execute button for run output.',
       wrapText: true,
       readOnly: true
     };
@@ -203,13 +203,13 @@ export default class RunLambda extends Vue implements RunLambdaProps {
       <div class="display--flex flex-direction--column height--100percent">
         <div class="display--flex flex-grow--1">
           <Split props={{ direction: 'vertical' as Object, extraClasses: 'flex-grow--1' as Object }}>
-            <SplitArea props={{ size: 34 as Object }}>
+            <SplitArea props={{ size: 33.3 as Object }}>
               {renderEditorWrapper('Block Input Data', inputDataEditor)}
             </SplitArea>
-            <SplitArea props={{ size: 33 as Object }}>
+            <SplitArea props={{ size: 33.3 as Object }}>
               {renderEditorWrapper('Return Data', <RefineryCodeEditor props={resultDataEditorProps} />)}
             </SplitArea>
-            <SplitArea props={{ size: 33 as Object }}>
+            <SplitArea props={{ size: 33.3 as Object }}>
               {renderEditorWrapper('Execution Output', <RefineryCodeEditor props={resultOutputEditorProps} />)}
             </SplitArea>
           </Split>

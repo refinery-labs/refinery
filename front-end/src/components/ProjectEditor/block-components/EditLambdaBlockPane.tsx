@@ -30,6 +30,10 @@ import { SavedBlockStatusCheckResult } from '@/types/api-types';
 import Split from '@/components/Common/Split.vue';
 import SplitArea from '@/components/Common/SplitArea.vue';
 import { RunLambdaDisplayMode } from '@/components/RunLambda';
+import {
+  EditBlockLayersWrapper,
+  EditBlockLayersWrapperProps
+} from '@/components/ProjectEditor/block-components/EditBlockLayersWrapper';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
@@ -163,7 +167,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         title={nameString}
         visible={showCodeModal}
       >
-        <div class="text-center display--flex code-modal-editor-container overflow--hidden-x">
+        <div class="display--flex code-modal-editor-container overflow--hidden-x">
           <Split
             props={{
               direction: 'horizontal' as Object,
@@ -549,6 +553,21 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     );
   }
 
+  public renderBlockLayers() {
+    const blockLayersEditorWrapperProps: EditBlockLayersWrapperProps & EditBlockPaneProps = {
+      selectedNode: this.selectedNode,
+      selectedNodeMetadata: null,
+      readOnly: this.readOnly
+    };
+
+    return (
+      <b-form-group description="Click to add AWS Lambda Layers to the runtime environment.">
+        <label class="d-block">Block Layers (Lambda Layers):</label>
+        <EditBlockLayersWrapper props={blockLayersEditorWrapperProps} />
+      </b-form-group>
+    );
+  }
+
   public render(): VNode {
     const setMaxExecutionTime = this.readOnly ? nopWrite : this.setMaxExecutionTime;
     const setExecutionMemory = this.readOnly ? nopWrite : this.setExecutionMemory;
@@ -614,6 +633,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
           <b-col xl={6}>{this.renderAwsLink()}</b-col>
 
           <b-col xl={6}>{this.renderBlockVariables()}</b-col>
+          <b-col xl={6}>{this.renderBlockLayers()}</b-col>
           <b-col xl={6}>{this.renderLanguageSelector()}</b-col>
           <b-col xl={6}>{this.renderForm(this.selectedNode, maxExecutionTimeProps)}</b-col>
           <b-col xl={6}>{this.renderForm(this.selectedNode, maxMemoryProps)}</b-col>
@@ -630,8 +650,8 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
         <b-col xl={6}>{this.renderCreateSavedBlockButton()}</b-col>
         <b-col xl={6}>{this.renderBlockVariables()}</b-col>
+        <b-col xl={6}>{this.renderBlockLayers()}</b-col>
         <b-col xl={6}>{this.renderLibrarySelector()}</b-col>
-        <b-col xl={6} />
         <b-col xl={6}>{this.renderLanguageSelector()}</b-col>
         <b-col xl={6}>{this.renderForm(this.selectedNode, maxExecutionTimeProps)}</b-col>
         <b-col xl={6}>{this.renderForm(this.selectedNode, maxMemoryProps)}</b-col>
