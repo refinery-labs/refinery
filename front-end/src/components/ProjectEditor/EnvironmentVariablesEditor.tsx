@@ -181,6 +181,7 @@ export class EnvironmentVariablesEditor extends Vue implements EnvironmentVariab
         ref={`code-modal-${this.activeBlockId}`}
         on={modalOnHandlers}
         hide-footer={true}
+        no-close-on-esc={true}
         size="xl"
         title={nameString}
         visible={this.isModalVisible}

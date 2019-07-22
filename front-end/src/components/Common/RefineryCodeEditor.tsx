@@ -6,6 +6,7 @@ import { EditorProps } from '@/types/component-types';
 import { SupportedLanguage } from '@/types/graph';
 import { languageToAceLangMap } from '@/types/project-editor-types';
 import MonacoEditor from '@/lib/MonacoEditor';
+import { timeout } from '@/utils/async-utils';
 
 @Component
 export default class RefineryCodeEditor extends Vue implements EditorProps {
@@ -58,9 +59,18 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
       this.$refs.editor.getEditor().layout();
     });
 
-    setTimeout(() => {
-      // @ts-ignore
-      this.$refs.editor.getEditor().layout();
+    // Attempt to relayout the component, once.
+    setTimeout(async () => {
+      let attempts = 0;
+      while (!this.$refs.editor && attempts < 10) {
+        if (this.$refs.editor) {
+          // @ts-ignore
+          this.$refs.editor.getEditor().layout();
+          return;
+        }
+        await timeout(1000);
+        attempts++;
+      }
     }, 1000);
   }
 
