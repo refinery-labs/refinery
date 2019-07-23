@@ -19,14 +19,10 @@ export default class RunDeployedCodeBlockContainer extends Vue {
   // State
   @runLambda.State isRunningLambda!: boolean;
   @runLambda.State deployedLambdaResult!: RunLambdaResult | null;
-  @runLambda.State deployedLambdaInputData!: string | null;
 
   // Getters
   @deployment.Getter getSelectedBlock!: WorkflowState | null;
   @runLambda.Getter getDeployedLambdaInputData!: (id: string) => string;
-
-  // Mutations
-  @runLambda.Mutation setDeployedLambdaInputData!: (inputData: string) => void;
 
   // Actions
   @deployment.Action closePane!: (p: PANE_POSITION) => void;

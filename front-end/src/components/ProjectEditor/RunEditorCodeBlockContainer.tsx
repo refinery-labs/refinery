@@ -22,7 +22,6 @@ export default class RunEditorCodeBlockContainer extends Vue {
   @runLambda.State isRunningLambda!: boolean;
   @runLambda.State devLambdaResult!: RunLambdaResult | null;
   @runLambda.State devLambdaResultId!: string | null;
-  @runLambda.State devLambdaInputData!: string;
   @runLambda.State loadingText!: string;
 
   // Getters
@@ -32,7 +31,6 @@ export default class RunEditorCodeBlockContainer extends Vue {
   // Mutations
   @editBlock.Mutation setCodeModalVisibility!: (visible: boolean) => void;
   @editBlock.Mutation setSavedInputData!: (inputData: string) => void;
-  @runLambda.Mutation setDevLambdaInputData!: (inputData: string) => void;
   @runLambda.Mutation setLoadingText!: (loadingText: string) => void;
 
   @Prop({ required: true }) displayMode!: RunLambdaDisplayMode;
