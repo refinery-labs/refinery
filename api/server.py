@@ -398,17 +398,10 @@ class BaseHandler( tornado.web.RequestHandler ):
 				
 		return is_owner
 		
-	def get_authenticated_user_cloud_configurations( self ):
+	def get_authenticated_user_cloud_configuration( self ):
 		"""
-		This returns the cloud configurations for the current user.
-		
-		This mainly means things like AWS credentials, S3 buckets
-		used for package builders, etc.
-		
-		This will return a list of configuration JSON objects. Note
-		that in the beggining we will ALWAYS just use the first JSON
-		object in the list because we don't support multiple AWS deploys
-		yet.
+		This just returns the first cloud configuration. Short term use since we'll
+		eventually be moving to a multiple AWS account deploy system.
 		"""
 		# Pull the authenticated user's organization
 		user_organization = self.get_authenticated_user_org()
@@ -416,26 +409,15 @@ class BaseHandler( tornado.web.RequestHandler ):
 		if user_organization == None:
 			return None
 		
-		# Returned list of JSON cloud config data
-		cloud_configuration_list = []
+		aws_account = self.dbsession.query( AWSAccount ).filter_by(
+			organization_id=user_organization.id,
+			aws_account_status="IN_USE"
+		).first()
 		
-		# Return the JSON objects for all AWS accounts
-		for aws_account in user_organization.aws_accounts:
-			cloud_configuration_list.append(
-				aws_account.to_dict()
-			)
+		if aws_account:
+			return aws_account.to_dict()
 			
-		return cloud_configuration_list
-		
-	def get_authenticated_user_cloud_configuration( self ):
-		"""
-		This just returns the first cloud configuration. Short term use since we'll
-		eventually be moving to a multiple AWS account deploy system.
-		"""
-		cloud_configurations = self.get_authenticated_user_cloud_configurations()
-		
-		if len( cloud_configurations ) > 0:
-			return cloud_configurations[ 0 ]
+		logit( "Account has no AWS account associated with it!" )
 		
 		return False
 		
@@ -724,10 +706,48 @@ REGEX_WHITELISTS = {
 	"project_id": r"[^a-zA-Z0-9\-]+",
 }
 
+THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME = "RefinerySelfHostedLambdaRole"
+
 class TaskSpawner(object):
 		def __init__(self, loop=None):
 			self.executor = futures.ThreadPoolExecutor( 60 )
 			self.loop = loop or tornado.ioloop.IOLoop.current()
+		
+		@run_on_executor
+		def create_third_party_aws_lambda_execute_role( self, credentials ):
+			# Create IAM client
+			iam_client = get_aws_client(
+				"iam",
+				credentials
+			)
+			
+			assume_role_policy_doc = """{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}"""
+			# Create the AWS role for the account
+			response = iam_client.create_role(
+				RoleName=THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME,
+				Description="The role that all Lambdas deployed with Refinery run as",
+				MaxSessionDuration=(60 * 60),
+				AssumeRolePolicyDocument=assume_role_policy_doc
+			)
+			
+			response = iam_client.attach_role_policy(
+				RoleName=THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME,
+				PolicyArn="arn:aws:iam::aws:policy/AdministratorAccess"
+			)
+			
+			return True
 		
 		@run_on_executor
 		def get_json_from_s3( self, credentials, s3_bucket, s3_path ):
@@ -1297,11 +1317,14 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def create_new_sub_aws_account( self ):
-			return TaskSpawner._create_new_sub_aws_account()
+		def create_new_sub_aws_account( self, account_type, aws_account_id ):
+			return TaskSpawner._create_new_sub_aws_account(
+				account_type,
+				aws_account_id
+			)
 			
 		@staticmethod
-		def _create_new_sub_aws_account():
+		def _create_new_sub_aws_account( account_type, aws_account_id ):
 			# Create a unique ID for the Refinery AWS account
 			aws_unique_account_id = get_urand_password( 16 ).lower()
 			
@@ -1316,29 +1339,34 @@ class TaskSpawner(object):
 			new_aws_account.redis_password = get_urand_password( 64 )
 			new_aws_account.redis_port = 6379
 			new_aws_account.redis_secret_prefix = get_urand_password( 40 )
-			new_aws_account.account_type = "MANAGED"
 			new_aws_account.terraform_state = ""
 			new_aws_account.ssh_public_key = ""
 			new_aws_account.ssh_private_key = ""
 			new_aws_account.aws_account_email = os.environ.get( "customer_aws_email_prefix" ) + aws_unique_account_id + os.environ.get( "customer_aws_email_suffix" )
 			new_aws_account.terraform_state_versions = []
 			new_aws_account.aws_account_status = "CREATED"
+			new_aws_account.account_type = account_type
 			
 			# Create AWS sub-account
 			logit( "Creating AWS sub-account '" + str( new_aws_account.aws_account_email ) + "'..." )
 			
-			# Create sub-AWS account
-			account_creation_response = TaskSpawner._create_aws_org_sub_account(
-				aws_unique_account_id,
-				str( new_aws_account.aws_account_email ),
-			)
-			
-			if account_creation_response == False:
-				raise Exception( "Account creation failed, quitting out!" )
-			
-			new_aws_account.account_id = account_creation_response[ "account_id" ]
-			
-			logit( "Sub-account created! AWS account ID is " + new_aws_account.account_id + "." )
+			# Only create a sub-account if this is a MANAGED AWS account and skip
+			# this step if we're onboarding a THIRDPARTY AWS account (e.g. self-hosted)
+			if account_type == "MANAGED":
+				# Create sub-AWS account
+				account_creation_response = TaskSpawner._create_aws_org_sub_account(
+					aws_unique_account_id,
+					str( new_aws_account.aws_account_email ),
+				)
+				
+				if account_creation_response == False:
+					raise Exception( "Account creation failed, quitting out!" )
+				
+				new_aws_account.account_id = account_creation_response[ "account_id" ]
+				logit( "Sub-account created! AWS account ID is " + new_aws_account.account_id + "." )
+			elif account_type == "THIRDPARTY":
+				new_aws_account.account_id = aws_account_id
+				logit( "Using provided AWS Account ID " + new_aws_account.account_id + "." )
 			
 			assumed_role_credentials = {}
 			
@@ -1692,8 +1720,6 @@ class TaskSpawner(object):
 				terraform_state = ""
 				with open( base_dir + "terraform.tfstate", "r" ) as file_handler:
 					terraform_state = file_handler.read()
-				
-				logit( "Added AWS account to the pool successfully!" )
 				
 				terraform_configuration_data[ "terraform_state" ] = terraform_state
 				terraform_configuration_data[ "redis_hostname" ] = terraform_provisioned_account_details[ "redis_elastic_ip" ][ "value" ]
@@ -4239,6 +4265,7 @@ class TaskSpawner(object):
 					"Objects": delete_data
 				},
 			)
+			
 			return response
 			
 		@run_on_executor
@@ -5359,6 +5386,11 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	)
 	
 	lambda_role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/refinery_default_aws_lambda_role"
+	
+	# If it's a self-hosted (THIRDPARTY) AWS account we deploy with a different role
+	# name which they manage themselves.
+	if credentials[ "account_type" ] == "THIRDPARTY":
+		lambda_role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/" + THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
 	
 	"""
 	IGNORE THIS NOTICE AT YOUR OWN PERIL. YOU HAVE BEEN WARNED.
@@ -8077,6 +8109,8 @@ def delete_logs( credentials, project_id ):
 			project_id + "/",
 			1000
 		)
+		
+		logit( "Deleting #" + str( len( log_paths ) ) + " log files for project ID " + project_id + "..." )
 
 		if len( log_paths ) == 0:
 			break
@@ -9311,7 +9345,10 @@ class MaintainAWSAccountReserves( BaseHandler ):
 			# We have to yield because you can't mint more than one sub-account at a time
 			# (AWS can litterally only process one request at a time).
 			try:
-				yield local_tasks.create_new_sub_aws_account()
+				yield local_tasks.create_new_sub_aws_account(
+					"MANAGED",
+					False
+				)
 			except:
 				logit( "An error occurred while creating an AWS sub-account.", "error" )
 				pass
@@ -9586,6 +9623,213 @@ class UpdateIAMConsoleUserIAM( BaseHandler ):
 		
 		logit( "AWS console accounts updated successfully!" )
 		
+class OnboardThirdPartyAWSAccountPlan( BaseHandler ):
+	@gen.coroutine
+	def get( self ):
+		"""
+		Imports a third-party AWS account into the database and sends out
+		a terraform plan email with what will happen when it's fully set up.
+		"""
+		
+		# Get AWS account ID
+		account_id = self.get_argument(
+			"account_id",
+			default=None,
+			strip=True
+		)
+		
+		if not account_id:
+			self.write({
+				"success": False,
+				"msg": "Please provide an 'account_id' to onboard this AWS account!"
+			})
+			raise gen.Return()
+			
+		final_email_html = """
+		<h1>Terraform Plan Results for Onboarding Third-Party Customer AWS Account</h1>
+		Please note that this is <b>not</b> applying these changes.
+		It is purely to understand what would happen if we did.
+		"""
+			
+		# First we set up the AWS Account in our database so we have a record
+		# of it going forward. This also creates the AWS console user.
+		logit( "Adding third-party AWS account to the database..." )
+		yield local_tasks.create_new_sub_aws_account(
+			"THIRDPARTY",
+			account_id
+		)
+		
+		dbsession = DBSession()
+		third_party_aws_account = dbsession.query( AWSAccount ).filter_by(
+			account_id=account_id,
+			account_type="THIRDPARTY"
+		).first()
+		third_party_aws_account_dict = third_party_aws_account.to_dict()
+		dbsession.close()
+		
+		logit( "Performing a terraform plan against the third-party account..." )
+		terraform_plan_output = yield local_tasks.terraform_plan(
+			third_party_aws_account_dict
+		)
+		
+		# Convert terraform plan terminal output to HTML
+		ansiconverter = Ansi2HTMLConverter()
+		terraform_output_html = ansiconverter.convert(
+			terraform_plan_output
+		)
+		
+		final_email_html += "<hr /><h1>AWS Account " + third_party_aws_account_dict[ "account_id" ] + "</h1>"
+		final_email_html += terraform_output_html
+			
+		final_email_html += "<hr /><b>That is all.</b>"
+		
+		logit( "Sending email with results from terraform plan..." )
+		yield local_tasks.send_email(
+			os.environ.get( "alerts_email" ),
+			"Terraform Plan Results for Onboarding Third-Party AWS Account " + str( int( time.time() ) ), # Make subject unique so Gmail doesn't group
+			False, # No text version of email
+			final_email_html
+		)
+		
+		self.write({
+			"success": True,
+			"msg": "Successfully added AWS account " + account_id + " to database and sent plan email!"
+		})
+		
+class OnboardThirdPartyAWSAccountApply( BaseHandler ):
+	@gen.coroutine
+	def get( self ):
+		"""
+		Finalizes the third-party AWS account onboarding import process.
+		
+		This should only be done after the Terraform plan has been reviewed
+		and it looks appropriate to be applied.
+		"""
+		
+		# Get AWS account ID
+		account_id = self.get_argument(
+			"account_id",
+			default=None,
+			strip=True
+		)
+		
+		# Get Refinery user ID
+		user_id = self.get_argument(
+			"user_id",
+			default=None,
+			strip=True
+		)
+		
+		if not account_id:
+			self.write({
+				"success": False,
+				"msg": "Please provide an 'account_id' to onboard this AWS account!"
+			})
+			raise gen.Return()
+			
+		if not user_id:
+			self.write({
+				"success": False,
+				"msg": "Please provide an 'user_id' to onboard this AWS account!"
+			})
+			raise gen.Return()
+			
+		dbsession = DBSession()
+		third_party_aws_account = dbsession.query( AWSAccount ).filter_by(
+			account_id=account_id,
+			account_type="THIRDPARTY"
+		).first()
+		third_party_aws_account_dict = third_party_aws_account.to_dict()
+		dbsession.close()
+		
+		logit( "Creating the '" + THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME + "' role for Lambda executions..." )
+		yield local_tasks.create_third_party_aws_lambda_execute_role(
+			third_party_aws_account_dict
+		)
+			
+		try:
+			logit( "Creating Refinery base infrastructure on third-party AWS account..." )
+			account_provisioning_details = yield local_tasks.terraform_configure_aws_account(
+				third_party_aws_account_dict
+			)
+	
+			dbsession = DBSession()
+			
+			# Get the AWS account specified
+			current_aws_account = dbsession.query( AWSAccount ).filter(
+				AWSAccount.account_id == account_id,
+			).first()
+			
+			# Pull the user from the database
+			refinery_user = dbsession.query( User ).filter_by(
+				id=user_id
+			).first()
+			
+			# Grab the previous AWS account specified with the Refinery account
+			previous_aws_account = dbsession.query( AWSAccount ).filter(
+				AWSAccount.organization_id == refinery_user.organization_id
+			).first()
+			
+			previous_aws_account_dict = previous_aws_account.to_dict()
+			previous_aws_account_id = previous_aws_account.id
+			
+			logit( "Previously-assigned AWS Account has UUID of " + previous_aws_account_id )
+			
+			# Set the previously-assigned AWS account to be
+			previous_aws_account.aws_account_status = "NEEDS_CLOSING"
+			previous_aws_account.organization_id = None
+			
+			# Update the AWS account with this new information
+			current_aws_account.redis_hostname = account_provisioning_details[ "redis_hostname" ]
+			current_aws_account.terraform_state = account_provisioning_details[ "terraform_state" ]
+			current_aws_account.ssh_public_key = account_provisioning_details[ "ssh_public_key" ]
+			current_aws_account.ssh_private_key = account_provisioning_details[ "ssh_private_key" ]
+			current_aws_account.aws_account_status = "IN_USE"
+			current_aws_account.organization_id = refinery_user.organization_id
+			
+			# Create a new terraform state version
+			terraform_state_version = TerraformStateVersion()
+			terraform_state_version.terraform_state = account_provisioning_details[ "terraform_state" ]
+			current_aws_account.terraform_state_versions.append(
+				terraform_state_version
+			)
+		except Exception as e:
+			logit( "An error occurred while provision AWS account '" + current_aws_account.account_id + "' with terraform!", "error" )
+			logit( e )
+			logit( "Marking the account as 'CORRUPT'..." )
+			
+			# Mark the account as corrupt since the provisioning failed.
+			current_aws_account.aws_account_status = "CORRUPT"
+			dbsession.add( current_aws_account )
+			dbsession.commit()
+			dbsession.close()
+			
+			self.write({
+				"success": False,
+				"exception": str( e ),
+				"msg": "An error occurred while provisioning AWS account."
+			})
+			
+			raise gen.Return()
+		
+		logit( "AWS account terraform apply has completed." )
+		dbsession.add( previous_aws_account )
+		dbsession.add( current_aws_account )
+		dbsession.commit()
+		dbsession.close()
+		
+		# Close the previous Refinery-managed AWS account
+		logit( "Closing previously-assigned Refinery AWS account..." )
+		logit( "Freezing the account so it costs us less while we do the process of closing it..." )
+		yield local_tasks.freeze_aws_account(
+			previous_aws_account_dict
+		)
+		
+		self.write({
+			"success": True,
+			"msg": "Successfully added third-party AWS account " + account_id + " to user ID " + user_id + "."
+		})
+		
 def make_app( is_debug ):
 	tornado_app_settings = {
 		"debug": is_debug,
@@ -9644,6 +9888,8 @@ def make_app( is_debug ):
 		( r"/services/v1/perform_terraform_plan_on_fleet", PerformTerraformPlanOnFleet ),
 		( r"/services/v1/dangerously_terraform_update_fleet", PerformTerraformUpdateOnFleet ),
 		( r"/services/v1/update_managed_console_users_iam", UpdateIAMConsoleUserIAM ),
+		( r"/services/v1/onboard_third_party_aws_account_plan", OnboardThirdPartyAWSAccountPlan ),
+		( r"/services/v1/dangerously_finalize_third_party_aws_onboarding", OnboardThirdPartyAWSAccountApply ),
 	], **tornado_app_settings)
 
 if __name__ == "__main__":
