@@ -4265,6 +4265,7 @@ class TaskSpawner(object):
 					"Objects": delete_data
 				},
 			)
+			
 			return response
 			
 		@run_on_executor
@@ -8107,6 +8108,8 @@ def delete_logs( credentials, project_id ):
 			project_id + "/",
 			1000
 		)
+		
+		logit( "Deleting #" + str( len( log_paths ) ) + " log files for project ID " + project_id + "..." )
 
 		if len( log_paths ) == 0:
 			break
