@@ -706,10 +706,48 @@ REGEX_WHITELISTS = {
 	"project_id": r"[^a-zA-Z0-9\-]+",
 }
 
+THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME = "RefinerySelfHostedLambdaRole"
+
 class TaskSpawner(object):
 		def __init__(self, loop=None):
 			self.executor = futures.ThreadPoolExecutor( 60 )
 			self.loop = loop or tornado.ioloop.IOLoop.current()
+		
+		@run_on_executor
+		def create_third_party_aws_lambda_execute_role( self, credentials ):
+			# Create IAM client
+			iam_client = get_aws_client(
+				"iam",
+				credentials
+			)
+			
+			assume_role_policy_doc = """{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "",
+      "Effect": "Allow",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Action": "sts:AssumeRole"
+    }
+  ]
+}"""
+			# Create the AWS role for the account
+			response = iam_client.create_role(
+				RoleName=THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME,
+				Description="The role that all Lambdas deployed with Refinery run as",
+				MaxSessionDuration=(60 * 60),
+				AssumeRolePolicyDocument=assume_role_policy_doc
+			)
+			
+			response = iam_client.attach_role_policy(
+				RoleName=THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME,
+				PolicyArn="arn:aws:iam::aws:policy/AdministratorAccess"
+			)
+			
+			return True
 		
 		@run_on_executor
 		def get_json_from_s3( self, credentials, s3_bucket, s3_path ):
@@ -5348,6 +5386,11 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	
 	lambda_role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/refinery_default_aws_lambda_role"
 	
+	# If it's a self-hosted (THIRDPARTY) AWS account we deploy with a different role
+	# name which they manage themselves.
+	if credentials[ "account_type" ] == "THIRDPARTY":
+		lambda_role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/" + THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
+	
 	"""
 	IGNORE THIS NOTICE AT YOUR OWN PERIL. YOU HAVE BEEN WARNED.
 	
@@ -9694,6 +9737,11 @@ class OnboardThirdPartyAWSAccountApply( BaseHandler ):
 		).first()
 		third_party_aws_account_dict = third_party_aws_account.to_dict()
 		dbsession.close()
+		
+		logit( "Creating the '" + THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME + "' role for Lambda executions..." )
+		yield local_tasks.create_third_party_aws_lambda_execute_role(
+			third_party_aws_account_dict
+		)
 			
 		try:
 			logit( "Creating Refinery base infrastructure on third-party AWS account..." )
