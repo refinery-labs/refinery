@@ -490,7 +490,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     }
 
     return (
-      <b-form-group description="Save this block to use in other projects.">
+      <b-form-group description="Save this block to use in other projects. You may also publish this block on the Community Block Repository for use by others.">
         <label class="d-block">Create Saved Block:</label>
         <b-button
           variant="dark"
