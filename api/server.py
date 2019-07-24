@@ -4822,7 +4822,10 @@ class TaskSpawner(object):
 					"types": [
 						"EDGE",
 					]
-				}
+				},
+				binaryMediaTypes=[
+					"*/*"
+				]
 			)
 			
 			return {
@@ -5053,6 +5056,20 @@ class TaskSpawner(object):
 					)
 			
 			return {}
+			
+		@run_on_executor
+		def add_integration_response( self, credentials, rest_api_id, resource_id, http_method, api_path, lambda_name ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			response = api_gateway_client.put_integration_response(
+				restApiId=rest_api_id,
+				resourceId=resource_id,
+				httpMethod=http_method,
+				statusCode="200",
+				contentHandling="CONVERT_TO_TEXT"
+			)
 			
 		@run_on_executor
 		def link_api_method_to_lambda( self, credentials, rest_api_id, resource_id, http_method, api_path, lambda_name ):
@@ -7313,6 +7330,16 @@ def create_lambda_api_route( credentials, api_gateway_id, http_method, route, la
 	resources = yield local_tasks.get_resources(
 		credentials,
 		api_gateway_id
+	)
+	
+	# Clown-shoes AWS bullshit for binary response
+	local_tasks.add_integration_response(
+		credentials,
+		api_gateway_id,
+		current_base_pointer_id,
+		http_method,
+		path_part,
+		lambda_name
 	)
 	
 @gen.coroutine
