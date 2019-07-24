@@ -1,7 +1,7 @@
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
 if (!isDevelopment) {
-  __webpack_public_path__ = 'https://app.refinery.io/manifest';
+  __webpack_public_path__ = 'https://app.refinery.io/manifest/';
 }
 
 import Vue from 'vue';
