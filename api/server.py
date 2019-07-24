@@ -7333,7 +7333,7 @@ def create_lambda_api_route( credentials, api_gateway_id, http_method, route, la
 	)
 	
 	# Clown-shoes AWS bullshit for binary response
-	local_tasks.add_integration_response(
+	yield local_tasks.add_integration_response(
 		credentials,
 		api_gateway_id,
 		current_base_pointer_id,
