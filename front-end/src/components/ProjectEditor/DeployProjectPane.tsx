@@ -44,6 +44,10 @@ Exception: ${error.exception}
   }
 
   public renderTooltips() {
+    if (this.isDeployingProject) {
+      return null;
+    }
+
     const deployButtonMessage = this.hasProjectBeenModified
       ? 'You must save changes to project before you may deploy.'
       : 'Click to begin the deployment process';
