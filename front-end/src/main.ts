@@ -1,10 +1,6 @@
+import './monaco-shims';
+
 import { ProjectViewGetters } from '@/constants/store-constants';
-
-const isDevelopment = process.env.NODE_ENV !== 'production';
-
-if (!isDevelopment) {
-  __webpack_public_path__ = 'https://app.refinery.io/manifest/';
-}
 
 import Vue from 'vue';
 
