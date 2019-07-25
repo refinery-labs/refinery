@@ -32,7 +32,7 @@ async function setupMonacoShims() {
     },
     getWorker: function(moduleId: any, label: string) {
       if (label === 'editorWorkerService') {
-        return '/manifest/editor.worker.js';
+        return new Worker('/manifest/editor.worker.js');
       }
 
       if (label === 'json') {
