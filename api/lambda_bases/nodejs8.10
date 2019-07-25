@@ -10,7 +10,8 @@ function return_result( program_output ) {
 	);
 }
 
-(async function() {
+(async function refinerySubproccessWrapper() {
+
 	var input_data = JSON.parse( process.argv[2] );
 	var lambda_input = input_data[ "lambda_input" ];
 	backpack = input_data[ "backpack" ];
@@ -20,8 +21,10 @@ function return_result( program_output ) {
 			"output": output,
 			"backpack": backpack,
 		});
+
 		backpack = {};
-		process.exit(0);
+
+		flushProcessOutputsAndExit__refinery(0);
 	} catch ( e ) {
 		if( e.stack ) {
 			e = e.stack.toString()
@@ -35,6 +38,28 @@ function return_result( program_output ) {
 			}) + "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_END_MARKER>"
 		);
 		backpack = {};
-		process.exit(-1);
+
+		flushProcessOutputsAndExit__refinery(-1);
 	}
 })();
+
+function flushProcessOutputsAndExit__refinery(exitCode) {
+	// Configure the streams to be blocking
+	makeBlockingStream__refinery(process.stdout);
+	makeBlockingStream__refinery(process.stderr);
+
+
+	// Allow Node to cleanup any internals before the next process tick
+	setImmediate(function callProcessExitWithCode() {
+		process.exit(exitCode);
+	});
+}
+
+function makeBlockingStream__refinery(stream) {
+	if (!stream || !stream._handle || !stream._handle.setBlocking) {
+		// Not able to set blocking so just bail out
+		return;
+	}
+
+	stream._handle.setBlocking(true);
+}

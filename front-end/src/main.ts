@@ -1,3 +1,5 @@
+import { ProjectViewGetters } from '@/constants/store-constants';
+
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
 if (!isDevelopment) {
@@ -33,6 +35,16 @@ Vue.config.productionTip = false;
 
 // If, in the future, we need to unsync the router we can use this function.
 const unsync = sync(store, router);
+
+window.onbeforeunload = function(e: Event) {
+  if (store.getters[`project/${ProjectViewGetters.canSaveProject}`]) {
+    e.preventDefault();
+    // This is the spec according to:
+    // https://developer.mozilla.org/en-US/docs/Web/API/WindowEventHandlers/onbeforeunload
+    // @ts-ignore
+    e.returnValue = 'Warning: You have unsaved changes that will be discarded. Are you sure you want to leave?';
+  }
+};
 
 new Vue({
   router,
