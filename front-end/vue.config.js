@@ -39,6 +39,10 @@ module.exports = {
           handler: 'networkOnly'
         },
         {
+          urlPattern: new RegExp('.worker.js$', 'i'),
+          handler: 'networkOnly'
+        },
+        {
           urlPattern: new RegExp('.(?:css|js|)$', 'i'),
           handler: 'networkFirst',
           options: {
