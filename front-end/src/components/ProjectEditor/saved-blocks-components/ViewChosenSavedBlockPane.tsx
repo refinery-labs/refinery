@@ -98,7 +98,7 @@ export default class ViewChosenSavedBlockPane extends Vue implements ViewChosenS
     };
 
     return (
-      <b-form-group class="mt-2 mb-0 padding-bottom--normal display--flex flex-direction--column height--100percent">
+      <b-form-group class="mt-2 mb-0 padding-bottom--normal display--flex flex-direction--column">
         <div class="text-align--left run-lambda-container__text-label">
           <label class="text-light padding--none mt-0 mb-0 ml-2">Example Input Data:</label>
         </div>
