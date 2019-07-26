@@ -3909,6 +3909,12 @@ class TaskSpawner(object):
 				code
 			)
 			
+			code = re.sub(
+				r"function mainCallback\([^\)]+\)[^{]\{",
+				"function mainCallback( blockInput, callback ) {",
+				code
+			)
+			
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "nodejs8.10" ]
 			
 			# Use CodeBuilder to get a base zip of the libraries
@@ -5440,15 +5446,18 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:11"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:11"
+			"arn:aws:lambda:us-west-2:561628006572:layer:node:1"
 		)
 	elif language == "php7.3":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:11"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:11"
+			"arn:aws:lambda:us-west-2:561628006572:layer:php:1"
 		)
 	elif language == "go1.12":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:11"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:11"
+			"arn:aws:lambda:us-west-2:561628006572:layer:go:1"
 		)
 	elif language == "python2.7":
 		layers.append(

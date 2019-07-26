@@ -1,25 +1,85 @@
 backpack = {};
+__input_data = "";
 
-function return_result( program_output ) {
+process.stdin.setEncoding("utf8");
+
+process.stdin.on('readable', function() {
+	var chunk;
+	while (chunk = process.stdin.read()) {
+		__input_data += chunk;
+	}
+});
+
+process.stdin.on('end', function () {
+	__rfn_init();
+});
+
+function __returnResult(programOutput) {
 	console.log(
 		"<REFINERY_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + JSON.stringify(
-			program_output,
+			programOutput,
 			false,
 			4
 		) + "<REFINERY_OUTPUT_CUSTOM_RUNTIME_END_MARKER>"
 	);
 }
 
-(async function() {
-	var input_data = JSON.parse( process.argv[2] );
-	var lambda_input = input_data[ "lambda_input" ];
-	backpack = input_data[ "backpack" ];
+/**
+ * Wraps a function with a promise. Returns a new function that can be called with await.
+ */
+function __promisify(fn) {
+	return function promiseWrappedFunction() {
+		return new Promise((resolve, reject) => {
+			function wrapCallback(err, result) {
+				// If error, reject the promise.
+				if (err) {
+					return reject(err);
+				}
+				// Call resolve to close the promise
+				resolve(result);
+			}
+
+			// Concatenate to arguments list the wrapCallback function
+			const argumentsList = [
+				...(Array.prototype.slice.apply(arguments)),
+				wrapCallback
+			];
+
+			// Call the wrapped function
+			fn.apply(this, argumentsList);
+		});
+	}
+}
+
+async function __rfn_init() {
 	try {
-		var output = await main( lambda_input );
-		return_result({
+		// Inside of the try catch statement to ensure that any exceptions thrown here are logged.
+		const inputData = JSON.parse( __input_data );
+		const lambdaInput = inputData[ "lambda_input" ];
+		backpack = inputData[ "backpack" ];
+
+		const mainCallbackDefined = typeof mainCallback !== 'undefined';
+		const mainDefined = typeof main !== 'undefined';
+
+		if (!mainCallbackDefined && !mainDefined) {
+			throw new Error('No main function was defined for block. You must specify a function named either `main` or `mainCallback` for a block to be valid and for it to run.');
+		}
+
+		if (mainCallbackDefined && mainDefined) {
+			throw new Error('Both main and mainCallback were both defined, only one one entry point may be defined per block per block. Please delete or rename one of them.');
+		}
+
+		// Identify which function we will call as our entry point based on what was defined in the script.
+		// If it's a callback, we wrap it with a promise so that we may await it.
+		const mainEntrypoint = mainDefined ? main : __promisify(mainCallback);
+		
+		const output = await mainEntrypoint(lambdaInput);
+
+		__returnResult({
 			"output": output,
 			"backpack": backpack,
 		});
+
 		backpack = {};
 		process.exit(0);
 	} catch ( e ) {
@@ -37,4 +97,4 @@ function return_result( program_output ) {
 		backpack = {};
 		process.exit(-1);
 	}
-})();
+}
