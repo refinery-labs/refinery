@@ -5446,23 +5446,19 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		layers.append(
-			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:11"
-			"arn:aws:lambda:us-west-2:561628006572:layer:node:1"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:12"
 		)
 	elif language == "php7.3":
 		layers.append(
-			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:11"
-			"arn:aws:lambda:us-west-2:561628006572:layer:php:1"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:12"
 		)
 	elif language == "go1.12":
 		layers.append(
-			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:11"
-			"arn:aws:lambda:us-west-2:561628006572:layer:go:1"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:12"
 		)
 	elif language == "python2.7":
 		layers.append(
-			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:11"
-			"arn:aws:lambda:us-west-2:561628006572:layer:python:2"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:12"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
