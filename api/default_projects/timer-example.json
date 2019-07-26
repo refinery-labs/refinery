@@ -6,8 +6,9 @@
       "name": "then",
       "type": "then",
       "next": "29f31f57-13d7-4fb4-be37-5078f510688c",
-      "expression": "return_data == \"SOME_STRING\"",
-      "id": "871d5bba-65b2-4040-9f2c-89825ebaf5c8"
+      "expression": "",
+      "id": "871d5bba-65b2-4040-9f2c-89825ebaf5c8",
+      "version": "1.0.0"
     },
     {
       "node": "29f31f57-13d7-4fb4-be37-5078f510688c",
@@ -15,7 +16,8 @@
       "type": "fan-out",
       "next": "1e8167f9-d312-4d0f-83da-5cda64b5272e",
       "expression": "",
-      "id": "ec8a47c8-3420-4a85-acaf-f0b3896c5c38"
+      "id": "ec8a47c8-3420-4a85-acaf-f0b3896c5c38",
+      "version": "1.0.0"
     }
   ],
   "workflow_states": [
@@ -28,7 +30,10 @@
       "max_execution_time": 900,
       "type": "lambda",
       "id": "29f31f57-13d7-4fb4-be37-5078f510688c",
-      "name": "Get Customer List"
+      "name": "Get Customer List",
+      "environment_variables": {},
+      "reserved_concurrency_count": false,
+      "version": "1.0.0"
     },
     {
       "description": "Deployed by Refinery",
@@ -36,7 +41,8 @@
       "schedule_expression": "rate(1 day)",
       "type": "schedule_trigger",
       "id": "bd5509ab-7cfc-40ac-ac04-eb9d0d89a36e",
-      "name": "Every Day"
+      "name": "Every Day",
+      "version": "1.0.0"
     },
     {
       "language": "python2.7",
@@ -47,7 +53,10 @@
       "max_execution_time": 900,
       "type": "lambda",
       "id": "1e8167f9-d312-4d0f-83da-5cda64b5272e",
-      "name": "Send Email"
+      "name": "Send Email",
+      "environment_variables": {},
+      "reserved_concurrency_count": false,
+      "version": "1.0.0"
     }
   ],
   "version": 1
