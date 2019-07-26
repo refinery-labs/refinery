@@ -1,5 +1,9 @@
 $backpack = array();
 
+$_REFINERY_STDIN_HANDLER = fopen('php://stdin', 'r');
+$_REFINERY_RAW_INPUT = stream_get_contents( $_REFINERY_STDIN_HANDLER );
+fclose($_REFINERY_STDIN_HANDLER);
+
 (function( $lambda_data ) {
 	global $backpack;
 	$input_data = json_decode(
@@ -25,4 +29,4 @@ $backpack = array();
 		$backpack = array();
 		exit(-1);
 	}
-})( $argv[1] );
+})( $_REFINERY_RAW_INPUT );

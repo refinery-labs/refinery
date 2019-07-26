@@ -10,7 +10,8 @@ type ReturnData struct {
 
 func main() {
 	var input_data InputData
-	json.Unmarshal([]byte(os.Args[1:][0]), &input_data)
+	input_raw_data, _ := ioutil.ReadAll(os.Stdin)
+	json.Unmarshal([]byte(input_raw_data), &input_data)
 	lambda_input, _ := json.Marshal(input_data.LambdaInput)
 	backpack, _ := json.Marshal(input_data.Backpack)
 	defer func() {
