@@ -1630,20 +1630,22 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 		process_handler = subprocess.Popen(
 			[
 				os.path.dirname(os.path.realpath(__file__)) + "/runtime",
-				executable_path,
-				json.dumps({
-					"lambda_input": lambda_input,
-					"backpack": backpack,
-				})
+				executable_path
 			],
 			stdout=subprocess.PIPE,
 			stderr=subprocess.PIPE,
+			stdin=subprocess.PIPE,
 			shell=False,
 			universal_newlines=True,
 			cwd=os.getenv( "LAMBDA_TASK_ROOT" ) + "/",
 		)
 
-		process_stdout, process_stderr = process_handler.communicate()
+		process_stdout, process_stderr = process_handler.communicate(
+			input=json.dumps({
+				"lambda_input": lambda_input,
+				"backpack": backpack,
+			})
+		)
 
 		_stop_clock( "Executing Lambda" )
 

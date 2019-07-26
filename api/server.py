@@ -5452,7 +5452,8 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		)
 	elif language == "python2.7":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:11"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:11"
+			"arn:aws:lambda:us-west-2:561628006572:layer:python:2"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
