@@ -5058,7 +5058,7 @@ class TaskSpawner(object):
 			return {}
 			
 		@run_on_executor
-		def add_integration_response( self, credentials, rest_api_id, resource_id, http_method, api_path, lambda_name ):
+		def add_integration_response( self, credentials, rest_api_id, resource_id, http_method, lambda_name ):
 			api_gateway_client = get_aws_client(
 				"apigateway",
 				credentials
@@ -7338,7 +7338,6 @@ def create_lambda_api_route( credentials, api_gateway_id, http_method, route, la
 		api_gateway_id,
 		current_base_pointer_id,
 		http_method,
-		path_part,
 		lambda_name
 	)
 	
