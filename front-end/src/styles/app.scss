@@ -381,7 +381,7 @@ $content-sidebar-width: 92px;
 
   &__code-editor {
     min-height: 240px;
-    height: calc(100vh - 400px);
+    height: calc(100vh - 378px);
 
     &--small {
       min-height: 180px;
@@ -419,7 +419,7 @@ $content-sidebar-width: 92px;
 }
 
 .shift-code-block-editor {
-  margin-top: -12px;
+  margin-top: -8px;
 }
 
 .deploy-pane-container {

@@ -14,7 +14,7 @@ export class EditAPIResponseBlock extends Vue implements EditBlockPaneProps {
 
   public render(h: CreateElement): VNode {
     return (
-      <div class="show-block-container__block--small">
+      <div class="show-block-container__block--small mt-2">
         <BlockDocumentationButton
           props={{ docLink: 'https://docs.refinery.io/blocks/#api-response-block', offsetButton: false }}
         />

@@ -219,10 +219,13 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
           <label class="d-block flex-grow--1 padding-top--normal" htmlFor={`code-editor-${selectedNode.id}`}>
             {this.readOnly ? 'View' : 'Edit'} Block Code:
           </label>
-          <b-button on={fullscreenOnClick} class="show-block-container__expand-button">
+          <b-button on={fullscreenOnClick} class="show-block-container__expand-button mr-2">
             <span class="fa fa-expand" />
             {'  '}Open Full {this.readOnly ? 'Viewer' : 'Editor'}
           </b-button>
+          <BlockDocumentationButton
+            props={{ docLink: 'https://docs.refinery.io/blocks/#code-block', offsetButton: false }}
+          />
         </div>
         <div class="input-group with-focus show-block-container__code-editor">{this.renderCodeEditor()}</div>
       </b-form-group>
@@ -614,14 +617,15 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
     const blockNameRow = (
       <b-col cols={12}>
-        <BlockDocumentationButton props={{ docLink: 'https://docs.refinery.io/blocks/#code-block' }} />
-        <BlockNameInput props={editBlockProps} />
+        <div class="shift-code-block-editor">
+          <BlockNameInput props={editBlockProps} />
+        </div>
       </b-col>
     );
 
     const codeEditorRow = (
       <b-col cols={12}>
-        <div class="shift-code-block-editor">{this.renderCodeEditorContainer()}</div>
+        <div class="mt-2">{this.renderCodeEditorContainer()}</div>
       </b-col>
     );
 
@@ -629,8 +633,8 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     if (this.readOnly) {
       return (
         <div class="show-block-container__block row">
-          {blockNameRow}
           {codeEditorRow}
+          {blockNameRow}
 
           <b-col xl={6}>{this.renderAwsLink()}</b-col>
 
@@ -647,8 +651,8 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
     return (
       <div class="show-block-container__block row">
-        {blockNameRow}
         {codeEditorRow}
+        {blockNameRow}
 
         <b-col xl={6}>{this.renderCreateSavedBlockButton()}</b-col>
         <b-col xl={6}>{this.renderBlockVariables()}</b-col>

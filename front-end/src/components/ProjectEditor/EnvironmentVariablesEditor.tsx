@@ -76,7 +76,7 @@ export class EnvironmentVariablesEditor extends Vue implements EnvironmentVariab
     };
 
     return (
-      <div class="col-md-6 col-lg-4 environment-variable__card">
+      <div class="col-12 environment-variable__card">
         <b-card class="card-default">
           {this.readOnly ? null : deleteButton}
           <b-form on={{ submit: preventDefaultWrapper(() => {}) }}>

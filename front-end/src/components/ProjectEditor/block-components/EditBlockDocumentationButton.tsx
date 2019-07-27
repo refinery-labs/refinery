@@ -10,10 +10,7 @@ export class BlockDocumentationButton extends Vue {
 
   public render() {
     return (
-      <div
-        class="text-align--right"
-        style={this.offsetButton ? 'margin-top: 10px; margin-bottom: -15px;' : 'margin-top: 10px; margin-bottom: 5px;'}
-      >
+      <div class="text-align--right" style={this.offsetButton ? 'margin-top: 10px; margin-bottom: -15px;' : ''}>
         <b-button variant="outline-primary" target="_blank" href={this.docLink}>
           <span class="fas fa-book" /> Read the Docs
         </b-button>
