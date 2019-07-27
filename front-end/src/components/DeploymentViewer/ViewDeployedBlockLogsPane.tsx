@@ -130,7 +130,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
     const isLoading = this.isFetchingLogs || this.isFetchingMoreLogs;
 
     if (!this.selectedBlockExecutionLog && !executionData && !isLoading) {
-      return <div>Missing Executions for block. This should never happen. :(</div>;
+      return <div>Executions are still loading, please wait...</div>;
     }
 
     // We have a valid section but no long, hopefully we're loading ;)
