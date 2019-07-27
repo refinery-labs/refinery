@@ -4282,6 +4282,15 @@ class TaskSpawner(object):
 				s3_prefix,
 				max_results
 			)
+			
+		@run_on_executor
+		def get_build_packages( self, credentials, s3_prefix, max_results ):
+			return TaskSpawner.get_all_s3_paths(
+				credentials,
+				credentials[ "lambda_packages_bucket" ],
+				s3_prefix,
+				max_results
+			)
 		
 		@run_on_executor
 		def get_s3_list_from_prefix( self, credentials, s3_bucket, s3_prefix, continuation_token, start_after ):
@@ -9861,6 +9870,63 @@ class OnboardThirdPartyAWSAccountApply( BaseHandler ):
 			"msg": "Successfully added third-party AWS account " + account_id + " to user ID " + user_id + "."
 		})
 		
+class ClearAllS3BuildPackages( BaseHandler ):
+	@gen.coroutine
+	def get( self ):
+		"""
+		Clears out the S3 build packages of all the Refinery users.
+		
+		This just forces everyone to do a rebuild the next time they run code with packages.
+		"""
+		self.write({
+			"success": True,
+			"msg": "Clear build package job kicked off successfully!"
+		})
+		self.finish()
+		
+		dbsession = DBSession()
+		aws_accounts = dbsession.query( AWSAccount ).filter(
+			sql_or(
+				AWSAccount.aws_account_status == "IN_USE",
+				AWSAccount.aws_account_status == "AVAILABLE",
+			)
+		).all()
+		
+		aws_account_dicts = []
+		for aws_account in aws_accounts:
+			aws_account_dicts.append(
+				aws_account.to_dict()
+			)
+		dbsession.close()
+		
+		for aws_account_dict in aws_account_dicts:
+			logit( "Clearing build packages for account ID " + aws_account_dict[ "account_id" ] + "..." )
+			yield clear_sub_account_packages(
+				aws_account_dict
+			)
+			
+		logit( "S3 package clearing complete." )
+		
+@gen.coroutine
+def clear_sub_account_packages( credentials ):
+	while True:
+		package_paths = yield local_tasks.get_build_packages(
+			credentials,
+			"",
+			1000
+		)
+		
+		logit( "Deleting #" + str( len( package_paths ) ) + " build packages for account ID " + credentials[ "account_id" ] + "..." )
+
+		if len( package_paths ) == 0:
+			break
+		
+		yield local_tasks.bulk_s3_delete(
+			credentials,
+			credentials[ "lambda_packages_bucket" ],
+			package_paths
+		)
+		
 def make_app( is_debug ):
 	tornado_app_settings = {
 		"debug": is_debug,
@@ -9921,6 +9987,7 @@ def make_app( is_debug ):
 		( r"/services/v1/update_managed_console_users_iam", UpdateIAMConsoleUserIAM ),
 		( r"/services/v1/onboard_third_party_aws_account_plan", OnboardThirdPartyAWSAccountPlan ),
 		( r"/services/v1/dangerously_finalize_third_party_aws_onboarding", OnboardThirdPartyAWSAccountApply ),
+		( r"/services/v1/clear_s3_build_packages", ClearAllS3BuildPackages ),
 	], **tornado_app_settings)
 
 if __name__ == "__main__":
