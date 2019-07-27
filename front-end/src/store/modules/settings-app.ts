@@ -31,6 +31,7 @@ export const keyboardMapToAceConfigMap: KeyboardModeToAceConfig = {
 
 export interface SettingsAppState {
   keyboardMode: KeyboardEditorMode;
+  editBlockPaneWidth?: number;
 }
 
 export const baseState: SettingsAppState = {
@@ -45,9 +46,14 @@ const initialState = deepJSONCopy(baseState);
 @Module({ namespaced: true, dynamic: true, store, name: storeName })
 class SettingsAppStore extends VuexModule<ThisType<SettingsAppState>, RootState> implements SettingsAppState {
   public keyboardMode: KeyboardEditorMode = initialState.keyboardMode;
+  public editBlockPaneWidth?: number = initialState.editBlockPaneWidth;
 
   get keyboardModeToAceConfig() {
     return keyboardMapToAceConfigMap[this.keyboardMode];
+  }
+
+  get getEditBlockPaneWidth() {
+    return this.editBlockPaneWidth !== undefined && this.editBlockPaneWidth + 'px';
   }
 
   @Mutation
@@ -61,6 +67,11 @@ class SettingsAppStore extends VuexModule<ThisType<SettingsAppState>, RootState>
     // Because the module is dynamic, just set this as a cookie... Screw it
     document.cookie = `${cookieName}=${value};path=/;max-age=${60 * 60 * 24 * 365}`;
     this.keyboardMode = value;
+  }
+
+  @Mutation
+  public setEditBlockPaneWidth(width?: number) {
+    this.editBlockPaneWidth = width;
   }
 }
 

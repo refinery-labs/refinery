@@ -1,13 +1,16 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
-import { WorkflowState } from '@/types/graph';
+import debounce from 'debounce';
+import { WorkflowState, WorkflowStateType } from '@/types/graph';
 import { blockTypeToEditorComponentLookup } from '@/constants/project-editor-constants';
 import { EditBlockPaneProps } from '@/types/component-types';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
 import CreateSavedBlockViewContainer, {
   CreateSavedBlockViewContainerProps
 } from '@/components/ProjectEditor/saved-blocks-components/CreateSavedBlockViewContainer';
+import { SettingsAppStoreModule } from '@/store/modules/settings-app';
+import Resizer from '@/lib/Resizer';
 
 const editBlock = namespace('project/editBlockPane');
 
@@ -20,6 +23,8 @@ const editBlock = namespace('project/editBlockPane');
 
 @Component
 export default class EditBlockPane extends Vue {
+  debouncedSetWidth!: (width: number) => void;
+
   @editBlock.State selectedNode!: WorkflowState | null;
   @editBlock.State selectedNodeMetadata!: SavedBlockStatusCheckResult | null;
   @editBlock.State confirmDiscardModalVisibility!: boolean;
@@ -34,9 +39,31 @@ export default class EditBlockPane extends Vue {
   @editBlock.Action deleteBlock!: () => void;
   @editBlock.Action duplicateBlock!: () => void;
 
+  mounted() {
+    const container = this.$refs.container as HTMLElement;
+
+    if (!container) {
+      return;
+    }
+
+    this.debouncedSetWidth = debounce((width: number) => SettingsAppStoreModule.setEditBlockPaneWidth(width), 200);
+  }
+
   public deleteBlockClicked(e: Event) {
     e.preventDefault();
     this.deleteBlock();
+  }
+
+  onSizeChanged(deltaX: number, deltaY: number) {
+    const container = this.$refs.container as HTMLElement;
+
+    if (!container) {
+      return;
+    }
+
+    const newWidth = container.getBoundingClientRect().width - deltaX;
+    container.style.width = newWidth + 'px';
+    this.debouncedSetWidth(newWidth);
   }
 
   public renderConfirmDiscardModal() {
@@ -84,9 +111,7 @@ export default class EditBlockPane extends Vue {
 
     return (
       <div class="mb-2 mt-2 text-align--left show-block-container__form">
-        <div class="scrollable-pane-container padding-left--normal padding-right--normal container">
-          {componentInstance}
-        </div>
+        <div class="scrollable-pane-container padding-left--normal padding-right--normal">{componentInstance}</div>
         <div class="display--flex show-block-container__bottom-buttons ml-0 mr-3 mt-2">
           <b-button variant="info" class="mr-1 width--100percent flex-grow--1" on={{ click: this.duplicateBlock }}>
             Duplicate
@@ -108,12 +133,23 @@ export default class EditBlockPane extends Vue {
       modalMode: true
     };
 
+    const showResizer = this.selectedNode && this.selectedNode.type === WorkflowStateType.LAMBDA;
+
     const formClasses = {
-      'show-block-container ml-2 mr-2': true
+      'show-block-container mr-2': true,
+      'show-block-container--small ml-2': !showResizer,
+      'ml-3': showResizer
     };
 
+    const containerStyle = {
+      width: showResizer && SettingsAppStoreModule.getEditBlockPaneWidth
+    };
+
+    const resizer = <Resizer props={{ onSizeChanged: this.onSizeChanged }} />;
+
     return (
-      <div class={formClasses}>
+      <div class={formClasses} style={containerStyle} ref="container">
+        {showResizer && resizer}
         {this.renderContentWrapper()}
         {this.renderConfirmDiscardModal()}
         <CreateSavedBlockViewContainer props={createSavedBlockViewContainerProps} />
