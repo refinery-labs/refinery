@@ -17,9 +17,7 @@ process.stdin.on('end', function () {
 function __returnResult(programOutput) {
 	console.log(
 		"<REFINERY_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + JSON.stringify(
-			programOutput,
-			false,
-			4
+			programOutput
 		) + "<REFINERY_OUTPUT_CUSTOM_RUNTIME_END_MARKER>"
 	);
 }
@@ -53,6 +51,10 @@ function __promisify(fn) {
 
 async function __rfn_init() {
   try {
+		if (process.stdout._handle) {
+			process.stdout._handle.setBlocking(true);
+		}
+
 		// Inside of the try catch statement to ensure that any exceptions thrown here are logged.
 		const inputData = JSON.parse( __input_data );
 		const lambdaInput = inputData[ "lambda_input" ];
