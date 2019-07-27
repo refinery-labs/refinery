@@ -177,6 +177,7 @@ export default class CreateSavedBlockView extends Vue implements CreateSavedBloc
         on={modalOnHandlers}
         size="xl max-width--600px"
         hide-footer={true}
+        no-close-on-esc={true}
         title={this.existingBlockMetadata ? editModeTitle : addModeTitle}
         visible={this.modalVisibility}
       >

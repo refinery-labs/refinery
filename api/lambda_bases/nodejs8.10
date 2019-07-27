@@ -52,7 +52,7 @@ function __promisify(fn) {
 }
 
 async function __rfn_init() {
-	try {
+  try {
 		// Inside of the try catch statement to ensure that any exceptions thrown here are logged.
 		const inputData = JSON.parse( __input_data );
 		const lambdaInput = inputData[ "lambda_input" ];
@@ -72,29 +72,50 @@ async function __rfn_init() {
 		// Identify which function we will call as our entry point based on what was defined in the script.
 		// If it's a callback, we wrap it with a promise so that we may await it.
 		const mainEntrypoint = mainDefined ? main : __promisify(mainCallback);
-		
+
 		const output = await mainEntrypoint(lambdaInput);
 
 		__returnResult({
-			"output": output,
-			"backpack": backpack,
-		});
+      "output": output,
+      "backpack": backpack,
+    });
 
-		backpack = {};
-		process.exit(0);
-	} catch ( e ) {
-		if( e.stack ) {
-			e = e.stack.toString()
-		} else {
-			e = e.toString();
-		}
-		console.log(
-			"<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + JSON.stringify({
-				"output": e,
-				"backpack": backpack
-			}) + "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_END_MARKER>"
-		);
-		backpack = {};
-		process.exit(-1);
-	}
+    backpack = {};
+    flushProcessOutputsAndExit__refinery(0);
+  } catch ( e ) {
+    if( e.stack ) {
+      e = e.stack.toString()
+    } else {
+      e = e.toString();
+    }
+    console.log(
+      "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + JSON.stringify({
+        "output": e,
+        "backpack": backpack
+      }) + "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_END_MARKER>"
+    );
+    backpack = {};
+    flushProcessOutputsAndExit__refinery(-1);
+  }
+}
+
+function flushProcessOutputsAndExit__refinery(exitCode) {
+  // Configure the streams to be blocking
+  makeBlockingStream__refinery(process.stdout);
+  makeBlockingStream__refinery(process.stderr);
+
+
+  // Allow Node to cleanup any internals before the next process tick
+  setImmediate(function callProcessExitWithCode() {
+    process.exit(exitCode);
+  });
+}
+
+function makeBlockingStream__refinery(stream) {
+  if (!stream || !stream._handle || !stream._handle.setBlocking) {
+    // Not able to set blocking so just bail out
+    return;
+  }
+
+  stream._handle.setBlocking(true);
 }

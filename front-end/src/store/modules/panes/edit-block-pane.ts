@@ -1,5 +1,5 @@
 import { Module } from 'vuex';
-import Vue from 'vue';
+import uuid from 'uuid/v4';
 import deepEqual from 'fast-deep-equal';
 import { RootState } from '../../store-types';
 import {
@@ -13,14 +13,15 @@ import {
 } from '@/types/graph';
 import { getNodeDataById, getTransitionsForNode } from '@/utils/project-helpers';
 import { ProjectViewActions } from '@/constants/store-constants';
-import { PANE_POSITION } from '@/types/project-editor-types';
+import { OpenProjectMutation, PANE_POSITION } from '@/types/project-editor-types';
 import { DEFAULT_LANGUAGE_CODE } from '@/constants/project-editor-constants';
 import { HTTP_METHOD } from '@/constants/api-constants';
-import { validatePath } from '@/utils/block-utils';
+import { safelyDuplicateBlock, validatePath } from '@/utils/block-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { resetStoreState } from '@/utils/store-utils';
 import { getSavedBlockStatus } from '@/store/fetchers/api-helpers';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
+import { AddBlockArguments } from '@/store/modules/project-view';
 
 const cronRegex = new RegExp(
   '^\\s*($|#|\\w+\\s*=|(\\?|\\*|(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?(?:,(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?)*)\\s+(\\?|\\*|(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?(?:,(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?)*)\\s+(\\?|\\*|(?:[01]?\\d|2[0-3])(?:(?:-|/|\\,)(?:[01]?\\d|2[0-3]))?(?:,(?:[01]?\\d|2[0-3])(?:(?:-|/|\\,)(?:[01]?\\d|2[0-3]))?)*)\\s+(\\?|\\*|(?:0?[1-9]|[12]\\d|3[01])(?:(?:-|/|\\,)(?:0?[1-9]|[12]\\d|3[01]))?(?:,(?:0?[1-9]|[12]\\d|3[01])(?:(?:-|/|\\,)(?:0?[1-9]|[12]\\d|3[01]))?)*)\\s+(\\?|\\*|(?:[1-9]|1[012])(?:(?:-|/|\\,)(?:[1-9]|1[012]))?(?:L|W)?(?:,(?:[1-9]|1[012])(?:(?:-|/|\\,)(?:[1-9]|1[012]))?(?:L|W)?)*|\\?|\\*|(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(?:(?:-)(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))?(?:,(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(?:(?:-)(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))?)*)\\s+(\\?|\\*|(?:[0-6])(?:(?:-|/|\\,|#)(?:[0-6]))?(?:L)?(?:,(?:[0-6])(?:(?:-|/|\\,|#)(?:[0-6]))?(?:L)?)*|\\?|\\*|(?:MON|TUE|WED|THU|FRI|SAT|SUN)(?:(?:-)(?:MON|TUE|WED|THU|FRI|SAT|SUN))?(?:,(?:MON|TUE|WED|THU|FRI|SAT|SUN)(?:(?:-)(?:MON|TUE|WED|THU|FRI|SAT|SUN))?)*)(|\\s)+(\\?|\\*|(?:|\\d{4})(?:(?:-|/|\\,)(?:|\\d{4}))?(?:,(?:|\\d{4})(?:(?:-|/|\\,)(?:|\\d{4}))?)*))$'
@@ -396,17 +397,18 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
 
       if (!projectStore.openedProject) {
         console.error('Attempted to open edit block pane without loaded project');
-        return;
+        throw new Error('Attempted to open edit block pane without loaded project');
       }
 
       const node = context.state.selectedNode;
 
       if (!node) {
         console.error('Missing selected node to save');
-        return;
+        throw new Error('Missing selected node to save');
       }
 
       if (!context.getters.isEditedBlockValid) {
+        console.error('State of block is invalid to save, aborting save');
         throw new Error('State of block is invalid to save, aborting save');
       }
 
@@ -420,6 +422,24 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
 
       // Set the "original" to the new block.
       context.commit(EditBlockMutators.setSelectedNodeOriginal, context.state.selectedNode);
+    },
+    async [EditBlockActions.duplicateBlock](context) {
+      if (!context.state.selectedNode) {
+        console.error('Cannot duplicate block without a selected block');
+        return;
+      }
+
+      const projectConfig = context.rootState.project.openedProjectConfig;
+
+      if (!projectConfig) {
+        console.error('Missing project config, cannot duplicate block');
+        return;
+      }
+
+      // Save the block first.
+      await context.dispatch(EditBlockActions.saveBlock);
+
+      await safelyDuplicateBlock(context.dispatch, projectConfig, context.state.selectedNode);
     },
     async [EditBlockActions.deleteBlock](context) {
       const projectStore = context.rootState.project;

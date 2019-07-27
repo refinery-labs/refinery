@@ -163,6 +163,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         ref={`code-modal-${this.selectedNode.id}`}
         on={modalOnHandlers}
         hide-footer={true}
+        no-close-on-esc={true}
         size="xl no-max-width no-modal-body-padding dark-modal"
         title={nameString}
         visible={showCodeModal}
@@ -402,6 +403,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         title="Select the libraries for your Code Block"
         visible={librariesModalVisibility}
         ok-only={true}
+        no-close-on-esc={true}
         ok-variant="secondary"
         ok-title="Close"
       >
@@ -488,7 +490,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     }
 
     return (
-      <b-form-group description="Save this block to use in other projects.">
+      <b-form-group description="Save this block to use in other projects. You may also publish this block on the Community Block Repository for use by others.">
         <label class="d-block">Create Saved Block:</label>
         <b-button
           variant="dark"

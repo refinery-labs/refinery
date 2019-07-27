@@ -144,6 +144,7 @@ export class EditBlockLayersEditor extends Vue implements BlockLayersEditorProps
         ref={`code-modal-${this.activeBlockId}`}
         on={modalOnHandlers}
         hide-footer={true}
+        no-close-on-esc={true}
         size="xl"
         title={nameString}
         visible={this.isModalVisible}
