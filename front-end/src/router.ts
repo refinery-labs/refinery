@@ -21,6 +21,7 @@ import Billing from '@/views/Billing.vue';
 import ProjectSettings from '@/views/ProjectsNestedViews/ProjectSettings';
 import { guardLoggedIn } from '@/utils/auth-utils';
 import ImportProject from '@/views/ImportProject';
+import ViewUnauthProject from '@/views/ViewUnauthProject';
 
 Vue.use(Router);
 
@@ -46,6 +47,17 @@ const router = new Router({
         {
           path: '',
           component: ImportProject
+        }
+      ]
+    },
+    {
+      path: '/view-project',
+      component: Layout,
+      // beforeEnter: (to: Route, from: Route, next: Function) => guardLoggedIn(to, from, next),
+      children: [
+        {
+          path: '',
+          component: ViewUnauthProject
         }
       ]
     },
