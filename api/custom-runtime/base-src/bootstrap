@@ -1382,6 +1382,33 @@ def _transition_type_in_transitions( transitions, transition_type ):
 				return True
 			
 	return False
+	
+def _warmup_concurrency_self_invoke( arn, decrement_counter ):
+	# Decrement concurrency counter
+	decrement_counter = decrement_counter - 1
+	
+	if decrement_counter > 0:
+		print( "We have a higher level of concurrency to meet (" + str( decrement_counter ) + " remaining), kicking off another layer of concurrency..." )
+		sys.stdout.flush()
+		
+		lambda_client = boto3.client(
+			"lambda"
+		)
+	
+		response = lambda_client.invoke(
+			FunctionName=arn,
+			InvocationType="RequestResponse",
+			LogType="Tail",
+			Payload=json.dumps({
+				"_refinery": {
+					"warmup": decrement_counter
+				},
+			})
+		)
+		return
+	
+	print( "We have no further concurrency to meet, this is the last one in the chain." )
+	sys.stdout.flush()
 
 def _init( custom_runtime, request_id, lambda_input, context ):
 	start_time = time.time()
@@ -1510,6 +1537,22 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 	# Detect refinery wrapper and unwrap if existant
 	# Else just leave it unmodified
 	if type( lambda_input ) == dict and "_refinery" in lambda_input:
+		# Check if it's just a warmup request
+		if "warmup" in lambda_input[ "_refinery" ]:
+			decrement_counter = lambda_input[ "_refinery" ][ "warmup" ]
+			_warmup_concurrency_self_invoke(
+				context.invoked_function_arn,
+				decrement_counter
+			)
+			print( "Lambda warming event received, quitting out." )
+			sys.stdout.flush()
+			
+			custom_runtime.send_response(
+				request_id,
+				""
+			)
+			return
+		
 		# Check if it's a temporary execution
 		if "temporary_execution" in lambda_input[ "_refinery" ]:
 			is_temporary_execution = True

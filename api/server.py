@@ -2877,6 +2877,23 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
+		def warm_up_lambda( self, credentials, arn ):
+			lambda_client = get_aws_client(
+				"lambda",
+				credentials
+			)
+			response = lambda_client.invoke(
+				FunctionName=arn,
+				InvocationType="Event",
+				LogType="Tail",
+				Payload=json.dumps({
+					"_refinery": {
+						"warmup": 3,
+					}
+				})
+			)
+			
+		@run_on_executor
 		def execute_aws_lambda( self, credentials, arn, input_data ):
 			return TaskSpawner._execute_aws_lambda( credentials, arn, input_data )
 		
@@ -5467,7 +5484,8 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		)
 	elif language == "python2.7":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:12"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:12"
+			"arn:aws:lambda:us-west-2:561628006572:layer:python:6"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
@@ -6118,6 +6136,61 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				sns_topic_trigger[ "target_lambda" ][ "arn" ],
 			)
 		)
+		
+	# Create Lambda warmers if enabled
+	warmer_trigger_name = "WarmerTrigger" + unique_deploy_id
+	logit( "Deploying auto-warmer CloudWatch rule..." )
+	warmer_trigger_result = yield local_tasks.create_cloudwatch_rule(
+		credentials,
+		get_random_node_id(),
+		warmer_trigger_name,
+		"rate(3 minutes)",
+		"A CloudWatch Event trigger to keep the deployed Lambdas warm.",
+		"",
+	)
+	
+	diagram_data[ "workflow_states" ].append({
+		"id": warmer_trigger_result[ "id" ],
+		"type": "warmer_trigger",
+		"name": warmer_trigger_name,
+		"arn": warmer_trigger_result[ "arn" ]
+	})
+	
+	# Combine API endpoints and deployed Lambdas since both are
+	# Lambdas at the core and need to be warmed.
+	combined_warmup_list = []
+	combined_warmup_list = combined_warmup_list + json.loads(
+		json.dumps(
+			deployed_lambdas
+		)
+	)
+	combined_warmup_list = combined_warmup_list + json.loads(
+		json.dumps(
+			deployed_api_endpoints
+		)
+	)
+	
+	# Go through all the Lambdas deployed and make them the targets of the
+	# warmer Lambda so everything is kept hot.
+	# Additionally we'll invoke them all once with a warmup request so
+	# that they are hot if hit immediately
+	for deployed_lambda in combined_warmup_list:
+		local_tasks.add_rule_target(
+			credentials,
+			warmer_trigger_name,
+			deployed_lambda[ "name" ],
+			deployed_lambda[ "arn" ],
+			json.dumps({
+				"_refinery": {
+					"warmup": 3,
+				}
+			})
+		)
+		
+		local_tasks.warm_up_lambda(
+			credentials,
+			deployed_lambda[ "arn" ],
+		)
 	
 	# Wait till are triggers are set up
 	deployed_schedule_trigger_targets = yield schedule_trigger_targeting_futures
@@ -6521,7 +6594,8 @@ def teardown_infrastructure( credentials, teardown_nodes ):
 					teardown_node[ "arn" ],
 				)
 			)
-		elif teardown_node[ "type" ] == "schedule_trigger":
+		elif teardown_node[ "type" ] == "schedule_trigger" or teardown_node[ "type" ] == "warmer_trigger":
+			print( "Schedule trigger being deleted!" )
 			teardown_operation_futures.append(
 				local_tasks.delete_schedule_trigger(
 					credentials,
