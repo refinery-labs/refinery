@@ -10,12 +10,16 @@ import { timeout } from '@/utils/async-utils';
 
 @Component
 export default class RefineryCodeEditor extends Vue implements EditorProps {
+  fullscreen = false;
+
   @Prop({ required: true }) name!: string;
   @Prop({ required: true }) lang!: SupportedLanguage | 'text' | 'json';
   @Prop({ required: true }) content!: string;
   @Prop() theme?: string;
   @Prop() onChange?: (s: string) => void;
   @Prop() onChangeContext?: (c: { value: string; this: any }) => void;
+  @Prop() fullscreenToggled?: () => void;
+  @Prop({ default: false }) disableFullscreen!: boolean;
 
   // Ace Props
   @Prop() readOnly?: boolean;
@@ -55,8 +59,7 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
     });
 
     resizeDetector.listenTo(this.$refs.editorParent, () => {
-      // @ts-ignore
-      this.$refs.editor.getEditor().layout();
+      this.relayoutEditor();
     });
 
     // Attempt to relayout the component, once.
@@ -64,14 +67,53 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
       let attempts = 0;
       while (!this.$refs.editor && attempts < 10) {
         if (this.$refs.editor) {
-          // @ts-ignore
-          this.$refs.editor.getEditor().layout();
+          this.relayoutEditor();
           return;
         }
         await timeout(1000);
         attempts++;
       }
     }, 1000);
+  }
+
+  relayoutEditor() {
+    // @ts-ignore
+    this.$refs.editor.getEditor().layout();
+  }
+
+  toggleModalOn() {
+    this.fullscreen = true;
+    // Hack to force Monaco to resize
+    setTimeout(() => this.relayoutEditor(), 200);
+    setTimeout(() => this.relayoutEditor(), 1000);
+  }
+
+  public renderModal() {
+    if (!this.fullscreen) {
+      return null;
+    }
+
+    const nameString = `${this.readOnly ? 'View' : 'Edit'} '${this.name}'`;
+
+    const modalOnHandlers = {
+      hidden: () => (this.fullscreen = false)
+    };
+
+    return (
+      <b-modal
+        ref={`code-modal-${this.name}`}
+        on={modalOnHandlers}
+        hide-footer={true}
+        no-close-on-esc={true}
+        size="xl no-max-width no-modal-body-padding dark-modal"
+        title={nameString}
+        visible={this.fullscreen}
+      >
+        <div class="refinery-code-editor-container__modal width--100percent">
+          <div class="display--relative height--100percent width--100percent">{this.renderEditor()}</div>
+        </div>
+      </b-modal>
+    );
   }
 
   public renderEditor() {
@@ -90,7 +132,7 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
     };
 
     const monacoClasses = {
-      'width--100percent flex-grow--1 display--flex': true
+      'ace-hack': true
     };
 
     return (
@@ -107,9 +149,25 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
       [this.extraClasses || '']: Boolean(this.extraClasses)
     };
 
+    const fullscreenOnclick = this.fullscreenToggled || this.toggleModalOn;
+
+    const fullscreenButton = (
+      <div
+        class="refinery-code-editor-container__expand-button"
+        title="Make editor fullscreen"
+        on={{ click: () => fullscreenOnclick() }}
+      >
+        <span class="fa fa-expand" />
+      </div>
+    );
+
     return (
       <div ref="editorParent" class={containerClasses}>
-        {this.renderEditor()}
+        <div class="display--relative flex-grow--1 height--100percent width--100percent">
+          {this.renderEditor()}
+          {!this.disableFullscreen && fullscreenButton}
+        </div>
+        {this.renderModal()}
       </div>
     );
   }
