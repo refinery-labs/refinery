@@ -1,7 +1,10 @@
 import Vue, { VNode } from 'vue';
 import Component from 'vue-class-component';
-import { namespace } from 'vuex-class';
+import { namespace, State } from 'vuex-class';
 import ImportableRefineryProject from '@/types/export-project';
+import { UnauthViewProjectStoreModule } from '@/store/modules/unauth-view-project';
+import { CytoscapeGraphProps } from '@/types/cytoscape-types';
+import CytoscapeGraph from '@/components/CytoscapeGraph';
 
 const allProjects = namespace('allProjects');
 
@@ -18,11 +21,34 @@ export default class ImportProject extends Vue {
 
   @allProjects.Action importProjectByUrlHash!: () => void;
 
-  mounted() {
-    // this.setImportProjectFromUrlContent(window.location.hash);
+  @State windowWidth?: number;
+
+  renderUnauthGraph() {
+    const style = UnauthViewProjectStoreModule.cytoscapeStyle;
+    const elements = UnauthViewProjectStoreModule.cytoscapeElements;
+
+    if (!style || !elements) {
+      return <div>No elements loaded</div>;
+    }
+
+    const graphProps: CytoscapeGraphProps = {
+      clearSelection: () => UnauthViewProjectStoreModule.setSelectedElement(null),
+      selectNode: (element: string) => UnauthViewProjectStoreModule.setSelectedElement(element),
+      selectEdge: (element: string) => UnauthViewProjectStoreModule.setSelectedElement(element),
+      elements: elements,
+      stylesheet: style,
+      layout: null,
+      config: null,
+      selected: UnauthViewProjectStoreModule.selectedElement,
+      enabledNodeIds: null,
+      backgroundGrid: true,
+      windowWidth: this.windowWidth
+    };
+
+    return <CytoscapeGraph props={graphProps} />;
   }
 
-  public renderContent(): VNode {
+  public render(): VNode {
     const exampleProjectButton = (
       <div class="padding-top--normal">
         <b-button variant="primary" href="https://docs.refinery.io/tutorials/scraping-a-million-urls/" target="_blank">
@@ -75,27 +101,6 @@ export default class ImportProject extends Vue {
       );
     }
 
-    return (
-      <div class="import-project-page">
-        <h2>
-          Are you sure would like to import <i>{this.importProjectFromUrlJson.name}</i>?
-        </h2>
-        <div class="padding-top--normal">
-          <b-button variant="primary" on={{ click: this.importProjectByUrlHash }}>
-            Import <i>{this.importProjectFromUrlJson.name}</i>
-          </b-button>
-        </div>
-      </div>
-    );
-  }
-
-  public render() {
-    return (
-      <div class="text-align--center">
-        <div class="margin-left--auto margin-right--auto padding-top--huge" style="max-width: 500px">
-          {this.renderContent()}
-        </div>
-      </div>
-    );
+    return <div class="unauth-graph-container">{this.renderUnauthGraph()}</div>;
   }
 }

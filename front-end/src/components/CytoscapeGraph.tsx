@@ -87,9 +87,9 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
   @Prop() public layout!: LayoutOptions | null;
   @Prop({ required: true }) public stylesheet!: CyStyle;
 
-  @Prop({ required: true }) public clearSelection!: () => {};
-  @Prop({ required: true }) public selectNode!: (element: WorkflowState) => {};
-  @Prop({ required: true }) public selectEdge!: (element: WorkflowRelationship) => {};
+  @Prop({ required: true }) public clearSelection!: () => void;
+  @Prop({ required: true }) public selectNode!: (id: string) => void;
+  @Prop({ required: true }) public selectEdge!: (id: string) => void;
   @Prop() public selected!: string | null;
   @Prop() public enabledNodeIds!: string[] | null;
   @Prop() public backgroundGrid!: boolean;

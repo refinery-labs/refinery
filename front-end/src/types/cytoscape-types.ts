@@ -12,8 +12,8 @@ export interface CytoscapeGraphProps {
   stylesheet: CyStyle;
   backgroundGrid: boolean;
   clearSelection: () => void;
-  selectNode: (element: WorkflowState) => void;
-  selectEdge: (element: WorkflowRelationship) => void;
+  selectNode: (id: string) => void;
+  selectEdge: (id: string) => void;
   selected: string | null;
   enabledNodeIds: string[] | null;
   config: cytoscape.CytoscapeOptions | null;
