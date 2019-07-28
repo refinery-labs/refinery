@@ -552,7 +552,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
     return (
       <b-form-group description="Click to view the variables passed to the block at runtime.">
-        <label class="d-block">Block Settings (Environment Variables):</label>
+        <label class="d-block">Block Environment Variables:</label>
         <EditEnvironmentVariablesWrapper props={editEnvironmentVariablesWrapperProps} />
       </b-form-group>
     );
