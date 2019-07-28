@@ -154,10 +154,6 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       hidden: () => setCodeModalVisibility(false)
     };
 
-    const props = {
-      'splitpanes-size': 65
-    };
-
     return (
       <b-modal
         ref={`code-modal-${this.selectedNode.id}`}
@@ -176,7 +172,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
             }}
           >
             <SplitArea props={{ size: 67 as Object, positionRelative: true as Object }}>
-              {this.renderCodeEditor('ace-hack')}
+              {this.renderCodeEditor('ace-hack', true)}
             </SplitArea>
             <SplitArea props={{ size: 33 as Object }}>
               <RunLambdaContainer props={{ displayMode: RunLambdaDisplayMode.fullscreen }} />
@@ -187,8 +183,10 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     );
   }
 
-  public renderCodeEditor(extraClasses?: string) {
+  public renderCodeEditor(extraClasses?: string, disableFullscreen?: boolean) {
     const setCodeInput = this.readOnly ? nopWrite : this.setCodeInput;
+
+    const setCodeModalVisibility = this.readOnly ? this.setCodeModalVisibilityDeployment : this.setCodeModalVisibility;
 
     const editorProps: EditorProps = {
       name: 'block-code',
@@ -196,6 +194,8 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       readOnly: this.readOnly,
       content: this.selectedNode.code,
       onChange: setCodeInput,
+      fullscreenToggled: () => setCodeModalVisibility(true),
+      disableFullscreen: disableFullscreen,
       extraClasses: extraClasses
     };
 

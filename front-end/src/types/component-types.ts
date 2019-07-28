@@ -10,6 +10,8 @@ export interface EditorProps {
   theme?: string;
   onChange?: (s: string) => void;
   onChangeContext?: (c: { value: string; this: any }) => void;
+  fullscreenToggled?: () => void;
+  disableFullscreen?: boolean;
 
   // Ace Props
   readOnly?: boolean;

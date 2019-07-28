@@ -372,7 +372,7 @@ export async function searchSavedBlocks(query: string, status: SharedBlockPublis
     return null;
   }
 
-  return searchResult.results;
+  return searchResult.results.reverse();
 }
 
 export async function getSavedBlockStatus(block: WorkflowState) {

@@ -521,6 +521,20 @@ $content-sidebar-width: 92px;
     min-width: 0;
     min-height: 0;
   }
+
+  &__expand-button {
+    position: absolute;
+    bottom: 10px;
+    right: 30px;
+    color: #aaa;
+    &:hover {
+      color: #dadada;
+    }
+  }
+
+  &__modal {
+    height: calc(100vh - 59px);
+  }
 }
 
 .ace-hack {
