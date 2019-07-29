@@ -2755,12 +2755,26 @@ class TaskSpawner(object):
 					"End": end_date,
 				},
 				"Filter": {
-					"Dimensions": {
-						"Key": "LINKED_ACCOUNT",
-						"Values": [
-							str( account_id )
-						]
-					}
+					"And": [
+						{
+							"Not": {
+								"Dimensions": {
+									"Key": "RECORD_TYPE",
+									"Values": [
+										"Credit"
+									]
+								}
+							}
+						},
+						{
+							"Dimensions": {
+								"Key": "LINKED_ACCOUNT",
+								"Values": [
+									str( account_id )
+								]
+							}
+						}
+					]
 				},
 				"Granularity": granularity.upper(),
 				"Metrics": [ metric_name ],
