@@ -50,8 +50,8 @@ export enum HTTP_METHOD {
   DELETE = 'DELETE',
   OPTIONS = 'OPTIONS',
   HEAD = 'HEAD',
-  PATCH = 'PATCH'
-  // '*' = '*' // Technically supported by AWS but the cross-over to our actually API fetch() breaks this.
+  PATCH = 'PATCH',
+  '*' = 'ANY'
 }
 
 export interface ApiEndpointConfig {
