@@ -48,6 +48,17 @@ export class EditAPIEndpointBlock extends Vue implements EditBlockPaneProps {
   public renderHTTPMethodInput() {
     const onChangeHTTPMethod = this.readOnly ? nopWrite : this.setHTTPMethod;
 
+    const httpMethods = Object.keys(HTTP_METHOD).map(method => {
+      if (method === '*') {
+        return {
+          value: 'ANY',
+          text: '*'
+        };
+      }
+
+      return method;
+    });
+
     return (
       <b-form-group id={`block-http-method-group-${this.selectedNode.id}`}>
         <label class="d-block" htmlFor={`block-http-method-${this.selectedNode.id}`}>
@@ -55,7 +66,7 @@ export class EditAPIEndpointBlock extends Vue implements EditBlockPaneProps {
         </label>
         <div class="input-group with-focus">
           <b-form-select
-            options={Object.values(HTTP_METHOD)}
+            options={httpMethods}
             disabled={this.readOnly}
             value={this.selectedNode.http_method}
             on={{ change: onChangeHTTPMethod }}
