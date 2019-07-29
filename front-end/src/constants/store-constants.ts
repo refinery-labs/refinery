@@ -48,6 +48,8 @@ export enum ProjectViewMutators {
   setOpenedProjectOriginal = 'setOpenedProjectOriginal',
   setOpenedProjectConfigOriginal = 'setOpenedProjectConfigOriginal',
 
+  setDemoMode = 'setDemoMode',
+
   selectedResource = 'selectedResource',
   isLoadingProject = 'isLoadingProject',
   isProjectBusy = 'isProjectBusy',
@@ -87,6 +89,8 @@ export enum ProjectViewMutators {
 
 export enum ProjectViewActions {
   openProject = 'openProject',
+  openDemo = 'openDemo',
+
   updateProject = 'updateProject',
   saveProject = 'saveProject',
 

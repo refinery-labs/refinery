@@ -23,9 +23,9 @@ export default class OpenedProjectGraphContainer extends Vue {
 
   @project.Getter getValidBlockToBlockTransitions!: AvailableTransition[] | null;
 
-  @project.Action clearSelection!: () => {};
-  @project.Action selectNode!: (element: WorkflowState) => {};
-  @project.Action selectEdge!: (element: WorkflowRelationship) => {};
+  @project.Action clearSelection!: () => void;
+  @project.Action selectNode!: (element: string) => void;
+  @project.Action selectEdge!: (element: string) => void;
 
   public getEnabledNodeIds() {
     if (!this.getValidBlockToBlockTransitions) {

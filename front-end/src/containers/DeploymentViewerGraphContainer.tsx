@@ -23,9 +23,9 @@ export default class DeploymentViewerGraphContainer extends Vue {
 
   @deploymentExecutions.Getter graphElementsWithExecutionStatus!: CyElements | null;
 
-  @deployment.Action clearSelection!: () => {};
-  @deployment.Action selectNode!: (element: WorkflowState) => {};
-  @deployment.Action selectEdge!: (element: WorkflowRelationship) => {};
+  @deployment.Action clearSelection!: () => void;
+  @deployment.Action selectNode!: (element: string) => void;
+  @deployment.Action selectEdge!: (element: string) => void;
 
   public render(h: CreateElement): VNode {
     if (this.isLoadingDeployment) {

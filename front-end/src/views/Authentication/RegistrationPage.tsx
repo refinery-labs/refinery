@@ -59,7 +59,7 @@ export default class RegistrationPage extends Vue {
       console.log('Yo dev friend, use this card number to register: 5555555555554444');
     }
 
-    this.redirectIfAuthenticated();
+    // this.redirectIfAuthenticated();
   }
 
   setStripeToken(stripeToken: string) {

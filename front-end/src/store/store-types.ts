@@ -134,6 +134,8 @@ export interface ProjectViewState {
   openedProjectOriginal: RefineryProject | null;
   openedProjectConfigOriginal: ProjectConfig | null;
 
+  isInDemoMode: boolean;
+
   isLoadingProject: boolean;
   isProjectBusy: boolean;
   isSavingProject: boolean;

@@ -89,9 +89,9 @@ export default class OpenedProjectOverview extends Vue {
 
   public render(h: CreateElement): VNode {
     // TODO: Add validation of the ID structure
-    if (!this.$route.params.projectId) {
-      return <h2>Please open a project first</h2>;
-    }
+    // if (!this.$route.params.projectId) {
+    //   return <h2>Please open a project first</h2>;
+    // }
 
     const containerClasses = {
       'opened-project-overview': true,

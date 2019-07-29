@@ -221,6 +221,7 @@ export interface GetProjectExecutionLogObjectsResponse extends BaseApiResponse {
 export interface GetSavedProjectRequest extends BaseApiRequest {
   project_id: string;
   version?: number;
+  demo_project?: boolean;
 }
 
 export interface GetSavedProjectResponse extends BaseApiResponse {

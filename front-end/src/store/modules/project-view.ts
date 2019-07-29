@@ -8,8 +8,6 @@ import {
   RootState
 } from '@/store/store-types';
 import {
-  BlockEnvironmentVariableList,
-  LambdaWorkflowState,
   ProjectConfig,
   ProjectLogLevel,
   RefineryProject,
@@ -66,7 +64,10 @@ import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules
 import { deployProject, openProject, teardownProject } from '@/store/fetchers/api-helpers';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
 import { createNewBlock, createNewTransition } from '@/utils/block-utils';
-import { saveEditBlockToProject } from '@/utils/store-utils';
+import { saveEditBlockToProject, signupDemoUser } from '@/utils/store-utils';
+import ImportableRefineryProject from '@/types/export-project';
+import { AllProjectsGetters } from '@/store/modules/all-projects';
+import { UnauthViewProjectStoreModule } from '@/store/modules/unauth-view-project';
 
 export interface AddBlockArguments {
   rawBlockType: string;
@@ -89,7 +90,9 @@ const moduleState: ProjectViewState = {
   openedProjectOriginal: null,
   openedProjectConfigOriginal: null,
 
-  isLoadingProject: true,
+  isInDemoMode: false,
+
+  isLoadingProject: false,
   isProjectBusy: false,
   isSavingProject: false,
   isDeployingProject: false,
@@ -252,6 +255,10 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return true;
       }
 
+      if (state.isInDemoMode) {
+        return true;
+      }
+
       return state.hasProjectBeenModified;
     },
     [ProjectViewGetters.canDeployProject]: state => !state.isProjectBusy && !state.isAddingTransitionCurrently,
@@ -303,6 +310,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
     [ProjectViewMutators.setOpenedProjectConfigOriginal](state, config: ProjectConfig) {
       state.openedProjectConfigOriginal = unwrapJson<ProjectConfig>(wrapJson(config));
+    },
+    [ProjectViewMutators.setDemoMode](state, value: boolean) {
+      state.isInDemoMode = value;
     },
     [ProjectViewMutators.isSavingProject](state, value: boolean) {
       state.isSavingProject = value;
@@ -470,6 +480,39 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       context.commit(ProjectViewMutators.isLoadingProject, false);
     },
+    async [ProjectViewActions.openDemo](context) {
+      const demoProject: ImportableRefineryProject =
+        context.rootGetters[`allProjects/${AllProjectsGetters.importProjectFromUrlJson}`];
+
+      if (!demoProject) {
+        console.error('Unable to open demo, missing project');
+        return;
+      }
+
+      context.commit(ProjectViewMutators.setDemoMode, true);
+
+      const params: OpenProjectMutation = {
+        project: {
+          ...demoProject,
+          project_id: uuid(),
+          version: 1
+        },
+        config: {
+          environment_variables: {},
+          api_gateway: { gateway_id: false },
+          logging: { level: ProjectLogLevel.LOG_ALL },
+          version: '1'
+        },
+        // We mark it as dirty so that we always show the save button ;)
+        markAsDirty: false
+      };
+
+      await context.dispatch(ProjectViewActions.updateProject, params);
+
+      // await context.dispatch(ProjectViewActions.loadProjectConfig);
+
+      // context.commit(ProjectViewMutators.isLoadingProject, false);
+    },
     async [ProjectViewActions.updateProject](context, params: OpenProjectMutation) {
       const stylesheet = generateCytoscapeStyle();
 
@@ -544,6 +587,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       });
     },
     async [ProjectViewActions.saveProject](context) {
+      if (context.state.isInDemoMode) {
+        // TODO: Display Demo Mode signup modal
+        const signupResult = await signupDemoUser();
+        return;
+      }
+
       const handleSaveError = async (message: string) => {
         context.commit(ProjectViewMutators.isSavingProject, false);
         console.error(message);

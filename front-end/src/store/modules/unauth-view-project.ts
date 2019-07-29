@@ -13,10 +13,12 @@ const storeName = 'unauthViewProject';
 
 export interface UnauthViewProjectState {
   selectedElement: string | null;
+  showSignupModal: boolean;
 }
 
 export const baseState: UnauthViewProjectState = {
-  selectedElement: null
+  selectedElement: null,
+  showSignupModal: false
 };
 
 // Must copy so that we can not thrash the pointers...
@@ -28,6 +30,8 @@ const initialState = deepJSONCopy(baseState);
 class UnauthViewProjectStore extends VuexModule<ThisType<UnauthViewProjectState>, RootState>
   implements UnauthViewProjectState {
   public selectedElement: string | null = initialState.selectedElement;
+
+  public showSignupModal: boolean = initialState.showSignupModal;
 
   get currentProject() {
     return this.context.rootGetters[`allProjects/${AllProjectsGetters.importProjectFromUrlJson}`];
@@ -75,6 +79,11 @@ class UnauthViewProjectStore extends VuexModule<ThisType<UnauthViewProjectState>
   @Mutation
   public setSelectedElement(value: string | null) {
     this.selectedElement = value;
+  }
+
+  @Mutation
+  public setShowSignupModal(show: boolean) {
+    this.showSignupModal = show;
   }
 
   // This is able to call a Mutator via the `this` context because of magic.

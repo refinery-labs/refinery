@@ -1,6 +1,8 @@
 import store from '../store/index';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
+//
+// import {UnauthViewProjectStoreModule} from '@/store/modules/unauth-view-project';
 
 /**
  * Called by any store to "reset" it's state.
@@ -16,4 +18,10 @@ export function resetStoreState(state: any, moduleState: {}) {
 
 export async function saveEditBlockToProject() {
   await store.dispatch(`project/editBlockPane/${EditBlockActions.saveBlock}`, null, { root: true });
+}
+
+export async function signupDemoUser() {
+  require('@/store/modules/unauth-view-project');
+  store.commit(`unauthViewProject/setShowSignupModal`, true);
+  // UnauthViewProjectStoreModule.setShowSignupModal(true);
 }
