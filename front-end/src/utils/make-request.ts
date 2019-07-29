@@ -146,5 +146,8 @@ export const HttpUtil: HttpMethodLookup = {
   [HTTP_METHOD.OPTIONS]: async (path, body, args?) => await optionsRequest(path, body, args),
   [HTTP_METHOD.HEAD]: async (path, body, args?) => await headRequest(path, body, args),
   [HTTP_METHOD.PATCH]: async (path, body, args?) => await patchRequest(path, body, args),
-  [HTTP_METHOD.PUT]: async (path, body, args?) => await putRequest(path, body, args)
+  [HTTP_METHOD.PUT]: async (path, body, args?) => await putRequest(path, body, args),
+  ANY: async (path, body, args?) => {
+    throw new Error('Not implemented');
+  }
 };
