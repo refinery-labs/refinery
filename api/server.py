@@ -6609,7 +6609,6 @@ def teardown_infrastructure( credentials, teardown_nodes ):
 				)
 			)
 		elif teardown_node[ "type" ] == "schedule_trigger" or teardown_node[ "type" ] == "warmer_trigger":
-			print( "Schedule trigger being deleted!" )
 			teardown_operation_futures.append(
 				local_tasks.delete_schedule_trigger(
 					credentials,
