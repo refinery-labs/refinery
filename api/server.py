@@ -11,8 +11,10 @@ import botocore
 import datetime
 import requests
 import pystache
+import binascii
 import logging
 import hashlib
+import random
 import ctypes
 import random
 import shutil
@@ -63,6 +65,7 @@ from models.cached_billing_items import CachedBillingItem
 from models.terraform_state_versions import TerraformStateVersion
 from models.state_logs import StateLog
 from models.cached_execution_logs_shard import CachedExecutionLogsShard
+from models.project_short_links import ProjectShortLink
 
 from botocore.client import Config
 
@@ -9942,6 +9945,83 @@ def clear_sub_account_packages( credentials ):
 			package_paths
 		)
 		
+class CreateProjectShortlink( BaseHandler ):
+	@authenticated
+	@gen.coroutine
+	def post( self ):
+		"""
+		Creates a new project shortlink for a project so it can be shared
+		and "forked" by other people on the platform.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"diagram_data": {
+					"type": "object",
+				}
+			},
+			"required": [
+				"diagram_data"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		new_project_shortlink = ProjectShortLink()
+		new_project_shortlink.project_json = self.json[ "diagram_data" ]
+		self.dbsession.add( new_project_shortlink )
+		self.dbsession.commit()
+		
+		self.write({
+			"success": True,
+			"msg": "Project short link created successfully!",
+			"result": {
+				"project_short_link_id": new_project_shortlink.short_id
+			}
+		})
+		
+class GetProjectShortlink( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Returns project JSON by the project_short_link_id
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"project_short_link_id": {
+					"type": "string",
+				}
+			},
+			"required": [
+				"project_short_link_id"
+			]
+		}
+		
+		validate_schema( self.json, schema )
+		
+		project_short_link = self.dbsession.query( ProjectShortLink ).filter_by(
+			short_id=self.json[ "project_short_link_id" ]
+		).first()
+		
+		if not project_short_link:
+			self.write({
+				"success": False,
+				"msg": "Project short link was not found!"
+			})
+			raise gen.Return()
+			
+		project_short_link_dict = project_short_link.to_dict()
+		
+		self.write({
+			"success": True,
+			"msg": "Project short link created successfully!",
+			"result": {
+				"project_short_link_id": project_short_link_dict[ "short_id" ],
+				"diagram_data": project_short_link_dict[ "project_json" ],
+			}
+		})
+		
 def make_app( is_debug ):
 	tornado_app_settings = {
 		"debug": is_debug,
@@ -9988,6 +10068,8 @@ def make_app( is_debug ):
 		( r"/api/v1/billing/creditcards/make_primary", MakeCreditCardPrimary ),
 		( r"/api/v1/iam/console_credentials", GetAWSConsoleCredentials ),
 		( r"/api/v1/internal/log", StashStateLog ),
+		( r"/api/v1/project_short_link/create", CreateProjectShortlink ),
+		( r"/api/v1/project_short_link/get", GetProjectShortlink ),
 		# Temporarily disabled since it doesn't cache the CostExplorer results
 		#( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast ),
 		
