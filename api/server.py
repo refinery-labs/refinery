@@ -2877,7 +2877,7 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def warm_up_lambda( self, credentials, arn ):
+		def warm_up_lambda( self, credentials, arn, warmup_concurrency_level ):
 			lambda_client = get_aws_client(
 				"lambda",
 				credentials
@@ -2888,7 +2888,7 @@ class TaskSpawner(object):
 				LogType="Tail",
 				Payload=json.dumps({
 					"_refinery": {
-						"warmup": 3,
+						"warmup": warmup_concurrency_level,
 					}
 				})
 			)
@@ -6136,25 +6136,6 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				sns_topic_trigger[ "target_lambda" ][ "arn" ],
 			)
 		)
-		
-	# Create Lambda warmers if enabled
-	warmer_trigger_name = "WarmerTrigger" + unique_deploy_id
-	logit( "Deploying auto-warmer CloudWatch rule..." )
-	warmer_trigger_result = yield local_tasks.create_cloudwatch_rule(
-		credentials,
-		get_random_node_id(),
-		warmer_trigger_name,
-		"rate(3 minutes)",
-		"A CloudWatch Event trigger to keep the deployed Lambdas warm.",
-		"",
-	)
-	
-	diagram_data[ "workflow_states" ].append({
-		"id": warmer_trigger_result[ "id" ],
-		"type": "warmer_trigger",
-		"name": warmer_trigger_name,
-		"arn": warmer_trigger_result[ "arn" ]
-	})
 	
 	# Combine API endpoints and deployed Lambdas since both are
 	# Lambdas at the core and need to be warmed.
@@ -6170,26 +6151,15 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		)
 	)
 	
-	# Go through all the Lambdas deployed and make them the targets of the
-	# warmer Lambda so everything is kept hot.
-	# Additionally we'll invoke them all once with a warmup request so
-	# that they are hot if hit immediately
-	for deployed_lambda in combined_warmup_list:
-		local_tasks.add_rule_target(
+	if "warmup_concurrency_level" in project_config and project_config[ "warmup_concurrency_level" ]:
+		logit( "Adding auto-warming to the deployment..." )
+		warmup_concurrency_level = int( project_config[ "warmup_concurrency_level" ] )
+		yield add_auto_warmup(
 			credentials,
-			warmer_trigger_name,
-			deployed_lambda[ "name" ],
-			deployed_lambda[ "arn" ],
-			json.dumps({
-				"_refinery": {
-					"warmup": 3,
-				}
-			})
-		)
-		
-		local_tasks.warm_up_lambda(
-			credentials,
-			deployed_lambda[ "arn" ],
+			warmup_concurrency_level,
+			unique_deploy_id,
+			combined_warmup_list,
+			diagram_data
 		)
 	
 	# Wait till are triggers are set up
@@ -6208,6 +6178,50 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		"deployment_diagram": diagram_data,
 		"project_config": project_config
 	})
+	
+@gen.coroutine
+def add_auto_warmup( credentials, warmup_concurrency_level, unique_deploy_id, combined_warmup_list, diagram_data ):
+	# Create Lambda warmers if enabled
+	warmer_trigger_name = "WarmerTrigger" + unique_deploy_id
+	logit( "Deploying auto-warmer CloudWatch rule..." )
+	warmer_trigger_result = yield local_tasks.create_cloudwatch_rule(
+		credentials,
+		get_random_node_id(),
+		warmer_trigger_name,
+		"rate(5 minutes)",
+		"A CloudWatch Event trigger to keep the deployed Lambdas warm.",
+		"",
+	)
+	
+	diagram_data[ "workflow_states" ].append({
+		"id": warmer_trigger_result[ "id" ],
+		"type": "warmer_trigger",
+		"name": warmer_trigger_name,
+		"arn": warmer_trigger_result[ "arn" ]
+	})
+	
+	# Go through all the Lambdas deployed and make them the targets of the
+	# warmer Lambda so everything is kept hot.
+	# Additionally we'll invoke them all once with a warmup request so
+	# that they are hot if hit immediately
+	for deployed_lambda in combined_warmup_list:
+		local_tasks.add_rule_target(
+			credentials,
+			warmer_trigger_name,
+			deployed_lambda[ "name" ],
+			deployed_lambda[ "arn" ],
+			json.dumps({
+				"_refinery": {
+					"warmup": warmup_concurrency_level,
+				}
+			})
+		)
+		
+		local_tasks.warm_up_lambda(
+			credentials,
+			deployed_lambda[ "arn" ],
+			warmup_concurrency_level
+		)
 		
 class SavedBlocksCreate( BaseHandler ):
 	@authenticated

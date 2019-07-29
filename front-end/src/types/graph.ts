@@ -113,6 +113,7 @@ export interface ProjectConfig {
   api_gateway: { gateway_id: string };
   version: string;
   logging: { level: ProjectLogLevel };
+  warmup_concurrency_level: number;
 }
 
 export interface ProjectEnvironmentVariableList {
