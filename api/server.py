@@ -2451,6 +2451,8 @@ class TaskSpawner(object):
 				)
 				account_billing_results = ce_response[ "ResultsByTime" ][0][ "Groups" ]
 				
+				logit( account_billing_results )
+				
 				for account_billing_result in account_billing_results:
 					aws_account_running_cost_list.append({
 						"aws_account_id": account_billing_result[ "Keys" ][0],
@@ -2755,12 +2757,26 @@ class TaskSpawner(object):
 					"End": end_date,
 				},
 				"Filter": {
-					"Dimensions": {
-						"Key": "LINKED_ACCOUNT",
-						"Values": [
-							str( account_id )
-						]
-					}
+					"And": [
+						{
+							"Not": {
+								"Dimensions": {
+									"Key": "RECORD_TYPE",
+									"Values": [
+										"Credit"
+									]
+								}
+							}
+						},
+						{
+							"Dimensions": {
+								"Key": "LINKED_ACCOUNT",
+								"Values": [
+									str( account_id )
+								]
+							}
+						}
+					]
 				},
 				"Granularity": granularity.upper(),
 				"Metrics": [ metric_name ],
@@ -2776,6 +2792,8 @@ class TaskSpawner(object):
 				**usage_parameters
 			)
 			cost_groups = response[ "ResultsByTime" ][0][ "Groups" ]
+			
+			logit( cost_groups )
 			
 			service_breakdown_list = []
 			
