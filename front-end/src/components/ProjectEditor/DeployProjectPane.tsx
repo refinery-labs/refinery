@@ -51,9 +51,7 @@ Exception: ${error.exception}
       return null;
     }
 
-    const deployButtonMessage = this.hasProjectBeenModified
-      ? 'You must save changes to project before you may deploy.'
-      : 'Click to begin the deployment process';
+    const deployButtonMessage = 'Click to begin the deployment process';
 
     return (
       <div>
@@ -166,7 +164,7 @@ Exception: ${error.exception}
                 class="col-6"
                 type="submit"
                 ref="confirmDeployButton"
-                disabled={this.isDeployingProject || this.hasProjectBeenModified}
+                disabled={this.isDeployingProject}
               >
                 {this.deploymentError ? 'Retry' : 'Confirm'} Deploy
               </b-button>

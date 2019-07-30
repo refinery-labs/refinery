@@ -292,16 +292,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         state[key] = deepJSONCopy(moduleState[key]);
       });
     },
-    [ProjectViewMutators.setWarmupConcurrencyLevel](state, warmupConcurrencyLevel: number) {
-      if (state.openedProjectConfig === null) {
-        console.error('Could not set project log level due to no project being opened.');
-        return;
-      }
-
-      state.openedProjectConfig = Object.assign({}, state.openedProjectConfig, {
-        warmup_concurrency_level: warmupConcurrencyLevel
-      });
-    },
     [ProjectViewMutators.setOpenedProject](state, project: RefineryProject) {
       state.openedProject = project;
     },
@@ -428,10 +418,22 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
   },
   actions: {
     async [ProjectViewActions.setWarmupConcurrencyLevel](context, warmupConcurrencyLevel: number) {
-      context.commit(ProjectViewMutators.setWarmupConcurrencyLevel, warmupConcurrencyLevel);
+      if (context.state.openedProjectConfig === null) {
+        console.error("Can't set warmup concurrency level because no project is opened!");
+        return;
+      }
 
-      // Save new config to the backend
-      await context.dispatch(ProjectViewActions.saveProjectConfig);
+      const newProjectConfig = Object.assign({}, context.state.openedProjectConfig, {
+        warmup_concurrency_level: warmupConcurrencyLevel
+      });
+
+      const params: OpenProjectMutation = {
+        project: null,
+        config: newProjectConfig,
+        markAsDirty: true
+      };
+
+      await context.dispatch(ProjectViewActions.updateProject, params);
     },
     async [ProjectViewActions.setProjectConfigLoggingLevel](context, projectLoggingLevel: ProjectLogLevel) {
       context.commit(ProjectViewMutators.setProjectLogLevel, projectLoggingLevel);
