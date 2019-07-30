@@ -99,15 +99,16 @@ export default class OffsideContentBar extends Vue {
             </template>
             <h3 class="text-center text-thin mt-4">User Settings</h3>
             <div class="list-group">
-              <b-form-group description="Keyboard mode for text editor blocks.">
-                <label class="d-block">Editor Key Mode:</label>
-                <b-form-select
-                  class="padding--small mt-2 mb-2"
-                  value={SettingsAppStoreModule.keyboardMode}
-                  on={onHandlers}
-                  options={itemList}
-                />
-              </b-form-group>
+              Coming soon!
+              {/*<b-form-group description="Keyboard mode for text editor blocks.">*/}
+              {/*  <label class="d-block">Editor Key Mode:</label>*/}
+              {/*  <b-form-select*/}
+              {/*    class="padding--small mt-2 mb-2"*/}
+              {/*    value={SettingsAppStoreModule.keyboardMode}*/}
+              {/*    on={onHandlers}*/}
+              {/*    options={itemList}*/}
+              {/*  />*/}
+              {/*</b-form-group>*/}
             </div>
           </b-tab>
         </b-tabs>

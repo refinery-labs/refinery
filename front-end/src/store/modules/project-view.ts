@@ -8,8 +8,6 @@ import {
   RootState
 } from '@/store/store-types';
 import {
-  BlockEnvironmentVariableList,
-  LambdaWorkflowState,
   ProjectConfig,
   ProjectLogLevel,
   RefineryProject,
@@ -25,7 +23,8 @@ import {
   DeploymentViewActions,
   ProjectViewActions,
   ProjectViewGetters,
-  ProjectViewMutators
+  ProjectViewMutators,
+  UserActions
 } from '@/constants/store-constants';
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
@@ -56,17 +55,25 @@ import {
   unwrapJson,
   wrapJson
 } from '@/utils/project-helpers';
-import { availableTransitions, blockTypeToImageLookup, savedBlockType } from '@/constants/project-editor-constants';
+import {
+  availableTransitions,
+  blockTypeToImageLookup,
+  demoModeBlacklist,
+  savedBlockType
+} from '@/constants/project-editor-constants';
 import EditBlockPaneModule, { EditBlockActions, EditBlockGetters } from '@/store/modules/panes/edit-block-pane';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
 import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
-import { deployProject, openProject, teardownProject } from '@/store/fetchers/api-helpers';
+import { createShortlink, deployProject, openProject, teardownProject } from '@/store/fetchers/api-helpers';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
 import { createNewBlock, createNewTransition } from '@/utils/block-utils';
 import { saveEditBlockToProject } from '@/utils/store-utils';
+import ImportableRefineryProject from '@/types/export-project';
+import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
+import store from '@/store';
 
 export interface AddBlockArguments {
   rawBlockType: string;
@@ -89,7 +96,11 @@ const moduleState: ProjectViewState = {
   openedProjectOriginal: null,
   openedProjectConfigOriginal: null,
 
-  isLoadingProject: true,
+  isInDemoMode: false,
+  isCreatingShortlink: false,
+  shortlinkUrl: null,
+
+  isLoadingProject: false,
   isProjectBusy: false,
   isSavingProject: false,
   isDeployingProject: false,
@@ -276,6 +287,14 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return '';
       }
 
+      if (state.isCreatingShortlink) {
+        return '';
+      }
+
+      if (state.shortlinkUrl) {
+        return `https://app.refinery.io/import?q=${state.shortlinkUrl}`;
+      }
+
       // We ignore project_id because we just don't want it in the JSON
       const { project_id, version, ...rest } = state.openedProject;
 
@@ -303,6 +322,15 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
     [ProjectViewMutators.setOpenedProjectConfigOriginal](state, config: ProjectConfig) {
       state.openedProjectConfigOriginal = unwrapJson<ProjectConfig>(wrapJson(config));
+    },
+    [ProjectViewMutators.setDemoMode](state, value: boolean) {
+      state.isInDemoMode = value;
+    },
+    [ProjectViewMutators.setIsCreatingShortlink](state, value: boolean) {
+      state.isCreatingShortlink = value;
+    },
+    [ProjectViewMutators.setShortlinkUrl](state, value: string | null) {
+      state.shortlinkUrl = value;
     },
     [ProjectViewMutators.isSavingProject](state, value: boolean) {
       state.isSavingProject = value;
@@ -465,6 +493,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
+      context.commit(ProjectViewMutators.resetState);
       context.commit(ProjectViewMutators.isLoadingProject, true);
 
       const project = await openProject(request);
@@ -487,6 +516,43 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.loadProjectConfig);
 
       context.commit(ProjectViewMutators.isLoadingProject, false);
+    },
+    async [ProjectViewActions.openDemo](context) {
+      context.commit(ProjectViewMutators.isLoadingProject, true);
+
+      await context.dispatch(`allProjects/${AllProjectsActions.openProjectShareLink}`, null, { root: true });
+
+      context.commit(ProjectViewMutators.isLoadingProject, false);
+
+      const demoProject: ImportableRefineryProject =
+        context.rootGetters[`allProjects/${AllProjectsGetters.importProjectFromUrlJson}`];
+
+      if (!demoProject) {
+        console.error('Unable to open demo, missing project');
+        return;
+      }
+
+      context.commit(ProjectViewMutators.resetState);
+      context.commit(ProjectViewMutators.setDemoMode, true);
+
+      const params: OpenProjectMutation = {
+        project: {
+          ...demoProject,
+          project_id: uuid(),
+          version: 1
+        },
+        config: {
+          environment_variables: {},
+          warmup_concurrency_level: 0,
+          api_gateway: { gateway_id: false },
+          logging: { level: ProjectLogLevel.LOG_ALL },
+          version: '1'
+        },
+        // We mark it as dirty so that we always show the save button ;)
+        markAsDirty: false
+      };
+
+      await context.dispatch(ProjectViewActions.updateProject, params);
     },
     async [ProjectViewActions.updateProject](context, params: OpenProjectMutation) {
       const stylesheet = generateCytoscapeStyle();
@@ -586,6 +652,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // TODO: Implement this for transitions too
       if (context.getters[ProjectViewGetters.selectedBlockDirty]) {
         await context.dispatch(`project/editBlockPane/${EditBlockActions.saveBlock}`, null, { root: true });
+      }
+
+      // Skip everything else because we're in demo mode.
+      if (context.state.isInDemoMode) {
+        return;
       }
 
       context.commit(ProjectViewMutators.isSavingProject, true);
@@ -1010,6 +1081,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
+      if (context.state.isInDemoMode && demoModeBlacklist.includes(leftSidebarPaneType)) {
+        await context.dispatch(`unauthViewProject/promptDemoModeSignup`, true, { root: true });
+        return;
+      }
+
       // Special case because Mandatory and I agreed that having a pane pop out is annoying af
       if (leftSidebarPaneType === SIDEBAR_PANE.saveProject) {
         await context.dispatch(ProjectViewActions.saveProject);
@@ -1028,6 +1104,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         await context.dispatch(ProjectViewActions.showDeploymentPane);
         return;
       }
+
+      if (leftSidebarPaneType === SIDEBAR_PANE.exportProject) {
+        await context.dispatch(ProjectViewActions.generateShareUrl);
+        return;
+      }
     },
     [ProjectViewActions.closePane](context, pos: PANE_POSITION) {
       if (pos === PANE_POSITION.left) {
@@ -1042,9 +1123,15 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       console.error('Attempted to close unknown pane', pos);
     },
+    // TODO: De-duplicate this logic across panes... It is nasty.
     async [ProjectViewActions.openRightSidebarPane](context, paneType: SIDEBAR_PANE) {
       if (context.state.isAddingTransitionCurrently) {
         // TODO: Add a shake or something? Tell the user that it's bjorked.
+        return;
+      }
+
+      if (context.state.isInDemoMode && demoModeBlacklist.includes(paneType)) {
+        await context.dispatch(`unauthViewProject/promptDemoModeSignup`, true, { root: true });
         return;
       }
 
@@ -1060,6 +1147,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Or have the ProjectEditorLeftPaneContainer fire a callback on the child component?
       // That also feels wrong because it violates to "one direction" principal, in a way.
       context.commit(ProjectViewMutators.setRightSidebarPane, paneType);
+
+      if (paneType === SIDEBAR_PANE.exportProject) {
+        await context.dispatch(ProjectViewActions.generateShareUrl);
+        return;
+      }
     },
     async [ProjectViewActions.resetPanelStates](context) {
       context.commit(ProjectViewMutators.selectedResource, null);
@@ -1429,6 +1521,32 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       if (transitionType === WorkflowRelationshipType.IF) {
         await context.dispatch(ProjectViewActions.setIfExpression, IfDropdownSelectionExpressionValues.DEFAULT);
       }
+    },
+    async [ProjectViewActions.generateShareUrl](context) {
+      if (!context.rootState.user.authenticated) {
+        // Check the current authentication status before deciding which URL to export.
+        await store.dispatch(`user/${UserActions.fetchAuthenticationState}`, null, { root: true });
+
+        // If we're double sure we're not authenticated... Bail out.
+        if (!context.rootState.user.authenticated) {
+          return;
+        }
+      }
+
+      if (!context.state.openedProject) {
+        console.error('Missing project to be exported');
+        return;
+      }
+
+      const { project_id, ...rest } = context.state.openedProject;
+
+      context.commit(ProjectViewMutators.setIsCreatingShortlink, true);
+
+      const shortLink = await createShortlink(rest);
+
+      context.commit(ProjectViewMutators.setIsCreatingShortlink, false);
+
+      context.commit(ProjectViewMutators.setShortlinkUrl, shortLink);
     }
   }
 };

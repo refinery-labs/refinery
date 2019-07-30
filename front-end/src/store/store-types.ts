@@ -134,6 +134,10 @@ export interface ProjectViewState {
   openedProjectOriginal: RefineryProject | null;
   openedProjectConfigOriginal: ProjectConfig | null;
 
+  isInDemoMode: boolean;
+  isCreatingShortlink: boolean;
+  shortlinkUrl: string | null;
+
   isLoadingProject: boolean;
   isProjectBusy: boolean;
   isSavingProject: boolean;
@@ -218,6 +222,7 @@ export interface AllProjectsState {
 
   importProjectFromUrlContent: string | null;
   importProjectFromUrlError: string | null;
+  importProjectFromUrlBusy: boolean;
 }
 
 export interface DeploymentViewState {

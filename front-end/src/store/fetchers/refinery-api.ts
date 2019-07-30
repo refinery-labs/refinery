@@ -85,7 +85,11 @@ import {
   UpdateEnvironmentVariablesRequest,
   UpdateEnvironmentVariablesResponse,
   GetProjectExecutionLogObjectsResponse,
-  GetProjectExecutionLogObjectsRequest
+  GetProjectExecutionLogObjectsRequest,
+  GetProjectShortlinkRequest,
+  CreateProjectShortlinkResponse,
+  GetProjectShortlinkResponse,
+  CreateProjectShortlinkRequest
 } from '@/types/api-types';
 import { API_ENDPOINT, ApiConfigMap } from '@/constants/api-constants';
 
@@ -230,6 +234,12 @@ export class RefineryApi implements RefineryApiTypeMap {
   );
   [API_ENDPOINT.SavedBlockStatusCheck] = makeApiClient<SavedBlockStatusCheckRequest, SavedBlockStatusCheckResponse>(
     API_ENDPOINT.SavedBlockStatusCheck
+  );
+  [API_ENDPOINT.CreateProjectShortlink] = makeApiClient<CreateProjectShortlinkRequest, CreateProjectShortlinkResponse>(
+    API_ENDPOINT.CreateProjectShortlink
+  );
+  [API_ENDPOINT.GetProjectShortlink] = makeApiClient<GetProjectShortlinkRequest, GetProjectShortlinkResponse>(
+    API_ENDPOINT.GetProjectShortlink
   );
   [API_ENDPOINT.DeleteSavedBlock] = makeApiClient<DeleteSavedBlockRequest, DeleteSavedBlockResponse>(
     API_ENDPOINT.DeleteSavedBlock

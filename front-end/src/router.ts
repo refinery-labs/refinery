@@ -21,6 +21,7 @@ import Billing from '@/views/Billing.vue';
 import ProjectSettings from '@/views/ProjectsNestedViews/ProjectSettings';
 import { guardLoggedIn } from '@/utils/auth-utils';
 import ImportProject from '@/views/ImportProject';
+import TermsOfServicePage from '@/views/TermsOfService';
 
 Vue.use(Router);
 
@@ -37,6 +38,21 @@ const router = new Router({
       path: '/register',
       name: 'register',
       component: RegistrationPage
+    },
+    {
+      path: '/terms-of-service',
+      name: 'termsOfService',
+      component: TermsOfServicePage
+    },
+    {
+      path: baseLinks.help,
+      component: Layout,
+      children: [
+        {
+          path: '',
+          component: HelpPage
+        }
+      ]
     },
     {
       path: '/import',
@@ -149,17 +165,18 @@ const router = new Router({
           component: Billing
         },
         {
-          path: baseLinks.help,
-          name: 'help',
-          component: HelpPage
-        },
-        {
           path: baseLinks.admin,
           name: 'admin',
           component: AdminPanel
-        },
+        }
+      ]
+    },
+    {
+      path: '*',
+      component: Layout,
+      children: [
         {
-          path: '*',
+          path: '',
           component: PageNotFound
         }
       ]

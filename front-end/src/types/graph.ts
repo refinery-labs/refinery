@@ -110,7 +110,7 @@ export interface WorkflowRelationship extends BaseRefineryResource {
 
 export interface ProjectConfig {
   environment_variables: ProjectEnvironmentVariableList;
-  api_gateway: { gateway_id: string };
+  api_gateway: { gateway_id: string | false };
   version: string;
   logging: { level: ProjectLogLevel };
   warmup_concurrency_level: number;

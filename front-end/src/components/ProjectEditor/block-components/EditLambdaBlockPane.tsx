@@ -83,6 +83,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @editBlock.Mutation setConcurrencyLimit!: (limit: number | false) => void;
 
   @editBlock.Action saveBlock!: () => Promise<void>;
+  @editBlock.Action kickOffLibraryBuild!: () => void;
 
   deleteLibrary(library: string) {
     // Do nothing
@@ -121,17 +122,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   }
 
   public closeLibraryModal() {
-    if (this.selectedNode === null || this.selectedNode.type !== WorkflowStateType.LAMBDA) {
-      console.error("You don't have a node currently selected so I can't check the build status!");
-      return;
-    }
-    const libraries = deepJSONCopy(this.selectedNode.libraries);
-    const params: libraryBuildArguments = {
-      language: this.selectedNode.language as SupportedLanguage,
-      libraries: libraries
-    };
-    startLibraryBuild(params);
-    this.setLibrariesModalVisibility(false);
+    this.kickOffLibraryBuild();
   }
 
   private viewLibraryModal() {

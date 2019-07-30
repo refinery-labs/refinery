@@ -87,9 +87,9 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
   @Prop() public layout!: LayoutOptions | null;
   @Prop({ required: true }) public stylesheet!: CyStyle;
 
-  @Prop({ required: true }) public clearSelection!: () => {};
-  @Prop({ required: true }) public selectNode!: (element: WorkflowState) => {};
-  @Prop({ required: true }) public selectEdge!: (element: WorkflowRelationship) => {};
+  @Prop({ required: true }) public clearSelection!: () => void;
+  @Prop({ required: true }) public selectNode!: (id: string) => void;
+  @Prop({ required: true }) public selectEdge!: (id: string) => void;
   @Prop() public selected!: string | null;
   @Prop() public enabledNodeIds!: string[] | null;
   @Prop() public backgroundGrid!: boolean;
@@ -336,7 +336,7 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
       animate,
       // animationEasing: 'cubic',
       spacingFactor: 1.15,
-      padding: 108,
+      padding: 100,
       // @ts-ignore
       edgeSep: 100,
       ...this.layout
@@ -351,6 +351,7 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
       autounselectify: true,
       minZoom: 0.5,
       maxZoom: 4,
+      wheelSensitivity: 0.8,
 
       style: [...Object.values(this.stylesheet), ...baseCytoscapeStyles],
 

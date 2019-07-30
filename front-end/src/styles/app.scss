@@ -178,6 +178,13 @@ $content-sidebar-width: 92px;
   border-top: 1px solid $gray-light;
 }
 
+.unauth-graph-container {
+  width: 100%;
+  height: 100%;
+  flex-grow: 1;
+  height: calc(100vh - 75px);
+}
+
 .project {
   &-router-container {
     background-color: $body-bg;
@@ -411,6 +418,9 @@ $content-sidebar-width: 92px;
   }
   .gutter {
     background-color: #555;
+  }
+  &__no-offset {
+    margin: auto;
   }
 }
 
@@ -690,4 +700,17 @@ $content-sidebar-width: 92px;
   &__card {
     min-width: 340px;
   }
+}
+
+.signup-modal-container {
+  // Makes the content "float" which is pretty slick
+  bottom: 0;
+  position: absolute;
+  top: 0;
+}
+
+a.disabled {
+  pointer-events: none;
+  cursor: default;
+  color: #9a9a9a !important;
 }

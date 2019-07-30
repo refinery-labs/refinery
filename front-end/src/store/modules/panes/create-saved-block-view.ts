@@ -116,7 +116,13 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
   }
 
   @Action
-  public openModal() {
+  public async openModal() {
+    // Don't allow this action to happen in Demo Mode
+    if (this.context.rootState.project.isInDemoMode) {
+      await this.context.dispatch(`unauthViewProject/promptDemoModeSignup`, false, { root: true });
+      return;
+    }
+
     this.resetState();
 
     const editBlockPaneState = this.context.rootState.project.editBlockPane;

@@ -1,28 +1,63 @@
 import Vue, { VNode } from 'vue';
-import Component from 'vue-class-component';
-import { namespace } from 'vuex-class';
+import Component, { mixins } from 'vue-class-component';
+import { namespace, State } from 'vuex-class';
 import ImportableRefineryProject from '@/types/export-project';
+import { Route } from 'vue-router';
+import store from '@/store';
+import { DeploymentViewMutators, ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
+import OpenedProjectOverview from '@/views/ProjectsNestedViews/OpenedProjectOverview';
+import { UnauthViewProjectStoreModule } from '@/store/modules/unauth-view-project';
+import SignupModal, { SignupModalProps } from '@/components/Demo/SignupModal';
+import CreateToastMixin from '@/mixins/CreateToastMixin';
 
 const allProjects = namespace('allProjects');
+const project = namespace('project');
 
 @Component
-export default class ImportProject extends Vue {
+export default class ImportProject extends mixins(CreateToastMixin) {
   @allProjects.State importProjectFromUrlContent!: string | null;
   @allProjects.State importProjectFromUrlError!: string | null;
-  @allProjects.State importProjectBusy!: boolean;
+  @allProjects.State importProjectFromUrlBusy!: boolean;
+
+  @project.State selectedResourceDirty!: boolean;
 
   @allProjects.Getter importProjectFromUrlValid!: boolean;
   @allProjects.Getter importProjectFromUrlJson!: ImportableRefineryProject | null;
 
+  @project.Getter canSaveProject!: boolean;
+
   @allProjects.Mutation setImportProjectFromUrlContent!: (val: string) => void;
 
-  @allProjects.Action importProjectByUrlHash!: () => void;
+  @allProjects.Action importProjectFromDemo!: () => void;
 
-  mounted() {
-    // this.setImportProjectFromUrlContent(window.location.hash);
+  @State windowWidth?: number;
+
+  // Insert the Demo JSON into the store.
+  public async beforeRouteEnter(to: Route, from: Route, next: () => void) {
+    store.dispatch(`user/fetchAuthenticationState`);
+
+    // Don't await so that we can have the UI pop up faster.
+    store.dispatch(`project/${ProjectViewActions.openDemo}`);
+
+    next();
   }
 
-  public renderContent(): VNode {
+  public beforeRouteLeave(to: Route, from: Route, next: () => void) {
+    if (this.canSaveProject || this.selectedResourceDirty) {
+      this.displayErrorToast('Unable to Navigate', 'Please save the current project or resource before continuing.');
+      return;
+    }
+
+    next();
+    store.commit(`project/${ProjectViewMutators.resetState}`);
+    store.commit(`deployment/${DeploymentViewMutators.resetState}`);
+  }
+
+  renderUnauthGraph() {
+    return <OpenedProjectOverview />;
+  }
+
+  public renderContents(): VNode {
     const exampleProjectButton = (
       <div class="padding-top--normal">
         <b-button variant="primary" href="https://docs.refinery.io/tutorials/scraping-a-million-urls/" target="_blank">
@@ -31,12 +66,23 @@ export default class ImportProject extends Vue {
       </div>
     );
 
+    if (this.importProjectFromUrlBusy) {
+      return (
+        <div class="unauth-graph-container padding-top--huge">
+          <h2>Loading project... One moment, please!</h2>
+          <div class="padding-top--normal">
+            <b-spinner />
+          </div>
+        </div>
+      );
+    }
+
     const exampleProjectText = <h3>For some example projects to check out, please check out our tutorials below!</h3>;
 
-    if (!this.importProjectFromUrlContent) {
+    if (this.importProjectFromUrlError) {
       return (
-        <div class="import-project-page">
-          <h2>Unable to locate project to import.</h2>
+        <div class="unauth-graph-container">
+          <h2>Error: {this.importProjectFromUrlError}</h2>
           {exampleProjectText}
           {exampleProjectButton}
         </div>
@@ -45,7 +91,7 @@ export default class ImportProject extends Vue {
 
     if (!this.importProjectFromUrlValid) {
       return (
-        <div class="import-project-page">
+        <div class="unauth-graph-container">
           <h2>Invalid project to import.</h2>
           {exampleProjectText}
           {exampleProjectButton}
@@ -53,48 +99,20 @@ export default class ImportProject extends Vue {
       );
     }
 
-    if (this.importProjectFromUrlError || !this.importProjectFromUrlJson) {
-      return (
-        <div class="import-project-page">
-          <h2>Error Importing Project.</h2>
-          {exampleProjectText}
-          {exampleProjectButton}
-          <h5>{this.importProjectFromUrlError}</h5>
-        </div>
-      );
-    }
-
-    if (this.importProjectBusy) {
-      return (
-        <div class="import-project-page">
-          <h2>Importing project... You will be redirected in a moment.</h2>
-          <div class="padding-top--normal">
-            <b-spinner />
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div class="import-project-page">
-        <h2>
-          Are you sure would like to import <i>{this.importProjectFromUrlJson.name}</i>?
-        </h2>
-        <div class="padding-top--normal">
-          <b-button variant="primary" on={{ click: this.importProjectByUrlHash }}>
-            Import <i>{this.importProjectFromUrlJson.name}</i>
-          </b-button>
-        </div>
-      </div>
-    );
+    return <div class="unauth-graph-container">{this.renderUnauthGraph()}</div>;
   }
 
   public render() {
+    const signupModalProps: SignupModalProps = {
+      showModal: UnauthViewProjectStoreModule.showSignupModal,
+      isModal: true,
+      closeModal: () => UnauthViewProjectStoreModule.setShowSignupModal(false)
+    };
+
     return (
-      <div class="text-align--center">
-        <div class="margin-left--auto margin-right--auto padding-top--huge" style="max-width: 500px">
-          {this.renderContent()}
-        </div>
+      <div>
+        {this.renderContents()}
+        <SignupModal props={signupModalProps} />
       </div>
     );
   }

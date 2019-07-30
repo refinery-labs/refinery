@@ -7,6 +7,7 @@ import {
   LambdaWorkflowState,
   ScheduleTriggerWorkflowState,
   SqsQueueWorkflowState,
+  SupportedLanguage,
   WorkflowRelationship,
   WorkflowState,
   WorkflowStateType
@@ -19,7 +20,7 @@ import { HTTP_METHOD } from '@/constants/api-constants';
 import { safelyDuplicateBlock, validatePath } from '@/utils/block-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { resetStoreState } from '@/utils/store-utils';
-import { getSavedBlockStatus } from '@/store/fetchers/api-helpers';
+import { getSavedBlockStatus, libraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-helpers';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
 import { AddBlockArguments } from '@/store/modules/project-view';
 
@@ -85,6 +86,7 @@ export enum EditBlockActions {
   duplicateBlock = 'duplicateBlock',
   deleteBlock = 'deleteBlock',
   deleteTransition = 'deleteTransition',
+  kickOffLibraryBuild = 'kickOffLibraryBuild',
   // Code Block specific
   saveCodeBlockToDatabase = 'saveCodeBlockToDatabase',
   saveInputData = 'saveInputData'
@@ -497,6 +499,29 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
 
       // Close this pane
       await context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.right, { root: true });
+    },
+    async [EditBlockActions.kickOffLibraryBuild](context) {
+      context.commit(EditBlockMutators.setLibrariesModalVisibility, false);
+
+      // Only perform this action if we are currently authenticated.
+      if (!context.rootState.user.authenticated) {
+        return;
+      }
+
+      if (context.state.selectedNode === null || context.state.selectedNode.type !== WorkflowStateType.LAMBDA) {
+        console.error("You don't have a node currently selected so I can't check the build status!");
+        return;
+      }
+
+      const codeBlock = context.state.selectedNode as LambdaWorkflowState;
+
+      const libraries = deepJSONCopy(codeBlock.libraries);
+      const params: libraryBuildArguments = {
+        language: codeBlock.language,
+        libraries: libraries
+      };
+
+      startLibraryBuild(params);
     }
   }
 };
