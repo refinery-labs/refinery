@@ -417,6 +417,24 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     }
   },
   actions: {
+    async [ProjectViewActions.setWarmupConcurrencyLevel](context, warmupConcurrencyLevel: number) {
+      if (context.state.openedProjectConfig === null) {
+        console.error("Can't set warmup concurrency level because no project is opened!");
+        return;
+      }
+
+      const newProjectConfig = Object.assign({}, context.state.openedProjectConfig, {
+        warmup_concurrency_level: warmupConcurrencyLevel
+      });
+
+      const params: OpenProjectMutation = {
+        project: null,
+        config: newProjectConfig,
+        markAsDirty: true
+      };
+
+      await context.dispatch(ProjectViewActions.updateProject, params);
+    },
     async [ProjectViewActions.setProjectConfigLoggingLevel](context, projectLoggingLevel: ProjectLogLevel) {
       context.commit(ProjectViewMutators.setProjectLogLevel, projectLoggingLevel);
 

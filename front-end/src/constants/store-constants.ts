@@ -82,7 +82,9 @@ export enum ProjectViewMutators {
   // Edit Transition Pane
   setValidEditTransitions = 'setValidEditTransitions',
   setEditingTransitionStatus = 'setEditingTransitionStatus',
-  setEditingTransitionType = 'setEditingTransitionType'
+  setEditingTransitionType = 'setEditingTransitionType',
+
+  setWarmupConcurrencyLevel = 'setWarmupConcurrencyLevel'
 }
 
 export enum ProjectViewActions {
@@ -126,7 +128,8 @@ export enum ProjectViewActions {
   saveProjectConfig = 'saveProjectConfig',
   checkBuildStatus = 'checkBuildStatus',
   startLibraryBuild = 'startLibraryBuild',
-  loadProjectConfig = 'loadProjectConfig'
+  loadProjectConfig = 'loadProjectConfig',
+  setWarmupConcurrencyLevel = 'setWarmupConcurrencyLevel'
 }
 
 export enum DeploymentViewGetters {
