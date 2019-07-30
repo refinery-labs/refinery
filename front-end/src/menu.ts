@@ -11,13 +11,15 @@ export const GlobalNavMenuItems: MenuItemList = [
     name: 'Home',
     path: baseLinks.home,
     icon: 'icon-home',
-    translate: 'global.nav.HOME'
+    translate: 'global.nav.HOME',
+    authenticated: true
   },
   {
     name: 'All Projects',
     path: baseLinks.projects,
     icon: 'icon-chemistry',
-    translate: 'global.nav.PROJECTS'
+    translate: 'global.nav.PROJECTS',
+    authenticated: true
   },
   /*  {
     name: 'Marketplace',
@@ -41,13 +43,23 @@ export const GlobalNavMenuItems: MenuItemList = [
     name: 'Billing',
     path: baseLinks.billing,
     icon: 'icon-wallet',
-    translate: 'global.nav.BILLINGx'
+    translate: 'global.nav.BILLING',
+    authenticated: true
+  },
+  {
+    name: 'Documentation',
+    path: baseLinks.documentation,
+    external: true,
+    icon: 'icon-book-open',
+    translate: 'global.nav.DOCUMENTATION',
+    authenticated: false
   },
   {
     name: 'Help',
     path: baseLinks.help,
     icon: 'icon-question',
-    translate: 'global.nav.HELP'
+    translate: 'global.nav.HELP',
+    authenticated: false
   }
 ];
 

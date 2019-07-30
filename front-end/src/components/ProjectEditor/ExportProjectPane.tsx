@@ -76,11 +76,11 @@ export default class ExportProjectPane extends Vue {
       <div class={formClasses}>
         <b-tabs nav-class="nav-justified" content-class="padding--none">
           <b-tab title="first" active>
-            <template slot="title">Share Project</template>
+            <template slot="title">By Link</template>
             {this.renderShareJson()}
           </b-tab>
           <b-tab>
-            <template slot="title">Share Project</template>
+            <template slot="title">By JSON</template>
             <div class="export-project-container__content overflow--scroll-y-auto flex-direction--column display--flex text-align--left">
               <div class="text-align--left run-lambda-container__text-label">
                 <label class="text-light padding--none mt-0 mb-0 ml-2">Exported Project JSON:</label>

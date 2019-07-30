@@ -19,6 +19,7 @@ export default class OpenedProjectGraphContainer extends Vue {
   @project.State cytoscapeConfig!: cytoscape.CytoscapeOptions | null;
 
   @project.State isLoadingProject!: boolean;
+  @project.State isInDemoMode!: boolean;
   @State windowWidth?: number;
 
   @project.Getter getValidBlockToBlockTransitions!: AvailableTransition[] | null;
@@ -65,7 +66,10 @@ export default class OpenedProjectGraphContainer extends Vue {
       <div class="opened-project-graph-container project-graph-container">
         <div class="opened-project-graph-container__project-name">
           <h4>
-            <i>{this.openedProject && this.openedProject.name}</i>
+            <i>
+              {this.isInDemoMode ? 'Importing: ' : ''}
+              {this.openedProject && this.openedProject.name}
+            </i>
           </h4>
         </div>
         <CytoscapeGraph props={graphProps} />

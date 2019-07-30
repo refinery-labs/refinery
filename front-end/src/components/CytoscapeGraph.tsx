@@ -336,7 +336,7 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
       animate,
       // animationEasing: 'cubic',
       spacingFactor: 1.15,
-      padding: 108,
+      padding: 100,
       // @ts-ignore
       edgeSep: 100,
       ...this.layout
@@ -351,6 +351,7 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
       autounselectify: true,
       minZoom: 0.5,
       maxZoom: 4,
+      wheelSensitivity: 0.8,
 
       style: [...Object.values(this.stylesheet), ...baseCytoscapeStyles],
 

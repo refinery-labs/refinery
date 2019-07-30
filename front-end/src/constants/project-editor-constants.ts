@@ -460,3 +460,5 @@ export const blockTypeToEditorComponentLookup: BlockTypeToEditorComponent = {
 };
 
 export const arnRegex = /^arn:aws:lambda:us-west-2:\d+:layer:[a-zA-Z0-9-]+:\d+$/;
+
+export const demoModeBlacklist = [SIDEBAR_PANE.saveProject, SIDEBAR_PANE.deployProject];

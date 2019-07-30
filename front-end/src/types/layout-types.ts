@@ -11,8 +11,10 @@ export type MenuItem = {
   translate?: string;
   label?: MenuItemLabel;
   path?: string;
+  external?: boolean;
   submenu?: MenuItem[];
   heading?: string;
+  authenticated?: boolean;
 };
 
 export interface NavbarItem {

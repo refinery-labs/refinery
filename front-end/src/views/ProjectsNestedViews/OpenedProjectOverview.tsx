@@ -18,6 +18,7 @@ const editTransition = namespace('project/editTransitionPane');
 export default class OpenedProjectOverview extends Vue {
   @project.State isLoadingProject!: boolean;
   @project.State isSavingProject!: boolean;
+  @project.State isInDemoMode!: boolean;
   @project.State activeLeftSidebarPane!: SIDEBAR_PANE | null;
   @project.State activeRightSidebarPane!: SIDEBAR_PANE | null;
 
@@ -123,7 +124,7 @@ export default class OpenedProjectOverview extends Vue {
       },
       paneTypeToEnabledCheckFunction: {
         [SIDEBAR_PANE.addTransition]: () => this.transitionAddButtonEnabled,
-        [SIDEBAR_PANE.saveProject]: () => this.canSaveProject,
+        [SIDEBAR_PANE.saveProject]: () => this.isInDemoMode || this.canSaveProject,
         [SIDEBAR_PANE.deployProject]: () => this.canDeployProject,
         [SIDEBAR_PANE.runEditorCodeBlock]: () => this.hasCodeBlockSelected
       },

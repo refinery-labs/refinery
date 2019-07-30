@@ -3,6 +3,7 @@ import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import StripeAddPaymentCard from '@/components/Common/StripeAddPaymentCard.vue';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
+import { Prop } from 'vue-property-decorator';
 
 const user = namespace('user');
 
@@ -38,6 +39,8 @@ export default class RegistrationPage extends Vue {
   @user.Action registerUser!: () => void;
   @user.Action redirectIfAuthenticated!: () => void;
   @user.Mutation cancelAutoRefreshJob!: () => void;
+
+  @Prop() inDemoMode?: boolean;
 
   onSubmit(evt: Event) {
     evt.preventDefault();
@@ -84,22 +87,34 @@ export default class RegistrationPage extends Vue {
     );
   }
 
+  renderCallToAction() {
+    return (
+      <h4 class="text-center py-2">
+        Thank you for checking out Refinery! Get started today and get the base fee waived for the first month. Pay only
+        for the compute you use. See the{' '}
+        <a href="https://www.refinery.io/pricing" target="_blank">
+          full pricing details here
+        </a>
+        .
+      </h4>
+    );
+  }
+
   public renderRegistrationFormContents() {
     const stripeCardProps = {
       setRegistrationStripeTokenValue: this.setStripeToken
     };
+
+    const callToAction = this.renderCallToAction();
 
     const invalidEmailAddressMessage = 'Your must register with a valid email address.';
     const emailInputErrorMessage = this.registrationEmailErrorMessage || invalidEmailAddressMessage;
 
     return (
       <div>
-        <p class="text-center py-2">Register below to start building on Refinery!</p>
+        {callToAction}
         <b-form on={{ submit: this.onSubmit, reset: this.onReset }} class="mb-3 text-align--left">
-          <b-form-group
-            id="user-email-group"
-            description="You must provide a valid email address in order to log in to your account. No password required!"
-          >
+          <b-form-group id="user-email-group">
             <label class="text-muted d-block" htmlFor="user-email-input">
               Email address:
             </label>
@@ -122,14 +137,14 @@ export default class RegistrationPage extends Vue {
                 </span>
               </div>
             </div>
+            <label class="form-text text-muted">
+              You must provide a valid email address in order to log in to your account. No password required!
+            </label>
             <b-form-invalid-feedback state={this.registrationEmailInputValid}>
               {emailInputErrorMessage}
             </b-form-invalid-feedback>
           </b-form-group>
-          <b-form-group
-            id="user-name-group"
-            description="Please use the same name as the one that appears on your credit card."
-          >
+          <b-form-group id="user-name-group">
             <label class="text-muted d-block" htmlFor="user-name-input" id="user-name-group">
               Full Name:
             </label>
@@ -144,7 +159,6 @@ export default class RegistrationPage extends Vue {
                 required
                 placeholder="John Doe"
                 state={this.registrationNameInputValid}
-                autofocus={true}
               />
               <div class="input-group-append">
                 <span class="input-group-text text-muted bg-transparent border-left-0">
@@ -152,14 +166,14 @@ export default class RegistrationPage extends Vue {
                 </span>
               </div>
             </div>
+            <label class="form-text text-muted">
+              Please use the same name as the one that appears on your credit card.
+            </label>
             <b-form-invalid-feedback state={this.registrationNameInputValid}>
               Your name must contain First + Last name and not contain numbers.
             </b-form-invalid-feedback>
           </b-form-group>
-          <b-form-group
-            id="user-phone-group"
-            description="Please provide a real phone number. This helps us prevent abuse of our service and helps us improve our customer experience."
-          >
+          <b-form-group id="user-phone-group">
             <label class="text-muted d-block" htmlFor="user-phone-input" id="user-phone-group">
               Phone Number:
             </label>
@@ -173,7 +187,6 @@ export default class RegistrationPage extends Vue {
                 placeholder="+1 (555) 555-5555"
                 required
                 state={this.registrationPhoneInputValid}
-                autofocus={true}
               />
               <div class="input-group-append">
                 <span class="input-group-text text-muted bg-transparent border-left-0">
@@ -181,14 +194,15 @@ export default class RegistrationPage extends Vue {
                 </span>
               </div>
             </div>
+            <label class="form-text text-muted">
+              Please provide a real phone number. This helps us prevent abuse of our service and helps us improve our
+              customer experience.
+            </label>
             <b-form-invalid-feedback state={this.registrationPhoneInputValid}>
               You must provide a valid phone number.
             </b-form-invalid-feedback>
           </b-form-group>
-          <b-form-group
-            id="org-name-group"
-            description="If you are not part of an organization, you can just leave this blank."
-          >
+          <b-form-group id="org-name-group">
             <label class="text-muted d-block" htmlFor="org-name-input" id="org-name-group">
               Organization Name (optional):
             </label>
@@ -201,7 +215,6 @@ export default class RegistrationPage extends Vue {
                 type="text"
                 placeholder="Startup Company Inc."
                 state={this.registrationOrgNameInputValid}
-                autofocus={true}
               />
               <div class="input-group-append">
                 <span class="input-group-text text-muted bg-transparent border-left-0">
@@ -209,6 +222,9 @@ export default class RegistrationPage extends Vue {
                 </span>
               </div>
             </div>
+            <label class="form-text text-muted">
+              If you are not part of an organization, you can just leave this blank.
+            </label>
             <b-form-invalid-feedback state={this.registrationOrgNameInputValid}>
               Your must provide a valid Organization name.
             </b-form-invalid-feedback>
@@ -222,13 +238,15 @@ export default class RegistrationPage extends Vue {
             <StripeAddPaymentCard props={stripeCardProps} />
             <br />
             {/*TODO: Replace Pricing page with actual link.*/}
-            <small class="text-muted d-block">
+            <label class="text-muted d-block">
+              Monthly base fee of $5 (first month free) plus service usage (code block executions, log storage, etc).
+              <br />
               For more information about our pricing, see our{' '}
-              <a href="#" target="_blank">
+              <a href="https://www.refinery.io/pricing" target="_blank">
                 Pricing page
               </a>
               .
-            </small>
+            </label>
           </b-form-group>
           <b-form-group id="terms-agree-group" class="text-align--left">
             <b-form-checkbox
@@ -240,7 +258,7 @@ export default class RegistrationPage extends Vue {
               checked={this.termsAndConditionsAgreed}
             >
               I have read and agree with the
-              <a class="ml-1" href="#">
+              <a class="ml-1" href="/terms-of-service" target="_blank">
                 terms and conditions
               </a>
               .
@@ -261,18 +279,28 @@ export default class RegistrationPage extends Vue {
           </b-form-valid-feedback>
         </b-form>
         <p class="pt-3 text-center">Already have an account?</p>
-        <router-link class="btn btn-block btn-secondary" to="/login">
+        <a class="btn btn-block btn-secondary" href="/login" target="_blank">
           Login
-        </router-link>
+        </a>
       </div>
     );
   }
 
   public renderRegistrationForm() {
     const classes = {
-      'block-center mt-4 wd-xl': true,
+      'block-center': true,
       'whirl standard': this.isBusy
     };
+
+    const header = (
+      <a slot="header" class="mb-0 text-center" href="/">
+        <img
+          class="block-center rounded logo-fit"
+          src={require('../../../public/img/logo.png')}
+          alt="The World's First Drag-and-Drop Serverless IDE!"
+        />
+      </a>
+    );
 
     const contents = this.autoRefreshJobRunning
       ? this.renderAwaitingEmailContents()
@@ -282,23 +310,31 @@ export default class RegistrationPage extends Vue {
     return (
       <div class={classes}>
         <b-card border-variant="dark" header-bg-variant="dark">
-          <a slot="header" class="mb-0 text-center" href="/">
-            <img
-              class="block-center rounded logo-fit"
-              src={require('../../../public/img/logo.png')}
-              alt="The World's First Drag-and-Drop Serverless IDE!"
-            />
-          </a>
+          {!this.inDemoMode && header}
           {contents}
         </b-card>
-        <div class="p-3 text-center">
-          <span>&copy; 2019 - Refinery Labs, Inc.</span>
-        </div>
       </div>
     );
   }
 
   public render(h: CreateElement): VNode {
-    return <div class="register-page">{this.renderRegistrationForm()}</div>;
+    const classes = {
+      'register-page': true,
+      'block-center mt-4 wd-xl': !this.inDemoMode,
+      'mt-2': this.inDemoMode
+    };
+
+    const footer = (
+      <div class="p-3 text-center">
+        <span>&copy; 2019 - Refinery Labs, Inc.</span>
+      </div>
+    );
+
+    return (
+      <div class={classes}>
+        {this.renderRegistrationForm()}
+        {!this.inDemoMode && footer}
+      </div>
+    );
   }
 }

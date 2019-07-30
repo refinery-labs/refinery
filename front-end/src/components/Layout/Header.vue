@@ -68,7 +68,7 @@
             <span class="hide-on-mobile"> Live Chat</span>
           </a>
         </li>
-        <li class="nav-item">
+        <li class="nav-item" v-if="authenticated">
           <a href="" class="nav-link" to="View Console Credentials" v-on:click="showAWSConsoleCredentialModal">
             <em class="fab fa-aws"></em><span class="hide-on-mobile"> View Console Credentials</span>
           </a>
@@ -150,8 +150,10 @@ import Component from 'vue-class-component';
 import Vue from 'vue';
 import HeaderSearch from '@/components/Layout/HeaderSearch.vue';
 import ToggleFullscreen from '@/components/Common/ToggleFullscreen.vue';
-import { Action, Mutation } from 'vuex-class';
+import { Action, Mutation, namespace } from 'vuex-class';
 import { UserInterfaceSettings } from '@/store/store-types';
+
+const user = namespace('user');
 
 @Component({
   components: {
@@ -160,6 +162,7 @@ import { UserInterfaceSettings } from '@/store/store-types';
   }
 })
 export default class Header extends Vue {
+  @user.State authenticated!: boolean;
   @Mutation toggleSetting!: (s: string) => void;
   @Action setIsAWSConsoleCredentialModalVisibleValue!: (s: boolean) => void;
 

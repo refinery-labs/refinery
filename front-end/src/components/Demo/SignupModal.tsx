@@ -17,17 +17,10 @@ export default class SignupModal extends Vue implements SignupModalProps {
   @Prop({ required: true }) showModal!: boolean;
   @Prop({ required: true }) closeModal!: () => void;
 
-  mounted() {
-    const okay = UnauthViewProjectStoreModule.showSignupModal;
-    console.log(okay);
-  }
-
   renderContents() {
     return (
-      <div class="signup-modal-container">
-        <p>You must signup for Refinery to complete this action!</p>
-
-        <RegistrationPage />
+      <div class="signup-modal-container mt-0">
+        <RegistrationPage props={{ inDemoMode: true }} />
       </div>
     );
   }
@@ -40,10 +33,10 @@ export default class SignupModal extends Vue implements SignupModalProps {
     return (
       <b-modal
         on={modalOnHandlers}
-        size="xl max-width--600px"
+        size=" mt-2 no-modal-body-padding"
         hide-footer={true}
         no-close-on-esc={true}
-        title="Account Required"
+        title="Signup for Refinery to complete this action"
         visible={this.showModal}
       >
         {this.renderContents()}

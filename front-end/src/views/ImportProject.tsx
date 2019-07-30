@@ -1,28 +1,34 @@
 import Vue, { VNode } from 'vue';
-import Component from 'vue-class-component';
+import Component, { mixins } from 'vue-class-component';
 import { namespace, State } from 'vuex-class';
 import ImportableRefineryProject from '@/types/export-project';
 import { Route } from 'vue-router';
 import store from '@/store';
-import { ProjectViewActions } from '@/constants/store-constants';
+import { DeploymentViewMutators, ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
 import OpenedProjectOverview from '@/views/ProjectsNestedViews/OpenedProjectOverview';
 import { UnauthViewProjectStoreModule } from '@/store/modules/unauth-view-project';
 import SignupModal, { SignupModalProps } from '@/components/Demo/SignupModal';
+import CreateToastMixin from '@/mixins/CreateToastMixin';
 
 const allProjects = namespace('allProjects');
+const project = namespace('project');
 
 @Component
-export default class ImportProject extends Vue {
+export default class ImportProject extends mixins(CreateToastMixin) {
   @allProjects.State importProjectFromUrlContent!: string | null;
   @allProjects.State importProjectFromUrlError!: string | null;
   @allProjects.State importProjectBusy!: boolean;
 
+  @project.State selectedResourceDirty!: boolean;
+
   @allProjects.Getter importProjectFromUrlValid!: boolean;
   @allProjects.Getter importProjectFromUrlJson!: ImportableRefineryProject | null;
 
+  @project.Getter canSaveProject!: boolean;
+
   @allProjects.Mutation setImportProjectFromUrlContent!: (val: string) => void;
 
-  @allProjects.Action importProjectByUrlHash!: () => void;
+  @allProjects.Action importProjectFromDemo!: () => void;
 
   @State windowWidth?: number;
 
@@ -31,6 +37,17 @@ export default class ImportProject extends Vue {
     await store.dispatch(`project/${ProjectViewActions.openDemo}`);
 
     next();
+  }
+
+  public beforeRouteLeave(to: Route, from: Route, next: () => void) {
+    if (this.canSaveProject || this.selectedResourceDirty) {
+      this.displayErrorToast('Unable to Navigate', 'Please save the current project or resource before continuing.');
+      return;
+    }
+
+    next();
+    store.commit(`project/${ProjectViewMutators.resetState}`);
+    store.commit(`deployment/${DeploymentViewMutators.resetState}`);
   }
 
   renderUnauthGraph() {

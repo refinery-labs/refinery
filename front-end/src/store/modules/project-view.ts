@@ -54,7 +54,12 @@ import {
   unwrapJson,
   wrapJson
 } from '@/utils/project-helpers';
-import { availableTransitions, blockTypeToImageLookup, savedBlockType } from '@/constants/project-editor-constants';
+import {
+  availableTransitions,
+  blockTypeToImageLookup,
+  demoModeBlacklist,
+  savedBlockType
+} from '@/constants/project-editor-constants';
 import EditBlockPaneModule, { EditBlockActions, EditBlockGetters } from '@/store/modules/panes/edit-block-pane';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
@@ -66,7 +71,7 @@ import { CyElements, CyStyle } from '@/types/cytoscape-types';
 import { createNewBlock, createNewTransition } from '@/utils/block-utils';
 import { saveEditBlockToProject, signupDemoUser } from '@/utils/store-utils';
 import ImportableRefineryProject from '@/types/export-project';
-import { AllProjectsGetters } from '@/store/modules/all-projects';
+import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
 import { UnauthViewProjectStoreModule } from '@/store/modules/unauth-view-project';
 
 export interface AddBlockArguments {
@@ -252,10 +257,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       // If the block is dirty, we will save it + then save the project.
       if (getters[ProjectViewGetters.selectedTransitionDirty]) {
-        return true;
-      }
-
-      if (state.isInDemoMode) {
         return true;
       }
 
@@ -457,6 +458,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
+      context.commit(ProjectViewMutators.resetState);
       context.commit(ProjectViewMutators.isLoadingProject, true);
 
       const project = await openProject(request);
@@ -489,6 +491,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
+      context.commit(ProjectViewMutators.resetState);
       context.commit(ProjectViewMutators.setDemoMode, true);
 
       const params: OpenProjectMutation = {
@@ -587,12 +590,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       });
     },
     async [ProjectViewActions.saveProject](context) {
-      if (context.state.isInDemoMode) {
-        // TODO: Display Demo Mode signup modal
-        const signupResult = await signupDemoUser();
-        return;
-      }
-
       const handleSaveError = async (message: string) => {
         context.commit(ProjectViewMutators.isSavingProject, false);
         console.error(message);
@@ -617,6 +614,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // TODO: Implement this for transitions too
       if (context.getters[ProjectViewGetters.selectedBlockDirty]) {
         await context.dispatch(`project/editBlockPane/${EditBlockActions.saveBlock}`, null, { root: true });
+      }
+
+      // Skip everything else because we're in demo mode.
+      if (context.state.isInDemoMode) {
+        return;
       }
 
       context.commit(ProjectViewMutators.isSavingProject, true);
@@ -1041,6 +1043,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
+      if (context.state.isInDemoMode && demoModeBlacklist.includes(leftSidebarPaneType)) {
+        await context.dispatch(`unauthViewProject/promptDemoModeSignup`, true, { root: true });
+        return;
+      }
+
       // Special case because Mandatory and I agreed that having a pane pop out is annoying af
       if (leftSidebarPaneType === SIDEBAR_PANE.saveProject) {
         await context.dispatch(ProjectViewActions.saveProject);
@@ -1073,9 +1080,15 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       console.error('Attempted to close unknown pane', pos);
     },
+    // TODO: De-duplicate this logic across panes... It is nasty.
     async [ProjectViewActions.openRightSidebarPane](context, paneType: SIDEBAR_PANE) {
       if (context.state.isAddingTransitionCurrently) {
         // TODO: Add a shake or something? Tell the user that it's bjorked.
+        return;
+      }
+
+      if (context.state.isInDemoMode && demoModeBlacklist.includes(paneType)) {
+        await context.dispatch(`unauthViewProject/promptDemoModeSignup`, true, { root: true });
         return;
       }
 

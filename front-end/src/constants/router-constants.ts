@@ -6,6 +6,7 @@ export const baseLinks = {
   projects: '/projects',
   blockRepository: '/block-repository',
   billing: '/billing',
+  documentation: 'https://docs.refinery.io/',
   help: '/help',
   admin: '/admin'
 };

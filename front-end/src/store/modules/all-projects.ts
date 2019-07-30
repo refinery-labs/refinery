@@ -13,7 +13,7 @@ import {
 } from '@/types/api-types';
 import { createNewProjectFromConfig } from '@/utils/new-project-utils';
 import { readFileAsText } from '@/utils/dom-utils';
-import { unwrapJson } from '@/utils/project-helpers';
+import { unwrapJson, wrapJson } from '@/utils/project-helpers';
 import validate from '../../types/export-project.validator';
 import ImportableRefineryProject from '@/types/export-project';
 
@@ -68,7 +68,7 @@ export enum AllProjectsActions {
   uploadProject = 'uploadProject',
   getUploadFileContents = 'getUploadFileContents',
   importProject = 'importProject',
-  importProjectByUrlHash = 'importProjectByUrlHash',
+  importProjectFromDemo = 'importProjectFromDemo',
   startDeleteProject = 'startDeleteProject',
   deleteProject = 'deleteProject'
 }
@@ -231,12 +231,18 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
         context.commit(AllProjectsMutators.setImportProjectInput, null);
       }
     },
-    async [AllProjectsActions.importProjectByUrlHash](context) {
-      const projectContents = context.state.importProjectFromUrlContent;
+    async [AllProjectsActions.importProjectFromDemo](context) {
+      const projectContents = context.rootState.project.openedProject;
 
       if (!projectContents) {
         context.commit(AllProjectsMutators.setImportProjectFromUrlError);
         return;
+      }
+
+      const projectJson = wrapJson(projectContents);
+
+      if (!projectJson) {
+        throw new Error('Unable to serialize project for import');
       }
 
       await createNewProjectFromConfig({
@@ -244,7 +250,7 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
         setError: (message: string | null) => context.commit(AllProjectsMutators.setImportProjectFromUrlError, message),
         unknownError: 'Error importing project!',
         navigateToNewProject: true,
-        json: projectContents
+        json: projectJson
       });
 
       // Reset if we didn't hit any errors

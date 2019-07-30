@@ -2,13 +2,17 @@ import Vue from 'vue';
 import { Component, Watch } from 'vue-property-decorator';
 import { Route } from 'vue-router';
 import { UserInterfaceSettings, UserInterfaceState } from '@/store/store-types';
-import { Action, Getter, Mutation } from 'vuex-class';
+import { Action, Getter, Mutation, namespace } from 'vuex-class';
 import { MenuItem, MenuItemList } from '@/types/layout-types';
 import { GlobalNavMenuItems } from '@/menu';
+
+const user = namespace('user');
 
 @Component
 export default class GlobalNavSidebar extends Vue {
   private collapse!: { [key: string]: boolean };
+
+  @user.State authenticated!: boolean;
 
   @Mutation toggleSettingOn!: (name: UserInterfaceSettings) => {};
   @Mutation toggleSettingOff!: (name: UserInterfaceSettings) => {};
@@ -127,11 +131,13 @@ export default class GlobalNavSidebar extends Vue {
       );
     }
 
+    const isDisabledDueToAuth = item.authenticated && item.authenticated !== this.authenticated;
+
     // Plain menu item
     if (!item.heading && !item.submenu) {
       return (
         <router-link to={item.path} active-class="active" tag="li" exact={item.path && item.path.length === 1}>
-          <a title={item.name}>
+          <a title={item.name} class={{ disabled: isDisabledDueToAuth }}>
             <span class={`float-right badge badge-${(item.label && item.label.color) || 'default'}`}>{item.label}</span>
             <em class={item.icon} />
             <span>{item.name}</span>
