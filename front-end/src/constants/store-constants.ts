@@ -87,7 +87,9 @@ export enum ProjectViewMutators {
   // Edit Transition Pane
   setValidEditTransitions = 'setValidEditTransitions',
   setEditingTransitionStatus = 'setEditingTransitionStatus',
-  setEditingTransitionType = 'setEditingTransitionType'
+  setEditingTransitionType = 'setEditingTransitionType',
+
+  setWarmupConcurrencyLevel = 'setWarmupConcurrencyLevel'
 }
 
 export enum ProjectViewActions {
@@ -134,9 +136,9 @@ export enum ProjectViewActions {
   checkBuildStatus = 'checkBuildStatus',
   startLibraryBuild = 'startLibraryBuild',
   loadProjectConfig = 'loadProjectConfig',
-
   // Share Project
-  generateShareUrl = 'generateShareUrl'
+  generateShareUrl = 'generateShareUrl',
+  setWarmupConcurrencyLevel = 'setWarmupConcurrencyLevel'
 }
 
 export enum DeploymentViewGetters {

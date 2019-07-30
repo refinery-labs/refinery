@@ -283,7 +283,9 @@ export const DEFAULT_PROJECT_CONFIG = {
 
   logging: {
     level: 'LOG_ALL'
-  }
+  },
+
+  warmup_concurrency_level: 0
 };
 
 export type DefaultCodeFromLanguage = { [key in SupportedLanguage]: string };

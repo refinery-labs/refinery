@@ -6,6 +6,7 @@ import { DeploymentException, GetLatestProjectDeploymentResponse } from '@/types
 import { DeployProjectResult } from '@/types/project-editor-types';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { EditorProps } from '@/types/component-types';
+import { ProjectConfig } from '@/types/graph';
 
 const project = namespace('project');
 const deployment = namespace('deployment');
@@ -16,9 +17,11 @@ export default class DeployProjectPane extends Vue {
   @project.State latestDeploymentState!: GetLatestProjectDeploymentResponse | null;
   @project.State deploymentError!: DeployProjectResult;
   @project.State hasProjectBeenModified!: boolean;
+  @project.State openedProjectConfig!: ProjectConfig | null;
 
   @project.Action deployProject!: () => void;
   @project.Action resetDeploymentPane!: () => void;
+  @project.Action setWarmupConcurrencyLevel!: () => void;
 
   @deployment.Action openViewExecutionsPane!: () => void;
 
@@ -48,9 +51,7 @@ Exception: ${error.exception}
       return null;
     }
 
-    const deployButtonMessage = this.hasProjectBeenModified
-      ? 'You must save changes to project before you may deploy.'
-      : 'Click to begin the deployment process';
+    const deployButtonMessage = 'Click to begin the deployment process';
 
     return (
       <div>
@@ -59,6 +60,13 @@ Exception: ${error.exception}
         </b-tooltip>
       </div>
     );
+  }
+
+  private getWarmupConcurrencyLevel() {
+    if (!this.openedProjectConfig || !this.openedProjectConfig.warmup_concurrency_level) {
+      return 0;
+    }
+    return this.openedProjectConfig.warmup_concurrency_level;
   }
 
   public renderDeploymentDetails() {
@@ -86,7 +94,11 @@ Exception: ${error.exception}
     }
 
     if (!this.latestDeploymentState.result) {
-      return <h3 style="max-width: 300px">This will create a new deploy for the project.</h3>;
+      return (
+        <div>
+          <h3 style="max-width: 300px">This will create a new deploy for the project.</h3>
+        </div>
+      );
     }
 
     const displayTime = moment(this.latestDeploymentState.result.timestamp * 1000).format('LLLL');
@@ -113,6 +125,30 @@ Exception: ${error.exception}
       <div class={loadingClasses}>
         <b-form class="mb-2 mt-2 text-align--left deploy-pane-container" on={{ submit: this.deployProjectClicked }}>
           <div class="deploy-pane-container__content overflow--scroll-y-auto">{this.renderDeploymentDetails()}</div>
+
+          <hr />
+          <b-form-group
+            style="max-width: 450px"
+            description="Auto-warming will automatically invoke your Code Blocks every five minutes in order to keep them 'warm' for future invocations. This has the benefit of faster run times with the trade-off of extra cost for the warmup invocations."
+          >
+            <label class="d-block">Auto-Warm Deployed Code Blocks</label>
+            <div class="input-group with-focus">
+              <b-form-select value={this.getWarmupConcurrencyLevel()} on={{ change: this.setWarmupConcurrencyLevel }}>
+                <option value={0}>No Auto-Warming</option>
+                <option value={1}>Auto-Warming</option>
+                <option value={2}>2x Concurrency Auto-Warming</option>
+                <option value={3}>3x Concurrency Auto-Warming</option>
+                <option value={4}>4x Concurrency Auto-Warming</option>
+                <option value={5}>5x Concurrency Auto-Warming</option>
+                <option value={6}>6x Concurrency Auto-Warming</option>
+                <option value={7}>7x Concurrency Auto-Warming</option>
+                <option value={8}>8x Concurrency Auto-Warming</option>
+                <option value={9}>9x Concurrency Auto-Warming</option>
+                <option value={10}>10x Concurrency Auto-Warming</option>
+              </b-form-select>
+            </div>
+          </b-form-group>
+
           <div class="row mt-2">
             <b-button-group class="col-12">
               <b-button
@@ -128,7 +164,7 @@ Exception: ${error.exception}
                 class="col-6"
                 type="submit"
                 ref="confirmDeployButton"
-                disabled={this.isDeployingProject || this.hasProjectBeenModified}
+                disabled={this.isDeployingProject}
               >
                 {this.deploymentError ? 'Retry' : 'Confirm'} Deploy
               </b-button>
