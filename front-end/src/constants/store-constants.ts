@@ -20,7 +20,8 @@ export enum AllProjectsMutators {
   setImportProjectBusy = 'setImportProjectBusy',
 
   setImportProjectFromUrlContent = 'setImportProjectFromUrlContent',
-  setImportProjectFromUrlError = 'setImportProjectFromUrlError'
+  setImportProjectFromUrlError = 'setImportProjectFromUrlError',
+  setImportProjectFromUrlBusy = 'setImportProjectFromUrlBusy'
 }
 
 export enum ProjectViewGetters {
@@ -49,6 +50,8 @@ export enum ProjectViewMutators {
   setOpenedProjectConfigOriginal = 'setOpenedProjectConfigOriginal',
 
   setDemoMode = 'setDemoMode',
+  setIsCreatingShortlink = 'setIsCreatingShortlink',
+  setShortlinkUrl = 'setShortlinkUrl',
 
   selectedResource = 'selectedResource',
   isLoadingProject = 'isLoadingProject',
@@ -130,7 +133,10 @@ export enum ProjectViewActions {
   saveProjectConfig = 'saveProjectConfig',
   checkBuildStatus = 'checkBuildStatus',
   startLibraryBuild = 'startLibraryBuild',
-  loadProjectConfig = 'loadProjectConfig'
+  loadProjectConfig = 'loadProjectConfig',
+
+  // Share Project
+  generateShareUrl = 'generateShareUrl'
 }
 
 export enum DeploymentViewGetters {

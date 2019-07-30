@@ -89,14 +89,19 @@ export default class RegistrationPage extends Vue {
 
   renderCallToAction() {
     return (
-      <h4 class="text-center py-2">
-        Thank you for checking out Refinery! Get started today and get the base fee waived for the first month. Pay only
-        for the compute you use. See the{' '}
-        <a href="https://www.refinery.io/pricing" target="_blank">
-          full pricing details here
-        </a>
-        .
-      </h4>
+      <div>
+        <h3 class="text-center py-2">Thank you for checking out Refinery!</h3>
+        <h4 class="font-weight-normal">
+          Get started today and have the base fee waived for the first month. You pay only for the compute you use.
+        </h4>
+        <h4 class="font-weight-normal">
+          For more information, review our{' '}
+          <a href="https://www.refinery.io/pricing" target="_blank">
+            full pricing details here
+          </a>
+          .
+        </h4>
+      </div>
     );
   }
 

@@ -15,6 +15,7 @@ import {
   GetProjectExecutionLogsPageResult,
   GetProjectExecutionResult
 } from '@/types/execution-logs-types';
+import ImportableRefineryProject from '@/types/export-project';
 
 export interface BaseApiResponse {
   success: boolean;
@@ -658,4 +659,28 @@ export interface SavedBlockStatusCheckResult {
   share_status: SharedBlockPublishStatus;
   version: number;
   timestamp: number;
+}
+
+// CreateProjectShortlink
+export interface CreateProjectShortlinkRequest extends BaseApiRequest {
+  diagram_data: ImportableRefineryProject;
+}
+
+export interface CreateProjectShortlinkResponse extends BaseApiResponse {
+  result: {
+    msg: string;
+    project_short_link_id: string;
+  };
+}
+
+// GetProjectShortlink
+export interface GetProjectShortlinkRequest extends BaseApiRequest {
+  project_short_link_id: string;
+}
+
+export interface GetProjectShortlinkResponse extends BaseApiResponse {
+  result: {
+    project_short_link_id: string;
+    diagram_data: ImportableRefineryProject;
+  };
 }

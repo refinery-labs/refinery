@@ -135,6 +135,8 @@ export interface ProjectViewState {
   openedProjectConfigOriginal: ProjectConfig | null;
 
   isInDemoMode: boolean;
+  isCreatingShortlink: boolean;
+  shortlinkUrl: string | null;
 
   isLoadingProject: boolean;
   isProjectBusy: boolean;
@@ -220,6 +222,7 @@ export interface AllProjectsState {
 
   importProjectFromUrlContent: string | null;
   importProjectFromUrlError: string | null;
+  importProjectFromUrlBusy: boolean;
 }
 
 export interface DeploymentViewState {

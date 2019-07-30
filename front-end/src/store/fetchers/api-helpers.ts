@@ -1,6 +1,8 @@
 import moment from 'moment';
 import * as R from 'ramda';
 import {
+  CreateProjectShortlinkRequest,
+  CreateProjectShortlinkResponse,
   DeleteDeploymentsInProjectRequest,
   DeleteDeploymentsInProjectResponse,
   DeployDiagramRequest,
@@ -19,6 +21,8 @@ import {
   GetProjectExecutionLogsResponse,
   GetProjectExecutionsRequest,
   GetProjectExecutionsResponse,
+  GetProjectShortlinkRequest,
+  GetProjectShortlinkResponse,
   GetSavedProjectRequest,
   GetSavedProjectResponse,
   InfraTearDownRequest,
@@ -51,6 +55,7 @@ import { ExecutionLogMetadata } from '@/types/execution-logs-types';
 import { DeployProjectParams, DeployProjectResult } from '@/types/project-editor-types';
 import { CURRENT_TRANSITION_SCHEMA } from '@/constants/graph-constants';
 import { timeout } from '@/utils/async-utils';
+import ImportableRefineryProject from '@/types/export-project';
 
 export interface libraryBuildArguments {
   language: SupportedLanguage;
@@ -434,4 +439,38 @@ export async function deployProject({ project, projectConfig }: DeployProjectPar
   }
 
   return null;
+}
+
+export async function createShortlink(diagramData: ImportableRefineryProject): Promise<string> {
+  if (!diagramData) {
+    throw new Error('Missing data to send to create shortlink.');
+  }
+
+  const response = await makeApiRequest<CreateProjectShortlinkRequest, CreateProjectShortlinkResponse>(
+    API_ENDPOINT.CreateProjectShortlink,
+    {
+      diagram_data: diagramData
+    }
+  );
+
+  if (!response || !response.success) {
+    throw new Error('Unable to create new deployment.');
+  }
+
+  return response.result.project_short_link_id;
+}
+
+export async function getShortlinkContents(shortlinkUrl: string): Promise<ImportableRefineryProject | null> {
+  const response = await makeApiRequest<GetProjectShortlinkRequest, GetProjectShortlinkResponse>(
+    API_ENDPOINT.GetProjectShortlink,
+    {
+      project_short_link_id: shortlinkUrl
+    }
+  );
+
+  if (!response || !response.success) {
+    return null;
+  }
+
+  return response.result.diagram_data;
 }

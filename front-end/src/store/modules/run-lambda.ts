@@ -295,6 +295,11 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       context.commit(RunLambdaMutators.setDevLambdaRunResultId, request.block_id);
     },
     async [RunLambdaActions.runLambdaCode](context, config: RunCodeBlockLambdaConfig) {
+      if (context.rootState.project.isInDemoMode) {
+        await context.dispatch(`unauthViewProject/promptDemoModeSignup`, true, { root: true });
+        return;
+      }
+
       function getLoadingText(isBuildCached: boolean) {
         if (isBuildCached) {
           return 'Running Code Block...';

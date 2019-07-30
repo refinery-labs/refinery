@@ -16,18 +16,7 @@ import { readFileAsText } from '@/utils/dom-utils';
 import { unwrapJson, wrapJson } from '@/utils/project-helpers';
 import validate from '../../types/export-project.validator';
 import ImportableRefineryProject from '@/types/export-project';
-
-let importProjectHashContent = null;
-
-const rawHash = window.location.hash;
-if (rawHash && rawHash.length > 0) {
-  const compressedData = window.location.hash.slice(1);
-  try {
-    importProjectHashContent = LZString.decompressFromEncodedURIComponent(compressedData);
-  } catch (e) {
-    console.error('Invalid project hash data', e);
-  }
-}
+import { getShortlinkContents } from '@/store/fetchers/api-helpers';
 
 const moduleState: AllProjectsState = {
   availableProjects: [],
@@ -50,8 +39,9 @@ const moduleState: AllProjectsState = {
   importProjectErrorMessage: null,
   importProjectBusy: false,
 
-  importProjectFromUrlContent: importProjectHashContent,
-  importProjectFromUrlError: null
+  importProjectFromUrlContent: null,
+  importProjectFromUrlError: null,
+  importProjectFromUrlBusy: false
 };
 
 export enum AllProjectsGetters {
@@ -69,6 +59,7 @@ export enum AllProjectsActions {
   getUploadFileContents = 'getUploadFileContents',
   importProject = 'importProject',
   importProjectFromDemo = 'importProjectFromDemo',
+  openProjectShareLink = 'openProjectShareLink',
   startDeleteProject = 'startDeleteProject',
   deleteProject = 'deleteProject'
 }
@@ -83,20 +74,23 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
     [AllProjectsGetters.importProjectInputValid]: state =>
       state.importProjectInput !== '' && unwrapJson(state.importProjectInput) !== null,
     [AllProjectsGetters.importProjectFromUrlValid]: state => {
+      if (state.importProjectFromUrlBusy) {
+        return true;
+      }
+
       if (!state.importProjectFromUrlContent) {
         return false;
       }
 
       try {
-        validate(JSON.parse(state.importProjectFromUrlContent));
+        validate(state.importProjectFromUrlContent);
         return true;
       } catch (e) {
         console.error('Invalid JSON schema detected:', e);
         return false;
       }
     },
-    [AllProjectsGetters.importProjectFromUrlJson]: state =>
-      unwrapJson<ImportableRefineryProject>(state.importProjectFromUrlContent)
+    [AllProjectsGetters.importProjectFromUrlJson]: state => state.importProjectFromUrlContent
   },
   mutations: {
     [AllProjectsMutators.setSearchingStatus](state, isSearching) {
@@ -154,6 +148,9 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
     },
     [AllProjectsMutators.setImportProjectFromUrlError](state, error) {
       state.importProjectFromUrlError = error;
+    },
+    [AllProjectsMutators.setImportProjectFromUrlBusy](state, val) {
+      state.importProjectFromUrlBusy = val;
     }
   },
   actions: {
@@ -257,6 +254,45 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
       if (!context.state.importProjectFromUrlError) {
         context.commit(AllProjectsMutators.setImportProjectFromUrlError, null);
       }
+    },
+    async [AllProjectsActions.openProjectShareLink](context) {
+      const urlParams = new URLSearchParams(document.location.search);
+
+      const shortlink = urlParams.get('q');
+      if (shortlink) {
+        context.commit(AllProjectsMutators.setImportProjectFromUrlBusy, true);
+
+        const response = await getShortlinkContents(shortlink);
+
+        context.commit(AllProjectsMutators.setImportProjectFromUrlBusy, false);
+
+        if (!response) {
+          context.commit(AllProjectsMutators.setImportProjectFromUrlError, 'Invalid project shortlink');
+          return;
+        }
+
+        context.commit(AllProjectsMutators.setImportProjectFromUrlContent, response);
+
+        return;
+      }
+
+      const rawHash = window.location.hash;
+      if (rawHash && rawHash.length > 0) {
+        const compressedData = window.location.hash.slice(1);
+        try {
+          const importProjectHashContent = LZString.decompressFromEncodedURIComponent(compressedData);
+
+          const parsed = unwrapJson<ImportableRefineryProject>(importProjectHashContent);
+
+          context.commit(AllProjectsMutators.setImportProjectFromUrlContent, parsed);
+        } catch (e) {
+          context.commit(AllProjectsMutators.setImportProjectFromUrlError, 'Invalid project data');
+          console.error('Invalid project hash data', e);
+        }
+        return;
+      }
+
+      context.commit(AllProjectsMutators.setImportProjectFromUrlError, 'Missing project data');
     },
     async [AllProjectsActions.getUploadFileContents](context, e: Event) {
       try {

@@ -4,7 +4,8 @@ import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import { RefineryProject, SupportedLanguage } from '@/types/graph';
 import { PANE_POSITION } from '@/types/project-editor-types';
-import { EditorProps } from '@/types/component-types';
+import Loading from '@/components/Common/Loading.vue';
+import { EditorProps, LoadingContainerProps } from '@/types/component-types';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 
 const project = namespace('project');
@@ -14,6 +15,7 @@ export default class ExportProjectPane extends Vue {
   copyLinkOverride: string | null = null;
 
   @project.State openedProject!: RefineryProject | null;
+  @project.State isCreatingShortlink!: boolean;
 
   @project.Getter exportProjectJson!: string;
   @project.Getter shareProjectUrl!: string;
@@ -45,21 +47,27 @@ export default class ExportProjectPane extends Vue {
     if (!this.openedProject) {
       return <span>Please open project!</span>;
     }
+    const loadingProps: LoadingContainerProps = {
+      show: this.isCreatingShortlink,
+      label: 'Creating share link... One moment'
+    };
 
     return (
-      <div class="padding-left--normal padding-right--normal mt-2">
-        <div class="text-align--left run-lambda-container__text-label">
-          <label class="text-light padding--none mt-0 mb-0 ml-2">Share Link:</label>
+      <Loading props={loadingProps}>
+        <div class="padding-left--normal padding-right--normal mt-2">
+          <div class="text-align--left run-lambda-container__text-label">
+            <label class="text-light padding--none mt-0 mb-0 ml-2">Share Link:</label>
+          </div>
+          <b-form-textarea style="height: 40px; min-width: 300px" value={this.shareProjectUrl} />
+          <b-button variant="primary" class="col-12 mt-2 mb-2" on={{ click: this.copyLink }}>
+            {this.copyLinkOverride || (
+              <span>
+                <i class="far fa-copy" /> Copy Link to Clipboard
+              </span>
+            )}
+          </b-button>
         </div>
-        <b-form-textarea style="height: 40px; min-width: 300px" value={this.shareProjectUrl} />
-        <b-button variant="primary" class="col-12 mt-2 mb-2" on={{ click: this.copyLink }}>
-          {this.copyLinkOverride || (
-            <span>
-              <i class="far fa-copy" /> Copy Link to Clipboard
-            </span>
-          )}
-        </b-button>
-      </div>
+      </Loading>
     );
   }
 

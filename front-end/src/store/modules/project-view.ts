@@ -23,7 +23,8 @@ import {
   DeploymentViewActions,
   ProjectViewActions,
   ProjectViewGetters,
-  ProjectViewMutators
+  ProjectViewMutators,
+  UserActions
 } from '@/constants/store-constants';
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
@@ -66,13 +67,13 @@ import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
 import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
-import { deployProject, openProject, teardownProject } from '@/store/fetchers/api-helpers';
+import { createShortlink, deployProject, openProject, teardownProject } from '@/store/fetchers/api-helpers';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
 import { createNewBlock, createNewTransition } from '@/utils/block-utils';
-import { saveEditBlockToProject, signupDemoUser } from '@/utils/store-utils';
+import { saveEditBlockToProject } from '@/utils/store-utils';
 import ImportableRefineryProject from '@/types/export-project';
 import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
-import { UnauthViewProjectStoreModule } from '@/store/modules/unauth-view-project';
+import store from '@/store';
 
 export interface AddBlockArguments {
   rawBlockType: string;
@@ -96,6 +97,8 @@ const moduleState: ProjectViewState = {
   openedProjectConfigOriginal: null,
 
   isInDemoMode: false,
+  isCreatingShortlink: false,
+  shortlinkUrl: null,
 
   isLoadingProject: false,
   isProjectBusy: false,
@@ -284,6 +287,14 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return '';
       }
 
+      if (state.isCreatingShortlink) {
+        return '';
+      }
+
+      if (state.shortlinkUrl) {
+        return `https://app.refinery.io/import?q=${state.shortlinkUrl}`;
+      }
+
       // We ignore project_id because we just don't want it in the JSON
       const { project_id, version, ...rest } = state.openedProject;
 
@@ -314,6 +325,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
     [ProjectViewMutators.setDemoMode](state, value: boolean) {
       state.isInDemoMode = value;
+    },
+    [ProjectViewMutators.setIsCreatingShortlink](state, value: boolean) {
+      state.isCreatingShortlink = value;
+    },
+    [ProjectViewMutators.setShortlinkUrl](state, value: string | null) {
+      state.shortlinkUrl = value;
     },
     [ProjectViewMutators.isSavingProject](state, value: boolean) {
       state.isSavingProject = value;
@@ -483,6 +500,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       context.commit(ProjectViewMutators.isLoadingProject, false);
     },
     async [ProjectViewActions.openDemo](context) {
+      context.commit(ProjectViewMutators.isLoadingProject, true);
+
+      await context.dispatch(`allProjects/${AllProjectsActions.openProjectShareLink}`, null, { root: true });
+
+      context.commit(ProjectViewMutators.isLoadingProject, false);
+
       const demoProject: ImportableRefineryProject =
         context.rootGetters[`allProjects/${AllProjectsGetters.importProjectFromUrlJson}`];
 
@@ -502,6 +525,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         },
         config: {
           environment_variables: {},
+          warmup_concurrency_level: 0,
           api_gateway: { gateway_id: false },
           logging: { level: ProjectLogLevel.LOG_ALL },
           version: '1'
@@ -511,10 +535,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       };
 
       await context.dispatch(ProjectViewActions.updateProject, params);
-
-      // await context.dispatch(ProjectViewActions.loadProjectConfig);
-
-      // context.commit(ProjectViewMutators.isLoadingProject, false);
     },
     async [ProjectViewActions.updateProject](context, params: OpenProjectMutation) {
       const stylesheet = generateCytoscapeStyle();
@@ -1066,6 +1086,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         await context.dispatch(ProjectViewActions.showDeploymentPane);
         return;
       }
+
+      if (leftSidebarPaneType === SIDEBAR_PANE.exportProject) {
+        await context.dispatch(ProjectViewActions.generateShareUrl);
+        return;
+      }
     },
     [ProjectViewActions.closePane](context, pos: PANE_POSITION) {
       if (pos === PANE_POSITION.left) {
@@ -1104,6 +1129,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Or have the ProjectEditorLeftPaneContainer fire a callback on the child component?
       // That also feels wrong because it violates to "one direction" principal, in a way.
       context.commit(ProjectViewMutators.setRightSidebarPane, paneType);
+
+      if (paneType === SIDEBAR_PANE.exportProject) {
+        await context.dispatch(ProjectViewActions.generateShareUrl);
+        return;
+      }
     },
     async [ProjectViewActions.resetPanelStates](context) {
       context.commit(ProjectViewMutators.selectedResource, null);
@@ -1473,6 +1503,32 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       if (transitionType === WorkflowRelationshipType.IF) {
         await context.dispatch(ProjectViewActions.setIfExpression, IfDropdownSelectionExpressionValues.DEFAULT);
       }
+    },
+    async [ProjectViewActions.generateShareUrl](context) {
+      if (!context.rootState.user.authenticated) {
+        // Check the current authentication status before deciding which URL to export.
+        await store.dispatch(`user/${UserActions.fetchAuthenticationState}`, null, { root: true });
+
+        // If we're double sure we're not authenticated... Bail out.
+        if (!context.rootState.user.authenticated) {
+          return;
+        }
+      }
+
+      if (!context.state.openedProject) {
+        console.error('Missing project to be exported');
+        return;
+      }
+
+      const { project_id, ...rest } = context.state.openedProject;
+
+      context.commit(ProjectViewMutators.setIsCreatingShortlink, true);
+
+      const shortLink = await createShortlink(rest);
+
+      context.commit(ProjectViewMutators.setIsCreatingShortlink, false);
+
+      context.commit(ProjectViewMutators.setShortlinkUrl, shortLink);
     }
   }
 };

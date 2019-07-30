@@ -34,7 +34,8 @@ export default class ImportProject extends mixins(CreateToastMixin) {
 
   // Insert the Demo JSON into the store.
   public async beforeRouteEnter(to: Route, from: Route, next: () => void) {
-    await store.dispatch(`project/${ProjectViewActions.openDemo}`);
+    // Don't await so that we can have the UI pop up faster.
+    store.dispatch(`project/${ProjectViewActions.openDemo}`);
 
     next();
   }
@@ -63,7 +64,29 @@ export default class ImportProject extends mixins(CreateToastMixin) {
       </div>
     );
 
+    if (this.importProjectBusy) {
+      return (
+        <div class="import-project-page">
+          <h2>Loading project... One moment, please!</h2>
+          <div class="padding-top--normal">
+            <b-spinner />
+          </div>
+        </div>
+      );
+    }
+
     const exampleProjectText = <h3>For some example projects to check out, please check out our tutorials below!</h3>;
+
+    if (this.importProjectFromUrlError) {
+      return (
+        <div class="import-project-page">
+          <h2>Error Loading Project</h2>
+          {exampleProjectText}
+          {exampleProjectButton}
+          <h5>{this.importProjectFromUrlError}</h5>
+        </div>
+      );
+    }
 
     if (!this.importProjectFromUrlContent) {
       return (
@@ -81,28 +104,6 @@ export default class ImportProject extends mixins(CreateToastMixin) {
           <h2>Invalid project to import.</h2>
           {exampleProjectText}
           {exampleProjectButton}
-        </div>
-      );
-    }
-
-    if (this.importProjectFromUrlError || !this.importProjectFromUrlJson) {
-      return (
-        <div class="import-project-page">
-          <h2>Error Importing Project.</h2>
-          {exampleProjectText}
-          {exampleProjectButton}
-          <h5>{this.importProjectFromUrlError}</h5>
-        </div>
-      );
-    }
-
-    if (this.importProjectBusy) {
-      return (
-        <div class="import-project-page">
-          <h2>Importing project... You will be redirected in a moment.</h2>
-          <div class="padding-top--normal">
-            <b-spinner />
-          </div>
         </div>
       );
     }
