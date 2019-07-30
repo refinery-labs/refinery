@@ -103,8 +103,8 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
     );
 
     return (
-      <div ref="editorParent" class={containerClasses}>
-        <div class="display--relative flex-grow--1 height--100percent width--100percent">
+      <div class={containerClasses}>
+        <div class="position--relative width--100percent">
           {this.renderEditor()}
           {!this.disableFullscreen && fullscreenButton}
         </div>
