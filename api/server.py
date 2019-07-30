@@ -6295,7 +6295,6 @@ class SavedBlocksCreate( BaseHandler ):
 		})
 		
 class SavedBlockSearch( BaseHandler ):
-	@authenticated
 	def post( self ):
 		"""
 		Free text search of saved Lambda, returns matching results.
@@ -6328,12 +6327,15 @@ class SavedBlockSearch( BaseHandler ):
 		if "share_status" in self.json:
 			share_status = self.json[ "share_status" ]
 		
-		# Default is to just search your own saved blocks
-		saved_block_search_params = {
-			"user_id": self.get_authenticated_user_id()
-		}
+		authenticated_user_id = self.get_authenticated_user_id()
 		
-		if share_status == "PUBLISHED":
+		if authenticated_user_id != None:
+			# Default is to just search your own saved blocks
+			saved_block_search_params = {
+				"user_id": self.get_authenticated_user_id()
+			}
+		
+		if share_status == "PUBLISHED" or authenticated_user_id == None:
 			saved_block_search_params = {
 				"share_status": "PUBLISHED"
 			}
