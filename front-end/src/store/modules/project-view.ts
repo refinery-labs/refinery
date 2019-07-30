@@ -292,6 +292,16 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         state[key] = deepJSONCopy(moduleState[key]);
       });
     },
+    [ProjectViewMutators.setWarmupConcurrencyLevel](state, warmupConcurrencyLevel: number) {
+      if (state.openedProjectConfig === null) {
+        console.error('Could not set project log level due to no project being opened.');
+        return;
+      }
+
+      state.openedProjectConfig = Object.assign({}, state.openedProjectConfig, {
+        warmup_concurrency_level: warmupConcurrencyLevel
+      });
+    },
     [ProjectViewMutators.setOpenedProject](state, project: RefineryProject) {
       state.openedProject = project;
     },
@@ -417,6 +427,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     }
   },
   actions: {
+    async [ProjectViewActions.setWarmupConcurrencyLevel](context, warmupConcurrencyLevel: number) {
+      context.commit(ProjectViewMutators.setWarmupConcurrencyLevel, warmupConcurrencyLevel);
+
+      // Save new config to the backend
+      await context.dispatch(ProjectViewActions.saveProjectConfig);
+    },
     async [ProjectViewActions.setProjectConfigLoggingLevel](context, projectLoggingLevel: ProjectLogLevel) {
       context.commit(ProjectViewMutators.setProjectLogLevel, projectLoggingLevel);
 
