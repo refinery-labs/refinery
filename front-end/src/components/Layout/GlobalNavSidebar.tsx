@@ -135,12 +135,28 @@ export default class GlobalNavSidebar extends Vue {
 
     // Plain menu item
     if (!item.heading && !item.submenu) {
+      const badge = (
+        <span class={`float-right badge badge-${(item.label && item.label.color) || 'default'}`}>{item.label}</span>
+      );
+      const icon = <em class={item.icon} />;
+      const name = <span>{item.name}</span>;
+
+      const items = [badge, icon, name];
+
+      if (item.external) {
+        return (
+          <li>
+            <a title={item.name} href={item.path} target="_blank">
+              {items}
+            </a>
+          </li>
+        );
+      }
+
       return (
         <router-link to={item.path} active-class="active" tag="li" exact={item.path && item.path.length === 1}>
           <a title={item.name} class={{ disabled: isDisabledDueToAuth }}>
-            <span class={`float-right badge badge-${(item.label && item.label.color) || 'default'}`}>{item.label}</span>
-            <em class={item.icon} />
-            <span>{item.name}</span>
+            {items}
           </a>
         </router-link>
       );

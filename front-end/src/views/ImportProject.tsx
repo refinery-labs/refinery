@@ -17,7 +17,7 @@ const project = namespace('project');
 export default class ImportProject extends mixins(CreateToastMixin) {
   @allProjects.State importProjectFromUrlContent!: string | null;
   @allProjects.State importProjectFromUrlError!: string | null;
-  @allProjects.State importProjectBusy!: boolean;
+  @allProjects.State importProjectFromUrlBusy!: boolean;
 
   @project.State selectedResourceDirty!: boolean;
 
@@ -34,6 +34,8 @@ export default class ImportProject extends mixins(CreateToastMixin) {
 
   // Insert the Demo JSON into the store.
   public async beforeRouteEnter(to: Route, from: Route, next: () => void) {
+    store.dispatch(`user/fetchAuthenticationState`);
+
     // Don't await so that we can have the UI pop up faster.
     store.dispatch(`project/${ProjectViewActions.openDemo}`);
 
@@ -64,9 +66,9 @@ export default class ImportProject extends mixins(CreateToastMixin) {
       </div>
     );
 
-    if (this.importProjectBusy) {
+    if (this.importProjectFromUrlBusy) {
       return (
-        <div class="import-project-page">
+        <div class="unauth-graph-container padding-top--huge">
           <h2>Loading project... One moment, please!</h2>
           <div class="padding-top--normal">
             <b-spinner />
@@ -79,19 +81,8 @@ export default class ImportProject extends mixins(CreateToastMixin) {
 
     if (this.importProjectFromUrlError) {
       return (
-        <div class="import-project-page">
-          <h2>Error Loading Project</h2>
-          {exampleProjectText}
-          {exampleProjectButton}
-          <h5>{this.importProjectFromUrlError}</h5>
-        </div>
-      );
-    }
-
-    if (!this.importProjectFromUrlContent) {
-      return (
-        <div class="import-project-page">
-          <h2>Unable to locate project to import.</h2>
+        <div class="unauth-graph-container">
+          <h2>Error: {this.importProjectFromUrlError}</h2>
           {exampleProjectText}
           {exampleProjectButton}
         </div>
@@ -100,7 +91,7 @@ export default class ImportProject extends mixins(CreateToastMixin) {
 
     if (!this.importProjectFromUrlValid) {
       return (
-        <div class="import-project-page">
+        <div class="unauth-graph-container">
           <h2>Invalid project to import.</h2>
           {exampleProjectText}
           {exampleProjectButton}

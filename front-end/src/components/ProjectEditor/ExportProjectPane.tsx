@@ -58,7 +58,7 @@ export default class ExportProjectPane extends Vue {
           <div class="text-align--left run-lambda-container__text-label">
             <label class="text-light padding--none mt-0 mb-0 ml-2">Share Link:</label>
           </div>
-          <b-form-textarea style="height: 40px; min-width: 300px" value={this.shareProjectUrl} />
+          <b-form-textarea style="height: 40px; min-width: 320px" value={this.shareProjectUrl} />
           <b-button variant="primary" class="col-12 mt-2 mb-2" on={{ click: this.copyLink }}>
             {this.copyLinkOverride || (
               <span>

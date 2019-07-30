@@ -28,10 +28,6 @@ class UnauthViewProjectStore extends VuexModule<ThisType<UnauthViewProjectState>
   implements UnauthViewProjectState {
   public showSignupModal: boolean = initialState.showSignupModal;
 
-  get currentProject() {
-    return this.context.rootGetters[`allProjects/${AllProjectsGetters.importProjectFromUrlJson}`];
-  }
-
   @Mutation
   public resetState() {
     resetStoreState(this, baseState);

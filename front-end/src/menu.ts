@@ -57,6 +57,7 @@ export const GlobalNavMenuItems: MenuItemList = [
   {
     name: 'Help',
     path: baseLinks.help,
+    external: true,
     icon: 'icon-question',
     translate: 'global.nav.HELP',
     authenticated: false
