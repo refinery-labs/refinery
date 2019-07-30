@@ -73,6 +73,11 @@ export const blockTypeToImageLookup: BlockTypeConfig = {
     name: 'API Gateway Block',
     description: 'Why do you see this? Please report!'
   },
+  [WorkflowStateType.WARMER_TRIGGER]: {
+    path: require('../../public/img/node-icons/api-gateway.png'),
+    name: 'Warmer Trigger',
+    description: 'Why do you see this? Please report!'
+  },
   [WorkflowStateType.API_GATEWAY_RESPONSE]: {
     path: require('../../public/img/node-icons/api-gateway.png'),
     name: 'API Endpoint Response Block',
@@ -407,7 +412,8 @@ export const blockTypeToDefaultStateMapping: BlockTypeToDefaultState = {
   }),
   [WorkflowStateType.SCHEDULE_TRIGGER]: () => SCHEDULE_EXPRESSION_BLOCK_DEFAULT_STATE,
   [WorkflowStateType.SNS_TOPIC]: () => TOPIC_BLOCK_DEFAULT_STATE,
-  [WorkflowStateType.API_GATEWAY]: () => SHARED_BLOCK_DEFAULTS
+  [WorkflowStateType.API_GATEWAY]: () => SHARED_BLOCK_DEFAULTS,
+  [WorkflowStateType.WARMER_TRIGGER]: () => SHARED_BLOCK_DEFAULTS
 };
 
 export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
@@ -448,6 +454,7 @@ export const blockTypeToEditorComponentLookup: BlockTypeToEditorComponent = {
   [WorkflowStateType.SCHEDULE_TRIGGER]: () => EditScheduleTriggerBlock,
   [WorkflowStateType.API_ENDPOINT]: () => EditAPIEndpointBlock,
   [WorkflowStateType.API_GATEWAY]: () => EditAPIEndpointBlock,
+  [WorkflowStateType.WARMER_TRIGGER]: () => EditAPIEndpointBlock,
   [WorkflowStateType.API_GATEWAY_RESPONSE]: () => EditAPIResponseBlock,
   [WorkflowStateType.SQS_QUEUE]: () => EditQueueBlock
 };

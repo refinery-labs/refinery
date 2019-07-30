@@ -26,6 +26,7 @@ export enum WorkflowStateType {
   API_GATEWAY_RESPONSE = 'api_gateway_response',
   // TODO: What is this?
   API_GATEWAY = 'api_gateway',
+  WARMER_TRIGGER = 'warmer_trigger',
   API_ENDPOINT = 'api_endpoint',
   SNS_TOPIC = 'sns_topic',
   SQS_QUEUE = 'sqs_queue',
@@ -112,6 +113,7 @@ export interface ProjectConfig {
   api_gateway: { gateway_id: string };
   version: string;
   logging: { level: ProjectLogLevel };
+  warmup_concurrency_level: number;
 }
 
 export interface ProjectEnvironmentVariableList {
