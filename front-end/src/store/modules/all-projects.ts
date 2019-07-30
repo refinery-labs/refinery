@@ -171,7 +171,7 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
         return;
       }
 
-      context.commit(AllProjectsMutators.setAvailableProjects, result.results);
+      context.commit(AllProjectsMutators.setAvailableProjects, result.results.reverse());
       context.commit(AllProjectsMutators.setSearchingStatus, false);
     },
     async [AllProjectsActions.createProject](context) {

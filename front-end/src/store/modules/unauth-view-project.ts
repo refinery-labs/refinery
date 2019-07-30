@@ -4,7 +4,10 @@ import { resetStoreState, signupDemoUser } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState } from '@/store/store-types';
 import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
-import { ProjectViewActions } from '@/constants/store-constants';
+import { ProjectViewActions, ProjectViewGetters } from '@/constants/store-constants';
+import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
+import { createToast } from '@/utils/toasts-utils';
+import { ToastVariant } from '@/types/toasts-types';
 
 // This is the name that this will be added to the Vuex store with.
 // You will need to add to the `RootState` interface if you want to access this state via `rootState` from anywhere.
@@ -49,7 +52,26 @@ class UnauthViewProjectStore extends VuexModule<ThisType<UnauthViewProjectState>
     }
 
     if (triggerSaveIfAuthenticated) {
-      await this.context.dispatch(`project/${ProjectViewActions.saveProject}`, null, { root: true });
+      const blockDirty = this.context.rootGetters[`project/${ProjectViewGetters.selectedBlockDirty}`];
+      const canSaveProject = this.context.rootGetters[`project/${ProjectViewGetters.canSaveProject}`];
+
+      if (blockDirty && !canSaveProject) {
+        const message = 'Invalid state for project import';
+        console.error(message);
+        await createToast(this.context.dispatch, {
+          title: 'Save Error',
+          content: message,
+          variant: ToastVariant.danger
+        });
+        return;
+      }
+
+      // If a block is "dirty", we need to save it before continuing.
+      // TODO: Implement this for transitions too
+      if (blockDirty && canSaveProject) {
+        await this.context.dispatch(`project/editBlockPane/${EditBlockActions.saveBlock}`, null, { root: true });
+      }
+
       await this.context.dispatch(`allProjects/${AllProjectsActions.importProjectFromDemo}`, null, { root: true });
     }
   }
