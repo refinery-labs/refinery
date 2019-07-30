@@ -74,9 +74,8 @@ class Refinery_Memory:
 		bool,
 	]
 
-	def __init__( self, in_hostname, in_password, in_port, namespace ):
+	def __init__( self, in_hostname, in_password, in_port ):
 		self.redis_client = False
-		self.namespace = namespace
 		self.hostname = in_hostname
 		self.password = in_password
 		self.port = in_port
@@ -88,118 +87,6 @@ class Refinery_Memory:
 			db=0,
 			socket_timeout=5,
 			password=self.password,
-		)
-
-	def _get_namespace( self, kwargs ):
-		if not self.namespace:
-			return ""
-
-		if "raw" in kwargs and kwargs[ "raw" ]:
-			return ""
-
-		return self.namespace + "."
-
-	def _get_input_data_format( self, input_data ):
-		if type( input_data ) in self.regular_types:
-			return input_data
-
-		if type( input_data ) in self.json_types:
-			return json.dumps(
-				input_data
-			)
-
-		return pickle.dumps(
-			input_data
-		)
-
-	def set( self, key, input_data, **kwargs ):
-		if not self.redis_client:
-			self.connect()
-
-		namespace = self._get_namespace( kwargs )
-
-		self.redis_client.set(
-			namespace + key,
-			self._get_input_data_format(input_data)
-		)
-
-	def get( self, key, **kwargs ):
-		if not self.redis_client:
-			self.connect()
-
-		namespace = self._get_namespace( kwargs )
-
-		data = self.redis_client.get(
-			namespace + key
-		)
-
-		try:
-			return json.loads(
-				data
-			)
-		except:
-			pass
-
-		try:
-			return pickle.loads(
-				data
-			)
-		except:
-			pass
-
-		return data
-
-	def exists( self, key, **kwargs ):
-		if not self.redis_client:
-			self.connect()
-
-		namespace = self._get_namespace( kwargs )
-
-		return self.redis_client.exists(
-			namespace + key
-		)
-
-	def delete( self, key, **kwargs ):
-		if not self.redis_client:
-			self.connect()
-
-		namespace = self._get_namespace( kwargs )
-
-		return self.redis_client.dek(
-			namespace + key
-		)
-
-	def rename( self, key, new_key, **kwargs ):
-		if not self.redis_client:
-			self.connect()
-
-		namespace = self._get_namespace( kwargs )
-
-		return self.redis_client.rename(
-			namespace + key,
-			new_key
-		)
-
-	def expire_at( self, key, unix_timestamp, **kwargs ):
-		if not self.redis_client:
-			self.connect()
-
-		namespace = self._get_namespace( kwargs )
-
-		return self.redis_client.expireat(
-			namespace + key,
-			unix_timestamp
-		)
-
-	def expire_in( self, key, seconds, **kwargs ):
-		if not self.redis_client:
-			self.connect()
-
-		namespace = self._get_namespace( kwargs )
-
-		return self.redis_client.expire(
-			namespace + key,
-			seconds
 		)
 
 	def _get_input_data_from_redis( self, key, **kwargs ):
@@ -544,6 +431,13 @@ class Refinery_Memory:
 		returned_data = pipeline.execute()
 
 		return lambda_invocation_list
+		
+# Make global to enable caching of redis connection
+gmemory = Refinery_Memory(
+	os.environ[ "REDIS_HOSTNAME" ],
+	os.environ[ "REDIS_PASSWORD" ],
+	os.environ[ "REDIS_PORT" ],
+)
 
 def _parallel_invoke( invoke_queue ):
 	# List of active threads
@@ -1005,6 +899,10 @@ def _api_endpoint( lambda_input, execution_id, context ):
 		"isBase64Encoded": False
 	}
 	
+S3_CLIENT = boto3.client(
+	"s3"
+)
+	
 def _write_temporary_execution_results( s3_log_bucket, program_output, return_data ):
 	"""
 	This is for getting around all of Lambda's extremely painful limitations
@@ -1029,12 +927,8 @@ def _write_temporary_execution_results( s3_log_bucket, program_output, return_da
 	# The S3 path we're storing the data at
 	s3_object_path = "temporary_executions/" + unique_id + ".json"
 	
-	s3_client = boto3.client(
-		"s3"
-	)
-	
 	# Write data to S3
-	response = s3_client.put_object(
+	response = S3_CLIENT.put_object(
 		Bucket=s3_log_bucket,
 		Key=s3_object_path,
 		Body=json.dumps(
@@ -1414,16 +1308,6 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 	start_time = time.time()
 
 	global gmemory
-
-	_start_clock( "Refinery_Memory intialization" )
-	# Make global to enable caching of redis connection
-	gmemory = Refinery_Memory(
-		os.environ[ "REDIS_HOSTNAME" ],
-		os.environ[ "REDIS_PASSWORD" ],
-		os.environ[ "REDIS_PORT" ],
-		context.function_name
-	)
-	_stop_clock( "Refinery_Memory intialization" )
 
 	execution_pipeline_id = os.environ[ "EXECUTION_PIPELINE_ID" ]
 	s3_log_bucket = os.environ[ "LOG_BUCKET_NAME" ]
