@@ -1,12 +1,9 @@
 import { CreateElement, VNode } from 'vue';
 import { Component, Prop, Vue } from 'vue-property-decorator';
-// @ts-ignore
-import elementResizeDetector from 'element-resize-detector';
 import { EditorProps } from '@/types/component-types';
 import { SupportedLanguage } from '@/types/graph';
 import { languageToAceLangMap } from '@/types/project-editor-types';
-import MonacoEditor from '@/lib/MonacoEditor';
-import { timeout } from '@/utils/async-utils';
+import MonacoEditor, { MonacoEditorProps } from '@/lib/MonacoEditor';
 
 @Component
 export default class RefineryCodeEditor extends Vue implements EditorProps {
@@ -17,7 +14,6 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
   @Prop({ required: true }) content!: string;
   @Prop() theme?: string;
   @Prop() onChange?: (s: string) => void;
-  @Prop() onChangeContext?: (c: { value: string; this: any }) => void;
   @Prop() fullscreenToggled?: () => void;
   @Prop({ default: false }) disableFullscreen!: boolean;
 
@@ -28,64 +24,8 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
   @Prop() extraClasses?: string;
   @Prop() collapsible?: boolean;
 
-  mounted() {
-    if (!this.$refs.editorParent || !this.$refs.editor) {
-      console.warn('Could not setup resize detected for code editor', name);
-      return;
-    }
-
-    //@ts-ignore
-    const editor = this.$refs.editor.getEditor();
-
-    if (this.readOnly) {
-      editor.updateOptions({
-        readOnly: true
-      });
-    }
-
-    // Annoying but we can't easily use the normal change handlers...
-    // Because the library doesn't seem to be consuming them correctly?
-    editor.onDidChangeModelContent(() => {
-      const value = editor.getValue();
-      if (this.content !== value) {
-        this.onChange && this.onChange(value);
-      }
-    });
-
-    const resizeDetector = elementResizeDetector({
-      // This is a faster performance mode that is available
-      // Unfortunately this doesn't work for all cases, so we're falling back on the slower version.
-      // strategy: 'scroll'
-    });
-
-    resizeDetector.listenTo(this.$refs.editorParent, () => {
-      this.relayoutEditor();
-    });
-
-    // Attempt to relayout the component, once.
-    setTimeout(async () => {
-      let attempts = 0;
-      while (!this.$refs.editor && attempts < 10) {
-        if (this.$refs.editor) {
-          this.relayoutEditor();
-          return;
-        }
-        await timeout(1000);
-        attempts++;
-      }
-    }, 1000);
-  }
-
-  relayoutEditor() {
-    // @ts-ignore
-    this.$refs.editor.getEditor().layout();
-  }
-
   toggleModalOn() {
     this.fullscreen = true;
-    // Hack to force Monaco to resize
-    setTimeout(() => this.relayoutEditor(), 200);
-    setTimeout(() => this.relayoutEditor(), 1000);
   }
 
   public renderModal() {
@@ -122,13 +62,14 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
       return <h3>Could not display code editor.</h3>;
     }
 
-    const monacoProps = {
+    const monacoProps: MonacoEditorProps = {
       value: this.content,
       language: languageToAceLangMap[this.lang],
       readOnly: this.readOnly,
       wordWrap: this.wrapText,
       theme: this.theme || 'vs-dark',
-      automaticLayout: true
+      automaticLayout: true,
+      onChange: this.onChange
     };
 
     const monacoClasses = {
@@ -162,8 +103,8 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
     );
 
     return (
-      <div ref="editorParent" class={containerClasses}>
-        <div class="display--relative flex-grow--1 height--100percent width--100percent">
+      <div class={containerClasses}>
+        <div class="position--relative width--100percent">
           {this.renderEditor()}
           {!this.disableFullscreen && fullscreenButton}
         </div>

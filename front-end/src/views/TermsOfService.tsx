@@ -95,7 +95,7 @@ Refinery Labs operates or controls the operation of this Site and the Service fr
 
 ### Notices
 
-Refinery Labs may give notice applicable to Refinery Labs's general Service customer base by means of a general notice on the Service portal, and notices specific to you by electronic mail to your e-mail address on record in your User Account or by written communication sent by first class mail or pre-paid post to your address on record in your User Account. If you have a dispute with Refinery Labs, wish to provide a notice under these Terms of Service, or become subject to insolvency or other similar legal proceedings, you must promptly send written notice to Refinery Labs at Refinery Labs, Inc., 548 Market St. #62411, San Francisco, CA 94104-5401; Attn: Legal.
+Refinery Labs may give notice applicable to Refinery Labs's general Service customer base by means of a general notice on the Service portal, and notices specific to you by electronic mail to your e-mail address on record in your User Account or by written communication sent by first class mail or pre-paid post to your address on record in your User Account. If you have a dispute with Refinery Labs, wish to provide a notice under these Terms of Service, or become subject to insolvency or other similar legal proceedings, you must promptly send written notice to Refinery Labs at Refinery Labs, Inc., 400 Beale St, Unit 803, San Francisco, CA 94105; Attn: Legal.
 
 ### General
 
