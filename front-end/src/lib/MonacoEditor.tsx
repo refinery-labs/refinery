@@ -2,18 +2,40 @@ import * as monaco from 'monaco-editor';
 import Vue from 'vue';
 import Component from 'vue-class-component';
 import { Prop, Watch } from 'vue-property-decorator';
+// @ts-ignore
+import elementResizeDetector from 'element-resize-detector';
 import IModelContentChangedEvent = monaco.editor.IModelContentChangedEvent;
+import { timeout } from '@/utils/async-utils';
+
+export interface MonacoEditorProps {
+  readOnly?: boolean;
+  original?: string;
+  value: string;
+  theme?: string;
+  options?: {};
+  language?: string;
+  diffEditor?: boolean;
+  wordWrap?: boolean;
+  automaticLayout?: boolean;
+
+  onChange?: (s: string) => void;
+}
 
 @Component
-export default class MonacoEditor extends Vue {
+export default class MonacoEditor extends Vue implements MonacoEditorProps {
   editor?: any;
 
+  @Prop() public readOnly?: boolean;
   @Prop() public original?: string;
   @Prop({ required: true }) public value!: string;
   @Prop({ default: 'vs-dark' }) public theme!: string;
   @Prop() public options?: {};
   @Prop() public language?: string;
   @Prop({ default: false }) public diffEditor!: boolean;
+  @Prop({ default: false }) public wordWrap!: boolean;
+  @Prop({ default: false }) public automaticLayout!: boolean;
+
+  @Prop() onChange?: (s: string) => void;
 
   @Watch('options', { deep: true })
   public watchOptions(newOptions?: {}) {
@@ -48,6 +70,10 @@ export default class MonacoEditor extends Vue {
     }
   }
 
+  relayoutEditor() {
+    this.editor.layout();
+  }
+
   mounted() {
     this.initMonaco();
   }
@@ -57,12 +83,18 @@ export default class MonacoEditor extends Vue {
   }
 
   initMonaco() {
+    // Annoying... But this satisfies the Typescript beast.
+    const wordWrap: 'off' | 'on' | 'wordWrapColumn' | 'bounded' = this.wordWrap ? 'on' : 'off';
+
     const options = Object.assign(
       {},
       {
         value: this.value,
         theme: this.theme,
-        language: this.language
+        language: this.language,
+        readOnly: this.readOnly,
+        wordWrap: wordWrap,
+        automaticLayout: this.automaticLayout
       },
       this.options
     );
@@ -85,10 +117,40 @@ export default class MonacoEditor extends Vue {
       const value = editor.getValue();
       if (this.value !== value) {
         this.$emit('change', value, event);
+        this.onChange && this.onChange(value);
       }
     });
 
+    if (this.readOnly) {
+      editor.updateOptions({
+        readOnly: true
+      });
+    }
+
+    const resizeDetector = elementResizeDetector({
+      // This is a faster performance mode that is available
+      // Unfortunately this doesn't work for all cases, so we're falling back on the slower version.
+      // strategy: 'scroll'
+    });
+
+    resizeDetector.listenTo(this.$refs.editorParent, () => {
+      this.relayoutEditor();
+    });
+
     this.$emit('editorDidMount', this.editor);
+
+    // Attempt to relayout the component, once.
+    setTimeout(async () => {
+      let attempts = 0;
+      while (!this.$refs.editor && attempts < 10) {
+        if (this.$refs.editor) {
+          this.relayoutEditor();
+          return;
+        }
+        await timeout(1000);
+        attempts++;
+      }
+    }, 1000);
   }
 
   getEditor() {
@@ -104,6 +166,6 @@ export default class MonacoEditor extends Vue {
   }
 
   render() {
-    return <div />;
+    return <div ref="editorParent" />;
   }
 }
