@@ -131,10 +131,12 @@ def on_start():
 		"nodejs8.10",
 		"php7.3",
 		"go1.12",
-		"python2.7"
+		"python2.7",
+		"python3.6"
 	]
 	
 	LAMBDA_BASE_LIBRARIES = {
+		"python3.6": [],
 		"python2.7": [],
 		"nodejs8.10": [],
 		"php7.3": [],
@@ -142,6 +144,7 @@ def on_start():
 	}
 	
 	LAMBDA_SUPPORTED_LANGUAGES = [
+		"python3.6",
 		"python2.7",
 		"nodejs8.10",
 		"php7.3",
@@ -3044,6 +3047,8 @@ class TaskSpawner(object):
 			
 			if language == "python2.7":
 				package_zip_data = TaskSpawner._build_python27_lambda( credentials, code, libraries )
+			elif language == "python3.6":
+				package_zip_data = TaskSpawner._build_python36_lambda( credentials, code, libraries )
 			elif language == "php7.3":
 				package_zip_data = TaskSpawner._build_php_73_lambda( credentials, code, libraries )
 			elif language == "nodejs8.10":
@@ -3214,6 +3219,44 @@ class TaskSpawner(object):
 			).hexdigest()
 			final_s3_package_zip_path = hash_key + ".zip"
 			return final_s3_package_zip_path
+			
+		@staticmethod
+		def get_python36_lambda_base_zip( credentials, libraries ):
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
+			libraries_object = {}
+			for library in libraries:
+				libraries_object[ str( library ) ] = "latest"
+			
+			final_s3_package_zip_path = TaskSpawner._get_final_zip_package_path(
+				"python3.6",
+				libraries_object
+			)
+			
+			if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
+				return TaskSpawner._read_from_s3(
+					credentials,
+					credentials[ "lambda_packages_bucket" ],
+					final_s3_package_zip_path
+				)
+			
+			# Kick off CodeBuild for the libraries to get a zip artifact of
+			# all of the libraries.
+			build_id = TaskSpawner._start_python36_codebuild(
+				credentials,
+				libraries_object
+			)
+			
+			# This continually polls for the CodeBuild build to finish
+			# Once it does it returns the raw artifact zip data.
+			return TaskSpawner._get_codebuild_artifact_zip_data(
+				credentials,
+				build_id,
+				final_s3_package_zip_path
+			)
 			
 		@staticmethod
 		def get_python27_lambda_base_zip( credentials, libraries ):
@@ -3392,6 +3435,100 @@ class TaskSpawner(object):
 			
 			build_id = codebuild_response[ "build" ][ "id" ]
 			
+			return build_id
+			
+		@run_on_executor
+		def start_python36_codebuild( self, credentials, libraries_object ):
+			return TaskSpawner._start_python36_codebuild( credentials, libraries_object )
+			
+		@staticmethod
+		def _start_python36_codebuild( credentials, libraries_object ):
+			"""
+			Returns a build ID to be polled at a later time
+			"""
+			codebuild_client = get_aws_client(
+				"codebuild",
+				credentials
+			)
+			
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
+			requirements_text = ""
+			for key, value in libraries_object.iteritems():
+				if value != "latest":
+					requirements_text += key + "==" + value + "\n"
+				else:
+					requirements_text += key + "\n"
+			
+			# Create empty zip file
+			codebuild_zip = io.BytesIO( EMPTY_ZIP_DATA )
+			
+			buildspec_template = {
+				"artifacts": {
+					"files": [
+						 "**/*"
+					]
+				},
+				"phases": {
+					"build": {
+						"commands": [
+							"pip install --target . -r requirements.txt"
+						]
+					},
+				},
+				"run-as": "root",
+				"version": 0.1
+			}
+			
+			with zipfile.ZipFile( codebuild_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+				# Write buildspec.yml defining the build process
+				buildspec = zipfile.ZipInfo(
+					"buildspec.yml"
+				)
+				buildspec.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					buildspec,
+					yaml.dump(
+						buildspec_template
+					)
+				)
+				
+				# Write the package.json
+				requirements_txt_file = zipfile.ZipInfo(
+					"requirements.txt"
+				)
+				requirements_txt_file.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					requirements_txt_file,
+					requirements_text
+				)
+			
+			codebuild_zip_data = codebuild_zip.getvalue()
+			codebuild_zip.close()
+			
+			# S3 object key of the build package, randomly generated.
+			s3_key = "buildspecs/" + str( uuid.uuid4() ) + ".zip"
+
+			# Write the CodeBuild build package to S3
+			s3_response = s3_client.put_object(
+				Bucket=credentials[ "lambda_packages_bucket" ],
+				Body=codebuild_zip_data,
+				Key=s3_key,
+				ACL="public-read", # THIS HAS TO BE PUBLIC READ FOR SOME FUCKED UP REASON I DONT KNOW WHY
+			)
+			
+			# Fire-off the build
+			codebuild_response = codebuild_client.start_build(
+				projectName="refinery-builds",
+				sourceTypeOverride="S3",
+				imageOverride="docker.io/python:3.7.4",
+				sourceLocationOverride=credentials[ "lambda_packages_bucket" ] + "/" + s3_key,
+			)
+			
+			build_id = codebuild_response[ "build" ][ "id" ]
 			return build_id
 			
 		@run_on_executor
@@ -3977,6 +4114,37 @@ class TaskSpawner(object):
 			lambda_package_zip_data = lambda_package_zip.getvalue()
 			lambda_package_zip.close()
 			
+			return lambda_package_zip_data
+			
+		@staticmethod
+		def _build_python36_lambda( credentials, code, libraries ):
+			code = code + "\n\n" + LAMDBA_BASE_CODES[ "python3.6" ]
+					
+			base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
+			if len( libraries ) > 0:
+				base_zip_data = TaskSpawner.get_python36_lambda_base_zip(
+					credentials,
+					libraries
+				)
+			
+			# Create a virtual file handler for the Lambda zip package
+			lambda_package_zip = io.BytesIO( base_zip_data )
+				
+			with zipfile.ZipFile( lambda_package_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+				info = zipfile.ZipInfo(
+					"lambda"
+				)
+				info.external_attr = 0777 << 16L
+				
+				# Write lambda.py into new .zip
+				zip_file_handler.writestr(
+					info,
+					str( code )
+				)
+				
+			lambda_package_zip_data = lambda_package_zip.getvalue()
+			lambda_package_zip.close()
+
 			return lambda_package_zip_data
 		
 		@staticmethod
@@ -5502,6 +5670,10 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	elif language == "python2.7":
 		layers.append(
 			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:14"
+		)
+	elif language == "python3.6":
+		layers.append(
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:14"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
@@ -9308,6 +9480,11 @@ class BuildLibrariesPackage( BaseHandler ):
 		
 		if self.json[ "language" ] == "python2.7":
 			build_id = yield local_tasks.start_python27_codebuild(
+				credentials,
+				libraries_dict
+			)
+		if self.json[ "language" ] == "python3.6":
+			build_id = yield local_tasks.start_python36_codebuild(
 				credentials,
 				libraries_dict
 			)

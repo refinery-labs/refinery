@@ -79,6 +79,7 @@ export interface MonacoLanguageLookup extends SupportedLanguageToAceLang {
 export const languageToAceLangMap: MonacoLanguageLookup = {
   [SupportedLanguage.NODEJS_8]: 'javascript',
   [SupportedLanguage.PYTHON_2]: 'python',
+  [SupportedLanguage.PYTHON_3]: 'python',
   [SupportedLanguage.GO1_12]: 'go',
   [SupportedLanguage.PHP7]: 'php',
   text: 'text',
@@ -90,6 +91,7 @@ export type LanguageToBaseRepoURL = { [key in SupportedLanguage]: string | null 
 export const LanguageToBaseRepoURLMap: LanguageToBaseRepoURL = {
   [SupportedLanguage.NODEJS_8]: 'https://www.npmjs.com',
   [SupportedLanguage.PYTHON_2]: 'https://pypi.org',
+  [SupportedLanguage.PYTHON_3]: 'https://pypi.org',
   [SupportedLanguage.GO1_12]: null,
   [SupportedLanguage.PHP7]: 'https://packagist.org'
 };
@@ -98,6 +100,7 @@ export type LanguageToLibraryRepoURL = { [key in SupportedLanguage]: string | nu
 
 export const LanguageToLibraryRepoURLMap: LanguageToLibraryRepoURL = {
   [SupportedLanguage.NODEJS_8]: LanguageToBaseRepoURLMap[SupportedLanguage.NODEJS_8] + '/package/',
+  [SupportedLanguage.PYTHON_3]: LanguageToBaseRepoURLMap[SupportedLanguage.PYTHON_3] + '/project/',
   [SupportedLanguage.PYTHON_2]: LanguageToBaseRepoURLMap[SupportedLanguage.PYTHON_2] + '/project/',
   [SupportedLanguage.GO1_12]: null,
   [SupportedLanguage.PHP7]: LanguageToBaseRepoURLMap[SupportedLanguage.PHP7] + '/packages/psr/'
