@@ -8575,18 +8575,46 @@ class NewRegistration( BaseHandler ):
 		x_forwarded_for = self.request.headers.get( "X-Forwarded-For", "Unknown" )
 		client_ip = self.request.remote_ip
 
-		# Additionally since they've validated their email we'll add them to Stripe
-		customer_id = yield local_tasks.stripe_create_customer(
-			new_user.email,
-			new_user.name,
-			new_user.phone_number,
-			self.json[ "stripe_token" ],
-			{
-				"user_agent": user_agent,
-				"client_ip": client_ip,
-				"x_forwarded_for": x_forwarded_for,
-			}
-		)
+		try:
+			# Additionally since they've validated their email we'll add them to Stripe
+			customer_id = yield local_tasks.stripe_create_customer(
+				new_user.email,
+				new_user.name,
+				new_user.phone_number,
+				self.json[ "stripe_token" ],
+				{
+					"user_agent": user_agent,
+					"client_ip": client_ip,
+					"x_forwarded_for": x_forwarded_for,
+				}
+			)
+		except stripe.error.CardError as e:
+			logit( "Card declined: " )
+			logit( e )
+			self.write({
+				"success": False,
+				"code": "INVALID_CARD_ERROR",
+				"msg": "Invalid payment information!"
+			})
+			raise gen.Return()
+		except stripe.error.StripeError as e:
+			logit( "Exception occurred while creating stripe account: " )
+			logit( e )
+			self.write({
+				"success": False,
+				"code": "GENERIC_STRIPE_ERROR",
+				"msg": "An error occurred while communicating with the Stripe API."
+			})
+			raise gen.Return()
+		except Exception as e:
+			logit( "Exception occurred while creating stripe account: " )
+			logit( e )
+			self.write({
+				"success": False,
+				"code": "UNKNOWN_ERROR",
+				"msg": "Some unknown error occurred, this shouldn't happen!"
+			})
+			raise gen.Return()
 
 		# Set user's payment_id to the Stripe customer ID
 		new_user.payment_id = customer_id

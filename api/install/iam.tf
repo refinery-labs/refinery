@@ -66,7 +66,9 @@ resource "aws_iam_policy" "refinery_default_aws_lambda_policy" {
                 "s3:GetAnalyticsConfiguration",
                 "s3:GetObjectVersionForReplication",
                 "s3:GetBucketLocation",
-                "s3:GetObjectVersion"
+                "s3:GetObjectVersion",
+                "s3:PutObjectAcl",
+                "s3:PutObjectVersionAcl"
             ],
             "Resource": [
                 "arn:aws:s3:::*",
