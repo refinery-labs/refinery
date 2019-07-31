@@ -3524,7 +3524,7 @@ class TaskSpawner(object):
 			codebuild_response = codebuild_client.start_build(
 				projectName="refinery-builds",
 				sourceTypeOverride="S3",
-				imageOverride="docker.io/python:3.7.4",
+				imageOverride="docker.io/python:3.6.9",
 				sourceLocationOverride=credentials[ "lambda_packages_bucket" ] + "/" + s3_key,
 			)
 			
