@@ -291,6 +291,10 @@ export const DEFAULT_PROJECT_CONFIG = {
 export type DefaultCodeFromLanguage = { [key in SupportedLanguage]: string };
 
 export const DEFAULT_LANGUAGE_CODE: DefaultCodeFromLanguage = {
+  [SupportedLanguage.PYTHON_3]: `
+def main(block_input, backpack):
+    return "Hello World!"
+`,
   [SupportedLanguage.PYTHON_2]: `
 def main(block_input, backpack):
     return "Hello World!"

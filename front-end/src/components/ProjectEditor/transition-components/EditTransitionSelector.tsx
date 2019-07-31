@@ -99,7 +99,6 @@ export default class EditTransitionSelector extends Vue implements EditTransitio
 
     const editorProps: EditorProps = {
       name: `editor-export-project-if-conditional-dropdown`,
-      // Set Nodejs because it supports JSON
       lang: SupportedLanguage.PYTHON_2,
       content: this.ifExpression || '',
       readOnly: this.readOnly,
