@@ -8596,6 +8596,7 @@ class NewRegistration( BaseHandler ):
 				"code": "INVALID_CARD_ERROR",
 				"msg": "Invalid payment information!"
 			})
+			self.dbsession.rollback()
 			raise gen.Return()
 		except stripe.error.StripeError as e:
 			logit( "Exception occurred while creating stripe account: " )
@@ -8605,6 +8606,7 @@ class NewRegistration( BaseHandler ):
 				"code": "GENERIC_STRIPE_ERROR",
 				"msg": "An error occurred while communicating with the Stripe API."
 			})
+			self.dbsession.rollback()
 			raise gen.Return()
 		except Exception as e:
 			logit( "Exception occurred while creating stripe account: " )
@@ -8614,6 +8616,7 @@ class NewRegistration( BaseHandler ):
 				"code": "UNKNOWN_ERROR",
 				"msg": "Some unknown error occurred, this shouldn't happen!"
 			})
+			self.dbsession.rollback()
 			raise gen.Return()
 
 		# Set user's payment_id to the Stripe customer ID
