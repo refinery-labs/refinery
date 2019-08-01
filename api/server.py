@@ -4647,6 +4647,12 @@ class TaskSpawner(object):
 				State="ENABLED",
 				Description=description,
 				RoleArn=events_role_arn,
+				Tags=[
+					{
+						"Key": "RefineryResource",
+						"Value": "true"
+					}
+				]
 			)
 			
 			return {
