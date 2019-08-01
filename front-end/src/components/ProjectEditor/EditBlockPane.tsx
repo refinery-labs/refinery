@@ -38,6 +38,7 @@ export default class EditBlockPane extends Vue {
   @editBlock.Action tryToCloseBlock!: () => void;
   @editBlock.Action deleteBlock!: () => void;
   @editBlock.Action duplicateBlock!: () => void;
+  @editBlock.Action saveBlock!: (close: boolean) => void;
 
   mounted() {
     const container = this.$refs.container as HTMLElement;
@@ -113,7 +114,14 @@ export default class EditBlockPane extends Vue {
       <div class="mb-2 mt-2 text-align--left show-block-container__form">
         <div class="scrollable-pane-container padding-left--normal padding-right--normal">{componentInstance}</div>
         <div class="display--flex show-block-container__bottom-buttons ml-0 mr-3 mt-2">
-          <b-button variant="info" class="mr-1 width--100percent flex-grow--1" on={{ click: this.duplicateBlock }}>
+          <b-button
+            variant="success"
+            class="mr-1 width--100percent flex-grow--1"
+            on={{ click: () => this.saveBlock(true) }}
+          >
+            Save
+          </b-button>
+          <b-button variant="info" class="mr-1 ml-1 width--100percent flex-grow--1" on={{ click: this.duplicateBlock }}>
             Duplicate
           </b-button>
           <b-button
