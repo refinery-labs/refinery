@@ -17,6 +17,15 @@ export default class HelpPage extends Vue {
         <br />
 
         <h4>
+          To request a feature or to report a bug, please open an issue on our Github page{' '}
+          <a href="https://github.com/refinery-labs/refinery-tracker" target="_blank">
+            here
+          </a>
+          .
+        </h4>
+
+        <br />
+        <h4>
           Please <a href="mailto:support@refinery.io">email</a> us with any questions you have!
         </h4>
       </div>
