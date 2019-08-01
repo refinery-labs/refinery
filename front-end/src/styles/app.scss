@@ -452,8 +452,21 @@ $content-sidebar-width: 92px;
     position: absolute;
     left: 8px;
     bottom: 0;
+    text-align: left;
     pointer-events:none;
+    &--demo {
+      width: 300px;
+
+      a {
+        pointer-events: auto;
+        max-width: 180px;
+      }
+    }
   }
+}
+
+.getting-started-tooltip {
+  width: 500px;
 }
 
 .add-transition-container,
