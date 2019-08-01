@@ -85,8 +85,7 @@
                 "lambda:DeleteFunctionConcurrency",
                 "lambda:RemovePermission",
                 "sns:ListPlatformApplications",
-                "lambda:GetPolicy",
-                "cloudwatch:GetMetricData"
+                "lambda:GetPolicy"
             ],
             "Resource": "*"
         },
@@ -176,6 +175,43 @@
                 "dynamodb:ListBackups",
                 "dynamodb:DescribeLimits",
                 "dynamodb:ListStreams"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor6",
+            "Effect": "Allow",
+            "Action": [
+                "cloudwatch:PutDashboard",
+                "cloudwatch:GetDashboard",
+                "cloudwatch:DeleteAlarms",
+                "cloudwatch:TagResource",
+                "cloudwatch:PutMetricAlarm",
+                "cloudwatch:DeleteDashboards",
+                "cloudwatch:DescribeAlarmHistory",
+                "cloudwatch:UntagResource",
+                "cloudwatch:EnableAlarmActions",
+                "cloudwatch:DisableAlarmActions",
+                "cloudwatch:ListTagsForResource",
+                "cloudwatch:DescribeAlarms",
+                "cloudwatch:SetAlarmState"
+            ],
+            "Resource": [
+                "arn:aws:cloudwatch::*:dashboard/*",
+                "arn:aws:cloudwatch:*:*:alarm:*"
+            ]
+        },
+        {
+            "Sid": "VisualEditor7",
+            "Effect": "Allow",
+            "Action": [
+                "cloudwatch:PutMetricData",
+                "cloudwatch:GetMetricData",
+                "cloudwatch:DescribeAlarmsForMetric",
+                "cloudwatch:ListDashboards",
+                "cloudwatch:GetMetricStatistics",
+                "cloudwatch:GetMetricWidgetImage",
+                "cloudwatch:ListMetrics"
             ],
             "Resource": "*"
         }
