@@ -62,16 +62,53 @@ export default class OpenedProjectGraphContainer extends Vue {
       windowWidth: this.windowWidth
     };
 
+    const containerClasses = {
+      'opened-project-graph-container__project-name display--flex flex-direction--column': true,
+      'opened-project-graph-container__project-name--demo padding--small': this.isInDemoMode
+    };
+
+    const quickstartButton = (
+      <b-button
+        variant="primary"
+        id="quickstart-guide-button"
+        href="https://docs.refinery.io/getting-started/#adding-your-first-block"
+        target="_blank"
+      >
+        View Quickstart Guide
+      </b-button>
+    );
+
+    const introTooltip = (
+      <b-tooltip
+        target="quickstart-guide-button"
+        show
+        placement="top"
+        boundary="viewport"
+        triggers="hover"
+        boundary-padding={10}
+        custom-class="getting-started-tooltip"
+      >
+        <h4>Welcome to Refinery!</h4>
+        Click on a block to start building.
+        <br />
+        Try adding a block too!
+        <br />
+        For more help, see the guide below.
+      </b-tooltip>
+    );
+
     return (
       <div class="opened-project-graph-container project-graph-container">
-        <div class="opened-project-graph-container__project-name">
-          <h4>
+        <div class={containerClasses}>
+          {this.isInDemoMode && quickstartButton}
+          <h4 class="margin-top--normal">
             <i>
               {this.isInDemoMode ? 'Importing: ' : ''}
               {this.openedProject && this.openedProject.name}
             </i>
           </h4>
         </div>
+        {this.isInDemoMode && introTooltip}
         <CytoscapeGraph props={graphProps} />
       </div>
     );
