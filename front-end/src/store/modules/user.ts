@@ -20,7 +20,7 @@ import { LOGIN_STATUS_CHECK_INTERVAL, MAX_LOGIN_CHECK_ATTEMPTS } from '@/constan
 import { checkLoginStatus } from '@/store/fetchers/api-helpers';
 import store from '@/store';
 
-const nameRegex = /^(\D{1,32} )+\D{1,32}$/;
+const nameRegex = /^(\D{1,32} ?)+\D{1,32}$/;
 
 const moduleState: UserState = {
   authenticated: false,

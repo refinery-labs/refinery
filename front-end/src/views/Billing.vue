@@ -135,6 +135,10 @@
               </div>
             </b-card-group>
           </div>
+          <h4>
+            To cancel your billing, please click <a :href="getEmailLink()" target="_blank">here</a> (or send an email to
+            support@refinery.io).
+          </h4>
         </div>
       </div>
     </div>
@@ -149,6 +153,7 @@ import StripeAddPaymentCard from '@/components/Common/StripeAddPaymentCard.vue';
 import moment from 'moment';
 
 const billing = namespace('billing');
+const user = namespace('user');
 
 @Component({
   components: {
@@ -168,12 +173,20 @@ export default class Billing extends Vue {
   @billing.State isPaymentMethodsLoading!: () => Boolean;
   @billing.State isMonthBillLoading!: () => Boolean;
 
+  @user.State email!: string | null;
+
   getCurrentMonthHuman() {
     return moment().format('MMMM YYYY');
   }
 
   async getLatestMonthBill() {
     await this.getMonthBill(moment().format('YYYY-MM'));
+  }
+
+  getEmailLink() {
+    const userEmail = this.email ? this.email : 'Please put your Refinery email here';
+
+    return `mailto:support@refinery.io?subject=Cancel%20Subscription%20Request&body=${encodeURIComponent(userEmail)}`;
   }
 
   async setStripeToken(paymentTokenId: string) {
