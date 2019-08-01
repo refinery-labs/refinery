@@ -54,6 +54,10 @@ resource "aws_security_group" "refinery_redis_security_group" {
 */
 resource "aws_eip" "refinery_redis_elastic_ip" {
 	vpc = true
+
+	tags = {
+		RefineryResource = "true"
+	}
 }
 
 data "template_file" "docker_compose_yaml" {
@@ -124,6 +128,10 @@ resource "aws_instance" "refinery_redis_instance" {
 			"sudo chmod +x /tmp/setup-redis-instance.sh",
 			"sudo /tmp/setup-redis-instance.sh"
 		]
+	}
+
+	tags = {
+		RefineryResource = "true"
 	}
 
 	depends_on = [

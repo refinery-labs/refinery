@@ -4789,6 +4789,13 @@ class TaskSpawner(object):
 							"VisibilityTimeout": str( visibility_timeout ), # Lambda max time plus ten seconds
 						}
 					)
+
+					sqs_tag_response = sqs_client.tag_queue(
+						QueueUrl=sqs_response[ "QueueUrl" ],
+						Tags={
+							"RefineryResource": "true",
+						}
+					)
 					
 					queue_deleted = True
 				except sqs_client.exceptions.QueueDeletedRecently:
@@ -5453,7 +5460,10 @@ class TaskSpawner(object):
 				},
 				binaryMediaTypes=[
 					"*/*"
-				]
+				],
+				tags={
+					"RefineryResource": "true"
+				}
 			)
 			
 			return {
@@ -6277,6 +6287,7 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		all_environment_vars,
 		{
 			"refinery_id": id,
+			"RefineryResource": "true"
 		},
 		layers,
 		is_inline_execution

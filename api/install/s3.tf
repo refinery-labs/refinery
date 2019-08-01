@@ -56,6 +56,10 @@ resource "aws_s3_bucket" "lambda-logging" {
 		
 		abort_incomplete_multipart_upload_days = 1
 	}
+
+	tags = {
+		RefineryResource = "true"
+	}
 }
 
 /*
@@ -84,5 +88,9 @@ resource "aws_s3_bucket" "lambda-build-packages" {
 		}
 		
 		abort_incomplete_multipart_upload_days = 1
+	}
+
+	tags = {
+		RefineryResource = "true"
 	}
 }
