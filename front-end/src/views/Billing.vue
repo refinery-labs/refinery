@@ -136,7 +136,7 @@
             </b-card-group>
           </div>
           <h4>
-            To cancel your account, please click <a :href="getEmailLink()" target="_blank">here</a> (or send an email to
+            To close your account, please click <a :href="getEmailLink()" target="_blank">here</a> (or send an email to
             support@refinery.io).
           </h4>
         </div>
