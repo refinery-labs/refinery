@@ -394,7 +394,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
 
       await context.dispatch(EditBlockActions.selectNodeFromOpenProject, projectStore.selectedResource);
     },
-    async [EditBlockActions.saveBlock](context) {
+    async [EditBlockActions.saveBlock](context, closeAfter?: boolean) {
       const projectStore = context.rootState.project;
 
       if (!projectStore.openedProject) {
@@ -415,6 +415,10 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       }
 
       if (!context.getters.isStateDirty) {
+        if (closeAfter) {
+          await context.dispatch(EditBlockActions.tryToCloseBlock);
+        }
+
         return;
       }
 
@@ -424,6 +428,10 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
 
       // Set the "original" to the new block.
       context.commit(EditBlockMutators.setSelectedNodeOriginal, context.state.selectedNode);
+
+      if (closeAfter) {
+        await context.dispatch(EditBlockActions.tryToCloseBlock);
+      }
     },
     async [EditBlockActions.duplicateBlock](context) {
       if (!context.state.selectedNode) {

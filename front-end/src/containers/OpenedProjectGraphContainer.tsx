@@ -11,6 +11,8 @@ const project = namespace('project');
 
 @Component
 export default class OpenedProjectGraphContainer extends Vue {
+  showTooltip = true;
+
   @project.State openedProject!: RefineryProject | null;
   @project.State selectedResource!: string | null;
   @project.State cytoscapeElements!: CyElements | null;
@@ -27,6 +29,10 @@ export default class OpenedProjectGraphContainer extends Vue {
   @project.Action clearSelection!: () => void;
   @project.Action selectNode!: (element: string) => void;
   @project.Action selectEdge!: (element: string) => void;
+
+  mounted() {
+    setTimeout(() => (this.showTooltip = false), 15000);
+  }
 
   public getEnabledNodeIds() {
     if (!this.getValidBlockToBlockTransitions) {
@@ -67,21 +73,10 @@ export default class OpenedProjectGraphContainer extends Vue {
       'opened-project-graph-container__project-name--demo padding--small': this.isInDemoMode
     };
 
-    const quickstartButton = (
-      <b-button
-        variant="primary"
-        id="quickstart-guide-button"
-        href="https://docs.refinery.io/getting-started/#adding-your-first-block"
-        target="_blank"
-      >
-        View Quickstart Guide
-      </b-button>
-    );
-
     const introTooltip = (
       <b-tooltip
         target="quickstart-guide-button"
-        show
+        show={this.showTooltip}
         placement="top"
         boundary="viewport"
         triggers="hover"
@@ -97,10 +92,26 @@ export default class OpenedProjectGraphContainer extends Vue {
       </b-tooltip>
     );
 
+    const demoButtons = (
+      <div>
+        <b-button
+          variant="primary"
+          id="quickstart-guide-button"
+          href="https://docs.refinery.io/getting-started/#adding-your-first-block"
+          target="_blank"
+        >
+          View Quickstart Guide
+        </b-button>
+        <b-button class="ml-2" variant="success" to="/register">
+          Signup for Refinery
+        </b-button>
+      </div>
+    );
+
     return (
       <div class="opened-project-graph-container project-graph-container">
         <div class={containerClasses}>
-          {this.isInDemoMode && quickstartButton}
+          {this.isInDemoMode && demoButtons}
           <h4 class="margin-top--normal">
             <i>
               {this.isInDemoMode ? 'Importing: ' : ''}
