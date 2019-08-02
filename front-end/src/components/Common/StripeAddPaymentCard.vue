@@ -1,5 +1,9 @@
 <template>
-  <div ref="card"></div>
+  <div
+    ref="card"
+    style="border: 1px solid #dde6e9; border-radius: 0.25rem; height: 35px;"
+    class="padding-top--normal padding-left--small padding-right--small"
+  ></div>
 </template>
 
 <script lang="ts">
