@@ -118,6 +118,9 @@ export default class RegistrationPage extends Vue {
         {callToAction}
         <b-form on={{ submit: this.onSubmit, reset: this.onReset }} class="mb-3 text-align--left">
           <b-form-group id="user-email-group">
+            <b-form-invalid-feedback state={this.registrationErrorMessage === null}>
+              {this.registrationErrorMessage}
+            </b-form-invalid-feedback>
             <label class="text-muted d-block" htmlFor="user-email-input">
               Email address:
             </label>
@@ -149,7 +152,7 @@ export default class RegistrationPage extends Vue {
           </b-form-group>
           <b-form-group id="user-name-group">
             <label class="text-muted d-block" htmlFor="user-name-input" id="user-name-group">
-              Full Name:
+              Billing Name:
             </label>
 
             <div class="input-group with-focus">
@@ -176,9 +179,27 @@ export default class RegistrationPage extends Vue {
               Your name must contain First + Last name and not contain numbers.
             </b-form-invalid-feedback>
           </b-form-group>
+          <b-form-group id="stripe-payment">
+            <label class="text-muted d-block" htmlFor="user-name-input" id="user-name-group">
+              Payment Information
+            </label>
+            {/* TypeScript can fuck right off, this works fine.
+            // @ts-ignore */}
+            <StripeAddPaymentCard props={stripeCardProps} />
+            {/*TODO: Replace Pricing page with actual link.*/}
+            <label class="text-muted d-block">
+              Monthly base fee of $5 (first month free) plus service usage (code block executions, log storage, etc).
+              <br />
+              For more information about our pricing, see our{' '}
+              <a href="https://www.refinery.io/pricing" target="_blank">
+                Pricing page
+              </a>
+              .
+            </label>
+          </b-form-group>
           <b-form-group id="user-phone-group">
             <label class="text-muted d-block" htmlFor="user-phone-input" id="user-phone-group">
-              Phone Number:
+              Phone Number (optional):
             </label>
             <div class="input-group with-focus">
               <b-form-input
@@ -188,8 +209,8 @@ export default class RegistrationPage extends Vue {
                 on={{ change: this.setRegisterPhoneInputValue }}
                 type="tel"
                 placeholder="+1 (555) 555-5555"
-                required
-                state={this.registrationPhoneInputValid}
+                required={false}
+                // state={this.registrationPhoneInputValid}
               />
               <div class="input-group-append">
                 <span class="input-group-text text-muted bg-transparent border-left-0">
@@ -231,25 +252,6 @@ export default class RegistrationPage extends Vue {
             <b-form-invalid-feedback state={this.registrationOrgNameInputValid}>
               Your must provide a valid Organization name.
             </b-form-invalid-feedback>
-          </b-form-group>
-          <b-form-group id="stripe-payment">
-            <label class="text-muted d-block" htmlFor="user-name-input" id="user-name-group">
-              Payment Information
-            </label>
-            {/* TypeScript can fuck right off, this works fine.
-            // @ts-ignore */}
-            <StripeAddPaymentCard props={stripeCardProps} />
-            <br />
-            {/*TODO: Replace Pricing page with actual link.*/}
-            <label class="text-muted d-block">
-              Monthly base fee of $5 (first month free) plus service usage (code block executions, log storage, etc).
-              <br />
-              For more information about our pricing, see our{' '}
-              <a href="https://www.refinery.io/pricing" target="_blank">
-                Pricing page
-              </a>
-              .
-            </label>
           </b-form-group>
           <b-form-group id="terms-agree-group" class="text-align--left">
             <b-form-checkbox
@@ -323,7 +325,7 @@ export default class RegistrationPage extends Vue {
   public render(h: CreateElement): VNode {
     const classes = {
       'register-page': true,
-      'block-center mt-4 wd-xl': !this.inDemoMode,
+      'block-center mt-4 wd-xxl': !this.inDemoMode,
       'mt-2': this.inDemoMode
     };
 
