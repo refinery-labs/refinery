@@ -59,6 +59,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @viewBlock.Action openAwsConsoleForBlock!: () => void;
   @viewBlock.Action openAwsMonitorForCodeBlock!: () => void;
   @viewBlock.Action openAwsCloudwatchForCodeBlock!: () => void;
+  @viewBlock.Action('runCodeBlock') runDeployedCodeBlock!: () => void;
 
   // State pulled from Project view
   @editBlock.State showCodeModal!: boolean;
@@ -84,6 +85,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
   @editBlock.Action saveBlock!: () => Promise<void>;
   @editBlock.Action kickOffLibraryBuild!: () => void;
+  @editBlock.Action('runCodeBlock') runEditorCodeBlock!: () => void;
 
   deleteLibrary(library: string) {
     // Do nothing
@@ -196,7 +198,12 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   public renderCodeEditorContainer() {
     const selectedNode = this.selectedNode;
 
+    const runCodeBlock = this.readOnly ? this.runDeployedCodeBlock : this.runEditorCodeBlock;
     const setCodeModalVisibility = this.readOnly ? this.setCodeModalVisibilityDeployment : this.setCodeModalVisibility;
+
+    const runCodeOnClick = {
+      click: () => runCodeBlock()
+    };
 
     const fullscreenOnClick = {
       click: () => setCodeModalVisibility(true)
@@ -206,17 +213,27 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
     return (
       <b-form-group id={`code-editor-group-${selectedNode.id}`} description={descriptionText}>
-        <div class="display--flex">
+        <div class="display--flex flex-wrap">
           <label class="d-block flex-grow--1 padding-top--normal" htmlFor={`code-editor-${selectedNode.id}`}>
             {this.readOnly ? 'View' : 'Edit'} Block Code:
           </label>
-          <b-button on={fullscreenOnClick} class="show-block-container__expand-button mr-2">
-            <span class="fa fa-expand" />
-            {'  '}Open Full {this.readOnly ? 'Viewer' : 'Editor'}
-          </b-button>
-          <BlockDocumentationButton
-            props={{ docLink: 'https://docs.refinery.io/blocks/#code-block', offsetButton: false }}
-          />
+          <div class="flex-grow--1 display--flex">
+            <b-button
+              on={runCodeOnClick}
+              class="show-block-container__expand-button mr-2 flex-grow--1"
+              variant="outline-success"
+            >
+              <span class="icon-control-play" />
+              {'  '}Run Code
+            </b-button>
+            <b-button on={fullscreenOnClick} class="show-block-container__expand-button mr-2 flex-grow--1">
+              <span class="fa fa-expand" />
+              {'  '}Open Full {this.readOnly ? 'Viewer' : 'Editor'}
+            </b-button>
+            <BlockDocumentationButton
+              props={{ docLink: 'https://docs.refinery.io/blocks/#code-block', offsetButton: false }}
+            />
+          </div>
         </div>
         <div class="input-group with-focus show-block-container__code-editor">{this.renderCodeEditor()}</div>
       </b-form-group>

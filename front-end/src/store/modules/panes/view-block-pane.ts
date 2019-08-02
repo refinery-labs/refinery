@@ -10,8 +10,9 @@ import {
 } from '@/utils/code-block-utils';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
-import { ProjectViewActions } from '@/constants/store-constants';
-import { PANE_POSITION } from '@/types/project-editor-types';
+import { DeploymentViewActions } from '@/constants/store-constants';
+import { SIDEBAR_PANE } from '@/types/project-editor-types';
+import { RunLambdaActions } from '@/store/modules/run-lambda';
 
 // Enums
 export enum ViewBlockMutators {
@@ -26,7 +27,8 @@ export enum ViewBlockActions {
   selectCurrentlySelectedProjectNode = 'selectCurrentlySelectedProjectNode',
   openAwsConsoleForBlock = 'openAwsConsoleForBlock',
   openAwsMonitorForCodeBlock = 'openAwsMonitorForCodeBlock',
-  openAwsCloudwatchForCodeBlock = 'openAwsCloudwatchForCodeBlock'
+  openAwsCloudwatchForCodeBlock = 'openAwsCloudwatchForCodeBlock',
+  runCodeBlock = 'runCodeBlock'
 }
 
 // Types
@@ -156,6 +158,15 @@ const ViewBlockPaneModule: Module<ViewBlockPaneState, RootState> = {
       }
 
       openLinkForBlock(context.state.selectedNode as ProductionLambdaWorkflowState, getCloudWatchLinkForCodeBlockArn);
+    },
+    async [ViewBlockActions.runCodeBlock](context) {
+      await context.dispatch(
+        `deployment/${DeploymentViewActions.openLeftSidebarPane}`,
+        SIDEBAR_PANE.runDeployedCodeBlock,
+        { root: true }
+      );
+
+      await context.dispatch(`runLambda/${RunLambdaActions.runSelectedDeployedCodeBlock}`, null, { root: true });
     }
   }
 };
