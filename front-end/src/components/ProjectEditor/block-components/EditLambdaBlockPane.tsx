@@ -134,7 +134,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   }
 
   public renderCodeEditorModal() {
-    const nameString = `Edit Code for '${this.selectedNode.name}'`;
+    const nameString = `${this.readOnly ? 'Viewing' : 'Editing'} Code for '${this.selectedNode.name}'`;
 
     const setCodeModalVisibility = this.readOnly ? this.setCodeModalVisibilityDeployment : this.setCodeModalVisibility;
     const showCodeModal = this.readOnly ? this.showCodeModalDeployment : this.showCodeModal;

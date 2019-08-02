@@ -87,7 +87,7 @@ $content-sidebar-width: 92px;
     width: 80px;
 
     @media screen and (max-width: 576px) {
-      flex-basis: calc(33.33% - 2px);
+      flex-basis: calc(33.3% - 2px);
       padding: 0 0 4px;
       margin: 0;
       height: 100%;
