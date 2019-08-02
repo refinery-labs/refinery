@@ -68,7 +68,8 @@ resource "aws_iam_policy" "refinery_default_aws_lambda_policy" {
                 "s3:GetBucketLocation",
                 "s3:GetObjectVersion",
                 "s3:PutObjectAcl",
-                "s3:PutObjectVersionAcl"
+                "s3:PutObjectVersionAcl",
+                "s3:CreateBucket"
             ],
             "Resource": [
                 "arn:aws:s3:::*",
@@ -101,6 +102,77 @@ resource "aws_iam_policy" "refinery_default_aws_lambda_policy" {
             "Effect": "Allow",
             "Action": "logs:PutLogEvents",
             "Resource": "arn:aws:logs:*:*:log-group:*:*:*"
+        },
+        {
+            "Sid": "VisualEditor3",
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:DeleteItem",
+                "dynamodb:RestoreTableToPointInTime",
+                "dynamodb:ListTagsOfResource",
+                "dynamodb:UpdateGlobalTable",
+                "dynamodb:CreateBackup",
+                "dynamodb:DeleteTable",
+                "dynamodb:UpdateContinuousBackups",
+                "dynamodb:TagResource",
+                "dynamodb:DescribeTable",
+                "dynamodb:GetItem",
+                "dynamodb:DescribeContinuousBackups",
+                "dynamodb:CreateGlobalTable",
+                "dynamodb:UpdateTimeToLive",
+                "dynamodb:BatchWriteItem",
+                "dynamodb:ConditionCheckItem",
+                "dynamodb:UntagResource",
+                "dynamodb:PutItem",
+                "dynamodb:Scan",
+                "dynamodb:Query",
+                "dynamodb:UpdateItem",
+                "dynamodb:DescribeTimeToLive",
+                "dynamodb:CreateTable",
+                "dynamodb:UpdateGlobalTableSettings",
+                "dynamodb:RestoreTableFromBackup",
+                "dynamodb:UpdateTable"
+            ],
+            "Resource": "arn:aws:dynamodb:*:*:table/*"
+        },
+        {
+            "Sid": "VisualEditor4",
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:Scan",
+                "dynamodb:Query",
+                "dynamodb:DescribeStream",
+                "dynamodb:UpdateGlobalTable",
+                "dynamodb:UpdateGlobalTableSettings",
+                "dynamodb:DescribeGlobalTableSettings",
+                "dynamodb:GetShardIterator",
+                "dynamodb:DescribeGlobalTable",
+                "dynamodb:RestoreTableFromBackup",
+                "dynamodb:CreateGlobalTable",
+                "dynamodb:DescribeBackup",
+                "dynamodb:DeleteBackup",
+                "dynamodb:GetRecords"
+            ],
+            "Resource": [
+                "arn:aws:dynamodb:*:*:table/*/index/*",
+                "arn:aws:dynamodb:*:*:table/*/stream/*",
+                "arn:aws:dynamodb:*:*:table/*/backup/*",
+                "arn:aws:dynamodb::*:global-table/*"
+            ]
+        },
+        {
+            "Sid": "VisualEditor5",
+            "Effect": "Allow",
+            "Action": [
+                "dynamodb:DescribeReservedCapacityOfferings",
+                "dynamodb:ListGlobalTables",
+                "dynamodb:ListTables",
+                "dynamodb:DescribeReservedCapacity",
+                "dynamodb:ListBackups",
+                "dynamodb:DescribeLimits",
+                "dynamodb:ListStreams"
+            ],
+            "Resource": "*"
         }
     ]
 }
