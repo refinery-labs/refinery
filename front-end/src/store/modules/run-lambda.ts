@@ -11,13 +11,14 @@ import {
 } from '@/types/api-types';
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
-import { LambdaWorkflowState, SupportedLanguage, WorkflowStateType } from '@/types/graph';
+import { LambdaWorkflowState, SupportedLanguage, WorkflowState, WorkflowStateType } from '@/types/graph';
 import { RunCodeBlockLambdaConfig, RunTmpCodeBlockLambdaConfig } from '@/types/run-lambda-types';
 import { checkBuildStatus, libraryBuildArguments } from '@/store/fetchers/api-helpers';
 import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { DeploymentExecutionsActions } from '@/store/modules/panes/deployment-executions-pane';
+import { DeploymentViewGetters } from '@/constants/store-constants';
 
 export interface InputDataCache {
   [key: string]: string;
@@ -186,6 +187,18 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
   },
   actions: {
     async [RunLambdaActions.runSelectedDeployedCodeBlock](context, block: ProductionLambdaWorkflowState) {
+      // Grab a default selection if none was specified
+      if (!block) {
+        const selectedBlock = context.rootGetters[
+          `deployment/${DeploymentViewGetters.getSelectedBlock}`
+        ] as WorkflowState | null;
+        if (!selectedBlock || selectedBlock.type !== WorkflowStateType.LAMBDA) {
+          return;
+        }
+
+        block = selectedBlock as ProductionLambdaWorkflowState;
+      }
+
       if (!block || !block.arn) {
         console.error('Invalid ARN specified for Run Code Block request');
         return;
@@ -222,6 +235,8 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
 
       context.commit(RunLambdaMutators.setDeployedLambdaRunResult, runLambdaResult.result);
 
+      context.commit(RunLambdaMutators.setLambdaRunningStatus, false);
+
       if (request.execution_id) {
         await context.dispatch(
           `deploymentExecutions/${DeploymentExecutionsActions.forceSelectExecutionGroup}`,
@@ -229,8 +244,6 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
           { root: true }
         );
       }
-
-      context.commit(RunLambdaMutators.setLambdaRunningStatus, false);
     },
     async [RunLambdaActions.runSpecifiedEditorCodeBlock](context, config: RunTmpCodeBlockLambdaConfig) {
       if (!config || !config.codeBlock || !config.projectConfig) {
@@ -294,7 +307,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       context.commit(RunLambdaMutators.setDevLambdaRunResult, runTmpLambdaResult.result);
       context.commit(RunLambdaMutators.setDevLambdaRunResultId, request.block_id);
     },
-    async [RunLambdaActions.runLambdaCode](context, config: RunCodeBlockLambdaConfig) {
+    async [RunLambdaActions.runLambdaCode](context, config?: RunCodeBlockLambdaConfig) {
       if (context.rootState.project.isInDemoMode) {
         await context.dispatch(`unauthViewProject/promptDemoModeSignup`, true, { root: true });
         return;
@@ -306,6 +319,17 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         }
         return 'Building libraries and then running Code Block...\n(Note: The first run after adding a new library may take up to two minutes longer to finish.)';
       }
+
+      // Try to get the default config
+      if (!config) {
+        config = context.getters.getRunLambdaConfig as RunCodeBlockLambdaConfig;
+      }
+
+      // Means we don't have a default config either...
+      if (!config) {
+        return;
+      }
+
       context.commit(RunLambdaMutators.setLambdaRunningStatus, true);
 
       const params: libraryBuildArguments = {
