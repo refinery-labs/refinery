@@ -122,7 +122,7 @@ export default class RegistrationPage extends Vue {
               {this.registrationErrorMessage}
             </b-form-invalid-feedback>
             <label class="text-muted d-block" htmlFor="user-email-input">
-              Email address:
+              Email address <span style="color: red;">*</span>
             </label>
 
             <div class="input-group with-focus">
@@ -152,7 +152,7 @@ export default class RegistrationPage extends Vue {
           </b-form-group>
           <b-form-group id="user-name-group">
             <label class="text-muted d-block" htmlFor="user-name-input" id="user-name-group">
-              Billing Name:
+              Billing Name <span style="color: red;">*</span>
             </label>
 
             <div class="input-group with-focus">
@@ -181,7 +181,7 @@ export default class RegistrationPage extends Vue {
           </b-form-group>
           <b-form-group id="stripe-payment">
             <label class="text-muted d-block" htmlFor="user-name-input" id="user-name-group">
-              Payment Information
+              Payment Information <span style="color: red;">*</span>
             </label>
             {/* TypeScript can fuck right off, this works fine.
             // @ts-ignore */}
@@ -199,7 +199,7 @@ export default class RegistrationPage extends Vue {
           </b-form-group>
           <b-form-group id="user-phone-group">
             <label class="text-muted d-block" htmlFor="user-phone-input" id="user-phone-group">
-              Phone Number (optional):
+              Phone Number (optional)
             </label>
             <div class="input-group with-focus">
               <b-form-input
@@ -266,7 +266,7 @@ export default class RegistrationPage extends Vue {
               <a class="ml-1" href="/terms-of-service" target="_blank">
                 terms and conditions
               </a>
-              .
+              . <span style="color: red;">*</span>
             </b-form-checkbox>
 
             <b-form-invalid-feedback state={this.termsAndConditionsAgreedValid}>
@@ -276,6 +276,7 @@ export default class RegistrationPage extends Vue {
           <b-form-invalid-feedback state={this.registrationErrorMessage === null}>
             {this.registrationErrorMessage}
           </b-form-invalid-feedback>
+          <span style="color: red;">*</span> = Required Field
           <button class="btn btn-block btn-primary mt-3" type="submit">
             Create account
           </button>
