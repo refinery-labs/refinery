@@ -118,6 +118,7 @@ class AWSAccount( Base ):
 	def to_dict( self ):
 		exposed_attributes = [
 			"id",
+			"account_label",
 			"account_id",
 			"region",
 			"s3_bucket_suffix",
