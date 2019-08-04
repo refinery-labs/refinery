@@ -69,6 +69,7 @@ class Organization( Base ):
 			"name",
 			"max_users",
 			"disabled",
+			"payments_overdue",
 			"timestamp"
 		]
 		

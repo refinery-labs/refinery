@@ -2304,6 +2304,16 @@ class TaskSpawner(object):
 			dbsession = DBSession()
 			organizations = dbsession.query( Organization )
 			
+			organization_ids = []
+			
+			for organization in organizations:
+				organization_dict = organization.to_dict()
+				organization_ids.append(
+					organization_dict[ "id" ]
+				)
+				
+			dbsession.close()
+			
 			# List of invoices to send out at the end
 			"""
 			{
@@ -2322,7 +2332,14 @@ class TaskSpawner(object):
 			)
 			
 			# Iterate over each organization
-			for organization in organizations:
+			for organization_id in organization_ids:
+				dbsession = DBSession()
+				organization = dbsession.query( Organization ).filter_by(
+					id=organization_id
+				).first()
+				
+				organization_dict = organization.to_dict()
+				
 				# If the organization is disabled we just skip it
 				if organization.disabled == True:
 					continue
@@ -2342,14 +2359,18 @@ class TaskSpawner(object):
 				# the invoice email so they can pay it.
 				current_organization_invoice_data[ "admin_stripe_id" ] = organization.billing_admin_user.payment_id
 				
-				# Pull billing information for each AWS account
+				# Get AWS accounts from organization
+				organization_aws_accounts = []
 				for aws_account in organization.aws_accounts:
-					# Skip the AWS account if it's not managed
-					if aws_account.account_type != "MANAGED":
-						continue
-					
+					organization_aws_accounts.append(
+						aws_account.to_dict()
+					)
+				dbsession.close()
+				
+				# Pull billing information for each AWS account
+				for aws_account_dict in organization_aws_accounts:
 					billing_information = TaskSpawner._get_sub_account_billing_data(
-						aws_account.account_id,
+						aws_account_dict[ "account_id" ],
 						start_date_string,
 						end_date_string,
 						"monthly",
@@ -2357,15 +2378,16 @@ class TaskSpawner(object):
 					)
 					
 					current_organization_invoice_data[ "aws_account_bills" ].append({
-						"aws_account_label": aws_account.account_label,
-						"aws_account_id": aws_account.account_id,
+						"aws_account_label": aws_account_dict[ "account_label" ],
+						"aws_account_id": aws_account_dict[ "account_id" ],
 						"billing_information": billing_information,
 					})
 				
-				invoice_list.append(
-					current_organization_invoice_data
-				)
-			
+				if "admin_stripe_id" in current_organization_invoice_data and current_organization_invoice_data[ "admin_stripe_id" ]:
+					invoice_list.append(
+						current_organization_invoice_data
+					)
+				
 			for invoice_data in invoice_list:
 				for aws_account_billing_data in invoice_data[ "aws_account_bills" ]:
 					# We send one bill per managed AWS account if they have multiple
@@ -2381,7 +2403,7 @@ class TaskSpawner(object):
 							
 							if aws_account_billing_data[ "aws_account_label" ].strip() != "":
 								service_description = service_description + " (Cloud Account: '" + aws_account_billing_data[ "aws_account_label" ] + "')"
-							
+								
 							stripe.InvoiceItem.create(
 								# Stripe bills in cents!
 								amount=line_item_cents,
@@ -2399,15 +2421,18 @@ class TaskSpawner(object):
 						}
 					}
 					
-					customer_invoice = stripe.Invoice.create(
-						**invoice_creation_params
-					)
-					
-					if finalize_invoices_enabled:
-						customer_invoice.send_invoice()
-			
-			dbsession.close()
-			
+					try:
+						customer_invoice = stripe.Invoice.create(
+							**invoice_creation_params
+						)
+						
+						if finalize_invoices_enabled:
+							customer_invoice.send_invoice()
+					except Exception as e:
+						logit( "Exception occurred while creating customer invoice, parameters were the following: " )
+						logit( invoice_creation_params )
+						logit( e )
+
 			# Notify finance department that they have an hour to review the invoices
 			return TaskSpawner._send_email(
 				os.environ.get( "billing_alert_email" ),
@@ -2605,13 +2630,19 @@ class TaskSpawner(object):
 			# Markup multiplier
 			markup_multiplier = 1 + ( int( os.environ.get( "mark_up_percent" ) ) / 100 )
 			
-			# Add the $5 base fee
-			return_data[ "service_breakdown" ].append({
-				"service_name": "Base Service Fee",
-				"unit": "usd",
-				"total": ( "%.2f" % 5.00 ),
-			})
-			total_amount = 5.00
+			# Check if this is the first billing month
+			is_first_account_billing_month = is_organization_first_month(
+				account_id
+			)
+			
+			# Add the $5 base fee if it's not the user's first month
+			if not is_first_account_billing_month:
+				return_data[ "service_breakdown" ].append({
+					"service_name": "Base Service Fee",
+					"unit": "usd",
+					"total": ( "%.2f" % 5.00 ),
+				})
+				total_amount = 5.00
 			
 			for service_breakdown_info in service_breakdown_list:
 				# Remove branding words from service name
@@ -9089,6 +9120,22 @@ class GetBillingMonthTotals( BaseHandler ):
 			"billing_data": billing_data,
 		})
 		
+def get_last_month_start_and_end_date_strings():
+	"""
+	Returns the start date string of the previous month and
+	the start date of the current month for pulling AWS
+	billing for the last month.
+	"""
+	# Get first day of last month
+	today_date = datetime.date.today()
+	one_month_ago_date = datetime.date.today() - datetime.timedelta( days=30 )
+		
+	return {
+		"current_date": today_date.strftime( "%Y-%m-%d" ),
+		"month_start_date": one_month_ago_date.strftime( "%Y-%m-01" ),
+		"next_month_first_day": today_date.strftime( "%Y-%m-01" ),
+	}
+		
 def get_current_month_start_and_end_date_strings():
 	"""
 	Returns the start date string of this month and
@@ -9173,6 +9220,30 @@ class RunBillingWatchdogJob( BaseHandler ):
 		logit( "[ STATUS ] " + str( len( aws_account_running_cost_list ) ) + " account(s) pulled from billing, checking against rules..." )
 		yield local_tasks.enforce_account_limits( aws_account_running_cost_list )
 		
+def is_organization_first_month( aws_account_id ):
+	# Pull the relevant organization from the database to check
+	# how old the account is to know if the first-month's base fee should be applied.
+	dbsession = DBSession()
+	aws_account = dbsession.query( AWSAccount ).filter_by(
+		account_id=aws_account_id
+	).first()
+	organization = dbsession.query( Organization ).filter_by(
+		id=aws_account.organization_id
+	).first()
+	organization_dict = organization.to_dict()
+	dbsession.close()
+	
+	account_creation_dt = datetime.datetime.fromtimestamp(
+		organization.timestamp
+	)
+	
+	current_datetime = datetime.datetime.now()
+	
+	if account_creation_dt > ( current_datetime - datetime.timedelta( days=32 ) ):
+		return True
+		
+	return False
+		
 class RunMonthlyStripeBillingJob( BaseHandler ):
 	@gen.coroutine
 	def get( self ):
@@ -9188,8 +9259,10 @@ class RunMonthlyStripeBillingJob( BaseHandler ):
 		})
 		self.finish()
 		logit( "[ STATUS ] Running monthly Stripe billing job to invoice all Refinery customers." )
-		date_info = get_current_month_start_and_end_date_strings()
+		date_info = get_last_month_start_and_end_date_strings()
+		
 		logit( "[ STATUS ] Generating invoices for " + date_info[ "month_start_date" ] + " -> " + date_info[ "next_month_first_day" ]  )
+		
 		yield local_tasks.generate_managed_accounts_invoices(
 			date_info[ "month_start_date"],
 			date_info[ "next_month_first_day" ],
