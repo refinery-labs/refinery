@@ -174,7 +174,14 @@
                 "dynamodb:DescribeReservedCapacity",
                 "dynamodb:ListBackups",
                 "dynamodb:DescribeLimits",
-                "dynamodb:ListStreams"
+                "dynamodb:ListStreams",
+                "application-autoscaling:*",
+                "resource-groups:ListGroups",
+                "resource-groups:ListGroupResources",
+                "resource-groups:GetGroup",
+                "resource-groups:GetGroupQuery",
+                "resource-groups:DeleteGroup",
+                "resource-groups:CreateGroup"
             ],
             "Resource": "*"
         },
@@ -214,6 +221,37 @@
                 "cloudwatch:ListMetrics"
             ],
             "Resource": "*"
+        },
+        {
+            "Action": [
+                "iam:PassRole"
+            ],
+            "Effect": "Allow",
+            "Resource": "*",
+            "Condition": {
+                "StringLike": {
+                    "iam:PassedToService": [
+                        "application-autoscaling.amazonaws.com",
+                        "dax.amazonaws.com"
+                    ]
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "iam:CreateServiceLinkedRole"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "iam:AWSServiceName": [
+                        "replication.dynamodb.amazonaws.com",
+                        "dax.amazonaws.com",
+                        "dynamodb.application-autoscaling.amazonaws.com"
+                    ]
+                }
+            }
         }
     ]
 }
