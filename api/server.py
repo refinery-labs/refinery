@@ -2387,10 +2387,11 @@ class TaskSpawner(object):
 						"billing_information": billing_information,
 					})
 				
-				invoice_list.append(
-					current_organization_invoice_data
-				)
-			
+				if "admin_stripe_id" in current_organization_invoice_data:
+					invoice_list.append(
+						current_organization_invoice_data
+					)
+				
 			for invoice_data in invoice_list:
 				for aws_account_billing_data in invoice_data[ "aws_account_bills" ]:
 					# We send one bill per managed AWS account if they have multiple
@@ -2406,6 +2407,7 @@ class TaskSpawner(object):
 							
 							if aws_account_billing_data[ "aws_account_label" ].strip() != "":
 								service_description = service_description + " (Cloud Account: '" + aws_account_billing_data[ "aws_account_label" ] + "')"
+							
 							
 							stripe.InvoiceItem.create(
 								# Stripe bills in cents!
