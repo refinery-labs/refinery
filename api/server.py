@@ -2383,7 +2383,7 @@ class TaskSpawner(object):
 						"billing_information": billing_information,
 					})
 				
-				if "admin_stripe_id" in current_organization_invoice_data:
+				if "admin_stripe_id" in current_organization_invoice_data and current_organization_invoice_data[ "admin_stripe_id" ]:
 					invoice_list.append(
 						current_organization_invoice_data
 					)
@@ -2403,8 +2403,7 @@ class TaskSpawner(object):
 							
 							if aws_account_billing_data[ "aws_account_label" ].strip() != "":
 								service_description = service_description + " (Cloud Account: '" + aws_account_billing_data[ "aws_account_label" ] + "')"
-							
-							
+								
 							stripe.InvoiceItem.create(
 								# Stripe bills in cents!
 								amount=line_item_cents,
@@ -2422,12 +2421,17 @@ class TaskSpawner(object):
 						}
 					}
 					
-					customer_invoice = stripe.Invoice.create(
-						**invoice_creation_params
-					)
-					
-					if finalize_invoices_enabled:
-						customer_invoice.send_invoice()
+					try:
+						customer_invoice = stripe.Invoice.create(
+							**invoice_creation_params
+						)
+						
+						if finalize_invoices_enabled:
+							customer_invoice.send_invoice()
+					except Exception as e:
+						logit( "Exception occurred while creating customer invoice, parameters were the following: " )
+						logit( invoice_creation_params )
+						logit( e )
 
 			# Notify finance department that they have an hour to review the invoices
 			return TaskSpawner._send_email(
