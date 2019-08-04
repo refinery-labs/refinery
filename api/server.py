@@ -2369,10 +2369,6 @@ class TaskSpawner(object):
 				
 				# Pull billing information for each AWS account
 				for aws_account_dict in organization_aws_accounts:
-					# Skip the AWS account if it's not managed
-					if aws_account_dict[ "account_type" ] != "MANAGED":
-						continue
-					
 					billing_information = TaskSpawner._get_sub_account_billing_data(
 						aws_account_dict[ "account_id" ],
 						start_date_string,
