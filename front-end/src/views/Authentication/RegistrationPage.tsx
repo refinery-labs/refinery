@@ -88,11 +88,10 @@ export default class RegistrationPage extends Vue {
   renderCallToAction() {
     return (
       <div>
-        <h3 class="text-center py-2">Thank you for checking out Refinery!</h3>
-        <h4 class="font-weight-normal">
-          Get started today and have the base fee waived for the first month. You pay only for the compute you use.
-        </h4>
-        <h4 class="font-weight-normal">
+        <h3 class="text-center py-2">Thank you for trying Refinery!</h3>
+        <h4 class="font-weight-normal">Free $5 credit when you signup today. :)</h4>
+        <h4 class="font-weight-normal">With Refinery, you pay only for the compute you use (minimum $5 per month).</h4>
+        <h4>
           For more information, review our{' '}
           <a href="https://www.refinery.io/pricing" target="_blank">
             full pricing details here
@@ -188,7 +187,10 @@ export default class RegistrationPage extends Vue {
             <StripeAddPaymentCard props={stripeCardProps} />
             {/*TODO: Replace Pricing page with actual link.*/}
             <label class="text-muted d-block">
-              Monthly base fee of $5 (first month free) plus service usage (code block executions, log storage, etc).
+              Free $5 credit on signup. Service is usage based (code block executions, log storage, etc) and billed on
+              the 1st of every month.
+              <br />
+              Minimum $5 per month for compute used.
               <br />
               For more information about our pricing, see our{' '}
               <a href="https://www.refinery.io/pricing" target="_blank">
