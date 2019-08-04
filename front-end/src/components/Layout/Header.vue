@@ -4,7 +4,7 @@
     <nav class="navbar topnavbar">
       <!-- START navbar header-->
       <div class="navbar-header">
-        <router-link class="navbar-brand" to="/projects">
+        <router-link class="navbar-brand" to="/projects" v-if="authenticated">
           <div class="brand-logo">
             <img class="img-fluid" src="../../../public/img/logo-icon.png" alt="App" style="height: 35px" />
           </div>
@@ -17,6 +17,20 @@
             />
           </div>
         </router-link>
+
+        <a class="navbar-brand" href="https://www.refinery.io/" target="_blank" v-else>
+          <div class="brand-logo">
+            <img class="img-fluid" src="../../../public/img/logo-icon.png" alt="App" style="height: 35px" />
+          </div>
+          <div class="brand-logo-collapsed">
+            <img
+              class="img-fluid"
+              style="max-width: 35px; max-height: 35px"
+              src="../../../public/img/logo-icon.png"
+              alt="Refinery - The World's First Drag-and-Drop Serverless IDE!"
+            />
+          </div>
+        </a>
       </div>
       <!-- END navbar header-->
       <!-- START Left navbar-->
