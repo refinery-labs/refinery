@@ -6721,6 +6721,7 @@ class SavedBlockStatusCheck( BaseHandler ):
 				"share_status": saved_block.share_status,
 				"version": saved_block_latest_version.version,
 				"timestamp": saved_block_latest_version.timestamp,
+				"block_object": saved_block_latest_version.block_object,
 			})
 
 		self.write({
