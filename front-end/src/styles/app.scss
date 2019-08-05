@@ -579,8 +579,9 @@ $content-sidebar-width: 92px;
   flex-grow: 1;
 
   &__content {
-    width: 100%;
-    height: 100%;
+    height: calc(100vh - 187px);
+    min-width: 340px;
+    width: calc(25vw);
     display: flex;
     flex-grow: 1;
     resize: both;
@@ -598,9 +599,8 @@ $content-sidebar-width: 92px;
   height: 100%;
 
   &__sidepane {
-    height: calc(100vh - 187px);
-    min-width: 340px;
-    width: calc(25vw);
+    height: 100%;
+    width: 100%;
   }
 
   &__min-height {

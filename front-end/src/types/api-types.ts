@@ -314,7 +314,10 @@ export interface RunTmpLambdaEnvironmentVariable {
 }
 
 // This is the same thing as RunLambdaResponse but gonna leave the types split out and solve with inheritance
-export interface RunTmpLambdaResponse extends RunLambdaResponse {}
+export interface RunTmpLambdaResponse extends RunLambdaResponse {
+  msg?: string;
+  log_output?: string;
+}
 
 // SaveProject
 export interface SaveProjectRequest extends BaseApiRequest {

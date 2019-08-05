@@ -296,14 +296,48 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         API_ENDPOINT.RunTmpLambda,
         request
       );
+      context.commit(RunLambdaMutators.setLambdaRunningStatus, false);
 
-      if (!runTmpLambdaResult || !runTmpLambdaResult.success || !runTmpLambdaResult.result) {
-        context.commit(RunLambdaMutators.setLambdaRunningStatus, false);
-        console.error('Unable to run code, server responded with failure');
+      const baseError: RunLambdaResult = {
+        arn: request.block_id,
+        returned_data: 'Unknown run error',
+        logs: '',
+        truncated: false,
+        is_error: true,
+        status_code: 500,
+        version: 'unknown'
+      };
+
+      if (!runTmpLambdaResult) {
+        context.commit(RunLambdaMutators.setDevLambdaRunResult, baseError);
+        context.commit(RunLambdaMutators.setDevLambdaRunResultId, request.block_id);
+        console.error('Unable to run code, server responded with unknown failure');
         return;
       }
 
-      context.commit(RunLambdaMutators.setLambdaRunningStatus, false);
+      if (
+        !runTmpLambdaResult.success &&
+        runTmpLambdaResult.msg !== undefined &&
+        runTmpLambdaResult.log_output !== undefined
+      ) {
+        baseError.returned_data = `Error Running Block: ${runTmpLambdaResult.msg}`;
+        baseError.logs = runTmpLambdaResult.log_output;
+
+        context.commit(RunLambdaMutators.setDevLambdaRunResult, baseError);
+        context.commit(RunLambdaMutators.setDevLambdaRunResultId, request.block_id);
+        console.error('Unable to run code, server responded with failure', runTmpLambdaResult);
+        return;
+      }
+
+      if (!runTmpLambdaResult.result) {
+        baseError.returned_data = 'Unknown run error, missing result';
+
+        context.commit(RunLambdaMutators.setDevLambdaRunResult, baseError);
+        context.commit(RunLambdaMutators.setDevLambdaRunResultId, request.block_id);
+        console.error('Unable to run code, server responded with missing result');
+        return;
+      }
+
       context.commit(RunLambdaMutators.setDevLambdaRunResult, runTmpLambdaResult.result);
       context.commit(RunLambdaMutators.setDevLambdaRunResultId, request.block_id);
     },
@@ -330,6 +364,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         return;
       }
 
+      context.commit(RunLambdaMutators.setDevLambdaRunResult, null);
       context.commit(RunLambdaMutators.setLambdaRunningStatus, true);
 
       const params: libraryBuildArguments = {
