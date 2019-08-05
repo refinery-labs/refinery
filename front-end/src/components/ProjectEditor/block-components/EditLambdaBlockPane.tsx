@@ -84,6 +84,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @editBlock.Mutation setConcurrencyLimit!: (limit: number | false) => void;
 
   @editBlock.Action saveBlock!: () => Promise<void>;
+  @editBlock.Action updateSavedBlockVersion!: () => Promise<void>;
   @editBlock.Action kickOffLibraryBuild!: () => void;
   @editBlock.Action('runCodeBlock') runEditorCodeBlock!: () => void;
 
@@ -476,6 +477,22 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         <Loading props={loadingProps}>
           <div style={{ height: '100px' }} />
         </Loading>
+      );
+    }
+
+    const hasNewerVersionAvailable =
+      this.selectedNodeMetadata &&
+      this.selectedNode.saved_block_metadata &&
+      this.selectedNodeMetadata.version > this.selectedNode.saved_block_metadata.version;
+
+    if (hasNewerVersionAvailable) {
+      return (
+        <b-form-group description="Clicking this will update this block to the latest version. Warning: This will discard changes any you have made to the block!">
+          <label class="d-block">New Saved Block Version Available!</label>
+          <b-button variant="dark" class="col-12" on={{ click: this.updateSavedBlockVersion }}>
+            Update Block
+          </b-button>
+        </b-form-group>
       );
     }
 

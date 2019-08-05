@@ -657,6 +657,7 @@ export interface SavedBlockStatusCheckResult {
   description: string;
   name: string;
   share_status: SharedBlockPublishStatus;
+  block_object: WorkflowState;
   version: number;
   timestamp: number;
 }
