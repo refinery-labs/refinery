@@ -5578,7 +5578,12 @@ class RunTmpLambda( BaseHandler ):
 		except Exception, e:
 			logit( "Exception occurred while loading temporary Lambda return data: " )
 			logit( e )
-			pass
+			self.write({
+				"success": False,
+				"msg": "An exception occurred while running the Lambda.",
+				"log_output": str( e )
+			})
+			raise gen.Return()
 		
 		logit( "Deleting Lambda..." )
 		
