@@ -15,6 +15,7 @@ import { ProjectViewActions } from '@/constants/store-constants';
 import { LambdaWorkflowState, WorkflowState, WorkflowStateType } from '@/types/graph';
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 import { inputDataExample } from '@/constants/saved-block-constants';
+import { createBlockDataForPublishedSavedBlock } from '@/utils/block-utils';
 
 const storeName = 'createSavedBlockView';
 
@@ -187,12 +188,12 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
 
     this.setBusyPublishing(true);
 
+    const lambdaBlock = editBlockPaneStore.selectedNode as LambdaWorkflowState;
+
+    const savedInputData = this.savedDataInput !== null ? this.savedDataInput : undefined;
+
     const request: CreateSavedBlockRequest = {
-      block_object: {
-        ...editBlockPaneStore.selectedNode,
-        name: this.nameInput,
-        saved_input_data: this.savedDataInput
-      } as LambdaWorkflowState,
+      block_object: createBlockDataForPublishedSavedBlock(lambdaBlock, this.nameInput, savedInputData),
       description: this.descriptionInput,
       share_status: this.publishStatus ? SharedBlockPublishStatus.PUBLISHED : SharedBlockPublishStatus.PRIVATE,
       version: 1

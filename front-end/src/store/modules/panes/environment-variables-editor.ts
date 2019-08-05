@@ -28,6 +28,7 @@ export interface EnvVariableRow {
   value: string | null;
   name: string;
   description: string;
+  original_id?: string;
   required: boolean;
 }
 
@@ -128,6 +129,7 @@ class EnvironmentVariablesEditorStore extends VuexModule<ThisType<EnvironmentVar
         value: value !== undefined && value !== null ? value : '',
         name: currentVariable.name,
         description: currentVariable.description,
+        original_id: currentVariable.original_id,
         required: currentVariable.required
       };
     });
@@ -217,7 +219,8 @@ class EnvironmentVariablesEditorStore extends VuexModule<ThisType<EnvironmentVar
         out[t.id] = {
           name: t.name,
           required: t.required,
-          description: t.description
+          description: t.description,
+          original_id: t.original_id
         };
 
         return out;

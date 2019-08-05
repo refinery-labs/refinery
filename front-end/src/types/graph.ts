@@ -81,6 +81,7 @@ export interface BlockEnvironmentVariable {
   name: string;
   required: boolean;
   description: string;
+  original_id?: string;
 }
 
 export interface ApiEndpointWorkflowState extends WorkflowState {

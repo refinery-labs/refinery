@@ -5,6 +5,7 @@ import { RootState } from '../../store-types';
 import {
   ApiEndpointWorkflowState,
   LambdaWorkflowState,
+  SavedBlockMetadata,
   ScheduleTriggerWorkflowState,
   SqsQueueWorkflowState,
   SupportedLanguage,
@@ -17,7 +18,7 @@ import { ProjectViewActions } from '@/constants/store-constants';
 import { OpenProjectMutation, PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import { DEFAULT_LANGUAGE_CODE } from '@/constants/project-editor-constants';
 import { HTTP_METHOD } from '@/constants/api-constants';
-import { safelyDuplicateBlock, validatePath } from '@/utils/block-utils';
+import { safelyDuplicateBlock, updateBlockWithNewSavedBlockVersion, validatePath } from '@/utils/block-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { resetStoreState } from '@/utils/store-utils';
 import { getSavedBlockStatus, libraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-helpers';
@@ -91,6 +92,7 @@ export enum EditBlockActions {
   kickOffLibraryBuild = 'kickOffLibraryBuild',
   // Code Block specific
   saveCodeBlockToDatabase = 'saveCodeBlockToDatabase',
+  updateSavedBlockVersion = 'updateSavedBlockVersion',
   saveInputData = 'saveInputData'
 }
 
@@ -516,6 +518,38 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       });
 
       await context.dispatch(`runLambda/${RunLambdaActions.runLambdaCode}`, null, { root: true });
+    },
+    async [EditBlockActions.updateSavedBlockVersion](context) {
+      const selectedBlock = context.state.selectedNode;
+
+      if (!selectedBlock) {
+        console.error('Attempted to update saved block without a selected block');
+        return;
+      }
+
+      const savedBlockMetadata = selectedBlock.saved_block_metadata;
+      const selectedNodeMetadata = context.state.selectedNodeMetadata;
+
+      if (!savedBlockMetadata || !selectedNodeMetadata) {
+        console.error('Attempted to update a saved block without valid saved block metadata state');
+        return;
+      }
+
+      const newMetadata: SavedBlockMetadata = {
+        id: selectedNodeMetadata.id,
+        version: selectedNodeMetadata.version,
+        timestamp: selectedNodeMetadata.timestamp,
+        added_timestamp: Date.now()
+      };
+
+      const updatedBlock = updateBlockWithNewSavedBlockVersion(selectedBlock, selectedNodeMetadata);
+
+      const newBlock: WorkflowState = {
+        ...updatedBlock,
+        saved_block_metadata: newMetadata
+      };
+
+      context.commit(EditBlockMutators.setSelectedNode, newBlock);
     },
     async [EditBlockActions.kickOffLibraryBuild](context) {
       context.commit(EditBlockMutators.setLibrariesModalVisibility, false);
