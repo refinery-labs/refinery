@@ -297,7 +297,6 @@ export interface UserState {
 
   registrationEmailInputValid: boolean | null;
   registrationNameInputValid: boolean | null;
-  registrationPhoneInputValid: boolean | null;
   registrationOrgNameInputValid: boolean | null;
   registrationPaymentCardInputValid: boolean | null;
   termsAndConditionsAgreedValid: boolean | null;

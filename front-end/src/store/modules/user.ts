@@ -56,7 +56,6 @@ const moduleState: UserState = {
 
   registrationEmailInputValid: null,
   registrationNameInputValid: null,
-  registrationPhoneInputValid: null,
   registrationOrgNameInputValid: null,
   termsAndConditionsAgreedValid: null,
   registrationPaymentCardInputValid: false
@@ -129,10 +128,6 @@ const UserModule: Module<UserState, RootState> = {
       state.registrationNameInput = value;
     },
     [UserMutators.setRegisterPhoneInputValue](state, value: string) {
-      const checkOne = validator.isMobilePhone(phone(value)[0] || '', 'any');
-      const checkTwo = validator.isMobilePhone(value, 'any');
-
-      state.registrationPhoneInputValid = checkOne || checkTwo;
       state.registrationPhoneInput = value;
     },
     [UserMutators.setRegisterOrgNameInputValue](state, value: string) {
@@ -229,7 +224,6 @@ const UserModule: Module<UserState, RootState> = {
     async [UserActions.registerUser](context) {
       const validationSucceeded =
         context.state.registrationNameInputValid &&
-        context.state.registrationPhoneInputValid &&
         context.state.registrationEmailInputValid &&
         context.state.termsAndConditionsAgreedValid &&
         context.state.registrationPaymentCardInputValid;
