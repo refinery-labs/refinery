@@ -18,7 +18,6 @@ export default class RegistrationPage extends Vue {
 
   @user.State registrationEmailInputValid!: boolean | null;
   @user.State registrationNameInputValid!: boolean | null;
-  @user.State registrationPhoneInputValid!: boolean | null;
   @user.State registrationOrgNameInputValid!: boolean | null;
   @user.State termsAndConditionsAgreedValid!: boolean | null;
 
@@ -212,7 +211,6 @@ export default class RegistrationPage extends Vue {
                 type="tel"
                 placeholder="+1 (555) 555-5555"
                 required={false}
-                // state={this.registrationPhoneInputValid}
               />
               <div class="input-group-append">
                 <span class="input-group-text text-muted bg-transparent border-left-0">
@@ -224,9 +222,6 @@ export default class RegistrationPage extends Vue {
               Please provide a real phone number. This helps us prevent abuse of our service and helps us improve our
               customer experience.
             </label>
-            <b-form-invalid-feedback state={this.registrationPhoneInputValid}>
-              You must provide a valid phone number.
-            </b-form-invalid-feedback>
           </b-form-group>
           <b-form-group id="org-name-group">
             <label class="text-muted d-block" htmlFor="org-name-input" id="org-name-group">
