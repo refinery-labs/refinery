@@ -166,7 +166,8 @@ const ViewBlockPaneModule: Module<ViewBlockPaneState, RootState> = {
         { root: true }
       );
 
-      await context.dispatch(`runLambda/${RunLambdaActions.runSelectedDeployedCodeBlock}`, null, { root: true });
+      // Matt is upset at me for this. Please call him silly names to ease my pain.
+      // await context.dispatch(`runLambda/${RunLambdaActions.runSelectedDeployedCodeBlock}`, null, { root: true });
     }
   }
 };

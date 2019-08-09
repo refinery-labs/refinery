@@ -517,7 +517,8 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
         root: true
       });
 
-      await context.dispatch(`runLambda/${RunLambdaActions.runLambdaCode}`, null, { root: true });
+      // Matt is upset at me for this. Please call him silly names to ease my pain.
+      // await context.dispatch(`runLambda/${RunLambdaActions.runLambdaCode}`, null, { root: true });
     },
     async [EditBlockActions.updateSavedBlockVersion](context) {
       const selectedBlock = context.state.selectedNode;

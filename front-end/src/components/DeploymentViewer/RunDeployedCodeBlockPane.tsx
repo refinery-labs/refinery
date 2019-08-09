@@ -13,7 +13,7 @@ export default class RunDeployedCodeBlockPane extends Vue {
 
   public render(h: CreateElement): VNode {
     const classes = {
-      'run-lambda-pane-container__content row overflow--scroll-y-auto padding-left--micro padding-right--micro padding-bottom--normal': true,
+      'run-lambda-pane-container__content row overflow--scroll-y-auto overflow--hidden-x padding-left--micro padding-right--micro padding-bottom--normal': true,
       'row overflow--scroll-y-auto': true,
       'padding-left--micro padding-right--micro padding-bottom--normal': true
     };
