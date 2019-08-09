@@ -8942,9 +8942,15 @@ class EmailLinkAuthentication( BaseHandler ):
 			self.write( "That email token has expired, please try authenticating again to request a new one." )
 			raise gen.Return()
 		
+		"""
+		NOTE: We've disabled expiration of email links on click for Enrique Enciso since
+		he wants to use it for his team and they want to share an account. This is basically
+		a holdover until we have more proper team support.
+		
 		# Since the user has now authenticated
 		# Mark the token as expired in the database
 		email_authentication_token.is_expired = True
+		"""
 		
 		# Pull the user's organization
 		user_organization = self.dbsession.query( Organization ).filter_by(
