@@ -200,8 +200,8 @@ export default class RunLambda extends Vue implements RunLambdaProps {
     );
 
     return (
-      <div class="display--flex flex-direction--column height--100percent">
-        <div class="display--flex flex-grow--1">
+      <div class="display--flex flex-direction--column flex-grow--1">
+        <div class="display--flex flex-grow--1 height--100percent">
           <Split props={{ direction: 'vertical' as Object, extraClasses: 'flex-grow--1' as Object }}>
             <SplitArea props={{ size: 33.3 as Object }}>
               {renderEditorWrapper('Block Input Data', inputDataEditor)}

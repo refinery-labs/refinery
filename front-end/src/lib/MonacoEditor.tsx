@@ -139,6 +139,8 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
 
     this.$emit('editorDidMount', this.editor);
 
+    this.relayoutEditor();
+
     // Attempt to relayout the component, once.
     setTimeout(async () => {
       let attempts = 0;
