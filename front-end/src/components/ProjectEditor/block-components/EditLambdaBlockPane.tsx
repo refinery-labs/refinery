@@ -190,7 +190,6 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       onChange: setCodeInput,
       fullscreenToggled: () => setCodeModalVisibility(true),
       disableFullscreen: disableFullscreen
-      // extraClasses: extraClasses
     };
 
     return <RefineryCodeEditor props={editorProps} />;

@@ -131,7 +131,6 @@ export default class RunLambda extends Vue implements RunLambdaProps {
 
     const sharedEditorProps = {
       collapsible: true
-      // extraClasses: 'ace-hack'
     };
 
     const inputDataEditorProps: EditorProps = {

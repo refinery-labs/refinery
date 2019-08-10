@@ -70,13 +70,9 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
       onChange: this.onChange
     };
 
-    const monacoClasses = {
-      // 'ace-hack': true
-    };
-
     return (
       // @ts-ignore
-      <MonacoEditor ref="editor" class={monacoClasses} props={monacoProps} />
+      <MonacoEditor ref="editor" props={monacoProps} />
     );
   }
 
