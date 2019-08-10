@@ -94,6 +94,7 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
         language: this.language,
         readOnly: this.readOnly,
         wordWrap: wordWrap
+        // This is disabled because the library we use has better performance.
         // automaticLayout: this.automaticLayout
       },
       this.options
