@@ -93,8 +93,8 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
         theme: this.theme,
         language: this.language,
         readOnly: this.readOnly,
-        wordWrap: wordWrap,
-        automaticLayout: this.automaticLayout
+        wordWrap: wordWrap
+        // automaticLayout: this.automaticLayout
       },
       this.options
     );
@@ -169,6 +169,6 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
   }
 
   render() {
-    return <div class="ace-hack" ref="editorParent" />;
+    return <div class="ace-hack overflow--hidden" ref="editorParent" />;
   }
 }
