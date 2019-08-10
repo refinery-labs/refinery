@@ -144,6 +144,7 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
     // Attempt to relayout the component, once.
     setTimeout(async () => {
       let attempts = 0;
+      await timeout(1000);
       while (!this.$refs.editor && attempts < 10) {
         if (this.$refs.editor) {
           this.relayoutEditor();
@@ -168,6 +169,6 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
   }
 
   render() {
-    return <div ref="editorParent" />;
+    return <div class="ace-hack" ref="editorParent" />;
   }
 }

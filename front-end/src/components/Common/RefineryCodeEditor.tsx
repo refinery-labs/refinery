@@ -49,9 +49,7 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
         title={nameString}
         visible={this.fullscreen}
       >
-        <div class="refinery-code-editor-container__modal width--100percent">
-          <div class="display--relative height--100percent width--100percent">{this.renderEditor()}</div>
-        </div>
+        <div class="refinery-code-editor-container__modal width--100percent">{this.renderEditor()}</div>
       </b-modal>
     );
   }
@@ -73,7 +71,7 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
     };
 
     const monacoClasses = {
-      'ace-hack': true
+      // 'ace-hack': true
     };
 
     return (
@@ -84,7 +82,7 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
 
   public render(h: CreateElement): VNode {
     const containerClasses = {
-      'refinery-code-editor-container width--100percent height--100percent display--flex flex-grow--1': true,
+      'refinery-code-editor-container display--flex width--100percent height--100percent position--relative': true,
       'refinery-code-editor-container--read-only': this.readOnly,
       'refinery-code-editor-container--collapsible': this.collapsible,
       [this.extraClasses || '']: Boolean(this.extraClasses)
@@ -104,10 +102,8 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
 
     return (
       <div class={containerClasses}>
-        <div class="position--relative width--100percent">
-          {this.renderEditor()}
-          {!this.disableFullscreen && fullscreenButton}
-        </div>
+        {this.renderEditor()}
+        {!this.disableFullscreen && fullscreenButton}
         {this.renderModal()}
       </div>
     );

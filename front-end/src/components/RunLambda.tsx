@@ -130,8 +130,8 @@ export default class RunLambda extends Vue implements RunLambdaProps {
     const hasValidOutput = this.checkIfValidRunLambdaOutput();
 
     const sharedEditorProps = {
-      collapsible: true,
-      extraClasses: 'ace-hack'
+      collapsible: true
+      // extraClasses: 'ace-hack'
     };
 
     const inputDataEditorProps: EditorProps = {
@@ -143,11 +143,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
       onChange: this.onUpdateInputData
     };
 
-    const inputDataEditor = (
-      <div>
-        <RefineryCodeEditor props={inputDataEditorProps} />
-      </div>
-    );
+    const inputDataEditor = <RefineryCodeEditor props={inputDataEditorProps} />;
 
     const hasResultData = hasValidOutput && this.runResultOutput && this.runResultOutput.returned_data;
 
@@ -189,20 +185,18 @@ export default class RunLambda extends Vue implements RunLambdaProps {
     );
 
     const renderEditorWrapper = (text: string, editor: any) => (
-      <div class="display--flex flex-direction--column height--100percent">
+      <div class="display--flex flex-direction--column flex-grow--1">
         <div class="text-align--left run-lambda-container__text-label">
           <label class="text-light padding--none mt-0 mb-0 ml-2">{text}:</label>
         </div>
-        <div class="flex-grow--1">
-          <div class="height--100percent position--relative">{editor}</div>
-        </div>
+        <div class="flex-grow--1 display--flex">{editor}</div>
       </div>
     );
 
     return (
       <div class="display--flex flex-direction--column flex-grow--1">
         <div class="display--flex flex-grow--1 height--100percent">
-          <Split props={{ direction: 'vertical' as Object, extraClasses: 'flex-grow--1' as Object }}>
+          <Split props={{ direction: 'vertical' as Object }}>
             <SplitArea props={{ size: 33.3 as Object }}>
               {renderEditorWrapper('Block Input Data', inputDataEditor)}
             </SplitArea>
