@@ -147,6 +147,8 @@ export default class SplitComponent extends Vue implements SplitInstanceData {
   box-sizing: border-box;
   overflow-y: auto;
   overflow-x: hidden;
+  display: flex;
+  flex-grow: 1;
   height: 100%;
   width: 100%;
 
@@ -174,6 +176,5 @@ export default class SplitComponent extends Vue implements SplitInstanceData {
 .split.split-horizontal,
 .gutter.gutter-horizontal {
   height: 100%;
-  float: left;
 }
 </style>

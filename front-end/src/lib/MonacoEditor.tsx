@@ -93,8 +93,9 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
         theme: this.theme,
         language: this.language,
         readOnly: this.readOnly,
-        wordWrap: wordWrap,
-        automaticLayout: this.automaticLayout
+        wordWrap: wordWrap
+        // This is disabled because the library we use has better performance.
+        // automaticLayout: this.automaticLayout
       },
       this.options
     );
@@ -139,9 +140,12 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
 
     this.$emit('editorDidMount', this.editor);
 
+    this.relayoutEditor();
+
     // Attempt to relayout the component, once.
     setTimeout(async () => {
       let attempts = 0;
+      await timeout(1000);
       while (!this.$refs.editor && attempts < 10) {
         if (this.$refs.editor) {
           this.relayoutEditor();
@@ -166,6 +170,6 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
   }
 
   render() {
-    return <div ref="editorParent" />;
+    return <div class="ace-hack overflow--hidden" ref="editorParent" />;
   }
 }
