@@ -1880,7 +1880,6 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 					"fan_out_ids": new_fan_out_ids,
 					"type": fan_out_transition_data[ "type" ],
 					"arn": fan_out_transition_data[ "arn" ],
-					"context": context,
 					"input_data": json.loads(
 						json.dumps(
 							return_item_data
@@ -1994,7 +1993,6 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 				"arn": context.invoked_function_arn,
 				"invocation_id": invocation_id,
 				"backpack": backpack,
-				"context": context,
 				# Input data is purely to ensure we get idempotency
 				"input_data": {
 					"why": "idempotency"
@@ -2023,7 +2021,6 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 				"fan_out_ids": fan_out_ids,
 				"type": "lambda_fan_in",
 				"arn": fan_in_transition_data[ "arn" ],
-				"context": context,
 				"fan_out_id": fan_out_id
 			})
 
