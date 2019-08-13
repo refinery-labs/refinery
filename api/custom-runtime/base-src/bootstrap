@@ -30,14 +30,16 @@ import uuid
 import json
 import time
 import redis
-import pickle
 import boto3
+import base64
 import urllib3
 import datetime
 import StringIO
 import traceback
 import threading
 import subprocess
+
+from urlparse import parse_qs
 
 # For requests to AWS custom runtime API
 http = urllib3.PoolManager()
@@ -1303,6 +1305,40 @@ def _warmup_concurrency_self_invoke( arn, decrement_counter ):
 	
 	print( "We have no further concurrency to meet, this is the last one in the chain." )
 	sys.stdout.flush()
+	
+def _improve_api_endpoint_request_data( lambda_input ):
+	# Try several body decoding methods and set fields
+	# with the decoded values for each.
+	if "body" in lambda_input:
+		# Decode base64 body
+		if "isBase64Encoded" in lambda_input and lambda_input[ "isBase64Encoded" ]:
+			# Base64
+			try:
+				lambda_input[ "raw_body" ] = base64.b64decode(
+					lambda_input[ "body" ]
+				)
+			except Exception as e:
+				pass
+		else:
+			lambda_input[ "raw_body" ] = lambda_input[ "body" ]
+		
+		# JSON
+		try:
+			lambda_input[ "json" ] = json.loads(
+				lambda_input[ "raw_body" ]
+			)
+		except Exception as e:
+			lambda_input[ "json" ] = None
+		
+		# application/x-www-form-urlencoded
+		try:
+			lambda_input[ "form" ] = parse_qs(
+				lambda_input[ "raw_body" ]
+			)
+		except Exception as e:
+			lambda_input[ "form" ] = None
+		
+	return lambda_input
 
 def _init( custom_runtime, request_id, lambda_input, context ):
 	start_time = time.time()
@@ -1785,6 +1821,19 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 		)
 		
 		return
+	
+	# If it's an API gateway Lambda we can end it here.
+	if execution_mode == "API_ENDPOINT":
+		# Used for formatting AWS API Gateway data to be more
+		# usable for regular users.
+		try:
+			lambda_input = _improve_api_endpoint_request_data(
+				lambda_input
+			)
+		except Exception as e:
+			print( "[ Refinery Custom Runtime ] An exception occurred while decoding the request data." )
+			print( e )
+			sys.stdout.flush()
 
 	# Stores the invocation data for "if"s and "then"s
 	invocation_input_list = []

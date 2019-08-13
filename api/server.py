@@ -5705,7 +5705,8 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		)
 	elif language == "python2.7":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:15"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:15"
+			"arn:aws:lambda:us-west-2:561628006572:layer:python:17"
 		)
 	elif language == "python3.6":
 		layers.append(
