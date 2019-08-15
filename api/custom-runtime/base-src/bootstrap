@@ -2070,7 +2070,6 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 				"fan_out_ids": fan_out_ids,
 				"type": if_statement_data[ "type" ],
 				"arn": if_statement_data[ "arn" ],
-				"context": context,
 				"input_data": json.loads(
 					json.dumps(
 						return_data
@@ -2089,7 +2088,6 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 				"fan_out_ids": fan_out_ids,
 				"type": else_transition_data[ "type" ],
 				"arn": else_transition_data[ "arn" ],
-				"context": context,
 				"input_data": json.loads(
 					json.dumps(
 						return_data
