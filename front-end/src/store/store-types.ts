@@ -266,6 +266,7 @@ export interface UserState {
   email: string | null;
   permissionLevel: string | null;
   trialInformation: TrialInformation | null;
+  intercomUserHmac: string | null;
 
   // State about the login process
   redirectState: string | null;

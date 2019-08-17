@@ -18,6 +18,7 @@ const user = namespace('user');
 export default class App extends Vue {
   @user.State name!: string | null;
   @user.State email!: string | null;
+  @user.State intercomUserHmac!: string | null;
 
   @Getter settings!: UserInterfaceState;
   @Action setIsAWSConsoleCredentialModalVisibleValue!: (visible: boolean) => {};
@@ -142,7 +143,8 @@ export default class App extends Vue {
         <IntercomWrapper
           props={{
             name: this.name,
-            email: this.email
+            email: this.email,
+            intercomUserHmac: this.intercomUserHmac
           }}
         />
       </div>

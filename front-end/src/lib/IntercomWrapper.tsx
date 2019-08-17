@@ -7,6 +7,7 @@ export default class IntercomWrapper extends Vue {
   // @Prop({ required: true }) userId!: string | null;
   @Prop({ required: true }) name!: string | null;
   @Prop({ required: true }) email!: string | null;
+  @Prop({ required: true }) intercomUserHmac!: string | null;
 
   @Watch('email')
   watchEmail(newEmail: string | null, oldEmail: string | null) {
@@ -30,6 +31,7 @@ export default class IntercomWrapper extends Vue {
       // user_id: this.userId,
       name: this.name,
       email: this.email,
+      user_hash: this.intercomUserHmac,
       custom_launcher_selector: '.intercom-open-chat-button',
       hide_default_launcher: true
     });

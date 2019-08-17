@@ -26,6 +26,7 @@ import numpy
 import codecs
 import struct
 import uuid
+import hmac
 import json
 import yaml
 import copy
@@ -9016,6 +9017,15 @@ class GetAuthenticationStatus( BaseHandler ):
 		current_user = self.get_authenticated_user()
 
 		if current_user:
+			intercom_user_hmac = hmac.new(
+				# secret key (keep safe!)
+				os.environ["intercom_hmac_secret"],
+				# user's email address
+				current_user.email,
+				# hash function
+				digestmod=hashlib.sha256
+			).hexdigest()
+
 			self.write({
 				"authenticated": True,
 				"name": current_user.name,
@@ -9023,10 +9033,11 @@ class GetAuthenticationStatus( BaseHandler ):
 				"permission_level": current_user.permission_level,
 				"trial_information": get_user_free_trial_information(
 					self.get_authenticated_user()
-				)
+				),
+				"intercom_user_hmac": intercom_user_hmac
 			})
 			return
-		
+
 		self.write({
 			"success": True,
 			"authenticated": False
