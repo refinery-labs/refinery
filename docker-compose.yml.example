@@ -82,6 +82,7 @@ services:
             from_email: reply-for-help@mail.refinery.io
             # Place where to receive signup emails
             internal_signup_notification_email: REPLACE_ME_PROBABLY_SOMETHING_LIKE_whoami@refinerylabs.io
+            intercom_hmac_secret: fakeAFKey
         ports:
             - "80:1234"
         volumes:

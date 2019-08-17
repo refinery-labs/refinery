@@ -37,6 +37,7 @@
     "debounce": "^1.2.0",
     "element-resize-detector": "^1.1.15",
     "fast-deep-equal": "^2.0.1",
+    "jszip": "^3.2.2",
     "lz-string": "^1.4.4",
     "modernizr": "^3.7.1",
     "moment": "^2.24.0",

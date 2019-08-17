@@ -9019,7 +9019,7 @@ class GetAuthenticationStatus( BaseHandler ):
 		if current_user:
 			intercom_user_hmac = hmac.new(
 				# secret key (keep safe!)
-				'0AJKgoTZzXKzLfElgBavuQHxWKFelXU9',
+				os.environ["intercom_hmac_secret"],
 				# user's email address
 				current_user.email,
 				# hash function
