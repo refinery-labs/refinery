@@ -28,6 +28,7 @@ const moduleState: UserState = {
   email: null,
   permissionLevel: null,
   trialInformation: null,
+  intercomUserHmac: null,
 
   redirectState: null,
   loginAttemptMessage: null,
@@ -72,6 +73,7 @@ const UserModule: Module<UserState, RootState> = {
       state.email = authenticationState.email || null;
       state.permissionLevel = authenticationState.permission_level || null;
       state.trialInformation = authenticationState.trial_information || null;
+      state.intercomUserHmac = authenticationState.intercom_user_hmac;
     },
     [UserMutators.setLoginAttemptMessage](state, message: string | null) {
       state.loginAttemptMessage = message;

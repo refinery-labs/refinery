@@ -441,6 +441,7 @@ export interface GetAuthenticationStatusResponse extends BaseApiResponse {
   email?: string;
   permission_level?: string;
   trial_information?: TrialInformation;
+  intercom_user_hmac: string;
 }
 
 export interface TrialInformation {
