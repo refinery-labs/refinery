@@ -25,6 +25,14 @@ export default class IntercomWrapper extends Vue {
     this.mountFullStory();
   }
 
+  @Watch('intercomUserHmac')
+  watchHmac(intercomUserHmac: string | null) {
+    // @ts-ignore
+    this.$intercom.update({ user_hash: intercomUserHmac });
+
+    this.mountFullStory();
+  }
+
   mounted() {
     // @ts-ignore
     this.$intercom.boot({
