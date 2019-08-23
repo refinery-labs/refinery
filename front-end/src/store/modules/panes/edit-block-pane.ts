@@ -25,6 +25,7 @@ import { getSavedBlockStatus, libraryBuildArguments, startLibraryBuild } from '@
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
 import { AddBlockArguments } from '@/store/modules/project-view';
 import { RunLambdaActions } from '@/store/modules/run-lambda';
+import { createProjectDownloadZip, downloadBlockAsZip, ProjectDownloadZipConfig } from '@/utils/project-debug-utils';
 
 const cronRegex = new RegExp(
   '^\\s*($|#|\\w+\\s*=|(\\?|\\*|(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?(?:,(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?)*)\\s+(\\?|\\*|(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?(?:,(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?)*)\\s+(\\?|\\*|(?:[01]?\\d|2[0-3])(?:(?:-|/|\\,)(?:[01]?\\d|2[0-3]))?(?:,(?:[01]?\\d|2[0-3])(?:(?:-|/|\\,)(?:[01]?\\d|2[0-3]))?)*)\\s+(\\?|\\*|(?:0?[1-9]|[12]\\d|3[01])(?:(?:-|/|\\,)(?:0?[1-9]|[12]\\d|3[01]))?(?:,(?:0?[1-9]|[12]\\d|3[01])(?:(?:-|/|\\,)(?:0?[1-9]|[12]\\d|3[01]))?)*)\\s+(\\?|\\*|(?:[1-9]|1[012])(?:(?:-|/|\\,)(?:[1-9]|1[012]))?(?:L|W)?(?:,(?:[1-9]|1[012])(?:(?:-|/|\\,)(?:[1-9]|1[012]))?(?:L|W)?)*|\\?|\\*|(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(?:(?:-)(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))?(?:,(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(?:(?:-)(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))?)*)\\s+(\\?|\\*|(?:[0-6])(?:(?:-|/|\\,|#)(?:[0-6]))?(?:L)?(?:,(?:[0-6])(?:(?:-|/|\\,|#)(?:[0-6]))?(?:L)?)*|\\?|\\*|(?:MON|TUE|WED|THU|FRI|SAT|SUN)(?:(?:-)(?:MON|TUE|WED|THU|FRI|SAT|SUN))?(?:,(?:MON|TUE|WED|THU|FRI|SAT|SUN)(?:(?:-)(?:MON|TUE|WED|THU|FRI|SAT|SUN))?)*)(|\\s)+(\\?|\\*|(?:|\\d{4})(?:(?:-|/|\\,)(?:|\\d{4}))?(?:,(?:|\\d{4})(?:(?:-|/|\\,)(?:|\\d{4}))?)*))$'
@@ -93,7 +94,8 @@ export enum EditBlockActions {
   // Code Block specific
   saveCodeBlockToDatabase = 'saveCodeBlockToDatabase',
   updateSavedBlockVersion = 'updateSavedBlockVersion',
-  saveInputData = 'saveInputData'
+  saveInputData = 'saveInputData',
+  downloadBlockAsZip = 'downloadBlockAsZip'
 }
 
 export enum EditBlockGetters {
@@ -574,6 +576,21 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       };
 
       startLibraryBuild(params);
+    },
+    async [EditBlockActions.downloadBlockAsZip](context) {
+      if (context.rootState.project.openedProject === null) {
+        throw new Error('No project is open to download block as zip');
+      }
+
+      if (context.state.selectedNode === null || context.state.selectedNode.type !== WorkflowStateType.LAMBDA) {
+        throw new Error('No node selected to download');
+      }
+
+      const openedProject = context.rootState.project.openedProject;
+
+      const selectedCodeBlock = context.state.selectedNode as LambdaWorkflowState;
+
+      await downloadBlockAsZip(openedProject, selectedCodeBlock);
     }
   }
 };
