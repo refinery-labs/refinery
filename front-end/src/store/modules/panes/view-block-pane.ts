@@ -1,6 +1,6 @@
 import { Module } from 'vuex';
 import { RootState } from '../../store-types';
-import { WorkflowState } from '@/types/graph';
+import { LambdaWorkflowState, WorkflowState, WorkflowStateType } from '@/types/graph';
 import { getNodeDataById } from '@/utils/project-helpers';
 import { ProductionLambdaWorkflowState, ProductionWorkflowState } from '@/types/production-workflow-types';
 import {
@@ -13,6 +13,8 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import { DeploymentViewActions } from '@/constants/store-constants';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { RunLambdaActions } from '@/store/modules/run-lambda';
+import { downloadBlockAsZip } from '@/utils/project-debug-utils';
+import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 
 // Enums
 export enum ViewBlockMutators {
@@ -28,7 +30,8 @@ export enum ViewBlockActions {
   openAwsConsoleForBlock = 'openAwsConsoleForBlock',
   openAwsMonitorForCodeBlock = 'openAwsMonitorForCodeBlock',
   openAwsCloudwatchForCodeBlock = 'openAwsCloudwatchForCodeBlock',
-  runCodeBlock = 'runCodeBlock'
+  runCodeBlock = 'runCodeBlock',
+  downloadBlockAsZip = 'downloadBlockAsZip'
 }
 
 // Types
@@ -168,6 +171,21 @@ const ViewBlockPaneModule: Module<ViewBlockPaneState, RootState> = {
 
       // Matt is upset at me for this. Please call him silly names to ease my pain.
       // await context.dispatch(`runLambda/${RunLambdaActions.runSelectedDeployedCodeBlock}`, null, { root: true });
+    },
+    async [ViewBlockActions.downloadBlockAsZip](context) {
+      if (context.rootState.deployment.openedDeployment === null) {
+        throw new Error('No project is open to download block as zip');
+      }
+
+      if (context.state.selectedNode === null || context.state.selectedNode.type !== WorkflowStateType.LAMBDA) {
+        throw new Error('No node selected to download');
+      }
+
+      const openedDeployment = context.rootState.deployment.openedDeployment;
+
+      const selectedCodeBlock = context.state.selectedNode as LambdaWorkflowState;
+
+      await downloadBlockAsZip(openedDeployment, selectedCodeBlock);
     }
   }
 };

@@ -60,6 +60,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @viewBlock.Action openAwsMonitorForCodeBlock!: () => void;
   @viewBlock.Action openAwsCloudwatchForCodeBlock!: () => void;
   @viewBlock.Action('runCodeBlock') runDeployedCodeBlock!: () => void;
+  @viewBlock.Action('downloadBlockAsZip') downloadDeployedBlockAsZip!: () => void;
 
   // State pulled from Project view
   @editBlock.State showCodeModal!: boolean;
@@ -87,6 +88,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @editBlock.Action updateSavedBlockVersion!: () => Promise<void>;
   @editBlock.Action kickOffLibraryBuild!: () => void;
   @editBlock.Action('runCodeBlock') runEditorCodeBlock!: () => void;
+  @editBlock.Action('downloadBlockAsZip') downloadEditorBlockAsZip!: () => void;
 
   deleteLibrary(library: string) {
     // Do nothing
@@ -597,6 +599,19 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     );
   }
 
+  public renderDownloadBlock() {
+    const downloadBlockAsZip = this.readOnly ? this.downloadDeployedBlockAsZip : this.downloadEditorBlockAsZip;
+
+    return (
+      <b-form-group description="Creates and downloads a zip of the current code block, including code to help develop the code block locally.">
+        <label class="d-block">Block Layers (Lambda Layers):</label>
+        <b-button variant="dark" class="col-12" on={{ click: downloadBlockAsZip }}>
+          Download as Zip
+        </b-button>
+      </b-form-group>
+    );
+  }
+
   public render(): VNode {
     const setMaxExecutionTime = this.readOnly ? nopWrite : this.setMaxExecutionTime;
     const setExecutionMemory = this.readOnly ? nopWrite : this.setExecutionMemory;
@@ -665,6 +680,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
           <b-col xl={6}>{this.renderBlockVariables()}</b-col>
           <b-col xl={6}>{this.renderBlockLayers()}</b-col>
           <b-col xl={6}>{this.renderLanguageSelector()}</b-col>
+          <b-col xl={6}>{this.renderDownloadBlock()}</b-col>
           <b-col xl={6}>{this.renderForm(this.selectedNode, maxExecutionTimeProps)}</b-col>
           <b-col xl={6}>{this.renderForm(this.selectedNode, maxMemoryProps)}</b-col>
           <b-col xl={6}>{this.renderConcurrencyLimit(this.selectedNode)}</b-col>
@@ -683,6 +699,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         <b-col xl={6}>{this.renderBlockLayers()}</b-col>
         <b-col xl={6}>{this.renderLibrarySelector()}</b-col>
         <b-col xl={6}>{this.renderLanguageSelector()}</b-col>
+        <b-col xl={6}>{this.renderDownloadBlock()}</b-col>
         <b-col xl={6}>{this.renderForm(this.selectedNode, maxExecutionTimeProps)}</b-col>
         <b-col xl={6}>{this.renderForm(this.selectedNode, maxMemoryProps)}</b-col>
         <b-col xl={6}>{this.renderConcurrencyLimit(this.selectedNode)}</b-col>
