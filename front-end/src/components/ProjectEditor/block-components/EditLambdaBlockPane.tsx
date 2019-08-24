@@ -604,7 +604,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
     return (
       <b-form-group description="Creates and downloads a zip of the current code block, including code to help develop the code block locally.">
-        <label class="d-block">Block Layers (Lambda Layers):</label>
+        <label class="d-block">Run Block Code Locally:</label>
         <b-button variant="dark" class="col-12" on={{ click: downloadBlockAsZip }}>
           Download as Zip
         </b-button>
