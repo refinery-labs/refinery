@@ -68,6 +68,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @editBlock.State enteredLibrary!: string;
   @editBlock.State isLoadingMetadata!: boolean;
   @editBlock.State changeLanguageWarningVisible!: boolean;
+  @editBlock.State nextLanguageToChangeTo!: SupportedLanguage | null;
 
   @editBlock.Getter isEditedBlockValid!: boolean;
 
@@ -152,25 +153,29 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       <b-modal
         on={modalOnHandlers}
         hide-footer={true}
-        title="Reset Block Code?"
+        title={`Change Block Language to ${this.nextLanguageToChangeTo}`}
         visible={this.changeLanguageWarningVisible}
       >
-        <h4>Would you like to reset the code to the default template? This will delete any code you have written!</h4>
-        <p>Press the X on the top right if you don't want to change the language.</p>
+        <h4>Warning! You may break something!</h4>
+        <p>This will remove all libraries, if you have any specified.</p>
+        <p>Changing the language will likely make your code no longer function.</p>
+        <p>You may choose to delete your code and use the "default" code.</p>
+        <p>Or you may keep your code, as-is. You'll have to fix any errors yourself.</p>
+        <p>If you're unsure, press the X on the top right to cancel.</p>
         <div class="display--flex">
           <b-button
             class="mr-1 flex-grow--1 width--100percent"
             variant="danger"
             on={{ click: () => this.changeBlockLanguage(true) }}
           >
-            Yes, delete my code
+            Delete my code
           </b-button>
           <b-button
             class="ml-1 flex-grow--1 width--100percent"
             variant="primary"
             on={{ click: () => this.changeBlockLanguage(false) }}
           >
-            No, keep my code
+            Keep my code as-is
           </b-button>
         </div>
       </b-modal>
