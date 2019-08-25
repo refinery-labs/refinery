@@ -1,5 +1,4 @@
 import { Module } from 'vuex';
-import uuid from 'uuid/v4';
 import deepEqual from 'fast-deep-equal';
 import { RootState } from '../../store-types';
 import {
@@ -15,7 +14,7 @@ import {
 } from '@/types/graph';
 import { getNodeDataById, getTransitionsForNode } from '@/utils/project-helpers';
 import { ProjectViewActions } from '@/constants/store-constants';
-import { OpenProjectMutation, PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
+import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import { DEFAULT_LANGUAGE_CODE } from '@/constants/project-editor-constants';
 import { HTTP_METHOD } from '@/constants/api-constants';
 import { safelyDuplicateBlock, updateBlockWithNewSavedBlockVersion, validatePath } from '@/utils/block-utils';
@@ -23,9 +22,7 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import { resetStoreState } from '@/utils/store-utils';
 import { getSavedBlockStatus, libraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-helpers';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
-import { AddBlockArguments } from '@/store/modules/project-view';
-import { RunLambdaActions } from '@/store/modules/run-lambda';
-import { createProjectDownloadZip, downloadBlockAsZip, ProjectDownloadZipConfig } from '@/utils/project-debug-utils';
+import { downloadBlockAsZip } from '@/utils/project-debug-utils';
 
 const cronRegex = new RegExp(
   '^\\s*($|#|\\w+\\s*=|(\\?|\\*|(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?(?:,(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?)*)\\s+(\\?|\\*|(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?(?:,(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?)*)\\s+(\\?|\\*|(?:[01]?\\d|2[0-3])(?:(?:-|/|\\,)(?:[01]?\\d|2[0-3]))?(?:,(?:[01]?\\d|2[0-3])(?:(?:-|/|\\,)(?:[01]?\\d|2[0-3]))?)*)\\s+(\\?|\\*|(?:0?[1-9]|[12]\\d|3[01])(?:(?:-|/|\\,)(?:0?[1-9]|[12]\\d|3[01]))?(?:,(?:0?[1-9]|[12]\\d|3[01])(?:(?:-|/|\\,)(?:0?[1-9]|[12]\\d|3[01]))?)*)\\s+(\\?|\\*|(?:[1-9]|1[012])(?:(?:-|/|\\,)(?:[1-9]|1[012]))?(?:L|W)?(?:,(?:[1-9]|1[012])(?:(?:-|/|\\,)(?:[1-9]|1[012]))?(?:L|W)?)*|\\?|\\*|(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(?:(?:-)(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))?(?:,(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(?:(?:-)(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))?)*)\\s+(\\?|\\*|(?:[0-6])(?:(?:-|/|\\,|#)(?:[0-6]))?(?:L)?(?:,(?:[0-6])(?:(?:-|/|\\,|#)(?:[0-6]))?(?:L)?)*|\\?|\\*|(?:MON|TUE|WED|THU|FRI|SAT|SUN)(?:(?:-)(?:MON|TUE|WED|THU|FRI|SAT|SUN))?(?:,(?:MON|TUE|WED|THU|FRI|SAT|SUN)(?:(?:-)(?:MON|TUE|WED|THU|FRI|SAT|SUN))?)*)(|\\s)+(\\?|\\*|(?:|\\d{4})(?:(?:-|/|\\,)(?:|\\d{4}))?(?:,(?:|\\d{4})(?:(?:-|/|\\,)(?:|\\d{4}))?)*))$'
@@ -66,6 +63,10 @@ export enum EditBlockMutators {
 
   setConcurrencyLimit = 'setConcurrencyLimit',
 
+  setChangeLanguageWarningVisible = 'setChangeLanguageWarningVisible',
+  setNextLanguageToChangeTo = 'setNextLanguageToChangeTo',
+  resetChangeLanguageModal = 'resetChangeLanguageModal',
+
   // Timer Block Inputs
   setScheduleExpression = 'setScheduleExpression',
   setInputData = 'setInputData',
@@ -95,6 +96,8 @@ export enum EditBlockActions {
   saveCodeBlockToDatabase = 'saveCodeBlockToDatabase',
   updateSavedBlockVersion = 'updateSavedBlockVersion',
   saveInputData = 'saveInputData',
+  showChangeLanguageWarning = 'showChangeLanguageWarning',
+  changeBlockLanguage = 'changeBlockLanguage',
   downloadBlockAsZip = 'downloadBlockAsZip'
 }
 
@@ -121,6 +124,9 @@ export interface EditBlockPaneState {
   // but neither does having it in a selectedNode...
   librariesModalVisibility: boolean;
   enteredLibrary: string;
+
+  changeLanguageWarningVisible: boolean;
+  nextLanguageToChangeTo: SupportedLanguage | null;
 }
 
 // Initial State
@@ -133,7 +139,10 @@ const moduleState: EditBlockPaneState = {
   confirmDiscardModalVisibility: false,
   showCodeModal: false,
   librariesModalVisibility: false,
-  enteredLibrary: ''
+  enteredLibrary: '',
+
+  changeLanguageWarningVisible: false,
+  nextLanguageToChangeTo: null
 };
 
 function modifyBlock<T extends WorkflowState>(state: EditBlockPaneState, fn: (block: T) => void) {
@@ -273,7 +282,6 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     [EditBlockMutators.setCodeLanguage](state, language) {
       lambdaChange(state, block => {
         block.language = language;
-        block.code = DEFAULT_LANGUAGE_CODE[block.language];
       });
     },
     [EditBlockMutators.setDependencyImports](state, libraries) {
@@ -348,6 +356,16 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     },
     [EditBlockMutators.setEnteredLibrary](state, libraryName: string) {
       state.enteredLibrary = libraryName;
+    },
+    [EditBlockMutators.setChangeLanguageWarningVisible](state, value: boolean) {
+      state.changeLanguageWarningVisible = value;
+    },
+    [EditBlockMutators.setNextLanguageToChangeTo](state, nextLanguage) {
+      state.nextLanguageToChangeTo = nextLanguage;
+    },
+    [EditBlockMutators.resetChangeLanguageModal](state) {
+      state.nextLanguageToChangeTo = null;
+      state.changeLanguageWarningVisible = false;
     }
   },
   actions: {
@@ -576,6 +594,61 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       };
 
       startLibraryBuild(params);
+    },
+    async [EditBlockActions.showChangeLanguageWarning](context, language: SupportedLanguage) {
+      if (!context.state.selectedNode || context.state.selectedNode.type !== WorkflowStateType.LAMBDA) {
+        throw new Error('Cannot change language of block that is not a Code Block');
+      }
+
+      const selectedBlock = context.state.selectedNode as LambdaWorkflowState;
+
+      // Check if the current block is python and if the next language is python too
+      const isCurrentBlockPython =
+        selectedBlock.language === SupportedLanguage.PYTHON_2 || selectedBlock.language === SupportedLanguage.PYTHON_3;
+      const isNextBlockPython = language === SupportedLanguage.PYTHON_2 || language === SupportedLanguage.PYTHON_3;
+
+      // If we are just swapping Python versions, then leave code + libraries alone.
+      if (isCurrentBlockPython && isNextBlockPython) {
+        context.commit(EditBlockMutators.setCodeLanguage, language);
+        return;
+      }
+
+      // Check if the code in the block matches the default code for that language. And that we don't have libraries.
+      // If it does, don't prompt a modal when changing the code.
+      if (
+        selectedBlock.code === DEFAULT_LANGUAGE_CODE[selectedBlock.language] &&
+        selectedBlock.libraries.length === 0
+      ) {
+        // We need to reset the libraries
+        // Otherwise you'll have npm libraries when you switch to Python :/
+        context.commit(EditBlockMutators.setDependencyImports, []);
+        context.commit(EditBlockMutators.setCodeLanguage, language);
+        context.commit(EditBlockMutators.setCodeInput, DEFAULT_LANGUAGE_CODE[language]);
+        return;
+      }
+
+      // Display the modal asking the user if they want to discard their changes.
+      context.commit(EditBlockMutators.setNextLanguageToChangeTo, language);
+      context.commit(EditBlockMutators.setChangeLanguageWarningVisible, true);
+    },
+    async [EditBlockActions.changeBlockLanguage](context, replaceWithTemplate: boolean) {
+      const language = context.state.nextLanguageToChangeTo;
+
+      if (!language) {
+        throw new Error('No language specified to change to');
+      }
+
+      // We need to reset the libraries
+      // Otherwise you'll have npm libraries when you switch to Python :/
+      context.commit(EditBlockMutators.setDependencyImports, []);
+      context.commit(EditBlockMutators.setCodeLanguage, language);
+
+      if (replaceWithTemplate) {
+        context.commit(EditBlockMutators.setCodeInput, DEFAULT_LANGUAGE_CODE[language]);
+      }
+
+      // Reset the state
+      context.commit(EditBlockMutators.resetChangeLanguageModal);
     },
     async [EditBlockActions.downloadBlockAsZip](context) {
       if (context.rootState.project.openedProject === null) {
