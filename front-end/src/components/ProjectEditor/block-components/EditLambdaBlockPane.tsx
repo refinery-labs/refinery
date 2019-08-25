@@ -67,6 +67,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @editBlock.State librariesModalVisibility!: boolean;
   @editBlock.State enteredLibrary!: string;
   @editBlock.State isLoadingMetadata!: boolean;
+  @editBlock.State changeLanguageWarningVisible!: boolean;
 
   @editBlock.Getter isEditedBlockValid!: boolean;
 
@@ -83,10 +84,13 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @editBlock.Mutation deleteDependencyImport!: (libraryName: string) => void;
   @editBlock.Mutation addDependencyImport!: (libraryName: string) => void;
   @editBlock.Mutation setConcurrencyLimit!: (limit: number | false) => void;
+  @editBlock.Mutation resetChangeLanguageModal!: () => void;
 
   @editBlock.Action saveBlock!: () => Promise<void>;
   @editBlock.Action updateSavedBlockVersion!: () => Promise<void>;
   @editBlock.Action kickOffLibraryBuild!: () => void;
+  @editBlock.Action showChangeLanguageWarning!: (language: SupportedLanguage) => void;
+  @editBlock.Action changeBlockLanguage!: (replaceWithTemplate: boolean) => void;
   @editBlock.Action('runCodeBlock') runEditorCodeBlock!: () => void;
   @editBlock.Action('downloadBlockAsZip') downloadEditorBlockAsZip!: () => void;
 
@@ -120,10 +124,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   }
 
   public changeCodeLanguage(language: SupportedLanguage) {
-    // We need to reset the libraries
-    // Otherwise you'll have npm libraries when you switch to Python :/
-    this.setDependencyImports([]);
-    this.setCodeLanguage(language);
+    this.showChangeLanguageWarning(language);
   }
 
   public closeLibraryModal() {
@@ -136,6 +137,44 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     // Reset library name input
     setEnteredLibrary('');
     this.setLibrariesModalVisibility(true);
+  }
+
+  public renderChangeLanguageWarning() {
+    if (!this.changeLanguageWarningVisible) {
+      return null;
+    }
+
+    const modalOnHandlers = {
+      hidden: () => this.resetChangeLanguageModal()
+    };
+
+    return (
+      <b-modal
+        on={modalOnHandlers}
+        hide-footer={true}
+        title="Reset Block Code?"
+        visible={this.changeLanguageWarningVisible}
+      >
+        <h4>Would you like to reset the code to the default template? This will delete any code you have written!</h4>
+        <p>Press the X on the top right if you don't want to change the language.</p>
+        <div class="display--flex">
+          <b-button
+            class="mr-1 flex-grow--1 width--100percent"
+            variant="danger"
+            on={{ click: () => this.changeBlockLanguage(true) }}
+          >
+            Yes, delete my code
+          </b-button>
+          <b-button
+            class="ml-1 flex-grow--1 width--100percent"
+            variant="primary"
+            on={{ click: () => this.changeBlockLanguage(false) }}
+          >
+            No, keep my code
+          </b-button>
+        </div>
+      </b-modal>
+    );
   }
 
   public renderCodeEditorModal() {
@@ -705,6 +744,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         <b-col xl={6}>{this.renderConcurrencyLimit(this.selectedNode)}</b-col>
         {this.renderCodeEditorModal()}
         {this.renderLibrariesModal()}
+        {this.renderChangeLanguageWarning()}
       </div>
     );
   }
