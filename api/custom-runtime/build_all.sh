@@ -12,3 +12,9 @@ cd ../
 cd python2.7/
 ./build.sh
 cd ../
+cd python3.6/
+./build.sh
+cd ../
+cd ruby2.6.4/
+./build.sh
+cd ../
