@@ -122,11 +122,10 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
       }
     });
 
-    if (this.readOnly) {
-      editor.updateOptions({
-        readOnly: true
-      });
-    }
+    editor.updateOptions({
+      insertSpaces: true,
+      readOnly: this.readOnly
+    });
 
     const resizeDetector = elementResizeDetector({
       // This is a faster performance mode that is available

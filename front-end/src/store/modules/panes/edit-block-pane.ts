@@ -66,6 +66,7 @@ export enum EditBlockMutators {
   setChangeLanguageWarningVisible = 'setChangeLanguageWarningVisible',
   setNextLanguageToChangeTo = 'setNextLanguageToChangeTo',
   resetChangeLanguageModal = 'resetChangeLanguageModal',
+  setReplaceCodeWithTemplateChecked = 'setReplaceCodeWithTemplateChecked',
 
   // Timer Block Inputs
   setScheduleExpression = 'setScheduleExpression',
@@ -127,6 +128,7 @@ export interface EditBlockPaneState {
 
   changeLanguageWarningVisible: boolean;
   nextLanguageToChangeTo: SupportedLanguage | null;
+  replaceCodeWithTemplateChecked: boolean;
 }
 
 // Initial State
@@ -142,7 +144,8 @@ const moduleState: EditBlockPaneState = {
   enteredLibrary: '',
 
   changeLanguageWarningVisible: false,
-  nextLanguageToChangeTo: null
+  nextLanguageToChangeTo: null,
+  replaceCodeWithTemplateChecked: false
 };
 
 function modifyBlock<T extends WorkflowState>(state: EditBlockPaneState, fn: (block: T) => void) {
@@ -366,6 +369,10 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     [EditBlockMutators.resetChangeLanguageModal](state) {
       state.nextLanguageToChangeTo = null;
       state.changeLanguageWarningVisible = false;
+      state.replaceCodeWithTemplateChecked = false;
+    },
+    [EditBlockMutators.setReplaceCodeWithTemplateChecked](state, checked) {
+      state.replaceCodeWithTemplateChecked = checked;
     }
   },
   actions: {
@@ -631,7 +638,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       context.commit(EditBlockMutators.setNextLanguageToChangeTo, language);
       context.commit(EditBlockMutators.setChangeLanguageWarningVisible, true);
     },
-    async [EditBlockActions.changeBlockLanguage](context, replaceWithTemplate: boolean) {
+    async [EditBlockActions.changeBlockLanguage](context) {
       const language = context.state.nextLanguageToChangeTo;
 
       if (!language) {
@@ -643,7 +650,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       context.commit(EditBlockMutators.setDependencyImports, []);
       context.commit(EditBlockMutators.setCodeLanguage, language);
 
-      if (replaceWithTemplate) {
+      if (context.state.replaceCodeWithTemplateChecked) {
         context.commit(EditBlockMutators.setCodeInput, DEFAULT_LANGUAGE_CODE[language]);
       }
 
