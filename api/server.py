@@ -5905,7 +5905,7 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		)
 	elif language == "ruby2.6.4":
 		layers.append(
-			"arn:aws:lambda:us-west-2:561628006572:layer:refinery-ruby264-custom-runtime:8"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:18"
 		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
