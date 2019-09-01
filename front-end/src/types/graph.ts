@@ -15,6 +15,7 @@ export interface RefineryProject {
 }
 
 export enum SupportedLanguage {
+  RUBY2_6_4 = 'ruby2.6.4',
   PYTHON_3 = 'python3.6',
   PYTHON_2 = 'python2.7',
   NODEJS_8 = 'nodejs8.10',

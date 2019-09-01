@@ -82,6 +82,7 @@ export const languageToAceLangMap: MonacoLanguageLookup = {
   [SupportedLanguage.PYTHON_3]: 'python',
   [SupportedLanguage.GO1_12]: 'go',
   [SupportedLanguage.PHP7]: 'php',
+  [SupportedLanguage.RUBY2_6_4]: 'ruby',
   text: 'text',
   json: 'json'
 };
@@ -93,7 +94,8 @@ export const LanguageToBaseRepoURLMap: LanguageToBaseRepoURL = {
   [SupportedLanguage.PYTHON_2]: 'https://pypi.org',
   [SupportedLanguage.PYTHON_3]: 'https://pypi.org',
   [SupportedLanguage.GO1_12]: null,
-  [SupportedLanguage.PHP7]: 'https://packagist.org'
+  [SupportedLanguage.PHP7]: 'https://packagist.org',
+  [SupportedLanguage.RUBY2_6_4]: 'https://rubygems.org'
 };
 
 export type LanguageToLibraryRepoURL = { [key in SupportedLanguage]: string | null };
@@ -103,7 +105,8 @@ export const LanguageToLibraryRepoURLMap: LanguageToLibraryRepoURL = {
   [SupportedLanguage.PYTHON_3]: LanguageToBaseRepoURLMap[SupportedLanguage.PYTHON_3] + '/project/',
   [SupportedLanguage.PYTHON_2]: LanguageToBaseRepoURLMap[SupportedLanguage.PYTHON_2] + '/project/',
   [SupportedLanguage.GO1_12]: null,
-  [SupportedLanguage.PHP7]: LanguageToBaseRepoURLMap[SupportedLanguage.PHP7] + '/packages/psr/'
+  [SupportedLanguage.PHP7]: LanguageToBaseRepoURLMap[SupportedLanguage.PHP7] + '/packages/psr/',
+  [SupportedLanguage.RUBY2_6_4]: LanguageToBaseRepoURLMap[SupportedLanguage.RUBY2_6_4] + '/gems/'
 };
 
 export interface DeployProjectParams {
