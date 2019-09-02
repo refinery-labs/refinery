@@ -1,3 +1,0 @@
-./ruby/**/* linguist-generated=true
-./ruby/**/* linguist-vendored
-./ruby/**/* -diff -merge
