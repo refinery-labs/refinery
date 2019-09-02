@@ -3666,6 +3666,20 @@ class TaskSpawner(object):
 			return TaskSpawner._start_ruby264_codebuild( credentials, libraries_object )
 			
 		@staticmethod
+		def _get_gemfile( libraries_object ):
+			# Generate "Gemfile" with dependencies
+			# Below specifies ruby 2.6.3 because that's what AWS's CodeBuild
+			# has installed.
+			gemfile = """source "https://rubygems.org"\nruby "2.6.3"\n"""
+			for key, value in libraries_object.iteritems():
+				if value == "latest":
+					gemfile += "gem '" + key + "'\n"
+				else:
+					gemfile += "gem '" + key + "', '" + value + "'\n"
+					
+			return gemfile
+			
+		@staticmethod
 		def _start_ruby264_codebuild( credentials, libraries_object ):
 			"""
 			Returns a build ID to be polled at a later time
@@ -3683,15 +3697,8 @@ class TaskSpawner(object):
 			# Create empty zip file
 			codebuild_zip = io.BytesIO( EMPTY_ZIP_DATA )
 			
-			# Generate "Gemfile" with dependencies
-			# Below specifies ruby 2.6.3 because that's what AWS's CodeBuild
-			# has installed.
-			gemfile = """source "https://rubygems.org"\nruby "2.6.3"\n"""
-			for key, value in libraries_object.iteritems():
-				if value == "latest":
-					gemfile += "gem '" + key + "'\n"
-				else:
-					gemfile += "gem '" + key + "', '" + value + "'\n"
+			# Generate Gemfile
+			gemfile = TaskSpawner._get_gemfile( libraries_object )
 					
 			buildspec_template = {
 				"artifacts": {
