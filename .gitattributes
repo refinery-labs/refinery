@@ -1,0 +1,3 @@
+api/custom-runtime/ruby2.6.4/ruby/ linguist-generated=true
+api/custom-runtime/ruby2.6.4/ruby/ linguist-vendored
+api/custom-runtime/ruby2.6.4/ruby/ -diff -merge
