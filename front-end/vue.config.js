@@ -23,7 +23,7 @@ module.exports = {
       .loader('vue-jsx-hot-loader');
   },
   configureWebpack: {
-    plugins: [new MonacoEditorPlugin(['javascript', 'php', 'python', 'go', 'json', 'markdown'])]
+    plugins: [new MonacoEditorPlugin(['javascript', 'php', 'python', 'go', 'json', 'markdown', 'ruby'])]
   },
   pwa: {
     // workboxPluginMode: 'InjectManifest',

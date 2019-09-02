@@ -1,0 +1,27 @@
+require 'json'
+
+def _init()
+	input_data = JSON.parse(STDIN.read)
+	lambda_input = input_data[ "lambda_input" ]
+	backpack = input_data[ "backpack" ]
+	
+	begin
+		output = main(lambda_input, backpack)
+		puts ( "<REFINERY_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + {
+			"backpack": backpack,
+			"output": output,
+		}.to_json + "<REFINERY_OUTPUT_CUSTOM_RUNTIME_END_MARKER>" )
+		backpack = {}
+	rescue => exception
+		puts ( "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + {
+			"backpack": backpack,
+			"output": exception.backtrace.join("\n\t").sub("\n\t", ": #{exception}#{exception.class ? " (#{exception.class})" : ''}\n\t"),
+		}.to_json + "<REFINERY_ERROR_OUTPUT_CUSTOM_RUNTIME_END_MARKER>" )
+		backpack = {}
+		exit(-1)
+	end
+	
+	exit(0)
+end
+
+_init()

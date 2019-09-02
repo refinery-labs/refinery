@@ -291,6 +291,11 @@ export const DEFAULT_PROJECT_CONFIG = {
 export type DefaultCodeFromLanguage = { [key in SupportedLanguage]: string };
 
 export const DEFAULT_LANGUAGE_CODE: DefaultCodeFromLanguage = {
+  [SupportedLanguage.RUBY2_6_4]: `
+def main(block_input, backpack)
+    return "Hello World!"
+end
+`,
   [SupportedLanguage.PYTHON_3]: `
 def main(block_input, backpack):
     return "Hello World!"
