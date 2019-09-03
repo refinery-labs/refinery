@@ -70,6 +70,8 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @editBlock.State changeLanguageWarningVisible!: boolean;
   @editBlock.State nextLanguageToChangeTo!: SupportedLanguage | null;
   @editBlock.State replaceCodeWithTemplateChecked!: boolean;
+  @editBlock.State fileToSyncBlockWith!: string | null;
+  @editBlock.State fileSyncModalVisible!: boolean;
 
   @editBlock.Getter isEditedBlockValid!: boolean;
 
@@ -96,6 +98,8 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @editBlock.Action changeBlockLanguage!: () => void;
   @editBlock.Action('runCodeBlock') runEditorCodeBlock!: () => void;
   @editBlock.Action('downloadBlockAsZip') downloadEditorBlockAsZip!: () => void;
+  @editBlock.Action syncBlockWithFile!: () => Promise<void>;
+  @editBlock.Action setFileSyncModalVisibility!: (visible: boolean) => Promise<void>;
 
   deleteLibrary(library: string) {
     // Do nothing
@@ -660,6 +664,61 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     );
   }
 
+  public renderLocalFileLinkButton() {
+    return (
+      <b-form-group description="Click to select a file that will replace the contents of this block. This may also continually refresh the block\'s content.">
+        <label class="d-block">Sync Block With Local File:</label>
+        <b-button variant="dark" class="col-12" on={{ click: this.syncBlockWithFile }}>
+          Open File
+        </b-button>
+      </b-form-group>
+    );
+  }
+
+  public renderSelectLocalFileToSyncModal() {
+    if (!this.setFileSyncModalVisibility) {
+      return null;
+    }
+
+    const modalOnHandlers = {
+      hidden: () => this.resetChangeLanguageModal()
+    };
+
+    return (
+      <b-modal
+        on={modalOnHandlers}
+        hide-footer={true}
+        title={`Change Block Language to ${this.nextLanguageToChangeTo}?`}
+        visible={this.changeLanguageWarningVisible}
+      >
+        <b-form on={{ submit: preventDefaultWrapper(() => this.changeBlockLanguage()) }}>
+          <h4>Warning! You may break something!</h4>
+          <p>This will remove all libraries, if you have any specified.</p>
+          <p>Changing the language will likely make your code no longer function.</p>
+
+          <b-form-group id="replace-with-default-template-group">
+            <b-form-checkbox
+              id="replace-with-default-template-input"
+              name="replace-with-detault-template"
+              on={{ change: () => this.setReplaceCodeWithTemplateChecked(!this.replaceCodeWithTemplateChecked) }}
+              readonly={this.readOnly}
+              disabled={this.readOnly}
+              checked={this.replaceCodeWithTemplateChecked}
+            >
+              Replace code with default template?
+            </b-form-checkbox>
+          </b-form-group>
+
+          <div class="display--flex">
+            <b-button class="mr-1 ml-1 flex-grow--1 width--100percent" variant="danger" type="submit">
+              Confirm Change
+            </b-button>
+          </div>
+        </b-form>
+      </b-modal>
+    );
+  }
+
   public render(): VNode {
     const setMaxExecutionTime = this.readOnly ? nopWrite : this.setMaxExecutionTime;
     const setExecutionMemory = this.readOnly ? nopWrite : this.setExecutionMemory;
@@ -746,8 +805,9 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         <b-col xl={6}>{this.renderBlockVariables()}</b-col>
         <b-col xl={6}>{this.renderBlockLayers()}</b-col>
         <b-col xl={6}>{this.renderLibrarySelector()}</b-col>
-        <b-col xl={6}>{this.renderLanguageSelector()}</b-col>
+        <b-col xl={6}>{this.renderLocalFileLinkButton()}</b-col>
         <b-col xl={6}>{this.renderDownloadBlock()}</b-col>
+        <b-col xl={6}>{this.renderLanguageSelector()}</b-col>
         <b-col xl={6}>{this.renderForm(this.selectedNode, maxExecutionTimeProps)}</b-col>
         <b-col xl={6}>{this.renderForm(this.selectedNode, maxMemoryProps)}</b-col>
         <b-col xl={6}>{this.renderConcurrencyLimit(this.selectedNode)}</b-col>
