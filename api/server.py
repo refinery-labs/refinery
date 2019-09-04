@@ -2403,7 +2403,11 @@ class TaskSpawner(object):
 						
 						# If the item costs zero cents don't add it to the bill.
 						if line_item_cents > 0:
-							service_description = "Managed " + service_cost_data[ "service_name" ]
+							# Don't add "Managed" to the base-service fee.
+							if "Fee" in service_cost_data[ "service_name" ]:
+								service_description = service_cost_data[ "service_name" ]
+							else:
+								service_description = "Managed " + service_cost_data[ "service_name" ]
 							
 							if aws_account_billing_data[ "aws_account_label" ].strip() != "":
 								service_description = service_description + " (Cloud Account: '" + aws_account_billing_data[ "aws_account_label" ] + "')"
@@ -2639,15 +2643,6 @@ class TaskSpawner(object):
 				account_id
 			)
 			
-			# Add the $5 base fee if it's not the user's first month
-			if not is_first_account_billing_month:
-				return_data[ "service_breakdown" ].append({
-					"service_name": "Base Service Fee",
-					"unit": "usd",
-					"total": ( "%.2f" % 5.00 ),
-				})
-				total_amount = 5.00
-			
 			for service_breakdown_info in service_breakdown_list:
 				# Remove branding words from service name
 				service_name = service_breakdown_info[ "service_name" ]
@@ -2685,6 +2680,17 @@ class TaskSpawner(object):
 					})
 					
 					total_amount = total_amount + service_total
+					
+			# This is where we upgrade the billing total if it's not at least $5/mo
+			# $5/mo is our floor price.
+			if total_amount < 5.00:
+				amount_to_add = ( 5.00 - total_amount )
+				return_data[ "service_breakdown" ].append({
+					"service_name": "Floor Fee (Bills are minimum $5/month, see refinery.io/pricing for more information).",
+					"unit": "usd",
+					"total": ( "%.2f" % amount_to_add ),
+				})
+				total_amount = 5.00
 			
 			return_data[ "bill_total" ] = ( "%.2f" % total_amount )
 			
@@ -9469,9 +9475,9 @@ def is_organization_first_month( aws_account_id ):
 	
 	current_datetime = datetime.datetime.now()
 	
-	if account_creation_dt > ( current_datetime - datetime.timedelta( days=32 ) ):
+	if account_creation_dt > ( current_datetime - datetime.timedelta( days=40 ) ):
 		return True
-		
+	
 	return False
 		
 class RunMonthlyStripeBillingJob( BaseHandler ):
