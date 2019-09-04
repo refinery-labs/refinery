@@ -50,6 +50,7 @@ from tornado.concurrent import run_on_executor, futures
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from email_validator import validate_email, EmailNotValidError
 
+# Database imports
 from models.initiate_database import *
 from models.saved_block import SavedBlock
 from models.saved_block_version import SavedBlockVersion
@@ -67,6 +68,7 @@ from models.terraform_state_versions import TerraformStateVersion
 from models.state_logs import StateLog
 from models.cached_execution_logs_shard import CachedExecutionLogsShard
 from models.project_short_links import ProjectShortLink
+from models.layers import Layer
 
 from botocore.client import Config
 
@@ -2904,8 +2906,8 @@ class TaskSpawner(object):
 					
 			return True
 			
-		@run_on_executor
-		def create_lambda_layer( self, credentials, layer_name, description, s3_bucket, s3_object_key ):
+		@staticmethod
+		def create_lambda_layer( credentials, layer_name, description, s3_bucket, s3_object_key ):
 			lambda_client = get_aws_client( "lambda", credentials )
 			
 			response = lambda_client.publish_layer_version(
@@ -3108,6 +3110,68 @@ class TaskSpawner(object):
 				ReservedConcurrentExecutions=int( reserved_concurrency_count )
 			)
 			
+		@staticmethod
+		def get_package_lambda_layer_arn( credentials, language, libraries_object ):
+			# Check if base libraries zip exists
+			packages_zip_path = TaskSpawner._get_final_zip_package_path(
+				language,
+				libraries_object
+			)
+			hash_key = packages_zip_path.replace(
+				".zip",
+				""
+			)
+			
+			# Check the database to see if a layer already exists
+			dbsession = DBSession()
+			existing_layer = dbsession.query( Layer ).filter_by(
+				aws_account_id=credentials[ "id" ],
+				type="PACKAGES",
+				unique_hash_key=hash_key
+			).first()
+			
+			if existing_layer != None:
+				layer_info = existing_layer.to_dict()
+				dbsession.close()
+				return layer_info[ "arn" ] + ":" + str( layer_info[ "version" ] )
+			
+			dbsession.close()
+			
+			# As a fallback we'll check S3 to see if the backing-zip data exists in S3
+			# If it does we can mint the layer on the fly and return it
+			if not TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], packages_zip_path ):
+				print( "Lambda packages data does not exist in S3!" )
+				return False
+			
+			
+			print( "Lambda package data exists in S3 but is not a layer, creating the layer now..." )
+			
+			# If we have an existing zip in S3 we should go ahead and create the layer and insert it
+			# into the database.
+			layer_data = TaskSpawner.create_lambda_layer(
+				credentials,
+				hash_key,
+				"Lambda layer with " + language + " package(s) " + ( ",".join( libraries_object.keys() ) ),
+				credentials[ "lambda_packages_bucket" ],
+				packages_zip_path
+			)
+			
+			print( "Layer '" + layer_data[ "layer_arn" ] + "' created! Adding to database and returning it..." )
+			
+			# Add newly-created layer to the database
+			dbsession = DBSession()
+			new_layer = Layer()
+			new_layer.type = "PACKAGES"
+			new_layer.unique_hash_key = hash_key
+			new_layer.arn = layer_data[ "layer_arn" ]
+			new_layer.version = layer_data[ "version" ]
+			new_layer.size = int( layer_data[ "size" ] )
+			new_layer.aws_account_id = credentials[ "id" ]
+			dbsession.add( new_layer )
+			dbsession.commit()
+			
+			return layer_data[ "layer_arn" ] + ":" + layer_data[ "version" ]
+			
 		@run_on_executor
 		def deploy_aws_lambda( self, credentials, func_name, language, description, role_name, code, libraries, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
 			"""
@@ -3132,6 +3196,34 @@ class TaskSpawner(object):
 			# Check to see if it's in the S3 cache
 			already_exists = False
 			
+			# Check if layer already exists in database
+			existing_package_lambda_layer_arn = TaskSpawner.get_package_lambda_layer_arn(
+				credentials,
+				language,
+				libraries_object
+			)
+			
+			if existing_package_lambda_layer_arn:
+				print( "Layer already exists in database!" )
+				
+				# Clear libraries list because it's now in the layer
+				libraries = []
+				
+				# Add to list of layers
+				layers.append(
+					existing_package_lambda_layer_arn
+				)
+				
+			print( "Building lambda..." )
+			lambda_zip_package_data = TaskSpawner.build_lambda(
+				credentials,
+				language,
+				code,
+				libraries
+			)
+			print( "Lambda build, deploying..." )
+
+			"""
 			# Create S3 client
 			s3_client = get_aws_client(
 				"s3",
@@ -3146,6 +3238,7 @@ class TaskSpawner(object):
 			)
 			
 			if not already_exists:
+				print( "Building Lambda zip..." )
 				# Build the Lambda package .zip and return the zip data for it
 				lambda_zip_package_data = TaskSpawner.build_lambda(
 					credentials,
@@ -3160,6 +3253,7 @@ class TaskSpawner(object):
 					Bucket=credentials[ "lambda_packages_bucket" ],
 					Body=lambda_zip_package_data,
 				)
+			"""
 			
 			return TaskSpawner._deploy_aws_lambda(
 				credentials,
@@ -3167,7 +3261,7 @@ class TaskSpawner(object):
 				language,
 				description,
 				role_name,
-				s3_package_zip_path,
+				lambda_zip_package_data,
 				timeout,
 				memory,
 				vpc_config,
@@ -3177,7 +3271,7 @@ class TaskSpawner(object):
 			)
 
 		@staticmethod
-		def _deploy_aws_lambda( credentials, func_name, language, description, role_name, s3_package_zip_path, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
+		def _deploy_aws_lambda( credentials, func_name, language, description, role_name, lambda_zip_package_data, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
 			if language in CUSTOM_RUNTIME_LANGUAGES:
 				language = "provided"
 
@@ -3200,8 +3294,7 @@ class TaskSpawner(object):
 					Role=role_name,
 					Handler="lambda._init",
 					Code={
-						"S3Bucket": credentials[ "lambda_packages_bucket" ],
-						"S3Key": s3_package_zip_path,
+						"ZipFile": lambda_zip_package_data
 					},
 					Description=description,
 					Timeout=int(timeout),
@@ -3229,7 +3322,7 @@ class TaskSpawner(object):
 						language,
 						description,
 						role_name,
-						s3_package_zip_path,
+						lambda_zip_package_data,
 						timeout,
 						memory,
 						vpc_config,
@@ -5784,7 +5877,7 @@ class RunTmpLambda( BaseHandler ):
 				"log_output": str( e )
 			})
 			raise gen.Return()
-		
+			
 		logit( "Deleting Lambda..." )
 		
 		# Now we delete the lambda, don't yield because we don't need to wait

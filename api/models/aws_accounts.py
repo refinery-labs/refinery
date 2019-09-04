@@ -111,6 +111,13 @@ class AWSAccount( Base ):
 		cascade="all, delete-orphan"
 	)
 	
+	# Deployed Lambda Layers for this AWS account
+	layers = relationship(
+		"Layer",
+		lazy="dynamic",
+		cascade="all, delete-orphan"
+	)
+	
 	def __init__( self ):
 		self.id = str( uuid.uuid4() )
 		self.timestamp = int( time.time() )
