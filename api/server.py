@@ -2683,7 +2683,7 @@ class TaskSpawner(object):
 					
 			# This is where we upgrade the billing total if it's not at least $5/mo
 			# $5/mo is our floor price.
-			if total_amount < 5.00:
+			if total_amount < 5.00 and is_first_account_billing_month == False:
 				amount_to_add = ( 5.00 - total_amount )
 				return_data[ "service_breakdown" ].append({
 					"service_name": "Floor Fee (Bills are minimum $5/month, see refinery.io/pricing for more information).",
