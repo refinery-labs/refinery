@@ -27,6 +27,8 @@ import {
   GetSavedProjectResponse,
   InfraTearDownRequest,
   InfraTearDownResponse,
+  RenameProjectRequest,
+  RenameProjectResponse,
   SavedBlockStatusCheckRequest,
   SavedBlockStatusCheckResponse,
   SaveProjectRequest,
@@ -481,12 +483,9 @@ export async function getShortlinkContents(shortlinkUrl: string): Promise<Import
  * @param name The new name of the project
  */
 export async function renameProject(projectId: string, name: string) {
-  const response = await makeApiRequest<SaveProjectRequest, SaveProjectResponse>(API_ENDPOINT.SaveProject, {
+  const response = await makeApiRequest<RenameProjectRequest, RenameProjectResponse>(API_ENDPOINT.RenameProject, {
     project_id: projectId,
-    // We only have to send the name parameter for this endpoint
-    diagram_data: JSON.stringify({ name: name }),
-    version: false,
-    config: ''
+    name: name
   });
 
   if (!response) {

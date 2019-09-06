@@ -89,7 +89,9 @@ import {
   GetProjectShortlinkRequest,
   CreateProjectShortlinkResponse,
   GetProjectShortlinkResponse,
-  CreateProjectShortlinkRequest
+  CreateProjectShortlinkRequest,
+  RenameProjectResponse,
+  RenameProjectRequest
 } from '@/types/api-types';
 import { API_ENDPOINT, ApiConfigMap } from '@/constants/api-constants';
 
@@ -182,6 +184,7 @@ export class RefineryApi implements RefineryApiTypeMap {
   [API_ENDPOINT.RunLambda] = makeApiClient<RunLambdaRequest, RunLambdaResponse>(API_ENDPOINT.RunLambda);
   [API_ENDPOINT.RunTmpLambda] = makeApiClient<RunTmpLambdaRequest, RunTmpLambdaResponse>(API_ENDPOINT.RunTmpLambda);
   [API_ENDPOINT.SaveProject] = makeApiClient<SaveProjectRequest, SaveProjectResponse>(API_ENDPOINT.SaveProject);
+  [API_ENDPOINT.RenameProject] = makeApiClient<RenameProjectRequest, RenameProjectResponse>(API_ENDPOINT.RenameProject);
   [API_ENDPOINT.SavedLambdaCreate] = makeApiClient<SavedLambdaCreateRequest, SavedLambdaCreateResponse>(
     API_ENDPOINT.SavedLambdaCreate
   );
