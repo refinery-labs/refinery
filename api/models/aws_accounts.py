@@ -103,6 +103,14 @@ class AWSAccount( Base ):
 		cascade="all, delete-orphan"
 	)
 	
+	# Inline execution Lambdas
+	inline_execution_lambdas = relationship(
+		"InlineExecutionLambda",
+		back_populates="aws_account",
+		lazy="dynamic",
+		cascade="all, delete-orphan"
+	)
+	
 	# Child users to the organization
 	terraform_state_versions = relationship(
 		"TerraformStateVersion",

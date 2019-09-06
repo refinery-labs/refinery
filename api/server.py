@@ -67,6 +67,7 @@ from models.terraform_state_versions import TerraformStateVersion
 from models.state_logs import StateLog
 from models.cached_execution_logs_shard import CachedExecutionLogsShard
 from models.project_short_links import ProjectShortLink
+from models.inline_execution_lambdas import InlineExecutionLambda
 
 from botocore.client import Config
 
@@ -3115,7 +3116,7 @@ class TaskSpawner(object):
 			)
 			
 		@run_on_executor
-		def deploy_aws_lambda( self, credentials, func_name, language, description, role_name, code, libraries, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
+		def deploy_aws_lambda( self, credentials, func_name, language, description, role_name, code, libraries, timeout, memory, vpc_config, environment_variables, tags_dict, layers, is_inline_execution ):
 			"""
 			Here we do caching to see if we've done this exact build before
 			(e.g. the same language, code, and libraries). If we have an the
@@ -3167,7 +3168,7 @@ class TaskSpawner(object):
 					Body=lambda_zip_package_data,
 				)
 			
-			return TaskSpawner._deploy_aws_lambda(
+			lambda_deploy_result = TaskSpawner._deploy_aws_lambda(
 				credentials,
 				func_name,
 				language,
@@ -3181,7 +3182,74 @@ class TaskSpawner(object):
 				tags_dict,
 				layers
 			)
-
+			
+			# If it's an inline execution we can cache the
+			# built Lambda and re-used it for future executions
+			# that share the same configuration when run.
+			if is_inline_execution:
+				logit( "Caching inline execution to speed up future runs..." )
+				TaskSpawner._cache_inline_lambda_execution(
+					credentials,
+					language,
+					timeout,
+					memory,
+					environment_variables,
+					layers,
+					libraries,
+					lambda_deploy_result[ "FunctionArn" ],
+					lambda_deploy_result[ "CodeSize" ]
+				)
+			
+			return lambda_deploy_result
+			
+		@staticmethod
+		def _cache_inline_lambda_execution( credentials, language, timeout, memory, environment_variables, layers, libraries, arn, lambda_size ):
+			inline_execution_hash_key = TaskSpawner._get_inline_lambda_hash_key(
+				language,
+				timeout,
+				memory,
+				environment_variables,
+				layers,
+				libraries
+			)
+			
+			# Add Lambda to inline execution database so we know we can
+			# re-use it at a later time.
+			dbsession = DBSession()
+			inline_execution_lambda = InlineExecutionLambda()
+			inline_execution_lambda.unique_hash_key = inline_execution_hash_key
+			inline_execution_lambda.arn = arn
+			inline_execution_lambda.size = lambda_size
+			inline_execution_lambda.aws_account_id = credentials[ "id" ]
+			dbsession.add( inline_execution_lambda )
+			dbsession.commit()
+			dbsession.close()
+			
+		@staticmethod
+		def _get_inline_lambda_hash_key( language, timeout, memory, environment_variables, layers, libraries ):
+			hash_dict = {
+				"language": language,
+				"timeout": timeout,
+				"memory": memory,
+				"environment_variables": environment_variables,
+				"layers": layers,
+				"libraries": libraries
+			}
+			
+			logit( hash_dict )
+			
+			hash_key = hashlib.sha256(
+				json.dumps(
+					hash_dict,
+					sort_keys=True
+				)
+			).hexdigest()
+			
+			print( "Hash key: " )
+			print( hash_key )
+			
+			return hash_key
+		
 		@staticmethod
 		def _deploy_aws_lambda( credentials, func_name, language, description, role_name, s3_package_zip_path, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
 			if language in CUSTOM_RUNTIME_LANGUAGES:
@@ -5710,6 +5778,44 @@ class RunTmpLambda( BaseHandler ):
 		
 		random_node_id = get_random_node_id()
 		
+		# Empty transitions data
+		empty_transitions_dict = {
+			"then": [],
+			"exception": [],
+			"fan-out": [],
+			"else": [],
+			"fan-in": [],
+			"if": []
+		}
+		
+		# Dummy pipeline execution ID
+		pipeline_execution_id = "SHOULD_NEVER_HAPPEN_TMP_LAMBDA_RUN"
+		
+		# Get inline hash key
+		environment_variables = get_environment_variables_for_lambda(
+			credentials,
+			self.json[ "environment_variables" ],
+			pipeline_execution_id,
+			"LOG_NONE",
+			"REGULAR",
+			empty_transitions_dict,
+			True
+		)
+		inline_lambbda_hash_key = TaskSpawner._get_inline_lambda_hash_key(
+			self.json[ "language" ],
+			self.json[ "max_execution_time" ],
+			self.json[ "memory" ],
+			environment_variables,
+			self.json[ "layers" ],
+			self.json[ "libraries" ]
+		)
+		
+		# Check if we already have an inline execution Lambda for it.
+		cached_inline_execution_lambda = self.dbsession.query( InlineExecutionLambda ).filter_by(
+			aws_account_id=credentials[ "id" ],
+			unique_hash_key=inline_lambbda_hash_key
+		)
+		
 		try:
 			lambda_info = yield deploy_lambda(
 				credentials,
@@ -5720,20 +5826,14 @@ class RunTmpLambda( BaseHandler ):
 				self.json[ "libraries" ],
 				self.json[ "max_execution_time" ],
 				self.json[ "memory" ], # MB of execution memory
-				{
-					"then": [],
-					"exception": [],
-					"fan-out": [],
-					"else": [],
-					"fan-in": [],
-					"if": []
-				},
+				empty_transitions_dict,
 				"REGULAR",
-				"SHOULD_NEVER_HAPPEN_TMP_LAMBDA_RUN", # Doesn't matter no logging is enabled
+				pipeline_execution_id, # Doesn't matter no logging is enabled
 				"LOG_NONE",
 				self.json[ "environment_variables" ], # Env list
 				self.json[ "layers" ],
-				False
+				False,
+				True # Is inline execution
 			)
 		except BuildException as build_exception:
 			self.write({
@@ -5808,12 +5908,8 @@ def get_lambda_safe_name( input_name ):
 	whitelist = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
 	input_name = input_name.replace( " ", "_" )
 	return "".join([c for c in input_name if c in whitelist])[:64]
-	
-@gen.coroutine
-def deploy_lambda( credentials, id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, execution_log_level, environment_variables, layers, reserved_concurrency_count ):
-	"""
-	Here we build the default required environment variables.
-	"""
+
+def get_environment_variables_for_lambda( credentials, environment_variables, execution_pipeline_id, execution_log_level, execution_mode, transitions, is_inline_execution ):
 	all_environment_vars = copy.copy( environment_variables )
 	all_environment_vars.append({
 		"key": "REDIS_HOSTNAME",
@@ -5856,6 +5952,32 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 			transitions
 		),
 	})
+	
+	if is_inline_execution:
+		# The environment variable activates it as
+		# an inline execution Lambda and allows us to
+		# pass in arbitrary code to execution.
+		all_environment_vars.append({
+			"key": "IS_INLINE_EXECUTOR",
+			"value": "True",
+		})
+		
+	return all_environment_vars
+
+@gen.coroutine
+def deploy_lambda( credentials, id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, execution_log_level, environment_variables, layers, reserved_concurrency_count, is_inline_execution ):
+	"""
+	Here we build the default required environment variables.
+	"""
+	all_environment_vars = get_environment_variables_for_lambda(
+		credentials,
+		environment_variables,
+		execution_pipeline_id,
+		execution_log_level,
+		execution_mode,
+		transitions,
+		is_inline_execution
+	)
 
 	logit(
 		"Deploying '" + name + "' Lambda package to production..."
@@ -5911,7 +6033,8 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		)
 	elif language == "python2.7":
 		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:18"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:18"
+			"arn:aws:lambda:us-west-2:561628006572:layer:python:21"
 		)
 	elif language == "python3.6":
 		layers.append(
@@ -5937,7 +6060,8 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 		{
 			"refinery_id": id,
 		},
-		layers
+		layers,
+		is_inline_execution
 	)
 	
 	# If we have concurrency set, then we'll set that for our deployed Lambda
@@ -6215,7 +6339,8 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				project_config[ "logging" ][ "level" ],
 				env_var_dict[ lambda_node[ "id" ] ],
 				lambda_node[ "layers" ],
-				lambda_node[ "reserved_concurrency_count" ]
+				lambda_node[ "reserved_concurrency_count" ],
+				False
 			)
 		})
 		
@@ -6246,6 +6371,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				project_config[ "logging" ][ "level" ],
 				[],
 				[],
+				False,
 				False
 			)
 		})

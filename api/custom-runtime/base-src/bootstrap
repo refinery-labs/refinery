@@ -1339,11 +1339,27 @@ def _improve_api_endpoint_request_data( lambda_input ):
 			lambda_input[ "form" ] = None
 		
 	return lambda_input
+	
+def _write_inline_code( inline_code ):
+	"""
+	Write code to a randomized path in /tmp/ and return the
+	full path of the file.
+	"""
+	temporary_code_path = "/tmp/" + str( uuid.uuid4() )
+	
+	with open( temporary_code_path, "w" ) as file_handler:
+		file_handler.write( inline_code )
+		
+	return temporary_code_path
 
 def _init( custom_runtime, request_id, lambda_input, context ):
 	start_time = time.time()
 
 	global gmemory
+	
+	# Generate the path to the execution payload
+	handler_parts = os.getenv( "_HANDLER" ).split( "." )
+	executable_path = os.getenv( "LAMBDA_TASK_ROOT" ) + "/" + handler_parts[0]
 
 	execution_pipeline_id = os.environ[ "EXECUTION_PIPELINE_ID" ]
 	s3_log_bucket = os.environ[ "LOG_BUCKET_NAME" ]
@@ -1453,10 +1469,49 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 		# the returned data.
 	except Exception as e:
 		pass
+	
+	# By default inline execution is disabled
+	is_inline_execution = False
 
 	# Detect refinery wrapper and unwrap if existant
 	# Else just leave it unmodified
 	if type( lambda_input ) == dict and "_refinery" in lambda_input:
+		"""
+		In order to speed up inline executions (e.g. Editor executions)
+		we keep the base Lambda layers/packages/configs deployed in a Lambda.
+		Then we set an environment variable on the Lambda to indicate that this is
+		just a Lambda to be used for inline execution. When this environment variable
+		is set it allows for passing arbitrary code into the Lambda as a parameter of "inline_code":
+		
+		For example:
+		{
+			"_refinery": {
+				"inline_code": "def test()..."
+			}
+		}
+		
+		This code is written to a file in /tmp/ and the "executable_path" variable
+		is updated to this new path.
+		
+		For other Lambdas in production this environment variable is NOT set so this
+		input being passed will have no effect. Obviously arbitrary code execution is
+		not something we want to allow for the actually Lambdas we have in prod deploys :)
+		
+		This dramatically increases execution times for inline runs and allows a much better
+		development experience for our users.
+		"""
+		is_inline_execution = (
+			os.getenv( "IS_INLINE_EXECUTOR", False ) == "True" and
+			"inline_code" in lambda_input[ "_refinery" ]
+		)
+		
+		# If it's an inline execution write the temporary code file
+		if is_inline_execution:
+			# Update execution path to the new temporary code file created
+			executable_path = _write_inline_code(
+				lambda_input[ "_refinery" ][ "inline_code" ]
+			)
+		
 		# Check if it's just a warmup request
 		if "warmup" in lambda_input[ "_refinery" ]:
 			decrement_counter = lambda_input[ "_refinery" ][ "warmup" ]
@@ -1584,10 +1639,6 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 	return_data = {}
 
 	if execution_mode == "REGULAR":
-		# Catch any exception that occurs and handle it if a catch is defined.
-		handler_parts = os.getenv( "_HANDLER" ).split( "." )
-		executable_path = os.getenv( "LAMBDA_TASK_ROOT" ) + "/" + handler_parts[0]
-
 		_start_clock( "Executing Lambda" )
 
 		process_handler = subprocess.Popen(
@@ -1609,6 +1660,11 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 				"backpack": backpack,
 			})
 		)
+		
+		# If it's an inline execution we need to delete the file we just
+		# executed so that it doesn't fill up the disk each run.
+		if is_inline_execution:
+			os.remove( executable_path )
 
 		_stop_clock( "Executing Lambda" )
 
