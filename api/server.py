@@ -3213,6 +3213,11 @@ class TaskSpawner(object):
 				libraries
 			)
 			
+			# Get the oldest saved inline execution from the stack and
+			# delete it from AWS. This way we don't fill up the 75GB
+			# per-account limitation!
+			# TODO update me!
+			
 			# Add Lambda to inline execution database so we know we can
 			# re-use it at a later time.
 			dbsession = DBSession()
@@ -3235,8 +3240,6 @@ class TaskSpawner(object):
 				"layers": layers,
 				"libraries": libraries
 			}
-			
-			logit( hash_dict )
 			
 			hash_key = hashlib.sha256(
 				json.dumps(
@@ -4332,20 +4335,6 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def _build_ruby_264_lambda( credentials, code, libraries ):
-			"""
-			code = re.sub(
-				r"function main\([^\)]+\)[^{]\{",
-				"function main( blockInput ) {",
-				code
-			)
-			
-			code = re.sub(
-				r"function mainCallback\([^\)]+\)[^{]\{",
-				"function mainCallback( blockInput, callback ) {",
-				code
-			)
-			"""
-			
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "ruby2.6.4" ]
 			
 			# Use CodeBuilder to get a base zip of the libraries
@@ -5778,6 +5767,9 @@ class RunTmpLambda( BaseHandler ):
 		
 		random_node_id = get_random_node_id()
 		
+		# Lambda layers to add
+		lambda_layers = get_layers_for_lambda( self.json[ "language" ] ) + self.json[ "layers" ]
+		
 		# Empty transitions data
 		empty_transitions_dict = {
 			"then": [],
@@ -5794,6 +5786,7 @@ class RunTmpLambda( BaseHandler ):
 		# Get inline hash key
 		environment_variables = get_environment_variables_for_lambda(
 			credentials,
+			self.json[ "language" ],
 			self.json[ "environment_variables" ],
 			pipeline_execution_id,
 			"LOG_NONE",
@@ -5806,42 +5799,58 @@ class RunTmpLambda( BaseHandler ):
 			self.json[ "max_execution_time" ],
 			self.json[ "memory" ],
 			environment_variables,
-			self.json[ "layers" ],
+			lambda_layers,
 			self.json[ "libraries" ]
 		)
 		
-		# Check if we already have an inline execution Lambda for it.
-		cached_inline_execution_lambda = self.dbsession.query( InlineExecutionLambda ).filter_by(
-			aws_account_id=credentials[ "id" ],
-			unique_hash_key=inline_lambbda_hash_key
-		)
+		# Not-support inline execution languages (defaults to slower method)
+		not_supported_inline_execution_languages = [
+			"go1.12"
+		]
 		
-		try:
-			lambda_info = yield deploy_lambda(
-				credentials,
-				random_node_id,
-				random_node_id,
-				self.json[ "language" ],
-				self.json[ "code" ],
-				self.json[ "libraries" ],
-				self.json[ "max_execution_time" ],
-				self.json[ "memory" ], # MB of execution memory
-				empty_transitions_dict,
-				"REGULAR",
-				pipeline_execution_id, # Doesn't matter no logging is enabled
-				"LOG_NONE",
-				self.json[ "environment_variables" ], # Env list
-				self.json[ "layers" ],
-				False,
-				True # Is inline execution
-			)
-		except BuildException as build_exception:
-			self.write({
-				"success": False,
-				"msg": "An error occurred while building the Lambda package.",
-				"log_output": build_exception.build_output
-			})
-			raise gen.Return()
+		cached_inline_execution_lambda = None
+		
+		if not ( self.json[ "language" ] in not_supported_inline_execution_languages ):
+			# Check if we already have an inline execution Lambda for it.
+			cached_inline_execution_lambda = self.dbsession.query( InlineExecutionLambda ).filter_by(
+				aws_account_id=credentials[ "id" ],
+				unique_hash_key=inline_lambbda_hash_key
+			).first()
+		
+		# We can skip this if we already have a cached execution
+		if cached_inline_execution_lambda:
+			logit( "Inline execution is already cached as a Lambda, doing a hotload..." )
+			cached_inline_execution_lambda_dict = cached_inline_execution_lambda.to_dict()
+			lambda_info = {
+				"arn": cached_inline_execution_lambda_dict[ "arn" ]
+			}
+		else:
+			try:
+				lambda_info = yield deploy_lambda(
+					credentials,
+					random_node_id,
+					random_node_id,
+					self.json[ "language" ],
+					self.json[ "code" ],
+					self.json[ "libraries" ],
+					self.json[ "max_execution_time" ],
+					self.json[ "memory" ], # MB of execution memory
+					empty_transitions_dict,
+					"REGULAR",
+					pipeline_execution_id, # Doesn't matter no logging is enabled
+					"LOG_NONE",
+					self.json[ "environment_variables" ], # Env list
+					lambda_layers,
+					False,
+					True # Is inline execution
+				)
+			except BuildException as build_exception:
+				self.write({
+					"success": False,
+					"msg": "An error occurred while building the Lambda package.",
+					"log_output": build_exception.build_output
+				})
+				raise gen.Return()
 		
 		# Try to parse Lambda input as JSON
 		try:
@@ -5852,6 +5861,9 @@ class RunTmpLambda( BaseHandler ):
 			pass
 		
 		logit( "Executing Lambda..." )
+		
+		inline_execution_code = self.json[ "code" ] + "\n\n" + LAMDBA_BASE_CODES[ self.json[ "language" ] ]
+		
 		lambda_result = yield local_tasks.execute_aws_lambda(
 			credentials,
 			lambda_info[ "arn" ],
@@ -5860,6 +5872,7 @@ class RunTmpLambda( BaseHandler ):
 					"throw_exceptions_fully": True,
 					"input_data": self.json[ "input_data" ],
 					"temporary_execution": True,
+					#"inline_code": inline_execution_code,
 				}
 			},
 		)
@@ -5891,6 +5904,7 @@ class RunTmpLambda( BaseHandler ):
 			})
 			raise gen.Return()
 		
+		"""
 		logit( "Deleting Lambda..." )
 		
 		# Now we delete the lambda, don't yield because we don't need to wait
@@ -5898,6 +5912,7 @@ class RunTmpLambda( BaseHandler ):
 			credentials,
 			random_node_id
 		)
+		"""
 
 		self.write({
 			"success": True,
@@ -5908,9 +5923,32 @@ def get_lambda_safe_name( input_name ):
 	whitelist = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
 	input_name = input_name.replace( " ", "_" )
 	return "".join([c for c in input_name if c in whitelist])[:64]
+	
+def get_language_specific_environment_variables( language ):
+	environment_variables_list = []
+	
+	if language == "python2.7" or language == "python3.6":
+		environment_variables_list.append({
+			"key": "PYTHONPATH",
+			"value": "/var/task/",
+		})
+	elif language == "nodejs8.10":
+		environment_variables_list.append({
+			"key": "NODE_PATH",
+			"value": "/var/task/node_modules/",
+		})
+		
+	return environment_variables_list
 
-def get_environment_variables_for_lambda( credentials, environment_variables, execution_pipeline_id, execution_log_level, execution_mode, transitions, is_inline_execution ):
+def get_environment_variables_for_lambda( credentials, language, environment_variables, execution_pipeline_id, execution_log_level, execution_mode, transitions, is_inline_execution ):
 	all_environment_vars = copy.copy( environment_variables )
+	
+	# Add environment variables depending on language
+	# This is mainly for module loading when we're doing inline executions.
+	all_environment_vars = all_environment_vars + get_language_specific_environment_variables(
+		language
+	)
+	
 	all_environment_vars.append({
 		"key": "REDIS_HOSTNAME",
 		"value": credentials[ "redis_hostname" ],
@@ -5963,6 +6001,43 @@ def get_environment_variables_for_lambda( credentials, environment_variables, ex
 		})
 		
 	return all_environment_vars
+	
+def get_layers_for_lambda( language ):
+	new_layers = []
+	
+	# Add the custom runtime layer in all cases
+	if language == "nodejs8.10":
+		new_layers.append(
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:18"
+			"arn:aws:lambda:us-west-2:561628006572:layer:node:2"
+		)
+	elif language == "php7.3":
+		new_layers.append(
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:18"
+			"arn:aws:lambda:us-west-2:561628006572:layer:php:2"
+		)
+	elif language == "go1.12":
+		new_layers.append(
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:18"
+			"arn:aws:lambda:us-west-2:561628006572:layer:go:2"
+		)
+	elif language == "python2.7":
+		new_layers.append(
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:18"
+			"arn:aws:lambda:us-west-2:561628006572:layer:python:22"
+		)
+	elif language == "python3.6":
+		new_layers.append(
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:19"
+			"arn:aws:lambda:us-west-2:561628006572:layer:python3:4"
+		)
+	elif language == "ruby2.6.4":
+		new_layers.append(
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:19"
+			"arn:aws:lambda:us-west-2:561628006572:layer:refinery-ruby264-custom-runtime:12"
+		)
+		
+	return new_layers
 
 @gen.coroutine
 def deploy_lambda( credentials, id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, execution_log_level, environment_variables, layers, reserved_concurrency_count, is_inline_execution ):
@@ -5971,6 +6046,7 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	"""
 	all_environment_vars = get_environment_variables_for_lambda(
 		credentials,
+		language,
 		environment_variables,
 		execution_pipeline_id,
 		execution_log_level,
@@ -6017,33 +6093,6 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	
 	Once this is done all future deployments will use the new layers.
 	"""
-	
-	# Add the custom runtime layer in all cases
-	if language == "nodejs8.10":
-		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:18"
-		)
-	elif language == "php7.3":
-		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:18"
-		)
-	elif language == "go1.12":
-		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:18"
-		)
-	elif language == "python2.7":
-		layers.append(
-			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:18"
-			"arn:aws:lambda:us-west-2:561628006572:layer:python:21"
-		)
-	elif language == "python3.6":
-		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:19"
-		)
-	elif language == "ruby2.6.4":
-		layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:19"
-		)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
 		credentials,
@@ -6319,6 +6368,10 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		# For backwards compatibility
 		if not ( "reserved_concurrency_count" in lambda_node ):
 			lambda_node[ "reserved_concurrency_count" ] = False
+			
+		lambda_layers = get_layers_for_lambda(
+			lambda_node[ "language" ]
+		) + lambda_node[ "layers" ]
 
 		lambda_node_deploy_futures.append({
 			"id": lambda_node[ "id" ],
@@ -6338,7 +6391,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				project_id,
 				project_config[ "logging" ][ "level" ],
 				env_var_dict[ lambda_node[ "id" ] ],
-				lambda_node[ "layers" ],
+				lambda_layers,
 				lambda_node[ "reserved_concurrency_count" ],
 				False
 			)
@@ -6352,6 +6405,9 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	for api_endpoint_node in api_endpoint_nodes:
 		api_endpoint_safe_name = get_lambda_safe_name( api_endpoint_node[ "name" ] )
 		logit( "Deploying API Endpoint '" + api_endpoint_safe_name + "'..." )
+		
+		lambda_layers = get_layers_for_lambda( "python2.7" )
+		
 		api_endpoint_node_deploy_futures.append({
 			"id": api_endpoint_node[ "id" ],
 			"name": get_lambda_safe_name( api_endpoint_node[ "name" ] ),
@@ -6370,7 +6426,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				project_id,
 				project_config[ "logging" ][ "level" ],
 				[],
-				[],
+				lambda_layers,
 				False,
 				False
 			)
@@ -9949,7 +10005,7 @@ class BuildLibrariesPackage( BaseHandler ):
 				credentials,
 				libraries_dict
 			)
-		if self.json[ "language" ] == "python3.6":
+		elif self.json[ "language" ] == "python3.6":
 			build_id = yield local_tasks.start_python36_codebuild(
 				credentials,
 				libraries_dict

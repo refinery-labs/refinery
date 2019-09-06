@@ -56,7 +56,6 @@ class InlineExecutionLambda( Base ):
 			"id",
 			"unique_hash_key",
 			"arn",
-			"version",
 			"size",
 			"timestamp"
 		]
