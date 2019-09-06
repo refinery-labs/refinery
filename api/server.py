@@ -7230,6 +7230,16 @@ class SaveProject( BaseHandler ):
 		
 		# If there is a previous project and the name doesn't match, update it.
 		if previous_project and previous_project.name != project_name:
+			# Double check that the project name isn't already in use.
+			for project in self.get_authenticated_user().projects:
+				if project.name == project_name:
+					self.write({
+						"success": False,
+						"code": "PROJECT_NAME_EXISTS",
+						"msg": "Name is already used by another project."
+					})
+					return
+
 			previous_project.name = project_name
 			self.dbsession.commit()
 		

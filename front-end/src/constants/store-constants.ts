@@ -7,6 +7,11 @@ export enum AllProjectsMutators {
   setDeleteProjectId = 'setDeleteProjectId',
   setDeleteProjectName = 'setDeleteProjectName',
 
+  setRenameProjectId = 'setRenameProjectId',
+  setRenameProjectInput = 'setRenameProjectInput',
+  setRenameProjectBusy = 'setRenameProjectBusy',
+  setRenameProjectError = 'setRenameProjectError',
+
   setNewProjectInput = 'setNewProjectInput',
   setNewProjectErrorMessage = 'setNewProjectErrorMessage',
   setNewProjectBusy = 'setNewProjectBusy',

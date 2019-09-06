@@ -16,7 +16,7 @@ import { readFileAsText } from '@/utils/dom-utils';
 import { unwrapJson, wrapJson } from '@/utils/project-helpers';
 import validate from '../../types/export-project.validator';
 import ImportableRefineryProject from '@/types/export-project';
-import { getShortlinkContents } from '@/store/fetchers/api-helpers';
+import { getShortlinkContents, renameProject } from '@/store/fetchers/api-helpers';
 
 const moduleState: AllProjectsState = {
   availableProjects: [],
@@ -26,6 +26,11 @@ const moduleState: AllProjectsState = {
   deleteModalVisible: false,
   deleteProjectId: null,
   deleteProjectName: null,
+
+  renameProjectId: null,
+  renameProjectInput: null,
+  renameProjectBusy: false,
+  renameProjectError: null,
 
   newProjectInput: null,
   newProjectErrorMessage: null,
@@ -61,7 +66,8 @@ export enum AllProjectsActions {
   importProjectFromDemo = 'importProjectFromDemo',
   openProjectShareLink = 'openProjectShareLink',
   startDeleteProject = 'startDeleteProject',
-  deleteProject = 'deleteProject'
+  deleteProject = 'deleteProject',
+  renameProject = 'renameProject'
 }
 
 const AllProjectsModule: Module<AllProjectsState, RootState> = {
@@ -111,6 +117,19 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
     },
     [AllProjectsMutators.setDeleteProjectName](state, name) {
       state.deleteProjectName = name;
+    },
+
+    [AllProjectsMutators.setRenameProjectId](state, id) {
+      state.renameProjectId = id;
+    },
+    [AllProjectsMutators.setRenameProjectInput](state, name) {
+      state.renameProjectInput = name;
+    },
+    [AllProjectsMutators.setRenameProjectBusy](state, busy) {
+      state.renameProjectBusy = busy;
+    },
+    [AllProjectsMutators.setRenameProjectError](state, msg) {
+      state.renameProjectError = msg;
     },
 
     [AllProjectsMutators.setNewProjectInput](state, text) {
@@ -340,6 +359,59 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
       } catch (e) {
         console.error('Unable to delete project');
       }
+    },
+    async [AllProjectsActions.renameProject](context, projectId: string) {
+      if (context.state.renameProjectId !== null) {
+        const renameProjectId = context.state.renameProjectId;
+
+        if (renameProjectId !== projectId) {
+          throw new Error('Attempted to finish renaming project with an invalid ID');
+        }
+
+        const projectName = context.state.renameProjectInput;
+
+        if (projectName === null) {
+          context.commit(AllProjectsMutators.setRenameProjectError, 'Must not set project name to empty value');
+          throw new Error('Must not set project name to null value');
+        }
+
+        context.commit(AllProjectsMutators.setRenameProjectBusy, true);
+
+        const errorMessage = await renameProject(renameProjectId, projectName);
+
+        context.commit(AllProjectsMutators.setRenameProjectBusy, false);
+
+        if (errorMessage) {
+          context.commit(AllProjectsMutators.setRenameProjectError, errorMessage);
+          console.error('Error renaming project', errorMessage);
+          return;
+        }
+
+        // Reset state of the rename flow
+        context.commit(AllProjectsMutators.setRenameProjectInput, null);
+        context.commit(AllProjectsMutators.setRenameProjectId, null);
+
+        // Refresh list of projects
+        await context.dispatch(AllProjectsActions.performSearch);
+
+        return;
+      }
+
+      if (!context.state.availableProjects) {
+        throw new Error('Unable to rename project without any available projects');
+      }
+
+      const matchingProject = context.state.availableProjects.find(p => p.id === projectId);
+
+      if (!matchingProject) {
+        throw new Error(
+          'Unable to rename project without matching project. Missing project with given ID: ' + projectId
+        );
+      }
+
+      context.commit(AllProjectsMutators.setRenameProjectId, projectId);
+
+      context.commit(AllProjectsMutators.setRenameProjectInput, matchingProject.name);
     }
   }
 };

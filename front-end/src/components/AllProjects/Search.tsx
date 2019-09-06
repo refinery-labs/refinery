@@ -7,8 +7,8 @@ import { namespace } from 'vuex-class';
 import CardToolTsx from '@/components/Common/CardToolTsx';
 import { linkFormatterUtils } from '@/constants/router-constants';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
-import { EditorProps } from '@/types/component-types';
-import { SupportedLanguage } from '@/types/graph';
+import { EditorProps, LoadingContainerProps } from '@/types/component-types';
+import Loading from '@/components/Common/Loading.vue';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 
 const allProjects = namespace('allProjects');
@@ -24,6 +24,12 @@ export default class Search extends Vue {
   @allProjects.State deleteModalVisible!: boolean;
   @allProjects.State deleteProjectId!: string | null;
   @allProjects.State deleteProjectName!: string | null;
+
+  @allProjects.State renameProjectId!: string | null;
+  @allProjects.State renameProjectInput!: string | null;
+  @allProjects.State renameProjectBusy!: boolean;
+  @allProjects.State renameProjectError!: string | null;
+  @allProjects.Mutation setRenameProjectInput!: (text: string) => void;
 
   @allProjects.State newProjectInput!: string | null;
   @allProjects.State newProjectErrorMessage!: string | null;
@@ -50,6 +56,7 @@ export default class Search extends Vue {
   @allProjects.Action importProject!: () => void;
   @allProjects.Action startDeleteProject!: (project: SearchSavedProjectsResult) => void;
   @allProjects.Action deleteProject!: () => void;
+  @allProjects.Action renameProject!: (id: string) => void;
 
   onSearchClicked(e: Event) {
     if (!e || !e.target) {
@@ -215,6 +222,15 @@ export default class Search extends Vue {
     // TODO: Add Pagination support
     const chunked = availableProjects; //.slice().slice(0, 10);
 
+    // One row for every project displayed
+    const projectEntries = chunked.map(project => {
+      return (
+        <tr>
+          <td>{this.renderSearchResult(project)}</td>
+        </tr>
+      );
+    });
+
     const headerTitle = availableProjects.length === 0 ? 'No projects found!' : 'Description';
 
     return (
@@ -230,7 +246,7 @@ export default class Search extends Vue {
                 <th>{headerTitle}</th>
               </tr>
             </thead>
-            <tbody>{chunked.map(project => this.renderSearchResult(project))}</tbody>
+            <tbody>{projectEntries}</tbody>
           </table>
         </div>
         <b-card-footer class="d-flex">
@@ -241,39 +257,83 @@ export default class Search extends Vue {
     );
   }
 
+  public renderProjectName(project: SearchSavedProjectsResult) {
+    if (project.id === this.renameProjectId) {
+      return (
+        <div>
+          <b-input
+            class="w-100 flex-grow--1"
+            type="text"
+            placeholder="Name of project"
+            autofocus={true}
+            value={this.renameProjectInput}
+            on={{ change: this.setRenameProjectInput }}
+          />
+
+          <b-form-invalid-feedback state={!this.renameProjectError}>{this.renameProjectError}</b-form-invalid-feedback>
+        </div>
+      );
+    }
+
+    return <h4 class="m-0">{project.name}</h4>;
+  }
+
   public renderSearchResult(project: SearchSavedProjectsResult) {
     const updatedTime = moment(project.timestamp * 1000);
     const durationSinceUpdated = moment.duration(-moment().diff(updatedTime)).humanize(true);
 
     const viewProjectLink = linkFormatterUtils.viewProjectFormatter(project.id);
 
+    const disableRenameButton = this.renameProjectId !== null && this.renameProjectId !== project.id;
+
+    const renameIconClasses = {
+      fas: true,
+      'fa-edit': this.renameProjectId !== project.id,
+      'fa-check': this.renameProjectId === project.id
+    };
+
+    const loadingProps: LoadingContainerProps = {
+      label: 'Renaming...',
+      show: this.renameProjectBusy && this.renameProjectId === project.id
+    };
+
     return (
-      <tr>
-        <td>
-          <div class="media align-items-center">
-            <div class="media-body d-flex">
-              <div>
-                <h4 class="m-0">{project.name}</h4>
-                <small class="text-muted">Last updated {durationSinceUpdated}</small>
-                {/*<p>*/}
-                {/*  If I had a description, this is where I would put it! Thanks, Mandatory. This is why we can't have*/}
-                {/*  nice things.*/}
-                {/*</p>*/}
-              </div>
-              <div class="ml-auto">
-                <b-button variant="danger" on={{ click: () => this.startDeleteProject(project) }}>
-                  <span class="fas fa-trash" />
+      <Loading props={loadingProps}>
+        <div class="media align-items-center">
+          <div class="media-body d-flex">
+            <div class="flex-grow--1 mr-2">
+              {this.renderProjectName(project)}
+
+              <small class="text-muted">Last updated {durationSinceUpdated}</small>
+              {/*<p>*/}
+              {/*  If I had a description, this is where I would put it! Thanks, Mandatory. This is why we can't have*/}
+              {/*  nice things.*/}
+              {/*</p>*/}
+            </div>
+            <div class="ml-auto d-flex flex-direction--column">
+              <div class="flex-grow--1 d-flex w-100 mb-2">
+                <b-button
+                  class="mr-2"
+                  variant="info"
+                  on={{ click: () => this.renameProject(project.id) }}
+                  disabled={disableRenameButton}
+                >
+                  Rename <span class={renameIconClasses} />
+                </b-button>
+
+                <b-button class="" variant="danger" on={{ click: () => this.startDeleteProject(project) }}>
+                  Delete <span class="fas fa-trash" />
                 </b-button>
               </div>
-              <div style={{ 'margin-left': '8px' }}>
-                <b-button variant="primary" to={viewProjectLink}>
-                  Open in Editor
+              <div class="flex-grow--1 w-100">
+                <b-button class="w-100" variant="primary" to={viewProjectLink}>
+                  Open in Editor <span class="fas fa-code" />
                 </b-button>
               </div>
             </div>
           </div>
-        </td>
-      </tr>
+        </div>
+      </Loading>
     );
   }
 
@@ -308,6 +368,33 @@ export default class Search extends Vue {
     );
   }
 
+  public renderCardSearch() {
+    return (
+      <b-card class="card-default" header="Find Project">
+        <b-form on={{ submit: this.onSearchClicked }}>
+          <b-form-group
+            id="new-project-input-group"
+            label="By Project Name:"
+            label-for="new-project-input"
+            description="If a project name contains this text, it will be shown in the search results."
+          >
+            <b-input
+              class="form-control mb-2"
+              type="text"
+              placeholder="Search projects by name..."
+              value={this.searchBoxText}
+              on={{ change: this.setSearchBoxInput }}
+            />
+          </b-form-group>
+
+          <b-button variant="secondary" size="lg" type="submit">
+            Search
+          </b-button>
+        </b-form>
+      </b-card>
+    );
+  }
+
   public render(h: CreateElement): VNode {
     return (
       <ContentWrapper>
@@ -328,30 +415,7 @@ export default class Search extends Vue {
           <b-row>
             <b-col md={9}>{this.renderSearchTable()}</b-col>
 
-            <b-col md={3}>
-              <b-card class="card-default" header="Find Project">
-                <b-form on={{ submit: this.onSearchClicked }}>
-                  <b-form-group
-                    id="new-project-input-group"
-                    label="By Project Name:"
-                    label-for="new-project-input"
-                    description="If a project name contains this text, it will be shown in the search results."
-                  >
-                    <b-input
-                      class="form-control mb-2"
-                      type="text"
-                      placeholder="Search projects by name..."
-                      value={this.searchBoxText}
-                      on={{ change: this.setSearchBoxInput }}
-                    />
-                  </b-form-group>
-
-                  <b-button variant="secondary" size="lg" type="submit">
-                    Search
-                  </b-button>
-                </b-form>
-              </b-card>
-            </b-col>
+            <b-col md={3}>{this.renderCardSearch()}</b-col>
           </b-row>
         </div>
 

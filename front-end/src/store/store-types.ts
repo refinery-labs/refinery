@@ -208,6 +208,11 @@ export interface AllProjectsState {
   deleteProjectId: string | null;
   deleteProjectName: string | null;
 
+  renameProjectId: string | null;
+  renameProjectInput: string | null;
+  renameProjectBusy: boolean;
+  renameProjectError: string | null;
+
   newProjectInput: string | null;
   newProjectErrorMessage: string | null;
   newProjectBusy: boolean;
