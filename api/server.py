@@ -3304,9 +3304,6 @@ class TaskSpawner(object):
 				)
 			).hexdigest()
 			
-			print( "Hash key: " )
-			print( hash_key )
-			
 			return hash_key
 		
 		@staticmethod
@@ -6142,32 +6139,32 @@ def get_layers_for_lambda( language ):
 	if language == "nodejs8.10":
 		new_layers.append(
 			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:18"
-			"arn:aws:lambda:us-west-2:561628006572:layer:node:2"
+			"arn:aws:lambda:us-west-2:561628006572:layer:node:3"
 		)
 	elif language == "php7.3":
 		new_layers.append(
 			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:18"
-			"arn:aws:lambda:us-west-2:561628006572:layer:php:2"
+			"arn:aws:lambda:us-west-2:561628006572:layer:php:3"
 		)
 	elif language == "go1.12":
 		new_layers.append(
 			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:18"
-			"arn:aws:lambda:us-west-2:561628006572:layer:go:2"
+			"arn:aws:lambda:us-west-2:561628006572:layer:go:3"
 		)
 	elif language == "python2.7":
 		new_layers.append(
 			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:18"
-			"arn:aws:lambda:us-west-2:561628006572:layer:python:22"
+			"arn:aws:lambda:us-west-2:561628006572:layer:python:23"
 		)
 	elif language == "python3.6":
 		new_layers.append(
 			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:19"
-			"arn:aws:lambda:us-west-2:561628006572:layer:python3:4"
+			"arn:aws:lambda:us-west-2:561628006572:layer:python3:5"
 		)
 	elif language == "ruby2.6.4":
 		new_layers.append(
 			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:19"
-			"arn:aws:lambda:us-west-2:561628006572:layer:refinery-ruby264-custom-runtime:12"
+			"arn:aws:lambda:us-west-2:561628006572:layer:refinery-ruby264-custom-runtime:13"
 		)
 		
 	return new_layers

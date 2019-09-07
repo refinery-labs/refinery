@@ -1665,6 +1665,10 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 		# executed so that it doesn't fill up the disk each run.
 		if is_inline_execution:
 			os.remove( executable_path )
+			try:
+				os.popen( "/bin/rm /tmp/*" ).read()
+			except:
+				pass
 
 		_stop_clock( "Executing Lambda" )
 
