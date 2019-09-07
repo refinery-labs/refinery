@@ -3213,10 +3213,64 @@ class TaskSpawner(object):
 				libraries
 			)
 			
+			# Maximum amount of inline execution Lambdas to leave deployed
+			# at a time in AWS. This is a tradeoff between speed and storage
+			# amount consumed in AWS.
+			max_number_of_inline_execution_lambdas = 10
+			
+			# TODO - Implement a "last run" column so we can delete the
+			# Lambdas more intelligently?
+			
+			# Check how many inline execution Lambdas we already have
+			# saved in AWS. If it's too many we need to clean up!
 			# Get the oldest saved inline execution from the stack and
 			# delete it from AWS. This way we don't fill up the 75GB
 			# per-account limitation!
-			# TODO update me!
+			dbsession = DBSession()
+			existing_inline_execution_lambdas_objects = dbsession.query(
+				InlineExecutionLambda
+			).filter_by(
+				aws_account_id=credentials[ "id" ]
+			).order_by(
+				InlineExecutionLambda.timestamp.desc()
+			).all()
+			
+			existing_inline_execution_lambdas = []
+			
+			for existing_inline_execution_lambdas_object in existing_inline_execution_lambdas_objects:
+				existing_inline_execution_lambdas.append(
+					existing_inline_execution_lambdas_object.to_dict()
+				)
+				
+			dbsession.close()
+			
+			logit( "Number of existing Lambdas cached for inline executions: " + str( len( existing_inline_execution_lambdas_objects ) ) )
+			
+			if existing_inline_execution_lambdas and len( existing_inline_execution_lambdas ) > max_number_of_inline_execution_lambdas:
+				number_of_lambdas_to_delete = len( existing_inline_execution_lambdas ) - max_number_of_inline_execution_lambdas
+				
+				logit( "Deleting #" + str( number_of_lambdas_to_delete ) + " old cached inline execution Lambda(s) from AWS..." )
+				
+				lambdas_to_delete = existing_inline_execution_lambdas[:number_of_lambdas_to_delete]
+			
+				for lambda_to_delete in lambdas_to_delete:
+					logit( "Deleting '" + lambda_to_delete[ "arn" ] + "' from AWS..." )
+					TaskSpawner._delete_lambda(
+						credentials,
+						False,
+						False,
+						False,
+						lambda_to_delete[ "arn" ]
+					)
+					
+					# Delete the Lambda from the database now that we've
+					# deleted it from AWS.
+					dbsession = DBSession()
+					dbsession.query( InlineExecutionLambda ).filter_by(
+						id=lambda_to_delete[ "id" ]
+					).delete()
+					dbsession.commit()
+					dbsession.close()
 			
 			# Add Lambda to inline execution database so we know we can
 			# re-use it at a later time.
@@ -4296,7 +4350,7 @@ class TaskSpawner(object):
 			return build_id
 			
 		@staticmethod
-		def _build_php_73_lambda( credentials, code, libraries ):
+		def _get_php_73_base_code( code ):
 			code = re.sub(
 				r"function main\([^\)]+\)[^{]\{",
 				"function main( $block_input ) {global $backpack;\n",
@@ -4304,6 +4358,13 @@ class TaskSpawner(object):
 			)
 			
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "php7.3" ]
+			return code
+			
+		@staticmethod
+		def _build_php_73_lambda( credentials, code, libraries ):
+			code = TaskSpawner._get_php_73_base_code(
+				code
+			)
 			
 			# Use CodeBuilder to get a base zip of the libraries
 			base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
@@ -4334,8 +4395,15 @@ class TaskSpawner(object):
 			return lambda_package_zip_data
 			
 		@staticmethod
-		def _build_ruby_264_lambda( credentials, code, libraries ):
+		def _get_ruby_264_base_code( code ):
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "ruby2.6.4" ]
+			return code
+			
+		@staticmethod
+		def _build_ruby_264_lambda( credentials, code, libraries ):
+			code = TaskSpawner._get_ruby_264_base_code(
+				code
+			)
 			
 			# Use CodeBuilder to get a base zip of the libraries
 			base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
@@ -4367,7 +4435,7 @@ class TaskSpawner(object):
 			return lambda_package_zip_data
 			
 		@staticmethod
-		def _build_nodejs_810_lambda( credentials, code, libraries ):
+		def _get_nodejs_810_base_code( code ):
 			code = re.sub(
 				r"function main\([^\)]+\)[^{]\{",
 				"function main( blockInput ) {",
@@ -4381,6 +4449,13 @@ class TaskSpawner(object):
 			)
 			
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "nodejs8.10" ]
+			return code
+			
+		@staticmethod
+		def _build_nodejs_810_lambda( credentials, code, libraries ):
+			code = TaskSpawner._get_nodejs_810_base_code(
+				code
+			)
 			
 			# Use CodeBuilder to get a base zip of the libraries
 			base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
@@ -4411,8 +4486,15 @@ class TaskSpawner(object):
 			return lambda_package_zip_data
 			
 		@staticmethod
-		def _build_python36_lambda( credentials, code, libraries ):
+		def _get_python36_base_code( code ):
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "python3.6" ]
+			return code
+			
+		@staticmethod
+		def _build_python36_lambda( credentials, code, libraries ):
+			code = TaskSpawner._get_python36_base_code(
+				code
+			)
 					
 			base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
 			if len( libraries ) > 0:
@@ -4440,6 +4522,11 @@ class TaskSpawner(object):
 			lambda_package_zip.close()
 
 			return lambda_package_zip_data
+			
+		@staticmethod
+		def _get_python27_base_code( code ):
+			code = code + "\n\n" + LAMDBA_BASE_CODES[ "python2.7" ]
+			return code
 		
 		@staticmethod
 		def _build_python27_lambda( credentials, code, libraries ):
@@ -4453,7 +4540,9 @@ class TaskSpawner(object):
 			"""
 
 			# Get customized base code
-			code = code + "\n\n" + LAMDBA_BASE_CODES[ "python2.7" ]
+			code = TaskSpawner._get_python27_base_code(
+				code
+			)
 					
 			base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
 			if len( libraries ) > 0:
@@ -5711,6 +5800,28 @@ class RunLambda( BaseHandler ):
 			"result": lambda_result
 		})
 		
+def get_base_lambda_code( language, code ):
+	if language == "python3.6":
+		return TaskSpawner._get_python36_base_code(
+			code
+		)
+	elif language == "python2.7":
+		return TaskSpawner._get_python27_base_code(
+			code
+		)
+	elif language == "nodejs8.10":
+		return TaskSpawner._get_nodejs_810_base_code(
+			code
+		)
+	elif language == "php7.3":
+		return TaskSpawner._get_php_73_base_code(
+			code
+		)
+	elif language == "ruby2.6.4":
+		return TaskSpawner._get_ruby_264_base_code(
+			code
+		)
+		
 class RunTmpLambda( BaseHandler ):
 	@authenticated
 	@disable_on_overdue_payment
@@ -5824,6 +5935,23 @@ class RunTmpLambda( BaseHandler ):
 			lambda_info = {
 				"arn": cached_inline_execution_lambda_dict[ "arn" ]
 			}
+		
+			inline_execution_code = get_base_lambda_code(
+				self.json[ "language" ],
+				self.json[ "code" ]
+			)
+			
+			print( "Code to injection: " )
+			print( inline_execution_code )
+			
+			execute_lambda_params = {
+				"_refinery": {
+					"throw_exceptions_fully": True,
+					"input_data": self.json[ "input_data" ],
+					"temporary_execution": True,
+					"inline_code": inline_execution_code,
+				}
+			}
 		else:
 			try:
 				lambda_info = yield deploy_lambda(
@@ -5851,6 +5979,14 @@ class RunTmpLambda( BaseHandler ):
 					"log_output": build_exception.build_output
 				})
 				raise gen.Return()
+				
+			execute_lambda_params = {
+				"_refinery": {
+					"throw_exceptions_fully": True,
+					"input_data": self.json[ "input_data" ],
+					"temporary_execution": True
+				}
+			}
 		
 		# Try to parse Lambda input as JSON
 		try:
@@ -5862,19 +5998,10 @@ class RunTmpLambda( BaseHandler ):
 		
 		logit( "Executing Lambda..." )
 		
-		inline_execution_code = self.json[ "code" ] + "\n\n" + LAMDBA_BASE_CODES[ self.json[ "language" ] ]
-		
 		lambda_result = yield local_tasks.execute_aws_lambda(
 			credentials,
 			lambda_info[ "arn" ],
-			{
-				"_refinery": {
-					"throw_exceptions_fully": True,
-					"input_data": self.json[ "input_data" ],
-					"temporary_execution": True,
-					#"inline_code": inline_execution_code,
-				}
-			},
+			execute_lambda_params
 		)
 		
 		try:
