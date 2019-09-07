@@ -7202,30 +7202,18 @@ class RenameProject( BaseHandler ):
 		project_id = self.json[ "project_id" ]
 		project_name = self.json[ "name" ]
 
-		# Check if a project already exists with this name
-		for project in self.get_authenticated_user().projects:
-			if project.name == project_name:
-				self.write({
-					"success": False,
-					"code": "PROJECT_NAME_EXISTS",
-					"msg": "A project with this name already exists!"
-				})
-				return
+		if not self.is_owner_of_project( project_id ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have the permissions required to save this project."
+			})
+			return
 
 		# Grab the project from the database by ID
 		previous_project = self.dbsession.query( Project ).filter_by(
 			id=project_id
 		).first()
-
-		# Verify project ownership
-		if previous_project:
-			if not self.is_owner_of_project( project_id ):
-				self.write({
-					"success": False,
-					"code": "ACCESS_DENIED",
-					"msg": "You do not have the permissions required to save this project."
-				})
-				return
 
 		# Verify project exists
 		if previous_project is None:
@@ -7235,6 +7223,16 @@ class RenameProject( BaseHandler ):
 				"msg": "You do not have the permissions required to save this project."
 			})
 			return
+
+		# Check if a project already exists with this name
+		for project in self.get_authenticated_user().projects:
+			if project.name == project_name:
+				self.write({
+					"success": False,
+					"code": "PROJECT_NAME_EXISTS",
+					"msg": "A project with this name already exists!"
+				})
+				return
 
 		# Grab the latest version of the project
 		latest_project_version = self.dbsession.query( ProjectVersion ).filter_by(
