@@ -105,7 +105,12 @@ allowed_origins = json.loads( os.environ.get( "access_control_allow_origins" ) )
 csv.field_size_limit( sys.maxsize )
 			
 def on_start():
-	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES, CUSTOMER_IAM_POLICY, DEFAULT_PROJECT_ARRAY, DEFAULT_PROJECT_CONFIG
+	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES, CUSTOMER_IAM_POLICY, DEFAULT_PROJECT_ARRAY, DEFAULT_PROJECT_CONFIG, NOT_SUPPORTED_INLINE_EXECUTION_LANGUAGES
+	
+	# Not-support inline execution languages (defaults to slower method)
+	NOT_SUPPORTED_INLINE_EXECUTION_LANGUAGES = [
+		"go1.12"
+	]
 	
 	DEFAULT_PROJECT_CONFIG = {
 		"version": "1.0.0",
@@ -3186,7 +3191,7 @@ class TaskSpawner(object):
 			# If it's an inline execution we can cache the
 			# built Lambda and re-used it for future executions
 			# that share the same configuration when run.
-			if is_inline_execution:
+			if is_inline_execution and not ( language in NOT_SUPPORTED_INLINE_EXECUTION_LANGUAGES ):
 				logit( "Caching inline execution to speed up future runs..." )
 				TaskSpawner._cache_inline_lambda_execution(
 					credentials,
@@ -3216,10 +3221,7 @@ class TaskSpawner(object):
 			# Maximum amount of inline execution Lambdas to leave deployed
 			# at a time in AWS. This is a tradeoff between speed and storage
 			# amount consumed in AWS.
-			max_number_of_inline_execution_lambdas = 10
-			
-			# TODO - Implement a "last run" column so we can delete the
-			# Lambdas more intelligently?
+			max_number_of_inline_execution_lambdas = 20
 			
 			# Check how many inline execution Lambdas we already have
 			# saved in AWS. If it's too many we need to clean up!
@@ -3232,7 +3234,7 @@ class TaskSpawner(object):
 			).filter_by(
 				aws_account_id=credentials[ "id" ]
 			).order_by(
-				InlineExecutionLambda.timestamp.desc()
+				InlineExecutionLambda.last_used_timestamp.asc()
 			).all()
 			
 			existing_inline_execution_lambdas = []
@@ -5914,14 +5916,9 @@ class RunTmpLambda( BaseHandler ):
 			self.json[ "libraries" ]
 		)
 		
-		# Not-support inline execution languages (defaults to slower method)
-		not_supported_inline_execution_languages = [
-			"go1.12"
-		]
-		
 		cached_inline_execution_lambda = None
 		
-		if not ( self.json[ "language" ] in not_supported_inline_execution_languages ):
+		if not ( self.json[ "language" ] in NOT_SUPPORTED_INLINE_EXECUTION_LANGUAGES ):
 			# Check if we already have an inline execution Lambda for it.
 			cached_inline_execution_lambda = self.dbsession.query( InlineExecutionLambda ).filter_by(
 				aws_account_id=credentials[ "id" ],
@@ -5931,7 +5928,17 @@ class RunTmpLambda( BaseHandler ):
 		# We can skip this if we already have a cached execution
 		if cached_inline_execution_lambda:
 			logit( "Inline execution is already cached as a Lambda, doing a hotload..." )
+			
+			# Update the latest execution time to be the current timestamp
+			# This informs our garbage collection to ensure we always delete the Lambda
+			# that was run the longest ago (so that people encounter cache-misses as
+			# little as possible.)
+			cached_inline_execution_lambda.last_used_timestamp = int( time.time() )
+			# Update it in the database
+			self.dbsession.commit()
+			
 			cached_inline_execution_lambda_dict = cached_inline_execution_lambda.to_dict()
+			
 			lambda_info = {
 				"arn": cached_inline_execution_lambda_dict[ "arn" ]
 			}
@@ -5940,9 +5947,6 @@ class RunTmpLambda( BaseHandler ):
 				self.json[ "language" ],
 				self.json[ "code" ]
 			)
-			
-			print( "Code to injection: " )
-			print( inline_execution_code )
 			
 			execute_lambda_params = {
 				"_refinery": {
@@ -6031,15 +6035,17 @@ class RunTmpLambda( BaseHandler ):
 			})
 			raise gen.Return()
 		
-		"""
-		logit( "Deleting Lambda..." )
-		
-		# Now we delete the lambda, don't yield because we don't need to wait
-		delete_result = local_tasks.delete_aws_lambda(
-			credentials,
-			random_node_id
-		)
-		"""
+		# If it's not a supported language for inline execution that
+		# means that it needs to be manually deleted since it's not in the
+		# regular garbage collection pool.
+		if self.json[ "language" ] in NOT_SUPPORTED_INLINE_EXECUTION_LANGUAGES:
+			logit( "Deleting Lambda..." )
+			
+			# Now we delete the lambda, don't yield because we don't need to wait
+			delete_result = local_tasks.delete_aws_lambda(
+				credentials,
+				random_node_id
+			)
 
 		self.write({
 			"success": True,

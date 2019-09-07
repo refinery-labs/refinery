@@ -29,6 +29,9 @@ class InlineExecutionLambda( Base ):
 	# Important for computing if we're close to the
 	# 75GB storage limit in AWS
 	size = Column(Integer())
+	
+	# Last run time, this is used to do more intelligent garbage
+	last_used_timestamp = Column(Integer())
 
 	timestamp = Column(Integer())
 
@@ -47,6 +50,7 @@ class InlineExecutionLambda( Base ):
 	def __init__( self ):
 		self.id = str( uuid.uuid4() )
 		self.timestamp = int( time.time() )
+		self.last_used_timestamp = int( time.time() )
 
 	def __str__( self ):
 		return self.id
@@ -57,6 +61,7 @@ class InlineExecutionLambda( Base ):
 			"unique_hash_key",
 			"arn",
 			"size",
+			"last_used_timestamp",
 			"timestamp"
 		]
 
