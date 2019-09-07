@@ -7217,17 +7217,18 @@ class RenameProject( BaseHandler ):
 			id=project_id
 		).first()
 
+		# Verify project ownership
+		if previous_project:
+			if not self.is_owner_of_project( project_id ):
+				self.write({
+					"success": False,
+					"code": "ACCESS_DENIED",
+					"msg": "You do not have the permissions required to save this project."
+				})
+				return
+
 		# Verify project exists
 		if previous_project is None:
-			self.write({
-				"success": False,
-				"code": "MISSING_PROJECT",
-				"msg": "Unable to locate project to rename"
-			})
-			return
-
-		# Verify project ownership
-		if not self.is_owner_of_project( project_id ):
 			self.write({
 				"success": False,
 				"code": "ACCESS_DENIED",
@@ -7247,6 +7248,7 @@ class RenameProject( BaseHandler ):
 				"code": "MISSING_PROJECT",
 				"msg": "Unable to locate project data to rename"
 			})
+			return
 
 		# Generate a new version for the project
 		project_version = ( latest_project_version.version + 1 )
@@ -7257,7 +7259,7 @@ class RenameProject( BaseHandler ):
 		project_json[ "name" ] = project_name
 
 		# Save the updated JSON
-		latest_project_version.project_json = json.dumps(project_json)
+		latest_project_version.project_json = json.dumps( project_json )
 		latest_project_version.version = project_version
 
 		# Write the name to the project table as well (de-normalized)
