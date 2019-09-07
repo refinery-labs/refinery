@@ -27,6 +27,8 @@ import {
   GetSavedProjectResponse,
   InfraTearDownRequest,
   InfraTearDownResponse,
+  RenameProjectRequest,
+  RenameProjectResponse,
   SavedBlockStatusCheckRequest,
   SavedBlockStatusCheckResponse,
   SaveProjectRequest,
@@ -473,4 +475,26 @@ export async function getShortlinkContents(shortlinkUrl: string): Promise<Import
   }
 
   return response.result.diagram_data;
+}
+
+/**
+ * Allows you to update the name of a project.
+ * @param projectId Must be a valid project ID for an existing RefineryProject
+ * @param name The new name of the project
+ */
+export async function renameProject(projectId: string, name: string) {
+  const response = await makeApiRequest<RenameProjectRequest, RenameProjectResponse>(API_ENDPOINT.RenameProject, {
+    project_id: projectId,
+    name: name
+  });
+
+  if (!response) {
+    throw new Error('Unable to read response from server');
+  }
+
+  if (!response.success) {
+    return response.msg;
+  }
+
+  return null;
 }

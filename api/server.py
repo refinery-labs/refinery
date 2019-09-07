@@ -7179,7 +7179,107 @@ class InfraCollisionCheck( BaseHandler ):
 			"success": True,
 			"result": collision_check_results
 		})
-		
+
+
+class RenameProject( BaseHandler ):
+	@authenticated
+	def post( self ):
+		"""
+		Rename a project
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"project_id": {
+					"type": "string"
+				},
+				"name": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"project_id",
+				"name"
+			]
+		}
+
+		validate_schema( self.json, schema )
+
+		project_id = self.json[ "project_id" ]
+		project_name = self.json[ "name" ]
+
+		if not self.is_owner_of_project( project_id ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have the permissions required to save this project."
+			})
+			return
+
+		# Grab the project from the database by ID
+		previous_project = self.dbsession.query( Project ).filter_by(
+			id=project_id
+		).first()
+
+		# Verify project exists
+		if previous_project is None:
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have the permissions required to save this project."
+			})
+			return
+
+		# Check if a project already exists with this name
+		for project in self.get_authenticated_user().projects:
+			if project.name == project_name:
+				self.write({
+					"success": False,
+					"code": "PROJECT_NAME_EXISTS",
+					"msg": "A project with this name already exists!"
+				})
+				return
+
+		# Grab the latest version of the project
+		latest_project_version = self.dbsession.query( ProjectVersion ).filter_by(
+			project_id=project_id
+		).order_by( ProjectVersion.version.desc() ).first()
+
+		# If there is not a latest version of the project, fail out
+		if latest_project_version == None:
+			self.write({
+				"success": False,
+				"code": "MISSING_PROJECT",
+				"msg": "Unable to locate project data to rename"
+			})
+			return
+
+		# Generate a new version for the project
+		project_version = ( latest_project_version.version + 1 )
+
+		project_json = json.loads(
+			latest_project_version.project_json
+		)
+		project_json[ "name" ] = project_name
+
+		# Save the updated JSON
+		latest_project_version.project_json = json.dumps( project_json )
+		latest_project_version.version = project_version
+
+		# Write the name to the project table as well (de-normalized)
+		previous_project.name = project_name
+
+		# Save the data to the database
+		self.dbsession.commit()
+
+		self.write({
+			"success": True,
+			"code": "RENAME_SUCCESSFUL",
+			"msg": "Project renamed successfully"
+		})
+		return
+
+
 class SaveProject( BaseHandler ):
 	@authenticated
 	def post( self ):
@@ -7236,6 +7336,16 @@ class SaveProject( BaseHandler ):
 		
 		# If there is a previous project and the name doesn't match, update it.
 		if previous_project and previous_project.name != project_name:
+			# Double check that the project name isn't already in use.
+			for project in self.get_authenticated_user().projects:
+				if project.name == project_name:
+					self.write({
+						"success": False,
+						"code": "PROJECT_NAME_EXISTS",
+						"msg": "Name is already used by another project."
+					})
+					return
+
 			previous_project.name = project_name
 			self.dbsession.commit()
 		
@@ -10668,6 +10778,7 @@ def make_app( is_debug ):
 		( r"/api/v1/projects/search", SearchSavedProjects ),
 		( r"/api/v1/projects/get", GetSavedProject ),
 		( r"/api/v1/projects/delete", DeleteSavedProject ),
+		( r"/api/v1/projects/rename", RenameProject ),
 		( r"/api/v1/projects/config/get", GetProjectConfig ),
 		( r"/api/v1/deployments/get_latest", GetLatestProjectDeployment ),
 		( r"/api/v1/deployments/delete_all_in_project", DeleteDeploymentsInProject ),

@@ -21,6 +21,7 @@ export enum API_ENDPOINT {
   InfraTearDown = 'InfraTearDown',
   InfraCollisionCheck = 'InfraCollisionCheck',
   SaveProject = 'SaveProject',
+  RenameProject = 'RenameProject',
   SearchSavedProjects = 'SearchSavedProjects',
   GetSavedProject = 'GetSavedProject',
   DeleteSavedProject = 'DeleteSavedProject',
@@ -154,6 +155,10 @@ export const ApiConfigMap: ApiConfigMapType = {
   },
   [API_ENDPOINT.SaveProject]: {
     path: '/api/v1/projects/save',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.RenameProject]: {
+    path: '/api/v1/projects/rename',
     method: HTTP_METHOD.POST
   },
   [API_ENDPOINT.SaveProjectConfig]: {
