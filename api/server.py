@@ -4145,10 +4145,13 @@ class TaskSpawner(object):
 				"s3",
 				credentials
 			)
-				
-			composer_json_template = {
-				"require": libraries_object,
-			}
+			
+			commands = []
+			
+			for key, value in libraries_object.iteritems():
+				commands.append(
+					"composer require " + key
+				)
 			
 			# Create empty zip file
 			codebuild_zip = io.BytesIO( EMPTY_ZIP_DATA )
@@ -4161,9 +4164,7 @@ class TaskSpawner(object):
 				},
 				"phases": {
 					"build": {
-						"commands": [
-							"composer install"
-						]
+						"commands": commands
 					},
 					"install": {
 						"runtime-versions": {
@@ -4184,18 +4185,6 @@ class TaskSpawner(object):
 					buildspec,
 					yaml.dump(
 						buildspec_template
-					)
-				)
-				
-				# Write the package.json
-				composer_json = zipfile.ZipInfo(
-					"composer.json"
-				)
-				composer_json.external_attr = 0777 << 16L
-				zip_file_handler.writestr(
-					composer_json,
-					json.dumps(
-						composer_json_template
 					)
 				)
 			
