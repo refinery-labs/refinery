@@ -3208,21 +3208,7 @@ class TaskSpawner(object):
 			return lambda_deploy_result
 			
 		@staticmethod
-		def _cache_inline_lambda_execution( credentials, language, timeout, memory, environment_variables, layers, libraries, arn, lambda_size ):
-			inline_execution_hash_key = TaskSpawner._get_inline_lambda_hash_key(
-				language,
-				timeout,
-				memory,
-				environment_variables,
-				layers,
-				libraries
-			)
-			
-			# Maximum amount of inline execution Lambdas to leave deployed
-			# at a time in AWS. This is a tradeoff between speed and storage
-			# amount consumed in AWS.
-			max_number_of_inline_execution_lambdas = 20
-			
+		def _get_cached_inline_execution_lambda_entries( credentials ):
 			# Check how many inline execution Lambdas we already have
 			# saved in AWS. If it's too many we need to clean up!
 			# Get the oldest saved inline execution from the stack and
@@ -3245,6 +3231,29 @@ class TaskSpawner(object):
 				)
 				
 			dbsession.close()
+			
+			return existing_inline_execution_lambdas
+			
+		@staticmethod
+		def _cache_inline_lambda_execution( credentials, language, timeout, memory, environment_variables, layers, libraries, arn, lambda_size ):
+			inline_execution_hash_key = TaskSpawner._get_inline_lambda_hash_key(
+				language,
+				timeout,
+				memory,
+				environment_variables,
+				layers,
+				libraries
+			)
+			
+			# Maximum amount of inline execution Lambdas to leave deployed
+			# at a time in AWS. This is a tradeoff between speed and storage
+			# amount consumed in AWS.
+			max_number_of_inline_execution_lambdas = 20
+			
+			# Pull previous database entries for inline execution Lambdas we're caching
+			existing_inline_execution_lambdas = TaskSpawner._get_cached_inline_execution_lambda_entries(
+				credentials
+			)
 			
 			logit( "Number of existing Lambdas cached for inline executions: " + str( len( existing_inline_execution_lambdas_objects ) ) )
 			
