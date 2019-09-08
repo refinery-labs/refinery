@@ -3232,7 +3232,42 @@ class TaskSpawner(object):
 				
 			dbsession.close()
 			
+			logit( "Number of existing Lambdas cached for inline executions: " + str( len( existing_inline_execution_lambdas_objects ) ) )
+			
 			return existing_inline_execution_lambdas
+			
+		@staticmethod
+		def _delete_cached_inline_execution_lambda( credentials, arn, lambda_uuid ):
+			TaskSpawner._delete_lambda(
+				credentials,
+				False,
+				False,
+				False,
+				arn
+			)
+			
+			# Delete the Lambda from the database now that we've
+			# deleted it from AWS.
+			dbsession = DBSession()
+			dbsession.query( InlineExecutionLambda ).filter_by(
+				id=lambda_uuid
+			).delete()
+			dbsession.commit()
+			dbsession.close()
+			
+		@staticmethod
+		def _add_inline_execution_lambda_entry( credentials, inline_execution_hash_key, arn, lambda_size ):
+			# Add Lambda to inline execution database so we know we can
+			# re-use it at a later time.
+			dbsession = DBSession()
+			inline_execution_lambda = InlineExecutionLambda()
+			inline_execution_lambda.unique_hash_key = inline_execution_hash_key
+			inline_execution_lambda.arn = arn
+			inline_execution_lambda.size = lambda_size
+			inline_execution_lambda.aws_account_id = credentials[ "id" ]
+			dbsession.add( inline_execution_lambda )
+			dbsession.commit()
+			dbsession.close()
 			
 		@staticmethod
 		def _cache_inline_lambda_execution( credentials, language, timeout, memory, environment_variables, layers, libraries, arn, lambda_size ):
@@ -3255,8 +3290,6 @@ class TaskSpawner(object):
 				credentials
 			)
 			
-			logit( "Number of existing Lambdas cached for inline executions: " + str( len( existing_inline_execution_lambdas_objects ) ) )
-			
 			if existing_inline_execution_lambdas and len( existing_inline_execution_lambdas ) > max_number_of_inline_execution_lambdas:
 				number_of_lambdas_to_delete = len( existing_inline_execution_lambdas ) - max_number_of_inline_execution_lambdas
 				
@@ -3266,34 +3299,19 @@ class TaskSpawner(object):
 			
 				for lambda_to_delete in lambdas_to_delete:
 					logit( "Deleting '" + lambda_to_delete[ "arn" ] + "' from AWS..." )
-					TaskSpawner._delete_lambda(
-						credentials,
-						False,
-						False,
-						False,
-						lambda_to_delete[ "arn" ]
-					)
 					
-					# Delete the Lambda from the database now that we've
-					# deleted it from AWS.
-					dbsession = DBSession()
-					dbsession.query( InlineExecutionLambda ).filter_by(
-						id=lambda_to_delete[ "id" ]
-					).delete()
-					dbsession.commit()
-					dbsession.close()
+					TaskSpawner._delete_cached_inline_execution_lambda(
+						credentials,
+						lambda_to_delete[ "arn" ],
+						lambda_to_delete[ "id" ]
+					)
 			
-			# Add Lambda to inline execution database so we know we can
-			# re-use it at a later time.
-			dbsession = DBSession()
-			inline_execution_lambda = InlineExecutionLambda()
-			inline_execution_lambda.unique_hash_key = inline_execution_hash_key
-			inline_execution_lambda.arn = arn
-			inline_execution_lambda.size = lambda_size
-			inline_execution_lambda.aws_account_id = credentials[ "id" ]
-			dbsession.add( inline_execution_lambda )
-			dbsession.commit()
-			dbsession.close()
+			TaskSpawner._add_inline_execution_lambda_entry(
+				credentials,
+				inline_execution_hash_key,
+				arn,
+				lambda_size
+			)
 			
 		@staticmethod
 		def _get_inline_lambda_hash_key( language, timeout, memory, environment_variables, layers, libraries ):
@@ -5940,6 +5958,7 @@ class RunTmpLambda( BaseHandler ):
 			# that was run the longest ago (so that people encounter cache-misses as
 			# little as possible.)
 			cached_inline_execution_lambda.last_used_timestamp = int( time.time() )
+			
 			# Update it in the database
 			self.dbsession.commit()
 			
