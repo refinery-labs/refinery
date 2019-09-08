@@ -6133,6 +6133,33 @@ def get_environment_variables_for_lambda( credentials, language, environment_var
 	return all_environment_vars
 	
 def get_layers_for_lambda( language ):
+	"""
+	IGNORE THIS NOTICE AT YOUR OWN PERIL. YOU HAVE BEEN WARNED.
+	
+	All layers are managed under our root AWS account at 134071937287.
+	
+	When a new layer is published the ARNs must be updated in source intentionally
+	so that whoever does so must read this notice and understand what MUST
+	be done before updating the Refinery customer runtime for customers.
+	
+	You must do the following:
+	* Extensively test the new custom runtime.
+	* Upload the new layer version to the root AWS account.
+	* Run the following command on the root account to publically allow use of the layer:
+	
+	aws lambda add-layer-version-permission \
+	--layer-name REPLACE_ME_WITH_LAYER_NAME \
+	--version-number REPLACE_ME_WITH_LAYER_VERSION \
+	--statement-id public \
+	--action lambda:GetLayerVersion \
+	--principal "*" \
+	--region us-west-2
+	
+	* Test the layer in a development version of Refinery to ensure it works.
+	* Update the source code with the new layer ARN
+	
+	Once this is done all future deployments will use the new layers.
+	"""
 	new_layers = []
 	
 	# Add the custom runtime layer in all cases
@@ -6189,34 +6216,6 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	# name which they manage themselves.
 	if credentials[ "account_type" ] == "THIRDPARTY":
 		lambda_role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/" + THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
-	
-	"""
-	IGNORE THIS NOTICE AT YOUR OWN PERIL. YOU HAVE BEEN WARNED.
-	
-	All layers are managed under our root AWS account at 134071937287.
-	
-	When a new layer is published the ARNs must be updated in source intentionally
-	so that whoever does so must read this notice and understand what MUST
-	be done before updating the Refinery customer runtime for customers.
-	
-	You must do the following:
-	* Extensively test the new custom runtime.
-	* Upload the new layer version to the root AWS account.
-	* Run the following command on the root account to publically allow use of the layer:
-	
-	aws lambda add-layer-version-permission \
-	--layer-name REPLACE_ME_WITH_LAYER_NAME \
-	--version-number REPLACE_ME_WITH_LAYER_VERSION \
-	--statement-id public \
-	--action lambda:GetLayerVersion \
-	--principal "*" \
-	--region us-west-2
-	
-	* Test the layer in a development version of Refinery to ensure it works.
-	* Update the source code with the new layer ARN
-	
-	Once this is done all future deployments will use the new layers.
-	"""
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
 		credentials,
