@@ -16,6 +16,8 @@ import {
   GetProjectExecutionResult
 } from '@/types/execution-logs-types';
 import ImportableRefineryProject from '@/types/export-project';
+import * as moment from 'moment';
+import Base = moment.unitOfTime.Base;
 
 export interface BaseApiResponse {
   success: boolean;
@@ -349,6 +351,24 @@ export interface SaveProjectResponse extends BaseApiResponse {
   project_id: string;
   code?: string;
   msg?: string;
+}
+
+// RenameProject
+export interface RenameProjectRequest extends BaseApiRequest {
+  project_id: string;
+  name: string;
+}
+
+export interface RenameProjectResponse extends BaseApiResponse {
+  code: RenameProjectResponseCode;
+  msg: string;
+}
+
+export enum RenameProjectResponseCode {
+  ProjectNameExists = 'PROJECT_NAME_EXISTS',
+  MissingProject = 'MISSING_PROJECT',
+  AccessDenied = 'ACCESS_DENIED',
+  RenameSuccessful = 'RENAME_SUCCESSFUL'
 }
 
 // SaveProjectConfig
