@@ -11,7 +11,14 @@
           "hostPort": 8080,
           "containerPort": 7777
         }
-      ]
+      ],
+      "logConfiguration": {
+      	"logDriver": "awslogs",
+        "options": {
+            "awslogs-group": "EB-Container-Output",
+            "awslogs-region": "us-west-2"
+        }
+      }
     },
     {
       "name": "refinery-nginx-server",
