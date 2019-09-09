@@ -5893,6 +5893,14 @@ class RunTmpLambda( BaseHandler ):
 		
 		random_node_id = get_random_node_id()
 		
+		# Try to parse Lambda input as JSON
+		try:
+			self.json[ "input_data" ] = json.loads(
+				self.json[ "input_data" ]
+			)
+		except:
+			pass
+		
 		# Lambda layers to add
 		lambda_layers = get_layers_for_lambda( self.json[ "language" ] ) + self.json[ "layers" ]
 		
@@ -6005,14 +6013,6 @@ class RunTmpLambda( BaseHandler ):
 					"temporary_execution": True
 				}
 			}
-		
-		# Try to parse Lambda input as JSON
-		try:
-			self.json[ "input_data" ] = json.loads(
-				self.json[ "input_data" ]
-			)
-		except:
-			pass
 		
 		logit( "Executing Lambda..." )
 		
