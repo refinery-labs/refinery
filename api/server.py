@@ -50,6 +50,8 @@ from tornado.concurrent import run_on_executor, futures
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from email_validator import validate_email, EmailNotValidError
 
+from utils.general import attempt_json_decode
+
 from models.initiate_database import *
 from models.saved_block import SavedBlock
 from models.saved_block_version import SavedBlockVersion
@@ -5771,6 +5773,7 @@ class RunLambda( BaseHandler ):
 			"type": "object",
 			"properties": {
 				"input_data": {},
+				"backpack": {},
 				"arn": {
 					"type": "string",
 				},
@@ -5790,6 +5793,13 @@ class RunLambda( BaseHandler ):
 		
 		credentials = self.get_authenticated_user_cloud_configuration()
 		
+		backpack_data = {}
+		
+		if "backpack" in self.json:
+			backpack_data = attempt_json_decode(
+				self.json[ "backpack" ]
+			)
+		
 		# Try to parse Lambda input as JSON
 		try:
 			self.json[ "input_data" ] = json.loads(
@@ -5800,6 +5810,7 @@ class RunLambda( BaseHandler ):
 		
 		lambda_input_data = {
 			"_refinery": {
+				"backpack_data": backpack_data,
 				"throw_exceptions_fully": True,
 				"input_data": self.json[ "input_data" ]
 			}
@@ -5841,7 +5852,7 @@ def get_base_lambda_code( language, code ):
 		return TaskSpawner._get_ruby_264_base_code(
 			code
 		)
-		
+
 class RunTmpLambda( BaseHandler ):
 	@authenticated
 	@disable_on_overdue_payment
@@ -5856,6 +5867,7 @@ class RunTmpLambda( BaseHandler ):
 			"type": "object",
 			"properties": {
 				"input_data": {},
+				"backpack": {},
 				"language": {
 					"type": "string",
 				},
@@ -5899,12 +5911,16 @@ class RunTmpLambda( BaseHandler ):
 		random_node_id = get_random_node_id()
 		
 		# Try to parse Lambda input as JSON
-		try:
-			self.json[ "input_data" ] = json.loads(
-				self.json[ "input_data" ]
+		self.json[ "input_data" ] = attempt_json_decode(
+			self.json[ "input_data" ]
+		)
+		
+		backpack_data = {}
+		
+		if "backpack" in self.json:
+			backpack_data = attempt_json_decode(
+				self.json[ "backpack" ]
 			)
-		except:
-			pass
 		
 		# Lambda layers to add
 		lambda_layers = get_layers_for_lambda( self.json[ "language" ] ) + self.json[ "layers" ]
@@ -5977,6 +5993,7 @@ class RunTmpLambda( BaseHandler ):
 			
 			execute_lambda_params = {
 				"_refinery": {
+					"backpack": backpack_data,
 					"throw_exceptions_fully": True,
 					"input_data": self.json[ "input_data" ],
 					"temporary_execution": True,
@@ -6013,6 +6030,7 @@ class RunTmpLambda( BaseHandler ):
 				
 			execute_lambda_params = {
 				"_refinery": {
+					"backpack": backpack_data,
 					"throw_exceptions_fully": True,
 					"input_data": self.json[ "input_data" ],
 					"temporary_execution": True
