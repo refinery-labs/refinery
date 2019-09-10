@@ -312,7 +312,7 @@ async function main(blockInput, backpack) {
   [SupportedLanguage.PHP7]: `
 <?php
 // Uncomment if you specified libraries
-// require __DIR__ . "/vendor/autoload.php";
+// require $_ENV["LAMBDA_TASK_ROOT"] . "/vendor/autoload.php";
 function main($block_input, $backpack) {
 	return 'Hello World!';
 }
