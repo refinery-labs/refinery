@@ -4372,6 +4372,11 @@ class TaskSpawner(object):
 				code
 			)
 			
+			code = code.replace(
+				"require __DIR__",
+				"require $_ENV[\"LAMBDA_TASK_ROOT\"]"
+			)
+			
 			code = code + "\n\n" + LAMDBA_BASE_CODES[ "php7.3" ]
 			return code
 			
