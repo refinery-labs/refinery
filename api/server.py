@@ -2963,6 +2963,59 @@ class TaskSpawner(object):
 		@run_on_executor
 		def execute_aws_lambda( self, credentials, arn, input_data ):
 			return TaskSpawner._execute_aws_lambda( credentials, arn, input_data )
+			
+		@staticmethod
+		def _strip_metadata_from_lambda_log_output( log_output ):
+			# Strip the Lambda stuff from the output
+			if "RequestId:" in log_output:
+				log_lines = log_output.split( "\n" )
+				returned_log_lines = []
+				
+				for log_line in log_lines:
+					if log_line.startswith( "END RequestId: " ):
+						continue
+					
+					if log_line.startswith( "END RequestId: " ):
+						continue
+					
+					if log_line.startswith( "XRAY TraceId: " ):
+						continue
+					
+					if "START RequestId: " in log_line:
+						log_line = log_line.split( "START RequestId: " )[0]
+
+					if "END RequestId: " in log_line:
+						log_line = log_line.split( "END RequestId: " )[0]
+
+					if "REPORT RequestId: " in log_line:
+						log_line = log_line.split( "REPORT RequestId: " )[0]
+						
+					if "XRAY TraceId: " in log_line:
+						log_line = log_line.split( "XRAY TraceId: " )[0]
+					
+					returned_log_lines.append(
+						log_line
+					)
+					
+				log_output = "\n".join( returned_log_lines )
+				
+			return log_output
+			
+		@staticmethod
+		def _get_request_id_from_lambda_logs( log_output ):
+			log_lines = log_output.split( "\n" )
+			request_id = False
+			
+			for log_line in log_lines:
+				if log_line.startswith( "START RequestId: " ):
+					# Extract the request ID which we can use later
+					# to pull out the logs of a specific Lambda executions
+					request_id = log_line.split(
+						"START RequestId: "
+					)[1].split( " " )[0]
+					continue
+				
+			return request_id
 		
 		@staticmethod
 		def _execute_aws_lambda( credentials, arn, input_data ):
@@ -3012,40 +3065,21 @@ class TaskSpawner(object):
 				response[ "LogResult" ]
 			)
 			
-			# Strip the Lambda stuff from the output
-			if "RequestId:" in log_output:
-				log_lines = log_output.split( "\n" )
-				returned_log_lines = []
-				
-				for log_line in log_lines:
-					if log_line.startswith( "START RequestId: " ):
-						continue
-					
-					if log_line.startswith( "END RequestId: " ):
-						continue
-					
-					if log_line.startswith( "REPORT RequestId: " ):
-						continue
-					
-					if "START RequestId: " in log_line:
-						log_line = log_line.split( "START RequestId: " )[0]
-
-					if "END RequestId: " in log_line:
-						log_line = log_line.split( "END RequestId: " )[0]
-
-					if "REPORT RequestId: " in log_line:
-						log_line = log_line.split( "REPORT RequestId: " )[0]
-					
-					returned_log_lines.append(
-						log_line
-					)
-					
-				log_output = "\n".join( returned_log_lines )
+			# Pull out the request ID so we can pull the specific Lambda
+			# output at a later time.
+			request_id = TaskSpawner._get_request_id_from_lambda_logs(
+				log_output
+			)
 				
 			# Mark truncated if logs are not complete
 			truncated = True
 			if( "START RequestId: " in log_output and "END RequestId: " in log_output ):
 				truncated = False
+				
+			# Strip all metadata from the Lambda log out (e.g. START, REPORT, etc)
+			log_output = TaskSpawner._strip_metadata_from_lambda_log_output(
+				log_output
+			)
 
 			return {
 				"truncated": truncated,
@@ -3055,6 +3089,7 @@ class TaskSpawner(object):
 				"logs": log_output,
 				"is_error": is_error,
 				"returned_data": full_response,
+				"request_id": request_id
 			}
 			
 		@run_on_executor
@@ -4219,7 +4254,8 @@ class TaskSpawner(object):
 				log_output = TaskSpawner._get_lambda_cloudwatch_logs(
 					credentials,
 					log_group_name,
-					log_stream_name
+					log_stream_name,
+					False
 				)
 				
 				raise BuildException({
@@ -5120,11 +5156,58 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def get_lambda_cloudwatch_logs( self, credentials, log_group_name, stream_id ):
-			return TaskSpawner._get_lambda_cloudwatch_logs( credentials, log_group_name, stream_id )
+		def get_lambda_cloudwatch_logs( self, credentials, log_group_name, stream_id, request_id ):
+			return TaskSpawner._get_lambda_cloudwatch_logs( credentials, log_group_name, stream_id, request_id )
+			
+		@staticmethod
+		def _get_lambda_request_id_log_from_log( request_id, input_log_data ):
+			log_lines = input_log_data.split( "\n" )
+			
+			request_id_log_lines = []
+			
+			# The marker where we should start the log line matching
+			start_marker = "START RequestId: " + request_id
+			
+			# The marker where we should end the log line matching
+			end_marker = "END RequestId: " + request_id
+			
+			# This is toggled when we fine the part of the logs
+			# that matches the request ID we're looking for
+			is_matching_log_line_section = False
+			
+			for log_line in log_lines:
+				# This indicates we've found our starting point
+				if start_marker in log_line:
+					request_id_log_lines.append(
+						start_marker + log_line.split( start_marker )[1]
+					)
+					is_matching_log_line_section = True
+					continue
+				
+				# This indicates we've found our ending point
+				if end_marker in log_line:
+					request_id_log_lines.append(
+						end_marker + log_line.split( end_marker )[1]
+					)
+					break
+				
+				if is_matching_log_line_section:
+					request_id_log_lines.append(
+						log_line
+					)
+			
+			log_output = "\n".join(
+				request_id_log_lines
+			)
+			
+			log_output = TaskSpawner._strip_metadata_from_lambda_log_output(
+				log_output
+			)
+			
+			return log_output
 		
 		@staticmethod
-		def _get_lambda_cloudwatch_logs( credentials, log_group_name, stream_id ):
+		def _get_lambda_cloudwatch_logs( credentials, log_group_name, stream_id, request_id ):
 			cloudwatch_logs_client = get_aws_client(
 				"logs",
 				credentials
@@ -5181,6 +5264,12 @@ class TaskSpawner(object):
 				for event_data in log_data[ "events" ]:
 					# Append log data
 					log_output += event_data[ "message" ]
+					
+			if request_id:
+				log_output = TaskSpawner._get_lambda_request_id_log_from_log(
+					request_id,
+					log_output
+				)
 					
 			return log_output
 			
@@ -9211,6 +9300,9 @@ class GetCloudWatchLogsForLambda( BaseHandler ):
 				"arn": {
 					"type": "string",
 				},
+				"request_id": {
+					"type": "string",
+				},
 				
 			},
 			"required": [
@@ -9224,6 +9316,10 @@ class GetCloudWatchLogsForLambda( BaseHandler ):
 		
 		credentials = self.get_authenticated_user_cloud_configuration()
 		
+		request_id = False
+		if "request_id" in self.json:
+			request_id = self.json[ "request_id" ]
+		
 		arn = self.json[ "arn" ]
 		arn_parts = arn.split( ":" )
 		lambda_name = arn_parts[ -1 ]
@@ -9232,7 +9328,8 @@ class GetCloudWatchLogsForLambda( BaseHandler ):
 		log_output = yield local_tasks.get_lambda_cloudwatch_logs(
 			credentials,
 			log_group_name,
-			False
+			False,
+			request_id
 		)
 		
 		truncated = True
