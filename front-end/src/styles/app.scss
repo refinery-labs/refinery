@@ -312,6 +312,7 @@ $content-sidebar-width: 92px;
   &__content {
     margin-left: 8px;
     width: 100%;
+    max-width: 410px;
   }
 
   &__image {
