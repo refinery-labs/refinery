@@ -1505,6 +1505,12 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 			"inline_code" in lambda_input[ "_refinery" ]
 		)
 		
+		# Enable custom tracing ID so we can stream Cloudwatch output
+		# while doing inline executions
+		if "tail_id" in lambda_input[ "_refinery" ]:
+			print( "[REFINERY][TAIL_ID][" + lambda_input[ "_refinery" ][ "tail_id" ] + "]" + execution_details[ "aws_request_id" ] )
+			sys.stdout.flush()
+		
 		# If it's an inline execution write the temporary code file
 		if is_inline_execution:
 			# Update execution path to the new temporary code file created
@@ -1666,7 +1672,13 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 		if is_inline_execution:
 			os.remove( executable_path )
 			try:
-				os.popen( "/bin/rm /tmp/*" ).read()
+				process_handler = subprocess.Popen(
+					"/bin/rm /tmp/*",
+					stdout=subprocess.PIPE,
+					stderr=subprocess.PIPE,
+					stdin=subprocess.PIPE
+				).read()
+				process_handler.communicate()
 			except:
 				pass
 

@@ -6014,6 +6014,9 @@ class RunTmpLambda( BaseHandler ):
 		# Lambda layers to add
 		lambda_layers = get_layers_for_lambda( self.json[ "language" ] ) + self.json[ "layers" ]
 		
+		print( "Lambda layers: " )
+		print( lambda_layers )
+		
 		# Empty transitions data
 		empty_transitions_dict = {
 			"then": [],
@@ -6125,6 +6128,11 @@ class RunTmpLambda( BaseHandler ):
 					"temporary_execution": True
 				}
 			}
+			
+		print( lambda_info[ "arn" ])
+		execute_lambda_params[ "_refinery" ][ "tail_id" ] = "pewpew"
+		
+		print( execute_lambda_params )
 		
 		logit( "Executing Lambda..." )
 		
@@ -6306,7 +6314,8 @@ def get_layers_for_lambda( language ):
 		)
 	elif language == "python2.7":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:19"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:19"
+			"arn:aws:lambda:us-west-2:561628006572:layer:python:26"
 		)
 	elif language == "python3.6":
 		new_layers.append(
