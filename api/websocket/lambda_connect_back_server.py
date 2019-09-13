@@ -1,9 +1,10 @@
+import json
 import tornado.websocket
 
 from utils.general import attempt_json_decode, logit
 
 """
-This is a ExpiringDict which automatically routes messages from running
+This is a dict which automatically routes messages from running
 Lambdas to the subscribing websocket connections.
 
 {
@@ -48,7 +49,7 @@ def parse_websocket_message( input_message ):
 	
 def broadcast_message_to_subscribers( message_dict, websocket_connections ):
 	for websocket_connection in websocket_connections:
-		websocket_connection.write(
+		websocket_connection.write_message(
 			json.dumps(
 				message_dict
 			)
@@ -105,10 +106,16 @@ class LambdaConnectBackServer(tornado.websocket.WebSocketHandler):
 			WEBSOCKET_ROUTER[ debug_id ][ "lambdas" ].append(
 				self
 			)
-			return
 		
 		logit( "Message received from Lambda: " )
 		logit( message_contents )
+		
+		print( WEBSOCKET_ROUTER[ debug_id ] )
+		
+		broadcast_message_to_subscribers(
+			message_contents,
+			WEBSOCKET_ROUTER[ debug_id ][ "users" ]
+		)
 	
 	def on_close(self):
 		logit( "Lambda has closed the WebSocket connection, source IP: " + self.request.remote_ip )
@@ -138,16 +145,12 @@ class ExecutionsControllerServer(tornado.websocket.WebSocketHandler):
 		
 		if not debug_id in WEBSOCKET_ROUTER:
 			initialize_debug_id( debug_id )
-			
-			WEBSOCKET_ROUTER[ debug_id ][ "lambdas" ].append(
+		
+		if "action" in message_contents and message_contents[ "action" ] == "SUBSCRIBE":
+			print( "User subscribed to debug ID " + debug_id )
+			WEBSOCKET_ROUTER[ debug_id ][ "users" ].append(
 				self
 			)
-			return
-		
-		broadcast_message_to_subscribers(
-			message_contents,
-			WEBSOCKET_ROUTER[ debug_id ][ "users" ]
-		)
 		
 		logit( "Message received from Refinery user: " )
 		logit( message_contents )
@@ -158,3 +161,8 @@ class ExecutionsControllerServer(tornado.websocket.WebSocketHandler):
 		clean_connection_from_websocket_router(
 			self
 		)
+		
+	def check_origin(self, origin):
+		# TODO do not let me go into production!
+		print( "Check origin called!" )
+		return True

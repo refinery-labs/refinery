@@ -9,6 +9,7 @@ COPY ./requirements.txt /work/requirements.txt
 RUN pip install -r /work/requirements.txt
 
 COPY ./__init__.py /work/
+COPY ./ngrok /work/
 COPY ./install/ /work/install/
 COPY ./websocket/ /work/websocket/
 COPY ./utils/ /work/utils/
@@ -25,6 +26,7 @@ RUN /work/install/terraform init
 WORKDIR /work/
 
 EXPOSE 7777
+EXPOSE 4444
 
 COPY ./server.py /work/
 

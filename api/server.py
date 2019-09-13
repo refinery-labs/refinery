@@ -50,6 +50,8 @@ from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from email_validator import validate_email, EmailNotValidError
 
 from utils.general import attempt_json_decode, logit
+from utils.ngrok import set_up_ngrok_websocket_tunnel
+from utils.ip_lookup import get_external_ipv4_address
 
 from websocket.lambda_connect_back_server import LambdaConnectBackServer, ExecutionsControllerServer
 
@@ -99,6 +101,10 @@ allowed_origins = json.loads( os.environ.get( "access_control_allow_origins" ) )
 
 # Increase CSV field size to be the max
 csv.field_size_limit( sys.maxsize )
+
+# The WebSocket callback endpoint to use when live streaming the output
+# of Lambdas via WebSockets.
+LAMBDA_CALLBACK_ENDPOINT = False
 			
 def on_start():
 	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES, CUSTOMER_IAM_POLICY, DEFAULT_PROJECT_ARRAY, DEFAULT_PROJECT_CONFIG, NOT_SUPPORTED_INLINE_EXECUTION_LANGUAGES
@@ -2999,6 +3005,9 @@ class TaskSpawner(object):
 					if log_line.startswith( "REPORT RequestId: " ):
 						continue
 					
+					if log_line.startswith( "XRAY TraceId: " ):
+						continue
+					
 					if "START RequestId: " in log_line:
 						log_line = log_line.split( "START RequestId: " )[0]
 
@@ -3007,6 +3016,9 @@ class TaskSpawner(object):
 
 					if "REPORT RequestId: " in log_line:
 						log_line = log_line.split( "REPORT RequestId: " )[0]
+						
+					if "XRAY TraceId: " in log_line:
+						log_line = log_line.split( "XRAY TraceId: " )[0]
 					
 					returned_log_lines.append(
 						log_line
@@ -6187,7 +6199,8 @@ def get_layers_for_lambda( language ):
 		)
 	elif language == "python2.7":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:19"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:19"
+			"arn:aws:lambda:us-west-2:561628006572:layer:python:37"
 		)
 	elif language == "python3.6":
 		new_layers.append(
@@ -11056,14 +11069,24 @@ class GetProjectShortlink( BaseHandler ):
 				"diagram_data": project_short_link_dict[ "project_json" ],
 			}
 		})
-		
-def make_app( is_debug ):
-	tornado_app_settings = {
+
+def get_tornado_app_config( is_debug ):
+	return {
 		"debug": is_debug,
 		"cookie_secret": os.environ.get( "cookie_secret_value" ),
 		"compress_response": True
 	}
-	
+
+def make_websocket_server( is_debug ):
+	tornado_app_settings = get_tornado_app_config( is_debug )
+	return tornado.web.Application([
+		# WebSocket callback endpoint for live debugging Lambdas
+		( r"/ws/v1/lambdas/connectback", LambdaConnectBackServer ),
+		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer ),
+	], **tornado_app_settings)
+		
+def make_app( is_debug ):
+	tornado_app_settings = get_tornado_app_config( is_debug )
 	return tornado.web.Application([
 		( r"/api/v1/health", HealthHandler ),
 		( r"/authentication/email/([a-z0-9]+)", EmailLinkAuthentication ),
@@ -11106,9 +11129,6 @@ def make_app( is_debug ):
 		( r"/api/v1/internal/log", StashStateLog ),
 		( r"/api/v1/project_short_link/create", CreateProjectShortlink ),
 		( r"/api/v1/project_short_link/get", GetProjectShortlink ),
-		# WebSocket callback endpoint for live debugging Lambdas
-		( r"/ws/v1/lambdas/connectback", LambdaConnectBackServer ),
-		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer ),
 		
 		# Temporarily disabled since it doesn't cache the CostExplorer results
 		#( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast ),
@@ -11126,13 +11146,33 @@ def make_app( is_debug ):
 		( r"/services/v1/dangerously_finalize_third_party_aws_onboarding", OnboardThirdPartyAWSAccountApply ),
 		( r"/services/v1/clear_s3_build_packages", ClearAllS3BuildPackages ),
 	], **tornado_app_settings)
+	
+def get_lambda_callback_endpoint( is_debug ):
+	if is_debug:
+		logit( "Setting up the ngrok tunnel to the local websocket server..." )
+		ngrok_http_endpoint = tornado.ioloop.IOLoop.current().run_sync(
+			set_up_ngrok_websocket_tunnel
+		)
+		
+		return ngrok_http_endpoint.replace(
+			"https://",
+			"ws://"
+		) + "/ws/v1/lambdas/connectback"
+		
+	remote_ipv4_address = tornado.ioloop.IOLoop.current().run_sync(
+		get_external_ipv4_address
+	)
+	return "http://" + remote_ipv4_address + ":3333/ws/v1/lambdas/connectback"
 
 if __name__ == "__main__":
 	logit( "Starting the Refinery service...", "info" )
 	on_start()
-		
+	
+	is_debug = ( os.environ.get( "is_debug" ).lower() == "true" )
+	
+	# Start API server
 	app = make_app(
-		( os.environ.get( "is_debug" ).lower() == "true" )
+		is_debug
 	)
 	server = tornado.httpserver.HTTPServer(
 		app
@@ -11140,10 +11180,32 @@ if __name__ == "__main__":
 	server.bind(
 		7777
 	)
+	
+	# Start websocket server
+	websocket_app = make_websocket_server(
+		is_debug
+	)
+	websocket_server = tornado.httpserver.HTTPServer(
+		websocket_app
+	)
+	websocket_server.bind(
+		3333
+	)
+	
 	Base.metadata.create_all( engine )
 
 	if os.environ.get( "cf_enabled" ).lower() == "true":
 		tornado.ioloop.IOLoop.current().run_sync( get_cloudflare_keys )
 		
+	# Resolve what our callback endpoint is, this is different in DEV vs PROD
+	# one assumes you have an external IP address and the other does not (and
+	# fixes the situation for you with ngrok).
+	LAMBDA_CALLBACK_ENDPOINT = get_lambda_callback_endpoint(
+		is_debug
+	)
+	
+	logit( "Lambda callback endpoint is " + LAMBDA_CALLBACK_ENDPOINT )
+		
 	server.start()
+	websocket_server.start()
 	tornado.ioloop.IOLoop.current().start()
