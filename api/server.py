@@ -12,7 +12,6 @@ import datetime
 import requests
 import pystache
 import binascii
-import logging
 import hashlib
 import random
 import ctypes
@@ -50,7 +49,9 @@ from tornado.concurrent import run_on_executor, futures
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from email_validator import validate_email, EmailNotValidError
 
-from utils.general import attempt_json_decode
+from utils.general import attempt_json_decode, logit
+
+from websocket.lambda_connect_back_server import LambdaConnectBackServer, ExecutionsControllerServer
 
 from models.initiate_database import *
 from models.saved_block import SavedBlock
@@ -73,11 +74,6 @@ from models.inline_execution_lambdas import InlineExecutionLambda
 
 from botocore.client import Config
 
-logging.basicConfig(
-	stream=sys.stdout,
-	level=logging.INFO
-)
-
 try:
 	# for Python 2.x
 	from StringIO import StringIO
@@ -86,8 +82,6 @@ except ImportError:
 	from io import StringIO
 
 import zipfile
-
-from expiringdict import ExpiringDict
 
 reload( sys )
 sys.setdefaultencoding( "utf8" )
@@ -328,30 +322,6 @@ def get_aws_client( client_type, credentials ):
 	BOTO3_CLIENT_CACHE[ cache_key ] = boto3_client
 	
 	return boto3_client
-		
-def logit( message, message_type="info" ):
-	# Attempt to parse the message as json
-	# If we can then prettify it before printing
-	try:
-		message = json.dumps(
-			message,
-			sort_keys=True,
-			indent=4,
-			separators=( ",", ": " )
-		)
-	except:
-		pass
-	
-	if message_type == "info":
-		logging.info( message )
-	elif message_type == "warn":
-		logging.warn( message )
-	elif message_type == "error":
-		logging.error( message )
-	elif message_type == "debug":
-		logging.debug( message )
-	else:
-		logging.info( message )
 	
 class BaseHandler( tornado.web.RequestHandler ):
 	def __init__( self, *args, **kwargs ):
@@ -11136,6 +11106,10 @@ def make_app( is_debug ):
 		( r"/api/v1/internal/log", StashStateLog ),
 		( r"/api/v1/project_short_link/create", CreateProjectShortlink ),
 		( r"/api/v1/project_short_link/get", GetProjectShortlink ),
+		# WebSocket callback endpoint for live debugging Lambdas
+		( r"/ws/v1/lambdas/connectback", LambdaConnectBackServer ),
+		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer ),
+		
 		# Temporarily disabled since it doesn't cache the CostExplorer results
 		#( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast ),
 		

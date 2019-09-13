@@ -10,6 +10,7 @@ RUN pip install -r /work/requirements.txt
 
 COPY ./__init__.py /work/
 COPY ./install/ /work/install/
+COPY ./websocket/ /work/websocket/
 COPY ./utils/ /work/utils/
 COPY ./models/ /work/models/
 COPY ./default_projects/ /work/default_projects/
