@@ -53,7 +53,7 @@ from utils.general import attempt_json_decode, logit
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
 
-from websocket.lambda_connect_back_server import LambdaConnectBackServer, ExecutionsControllerServer
+from websocket.lambda_connect_back_server import LambdaConnectBackServer, ExecutionsControllerServer, websocket_router
 
 from models.initiate_database import *
 from models.saved_block import SavedBlock
@@ -6089,6 +6089,10 @@ def get_language_specific_environment_variables( language ):
 			"key": "PYTHONPATH",
 			"value": "/var/task/",
 		})
+		environment_variables_list.append({
+			"key": "PYTHONUNBUFFERED",
+			"value": "1",
+		})
 	elif language == "nodejs8.10":
 		environment_variables_list.append({
 			"key": "NODE_PATH",
@@ -6192,28 +6196,33 @@ def get_layers_for_lambda( language ):
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:19"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:19"
+			"arn:aws:lambda:us-west-2:561628006572:layer:node:4"
 		)
 	elif language == "php7.3":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:19"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:19"
+			"arn:aws:lambda:us-west-2:561628006572:layer:php:4"
 		)
 	elif language == "go1.12":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:19"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:19"
+			"arn:aws:lambda:us-west-2:561628006572:layer:go:4"
 		)
 	elif language == "python2.7":
 		new_layers.append(
 			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:19"
-			"arn:aws:lambda:us-west-2:561628006572:layer:python:39"
+			"arn:aws:lambda:us-west-2:561628006572:layer:python:43"
 		)
 	elif language == "python3.6":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:20"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:20"
+			"arn:aws:lambda:us-west-2:561628006572:layer:python3:6"
 		)
 	elif language == "ruby2.6.4":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:20"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:20"
+			"arn:aws:lambda:us-west-2:561628006572:layer:refinery-ruby264-custom-runtime:14"
 		)
 		
 	return new_layers
@@ -11163,12 +11172,25 @@ def get_lambda_callback_endpoint( is_debug ):
 		return ngrok_http_endpoint.replace(
 			"https://",
 			"ws://"
+		).replace(
+			"http://",
+			"ws://"
 		) + "/ws/v1/lambdas/connectback"
 		
 	remote_ipv4_address = tornado.ioloop.IOLoop.current().run_sync(
 		get_external_ipv4_address
 	)
-	return "http://" + remote_ipv4_address + ":3333/ws/v1/lambdas/connectback"
+	return "ws://" + remote_ipv4_address + ":3333/ws/v1/lambdas/connectback"
+	
+@gen.coroutine
+def print_websockets():
+	logit( websocket_router.WEBSOCKET_ROUTER )
+	tornado.ioloop.IOLoop.instance().add_timeout(
+		datetime.timedelta(
+			seconds=1
+		),
+		print_websockets
+	)
 
 if __name__ == "__main__":
 	logit( "Starting the Refinery service...", "info" )
@@ -11211,6 +11233,13 @@ if __name__ == "__main__":
 	)
 	
 	logit( "Lambda callback endpoint is " + LAMBDA_CALLBACK_ENDPOINT )
+	
+	tornado.ioloop.IOLoop.instance().add_timeout(
+		datetime.timedelta(
+			seconds=1
+		),
+		print_websockets
+	)
 		
 	server.start()
 	websocket_server.start()

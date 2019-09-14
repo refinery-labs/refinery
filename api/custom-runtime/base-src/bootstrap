@@ -1712,6 +1712,10 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 			
 		return_data = return_data.strip()
 		
+		# Close the WebSocket connection now that we're finished
+		if live_debug:
+			live_debug[ "websocket" ].close()
+		
 		# If it's an inline execution we need to delete the file we just
 		# executed so that it doesn't fill up the disk each run.
 		if is_inline_execution:
