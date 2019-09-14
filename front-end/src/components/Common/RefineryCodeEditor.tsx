@@ -72,7 +72,7 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
 
     return (
       // @ts-ignore
-      <MonacoEditor ref="editor" props={monacoProps} />
+      <MonacoEditor key={languageToAceLangMap[this.lang]} ref="editor" props={monacoProps} />
     );
   }
 
