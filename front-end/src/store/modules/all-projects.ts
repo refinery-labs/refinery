@@ -12,7 +12,7 @@ import {
   SearchSavedProjectsResult
 } from '@/types/api-types';
 import { createNewProjectFromConfig } from '@/utils/new-project-utils';
-import { readFileAsText } from '@/utils/dom-utils';
+import { getFileFromEvent, readFileAsText } from '@/utils/dom-utils';
 import { unwrapJson, wrapJson } from '@/utils/project-helpers';
 import validate from '../../types/export-project.validator';
 import ImportableRefineryProject from '@/types/export-project';
@@ -315,7 +315,14 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
     },
     async [AllProjectsActions.getUploadFileContents](context, e: Event) {
       try {
-        const fileContents = await readFileAsText(e);
+        const file = getFileFromEvent(e);
+
+        if (!file) {
+          context.commit(AllProjectsMutators.setUploadProjectErrorMessage, 'Unable to get file to read.');
+          return;
+        }
+
+        const fileContents = await readFileAsText(file);
         context.commit(AllProjectsMutators.setUploadProjectInput, fileContents);
       } catch (e) {
         context.commit(AllProjectsMutators.setUploadProjectErrorMessage, 'Unable to read file.');

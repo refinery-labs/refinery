@@ -689,19 +689,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
 
       await downloadBlockAsZip(openedProject, selectedCodeBlock);
     },
-    async [EditBlockActions.syncBlockWithFile](context) {
-      if (context.rootState.project.openedProject === null) {
-        throw new Error('No project is open to sync block');
-      }
-
-      if (context.state.selectedNode === null || context.state.selectedNode.type !== WorkflowStateType.LAMBDA) {
-        throw new Error('No block selected to sync file with');
-      }
-
-      const openedProject = context.rootState.project.openedProject;
-
-      const selectedCodeBlock = context.state.selectedNode as LambdaWorkflowState;
-    }
+    async [EditBlockActions.syncBlockWithFile](context) {}
   }
 };
 

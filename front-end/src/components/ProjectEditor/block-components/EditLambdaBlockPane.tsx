@@ -34,6 +34,8 @@ import {
   EditBlockLayersWrapper,
   EditBlockLayersWrapperProps
 } from '@/components/ProjectEditor/block-components/EditBlockLayersWrapper';
+import { languageToFileExtension } from '@/utils/project-debug-utils';
+import { BlockLocalCodeSyncStoreModule, syncFileIdPrefix } from '@/store/modules/panes/block-local-code-sync';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
@@ -167,10 +169,10 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
           <p>This will remove all libraries, if you have any specified.</p>
           <p>Changing the language will likely make your code no longer function.</p>
 
-          <b-form-group id="replace-with-default-template-group">
+          <b-form-group id="change-language-input-group">
             <b-form-checkbox
-              id="replace-with-default-template-input"
-              name="replace-with-detault-template"
+              id="change-language-input"
+              name="change-language-input"
               on={{ change: () => this.setReplaceCodeWithTemplateChecked(!this.replaceCodeWithTemplateChecked) }}
               readonly={this.readOnly}
               disabled={this.readOnly}
@@ -676,36 +678,62 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   }
 
   public renderSelectLocalFileToSyncModal() {
-    if (!this.setFileSyncModalVisibility) {
+    if (!BlockLocalCodeSyncStoreModule.localFileSyncModalVisible) {
       return null;
     }
+
+    if (BlockLocalCodeSyncStoreModule.localFileSyncModalUniqueId === null) {
+      throw new Error('Local file sync modal ID is null, this is bad and the app is breaking now');
+    }
+
+    const uniqueId = BlockLocalCodeSyncStoreModule.localFileSyncModalUniqueId;
 
     const modalOnHandlers = {
       hidden: () => this.resetChangeLanguageModal()
     };
 
+    const expectedFileExtension = `.${languageToFileExtension[this.selectedNode.language]}`;
+
     return (
       <b-modal
         on={modalOnHandlers}
         hide-footer={true}
-        title={`Change Block Language to ${this.nextLanguageToChangeTo}?`}
+        title={`Sync Local Code with ${this.selectedNode.name}`}
         visible={this.changeLanguageWarningVisible}
       >
         <b-form on={{ submit: preventDefaultWrapper(() => this.changeBlockLanguage()) }}>
-          <h4>Warning! You may break something!</h4>
-          <p>This will remove all libraries, if you have any specified.</p>
-          <p>Changing the language will likely make your code no longer function.</p>
+          <h4>Please choose a file from your local file system.</h4>
+          <p>
+            When you update the file on your system, the block code will automatically update to match the file
+            contents.
+          </p>
+          <p>This sync will stop when you refresh your browser or close this project.</p>
 
-          <b-form-group id="replace-with-default-template-group">
+          <b-form-group
+            id="sync-local-file-input-group"
+            label="Select local file:"
+            label-for="sync-local-file-input"
+            description="The file that you choose will be automatically synchronized to the block."
+          >
+            <b-form-file
+              id={`${syncFileIdPrefix}${uniqueId}`}
+              class="mb-2 mr-sm-2 mb-sm-0"
+              accept={expectedFileExtension}
+              required={true}
+              placeholder={`eg, my-amazing-code${expectedFileExtension}`}
+            />
+          </b-form-group>
+
+          <b-form-group id="local-file-auto-run-input-group">
             <b-form-checkbox
-              id="replace-with-default-template-input"
-              name="replace-with-detault-template"
+              id="local-file-auto-run-input"
+              name="local-file-auto-run-input"
               on={{ change: () => this.setReplaceCodeWithTemplateChecked(!this.replaceCodeWithTemplateChecked) }}
               readonly={this.readOnly}
               disabled={this.readOnly}
               checked={this.replaceCodeWithTemplateChecked}
             >
-              Replace code with default template?
+              Automatically execute when file is changed?
             </b-form-checkbox>
           </b-form-group>
 
