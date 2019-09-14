@@ -106,12 +106,7 @@ class LambdaConnectBackServer(tornado.websocket.WebSocketHandler):
 			WEBSOCKET_ROUTER[ debug_id ][ "lambdas" ].append(
 				self
 			)
-		
-		logit( "Message received from Lambda: " )
-		logit( message_contents )
-		
-		print( WEBSOCKET_ROUTER[ debug_id ] )
-		
+			
 		broadcast_message_to_subscribers(
 			message_contents,
 			WEBSOCKET_ROUTER[ debug_id ][ "users" ]

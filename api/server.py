@@ -6019,7 +6019,12 @@ class RunTmpLambda( BaseHandler ):
 				}
 			}
 		
-		logit( "Executing Lambda..." )
+		execute_lambda_params[ "_refinery" ][ "live_debug" ] = {
+			"debug_id": "bc6ba783-27cc-4f30-a810-ca4455516598",
+			"websocket_uri": LAMBDA_CALLBACK_ENDPOINT,
+		}
+		
+		logit( "Executing Lambda '" + lambda_info[ "arn" ] + "'..." )
 		
 		lambda_result = yield local_tasks.execute_aws_lambda(
 			credentials,
@@ -6200,7 +6205,7 @@ def get_layers_for_lambda( language ):
 	elif language == "python2.7":
 		new_layers.append(
 			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:19"
-			"arn:aws:lambda:us-west-2:561628006572:layer:python:37"
+			"arn:aws:lambda:us-west-2:561628006572:layer:python:39"
 		)
 	elif language == "python3.6":
 		new_layers.append(
@@ -11082,7 +11087,6 @@ def make_websocket_server( is_debug ):
 	return tornado.web.Application([
 		# WebSocket callback endpoint for live debugging Lambdas
 		( r"/ws/v1/lambdas/connectback", LambdaConnectBackServer ),
-		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer ),
 	], **tornado_app_settings)
 		
 def make_app( is_debug ):
@@ -11129,6 +11133,8 @@ def make_app( is_debug ):
 		( r"/api/v1/internal/log", StashStateLog ),
 		( r"/api/v1/project_short_link/create", CreateProjectShortlink ),
 		( r"/api/v1/project_short_link/get", GetProjectShortlink ),
+		# WebSocket endpoint for live debugging Lambdas
+		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer ),
 		
 		# Temporarily disabled since it doesn't cache the CostExplorer results
 		#( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast ),
