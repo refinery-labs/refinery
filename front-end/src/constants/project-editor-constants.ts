@@ -306,7 +306,7 @@ def main(block_input, backpack):
 `,
   [SupportedLanguage.NODEJS_8]: `
 async function main(blockInput, backpack) {
-	return 'Hello World!';
+    return 'Hello World!';
 }
 `,
   [SupportedLanguage.PHP7]: `
@@ -314,41 +314,41 @@ async function main(blockInput, backpack) {
 // Uncomment if you specified libraries
 // require $_ENV["LAMBDA_TASK_ROOT"] . "/vendor/autoload.php";
 function main($block_input, $backpack) {
-	return 'Hello World!';
+    return 'Hello World!';
 }
 `,
   [SupportedLanguage.GO1_12]: `package main
 
 import (
-	// The following imports are required
-	// by the Refinery runtime do not remove them!
-	"os"
-	"fmt"
-	"bytes"
-	"runtime"
-	"io/ioutil"
-	"encoding/json"
-	// Add your imports below this line
+    // The following imports are required
+    // by the Refinery runtime do not remove them!
+    "os"
+    "fmt"
+    "bytes"
+    "runtime"
+    "io/ioutil"
+    "encoding/json"
+    // Add your imports below this line
 )
 
 // Modify BlockInput to conform to your input data schema
 type BlockInput struct {
-	Example string \`json:"example"\`
+    Example string \`json:"example"\`
 }
 
 // Modify block_main() appropriately.
 // It must return a JSON-serializable value
 func block_main(block_input []byte, backpack []byte) (bool, []byte) {
-	var unmarshalled_input BlockInput
-	
-	// lambda_input is a byte array of the input to this code block11
-	// This is a JSON-serialized value returned from another block.
-	json.Unmarshal(block_input, &unmarshalled_input)
-	
-	// backpack is a byte array of the backpack variable passed to this code block
-	// You must return the backpack, modified or unchanged, as your secondary return value.
-	// e.g: return return_value, backpack
-	return false, backpack
+    var unmarshalled_input BlockInput
+
+    // lambda_input is a byte array of the input to this code block11
+    // This is a JSON-serialized value returned from another block.
+    json.Unmarshal(block_input, &unmarshalled_input)
+
+    // backpack is a byte array of the backpack variable passed to this code block
+    // You must return the backpack, modified or unchanged, as your secondary return value.
+    // e.g: return return_value, backpack
+    return false, backpack
 }
 `
 };
