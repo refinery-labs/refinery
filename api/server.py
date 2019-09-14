@@ -53,7 +53,7 @@ from utils.general import attempt_json_decode, logit
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
 
-from websocket.lambda_connect_back_server import LambdaConnectBackServer, ExecutionsControllerServer, websocket_router
+from websocket.lambda_connect_back_server import LambdaConnectBackServer, ExecutionsControllerServer
 
 from models.initiate_database import *
 from models.saved_block import SavedBlock
@@ -5761,6 +5761,9 @@ class RunLambda( BaseHandler ):
 				},
 				"execution_id": {
 					"type": "string",
+				},
+				"debug_id": {
+					"type": "string",
 				}
 			},
 			"required": [
@@ -5800,7 +5803,13 @@ class RunLambda( BaseHandler ):
 		
 		if "execution_id" in self.json and self.json[ "execution_id" ]:
 			lambda_input_data[ "_refinery" ][ "execution_id" ] = str( self.json[ "execution_id" ] )
-		
+			
+		if "debug_id" in self.json:
+			lambda_input_data[ "_refinery" ][ "live_debug" ] = {
+				"debug_id": self.json[ "debug_id" ],
+				"websocket_uri": LAMBDA_CALLBACK_ENDPOINT,
+			}
+			
 		logit( "Executing Lambda..." )
 		lambda_result = yield local_tasks.execute_aws_lambda(
 			credentials,
@@ -5870,6 +5879,9 @@ class RunTmpLambda( BaseHandler ):
 				},
 				"layers": {
 					"type": "array"
+				},
+				"debug_id": {
+					"type": "string"
 				}
 			},
 			"required": [
@@ -6019,10 +6031,11 @@ class RunTmpLambda( BaseHandler ):
 				}
 			}
 		
-		execute_lambda_params[ "_refinery" ][ "live_debug" ] = {
-			"debug_id": "bc6ba783-27cc-4f30-a810-ca4455516598",
-			"websocket_uri": LAMBDA_CALLBACK_ENDPOINT,
-		}
+		if "debug_id" in self.json:
+			execute_lambda_params[ "_refinery" ][ "live_debug" ] = {
+				"debug_id": self.json[ "debug_id" ],
+				"websocket_uri": LAMBDA_CALLBACK_ENDPOINT,
+			}
 		
 		logit( "Executing Lambda '" + lambda_info[ "arn" ] + "'..." )
 		
@@ -6196,33 +6209,27 @@ def get_layers_for_lambda( language ):
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		new_layers.append(
-			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:19"
-			"arn:aws:lambda:us-west-2:561628006572:layer:node:4"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:20"
 		)
 	elif language == "php7.3":
 		new_layers.append(
-			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:19"
-			"arn:aws:lambda:us-west-2:561628006572:layer:php:4"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:20"
 		)
 	elif language == "go1.12":
 		new_layers.append(
-			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:19"
-			"arn:aws:lambda:us-west-2:561628006572:layer:go:4"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:20"
 		)
 	elif language == "python2.7":
 		new_layers.append(
-			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:19"
-			"arn:aws:lambda:us-west-2:561628006572:layer:python:43"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:20"
 		)
 	elif language == "python3.6":
 		new_layers.append(
-			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:20"
-			"arn:aws:lambda:us-west-2:561628006572:layer:python3:6"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:21"
 		)
 	elif language == "ruby2.6.4":
 		new_layers.append(
-			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:20"
-			"arn:aws:lambda:us-west-2:561628006572:layer:refinery-ruby264-custom-runtime:14"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:21"
 		)
 		
 	return new_layers
@@ -11181,16 +11188,6 @@ def get_lambda_callback_endpoint( is_debug ):
 		get_external_ipv4_address
 	)
 	return "ws://" + remote_ipv4_address + ":3333/ws/v1/lambdas/connectback"
-	
-@gen.coroutine
-def print_websockets():
-	logit( websocket_router.WEBSOCKET_ROUTER )
-	tornado.ioloop.IOLoop.instance().add_timeout(
-		datetime.timedelta(
-			seconds=1
-		),
-		print_websockets
-	)
 
 if __name__ == "__main__":
 	logit( "Starting the Refinery service...", "info" )
@@ -11233,13 +11230,6 @@ if __name__ == "__main__":
 	)
 	
 	logit( "Lambda callback endpoint is " + LAMBDA_CALLBACK_ENDPOINT )
-	
-	tornado.ioloop.IOLoop.instance().add_timeout(
-		datetime.timedelta(
-			seconds=1
-		),
-		print_websockets
-	)
 		
 	server.start()
 	websocket_server.start()
