@@ -31,13 +31,10 @@ def logit( message, message_type="info" ):
 	except:
 		pass
 	
-	if message_type == "info":
-		logging.info( message )
-	elif message_type == "warn":
-		logging.warn( message )
-	elif message_type == "error":
-		logging.error( message )
-	elif message_type == "debug":
-		logging.debug( message )
-	else:
-		logging.info( message )
+	logging_func = getattr(
+		logging,
+		message_type,
+		logging.info
+	)
+	
+	logging_func( message )
