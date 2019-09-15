@@ -26,7 +26,7 @@ RUN /work/install/terraform init
 WORKDIR /work/
 
 EXPOSE 7777
-EXPOSE 4444
+EXPOSE 3333
 
 COPY ./server.py /work/
 
