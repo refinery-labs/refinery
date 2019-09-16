@@ -6,6 +6,10 @@ resource "aws_s3_bucket" "lambda-logging" {
     bucket = "refinery-lambda-logging-${var.s3_bucket_suffix}"
     acl    = "private"
     
+	tags = {
+		"rule"      = "log"
+	}
+    
 	lifecycle_rule {
 		id = "athena_query_output"
 		prefix = "athena/"
@@ -56,6 +60,10 @@ resource "aws_s3_bucket" "lambda-logging" {
 		
 		abort_incomplete_multipart_upload_days = 1
 	}
+	
+	tags = {
+		RefineryResource = "true"
+	}
 }
 
 /*
@@ -84,5 +92,9 @@ resource "aws_s3_bucket" "lambda-build-packages" {
 		}
 		
 		abort_incomplete_multipart_upload_days = 1
+	}
+	
+	tags = {
+		RefineryResource = "true"
 	}
 }

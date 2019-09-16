@@ -3351,6 +3351,9 @@ class TaskSpawner(object):
 				credentials
 			)
 			
+			# Add pricing tag
+			tags_dict[ "RefineryResource" ] = "true"
+			
 			try:
 				# https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#Lambda.Client.create_function
 				response = lambda_client.create_function(
@@ -4647,6 +4650,12 @@ class TaskSpawner(object):
 				State="ENABLED",
 				Description=description,
 				RoleArn=events_role_arn,
+				Tags=[
+					{
+						"Key": "RefineryResource",
+						"Value": "true"
+					}
+				]
 			)
 			
 			return {
@@ -4781,6 +4790,9 @@ class TaskSpawner(object):
 							"DelaySeconds": str( 0 ),
 							"MaximumMessageSize": "262144",
 							"VisibilityTimeout": str( visibility_timeout ), # Lambda max time plus ten seconds
+						},
+						tags={
+							"RefineryResource": "true"
 						}
 					)
 					
@@ -5447,7 +5459,10 @@ class TaskSpawner(object):
 				},
 				binaryMediaTypes=[
 					"*/*"
-				]
+				],
+				tags={
+					"RefineryResource": "true"
+				}
 			)
 			
 			return {

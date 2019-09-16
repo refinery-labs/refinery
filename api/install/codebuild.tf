@@ -33,4 +33,8 @@ resource "aws_codebuild_project" "refinery-builds" {
     type            = "S3"
     location        = "refinery-lambda-build-packages-${var.s3_bucket_suffix}/nonexistant.zip"
   }
+  
+  tags = {
+    RefineryResource = "true"
+  }
 }

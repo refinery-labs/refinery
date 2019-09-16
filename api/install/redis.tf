@@ -54,6 +54,10 @@ resource "aws_security_group" "refinery_redis_security_group" {
 */
 resource "aws_eip" "refinery_redis_elastic_ip" {
 	vpc = true
+	
+	tags = {
+		RefineryResource = "true"
+	}
 }
 
 data "template_file" "docker_compose_yaml" {
@@ -131,6 +135,10 @@ resource "aws_instance" "refinery_redis_instance" {
 		"aws_security_group.refinery_redis_security_group",
 		"aws_key_pair.refinery_redis_generate_ssh_key"
 	]
+	
+	tags = {
+		RefineryResource = "true"
+	}
 }
 
 /*
