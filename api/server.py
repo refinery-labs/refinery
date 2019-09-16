@@ -4370,7 +4370,7 @@ class TaskSpawner(object):
 		def _get_php_73_base_code( code ):
 			code = re.sub(
 				r"function main\([^\)]+\)[^{]\{",
-				"function main( $block_input ) {global $backpack;\n",
+				"function main( $block_input ) {global $backpack;",
 				code
 			)
 			
