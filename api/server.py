@@ -53,7 +53,10 @@ from utils.general import attempt_json_decode, logit
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
 
-from websocket.lambda_connect_back_server import LambdaConnectBackServer, ExecutionsControllerServer
+from services.websocket_router import WebSocketRouter
+
+from controller.executions_controller import ExecutionsControllerServer
+from controller.lambda_connect_back import LambdaConnectBackServer
 
 from models.initiate_database import *
 from models.saved_block import SavedBlock
@@ -6030,7 +6033,7 @@ class RunTmpLambda( BaseHandler ):
 					"temporary_execution": True
 				}
 			}
-			
+		
 		if "debug_id" in self.json:
 			execute_lambda_params[ "_refinery" ][ "live_debug" ] = {
 				"debug_id": self.json[ "debug_id" ],
@@ -11095,13 +11098,16 @@ def get_tornado_app_config( is_debug ):
 	return {
 		"debug": is_debug,
 		"cookie_secret": os.environ.get( "cookie_secret_value" ),
-		"compress_response": True
+		"compress_response": True,
+		"websocket_router": WebSocketRouter()
 	}
 
 def make_websocket_server( tornado_config ):
 	return tornado.web.Application([
 		# WebSocket callback endpoint for live debugging Lambdas
-		( r"/ws/v1/lambdas/connectback", LambdaConnectBackServer ),
+		( r"/ws/v1/lambdas/connectback", LambdaConnectBackServer, {
+			"websocket_router": tornado_config[ "websocket_router" ]
+		}),
 	], **tornado_config)
 		
 def make_app( tornado_config ):
@@ -11148,7 +11154,9 @@ def make_app( tornado_config ):
 		( r"/api/v1/project_short_link/create", CreateProjectShortlink ),
 		( r"/api/v1/project_short_link/get", GetProjectShortlink ),
 		# WebSocket endpoint for live debugging Lambdas
-		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer ),
+		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer, {
+			"websocket_router": tornado_config[ "websocket_router" ]
+		}),
 		
 		# Temporarily disabled since it doesn't cache the CostExplorer results
 		#( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast ),
@@ -11213,6 +11221,7 @@ if __name__ == "__main__":
 	websocket_app = make_websocket_server(
 		tornado_config
 	)
+	
 	websocket_server = tornado.httpserver.HTTPServer(
 		websocket_app
 	)
