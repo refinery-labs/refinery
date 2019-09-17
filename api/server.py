@@ -4649,19 +4649,25 @@ class TaskSpawner(object):
 				ScheduleExpression=schedule_expression, # cron(0 20 * * ? *) or rate(5 minutes)
 				State="ENABLED",
 				Description=description,
-				RoleArn=events_role_arn,
+				RoleArn=events_role_arn
+			)
+			
+			rule_arn = response[ "RuleArn" ]
+			
+			tag_add_response = events_client.tag_resource(
+				ResourceARN=rule_arn,
 				Tags=[
 					{
 						"Key": "RefineryResource",
 						"Value": "true"
-					}
+					},
 				]
 			)
 			
 			return {
 				"id": id,
 				"name": name,
-				"arn": response[ "RuleArn" ],
+				"arn": rule_arn,
 				"input_string": input_string,
 			}
 			
