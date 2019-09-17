@@ -10,6 +10,10 @@
         {
           "hostPort": 8080,
           "containerPort": 7777
+        },
+        {
+          "hostPort": 3333,
+          "containerPort": 3333
         }
       ],
       "logConfiguration": {

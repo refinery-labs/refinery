@@ -40,6 +40,7 @@ import threading
 import subprocess
 
 from urlparse import parse_qs
+from websocket import create_connection
 
 # For requests to AWS custom runtime API
 http = urllib3.PoolManager()
@@ -1351,6 +1352,16 @@ def _write_inline_code( inline_code ):
 		file_handler.write( inline_code )
 		
 	return temporary_code_path
+	
+def _stream_execution_output_to_websocket( websocket, debug_id, output ):
+	websocket.send(json.dumps({
+		"version": "1.0.0",
+		"debug_id": debug_id,
+		"action": "OUTPUT",
+		"source": "LAMBDA",
+		"body": output,
+		"timestamp": int( time.time() )
+	}))
 
 def _init( custom_runtime, request_id, lambda_input, context ):
 	start_time = time.time()
@@ -1410,6 +1421,10 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 	# If the execution is a temporary execution, for example if the
 	# Lambda is being execute in the Refinery editor.
 	is_temporary_execution = False
+	
+	# If the execution is being live streamed via WebSocket callbacks
+	# then this will be the actual reference to the websocket client.
+	live_debug = False
 	
 	# The backpack variable is a variable that is automatically passed
 	# between code block executions and is an arbitrary map/dict/object
@@ -1510,6 +1525,23 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 			# Update execution path to the new temporary code file created
 			executable_path = _write_inline_code(
 				lambda_input[ "_refinery" ][ "inline_code" ]
+			)
+			
+		"""
+		For doing live debugging/streaming of the Lambda execution.
+		
+		Provides a debug_id for tracing and a callback URL for the websocket
+		to do the actual calling-back to.
+		
+		"live_debug": {
+			"debug_id": "{{UUID}}",
+			"websocket_uri": "ws://35.131.123.111:4444/ws/v1/lambdas/connectback", # Websocket callback URL with API server direct IP
+		}
+		"""
+		if "live_debug" in lambda_input[ "_refinery" ]:
+			live_debug = lambda_input[ "_refinery" ][ "live_debug" ]
+			live_debug[ "websocket" ] = create_connection(
+				live_debug[ "websocket_uri" ]
 			)
 		
 		# Check if it's just a warmup request
@@ -1647,38 +1679,60 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 				executable_path
 			],
 			stdout=subprocess.PIPE,
-			stderr=subprocess.PIPE,
+			stderr=subprocess.STDOUT,
 			stdin=subprocess.PIPE,
 			shell=False,
 			universal_newlines=True,
 			cwd=os.getenv( "LAMBDA_TASK_ROOT" ) + "/",
 		)
+		
+		# Write input data
+		process_handler.stdin.write(json.dumps({
+			"lambda_input": lambda_input,
+			"backpack": backpack
+		}))
+		process_handler.stdin.close()
 
-		process_stdout, process_stderr = process_handler.communicate(
-			input=json.dumps({
-				"lambda_input": lambda_input,
-				"backpack": backpack,
-			})
-		)
+		return_data = ""
+		
+		for line in iter( process_handler.stdout.readline, "" ):
+			# If we're live streaming the output data, then pump it into
+			# the WebSocket connection
+			if live_debug and not line.startswith( "<REFINERY_" ):
+				_stream_execution_output_to_websocket(
+					live_debug[ "websocket" ],
+					live_debug[ "debug_id" ],
+					line
+				)
+			
+			return_data += line
+			
+		while process_handler.returncode is None:
+			process_handler.poll()
+			
+		return_data = return_data.strip()
+		
+		# Close the WebSocket connection now that we're finished
+		if live_debug:
+			live_debug[ "websocket" ].close()
 		
 		# If it's an inline execution we need to delete the file we just
 		# executed so that it doesn't fill up the disk each run.
 		if is_inline_execution:
-			os.remove( executable_path )
 			try:
-				os.popen( "/bin/rm /tmp/*" ).read()
+				tmp_handler = subprocess.Popen(
+					"/bin/rm /tmp/*",
+					stdout=subprocess.PIPE,
+					stderr=subprocess.PIPE,
+					stdin=subprocess.PIPE
+				).read()
+				tmp_handler.communicate()
 			except:
 				pass
 
 		_stop_clock( "Executing Lambda" )
 
-		return_data = str( process_stderr ) + str( process_stdout )
-		return_data = return_data.strip()
-
 		if process_handler.returncode == 0:
-			return_data = str( process_stderr ) + str( process_stdout )
-			return_data = return_data.strip()
-
 			# We now look for the markers to indicate data is being returned.
 			start_marker = "<REFINERY_OUTPUT_CUSTOM_RUNTIME_START_MARKER>"
 			end_marker = "<REFINERY_OUTPUT_CUSTOM_RUNTIME_END_MARKER>"
@@ -1698,6 +1752,7 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 					return_data = return_data[ "output" ]
 				except:
 					return_data = return_data_string
+					
 				# Write the output for logging
 				sys.stdout.write( program_output )
 				sys.stdout.flush()

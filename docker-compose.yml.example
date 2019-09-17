@@ -83,8 +83,11 @@ services:
             # Place where to receive signup emails
             internal_signup_notification_email: REPLACE_ME_PROBABLY_SOMETHING_LIKE_whoami@refinerylabs.io
             intercom_hmac_secret: fakeAFKey
+            # ngrok API Secret to allow exposing WebSocket endpoints in dev
+            ngrok_api_secret: CHANGEME
         ports:
             - "80:1234"
+            - "127.0.0.1:3333:3333"
         volumes:
             - ./api/:/work/api/ # Mounting these as volumes allows live reloading
             - ./gui/:/work/gui/

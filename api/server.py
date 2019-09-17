@@ -12,7 +12,6 @@ import datetime
 import requests
 import pystache
 import binascii
-import logging
 import hashlib
 import random
 import ctypes
@@ -50,7 +49,14 @@ from tornado.concurrent import run_on_executor, futures
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from email_validator import validate_email, EmailNotValidError
 
-from utils.general import attempt_json_decode
+from utils.general import attempt_json_decode, logit
+from utils.ngrok import set_up_ngrok_websocket_tunnel
+from utils.ip_lookup import get_external_ipv4_address
+
+from services.websocket_router import WebSocketRouter
+
+from controller.executions_controller import ExecutionsControllerServer
+from controller.lambda_connect_back import LambdaConnectBackServer
 
 from models.initiate_database import *
 from models.saved_block import SavedBlock
@@ -73,11 +79,6 @@ from models.inline_execution_lambdas import InlineExecutionLambda
 
 from botocore.client import Config
 
-logging.basicConfig(
-	stream=sys.stdout,
-	level=logging.INFO
-)
-
 try:
 	# for Python 2.x
 	from StringIO import StringIO
@@ -86,8 +87,6 @@ except ImportError:
 	from io import StringIO
 
 import zipfile
-
-from expiringdict import ExpiringDict
 
 reload( sys )
 sys.setdefaultencoding( "utf8" )
@@ -105,6 +104,10 @@ allowed_origins = json.loads( os.environ.get( "access_control_allow_origins" ) )
 
 # Increase CSV field size to be the max
 csv.field_size_limit( sys.maxsize )
+
+# The WebSocket callback endpoint to use when live streaming the output
+# of Lambdas via WebSockets.
+LAMBDA_CALLBACK_ENDPOINT = False
 			
 def on_start():
 	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES, CUSTOMER_IAM_POLICY, DEFAULT_PROJECT_ARRAY, DEFAULT_PROJECT_CONFIG, NOT_SUPPORTED_INLINE_EXECUTION_LANGUAGES
@@ -328,30 +331,6 @@ def get_aws_client( client_type, credentials ):
 	BOTO3_CLIENT_CACHE[ cache_key ] = boto3_client
 	
 	return boto3_client
-		
-def logit( message, message_type="info" ):
-	# Attempt to parse the message as json
-	# If we can then prettify it before printing
-	try:
-		message = json.dumps(
-			message,
-			sort_keys=True,
-			indent=4,
-			separators=( ",", ": " )
-		)
-	except:
-		pass
-	
-	if message_type == "info":
-		logging.info( message )
-	elif message_type == "warn":
-		logging.warn( message )
-	elif message_type == "error":
-		logging.error( message )
-	elif message_type == "debug":
-		logging.debug( message )
-	else:
-		logging.info( message )
 	
 class BaseHandler( tornado.web.RequestHandler ):
 	def __init__( self, *args, **kwargs ):
@@ -3029,6 +3008,9 @@ class TaskSpawner(object):
 					if log_line.startswith( "REPORT RequestId: " ):
 						continue
 					
+					if log_line.startswith( "XRAY TraceId: " ):
+						continue
+					
 					if "START RequestId: " in log_line:
 						log_line = log_line.split( "START RequestId: " )[0]
 
@@ -3037,6 +3019,9 @@ class TaskSpawner(object):
 
 					if "REPORT RequestId: " in log_line:
 						log_line = log_line.split( "REPORT RequestId: " )[0]
+						
+					if "XRAY TraceId: " in log_line:
+						log_line = log_line.split( "XRAY TraceId: " )[0]
 					
 					returned_log_lines.append(
 						log_line
@@ -5779,6 +5764,9 @@ class RunLambda( BaseHandler ):
 				},
 				"execution_id": {
 					"type": "string",
+				},
+				"debug_id": {
+					"type": "string",
 				}
 			},
 			"required": [
@@ -5818,7 +5806,13 @@ class RunLambda( BaseHandler ):
 		
 		if "execution_id" in self.json and self.json[ "execution_id" ]:
 			lambda_input_data[ "_refinery" ][ "execution_id" ] = str( self.json[ "execution_id" ] )
-		
+			
+		if "debug_id" in self.json:
+			lambda_input_data[ "_refinery" ][ "live_debug" ] = {
+				"debug_id": self.json[ "debug_id" ],
+				"websocket_uri": LAMBDA_CALLBACK_ENDPOINT,
+			}
+			
 		logit( "Executing Lambda..." )
 		lambda_result = yield local_tasks.execute_aws_lambda(
 			credentials,
@@ -5888,6 +5882,9 @@ class RunTmpLambda( BaseHandler ):
 				},
 				"layers": {
 					"type": "array"
+				},
+				"debug_id": {
+					"type": "string"
 				}
 			},
 			"required": [
@@ -6037,7 +6034,13 @@ class RunTmpLambda( BaseHandler ):
 				}
 			}
 		
-		logit( "Executing Lambda..." )
+		if "debug_id" in self.json:
+			execute_lambda_params[ "_refinery" ][ "live_debug" ] = {
+				"debug_id": self.json[ "debug_id" ],
+				"websocket_uri": LAMBDA_CALLBACK_ENDPOINT,
+			}
+		
+		logit( "Executing Lambda '" + lambda_info[ "arn" ] + "'..." )
 		
 		lambda_result = yield local_tasks.execute_aws_lambda(
 			credentials,
@@ -6101,6 +6104,10 @@ def get_language_specific_environment_variables( language ):
 		environment_variables_list.append({
 			"key": "PYTHONPATH",
 			"value": "/var/task/",
+		})
+		environment_variables_list.append({
+			"key": "PYTHONUNBUFFERED",
+			"value": "1",
 		})
 	elif language == "nodejs8.10":
 		environment_variables_list.append({
@@ -6205,27 +6212,27 @@ def get_layers_for_lambda( language ):
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:19"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:20"
 		)
 	elif language == "php7.3":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:19"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:20"
 		)
 	elif language == "go1.12":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:19"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:20"
 		)
 	elif language == "python2.7":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:19"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:20"
 		)
 	elif language == "python3.6":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:20"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:21"
 		)
 	elif language == "ruby2.6.4":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:20"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:21"
 		)
 		
 	return new_layers
@@ -11086,14 +11093,24 @@ class GetProjectShortlink( BaseHandler ):
 				"diagram_data": project_short_link_dict[ "project_json" ],
 			}
 		})
-		
-def make_app( is_debug ):
-	tornado_app_settings = {
+
+def get_tornado_app_config( is_debug ):
+	return {
 		"debug": is_debug,
 		"cookie_secret": os.environ.get( "cookie_secret_value" ),
-		"compress_response": True
+		"compress_response": True,
+		"websocket_router": WebSocketRouter()
 	}
-	
+
+def make_websocket_server( tornado_config ):
+	return tornado.web.Application([
+		# WebSocket callback endpoint for live debugging Lambdas
+		( r"/ws/v1/lambdas/connectback", LambdaConnectBackServer, {
+			"websocket_router": tornado_config[ "websocket_router" ]
+		}),
+	], **tornado_config)
+		
+def make_app( tornado_config ):
 	return tornado.web.Application([
 		( r"/api/v1/health", HealthHandler ),
 		( r"/authentication/email/([a-z0-9]+)", EmailLinkAuthentication ),
@@ -11136,6 +11153,11 @@ def make_app( is_debug ):
 		( r"/api/v1/internal/log", StashStateLog ),
 		( r"/api/v1/project_short_link/create", CreateProjectShortlink ),
 		( r"/api/v1/project_short_link/get", GetProjectShortlink ),
+		# WebSocket endpoint for live debugging Lambdas
+		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer, {
+			"websocket_router": tornado_config[ "websocket_router" ]
+		}),
+		
 		# Temporarily disabled since it doesn't cache the CostExplorer results
 		#( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast ),
 		
@@ -11151,14 +11173,42 @@ def make_app( is_debug ):
 		( r"/services/v1/onboard_third_party_aws_account_plan", OnboardThirdPartyAWSAccountPlan ),
 		( r"/services/v1/dangerously_finalize_third_party_aws_onboarding", OnboardThirdPartyAWSAccountApply ),
 		( r"/services/v1/clear_s3_build_packages", ClearAllS3BuildPackages ),
-	], **tornado_app_settings)
+	], **tornado_config)
+	
+def get_lambda_callback_endpoint( is_debug ):
+	if is_debug:
+		logit( "Setting up the ngrok tunnel to the local websocket server..." )
+		ngrok_http_endpoint = tornado.ioloop.IOLoop.current().run_sync(
+			set_up_ngrok_websocket_tunnel
+		)
+		
+		return ngrok_http_endpoint.replace(
+			"https://",
+			"ws://"
+		).replace(
+			"http://",
+			"ws://"
+		) + "/ws/v1/lambdas/connectback"
+		
+	remote_ipv4_address = tornado.ioloop.IOLoop.current().run_sync(
+		get_external_ipv4_address
+	)
+	return "ws://" + remote_ipv4_address + ":3333/ws/v1/lambdas/connectback"
 
 if __name__ == "__main__":
 	logit( "Starting the Refinery service...", "info" )
 	on_start()
-		
+	
+	is_debug = ( os.environ.get( "is_debug" ).lower() == "true" )
+	
+	# Generate tornado config
+	tornado_config = get_tornado_app_config(
+		is_debug
+	)
+	
+	# Start API server
 	app = make_app(
-		( os.environ.get( "is_debug" ).lower() == "true" )
+		tornado_config
 	)
 	server = tornado.httpserver.HTTPServer(
 		app
@@ -11166,10 +11216,33 @@ if __name__ == "__main__":
 	server.bind(
 		7777
 	)
+	
+	# Start websocket server
+	websocket_app = make_websocket_server(
+		tornado_config
+	)
+	
+	websocket_server = tornado.httpserver.HTTPServer(
+		websocket_app
+	)
+	websocket_server.bind(
+		3333
+	)
+	
 	Base.metadata.create_all( engine )
 
 	if os.environ.get( "cf_enabled" ).lower() == "true":
 		tornado.ioloop.IOLoop.current().run_sync( get_cloudflare_keys )
 		
+	# Resolve what our callback endpoint is, this is different in DEV vs PROD
+	# one assumes you have an external IP address and the other does not (and
+	# fixes the situation for you with ngrok).
+	LAMBDA_CALLBACK_ENDPOINT = get_lambda_callback_endpoint(
+		is_debug
+	)
+	
+	logit( "Lambda callback endpoint is " + LAMBDA_CALLBACK_ENDPOINT )
+		
 	server.start()
+	websocket_server.start()
 	tornado.ioloop.IOLoop.current().start()
