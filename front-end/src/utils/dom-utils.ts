@@ -68,3 +68,14 @@ export async function readFileAsText(file: File): Promise<string | null> {
     fr.readAsText(file);
   });
 }
+
+export function copyElementToDocumentBody(selector: string) {
+  const elementToMove = document.querySelector(selector);
+  const body = document.querySelector('body');
+
+  if (!body || !elementToMove) {
+    throw new Error('Unable to move element to body: ' + selector);
+  }
+
+  body.appendChild(elementToMove);
+}

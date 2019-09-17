@@ -1,12 +1,14 @@
-import { VuexModule, Module, Mutation, Action, getModule } from 'vuex-module-decorators';
+import { Action, getModule, Module, Mutation, VuexModule } from 'vuex-module-decorators';
 import store from '@/store';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState } from '@/store/store-types';
 import { autoRefreshJob } from '@/utils/async-utils';
-import uuid from 'uuid/v4';
 import { LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
-import { getFileFromElementByQuery, getFileFromEvent, readFileAsText } from '@/utils/dom-utils';
+import { copyElementToDocumentBody, getFileFromElementByQuery, readFileAsText } from '@/utils/dom-utils';
+import { ProjectViewActions } from '@/constants/store-constants';
+import { EditBlockMutators } from '@/store/modules/panes/edit-block-pane';
+import uuid from 'uuid/v4';
 
 const storeName = 'blockLocalCodeSync';
 
@@ -35,6 +37,7 @@ export interface BlockLocalCodeSyncState {
   localFileSyncModalVisible: boolean;
   // This UUID is used so that we can keep identify the HTML element via query selector.
   localFileSyncModalUniqueId: string | null;
+  executeBlockOnFileChangeToggled: boolean;
 
   selectedBlockForModal: LambdaWorkflowState | null;
 }
@@ -45,6 +48,7 @@ export const baseState: BlockLocalCodeSyncState = {
 
   localFileSyncModalVisible: false,
   localFileSyncModalUniqueId: null,
+  executeBlockOnFileChangeToggled: false,
 
   selectedBlockForModal: null
 };
@@ -62,6 +66,7 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
 
   public localFileSyncModalVisible: boolean = initialState.localFileSyncModalVisible;
   public localFileSyncModalUniqueId: string | null = initialState.localFileSyncModalUniqueId;
+  public executeBlockOnFileChangeToggled: boolean = initialState.executeBlockOnFileChangeToggled;
 
   public selectedBlockForModal: LambdaWorkflowState | null = initialState.selectedBlockForModal;
 
@@ -114,13 +119,125 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
   }
 
   @Mutation
+  public updateJobState(jobState: FileWatchJobState) {
+    this.jobIdToJobStateLookup = {
+      ...this.jobIdToJobStateLookup,
+      [jobState.jobId]: jobState
+    };
+  }
+
+  @Mutation
   public setModalVisibility(show: boolean) {
     this.localFileSyncModalVisible = show;
   }
 
   @Mutation
-  public setSelectedBlockForModal(block: LambdaWorkflowState) {
+  public setSelectedBlockForModal(block: LambdaWorkflowState | null) {
+    if (!block) {
+      this.selectedBlockForModal = null;
+      return;
+    }
+
     this.selectedBlockForModal = deepJSONCopy(block);
+  }
+
+  @Mutation
+  public setExecuteBlockOnFileChangeToggled(toggled: boolean) {
+    this.executeBlockOnFileChangeToggled = toggled;
+  }
+
+  @Mutation
+  public setModalUniqueId(id: string | null) {
+    this.localFileSyncModalUniqueId = id;
+  }
+
+  @Action
+  public resetModal() {
+    this.setModalVisibility(false);
+    this.setModalUniqueId(null);
+    this.setSelectedBlockForModal(null);
+    // Maybe the user would want this to stick between block adds?
+    // Don't want to create unexpected behavior, so going to reset it for now.
+    this.setExecuteBlockOnFileChangeToggled(false);
+  }
+
+  @Action
+  public async updateProjectStoreBlockCode(jobState: FileWatchJobState) {
+    const projectStore = this.context.rootState.project;
+
+    if (!projectStore.openedProject) {
+      throw new Error('Unable to retrieve opened project to update block code for in block file sync job');
+    }
+
+    const project = projectStore.openedProject;
+
+    // Grab the actual block contents from the store.
+    const block = project.workflow_states.find(block => block.id === jobState.blockId);
+
+    // Ensure that we have a block and that it is a code block.
+    if (!block || block.type !== WorkflowStateType.LAMBDA) {
+      throw new Error('Unable to locate matching block to update code for in block file sync job');
+    }
+
+    // Since we know that it's a code block, we can cast it as such.
+    const codeBlock = block as LambdaWorkflowState;
+
+    const newBlock: LambdaWorkflowState = {
+      ...codeBlock,
+      // Write the new code to the block.
+      code: jobState.fileContents
+    };
+
+    await this.context.dispatch(`project/${ProjectViewActions.updateExistingBlock}`, newBlock, { root: true });
+  }
+
+  @Action
+  public async updateEditBlockPaneBlockCode(jobState: FileWatchJobState) {
+    const projectStore = this.context.rootState.project;
+
+    if (!projectStore.openedProject) {
+      throw new Error('Unable to retrieve opened project to update edit block pane code for in block file sync job');
+    }
+
+    // Grab the currently selected block being edited.
+    const editBlockPaneSelectedBlock = projectStore.editBlockPane && projectStore.editBlockPane.selectedNode;
+
+    // If there isn't a block being edited currently, we can safely return.
+    if (!editBlockPaneSelectedBlock) {
+      return;
+    }
+
+    // If the block being edited isn't the same as the block sync job (or the block type is wrong), bail out.
+    if (
+      editBlockPaneSelectedBlock.id !== jobState.blockId ||
+      editBlockPaneSelectedBlock.type !== WorkflowStateType.LAMBDA
+    ) {
+      return;
+    }
+
+    // Update the code of the currently selected block
+    await this.context.commit(`project/editBlockPane/${EditBlockMutators.setCodeInput}`, jobState.fileContents, {
+      root: true
+    });
+  }
+
+  @Action
+  public async updateBlockCode(jobId: string) {
+    // TODO: Check if the file contents have changed and dispatch updates
+    const jobState = this.jobIdToJobStateLookup[jobId];
+
+    // This shouldn't happen, but just in case we will bail.
+    if (!jobState) {
+      console.error('Could not find file update job data. This is weird.');
+      return;
+    }
+
+    // TODO: Move everything to a single source of truth for the block code. This is bound to create bugs, eventually.
+    // Handles updating the main project copy of the block
+    await this.updateProjectStoreBlockCode(jobState);
+
+    // Updates the edit block pane copy of the block
+    await this.updateEditBlockPaneBlockCode(jobState);
   }
 
   @Action
@@ -136,7 +253,12 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
       throw new Error('Cannot add file watch job with missing selected block');
     }
 
-    const fileInputElement = getFileFromElementByQuery(`#${syncFileIdPrefix}${this.localFileSyncModalUniqueId}`);
+    const selector = `#${syncFileIdPrefix}${this.localFileSyncModalUniqueId}`;
+
+    // Keep a copy of the file input around for after the Modal closes.
+    copyElementToDocumentBody(selector);
+
+    const fileInputElement = getFileFromElementByQuery(selector);
 
     if (!fileInputElement) {
       throw new Error('Could not get file input element from DOM');
@@ -156,6 +278,15 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
       fileName: fileInputElement.name
     };
 
+    // Add the job state to the store for later usage.
+    this.addJobForBlock(jobState);
+
+    // Perform the initial grab of the code from the file.
+    await this.updateBlockCode(jobId);
+
+    // Clear the state before the next run
+    this.resetModal();
+
     // Creates a job that runs 10 times per second and checks if the file we're watching has changed.
     await autoRefreshJob({
       nonce: jobId,
@@ -165,7 +296,47 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
           return;
         }
 
+        const fileInputElement = getFileFromElementByQuery(selector);
+
+        if (!fileInputElement) {
+          throw new Error('Could not get file input element from DOM');
+        }
+
         // TODO: Check if the file contents have changed and dispatch updates
+        const jobState = this.jobIdToJobStateLookup[jobId];
+
+        // This shouldn't happen, but just in case we will bail.
+        if (!jobState) {
+          console.error('Could not find file update job data. This is weird.');
+          return;
+        }
+
+        // If the file hasn't changed, just return.
+        if (jobState.lastModifiedDate === fileInputElement.lastModified) {
+          return;
+        }
+
+        try {
+          // Grab the contents of the file so that we can update the block code.
+          const updatedCode = await readFileAsText(fileInputElement);
+
+          if (updatedCode === null) {
+            console.error('Unable to read file contents for block file sync job.');
+            return;
+          }
+
+          // Update the store with the new state
+          this.updateJobState({
+            ...jobState,
+            fileContents: updatedCode,
+            lastModifiedDate: fileInputElement.lastModified
+          });
+
+          // Kick off updating the block state
+          await this.updateBlockCode(jobId);
+        } catch (e) {
+          console.error('Unable to update block code', e);
+        }
       },
       isStillValid: async (nonce, iteration) => {
         // Keep going so long as the job is still in our lookup!
@@ -191,9 +362,13 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
       throw new Error('No block selected to sync file with');
     }
 
-    const openedProject = this.context.rootState.project.openedProject;
+    // const openedProject = this.context.rootState.project.openedProject;
 
     const selectedCodeBlock = editBlockStore.selectedNode as LambdaWorkflowState;
+
+    this.setModalUniqueId(uuid());
+    this.setSelectedBlockForModal(selectedCodeBlock);
+    this.setModalVisibility(true);
   }
 }
 

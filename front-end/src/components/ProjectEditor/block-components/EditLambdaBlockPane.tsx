@@ -670,7 +670,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     return (
       <b-form-group description="Click to select a file that will replace the contents of this block. This may also continually refresh the block\'s content.">
         <label class="d-block">Sync Block With Local File:</label>
-        <b-button variant="dark" class="col-12" on={{ click: this.syncBlockWithFile }}>
+        <b-button variant="dark" class="col-12" on={{ click: BlockLocalCodeSyncStoreModule.OpenSyncFileModal }}>
           Open File
         </b-button>
       </b-form-group>
@@ -686,10 +686,16 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       throw new Error('Local file sync modal ID is null, this is bad and the app is breaking now');
     }
 
+    const selectedBlock = BlockLocalCodeSyncStoreModule.selectedBlockForModal;
+
+    if (!selectedBlock) {
+      throw new Error('Cannot render select local file modal without block in store');
+    }
+
     const uniqueId = BlockLocalCodeSyncStoreModule.localFileSyncModalUniqueId;
 
     const modalOnHandlers = {
-      hidden: () => this.resetChangeLanguageModal()
+      hidden: () => BlockLocalCodeSyncStoreModule.resetModal()
     };
 
     const expectedFileExtension = `.${languageToFileExtension[this.selectedNode.language]}`;
@@ -698,10 +704,10 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       <b-modal
         on={modalOnHandlers}
         hide-footer={true}
-        title={`Sync Local Code with ${this.selectedNode.name}`}
-        visible={this.changeLanguageWarningVisible}
+        title={`Sync Local Code with ${selectedBlock.name}`}
+        visible={BlockLocalCodeSyncStoreModule.localFileSyncModalVisible}
       >
-        <b-form on={{ submit: preventDefaultWrapper(() => this.changeBlockLanguage()) }}>
+        <b-form on={{ submit: preventDefaultWrapper(() => BlockLocalCodeSyncStoreModule.addBlockWatchJob()) }}>
           <h4>Please choose a file from your local file system.</h4>
           <p>
             When you update the file on your system, the block code will automatically update to match the file
@@ -728,10 +734,13 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
             <b-form-checkbox
               id="local-file-auto-run-input"
               name="local-file-auto-run-input"
-              on={{ change: () => this.setReplaceCodeWithTemplateChecked(!this.replaceCodeWithTemplateChecked) }}
-              readonly={this.readOnly}
-              disabled={this.readOnly}
-              checked={this.replaceCodeWithTemplateChecked}
+              on={{
+                change: () =>
+                  BlockLocalCodeSyncStoreModule.setExecuteBlockOnFileChangeToggled(
+                    !BlockLocalCodeSyncStoreModule.executeBlockOnFileChangeToggled
+                  )
+              }}
+              checked={BlockLocalCodeSyncStoreModule.executeBlockOnFileChangeToggled}
             >
               Automatically execute when file is changed?
             </b-form-checkbox>
@@ -739,7 +748,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
           <div class="display--flex">
             <b-button class="mr-1 ml-1 flex-grow--1 width--100percent" variant="danger" type="submit">
-              Confirm Change
+              Confirm Add
             </b-button>
           </div>
         </b-form>
@@ -842,6 +851,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         {this.renderCodeEditorModal()}
         {this.renderLibrariesModal()}
         {this.renderChangeLanguageWarning()}
+        {this.renderSelectLocalFileToSyncModal()}
       </div>
     );
   }
