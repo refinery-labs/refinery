@@ -4790,9 +4790,6 @@ class TaskSpawner(object):
 							"DelaySeconds": str( 0 ),
 							"MaximumMessageSize": "262144",
 							"VisibilityTimeout": str( visibility_timeout ), # Lambda max time plus ten seconds
-						},
-						tags={
-							"RefineryResource": "true"
 						}
 					)
 					
@@ -4803,6 +4800,14 @@ class TaskSpawner(object):
 					time.sleep( 10 )
 			
 			sqs_arn = "arn:aws:sqs:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + queue_name
+			sqs_url = "https://sqs." + credentials[ "region" ] + ".amazonaws.com/" + str( credentials[ "account_id" ] ) + "/" + queue_name
+			
+			sqs_tag_queue_response = sqs_client.tag_queue(
+				QueueUrl=sqs_url,
+				Tags={
+					"RefineryResource": "true"
+				}
+			)
 			
 			return {
 				"id": id,
