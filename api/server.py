@@ -5449,9 +5449,14 @@ class TaskSpawner(object):
 				credentials
 			)
 			
-			response = api_gateway_client.delete_rest_api(
-				restApiId=rest_api_id,
-			)
+			try:
+				response = api_gateway_client.delete_rest_api(
+					restApiId=rest_api_id,
+				)
+			except botocore.exceptions.ClientError as boto_error:
+				# If it's not an NotFoundException exception it's not what we except so we re-raise
+				if boto_error.response[ "Error" ][ "Code" ] != "NotFoundException":
+					raise
 			
 			return {
 				"id": rest_api_id,
@@ -5663,6 +5668,23 @@ class TaskSpawner(object):
 					)
 			
 			return {}
+			
+		@run_on_executor
+		def api_gateway_exists( self, credentials, api_gateway_id ):
+			api_gateway_client = get_aws_client(
+				"apigateway",
+				credentials
+			)
+			try:
+				api_gateway_data = api_gateway_client.get_rest_api(
+					restApiId=api_gateway_id,
+				)
+			except ClientError as e:
+				if e.response[ "Error" ][ "Code" ] == "NotFoundException":
+					logit( "API Gateway " + api_gateway_id + " appears to have been deleted or no longer exists!" )
+					return False
+					
+			return True
 			
 		@run_on_executor
 		def add_integration_response( self, credentials, rest_api_id, resource_id, http_method, lambda_name ):
@@ -6744,6 +6766,19 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		
 	if len( deployed_api_endpoints ) > 0:
 		api_route_futures = []
+		
+		# Verify the existance of API Gateway before proceeding
+		# It could have been deleted.
+		logit( "Verifying existance of API Gateway..." )
+		api_gateway_exists = yield local_tasks.api_gateway_exists(
+			credentials,
+			api_gateway_id
+		)
+		
+		# If it doesn't exist we'll set the API Gateway ID to False
+		# So that it will be freshly created.
+		if not api_gateway_exists:
+			api_gateway_id = False
 		
 		# We need to create an API gateway
 		logit( "Deploying API Gateway for API Endpoint(s)..." )
@@ -9283,6 +9318,26 @@ def strip_api_gateway( credentials, api_gateway_id ):
 	
 	Allowing for the configuration details to be replaced.
 	"""
+	return_data = {
+		"deleted": True,
+		"type": "api_gateway",
+		"id": get_random_node_id(),
+		"arn": "arn:aws:apigateway:" + credentials[ "region" ] + "::/restapis/" + api_gateway_id,
+		"name": "__api_gateway__",
+	}
+	
+	# Verify the existance of API Gateway before proceeding
+	logit( "Verifying existance of API Gateway..." )
+	api_gateway_exists = yield local_tasks.api_gateway_exists(
+		credentials,
+		api_gateway_id
+	)
+	
+	# If it doesn't exist we can stop here - there's nothing
+	# to strip!
+	if not api_gateway_exists:
+		raise gen.Return( return_data )
+	
 	rest_resources = yield local_tasks.get_resources(
 		credentials,
 		api_gateway_id
@@ -9331,14 +9386,6 @@ def strip_api_gateway( credentials, api_gateway_id ):
 		)
 	
 	yield deletion_futures
-
-	return_data = {
-		"deleted": True,
-		"type": "api_gateway",
-		"id": get_random_node_id(),
-		"arn": "arn:aws:apigateway:" + credentials[ "region" ] + "::/restapis/" + api_gateway_id,
-		"name": "__api_gateway__",
-	}
 	
 	raise gen.Return( return_data )
 	
