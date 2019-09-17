@@ -6030,7 +6030,7 @@ class RunTmpLambda( BaseHandler ):
 					"temporary_execution": True
 				}
 			}
-		
+			
 		if "debug_id" in self.json:
 			execute_lambda_params[ "_refinery" ][ "live_debug" ] = {
 				"debug_id": self.json[ "debug_id" ],
@@ -11098,15 +11098,13 @@ def get_tornado_app_config( is_debug ):
 		"compress_response": True
 	}
 
-def make_websocket_server( is_debug ):
-	tornado_app_settings = get_tornado_app_config( is_debug )
+def make_websocket_server( tornado_config ):
 	return tornado.web.Application([
 		# WebSocket callback endpoint for live debugging Lambdas
 		( r"/ws/v1/lambdas/connectback", LambdaConnectBackServer ),
-	], **tornado_app_settings)
+	], **tornado_config)
 		
-def make_app( is_debug ):
-	tornado_app_settings = get_tornado_app_config( is_debug )
+def make_app( tornado_config ):
 	return tornado.web.Application([
 		( r"/api/v1/health", HealthHandler ),
 		( r"/authentication/email/([a-z0-9]+)", EmailLinkAuthentication ),
@@ -11167,7 +11165,7 @@ def make_app( is_debug ):
 		( r"/services/v1/onboard_third_party_aws_account_plan", OnboardThirdPartyAWSAccountPlan ),
 		( r"/services/v1/dangerously_finalize_third_party_aws_onboarding", OnboardThirdPartyAWSAccountApply ),
 		( r"/services/v1/clear_s3_build_packages", ClearAllS3BuildPackages ),
-	], **tornado_app_settings)
+	], **tornado_config)
 	
 def get_lambda_callback_endpoint( is_debug ):
 	if is_debug:
@@ -11195,9 +11193,14 @@ if __name__ == "__main__":
 	
 	is_debug = ( os.environ.get( "is_debug" ).lower() == "true" )
 	
+	# Generate tornado config
+	tornado_config = get_tornado_app_config(
+		is_debug
+	)
+	
 	# Start API server
 	app = make_app(
-		is_debug
+		tornado_config
 	)
 	server = tornado.httpserver.HTTPServer(
 		app
@@ -11208,7 +11211,7 @@ if __name__ == "__main__":
 	
 	# Start websocket server
 	websocket_app = make_websocket_server(
-		is_debug
+		tornado_config
 	)
 	websocket_server = tornado.httpserver.HTTPServer(
 		websocket_app
