@@ -4730,7 +4730,13 @@ class TaskSpawner(object):
 			
 			topic_name = get_lambda_safe_name( topic_name )
 			response = sns_client.create_topic(
-				Name=topic_name
+				Name=topic_name,
+				Tags=[
+					{
+						"Key": "RefineryResource",
+						"Value": "true"
+					},
+				]
 			)
 			
 			return {
