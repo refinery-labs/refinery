@@ -3,12 +3,14 @@ import store from '@/store';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState } from '@/store/store-types';
-import { autoRefreshJob } from '@/utils/async-utils';
+import { autoRefreshJob, timeout } from '@/utils/async-utils';
 import { LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
 import { copyElementToDocumentBody, getFileFromElementByQuery, readFileAsText } from '@/utils/dom-utils';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { EditBlockMutators } from '@/store/modules/panes/edit-block-pane';
 import uuid from 'uuid/v4';
+import { RunCodeBlockLambdaConfig } from '@/types/run-lambda-types';
+import { RunLambdaActions } from '@/store/modules/run-lambda';
 
 const storeName = 'blockLocalCodeSync';
 
@@ -23,6 +25,7 @@ export interface FileWatchJobState {
   fileContents: string;
   fileName: string;
   lastModifiedDate: number;
+  autoExecuteBlock: boolean;
 }
 
 export interface FileWatchDomJob {
@@ -71,9 +74,9 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
   public selectedBlockForModal: LambdaWorkflowState | null = initialState.selectedBlockForModal;
 
   // Example of "getter" syntax.
-  // get currentExampleValue() {
-  // return this.example;
-  // }
+  get isBlockBeingSynced() {
+    return (id: string) => !!this.blockIdToJobIdLookup[id];
+  }
 
   @Mutation
   public resetState() {
@@ -222,6 +225,19 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
   }
 
   @Action
+  public async executeBlockCode() {
+    // TODO: Determine if we want to auto-select the block
+
+    const runLambdaConfig: RunCodeBlockLambdaConfig | null = this.context.rootGetters(`runLambda/getRunLambdaConfig`);
+
+    if (!runLambdaConfig) {
+      throw new Error('Unable to execute synced block, could not get run lambda config');
+    }
+
+    await this.context.dispatch(`runLambda/${RunLambdaActions.runLambdaCode}`, runLambdaConfig, { root: true });
+  }
+
+  @Action
   public async updateBlockCode(jobId: string) {
     // TODO: Check if the file contents have changed and dispatch updates
     const jobState = this.jobIdToJobStateLookup[jobId];
@@ -238,6 +254,11 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
 
     // Updates the edit block pane copy of the block
     await this.updateEditBlockPaneBlockCode(jobState);
+
+    // If the user wanted this to be executed, kick off the job.
+    if (jobState.autoExecuteBlock) {
+      await this.executeBlockCode();
+    }
   }
 
   @Action
@@ -275,7 +296,8 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
       blockId: selectedBlock.id,
       fileContents: file,
       lastModifiedDate: fileInputElement.lastModified,
-      fileName: fileInputElement.name
+      fileName: fileInputElement.name,
+      autoExecuteBlock: this.executeBlockOnFileChangeToggled
     };
 
     // Add the job state to the store for later usage.
@@ -355,7 +377,7 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
     const editBlockStore = this.context.rootState.project.editBlockPane;
 
     if (!editBlockStore) {
-      throw new Error('Missing edit block store');
+      throw new Error('Missing edit block store for creating sync job');
     }
 
     if (editBlockStore.selectedNode === null || editBlockStore.selectedNode.type !== WorkflowStateType.LAMBDA) {
@@ -369,6 +391,38 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
     this.setModalUniqueId(uuid());
     this.setSelectedBlockForModal(selectedCodeBlock);
     this.setModalVisibility(true);
+  }
+
+  @Action
+  public async stopSyncJobForSelectedBlock() {
+    const editBlockStore = this.context.rootState.project.editBlockPane;
+
+    if (!editBlockStore) {
+      throw new Error('Missing edit block store for stopping sync job');
+    }
+
+    if (editBlockStore.selectedNode === null || editBlockStore.selectedNode.type !== WorkflowStateType.LAMBDA) {
+      throw new Error('No block selected to stop sync file job');
+    }
+
+    const selectedCodeBlock = editBlockStore.selectedNode as LambdaWorkflowState;
+
+    const jobId = this.blockIdToJobIdLookup[selectedCodeBlock.id];
+
+    if (!jobId) {
+      throw new Error('Unable to remove block watch job, block was not in the job lookup');
+    }
+
+    const jobState = this.jobIdToJobStateLookup[jobId];
+
+    if (!jobState) {
+      throw new Error('Unable to remove block watch job, job state was not found in lookup');
+    }
+
+    this.removeJobForBlock(jobState);
+
+    // Wait for the file sync job to finish
+    await timeout(200);
   }
 }
 

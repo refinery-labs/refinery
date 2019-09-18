@@ -238,10 +238,12 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
     const setCodeModalVisibility = this.readOnly ? this.setCodeModalVisibilityDeployment : this.setCodeModalVisibility;
 
+    const isCurrentlySynced = BlockLocalCodeSyncStoreModule.isBlockBeingSynced(this.selectedNode.id);
+
     const editorProps: EditorProps = {
       name: 'block-code',
       lang: this.selectedNode.language,
-      readOnly: this.readOnly,
+      readOnly: this.readOnly || isCurrentlySynced,
       content: this.selectedNode.code,
       onChange: setCodeInput,
       fullscreenToggled: () => setCodeModalVisibility(true),
@@ -667,11 +669,37 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   }
 
   public renderLocalFileLinkButton() {
+    const isCurrentlySynced = BlockLocalCodeSyncStoreModule.isBlockBeingSynced(this.selectedNode.id);
+
+    function getOnClickHandler() {
+      if (isCurrentlySynced) {
+        return BlockLocalCodeSyncStoreModule.stopSyncJobForSelectedBlock;
+      }
+
+      return BlockLocalCodeSyncStoreModule.OpenSyncFileModal;
+    }
+
+    function getDescriptionText() {
+      if (isCurrentlySynced) {
+        return 'This block is currently being synced with a file. Click the button to cancel this job and resume editing this block\'s code in the editor.';
+      }
+
+      return 'Click to select a file that will replace the contents of this block. This may also continually refresh the block\'s content.';
+    }
+
+    function getButtonText() {
+      if (isCurrentlySynced) {
+        return 'Stop File Sync';
+      }
+
+      return 'Open File';
+    }
+
     return (
-      <b-form-group description="Click to select a file that will replace the contents of this block. This may also continually refresh the block\'s content.">
+      <b-form-group description={getDescriptionText()}>
         <label class="d-block">Sync Block With Local File:</label>
-        <b-button variant="dark" class="col-12" on={{ click: BlockLocalCodeSyncStoreModule.OpenSyncFileModal }}>
-          Open File
+        <b-button variant="dark" class="col-12" on={{ click: getOnClickHandler() }}>
+          {getButtonText()}
         </b-button>
       </b-form-group>
     );
@@ -747,7 +775,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
           </b-form-group>
 
           <div class="display--flex">
-            <b-button class="mr-1 ml-1 flex-grow--1 width--100percent" variant="danger" type="submit">
+            <b-button class="mr-1 ml-1 flex-grow--1 width--100percent" variant="primary" type="submit">
               Confirm Add
             </b-button>
           </div>
