@@ -4632,6 +4632,29 @@ class TaskSpawner(object):
 			return schedule_expression
 			
 		@run_on_executor
+		def create_cloudwatch_group( self, credentials, group_name, tags_dict, retention_days ):
+			# Create S3 client
+			cloudwatch_logs = get_aws_client(
+				"logs",
+				credentials
+			)
+			
+			response = cloudwatch_logs.create_log_group(
+			    logGroupName=group_name,
+			    tags=tags_dict
+			)
+			
+			retention_response = cloudwatch_logs.put_retention_policy(
+				logGroupName=group_name,
+				retentionInDays=retention_days
+			)
+			
+			return {
+				"group_name": group_name,
+				"tags_dict": tags_dict
+			}
+			
+		@run_on_executor
 		def create_cloudwatch_rule( self, credentials, id, name, schedule_expression, description, input_string ):
 			events_client = get_aws_client(
 				"events",
@@ -6288,6 +6311,17 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	# name which they manage themselves.
 	if credentials[ "account_type" ] == "THIRDPARTY":
 		lambda_role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/" + THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
+		
+	# Don't yield for it, but we'll also create a log group at the same time
+	# We're set a tag for that log group for cost tracking
+	local_tasks.create_cloudwatch_group(
+		credentials,
+		"/aws/lambda/" + name,
+		{
+			"RefineryResource": "true"
+		},
+		7
+	)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
 		credentials,
