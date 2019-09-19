@@ -11,6 +11,7 @@ import { EditBlockMutators } from '@/store/modules/panes/edit-block-pane';
 import uuid from 'uuid/v4';
 import { RunCodeBlockLambdaConfig } from '@/types/run-lambda-types';
 import { RunLambdaActions } from '@/store/modules/run-lambda';
+import { OpenProjectMutation, SIDEBAR_PANE } from '@/types/project-editor-types';
 
 const storeName = 'blockLocalCodeSync';
 
@@ -225,8 +226,31 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
   }
 
   @Action
-  public async executeBlockCode() {
-    // TODO: Determine if we want to auto-select the block
+  public async executeBlockCode(jobState: FileWatchJobState) {
+    const editBlockPane = this.context.rootState.project.editBlockPane;
+
+    if (!editBlockPane) {
+      throw new Error('Unable to execute block without edit block pane in store');
+    }
+
+    // We only re-select the node if we don't currently have it selected. This should prevent clearing the Monaco state.
+    if (!editBlockPane.selectedNode || editBlockPane.selectedNode.id !== jobState.blockId) {
+      // We auto-select the block in order to show the user what's going on.
+      // This also ensures that the RunLambda store executes the right block.
+      // TODO: Make the UI function independently of the "selected block" pane.
+      await this.context.dispatch(`project/${ProjectViewActions.selectNode}`, jobState.blockId, { root: true });
+    }
+
+    // Ensure that the left sidebar pane is set to the code runner.
+    // TODO: Clean up this leaky af abstraction
+    if (this.context.rootState.project.activeLeftSidebarPane !== SIDEBAR_PANE.runEditorCodeBlock) {
+      // Open up the left sidebar pane so that we can show the execution happening.
+      await this.context.dispatch(
+        `project/${ProjectViewActions.openLeftSidebarPane}`,
+        SIDEBAR_PANE.runEditorCodeBlock,
+        { root: true }
+      );
+    }
 
     const runLambdaConfig: RunCodeBlockLambdaConfig | null = this.context.rootGetters[`runLambda/getRunLambdaConfig`];
 
@@ -257,7 +281,7 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
 
     // If the user wanted this to be executed, kick off the job.
     if (jobState.autoExecuteBlock) {
-      await this.executeBlockCode();
+      await this.executeBlockCode(jobState);
     }
   }
 
@@ -420,6 +444,16 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
     }
 
     this.removeJobForBlock(jobState);
+
+    const params: OpenProjectMutation = {
+      markAsDirty: true,
+      project: null,
+      config: null
+    };
+
+    // This forces the Cytoscape graph elements to update, which gets rid of the file sync icon.
+    // TODO: Clean up this hack by (probably) using a getter for the Cytoscape graph state.
+    this.context.dispatch(`project/${ProjectViewActions.updateProject}`, params, { root: true });
 
     // Wait for the file sync job to finish
     await timeout(200);

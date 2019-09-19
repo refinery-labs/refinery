@@ -1,6 +1,7 @@
 import { VueConstructor } from 'vue';
 import { ProjectConfig, RefineryProject, SupportedLanguage } from '@/types/graph';
 import { DeploymentException } from '@/types/api-types';
+import { CssStyleDeclaration } from 'cytoscape';
 
 export enum SIDEBAR_PANE {
   // Project Editor

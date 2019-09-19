@@ -4,7 +4,6 @@ import cytoscape, { EdgeDefinition, EventObject, LayoutOptions, NodeDefinition }
 import cyCanvas, { CytoscapeCanvasInstance } from '../lib/cytoscape-canvas';
 import dagre from 'cytoscape-dagre';
 import deepEqual from 'fast-deep-equal';
-import { WorkflowRelationship, WorkflowState } from '@/types/graph';
 import { animationBegin, animationEnd, baseCytoscapeStyles, STYLE_CLASSES } from '@/lib/cytoscape-styles';
 import { timeout } from '@/utils/async-utils';
 import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
