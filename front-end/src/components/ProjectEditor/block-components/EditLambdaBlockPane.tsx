@@ -241,7 +241,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     const isCurrentlySynced = BlockLocalCodeSyncStoreModule.isBlockBeingSynced(this.selectedNode.id);
 
     const editorProps: EditorProps = {
-      name: 'block-code',
+      name: `block-code-${this.selectedNode.id}`,
       lang: this.selectedNode.language,
       readOnly: this.readOnly || isCurrentlySynced,
       content: this.selectedNode.code,
