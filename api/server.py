@@ -3336,6 +3336,9 @@ class TaskSpawner(object):
 				credentials
 			)
 			
+			# Add pricing tag
+			tags_dict[ "RefineryResource" ] = "true"
+			
 			try:
 				# https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#Lambda.Client.create_function
 				response = lambda_client.create_function(
@@ -4614,6 +4617,29 @@ class TaskSpawner(object):
 			return schedule_expression
 			
 		@run_on_executor
+		def create_cloudwatch_group( self, credentials, group_name, tags_dict, retention_days ):
+			# Create S3 client
+			cloudwatch_logs = get_aws_client(
+				"logs",
+				credentials
+			)
+			
+			response = cloudwatch_logs.create_log_group(
+			    logGroupName=group_name,
+			    tags=tags_dict
+			)
+			
+			retention_response = cloudwatch_logs.put_retention_policy(
+				logGroupName=group_name,
+				retentionInDays=retention_days
+			)
+			
+			return {
+				"group_name": group_name,
+				"tags_dict": tags_dict
+			}
+			
+		@run_on_executor
 		def create_cloudwatch_rule( self, credentials, id, name, schedule_expression, description, input_string ):
 			events_client = get_aws_client(
 				"events",
@@ -4631,13 +4657,25 @@ class TaskSpawner(object):
 				ScheduleExpression=schedule_expression, # cron(0 20 * * ? *) or rate(5 minutes)
 				State="ENABLED",
 				Description=description,
-				RoleArn=events_role_arn,
+				RoleArn=events_role_arn
+			)
+			
+			rule_arn = response[ "RuleArn" ]
+			
+			tag_add_response = events_client.tag_resource(
+				ResourceARN=rule_arn,
+				Tags=[
+					{
+						"Key": "RefineryResource",
+						"Value": "true"
+					},
+				]
 			)
 			
 			return {
 				"id": id,
 				"name": name,
-				"arn": response[ "RuleArn" ],
+				"arn": rule_arn,
 				"input_string": input_string,
 			}
 			
@@ -4700,7 +4738,13 @@ class TaskSpawner(object):
 			
 			topic_name = get_lambda_safe_name( topic_name )
 			response = sns_client.create_topic(
-				Name=topic_name
+				Name=topic_name,
+				Tags=[
+					{
+						"Key": "RefineryResource",
+						"Value": "true"
+					},
+				]
 			)
 			
 			return {
@@ -4776,6 +4820,14 @@ class TaskSpawner(object):
 					time.sleep( 10 )
 			
 			sqs_arn = "arn:aws:sqs:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + queue_name
+			sqs_url = "https://sqs." + credentials[ "region" ] + ".amazonaws.com/" + str( credentials[ "account_id" ] ) + "/" + queue_name
+			
+			sqs_tag_queue_response = sqs_client.tag_queue(
+				QueueUrl=sqs_url,
+				Tags={
+					"RefineryResource": "true"
+				}
+			)
 			
 			return {
 				"id": id,
@@ -5432,7 +5484,10 @@ class TaskSpawner(object):
 				},
 				binaryMediaTypes=[
 					"*/*"
-				]
+				],
+				tags={
+					"RefineryResource": "true"
+				}
 			)
 			
 			return {
@@ -6285,6 +6340,17 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 	# name which they manage themselves.
 	if credentials[ "account_type" ] == "THIRDPARTY":
 		lambda_role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/" + THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
+		
+	# Don't yield for it, but we'll also create a log group at the same time
+	# We're set a tag for that log group for cost tracking
+	local_tasks.create_cloudwatch_group(
+		credentials,
+		"/aws/lambda/" + name,
+		{
+			"RefineryResource": "true"
+		},
+		7
+	)
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
 		credentials,

@@ -15,10 +15,10 @@
 	lowest-possible permissions to interact with the Kinesis API.
 */
 resource "aws_iam_policy" "refinery_default_aws_lambda_policy" {
-    name        = "refinery_default_aws_lambda_policy"
-    path        = "/"
-    description = "Default Refinery AWS Lambda runtime IAM policy."
-    policy      = <<POLICY
+  name        = "refinery_default_aws_lambda_policy"
+  path        = "/"
+  description = "Default Refinery AWS Lambda runtime IAM policy."
+  policy      = <<POLICY
 {
     "Version": "2012-10-17",
     "Statement": [
@@ -177,6 +177,7 @@ resource "aws_iam_policy" "refinery_default_aws_lambda_policy" {
     ]
 }
 POLICY
+
 }
 
 /*
@@ -202,6 +203,7 @@ resource "aws_iam_role" "refinery_default_aws_lambda_role" {
   ]
 }
 EOF
+
 }
 
 /*
@@ -209,7 +211,7 @@ EOF
 	default Lambda IAM permissions.
 */
 resource "aws_iam_role_policy_attachment" "refinery_default_aws_lambda_attachment" {
-  role       = "${aws_iam_role.refinery_default_aws_lambda_role.id}"
+  role       = aws_iam_role.refinery_default_aws_lambda_role.id
   policy_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/refinery_default_aws_lambda_policy"
 }
 
@@ -219,10 +221,10 @@ resource "aws_iam_role_policy_attachment" "refinery_default_aws_lambda_attachmen
 	Lambdas built and deployed by Refinery.
 */
 resource "aws_iam_policy" "refinery_default_aws_cloudwatch_policy" {
-    name        = "refinery_default_aws_cloudwatch_policy"
-    path        = "/"
-    description = "Default Refinery AWS CloudWatch admin runtime IAM policy."
-    policy      = <<POLICY
+  name        = "refinery_default_aws_cloudwatch_policy"
+  path        = "/"
+  description = "Default Refinery AWS CloudWatch admin runtime IAM policy."
+  policy      = <<POLICY
 {
   "Version": "2012-10-17",
   "Statement": [
@@ -238,6 +240,7 @@ resource "aws_iam_policy" "refinery_default_aws_cloudwatch_policy" {
   ]
 }
 POLICY
+
 }
 
 /*
@@ -263,6 +266,7 @@ resource "aws_iam_role" "refinery_default_aws_cloudwatch_role" {
   ]
 }
 EOF
+
 }
 
 /*
@@ -270,7 +274,7 @@ EOF
 	default CloudWatch IAM permissions.
 */
 resource "aws_iam_role_policy_attachment" "refinery_default_aws_cloudwatch_attachment" {
-  role       = "${aws_iam_role.refinery_default_aws_cloudwatch_role.id}"
+  role       = aws_iam_role.refinery_default_aws_cloudwatch_role.id
   policy_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/refinery_default_aws_cloudwatch_policy"
 }
 
@@ -278,9 +282,9 @@ resource "aws_iam_role_policy_attachment" "refinery_default_aws_cloudwatch_attac
 	IAM policy for the Lambda packages CodeBuild project
 */
 resource "aws_iam_role" "codebuild-refinery-builds-service-role" {
-    name               = "codebuild-refinery-builds-service-role"
-    path               = "/service-role/"
-    assume_role_policy = <<POLICY
+  name               = "codebuild-refinery-builds-service-role"
+  path               = "/service-role/"
+  assume_role_policy = <<POLICY
 {
   "Version": "2012-10-17",
   "Statement": [
@@ -294,16 +298,17 @@ resource "aws_iam_role" "codebuild-refinery-builds-service-role" {
   ]
 }
 POLICY
+
 }
 
 /*
 	IAM policy for trust relationship to CodeBuild
 */
 resource "aws_iam_policy" "refinery_codebuild_base_policy" {
-    name        = "refinery_codebuild_base_policy"
-    path        = "/service-role/"
-    description = "Policy used in trust relationship with CodeBuild"
-    policy      = <<POLICY
+  name        = "refinery_codebuild_base_policy"
+  path        = "/service-role/"
+  description = "Policy used in trust relationship with CodeBuild"
+  policy      = <<POLICY
 {
   "Version": "2012-10-17",
   "Statement": [
@@ -369,6 +374,7 @@ resource "aws_iam_policy" "refinery_codebuild_base_policy" {
   ]
 }
 POLICY
+
 }
 
 /*
@@ -376,6 +382,7 @@ POLICY
 	CloudBuild IAM policies.
 */
 resource "aws_iam_role_policy_attachment" "refinery_codebuild_builds_attachment" {
-  role       = "${aws_iam_role.codebuild-refinery-builds-service-role.id}"
+  role       = aws_iam_role.codebuild-refinery-builds-service-role.id
   policy_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/service-role/refinery_codebuild_base_policy"
 }
+

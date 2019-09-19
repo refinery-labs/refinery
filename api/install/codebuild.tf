@@ -6,19 +6,19 @@ resource "aws_codebuild_project" "refinery-builds" {
   name          = "refinery-builds"
   description   = "Refinery's build system for Lambda packages."
   build_timeout = "15"
-  service_role  = "${aws_iam_role.codebuild-refinery-builds-service-role.arn}"
+  service_role  = aws_iam_role.codebuild-refinery-builds-service-role.arn
 
   artifacts {
-    type              = "S3"
-    name              = "package.zip"
-    namespace_type    = "BUILD_ID"
-    location          = "refinery-lambda-build-packages-${var.s3_bucket_suffix}"
-    packaging         = "ZIP"
+    type           = "S3"
+    name           = "package.zip"
+    namespace_type = "BUILD_ID"
+    location       = "refinery-lambda-build-packages-${var.s3_bucket_suffix}"
+    packaging      = "ZIP"
   }
 
   cache {
-    type     = "LOCAL"
-    modes    = ["LOCAL_DOCKER_LAYER_CACHE"]
+    type  = "LOCAL"
+    modes = ["LOCAL_DOCKER_LAYER_CACHE"]
   }
 
   environment {
@@ -30,7 +30,12 @@ resource "aws_codebuild_project" "refinery-builds" {
   }
 
   source {
-    type            = "S3"
-    location        = "refinery-lambda-build-packages-${var.s3_bucket_suffix}/nonexistant.zip"
+    type     = "S3"
+    location = "refinery-lambda-build-packages-${var.s3_bucket_suffix}/nonexistant.zip"
+  }
+
+  tags = {
+    RefineryResource = "true"
   }
 }
+
