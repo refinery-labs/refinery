@@ -228,7 +228,7 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
   public async executeBlockCode() {
     // TODO: Determine if we want to auto-select the block
 
-    const runLambdaConfig: RunCodeBlockLambdaConfig | null = this.context.rootGetters(`runLambda/getRunLambdaConfig`);
+    const runLambdaConfig: RunCodeBlockLambdaConfig | null = this.context.rootGetters[`runLambda/getRunLambdaConfig`];
 
     if (!runLambdaConfig) {
       throw new Error('Unable to execute synced block, could not get run lambda config');
@@ -304,7 +304,7 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
     this.addJobForBlock(jobState);
 
     // Perform the initial grab of the code from the file.
-    await this.updateBlockCode(jobId);
+    this.updateBlockCode(jobId);
 
     // Clear the state before the next run
     this.resetModal();
