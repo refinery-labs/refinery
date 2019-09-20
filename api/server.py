@@ -4584,7 +4584,7 @@ class TaskSpawner(object):
 					},
 					"install": {
 						"runtime-versions": {
-							"nodejs": 8
+							"nodejs": 10
 						}
 					}
 				},
