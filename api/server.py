@@ -1097,7 +1097,8 @@ class TaskSpawner(object):
 					"EncryptionConfiguration": {
 						"EncryptionOption": "SSE_S3"
 					}
-				}
+				},
+				WorkGroup="refinery_workgroup"
 			)
 
 			# Ensure we have an execution ID to follow
