@@ -141,6 +141,7 @@ def on_start():
 	# These languages are all custom
 	CUSTOM_RUNTIME_LANGUAGES = [
 		"nodejs8.10",
+		"nodejs10.16.3",
 		"php7.3",
 		"go1.12",
 		"python2.7",
@@ -152,6 +153,7 @@ def on_start():
 		"python3.6": [],
 		"python2.7": [],
 		"nodejs8.10": [],
+		"nodejs10.16.3": [],
 		"php7.3": [],
 		"go1.12": [],
 		"ruby2.6.4": []
@@ -161,6 +163,7 @@ def on_start():
 		"python3.6",
 		"python2.7",
 		"nodejs8.10",
+		"nodejs10.16.3",
 		"php7.3",
 		"go1.12",
 		"ruby2.6.4"
@@ -3087,6 +3090,8 @@ class TaskSpawner(object):
 				package_zip_data = TaskSpawner._build_php_73_lambda( credentials, code, libraries )
 			elif language == "nodejs8.10":
 				package_zip_data = TaskSpawner._build_nodejs_810_lambda( credentials, code, libraries )
+			elif language == "nodejs10.16.3":
+				package_zip_data = TaskSpawner._build_nodejs_10163_lambda( credentials, code, libraries )
 			elif language == "go1.12":
 				package_zip_data = TaskSpawner.get_go112_zip( credentials, code )
 			elif language == "ruby2.6.4":
@@ -4443,6 +4448,198 @@ class TaskSpawner(object):
 			lambda_package_zip.close()
 			
 			return lambda_package_zip_data
+			
+		@staticmethod
+		def _get_nodejs_10163_base_code( code ):
+			code = re.sub(
+				r"function main\([^\)]+\)[^{]\{",
+				"function main( blockInput ) {",
+				code
+			)
+			
+			code = re.sub(
+				r"function mainCallback\([^\)]+\)[^{]\{",
+				"function mainCallback( blockInput, callback ) {",
+				code
+			)
+			
+			code = code + "\n\n" + LAMDBA_BASE_CODES[ "nodejs10.16.3" ]
+			return code
+			
+		@staticmethod
+		def _build_nodejs_10163_lambda( credentials, code, libraries ):
+			code = TaskSpawner._get_nodejs_10163_base_code(
+				code
+			)
+			
+			# Use CodeBuilder to get a base zip of the libraries
+			base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
+			if len( libraries ) > 0:
+				base_zip_data = TaskSpawner.get_nodejs_10163_lambda_base_zip(
+					credentials,
+					libraries
+				)
+			
+			# Create a virtual file handler for the Lambda zip package
+			lambda_package_zip = io.BytesIO( base_zip_data )
+				
+			with zipfile.ZipFile( lambda_package_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+				info = zipfile.ZipInfo(
+					"lambda"
+				)
+				info.external_attr = 0777 << 16L
+				
+				# Write lambda.py into new .zip
+				zip_file_handler.writestr(
+					info,
+					str( code )
+				)
+		
+			lambda_package_zip_data = lambda_package_zip.getvalue()
+			lambda_package_zip.close()
+			
+			return lambda_package_zip_data
+			
+		@staticmethod
+		def get_nodejs_10163_lambda_base_zip( credentials, libraries ):
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+			
+			libraries_object = {}
+			for library in libraries:
+				libraries_object[ str( library ) ] = "latest"
+			
+			final_s3_package_zip_path = TaskSpawner._get_final_zip_package_path(
+				"nodejs10.16.3",
+				libraries_object
+			)
+			
+			if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
+				return TaskSpawner._read_from_s3(
+					credentials,
+					credentials[ "lambda_packages_bucket" ],
+					final_s3_package_zip_path
+				)
+			
+			# Kick off CodeBuild for the libraries to get a zip artifact of
+			# all of the libraries.
+			build_id = TaskSpawner._start_node10163_codebuild(
+				credentials,
+				libraries_object
+			)
+			
+			# This continually polls for the CodeBuild build to finish
+			# Once it does it returns the raw artifact zip data.
+			return TaskSpawner._get_codebuild_artifact_zip_data(
+				credentials,
+				build_id,
+				final_s3_package_zip_path
+			)
+			
+		@run_on_executor
+		def start_node10163_codebuild( self, credentials, libraries_object ):
+			return TaskSpawner._start_node810_codebuild( credentials, libraries_object )
+			
+		@staticmethod
+		def _start_node10163_codebuild( credentials, libraries_object ):
+			"""
+			Returns a build ID to be polled at a later time
+			"""
+			codebuild_client = get_aws_client(
+				"codebuild",
+				credentials
+			)
+			
+			s3_client = get_aws_client(
+				"s3",
+				credentials
+			)
+				
+			package_json_template = {
+				"name": "refinery-lambda",
+				"version": "1.0.0",
+				"description": "Lambda created by Refinery",
+				"main": "main.js",
+				"dependencies": libraries_object,
+				"devDependencies": {},
+				"scripts": {}
+			}
+			
+			# Create empty zip file
+			codebuild_zip = io.BytesIO( EMPTY_ZIP_DATA )
+			
+			buildspec_template = {
+				"artifacts": {
+					"files": [
+						 "**/*"
+					]
+				},
+				"phases": {
+					"build": {
+						"commands": [
+							"npm install"
+						]
+					},
+					"install": {
+						"runtime-versions": {
+							"nodejs": 8
+						}
+					}
+				},
+				"version": 0.2
+			}
+			
+			with zipfile.ZipFile( codebuild_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+				# Write buildspec.yml defining the build process
+				buildspec = zipfile.ZipInfo(
+					"buildspec.yml"
+				)
+				buildspec.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					buildspec,
+					yaml.dump(
+						buildspec_template
+					)
+				)
+				
+				# Write the package.json
+				package_json = zipfile.ZipInfo(
+					"package.json"
+				)
+				package_json.external_attr = 0777 << 16L
+				zip_file_handler.writestr(
+					package_json,
+					json.dumps(
+						package_json_template
+					)
+				)
+			
+			codebuild_zip_data = codebuild_zip.getvalue()
+			codebuild_zip.close()
+			
+			# S3 object key of the build package, randomly generated.
+			s3_key = "buildspecs/" + str( uuid.uuid4() ) + ".zip"
+
+			# Write the CodeBuild build package to S3
+			s3_response = s3_client.put_object(
+				Bucket=credentials[ "lambda_packages_bucket" ],
+				Body=codebuild_zip_data,
+				Key=s3_key,
+				ACL="public-read", # THIS HAS TO BE PUBLIC READ FOR SOME FUCKED UP REASON I DONT KNOW WHY
+			)
+			
+			# Fire-off the build
+			codebuild_response = codebuild_client.start_build(
+				projectName="refinery-builds",
+				sourceTypeOverride="S3",
+				sourceLocationOverride=credentials[ "lambda_packages_bucket" ] + "/" + s3_key,
+			)
+			
+			build_id = codebuild_response[ "build" ][ "id" ]
+			
+			return build_id
 			
 		@staticmethod
 		def _get_nodejs_810_base_code( code ):
@@ -5915,6 +6112,10 @@ def get_base_lambda_code( language, code ):
 		return TaskSpawner._get_nodejs_810_base_code(
 			code
 		)
+	elif language == "nodejs10.16.3":
+		return TaskSpawner._get_nodejs_10163_base_code(
+			code
+		)
 	elif language == "php7.3":
 		return TaskSpawner._get_php_73_base_code(
 			code
@@ -6186,7 +6387,7 @@ def get_language_specific_environment_variables( language ):
 			"key": "PYTHONUNBUFFERED",
 			"value": "1",
 		})
-	elif language == "nodejs8.10":
+	elif language == "nodejs8.10" or language == "nodejs10.16.3":
 		environment_variables_list.append({
 			"key": "NODE_PATH",
 			"value": "/var/task/node_modules/",
@@ -6290,6 +6491,14 @@ def get_layers_for_lambda( language ):
 	if language == "nodejs8.10":
 		new_layers.append(
 			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:20"
+		)
+	elif language == "nodejs10.16.3":
+		new_layers.append(
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-nodejs10-custom-runtime:1"
+		)
+	elif language == "php7.3":
+		new_layers.append(
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:20"
 		)
 	elif language == "php7.3":
 		new_layers.append(
@@ -10405,6 +10614,11 @@ class BuildLibrariesPackage( BaseHandler ):
 			)
 		elif self.json[ "language" ] == "nodejs8.10":
 			build_id = yield local_tasks.start_node810_codebuild(
+				credentials,
+				libraries_dict
+			)
+		elif self.json[ "language" ] == "nodejs10.16.3":
+			build_id = yield local_tasks.start_node10163_codebuild(
 				credentials,
 				libraries_dict
 			)

@@ -304,6 +304,11 @@ def main(block_input, backpack):
 def main(block_input, backpack):
     return "Hello World!"
 `,
+  [SupportedLanguage.NODEJS_10]: `
+async function main(blockInput, backpack) {
+    return 'Hello World!';
+}
+`,
   [SupportedLanguage.NODEJS_8]: `
 async function main(blockInput, backpack) {
     return 'Hello World!';
