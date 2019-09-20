@@ -7046,10 +7046,13 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		# Verify the existance of API Gateway before proceeding
 		# It could have been deleted.
 		logit( "Verifying existance of API Gateway..." )
-		api_gateway_exists = yield local_tasks.api_gateway_exists(
-			credentials,
-			api_gateway_id
-		)
+		if api_gateway_id:
+			api_gateway_exists = yield local_tasks.api_gateway_exists(
+				credentials,
+				api_gateway_id
+			)
+		else:
+			api_gateway_exists = False
 		
 		# If it doesn't exist we'll set the API Gateway ID to False
 		# So that it will be freshly created.
