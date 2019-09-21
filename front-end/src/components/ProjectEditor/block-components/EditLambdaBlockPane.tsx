@@ -695,10 +695,13 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       return 'Open File';
     }
 
+    // Used to disable this feature because we are effectively abusing a bug in Chrome.
+    const hasChromeBrowser = window.navigator.userAgent && /Chrome/.test(window.navigator.userAgent);
+
     return (
       <b-form-group description={getDescriptionText()}>
         <label class="d-block">Sync Block With Local File:</label>
-        <b-button variant="dark" class="col-12" on={{ click: getOnClickHandler() }}>
+        <b-button variant="dark" class="col-12" on={{ click: getOnClickHandler() }} disabled={!hasChromeBrowser}>
           {getButtonText()}
         </b-button>
       </b-form-group>

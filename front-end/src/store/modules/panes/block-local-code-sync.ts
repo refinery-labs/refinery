@@ -321,7 +321,7 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
       fileContents: file,
       lastModifiedDate: fileInputElement.lastModified,
       fileName: fileInputElement.name,
-      autoExecuteBlock: this.executeBlockOnFileChangeToggled
+      autoExecuteBlock: false
     };
 
     // Add the job state to the store for later usage.
@@ -329,6 +329,14 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
 
     // Perform the initial grab of the code from the file.
     this.updateBlockCode(jobId);
+
+    // If we are supposed to execute the code on save, then set that flag for future job runs.
+    if (this.executeBlockOnFileChangeToggled) {
+      this.updateJobState({
+        ...jobState,
+        autoExecuteBlock: true
+      });
+    }
 
     // Clear the state before the next run
     this.resetModal();
