@@ -148,7 +148,7 @@ export function generateCytoscapeStyle(stylesheetOverrides?: CssStyleDeclaration
     style: cytoscapeConfigLookup[key]
   }));
 
-  return [baseNodeStyle, baseEdgeStyle, ...filledStyleHelper, ...stylesheetOverrides];
+  return [baseNodeStyle, baseEdgeStyle, ...filledStyleHelper, ...(stylesheetOverrides || [])];
 }
 
 export function convertRefineryProjectToCytoscape(project: RefineryProject): cytoscape.CytoscapeOptions {
