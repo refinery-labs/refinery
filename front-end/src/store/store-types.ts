@@ -23,10 +23,12 @@ import { AddSavedBlockPaneState } from '@/store/modules/panes/add-saved-block-pa
 import { CreateSavedBlockViewState } from '@/store/modules/panes/create-saved-block-view';
 import { SettingsAppState } from '@/store/modules/settings-app';
 import { BlockLayersState } from '@/store/modules/panes/block-layers-pane';
+import { BlockLocalCodeSyncState } from '@/store/modules/panes/block-local-code-sync';
 
 export interface RootState {
   addSavedBlockPane: AddSavedBlockPaneState;
   blockLayers: BlockLayersState;
+  blockLocalCodeSync: BlockLocalCodeSyncState;
   createSavedBlockView: CreateSavedBlockViewState;
   setting: UserInterfaceState;
   deployment: DeploymentViewState;

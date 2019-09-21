@@ -1,3 +1,5 @@
+import { syncFileIdPrefix } from '@/store/modules/panes/block-local-code-sync';
+
 export function onInputChangedHandler(fn: Function, e: Event) {
   if (!e || !e.target) {
     return;
@@ -15,23 +17,45 @@ export function preventDefaultWrapper(fn: Function) {
   };
 }
 
+export function getFileFromElementByQuery(query: string) {
+  const fileInputElement = document.querySelector(query);
+
+  if (!fileInputElement) {
+    return null;
+  }
+
+  return getFileFromElement(fileInputElement as HTMLInputElement);
+}
+
 /**
- * Wraps up the file reader API into an async friendly helper function.
- * @param e Event from a file input value change event
- * @return Null if the file contents are empty or invalid. String otherwise.
+ * Given an event emitted by a File Input element change event, grab the file associated.
+ * @param e Event emmited by a File input element change event
  */
-export async function readFileAsText(e: Event): Promise<string | null> {
+export function getFileFromEvent(e: Event): File | null {
   if (!e.target) {
     return null;
   }
 
-  const element = e.target as HTMLInputElement;
+  return getFileFromElement(e.target as HTMLInputElement);
+}
 
+export function getFileFromElement(element: HTMLInputElement) {
   if (element.type !== 'file' || element.files === null || element.files.length === 0) {
     return null;
   }
 
-  const file = element.files[0];
+  return element.files[0];
+}
+
+/**
+ * Wraps up the file reader API into an async friendly helper function.
+ * @param file Input file from element to read contents from.
+ * @return Null if the file contents are empty or invalid. String otherwise.
+ */
+export async function readFileAsText(file: File): Promise<string | null> {
+  if (!file) {
+    return null;
+  }
 
   return await new Promise<string | null>((resolve, reject) => {
     const fr = new FileReader();
@@ -43,4 +67,15 @@ export async function readFileAsText(e: Event): Promise<string | null> {
     fr.onerror = () => reject();
     fr.readAsText(file);
   });
+}
+
+export function copyElementToDocumentBody(selector: string) {
+  const elementToMove = document.querySelector(selector);
+  const body = document.querySelector('body');
+
+  if (!body || !elementToMove) {
+    throw new Error('Unable to move element to body: ' + selector);
+  }
+
+  body.appendChild(elementToMove);
 }

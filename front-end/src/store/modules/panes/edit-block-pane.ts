@@ -68,6 +68,10 @@ export enum EditBlockMutators {
   resetChangeLanguageModal = 'resetChangeLanguageModal',
   setReplaceCodeWithTemplateChecked = 'setReplaceCodeWithTemplateChecked',
 
+  // Sync file with block
+  setFileSyncModalVisibility = 'setFileSyncModalVisibility',
+  setFileToSyncWithBlock = 'setFileToSyncWithBlock',
+
   // Timer Block Inputs
   setScheduleExpression = 'setScheduleExpression',
   setInputData = 'setInputData',
@@ -99,7 +103,8 @@ export enum EditBlockActions {
   saveInputData = 'saveInputData',
   showChangeLanguageWarning = 'showChangeLanguageWarning',
   changeBlockLanguage = 'changeBlockLanguage',
-  downloadBlockAsZip = 'downloadBlockAsZip'
+  downloadBlockAsZip = 'downloadBlockAsZip',
+  syncBlockWithFile = 'syncBlockWithFile'
 }
 
 export enum EditBlockGetters {
@@ -129,6 +134,9 @@ export interface EditBlockPaneState {
   changeLanguageWarningVisible: boolean;
   nextLanguageToChangeTo: SupportedLanguage | null;
   replaceCodeWithTemplateChecked: boolean;
+
+  fileSyncModalVisible: boolean;
+  fileToSyncBlockWith: string | null;
 }
 
 // Initial State
@@ -145,7 +153,10 @@ const moduleState: EditBlockPaneState = {
 
   changeLanguageWarningVisible: false,
   nextLanguageToChangeTo: null,
-  replaceCodeWithTemplateChecked: false
+  replaceCodeWithTemplateChecked: false,
+
+  fileSyncModalVisible: false,
+  fileToSyncBlockWith: null
 };
 
 function modifyBlock<T extends WorkflowState>(state: EditBlockPaneState, fn: (block: T) => void) {
@@ -373,6 +384,12 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     },
     [EditBlockMutators.setReplaceCodeWithTemplateChecked](state, checked) {
       state.replaceCodeWithTemplateChecked = checked;
+    },
+    [EditBlockMutators.setFileToSyncWithBlock](state, fileToSync) {
+      state.fileToSyncBlockWith = fileToSync;
+    },
+    [EditBlockMutators.setFileSyncModalVisibility](state, visible) {
+      state.fileSyncModalVisible = visible;
     }
   },
   actions: {
@@ -671,7 +688,8 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       const selectedCodeBlock = context.state.selectedNode as LambdaWorkflowState;
 
       await downloadBlockAsZip(openedProject, selectedCodeBlock);
-    }
+    },
+    async [EditBlockActions.syncBlockWithFile](context) {}
   }
 };
 

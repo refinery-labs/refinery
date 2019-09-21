@@ -5,9 +5,9 @@ export function timeout(ms: number): Promise<void> {
 export interface AutoRefreshJobConfig {
   nonce: string;
   timeoutMs: number;
-  maxIterations: number;
   makeRequest: () => Promise<void>;
   isStillValid: (nonce: string, iteration: number) => Promise<boolean>;
+  maxIterations?: number;
   onComplete?: (timeout: boolean) => Promise<void>;
 }
 
@@ -17,7 +17,7 @@ export interface AutoRefreshJobConfig {
  * @param iterations Incremented each time and used to kill itself later by limiting max iterations.
  */
 export async function autoRefreshJob(conf: AutoRefreshJobConfig, iterations: number = 0) {
-  if (iterations > conf.maxIterations) {
+  if (conf.maxIterations !== undefined && iterations > conf.maxIterations) {
     conf.onComplete && (await conf.onComplete(true));
     return;
   }
