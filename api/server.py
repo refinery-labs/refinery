@@ -11428,6 +11428,7 @@ class GetProjectShortlink( BaseHandler ):
 def get_tornado_app_config( is_debug ):
 	return {
 		"debug": is_debug,
+		"ngrok_enabled": os.environ.get( "ngrok_enabled" ),
 		"cookie_secret": os.environ.get( "cookie_secret_value" ),
 		"compress_response": True,
 		"websocket_router": WebSocketRouter()
@@ -11506,8 +11507,8 @@ def make_app( tornado_config ):
 		( r"/services/v1/clear_s3_build_packages", ClearAllS3BuildPackages ),
 	], **tornado_config)
 	
-def get_lambda_callback_endpoint( is_debug ):
-	if is_debug:
+def get_lambda_callback_endpoint( tornado_config ):
+	if tornado_config["ngrok_enabled"] == "true":
 		logit( "Setting up the ngrok tunnel to the local websocket server..." )
 		ngrok_http_endpoint = tornado.ioloop.IOLoop.current().run_sync(
 			set_up_ngrok_websocket_tunnel
@@ -11569,7 +11570,7 @@ if __name__ == "__main__":
 	# one assumes you have an external IP address and the other does not (and
 	# fixes the situation for you with ngrok).
 	LAMBDA_CALLBACK_ENDPOINT = get_lambda_callback_endpoint(
-		is_debug
+		tornado_config
 	)
 	
 	logit( "Lambda callback endpoint is " + LAMBDA_CALLBACK_ENDPOINT )
