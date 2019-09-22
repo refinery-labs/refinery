@@ -140,7 +140,7 @@ const cytoscapeConfigLookup: CytoscapeStyleConfigLookup = {
   }
 };
 
-export function generateCytoscapeStyle(): CssStyleDeclaration {
+export function generateCytoscapeStyle(stylesheetOverrides?: CssStyleDeclaration): CssStyleDeclaration {
   // Generate styles for each node
   const filledStyleHelper = Object.keys(cytoscapeConfigLookup).map(key => ({
     // CSS-style syntax
@@ -148,7 +148,7 @@ export function generateCytoscapeStyle(): CssStyleDeclaration {
     style: cytoscapeConfigLookup[key]
   }));
 
-  return [baseNodeStyle, baseEdgeStyle, ...filledStyleHelper];
+  return [baseNodeStyle, baseEdgeStyle, ...filledStyleHelper, ...(stylesheetOverrides || [])];
 }
 
 export function convertRefineryProjectToCytoscape(project: RefineryProject): cytoscape.CytoscapeOptions {

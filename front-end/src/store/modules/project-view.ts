@@ -17,7 +17,7 @@ import {
   WorkflowStateType
 } from '@/types/graph';
 import { generateCytoscapeElements, generateCytoscapeStyle } from '@/lib/refinery-to-cytoscript-converter';
-import { LayoutOptions } from 'cytoscape';
+import { CssStyleDeclaration, LayoutOptions } from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
 import {
   DeploymentViewActions,
@@ -555,7 +555,16 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.updateProject, params);
     },
     async [ProjectViewActions.updateProject](context, params: OpenProjectMutation) {
-      const stylesheet = generateCytoscapeStyle();
+      const stylesheetOverrides: CssStyleDeclaration = Object.keys(
+        context.rootState.blockLocalCodeSync.blockIdToJobIdLookup
+      ).map(blockId => {
+        return {
+          selector: `#${blockId}`,
+          style: { 'background-image': require('../../../public/img/node-icons/code-icon-local-sync.png') }
+        };
+      });
+
+      const stylesheet = generateCytoscapeStyle(stylesheetOverrides);
 
       if (params.config) {
         context.commit(ProjectViewMutators.setOpenedProjectConfig, params.config);

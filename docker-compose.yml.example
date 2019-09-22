@@ -28,6 +28,8 @@ services:
             postgresql_host: postgresdb
             # Whether debugging mode is enabled for tornado
             is_debug: "true"
+            # When enabled, this enables ngrok to function
+            ngrok_enabled: "true"
             # Whether Cloudflare auth is enabled
             cf_enabled: "true"
             # Cloudflare Access AUD

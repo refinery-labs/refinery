@@ -34,6 +34,8 @@ import {
   EditBlockLayersWrapper,
   EditBlockLayersWrapperProps
 } from '@/components/ProjectEditor/block-components/EditBlockLayersWrapper';
+import { languageToFileExtension } from '@/utils/project-debug-utils';
+import { BlockLocalCodeSyncStoreModule, syncFileIdPrefix } from '@/store/modules/panes/block-local-code-sync';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
@@ -70,6 +72,8 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @editBlock.State changeLanguageWarningVisible!: boolean;
   @editBlock.State nextLanguageToChangeTo!: SupportedLanguage | null;
   @editBlock.State replaceCodeWithTemplateChecked!: boolean;
+  @editBlock.State fileToSyncBlockWith!: string | null;
+  @editBlock.State fileSyncModalVisible!: boolean;
 
   @editBlock.Getter isEditedBlockValid!: boolean;
 
@@ -96,6 +100,8 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @editBlock.Action changeBlockLanguage!: () => void;
   @editBlock.Action('runCodeBlock') runEditorCodeBlock!: () => void;
   @editBlock.Action('downloadBlockAsZip') downloadEditorBlockAsZip!: () => void;
+  @editBlock.Action syncBlockWithFile!: () => Promise<void>;
+  @editBlock.Action setFileSyncModalVisibility!: (visible: boolean) => Promise<void>;
 
   deleteLibrary(library: string) {
     // Do nothing
@@ -163,10 +169,10 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
           <p>This will remove all libraries, if you have any specified.</p>
           <p>Changing the language will likely make your code no longer function.</p>
 
-          <b-form-group id="replace-with-default-template-group">
+          <b-form-group id="change-language-input-group">
             <b-form-checkbox
-              id="replace-with-default-template-input"
-              name="replace-with-detault-template"
+              id="change-language-input"
+              name="change-language-input"
               on={{ change: () => this.setReplaceCodeWithTemplateChecked(!this.replaceCodeWithTemplateChecked) }}
               readonly={this.readOnly}
               disabled={this.readOnly}
@@ -232,10 +238,12 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
     const setCodeModalVisibility = this.readOnly ? this.setCodeModalVisibilityDeployment : this.setCodeModalVisibility;
 
+    const isCurrentlySynced = BlockLocalCodeSyncStoreModule.isBlockBeingSynced(this.selectedNode.id);
+
     const editorProps: EditorProps = {
-      name: 'block-code',
+      name: `block-code-${this.selectedNode.id}`,
       lang: this.selectedNode.language,
-      readOnly: this.readOnly,
+      readOnly: this.readOnly || isCurrentlySynced,
       content: this.selectedNode.code,
       onChange: setCodeInput,
       fullscreenToggled: () => setCodeModalVisibility(true),
@@ -660,6 +668,125 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     );
   }
 
+  public renderLocalFileLinkButton() {
+    const isCurrentlySynced = BlockLocalCodeSyncStoreModule.isBlockBeingSynced(this.selectedNode.id);
+
+    function getOnClickHandler() {
+      if (isCurrentlySynced) {
+        return BlockLocalCodeSyncStoreModule.stopSyncJobForSelectedBlock;
+      }
+
+      return BlockLocalCodeSyncStoreModule.OpenSyncFileModal;
+    }
+
+    function getDescriptionText() {
+      if (isCurrentlySynced) {
+        return 'This block is currently being synced with a file. Click the button to cancel this job and resume editing this block\'s code in the editor.';
+      }
+
+      return 'Click to select a file that will replace the contents of this block. This may also continually refresh the block\'s content.';
+    }
+
+    function getButtonText() {
+      if (isCurrentlySynced) {
+        return 'Stop File Sync';
+      }
+
+      return 'Open File';
+    }
+
+    // Used to disable this feature because we are effectively abusing a bug in Chrome.
+    const hasChromeBrowser = window.navigator.userAgent && /Chrome/.test(window.navigator.userAgent);
+
+    return (
+      <b-form-group description={getDescriptionText()}>
+        <label class="d-block">Sync Block With Local File:</label>
+        <b-button variant="dark" class="col-12" on={{ click: getOnClickHandler() }} disabled={!hasChromeBrowser}>
+          {getButtonText()}
+        </b-button>
+      </b-form-group>
+    );
+  }
+
+  public renderSelectLocalFileToSyncModal() {
+    if (!BlockLocalCodeSyncStoreModule.localFileSyncModalVisible) {
+      return null;
+    }
+
+    if (BlockLocalCodeSyncStoreModule.localFileSyncModalUniqueId === null) {
+      throw new Error('Local file sync modal ID is null, this is bad and the app is breaking now');
+    }
+
+    const selectedBlock = BlockLocalCodeSyncStoreModule.selectedBlockForModal;
+
+    if (!selectedBlock) {
+      throw new Error('Cannot render select local file modal without block in store');
+    }
+
+    const uniqueId = BlockLocalCodeSyncStoreModule.localFileSyncModalUniqueId;
+
+    const modalOnHandlers = {
+      hidden: () => BlockLocalCodeSyncStoreModule.resetModal()
+    };
+
+    const expectedFileExtension = `.${languageToFileExtension[this.selectedNode.language]}`;
+
+    return (
+      <b-modal
+        on={modalOnHandlers}
+        hide-footer={true}
+        title={`Sync Local Code with ${selectedBlock.name}`}
+        visible={BlockLocalCodeSyncStoreModule.localFileSyncModalVisible}
+      >
+        <b-form on={{ submit: preventDefaultWrapper(() => BlockLocalCodeSyncStoreModule.addBlockWatchJob()) }}>
+          <h4>Please choose a file from your local file system.</h4>
+          <p>
+            When you update the file on your system, the block code will automatically update to match the file
+            contents.
+          </p>
+          <p>This sync will stop when you refresh your browser or close this project.</p>
+
+          <b-form-group
+            id="sync-local-file-input-group"
+            label="Select local file:"
+            label-for="sync-local-file-input"
+            description="The file that you choose will be automatically synchronized to the block."
+          >
+            <b-form-file
+              id={`${syncFileIdPrefix}${uniqueId}`}
+              class="mb-2 mr-sm-2 mb-sm-0"
+              accept={expectedFileExtension}
+              required={true}
+              placeholder={`eg, my-amazing-code${expectedFileExtension}`}
+            />
+          </b-form-group>
+
+          <b-form-group id="local-file-auto-run-input-group">
+            <b-form-checkbox
+              id="local-file-auto-run-input"
+              name="local-file-auto-run-input"
+              on={{
+                change: () =>
+                  BlockLocalCodeSyncStoreModule.setExecuteBlockOnFileChangeToggled(
+                    !BlockLocalCodeSyncStoreModule.executeBlockOnFileChangeToggled
+                  )
+              }}
+              checked={BlockLocalCodeSyncStoreModule.executeBlockOnFileChangeToggled}
+            >
+              Automatically execute when file is changed?
+            </b-form-checkbox>
+          </b-form-group>
+
+          <div class="display--flex">
+            <b-button class="mr-1 ml-1 flex-grow--1 width--100percent" variant="primary" type="submit">
+              Confirm Add
+            </b-button>
+          </div>
+        </b-form>
+      </b-modal>
+    );
+  }
+
   public render(): VNode {
     const setMaxExecutionTime = this.readOnly ? nopWrite : this.setMaxExecutionTime;
     const setExecutionMemory = this.readOnly ? nopWrite : this.setExecutionMemory;
@@ -746,14 +873,16 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         <b-col xl={6}>{this.renderBlockVariables()}</b-col>
         <b-col xl={6}>{this.renderBlockLayers()}</b-col>
         <b-col xl={6}>{this.renderLibrarySelector()}</b-col>
-        <b-col xl={6}>{this.renderLanguageSelector()}</b-col>
+        <b-col xl={6}>{this.renderLocalFileLinkButton()}</b-col>
         <b-col xl={6}>{this.renderDownloadBlock()}</b-col>
+        <b-col xl={6}>{this.renderLanguageSelector()}</b-col>
         <b-col xl={6}>{this.renderForm(this.selectedNode, maxExecutionTimeProps)}</b-col>
         <b-col xl={6}>{this.renderForm(this.selectedNode, maxMemoryProps)}</b-col>
         <b-col xl={6}>{this.renderConcurrencyLimit(this.selectedNode)}</b-col>
         {this.renderCodeEditorModal()}
         {this.renderLibrariesModal()}
         {this.renderChangeLanguageWarning()}
+        {this.renderSelectLocalFileToSyncModal()}
       </div>
     );
   }
