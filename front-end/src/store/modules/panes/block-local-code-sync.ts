@@ -433,8 +433,9 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
       throw new Error('Missing edit block store for stopping sync job');
     }
 
+    // Don't try to stop the job is there isn't anything to do.
     if (editBlockStore.selectedNode === null || editBlockStore.selectedNode.type !== WorkflowStateType.LAMBDA) {
-      throw new Error('No block selected to stop sync file job');
+      return;
     }
 
     const selectedCodeBlock = editBlockStore.selectedNode as LambdaWorkflowState;
@@ -442,7 +443,8 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
     const jobId = this.blockIdToJobIdLookup[selectedCodeBlock.id];
 
     if (!jobId) {
-      throw new Error('Unable to remove block watch job, block was not in the job lookup');
+      // Job doesn't exist, so just return.
+      return;
     }
 
     const jobState = this.jobIdToJobStateLookup[jobId];
