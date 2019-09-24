@@ -219,21 +219,39 @@ class Refinery_Memory:
 				backpack
 			)
 		)
-
-		# Store all the queue data in redis in a list
-		pipeline.rpush(
-			queue_storage_id,
-			*queue_items
-		)
 		
 		# Set expiration of items
 		pipeline.expire(
 			queue_storage_id,
 			_QUEUE_METADATA_EXPIRATION, # 1-Day expiration
 		)
-
+		
 		pipeline.execute()
+		
+		# This is the batch size (the amount of queue items
+		# that we put into Redis in a single transaction)
+		SQS_BATCH_SIZE = ( 1000 * 10 )
 
+		# We have to batch these up so that we can process
+		# extremely large return data.
+		while len( queue_items ) > 0:
+			# Current batch of items to be put in redis
+			queue_current_item_batch = queue_items[:SQS_BATCH_SIZE]
+			
+			# Remove the items from the queue items
+			queue_items = queue_items[SQS_BATCH_SIZE:]
+			
+			# Do a redis pipeline transaction
+			pipeline = self.redis_client.pipeline()
+			
+			# Store all the queue data in redis in a list
+			pipeline.rpush(
+				queue_storage_id,
+				*queue_current_item_batch
+			)
+			
+			pipeline.execute()
+			
 		return queue_insert_id
 
 	def _set_fan_in_data( self, fan_out_id, invocation_list, **kwargs ):
