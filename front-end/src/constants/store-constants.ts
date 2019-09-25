@@ -3,6 +3,9 @@ export enum AllProjectsMutators {
   setAvailableProjects = 'setAvailableProjects',
   setSearchBoxInput = 'setSearchBoxInput',
 
+  setCardStateLookup = 'setCardStateLookup',
+  setCardSelectedVersion = 'setCardSelectedVersion',
+
   setDeleteModalVisibility = 'setDeleteModalVisibility',
   setDeleteProjectId = 'setDeleteProjectId',
   setDeleteProjectName = 'setDeleteProjectName',

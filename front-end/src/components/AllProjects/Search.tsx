@@ -1,15 +1,12 @@
 import { CreateElement, VNode } from 'vue';
 import { Component, Vue } from 'vue-property-decorator';
-import moment from 'moment';
 import ContentWrapper from '@/components/Layout/ContentWrapper.vue';
 import { SearchSavedProjectsResult } from '@/types/api-types';
 import { namespace } from 'vuex-class';
 import CardToolTsx from '@/components/Common/CardToolTsx';
-import { linkFormatterUtils } from '@/constants/router-constants';
-import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
-import { EditorProps, LoadingContainerProps } from '@/types/component-types';
-import Loading from '@/components/Common/Loading.vue';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
+import ViewProjectCard, { ViewProjectCardProps } from '@/components/AllProjects/ViewProjectCard';
+import { ProjectCardStateLookup, SelectProjectVersion } from '@/types/all-project-types';
 
 const allProjects = namespace('allProjects');
 
@@ -21,15 +18,11 @@ export default class Search extends Vue {
   @allProjects.State isSearching!: Boolean;
   @allProjects.State searchBoxText!: string;
 
+  @allProjects.State cardStateByProjectId!: ProjectCardStateLookup;
+
   @allProjects.State deleteModalVisible!: boolean;
   @allProjects.State deleteProjectId!: string | null;
   @allProjects.State deleteProjectName!: string | null;
-
-  @allProjects.State renameProjectId!: string | null;
-  @allProjects.State renameProjectInput!: string | null;
-  @allProjects.State renameProjectBusy!: boolean;
-  @allProjects.State renameProjectError!: string | null;
-  @allProjects.Mutation setRenameProjectInput!: (text: string) => void;
 
   @allProjects.State newProjectInput!: string | null;
   @allProjects.State newProjectErrorMessage!: string | null;
@@ -49,14 +42,13 @@ export default class Search extends Vue {
 
   @allProjects.Mutation setSearchBoxInput!: (text: string) => void;
   @allProjects.Mutation setDeleteModalVisibility!: (val: boolean) => void;
+  @allProjects.Mutation setCardSelectedVersion!: (params: SelectProjectVersion) => void;
 
   @allProjects.Action performSearch!: (e: string) => {};
   @allProjects.Action createProject!: () => void;
   @allProjects.Action uploadProject!: () => void;
   @allProjects.Action importProject!: () => void;
-  @allProjects.Action startDeleteProject!: (project: SearchSavedProjectsResult) => void;
   @allProjects.Action deleteProject!: () => void;
-  @allProjects.Action renameProject!: (id: string) => void;
 
   onSearchClicked(e: Event) {
     if (!e || !e.target) {
@@ -216,6 +208,26 @@ export default class Search extends Vue {
     );
   }
 
+  public renderProjectCard(project: SearchSavedProjectsResult) {
+    const cardState = this.cardStateByProjectId[project.id];
+
+    if (!cardState) {
+      throw new Error('Card state not found in store');
+    }
+
+    const cardProps: ViewProjectCardProps = {
+      project: project,
+      selectedVersion: cardState.selectedVersion,
+      onSelectedVersionChanged: (version: number) =>
+        this.setCardSelectedVersion({
+          projectId: project.id,
+          selectedVersion: version
+        })
+    };
+
+    return <ViewProjectCard props={cardProps} />;
+  }
+
   public renderSearchTable() {
     const availableProjects = this.availableProjects;
 
@@ -226,7 +238,7 @@ export default class Search extends Vue {
     const projectEntries = chunked.map(project => {
       return (
         <tr>
-          <td>{this.renderSearchResult(project)}</td>
+          <td>{this.renderProjectCard(project)}</td>
         </tr>
       );
     });
@@ -254,86 +266,6 @@ export default class Search extends Vue {
           <nav class="ml-auto">{this.renderPaginationTable()}</nav>
         </b-card-footer>
       </b-card>
-    );
-  }
-
-  public renderProjectName(project: SearchSavedProjectsResult) {
-    if (project.id === this.renameProjectId) {
-      return (
-        <div>
-          <b-input
-            class="w-100 flex-grow--1"
-            type="text"
-            placeholder="Name of project"
-            autofocus={true}
-            value={this.renameProjectInput}
-            on={{ change: this.setRenameProjectInput }}
-          />
-
-          <b-form-invalid-feedback state={!this.renameProjectError}>{this.renameProjectError}</b-form-invalid-feedback>
-        </div>
-      );
-    }
-
-    return <h4 class="m-0">{project.name}</h4>;
-  }
-
-  public renderSearchResult(project: SearchSavedProjectsResult) {
-    const updatedTime = moment(project.timestamp * 1000);
-    const durationSinceUpdated = moment.duration(-moment().diff(updatedTime)).humanize(true);
-
-    const viewProjectLink = linkFormatterUtils.viewProjectFormatter(project.id);
-
-    const disableRenameButton = this.renameProjectId !== null && this.renameProjectId !== project.id;
-
-    const renameIconClasses = {
-      fas: true,
-      'fa-edit': this.renameProjectId !== project.id,
-      'fa-check': this.renameProjectId === project.id
-    };
-
-    const loadingProps: LoadingContainerProps = {
-      label: 'Renaming...',
-      show: this.renameProjectBusy && this.renameProjectId === project.id
-    };
-
-    return (
-      <Loading props={loadingProps}>
-        <div class="media align-items-center">
-          <div class="media-body d-flex">
-            <div class="flex-grow--1 mr-2">
-              {this.renderProjectName(project)}
-
-              <small class="text-muted">Last updated {durationSinceUpdated}</small>
-              {/*<p>*/}
-              {/*  If I had a description, this is where I would put it! Thanks, Mandatory. This is why we can't have*/}
-              {/*  nice things.*/}
-              {/*</p>*/}
-            </div>
-            <div class="ml-auto d-flex flex-direction--column">
-              <div class="flex-grow--1 d-flex w-100 mb-2">
-                <b-button
-                  class="mr-2"
-                  variant="info"
-                  on={{ click: () => this.renameProject(project.id) }}
-                  disabled={disableRenameButton}
-                >
-                  Rename <span class={renameIconClasses} />
-                </b-button>
-
-                <b-button class="" variant="danger" on={{ click: () => this.startDeleteProject(project) }}>
-                  Delete <span class="fas fa-trash" />
-                </b-button>
-              </div>
-              <div class="flex-grow--1 w-100">
-                <b-button class="w-100" variant="primary" to={viewProjectLink}>
-                  Open in Editor <span class="fas fa-code" />
-                </b-button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </Loading>
     );
   }
 

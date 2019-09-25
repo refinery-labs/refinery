@@ -190,6 +190,9 @@ $padding-steps: (
   &--100percent {
     height: 100%;
   }
+  &--auto {
+    height: auto;
+  }
 }
 
 .width {
@@ -198,6 +201,9 @@ $padding-steps: (
   }
   &--100percent {
     width: 100%;
+  }
+  &--auto {
+    width: auto;
   }
 }
 
@@ -211,6 +217,12 @@ $padding-steps: (
   }
   &--800px {
     max-width: 800px !important;
+  }
+}
+
+.min-width {
+  &--200px {
+    min-width: 200px;
   }
 }
 

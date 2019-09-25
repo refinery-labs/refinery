@@ -16,7 +16,17 @@ export const projectViewLinks = {
 };
 
 export const linkFormatterUtils = {
-  viewProjectFormatter(projectId: string) {
-    return projectViewLinks.viewProject.replace(':projectId', projectId);
+  getVersionString(version?: number) {
+    if (version !== undefined) {
+      const searchParams = new URLSearchParams();
+      searchParams.append('version', version.toString(10));
+      return '?' + searchParams.toString();
+    }
+
+    return '';
+  },
+
+  viewProjectFormatter(projectId: string, version?: number) {
+    return projectViewLinks.viewProject.replace(':projectId', projectId) + this.getVersionString(version);
   }
 };

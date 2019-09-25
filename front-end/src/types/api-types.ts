@@ -36,9 +36,14 @@ export interface SearchSavedProjectsResponse extends BaseApiResponse {
 
 export interface SearchSavedProjectsResult {
   timestamp: number;
-  versions: number[];
+  versions: SearchSavedProjectVersionMetadata[];
   id: string;
   name: string;
+}
+
+export interface SearchSavedProjectVersionMetadata {
+  timestamp: number;
+  version: number;
 }
 
 // CreateSQSQueueTrigger

@@ -7,6 +7,7 @@ import { Route } from 'vue-router';
 import CreateToastMixin from '@/mixins/CreateToastMixin';
 import store from '@/store/index';
 import { DeploymentViewMutators, ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
+import { tryParseInt } from '@/utils/number-utils';
 
 const project = namespace('project');
 
@@ -24,7 +25,16 @@ export default class ViewProject extends mixins(CreateToastMixin) {
   public async beforeRouteEnter(to: Route, from: Route, next: () => void) {
     next();
 
-    await store.dispatch(`project/${ProjectViewActions.openProject}`, { project_id: to.params.projectId });
+    const openProjectRequest: GetSavedProjectRequest = {
+      project_id: to.params.projectId
+    };
+
+    if (to.query.version !== undefined) {
+      // Attempt to parse the version from the query string. If it fails, we will load the latest version anyway.
+      openProjectRequest.version = tryParseInt(to.query.version, undefined);
+    }
+
+    await store.dispatch(`project/${ProjectViewActions.openProject}`, openProjectRequest);
 
     await store.dispatch(`project/${ProjectViewActions.fetchLatestDeploymentState}`);
   }

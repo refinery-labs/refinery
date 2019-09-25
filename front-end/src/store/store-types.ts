@@ -24,6 +24,7 @@ import { CreateSavedBlockViewState } from '@/store/modules/panes/create-saved-bl
 import { SettingsAppState } from '@/store/modules/settings-app';
 import { BlockLayersState } from '@/store/modules/panes/block-layers-pane';
 import { BlockLocalCodeSyncState } from '@/store/modules/panes/block-local-code-sync';
+import { ProjectCardStateLookup } from '@/types/all-project-types';
 
 export interface RootState {
   addSavedBlockPane: AddSavedBlockPaneState;
@@ -205,6 +206,8 @@ export interface AllProjectsState {
   availableProjects: SearchSavedProjectsResult[];
   searchBoxText: string;
   isSearching: boolean;
+
+  cardStateByProjectId: ProjectCardStateLookup;
 
   deleteModalVisible: boolean;
   deleteProjectId: string | null;
