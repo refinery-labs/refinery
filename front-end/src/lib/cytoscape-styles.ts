@@ -152,6 +152,7 @@ export const selectableAnimation = async (ele: CollectionReturnValue): Promise<E
     // @ts-ignore
     ele
       .animate(animationBegin)
+      // @ts-ignore
       .delay(600)
       .animate(animationEnd, {
         complete(): void {

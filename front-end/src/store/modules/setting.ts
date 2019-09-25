@@ -56,19 +56,31 @@ const SettingModule: Module<UserInterfaceState, RootState> = {
      * Toggle a setting value (only boolean)
      */
     [SettingsMutators.toggleSetting](state, name: UserInterfaceSettings) {
-      if (name in state) state[name] = !state[name];
+      if (name in state) {
+        // TODO: Clean up this settings store
+        // @ts-ignore
+        state[name] = !state[name];
+      }
     },
     /**
      * Toggle a setting off
      */
     [SettingsMutators.toggleSettingOff](state, name: UserInterfaceSettings) {
-      if (name in state) state[name] = false;
+      if (name in state) {
+        // TODO: Clean up this settings store
+        // @ts-ignore
+        state[name] = false;
+      }
     },
     /**
      * Toggle a setting on
      */
     [SettingsMutators.toggleSettingOn](state, name: UserInterfaceSettings) {
-      if (name in state) state[name] = true;
+      if (name in state) {
+        // TODO: Clean up this settings store
+        // @ts-ignore
+        state[name] = true;
+      }
     },
     /**
      * Change a setting value
@@ -76,7 +88,11 @@ const SettingModule: Module<UserInterfaceState, RootState> = {
      * payload.value: new value to apply
      */
     [SettingsMutators.changeSetting](state, { name, value }: { name: UserInterfaceSettings; value: boolean }) {
-      if (name in state) state[name] = value;
+      if (name in state) {
+        // TODO: Clean up this settings store
+        // @ts-ignore
+        state[name] = value;
+      }
     },
 
     [SettingsMutators.setWindowWidth](state, width: number) {

@@ -1221,7 +1221,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const openedProject = context.state.openedProject as RefineryProject;
 
       // Catches the case of "unknown" block types causing craziness later!
-      if (!Object.values(WorkflowStateType).includes(addBlockArgs.rawBlockType)) {
+      if (!Object.values(WorkflowStateType).includes(addBlockArgs.rawBlockType as WorkflowStateType)) {
         console.error('Unknown block type requested to be added!', addBlockArgs.rawBlockType);
         return;
       }

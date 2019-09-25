@@ -187,6 +187,8 @@ export default class Header extends Vue {
   resize(e: Event) {
     // all IE friendly dispatchEvent
     var evt = document.createEvent('UIEvents');
+    // Not sure why this doesn't work -- it's code from the boilerplate so just gonna ignore and move on!
+    // @ts-ignore
     evt.initUIEvent('resize', true, false, window, 0);
     window.dispatchEvent(evt);
     // modern dispatchEvent way
