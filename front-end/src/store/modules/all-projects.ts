@@ -17,11 +17,15 @@ import { unwrapJson, wrapJson } from '@/utils/project-helpers';
 import validate from '../../types/export-project.validator';
 import ImportableRefineryProject from '@/types/export-project';
 import { getShortlinkContents, renameProject } from '@/store/fetchers/api-helpers';
+import { ProjectCardStateLookup, SelectProjectVersion } from '@/types/all-project-types';
+import { getInitialCardStateForSearchResults } from '@/utils/all-projects-utils';
 
 const moduleState: AllProjectsState = {
   availableProjects: [],
   searchBoxText: '',
   isSearching: false,
+
+  cardStateByProjectId: {},
 
   deleteModalVisible: false,
   deleteProjectId: null,
@@ -109,6 +113,22 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
       state.searchBoxText = text;
     },
 
+    [AllProjectsMutators.setCardStateLookup](state, cardStateLookup) {
+      state.cardStateByProjectId = cardStateLookup;
+    },
+    [AllProjectsMutators.setCardSelectedVersion](state, { projectId, selectedVersion }: SelectProjectVersion) {
+      const cardState = {
+        ...state.cardStateByProjectId[projectId],
+        selectedVersion: selectedVersion
+      };
+
+      // New object so that we make sure Vuex reads the update
+      state.cardStateByProjectId = {
+        ...state.cardStateByProjectId,
+        [projectId]: cardState
+      };
+    },
+
     [AllProjectsMutators.setDeleteModalVisibility](state, visible) {
       state.deleteModalVisible = visible;
     },
@@ -190,6 +210,7 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
         return;
       }
 
+      context.commit(AllProjectsMutators.setCardStateLookup, getInitialCardStateForSearchResults(result.results));
       context.commit(AllProjectsMutators.setAvailableProjects, result.results.reverse());
       context.commit(AllProjectsMutators.setSearchingStatus, false);
     },

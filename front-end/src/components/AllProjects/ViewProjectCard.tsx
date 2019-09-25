@@ -1,0 +1,147 @@
+import { Component, Prop, Vue } from 'vue-property-decorator';
+import moment from 'moment';
+import { SearchSavedProjectsResult } from '@/types/api-types';
+import { namespace } from 'vuex-class';
+import { linkFormatterUtils } from '@/constants/router-constants';
+import { LoadingContainerProps } from '@/types/component-types';
+import Loading from '@/components/Common/Loading.vue';
+
+const allProjects = namespace('allProjects');
+
+export interface ViewProjectCardProps {
+  project: SearchSavedProjectsResult;
+  selectedVersion: number;
+  onSelectedVersionChanged: (version: number) => void;
+}
+
+@Component
+export default class ViewProjectCard extends Vue implements ViewProjectCardProps {
+  @allProjects.State renameProjectId!: string | null;
+  @allProjects.State renameProjectInput!: string | null;
+  @allProjects.State renameProjectBusy!: boolean;
+  @allProjects.State renameProjectError!: string | null;
+  @allProjects.Mutation setRenameProjectInput!: (text: string) => void;
+
+  @allProjects.Action startDeleteProject!: (project: SearchSavedProjectsResult) => void;
+  @allProjects.Action renameProject!: (id: string) => void;
+
+  @Prop() project!: SearchSavedProjectsResult;
+  @Prop() selectedVersion!: number;
+
+  @Prop() onSelectedVersionChanged!: (version: number) => void;
+
+  public getProjectShareLink() {
+    // If the latest version is selected, then don't add the version to the generated URL
+    if (this.selectedVersion === this.project.versions[0]) {
+      return linkFormatterUtils.viewProjectFormatter(this.project.id);
+    }
+
+    return linkFormatterUtils.viewProjectFormatter(this.project.id, this.selectedVersion);
+  }
+
+  public renderProjectName(project: SearchSavedProjectsResult) {
+    if (project.id === this.renameProjectId) {
+      return (
+        <div>
+          <b-input
+            class="w-100 flex-grow--1"
+            type="text"
+            placeholder="Name of project"
+            autofocus={true}
+            value={this.renameProjectInput}
+            on={{ change: this.setRenameProjectInput }}
+          />
+
+          <b-form-invalid-feedback state={!this.renameProjectError}>{this.renameProjectError}</b-form-invalid-feedback>
+        </div>
+      );
+    }
+
+    return <h4 class="m-0">{project.name}</h4>;
+  }
+
+  public renderVersionSelect() {
+    if (this.project.versions.length === 1) {
+      return null;
+    }
+
+    const latestVersion = this.project.versions[0];
+    const otherVersions = this.project.versions.slice(1);
+
+    return (
+      <b-form-select
+        class="width--auto min-width--200px"
+        value={this.selectedVersion}
+        on={{ change: this.onSelectedVersionChanged }}
+      >
+        <option value={latestVersion}>Latest Version</option>
+        {otherVersions.map(version => (
+          <option value={version}>v{version}</option>
+        ))}
+      </b-form-select>
+    );
+  }
+
+  public render() {
+    const project = this.project;
+
+    const updatedTime = moment(project.timestamp * 1000);
+    const durationSinceUpdated = moment.duration(-moment().diff(updatedTime)).humanize(true);
+
+    const disableRenameButton = this.renameProjectId !== null && this.renameProjectId !== project.id;
+
+    const viewProjectLink = this.getProjectShareLink();
+
+    const renameIconClasses = {
+      fas: true,
+      'fa-edit': this.renameProjectId !== project.id,
+      'fa-check': this.renameProjectId === project.id
+    };
+
+    const loadingProps: LoadingContainerProps = {
+      label: 'Renaming...',
+      show: this.renameProjectBusy && this.renameProjectId === project.id
+    };
+
+    return (
+      <Loading props={loadingProps}>
+        <div class="media align-items-center">
+          <div class="media-body d-flex">
+            <div class="flex-grow--1 mr-2">
+              {this.renderProjectName(project)}
+
+              <small class="text-muted">Last updated {durationSinceUpdated}</small>
+
+              <div class="text-align--right">{this.renderVersionSelect()}</div>
+              {/*<p>*/}
+              {/*  If I had a description, this is where I would put it! Thanks, Mandatory. This is why we can't have*/}
+              {/*  nice things.*/}
+              {/*</p>*/}
+            </div>
+            <div class="ml-auto d-flex flex-direction--column">
+              <div class="flex-grow--1 d-flex w-100 mb-2">
+                <b-button
+                  class="mr-2"
+                  variant="info"
+                  on={{ click: () => this.renameProject(project.id) }}
+                  disabled={disableRenameButton}
+                >
+                  Rename <span class={renameIconClasses} />
+                </b-button>
+
+                <b-button class="" variant="danger" on={{ click: () => this.startDeleteProject(project) }}>
+                  Delete <span class="fas fa-trash" />
+                </b-button>
+              </div>
+              <div class="flex-grow--1 w-100">
+                <b-button class="w-100" variant="primary" to={viewProjectLink}>
+                  Open in Editor <span class="fas fa-code" />
+                </b-button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Loading>
+    );
+  }
+}
