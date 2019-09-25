@@ -5,6 +5,7 @@ import { namespace } from 'vuex-class';
 import { linkFormatterUtils } from '@/constants/router-constants';
 import { LoadingContainerProps } from '@/types/component-types';
 import Loading from '@/components/Common/Loading.vue';
+import { getFriendlyDurationSinceString } from '@/utils/time-utils';
 
 const allProjects = namespace('allProjects');
 
@@ -74,9 +75,13 @@ export default class ViewProjectCard extends Vue implements ViewProjectCardProps
         value={this.selectedVersion}
         on={{ change: this.onSelectedVersionChanged }}
       >
-        <option value={latestVersion}>Latest Version</option>
-        {otherVersions.map(version => (
-          <option value={version}>v{version}</option>
+        <option value={latestVersion.version}>
+          Latest - {getFriendlyDurationSinceString(latestVersion.timestamp * 1000)}
+        </option>
+        {otherVersions.map(({ version, timestamp }) => (
+          <option value={version}>
+            v{version} - {getFriendlyDurationSinceString(timestamp * 1000)}
+          </option>
         ))}
       </b-form-select>
     );
@@ -86,7 +91,7 @@ export default class ViewProjectCard extends Vue implements ViewProjectCardProps
     const project = this.project;
 
     const updatedTime = moment(project.timestamp * 1000);
-    const durationSinceUpdated = moment.duration(-moment().diff(updatedTime)).humanize(true);
+    const durationSinceUpdated = getFriendlyDurationSinceString(updatedTime);
 
     const disableRenameButton = this.renameProjectId !== null && this.renameProjectId !== project.id;
 
@@ -110,7 +115,7 @@ export default class ViewProjectCard extends Vue implements ViewProjectCardProps
             <div class="flex-grow--1 mr-2">
               {this.renderProjectName(project)}
 
-              <small class="text-muted">Last updated {durationSinceUpdated}</small>
+              <small class="text-muted">Created {durationSinceUpdated}</small>
 
               <div class="text-align--right">{this.renderVersionSelect()}</div>
               {/*<p>*/}

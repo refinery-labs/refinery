@@ -8184,7 +8184,7 @@ class SearchSavedProjects( BaseHandler ):
 			}
 			
 			for project_version in project_search_result.versions:
-				project_version_data = self.fetch_project_by_version(project_search_result.id, project_version)
+				project_version_data = self.fetch_project_by_version(project_search_result.id, project_version.version)
 
 				# Skip any invalid project versions, since we can't get the diagram data anyway...
 				if project_version_data is None:
