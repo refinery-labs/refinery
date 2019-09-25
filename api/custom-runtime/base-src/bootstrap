@@ -219,21 +219,39 @@ class Refinery_Memory:
 				backpack
 			)
 		)
-
-		# Store all the queue data in redis in a list
-		pipeline.rpush(
-			queue_storage_id,
-			*queue_items
-		)
 		
 		# Set expiration of items
 		pipeline.expire(
 			queue_storage_id,
 			_QUEUE_METADATA_EXPIRATION, # 1-Day expiration
 		)
-
+		
 		pipeline.execute()
+		
+		# This is the batch size (the amount of queue items
+		# that we put into Redis in a single transaction)
+		SQS_BATCH_SIZE = ( 1000 * 10 )
 
+		# We have to batch these up so that we can process
+		# extremely large return data.
+		while len( queue_items ) > 0:
+			# Current batch of items to be put in redis
+			queue_current_item_batch = queue_items[:SQS_BATCH_SIZE]
+			
+			# Remove the items from the queue items
+			queue_items = queue_items[SQS_BATCH_SIZE:]
+			
+			# Do a redis pipeline transaction
+			pipeline = self.redis_client.pipeline()
+			
+			# Store all the queue data in redis in a list
+			pipeline.rpush(
+				queue_storage_id,
+				*queue_current_item_batch
+			)
+			
+			pipeline.execute()
+			
 		return queue_insert_id
 
 	def _set_fan_in_data( self, fan_out_id, invocation_list, **kwargs ):
@@ -1363,7 +1381,7 @@ def _stream_execution_output_to_websocket( websocket, debug_id, output ):
 		"timestamp": int( time.time() )
 	}))
 
-def _init( custom_runtime, request_id, lambda_input, context ):
+def _init( custom_runtime, request_id, lambda_input, context, execution_details ):
 	start_time = time.time()
 
 	global gmemory
@@ -1386,25 +1404,9 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 		)
 		_stop_clock( "S3 Boto Client Initialization" )
 
-	# Bake in AWS region
-	aws_region = os.environ[ "AWS_REGION" ]
-
 	# Indicate a special execution condition
 	# For example, an API Gateway Lambda
 	execution_mode = os.environ[ "EXECUTION_MODE" ]
-
-	# Construct log details for debugging
-	execution_details = {
-		"initialization_time": int( start_time ),
-		"aws_region": aws_region,
-		"group_name": context.log_group_name,
-		"stream_name": context.log_stream_name,
-		"function_name": context.function_name,
-		"function_version": context.function_version,
-		"invoked_function_arn": context.invoked_function_arn,
-		"memory_limit_in_mb": int( context.memory_limit_in_mb ),
-		"aws_request_id": context.aws_request_id
-	}
 
 	# Execution ID, this is an ID which correlates to an execution chain
 	execution_id = False
@@ -2116,6 +2118,10 @@ def _init( custom_runtime, request_id, lambda_input, context ):
 
 	# For fan-in
 	for fan_in_transition_data in transitions[ "fan-in" ]:
+		# If they do a fan-in and they haven't done a fan-out
+		if len( fan_out_ids ) == 0:
+			break
+		
 		# Get last fan-out ID
 		fan_out_id = fan_out_ids.pop()
 
@@ -2329,14 +2335,56 @@ class CustomRuntime():
 			)
 		except:
 			pass
+	
+		# Construct log details for debugging
+		execution_details = {
+			"initialization_time": int( time.time() ),
+			"aws_region": os.environ[ "AWS_REGION" ],
+			"group_name": new_context.log_group_name,
+			"stream_name": new_context.log_stream_name,
+			"function_name": new_context.function_name,
+			"function_version": new_context.function_version,
+			"invoked_function_arn": new_context.invoked_function_arn,
+			"memory_limit_in_mb": int( new_context.memory_limit_in_mb ),
+			"aws_request_id": new_context.aws_request_id
+		}
 
 		# Run through the custom Refinery runtime.
-		return _init(
-			self,
-			event_data[ "request_id" ],
-			lambda_input,
-			new_context
-		)
+		try:
+			return _init(
+				self,
+				event_data[ "request_id" ],
+				lambda_input,
+				new_context,
+				execution_details
+			)
+		except Exception, err:
+			exception_string = "You've found a bug in the Refinery custom runtime!\n"
+			exception_string += "Please report the following exception to us: \n"
+			exception_string += traceback.format_exc()
+			print( exception_string )
+			sys.stdout.flush()
+			
+			_write_pipeline_logs(
+				os.environ[ "LOG_BUCKET_NAME" ],
+				os.environ[ "EXECUTION_PIPELINE_ID" ],
+				new_context.invoked_function_arn,
+				new_context.function_name,
+				lambda_input[ "_refinery" ][ "execution_id" ],
+				"EXCEPTION",
+				execution_details,
+				exception_string,
+				{},
+				lambda_input,
+				""
+			)
+			
+			# Return successful state
+			self.send_response(
+				event_data[ "request_id" ],
+				""
+			)
+			return
 
 	def get_next_invocation( self ):
 		response = http.request(
