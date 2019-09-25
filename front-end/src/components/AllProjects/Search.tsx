@@ -262,7 +262,7 @@ export default class Search extends Vue {
           </table>
         </div>
         <b-card-footer class="d-flex">
-          {/*<button class="btn btn-sm btn-secorenderProjectNamendary">Clear</button>*/}
+          {/*<button class="btn btn-sm btn-secondary">Clear</button>*/}
           <nav class="ml-auto">{this.renderPaginationTable()}</nav>
         </b-card-footer>
       </b-card>
