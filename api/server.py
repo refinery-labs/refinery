@@ -8184,9 +8184,16 @@ class SearchSavedProjects( BaseHandler ):
 			}
 			
 			for project_version in project_search_result.versions:
-				project_item[ "versions" ].append(
-					project_version.version
-				)
+				project_version_data = self.fetch_project_by_version(project_search_result.id, project_version)
+
+				# Skip any invalid project versions, since we can't get the diagram data anyway...
+				if project_version_data is None:
+					continue
+
+				project_item[ "versions" ].append({
+					"timestamp": project_version_data.timestamp,
+					"version": project_version.version
+				})
 				
 			# Sort project versions highest to lowest
 			project_item[ "versions" ].sort( reverse=True )
@@ -8199,7 +8206,16 @@ class SearchSavedProjects( BaseHandler ):
 			"success": True,
 			"results": results_list
 		})
-		
+
+	def fetch_project_by_version( self, id, version ):
+		project_version_result = self.dbsession.query( ProjectVersion ).filter_by(
+			project_id=id,
+			version=version
+		).first()
+
+		return project_version_result
+
+
 class GetSavedProject( BaseHandler ):
 	@authenticated
 	@gen.coroutine

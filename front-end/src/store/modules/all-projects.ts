@@ -17,7 +17,7 @@ import { unwrapJson, wrapJson } from '@/utils/project-helpers';
 import validate from '../../types/export-project.validator';
 import ImportableRefineryProject from '@/types/export-project';
 import { getShortlinkContents, renameProject } from '@/store/fetchers/api-helpers';
-import { ProjectCardStateLookup, SelectProjectVersion } from '@/types/all-project-types';
+import { SelectProjectVersion } from '@/types/all-project-types';
 import { getInitialCardStateForSearchResults } from '@/utils/all-projects-utils';
 
 const moduleState: AllProjectsState = {

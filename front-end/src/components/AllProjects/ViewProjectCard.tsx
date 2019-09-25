@@ -32,7 +32,7 @@ export default class ViewProjectCard extends Vue implements ViewProjectCardProps
 
   public getProjectShareLink() {
     // If the latest version is selected, then don't add the version to the generated URL
-    if (this.selectedVersion === this.project.versions[0]) {
+    if (!this.project.versions[0] || this.selectedVersion === this.project.versions[0].version) {
       return linkFormatterUtils.viewProjectFormatter(this.project.id);
     }
 
@@ -60,7 +60,7 @@ export default class ViewProjectCard extends Vue implements ViewProjectCardProps
     return <h4 class="m-0">{project.name}</h4>;
   }
 
-  public renderVersionSelect() {
+  renderVersionSelect() {
     if (this.project.versions.length === 1) {
       return null;
     }
