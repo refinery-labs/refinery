@@ -85,7 +85,9 @@
                 "lambda:DeleteFunctionConcurrency",
                 "lambda:RemovePermission",
                 "sns:ListPlatformApplications",
-                "lambda:GetPolicy"
+                "lambda:GetPolicy",
+                "polly:*",
+                "codebuild:*"
             ],
             "Resource": "*"
         },

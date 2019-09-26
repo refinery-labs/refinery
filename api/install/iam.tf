@@ -93,7 +93,8 @@ resource "aws_iam_policy" "refinery_default_aws_lambda_policy" {
                 "sns:Publish",
                 "s3:GetAccountPublicAccessBlock",
                 "sqs:DeleteMessageBatch",
-                "sqs:ChangeMessageVisibilityBatch"
+                "sqs:ChangeMessageVisibilityBatch",
+                "polly:*"
             ],
             "Resource": "*"
         },
