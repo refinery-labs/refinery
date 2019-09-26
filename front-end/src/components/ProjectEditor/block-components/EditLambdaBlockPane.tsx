@@ -1,11 +1,11 @@
 import Component from 'vue-class-component';
-import Vue, { VNode } from 'vue';
-import { Prop } from 'vue-property-decorator';
-import { LambdaWorkflowState, SupportedLanguage, WorkflowState, WorkflowStateType } from '@/types/graph';
-import { FormProps, LanguageToBaseRepoURLMap, LanguageToLibraryRepoURLMap } from '@/types/project-editor-types';
-import { BlockNameInput } from '@/components/ProjectEditor/block-components/EditBlockNamePane';
+import Vue, {VNode} from 'vue';
+import {Prop} from 'vue-property-decorator';
+import {LambdaWorkflowState, SupportedLanguage, WorkflowState, WorkflowStateType} from '@/types/graph';
+import {FormProps, LanguageToBaseRepoURLMap, LanguageToLibraryRepoURLMap} from '@/types/project-editor-types';
+import {BlockNameInput} from '@/components/ProjectEditor/block-components/EditBlockNamePane';
 import Loading from '@/components/Common/Loading.vue';
-import { namespace } from 'vuex-class';
+import {namespace} from 'vuex-class';
 import {
   codeEditorText,
   languagesText,
@@ -14,37 +14,37 @@ import {
 } from '@/constants/project-editor-constants';
 import RunEditorCodeBlockContainer from '@/components/ProjectEditor/RunEditorCodeBlockContainer';
 import RunDeployedCodeBlockContainer from '@/components/DeploymentViewer/RunDeployedCodeBlockContainer';
-import { nopWrite } from '@/utils/block-utils';
+import {nopWrite} from '@/utils/block-utils';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
-import { EditBlockPaneProps, EditorProps, LoadingContainerProps } from '@/types/component-types';
-import { deepJSONCopy } from '@/lib/general-utils';
-import { libraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-helpers';
-import { preventDefaultWrapper } from '@/utils/dom-utils';
-import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
+import {EditBlockPaneProps, EditorProps, LoadingContainerProps} from '@/types/component-types';
+import {deepJSONCopy} from '@/lib/general-utils';
+import {libraryBuildArguments, startLibraryBuild} from '@/store/fetchers/api-helpers';
+import {preventDefaultWrapper} from '@/utils/dom-utils';
+import {BlockDocumentationButton} from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
 import {
   EditEnvironmentVariablesWrapper,
   EditEnvironmentVariablesWrapperProps
 } from '@/components/ProjectEditor/block-components/EditEnvironmentVariablesWrapper';
-import { CreateSavedBlockViewStoreModule } from '@/store/modules/panes/create-saved-block-view';
-import { SavedBlockStatusCheckResult } from '@/types/api-types';
+import {CreateSavedBlockViewStoreModule} from '@/store/modules/panes/create-saved-block-view';
+import {SavedBlockStatusCheckResult} from '@/types/api-types';
 import Split from '@/components/Common/Split.vue';
 import SplitArea from '@/components/Common/SplitArea.vue';
-import { RunLambdaDisplayMode } from '@/components/RunLambda';
+import {RunLambdaDisplayMode} from '@/components/RunLambda';
 import {
   EditBlockLayersWrapper,
   EditBlockLayersWrapperProps
 } from '@/components/ProjectEditor/block-components/EditBlockLayersWrapper';
-import { languageToFileExtension } from '@/utils/project-debug-utils';
-import { BlockLocalCodeSyncStoreModule, syncFileIdPrefix } from '@/store/modules/panes/block-local-code-sync';
+import {languageToFileExtension} from '@/utils/project-debug-utils';
+import {BlockLocalCodeSyncStoreModule, syncFileIdPrefix} from '@/store/modules/panes/block-local-code-sync';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
 
 @Component
 export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
-  @Prop({ required: true }) selectedNode!: LambdaWorkflowState;
-  @Prop({ required: true }) selectedNodeMetadata!: SavedBlockStatusCheckResult | null;
-  @Prop({ required: true }) readOnly!: boolean;
+  @Prop({required: true}) selectedNode!: LambdaWorkflowState;
+  @Prop({required: true}) selectedNodeMetadata!: SavedBlockStatusCheckResult | null;
+  @Prop({required: true}) readOnly!: boolean;
 
   // State pulled from Deployment view.
   @viewBlock.State('showCodeModal') showCodeModalDeployment!: boolean;
@@ -100,6 +100,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @editBlock.Action changeBlockLanguage!: () => void;
   @editBlock.Action('runCodeBlock') runEditorCodeBlock!: () => void;
   @editBlock.Action('downloadBlockAsZip') downloadEditorBlockAsZip!: () => void;
+  @editBlock.Action('downloadBlockScript') downloadBlockScript!: () => void;
   @editBlock.Action syncBlockWithFile!: () => Promise<void>;
   @editBlock.Action setFileSyncModalVisibility!: (visible: boolean) => Promise<void>;
 
@@ -164,7 +165,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         title={`Change Block Language to ${this.nextLanguageToChangeTo}?`}
         visible={this.changeLanguageWarningVisible}
       >
-        <b-form on={{ submit: preventDefaultWrapper(() => this.changeBlockLanguage()) }}>
+        <b-form on={{submit: preventDefaultWrapper(() => this.changeBlockLanguage())}}>
           <h4>Warning! You may break something!</h4>
           <p>This will remove all libraries, if you have any specified.</p>
           <p>Changing the language will likely make your code no longer function.</p>
@@ -173,7 +174,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
             <b-form-checkbox
               id="change-language-input"
               name="change-language-input"
-              on={{ change: () => this.setReplaceCodeWithTemplateChecked(!this.replaceCodeWithTemplateChecked) }}
+              on={{change: () => this.setReplaceCodeWithTemplateChecked(!this.replaceCodeWithTemplateChecked)}}
               readonly={this.readOnly}
               disabled={this.readOnly}
               checked={this.replaceCodeWithTemplateChecked}
@@ -221,11 +222,11 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
               extraClasses: 'height--100percent flex-grow--1 display--flex' as Object
             }}
           >
-            <SplitArea props={{ size: 67 as Object, positionRelative: true as Object }}>
+            <SplitArea props={{size: 67 as Object, positionRelative: true as Object}}>
               {this.renderCodeEditor('ace-hack', true)}
             </SplitArea>
-            <SplitArea props={{ size: 33 as Object }}>
-              <RunLambdaContainer props={{ displayMode: RunLambdaDisplayMode.fullscreen }} />
+            <SplitArea props={{size: 33 as Object}}>
+              <RunLambdaContainer props={{displayMode: RunLambdaDisplayMode.fullscreen}}/>
             </SplitArea>
           </Split>
         </div>
@@ -250,7 +251,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       disableFullscreen: disableFullscreen
     };
 
-    return <RefineryCodeEditor props={editorProps} />;
+    return <RefineryCodeEditor props={editorProps}/>;
   }
 
   public renderCodeEditorContainer() {
@@ -281,15 +282,15 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
               class="show-block-container__expand-button mr-2 flex-grow--1"
               variant="outline-success"
             >
-              <span class="icon-control-play" />
+              <span class="icon-control-play"/>
               {'  '}Run Code
             </b-button>
             <b-button on={fullscreenOnClick} class="show-block-container__expand-button mr-2 flex-grow--1">
-              <span class="fa fa-expand" />
+              <span class="fa fa-expand"/>
               {'  '}Open Full {this.readOnly ? 'Viewer' : 'Editor'}
             </b-button>
             <BlockDocumentationButton
-              props={{ docLink: 'https://docs.refinery.io/blocks/#code-block', offsetButton: false }}
+              props={{docLink: 'https://docs.refinery.io/blocks/#code-block', offsetButton: false}}
             />
           </div>
         </div>
@@ -299,7 +300,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   }
 
   public renderForm(selectedNode: WorkflowState, inputProps: FormProps) {
-    const { idPrefix, name, description, type, on } = inputProps;
+    const {idPrefix, name, description, type, on} = inputProps;
 
     return (
       <b-form-group id={`${idPrefix}-group-${selectedNode.id}`} description={description}>
@@ -378,7 +379,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         <b-form-checkbox
           id={`concurrency-limit-toggle-${selectedNode.id}`}
           name="concurrency-limit-toggle"
-          on={{ change: () => this.setConcurrencyLimit(hasLimitSet ? false : 1) }}
+          on={{change: () => this.setConcurrencyLimit(hasLimitSet ? false : 1)}}
           readonly={this.readOnly}
           disabled={this.readOnly}
           checked={hasLimitSet}
@@ -406,7 +407,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
             value={this.selectedNode.language}
             readonly={this.readOnly}
             disabled={this.readOnly}
-            on={{ input: changeCodeLanguage }}
+            on={{input: changeCodeLanguage}}
             options={Object.values(SupportedLanguage)}
           />
         </div>
@@ -420,7 +421,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       return (
         <div class="text-center">
           <i>You currently have no libraries! Add one below.</i>
-          <br />
+          <br/>
           <a href={LanguageToBaseRepoURLMap[this.selectedNode.language]} target="_blank">
             Click here to find a library for your Code Block.
           </a>
@@ -438,8 +439,8 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
             </a>
           </span>
           <div class="ml-auto float-right d-inline">
-            <button type="button" on={{ click: this.deleteLibrary.bind(this, library) }} class="btn btn-danger">
-              <span class="fas fa-trash" />
+            <button type="button" on={{click: this.deleteLibrary.bind(this, library)}} class="btn btn-danger">
+              <span class="fas fa-trash"/>
             </button>
           </div>
         </b-list-group-item>
@@ -478,8 +479,8 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       >
         {this.renderLibraryTable()}
 
-        <hr />
-        <b-form on={{ submit: this.addLibrary }}>
+        <hr/>
+        <b-form on={{submit: this.addLibrary}}>
           <b-form-group
             label="Library name:"
             label-for="library-input-field"
@@ -493,7 +494,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
               readonly={this.readOnly}
               disabled={this.readOnly}
               value={enteredLibrary}
-              on={{ input: setEnteredLibrary }}
+              on={{input: setEnteredLibrary}}
             />
           </b-form-group>
           <b-button type="submit" variant="primary">
@@ -507,12 +508,12 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   public renderLibrarySelector() {
     // Go has no libraries, it's done via in-code imports
     if (this.selectedNode.language === SupportedLanguage.GO1_12) {
-      return <div />;
+      return <div/>;
     }
     return (
       <b-form-group description="The libraries to install for your Block Code.">
         <label class="d-block">Block Imported Libraries:</label>
-        <b-button variant="dark" class="col-12" on={{ click: this.viewLibraryModal }}>
+        <b-button variant="dark" class="col-12" on={{click: this.viewLibraryModal}}>
           Modify Libraries (<i>{this.selectedNode.libraries.length.toString()} Imported</i>)
         </b-button>
       </b-form-group>
@@ -532,7 +533,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
       return (
         <Loading props={loadingProps}>
-          <div style={{ height: '100px' }} />
+          <div style={{height: '100px'}}/>
         </Loading>
       );
     }
@@ -544,9 +545,10 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
     if (hasNewerVersionAvailable) {
       return (
-        <b-form-group description="Clicking this will update this block to the latest version. Warning: This will discard changes any you have made to the block!">
+        <b-form-group
+          description="Clicking this will update this block to the latest version. Warning: This will discard changes any you have made to the block!">
           <label class="d-block">New Saved Block Version Available!</label>
-          <b-button variant="dark" class="col-12" on={{ click: this.updateSavedBlockVersion }}>
+          <b-button variant="dark" class="col-12" on={{click: this.updateSavedBlockVersion}}>
             Update Block
           </b-button>
         </b-form-group>
@@ -561,7 +563,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
             variant="dark"
             class="col-12"
             disabled={!this.isEditedBlockValid}
-            on={{ click: this.beginPublishBlockClicked }}
+            on={{click: this.beginPublishBlockClicked}}
           >
             Publish New Block Version
           </b-button>
@@ -575,13 +577,14 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     }
 
     return (
-      <b-form-group description="Save this block to use in other projects. You may also publish this block on the Community Block Repository for use by others.">
+      <b-form-group
+        description="Save this block to use in other projects. You may also publish this block on the Community Block Repository for use by others.">
         <label class="d-block">Create Saved Block:</label>
         <b-button
           variant="dark"
           class="col-12"
           disabled={!this.isEditedBlockValid}
-          on={{ click: this.beginPublishBlockClicked }}
+          on={{click: this.beginPublishBlockClicked}}
         >
           Create Saved Block
         </b-button>
@@ -601,7 +604,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
           variant="dark"
           class="col-12 mb-1"
           href={this.getAwsConsoleUri}
-          on={{ click: preventDefaultWrapper(this.openAwsConsoleForBlock) }}
+          on={{click: preventDefaultWrapper(this.openAwsConsoleForBlock)}}
         >
           Open Lambda in AWS
         </b-button>
@@ -609,7 +612,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
           variant="dark"
           class="col-12 mb-1"
           href={this.getLambdaMonitorUri}
-          on={{ click: preventDefaultWrapper(this.openAwsMonitorForCodeBlock) }}
+          on={{click: preventDefaultWrapper(this.openAwsMonitorForCodeBlock)}}
         >
           CloudWatch Graphs
         </b-button>
@@ -617,7 +620,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
           variant="dark"
           class="col-12"
           href={this.getLambdaCloudWatchUri}
-          on={{ click: preventDefaultWrapper(this.openAwsCloudwatchForCodeBlock) }}
+          on={{click: preventDefaultWrapper(this.openAwsCloudwatchForCodeBlock)}}
         >
           CloudWatch Logs
         </b-button>
@@ -635,7 +638,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     return (
       <b-form-group description="Click to view the variables passed to the block at runtime.">
         <label class="d-block">Block Environment Variables:</label>
-        <EditEnvironmentVariablesWrapper props={editEnvironmentVariablesWrapperProps} />
+        <EditEnvironmentVariablesWrapper props={editEnvironmentVariablesWrapperProps}/>
       </b-form-group>
     );
   }
@@ -650,7 +653,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     return (
       <b-form-group description="Click to add AWS Lambda Layers to the runtime environment.">
         <label class="d-block">Block Layers (Lambda Layers):</label>
-        <EditBlockLayersWrapper props={blockLayersEditorWrapperProps} />
+        <EditBlockLayersWrapper props={blockLayersEditorWrapperProps}/>
       </b-form-group>
     );
   }
@@ -659,10 +662,14 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     const downloadBlockAsZip = this.readOnly ? this.downloadDeployedBlockAsZip : this.downloadEditorBlockAsZip;
 
     return (
-      <b-form-group description="Creates and downloads a zip of the current code block, including code to help develop the code block locally.">
+      <b-form-group
+        description="Creates and downloads a zip of the current code block, including code to help develop the code block locally.">
         <label class="d-block">Run Block Code Locally:</label>
-        <b-button variant="dark" class="col-12" on={{ click: downloadBlockAsZip }}>
-          Download as Zip
+        <b-button variant="dark" class="col-12" on={{click: downloadBlockAsZip}}>
+          Download Block as Zip
+        </b-button>
+        <b-button variant="dark" class="col download-script-button" on={{click: this.downloadBlockScript}}>
+          Download Block Script
         </b-button>
       </b-form-group>
     );
@@ -699,12 +706,14 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     const hasChromeBrowser = window.navigator.userAgent && /Chrome/.test(window.navigator.userAgent);
 
     return (
-      <b-form-group description={getDescriptionText()}>
-        <label class="d-block">Sync Block With Local File:</label>
-        <b-button variant="dark" class="col-12" on={{ click: getOnClickHandler() }} disabled={!hasChromeBrowser}>
-          {getButtonText()}
-        </b-button>
-      </b-form-group>
+      <div>
+        <b-form-group description={getDescriptionText()}>
+          <label class="d-block">Sync Block With Local File:</label>
+          <b-button variant="dark" class="col-12" on={{click: getOnClickHandler()}} disabled={!hasChromeBrowser}>
+            {getButtonText()}
+          </b-button>
+        </b-form-group>
+      </div>
     );
   }
 
@@ -738,7 +747,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         title={`Sync Local Code with ${selectedBlock.name}`}
         visible={BlockLocalCodeSyncStoreModule.localFileSyncModalVisible}
       >
-        <b-form on={{ submit: preventDefaultWrapper(() => BlockLocalCodeSyncStoreModule.addBlockWatchJob()) }}>
+        <b-form on={{submit: preventDefaultWrapper(() => BlockLocalCodeSyncStoreModule.addBlockWatchJob())}}>
           <h4>Please choose a file from your local file system.</h4>
           <p>
             When you update the file on your system, the block code will automatically update to match the file
@@ -804,7 +813,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       readonly: this.readOnly,
       disabled: this.readOnly,
       value: this.selectedNode.max_execution_time,
-      on: { change: setMaxExecutionTime, blur: () => setMaxExecutionTime(this.selectedNode.max_execution_time) }
+      on: {change: setMaxExecutionTime, blur: () => setMaxExecutionTime(this.selectedNode.max_execution_time)}
     };
 
     const maxMemoryProps: FormProps = {
@@ -820,7 +829,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       readonly: this.readOnly,
       disabled: this.readOnly,
       value: this.selectedNode.memory,
-      on: { change: setExecutionMemory, blur: () => setExecutionMemory(this.selectedNode.memory) }
+      on: {change: setExecutionMemory, blur: () => setExecutionMemory(this.selectedNode.memory)}
     };
 
     const editBlockProps: EditBlockPaneProps = {
@@ -832,7 +841,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     const blockNameRow = (
       <b-col cols={12}>
         <div class="shift-code-block-editor">
-          <BlockNameInput props={editBlockProps} />
+          <BlockNameInput props={editBlockProps}/>
         </div>
       </b-col>
     );
