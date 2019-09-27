@@ -7285,7 +7285,7 @@ def create_warmer_for_lambda_set( credentials, warmup_concurrency_level, unique_
 	# Additionally we'll invoke them all once with a warmup request so
 	# that they are hot if hit immediately
 	for deployed_lambda in combined_warmup_list:
-		local_tasks.add_rule_target(
+		yield local_tasks.add_rule_target(
 			credentials,
 			warmer_trigger_name,
 			deployed_lambda[ "name" ],
@@ -7317,19 +7317,23 @@ def add_auto_warmup( credentials, warmup_concurrency_level, unique_deploy_id, co
 	# Ensure each Cloudwatch Rule has a unique name
 	warmup_unique_counter = 0
 
-	logit( "Split combined warmup list: " )
-	logit( split_combined_warmup_list )
+	warmup_futures = []
 
 	for warmup_chunk_list in split_combined_warmup_list:
-		yield create_warmer_for_lambda_set(
-			credentials,
-			warmup_concurrency_level,
-			unique_deploy_id + str( warmup_unique_counter ),
-			warmup_chunk_list,
-			diagram_data
+		warmup_futures.append(
+			create_warmer_for_lambda_set(
+				credentials,
+				warmup_concurrency_level,
+				unique_deploy_id + "_W" + str( warmup_unique_counter ),
+				warmup_chunk_list,
+				diagram_data
+			)
 		)
 
 		warmup_unique_counter += 1
+
+	# Wait for all of the concurrent Cloudwatch Rule creations to finish
+	yield warmup_futures
 		
 class SavedBlocksCreate( BaseHandler ):
 	@authenticated
