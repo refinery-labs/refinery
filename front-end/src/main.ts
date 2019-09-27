@@ -29,18 +29,9 @@ import App from './App';
 import router from './router';
 import store from './store/index';
 import './registerServiceWorker';
-import { VueNativeSock } from 'vue-native-websocket';
 
 Vue.use(BootstrapVue);
 Vue.use(VueIntercom, { appId: 'sjaaunj7' });
-
-const websocketEndpoint =
-  `${process.env.VUE_APP_API_HOST}`.replace('https://', 'wss://').replace('http://', 'ws://') +
-  '/ws/v1/lambdas/livedebug';
-
-Vue.use(VueNativeSock, websocketEndpoint, {
-  store: store
-});
 
 Vue.config.productionTip = false;
 
