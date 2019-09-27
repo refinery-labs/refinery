@@ -664,9 +664,11 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       }
 
       const selectedBlock = context.rootState.viewBlock.selectedNode;
+      const viewingBlockLogs =
+        context.rootState.deployment.activeRightSidebarPane !== SIDEBAR_PANE.viewDeployedBlockLogs;
 
       // Select a default, plus make sure we're currently looking at the right block before selecting...
-      if (selectedBlock && selectedBlock.id === logMetadataByLogId.blockId) {
+      if (selectedBlock && selectedBlock.id === logMetadataByLogId.blockId && viewingBlockLogs) {
         await context.dispatch(DeploymentExecutionsActions.selectLogByLogId, logIds[0]);
       }
 
