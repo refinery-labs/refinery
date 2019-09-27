@@ -73,7 +73,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
     }
 
     // If we have valid output for a Lambda based on it's ID.
-    if (this.lambdaIdOrArn && this.runResultOutputId === this.lambdaIdOrArn) {
+    if (this.lambdaIdOrArn) {
       return true;
     }
 
@@ -221,7 +221,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
     };
 
     const classes = {
-      'run-lambda-container display--flex flex-direction--column': true,
+      'run-lambda-container display--flex flex-direction--column width--100percent': true,
       [`run-lambda-container__${this.displayMode}`]: true
     };
 

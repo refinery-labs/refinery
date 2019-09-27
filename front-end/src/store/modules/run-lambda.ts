@@ -20,6 +20,7 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import { DeploymentExecutionsActions } from '@/store/modules/panes/deployment-executions-pane';
 import { DeploymentViewGetters } from '@/constants/store-constants';
 import Vue from 'vue';
+import { parseLambdaWebsocketMessage } from '@/utils/websocket-utils';
 
 export interface InputDataCache {
   [key: string]: string;
@@ -56,8 +57,7 @@ export enum RunLambdaActions {
   runLambdaCode = 'runLambdaCode',
   changeDeployedLambdaInputData = 'changeDeployedLambdaInputData',
   changeDevLambdaInputData = 'changeDevLambdaInputData',
-  WebsocketSubscribeToDebugID = 'WebsocketSubscribeToDebugID',
-  UpdateRunLambdaOutput = 'UpdateRunLambdaOutput'
+  WebsocketSubscribeToDebugID = 'WebsocketSubscribeToDebugID'
 }
 
 // Types
@@ -228,8 +228,26 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       console.error(state, event);
     },
     [RunLambdaMutators.WebsocketOnMessage](state, message) {
-      console.log('message received');
-      console.log(message);
+      const WebsocketMessage = parseLambdaWebsocketMessage(message.data);
+
+      // Setup our initial devLambdaResult when we get our first
+      // line of output from the Lambda
+      if (state.devLambdaResult === null) {
+        console.log('devLambdaResult is null, setting it...');
+        const runningLambdaResult: RunLambdaResult = {
+          is_error: false,
+          version: WebsocketMessage.version,
+          logs: WebsocketMessage.body,
+          truncated: true,
+          status_code: 200,
+          arn: '',
+          returned_data: ''
+        };
+        state.devLambdaResult = runningLambdaResult;
+      } else {
+        console.log('Appending to logs...');
+        state.devLambdaResult.logs += WebsocketMessage.body;
+      }
     },
     [RunLambdaMutators.WebsocketOnReconnect](state, count) {
       console.info(state, count);
@@ -445,20 +463,6 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
     },
     async [RunLambdaActions.changeDeployedLambdaInputData](context, [id, inputData]: [string, string]) {
       context.commit(RunLambdaMutators.setDeployedLambdaInputDataCacheEntry, [id, inputData]);
-    },
-    [RunLambdaActions.UpdateRunLambdaOutput](context, debug_id: string) {
-      const runResult: RunLambdaResult = {
-        arn: '',
-        returned_data: 'Unknown run error',
-        logs: 'boy',
-        truncated: false,
-        is_error: false,
-        status_code: 200,
-        version: 'unknown'
-      };
-      context.commit(`runLambda/${RunLambdaMutators.setDevLambdaRunResult}`, runResult, {
-        root: true
-      });
     },
     [RunLambdaActions.WebsocketSubscribeToDebugID](context, debug_id: string) {
       console.log("Subscribing to debug ID '" + debug_id + "'...");

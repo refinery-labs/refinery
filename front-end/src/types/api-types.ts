@@ -715,3 +715,21 @@ export interface GetProjectShortlinkResponse extends BaseApiResponse {
     diagram_data: ImportableRefineryProject;
   };
 }
+
+// Lambda live log streaming Websocket message
+export enum LambdaDebuggingWebsocketSources {
+  Lambda = 'LAMBDA'
+}
+
+export enum LambdaDebuggingWebsocketActions {
+  Output = 'OUTPUT'
+}
+
+export interface LambdaDebuggingWebsocketMessage {
+  body: string;
+  timestamp: number;
+  source: LambdaDebuggingWebsocketSources;
+  version: string;
+  action: LambdaDebuggingWebsocketActions;
+  debug_id: string;
+}
