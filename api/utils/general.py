@@ -1,4 +1,5 @@
 import sys
+import uuid
 import json
 import logging
 
@@ -38,3 +39,18 @@ def logit( message, message_type="info" ):
 	)
 	
 	logging_func( message )
+
+def split_list_into_chunks( input_list, chunk_size ):
+	def split_list( inner_input_list, inner_chunk_size ):
+		for i in range(0, len(inner_input_list), inner_chunk_size):  
+			yield inner_input_list[i:i + inner_chunk_size] 
+
+	return list(
+		split_list(
+			input_list,
+			chunk_size
+		)
+	)
+
+def get_random_node_id():
+	return "n" + str( uuid.uuid4() ).replace( "-", "" )

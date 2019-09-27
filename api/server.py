@@ -49,7 +49,7 @@ from tornado.concurrent import run_on_executor, futures
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from email_validator import validate_email, EmailNotValidError
 
-from utils.general import attempt_json_decode, logit
+from utils.general import attempt_json_decode, logit, split_list_into_chunks, get_random_node_id
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
 
@@ -6008,8 +6008,7 @@ class TaskSpawner(object):
 			
 local_tasks = TaskSpawner()
 			
-def get_random_node_id():
-	return "n" + str( uuid.uuid4() ).replace( "-", "" )
+
 	
 def get_random_id( length ):
 	return "".join(
@@ -7278,9 +7277,9 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		"deployment_diagram": diagram_data,
 		"project_config": project_config
 	})
-	
+
 @gen.coroutine
-def add_auto_warmup( credentials, warmup_concurrency_level, unique_deploy_id, combined_warmup_list, diagram_data ):
+def create_warmer_for_lambda_set( credentials, warmup_concurrency_level, unique_deploy_id, combined_warmup_list, diagram_data ):
 	# Create Lambda warmers if enabled
 	warmer_trigger_name = "WarmerTrigger" + unique_deploy_id
 	logit( "Deploying auto-warmer CloudWatch rule..." )
@@ -7322,6 +7321,34 @@ def add_auto_warmup( credentials, warmup_concurrency_level, unique_deploy_id, co
 			deployed_lambda[ "arn" ],
 			warmup_concurrency_level
 		)
+	
+@gen.coroutine
+def add_auto_warmup( credentials, warmup_concurrency_level, unique_deploy_id, combined_warmup_list, diagram_data ):
+	# Split warmup list into a list of lists with each list containing five elements.
+	# This is so that we match the limit for CloudWatch Rules max targets (5 per rule).
+	# See "Targets" under this following URL:
+	# https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/cloudwatch_limits_cwe.html
+	split_combined_warmup_list = split_list_into_chunks(
+		combined_warmup_list,
+		5
+	)
+
+	# Ensure each Cloudwatch Rule has a unique name
+	warmup_unique_counter = 0
+
+	logit( "Split combined warmup list: " )
+	logit( split_combined_warmup_list )
+
+	for warmup_chunk_list in split_combined_warmup_list:
+		yield create_warmer_for_lambda_set(
+			credentials,
+			warmup_concurrency_level,
+			unique_deploy_id + str( warmup_unique_counter ),
+			warmup_chunk_list,
+			diagram_data
+		)
+
+		warmup_unique_counter += 1
 		
 class SavedBlocksCreate( BaseHandler ):
 	@authenticated
@@ -11578,9 +11605,6 @@ if __name__ == "__main__":
 	)
 	
 	Base.metadata.create_all( engine )
-
-	if os.environ.get( "cf_enabled" ).lower() == "true":
-		tornado.ioloop.IOLoop.current().run_sync( get_cloudflare_keys )
 		
 	# Resolve what our callback endpoint is, this is different in DEV vs PROD
 	# one assumes you have an external IP address and the other does not (and
