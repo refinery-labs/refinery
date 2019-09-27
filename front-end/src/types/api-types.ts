@@ -313,6 +313,7 @@ export interface RunTmpLambdaRequest extends BaseApiRequest {
   max_execution_time: number;
   memory: number;
   block_id: string;
+  debug_id: string;
 }
 
 export interface RunTmpLambdaEnvironmentVariable {

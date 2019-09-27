@@ -1,6 +1,6 @@
 import { Module } from 'vuex';
 import uuid from 'uuid/v4';
-import { RootState } from '../store-types';
+import { RootState, WebsocketState } from '../store-types';
 import {
   RunLambdaRequest,
   RunLambdaResponse,
@@ -19,6 +19,7 @@ import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { DeploymentExecutionsActions } from '@/store/modules/panes/deployment-executions-pane';
 import { DeploymentViewGetters } from '@/constants/store-constants';
+import Vue from 'vue';
 
 export interface InputDataCache {
   [key: string]: string;
@@ -35,7 +36,15 @@ export enum RunLambdaMutators {
   setDevLambdaRunResult = 'setDevLambdaRunResult',
   setDevLambdaRunResultId = 'setDevLambdaRunResultId',
   setDevLambdaInputDataCacheEntry = 'setDevLambdaInputDataCacheEntry',
-  setLoadingText = 'setLoadingText'
+  setLoadingText = 'setLoadingText',
+  setRunLambdaDebugId = 'setRunLambdaDebugId',
+
+  WebsocketOnOpen = 'SOCKET_ONOPEN',
+  WebsocketOnClose = 'SOCKET_ONCLOSE',
+  WebsocketOnError = 'SOCKET_ONERROR',
+  WebsocketOnMessage = 'SOCKET_ONMESSAGE',
+  WebsocketOnReconnect = 'SOCKET_RECONNECT',
+  WebsocketOnReconnectError = 'SOCKET_RECONNECT_ERROR'
 }
 
 export enum RunLambdaActions {
@@ -46,7 +55,9 @@ export enum RunLambdaActions {
   makeDevLambdaRequest = 'makeDevLambdaRequest',
   runLambdaCode = 'runLambdaCode',
   changeDeployedLambdaInputData = 'changeDeployedLambdaInputData',
-  changeDevLambdaInputData = 'changeDevLambdaInputData'
+  changeDevLambdaInputData = 'changeDevLambdaInputData',
+  WebsocketSubscribeToDebugID = 'WebsocketSubscribeToDebugID',
+  UpdateRunLambdaOutput = 'UpdateRunLambdaOutput'
 }
 
 // Types
@@ -63,6 +74,18 @@ export interface RunLambdaState {
 
   // Text to display while Lambda is being run
   loadingText: string;
+
+  // The debug ID last used, set to null if the
+  // run Lambda request has finished which severs the
+  // Websocket updates to the
+  debugId: string | null;
+
+  // The Websocket object
+  socket: {
+    isConnected: boolean;
+    message: string;
+    reconnectError: boolean;
+  };
 }
 
 // Initial State
@@ -79,7 +102,15 @@ const moduleState: RunLambdaState = {
   devLambdaResultId: null,
   devLambdaInputDataCache: {},
 
-  loadingText: 'Running Code Block...'
+  loadingText: 'Running Code Block...',
+
+  debugId: null,
+
+  socket: {
+    isConnected: false,
+    message: '',
+    reconnectError: false
+  }
 };
 
 const RunLambdaModule: Module<RunLambdaState, RootState> = {
@@ -156,6 +187,9 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
     [RunLambdaMutators.resetState](state) {
       resetStoreState(state, moduleState);
     },
+    [RunLambdaMutators.setRunLambdaDebugId](state, val) {
+      state.debugId = val;
+    },
     [RunLambdaMutators.setLambdaRunningStatus](state, val) {
       state.isRunningLambda = val;
     },
@@ -183,6 +217,25 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
     },
     [RunLambdaMutators.setLoadingText](state, loadingText: string) {
       state.loadingText = loadingText;
+    },
+    [RunLambdaMutators.WebsocketOnOpen](state, event) {
+      console.log('opened');
+    },
+    [RunLambdaMutators.WebsocketOnClose](state, event) {
+      console.log('Websocket connection closed.');
+    },
+    [RunLambdaMutators.WebsocketOnError](state, event) {
+      console.error(state, event);
+    },
+    [RunLambdaMutators.WebsocketOnMessage](state, message) {
+      console.log('message received');
+      console.log(message);
+    },
+    [RunLambdaMutators.WebsocketOnReconnect](state, count) {
+      console.info(state, count);
+    },
+    [RunLambdaMutators.WebsocketOnReconnectError](state) {
+      console.log('Error while reconnecting!');
     }
   },
   actions: {
@@ -274,6 +327,16 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
 
       const inputData = context.state.devLambdaInputDataCache[block.id] || config.codeBlock.saved_input_data;
 
+      const debugId = uuid();
+
+      // Set the debug ID in the store so we know we're tracking it
+      context.commit(RunLambdaMutators.setRunLambdaDebugId, debugId);
+
+      // Before we run the Lambda we subscribe to the debug ID via the WebSocket
+      // This is basically claiming to the server that we want to know about any
+      // messages that come for this specific UUID.
+      await context.dispatch(`runLambda/${RunLambdaActions.WebsocketSubscribeToDebugID}`, debugId, { root: true });
+
       const request: RunTmpLambdaRequest = {
         environment_variables: runLambdaEnvironmentVariables,
         input_data: inputData === undefined || inputData === null ? '' : inputData,
@@ -284,7 +347,8 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         libraries: block.libraries,
         max_execution_time: block.max_execution_time,
         memory: block.memory,
-        block_id: block.id
+        block_id: block.id,
+        debug_id: debugId
       };
 
       await context.dispatch(RunLambdaActions.makeDevLambdaRequest, request);
@@ -381,6 +445,32 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
     },
     async [RunLambdaActions.changeDeployedLambdaInputData](context, [id, inputData]: [string, string]) {
       context.commit(RunLambdaMutators.setDeployedLambdaInputDataCacheEntry, [id, inputData]);
+    },
+    [RunLambdaActions.UpdateRunLambdaOutput](context, debug_id: string) {
+      const runResult: RunLambdaResult = {
+        arn: '',
+        returned_data: 'Unknown run error',
+        logs: 'boy',
+        truncated: false,
+        is_error: false,
+        status_code: 200,
+        version: 'unknown'
+      };
+      context.commit(`runLambda/${RunLambdaMutators.setDevLambdaRunResult}`, runResult, {
+        root: true
+      });
+    },
+    [RunLambdaActions.WebsocketSubscribeToDebugID](context, debug_id: string) {
+      console.log("Subscribing to debug ID '" + debug_id + "'...");
+      Vue.prototype.$socket.send(
+        JSON.stringify({
+          version: '1.0.0',
+          debug_id: debug_id,
+          action: 'SUBSCRIBE',
+          source: 'USER',
+          timestamp: Math.floor(Date.now() / 1000)
+        })
+      );
     }
   }
 };
