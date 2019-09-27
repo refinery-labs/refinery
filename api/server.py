@@ -13,9 +13,7 @@ import requests
 import pystache
 import binascii
 import hashlib
-import random
 import ctypes
-import random
 import shutil
 import stripe
 import base64
@@ -49,7 +47,7 @@ from tornado.concurrent import run_on_executor, futures
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from email_validator import validate_email, EmailNotValidError
 
-from utils.general import attempt_json_decode, logit, split_list_into_chunks, get_random_node_id
+from utils.general import attempt_json_decode, logit, split_list_into_chunks, get_random_node_id, get_urand_password, get_random_id, get_random_deploy_id
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
 
@@ -246,11 +244,6 @@ ORGANIZATION_CLIENT = boto3.client(
 		max_pool_connections=( 1000 * 2 )
 	)
 )
-
-# For generating crytographically-secure random strings
-def get_urand_password( length ):
-    symbols = string.ascii_letters + string.digits
-    return "".join([symbols[x * len(symbols) / 256] for x in struct.unpack("%dB" % (length,), os.urandom(length))])
     
 """
 This is some poor-man's caching to greately speed up Boto3
@@ -6007,18 +6000,6 @@ class TaskSpawner(object):
 			}
 			
 local_tasks = TaskSpawner()
-			
-
-	
-def get_random_id( length ):
-	return "".join(
-		random.choice(
-			string.ascii_letters + string.digits
-		) for _ in range( length )
-	)
-
-def get_random_deploy_id():
-	return "_RFN" + get_random_id( 6 )
 
 class RunLambda( BaseHandler ):
 	@authenticated
