@@ -25,6 +25,8 @@ export interface MonacoEditorProps {
 export default class MonacoEditor extends Vue implements MonacoEditorProps {
   editor?: any;
 
+  //@ts-ignore
+  @Prop({ default: false }) public editorRef?: any;
   @Prop() public readOnly?: boolean;
   @Prop() public original?: string;
   @Prop({ required: true }) public value!: string;
@@ -110,6 +112,10 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
       });
     } else {
       this.editor = monaco.editor.create(this.$el as HTMLElement, options);
+    }
+
+    if (this.editorRef) {
+      this.editorRef = this.editor;
     }
 
     // @event `change`

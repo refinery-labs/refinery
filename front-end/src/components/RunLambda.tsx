@@ -81,7 +81,27 @@ export default class RunLambda extends Vue implements RunLambdaProps {
     return false;
   }
 
+  public getRunLambdaReturn(hasValidOutput: string | null | boolean) {
+    // Check if the Lambda is running, we'll show a different return value if it is
+    // to indicate to the user that the Code Block is currently still executing.
+    if (this.isCurrentlyRunning) {
+      return 'The Code Block has not finished executing yet, please wait...';
+    }
+
+    if (typeof hasValidOutput === 'string') {
+      return hasValidOutput;
+    }
+
+    return 'Click Execute button for run output.';
+  }
+
   public getRunLambdaOutput(hasValidOutput: boolean) {
+    // Check if the Lambda is running, we'll show a different return value if it is
+    // to indicate to the user that the Code Block is currently still executing.
+    if (this.isCurrentlyRunning && !this.runResultOutput) {
+      return 'No output from Code Block received yet, please wait...';
+    }
+
     // Need to check this because Ace will shit the bed if given a *gasp* null value!
     if (!hasValidOutput || !this.runResultOutput) {
       return 'No return data to display.';
@@ -151,7 +171,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
       name: `result-data-${this.getNameSuffix()}`,
       // This is very nice for rendering non-programming text
       lang: hasResultData ? 'json' : 'text',
-      content: hasResultData || 'Click Execute button for run output.',
+      content: this.getRunLambdaReturn(hasResultData),
       wrapText: true,
       readOnly: true
     };
@@ -213,22 +233,11 @@ export default class RunLambda extends Vue implements RunLambdaProps {
   }
 
   public render(h: CreateElement): VNode {
-    const loadingProps: LoadingContainerProps = {
-      show: this.isCurrentlyRunning,
-      dark: true,
-      label: this.loadingText,
-      classes: 'height--100percent width--100percent'
-    };
-
     const classes = {
       'run-lambda-container display--flex flex-direction--column width--100percent': true,
       [`run-lambda-container__${this.displayMode}`]: true
     };
 
-    return (
-      <Loading props={loadingProps}>
-        <div class={classes}>{this.renderEditors()}</div>
-      </Loading>
-    );
+    return <div class={classes}>{this.renderEditors()}</div>;
   }
 }

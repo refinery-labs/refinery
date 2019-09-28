@@ -2,6 +2,7 @@ import { Module } from 'vuex';
 import uuid from 'uuid/v4';
 import { RootState, WebsocketState } from '../store-types';
 import {
+  LambdaDebuggingWebsocketMessage,
   RunLambdaRequest,
   RunLambdaResponse,
   RunLambdaResult,
@@ -228,26 +229,9 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       console.error(state, event);
     },
     [RunLambdaMutators.WebsocketOnMessage](state, message) {
-      const WebsocketMessage = parseLambdaWebsocketMessage(message.data);
+      const websocketMessage = parseLambdaWebsocketMessage(message.data);
 
-      // Setup our initial devLambdaResult when we get our first
-      // line of output from the Lambda
-      if (state.devLambdaResult === null) {
-        console.log('devLambdaResult is null, setting it...');
-        const runningLambdaResult: RunLambdaResult = {
-          is_error: false,
-          version: WebsocketMessage.version,
-          logs: WebsocketMessage.body,
-          truncated: true,
-          status_code: 200,
-          arn: '',
-          returned_data: ''
-        };
-        state.devLambdaResult = runningLambdaResult;
-      } else {
-        console.log('Appending to logs...');
-        state.devLambdaResult.logs += WebsocketMessage.body;
-      }
+      state.devLambdaResult = getDevLambdaResultFromWebsocketMessage(websocketMessage, state.devLambdaResult);
     },
     [RunLambdaMutators.WebsocketOnReconnect](state, count) {
       console.info(state, count);
@@ -478,5 +462,27 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
     }
   }
 };
+
+function getDevLambdaResultFromWebsocketMessage(
+  websocketMessage: LambdaDebuggingWebsocketMessage,
+  devLambdaResult: RunLambdaResult | null
+) {
+  // Setup our initial devLambdaResult when we get our first
+  // line of output from the Lambda
+  if (devLambdaResult === null) {
+    return {
+      is_error: false,
+      version: websocketMessage.version,
+      logs: websocketMessage.body,
+      truncated: true,
+      status_code: 200,
+      arn: '',
+      returned_data: ''
+    };
+  }
+
+  devLambdaResult.logs += websocketMessage.body;
+  return devLambdaResult;
+}
 
 export default RunLambdaModule;
