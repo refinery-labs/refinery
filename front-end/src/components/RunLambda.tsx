@@ -183,7 +183,8 @@ export default class RunLambda extends Vue implements RunLambdaProps {
       lang: 'text',
       content: this.getRunLambdaOutput(hasValidOutput),
       wrapText: true,
-      readOnly: true
+      readOnly: true,
+      tailOutput: true
     };
 
     const saveInputDataButton = (

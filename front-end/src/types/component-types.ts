@@ -20,6 +20,9 @@ export interface EditorProps {
   // Ace is garbage and we need this
   extraClasses?: string;
   collapsible?: boolean;
+
+  // Tail output of Ace editor
+  tailOutput?: boolean;
 }
 
 export interface MarkdownProps {
