@@ -146,6 +146,25 @@ export default class RunLambda extends Vue implements RunLambdaProps {
     );
   }
 
+  /*
+  Disables the Execute With Data button if the Lambda is running
+  */
+  getExecuteWithDataButton() {
+    if (this.isCurrentlyRunning) {
+      return (
+        <b-button variant="primary" disabled={true}>
+          <b-spinner small /> Code Block is executing, please wait...
+        </b-button>
+      );
+    }
+
+    return (
+      <b-button variant="primary" on={{ click: () => this.onRunLambda() }}>
+        Execute With Data
+      </b-button>
+    );
+  }
+
   public renderEditors() {
     const hasValidOutput = this.checkIfValidRunLambdaOutput();
 
@@ -197,9 +216,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
       <div class="m-2">
         <b-button-group class="width--100percent">
           {this.displayLocation === RunLambdaDisplayLocation.editor && this.onSaveInputData && saveInputDataButton}
-          <b-button variant="primary" on={{ click: () => this.onRunLambda() }}>
-            Execute With Data
-          </b-button>
+          {this.getExecuteWithDataButton()}
         </b-button-group>
       </div>
     );
