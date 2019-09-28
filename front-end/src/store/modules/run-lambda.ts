@@ -31,6 +31,7 @@ export interface InputDataCache {
 export enum RunLambdaMutators {
   resetState = 'resetState',
   setLambdaRunningStatus = 'setLambdaRunningStatus',
+  setRunningLambdaType = 'setRunningLambdaType',
 
   setDeployedLambdaRunResult = 'setDeployedLambdaRunResult',
   setDeployedLambdaInputDataCacheEntry = 'setDeployedLambdaInputDataCacheEntry',
@@ -64,6 +65,7 @@ export enum RunLambdaActions {
 // Types
 export interface RunLambdaState {
   isRunningLambda: boolean;
+  runningLambdaType: runningLambdaType | null;
 
   deployedLambdaResult: RunLambdaResult | null;
   deployedLambdaInputDataCache: InputDataCache;
@@ -89,9 +91,17 @@ export interface RunLambdaState {
   };
 }
 
+// Simple enum for determining if dev or prod Lambda
+// that is currently being run.
+enum runningLambdaType {
+  'PROD' = 'PROD',
+  'DEV' = 'DEV'
+}
+
 // Initial State
 const moduleState: RunLambdaState = {
   isRunningLambda: false,
+  runningLambdaType: null,
 
   deployedLambdaResult: null,
   deployedLambdaInputDataCache: {},
@@ -188,6 +198,9 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
     [RunLambdaMutators.resetState](state) {
       resetStoreState(state, moduleState);
     },
+    [RunLambdaMutators.setRunningLambdaType](state, val) {
+      state.runningLambdaType = val;
+    },
     [RunLambdaMutators.setRunLambdaDebugId](state, val) {
       state.debugId = val;
     },
@@ -220,24 +233,31 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       state.loadingText = loadingText;
     },
     [RunLambdaMutators.WebsocketOnOpen](state, event) {
-      console.log('opened');
+      // Nothing to do here, Websocket connection has been opened.
     },
     [RunLambdaMutators.WebsocketOnClose](state, event) {
-      console.log('Websocket connection closed.');
+      console.info('Websocket connection was closed, attempting to reconnect...');
     },
     [RunLambdaMutators.WebsocketOnError](state, event) {
+      console.error('Some error occurred with the websocket!');
       console.error(state, event);
     },
     [RunLambdaMutators.WebsocketOnMessage](state, message) {
       const websocketMessage = parseLambdaWebsocketMessage(message.data);
 
-      state.devLambdaResult = getDevLambdaResultFromWebsocketMessage(websocketMessage, state.devLambdaResult);
+      if (state.runningLambdaType === runningLambdaType.DEV) {
+        state.devLambdaResult = getLambdaResultFromWebsocketMessage(websocketMessage, state.devLambdaResult);
+      }
+
+      if (state.runningLambdaType === runningLambdaType.PROD) {
+        state.deployedLambdaResult = getLambdaResultFromWebsocketMessage(websocketMessage, state.deployedLambdaResult);
+      }
     },
     [RunLambdaMutators.WebsocketOnReconnect](state, count) {
-      console.info(state, count);
+      console.info('Websocket has reconnected!');
     },
     [RunLambdaMutators.WebsocketOnReconnectError](state) {
-      console.log('Error while reconnecting!');
+      console.error('An error occurred while the websocket attempted to reconnect!');
     }
   },
   actions: {
@@ -261,11 +281,27 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
 
       const inputData = context.state.deployedLambdaInputDataCache[block.id] || block.saved_input_data;
 
+      // Set that we're running a prod Lambda
+      context.commit(RunLambdaMutators.setRunningLambdaType, runningLambdaType.PROD);
+
+      // Set the debug ID in the store so we know we're tracking it
+      const debugId = uuid();
+      context.commit(RunLambdaMutators.setRunLambdaDebugId, debugId);
+
+      // Before we run the Lambda we subscribe to the debug ID via the WebSocket
+      // This is basically claiming to the server that we want to know about any
+      // messages that come for this specific UUID.
+      await context.dispatch(`runLambda/${RunLambdaActions.WebsocketSubscribeToDebugID}`, debugId, { root: true });
+
       const request: RunLambdaRequest = {
         input_data: inputData === undefined || inputData === null ? '' : inputData,
         arn: block.arn,
-        execution_id: uuid()
+        execution_id: uuid(),
+        debug_id: debugId
       };
+
+      // Clear current runLambdaResult
+      context.commit(RunLambdaMutators.setDeployedLambdaRunResult, null);
 
       await context.dispatch(RunLambdaActions.makeDeployedLambdaRequest, request);
     },
@@ -329,9 +365,11 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
 
       const inputData = context.state.devLambdaInputDataCache[block.id] || config.codeBlock.saved_input_data;
 
-      const debugId = uuid();
+      // Set that we're running a prod Lambda
+      context.commit(RunLambdaMutators.setRunningLambdaType, runningLambdaType.DEV);
 
       // Set the debug ID in the store so we know we're tracking it
+      const debugId = uuid();
       context.commit(RunLambdaMutators.setRunLambdaDebugId, debugId);
 
       // Before we run the Lambda we subscribe to the debug ID via the WebSocket
@@ -449,7 +487,6 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       context.commit(RunLambdaMutators.setDeployedLambdaInputDataCacheEntry, [id, inputData]);
     },
     [RunLambdaActions.WebsocketSubscribeToDebugID](context, debug_id: string) {
-      console.log("Subscribing to debug ID '" + debug_id + "'...");
       Vue.prototype.$socket.send(
         JSON.stringify({
           version: '1.0.0',
@@ -463,13 +500,13 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
   }
 };
 
-function getDevLambdaResultFromWebsocketMessage(
+function getLambdaResultFromWebsocketMessage(
   websocketMessage: LambdaDebuggingWebsocketMessage,
-  devLambdaResult: RunLambdaResult | null
+  runLambdaResult: RunLambdaResult | null
 ) {
   // Setup our initial devLambdaResult when we get our first
   // line of output from the Lambda
-  if (devLambdaResult === null) {
+  if (runLambdaResult === null) {
     return {
       is_error: false,
       version: websocketMessage.version,
@@ -481,8 +518,8 @@ function getDevLambdaResultFromWebsocketMessage(
     };
   }
 
-  devLambdaResult.logs += websocketMessage.body;
-  return devLambdaResult;
+  runLambdaResult.logs += websocketMessage.body;
+  return runLambdaResult;
 }
 
 export default RunLambdaModule;

@@ -280,6 +280,7 @@ export interface RunLambdaRequest extends BaseApiRequest {
   arn: string;
   input_data: string;
   execution_id?: string;
+  debug_id?: string;
 }
 
 export interface RunLambdaResponse extends BaseApiResponse {
