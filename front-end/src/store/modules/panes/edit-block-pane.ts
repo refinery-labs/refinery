@@ -1,6 +1,6 @@
-import {Module} from 'vuex';
+import { Module } from 'vuex';
 import deepEqual from 'fast-deep-equal';
-import {RootState} from '../../store-types';
+import { RootState } from '../../store-types';
 import {
   ApiEndpointWorkflowState,
   LambdaWorkflowState,
@@ -12,17 +12,17 @@ import {
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import {getNodeDataById, getTransitionsForNode} from '@/utils/project-helpers';
-import {ProjectViewActions} from '@/constants/store-constants';
-import {PANE_POSITION, SIDEBAR_PANE} from '@/types/project-editor-types';
-import {DEFAULT_LANGUAGE_CODE} from '@/constants/project-editor-constants';
-import {HTTP_METHOD} from '@/constants/api-constants';
-import {safelyDuplicateBlock, updateBlockWithNewSavedBlockVersion, validatePath} from '@/utils/block-utils';
-import {deepJSONCopy} from '@/lib/general-utils';
-import {resetStoreState} from '@/utils/store-utils';
-import {getSavedBlockStatus, libraryBuildArguments, startLibraryBuild} from '@/store/fetchers/api-helpers';
-import {SavedBlockStatusCheckResult} from '@/types/api-types';
-import {downloadBlockAsZip, downloadCodeBlockCode} from '@/utils/project-debug-utils';
+import { getNodeDataById, getTransitionsForNode } from '@/utils/project-helpers';
+import { ProjectViewActions } from '@/constants/store-constants';
+import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
+import { DEFAULT_LANGUAGE_CODE } from '@/constants/project-editor-constants';
+import { HTTP_METHOD } from '@/constants/api-constants';
+import { safelyDuplicateBlock, updateBlockWithNewSavedBlockVersion, validatePath } from '@/utils/block-utils';
+import { deepJSONCopy } from '@/lib/general-utils';
+import { resetStoreState } from '@/utils/store-utils';
+import { getSavedBlockStatus, libraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-helpers';
+import { SavedBlockStatusCheckResult } from '@/types/api-types';
+import { downloadBlockAsZip, downloadCodeBlockCode } from '@/utils/project-debug-utils';
 
 const cronRegex = new RegExp(
   '^\\s*($|#|\\w+\\s*=|(\\?|\\*|(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?(?:,(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?)*)\\s+(\\?|\\*|(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?(?:,(?:[0-5]?\\d)(?:(?:-|/|\\,)(?:[0-5]?\\d))?)*)\\s+(\\?|\\*|(?:[01]?\\d|2[0-3])(?:(?:-|/|\\,)(?:[01]?\\d|2[0-3]))?(?:,(?:[01]?\\d|2[0-3])(?:(?:-|/|\\,)(?:[01]?\\d|2[0-3]))?)*)\\s+(\\?|\\*|(?:0?[1-9]|[12]\\d|3[01])(?:(?:-|/|\\,)(?:0?[1-9]|[12]\\d|3[01]))?(?:,(?:0?[1-9]|[12]\\d|3[01])(?:(?:-|/|\\,)(?:0?[1-9]|[12]\\d|3[01]))?)*)\\s+(\\?|\\*|(?:[1-9]|1[012])(?:(?:-|/|\\,)(?:[1-9]|1[012]))?(?:L|W)?(?:,(?:[1-9]|1[012])(?:(?:-|/|\\,)(?:[1-9]|1[012]))?(?:L|W)?)*|\\?|\\*|(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(?:(?:-)(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))?(?:,(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(?:(?:-)(?:JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC))?)*)\\s+(\\?|\\*|(?:[0-6])(?:(?:-|/|\\,|#)(?:[0-6]))?(?:L)?(?:,(?:[0-6])(?:(?:-|/|\\,|#)(?:[0-6]))?(?:L)?)*|\\?|\\*|(?:MON|TUE|WED|THU|FRI|SAT|SUN)(?:(?:-)(?:MON|TUE|WED|THU|FRI|SAT|SUN))?(?:,(?:MON|TUE|WED|THU|FRI|SAT|SUN)(?:(?:-)(?:MON|TUE|WED|THU|FRI|SAT|SUN))?)*)(|\\s)+(\\?|\\*|(?:|\\d{4})(?:(?:-|/|\\,)(?:|\\d{4}))?(?:,(?:|\\d{4})(?:(?:-|/|\\,)(?:|\\d{4}))?)*))$'
@@ -513,7 +513,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
         return;
       }
 
-      await context.dispatch('blockLocalCodeSync/stopSyncJobForSelectedBlock', null, {root: true});
+      await context.dispatch('blockLocalCodeSync/stopSyncJobForSelectedBlock', null, { root: true });
 
       // The array of transitions we need to delete
       const transitions_to_delete: WorkflowRelationship[] = getTransitionsForNode(
@@ -557,7 +557,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       context.commit(EditBlockMutators.resetState);
 
       // Close this pane
-      await context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.right, {root: true});
+      await context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.right, { root: true });
     },
     async [EditBlockActions.runCodeBlock](context) {
       await context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, SIDEBAR_PANE.runEditorCodeBlock, {
@@ -608,7 +608,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       }
 
       if (context.state.selectedNode === null || context.state.selectedNode.type !== WorkflowStateType.LAMBDA) {
-        console.error('You don\'t have a node currently selected so I can\'t check the build status!');
+        console.error("You don't have a node currently selected so I can't check the build status!");
         return;
       }
 
@@ -707,10 +707,8 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
 
       await downloadCodeBlockCode(selectedCodeBlock);
     },
-    async [EditBlockActions.syncBlockWithFile](context) {
-    }
+    async [EditBlockActions.syncBlockWithFile](context) {}
   }
-
 };
 
 export default EditBlockPaneModule;

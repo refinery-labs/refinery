@@ -193,12 +193,9 @@ export async function createProjectDownloadZip(config: ProjectDownloadZipConfig)
 
 export async function downloadCodeBlockCode(block: LambdaWorkflowState) {
   const blob = new Blob([block.code], {
-    type: "text/plain;charset=utf-8"
+    type: 'text/plain;charset=utf-8'
   });
-  saveAs(blob, `${block.name}-${Date.now()}.${languageToFileExtension[block.language]}`.replace(
-    / /g,
-    '_'
-  ));
+  saveAs(blob, `${block.name}-${Date.now()}.${languageToFileExtension[block.language]}`.replace(/ /g, '_'));
 }
 
 export function createDownloadZipConfig(
