@@ -42,7 +42,8 @@ export enum WorkflowRelationshipType {
   FAN_OUT = 'fan-out',
   FAN_IN = 'fan-in',
   EXCEPTION = 'exception',
-  ELSE = 'else'
+  ELSE = 'else',
+  MERGE = 'merge'
 }
 
 export enum ProjectLogLevel {
