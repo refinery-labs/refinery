@@ -100,6 +100,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @editBlock.Action changeBlockLanguage!: () => void;
   @editBlock.Action('runCodeBlock') runEditorCodeBlock!: () => void;
   @editBlock.Action('downloadBlockAsZip') downloadEditorBlockAsZip!: () => void;
+  @editBlock.Action('downloadBlockScript') downloadBlockScript!: () => void;
   @editBlock.Action syncBlockWithFile!: () => Promise<void>;
   @editBlock.Action setFileSyncModalVisibility!: (visible: boolean) => Promise<void>;
 
@@ -662,7 +663,10 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       <b-form-group description="Creates and downloads a zip of the current code block, including code to help develop the code block locally.">
         <label class="d-block">Run Block Code Locally:</label>
         <b-button variant="dark" class="col-12" on={{ click: downloadBlockAsZip }}>
-          Download as Zip
+          Download Block as Zip
+        </b-button>
+        <b-button variant="dark" class="col download-script-button" on={{ click: this.downloadBlockScript }}>
+          Download Block Script
         </b-button>
       </b-form-group>
     );
@@ -699,12 +703,14 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     const hasChromeBrowser = window.navigator.userAgent && /Chrome/.test(window.navigator.userAgent);
 
     return (
-      <b-form-group description={getDescriptionText()}>
-        <label class="d-block">Sync Block With Local File:</label>
-        <b-button variant="dark" class="col-12" on={{ click: getOnClickHandler() }} disabled={!hasChromeBrowser}>
-          {getButtonText()}
-        </b-button>
-      </b-form-group>
+      <div>
+        <b-form-group description={getDescriptionText()}>
+          <label class="d-block">Sync Block With Local File:</label>
+          <b-button variant="dark" class="col-12" on={{ click: getOnClickHandler() }} disabled={!hasChromeBrowser}>
+            {getButtonText()}
+          </b-button>
+        </b-form-group>
+      </div>
     );
   }
 
