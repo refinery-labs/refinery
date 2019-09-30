@@ -7,7 +7,7 @@ cp -r ./ruby/ ./layer-contents/
 cp -r ./lib64/ ./layer-contents/
 cp runtime ./layer-contents/
 cd ./layer-contents/
-zip -r custom-runtime.zip *
+zip -qr custom-runtime.zip *
 mv custom-runtime.zip ../
 cd ..
 rm -rf ./layer-contents/*
