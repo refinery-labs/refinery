@@ -6500,10 +6500,6 @@ def get_layers_for_lambda( language ):
 		)
 	elif language == "php7.3":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:20"
-		)
-	elif language == "php7.3":
-		new_layers.append(
 			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:21"
 		)
 	elif language == "go1.12":
@@ -6512,7 +6508,8 @@ def get_layers_for_lambda( language ):
 		)
 	elif language == "python2.7":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:21"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:21"
+			"arn:aws:lambda:us-west-2:561628006572:layer:python:48"
 		)
 	elif language == "python3.6":
 		new_layers.append(

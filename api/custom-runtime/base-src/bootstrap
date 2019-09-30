@@ -452,6 +452,89 @@ class Refinery_Memory:
 		returned_data = pipeline.execute()
 
 		return lambda_invocation_list
+
+	def _merge_store_result( self, execution_id, target_lambda_arn, current_lambda_arn, merge_lambda_arns, backpack, return_data ):
+		"""
+		Uses a redis pipeline to store the results at an HASH of the following name:
+		{{EXECUTION_ID}}{{TARGET_LAMBDA_ARN}} = {
+			"{{CURRENT_RUNNING_LAMBDA_ARN}}": "{{RETURN_DATA}}"
+		}
+
+		If we're the last Lambda in the merge then we return the return_data to be
+		passed as input to the target Lambda for the merge. Otherwise we return None.
+		"""
+		if not self.redis_client:
+			self.connect()
+
+		# Create HSET name
+		hset_name = execution_id + "_" + target_lambda_arn
+
+		# Do a redis pipeline transaction
+		pipeline = self.redis_client.pipeline()
+
+		# Store return data in HASH
+		pipeline.hset(
+			hset_name,
+			current_lambda_arn,
+			json.dumps({
+				"backpack": backpack,
+				"return_data": return_data
+			})
+		)
+
+		# Set expiration for the HASH
+		pipeline.expire(
+			hset_name,
+			_QUEUE_METADATA_EXPIRATION
+		)
+
+		# Get the keys of the HASH after our HSET to see if we're the final
+		# Lambda in the merge set.
+		pipeline.hkeys(
+			hset_name
+		)
+
+		# Execute in one quick transaction
+		hset_returned_data = pipeline.execute()
+
+		# Determine if we've the last Lambda in the merge
+		# by the number of merge Lambdas and comparing it to the number of
+		# HASH keys returned from HKEYS
+		lambda_return_values_list = hset_returned_data[2]
+
+		if len( lambda_return_values_list ) != len( merge_lambda_arns ):
+			return None
+
+		# Since we're the last Lambda in the merge we'll pull it all out.
+		pipeline = self.redis_client.pipeline()
+		pipeline.hvals(
+			hset_name
+		)
+		pipeline.delete(
+			hset_name
+		)
+		returned_data = pipeline.execute()
+		lambda_return_metadata_list = returned_data[0]
+
+		# Combine the backpacks and generate a list of return values
+		return_values = []
+		combined_backpack = {}
+		for lambda_return_metadata in lambda_return_metadata_list:
+			returned_data_dict = json.loads(
+				lambda_return_metadata
+			)
+
+			for backpack_key, backpack_value in returned_data_dict[ "backpack" ].iteritems():
+				combined_backpack[ backpack_key ] = backpack_value
+
+			return_values.append(
+				returned_data_dict[ "return_data" ]
+			)
+
+		return {
+			"backpack": combined_backpack,
+			"return_data": return_values
+		}
 		
 # Make global to enable caching of redis connection
 gmemory = Refinery_Memory(
@@ -695,6 +778,11 @@ def _parallel_invoke( invoke_queue ):
 			)
 		)
 
+		raise SystemExit
+
+	# Performs a merge transition by adding the return value to redis at the HSET
+	# and then checking to see if it's the last Lambda in the merge.
+	def lambda_merge( execution_id, fan_out_ids, arn, input_data, backpack ):
 		raise SystemExit
 
 	# Spawns a new worked and adds it to active_threads
@@ -2157,6 +2245,37 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 			"input_data": json.loads(
 				json.dumps(
 					return_data
+				)
+			)
+		})
+
+	# For merge transitions
+	for merge_transition_data in transitions[ "merge" ]:
+		merge_result = gmemory._merge_store_result(
+			execution_id,
+			merge_transition_data[ "arn" ],
+			context.invoked_function_arn,
+			merge_transition_data[ "merge_lambdas" ],
+			backpack,
+			return_data
+		)
+
+		if merge_result == None:
+			continue
+
+		# If the return value was not None that means it's the final
+		# Lambda in the merge and we can do a "then" transition with
+		# the combined array of results as the input.
+		invocation_input_list.append({
+			"backpack": merge_result[ "backpack" ],
+			"execution_id": execution_id,
+			"fan_out_ids": fan_out_ids,
+			"type": merge_transition_data[ "type" ],
+			"arn": merge_transition_data[ "arn" ],
+			"context": context,
+			"input_data": json.loads(
+				json.dumps(
+					merge_result[ "return_data" ]
 				)
 			)
 		})
