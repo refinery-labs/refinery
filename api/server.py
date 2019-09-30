@@ -6208,7 +6208,8 @@ class RunTmpLambda( BaseHandler ):
 			"fan-out": [],
 			"else": [],
 			"fan-in": [],
-			"if": []
+			"if": [],
+			"merge": []
 		}
 		
 		# Dummy pipeline execution ID
@@ -6604,12 +6605,40 @@ def get_node_by_id( target_id, workflow_states ):
 	return False
 	
 def update_workflow_states_list( updated_node, workflow_states ):
+	logit( "Workflow states: " )
+	logit( workflow_states )
+
 	for i in range( 0, len( workflow_states ) ):
 		if workflow_states[i][ "id" ] == updated_node[ "id" ]:
 			workflow_states[i] = updated_node
 			break
 		
 	return workflow_states
+
+def get_merge_lambda_arn_list( target_id, workflow_relationships, workflow_states ):
+	# First we create a list of Node IDs
+	id_target_list = []
+
+	for workflow_relationship in workflow_relationships:
+		if workflow_relationship[ "type" ] != "merge":
+			continue
+
+		if workflow_relationship[ "next" ] != target_id:
+			continue
+
+		id_target_list.append(
+			workflow_relationship[ "node" ]
+		)
+
+	arn_list = []
+
+	for workflow_state in workflow_states:
+		if workflow_state[ "id" ] in id_target_list:
+			arn_list.append(
+				workflow_state[ "arn" ]
+			)
+
+	return arn_list
 	
 @gen.coroutine
 def deploy_diagram( credentials, project_name, project_id, diagram_data, project_config ):
@@ -6669,6 +6698,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 			workflow_state[ "transitions" ][ "then" ] = []
 			workflow_state[ "transitions" ][ "fan-out" ] = []
 			workflow_state[ "transitions" ][ "fan-in" ] = []
+			workflow_state[ "transitions" ][ "merge" ] = []
 			
 		unique_name_counter = unique_name_counter + 1
 		
@@ -6726,6 +6756,9 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		
 		# For pseudo-nodes like API Responses we don't need to create a teardown entry
 		if node_arn:
+			# Set ARN on workflow state
+			workflow_state[ "arn" ] = node_arn
+
 			teardown_nodes_list.append({
 				"id": workflow_state[ "id" ],
 				"arn": node_arn,
@@ -6786,6 +6819,16 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				origin_node_data[ "transitions" ][ "fan-in" ].append({
 					"type": target_node_data[ "type" ],
 					"arn": target_arn,
+				})
+			elif workflow_relationship[ "type" ] == "merge":
+				origin_node_data[ "transitions" ][ "merge" ].append({
+					"type": target_node_data[ "type" ],
+					"arn": target_arn,
+					"merge_lambdas": get_merge_lambda_arn_list(
+						target_node_data[ "id" ],
+						diagram_data[ "workflow_relationships" ],
+						diagram_data[ "workflow_states" ]
+					)
 				})
 				
 			diagram_data[ "workflow_states" ] = update_workflow_states_list(
