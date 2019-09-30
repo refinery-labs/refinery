@@ -779,12 +779,7 @@ def _parallel_invoke( invoke_queue ):
 		)
 
 		raise SystemExit
-
-	# Performs a merge transition by adding the return value to redis at the HSET
-	# and then checking to see if it's the last Lambda in the merge.
-	def lambda_merge( execution_id, fan_out_ids, arn, input_data, backpack ):
-		raise SystemExit
-
+		
 	# Spawns a new worked and adds it to active_threads
 	def spawn_new_worker():
 		new_invoke_data = invoke_queue.pop()

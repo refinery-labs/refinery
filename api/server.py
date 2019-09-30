@@ -6602,9 +6602,6 @@ def get_node_by_id( target_id, workflow_states ):
 	return False
 	
 def update_workflow_states_list( updated_node, workflow_states ):
-	logit( "Workflow states: " )
-	logit( workflow_states )
-
 	for i in range( 0, len( workflow_states ) ):
 		if workflow_states[i][ "id" ] == updated_node[ "id" ]:
 			workflow_states[i] = updated_node
