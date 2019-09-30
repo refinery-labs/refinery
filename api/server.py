@@ -6492,32 +6492,31 @@ def get_layers_for_lambda( language ):
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:22"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:23"
 		)
 	elif language == "nodejs10.16.3":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-nodejs10-custom-runtime:3"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-nodejs10-custom-runtime:4"
 		)
 	elif language == "php7.3":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:22"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:23"
 		)
 	elif language == "go1.12":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:22"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:23"
 		)
 	elif language == "python2.7":
 		new_layers.append(
-			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:21"
-			"arn:aws:lambda:us-west-2:561628006572:layer:python:48"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:23"
 		)
 	elif language == "python3.6":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:23"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:24"
 		)
 	elif language == "ruby2.6.4":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:23"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:24"
 		)
 		
 	return new_layers
