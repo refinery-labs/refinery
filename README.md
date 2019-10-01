@@ -57,6 +57,3 @@ docker-machine ip machine4
 
 # output should show lsync sycing stuff properly
 ```
-
-
-

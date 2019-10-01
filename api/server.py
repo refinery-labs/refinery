@@ -13,9 +13,7 @@ import requests
 import pystache
 import binascii
 import hashlib
-import random
 import ctypes
-import random
 import shutil
 import stripe
 import base64
@@ -49,7 +47,7 @@ from tornado.concurrent import run_on_executor, futures
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from email_validator import validate_email, EmailNotValidError
 
-from utils.general import attempt_json_decode, logit
+from utils.general import attempt_json_decode, logit, split_list_into_chunks, get_random_node_id, get_urand_password, get_random_id, get_random_deploy_id
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
 
@@ -246,11 +244,6 @@ ORGANIZATION_CLIENT = boto3.client(
 		max_pool_connections=( 1000 * 2 )
 	)
 )
-
-# For generating crytographically-secure random strings
-def get_urand_password( length ):
-    symbols = string.ascii_letters + string.digits
-    return "".join([symbols[x * len(symbols) / 256] for x in struct.unpack("%dB" % (length,), os.urandom(length))])
     
 """
 This is some poor-man's caching to greately speed up Boto3
@@ -6007,19 +6000,6 @@ class TaskSpawner(object):
 			}
 			
 local_tasks = TaskSpawner()
-			
-def get_random_node_id():
-	return "n" + str( uuid.uuid4() ).replace( "-", "" )
-	
-def get_random_id( length ):
-	return "".join(
-		random.choice(
-			string.ascii_letters + string.digits
-		) for _ in range( length )
-	)
-
-def get_random_deploy_id():
-	return "_RFN" + get_random_id( 6 )
 
 class RunLambda( BaseHandler ):
 	@authenticated
@@ -7314,9 +7294,9 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		"deployment_diagram": diagram_data,
 		"project_config": project_config
 	})
-	
+
 @gen.coroutine
-def add_auto_warmup( credentials, warmup_concurrency_level, unique_deploy_id, combined_warmup_list, diagram_data ):
+def create_warmer_for_lambda_set( credentials, warmup_concurrency_level, unique_deploy_id, combined_warmup_list, diagram_data ):
 	# Create Lambda warmers if enabled
 	warmer_trigger_name = "WarmerTrigger" + unique_deploy_id
 	logit( "Deploying auto-warmer CloudWatch rule..." )
@@ -7341,7 +7321,7 @@ def add_auto_warmup( credentials, warmup_concurrency_level, unique_deploy_id, co
 	# Additionally we'll invoke them all once with a warmup request so
 	# that they are hot if hit immediately
 	for deployed_lambda in combined_warmup_list:
-		local_tasks.add_rule_target(
+		yield local_tasks.add_rule_target(
 			credentials,
 			warmer_trigger_name,
 			deployed_lambda[ "name" ],
@@ -7358,6 +7338,38 @@ def add_auto_warmup( credentials, warmup_concurrency_level, unique_deploy_id, co
 			deployed_lambda[ "arn" ],
 			warmup_concurrency_level
 		)
+	
+@gen.coroutine
+def add_auto_warmup( credentials, warmup_concurrency_level, unique_deploy_id, combined_warmup_list, diagram_data ):
+	# Split warmup list into a list of lists with each list containing five elements.
+	# This is so that we match the limit for CloudWatch Rules max targets (5 per rule).
+	# See "Targets" under this following URL:
+	# https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/cloudwatch_limits_cwe.html
+	split_combined_warmup_list = split_list_into_chunks(
+		combined_warmup_list,
+		5
+	)
+
+	# Ensure each Cloudwatch Rule has a unique name
+	warmup_unique_counter = 0
+
+	warmup_futures = []
+
+	for warmup_chunk_list in split_combined_warmup_list:
+		warmup_futures.append(
+			create_warmer_for_lambda_set(
+				credentials,
+				warmup_concurrency_level,
+				unique_deploy_id + "_W" + str( warmup_unique_counter ),
+				warmup_chunk_list,
+				diagram_data
+			)
+		)
+
+		warmup_unique_counter += 1
+
+	# Wait for all of the concurrent Cloudwatch Rule creations to finish
+	yield warmup_futures
 		
 class SavedBlocksCreate( BaseHandler ):
 	@authenticated
@@ -11614,9 +11626,6 @@ if __name__ == "__main__":
 	)
 	
 	Base.metadata.create_all( engine )
-
-	if os.environ.get( "cf_enabled" ).lower() == "true":
-		tornado.ioloop.IOLoop.current().run_sync( get_cloudflare_keys )
 		
 	# Resolve what our callback endpoint is, this is different in DEV vs PROD
 	# one assumes you have an external IP address and the other does not (and
