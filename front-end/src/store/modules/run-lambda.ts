@@ -291,7 +291,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       // Before we run the Lambda we subscribe to the debug ID via the WebSocket
       // This is basically claiming to the server that we want to know about any
       // messages that come for this specific UUID.
-      await context.dispatch(`runLambda/${RunLambdaActions.WebsocketSubscribeToDebugID}`, debugId);
+      await context.dispatch(RunLambdaActions.WebsocketSubscribeToDebugID, debugId);
 
       const request: RunLambdaRequest = {
         input_data: inputData === undefined || inputData === null ? '' : inputData,
@@ -375,7 +375,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       // Before we run the Lambda we subscribe to the debug ID via the WebSocket
       // This is basically claiming to the server that we want to know about any
       // messages that come for this specific UUID.
-      await context.dispatch(`runLambda/${RunLambdaActions.WebsocketSubscribeToDebugID}`, debugId);
+      await context.dispatch(RunLambdaActions.WebsocketSubscribeToDebugID, debugId);
 
       const request: RunTmpLambdaRequest = {
         environment_variables: runLambdaEnvironmentVariables,
