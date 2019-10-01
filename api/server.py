@@ -1113,7 +1113,7 @@ class TaskSpawner(object):
 
 			# Max amount of times we'll attempt to query the execution
 			# status. If the counter hits zero we break out.
-			max_counter = 600
+			max_counter = 60
 
 			# Poll for query status
 			while True:
@@ -1137,7 +1137,7 @@ class TaskSpawner(object):
 				if query_execution_status == "SUCCEEDED":
 					break
 
-				time.sleep(0.5)
+				time.sleep(1)
 
 				# Decrement counter
 				max_counter = max_counter - 1
