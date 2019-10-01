@@ -13,9 +13,7 @@ import requests
 import pystache
 import binascii
 import hashlib
-import random
 import ctypes
-import random
 import shutil
 import stripe
 import base64
@@ -49,7 +47,7 @@ from tornado.concurrent import run_on_executor, futures
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from email_validator import validate_email, EmailNotValidError
 
-from utils.general import attempt_json_decode, logit
+from utils.general import attempt_json_decode, logit, split_list_into_chunks, get_random_node_id, get_urand_password, get_random_id, get_random_deploy_id
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
 
@@ -246,11 +244,6 @@ ORGANIZATION_CLIENT = boto3.client(
 		max_pool_connections=( 1000 * 2 )
 	)
 )
-
-# For generating crytographically-secure random strings
-def get_urand_password( length ):
-    symbols = string.ascii_letters + string.digits
-    return "".join([symbols[x * len(symbols) / 256] for x in struct.unpack("%dB" % (length,), os.urandom(length))])
     
 """
 This is some poor-man's caching to greately speed up Boto3
@@ -1120,31 +1113,29 @@ class TaskSpawner(object):
 
 			# Max amount of times we'll attempt to query the execution
 			# status. If the counter hits zero we break out.
-			max_counter = 600
+			max_counter = 60
 
 			# Poll for query status
 			while True:
 				# Check the status of the query
-				query_status_results = athena_client.batch_get_query_execution(
-					QueryExecutionIds=[
-						query_execution_id
-					]
+				query_status_result = athena_client.get_query_execution(
+					QueryExecutionId=query_execution_id
 				)
-
+				
 				query_execution_results = {}
 				query_execution_status = "RUNNING"
 
-				if "QueryExecutions" in query_status_results and len( query_status_results[ "QueryExecutions" ] ) > 0:
-					query_execution_status = query_status_results[ "QueryExecutions" ][0][ "Status" ][ "State" ]
+				if "QueryExecution" in query_status_result:
+					query_execution_status = query_status_result[ "QueryExecution" ][ "Status" ][ "State" ]
 
 				if query_execution_status in QUERY_FAILED_STATES:
-					logit( query_status_results )
+					logit( query_status_result )
 					raise Exception( "Athena query failed!" )
 
 				if query_execution_status == "SUCCEEDED":
 					break
 
-				time.sleep(0.5)
+				time.sleep(1)
 
 				# Decrement counter
 				max_counter = max_counter - 1
@@ -1152,7 +1143,7 @@ class TaskSpawner(object):
 				if max_counter <= 0:
 					break
 
-			s3_object_location = query_status_results[ "QueryExecutions" ][0][ "ResultConfiguration" ][ "OutputLocation" ]
+			s3_object_location = query_status_result[ "QueryExecution" ][ "ResultConfiguration" ][ "OutputLocation" ]
 
 			# Sometimes we don't care about the result
 			# In those cases we just return the S3 path in case the caller
@@ -6007,19 +5998,6 @@ class TaskSpawner(object):
 			}
 			
 local_tasks = TaskSpawner()
-			
-def get_random_node_id():
-	return "n" + str( uuid.uuid4() ).replace( "-", "" )
-	
-def get_random_id( length ):
-	return "".join(
-		random.choice(
-			string.ascii_letters + string.digits
-		) for _ in range( length )
-	)
-
-def get_random_deploy_id():
-	return "_RFN" + get_random_id( 6 )
 
 class RunLambda( BaseHandler ):
 	@authenticated
@@ -6208,7 +6186,8 @@ class RunTmpLambda( BaseHandler ):
 			"fan-out": [],
 			"else": [],
 			"fan-in": [],
-			"if": []
+			"if": [],
+			"merge": []
 		}
 		
 		# Dummy pipeline execution ID
@@ -6500,35 +6479,31 @@ def get_layers_for_lambda( language ):
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:21"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:23"
 		)
 	elif language == "nodejs10.16.3":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-nodejs10-custom-runtime:2"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-nodejs10-custom-runtime:4"
 		)
 	elif language == "php7.3":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:20"
-		)
-	elif language == "php7.3":
-		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:21"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:23"
 		)
 	elif language == "go1.12":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:21"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:23"
 		)
 	elif language == "python2.7":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:21"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:23"
 		)
 	elif language == "python3.6":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:22"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:24"
 		)
 	elif language == "ruby2.6.4":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:22"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:24"
 		)
 		
 	return new_layers
@@ -6619,6 +6594,31 @@ def update_workflow_states_list( updated_node, workflow_states ):
 			break
 		
 	return workflow_states
+
+def get_merge_lambda_arn_list( target_id, workflow_relationships, workflow_states ):
+	# First we create a list of Node IDs
+	id_target_list = []
+
+	for workflow_relationship in workflow_relationships:
+		if workflow_relationship[ "type" ] != "merge":
+			continue
+
+		if workflow_relationship[ "next" ] != target_id:
+			continue
+
+		id_target_list.append(
+			workflow_relationship[ "node" ]
+		)
+
+	arn_list = []
+
+	for workflow_state in workflow_states:
+		if workflow_state[ "id" ] in id_target_list:
+			arn_list.append(
+				workflow_state[ "arn" ]
+			)
+
+	return arn_list
 	
 @gen.coroutine
 def deploy_diagram( credentials, project_name, project_id, diagram_data, project_config ):
@@ -6678,6 +6678,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 			workflow_state[ "transitions" ][ "then" ] = []
 			workflow_state[ "transitions" ][ "fan-out" ] = []
 			workflow_state[ "transitions" ][ "fan-in" ] = []
+			workflow_state[ "transitions" ][ "merge" ] = []
 			
 		unique_name_counter = unique_name_counter + 1
 		
@@ -6735,6 +6736,9 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		
 		# For pseudo-nodes like API Responses we don't need to create a teardown entry
 		if node_arn:
+			# Set ARN on workflow state
+			workflow_state[ "arn" ] = node_arn
+
 			teardown_nodes_list.append({
 				"id": workflow_state[ "id" ],
 				"arn": node_arn,
@@ -6795,6 +6799,16 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				origin_node_data[ "transitions" ][ "fan-in" ].append({
 					"type": target_node_data[ "type" ],
 					"arn": target_arn,
+				})
+			elif workflow_relationship[ "type" ] == "merge":
+				origin_node_data[ "transitions" ][ "merge" ].append({
+					"type": target_node_data[ "type" ],
+					"arn": target_arn,
+					"merge_lambdas": get_merge_lambda_arn_list(
+						target_node_data[ "id" ],
+						diagram_data[ "workflow_relationships" ],
+						diagram_data[ "workflow_states" ]
+					)
 				})
 				
 			diagram_data[ "workflow_states" ] = update_workflow_states_list(
@@ -7287,9 +7301,9 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		"deployment_diagram": diagram_data,
 		"project_config": project_config
 	})
-	
+
 @gen.coroutine
-def add_auto_warmup( credentials, warmup_concurrency_level, unique_deploy_id, combined_warmup_list, diagram_data ):
+def create_warmer_for_lambda_set( credentials, warmup_concurrency_level, unique_deploy_id, combined_warmup_list, diagram_data ):
 	# Create Lambda warmers if enabled
 	warmer_trigger_name = "WarmerTrigger" + unique_deploy_id
 	logit( "Deploying auto-warmer CloudWatch rule..." )
@@ -7314,7 +7328,7 @@ def add_auto_warmup( credentials, warmup_concurrency_level, unique_deploy_id, co
 	# Additionally we'll invoke them all once with a warmup request so
 	# that they are hot if hit immediately
 	for deployed_lambda in combined_warmup_list:
-		local_tasks.add_rule_target(
+		yield local_tasks.add_rule_target(
 			credentials,
 			warmer_trigger_name,
 			deployed_lambda[ "name" ],
@@ -7331,6 +7345,38 @@ def add_auto_warmup( credentials, warmup_concurrency_level, unique_deploy_id, co
 			deployed_lambda[ "arn" ],
 			warmup_concurrency_level
 		)
+	
+@gen.coroutine
+def add_auto_warmup( credentials, warmup_concurrency_level, unique_deploy_id, combined_warmup_list, diagram_data ):
+	# Split warmup list into a list of lists with each list containing five elements.
+	# This is so that we match the limit for CloudWatch Rules max targets (5 per rule).
+	# See "Targets" under this following URL:
+	# https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/cloudwatch_limits_cwe.html
+	split_combined_warmup_list = split_list_into_chunks(
+		combined_warmup_list,
+		5
+	)
+
+	# Ensure each Cloudwatch Rule has a unique name
+	warmup_unique_counter = 0
+
+	warmup_futures = []
+
+	for warmup_chunk_list in split_combined_warmup_list:
+		warmup_futures.append(
+			create_warmer_for_lambda_set(
+				credentials,
+				warmup_concurrency_level,
+				unique_deploy_id + "_W" + str( warmup_unique_counter ),
+				warmup_chunk_list,
+				diagram_data
+			)
+		)
+
+		warmup_unique_counter += 1
+
+	# Wait for all of the concurrent Cloudwatch Rule creations to finish
+	yield warmup_futures
 		
 class SavedBlocksCreate( BaseHandler ):
 	@authenticated
@@ -11587,9 +11633,6 @@ if __name__ == "__main__":
 	)
 	
 	Base.metadata.create_all( engine )
-
-	if os.environ.get( "cf_enabled" ).lower() == "true":
-		tornado.ioloop.IOLoop.current().run_sync( get_cloudflare_keys )
 		
 	# Resolve what our callback endpoint is, this is different in DEV vs PROD
 	# one assumes you have an external IP address and the other does not (and

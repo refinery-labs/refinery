@@ -113,7 +113,6 @@ export default class ViewProject extends mixins(CreateToastMixin) {
 
   public render(h: CreateElement): VNode {
     const basePath = `/p/${this.$route.params.projectId}`;
-
     return (
       <div class="view-project-page">
         <b-nav tabs justified>

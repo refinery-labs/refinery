@@ -7,7 +7,7 @@ cp -r ./bin/ ./layer-contents/
 cp -r ./bref/ ./layer-contents/
 cp runtime ./layer-contents/ 
 cd ./layer-contents/
-zip -r custom-runtime.zip *
+zip -qr custom-runtime.zip *
 mv custom-runtime.zip ../
 cd ..
 rm -rf ./layer-contents/*

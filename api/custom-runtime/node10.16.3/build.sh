@@ -4,7 +4,7 @@ rm -rf ./layer-contents/*
 cp runtime ./layer-contents/
 cp -r ../base-src/* ./layer-contents/
 cd ./layer-contents/
-zip -r custom-runtime.zip *
+zip -qr custom-runtime.zip *
 mv custom-runtime.zip ../
 cd ..
 rm -rf /layer-contents/*
