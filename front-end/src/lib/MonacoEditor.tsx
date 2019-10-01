@@ -61,11 +61,14 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
 
       if (this.tailOutput) {
         const characterCount = editor.getValue().length;
+        const editorPreviouslyHadContent = this.lastEditorContentsLength !== undefined;
+        const newContentIsShorter =
+          this.lastEditorContentsLength !== undefined && characterCount < this.lastEditorContentsLength;
 
         // If we detected that we suddenly have less content in the editor
         // than we did previously that means that we are almost certainly
         // starting a new run and can re-enable tailing!
-        if (this.lastEditorContentsLength !== undefined && characterCount < this.lastEditorContentsLength) {
+        if (editorPreviouslyHadContent && newContentIsShorter) {
           this.tailingEnabled = true;
         }
 
