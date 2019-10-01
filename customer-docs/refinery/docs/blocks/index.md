@@ -15,7 +15,8 @@ Refinery supports a number of different node types, this documentation offers an
 
 A `Code Block` is a block which will run some code when it is run or transitioned to. Currently `Code Blocks` support the following languages:
 
-* Node 8.10
+* Node 8.10, Node 10.16.3
+* Ruby 2.6.4
 * Python 2.7
 * PHP 7.3
 * Go 1.12

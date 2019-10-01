@@ -9,6 +9,7 @@ Transitions are a large part of what makes Refinery an extremely powerful platfo
 * [`exception`](#exception)
 * [`fan-out`](#fan-out)
 * [`fan-in`](#fan-in)
+* [`merge`](#merge)
 
 ## `then`
 
@@ -45,10 +46,7 @@ You can use this information to react differently depending on the specific deta
 The `fan-out` transition takes a return value of a list of items and invokes the connected block with each item in the list as a single input. For example, if a `Code Block` returned an array of `[1, 2, 3, 4, 5]` the next `Code Block` linked with the `fan-out` transition would be called five times with the inputs of `1`, `2`, `3`, `4`, and `5` respectively. This allows for performing quick and simple concurrent processing of data. It's important to note that you are spinning up a virtual server for each item in the returned array. This is useful for when you need many machines to perform some work (converting 100 images concurrently across many machines) but it's overkill when you're attempting to do simple operations which could be accomplished in a `for` loop, for example.
 
 !!! warning
-	`fan-out` transitions should only be used for less than 1,000 items. If you `fan-out` more than 1,000 items you may encounter invocation throttling which will slow down or potentially break your pipeline.
-
-!!! warning
-	The `fan-out` transition is a powerful construct. It allows for developers to easily perform a large number of `Code Block` invocations without much effort. If not used carefully it can result in an excessive usage of `Code Blocks`, causing a higher-than-expected AWS bill.
+	The `fan-out` transition is a powerful construct. It allows for developers to easily perform a large number of `Code Block` invocations without much effort. If not used carefully it can result in an excessive usage of `Code Blocks`, causing a higher-than-expected bill.
 
 ## `fan-in`
 
@@ -62,3 +60,10 @@ The `fan-in` transition is the sister-transition of the `fan-out` transition. Us
 
 !!! note
 	You can also have multiple nodes chained together before ending in a `fan-in` transition (instead of just a `fan-out` to a `Code Block` node to a `fan-in`). However, if all of the `Code Blocks` do not `fan-in` properly the transition will fail. This can occur in situations such as a `Code Block` reaching its max execution time, for example.
+
+## `merge`
+
+The `merge` transition allows you to join two separate pipelines of execution. For example, if you spawn two `Code Blocks` using two `then` transitions, you can then use two `merge` transitions to merge the results of both into a single `Code Block`.
+
+!!! warning
+	The `merge` transition currently has a known issue with high-concurrency pipelines using the same execution ID. This can occur when a `merge` is done downstream from a `fan-out` or a `Queue Block`. It is recommended that the `merge` transition only be used in non-concurrent pipeline executions for now (this will be fixed in future Refinery updates).
