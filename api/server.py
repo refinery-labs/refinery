@@ -1113,31 +1113,29 @@ class TaskSpawner(object):
 
 			# Max amount of times we'll attempt to query the execution
 			# status. If the counter hits zero we break out.
-			max_counter = 600
+			max_counter = 60
 
 			# Poll for query status
 			while True:
 				# Check the status of the query
-				query_status_results = athena_client.batch_get_query_execution(
-					QueryExecutionIds=[
-						query_execution_id
-					]
+				query_status_result = athena_client.get_query_execution(
+					QueryExecutionId=query_execution_id
 				)
-
+				
 				query_execution_results = {}
 				query_execution_status = "RUNNING"
 
-				if "QueryExecutions" in query_status_results and len( query_status_results[ "QueryExecutions" ] ) > 0:
-					query_execution_status = query_status_results[ "QueryExecutions" ][0][ "Status" ][ "State" ]
+				if "QueryExecution" in query_status_result:
+					query_execution_status = query_status_result[ "QueryExecution" ][ "Status" ][ "State" ]
 
 				if query_execution_status in QUERY_FAILED_STATES:
-					logit( query_status_results )
+					logit( query_status_result )
 					raise Exception( "Athena query failed!" )
 
 				if query_execution_status == "SUCCEEDED":
 					break
 
-				time.sleep(0.5)
+				time.sleep(1)
 
 				# Decrement counter
 				max_counter = max_counter - 1
@@ -1145,7 +1143,7 @@ class TaskSpawner(object):
 				if max_counter <= 0:
 					break
 
-			s3_object_location = query_status_results[ "QueryExecutions" ][0][ "ResultConfiguration" ][ "OutputLocation" ]
+			s3_object_location = query_status_result[ "QueryExecution" ][ "ResultConfiguration" ][ "OutputLocation" ]
 
 			# Sometimes we don't care about the result
 			# In those cases we just return the S3 path in case the caller
