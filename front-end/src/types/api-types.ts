@@ -280,6 +280,7 @@ export interface RunLambdaRequest extends BaseApiRequest {
   arn: string;
   input_data: string;
   execution_id?: string;
+  debug_id?: string;
 }
 
 export interface RunLambdaResponse extends BaseApiResponse {
@@ -313,6 +314,7 @@ export interface RunTmpLambdaRequest extends BaseApiRequest {
   max_execution_time: number;
   memory: number;
   block_id: string;
+  debug_id: string;
 }
 
 export interface RunTmpLambdaEnvironmentVariable {
@@ -713,4 +715,22 @@ export interface GetProjectShortlinkResponse extends BaseApiResponse {
     project_short_link_id: string;
     diagram_data: ImportableRefineryProject;
   };
+}
+
+// Lambda live log streaming Websocket message
+export enum LambdaDebuggingWebsocketSources {
+  Lambda = 'LAMBDA'
+}
+
+export enum LambdaDebuggingWebsocketActions {
+  Output = 'OUTPUT'
+}
+
+export interface LambdaDebuggingWebsocketMessage {
+  body: string;
+  timestamp: number;
+  source: LambdaDebuggingWebsocketSources;
+  version: string;
+  action: LambdaDebuggingWebsocketActions;
+  debug_id: string;
 }

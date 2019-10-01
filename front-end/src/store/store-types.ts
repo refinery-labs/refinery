@@ -43,6 +43,7 @@ export interface RootState {
   toasts: ToastPaneState;
   user: UserState;
   billing: BillingPaneState;
+  websocket: WebsocketState;
 }
 
 export enum UserInterfaceSettings {
@@ -312,3 +313,5 @@ export interface UserState {
   registrationPaymentCardInputValid: boolean | null;
   termsAndConditionsAgreedValid: boolean | null;
 }
+
+export interface WebsocketState {}

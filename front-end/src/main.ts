@@ -29,11 +29,15 @@ import App from './App';
 import router from './router';
 import store from './store/index';
 import './registerServiceWorker';
+import VueNativeSock from 'vue-native-websocket';
+import { setupWebsocketVuePlugin } from '@/setup-websocket';
 
 Vue.use(BootstrapVue);
 Vue.use(VueIntercom, { appId: 'sjaaunj7' });
 
 Vue.config.productionTip = false;
+
+setupWebsocketVuePlugin(Vue, store);
 
 // If, in the future, we need to unsync the router we can use this function.
 const unsync = sync(store, router);
@@ -48,7 +52,7 @@ window.onbeforeunload = function(e: Event) {
   }
 };
 
-new Vue({
+const vm = new Vue({
   router,
   store,
   render: h => h(App)

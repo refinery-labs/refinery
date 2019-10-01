@@ -16,6 +16,7 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
   @Prop() onChange?: (s: string) => void;
   @Prop() fullscreenToggled?: () => void;
   @Prop({ default: false }) disableFullscreen!: boolean;
+  @Prop({ default: false }) tailOutput!: boolean;
 
   // Ace Props
   @Prop() readOnly?: boolean;
@@ -67,12 +68,17 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
       wordWrap: this.wrapText,
       theme: this.theme || 'vs-dark',
       automaticLayout: true,
-      onChange: this.onChange
+      onChange: this.onChange,
+      tailOutput: this.tailOutput
     };
 
     return (
       // @ts-ignore
-      <MonacoEditor key={`${languageToAceLangMap[this.lang]}${this.readOnly ? '-read-only' : ''}`} ref="editor" props={monacoProps} />
+      <MonacoEditor
+        key={`${languageToAceLangMap[this.lang]}${this.readOnly ? '-read-only' : ''}`}
+        ref="editor"
+        props={monacoProps}
+      />
     );
   }
 

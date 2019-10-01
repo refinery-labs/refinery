@@ -6,6 +6,7 @@ import { Prop, Watch } from 'vue-property-decorator';
 import elementResizeDetector from 'element-resize-detector';
 import IModelContentChangedEvent = monaco.editor.IModelContentChangedEvent;
 import { timeout } from '@/utils/async-utils';
+import { IScrollEvent } from 'monaco-editor';
 
 export interface MonacoEditorProps {
   readOnly?: boolean;
@@ -17,6 +18,7 @@ export interface MonacoEditorProps {
   diffEditor?: boolean;
   wordWrap?: boolean;
   automaticLayout?: boolean;
+  tailOutput?: boolean;
 
   onChange?: (s: string) => void;
 }
@@ -24,6 +26,9 @@ export interface MonacoEditorProps {
 @Component
 export default class MonacoEditor extends Vue implements MonacoEditorProps {
   editor?: any;
+  lastEditorHeight?: number;
+  lastEditorContentsLength?: number;
+  tailingEnabled?: boolean;
 
   @Prop() public readOnly?: boolean;
   @Prop() public original?: string;
@@ -34,6 +39,7 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
   @Prop({ default: false }) public diffEditor!: boolean;
   @Prop({ default: false }) public wordWrap!: boolean;
   @Prop({ default: false }) public automaticLayout!: boolean;
+  @Prop({ default: false }) public tailOutput!: boolean;
 
   @Prop() onChange?: (s: string) => void;
 
@@ -52,6 +58,8 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
       if (newValue !== editor.getValue()) {
         editor.setValue(newValue);
       }
+
+      this.onTailedContentRefreshed();
     }
   }
 
@@ -67,6 +75,34 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
   public watchTheme(newTheme?: string) {
     if (this.editor) {
       monaco.editor.setTheme(newTheme || 'vs-dark');
+    }
+  }
+
+  onTailedContentRefreshed() {
+    const editor = this.getModifiedEditor();
+    if (this.tailOutput) {
+      const characterCount = editor.getValue().length;
+      const editorPreviouslyHadContent = this.lastEditorContentsLength !== undefined;
+      const newContentIsShorter =
+        this.lastEditorContentsLength !== undefined && characterCount < this.lastEditorContentsLength;
+
+      // If we detected that we suddenly have less content in the editor
+      // than we did previously that means that we are almost certainly
+      // starting a new run and can re-enable tailing!
+      if (editorPreviouslyHadContent && newContentIsShorter) {
+        this.tailingEnabled = true;
+      }
+
+      this.lastEditorContentsLength = characterCount;
+    }
+
+    // We use tailingEnabled instead of the prop because
+    // we want to disable tailing if the user has attempted to scroll
+    // up. Vue doesn't like you mutating props so we pull the state internally.
+    if (this.tailingEnabled) {
+      // Auto-scroll to the bottom
+      const lineCount = editor.getModel().getLineCount();
+      editor.revealLine(lineCount);
     }
   }
 
@@ -120,6 +156,27 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
         this.$emit('change', value, event);
         this.onChange && this.onChange(value);
       }
+    });
+
+    // Enable tailing if it was set
+    this.lastEditorHeight = 0;
+    if (this.tailOutput) {
+      this.tailingEnabled = true;
+    }
+
+    // This is used with the tailing of output functionality to calculate if
+    // a user scrolled while the output was being tailed. If they have and it
+    // wasn't programmatically-caused then we need to stop tailing!
+    editor.onDidScrollChange((event: IScrollEvent) => {
+      if (this.lastEditorHeight === undefined) {
+        return;
+      }
+
+      if (this.lastEditorHeight > event.scrollTop) {
+        this.tailingEnabled = false;
+      }
+
+      this.lastEditorHeight = event.scrollTop;
     });
 
     editor.updateOptions({

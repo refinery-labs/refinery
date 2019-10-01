@@ -73,7 +73,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
     }
 
     // If we have valid output for a Lambda based on it's ID.
-    if (this.lambdaIdOrArn && this.runResultOutputId === this.lambdaIdOrArn) {
+    if (this.lambdaIdOrArn) {
       return true;
     }
 
@@ -81,7 +81,27 @@ export default class RunLambda extends Vue implements RunLambdaProps {
     return false;
   }
 
+  public getRunLambdaReturnFieldValue(runResultOutput: RunLambdaResult | null) {
+    // Check if the Lambda is running, we'll show a different return value if it is
+    // to indicate to the user that the Code Block is currently still executing.
+    if (this.isCurrentlyRunning) {
+      return 'The Code Block has not finished executing yet, please wait...';
+    }
+
+    if (runResultOutput && runResultOutput.returned_data && typeof runResultOutput.returned_data === 'string') {
+      return runResultOutput.returned_data;
+    }
+
+    return 'Click Execute button for run output.';
+  }
+
   public getRunLambdaOutput(hasValidOutput: boolean) {
+    // Check if the Lambda is running, we'll show a different return value if it is
+    // to indicate to the user that the Code Block is currently still executing.
+    if (this.isCurrentlyRunning && !this.runResultOutput) {
+      return 'No output from Code Block received yet, please wait...';
+    }
+
     // Need to check this because Ace will shit the bed if given a *gasp* null value!
     if (!hasValidOutput || !this.runResultOutput) {
       return 'No return data to display.';
@@ -126,6 +146,25 @@ export default class RunLambda extends Vue implements RunLambdaProps {
     );
   }
 
+  /*
+  Disables the Execute With Data button if the Lambda is running
+  */
+  getExecuteWithDataButton() {
+    if (this.isCurrentlyRunning) {
+      return (
+        <b-button variant="primary" disabled={true}>
+          <b-spinner small /> Code Block is executing, please wait...
+        </b-button>
+      );
+    }
+
+    return (
+      <b-button variant="primary" on={{ click: () => this.onRunLambda() }}>
+        Execute With Data
+      </b-button>
+    );
+  }
+
   public renderEditors() {
     const hasValidOutput = this.checkIfValidRunLambdaOutput();
 
@@ -151,7 +190,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
       name: `result-data-${this.getNameSuffix()}`,
       // This is very nice for rendering non-programming text
       lang: hasResultData ? 'json' : 'text',
-      content: hasResultData || 'Click Execute button for run output.',
+      content: this.getRunLambdaReturnFieldValue(this.runResultOutput),
       wrapText: true,
       readOnly: true
     };
@@ -163,7 +202,8 @@ export default class RunLambda extends Vue implements RunLambdaProps {
       lang: 'text',
       content: this.getRunLambdaOutput(hasValidOutput),
       wrapText: true,
-      readOnly: true
+      readOnly: true,
+      tailOutput: true
     };
 
     const saveInputDataButton = (
@@ -176,9 +216,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
       <div class="m-2">
         <b-button-group class="width--100percent">
           {this.displayLocation === RunLambdaDisplayLocation.editor && this.onSaveInputData && saveInputDataButton}
-          <b-button variant="primary" on={{ click: () => this.onRunLambda() }}>
-            Execute With Data
-          </b-button>
+          {this.getExecuteWithDataButton()}
         </b-button-group>
       </div>
     );
@@ -213,22 +251,11 @@ export default class RunLambda extends Vue implements RunLambdaProps {
   }
 
   public render(h: CreateElement): VNode {
-    const loadingProps: LoadingContainerProps = {
-      show: this.isCurrentlyRunning,
-      dark: true,
-      label: this.loadingText,
-      classes: 'height--100percent width--100percent'
-    };
-
     const classes = {
-      'run-lambda-container display--flex flex-direction--column': true,
+      'run-lambda-container display--flex flex-direction--column width--100percent': true,
       [`run-lambda-container__${this.displayMode}`]: true
     };
 
-    return (
-      <Loading props={loadingProps}>
-        <div class={classes}>{this.renderEditors()}</div>
-      </Loading>
-    );
+    return <div class={classes}>{this.renderEditors()}</div>;
   }
 }

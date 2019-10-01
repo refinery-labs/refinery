@@ -6305,6 +6305,15 @@ class RunTmpLambda( BaseHandler ):
 			lambda_info[ "arn" ],
 			execute_lambda_params
 		)
+
+		if "Task timed out after " in lambda_result[ "logs" ]:
+			logit( "Lambda timed out while being executed!" )
+			self.write({
+				"success": False,
+				"msg": "The Code Block timed out while running, you may have an infinite loop or you may need to increase your Code Block's Max Execution Time.",
+				"log_output": ""
+			})
+			raise gen.Return()
 		
 		try:
 			return_data = json.loads(
