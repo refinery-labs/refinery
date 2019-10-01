@@ -518,8 +518,10 @@ function getLambdaResultFromWebsocketMessage(
     };
   }
 
-  runLambdaResult.logs += websocketMessage.body;
-  return runLambdaResult;
+  return {
+    ...runLambdaResult,
+    logs: runLambdaResult.logs + websocketMessage.body
+  };
 }
 
 export default RunLambdaModule;
