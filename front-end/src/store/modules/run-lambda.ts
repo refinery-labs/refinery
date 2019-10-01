@@ -65,7 +65,7 @@ export enum RunLambdaActions {
 // Types
 export interface RunLambdaState {
   isRunningLambda: boolean;
-  runningLambdaType: runningLambdaType | null;
+  runningLambdaType: RunningLambdaType | null;
 
   deployedLambdaResult: RunLambdaResult | null;
   deployedLambdaInputDataCache: InputDataCache;
@@ -93,9 +93,9 @@ export interface RunLambdaState {
 
 // Simple enum for determining if dev or prod Lambda
 // that is currently being run.
-enum runningLambdaType {
-  'PROD' = 'PROD',
-  'DEV' = 'DEV'
+enum RunningLambdaType {
+  Production = 'Production',
+  Development = 'Development'
 }
 
 // Initial State
@@ -245,11 +245,11 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
     [RunLambdaMutators.WebsocketOnMessage](state, message) {
       const websocketMessage = parseLambdaWebsocketMessage(message.data);
 
-      if (state.runningLambdaType === runningLambdaType.DEV) {
+      if (state.runningLambdaType === RunningLambdaType.Development) {
         state.devLambdaResult = getLambdaResultFromWebsocketMessage(websocketMessage, state.devLambdaResult);
       }
 
-      if (state.runningLambdaType === runningLambdaType.PROD) {
+      if (state.runningLambdaType === RunningLambdaType.Production) {
         state.deployedLambdaResult = getLambdaResultFromWebsocketMessage(websocketMessage, state.deployedLambdaResult);
       }
     },
@@ -282,7 +282,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       const inputData = context.state.deployedLambdaInputDataCache[block.id] || block.saved_input_data;
 
       // Set that we're running a prod Lambda
-      context.commit(RunLambdaMutators.setRunningLambdaType, runningLambdaType.PROD);
+      context.commit(RunLambdaMutators.setRunningLambdaType, RunningLambdaType.Production);
 
       // Set the debug ID in the store so we know we're tracking it
       const debugId = uuid();
@@ -366,7 +366,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       const inputData = context.state.devLambdaInputDataCache[block.id] || config.codeBlock.saved_input_data;
 
       // Set that we're running a prod Lambda
-      context.commit(RunLambdaMutators.setRunningLambdaType, runningLambdaType.DEV);
+      context.commit(RunLambdaMutators.setRunningLambdaType, RunningLambdaType.Development);
 
       // Set the debug ID in the store so we know we're tracking it
       const debugId = uuid();
