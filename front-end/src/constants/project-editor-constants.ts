@@ -174,6 +174,12 @@ export const transitionTypeToConfigLookup: TransitionTypeToConfig = {
       'Runs the connected Code Block for every item in the array returned from the preceding Code Block. ' +
       'For example, if you return [1,2,3] from a Code Block then three Code Blocks will be run ' +
       'with “1”, “2”, “3” as input respectively.'
+  },
+  [WorkflowRelationshipType.MERGE]: {
+    name: 'Merge Transition',
+    description:
+      'Merges together two pipelines together and passes the return values of each pipeline into the input ' +
+      'of the next Code Block as an array. '
   }
 };
 
@@ -183,7 +189,8 @@ export const availableTransitions = [
   WorkflowRelationshipType.ELSE,
   WorkflowRelationshipType.EXCEPTION,
   WorkflowRelationshipType.FAN_IN,
-  WorkflowRelationshipType.FAN_OUT
+  WorkflowRelationshipType.FAN_OUT,
+  WorkflowRelationshipType.MERGE
 ];
 
 export interface ValidTransitionConfig {
