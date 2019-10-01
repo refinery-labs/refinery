@@ -159,19 +159,17 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
     // This is used with the tailing of output functionality to calculate if
     // a user scrolled while the output was being tailed. If they have and it
     // wasn't programmatically-caused then we need to stop tailing!
-    editor.onDidScrollChange(
-      ((event: IScrollEvent) => {
-        if (this.lastEditorHeight === undefined) {
-          return;
-        }
+    editor.onDidScrollChange((event: IScrollEvent) => {
+      if (this.lastEditorHeight === undefined) {
+        return;
+      }
 
-        if (this.lastEditorHeight > event.scrollTop) {
-          this.tailingEnabled = false;
-        }
+      if (this.lastEditorHeight > event.scrollTop) {
+        this.tailingEnabled = false;
+      }
 
-        this.lastEditorHeight = event.scrollTop;
-      }).bind(this)
-    );
+      this.lastEditorHeight = event.scrollTop;
+    });
 
     editor.updateOptions({
       insertSpaces: true,
