@@ -47,3 +47,4 @@ declare module 'vue-monaco' {
   export default VueMonaco;
   export interface VueMonacoPlugin extends PluginObject<{ appId: string }> {}
 }
+declare module 'vue-native-websocket';
