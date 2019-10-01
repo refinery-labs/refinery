@@ -4,10 +4,11 @@ import {
   LambdaDebuggingWebsocketSources,
   RunLambdaResult
 } from '@/types/api-types';
+import { unwrapJson } from '@/utils/project-helpers';
 
 // Parses a Lambda live debugging websocket message into the relevant interface
 export function parseLambdaWebsocketMessage(websocketMessage: string) {
-  const parsedMessage = JSON.parse(websocketMessage);
+  const parsedMessage = <LambdaDebuggingWebsocketMessage>unwrapJson(websocketMessage);
 
   const webSocketParsedMessage: LambdaDebuggingWebsocketMessage = {
     body: parsedMessage.body,
