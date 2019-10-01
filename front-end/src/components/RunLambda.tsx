@@ -81,15 +81,15 @@ export default class RunLambda extends Vue implements RunLambdaProps {
     return false;
   }
 
-  public getRunLambdaReturn(hasValidOutput: string | null | boolean) {
+  public getRunLambdaReturnFieldValue(runResultOutput: RunLambdaResult | null) {
     // Check if the Lambda is running, we'll show a different return value if it is
     // to indicate to the user that the Code Block is currently still executing.
     if (this.isCurrentlyRunning) {
       return 'The Code Block has not finished executing yet, please wait...';
     }
 
-    if (typeof hasValidOutput === 'string') {
-      return hasValidOutput;
+    if (runResultOutput && runResultOutput.returned_data && typeof runResultOutput.returned_data === 'string') {
+      return runResultOutput.returned_data;
     }
 
     return 'Click Execute button for run output.';
@@ -190,7 +190,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
       name: `result-data-${this.getNameSuffix()}`,
       // This is very nice for rendering non-programming text
       lang: hasResultData ? 'json' : 'text',
-      content: this.getRunLambdaReturn(hasResultData),
+      content: this.getRunLambdaReturnFieldValue(this.runResultOutput),
       wrapText: true,
       readOnly: true
     };
