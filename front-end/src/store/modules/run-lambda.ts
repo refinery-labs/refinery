@@ -21,7 +21,7 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import { DeploymentExecutionsActions } from '@/store/modules/panes/deployment-executions-pane';
 import { DeploymentViewGetters } from '@/constants/store-constants';
 import Vue from 'vue';
-import { parseLambdaWebsocketMessage } from '@/utils/websocket-utils';
+import { getLambdaResultFromWebsocketMessage, parseLambdaWebsocketMessage } from '@/utils/websocket-utils';
 
 export interface InputDataCache {
   [key: string]: string;
@@ -499,29 +499,5 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
     }
   }
 };
-
-function getLambdaResultFromWebsocketMessage(
-  websocketMessage: LambdaDebuggingWebsocketMessage,
-  runLambdaResult: RunLambdaResult | null
-) {
-  // Setup our initial devLambdaResult when we get our first
-  // line of output from the Lambda
-  if (runLambdaResult === null) {
-    return {
-      is_error: false,
-      version: websocketMessage.version,
-      logs: websocketMessage.body,
-      truncated: true,
-      status_code: 200,
-      arn: '',
-      returned_data: ''
-    };
-  }
-
-  return {
-    ...runLambdaResult,
-    logs: runLambdaResult.logs + websocketMessage.body
-  };
-}
 
 export default RunLambdaModule;
