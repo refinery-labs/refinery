@@ -30,30 +30,14 @@ import router from './router';
 import store from './store/index';
 import './registerServiceWorker';
 import VueNativeSock from 'vue-native-websocket';
+import { setupWebsocketVuePlugin } from '@/setup-websocket';
 
 Vue.use(BootstrapVue);
 Vue.use(VueIntercom, { appId: 'sjaaunj7' });
 
 Vue.config.productionTip = false;
 
-const websocketEndpoint =
-  `${process.env.VUE_APP_API_HOST}`.replace('https://', 'wss://').replace('http://', 'ws://') +
-  '/ws/v1/lambdas/livedebug';
-
-const mutations = {
-  SOCKET_ONOPEN: 'runLambda/SOCKET_ONOPEN',
-  SOCKET_ONCLOSE: 'runLambda/SOCKET_ONCLOSE',
-  SOCKET_ONERROR: 'runLambda/SOCKET_ONERROR',
-  SOCKET_ONMESSAGE: 'runLambda/SOCKET_ONMESSAGE',
-  SOCKET_RECONNECT: 'runLambda/SOCKET_RECONNECT',
-  SOCKET_RECONNECT_ERROR: 'runLambda/SOCKET_RECONNECT_ERROR'
-};
-
-Vue.use(VueNativeSock, websocketEndpoint, {
-  store: store,
-  reconnection: true,
-  mutations: mutations
-});
+setupWebsocketVuePlugin(Vue, store);
 
 // If, in the future, we need to unsync the router we can use this function.
 const unsync = sync(store, router);
