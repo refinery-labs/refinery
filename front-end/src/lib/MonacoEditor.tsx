@@ -59,30 +59,7 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
         editor.setValue(newValue);
       }
 
-      if (this.tailOutput) {
-        const characterCount = editor.getValue().length;
-        const editorPreviouslyHadContent = this.lastEditorContentsLength !== undefined;
-        const newContentIsShorter =
-          this.lastEditorContentsLength !== undefined && characterCount < this.lastEditorContentsLength;
-
-        // If we detected that we suddenly have less content in the editor
-        // than we did previously that means that we are almost certainly
-        // starting a new run and can re-enable tailing!
-        if (editorPreviouslyHadContent && newContentIsShorter) {
-          this.tailingEnabled = true;
-        }
-
-        this.lastEditorContentsLength = characterCount;
-      }
-
-      // We use tailingEnabled instead of the prop because
-      // we want to disable tailing if the user has attempted to scroll
-      // up. Vue doesn't like you mutating props so we pull the state internally.
-      if (this.tailingEnabled) {
-        // Auto-scroll to the bottom
-        const lineCount = editor.getModel().getLineCount();
-        editor.revealLine(lineCount);
-      }
+      this.onTailedContentRefreshed();
     }
   }
 
@@ -98,6 +75,34 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
   public watchTheme(newTheme?: string) {
     if (this.editor) {
       monaco.editor.setTheme(newTheme || 'vs-dark');
+    }
+  }
+
+  onTailedContentRefreshed() {
+    const editor = this.getModifiedEditor();
+    if (this.tailOutput) {
+      const characterCount = editor.getValue().length;
+      const editorPreviouslyHadContent = this.lastEditorContentsLength !== undefined;
+      const newContentIsShorter =
+        this.lastEditorContentsLength !== undefined && characterCount < this.lastEditorContentsLength;
+
+      // If we detected that we suddenly have less content in the editor
+      // than we did previously that means that we are almost certainly
+      // starting a new run and can re-enable tailing!
+      if (editorPreviouslyHadContent && newContentIsShorter) {
+        this.tailingEnabled = true;
+      }
+
+      this.lastEditorContentsLength = characterCount;
+    }
+
+    // We use tailingEnabled instead of the prop because
+    // we want to disable tailing if the user has attempted to scroll
+    // up. Vue doesn't like you mutating props so we pull the state internally.
+    if (this.tailingEnabled) {
+      // Auto-scroll to the bottom
+      const lineCount = editor.getModel().getLineCount();
+      editor.revealLine(lineCount);
     }
   }
 
