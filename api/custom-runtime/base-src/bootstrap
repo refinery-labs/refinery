@@ -453,6 +453,68 @@ class Refinery_Memory:
 
 		return lambda_invocation_list
 
+	def _get_redis_merge_lock( self, execution_id, target_lambda_arn ):
+		# Create a unique lock ID, this lets us obtain a distributed lock in redis
+		# to allow high-concurrency merge situations.
+		lock_id = str( uuid.uuid4() )
+
+		# Redis key for the lock
+		lock_name = execution_id + "_" + target_lambda_arn + "_LOCK"
+
+		# Write the lock ID and then read it to ensure we've successfully gotten a lock
+		pipeline = self.redis_client.pipeline()
+
+		# SETNX sets a key to a value in redis only if it does not exist.
+		# This allows us to ensure we have a lock and not some other running Lambda
+		pipeline.setnx(
+			lock_name,
+			lock_id
+		)
+
+		# Set an expiration for the lock to prevent dead-locks
+		# Five seconds is more than enough time for a merge operation to complete
+		pipeline.expire(
+			lock_name,
+			5
+		)
+
+		lock_results = pipeline.execute()
+
+		print( "Lock results: " )
+		print( lock_results )
+		sys.stdout.flush()
+
+		# SETNX returns True if the key was set. If it wasn't it returns
+		# 0, which indicates another running Lambda has the lock and we
+		# will have to try again shortly.
+		if lock_results[0] == True:
+			return lock_name
+
+		# If we didn't get the lock we return None so we can try again
+		return None
+
+	def _obtain_merge_lock( self, execution_id, target_lambda_arn, max_attempts ):
+		# Default value for lock_name
+		lock_name = None
+
+		while max_attempts > 0 and lock_name == None:
+			lock_name = self._get_redis_merge_lock(
+				execution_id,
+				target_lambda_arn
+			)
+
+			# Wait for a short amount of time before trying again
+			time.sleep( 0.2 )
+
+			max_attempts = max_attempts - 1
+
+		if lock_name == None:
+			print( "Error could not obtain a merge lock to continue!" )
+			sys.stdout.flush()
+			raise Exception( "Error, could not get a merge lock!" )
+
+		return lock_name
+
 	def _merge_store_result( self, execution_id, target_lambda_arn, current_lambda_arn, merge_lambda_arns, backpack, return_data ):
 		"""
 		Uses a redis pipeline to store the results at an HASH of the following name:
@@ -466,55 +528,89 @@ class Refinery_Memory:
 		if not self.redis_client:
 			self.connect()
 
-		# Create HSET name
-		hset_name = execution_id + "_" + target_lambda_arn
+		# Obtain a merge lock
+		lock_name = self._obtain_merge_lock(
+			execution_id,
+			target_lambda_arn,
+			500
+		)
+
+		# Create LIST name for this Lambda's results
+		lambda_results_list_key = execution_id + "_" + target_lambda_arn + "_" + current_lambda_arn
 
 		# Do a redis pipeline transaction
 		pipeline = self.redis_client.pipeline()
 
-		# Store return data in HASH
-		pipeline.hset(
-			hset_name,
-			current_lambda_arn,
+		# Store return data in LIST
+		pipeline.rpush(
+			lambda_results_list_key,
 			json.dumps({
 				"backpack": backpack,
 				"return_data": return_data
 			})
 		)
 
-		# Set expiration for the HASH
+		# Update expiration for list
 		pipeline.expire(
-			hset_name,
+			lambda_results_list_key,
 			_QUEUE_METADATA_EXPIRATION
 		)
 
-		# Get the keys of the HASH after our HSET to see if we're the final
-		# Lambda in the merge set.
-		pipeline.hkeys(
-			hset_name
-		)
+		# Pull the length of all of the lists in redis
+		for merge_lambda_arn in merge_lambda_arns:
+			lambda_results_list_key = execution_id + "_" + target_lambda_arn + "_" + merge_lambda_arn
+			pipeline.llen(
+				lambda_results_list_key
+			)
 
 		# Execute in one quick transaction
-		hset_returned_data = pipeline.execute()
+		merge_check_result = pipeline.execute()
 
-		# Determine if we've the last Lambda in the merge
-		# by the number of merge Lambdas and comparing it to the number of
-		# HASH keys returned from HKEYS
-		lambda_return_values_list = hset_returned_data[2]
+		# Remove the first two from the list
+		list_length_check_results = merge_check_result[2:]
 
-		if len( lambda_return_values_list ) != len( merge_lambda_arns ):
+		# Default ready to merge, set to false if any of the
+		# list lengths are zero
+		ready_to_merge = True
+
+		print( "List length check results: " )
+		print( list_length_check_results )
+		sys.stdout.flush()
+
+		for list_length_check_result in list_length_check_results:
+			if list_length_check_result == 0:
+				ready_to_merge = False
+
+		if not ready_to_merge:
+			print( "Clearing the lock...." )
+			sys.stdout.flush()
+			# Clear the lock
+			self.redis_client.delete( lock_name )
 			return None
+
+		print( "Obtained a lock! Proceeding..." )
+		sys.stdout.flush()
 
 		# Since we're the last Lambda in the merge we'll pull it all out.
 		pipeline = self.redis_client.pipeline()
-		pipeline.hvals(
-			hset_name
-		)
-		pipeline.delete(
-			hset_name
-		)
-		returned_data = pipeline.execute()
-		lambda_return_metadata_list = returned_data[0]
+
+		# Pull off one result from each item in the results
+		for merge_lambda_arn in merge_lambda_arns:
+			lambda_results_list_key = execution_id + "_" + target_lambda_arn + "_" + merge_lambda_arn
+			pipeline.lpop(
+				lambda_results_list_key
+			)
+
+		lambda_return_metadata_list = pipeline.execute()
+
+		print( "Raw merge result: " )
+		print( lambda_return_metadata_list )
+		sys.stdout.flush()
+
+		print( "Clearing the lock...." )
+		sys.stdout.flush()
+		# Clear the lock
+		self.redis_client.delete( lock_name )
 
 		# Combine the backpacks and generate a list of return values
 		return_values = []
