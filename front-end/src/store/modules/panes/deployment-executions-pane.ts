@@ -476,7 +476,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         }
 
         return lowestId;
-      }, blockIds[0]);
+      });
 
       await context.dispatch(`deployment/${DeploymentViewActions.selectNode}`, lowestTimestampBlock, { root: true });
 
@@ -553,7 +553,9 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, false);
 
-      await context.dispatch(DeploymentExecutionsActions.warmLogCacheAndSelectDefault, response);
+      if (context.state.selectedBlockExecutionLog === null) {
+        await context.dispatch(DeploymentExecutionsActions.warmLogCacheAndSelectDefault, response);
+      }
     },
     // TODO: Merge this with the above logic because it's gross af.
     async [DeploymentExecutionsActions.fetchMoreLogsForSelectedBlock](context) {
@@ -651,24 +653,22 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
     },
     async [DeploymentExecutionsActions.warmLogCacheAndSelectDefault](
       context,
-      logMetadataByLogId: AddBlockExecutionsPayload
+      addBlockExecutionsPayload: AddBlockExecutionsPayload
     ) {
-      if (!logMetadataByLogId) {
+      if (!addBlockExecutionsPayload) {
         return;
       }
 
-      const logIds = Object.keys(logMetadataByLogId.logs);
+      const logIds = Object.keys(addBlockExecutionsPayload.logs);
 
       if (logIds.length === 0) {
         return;
       }
 
       const selectedBlock = context.rootState.viewBlock.selectedNode;
-      const viewingBlockLogs =
-        context.rootState.deployment.activeRightSidebarPane !== SIDEBAR_PANE.viewDeployedBlockLogs;
 
       // Select a default, plus make sure we're currently looking at the right block before selecting...
-      if (selectedBlock && selectedBlock.id === logMetadataByLogId.blockId && viewingBlockLogs) {
+      if (selectedBlock && selectedBlock.id === addBlockExecutionsPayload.blockId) {
         await context.dispatch(DeploymentExecutionsActions.selectLogByLogId, logIds[0]);
       }
 
@@ -677,7 +677,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       if (fourMoreLogs.length > 0) {
         await context.dispatch(
           DeploymentExecutionsActions.fetchLogsByIds,
-          fourMoreLogs.map(id => logMetadataByLogId.logs[id])
+          fourMoreLogs.map(id => addBlockExecutionsPayload.logs[id])
         );
       }
     }

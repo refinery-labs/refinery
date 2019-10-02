@@ -65,7 +65,6 @@ function executionTypeToString(executionType: ExecutionStatusType) {
 export default class ViewDeployedBlockLogsPane extends Vue {
   @viewBlock.State selectedNode!: WorkflowState | null;
 
-  @deploymentExecutions.State selectedBlockExecutionLog!: string;
   @deploymentExecutions.State blockExecutionLogByLogId!: BlockExecutionLogContentsByLogId;
   @deploymentExecutions.State isFetchingLogs!: boolean;
   @deploymentExecutions.State isFetchingMoreLogs!: boolean;
@@ -247,7 +246,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
       loadingProps.show = true;
     }
 
-    if (!this.selectedBlockExecutionLog && !executionData && !isLoading) {
+    if (!this.currentlySelectedLogId && !executionData && !isLoading) {
       loadingProps.label = 'Executions are still loading, please wait...';
     }
 
