@@ -1,5 +1,9 @@
+import time
 import json
+import tornado
 import tornado.websocket
+import datetime
+import functools
 
 from utils.general import attempt_json_decode, logit
 
@@ -93,3 +97,29 @@ class WebSocketRouter:
 				logit( "Cleared existing Refinery user websocket connection from WebSocket Router! (Debug ID: " + debug_id + ")" )
 			except ValueError:
 				pass
+
+	def send_heartbeed( self ):
+		websockets_to_ping = []
+		for debug_id, websocket_metadata in self.WEBSOCKET_ROUTER.iteritems():
+			websockets_to_ping = websockets_to_ping + websocket_metadata[ "users" ]
+
+		for websocket_to_ping in websockets_to_ping:
+			websocket_to_ping.write_message({
+				"action": "HEARTBEAT",
+				"version": "1.0.0",
+				"source": "SERVER",
+				"timestamp": int( time.time() )
+			})
+
+def run_scheduled_heartbeat( websocket_object ):
+	logit( "Sending heartbeed to all connected Websocket users..." )
+	websocket_object.send_heartbeed()
+	tornado.ioloop.IOLoop.instance().add_timeout(
+		datetime.timedelta(
+			seconds=5
+		),
+		functools.partial(
+			run_scheduled_heartbeat,
+			websocket_object
+		)
+	)

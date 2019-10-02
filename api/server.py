@@ -7,6 +7,7 @@ import tornado.ioloop
 import tornado.web
 import subprocess
 import traceback
+import functools
 import botocore
 import datetime
 import requests
@@ -51,7 +52,7 @@ from utils.general import attempt_json_decode, logit, split_list_into_chunks, ge
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
 
-from services.websocket_router import WebSocketRouter
+from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
 from controller.executions_controller import ExecutionsControllerServer
 from controller.lambda_connect_back import LambdaConnectBackServer
@@ -11631,7 +11632,18 @@ if __name__ == "__main__":
 	websocket_server.bind(
 		3333
 	)
-	
+
+	# Start scheduled heartbeats for WebSocket server
+	tornado.ioloop.IOLoop.instance().add_timeout(
+		datetime.timedelta(
+			seconds=5
+		),
+		functools.partial(
+			run_scheduled_heartbeat,
+			tornado_config[ "websocket_router" ]
+		)
+	)
+
 	Base.metadata.create_all( engine )
 		
 	# Resolve what our callback endpoint is, this is different in DEV vs PROD

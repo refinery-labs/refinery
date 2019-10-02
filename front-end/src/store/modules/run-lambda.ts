@@ -2,6 +2,7 @@ import { Module } from 'vuex';
 import uuid from 'uuid/v4';
 import { RootState, WebsocketState } from '../store-types';
 import {
+  LambdaDebuggingWebsocketActions,
   LambdaDebuggingWebsocketMessage,
   RunLambdaRequest,
   RunLambdaResponse,
@@ -244,6 +245,11 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
     },
     [RunLambdaMutators.WebsocketOnMessage](state, message) {
       const websocketMessage = parseLambdaWebsocketMessage(message.data);
+
+      // If we get a heartbeat stop here, it's just to keep the socket alive.
+      if (websocketMessage.action === LambdaDebuggingWebsocketActions.Heartbeat) {
+        return;
+      }
 
       if (state.runningLambdaType === RunningLambdaType.Development) {
         state.devLambdaResult = getLambdaResultFromWebsocketMessage(websocketMessage, state.devLambdaResult);
