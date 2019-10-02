@@ -719,11 +719,13 @@ export interface GetProjectShortlinkResponse extends BaseApiResponse {
 
 // Lambda live log streaming Websocket message
 export enum LambdaDebuggingWebsocketSources {
-  Lambda = 'LAMBDA'
+  Lambda = 'LAMBDA',
+  Server = 'SERVER'
 }
 
 export enum LambdaDebuggingWebsocketActions {
-  Output = 'OUTPUT'
+  Output = 'OUTPUT',
+  Heartbeat = 'HEARTBEAT'
 }
 
 export interface LambdaDebuggingWebsocketMessage {
@@ -732,5 +734,5 @@ export interface LambdaDebuggingWebsocketMessage {
   source: LambdaDebuggingWebsocketSources;
   version: string;
   action: LambdaDebuggingWebsocketActions;
-  debug_id: string;
+  debug_id: string | null;
 }
