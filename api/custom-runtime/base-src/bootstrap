@@ -34,7 +34,6 @@ import redis
 import boto3
 import base64
 import urllib3
-import hashlib
 import datetime
 import StringIO
 import traceback
@@ -467,15 +466,6 @@ class Refinery_Memory:
 		"""
 		if not self.redis_client:
 			self.connect()
-
-		"""
-		# Hash branch IDs to get suffix for keys
-		hash_suffix = hashlib.sha256(
-			json.dumps(
-				branch_ids
-			)
-		).hexdigest()
-		"""
 
 		print( "Branch IDs before merge iteration: " )
 		print( branch_ids )
@@ -973,6 +963,7 @@ def _parallel_invoke( branch_ids, invoke_queue ):
 	while len( invoke_queue ) > 0:
 		new_invoke_data = invoke_queue.pop()
 
+		# Copy in the branch IDs
 		new_invoke_data[ "branch_ids" ] = json.loads(
 			json.dumps(
 				branch_ids
@@ -1001,6 +992,8 @@ def _parallel_invoke( branch_ids, invoke_queue ):
 				new_invoke_data[ "input_data" ]
 			)
 
+			# If the merge result was None there's no additional invocation
+			# to be made here so we can skip this loop.
 			if merge_result == None:
 				continue
 
