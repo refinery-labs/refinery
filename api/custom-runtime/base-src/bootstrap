@@ -973,8 +973,15 @@ def _parallel_invoke( branch_ids, invoke_queue ):
 	while len( invoke_queue ) > 0:
 		new_invoke_data = invoke_queue.pop()
 
-		new_invoke_data[ "branch_ids" ] = copy.copy( branch_ids )
+		new_invoke_data[ "branch_ids" ] = json.loads(
+			json.dumps(
+				branch_ids
+			)
+		)
 
+		# If we have a new branch ID, add it to the list of branch IDs
+		# This only occurs when we have a new branch of execution (e.g.
+		# we have two Lambdas spawned from one Lambda).
 		if new_branch_id:
 			print( "Adding branch ID " + new_branch_id + "..." )
 			new_invoke_data[ "branch_ids" ].insert( 0, new_branch_id )
@@ -994,37 +1001,37 @@ def _parallel_invoke( branch_ids, invoke_queue ):
 				new_invoke_data[ "input_data" ]
 			)
 
-			if merge_result != None:
-				# Pull the shared branch IDs from redis
-				new_invoke_data[ "branch_ids" ] = merge_result[ "branch_ids" ]
+			if merge_result == None:
+				continue
 
-				# Remove the last branch ID
-				print( "Removing branch ID..." )
-				sys.stdout.flush()
+			# Pull the shared branch IDs from redis
+			new_invoke_data[ "branch_ids" ] = merge_result[ "branch_ids" ]
 
-				new_invoke_data[ "branch_ids" ] = new_invoke_data[ "branch_ids" ][1:]
-				print( "Branch ID after removal: " )
-				print( new_invoke_data[ "branch_ids" ] )
-				sys.stdout.flush()
+			# Remove the last branch ID
+			print( "Removing branch ID..." )
+			sys.stdout.flush()
 
-				# If the return value was not None that means it's the final
-				# Lambda in the merge and we can do a "then" transition with
-				# the combined array of results as the input.
-				new_invoke_queue.append({
-					"branch_ids": new_invoke_data[ "branch_ids" ],
-					"backpack": merge_result[ "backpack" ],
-					"execution_id": new_invoke_data[ "execution_id" ],
-					"fan_out_ids": new_invoke_data[ "fan_out_ids" ],
-					"type": "merge",
-					"arn": new_invoke_data[ "arn" ],
-					"input_data": json.loads(
-						json.dumps(
-							merge_result[ "return_data" ]
-						)
+			new_invoke_data[ "branch_ids" ] = new_invoke_data[ "branch_ids" ][1:]
+			print( "Branch ID after removal: " )
+			print( new_invoke_data[ "branch_ids" ] )
+			sys.stdout.flush()
+
+			# If the return value was not None that means it's the final
+			# Lambda in the merge and we can do a "then" transition with
+			# the combined array of results as the input.
+			new_invoke_data = {
+				"branch_ids": new_invoke_data[ "branch_ids" ],
+				"backpack": merge_result[ "backpack" ],
+				"execution_id": new_invoke_data[ "execution_id" ],
+				"fan_out_ids": new_invoke_data[ "fan_out_ids" ],
+				"type": "merge",
+				"arn": new_invoke_data[ "arn" ],
+				"input_data": json.loads(
+					json.dumps(
+						merge_result[ "return_data" ]
 					)
-				})
-
-			continue
+				)
+			}
 
 		if new_invoke_data[ "type" ] == "lambda" or new_invoke_data[ "type" ] == "lambda_fan_out":
 			lambda_invoke_list.append(
