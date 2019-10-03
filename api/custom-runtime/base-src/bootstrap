@@ -25,7 +25,6 @@ of data in the main redis memory cache.
 """
 import os
 import sys
-import copy
 import math
 import uuid
 import json
@@ -1736,9 +1735,6 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 		# If a branch ID array exists in the input, set it.
 		if "branch_ids" in lambda_input[ "_refinery" ]:
 			branch_ids = lambda_input[ "_refinery" ][ "branch_ids" ]
-			print( "Branch IDs are the following: " )
-			print( branch_ids )
-			sys.stdout.flush()
 
 		"""
 		In order to speed up inline executions (e.g. Editor executions)
