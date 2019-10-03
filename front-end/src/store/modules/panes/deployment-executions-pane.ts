@@ -526,11 +526,16 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       const totalExecutionsForBlock: number | null =
         context.getters[DeploymentExecutionsGetters.getBlockExecutionTotalsForSelectedBlock];
 
-      // If our current "view" of the log execution totals is correct, then don't fetch any more.
-      if (
-        totalExecutionsForBlock &&
-        totalExecutionsForBlock === blockExecutionGroupForSelectedBlock.totalExecutionCount
-      ) {
+      // Check if the number of executions is the same
+      const totalExecutionsMatchesLogCount =
+        totalExecutionsForBlock && totalExecutionsForBlock === blockExecutionGroupForSelectedBlock.totalExecutionCount;
+
+      // Verify that we have the currently selected block's log in the store
+      const hasLogForNodeAlready =
+        context.state.blockExecutionLogByLogId[context.getters[DeploymentExecutionsGetters.currentlySelectedLogId]];
+
+      // If our current "view" of both of these pieces of state is correct, then don't fetch query for more data.
+      if (totalExecutionsMatchesLogCount && hasLogForNodeAlready) {
         return;
       }
 
