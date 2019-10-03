@@ -6497,7 +6497,7 @@ def get_layers_for_lambda( language ):
 	elif language == "python2.7":
 		new_layers.append(
 			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:23"
-			"arn:aws:lambda:us-west-2:561628006572:layer:python:117"
+			"arn:aws:lambda:us-west-2:561628006572:layer:python:118"
 		)
 	elif language == "python3.6":
 		new_layers.append(

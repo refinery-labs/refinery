@@ -455,12 +455,6 @@ class Refinery_Memory:
 		return lambda_invocation_list
 
 	def _store_and_check_if_merge( self, hset_name, branch_ids, current_lambda_arn, merge_lambda_arns, backpack, return_data ):
-		print( "Branch IDs before merge iteration: " )
-		print( branch_ids )
-		print( "Merging on the following branch ID: " )
-		print( branch_ids[-1] )
-		sys.stdout.flush()
-
 		# Do a redis pipeline transaction
 		pipeline = self.redis_client.pipeline()
 
@@ -486,8 +480,6 @@ class Refinery_Memory:
 		pipeline.hkeys(
 			hset_name
 		)
-
-		# Store the branch IDs in redis for nested executions
 
 		# Execute in one quick transaction
 		hset_returned_data = pipeline.execute()
@@ -520,16 +512,8 @@ class Refinery_Memory:
 				lambda_return_metadata
 			)
 
-			print( "Raw branch IDs from redis: " )
-			print( returned_data_dict[ "branch_ids" ] )
-			print( type( returned_data_dict[ "branch_ids" ] ) )
-			sys.stdout.flush()
-
 			for branch_id in returned_data_dict[ "branch_ids" ]:
 				if not ( branch_id in branch_ids ):
-					print( "Enumerated branch ID from redis: " )
-					print( branch_id )
-					sys.stdout.flush()
 					branch_ids.insert(0, branch_id)
 
 			for backpack_key, backpack_value in returned_data_dict[ "backpack" ].iteritems():
@@ -611,6 +595,45 @@ def get_branch_id_from_invoke_queue( invoke_queue ):
 	# If the invoke_queue has more than one item it means we are branching
 	# so we'll add another branch_id to the branch_ids list.
 	return str( uuid.uuid4() )
+
+def get_merge_invoke_data( new_invoke_data ):
+	merge_result = gmemory._merge_store_result(
+		new_invoke_data[ "execution_id" ],
+		new_invoke_data[ "branch_ids" ],
+		new_invoke_data[ "arn" ],
+		new_invoke_data[ "invoked_function_arn" ],
+		new_invoke_data[ "merge_lambdas" ],
+		new_invoke_data[ "backpack" ],
+		new_invoke_data[ "input_data" ]
+	)
+
+	if merge_result == None:
+		return merge_result
+
+	# Pull the shared branch IDs from redis
+	new_invoke_data[ "branch_ids" ] = merge_result[ "branch_ids" ]
+
+	# Remove the last branch ID
+	new_invoke_data[ "branch_ids" ] = new_invoke_data[ "branch_ids" ][1:]
+
+	# If the return value was not None that means it's the final
+	# Lambda in the merge and we can do a "then" transition with
+	# the combined array of results as the input.
+	new_invoke_data = {
+		"branch_ids": new_invoke_data[ "branch_ids" ],
+		"backpack": merge_result[ "backpack" ],
+		"execution_id": new_invoke_data[ "execution_id" ],
+		"fan_out_ids": new_invoke_data[ "fan_out_ids" ],
+		"type": "merge",
+		"arn": new_invoke_data[ "arn" ],
+		"input_data": json.loads(
+			json.dumps(
+				merge_result[ "return_data" ]
+			)
+		)
+	}
+
+	return new_invoke_data
 		
 # Make global to enable caching of redis connection
 gmemory = Refinery_Memory(
@@ -978,6 +1001,7 @@ def _parallel_invoke( branch_ids, invoke_queue ):
 	# Create a special list for Lambdas to load the input data at once
 	lambda_invoke_list = []
 
+	# If it's necessary, get the new branch ID
 	new_branch_id = get_branch_id_from_invoke_queue(
 		invoke_queue
 	)
@@ -996,57 +1020,18 @@ def _parallel_invoke( branch_ids, invoke_queue ):
 		# This only occurs when we have a new branch of execution (e.g.
 		# we have two Lambdas spawned from one Lambda).
 		if new_branch_id:
-			print( "Adding branch ID " + new_branch_id + "..." )
 			new_invoke_data[ "branch_ids" ].insert( 0, new_branch_id )
-			print( "Branch ID after adding branch ID: " )
-			print( new_invoke_data[ "branch_ids" ] )
-			sys.stdout.flush()
 
 		# If it's a merge transition, then pop off the last branch ID
 		if new_invoke_data[ "type" ] == "merge":
-			merge_result = gmemory._merge_store_result(
-				new_invoke_data[ "execution_id" ],
-				new_invoke_data[ "branch_ids" ],
-				new_invoke_data[ "arn" ],
-				new_invoke_data[ "invoked_function_arn" ],
-				new_invoke_data[ "merge_lambdas" ],
-				new_invoke_data[ "backpack" ],
-				new_invoke_data[ "input_data" ]
+			new_invoke_data = get_merge_invoke_data(
+				new_invoke_data
 			)
 
 			# If the merge result was None there's no additional invocation
 			# to be made here so we can skip this loop.
-			if merge_result == None:
+			if new_invoke_data == None:
 				continue
-
-			# Pull the shared branch IDs from redis
-			new_invoke_data[ "branch_ids" ] = merge_result[ "branch_ids" ]
-
-			# Remove the last branch ID
-			print( "Removing branch ID..." )
-			sys.stdout.flush()
-
-			new_invoke_data[ "branch_ids" ] = new_invoke_data[ "branch_ids" ][1:]
-			print( "Branch ID after removal: " )
-			print( new_invoke_data[ "branch_ids" ] )
-			sys.stdout.flush()
-
-			# If the return value was not None that means it's the final
-			# Lambda in the merge and we can do a "then" transition with
-			# the combined array of results as the input.
-			new_invoke_data = {
-				"branch_ids": new_invoke_data[ "branch_ids" ],
-				"backpack": merge_result[ "backpack" ],
-				"execution_id": new_invoke_data[ "execution_id" ],
-				"fan_out_ids": new_invoke_data[ "fan_out_ids" ],
-				"type": "merge",
-				"arn": new_invoke_data[ "arn" ],
-				"input_data": json.loads(
-					json.dumps(
-						merge_result[ "return_data" ]
-					)
-				)
-			}
 
 		if new_invoke_data[ "type" ] == "lambda" or new_invoke_data[ "type" ] == "lambda_fan_out":
 			lambda_invoke_list.append(
