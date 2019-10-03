@@ -18,7 +18,7 @@ const viewBlock = namespace('viewBlock');
 const deploymentExecutions = namespace('deploymentExecutions');
 
 function formatDataForAce(data: any) {
-  if (data === '') {
+  if (data === '' || data === null || data === undefined) {
     return '';
   }
 
@@ -65,7 +65,6 @@ function executionTypeToString(executionType: ExecutionStatusType) {
 export default class ViewDeployedBlockLogsPane extends Vue {
   @viewBlock.State selectedNode!: WorkflowState | null;
 
-  @deploymentExecutions.State selectedBlockExecutionLog!: string;
   @deploymentExecutions.State blockExecutionLogByLogId!: BlockExecutionLogContentsByLogId;
   @deploymentExecutions.State isFetchingLogs!: boolean;
   @deploymentExecutions.State isFetchingMoreLogs!: boolean;
@@ -78,7 +77,31 @@ export default class ViewDeployedBlockLogsPane extends Vue {
   @deploymentExecutions.Action fetchMoreLogsForSelectedBlock!: () => void;
   @deploymentExecutions.Action selectLogByLogId!: (logId: string) => void;
 
-  public renderExecutionLabels(execution: ExecutionLogContents) {
+  public renderExecutionLabels(execution: ExecutionLogContents | null) {
+    // Return stubbed UI if the execution data is null...
+    if (!execution) {
+      return (
+        <div class="text-align--left row">
+          <b-col xl={3}>
+            <label class="text-bold">Time: &nbsp;</label>
+            <label> Unknown</label>
+          </b-col>
+          <b-col xl={3}>
+            <label class="text-bold">Status: &nbsp;</label>
+            <label>
+              <b-badge variant="secondary" pill>
+                Unknown
+              </b-badge>
+            </label>
+          </b-col>
+          <b-col xl={6}>
+            <label class="text-bold">Log Id: &nbsp;</label>
+            <label style="font-size: 0.8rem"> Unknown</label>
+          </b-col>
+        </div>
+      );
+    }
+
     const durationSinceUpdated = moment.duration(-moment().diff(execution.timestamp * 1000)).humanize(true);
     return (
       <div class="text-align--left row">
@@ -127,32 +150,33 @@ export default class ViewDeployedBlockLogsPane extends Vue {
   public renderExecutionDetails() {
     const executionData = this.getLogForSelectedBlock;
 
-    const isLoading = this.isFetchingLogs || this.isFetchingMoreLogs;
-
-    if (!this.selectedBlockExecutionLog && !executionData && !isLoading) {
-      return <div>Executions are still loading, please wait...</div>;
-    }
-
-    // We have a valid section but no long, hopefully we're loading ;)
-    if (!executionData) {
-      const loadingProps: LoadingContainerProps = {
-        show: true,
-        label: 'Loading execution logs...'
-      };
-      return (
-        <div style="margin-top: 60px; min-height: 60px">
-          <Loading props={loadingProps} />
-        </div>
-      );
-    }
-
     return (
       <div class="display--flex flex-direction--column">
         {this.renderExecutionLabels(executionData)}
-        {this.renderCodeEditor('Block Input Data', 'input-data', formatDataForAce(executionData.input_data), true)}
-        {this.renderCodeEditor('Execution Output', 'output', executionData.program_output || '', false)}
-        {this.renderCodeEditor('Return Data', 'return-data', formatDataForAce(executionData.return_data), true)}
-        {this.renderCodeEditor('Backpack Data', 'backpack-data', formatDataForAce(executionData.backpack), true)}
+        {this.renderCodeEditor(
+          'Block Input Data',
+          'input-data',
+          formatDataForAce(executionData && executionData.input_data),
+          true
+        )}
+        {this.renderCodeEditor(
+          'Execution Output',
+          'output',
+          (executionData && executionData.program_output) || '',
+          false
+        )}
+        {this.renderCodeEditor(
+          'Return Data',
+          'return-data',
+          formatDataForAce(executionData && executionData.return_data),
+          true
+        )}
+        {this.renderCodeEditor(
+          'Backpack Data',
+          'backpack-data',
+          formatDataForAce(executionData && executionData.backpack),
+          true
+        )}
         {/*{this.renderLogLinks()}*/}
       </div>
     );
@@ -208,6 +232,24 @@ export default class ViewDeployedBlockLogsPane extends Vue {
   }
 
   public render(h: CreateElement): VNode {
+    const executionData = this.getLogForSelectedBlock;
+
+    const isLoading = this.isFetchingLogs || this.isFetchingMoreLogs;
+
+    const loadingProps: LoadingContainerProps = {
+      show: false,
+      label: 'Loading execution logs...'
+    };
+
+    // We have a valid section but no long, hopefully we're loading ;)
+    if (!executionData) {
+      loadingProps.show = true;
+    }
+
+    if (!this.currentlySelectedLogId && !executionData && !isLoading) {
+      loadingProps.label = 'Executions are still loading, please wait...';
+    }
+
     return (
       <div class="display--flex flex-direction--column" style="min-width: 340px">
         <b-tabs nav-class="nav-justified" content-class="padding--none">
@@ -219,12 +261,14 @@ export default class ViewDeployedBlockLogsPane extends Vue {
               </span>
             </template>
             <div class="show-block-container mr-2 ml-2">
-              <div class="mb-2 mt-2 text-align--left show-block-container__form show-block-container__form--normal">
-                <div class="scrollable-pane-container padding-left--normal padding-right--normal container">
-                  {this.renderExecutionDropdown()}
-                  {this.renderExecutionDetails()}
+              {this.renderExecutionDropdown()}
+              <Loading props={loadingProps}>
+                <div class="mb-2 text-align--left show-block-container__form show-block-container__form--normal">
+                  <div class="scrollable-pane-container padding-left--normal padding-right--normal container">
+                    {this.renderExecutionDetails()}
+                  </div>
                 </div>
-              </div>
+              </Loading>
             </div>
           </b-tab>
           <b-tab title="second" no-body={true}>

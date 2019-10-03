@@ -476,7 +476,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         }
 
         return lowestId;
-      }, blockIds[0]);
+      });
 
       await context.dispatch(`deployment/${DeploymentViewActions.selectNode}`, lowestTimestampBlock, { root: true });
 
@@ -526,11 +526,16 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       const totalExecutionsForBlock: number | null =
         context.getters[DeploymentExecutionsGetters.getBlockExecutionTotalsForSelectedBlock];
 
-      // If our current "view" of the log execution totals is correct, then don't fetch any more.
-      if (
-        totalExecutionsForBlock &&
-        totalExecutionsForBlock === blockExecutionGroupForSelectedBlock.totalExecutionCount
-      ) {
+      // Check if the number of executions is the same
+      const totalExecutionsMatchesLogCount =
+        totalExecutionsForBlock && totalExecutionsForBlock === blockExecutionGroupForSelectedBlock.totalExecutionCount;
+
+      // Verify that we have the currently selected block's log in the store
+      const hasLogForNodeAlready =
+        context.state.blockExecutionLogByLogId[context.getters[DeploymentExecutionsGetters.currentlySelectedLogId]];
+
+      // If our current "view" of both of these pieces of state is correct, then don't fetch query for more data.
+      if (totalExecutionsMatchesLogCount && hasLogForNodeAlready) {
         return;
       }
 
@@ -553,7 +558,9 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, false);
 
-      await context.dispatch(DeploymentExecutionsActions.warmLogCacheAndSelectDefault, response);
+      if (context.state.selectedBlockExecutionLog === null) {
+        await context.dispatch(DeploymentExecutionsActions.warmLogCacheAndSelectDefault, response);
+      }
     },
     // TODO: Merge this with the above logic because it's gross af.
     async [DeploymentExecutionsActions.fetchMoreLogsForSelectedBlock](context) {
@@ -651,13 +658,13 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
     },
     async [DeploymentExecutionsActions.warmLogCacheAndSelectDefault](
       context,
-      logMetadataByLogId: AddBlockExecutionsPayload
+      addBlockExecutionsPayload: AddBlockExecutionsPayload
     ) {
-      if (!logMetadataByLogId) {
+      if (!addBlockExecutionsPayload) {
         return;
       }
 
-      const logIds = Object.keys(logMetadataByLogId.logs);
+      const logIds = Object.keys(addBlockExecutionsPayload.logs);
 
       if (logIds.length === 0) {
         return;
@@ -666,7 +673,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       const selectedBlock = context.rootState.viewBlock.selectedNode;
 
       // Select a default, plus make sure we're currently looking at the right block before selecting...
-      if (selectedBlock && selectedBlock.id === logMetadataByLogId.blockId) {
+      if (selectedBlock && selectedBlock.id === addBlockExecutionsPayload.blockId) {
         await context.dispatch(DeploymentExecutionsActions.selectLogByLogId, logIds[0]);
       }
 
@@ -675,7 +682,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       if (fourMoreLogs.length > 0) {
         await context.dispatch(
           DeploymentExecutionsActions.fetchLogsByIds,
-          fourMoreLogs.map(id => logMetadataByLogId.logs[id])
+          fourMoreLogs.map(id => addBlockExecutionsPayload.logs[id])
         );
       }
     }

@@ -272,8 +272,15 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
 
       const paneToOpen = doesBlockHaveExecutions ? SIDEBAR_PANE.viewDeployedBlockLogs : SIDEBAR_PANE.viewDeployedBlock;
 
+      // TODO: Refactor this log handling logic so that this isn't leaking into another store.
       // Kick off grabbing the logs
       if (doesBlockHaveExecutions) {
+        // Clear the currently selected log
+        context.commit(`deploymentExecutions/${DeploymentExecutionsMutators.setSelectedBlockExecutionLog}`, null, {
+          root: true
+        });
+
+        // Kick off the call to fetch logs for the current block -- which will select a log too.
         context.dispatch(`deploymentExecutions/${DeploymentExecutionsActions.fetchLogsForSelectedBlock}`, null, {
           root: true
         });
