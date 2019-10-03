@@ -454,27 +454,12 @@ class Refinery_Memory:
 
 		return lambda_invocation_list
 
-	def _merge_store_result( self, execution_id, branch_ids, target_lambda_arn, current_lambda_arn, merge_lambda_arns, backpack, return_data ):
-		"""
-		Uses a redis pipeline to store the results at an HASH of the following name:
-		{{EXECUTION_ID}}{{TARGET_LAMBDA_ARN}} = {
-			"{{CURRENT_RUNNING_LAMBDA_ARN}}": "{{RETURN_DATA}}"
-		}
-
-		If we're the last Lambda in the merge then we return the return_data to be
-		passed as input to the target Lambda for the merge. Otherwise we return None.
-		"""
-		if not self.redis_client:
-			self.connect()
-
+	def _store_and_check_if_merge( self, hset_name, branch_ids, current_lambda_arn, merge_lambda_arns, backpack, return_data ):
 		print( "Branch IDs before merge iteration: " )
 		print( branch_ids )
 		print( "Merging on the following branch ID: " )
 		print( branch_ids[-1] )
 		sys.stdout.flush()
-
-		# Create HSET name
-		hset_name = execution_id + "_" + target_lambda_arn + "_" + branch_ids[-1]
 
 		# Do a redis pipeline transaction
 		pipeline = self.redis_client.pipeline()
@@ -512,9 +497,9 @@ class Refinery_Memory:
 		# HASH keys returned from HKEYS
 		lambda_return_values_list = hset_returned_data[2]
 
-		if len( lambda_return_values_list ) != len( merge_lambda_arns ):
-			return None
+		return len( lambda_return_values_list ) == len( merge_lambda_arns )
 
+	def _get_merge_data( self, hset_name, branch_ids ):
 		# Since we're the last Lambda in the merge we'll pull it all out.
 		pipeline = self.redis_client.pipeline()
 		pipeline.hvals(
@@ -529,6 +514,7 @@ class Refinery_Memory:
 		# Combine the backpacks and generate a list of return values
 		return_values = []
 		combined_backpack = {}
+
 		for lambda_return_metadata in lambda_return_metadata_list:
 			returned_data_dict = json.loads(
 				lambda_return_metadata
@@ -558,6 +544,42 @@ class Refinery_Memory:
 			"return_data": return_values,
 			"branch_ids": branch_ids,
 		}
+
+	def _merge_store_result( self, execution_id, branch_ids, target_lambda_arn, current_lambda_arn, merge_lambda_arns, backpack, return_data ):
+		"""
+		Uses a redis pipeline to store the results at an HASH of the following name:
+		{{EXECUTION_ID}}{{TARGET_LAMBDA_ARN}} = {
+			"{{CURRENT_RUNNING_LAMBDA_ARN}}": "{{RETURN_DATA}}"
+		}
+
+		If we're the last Lambda in the merge then we return the return_data to be
+		passed as input to the target Lambda for the merge. Otherwise we return None.
+		"""
+		if not self.redis_client:
+			self.connect()
+
+		# Create HSET name
+		hset_name = execution_id + "_" + target_lambda_arn + "_" + branch_ids[-1]
+
+		# Store the merge data and check if we should merge
+		should_merge = self._store_and_check_if_merge(
+			hset_name,
+			branch_ids,
+			current_lambda_arn,
+			merge_lambda_arns,
+			backpack,
+			return_data
+		)
+
+		# If we don't need to merge, we can stop here.
+		if not should_merge:
+			return None
+
+		# Pull the merge data from redis and return it
+		return self._get_merge_data(
+			hset_name,
+			branch_ids
+		)
 
 def get_branch_id_from_invoke_queue( invoke_queue ):
 	"""
