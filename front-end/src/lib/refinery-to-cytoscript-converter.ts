@@ -84,7 +84,14 @@ export function generateCytoscapeElements(project: RefineryProject): ElementsDef
       return null;
     }
 
-    return converter(workflowState);
+    return {
+      ...converter(workflowState),
+
+      position: {
+        x: 0,
+        y: 0
+      }
+    };
   });
 
   const edges: EdgeDefinition[] = project.workflow_relationships.map(edge => {

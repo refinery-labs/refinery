@@ -9,6 +9,9 @@ import { timeout } from '@/utils/async-utils';
 import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
 
 cytoscape.use(dagre);
+// cytoscape.use(euler);
+// cytoscape.use(cola);
+// cytoscape.use(klay);
 cyCanvas(cytoscape);
 
 function areCytoResourcesTheSame(a: NodeDefinition | EdgeDefinition, b: NodeDefinition | EdgeDefinition): boolean {
@@ -160,7 +163,7 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
       return;
     }
 
-    this.cytoscapeValueModified();
+    // this.cytoscapeValueModified();
   }
 
   @Watch('config', { deep: true })
@@ -331,13 +334,18 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
   public getLayoutConfig(animate: boolean) {
     return {
       name: 'dagre',
+      // springLength: (edge: any) => 80,
+      // springCoeff: (edge: any) => 0.0008,
+      // mass: (node: any) => 4,
       nodeDimensionsIncludeLabels: true,
-      animate,
+      // animate: 'end',
       // animationEasing: 'cubic',
-      spacingFactor: 1.15,
-      padding: 100,
+      // spacingFactor: 1.15,
+      // padding: 100,
       // @ts-ignore
-      edgeSep: 100,
+      // edgeSep: 100,
+      // avoidOverlap: true,
+      // nodeSpacing: function( node: any ){ return 10; },
       ...this.layout
     };
   }

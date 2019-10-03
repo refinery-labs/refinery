@@ -8,6 +8,21 @@ declare module 'cytoscape-dagre' {
   export default function register(foo: Object): Ext;
 }
 
+declare module 'cytoscape-euler' {
+  import { Ext } from 'cytoscape';
+  export default function register(foo: Object): Ext;
+}
+
+declare module 'cytoscape-cola' {
+  import { Ext } from 'cytoscape';
+  export default function register(foo: Object): Ext;
+}
+
+declare module 'cytoscape-klay' {
+  import { Ext } from 'cytoscape';
+  export default function register(foo: Object): Ext;
+}
+
 declare namespace cytoscape {
   export interface StylesheetHelper {
     instanceString(): string;
