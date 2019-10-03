@@ -479,12 +479,12 @@ class Refinery_Memory:
 
 		print( "Branch IDs before merge iteration: " )
 		print( branch_ids )
-		print( "Last branch ID: " )
-		print( branch_ids[0] )
+		print( "Merging on the following branch ID: " )
+		print( branch_ids[-1] )
 		sys.stdout.flush()
 
 		# Create HSET name
-		hset_name = execution_id + "_" + target_lambda_arn + "_" + branch_ids[0]
+		hset_name = execution_id + "_" + target_lambda_arn + "_" + branch_ids[-1]
 
 		# Do a redis pipeline transaction
 		pipeline = self.redis_client.pipeline()
@@ -495,7 +495,8 @@ class Refinery_Memory:
 			current_lambda_arn,
 			json.dumps({
 				"backpack": backpack,
-				"return_data": return_data
+				"return_data": return_data,
+				"branch_ids": branch_ids,
 			})
 		)
 
@@ -510,6 +511,8 @@ class Refinery_Memory:
 		pipeline.hkeys(
 			hset_name
 		)
+
+		# Store the branch IDs in redis for nested executions
 
 		# Execute in one quick transaction
 		hset_returned_data = pipeline.execute()
@@ -541,6 +544,18 @@ class Refinery_Memory:
 				lambda_return_metadata
 			)
 
+			print( "Raw branch IDs from redis: " )
+			print( returned_data_dict[ "branch_ids" ] )
+			print( type( returned_data_dict[ "branch_ids" ] ) )
+			sys.stdout.flush()
+
+			for branch_id in returned_data_dict[ "branch_ids" ]:
+				if not ( branch_id in branch_ids ):
+					print( "Enumerated branch ID from redis: " )
+					print( branch_id )
+					sys.stdout.flush()
+					branch_ids.insert(0, branch_id)
+
 			for backpack_key, backpack_value in returned_data_dict[ "backpack" ].iteritems():
 				combined_backpack[ backpack_key ] = backpack_value
 
@@ -550,7 +565,8 @@ class Refinery_Memory:
 
 		return {
 			"backpack": combined_backpack,
-			"return_data": return_values
+			"return_data": return_values,
+			"branch_ids": branch_ids,
 		}
 		
 # Make global to enable caching of redis connection
@@ -920,37 +936,58 @@ def _parallel_invoke( branch_ids, invoke_queue ):
 	while len( invoke_queue ) > 0:
 		new_invoke_data = invoke_queue.pop()
 
-		# Skip the dummy dontmerge event, it's here purely to ensure
-		# that we add a branch ID.
-		if new_invoke_data[ "type" ] == "dontmerge":
-			continue
-
-		new_invoke_data[ "branch_ids" ] = branch_ids
+		new_invoke_data[ "branch_ids" ] = copy.copy( branch_ids )
 
 		if add_branch_id:
 			print( "Adding branch ID " + new_branch_id + "..." )
-			new_invoke_data[ "branch_ids" ] = copy.copy(
-				branch_ids
-			)
-			new_invoke_data[ "branch_ids" ].append(
-				new_branch_id
-			)
+			new_invoke_data[ "branch_ids" ].insert( 0, new_branch_id )
 			print( "Branch ID after adding branch ID: " )
 			print( new_invoke_data[ "branch_ids" ] )
 			sys.stdout.flush()
 
 		# If it's a merge transition, then pop off the last branch ID
 		if new_invoke_data[ "type" ] == "merge":
-			# Remove the last branch ID
-			print( "Removing branch ID..." )
-			sys.stdout.flush()
-
-			new_invoke_data[ "branch_ids" ] = copy.copy(
-				branch_ids[1:]
+			merge_result = gmemory._merge_store_result(
+				new_invoke_data[ "execution_id" ],
+				new_invoke_data[ "branch_ids" ],
+				new_invoke_data[ "arn" ],
+				new_invoke_data[ "invoked_function_arn" ],
+				new_invoke_data[ "merge_lambdas" ],
+				new_invoke_data[ "backpack" ],
+				new_invoke_data[ "input_data" ]
 			)
-			print( "Branch ID after removal: " )
-			print( new_invoke_data[ "branch_ids" ] )
-			sys.stdout.flush()
+
+			if merge_result != None:
+				# Pull the shared branch IDs from redis
+				new_invoke_data[ "branch_ids" ] = merge_result[ "branch_ids" ]
+
+				# Remove the last branch ID
+				print( "Removing branch ID..." )
+				sys.stdout.flush()
+
+				new_invoke_data[ "branch_ids" ] = new_invoke_data[ "branch_ids" ][1:]
+				print( "Branch ID after removal: " )
+				print( new_invoke_data[ "branch_ids" ] )
+				sys.stdout.flush()
+
+				# If the return value was not None that means it's the final
+				# Lambda in the merge and we can do a "then" transition with
+				# the combined array of results as the input.
+				new_invoke_queue.append({
+					"branch_ids": new_invoke_data[ "branch_ids" ],
+					"backpack": merge_result[ "backpack" ],
+					"execution_id": new_invoke_data[ "execution_id" ],
+					"fan_out_ids": new_invoke_data[ "fan_out_ids" ],
+					"type": "merge",
+					"arn": new_invoke_data[ "arn" ],
+					"input_data": json.loads(
+						json.dumps(
+							merge_result[ "return_data" ]
+						)
+					)
+				})
+
+			continue
 
 		if new_invoke_data[ "type" ] == "lambda" or new_invoke_data[ "type" ] == "lambda_fan_out":
 			lambda_invoke_list.append(
@@ -2330,36 +2367,17 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 
 	# For merge transitions
 	for merge_transition_data in transitions[ "merge" ]:
-		merge_result = gmemory._merge_store_result(
-			execution_id,
-			branch_ids,
-			merge_transition_data[ "arn" ],
-			context.invoked_function_arn,
-			merge_transition_data[ "merge_lambdas" ],
-			backpack,
-			return_data
-		)
-
-		if merge_result == None:
-			# Add a dummy "dontmerge" so that we have a proper merge count
-			invocation_input_list.append({
-				"type": "dontmerge"
-			})
-			continue
-
-		# If the return value was not None that means it's the final
-		# Lambda in the merge and we can do a "then" transition with
-		# the combined array of results as the input.
 		invocation_input_list.append({
-			"backpack": merge_result[ "backpack" ],
+			"invoked_function_arn": context.invoked_function_arn,
+			"merge_lambdas": merge_transition_data[ "merge_lambdas" ],
+			"backpack": backpack,
 			"execution_id": execution_id,
 			"fan_out_ids": fan_out_ids,
 			"type": "merge",
 			"arn": merge_transition_data[ "arn" ],
-			"context": context,
 			"input_data": json.loads(
 				json.dumps(
-					merge_result[ "return_data" ]
+					return_data
 				)
 			)
 		})
