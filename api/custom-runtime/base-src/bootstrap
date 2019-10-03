@@ -821,10 +821,17 @@ def _parallel_invoke( branch_ids, invoke_queue ):
 		
 	# Spawns a new worked and adds it to active_threads
 	def spawn_new_worker():
+		# Types that equate to just a "lambda" type execution
+		lambda_equivalent_types = [
+			"lambda",
+			"merge",
+			"fan_out_execution"
+		]
+
 		new_invoke_data = invoke_queue.pop()
 
 		# Check type and invoke appropriately
-		if ( new_invoke_data[ "type" ] == "lambda" or new_invoke_data[ "type" ] == "merge" ) and "input_data_key" in new_invoke_data:
+		if ( new_invoke_data[ "type" ] in lambda_equivalent_types ) and "input_data_key" in new_invoke_data:
 			new_thread = threading.Thread(
 				target=lambda_invoker_worker_redis,
 				args=(
@@ -837,7 +844,7 @@ def _parallel_invoke( branch_ids, invoke_queue ):
 			)
 			new_thread.start()
 			time.sleep(0.05) # Annoying wedge due to boto3 bug
-		elif ( new_invoke_data[ "type" ] == "lambda" or new_invoke_data[ "type" ] == "merge" ) and "input_data" in new_invoke_data:
+		elif ( new_invoke_data[ "type" ] in lambda_equivalent_types ) and "input_data" in new_invoke_data:
 			new_thread = threading.Thread(
 				target=lambda_invoker_worker_direct_input,
 				args=(
@@ -928,9 +935,26 @@ def _parallel_invoke( branch_ids, invoke_queue ):
 	# Create a special list for Lambdas to load the input data at once
 	lambda_invoke_list = []
 
+	# Types of transitions to be counted for merges
+	countable_merge_transition_types = [
+		"lambda",
+		"sns_topic",
+		"sqs_queue",
+		"merge"
+	]
+
+	# Count of the number of spawns
+	number_of_spawns = 0
+
+	for invoke_queue_item in invoke_queue:
+		print( "Type of invoke: " + invoke_queue_item[ "type" ] )
+		sys.stdout.flush()
+		if invoke_queue_item[ "type" ] in countable_merge_transition_types:
+			number_of_spawns += 1
+
 	# If the invoke_queue has more than one item it means we are branching
 	# so we'll add another branch_id to the branch_ids list.
-	add_branch_id = len( invoke_queue ) > 1
+	add_branch_id = number_of_spawns > 1
 	new_branch_id = str( uuid.uuid4() )
 
 	while len( invoke_queue ) > 0:
@@ -1241,6 +1265,7 @@ def _send_sqs_messages( sqs_client, sqs_url, sqs_message_list ):
 	)
 	
 def _spawn_off_sqs_worker( queue_url, queue_insert_id, execution_id, branch_ids, fan_out_ids ):
+	sys.stdout.flush()
 	exhausted_queue = False
 	new_thread = False
 	
@@ -1318,6 +1343,8 @@ def _sqs_worker( queue_insert_id, execution_id, branch_ids, fan_out_ids, context
 	"""
 	
 	print( "I'm an SQS worker spawned with queue_insert_id of: " + queue_insert_id )
+	print( "Branch IDs are the following: " )
+	print( branch_ids )
 	sys.stdout.flush()
 	
 	# If we have less than or equal to ten seconds of
@@ -1664,6 +1691,7 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 				execution_id = batch_input_data[ "_refinery" ][ "execution_id" ]
 				fan_out_ids = batch_input_data[ "_refinery" ][ "fan_out_ids" ]
 				queue_insert_id = batch_input_data[ "_refinery" ][ "queue_insert_id" ]
+				branch_ids = batch_input_data[ "_refinery" ][ "branch_ids" ]
 				
 			lambda_input_list.append(
 				batch_input_data[ "_refinery" ][ "input_data" ]
@@ -2199,7 +2227,7 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 					"backpack": backpack,
 					"execution_id": execution_id,
 					"fan_out_ids": new_fan_out_ids,
-					"type": fan_out_transition_data[ "type" ],
+					"type": "fan_out_execution",
 					"arn": fan_out_transition_data[ "arn" ],
 					"input_data": json.loads(
 						json.dumps(
