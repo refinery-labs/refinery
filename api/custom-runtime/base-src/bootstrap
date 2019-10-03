@@ -568,6 +568,37 @@ class Refinery_Memory:
 			"return_data": return_values,
 			"branch_ids": branch_ids,
 		}
+
+def get_branch_id_from_invoke_queue( invoke_queue ):
+	"""
+	This takes an invoke queue and analyzes it to see
+	if we need to produce a new branch_id. If we do then
+	it returns a new branch_id, if not it returns False.
+	"""
+
+	# Types of transitions to be counted for merges
+	countable_merge_transition_types = [
+		"lambda",
+		"sns_topic",
+		"sqs_queue",
+		"merge"
+	]
+
+	# Count of the number of spawns (that match our types)
+	number_of_spawns = 0
+
+	for invoke_queue_item in invoke_queue:
+		if invoke_queue_item[ "type" ] in countable_merge_transition_types:
+			number_of_spawns += 1
+
+	# If we're not branching no new branch ID is needed and 
+	# we just return a False
+	if number_of_spawns <= 1:
+		return False
+
+	# If the invoke_queue has more than one item it means we are branching
+	# so we'll add another branch_id to the branch_ids list.
+	return str( uuid.uuid4() )
 		
 # Make global to enable caching of redis connection
 gmemory = Refinery_Memory(
@@ -935,34 +966,16 @@ def _parallel_invoke( branch_ids, invoke_queue ):
 	# Create a special list for Lambdas to load the input data at once
 	lambda_invoke_list = []
 
-	# Types of transitions to be counted for merges
-	countable_merge_transition_types = [
-		"lambda",
-		"sns_topic",
-		"sqs_queue",
-		"merge"
-	]
-
-	# Count of the number of spawns
-	number_of_spawns = 0
-
-	for invoke_queue_item in invoke_queue:
-		print( "Type of invoke: " + invoke_queue_item[ "type" ] )
-		sys.stdout.flush()
-		if invoke_queue_item[ "type" ] in countable_merge_transition_types:
-			number_of_spawns += 1
-
-	# If the invoke_queue has more than one item it means we are branching
-	# so we'll add another branch_id to the branch_ids list.
-	add_branch_id = number_of_spawns > 1
-	new_branch_id = str( uuid.uuid4() )
+	new_branch_id = get_branch_id_from_invoke_queue(
+		invoke_queue
+	)
 
 	while len( invoke_queue ) > 0:
 		new_invoke_data = invoke_queue.pop()
 
 		new_invoke_data[ "branch_ids" ] = copy.copy( branch_ids )
 
-		if add_branch_id:
+		if new_branch_id:
 			print( "Adding branch ID " + new_branch_id + "..." )
 			new_invoke_data[ "branch_ids" ].insert( 0, new_branch_id )
 			print( "Branch ID after adding branch ID: " )
@@ -1265,7 +1278,6 @@ def _send_sqs_messages( sqs_client, sqs_url, sqs_message_list ):
 	)
 	
 def _spawn_off_sqs_worker( queue_url, queue_insert_id, execution_id, branch_ids, fan_out_ids ):
-	sys.stdout.flush()
 	exhausted_queue = False
 	new_thread = False
 	
@@ -1343,8 +1355,6 @@ def _sqs_worker( queue_insert_id, execution_id, branch_ids, fan_out_ids, context
 	"""
 	
 	print( "I'm an SQS worker spawned with queue_insert_id of: " + queue_insert_id )
-	print( "Branch IDs are the following: " )
-	print( branch_ids )
 	sys.stdout.flush()
 	
 	# If we have less than or equal to ten seconds of
