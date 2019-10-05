@@ -2,6 +2,12 @@ import { LibraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-h
 import { LambdaWorkflowState, WorkflowState, WorkflowStateType } from '@/types/graph';
 import * as R from 'ramda';
 
+/**
+ * For a given set of blocks, kicks off a check to setup the libraries for the blocks to run.
+ * This helps with deployment times + inline execution speed. Better UX for users.
+ * This function de-dedupes the builds needed to be kicked off.
+ * @param blocks Array of blocks to run build for. Builds are only run for Code Blocks.
+ */
 export function kickOffLibraryBuildForBlocks(blocks: WorkflowState[]) {
   // Hmm, the static typing here is quite tricky!
   R.pipe<
