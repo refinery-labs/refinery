@@ -7,8 +7,7 @@ import {
   DeploymentViewActions,
   DeploymentViewGetters,
   DeploymentViewMutators,
-  ProjectViewActions,
-  ProjectViewMutators
+  ProjectViewActions
 } from '@/constants/store-constants';
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
@@ -148,6 +147,32 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
   },
   actions: {
     async [DeploymentViewActions.openDeployment](context, projectId: string) {
+      const freshDeploymentView = context.state.openedDeployment === null;
+
+      // If we don't have data, then block the UI until we do.
+      if (freshDeploymentView) {
+        context.commit(DeploymentViewMutators.isLoadingDeployment, true);
+
+        // Only wait for this data if we don't have it...
+        await context.dispatch(DeploymentViewActions.loadDeploymentData, projectId);
+      } else {
+        // Don't await this call so that the UI is snappy.
+        // Refresh the data anyway though just in case something has changed.
+        context.dispatch(DeploymentViewActions.loadDeploymentData, projectId);
+      }
+
+      context.commit(DeploymentViewMutators.isLoadingDeployment, false);
+
+      if (freshDeploymentView) {
+        await context.dispatch(DeploymentViewActions.openViewExecutionsPane);
+      }
+
+      // Activates the job to watch for new execution data.
+      context.dispatch(`deploymentExecutions/${DeploymentExecutionsActions.activatePane}`, null, {
+        root: true
+      });
+    },
+    async [DeploymentViewActions.loadDeploymentData](context, projectId: string) {
       const handleError = async (message: string) => {
         context.commit(DeploymentViewMutators.isLoadingDeployment, false);
         console.error(message);
@@ -157,10 +182,6 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
           variant: ToastVariant.danger
         });
       };
-
-      await context.dispatch(DeploymentViewActions.resetDeploymentState);
-
-      context.commit(DeploymentViewMutators.isLoadingDeployment, true);
 
       const deploymentResponse = await makeApiRequest<
         GetLatestProjectDeploymentRequest,
@@ -187,10 +208,6 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
 
       context.commit(DeploymentViewMutators.setCytoscapeElements, elements);
       context.commit(DeploymentViewMutators.setCytoscapeStyle, stylesheet);
-
-      context.commit(DeploymentViewMutators.isLoadingDeployment, false);
-
-      await context.dispatch(DeploymentViewActions.openViewExecutionsPane);
     },
     async [DeploymentViewActions.destroyDeployment](context) {
       const handleError = async (message: string) => {
@@ -322,14 +339,6 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
       // Or have the ProjectEditorLeftPaneContainer fire a callback on the child component?
       // That also feels wrong because it violates to "one direction" principal, in a way.
       context.commit(DeploymentViewMutators.setLeftSidebarPane, leftSidebarPaneType);
-
-      if (leftSidebarPaneType === SIDEBAR_PANE.viewExecutions) {
-        // TODO: Is this better inside of a `mounted` hook?
-        await context.dispatch(`deploymentExecutions/${DeploymentExecutionsActions.activatePane}`, null, {
-          root: true
-        });
-        return;
-      }
     },
     [DeploymentViewActions.closePane](context, pos: PANE_POSITION) {
       if (pos === PANE_POSITION.left) {

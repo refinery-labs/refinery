@@ -93,6 +93,7 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
   @Prop() public enabledNodeIds!: string[] | null;
   @Prop() public backgroundGrid!: boolean;
   @Prop() public windowWidth?: number;
+  @Prop() public animationDisabled?: boolean;
 
   // This is a catch-all for any additional options that need to be specified
   @Prop({ default: () => {} }) public config!: cytoscape.CytoscapeOptions | null;
@@ -329,6 +330,11 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
   }
 
   public getLayoutConfig(animate: boolean) {
+    // Force override to disable the animation. Cytoscape animations can be janky :/
+    if (this.animationDisabled) {
+      animate = false;
+    }
+
     return {
       name: 'dagre',
       nodeDimensionsIncludeLabels: true,

@@ -25,7 +25,7 @@ function ServerStateLoggerPlugin(store: Store<RootState>) {
     });
 
     stack = [];
-  }, 1000);
+  }, 5000);
 
   store.subscribeAction((action, state) => {
     stack.push({

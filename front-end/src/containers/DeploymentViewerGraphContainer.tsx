@@ -2,9 +2,7 @@ import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import CytoscapeGraph from '@/components/CytoscapeGraph';
 import { namespace, State } from 'vuex-class';
-import { RefineryProject, WorkflowRelationship, WorkflowState } from '@/types/graph';
 import { LayoutOptions } from 'cytoscape';
-import { AvailableTransition } from '@/store/store-types';
 import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
 
 const deployment = namespace('deployment');
@@ -18,7 +16,6 @@ export default class DeploymentViewerGraphContainer extends Vue {
   @deployment.State cytoscapeLayoutOptions!: LayoutOptions | null;
   @deployment.State cytoscapeConfig!: cytoscape.CytoscapeOptions | null;
 
-  @deployment.State isLoadingDeployment!: boolean;
   @State windowWidth?: number;
 
   @deploymentExecutions.Getter graphElementsWithExecutionStatus!: CyElements | null;
@@ -28,10 +25,6 @@ export default class DeploymentViewerGraphContainer extends Vue {
   @deployment.Action selectEdge!: (element: string) => void;
 
   public render(h: CreateElement): VNode {
-    if (this.isLoadingDeployment) {
-      return <h2>Waiting for data...</h2>;
-    }
-
     if (!this.cytoscapeElements || !this.cytoscapeStyle) {
       const errorMessage = 'Graph unable to render, missing data!';
       console.error(errorMessage);
@@ -50,7 +43,9 @@ export default class DeploymentViewerGraphContainer extends Vue {
       selected: this.selectedResource,
       enabledNodeIds: null,
       backgroundGrid: false,
-      windowWidth: this.windowWidth
+      windowWidth: this.windowWidth,
+      // Looks janky in the deployment view when you tab back-and-forth
+      animationDisabled: true
     };
 
     return (
