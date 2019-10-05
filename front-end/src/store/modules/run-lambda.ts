@@ -15,7 +15,7 @@ import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
 import { LambdaWorkflowState, SupportedLanguage, WorkflowState, WorkflowStateType } from '@/types/graph';
 import { RunCodeBlockLambdaConfig, RunTmpCodeBlockLambdaConfig } from '@/types/run-lambda-types';
-import { checkBuildStatus, libraryBuildArguments } from '@/store/fetchers/api-helpers';
+import { checkBuildStatus, LibraryBuildArguments } from '@/store/fetchers/api-helpers';
 import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
@@ -477,7 +477,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       context.commit(RunLambdaMutators.setDevLambdaRunResult, null);
       context.commit(RunLambdaMutators.setLambdaRunningStatus, true);
 
-      const params: libraryBuildArguments = {
+      const params: LibraryBuildArguments = {
         language: config.codeBlock.language as SupportedLanguage,
         libraries: config.codeBlock.libraries
       };

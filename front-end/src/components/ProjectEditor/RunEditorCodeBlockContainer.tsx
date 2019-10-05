@@ -8,7 +8,7 @@ import { RunLambdaResult } from '@/types/api-types';
 import { RunCodeBlockLambdaConfig } from '@/types/run-lambda-types';
 import { Prop } from 'vue-property-decorator';
 import { deepJSONCopy } from '@/lib/general-utils';
-import { checkBuildStatus, libraryBuildArguments } from '@/store/fetchers/api-helpers';
+import { checkBuildStatus, LibraryBuildArguments } from '@/store/fetchers/api-helpers';
 
 const project = namespace('project');
 const editBlock = namespace('project/editBlockPane');

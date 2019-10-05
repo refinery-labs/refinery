@@ -3,19 +3,12 @@ import store from '@/store/index';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState } from '@/store/store-types';
-import { ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
-import { OpenProjectMutation, SIDEBAR_PANE } from '@/types/project-editor-types';
-import { searchSavedBlocks } from '@/store/fetchers/api-helpers';
+import { ProjectViewActions } from '@/constants/store-constants';
+import { SIDEBAR_PANE } from '@/types/project-editor-types';
+import { LibraryBuildArguments, searchSavedBlocks, startLibraryBuild } from '@/store/fetchers/api-helpers';
 import { SavedBlockSearchResult, SharedBlockPublishStatus } from '@/types/api-types';
-import { AddBlockArguments } from '@/store/modules/project-view';
 import { ChosenBlock } from '@/types/add-block-types';
-import {
-  BlockEnvironmentVariable,
-  LambdaWorkflowState,
-  ProjectConfig,
-  ProjectEnvironmentVariableList,
-  WorkflowStateType
-} from '@/types/graph';
+import { BlockEnvironmentVariable, LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
 import { AddSavedBlockEnvironmentVariable } from '@/types/saved-blocks-types';
 import { safelyDuplicateBlock } from '@/utils/block-utils';
 
@@ -245,6 +238,18 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
       },
       this.environmentVariableEntries
     );
+
+    // If it's a code block being added, kick off the library build to improve the user's UX.
+    if (match.type === WorkflowStateType.LAMBDA && match.block_object.type === WorkflowStateType.LAMBDA) {
+      const codeBlock = match.block_object as LambdaWorkflowState;
+
+      const params: LibraryBuildArguments = {
+        language: codeBlock.language,
+        libraries: codeBlock.libraries
+      };
+
+      startLibraryBuild(params);
+    }
 
     this.resetState();
   }

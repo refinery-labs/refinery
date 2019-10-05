@@ -18,7 +18,7 @@ import { nopWrite } from '@/utils/block-utils';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { EditBlockPaneProps, EditorProps, LoadingContainerProps } from '@/types/component-types';
 import { deepJSONCopy } from '@/lib/general-utils';
-import { libraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-helpers';
+import { LibraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-helpers';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
 import {
