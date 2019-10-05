@@ -9,15 +9,15 @@ sync {
   delay = 1,
   source="../../",
   -- Replace this host with your docker-machine host
-  host="ubuntu@54.202.75.48",
-  targetdir="/home/ubuntu/refinery",
+  host="docker@192.168.99.102",
+  targetdir="/home/docker/refinery",
   exclude = {
     "/.idea",
     "/.git",
   },
   ssh = {
     -- Replace the path of this key with your docker-machine key (substitute machine4 probably)
-    identityFile = "~/.docker/machine/machines/aws-machine/id_rsa",
+    identityFile = "~/.docker/machine/machines/machine4/id_rsa",
   }
 }
 
