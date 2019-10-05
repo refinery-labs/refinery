@@ -453,22 +453,7 @@ class Refinery_Memory:
 
 		return lambda_invocation_list
 
-	def _merge_store_result( self, execution_id, target_lambda_arn, current_lambda_arn, merge_lambda_arns, backpack, return_data ):
-		"""
-		Uses a redis pipeline to store the results at an HASH of the following name:
-		{{EXECUTION_ID}}{{TARGET_LAMBDA_ARN}} = {
-			"{{CURRENT_RUNNING_LAMBDA_ARN}}": "{{RETURN_DATA}}"
-		}
-
-		If we're the last Lambda in the merge then we return the return_data to be
-		passed as input to the target Lambda for the merge. Otherwise we return None.
-		"""
-		if not self.redis_client:
-			self.connect()
-
-		# Create HSET name
-		hset_name = execution_id + "_" + target_lambda_arn
-
+	def _store_and_check_if_merge( self, hset_name, branch_ids, current_lambda_arn, merge_lambda_arns, backpack, return_data ):
 		# Do a redis pipeline transaction
 		pipeline = self.redis_client.pipeline()
 
@@ -478,7 +463,8 @@ class Refinery_Memory:
 			current_lambda_arn,
 			json.dumps({
 				"backpack": backpack,
-				"return_data": return_data
+				"return_data": return_data,
+				"branch_ids": branch_ids,
 			})
 		)
 
@@ -502,9 +488,9 @@ class Refinery_Memory:
 		# HASH keys returned from HKEYS
 		lambda_return_values_list = hset_returned_data[2]
 
-		if len( lambda_return_values_list ) != len( merge_lambda_arns ):
-			return None
+		return len( lambda_return_values_list ) == len( merge_lambda_arns )
 
+	def _get_merge_data( self, hset_name, branch_ids ):
 		# Since we're the last Lambda in the merge we'll pull it all out.
 		pipeline = self.redis_client.pipeline()
 		pipeline.hvals(
@@ -519,10 +505,15 @@ class Refinery_Memory:
 		# Combine the backpacks and generate a list of return values
 		return_values = []
 		combined_backpack = {}
+
 		for lambda_return_metadata in lambda_return_metadata_list:
 			returned_data_dict = json.loads(
 				lambda_return_metadata
 			)
+
+			for branch_id in returned_data_dict[ "branch_ids" ]:
+				if not ( branch_id in branch_ids ):
+					branch_ids.insert(0, branch_id)
 
 			for backpack_key, backpack_value in returned_data_dict[ "backpack" ].iteritems():
 				combined_backpack[ backpack_key ] = backpack_value
@@ -533,8 +524,115 @@ class Refinery_Memory:
 
 		return {
 			"backpack": combined_backpack,
-			"return_data": return_values
+			"return_data": return_values,
+			"branch_ids": branch_ids,
 		}
+
+	def _merge_store_result( self, execution_id, branch_ids, target_lambda_arn, current_lambda_arn, merge_lambda_arns, backpack, return_data ):
+		"""
+		Uses a redis pipeline to store the results at an HASH of the following name:
+		{{EXECUTION_ID}}{{TARGET_LAMBDA_ARN}} = {
+			"{{CURRENT_RUNNING_LAMBDA_ARN}}": "{{RETURN_DATA}}"
+		}
+
+		If we're the last Lambda in the merge then we return the return_data to be
+		passed as input to the target Lambda for the merge. Otherwise we return None.
+		"""
+		if not self.redis_client:
+			self.connect()
+
+		# Create HSET name
+		hset_name = execution_id + "_" + target_lambda_arn + "_" + branch_ids[-1]
+
+		# Store the merge data and check if we should merge
+		should_merge = self._store_and_check_if_merge(
+			hset_name,
+			branch_ids,
+			current_lambda_arn,
+			merge_lambda_arns,
+			backpack,
+			return_data
+		)
+
+		# If we don't need to merge, we can stop here.
+		if not should_merge:
+			return None
+
+		# Pull the merge data from redis and return it
+		return self._get_merge_data(
+			hset_name,
+			branch_ids
+		)
+
+def get_branch_id_from_invoke_queue( invoke_queue ):
+	"""
+	This takes an invoke queue and analyzes it to see
+	if we need to produce a new branch_id. If we do then
+	it returns a new branch_id, if not it returns False.
+	"""
+
+	# Types of transitions to be counted for merges
+	countable_merge_transition_types = [
+		"lambda",
+		"sns_topic",
+		"sqs_queue",
+		"merge"
+	]
+
+	# Count of the number of spawns (that match our types)
+	number_of_spawns = 0
+
+	for invoke_queue_item in invoke_queue:
+		if invoke_queue_item[ "type" ] in countable_merge_transition_types:
+			number_of_spawns += 1
+
+	# If we're not branching no new branch ID is needed and 
+	# we just return a False
+	if number_of_spawns <= 1:
+		return False
+
+	# If the invoke_queue has more than one item it means we are branching
+	# so we'll add another branch_id to the branch_ids list.
+	return str( uuid.uuid4() )
+
+def get_merge_invoke_data( new_invoke_data ):
+	merge_result = gmemory._merge_store_result(
+		new_invoke_data[ "execution_id" ],
+		new_invoke_data[ "branch_ids" ],
+		new_invoke_data[ "arn" ],
+		new_invoke_data[ "invoked_function_arn" ],
+		new_invoke_data[ "merge_lambdas" ],
+		new_invoke_data[ "backpack" ],
+		new_invoke_data[ "input_data" ]
+	)
+
+	if merge_result == None:
+		return merge_result
+
+	# Pull the shared branch IDs from redis
+	new_invoke_data[ "branch_ids" ] = merge_result[ "branch_ids" ]
+
+	# Remove the last branch ID
+	new_invoke_data[ "branch_ids" ] = new_invoke_data[ "branch_ids" ][1:]
+
+	# If the return value was not None that means it's the final
+	# Lambda in the merge and we can do a "then" transition with
+	# the combined array of results as the input.
+	new_invoke_data = {
+		"branch_ids": new_invoke_data[ "branch_ids" ],
+		"backpack": merge_result[ "backpack" ],
+		"execution_id": new_invoke_data[ "execution_id" ],
+		"fan_out_ids": new_invoke_data[ "fan_out_ids" ],
+		"type": "merge",
+		"arn": new_invoke_data[ "arn" ],
+		"input_data": json.loads(
+			json.dumps(
+				merge_result[ "return_data" ]
+			)
+		)
+	}
+
+	return new_invoke_data
 		
 # Make global to enable caching of redis connection
 gmemory = Refinery_Memory(
@@ -543,7 +641,7 @@ gmemory = Refinery_Memory(
 	os.environ[ "REDIS_PORT" ],
 )
 
-def _parallel_invoke( invoke_queue ):
+def _parallel_invoke( branch_ids, invoke_queue ):
 	# List of active threads
 	active_threads = []
 
@@ -551,9 +649,10 @@ def _parallel_invoke( invoke_queue ):
 	max_threads = 50
 
 	# Invokes a Lambda directly with input_data asynchronously
-	def lambda_invoker_worker_direct_input( execution_id, fan_out_ids, arn, input_data ):
+	def lambda_invoker_worker_direct_input( execution_id, branch_ids, fan_out_ids, arn, input_data ):
 		return_wrapper_data = {
 			"_refinery": {
+				"branch_ids": branch_ids,
 				"input_data": input_data,
 				"parallel": False,
 				"execution_id": execution_id,
@@ -577,9 +676,10 @@ def _parallel_invoke( invoke_queue ):
 		raise SystemExit
 
 	# Invokes a Lambda asynchronously
-	def lambda_invoker_worker_redis( execution_id, fan_out_ids, arn, return_key ):
+	def lambda_invoker_worker_redis( execution_id, branch_ids, fan_out_ids, arn, return_key ):
 		return_wrapper_data = {
 			"_refinery": {
+				"branch_ids": branch_ids,
 				"indirect": {
 					"type": "redis",
 					"key": return_key,
@@ -606,9 +706,10 @@ def _parallel_invoke( invoke_queue ):
 		raise SystemExit
 
 	# Self-invocation for a fan-out transition
-	def lambda_invoker_fan_out( arn, return_key, invocation_id ):
+	def lambda_invoker_fan_out( arn, return_key, invocation_id, branch_ids ):
 		return_wrapper_data = {
 			"_refinery": {
+				"branch_ids": branch_ids,
 				"invoke": invocation_id,
 				"indirect": {
 					"type": "redis",
@@ -634,9 +735,10 @@ def _parallel_invoke( invoke_queue ):
 		raise SystemExit
 
 	# Invokes a Lambda asynchronously with fan-in results as input
-	def lambda_invoker_worker_fan_in( execution_id, fan_out_ids, arn, fan_out_id ):
+	def lambda_invoker_worker_fan_in( execution_id, branch_ids, fan_out_ids, arn, fan_out_id ):
 		return_wrapper_data = {
 			"_refinery": {
+				"branch_ids": branch_ids,
 				"indirect": {
 					"type": "redis_fan_in",
 					"key": fan_out_id,
@@ -663,7 +765,7 @@ def _parallel_invoke( invoke_queue ):
 		raise SystemExit
 		
 	# Mass-inserts return data into SQS queue
-	def sqs_insert_data( execution_id, fan_out_ids, arn, input_data, backpack, context ):
+	def sqs_insert_data( execution_id, branch_ids, fan_out_ids, arn, input_data, backpack, context ):
 		# Generate queue URL from SQS ARN
 		arn_parts = arn.split( ":" )
 		queue_url = "https://sqs." + arn_parts[3] + ".amazonaws.com/" + arn_parts[4] + "/" + arn_parts[5]
@@ -712,6 +814,7 @@ def _parallel_invoke( invoke_queue ):
 			lambda_invoke_data = {
 				"_refinery": {
 					"sqs_worker": {
+						"branch_ids": branch_ids,
 						"queue_insert_id": queue_insert_id,
 						"execution_id": execution_id,
 						"fan_out_ids": fan_out_ids,
@@ -738,7 +841,7 @@ def _parallel_invoke( invoke_queue ):
 		raise SystemExit
 
 	# Publishes to an SNS topic
-	def sns_topic_publish_worker( execution_id, fan_out_ids, arn, input_data, backpack ):
+	def sns_topic_publish_worker( execution_id, branch_ids, fan_out_ids, arn, input_data, backpack ):
 		# Handle large data that won't fit in the 256K SNS max size
 		sns_client = boto3.client(
 			"sns"
@@ -746,6 +849,7 @@ def _parallel_invoke( invoke_queue ):
 
 		return_wrapper_data = {
 			"_refinery": {
+				"branch_ids": branch_ids,
 				"indirect": False,
 				"parallel": False,
 				"execution_id": execution_id,
@@ -782,14 +886,22 @@ def _parallel_invoke( invoke_queue ):
 		
 	# Spawns a new worked and adds it to active_threads
 	def spawn_new_worker():
+		# Types that equate to just a "lambda" type execution
+		lambda_equivalent_types = [
+			"lambda",
+			"merge",
+			"fan_out_execution"
+		]
+
 		new_invoke_data = invoke_queue.pop()
 
 		# Check type and invoke appropriately
-		if new_invoke_data[ "type" ] == "lambda" and "input_data_key" in new_invoke_data:
+		if ( new_invoke_data[ "type" ] in lambda_equivalent_types ) and "input_data_key" in new_invoke_data:
 			new_thread = threading.Thread(
 				target=lambda_invoker_worker_redis,
 				args=(
 					new_invoke_data[ "execution_id" ],
+					new_invoke_data[ "branch_ids" ],
 					new_invoke_data[ "fan_out_ids" ],
 					new_invoke_data[ "arn" ],
 					new_invoke_data[ "input_data_key" ]
@@ -797,11 +909,12 @@ def _parallel_invoke( invoke_queue ):
 			)
 			new_thread.start()
 			time.sleep(0.05) # Annoying wedge due to boto3 bug
-		elif new_invoke_data[ "type" ] == "lambda" and "input_data" in new_invoke_data:
+		elif ( new_invoke_data[ "type" ] in lambda_equivalent_types ) and "input_data" in new_invoke_data:
 			new_thread = threading.Thread(
 				target=lambda_invoker_worker_direct_input,
 				args=(
 					new_invoke_data[ "execution_id" ],
+					new_invoke_data[ "branch_ids" ],
 					new_invoke_data[ "fan_out_ids" ],
 					new_invoke_data[ "arn" ],
 					new_invoke_data[ "input_data" ]
@@ -815,7 +928,8 @@ def _parallel_invoke( invoke_queue ):
 				args=(
 					new_invoke_data[ "arn" ],
 					new_invoke_data[ "input_data_key" ],
-					new_invoke_data[ "invocation_id" ]
+					new_invoke_data[ "invocation_id" ],
+					new_invoke_data[ "branch_ids" ],
 				)
 			)
 			new_thread.start()
@@ -825,6 +939,7 @@ def _parallel_invoke( invoke_queue ):
 				target=lambda_invoker_worker_fan_in,
 				args=(
 					new_invoke_data[ "execution_id" ],
+					new_invoke_data[ "branch_ids" ],
 					new_invoke_data[ "fan_out_ids" ],
 					new_invoke_data[ "arn" ],
 					new_invoke_data[ "fan_out_id" ]
@@ -837,6 +952,7 @@ def _parallel_invoke( invoke_queue ):
 				target=sns_topic_publish_worker,
 				args=(
 					new_invoke_data[ "execution_id" ],
+					new_invoke_data[ "branch_ids" ],
 					new_invoke_data[ "fan_out_ids" ],
 					new_invoke_data[ "arn" ],
 					new_invoke_data[ "input_data" ],
@@ -859,6 +975,7 @@ def _parallel_invoke( invoke_queue ):
 				target=sqs_insert_data,
 				args=(
 					new_invoke_data[ "execution_id" ],
+					new_invoke_data[ "branch_ids" ],
 					new_invoke_data[ "fan_out_ids" ],
 					new_invoke_data[ "arn" ],
 					new_invoke_data[ "input_data" ],
@@ -883,8 +1000,38 @@ def _parallel_invoke( invoke_queue ):
 	# Create a special list for Lambdas to load the input data at once
 	lambda_invoke_list = []
 
+	# If it's necessary, get the new branch ID
+	new_branch_id = get_branch_id_from_invoke_queue(
+		invoke_queue
+	)
+
 	while len( invoke_queue ) > 0:
 		new_invoke_data = invoke_queue.pop()
+
+		# Copy in the branch IDs
+		new_invoke_data[ "branch_ids" ] = json.loads(
+			json.dumps(
+				branch_ids
+			)
+		)
+
+		# If we have a new branch ID, add it to the list of branch IDs
+		# This only occurs when we have a new branch of execution (e.g.
+		# we have two Lambdas spawned from one Lambda).
+		if new_branch_id:
+			new_invoke_data[ "branch_ids" ].insert( 0, new_branch_id )
+
+		# If it's a merge transition, then pop off the last branch ID
+		if new_invoke_data[ "type" ] == "merge":
+			new_invoke_data = get_merge_invoke_data(
+				new_invoke_data
+			)
+
+			# If the merge result was None there's no additional invocation
+			# to be made here so we can skip this loop.
+			if new_invoke_data == None:
+				continue
+
 		if new_invoke_data[ "type" ] == "lambda" or new_invoke_data[ "type" ] == "lambda_fan_out":
 			lambda_invoke_list.append(
 				new_invoke_data
@@ -1136,7 +1283,7 @@ def _send_sqs_messages( sqs_client, sqs_url, sqs_message_list ):
 		Entries=sqs_entries
 	)
 	
-def _spawn_off_sqs_worker( queue_url, queue_insert_id, execution_id, fan_out_ids ):
+def _spawn_off_sqs_worker( queue_url, queue_insert_id, execution_id, branch_ids, fan_out_ids ):
 	exhausted_queue = False
 	new_thread = False
 	
@@ -1153,6 +1300,7 @@ def _spawn_off_sqs_worker( queue_url, queue_insert_id, execution_id, fan_out_ids
 			"_refinery": {
 				"queue_insert_id": queue_insert_id,
 				"execution_id": execution_id,
+				"branch_ids": branch_ids,
 				"fan_out_ids": fan_out_ids,
 				"input_data": queue_item,
 			}
@@ -1179,7 +1327,7 @@ def _spawn_off_sqs_worker( queue_url, queue_insert_id, execution_id, fan_out_ids
 		"exhausted_queue": exhausted_queue
 	}
 	
-def _sqs_worker( queue_insert_id, execution_id, fan_out_ids, context ):
+def _sqs_worker( queue_insert_id, execution_id, branch_ids, fan_out_ids, context ):
 	"""
 	An SQS worker takes the messages stored in Redis and loads them into
 	an SQS queue. The Refinery "magic" which takes place is the ability to
@@ -1238,6 +1386,7 @@ def _sqs_worker( queue_insert_id, execution_id, fan_out_ids, context ):
 					queue_url,
 					queue_insert_id,
 					execution_id,
+					branch_ids,
 					fan_out_ids
 				)
 				
@@ -1268,6 +1417,7 @@ def _sqs_worker( queue_insert_id, execution_id, fan_out_ids, context ):
 			lambda_invoke_data = {
 				"_refinery": {
 					"sqs_worker": {
+						"branch_ids": branch_ids,
 						"queue_insert_id": queue_insert_id,
 						"execution_id": execution_id,
 						"fan_out_ids": fan_out_ids,
@@ -1286,7 +1436,7 @@ def _sqs_worker( queue_insert_id, execution_id, fan_out_ids, context ):
 			break
 	return
 
-def _spawner( invocation_id, context ):
+def _spawner( branch_ids, invocation_id, context ):
 	"""
 	Fan-out invocations work in essentially the following stages:
 	* A Lambda is invoked which has a fan-out transition
@@ -1346,7 +1496,7 @@ def _spawner( invocation_id, context ):
 				}
 			})
 			start_time = time.time()
-			_parallel_invoke( lambdas_to_invoke )
+			_parallel_invoke( branch_ids, lambdas_to_invoke )
 			return
 
 		# Pull at least parallel_invocation_number number of inputs of the queue
@@ -1363,7 +1513,7 @@ def _spawner( invocation_id, context ):
 				break
 
 		start_time = time.time()
-		_parallel_invoke( lambdas_to_invoke )
+		_parallel_invoke( branch_ids, lambdas_to_invoke )
 
 	return
 
@@ -1491,6 +1641,11 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 	# For example, an API Gateway Lambda
 	execution_mode = os.environ[ "EXECUTION_MODE" ]
 
+	# Branch IDs, these are used for merges and are added whenever
+	# a Code Block spawns multiple child executions (through multiple
+	# thens, a fan-out, etc)
+	branch_ids = []
+
 	# Execution ID, this is an ID which correlates to an execution chain
 	execution_id = False
 
@@ -1552,6 +1707,7 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 				execution_id = batch_input_data[ "_refinery" ][ "execution_id" ]
 				fan_out_ids = batch_input_data[ "_refinery" ][ "fan_out_ids" ]
 				queue_insert_id = batch_input_data[ "_refinery" ][ "queue_insert_id" ]
+				branch_ids = batch_input_data[ "_refinery" ][ "branch_ids" ]
 				
 			lambda_input_list.append(
 				batch_input_data[ "_refinery" ][ "input_data" ]
@@ -1576,6 +1732,10 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 	# Detect refinery wrapper and unwrap if existant
 	# Else just leave it unmodified
 	if type( lambda_input ) == dict and "_refinery" in lambda_input:
+		# If a branch ID array exists in the input, set it.
+		if "branch_ids" in lambda_input[ "_refinery" ]:
+			branch_ids = lambda_input[ "_refinery" ][ "branch_ids" ]
+
 		"""
 		In order to speed up inline executions (e.g. Editor executions)
 		we keep the base Lambda layers/packages/configs deployed in a Lambda.
@@ -1654,6 +1814,7 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 			_sqs_worker(
 				lambda_input[ "_refinery" ][ "sqs_worker" ][ "queue_insert_id" ],
 				lambda_input[ "_refinery" ][ "sqs_worker" ][ "execution_id" ],
+				lambda_input[ "_refinery" ][ "sqs_worker" ][ "branch_ids" ],
 				lambda_input[ "_refinery" ][ "sqs_worker" ][ "fan_out_ids" ],
 				context
 			)
@@ -1726,6 +1887,7 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 		# If there's an "invoke" key it means we're doing a self-invocation fan-out
 		if is_spawner_invocation:
 			_spawner(
+				branch_ids,
 				invocation_id,
 				context
 			)
@@ -1941,7 +2103,7 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 				})
 				
 			# If there's an exception we should stop after invoking the exception case(s).
-			_parallel_invoke( invocation_input_list )
+			_parallel_invoke( branch_ids, invocation_input_list )
 			
 			# Write error to stderr for logging
 			sys.stderr.write( error_output )
@@ -2078,7 +2240,7 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 					"backpack": backpack,
 					"execution_id": execution_id,
 					"fan_out_ids": new_fan_out_ids,
-					"type": fan_out_transition_data[ "type" ],
+					"type": "fan_out_execution",
 					"arn": fan_out_transition_data[ "arn" ],
 					"input_data": json.loads(
 						json.dumps(
@@ -2246,31 +2408,17 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 
 	# For merge transitions
 	for merge_transition_data in transitions[ "merge" ]:
-		merge_result = gmemory._merge_store_result(
-			execution_id,
-			merge_transition_data[ "arn" ],
-			context.invoked_function_arn,
-			merge_transition_data[ "merge_lambdas" ],
-			backpack,
-			return_data
-		)
-
-		if merge_result == None:
-			continue
-
-		# If the return value was not None that means it's the final
-		# Lambda in the merge and we can do a "then" transition with
-		# the combined array of results as the input.
 		invocation_input_list.append({
-			"backpack": merge_result[ "backpack" ],
+			"invoked_function_arn": context.invoked_function_arn,
+			"merge_lambdas": merge_transition_data[ "merge_lambdas" ],
+			"backpack": backpack,
 			"execution_id": execution_id,
 			"fan_out_ids": fan_out_ids,
-			"type": merge_transition_data[ "type" ],
+			"type": "merge",
 			"arn": merge_transition_data[ "arn" ],
-			"context": context,
 			"input_data": json.loads(
 				json.dumps(
-					merge_result[ "return_data" ]
+					return_data
 				)
 			)
 		})
@@ -2278,7 +2426,7 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 	# If it's an API gateway Lambda we can end it here.
 	if execution_mode == "API_ENDPOINT":
 		# Now we invoke all the queued Lambdas!
-		_parallel_invoke( invocation_input_list )
+		_parallel_invoke( branch_ids, invocation_input_list )
 
 		custom_runtime.send_response(
 			request_id,
@@ -2331,7 +2479,7 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 			})
 
 	# Now we invoke all the queued Lambdas!
-	_parallel_invoke( invocation_input_list )
+	_parallel_invoke( branch_ids, invocation_input_list )
 
 	# If pipeline logging is enabled
 	# Write the return data of this Lambda
