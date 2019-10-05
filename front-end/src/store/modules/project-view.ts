@@ -8,6 +8,7 @@ import {
   RootState
 } from '@/store/store-types';
 import {
+  LambdaWorkflowState,
   ProjectConfig,
   ProjectLogLevel,
   RefineryProject,
@@ -67,7 +68,13 @@ import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
 import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
-import { createShortlink, deployProject, openProject, teardownProject } from '@/store/fetchers/api-helpers';
+import {
+  createShortlink,
+  deployProject,
+  openProject,
+  startLibraryBuild,
+  teardownProject
+} from '@/store/fetchers/api-helpers';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
 import { createNewBlock, createNewTransition } from '@/utils/block-utils';
 import { saveEditBlockToProject } from '@/utils/store-utils';
@@ -514,6 +521,18 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.updateProject, params);
 
       await context.dispatch(ProjectViewActions.loadProjectConfig);
+
+      // Kick off a build for every block in the project so that block executions happen quickly.
+      project.workflow_states
+        .filter(wfs => wfs.type === WorkflowStateType.LAMBDA)
+        .map(block => {
+          const codeBlock = block as LambdaWorkflowState;
+
+          startLibraryBuild({
+            language: codeBlock.language,
+            libraries: codeBlock.libraries
+          });
+        });
 
       context.commit(ProjectViewMutators.isLoadingProject, false);
     },
