@@ -177,6 +177,7 @@ export enum DeploymentViewMutators {
 
 export enum DeploymentViewActions {
   openDeployment = 'openDeployment',
+  loadDeploymentData = 'loadDeploymentData',
   destroyDeployment = 'destroyDeployment',
 
   clearSelection = 'clearSelection',

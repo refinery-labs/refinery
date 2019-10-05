@@ -87,20 +87,15 @@ export default class ProjectDeployments extends Vue {
     const containerClasses = {
       'opened-project-overview': true,
       'display--flex': true,
-      'flex-grow--1': true
+      'flex-grow--1': true,
+      whirl: false,
+      standard: false
     };
 
     // Show a nice loading animation
     if (this.isLoadingDeployment) {
-      return (
-        <div
-          class={{
-            ...containerClasses,
-            whirl: true,
-            standard: true
-          }}
-        />
-      );
+      containerClasses.whirl = true;
+      containerClasses.standard = true;
     }
 
     const sidebarNavProps = {
