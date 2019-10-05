@@ -5,7 +5,7 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState } from '@/store/store-types';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
-import { libraryBuildArguments, searchSavedBlocks, startLibraryBuild } from '@/store/fetchers/api-helpers';
+import { LibraryBuildArguments, searchSavedBlocks, startLibraryBuild } from '@/store/fetchers/api-helpers';
 import { SavedBlockSearchResult, SharedBlockPublishStatus } from '@/types/api-types';
 import { ChosenBlock } from '@/types/add-block-types';
 import { BlockEnvironmentVariable, LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
@@ -243,7 +243,7 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
     if (match.type === WorkflowStateType.LAMBDA && match.block_object.type === WorkflowStateType.LAMBDA) {
       const codeBlock = match.block_object as LambdaWorkflowState;
 
-      const params: libraryBuildArguments = {
+      const params: LibraryBuildArguments = {
         language: codeBlock.language,
         libraries: codeBlock.libraries
       };

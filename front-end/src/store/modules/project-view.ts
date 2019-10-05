@@ -81,6 +81,7 @@ import { saveEditBlockToProject } from '@/utils/store-utils';
 import ImportableRefineryProject from '@/types/export-project';
 import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
 import store from '@/store';
+import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 
 export interface AddBlockArguments {
   rawBlockType: string;
@@ -522,19 +523,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       await context.dispatch(ProjectViewActions.loadProjectConfig);
 
-      // Kick off a build for every block in the project so that block executions happen quickly.
-      project.workflow_states
-        .filter(wfs => wfs.type === WorkflowStateType.LAMBDA)
-        .map(block => {
-          const codeBlock = block as LambdaWorkflowState;
-
-          startLibraryBuild({
-            language: codeBlock.language,
-            libraries: codeBlock.libraries
-          });
-        });
-
       context.commit(ProjectViewMutators.isLoadingProject, false);
+
+      kickOffLibraryBuildForBlocks(project.workflow_states);
     },
     async [ProjectViewActions.openDemo](context) {
       context.commit(ProjectViewMutators.isLoadingProject, true);

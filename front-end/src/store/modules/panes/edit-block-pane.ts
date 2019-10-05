@@ -20,7 +20,7 @@ import { HTTP_METHOD } from '@/constants/api-constants';
 import { safelyDuplicateBlock, updateBlockWithNewSavedBlockVersion, validatePath } from '@/utils/block-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { resetStoreState } from '@/utils/store-utils';
-import { getSavedBlockStatus, libraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-helpers';
+import { getSavedBlockStatus, LibraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-helpers';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
 import { downloadBlockAsZip, downloadCodeBlockCode } from '@/utils/project-debug-utils';
 
@@ -616,7 +616,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       const codeBlock = context.state.selectedNode as LambdaWorkflowState;
 
       const libraries = deepJSONCopy(codeBlock.libraries);
-      const params: libraryBuildArguments = {
+      const params: LibraryBuildArguments = {
         language: codeBlock.language,
         libraries: libraries
       };

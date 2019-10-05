@@ -59,7 +59,7 @@ import { CURRENT_TRANSITION_SCHEMA } from '@/constants/graph-constants';
 import { timeout } from '@/utils/async-utils';
 import ImportableRefineryProject from '@/types/export-project';
 
-export interface libraryBuildArguments {
+export interface LibraryBuildArguments {
   language: SupportedLanguage;
   libraries: string[];
 }
@@ -234,7 +234,7 @@ export async function getContentsForLogs(
   return R.indexBy(r => r.log_id, contents);
 }
 
-export async function checkBuildStatus(libraryBuildArgs: libraryBuildArguments) {
+export async function checkBuildStatus(libraryBuildArgs: LibraryBuildArguments) {
   const response = await makeApiRequest<GetBuildStatusRequest, GetBuildStatusResponse>(API_ENDPOINT.GetBuildStatus, {
     libraries: libraryBuildArgs.libraries,
     language: libraryBuildArgs.language
@@ -248,7 +248,7 @@ export async function checkBuildStatus(libraryBuildArgs: libraryBuildArguments) 
   return response.is_already_cached;
 }
 
-export async function startLibraryBuild(libraryBuildArgs: libraryBuildArguments) {
+export async function startLibraryBuild(libraryBuildArgs: LibraryBuildArguments) {
   // Check if we're already build this before
   const buildIsCached = await checkBuildStatus(libraryBuildArgs);
 
