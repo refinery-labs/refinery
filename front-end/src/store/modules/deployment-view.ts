@@ -153,11 +153,12 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
       if (freshDeploymentView) {
         context.commit(DeploymentViewMutators.isLoadingDeployment, true);
 
-        // Don't await this call so that the UI is snappy.
-        context.dispatch(DeploymentViewActions.loadDeploymentData, projectId);
-      } else {
         // Only wait for this data if we don't have it...
         await context.dispatch(DeploymentViewActions.loadDeploymentData, projectId);
+      } else {
+        // Don't await this call so that the UI is snappy.
+        // Refresh the data anyway though just in case something has changed.
+        context.dispatch(DeploymentViewActions.loadDeploymentData, projectId);
       }
 
       context.commit(DeploymentViewMutators.isLoadingDeployment, false);
