@@ -12,6 +12,8 @@ export interface RefineryProject {
   version: number;
   workflow_states: WorkflowState[];
   workflow_relationships: WorkflowRelationship[];
+  workflow_files: WorkflowFile[];
+  workflow_file_links: WorkflowFileLink[];
 }
 
 export enum SupportedLanguage {
@@ -44,6 +46,28 @@ export enum WorkflowRelationshipType {
   EXCEPTION = 'exception',
   ELSE = 'else',
   MERGE = 'merge'
+}
+
+export enum WorkflowFileType {
+  SHARED_FILE = 'shared_file'
+}
+
+export interface WorkflowFile extends BaseRefineryResource {
+  type: WorkflowFileType;
+}
+
+export enum WorkflowFileLinkType {
+  SHARED_FILE_LINK = 'shared_file_link'
+}
+
+export interface WorkflowFileLink {
+  id: string;
+  file_id: string;
+  workflow_state: string;
+  version: string;
+  type: WorkflowFileLinkType;
+  body: string;
+  path: string;
 }
 
 export enum ProjectLogLevel {

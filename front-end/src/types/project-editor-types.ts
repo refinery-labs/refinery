@@ -16,6 +16,7 @@ export enum SIDEBAR_PANE {
   editBlock = 'editBlock',
   editTransition = 'editTransition',
   runEditorCodeBlock = 'runEditorCodeBlock',
+  sharedFiles = 'sharedFiles',
 
   // Deployment Viewer
   viewApiEndpoints = 'viewApiEndpoints',

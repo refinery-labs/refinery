@@ -7,7 +7,12 @@ import {
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import { ProductionWorkflowRelationship, ProductionWorkflowState } from '@/types/production-workflow-types';
+import {
+  ProductionWorkflowFile,
+  ProductionWorkflowFileLink,
+  ProductionWorkflowRelationship,
+  ProductionWorkflowState
+} from '@/types/production-workflow-types';
 import {
   ExecutionLogMetadata,
   ExecutionStatusType,
@@ -163,6 +168,8 @@ export interface ProductionDeploymentRefineryProjectJson {
   name: string;
   workflow_states: ProductionWorkflowState[];
   workflow_relationships: ProductionWorkflowRelationship[];
+  workflow_files: ProductionWorkflowFile[];
+  workflow_file_links: ProductionWorkflowFileLink[];
 }
 
 // GetProjectConfig

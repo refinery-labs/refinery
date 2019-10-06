@@ -189,6 +189,8 @@ export function unwrapProjectJson(response: GetSavedProjectResponse): RefineryPr
       project_id: response.project_id || project.project_id || uuid(),
       workflow_relationships: project.workflow_relationships || [],
       workflow_states: project.workflow_states || [],
+      workflow_files: project.workflow_files || [],
+      workflow_file_links: project.workflow_file_links || [],
       version: project.version || 1
     };
   } catch {
