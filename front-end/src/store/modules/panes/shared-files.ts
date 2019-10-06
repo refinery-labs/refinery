@@ -4,6 +4,8 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import store from '@/store';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
+import { resetStoreState } from '@/utils/store-utils';
+import { baseState } from '@/store/modules/panes/add-saved-block-pane';
 
 const storeName = 'sharedFiles';
 
@@ -11,12 +13,14 @@ const storeName = 'sharedFiles';
 export interface SharedFilesPaneState {
   addSharedFileName: string;
   newSharedFilenameIsValid: boolean | null;
+  searchText: string;
 }
 
 // Initial State
 const moduleState: SharedFilesPaneState = {
   addSharedFileName: '',
-  newSharedFilenameIsValid: null
+  newSharedFilenameIsValid: null,
+  searchText: ''
 };
 
 const initialState = deepJSONCopy(moduleState);
@@ -26,6 +30,12 @@ class SharedFilesPaneStore extends VuexModule<ThisType<SharedFilesPaneState>, Ro
   implements SharedFilesPaneState {
   public addSharedFileName: string = initialState.addSharedFileName;
   public newSharedFilenameIsValid: boolean | null = initialState.newSharedFilenameIsValid;
+  public searchText: string = initialState.searchText;
+
+  @Mutation
+  public resetState() {
+    resetStoreState(this, initialState);
+  }
 
   @Mutation
   public setSharedFileName(value: string) {
@@ -36,6 +46,11 @@ class SharedFilesPaneStore extends VuexModule<ThisType<SharedFilesPaneState>, Ro
       return;
     }
     this.newSharedFilenameIsValid = true;
+  }
+
+  @Mutation
+  public setSearchText(value: string) {
+    this.searchText = value;
   }
 }
 

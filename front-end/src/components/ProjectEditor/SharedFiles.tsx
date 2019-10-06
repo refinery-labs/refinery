@@ -1,11 +1,15 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
-import { RefineryProject } from '@/types/graph';
+import { RefineryProject, WorkflowFile } from '@/types/graph';
 import { PANE_POSITION } from '@/types/project-editor-types';
 import { AddSharedFileArguments } from '@/store/modules/project-view';
 import { SharedFilesPaneModule } from '@/store/modules/panes/shared-files';
 import RefineryMarkdown from '@/components/Common/RefineryMarkdown';
+import { SavedBlockSearchResult, SharedBlockPublishStatus } from '@/types/api-types';
+import { blockTypeToImageLookup } from '@/constants/project-editor-constants';
+import moment from 'moment';
+import { MarkdownProps } from '@/types/component-types';
 
 const project = namespace('project');
 
@@ -19,13 +23,34 @@ export default class SharedFilesPane extends Vue {
       name: SharedFilesPaneModule.addSharedFileName
     };
     this.addSharedFile(addSharedFileArgs);
+    SharedFilesPaneModule.resetState();
   }
 
   getSharedFiles() {
     if (this.openedProject === null) {
-      return;
+      return [];
     }
-    const sharedFiles = this.openedProject.workflow_files;
+    return this.openedProject.workflow_files.filter(workflow_file => {
+      return workflow_file.name.toLowerCase().includes(SharedFilesPaneModule.searchText.toLowerCase());
+    });
+  }
+
+  public renderBlockSelect(workflowFile: WorkflowFile) {
+    return (
+      <b-list-group-item class="display--flex" button>
+        {workflowFile.name}
+      </b-list-group-item>
+    );
+  }
+
+  public renderExistingSharedFiles() {
+    return (
+      <div class="flex-grow--1 padding-left--micro padding-right--micro">
+        <b-list-group class="add-saved-block-container add-block-container">
+          {this.getSharedFiles().map(result => this.renderBlockSelect(result))}
+        </b-list-group>
+      </div>
+    );
   }
 
   public render(h: CreateElement): VNode {
@@ -42,14 +67,15 @@ export default class SharedFilesPane extends Vue {
             type="text"
             autofocus={true}
             required={true}
-            value=""
-            //on={{input: this.onSearchBoxInputChanged}}
+            value={SharedFilesPaneModule.searchText}
+            on={{ input: SharedFilesPaneModule.setSearchText }}
             placeholder="eg, utils.py"
           />
         </b-form-group>
 
+        <label class="d-block">Existing Shared Files: </label>
         <b-form-group>
-          <div class="flex-grow--1 scrollable-pane-container" />
+          <div class="flex-grow--1 scrollable-pane-container shared-files-well">{this.renderExistingSharedFiles()}</div>
         </b-form-group>
 
         <b-list-group>
