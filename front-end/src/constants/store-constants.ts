@@ -149,7 +149,8 @@ export enum ProjectViewActions {
   setWarmupConcurrencyLevel = 'setWarmupConcurrencyLevel',
 
   // Shared Files
-  addSharedFile = 'addSharedFile'
+  addSharedFile = 'addSharedFile',
+  editSharedFile = 'editSharedFile'
 }
 
 export enum DeploymentViewGetters {

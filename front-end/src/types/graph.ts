@@ -54,6 +54,7 @@ export enum WorkflowFileType {
 
 export interface WorkflowFile extends BaseRefineryResource {
   type: WorkflowFileType;
+  body: string;
 }
 
 export enum WorkflowFileLinkType {
@@ -66,7 +67,6 @@ export interface WorkflowFileLink {
   workflow_state: string;
   version: string;
   type: WorkflowFileLinkType;
-  body: string;
   path: string;
 }
 

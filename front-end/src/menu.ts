@@ -85,7 +85,8 @@ export const paneTypeToNameLookup: EditorPaneTypeToName = {
   [SIDEBAR_PANE.viewDeployedTransition]: 'Inspect Deployed Transition',
   [SIDEBAR_PANE.runEditorCodeBlock]: 'Code Runner',
   [SIDEBAR_PANE.runDeployedCodeBlock]: 'Code Runner',
-  [SIDEBAR_PANE.sharedFiles]: 'Shared Files'
+  [SIDEBAR_PANE.sharedFiles]: 'Shared Files',
+  [SIDEBAR_PANE.editSharedFile]: 'Edit Shared File'
 };
 
 export const paneTypeToWindowNameLookup: EditorPaneTypeToName = {

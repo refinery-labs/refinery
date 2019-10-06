@@ -26,6 +26,7 @@ import { BlockLayersState } from '@/store/modules/panes/block-layers-pane';
 import { BlockLocalCodeSyncState } from '@/store/modules/panes/block-local-code-sync';
 import { ProjectCardStateLookup } from '@/types/all-project-types';
 import { SharedFilesPaneState } from '@/store/modules/panes/shared-files';
+import { EditSharedFilePaneState } from '@/store/modules/panes/edit-shared-file';
 
 export interface RootState {
   addSavedBlockPane: AddSavedBlockPaneState;
@@ -46,6 +47,7 @@ export interface RootState {
   billing: BillingPaneState;
   websocket: WebsocketState;
   sharedFiles: SharedFilesPaneState;
+  editSharedFile: EditSharedFilePaneState;
 }
 
 export enum UserInterfaceSettings {

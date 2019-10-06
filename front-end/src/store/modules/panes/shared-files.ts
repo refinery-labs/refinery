@@ -2,10 +2,7 @@ import { Action, getModule, Module, Mutation, VuexModule } from 'vuex-module-dec
 import { RootState } from '../../store-types';
 import { deepJSONCopy } from '@/lib/general-utils';
 import store from '@/store';
-import { ProjectViewActions } from '@/constants/store-constants';
-import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { resetStoreState } from '@/utils/store-utils';
-import { baseState } from '@/store/modules/panes/add-saved-block-pane';
 
 const storeName = 'sharedFiles';
 

@@ -37,6 +37,7 @@ import { Vue } from 'vue/types/vue';
 import { VueClass } from 'vue-class-component/lib/declarations';
 import AddSavedBlockPaneContainer from '@/components/ProjectEditor/saved-blocks-components/AddSavedBlockPaneContainer';
 import SharedFilesPane from '@/components/ProjectEditor/SharedFiles';
+import EditSharedFilePane from '@/components/ProjectEditor/EditSharedFile';
 
 export const savedBlockType = 'saved_block';
 
@@ -459,7 +460,8 @@ export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
   [SIDEBAR_PANE.viewDeployedBlock]: ViewDeployedBlockPane,
   [SIDEBAR_PANE.viewDeployedBlockLogs]: ViewDeployedBlockLogsPane,
   [SIDEBAR_PANE.viewDeployedTransition]: ViewDeployedTransitionPane,
-  [SIDEBAR_PANE.sharedFiles]: SharedFilesPane
+  [SIDEBAR_PANE.sharedFiles]: SharedFilesPane,
+  [SIDEBAR_PANE.editSharedFile]: EditSharedFilePane
 };
 
 export const blockNameText = 'Name of the block.';

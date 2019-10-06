@@ -80,6 +80,7 @@ import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 
 export interface AddSharedFileArguments {
   name: string;
+  body: string;
 }
 
 export interface AddBlockArguments {
@@ -132,7 +133,8 @@ const moduleState: ProjectViewState = {
     [SIDEBAR_PANE.viewDeployedBlock]: {},
     [SIDEBAR_PANE.viewDeployedBlockLogs]: {},
     [SIDEBAR_PANE.viewDeployedTransition]: {},
-    [SIDEBAR_PANE.sharedFiles]: {}
+    [SIDEBAR_PANE.sharedFiles]: {},
+    [SIDEBAR_PANE.editSharedFile]: {}
   },
   activeLeftSidebarPane: null,
   activeRightSidebarPane: null,
@@ -1234,7 +1236,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         id: uuid(),
         type: WorkflowFileType.SHARED_FILE,
         version: '1.0.0',
-        name: addSharedFileArgs.name
+        name: addSharedFileArgs.name,
+        body: addSharedFileArgs.body
       };
 
       const newProject: RefineryProject = {
@@ -1249,6 +1252,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       };
 
       await context.dispatch(ProjectViewActions.updateProject, params);
+
+      await context.dispatch(ProjectViewActions.openRightSidebarPane, SIDEBAR_PANE.editSharedFile);
+      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
     },
     async [ProjectViewActions.addIndividualBlock](context, addBlockArgs: AddBlockArguments) {
       // This should not happen

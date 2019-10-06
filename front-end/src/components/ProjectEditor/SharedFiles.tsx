@@ -2,14 +2,8 @@ import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import { RefineryProject, WorkflowFile } from '@/types/graph';
-import { PANE_POSITION } from '@/types/project-editor-types';
 import { AddSharedFileArguments } from '@/store/modules/project-view';
 import { SharedFilesPaneModule } from '@/store/modules/panes/shared-files';
-import RefineryMarkdown from '@/components/Common/RefineryMarkdown';
-import { SavedBlockSearchResult, SharedBlockPublishStatus } from '@/types/api-types';
-import { blockTypeToImageLookup } from '@/constants/project-editor-constants';
-import moment from 'moment';
-import { MarkdownProps } from '@/types/component-types';
 
 const project = namespace('project');
 
@@ -20,7 +14,8 @@ export default class SharedFilesPane extends Vue {
 
   addNewSharedFile() {
     const addSharedFileArgs: AddSharedFileArguments = {
-      name: SharedFilesPaneModule.addSharedFileName
+      name: SharedFilesPaneModule.addSharedFileName,
+      body: ''
     };
     this.addSharedFile(addSharedFileArgs);
     SharedFilesPaneModule.resetState();
