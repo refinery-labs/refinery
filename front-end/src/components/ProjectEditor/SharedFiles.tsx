@@ -2,31 +2,84 @@ import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import { RefineryProject } from '@/types/graph';
+import { PANE_POSITION } from '@/types/project-editor-types';
+import { AddSharedFileArguments } from '@/store/modules/project-view';
+import { SharedFilesPaneModule } from '@/store/modules/panes/shared-files';
+import RefineryMarkdown from '@/components/Common/RefineryMarkdown';
 
 const project = namespace('project');
 
 @Component
 export default class SharedFilesPane extends Vue {
   @project.State openedProject!: RefineryProject | null;
+  @project.Action addSharedFile!: (addSharedFileArgs: AddSharedFileArguments) => void;
+
+  addNewSharedFile() {
+    const addSharedFileArgs: AddSharedFileArguments = {
+      name: SharedFilesPaneModule.addSharedFileName
+    };
+    this.addSharedFile(addSharedFileArgs);
+  }
+
+  getSharedFiles() {
+    if (this.openedProject === null) {
+      return;
+    }
+    const sharedFiles = this.openedProject.workflow_files;
+  }
 
   public render(h: CreateElement): VNode {
     return (
-      <b-list-group class="shared-files-pane">
-        <b-list-group-item className="display--flex" button>
-          <img class="add-block__image" />
-          <i class="file-alt" />
-          <div class="flex-column align-items-start add-block__content">
-            <div class="d-flex w-100 justify-content-between">
-              <h4 class="mb-1">utils.py</h4>
-            </div>
-
-            <p class="mb-1">Utils.py</p>
+      <div class="text-align--left mb-2 ml-2 mr-2 mt-0 display--flex flex-direction--column shared-files-pane">
+        <b-form-group
+          className="padding-bottom--normal-small margin-bottom--normal-small"
+          description="Specify some text to search the existing Shared Files for this project."
+        >
+          <div class="display--flex">
+            <label class="flex-grow--1">Search by Name:</label>
           </div>
-        </b-list-group-item>
-        <button class="mb-1 btn btn-success" type="button">
-          Add New Shared File
-        </button>
-      </b-list-group>
+          <b-form-input
+            type="text"
+            autofocus={true}
+            required={true}
+            value=""
+            //on={{input: this.onSearchBoxInputChanged}}
+            placeholder="eg, utils.py"
+          />
+        </b-form-group>
+
+        <b-form-group>
+          <div class="flex-grow--1 scrollable-pane-container" />
+        </b-form-group>
+
+        <b-list-group>
+          <b-form-group
+            className="padding-bottom--normal-small margin-bottom--normal-small"
+            description="Name of the new shared file to create."
+          >
+            <label class="d-block">New Shared File Name:</label>
+            <b-form-input
+              type="text"
+              autofocus={true}
+              required={true}
+              value={SharedFilesPaneModule.addSharedFileName}
+              on={{ input: SharedFilesPaneModule.setSharedFileName }}
+              state={SharedFilesPaneModule.newSharedFilenameIsValid}
+              placeholder="ex, utils.py"
+            />
+            <b-form-invalid-feedback state={SharedFilesPaneModule.newSharedFilenameIsValid}>
+              That is not a valid file name.
+            </b-form-invalid-feedback>
+          </b-form-group>
+          <b-button
+            on={{ click: () => this.addNewSharedFile() }}
+            disabled={!SharedFilesPaneModule.newSharedFilenameIsValid}
+            variant="primary"
+          >
+            Create new shared file
+          </b-button>
+        </b-list-group>
+      </div>
     );
   }
 }

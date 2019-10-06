@@ -8,10 +8,11 @@ import {
   RootState
 } from '@/store/store-types';
 import {
-  LambdaWorkflowState,
   ProjectConfig,
   ProjectLogLevel,
   RefineryProject,
+  WorkflowFile,
+  WorkflowFileType,
   WorkflowRelationship,
   WorkflowRelationshipType,
   WorkflowState,
@@ -68,13 +69,7 @@ import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
 import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
-import {
-  createShortlink,
-  deployProject,
-  openProject,
-  startLibraryBuild,
-  teardownProject
-} from '@/store/fetchers/api-helpers';
+import { createShortlink, deployProject, openProject, teardownProject } from '@/store/fetchers/api-helpers';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
 import { createNewBlock, createNewTransition } from '@/utils/block-utils';
 import { saveEditBlockToProject } from '@/utils/store-utils';
@@ -82,6 +77,10 @@ import ImportableRefineryProject from '@/types/export-project';
 import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
 import store from '@/store';
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
+
+export interface AddSharedFileArguments {
+  name: string;
+}
 
 export interface AddBlockArguments {
   rawBlockType: string;
@@ -1221,6 +1220,35 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
           selectAfterAdding: false
         });
       }
+    },
+    async [ProjectViewActions.addSharedFile](context, addSharedFileArgs: AddSharedFileArguments) {
+      // This should not happen
+      if (!context.state.openedProject) {
+        console.error('Adding shared file but not project was opened');
+        return;
+      }
+
+      const openedProject = context.state.openedProject as RefineryProject;
+
+      const newSharedFile: WorkflowFile = {
+        id: uuid(),
+        type: WorkflowFileType.SHARED_FILE,
+        version: '1.0.0',
+        name: addSharedFileArgs.name
+      };
+
+      const newProject: RefineryProject = {
+        ...openedProject,
+        workflow_files: [...openedProject.workflow_files, newSharedFile]
+      };
+
+      const params: OpenProjectMutation = {
+        project: newProject,
+        config: null,
+        markAsDirty: true
+      };
+
+      await context.dispatch(ProjectViewActions.updateProject, params);
     },
     async [ProjectViewActions.addIndividualBlock](context, addBlockArgs: AddBlockArguments) {
       // This should not happen
