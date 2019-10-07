@@ -187,6 +187,9 @@ export interface ProjectViewState {
   availableEditTransitions: AvailableTransitionsByType | null;
   isEditingTransitionCurrently: boolean;
   newTransitionTypeSpecifiedInEditFlow: WorkflowRelationshipType | null;
+
+  // Adding shared files to Code Blocks
+  isAddingSharedFileToCodeBlock: boolean;
 }
 
 export enum IfDropDownSelectionType {

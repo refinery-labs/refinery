@@ -64,7 +64,7 @@ export enum WorkflowFileLinkType {
 export interface WorkflowFileLink {
   id: string;
   file_id: string;
-  workflow_state: string;
+  node: string;
   version: string;
   type: WorkflowFileLinkType;
   path: string;

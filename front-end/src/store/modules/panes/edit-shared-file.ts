@@ -94,13 +94,14 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
 
   @Action
   public async selectCodeBlockToAddSharedFileTo() {
-    await this.context.dispatch(
-      `project/${ProjectViewActions.selectCodeBlockToAddSharedFileTo}`,
-      WorkflowRelationshipType.THEN,
-      {
-        root: true
-      }
-    );
+    await this.context.dispatch(`project/${ProjectViewActions.setIsAddingSharedFileToCodeBlock}`, true, {
+      root: true
+    });
+  }
+
+  @Action
+  public async getSharedFile() {
+    return deepJSONCopy(this.sharedFile);
   }
 }
 

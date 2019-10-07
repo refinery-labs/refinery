@@ -1,4 +1,10 @@
-import { RefineryProject, WorkflowRelationship, WorkflowRelationshipType, WorkflowState } from '@/types/graph';
+import {
+  RefineryProject,
+  WorkflowRelationship,
+  WorkflowRelationshipType,
+  WorkflowState,
+  WorkflowStateType
+} from '@/types/graph';
 import {
   nodeTypesWithSimpleTransitions,
   validBlockToBlockTransitionLookup,
@@ -196,6 +202,28 @@ export function unwrapProjectJson(response: GetSavedProjectResponse): RefineryPr
   } catch {
     return null;
   }
+}
+
+/**
+ * Returns a valid AvailableTransition array of every Code Block in the project.
+ * This is used for selected a Code Block to add a Shared File to.
+ *
+ export interface AvailableTransition {
+  valid: boolean;
+  transitionConfig: ValidTransitionConfig;
+  fromNode: WorkflowState;
+  toNode: WorkflowState;
+  simple: boolean;
+}
+ */
+export function getIDsOfBlockType(blockType: WorkflowStateType, project: RefineryProject) {
+  const matchingWorkflowStates = project.workflow_states.filter(workflow_state => {
+    return (workflow_state.type = blockType);
+  });
+
+  return matchingWorkflowStates.map(workflow_state => {
+    return workflow_state.id;
+  });
 }
 
 /**

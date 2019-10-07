@@ -46,7 +46,8 @@ export enum ProjectViewGetters {
   selectedResourceDirty = 'selectedResourceDirty',
   getValidEditMenuDisplayTransitionTypes = 'getValidEditMenuDisplayTransitionTypes',
   exportProjectJson = 'exportProjectJson',
-  shareProjectUrl = 'shareProjectUrl'
+  shareProjectUrl = 'shareProjectUrl',
+  getCodeBlockIDs = 'getCodeBlockIDs'
 }
 
 export enum ProjectViewMutators {
@@ -97,7 +98,9 @@ export enum ProjectViewMutators {
   setEditingTransitionStatus = 'setEditingTransitionStatus',
   setEditingTransitionType = 'setEditingTransitionType',
 
-  setWarmupConcurrencyLevel = 'setWarmupConcurrencyLevel'
+  setWarmupConcurrencyLevel = 'setWarmupConcurrencyLevel',
+
+  setIsAddingSharedFileToCodeBlock = 'setIsAddingSharedFileToCodeBlock'
 }
 
 export enum ProjectViewActions {
@@ -154,7 +157,10 @@ export enum ProjectViewActions {
   openSharedFile = 'openSharedFile',
   saveSharedFile = 'saveSharedFile',
   deleteSharedFile = 'deleteSharedFile',
-  selectCodeBlockToAddSharedFileTo = 'selectCodeBlockToAddSharedFileTo'
+  addSharedFileLink = 'addSharedFileLink',
+
+  setIsAddingSharedFileToCodeBlock = 'setIsAddingSharedFileToCodeBlock',
+  completeAddingSharedFileToCodeBlock = 'completeAddingSharedFileToCodeBlock'
 }
 
 export enum DeploymentViewGetters {

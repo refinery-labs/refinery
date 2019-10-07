@@ -19,12 +19,14 @@ export default class OpenedProjectGraphContainer extends Vue {
   @project.State cytoscapeStyle!: CyStyle | null;
   @project.State cytoscapeLayoutOptions!: LayoutOptions | null;
   @project.State cytoscapeConfig!: cytoscape.CytoscapeOptions | null;
+  @project.State isAddingSharedFileToCodeBlock!: boolean;
 
   @project.State isLoadingProject!: boolean;
   @project.State isInDemoMode!: boolean;
   @State windowWidth?: number;
 
   @project.Getter getValidBlockToBlockTransitions!: AvailableTransition[] | null;
+  @project.Getter getCodeBlockIDs!: string[];
 
   @project.Action clearSelection!: () => void;
   @project.Action selectNode!: (element: string) => void;
@@ -35,6 +37,10 @@ export default class OpenedProjectGraphContainer extends Vue {
   }
 
   public getEnabledNodeIds() {
+    if (this.isAddingSharedFileToCodeBlock) {
+      return this.getCodeBlockIDs;
+    }
+
     if (!this.getValidBlockToBlockTransitions) {
       return null;
     }

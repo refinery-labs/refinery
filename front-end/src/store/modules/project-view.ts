@@ -12,6 +12,8 @@ import {
   ProjectLogLevel,
   RefineryProject,
   WorkflowFile,
+  WorkflowFileLink,
+  WorkflowFileLinkType,
   WorkflowFileType,
   WorkflowRelationship,
   WorkflowRelationshipType,
@@ -48,6 +50,7 @@ import {
   UpdateLeftSidebarPaneStateMutation
 } from '@/types/project-editor-types';
 import {
+  getIDsOfBlockType,
   getNodeDataById,
   getTransitionDataById,
   getValidBlockToBlockTransitions,
@@ -78,12 +81,21 @@ import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-proj
 import store from '@/store';
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
-import { DeploymentExecutionsActions } from '@/store/modules/panes/deployment-executions-pane';
-import EditSharedFile from '@/components/ProjectEditor/EditSharedFile';
 
 export interface AddSharedFileArguments {
   name: string;
   body: string;
+}
+
+export interface AddSharedFileLinkArguments {
+  // UUID of the workflow_file node
+  file_id: string;
+  // UUID of the Code Block workflow_state
+  node: string;
+  // Path where the file is written to relative
+  // to the base directory (/var/task).
+  // "" indicates the base directory.
+  path: string;
 }
 
 export interface AddBlockArguments {
@@ -171,7 +183,10 @@ const moduleState: ProjectViewState = {
   // Edit Transition Pane
   availableEditTransitions: null,
   isEditingTransitionCurrently: false,
-  newTransitionTypeSpecifiedInEditFlow: null
+  newTransitionTypeSpecifiedInEditFlow: null,
+
+  // Adding a shared block to a file
+  isAddingSharedFileToCodeBlock: false
 };
 
 const ProjectViewModule: Module<ProjectViewState, RootState> = {
@@ -206,6 +221,18 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       return locatedNode.type === WorkflowStateType.LAMBDA;
+    },
+    /**
+     * Returns the list of IDs for all of the valid Code Blocks in the project.
+     *
+     * This is a getter for the animation for the Add Shared File to Code Block functionality.
+     */
+    [ProjectViewGetters.getCodeBlockIDs]: state => {
+      if (state.openedProject === null) {
+        return [];
+      }
+
+      return getIDsOfBlockType(WorkflowStateType.LAMBDA, state.openedProject);
     },
     /**
      * Returns the list of "next" valid blocks to select
@@ -375,6 +402,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
     [ProjectViewMutators.setCytoscapeConfig](state, config: cytoscape.CytoscapeOptions) {
       state.cytoscapeConfig = deepJSONCopy(config);
+    },
+    [ProjectViewMutators.setIsAddingSharedFileToCodeBlock](state, value: boolean) {
+      state.isAddingSharedFileToCodeBlock = value;
     },
     // Project Config
     [ProjectViewMutators.setProjectLogLevel](state, projectLoggingLevel: ProjectLogLevel) {
@@ -950,7 +980,65 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.updateAvailableTransitions);
       await context.dispatch(ProjectViewActions.updateAvailableEditTransitions);
     },
+    async [ProjectViewActions.completeAddingSharedFileToCodeBlock](context, nodeId: string) {
+      const sharedFile = await context.dispatch(`editSharedFile/getSharedFile`, null, { root: true });
+
+      if (sharedFile === null) {
+        console.error('Shared file was null when attempting to add it to a block, quitting out!');
+        return;
+      }
+
+      const addSharedFileLinkArgs: AddSharedFileLinkArguments = {
+        file_id: sharedFile.id,
+        node: nodeId,
+        path: ''
+      };
+
+      // Complete adding the shared file link
+      await context.dispatch(ProjectViewActions.addSharedFileLink, addSharedFileLinkArgs);
+
+      // Turn off the adding shared file to code block mode.
+      await context.dispatch(ProjectViewActions.setIsAddingSharedFileToCodeBlock, false);
+    },
+    async [ProjectViewActions.addSharedFileLink](context, addSharedFileLinkArgs: AddSharedFileLinkArguments) {
+      // This should not happen
+      if (!context.state.openedProject) {
+        console.error('Adding shared file but not project was opened');
+        return;
+      }
+
+      const openedProject = context.state.openedProject as RefineryProject;
+
+      const newSharedFileLink: WorkflowFileLink = {
+        id: uuid(),
+        file_id: addSharedFileLinkArgs.file_id,
+        node: addSharedFileLinkArgs.node,
+        type: WorkflowFileLinkType.SHARED_FILE_LINK,
+        version: '1.0.0',
+        path: addSharedFileLinkArgs.path
+      };
+
+      const newProject: RefineryProject = {
+        ...openedProject,
+        workflow_file_links: [...openedProject.workflow_file_links, newSharedFileLink]
+      };
+
+      const params: OpenProjectMutation = {
+        project: newProject,
+        config: null,
+        markAsDirty: true
+      };
+
+      await context.dispatch(ProjectViewActions.updateProject, params);
+
+      return newSharedFileLink;
+    },
     async [ProjectViewActions.selectNode](context, nodeId: string) {
+      if (context.state.isAddingSharedFileToCodeBlock) {
+        await context.dispatch(ProjectViewActions.completeAddingSharedFileToCodeBlock, nodeId);
+        return;
+      }
+
       if (context.state.isAddingTransitionCurrently) {
         await context.dispatch(ProjectViewActions.completeTransitionAdd, nodeId);
         return;
@@ -1444,6 +1532,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       await context.dispatch(ProjectViewActions.updateProject, params);
     },
+    async [ProjectViewActions.setIsAddingSharedFileToCodeBlock](context, isAdding: boolean) {
+      context.commit(ProjectViewMutators.setIsAddingSharedFileToCodeBlock, isAdding);
+    },
     async [ProjectViewActions.updateExistingBlock](context, node: WorkflowState) {
       // This should not happen
       if (!context.state.openedProject) {
@@ -1620,11 +1711,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Change the transition to the new type
       await context.dispatch(`editTransitionPane/${EditTransitionActions.changeTransitionType}`, transitionType);
       await context.dispatch(ProjectViewActions.cancelEditingTransition);
-    },
-    async [ProjectViewActions.selectCodeBlockToAddSharedFileTo](context, transitionType: WorkflowRelationshipType) {
-      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
-      context.commit(ProjectViewMutators.setAddingTransitionStatus, true);
-      context.commit(ProjectViewMutators.setAddingTransitionType, transitionType);
     },
     async [ProjectViewActions.selectTransitionTypeToAdd](context, transitionType: WorkflowRelationshipType) {
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
