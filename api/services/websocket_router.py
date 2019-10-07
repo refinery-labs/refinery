@@ -112,7 +112,7 @@ class WebSocketRouter:
 			})
 
 def run_scheduled_heartbeat( websocket_object ):
-	logit( "Sending heartbeat to all connected Websocket users..." )
+	logit( "Sending heartbeat to all connected Websocket users...", "debug" )
 	websocket_object.send_heartbeed()
 	tornado.ioloop.IOLoop.instance().add_timeout(
 		datetime.timedelta(

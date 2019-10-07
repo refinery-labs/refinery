@@ -23,11 +23,13 @@ export default class RunDeployedCodeBlockContainer extends Vue {
   // Getters
   @deployment.Getter getSelectedBlock!: WorkflowState | null;
   @runLambda.Getter getDeployedLambdaInputData!: (id: string) => string;
+  @runLambda.Getter getDeployedLambdaBackpackData!: (id: string) => string;
 
   // Actions
   @deployment.Action closePane!: (p: PANE_POSITION) => void;
   @runLambda.Action runSelectedDeployedCodeBlock!: (block: ProductionLambdaWorkflowState) => void;
   @runLambda.Action changeDeployedLambdaInputData!: (input: [string, string]) => void;
+  @runLambda.Action changeDeployedLambdaBackpackData!: (input: [string, string]) => void;
 
   public render() {
     const selectedBlock = this.getSelectedBlock as ProductionLambdaWorkflowState;
@@ -43,14 +45,17 @@ export default class RunDeployedCodeBlockContainer extends Vue {
     // The if check above doesn't make the function below happy...
     const selectedBlockArn = selectedBlock.arn as string;
     const inputData = this.getDeployedLambdaInputData(selectedBlock.id);
+    const backpackData = this.getDeployedLambdaBackpackData(selectedBlock.id);
 
     const runLambdaProps: RunLambdaProps = {
       onRunLambda: () => this.runSelectedDeployedCodeBlock(selectedBlock),
       onUpdateInputData: (s: string) => this.changeDeployedLambdaInputData([selectedBlock.id, s]),
+      onUpdateBackpackData: (s: string) => this.changeDeployedLambdaBackpackData([selectedBlock.id, s]),
       lambdaIdOrArn: selectedBlockArn,
       runResultOutput: this.deployedLambdaResult,
       runResultOutputId: null,
       inputData: inputData,
+      backpackData: backpackData,
       isCurrentlyRunning: this.isRunningLambda,
       displayLocation: RunLambdaDisplayLocation.deployment,
       displayMode: this.displayMode,
