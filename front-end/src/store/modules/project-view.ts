@@ -1387,6 +1387,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
           ...openedProject.workflow_files.filter(workflowFile => {
             return workflowFile.id !== sharedFile.id;
           })
+        ],
+        workflow_file_links: [
+          ...openedProject.workflow_file_links.filter(workflowFileLink => {
+            return workflowFileLink.file_id !== sharedFile.id;
+          })
         ]
       };
 
