@@ -28,6 +28,7 @@ import { ProjectCardStateLookup } from '@/types/all-project-types';
 import { SharedFilesPaneState } from '@/store/modules/panes/shared-files';
 import { EditSharedFilePaneState } from '@/store/modules/panes/edit-shared-file';
 import EditSharedFileLinksPane from '@/components/ProjectEditor/SharedFileLinks';
+import { EditSharedFileLinksPaneState } from '@/store/modules/panes/edit-shared-file-links';
 
 export interface RootState {
   addSavedBlockPane: AddSavedBlockPaneState;
@@ -49,7 +50,7 @@ export interface RootState {
   websocket: WebsocketState;
   sharedFiles: SharedFilesPaneState;
   editSharedFile: EditSharedFilePaneState;
-  editSharedFileLinks: EditSharedFileLinksPane;
+  editSharedFileLinks: EditSharedFileLinksPaneState;
 }
 
 export enum UserInterfaceSettings {

@@ -150,7 +150,8 @@ const moduleState: ProjectViewState = {
     [SIDEBAR_PANE.viewDeployedTransition]: {},
     [SIDEBAR_PANE.sharedFiles]: {},
     [SIDEBAR_PANE.editSharedFile]: {},
-    [SIDEBAR_PANE.editSharedFileLinks]: {}
+    [SIDEBAR_PANE.editSharedFileLinks]: {},
+    [SIDEBAR_PANE.addingSharedFileLink]: {}
   },
   activeLeftSidebarPane: null,
   activeRightSidebarPane: null,

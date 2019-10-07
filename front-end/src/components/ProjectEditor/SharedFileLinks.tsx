@@ -46,24 +46,37 @@ export default class EditSharedFileLinksPane extends Vue {
             {'<< Go Back'}
           </a>
         </b-form-group>
-        <b-form-group
-          className="padding-bottom--normal-small margin-bottom--normal-small"
-          description="Select a folder to place this Shared File in the Code Block."
-        >
-          <div class="display--flex flex-wrap mb-1">
-            <label class="d-block flex-grow--1 pt-1">Select a folder to save your Shared File to:</label>
-            <div class="flex-grow display--flex">
-              <b-button variant="outline-primary">
-                <span class="fa fa-folder-open" /> Add Folder
-              </b-button>
-            </div>
+
+        {/*<b-form-group*/}
+        {/*  className="padding-bottom--normal-small margin-bottom--normal-small"*/}
+        {/*  description="Select a folder to place this Shared File in the Code Block."*/}
+        {/*>*/}
+        {/*  <div class="display--flex flex-wrap mb-1">*/}
+        {/*    <label class="d-block flex-grow--1 pt-1">Select a folder to save your Shared File to:</label>*/}
+        {/*    <div class="flex-grow display--flex">*/}
+        {/*      <b-button variant="outline-primary">*/}
+        {/*        <span class="fa fa-folder-open" /> Add Folder*/}
+        {/*      </b-button>*/}
+        {/*    </div>*/}
+        {/*  </div>*/}
+        {/*  <sl-vue-tree props={treeProps} on={{ nodeclick: this.selectedFolder }}>*/}
+        {/*    <div class="contextmenu" ref="contextmenu">*/}
+        {/*      <div>Remove</div>*/}
+        {/*    </div>*/}
+        {/*  </sl-vue-tree>*/}
+        {/*</b-form-group>*/}
+
+        <div class="container">
+          <div class="row">
+            <b-button
+              on={{ click: () => EditSharedFilePaneModule.selectCodeBlockToAddSharedFileTo() }}
+              variant="info"
+              class="w-100"
+            >
+              Add Shared File to Block
+            </b-button>
           </div>
-          <sl-vue-tree props={treeProps} on={{ nodeclick: this.selectedFolder }}>
-            <div class="contextmenu" ref="contextmenu">
-              <div>Remove</div>
-            </div>
-          </sl-vue-tree>
-        </b-form-group>
+        </div>
       </div>
     );
   }

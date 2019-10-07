@@ -87,7 +87,8 @@ export const paneTypeToNameLookup: EditorPaneTypeToName = {
   [SIDEBAR_PANE.runDeployedCodeBlock]: 'Code Runner',
   [SIDEBAR_PANE.sharedFiles]: 'Shared Files',
   [SIDEBAR_PANE.editSharedFile]: 'Edit Shared File',
-  [SIDEBAR_PANE.editSharedFileLinks]: 'Edit Shared File Link(s)'
+  [SIDEBAR_PANE.editSharedFileLinks]: 'Edit Shared File Link(s)',
+  [SIDEBAR_PANE.addingSharedFileLink]: 'Link Shared File to Code Block'
 };
 
 export const paneTypeToWindowNameLookup: EditorPaneTypeToName = {
