@@ -81,6 +81,13 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
       root: true
     });
   }
+
+  @Action
+  public async openSharedFileLinks() {
+    await this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, SIDEBAR_PANE.editSharedFileLinks, {
+      root: true
+    });
+  }
 }
 
 export const EditSharedFilePaneModule = getModule(EditSharedFilePaneStore);

@@ -1,17 +1,12 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
-import { nopWrite } from '@/utils/block-utils';
-import { BlockLocalCodeSyncStoreModule } from '@/store/modules/panes/block-local-code-sync';
 import { EditorProps } from '@/types/component-types';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
 import { SupportedLanguage, WorkflowFile } from '@/types/graph';
-import { SharedFilesPaneModule } from '@/store/modules/panes/shared-files';
 import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
 import { languageToFileExtension } from '@/utils/project-debug-utils';
-import { SIDEBAR_PANE } from '@/types/project-editor-types';
-import { AddSharedFileArguments } from '@/store/modules/project-view';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 
 const project = namespace('project');
@@ -126,7 +121,11 @@ export default class EditSharedFilePane extends Vue {
         <div class="container">
           <div class="row">
             <div class="col-sm pr-1 pl-0">
-              <b-button variant="primary" class="w-100">
+              <b-button
+                on={{ click: () => EditSharedFilePaneModule.openSharedFileLinks() }}
+                variant="primary"
+                class="w-100"
+              >
                 Edit Shared File Links
               </b-button>
             </div>

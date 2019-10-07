@@ -137,7 +137,8 @@ const moduleState: ProjectViewState = {
     [SIDEBAR_PANE.viewDeployedBlockLogs]: {},
     [SIDEBAR_PANE.viewDeployedTransition]: {},
     [SIDEBAR_PANE.sharedFiles]: {},
-    [SIDEBAR_PANE.editSharedFile]: {}
+    [SIDEBAR_PANE.editSharedFile]: {},
+    [SIDEBAR_PANE.editSharedFileLinks]: {}
   },
   activeLeftSidebarPane: null,
   activeRightSidebarPane: null,
