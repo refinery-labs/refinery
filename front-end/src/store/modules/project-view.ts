@@ -1621,6 +1621,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(`editTransitionPane/${EditTransitionActions.changeTransitionType}`, transitionType);
       await context.dispatch(ProjectViewActions.cancelEditingTransition);
     },
+    async [ProjectViewActions.selectCodeBlockToAddSharedFileTo](context, transitionType: WorkflowRelationshipType) {
+      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
+      context.commit(ProjectViewMutators.setAddingTransitionStatus, true);
+      context.commit(ProjectViewMutators.setAddingTransitionType, transitionType);
+    },
     async [ProjectViewActions.selectTransitionTypeToAdd](context, transitionType: WorkflowRelationshipType) {
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.right);
       context.commit(ProjectViewMutators.setAddingTransitionStatus, true);

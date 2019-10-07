@@ -3,7 +3,7 @@ import { RootState } from '../../store-types';
 import { deepJSONCopy } from '@/lib/general-utils';
 import store from '@/store';
 import { resetStoreState } from '@/utils/store-utils';
-import { WorkflowFile } from '@/types/graph';
+import { WorkflowFile, WorkflowRelationshipType } from '@/types/graph';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 
@@ -73,6 +73,9 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
   @Action
   public async deleteSharedFile() {
     await this.context.dispatch(`project/${ProjectViewActions.deleteSharedFile}`, this.sharedFile, { root: true });
+    await this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, SIDEBAR_PANE.sharedFiles, {
+      root: true
+    });
   }
 
   @Action
@@ -87,6 +90,17 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
     await this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, SIDEBAR_PANE.editSharedFileLinks, {
       root: true
     });
+  }
+
+  @Action
+  public async selectCodeBlockToAddSharedFileTo() {
+    await this.context.dispatch(
+      `project/${ProjectViewActions.selectCodeBlockToAddSharedFileTo}`,
+      WorkflowRelationshipType.THEN,
+      {
+        root: true
+      }
+    );
   }
 }
 

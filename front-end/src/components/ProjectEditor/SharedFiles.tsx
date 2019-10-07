@@ -48,10 +48,20 @@ export default class SharedFilesPane extends Vue {
   }
 
   public renderExistingSharedFiles() {
+    const sharedFiles = this.getSharedFiles();
+
+    if (sharedFiles.length === 0) {
+      return (
+        <div class="flex-grow--1 padding-left--micro padding-right--micro text-align--center mt-2 mb-2 ml-2 mr-2">
+          <i>There are currently no Shared Files, you can add one by using the form below.</i>
+        </div>
+      );
+    }
+
     return (
       <div class="flex-grow--1 padding-left--micro padding-right--micro">
         <b-list-group class="add-saved-block-container add-block-container">
-          {this.getSharedFiles().map(result => this.renderBlockSelect(result))}
+          {sharedFiles.map(result => this.renderBlockSelect(result))}
         </b-list-group>
       </div>
     );

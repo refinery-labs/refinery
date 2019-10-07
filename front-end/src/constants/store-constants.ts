@@ -153,7 +153,8 @@ export enum ProjectViewActions {
   editSharedFile = 'editSharedFile',
   openSharedFile = 'openSharedFile',
   saveSharedFile = 'saveSharedFile',
-  deleteSharedFile = 'deleteSharedFile'
+  deleteSharedFile = 'deleteSharedFile',
+  selectCodeBlockToAddSharedFileTo = 'selectCodeBlockToAddSharedFileTo'
 }
 
 export enum DeploymentViewGetters {

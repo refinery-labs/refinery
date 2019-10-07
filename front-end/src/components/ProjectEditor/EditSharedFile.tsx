@@ -98,6 +98,14 @@ export default class EditSharedFilePane extends Vue {
     );
   }
 
+  fileNameChanged(fileName: string) {
+    if (fileName === undefined) {
+      return;
+    }
+    EditSharedFilePaneModule.setSharedFileName(fileName);
+    EditSharedFilePaneModule.saveSharedFile();
+  }
+
   public render(h: CreateElement): VNode {
     return (
       <div class="text-align--left mb-2 ml-2 mr-2 mt-0 display--flex flex-direction--column shared-files-pane">
@@ -113,7 +121,7 @@ export default class EditSharedFilePane extends Vue {
             autofocus={true}
             required={true}
             value={EditSharedFilePaneModule.sharedFile ? EditSharedFilePaneModule.sharedFile.name : ''}
-            on={{ input: EditSharedFilePaneModule.setSharedFileName }}
+            on={{ input: this.fileNameChanged }}
             //state={SharedFilesPaneModule.newSharedFilenameIsValid}
             placeholder="ex, utils.py"
           />
@@ -129,7 +137,16 @@ export default class EditSharedFilePane extends Vue {
                 Edit Shared File Links
               </b-button>
             </div>
-            <div class="col-sm pr-0 pl-1">
+            <div class="col-sm pr-0 pl-0">
+              <b-button
+                on={{ click: () => EditSharedFilePaneModule.selectCodeBlockToAddSharedFileTo() }}
+                variant="info"
+                className="w-100"
+              >
+                Add Shared File to Block
+              </b-button>
+            </div>
+            <div class="col-sm pr-0 pl-0">
               <b-button
                 on={{ click: () => EditSharedFilePaneModule.deleteSharedFile() }}
                 variant="danger"
