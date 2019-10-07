@@ -4,21 +4,30 @@ import { namespace } from 'vuex-class';
 import { RefineryProject, WorkflowFile } from '@/types/graph';
 import { AddSharedFileArguments } from '@/store/modules/project-view';
 import { SharedFilesPaneModule } from '@/store/modules/panes/shared-files';
+import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
+import { ProjectViewActions } from '@/constants/store-constants';
+import { deepJSONCopy } from '@/lib/general-utils';
+import store from '@/store/index';
 
 const project = namespace('project');
 
 @Component
 export default class SharedFilesPane extends Vue {
   @project.State openedProject!: RefineryProject | null;
-  @project.Action addSharedFile!: (addSharedFileArgs: AddSharedFileArguments) => void;
+  @project.Action addSharedFile!: (addSharedFileArgs: AddSharedFileArguments) => WorkflowFile;
 
-  addNewSharedFile() {
+  async addNewSharedFile() {
     const addSharedFileArgs: AddSharedFileArguments = {
       name: SharedFilesPaneModule.addSharedFileName,
       body: ''
     };
-    this.addSharedFile(addSharedFileArgs);
+    const newSharedFile = await this.addSharedFile(addSharedFileArgs);
+    await EditSharedFilePaneModule.openSharedFile(newSharedFile);
     SharedFilesPaneModule.resetState();
+  }
+
+  async openSharedFileInEditor(sharedFile: WorkflowFile) {
+    await EditSharedFilePaneModule.openSharedFile(sharedFile);
   }
 
   getSharedFiles() {
@@ -32,7 +41,7 @@ export default class SharedFilesPane extends Vue {
 
   public renderBlockSelect(workflowFile: WorkflowFile) {
     return (
-      <b-list-group-item class="display--flex" button>
+      <b-list-group-item class="display--flex" button on={{ click: () => this.openSharedFileInEditor(workflowFile) }}>
         {workflowFile.name}
       </b-list-group-item>
     );

@@ -16,6 +16,7 @@ import ViewTransitionPaneModule from '@/store/modules/panes/view-transition-pane
 import DeploymentExecutionsPaneModule from '@/store/modules/panes/deployment-executions-pane';
 import ActionLoggerPlugin from '@/store/plugins/action-logger';
 import ServerStateLoggerPlugin from '@/store/plugins/server-state-logger';
+import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
 
 Vue.use(Vuex);
 

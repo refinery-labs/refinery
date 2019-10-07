@@ -77,6 +77,9 @@ import ImportableRefineryProject from '@/types/export-project';
 import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
 import store from '@/store';
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
+import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
+import { DeploymentExecutionsActions } from '@/store/modules/panes/deployment-executions-pane';
+import EditSharedFile from '@/components/ProjectEditor/EditSharedFile';
 
 export interface AddSharedFileArguments {
   name: string;
@@ -1253,8 +1256,58 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       await context.dispatch(ProjectViewActions.updateProject, params);
 
-      await context.dispatch(ProjectViewActions.openRightSidebarPane, SIDEBAR_PANE.editSharedFile);
-      await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
+      return newSharedFile;
+    },
+    async [ProjectViewActions.saveSharedFile](context, sharedFile: WorkflowFile) {
+      if (!context.state.openedProject) {
+        console.error("No project is open so we can't save the shared file!");
+        return;
+      }
+
+      const openedProject = context.state.openedProject as RefineryProject;
+
+      const newProject: RefineryProject = {
+        ...openedProject,
+        workflow_files: [
+          ...openedProject.workflow_files.filter(workflowFile => {
+            return workflowFile.id !== sharedFile.id;
+          }),
+          <WorkflowFile>deepJSONCopy(sharedFile)
+        ]
+      };
+
+      const params: OpenProjectMutation = {
+        project: newProject,
+        config: null,
+        markAsDirty: true
+      };
+
+      await context.dispatch(ProjectViewActions.updateProject, params);
+    },
+    async [ProjectViewActions.deleteSharedFile](context, sharedFile: WorkflowFile) {
+      if (!context.state.openedProject) {
+        console.error("No project is open so we can't delete the shared file!");
+        return;
+      }
+
+      const openedProject = context.state.openedProject as RefineryProject;
+
+      const newProject: RefineryProject = {
+        ...openedProject,
+        workflow_files: [
+          ...openedProject.workflow_files.filter(workflowFile => {
+            return workflowFile.id !== sharedFile.id;
+          })
+        ]
+      };
+
+      const params: OpenProjectMutation = {
+        project: newProject,
+        config: null,
+        markAsDirty: true
+      };
+
+      await context.dispatch(ProjectViewActions.updateProject, params);
     },
     async [ProjectViewActions.addIndividualBlock](context, addBlockArgs: AddBlockArguments) {
       // This should not happen

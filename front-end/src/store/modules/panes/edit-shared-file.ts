@@ -3,17 +3,22 @@ import { RootState } from '../../store-types';
 import { deepJSONCopy } from '@/lib/general-utils';
 import store from '@/store';
 import { resetStoreState } from '@/utils/store-utils';
+import { WorkflowFile } from '@/types/graph';
+import { ProjectViewActions } from '@/constants/store-constants';
+import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 
 const storeName = 'editSharedFile';
 
 // Types
 export interface EditSharedFilePaneState {
   fileName: string;
+  sharedFile: WorkflowFile | null;
 }
 
 // Initial State
 const moduleState: EditSharedFilePaneState = {
-  fileName: ''
+  fileName: '',
+  sharedFile: null
 };
 
 const initialState = deepJSONCopy(moduleState);
@@ -22,6 +27,7 @@ const initialState = deepJSONCopy(moduleState);
 class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneState>, RootState>
   implements EditSharedFilePaneState {
   public fileName: string = initialState.fileName;
+  public sharedFile: WorkflowFile | null = initialState.sharedFile;
 
   @Mutation
   public resetState() {
@@ -29,8 +35,51 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
   }
 
   @Mutation
+  public setSharedFile(value: WorkflowFile) {
+    this.sharedFile = deepJSONCopy(value);
+  }
+
+  @Mutation
   public setSharedFileName(value: string) {
-    this.fileName = value;
+    if (!this.sharedFile) {
+      console.error("You tried to set the name of something that doesn't exist!");
+      return;
+    }
+    this.sharedFile.name = value;
+  }
+
+  @Mutation
+  public setSharedFileBody(value: string) {
+    if (!this.sharedFile) {
+      console.error("You tried to set the name of something that doesn't exist!");
+      return;
+    }
+    this.sharedFile.body = value;
+  }
+
+  @Action
+  public async openSharedFile(value: WorkflowFile) {
+    this.setSharedFile(value);
+    await this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, SIDEBAR_PANE.editSharedFile, {
+      root: true
+    });
+  }
+
+  @Action
+  public async saveSharedFile() {
+    await this.context.dispatch(`project/${ProjectViewActions.saveSharedFile}`, this.sharedFile, { root: true });
+  }
+
+  @Action
+  public async deleteSharedFile() {
+    await this.context.dispatch(`project/${ProjectViewActions.deleteSharedFile}`, this.sharedFile, { root: true });
+  }
+
+  @Action
+  public async navigateBackToSharedFiles() {
+    await this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, SIDEBAR_PANE.sharedFiles, {
+      root: true
+    });
   }
 }
 
