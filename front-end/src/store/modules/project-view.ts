@@ -80,8 +80,6 @@ import ImportableRefineryProject from '@/types/export-project';
 import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
 import store from '@/store';
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
-import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
-import CodeBlockSharedFilesPane from '@/components/ProjectEditor/CodeBlockSharedFiles';
 
 export interface AddSharedFileArguments {
   name: string;
@@ -1215,6 +1213,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // TODO: Open right sidebar pane
     },
     async [ProjectViewActions.openLeftSidebarPane](context, leftSidebarPaneType: SIDEBAR_PANE) {
+      // If it's the Shared File pane we need to hook it to add it to the history.
+      if (leftSidebarPaneType === SIDEBAR_PANE.sharedFiles) {
+        await context.dispatch(`editSharedFile/setCurrentShareFilePaneHistory`, leftSidebarPaneType, { root: true });
+      }
+
       if (context.state.isAddingTransitionCurrently) {
         // TODO: Add a shake or something? Tell the user that it's bjorked.
         return;
