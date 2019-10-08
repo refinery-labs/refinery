@@ -91,12 +91,23 @@ export default class EditSharedFileLinksPane extends Vue {
             Block language is <code>{codeBlock.language}</code>, and the Shared File is stored at{' '}
             <code>{'./' + sharedFileLink.path + EditSharedFilePaneModule.sharedFile.name}</code>.
           </p>
-          <b-button on={{ click: () => this.selectCodeBlock(codeBlock.id) }} variant="info" class="mt-2 mr-1">
-            Select Block
-          </b-button>
-          <b-button on={{ click: () => this.deleteSharedFileLink(sharedFileLink) }} variant="danger" class="mt-2">
-            Unlink from Block
-          </b-button>
+          <div class="container">
+            <div class="row">
+              <b-button on={{ click: () => this.selectCodeBlock(codeBlock.id) }} variant="primary" class="mt-2 mr-1">
+                Select Block
+              </b-button>
+              <b-button on={{ click: () => this.selectCodeBlock(codeBlock.id) }} variant="primary" class="mt-2 mr-1">
+                View Block Shared Files
+              </b-button>
+              <b-button
+                on={{ click: () => this.deleteSharedFileLink(sharedFileLink) }}
+                variant="danger"
+                class="mt-2 mr-1"
+              >
+                Unlink from Block
+              </b-button>
+            </div>
+          </div>
         </div>
       </b-list-group-item>
     );
