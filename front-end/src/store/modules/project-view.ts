@@ -1216,6 +1216,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // If it's the Shared File pane we need to hook it to add it to the history.
       if (leftSidebarPaneType === SIDEBAR_PANE.sharedFiles) {
         await context.dispatch(`editSharedFile/setCurrentShareFilePaneHistory`, leftSidebarPaneType, { root: true });
+        await context.dispatch(`sharedFiles/resetPane`, null, { root: true });
       }
 
       if (context.state.isAddingTransitionCurrently) {

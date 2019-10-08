@@ -41,15 +41,6 @@ class CodeBlockSharedFilesPaneStore extends VuexModule<ThisType<CodeBlockSharedF
   public async openCodeBlockSharedFiles(codeBlock: LambdaWorkflowState) {
     this.setCodeBlock(codeBlock);
     EditSharedFilePaneModule.setCurrentSharedFilePane(SIDEBAR_PANE.codeBlockSharedFiles);
-    /*
-    await this.context.dispatch(
-      `project/${ProjectViewActions.openLeftSidebarPane}`,
-      SIDEBAR_PANE.codeBlockSharedFiles,
-      {
-        root: true
-      }
-    );
-     */
   }
 }
 

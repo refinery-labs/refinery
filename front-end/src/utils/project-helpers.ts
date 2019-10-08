@@ -204,18 +204,6 @@ export function unwrapProjectJson(response: GetSavedProjectResponse): RefineryPr
   }
 }
 
-/**
- * Returns a valid AvailableTransition array of every Code Block in the project.
- * This is used for selected a Code Block to add a Shared File to.
- *
- export interface AvailableTransition {
-  valid: boolean;
-  transitionConfig: ValidTransitionConfig;
-  fromNode: WorkflowState;
-  toNode: WorkflowState;
-  simple: boolean;
-}
- */
 export function getIDsOfBlockType(blockType: WorkflowStateType, project: RefineryProject) {
   const matchingWorkflowStates = project.workflow_states.filter(workflow_state => {
     return (workflow_state.type = blockType);

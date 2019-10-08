@@ -56,6 +56,11 @@ class SharedFilesPaneStore extends VuexModule<ThisType<SharedFilesPaneState>, Ro
   public setSearchText(value: string) {
     this.searchText = value;
   }
+
+  @Action
+  public resetPane() {
+    this.resetState();
+  }
 }
 
 export const SharedFilesPaneModule = getModule(SharedFilesPaneStore);
