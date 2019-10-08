@@ -991,6 +991,22 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
+      // Check if a shared file link already exists, if so then throw an error modals
+      const openedProject = context.state.openedProject as RefineryProject;
+
+      const existingFileLinks = openedProject.workflow_file_links.filter(workflow_file_link => {
+        return workflow_file_link.node === nodeId && workflow_file_link.file_id == sharedFile.id;
+      });
+
+      if (existingFileLinks.length > 0) {
+        await createToast(context.dispatch, {
+          title: 'Error, this file is already linked to this code block!',
+          content: 'You have already added this shared file to this code block.',
+          variant: ToastVariant.danger
+        });
+        return;
+      }
+
       const addSharedFileLinkArgs: AddSharedFileLinkArguments = {
         file_id: sharedFile.id,
         node: nodeId,

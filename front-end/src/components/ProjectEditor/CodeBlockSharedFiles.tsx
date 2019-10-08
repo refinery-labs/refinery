@@ -168,11 +168,7 @@ export default class CodeBlockSharedFilesPane extends Vue {
           <div class="display--flex flex-wrap mb-1">
             <label class="d-block flex-grow--1 pt-1">Code Block's Shared Files (click a file to open it):</label>
           </div>
-          <sl-vue-tree props={treeProps} on={{ nodeclick: this.selectedFolder }}>
-            <div class="contextmenu" ref="contextmenu">
-              <div>Remove</div>
-            </div>
-          </sl-vue-tree>
+          <sl-vue-tree props={treeProps} on={{ nodeclick: this.selectedFolder }} />
         </b-form-group>
       </div>
     );
