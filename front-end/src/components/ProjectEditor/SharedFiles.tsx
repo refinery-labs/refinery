@@ -33,26 +33,22 @@ export default class SharedFilesPane extends Vue {
 
     return (
       <div class="text-align--left mb-2 ml-2 mr-2 mt-0 display--flex flex-direction--column shared-files-pane">
-        <ViewSharedFileLinkPane props={viewSharedFileLinkPaneProps} />
-        <b-list-group>
-          <b-form-group
-            className="padding-bottom--normal-small margin-bottom--normal-small"
-            description="Name of the new shared file to create."
-          >
-            <label class="d-block">New Shared File Name:</label>
-            <b-form-input
-              type="text"
-              autofocus={true}
-              required={true}
-              value={SharedFilesPaneModule.addSharedFileName}
-              on={{ input: SharedFilesPaneModule.setSharedFileName }}
-              state={SharedFilesPaneModule.newSharedFilenameIsValid}
-              placeholder="ex, utils.py"
-            />
-            <b-form-invalid-feedback state={SharedFilesPaneModule.newSharedFilenameIsValid}>
-              That is not a valid file name.
-            </b-form-invalid-feedback>
-          </b-form-group>
+        <b-list-group class="mb-4">
+          <h4>Create New Shared File</h4>
+          <label class="d-block">New Shared File Name:</label>
+          <b-form-input
+            type="text"
+            autofocus={true}
+            required={true}
+            value={SharedFilesPaneModule.addSharedFileName}
+            on={{ input: SharedFilesPaneModule.setSharedFileName }}
+            state={SharedFilesPaneModule.newSharedFilenameIsValid}
+            placeholder="ex, utils.py"
+          />
+          <small class="form-text text-muted mb-2">Name of the new shared file to create.</small>
+          <b-form-invalid-feedback state={SharedFilesPaneModule.newSharedFilenameIsValid}>
+            That is not a valid file name.
+          </b-form-invalid-feedback>
           <b-button
             on={{ click: () => this.addNewSharedFile() }}
             disabled={!SharedFilesPaneModule.newSharedFilenameIsValid}
@@ -61,6 +57,9 @@ export default class SharedFilesPane extends Vue {
             Create new shared file
           </b-button>
         </b-list-group>
+
+        <h4>Open Existing Shared File</h4>
+        <ViewSharedFileLinkPane props={viewSharedFileLinkPaneProps} />
       </div>
     );
   }

@@ -196,6 +196,7 @@ export default class CodeBlockSharedFilesPane extends Vue {
           <sl-vue-tree props={treeProps} on={{ nodeclick: this.selectedFolder }} />
         </b-form-group>
 
+        <h4>Add Shared File to Code Block</h4>
         <ViewSharedFileLinkPane props={viewSharedFileLinkPaneProps} />
       </div>
     );

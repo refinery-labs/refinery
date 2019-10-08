@@ -44,7 +44,7 @@ export default class ViewSharedFileLinkPane extends Vue {
     if (sharedFiles.length === 0) {
       return (
         <div class="flex-grow--1 padding-left--micro padding-right--micro text-align--center mt-2 mb-2 ml-2 mr-2">
-          <i>There are currently no Shared Files, you can add one by using the form below.</i>
+          <i>No Shared Files found.</i>
         </div>
       );
     }
@@ -62,21 +62,19 @@ export default class ViewSharedFileLinkPane extends Vue {
     return (
       <div>
         <label class="d-block">{this.sharedFilesText}</label>
-        <b-form-group>
-          <div class="flex-grow--1 scrollable-pane-container shared-files-well">{this.renderExistingSharedFiles()}</div>
-          <b-form-input
-            type="search"
-            autofocus={true}
-            required={true}
-            value={SharedFilesPaneModule.searchText}
-            on={{ input: SharedFilesPaneModule.setSearchText }}
-            placeholder="Search shared files here..."
-            class="mt-2"
-          />
-          <small class="form-text text-muted">
-            Enter text to search through all existing Shared Files for this project.
-          </small>
-        </b-form-group>
+        <div class="flex-grow--1 scrollable-pane-container shared-files-well">{this.renderExistingSharedFiles()}</div>
+        <b-form-input
+          type="search"
+          autofocus={false}
+          required={true}
+          value={SharedFilesPaneModule.searchText}
+          on={{ input: SharedFilesPaneModule.setSearchText }}
+          placeholder="Search shared files here..."
+          class="mt-2"
+        />
+        <small class="form-text text-muted">
+          Enter text to search through all existing Shared Files for this project.
+        </small>
       </div>
     );
   }
