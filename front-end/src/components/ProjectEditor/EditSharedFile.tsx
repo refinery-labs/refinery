@@ -141,7 +141,7 @@ export default class EditSharedFilePane extends Vue {
             <div class="col-sm pr-0 pl-0">
               <b-button
                 on={{ click: () => EditSharedFilePaneModule.selectCodeBlockToAddSharedFileTo() }}
-                variant="info"
+                variant="primary"
                 className="w-100"
               >
                 Add Shared File to Block
