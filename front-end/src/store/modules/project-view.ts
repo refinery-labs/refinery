@@ -1020,7 +1020,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.setIsAddingSharedFileToCodeBlock, false);
 
       // Return to the previous panel
-      await context.dispatch(ProjectViewActions.openLeftSidebarPane, SIDEBAR_PANE.editSharedFile);
+      //await context.dispatch(ProjectViewActions.openLeftSidebarPane, SIDEBAR_PANE.editSharedFile);
+      await context.dispatch(`editSharedFile/navigateToPreviousSharedFilesPane`, null, { root: true });
     },
     async [ProjectViewActions.addSharedFileLink](context, addSharedFileLinkArgs: AddSharedFileLinkArguments) {
       // This should not happen

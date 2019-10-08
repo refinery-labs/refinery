@@ -3,10 +3,9 @@ import { RootState } from '../../store-types';
 import { deepJSONCopy } from '@/lib/general-utils';
 import store from '@/store';
 import { resetStoreState } from '@/utils/store-utils';
-import { LambdaWorkflowState, WorkflowFile, WorkflowRelationshipType } from '@/types/graph';
+import { LambdaWorkflowState, WorkflowFile } from '@/types/graph';
 import { ProjectViewActions } from '@/constants/store-constants';
-import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
-import { CodeBlockSharedFilesPaneModule } from '@/store/modules/panes/code-block-shared-files';
+import { SIDEBAR_PANE } from '@/types/project-editor-types';
 
 const storeName = 'editSharedFile';
 
@@ -14,12 +13,16 @@ const storeName = 'editSharedFile';
 export interface EditSharedFilePaneState {
   fileName: string;
   sharedFile: WorkflowFile | null;
+  currentSharedFilePane: SIDEBAR_PANE;
+  previousSharedFilePanes: SIDEBAR_PANE[];
 }
 
 // Initial State
 const moduleState: EditSharedFilePaneState = {
   fileName: '',
-  sharedFile: null
+  sharedFile: null,
+  currentSharedFilePane: SIDEBAR_PANE.sharedFiles,
+  previousSharedFilePanes: [SIDEBAR_PANE.sharedFiles]
 };
 
 const initialState = deepJSONCopy(moduleState);
@@ -29,6 +32,8 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
   implements EditSharedFilePaneState {
   public fileName: string = initialState.fileName;
   public sharedFile: WorkflowFile | null = initialState.sharedFile;
+  public previousSharedFilePanes: SIDEBAR_PANE[] = initialState.previousSharedFilePanes;
+  public currentSharedFilePane: SIDEBAR_PANE = initialState.currentSharedFilePane;
 
   @Mutation
   public resetState() {
@@ -58,12 +63,30 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
     this.sharedFile.body = value;
   }
 
+  @Mutation
+  public pushLastSharedFilePaneLocationToHistory(lastSharedFilePane: SIDEBAR_PANE) {
+    this.previousSharedFilePanes.push(lastSharedFilePane);
+  }
+
+  @Mutation
+  public removeLastSharedFilePaneLocationFromHistory() {
+    this.previousSharedFilePanes.pop();
+  }
+
+  @Mutation
+  public setCurrentSharedFilePaneLocation(currentSharedFilePane: SIDEBAR_PANE) {
+    this.currentSharedFilePane = currentSharedFilePane;
+  }
+
   @Action
   public async openSharedFile(value: WorkflowFile) {
     this.setSharedFile(value);
+    this.setCurrentSharedFilePane(SIDEBAR_PANE.editSharedFile);
+    /*
     await this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, SIDEBAR_PANE.editSharedFile, {
       root: true
     });
+     */
   }
 
   @Action
@@ -74,27 +97,49 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
   @Action
   public async deleteSharedFile() {
     await this.context.dispatch(`project/${ProjectViewActions.deleteSharedFile}`, this.sharedFile, { root: true });
+    this.navigateToPreviousSharedFilesPane();
+    /*
     await this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, SIDEBAR_PANE.sharedFiles, {
+      root: true
+    });
+     */
+  }
+
+  @Action setCurrentSharedFilePane(sharedFileLocation: SIDEBAR_PANE) {
+    console.log('Pushing the following into history:');
+    console.log(this.currentSharedFilePane);
+    this.pushLastSharedFilePaneLocationToHistory(this.currentSharedFilePane);
+    console.log('History files:');
+    console.log(this.previousSharedFilePanes);
+    this.setCurrentSharedFilePaneLocation(sharedFileLocation);
+    this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, sharedFileLocation, {
       root: true
     });
   }
 
   @Action
-  public async navigateBackToSharedFiles() {
-    await this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, SIDEBAR_PANE.sharedFiles, {
+  public async navigateToPreviousSharedFilesPane() {
+    const lastSharedFilePane = this.previousSharedFilePanes[this.previousSharedFilePanes.length - 1];
+    console.log('Last shared file: ');
+    console.log(lastSharedFilePane);
+    this.removeLastSharedFilePaneLocationFromHistory();
+    console.log('History files:');
+    console.log(this.previousSharedFilePanes);
+    this.setCurrentSharedFilePaneLocation(lastSharedFilePane);
+    this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, lastSharedFilePane, {
       root: true
     });
   }
 
   @Action
   public async openSharedFileLinks() {
-    await this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, SIDEBAR_PANE.editSharedFileLinks, {
-      root: true
-    });
+    this.setCurrentSharedFilePane(SIDEBAR_PANE.editSharedFileLinks);
   }
 
   @Action
   public async selectCodeBlockToAddSharedFileTo() {
+    this.setCurrentSharedFilePane(SIDEBAR_PANE.addingSharedFileLink);
+    /*
     await this.context.dispatch(
       `project/${ProjectViewActions.openLeftSidebarPane}`,
       SIDEBAR_PANE.addingSharedFileLink,
@@ -102,6 +147,7 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
         root: true
       }
     );
+     */
     await this.context.dispatch(`project/${ProjectViewActions.setIsAddingSharedFileToCodeBlock}`, true, {
       root: true
     });
@@ -114,9 +160,12 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
 
   @Action
   public async cancelSelectingCodeBlockToAddSharedFileTo() {
+    /*
     await this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, SIDEBAR_PANE.editSharedFile, {
       root: true
     });
+    */
+    this.navigateToPreviousSharedFilesPane();
 
     await this.context.dispatch(`project/${ProjectViewActions.setIsAddingSharedFileToCodeBlock}`, false, {
       root: true
@@ -125,7 +174,7 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
 
   @Action
   public async viewCodeBlockSharedFiles(codeBlock: LambdaWorkflowState) {
-    await this.context.dispatch(`codeBlockSharedFiles/setCodeBlockAction`, codeBlock, {
+    await this.context.dispatch(`codeBlockSharedFiles/openCodeBlockSharedFiles`, codeBlock, {
       root: true
     });
   }

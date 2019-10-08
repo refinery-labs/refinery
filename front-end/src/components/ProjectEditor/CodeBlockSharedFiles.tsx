@@ -148,6 +148,14 @@ export default class CodeBlockSharedFilesPane extends Vue {
 
     return (
       <div class="text-align--left ml-2 mr-2 mt-0 display--flex flex-direction--column shared-file-links-pane">
+        <a
+          href=""
+          class="mb-2 padding-bottom--normal mt-2 d-block"
+          style="border-bottom: 1px dashed #eee;"
+          on={{ click: preventDefaultWrapper(EditSharedFilePaneModule.navigateToPreviousSharedFilesPane) }}
+        >
+          {'<< Go Back'}
+        </a>
         <b-form-group>
           <b-list-group-item class="display--flex">
             <img class="add-block__image" src={require('../../../public/img/node-icons/code-icon.png')} />

@@ -6,6 +6,7 @@ import { resetStoreState } from '@/utils/store-utils';
 import { LambdaWorkflowState, WorkflowFile, WorkflowRelationshipType } from '@/types/graph';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
+import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
 
 const storeName = 'codeBlockSharedFiles';
 
@@ -37,8 +38,10 @@ class CodeBlockSharedFilesPaneStore extends VuexModule<ThisType<CodeBlockSharedF
   }
 
   @Action
-  public async setCodeBlockAction(codeBlock: LambdaWorkflowState) {
+  public async openCodeBlockSharedFiles(codeBlock: LambdaWorkflowState) {
     this.setCodeBlock(codeBlock);
+    EditSharedFilePaneModule.setCurrentSharedFilePane(SIDEBAR_PANE.codeBlockSharedFiles);
+    /*
     await this.context.dispatch(
       `project/${ProjectViewActions.openLeftSidebarPane}`,
       SIDEBAR_PANE.codeBlockSharedFiles,
@@ -46,6 +49,7 @@ class CodeBlockSharedFilesPaneStore extends VuexModule<ThisType<CodeBlockSharedF
         root: true
       }
     );
+     */
   }
 }
 

@@ -802,7 +802,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
           <b-button
             variant="dark"
             class="col-12"
-            on={{ click: () => CodeBlockSharedFilesPaneModule.setCodeBlockAction(this.selectedNode) }}
+            on={{ click: () => CodeBlockSharedFilesPaneModule.openCodeBlockSharedFiles(this.selectedNode) }}
           >
             View Block Shared Files
           </b-button>

@@ -138,7 +138,7 @@ export default class EditSharedFileLinksPane extends Vue {
           <a
             href=""
             class="mt-2 d-block"
-            on={{ click: preventDefaultWrapper(EditSharedFileLinksPaneModule.navigateBackToEditSharedFile) }}
+            on={{ click: preventDefaultWrapper(EditSharedFilePaneModule.navigateToPreviousSharedFilesPane) }}
           >
             {'<< Go Back'}
           </a>
