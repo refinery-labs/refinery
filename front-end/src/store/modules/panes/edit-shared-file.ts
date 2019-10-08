@@ -96,7 +96,9 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
   }
 
   @Action setCurrentSharedFilePane(sharedFileLocation: SIDEBAR_PANE) {
-    this.pushLastSharedFilePaneLocationToHistory(this.currentSharedFilePane);
+    if (this.currentSharedFilePane !== sharedFileLocation) {
+      this.pushLastSharedFilePaneLocationToHistory(this.currentSharedFilePane);
+    }
     this.setCurrentSharedFilePaneLocation(sharedFileLocation);
     this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, sharedFileLocation, {
       root: true
