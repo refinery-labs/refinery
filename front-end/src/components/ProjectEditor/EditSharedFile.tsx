@@ -76,18 +76,10 @@ export default class EditSharedFilePane extends Vue {
         description="This editor allows you to modify the contents of this shared file. You can then link this file to your Code Blocks to share libraries across deployed blocks."
       >
         <div class="display--flex flex-wrap">
-          <label class="d-block flex-grow--1" htmlFor={`code-editor-REPLACEME`}>
-            <a
-              href=""
-              class="mb-2 padding-bottom--normal mt-2 d-block"
-              style="border-bottom: 1px dashed #eee;"
-              on={{ click: preventDefaultWrapper(EditSharedFilePaneModule.navigateBackToSharedFiles) }}
-            >
-              {'<< Go Back'}
-            </a>
+          <label class="d-block flex-grow--1 pt-2" htmlFor={`code-editor-REPLACEME`}>
             Edit Shared File:
           </label>
-          <div class="flex-grow display--flex">
+          <div class="flex-grow display--flex mb-1">
             <BlockDocumentationButton
               props={{ docLink: 'https://docs.refinery.io/blocks/#code-block', offsetButton: false }}
             />
@@ -109,13 +101,19 @@ export default class EditSharedFilePane extends Vue {
   public render(h: CreateElement): VNode {
     return (
       <div class="text-align--left mb-2 ml-2 mr-2 mt-0 display--flex flex-direction--column shared-files-pane">
-        {this.renderCodeEditorContainer()}
-
+        <a
+          href=""
+          class="mb-2 padding-bottom--normal mt-2 d-block"
+          style="border-bottom: 1px dashed #eee;"
+          on={{ click: preventDefaultWrapper(EditSharedFilePaneModule.navigateBackToSharedFiles) }}
+        >
+          {'<< Go Back'}
+        </a>
         <b-form-group
           className="padding-bottom--normal-small margin-bottom--normal-small"
           description="Name of the new shared file to create."
         >
-          <label class="d-block">New Shared File Name:</label>
+          <label class="d-block">Shared File Name:</label>
           <b-form-input
             type="text"
             autofocus={true}
@@ -126,6 +124,9 @@ export default class EditSharedFilePane extends Vue {
             placeholder="ex, utils.py"
           />
         </b-form-group>
+
+        {this.renderCodeEditorContainer()}
+
         <div class="container">
           <div class="row">
             <div class="col-sm pr-1 pl-0">

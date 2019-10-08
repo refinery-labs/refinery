@@ -42,7 +42,7 @@ export default class SharedFilesPane extends Vue {
   public renderBlockSelect(workflowFile: WorkflowFile) {
     return (
       <b-list-group-item class="display--flex" button on={{ click: () => this.openSharedFileInEditor(workflowFile) }}>
-        {workflowFile.name}
+        <code>{workflowFile.name}</code>
       </b-list-group-item>
     );
   }

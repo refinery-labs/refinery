@@ -1000,6 +1000,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       // Turn off the adding shared file to code block mode.
       await context.dispatch(ProjectViewActions.setIsAddingSharedFileToCodeBlock, false);
+
+      // Return to the previous panel
+      await context.dispatch(ProjectViewActions.openLeftSidebarPane, SIDEBAR_PANE.editSharedFile);
     },
     async [ProjectViewActions.addSharedFileLink](context, addSharedFileLinkArgs: AddSharedFileLinkArguments) {
       // This should not happen
@@ -1392,6 +1395,31 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         workflow_file_links: [
           ...openedProject.workflow_file_links.filter(workflowFileLink => {
             return workflowFileLink.file_id !== sharedFile.id;
+          })
+        ]
+      };
+
+      const params: OpenProjectMutation = {
+        project: newProject,
+        config: null,
+        markAsDirty: true
+      };
+
+      await context.dispatch(ProjectViewActions.updateProject, params);
+    },
+    async [ProjectViewActions.deleteSharedFileLink](context, sharedFileLink: WorkflowFileLink) {
+      if (!context.state.openedProject) {
+        console.error("No project is open so we can't delete the shared file!");
+        return;
+      }
+
+      const openedProject = context.state.openedProject as RefineryProject;
+
+      const newProject: RefineryProject = {
+        ...openedProject,
+        workflow_file_links: [
+          ...openedProject.workflow_file_links.filter(workflowFileLink => {
+            return workflowFileLink.id !== sharedFileLink.id;
           })
         ]
       };

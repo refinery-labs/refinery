@@ -158,6 +158,7 @@ export enum ProjectViewActions {
   saveSharedFile = 'saveSharedFile',
   deleteSharedFile = 'deleteSharedFile',
   addSharedFileLink = 'addSharedFileLink',
+  deleteSharedFileLink = 'deleteSharedFileLink',
 
   setIsAddingSharedFileToCodeBlock = 'setIsAddingSharedFileToCodeBlock',
   completeAddingSharedFileToCodeBlock = 'completeAddingSharedFileToCodeBlock'

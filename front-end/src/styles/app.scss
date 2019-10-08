@@ -787,3 +787,14 @@ a.disabled {
   width: 512px;
   padding-top: 10px;
 }
+
+.shared-file-link-container {
+  max-width: 600px;
+  &__description {
+    word-wrap: break-word;
+  }
+}
+
+.shared-file-links-well {
+  max-height: 300px;
+}
