@@ -1020,7 +1020,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.setIsAddingSharedFileToCodeBlock, false);
 
       // Return to the previous panel
-      //await context.dispatch(ProjectViewActions.openLeftSidebarPane, SIDEBAR_PANE.editSharedFile);
       await context.dispatch(`editSharedFile/navigateToPreviousSharedFilesPane`, null, { root: true });
     },
     async [ProjectViewActions.addSharedFileLink](context, addSharedFileLinkArgs: AddSharedFileLinkArguments) {
@@ -1577,7 +1576,13 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const params: OpenProjectMutation = {
         project: {
           ...openedProject,
-          workflow_states: otherBlocks
+          workflow_states: otherBlocks,
+          // Remove the file links as well.
+          workflow_file_links: [
+            ...openedProject.workflow_file_links.filter(workflowFileLink => {
+              return workflowFileLink.node !== node.id;
+            })
+          ]
         },
         config: null,
         markAsDirty: true
