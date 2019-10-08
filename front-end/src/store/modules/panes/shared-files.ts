@@ -22,6 +22,8 @@ const moduleState: SharedFilesPaneState = {
 
 const initialState = deepJSONCopy(moduleState);
 
+const validFileNameRegex = /^[a-zA-Z0-9_\-.]+$/;
+
 @Module({ namespaced: true, dynamic: true, store, name: storeName })
 class SharedFilesPaneStore extends VuexModule<ThisType<SharedFilesPaneState>, RootState>
   implements SharedFilesPaneState {
@@ -38,7 +40,12 @@ class SharedFilesPaneStore extends VuexModule<ThisType<SharedFilesPaneState>, Ro
   public setSharedFileName(value: string) {
     this.addSharedFileName = value;
 
-    if (value.trim() == '') {
+    if (value === '') {
+      this.newSharedFilenameIsValid = null;
+      return;
+    }
+
+    if (value.trim() == '' || !validFileNameRegex.test(value)) {
       this.newSharedFilenameIsValid = false;
       return;
     }

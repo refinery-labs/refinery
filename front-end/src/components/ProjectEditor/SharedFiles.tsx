@@ -45,7 +45,7 @@ export default class SharedFilesPane extends Vue {
             state={SharedFilesPaneModule.newSharedFilenameIsValid}
             placeholder="ex, utils.py"
           />
-          <small class="form-text text-muted mb-2">Name of the new shared file to create.</small>
+          <small class="form-text text-muted">Name of the new shared file to create.</small>
           <b-form-invalid-feedback state={SharedFilesPaneModule.newSharedFilenameIsValid}>
             That is not a valid file name.
           </b-form-invalid-feedback>
@@ -53,6 +53,7 @@ export default class SharedFilesPane extends Vue {
             on={{ click: () => this.addNewSharedFile() }}
             disabled={!SharedFilesPaneModule.newSharedFilenameIsValid}
             variant="primary"
+            class="mt-2"
           >
             Create new shared file
           </b-button>
