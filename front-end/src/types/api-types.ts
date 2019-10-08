@@ -285,7 +285,15 @@ export interface RunLambdaRequest extends BaseApiRequest {
 }
 
 export interface RunLambdaResponse extends BaseApiResponse {
+  failure_msg?: string;
+  failure_reason?: RunLambdaFailure;
   result: RunLambdaResult;
+}
+
+export enum RunLambdaFailure {
+  InvalidInputJson = 'InvalidInputJson',
+  InvalidBackpackJson = 'InvalidBackpackJson',
+  UnknownError = 'UnknownError'
 }
 
 export interface RunLambdaResult {

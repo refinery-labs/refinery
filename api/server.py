@@ -5997,8 +5997,10 @@ class TaskSpawner(object):
 				"arn": integration_response[ "uri" ],
 				"statement": lambda_permission_add_response[ "Statement" ]
 			}
-			
+
+
 local_tasks = TaskSpawner()
+
 
 class RunLambda( BaseHandler ):
 	@authenticated
@@ -6036,25 +6038,39 @@ class RunLambda( BaseHandler ):
 		credentials = self.get_authenticated_user_cloud_configuration()
 		
 		backpack_data = {}
-		
+
 		if "backpack" in self.json:
-			backpack_data = attempt_json_decode(
-				self.json[ "backpack" ]
-			)
+			# Try to parse backpack as JSON
+			try:
+				backpack_data = json.loads(
+					self.json[ "backpack" ]
+				)
+			except ValueError:
+				self.write({
+					"success": False,
+					"failure_msg": "Unable to read backpack data JSON",
+					"failure_reason": "InvalidBackpackJson"
+				})
+				return
 		
 		# Try to parse Lambda input as JSON
 		try:
-			self.json[ "input_data" ] = json.loads(
+			input_data = json.loads(
 				self.json[ "input_data" ]
 			)
-		except:
-			pass
-		
+		except ValueError:
+			self.write({
+				"success": False,
+				"failure_msg": "Unable to read input data JSON",
+				"failure_reason": "InvalidInputJson"
+			})
+			return
+
 		lambda_input_data = {
 			"_refinery": {
-				"backpack_data": backpack_data,
+				"backpack": backpack_data,
 				"throw_exceptions_fully": True,
-				"input_data": self.json[ "input_data" ]
+				"input_data": input_data
 			}
 		}
 		
@@ -6078,7 +6094,8 @@ class RunLambda( BaseHandler ):
 			"success": True,
 			"result": lambda_result
 		})
-		
+
+
 def get_base_lambda_code( language, code ):
 	if language == "python3.6":
 		return TaskSpawner._get_python36_base_code(
@@ -6104,6 +6121,7 @@ def get_base_lambda_code( language, code ):
 		return TaskSpawner._get_ruby_264_base_code(
 			code
 		)
+
 
 class RunTmpLambda( BaseHandler ):
 	@authenticated
@@ -8796,7 +8814,7 @@ def load_further_partitions( credentials, project_id, new_shards_list ):
 		query += "LOCATION 's3://" + credentials[ "logs_bucket" ] + "/"
 		query += project_id + "/" + new_shard + "/'\n"
 	
-	logit( "Updating previously un-indexed partitions... " )
+	logit( "Updating previously un-indexed partitions... ", "debug" )
 	yield local_tasks.perform_athena_query(
 		credentials,
 		query,
@@ -8821,7 +8839,7 @@ def update_athena_table_partitions( credentials, project_id ):
 		)
 	)
 	
-	logit( "Retrieving table partitions... " )
+	logit( "Retrieving table partitions... ", "debug" )
 	results = yield local_tasks.perform_athena_query(
 		credentials,
 		query,
@@ -9060,15 +9078,18 @@ def get_execution_stats_since_timestamp( credentials, project_id, oldest_timesta
 			all_s3_shards
 		)
 	).all()
-	
-	print("--- Pulling shards from database: %s seconds ---" % (time.time() - start_time))
+
+	logit("--- Pulling shards from database: %s seconds ---" % (time.time() - start_time), "debug" )
 	
 	# Take the list of cached_execution_shards and remove all of the
 	# cached results contained in it from the list of shards we need to
 	# go scan S3 for.
 	cached_execution_log_results = []
 	
-	logit( "Number of cached shards in the DB we can skip S3 scanning for: " + str( len( cached_execution_shards ) ) )
+	logit(
+		"Number of cached shards in the DB we can skip S3 scanning for: " + str( len( cached_execution_shards ) ),
+		"debug"
+	)
 	
 	for cached_execution_shard in cached_execution_shards:
 		cached_execution_shard_dict = cached_execution_shard.to_dict()
@@ -9080,7 +9101,7 @@ def get_execution_stats_since_timestamp( credentials, project_id, oldest_timesta
 		if cached_execution_shard_dict[ "date_shard" ] in all_s3_shards:
 			all_s3_shards.remove( cached_execution_shard_dict[ "date_shard" ] )
 		
-	logit( "Number of un-cached shards in S3 we have to scan: " + str( len( all_s3_shards ) ) )
+	logit( "Number of un-cached shards in S3 we have to scan: " + str( len( all_s3_shards ) ), "debug" )
 	
 	for s3_shard in all_s3_shards:
 		full_shard = project_id + "/" + s3_shard
@@ -9091,7 +9112,7 @@ def get_execution_stats_since_timestamp( credentials, project_id, oldest_timesta
 			full_shard,
 			-1
 		)
-		print("--- Pulling keys from S3: %s seconds ---" % (time.time() - start_time))
+		logit( "--- Pulling keys from S3: %s seconds ---" % (time.time() - start_time), "debug" )
 		
 		start_time = time.time()
 		for execution_log in execution_logs:
@@ -9102,7 +9123,7 @@ def get_execution_stats_since_timestamp( credentials, project_id, oldest_timesta
 					execution_log
 				)
 			)
-		print("--- Parsing S3 keys: %s seconds ---" % (time.time() - start_time))
+		logit( "--- Parsing S3 keys: %s seconds ---" % (time.time() - start_time), "debug" )
 			
 	# We now got over all the execution log results to see what can be cached. The way
 	# we do this is we go over each execution log result and we check if the "dt" shard
@@ -9163,13 +9184,13 @@ def get_execution_stats_since_timestamp( credentials, project_id, oldest_timesta
 	execution_pipeline_dict = TaskSpawner._execution_log_query_results_to_pipeline_id_dict(
 		execution_log_results
 	)
-	print("--- Converting to execution_pipeline_dict: %s seconds ---" % (time.time() - start_time))
+	logit("--- Converting to execution_pipeline_dict: %s seconds ---" % (time.time() - start_time), "debug" )
 	
 	start_time = time.time()
 	frontend_format = TaskSpawner._execution_pipeline_id_dict_to_frontend_format(
 		execution_pipeline_dict
 	)
-	print("--- Converting to front-end-format: %s seconds ---" % (time.time() - start_time))
+	logit("--- Converting to front-end-format: %s seconds ---" % (time.time() - start_time), "debug" )
 	
 	start_time = time.time()
 	# We now store all cachable shard data in the database so we don't have
@@ -9184,7 +9205,7 @@ def get_execution_stats_since_timestamp( credentials, project_id, oldest_timesta
 	# Write the cache data to the database
 	dbsession.commit()
 	dbsession.close()
-	print("--- Caching results in database: %s seconds ---" % (time.time() - start_time))
+	logit("--- Caching results in database: %s seconds ---" % (time.time() - start_time), "debug" )
 	
 	raise gen.Return( frontend_format )
 
@@ -9233,7 +9254,7 @@ class GetProjectExecutions( BaseHandler ):
 			})
 			raise gen.Return()
 		
-		logit( "Pulling the relevant logs for the project ID specified..." )
+		logit( "Pulling the relevant logs for the project ID specified...", "debug" )
 		
 		# Pull the logs
 		execution_pipeline_totals = yield get_execution_stats_since_timestamp(
