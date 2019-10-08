@@ -17,6 +17,10 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import { CodeBlockSharedFilesPaneModule } from '@/store/modules/panes/code-block-shared-files';
 import { languageToFileExtension } from '@/utils/project-debug-utils';
 import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
+import ViewSharedFileLinkPane, {
+  ViewSharedFileLinkProps
+} from '@/components/ProjectEditor/shared-files-components/ViewSharedFilesList';
+import { AddSharedFileLinkArguments } from '@/store/modules/project-view';
 
 const project = namespace('project');
 
@@ -34,6 +38,7 @@ export interface fileNodeMetadata {
 export default class CodeBlockSharedFilesPane extends Vue {
   @Mutation setCodeBlock!: (codeBlock: LambdaWorkflowState) => void;
   @project.Action selectNode!: (nodeId: string) => void;
+  @project.Action addSharedFileLink!: (addSharedFileLinkArgs: AddSharedFileLinkArguments) => void;
   @project.State openedProject!: RefineryProject | null;
 
   getSharedFileById(fileId: string) {
@@ -141,21 +146,33 @@ export default class CodeBlockSharedFilesPane extends Vue {
     });
   }
 
+  addSharedFileToCodeBlock(sharedFile: WorkflowFile) {
+    if (CodeBlockSharedFilesPaneModule.codeBlock === null) {
+      console.error('No Code Block is selected!');
+      return;
+    }
+
+    const addSharedFileLinkArgs: AddSharedFileLinkArguments = {
+      file_id: sharedFile.id,
+      node: CodeBlockSharedFilesPaneModule.codeBlock.id,
+      path: ''
+    };
+
+    this.addSharedFileLink(addSharedFileLinkArgs);
+  }
+
   public render(h: CreateElement): VNode {
     const treeProps = {
       value: this.getBlockFileSystemTree()
     };
 
+    const viewSharedFileLinkPaneProps: ViewSharedFileLinkProps = {
+      sharedFileClickHandler: this.addSharedFileToCodeBlock,
+      sharedFilesText: 'All Shared Files (click to add to Code Block): '
+    };
+
     return (
       <div class="text-align--left ml-2 mr-2 mt-0 display--flex flex-direction--column shared-file-links-pane">
-        <a
-          href=""
-          class="mb-2 padding-bottom--normal mt-2 d-block"
-          style="border-bottom: 1px dashed #eee;"
-          on={{ click: preventDefaultWrapper(EditSharedFilePaneModule.navigateToPreviousSharedFilesPane) }}
-        >
-          {'<< Go Back'}
-        </a>
         <b-form-group>
           <b-list-group-item class="display--flex">
             <img class="add-block__image" src={require('../../../public/img/node-icons/code-icon.png')} />
@@ -174,10 +191,12 @@ export default class CodeBlockSharedFilesPane extends Vue {
 
         <b-form-group description="This is a file view of this Code Block's Shared Files. All shared files are placed in the shared_files directory.">
           <div class="display--flex flex-wrap mb-1">
-            <label class="d-block flex-grow--1 pt-1">Code Block's Shared Files (click a file to open it):</label>
+            <label class="d-block flex-grow--1 pt-1">Code Block's Files (click a file to open it):</label>
           </div>
           <sl-vue-tree props={treeProps} on={{ nodeclick: this.selectedFolder }} />
         </b-form-group>
+
+        <ViewSharedFileLinkPane props={viewSharedFileLinkPaneProps} />
       </div>
     );
   }
