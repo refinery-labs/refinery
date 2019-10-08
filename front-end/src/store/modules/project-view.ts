@@ -81,6 +81,7 @@ import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-proj
 import store from '@/store';
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
+import CodeBlockSharedFilesPane from '@/components/ProjectEditor/CodeBlockSharedFiles';
 
 export interface AddSharedFileArguments {
   name: string;
@@ -151,7 +152,8 @@ const moduleState: ProjectViewState = {
     [SIDEBAR_PANE.sharedFiles]: {},
     [SIDEBAR_PANE.editSharedFile]: {},
     [SIDEBAR_PANE.editSharedFileLinks]: {},
-    [SIDEBAR_PANE.addingSharedFileLink]: {}
+    [SIDEBAR_PANE.addingSharedFileLink]: {},
+    [SIDEBAR_PANE.codeBlockSharedFiles]: {}
   },
   activeLeftSidebarPane: null,
   activeRightSidebarPane: null,

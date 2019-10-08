@@ -3,9 +3,10 @@ import { RootState } from '../../store-types';
 import { deepJSONCopy } from '@/lib/general-utils';
 import store from '@/store';
 import { resetStoreState } from '@/utils/store-utils';
-import { WorkflowFile, WorkflowRelationshipType } from '@/types/graph';
+import { LambdaWorkflowState, WorkflowFile, WorkflowRelationshipType } from '@/types/graph';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
+import { CodeBlockSharedFilesPaneModule } from '@/store/modules/panes/code-block-shared-files';
 
 const storeName = 'editSharedFile';
 
@@ -118,6 +119,13 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
     });
 
     await this.context.dispatch(`project/${ProjectViewActions.setIsAddingSharedFileToCodeBlock}`, false, {
+      root: true
+    });
+  }
+
+  @Action
+  public async viewCodeBlockSharedFiles(codeBlock: LambdaWorkflowState) {
+    await this.context.dispatch(`codeBlockSharedFiles/setCodeBlockAction`, codeBlock, {
       root: true
     });
   }

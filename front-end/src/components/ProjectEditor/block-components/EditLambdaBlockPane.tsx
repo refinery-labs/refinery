@@ -36,6 +36,7 @@ import {
 } from '@/components/ProjectEditor/block-components/EditBlockLayersWrapper';
 import { languageToFileExtension } from '@/utils/project-debug-utils';
 import { BlockLocalCodeSyncStoreModule, syncFileIdPrefix } from '@/store/modules/panes/block-local-code-sync';
+import { CodeBlockSharedFilesPaneModule } from '@/store/modules/panes/code-block-shared-files';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
@@ -793,6 +794,23 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     );
   }
 
+  public renderSharedFiles() {
+    return (
+      <div>
+        <b-form-group description="Shared Files linked to this Code Block.">
+          <label class="d-block">Shared Files:</label>
+          <b-button
+            variant="dark"
+            class="col-12"
+            on={{ click: () => CodeBlockSharedFilesPaneModule.setCodeBlockAction(this.selectedNode) }}
+          >
+            View Block Shared Files
+          </b-button>
+        </b-form-group>
+      </div>
+    );
+  }
+
   public render(): VNode {
     const setMaxExecutionTime = this.readOnly ? nopWrite : this.setMaxExecutionTime;
     const setExecutionMemory = this.readOnly ? nopWrite : this.setExecutionMemory;
@@ -882,6 +900,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         <b-col xl={6}>{this.renderLocalFileLinkButton()}</b-col>
         <b-col xl={6}>{this.renderDownloadBlock()}</b-col>
         <b-col xl={6}>{this.renderLanguageSelector()}</b-col>
+        <b-col xl={6}>{this.renderSharedFiles()}</b-col>
         <b-col xl={6}>{this.renderForm(this.selectedNode, maxExecutionTimeProps)}</b-col>
         <b-col xl={6}>{this.renderForm(this.selectedNode, maxMemoryProps)}</b-col>
         <b-col xl={6}>{this.renderConcurrencyLimit(this.selectedNode)}</b-col>

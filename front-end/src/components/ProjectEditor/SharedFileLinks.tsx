@@ -23,31 +23,6 @@ export default class EditSharedFileLinksPane extends Vue {
   @project.Action selectNode!: (nodeId: string) => void;
   @project.Action deleteSharedFileLink!: (sharedFileLink: WorkflowFileLink) => void;
 
-  getBlockFileSystemTree() {
-    return [
-      {
-        title: 'Base Folder',
-        isExpanded: true,
-        children: [
-          {
-            title: 'lambda.py',
-            isLeaf: true,
-            isSelectable: false
-          },
-          {
-            title: 'libraries',
-            isExpanded: false,
-            children: []
-          }
-        ]
-      }
-    ];
-  }
-
-  selectedFolder(event: any) {
-    console.log(event);
-  }
-
   getNodeByID(nodeID: string) {
     if (this.openedProject === null) {
       return null;
@@ -88,15 +63,19 @@ export default class EditSharedFileLinksPane extends Vue {
           </div>
 
           <p class="mb-1">
-            Block language is <code>{codeBlock.language}</code>, and the Shared File is stored at{' '}
-            <code>{'./' + sharedFileLink.path + EditSharedFilePaneModule.sharedFile.name}</code>.
+            Block language is <code>{codeBlock.language}</code>, and the Shared File is located at{' '}
+            <code>{'./shared_files/' + sharedFileLink.path + EditSharedFilePaneModule.sharedFile.name}</code>.
           </p>
           <div class="container">
             <div class="row">
               <b-button on={{ click: () => this.selectCodeBlock(codeBlock.id) }} variant="primary" class="mt-2 mr-1">
                 Select Block
               </b-button>
-              <b-button on={{ click: () => this.selectCodeBlock(codeBlock.id) }} variant="primary" class="mt-2 mr-1">
+              <b-button
+                on={{ click: () => EditSharedFilePaneModule.viewCodeBlockSharedFiles(codeBlock) }}
+                variant="primary"
+                class="mt-2 mr-1"
+              >
                 View Block Shared Files
               </b-button>
               <b-button
@@ -146,16 +125,13 @@ export default class EditSharedFileLinksPane extends Vue {
     return (
       <div class="text-align--center">
         <h3>
-          Shared File <code>{EditSharedFilePaneModule.sharedFile.name}</code> Code Block(s):
+          <code>{EditSharedFilePaneModule.sharedFile.name}</code> is in the following Code Block(s):
         </h3>
       </div>
     );
   }
 
   public render(h: CreateElement): VNode {
-    const treeProps = {
-      value: this.getBlockFileSystemTree()
-    };
     return (
       <div class="text-align--left mb-2 ml-2 mr-2 mt-0 display--flex flex-direction--column shared-file-links-pane">
         <b-form-group>
@@ -169,25 +145,6 @@ export default class EditSharedFileLinksPane extends Vue {
         </b-form-group>
 
         {this.getSharedFileLinksTitleText()}
-
-        {/*<b-form-group*/}
-        {/*  className="padding-bottom--normal-small margin-bottom--normal-small"*/}
-        {/*  description="Select a folder to place this Shared File in the Code Block."*/}
-        {/*>*/}
-        {/*  <div class="display--flex flex-wrap mb-1">*/}
-        {/*    <label class="d-block flex-grow--1 pt-1">Select a folder to save your Shared File to:</label>*/}
-        {/*    <div class="flex-grow display--flex">*/}
-        {/*      <b-button variant="outline-primary">*/}
-        {/*        <span class="fa fa-folder-open" /> Add Folder*/}
-        {/*      </b-button>*/}
-        {/*    </div>*/}
-        {/*  </div>*/}
-        {/*  <sl-vue-tree props={treeProps} on={{ nodeclick: this.selectedFolder }}>*/}
-        {/*    <div class="contextmenu" ref="contextmenu">*/}
-        {/*      <div>Remove</div>*/}
-        {/*    </div>*/}
-        {/*  </sl-vue-tree>*/}
-        {/*</b-form-group>*/}
 
         <div class="flex-grow--1 scrollable-pane-container shared-file-links-well">
           <b-list-group className="shared-file-link-container">{this.getSharedFileLinks()}</b-list-group>

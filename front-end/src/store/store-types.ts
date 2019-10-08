@@ -29,6 +29,7 @@ import { SharedFilesPaneState } from '@/store/modules/panes/shared-files';
 import { EditSharedFilePaneState } from '@/store/modules/panes/edit-shared-file';
 import EditSharedFileLinksPane from '@/components/ProjectEditor/SharedFileLinks';
 import { EditSharedFileLinksPaneState } from '@/store/modules/panes/edit-shared-file-links';
+import { CodeBlockSharedFilesPaneState } from '@/store/modules/panes/code-block-shared-files';
 
 export interface RootState {
   addSavedBlockPane: AddSavedBlockPaneState;
@@ -51,6 +52,7 @@ export interface RootState {
   sharedFiles: SharedFilesPaneState;
   editSharedFile: EditSharedFilePaneState;
   editSharedFileLinks: EditSharedFileLinksPaneState;
+  codeBlockSharedFiles: CodeBlockSharedFilesPaneState;
 }
 
 export enum UserInterfaceSettings {
