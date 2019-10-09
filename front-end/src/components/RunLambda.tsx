@@ -250,7 +250,10 @@ export default class RunLambda extends Vue implements RunLambdaProps {
         <div class="display--flex flex-grow--1 height--100percent">
           <Split props={{ direction: 'vertical' as Object }}>
             <SplitArea props={{ size: 40 as Object }}>
-              <b-tabs nav-class="nav-justified" content-class="padding--none position--relative flex-grow--1">
+              <b-tabs
+                nav-class="nav-justified nav-link-color"
+                content-class="padding--none position--relative flex-grow--1"
+              >
                 <b-tab title="Input Data" active={true} no-body={true}>
                   <div class="display--flex flex-grow--1 ace-hack margin-left--negative-micro margin-right--negative-micro">
                     {renderEditorWrapper(null, inputDataEditor)}

@@ -179,7 +179,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         }
       }
 
-      return '';
+      return '{}';
     },
     getDeployedLambdaBackpackData: (state, getters, rootState) => (id: string) => {
       if (state.deployedLambdaBackpackDataCache[id]) {
@@ -195,7 +195,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         }
       }
 
-      return '';
+      return '{}';
     },
     getDevLambdaInputData: (state, getters, rootState) => (id: string) => {
       if (state.devLambdaInputDataCache[id]) {
@@ -216,7 +216,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         }
       }
 
-      return '';
+      return '{}';
     },
     getDevLambdaBackpackData: (state, getters, rootState) => (id: string) => {
       if (state.devLambdaBackpackDataCache[id]) {
@@ -237,7 +237,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         }
       }
 
-      return '';
+      return '{}';
     }
   },
   mutations: {

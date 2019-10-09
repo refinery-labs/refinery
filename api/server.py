@@ -6038,6 +6038,7 @@ class RunLambda( BaseHandler ):
 		credentials = self.get_authenticated_user_cloud_configuration()
 		
 		backpack_data = {}
+		input_data = self.json[ "input_data" ]
 
 		if "backpack" in self.json:
 			# Try to parse backpack as JSON
@@ -6059,12 +6060,7 @@ class RunLambda( BaseHandler ):
 				self.json[ "input_data" ]
 			)
 		except ValueError:
-			self.write({
-				"success": False,
-				"failure_msg": "Unable to read input data JSON",
-				"failure_reason": "InvalidInputJson"
-			})
-			return
+			pass
 
 		lambda_input_data = {
 			"_refinery": {
