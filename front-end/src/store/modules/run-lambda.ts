@@ -23,6 +23,7 @@ import { DeploymentExecutionsActions } from '@/store/modules/panes/deployment-ex
 import { DeploymentViewGetters } from '@/constants/store-constants';
 import Vue from 'vue';
 import { getLambdaResultFromWebsocketMessage, parseLambdaWebsocketMessage } from '@/utils/websocket-utils';
+import { getBackpackValueOrDefault } from '@/utils/project-execution-utils';
 
 export interface InputDataCache {
   [key: string]: string;
@@ -342,8 +343,13 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         return;
       }
 
-      const inputData = context.state.deployedLambdaInputDataCache[block.id] || block.saved_input_data;
-      const backpackData = context.state.deployedLambdaBackpackDataCache[block.id] || block.saved_backpack_data;
+      const inputDataCacheValue = context.state.deployedLambdaInputDataCache[block.id];
+
+      const inputData = inputDataCacheValue !== undefined ? inputDataCacheValue : block.saved_input_data;
+      const backpackData = getBackpackValueOrDefault(
+        context.state.deployedLambdaBackpackDataCache[block.id],
+        block.saved_backpack_data
+      );
 
       // Set that we're running a prod Lambda
       context.commit(RunLambdaMutators.setRunningLambdaType, RunningLambdaType.Production);
@@ -359,7 +365,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
 
       const request: RunLambdaRequest = {
         input_data: inputData === undefined || inputData === null ? '' : inputData,
-        backpack: backpackData === undefined || backpackData === null ? '' : backpackData,
+        backpack: backpackData,
         arn: block.arn,
         execution_id: uuid(),
         debug_id: debugId
@@ -383,9 +389,26 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         request
       );
 
-      if (!runLambdaResult || !runLambdaResult.success || !runLambdaResult.result) {
+      if (!runLambdaResult) {
         context.commit(RunLambdaMutators.setLambdaRunningStatus, false);
         console.error('Unable to run code, server responded with failure');
+        return;
+      }
+
+      if (!runLambdaResult.success) {
+        // Create a fake response data structure so that the UI will display a nice error.
+        const response: RunLambdaResult = {
+          returned_data: '"Check execution output for failure reason"',
+          logs: `Server Error: ${runLambdaResult.failure_msg || 'Unknown'}`,
+          version: '1',
+          status_code: 500,
+          is_error: true,
+          truncated: false,
+          arn: request.arn
+        };
+
+        context.commit(RunLambdaMutators.setLambdaRunningStatus, false);
+        context.commit(RunLambdaMutators.setDeployedLambdaRunResult, response);
         return;
       }
 
@@ -428,8 +451,13 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         [] as RunTmpLambdaEnvironmentVariable[]
       );
 
-      const inputData = context.state.devLambdaInputDataCache[block.id] || config.codeBlock.saved_input_data;
-      const backpackData = context.state.devLambdaBackpackDataCache[block.id] || config.codeBlock.saved_backpack_data;
+      const inputDataCacheValue = context.state.devLambdaInputDataCache[block.id];
+
+      const inputData = inputDataCacheValue !== undefined ? inputDataCacheValue : config.codeBlock.saved_input_data;
+      const backpackData = getBackpackValueOrDefault(
+        context.state.devLambdaBackpackDataCache[block.id],
+        config.codeBlock.saved_backpack_data
+      );
 
       // Set that we're running a prod Lambda
       context.commit(RunLambdaMutators.setRunningLambdaType, RunningLambdaType.Development);
@@ -446,7 +474,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       const request: RunTmpLambdaRequest = {
         environment_variables: runLambdaEnvironmentVariables,
         input_data: inputData === undefined || inputData === null ? '' : inputData,
-        backpack: backpackData === undefined || backpackData === null ? '' : backpackData,
+        backpack: backpackData,
 
         code: block.code,
         language: block.language,
