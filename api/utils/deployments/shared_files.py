@@ -13,7 +13,6 @@ def add_shared_files_to_zip( zip_data, shared_files_list ):
 	with zipfile.ZipFile( lambda_package_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
 		for shared_file_metadata in shared_files_list:
 			shared_file_name = str( SHARED_FILE_PREFIX + shared_file_metadata[ "name" ] )
-			logit( "Adding Shared File " + shared_file_name + " to the zip..." )
 			new_zip_file = zipfile.ZipInfo(
 				shared_file_name
 			)
@@ -24,10 +23,8 @@ def add_shared_files_to_zip( zip_data, shared_files_list ):
 				new_zip_file,
 				str( shared_file_metadata[ "body" ] )
 			)
-
-	logit( "Getting final value of zip..." )
+			
 	final_zip_data = lambda_package_zip.getvalue()
-	logit( "Closing file handler..." )
 	lambda_package_zip.close()
 
 	return final_zip_data

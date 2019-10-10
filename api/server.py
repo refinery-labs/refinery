@@ -8437,8 +8437,6 @@ class DeployDiagram( BaseHandler ):
 	@gen.coroutine
 	def post( self ):
 		# TODO: Add jsonschema
-		logit(json.loads(self.json["diagram_data"]))
-		
 		logit( "Deploying diagram to production..." )
 		
 		# Ensure user is owner of the project
