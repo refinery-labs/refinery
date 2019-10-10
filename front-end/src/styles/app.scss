@@ -584,7 +584,7 @@ $content-sidebar-width: 92px;
   flex-grow: 1;
 
   &__content {
-    height: calc(100vh - 187px);
+    height: calc(100vh - 168px);
     min-width: 340px;
     width: calc(25vw);
     display: flex;
@@ -762,4 +762,11 @@ a.disabled {
   position: relative;
   font-weight: bold;
   font-size: 16px;
+}
+
+// Hack to enable the b-tabs component to support full-height child elements
+.run-lambda-container .tabs {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
 }

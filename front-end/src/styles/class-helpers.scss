@@ -82,6 +82,9 @@ $padding-steps: (
       &-#{$side}--#{$step} {
         margin-#{$side}: $size;
       }
+      &-#{$side}--negative-#{$step} {
+        margin-#{$side}: -$size;
+      }
     }
     &--#{$step} {
       margin: $size;

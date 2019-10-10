@@ -279,12 +279,21 @@ export interface InfraTearDownResult {
 export interface RunLambdaRequest extends BaseApiRequest {
   arn: string;
   input_data: string;
+  backpack: string;
   execution_id?: string;
   debug_id?: string;
 }
 
 export interface RunLambdaResponse extends BaseApiResponse {
+  failure_msg?: string;
+  failure_reason?: RunLambdaFailure;
   result: RunLambdaResult;
+}
+
+export enum RunLambdaFailure {
+  InvalidInputJson = 'InvalidInputJson',
+  InvalidBackpackJson = 'InvalidBackpackJson',
+  UnknownError = 'UnknownError'
 }
 
 export interface RunLambdaResult {
@@ -308,6 +317,7 @@ export interface RunTmpLambdaRequest extends BaseApiRequest {
   code: string;
   environment_variables: RunTmpLambdaEnvironmentVariable[];
   input_data: string;
+  backpack: string;
   language: SupportedLanguage;
   layers: any[];
   libraries: any[];

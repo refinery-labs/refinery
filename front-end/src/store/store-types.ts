@@ -25,9 +25,11 @@ import { SettingsAppState } from '@/store/modules/settings-app';
 import { BlockLayersState } from '@/store/modules/panes/block-layers-pane';
 import { BlockLocalCodeSyncState } from '@/store/modules/panes/block-local-code-sync';
 import { ProjectCardStateLookup } from '@/types/all-project-types';
+import { SaveProjectPaneState } from '@/store/modules/panes/save-project-pane';
 
 export interface RootState {
   addSavedBlockPane: AddSavedBlockPaneState;
+  billing: BillingPaneState;
   blockLayers: BlockLayersState;
   blockLocalCodeSync: BlockLocalCodeSyncState;
   createSavedBlockView: CreateSavedBlockViewState;
@@ -39,10 +41,10 @@ export interface RootState {
   project: ProjectViewState;
   allProjects: AllProjectsState;
   runLambda: RunLambdaState;
+  saveProjectPane: SaveProjectPaneState;
   settingsApp: SettingsAppState;
   toasts: ToastPaneState;
   user: UserState;
-  billing: BillingPaneState;
   websocket: WebsocketState;
 }
 

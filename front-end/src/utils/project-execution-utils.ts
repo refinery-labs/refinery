@@ -134,3 +134,30 @@ export function convertExecutionResponseToProjectExecutionGroup(
   // Puts the key as the executionId. If we didn't do this, the output would just be an array.
   return R.indexBy(p => p.executionId, projectExecutions);
 }
+
+export function getBackpackValueOrDefault(backpackDataCacheValue?: string | null, savedBackpackData?: string): string {
+  const backpackDataMissing = backpackDataCacheValue === undefined || backpackDataCacheValue === null;
+
+  // Return a sane default so that the request works
+  if (backpackDataCacheValue === '') {
+    return '{}';
+  }
+
+  // Return the data if it's valid.
+  if (backpackDataCacheValue !== undefined && backpackDataCacheValue !== null) {
+    return backpackDataCacheValue;
+  }
+
+  // Missing both values
+  if (backpackDataMissing && savedBackpackData === undefined) {
+    return '{}';
+  }
+
+  // Have only backpack data
+  if (backpackDataMissing && savedBackpackData !== undefined) {
+    return savedBackpackData;
+  }
+
+  // We should never hit this case
+  return '{}';
+}

@@ -27,6 +27,7 @@ export default class RunEditorCodeBlockContainer extends Vue {
   // Getters
   @runLambda.Getter getRunLambdaConfig!: RunCodeBlockLambdaConfig | null;
   @runLambda.Getter getDevLambdaInputData!: (id: string) => string;
+  @runLambda.Getter getDevLambdaBackpackData!: (id: string) => string;
 
   // Mutations
   @editBlock.Mutation setCodeModalVisibility!: (visible: boolean) => void;
@@ -40,6 +41,7 @@ export default class RunEditorCodeBlockContainer extends Vue {
 
   @runLambda.Action runLambdaCode!: (config: RunCodeBlockLambdaConfig) => void;
   @runLambda.Action changeDevLambdaInputData!: (input: [string, string]) => void;
+  @runLambda.Action changeDevLambdaBackpackData!: (input: [string, string]) => void;
 
   public render() {
     if (!this.selectedNode || this.selectedNode.type !== WorkflowStateType.LAMBDA) {
@@ -59,16 +61,19 @@ export default class RunEditorCodeBlockContainer extends Vue {
     }
 
     const inputData = this.getDevLambdaInputData(selectedNode.id);
+    const backpackData = this.getDevLambdaBackpackData(selectedNode.id);
 
     const runLambdaProps: RunLambdaProps = {
       onRunLambda: () => this.runLambdaCode(config),
       onUpdateInputData: (s: string) => this.changeDevLambdaInputData([selectedNode.id, s]),
+      onUpdateBackpackData: (s: string) => this.changeDevLambdaBackpackData([selectedNode.id, s]),
       onSaveInputData: () => this.setSavedInputData(inputData),
       fullScreenClicked: () => this.setCodeModalVisibility(true),
       lambdaIdOrArn: this.selectedNode.id,
       runResultOutput: this.devLambdaResult,
       runResultOutputId: this.devLambdaResultId,
       inputData: inputData,
+      backpackData: backpackData,
       isCurrentlyRunning: this.isRunningLambda,
       displayLocation: RunLambdaDisplayLocation.editor,
       displayMode: this.displayMode,

@@ -68,13 +68,7 @@ import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
 import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
-import {
-  createShortlink,
-  deployProject,
-  openProject,
-  startLibraryBuild,
-  teardownProject
-} from '@/store/fetchers/api-helpers';
+import { createShortlink, deployProject, openProject, teardownProject } from '@/store/fetchers/api-helpers';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
 import { createNewBlock, createNewTransition } from '@/utils/block-utils';
 import { saveEditBlockToProject } from '@/utils/store-utils';
