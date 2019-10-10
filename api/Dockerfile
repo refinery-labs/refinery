@@ -10,6 +10,7 @@ RUN pip install -r /work/requirements.txt
 
 COPY ./__init__.py /work/
 COPY ./ngrok /work/
+COPY ./install/ /work/data_types/
 COPY ./install/ /work/install/
 COPY ./controller/ /work/controller/
 COPY ./services/ /work/services/

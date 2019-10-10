@@ -3,6 +3,7 @@ import {
   ProjectConfig,
   ProjectEnvironmentVariableList,
   SupportedLanguage,
+  WorkflowFile,
   WorkflowRelationship,
   WorkflowState,
   WorkflowStateType
@@ -23,6 +24,7 @@ import {
 import ImportableRefineryProject from '@/types/export-project';
 import * as moment from 'moment';
 import Base = moment.unitOfTime.Base;
+import SharedFiles from '@/components/ProjectEditor/SharedFiles';
 
 export interface BaseApiResponse {
   success: boolean;
@@ -322,6 +324,7 @@ export interface RunTmpLambdaRequest extends BaseApiRequest {
   memory: number;
   block_id: string;
   debug_id: string;
+  shared_files: WorkflowFile[];
 }
 
 export interface RunTmpLambdaEnvironmentVariable {
