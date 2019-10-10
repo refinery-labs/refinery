@@ -6069,7 +6069,7 @@ class RunLambda( BaseHandler ):
 				"input_data": input_data
 			}
 		}
-		
+
 		if "execution_id" in self.json and self.json[ "execution_id" ]:
 			lambda_input_data[ "_refinery" ][ "execution_id" ] = str( self.json[ "execution_id" ] )
 			
