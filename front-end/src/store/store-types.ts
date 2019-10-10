@@ -25,7 +25,7 @@ import { SettingsAppState } from '@/store/modules/settings-app';
 import { BlockLayersState } from '@/store/modules/panes/block-layers-pane';
 import { BlockLocalCodeSyncState } from '@/store/modules/panes/block-local-code-sync';
 import { ProjectCardStateLookup } from '@/types/all-project-types';
-import { SaveProjectPaneState } from '@/store/modules/panes/save-project-pane';
+// import { SaveProjectPaneState } from '@/store/modules/panes/save-project-pane';
 
 export interface RootState {
   addSavedBlockPane: AddSavedBlockPaneState;
@@ -41,7 +41,7 @@ export interface RootState {
   project: ProjectViewState;
   allProjects: AllProjectsState;
   runLambda: RunLambdaState;
-  saveProjectPane: SaveProjectPaneState;
+  // saveProjectPane: SaveProjectPaneState;
   settingsApp: SettingsAppState;
   toasts: ToastPaneState;
   user: UserState;
