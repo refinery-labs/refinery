@@ -644,6 +644,7 @@ export interface CreateSavedBlockRequest extends BaseApiRequest {
   block_object: WorkflowState;
   version?: number;
   share_status?: SharedBlockPublishStatus;
+  shared_files: WorkflowFile[];
 }
 
 export interface CreateSavedBlockResponse extends BaseApiResponse {
@@ -672,6 +673,7 @@ export interface SavedBlockSearchResult {
   share_status: SharedBlockPublishStatus;
   type: WorkflowStateType;
   block_object: WorkflowState;
+  shared_files: WorkflowFile[];
   version: number;
   timestamp: number;
 }

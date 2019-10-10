@@ -9,11 +9,15 @@ import { Prop } from 'vue-property-decorator';
 
 const project = namespace('project');
 
-export interface ViewSharedFileLinkProps {}
+export interface ViewSharedFileLinkProps {
+  sharedFilesArray: WorkflowFile[];
+  sharedFileClickHandler: (workflowFile: WorkflowFile) => void;
+  sharedFilesText: string;
+}
 
 @Component
 export default class ViewSharedFileLinkPane extends Vue {
-  @project.State openedProject!: RefineryProject | null;
+  @Prop({ required: true }) sharedFilesArray!: WorkflowFile[];
   @Prop({ required: true }) sharedFileClickHandler!: (workflowFile: WorkflowFile) => void;
   @Prop({ required: true }) sharedFilesText!: string;
 
@@ -22,10 +26,7 @@ export default class ViewSharedFileLinkPane extends Vue {
   }
 
   getSharedFiles() {
-    if (this.openedProject === null) {
-      return [];
-    }
-    return this.openedProject.workflow_files.filter(workflow_file => {
+    return this.sharedFilesArray.filter(workflow_file => {
       return workflow_file.name.toLowerCase().includes(SharedFilesPaneModule.searchText.toLowerCase());
     });
   }

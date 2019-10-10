@@ -13,6 +13,7 @@ const project = namespace('project');
 
 @Component
 export default class SharedFilesPane extends Vue {
+  @project.State openedProject!: RefineryProject | null;
   @project.Action addSharedFile!: (addSharedFileArgs: AddSharedFileArguments) => WorkflowFile;
 
   async addNewSharedFile() {
@@ -26,9 +27,14 @@ export default class SharedFilesPane extends Vue {
   }
 
   public render(h: CreateElement): VNode {
+    if (this.openedProject === null) {
+      return <div>No project is opened!</div>;
+    }
+
     const viewSharedFileLinkPaneProps: ViewSharedFileLinkProps = {
       sharedFileClickHandler: EditSharedFilePaneModule.openSharedFile,
-      sharedFilesText: 'All Shared Files (click to open): '
+      sharedFilesText: 'All Shared Files (click to open): ',
+      sharedFilesArray: this.openedProject.workflow_files
     };
 
     return (

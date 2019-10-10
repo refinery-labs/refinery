@@ -8,9 +8,14 @@ import { ChosenBlock } from '@/types/add-block-types';
 import { SharedBlockPublishStatus } from '@/types/api-types';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { EditorProps, MarkdownProps } from '@/types/component-types';
-import { BlockEnvironmentVariable, LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
+import { BlockEnvironmentVariable, LambdaWorkflowState, RefineryProject, WorkflowStateType } from '@/types/graph';
 import RefineryMarkdown from '@/components/Common/RefineryMarkdown';
 import { AddSavedBlockEnvironmentVariable } from '@/types/saved-blocks-types';
+import ViewSharedFileLinkPane, {
+  ViewSharedFileLinkProps
+} from '@/components/ProjectEditor/shared-files-components/ViewSharedFilesList';
+import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
+import { namespace } from 'vuex-class';
 
 export interface ViewChosenSavedBlockPaneProps {
   chosenBlock: ChosenBlock;
@@ -149,6 +154,30 @@ export default class ViewChosenSavedBlockPane extends Vue implements ViewChosenS
     );
   }
 
+  renderSharedFiles() {
+    if (this.chosenBlock.block.shared_files.length === 0) {
+      return <div />;
+    }
+
+    const viewSharedFileLinkPaneProps: ViewSharedFileLinkProps = {
+      sharedFileClickHandler: EditSharedFilePaneModule.openSharedFile,
+      sharedFilesText: 'Block Shared Files (click to view): ',
+      sharedFilesArray: this.chosenBlock.block.shared_files
+    };
+
+    return (
+      <b-form-group
+        class="mt-2 mb-0 padding-bottom--normal"
+        description="These are the Shared Files which are included with this Saved Block. They will also be added to your project if this block is added."
+      >
+        <label class="d-block">Shared Files Attached to This Saved Block: </label>
+        <div class="add-saved-block-container__environment-variables scrollable-pane-container padding--normal">
+          <ViewSharedFileLinkPane props={viewSharedFileLinkPaneProps} />
+        </div>
+      </b-form-group>
+    );
+  }
+
   public render(h: CreateElement): VNode {
     return (
       <div class="text-align--left mb-2 ml-2 mr-2 add-saved-block-container">
@@ -165,6 +194,7 @@ export default class ViewChosenSavedBlockPane extends Vue implements ViewChosenS
 
         <b-form on={{ submit: preventDefaultWrapper(() => this.addChosenBlock()) }}>
           {this.renderEnvironmentVariables()}
+          {this.renderSharedFiles()}
 
           <b-button class="mt-2 width--100percent" variant="primary" type="submit">
             Add Block

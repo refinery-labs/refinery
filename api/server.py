@@ -6170,6 +6170,33 @@ class RunTmpLambda( BaseHandler ):
 				"shared_files": {
 					"type": "array",
 					"default": [],
+					"items": {
+						"type": "object",
+						"properties": {
+							"body": {
+								"type": "string"
+							},
+							"version": {
+								"type": "string"
+							},
+							"type": {
+								"type": "string"
+							},
+							"id": {
+								"type": "string"
+							},
+							"name": {
+								"type": "string"
+							}
+						},
+						"required": [
+							"body",
+							"version",
+							"type",
+							"id",
+							"name"
+						]
+					}
 				}
 			},
 			"required": [
@@ -7444,6 +7471,11 @@ class SavedBlocksCreate( BaseHandler ):
 						"PRIVATE",
 						"PUBLISHED"
 					]
+				},
+				"shared_files": {
+					"type": "array",
+					"default": [],
+
 				}
 			},
 			"required": [
@@ -7524,6 +7556,7 @@ class SavedBlocksCreate( BaseHandler ):
 		new_saved_block_version.block_object = json.dumps(
 			self.json[ "block_object" ]
 		)
+		new_saved_block_version.shared_files = self.json[ "shared_files" ]
 			
 		saved_block.versions.append(
 			new_saved_block_version
@@ -7623,6 +7656,7 @@ class SavedBlockSearch( BaseHandler ):
 				"type": saved_block.type,
 				"block_object": block_object,
 				"version": saved_block_latest_version.version,
+				"shared_files": saved_block_latest_version.shared_files,
 				"timestamp": saved_block_latest_version.timestamp,
 			})
 		

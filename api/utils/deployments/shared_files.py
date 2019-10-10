@@ -23,7 +23,7 @@ def add_shared_files_to_zip( zip_data, shared_files_list ):
 				new_zip_file,
 				str( shared_file_metadata[ "body" ] )
 			)
-			
+
 	final_zip_data = lambda_package_zip.getvalue()
 	lambda_package_zip.close()
 

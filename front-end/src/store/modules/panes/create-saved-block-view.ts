@@ -16,6 +16,7 @@ import { LambdaWorkflowState, WorkflowState, WorkflowStateType } from '@/types/g
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 import { inputDataExample } from '@/constants/saved-block-constants';
 import { createBlockDataForPublishedSavedBlock } from '@/utils/block-utils';
+import { getSharedFilesForCodeBlock } from '@/utils/project-helpers';
 
 const storeName = 'createSavedBlockView';
 
@@ -171,7 +172,7 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
   @Action
   public async publishBlock() {
     const editBlockPaneStore = this.context.rootState.project.editBlockPane;
-    if (!editBlockPaneStore || !editBlockPaneStore.selectedNode) {
+    if (!editBlockPaneStore || !editBlockPaneStore.selectedNode || !this.context.rootState.project.openedProject) {
       console.error('Unable to publish new block, missing selected block');
       return;
     }
@@ -192,11 +193,17 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
 
     const savedInputData = this.savedDataInput !== null ? this.savedDataInput : undefined;
 
+    const sharedFiles = getSharedFilesForCodeBlock(
+      editBlockPaneStore.selectedNode.id,
+      this.context.rootState.project.openedProject
+    );
+
     const request: CreateSavedBlockRequest = {
       block_object: createBlockDataForPublishedSavedBlock(lambdaBlock, this.nameInput, savedInputData),
       description: this.descriptionInput,
       share_status: this.publishStatus ? SharedBlockPublishStatus.PUBLISHED : SharedBlockPublishStatus.PRIVATE,
-      version: 1
+      version: 1,
+      shared_files: sharedFiles
     };
 
     if (this.existingBlockMetadata) {

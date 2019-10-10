@@ -21,6 +21,7 @@ import ViewSharedFileLinkPane, {
   ViewSharedFileLinkProps
 } from '@/components/ProjectEditor/shared-files-components/ViewSharedFilesList';
 import { AddSharedFileLinkArguments } from '@/store/modules/project-view';
+import { getSharedFilesForCodeBlock } from '@/utils/project-helpers';
 
 const project = namespace('project');
 
@@ -162,13 +163,20 @@ export default class CodeBlockSharedFilesPane extends Vue {
   }
 
   public render(h: CreateElement): VNode {
+    if (this.openedProject === null || CodeBlockSharedFilesPaneModule.codeBlock === null) {
+      return <div>No project is opened!</div>;
+    }
+
     const treeProps = {
       value: this.getBlockFileSystemTree()
     };
 
+    const sharedFiles = getSharedFilesForCodeBlock(CodeBlockSharedFilesPaneModule.codeBlock.id, this.openedProject);
+
     const viewSharedFileLinkPaneProps: ViewSharedFileLinkProps = {
       sharedFileClickHandler: this.addSharedFileToCodeBlock,
-      sharedFilesText: 'All Shared Files (click to add to Code Block): '
+      sharedFilesText: 'All Shared Files (click to add to Code Block): ',
+      sharedFilesArray: sharedFiles
     };
 
     return (

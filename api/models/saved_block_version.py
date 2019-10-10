@@ -20,7 +20,29 @@ class SavedBlockVersion( Base ):
 	)
 	
 	block_object = Column(Text())
-	
+
+	@property
+	def shared_files( self ):
+		"""
+		Returns an empty list by default.
+		"""
+		if self._shared_files == None:
+			return []
+		return self._shared_files
+
+	@shared_files.setter
+	def shared_files(self, value):
+		self._shared_files = value
+
+	_shared_files = Column(
+		"shared_files",
+		JSON()
+	)
+	shared_files = synonym(
+		'_shared_files',
+		descriptor=shared_files
+	)
+
 	timestamp = Column(Integer())
 
 	def __init__( self ):
