@@ -51,7 +51,7 @@ class CodeBlockSharedFilesPaneStore extends VuexModule<ThisType<CodeBlockSharedF
       return;
     }
 
-    const addSharedFileLinkArgs: AddSharedFileLinkArguments = {
+    const addSharedFileLinkArgs = {
       file_id: sharedFile.id,
       node: CodeBlockSharedFilesPaneModule.codeBlock.id,
       path: ''
