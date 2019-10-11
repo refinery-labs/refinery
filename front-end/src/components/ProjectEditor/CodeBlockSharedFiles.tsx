@@ -37,11 +37,7 @@ export default class CodeBlockSharedFilesPane extends Vue {
       return null;
     }
 
-    const matchingSharedFiles = deepJSONCopy(this.openedProject.workflow_files).filter(workflow_file => {
-      return workflow_file.id === fileId;
-    });
-
-    return matchingSharedFiles[0];
+    return deepJSONCopy(this.openedProject.workflow_files).filter(workflow_file => workflow_file.id === fileId)[0];
   }
 
   getFileNodeFromSharedFileId(sharedFileLink: WorkflowFileLink) {
