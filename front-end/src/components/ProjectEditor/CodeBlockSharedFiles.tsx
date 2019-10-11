@@ -61,9 +61,7 @@ export default class CodeBlockSharedFilesPane extends Vue {
 
   getBlockFileSystemTree() {
     const sharedLinks = this.getSharedLinksForCodeBlock();
-    const fileNodes = sharedLinks.map(sharedFileLink => {
-      return this.getFileNodeFromSharedFileId(sharedFileLink);
-    });
+    const fileNodes = sharedLinks.map(sharedFileLink => this.getFileNodeFromSharedFileId(sharedFileLink));
 
     if (CodeBlockSharedFilesPaneModule.codeBlock === null) {
       console.error('No Code Block is selected!');
