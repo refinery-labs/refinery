@@ -22,6 +22,7 @@ import ViewSharedFileLinkPane, {
 } from '@/components/ProjectEditor/shared-files-components/ViewSharedFilesList';
 import { getSharedFilesForCodeBlock } from '@/utils/project-helpers';
 import { AddSharedFileLinkArguments, FileNodeMetadata, FileNodeMetadataTypes } from '@/types/shared-files';
+import { ISlTreeNodeModel } from '@/types/sl-vue-tree';
 
 const project = namespace('project');
 
@@ -40,7 +41,7 @@ export default class CodeBlockSharedFilesPane extends Vue {
     return deepJSONCopy(this.openedProject.workflow_files).filter(workflow_file => workflow_file.id === fileId)[0];
   }
 
-  getFileNodeFromSharedFileId(sharedFileLink: WorkflowFileLink) {
+  getFileNodeFromSharedFileId(sharedFileLink: WorkflowFileLink): ISlTreeNodeModel | null {
     const sharedFile = this.getSharedFileById(sharedFileLink.file_id);
 
     if (sharedFile === null) {
@@ -51,11 +52,10 @@ export default class CodeBlockSharedFilesPane extends Vue {
       title: sharedFile.name,
       isLeaf: true,
       isDraggable: false,
-      isLead: true,
       data: {
         id: sharedFileLink.file_id,
         type: FileNodeMetadataTypes.sharedFileLink
-      } as FileNodeMetadata
+      }
     };
   }
 
