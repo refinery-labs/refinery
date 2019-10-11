@@ -45,10 +45,6 @@ export default class EditSharedFileLinksPane extends Vue {
     );
   }
 
-  selectCodeBlock(nodeId: string) {
-    this.selectNode(nodeId);
-  }
-
   public renderSharedFileLinkSelect(codeBlock: LambdaWorkflowState, sharedFileLink: WorkflowFileLink) {
     if (EditSharedFilePaneModule.sharedFile === null) {
       return <i>No Shared File is selected!</i>;
@@ -68,7 +64,7 @@ export default class EditSharedFileLinksPane extends Vue {
           </p>
           <div class="container">
             <div class="row">
-              <b-button on={{ click: () => this.selectCodeBlock(codeBlock.id) }} variant="primary" class="mt-2 mr-1">
+              <b-button on={{ click: () => this.selectNode(codeBlock.id) }} variant="primary" class="mt-2 mr-1">
                 Select Block
               </b-button>
               <b-button
