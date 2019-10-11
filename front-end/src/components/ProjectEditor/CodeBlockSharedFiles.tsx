@@ -86,7 +86,7 @@ export default class CodeBlockSharedFilesPane extends Vue {
             data: {
               id: CodeBlockSharedFilesPaneModule.codeBlock.id,
               type: FileNodeMetadataTypes.codeBlock
-            } as FileNodeMetadata
+            }
           },
           {
             title: 'shared_files/',
