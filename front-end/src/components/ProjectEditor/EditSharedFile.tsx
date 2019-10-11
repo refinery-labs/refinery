@@ -8,6 +8,7 @@ import { SupportedLanguage, WorkflowFile } from '@/types/graph';
 import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
 import { languageToFileExtension } from '@/utils/project-debug-utils';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
+import { SharedFilesPaneModule } from '@/store/modules/panes/shared-files';
 
 const project = namespace('project');
 
@@ -77,10 +78,13 @@ export default class EditSharedFilePane extends Vue {
             autofocus={true}
             required={true}
             value={EditSharedFilePaneModule.sharedFile ? EditSharedFilePaneModule.sharedFile.name : ''}
-            on={{ input: EditSharedFilePaneModule.fileNameChanged }}
-            //state={SharedFilesPaneModule.newSharedFilenameIsValid}
+            on={{ input: EditSharedFilePaneModule.fileNameChange }}
+            state={EditSharedFilePaneModule.newSharedFilenameIsValid}
             placeholder="ex, utils.py"
           />
+          <b-form-invalid-feedback state={EditSharedFilePaneModule.newSharedFilenameIsValid}>
+            That is not a valid file name.
+          </b-form-invalid-feedback>
         </b-form-group>
 
         {this.renderCodeEditorContainer()}

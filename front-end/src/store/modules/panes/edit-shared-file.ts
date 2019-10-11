@@ -7,6 +7,8 @@ import { LambdaWorkflowState, SupportedLanguage, WorkflowFile } from '@/types/gr
 import { ProjectViewActions } from '@/constants/store-constants';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { languageToFileExtension } from '@/utils/project-debug-utils';
+import isBoolean from 'validator/lib/isBoolean';
+import { isSharedFileNameValid } from '@/store/modules/panes/shared-files';
 
 const storeName = 'editSharedFile';
 
@@ -16,6 +18,7 @@ export interface EditSharedFilePaneState {
   sharedFile: WorkflowFile | null;
   currentSharedFilePane: SIDEBAR_PANE;
   previousSharedFilePanes: SIDEBAR_PANE[];
+  newSharedFilenameIsValid: boolean | null;
 }
 
 // Initial State
@@ -23,7 +26,8 @@ const moduleState: EditSharedFilePaneState = {
   fileName: '',
   sharedFile: null,
   currentSharedFilePane: SIDEBAR_PANE.sharedFiles,
-  previousSharedFilePanes: [SIDEBAR_PANE.sharedFiles]
+  previousSharedFilePanes: [SIDEBAR_PANE.sharedFiles],
+  newSharedFilenameIsValid: null
 };
 
 const initialState = deepJSONCopy(moduleState);
@@ -35,6 +39,7 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
   public sharedFile: WorkflowFile | null = initialState.sharedFile;
   public previousSharedFilePanes: SIDEBAR_PANE[] = initialState.previousSharedFilePanes;
   public currentSharedFilePane: SIDEBAR_PANE = initialState.currentSharedFilePane;
+  public newSharedFilenameIsValid: boolean | null = initialState.newSharedFilenameIsValid;
 
   @Mutation
   public resetState() {
@@ -50,6 +55,11 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
   public setSharedFileName(value: string) {
     if (!this.sharedFile) {
       console.error("You tried to set the name of something that doesn't exist!");
+      return;
+    }
+    this.newSharedFilenameIsValid = isSharedFileNameValid(value);
+
+    if (!this.newSharedFilenameIsValid) {
       return;
     }
     this.sharedFile.name = value;
@@ -155,18 +165,15 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
   }
 
   @Action
-  public fileNameChanged(fileName: string) {
-    if (fileName === undefined) {
-      return;
-    }
-    EditSharedFilePaneModule.setSharedFileName(fileName);
-    EditSharedFilePaneModule.saveSharedFile();
+  public fileNameChange(fileName: string) {
+    this.setSharedFileName(fileName);
+    this.saveSharedFile();
   }
 
   @Action
   public async codeEditorChange(value: string) {
-    EditSharedFilePaneModule.setSharedFileBody(value);
-    EditSharedFilePaneModule.saveSharedFile();
+    this.setSharedFileBody(value);
+    this.saveSharedFile();
   }
 
   @Action
