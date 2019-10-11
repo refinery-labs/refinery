@@ -1504,6 +1504,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         await context.dispatch(ProjectViewActions.selectNode, newBlock.id);
         await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
       }
+
+      return newBlock;
     },
     async [ProjectViewActions.changeExistingTransition](
       context,

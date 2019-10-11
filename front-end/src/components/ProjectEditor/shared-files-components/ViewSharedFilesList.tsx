@@ -67,7 +67,7 @@ export default class ViewSharedFileLinkPane extends Vue {
         <b-form-input
           type="search"
           autofocus={false}
-          required={true}
+          required={false}
           value={SharedFilesPaneModule.searchText}
           on={{ input: SharedFilesPaneModule.setSearchText }}
           placeholder="Search shared files here..."

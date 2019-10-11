@@ -31,7 +31,6 @@ export interface ViewChosenSavedBlockPaneProps {
 export default class ViewChosenSavedBlockPane extends Vue implements ViewChosenSavedBlockPaneProps {
   @Prop({ required: true }) chosenBlock!: ChosenBlock;
   @Prop({ required: true }) environmentVariables!: AddSavedBlockEnvironmentVariable[] | null;
-
   @Prop({ required: true }) addChosenBlock!: () => void;
   @Prop({ required: true }) goBackToAddBlockPane!: () => void;
   @Prop({ required: true }) setEnvironmentVariablesValue!: (name: string, value: string) => void;
@@ -160,7 +159,7 @@ export default class ViewChosenSavedBlockPane extends Vue implements ViewChosenS
     }
 
     const viewSharedFileLinkPaneProps: ViewSharedFileLinkProps = {
-      sharedFileClickHandler: EditSharedFilePaneModule.openSharedFile,
+      sharedFileClickHandler: () => {},
       sharedFilesText: 'Block Shared Files (click to view): ',
       sharedFilesArray: this.chosenBlock.block.shared_files
     };

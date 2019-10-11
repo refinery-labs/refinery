@@ -236,6 +236,7 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
           added_timestamp: Date.now()
         }
       },
+      chosenBlock.block.shared_files,
       this.environmentVariableEntries
     );
 
