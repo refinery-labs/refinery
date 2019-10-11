@@ -141,7 +141,27 @@ export default class CodeBlockSharedFilesPane extends Vue {
     });
   }
 
-  public render(h: CreateElement): VNode {
+  getCurrentlyViewingCodeBlock() {
+    return (
+      <b-form-group>
+        <b-list-group-item className="display--flex">
+          <img class="add-block__image" src={require('../../../public/img/node-icons/code-icon.png')} />
+          <div class="flex-column align-items-start add-block__content">
+            <div class="d-flex w-100 justify-content-between">
+              <h4 class="mb-1 mt-3">
+                {CodeBlockSharedFilesPaneModule.codeBlock
+                  ? CodeBlockSharedFilesPaneModule.codeBlock.name
+                  : 'No Code Block Selected!'}
+              </h4>
+            </div>
+            <p class="mb-1">You are currently viewing this Code Block's Shared Files.</p>
+          </div>
+        </b-list-group-item>
+      </b-form-group>
+    );
+  }
+
+  getCodeBlockSharedFilesPane() {
     if (this.openedProject === null || CodeBlockSharedFilesPaneModule.codeBlock === null) {
       return <div>No project is opened!</div>;
     }
@@ -157,25 +177,8 @@ export default class CodeBlockSharedFilesPane extends Vue {
       sharedFilesText: 'All Shared Files (click to add to Code Block): ',
       sharedFilesArray: sharedFiles
     };
-
     return (
-      <div class="text-align--left ml-2 mr-2 mt-0 display--flex flex-direction--column shared-file-links-pane">
-        <b-form-group>
-          <b-list-group-item class="display--flex">
-            <img class="add-block__image" src={require('../../../public/img/node-icons/code-icon.png')} />
-            <div class="flex-column align-items-start add-block__content">
-              <div class="d-flex w-100 justify-content-between">
-                <h4 class="mb-1 mt-3">
-                  {CodeBlockSharedFilesPaneModule.codeBlock
-                    ? CodeBlockSharedFilesPaneModule.codeBlock.name
-                    : 'No Code Block Selected!'}
-                </h4>
-              </div>
-              <p class="mb-1">You are currently viewing this Code Block's Shared Files.</p>
-            </div>
-          </b-list-group-item>
-        </b-form-group>
-
+      <div>
         <b-form-group description="This is a file view of this Code Block's Shared Files. All shared files are placed in the shared_files directory.">
           <div class="display--flex flex-wrap mb-1">
             <label class="d-block flex-grow--1 pt-1">Code Block's Files (click a file to open it):</label>
@@ -185,6 +188,16 @@ export default class CodeBlockSharedFilesPane extends Vue {
 
         <h4>Add Shared File to Code Block</h4>
         <ViewSharedFileLinkPane props={viewSharedFileLinkPaneProps} />
+      </div>
+    );
+  }
+
+  public render(h: CreateElement): VNode {
+    return (
+      <div class="text-align--left ml-2 mr-2 mt-0 display--flex flex-direction--column shared-file-links-pane">
+        {this.getCurrentlyViewingCodeBlock()}
+
+        {this.getCodeBlockSharedFilesPane()}
       </div>
     );
   }
