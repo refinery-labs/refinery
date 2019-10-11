@@ -135,10 +135,7 @@
               </div>
             </b-card-group>
           </div>
-          <h4>
-            To close your account, please click <a :href="getEmailLink()" target="_blank">here</a> (or send an email to
-            support@refinery.io).
-          </h4>
+          <h4>To close your account, please click <a :href="getEmailLink()" target="_blank">here</a>.</h4>
         </div>
       </div>
     </div>
@@ -184,9 +181,8 @@ export default class Billing extends Vue {
   }
 
   getEmailLink() {
-    const userEmail = this.email ? this.email : 'Please put your Refinery email here';
-
-    return `mailto:support@refinery.io?subject=Cancel%20Subscription%20Request&body=${encodeURIComponent(userEmail)}`;
+    // Survey for cancellation
+    return 'https://docs.google.com/forms/d/e/1FAIpQLSfZ_QEDW-w4soFGtxlWi9h2CyCzlRcbjz1f-eoHpLhyE34ozA/viewform?usp=sf_link';
   }
 
   async setStripeToken(paymentTokenId: string) {
