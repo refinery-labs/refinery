@@ -14,6 +14,7 @@ import { AvailableTransition, AvailableTransitionsByType, ProjectViewState } fro
 import { GetSavedProjectResponse } from '@/types/api-types';
 import uuid from 'uuid/v4';
 import { deepJSONCopy } from '@/lib/general-utils';
+import R from 'ramda';
 
 export function getNodeDataById(project: RefineryProject, nodeId: string): WorkflowState | null {
   const targetStates = project.workflow_states;
@@ -244,17 +245,10 @@ export function getValidBlockToBlockTransitions(state: ProjectViewState) {
 }
 
 export function getSharedFilesForCodeBlock(nodeId: string, project: RefineryProject) {
-  const sharedFileLinks = project.workflow_file_links.filter(workflow_file_link => {
-    return workflow_file_link.node === nodeId;
-  });
+  const sharedFileLinks = project.workflow_file_links.filter(workflow_file_link => workflow_file_link.node === nodeId);
 
   // Turn file links into a list of Shared Files
-  const sharedFiles = sharedFileLinks.map(shared_file_link => {
-    const sharedFileMatches = project.workflow_files.filter(workflow_file => {
-      return workflow_file.id === shared_file_link.file_id;
-    });
-    return sharedFileMatches[0];
-  });
-
-  return sharedFiles;
+  return sharedFileLinks.map(
+    shared_file_link => project.workflow_files.filter(workflow_file => workflow_file.id === shared_file_link.file_id)[0]
+  );
 }
