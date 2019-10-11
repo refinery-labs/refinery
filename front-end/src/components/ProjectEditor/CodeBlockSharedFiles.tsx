@@ -112,16 +112,21 @@ export default class CodeBlockSharedFilesPane extends Vue {
       this.selectNode(fileNodeMetadata.id);
     }
 
-    // If it's a Shared File, we'll open it.
-    if (fileNodeMetadata.type === FileNodeMetadataTypes.sharedFileLink) {
-      // Get shared file
-      const sharedFile = this.getSharedFileById(fileNodeMetadata.id);
-
-      if (sharedFile !== null) {
-        // Set the shared file.
-        EditSharedFilePaneModule.openSharedFile(sharedFile);
-      }
+    // Must be a shared file
+    if (fileNodeMetadata.type !== FileNodeMetadataTypes.sharedFileLink) {
+      return;
     }
+
+    // Get shared file
+    const sharedFile = this.getSharedFileById(fileNodeMetadata.id);
+
+    // If it's null, drop out.
+    if (sharedFile === null) {
+      return;
+    }
+
+    // Set the shared file.
+    EditSharedFilePaneModule.openSharedFile(sharedFile);
   }
 
   getSharedLinksForCodeBlock() {
