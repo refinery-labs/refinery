@@ -15,28 +15,12 @@ const project = namespace('project');
 export default class EditSharedFilePane extends Vue {
   @project.Action saveSharedFile!: (savedFile: WorkflowFile) => void;
 
-  getLanguageFromFileName(fileName: string): SupportedLanguage {
-    const languageFileExtensions = Object.values(languageToFileExtension).map(extension => {
-      return '.' + extension;
-    });
-
-    const matchingFileExtensions = languageFileExtensions.filter(fileExtension => {
-      return fileName.toLowerCase().endsWith(fileExtension);
-    });
-
-    if (matchingFileExtensions.length > 0) {
-      return EditSharedFilePaneModule.getLanguageFromFileExtension(matchingFileExtensions[0]);
-    }
-
-    return SupportedLanguage.NODEJS_10;
-  }
-
   public renderCodeEditor(extraClasses?: string, disableFullscreen?: boolean) {
     if (EditSharedFilePaneModule.sharedFile === null) {
       return 'No file is opened!';
     }
 
-    const editorLanguage = this.getLanguageFromFileName(EditSharedFilePaneModule.sharedFile.name);
+    const editorLanguage = EditSharedFilePaneModule.getLanguageFromFileName(EditSharedFilePaneModule.sharedFile.name);
 
     const editorProps: EditorProps = {
       name: `shared-file-editor-REPLACEME`,

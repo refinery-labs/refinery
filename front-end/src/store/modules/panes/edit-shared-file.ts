@@ -173,6 +173,23 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
 
     return SupportedLanguage.NODEJS_10;
   }
+
+  @Action
+  public getLanguageFromFileName(fileName: string): SupportedLanguage {
+    const languageFileExtensions = Object.values(languageToFileExtension).map(extension => {
+      return '.' + extension;
+    });
+
+    const matchingFileExtensions = languageFileExtensions.filter(fileExtension => {
+      return fileName.toLowerCase().endsWith(fileExtension);
+    });
+
+    if (matchingFileExtensions.length > 0) {
+      return this.getLanguageFromFileExtension(matchingFileExtensions[0]);
+    }
+
+    return SupportedLanguage.NODEJS_10;
+  }
 }
 
 export const EditSharedFilePaneModule = getModule(EditSharedFilePaneStore);
