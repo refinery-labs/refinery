@@ -155,6 +155,15 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
   }
 
   @Action
+  public fileNameChanged(fileName: string) {
+    if (fileName === undefined) {
+      return;
+    }
+    EditSharedFilePaneModule.setSharedFileName(fileName);
+    EditSharedFilePaneModule.saveSharedFile();
+  }
+
+  @Action
   public async codeEditorChange(value: string) {
     EditSharedFilePaneModule.setSharedFileBody(value);
     EditSharedFilePaneModule.saveSharedFile();
