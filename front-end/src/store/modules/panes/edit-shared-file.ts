@@ -3,9 +3,10 @@ import { RootState } from '../../store-types';
 import { deepJSONCopy } from '@/lib/general-utils';
 import store from '@/store';
 import { resetStoreState } from '@/utils/store-utils';
-import { LambdaWorkflowState, WorkflowFile } from '@/types/graph';
+import { LambdaWorkflowState, SupportedLanguage, WorkflowFile } from '@/types/graph';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
+import { languageToFileExtension } from '@/utils/project-debug-utils';
 
 const storeName = 'editSharedFile';
 
@@ -157,6 +158,20 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
   public async codeEditorChange(value: string) {
     EditSharedFilePaneModule.setSharedFileBody(value);
     EditSharedFilePaneModule.saveSharedFile();
+  }
+
+  @Action
+  public getLanguageFromFileExtension(fileExtension: string): SupportedLanguage {
+    // This is gross, I would've thought their would be a Rambda function for this... (getting key from value in object)
+    const matchingExtensions = Object.entries(languageToFileExtension).filter(extensionPair => {
+      return fileExtension.replace('.', '') === extensionPair[1];
+    });
+
+    if (matchingExtensions.length > 0) {
+      return matchingExtensions[0][0] as SupportedLanguage;
+    }
+
+    return SupportedLanguage.NODEJS_10;
   }
 }
 

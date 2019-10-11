@@ -15,19 +15,6 @@ const project = namespace('project');
 export default class EditSharedFilePane extends Vue {
   @project.Action saveSharedFile!: (savedFile: WorkflowFile) => void;
 
-  getLanguageFromFileExtension(fileExtension: string): SupportedLanguage {
-    // This is gross, I would've thought their would be a Rambda function for this... (getting key from value in object)
-    const matchingExtensions = Object.entries(languageToFileExtension).filter(extensionPair => {
-      return fileExtension.replace('.', '') === extensionPair[1];
-    });
-
-    if (matchingExtensions.length > 0) {
-      return matchingExtensions[0][0] as SupportedLanguage;
-    }
-
-    return SupportedLanguage.NODEJS_10;
-  }
-
   getLanguageFromFileName(fileName: string): SupportedLanguage {
     const languageFileExtensions = Object.values(languageToFileExtension).map(extension => {
       return '.' + extension;
@@ -38,7 +25,7 @@ export default class EditSharedFilePane extends Vue {
     });
 
     if (matchingFileExtensions.length > 0) {
-      return this.getLanguageFromFileExtension(matchingFileExtensions[0]);
+      return EditSharedFilePaneModule.getLanguageFromFileExtension(matchingFileExtensions[0]);
     }
 
     return SupportedLanguage.NODEJS_10;
