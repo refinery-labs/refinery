@@ -7,6 +7,7 @@ import { LambdaWorkflowState, WorkflowFile, WorkflowRelationshipType } from '@/t
 import { ProjectViewActions } from '@/constants/store-constants';
 import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
+import { AddSharedFileLinkArguments } from '@/types/shared-files';
 
 const storeName = 'codeBlockSharedFiles';
 
@@ -41,6 +42,24 @@ class CodeBlockSharedFilesPaneStore extends VuexModule<ThisType<CodeBlockSharedF
   public async openCodeBlockSharedFiles(codeBlock: LambdaWorkflowState) {
     this.setCodeBlock(codeBlock);
     EditSharedFilePaneModule.setCurrentSharedFilePane(SIDEBAR_PANE.codeBlockSharedFiles);
+  }
+
+  @Action
+  public async addSharedFileToCodeBlock(sharedFile: WorkflowFile) {
+    if (CodeBlockSharedFilesPaneModule.codeBlock === null) {
+      console.error('No Code Block is selected.');
+      return;
+    }
+
+    const addSharedFileLinkArgs: AddSharedFileLinkArguments = {
+      file_id: sharedFile.id,
+      node: CodeBlockSharedFilesPaneModule.codeBlock.id,
+      path: ''
+    };
+
+    return this.context.dispatch(`project/${ProjectViewActions.addSharedFileLink}`, addSharedFileLinkArgs, {
+      root: true
+    });
   }
 }
 

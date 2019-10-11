@@ -141,21 +141,6 @@ export default class CodeBlockSharedFilesPane extends Vue {
     });
   }
 
-  addSharedFileToCodeBlock(sharedFile: WorkflowFile) {
-    if (CodeBlockSharedFilesPaneModule.codeBlock === null) {
-      console.error('No Code Block is selected!');
-      return;
-    }
-
-    const addSharedFileLinkArgs: AddSharedFileLinkArguments = {
-      file_id: sharedFile.id,
-      node: CodeBlockSharedFilesPaneModule.codeBlock.id,
-      path: ''
-    };
-
-    this.addSharedFileLink(addSharedFileLinkArgs);
-  }
-
   public render(h: CreateElement): VNode {
     if (this.openedProject === null || CodeBlockSharedFilesPaneModule.codeBlock === null) {
       return <div>No project is opened!</div>;
@@ -168,7 +153,7 @@ export default class CodeBlockSharedFilesPane extends Vue {
     const sharedFiles = getSharedFilesForCodeBlock(CodeBlockSharedFilesPaneModule.codeBlock.id, this.openedProject);
 
     const viewSharedFileLinkPaneProps: ViewSharedFileLinkProps = {
-      sharedFileClickHandler: this.addSharedFileToCodeBlock,
+      sharedFileClickHandler: CodeBlockSharedFilesPaneModule.addSharedFileToCodeBlock,
       sharedFilesText: 'All Shared Files (click to add to Code Block): ',
       sharedFilesArray: sharedFiles
     };
