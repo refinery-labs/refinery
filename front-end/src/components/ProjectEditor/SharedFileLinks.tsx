@@ -40,9 +40,9 @@ export default class EditSharedFileLinksPane extends Vue {
       return [];
     }
 
-    return deepJSONCopy(this.openedProject.workflow_file_links).filter(workflow_file_link => {
-      return workflow_file_link.file_id === sharedFileID;
-    });
+    return this.openedProject.workflow_file_links.filter(
+      workflow_file_link => workflow_file_link.file_id === sharedFileID
+    );
   }
 
   selectCodeBlock(nodeId: string) {
