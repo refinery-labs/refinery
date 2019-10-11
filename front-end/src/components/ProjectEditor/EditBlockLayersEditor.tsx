@@ -57,7 +57,7 @@ export class EditBlockLayersEditor extends Vue implements BlockLayersEditorProps
             id={nameInputId}
             disabled={this.readOnly}
             class="col-md-10"
-            placeholder="eg, arn:aws:lambda:us-east-2:123456789012:layer:my-layer:3"
+            placeholder="eg, arn:aws:lambda:us-west-2:123456789012:layer:my-layer:3"
             state={validArn}
             value={value}
             required={true}
@@ -80,6 +80,9 @@ export class EditBlockLayersEditor extends Vue implements BlockLayersEditorProps
             repository
           </a>
           .
+          <br />
+          Note: The region must be "us-west-2". You can manually change the region in the ARN to this. Layers are
+          published globally and setting "us-west-2" will just work.
         </b-form-invalid-feedback>
       </div>
     );
