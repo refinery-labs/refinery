@@ -24,13 +24,6 @@ class EditSharedFileLinksPaneStore extends VuexModule<ThisType<EditSharedFileLin
   public resetState() {
     resetStoreState(this, initialState);
   }
-
-  @Action
-  public async navigateBackToEditSharedFile() {
-    await this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, SIDEBAR_PANE.editSharedFile, {
-      root: true
-    });
-  }
 }
 
 export const EditSharedFileLinksPaneModule = getModule(EditSharedFileLinksPaneStore);
