@@ -206,7 +206,7 @@ export function unwrapProjectJson(response: GetSavedProjectResponse): RefineryPr
 
 export function getIDsOfBlockType(blockType: WorkflowStateType, project: RefineryProject) {
   const matchingWorkflowStates = project.workflow_states.filter(workflow_state => {
-    return (workflow_state.type = blockType);
+    return workflow_state.type == blockType;
   });
 
   return matchingWorkflowStates.map(workflow_state => {
