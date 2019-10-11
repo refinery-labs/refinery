@@ -152,6 +152,12 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
       root: true
     });
   }
+
+  @Action
+  public async codeEditorChange(value: string) {
+    EditSharedFilePaneModule.setSharedFileBody(value);
+    EditSharedFilePaneModule.saveSharedFile();
+  }
 }
 
 export const EditSharedFilePaneModule = getModule(EditSharedFilePaneStore);

@@ -15,11 +15,6 @@ const project = namespace('project');
 export default class EditSharedFilePane extends Vue {
   @project.Action saveSharedFile!: (savedFile: WorkflowFile) => void;
 
-  codeEditorChange(value: string) {
-    EditSharedFilePaneModule.setSharedFileBody(value);
-    EditSharedFilePaneModule.saveSharedFile();
-  }
-
   getLanguageFromFileExtension(fileExtension: string): SupportedLanguage {
     // This is gross, I would've thought their would be a Rambda function for this... (getting key from value in object)
     const matchingExtensions = Object.entries(languageToFileExtension).filter(extensionPair => {
@@ -62,7 +57,7 @@ export default class EditSharedFilePane extends Vue {
       readOnly: false,
       content: EditSharedFilePaneModule.sharedFile ? EditSharedFilePaneModule.sharedFile.body : '',
       // Update below to set state
-      onChange: this.codeEditorChange,
+      onChange: EditSharedFilePaneModule.codeEditorChange,
       disableFullscreen: false
     };
 
