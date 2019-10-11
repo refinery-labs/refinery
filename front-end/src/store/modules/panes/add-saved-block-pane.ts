@@ -10,7 +10,7 @@ import { SavedBlockSearchResult, SharedBlockPublishStatus } from '@/types/api-ty
 import { ChosenBlock } from '@/types/add-block-types';
 import { BlockEnvironmentVariable, LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
 import { AddSavedBlockEnvironmentVariable } from '@/types/saved-blocks-types';
-import { safelyDuplicateBlock } from '@/utils/block-utils';
+import { addSharedFilesToProject, linkSharedFilesToCodeBlock, safelyDuplicateBlock } from '@/utils/block-utils';
 
 const storeName = 'addSavedBlockPane';
 
@@ -220,11 +220,16 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
       return;
     }
 
+    if (!this.context.rootState.project.openedProject) {
+      console.error("No opened project was found, can't add block!");
+      return;
+    }
+
     const openedProjectConfig = this.context.rootState.project.openedProjectConfig;
 
     let match = chosenBlock.block;
 
-    await safelyDuplicateBlock(
+    const addedBlock = await safelyDuplicateBlock(
       this.context.dispatch,
       openedProjectConfig,
       {
@@ -236,8 +241,22 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
           added_timestamp: Date.now()
         }
       },
-      chosenBlock.block.shared_files,
       this.environmentVariableEntries
+    );
+
+    // Add the Saved Block's Shared Files to the project
+    const addedSharedFiles = await addSharedFilesToProject(
+      this.context.dispatch,
+      chosenBlock.block.shared_files,
+      this.context.rootState.project.openedProject
+    );
+
+    // Add Shared File Links to the newly-added Code Block
+    await linkSharedFilesToCodeBlock(
+      this.context.dispatch,
+      addedBlock.id,
+      addedSharedFiles,
+      this.context.rootState.project.openedProject
     );
 
     // If it's a code block being added, kick off the library build to improve the user's UX.

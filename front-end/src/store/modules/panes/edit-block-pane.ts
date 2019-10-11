@@ -1,23 +1,30 @@
-import { Module } from 'vuex';
+import { Dispatch, Module } from 'vuex';
 import deepEqual from 'fast-deep-equal';
 import { RootState } from '../../store-types';
 import {
   ApiEndpointWorkflowState,
   LambdaWorkflowState,
+  RefineryProject,
   SavedBlockMetadata,
   ScheduleTriggerWorkflowState,
   SqsQueueWorkflowState,
   SupportedLanguage,
+  WorkflowFile,
   WorkflowRelationship,
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import { getNodeDataById, getTransitionsForNode } from '@/utils/project-helpers';
+import { getNodeDataById, getSharedFilesForCodeBlock, getTransitionsForNode } from '@/utils/project-helpers';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import { DEFAULT_LANGUAGE_CODE } from '@/constants/project-editor-constants';
 import { HTTP_METHOD } from '@/constants/api-constants';
-import { safelyDuplicateBlock, updateBlockWithNewSavedBlockVersion, validatePath } from '@/utils/block-utils';
+import {
+  linkSharedFilesToCodeBlock,
+  safelyDuplicateBlock,
+  updateBlockWithNewSavedBlockVersion,
+  validatePath
+} from '@/utils/block-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { resetStoreState } from '@/utils/store-utils';
 import { getSavedBlockStatus, LibraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-helpers';
@@ -489,6 +496,10 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
         return;
       }
 
+      if (!context.rootState.project.openedProject) {
+        return;
+      }
+
       const projectConfig = context.rootState.project.openedProjectConfig;
 
       if (!projectConfig) {
@@ -499,7 +510,24 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       // Save the block first.
       await context.dispatch(EditBlockActions.saveBlock);
 
-      await safelyDuplicateBlock(context.dispatch, projectConfig, context.state.selectedNode);
+      const originalCodeBlockId = context.state.selectedNode.id;
+
+      const duplicatedBlock = await safelyDuplicateBlock(context.dispatch, projectConfig, context.state.selectedNode);
+
+      // If there are Shared Files attached to the Code Block we need to create a new set of
+      // Shared Files links for the same files to the new Code Block
+      const codeBlockSharedFiles = getSharedFilesForCodeBlock(
+        originalCodeBlockId,
+        context.rootState.project.openedProject
+      );
+
+      // Link all of these Shared Files to the duplicated Code Block
+      await linkSharedFilesToCodeBlock(
+        context.dispatch,
+        duplicatedBlock.id,
+        codeBlockSharedFiles,
+        context.rootState.project.openedProject
+      );
     },
     async [EditBlockActions.deleteBlock](context) {
       const projectStore = context.rootState.project;

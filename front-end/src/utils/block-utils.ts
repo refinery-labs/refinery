@@ -6,7 +6,11 @@ import {
   ProjectConfig,
   ProjectConfigEnvironmentVariable,
   ProjectEnvironmentVariableList,
+  RefineryProject,
   WorkflowFile,
+  WorkflowFileLink,
+  WorkflowFileLinkType,
+  WorkflowFileType,
   WorkflowRelationship,
   WorkflowRelationshipType,
   WorkflowState,
@@ -18,7 +22,7 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import { AddSavedBlockEnvironmentVariable } from '@/types/saved-blocks-types';
 import { Dispatch } from 'vuex';
 import { OpenProjectMutation } from '@/types/project-editor-types';
-import { AddBlockArguments, AddSharedFileArguments, AddSharedFileLinkArguments } from '@/store/modules/project-view';
+import { AddBlockArguments, AddSharedFileLinkArguments } from '@/store/modules/project-view';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
 
@@ -74,11 +78,75 @@ export function createNewTransition(
   };
 }
 
+export async function addSharedFilesToProject(
+  dispatch: Dispatch,
+  sharedFiles: WorkflowFile[],
+  project: RefineryProject
+) {
+  const rotatedIdSharedFiles = sharedFiles.map(workflowFile => {
+    const newWorkFlowFile: WorkflowFile = {
+      id: uuid(),
+      version: workflowFile.version,
+      body: workflowFile.body,
+      type: WorkflowFileType.SHARED_FILE,
+      name: workflowFile.name
+    };
+    return newWorkFlowFile;
+  });
+
+  const newProject: RefineryProject = {
+    ...project,
+    workflow_files: [...project.workflow_files, ...rotatedIdSharedFiles]
+  };
+
+  const params: OpenProjectMutation = {
+    project: newProject,
+    config: null,
+    markAsDirty: true
+  };
+
+  await dispatch(`project/${ProjectViewActions.updateProject}`, params, { root: true });
+
+  return rotatedIdSharedFiles;
+}
+
+export async function linkSharedFilesToCodeBlock(
+  dispatch: Dispatch,
+  codeBlockId: string,
+  sharedFiles: WorkflowFile[],
+  project: RefineryProject
+) {
+  // Now add all the shared file links from the files to the block we've added
+  const sharedFileLinks = sharedFiles.map(sharedFile => {
+    const newSharedFileLink: WorkflowFileLink = {
+      id: uuid(),
+      node: codeBlockId,
+      file_id: sharedFile.id,
+      version: '1.0.0',
+      type: WorkflowFileLinkType.SHARED_FILE_LINK,
+      path: ''
+    };
+    return newSharedFileLink;
+  });
+
+  const newProject: RefineryProject = {
+    ...project,
+    workflow_file_links: [...project.workflow_file_links, ...sharedFileLinks]
+  };
+
+  const params: OpenProjectMutation = {
+    project: newProject,
+    config: null,
+    markAsDirty: true
+  };
+
+  await dispatch(`project/${ProjectViewActions.updateProject}`, params, { root: true });
+}
+
 export async function safelyDuplicateBlock(
   dispatch: Dispatch,
   projectConfig: ProjectConfig,
   block: WorkflowState,
-  shared_files: WorkflowFile[],
   overrideEnvironmentVariables?: AddSavedBlockEnvironmentVariable[] | null
 ) {
   const duplicateOfProjectConfig = deepJSONCopy(projectConfig);
@@ -171,29 +239,7 @@ export async function safelyDuplicateBlock(
   await dispatch(`project/${ProjectViewActions.updateProject}`, openProjectMutation, { root: true });
 
   // Add the new block to the project
-  const newBlock = await dispatch(`project/${ProjectViewActions.addIndividualBlock}`, addBlockArgs, { root: true });
-
-  // Add all of the shared files to the project
-  const sharedFileAddPromises = shared_files.map(shared_file => {
-    const addSharedFileArgs: AddSharedFileArguments = {
-      name: shared_file.name,
-      body: shared_file.body
-    };
-    return dispatch(`project/${ProjectViewActions.addSharedFile}`, addSharedFileArgs, { root: true });
-  });
-  const sharedFileAddResults = await Promise.all(sharedFileAddPromises);
-
-  // Now add all the shared file links from the files to the block we've added
-  const sharedFileLinkAddPromises = sharedFileAddResults.map(shared_file => {
-    const addSharedFileLinkArgs: AddSharedFileLinkArguments = {
-      file_id: shared_file.id,
-      node: newBlock.id,
-      path: ''
-    };
-    return dispatch(`project/${ProjectViewActions.addSharedFileLink}`, addSharedFileLinkArgs, { root: true });
-  });
-
-  await sharedFileLinkAddPromises;
+  return await dispatch(`project/${ProjectViewActions.addIndividualBlock}`, addBlockArgs, { root: true });
 }
 
 // Creates a lookup of environment variables IDs from current ID -> original ID
