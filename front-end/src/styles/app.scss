@@ -765,7 +765,8 @@ a.disabled {
 }
 
 .shared-files-pane {
-  width: 512px;
+  flex-grow: 1;
+  max-width: 512px;
   padding-top: 10px;
 }
 
@@ -779,12 +780,14 @@ a.disabled {
 }
 
 .shared-file-links-pane {
-  width: 512px;
+  flex-grow: 1;
+  max-width: 512px;
   padding-top: 10px;
 }
 
 .adding-shared-file-link-pane {
-  width: 512px;
+  flex-grow: 1;
+  max-width: 512px;
   padding-top: 10px;
 }
 
