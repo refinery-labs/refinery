@@ -80,21 +80,11 @@ import ImportableRefineryProject from '@/types/export-project';
 import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
 import store from '@/store';
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
+import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shared-files';
 
-export interface AddSharedFileArguments {
-  name: string;
-  body: string;
-}
-
-export interface AddSharedFileLinkArguments {
-  // UUID of the workflow_file node
-  file_id: string;
-  // UUID of the Code Block workflow_state
-  node: string;
-  // Path where the file is written to relative
-  // to the base directory (/var/task).
-  // "" indicates the base directory.
-  path: string;
+export interface ChangeTransitionArguments {
+  transition: WorkflowRelationship;
+  transitionType: WorkflowRelationshipType;
 }
 
 export interface AddBlockArguments {
@@ -104,11 +94,6 @@ export interface AddBlockArguments {
    * This block is "extended" from during the add flow, if specified. Example use case: Adding a saved block.
    */
   customBlockProperties?: WorkflowState;
-}
-
-export interface ChangeTransitionArguments {
-  transition: WorkflowRelationship;
-  transitionType: WorkflowRelationshipType;
 }
 
 const moduleState: ProjectViewState = {

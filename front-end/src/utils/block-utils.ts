@@ -22,7 +22,7 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import { AddSavedBlockEnvironmentVariable } from '@/types/saved-blocks-types';
 import { Dispatch } from 'vuex';
 import { OpenProjectMutation } from '@/types/project-editor-types';
-import { AddBlockArguments, AddSharedFileLinkArguments } from '@/store/modules/project-view';
+import { AddBlockArguments } from '@/store/modules/project-view';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
 

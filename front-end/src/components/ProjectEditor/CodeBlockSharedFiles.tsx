@@ -20,20 +20,10 @@ import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import ViewSharedFileLinkPane, {
   ViewSharedFileLinkProps
 } from '@/components/ProjectEditor/shared-files-components/ViewSharedFilesList';
-import { AddSharedFileLinkArguments } from '@/store/modules/project-view';
 import { getSharedFilesForCodeBlock } from '@/utils/project-helpers';
+import { AddSharedFileLinkArguments, FileNodeMetadata, FileNodeMetadataTypes } from '@/types/shared-files';
 
 const project = namespace('project');
-
-export enum fileNodeMetadataTypes {
-  sharedFileLink = 'sharedFileLink',
-  codeBlock = 'codeBlock'
-}
-
-export interface fileNodeMetadata {
-  id: string;
-  type: fileNodeMetadataTypes;
-}
 
 @Component
 export default class CodeBlockSharedFilesPane extends Vue {
@@ -63,8 +53,8 @@ export default class CodeBlockSharedFilesPane extends Vue {
       isLead: true,
       data: {
         id: sharedFileLink.file_id,
-        type: fileNodeMetadataTypes.sharedFileLink
-      } as fileNodeMetadata
+        type: FileNodeMetadataTypes.sharedFileLink
+      } as FileNodeMetadata
     };
   }
 
@@ -96,8 +86,8 @@ export default class CodeBlockSharedFilesPane extends Vue {
             isDraggable: false,
             data: {
               id: CodeBlockSharedFilesPaneModule.codeBlock.id,
-              type: fileNodeMetadataTypes.codeBlock
-            } as fileNodeMetadata
+              type: FileNodeMetadataTypes.codeBlock
+            } as FileNodeMetadata
           },
           {
             title: 'shared_files/',
@@ -112,19 +102,19 @@ export default class CodeBlockSharedFilesPane extends Vue {
   }
 
   selectedFolder(event: any) {
-    const fileNodeMetadata = event.data as fileNodeMetadata | null;
+    const fileNodeMetadata = event.data as FileNodeMetadata | null;
 
     if (fileNodeMetadata === null) {
       return;
     }
 
     // If it's the lambda.EXT then we open the Code Block
-    if (fileNodeMetadata.type === fileNodeMetadataTypes.codeBlock) {
+    if (fileNodeMetadata.type === FileNodeMetadataTypes.codeBlock) {
       this.selectNode(fileNodeMetadata.id);
     }
 
     // If it's a Shared File, we'll open it.
-    if (fileNodeMetadata.type === fileNodeMetadataTypes.sharedFileLink) {
+    if (fileNodeMetadata.type === FileNodeMetadataTypes.sharedFileLink) {
       // Get shared file
       const sharedFile = this.getSharedFileById(fileNodeMetadata.id);
 
