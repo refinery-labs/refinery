@@ -41,7 +41,12 @@ export default class CodeBlockSharedFilesPane extends Vue {
   }
 
   getFileNodeFromSharedFileId(sharedFileLink: WorkflowFileLink) {
-    const sharedFile = this.getSharedFileById(sharedFileLink.file_id) as WorkflowFile;
+    const sharedFile = this.getSharedFileById(sharedFileLink.file_id);
+
+    if (sharedFile === null) {
+      return null;
+    }
+
     return {
       title: sharedFile.name,
       isLeaf: true,
