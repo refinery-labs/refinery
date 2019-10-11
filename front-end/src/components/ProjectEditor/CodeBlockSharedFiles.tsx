@@ -71,7 +71,7 @@ export default class CodeBlockSharedFilesPane extends Vue {
     }
 
     const baseLambdaFileExtension = languageToFileExtension[CodeBlockSharedFilesPaneModule.codeBlock.language];
-    const baseLambdaFileName = 'lambda.' + baseLambdaFileExtension + ' (Code Block Script)';
+    const baseLambdaFileName = `lambda.${baseLambdaFileExtension} (Code Block Script)`;
 
     return [
       {
