@@ -145,7 +145,7 @@ export default class CodeBlockSharedFilesPane extends Vue {
   getCurrentlyViewingCodeBlock() {
     return (
       <b-form-group>
-        <b-list-group-item className="display--flex">
+        <b-list-group-item class="display--flex">
           <img class="add-block__image" src={require('../../../public/img/node-icons/code-icon.png')} />
           <div class="flex-column align-items-start add-block__content">
             <div class="d-flex w-100 justify-content-between">
@@ -184,7 +184,9 @@ export default class CodeBlockSharedFilesPane extends Vue {
           <div class="display--flex flex-wrap mb-1">
             <label class="d-block flex-grow--1 pt-1">Code Block's Files (click a file to open it):</label>
           </div>
-          {/*          <SlVueTree props={treeProps} on={{ nodeclick: this.selectedFolder }} ref="treeView" />*/}
+          {/*
+          // @ts-ignore*/}
+          <SlVueTree props={treeProps} on={{ nodeclick: this.selectedFolder }} ref="treeView" />
         </b-form-group>
 
         <h4>Add Shared File to Code Block</h4>
