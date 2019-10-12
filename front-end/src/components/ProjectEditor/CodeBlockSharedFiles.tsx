@@ -24,122 +24,16 @@ const project = namespace('project');
 })
 export default class CodeBlockSharedFilesPane extends Vue {
   treeViewInstance!: SlVueTree<FileNodeMetadata>;
-
-  @Mutation setCodeBlock!: (codeBlock: LambdaWorkflowState) => void;
-  @project.Action selectNode!: (nodeId: string) => void;
-  @project.Action addSharedFileLink!: (addSharedFileLinkArgs: AddSharedFileLinkArguments) => void;
   @project.State openedProject!: RefineryProject | null;
 
-  getSharedFileById(fileId: string) {
-    if (this.openedProject === null) {
-      return null;
-    }
-
-    return deepJSONCopy(this.openedProject.workflow_files).filter(workflow_file => workflow_file.id === fileId)[0];
-  }
-
-  getFileNodeFromSharedFileId(sharedFileLink: WorkflowFileLink): ISlTreeNodeModel<FileNodeMetadata> | null {
-    const sharedFile = this.getSharedFileById(sharedFileLink.file_id);
-
-    if (sharedFile === null) {
-      return null;
-    }
-
-    return {
-      title: sharedFile.name,
-      isLeaf: true,
-      isDraggable: false,
-      data: {
-        id: sharedFileLink.file_id,
-        type: FileNodeMetadataTypes.sharedFileLink
-      }
-    };
-  }
-
-  getBlockFileSystemTree(): ISlTreeNodeModel<FileNodeMetadata>[] {
-    const sharedLinks = this.getSharedLinksForCodeBlock();
-
-    const rawFileNodes = sharedLinks.map(sharedFileLink => this.getFileNodeFromSharedFileId(sharedFileLink));
-
-    // Gets only the valid file nodes and casts for the type system.
-    const fileNodes = rawFileNodes.filter(n => n !== null) as ISlTreeNodeModel<FileNodeMetadata>[];
-
-    if (CodeBlockSharedFilesPaneModule.codeBlock === null) {
-      console.error('No Code Block is selected!');
-      return [];
-    }
-
-    const baseLambdaFileExtension = languageToFileExtension[CodeBlockSharedFilesPaneModule.codeBlock.language];
-    const baseLambdaFileName = `lambda.${baseLambdaFileExtension} (Code Block Script)`;
-
-    return [
-      {
-        title: 'Base Folder (/var/task/)',
-        isSelectable: false,
-        isDraggable: false,
-        isExpanded: true,
-        children: [
-          {
-            title: baseLambdaFileName,
-            isLeaf: true,
-            isSelectable: false,
-            isDraggable: false,
-            data: {
-              id: CodeBlockSharedFilesPaneModule.codeBlock.id,
-              type: FileNodeMetadataTypes.codeBlock
-            }
-          },
-          {
-            title: 'shared_files/',
-            isExpanded: true,
-            isSelectable: false,
-            isDraggable: false,
-            children: fileNodes
-          }
-        ]
-      }
-    ];
-  }
-
-  selectedFolder(event: any) {
+  selectedFileTreeNode(event: any) {
     const fileNodeMetadata = event.data as FileNodeMetadata | null;
 
-    if (fileNodeMetadata === null) {
+    if (!fileNodeMetadata) {
       return;
     }
 
-    // If it's the lambda.EXT then we open the Code Block
-    if (fileNodeMetadata.type === FileNodeMetadataTypes.codeBlock) {
-      this.selectNode(fileNodeMetadata.id);
-    }
-
-    // Must be a shared file
-    if (fileNodeMetadata.type !== FileNodeMetadataTypes.sharedFileLink) {
-      return;
-    }
-
-    // Get shared file
-    const sharedFile = this.getSharedFileById(fileNodeMetadata.id);
-
-    // If it's null, drop out.
-    if (sharedFile === null) {
-      return;
-    }
-
-    // Set the shared file.
-    EditSharedFilePaneModule.openSharedFile(sharedFile);
-  }
-
-  getSharedLinksForCodeBlock() {
-    if (this.openedProject === null || CodeBlockSharedFilesPaneModule.codeBlock === null) {
-      return [];
-    }
-
-    return deepJSONCopy(this.openedProject.workflow_file_links).filter(workflow_file_link => {
-      // Can't actually be null, TypeScript is wrong?
-      // @ts-ignore
-      return workflow_file_link.node === CodeBlockSharedFilesPaneModule.codeBlock.id;
-    });
+    CodeBlockSharedFilesPaneModule.selectedFileTreeNode(fileNodeMetadata);
   }
 
   getCurrentlyViewingCodeBlock() {
@@ -168,15 +62,13 @@ export default class CodeBlockSharedFilesPane extends Vue {
     }
 
     const treeProps = {
-      value: this.getBlockFileSystemTree()
+      value: CodeBlockSharedFilesPaneModule.blockFileSystemTree
     };
-
-    const sharedFiles = getSharedFilesForCodeBlock(CodeBlockSharedFilesPaneModule.codeBlock.id, this.openedProject);
 
     const viewSharedFileLinkPaneProps: ViewSharedFileLinkProps = {
       sharedFileClickHandler: CodeBlockSharedFilesPaneModule.addSharedFileToCodeBlock,
-      sharedFilesText: 'All Shared Files (click to add to Code Block): ',
-      sharedFilesArray: sharedFiles
+      sharedFilesText: 'All Shared Files Not Already In Code Block (click to add to Code Block): ',
+      sharedFilesArray: CodeBlockSharedFilesPaneModule.sharedFilesNotAlreadyInCodeBlock
     };
     return (
       <div>
@@ -186,7 +78,7 @@ export default class CodeBlockSharedFilesPane extends Vue {
           </div>
           {/*
           // @ts-ignore*/}
-          <SlVueTree props={treeProps} on={{ nodeclick: this.selectedFolder }} ref="treeView" />
+          <SlVueTree props={treeProps} on={{ nodeclick: this.selectedFileTreeNode }} ref="treeView" />
         </b-form-group>
 
         <h4>Add Shared File to Code Block</h4>

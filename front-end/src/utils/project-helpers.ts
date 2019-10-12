@@ -252,3 +252,11 @@ export function getSharedFilesForCodeBlock(nodeId: string, project: RefineryProj
     shared_file_link => project.workflow_files.filter(workflow_file => workflow_file.id === shared_file_link.file_id)[0]
   );
 }
+
+export function getSharedFileById(fileId: string, state: ProjectViewState) {
+  if (state.openedProject === null) {
+    return null;
+  }
+
+  return deepJSONCopy(state.openedProject.workflow_files).filter(workflow_file => workflow_file.id === fileId)[0];
+}
