@@ -48,5 +48,3 @@ declare module 'vue-monaco' {
   export interface VueMonacoPlugin extends PluginObject<{ appId: string }> {}
 }
 declare module 'vue-native-websocket';
-
-declare module 'sl-vue-tree';

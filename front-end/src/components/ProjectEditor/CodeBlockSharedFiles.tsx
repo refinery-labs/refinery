@@ -1,33 +1,30 @@
 import Component from 'vue-class-component';
 import Vue, { CreateElement, VNode } from 'vue';
-import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
-import { EditSharedFileLinksPaneModule } from '@/store/modules/panes/edit-shared-file-links';
-import { availableBlocks, blockTypeToImageLookup } from '@/constants/project-editor-constants';
-import {
-  LambdaWorkflowState,
-  ProjectConfig,
-  RefineryProject,
-  WorkflowFile,
-  WorkflowFileLink,
-  WorkflowState
-} from '@/types/graph';
-import { namespace, Mutation, State } from 'vuex-class';
+import { LambdaWorkflowState, RefineryProject, WorkflowFileLink } from '@/types/graph';
+import { namespace, Mutation } from 'vuex-class';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { CodeBlockSharedFilesPaneModule } from '@/store/modules/panes/code-block-shared-files';
 import { languageToFileExtension } from '@/utils/project-debug-utils';
-import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import ViewSharedFileLinkPane, {
   ViewSharedFileLinkProps
 } from '@/components/ProjectEditor/shared-files-components/ViewSharedFilesList';
 import { getSharedFilesForCodeBlock } from '@/utils/project-helpers';
 import { AddSharedFileLinkArguments, FileNodeMetadata, FileNodeMetadataTypes } from '@/types/shared-files';
-import { ISlTreeNodeModel } from '@/types/sl-vue-tree';
+
+import SlVueTree, { ISlTreeNodeModel } from 'sl-vue-tree';
+import 'sl-vue-tree/dist/sl-vue-tree-dark.css';
 
 const project = namespace('project');
 
-@Component
+@Component({
+  components: {
+    SlVueTree
+  }
+})
 export default class CodeBlockSharedFilesPane extends Vue {
+  treeViewInstance!: SlVueTree<FileNodeMetadata>;
+
   @Mutation setCodeBlock!: (codeBlock: LambdaWorkflowState) => void;
   @project.Action selectNode!: (nodeId: string) => void;
   @project.Action addSharedFileLink!: (addSharedFileLinkArgs: AddSharedFileLinkArguments) => void;
@@ -41,7 +38,7 @@ export default class CodeBlockSharedFilesPane extends Vue {
     return deepJSONCopy(this.openedProject.workflow_files).filter(workflow_file => workflow_file.id === fileId)[0];
   }
 
-  getFileNodeFromSharedFileId(sharedFileLink: WorkflowFileLink): ISlTreeNodeModel | null {
+  getFileNodeFromSharedFileId(sharedFileLink: WorkflowFileLink): ISlTreeNodeModel<FileNodeMetadata> | null {
     const sharedFile = this.getSharedFileById(sharedFileLink.file_id);
 
     if (sharedFile === null) {
@@ -59,9 +56,13 @@ export default class CodeBlockSharedFilesPane extends Vue {
     };
   }
 
-  getBlockFileSystemTree() {
+  getBlockFileSystemTree(): ISlTreeNodeModel<FileNodeMetadata>[] {
     const sharedLinks = this.getSharedLinksForCodeBlock();
-    const fileNodes = sharedLinks.map(sharedFileLink => this.getFileNodeFromSharedFileId(sharedFileLink));
+
+    const rawFileNodes = sharedLinks.map(sharedFileLink => this.getFileNodeFromSharedFileId(sharedFileLink));
+
+    // Gets only the valid file nodes and casts for the type system.
+    const fileNodes = rawFileNodes.filter(n => n !== null) as ISlTreeNodeModel<FileNodeMetadata>[];
 
     if (CodeBlockSharedFilesPaneModule.codeBlock === null) {
       console.error('No Code Block is selected!');
@@ -183,13 +184,21 @@ export default class CodeBlockSharedFilesPane extends Vue {
           <div class="display--flex flex-wrap mb-1">
             <label class="d-block flex-grow--1 pt-1">Code Block's Files (click a file to open it):</label>
           </div>
-          <sl-vue-tree props={treeProps} on={{ nodeclick: this.selectedFolder }} />
+          <SlVueTree props={treeProps} on={{ nodeclick: this.selectedFolder }} ref="treeView" />
         </b-form-group>
 
         <h4>Add Shared File to Code Block</h4>
         <ViewSharedFileLinkPane props={viewSharedFileLinkPaneProps} />
       </div>
     );
+  }
+
+  mounted() {
+    if (!this.$refs.treeView) {
+      throw new Error('Could not load tree view for component');
+    }
+
+    this.treeViewInstance = this.$refs.treeView as SlVueTree<FileNodeMetadata>;
   }
 
   public render(h: CreateElement): VNode {

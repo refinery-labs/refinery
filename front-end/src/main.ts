@@ -29,11 +29,7 @@ import App from './App';
 import router from './router';
 import store from './store/index';
 import './registerServiceWorker';
-import VueNativeSock from 'vue-native-websocket';
 import { setupWebsocketVuePlugin } from '@/setup-websocket';
-import slVueTree from 'sl-vue-tree';
-import 'sl-vue-tree/dist/sl-vue-tree-dark.css';
-Vue.component('sl-vue-tree', slVueTree);
 
 Vue.use(BootstrapVue);
 Vue.use(VueIntercom, { appId: 'sjaaunj7' });
