@@ -6250,21 +6250,21 @@ class RunTmpLambda( BaseHandler ):
 
 		# Create Lambda object
 		inline_lambda = Lambda(
-			random_node_id,
-			self.json[ "language" ],
-			self.json[ "code" ],
-			self.json[ "libraries" ],
-			self.json[ "max_execution_time" ],
-			self.json[ "memory" ],
-			empty_transitions_dict,
-			"REGULAR",
-			pipeline_execution_id,
-			"LOG_NONE",
-			self.json[ "environment_variables" ],
-			lambda_layers,
-			False,
-			True,
-			self.json[ "shared_files" ]
+			name=random_node_id,
+			language=self.json[ "language" ],
+			code=self.json[ "code" ],
+			libraries=self.json[ "libraries" ],
+			max_execution_time=self.json[ "max_execution_time" ],
+			memory=self.json[ "memory" ],
+			transitions=empty_transitions_dict,
+			execution_mode="REGULAR",
+			execution_pipeline_id=pipeline_execution_id,
+			execution_log_level="LOG_NONE",
+			environment_variables=self.json[ "environment_variables" ],
+			layers=lambda_layers,
+			reserved_concurrency_count=False,
+			is_inline_execution=True,
+			shared_files_list=self.json[ "shared_files" ]
 		)
 
 		# Get inline hash key
@@ -6908,21 +6908,21 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 
 		# Create Lambda object
 		lambda_object = Lambda(
-			lambda_safe_name,
-			lambda_node[ "language" ],
-			lambda_node[ "code" ],
-			lambda_node[ "libraries" ],
-			lambda_node[ "max_execution_time" ],
-			lambda_node[ "memory" ],
-			lambda_node[ "transitions" ],
-			"REGULAR",
-			project_id,
-			project_config[ "logging" ][ "level" ],
-			env_var_dict[ lambda_node[ "id" ] ],
-			lambda_layers,
-			lambda_node[ "reserved_concurrency_count" ],
-			False,
-			shared_files
+			name=lambda_safe_name,
+			language=lambda_node[ "language" ],
+			code=lambda_node[ "code" ],
+			libraries=lambda_node[ "libraries" ],
+			max_execution_time=lambda_node[ "max_execution_time" ],
+			memory=lambda_node[ "memory" ],
+			transitions=lambda_node[ "transitions" ],
+			execution_mode="REGULAR",
+			execution_pipeline_id=project_id,
+			execution_log_level=project_config[ "logging" ][ "level" ],
+			environment_variables=env_var_dict[ lambda_node[ "id" ] ],
+			layers=lambda_layers,
+			reserved_concurrency_count=lambda_node[ "reserved_concurrency_count" ],
+			is_inline_execution=False,
+			shared_files_list=shared_files
 		)
 
 		lambda_node_deploy_futures.append({
@@ -6949,21 +6949,21 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 
 		# Create Lambda object
 		lambda_object = Lambda(
-			api_endpoint_safe_name,
-			"python2.7",
-			"",
-			[],
-			30,
-			512,
-			api_endpoint_node[ "transitions" ],
-			"API_ENDPOINT",
-			project_id,
-			project_config[ "logging" ][ "level" ],
-			[],
-			lambda_layers,
-			False,
-			False,
-			[]
+			name=api_endpoint_safe_name,
+			language="python2.7",
+			code="",
+			libraries=[],
+			max_execution_time=30,
+			memory=512,
+			transitions=api_endpoint_node[ "transitions" ],
+			execution_mode="API_ENDPOINT",
+			execution_pipeline_id=project_id,
+			execution_log_level=project_config[ "logging" ][ "level" ],
+			environment_variables=[],
+			layers=lambda_layers,
+			reserved_concurrency_count=False,
+			is_inline_execution=False,
+			shared_files_list=[]
 		)
 		
 		api_endpoint_node_deploy_futures.append({
