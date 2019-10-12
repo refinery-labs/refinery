@@ -7,8 +7,8 @@ import { LambdaWorkflowState, SupportedLanguage, WorkflowFile } from '@/types/gr
 import { ProjectViewActions } from '@/constants/store-constants';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { languageToFileExtension } from '@/utils/project-debug-utils';
-import isBoolean from 'validator/lib/isBoolean';
 import { isSharedFileNameValid } from '@/store/modules/panes/shared-files';
+import { getLanguageFromFileExtension } from '@/utils/editor-utils';
 
 const storeName = 'editSharedFile';
 
@@ -176,32 +176,20 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
     this.saveSharedFile();
   }
 
-  @Action
-  public getLanguageFromFileExtension(fileExtension: string): SupportedLanguage {
-    // This is gross, I would've thought their would be a Rambda function for this... (getting key from value in object)
-    const matchingExtensions = Object.entries(languageToFileExtension).filter(
-      extensionPair => fileExtension.replace('.', '') === extensionPair[1]
-    );
-
-    if (matchingExtensions.length > 0) {
-      return matchingExtensions[0][0] as SupportedLanguage;
-    }
-
-    return SupportedLanguage.NODEJS_10;
-  }
-
-  @Action
-  public getLanguageFromFileName(fileName: string): SupportedLanguage {
+  get getFileLanguage(): SupportedLanguage {
     const languageFileExtensions = Object.values(languageToFileExtension).map(extension => {
       return '.' + extension;
     });
 
     const matchingFileExtensions = languageFileExtensions.filter(fileExtension => {
-      return fileName.toLowerCase().endsWith(fileExtension);
+      if (this.sharedFile === null) {
+        return false;
+      }
+      return this.sharedFile.name.toLowerCase().endsWith(fileExtension);
     });
 
     if (matchingFileExtensions.length > 0) {
-      return this.getLanguageFromFileExtension(matchingFileExtensions[0]);
+      return getLanguageFromFileExtension(matchingFileExtensions[0]);
     }
 
     return SupportedLanguage.NODEJS_10;

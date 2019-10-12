@@ -21,11 +21,9 @@ export default class EditSharedFilePane extends Vue {
       return 'No file is opened!';
     }
 
-    const editorLanguage = EditSharedFilePaneModule.getLanguageFromFileName(EditSharedFilePaneModule.sharedFile.name);
-
     const editorProps: EditorProps = {
       name: `shared-file-editor-REPLACEME`,
-      lang: editorLanguage,
+      lang: EditSharedFilePaneModule.getFileLanguage,
       readOnly: false,
       content: EditSharedFilePaneModule.sharedFile ? EditSharedFilePaneModule.sharedFile.body : '',
       // Update below to set state
