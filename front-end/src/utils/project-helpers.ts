@@ -260,3 +260,7 @@ export function getSharedFileById(fileId: string, state: ProjectViewState) {
 
   return deepJSONCopy(state.openedProject.workflow_files).filter(workflow_file => workflow_file.id === fileId)[0];
 }
+
+export function getSharedLinksForSharedFile(sharedFileId: string, project: RefineryProject) {
+  return project.workflow_file_links.filter(workflow_file_link => workflow_file_link.file_id === sharedFileId);
+}

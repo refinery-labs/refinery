@@ -4,7 +4,7 @@ import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { LambdaWorkflowState, RefineryProject, WorkflowFileLink } from '@/types/graph';
 import { namespace } from 'vuex-class';
 import { EditSharedFilePaneModule } from '@/store';
-import { getNodeDataById } from '@/utils/project-helpers';
+import { getNodeDataById, getSharedLinksForSharedFile } from '@/utils/project-helpers';
 
 const project = namespace('project');
 
@@ -13,16 +13,6 @@ export default class EditSharedFileLinksPane extends Vue {
   @project.State openedProject!: RefineryProject | null;
   @project.Action selectNode!: (nodeId: string) => void;
   @project.Action deleteSharedFileLink!: (sharedFileLink: WorkflowFileLink) => void;
-
-  getSharedLinksForSharedFile(sharedFileID: string) {
-    if (this.openedProject === null) {
-      return [];
-    }
-
-    return this.openedProject.workflow_file_links.filter(
-      workflow_file_link => workflow_file_link.file_id === sharedFileID
-    );
-  }
 
   public renderSharedFileLinkSelect(codeBlock: LambdaWorkflowState, sharedFileLink: WorkflowFileLink) {
     if (EditSharedFilePaneModule.sharedFile === null) {
@@ -60,11 +50,11 @@ export default class EditSharedFileLinksPane extends Vue {
   }
 
   public getSharedFileLinks() {
-    if (EditSharedFilePaneModule.sharedFile === null) {
+    if (EditSharedFilePaneModule.sharedFile === null || this.openedProject === null) {
       return [];
     }
 
-    const sharedLinks = this.getSharedLinksForSharedFile(EditSharedFilePaneModule.sharedFile.id);
+    const sharedLinks = getSharedLinksForSharedFile(EditSharedFilePaneModule.sharedFile.id, this.openedProject);
 
     if (sharedLinks.length === 0) {
       return (
