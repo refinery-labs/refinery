@@ -24,8 +24,8 @@ export default class ViewSharedFileLinkPane extends Vue {
   }
 
   getSharedFiles() {
-    return this.sharedFilesArray.filter(workflow_file => {
-      return workflow_file.name.toLowerCase().includes(SharedFilesPaneModule.searchText.toLowerCase());
+    return this.sharedFilesArray.filter(workflowFile => {
+      return workflowFile.name.toLowerCase().includes(SharedFilesPaneModule.searchText.toLowerCase());
     });
   }
 
