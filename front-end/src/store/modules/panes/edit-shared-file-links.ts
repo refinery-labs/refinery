@@ -2,6 +2,8 @@ import { Action, Module, Mutation, VuexModule } from 'vuex-module-decorators';
 import { RootState, StoreType } from '../../store-types';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { resetStoreState } from '@/utils/store-utils';
+import { EditSharedFilePaneModule } from '@/store';
+import { LambdaWorkflowState } from '@/types/graph';
 
 const storeName = StoreType.editSharedFileLinks;
 

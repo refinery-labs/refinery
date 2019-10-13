@@ -4,6 +4,7 @@ import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { LambdaWorkflowState, RefineryProject, WorkflowFileLink } from '@/types/graph';
 import { namespace } from 'vuex-class';
 import { EditSharedFilePaneModule } from '@/store';
+import { getNodeDataById } from '@/utils/project-helpers';
 
 const project = namespace('project');
 
@@ -12,18 +13,6 @@ export default class EditSharedFileLinksPane extends Vue {
   @project.State openedProject!: RefineryProject | null;
   @project.Action selectNode!: (nodeId: string) => void;
   @project.Action deleteSharedFileLink!: (sharedFileLink: WorkflowFileLink) => void;
-
-  getNodeByID(nodeID: string) {
-    if (this.openedProject === null) {
-      return null;
-    }
-
-    const matchingNodes = this.openedProject.workflow_states.filter(workflow_state => {
-      return workflow_state.id === nodeID;
-    });
-
-    return matchingNodes[0];
-  }
 
   getSharedLinksForSharedFile(sharedFileID: string) {
     if (this.openedProject === null) {
@@ -87,10 +76,15 @@ export default class EditSharedFileLinksPane extends Vue {
       );
     }
 
-    return sharedLinks.map(workflow_file_link => {
+    return sharedLinks.map(workflowFileLink => {
+      if (this.openedProject === null) {
+        console.error('No project is currently opened.');
+        return [];
+      }
+
       return this.renderSharedFileLinkSelect(
-        this.getNodeByID(workflow_file_link.node) as LambdaWorkflowState,
-        workflow_file_link
+        getNodeDataById(this.openedProject, workflowFileLink.node) as LambdaWorkflowState,
+        workflowFileLink
       );
     });
   }
