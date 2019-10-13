@@ -797,18 +797,16 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
   public renderSharedFiles() {
     return (
-      <div>
-        <b-form-group description="Shared Files linked to this Code Block.">
-          <label class="d-block">Shared Files:</label>
-          <b-button
-            variant="dark"
-            class="col-12"
-            on={{ click: () => CodeBlockSharedFilesPaneModule.openCodeBlockSharedFiles(this.selectedNode) }}
-          >
-            View Block Shared Files
-          </b-button>
-        </b-form-group>
-      </div>
+      <b-form-group description="Shared Files linked to this Code Block.">
+        <label class="d-block">Shared Files:</label>
+        <b-button
+          variant="dark"
+          class="col-12"
+          on={{ click: () => CodeBlockSharedFilesPaneModule.openCodeBlockSharedFiles(this.selectedNode) }}
+        >
+          View Block Shared Files
+        </b-button>
+      </b-form-group>
     );
   }
 
