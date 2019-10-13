@@ -11,7 +11,6 @@ import { EnvironmentVariablesEditorStore } from '@/store/modules/panes/environme
 import { SettingsAppStore } from '@/store/modules/settings-app';
 import { SharedFilesPaneStore } from '@/store/modules/panes/shared-files';
 import { EditSharedFilePaneStore } from '@/store/modules/panes/edit-shared-file';
-import { EditSharedFileLinksPaneStore } from '@/store/modules/panes/edit-shared-file-links';
 import { CodeBlockSharedFilesPaneStore } from '@/store/modules/panes/code-block-shared-files';
 import { AddSavedBlockPaneStore } from '@/store/modules/panes/add-saved-block-pane';
 import { BlockLayersStore } from '@/store/modules/panes/block-layers-pane';
@@ -39,7 +38,6 @@ export const storeModules: { [key in StoreType]: ConstructorOf<VuexModule> & Mod
   codeBlockSharedFiles: CodeBlockSharedFilesPaneStore,
   createSavedBlockView: CreateSavedBlockViewStore,
   editSharedFile: EditSharedFilePaneStore,
-  editSharedFileLinks: EditSharedFileLinksPaneStore,
   environmentVariablesEditor: EnvironmentVariablesEditorStore,
   settingsApp: SettingsAppStore,
   sharedFiles: SharedFilesPaneStore,
@@ -52,7 +50,6 @@ export let BlockLocalCodeSyncStoreModule: BlockLocalCodeSyncStore;
 export let CodeBlockSharedFilesPaneModule: CodeBlockSharedFilesPaneStore;
 export let CreateSavedBlockViewStoreModule: CreateSavedBlockViewStore;
 export let EditSharedFilePaneModule: EditSharedFilePaneStore;
-export let EditSharedFileLinksPaneStoreModule: EditSharedFileLinksPaneStore;
 export let EnvironmentVariablesEditorModule: EnvironmentVariablesEditorStore;
 export let SettingsAppStoreModule: SettingsAppStore;
 export let SharedFilesPaneModule: SharedFilesPaneStore;
@@ -67,7 +64,6 @@ export function initializeStores(store: Store<any>): void {
   CodeBlockSharedFilesPaneModule = getModule(CodeBlockSharedFilesPaneStore, store);
   CreateSavedBlockViewStoreModule = getModule(CreateSavedBlockViewStore, store);
   EditSharedFilePaneModule = getModule(EditSharedFilePaneStore, store);
-  EditSharedFileLinksPaneStoreModule = getModule(EditSharedFileLinksPaneStore, store);
   EnvironmentVariablesEditorModule = getModule(EnvironmentVariablesEditorStore, store);
   SettingsAppStoreModule = getModule(SettingsAppStore, store);
   SharedFilesPaneModule = getModule(SharedFilesPaneStore, store);
