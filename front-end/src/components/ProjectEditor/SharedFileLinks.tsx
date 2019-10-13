@@ -55,7 +55,7 @@ export default class EditSharedFileLinksPane extends Vue {
     );
   }
 
-  public getSharedFileLinks() {
+  public renderSharedFileLinks() {
     if (EditSharedFilePaneModule.sharedFile === null || this.openedProject === null) {
       return [];
     }
@@ -89,7 +89,7 @@ export default class EditSharedFileLinksPane extends Vue {
     });
   }
 
-  public getSharedFileLinksTitleText() {
+  public renderSharedFileLinksTitleText() {
     if (EditSharedFilePaneModule.sharedFile === null) {
       return <h3>No shared file is selected!</h3>;
     }
@@ -116,10 +116,10 @@ export default class EditSharedFileLinksPane extends Vue {
           </a>
         </b-form-group>
 
-        {this.getSharedFileLinksTitleText()}
+        {this.renderSharedFileLinksTitleText()}
 
         <div class="flex-grow--1 scrollable-pane-container shared-file-links-well">
-          <b-list-group class="shared-file-link-container">{this.getSharedFileLinks()}</b-list-group>
+          <b-list-group class="shared-file-link-container">{this.renderSharedFileLinks()}</b-list-group>
         </div>
 
         <div class="container">
