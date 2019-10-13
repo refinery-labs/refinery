@@ -1,7 +1,13 @@
 import Component from 'vue-class-component';
 import Vue, { CreateElement, VNode } from 'vue';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
-import { LambdaWorkflowState, RefineryProject, WorkflowFileLink } from '@/types/graph';
+import {
+  LambdaWorkflowState,
+  RefineryProject,
+  WorkflowFileLink,
+  WorkflowFileType,
+  WorkflowStateType
+} from '@/types/graph';
 import { namespace } from 'vuex-class';
 import { EditSharedFilePaneModule } from '@/store';
 import { getNodeDataById, getSharedLinksForSharedFile } from '@/utils/project-helpers';
@@ -69,6 +75,10 @@ export default class EditSharedFileLinksPane extends Vue {
     return sharedLinks.map(workflowFileLink => {
       if (this.openedProject === null) {
         console.error('No project is currently opened.');
+        return [];
+      }
+      if (!workflowFileLink) {
+        console.error('Invalid workflow file link provided (is null).');
         return [];
       }
 
