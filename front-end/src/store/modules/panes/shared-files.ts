@@ -69,13 +69,12 @@ export class SharedFilesPaneStore extends VuexModule<ThisType<SharedFilesPaneSta
 
   @Action
   public async addNewSharedFile() {
-    const addSharedFileArgs: AddSharedFileArguments = {
-      name: this.addSharedFileName,
-      body: ''
-    };
     const newSharedFile = await this.context.dispatch(
       `project/${ProjectViewActions.addSharedFile}`,
-      addSharedFileArgs,
+      {
+        name: this.addSharedFileName,
+        body: ''
+      },
       {
         root: true
       }
