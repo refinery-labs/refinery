@@ -15,16 +15,6 @@ export default class SharedFilesPane extends Vue {
   @project.State openedProject!: RefineryProject | null;
   @project.Action addSharedFile!: (addSharedFileArgs: AddSharedFileArguments) => WorkflowFile;
 
-  async addNewSharedFile() {
-    const addSharedFileArgs: AddSharedFileArguments = {
-      name: SharedFilesPaneModule.addSharedFileName,
-      body: ''
-    };
-    const newSharedFile = await this.addSharedFile(addSharedFileArgs);
-    await EditSharedFilePaneModule.openSharedFile(newSharedFile);
-    SharedFilesPaneModule.resetState();
-  }
-
   public render(h: CreateElement): VNode {
     if (this.openedProject === null) {
       return <div>No project is opened!</div>;
@@ -55,7 +45,7 @@ export default class SharedFilesPane extends Vue {
             That is not a valid file name.
           </b-form-invalid-feedback>
           <b-button
-            on={{ click: () => this.addNewSharedFile() }}
+            on={{ click: () => SharedFilesPaneModule.addNewSharedFile() }}
             disabled={!SharedFilesPaneModule.newSharedFilenameIsValid}
             variant="primary"
             class="mt-2"

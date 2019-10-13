@@ -2,6 +2,10 @@ import { Action, Module, Mutation, VuexModule } from 'vuex-module-decorators';
 import { RootState, StoreType } from '../../store-types';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { resetStoreState } from '@/utils/store-utils';
+import { AddSharedFileArguments } from '@/types/shared-files';
+import { EditSharedFilePaneModule, SharedFilesPaneModule } from '@/store';
+import { ProjectViewActions } from '@/constants/store-constants';
+import { SIDEBAR_PANE } from '@/types/project-editor-types';
 
 const storeName = StoreType.sharedFiles;
 
@@ -61,5 +65,22 @@ export class SharedFilesPaneStore extends VuexModule<ThisType<SharedFilesPaneSta
   @Action
   public resetPane() {
     this.resetState();
+  }
+
+  @Action
+  public async addNewSharedFile() {
+    const addSharedFileArgs: AddSharedFileArguments = {
+      name: this.addSharedFileName,
+      body: ''
+    };
+    const newSharedFile = await this.context.dispatch(
+      `project/${ProjectViewActions.addSharedFile}`,
+      addSharedFileArgs,
+      {
+        root: true
+      }
+    );
+    await EditSharedFilePaneModule.openSharedFile(newSharedFile);
+    SharedFilesPaneModule.resetState();
   }
 }
