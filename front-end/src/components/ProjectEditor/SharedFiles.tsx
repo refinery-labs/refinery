@@ -26,8 +26,16 @@ export default class SharedFilesPane extends Vue {
       sharedFilesArray: this.openedProject.workflow_files
     };
 
+    const containerClasses = {
+      'shared-files-pane': true,
+      // formatting
+      'text-align--left display--flex flex-direction--column': true,
+      // margins
+      'mb-2 ml-2 mr-2 mt-0': true
+    };
+
     return (
-      <div class="text-align--left mb-2 ml-2 mr-2 mt-0 display--flex flex-direction--column shared-files-pane">
+      <div class={containerClasses}>
         <b-list-group class="mb-4">
           <h4>Create New Shared File</h4>
           <label class="d-block">New Shared File Name:</label>
