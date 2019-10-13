@@ -35,7 +35,7 @@ export default class CodeBlockSharedFilesPane extends Vue {
     CodeBlockSharedFilesPaneModule.selectedFileTreeNode(fileNodeMetadata);
   }
 
-  getCurrentlyViewingCodeBlock() {
+  renderCurrentlyViewingCodeBlock() {
     return (
       <b-form-group>
         <b-list-group-item class="display--flex">
@@ -55,7 +55,7 @@ export default class CodeBlockSharedFilesPane extends Vue {
     );
   }
 
-  getCodeBlockSharedFilesPane() {
+  renderCodeBlockSharedFilesPane() {
     if (this.openedProject === null || CodeBlockSharedFilesPaneModule.codeBlock === null) {
       return <div>No project is opened!</div>;
     }
@@ -97,9 +97,9 @@ export default class CodeBlockSharedFilesPane extends Vue {
   public render(h: CreateElement): VNode {
     return (
       <div class="text-align--left ml-2 mr-2 mt-0 display--flex flex-direction--column shared-file-links-pane">
-        {this.getCurrentlyViewingCodeBlock()}
+        {this.renderCurrentlyViewingCodeBlock()}
 
-        {this.getCodeBlockSharedFilesPane()}
+        {this.renderCodeBlockSharedFilesPane()}
       </div>
     );
   }
