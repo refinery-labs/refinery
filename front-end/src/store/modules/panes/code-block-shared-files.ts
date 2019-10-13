@@ -73,7 +73,7 @@ export class CodeBlockSharedFilesPaneStore extends VuexModule<ThisType<CodeBlock
 
     const sharedFiles = getSharedFilesForCodeBlock(this.codeBlock.id, this.context.rootState.project.openedProject);
 
-    return sharedFiles.map(sharedFile => getFileNodeFromSharedFileId(sharedFile));
+    return sharedFiles.map(getFileNodeFromSharedFileId);
   }
 
   get blockFileSystemTree(): ISlTreeNodeModel<FileNodeMetadata>[] {

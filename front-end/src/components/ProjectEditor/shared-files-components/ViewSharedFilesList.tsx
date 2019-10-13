@@ -51,7 +51,7 @@ export default class ViewSharedFileLinkPane extends Vue {
     return (
       <div class="flex-grow--1 padding-left--micro padding-right--micro">
         <b-list-group class="add-saved-block-container add-block-container">
-          {sharedFiles.map(result => this.renderBlockSelect(result))}
+          {sharedFiles.map(this.renderBlockSelect)}
         </b-list-group>
       </div>
     );
