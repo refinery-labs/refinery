@@ -85,35 +85,29 @@ export default class EditSharedFilePane extends Vue {
 
         {this.renderCodeEditorContainer()}
 
-        <div class="container">
-          <div class="row">
-            <div class="col-sm pr-1 pl-0">
-              <b-button
-                on={{ click: () => EditSharedFilePaneModule.openSharedFileLinks() }}
-                variant="primary"
-                class="w-100"
-              >
-                Edit Shared File Links
-              </b-button>
-            </div>
-            <div class="col-sm pr-0 pl-0">
-              <b-button
-                on={{ click: () => EditSharedFilePaneModule.selectCodeBlockToAddSharedFileTo() }}
-                variant="primary"
-                className="w-100"
-              >
-                Add Shared File to Block
-              </b-button>
-            </div>
-            <div class="col-sm pr-0 pl-0">
-              <b-button
-                on={{ click: () => EditSharedFilePaneModule.deleteSharedFile() }}
-                variant="danger"
-                class="w-100"
-              >
-                Delete Shared File
-              </b-button>
-            </div>
+        <div style="display: flex">
+          <div class="col-sm pr-1 pl-0">
+            <b-button
+              on={{ click: () => EditSharedFilePaneModule.openSharedFileLinks() }}
+              variant="primary"
+              class="w-100"
+            >
+              Edit Shared File Links
+            </b-button>
+          </div>
+          <div class="col-sm pr-0 pl-0">
+            <b-button
+              on={{ click: () => EditSharedFilePaneModule.selectCodeBlockToAddSharedFileTo() }}
+              variant="primary"
+              className="w-100"
+            >
+              Add Shared File to Block
+            </b-button>
+          </div>
+          <div class="col-sm pr-0 pl-0">
+            <b-button on={{ click: () => EditSharedFilePaneModule.deleteSharedFile() }} variant="danger" class="w-100">
+              Delete Shared File
+            </b-button>
           </div>
         </div>
       </div>
