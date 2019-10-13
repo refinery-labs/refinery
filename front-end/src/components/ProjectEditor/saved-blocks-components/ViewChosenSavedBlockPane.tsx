@@ -8,14 +8,12 @@ import { ChosenBlock } from '@/types/add-block-types';
 import { SharedBlockPublishStatus } from '@/types/api-types';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { EditorProps, MarkdownProps } from '@/types/component-types';
-import { BlockEnvironmentVariable, LambdaWorkflowState, RefineryProject, WorkflowStateType } from '@/types/graph';
+import { LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
 import RefineryMarkdown from '@/components/Common/RefineryMarkdown';
 import { AddSavedBlockEnvironmentVariable } from '@/types/saved-blocks-types';
 import ViewSharedFileLinkPane, {
   ViewSharedFileLinkProps
 } from '@/components/ProjectEditor/shared-files-components/ViewSharedFilesList';
-import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
-import { namespace } from 'vuex-class';
 
 export interface ViewChosenSavedBlockPaneProps {
   chosenBlock: ChosenBlock;

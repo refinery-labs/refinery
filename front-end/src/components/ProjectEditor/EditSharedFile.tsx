@@ -4,11 +4,9 @@ import { namespace } from 'vuex-class';
 import { EditorProps } from '@/types/component-types';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
-import { SupportedLanguage, WorkflowFile } from '@/types/graph';
-import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
-import { languageToFileExtension } from '@/utils/project-debug-utils';
+import { WorkflowFile } from '@/types/graph';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
-import { SharedFilesPaneModule } from '@/store/modules/panes/shared-files';
+import { EditSharedFilePaneModule } from '@/store';
 
 const project = namespace('project');
 

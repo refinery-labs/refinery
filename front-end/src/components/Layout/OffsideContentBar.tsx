@@ -5,7 +5,8 @@ import { Route } from 'vue-router';
 import { UserInterfaceSettings } from '@/store/store-types';
 import { Action, Getter, Mutation, namespace } from 'vuex-class';
 import { ToastConfig } from '@/types/toasts-types';
-import { KeyboardEditorMode, keyboardMapToAceConfigMap, SettingsAppStoreModule } from '@/store/modules/settings-app';
+import { KeyboardEditorMode, keyboardMapToAceConfigMap } from '@/store/modules/settings-app';
+import { SettingsAppStoreModule } from '@/store';
 
 const toasts = namespace('toasts');
 

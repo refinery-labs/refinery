@@ -1,8 +1,7 @@
 import { Action, getModule, Module, Mutation, VuexModule } from 'vuex-module-decorators';
-import store from '@/store';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
-import { RootState } from '@/store/store-types';
+import { RootState, StoreType } from '@/store/store-types';
 import { autoRefreshJob, timeout } from '@/utils/async-utils';
 import { LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
 import { copyElementToDocumentBody, getFileFromElementByQuery, readFileAsText } from '@/utils/dom-utils';
@@ -13,7 +12,7 @@ import { RunCodeBlockLambdaConfig } from '@/types/run-lambda-types';
 import { RunLambdaActions } from '@/store/modules/run-lambda';
 import { OpenProjectMutation, SIDEBAR_PANE } from '@/types/project-editor-types';
 
-const storeName = 'blockLocalCodeSync';
+const storeName = StoreType.blockLocalCodeSync;
 
 export type BlockIdToJobId = { [key: string]: string };
 export type JobIdToJobState = { [key: string]: FileWatchJobState };
@@ -62,8 +61,8 @@ const initialState = deepJSONCopy(baseState);
 
 // We need to leave this as a "dynamic" module so that we can use the fancy `this` rebinding. Otherwise we have to use
 // The old school `context.commit` and `context.dispatch` style syntax.
-@Module({ namespaced: true, dynamic: true, store, name: storeName })
-class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncState>, RootState>
+@Module({ namespaced: true, name: storeName })
+export class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncState>, RootState>
   implements BlockLocalCodeSyncState {
   public blockIdToJobIdLookup: BlockIdToJobId = initialState.blockIdToJobIdLookup;
   public jobIdToJobStateLookup: JobIdToJobState = initialState.jobIdToJobStateLookup;
@@ -469,5 +468,3 @@ class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeSyncStat
     await timeout(200);
   }
 }
-
-export const BlockLocalCodeSyncStoreModule = getModule(BlockLocalCodeSyncStore);

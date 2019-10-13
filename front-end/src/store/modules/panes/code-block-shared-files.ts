@@ -1,18 +1,17 @@
 import { Action, getModule, Module, Mutation, VuexModule } from 'vuex-module-decorators';
-import { RootState } from '../../store-types';
+import { RootState, StoreType } from '../../store-types';
 import { deepJSONCopy } from '@/lib/general-utils';
-import store from '@/store';
 import { resetStoreState } from '@/utils/store-utils';
 import { LambdaWorkflowState, WorkflowFile, WorkflowFileLink, WorkflowRelationshipType } from '@/types/graph';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
-import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
-import { AddSharedFileLinkArguments, FileNodeMetadata, FileNodeMetadataTypes } from '@/types/shared-files';
+import { FileNodeMetadata, FileNodeMetadataTypes } from '@/types/shared-files';
 import { getSharedFileById, getSharedFilesForCodeBlock } from '@/utils/project-helpers';
 import { ISlTreeNodeModel } from 'sl-vue-tree';
 import { languageToFileExtension } from '@/utils/project-debug-utils';
+import { CodeBlockSharedFilesPaneModule, EditSharedFilePaneModule } from '@/store/store-accessor';
 
-const storeName = 'codeBlockSharedFiles';
+const storeName = StoreType.codeBlockSharedFiles;
 
 // Types
 export interface CodeBlockSharedFilesPaneState {
@@ -38,8 +37,8 @@ export function getFileNodeFromSharedFileId(sharedFile: WorkflowFile): ISlTreeNo
   };
 }
 
-@Module({ namespaced: true, dynamic: true, store, name: storeName })
-class CodeBlockSharedFilesPaneStore extends VuexModule<ThisType<CodeBlockSharedFilesPaneState>, RootState>
+@Module({ namespaced: true, name: storeName })
+export class CodeBlockSharedFilesPaneStore extends VuexModule<ThisType<CodeBlockSharedFilesPaneState>, RootState>
   implements CodeBlockSharedFilesPaneState {
   public codeBlock: LambdaWorkflowState | null = initialState.codeBlock;
 
@@ -185,5 +184,3 @@ class CodeBlockSharedFilesPaneStore extends VuexModule<ThisType<CodeBlockSharedF
     });
   }
 }
-
-export const CodeBlockSharedFilesPaneModule = getModule(CodeBlockSharedFilesPaneStore);

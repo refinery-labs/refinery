@@ -1,10 +1,8 @@
 import Component from 'vue-class-component';
 import Vue, { CreateElement, VNode } from 'vue';
-import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
 import { LambdaWorkflowState, RefineryProject, WorkflowFileLink } from '@/types/graph';
 import { namespace, Mutation } from 'vuex-class';
 import { deepJSONCopy } from '@/lib/general-utils';
-import { CodeBlockSharedFilesPaneModule } from '@/store/modules/panes/code-block-shared-files';
 import { languageToFileExtension } from '@/utils/project-debug-utils';
 import ViewSharedFileLinkPane, {
   ViewSharedFileLinkProps
@@ -14,6 +12,7 @@ import { AddSharedFileLinkArguments, FileNodeMetadata, FileNodeMetadataTypes } f
 
 import SlVueTree, { ISlTreeNodeModel } from 'sl-vue-tree';
 import 'sl-vue-tree/dist/sl-vue-tree-dark.css';
+import { CodeBlockSharedFilesPaneModule } from '@/store';
 
 const project = namespace('project');
 

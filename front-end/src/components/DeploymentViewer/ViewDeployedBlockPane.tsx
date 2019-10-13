@@ -5,8 +5,8 @@ import debounce from 'debounce';
 import { WorkflowState, WorkflowStateType } from '@/types/graph';
 import { blockTypeToEditorComponentLookup } from '@/constants/project-editor-constants';
 import { EditBlockPaneProps } from '@/types/component-types';
-import { SettingsAppStoreModule } from '@/store/modules/settings-app';
 import Resizer from '@/lib/Resizer';
+import { SettingsAppStoreModule } from '@/store';
 
 const viewBlock = namespace('viewBlock');
 

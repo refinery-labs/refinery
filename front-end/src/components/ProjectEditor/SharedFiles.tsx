@@ -2,12 +2,11 @@ import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import { RefineryProject, WorkflowFile } from '@/types/graph';
-import { SharedFilesPaneModule } from '@/store/modules/panes/shared-files';
-import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
 import ViewSharedFileLinkPane, {
   ViewSharedFileLinkProps
 } from '@/components/ProjectEditor/shared-files-components/ViewSharedFilesList';
 import { AddSharedFileArguments } from '@/types/shared-files';
+import { EditSharedFilePaneModule, SharedFilesPaneModule } from '@/store';
 
 const project = namespace('project');
 

@@ -1,22 +1,22 @@
 import Vue from 'vue';
-import Vuex from 'vuex';
+import Vuex, { Store } from 'vuex';
 import SettingPlugin from './plugins/setting';
-import SettingModule from './modules/setting';
-import UserModule from './modules/user';
+import ActionLoggerPlugin from '@/store/plugins/action-logger';
 import createPersistedState from 'vuex-persistedstate';
-import ProjectView from './modules/project-view';
-import AllProjects from './modules/all-projects';
+import ServerStateLoggerPlugin from '@/store/plugins/server-state-logger';
+import { initializeStores, storeModules } from '@/store/store-accessor';
 import { RootState } from '@/store/store-types';
-import ToastPaneModule from '@/store/modules/toasts';
+import SettingModule from '@/store/modules/setting';
 import DeploymentViewModule from '@/store/modules/deployment-view';
-import BillingPaneModule from '@/store/modules/billing';
-import RunLambdaModule from '@/store/modules/run-lambda';
+import DeploymentExecutionsPaneModule from '@/store/modules/panes/deployment-executions-pane';
 import ViewBlockPaneModule from '@/store/modules/panes/view-block-pane';
 import ViewTransitionPaneModule from '@/store/modules/panes/view-transition-pane';
-import DeploymentExecutionsPaneModule from '@/store/modules/panes/deployment-executions-pane';
-import ActionLoggerPlugin from '@/store/plugins/action-logger';
-import ServerStateLoggerPlugin from '@/store/plugins/server-state-logger';
-import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
+import ProjectView from '@/store/modules/project-view';
+import AllProjects from '@/store/modules/all-projects';
+import RunLambdaModule from '@/store/modules/run-lambda';
+import ToastPaneModule from '@/store/modules/toasts';
+import UserModule from '@/store/modules/user';
+import BillingPaneModule from '@/store/modules/billing';
 
 Vue.use(Vuex);
 
@@ -32,6 +32,8 @@ const persistedStorePaths = [
 ];
 
 const plugins = [
+  // This is called when the RootStore is mounted, which then initializes the rest of the stores.
+  (store: Store<any>) => initializeStores(store),
   // TODO: This is busted... Dang
   createPersistedState({
     paths: persistedStorePaths,
@@ -89,6 +91,23 @@ function isAppBusy(state: RootState) {
   return state.project.isDeployingProject;
 }
 
+export const basicModules = {
+  setting: SettingModule,
+  deployment: DeploymentViewModule,
+  deploymentExecutions: DeploymentExecutionsPaneModule,
+  viewBlock: ViewBlockPaneModule,
+  viewTransition: ViewTransitionPaneModule,
+  project: ProjectView,
+  allProjects: AllProjects,
+  runLambda: RunLambdaModule,
+  toasts: ToastPaneModule,
+  user: UserModule,
+  billing: BillingPaneModule
+};
+
+// Export the modules again for cleaner usage
+export * from '@/store/store-accessor';
+
 export default new Vuex.Store<RootState>({
   getters: {
     isUnsafeToNavigate,
@@ -97,17 +116,8 @@ export default new Vuex.Store<RootState>({
   mutations: {},
   actions: {},
   modules: {
-    setting: SettingModule,
-    deployment: DeploymentViewModule,
-    deploymentExecutions: DeploymentExecutionsPaneModule,
-    viewBlock: ViewBlockPaneModule,
-    viewTransition: ViewTransitionPaneModule,
-    project: ProjectView,
-    allProjects: AllProjects,
-    runLambda: RunLambdaModule,
-    toasts: ToastPaneModule,
-    user: UserModule,
-    billing: BillingPaneModule
+    ...basicModules,
+    ...storeModules
   },
   plugins,
   // Dev Only: Causes Vuex to get angry when mutations are done to it's state outside of a mutator

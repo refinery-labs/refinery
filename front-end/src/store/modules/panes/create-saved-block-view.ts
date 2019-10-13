@@ -1,8 +1,7 @@
 import { Action, getModule, Module, Mutation, VuexModule } from 'vuex-module-decorators';
-import store from '@/store/index';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
-import { RootState } from '@/store/store-types';
+import { RootState, StoreType } from '@/store/store-types';
 import {
   CreateSavedBlockRequest,
   CreateSavedBlockResponse,
@@ -18,7 +17,7 @@ import { inputDataExample } from '@/constants/saved-block-constants';
 import { createBlockDataForPublishedSavedBlock } from '@/utils/block-utils';
 import { getSharedFilesForCodeBlock } from '@/utils/project-helpers';
 
-const storeName = 'createSavedBlockView';
+const storeName = StoreType.createSavedBlockView;
 
 export interface CreateSavedBlockViewState {
   nameInput: string | null;
@@ -56,8 +55,8 @@ function isNotEmptyStringButPreserveNull(str: string | null) {
 // Must copy so that we can not thrash the pointers...
 const initialState = deepJSONCopy(baseState);
 
-@Module({ namespaced: true, dynamic: true, store, name: storeName })
-class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockViewState>, RootState>
+@Module({ namespaced: true, name: storeName })
+export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockViewState>, RootState>
   implements CreateSavedBlockViewState {
   public nameInput = initialState.nameInput;
   public existingBlockMetadata = initialState.existingBlockMetadata;
@@ -253,5 +252,3 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
     this.resetState();
   }
 }
-
-export const CreateSavedBlockViewStoreModule = getModule(CreateSavedBlockViewStore);

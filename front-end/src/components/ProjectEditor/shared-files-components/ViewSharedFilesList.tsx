@@ -1,11 +1,9 @@
 import Component from 'vue-class-component';
 import Vue, { CreateElement, VNode } from 'vue';
-import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
-import { EditSharedFileLinksPaneModule } from '@/store/modules/panes/edit-shared-file-links';
-import { SharedFilesPaneModule } from '@/store/modules/panes/shared-files';
 import { RefineryProject, WorkflowFile } from '@/types/graph';
 import { namespace } from 'vuex-class';
 import { Prop } from 'vue-property-decorator';
+import { SharedFilesPaneModule } from '@/store';
 
 const project = namespace('project');
 
