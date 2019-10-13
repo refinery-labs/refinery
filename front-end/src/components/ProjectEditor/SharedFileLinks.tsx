@@ -109,7 +109,7 @@ export default class EditSharedFileLinksPane extends Vue {
         {this.getSharedFileLinksTitleText()}
 
         <div class="flex-grow--1 scrollable-pane-container shared-file-links-well">
-          <b-list-group className="shared-file-link-container">{this.getSharedFileLinks()}</b-list-group>
+          <b-list-group class="shared-file-link-container">{this.getSharedFileLinks()}</b-list-group>
         </div>
 
         <div class="container">
