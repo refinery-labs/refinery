@@ -1,7 +1,6 @@
 import Component from 'vue-class-component';
 import Vue, { CreateElement, VNode } from 'vue';
-import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
-import { EditSharedFileLinksPaneModule } from '@/store/modules/panes/edit-shared-file-links';
+import { EditSharedFilePaneModule } from '@/store';
 
 @Component
 export default class AddingSharedFileLinkPane extends Vue {

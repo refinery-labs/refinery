@@ -1,6 +1,6 @@
 import { Module } from 'vuex';
 import uuid from 'uuid/v4';
-import { RootState, WebsocketState } from '../store-types';
+import { RootState } from '../store-types';
 import {
   LambdaDebuggingWebsocketActions,
   LambdaDebuggingWebsocketMessage,

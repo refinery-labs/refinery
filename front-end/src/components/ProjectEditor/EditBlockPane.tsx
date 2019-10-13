@@ -9,8 +9,8 @@ import { SavedBlockStatusCheckResult } from '@/types/api-types';
 import CreateSavedBlockViewContainer, {
   CreateSavedBlockViewContainerProps
 } from '@/components/ProjectEditor/saved-blocks-components/CreateSavedBlockViewContainer';
-import { SettingsAppStoreModule } from '@/store/modules/settings-app';
 import Resizer from '@/lib/Resizer';
+import { SettingsAppStoreModule } from '@/store';
 
 const editBlock = namespace('project/editBlockPane');
 

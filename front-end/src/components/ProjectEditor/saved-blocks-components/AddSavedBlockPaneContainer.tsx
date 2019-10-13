@@ -1,6 +1,5 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
-import { AddSavedBlockPaneStoreModule } from '@/store/modules/panes/add-saved-block-pane';
 import AddSavedBlockPane, {
   AddSavedBlockPaneProps
 } from '@/components/ProjectEditor/saved-blocks-components/AddSavedBlockPane';
@@ -8,6 +7,7 @@ import ViewChosenSavedBlockPane, {
   ViewChosenSavedBlockPaneProps
 } from '@/components/ProjectEditor/saved-blocks-components/ViewChosenSavedBlockPane';
 import { ChosenBlock } from '@/types/add-block-types';
+import { AddSavedBlockPaneStoreModule } from '@/store';
 
 @Component
 export default class AddSavedBlockPaneContainer extends Vue {

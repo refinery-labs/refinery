@@ -1,8 +1,7 @@
-import { Action, getModule, Module, Mutation, VuexModule } from 'vuex-module-decorators';
-import store from '@/store/index';
+import { Action, Module, Mutation, VuexModule } from 'vuex-module-decorators';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
-import { RootState } from '@/store/store-types';
+import { RootState, StoreType } from '@/store/store-types';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { LibraryBuildArguments, searchSavedBlocks, startLibraryBuild } from '@/store/fetchers/api-helpers';
@@ -12,7 +11,7 @@ import { BlockEnvironmentVariable, LambdaWorkflowState, WorkflowStateType } from
 import { AddSavedBlockEnvironmentVariable } from '@/types/saved-blocks-types';
 import { addSharedFilesToProject, linkSharedFilesToCodeBlock, safelyDuplicateBlock } from '@/utils/block-utils';
 
-const storeName = 'addSavedBlockPane';
+const storeName = StoreType.addSavedBlockPane;
 
 export interface AddSavedBlockPaneState {
   isBusySearching: boolean;
@@ -49,8 +48,8 @@ export const baseState: AddSavedBlockPaneState = {
 // Must copy so that we can not thrash the pointers...
 const initialState = deepJSONCopy(baseState);
 
-@Module({ namespaced: true, dynamic: true, store, name: storeName })
-class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>, RootState>
+@Module({ namespaced: true, name: storeName })
+export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>, RootState>
   implements AddSavedBlockPaneState {
   public isBusySearching: boolean = initialState.isBusySearching;
 
@@ -149,7 +148,7 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
 
   @Action
   public async searchSavedBlocks() {
-    AddSavedBlockPaneStoreModule.setIsBusySearching(true);
+    this.setIsBusySearching(true);
 
     const privateSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.PRIVATE);
     const publicSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.PUBLISHED);
@@ -177,7 +176,7 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
 
     this.setSearchResultsPublished(filteredPublicResults);
 
-    AddSavedBlockPaneStoreModule.setIsBusySearching(false);
+    this.setIsBusySearching(false);
   }
 
   @Action
@@ -285,5 +284,3 @@ class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPaneState>
     this.resetState();
   }
 }
-
-export const AddSavedBlockPaneStoreModule = getModule(AddSavedBlockPaneStore);

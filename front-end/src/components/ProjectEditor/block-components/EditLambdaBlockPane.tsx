@@ -17,15 +17,12 @@ import RunDeployedCodeBlockContainer from '@/components/DeploymentViewer/RunDepl
 import { nopWrite } from '@/utils/block-utils';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { EditBlockPaneProps, EditorProps, LoadingContainerProps } from '@/types/component-types';
-import { deepJSONCopy } from '@/lib/general-utils';
-import { LibraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-helpers';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
 import {
   EditEnvironmentVariablesWrapper,
   EditEnvironmentVariablesWrapperProps
 } from '@/components/ProjectEditor/block-components/EditEnvironmentVariablesWrapper';
-import { CreateSavedBlockViewStoreModule } from '@/store/modules/panes/create-saved-block-view';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
 import Split from '@/components/Common/Split.vue';
 import SplitArea from '@/components/Common/SplitArea.vue';
@@ -35,8 +32,12 @@ import {
   EditBlockLayersWrapperProps
 } from '@/components/ProjectEditor/block-components/EditBlockLayersWrapper';
 import { languageToFileExtension } from '@/utils/project-debug-utils';
-import { BlockLocalCodeSyncStoreModule, syncFileIdPrefix } from '@/store/modules/panes/block-local-code-sync';
-import { CodeBlockSharedFilesPaneModule } from '@/store/modules/panes/code-block-shared-files';
+import {
+  BlockLocalCodeSyncStoreModule,
+  CodeBlockSharedFilesPaneModule,
+  CreateSavedBlockViewStoreModule
+} from '@/store';
+import { syncFileIdPrefix } from '@/store/modules/panes/block-local-code-sync';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');

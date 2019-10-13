@@ -78,7 +78,6 @@ import { createNewBlock, createNewTransition } from '@/utils/block-utils';
 import { saveEditBlockToProject } from '@/utils/store-utils';
 import ImportableRefineryProject from '@/types/export-project';
 import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
-import store from '@/store';
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shared-files';
 
@@ -569,6 +568,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       const params: OpenProjectMutation = {
         project: {
+          // Default values in the event these are not specified in the imported JSON
+          workflow_files: [],
+          workflow_file_links: [],
+
+          // Merge in the JSON object and setup other properties with new values
           ...demoProject,
           project_id: uuid(),
           version: 1
@@ -1777,7 +1781,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     async [ProjectViewActions.generateShareUrl](context) {
       if (!context.rootState.user.authenticated) {
         // Check the current authentication status before deciding which URL to export.
-        await store.dispatch(`user/${UserActions.fetchAuthenticationState}`, null, { root: true });
+        await context.dispatch(`user/${UserActions.fetchAuthenticationState}`, null, { root: true });
 
         // If we're double sure we're not authenticated... Bail out.
         if (!context.rootState.user.authenticated) {

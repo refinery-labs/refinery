@@ -1,10 +1,9 @@
 import { Module } from 'vuex';
 import validator from 'validator';
-import phone from 'phone';
 import uuid from 'uuid/v4';
 import router from '../../router';
 import { RootState, UserState } from '@/store/store-types';
-import { ProjectViewMutators, UserActions, UserMutators } from '@/constants/store-constants';
+import { UserActions, UserMutators } from '@/constants/store-constants';
 import {
   GetAuthenticationStatusResponse,
   LoginRequest,
@@ -18,7 +17,6 @@ import { API_ENDPOINT } from '@/constants/api-constants';
 import { autoRefreshJob, timeout, waitUntil } from '@/utils/async-utils';
 import { LOGIN_STATUS_CHECK_INTERVAL, MAX_LOGIN_CHECK_ATTEMPTS } from '@/constants/user-constants';
 import { checkLoginStatus } from '@/store/fetchers/api-helpers';
-import store from '@/store';
 
 const nameRegex = /^(\D{1,32} ?)+\D{1,32}$/;
 
@@ -169,7 +167,7 @@ const UserModule: Module<UserState, RootState> = {
 
       // Close the demo modal so that the user can continue + save the project.
       if (context.rootState.project.isInDemoMode) {
-        store.commit(`unauthViewProject/setShowSignupModal`, false);
+        context.commit(`unauthViewProject/setShowSignupModal`, false);
         await context.dispatch(`unauthViewProject/promptDemoModeSignup`, true, { root: true });
         return;
       }

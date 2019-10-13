@@ -1,10 +1,9 @@
-import { Action, getModule, Module, Mutation, VuexModule } from 'vuex-module-decorators';
-import { RootState } from '../../store-types';
+import { Action, Module, Mutation, VuexModule } from 'vuex-module-decorators';
+import { RootState, StoreType } from '../../store-types';
 import { deepJSONCopy } from '@/lib/general-utils';
-import store from '@/store';
 import { resetStoreState } from '@/utils/store-utils';
 
-const storeName = 'sharedFiles';
+const storeName = StoreType.sharedFiles;
 
 // Types
 export interface SharedFilesPaneState {
@@ -36,8 +35,8 @@ export function isSharedFileNameValid(fileName: string) {
   return true;
 }
 
-@Module({ namespaced: true, dynamic: true, store, name: storeName })
-class SharedFilesPaneStore extends VuexModule<ThisType<SharedFilesPaneState>, RootState>
+@Module({ namespaced: true, name: storeName })
+export class SharedFilesPaneStore extends VuexModule<ThisType<SharedFilesPaneState>, RootState>
   implements SharedFilesPaneState {
   public addSharedFileName: string = initialState.addSharedFileName;
   public newSharedFilenameIsValid: boolean | null = initialState.newSharedFilenameIsValid;
@@ -64,5 +63,3 @@ class SharedFilesPaneStore extends VuexModule<ThisType<SharedFilesPaneState>, Ro
     this.resetState();
   }
 }
-
-export const SharedFilesPaneModule = getModule(SharedFilesPaneStore);

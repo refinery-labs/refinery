@@ -1,19 +1,9 @@
 import Component from 'vue-class-component';
 import Vue, { CreateElement, VNode } from 'vue';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
-import { EditSharedFilePaneModule } from '@/store/modules/panes/edit-shared-file';
-import { EditSharedFileLinksPaneModule } from '@/store/modules/panes/edit-shared-file-links';
-import { availableBlocks, blockTypeToImageLookup } from '@/constants/project-editor-constants';
-import {
-  LambdaWorkflowState,
-  ProjectConfig,
-  RefineryProject,
-  WorkflowFile,
-  WorkflowFileLink,
-  WorkflowState
-} from '@/types/graph';
+import { LambdaWorkflowState, RefineryProject, WorkflowFileLink } from '@/types/graph';
 import { namespace } from 'vuex-class';
-import { deepJSONCopy } from '@/lib/general-utils';
+import { EditSharedFilePaneModule } from '@/store';
 
 const project = namespace('project');
 

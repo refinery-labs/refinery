@@ -3,10 +3,9 @@ import Component, { mixins } from 'vue-class-component';
 import { namespace, State } from 'vuex-class';
 import ImportableRefineryProject from '@/types/export-project';
 import { Route } from 'vue-router';
-import store from '@/store';
+import store, { UnauthViewProjectStoreModule } from '@/store';
 import { DeploymentViewMutators, ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
 import OpenedProjectOverview from '@/views/ProjectsNestedViews/OpenedProjectOverview';
-import { UnauthViewProjectStoreModule } from '@/store/modules/unauth-view-project';
 import SignupModal, { SignupModalProps } from '@/components/Demo/SignupModal';
 import CreateToastMixin from '@/mixins/CreateToastMixin';
 

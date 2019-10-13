@@ -1,7 +1,6 @@
 import { Action, getModule, Module, Mutation, VuexModule } from 'vuex-module-decorators';
-import { RootState } from '../../store-types';
+import { RootState, StoreType } from '../../store-types';
 import { deepJSONCopy } from '@/lib/general-utils';
-import store from '@/store';
 import { resetStoreState } from '@/utils/store-utils';
 import { LambdaWorkflowState, SupportedLanguage, WorkflowFile } from '@/types/graph';
 import { ProjectViewActions } from '@/constants/store-constants';
@@ -10,7 +9,7 @@ import { languageToFileExtension } from '@/utils/project-debug-utils';
 import { isSharedFileNameValid } from '@/store/modules/panes/shared-files';
 import { getLanguageFromFileExtension } from '@/utils/editor-utils';
 
-const storeName = 'editSharedFile';
+const storeName = StoreType.editSharedFile;
 
 // Types
 export interface EditSharedFilePaneState {
@@ -32,8 +31,8 @@ const moduleState: EditSharedFilePaneState = {
 
 const initialState = deepJSONCopy(moduleState);
 
-@Module({ namespaced: true, dynamic: true, store, name: storeName })
-class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneState>, RootState>
+@Module({ namespaced: true, name: storeName })
+export class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneState>, RootState>
   implements EditSharedFilePaneState {
   public fileName: string = initialState.fileName;
   public sharedFile: WorkflowFile | null = initialState.sharedFile;
@@ -195,5 +194,3 @@ class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFilePaneStat
     return SupportedLanguage.NODEJS_10;
   }
 }
-
-export const EditSharedFilePaneModule = getModule(EditSharedFilePaneStore);

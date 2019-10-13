@@ -4,6 +4,6 @@ export default interface ImportableRefineryProject {
   name: string;
   workflow_states: WorkflowState[];
   workflow_relationships: WorkflowRelationship[];
-  workflow_files: WorkflowFile[];
-  workflow_file_links: WorkflowFileLink[];
+  workflow_files?: WorkflowFile[];
+  workflow_file_links?: WorkflowFileLink[];
 }
