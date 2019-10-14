@@ -89,7 +89,8 @@ export const paneTypeToNameLookup: EditorPaneTypeToName = {
   [SIDEBAR_PANE.editSharedFile]: 'Edit Shared File',
   [SIDEBAR_PANE.editSharedFileLinks]: 'Edit Shared File Link(s)',
   [SIDEBAR_PANE.addingSharedFileLink]: 'Link Shared File to Code Block',
-  [SIDEBAR_PANE.codeBlockSharedFiles]: 'Code Block Shared File(s)'
+  [SIDEBAR_PANE.codeBlockSharedFiles]: 'Code Block Shared File(s)',
+  [SIDEBAR_PANE.viewSharedFile]: 'Shared File Contents'
 };
 
 export const paneTypeToWindowNameLookup: EditorPaneTypeToName = {

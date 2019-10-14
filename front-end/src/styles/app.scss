@@ -801,3 +801,7 @@ a.disabled {
 .shared-file-links-well {
   max-height: 300px;
 }
+
+.view-shared-file-pane {
+  width: calc((100vw - 400px) / 2);
+}

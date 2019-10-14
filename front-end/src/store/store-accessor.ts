@@ -17,6 +17,7 @@ import { BlockLayersStore } from '@/store/modules/panes/block-layers-pane';
 import { BlockLocalCodeSyncStore } from '@/store/modules/panes/block-local-code-sync';
 import { RootState, StoreType } from '@/store/store-types';
 import { UnauthViewProjectStore } from '@/store/modules/unauth-view-project';
+import { ViewSharedFilePaneStore } from '@/store/modules/panes/view-shared-file';
 
 declare type ConstructorOf<C> = {
   new (...args: any[]): C;
@@ -38,6 +39,7 @@ export const storeModules: { [key in StoreType]: ConstructorOf<VuexModule> & Mod
   codeBlockSharedFiles: CodeBlockSharedFilesPaneStore,
   createSavedBlockView: CreateSavedBlockViewStore,
   editSharedFile: EditSharedFilePaneStore,
+  viewSharedFile: ViewSharedFilePaneStore,
   environmentVariablesEditor: EnvironmentVariablesEditorStore,
   settingsApp: SettingsAppStore,
   sharedFiles: SharedFilesPaneStore,
@@ -50,6 +52,7 @@ export let BlockLocalCodeSyncStoreModule: BlockLocalCodeSyncStore;
 export let CodeBlockSharedFilesPaneModule: CodeBlockSharedFilesPaneStore;
 export let CreateSavedBlockViewStoreModule: CreateSavedBlockViewStore;
 export let EditSharedFilePaneModule: EditSharedFilePaneStore;
+export let ViewSharedFilePaneModule: ViewSharedFilePaneStore;
 export let EnvironmentVariablesEditorModule: EnvironmentVariablesEditorStore;
 export let SettingsAppStoreModule: SettingsAppStore;
 export let SharedFilesPaneModule: SharedFilesPaneStore;
@@ -64,6 +67,7 @@ export function initializeStores(store: Store<any>): void {
   CodeBlockSharedFilesPaneModule = getModule(CodeBlockSharedFilesPaneStore, store);
   CreateSavedBlockViewStoreModule = getModule(CreateSavedBlockViewStore, store);
   EditSharedFilePaneModule = getModule(EditSharedFilePaneStore, store);
+  ViewSharedFilePaneModule = getModule(ViewSharedFilePaneStore, store);
   EnvironmentVariablesEditorModule = getModule(EnvironmentVariablesEditorStore, store);
   SettingsAppStoreModule = getModule(SettingsAppStore, store);
   SharedFilesPaneModule = getModule(SharedFilesPaneStore, store);

@@ -21,6 +21,7 @@ export enum SIDEBAR_PANE {
   editSharedFileLinks = 'editSharedFileLinks',
   addingSharedFileLink = 'addingSharedFileLink',
   codeBlockSharedFiles = 'codeBlockSharedFiles',
+  viewSharedFile = 'viewSharedFile',
 
   // Deployment Viewer
   viewApiEndpoints = 'viewApiEndpoints',

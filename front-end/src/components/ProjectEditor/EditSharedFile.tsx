@@ -20,7 +20,7 @@ export default class EditSharedFilePane extends Vue {
     }
 
     const editorProps: EditorProps = {
-      name: `shared-file-editor-REPLACEME`,
+      name: 'Shared File Editor',
       lang: EditSharedFilePaneModule.getFileLanguage,
       readOnly: false,
       content: EditSharedFilePaneModule.sharedFile ? EditSharedFilePaneModule.sharedFile.body : '',
@@ -42,11 +42,6 @@ export default class EditSharedFilePane extends Vue {
           <label class="d-block flex-grow--1 pt-2" htmlFor={`code-editor-REPLACEME`}>
             Edit Shared File:
           </label>
-          <div class="flex-grow display--flex mb-1">
-            <BlockDocumentationButton
-              props={{ docLink: 'https://docs.refinery.io/blocks/#code-block', offsetButton: false }}
-            />
-          </div>
         </div>
         <div class="input-group with-focus shared-file-editor">{this.renderCodeEditor()}</div>
       </b-form-group>

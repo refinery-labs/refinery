@@ -28,6 +28,7 @@ import { ProjectCardStateLookup } from '@/types/all-project-types';
 import { SharedFilesPaneState } from '@/store/modules/panes/shared-files';
 import { EditSharedFilePaneState } from '@/store/modules/panes/edit-shared-file';
 import { CodeBlockSharedFilesPaneState } from '@/store/modules/panes/code-block-shared-files';
+import { ViewSharedFilePaneState } from '@/store/modules/panes/view-shared-file';
 
 export enum StoreType {
   addSavedBlockPane = 'addSavedBlockPane',
@@ -48,6 +49,7 @@ export enum StoreType {
   // billing = 'billing',
   sharedFiles = 'sharedFiles',
   editSharedFile = 'editSharedFile',
+  viewSharedFile = 'viewSharedFile',
   codeBlockSharedFiles = 'codeBlockSharedFiles',
   unauthViewProject = 'unauthViewProject'
 }
@@ -71,6 +73,7 @@ export interface RootState {
   billing: BillingPaneState;
   sharedFiles: SharedFilesPaneState;
   editSharedFile: EditSharedFilePaneState;
+  viewSharedFile: ViewSharedFilePaneState;
   codeBlockSharedFiles: CodeBlockSharedFilesPaneState;
 }
 

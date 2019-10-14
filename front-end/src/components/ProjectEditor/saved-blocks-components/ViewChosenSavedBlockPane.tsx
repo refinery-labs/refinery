@@ -8,12 +8,13 @@ import { ChosenBlock } from '@/types/add-block-types';
 import { SharedBlockPublishStatus } from '@/types/api-types';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { EditorProps, MarkdownProps } from '@/types/component-types';
-import { LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
+import { LambdaWorkflowState, WorkflowFile, WorkflowStateType } from '@/types/graph';
 import RefineryMarkdown from '@/components/Common/RefineryMarkdown';
 import { AddSavedBlockEnvironmentVariable } from '@/types/saved-blocks-types';
 import ViewSharedFileLinkPane, {
   ViewSharedFileLinkProps
 } from '@/components/ProjectEditor/shared-files-components/ViewSharedFilesList';
+import { ViewSharedFilePaneModule } from '@/store';
 
 export interface ViewChosenSavedBlockPaneProps {
   chosenBlock: ChosenBlock;
@@ -157,7 +158,7 @@ export default class ViewChosenSavedBlockPane extends Vue implements ViewChosenS
     }
 
     const viewSharedFileLinkPaneProps: ViewSharedFileLinkProps = {
-      sharedFileClickHandler: () => {},
+      sharedFileClickHandler: ViewSharedFilePaneModule.viewSharedFile,
       sharedFilesText: 'Block Shared Files (click to view): ',
       sharedFilesArray: this.chosenBlock.block.shared_files
     };

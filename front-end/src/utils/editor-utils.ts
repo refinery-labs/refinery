@@ -13,3 +13,19 @@ export function getLanguageFromFileExtension(fileExtension: string): SupportedLa
 
   return SupportedLanguage.NODEJS_10;
 }
+
+export function getLanguageFromFileName(fileName: string): SupportedLanguage {
+  const languageFileExtensions = Object.values(languageToFileExtension).map(extension => {
+    return '.' + extension;
+  });
+
+  const matchingFileExtensions = languageFileExtensions.filter(fileExtension => {
+    return fileName.toLowerCase().endsWith(fileExtension);
+  });
+
+  if (matchingFileExtensions.length > 0) {
+    return getLanguageFromFileExtension(matchingFileExtensions[0]);
+  }
+
+  return SupportedLanguage.NODEJS_10;
+}

@@ -135,7 +135,8 @@ const moduleState: ProjectViewState = {
     [SIDEBAR_PANE.editSharedFile]: {},
     [SIDEBAR_PANE.editSharedFileLinks]: {},
     [SIDEBAR_PANE.addingSharedFileLink]: {},
-    [SIDEBAR_PANE.codeBlockSharedFiles]: {}
+    [SIDEBAR_PANE.codeBlockSharedFiles]: {},
+    [SIDEBAR_PANE.viewSharedFile]: {}
   },
   activeLeftSidebarPane: null,
   activeRightSidebarPane: null,
