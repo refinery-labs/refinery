@@ -28,6 +28,7 @@ export default class ViewSharedFilePane extends Vue {
       <b-form-group
         id={`shared-file-editor-group`}
         description="This is a shared file from the saved block, if you add this block to your project the shared files will be added as well."
+        class="mb-0 pb-2"
       >
         <div class="input-group with-focus shared-file-editor">{this.renderCodeEditor()}</div>
       </b-form-group>
