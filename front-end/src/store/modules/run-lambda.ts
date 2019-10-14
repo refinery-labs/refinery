@@ -24,6 +24,7 @@ import { DeploymentViewGetters } from '@/constants/store-constants';
 import Vue from 'vue';
 import { getLambdaResultFromWebsocketMessage, parseLambdaWebsocketMessage } from '@/utils/websocket-utils';
 import { getSharedFilesForCodeBlock } from '@/utils/project-helpers';
+import { getBackpackValueOrDefault } from '@/utils/project-execution-utils';
 
 export interface InputDataCache {
   [key: string]: string;
@@ -37,10 +38,12 @@ export enum RunLambdaMutators {
 
   setDeployedLambdaRunResult = 'setDeployedLambdaRunResult',
   setDeployedLambdaInputDataCacheEntry = 'setDeployedLambdaInputDataCacheEntry',
+  setDeployedLambdaBackpackDataCacheEntry = 'setDeployedLambdaBackpackDataCacheEntry',
 
   setDevLambdaRunResult = 'setDevLambdaRunResult',
   setDevLambdaRunResultId = 'setDevLambdaRunResultId',
   setDevLambdaInputDataCacheEntry = 'setDevLambdaInputDataCacheEntry',
+  setDevLambdaBackpackDataCacheEntry = 'setDevLambdaBackpackDataCacheEntry',
   setLoadingText = 'setLoadingText',
   setRunLambdaDebugId = 'setRunLambdaDebugId',
 
@@ -60,7 +63,9 @@ export enum RunLambdaActions {
   makeDevLambdaRequest = 'makeDevLambdaRequest',
   runLambdaCode = 'runLambdaCode',
   changeDeployedLambdaInputData = 'changeDeployedLambdaInputData',
+  changeDeployedLambdaBackpackData = 'changeDeployedLambdaBackpackData',
   changeDevLambdaInputData = 'changeDevLambdaInputData',
+  changeDevLambdaBackpackData = 'changeDevLambdaBackpackData',
   WebsocketSubscribeToDebugID = 'WebsocketSubscribeToDebugID'
 }
 
@@ -71,11 +76,13 @@ export interface RunLambdaState {
 
   deployedLambdaResult: RunLambdaResult | null;
   deployedLambdaInputDataCache: InputDataCache;
+  deployedLambdaBackpackDataCache: InputDataCache;
 
   devLambdaResult: RunLambdaResult | null;
   // ID of the last lambda run
   devLambdaResultId: string | null;
   devLambdaInputDataCache: InputDataCache;
+  devLambdaBackpackDataCache: InputDataCache;
 
   // Text to display while Lambda is being run
   loadingText: string;
@@ -107,6 +114,7 @@ const moduleState: RunLambdaState = {
 
   deployedLambdaResult: null,
   deployedLambdaInputDataCache: {},
+  deployedLambdaBackpackDataCache: {},
 
   devLambdaResult: null,
   /**
@@ -114,6 +122,7 @@ const moduleState: RunLambdaState = {
    */
   devLambdaResultId: null,
   devLambdaInputDataCache: {},
+  devLambdaBackpackDataCache: {},
 
   loadingText: 'Running Code Block...',
 
@@ -174,7 +183,23 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         }
       }
 
-      return '';
+      return '{}';
+    },
+    getDeployedLambdaBackpackData: (state, getters, rootState) => (id: string) => {
+      if (state.deployedLambdaBackpackDataCache[id]) {
+        return state.deployedLambdaBackpackDataCache[id];
+      }
+
+      const viewBlockState = rootState.viewBlock;
+
+      if (viewBlockState.selectedNode && viewBlockState.selectedNode.type === WorkflowStateType.LAMBDA) {
+        const lambdaBlock = viewBlockState.selectedNode as LambdaWorkflowState;
+        if (lambdaBlock.saved_backpack_data !== undefined) {
+          return lambdaBlock.saved_backpack_data;
+        }
+      }
+
+      return '{}';
     },
     getDevLambdaInputData: (state, getters, rootState) => (id: string) => {
       if (state.devLambdaInputDataCache[id]) {
@@ -195,7 +220,28 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         }
       }
 
-      return '';
+      return '{}';
+    },
+    getDevLambdaBackpackData: (state, getters, rootState) => (id: string) => {
+      if (state.devLambdaBackpackDataCache[id]) {
+        return state.devLambdaBackpackDataCache[id];
+      }
+
+      const projectState = rootState.project;
+      // This will never happen...
+      if (!projectState.editBlockPane) {
+        return null;
+      }
+
+      const editBlockPaneState = projectState.editBlockPane;
+      if (editBlockPaneState.selectedNode && editBlockPaneState.selectedNode.type === WorkflowStateType.LAMBDA) {
+        const lambdaBlock = editBlockPaneState.selectedNode as LambdaWorkflowState;
+        if (lambdaBlock.saved_backpack_data !== undefined) {
+          return lambdaBlock.saved_backpack_data;
+        }
+      }
+
+      return '{}';
     }
   },
   mutations: {
@@ -220,6 +266,12 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         [id]: value
       };
     },
+    [RunLambdaMutators.setDeployedLambdaBackpackDataCacheEntry](state, [id, value]: [string, string]) {
+      state.deployedLambdaBackpackDataCache = {
+        ...state.deployedLambdaBackpackDataCache,
+        [id]: value
+      };
+    },
 
     [RunLambdaMutators.setDevLambdaRunResult](state, response) {
       state.devLambdaResult = response;
@@ -230,6 +282,12 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
     [RunLambdaMutators.setDevLambdaInputDataCacheEntry](state, [id, value]: [string, string]) {
       state.devLambdaInputDataCache = {
         ...state.devLambdaInputDataCache,
+        [id]: value
+      };
+    },
+    [RunLambdaMutators.setDevLambdaBackpackDataCacheEntry](state, [id, value]: [string, string]) {
+      state.devLambdaBackpackDataCache = {
+        ...state.devLambdaBackpackDataCache,
         [id]: value
       };
     },
@@ -288,7 +346,13 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         return;
       }
 
-      const inputData = context.state.deployedLambdaInputDataCache[block.id] || block.saved_input_data;
+      const inputDataCacheValue = context.state.deployedLambdaInputDataCache[block.id];
+
+      const inputData = inputDataCacheValue !== undefined ? inputDataCacheValue : block.saved_input_data;
+      const backpackData = getBackpackValueOrDefault(
+        context.state.deployedLambdaBackpackDataCache[block.id],
+        block.saved_backpack_data
+      );
 
       // Set that we're running a prod Lambda
       context.commit(RunLambdaMutators.setRunningLambdaType, RunningLambdaType.Production);
@@ -304,6 +368,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
 
       const request: RunLambdaRequest = {
         input_data: inputData === undefined || inputData === null ? '' : inputData,
+        backpack: backpackData,
         arn: block.arn,
         execution_id: uuid(),
         debug_id: debugId
@@ -327,9 +392,26 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         request
       );
 
-      if (!runLambdaResult || !runLambdaResult.success || !runLambdaResult.result) {
+      if (!runLambdaResult) {
         context.commit(RunLambdaMutators.setLambdaRunningStatus, false);
         console.error('Unable to run code, server responded with failure');
+        return;
+      }
+
+      if (!runLambdaResult.success) {
+        // Create a fake response data structure so that the UI will display a nice error.
+        const response: RunLambdaResult = {
+          returned_data: '"Check execution output for failure reason"',
+          logs: `Server Error: ${runLambdaResult.failure_msg || 'Unknown'}`,
+          version: '1',
+          status_code: 500,
+          is_error: true,
+          truncated: false,
+          arn: request.arn
+        };
+
+        context.commit(RunLambdaMutators.setLambdaRunningStatus, false);
+        context.commit(RunLambdaMutators.setDeployedLambdaRunResult, response);
         return;
       }
 
@@ -372,7 +454,13 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         [] as RunTmpLambdaEnvironmentVariable[]
       );
 
-      const inputData = context.state.devLambdaInputDataCache[block.id] || config.codeBlock.saved_input_data;
+      const inputDataCacheValue = context.state.devLambdaInputDataCache[block.id];
+
+      const inputData = inputDataCacheValue !== undefined ? inputDataCacheValue : config.codeBlock.saved_input_data;
+      const backpackData = getBackpackValueOrDefault(
+        context.state.devLambdaBackpackDataCache[block.id],
+        config.codeBlock.saved_backpack_data
+      );
 
       // Set that we're running a prod Lambda
       context.commit(RunLambdaMutators.setRunningLambdaType, RunningLambdaType.Development);
@@ -393,6 +481,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         environment_variables: runLambdaEnvironmentVariables,
         input_data: inputData === undefined || inputData === null ? '' : inputData,
         shared_files: sharedFiles,
+        backpack: backpackData,
         code: block.code,
         language: block.language,
         layers: block.layers,
@@ -495,8 +584,14 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
     async [RunLambdaActions.changeDevLambdaInputData](context, [id, inputData]: [string, string]) {
       context.commit(RunLambdaMutators.setDevLambdaInputDataCacheEntry, [id, inputData]);
     },
+    async [RunLambdaActions.changeDevLambdaBackpackData](context, [id, backpackData]: [string, string]) {
+      context.commit(RunLambdaMutators.setDevLambdaBackpackDataCacheEntry, [id, backpackData]);
+    },
     async [RunLambdaActions.changeDeployedLambdaInputData](context, [id, inputData]: [string, string]) {
       context.commit(RunLambdaMutators.setDeployedLambdaInputDataCacheEntry, [id, inputData]);
+    },
+    async [RunLambdaActions.changeDeployedLambdaBackpackData](context, [id, backpackData]: [string, string]) {
+      context.commit(RunLambdaMutators.setDeployedLambdaBackpackDataCacheEntry, [id, backpackData]);
     },
     [RunLambdaActions.WebsocketSubscribeToDebugID](context, debug_id: string) {
       Vue.prototype.$socket.send(

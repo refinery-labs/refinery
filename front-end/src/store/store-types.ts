@@ -56,6 +56,7 @@ export enum StoreType {
 
 export interface RootState {
   addSavedBlockPane: AddSavedBlockPaneState;
+  billing: BillingPaneState;
   blockLayers: BlockLayersState;
   blockLocalCodeSync: BlockLocalCodeSyncState;
   createSavedBlockView: CreateSavedBlockViewState;
@@ -67,6 +68,7 @@ export interface RootState {
   project: ProjectViewState;
   allProjects: AllProjectsState;
   runLambda: RunLambdaState;
+  // saveProjectPane: SaveProjectPaneState;
   settingsApp: SettingsAppState;
   toasts: ToastPaneState;
   user: UserState;

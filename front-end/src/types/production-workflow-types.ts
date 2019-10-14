@@ -47,6 +47,7 @@ export interface ProductionLambdaWorkflowState extends ProductionWorkflowState {
   memory: number;
   max_execution_time: number;
   saved_input_data?: string;
+  saved_backpack_data?: string;
   environment_variables: { [key: string]: ProductionLambdaEnvironmentVariable };
   reserved_concurrency_count: number | false;
 }

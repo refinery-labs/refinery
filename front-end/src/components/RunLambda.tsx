@@ -21,6 +21,7 @@ export enum RunLambdaDisplayMode {
 export interface RunLambdaProps {
   onRunLambda: () => void;
   onUpdateInputData: (s: string) => void;
+  onUpdateBackpackData: (s: string) => void;
   onSaveInputData?: () => void;
   fullScreenClicked?: () => void;
   lambdaIdOrArn: string;
@@ -28,6 +29,7 @@ export interface RunLambdaProps {
   runResultOutput: RunLambdaResult | null;
   runResultOutputId: string | null;
   inputData: string;
+  backpackData: string;
   isCurrentlyRunning: boolean;
 
   displayLocation: RunLambdaDisplayLocation;
@@ -44,6 +46,7 @@ export interface RunLambdaProps {
 export default class RunLambda extends Vue implements RunLambdaProps {
   @Prop({ required: true }) onRunLambda!: () => void;
   @Prop({ required: true }) onUpdateInputData!: (s: string) => void;
+  @Prop({ required: true }) onUpdateBackpackData!: (s: string) => void;
   @Prop() onSaveInputData?: () => void;
   @Prop() fullScreenClicked?: () => void;
 
@@ -55,6 +58,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
   @Prop() runResultOutputId!: string | null;
   @Prop({ required: true }) runResultOutput!: RunLambdaResult | null;
   @Prop({ required: true }) inputData!: string;
+  @Prop({ required: true }) backpackData!: string;
   @Prop({ required: true }) isCurrentlyRunning!: boolean;
 
   @Prop({ required: true }) displayLocation!: RunLambdaDisplayLocation;
@@ -174,14 +178,23 @@ export default class RunLambda extends Vue implements RunLambdaProps {
 
     const inputDataEditorProps: EditorProps = {
       ...sharedEditorProps,
-      name: `input-${this.getNameSuffix()}`,
-      // Using NodeJS for JSON support
+      name: `input-data-${this.getNameSuffix()}`,
       lang: 'json',
       content: this.inputData,
       onChange: this.onUpdateInputData
     };
 
     const inputDataEditor = <RefineryCodeEditor props={inputDataEditorProps} />;
+
+    const backpackDataEditorProps: EditorProps = {
+      ...sharedEditorProps,
+      name: `backpack-data-${this.getNameSuffix()}`,
+      lang: 'json',
+      content: this.backpackData,
+      onChange: this.onUpdateBackpackData
+    };
+
+    const backpackDataEditor = <RefineryCodeEditor props={backpackDataEditorProps} />;
 
     const hasResultData = hasValidOutput && this.runResultOutput && this.runResultOutput.returned_data;
 
@@ -221,11 +234,13 @@ export default class RunLambda extends Vue implements RunLambdaProps {
       </div>
     );
 
-    const renderEditorWrapper = (text: string, editor: any) => (
+    const renderEditorWrapper = (text: string | null, editor: any) => (
       <div class="display--flex flex-direction--column flex-grow--1">
-        <div class="text-align--left run-lambda-container__text-label">
-          <label class="text-light padding--none mt-0 mb-0 ml-2">{text}:</label>
-        </div>
+        {text && (
+          <div class="text-align--left run-lambda-container__text-label">
+            <label class="text-light padding--none mt-0 mb-0 ml-2">{text}:</label>
+          </div>
+        )}
         <div class="flex-grow--1 display--flex">{editor}</div>
       </div>
     );
@@ -234,13 +249,27 @@ export default class RunLambda extends Vue implements RunLambdaProps {
       <div class="display--flex flex-direction--column flex-grow--1">
         <div class="display--flex flex-grow--1 height--100percent">
           <Split props={{ direction: 'vertical' as Object }}>
-            <SplitArea props={{ size: 33.3 as Object }}>
-              {renderEditorWrapper('Block Input Data', inputDataEditor)}
+            <SplitArea props={{ size: 40 as Object }}>
+              <b-tabs
+                nav-class="nav-justified nav-link-color"
+                content-class="padding--none position--relative flex-grow--1"
+              >
+                <b-tab title="Input Data" active={true} no-body={true}>
+                  <div class="display--flex flex-grow--1 ace-hack margin-left--negative-micro margin-right--negative-micro">
+                    {renderEditorWrapper(null, inputDataEditor)}
+                  </div>
+                </b-tab>
+                <b-tab title="Backpack Data" no-body={true}>
+                  <div class="display--flex flex-grow--1 ace-hack margin-left--negative-micro margin-right--negative-micro">
+                    {renderEditorWrapper(null, backpackDataEditor)}
+                  </div>
+                </b-tab>
+              </b-tabs>
             </SplitArea>
-            <SplitArea props={{ size: 33.3 as Object }}>
+            <SplitArea props={{ size: 30 as Object }}>
               {renderEditorWrapper('Return Data', <RefineryCodeEditor props={resultDataEditorProps} />)}
             </SplitArea>
-            <SplitArea props={{ size: 33.3 as Object }}>
+            <SplitArea props={{ size: 30 as Object }}>
               {renderEditorWrapper('Execution Output', <RefineryCodeEditor props={resultOutputEditorProps} />)}
             </SplitArea>
           </Split>
