@@ -6,11 +6,11 @@ import {
   EnvironmentVariablesEditor,
   EnvironmentVariablesEditorProps
 } from '@/components/ProjectEditor/EnvironmentVariablesEditor';
-import { EnvironmentVariablesEditorModule } from '@/store/modules/panes/environment-variables-editor';
 import { namespace } from 'vuex-class';
 import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
 import { EditBlockPaneProps } from '@/types/component-types';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
+import { EnvironmentVariablesEditorModule } from '@/store';
 
 const project = namespace('project');
 

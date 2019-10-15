@@ -17,15 +17,12 @@ import RunDeployedCodeBlockContainer from '@/components/DeploymentViewer/RunDepl
 import { nopWrite } from '@/utils/block-utils';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { EditBlockPaneProps, EditorProps, LoadingContainerProps } from '@/types/component-types';
-import { deepJSONCopy } from '@/lib/general-utils';
-import { LibraryBuildArguments, startLibraryBuild } from '@/store/fetchers/api-helpers';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { BlockDocumentationButton } from '@/components/ProjectEditor/block-components/EditBlockDocumentationButton';
 import {
   EditEnvironmentVariablesWrapper,
   EditEnvironmentVariablesWrapperProps
 } from '@/components/ProjectEditor/block-components/EditEnvironmentVariablesWrapper';
-import { CreateSavedBlockViewStoreModule } from '@/store/modules/panes/create-saved-block-view';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
 import Split from '@/components/Common/Split.vue';
 import SplitArea from '@/components/Common/SplitArea.vue';
@@ -35,7 +32,12 @@ import {
   EditBlockLayersWrapperProps
 } from '@/components/ProjectEditor/block-components/EditBlockLayersWrapper';
 import { languageToFileExtension } from '@/utils/project-debug-utils';
-import { BlockLocalCodeSyncStoreModule, syncFileIdPrefix } from '@/store/modules/panes/block-local-code-sync';
+import {
+  BlockLocalCodeSyncStoreModule,
+  CodeBlockSharedFilesPaneModule,
+  CreateSavedBlockViewStoreModule
+} from '@/store';
+import { syncFileIdPrefix } from '@/store/modules/panes/block-local-code-sync';
 
 const editBlock = namespace('project/editBlockPane');
 const viewBlock = namespace('viewBlock');
@@ -793,6 +795,21 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     );
   }
 
+  public renderSharedFiles() {
+    return (
+      <b-form-group description="Shared Files linked to this Code Block.">
+        <label class="d-block">Shared Files:</label>
+        <b-button
+          variant="dark"
+          class="col-12"
+          on={{ click: () => CodeBlockSharedFilesPaneModule.openCodeBlockSharedFiles(this.selectedNode) }}
+        >
+          View Block Shared Files
+        </b-button>
+      </b-form-group>
+    );
+  }
+
   public render(): VNode {
     const setMaxExecutionTime = this.readOnly ? nopWrite : this.setMaxExecutionTime;
     const setExecutionMemory = this.readOnly ? nopWrite : this.setExecutionMemory;
@@ -882,6 +899,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         <b-col xl={6}>{this.renderLocalFileLinkButton()}</b-col>
         <b-col xl={6}>{this.renderDownloadBlock()}</b-col>
         <b-col xl={6}>{this.renderLanguageSelector()}</b-col>
+        <b-col xl={6}>{this.renderSharedFiles()}</b-col>
         <b-col xl={6}>{this.renderForm(this.selectedNode, maxExecutionTimeProps)}</b-col>
         <b-col xl={6}>{this.renderForm(this.selectedNode, maxMemoryProps)}</b-col>
         <b-col xl={6}>{this.renderConcurrencyLimit(this.selectedNode)}</b-col>

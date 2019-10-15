@@ -1,9 +1,9 @@
 import Vue from 'vue';
 import Component from 'vue-class-component';
 import { Prop } from 'vue-property-decorator';
-import { CreateSavedBlockViewStoreModule } from '@/store/modules/panes/create-saved-block-view';
 import { CreateSavedBlockViewProps } from '@/types/component-types';
 import CreateSavedBlockView from '@/components/ProjectEditor/saved-blocks-components/CreateSavedBlockView';
+import { CreateSavedBlockViewStoreModule } from '@/store';
 
 export interface CreateSavedBlockViewContainerProps {
   modalMode: boolean;

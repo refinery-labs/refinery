@@ -1,4 +1,3 @@
-import store from '../store/index';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 import { UserActions } from '@/constants/store-constants';
@@ -15,17 +14,22 @@ export function resetStoreState(state: any, moduleState: {}) {
   });
 }
 
+function getStore() {
+  return require('../store/index').default;
+}
+
 export async function saveEditBlockToProject() {
-  await store.dispatch(`project/editBlockPane/${EditBlockActions.saveBlock}`, null, { root: true });
+  await getStore().dispatch(`project/editBlockPane/${EditBlockActions.saveBlock}`, null, { root: true });
 }
 
 export async function signupDemoUser() {
+  const store = getStore();
+
   await store.dispatch(`user/${UserActions.fetchAuthenticationState}`);
 
   if (store.state.user.authenticated) {
     return true;
   }
 
-  require('@/store/modules/unauth-view-project');
   store.commit(`unauthViewProject/setShowSignupModal`, true);
 }

@@ -1,6 +1,5 @@
 import { VuexModule, Module, Mutation, Action, getModule } from 'vuex-module-decorators';
 import uuid from 'uuid/v4';
-import store from '@/store/index';
 import {
   BlockEnvironmentVariableList,
   LambdaWorkflowState,
@@ -12,7 +11,7 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
 import { EditBlockMutators } from '@/store/modules/panes/edit-block-pane';
 import { ProjectViewMutators } from '@/constants/store-constants';
-import { RootState } from '@/store/store-types';
+import { RootState, StoreType } from '@/store/store-types';
 
 export interface EnvironmentVariablesEditorPaneState {
   isModalVisible: boolean;
@@ -49,8 +48,9 @@ export const baseState: EnvironmentVariablesEditorPaneState = {
 // Must copy so that we can not thrash the pointers...
 const initialState = deepJSONCopy(baseState);
 
-@Module({ namespaced: true, dynamic: true, store, name: 'environmentVariablesEditor' })
-class EnvironmentVariablesEditorStore extends VuexModule<ThisType<EnvironmentVariablesEditorPaneState>, RootState>
+@Module({ namespaced: true, name: StoreType.environmentVariablesEditor })
+export class EnvironmentVariablesEditorStore
+  extends VuexModule<ThisType<EnvironmentVariablesEditorPaneState>, RootState>
   implements EnvironmentVariablesEditorPaneState {
   public isModalVisible: boolean = initialState.isModalVisible;
   public isReadOnlyModalVisible: boolean = initialState.isModalVisible;
@@ -258,5 +258,3 @@ class EnvironmentVariablesEditorStore extends VuexModule<ThisType<EnvironmentVar
     this.context.commit(`project/${ProjectViewMutators.markProjectDirtyStatus}`, true, { root: true });
   }
 }
-
-export const EnvironmentVariablesEditorModule = getModule(EnvironmentVariablesEditorStore);

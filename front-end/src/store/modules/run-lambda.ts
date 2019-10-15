@@ -1,6 +1,6 @@
 import { Module } from 'vuex';
 import uuid from 'uuid/v4';
-import { RootState, WebsocketState } from '../store-types';
+import { RootState } from '../store-types';
 import {
   LambdaDebuggingWebsocketActions,
   LambdaDebuggingWebsocketMessage,
@@ -23,6 +23,7 @@ import { DeploymentExecutionsActions } from '@/store/modules/panes/deployment-ex
 import { DeploymentViewGetters } from '@/constants/store-constants';
 import Vue from 'vue';
 import { getLambdaResultFromWebsocketMessage, parseLambdaWebsocketMessage } from '@/utils/websocket-utils';
+import { getSharedFilesForCodeBlock } from '@/utils/project-helpers';
 import { getBackpackValueOrDefault } from '@/utils/project-execution-utils';
 
 export interface InputDataCache {
@@ -148,6 +149,7 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
      */
     getRunLambdaConfig: (state, getters, rootState) => {
       const projectState = rootState.project;
+
       // This will never happen...
       if (!projectState.editBlockPane) {
         return null;
@@ -163,7 +165,8 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
 
       return {
         codeBlock: editBlockPaneState.selectedNode as LambdaWorkflowState,
-        projectConfig: projectState.openedProjectConfig
+        projectConfig: projectState.openedProjectConfig,
+        project: projectState.openedProject
       };
     },
     getDeployedLambdaInputData: (state, getters, rootState) => (id: string) => {
@@ -471,11 +474,14 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       // messages that come for this specific UUID.
       await context.dispatch(RunLambdaActions.WebsocketSubscribeToDebugID, debugId);
 
+      // Get list of Shared File Links for the Code Block being run
+      const sharedFiles = getSharedFilesForCodeBlock(block.id, config.project);
+
       const request: RunTmpLambdaRequest = {
         environment_variables: runLambdaEnvironmentVariables,
         input_data: inputData === undefined || inputData === null ? '' : inputData,
+        shared_files: sharedFiles,
         backpack: backpackData,
-
         code: block.code,
         language: block.language,
         layers: block.layers,

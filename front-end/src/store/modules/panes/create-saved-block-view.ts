@@ -1,8 +1,7 @@
 import { Action, getModule, Module, Mutation, VuexModule } from 'vuex-module-decorators';
-import store from '@/store/index';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
-import { RootState } from '@/store/store-types';
+import { RootState, StoreType } from '@/store/store-types';
 import {
   CreateSavedBlockRequest,
   CreateSavedBlockResponse,
@@ -16,8 +15,9 @@ import { LambdaWorkflowState, WorkflowState, WorkflowStateType } from '@/types/g
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 import { inputDataExample } from '@/constants/saved-block-constants';
 import { createBlockDataForPublishedSavedBlock } from '@/utils/block-utils';
+import { getSharedFilesForCodeBlock } from '@/utils/project-helpers';
 
-const storeName = 'createSavedBlockView';
+const storeName = StoreType.createSavedBlockView;
 
 export interface CreateSavedBlockViewState {
   nameInput: string | null;
@@ -55,8 +55,8 @@ function isNotEmptyStringButPreserveNull(str: string | null) {
 // Must copy so that we can not thrash the pointers...
 const initialState = deepJSONCopy(baseState);
 
-@Module({ namespaced: true, dynamic: true, store, name: storeName })
-class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockViewState>, RootState>
+@Module({ namespaced: true, name: storeName })
+export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockViewState>, RootState>
   implements CreateSavedBlockViewState {
   public nameInput = initialState.nameInput;
   public existingBlockMetadata = initialState.existingBlockMetadata;
@@ -171,7 +171,7 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
   @Action
   public async publishBlock() {
     const editBlockPaneStore = this.context.rootState.project.editBlockPane;
-    if (!editBlockPaneStore || !editBlockPaneStore.selectedNode) {
+    if (!editBlockPaneStore || !editBlockPaneStore.selectedNode || !this.context.rootState.project.openedProject) {
       console.error('Unable to publish new block, missing selected block');
       return;
     }
@@ -192,11 +192,17 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
 
     const savedInputData = this.savedDataInput !== null ? this.savedDataInput : undefined;
 
+    const sharedFiles = getSharedFilesForCodeBlock(
+      editBlockPaneStore.selectedNode.id,
+      this.context.rootState.project.openedProject
+    );
+
     const request: CreateSavedBlockRequest = {
       block_object: createBlockDataForPublishedSavedBlock(lambdaBlock, this.nameInput, savedInputData),
       description: this.descriptionInput,
       share_status: this.publishStatus ? SharedBlockPublishStatus.PUBLISHED : SharedBlockPublishStatus.PRIVATE,
-      version: 1
+      version: 1,
+      shared_files: sharedFiles
     };
 
     if (this.existingBlockMetadata) {
@@ -246,5 +252,3 @@ class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBlockView
     this.resetState();
   }
 }
-
-export const CreateSavedBlockViewStoreModule = getModule(CreateSavedBlockViewStore);

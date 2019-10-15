@@ -1,15 +1,13 @@
-import { VuexModule, Module, Mutation, Action, getModule } from 'vuex-module-decorators';
-import store from '@/store';
+import { VuexModule, Module, Mutation, Action } from 'vuex-module-decorators';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
-import { RootState } from '@/store/store-types';
+import { RootState, StoreType } from '@/store/store-types';
 import { LambdaWorkflowState } from '@/types/graph';
-import { EnvVariableRow, OpenEnvironmentVariablesParams } from '@/store/modules/panes/environment-variables-editor';
 import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
 import { EditBlockMutators } from '@/store/modules/panes/edit-block-pane';
 import { ProjectViewMutators } from '@/constants/store-constants';
 
-const storeName = 'blockLayers';
+const storeName = StoreType.blockLayers;
 
 export interface BlockLayersState {
   isModalVisible: boolean;
@@ -30,8 +28,8 @@ export const baseState: BlockLayersState = {
 // Must copy so that we can not thrash the pointers...
 const initialState = deepJSONCopy(baseState);
 
-@Module({ namespaced: true, dynamic: true, store, name: storeName })
-class BlockLayersStore extends VuexModule<ThisType<BlockLayersState>, RootState> implements BlockLayersState {
+@Module({ namespaced: true, name: storeName })
+export class BlockLayersStore extends VuexModule<ThisType<BlockLayersState>, RootState> implements BlockLayersState {
   public isModalVisible: boolean = initialState.isModalVisible;
   public isReadOnlyModalVisible: boolean = initialState.isReadOnlyModalVisible;
 
@@ -126,5 +124,3 @@ class BlockLayersStore extends VuexModule<ThisType<BlockLayersState>, RootState>
     this.context.commit(`project/${ProjectViewMutators.markProjectDirtyStatus}`, true, { root: true });
   }
 }
-
-export const BlockLayersStoreModule = getModule(BlockLayersStore);

@@ -3,7 +3,6 @@ import Component from 'vue-class-component';
 import { Prop } from 'vue-property-decorator';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 import RegistrationPage from '@/views/Authentication/RegistrationPage';
-import { UnauthViewProjectStoreModule } from '@/store/modules/unauth-view-project';
 
 export interface SignupModalProps {
   isModal?: boolean;

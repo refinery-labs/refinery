@@ -1,17 +1,16 @@
-import { VuexModule, Module, Mutation, Action, getModule } from 'vuex-module-decorators';
-import store from '@/store';
+import { VuexModule, Module, Mutation, Action } from 'vuex-module-decorators';
 import { resetStoreState, signupDemoUser } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
-import { RootState } from '@/store/store-types';
-import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
-import { ProjectViewActions, ProjectViewGetters } from '@/constants/store-constants';
+import { RootState, StoreType } from '@/store/store-types';
+import { AllProjectsActions } from '@/store/modules/all-projects';
+import { ProjectViewGetters } from '@/constants/store-constants';
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
 
 // This is the name that this will be added to the Vuex store with.
 // You will need to add to the `RootState` interface if you want to access this state via `rootState` from anywhere.
-const storeName = 'unauthViewProject';
+const storeName = StoreType.unauthViewProject;
 
 export interface UnauthViewProjectState {
   showSignupModal: boolean;
@@ -26,8 +25,8 @@ const initialState = deepJSONCopy(baseState);
 
 // We need to leave this as a "dynamic" module so that we can use the fancy `this` rebinding. Otherwise we have to use
 // The old school `context.commit` and `context.dispatch` style syntax.
-@Module({ namespaced: true, dynamic: true, store, name: storeName })
-class UnauthViewProjectStore extends VuexModule<ThisType<UnauthViewProjectState>, RootState>
+@Module({ namespaced: true, name: storeName })
+export class UnauthViewProjectStore extends VuexModule<ThisType<UnauthViewProjectState>, RootState>
   implements UnauthViewProjectState {
   public showSignupModal: boolean = initialState.showSignupModal;
 
@@ -76,5 +75,3 @@ class UnauthViewProjectStore extends VuexModule<ThisType<UnauthViewProjectState>
     }
   }
 }
-
-export const UnauthViewProjectStoreModule = getModule(UnauthViewProjectStore);

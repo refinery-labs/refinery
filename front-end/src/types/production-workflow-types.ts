@@ -1,6 +1,8 @@
 import {
   RefineryProject,
   SupportedLanguage,
+  WorkflowFile,
+  WorkflowFileLink,
   WorkflowRelationship,
   WorkflowRelationshipType,
   WorkflowState,
@@ -24,6 +26,9 @@ export interface ProductionWorkflowState extends WorkflowState {
   arn?: string;
   transitions: ProductionTransitionLookup;
 }
+
+export interface ProductionWorkflowFile extends WorkflowFile {}
+export interface ProductionWorkflowFileLink extends WorkflowFileLink {}
 
 export interface ProductionWorkflowRelationship extends WorkflowRelationship {}
 

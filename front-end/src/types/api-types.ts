@@ -3,11 +3,17 @@ import {
   ProjectConfig,
   ProjectEnvironmentVariableList,
   SupportedLanguage,
+  WorkflowFile,
   WorkflowRelationship,
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import { ProductionWorkflowRelationship, ProductionWorkflowState } from '@/types/production-workflow-types';
+import {
+  ProductionWorkflowFile,
+  ProductionWorkflowFileLink,
+  ProductionWorkflowRelationship,
+  ProductionWorkflowState
+} from '@/types/production-workflow-types';
 import {
   ExecutionLogMetadata,
   ExecutionStatusType,
@@ -18,6 +24,7 @@ import {
 import ImportableRefineryProject from '@/types/export-project';
 import * as moment from 'moment';
 import Base = moment.unitOfTime.Base;
+import SharedFiles from '@/components/ProjectEditor/SharedFiles';
 
 export interface BaseApiResponse {
   success: boolean;
@@ -163,6 +170,8 @@ export interface ProductionDeploymentRefineryProjectJson {
   name: string;
   workflow_states: ProductionWorkflowState[];
   workflow_relationships: ProductionWorkflowRelationship[];
+  workflow_files: ProductionWorkflowFile[];
+  workflow_file_links: ProductionWorkflowFileLink[];
 }
 
 // GetProjectConfig
@@ -325,6 +334,7 @@ export interface RunTmpLambdaRequest extends BaseApiRequest {
   memory: number;
   block_id: string;
   debug_id: string;
+  shared_files: WorkflowFile[];
 }
 
 export interface RunTmpLambdaEnvironmentVariable {
@@ -644,6 +654,7 @@ export interface CreateSavedBlockRequest extends BaseApiRequest {
   block_object: WorkflowState;
   version?: number;
   share_status?: SharedBlockPublishStatus;
+  shared_files: WorkflowFile[];
 }
 
 export interface CreateSavedBlockResponse extends BaseApiResponse {
@@ -672,6 +683,7 @@ export interface SavedBlockSearchResult {
   share_status: SharedBlockPublishStatus;
   type: WorkflowStateType;
   block_object: WorkflowState;
+  shared_files: WorkflowFile[];
   version: number;
   timestamp: number;
 }

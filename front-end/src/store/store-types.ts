@@ -25,11 +25,37 @@ import { SettingsAppState } from '@/store/modules/settings-app';
 import { BlockLayersState } from '@/store/modules/panes/block-layers-pane';
 import { BlockLocalCodeSyncState } from '@/store/modules/panes/block-local-code-sync';
 import { ProjectCardStateLookup } from '@/types/all-project-types';
-// import { SaveProjectPaneState } from '@/store/modules/panes/save-project-pane';
+import { SharedFilesPaneState } from '@/store/modules/panes/shared-files';
+import { EditSharedFilePaneState } from '@/store/modules/panes/edit-shared-file';
+import { CodeBlockSharedFilesPaneState } from '@/store/modules/panes/code-block-shared-files';
+import { ViewSharedFilePaneState } from '@/store/modules/panes/view-shared-file';
+
+export enum StoreType {
+  addSavedBlockPane = 'addSavedBlockPane',
+  blockLayers = 'blockLayers',
+  blockLocalCodeSync = 'blockLocalCodeSync',
+  createSavedBlockView = 'createSavedBlockView',
+  // setting = 'setting',
+  // deployment = 'deployment',
+  // deploymentExecutions = 'deploymentExecutions',
+  environmentVariablesEditor = 'environmentVariablesEditor',
+  // viewBlock = 'viewBlock',
+  // project = 'project',
+  // allProjects = 'allProjects',
+  // runLambda = 'runLambda',
+  settingsApp = 'settingsApp',
+  // toasts = 'toasts',
+  // user = 'user',
+  // billing = 'billing',
+  sharedFiles = 'sharedFiles',
+  editSharedFile = 'editSharedFile',
+  viewSharedFile = 'viewSharedFile',
+  codeBlockSharedFiles = 'codeBlockSharedFiles',
+  unauthViewProject = 'unauthViewProject'
+}
 
 export interface RootState {
   addSavedBlockPane: AddSavedBlockPaneState;
-  billing: BillingPaneState;
   blockLayers: BlockLayersState;
   blockLocalCodeSync: BlockLocalCodeSyncState;
   createSavedBlockView: CreateSavedBlockViewState;
@@ -45,7 +71,11 @@ export interface RootState {
   settingsApp: SettingsAppState;
   toasts: ToastPaneState;
   user: UserState;
-  websocket: WebsocketState;
+  billing: BillingPaneState;
+  sharedFiles: SharedFilesPaneState;
+  editSharedFile: EditSharedFilePaneState;
+  viewSharedFile: ViewSharedFilePaneState;
+  codeBlockSharedFiles: CodeBlockSharedFilesPaneState;
 }
 
 export enum UserInterfaceSettings {
@@ -183,6 +213,9 @@ export interface ProjectViewState {
   availableEditTransitions: AvailableTransitionsByType | null;
   isEditingTransitionCurrently: boolean;
   newTransitionTypeSpecifiedInEditFlow: WorkflowRelationshipType | null;
+
+  // Adding shared files to Code Blocks
+  isAddingSharedFileToCodeBlock: boolean;
 }
 
 export enum IfDropDownSelectionType {
@@ -315,5 +348,3 @@ export interface UserState {
   registrationPaymentCardInputValid: boolean | null;
   termsAndConditionsAgreedValid: boolean | null;
 }
-
-export interface WebsocketState {}

@@ -5,8 +5,8 @@ import Component from 'vue-class-component';
 import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
 import { EditBlockPaneProps } from '@/types/component-types';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
-import { BlockLayersStoreModule } from '@/store/modules/panes/block-layers-pane';
 import { BlockLayersEditorProps, EditBlockLayersEditor } from '@/components/ProjectEditor/EditBlockLayersEditor';
+import { BlockLayersStoreModule } from '@/store';
 
 export interface EditBlockLayersWrapperProps {
   selectedNode: LambdaWorkflowState;

@@ -52,6 +52,7 @@
     "register-service-worker": "^1.6.2",
     "screenfull": "^4.2.0",
     "simple-line-icons": "2.4.1",
+    "sl-vue-tree": "^1.8.4",
     "split.js": "^1.5.11",
     "tinyqueue": "2.0.3",
     "typescript-json-schema": "^0.38.3",

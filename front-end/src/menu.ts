@@ -84,7 +84,13 @@ export const paneTypeToNameLookup: EditorPaneTypeToName = {
   [SIDEBAR_PANE.viewDeployedBlockLogs]: 'Block Execution Logs',
   [SIDEBAR_PANE.viewDeployedTransition]: 'Inspect Deployed Transition',
   [SIDEBAR_PANE.runEditorCodeBlock]: 'Code Runner',
-  [SIDEBAR_PANE.runDeployedCodeBlock]: 'Code Runner'
+  [SIDEBAR_PANE.runDeployedCodeBlock]: 'Code Runner',
+  [SIDEBAR_PANE.sharedFiles]: 'Shared Files (Files Saved to Multiple Code Blocks)',
+  [SIDEBAR_PANE.editSharedFile]: 'Edit Shared File',
+  [SIDEBAR_PANE.editSharedFileLinks]: 'Edit Shared File Link(s)',
+  [SIDEBAR_PANE.addingSharedFileLink]: 'Link Shared File to Code Block',
+  [SIDEBAR_PANE.codeBlockSharedFiles]: 'Code Block Shared File(s)',
+  [SIDEBAR_PANE.viewSharedFile]: 'Shared File Contents'
 };
 
 export const paneTypeToWindowNameLookup: EditorPaneTypeToName = {
@@ -110,6 +116,7 @@ export const SidebarMenuItems: NavbarItem[] = [
   makeSidebarMenuItem(SIDEBAR_PANE.addBlock, 'icon-plus', 'sidebar.nav.ADD_BLOCK', 'outline-primary'),
   makeSidebarMenuItem(SIDEBAR_PANE.addTransition, 'icon-cursor-move', 'sidebar.nav.ADD_TRANSITION', 'outline-primary'),
   makeSidebarMenuItem(SIDEBAR_PANE.runEditorCodeBlock, 'icon-control-play', 'RUN_CODE_BLOCK', 'outline-success'),
+  makeSidebarMenuItem(SIDEBAR_PANE.sharedFiles, 'icon-docs', 'RUN_CODE_BLOCK', 'outline-primary'),
   // makeSidebarMenuItem(SIDEBAR_PANE.allBlocks, 'icon-grid', 'sidebar.nav.ALL_BLOCKS', 'outline-info'),
   // makeSidebarMenuItem(SIDEBAR_PANE.allVersions, 'icon-chart', 'sidebar.nav.ALL_VERSIONS', 'outline-info'),
   makeSidebarMenuItem(SIDEBAR_PANE.exportProject, 'icon-cloud-download', 'sidebar.nav.EXPORT_PROJECT', 'outline-info'),

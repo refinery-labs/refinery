@@ -1,11 +1,10 @@
 import jsCookie from '../../lib/js-cookie';
 import { VuexModule, Module, Mutation, Action, getModule } from 'vuex-module-decorators';
-import store from '@/store';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
-import { RootState } from '@/store/store-types';
+import { RootState, StoreType } from '@/store/store-types';
 
-const storeName = 'settingsApp';
+const storeName = StoreType.settingsApp;
 
 const cookieName = 'keyboard-mode';
 
@@ -43,8 +42,8 @@ const initialState = deepJSONCopy(baseState);
 
 // We need to leave this as a "dynamic" module so that we can use the fancy `this` rebinding. Otherwise we have to use
 // The old school `context.commit` and `context.dispatch` style syntax.
-@Module({ namespaced: true, dynamic: true, store, name: storeName })
-class SettingsAppStore extends VuexModule<ThisType<SettingsAppState>, RootState> implements SettingsAppState {
+@Module({ namespaced: true, name: storeName })
+export class SettingsAppStore extends VuexModule<ThisType<SettingsAppState>, RootState> implements SettingsAppState {
   public keyboardMode: KeyboardEditorMode = initialState.keyboardMode;
   public editBlockPaneWidth?: number = initialState.editBlockPaneWidth;
 
@@ -74,5 +73,3 @@ class SettingsAppStore extends VuexModule<ThisType<SettingsAppState>, RootState>
     this.editBlockPaneWidth = width;
   }
 }
-
-export const SettingsAppStoreModule = getModule(SettingsAppStore);

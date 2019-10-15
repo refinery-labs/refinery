@@ -25,11 +25,10 @@ import '@/styles/custom-bootstrap-theme.scss';
 import '@/styles/app.scss';
 import '@/styles/class-helpers.scss';
 
+import store from './store/index';
 import App from './App';
 import router from './router';
-import store from './store/index';
 import './registerServiceWorker';
-import VueNativeSock from 'vue-native-websocket';
 import { setupWebsocketVuePlugin } from '@/setup-websocket';
 
 Vue.use(BootstrapVue);

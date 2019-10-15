@@ -770,3 +770,46 @@ a.disabled {
   display: flex;
   flex-direction: column;
 }
+
+
+.shared-files-pane {
+  flex-grow: 1;
+  max-width: 512px;
+  padding-top: 10px;
+}
+
+.shared-files-well {
+  max-height: 200px;
+}
+
+.shared-file-editor {
+  height: 100vh;
+  max-height: 300px;
+}
+
+.shared-file-links-pane {
+  flex-grow: 1;
+  max-width: 512px;
+  padding-top: 10px;
+}
+
+.adding-shared-file-link-pane {
+  flex-grow: 1;
+  max-width: 512px;
+  padding-top: 10px;
+}
+
+.shared-file-link-container {
+  max-width: 600px;
+  &__description {
+    word-wrap: break-word;
+  }
+}
+
+.shared-file-links-well {
+  max-height: 300px;
+}
+
+.view-shared-file-pane {
+  width: calc((100vw - 400px) / 2);
+}

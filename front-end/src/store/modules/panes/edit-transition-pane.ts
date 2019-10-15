@@ -6,9 +6,9 @@ import { ProjectViewActions } from '@/constants/store-constants';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
 import { PANE_POSITION } from '@/types/project-editor-types';
-import { ChangeTransitionArguments } from '@/store/modules/project-view';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { resetStoreState } from '@/utils/store-utils';
+import { ChangeTransitionArguments } from '@/store/modules/project-view';
 
 // Enums
 export enum EditTransitionMutators {

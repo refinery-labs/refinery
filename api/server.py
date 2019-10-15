@@ -51,11 +51,14 @@ from email_validator import validate_email, EmailNotValidError
 from utils.general import attempt_json_decode, logit, split_list_into_chunks, get_random_node_id, get_urand_password, get_random_id, get_random_deploy_id
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
+from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
 from controller.executions_controller import ExecutionsControllerServer
 from controller.lambda_connect_back import LambdaConnectBackServer
+
+from data_types.aws_resources.alambda import Lambda
 
 from models.initiate_database import *
 from models.saved_block import SavedBlock
@@ -3070,25 +3073,58 @@ class TaskSpawner(object):
 			return response
 			
 		@staticmethod
-		def build_lambda( credentials, language, code, libraries ):
-			logit( "Building Lambda " + language + " with libraries: " + str( libraries ), "info" )
-			if not ( language in LAMBDA_SUPPORTED_LANGUAGES ):
+		def build_lambda( credentials, lambda_object ):
+			logit( "Building Lambda " + lambda_object.language + " with libraries: " + str( lambda_object.libraries ), "info" )
+			if not ( lambda_object.language in LAMBDA_SUPPORTED_LANGUAGES ):
 				raise Exception( "Error, this language '" + language + "' is not yet supported by refinery!" )
 			
-			if language == "python2.7":
-				package_zip_data = TaskSpawner._build_python27_lambda( credentials, code, libraries )
-			elif language == "python3.6":
-				package_zip_data = TaskSpawner._build_python36_lambda( credentials, code, libraries )
-			elif language == "php7.3":
-				package_zip_data = TaskSpawner._build_php_73_lambda( credentials, code, libraries )
-			elif language == "nodejs8.10":
-				package_zip_data = TaskSpawner._build_nodejs_810_lambda( credentials, code, libraries )
-			elif language == "nodejs10.16.3":
-				package_zip_data = TaskSpawner._build_nodejs_10163_lambda( credentials, code, libraries )
-			elif language == "go1.12":
-				package_zip_data = TaskSpawner.get_go112_zip( credentials, code )
-			elif language == "ruby2.6.4":
-				package_zip_data = TaskSpawner._build_ruby_264_lambda( credentials, code, libraries )
+			if lambda_object.language == "python2.7":
+				package_zip_data = TaskSpawner._build_python27_lambda(
+					credentials,
+					lambda_object.code,
+					lambda_object.libraries
+				)
+			elif lambda_object.language == "python3.6":
+				package_zip_data = TaskSpawner._build_python36_lambda(
+					credentials,
+					lambda_object.code,
+					lambda_object.libraries
+				)
+			elif lambda_object.language == "php7.3":
+				package_zip_data = TaskSpawner._build_php_73_lambda(
+					credentials,
+					lambda_object.code,
+					lambda_object.libraries
+				)
+			elif lambda_object.language == "nodejs8.10":
+				package_zip_data = TaskSpawner._build_nodejs_810_lambda(
+					credentials,
+					lambda_object.code,
+					lambda_object.libraries
+				)
+			elif lambda_object.language == "nodejs10.16.3":
+				package_zip_data = TaskSpawner._build_nodejs_10163_lambda(
+					credentials,
+					lambda_object.code,
+					lambda_object.libraries
+				)
+			elif lambda_object.language == "go1.12":
+				package_zip_data = TaskSpawner.get_go112_zip(
+					credentials,
+					lambda_object.code
+				)
+			elif lambda_object.language == "ruby2.6.4":
+				package_zip_data = TaskSpawner._build_ruby_264_lambda(
+					credentials,
+					lambda_object.code,
+					lambda_object.libraries
+				)
+
+			# Add shared files to Lambda package as well.
+			package_zip_data = add_shared_files_to_zip(
+				package_zip_data,
+				lambda_object.shared_files_list
+			)
 				
 			return package_zip_data
 			
@@ -3106,7 +3142,7 @@ class TaskSpawner(object):
 			)
 			
 		@run_on_executor
-		def deploy_aws_lambda( self, credentials, func_name, language, description, role_name, code, libraries, timeout, memory, vpc_config, environment_variables, tags_dict, layers, is_inline_execution ):
+		def deploy_aws_lambda( self, credentials, lambda_object ):
 			"""
 			Here we do caching to see if we've done this exact build before
 			(e.g. the same language, code, and libraries). If we have an the
@@ -3116,11 +3152,16 @@ class TaskSpawner(object):
 			"""
 			# Generate libraries object for now until we modify it to be a dict/object
 			libraries_object = {}
-			for library in libraries:
+			for library in lambda_object.libraries:
 				libraries_object[ str( library ) ] = "latest"
 				
 			# Generate SHA256 hash input for caching key
-			hash_input = language + "-" + code + "-" + json.dumps( libraries_object, sort_keys=True )
+			hash_input = lambda_object.language + "-" + lambda_object.code + "-" + json.dumps(
+				libraries_object,
+				sort_keys=True
+			) + json.dumps(
+				lambda_object.shared_files_list
+			)
 			hash_key = hashlib.sha256(
 				hash_input
 			).hexdigest()
@@ -3146,9 +3187,7 @@ class TaskSpawner(object):
 				# Build the Lambda package .zip and return the zip data for it
 				lambda_zip_package_data = TaskSpawner.build_lambda(
 					credentials,
-					language,
-					code,
-					libraries
+					lambda_object
 				)
 				
 				# Write it the cache
@@ -3160,32 +3199,24 @@ class TaskSpawner(object):
 			
 			lambda_deploy_result = TaskSpawner._deploy_aws_lambda(
 				credentials,
-				func_name,
-				language,
-				description,
-				role_name,
+				lambda_object,
 				s3_package_zip_path,
-				timeout,
-				memory,
-				vpc_config,
-				environment_variables,
-				tags_dict,
-				layers
 			)
 			
 			# If it's an inline execution we can cache the
 			# built Lambda and re-used it for future executions
 			# that share the same configuration when run.
-			if is_inline_execution and not ( language in NOT_SUPPORTED_INLINE_EXECUTION_LANGUAGES ):
+			if lambda_object.is_inline_execution and not ( lambda_object.language in NOT_SUPPORTED_INLINE_EXECUTION_LANGUAGES ):
 				logit( "Caching inline execution to speed up future runs..." )
 				TaskSpawner._cache_inline_lambda_execution(
 					credentials,
-					language,
-					timeout,
-					memory,
-					environment_variables,
-					layers,
-					libraries,
+					lambda_object.language,
+					lambda_object.max_execution_time,
+					lambda_object.memory,
+					lambda_object.environment_variables,
+					lambda_object.layers,
+					lambda_object.libraries,
+					lambda_object.shared_files_list,
 					lambda_deploy_result[ "FunctionArn" ],
 					lambda_deploy_result[ "CodeSize" ]
 				)
@@ -3255,14 +3286,15 @@ class TaskSpawner(object):
 			dbsession.close()
 			
 		@staticmethod
-		def _cache_inline_lambda_execution( credentials, language, timeout, memory, environment_variables, layers, libraries, arn, lambda_size ):
+		def _cache_inline_lambda_execution( credentials, language, timeout, memory, environment_variables, layers, libraries, shared_files_list, arn, lambda_size ):
 			inline_execution_hash_key = TaskSpawner._get_inline_lambda_hash_key(
 				language,
 				timeout,
 				memory,
 				environment_variables,
 				layers,
-				libraries
+				libraries,
+				shared_files_list
 			)
 			
 			# Maximum amount of inline execution Lambdas to leave deployed
@@ -3299,14 +3331,15 @@ class TaskSpawner(object):
 			)
 			
 		@staticmethod
-		def _get_inline_lambda_hash_key( language, timeout, memory, environment_variables, layers, libraries ):
+		def _get_inline_lambda_hash_key( language, timeout, memory, environment_variables, lambda_layers, libraries, shared_files_list ):
 			hash_dict = {
 				"language": language,
 				"timeout": timeout,
 				"memory": memory,
 				"environment_variables": environment_variables,
-				"layers": layers,
-				"libraries": libraries
+				"layers": lambda_layers,
+				"libraries": libraries,
+				"shared_files": shared_files_list
 			}
 			
 			hash_key = hashlib.sha256(
@@ -3319,13 +3352,10 @@ class TaskSpawner(object):
 			return hash_key
 		
 		@staticmethod
-		def _deploy_aws_lambda( credentials, func_name, language, description, role_name, s3_package_zip_path, timeout, memory, vpc_config, environment_variables, tags_dict, layers ):
-			if language in CUSTOM_RUNTIME_LANGUAGES:
-				language = "provided"
-
+		def _deploy_aws_lambda( credentials, lambda_object, s3_package_zip_path ):
 			# Generate environment variables data structure
 			env_data = {}
-			for env_pair in environment_variables:
+			for env_pair in lambda_object.environment_variables:
 				env_data[ env_pair[ "key" ] ] = env_pair[ "value" ]
 				
 			# Create Lambda client
@@ -3335,55 +3365,48 @@ class TaskSpawner(object):
 			)
 			
 			# Add pricing tag
-			tags_dict[ "RefineryResource" ] = "true"
+			lambda_object.tags_dict = {
+				"RefineryResource": "true"
+			}
 			
 			try:
 				# https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#Lambda.Client.create_function
 				response = lambda_client.create_function(
-					FunctionName=func_name,
-					Runtime=language,
-					Role=role_name,
+					FunctionName=lambda_object.name,
+					Runtime="provided",
+					Role=lambda_object.role,
 					Handler="lambda._init",
 					Code={
 						"S3Bucket": credentials[ "lambda_packages_bucket" ],
 						"S3Key": s3_package_zip_path,
 					},
-					Description=description,
-					Timeout=int(timeout),
-					MemorySize=int(memory),
+					Description="A Lambda deployed by refinery",
+					Timeout=int(lambda_object.max_execution_time),
+					MemorySize=int(lambda_object.memory),
 					Publish=True,
-					VpcConfig=vpc_config,
+					VpcConfig=lambda_object.vpc_data,
 					Environment={
 						"Variables": env_data
 					},
-					Tags=tags_dict,
-					Layers=layers,
+					Tags=lambda_object.tags_dict,
+					Layers=lambda_object.layers,
 				)
 			except ClientError as e:
 				if e.response[ "Error" ][ "Code" ] == "ResourceConflictException":
 					# Delete the existing lambda
 					delete_response = TaskSpawner._delete_aws_lambda(
 						credentials,
-						func_name
+						lambda_object.name
 					)
 					
 					# Now create it since we're clear
 					return TaskSpawner._deploy_aws_lambda(
 						credentials,
-						func_name,
-						language,
-						description,
-						role_name,
-						s3_package_zip_path,
-						timeout,
-						memory,
-						vpc_config,
-						environment_variables,
-						tags_dict,
-						layers
+						lambda_object,
+						s3_package_zip_path
 					)
 				else:
-					logit( "Exception occured: ", "error" )
+					logit( "Exception occurred: ", "error" )
 					logit( e, "error" )
 					return False
 			
@@ -6157,6 +6180,37 @@ class RunTmpLambda( BaseHandler ):
 				},
 				"debug_id": {
 					"type": "string"
+				},
+				"shared_files": {
+					"type": "array",
+					"default": [],
+					"items": {
+						"type": "object",
+						"properties": {
+							"body": {
+								"type": "string"
+							},
+							"version": {
+								"type": "string"
+							},
+							"type": {
+								"type": "string"
+							},
+							"id": {
+								"type": "string"
+							},
+							"name": {
+								"type": "string"
+							}
+						},
+						"required": [
+							"body",
+							"version",
+							"type",
+							"id",
+							"name"
+						]
+					}
 				}
 			},
 			"required": [
@@ -6191,9 +6245,6 @@ class RunTmpLambda( BaseHandler ):
 				self.json[ "backpack" ]
 			)
 		
-		# Lambda layers to add
-		lambda_layers = get_layers_for_lambda( self.json[ "language" ] ) + self.json[ "layers" ]
-		
 		# Empty transitions data
 		empty_transitions_dict = {
 			"then": [],
@@ -6207,25 +6258,43 @@ class RunTmpLambda( BaseHandler ):
 		
 		# Dummy pipeline execution ID
 		pipeline_execution_id = "SHOULD_NEVER_HAPPEN_TMP_LAMBDA_RUN"
-		
+
+		# Lambda layers to add
+		lambda_layers = get_layers_for_lambda( self.json[ "language" ] ) + self.json[ "layers" ]
+
+		# Create Lambda object
+		inline_lambda = Lambda(
+			name=random_node_id,
+			language=self.json[ "language" ],
+			code=self.json[ "code" ],
+			libraries=self.json[ "libraries" ],
+			max_execution_time=self.json[ "max_execution_time" ],
+			memory=self.json[ "memory" ],
+			transitions=empty_transitions_dict,
+			execution_mode="REGULAR",
+			execution_pipeline_id=pipeline_execution_id,
+			execution_log_level="LOG_NONE",
+			environment_variables=self.json[ "environment_variables" ],
+			layers=lambda_layers,
+			reserved_concurrency_count=False,
+			is_inline_execution=True,
+			shared_files_list=self.json[ "shared_files" ]
+		)
+
 		# Get inline hash key
 		environment_variables = get_environment_variables_for_lambda(
 			credentials,
-			self.json[ "language" ],
-			self.json[ "environment_variables" ],
-			pipeline_execution_id,
-			"LOG_NONE",
-			"REGULAR",
-			empty_transitions_dict,
-			True
+			inline_lambda
 		)
-		inline_lambbda_hash_key = TaskSpawner._get_inline_lambda_hash_key(
+
+		inline_lambda_hash_key = TaskSpawner._get_inline_lambda_hash_key(
 			self.json[ "language" ],
 			self.json[ "max_execution_time" ],
 			self.json[ "memory" ],
 			environment_variables,
 			lambda_layers,
-			self.json[ "libraries" ]
+			self.json[ "libraries" ],
+			self.json[ "shared_files" ]
 		)
 		
 		cached_inline_execution_lambda = None
@@ -6234,7 +6303,7 @@ class RunTmpLambda( BaseHandler ):
 			# Check if we already have an inline execution Lambda for it.
 			cached_inline_execution_lambda = self.dbsession.query( InlineExecutionLambda ).filter_by(
 				aws_account_id=credentials[ "id" ],
-				unique_hash_key=inline_lambbda_hash_key
+				unique_hash_key=inline_lambda_hash_key
 			).first()
 		
 		# We can skip this if we already have a cached execution
@@ -6275,20 +6344,7 @@ class RunTmpLambda( BaseHandler ):
 				lambda_info = yield deploy_lambda(
 					credentials,
 					random_node_id,
-					random_node_id,
-					self.json[ "language" ],
-					self.json[ "code" ],
-					self.json[ "libraries" ],
-					self.json[ "max_execution_time" ],
-					self.json[ "memory" ], # MB of execution memory
-					empty_transitions_dict,
-					"REGULAR",
-					pipeline_execution_id, # Doesn't matter no logging is enabled
-					"LOG_NONE",
-					self.json[ "environment_variables" ], # Env list
-					lambda_layers,
-					False,
-					True # Is inline execution
+					inline_lambda
 				)
 			except BuildException as build_exception:
 				self.write({
@@ -6399,13 +6455,13 @@ def get_language_specific_environment_variables( language ):
 		
 	return environment_variables_list
 
-def get_environment_variables_for_lambda( credentials, language, environment_variables, execution_pipeline_id, execution_log_level, execution_mode, transitions, is_inline_execution ):
-	all_environment_vars = copy.copy( environment_variables )
+def get_environment_variables_for_lambda( credentials, lambda_object ):
+	all_environment_vars = copy.copy( lambda_object.environment_variables )
 	
 	# Add environment variables depending on language
 	# This is mainly for module loading when we're doing inline executions.
 	all_environment_vars = all_environment_vars + get_language_specific_environment_variables(
-		language
+		lambda_object.language
 	)
 	
 	all_environment_vars.append({
@@ -6425,7 +6481,7 @@ def get_environment_variables_for_lambda( credentials, language, environment_var
 
 	all_environment_vars.append({
 		"key": "EXECUTION_PIPELINE_ID",
-		"value": execution_pipeline_id,
+		"value": lambda_object.execution_pipeline_id,
 	})
 	
 	all_environment_vars.append({
@@ -6435,22 +6491,22 @@ def get_environment_variables_for_lambda( credentials, language, environment_var
 
 	all_environment_vars.append({
 		"key": "PIPELINE_LOGGING_LEVEL",
-		"value": execution_log_level,
+		"value": lambda_object.execution_log_level,
 	})
 	
 	all_environment_vars.append({
 		"key": "EXECUTION_MODE",
-		"value": execution_mode,
+		"value": lambda_object.execution_mode,
 	})
 	
 	all_environment_vars.append({
 		"key": "TRANSITION_DATA",
 		"value": json.dumps(
-			transitions
+			lambda_object.transitions
 		),
 	})
 	
-	if is_inline_execution:
+	if lambda_object.is_inline_execution:
 		# The environment variable activates it as
 		# an inline execution Lambda and allows us to
 		# pass in arbitrary code to execution.
@@ -6524,37 +6580,31 @@ def get_layers_for_lambda( language ):
 	return new_layers
 
 @gen.coroutine
-def deploy_lambda( credentials, id, name, language, code, libraries, max_execution_time, memory, transitions, execution_mode, execution_pipeline_id, execution_log_level, environment_variables, layers, reserved_concurrency_count, is_inline_execution ):
+def deploy_lambda( credentials, id, lambda_object ):
 	"""
 	Here we build the default required environment variables.
 	"""
-	all_environment_vars = get_environment_variables_for_lambda(
+	lambda_object.environment_variables = get_environment_variables_for_lambda(
 		credentials,
-		language,
-		environment_variables,
-		execution_pipeline_id,
-		execution_log_level,
-		execution_mode,
-		transitions,
-		is_inline_execution
+		lambda_object
 	)
 
 	logit(
-		"Deploying '" + name + "' Lambda package to production..."
+		"Deploying '" + lambda_object.name + "' Lambda package to production..."
 	)
 	
-	lambda_role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/refinery_default_aws_lambda_role"
+	lambda_object.role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/refinery_default_aws_lambda_role"
 	
 	# If it's a self-hosted (THIRDPARTY) AWS account we deploy with a different role
 	# name which they manage themselves.
 	if credentials[ "account_type" ] == "THIRDPARTY":
-		lambda_role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/" + THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
+		lambda_object.role = "arn:aws:iam::" + str( credentials[ "account_id" ] ) + ":role/" + THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
 		
 	# Don't yield for it, but we'll also create a log group at the same time
 	# We're set a tag for that log group for cost tracking
 	local_tasks.create_cloudwatch_group(
 		credentials,
-		"/aws/lambda/" + name,
+		"/aws/lambda/" + lambda_object.name,
 		{
 			"RefineryResource": "true"
 		},
@@ -6563,35 +6613,21 @@ def deploy_lambda( credentials, id, name, language, code, libraries, max_executi
 
 	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
 		credentials,
-		name,
-		language,
-		"AWS Lambda deployed via refinery",
-		lambda_role,
-		code,
-		libraries,
-		max_execution_time, # Max AWS execution time
-		memory, # MB of execution memory
-		{}, # VPC data
-		all_environment_vars,
-		{
-			"refinery_id": id,
-		},
-		layers,
-		is_inline_execution
+		lambda_object
 	)
 	
 	# If we have concurrency set, then we'll set that for our deployed Lambda
-	if reserved_concurrency_count:
-		logit( "Setting reserved concurrency for Lambda '" + deployed_lambda_data[ "FunctionArn" ] + "' to " + str( reserved_concurrency_count ) + "..." )
+	if lambda_object.reserved_concurrency_count:
+		logit( "Setting reserved concurrency for Lambda '" + deployed_lambda_data[ "FunctionArn" ] + "' to " + str( lambda_object.reserved_concurrency_count ) + "..." )
 		yield local_tasks.set_lambda_reserved_concurrency(
 			credentials,
 			deployed_lambda_data[ "FunctionArn" ],
-			reserved_concurrency_count
+			lambda_object.reserved_concurrency_count
 		)
 	
 	raise gen.Return({
 		"id": id,
-		"name": name,
+		"name": lambda_object.name,
 		"arn": deployed_lambda_data[ "FunctionArn" ]
 	})
 	
@@ -6870,14 +6906,38 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	for lambda_node in lambda_nodes:
 		lambda_safe_name = get_lambda_safe_name( lambda_node[ "name" ] )
 		logit( "Deploying Lambda '" + lambda_safe_name + "'..." )
-		
+
 		# For backwards compatibility
 		if not ( "reserved_concurrency_count" in lambda_node ):
 			lambda_node[ "reserved_concurrency_count" ] = False
-			
+
 		lambda_layers = get_layers_for_lambda(
 			lambda_node[ "language" ]
 		) + lambda_node[ "layers" ]
+
+		shared_files = get_shared_files_for_lambda(
+			lambda_node[ "id" ],
+			diagram_data
+		)
+
+		# Create Lambda object
+		lambda_object = Lambda(
+			name=lambda_safe_name,
+			language=lambda_node[ "language" ],
+			code=lambda_node[ "code" ],
+			libraries=lambda_node[ "libraries" ],
+			max_execution_time=lambda_node[ "max_execution_time" ],
+			memory=lambda_node[ "memory" ],
+			transitions=lambda_node[ "transitions" ],
+			execution_mode="REGULAR",
+			execution_pipeline_id=project_id,
+			execution_log_level=project_config[ "logging" ][ "level" ],
+			environment_variables=env_var_dict[ lambda_node[ "id" ] ],
+			layers=lambda_layers,
+			reserved_concurrency_count=lambda_node[ "reserved_concurrency_count" ],
+			is_inline_execution=False,
+			shared_files_list=shared_files
+		)
 
 		lambda_node_deploy_futures.append({
 			"id": lambda_node[ "id" ],
@@ -6886,20 +6946,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 			"future": deploy_lambda(
 				credentials,
 				lambda_node[ "id" ],
-				lambda_safe_name,
-				lambda_node[ "language" ],
-				lambda_node[ "code" ],
-				lambda_node[ "libraries" ],
-				lambda_node[ "max_execution_time" ],
-				lambda_node[ "memory" ],
-				lambda_node[ "transitions" ],
-				"REGULAR",
-				project_id,
-				project_config[ "logging" ][ "level" ],
-				env_var_dict[ lambda_node[ "id" ] ],
-				lambda_layers,
-				lambda_node[ "reserved_concurrency_count" ],
-				False
+				lambda_object
 			)
 		})
 		
@@ -6913,6 +6960,25 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		logit( "Deploying API Endpoint '" + api_endpoint_safe_name + "'..." )
 		
 		lambda_layers = get_layers_for_lambda( "python2.7" )
+
+		# Create Lambda object
+		lambda_object = Lambda(
+			name=api_endpoint_safe_name,
+			language="python2.7",
+			code="",
+			libraries=[],
+			max_execution_time=30,
+			memory=512,
+			transitions=api_endpoint_node[ "transitions" ],
+			execution_mode="API_ENDPOINT",
+			execution_pipeline_id=project_id,
+			execution_log_level=project_config[ "logging" ][ "level" ],
+			environment_variables=[],
+			layers=lambda_layers,
+			reserved_concurrency_count=False,
+			is_inline_execution=False,
+			shared_files_list=[]
+		)
 		
 		api_endpoint_node_deploy_futures.append({
 			"id": api_endpoint_node[ "id" ],
@@ -6921,20 +6987,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 			"future": deploy_lambda(
 				credentials,
 				api_endpoint_node[ "id" ],
-				api_endpoint_safe_name,
-				"python2.7",
-				"",
-				[],
-				30,
-				512,
-				api_endpoint_node[ "transitions" ],
-				"API_ENDPOINT",
-				project_id,
-				project_config[ "logging" ][ "level" ],
-				[],
-				lambda_layers,
-				False,
-				False
+				lambda_object
 			)
 		})
 		
@@ -7432,6 +7485,11 @@ class SavedBlocksCreate( BaseHandler ):
 						"PRIVATE",
 						"PUBLISHED"
 					]
+				},
+				"shared_files": {
+					"type": "array",
+					"default": [],
+
 				}
 			},
 			"required": [
@@ -7512,6 +7570,7 @@ class SavedBlocksCreate( BaseHandler ):
 		new_saved_block_version.block_object = json.dumps(
 			self.json[ "block_object" ]
 		)
+		new_saved_block_version.shared_files = self.json[ "shared_files" ]
 			
 		saved_block.versions.append(
 			new_saved_block_version
@@ -7611,6 +7670,7 @@ class SavedBlockSearch( BaseHandler ):
 				"type": saved_block.type,
 				"block_object": block_object,
 				"version": saved_block_latest_version.version,
+				"shared_files": saved_block_latest_version.shared_files,
 				"timestamp": saved_block_latest_version.timestamp,
 			})
 		
@@ -8425,7 +8485,6 @@ class DeployDiagram( BaseHandler ):
 	@gen.coroutine
 	def post( self ):
 		# TODO: Add jsonschema
-		
 		logit( "Deploying diagram to production..." )
 		
 		# Ensure user is owner of the project

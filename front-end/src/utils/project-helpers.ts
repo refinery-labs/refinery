@@ -1,4 +1,10 @@
-import { RefineryProject, WorkflowRelationship, WorkflowRelationshipType, WorkflowState } from '@/types/graph';
+import {
+  RefineryProject,
+  WorkflowRelationship,
+  WorkflowRelationshipType,
+  WorkflowState,
+  WorkflowStateType
+} from '@/types/graph';
 import {
   nodeTypesWithSimpleTransitions,
   validBlockToBlockTransitionLookup,
@@ -8,6 +14,7 @@ import { AvailableTransition, AvailableTransitionsByType, ProjectViewState } fro
 import { GetSavedProjectResponse } from '@/types/api-types';
 import uuid from 'uuid/v4';
 import { deepJSONCopy } from '@/lib/general-utils';
+import R from 'ramda';
 
 export function getNodeDataById(project: RefineryProject, nodeId: string): WorkflowState | null {
   const targetStates = project.workflow_states;
@@ -189,11 +196,23 @@ export function unwrapProjectJson(response: GetSavedProjectResponse): RefineryPr
       project_id: response.project_id || project.project_id || uuid(),
       workflow_relationships: project.workflow_relationships || [],
       workflow_states: project.workflow_states || [],
+      workflow_files: project.workflow_files || [],
+      workflow_file_links: project.workflow_file_links || [],
       version: project.version || 1
     };
   } catch {
     return null;
   }
+}
+
+export function getIDsOfBlockType(blockType: WorkflowStateType, project: RefineryProject) {
+  const matchingWorkflowStates = project.workflow_states.filter(workflow_state => {
+    return workflow_state.type == blockType;
+  });
+
+  return matchingWorkflowStates.map(workflow_state => {
+    return workflow_state.id;
+  });
 }
 
 /**
@@ -223,4 +242,25 @@ export function getValidBlockToBlockTransitions(state: ProjectViewState) {
 
   // Return only complex transitions for anything else
   return [...state.availableTransitions.complex];
+}
+
+export function getSharedFilesForCodeBlock(nodeId: string, project: RefineryProject) {
+  const sharedFileLinks = project.workflow_file_links.filter(workflow_file_link => workflow_file_link.node === nodeId);
+
+  // Turn file links into a list of Shared Files
+  return sharedFileLinks.map(
+    shared_file_link => project.workflow_files.filter(workflow_file => workflow_file.id === shared_file_link.file_id)[0]
+  );
+}
+
+export function getSharedFileById(fileId: string, state: ProjectViewState) {
+  if (state.openedProject === null) {
+    return null;
+  }
+
+  return deepJSONCopy(state.openedProject.workflow_files).filter(workflow_file => workflow_file.id === fileId)[0];
+}
+
+export function getSharedLinksForSharedFile(sharedFileId: string, project: RefineryProject) {
+  return project.workflow_file_links.filter(workflow_file_link => workflow_file_link.file_id === sharedFileId);
 }

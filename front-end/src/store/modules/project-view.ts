@@ -8,10 +8,13 @@ import {
   RootState
 } from '@/store/store-types';
 import {
-  LambdaWorkflowState,
   ProjectConfig,
   ProjectLogLevel,
   RefineryProject,
+  WorkflowFile,
+  WorkflowFileLink,
+  WorkflowFileLinkType,
+  WorkflowFileType,
   WorkflowRelationship,
   WorkflowRelationshipType,
   WorkflowState,
@@ -47,6 +50,7 @@ import {
   UpdateLeftSidebarPaneStateMutation
 } from '@/types/project-editor-types';
 import {
+  getIDsOfBlockType,
   getNodeDataById,
   getTransitionDataById,
   getValidBlockToBlockTransitions,
@@ -74,8 +78,13 @@ import { createNewBlock, createNewTransition } from '@/utils/block-utils';
 import { saveEditBlockToProject } from '@/utils/store-utils';
 import ImportableRefineryProject from '@/types/export-project';
 import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
-import store from '@/store';
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
+import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shared-files';
+
+export interface ChangeTransitionArguments {
+  transition: WorkflowRelationship;
+  transitionType: WorkflowRelationshipType;
+}
 
 export interface AddBlockArguments {
   rawBlockType: string;
@@ -84,11 +93,6 @@ export interface AddBlockArguments {
    * This block is "extended" from during the add flow, if specified. Example use case: Adding a saved block.
    */
   customBlockProperties?: WorkflowState;
-}
-
-export interface ChangeTransitionArguments {
-  transition: WorkflowRelationship;
-  transitionType: WorkflowRelationshipType;
 }
 
 const moduleState: ProjectViewState = {
@@ -126,7 +130,13 @@ const moduleState: ProjectViewState = {
     [SIDEBAR_PANE.destroyDeploy]: {},
     [SIDEBAR_PANE.viewDeployedBlock]: {},
     [SIDEBAR_PANE.viewDeployedBlockLogs]: {},
-    [SIDEBAR_PANE.viewDeployedTransition]: {}
+    [SIDEBAR_PANE.viewDeployedTransition]: {},
+    [SIDEBAR_PANE.sharedFiles]: {},
+    [SIDEBAR_PANE.editSharedFile]: {},
+    [SIDEBAR_PANE.editSharedFileLinks]: {},
+    [SIDEBAR_PANE.addingSharedFileLink]: {},
+    [SIDEBAR_PANE.codeBlockSharedFiles]: {},
+    [SIDEBAR_PANE.viewSharedFile]: {}
   },
   activeLeftSidebarPane: null,
   activeRightSidebarPane: null,
@@ -159,7 +169,10 @@ const moduleState: ProjectViewState = {
   // Edit Transition Pane
   availableEditTransitions: null,
   isEditingTransitionCurrently: false,
-  newTransitionTypeSpecifiedInEditFlow: null
+  newTransitionTypeSpecifiedInEditFlow: null,
+
+  // Adding a shared block to a file
+  isAddingSharedFileToCodeBlock: false
 };
 
 const ProjectViewModule: Module<ProjectViewState, RootState> = {
@@ -194,6 +207,18 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       return locatedNode.type === WorkflowStateType.LAMBDA;
+    },
+    /**
+     * Returns the list of IDs for all of the valid Code Blocks in the project.
+     *
+     * This is a getter for the animation for the Add Shared File to Code Block functionality.
+     */
+    [ProjectViewGetters.getCodeBlockIDs]: state => {
+      if (state.openedProject === null) {
+        return [];
+      }
+
+      return getIDsOfBlockType(WorkflowStateType.LAMBDA, state.openedProject);
     },
     /**
      * Returns the list of "next" valid blocks to select
@@ -363,6 +388,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
     [ProjectViewMutators.setCytoscapeConfig](state, config: cytoscape.CytoscapeOptions) {
       state.cytoscapeConfig = deepJSONCopy(config);
+    },
+    [ProjectViewMutators.setIsAddingSharedFileToCodeBlock](state, value: boolean) {
+      state.isAddingSharedFileToCodeBlock = value;
     },
     // Project Config
     [ProjectViewMutators.setProjectLogLevel](state, projectLoggingLevel: ProjectLogLevel) {
@@ -541,6 +569,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       const params: OpenProjectMutation = {
         project: {
+          // Default values in the event these are not specified in the imported JSON
+          workflow_files: [],
+          workflow_file_links: [],
+
+          // Merge in the JSON object and setup other properties with new values
           ...demoProject,
           project_id: uuid(),
           version: 1
@@ -938,7 +971,88 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.updateAvailableTransitions);
       await context.dispatch(ProjectViewActions.updateAvailableEditTransitions);
     },
+    async [ProjectViewActions.completeAddingSharedFileToCodeBlock](context, nodeId: string) {
+      const sharedFile = await context.dispatch(`editSharedFile/getSharedFile`, null, { root: true });
+
+      if (sharedFile === null) {
+        console.error('Shared file was null when attempting to add it to a block, quitting out!');
+        return;
+      }
+
+      // Check if a shared file link already exists, if so then throw an error modals
+      const openedProject = context.state.openedProject as RefineryProject;
+
+      const addSharedFileLinkArgs: AddSharedFileLinkArguments = {
+        file_id: sharedFile.id,
+        node: nodeId,
+        path: ''
+      };
+
+      // Complete adding the shared file link
+      await context.dispatch(ProjectViewActions.addSharedFileLink, addSharedFileLinkArgs);
+
+      // Turn off the adding shared file to code block mode.
+      await context.dispatch(ProjectViewActions.setIsAddingSharedFileToCodeBlock, false);
+
+      // Return to the previous panel
+      await context.dispatch(`editSharedFile/navigateToPreviousSharedFilesPane`, null, { root: true });
+    },
+    async [ProjectViewActions.addSharedFileLink](context, addSharedFileLinkArgs: AddSharedFileLinkArguments) {
+      // This should not happen
+      if (!context.state.openedProject) {
+        console.error('Adding shared file but not project was opened');
+        return;
+      }
+
+      const openedProject = context.state.openedProject as RefineryProject;
+
+      // Refused to add a shared file to a Code Block that already has one.
+      const existingFileLinks = openedProject.workflow_file_links.filter(workflow_file_link => {
+        return (
+          workflow_file_link.node === addSharedFileLinkArgs.node &&
+          workflow_file_link.file_id == addSharedFileLinkArgs.file_id
+        );
+      });
+
+      if (existingFileLinks.length > 0) {
+        await createToast(context.dispatch, {
+          title: 'Error, this file is already linked to this code block!',
+          content: 'You have already added this shared file to this code block.',
+          variant: ToastVariant.danger
+        });
+        return;
+      }
+
+      const newSharedFileLink: WorkflowFileLink = {
+        id: uuid(),
+        file_id: addSharedFileLinkArgs.file_id,
+        node: addSharedFileLinkArgs.node,
+        type: WorkflowFileLinkType.SHARED_FILE_LINK,
+        version: '1.0.0',
+        path: addSharedFileLinkArgs.path
+      };
+
+      const newProject: RefineryProject = {
+        ...openedProject,
+        workflow_file_links: [...openedProject.workflow_file_links, newSharedFileLink]
+      };
+
+      const params: OpenProjectMutation = {
+        project: newProject,
+        config: null,
+        markAsDirty: true
+      };
+
+      await context.dispatch(ProjectViewActions.updateProject, params);
+
+      return newSharedFileLink;
+    },
     async [ProjectViewActions.selectNode](context, nodeId: string) {
+      if (context.state.isAddingSharedFileToCodeBlock) {
+        await context.dispatch(ProjectViewActions.completeAddingSharedFileToCodeBlock, nodeId);
+        return;
+      }
+
       if (context.state.isAddingTransitionCurrently) {
         await context.dispatch(ProjectViewActions.completeTransitionAdd, nodeId);
         return;
@@ -1089,6 +1203,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // TODO: Open right sidebar pane
     },
     async [ProjectViewActions.openLeftSidebarPane](context, leftSidebarPaneType: SIDEBAR_PANE) {
+      // If it's the Shared File pane we need to hook it to add it to the history.
+      if (leftSidebarPaneType === SIDEBAR_PANE.sharedFiles) {
+        await context.dispatch(`editSharedFile/setCurrentShareFilePaneHistory`, leftSidebarPaneType, { root: true });
+        await context.dispatch(`sharedFiles/resetPane`, null, { root: true });
+      }
+
       if (context.state.isAddingTransitionCurrently) {
         // TODO: Add a shake or something? Tell the user that it's bjorked.
         return;
@@ -1215,6 +1335,119 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         });
       }
     },
+    async [ProjectViewActions.addSharedFile](context, addSharedFileArgs: AddSharedFileArguments) {
+      // This should not happen
+      if (!context.state.openedProject) {
+        console.error('Adding shared file but not project was opened');
+        return;
+      }
+
+      const openedProject = context.state.openedProject as RefineryProject;
+
+      const newSharedFile: WorkflowFile = {
+        id: uuid(),
+        type: WorkflowFileType.SHARED_FILE,
+        version: '1.0.0',
+        name: addSharedFileArgs.name,
+        body: addSharedFileArgs.body
+      };
+
+      const newProject: RefineryProject = {
+        ...openedProject,
+        workflow_files: [...openedProject.workflow_files, newSharedFile]
+      };
+
+      const params: OpenProjectMutation = {
+        project: newProject,
+        config: null,
+        markAsDirty: true
+      };
+
+      await context.dispatch(ProjectViewActions.updateProject, params);
+
+      return newSharedFile;
+    },
+    async [ProjectViewActions.saveSharedFile](context, sharedFile: WorkflowFile) {
+      if (!context.state.openedProject) {
+        console.error("No project is open so we can't save the shared file!");
+        return;
+      }
+
+      const openedProject = context.state.openedProject as RefineryProject;
+
+      const newProject: RefineryProject = {
+        ...openedProject,
+        workflow_files: [
+          ...openedProject.workflow_files.filter(workflowFile => {
+            return workflowFile.id !== sharedFile.id;
+          }),
+          <WorkflowFile>deepJSONCopy(sharedFile)
+        ]
+      };
+
+      const params: OpenProjectMutation = {
+        project: newProject,
+        config: null,
+        markAsDirty: true
+      };
+
+      await context.dispatch(ProjectViewActions.updateProject, params);
+    },
+    async [ProjectViewActions.deleteSharedFile](context, sharedFile: WorkflowFile) {
+      if (!context.state.openedProject) {
+        console.error("No project is open so we can't delete the shared file!");
+        return;
+      }
+
+      const openedProject = context.state.openedProject as RefineryProject;
+
+      const newProject: RefineryProject = {
+        ...openedProject,
+        workflow_files: [
+          ...openedProject.workflow_files.filter(workflowFile => {
+            return workflowFile.id !== sharedFile.id;
+          })
+        ],
+        workflow_file_links: [
+          ...openedProject.workflow_file_links.filter(workflowFileLink => {
+            return workflowFileLink.file_id !== sharedFile.id;
+          })
+        ]
+      };
+
+      const params: OpenProjectMutation = {
+        project: newProject,
+        config: null,
+        markAsDirty: true
+      };
+
+      await context.dispatch(ProjectViewActions.updateProject, params);
+    },
+    async [ProjectViewActions.deleteSharedFileLink](context, sharedFileLink: WorkflowFileLink) {
+      if (!context.state.openedProject) {
+        console.error("No project is open so we can't delete the shared file!");
+        return;
+      }
+
+      const openedProject = context.state.openedProject as RefineryProject;
+
+      const newProject: RefineryProject = {
+        ...openedProject,
+        workflow_file_links: [
+          ...openedProject.workflow_file_links.filter(workflowFileLink => {
+            return workflowFileLink.id !== sharedFileLink.id;
+          })
+        ]
+      };
+
+      const params: OpenProjectMutation = {
+        project: newProject,
+        config: null,
+        markAsDirty: true
+      };
+
+      await context.dispatch(ProjectViewActions.updateProject, params);
+    },
     async [ProjectViewActions.addIndividualBlock](context, addBlockArgs: AddBlockArguments) {
       // This should not happen
       if (!context.state.openedProject) {
@@ -1261,6 +1494,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         await context.dispatch(ProjectViewActions.selectNode, newBlock.id);
         await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
       }
+
+      return newBlock;
     },
     async [ProjectViewActions.changeExistingTransition](
       context,
@@ -1341,13 +1576,22 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const params: OpenProjectMutation = {
         project: {
           ...openedProject,
-          workflow_states: otherBlocks
+          workflow_states: otherBlocks,
+          // Remove the file links as well.
+          workflow_file_links: [
+            ...openedProject.workflow_file_links.filter(workflowFileLink => {
+              return workflowFileLink.node !== node.id;
+            })
+          ]
         },
         config: null,
         markAsDirty: true
       };
 
       await context.dispatch(ProjectViewActions.updateProject, params);
+    },
+    async [ProjectViewActions.setIsAddingSharedFileToCodeBlock](context, isAdding: boolean) {
+      context.commit(ProjectViewMutators.setIsAddingSharedFileToCodeBlock, isAdding);
     },
     async [ProjectViewActions.updateExistingBlock](context, node: WorkflowState) {
       // This should not happen
@@ -1538,7 +1782,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     async [ProjectViewActions.generateShareUrl](context) {
       if (!context.rootState.user.authenticated) {
         // Check the current authentication status before deciding which URL to export.
-        await store.dispatch(`user/${UserActions.fetchAuthenticationState}`, null, { root: true });
+        await context.dispatch(`user/${UserActions.fetchAuthenticationState}`, null, { root: true });
 
         // If we're double sure we're not authenticated... Bail out.
         if (!context.rootState.user.authenticated) {

@@ -6,6 +6,11 @@ import {
   ProjectConfig,
   ProjectConfigEnvironmentVariable,
   ProjectEnvironmentVariableList,
+  RefineryProject,
+  WorkflowFile,
+  WorkflowFileLink,
+  WorkflowFileLinkType,
+  WorkflowFileType,
   WorkflowRelationship,
   WorkflowRelationshipType,
   WorkflowState,
@@ -71,6 +76,71 @@ export function createNewTransition(
     id: uuid(),
     version: CURRENT_TRANSITION_SCHEMA
   };
+}
+
+export async function addSharedFilesToProject(
+  dispatch: Dispatch,
+  sharedFiles: WorkflowFile[],
+  project: RefineryProject
+) {
+  const rotatedIdSharedFiles = sharedFiles.map(workflowFile => {
+    const newWorkFlowFile: WorkflowFile = {
+      id: uuid(),
+      version: workflowFile.version,
+      body: workflowFile.body,
+      type: WorkflowFileType.SHARED_FILE,
+      name: workflowFile.name
+    };
+    return newWorkFlowFile;
+  });
+
+  const newProject: RefineryProject = {
+    ...project,
+    workflow_files: [...project.workflow_files, ...rotatedIdSharedFiles]
+  };
+
+  const params: OpenProjectMutation = {
+    project: newProject,
+    config: null,
+    markAsDirty: true
+  };
+
+  await dispatch(`project/${ProjectViewActions.updateProject}`, params, { root: true });
+
+  return rotatedIdSharedFiles;
+}
+
+export async function linkSharedFilesToCodeBlock(
+  dispatch: Dispatch,
+  codeBlockId: string,
+  sharedFiles: WorkflowFile[],
+  project: RefineryProject
+) {
+  // Now add all the shared file links from the files to the block we've added
+  const sharedFileLinks = sharedFiles.map(sharedFile => {
+    const newSharedFileLink: WorkflowFileLink = {
+      id: uuid(),
+      node: codeBlockId,
+      file_id: sharedFile.id,
+      version: '1.0.0',
+      type: WorkflowFileLinkType.SHARED_FILE_LINK,
+      path: ''
+    };
+    return newSharedFileLink;
+  });
+
+  const newProject: RefineryProject = {
+    ...project,
+    workflow_file_links: [...project.workflow_file_links, ...sharedFileLinks]
+  };
+
+  const params: OpenProjectMutation = {
+    project: newProject,
+    config: null,
+    markAsDirty: true
+  };
+
+  await dispatch(`project/${ProjectViewActions.updateProject}`, params, { root: true });
 }
 
 export async function safelyDuplicateBlock(
@@ -169,7 +239,7 @@ export async function safelyDuplicateBlock(
   await dispatch(`project/${ProjectViewActions.updateProject}`, openProjectMutation, { root: true });
 
   // Add the new block to the project
-  await dispatch(`project/${ProjectViewActions.addIndividualBlock}`, addBlockArgs, { root: true });
+  return await dispatch(`project/${ProjectViewActions.addIndividualBlock}`, addBlockArgs, { root: true });
 }
 
 // Creates a lookup of environment variables IDs from current ID -> original ID
