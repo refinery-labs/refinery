@@ -51,7 +51,7 @@ from email_validator import validate_email, EmailNotValidError
 from utils.general import attempt_json_decode, logit, split_list_into_chunks, get_random_node_id, get_urand_password, get_random_id, get_random_deploy_id
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
-from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda
+from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda, add_shared_files_symlink_to_zip
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
@@ -94,6 +94,7 @@ reload( sys )
 sys.setdefaultencoding( "utf8" )
 
 EMPTY_ZIP_DATA = bytearray( "PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" )
+EMPTY_SHARED_FILE_ZIP_DATA = bytearray("\x50\x4b\x03\x04\x0a\x00\x00\x00\x00\x00\x8a\xb0\x4f\x4f\xe5\xd3\x8e\xbb\x0a\x00\x00\x00\x0a\x00\x00\x00\x0c\x00\x1c\x00\x73\x68\x61\x72\x65\x64\x5f\x66\x69\x6c\x65\x73\x55\x54\x09\x00\x03\xd3\xa4\xa6\x5d\xd4\xa4\xa6\x5d\x75\x78\x0b\x00\x01\x04\xe8\x03\x00\x00\x04\xe8\x03\x00\x00\x2f\x76\x61\x72\x2f\x74\x61\x73\x6b\x2f\x50\x4b\x01\x02\x1e\x03\x0a\x00\x00\x00\x00\x00\x8a\xb0\x4f\x4f\xe5\xd3\x8e\xbb\x0a\x00\x00\x00\x0a\x00\x00\x00\x0c\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xa1\x00\x00\x00\x00\x73\x68\x61\x72\x65\x64\x5f\x66\x69\x6c\x65\x73\x55\x54\x05\x00\x03\xd3\xa4\xa6\x5d\x75\x78\x0b\x00\x01\x04\xe8\x03\x00\x00\x04\xe8\x03\x00\x00\x50\x4b\x05\x06\x00\x00\x00\x00\x01\x00\x01\x00\x52\x00\x00\x00\x50\x00\x00\x00\x00\x00")
 
 # Initialize Stripe
 stripe.api_key = os.environ.get( "stripe_api_key" )
@@ -3120,11 +3121,20 @@ class TaskSpawner(object):
 					lambda_object.libraries
 				)
 
-			# Add shared files to Lambda package as well.
-			package_zip_data = add_shared_files_to_zip(
-				package_zip_data,
-				lambda_object.shared_files_list
-			)
+			# Add symlink if it's an inline execution
+			if lambda_object.is_inline_execution:
+				package_zip_data = add_shared_files_symlink_to_zip(
+					package_zip_data
+				)
+			else:
+				logit( "Not inline execution!" )
+				# If it's an inline execution we don't add the shared files folder because
+				# we'll be live injecting them into /tmp/
+				# Add shared files to Lambda package as well.
+				package_zip_data = add_shared_files_to_zip(
+					package_zip_data,
+					lambda_object.shared_files_list
+				)
 				
 			return package_zip_data
 			
