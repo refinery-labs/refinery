@@ -366,7 +366,12 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       scheduleExpressionChange(state, block => (block.input_string = input_string));
     },
     [EditBlockMutators.setBatchSize](state, batch_size: number) {
-      sqsQueueChange(state, block => (block.batch_size = batch_size));
+      if (batch_size < 1) {
+        batch_size = 1;
+      } else if (batch_size > 10) {
+        batch_size = 10;
+      }
+      return sqsQueueChange(state, block => (block.batch_size = batch_size));
     },
     [EditBlockMutators.setHTTPMethod](state, http_method: HTTP_METHOD) {
       apiEndpointChange(state, block => (block.http_method = http_method));
