@@ -15,8 +15,8 @@ For example, say you have three blocks linked together: `[Block A]->[Block B]->[
 
 ```python
 def main(block_input, backpack):
-	# Store some data in the backpack for later
-	block_input["unique-key"] = "A value I'll need later!"
+    # Store some data in the backpack for later
+    backpack["unique-key"] = "A value I'll need later!"
     return False
 ```
 
