@@ -34,7 +34,7 @@ export class EditQueueBlock extends Vue implements EditBlockPaneProps {
             required
             readonly={this.readOnly}
             value={this.selectedNode.batch_size}
-            on={{ input: setBatchSize }}
+            on={{ change: setBatchSize }}
             placeholder="1"
             min="1"
             max="10"
