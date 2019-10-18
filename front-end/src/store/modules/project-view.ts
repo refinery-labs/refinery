@@ -25,6 +25,7 @@ import { CssStyleDeclaration, LayoutOptions } from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
 import {
   DeploymentViewActions,
+  DeploymentViewMutators,
   ProjectViewActions,
   ProjectViewGetters,
   ProjectViewMutators,
@@ -80,6 +81,8 @@ import ImportableRefineryProject from '@/types/export-project';
 import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shared-files';
+import { tryParseInt } from '@/utils/number-utils';
+import { isNewerVersionAvailableForProject } from '@/store/fetchers/project-api-helpers';
 import { EditSharedFilePaneModule } from '@/store';
 
 export interface ChangeTransitionArguments {
@@ -522,20 +525,21 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       if (!request) {
         // TODO: Handle error gracefully
         console.error('Unable to open project, missing request');
-        context.commit(ProjectViewMutators.isLoadingProject, false);
         return;
       }
 
       context.commit(ProjectViewMutators.resetState);
       context.commit(ProjectViewMutators.isLoadingProject, true);
+
       await context.dispatch(`deployment/${DeploymentViewActions.resetDeploymentState}`, null, { root: true });
 
       const project = await openProject(request);
 
+      context.commit(ProjectViewMutators.isLoadingProject, false);
+
       if (!project) {
         // TODO: Handle error gracefully
         console.error('Unable to open project missing project');
-        context.commit(ProjectViewMutators.isLoadingProject, false);
         return;
       }
 
@@ -548,8 +552,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.updateProject, params);
 
       await context.dispatch(ProjectViewActions.loadProjectConfig);
-
-      context.commit(ProjectViewMutators.isLoadingProject, false);
 
       kickOffLibraryBuildForBlocks(project.workflow_states);
     },
@@ -709,8 +711,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      context.commit(ProjectViewMutators.isSavingProject, true);
-
       const projectJson = wrapJson(context.state.openedProject);
       const configJson = wrapJson(context.state.openedProjectConfig);
 
@@ -719,6 +719,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
+      context.commit(ProjectViewMutators.isSavingProject, true);
+
       const response = await makeApiRequest<SaveProjectRequest, SaveProjectResponse>(API_ENDPOINT.SaveProject, {
         diagram_data: projectJson,
         project_id: context.state.openedProject.project_id,
@@ -726,6 +728,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         // We can set this to false and let the backend bump versions for us. :)
         version: false // context.state.openedProjectConfig.version + 1
       });
+
+      context.commit(ProjectViewMutators.isSavingProject, false);
 
       if (!response || !response.success) {
         await handleSaveError('Unable to save project: server failure.');
@@ -743,8 +747,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       };
 
       await context.dispatch(ProjectViewActions.updateProject, params);
-
-      context.commit(ProjectViewMutators.isSavingProject, false);
     },
     async [ProjectViewActions.fetchLatestDeploymentState](context) {
       if (!context.state.openedProject) {
