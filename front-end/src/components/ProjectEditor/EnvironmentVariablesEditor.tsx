@@ -50,7 +50,7 @@ export class EnvironmentVariablesEditor extends Vue implements EnvironmentVariab
   @Prop() onModalHidden?: () => void;
 
   public renderEnvVariableRow(params: EnvVariableRow) {
-    const { id, value, name, description, required } = params;
+    const { id, value, name, description, required, valid } = params;
 
     const nameInputId = `env-variable-${id}-input-name`;
     const valueInputId = `env-variable-${id}-input-value`;
@@ -86,9 +86,21 @@ export class EnvironmentVariablesEditor extends Vue implements EnvironmentVariab
               disabled={this.readOnly}
               class="mb-2 mr-sm-2 mb-sm-0"
               placeholder="eg, EndpointPath"
+              state={valid}
               value={name}
               on={{ change: (name: string) => this.setVariableName(id, name) }}
             />
+            <b-form-invalid-feedback state={valid}>
+              Invalid name for variable. Please review reserved variables names{' '}
+              <a
+                href="https://docs.aws.amazon.com/lambda/latest/dg/lambda-environment-variables.html"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                here
+              </a>
+              .
+            </b-form-invalid-feedback>
 
             <label class="mr-sm-2 mt-2" for={valueInputId}>
               Description
