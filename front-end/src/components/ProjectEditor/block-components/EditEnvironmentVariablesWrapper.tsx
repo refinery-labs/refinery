@@ -51,6 +51,7 @@ export class EditEnvironmentVariablesWrapper extends Vue
     const environmentVariablesEditorProps: EnvironmentVariablesEditorProps = {
       modalMode: true,
       readOnly: this.readOnly,
+      isFormStateValid: EnvironmentVariablesEditorModule.isFormStateValid,
       activeBlockId: EnvironmentVariablesEditorModule.activeBlockId,
       activeBlockName: EnvironmentVariablesEditorModule.activeBlockName,
       envVariableList: EnvironmentVariablesEditorModule.envVariableList,

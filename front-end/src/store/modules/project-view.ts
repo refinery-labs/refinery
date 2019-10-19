@@ -524,8 +524,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       context.commit(ProjectViewMutators.resetState);
-      await context.dispatch(`deployment/${DeploymentViewActions.resetDeploymentState}`, null, { root: true });
       context.commit(ProjectViewMutators.isLoadingProject, true);
+      await context.dispatch(`deployment/${DeploymentViewActions.resetDeploymentState}`, null, { root: true });
 
       const project = await openProject(request);
 

@@ -29,12 +29,32 @@ export interface EnvVariableRow {
   description: string;
   original_id?: string;
   required: boolean;
+  valid?: boolean;
 }
 
 export interface OpenEnvironmentVariablesParams {
   block: LambdaWorkflowState;
   config: ProjectConfig;
 }
+
+// These come from here: https://docs.aws.amazon.com/lambda/latest/dg/lambda-environment-variables.html
+const reservedEnvironmentVariablesNames: string[] = [
+  '_HANDLER',
+  'AWS_REGION',
+  'AWS_EXECUTION_ENV',
+  'AWS_LAMBDA_FUNCTION_NAME',
+  'AWS_LAMBDA_FUNCTION_MEMORY_SIZE',
+  'AWS_LAMBDA_FUNCTION_VERSION',
+  'AWS_LAMBDA_LOG_GROUP_NAME',
+  'AWS_LAMBDA_LOG_STREAM_NAME',
+  'AWS_ACCESS_KEY_ID',
+  'AWS_SECRET_ACCESS_KEY',
+  'AWS_SESSION_TOKEN',
+  'TZ',
+  'LAMBDA_TASK_ROOT',
+  'LAMBDA_RUNTIME_DIR',
+  'AWS_LAMBDA_RUNTIME_API'
+];
 
 export const baseState: EnvironmentVariablesEditorPaneState = {
   // TODO: Make it so that modals are instantiated by ID or something so that we can have more than two...
@@ -58,6 +78,10 @@ export class EnvironmentVariablesEditorStore
   public activeBlockId: string | null = initialState.activeBlockId;
   public activeBlockName: string | null = initialState.activeBlockName;
   public envVariableList: EnvVariableRow[] = initialState.envVariableList;
+
+  get isFormStateValid() {
+    return !this.envVariableList.some(t => t.valid === false);
+  }
 
   @Mutation
   public resetState() {
@@ -157,7 +181,14 @@ export class EnvironmentVariablesEditorStore
 
   @Action
   public setVariableName({ id, name }: { id: string; name: string }) {
-    this.updateVariable({ id, updateFn: t => (t.name = name) });
+    this.updateVariable({
+      id,
+      updateFn: t => {
+        t.name = name;
+        // Mark the name as invalid if the name is a reserved keyword.
+        t.valid = !reservedEnvironmentVariablesNames.includes(t.name);
+      }
+    });
   }
 
   @Action
