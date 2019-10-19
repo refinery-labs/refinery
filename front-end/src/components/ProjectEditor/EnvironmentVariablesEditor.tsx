@@ -5,10 +5,10 @@ import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { EnvVariableRow } from '@/store/modules/panes/environment-variables-editor';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { EditorProps } from '@/types/component-types';
-import { SupportedLanguage } from '@/types/graph';
 
 export interface EnvironmentVariablesEditorProps {
   readOnly: boolean;
+  isFormStateValid: boolean;
 
   activeBlockId: string | null;
   activeBlockName: string | null;
@@ -35,6 +35,7 @@ export class EnvironmentVariablesEditor extends Vue implements EnvironmentVariab
   @Prop({ required: true }) envVariableList!: EnvVariableRow[];
 
   @Prop({ required: true }) readOnly!: boolean;
+  @Prop({ required: true }) isFormStateValid!: boolean;
 
   @Prop({ required: true }) addNewVariable!: () => void;
   @Prop({ required: true }) deleteVariable!: (id: string) => void;
@@ -79,14 +80,14 @@ export class EnvironmentVariablesEditor extends Vue implements EnvironmentVariab
       <div class="col-12 environment-variable__card">
         <b-card class="card-default">
           {this.readOnly ? null : deleteButton}
-          <b-form on={{ submit: preventDefaultWrapper(() => {}) }}>
-            <label for={nameInputId}>Name</label>
-            <b-input
+          <b-form-group id={`${nameInputId}-group`} label="Name" label-for={nameInputId}>
+            <b-form-input
               id={nameInputId}
               disabled={this.readOnly}
               class="mb-2 mr-sm-2 mb-sm-0"
               placeholder="eg, EndpointPath"
               state={valid}
+              required
               value={name}
               on={{ change: (name: string) => this.setVariableName(id, name) }}
             />
@@ -101,36 +102,36 @@ export class EnvironmentVariablesEditor extends Vue implements EnvironmentVariab
               </a>
               .
             </b-form-invalid-feedback>
+          </b-form-group>
 
-            <label class="mr-sm-2 mt-2" for={valueInputId}>
-              Description
-            </label>
-            <b-input-group class="mb-2 mr-sm-2 mb-sm-0">
-              <b-input
-                id={valueInputId}
-                disabled={this.readOnly}
-                placeholder="eg, Path to the Get Foo Bar endpoint"
-                value={description}
-                on={{ change: (description: string) => this.setVariableDescription(id, description) }}
-              />
-            </b-input-group>
-
-            <label class="mr-sm-2 mt-2" for={valueInputId}>
-              Value
-            </label>
-            <b-input-group class="mb-2 mb-sm-0">
-              <RefineryCodeEditor props={editorProps} />
-            </b-input-group>
-
-            <b-form-checkbox
-              class="mr-sm-2 mb-sm-0"
+          <label class="mr-sm-2 mt-2" for={valueInputId}>
+            Description
+          </label>
+          <b-input-group class="mb-2 mr-sm-2 mb-sm-0">
+            <b-form-input
+              id={valueInputId}
               disabled={this.readOnly}
-              on={{ change: () => this.setVariableRequired(id, !required) }}
-              checked={required}
-            >
-              Required
-            </b-form-checkbox>
-          </b-form>
+              placeholder="eg, Path to the Get Foo Bar endpoint"
+              value={description}
+              on={{ change: (description: string) => this.setVariableDescription(id, description) }}
+            />
+          </b-input-group>
+
+          <label class="mr-sm-2 mt-2" for={valueInputId}>
+            Value
+          </label>
+          <b-input-group class="mb-2 mb-sm-0">
+            <RefineryCodeEditor props={editorProps} />
+          </b-input-group>
+
+          <b-form-checkbox
+            class="mr-sm-2 mb-sm-0"
+            disabled={this.readOnly}
+            on={{ change: () => this.setVariableRequired(id, !required) }}
+            checked={required}
+          >
+            Required
+          </b-form-checkbox>
         </b-card>
       </div>
     );
@@ -179,7 +180,7 @@ export class EnvironmentVariablesEditor extends Vue implements EnvironmentVariab
         <b-button variant="outline-danger" on={{ click: () => this.closeEditor(true) }}>
           Reset Changes
         </b-button>
-        <b-button variant="primary" on={{ click: () => this.closeEditor(false) }}>
+        <b-button variant="primary" type="submit" disabled={!this.isFormStateValid}>
           Save Changes
         </b-button>
       </div>
@@ -205,9 +206,15 @@ export class EnvironmentVariablesEditor extends Vue implements EnvironmentVariab
           </div>
           {this.readOnly ? null : addNewVariableButton}
         </div>
-        {this.renderContents()}
+        <b-form
+          on={{
+            submit: preventDefaultWrapper(() => this.closeEditor(false))
+          }}
+        >
+          {this.renderContents()}
 
-        {this.readOnly ? null : bottomStateButtons}
+          {this.readOnly ? null : bottomStateButtons}
+        </b-form>
       </b-modal>
     );
   }

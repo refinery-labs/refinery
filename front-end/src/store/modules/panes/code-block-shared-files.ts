@@ -83,7 +83,6 @@ export class CodeBlockSharedFilesPaneStore extends VuexModule<ThisType<CodeBlock
     const fileNodes = rawFileNodes.filter(n => n !== null) as ISlTreeNodeModel<FileNodeMetadata>[];
 
     if (CodeBlockSharedFilesPaneModule.codeBlock === null) {
-      console.error('No Code Block is selected!');
       return [];
     }
 

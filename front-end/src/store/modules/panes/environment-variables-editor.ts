@@ -79,6 +79,10 @@ export class EnvironmentVariablesEditorStore
   public activeBlockName: string | null = initialState.activeBlockName;
   public envVariableList: EnvVariableRow[] = initialState.envVariableList;
 
+  get isFormStateValid() {
+    return !this.envVariableList.some(t => t.valid === false);
+  }
+
   @Mutation
   public resetState() {
     resetStoreState(this, baseState);
