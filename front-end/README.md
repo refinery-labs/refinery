@@ -12,6 +12,8 @@
 - Use Vuex instead of local state, unless you have a good reason!
 - Laziness is a virtue but don't be lazy now. The truly lazy do work up front, since they will probably forget otherwise.
 
+## Adding a new store
+Go read the instructions in `src/store/store-accessor.ts` for how to add a new Vuex store.
 
 ## Debugging
 

@@ -19,6 +19,7 @@ import ImportableRefineryProject from '@/types/export-project';
 import { getShortlinkContents, renameProject } from '@/store/fetchers/api-helpers';
 import { SelectProjectVersion } from '@/types/all-project-types';
 import { getInitialCardStateForSearchResults } from '@/utils/all-projects-utils';
+import { searchSavedProjects } from '@/store/fetchers/project-api-helpers';
 
 const moduleState: AllProjectsState = {
   availableProjects: [],
@@ -196,14 +197,9 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
     async [AllProjectsActions.performSearch](context) {
       context.commit(AllProjectsMutators.setSearchingStatus, true);
 
-      const result = await makeApiRequest<SearchSavedProjectsRequest, SearchSavedProjectsResponse>(
-        API_ENDPOINT.SearchSavedProjects,
-        {
-          query: context.state.searchBoxText
-        }
-      );
+      const result = await searchSavedProjects(context.state.searchBoxText);
 
-      if (!result || !result.success) {
+      if (!result) {
         // TODO: Handle this error case
         console.error('Failure to retrieve available projects');
         context.commit(AllProjectsMutators.setSearchingStatus, false);

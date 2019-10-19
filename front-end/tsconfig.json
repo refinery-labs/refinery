@@ -38,5 +38,6 @@
   ],
   "exclude": [
     "node_modules"
+
   ]
 }

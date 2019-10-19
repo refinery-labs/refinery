@@ -711,6 +711,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
+      const newVersionAvailable = await isNewerVersionAvailableForProject(context.state.openedProject);
+
+      if (newVersionAvailable) {
+        console.log('woot');
+      }
+
       const projectJson = wrapJson(context.state.openedProject);
       const configJson = wrapJson(context.state.openedProjectConfig);
 

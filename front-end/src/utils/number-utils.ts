@@ -5,7 +5,7 @@ export function tryParseInt(rawValue: string | string[], defaultValue: any) {
   }
 
   try {
-    const outputValue = parseInt(rawValue);
+    const outputValue = parseInt(rawValue, 10);
 
     // If we parsed the input as NaN, then return the default.
     if (isNaN(outputValue)) {
