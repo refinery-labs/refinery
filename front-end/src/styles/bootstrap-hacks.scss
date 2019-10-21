@@ -3,3 +3,15 @@
 .nav-link-color {
   color: #2c3e50;
 }
+
+.dark-modal {
+  .dark-nav-tab {
+    border: 1px solid #4a5052 !important;
+    background-color: #21242d !important;
+
+    &.active {
+      border: 1px solid #5b6163 !important;
+      background-color: #484d5f !important;
+    }
+  }
+}

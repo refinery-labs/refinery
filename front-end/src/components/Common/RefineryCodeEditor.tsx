@@ -1,3 +1,4 @@
+import copy from 'copy-to-clipboard';
 import { CreateElement, VNode } from 'vue';
 import { Component, Prop, Vue } from 'vue-property-decorator';
 import { EditorProps } from '@/types/component-types';
@@ -8,6 +9,7 @@ import MonacoEditor, { MonacoEditorProps } from '@/lib/MonacoEditor';
 @Component
 export default class RefineryCodeEditor extends Vue implements EditorProps {
   fullscreen = false;
+  linkCopiedIconVisible = false;
 
   @Prop({ required: true }) name!: string;
   @Prop({ required: true }) lang!: SupportedLanguage | 'text' | 'json';
@@ -27,6 +29,14 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
 
   toggleModalOn() {
     this.fullscreen = true;
+  }
+
+  copyContentsToClipboard() {
+    copy(this.content);
+
+    // Hack to visually give the user feedback
+    this.linkCopiedIconVisible = true;
+    setTimeout(() => (this.linkCopiedIconVisible = false), 1000);
   }
 
   public renderModal() {
@@ -82,6 +92,14 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
     );
   }
 
+  renderClipboardButton(visible: boolean) {
+    if (visible) {
+      return <span class="fas fa-clipboard-check" />;
+    }
+
+    return <span class="far fa-clipboard" />;
+  }
+
   public render(h: CreateElement): VNode {
     const containerClasses = {
       'refinery-code-editor-container display--flex width--100percent height--100percent position--relative': true,
@@ -92,9 +110,26 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
 
     const fullscreenOnclick = this.fullscreenToggled || this.toggleModalOn;
 
+    const clipboardClasses = {
+      'refinery-code-editor-container__expand-button': true,
+      // Kinda nasty way to handle moving this button whenever the fullscreen button is disabled...
+      'refinery-code-editor-container__expand-button--upper': !this.disableFullscreen,
+      'refinery-code-editor-container__expand-button--lower': this.disableFullscreen
+    };
+
+    const copyToClipboardButton = (
+      <div
+        class={clipboardClasses}
+        title="Copy editor contents to clipboard"
+        on={{ click: () => this.copyContentsToClipboard() }}
+      >
+        {this.renderClipboardButton(this.linkCopiedIconVisible)}
+      </div>
+    );
+
     const fullscreenButton = (
       <div
-        class="refinery-code-editor-container__expand-button"
+        class="refinery-code-editor-container__expand-button refinery-code-editor-container__expand-button--lower"
         title="Make editor fullscreen"
         on={{ click: () => fullscreenOnclick() }}
       >
@@ -105,6 +140,7 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
     return (
       <div class={containerClasses}>
         {this.renderEditor()}
+        {copyToClipboardButton}
         {!this.disableFullscreen && fullscreenButton}
         {this.renderModal()}
       </div>
