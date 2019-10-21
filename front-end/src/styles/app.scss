@@ -550,11 +550,17 @@ $content-sidebar-width: 92px;
 
   &__expand-button {
     position: absolute;
-    bottom: 10px;
+
     right: 30px;
     color: #aaa;
     &:hover {
       color: #dadada;
+    }
+    &--clipboard {
+      bottom: 36px;
+    }
+    &--fullscreen {
+      bottom: 10px;
     }
   }
 
