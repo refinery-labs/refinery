@@ -97,7 +97,7 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
       return <span class="fas fa-clipboard-check" />;
     }
 
-    return <span class="far fa-copy" />;
+    return <span class="far fa-clipboard" />;
   }
 
   public render(h: CreateElement): VNode {

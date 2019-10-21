@@ -62,7 +62,7 @@ export default class ExportProjectPane extends Vue {
           <b-button variant="primary" class="col-12 mt-2 mb-2" on={{ click: this.copyLink }}>
             {this.copyLinkOverride || (
               <span>
-                <i class="far fa-copy" /> Copy Link to Clipboard
+                <i class="far fa-clipboard" /> Copy Link to Clipboard
               </span>
             )}
           </b-button>
