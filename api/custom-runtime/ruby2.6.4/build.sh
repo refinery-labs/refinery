@@ -3,8 +3,8 @@ echo "Building Ruby 2.6.4 Refinery custom runtime layer package..."
 rm -rf ./layer-contents/*
 cp runtime ./layer-contents/
 cp -r ../base-src/* ./layer-contents/
-cp -r ./ruby/ ./layer-contents/
-cp -r ./lib64/ ./layer-contents/
+cp -r ./ruby ./layer-contents/
+cp -r ./lib64 ./layer-contents/
 cp runtime ./layer-contents/
 cd ./layer-contents/
 zip -qr custom-runtime.zip *

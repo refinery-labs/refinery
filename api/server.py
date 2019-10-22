@@ -6377,6 +6377,9 @@ class RunTmpLambda( BaseHandler ):
 			execute_lambda_params
 		)
 
+		print( "Lamdba result: " )
+		print(lambda_result)
+
 		if "Task timed out after " in lambda_result[ "logs" ]:
 			logit( "Lambda timed out while being executed!" )
 			self.write({
@@ -6550,31 +6553,31 @@ def get_layers_for_lambda( language ):
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:25"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:26"
 		)
 	elif language == "nodejs10.16.3":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-nodejs10-custom-runtime:5"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-nodejs10-custom-runtime:6"
 		)
 	elif language == "php7.3":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:24"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:25"
 		)
 	elif language == "go1.12":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:24"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:25"
 		)
 	elif language == "python2.7":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:24"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:25"
 		)
 	elif language == "python3.6":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:25"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:26"
 		)
 	elif language == "ruby2.6.4":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:25"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:26"
 		)
 		
 	return new_layers
