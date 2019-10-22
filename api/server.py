@@ -6377,9 +6377,6 @@ class RunTmpLambda( BaseHandler ):
 			execute_lambda_params
 		)
 
-		print( "Lamdba result: " )
-		print(lambda_result)
-
 		if "Task timed out after " in lambda_result[ "logs" ]:
 			logit( "Lambda timed out while being executed!" )
 			self.write({
@@ -6409,6 +6406,8 @@ class RunTmpLambda( BaseHandler ):
 		except Exception, e:
 			logit( "Exception occurred while loading temporary Lambda return data: " )
 			logit( e )
+			logit( "Raw Lambda return data: " )
+			logit( lambda_result )
 			self.write({
 				"success": False,
 				"msg": "An exception occurred while running the Lambda.",
