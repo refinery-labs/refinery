@@ -1600,7 +1600,7 @@ def _write_inline_code( inline_code ):
 	temporary_code_path = "/tmp/" + str( uuid.uuid4() )
 	
 	with open( temporary_code_path, "w" ) as file_handler:
-		file_handler.write( inline_code )
+		file_handler.write( inline_code.encode( "utf8" ) )
 		
 	return temporary_code_path
 	
