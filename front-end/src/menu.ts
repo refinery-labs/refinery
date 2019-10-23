@@ -91,7 +91,8 @@ export const paneTypeToNameLookup: EditorPaneTypeToName = {
   [SIDEBAR_PANE.addingSharedFileLink]: 'Link Shared File to Code Block',
   [SIDEBAR_PANE.codeBlockSharedFiles]: 'Code Block Shared File(s)',
   [SIDEBAR_PANE.viewSharedFile]: 'Shared File Contents',
-  [SIDEBAR_PANE.viewReadme]: 'Refinery Project README'
+  [SIDEBAR_PANE.viewReadme]: 'Refinery Project README',
+  [SIDEBAR_PANE.editReadme]: 'Project README'
 };
 
 export const paneTypeToWindowNameLookup: EditorPaneTypeToName = {
@@ -120,6 +121,7 @@ export const SidebarMenuItems: NavbarItem[] = [
   makeSidebarMenuItem(SIDEBAR_PANE.sharedFiles, 'icon-docs', 'RUN_CODE_BLOCK', 'outline-primary'),
   // makeSidebarMenuItem(SIDEBAR_PANE.allBlocks, 'icon-grid', 'sidebar.nav.ALL_BLOCKS', 'outline-info'),
   // makeSidebarMenuItem(SIDEBAR_PANE.allVersions, 'icon-chart', 'sidebar.nav.ALL_VERSIONS', 'outline-info'),
+  makeSidebarMenuItem(SIDEBAR_PANE.editReadme, 'fab fa-readme', 'sidebar.nav.VIEW_README', 'outline-primary'),
   makeSidebarMenuItem(SIDEBAR_PANE.exportProject, 'icon-cloud-download', 'sidebar.nav.EXPORT_PROJECT', 'outline-info'),
   makeSidebarMenuItem(SIDEBAR_PANE.saveProject, 'far fa-save', 'sidebar.nav.SAVE_PROJECT', 'success'),
   makeSidebarMenuItem(SIDEBAR_PANE.deployProject, 'icon-cloud-upload', 'sidebar.nav.DEPLOY_PROJECT', 'primary')

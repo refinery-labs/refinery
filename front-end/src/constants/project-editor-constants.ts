@@ -43,6 +43,7 @@ import AddingSharedFileLinkPane from '@/components/ProjectEditor/AddingSharedFil
 import CodeBlockSharedFilesPane from '@/components/ProjectEditor/CodeBlockSharedFiles';
 import ViewSharedFilePane from '@/components/ProjectEditor/ViewSharedFile';
 import ViewReadmePane from '@/components/ProjectEditor/ViewReadme';
+import EditReadmePane from '@/components/ProjectEditor/EditReadme';
 
 export const savedBlockType = 'saved_block';
 
@@ -471,7 +472,8 @@ export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
   [SIDEBAR_PANE.addingSharedFileLink]: AddingSharedFileLinkPane,
   [SIDEBAR_PANE.codeBlockSharedFiles]: CodeBlockSharedFilesPane,
   [SIDEBAR_PANE.viewSharedFile]: ViewSharedFilePane,
-  [SIDEBAR_PANE.viewReadme]: ViewReadmePane
+  [SIDEBAR_PANE.viewReadme]: ViewReadmePane,
+  [SIDEBAR_PANE.editReadme]: EditReadmePane
 };
 
 export const blockNameText = 'Name of the block.';
