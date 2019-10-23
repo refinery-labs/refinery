@@ -2,19 +2,20 @@ import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import CytoscapeGraph from '@/components/CytoscapeGraph';
 import { namespace, State } from 'vuex-class';
-import { RefineryProject, WorkflowRelationship, WorkflowState } from '@/types/graph';
+import { RefineryProject } from '@/types/graph';
 import { LayoutOptions } from 'cytoscape';
 import { AvailableTransition } from '@/store/store-types';
 import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
+import { SIDEBAR_PANE } from '@/types/project-editor-types';
 
 const project = namespace('project');
 
 @Component
 export default class OpenedProjectGraphContainer extends Vue {
   showTooltip = true;
-
   @project.State openedProject!: RefineryProject | null;
   @project.State selectedResource!: string | null;
+
   @project.State cytoscapeElements!: CyElements | null;
   @project.State cytoscapeStyle!: CyStyle | null;
   @project.State cytoscapeLayoutOptions!: LayoutOptions | null;
@@ -31,9 +32,22 @@ export default class OpenedProjectGraphContainer extends Vue {
   @project.Action clearSelection!: () => void;
   @project.Action selectNode!: (element: string) => void;
   @project.Action selectEdge!: (element: string) => void;
+  @project.Action openRightSidebarPane!: (sidebarPane: SIDEBAR_PANE) => void;
 
   mounted() {
     setTimeout(() => (this.showTooltip = false), 15000);
+  }
+
+  public displayReadMe() {
+    if (!this.openedProject) {
+      return;
+    }
+
+    if (this.openedProject.readme.trim() === '') {
+      return;
+    }
+
+    this.openRightSidebarPane(SIDEBAR_PANE.viewReadme);
   }
 
   public getEnabledNodeIds() {
@@ -113,6 +127,11 @@ export default class OpenedProjectGraphContainer extends Vue {
         </b-button>
       </div>
     );
+
+    if (this.isInDemoMode) {
+      // Show the project README if this is demo mode
+      this.displayReadMe();
+    }
 
     return (
       <div class="opened-project-graph-container project-graph-container">

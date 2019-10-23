@@ -825,3 +825,12 @@ a.disabled {
   flex-direction: column;
   height: 100%;
 }
+
+.readme-demo-view {
+  text-align: left;
+  min-width: 30vw;
+  max-height: 40vh;
+  width: 90vw;
+  max-width: 500px;
+  overflow: scroll;
+}
