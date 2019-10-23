@@ -12,7 +12,7 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
   linkCopiedIconVisible = false;
 
   @Prop({ required: true }) name!: string;
-  @Prop({ required: true }) lang!: SupportedLanguage | 'text' | 'json';
+  @Prop({ required: true }) lang!: SupportedLanguage | 'text' | 'json' | 'markdown';
   @Prop({ required: true }) content!: string;
   @Prop() theme?: string;
   @Prop() onChange?: (s: string) => void;

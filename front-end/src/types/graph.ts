@@ -9,6 +9,7 @@ export interface BaseRefineryResource {
 export interface RefineryProject {
   name: string;
   project_id: string;
+  readme: string;
   version: number;
   workflow_states: WorkflowState[];
   workflow_relationships: WorkflowRelationship[];

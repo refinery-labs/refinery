@@ -198,7 +198,8 @@ export function unwrapProjectJson(response: GetSavedProjectResponse): RefineryPr
       workflow_states: project.workflow_states || [],
       workflow_files: project.workflow_files || [],
       workflow_file_links: project.workflow_file_links || [],
-      version: project.version || 1
+      version: project.version || 1,
+      readme: project.readme || ''
     };
   } catch {
     return null;

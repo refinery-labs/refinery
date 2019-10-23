@@ -5,8 +5,15 @@ import { namespace } from 'vuex-class';
 import { RefineryProject, SupportedLanguage } from '@/types/graph';
 import { PANE_POSITION } from '@/types/project-editor-types';
 import Loading from '@/components/Common/Loading.vue';
-import { EditorProps, LoadingContainerProps } from '@/types/component-types';
+import { EditorProps, LoadingContainerProps, MarkdownProps } from '@/types/component-types';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
+import { EditSharedFilePaneModule, ReadmeEditorPaneStoreModule } from '@/store';
+import RefineryMarkdown from '@/components/Common/RefineryMarkdown';
+import RunDeployedCodeBlockContainer from '@/components/DeploymentViewer/RunDeployedCodeBlockContainer';
+import RunEditorCodeBlockContainer from '@/components/ProjectEditor/RunEditorCodeBlockContainer';
+import Split from '@/components/Common/Split.vue';
+import SplitArea from '@/components/Common/SplitArea.vue';
+import { RunLambdaDisplayMode } from '@/components/RunLambda';
 
 const project = namespace('project');
 
@@ -21,12 +28,98 @@ export default class ExportProjectPane extends Vue {
   @project.Getter shareProjectUrl!: string;
 
   @project.Action closePane!: (p: PANE_POSITION) => void;
+  @project.Action generateShareUrl!: () => void;
 
   copyLink() {
     copy(this.shareProjectUrl);
 
     this.copyLinkOverride = 'Link Copied!';
     setTimeout(() => (this.copyLinkOverride = null), 1000);
+  }
+
+  public renderMarkdownEditorModal() {
+    if (!this.openedProject) {
+      return <span>Please open project!</span>;
+    }
+
+    const editorProps: EditorProps = {
+      name: `README Editor`,
+      lang: 'markdown',
+      content: this.openedProject.readme,
+      readOnly: false,
+      onChange: ReadmeEditorPaneStoreModule.setReadmeContents
+    };
+
+    const modalOnHandlers = {
+      hidden: () => {
+        ReadmeEditorPaneStoreModule.setFullScreenEditorModalVisibilityAction(false);
+      }
+    };
+
+    const markdownProps: MarkdownProps = {
+      content: this.openedProject.readme
+    };
+
+    return (
+      <b-modal
+        ref={`readme-editor--fullscreen-modal`}
+        on={modalOnHandlers}
+        hide-footer={true}
+        no-close-on-esc={true}
+        size="xl no-max-width no-modal-body-padding dark-modal"
+        title={`README Editor`}
+        visible={ReadmeEditorPaneStoreModule.isFullScreenEditorModalVisible}
+      >
+        <div class="display--flex code-modal-editor-container overflow--hidden-x">
+          <Split
+            props={{
+              direction: 'horizontal' as Object,
+              extraClasses: 'height--100percent flex-grow--1 display--flex' as Object
+            }}
+          >
+            <SplitArea props={{ size: 67 as Object, positionRelative: true as Object }}>
+              <RefineryCodeEditor props={editorProps} />
+            </SplitArea>
+            <SplitArea props={{ size: 33 as Object }}>
+              <RefineryMarkdown props={markdownProps} />
+            </SplitArea>
+          </Split>
+        </div>
+      </b-modal>
+    );
+  }
+
+  public renderReadMe() {
+    if (!this.openedProject) {
+      return <span>Please open project!</span>;
+    }
+
+    const editorProps: EditorProps = {
+      name: `README Editor`,
+      lang: 'markdown',
+      content: this.openedProject.readme,
+      readOnly: false,
+      onChange: ReadmeEditorPaneStoreModule.setReadmeContents,
+      fullscreenToggled: () => {
+        ReadmeEditorPaneStoreModule.setFullScreenEditorModalVisibilityAction(true);
+      }
+    };
+
+    const markdownProps: MarkdownProps = {
+      content: this.openedProject.readme
+    };
+
+    return (
+      <div class="markdown-editor-pane">
+        <div style="flex: 1; min-height: 40%;">
+          <RefineryCodeEditor props={editorProps} />
+        </div>
+        <div class="mt-3 mb-3 ml-3 mr-3" style="flex: 1;">
+          <RefineryMarkdown props={markdownProps} />
+          {this.renderMarkdownEditorModal()}
+        </div>
+      </div>
+    );
   }
 
   public renderExportJson() {
@@ -83,7 +176,7 @@ export default class ExportProjectPane extends Vue {
     return (
       <div class={formClasses}>
         <b-tabs nav-class="nav-justified" content-class="padding--none">
-          <b-tab title="first" active>
+          <b-tab title="first" active on={{ click: this.generateShareUrl }}>
             <template slot="title">By Link</template>
             {this.renderShareJson()}
           </b-tab>
@@ -108,6 +201,15 @@ export default class ExportProjectPane extends Vue {
               >
                 Download as JSON
               </b-button>
+            </div>
+          </b-tab>
+          <b-tab>
+            <template slot="title">README</template>
+            <div class="text-align--left run-lambda-container__text-label">
+              <label class="text-light padding--none mt-0 mb-0 ml-2">Project README (Markdown): </label>
+            </div>
+            <div class="export-project-container__content overflow--scroll-y-auto flex-direction--column display--flex text-align--left">
+              {this.renderReadMe()}
             </div>
           </b-tab>
         </b-tabs>

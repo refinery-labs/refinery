@@ -445,7 +445,7 @@ $content-sidebar-width: 92px;
 .export-project-container {
   &__content {
     height: 640px;
-    width: 500px;
+    width: 600px;
     margin: 0 -1px 0 -1px;
   }
 }
@@ -818,4 +818,10 @@ a.disabled {
 
 .view-shared-file-pane {
   width: calc((100vw - 400px) / 2);
+}
+
+.markdown-editor-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
 }
