@@ -99,7 +99,7 @@ export function generateCytoscapeElements(project: RefineryProject): ElementsDef
     return {
       data: {
         id: edge.id,
-        name: edge.type as string,
+        name: edge.name,
         source: edge.node,
         target: edge.next
       }
