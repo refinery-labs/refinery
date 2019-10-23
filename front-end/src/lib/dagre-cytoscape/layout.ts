@@ -20,7 +20,7 @@ export class DagreLayout implements DagreOptions {
   // Dagre algorithm default options
   nodeSep?: number;
   edgeSep?: number;
-  rankSep?: number = 100;
+  rankSep?: number;
   rankDir?: string;
   ranker?: RankerAlgorithms = RankerAlgorithms.NetworkSimplex;
   minLen = (edge: any) => 1;
@@ -51,15 +51,15 @@ export class DagreLayout implements DagreOptions {
     // This is not a string!
     // The person that wrote this library is abusing this in Graphlib to be a pointer (object) instead.
     // What the heck is going on here?
-    // @ts-ignore
     this.graphCreator =
       graphCreator ||
+      // @ts-ignore
       new BaseGraphHelper({
-        nodesep: this.nodeSep,
-        edgesep: this.edgeSep,
-        ranksep: this.rankSep,
-        rankDir: this.rankDir,
-        ranker: this.ranker
+        nodesep: options.nodeSep,
+        edgesep: options.edgeSep,
+        ranksep: options.rankSep,
+        rankDir: options.rankDir,
+        ranker: options.ranker
       });
 
     // Override any values of this class with the specified options.
@@ -188,8 +188,15 @@ export class DagreLayout implements DagreOptions {
     subGraphs.map(subGraph => {
       this.runLayoutForNodes(subGraph, offsetX);
 
+      let graphWidth = (json.write(subGraph) as SerializedGraph).value.width;
+
+      // If the width is invalid, then set a sane default.
+      if (graphWidth < 100 || isNaN(graphWidth)) {
+        graphWidth = 100;
+      }
+
       // Keep track of where the previous graph was and add a slight offset. This prevents overlaps from happening.
-      offsetX += 100 + (json.write(subGraph) as SerializedGraph).value.width;
+      offsetX += 60 + graphWidth;
     });
 
     const nodes = this.eles.nodes();

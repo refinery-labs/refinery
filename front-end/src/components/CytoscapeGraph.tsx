@@ -345,6 +345,7 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
       padding: 20,
       // @ts-ignore
       edgeSep: 100,
+      rankSep: 70,
       align: 'UL',
       ...this.layout
     };

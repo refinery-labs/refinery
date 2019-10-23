@@ -1,4 +1,5 @@
 import { Graph, json } from 'graphlib';
+import * as R from 'ramda';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { GraphHelper, SerializedGraph, SubGraphLookup } from './types';
 
@@ -70,7 +71,30 @@ export class BaseGraphHelper implements GraphHelper {
       return idToGraph;
     }
 
-    return graph.sinks().reduce(addNodesToLookup, {} as SubGraphLookup);
+    // This creates a lookup where the "index" for the graph in the reduce function is not contiguous (has holes).
+    // In order to fix this, we have to collapse down the indexes into a contiguous range.
+    // With holes: {"a": 0, "b": 2, "c": 3, "d": 8}
+    // Contiguous: {"a": 0, "b": 1, "c": 2, "d": 3}
+    const lookup = graph.nodes().reduce(addNodesToLookup, {} as SubGraphLookup);
+
+    // Grab all of the unique values for the indexes.
+    const uniqueGraphValues = R.uniq(Object.values(lookup));
+
+    // Create a range for each index of the array to zip with.
+    // Output: [0, 1, 2, 3]
+    const rangeOfUniqueIndices = [...new Array(uniqueGraphValues.length).keys()];
+
+    // Takes in the unique values and the new index, then creates a lookup.
+    // Hole Lookup: {0: 0, 2: 1, 3: 2, 8: 3}
+    const holeLookupToCorrectIndex = R.zipObj(uniqueGraphValues, rangeOfUniqueIndices);
+
+    // Sets the lookup values to be the new contiguous ones.
+    Object.keys(lookup).forEach(node => {
+      lookup[node] = holeLookupToCorrectIndex[lookup[node]];
+    });
+
+    // Return the lookup without holes.
+    return lookup;
   }
 
   /**
