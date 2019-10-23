@@ -81,7 +81,7 @@ export default class ExportProjectPane extends Vue {
               <RefineryCodeEditor props={editorProps} />
             </SplitArea>
             <SplitArea props={{ size: 33 as Object }}>
-              <div class="container ml-3 mt-3 mb-3 mr-3">
+              <div class="container markdown-view-fullscreen-modal pl-3 pr-3 pt-3">
                 <RefineryMarkdown props={markdownProps} />
               </div>
             </SplitArea>
