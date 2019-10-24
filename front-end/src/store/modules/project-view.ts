@@ -575,7 +575,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
           // Default values in the event these are not specified in the imported JSON
           workflow_files: [],
           workflow_file_links: [],
-          readme: ``,
+          readme: `# Untitled README`,
           // Merge in the JSON object and setup other properties with new values
           ...demoProject,
           project_id: uuid(),

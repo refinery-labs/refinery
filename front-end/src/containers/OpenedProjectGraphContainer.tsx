@@ -36,11 +36,6 @@ export default class OpenedProjectGraphContainer extends Vue {
 
   mounted() {
     setTimeout(() => (this.showTooltip = false), 15000);
-
-    if (this.isInDemoMode) {
-      // Show the project README if this is demo mode
-      this.displayReadMe();
-    }
   }
 
   public displayReadMe() {
@@ -132,6 +127,11 @@ export default class OpenedProjectGraphContainer extends Vue {
         </b-button>
       </div>
     );
+
+    if (this.isInDemoMode) {
+      // Show the project README if this is demo mode
+      this.displayReadMe();
+    }
 
     return (
       <div class="opened-project-graph-container project-graph-container">
