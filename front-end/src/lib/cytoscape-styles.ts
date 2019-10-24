@@ -147,6 +147,7 @@ export const animationEnd: SingularAnimationOptionsPos = {
 };
 
 export const selectableAnimation = async (ele: CollectionReturnValue): Promise<EventObject> => {
+  // @ts-ignore
   return (
     // Annoying bad type declarations...
     // @ts-ignore

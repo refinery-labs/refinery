@@ -19,6 +19,18 @@ declare namespace cytoscape {
     generateStyle(cy: Stylesheet): Stylesheet;
     appendToStyle(style: Stylesheet): Stylesheet;
   }
+
+  export interface NodeSingular {
+    layoutDimensions(options: { nodeDimensionsIncludeLabels: boolean }): { w: number; h: number };
+  }
+
+  export interface NodeCollection {
+    layoutPositions(
+      layout: cytoscape.CoreEvents,
+      options: cytoscape.LayoutPositionOptions,
+      fn: (ele: any) => { x: number; y: number }
+    ): void;
+  }
 }
 // https://github.com/cytoscape/cytoscape.js/blob/unstable/src/index.js#L44
 

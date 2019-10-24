@@ -2,13 +2,14 @@ import { CreateElement, VNode } from 'vue';
 import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 import cytoscape, { EdgeDefinition, EventObject, LayoutOptions, NodeDefinition } from 'cytoscape';
 import cyCanvas, { CytoscapeCanvasInstance } from '../lib/cytoscape-canvas';
-import dagre from 'cytoscape-dagre';
 import deepEqual from 'fast-deep-equal';
 import { animationBegin, animationEnd, baseCytoscapeStyles, STYLE_CLASSES } from '@/lib/cytoscape-styles';
 import { timeout } from '@/utils/async-utils';
 import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
+import { registerCustomDagre } from '@/lib/dagre-cytoscape';
 
-cytoscape.use(dagre);
+// @ts-ignore
+cytoscape.use(registerCustomDagre);
 cyCanvas(cytoscape);
 
 function areCytoResourcesTheSame(a: NodeDefinition | EdgeDefinition, b: NodeDefinition | EdgeDefinition): boolean {
@@ -341,9 +342,11 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
       animate,
       // animationEasing: 'cubic',
       spacingFactor: 1.15,
-      padding: 100,
+      padding: 20,
       // @ts-ignore
       edgeSep: 100,
+      rankSep: 70,
+      align: 'UL',
       ...this.layout
     };
   }
@@ -354,7 +357,7 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
 
       boxSelectionEnabled: false,
       autounselectify: true,
-      minZoom: 0.5,
+      minZoom: 0.25,
       maxZoom: 4,
       wheelSensitivity: 0.8,
 
