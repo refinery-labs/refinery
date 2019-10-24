@@ -90,7 +90,7 @@ export default class EditReadmePane extends Vue {
     };
 
     return (
-      <div class="markdown-editor-pane">
+      <div class="markdown-editor-pane display--flex flex-direction--column height--100percent text-align--left">
         <div style="flex: 1; min-height: 40%;">
           <RefineryCodeEditor props={editorProps} />
         </div>
