@@ -37,6 +37,7 @@
     "bootstrap-vue": "^2.0.0-rc.22",
     "copy-to-clipboard": "3.2.0",
     "cytoscape": "^3.5.7",
+    "dagre": "^0.8.4",
     "debounce": "^1.2.0",
     "element-resize-detector": "^1.1.15",
     "fast-deep-equal": "^2.0.1",
