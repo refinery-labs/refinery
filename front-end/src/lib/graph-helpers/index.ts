@@ -105,6 +105,11 @@ export class BaseGraphHelper implements GraphHelper {
    * @param idToGraphLookup {SubGraphLookup} Mapping from NodeId -> "Graph Number", where every NodeId appears in graph.
    */
   convertSubGraphLookupIntoGraphs(parentGraph: Graph, idToGraphLookup: SubGraphLookup): Graph[] {
+    // There are zero nodes, so we can just return an empty array.
+    if (parentGraph.nodeCount() === 0) {
+      return [];
+    }
+
     // Serialize the parent graph so that we can manipulate it's contents without magic
     const jsonParentGraph = json.write(parentGraph) as SerializedGraph;
 
