@@ -357,7 +357,7 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
 
       boxSelectionEnabled: false,
       autounselectify: true,
-      minZoom: 0.5,
+      minZoom: 0.25,
       maxZoom: 4,
       wheelSensitivity: 0.8,
 
