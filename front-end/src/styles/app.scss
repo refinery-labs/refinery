@@ -445,7 +445,7 @@ $content-sidebar-width: 92px;
 .export-project-container {
   &__content {
     height: 640px;
-    width: 500px;
+    width: 600px;
     margin: 0 -1px 0 -1px;
   }
 }
@@ -818,4 +818,22 @@ a.disabled {
 
 .view-shared-file-pane {
   width: calc((100vw - 400px) / 2);
+}
+
+.markdown-editor-pane {
+  min-width: 40vw;
+  max-width: 400px
+}
+
+.readme-demo-view {
+  min-width: 30vw;
+  max-height: 40vh;
+  width: 90vw;
+  max-width: 500px;
+  overflow: auto;
+}
+
+.markdown-view-fullscreen-modal{
+  background-color: #FFFFFF;
+  color: initial;
 }

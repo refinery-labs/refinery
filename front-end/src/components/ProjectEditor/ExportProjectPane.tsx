@@ -5,8 +5,15 @@ import { namespace } from 'vuex-class';
 import { RefineryProject, SupportedLanguage } from '@/types/graph';
 import { PANE_POSITION } from '@/types/project-editor-types';
 import Loading from '@/components/Common/Loading.vue';
-import { EditorProps, LoadingContainerProps } from '@/types/component-types';
+import { EditorProps, LoadingContainerProps, MarkdownProps } from '@/types/component-types';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
+import { EditSharedFilePaneModule, ReadmeEditorPaneStoreModule } from '@/store';
+import RefineryMarkdown from '@/components/Common/RefineryMarkdown';
+import RunDeployedCodeBlockContainer from '@/components/DeploymentViewer/RunDeployedCodeBlockContainer';
+import RunEditorCodeBlockContainer from '@/components/ProjectEditor/RunEditorCodeBlockContainer';
+import Split from '@/components/Common/Split.vue';
+import SplitArea from '@/components/Common/SplitArea.vue';
+import { RunLambdaDisplayMode } from '@/components/RunLambda';
 
 const project = namespace('project');
 
@@ -21,6 +28,7 @@ export default class ExportProjectPane extends Vue {
   @project.Getter shareProjectUrl!: string;
 
   @project.Action closePane!: (p: PANE_POSITION) => void;
+  @project.Action generateShareUrl!: () => void;
 
   copyLink() {
     copy(this.shareProjectUrl);

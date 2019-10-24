@@ -136,7 +136,9 @@ const moduleState: ProjectViewState = {
     [SIDEBAR_PANE.editSharedFileLinks]: {},
     [SIDEBAR_PANE.addingSharedFileLink]: {},
     [SIDEBAR_PANE.codeBlockSharedFiles]: {},
-    [SIDEBAR_PANE.viewSharedFile]: {}
+    [SIDEBAR_PANE.viewSharedFile]: {},
+    [SIDEBAR_PANE.viewReadme]: {},
+    [SIDEBAR_PANE.editReadme]: {}
   },
   activeLeftSidebarPane: null,
   activeRightSidebarPane: null,
@@ -573,7 +575,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
           // Default values in the event these are not specified in the imported JSON
           workflow_files: [],
           workflow_file_links: [],
-
+          readme: ``,
           // Merge in the JSON object and setup other properties with new values
           ...demoProject,
           project_id: uuid(),

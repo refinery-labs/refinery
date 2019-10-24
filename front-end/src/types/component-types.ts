@@ -5,7 +5,7 @@ import { ProjectExecution } from '@/types/deployment-executions-types';
 
 export interface EditorProps {
   name: string;
-  lang: SupportedLanguage | 'text' | 'json';
+  lang: SupportedLanguage | 'text' | 'json' | 'markdown';
   content: string;
   theme?: string;
   onChange?: (s: string) => void;
