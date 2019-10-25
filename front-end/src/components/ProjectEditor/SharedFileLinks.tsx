@@ -1,13 +1,7 @@
 import Component from 'vue-class-component';
 import Vue, { CreateElement, VNode } from 'vue';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
-import {
-  LambdaWorkflowState,
-  RefineryProject,
-  WorkflowFileLink,
-  WorkflowFileType,
-  WorkflowStateType
-} from '@/types/graph';
+import { LambdaWorkflowState, RefineryProject, WorkflowFileLink, WorkflowStateType } from '@/types/graph';
 import { namespace } from 'vuex-class';
 import { EditSharedFilePaneModule } from '@/store';
 import { getNodeDataById, getSharedLinksForSharedFile } from '@/utils/project-helpers';
@@ -82,10 +76,14 @@ export default class EditSharedFileLinksPane extends Vue {
         return [];
       }
 
-      return this.renderSharedFileLinkSelect(
-        getNodeDataById(this.openedProject, workflowFileLink.node) as LambdaWorkflowState,
-        workflowFileLink
-      );
+      const node = getNodeDataById(this.openedProject, workflowFileLink.node);
+
+      if (!node || node.type !== WorkflowStateType.LAMBDA) {
+        console.error('Invalid file link detected: node missing or of wrong type');
+        return [];
+      }
+
+      return this.renderSharedFileLinkSelect(node as LambdaWorkflowState, workflowFileLink);
     });
   }
 
