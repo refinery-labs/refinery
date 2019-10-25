@@ -29,14 +29,11 @@ module.exports = {
       .loader('vue-jsx-hot-loader');
   },
   configureWebpack: {
-    // Local daemon for retrieving sourcemaps.
-    // ...(process.env.NODE_ENV === 'production' && {
-    //   output: { sourceMapFilename: 'http://localhost:8003/[file].map'}
-    // }),
     plugins: [
       new MonacoEditorPlugin(['javascript', 'php', 'python', 'go', 'json', 'markdown', 'ruby']),
       process.env.NODE_ENV === 'production' &&
         new webpack.SourceMapDevToolPlugin({
+          // Local daemon address for retrieving sourcemaps from private S3 bucket.
           publicPath: 'https://localhost:8003/',
           filename: '[file].map'
         })
