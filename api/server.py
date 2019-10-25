@@ -94,7 +94,6 @@ reload( sys )
 sys.setdefaultencoding( "utf8" )
 
 EMPTY_ZIP_DATA = bytearray( "PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" )
-EMPTY_SHARED_FILE_ZIP_DATA = bytearray("\x50\x4b\x03\x04\x0a\x00\x00\x00\x00\x00\x8a\xb0\x4f\x4f\xe5\xd3\x8e\xbb\x0a\x00\x00\x00\x0a\x00\x00\x00\x0c\x00\x1c\x00\x73\x68\x61\x72\x65\x64\x5f\x66\x69\x6c\x65\x73\x55\x54\x09\x00\x03\xd3\xa4\xa6\x5d\xd4\xa4\xa6\x5d\x75\x78\x0b\x00\x01\x04\xe8\x03\x00\x00\x04\xe8\x03\x00\x00\x2f\x76\x61\x72\x2f\x74\x61\x73\x6b\x2f\x50\x4b\x01\x02\x1e\x03\x0a\x00\x00\x00\x00\x00\x8a\xb0\x4f\x4f\xe5\xd3\x8e\xbb\x0a\x00\x00\x00\x0a\x00\x00\x00\x0c\x00\x18\x00\x00\x00\x00\x00\x00\x00\x00\x00\xff\xa1\x00\x00\x00\x00\x73\x68\x61\x72\x65\x64\x5f\x66\x69\x6c\x65\x73\x55\x54\x05\x00\x03\xd3\xa4\xa6\x5d\x75\x78\x0b\x00\x01\x04\xe8\x03\x00\x00\x04\xe8\x03\x00\x00\x50\x4b\x05\x06\x00\x00\x00\x00\x01\x00\x01\x00\x52\x00\x00\x00\x50\x00\x00\x00\x00\x00")
 
 # Initialize Stripe
 stripe.api_key = os.environ.get( "stripe_api_key" )
@@ -3226,7 +3225,6 @@ class TaskSpawner(object):
 					lambda_object.environment_variables,
 					lambda_object.layers,
 					lambda_object.libraries,
-					lambda_object.shared_files_list,
 					lambda_deploy_result[ "FunctionArn" ],
 					lambda_deploy_result[ "CodeSize" ]
 				)
@@ -3296,15 +3294,14 @@ class TaskSpawner(object):
 			dbsession.close()
 			
 		@staticmethod
-		def _cache_inline_lambda_execution( credentials, language, timeout, memory, environment_variables, layers, libraries, shared_files_list, arn, lambda_size ):
+		def _cache_inline_lambda_execution( credentials, language, timeout, memory, environment_variables, layers, libraries, arn, lambda_size ):
 			inline_execution_hash_key = TaskSpawner._get_inline_lambda_hash_key(
 				language,
 				timeout,
 				memory,
 				environment_variables,
 				layers,
-				libraries,
-				shared_files_list
+				libraries
 			)
 			
 			# Maximum amount of inline execution Lambdas to leave deployed
@@ -3341,15 +3338,14 @@ class TaskSpawner(object):
 			)
 			
 		@staticmethod
-		def _get_inline_lambda_hash_key( language, timeout, memory, environment_variables, lambda_layers, libraries, shared_files_list ):
+		def _get_inline_lambda_hash_key( language, timeout, memory, environment_variables, lambda_layers, libraries ):
 			hash_dict = {
 				"language": language,
 				"timeout": timeout,
 				"memory": memory,
 				"environment_variables": environment_variables,
 				"layers": lambda_layers,
-				"libraries": libraries,
-				"shared_files": shared_files_list
+				"libraries": libraries
 			}
 			
 			hash_key = hashlib.sha256(
@@ -6303,8 +6299,7 @@ class RunTmpLambda( BaseHandler ):
 			self.json[ "memory" ],
 			environment_variables,
 			lambda_layers,
-			self.json[ "libraries" ],
-			self.json[ "shared_files" ]
+			self.json[ "libraries" ]
 		)
 		
 		cached_inline_execution_lambda = None
@@ -6334,21 +6329,6 @@ class RunTmpLambda( BaseHandler ):
 			lambda_info = {
 				"arn": cached_inline_execution_lambda_dict[ "arn" ]
 			}
-		
-			inline_execution_code = get_base_lambda_code(
-				self.json[ "language" ],
-				self.json[ "code" ]
-			)
-			
-			execute_lambda_params = {
-				"_refinery": {
-					"backpack": backpack_data,
-					"throw_exceptions_fully": True,
-					"input_data": self.json[ "input_data" ],
-					"temporary_execution": True,
-					"inline_code": inline_execution_code,
-				}
-			}
 		else:
 			try:
 				lambda_info = yield deploy_lambda(
@@ -6364,14 +6344,26 @@ class RunTmpLambda( BaseHandler ):
 				})
 				raise gen.Return()
 				
-			execute_lambda_params = {
-				"_refinery": {
-					"backpack": backpack_data,
-					"throw_exceptions_fully": True,
-					"input_data": self.json[ "input_data" ],
-					"temporary_execution": True
-				}
+		execute_lambda_params = {
+			"_refinery": {
+				"backpack": backpack_data,
+				"throw_exceptions_fully": True,
+				"input_data": self.json[ "input_data" ],
+				"temporary_execution": True
 			}
+		}
+
+		# Get inline execution code
+		inline_execution_code = get_base_lambda_code(
+			self.json[ "language" ],
+			self.json[ "code" ]
+		)
+
+		# Generate Lambda run input
+		execute_lambda_params[ "_refinery" ][ "inline_code" ] = {
+			"base_code": inline_execution_code,
+			"shared_files": self.json[ "shared_files" ]
+		}
 		
 		if "debug_id" in self.json:
 			execute_lambda_params[ "_refinery" ][ "live_debug" ] = {
@@ -6418,6 +6410,10 @@ class RunTmpLambda( BaseHandler ):
 			logit( e )
 			logit( "Raw Lambda return data: " )
 			logit( lambda_result )
+
+			if "logs" in lambda_result:
+				print( lambda_result[ "logs" ] )
+
 			self.write({
 				"success": False,
 				"msg": "An exception occurred while running the Lambda.",
@@ -6562,7 +6558,8 @@ def get_layers_for_lambda( language ):
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:26"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:26"
+			"arn:aws:lambda:us-west-2:561628006572:layer:node:19"
 		)
 	elif language == "nodejs10.16.3":
 		new_layers.append(
