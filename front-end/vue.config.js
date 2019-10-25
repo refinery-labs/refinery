@@ -1,3 +1,4 @@
+const webpack = require('webpack');
 const MonacoEditorPlugin = require('monaco-editor-webpack-plugin');
 
 module.exports = {
@@ -15,6 +16,11 @@ module.exports = {
     }
   },
   chainWebpack: config => {
+    // Skip loading hot loader
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
+
     config.module
       .rule(/\.(j|t)sx$/)
       .test(/\.(j|t)sx$/)
@@ -23,7 +29,18 @@ module.exports = {
       .loader('vue-jsx-hot-loader');
   },
   configureWebpack: {
-    plugins: [new MonacoEditorPlugin(['javascript', 'php', 'python', 'go', 'json', 'markdown', 'ruby'])]
+    // Local daemon for retrieving sourcemaps.
+    // ...(process.env.NODE_ENV === 'production' && {
+    //   output: { sourceMapFilename: 'http://localhost:8003/[file].map'}
+    // }),
+    plugins: [
+      new MonacoEditorPlugin(['javascript', 'php', 'python', 'go', 'json', 'markdown', 'ruby']),
+      process.env.NODE_ENV === 'production' &&
+        new webpack.SourceMapDevToolPlugin({
+          publicPath: 'https://localhost:8003/',
+          filename: '[file].map'
+        })
+    ]
   },
   pwa: {
     // workboxPluginMode: 'InjectManifest',
@@ -74,7 +91,7 @@ module.exports = {
   pluginOptions: {
     s3Deploy: {
       awsProfile: 'default',
-      region: 'us-east-1',
+      region: 'us-west-2',
       bucket: 'app.refinery.io',
       pwa: true,
       pwaFiles: 'index.html,service-worker.js,manifest.json',
@@ -85,7 +102,7 @@ module.exports = {
       staticIndexPage: 'index.html',
       staticErrorPage: 'error.html',
       assetPath: 'dist',
-      assetMatch: '**',
+      assetMatch: ['**', '!**/*.map'],
       deployPath: '/',
       acl: 'public-read',
       enableCloudfront: false,
