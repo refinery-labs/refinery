@@ -69,18 +69,19 @@ export default class EditSharedFileLinksPane extends Vue {
     return sharedLinks.map(workflowFileLink => {
       if (this.openedProject === null) {
         console.error('No project is currently opened.');
-        return [];
+        return null;
       }
+
       if (!workflowFileLink) {
         console.error('Invalid workflow file link provided (is null).');
-        return [];
+        return null;
       }
 
       const node = getNodeDataById(this.openedProject, workflowFileLink.node);
 
       if (!node || node.type !== WorkflowStateType.LAMBDA) {
         console.error('Invalid file link detected: node missing or of wrong type');
-        return [];
+        return null;
       }
 
       return this.renderSharedFileLinkSelect(node as LambdaWorkflowState, workflowFileLink);

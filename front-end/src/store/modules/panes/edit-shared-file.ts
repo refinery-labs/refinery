@@ -39,6 +39,13 @@ export class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFileP
   public currentSharedFilePane: SIDEBAR_PANE = initialState.currentSharedFilePane;
   public newSharedFilenameIsValid: boolean | null = initialState.newSharedFilenameIsValid;
 
+  get getFileLanguage(): SupportedLanguage {
+    if (this.sharedFile === null) {
+      return SupportedLanguage.NODEJS_10;
+    }
+    return getLanguageFromFileName(this.sharedFile.name);
+  }
+
   @Mutation
   public resetState() {
     resetStoreState(this, initialState);
@@ -90,7 +97,7 @@ export class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFileP
   @Action
   public async openSharedFile(value: WorkflowFile) {
     this.setSharedFile(value);
-    this.setCurrentSharedFilePane(SIDEBAR_PANE.editSharedFile);
+    await this.setCurrentSharedFilePane(SIDEBAR_PANE.editSharedFile);
   }
 
   @Action
@@ -101,19 +108,21 @@ export class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFileP
   @Action
   public async deleteSharedFile() {
     await this.context.dispatch(`project/${ProjectViewActions.deleteSharedFile}`, this.sharedFile, { root: true });
-    this.navigateToPreviousSharedFilesPane();
+    await this.navigateToPreviousSharedFilesPane();
   }
 
-  @Action setCurrentShareFilePaneHistory(sharedFileLocation: SIDEBAR_PANE) {
+  @Action
+  public setCurrentShareFilePaneHistory(sharedFileLocation: SIDEBAR_PANE) {
     if (this.currentSharedFilePane !== sharedFileLocation) {
       this.pushLastSharedFilePaneLocationToHistory(this.currentSharedFilePane);
     }
     this.setCurrentSharedFilePaneLocation(sharedFileLocation);
   }
 
-  @Action setCurrentSharedFilePane(sharedFileLocation: SIDEBAR_PANE) {
+  @Action
+  public async setCurrentSharedFilePane(sharedFileLocation: SIDEBAR_PANE) {
     this.setCurrentShareFilePaneHistory(sharedFileLocation);
-    this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, sharedFileLocation, {
+    await this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, sharedFileLocation, {
       root: true
     });
   }
@@ -123,19 +132,19 @@ export class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFileP
     const lastSharedFilePane = this.previousSharedFilePanes[this.previousSharedFilePanes.length - 1];
     this.removeLastSharedFilePaneLocationFromHistory();
     this.setCurrentSharedFilePaneLocation(lastSharedFilePane);
-    this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, lastSharedFilePane, {
+    await this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, lastSharedFilePane, {
       root: true
     });
   }
 
   @Action
   public async openSharedFileLinks() {
-    this.setCurrentSharedFilePane(SIDEBAR_PANE.editSharedFileLinks);
+    await this.setCurrentSharedFilePane(SIDEBAR_PANE.editSharedFileLinks);
   }
 
   @Action
   public async selectCodeBlockToAddSharedFileTo() {
-    this.setCurrentSharedFilePane(SIDEBAR_PANE.addingSharedFileLink);
+    await this.setCurrentSharedFilePane(SIDEBAR_PANE.addingSharedFileLink);
     await this.context.dispatch(`project/${ProjectViewActions.setIsAddingSharedFileToCodeBlock}`, true, {
       root: true
     });
@@ -148,7 +157,7 @@ export class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFileP
 
   @Action
   public async cancelSelectingCodeBlockToAddSharedFileTo() {
-    this.navigateToPreviousSharedFilesPane();
+    await this.navigateToPreviousSharedFilesPane();
 
     await this.context.dispatch(`project/${ProjectViewActions.setIsAddingSharedFileToCodeBlock}`, false, {
       root: true
@@ -163,21 +172,14 @@ export class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFileP
   }
 
   @Action
-  public fileNameChange(fileName: string) {
+  public async fileNameChange(fileName: string) {
     this.setSharedFileName(fileName);
-    this.saveSharedFile();
+    await this.saveSharedFile();
   }
 
   @Action
   public async codeEditorChange(value: string) {
     this.setSharedFileBody(value);
-    this.saveSharedFile();
-  }
-
-  get getFileLanguage(): SupportedLanguage {
-    if (this.sharedFile === null) {
-      return SupportedLanguage.NODEJS_10;
-    }
-    return getLanguageFromFileName(this.sharedFile.name);
+    await this.saveSharedFile();
   }
 }

@@ -3,7 +3,15 @@ import { createProject, importProject } from '@/store/fetchers/api-helpers';
 import { viewProject } from '@/utils/router-utils';
 import { NewProjectConfig } from '@/types/new-project-types';
 import { unwrapJson } from '@/utils/project-helpers';
-import { RefineryProject, WorkflowRelationship, WorkflowState } from '@/types/graph';
+import {
+  LambdaWorkflowState,
+  RefineryProject,
+  WorkflowFile,
+  WorkflowFileLink,
+  WorkflowRelationship,
+  WorkflowState,
+  WorkflowStateType
+} from '@/types/graph';
 import generateStupidName from '@/lib/silly-names';
 
 export async function createNewProjectFromConfig(config: NewProjectConfig) {
@@ -83,38 +91,84 @@ function reassignProjectIds(project: RefineryProject): RefineryProject {
   // Keep this lookup so that we can remap the IDs in edges/relationships
   const oldIdToNewIdLookup: { [key: string]: string } = {};
 
-  const newStates: WorkflowState[] = [];
-  const newRelationships: WorkflowRelationship[] = [];
-
   // Assign new Ids to all of the workflow states
-  project.workflow_states.reduce((outputStates, state) => {
-    const newId = uuid();
+  const newStates = project.workflow_states.reduce(
+    (outputStates, state) => {
+      const newId = uuid();
 
-    oldIdToNewIdLookup[state.id] = newId;
+      oldIdToNewIdLookup[state.id] = newId;
 
-    outputStates.push({
-      ...state,
-      id: newId
-    });
+      outputStates.push({
+        ...state,
+        id: newId
+      });
 
-    return outputStates;
-  }, newStates);
+      return outputStates;
+    },
+    [] as WorkflowState[]
+  );
 
   // Go through existing relationships and ensure that they point to the new node Ids.
-  project.workflow_relationships.reduce((outputRelationships, relationship) => {
-    outputRelationships.push({
-      ...relationship,
-      id: uuid(),
-      node: oldIdToNewIdLookup[relationship.node],
-      next: oldIdToNewIdLookup[relationship.next]
-    });
+  const newRelationships = project.workflow_relationships.reduce(
+    (outputRelationships, relationship) => {
+      outputRelationships.push({
+        ...relationship,
+        id: uuid(),
+        node: oldIdToNewIdLookup[relationship.node],
+        next: oldIdToNewIdLookup[relationship.next]
+      });
 
-    return outputRelationships;
-  }, newRelationships);
+      return outputRelationships;
+    },
+    [] as WorkflowRelationship[]
+  );
+
+  // Update the IDs of every file
+  const newWorkflowFiles = project.workflow_files.reduce(
+    (outputFiles, file) => {
+      const newId = uuid();
+
+      oldIdToNewIdLookup[file.id] = newId;
+
+      outputFiles.push({
+        ...file,
+        id: newId
+      });
+
+      return outputFiles;
+    },
+    [] as WorkflowFile[]
+  );
+
+  // Finally, update the file links using the new ID lookups.
+  const newWorkflowFileLinks = project.workflow_file_links.reduce(
+    (outputFileLinks, fileLink) => {
+      const missingFileForLink = oldIdToNewIdLookup[fileLink.file_id] === undefined;
+      const missingNodeForLink = oldIdToNewIdLookup[fileLink.node] === undefined;
+
+      // Don't propagate bad state -- deal with it here and move on.
+      if (missingFileForLink || missingNodeForLink) {
+        console.warn('Skipping adding file link, detected invalid state at import.', fileLink);
+        return outputFileLinks;
+      }
+
+      outputFileLinks.push({
+        ...fileLink,
+        id: uuid(),
+        file_id: oldIdToNewIdLookup[fileLink.file_id],
+        node: oldIdToNewIdLookup[fileLink.node]
+      });
+
+      return outputFileLinks;
+    },
+    [] as WorkflowFileLink[]
+  );
 
   // Return a new project with the new ids in place.
   return {
     ...project,
+    workflow_files: newWorkflowFiles,
+    workflow_file_links: newWorkflowFileLinks,
     workflow_relationships: newRelationships,
     workflow_states: newStates
   };

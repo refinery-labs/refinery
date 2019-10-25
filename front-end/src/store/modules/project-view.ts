@@ -80,6 +80,7 @@ import ImportableRefineryProject from '@/types/export-project';
 import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shared-files';
+import { EditSharedFilePaneModule } from '@/store';
 
 export interface ChangeTransitionArguments {
   transition: WorkflowRelationship;
@@ -975,15 +976,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.updateAvailableEditTransitions);
     },
     async [ProjectViewActions.completeAddingSharedFileToCodeBlock](context, nodeId: string) {
-      const sharedFile = await context.dispatch(`editSharedFile/getSharedFile`, null, { root: true });
+      const sharedFile = await EditSharedFilePaneModule.getSharedFile();
 
       if (sharedFile === null) {
         console.error('Shared file was null when attempting to add it to a block, quitting out!');
         return;
       }
-
-      // Check if a shared file link already exists, if so then throw an error modals
-      const openedProject = context.state.openedProject as RefineryProject;
 
       const addSharedFileLinkArgs: AddSharedFileLinkArguments = {
         file_id: sharedFile.id,
@@ -998,7 +996,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.setIsAddingSharedFileToCodeBlock, false);
 
       // Return to the previous panel
-      await context.dispatch(`editSharedFile/navigateToPreviousSharedFilesPane`, null, { root: true });
+      await EditSharedFilePaneModule.navigateToPreviousSharedFilesPane();
     },
     async [ProjectViewActions.addSharedFileLink](context, addSharedFileLinkArgs: AddSharedFileLinkArguments) {
       // This should not happen
