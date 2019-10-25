@@ -3126,7 +3126,6 @@ class TaskSpawner(object):
 					package_zip_data
 				)
 			else:
-				logit( "Not inline execution!" )
 				# If it's an inline execution we don't add the shared files folder because
 				# we'll be live injecting them into /tmp/
 				# Add shared files to Lambda package as well.
