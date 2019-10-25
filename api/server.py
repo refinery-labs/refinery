@@ -6410,6 +6410,7 @@ class RunTmpLambda( BaseHandler ):
 			logit( "Raw Lambda return data: " )
 			logit( lambda_result )
 
+			# Clearer logging for raw Lambda error output
 			if "logs" in lambda_result:
 				print( lambda_result[ "logs" ] )
 
