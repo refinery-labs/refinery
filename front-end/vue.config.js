@@ -1,4 +1,19 @@
+const webpack = require('webpack');
 const MonacoEditorPlugin = require('monaco-editor-webpack-plugin');
+
+// General plugins for all environments
+const plugins = [new MonacoEditorPlugin(['javascript', 'php', 'python', 'go', 'json', 'markdown', 'ruby'])];
+
+// These plugins are for only production
+if (process.env.NODE_ENV === 'production') {
+  plugins.push(
+    new webpack.SourceMapDevToolPlugin({
+      // Local daemon address for retrieving sourcemaps from private S3 bucket.
+      publicPath: 'https://localhost:8003/',
+      filename: '[file].map'
+    })
+  );
+}
 
 module.exports = {
   lintOnSave: false,
@@ -15,6 +30,11 @@ module.exports = {
     }
   },
   chainWebpack: config => {
+    // Skip loading hot loader
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
+
     config.module
       .rule(/\.(j|t)sx$/)
       .test(/\.(j|t)sx$/)
@@ -23,7 +43,7 @@ module.exports = {
       .loader('vue-jsx-hot-loader');
   },
   configureWebpack: {
-    plugins: [new MonacoEditorPlugin(['javascript', 'php', 'python', 'go', 'json', 'markdown', 'ruby'])]
+    plugins
   },
   pwa: {
     // workboxPluginMode: 'InjectManifest',
@@ -85,7 +105,7 @@ module.exports = {
       staticIndexPage: 'index.html',
       staticErrorPage: 'error.html',
       assetPath: 'dist',
-      assetMatch: '**',
+      assetMatch: ['**', '!**/*.map'],
       deployPath: '/',
       acl: 'public-read',
       enableCloudfront: false,
