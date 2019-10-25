@@ -91,7 +91,7 @@ module.exports = {
   pluginOptions: {
     s3Deploy: {
       awsProfile: 'default',
-      region: 'us-west-2',
+      region: 'us-east-1',
       bucket: 'app.refinery.io',
       pwa: true,
       pwaFiles: 'index.html,service-worker.js,manifest.json',
