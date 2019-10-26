@@ -21,7 +21,7 @@ export default class ViewReadmePane extends Vue {
     };
 
     return (
-      <div class="mr-3 ml-3 mb-3 mt-3 readme-demo-view text-align--left">
+      <div class="mr-3 ml-3 mb-3 mt-3 readme-demo-view text-align--left force-visible-scrollbar">
         <RefineryMarkdown props={markdownProps} />
       </div>
     );
