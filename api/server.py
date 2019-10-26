@@ -40,7 +40,6 @@ from tornado import gen
 import unicodecsv as csv
 from datetime import timedelta
 from tornado.web import asynchronous
-from expiringdict import ExpiringDict
 from ansi2html import Ansi2HTMLConverter
 from botocore.exceptions import ClientError
 from jsonschema import validate as validate_schema
@@ -52,6 +51,8 @@ from utils.general import attempt_json_decode, logit, split_list_into_chunks, ge
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
 from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda
+from utils.aws_client import get_aws_client, STS_CLIENT
+from utils.dangling_resources import aws_resource_enumerator
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
@@ -225,18 +226,6 @@ COST_EXPLORER = boto3.client(
 	)
 )
 
-# This client is used to assume role into all of our customer's
-# AWS accounts as a root-priveleged support account ("DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT")
-STS_CLIENT = boto3.client(
-	"sts",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" ),
-	config=Config(
-		max_pool_connections=( 1000 * 2 )
-	)
-)
-
 # The AWS organization API for provisioning new AWS sub-accounts
 # for customers to use.
 ORGANIZATION_CLIENT = boto3.client(
@@ -248,89 +237,6 @@ ORGANIZATION_CLIENT = boto3.client(
 		max_pool_connections=( 1000 * 2 )
 	)
 )
-    
-"""
-This is some poor-man's caching to greately speed up Boto3
-client access times. We basically just cache and return the client
-if it's less than the STS Assume Role age.
-
-Basically this is critical when we do things like the S3 log pulling
-because it does TONS of concurrent connections. Without the caching it
-can take ~35 seconds to pull the logs, with the caching it takes ~5.
-"""
-BOTO3_CLIENT_CACHE = ExpiringDict(
-	max_len=500,
-	max_age_seconds=( int( os.environ.get( "assume_role_session_lifetime_seconds" ) ) - 60 )
-)
-def get_aws_client( client_type, credentials ):
-	"""
-	Take an AWS client type ("s3", "lambda", etc) and utilize
-	STS to assume role into the customer's account and return
-	a key and token for the admin service account ("DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT")
-	"""
-	global BOTO3_CLIENT_CACHE
-	
-	cache_key = client_type + credentials[ "account_id" ] + credentials[ "region" ]
-	
-	if cache_key in BOTO3_CLIENT_CACHE:
-		return BOTO3_CLIENT_CACHE[ cache_key ]
-	
-	# Generate the Refinery AWS management role ARN we are going to assume into
-	sub_account_admin_role_arn = "arn:aws:iam::" + credentials[ "account_id" ] + ":role/DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT"
-	
-	# We need to generate a random role session name
-	role_session_name = "Refinery-Managed-Account-Support-" + get_urand_password( 12 )
-	
-	# Perform the assume role action
-	assume_role_response = STS_CLIENT.assume_role(
-		RoleArn=sub_account_admin_role_arn,
-		RoleSessionName=role_session_name,
-		DurationSeconds=int( os.environ.get( "assume_role_session_lifetime_seconds" ) )
-	)
-	
-	# Remove non-JSON serializable part from response
-	del assume_role_response[ "Credentials" ][ "Expiration" ]
-	
-	# Take the assume role credentials and use it to create a boto3 session
-	boto3_session = boto3.Session(
-		aws_access_key_id=assume_role_response[ "Credentials" ][ "AccessKeyId" ],
-		aws_secret_access_key=assume_role_response[ "Credentials" ][ "SecretAccessKey" ],
-		aws_session_token=assume_role_response[ "Credentials" ][ "SessionToken" ],
-		region_name=credentials[ "region" ],
-	)
-	
-	
-	def inject_header(params, **kwargs):
-		params["headers"]["Connection"] = "Keep-Alive"
-	
-	boto3_session.events.register("before-call.s3", inject_header)
-	
-	# Options for boto3 client
-	client_options = {
-		"config": Config(
-			max_pool_connections=( 250 * 1 ),
-			connect_timeout=( 60 * 10 ) # For large files
-		)
-	}
-	
-	# Custom configurations depending on the client type
-	if client_type == "lambda":
-		client_options[ "config" ] = Config(
-			connect_timeout=50,
-			read_timeout=( 60 * 15 ),
-			max_pool_connections=( 1000 * 2 )
-		)
-	
-	# Use the new boto3 session to create a boto3 client
-	boto3_client = boto3_session.client(
-		client_type,
-		**client_options
-	)
-	
-	# Store it in the cache for future access
-	BOTO3_CLIENT_CACHE[ cache_key ] = boto3_client
-	
-	return boto3_client
 	
 class BaseHandler( tornado.web.RequestHandler ):
 	def __init__( self, *args, **kwargs ):
@@ -11575,6 +11481,33 @@ class GetProjectShortlink( BaseHandler ):
 			}
 		})
 
+class GetProjectResources( BaseHandler ):
+	@gen.coroutine
+	def get( self ):
+		credentials = self.get_authenticated_user_cloud_configuration()
+
+		"""
+		results = yield aws_resource_enumerator.iterate_list_pages(
+			credentials,
+			"lambda",
+			"list_functions",
+			"Marker",
+			"NextMarker",
+			"Functions",
+			"FunctionArn",
+			{
+				"MaxItems": 50,
+			}
+		)
+
+		logit( len( results ) )
+		"""
+		results = yield aws_resource_enumerator.get_all_dangling_resources(
+			credentials
+		)
+
+		logit( results )
+
 def get_tornado_app_config( is_debug ):
 	return {
 		"debug": is_debug,
@@ -11639,6 +11572,8 @@ def make_app( tornado_config ):
 		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer, {
 			"websocket_router": tornado_config[ "websocket_router" ]
 		}),
+
+		( r"/api/v1/resources", GetProjectResources ),
 		
 		# Temporarily disabled since it doesn't cache the CostExplorer results
 		#( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast ),
