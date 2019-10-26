@@ -58,10 +58,13 @@ export default class EditReadmePane extends Vue {
             <SplitArea props={{ size: 67 as Object, positionRelative: true as Object }}>
               <RefineryCodeEditor props={editorProps} />
             </SplitArea>
-            <SplitArea props={{ size: 33 as Object }}>
-              <div class="container markdown-view-fullscreen-modal pl-3 pr-3 pt-3">
-                <RefineryMarkdown props={markdownProps} />
-              </div>
+            <SplitArea
+              props={{
+                size: 33 as Object,
+                extraClasses: 'container markdown-view-fullscreen-modal pl-3 pr-3 pt-3' as Object
+              }}
+            >
+              <RefineryMarkdown props={markdownProps} />
             </SplitArea>
           </Split>
         </div>
