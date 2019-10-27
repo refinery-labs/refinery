@@ -6,7 +6,7 @@ from models.initiate_database import *
 from models.users import User
 from models.aws_accounts import AWSAccount
 
-#from server import teardown_infrastructure
+from utils.deployments.teardown import teardown_infrastructure
 
 from utils.general import logit
 
