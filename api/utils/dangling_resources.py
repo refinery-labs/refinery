@@ -9,6 +9,7 @@ import re
 from tornado.concurrent import run_on_executor, futures
 from utils.aws_client import get_aws_client, STS_CLIENT
 from utils.general import logit
+from utils.deployments.sqs import get_sqs_arn_from_url
 from tornado import gen
 
 def get_arns_from_deployment_diagram( deployment_schema ):
@@ -33,19 +34,6 @@ def get_arns_from_deployment_diagrams( deployment_schemas_list ):
 		all_deployed_arns = all_deployed_arns + deployed_arns
 
 	return all_deployed_arns
-
-def get_sqs_arn_from_url( input_queue_url ):
-	stripped_queue_url = input_queue_url.replace(
-		"https://",
-		""
-	)
-	queue_dot_parts = stripped_queue_url.split( "." )
-	region = queue_dot_parts[0]
-	queue_slash_parts = stripped_queue_url.split( "/" )
-	account_id = queue_slash_parts[1]
-	queue_name = queue_slash_parts[2]
-
-	return "arn:aws:sqs:" + region + ":" + account_id + ":" + queue_name
 
 class AWSResourceEnumerator(object):
 	def __init__(self, loop=None):

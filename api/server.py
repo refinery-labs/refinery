@@ -53,6 +53,7 @@ from utils.ip_lookup import get_external_ipv4_address
 from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda
 from utils.aws_client import get_aws_client, STS_CLIENT
 from utils.dangling_resources import aws_resource_enumerator
+from utils.deployments.sqs import sqs_manager
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
@@ -5498,44 +5499,6 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def delete_sqs_queue( self, credentials, id, type, name, arn ):
-			return TaskSpawner._delete_sqs_queue( credentials, id, type, name, arn )
-			
-		@staticmethod
-		def _delete_sqs_queue( credentials, id, type, name, arn ):
-			sqs_client = get_aws_client(
-				"sqs",
-				credentials,
-			)
-			
-			was_deleted = False
-			
-			try:
-				queue_url_response = sqs_client.get_queue_url(
-					QueueName=name,
-				)
-				
-				response = sqs_client.delete_queue(
-					QueueUrl=queue_url_response[ "QueueUrl" ],
-				)
-			except ClientError as e:
-				acceptable_errors = [
-					"ResourceNotFoundException",
-					"AWS.SimpleQueueService.NonExistentQueue"
-				]
-				
-				if not ( e.response[ "Error" ][ "Code" ] in acceptable_errors ):
-					raise
-			
-			return {
-				"id": id,
-				"type": type,
-				"name": name,
-				"arn": arn,
-				"deleted": was_deleted,
-			}
-			
-		@run_on_executor
 		def delete_schedule_trigger( self, credentials, id, type, name, arn ):
 			return TaskSpawner._delete_schedule_trigger( credentials, id, type, name, arn )
 			
@@ -7716,6 +7679,16 @@ def teardown_infrastructure( credentials, teardown_nodes ):
 	]
 	"""
 	teardown_operation_futures = []
+
+	# Add an ID and "name" to nodes if not set, they are not technically
+	# required and are a remnant of the old code.
+	# This all needs to be refactored, but that's a much larger undertaking.
+	for teardown_node in teardown_nodes:
+		if not ( "name" in teardown_node ):
+			teardown_node[ "name" ] = teardown_node[ "id" ]
+
+		if not ( "arn" in teardown_node ):
+			teardown_node[ "arn" ] = teardown_node[ "id" ]
 	
 	for teardown_node in teardown_nodes:
 		# Skip if the node doesn't exist
@@ -7745,7 +7718,7 @@ def teardown_infrastructure( credentials, teardown_nodes ):
 			)
 		elif teardown_node[ "type" ] == "sqs_queue":
 			teardown_operation_futures.append(
-				local_tasks.delete_sqs_queue(
+				sqs_manager.delete_sqs_queue(
 					credentials,
 					teardown_node[ "id" ],
 					teardown_node[ "type" ],
@@ -11485,11 +11458,9 @@ class GetProjectResources( BaseHandler ):
 	@gen.coroutine
 	def get( self ):
 		credentials = self.get_authenticated_user_cloud_configuration()
-
-		print( "Account ID: " )
-		print( credentials[ "account_id" ] )
-
 		current_user = self.get_authenticated_user()
+
+		logit( "Pulling all user deployment schemas..." )
 
 		# Pull all of the user's deployment diagrams
 		deployment_schemas_list = []
@@ -11502,12 +11473,32 @@ class GetProjectResources( BaseHandler ):
 					)
 				)
 
-		results = yield aws_resource_enumerator.get_all_dangling_resources(
+		logit( "Querying AWS account to enumerate dangling resources..." )
+
+		# Get list of all dangling resources to clear
+		dangling_resources = yield aws_resource_enumerator.get_all_dangling_resources(
 			credentials,
 			deployment_schemas_list
 		)
 
-		logit( results )
+		number_of_resources = len( dangling_resources )
+
+		logit( str( len( dangling_resources ) ) + " resource(s) enumerated in account." )
+
+		logit( "Deleting all dangling resources..." )
+
+		# Tear down all dangling nodes
+		teardown_results = yield teardown_infrastructure(
+			credentials,
+			dangling_resources
+		)
+
+		logit( "Deleted all dangling resources successfully!" )
+
+		self.write({
+			"success": True,
+			"deleted_count": number_of_resources
+		})
 
 def get_tornado_app_config( is_debug ):
 	return {
