@@ -1,12 +1,17 @@
 from tornado import gen
 
+from utils.general import logit
+
 from utils.deployments.sqs import sqs_manager
 from utils.deployments.sns import sns_manager
 from utils.deployments.awslambda import lambda_manager
 from utils.deployments.schedule_trigger import schedule_trigger_manager
+from utils.deployments.api_gateway import api_gateway_manager, strip_api_gateway
 
 @gen.coroutine
 def teardown_infrastructure( credentials, teardown_nodes ):
+	logit( "Teardown nodes: " )
+	logit( teardown_nodes )
 	"""
 	[
 		{

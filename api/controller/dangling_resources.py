@@ -62,6 +62,8 @@ class CleanupDanglingResources( BaseHandler ):
 				dangling_resources
 			)
 
+			logit( teardown_results )
+
 			logit( "Deleted all dangling resources successfully!" )
 
 		self.write({

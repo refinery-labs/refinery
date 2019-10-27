@@ -54,6 +54,7 @@ from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_f
 from utils.aws_client import get_aws_client, STS_CLIENT
 from utils.deployments.teardown import teardown_infrastructure
 from utils.deployments.awslambda import lambda_manager
+from utils.deployments.api_gateway import api_gateway_manager
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
@@ -5181,56 +5182,7 @@ class TaskSpawner(object):
 				"arn": sns_topic_arn,
 				"exists": True,
 			}
-			
-		@run_on_executor
-		def delete_schedule_trigger( self, credentials, id, type, name, arn ):
-			return TaskSpawner._delete_schedule_trigger( credentials, id, type, name, arn )
-			
-		@staticmethod
-		def _delete_schedule_trigger( credentials, id, type, name, arn ):
-			events_client = get_aws_client(
-				"events",
-				credentials
-			)
-			
-			was_deleted = False
-			try:
-				list_rule_targets_response = events_client.list_targets_by_rule(
-					Rule=name,
-				)
-				
-				target_ids = []
-				
-				for target_item in list_rule_targets_response[ "Targets" ]:
-					target_ids.append(
-						target_item[ "Id" ]
-					)
-	
-				# If there are some targets, delete them, else skip this.
-				if len( target_ids ) > 0:
-					remove_targets_response = events_client.remove_targets(
-						Rule=name,
-						Ids=target_ids
-					)
-				
-				response = events_client.delete_rule(
-					Name=name,
-				)
-				
-				was_deleted = True
-			except ClientError as e:
-				if e.response[ "Error" ][ "Code" ] != "ResourceNotFoundException":
-					raise
-			
-			return {
-				"id": id,
-				"type": type,
-				"name": name,
-				"arn": arn,
-				"deleted": was_deleted,
-			}
-			
-		
+
 		@run_on_executor
 		def create_rest_api( self, credentials, name, description, version ):
 			api_gateway_client = get_aws_client(
@@ -5264,71 +5216,6 @@ class TaskSpawner(object):
 			}
 			
 		@run_on_executor
-		def delete_rest_api( self, credentials, rest_api_id ):
-			api_gateway_client = get_aws_client(
-				"apigateway",
-				credentials
-			)
-			
-			try:
-				response = api_gateway_client.delete_rest_api(
-					restApiId=rest_api_id,
-				)
-			except botocore.exceptions.ClientError as boto_error:
-				# If it's not an NotFoundException exception it's not what we except so we re-raise
-				if boto_error.response[ "Error" ][ "Code" ] != "NotFoundException":
-					raise
-			
-			return {
-				"id": rest_api_id,
-			}
-			
-		@run_on_executor
-		def delete_rest_api_resource( self, credentials, rest_api_id, resource_id ):
-			api_gateway_client = get_aws_client(
-				"apigateway",
-				credentials
-			)
-			
-			try:
-				response = api_gateway_client.delete_resource(
-					restApiId=rest_api_id,
-					resourceId=resource_id,
-				)
-			except botocore.exceptions.ClientError as boto_error:
-				# If it's not an NotFoundException exception it's not what we except so we re-raise
-				if boto_error.response[ "Error" ][ "Code" ] != "NotFoundException":
-					raise
-			
-			return {
-				"rest_api_id": rest_api_id,
-				"resource_id": resource_id
-			}
-			
-		@run_on_executor
-		def delete_rest_api_resource_method( self, credentials, rest_api_id, resource_id, method ):
-			api_gateway_client = get_aws_client(
-				"apigateway",
-				credentials
-			)
-			
-			try:
-				response = api_gateway_client.delete_method(
-					restApiId=rest_api_id,
-					resourceId=resource_id,
-					httpMethod=method,
-				)
-			except:
-				logit( "Exception occurred while deleting method '" + method + "'!" )
-				pass
-			
-			return {
-				"rest_api_id": rest_api_id,
-				"resource_id": resource_id,
-				"method": method
-			}
-			
-		@run_on_executor
 		def deploy_api_gateway_to_stage( self, credentials, rest_api_id, stage_name ):
 			api_gateway_client = get_aws_client(
 				"apigateway",
@@ -5348,50 +5235,6 @@ class TaskSpawner(object):
 				"id": rest_api_id,
 				"stage_name": stage_name,
 				"deployment_id": deployment_id,
-			}
-			
-		@run_on_executor
-		def get_resources( self, credentials, rest_api_id ):
-			api_gateway_client = get_aws_client(
-				"apigateway",
-				credentials
-			)
-			
-			response = api_gateway_client.get_resources(
-				restApiId=rest_api_id,
-				limit=500
-			)
-			
-			return response[ "items" ]
-			
-		@run_on_executor
-		def get_stages( self, credentials, rest_api_id ):
-			api_gateway_client = get_aws_client(
-				"apigateway",
-				credentials
-			)
-			
-			response = api_gateway_client.get_stages(
-				restApiId=rest_api_id
-			)
-			
-			return response[ "item" ]
-			
-		@run_on_executor
-		def delete_stage( self, credentials, rest_api_id, stage_name ):
-			api_gateway_client = get_aws_client(
-				"apigateway",
-				credentials
-			)
-			
-			response = api_gateway_client.delete_stage(
-				restApiId=rest_api_id,
-				stageName=stage_name
-			)
-			
-			return {
-				"rest_api_id": rest_api_id,
-				"stage_name": stage_name
 			}
 			
 		@run_on_executor
@@ -5489,23 +5332,6 @@ class TaskSpawner(object):
 					)
 			
 			return {}
-			
-		@run_on_executor
-		def api_gateway_exists( self, credentials, api_gateway_id ):
-			api_gateway_client = get_aws_client(
-				"apigateway",
-				credentials
-			)
-			try:
-				api_gateway_data = api_gateway_client.get_rest_api(
-					restApiId=api_gateway_id,
-				)
-			except ClientError as e:
-				if e.response[ "Error" ][ "Code" ] == "NotFoundException":
-					logit( "API Gateway " + api_gateway_id + " appears to have been deleted or no longer exists!" )
-					return False
-					
-			return True
 			
 		@run_on_executor
 		def add_integration_response( self, credentials, rest_api_id, resource_id, http_method, lambda_name ):
@@ -6693,7 +6519,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		# It could have been deleted.
 		logit( "Verifying existance of API Gateway..." )
 		if api_gateway_id:
-			api_gateway_exists = yield local_tasks.api_gateway_exists(
+			api_gateway_exists = yield api_gateway_manager.api_gateway_exists(
 				credentials,
 				api_gateway_id
 			)
@@ -7957,7 +7783,7 @@ class DeleteSavedProject( BaseHandler ):
 			if api_gateway_id:
 				logit( "Deleting associated API Gateway '" + api_gateway_id + "'..." )
 
-				yield local_tasks.delete_rest_api(
+				yield api_gateway_manager.delete_rest_api(
 					credentials,
 					api_gateway_id
 				)
@@ -8209,7 +8035,7 @@ def create_lambda_api_route( credentials, api_gateway_id, http_method, route, la
 	
 	# A default resource is created along with an API gateway, we grab
 	# it so we can make our base method
-	resources = yield local_tasks.get_resources(
+	resources = yield api_gateway_manager.get_resources(
 		credentials,
 		api_gateway_id
 	)
@@ -8274,7 +8100,7 @@ def create_lambda_api_route( credentials, api_gateway_id, http_method, route, la
 		lambda_name
 	)
 	
-	resources = yield local_tasks.get_resources(
+	resources = yield api_gateway_manager.get_resources(
 		credentials,
 		api_gateway_id
 	)
@@ -9218,87 +9044,6 @@ class GetCloudWatchLogsForLambda( BaseHandler ):
 			}
 		})
 		
-@gen.coroutine
-def strip_api_gateway( credentials, api_gateway_id ):
-	"""
-	Strip a given API Gateway of all of it's:
-	* Resources
-	* Resource Methods
-	* Stages
-	
-	Allowing for the configuration details to be replaced.
-	"""
-	return_data = {
-		"deleted": True,
-		"type": "api_gateway",
-		"id": get_random_node_id(),
-		"arn": "arn:aws:apigateway:" + credentials[ "region" ] + "::/restapis/" + api_gateway_id,
-		"name": "__api_gateway__",
-	}
-	
-	# Verify the existance of API Gateway before proceeding
-	logit( "Verifying existance of API Gateway..." )
-	api_gateway_exists = yield local_tasks.api_gateway_exists(
-		credentials,
-		api_gateway_id
-	)
-	
-	# If it doesn't exist we can stop here - there's nothing
-	# to strip!
-	if not api_gateway_exists:
-		raise gen.Return( return_data )
-	
-	rest_resources = yield local_tasks.get_resources(
-		credentials,
-		api_gateway_id
-	)
-	
-	# List of futures to finish before we continue
-	deletion_futures = []
-	
-	# Iterate over resources and delete everything that
-	# can be deleted.
-	for resource_item in rest_resources:
-		# We can't delete the root resource
-		if resource_item[ "path" ] != "/":
-			deletion_futures.append(
-				local_tasks.delete_rest_api_resource(
-					credentials,
-					api_gateway_id,
-					resource_item[ "id" ]
-				)
-			)
-		
-		# Delete the methods
-		if "resourceMethods" in resource_item:
-			for http_method, values in resource_item[ "resourceMethods" ].iteritems():
-				deletion_futures.append(
-					local_tasks.delete_rest_api_resource_method(
-						credentials,
-						api_gateway_id,
-						resource_item[ "id" ],
-						http_method
-					)
-				)
-			
-	rest_stages = yield local_tasks.get_stages(
-		credentials,
-		api_gateway_id
-	)
-	
-	for rest_stage in rest_stages:
-		deletion_futures.append(
-			local_tasks.delete_stage(
-				credentials,
-				api_gateway_id,
-				rest_stage[ "stageName" ]
-			)
-		)
-	
-	yield deletion_futures
-	
-	raise gen.Return( return_data )
-	
 class NewRegistration( BaseHandler ):
 	@gen.coroutine
 	def post( self ):
