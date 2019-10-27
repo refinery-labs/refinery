@@ -5,6 +5,8 @@ from utils.aws_client import get_aws_client
 from utils.general import logit
 from tornado import gen
 
+from botocore.exceptions import ClientError
+
 class LambdaManager(object):
 	def __init__(self, loop=None):
 		self.executor = futures.ThreadPoolExecutor( 10 )
@@ -30,7 +32,7 @@ class LambdaManager(object):
 		except ClientError as e:
 			if e.response[ "Error" ][ "Code" ] != "ResourceNotFoundException":
 				raise
-				
+
 		return {
 			"id": id,
 			"type": type,

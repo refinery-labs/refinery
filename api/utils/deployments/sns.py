@@ -5,6 +5,8 @@ from utils.aws_client import get_aws_client
 from utils.general import logit
 from tornado import gen
 
+from botocore.exceptions import ClientError
+
 class SNSManager(object):
 	def __init__(self, loop=None):
 		self.executor = futures.ThreadPoolExecutor( 10 )

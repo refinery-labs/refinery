@@ -5,6 +5,8 @@ from utils.aws_client import get_aws_client
 from utils.general import logit
 from tornado import gen
 
+from botocore.exceptions import ClientError
+
 def get_sqs_arn_from_url( input_queue_url ):
 	stripped_queue_url = input_queue_url.replace(
 		"https://",

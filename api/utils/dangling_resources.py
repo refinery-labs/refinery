@@ -71,6 +71,23 @@ def get_arns_from_deployment_diagrams( deployment_schemas_list ):
 
 	return all_deployed_arns
 
+def convert_type_to_teardown_node_type( input_type ):
+	"""
+	Fix the node type so it matches the format for teardown_nodes.
+
+	Another hack that should be refactored out.
+	"""
+	if input_type == "sqs":
+		return "sqs_queue"
+	elif input_type == "sns":
+		return "sns_topic"
+	elif input_type == "sqs":
+		return "sqs_queue"
+	elif input_type == "events":
+		return "schedule_trigger"
+
+	return input_type
+
 class AWSResourceEnumerator(object):
 	def __init__(self, loop=None):
 		self.executor = futures.ThreadPoolExecutor( 10 )
@@ -105,6 +122,10 @@ class AWSResourceEnumerator(object):
 				aws_resource[ "id" ] = get_sqs_arn_from_url(
 					aws_resource[ "id" ]
 				)
+
+			aws_resource[ "type" ] = convert_type_to_teardown_node_type(
+				aws_resource[ "type" ]
+			)
 
 		dangling_arns = []
 

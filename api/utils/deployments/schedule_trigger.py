@@ -5,6 +5,8 @@ from utils.aws_client import get_aws_client
 from utils.general import logit
 from tornado import gen
 
+from botocore.exceptions import ClientError
+
 class ScheduleTriggerManager(object):
 	def __init__(self, loop=None):
 		self.executor = futures.ThreadPoolExecutor( 10 )
@@ -20,6 +22,9 @@ class ScheduleTriggerManager(object):
 			"events",
 			credentials
 		)
+
+		arn_parts = arn.split( "/" )
+		name = arn_parts[-1]
 		
 		was_deleted = False
 		try:
