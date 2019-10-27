@@ -11486,24 +11486,25 @@ class GetProjectResources( BaseHandler ):
 	def get( self ):
 		credentials = self.get_authenticated_user_cloud_configuration()
 
-		"""
-		results = yield aws_resource_enumerator.iterate_list_pages(
-			credentials,
-			"lambda",
-			"list_functions",
-			"Marker",
-			"NextMarker",
-			"Functions",
-			"FunctionArn",
-			{
-				"MaxItems": 50,
-			}
-		)
+		print( "Account ID: " )
+		print( credentials[ "account_id" ] )
 
-		logit( len( results ) )
-		"""
+		current_user = self.get_authenticated_user()
+
+		# Pull all of the user's deployment diagrams
+		deployment_schemas_list = []
+
+		for project in current_user.projects:
+			for deployment in project.deployments:
+				deployment_schemas_list.append(
+					json.loads(
+						deployment.deployment_json
+					)
+				)
+
 		results = yield aws_resource_enumerator.get_all_dangling_resources(
-			credentials
+			credentials,
+			deployment_schemas_list
 		)
 
 		logit( results )

@@ -11,13 +11,53 @@ from utils.aws_client import get_aws_client, STS_CLIENT
 from utils.general import logit
 from tornado import gen
 
+def get_arns_from_deployment_diagram( deployment_schema ):
+	deployed_arns = []
+
+	for workflow_state in deployment_schema[ "workflow_states" ]:
+		if "arn" in workflow_state:
+			deployed_arns.append(
+				workflow_state[ "arn" ]
+			)
+
+	return deployed_arns
+
+def get_arns_from_deployment_diagrams( deployment_schemas_list ):
+	all_deployed_arns = []
+
+	for deployment_schema in deployment_schemas_list:
+		deployed_arns = get_arns_from_deployment_diagram(
+			deployment_schema
+		)
+
+		all_deployed_arns = all_deployed_arns + deployed_arns
+
+	return all_deployed_arns
+
+def get_sqs_arn_from_url( input_queue_url ):
+	stripped_queue_url = input_queue_url.replace(
+		"https://",
+		""
+	)
+	queue_dot_parts = stripped_queue_url.split( "." )
+	region = queue_dot_parts[0]
+	queue_slash_parts = stripped_queue_url.split( "/" )
+	account_id = queue_slash_parts[1]
+	queue_name = queue_slash_parts[2]
+
+	return "arn:aws:sqs:" + region + ":" + account_id + ":" + queue_name
+
 class AWSResourceEnumerator(object):
 	def __init__(self, loop=None):
 		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()
 	
 	@gen.coroutine
-	def get_all_dangling_resources( self, credentials ):
+	def get_all_dangling_resources( self, credentials, deployment_schemas_list ):
+		refinery_managed_arns = get_arns_from_deployment_diagrams(
+			deployment_schemas_list
+		)
+
 		# First pull a list of all AWS resources under the account
 		aws_resources_list = yield self.get_all_aws_resources(
 			credentials
@@ -26,6 +66,7 @@ class AWSResourceEnumerator(object):
 		# Reduce it to just a list of Refinery-deployed resources
 		refinery_resource_list = []
 
+		# Regex to match deployed resource names
 		resource_regex = re.compile(
 			"\_RFN[a-zA-Z0-9]{6}\d+"
 		)
@@ -34,11 +75,23 @@ class AWSResourceEnumerator(object):
 			if re.search( resource_regex, aws_resource_metadata[ "id" ] ):
 				refinery_resource_list.append( aws_resource_metadata )
 
+		# For SQS (edge case) convert URLs to ARNs
+		for aws_resource in refinery_resource_list:
+			if aws_resource[ "type" ] == "sqs":
+				aws_resource[ "id" ] = get_sqs_arn_from_url(
+					aws_resource[ "id" ]
+				)
+
+		dangling_arns = []
+
 		# Remove all of the resources that are in known-deploys
+		for refinery_resource in refinery_resource_list:
+			if not ( refinery_resource[ "id" ] in refinery_managed_arns ):
+				dangling_arns.append(
+					refinery_resource
+				)
 
-		# The remaining list is just the dangling ones that can be deleted.
-
-		raise gen.Return( refinery_resource_list )
+		raise gen.Return( dangling_arns )
 
 	@gen.coroutine
 	def get_all_aws_resources( self, credentials ):
