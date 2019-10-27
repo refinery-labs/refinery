@@ -4,6 +4,7 @@ import tornado
 import boto3
 import copy
 import time
+import json
 import re
 
 from tornado.concurrent import run_on_executor, futures
@@ -11,6 +12,41 @@ from utils.aws_client import get_aws_client, STS_CLIENT
 from utils.general import logit
 from utils.deployments.sqs import get_sqs_arn_from_url
 from tornado import gen
+
+from models.users import User
+from models.initiate_database import *
+
+@gen.coroutine
+def get_user_dangling_resources( user_id, credentials ):
+	dbsession = DBSession()
+	user = dbsession.query( User ).filter_by(
+		id=str( user_id )
+	).first()
+
+	logit( "Pulling all user deployment schemas..." )
+
+	# Pull all of the user's deployment diagrams
+	deployment_schemas_list = []
+
+	for project in user.projects:
+		for deployment in project.deployments:
+			deployment_schemas_list.append(
+				json.loads(
+					deployment.deployment_json
+				)
+			)
+
+	dbsession.close()
+
+	logit( "Querying AWS account to enumerate dangling resources..." )
+
+	# Get list of all dangling resources to clear
+	dangling_resources = yield aws_resource_enumerator.get_all_dangling_resources(
+		credentials,
+		deployment_schemas_list
+	)
+
+	raise gen.Return( dangling_resources )
 
 def get_arns_from_deployment_diagram( deployment_schema ):
 	deployed_arns = []

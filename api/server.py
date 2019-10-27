@@ -52,13 +52,14 @@ from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
 from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda
 from utils.aws_client import get_aws_client, STS_CLIENT
-from utils.dangling_resources import aws_resource_enumerator
 from utils.deployments.sqs import sqs_manager
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
+from controller.base import BaseHandler
 from controller.executions_controller import ExecutionsControllerServer
 from controller.lambda_connect_back import LambdaConnectBackServer
+from controller.dangling_resources import CleanupDanglingResources
 
 from data_types.aws_resources.alambda import Lambda
 
@@ -99,12 +100,6 @@ EMPTY_ZIP_DATA = bytearray( "PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
 
 # Initialize Stripe
 stripe.api_key = os.environ.get( "stripe_api_key" )
-
-# Cloudflare Access public keys
-CF_ACCESS_PUBLIC_KEYS = []
-
-# Pull list of allowed Access-Control-Allow-Origin values from environment var
-allowed_origins = json.loads( os.environ.get( "access_control_allow_origins" ) )
 
 # Increase CSV field size to be the max
 csv.field_size_limit( sys.maxsize )
@@ -238,258 +233,6 @@ ORGANIZATION_CLIENT = boto3.client(
 		max_pool_connections=( 1000 * 2 )
 	)
 )
-	
-class BaseHandler( tornado.web.RequestHandler ):
-	def __init__( self, *args, **kwargs ):
-		super( BaseHandler, self ).__init__( *args, **kwargs )
-		self.set_header( "Access-Control-Allow-Headers", "Content-Type, X-CSRF-Validation-Header" )
-		self.set_header( "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD" )
-		self.set_header( "Access-Control-Allow-Credentials", "true" )
-		self.set_header( "Access-Control-Max-Age", "600" )
-		self.set_header( "X-Frame-Options", "deny" )
-		self.set_header( "Content-Security-Policy", "default-src 'self'" )
-		self.set_header( "X-XSS-Protection", "1; mode=block" )
-		self.set_header( "X-Content-Type-Options", "nosniff" )
-		self.set_header( "Cache-Control", "no-cache, no-store, must-revalidate" )
-		self.set_header( "Pragma", "no-cache" )
-		self.set_header( "Expires", "0" )
-		
-		# For caching the currently-authenticated user
-		self.authenticated_user = None
-		
-		self._dbsession = None
-    
-	def initialize( self ):
-		if "Origin" not in self.request.headers:
-			return
-
-		host_header = self.request.headers[ "Origin" ]
-
-		# Identify if the request is coming from a domain that is in the whitelist
-		# If it is, set the necessary CORS response header to allow the request to succeed.
-		if host_header in allowed_origins:
-			self.set_header( "Access-Control-Allow-Origin", host_header )
-			
-	@property
-	def dbsession( self ):
-		if self._dbsession is None:
-			self._dbsession = DBSession()
-		return self._dbsession
-		
-	def authenticate_user_id( self, user_id ):
-		# Set authentication cookie
-		self.set_secure_cookie(
-			"session",
-			json.dumps({
-				"user_id": user_id,
-			}),
-			expires_days=int( os.environ.get( "cookie_expire_days" ) )
-		)
-		
-	def is_owner_of_project( self, project_id ):
-		# Check to ensure the user owns the project
-		project = self.dbsession.query( Project ).filter_by(
-			id=project_id
-		).first()
-		
-		# Iterate over project owners and see if one matches
-		# the currently authenticated user
-		is_owner = False
-		
-		for project_owner in project.users:
-			if self.get_authenticated_user_id() == project_owner.id:
-				is_owner = True
-				
-		return is_owner
-		
-	def get_authenticated_user_cloud_configuration( self ):
-		"""
-		This just returns the first cloud configuration. Short term use since we'll
-		eventually be moving to a multiple AWS account deploy system.
-		"""
-		# Pull the authenticated user's organization
-		user_organization = self.get_authenticated_user_org()
-		
-		if user_organization == None:
-			return None
-		
-		aws_account = self.dbsession.query( AWSAccount ).filter_by(
-			organization_id=user_organization.id,
-			aws_account_status="IN_USE"
-		).first()
-		
-		if aws_account:
-			return aws_account.to_dict()
-			
-		logit( "Account has no AWS account associated with it!" )
-		
-		return False
-		
-	def get_authenticated_user_org( self ):
-		# First we grab the organization ID
-		authentication_user = self.get_authenticated_user()
-		
-		if authentication_user == None:
-			return None
-			
-		# Get organization user is a part of
-		user_org = self.dbsession.query( Organization ).filter_by(
-			id=authentication_user.organization_id
-		).first()
-		
-		return user_org
-		
-	def get_authenticated_user_id( self ):
-		# Get secure cookie data
-		secure_cookie_data = self.get_secure_cookie(
-			"session",
-			max_age_days=int( os.environ.get( "cookie_expire_days" ) )
-		)
-		
-		if secure_cookie_data == None:
-			return None
-			
-		session_data = json.loads(
-			secure_cookie_data
-		)
-		
-		if not ( "user_id" in session_data ):
-			return None
-			
-		return session_data[ "user_id" ]
-		
-	def get_authenticated_user( self ):
-		"""
-		Grabs the currently authenticated user
-		
-		This will be cached after the first call of
-		this method,
-		"""
-		if self.authenticated_user != None:
-			return self.authenticated_user
-		
-		user_id = self.get_authenticated_user_id()
-		
-		if user_id == None:
-			return None
-		
-		# Pull related user
-		authenticated_user = self.dbsession.query( User ).filter_by(
-			id=str( user_id )
-		).first()
-		
-		self.authenticated_user = authenticated_user
-
-		return authenticated_user
-		
-	def prepare( self ):
-		"""
-		For the health endpoint all of this should be skipped.
-		"""
-		if self.request.path == "/api/v1/health":
-			return
-		
-		"""
-		/service/ path protection requiring a shared-secret to access them.
-		"""
-		if self.request.path.startswith( "/services/" ):
-			services_auth_header = self.request.headers.get( "X-Service-Secret", None )
-			services_auth_param = self.get_argument( "secret", None )
-			
-			service_secret = None
-			if services_auth_header:
-				service_secret = services_auth_header
-			elif services_auth_param:
-				service_secret = services_auth_param
-				
-			if os.environ.get( "service_shared_secret" ) != service_secret:
-				self.error(
-					"You are hitting a service URL, you MUST provide the shared secret in either a 'secret' parameter or the 'X-Service-Secret' header to use this.",
-					"ACCESS_DENIED_SHARED_SECRET_REQUIRED"
-				)
-				return
-		
-		"""
-		Cloudflare auth JWT validation
-		"""
-		if os.environ.get( "cf_enabled" ).lower() == "true":
-			cf_authorization_cookie = self.get_cookie( "CF_Authorization" )
-			
-			if not cf_authorization_cookie:
-				self.error(
-					"Error, no Cloudflare Access 'CF_Authorization' cookie set.",
-					"CF_ACCESS_NO_COOKIE"
-				)
-				return
-				
-			valid_token = False
-			
-			for public_key in CF_ACCESS_PUBLIC_KEYS:
-				try:
-					jwt.decode(
-						cf_authorization_cookie,
-						key=public_key,
-						audience=os.environ.get( "cf_policy_aud" )
-					)
-					valid_token = True
-				except:
-					pass
-			
-			if not valid_token:
-				self.error(
-					"Error, Cloudflare Access verification check failed.",
-					"CF_ACCESS_DENIED"
-				)
-				return
-		
-		csrf_validated = self.request.headers.get(
-			"X-CSRF-Validation-Header",
-			False
-		)
-		
-		if not csrf_validated and self.request.method != "OPTIONS" and self.request.method != "GET" and not self.request.path in CSRF_EXEMPT_ENDPOINTS:
-			self.error(
-				"No CSRF validation header supplied!",
-				"INVALID_CSRF"
-			)
-			raise gen.Return()
-		
-		self.json = False
-		
-		if self.request.body:
-			try:
-				json_data = json.loads(self.request.body)
-				self.json = json_data
-			except ValueError:
-				pass
-
-	def options(self):
-		pass
-
-	# Hack to stop Tornado from sending the Etag header
-	def compute_etag( self ):
-		return None
-
-	def throw_404( self ):
-		self.set_status(404)
-		self.write("Resource not found")
-
-	def error( self, error_message, error_id ):
-		self.set_status( 500 )
-		logit(
-			error_message,
-			message_type="warn"
-		)
-		
-		self.finish({
-			"success": False,
-			"msg": error_message,
-			"code": error_id
-		})
-		
-	def on_finish( self ):
-		if self._dbsession is not None:
-			self._dbsession.close()
 		
 """
 Decorators
@@ -11454,52 +11197,6 @@ class GetProjectShortlink( BaseHandler ):
 			}
 		})
 
-class GetProjectResources( BaseHandler ):
-	@gen.coroutine
-	def get( self ):
-		credentials = self.get_authenticated_user_cloud_configuration()
-		current_user = self.get_authenticated_user()
-
-		logit( "Pulling all user deployment schemas..." )
-
-		# Pull all of the user's deployment diagrams
-		deployment_schemas_list = []
-
-		for project in current_user.projects:
-			for deployment in project.deployments:
-				deployment_schemas_list.append(
-					json.loads(
-						deployment.deployment_json
-					)
-				)
-
-		logit( "Querying AWS account to enumerate dangling resources..." )
-
-		# Get list of all dangling resources to clear
-		dangling_resources = yield aws_resource_enumerator.get_all_dangling_resources(
-			credentials,
-			deployment_schemas_list
-		)
-
-		number_of_resources = len( dangling_resources )
-
-		logit( str( len( dangling_resources ) ) + " resource(s) enumerated in account." )
-
-		logit( "Deleting all dangling resources..." )
-
-		# Tear down all dangling nodes
-		teardown_results = yield teardown_infrastructure(
-			credentials,
-			dangling_resources
-		)
-
-		logit( "Deleted all dangling resources successfully!" )
-
-		self.write({
-			"success": True,
-			"deleted_count": number_of_resources
-		})
-
 def get_tornado_app_config( is_debug ):
 	return {
 		"debug": is_debug,
@@ -11564,8 +11261,6 @@ def make_app( tornado_config ):
 		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer, {
 			"websocket_router": tornado_config[ "websocket_router" ]
 		}),
-
-		( r"/api/v1/resources", GetProjectResources ),
 		
 		# Temporarily disabled since it doesn't cache the CostExplorer results
 		#( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast ),
@@ -11582,6 +11277,7 @@ def make_app( tornado_config ):
 		( r"/services/v1/onboard_third_party_aws_account_plan", OnboardThirdPartyAWSAccountPlan ),
 		( r"/services/v1/dangerously_finalize_third_party_aws_onboarding", OnboardThirdPartyAWSAccountApply ),
 		( r"/services/v1/clear_s3_build_packages", ClearAllS3BuildPackages ),
+		( r"/services/v1/dangling_resources/([a-f0-9\-]+)", CleanupDanglingResources ),
 	], **tornado_config)
 	
 def get_lambda_callback_endpoint( tornado_config ):
