@@ -1592,17 +1592,24 @@ def _improve_api_endpoint_request_data( lambda_input ):
 		
 	return lambda_input
 	
-def _write_inline_code( inline_code ):
-	"""
-	Write code to a randomized path in /tmp/ and return the
-	full path of the file.
-	"""
-	temporary_code_path = "/tmp/" + str( uuid.uuid4() )
-	
-	with open( temporary_code_path, "w" ) as file_handler:
+def _write_inline_code( inline_code, path ):	
+	with open( path, "w" ) as file_handler:
 		file_handler.write( inline_code.encode( "utf8" ) )
-		
-	return temporary_code_path
+	return path
+
+def _setup_inline_execution_shared_files( inline_file_list ):
+	shared_files_base_folder = "/tmp/shared_files/"
+
+	# Make shared files directory
+	os.mkdir( shared_files_base_folder )
+
+	# Write all of the shared files
+	for shared_file_metadata in inline_file_list:
+		shared_file_path = shared_files_base_folder + shared_file_metadata[ "name" ]
+		_write_inline_code(
+			shared_file_metadata[ "body" ],
+			shared_file_path,
+		)
 	
 def _stream_execution_output_to_websocket( websocket, debug_id, output ):
 	websocket.send(json.dumps({
@@ -1767,9 +1774,23 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 		
 		# If it's an inline execution write the temporary code file
 		if is_inline_execution:
-			# Update execution path to the new temporary code file created
-			executable_path = _write_inline_code(
-				lambda_input[ "_refinery" ][ "inline_code" ]
+			# Backwards compatibility
+			if type( lambda_input[ "_refinery" ][ "inline_code" ] ) == str:
+				lambda_input[ "_refinery" ][ "inline_code" ] = {
+					"shared_files": [],
+					"base_code": lambda_input[ "_refinery" ][ "inline_code" ][ "base_code" ]
+				}
+
+			# Set up files for inline execution, returns executable path
+			_setup_inline_execution_shared_files(
+				lambda_input[ "_refinery" ][ "inline_code" ][ "shared_files" ]
+			)
+
+			# Base code path
+			executable_path = "/tmp/" + str( uuid.uuid4() )
+			_write_inline_code(
+				lambda_input[ "_refinery" ][ "inline_code" ][ "base_code" ],
+				executable_path
 			)
 			
 		"""
@@ -1968,10 +1989,11 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 		if is_inline_execution:
 			try:
 				tmp_handler = subprocess.Popen(
-					"/bin/rm /tmp/*",
+					[ "/bin/rm -rf /tmp/*" ],
 					stdout=subprocess.PIPE,
 					stderr=subprocess.PIPE,
-					stdin=subprocess.PIPE
+					stdin=subprocess.PIPE,
+					shell=True
 				).read()
 				tmp_handler.communicate()
 			except:
