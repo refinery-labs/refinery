@@ -10,8 +10,6 @@ from utils.deployments.api_gateway import api_gateway_manager, strip_api_gateway
 
 @gen.coroutine
 def teardown_infrastructure( credentials, teardown_nodes ):
-	logit( "Teardown nodes: " )
-	logit( teardown_nodes )
 	"""
 	[
 		{

@@ -54,7 +54,7 @@ from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_f
 from utils.aws_client import get_aws_client, STS_CLIENT
 from utils.deployments.teardown import teardown_infrastructure
 from utils.deployments.awslambda import lambda_manager
-from utils.deployments.api_gateway import api_gateway_manager
+from utils.deployments.api_gateway import api_gateway_manager, strip_api_gateway
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
