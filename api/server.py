@@ -40,7 +40,6 @@ from tornado import gen
 import unicodecsv as csv
 from datetime import timedelta
 from tornado.web import asynchronous
-from expiringdict import ExpiringDict
 from ansi2html import Ansi2HTMLConverter
 from botocore.exceptions import ClientError
 from jsonschema import validate as validate_schema
@@ -51,12 +50,19 @@ from email_validator import validate_email, EmailNotValidError
 from utils.general import attempt_json_decode, logit, split_list_into_chunks, get_random_node_id, get_urand_password, get_random_id, get_random_deploy_id
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
+from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda
+from utils.aws_client import get_aws_client, STS_CLIENT
+from utils.deployments.teardown import teardown_infrastructure
+from utils.deployments.awslambda import lambda_manager
+from utils.deployments.api_gateway import api_gateway_manager, strip_api_gateway
 from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda, add_shared_files_symlink_to_zip
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
+from controller.base import BaseHandler
 from controller.executions_controller import ExecutionsControllerServer
 from controller.lambda_connect_back import LambdaConnectBackServer
+from controller.dangling_resources import CleanupDanglingResources
 
 from data_types.aws_resources.alambda import Lambda
 
@@ -97,12 +103,6 @@ EMPTY_ZIP_DATA = bytearray( "PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\
 
 # Initialize Stripe
 stripe.api_key = os.environ.get( "stripe_api_key" )
-
-# Cloudflare Access public keys
-CF_ACCESS_PUBLIC_KEYS = []
-
-# Pull list of allowed Access-Control-Allow-Origin values from environment var
-allowed_origins = json.loads( os.environ.get( "access_control_allow_origins" ) )
 
 # Increase CSV field size to be the max
 csv.field_size_limit( sys.maxsize )
@@ -225,18 +225,6 @@ COST_EXPLORER = boto3.client(
 	)
 )
 
-# This client is used to assume role into all of our customer's
-# AWS accounts as a root-priveleged support account ("DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT")
-STS_CLIENT = boto3.client(
-	"sts",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" ),
-	config=Config(
-		max_pool_connections=( 1000 * 2 )
-	)
-)
-
 # The AWS organization API for provisioning new AWS sub-accounts
 # for customers to use.
 ORGANIZATION_CLIENT = boto3.client(
@@ -248,341 +236,6 @@ ORGANIZATION_CLIENT = boto3.client(
 		max_pool_connections=( 1000 * 2 )
 	)
 )
-    
-"""
-This is some poor-man's caching to greately speed up Boto3
-client access times. We basically just cache and return the client
-if it's less than the STS Assume Role age.
-
-Basically this is critical when we do things like the S3 log pulling
-because it does TONS of concurrent connections. Without the caching it
-can take ~35 seconds to pull the logs, with the caching it takes ~5.
-"""
-BOTO3_CLIENT_CACHE = ExpiringDict(
-	max_len=500,
-	max_age_seconds=( int( os.environ.get( "assume_role_session_lifetime_seconds" ) ) - 60 )
-)
-def get_aws_client( client_type, credentials ):
-	"""
-	Take an AWS client type ("s3", "lambda", etc) and utilize
-	STS to assume role into the customer's account and return
-	a key and token for the admin service account ("DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT")
-	"""
-	global BOTO3_CLIENT_CACHE
-	
-	cache_key = client_type + credentials[ "account_id" ] + credentials[ "region" ]
-	
-	if cache_key in BOTO3_CLIENT_CACHE:
-		return BOTO3_CLIENT_CACHE[ cache_key ]
-	
-	# Generate the Refinery AWS management role ARN we are going to assume into
-	sub_account_admin_role_arn = "arn:aws:iam::" + credentials[ "account_id" ] + ":role/DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT"
-	
-	# We need to generate a random role session name
-	role_session_name = "Refinery-Managed-Account-Support-" + get_urand_password( 12 )
-	
-	# Perform the assume role action
-	assume_role_response = STS_CLIENT.assume_role(
-		RoleArn=sub_account_admin_role_arn,
-		RoleSessionName=role_session_name,
-		DurationSeconds=int( os.environ.get( "assume_role_session_lifetime_seconds" ) )
-	)
-	
-	# Remove non-JSON serializable part from response
-	del assume_role_response[ "Credentials" ][ "Expiration" ]
-	
-	# Take the assume role credentials and use it to create a boto3 session
-	boto3_session = boto3.Session(
-		aws_access_key_id=assume_role_response[ "Credentials" ][ "AccessKeyId" ],
-		aws_secret_access_key=assume_role_response[ "Credentials" ][ "SecretAccessKey" ],
-		aws_session_token=assume_role_response[ "Credentials" ][ "SessionToken" ],
-		region_name=credentials[ "region" ],
-	)
-	
-	
-	def inject_header(params, **kwargs):
-		params["headers"]["Connection"] = "Keep-Alive"
-	
-	boto3_session.events.register("before-call.s3", inject_header)
-	
-	# Options for boto3 client
-	client_options = {
-		"config": Config(
-			max_pool_connections=( 250 * 1 ),
-			connect_timeout=( 60 * 10 ) # For large files
-		)
-	}
-	
-	# Custom configurations depending on the client type
-	if client_type == "lambda":
-		client_options[ "config" ] = Config(
-			connect_timeout=50,
-			read_timeout=( 60 * 15 ),
-			max_pool_connections=( 1000 * 2 )
-		)
-	
-	# Use the new boto3 session to create a boto3 client
-	boto3_client = boto3_session.client(
-		client_type,
-		**client_options
-	)
-	
-	# Store it in the cache for future access
-	BOTO3_CLIENT_CACHE[ cache_key ] = boto3_client
-	
-	return boto3_client
-	
-class BaseHandler( tornado.web.RequestHandler ):
-	def __init__( self, *args, **kwargs ):
-		super( BaseHandler, self ).__init__( *args, **kwargs )
-		self.set_header( "Access-Control-Allow-Headers", "Content-Type, X-CSRF-Validation-Header" )
-		self.set_header( "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD" )
-		self.set_header( "Access-Control-Allow-Credentials", "true" )
-		self.set_header( "Access-Control-Max-Age", "600" )
-		self.set_header( "X-Frame-Options", "deny" )
-		self.set_header( "Content-Security-Policy", "default-src 'self'" )
-		self.set_header( "X-XSS-Protection", "1; mode=block" )
-		self.set_header( "X-Content-Type-Options", "nosniff" )
-		self.set_header( "Cache-Control", "no-cache, no-store, must-revalidate" )
-		self.set_header( "Pragma", "no-cache" )
-		self.set_header( "Expires", "0" )
-		
-		# For caching the currently-authenticated user
-		self.authenticated_user = None
-		
-		self._dbsession = None
-    
-	def initialize( self ):
-		if "Origin" not in self.request.headers:
-			return
-
-		host_header = self.request.headers[ "Origin" ]
-
-		# Identify if the request is coming from a domain that is in the whitelist
-		# If it is, set the necessary CORS response header to allow the request to succeed.
-		if host_header in allowed_origins:
-			self.set_header( "Access-Control-Allow-Origin", host_header )
-			
-	@property
-	def dbsession( self ):
-		if self._dbsession is None:
-			self._dbsession = DBSession()
-		return self._dbsession
-		
-	def authenticate_user_id( self, user_id ):
-		# Set authentication cookie
-		self.set_secure_cookie(
-			"session",
-			json.dumps({
-				"user_id": user_id,
-			}),
-			expires_days=int( os.environ.get( "cookie_expire_days" ) )
-		)
-		
-	def is_owner_of_project( self, project_id ):
-		# Check to ensure the user owns the project
-		project = self.dbsession.query( Project ).filter_by(
-			id=project_id
-		).first()
-		
-		# Iterate over project owners and see if one matches
-		# the currently authenticated user
-		is_owner = False
-		
-		for project_owner in project.users:
-			if self.get_authenticated_user_id() == project_owner.id:
-				is_owner = True
-				
-		return is_owner
-		
-	def get_authenticated_user_cloud_configuration( self ):
-		"""
-		This just returns the first cloud configuration. Short term use since we'll
-		eventually be moving to a multiple AWS account deploy system.
-		"""
-		# Pull the authenticated user's organization
-		user_organization = self.get_authenticated_user_org()
-		
-		if user_organization == None:
-			return None
-		
-		aws_account = self.dbsession.query( AWSAccount ).filter_by(
-			organization_id=user_organization.id,
-			aws_account_status="IN_USE"
-		).first()
-		
-		if aws_account:
-			return aws_account.to_dict()
-			
-		logit( "Account has no AWS account associated with it!" )
-		
-		return False
-		
-	def get_authenticated_user_org( self ):
-		# First we grab the organization ID
-		authentication_user = self.get_authenticated_user()
-		
-		if authentication_user == None:
-			return None
-			
-		# Get organization user is a part of
-		user_org = self.dbsession.query( Organization ).filter_by(
-			id=authentication_user.organization_id
-		).first()
-		
-		return user_org
-		
-	def get_authenticated_user_id( self ):
-		# Get secure cookie data
-		secure_cookie_data = self.get_secure_cookie(
-			"session",
-			max_age_days=int( os.environ.get( "cookie_expire_days" ) )
-		)
-		
-		if secure_cookie_data == None:
-			return None
-			
-		session_data = json.loads(
-			secure_cookie_data
-		)
-		
-		if not ( "user_id" in session_data ):
-			return None
-			
-		return session_data[ "user_id" ]
-		
-	def get_authenticated_user( self ):
-		"""
-		Grabs the currently authenticated user
-		
-		This will be cached after the first call of
-		this method,
-		"""
-		if self.authenticated_user != None:
-			return self.authenticated_user
-		
-		user_id = self.get_authenticated_user_id()
-		
-		if user_id == None:
-			return None
-		
-		# Pull related user
-		authenticated_user = self.dbsession.query( User ).filter_by(
-			id=str( user_id )
-		).first()
-		
-		self.authenticated_user = authenticated_user
-
-		return authenticated_user
-		
-	def prepare( self ):
-		"""
-		For the health endpoint all of this should be skipped.
-		"""
-		if self.request.path == "/api/v1/health":
-			return
-		
-		"""
-		/service/ path protection requiring a shared-secret to access them.
-		"""
-		if self.request.path.startswith( "/services/" ):
-			services_auth_header = self.request.headers.get( "X-Service-Secret", None )
-			services_auth_param = self.get_argument( "secret", None )
-			
-			service_secret = None
-			if services_auth_header:
-				service_secret = services_auth_header
-			elif services_auth_param:
-				service_secret = services_auth_param
-				
-			if os.environ.get( "service_shared_secret" ) != service_secret:
-				self.error(
-					"You are hitting a service URL, you MUST provide the shared secret in either a 'secret' parameter or the 'X-Service-Secret' header to use this.",
-					"ACCESS_DENIED_SHARED_SECRET_REQUIRED"
-				)
-				return
-		
-		"""
-		Cloudflare auth JWT validation
-		"""
-		if os.environ.get( "cf_enabled" ).lower() == "true":
-			cf_authorization_cookie = self.get_cookie( "CF_Authorization" )
-			
-			if not cf_authorization_cookie:
-				self.error(
-					"Error, no Cloudflare Access 'CF_Authorization' cookie set.",
-					"CF_ACCESS_NO_COOKIE"
-				)
-				return
-				
-			valid_token = False
-			
-			for public_key in CF_ACCESS_PUBLIC_KEYS:
-				try:
-					jwt.decode(
-						cf_authorization_cookie,
-						key=public_key,
-						audience=os.environ.get( "cf_policy_aud" )
-					)
-					valid_token = True
-				except:
-					pass
-			
-			if not valid_token:
-				self.error(
-					"Error, Cloudflare Access verification check failed.",
-					"CF_ACCESS_DENIED"
-				)
-				return
-		
-		csrf_validated = self.request.headers.get(
-			"X-CSRF-Validation-Header",
-			False
-		)
-		
-		if not csrf_validated and self.request.method != "OPTIONS" and self.request.method != "GET" and not self.request.path in CSRF_EXEMPT_ENDPOINTS:
-			self.error(
-				"No CSRF validation header supplied!",
-				"INVALID_CSRF"
-			)
-			raise gen.Return()
-		
-		self.json = False
-		
-		if self.request.body:
-			try:
-				json_data = json.loads(self.request.body)
-				self.json = json_data
-			except ValueError:
-				pass
-
-	def options(self):
-		pass
-
-	# Hack to stop Tornado from sending the Etag header
-	def compute_etag( self ):
-		return None
-
-	def throw_404( self ):
-		self.set_status(404)
-		self.write("Resource not found")
-
-	def error( self, error_message, error_id ):
-		self.set_status( 500 )
-		logit(
-			error_message,
-			message_type="warn"
-		)
-		
-		self.finish({
-			"success": False,
-			"msg": error_message,
-			"code": error_id
-		})
-		
-	def on_finish( self ):
-		if self._dbsession is not None:
-			self._dbsession.close()
 		
 """
 Decorators
@@ -3261,7 +2914,7 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def _delete_cached_inline_execution_lambda( credentials, arn, lambda_uuid ):
-			TaskSpawner._delete_lambda(
+			lambda_manager._delete_lambda(
 				credentials,
 				False,
 				False,
@@ -5535,154 +5188,7 @@ class TaskSpawner(object):
 				"arn": sns_topic_arn,
 				"exists": True,
 			}
-			
-		@run_on_executor
-		def delete_lambda( self, credentials, id, type, name, arn ):
-			return TaskSpawner._delete_lambda( credentials, id, type, name, arn )
-			
-		@staticmethod
-		def _delete_lambda( credentials, id, type, name, arn ):
-			lambda_client = get_aws_client(
-				"lambda",
-				credentials
-			)
-			
-			was_deleted = False
-			try:
-				response = lambda_client.delete_function(
-					FunctionName=arn,
-				)
-				was_deleted = True
-			except ClientError as e:
-				if e.response[ "Error" ][ "Code" ] != "ResourceNotFoundException":
-					raise
-				
-			
-			return {
-				"id": id,
-				"type": type,
-				"name": name,
-				"arn": arn,
-				"deleted": was_deleted,
-			}
-			
-		@run_on_executor
-		def delete_sns_topic( self, credentials, id, type, name, arn ):
-			return TaskSpawner._delete_sns_topic( credentials, id, type, name, arn )
-			
-		@staticmethod
-		def _delete_sns_topic( credentials, id, type, name, arn ):
-			sns_client = get_aws_client(
-				"sns",
-				credentials,
-			)
-			
-			was_deleted = False
-			
-			try:
-				response = sns_client.delete_topic(
-					TopicArn=arn,
-				)
-				was_deleted = True
-			except ClientError as e:
-				if e.response[ "Error" ][ "Code" ] != "ResourceNotFoundException":
-					raise
-			
-			return {
-				"id": id,
-				"type": type,
-				"name": name,
-				"arn": arn,
-				"deleted": was_deleted,
-			}
-			
-		@run_on_executor
-		def delete_sqs_queue( self, credentials, id, type, name, arn ):
-			return TaskSpawner._delete_sqs_queue( credentials, id, type, name, arn )
-			
-		@staticmethod
-		def _delete_sqs_queue( credentials, id, type, name, arn ):
-			sqs_client = get_aws_client(
-				"sqs",
-				credentials,
-			)
-			
-			was_deleted = False
-			
-			try:
-				queue_url_response = sqs_client.get_queue_url(
-					QueueName=name,
-				)
-				
-				response = sqs_client.delete_queue(
-					QueueUrl=queue_url_response[ "QueueUrl" ],
-				)
-			except ClientError as e:
-				acceptable_errors = [
-					"ResourceNotFoundException",
-					"AWS.SimpleQueueService.NonExistentQueue"
-				]
-				
-				if not ( e.response[ "Error" ][ "Code" ] in acceptable_errors ):
-					raise
-			
-			return {
-				"id": id,
-				"type": type,
-				"name": name,
-				"arn": arn,
-				"deleted": was_deleted,
-			}
-			
-		@run_on_executor
-		def delete_schedule_trigger( self, credentials, id, type, name, arn ):
-			return TaskSpawner._delete_schedule_trigger( credentials, id, type, name, arn )
-			
-		@staticmethod
-		def _delete_schedule_trigger( credentials, id, type, name, arn ):
-			events_client = get_aws_client(
-				"events",
-				credentials
-			)
-			
-			was_deleted = False
-			try:
-				list_rule_targets_response = events_client.list_targets_by_rule(
-					Rule=name,
-				)
-				
-				target_ids = []
-				
-				for target_item in list_rule_targets_response[ "Targets" ]:
-					target_ids.append(
-						target_item[ "Id" ]
-					)
-	
-				# If there are some targets, delete them, else skip this.
-				if len( target_ids ) > 0:
-					remove_targets_response = events_client.remove_targets(
-						Rule=name,
-						Ids=target_ids
-					)
-				
-				response = events_client.delete_rule(
-					Name=name,
-				)
-				
-				was_deleted = True
-			except ClientError as e:
-				if e.response[ "Error" ][ "Code" ] != "ResourceNotFoundException":
-					raise
-			
-			return {
-				"id": id,
-				"type": type,
-				"name": name,
-				"arn": arn,
-				"deleted": was_deleted,
-			}
-			
-		
+
 		@run_on_executor
 		def create_rest_api( self, credentials, name, description, version ):
 			api_gateway_client = get_aws_client(
@@ -5714,72 +5220,7 @@ class TaskSpawner(object):
 				"description": response[ "description" ],
 				"version": response[ "version" ]
 			}
-			
-		@run_on_executor
-		def delete_rest_api( self, credentials, rest_api_id ):
-			api_gateway_client = get_aws_client(
-				"apigateway",
-				credentials
-			)
-			
-			try:
-				response = api_gateway_client.delete_rest_api(
-					restApiId=rest_api_id,
-				)
-			except botocore.exceptions.ClientError as boto_error:
-				# If it's not an NotFoundException exception it's not what we except so we re-raise
-				if boto_error.response[ "Error" ][ "Code" ] != "NotFoundException":
-					raise
-			
-			return {
-				"id": rest_api_id,
-			}
-			
-		@run_on_executor
-		def delete_rest_api_resource( self, credentials, rest_api_id, resource_id ):
-			api_gateway_client = get_aws_client(
-				"apigateway",
-				credentials
-			)
-			
-			try:
-				response = api_gateway_client.delete_resource(
-					restApiId=rest_api_id,
-					resourceId=resource_id,
-				)
-			except botocore.exceptions.ClientError as boto_error:
-				# If it's not an NotFoundException exception it's not what we except so we re-raise
-				if boto_error.response[ "Error" ][ "Code" ] != "NotFoundException":
-					raise
-			
-			return {
-				"rest_api_id": rest_api_id,
-				"resource_id": resource_id
-			}
-			
-		@run_on_executor
-		def delete_rest_api_resource_method( self, credentials, rest_api_id, resource_id, method ):
-			api_gateway_client = get_aws_client(
-				"apigateway",
-				credentials
-			)
-			
-			try:
-				response = api_gateway_client.delete_method(
-					restApiId=rest_api_id,
-					resourceId=resource_id,
-					httpMethod=method,
-				)
-			except:
-				logit( "Exception occurred while deleting method '" + method + "'!" )
-				pass
-			
-			return {
-				"rest_api_id": rest_api_id,
-				"resource_id": resource_id,
-				"method": method
-			}
-			
+
 		@run_on_executor
 		def deploy_api_gateway_to_stage( self, credentials, rest_api_id, stage_name ):
 			api_gateway_client = get_aws_client(
@@ -5801,51 +5242,7 @@ class TaskSpawner(object):
 				"stage_name": stage_name,
 				"deployment_id": deployment_id,
 			}
-			
-		@run_on_executor
-		def get_resources( self, credentials, rest_api_id ):
-			api_gateway_client = get_aws_client(
-				"apigateway",
-				credentials
-			)
-			
-			response = api_gateway_client.get_resources(
-				restApiId=rest_api_id,
-				limit=500
-			)
-			
-			return response[ "items" ]
-			
-		@run_on_executor
-		def get_stages( self, credentials, rest_api_id ):
-			api_gateway_client = get_aws_client(
-				"apigateway",
-				credentials
-			)
-			
-			response = api_gateway_client.get_stages(
-				restApiId=rest_api_id
-			)
-			
-			return response[ "item" ]
-			
-		@run_on_executor
-		def delete_stage( self, credentials, rest_api_id, stage_name ):
-			api_gateway_client = get_aws_client(
-				"apigateway",
-				credentials
-			)
-			
-			response = api_gateway_client.delete_stage(
-				restApiId=rest_api_id,
-				stageName=stage_name
-			)
-			
-			return {
-				"rest_api_id": rest_api_id,
-				"stage_name": stage_name
-			}
-			
+
 		@run_on_executor
 		def create_resource( self, credentials, rest_api_id, parent_id, path_part ):
 			api_gateway_client = get_aws_client(
@@ -5941,24 +5338,7 @@ class TaskSpawner(object):
 					)
 			
 			return {}
-			
-		@run_on_executor
-		def api_gateway_exists( self, credentials, api_gateway_id ):
-			api_gateway_client = get_aws_client(
-				"apigateway",
-				credentials
-			)
-			try:
-				api_gateway_data = api_gateway_client.get_rest_api(
-					restApiId=api_gateway_id,
-				)
-			except ClientError as e:
-				if e.response[ "Error" ][ "Code" ] == "NotFoundException":
-					logit( "API Gateway " + api_gateway_id + " appears to have been deleted or no longer exists!" )
-					return False
-					
-			return True
-			
+
 		@run_on_executor
 		def add_integration_response( self, credentials, rest_api_id, resource_id, http_method, lambda_name ):
 			api_gateway_client = get_aws_client(
@@ -7146,7 +6526,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		# It could have been deleted.
 		logit( "Verifying existance of API Gateway..." )
 		if api_gateway_id:
-			api_gateway_exists = yield local_tasks.api_gateway_exists(
+			api_gateway_exists = yield api_gateway_manager.api_gateway_exists(
 				credentials,
 				api_gateway_id
 			)
@@ -7803,78 +7183,6 @@ class SavedBlockDelete( BaseHandler ):
 			"success": True
 		})
 
-@gen.coroutine
-def teardown_infrastructure( credentials, teardown_nodes ):
-	"""
-	[
-		{
-			"id": {{node_id}},
-			"arn": {{production_resource_arn}},
-			"name": {{node_name}},
-			"type": {{node_type}},
-		}
-	]
-	"""
-	teardown_operation_futures = []
-	
-	for teardown_node in teardown_nodes:
-		# Skip if the node doesn't exist
-		# TODO move this client side, it's silly here.
-		if "exists" in teardown_node and teardown_node[ "exists" ] == False:
-			continue
-		
-		if teardown_node[ "type" ] == "lambda" or teardown_node[ "type" ] == "api_endpoint":
-			teardown_operation_futures.append(
-				local_tasks.delete_lambda(
-					credentials,
-					teardown_node[ "id" ],
-					teardown_node[ "type" ],
-					teardown_node[ "name" ],
-					teardown_node[ "arn" ],
-				)
-			)
-		elif teardown_node[ "type" ] == "sns_topic":
-			teardown_operation_futures.append(
-				local_tasks.delete_sns_topic(
-					credentials,
-					teardown_node[ "id" ],
-					teardown_node[ "type" ],
-					teardown_node[ "name" ],
-					teardown_node[ "arn" ],
-				)
-			)
-		elif teardown_node[ "type" ] == "sqs_queue":
-			teardown_operation_futures.append(
-				local_tasks.delete_sqs_queue(
-					credentials,
-					teardown_node[ "id" ],
-					teardown_node[ "type" ],
-					teardown_node[ "name" ],
-					teardown_node[ "arn" ],
-				)
-			)
-		elif teardown_node[ "type" ] == "schedule_trigger" or teardown_node[ "type" ] == "warmer_trigger":
-			teardown_operation_futures.append(
-				local_tasks.delete_schedule_trigger(
-					credentials,
-					teardown_node[ "id" ],
-					teardown_node[ "type" ],
-					teardown_node[ "name" ],
-					teardown_node[ "arn" ],
-				)
-			)
-		elif teardown_node[ "type" ] == "api_gateway":
-			teardown_operation_futures.append(
-				strip_api_gateway(
-					credentials,
-					teardown_node[ "rest_api_id" ],
-				)
-			)
-	
-	teardown_operation_results = yield teardown_operation_futures
-	
-	raise gen.Return( teardown_operation_results )
-
 class InfraTearDown( BaseHandler ):
 	@authenticated
 	@gen.coroutine
@@ -8482,7 +7790,7 @@ class DeleteSavedProject( BaseHandler ):
 			if api_gateway_id:
 				logit( "Deleting associated API Gateway '" + api_gateway_id + "'..." )
 
-				yield local_tasks.delete_rest_api(
+				yield api_gateway_manager.delete_rest_api(
 					credentials,
 					api_gateway_id
 				)
@@ -8734,7 +8042,7 @@ def create_lambda_api_route( credentials, api_gateway_id, http_method, route, la
 	
 	# A default resource is created along with an API gateway, we grab
 	# it so we can make our base method
-	resources = yield local_tasks.get_resources(
+	resources = yield api_gateway_manager.get_resources(
 		credentials,
 		api_gateway_id
 	)
@@ -8799,7 +8107,7 @@ def create_lambda_api_route( credentials, api_gateway_id, http_method, route, la
 		lambda_name
 	)
 	
-	resources = yield local_tasks.get_resources(
+	resources = yield api_gateway_manager.get_resources(
 		credentials,
 		api_gateway_id
 	)
@@ -9742,88 +9050,7 @@ class GetCloudWatchLogsForLambda( BaseHandler ):
 				"log_output": log_output
 			}
 		})
-		
-@gen.coroutine
-def strip_api_gateway( credentials, api_gateway_id ):
-	"""
-	Strip a given API Gateway of all of it's:
-	* Resources
-	* Resource Methods
-	* Stages
-	
-	Allowing for the configuration details to be replaced.
-	"""
-	return_data = {
-		"deleted": True,
-		"type": "api_gateway",
-		"id": get_random_node_id(),
-		"arn": "arn:aws:apigateway:" + credentials[ "region" ] + "::/restapis/" + api_gateway_id,
-		"name": "__api_gateway__",
-	}
-	
-	# Verify the existance of API Gateway before proceeding
-	logit( "Verifying existance of API Gateway..." )
-	api_gateway_exists = yield local_tasks.api_gateway_exists(
-		credentials,
-		api_gateway_id
-	)
-	
-	# If it doesn't exist we can stop here - there's nothing
-	# to strip!
-	if not api_gateway_exists:
-		raise gen.Return( return_data )
-	
-	rest_resources = yield local_tasks.get_resources(
-		credentials,
-		api_gateway_id
-	)
-	
-	# List of futures to finish before we continue
-	deletion_futures = []
-	
-	# Iterate over resources and delete everything that
-	# can be deleted.
-	for resource_item in rest_resources:
-		# We can't delete the root resource
-		if resource_item[ "path" ] != "/":
-			deletion_futures.append(
-				local_tasks.delete_rest_api_resource(
-					credentials,
-					api_gateway_id,
-					resource_item[ "id" ]
-				)
-			)
-		
-		# Delete the methods
-		if "resourceMethods" in resource_item:
-			for http_method, values in resource_item[ "resourceMethods" ].iteritems():
-				deletion_futures.append(
-					local_tasks.delete_rest_api_resource_method(
-						credentials,
-						api_gateway_id,
-						resource_item[ "id" ],
-						http_method
-					)
-				)
-			
-	rest_stages = yield local_tasks.get_stages(
-		credentials,
-		api_gateway_id
-	)
-	
-	for rest_stage in rest_stages:
-		deletion_futures.append(
-			local_tasks.delete_stage(
-				credentials,
-				api_gateway_id,
-				rest_stage[ "stageName" ]
-			)
-		)
-	
-	yield deletion_futures
-	
-	raise gen.Return( return_data )
-	
+
 class NewRegistration( BaseHandler ):
 	@gen.coroutine
 	def post( self ):
@@ -11661,6 +10888,7 @@ def make_app( tornado_config ):
 		( r"/services/v1/onboard_third_party_aws_account_plan", OnboardThirdPartyAWSAccountPlan ),
 		( r"/services/v1/dangerously_finalize_third_party_aws_onboarding", OnboardThirdPartyAWSAccountApply ),
 		( r"/services/v1/clear_s3_build_packages", ClearAllS3BuildPackages ),
+		( r"/services/v1/dangling_resources/([a-f0-9\-]+)", CleanupDanglingResources ),
 	], **tornado_config)
 	
 def get_lambda_callback_endpoint( tornado_config ):
