@@ -5,6 +5,24 @@ from utils.general import logit
 
 SHARED_FILE_PREFIX = "shared_files/"
 
+def add_shared_files_symlink_to_zip( zip_data ):
+	virtual_file_handler = io.BytesIO( zip_data )
+
+	with zipfile.ZipFile( virtual_file_handler, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+		# Big shout out to A. Murat Eren: https://www.mail-archive.com/python-list@python.org/msg34223.html
+		# Magic to add a soft link to /var/task/shared_files/ to /tmp/shared_files/
+		# This allows us to write all of the shared files for inline executions without a re-deploy.
+		attr = zipfile.ZipInfo()
+		attr.filename = "shared_files"
+		attr.create_system = 3
+		attr.external_attr = 2716663808L
+		zip_file_handler.writestr(attr, "/tmp/shared_files/")
+
+	final_zip_data = virtual_file_handler.getvalue()
+	virtual_file_handler.close()
+
+	return final_zip_data
+
 def add_shared_files_to_zip( zip_data, shared_files_list ):
 	lambda_package_zip = io.BytesIO(
 		zip_data

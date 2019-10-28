@@ -51,7 +51,7 @@ from email_validator import validate_email, EmailNotValidError
 from utils.general import attempt_json_decode, logit, split_list_into_chunks, get_random_node_id, get_urand_password, get_random_id, get_random_deploy_id
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
-from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda
+from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda, add_shared_files_symlink_to_zip
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
@@ -3120,11 +3120,19 @@ class TaskSpawner(object):
 					lambda_object.libraries
 				)
 
-			# Add shared files to Lambda package as well.
-			package_zip_data = add_shared_files_to_zip(
-				package_zip_data,
-				lambda_object.shared_files_list
-			)
+			# Add symlink if it's an inline execution
+			if lambda_object.is_inline_execution:
+				package_zip_data = add_shared_files_symlink_to_zip(
+					package_zip_data
+				)
+			else:
+				# If it's an inline execution we don't add the shared files folder because
+				# we'll be live injecting them into /tmp/
+				# Add shared files to Lambda package as well.
+				package_zip_data = add_shared_files_to_zip(
+					package_zip_data,
+					lambda_object.shared_files_list
+				)
 				
 			return package_zip_data
 			
@@ -3216,7 +3224,6 @@ class TaskSpawner(object):
 					lambda_object.environment_variables,
 					lambda_object.layers,
 					lambda_object.libraries,
-					lambda_object.shared_files_list,
 					lambda_deploy_result[ "FunctionArn" ],
 					lambda_deploy_result[ "CodeSize" ]
 				)
@@ -3286,15 +3293,14 @@ class TaskSpawner(object):
 			dbsession.close()
 			
 		@staticmethod
-		def _cache_inline_lambda_execution( credentials, language, timeout, memory, environment_variables, layers, libraries, shared_files_list, arn, lambda_size ):
+		def _cache_inline_lambda_execution( credentials, language, timeout, memory, environment_variables, layers, libraries, arn, lambda_size ):
 			inline_execution_hash_key = TaskSpawner._get_inline_lambda_hash_key(
 				language,
 				timeout,
 				memory,
 				environment_variables,
 				layers,
-				libraries,
-				shared_files_list
+				libraries
 			)
 			
 			# Maximum amount of inline execution Lambdas to leave deployed
@@ -3331,15 +3337,14 @@ class TaskSpawner(object):
 			)
 			
 		@staticmethod
-		def _get_inline_lambda_hash_key( language, timeout, memory, environment_variables, lambda_layers, libraries, shared_files_list ):
+		def _get_inline_lambda_hash_key( language, timeout, memory, environment_variables, lambda_layers, libraries ):
 			hash_dict = {
 				"language": language,
 				"timeout": timeout,
 				"memory": memory,
 				"environment_variables": environment_variables,
 				"layers": lambda_layers,
-				"libraries": libraries,
-				"shared_files": shared_files_list
+				"libraries": libraries
 			}
 			
 			hash_key = hashlib.sha256(
@@ -6293,8 +6298,7 @@ class RunTmpLambda( BaseHandler ):
 			self.json[ "memory" ],
 			environment_variables,
 			lambda_layers,
-			self.json[ "libraries" ],
-			self.json[ "shared_files" ]
+			self.json[ "libraries" ]
 		)
 		
 		cached_inline_execution_lambda = None
@@ -6324,21 +6328,6 @@ class RunTmpLambda( BaseHandler ):
 			lambda_info = {
 				"arn": cached_inline_execution_lambda_dict[ "arn" ]
 			}
-		
-			inline_execution_code = get_base_lambda_code(
-				self.json[ "language" ],
-				self.json[ "code" ]
-			)
-			
-			execute_lambda_params = {
-				"_refinery": {
-					"backpack": backpack_data,
-					"throw_exceptions_fully": True,
-					"input_data": self.json[ "input_data" ],
-					"temporary_execution": True,
-					"inline_code": inline_execution_code,
-				}
-			}
 		else:
 			try:
 				lambda_info = yield deploy_lambda(
@@ -6354,14 +6343,26 @@ class RunTmpLambda( BaseHandler ):
 				})
 				raise gen.Return()
 				
-			execute_lambda_params = {
-				"_refinery": {
-					"backpack": backpack_data,
-					"throw_exceptions_fully": True,
-					"input_data": self.json[ "input_data" ],
-					"temporary_execution": True
-				}
+		execute_lambda_params = {
+			"_refinery": {
+				"backpack": backpack_data,
+				"throw_exceptions_fully": True,
+				"input_data": self.json[ "input_data" ],
+				"temporary_execution": True
 			}
+		}
+
+		# Get inline execution code
+		inline_execution_code = get_base_lambda_code(
+			self.json[ "language" ],
+			self.json[ "code" ]
+		)
+
+		# Generate Lambda run input
+		execute_lambda_params[ "_refinery" ][ "inline_code" ] = {
+			"base_code": inline_execution_code,
+			"shared_files": self.json[ "shared_files" ]
+		}
 		
 		if "debug_id" in self.json:
 			execute_lambda_params[ "_refinery" ][ "live_debug" ] = {
@@ -6408,6 +6409,11 @@ class RunTmpLambda( BaseHandler ):
 			logit( e )
 			logit( "Raw Lambda return data: " )
 			logit( lambda_result )
+
+			# Clearer logging for raw Lambda error output
+			if "logs" in lambda_result:
+				print( lambda_result[ "logs" ] )
+
 			self.write({
 				"success": False,
 				"msg": "An exception occurred while running the Lambda.",
@@ -6552,31 +6558,31 @@ def get_layers_for_lambda( language ):
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:26"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:27"
 		)
 	elif language == "nodejs10.16.3":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-nodejs10-custom-runtime:6"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-nodejs10-custom-runtime:7"
 		)
 	elif language == "php7.3":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:25"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:26"
 		)
 	elif language == "go1.12":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:25"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:26"
 		)
 	elif language == "python2.7":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:25"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:26"
 		)
 	elif language == "python3.6":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:26"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:27"
 		)
 	elif language == "ruby2.6.4":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:26"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:27"
 		)
 		
 	return new_layers
