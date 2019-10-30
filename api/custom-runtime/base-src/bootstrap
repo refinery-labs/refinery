@@ -1600,6 +1600,9 @@ def _write_inline_code( inline_code, path ):
 def _setup_inline_execution_shared_files( inline_file_list ):
 	shared_files_base_folder = "/tmp/shared_files/"
 
+	if os.path.exists( shared_files_base_folder ):
+		_clear_temporary_files()
+
 	# Make shared files directory
 	os.mkdir( shared_files_base_folder )
 
@@ -1610,6 +1613,19 @@ def _setup_inline_execution_shared_files( inline_file_list ):
 			shared_file_metadata[ "body" ],
 			shared_file_path,
 		)
+
+def _clear_temporary_files():
+	try:
+		tmp_handler = subprocess.Popen(
+			[ "/bin/rm -rf /tmp/*" ],
+			stdout=subprocess.PIPE,
+			stderr=subprocess.PIPE,
+			stdin=subprocess.PIPE,
+			shell=True
+		)
+		tmp_handler.communicate()
+	except e:
+		pass
 	
 def _stream_execution_output_to_websocket( websocket, debug_id, output ):
 	websocket.send(json.dumps({
@@ -1987,17 +2003,7 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 		# If it's an inline execution we need to delete the file we just
 		# executed so that it doesn't fill up the disk each run.
 		if is_inline_execution:
-			try:
-				tmp_handler = subprocess.Popen(
-					[ "/bin/rm -rf /tmp/*" ],
-					stdout=subprocess.PIPE,
-					stderr=subprocess.PIPE,
-					stdin=subprocess.PIPE,
-					shell=True
-				).read()
-				tmp_handler.communicate()
-			except:
-				pass
+			_clear_temporary_files()
 
 		_stop_clock( "Executing Lambda" )
 
@@ -2466,7 +2472,32 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 
 	# Iterate over every if
 	for if_statement_data in transitions[ "if" ]:
-		expression_eval_result = eval( if_statement_data[ "expression" ] )
+		try:
+			expression_eval_result = eval( if_statement_data[ "expression" ] )
+		except Exception, err:
+			exception_string = "Your \"if\" transition's conditional logic code has thrown an exception!\n"
+			exception_string += "Please note it must be valid Python 2.7 code. The exception is the following: \n"
+			exception_string += traceback.format_exc()
+			print( exception_string )
+			sys.stdout.flush()
+			custom_runtime.send_error(
+				request_id,
+				return_data, # Just blank output for errors
+			)
+			_write_pipeline_logs(
+				os.environ[ "LOG_BUCKET_NAME" ],
+				os.environ[ "EXECUTION_PIPELINE_ID" ],
+				context.invoked_function_arn,
+				context.function_name,
+				execution_id,
+				"EXCEPTION",
+				execution_details,
+				exception_string,
+				{},
+				lambda_input,
+				""
+			)
+			return
 
 		if expression_eval_result:
 			invocation_input_list.append({

@@ -3063,10 +3063,7 @@ class TaskSpawner(object):
 						lambda_object,
 						s3_package_zip_path
 					)
-				else:
-					logit( "Exception occurred: ", "error" )
-					logit( e, "error" )
-					return False
+				raise
 			
 			return response
 		
@@ -5718,8 +5715,20 @@ class RunTmpLambda( BaseHandler ):
 			except BuildException as build_exception:
 				self.write({
 					"success": False,
-					"msg": "An error occurred while building the Lambda package.",
+					"msg": "An error occurred while building the Code Block package.",
 					"log_output": build_exception.build_output
+				})
+				raise gen.Return()
+			except botocore.exceptions.ClientError as boto_error:
+				logit( "An exception occurred while setting up the Code Block." )
+				logit( boto_error )
+
+				error_message = boto_error.response[ "Error" ][ "Message" ] + " (Code: " + boto_error.response[ "Error" ][ "Code" ] + ")"
+
+				self.write({
+					"success": False,
+					"msg": error_message,
+					"log_output": ""
 				})
 				raise gen.Return()
 				
@@ -5938,31 +5947,31 @@ def get_layers_for_lambda( language ):
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:27"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:29"
 		)
 	elif language == "nodejs10.16.3":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-nodejs10-custom-runtime:7"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-nodejs10-custom-runtime:8"
 		)
 	elif language == "php7.3":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:26"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:27"
 		)
 	elif language == "go1.12":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:26"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:27"
 		)
 	elif language == "python2.7":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:26"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:27"
 		)
 	elif language == "python3.6":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:27"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:28"
 		)
 	elif language == "ruby2.6.4":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:27"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:28"
 		)
 		
 	return new_layers
