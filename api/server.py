@@ -2452,16 +2452,6 @@ class TaskSpawner(object):
 				}
 			]
 
-			and_statements.append({
-				"Dimensions": {
-					"Key": "LINKED_ACCOUNT",
-					"Values": [
-						str( account_id )
-					]
-				}
-			})
-
-			"""
 			if account_type == "MANAGED":
 				and_statements.append({
 					"Dimensions": {
@@ -2471,7 +2461,6 @@ class TaskSpawner(object):
 						]
 					}
 				})
-			"""
 
 			if account_type == "THIRDPARTY":
 				and_statements.append({
