@@ -2014,6 +2014,7 @@ class TaskSpawner(object):
 				for aws_account_dict in organization_aws_accounts:
 					billing_information = TaskSpawner._get_sub_account_billing_data(
 						aws_account_dict[ "account_id" ],
+						aws_account_dict[ "account_type" ],
 						start_date_string,
 						end_date_string,
 						"monthly",
@@ -2202,7 +2203,7 @@ class TaskSpawner(object):
 			dbsession.close()
 	
 		@run_on_executor
-		def get_sub_account_month_billing_data( self, account_id, billing_month, use_cache ):
+		def get_sub_account_month_billing_data( self, account_id, account_type, billing_month, use_cache ):
 			# Parse the billing month into a datetime object
 			billing_month_datetime = datetime.datetime.strptime(
 				billing_month,
@@ -2220,6 +2221,7 @@ class TaskSpawner(object):
 			
 			return TaskSpawner._get_sub_account_billing_data(
 				account_id,
+				account_type,
 				billing_start_date,
 				billing_end_date,
 				"monthly",
@@ -2227,7 +2229,7 @@ class TaskSpawner(object):
 			)
 			
 		@staticmethod
-		def _get_sub_account_billing_data( account_id, start_date, end_date, granularity, use_cache ):
+		def _get_sub_account_billing_data( account_id, account_type, start_date, end_date, granularity, use_cache ):
 			"""
 			Pull the service breakdown list and return it along with the totals.
 			Note that this data is not marked up. This function does the work of marking it up.
@@ -2246,6 +2248,7 @@ class TaskSpawner(object):
 			"""
 			service_breakdown_list = TaskSpawner._get_sub_account_service_breakdown_list(
 				account_id,
+				account_type,
 				start_date,
 				end_date,
 				granularity,
@@ -2336,7 +2339,7 @@ class TaskSpawner(object):
 			return return_data
 		
 		@staticmethod
-		def _get_sub_account_service_breakdown_list( account_id, start_date, end_date, granularity, use_cache ):
+		def _get_sub_account_service_breakdown_list( account_id, account_type, start_date, end_date, granularity, use_cache ):
 			"""
 			Return format:
 			
@@ -2396,6 +2399,7 @@ class TaskSpawner(object):
 			# Which is why we implement caching for user billing.
 			service_breakdown_list = TaskSpawner._api_get_sub_account_billing_data(
 				account_id,
+				account_type,
 				start_date,
 				end_date,
 				granularity,
@@ -2426,7 +2430,7 @@ class TaskSpawner(object):
 			return service_breakdown_list
 		
 		@staticmethod
-		def _api_get_sub_account_billing_data( account_id, start_date, end_date, granularity ):
+		def _api_get_sub_account_billing_data( account_id, account_type, start_date, end_date, granularity ):
 			"""
 			account_id: 994344292413
 			start_date: 2017-05-01
@@ -2434,6 +2438,39 @@ class TaskSpawner(object):
 			granularity: "daily" || "hourly" || "monthly"
 			"""
 			metric_name = "NetUnblendedCost"
+
+			and_statements = [
+				{
+					"Not": {
+						"Dimensions": {
+							"Key": "RECORD_TYPE",
+							"Values": [
+								"Credit"
+							]
+						}
+					}
+				}
+			]
+
+			if account_type == "MANAGED":
+				and_statements.append({
+					"Dimensions": {
+						"Key": "LINKED_ACCOUNT",
+						"Values": [
+							str( account_id )
+						]
+					}
+				})
+
+			if account_type == "THIRDPARTY":
+				and_statements.append({
+					"Tags": {
+						"Key": "RefineryResource",
+						"Values": [
+							"true"
+						]
+					}
+				})
 			
 			usage_parameters = {
 				"TimePeriod": {
@@ -2441,26 +2478,7 @@ class TaskSpawner(object):
 					"End": end_date,
 				},
 				"Filter": {
-					"And": [
-						{
-							"Not": {
-								"Dimensions": {
-									"Key": "RECORD_TYPE",
-									"Values": [
-										"Credit"
-									]
-								}
-							}
-						},
-						{
-							"Dimensions": {
-								"Key": "LINKED_ACCOUNT",
-								"Values": [
-									str( account_id )
-								]
-							}
-						}
-					]
+					"And": and_statements
 				},
 				"Granularity": granularity.upper(),
 				"Metrics": [ metric_name ],
@@ -2471,10 +2489,17 @@ class TaskSpawner(object):
 					}
 				]
 			}
+
+			logit( "Parameters: " )
+			logit( usage_parameters )
 			
 			response = COST_EXPLORER.get_cost_and_usage(
 				**usage_parameters
 			)
+
+			logit( "Cost and usage resonse: " )
+			logit( response )
+
 			cost_groups = response[ "ResultsByTime" ][0][ "Groups" ]
 			
 			service_breakdown_list = []
@@ -9527,8 +9552,9 @@ class GetBillingMonthTotals( BaseHandler ):
 		
 		billing_data = yield local_tasks.get_sub_account_month_billing_data(
 			credentials[ "account_id" ],
+			credentials[ "account_type" ],
 			self.json[ "billing_month" ],
-			True
+			True,
 		)
 		
 		self.write({
