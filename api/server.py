@@ -9545,7 +9545,7 @@ class GetBillingMonthTotals( BaseHandler ):
 			credentials[ "account_id" ],
 			credentials[ "account_type" ],
 			self.json[ "billing_month" ],
-			False, # TODO SET ME BACK TO TRUE BEFORE DEPLOYING TO PROD
+			True,
 		)
 		
 		self.write({
