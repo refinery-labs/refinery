@@ -63,6 +63,7 @@ from controller.base import BaseHandler
 from controller.executions_controller import ExecutionsControllerServer
 from controller.lambda_connect_back import LambdaConnectBackServer
 from controller.dangling_resources import CleanupDanglingResources
+from controller.clear_invoice_drafts import ClearStripeInvoiceDrafts
 
 from data_types.aws_resources.alambda import Lambda
 
@@ -1985,6 +1986,10 @@ class TaskSpawner(object):
 				
 				# If the organization is disabled we just skip it
 				if organization.disabled == True:
+					continue
+
+				# If the organization is billing exempt, we skip it
+				if organization.billing_exempt == True:
 					continue
 				
 				# Check if the organization billing admin has validated
@@ -10924,6 +10929,7 @@ def make_app( tornado_config ):
 		( r"/services/v1/dangerously_finalize_third_party_aws_onboarding", OnboardThirdPartyAWSAccountApply ),
 		( r"/services/v1/clear_s3_build_packages", ClearAllS3BuildPackages ),
 		( r"/services/v1/dangling_resources/([a-f0-9\-]+)", CleanupDanglingResources ),
+		( r"/services/v1/clear_stripe_invoice_drafts", ClearStripeInvoiceDrafts ),
 	], **tornado_config)
 	
 def get_lambda_callback_endpoint( tornado_config ):
