@@ -23,6 +23,12 @@ class Organization( Base ):
 	
 	# Max users, an attribute for billing
 	max_users = Column(BigInteger())
+
+	# Whether the organization is "billing exempt"
+	billing_exempt = Column(
+		Boolean(),
+		default=False
+	)
 	
 	# Whether the organization is disabled
 	disabled = Column(Boolean())
@@ -69,6 +75,7 @@ class Organization( Base ):
 			"name",
 			"max_users",
 			"disabled",
+			"billing_exempt",
 			"payments_overdue",
 			"timestamp"
 		]
