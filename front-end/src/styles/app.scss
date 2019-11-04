@@ -860,3 +860,35 @@ a.disabled {
   background-color: #fff;
   border-radius: 8px;
 }
+
+.jq-input {
+  background-color: #1e1e1e !important;
+  font-family: Menlo, Monaco, "Courier New", monospace;
+}
+
+.jq-input, input, select, textarea{
+  color: #99d8fa;
+}
+
+.jq-input, textarea:focus, input:focus {
+  color: #99d8fa !important;
+}
+
+.jq-suggested-methods > p {
+  max-width: 50%;
+  overflow:hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.jq-suggested-methods {
+  color: #99d8fa !important;
+  background-color: #1e1e1e !important;
+  cursor: grab;
+  font-family: Menlo, Monaco, "Courier New", monospace;
+}
+
+.jq-suggested-methods:hover {
+  background-color: #3e3e3e !important;
+}

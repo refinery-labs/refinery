@@ -56,6 +56,7 @@ from utils.deployments.teardown import teardown_infrastructure
 from utils.deployments.awslambda import lambda_manager
 from utils.deployments.api_gateway import api_gateway_manager, strip_api_gateway
 from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda, add_shared_files_symlink_to_zip
+from utils.cached_block_io import cache_block_io_data, cache_returned_log_items
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
@@ -5593,6 +5594,9 @@ class RunTmpLambda( BaseHandler ):
 				"debug_id": {
 					"type": "string"
 				},
+				"block_id": {
+					"type": "string"
+				},
 				"shared_files": {
 					"type": "array",
 					"default": [],
@@ -5626,6 +5630,7 @@ class RunTmpLambda( BaseHandler ):
 				}
 			},
 			"required": [
+				"block_id",
 				"input_data",
 				"language",
 				"code",
@@ -5851,6 +5856,15 @@ class RunTmpLambda( BaseHandler ):
 				credentials,
 				random_node_id
 			)
+
+		# Now we'll store the return data for later use in transformation
+		cache_block_io_data(
+			self.get_authenticated_user_id(),
+			self.json[ "block_id" ],
+			"EDITOR",
+			"RETURN",
+			lambda_result[ "returned_data" ]
+		)
 
 		self.write({
 			"success": True,
@@ -7898,7 +7912,7 @@ class DeployDiagram( BaseHandler ):
 		new_deployment.deployment_json = json.dumps(
 			deployment_data[ "deployment_diagram" ]
 		)
-		
+		new_deployment.aws_account_id = credentials[ "id" ]
 		existing_project.deployments.append(
 			new_deployment
 		)
@@ -8940,6 +8954,15 @@ class GetProjectExecutionLogObjects( BaseHandler ):
 				"log_data": log_data,
 				"log_id": log_id
 			})
+
+		# Scan through the return data and add any return and input data
+		# to the database as necessary.
+		# No yield because it shouldn't slow down this request.
+		cache_returned_log_items(
+			self.get_authenticated_user_id(),
+			credentials,
+			results_list
+		)
 
 		self.write({
 			"success": True,

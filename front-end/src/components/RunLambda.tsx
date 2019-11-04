@@ -7,6 +7,8 @@ import { RunLambdaResult } from '@/types/api-types';
 import Loading from '@/components/Common/Loading.vue';
 import Split from '@/components/Common/Split.vue';
 import SplitArea from '@/components/Common/SplitArea.vue';
+import InputTransformFullScreenModal from '@/components/ProjectEditor/input-transform-components/InputTransformFullScreenModal';
+import { InputTransformEditorStoreModule } from '@/store';
 
 export enum RunLambdaDisplayLocation {
   editor = 'editor',
@@ -169,6 +171,10 @@ export default class RunLambda extends Vue implements RunLambdaProps {
     );
   }
 
+  showInputFullScreenModal() {
+    InputTransformEditorStoreModule.setModalVisibilityAction(true);
+  }
+
   public renderEditors() {
     const hasValidOutput = this.checkIfValidRunLambdaOutput();
 
@@ -247,9 +253,10 @@ export default class RunLambda extends Vue implements RunLambdaProps {
 
     return (
       <div class="display--flex flex-direction--column flex-grow--1">
+        <InputTransformFullScreenModal />
         <div class="display--flex flex-grow--1 height--100percent">
           <Split props={{ direction: 'vertical' as Object }}>
-            <SplitArea props={{ size: 40 as Object }}>
+            <SplitArea props={{ size: 38 as Object }}>
               <b-tabs nav-class="nav-justified" content-class="padding--none position--relative flex-grow--1">
                 <b-tab title="Input Data" active={true} no-body={true} title-link-class="dark-nav-tab">
                   <div class="display--flex flex-grow--1 ace-hack margin-left--negative-micro margin-right--negative-micro">
@@ -263,6 +270,11 @@ export default class RunLambda extends Vue implements RunLambdaProps {
                 </b-tab>
               </b-tabs>
             </SplitArea>
+            <div>
+              <button class="btn btn-block btn-primary" on={{ click: this.showInputFullScreenModal }}>
+                <i class="fas fa-random" /> Add Block Input Transform
+              </button>
+            </div>
             <SplitArea props={{ size: 30 as Object }}>
               {renderEditorWrapper('Return Data', <RefineryCodeEditor props={resultDataEditorProps} />)}
             </SplitArea>

@@ -43,6 +43,7 @@
     "fast-deep-equal": "^2.0.1",
     "file-saver": "2.0.2",
     "graphlib": "^2.1.7",
+    "jq-web": "^0.5.1",
     "jszip": "^3.2.2",
     "lz-string": "^1.4.4",
     "modernizr": "^3.7.1",
