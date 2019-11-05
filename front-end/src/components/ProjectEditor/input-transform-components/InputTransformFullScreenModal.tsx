@@ -9,9 +9,18 @@ import { preventDefaultWrapper } from '@/utils/dom-utils';
 import moment from 'moment';
 import { BlockCachedInputIOTypes, BlockCachedInputOriginTypes, BlockCachedInputResult } from '@/types/api-types';
 import { getNodeDataById } from '@/utils/project-helpers';
+import RunLambdaModule from '@/store/modules/run-lambda';
+import { namespace } from 'vuex-class';
+import { LambdaWorkflowState, WorkflowState } from '@/types/graph';
+
+const runLambda = namespace('runLambda');
+const editBlock = namespace('project/editBlockPane');
 
 @Component
 export default class InputTransformFullScreenModal extends Vue {
+  @runLambda.Getter getDevLambdaInputData!: (id: string) => string;
+  @editBlock.State selectedNode!: WorkflowState | null;
+
   public renderJQSuggestions() {
     return [];
     /*
@@ -179,6 +188,18 @@ export default class InputTransformFullScreenModal extends Vue {
       readOnly: false
     };
 
+    const selectedNode = this.selectedNode as LambdaWorkflowState;
+    console.log(selectedNode);
+    const targetInputDataEditorProps: EditorProps = {
+      ...sharedEditorProps,
+      name: `target-input-data-editor`,
+      // This is very nice for rendering non-programming text
+      lang: 'json',
+      content: this.getDevLambdaInputData(selectedNode.id),
+      wrapText: true,
+      readOnly: false
+    };
+
     const modalOnHandlers = {
       hidden: () => InputTransformEditorStoreModule.setModalVisibilityAction(false)
     };
@@ -240,7 +261,7 @@ export default class InputTransformFullScreenModal extends Vue {
                 <SplitArea props={{ size: 50 as Object }}>
                   {renderEditorWrapper(
                     'Target Input Format (Saved Input for Code Block)',
-                    <RefineryCodeEditor props={transformedInputDataEditorProps} />
+                    <RefineryCodeEditor props={targetInputDataEditorProps} />
                   )}
                 </SplitArea>
               </Split>
