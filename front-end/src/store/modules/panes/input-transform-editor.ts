@@ -12,10 +12,17 @@ import {
 import { API_ENDPOINT } from '@/constants/api-constants';
 import { RefineryProject } from '@/types/graph';
 import { getNodeDataById, getNodesUpstreamFromNode, getTransitionsToNode } from '@/utils/project-helpers';
+import { InputTransformEditorStoreModule } from '@/store';
+import { namespace } from 'vuex-class';
+import RunLambdaModule from '@/store/modules/run-lambda';
 
 const jq = require('jq-web');
 
 const storeName = StoreType.inputTransformEditor;
+
+export enum suggestedTransformTypes {
+  mapKeys = 'MAP_KEYS'
+}
 
 export interface suggestedMethodResult {
   suggestedQuery: string;
@@ -32,6 +39,7 @@ export interface InputTransformEditorState {
   isFullScreenEditorModalVisible: boolean;
   inputData: string;
   transformedInputData: string;
+  targetInputData: string;
   jqQuery: string;
   suggestedMethods: suggestedMethodResult[];
   cachedBlockInputs: BlockCachedInputResult[];
@@ -42,6 +50,7 @@ const moduleState: InputTransformEditorState = {
   isFullScreenEditorModalVisible: false,
   inputData: '{}',
   transformedInputData: '',
+  targetInputData: '{}',
   jqQuery: '.',
   suggestedMethods: [],
   cachedBlockInputs: []
@@ -69,7 +78,11 @@ function getSuggestionMethodQueriesFromResult(
   transformedInputData: string,
   inputData: string
 ): string[] {
-  const parsedTransformedInputData = JSON.parse(transformedInputData);
+  const parsedTransformedInputData = getJSONParsedValue(transformedInputData);
+
+  if (parsedTransformedInputData === null) {
+    return [];
+  }
 
   if (currentJQQuery === '.') {
     currentJQQuery = '';
@@ -185,12 +198,82 @@ async function getCachedInputsForSelectedBlock(project: ProjectViewState | null)
   return cachedBlockInputs.results.concat(enrichedCachedBlockReturns);
 }
 
+function getJSONParsedValue(inputJSON: string) {
+  try {
+    return JSON.parse(inputJSON);
+  } catch (e) {
+    return null;
+  }
+}
+
+function getInputObjectKeys(inputObjectKeys: string[], targetInputObjectKeys: string[]) {
+  // Handle the case of having more keys in the inputObject than the targetObject
+  if (inputObjectKeys.length < targetInputObjectKeys.length) {
+    // Calculate the difference in number of keys
+    const keyCountDifference = targetInputObjectKeys.length - inputObjectKeys.length;
+
+    // Fill the result by just repeating the last input object key
+    // Still conveys the idea well enough.
+    const finalKey = inputObjectKeys[inputObjectKeys.length - 1];
+
+    return inputObjectKeys.concat(Array(keyCountDifference).fill(finalKey));
+  }
+
+  // Handle the case of having more keys in the inputObject than the targetObject
+  if (inputObjectKeys.length > targetInputObjectKeys.length) {
+    // In this case just cut off the inputObject keys array being returned. Easy.
+    return inputObjectKeys.slice(0, targetInputObjectKeys.length);
+  }
+
+  // If they are the same number, this is easy
+  return inputObjectKeys;
+}
+
+export function getExampleMapObjectKeysToTargetKeysQuery(inputData: string, targetInputData: string) {
+  const inputDataObject = getJSONParsedValue(inputData);
+  const targetInputDataObject = getJSONParsedValue(targetInputData);
+
+  // Both must be parsable.
+  if (inputDataObject === null || targetInputDataObject === null) {
+    return null;
+  }
+
+  // Both must be objects not arrays (even though arrays ARE objects in JavaScript - *deep sigh*)
+  if (Array.isArray(inputDataObject) || Array.isArray(targetInputDataObject)) {
+    return null;
+  }
+
+  // Both must have at least 1 key
+  const inputObjectKeys = Object.keys(inputDataObject);
+  const targetInputObjectKeys = Object.keys(targetInputDataObject);
+
+  if (inputObjectKeys.length === 0 && targetInputObjectKeys.length === 0) {
+    return null;
+  }
+
+  // If we have more targetInputObject keys than our inputObject
+  // we have to fill in the rest of the keys.
+  const updatedInputObjectKeys = getInputObjectKeys(inputObjectKeys, targetInputObjectKeys);
+
+  // Generate parts of the JQ query
+  const queryStringParts = targetInputObjectKeys.map((targetInputObjectKey, index) => {
+    return `${JSON.stringify(targetInputObjectKey)}: .${updatedInputObjectKeys[index]}`;
+  });
+
+  const queryString = `{ ${queryStringParts.join(', ')} }`;
+
+  return queryString;
+}
+
+const runLambda = namespace('runLambda');
+
 @Module({ namespaced: true, name: storeName })
 export class InputTransformEditorStore extends VuexModule<ThisType<InputTransformEditorState>, RootState>
   implements InputTransformEditorState {
   public isFullScreenEditorModalVisible: boolean = initialState.isFullScreenEditorModalVisible;
   public inputData: string = initialState.inputData;
   public transformedInputData: string = initialState.transformedInputData;
+  public targetInputData: string = initialState.targetInputData;
   public jqQuery: string = initialState.jqQuery;
   public suggestedMethods: suggestedMethodResult[] = initialState.suggestedMethods;
   public cachedBlockInputs: BlockCachedInputResult[] = initialState.cachedBlockInputs;
@@ -228,6 +311,11 @@ export class InputTransformEditorStore extends VuexModule<ThisType<InputTransfor
   @Mutation
   public setInputData(value: string) {
     this.inputData = value;
+  }
+
+  @Mutation
+  public setTargetInputData(value: string) {
+    this.targetInputData = value;
   }
 
   @Action
@@ -294,6 +382,7 @@ export class InputTransformEditorStore extends VuexModule<ThisType<InputTransfor
       return;
     }
 
+    // Set up cached block inputs
     const cachedBlockInputs = await getCachedInputsForSelectedBlock(this.context.rootState.project);
     this.setCachedBlockInputs(cachedBlockInputs);
 
@@ -301,5 +390,25 @@ export class InputTransformEditorStore extends VuexModule<ThisType<InputTransfor
       this.setCachedBlockInput(cachedBlockInputs[0].id);
       this.updateSuggestions();
     }
+
+    // Set the setTargetInputData to the Saved Input data for the block
+    const selectedResource = this.context.rootState.project.selectedResource;
+
+    // No idea why I have to do this.
+    if (RunLambdaModule.getters === undefined) {
+      return;
+    }
+
+    this.setTargetInputData(
+      // Absolutely disgusting, but have no idea how else to do this.
+      selectedResource
+        ? RunLambdaModule.getters.getDevLambdaInputData(
+            this.context.rootState.runLambda,
+            this.context.getters,
+            this.context.rootState,
+            this.context.rootGetters
+          )(selectedResource)
+        : '{}'
+    );
   }
 }

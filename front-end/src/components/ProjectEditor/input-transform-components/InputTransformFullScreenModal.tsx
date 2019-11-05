@@ -12,6 +12,10 @@ import { getNodeDataById } from '@/utils/project-helpers';
 import RunLambdaModule from '@/store/modules/run-lambda';
 import { namespace } from 'vuex-class';
 import { LambdaWorkflowState, WorkflowState } from '@/types/graph';
+import {
+  getExampleMapObjectKeysToTargetKeysQuery,
+  suggestedTransformTypes
+} from '@/store/modules/panes/input-transform-editor';
 
 const runLambda = namespace('runLambda');
 const editBlock = namespace('project/editBlockPane');
@@ -21,43 +25,53 @@ export default class InputTransformFullScreenModal extends Vue {
   @runLambda.Getter getDevLambdaInputData!: (id: string) => string;
   @editBlock.State selectedNode!: WorkflowState | null;
 
-  public renderJQSuggestions() {
-    return [];
-    /*
-    return (
-      <b-list-group class="mt-2">
-        <b-list-group-item class="text-align--left">
-          <div class="d-flex w-100 justify-content-between">
-            <h5 class="mb-1">
-              <b>Map Object Keys to Different Key Names</b>
-            </h5>
-          </div>
-
-          <p class="mb-1">
-            Map the keys of this object/hash to different key names. This is useful when you want to map a return
-            parameter from one Code Block input the input value of another.
-          </p>
-
-          <p class="mb-1">
-            Example Input:{' '}
-            <code>
-              {'{'}"url": "https://www.example.com"{'}'}
-            </code>
-            <br />
-            JQ Query:{' '}
-            <code>
-              {'{'}"input_url": .url{'}'}
-            </code>
-            <br />
-            Result:{' '}
-            <code>
-              {'{'}"input_url": "https://www.example.com"{'}'}
-            </code>
-          </p>
-        </b-list-group-item>
-      </b-list-group>
+  public renderObjectKeysToTargetKeysButton() {
+    const exampleQueryString = getExampleMapObjectKeysToTargetKeysQuery(
+      InputTransformEditorStoreModule.inputData,
+      InputTransformEditorStoreModule.targetInputData
     );
-     */
+
+    // If we got a null, this button is not enabled.
+    if (exampleQueryString === null) {
+      return null;
+    }
+
+    const onClickHandler = () => {
+      InputTransformEditorStoreModule.setJqQuery(exampleQueryString);
+      InputTransformEditorStoreModule.updateSuggestions();
+    };
+
+    return (
+      <div>
+        <b-button pill variant="info" on={{ click: onClickHandler }}>
+          <i class="fas fa-magic" /> Map Input Object Keys to Target Object Keys
+        </b-button>
+      </div>
+    );
+  }
+
+  public renderJQSuggestions() {
+    const enabledTransformButtons = [this.renderObjectKeysToTargetKeysButton()];
+
+    // If there are no valid buttons to show, we just hide the suggestions
+    const displaySuggestedTransforms = enabledTransformButtons.every(buttonElement => {
+      return buttonElement !== null;
+    });
+    if (!displaySuggestedTransforms) {
+      return [];
+    }
+
+    return (
+      <div class="mt-4">
+        <h2>Suggested Transforms</h2>
+        <p>
+          These are commonly-used transforms for converting return data into input data.
+          <br />
+          Click on a button to generate an example query demonstrating the purposed operation.
+        </p>
+        <div class="mt-3">{enabledTransformButtons}</div>
+      </div>
+    );
   }
 
   public renderAvailableMethods() {
@@ -160,7 +174,13 @@ export default class InputTransformFullScreenModal extends Vue {
     );
 
     const sharedEditorProps = {
-      collapsible: true
+      collapsible: true,
+      wrapText: true,
+      // Update suggestions when user edits input data
+      onChange: async (newEditorText: string) => {
+        await InputTransformEditorStoreModule.updateInputData(newEditorText);
+        await InputTransformEditorStoreModule.updateSuggestions();
+      }
     };
 
     const inputDataEditorProps: EditorProps = {
@@ -169,13 +189,7 @@ export default class InputTransformFullScreenModal extends Vue {
       // This is very nice for rendering non-programming text
       lang: 'json',
       content: InputTransformEditorStoreModule.inputData,
-      wrapText: true,
-      readOnly: false,
-      // Update suggestions when user edits input data
-      onChange: async (newEditorText: string) => {
-        await InputTransformEditorStoreModule.updateInputData(newEditorText);
-        await InputTransformEditorStoreModule.updateSuggestions();
-      }
+      readOnly: false
     };
 
     const transformedInputDataEditorProps: EditorProps = {
@@ -184,19 +198,15 @@ export default class InputTransformFullScreenModal extends Vue {
       // This is very nice for rendering non-programming text
       lang: 'json',
       content: InputTransformEditorStoreModule.transformedInputData,
-      wrapText: true,
-      readOnly: false
+      readOnly: true
     };
 
-    const selectedNode = this.selectedNode as LambdaWorkflowState;
-    console.log(selectedNode);
     const targetInputDataEditorProps: EditorProps = {
       ...sharedEditorProps,
       name: `target-input-data-editor`,
       // This is very nice for rendering non-programming text
       lang: 'json',
-      content: this.getDevLambdaInputData(selectedNode.id),
-      wrapText: true,
+      content: InputTransformEditorStoreModule.targetInputData,
       readOnly: false
     };
 
@@ -243,6 +253,10 @@ export default class InputTransformFullScreenModal extends Vue {
                 <SplitArea props={{ size: 50 as Object }}>
                   <div class="text-align--center mt-2 mb-2 ml-3 mr-3">
                     <h1>JQ Transform Query</h1>
+                    <p>
+                      This is a transform applied to the Code Block input data before it is passed to the block.
+                      <br />
+                    </p>
                     <b-input-group size="lg">
                       <b-form-input
                         id="jq-input-form"
