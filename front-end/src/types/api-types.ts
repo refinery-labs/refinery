@@ -759,3 +759,76 @@ export interface LambdaDebuggingWebsocketMessage {
   action: LambdaDebuggingWebsocketActions;
   debug_id: string | null;
 }
+
+/*
+{
+    "results": [
+        {
+            "origin": "EDITOR",
+            "body": "{\n    \"test\": \"pew\", \n    \"value\": \"pewpew\"\n}",
+            "block_id": "dae0b07b-8c06-427d-a8e0-87cb250e4ac0",
+            "timestamp": 1572827561,
+            "io_type": "RETURN",
+            "id": "594f3800-412b-41fc-80a2-80c5467d9050"
+        },
+        {
+            "origin": "EDITOR",
+            "body": "{\n    \"test\": \"pew\", \n    \"value\": \"pewpew\"\n}",
+            "block_id": "dae0b07b-8c06-427d-a8e0-87cb250e4ac0",
+            "timestamp": 1572827537,
+            "io_type": "RETURN",
+            "id": "1d45db88-3b32-4f6a-8e35-7162c07d2820"
+        },
+        {
+            "origin": "DEPLOYMENT",
+            "body": "",
+            "block_id": "dae0b07b-8c06-427d-a8e0-87cb250e4ac0",
+            "timestamp": 1572827446,
+            "io_type": "INPUT",
+            "id": "210ad581-52a7-44b4-baa5-50a63a57f109"
+        },
+        {
+            "origin": "DEPLOYMENT",
+            "body": "Hello World!",
+            "block_id": "dae0b07b-8c06-427d-a8e0-87cb250e4ac0",
+            "timestamp": 1572827446,
+            "io_type": "RETURN",
+            "id": "6610259d-fa36-4f55-945b-45ac16c6e24f"
+        }
+    ],
+    "success": true
+}
+ */
+
+// GetBlockCachedInputs
+export interface GetBlockCachedInputsRequest extends BaseApiRequest {
+  block_ids: string[];
+  origin?: BlockCachedInputOriginTypes;
+  io_type?: BlockCachedInputIOTypes;
+}
+
+export interface GetBlockCachedInputsResponse extends BaseApiResponse {
+  results: Array<BlockCachedInputResult>;
+}
+
+export interface BlockCachedInputResult {
+  origin: BlockCachedInputOriginTypes;
+  body: string;
+  block_id: string;
+  timestamp: number;
+  io_type: BlockCachedInputIOTypes;
+  // This won't appear in the API response.
+  // But it can be added via enrichment of the open graph
+  name?: string;
+  id: string;
+}
+
+export enum BlockCachedInputIOTypes {
+  Return = 'RETURN',
+  Input = 'INPUT'
+}
+
+export enum BlockCachedInputOriginTypes {
+  Deployment = 'DEPLOYMENT',
+  Editor = 'EDITOR'
+}

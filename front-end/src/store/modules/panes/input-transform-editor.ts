@@ -1,30 +1,21 @@
-import { Action, getModule, Module, Mutation, VuexModule } from 'vuex-module-decorators';
-import { RootState, StoreType } from '../../store-types';
+import { Action, Module, Mutation, VuexModule } from 'vuex-module-decorators';
+import { ProjectViewState, RootState, StoreType } from '../../store-types';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { resetStoreState } from '@/utils/store-utils';
-import { Watch } from 'vue-property-decorator';
-import * as monaco from 'monaco-editor';
+import { makeApiRequest } from '@/store/fetchers/refinery-api';
+import {
+  BlockCachedInputIOTypes,
+  BlockCachedInputResult,
+  GetBlockCachedInputsRequest,
+  GetBlockCachedInputsResponse
+} from '@/types/api-types';
+import { API_ENDPOINT } from '@/constants/api-constants';
+import { RefineryProject } from '@/types/graph';
+import { getNodeDataById, getNodesUpstreamFromNode, getTransitionsToNode } from '@/utils/project-helpers';
+
 const jq = require('jq-web');
 
 const storeName = StoreType.inputTransformEditor;
-
-// Just for debug
-const defaultInputData = JSON.stringify(
-  {
-    example: {
-      test: [1, 2, 3, 4],
-      pewpew: {
-        ok: 'lol',
-        another: {
-          yep: "it's another one",
-          array: [2, 4, 6, 8, 10]
-        }
-      }
-    }
-  },
-  null,
-  4
-);
 
 export interface suggestedMethodResult {
   suggestedQuery: string;
@@ -43,15 +34,17 @@ export interface InputTransformEditorState {
   transformedInputData: string;
   jqQuery: string;
   suggestedMethods: suggestedMethodResult[];
+  cachedBlockInputs: BlockCachedInputResult[];
 }
 
 // Initial State
 const moduleState: InputTransformEditorState = {
   isFullScreenEditorModalVisible: false,
-  inputData: defaultInputData,
+  inputData: '{}',
   transformedInputData: '',
   jqQuery: '.',
-  suggestedMethods: []
+  suggestedMethods: [],
+  cachedBlockInputs: []
 };
 
 const initialState = deepJSONCopy(moduleState);
@@ -108,6 +101,90 @@ async function getSuggestedMethodResultFromQueries(queries: string[], inputData:
   );
 }
 
+async function getCachedInputsForSelectedBlock(project: ProjectViewState | null) {
+  if (project === null || project.openedProject === null) {
+    console.error("Can't get cached inputs for selected block, no project open!");
+    return [];
+  }
+
+  // Get selected block
+  const selectedBlockId = project.selectedResource;
+
+  if (selectedBlockId === null) {
+    console.error("Can't get cached inputs for selected block, no block is selected!");
+    return [];
+  }
+
+  const workflowState = getNodeDataById(project.openedProject, selectedBlockId);
+
+  // Wow I love null checks, so let's do ANOTHER ONE!
+  if (workflowState === null) {
+    console.error("Can't get cached inputs for selected block, no block is selected!");
+    return [];
+  }
+
+  // Pull all cached inputs for the current block
+  const cachedBlockInputsPromise = makeApiRequest<GetBlockCachedInputsRequest, GetBlockCachedInputsResponse>(
+    API_ENDPOINT.GetBlockCachedInputs,
+    {
+      block_ids: [selectedBlockId],
+      io_type: BlockCachedInputIOTypes.Input
+    }
+  );
+
+  // Get IDs of blocks with transitions pointing to the current block
+  // Their RETURN data will logically be the INPUT data to this Code Block.
+  // TODO: Address the `merge`, `fan-in`, `fan-out` cases.
+  const upstreamBlocksWithNull = getNodesUpstreamFromNode(project.openedProject, workflowState);
+
+  const upstreamBlockIds = upstreamBlocksWithNull
+    .filter(upstreamBlock => upstreamBlock !== null)
+    .map(blockData => {
+      // TypeScript is wrong? We filter for nulls above.
+      // @ts-ignore
+      return blockData.id;
+    });
+
+  const cachedBlockReturnsPromise = makeApiRequest<GetBlockCachedInputsRequest, GetBlockCachedInputsResponse>(
+    API_ENDPOINT.GetBlockCachedInputs,
+    {
+      block_ids: upstreamBlockIds,
+      io_type: BlockCachedInputIOTypes.Return
+    }
+  );
+
+  // Did this so they'd be done in parallel
+  const cachedBlockInputs = await cachedBlockInputsPromise;
+  const cachedBlockReturns = await cachedBlockReturnsPromise;
+
+  if (cachedBlockInputs === null || cachedBlockReturns === null) {
+    return [];
+  }
+
+  // Now we enrich the cachedBlocksReturns to add the block name if it exists
+  const enrichedCachedBlockReturns = cachedBlockReturns.results.map(cachedBlockReturn => {
+    if (project.openedProject === null) {
+      return cachedBlockReturn;
+    }
+
+    const matchingWorkflowState = getNodeDataById(project.openedProject, cachedBlockReturn.block_id);
+
+    if (matchingWorkflowState === null) {
+      return cachedBlockReturn;
+    }
+
+    return {
+      ...cachedBlockReturn,
+      name: matchingWorkflowState.name
+    };
+  });
+
+  // TODO: Filter by JSON parseable?
+
+  // Only return logged inputs to the block in prod.
+  return cachedBlockInputs.results.concat(enrichedCachedBlockReturns);
+}
+
 @Module({ namespaced: true, name: storeName })
 export class InputTransformEditorStore extends VuexModule<ThisType<InputTransformEditorState>, RootState>
   implements InputTransformEditorState {
@@ -116,6 +193,7 @@ export class InputTransformEditorStore extends VuexModule<ThisType<InputTransfor
   public transformedInputData: string = initialState.transformedInputData;
   public jqQuery: string = initialState.jqQuery;
   public suggestedMethods: suggestedMethodResult[] = initialState.suggestedMethods;
+  public cachedBlockInputs: BlockCachedInputResult[] = initialState.cachedBlockInputs;
 
   @Mutation
   public resetState() {
@@ -140,6 +218,26 @@ export class InputTransformEditorStore extends VuexModule<ThisType<InputTransfor
   @Mutation
   public setSuggestedMethods(value: suggestedMethodResult[]) {
     this.suggestedMethods = deepJSONCopy(value);
+  }
+
+  @Mutation
+  public setCachedBlockInputs(cachedBlockInputs: BlockCachedInputResult[]) {
+    this.cachedBlockInputs = cachedBlockInputs;
+  }
+
+  @Mutation
+  public setInputData(value: string) {
+    this.inputData = value;
+  }
+
+  @Action
+  public async setDefaultInputData() {
+    this.setInputData('{}');
+    this.setTransformedInputData('{}');
+  }
+
+  @Action async updateInputData(newInput: string) {
+    this.setInputData(newInput);
   }
 
   @Action
@@ -177,11 +275,31 @@ export class InputTransformEditorStore extends VuexModule<ThisType<InputTransfor
   }
 
   @Action
+  public async setCachedBlockInput(cachedBlockInputId: string) {
+    const matchingCachedBlockInput = this.cachedBlockInputs.filter(cachedBlockInput => {
+      return cachedBlockInput.id === cachedBlockInputId;
+    });
+
+    if (matchingCachedBlockInput.length > 0) {
+      this.setInputData(matchingCachedBlockInput[0].body);
+    }
+  }
+
+  @Action
   public async setModalVisibilityAction(isVisible: boolean) {
-    // Perform initial update
-    if (isVisible === true) {
+    this.setModalVisibility(isVisible);
+
+    // Nothing further to do if we're not opening the modal
+    if (isVisible !== true) {
+      return;
+    }
+
+    const cachedBlockInputs = await getCachedInputsForSelectedBlock(this.context.rootState.project);
+    this.setCachedBlockInputs(cachedBlockInputs);
+
+    if (cachedBlockInputs.length > 0) {
+      this.setCachedBlockInput(cachedBlockInputs[0].id);
       this.updateSuggestions();
     }
-    this.setModalVisibility(isVisible);
   }
 }

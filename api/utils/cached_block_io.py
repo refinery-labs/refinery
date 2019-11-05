@@ -83,7 +83,7 @@ def cache_returned_log_items( user_id, credentials, logs_list ):
 		log_data = log_metadata[ "log_data" ]
 
 		logit( "Cache input and return data for Code Block '" + code_block_id + "'..." )
-		
+
 		# Cache input data
 		cache_block_io_data(
 			user_id,
@@ -118,6 +118,9 @@ def get_block_id_from_arn( deployment_diagram, block_arn ):
 	raise Exception( "No block was found in the diagram data with block ARN '" + block_arn + "'!" )
 
 def cache_block_io_data( user_id, code_block_id, origin, io_type, body ):
+	logit("Storing block '" + io_type + "' data from '" + origin + "', body: " )
+	logit(body)
+
 	"""
 	Cache some return data for use later when building block input
 	transformations.
@@ -131,6 +134,14 @@ def cache_block_io_data( user_id, code_block_id, origin, io_type, body ):
 	new_return_data.io_type = io_type
 	new_return_data.block_id = code_block_id
 	new_return_data.origin = origin
+
+	if type( body ) != str:
+		body = json.dumps(
+			body,
+			indent=4,
+			sort_keys=True
+		)
+
 	new_return_data.body = body
 
 	dbsession.add( new_return_data )
@@ -139,15 +150,15 @@ def cache_block_io_data( user_id, code_block_id, origin, io_type, body ):
 
 	return True
 
-def get_cached_block_data_for_block_id( user_id, code_block_id, io_type, origin ):
+@gen.coroutine
+def get_cached_block_data_for_block_id( user_id, code_block_ids, io_type, origin ):
 	"""
 	This gets the cached block IO data.
 
 	"io_type" and "origin" are optional parameters.
 	"""
 	db_query_params = {
-		"user_id": user_id,
-		"block_id": code_block_id
+		"user_id": user_id
 	}
 
 	if io_type:
@@ -157,11 +168,20 @@ def get_cached_block_data_for_block_id( user_id, code_block_id, io_type, origin 
 		db_query_params[ "origin" ] = origin
 
 	dbsession = DBSession()
-	block_io_records = dbsession.query( CachedBlockIO ).filter_by(
+	block_io_records_query = dbsession.query( CachedBlockIO ).filter_by(
 		**db_query_params
+	).filter(
+		# List comprehension - sorry about that.
+		# This essentially askes "If the block ID matches ANY of the IDs in the code_block_ids list"
+		sql_or(
+			*[CachedBlockIO.block_id == code_block_id for code_block_id in code_block_ids]
+		)		
 	).order_by(
-		CachedBillingCollection.timestamp.desc()
-	).first()
+		CachedBlockIO.timestamp.desc()
+	).limit(25)
+
+	print( block_io_records_query )
+	block_io_records = block_io_records_query.all()
 
 	# Convert db records into dicts
 	block_io_list = []

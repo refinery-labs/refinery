@@ -91,7 +91,9 @@ import {
   GetProjectShortlinkResponse,
   CreateProjectShortlinkRequest,
   RenameProjectResponse,
-  RenameProjectRequest
+  RenameProjectRequest,
+  GetBlockCachedInputsRequest,
+  GetBlockCachedInputsResponse
 } from '@/types/api-types';
 import { API_ENDPOINT, ApiConfigMap } from '@/constants/api-constants';
 
@@ -246,6 +248,9 @@ export class RefineryApi implements RefineryApiTypeMap {
   );
   [API_ENDPOINT.DeleteSavedBlock] = makeApiClient<DeleteSavedBlockRequest, DeleteSavedBlockResponse>(
     API_ENDPOINT.DeleteSavedBlock
+  );
+  [API_ENDPOINT.GetBlockCachedInputs] = makeApiClient<GetBlockCachedInputsRequest, GetBlockCachedInputsResponse>(
+    API_ENDPOINT.GetBlockCachedInputs
   );
 }
 

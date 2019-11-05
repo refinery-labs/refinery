@@ -73,6 +73,25 @@ export function findTransitionsBetweenNodes(fromNode: WorkflowState, toNode: Wor
   };
 }
 
+export function getTransitionsToNode(project: RefineryProject, node: WorkflowState) {
+  const transitionsForNode = getTransitionsForNode(project, node);
+
+  return transitionsForNode.filter(transition => {
+    return transition.next === node.id;
+  });
+}
+
+export function getNodesUpstreamFromNode(project: RefineryProject, node: WorkflowState) {
+  const transitionsToNode = getTransitionsToNode(project, node);
+
+  const upstreamNodes = transitionsToNode.map(transition => {
+    // Copying objects so doing a JSON copy
+    return deepJSONCopy(getNodeDataById(project, transition.node));
+  });
+
+  return upstreamNodes;
+}
+
 export function getTransitionsForNode(project: RefineryProject, node: WorkflowState) {
   const connectionTransitions = project.workflow_relationships.filter(
     transition => transition.next === node.id || transition.node === node.id
