@@ -5933,7 +5933,7 @@ def get_environment_variables_for_lambda( credentials, lambda_object ):
 		),
 	})
 	
-	if lambda_object.is_inline_execution:
+	if lambda_object.is_inline_execution and not lambda_object.language in NOT_SUPPORTED_INLINE_EXECUTION_LANGUAGES:
 		# The environment variable activates it as
 		# an inline execution Lambda and allows us to
 		# pass in arbitrary code to execution.
