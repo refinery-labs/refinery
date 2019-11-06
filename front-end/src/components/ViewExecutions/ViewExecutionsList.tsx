@@ -120,6 +120,7 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
           <h4>
             <b-spinner small /> Polling for execution logs...
           </h4>
+          {this.renderLoadButton()}
         </div>
       );
     }
