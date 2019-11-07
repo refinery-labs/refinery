@@ -12,34 +12,25 @@ import botocore
 import datetime
 import requests
 import pystache
-import binascii
 import hashlib
-import ctypes
 import shutil
 import stripe
 import base64
-import string
 import boto3
 import numpy
-import codecs
-import struct
 import uuid
 import hmac
 import json
-import yaml
 import copy
 import math
 import time
 import jwt
 import sys
 import re
-import os
 import io
 
 from tornado import gen
 import unicodecsv as csv
-from datetime import timedelta
-from tornado.web import asynchronous
 from ansi2html import Ansi2HTMLConverter
 from botocore.exceptions import ClientError
 from jsonschema import validate as validate_schema
@@ -47,10 +38,11 @@ from tornado.concurrent import run_on_executor, futures
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from email_validator import validate_email, EmailNotValidError
 
-from utils.general import attempt_json_decode, logit, split_list_into_chunks, get_random_node_id, get_urand_password, get_random_id, get_random_deploy_id
+from utils.general import attempt_json_decode, logit, split_list_into_chunks, get_random_node_id, get_urand_password, \
+	get_random_deploy_id
+from utils.lambda_builders.golang import GoLambdaBuilder, GoBuildConfig
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
-from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda
 from utils.aws_client import get_aws_client, STS_CLIENT
 from utils.deployments.teardown import teardown_infrastructure
 from utils.deployments.awslambda import lambda_manager
@@ -88,6 +80,8 @@ from models.inline_execution_lambdas import InlineExecutionLambda
 
 from botocore.client import Config
 
+from utils.zip import EMPTY_ZIP_DATA
+
 try:
 	# for Python 2.x
 	from StringIO import StringIO
@@ -100,7 +94,6 @@ import zipfile
 reload( sys )
 sys.setdefaultencoding( "utf8" )
 
-EMPTY_ZIP_DATA = bytearray( "PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" )
 
 # Initialize Stripe
 stripe.api_key = os.environ.get( "stripe_api_key" )
@@ -2759,7 +2752,7 @@ class TaskSpawner(object):
 		def build_lambda( credentials, lambda_object ):
 			logit( "Building Lambda " + lambda_object.language + " with libraries: " + str( lambda_object.libraries ), "info" )
 			if not ( lambda_object.language in LAMBDA_SUPPORTED_LANGUAGES ):
-				raise Exception( "Error, this language '" + language + "' is not yet supported by refinery!" )
+				raise Exception( "Error, this language '" + lambda_object.language + "' is not yet supported by refinery!" )
 			
 			if lambda_object.language == "python2.7":
 				package_zip_data = TaskSpawner._build_python27_lambda(
@@ -2794,7 +2787,9 @@ class TaskSpawner(object):
 			elif lambda_object.language == "go1.12":
 				package_zip_data = TaskSpawner.get_go112_zip(
 					credentials,
-					lambda_object.code
+					lambda_object.code,
+					lambda_object.libraries,
+					'production'
 				)
 			elif lambda_object.language == "ruby2.6.4":
 				package_zip_data = TaskSpawner._build_ruby_264_lambda(
@@ -3082,7 +3077,7 @@ class TaskSpawner(object):
 			except ClientError as e:
 				if e.response[ "Error" ][ "Code" ] == "ResourceConflictException":
 					# Delete the existing lambda
-					delete_response = TaskSpawner._delete_aws_lambda(
+					TaskSpawner._delete_aws_lambda(
 						credentials,
 						lambda_object.name
 					)
@@ -3112,11 +3107,6 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def get_python36_lambda_base_zip( credentials, libraries ):
-			s3_client = get_aws_client(
-				"s3",
-				credentials
-			)
-			
 			libraries_object = {}
 			for library in libraries:
 				libraries_object[ str( library ) ] = "latest"
@@ -3150,11 +3140,6 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def get_python27_lambda_base_zip( credentials, libraries ):
-			s3_client = get_aws_client(
-				"s3",
-				credentials
-			)
-			
 			libraries_object = {}
 			for library in libraries:
 				libraries_object[ str( library ) ] = "latest"
@@ -3187,146 +3172,19 @@ class TaskSpawner(object):
 			)
 			
 		@staticmethod
-		def get_go112_zip( credentials, code ):
-			# Kick off CodeBuild
-			build_id = TaskSpawner.start_go112_codebuild(
+		def get_go112_zip( credentials, code, libraries, build_mode ):
+
+			go_build_config = GoBuildConfig('go1.12', code, libraries, build_mode, LAMDBA_BASE_CODES)
+
+			print(go_build_config)
+
+			go_lambda_builder = GoLambdaBuilder(
 				credentials,
-				code
+				go_build_config
 			)
-			
-			# Since go doesn't have the traditional libraries
-			# files like requirements.txt or package.json we
-			# just use the code as a hash here.
-			libraries_object = { "code": code }
-			
-			final_s3_package_zip_path = TaskSpawner._get_final_zip_package_path(
-				"go1.12",
-				libraries_object
-			)
-			
-			if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
-				return TaskSpawner._read_from_s3(
-					credentials,
-					credentials[ "lambda_packages_bucket" ],
-					final_s3_package_zip_path
-				)
-			
-			# This continually polls for the CodeBuild build to finish
-			# Once it does it returns the raw artifact zip data.
-			return TaskSpawner._get_codebuild_artifact_zip_data(
-				credentials,
-				build_id,
-				final_s3_package_zip_path
-			)
-			
-		@staticmethod
-		def start_go112_codebuild( credentials, code ):
-			code = code + "\n\n" + LAMDBA_BASE_CODES[ "go1.12" ]
-			
-			codebuild_client = get_aws_client(
-				"codebuild",
-				credentials
-			)
-			
-			s3_client = get_aws_client(
-				"s3",
-				credentials
-			)
-			
-			# Create empty zip file
-			codebuild_zip = io.BytesIO( EMPTY_ZIP_DATA )
-			
-			buildspec_template = {
-				"artifacts": {
-					"files": [
-						 "**/*"
-					]
-				},
-				"phases": {
-					"build": {
-						"commands": [
-							"export GOPATH=\"$(pwd)\"",
-							"export GOBIN=$GOPATH/bin",
-							"go get",
-							"go build lambda.go"
-						]
-					},
-					"install": {
-						"runtime-versions": {
-							"golang": 1.12
-						}
-					}
-				},
-				"run-as": "root",
-				"version": 0.2
-			}
-			
-			empty_folders = [
-				"bin",
-				"pkg",
-				"src"
-			]
-			
-			with zipfile.ZipFile( codebuild_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
-				# Write buildspec.yml defining the build process
-				buildspec = zipfile.ZipInfo(
-					"buildspec.yml"
-				)
-				buildspec.external_attr = 0777 << 16L
-				zip_file_handler.writestr(
-					buildspec,
-					yaml.dump(
-						buildspec_template
-					)
-				)
-				
-				# Write the main.go file
-				main_go_file = zipfile.ZipInfo(
-					"lambda.go"
-				)
-				main_go_file.external_attr = 0777 << 16L
-				zip_file_handler.writestr(
-					main_go_file,
-					str( code )
-				)
-				
-				# Create empty folders for bin, pkg, and src
-				for empty_folder in empty_folders:
-					blank_file = zipfile.ZipInfo(
-						empty_folder + "/blank"
-					)
-					blank_file.external_attr = 0777 << 16L
-					zip_file_handler.writestr(
-						blank_file,
-						""
-					)
-				
-			
-			codebuild_zip_data = codebuild_zip.getvalue()
-			codebuild_zip.close()
-			
-			# S3 object key of the build package, randomly generated.
-			s3_key = "buildspecs/" + str( uuid.uuid4() ) + ".zip"
-			
-			# Write the CodeBuild build package to S3
-			s3_response = s3_client.put_object(
-				Bucket=credentials[ "lambda_packages_bucket" ],
-				Body=codebuild_zip_data,
-				Key=s3_key,
-				ACL="public-read", # THIS HAS TO BE PUBLIC READ FOR SOME FUCKED UP REASON I DONT KNOW WHY
-			)
-			
-			# Fire-off the build
-			codebuild_response = codebuild_client.start_build(
-				projectName="refinery-builds",
-				sourceTypeOverride="S3",
-				sourceLocationOverride=credentials[ "lambda_packages_bucket" ] + "/" + s3_key,
-			)
-			
-			build_id = codebuild_response[ "build" ][ "id" ]
-			
-			return build_id
-			
+
+			return go_lambda_builder.get_built_lambda_package_zip()
+
 		@run_on_executor
 		def start_python36_codebuild( self, credentials, libraries_object ):
 			return TaskSpawner._start_python36_codebuild( credentials, libraries_object )
@@ -3917,6 +3775,8 @@ class TaskSpawner(object):
 					log_group_name,
 					log_stream_name
 				)
+
+				logit('Build Exception: ' + log_output)
 				
 				raise BuildException({
 					"msg": "Build ID " + build_id + " failed with status code '" + build_status + "'!",
