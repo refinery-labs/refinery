@@ -1,4 +1,5 @@
 import {
+  InputTransform,
   RefineryProject,
   SupportedLanguage,
   WorkflowFile,
@@ -40,6 +41,7 @@ export interface ProductionTransition {
 export type ProductionTransitionLookup = { [key in WorkflowRelationshipType]: ProductionTransition[] };
 
 export interface ProductionLambdaWorkflowState extends ProductionWorkflowState {
+  transform: InputTransform | null;
   layers: string[];
   code: string;
   language: SupportedLanguage;

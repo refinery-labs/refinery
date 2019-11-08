@@ -1,4 +1,5 @@
 import {
+  LambdaWorkflowState,
   RefineryProject,
   WorkflowRelationship,
   WorkflowRelationshipType,
@@ -10,11 +11,10 @@ import {
   validBlockToBlockTransitionLookup,
   ValidTransitionConfig
 } from '@/constants/project-editor-constants';
-import { AvailableTransition, AvailableTransitionsByType, ProjectViewState } from '@/store/store-types';
+import { AvailableTransitionsByType, ProjectViewState } from '@/store/store-types';
 import { GetSavedProjectResponse } from '@/types/api-types';
 import uuid from 'uuid/v4';
 import { deepJSONCopy } from '@/lib/general-utils';
-import R from 'ramda';
 
 export function getNodeDataById(project: RefineryProject, nodeId: string): WorkflowState | null {
   const targetStates = project.workflow_states;
@@ -285,4 +285,24 @@ export function getSharedFileById(fileId: string, state: ProjectViewState) {
 
 export function getSharedLinksForSharedFile(sharedFileId: string, project: RefineryProject) {
   return project.workflow_file_links.filter(workflow_file_link => workflow_file_link.file_id === sharedFileId);
+}
+
+export function getSelectedLambdaWorkflowState(project: ProjectViewState | null) {
+  if (project === null || project.openedProject === null) {
+    return null;
+  }
+
+  const workflowStateId = project.selectedResource;
+
+  if (workflowStateId === null) {
+    return null;
+  }
+
+  const workflowState = getNodeDataById(project.openedProject, workflowStateId);
+
+  if (workflowState === null || workflowState.type !== WorkflowStateType.LAMBDA) {
+    return null;
+  }
+
+  return workflowState as LambdaWorkflowState;
 }

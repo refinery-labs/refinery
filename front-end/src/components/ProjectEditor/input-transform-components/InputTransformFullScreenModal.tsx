@@ -12,10 +12,7 @@ import { getNodeDataById } from '@/utils/project-helpers';
 import RunLambdaModule from '@/store/modules/run-lambda';
 import { namespace } from 'vuex-class';
 import { LambdaWorkflowState, WorkflowState } from '@/types/graph';
-import {
-  getExampleMapObjectKeysToTargetKeysQuery,
-  suggestedTransformTypes
-} from '@/store/modules/panes/input-transform-editor';
+import { getExampleMapObjectKeysToTargetKeysQuery } from '@/store/modules/panes/input-transform-editor';
 
 const runLambda = namespace('runLambda');
 const editBlock = namespace('project/editBlockPane');
@@ -64,11 +61,6 @@ export default class InputTransformFullScreenModal extends Vue {
     return (
       <div class="mt-4">
         <h2>Suggested Transforms</h2>
-        <p>
-          These are commonly-used transforms for converting return data into input data.
-          <br />
-          Click on a button to generate an example query demonstrating the purposed operation.
-        </p>
         <div class="mt-3">{enabledTransformButtons}</div>
       </div>
     );
@@ -214,6 +206,14 @@ export default class InputTransformFullScreenModal extends Vue {
       hidden: () => InputTransformEditorStoreModule.setModalVisibilityAction(false)
     };
 
+    const saveTransformOnClick = async () => {
+      await InputTransformEditorStoreModule.setModalVisibilityAction(false);
+      await InputTransformEditorStoreModule.saveCodeBlockInputTransform();
+    };
+    const discardTransformOnClick = async () => {
+      await InputTransformEditorStoreModule.setModalVisibilityAction(false);
+    };
+
     return (
       <b-modal
         ref={`input-transform-modal`}
@@ -264,14 +264,46 @@ export default class InputTransformFullScreenModal extends Vue {
                         placeholder=".object_key.sub_key[0] | .output_key"
                         value={InputTransformEditorStoreModule.jqQuery}
                         on={{ input: InputTransformEditorStoreModule.setJqQueryAction }}
+                        state={InputTransformEditorStoreModule.isValidQuery}
                         spellcheck="false"
                         autofocus
                       />
+                      <b-form-invalid-feedback state={InputTransformEditorStoreModule.isValidQuery}>
+                        This <code>jq</code> query is invalid. See the error in the bottom-left of the transform editor
+                        for more information.
+                      </b-form-invalid-feedback>
                     </b-input-group>
                     {this.renderAvailableMethods()}
                     {this.renderJQSuggestions()}
                   </div>
                 </SplitArea>
+                <div class="text-align--center inline p-2">
+                  <div class="btn-group w-100">
+                    <b-tooltip target="saveTransformButton" triggers="hover">
+                      Save this input transform to the Code Block.
+                    </b-tooltip>
+                    <b-tooltip target="discardTransformButton" triggers="hover">
+                      Discard changes to this input transform.
+                    </b-tooltip>
+                    <b-button
+                      on={{ click: saveTransformOnClick }}
+                      disabled={!InputTransformEditorStoreModule.isValidQuery}
+                      id="saveTransformButton"
+                      variant="success"
+                      class="w-50"
+                    >
+                      Save Transform
+                    </b-button>
+                    <b-button
+                      on={{ click: discardTransformOnClick }}
+                      id="discardTransformButton"
+                      class="w-50"
+                      variant="danger"
+                    >
+                      Discard Transform
+                    </b-button>
+                  </div>
+                </div>
                 <SplitArea props={{ size: 50 as Object }}>
                   {renderEditorWrapper(
                     'Target Input Format (Saved Input for Code Block)',

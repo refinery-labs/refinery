@@ -89,7 +89,18 @@ export interface SavedBlockMetadata {
   added_timestamp: number;
 }
 
+// For future transforms if we end up supporting them.
+export enum InputTransformTypes {
+  JQ = 'jq'
+}
+
+export interface InputTransform {
+  type: InputTransformTypes;
+  transform: string;
+}
+
 export interface LambdaWorkflowState extends WorkflowState {
+  transform: InputTransform | null;
   layers: string[];
   code: string;
   language: SupportedLanguage;

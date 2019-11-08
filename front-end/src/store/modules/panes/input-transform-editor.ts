@@ -10,19 +10,15 @@ import {
   GetBlockCachedInputsResponse
 } from '@/types/api-types';
 import { API_ENDPOINT } from '@/constants/api-constants';
-import { RefineryProject } from '@/types/graph';
-import { getNodeDataById, getNodesUpstreamFromNode, getTransitionsToNode } from '@/utils/project-helpers';
-import { InputTransformEditorStoreModule } from '@/store';
+import { InputTransformTypes, LambdaWorkflowState } from '@/types/graph';
+import { getNodeDataById, getNodesUpstreamFromNode, getSelectedLambdaWorkflowState } from '@/utils/project-helpers';
 import { namespace } from 'vuex-class';
 import RunLambdaModule from '@/store/modules/run-lambda';
+import { ProjectViewActions } from '@/constants/store-constants';
 
 const jq = require('jq-web');
 
 const storeName = StoreType.inputTransformEditor;
-
-export enum suggestedTransformTypes {
-  mapKeys = 'MAP_KEYS'
-}
 
 export interface suggestedMethodResult {
   suggestedQuery: string;
@@ -43,6 +39,8 @@ export interface InputTransformEditorState {
   jqQuery: string;
   suggestedMethods: suggestedMethodResult[];
   cachedBlockInputs: BlockCachedInputResult[];
+  isValidQuery: boolean | null;
+  selectedLambdaWorkflowState: LambdaWorkflowState | null;
 }
 
 // Initial State
@@ -53,7 +51,9 @@ const moduleState: InputTransformEditorState = {
   targetInputData: '{}',
   jqQuery: '.',
   suggestedMethods: [],
-  cachedBlockInputs: []
+  cachedBlockInputs: [],
+  isValidQuery: null,
+  selectedLambdaWorkflowState: null
 };
 
 const initialState = deepJSONCopy(moduleState);
@@ -115,24 +115,9 @@ async function getSuggestedMethodResultFromQueries(queries: string[], inputData:
 }
 
 async function getCachedInputsForSelectedBlock(project: ProjectViewState | null) {
-  if (project === null || project.openedProject === null) {
-    console.error("Can't get cached inputs for selected block, no project open!");
-    return [];
-  }
+  const selectedWorkflowState = getSelectedLambdaWorkflowState(project);
 
-  // Get selected block
-  const selectedBlockId = project.selectedResource;
-
-  if (selectedBlockId === null) {
-    console.error("Can't get cached inputs for selected block, no block is selected!");
-    return [];
-  }
-
-  const workflowState = getNodeDataById(project.openedProject, selectedBlockId);
-
-  // Wow I love null checks, so let's do ANOTHER ONE!
-  if (workflowState === null) {
-    console.error("Can't get cached inputs for selected block, no block is selected!");
+  if (selectedWorkflowState === null || project === null || project.openedProject === null) {
     return [];
   }
 
@@ -140,7 +125,7 @@ async function getCachedInputsForSelectedBlock(project: ProjectViewState | null)
   const cachedBlockInputsPromise = makeApiRequest<GetBlockCachedInputsRequest, GetBlockCachedInputsResponse>(
     API_ENDPOINT.GetBlockCachedInputs,
     {
-      block_ids: [selectedBlockId],
+      block_ids: [selectedWorkflowState.id],
       io_type: BlockCachedInputIOTypes.Input
     }
   );
@@ -148,7 +133,7 @@ async function getCachedInputsForSelectedBlock(project: ProjectViewState | null)
   // Get IDs of blocks with transitions pointing to the current block
   // Their RETURN data will logically be the INPUT data to this Code Block.
   // TODO: Address the `merge`, `fan-in`, `fan-out` cases.
-  const upstreamBlocksWithNull = getNodesUpstreamFromNode(project.openedProject, workflowState);
+  const upstreamBlocksWithNull = getNodesUpstreamFromNode(project.openedProject, selectedWorkflowState);
 
   const upstreamBlockIds = upstreamBlocksWithNull
     .filter(upstreamBlock => upstreamBlock !== null)
@@ -277,6 +262,8 @@ export class InputTransformEditorStore extends VuexModule<ThisType<InputTransfor
   public jqQuery: string = initialState.jqQuery;
   public suggestedMethods: suggestedMethodResult[] = initialState.suggestedMethods;
   public cachedBlockInputs: BlockCachedInputResult[] = initialState.cachedBlockInputs;
+  public isValidQuery: boolean | null = initialState.isValidQuery;
+  public selectedLambdaWorkflowState: LambdaWorkflowState | null = initialState.selectedLambdaWorkflowState;
 
   @Mutation
   public resetState() {
@@ -284,8 +271,18 @@ export class InputTransformEditorStore extends VuexModule<ThisType<InputTransfor
   }
 
   @Mutation
+  public setSelectedLambdaWorkflowState(value: LambdaWorkflowState | null) {
+    this.selectedLambdaWorkflowState = deepJSONCopy(value);
+  }
+
+  @Mutation
   public setModalVisibility(value: boolean) {
     this.isFullScreenEditorModalVisible = value;
+  }
+
+  @Mutation
+  public setIsValidQuery(value: boolean | null) {
+    this.isValidQuery = value;
   }
 
   @Mutation
@@ -318,6 +315,18 @@ export class InputTransformEditorStore extends VuexModule<ThisType<InputTransfor
     this.targetInputData = value;
   }
 
+  @Mutation
+  public setLambdaWorkflowStateQuery(value: string) {
+    if (this.selectedLambdaWorkflowState === null) {
+      return;
+    }
+
+    this.selectedLambdaWorkflowState.transform = {
+      type: InputTransformTypes.JQ,
+      transform: value
+    };
+  }
+
   @Action
   public async setDefaultInputData() {
     this.setInputData('{}');
@@ -339,8 +348,14 @@ export class InputTransformEditorStore extends VuexModule<ThisType<InputTransfor
     // Don't go any further if the result was an error
     if (jqOutput.error || jqOutput.result === null) {
       this.setSuggestedMethods([]);
+      this.setIsValidQuery(false);
       return;
     }
+
+    this.setIsValidQuery(true);
+
+    // Update internal LambdaWorkflowState
+    this.setLambdaWorkflowStateQuery(this.jqQuery);
 
     // Get array of suggested JQ query strings
     const suggestedQueries = await getSuggestionMethodQueriesFromResult(
@@ -374,13 +389,21 @@ export class InputTransformEditorStore extends VuexModule<ThisType<InputTransfor
   }
 
   @Action
-  public async setModalVisibilityAction(isVisible: boolean) {
-    this.setModalVisibility(isVisible);
+  public async initializeTransformEditor() {
+    const lambdaWorkflowState = getSelectedLambdaWorkflowState(this.context.rootState.project);
 
-    // Nothing further to do if we're not opening the modal
-    if (isVisible !== true) {
+    if (lambdaWorkflowState === null) {
+      console.error('Error, no Code Block is selected!');
       return;
     }
+
+    // Pull the transform contents if they exist
+    if (lambdaWorkflowState.transform !== null && lambdaWorkflowState.transform.type === InputTransformTypes.JQ) {
+      this.setJqQuery(lambdaWorkflowState.transform.transform);
+    }
+
+    // Pull selected block and copy to store for later use
+    this.setSelectedLambdaWorkflowState(lambdaWorkflowState);
 
     // Set up cached block inputs
     const cachedBlockInputs = await getCachedInputsForSelectedBlock(this.context.rootState.project);
@@ -409,6 +432,30 @@ export class InputTransformEditorStore extends VuexModule<ThisType<InputTransfor
             this.context.rootGetters
           )(selectedResource)
         : '{}'
+    );
+  }
+
+  @Action
+  public async setModalVisibilityAction(isVisible: boolean) {
+    this.setModalVisibility(isVisible);
+
+    // Nothing further to do if we're not opening the modal
+    if (isVisible !== true) {
+      return;
+    }
+
+    this.initializeTransformEditor();
+  }
+
+  @Action
+  public async saveCodeBlockInputTransform() {
+    console.log('Saving change to block...');
+    await this.context.dispatch(
+      `project/${ProjectViewActions.updateExistingBlock}`,
+      deepJSONCopy(this.selectedLambdaWorkflowState),
+      {
+        root: true
+      }
     );
   }
 }

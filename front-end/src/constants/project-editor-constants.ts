@@ -384,6 +384,7 @@ const SHARED_BLOCK_DEFAULTS: WorkflowState = {
 
 export const CODE_BLOCK_DEFAULT_STATE: LambdaWorkflowState = {
   ...SHARED_BLOCK_DEFAULTS,
+  transform: null,
   language: SupportedLanguage.NODEJS_8,
   code: DEFAULT_LANGUAGE_CODE[SupportedLanguage.NODEJS_8],
   memory: 768,
