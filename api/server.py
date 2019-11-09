@@ -3185,11 +3185,8 @@ class TaskSpawner(object):
 
 		@staticmethod
 		def _get_go_112_base_code( code ):
-			# code = code + "\n\n" + LAMDBA_BASE_CODES[ "go1.12" ]
-			# return code
-
-			return "#!/usr/bin/env bash\n\necho hello"
-			return "#!/usr/bin/env bash\n\ngo run /task/lambda.go"
+			code = code + "\n\n" + LAMDBA_BASE_CODES[ "go1.12" ]
+			return code
 
 		@staticmethod
 		def get_go112_zip( credentials, code, libraries, build_mode ):
@@ -5872,7 +5869,7 @@ def get_layers_for_lambda( language ):
 		)
 	elif language == "go1.12":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:423954138238:layer:refinery-go112-custom-runtime:17"
+			"arn:aws:lambda:us-west-2:423954138238:layer:refinery-go112-custom-runtime:31"
 		)
 	elif language == "python2.7":
 		new_layers.append(

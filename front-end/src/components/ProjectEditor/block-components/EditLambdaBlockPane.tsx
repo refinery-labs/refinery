@@ -509,9 +509,9 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
   public renderLibrarySelector() {
     // Go has no libraries, it's done via in-code imports
-    if (this.selectedNode.language === SupportedLanguage.GO1_12) {
-      return <div />;
-    }
+    // if (this.selectedNode.language === SupportedLanguage.GO1_12) {
+    //   return <div />;
+    // }
     return (
       <b-form-group description="The libraries to install for your Block Code.">
         <label class="d-block">Block Imported Libraries:</label>

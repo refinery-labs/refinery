@@ -7,17 +7,17 @@ export GOROOT=/opt/go
 export PATH=$PATH:$GOROOT/bin
 
 # Create go folder in /tmp for builds, if it doesn't exist
-[ ! -d "/tmp/go" ] && mkdir /tmp/go
+[ ! -d "/tmp/go" ] && mkdir /tmp/go && mkdir /tmp/go/src
 [ ! -d "/tmp/gocache" ] && mkdir /tmp/gocache
-
-# Only for debug purposes
-ls -lisah /var/task
 
 # Check if we're an inline execution or not
 if [ -n "$IS_INLINE_EXECUTOR" ]
 then
-    # We use go run for inline executions
-    go run "$@"
+    cp "$@" /tmp/block-code.go
+    # export GO111MODULE=off
+    cd /tmp
+    # go run $(realpath --relative-to="/tmp" "$@")
+    go run ./block-code.go
 else
     # Just execute the binary if it's not inline
     exec "$@"

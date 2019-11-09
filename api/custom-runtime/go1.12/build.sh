@@ -6,6 +6,7 @@ rm -rf ./layer-contents/*
 mkdir ./layer-contents/go
 
 cp -R ./go/bin ./layer-contents/go/bin
+cp -R ./go/pkg ./layer-contents/go/pkg
 cp -R ./go/src ./layer-contents/go/src
 
 cp runtime.sh ./layer-contents/runtime

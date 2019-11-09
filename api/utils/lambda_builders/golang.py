@@ -21,6 +21,11 @@ production_build_commands = [
 	"go build lambda.go"
 ]
 
+# Last steps to run for the build
+final_build_commands = [
+	"chmod -R 777 *"
+]
+
 # Used when creating the zip for the Lambda
 empty_folders = [
 	"bin",
@@ -56,9 +61,9 @@ class GoBuildConfig(BuildConfig):
 	def get_codebuild_commands( self, build_mode ):
 		# Production step runs a build step before continuing
 		if build_mode is "production":
-			return base_build_commands + production_build_commands
+			return base_build_commands + production_build_commands + final_build_commands
 
-		return base_build_commands
+		return base_build_commands + final_build_commands
 
 	def generate_go_mod_file( self ):
 		return "\n".join( self.get_go_mod_statements( self.libraries ) )
