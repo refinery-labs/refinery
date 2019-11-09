@@ -110,7 +110,7 @@ def on_start():
 	
 	# Not-support inline execution languages (defaults to slower method)
 	NOT_SUPPORTED_INLINE_EXECUTION_LANGUAGES = [
-		"go1.12"
+		# "go1.12"
 	]
 	
 	DEFAULT_PROJECT_CONFIG = {
@@ -2753,7 +2753,14 @@ class TaskSpawner(object):
 			logit( "Building Lambda " + lambda_object.language + " with libraries: " + str( lambda_object.libraries ), "info" )
 			if not ( lambda_object.language in LAMBDA_SUPPORTED_LANGUAGES ):
 				raise Exception( "Error, this language '" + lambda_object.language + "' is not yet supported by refinery!" )
-			
+
+			# TODO: Pass this parameter to every build step, likely via standardizing the interface to kick off a build
+			build_mode = "production"
+
+			if lambda_object.is_inline_execution:
+				print('is inline yes')
+				build_mode = "editor"
+
 			if lambda_object.language == "python2.7":
 				package_zip_data = TaskSpawner._build_python27_lambda(
 					credentials,
@@ -2789,7 +2796,7 @@ class TaskSpawner(object):
 					credentials,
 					lambda_object.code,
 					lambda_object.libraries,
-					'production'
+					build_mode
 				)
 			elif lambda_object.language == "ruby2.6.4":
 				package_zip_data = TaskSpawner._build_ruby_264_lambda(
@@ -3097,8 +3104,13 @@ class TaskSpawner(object):
 			return TaskSpawner._get_final_zip_package_path( language, libraries )
 			
 		@staticmethod
-		def _get_final_zip_package_path( language, libraries_object ):
+		def _get_final_zip_package_path( language, libraries_object, **kwargs ):
 			hash_input = language + "-" + json.dumps( libraries_object, sort_keys=True )
+
+			if kwargs:
+				print('kwargs true')
+				hash_input = hash_input + "-" + json.dumps( kwargs, sort_keys=True )
+
 			hash_key = hashlib.sha256(
 				hash_input
 			).hexdigest()
@@ -3170,13 +3182,19 @@ class TaskSpawner(object):
 				build_id,
 				final_s3_package_zip_path
 			)
-			
+
+		@staticmethod
+		def _get_go_112_base_code( code ):
+			# code = code + "\n\n" + LAMDBA_BASE_CODES[ "go1.12" ]
+			# return code
+
+			return "#!/usr/bin/env bash\n\necho hello"
+			return "#!/usr/bin/env bash\n\ngo run /task/lambda.go"
+
 		@staticmethod
 		def get_go112_zip( credentials, code, libraries, build_mode ):
 
 			go_build_config = GoBuildConfig('go1.12', code, libraries, build_mode, LAMDBA_BASE_CODES)
-
-			print(go_build_config)
 
 			go_lambda_builder = GoLambdaBuilder(
 				credentials,
@@ -5388,6 +5406,7 @@ class RunLambda( BaseHandler ):
 
 
 def get_base_lambda_code( language, code ):
+	# TODO: Clean this up to be using LambdaBuilder helper
 	if language == "python3.6":
 		return TaskSpawner._get_python36_base_code(
 			code
@@ -5410,6 +5429,10 @@ def get_base_lambda_code( language, code ):
 		)
 	elif language == "ruby2.6.4":
 		return TaskSpawner._get_ruby_264_base_code(
+			code
+		)
+	elif language == "go1.12":
+		return TaskSpawner._get_go_112_base_code(
 			code
 		)
 
@@ -5643,11 +5666,11 @@ class RunTmpLambda( BaseHandler ):
 			"shared_files": self.json[ "shared_files" ]
 		}
 		
-		if "debug_id" in self.json:
-			execute_lambda_params[ "_refinery" ][ "live_debug" ] = {
-				"debug_id": self.json[ "debug_id" ],
-				"websocket_uri": LAMBDA_CALLBACK_ENDPOINT,
-			}
+		# if "debug_id" in self.json:
+		# 	execute_lambda_params[ "_refinery" ][ "live_debug" ] = {
+		# 		"debug_id": self.json[ "debug_id" ],
+		# 		"websocket_uri": LAMBDA_CALLBACK_ENDPOINT,
+		# 	}
 		
 		logit( "Executing Lambda '" + lambda_info[ "arn" ] + "'..." )
 		
@@ -5849,7 +5872,7 @@ def get_layers_for_lambda( language ):
 		)
 	elif language == "go1.12":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:27"
+			"arn:aws:lambda:us-west-2:423954138238:layer:refinery-go112-custom-runtime:17"
 		)
 	elif language == "python2.7":
 		new_layers.append(

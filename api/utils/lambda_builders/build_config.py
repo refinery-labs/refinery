@@ -13,8 +13,6 @@ class BuildConfig:
 		# Make a copy of the original code before we attach the template to it
 		self.original_code = code
 
-		print(code, lambda_base_codes[language])
-
 		# Attach the Refinery code to imported code.
 		self.code = code + "\n\n" + lambda_base_codes[language]
 

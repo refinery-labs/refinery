@@ -93,6 +93,21 @@ class GoLambdaBuilder(BaseLambdaBuilder):
 	def __init__( self, credentials, build_config ):
 		BaseLambdaBuilder.__init__( self, credentials, build_config )
 
+	# This overrides the default behavior because Golang is special (see note below)
+	def get_s3_zip_path( self ):
+		cache_hash_params = {}
+
+		# Extra parameter because this needs to be a part of the hash for Golang (AOT compilation).
+		# For production builds, we built the binary ahead-of-time
+		if self.build_config.build_mode == "production":
+			cache_hash_params["code"] = self.build_config.code
+
+		return self.task_spawner._get_final_zip_package_path(
+			self.build_config.language,
+			self.build_config.libraries_object,
+			**cache_hash_params
+		)
+
 	def additional_base_zip_build_steps( self, zip_file_handler ):
 
 		# Write the go.mod file with dependencies
@@ -101,6 +116,13 @@ class GoLambdaBuilder(BaseLambdaBuilder):
 			"go.mod",
 			str( self.build_config.go_mod_file )
 		)
+
+		if self.build_config.build_mode is "editor":
+			write_file_to_zip(
+				zip_file_handler,
+				"lambda",
+				"#!/usr/bin/env bash\n\ngo run /tmp/lambda.go"
+			)
 
 		# Create empty folders for bin, pkg, and src
 		for empty_folder in empty_folders:
