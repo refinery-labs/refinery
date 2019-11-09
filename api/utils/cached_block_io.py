@@ -168,7 +168,7 @@ def get_cached_block_data_for_block_id( user_id, code_block_ids, io_type, origin
 		db_query_params[ "origin" ] = origin
 
 	dbsession = DBSession()
-	block_io_records_query = dbsession.query( CachedBlockIO ).filter_by(
+	block_io_records = dbsession.query( CachedBlockIO ).filter_by(
 		**db_query_params
 	).filter(
 		# List comprehension - sorry about that.
@@ -178,10 +178,7 @@ def get_cached_block_data_for_block_id( user_id, code_block_ids, io_type, origin
 		)		
 	).order_by(
 		CachedBlockIO.timestamp.desc()
-	).limit(25)
-
-	print( block_io_records_query )
-	block_io_records = block_io_records_query.all()
+	).limit(25).all()
 
 	# Convert db records into dicts
 	block_io_list = []

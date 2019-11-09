@@ -1,7 +1,13 @@
 import Vue from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
-import { LambdaWorkflowState, SupportedLanguage, WorkflowState, WorkflowStateType } from '@/types/graph';
+import {
+  LambdaWorkflowState,
+  RefineryProject,
+  SupportedLanguage,
+  WorkflowState,
+  WorkflowStateType
+} from '@/types/graph';
 import { PANE_POSITION } from '@/types/project-editor-types';
 import RunLambda, { RunLambdaDisplayLocation, RunLambdaDisplayMode, RunLambdaProps } from '@/components/RunLambda';
 import { RunLambdaResult } from '@/types/api-types';
@@ -9,6 +15,7 @@ import { RunCodeBlockLambdaConfig } from '@/types/run-lambda-types';
 import { Prop } from 'vue-property-decorator';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { checkBuildStatus, LibraryBuildArguments } from '@/store/fetchers/api-helpers';
+import { getSelectedLambdaWorkflowState } from '@/utils/project-helpers';
 
 const project = namespace('project');
 const editBlock = namespace('project/editBlockPane');
@@ -63,6 +70,8 @@ export default class RunEditorCodeBlockContainer extends Vue {
     const inputData = this.getDevLambdaInputData(selectedNode.id);
     const backpackData = this.getDevLambdaBackpackData(selectedNode.id);
 
+    const hasExistingTransform = selectedNode.transform !== null;
+
     const runLambdaProps: RunLambdaProps = {
       onRunLambda: () => this.runLambdaCode(config),
       onUpdateInputData: (s: string) => this.changeDevLambdaInputData([selectedNode.id, s]),
@@ -77,7 +86,8 @@ export default class RunEditorCodeBlockContainer extends Vue {
       isCurrentlyRunning: this.isRunningLambda,
       displayLocation: RunLambdaDisplayLocation.editor,
       displayMode: this.displayMode,
-      loadingText: this.loadingText
+      loadingText: this.loadingText,
+      hasExistingTransform: hasExistingTransform
     };
 
     return <RunLambda props={runLambdaProps} />;

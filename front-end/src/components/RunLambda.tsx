@@ -33,6 +33,7 @@ export interface RunLambdaProps {
   inputData: string;
   backpackData: string;
   isCurrentlyRunning: boolean;
+  hasExistingTransform: boolean;
 
   displayLocation: RunLambdaDisplayLocation;
   displayMode: RunLambdaDisplayMode;
@@ -62,6 +63,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
   @Prop({ required: true }) inputData!: string;
   @Prop({ required: true }) backpackData!: string;
   @Prop({ required: true }) isCurrentlyRunning!: boolean;
+  @Prop({ required: true }) hasExistingTransform!: boolean;
 
   @Prop({ required: true }) displayLocation!: RunLambdaDisplayLocation;
   @Prop({ required: true }) displayMode!: RunLambdaDisplayMode;
@@ -270,11 +272,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
                 </b-tab>
               </b-tabs>
             </SplitArea>
-            <div>
-              <button class="btn btn-block btn-primary" on={{ click: this.showInputFullScreenModal }}>
-                <i class="fas fa-random" /> Add Block Input Transform
-              </button>
-            </div>
+            <div>{this.renderInputTransformButton()}</div>
             <SplitArea props={{ size: 30 as Object }}>
               {renderEditorWrapper('Return Data', <RefineryCodeEditor props={resultDataEditorProps} />)}
             </SplitArea>
@@ -288,7 +286,21 @@ export default class RunLambda extends Vue implements RunLambdaProps {
     );
   }
 
+  public renderInputTransformButton() {
+    if (this.displayLocation === RunLambdaDisplayLocation.editor) {
+      return (
+        <button class="btn btn-block btn-primary" on={{ click: this.showInputFullScreenModal }}>
+          <i class="fas fa-random" /> {this.hasExistingTransform ? 'Edit' : 'Add'} Block Input Transform
+        </button>
+      );
+    }
+
+    return <div />;
+  }
+
   public render(h: CreateElement): VNode {
+    console.log('has existing transforms:');
+    console.log(this.hasExistingTransform);
     const classes = {
       'run-lambda-container display--flex flex-direction--column width--100percent': true,
       [`run-lambda-container__${this.displayMode}`]: true

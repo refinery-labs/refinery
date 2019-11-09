@@ -6118,6 +6118,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	"""
 	Deploy the diagram to AWS
 	"""
+	logit(diagram_data);
 	
 	"""
 	Process workflow relationships and tag Lambda

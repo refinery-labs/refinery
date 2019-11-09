@@ -61,6 +61,7 @@ export enum EditBlockMutators {
   setLayers = 'setLayers',
   setEnvironmentVariables = 'setEnvironmentVariables',
   setSavedInputData = 'setSavedInputData',
+  setInputTransform = 'setInputTransform',
 
   setCodeModalVisibility = 'setCodeModalVisibility',
   setLibrariesModalVisibility = 'setLibrariesModalVisibility',
@@ -355,6 +356,9 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     },
     [EditBlockMutators.setEnvironmentVariables](state, environmentVariables) {
       lambdaChange(state, block => (block.environment_variables = environmentVariables));
+    },
+    [EditBlockMutators.setInputTransform](state, inputTransform) {
+      lambdaChange(state, block => (block.transform = inputTransform));
     },
     [EditBlockMutators.setCodeModalVisibility](state, visible) {
       state.showCodeModal = visible;

@@ -12,7 +12,7 @@ import { getNodeDataById } from '@/utils/project-helpers';
 import RunLambdaModule from '@/store/modules/run-lambda';
 import { namespace } from 'vuex-class';
 import { LambdaWorkflowState, WorkflowState } from '@/types/graph';
-import { getExampleMapObjectKeysToTargetKeysQuery } from '@/store/modules/panes/input-transform-editor';
+import { getExampleMapObjectKeysToTargetKeysQuery } from '@/utils/transform-utils';
 
 const runLambda = namespace('runLambda');
 const editBlock = namespace('project/editBlockPane');
@@ -109,18 +109,22 @@ export default class InputTransformFullScreenModal extends Vue {
   }
 
   public renderCachedBlockInputSelect() {
-    const cachedBlockInputDropDownOptions = InputTransformEditorStoreModule.cachedBlockInputs.map(cachedBlockInput => {
-      const dropDownText =
-        `${cachedBlockInput.body.substring(0, 25)}... | ${this.getBlockDescriptorFromValue(
-          cachedBlockInput
-        )}, observed at ` +
-        moment(cachedBlockInput.timestamp * 1000).format('MMMM Do YYYY, h:mm:ss a') +
-        '.';
-      return {
-        value: cachedBlockInput.id,
-        text: dropDownText
-      };
-    });
+    const cachedBlockInputDropDownOptions = InputTransformEditorStoreModule.cachedInputTransformRunResults.map(
+      cachedBlockInputRunResult => {
+        const cachedBlockInputStatusIcon = cachedBlockInputRunResult.succeeded ? '✅' : '⚠️';
+        const dropDownText =
+          `${cachedBlockInputStatusIcon} | ${cachedBlockInputRunResult.cachedBlockInput.body.substring(
+            0,
+            25
+          )}... | ${this.getBlockDescriptorFromValue(cachedBlockInputRunResult.cachedBlockInput)}, observed at ` +
+          moment(cachedBlockInputRunResult.cachedBlockInput.timestamp * 1000).format('MMMM Do YYYY, h:mm:ss a') +
+          '.';
+        return {
+          value: cachedBlockInputRunResult.cachedBlockInput.id,
+          text: dropDownText
+        };
+      }
+    );
 
     const cachedBlockInputsExist = InputTransformEditorStoreModule.cachedBlockInputs.length > 0;
 
@@ -147,8 +151,27 @@ export default class InputTransformFullScreenModal extends Vue {
         <b-form-select
           on={{ change: cachedBlockInputSelectCallback }}
           props={cachedBlockInputSelectorProps}
-          className="width--auto"
+          class="width--auto"
         />
+      </div>
+    );
+  }
+
+  public renderTransformWarning() {
+    // Get number of cached block inputs that failed the current jq transform
+    const jqFailureNumber = InputTransformEditorStoreModule.cachedInputTransformRunResults.filter(
+      cachedInputTransformRunResult => !cachedInputTransformRunResult.succeeded
+    ).length;
+
+    if (jqFailureNumber === 0) {
+      return <div />;
+    }
+
+    return (
+      <div class="ml-2 mr-2 pt-2 pb-0 text-align--center warning-text-color">
+        <i class="fas fa-exclamation-triangle" /> This transform fails when run against {jqFailureNumber}{' '}
+        previously-observed Code Block input{jqFailureNumber ? 's' : ''}. Click the drop-down below for the problematic
+        input{jqFailureNumber ? 's' : ''}.
       </div>
     );
   }
@@ -167,12 +190,7 @@ export default class InputTransformFullScreenModal extends Vue {
 
     const sharedEditorProps = {
       collapsible: true,
-      wrapText: true,
-      // Update suggestions when user edits input data
-      onChange: async (newEditorText: string) => {
-        await InputTransformEditorStoreModule.updateInputData(newEditorText);
-        await InputTransformEditorStoreModule.updateSuggestions();
-      }
+      wrapText: true
     };
 
     const inputDataEditorProps: EditorProps = {
@@ -181,7 +199,12 @@ export default class InputTransformFullScreenModal extends Vue {
       // This is very nice for rendering non-programming text
       lang: 'json',
       content: InputTransformEditorStoreModule.inputData,
-      readOnly: false
+      readOnly: false,
+      // Update suggestions when user edits input data
+      onChange: async (newEditorText: string) => {
+        await InputTransformEditorStoreModule.updateInputData(newEditorText);
+        await InputTransformEditorStoreModule.updateSuggestions();
+      }
     };
 
     const transformedInputDataEditorProps: EditorProps = {
@@ -199,7 +222,12 @@ export default class InputTransformFullScreenModal extends Vue {
       // This is very nice for rendering non-programming text
       lang: 'json',
       content: InputTransformEditorStoreModule.targetInputData,
-      readOnly: false
+      readOnly: false,
+      // Update suggestions when user edits input data
+      onChange: async (newEditorText: string) => {
+        await InputTransformEditorStoreModule.setTargetInputData(newEditorText);
+        await InputTransformEditorStoreModule.updateSuggestions();
+      }
     };
 
     const modalOnHandlers = {
@@ -235,14 +263,15 @@ export default class InputTransformFullScreenModal extends Vue {
               <Split props={{ direction: 'vertical' as Object }}>
                 <SplitArea props={{ size: 50 as Object }}>
                   {renderEditorWrapper(
-                    'Input Data (Before Transformation)',
+                    'Input Data (Pre-Transform, When Returned From Upstream Block)',
                     <RefineryCodeEditor props={inputDataEditorProps} />
                   )}
                 </SplitArea>
+                {this.renderTransformWarning()}
                 {this.renderCachedBlockInputSelect()}
                 <SplitArea props={{ size: 50 as Object }}>
                   {renderEditorWrapper(
-                    'Transformed Input Data (After Transformation)',
+                    'Transformed Input Data (Post-Transform)',
                     <RefineryCodeEditor props={transformedInputDataEditorProps} />
                   )}
                 </SplitArea>
@@ -254,7 +283,8 @@ export default class InputTransformFullScreenModal extends Vue {
                   <div class="text-align--center mt-2 mb-2 ml-3 mr-3">
                     <h1>JQ Transform Query</h1>
                     <p>
-                      This is a transform applied to the Code Block input data before it is passed to the block.
+                      This is a transform applied to the Code Block input data{' '}
+                      <u>only when the input data is from the return data of another block</u>.
                       <br />
                     </p>
                     <b-input-group size="lg">
@@ -269,8 +299,8 @@ export default class InputTransformFullScreenModal extends Vue {
                         autofocus
                       />
                       <b-form-invalid-feedback state={InputTransformEditorStoreModule.isValidQuery}>
-                        This <code>jq</code> query is invalid. See the error in the bottom-left of the transform editor
-                        for more information.
+                        This <code>jq</code> transform query failed against the specified input data. See the error in
+                        the bottom-left of the transform editor for more information.
                       </b-form-invalid-feedback>
                     </b-input-group>
                     {this.renderAvailableMethods()}

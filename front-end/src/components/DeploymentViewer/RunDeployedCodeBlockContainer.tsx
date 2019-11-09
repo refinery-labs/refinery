@@ -1,7 +1,7 @@
 import Vue from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
-import { WorkflowState, WorkflowStateType } from '@/types/graph';
+import { LambdaWorkflowState, WorkflowState, WorkflowStateType } from '@/types/graph';
 import { PANE_POSITION } from '@/types/project-editor-types';
 import RunLambda, { RunLambdaDisplayLocation, RunLambdaDisplayMode, RunLambdaProps } from '@/components/RunLambda';
 import { RunLambdaResult } from '@/types/api-types';
@@ -47,6 +47,9 @@ export default class RunDeployedCodeBlockContainer extends Vue {
     const inputData = this.getDeployedLambdaInputData(selectedBlock.id);
     const backpackData = this.getDeployedLambdaBackpackData(selectedBlock.id);
 
+    const selectedNode = this.getSelectedBlock as LambdaWorkflowState;
+    const hasExistingTransform = selectedNode.transform !== null;
+
     const runLambdaProps: RunLambdaProps = {
       onRunLambda: () => this.runSelectedDeployedCodeBlock(selectedBlock),
       onUpdateInputData: (s: string) => this.changeDeployedLambdaInputData([selectedBlock.id, s]),
@@ -59,7 +62,8 @@ export default class RunDeployedCodeBlockContainer extends Vue {
       isCurrentlyRunning: this.isRunningLambda,
       displayLocation: RunLambdaDisplayLocation.deployment,
       displayMode: this.displayMode,
-      loadingText: 'Running deployed Code Block...'
+      loadingText: 'Running deployed Code Block...',
+      hasExistingTransform: hasExistingTransform
     };
 
     return <RunLambda props={runLambdaProps} />;
