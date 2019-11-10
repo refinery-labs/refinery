@@ -5869,7 +5869,7 @@ def get_layers_for_lambda( language ):
 		)
 	elif language == "go1.12":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:423954138238:layer:refinery-go112-custom-runtime:31"
+			"arn:aws:lambda:us-west-2:423954138238:layer:refinery-go112-custom-runtime:37"
 		)
 	elif language == "python2.7":
 		new_layers.append(

@@ -1617,7 +1617,7 @@ def _setup_inline_execution_shared_files( inline_file_list ):
 def _clear_temporary_files():
 	try:
 		tmp_handler = subprocess.Popen(
-			[ "/bin/rm -rf /tmp/*" ],
+			[ "cd /tmp; find -maxdepth 1 ! -name go ! -name gocache ! -name . -exec rm -rv {} \;" ],
 			stdout=subprocess.PIPE,
 			stderr=subprocess.PIPE,
 			stdin=subprocess.PIPE,
