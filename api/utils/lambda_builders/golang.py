@@ -8,6 +8,7 @@ from utils.zip import write_file_to_zip
 base_build_commands = [
 	"export GOPATH=\"$(pwd)/go\"",
 	"export GOBIN=$GOPATH/bin",
+	"export GO111MODULE=on",
 	# In the future, if we want to parse the source code in a Lambda for dependencies, use this:
 	# go list -f '{{ join .Deps \"\n\" }}'
 	"go mod download"

@@ -2758,7 +2758,6 @@ class TaskSpawner(object):
 			build_mode = "production"
 
 			if lambda_object.is_inline_execution:
-				print('is inline yes')
 				build_mode = "editor"
 
 			if lambda_object.language == "python2.7":
@@ -3108,7 +3107,6 @@ class TaskSpawner(object):
 			hash_input = language + "-" + json.dumps( libraries_object, sort_keys=True )
 
 			if kwargs:
-				print('kwargs true')
 				hash_input = hash_input + "-" + json.dumps( kwargs, sort_keys=True )
 
 			hash_key = hashlib.sha256(
@@ -5869,7 +5867,7 @@ def get_layers_for_lambda( language ):
 		)
 	elif language == "go1.12":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:423954138238:layer:refinery-go112-custom-runtime:37"
+			"arn:aws:lambda:us-west-2:423954138238:layer:refinery-go112-custom-runtime:43"
 		)
 	elif language == "python2.7":
 		new_layers.append(

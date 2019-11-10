@@ -122,8 +122,6 @@ class BaseLambdaBuilder:
 	def check_for_cached_build( self ):
 		final_s3_package_zip_path = self.get_s3_zip_path()
 
-		print("get_s3_zip_path", final_s3_package_zip_path)
-
 		cached_build = self.task_spawner._s3_object_exists(
 			self.credentials,
 			self.credentials[ "lambda_packages_bucket" ],
