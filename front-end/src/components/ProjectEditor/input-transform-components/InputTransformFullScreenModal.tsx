@@ -12,7 +12,8 @@ import { getNodeDataById } from '@/utils/project-helpers';
 import RunLambdaModule from '@/store/modules/run-lambda';
 import { namespace } from 'vuex-class';
 import { LambdaWorkflowState, WorkflowState } from '@/types/graph';
-import { getExampleMapObjectKeysToTargetKeysQuery } from '@/utils/transform-utils';
+import { getExampleMapObjectKeysToTargetKeysQuery, getJqOutput, getJSONParseError } from '@/utils/transform-utils';
+import { jqOutputResult } from '@/store/modules/panes/input-transform-editor';
 
 const runLambda = namespace('runLambda');
 const editBlock = namespace('project/editBlockPane');
@@ -235,8 +236,8 @@ export default class InputTransformFullScreenModal extends Vue {
     };
 
     const saveTransformOnClick = async () => {
-      await InputTransformEditorStoreModule.setModalVisibilityAction(false);
       await InputTransformEditorStoreModule.saveCodeBlockInputTransform();
+      await InputTransformEditorStoreModule.setModalVisibilityAction(false);
     };
     const discardTransformOnClick = async () => {
       await InputTransformEditorStoreModule.setModalVisibilityAction(false);

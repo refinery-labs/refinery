@@ -4,7 +4,6 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import { resetStoreState } from '@/utils/store-utils';
 import { BlockCachedInputResult } from '@/types/api-types';
 import { InputTransform, InputTransformTypes, LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
-import { namespace } from 'vuex-class';
 import RunLambdaModule from '@/store/modules/run-lambda';
 import {
   getCachedInputsForSelectedBlock,
@@ -14,6 +13,7 @@ import {
   runQueryAgainstAllCachedBlockInputs
 } from '@/utils/transform-utils';
 import { EditBlockMutators } from '@/store/modules/panes/edit-block-pane';
+import { ProjectViewActions } from '@/constants/store-constants';
 
 const storeName = StoreType.inputTransformEditor;
 
@@ -307,7 +307,32 @@ export class InputTransformEditorStore extends VuexModule<ThisType<InputTransfor
 
   @Action
   public async saveCodeBlockInputTransform() {
-    // Update the code of the currently selected block
+    const projectStore = this.context.rootState.project;
+
+    if (!projectStore.openedProject) {
+      throw new Error("No project is opened, can't save transform!");
+    }
+
+    const project = projectStore.openedProject;
+    const selectedResource = this.context.rootState.project.selectedResource;
+
+    const block = project.workflow_states.find(block => block.id === selectedResource);
+
+    if (!block || block.type !== WorkflowStateType.LAMBDA) {
+      throw new Error('Block selected is not a Code Block, cannot set input transform.');
+    }
+
+    const codeBlock = block as LambdaWorkflowState;
+
+    const newBlock: LambdaWorkflowState = {
+      ...codeBlock,
+      transform: {
+        type: InputTransformTypes.JQ,
+        transform: this.jqQuery
+      }
+    };
+
+    await this.context.dispatch(`project/${ProjectViewActions.updateExistingBlock}`, newBlock, { root: true });
     await this.context.commit(`project/editBlockPane/${EditBlockMutators.setInputTransform}`, this.inputTransform, {
       root: true
     });

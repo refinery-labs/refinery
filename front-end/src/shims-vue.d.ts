@@ -60,3 +60,10 @@ declare module 'vue-monaco' {
   export interface VueMonacoPlugin extends PluginObject<{ appId: string }> {}
 }
 declare module 'vue-native-websocket';
+declare module 'worker-loader!*' {
+  class WebpackWorker extends Worker {
+    constructor();
+  }
+
+  export default WebpackWorker;
+}

@@ -45,6 +45,11 @@ from websocket import create_connection
 # For requests to AWS custom runtime API
 http = urllib3.PoolManager()
 
+class JQTransformException( Exception ):
+	def __init__( self, message="jq encountered an error while parsing the transform!" ):
+		# Call the base class constructor with the parameters it needs
+		super( JQTransformException, self ).__init__( message )
+
 class AlreadyInvokedException( Exception ):
 	def __init__( self, message="This function has already been invoked!" ):
 		# Call the base class constructor with the parameters it needs
@@ -1626,6 +1631,32 @@ def _clear_temporary_files():
 		tmp_handler.communicate()
 	except e:
 		pass
+
+def _run_jq_transform( input_data, transform_query ):
+	process_handler = subprocess.Popen(
+		[
+			os.path.dirname(os.path.realpath(__file__)) + "/jq",
+			transform_query # Transform
+		],
+		stdout=subprocess.PIPE,
+		stderr=subprocess.STDOUT,
+		stdin=subprocess.PIPE,
+		shell=False,
+		universal_newlines=True,
+		cwd=os.getenv( "LAMBDA_TASK_ROOT" ) + "/",
+	)
+	process_handler.stdin.write(
+		json.dumps(
+			input_data
+		)
+	)
+	stdout, stderr = process_handler.communicate()
+	#process_handler.stdin.close()
+
+	if stderr:
+		raise JQTransformException(stderr)
+
+	return json.loads( stdout )
 	
 def _stream_execution_output_to_websocket( websocket, debug_id, output ):
 	websocket.send(json.dumps({
@@ -1933,9 +1964,49 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 				""
 			)
 			return
+
 		# Just directly passed input data
 		if not _side_loaded and "input_data" in lambda_input[ "_refinery" ]:
 			lambda_input = lambda_input[ "_refinery" ][ "input_data" ]
+
+		"""
+		Run the jq transform if one is set
+		"""
+		jq_transform = os.getenv(
+			"JQ_TRANSFORM",
+			False
+		)
+
+		if jq_transform:
+			try:
+				lambda_input = _run_jq_transform(
+					lambda_input,
+					jq_transform
+				)
+			except JQTransformException as e:
+				exception_string = "The jq transform specified for this Code Block crashed when transforming this block input.\n"
+				exception_string += "The error returned was the following: \n"
+				exception_string += traceback.format_exc()
+				print( exception_string )
+				sys.stdout.flush()
+				custom_runtime.send_error(
+					request_id,
+					"", # Just blank output for errors
+				)
+				_write_pipeline_logs(
+					os.environ[ "LOG_BUCKET_NAME" ],
+					os.environ[ "EXECUTION_PIPELINE_ID" ],
+					context.invoked_function_arn,
+					context.function_name,
+					execution_id,
+					"EXCEPTION",
+					execution_details,
+					exception_string,
+					{},
+					lambda_input,
+					""
+				)
+				return
 
 	_stop_clock( "Loading Input Data" )
 

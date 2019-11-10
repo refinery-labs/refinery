@@ -477,6 +477,9 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       // Get list of Shared File Links for the Code Block being run
       const sharedFiles = getSharedFilesForCodeBlock(block.id, config.project);
 
+      console.log('Block:');
+      console.log(block);
+
       const request: RunTmpLambdaRequest = {
         environment_variables: runLambdaEnvironmentVariables,
         input_data: inputData === undefined || inputData === null ? '' : inputData,
@@ -489,7 +492,8 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         max_execution_time: block.max_execution_time,
         memory: block.memory,
         block_id: block.id,
-        debug_id: debugId
+        debug_id: debugId,
+        transform: block.transform
       };
 
       await context.dispatch(RunLambdaActions.makeDevLambdaRequest, request);

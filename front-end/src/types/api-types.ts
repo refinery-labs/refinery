@@ -1,4 +1,5 @@
 import {
+  InputTransform,
   LambdaWorkflowState,
   ProjectConfig,
   ProjectEnvironmentVariableList,
@@ -336,6 +337,7 @@ export interface RunTmpLambdaRequest extends BaseApiRequest {
   block_id: string;
   debug_id: string;
   shared_files: WorkflowFile[];
+  transform: InputTransform | null;
 }
 
 export interface RunTmpLambdaEnvironmentVariable {

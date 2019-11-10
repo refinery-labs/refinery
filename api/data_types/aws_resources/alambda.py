@@ -15,6 +15,7 @@ class Lambda:
 		self.reserved_concurrency_count = kwargs[ "reserved_concurrency_count" ]
 		self.is_inline_execution = kwargs[ "is_inline_execution" ]
 		self.shared_files_list = kwargs[ "shared_files_list" ]
+		self.transform = kwargs[ "transform" ]
 		self.role = ""
 		self.vpc_data = {}
 		self.tags_dict = {}

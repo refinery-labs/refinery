@@ -3,6 +3,7 @@ import deepEqual from 'fast-deep-equal';
 import { RootState } from '../../store-types';
 import {
   ApiEndpointWorkflowState,
+  InputTransform,
   LambdaWorkflowState,
   RefineryProject,
   SavedBlockMetadata,
@@ -357,7 +358,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     [EditBlockMutators.setEnvironmentVariables](state, environmentVariables) {
       lambdaChange(state, block => (block.environment_variables = environmentVariables));
     },
-    [EditBlockMutators.setInputTransform](state, inputTransform) {
+    [EditBlockMutators.setInputTransform](state, inputTransform: InputTransform) {
       lambdaChange(state, block => (block.transform = inputTransform));
     },
     [EditBlockMutators.setCodeModalVisibility](state, visible) {

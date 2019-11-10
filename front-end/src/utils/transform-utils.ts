@@ -9,38 +9,9 @@ import {
   GetBlockCachedInputsResponse
 } from '@/types/api-types';
 import { API_ENDPOINT } from '@/constants/api-constants';
+
 const jq = require('jq-web');
-
-/*
-    Runs the jq query against all of the known cached block inputs. This is so we can display a
-    warning if one of them fails other than the one being immediately displayed.
- */
-export async function runQueryAgainstAllCachedBlockInputs(
-  jqQuery: string,
-  cachedBlockInputs: BlockCachedInputResult[]
-) {
-  const jqQueryPromises = cachedBlockInputs.map(async cachedBlockInput => {
-    const jqResult = await getJqOutput(jqQuery, cachedBlockInput.body);
-    return {
-      succeeded: !jqResult.error,
-      cachedBlockInput: cachedBlockInput
-    };
-  });
-
-  return Promise.all(jqQueryPromises);
-}
-
-// Returns `null` if parsable, otherwise returns string of the error.
-export function getJSONParseError(inputText: string) {
-  try {
-    JSON.parse(inputText);
-    return null;
-  } catch (e) {
-    return e.toString();
-  }
-}
-
-export async function getJqOutput(jqQuery: string, inputText: string): Promise<jqOutputResult> {
+export async function getJqOutput(jqQuery: string, inputText: string) {
   // If the input is just an empty string treat it as a '.'
   const jqQueryString = jqQuery.trim() === '' ? '.' : jqQuery;
   const JSONParseError = getJSONParseError(inputText);
@@ -67,6 +38,37 @@ export async function getJqOutput(jqQuery: string, inputText: string): Promise<j
       error: true,
       result: errorDetails.stack.toString()
     };
+  }
+}
+
+/*
+    Runs the jq query against all of the known cached block inputs. This is so we can display a
+    warning if one of them fails other than the one being immediately displayed.
+ */
+export async function runQueryAgainstAllCachedBlockInputs(
+  jqQuery: string,
+  cachedBlockInputs: BlockCachedInputResult[]
+) {
+  const jqQueryPromises = cachedBlockInputs.map(async cachedBlockInput => {
+    const jqResult = await getJqOutput(jqQuery, cachedBlockInput.body);
+    return {
+      succeeded: !jqResult.error,
+      cachedBlockInput: cachedBlockInput
+    };
+  });
+
+  return Promise.all(jqQueryPromises);
+}
+
+// Returns `null` if parsable, otherwise returns string of the error.
+export function getJSONParseError(inputText: string) {
+  try {
+    JSON.parse(inputText);
+    return null;
+  } catch (e) {
+    console.log('JSON parse error: ');
+    console.log(e);
+    return e.toString();
   }
 }
 

@@ -5598,6 +5598,9 @@ class RunTmpLambda( BaseHandler ):
 				"block_id": {
 					"type": "string"
 				},
+				"transform": {
+					"type": [ "object", "null" ]
+				},
 				"shared_files": {
 					"type": "array",
 					"default": [],
@@ -5646,6 +5649,8 @@ class RunTmpLambda( BaseHandler ):
 		validate_schema( self.json, schema )
 		
 		logit( "Building Lambda package..." )
+
+		logit( self.json )
 		
 		credentials = self.get_authenticated_user_cloud_configuration()
 		
@@ -5696,7 +5701,8 @@ class RunTmpLambda( BaseHandler ):
 			layers=lambda_layers,
 			reserved_concurrency_count=False,
 			is_inline_execution=True,
-			shared_files_list=self.json[ "shared_files" ]
+			shared_files_list=self.json[ "shared_files" ],
+			transform=self.json[ "transform" ]
 		)
 
 		# Get inline hash key
@@ -5704,6 +5710,9 @@ class RunTmpLambda( BaseHandler ):
 			credentials,
 			inline_lambda
 		)
+
+		logit("Environment variabels: " )
+		logit( environment_variables )
 
 		inline_lambda_hash_key = TaskSpawner._get_inline_lambda_hash_key(
 			self.json[ "language" ],
@@ -5947,6 +5956,20 @@ def get_environment_variables_for_lambda( credentials, lambda_object ):
 			lambda_object.transitions
 		),
 	})
+
+	set_jq_transform = (
+		lambda_object.transform and
+		"type" in lambda_object.transform and
+		lambda_object.transform[ "type" ] == "jq" and
+		not lambda_object.is_inline_execution
+	)
+
+	if set_jq_transform:
+		# Add JQ transform environment variable
+		all_environment_vars.append({
+			"key": "JQ_TRANSFORM",
+			"value": lambda_object.transform[ "transform" ],
+		})
 	
 	if lambda_object.is_inline_execution:
 		# The environment variable activates it as
@@ -6008,7 +6031,8 @@ def get_layers_for_lambda( language ):
 		)
 	elif language == "python2.7":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:27"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:27"
+			"arn:aws:lambda:us-west-2:561628006572:layer:python:126"
 		)
 	elif language == "python3.6":
 		new_layers.append(
@@ -6379,7 +6403,8 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 			layers=lambda_layers,
 			reserved_concurrency_count=lambda_node[ "reserved_concurrency_count" ],
 			is_inline_execution=False,
-			shared_files_list=shared_files
+			shared_files_list=shared_files,
+			transform=lambda_node[ "transform" ]
 		)
 
 		lambda_node_deploy_futures.append({
@@ -8066,8 +8091,9 @@ class DeleteDeploymentsInProject( BaseHandler ):
 			project_id=self.json[ "project_id" ]
 		).first()
 		
-		self.dbsession.delete(deployment)
-		self.dbsession.commit()
+		if deployment:
+			self.dbsession.delete(deployment)
+			self.dbsession.commit()
 		
 		# Delete the cached shards in the database
 		self.dbsession.query(

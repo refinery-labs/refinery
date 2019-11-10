@@ -299,8 +299,6 @@ export default class RunLambda extends Vue implements RunLambdaProps {
   }
 
   public render(h: CreateElement): VNode {
-    console.log('has existing transforms:');
-    console.log(this.hasExistingTransform);
     const classes = {
       'run-lambda-container display--flex flex-direction--column width--100percent': true,
       [`run-lambda-container__${this.displayMode}`]: true
