@@ -14,6 +14,8 @@ import { namespace } from 'vuex-class';
 import { LambdaWorkflowState, WorkflowState } from '@/types/graph';
 import { getExampleMapObjectKeysToTargetKeysQuery, getJqOutput, getJSONParseError } from '@/utils/transform-utils';
 import { jqOutputResult } from '@/store/modules/panes/input-transform-editor';
+import { Prop } from 'vue-property-decorator';
+import { RunLambdaDisplayLocation } from '@/components/RunLambda';
 
 const runLambda = namespace('runLambda');
 const editBlock = namespace('project/editBlockPane');
@@ -149,11 +151,7 @@ export default class InputTransformFullScreenModal extends Vue {
 
     return (
       <div class="m-2">
-        <b-form-select
-          on={{ change: cachedBlockInputSelectCallback }}
-          props={cachedBlockInputSelectorProps}
-          class="width--auto"
-        />
+        <b-form-select on={{ change: cachedBlockInputSelectCallback }} props={cachedBlockInputSelectorProps} />
       </div>
     );
   }

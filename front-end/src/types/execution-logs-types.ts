@@ -65,6 +65,8 @@ export interface RawExecutionLogContents {
   stream_name: string;
   timestamp: number;
   type: ExecutionStatusType;
+  transform_applied: boolean;
+  transform: string;
 }
 
 export interface ExecutionLogContents {
@@ -78,4 +80,6 @@ export interface ExecutionLogContents {
   return_data: string;
   timestamp: number;
   type: ExecutionStatusType;
+  transform_applied: boolean;
+  transform: string;
 }

@@ -81,17 +81,21 @@ def cache_returned_log_items( user_id, credentials, logs_list ):
 	# Run through all logs and cache input/return data
 	for log_metadata in logs_list:
 		log_data = log_metadata[ "log_data" ]
+		transform_applied = (
+			"transform_applied" in log_data and log_data[ "transform_applied" ]
+		)
 
 		logit( "Cache input and return data for Code Block '" + code_block_id + "'..." )
 
-		# Cache input data
-		cache_block_io_data(
-			user_id,
-			code_block_id,
-			"DEPLOYMENT",
-			"INPUT",
-			log_data[ "input_data" ]
-		)
+		# If the input data is not transformed we can cache it.
+		if transform_applied:
+			cache_block_io_data(
+				user_id,
+				code_block_id,
+				"DEPLOYMENT",
+				"INPUT",
+				log_data[ "input_data" ]
+			)
 
 		# Cache return data
 		cache_block_io_data(

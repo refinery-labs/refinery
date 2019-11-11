@@ -13,6 +13,9 @@ import {
 } from '@/types/deployment-executions-types';
 import Loading from '@/components/Common/Loading.vue';
 import { ExecutionLogContents, ExecutionLogMetadata, ExecutionStatusType } from '@/types/execution-logs-types';
+import { InputTransformEditorStoreModule } from '@/store';
+import InputTransformFullScreenModal from '@/components/ProjectEditor/input-transform-components/InputTransformFullScreenModal';
+import { RunLambdaDisplayLocation } from '@/components/RunLambda';
 
 const viewBlock = namespace('viewBlock');
 const deploymentExecutions = namespace('deploymentExecutions');
@@ -147,6 +150,39 @@ export default class ViewDeployedBlockLogsPane extends Vue {
     );
   }
 
+  public renderTransformAppliedNotification() {
+    const executionData = this.getLogForSelectedBlock;
+
+    if (!executionData || !('transform_applied' in executionData) || !executionData.transform_applied) {
+      return <div />;
+    }
+
+    return (
+      <div class="mb-0">
+        <b-row class="my-1">
+          <b-col sm="3">
+            <label for="input-transform" class="input-transform-log-view-text">
+              Block Input Transform:{' '}
+            </label>
+          </b-col>
+          <b-col sm="9">
+            <b-form-input
+              id="input-transform"
+              class="input-transform-log-view-input"
+              value={executionData.transform ? executionData.transform : ''}
+              placeholder="No validation"
+              disabled
+            />
+          </b-col>
+        </b-row>
+        <b-alert class="text-align--center mb-1" variant="info" show>
+          <i class="fas fa-info-circle" /> The Code Block's input transform was applied to the block's input. The above
+          input is the result of the transform applied to the data returned from the previous block.
+        </b-alert>
+      </div>
+    );
+  }
+
   public renderExecutionDetails() {
     const executionData = this.getLogForSelectedBlock;
 
@@ -159,6 +195,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
           formatDataForAce(executionData && executionData.input_data),
           true
         )}
+        {this.renderTransformAppliedNotification()}
         {this.renderCodeEditor(
           'Execution Output',
           'output',

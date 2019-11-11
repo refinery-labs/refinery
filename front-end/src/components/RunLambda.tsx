@@ -287,11 +287,32 @@ export default class RunLambda extends Vue implements RunLambdaProps {
   }
 
   public renderInputTransformButton() {
+    // Display just 'Add Transform button' if there's none set.
+    if (!this.hasExistingTransform) {
+      return (
+        <div>
+          <button class="btn btn-block btn-primary float-right mb-2" on={{ click: this.showInputFullScreenModal }}>
+            <i class="fas fa-random" /> Add Input Transform
+          </button>
+        </div>
+      );
+    }
+
     if (this.displayLocation === RunLambdaDisplayLocation.editor) {
       return (
-        <button class="btn btn-block btn-primary" on={{ click: this.showInputFullScreenModal }}>
-          <i class="fas fa-random" /> {this.hasExistingTransform ? 'Edit' : 'Add'} Block Input Transform
-        </button>
+        <div>
+          <div class="mr-2 ml-2 mt-2">
+            <div class="inline mt-1">
+              <b-form-checkbox id="use_transform_toggle" switch size="lg" class="display--inline pr-0" />
+              <label for="use_transform_toggle" style="vertical-align: bottom">
+                Apply input transform to the above input when running?
+              </label>
+            </div>
+            <button class="btn btn-primary float-right mb-2" on={{ click: this.showInputFullScreenModal }}>
+              <i class="fas fa-random" /> Edit Input Transform
+            </button>
+          </div>
+        </div>
       );
     }
 

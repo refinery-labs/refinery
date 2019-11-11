@@ -225,6 +225,13 @@ export async function getContentsForLogs(
 
   const contents = response.result.results.map(result => {
     // Merge in log_id since we need it for the data store.
+
+    // For backwards compatibility, we set transform_applied to false
+    // if the key is not set
+    if (result.log_data.transform_applied === undefined) {
+      result.log_data.transform_applied = false;
+    }
+
     return {
       ...result.log_data,
       log_id: result.log_id

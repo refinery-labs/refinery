@@ -5460,6 +5460,9 @@ class RunLambda( BaseHandler ):
 				},
 				"debug_id": {
 					"type": "string",
+				},
+				"bypass_transform": {
+					"type": "boolean",
 				}
 			},
 			"required": [
@@ -5503,6 +5506,7 @@ class RunLambda( BaseHandler ):
 			"_refinery": {
 				"backpack": backpack_data,
 				"throw_exceptions_fully": True,
+				"bypass_transform": self.json[ "bypass_transform" ],
 				"input_data": input_data
 			}
 		}
@@ -5600,6 +5604,9 @@ class RunTmpLambda( BaseHandler ):
 				},
 				"transform": {
 					"type": [ "object", "null" ]
+				},
+				"bypass_transform": {
+					"type": "boolean"
 				},
 				"shared_files": {
 					"type": "array",
@@ -5782,7 +5789,8 @@ class RunTmpLambda( BaseHandler ):
 				"backpack": backpack_data,
 				"throw_exceptions_fully": True,
 				"input_data": self.json[ "input_data" ],
-				"temporary_execution": True
+				"temporary_execution": True,
+				"bypass_transform": self.json[ "bypass_transform" ],
 			}
 		}
 
@@ -6015,7 +6023,7 @@ def get_layers_for_lambda( language ):
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:29"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:19"
 		)
 	elif language == "nodejs10.16.3":
 		new_layers.append(
@@ -6032,7 +6040,7 @@ def get_layers_for_lambda( language ):
 	elif language == "python2.7":
 		new_layers.append(
 			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:27"
-			"arn:aws:lambda:us-west-2:561628006572:layer:python:126"
+			"arn:aws:lambda:us-west-2:561628006572:layer:python:132"
 		)
 	elif language == "python3.6":
 		new_layers.append(

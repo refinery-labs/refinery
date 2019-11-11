@@ -1198,7 +1198,7 @@ def _write_temporary_execution_results( s3_log_bucket, program_output, return_da
 		"s3_path": s3_object_path,
 	}
 
-def _write_pipeline_logs( s3_log_bucket, project_id, lambda_arn, lambda_name, execution_pipeline_id, log_type, execution_details, program_output, backpack, input_data, return_data ):
+def _write_pipeline_logs( s3_log_bucket, project_id, lambda_arn, lambda_name, execution_pipeline_id, log_type, execution_details, program_output, backpack, input_data, return_data, transformed_applied_to_input_data ):
 	def get_nearest_five_minutes():
 		round_to = ( 60 * 5 )
 		dt = datetime.datetime.now()
@@ -1219,6 +1219,9 @@ def _write_pipeline_logs( s3_log_bucket, project_id, lambda_arn, lambda_name, ex
 
 	s3_path = project_id + "/" + date_shard_string + "/" + execution_pipeline_id + "/" + log_type + "~" + lambda_name + "~" + log_id + "~" + str( int( time.time() ) )
 
+	# Get transform
+	jq_transform = _get_jq_transform()
+
 	s3_data = {
 		"id": log_id,
 		"execution_pipeline_id": execution_pipeline_id,
@@ -1230,7 +1233,9 @@ def _write_pipeline_logs( s3_log_bucket, project_id, lambda_arn, lambda_name, ex
 		"program_output": program_output,
 		"backpack": backpack,
 		"input_data": input_data,
-		"return_data": return_data,
+		"transform_applied": transformed_applied_to_input_data,
+		"transform": jq_transform,
+		"return_data": return_data
 	}
 
 	# Merge in execution_details
@@ -1632,6 +1637,12 @@ def _clear_temporary_files():
 	except e:
 		pass
 
+def _get_jq_transform():
+	return os.getenv(
+		"JQ_TRANSFORM",
+		False
+	)
+
 def _run_jq_transform( input_data, transform_query ):
 	process_handler = subprocess.Popen(
 		[
@@ -1727,6 +1738,13 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 	# don't have to always return all of your data in a weird format in order
 	# to pass it along.
 	backpack = {}
+
+	# Boolean indicates whether a transform was applied to the input data.
+	# This lets the user know if the input in the logs is the original.
+	transformed_applied_to_input_data = False
+
+	# Boolean indicating if we should skip applying the transform.
+	bypass_transform = False
 
 	_start_clock( "Loading Input Data" )
 	
@@ -1917,6 +1935,10 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 		if "backpack" in lambda_input[ "_refinery" ]:
 			backpack = lambda_input[ "_refinery" ][ "backpack" ]
 
+		# Check if we're being told to skip the transform
+		if "bypass_transform" in lambda_input[ "_refinery" ]:
+			bypass_transform = lambda_input[ "_refinery" ][ "bypass_transform" ]
+
 		_side_loaded = False
 		if "indirect" in lambda_input[ "_refinery" ] and lambda_input[ "_refinery" ][ "indirect" ] and "type" in lambda_input[ "_refinery" ][ "indirect" ]:
 			# Input data is stored in redis
@@ -1972,13 +1994,11 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 		"""
 		Run the jq transform if one is set
 		"""
-		jq_transform = os.getenv(
-			"JQ_TRANSFORM",
-			False
-		)
+		jq_transform = _get_jq_transform()
 
-		if jq_transform:
+		if jq_transform and not bypass_transform:
 			try:
+				transformed_applied_to_input_data = True
 				lambda_input = _run_jq_transform(
 					lambda_input,
 					jq_transform
@@ -2004,7 +2024,8 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 					exception_string,
 					{},
 					lambda_input,
-					""
+					"",
+					transformed_applied_to_input_data
 				)
 				return
 
@@ -2153,7 +2174,8 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 						error_output,
 						backpack,
 						lambda_input,
-						""
+						"",
+						transformed_applied_to_input_data
 					)
 
 				for exception_transition_data in transitions[ "exception" ]:
@@ -2185,7 +2207,8 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 					error_output,
 					backpack,
 					lambda_input,
-					""
+					"",
+					transformed_applied_to_input_data
 				)
 			
 			# If we've got an API Gateway response coming up we'll write an error
@@ -2566,7 +2589,8 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 				exception_string,
 				{},
 				lambda_input,
-				""
+				"",
+				transformed_applied_to_input_data
 			)
 			return
 
@@ -2619,7 +2643,8 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 			program_output,
 			backpack,
 			lambda_input,
-			return_data
+			return_data,
+			transformed_applied_to_input_data
 		)
 
 	# Return the return data as usual
@@ -2762,7 +2787,8 @@ class CustomRuntime():
 				exception_string,
 				{},
 				lambda_input,
-				""
+				"",
+				False
 			)
 			
 			# Return successful state
