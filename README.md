@@ -57,3 +57,8 @@ docker-machine ip machine4
 
 # output should show lsync sycing stuff properly
 ```
+
+
+## Publishing Lambda layers
+
+Refer to the instructions inside of server.py with the text "IGNORE THIS NOTICE AT YOUR OWN PERIL".

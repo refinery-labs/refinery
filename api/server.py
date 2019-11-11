@@ -5828,28 +5828,40 @@ def get_layers_for_lambda( language, layers, build_mode ):
 	IGNORE THIS NOTICE AT YOUR OWN PERIL. YOU HAVE BEEN WARNED.
 	
 	All layers are managed under our root AWS account at 134071937287.
-	
+
 	When a new layer is published the ARNs must be updated in source intentionally
 	so that whoever does so must read this notice and understand what MUST
 	be done before updating the Refinery customer runtime for customers.
 	
 	You must do the following:
-	* Extensively test the new custom runtime.
-	* Upload the new layer version to the root AWS account.
-	* Run the following command on the root account to publically allow use of the layer:
+	* Extensively test the new custom runtime or layer (you can do this by publishing a different layer to test with).
+	* Upload the new layer version to the root AWS account (not to your testing account).
+	* Allow public use of the layer (otherwise it will break for customers).
+	* Update the source code with the new layer ARN and test that it works (to make sure you got the name/version right).
+	* Open a PR and land the changes on master for future deployments to use.
+
+	If you did this all right, nothing should be broken!
 	
-	aws lambda add-layer-version-permission \
-	--layer-name REPLACE_ME_WITH_LAYER_NAME \
-	--version-number REPLACE_ME_WITH_LAYER_VERSION \
-	--statement-id public \
-	--action lambda:GetLayerVersion \
-	--principal "*" \
-	--region us-west-2
-	
-	* Test the layer in a development version of Refinery to ensure it works.
-	* Update the source code with the new layer ARN
-	
-	Once this is done all future deployments will use the new layers.
+	The steps to create and publish a layer are as follows:
+	1. Upload the zip file containing the layer contents to an S3 bucket, probably the bucket`tmplambdas3bucket`
+		Example Command:
+		aws s3 cp layer-contents.zip s3://tmplambdas3bucket/foobar.zip
+	2. Tell Lambda to create a layer from the zip in S3
+		Example Command:
+		aws lambda publish-layer-version \
+		--layer-name foobar-layer \
+		--description "Some Refinery layer." \
+		--content "S3Bucket=tmplambdas3bucket,S3Key=foobar.zip" \
+		--compatible-runtimes "provided" "python2.7"
+	3. Set the permissions for the layer to be public (allows other accounts to access it)
+		Example Command:
+		aws lambda add-layer-version-permission \
+		--layer-name foobar-layer \
+		--version-number $LAYER_VERSION \
+		--statement-id public \
+		--action lambda:GetLayerVersion \
+		--principal "*" \
+		--region us-west-2
 	"""
 	if not layers:
 		layers = []
