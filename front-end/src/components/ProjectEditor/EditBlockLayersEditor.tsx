@@ -117,7 +117,7 @@ export class EditBlockLayersEditor extends Vue implements BlockLayersEditorProps
       <b-form on={{ submit: preventDefaultWrapper(() => this.closeEditor(false)) }}>
         <b-form-group
           class="margin-bottom--none padding-bottom--small"
-          description="These are standard AWS Lambda layers, which may be used to add functionality to the environment your Lambda runs in."
+          description="These are standard AWS Lambda layers, which may be used to add functionality to the environment your Lambda runs in. Maximum layer count is 4 layers (or 3 layers for Golang)."
         >
           <div class="background--content border--content padding-top--normal">
             {this.layers.map((value, index) => this.renderLayer(index, value))}

@@ -11,6 +11,10 @@ front-end/node_modules/
 auto-reload.sh
 nginx-container/front-end-dist/
 *.validator.ts
+custom-runtime.zip
+layer-contents
+layer-contents.zip
+go1.12.13.linux-amd64.tar.gz
 
 # Created by https://www.gitignore.io/api/intellij
 # Edit at https://www.gitignore.io/?templates=intellij

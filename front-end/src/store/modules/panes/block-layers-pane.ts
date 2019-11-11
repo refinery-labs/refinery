@@ -1,8 +1,8 @@
-import { VuexModule, Module, Mutation, Action } from 'vuex-module-decorators';
+import { Action, Module, Mutation, VuexModule } from 'vuex-module-decorators';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState, StoreType } from '@/store/store-types';
-import { LambdaWorkflowState } from '@/types/graph';
+import { LambdaWorkflowState, SupportedLanguage } from '@/types/graph';
 import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
 import { EditBlockMutators } from '@/store/modules/panes/edit-block-pane';
 import { ProjectViewMutators } from '@/constants/store-constants';
@@ -37,6 +37,11 @@ export class BlockLayersStore extends VuexModule<ThisType<BlockLayersState>, Roo
   public layers: string[] = initialState.layers;
 
   get canAddMoreLayers() {
+    // Cap number of Golang layers to 3 because we need to be able to have dependencies in a layer.
+    if (this.selectedBlock && this.selectedBlock.language === SupportedLanguage.GO1_12) {
+      return this.layers.length < 3;
+    }
+
     return this.layers.length < 4;
   }
 

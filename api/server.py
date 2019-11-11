@@ -2795,6 +2795,7 @@ class TaskSpawner(object):
 					credentials,
 					lambda_object.code,
 					lambda_object.libraries,
+					lambda_object.layers,
 					build_mode
 				)
 			elif lambda_object.language == "ruby2.6.4":
@@ -3187,9 +3188,9 @@ class TaskSpawner(object):
 			return code
 
 		@staticmethod
-		def get_go112_zip( credentials, code, libraries, build_mode ):
+		def get_go112_zip( credentials, code, libraries, layers, build_mode ):
 
-			go_build_config = GoBuildConfig('go1.12', code, libraries, build_mode, LAMDBA_BASE_CODES)
+			go_build_config = GoBuildConfig( "go1.12", code, libraries, layers, build_mode, LAMDBA_BASE_CODES )
 
 			go_lambda_builder = GoLambdaBuilder(
 				credentials,
@@ -5550,7 +5551,7 @@ class RunTmpLambda( BaseHandler ):
 		pipeline_execution_id = "SHOULD_NEVER_HAPPEN_TMP_LAMBDA_RUN"
 
 		# Lambda layers to add
-		lambda_layers = get_layers_for_lambda( self.json[ "language" ] ) + self.json[ "layers" ]
+		lambda_layers = get_layers_for_lambda( self.json[ "language" ], self.json[ "layers" ], "editor" )
 
 		# Create Lambda object
 		inline_lambda = Lambda(
@@ -5822,7 +5823,7 @@ def get_environment_variables_for_lambda( credentials, lambda_object ):
 		
 	return all_environment_vars
 	
-def get_layers_for_lambda( language ):
+def get_layers_for_lambda( language, layers, build_mode ):
 	"""
 	IGNORE THIS NOTICE AT YOUR OWN PERIL. YOU HAVE BEEN WARNED.
 	
@@ -5850,6 +5851,12 @@ def get_layers_for_lambda( language ):
 	
 	Once this is done all future deployments will use the new layers.
 	"""
+	if not layers:
+		layers = []
+
+	# Cap the maximum number to be 4.
+	layers = layers[:4]
+
 	new_layers = []
 	
 	# Add the custom runtime layer in all cases
@@ -5867,7 +5874,7 @@ def get_layers_for_lambda( language ):
 		)
 	elif language == "go1.12":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:423954138238:layer:refinery-go112-custom-runtime:43"
+			"arn:aws:lambda:us-west-2:423954138238:layer:refinery-go112-custom-runtime:47"
 		)
 	elif language == "python2.7":
 		new_layers.append(
@@ -5881,8 +5888,19 @@ def get_layers_for_lambda( language ):
 		new_layers.append(
 			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:28"
 		)
-		
-	return new_layers
+
+	golang_required_layer = "arn:aws:lambda:us-west-2:423954138238:layer:go-git-ssh-layer:3"
+
+	# Specific layer logic for Golang because we need certain dependencies available in development
+	if language == "go1.12" and golang_required_layer not in layers:
+		# Cap libraries at 3 for Golang (plus custom runtime layer)
+		layers = layers[:3]
+
+		if build_mode is "editor":
+			# Push the "base" required Golang layer for "go run" to work in the editor.
+			layers = [ golang_required_layer ] + layers
+
+	return new_layers + layers
 
 @gen.coroutine
 def deploy_lambda( credentials, id, lambda_object ):
@@ -6217,8 +6235,10 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 			lambda_node[ "reserved_concurrency_count" ] = False
 
 		lambda_layers = get_layers_for_lambda(
-			lambda_node[ "language" ]
-		) + lambda_node[ "layers" ]
+			lambda_node[ "language" ],
+			lambda_node[ "layers" ],
+			"production"
+		)
 
 		shared_files = get_shared_files_for_lambda(
 			lambda_node[ "id" ],
@@ -6264,7 +6284,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		api_endpoint_safe_name = get_lambda_safe_name( api_endpoint_node[ "name" ] )
 		logit( "Deploying API Endpoint '" + api_endpoint_safe_name + "'..." )
 		
-		lambda_layers = get_layers_for_lambda( "python2.7" )
+		lambda_layers = get_layers_for_lambda( "python2.7", [], "production" )
 
 		# Create Lambda object
 		lambda_object = Lambda(

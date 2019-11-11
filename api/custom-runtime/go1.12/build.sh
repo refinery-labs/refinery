@@ -2,16 +2,6 @@
 echo "Building Go 1.12 Refinery custom runtime layer package..."
 rm -rf ./layer-contents/*
 
-# Copy Golang into the custom-runtime layer
-mkdir ./layer-contents/go
-
-cp -R ./go/bin ./layer-contents/go/bin
-cp -R ./go/pkg ./layer-contents/go/pkg
-cp -R ./go/src ./layer-contents/go/src
-
-# Decrease size of layer by removing extra binary data
-strip --strip-all ./layer-contents/go/bin/*
-
 cp runtime.sh ./layer-contents/runtime
 cp -r ../base-src/* ./layer-contents/
 cd ./layer-contents/

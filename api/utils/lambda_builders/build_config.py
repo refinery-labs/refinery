@@ -6,8 +6,8 @@ class BuildConfig:
 
 	buildspec_filename = 'buildspec.yml'
 
-	def __init__( self, language, code, code_filename, libraries, build_mode, lambda_base_codes ):
-		# type: (str, str, str, List, str, Dict[str, str]) -> None
+	def __init__( self, language, code, code_filename, libraries, layers, build_mode, lambda_base_codes ):
+		# type: (str, str, str, List, List, str, Dict[str, str]) -> None
 		self.language = language
 
 		# Make a copy of the original code before we attach the template to it
@@ -19,6 +19,9 @@ class BuildConfig:
 		self.code_filename = code_filename
 
 		self.libraries = libraries
+
+		self.layers = layers
+
 		self.build_mode = build_mode
 
 		self.buildspec_template = self.create_codebuild_template()

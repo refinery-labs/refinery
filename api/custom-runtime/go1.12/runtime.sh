@@ -3,7 +3,7 @@
 # Required for Golang to function
 export GOPATH=/tmp/go:/var/task/go
 export GOCACHE=/tmp/gocache
-export GOROOT=/opt/go
+export GOROOT=/opt/bin/go
 export PATH=$PATH:$GOROOT/bin
 export GO111MODULE=on
 
@@ -11,7 +11,6 @@ export GO111MODULE=on
 # Check if we're an inline execution or not
 if [ -n "$IS_INLINE_EXECUTOR" ]
 then
-
     # Create go folder in /tmp for builds, if it doesn't exist
     [ ! -d "/tmp/go" ] && mkdir -p /tmp/go/src/refinery.io/build/output
     [ ! -d "/tmp/gocache" ] && mkdir /tmp/gocache

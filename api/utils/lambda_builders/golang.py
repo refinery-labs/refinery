@@ -37,9 +37,9 @@ empty_folders = [
 
 class GoBuildConfig(BuildConfig):
 
-	def __init__( self, language, code, libraries, build_mode, lambda_base_codes ):
+	def __init__( self, language, code, libraries, layers, build_mode, lambda_base_codes ):
 
-		BuildConfig.__init__( self, language, code, "lambda.go", libraries, build_mode, lambda_base_codes )
+		BuildConfig.__init__( self, language, code, "lambda.go", libraries, layers, build_mode, lambda_base_codes )
 
 		self.go_mod_file = self.generate_go_mod_file()
 
