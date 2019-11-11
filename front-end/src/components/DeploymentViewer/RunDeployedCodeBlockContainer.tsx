@@ -19,6 +19,7 @@ export default class RunDeployedCodeBlockContainer extends Vue {
   // State
   @runLambda.State isRunningLambda!: boolean;
   @runLambda.State deployedLambdaResult!: RunLambdaResult | null;
+  @runLambda.State applyTransformToInput!: boolean;
 
   // Getters
   @deployment.Getter getSelectedBlock!: WorkflowState | null;
@@ -30,6 +31,9 @@ export default class RunDeployedCodeBlockContainer extends Vue {
   @runLambda.Action runSelectedDeployedCodeBlock!: (block: ProductionLambdaWorkflowState) => void;
   @runLambda.Action changeDeployedLambdaInputData!: (input: [string, string]) => void;
   @runLambda.Action changeDeployedLambdaBackpackData!: (input: [string, string]) => void;
+
+  // Mutations
+  @runLambda.Mutation setApplyTransformToInput!: (transformedInput: boolean) => void;
 
   public render() {
     const selectedBlock = this.getSelectedBlock as ProductionLambdaWorkflowState;
@@ -63,7 +67,9 @@ export default class RunDeployedCodeBlockContainer extends Vue {
       displayLocation: RunLambdaDisplayLocation.deployment,
       displayMode: this.displayMode,
       loadingText: 'Running deployed Code Block...',
-      hasExistingTransform: hasExistingTransform
+      hasExistingTransform: hasExistingTransform,
+      applyInputTransformToggleInitialValue: this.applyTransformToInput,
+      onApplyInputTransformToggled: this.setApplyTransformToInput
     };
 
     return <RunLambda props={runLambdaProps} />;

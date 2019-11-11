@@ -46,6 +46,7 @@ export enum RunLambdaMutators {
   setDevLambdaBackpackDataCacheEntry = 'setDevLambdaBackpackDataCacheEntry',
   setLoadingText = 'setLoadingText',
   setRunLambdaDebugId = 'setRunLambdaDebugId',
+  setApplyTransformToInput = 'setApplyTransformToInput',
 
   WebsocketOnOpen = 'SOCKET_ONOPEN',
   WebsocketOnClose = 'SOCKET_ONCLOSE',
@@ -98,6 +99,9 @@ export interface RunLambdaState {
     message: string;
     reconnectError: boolean;
   };
+
+  // Whether to transform input
+  applyTransformToInput: boolean;
 }
 
 // Simple enum for determining if dev or prod Lambda
@@ -132,7 +136,9 @@ const moduleState: RunLambdaState = {
     isConnected: false,
     message: '',
     reconnectError: false
-  }
+  },
+
+  applyTransformToInput: false
 };
 
 const RunLambdaModule: Module<RunLambdaState, RootState> = {
@@ -247,6 +253,9 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
   mutations: {
     [RunLambdaMutators.resetState](state) {
       resetStoreState(state, moduleState);
+    },
+    [RunLambdaMutators.setApplyTransformToInput](state, val) {
+      state.applyTransformToInput = val;
     },
     [RunLambdaMutators.setRunningLambdaType](state, val) {
       state.runningLambdaType = val;
@@ -477,9 +486,6 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       // Get list of Shared File Links for the Code Block being run
       const sharedFiles = getSharedFilesForCodeBlock(block.id, config.project);
 
-      console.log('Block:');
-      console.log(block);
-
       const request: RunTmpLambdaRequest = {
         environment_variables: runLambdaEnvironmentVariables,
         input_data: inputData === undefined || inputData === null ? '' : inputData,
@@ -493,7 +499,8 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         memory: block.memory,
         block_id: block.id,
         debug_id: debugId,
-        transform: block.transform
+        transform: block.transform,
+        bypass_transform: !context.state.applyTransformToInput
       };
 
       await context.dispatch(RunLambdaActions.makeDevLambdaRequest, request);

@@ -1662,12 +1662,25 @@ def _run_jq_transform( input_data, transform_query ):
 		)
 	)
 	stdout, stderr = process_handler.communicate()
-	#process_handler.stdin.close()
 
 	if stderr:
 		raise JQTransformException(stderr)
 
-	return json.loads( stdout )
+	if process_handler.returncode != 0:
+		error_string = ""
+
+		if stdout:
+			error_string += stdout
+
+		if stderr:
+			error_string += stderr
+			
+		raise JQTransformException( error_string )
+
+	try:
+		return json.loads( stdout )
+	except:
+		return stdout
 	
 def _stream_execution_output_to_websocket( websocket, debug_id, output ):
 	websocket.send(json.dumps({
@@ -2004,15 +2017,19 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 					jq_transform
 				)
 			except JQTransformException as e:
-				exception_string = "The jq transform specified for this Code Block crashed when transforming this block input.\n"
+				exception_string = "The jq transform specified for this Code Block failed when transforming this block input.\n"
 				exception_string += "The error returned was the following: \n"
-				exception_string += traceback.format_exc()
+				exception_string += str( e )
 				print( exception_string )
 				sys.stdout.flush()
 				custom_runtime.send_error(
 					request_id,
 					"", # Just blank output for errors
 				)
+
+				if throw_exceptions_fully:
+					return
+
 				_write_pipeline_logs(
 					os.environ[ "LOG_BUCKET_NAME" ],
 					os.environ[ "EXECUTION_PIPELINE_ID" ],

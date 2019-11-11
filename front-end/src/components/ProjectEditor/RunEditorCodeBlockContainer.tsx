@@ -30,6 +30,7 @@ export default class RunEditorCodeBlockContainer extends Vue {
   @runLambda.State devLambdaResult!: RunLambdaResult | null;
   @runLambda.State devLambdaResultId!: string | null;
   @runLambda.State loadingText!: string;
+  @runLambda.State applyTransformToInput!: boolean;
 
   // Getters
   @runLambda.Getter getRunLambdaConfig!: RunCodeBlockLambdaConfig | null;
@@ -40,6 +41,7 @@ export default class RunEditorCodeBlockContainer extends Vue {
   @editBlock.Mutation setCodeModalVisibility!: (visible: boolean) => void;
   @editBlock.Mutation setSavedInputData!: (inputData: string) => void;
   @runLambda.Mutation setLoadingText!: (loadingText: string) => void;
+  @runLambda.Mutation setApplyTransformToInput!: (transformedInput: boolean) => void;
 
   @Prop({ required: true }) displayMode!: RunLambdaDisplayMode;
 
@@ -87,7 +89,9 @@ export default class RunEditorCodeBlockContainer extends Vue {
       displayLocation: RunLambdaDisplayLocation.editor,
       displayMode: this.displayMode,
       loadingText: this.loadingText,
-      hasExistingTransform: hasExistingTransform
+      hasExistingTransform: hasExistingTransform,
+      applyInputTransformToggleInitialValue: this.applyTransformToInput,
+      onApplyInputTransformToggled: this.setApplyTransformToInput
     };
 
     return <RunLambda props={runLambdaProps} />;

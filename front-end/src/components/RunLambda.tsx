@@ -39,6 +39,9 @@ export interface RunLambdaProps {
   displayMode: RunLambdaDisplayMode;
 
   loadingText: string;
+
+  applyInputTransformToggleInitialValue: boolean;
+  onApplyInputTransformToggled: (applyTransform: boolean) => void;
 }
 
 @Component({
@@ -52,6 +55,8 @@ export default class RunLambda extends Vue implements RunLambdaProps {
   @Prop({ required: true }) onUpdateBackpackData!: (s: string) => void;
   @Prop() onSaveInputData?: () => void;
   @Prop() fullScreenClicked?: () => void;
+  @Prop({ required: true }) onApplyInputTransformToggled!: (applyTransform: boolean) => void;
+  @Prop({ required: true }) applyInputTransformToggleInitialValue!: boolean;
 
   /**
    * Allows us to associated the selected block with prior results.
@@ -303,7 +308,14 @@ export default class RunLambda extends Vue implements RunLambdaProps {
         <div>
           <div class="mr-2 ml-2 mt-2">
             <div class="inline mt-1">
-              <b-form-checkbox id="use_transform_toggle" switch size="lg" class="display--inline pr-0" />
+              <b-form-checkbox
+                id="use_transform_toggle"
+                switch
+                size="lg"
+                checked={this.applyInputTransformToggleInitialValue}
+                on={{ change: this.onApplyInputTransformToggled }}
+                class="display--inline pr-0"
+              />
               <label for="use_transform_toggle" style="vertical-align: bottom">
                 Apply input transform to the above input when running?
               </label>

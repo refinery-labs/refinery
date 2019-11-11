@@ -5718,9 +5718,6 @@ class RunTmpLambda( BaseHandler ):
 			inline_lambda
 		)
 
-		logit("Environment variabels: " )
-		logit( environment_variables )
-
 		inline_lambda_hash_key = TaskSpawner._get_inline_lambda_hash_key(
 			self.json[ "language" ],
 			self.json[ "max_execution_time" ],
@@ -5826,6 +5823,14 @@ class RunTmpLambda( BaseHandler ):
 				"success": False,
 				"msg": "The Code Block timed out while running, you may have an infinite loop or you may need to increase your Code Block's Max Execution Time.",
 				"log_output": ""
+			})
+			raise gen.Return()
+
+		if lambda_result[ "is_error" ]:
+			self.write({
+				"success": False,
+				"msg": "An error occurred while executing Code Block, check the log output for more information",
+				"log_output": lambda_result[ "logs" ]
 			})
 			raise gen.Return()
 		
@@ -5968,8 +5973,7 @@ def get_environment_variables_for_lambda( credentials, lambda_object ):
 	set_jq_transform = (
 		lambda_object.transform and
 		"type" in lambda_object.transform and
-		lambda_object.transform[ "type" ] == "jq" and
-		not lambda_object.is_inline_execution
+		lambda_object.transform[ "type" ] == "jq"
 	)
 
 	if set_jq_transform:
@@ -6040,7 +6044,7 @@ def get_layers_for_lambda( language ):
 	elif language == "python2.7":
 		new_layers.append(
 			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:27"
-			"arn:aws:lambda:us-west-2:561628006572:layer:python:132"
+			"arn:aws:lambda:us-west-2:561628006572:layer:python:139"
 		)
 	elif language == "python3.6":
 		new_layers.append(

@@ -338,6 +338,7 @@ export interface RunTmpLambdaRequest extends BaseApiRequest {
   debug_id: string;
   shared_files: WorkflowFile[];
   transform: InputTransform | null;
+  bypass_transform: boolean;
 }
 
 export interface RunTmpLambdaEnvironmentVariable {
