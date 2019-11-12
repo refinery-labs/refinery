@@ -2466,8 +2466,21 @@ class TaskSpawner(object):
 						]
 					}
 				})
+				billing_client = COST_EXPLORER
+			elif account_type == "THIRDPARTY":
+				# For third party we need to do an assume role into the account
+				dbsession = DBSession()
+				aws_account = dbsession.query( AWSAccount ).filter_by(
+					account_id=account_id
+				).first()
+				aws_account_dict = aws_account.to_dict()
+				dbsession.close()
 
-			if account_type == "THIRDPARTY":
+				billing_client = get_aws_client(
+					"ce",
+					aws_account_dict
+				)
+
 				and_statements.append({
 					"Tags": {
 						"Key": "RefineryResource",
@@ -2498,9 +2511,25 @@ class TaskSpawner(object):
 			logit( "Parameters: " )
 			logit( usage_parameters )
 			
-			response = COST_EXPLORER.get_cost_and_usage(
-				**usage_parameters
-			)
+			try:
+				response = billing_client.get_cost_and_usage(
+					**usage_parameters
+				)
+			except ClientError as e:
+				TaskSpawner._send_email(
+					os.environ.get( "alerts_email" ),
+					"[Billing Notification] The Refinery AWS Account #" + account_id + " Encountered An Error When Calculating the Bill",
+					"See HTML email.",
+					pystache.render(
+						EMAIL_TEMPLATES[ "billing_error_email" ],
+						{
+							"account_id": account_id,
+							"code": e.response[ "Error" ][ "Code" ],
+							"message": e.response[ "Error" ][ "Message" ],
+						}
+					),
+				)
+				return []
 
 			logit( "Cost and usage resonse: " )
 			logit( response )
@@ -9559,7 +9588,7 @@ class GetBillingMonthTotals( BaseHandler ):
 			credentials[ "account_id" ],
 			credentials[ "account_type" ],
 			self.json[ "billing_month" ],
-			True,
+			True
 		)
 		
 		self.write({
