@@ -281,11 +281,6 @@ export default class InputTransformFullScreenModal extends Vue {
                 <SplitArea props={{ size: 50 as Object }}>
                   <div class="text-align--center mt-2 mb-2 ml-3 mr-3">
                     <h1>JQ Transform Query</h1>
-                    <p>
-                      This is a transform applied to the Code Block input data{' '}
-                      <u>only when the input data is from the return data of another block</u>.
-                      <br />
-                    </p>
                     <b-input-group size="lg">
                       <b-form-input
                         id="jq-input-form"

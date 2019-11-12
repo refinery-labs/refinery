@@ -380,7 +380,8 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         backpack: backpackData,
         arn: block.arn,
         execution_id: uuid(),
-        debug_id: debugId
+        debug_id: debugId,
+        bypass_transform: !context.state.applyTransformToInput
       };
 
       // Clear current runLambdaResult

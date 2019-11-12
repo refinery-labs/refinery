@@ -277,7 +277,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
                 </b-tab>
               </b-tabs>
             </SplitArea>
-            <div>{this.renderInputTransformButton()}</div>
+            <div>{this.renderInputTransformOptions()}</div>
             <SplitArea props={{ size: 30 as Object }}>
               {renderEditorWrapper('Return Data', <RefineryCodeEditor props={resultDataEditorProps} />)}
             </SplitArea>
@@ -292,6 +292,17 @@ export default class RunLambda extends Vue implements RunLambdaProps {
   }
 
   public renderInputTransformButton() {
+    if (this.displayLocation === RunLambdaDisplayLocation.deployment) {
+      return <div />;
+    }
+    return (
+      <button class="btn btn-primary float-right mb-2" on={{ click: this.showInputFullScreenModal }}>
+        <i class="fas fa-random" /> Edit Input Transform
+      </button>
+    );
+  }
+
+  public renderInputTransformOptions() {
     // Display just 'Add Transform button' if there's none set.
     if (!this.hasExistingTransform) {
       return (
@@ -303,32 +314,26 @@ export default class RunLambda extends Vue implements RunLambdaProps {
       );
     }
 
-    if (this.displayLocation === RunLambdaDisplayLocation.editor) {
-      return (
-        <div>
-          <div class="mr-2 ml-2 mt-2">
-            <div class="inline mt-1">
-              <b-form-checkbox
-                id="use_transform_toggle"
-                switch
-                size="lg"
-                checked={this.applyInputTransformToggleInitialValue}
-                on={{ change: this.onApplyInputTransformToggled }}
-                class="display--inline pr-0"
-              />
-              <label for="use_transform_toggle" style="vertical-align: bottom">
-                Apply input transform to the above input when running?
-              </label>
-            </div>
-            <button class="btn btn-primary float-right mb-2" on={{ click: this.showInputFullScreenModal }}>
-              <i class="fas fa-random" /> Edit Input Transform
-            </button>
+    return (
+      <div>
+        <div class="mr-2 ml-2 mt-2">
+          <div class="inline mt-1">
+            <b-form-checkbox
+              id="use_transform_toggle"
+              switch
+              size="lg"
+              checked={this.applyInputTransformToggleInitialValue}
+              on={{ change: this.onApplyInputTransformToggled }}
+              class="display--inline pr-0"
+            />
+            <label for="use_transform_toggle" style="vertical-align: bottom">
+              Apply input transform to the above input when running?
+            </label>
           </div>
+          {this.renderInputTransformButton()}
         </div>
-      );
-    }
-
-    return <div />;
+      </div>
+    );
   }
 
   public render(h: CreateElement): VNode {

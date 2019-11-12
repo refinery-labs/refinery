@@ -293,6 +293,7 @@ export interface RunLambdaRequest extends BaseApiRequest {
   backpack: string;
   execution_id?: string;
   debug_id?: string;
+  bypass_transform: boolean;
 }
 
 export interface RunLambdaResponse extends BaseApiResponse {
