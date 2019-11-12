@@ -5,6 +5,7 @@ from models.cached_block_io import CachedBlockIO
 from models.deployments import Deployment
 
 from tornado import gen
+from sqlalchemy import exc
 
 from utils.general import logit
 
@@ -86,12 +87,14 @@ def cache_returned_log_items( user_id, credentials, logs_list ):
 		)
 
 		logit( "Cache input and return data for Code Block '" + code_block_id + "'..." )
+		logit( log_data )
 
 		# If the input data is not transformed we can cache it.
-		if transform_applied:
+		if not transform_applied:
 			cache_block_io_data(
 				user_id,
 				code_block_id,
+				log_data[ "id" ],
 				"DEPLOYMENT",
 				"INPUT",
 				log_data[ "input_data" ]
@@ -101,6 +104,7 @@ def cache_returned_log_items( user_id, credentials, logs_list ):
 		cache_block_io_data(
 			user_id,
 			code_block_id,
+			log_data[ "id" ],
 			"DEPLOYMENT",
 			"RETURN",
 			log_data[ "return_data" ]
@@ -121,7 +125,7 @@ def get_block_id_from_arn( deployment_diagram, block_arn ):
 	# Raise an exception if we got here, means the block didn't exist
 	raise Exception( "No block was found in the diagram data with block ARN '" + block_arn + "'!" )
 
-def cache_block_io_data( user_id, code_block_id, origin, io_type, body ):
+def cache_block_io_data( user_id, code_block_id, log_id, origin, io_type, body ):
 	logit("Storing block '" + io_type + "' data from '" + origin + "', body: " )
 	logit(body)
 
@@ -133,11 +137,12 @@ def cache_block_io_data( user_id, code_block_id, origin, io_type, body ):
 	"""
 	dbsession = DBSession()
 
-	new_return_data = CachedBlockIO()
-	new_return_data.user_id = user_id
-	new_return_data.io_type = io_type
-	new_return_data.block_id = code_block_id
-	new_return_data.origin = origin
+	new_io_data = CachedBlockIO()
+	new_io_data.user_id = user_id
+	new_io_data.io_type = io_type
+	new_io_data.block_id = code_block_id
+	new_io_data.origin = origin
+	new_io_data.log_id = log_id + "|" + io_type # We use IO type to make it unique for input/return
 
 	if type( body ) != str:
 		body = json.dumps(
@@ -146,13 +151,55 @@ def cache_block_io_data( user_id, code_block_id, origin, io_type, body ):
 			sort_keys=True
 		)
 
-	new_return_data.body = body
+	new_io_data.body = body
 
-	dbsession.add( new_return_data )
-	dbsession.commit()
+	try:
+		dbsession.add( new_io_data )
+		dbsession.commit()
+	# This exception indicates that we've trying to insert a duplicate primary key
+	# this is expected if the user is viewing a log that already exists. So we just catch
+	# it and roll back.
+	except exc.IntegrityError as e:
+		dbsession.rollback()
+
 	dbsession.close()
 
+	# Run garbage collection
+	delete_old_cached_block_data_for_block_id(
+		user_id,
+		code_block_id
+	)
+
 	return True
+
+def delete_old_cached_block_data_for_block_ids( user_id, code_block_ids ):
+	for code_block_id in code_block_ids:
+		delete_old_cached_block_data_for_block_id(
+			user_id,
+			code_block_id
+		)
+
+def delete_old_cached_block_data_for_block_id( user_id, code_block_id ):
+	dbsession = DBSession()
+	block_io_records = dbsession.query( CachedBlockIO ).filter_by(
+		user_id=user_id,
+	).filter_by(
+		block_id=code_block_id		
+	).order_by(
+		CachedBlockIO.timestamp.desc()
+	).all()
+
+	print( "Cached records: " )
+	print( len( block_io_records ) )
+
+	# Get the oldest 25 records
+	records_to_delete = block_io_records[25:]
+
+	for record_to_delete in records_to_delete:
+		dbsession.delete(record_to_delete)
+
+	dbsession.commit()
+	dbsession.close()
 
 @gen.coroutine
 def get_cached_block_data_for_block_id( user_id, code_block_ids, io_type, origin ):
@@ -183,6 +230,7 @@ def get_cached_block_data_for_block_id( user_id, code_block_ids, io_type, origin
 	).order_by(
 		CachedBlockIO.timestamp.desc()
 	).limit(25).all()
+	dbsession.close()
 
 	# Convert db records into dicts
 	block_io_list = []
@@ -191,7 +239,18 @@ def get_cached_block_data_for_block_id( user_id, code_block_ids, io_type, origin
 		block_io_list.append(
 			block_io_record.to_dict()
 		)
-
 	dbsession.close()
 
 	return block_io_list
+
+
+
+
+
+
+
+
+
+
+
+

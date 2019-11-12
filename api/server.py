@@ -5656,8 +5656,6 @@ class RunTmpLambda( BaseHandler ):
 		validate_schema( self.json, schema )
 		
 		logit( "Building Lambda package..." )
-
-		logit( self.json )
 		
 		credentials = self.get_authenticated_user_cloud_configuration()
 		
@@ -5884,6 +5882,7 @@ class RunTmpLambda( BaseHandler ):
 		cache_block_io_data(
 			self.get_authenticated_user_id(),
 			self.json[ "block_id" ],
+			str(uuid.uuid4()),
 			"EDITOR",
 			"RETURN",
 			lambda_result[ "returned_data" ]

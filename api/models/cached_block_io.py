@@ -34,6 +34,14 @@ class CachedBlockIO( Base ):
 		nullable=False
 	)
 
+	# The ID of the log data, so we don't store the same
+	# production log input twice
+	log_id = Column(
+		Text(),
+		nullable=False,
+		unique=True
+	)
+
 	# The raw data for the given Code Block
 	body = Column(Text())
 	
