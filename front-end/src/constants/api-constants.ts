@@ -44,7 +44,8 @@ export enum API_ENDPOINT {
   CreateProjectShortlink = 'CreateProjectShortlink',
   GetProjectShortlink = 'GetProjectShortlink',
   DeleteSavedBlock = 'DeleteSavedBlock',
-  GetBlockCachedInputs = 'GetBlockCachedInputs'
+  GetBlockCachedInputs = 'GetBlockCachedInputs',
+  DeleteCachedBlockIO = 'DeleteCachedBlockIO'
 }
 
 export enum HTTP_METHOD {
@@ -248,6 +249,10 @@ export const ApiConfigMap: ApiConfigMapType = {
   },
   [API_ENDPOINT.GetBlockCachedInputs]: {
     path: '/api/v1/transforms/get_block_inputs',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.DeleteCachedBlockIO]: {
+    path: '/api/v1/transforms/delete_cached_block_io',
     method: HTTP_METHOD.POST
   }
 };

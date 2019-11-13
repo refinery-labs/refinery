@@ -2,8 +2,20 @@ import { Action, Module, Mutation, VuexModule } from 'vuex-module-decorators';
 import { RootState, StoreType } from '../../store-types';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { resetStoreState } from '@/utils/store-utils';
-import { BlockCachedInputResult } from '@/types/api-types';
-import { InputTransform, InputTransformTypes, LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
+import {
+  BlockCachedInputResult,
+  DeleteCachedBlockIORequest,
+  DeleteCachedBlockIOResponse,
+  GetLatestProjectDeploymentRequest,
+  GetLatestProjectDeploymentResponse
+} from '@/types/api-types';
+import {
+  InputTransform,
+  InputTransformTypes,
+  LambdaWorkflowState,
+  SupportedLanguage,
+  WorkflowStateType
+} from '@/types/graph';
 import RunLambdaModule from '@/store/modules/run-lambda';
 import {
   getCachedInputsForSelectedBlock,
@@ -14,6 +26,9 @@ import {
 } from '@/utils/transform-utils';
 import { EditBlockMutators } from '@/store/modules/panes/edit-block-pane';
 import { ProjectViewActions } from '@/constants/store-constants';
+import { makeApiRequest } from '@/store/fetchers/refinery-api';
+import { API_ENDPOINT } from '@/constants/api-constants';
+import { getLanguageFromFileName } from '@/utils/editor-utils';
 
 const storeName = StoreType.inputTransformEditor;
 
@@ -44,6 +59,7 @@ export interface InputTransformEditorState {
   isValidQuery: boolean | null;
   inputTransform: InputTransform | null;
   cachedInputTransformRunResults: cachedBlockInputTransformRunResult[];
+  cachedInputId: string | null;
 }
 
 // Initial State
@@ -57,7 +73,8 @@ const moduleState: InputTransformEditorState = {
   cachedBlockInputs: [],
   isValidQuery: null,
   inputTransform: null,
-  cachedInputTransformRunResults: []
+  cachedInputTransformRunResults: [],
+  cachedInputId: null
 };
 
 const initialState = deepJSONCopy(moduleState);
@@ -76,6 +93,7 @@ export class InputTransformEditorStore extends VuexModule<ThisType<InputTransfor
   public inputTransform: InputTransform | null = initialState.inputTransform;
   public cachedInputTransformRunResults: cachedBlockInputTransformRunResult[] =
     initialState.cachedInputTransformRunResults;
+  public cachedInputId: string | null = initialState.cachedInputId;
 
   @Mutation
   public resetState() {
@@ -114,7 +132,7 @@ export class InputTransformEditorStore extends VuexModule<ThisType<InputTransfor
 
   @Mutation
   public setCachedBlockInputs(cachedBlockInputs: BlockCachedInputResult[]) {
-    this.cachedBlockInputs = cachedBlockInputs;
+    this.cachedBlockInputs = deepJSONCopy(cachedBlockInputs);
   }
 
   @Mutation
@@ -145,6 +163,11 @@ export class InputTransformEditorStore extends VuexModule<ThisType<InputTransfor
   @Mutation
   public setCachedInputTransformRunResult(cachedInputTransformRunResults: cachedBlockInputTransformRunResult[]) {
     this.cachedInputTransformRunResults = deepJSONCopy(cachedInputTransformRunResults);
+  }
+
+  @Mutation
+  public setCachedInputId(cachedInputId: string) {
+    this.cachedInputId = cachedInputId;
   }
 
   @Action
@@ -219,10 +242,19 @@ export class InputTransformEditorStore extends VuexModule<ThisType<InputTransfor
   }
 
   @Action
-  public async setCachedBlockInput(cachedBlockInputId: string) {
+  public async setCachedBlockInput(cachedBlockInput: BlockCachedInputResult | null) {
+    if (cachedBlockInput === null) {
+      this.setDefaultInputData();
+      return;
+    }
+
+    const cachedInputId = cachedBlockInput.id;
+
     const matchingCachedBlockInput = this.cachedBlockInputs.filter(cachedBlockInput => {
-      return cachedBlockInput.id === cachedBlockInputId;
+      return cachedBlockInput.id === cachedInputId;
     });
+
+    this.setCachedInputId(cachedInputId);
 
     if (matchingCachedBlockInput.length > 0) {
       this.setInputData(matchingCachedBlockInput[0].body);
@@ -261,7 +293,7 @@ export class InputTransformEditorStore extends VuexModule<ThisType<InputTransfor
     this.setCachedBlockInputs(cachedBlockInputs);
 
     if (cachedBlockInputs.length > 0) {
-      this.setCachedBlockInput(cachedBlockInputs[0].id);
+      this.setCachedBlockInput(cachedBlockInputs[0]);
       this.updateSuggestions();
     }
 
@@ -303,6 +335,34 @@ export class InputTransformEditorStore extends VuexModule<ThisType<InputTransfor
     }
 
     this.initializeTransformEditor();
+  }
+
+  @Action
+  public async deleteCachedBlockIOById(cachedBlockIOId: string) {
+    const deleteCachedBlockIOResponse = await makeApiRequest<DeleteCachedBlockIORequest, DeleteCachedBlockIOResponse>(
+      API_ENDPOINT.DeleteCachedBlockIO,
+      {
+        cached_block_input_id: cachedBlockIOId
+      }
+    );
+
+    // Remove the deleted cached input and cached transform result from the client side
+    const newCachedBlockInputs = this.cachedBlockInputs.filter(
+      cachedBlockInput => cachedBlockInput.id !== cachedBlockIOId
+    );
+    const newCachedBlockInputTransformRunResults = this.cachedInputTransformRunResults.filter(
+      cachedInputTransformRunResult => cachedInputTransformRunResult.cachedBlockInput.id !== cachedBlockIOId
+    );
+    this.setCachedBlockInputs(newCachedBlockInputs);
+    this.setCachedInputTransformRunResult(newCachedBlockInputTransformRunResults);
+
+    if (newCachedBlockInputs.length > 0 && newCachedBlockInputs[0] !== null) {
+      this.setCachedBlockInput(newCachedBlockInputs[0]);
+      return;
+    }
+
+    this.setCachedBlockInput(null);
+    return;
   }
 
   @Action

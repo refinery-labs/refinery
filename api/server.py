@@ -66,6 +66,7 @@ from controller.lambda_connect_back import LambdaConnectBackServer
 from controller.dangling_resources import CleanupDanglingResources
 from controller.clear_invoice_drafts import ClearStripeInvoiceDrafts
 from controller.get_block_inputs import GetBlockInputs
+from controller.deleted_cached_block_io import DeleteCachedBlockIO
 
 from data_types.aws_resources.alambda import Lambda
 
@@ -10971,6 +10972,7 @@ def make_app( tornado_config ):
 		( r"/api/v1/project_short_link/create", CreateProjectShortlink ),
 		( r"/api/v1/project_short_link/get", GetProjectShortlink ),
 		( r"/api/v1/transforms/get_block_inputs", GetBlockInputs ),
+		( r"/api/v1/transforms/delete_cached_block_io", DeleteCachedBlockIO ),
 		# WebSocket endpoint for live debugging Lambdas
 		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer, {
 			"websocket_router": tornado_config[ "websocket_router" ]

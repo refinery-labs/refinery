@@ -13,7 +13,7 @@ import RunLambdaModule from '@/store/modules/run-lambda';
 import { namespace } from 'vuex-class';
 import { LambdaWorkflowState, WorkflowState } from '@/types/graph';
 import { getExampleMapObjectKeysToTargetKeysQuery, getJqOutput, getJSONParseError } from '@/utils/transform-utils';
-import { jqOutputResult } from '@/store/modules/panes/input-transform-editor';
+import { cachedBlockInputTransformRunResult, jqOutputResult } from '@/store/modules/panes/input-transform-editor';
 import { Prop } from 'vue-property-decorator';
 import { RunLambdaDisplayLocation } from '@/components/RunLambda';
 
@@ -132,13 +132,20 @@ export default class InputTransformFullScreenModal extends Vue {
     const cachedBlockInputsExist = InputTransformEditorStoreModule.cachedBlockInputs.length > 0;
 
     const cachedBlockInputSelectCallback = async (cachedBlockInputId: string) => {
-      await InputTransformEditorStoreModule.setCachedBlockInput(cachedBlockInputId);
+      // Get cached block input by ID
+      const cachedBlockInput = InputTransformEditorStoreModule.cachedBlockInputs.find(
+        cachedBlockInput => cachedBlockInput.id === cachedBlockInputId
+      );
+      if (!cachedBlockInput) {
+        return;
+      }
+      await InputTransformEditorStoreModule.setCachedBlockInput(cachedBlockInput);
       await InputTransformEditorStoreModule.updateSuggestions();
     };
 
     const cachedBlockInputSelectorProps = {
       options: cachedBlockInputDropDownOptions,
-      value: cachedBlockInputsExist ? InputTransformEditorStoreModule.cachedBlockInputs[0].id : ''
+      value: InputTransformEditorStoreModule.cachedInputId ? InputTransformEditorStoreModule.cachedInputId : ''
     };
 
     if (!cachedBlockInputsExist) {
@@ -149,9 +156,24 @@ export default class InputTransformFullScreenModal extends Vue {
       );
     }
 
+    const deleteCachedInputClickHandler = () => {
+      if (InputTransformEditorStoreModule.cachedInputId === null) {
+        return;
+      }
+      InputTransformEditorStoreModule.deleteCachedBlockIOById(InputTransformEditorStoreModule.cachedInputId);
+    };
+
+    /* I have no idea how to get this damn <select> to just fill the space not taken by the button so doing max-width as a hack */
     return (
-      <div class="m-2">
-        <b-form-select on={{ change: cachedBlockInputSelectCallback }} props={cachedBlockInputSelectorProps} />
+      <div class="m-2 text-align--center">
+        <b-form-select
+          style="max-width: 600px"
+          on={{ change: cachedBlockInputSelectCallback }}
+          props={cachedBlockInputSelectorProps}
+        />
+        <b-button class="mr-1 ml-1" variant="danger" on={{ click: deleteCachedInputClickHandler }}>
+          <i class="fas fa-trash-alt" /> Delete Cached Input
+        </b-button>
       </div>
     );
   }
@@ -268,6 +290,7 @@ export default class InputTransformFullScreenModal extends Vue {
                 </SplitArea>
                 {this.renderTransformWarning()}
                 {this.renderCachedBlockInputSelect()}
+
                 <SplitArea props={{ size: 50 as Object }}>
                   {renderEditorWrapper(
                     'Transformed Input Data (Post-Transform)',

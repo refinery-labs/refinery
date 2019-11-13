@@ -836,3 +836,10 @@ export enum BlockCachedInputOriginTypes {
   Deployment = 'DEPLOYMENT',
   Editor = 'EDITOR'
 }
+
+// DeleteCachedBlockIO
+export interface DeleteCachedBlockIORequest extends BaseApiRequest {
+  cached_block_input_id: string;
+}
+
+export interface DeleteCachedBlockIOResponse extends BaseApiResponse {}

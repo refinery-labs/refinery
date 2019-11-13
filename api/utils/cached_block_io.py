@@ -112,6 +112,17 @@ def cache_returned_log_items( user_id, credentials, logs_list ):
 
 	return
 
+@gen.coroutine
+def delete_cached_block_io_by_id( user_id, cached_block_io_id ):
+	dbsession = DBSession()
+	block_io_records = dbsession.query( CachedBlockIO ).filter_by(
+		user_id=user_id,
+	).filter_by(
+		id=cached_block_io_id		
+	).delete()
+	dbsession.commit()
+	dbsession.close()
+
 def get_block_id_from_arn( deployment_diagram, block_arn ):
 	"""
 	Get a block ARN from a deployment diagram.
@@ -188,9 +199,6 @@ def delete_old_cached_block_data_for_block_id( user_id, code_block_id ):
 	).order_by(
 		CachedBlockIO.timestamp.desc()
 	).all()
-
-	print( "Cached records: " )
-	print( len( block_io_records ) )
 
 	# Get the oldest 25 records
 	records_to_delete = block_io_records[25:]
