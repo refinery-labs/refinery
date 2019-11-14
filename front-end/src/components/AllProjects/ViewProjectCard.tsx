@@ -87,6 +87,18 @@ export default class ViewProjectCard extends Vue implements ViewProjectCardProps
     );
   }
 
+  public renderDeployedStatusMessage() {
+    if (this.project.deployment === null) {
+      return <div />;
+    }
+
+    return (
+      <div>
+        <i class="fas fa-cloud-upload-alt" /> Deployed
+      </div>
+    );
+  }
+
   public render() {
     const project = this.project;
 
@@ -117,10 +129,13 @@ export default class ViewProjectCard extends Vue implements ViewProjectCardProps
 
               <small class="text-muted">Created {durationSinceUpdated}</small>
 
+              {this.renderDeployedStatusMessage()}
+
               <div class="text-align--right">{this.renderVersionSelect()}</div>
               {/*<p>*/}
               {/*  If I had a description, this is where I would put it! Thanks, Mandatory. This is why we can't have*/}
               {/*  nice things.*/}
+              {/* I appologize for nothing! -mandatory */}
               {/*</p>*/}
             </div>
             <div class="ml-auto d-flex flex-direction--column">

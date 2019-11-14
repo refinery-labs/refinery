@@ -7680,20 +7680,39 @@ class SearchSavedProjects( BaseHandler ):
 		
 		# Projects that match the query
 		project_search_results = []
+
+		# Project IDs which we'll use in querying for matching deployments
+		project_ids = []
 		
+		# This is extremely inefficient and needs to be fixed to do it in SQL.
+		# My fault hacking it this way for YC :)
 		for project_data in authenticated_user.projects:
 			if self.json[ "query" ].lower() in str( project_data.name ).lower():
 				project_search_results.append(
 					project_data
 				)
+				project_ids.append(
+					project_data.id
+				)
 		
 		results_list = []
+
+		# Pull all deployments in a batch SQL query
+		deployments_list = self.get_batch_project_deployments(
+			project_ids
+		)
 		
 		for project_search_result in project_search_results:
+			matching_deployment = self.get_deployment_if_in_list(
+				project_search_result.id,
+				deployments_list
+			)
+
 			project_item = {
 				"id": project_search_result.id,
 				"name": project_search_result.name,
 				"timestamp": project_search_result.timestamp,
+				"deployment": matching_deployment,
 				"versions": []
 			}
 			
@@ -7720,6 +7739,41 @@ class SearchSavedProjects( BaseHandler ):
 			"success": True,
 			"results": results_list
 		})
+
+	def get_deployment_if_in_list( self, project_id, deployments_list ):
+		"""
+		Checks passed-in list of deployments for one that matches
+		the specified project ID. If one exists it'll return it, otherwise
+		it will return None (null).
+		"""
+		for deployment in deployments_list:
+			if deployment[ "project_id" ] == project_id:
+				return deployment[ "id" ]
+		
+		return None
+
+	def get_batch_project_deployments( self, project_ids ):
+		"""
+		Batch up the project deployment lookups so it's fast.
+		"""
+		deployments = self.dbsession.query( Deployment ).filter(
+			# If the deployment matches any of the project IDs we've enumerated
+			sql_or(
+				*[Deployment.project_id == project_id for project_id in project_ids]
+			)
+		).order_by(
+			Deployment.timestamp.desc()
+		).all()
+
+		deployment_dicts = []
+
+		for deployment in deployments:
+			if deployment:
+				deployment_dicts.append(
+					deployment.to_dict()
+				)
+
+		return deployment_dicts
 
 	def fetch_project_by_version( self, id, version ):
 		project_version_result = self.dbsession.query( ProjectVersion ).filter_by(
