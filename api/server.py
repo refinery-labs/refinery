@@ -3553,7 +3553,7 @@ class TaskSpawner(object):
 			# Generate "Gemfile" with dependencies
 			# Below specifies ruby 2.6.3 because that's what AWS's CodeBuild
 			# has installed.
-			gemfile = """source "https://rubygems.org"\nruby "2.6.3"\n"""
+			gemfile = """source "https://rubygems.org"\n"""
 			for key, value in libraries_object.iteritems():
 				if value == "latest":
 					gemfile += "gem '" + key + "'\n"
@@ -6006,31 +6006,31 @@ def get_layers_for_lambda( language ):
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:29"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:30"
 		)
 	elif language == "nodejs10.16.3":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-nodejs10-custom-runtime:8"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-nodejs10-custom-runtime:9"
 		)
 	elif language == "php7.3":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:27"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:28"
 		)
 	elif language == "go1.12":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:27"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:28"
 		)
 	elif language == "python2.7":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:27"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:28"
 		)
 	elif language == "python3.6":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:28"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:29"
 		)
 	elif language == "ruby2.6.4":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:28"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:29"
 		)
 		
 	return new_layers
@@ -8133,8 +8133,9 @@ class DeleteDeploymentsInProject( BaseHandler ):
 			project_id=self.json[ "project_id" ]
 		).first()
 		
-		self.dbsession.delete(deployment)
-		self.dbsession.commit()
+		if deployment:
+			self.dbsession.delete(deployment)
+			self.dbsession.commit()
 		
 		# Delete the cached shards in the database
 		self.dbsession.query(
