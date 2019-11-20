@@ -2874,6 +2874,8 @@ class TaskSpawner(object):
 			libraries_object = {}
 			for library in lambda_object.libraries:
 				libraries_object[ str( library ) ] = "latest"
+
+			is_inline_execution_string = "-INLINE" if lambda_object.is_inline_execution else "-NOT_INLINE"
 				
 			# Generate SHA256 hash input for caching key
 			hash_input = lambda_object.language + "-" + lambda_object.code + "-" + json.dumps(
@@ -2881,7 +2883,7 @@ class TaskSpawner(object):
 				sort_keys=True
 			) + json.dumps(
 				lambda_object.shared_files_list
-			)
+			) + is_inline_execution_string
 			hash_key = hashlib.sha256(
 				hash_input
 			).hexdigest()
