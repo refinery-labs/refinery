@@ -837,7 +837,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       placeholder: '768',
       type: 'number',
       number: true,
-      max: 3072,
+      max: 3008,
       min: 128,
       step: 64,
       readonly: this.readOnly,
