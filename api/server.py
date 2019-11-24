@@ -5886,7 +5886,7 @@ def get_layers_for_lambda( language, layers, build_mode ):
 		)
 	elif language == "go1.12":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:423954138238:layer:refinery-go112-custom-runtime:47"
+			"arn:aws:lambda:us-west-2:423954138238:layer:refinery-go112-custom-runtime:50"
 		)
 	elif language == "python2.7":
 		new_layers.append(
@@ -5901,7 +5901,7 @@ def get_layers_for_lambda( language, layers, build_mode ):
 			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:28"
 		)
 
-	golang_required_layer = "arn:aws:lambda:us-west-2:423954138238:layer:go-git-ssh-layer:3"
+	golang_required_layer = "arn:aws:lambda:us-west-2:423954138238:layer:go-git-ssh-layer:10"
 
 	# Specific layer logic for Golang because we need certain dependencies available in development
 	if language == "go1.12" and golang_required_layer not in layers:
@@ -9949,6 +9949,11 @@ class BuildLibrariesPackage( BaseHandler ):
 				credentials,
 				libraries_dict
 			)
+		# elif self.json[ "language" ] == "go1.12":
+		# 	build_id = yield local_tasks.start_ruby264_codebuild(
+		# 		credentials,
+		# 		libraries_dict
+		# 	)
 		elif self.json[ "language" ] == "nodejs8.10":
 			build_id = yield local_tasks.start_node810_codebuild(
 				credentials,

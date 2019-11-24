@@ -13,7 +13,7 @@ if [ -n "$IS_INLINE_EXECUTOR" ]
 then
     # Create go folder in /tmp for builds, if it doesn't exist
     [ ! -d "/tmp/go" ] && mkdir -p /tmp/go/src/refinery.io/build/output
-    [ ! -d "/tmp/gocache" ] && mkdir /tmp/gocache
+    [ ! -d "/tmp/gocache" ] && cp -R /var/task/gocache /tmp/gocache
 
     # Copy over the Go module file that declares our package
     cp /var/task/go.* /tmp/go/src/refinery.io/build/output/

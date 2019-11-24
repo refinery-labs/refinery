@@ -8,16 +8,18 @@ from utils.zip import write_file_to_zip
 base_build_commands = [
 	"export GOPATH=\"$(pwd)/go\"",
 	"export GOBIN=$GOPATH/bin",
+	"export GOCACHE=$(pwd)/gocache",
 	"export GO111MODULE=on",
+	"mkdir $(pwd)/gocache",
 	# In the future, if we want to parse the source code in a Lambda for dependencies, use this:
 	# go list -f '{{ join .Deps \"\n\" }}'
-	"go mod download"
+	"go mod download",
+	# Parses the source code and installs any dependencies referenced there
+	"go get"
 ]
 
 # Specific commands for production lambda builds
 production_build_commands = [
-	# Parses the source code and installs any dependencies referenced there
-	"go get",
 	# Outputs a binary for fast execution in production
 	"go build lambda.go"
 ]

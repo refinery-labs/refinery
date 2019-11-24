@@ -1820,11 +1820,11 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 			"websocket_uri": "ws://35.131.123.111:4444/ws/v1/lambdas/connectback", # Websocket callback URL with API server direct IP
 		}
 		"""
-		if "live_debug" in lambda_input[ "_refinery" ]:
-			live_debug = lambda_input[ "_refinery" ][ "live_debug" ]
-			live_debug[ "websocket" ] = create_connection(
-				live_debug[ "websocket_uri" ]
-			)
+		# if "live_debug" in lambda_input[ "_refinery" ]:
+		# 	live_debug = lambda_input[ "_refinery" ][ "live_debug" ]
+		# 	live_debug[ "websocket" ] = create_connection(
+		# 		live_debug[ "websocket_uri" ]
+		# 	)
 		
 		# Check if it's just a warmup request
 		if "warmup" in lambda_input[ "_refinery" ]:

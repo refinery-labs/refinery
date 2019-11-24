@@ -6,10 +6,27 @@ sudo rm -rf ./layer-contents/*
 rm -rf ./layer-contents.zip
 
 # Download and install Git and SSH dependencies using Yumda
+# sudo docker run --rm -v "$PWD"/layer-contents:/lambda/opt lambci/yumda:1 yum install -y git openssh gcc72
 sudo docker run --rm -v "$PWD"/layer-contents:/lambda/opt lambci/yumda:1 yum install -y git openssh
 
 # Set permissions to be permissive enough to copy the Go binaries in
 sudo chmod -R 0777 ./layer-contents/*
+
+# Setup GCC binary in path
+#cd ./layer-contents/bin
+# ln -s ./gcc72 ./gcc
+#cd ../../
+
+# Add a copy of this dependency for golang...
+#cd ./layer-contents/lib
+#ln -s ./libpthread.so ./libpthread.so.0
+#cd ../../
+
+# Shrink the image size more
+strip --strip-all ./layer-contents/bin/*
+#strip --strip-all ./layer-contents/libexec/gcc/x86_64-amazon-linux/7/*
+strip --strip-all ./layer-contents/libexec/git-core/mergetools/*
+strip --strip-all ./layer-contents/libexec/openssh/*
 
 # Download Golang package if we don't have it
 [ ! -f "./go1.12.13.linux-amd64.tar.gz" ] && wget https://dl.google.com/go/go1.12.13.linux-amd64.tar.gz
@@ -35,6 +52,11 @@ rm -rf go/pkg/tool/linux_amd64/trace
 rm -rf go/pkg/tool/linux_amd64/vet
 # Huge amount of stuff in here
 rm -rf go/pkg/linux*
+rm -rf go/src/cmd/compile
+rm -rf go/src/cmd/vendor
+rm -rf go/src/cmd/go
+rm -rf go/src/cmd/link
+rm -rf go/src/cmd/asm
 
 # Further shrink everything
 strip --strip-all ./go/bin/*
