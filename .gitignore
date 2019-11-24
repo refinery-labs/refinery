@@ -11,6 +11,7 @@ front-end/node_modules/
 auto-reload.sh
 nginx-container/front-end-dist/
 *.validator.ts
+.idea
 
 # Created by https://www.gitignore.io/api/intellij
 # Edit at https://www.gitignore.io/?templates=intellij
@@ -93,7 +94,7 @@ fabric.properties
 
 *.iml
 # modules.xml
-# .idea/misc.xml
+.idea/misc.xml
 # *.ipr
 
 # Sonarlint plugin

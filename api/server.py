@@ -6226,7 +6226,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	]
 	"""
 	deployment_exceptions = []
-	
+
 	for workflow_state in diagram_data[ "workflow_states" ]:
 		if workflow_state[ "type" ] == "lambda":
 			node_arn = "arn:aws:lambda:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":function:" + get_lambda_safe_name( workflow_state[ "name" ] )
@@ -7941,7 +7941,14 @@ class DeployDiagram( BaseHandler ):
 		diagram_data = json.loads( self.json[ "diagram_data" ] )
 		
 		credentials = self.get_authenticated_user_cloud_configuration()
-		
+		if credentials is None:
+			self.write({
+				"success": False,
+				"code": "NO_CREDENTIALS",
+				"msg": "There was an internal error accessing stored cloud credentials.",
+			})
+			raise gen.Return()
+
 		deployment_data = yield deploy_diagram(
 			credentials,
 			project_name,

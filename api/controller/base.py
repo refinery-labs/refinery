@@ -97,7 +97,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 			
 		logit( "Account has no AWS account associated with it!" )
 		
-		return False
+		return None
 		
 	def get_authenticated_user_org( self ):
 		# First we grab the organization ID
