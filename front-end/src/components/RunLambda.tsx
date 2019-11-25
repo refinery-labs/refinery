@@ -89,7 +89,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
     // Check if the Lambda is running, we'll show a different return value if it is
     // to indicate to the user that the Code Block is currently still executing.
     if (this.isCurrentlyRunning) {
-      return 'The Code Block has not finished executing yet, please wait...';
+      return this.loadingText;
     }
 
     if (runResultOutput && runResultOutput.returned_data && typeof runResultOutput.returned_data === 'string') {
