@@ -77,6 +77,17 @@
         -->
         <!-- Fullscreen (only desktops)-->
         <li class="nav-item">
+          <a
+            href="https://join.slack.com/t/refinerydevs/shared_invite/enQtNzkxNTgzNDU3MzQ0LTljNzA1NTMxYTQ2ZTdlNzc1MzU4MDkzNmU0Nzg0NDk3NzFmYjgzM2E5ZjA3MmQxZjBlZTI2MTFiNTAxNTIwNTQ"
+            to="Join Slack"
+            class="nav-link"
+            target="_blank"
+          >
+            <i class="fab fa-slack-hash"></i>
+            <span class="hide-on-mobile"> Join Slack</span>
+          </a>
+        </li>
+        <li class="nav-item">
           <a href="" to="Live Chat" class="nav-link intercom-open-chat-button">
             <i class="fas fa-headset"></i>
             <span class="hide-on-mobile"> Live Chat</span>
