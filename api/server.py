@@ -7871,28 +7871,52 @@ class DeleteSavedProject( BaseHandler ):
 		}
 		
 		validate_schema( self.json, schema )
-		
+		project_id = self.json[ "id" ]
+
 		logit( "Deleting saved project..." )
-		
+
 		# Ensure user is owner of the project
-		if not self.is_owner_of_project( self.json[ "id" ] ):
+		if not self.is_owner_of_project( project_id ):
 			self.write({
 				"success": False,
 				"code": "ACCESS_DENIED",
 				"msg": "You do not have priveleges to delete that project!",
 			})
 			raise gen.Return()
-			
+
+		credentials = self.get_authenticated_user_cloud_configuration()
+
 		# Pull the latest project config
 		project_config = self.dbsession.query( ProjectConfig ).filter_by(
-			project_id=self.json[ "id" ]
+			project_id=project_id
 		).first()
 
 		if project_config is not None:
 			self.delete_api_gateway(project_config)
 
+		# delete all AWS deployments
+		deployed_projects = self.dbsession.query( Deployment ).filter_by(
+			project_id=project_id
+		).all()
+		for deployment in deployed_projects:
+			# load deployed project workflow states
+			deployment_json = json.loads(deployment.deployment_json)
+			teardown_nodes = deployment_json[ "workflow_states" ]
+
+			# do the teardown of the deployed aws infra
+			teardown_operation_results = yield teardown_infrastructure(
+				credentials,
+				teardown_nodes
+			)
+
+		# delete existing logs for the project
+		delete_logs(
+			credentials,
+			project_id
+		)
+
 		saved_project_result = self.dbsession.query( Project ).filter_by(
-			id=self.json[ "id" ]
+			id=project_id
 		).first()
 		
 		self.dbsession.delete( saved_project_result )
