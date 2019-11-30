@@ -6,6 +6,7 @@ import tornado.escape
 import tornado.ioloop
 import tornado.web
 import subprocess
+import sqlalchemy
 import traceback
 import functools
 import botocore
@@ -7025,7 +7026,7 @@ class SavedBlocksCreate( BaseHandler ):
 		new_saved_block_version = SavedBlockVersion()
 		new_saved_block_version.saved_block_id = saved_block.id
 		new_saved_block_version.version = block_version
-		new_saved_block_version.block_object = json.dumps(
+		new_saved_block_version.block_object_json = json.dumps(
 			self.json[ "block_object" ]
 		)
 		new_saved_block_version.shared_files = self.json[ "shared_files" ]
@@ -7045,7 +7046,7 @@ class SavedBlocksCreate( BaseHandler ):
 				"name": saved_block.name,
 				"share_status": new_share_status,
 				"type": saved_block.type,
-				"block_object": new_saved_block_version.block_object,
+				"block_object": new_saved_block_version.block_object_json,
 				"version": new_saved_block_version.version,
 				"timestamp": new_saved_block_version.timestamp
 			}
@@ -7068,6 +7069,9 @@ class SavedBlockSearch( BaseHandler ):
 						"PRIVATE",
 						"PUBLISHED"
 					]
+				},
+				"language": {
+					"type": "string",
 				}
 			},
 			"required": [
@@ -7080,31 +7084,52 @@ class SavedBlockSearch( BaseHandler ):
 		logit( "Searching saved Blocks..." )
 		
 		share_status = "PRIVATE"
+		block_language = ""
+		search_string = ""
 		
 		if "share_status" in self.json:
 			share_status = self.json[ "share_status" ]
-		
+
+		if "language" in self.json:
+			block_language = self.json[ "language" ]
+
+		if "search_string" in self.json:
+			search_string = self.json[ "search_string" ]
+
 		authenticated_user_id = self.get_authenticated_user_id()
-		
+
+		# filters to apply when searching for saved blocks
+		saved_block_filters = []
+
+		if search_string != "":
+			saved_block_filters.append(
+				sql_or(
+					SavedBlock.name.ilike( "%" + search_string + "%" ),
+					SavedBlock.description.ilike( "%" + search_string + "%" ),
+				)
+			)
+
 		if authenticated_user_id != None:
 			# Default is to just search your own saved blocks
-			saved_block_search_params = {
-				"user_id": self.get_authenticated_user_id()
-			}
+			saved_block_filters.append(
+				SavedBlock.user_id == self.get_authenticated_user_id()
+			)
 		
 		if share_status == "PUBLISHED" or authenticated_user_id == None:
-			saved_block_search_params = {
-				"share_status": "PUBLISHED"
-			}
-			
-		# Search through all published saved blocks
-		saved_blocks = self.dbsession.query( SavedBlock ).filter_by(
-			**saved_block_search_params
-		).filter(
-			sql_or(
-				SavedBlock.name.ilike( "%" + self.json[ "search_string" ] + "%" ),
-				SavedBlock.description.ilike( "%" + self.json[ "search_string" ] + "%" ),
+			saved_block_filters.append(
+				SavedBlock.share_status == "PUBLISHED"
 			)
+
+		if block_language != "":
+			saved_block_filters.append(
+				SavedBlockVersion.block_object_json[ "language" ].astext == block_language
+			)
+
+		# Search through all published saved blocks
+		saved_blocks = self.dbsession.query( SavedBlock ).join(
+			SavedBlockVersion, SavedBlock.id == SavedBlockVersion.saved_block_id
+		).filter(
+			*saved_block_filters
 		).limit(25).all()
 		
 		return_list = []
@@ -7116,7 +7141,7 @@ class SavedBlockSearch( BaseHandler ):
 			).order_by( SavedBlockVersion.version.desc() ).first()
 			
 			block_object = json.loads(
-				saved_block_latest_version.block_object
+				saved_block_latest_version.block_object_json
 			)
 			block_object[ "id" ] = str( uuid.uuid4() )
 			
@@ -7183,7 +7208,7 @@ class SavedBlockStatusCheck( BaseHandler ):
 			).order_by( SavedBlockVersion.version.desc() ).first()
 
 			block_object = json.loads(
-				saved_block_latest_version.block_object
+				saved_block_latest_version.block_object_json
 			)
 
 			return_list.append({

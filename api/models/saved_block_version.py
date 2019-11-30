@@ -5,6 +5,8 @@ import uuid
 import time
 import os
 
+from sqlalchemy.dialects.postgresql import JSONB
+
 class SavedBlockVersion( Base ):
 	__tablename__ = "saved_block_versions"
 	
@@ -18,8 +20,13 @@ class SavedBlockVersion( Base ):
 	version = Column(
 		Integer()
 	)
-	
+
+	# deprecated: use block_object_json
 	block_object = Column(Text())
+
+	block_object_json = Column(
+		JSONB(astext_type=Text)
+	)
 
 	@property
 	def shared_files( self ):
