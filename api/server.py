@@ -7026,9 +7026,7 @@ class SavedBlocksCreate( BaseHandler ):
 		new_saved_block_version = SavedBlockVersion()
 		new_saved_block_version.saved_block_id = saved_block.id
 		new_saved_block_version.version = block_version
-		new_saved_block_version.block_object_json = json.dumps(
-			self.json[ "block_object" ]
-		)
+		new_saved_block_version.block_object_json = self.json[ "block_object" ]
 		new_saved_block_version.shared_files = self.json[ "shared_files" ]
 			
 		saved_block.versions.append(
@@ -7139,10 +7137,8 @@ class SavedBlockSearch( BaseHandler ):
 			saved_block_latest_version = self.dbsession.query( SavedBlockVersion ).filter_by(
 				saved_block_id=saved_block.id
 			).order_by( SavedBlockVersion.version.desc() ).first()
-			
-			block_object = json.loads(
-				saved_block_latest_version.block_object_json
-			)
+
+			block_object = saved_block_latest_version.block_object_json
 			block_object[ "id" ] = str( uuid.uuid4() )
 			
 			return_list.append({
@@ -7207,9 +7203,7 @@ class SavedBlockStatusCheck( BaseHandler ):
 				saved_block_id=saved_block.id
 			).order_by( SavedBlockVersion.version.desc() ).first()
 
-			block_object = json.loads(
-				saved_block_latest_version.block_object_json
-			)
+			block_object = saved_block_latest_version.block_object_json
 
 			return_list.append({
 				"id": saved_block.id,
