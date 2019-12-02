@@ -1,4 +1,4 @@
-import { Action, getModule, Module, Mutation, VuexModule } from 'vuex-module-decorators';
+import { Action, Module, Mutation, VuexModule } from 'vuex-module-decorators';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState, StoreType } from '@/store/store-types';
@@ -6,7 +6,8 @@ import {
   CreateSavedBlockRequest,
   CreateSavedBlockResponse,
   SavedBlockStatusCheckResult,
-  SharedBlockPublishStatus
+  SharedBlockPublishStatus,
+  SavedBlockSaveType
 } from '@/types/api-types';
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
@@ -28,6 +29,7 @@ export interface CreateSavedBlockViewState {
 
   publishStatus: boolean;
   modalVisibility: boolean;
+  saveType: SavedBlockSaveType;
 
   busyPublishingBlock: boolean;
 }
@@ -40,6 +42,7 @@ export const baseState: CreateSavedBlockViewState = {
   savedDataInput: inputDataExample,
   publishStatus: false,
   modalVisibility: false,
+  saveType: SavedBlockSaveType.CREATE,
 
   busyPublishingBlock: false
 };
@@ -65,6 +68,7 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
   public savedDataInput = initialState.savedDataInput;
 
   public publishStatus = initialState.publishStatus;
+  public saveType = initialState.saveType;
   public modalVisibility = initialState.modalVisibility;
   public busyPublishingBlock = initialState.busyPublishingBlock;
 
@@ -102,6 +106,11 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
   }
 
   @Mutation
+  public setSaveType(saveType: SavedBlockSaveType) {
+    this.saveType = saveType;
+  }
+
+  @Mutation
   public setModalVisibility(modalVisibility: boolean) {
     this.modalVisibility = modalVisibility;
   }
@@ -117,7 +126,7 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
   }
 
   @Action
-  public async openModal() {
+  public async openModal(saveType: SavedBlockSaveType) {
     // Don't allow this action to happen in Demo Mode
     if (this.context.rootState.project.isInDemoMode) {
       await this.context.dispatch(`unauthViewProject/promptDemoModeSignup`, false, { root: true });
@@ -125,6 +134,8 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
     }
 
     this.resetState();
+
+    this.setSaveType(saveType);
 
     const editBlockPaneState = this.context.rootState.project.editBlockPane;
     if (!editBlockPaneState || !editBlockPaneState.selectedNode) {
@@ -151,6 +162,10 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
       this.setName(metadata.name);
       this.setDescription(metadata.description);
       this.setPublishStatus(metadata.share_status === SharedBlockPublishStatus.PUBLISHED);
+
+      if (this.saveType != SavedBlockSaveType.FORK) {
+        this.setSaveType(SavedBlockSaveType.UPDATE);
+      }
     }
 
     this.setModalVisibility(true);
@@ -202,7 +217,8 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
       description: this.descriptionInput,
       share_status: this.publishStatus ? SharedBlockPublishStatus.PUBLISHED : SharedBlockPublishStatus.PRIVATE,
       version: 1,
-      shared_files: sharedFiles
+      shared_files: sharedFiles,
+      save_type: this.saveType
     };
 
     if (this.existingBlockMetadata) {

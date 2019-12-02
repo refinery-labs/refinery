@@ -1,5 +1,10 @@
-export const editModeTitle = 'Update Saved Block Version';
-export const addModeTitle = 'Create New Saved Block';
+import { SavedBlockSaveType } from '@/types/api-types';
+
+export const savedBlockTitles = {
+  [SavedBlockSaveType.UPDATE]: 'Update Saved Block Version',
+  [SavedBlockSaveType.CREATE]: 'Create New Saved Block',
+  [SavedBlockSaveType.FORK]: 'Fork Saved Block Version'
+};
 
 export const alreadyPublishedText =
   'This option is disabled. You cannot make a published block private again. If you have done this accidentally and need this block unpublished, please contact support';

@@ -23,7 +23,7 @@ import {
   EditEnvironmentVariablesWrapper,
   EditEnvironmentVariablesWrapperProps
 } from '@/components/ProjectEditor/block-components/EditEnvironmentVariablesWrapper';
-import { SavedBlockStatusCheckResult } from '@/types/api-types';
+import { SavedBlockStatusCheckResult, SavedBlockSaveType } from '@/types/api-types';
 import Split from '@/components/Common/Split.vue';
 import SplitArea from '@/components/Common/SplitArea.vue';
 import { RunLambdaDisplayMode } from '@/components/RunLambda';
@@ -118,7 +118,15 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   public async beginPublishBlockClicked(e: Event) {
     e.preventDefault();
     await this.saveBlock();
-    CreateSavedBlockViewStoreModule.openModal();
+
+    CreateSavedBlockViewStoreModule.openModal(SavedBlockSaveType.CREATE);
+  }
+
+  public async beginForkBlockClicked(e: Event) {
+    e.preventDefault();
+    await this.saveBlock();
+
+    CreateSavedBlockViewStoreModule.openModal(SavedBlockSaveType.FORK);
   }
 
   addLibrary(e: Event) {
@@ -558,8 +566,8 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
     if (this.selectedNodeMetadata && this.selectedNodeMetadata.is_block_owner) {
       return (
-        <b-form-group description="Allows you to publish a new version of this block.">
-          <label class="d-block">Update Saved Block:</label>
+        <b-form-group description="Allows you to publish a new version or fork this block.">
+          <label class="d-block">Manage Saved Block:</label>
           <b-button
             variant="dark"
             class="col-12"
@@ -567,6 +575,14 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
             on={{ click: this.beginPublishBlockClicked }}
           >
             Publish New Block Version
+          </b-button>
+          <b-button
+            variant="dark"
+            class="col stacked-edit-block-button"
+            disabled={!this.isEditedBlockValid}
+            on={{ click: this.beginForkBlockClicked }}
+          >
+            Fork Block Version
           </b-button>
         </b-form-group>
       );
@@ -667,7 +683,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         <b-button variant="dark" class="col-12" on={{ click: downloadBlockAsZip }}>
           Download Block as Zip
         </b-button>
-        <b-button variant="dark" class="col download-script-button" on={{ click: this.downloadBlockScript }}>
+        <b-button variant="dark" class="col stacked-edit-block-button" on={{ click: this.downloadBlockScript }}>
           Download Block Script
         </b-button>
       </b-form-group>

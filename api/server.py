@@ -6945,10 +6945,17 @@ class SavedBlocksCreate( BaseHandler ):
 						"PUBLISHED"
 					]
 				},
+				"save_type": {
+					"type": "string",
+					"enum": [
+						"FORK",
+						"NEW",
+						"UPDATE"
+					]
+				},
 				"shared_files": {
 					"type": "array",
 					"default": [],
-
 				}
 			},
 			"required": [
@@ -6962,8 +6969,12 @@ class SavedBlocksCreate( BaseHandler ):
 		saved_block = None
 
 		block_version = 1
-		
-		if "id" in self.json:
+
+		if "save_type" in self.json:
+			block_save_type = self.json[ "save_type" ]
+
+		# Do not search for an existing block if we are forking, only on UPDATE
+		if "id" in self.json and block_save_type == "UPDATE":
 			saved_block = self.dbsession.query( SavedBlock ).filter_by(
 				user_id=self.get_authenticated_user_id(),
 				id=self.json[ "id" ]
@@ -6985,6 +6996,9 @@ class SavedBlocksCreate( BaseHandler ):
 		if not saved_block:
 			saved_block = SavedBlock()
 			saved_block.share_status = "PRIVATE"
+
+		if block_save_type == "FORK":
+			saved_block.parent_id = self.json[ "id" ]
 		
 		saved_block.user_id = self.get_authenticated_user_id()
 		saved_block.name = self.json[ "block_object" ][ "name" ]
@@ -7028,7 +7042,7 @@ class SavedBlocksCreate( BaseHandler ):
 		new_saved_block_version.version = block_version
 		new_saved_block_version.block_object_json = self.json[ "block_object" ]
 		new_saved_block_version.shared_files = self.json[ "shared_files" ]
-			
+
 		saved_block.versions.append(
 			new_saved_block_version
 		)
