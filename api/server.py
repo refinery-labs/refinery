@@ -6997,9 +6997,6 @@ class SavedBlocksCreate( BaseHandler ):
 			saved_block = SavedBlock()
 			saved_block.share_status = "PRIVATE"
 
-		if block_save_type == "FORK":
-			saved_block.parent_id = self.json[ "id" ]
-		
 		saved_block.user_id = self.get_authenticated_user_id()
 		saved_block.name = self.json[ "block_object" ][ "name" ]
 		saved_block.type = self.json[ "block_object" ][ "type" ]

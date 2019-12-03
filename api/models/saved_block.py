@@ -35,9 +35,6 @@ class SavedBlock( Base ):
 		cascade="all, delete-orphan"
 	)
 
-	# If block has been forked, then parent ID will identify which block this block is a fork of
-	parent_id = Column(Text())
-
 	def __init__( self ):
 		self.id = str( uuid.uuid4() )
 		self.share_status = "PRIVATE"
