@@ -74,7 +74,7 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
 import { createShortlink, deployProject, openProject, teardownProject } from '@/store/fetchers/api-helpers';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
-import { createNewBlock, createNewTransition } from '@/utils/block-utils';
+import { addAPIBlocksToProject, createNewBlock, createNewTransition } from '@/utils/block-utils';
 import { saveEditBlockToProject } from '@/utils/store-utils';
 import ImportableRefineryProject from '@/types/export-project';
 import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
@@ -1324,16 +1324,16 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const addBlockWithType = async (addBlockArgs: AddBlockArguments) =>
         await context.dispatch(ProjectViewActions.addIndividualBlock, addBlockArgs);
 
-      await addBlockWithType({
+      const newlyAddedBlock = await addBlockWithType({
         rawBlockType,
         selectAfterAdding: true
       });
 
+      // If the block is an API Endpoint block we check if they already have an API endpoint
+      // in the project. If not we will automatically add the API endpoint and API response block
+      // connected to a Code Block
       if (rawBlockType === WorkflowStateType.API_ENDPOINT) {
-        await addBlockWithType({
-          rawBlockType: WorkflowStateType.API_GATEWAY_RESPONSE,
-          selectAfterAdding: false
-        });
+        await addAPIBlocksToProject(newlyAddedBlock, context.state, context.dispatch);
       }
     },
     async [ProjectViewActions.addSharedFile](context, addSharedFileArgs: AddSharedFileArguments) {
