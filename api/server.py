@@ -7850,7 +7850,7 @@ class GetSavedProject( BaseHandler ):
 		).order_by(ProjectVersion.version.desc()).first()
 
 		return project_version_result
-		
+
 class DeleteSavedProject( BaseHandler ):
 	@authenticated
 	@gen.coroutine
@@ -7901,6 +7901,10 @@ class DeleteSavedProject( BaseHandler ):
 		for deployment in deployed_projects:
 			# load deployed project workflow states
 			deployment_json = json.loads(deployment.deployment_json)
+
+			if "workflow_states" not in deployment_json:
+				raise Exception("Corrupt deployment JSON data read from database, missing workflow_states for teardown")
+
 			teardown_nodes = deployment_json[ "workflow_states" ]
 
 			# do the teardown of the deployed aws infra
