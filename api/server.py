@@ -6949,7 +6949,7 @@ class SavedBlocksCreate( BaseHandler ):
 					"type": "string",
 					"enum": [
 						"FORK",
-						"NEW",
+						"CREATE",
 						"UPDATE"
 					]
 				},
@@ -6970,6 +6970,8 @@ class SavedBlocksCreate( BaseHandler ):
 
 		block_version = 1
 
+		# Default to "UPDATE" for now to avoid issues with user pages not reloaded
+		block_save_type = "UPDATE"
 		if "save_type" in self.json:
 			block_save_type = self.json[ "save_type" ]
 

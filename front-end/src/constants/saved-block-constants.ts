@@ -1,6 +1,8 @@
 import { SavedBlockSaveType } from '@/types/api-types';
 
-export const savedBlockTitles = {
+export type SavedBlockSaveTypeToBlockTitle = { [key in SavedBlockSaveType]: string };
+
+export const savedBlockTitles: SavedBlockSaveTypeToBlockTitle = {
   [SavedBlockSaveType.UPDATE]: 'Update Saved Block Version',
   [SavedBlockSaveType.CREATE]: 'Create New Saved Block',
   [SavedBlockSaveType.FORK]: 'Fork Saved Block Version'

@@ -11,16 +11,10 @@ import {
   inputDataExample,
   newPublishText
 } from '@/constants/saved-block-constants';
+import { toTitleCase } from '@/lib/general-utils';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { SupportedLanguage } from '@/types/graph';
 import RefineryMarkdown from '@/components/Common/RefineryMarkdown';
-
-function toTitleCase(str: string) {
-  return str
-    .split(' ')
-    .map(w => w[0].toUpperCase() + w.substr(1).toLowerCase())
-    .join(' ');
-}
 
 @Component
 export default class CreateSavedBlockView extends Vue implements CreateSavedBlockViewProps {

@@ -163,7 +163,7 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
       this.setDescription(metadata.description);
       this.setPublishStatus(metadata.share_status === SharedBlockPublishStatus.PUBLISHED);
 
-      if (this.saveType != SavedBlockSaveType.FORK) {
+      if (this.saveType !== SavedBlockSaveType.FORK) {
         this.setSaveType(SavedBlockSaveType.UPDATE);
       }
     }
