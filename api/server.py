@@ -7049,7 +7049,38 @@ class SavedBlocksCreate( BaseHandler ):
 				"timestamp": new_saved_block_version.timestamp
 			}
 		})
-		
+
+
+def generate_saved_block_filters(share_status, block_language, search_string, authenticated_user_id):
+	# filters to apply when searching for saved blocks
+	saved_block_filters = []
+
+	if search_string != "":
+		saved_block_filters.append(
+			sql_or(
+				SavedBlock.name.ilike( "%" + search_string + "%" ),
+				SavedBlock.description.ilike( "%" + search_string + "%" ),
+			)
+		)
+
+	if authenticated_user_id != None:
+		# Default is to just search your own saved blocks
+		saved_block_filters.append(
+			SavedBlock.user_id == authenticated_user_id
+		)
+
+	if share_status == "PUBLISHED" or authenticated_user_id == None:
+		saved_block_filters.append(
+			SavedBlock.share_status == "PUBLISHED"
+		)
+
+	if block_language != "":
+		saved_block_filters.append(
+			SavedBlockVersion.block_object_json[ "language" ].astext == block_language
+		)
+
+	return saved_block_filters
+
 class SavedBlockSearch( BaseHandler ):
 	def post( self ):
 		"""
@@ -7096,35 +7127,13 @@ class SavedBlockSearch( BaseHandler ):
 
 		authenticated_user_id = self.get_authenticated_user_id()
 
-		# filters to apply when searching for saved blocks
-		saved_block_filters = []
-
-		if search_string != "":
-			saved_block_filters.append(
-				sql_or(
-					SavedBlock.name.ilike( "%" + search_string + "%" ),
-					SavedBlock.description.ilike( "%" + search_string + "%" ),
-				)
-			)
-
-		if authenticated_user_id != None:
-			# Default is to just search your own saved blocks
-			saved_block_filters.append(
-				SavedBlock.user_id == self.get_authenticated_user_id()
-			)
-		
-		if share_status == "PUBLISHED" or authenticated_user_id == None:
-			saved_block_filters.append(
-				SavedBlock.share_status == "PUBLISHED"
-			)
-
-		if block_language != "":
-			saved_block_filters.append(
-				SavedBlockVersion.block_object_json[ "language" ].astext == block_language
-			)
+		saved_block_filters = generate_saved_block_filters(
+			share_status, block_language, search_string, authenticated_user_id
+		)
 
 		# Search through all published saved blocks
 		saved_blocks = self.dbsession.query( SavedBlock ).join(
+			# join the saved block and version tables based on IDs
 			SavedBlockVersion, SavedBlock.id == SavedBlockVersion.saved_block_id
 		).filter(
 			*saved_block_filters
