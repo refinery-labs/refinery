@@ -113,7 +113,19 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
     const privateBlocks = this.searchResultsPrivate;
     const publishedBlocks = this.searchResultsPublished;
     const zeroResults = privateBlocks.length === 0 && publishedBlocks.length === 0;
-    const languageOptions = [''].concat(Object.values(SupportedLanguage));
+
+    const defaultLanguageOption = {
+      value: '',
+      text: 'All Languages'
+    };
+
+    const languageOptions = [
+      defaultLanguageOption,
+      ...Object.values(SupportedLanguage).map(v => ({
+        value: v,
+        text: v
+      }))
+    ];
 
     return (
       <div class="add-saved-block-container__parent text-align--left mb-2 ml-2 mr-2 mt-0 display--flex flex-direction--column">
@@ -149,7 +161,11 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
                 <div class="display--flex">
                   <label class="flex-grow--1">Search by Language:</label>
                 </div>
-                <b-form-select on={{ input: this.onLanguageBoxInputChanged }} options={languageOptions} />
+                <b-form-select
+                  on={{ input: this.onLanguageBoxInputChanged }}
+                  value={this.languageInput}
+                  options={languageOptions}
+                />
               </div>
             </b-form-group>
           </div>

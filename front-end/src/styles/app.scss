@@ -501,10 +501,6 @@ $content-sidebar-width: 92px;
     max-height: 240px;
     word-wrap: break-word;
   }
-
-  &__parent {
-    max-height: calc(100vh - 176px);
-  }
 }
 
 .filter-pane-column {
