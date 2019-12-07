@@ -268,7 +268,7 @@ def authenticated( func ):
 		
 		return func( *args, **kwargs )
 	return wrapper
-	
+
 def disable_on_overdue_payment( func ):
 	"""
 	Decorator to disable specific endpoints if the user
@@ -6229,7 +6229,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	]
 	"""
 	deployment_exceptions = []
-	
+
 	for workflow_state in diagram_data[ "workflow_states" ]:
 		if workflow_state[ "type" ] == "lambda":
 			node_arn = "arn:aws:lambda:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":function:" + get_lambda_safe_name( workflow_state[ "name" ] )
@@ -7878,7 +7878,7 @@ class GetSavedProject( BaseHandler ):
 		).order_by(ProjectVersion.version.desc()).first()
 
 		return project_version_result
-		
+
 class DeleteSavedProject( BaseHandler ):
 	@authenticated
 	@gen.coroutine
@@ -7899,28 +7899,56 @@ class DeleteSavedProject( BaseHandler ):
 		}
 		
 		validate_schema( self.json, schema )
-		
+		project_id = self.json[ "id" ]
+
 		logit( "Deleting saved project..." )
-		
+
 		# Ensure user is owner of the project
-		if not self.is_owner_of_project( self.json[ "id" ] ):
+		if not self.is_owner_of_project( project_id ):
 			self.write({
 				"success": False,
 				"code": "ACCESS_DENIED",
 				"msg": "You do not have priveleges to delete that project!",
 			})
 			raise gen.Return()
-			
+
+		credentials = self.get_authenticated_user_cloud_configuration()
+
 		# Pull the latest project config
 		project_config = self.dbsession.query( ProjectConfig ).filter_by(
-			project_id=self.json[ "id" ]
+			project_id=project_id
 		).first()
 
 		if project_config is not None:
 			self.delete_api_gateway(project_config)
 
+		# delete all AWS deployments
+		deployed_projects = self.dbsession.query( Deployment ).filter_by(
+			project_id=project_id
+		).all()
+		for deployment in deployed_projects:
+			# load deployed project workflow states
+			deployment_json = json.loads(deployment.deployment_json)
+
+			if "workflow_states" not in deployment_json:
+				raise Exception("Corrupt deployment JSON data read from database, missing workflow_states for teardown")
+
+			teardown_nodes = deployment_json[ "workflow_states" ]
+
+			# do the teardown of the deployed aws infra
+			teardown_operation_results = yield teardown_infrastructure(
+				credentials,
+				teardown_nodes
+			)
+
+		# delete existing logs for the project
+		delete_logs(
+			credentials,
+			project_id
+		)
+
 		saved_project_result = self.dbsession.query( Project ).filter_by(
-			id=self.json[ "id" ]
+			id=project_id
 		).first()
 		
 		self.dbsession.delete( saved_project_result )
@@ -7971,7 +7999,7 @@ class DeployDiagram( BaseHandler ):
 		diagram_data = json.loads( self.json[ "diagram_data" ] )
 		
 		credentials = self.get_authenticated_user_cloud_configuration()
-		
+
 		deployment_data = yield deploy_diagram(
 			credentials,
 			project_name,

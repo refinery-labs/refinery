@@ -2,6 +2,8 @@ import tornado.web
 import json
 import os
 
+from tornado import gen
+
 from models.initiate_database import *
 from models.users import User
 from models.projects import Project
@@ -30,7 +32,10 @@ class BaseHandler( tornado.web.RequestHandler ):
 		
 		# For caching the currently-authenticated user
 		self.authenticated_user = None
-		
+
+		# For caching the user's aws credentials
+		self.user_aws_credentials = None
+
 		self._dbsession = None
     
 	def initialize( self ):
@@ -81,24 +86,40 @@ class BaseHandler( tornado.web.RequestHandler ):
 		This just returns the first cloud configuration. Short term use since we'll
 		eventually be moving to a multiple AWS account deploy system.
 		"""
+		def raise_credential_error():
+			self.write({
+				"success": False,
+				"code": "NO_CREDENTIALS",
+				"msg": "No aws credentials are present for the current user.",
+			})
+			raise gen.Return()
+
+		if self.user_aws_credentials is not None:
+			return self.user_aws_credentials
+
 		# Pull the authenticated user's organization
 		user_organization = self.get_authenticated_user_org()
-		
+
 		if user_organization == None:
-			return None
-		
+			logit( "Account has no organization associated with it!" )
+
+			# credential error is raised, does not return
+			raise_credential_error()
+
 		aws_account = self.dbsession.query( AWSAccount ).filter_by(
 			organization_id=user_organization.id,
 			aws_account_status="IN_USE"
 		).first()
-		
+
 		if aws_account:
-			return aws_account.to_dict()
-			
+			self.user_aws_credentials = aws_account.to_dict()
+			return self.user_aws_credentials
+
 		logit( "Account has no AWS account associated with it!" )
-		
-		return False
-		
+
+		# credential error is raised, does not return
+		raise_credential_error()
+
 	def get_authenticated_user_org( self ):
 		# First we grab the organization ID
 		authentication_user = self.get_authenticated_user()

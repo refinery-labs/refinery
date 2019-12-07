@@ -25,6 +25,7 @@ import { OpenProjectMutation } from '@/types/project-editor-types';
 import { AddBlockArguments } from '@/store/modules/project-view';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { SavedBlockStatusCheckResult } from '@/types/api-types';
+import { ProjectViewState } from '@/store/store-types';
 
 function validatePathHasLeadingSlash(apiPath: string) {
   const pathHead = apiPath.startsWith('/') ? '' : '/';
@@ -385,4 +386,55 @@ export function createBlockDataForPublishedSavedBlock(
     name: name,
     saved_input_data: savedInputData
   };
+}
+
+export async function addAPIBlocksToProject(
+  newlyAddedBlock: WorkflowState,
+  state: ProjectViewState,
+  dispatch: Dispatch
+) {
+  if (state.openedProject === null) {
+    console.error('Error cannot add API Endpoint no project is open.');
+    return;
+  }
+
+  // Check if the user already has an API Response blocks in their project
+  const existingAPIBlocks = state.openedProject.workflow_states.filter(workflowState => {
+    const blockIsAPIType =
+      workflowState.type === WorkflowStateType.API_GATEWAY_RESPONSE ||
+      workflowState.type === WorkflowStateType.API_ENDPOINT;
+    return blockIsAPIType && workflowState.id !== newlyAddedBlock.id;
+  });
+
+  const newlyAddedResponseBlock = await dispatch(ProjectViewActions.addIndividualBlock, {
+    rawBlockType: WorkflowStateType.API_GATEWAY_RESPONSE,
+    selectAfterAdding: false
+  });
+
+  // If they have existing API response block, don't add the chain
+  if (existingAPIBlocks.length > 0) {
+    return;
+  }
+
+  const newlyAddedCodeBlock = await dispatch(ProjectViewActions.addIndividualBlock, {
+    rawBlockType: WorkflowStateType.LAMBDA,
+    selectAfterAdding: false
+  });
+
+  // Create transitions for API Endpoint -> Code Block -> API Response
+  const endpointToCodeBlockTransition = createNewTransition(
+    WorkflowRelationshipType.THEN,
+    newlyAddedBlock.id,
+    newlyAddedCodeBlock.id,
+    ''
+  );
+  const codeBlockToResponseBlockTransition = createNewTransition(
+    WorkflowRelationshipType.THEN,
+    newlyAddedCodeBlock.id,
+    newlyAddedResponseBlock.id,
+    ''
+  );
+
+  await dispatch(ProjectViewActions.addTransition, endpointToCodeBlockTransition);
+  await dispatch(ProjectViewActions.addTransition, codeBlockToResponseBlockTransition);
 }
