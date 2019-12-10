@@ -18,10 +18,12 @@ export default class AddSavedBlockPaneContainer extends Vue {
       searchResultsPublished: AddSavedBlockPaneStoreModule.searchResultsPublished,
       isBusySearching: AddSavedBlockPaneStoreModule.isBusySearching,
       searchInput: AddSavedBlockPaneStoreModule.searchInput,
+      languageInput: AddSavedBlockPaneStoreModule.languageInput,
       addChosenBlock: id => AddSavedBlockPaneStoreModule.selectBlockToAdd(id),
       goBackToAddBlockPane: () => AddSavedBlockPaneStoreModule.goBackToAddBlockPane(),
       searchSavedBlocks: () => AddSavedBlockPaneStoreModule.searchSavedBlocks(),
-      setSearchInputValue: val => AddSavedBlockPaneStoreModule.setSearchInputValue(val)
+      setSearchInputValue: val => AddSavedBlockPaneStoreModule.setSearchInputValue(val),
+      setLanguageInputValue: val => AddSavedBlockPaneStoreModule.setLanguageInputValue(val)
     };
 
     return <AddSavedBlockPane props={addSavedBlockPaneProps} />;

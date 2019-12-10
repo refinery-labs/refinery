@@ -672,6 +672,7 @@ export enum SharedBlockPublishStatus {
 export interface SearchSavedBlocksRequest extends BaseApiRequest {
   search_string: string;
   share_status: SharedBlockPublishStatus;
+  language: string;
 }
 
 export interface SearchSavedBlocksResponse extends BaseApiResponse {
