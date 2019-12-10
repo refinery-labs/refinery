@@ -7063,13 +7063,17 @@ def generate_saved_block_filters(share_status, block_language, search_string, au
 			)
 		)
 
-	if authenticated_user_id != None:
+	if share_status == "PRIVATE":
+		if authenticated_user_id == None:
+			# Return nothing because we're not logged in, so there can't possibly be private blocks to search.
+			return [False]
+
 		# Default is to just search your own saved blocks
 		saved_block_filters.append(
 			SavedBlock.user_id == authenticated_user_id
 		)
 
-	if share_status == "PUBLISHED" or authenticated_user_id == None:
+	if share_status == "PUBLISHED":
 		saved_block_filters.append(
 			SavedBlock.share_status == "PUBLISHED"
 		)
