@@ -7135,13 +7135,16 @@ class SavedBlockSearch( BaseHandler ):
 			share_status, block_language, search_string, authenticated_user_id
 		)
 
+		# TODO: Add pagination and limit the number of results returned.
+		# NOTE: When you JOIN like this and specify a limit of X, you are limiting to the last X block versions.
+		# This produces the nasty side effect of appearing to "lose" blocks that have been published. Need to figure out a fix for this.
 		# Search through all published saved blocks
 		saved_blocks = self.dbsession.query( SavedBlock ).join(
 			# join the saved block and version tables based on IDs
 			SavedBlockVersion, SavedBlock.id == SavedBlockVersion.saved_block_id
 		).filter(
 			*saved_block_filters
-		).limit(25).all()
+		).all()
 		
 		return_list = []
 		
