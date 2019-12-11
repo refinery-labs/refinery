@@ -483,7 +483,6 @@ $content-sidebar-width: 92px;
 
 .add-saved-block-container {
   overflow-y: auto;
-  height: 470px;
 
   &__result {
     max-height: 68px;
@@ -506,6 +505,7 @@ $content-sidebar-width: 92px;
 .filter-pane-column {
   min-width: 240px;
   padding: 7px;
+  max-height: calc(100vh - 220px);
 }
 
 .monaco-editor {
