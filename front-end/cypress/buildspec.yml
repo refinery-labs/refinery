@@ -1,0 +1,16 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 10
+    commands:
+      - npm install -g @vue/cli
+      - yum install -y libdbusmenu-gtk3-4 libappindicator3-1 libgtk-3-0 libxss1 xdg-utils fonts-liberation
+      - cd "$CODEBUILD_SRC_DIR/front-end"
+  build:
+    commands:
+      - npm install
+      - npm run modernizr
+      - npm run compile-validators
+      - npm run test:e2e
