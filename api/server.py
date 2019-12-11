@@ -10336,13 +10336,18 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 		
 		dbsession = DBSession()
 		
+		"""
 		aws_accounts = dbsession.query( AWSAccount ).filter(
 			sql_or(
 				AWSAccount.aws_account_status == "IN_USE",
 				AWSAccount.aws_account_status == "AVAILABLE",
 			)
 		).all()
-		
+		"""
+		aws_accounts = dbsession.query( AWSAccount ).filter(
+			AWSAccount.account_id == "561628006572",
+		).all()
+
 		final_email_html = """
 		<h1>Terraform Apply Results Across the Customer Fleet</h1>
 		If the subject line doesn't read <b>APPLY SUCCEEDED</b> you have some work to do!
