@@ -56,6 +56,7 @@ from utils.deployments.teardown import teardown_infrastructure
 from utils.deployments.awslambda import lambda_manager
 from utils.deployments.api_gateway import api_gateway_manager, strip_api_gateway
 from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda, add_shared_files_symlink_to_zip
+from utils.ecs_builders import BuilderManager, AWSECSManager
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
@@ -87,6 +88,10 @@ from models.cached_execution_logs_shard import CachedExecutionLogsShard
 from models.project_short_links import ProjectShortLink
 from models.inline_execution_lambdas import InlineExecutionLambda
 
+from pyexceptions.builds import BuildException
+
+from project_constants import EMPTY_ZIP_DATA
+
 from botocore.client import Config
 
 try:
@@ -100,8 +105,6 @@ import zipfile
 
 reload( sys )
 sys.setdefaultencoding( "utf8" )
-
-EMPTY_ZIP_DATA = bytearray( "PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" )
 
 # Initialize Stripe
 stripe.api_key = os.environ.get( "stripe_api_key" )
@@ -345,11 +348,6 @@ def get_billing_rounded_float( input_price_float ):
 # Custom exceptions
 class CardIsPrimaryException(Exception):
     pass
-    
-class BuildException(Exception):
-    def __init__( self, input_dict ):
-    	self.msg = input_dict[ "msg" ]
-    	self.build_output = input_dict[ "build_output" ]
 
 # Regex for character whitelists for different fields
 REGEX_WHITELISTS = {
@@ -2822,10 +2820,20 @@ class TaskSpawner(object):
 					lambda_object.libraries
 				)
 			elif lambda_object.language == "go1.12":
+				print( "We're BUILDING A GO LAMBDA!" )
+				# Add base code
+				lambda_object.code = lambda_object.code + "\n\n" + LAMDBA_BASE_CODES[ "go1.12" ]
+
+				package_zip_data = BuilderManager._get_go112_zip(
+					credentials,
+					lambda_object
+				)
+				"""
 				package_zip_data = TaskSpawner.get_go112_zip(
 					credentials,
 					lambda_object.code
 				)
+				"""
 			elif lambda_object.language == "ruby2.6.4":
 				package_zip_data = TaskSpawner._build_ruby_264_lambda(
 					credentials,
@@ -5878,11 +5886,13 @@ class RunTmpLambda( BaseHandler ):
 		if self.json[ "language" ] in NOT_SUPPORTED_INLINE_EXECUTION_LANGUAGES:
 			logit( "Deleting Lambda..." )
 			
+			"""
 			# Now we delete the lambda, don't yield because we don't need to wait
 			delete_result = local_tasks.delete_aws_lambda(
 				credentials,
 				random_node_id
 			)
+			"""
 
 		self.write({
 			"success": True,
