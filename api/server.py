@@ -64,6 +64,7 @@ from controller.executions_controller import ExecutionsControllerServer
 from controller.lambda_connect_back import LambdaConnectBackServer
 from controller.dangling_resources import CleanupDanglingResources
 from controller.clear_invoice_drafts import ClearStripeInvoiceDrafts
+from controller.ecsbuilders import GetBuilderECSIP
 
 from data_types.aws_resources.alambda import Lambda
 
@@ -10999,6 +11000,7 @@ def make_app( tornado_config ):
 		( r"/api/v1/internal/log", StashStateLog ),
 		( r"/api/v1/project_short_link/create", CreateProjectShortlink ),
 		( r"/api/v1/project_short_link/get", GetProjectShortlink ),
+		( r"/api/v1/builders/get_ip", GetBuilderECSIP ),
 		# WebSocket endpoint for live debugging Lambdas
 		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer, {
 			"websocket_router": tornado_config[ "websocket_router" ]
