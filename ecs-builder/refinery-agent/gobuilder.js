@@ -74,25 +74,29 @@ async function _buildGoBinary(buildID, buildBasePath, baseCode, sharedFiles, lib
 
 	// Pull all of the Go packages
 	console.log(`Build base path ${buildBasePath}...`);
-	console.log('Running "go get"..."');
-	const goGetStartTime = +new Date();
-	try {
-		const packageOutput = await executeBinary(
-			'go',
-			[
-				'get'
-			].concat( libraries ),
-			buildBasePath,
-			goBuildEnvVars
-		);
-	} catch ( e ) {
-		console.log('"go get" exception: ' );
-		console.log(e);
-		throw new GoGetError(e);
-	}
 
-	const goGetEndTime = +new Date();
-	console.log(`"go get" took ${(goGetEndTime-goGetStartTime)/1000} second(s).`);
+	// Skip if there are no libraries to get.
+	if(libraries.length > 0) {
+		console.log('Running "go get"..."');
+		const goGetStartTime = +new Date();
+		try {
+			const packageOutput = await executeBinary(
+				'go',
+				[
+					'get'
+				].concat( libraries ),
+				buildBasePath,
+				goBuildEnvVars
+			);
+		} catch ( e ) {
+			console.log('"go get" exception: ' );
+			console.log(e);
+			throw new GoGetError(e);
+		}
+
+		const goGetEndTime = +new Date();
+		console.log(`"go get" took ${(goGetEndTime-goGetStartTime)/1000} second(s).`);
+	}
 
 	// Build the Go binary
 	console.log('Running "go build"...');

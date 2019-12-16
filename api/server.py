@@ -56,7 +56,7 @@ from utils.deployments.teardown import teardown_infrastructure
 from utils.deployments.awslambda import lambda_manager
 from utils.deployments.api_gateway import api_gateway_manager, strip_api_gateway
 from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda, add_shared_files_symlink_to_zip
-from utils.ecs_builders import BuilderManager, AWSECSManager
+from utils.ecs_builders import builder_manager, BuilderManager
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
@@ -65,7 +65,6 @@ from controller.executions_controller import ExecutionsControllerServer
 from controller.lambda_connect_back import LambdaConnectBackServer
 from controller.dangling_resources import CleanupDanglingResources
 from controller.clear_invoice_drafts import ClearStripeInvoiceDrafts
-from controller.ecsbuilders import GetBuilderECSIP
 
 from data_types.aws_resources.alambda import Lambda
 
@@ -117,12 +116,7 @@ csv.field_size_limit( sys.maxsize )
 LAMBDA_CALLBACK_ENDPOINT = False
 			
 def on_start():
-	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES, CUSTOMER_IAM_POLICY, DEFAULT_PROJECT_ARRAY, DEFAULT_PROJECT_CONFIG, NOT_SUPPORTED_INLINE_EXECUTION_LANGUAGES
-	
-	# Not-support inline execution languages (defaults to slower method)
-	NOT_SUPPORTED_INLINE_EXECUTION_LANGUAGES = [
-		"go1.12"
-	]
+	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES, CUSTOMER_IAM_POLICY, DEFAULT_PROJECT_ARRAY, DEFAULT_PROJECT_CONFIG
 	
 	DEFAULT_PROJECT_CONFIG = {
 		"version": "1.0.0",
@@ -2820,20 +2814,13 @@ class TaskSpawner(object):
 					lambda_object.libraries
 				)
 			elif lambda_object.language == "go1.12":
-				print( "We're BUILDING A GO LAMBDA!" )
-				# Add base code
-				lambda_object.code = lambda_object.code + "\n\n" + LAMDBA_BASE_CODES[ "go1.12" ]
-
+				lambda_object.code = TaskSpawner._get_go_112_base_code(
+					lambda_object.code
+				)
 				package_zip_data = BuilderManager._get_go112_zip(
 					credentials,
 					lambda_object
 				)
-				"""
-				package_zip_data = TaskSpawner.get_go112_zip(
-					credentials,
-					lambda_object.code
-				)
-				"""
 			elif lambda_object.language == "ruby2.6.4":
 				package_zip_data = TaskSpawner._build_ruby_264_lambda(
 					credentials,
@@ -2937,7 +2924,7 @@ class TaskSpawner(object):
 			# If it's an inline execution we can cache the
 			# built Lambda and re-used it for future executions
 			# that share the same configuration when run.
-			if lambda_object.is_inline_execution and not ( lambda_object.language in NOT_SUPPORTED_INLINE_EXECUTION_LANGUAGES ):
+			if lambda_object.is_inline_execution:
 				logit( "Caching inline execution to speed up future runs..." )
 				TaskSpawner._cache_inline_lambda_execution(
 					credentials,
@@ -3066,9 +3053,14 @@ class TaskSpawner(object):
 				"timeout": timeout,
 				"memory": memory,
 				"environment_variables": environment_variables,
-				"layers": lambda_layers,
-				"libraries": libraries
+				"layers": lambda_layers
 			}
+
+			# For Go we don't include the libraries in the inline Lambda
+			# hash key because the final binary is built in ECS before
+			# being pulled down by the inline Lambda.
+			if language != "go1.12":
+				hash_dict[ "libraries" ] = libraries
 			
 			hash_key = hashlib.sha256(
 				json.dumps(
@@ -3258,114 +3250,6 @@ class TaskSpawner(object):
 				build_id,
 				final_s3_package_zip_path
 			)
-			
-		@staticmethod
-		def start_go112_codebuild( credentials, code ):
-			code = code + "\n\n" + LAMDBA_BASE_CODES[ "go1.12" ]
-			
-			codebuild_client = get_aws_client(
-				"codebuild",
-				credentials
-			)
-			
-			s3_client = get_aws_client(
-				"s3",
-				credentials
-			)
-			
-			# Create empty zip file
-			codebuild_zip = io.BytesIO( EMPTY_ZIP_DATA )
-			
-			buildspec_template = {
-				"artifacts": {
-					"files": [
-						 "**/*"
-					]
-				},
-				"phases": {
-					"build": {
-						"commands": [
-							"export GOPATH=\"$(pwd)\"",
-							"export GOBIN=$GOPATH/bin",
-							"go get",
-							"go build lambda.go"
-						]
-					},
-					"install": {
-						"runtime-versions": {
-							"golang": 1.12
-						}
-					}
-				},
-				"run-as": "root",
-				"version": 0.2
-			}
-			
-			empty_folders = [
-				"bin",
-				"pkg",
-				"src"
-			]
-			
-			with zipfile.ZipFile( codebuild_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
-				# Write buildspec.yml defining the build process
-				buildspec = zipfile.ZipInfo(
-					"buildspec.yml"
-				)
-				buildspec.external_attr = 0777 << 16L
-				zip_file_handler.writestr(
-					buildspec,
-					yaml.dump(
-						buildspec_template
-					)
-				)
-				
-				# Write the main.go file
-				main_go_file = zipfile.ZipInfo(
-					"lambda.go"
-				)
-				main_go_file.external_attr = 0777 << 16L
-				zip_file_handler.writestr(
-					main_go_file,
-					str( code )
-				)
-				
-				# Create empty folders for bin, pkg, and src
-				for empty_folder in empty_folders:
-					blank_file = zipfile.ZipInfo(
-						empty_folder + "/blank"
-					)
-					blank_file.external_attr = 0777 << 16L
-					zip_file_handler.writestr(
-						blank_file,
-						""
-					)
-				
-			
-			codebuild_zip_data = codebuild_zip.getvalue()
-			codebuild_zip.close()
-			
-			# S3 object key of the build package, randomly generated.
-			s3_key = "buildspecs/" + str( uuid.uuid4() ) + ".zip"
-			
-			# Write the CodeBuild build package to S3
-			s3_response = s3_client.put_object(
-				Bucket=credentials[ "lambda_packages_bucket" ],
-				Body=codebuild_zip_data,
-				Key=s3_key,
-				ACL="public-read", # THIS HAS TO BE PUBLIC READ FOR SOME FUCKED UP REASON I DONT KNOW WHY
-			)
-			
-			# Fire-off the build
-			codebuild_response = codebuild_client.start_build(
-				projectName="refinery-builds",
-				sourceTypeOverride="S3",
-				sourceLocationOverride=credentials[ "lambda_packages_bucket" ] + "/" + s3_key,
-			)
-			
-			build_id = codebuild_response[ "build" ][ "id" ]
-			
-			return build_id
 			
 		@run_on_executor
 		def start_python36_codebuild( self, credentials, libraries_object ):
@@ -4149,6 +4033,11 @@ class TaskSpawner(object):
 			lambda_package_zip.close()
 			
 			return lambda_package_zip_data
+
+		@staticmethod
+		def _get_go_112_base_code( code ):
+			code = code + "\n\n" + LAMDBA_BASE_CODES[ "go1.12" ]
+			return code
 			
 		@staticmethod
 		def _get_ruby_264_base_code( code ):
@@ -5592,7 +5481,10 @@ def get_base_lambda_code( language, code ):
 		return TaskSpawner._get_ruby_264_base_code(
 			code
 		)
-
+	elif language == "go1.12":
+		return TaskSpawner._get_go_112_base_code(
+			code
+		)
 
 class RunTmpLambda( BaseHandler ):
 	@authenticated
@@ -5750,12 +5642,11 @@ class RunTmpLambda( BaseHandler ):
 		
 		cached_inline_execution_lambda = None
 		
-		if not ( self.json[ "language" ] in NOT_SUPPORTED_INLINE_EXECUTION_LANGUAGES ):
-			# Check if we already have an inline execution Lambda for it.
-			cached_inline_execution_lambda = self.dbsession.query( InlineExecutionLambda ).filter_by(
-				aws_account_id=credentials[ "id" ],
-				unique_hash_key=inline_lambda_hash_key
-			).first()
+		# Check if we already have an inline execution Lambda for it.
+		cached_inline_execution_lambda = self.dbsession.query( InlineExecutionLambda ).filter_by(
+			aws_account_id=credentials[ "id" ],
+			unique_hash_key=inline_lambda_hash_key
+		).first()
 		
 		# We can skip this if we already have a cached execution
 		if cached_inline_execution_lambda:
@@ -5817,11 +5708,24 @@ class RunTmpLambda( BaseHandler ):
 			self.json[ "code" ]
 		)
 
-		# Generate Lambda run input
-		execute_lambda_params[ "_refinery" ][ "inline_code" ] = {
-			"base_code": inline_execution_code,
-			"shared_files": self.json[ "shared_files" ]
-		}
+		if self.json[ "language" ] == "go1.12":
+			inline_lambda.code = inline_execution_code
+
+			binary_s3_path = yield builder_manager.get_go112_binary_s3(
+				credentials,
+				inline_lambda
+			)
+
+			execute_lambda_params[ "_refinery" ][ "inline_code" ] = {
+				"s3_path": binary_s3_path,
+				"shared_files": self.json[ "shared_files" ]
+			}
+		else:
+			# Generate Lambda run input
+			execute_lambda_params[ "_refinery" ][ "inline_code" ] = {
+				"base_code": inline_execution_code,
+				"shared_files": self.json[ "shared_files" ]
+			}
 		
 		if "debug_id" in self.json:
 			execute_lambda_params[ "_refinery" ][ "live_debug" ] = {
@@ -5883,16 +5787,16 @@ class RunTmpLambda( BaseHandler ):
 		# If it's not a supported language for inline execution that
 		# means that it needs to be manually deleted since it's not in the
 		# regular garbage collection pool.
+		"""
 		if self.json[ "language" ] in NOT_SUPPORTED_INLINE_EXECUTION_LANGUAGES:
 			logit( "Deleting Lambda..." )
-			
-			"""
+
 			# Now we delete the lambda, don't yield because we don't need to wait
 			delete_result = local_tasks.delete_aws_lambda(
 				credentials,
 				random_node_id
 			)
-			"""
+		"""
 
 		self.write({
 			"success": True,
@@ -5959,6 +5863,11 @@ def get_environment_variables_for_lambda( credentials, lambda_object ):
 	})
 
 	all_environment_vars.append({
+		"key": "PACKAGES_BUCKET_NAME",
+		"value": credentials[ "lambda_packages_bucket" ],
+	})
+
+	all_environment_vars.append({
 		"key": "PIPELINE_LOGGING_LEVEL",
 		"value": lambda_object.execution_log_level,
 	})
@@ -5975,7 +5884,7 @@ def get_environment_variables_for_lambda( credentials, lambda_object ):
 		),
 	})
 	
-	if lambda_object.is_inline_execution and not lambda_object.language in NOT_SUPPORTED_INLINE_EXECUTION_LANGUAGES:
+	if lambda_object.is_inline_execution:
 		# The environment variable activates it as
 		# an inline execution Lambda and allows us to
 		# pass in arbitrary code to execution.
@@ -6031,7 +5940,8 @@ def get_layers_for_lambda( language ):
 		)
 	elif language == "go1.12":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:28"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:28"
+			"arn:aws:lambda:us-west-2:561628006572:layer:go:6"
 		)
 	elif language == "python2.7":
 		new_layers.append(
@@ -8257,50 +8167,6 @@ def create_lambda_api_route( credentials, api_gateway_id, http_method, route, la
 		lambda_name
 	)
 	
-@gen.coroutine
-def get_cloudflare_keys():
-	"""
-	Get keys to validate inbond JWTs
-	"""
-	global CF_ACCESS_PUBLIC_KEYS
-	CF_ACCESS_PUBLIC_KEYS = []
-	
-	# Update public keys every hour
-	public_keys_update_interval = (
-		60 * 60 * 1
-	)
-	
-	logit( "Requesting Cloudflare's Access keys for '" + os.environ.get( "cf_certs_url" ) + "'..." )
-	client = AsyncHTTPClient()
-	
-	request = HTTPRequest(
-		url=os.environ.get( "cf_certs_url" ),
-		method="GET",
-	)
-	
-	response = yield client.fetch(
-		request
-	)
-	
-	response_data = json.loads(
-		response.body
-	)
-	
-	for key_dict in response_data[ "keys" ]:
-		public_key = jwt.algorithms.RSAAlgorithm.from_jwk(
-			json.dumps(
-				key_dict
-			)
-		)
-		CF_ACCESS_PUBLIC_KEYS.append(
-			public_key
-		)
-	
-	logit( "Private keys to be updated again in " + str( public_keys_update_interval ) + " second(s)..." )
-	tornado.ioloop.IOLoop.current().add_timeout(
-		time.time() + public_keys_update_interval,
-		get_cloudflare_keys
-	)
 	
 @gen.coroutine
 def load_further_partitions( credentials, project_id, new_shards_list ):
@@ -11010,7 +10876,6 @@ def make_app( tornado_config ):
 		( r"/api/v1/internal/log", StashStateLog ),
 		( r"/api/v1/project_short_link/create", CreateProjectShortlink ),
 		( r"/api/v1/project_short_link/get", GetProjectShortlink ),
-		( r"/api/v1/builders/get_ip", GetBuilderECSIP ),
 		# WebSocket endpoint for live debugging Lambdas
 		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer, {
 			"websocket_router": tornado_config[ "websocket_router" ]

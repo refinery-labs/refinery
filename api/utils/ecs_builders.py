@@ -5,6 +5,7 @@ import requests
 import tornado
 import random
 import boto3
+import uuid
 import copy
 import time
 import json
@@ -197,6 +198,10 @@ class AWSECSManager(object):
 								{
 									"name": "AGENT_SECRET",
 									"value": builder_agent_secret
+								},
+								{
+									"name": "MAX_IDLE_TIME",
+									"value": "15"
 								}
 							]
 						}
@@ -320,7 +325,6 @@ class AWSECSManager(object):
 		remaining_attempts = 5 * 60
 		
 		while remaining_attempts > 0:
-			logit( "Checking the cache data..." )
 			if not credentials[ "account_id" ] in ECS_MEM_CACHE:
 				# Expired from cache, let's just kick off another task
 				return AWSECSManager._get_build_container_ips(
@@ -428,7 +432,7 @@ class BuilderManager(object):
 		self.loop = loop or tornado.ioloop.IOLoop.current()
 
 	@staticmethod
-	def _get_go112_zip( credentials, lambda_object ):
+	def _get_build_container_ip( credentials ):
 		# Get build container IPs
 		build_container_ips = AWSECSManager._get_build_container_ips(
 			credentials,
@@ -439,21 +443,67 @@ class BuilderManager(object):
 		random.shuffle(build_container_ips)
 
 		# Grab IP from list of IPs
-		build_container_ip = build_container_ips[0]
+		return build_container_ips[0]
 
-		return BuilderManager._get_build_package(
+	@staticmethod
+	def _get_go112_zip( credentials, lambda_object ):
+		build_container_ip = BuilderManager._get_build_container_ip(
+			credentials
+		)
+
+		go_binary_data = BuilderManager._get_go_compiled_binary(
 			credentials,
 			build_container_ip,
 			lambda_object
 		)
 
-	@staticmethod
-	def _get_lambda_package( lambda_object, go_binary_data ):
-		print( "GENERATING GO PACKAGE!" )
-		lambda_package_zip = io.BytesIO( EMPTY_ZIP_DATA )
+		return BuilderManager._get_lambda_package(
+			go_binary_data
+		)
 
-		print( "Type of Go binary: " )
-		print( type( go_binary_data ) )
+	@run_on_executor
+	def get_go112_binary_s3( self, credentials, lambda_object ):
+		return BuilderManager._get_go112_binary_s3( credentials, lambda_object )
+
+	@staticmethod
+	def _get_go112_binary_s3( credentials, lambda_object ):
+		build_container_ip = BuilderManager._get_build_container_ip(
+			credentials
+		)
+		
+		go_binary_data = BuilderManager._get_go_compiled_binary(
+			credentials,
+			build_container_ip,
+			lambda_object
+		)
+
+		# Upload binary to S3
+		return BuilderManager._upload_binary_to_s3(
+			credentials,
+			go_binary_data
+		)
+
+	@staticmethod
+	def _upload_binary_to_s3( credentials, go_binary_data ):
+		s3_client = get_aws_client(
+			"s3",
+			credentials
+		)
+
+		binary_path = "compiled_binaries/" + str( uuid.uuid4() )
+
+		s3_response = s3_client.put_object(
+			Bucket=credentials[ "lambda_packages_bucket" ],
+			Body=go_binary_data,
+			Key=binary_path,
+			ACL="private"
+		)
+
+		return binary_path
+
+	@staticmethod
+	def _get_lambda_package( go_binary_data ):
+		lambda_package_zip = io.BytesIO( EMPTY_ZIP_DATA )
 
 		with zipfile.ZipFile( lambda_package_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
 			info = zipfile.ZipInfo(
@@ -470,7 +520,7 @@ class BuilderManager(object):
 		return lambda_package_zip_data
 
 	@staticmethod
-	def _get_build_package( credentials, build_container_ip, lambda_object ):
+	def _get_go_compiled_binary( credentials, build_container_ip, lambda_object ):
 		headers = {
 			"X-Agent-Key": get_builder_shared_secret( credentials ),
 			"Content-Type": "application/json; charset=UTF-8"
@@ -492,15 +542,9 @@ class BuilderManager(object):
 		# Pull header to get the status of the build
 		build_status = response.headers.get( "X-Compile-Status", None )
 
-		logit( "Got response code " + str( build_status ) + " from the builder agent." )
-
 		# If this succeeded we're done and can return the final binary.
 		if build_status == "SUCCESS":
-			return BuilderManager._get_lambda_package(
-				lambda_object,
-				response.content
-			)
-			
+			return response.content
 		elif build_status == "GO_GET_ERROR":
 			raise BuildException({
 				"msg": "An error occurred while running \"go get\", see the build output for more information.",
@@ -522,4 +566,4 @@ class BuilderManager(object):
 			"build_output": "The Refinery builder agent failed while trying to build your package, please submit this to Refinery support.",
 		})
 
-builder_manager = AWSECSManager()
+builder_manager = BuilderManager()

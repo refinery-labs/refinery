@@ -176,6 +176,8 @@ COPY refinery-agent/package-lock.json /refinery/
 
 RUN echo "Installing Refinery ECS agent dependencies..." && npm install
 
+RUN npm install -g nodemon
+
 COPY refinery-agent/agent.js /refinery/
 COPY refinery-agent/gobuilder.js /refinery/
 
