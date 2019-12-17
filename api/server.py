@@ -10022,6 +10022,13 @@ class BuildLibrariesPackage( BaseHandler ):
 				credentials,
 				libraries_dict
 			)
+		elif self.json[ "language" ] == "go1.12":
+			# We spin up our ECS task to get this going.
+			# Don't yield here, we don't care about the result
+			logit( "Heating up the Build Container..." )
+			builder_manager.get_build_container_ip(
+				credentials
+			)
 		else:
 			self.error(
 				"You've provided a language that Refinery does not currently support!",
@@ -10029,13 +10036,14 @@ class BuildLibrariesPackage( BaseHandler ):
 			)
 			raise gen.Return()
 		
-		# Don't yield here because we don't care about the outcome of this task
-		# we just want to kick it off in the background
-		local_tasks.finalize_codebuild(
-			credentials,
-			build_id,
-			final_s3_package_zip_path
-		)
+		if build_id:
+			# Don't yield here because we don't care about the outcome of this task
+			# we just want to kick it off in the background
+			local_tasks.finalize_codebuild(
+				credentials,
+				build_id,
+				final_s3_package_zip_path
+			)
 		
 		self.write({
 			"success": True,
@@ -10213,16 +10221,11 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 		
 		dbsession = DBSession()
 		
-		"""
 		aws_accounts = dbsession.query( AWSAccount ).filter(
 			sql_or(
 				AWSAccount.aws_account_status == "IN_USE",
 				AWSAccount.aws_account_status == "AVAILABLE",
 			)
-		).all()
-		"""
-		aws_accounts = dbsession.query( AWSAccount ).filter(
-			AWSAccount.account_id == "561628006572",
 		).all()
 
 		final_email_html = """

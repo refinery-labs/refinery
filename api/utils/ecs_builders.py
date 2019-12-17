@@ -14,6 +14,7 @@ import io
 
 from tornado.concurrent import run_on_executor, futures
 from utils.aws_client import get_aws_client, STS_CLIENT
+from requests.exceptions import ConnectionError
 from pyexceptions.builds import BuildException
 from project_constants import EMPTY_ZIP_DATA
 from botocore.exceptions import ClientError
@@ -32,6 +33,16 @@ import zipfile
 
 CLUSTER_NAME = "refinery_builders"
 TASK_DEFINITION = "refinery_builders_task_family"
+
+# The number of minutes to idle before spinning down
+# the ECS task. This is too save costs as ECS charges
+# per minute and we're using medium sized instance.
+# The longer the idle, the longer it'll remain ready
+# for someone to run another compile but the more costly
+# it will be. The shorter the idle, the less time it will
+# wait to spin down, but the user will encounter slow-startups
+# more often.
+BUILDER_IDLE_SPIN_DOWN_MINUTES = "15"
 
 """
 Store whether a container is currently being spun up for builds.
@@ -201,7 +212,7 @@ class AWSECSManager(object):
 								},
 								{
 									"name": "MAX_IDLE_TIME",
-									"value": "15"
+									"value": BUILDER_IDLE_SPIN_DOWN_MINUTES
 								}
 							]
 						}
@@ -431,6 +442,12 @@ class BuilderManager(object):
 		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()
 
+	@run_on_executor
+	def get_build_container_ip( self, credentials ):
+		return BuilderManager._get_build_container_ip(
+			credentials
+		)
+
 	@staticmethod
 	def _get_build_container_ip( credentials ):
 		# Get build container IPs
@@ -470,12 +487,22 @@ class BuilderManager(object):
 		build_container_ip = BuilderManager._get_build_container_ip(
 			credentials
 		)
-		
-		go_binary_data = BuilderManager._get_go_compiled_binary(
-			credentials,
-			build_container_ip,
-			lambda_object
-		)
+
+		try:
+			go_binary_data = BuilderManager._get_go_compiled_binary(
+				credentials,
+				build_container_ip,
+				lambda_object
+			)
+		except ConnectionError as e:
+			# This will occur if the task has just spun down.
+			# Likely the old IP address of the task is incorrectly cached
+			# We'll clear it and try again
+			del ECS_MEM_CACHE[ credentials[ "account_id" ] ]
+			return BuilderManager._get_go112_binary_s3(
+				credentials,
+				lambda_object
+			)
 
 		# Upload binary to S3
 		return BuilderManager._upload_binary_to_s3(
