@@ -5940,8 +5940,7 @@ def get_layers_for_lambda( language ):
 		)
 	elif language == "go1.12":
 		new_layers.append(
-			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:28"
-			"arn:aws:lambda:us-west-2:561628006572:layer:go:6"
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:29"
 		)
 	elif language == "python2.7":
 		new_layers.append(
@@ -10220,7 +10219,7 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 		self.finish()
 		
 		dbsession = DBSession()
-		
+
 		aws_accounts = dbsession.query( AWSAccount ).filter(
 			sql_or(
 				AWSAccount.aws_account_status == "IN_USE",
