@@ -93,7 +93,7 @@ fabric.properties
 
 *.iml
 # modules.xml
-# .idea/misc.xml
+.idea/misc.xml
 # *.ipr
 
 # Sonarlint plugin
@@ -102,3 +102,8 @@ fabric.properties
 # End of https://www.gitignore.io/api/intellij
 
 alembic-prod.ini
+alembic.ini
+
+custom-runtime.zip
+layer-contents.zip
+layer-contents/

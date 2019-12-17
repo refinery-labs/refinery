@@ -114,6 +114,19 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
     const publishedBlocks = this.searchResultsPublished;
     const zeroResults = privateBlocks.length === 0 && publishedBlocks.length === 0;
 
+    const defaultLanguageOption = {
+      value: '',
+      text: 'All Languages'
+    };
+
+    const languageOptions = [
+      defaultLanguageOption,
+      ...Object.values(SupportedLanguage).map(v => ({
+        value: v,
+        text: v
+      }))
+    ];
+
     return (
       <div class="add-saved-block-container__parent text-align--left mb-2 ml-2 mr-2 mt-0 display--flex flex-direction--column">
         <a
@@ -124,38 +137,48 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
         >
           {'<< Go Back'}
         </a>
-        <b-form-group
-          class="padding-bottom--normal-small margin-bottom--normal-small"
-          description="Saved blocks are searched with the provided options."
-        >
-          <div class="padding-bottom--normal-small">
-            <div class="display--flex">
-              <label class="flex-grow--1">Search by Name:</label>
-              {this.isBusySearching && <b-spinner class="ml-auto" small={true} />}
-            </div>
-            <b-form-input
-              type="text"
-              autofocus={true}
-              required={true}
-              value={this.searchInput}
-              on={{ input: this.onSearchBoxInputChanged }}
-              placeholder="eg, Daily Timer"
-            />
+        <div class="display--flex flex-wrap">
+          <div class="filter-pane-column width--100-percent">
+            <b-form-group
+              class="padding-bottom--normal-small margin-bottom--normal-small"
+              description="Saved blocks are searched with the provided options."
+            >
+              <div class="padding-bottom--normal-small">
+                <div class="display--flex">
+                  <label class="flex-grow--1">Search by Name:</label>
+                  {this.isBusySearching && <b-spinner class="ml-auto" small={true} />}
+                </div>
+                <b-form-input
+                  type="text"
+                  autofocus={true}
+                  required={true}
+                  value={this.searchInput}
+                  on={{ input: this.onSearchBoxInputChanged }}
+                  placeholder="eg, Daily Timer"
+                />
+              </div>
+              <div class="padding-bottom--normal-small">
+                <div class="display--flex">
+                  <label class="flex-grow--1">Search by Language:</label>
+                </div>
+                <b-form-select
+                  on={{ input: this.onLanguageBoxInputChanged }}
+                  value={this.languageInput}
+                  options={languageOptions}
+                />
+              </div>
+            </b-form-group>
           </div>
-          <div class="padding-bottom--normal-small">
-            <div class="display--flex">
-              <label class="flex-grow--1">Search by Language:</label>
-            </div>
-            <b-form-select on={{ input: this.onLanguageBoxInputChanged }} options={Object.values(SupportedLanguage)} />
+          <div class="filter-pane-column width--100-percent scrollable-pane-container">
+            {!zeroResults && (
+              <div class="flex-grow--1">
+                {this.renderResultsByCategory(true, privateBlocks)}
+                {this.renderResultsByCategory(false, publishedBlocks)}
+              </div>
+            )}
+            {zeroResults && <h4 class="text-align--center">No saved blocks were found.</h4>}
           </div>
-        </b-form-group>
-        {!zeroResults && (
-          <div class="flex-grow--1 scrollable-pane-container">
-            {this.renderResultsByCategory(true, privateBlocks)}
-            {this.renderResultsByCategory(false, publishedBlocks)}
-          </div>
-        )}
-        {zeroResults && <h4 class="text-align--center">No saved blocks were found.</h4>}
+        </div>
       </div>
     );
   }

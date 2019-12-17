@@ -268,7 +268,7 @@ def authenticated( func ):
 		
 		return func( *args, **kwargs )
 	return wrapper
-	
+
 def disable_on_overdue_payment( func ):
 	"""
 	Decorator to disable specific endpoints if the user
@@ -6229,7 +6229,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 	]
 	"""
 	deployment_exceptions = []
-	
+
 	for workflow_state in diagram_data[ "workflow_states" ]:
 		if workflow_state[ "type" ] == "lambda":
 			node_arn = "arn:aws:lambda:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":function:" + get_lambda_safe_name( workflow_state[ "name" ] )
@@ -7062,7 +7062,42 @@ class SavedBlocksCreate( BaseHandler ):
 				"timestamp": new_saved_block_version.timestamp
 			}
 		})
-		
+
+
+def generate_saved_block_filters(share_status, block_language, search_string, authenticated_user_id):
+	# filters to apply when searching for saved blocks
+	saved_block_filters = []
+
+	if search_string != "":
+		saved_block_filters.append(
+			sql_or(
+				SavedBlock.name.ilike( "%" + search_string + "%" ),
+				SavedBlock.description.ilike( "%" + search_string + "%" ),
+			)
+		)
+
+	if share_status == "PRIVATE":
+		if authenticated_user_id == None:
+			# Return nothing because we're not logged in, so there can't possibly be private blocks to search.
+			return [False]
+
+		# Default is to just search your own saved blocks
+		saved_block_filters.append(
+			SavedBlock.user_id == authenticated_user_id
+		)
+
+	if share_status == "PUBLISHED":
+		saved_block_filters.append(
+			SavedBlock.share_status == "PUBLISHED"
+		)
+
+	if block_language != "":
+		saved_block_filters.append(
+			SavedBlockVersion.block_object_json[ "language" ].astext == block_language
+		)
+
+	return saved_block_filters
+
 class SavedBlockSearch( BaseHandler ):
 	def post( self ):
 		"""
@@ -7109,40 +7144,18 @@ class SavedBlockSearch( BaseHandler ):
 
 		authenticated_user_id = self.get_authenticated_user_id()
 
-		# filters to apply when searching for saved blocks
-		saved_block_filters = []
+		saved_block_filters = generate_saved_block_filters(
+			share_status, block_language, search_string, authenticated_user_id
+		)
 
-		if search_string != "":
-			saved_block_filters.append(
-				sql_or(
-					SavedBlock.name.ilike( "%" + search_string + "%" ),
-					SavedBlock.description.ilike( "%" + search_string + "%" ),
-				)
-			)
-
-		if authenticated_user_id != None:
-			# Default is to just search your own saved blocks
-			saved_block_filters.append(
-				SavedBlock.user_id == self.get_authenticated_user_id()
-			)
-		
-		if share_status == "PUBLISHED" or authenticated_user_id == None:
-			saved_block_filters.append(
-				SavedBlock.share_status == "PUBLISHED"
-			)
-
-		if block_language != "":
-			saved_block_filters.append(
-				SavedBlockVersion.block_object_json[ "language" ].astext == block_language
-			)
-
-		# Search through all published saved blocks
-		saved_blocks = self.dbsession.query( SavedBlock ).join(
+		# TODO: Add pagination and limit the number of results returned.
+		saved_blocks = self.dbsession.query( SavedBlock ).distinct(SavedBlock.id).join(
+			# join the saved block and version tables based on IDs
 			SavedBlockVersion, SavedBlock.id == SavedBlockVersion.saved_block_id
 		).filter(
 			*saved_block_filters
-		).limit(25).all()
-		
+		).all()
+
 		return_list = []
 		
 		for saved_block in saved_blocks:
@@ -7882,7 +7895,7 @@ class GetSavedProject( BaseHandler ):
 		).order_by(ProjectVersion.version.desc()).first()
 
 		return project_version_result
-		
+
 class DeleteSavedProject( BaseHandler ):
 	@authenticated
 	@gen.coroutine
@@ -7903,28 +7916,56 @@ class DeleteSavedProject( BaseHandler ):
 		}
 		
 		validate_schema( self.json, schema )
-		
+		project_id = self.json[ "id" ]
+
 		logit( "Deleting saved project..." )
-		
+
 		# Ensure user is owner of the project
-		if not self.is_owner_of_project( self.json[ "id" ] ):
+		if not self.is_owner_of_project( project_id ):
 			self.write({
 				"success": False,
 				"code": "ACCESS_DENIED",
 				"msg": "You do not have priveleges to delete that project!",
 			})
 			raise gen.Return()
-			
+
+		credentials = self.get_authenticated_user_cloud_configuration()
+
 		# Pull the latest project config
 		project_config = self.dbsession.query( ProjectConfig ).filter_by(
-			project_id=self.json[ "id" ]
+			project_id=project_id
 		).first()
 
 		if project_config is not None:
 			self.delete_api_gateway(project_config)
 
+		# delete all AWS deployments
+		deployed_projects = self.dbsession.query( Deployment ).filter_by(
+			project_id=project_id
+		).all()
+		for deployment in deployed_projects:
+			# load deployed project workflow states
+			deployment_json = json.loads(deployment.deployment_json)
+
+			if "workflow_states" not in deployment_json:
+				raise Exception("Corrupt deployment JSON data read from database, missing workflow_states for teardown")
+
+			teardown_nodes = deployment_json[ "workflow_states" ]
+
+			# do the teardown of the deployed aws infra
+			teardown_operation_results = yield teardown_infrastructure(
+				credentials,
+				teardown_nodes
+			)
+
+		# delete existing logs for the project
+		delete_logs(
+			credentials,
+			project_id
+		)
+
 		saved_project_result = self.dbsession.query( Project ).filter_by(
-			id=self.json[ "id" ]
+			id=project_id
 		).first()
 		
 		self.dbsession.delete( saved_project_result )
@@ -7975,7 +8016,7 @@ class DeployDiagram( BaseHandler ):
 		diagram_data = json.loads( self.json[ "diagram_data" ] )
 		
 		credentials = self.get_authenticated_user_cloud_configuration()
-		
+
 		deployment_data = yield deploy_diagram(
 			credentials,
 			project_name,
