@@ -11,7 +11,7 @@
       <sourceFolder url="file://$MODULE_DIR$/front-end/node_modules" type="java-resource" />
       <sourceFolder url="file://$MODULE_DIR$/customer-docs" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/front-end" isTestSource="false" />
-      <excludeFolder url="file://$MODULE_DIR$/api" />
+      <sourceFolder url="file://$MODULE_DIR$/api" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/boto3" />
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/boto3-1.9.96.dist-info" />
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/botocore" />
@@ -35,8 +35,14 @@
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/six-1.12.0.dist-info" />
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/urllib3" />
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/urllib3-1.24.1.dist-info" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/websocket" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/websocket_client-0.56.0.dist-info" />
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/wheel" />
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/wheel-0.33.0.dist-info" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/go1.12/go" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/go1.12/layer-contents" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/layers/go-git-ssh-layer/go" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/layers/go-git-ssh-layer/layer-contents" />
       <excludeFolder url="file://$MODULE_DIR$/api/env" />
       <excludeFolder url="file://$MODULE_DIR$/env" />
       <excludeFolder url="file://$MODULE_DIR$/front-end/dist" />
