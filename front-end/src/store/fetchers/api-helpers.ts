@@ -98,7 +98,8 @@ export async function getProjectExecutions(
 
   // If we want to "load more", then this is the timestamp for where to begin loading more items.
   // TODO: We are probably "widening" the window with this method. We may need to specify a "from" timestamp too?
-  const nextTimestampToQuery = moment(timestampForQuery)
+  // We multiply the timestamp by 1000 so that Moment understands the correct time.
+  const nextTimestampToQuery = moment(timestampForQuery * 1000)
     .subtract(6, 'hours')
     .unix();
 
