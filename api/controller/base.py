@@ -139,7 +139,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 
 		session_data = self.get_secure_session_data(int( os.environ.get( "cookie_expire_days" ) ))
 		
-		if not ( "user_id" in session_data ):
+		if not session_data or "user_id" not in session_data:
 			return None
 
 		# Hack to force these users to re-auth on a shorter timespan
