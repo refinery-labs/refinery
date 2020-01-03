@@ -30,6 +30,14 @@ class IPLookupSpawner(object):
 		)
 		return response.text.strip()
 
+	@run_on_executor
+	def get_aws_ip( self ):
+		logit( "Attempting to resolve remote IPv4 IP via checkip.amazonaws.com..." )
+		response = requests.get(
+			"https://checkip.amazonaws.com/"
+		)
+		return response.text.strip()
+
 ip_lookup_tasks = IPLookupSpawner()
 
 def get_random_ipv4_resolution_function():
@@ -41,6 +49,7 @@ def get_random_ipv4_resolution_function():
 	IP_RESOLUTION_FUNCTIONS = [
 		ip_lookup_tasks.get_ipify_ip,
 		ip_lookup_tasks.get_icanhazip_ip,
+		ip_lookup_tasks.get_aws_ip
 	]
 	
 	return random.choice(
@@ -84,7 +93,7 @@ def get_external_ipv4_address():
 		
 		# Ensure we've received a valid IPv4 address
 		# If we haven't then just set it to False
-		if not is_valid_ipv4_ip( remote_ipv4_ip ):
-			remote_ipv4_ip = False
+		if remote_ipv4_ip and is_valid_ipv4_ip( remote_ipv4_ip ):
+			break
 		
 	raise gen.Return( remote_ipv4_ip )
