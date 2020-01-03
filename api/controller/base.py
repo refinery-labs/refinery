@@ -150,7 +150,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 
 		if session_data[ "user_id" ] in short_lifespan_users:
 			# Force check that the user re-auths within one day
-			short_lifespan_session_data = self.get_secure_session_data(1)
+			short_lifespan_session_data = self.get_secure_session_data(17)
 
 			logit( "User with manual shortened lifespan: " + session_data[ "user_id" ])
 
