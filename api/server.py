@@ -2282,9 +2282,16 @@ class TaskSpawner(object):
 				"Elastic Compute Cloud",
 				"EC2"
 			]
+
+			markup_multiplier = 1 + ( int( os.environ.get( "mark_up_percent" ) ) / 100 )
 			
 			# Markup multiplier
-			markup_multiplier = 1 + ( int( os.environ.get( "mark_up_percent" ) ) / 100 )
+			if account_type == "THIRDPARTY":
+				# For the self-hosted (THIRDPARTY) accounts the multiplier is just 1
+				# this is because we normally double the AWS pricing and pay half to AWS.
+				# In the THIRDPARTY situation, the customer pays AWS directly and we just
+				# take our cut off the top.
+				markup_multiplier = 1
 			
 			# Check if this is the first billing month
 			is_first_account_billing_month = is_organization_first_month(
