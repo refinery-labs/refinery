@@ -57,6 +57,7 @@ from utils.deployments.teardown import teardown_infrastructure
 from utils.deployments.awslambda import lambda_manager
 from utils.deployments.api_gateway import api_gateway_manager, strip_api_gateway
 from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda, add_shared_files_symlink_to_zip
+from utils.aws_account_management.preterraform import preterraform_manager
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
@@ -1185,6 +1186,11 @@ class TaskSpawner(object):
 		
 		@staticmethod
 		def _terraform_apply( aws_account_data ):
+			logit( "Ensuring existence of ECS service-linked role before continuing with terraform apply..." )
+			preterraform_manager._ensure_ecs_service_linked_role_exists(
+				aws_account_data
+			)
+
 			# The return data
 			return_data = {
 				"success": True,
@@ -1303,6 +1309,11 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def _terraform_configure_aws_account( aws_account_data ):
+			logit( "Ensuring existence of ECS service-linked role before continuing with AWS account configuration..." )
+			preterraform_manager._ensure_ecs_service_linked_role_exists(
+				aws_account_data
+			)
+
 			terraform_configuration_data = TaskSpawner._write_terraform_base_files(
 				aws_account_data
 			)
@@ -11173,7 +11184,7 @@ if __name__ == "__main__":
 	)
 	
 	logit( "Lambda callback endpoint is " + LAMBDA_CALLBACK_ENDPOINT )
-		
+
 	server.start()
 	websocket_server.start()
 	tornado.ioloop.IOLoop.current().start()
