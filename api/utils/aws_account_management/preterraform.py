@@ -105,7 +105,4 @@ class PreTerraformManager(object):
 			Description="Role to enable Amazon ECS to manage your cluster."
 		)
 
-		print( "Response from creating ECS service-linked role: " )
-		print( created_service_linked_role_response )
-
 preterraform_manager = PreTerraformManager()
