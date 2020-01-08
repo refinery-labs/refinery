@@ -147,14 +147,18 @@ class AWSECSManager(object):
 
 		return subnet_ids
 
-	def enable_long_form_arns():
+	@staticmethod
+	def _enable_long_form_arns( credentials ):
 		"""
 		This code will be irrelevant as of 2019-12-31 23:59:59 -0800
 
 		However, before then we'll need to have this to enabled long-form
 		ARNs for tasks and services since AWS is going through a migration.
 		"""
-		ecs_client = boto3.client('ecs')
+		ecs_client = get_aws_client(
+			"ecs",
+			credentials
+		)
 
 		print( "Enabling long form ARN format for tasks..." )
 		response = ecs_client.put_account_setting_default(
@@ -224,7 +228,7 @@ class AWSECSManager(object):
 			error_message = e.response[ "Error" ][ "Message" ]
 
 			if error_message == "Long arn format must be enabled for ECS managed tags.":
-				enable_long_form_arns()
+				AWSECSManager._enable_long_form_arns()
 				return AWSECSManager._start_builder_ecs_task( credentials )
 
 			# If it's not the expected error then re-raise
