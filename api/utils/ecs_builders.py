@@ -16,7 +16,8 @@ import io
 from tornado.concurrent import run_on_executor, futures
 from utils.aws_client import get_aws_client, STS_CLIENT
 from requests.exceptions import ConnectionError
-from project_constants import EMPTY_ZIP_DATA
+from pyexceptions.builds import BuildException
+from pyconstants.project_constants import EMPTY_ZIP_DATA
 from botocore.exceptions import ClientError
 from expiringdict import ExpiringDict
 from utils.general import logit
@@ -28,12 +29,6 @@ try:
 except ImportError:
 	# for Python 3.x
 	from io import StringIO
-
-# Todo, import this instead.
-class BuildException(Exception):
-    def __init__( self, input_dict ):
-    	self.msg = input_dict[ "msg" ]
-    	self.build_output = input_dict[ "build_output" ]
 
 import zipfile
 

@@ -91,7 +91,7 @@ from models.inline_execution_lambdas import InlineExecutionLambda
 
 from pyexceptions.builds import BuildException
 
-from project_constants import EMPTY_ZIP_DATA
+from pyconstants.project_constants import EMPTY_ZIP_DATA
 
 from botocore.client import Config
 
