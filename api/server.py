@@ -6,6 +6,7 @@ import tornado.escape
 import tornado.ioloop
 import tornado.web
 import subprocess
+import sqlalchemy
 import traceback
 import functools
 import botocore
@@ -57,6 +58,7 @@ from utils.deployments.awslambda import lambda_manager
 from utils.deployments.api_gateway import api_gateway_manager, strip_api_gateway
 from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda, add_shared_files_symlink_to_zip
 from utils.ecs_builders import builder_manager, BuilderManager
+from utils.aws_account_management.preterraform import preterraform_manager
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
@@ -1177,6 +1179,11 @@ class TaskSpawner(object):
 		
 		@staticmethod
 		def _terraform_apply( aws_account_data ):
+			logit( "Ensuring existence of ECS service-linked role before continuing with terraform apply..." )
+			preterraform_manager._ensure_ecs_service_linked_role_exists(
+				aws_account_data
+			)
+
 			# The return data
 			return_data = {
 				"success": True,
@@ -1295,6 +1302,11 @@ class TaskSpawner(object):
 			
 		@staticmethod
 		def _terraform_configure_aws_account( aws_account_data ):
+			logit( "Ensuring existence of ECS service-linked role before continuing with AWS account configuration..." )
+			preterraform_manager._ensure_ecs_service_linked_role_exists(
+				aws_account_data
+			)
+
 			terraform_configuration_data = TaskSpawner._write_terraform_base_files(
 				aws_account_data
 			)
@@ -2274,9 +2286,16 @@ class TaskSpawner(object):
 				"Elastic Compute Cloud",
 				"EC2"
 			]
+
+			markup_multiplier = 1 + ( int( os.environ.get( "mark_up_percent" ) ) / 100 )
 			
 			# Markup multiplier
-			markup_multiplier = 1 + ( int( os.environ.get( "mark_up_percent" ) ) / 100 )
+			if account_type == "THIRDPARTY":
+				# For the self-hosted (THIRDPARTY) accounts the multiplier is just 1
+				# this is because we normally double the AWS pricing and pay half to AWS.
+				# In the THIRDPARTY situation, the customer pays AWS directly and we just
+				# take our cut off the top.
+				markup_multiplier = 1
 			
 			# Check if this is the first billing month
 			is_first_account_billing_month = is_organization_first_month(
@@ -6864,10 +6883,17 @@ class SavedBlocksCreate( BaseHandler ):
 						"PUBLISHED"
 					]
 				},
+				"save_type": {
+					"type": "string",
+					"enum": [
+						"FORK",
+						"CREATE",
+						"UPDATE"
+					]
+				},
 				"shared_files": {
 					"type": "array",
 					"default": [],
-
 				}
 			},
 			"required": [
@@ -6881,8 +6907,14 @@ class SavedBlocksCreate( BaseHandler ):
 		saved_block = None
 
 		block_version = 1
-		
-		if "id" in self.json:
+
+		# Default to "UPDATE" for now to avoid issues with user pages not reloaded
+		block_save_type = "UPDATE"
+		if "save_type" in self.json:
+			block_save_type = self.json[ "save_type" ]
+
+		# Do not search for an existing block if we are forking, only on UPDATE
+		if "id" in self.json and block_save_type == "UPDATE":
 			saved_block = self.dbsession.query( SavedBlock ).filter_by(
 				user_id=self.get_authenticated_user_id(),
 				id=self.json[ "id" ]
@@ -6904,7 +6936,7 @@ class SavedBlocksCreate( BaseHandler ):
 		if not saved_block:
 			saved_block = SavedBlock()
 			saved_block.share_status = "PRIVATE"
-		
+
 		saved_block.user_id = self.get_authenticated_user_id()
 		saved_block.name = self.json[ "block_object" ][ "name" ]
 		saved_block.type = self.json[ "block_object" ][ "type" ]
@@ -6945,11 +6977,9 @@ class SavedBlocksCreate( BaseHandler ):
 		new_saved_block_version = SavedBlockVersion()
 		new_saved_block_version.saved_block_id = saved_block.id
 		new_saved_block_version.version = block_version
-		new_saved_block_version.block_object = json.dumps(
-			self.json[ "block_object" ]
-		)
+		new_saved_block_version.block_object_json = self.json[ "block_object" ]
 		new_saved_block_version.shared_files = self.json[ "shared_files" ]
-			
+
 		saved_block.versions.append(
 			new_saved_block_version
 		)
@@ -6965,12 +6995,47 @@ class SavedBlocksCreate( BaseHandler ):
 				"name": saved_block.name,
 				"share_status": new_share_status,
 				"type": saved_block.type,
-				"block_object": new_saved_block_version.block_object,
+				"block_object": new_saved_block_version.block_object_json,
 				"version": new_saved_block_version.version,
 				"timestamp": new_saved_block_version.timestamp
 			}
 		})
-		
+
+
+def generate_saved_block_filters(share_status, block_language, search_string, authenticated_user_id):
+	# filters to apply when searching for saved blocks
+	saved_block_filters = []
+
+	if search_string != "":
+		saved_block_filters.append(
+			sql_or(
+				SavedBlock.name.ilike( "%" + search_string + "%" ),
+				SavedBlock.description.ilike( "%" + search_string + "%" ),
+			)
+		)
+
+	if share_status == "PRIVATE":
+		if authenticated_user_id == None:
+			# Return nothing because we're not logged in, so there can't possibly be private blocks to search.
+			return [False]
+
+		# Default is to just search your own saved blocks
+		saved_block_filters.append(
+			SavedBlock.user_id == authenticated_user_id
+		)
+
+	if share_status == "PUBLISHED":
+		saved_block_filters.append(
+			SavedBlock.share_status == "PUBLISHED"
+		)
+
+	if block_language != "":
+		saved_block_filters.append(
+			SavedBlockVersion.block_object_json[ "language" ].astext == block_language
+		)
+
+	return saved_block_filters
+
 class SavedBlockSearch( BaseHandler ):
 	def post( self ):
 		"""
@@ -6988,6 +7053,9 @@ class SavedBlockSearch( BaseHandler ):
 						"PRIVATE",
 						"PUBLISHED"
 					]
+				},
+				"language": {
+					"type": "string",
 				}
 			},
 			"required": [
@@ -7000,33 +7068,32 @@ class SavedBlockSearch( BaseHandler ):
 		logit( "Searching saved Blocks..." )
 		
 		share_status = "PRIVATE"
+		block_language = ""
+		search_string = ""
 		
 		if "share_status" in self.json:
 			share_status = self.json[ "share_status" ]
-		
+
+		if "language" in self.json:
+			block_language = self.json[ "language" ]
+
+		if "search_string" in self.json:
+			search_string = self.json[ "search_string" ]
+
 		authenticated_user_id = self.get_authenticated_user_id()
-		
-		if authenticated_user_id != None:
-			# Default is to just search your own saved blocks
-			saved_block_search_params = {
-				"user_id": self.get_authenticated_user_id()
-			}
-		
-		if share_status == "PUBLISHED" or authenticated_user_id == None:
-			saved_block_search_params = {
-				"share_status": "PUBLISHED"
-			}
-			
-		# Search through all published saved blocks
-		saved_blocks = self.dbsession.query( SavedBlock ).filter_by(
-			**saved_block_search_params
+
+		saved_block_filters = generate_saved_block_filters(
+			share_status, block_language, search_string, authenticated_user_id
+		)
+
+		# TODO: Add pagination and limit the number of results returned.
+		saved_blocks = self.dbsession.query( SavedBlock ).distinct(SavedBlock.id).join(
+			# join the saved block and version tables based on IDs
+			SavedBlockVersion, SavedBlock.id == SavedBlockVersion.saved_block_id
 		).filter(
-			sql_or(
-				SavedBlock.name.ilike( "%" + self.json[ "search_string" ] + "%" ),
-				SavedBlock.description.ilike( "%" + self.json[ "search_string" ] + "%" ),
-			)
-		).limit(25).all()
-		
+			*saved_block_filters
+		).all()
+
 		return_list = []
 		
 		for saved_block in saved_blocks:
@@ -7034,10 +7101,8 @@ class SavedBlockSearch( BaseHandler ):
 			saved_block_latest_version = self.dbsession.query( SavedBlockVersion ).filter_by(
 				saved_block_id=saved_block.id
 			).order_by( SavedBlockVersion.version.desc() ).first()
-			
-			block_object = json.loads(
-				saved_block_latest_version.block_object
-			)
+
+			block_object = saved_block_latest_version.block_object_json
 			block_object[ "id" ] = str( uuid.uuid4() )
 			
 			return_list.append({
@@ -7102,9 +7167,7 @@ class SavedBlockStatusCheck( BaseHandler ):
 				saved_block_id=saved_block.id
 			).order_by( SavedBlockVersion.version.desc() ).first()
 
-			block_object = json.loads(
-				saved_block_latest_version.block_object
-			)
+			block_object = saved_block_latest_version.block_object_json
 
 			return_list.append({
 				"id": saved_block.id,
@@ -7770,7 +7833,7 @@ class GetSavedProject( BaseHandler ):
 		).order_by(ProjectVersion.version.desc()).first()
 
 		return project_version_result
-		
+
 class DeleteSavedProject( BaseHandler ):
 	@authenticated
 	@gen.coroutine
@@ -7791,28 +7854,56 @@ class DeleteSavedProject( BaseHandler ):
 		}
 		
 		validate_schema( self.json, schema )
-		
+		project_id = self.json[ "id" ]
+
 		logit( "Deleting saved project..." )
-		
+
 		# Ensure user is owner of the project
-		if not self.is_owner_of_project( self.json[ "id" ] ):
+		if not self.is_owner_of_project( project_id ):
 			self.write({
 				"success": False,
 				"code": "ACCESS_DENIED",
 				"msg": "You do not have priveleges to delete that project!",
 			})
 			raise gen.Return()
-			
+
+		credentials = self.get_authenticated_user_cloud_configuration()
+
 		# Pull the latest project config
 		project_config = self.dbsession.query( ProjectConfig ).filter_by(
-			project_id=self.json[ "id" ]
+			project_id=project_id
 		).first()
 
 		if project_config is not None:
 			self.delete_api_gateway(project_config)
 
+		# delete all AWS deployments
+		deployed_projects = self.dbsession.query( Deployment ).filter_by(
+			project_id=project_id
+		).all()
+		for deployment in deployed_projects:
+			# load deployed project workflow states
+			deployment_json = json.loads(deployment.deployment_json)
+
+			if "workflow_states" not in deployment_json:
+				raise Exception("Corrupt deployment JSON data read from database, missing workflow_states for teardown")
+
+			teardown_nodes = deployment_json[ "workflow_states" ]
+
+			# do the teardown of the deployed aws infra
+			teardown_operation_results = yield teardown_infrastructure(
+				credentials,
+				teardown_nodes
+			)
+
+		# delete existing logs for the project
+		delete_logs(
+			credentials,
+			project_id
+		)
+
 		saved_project_result = self.dbsession.query( Project ).filter_by(
-			id=self.json[ "id" ]
+			id=project_id
 		).first()
 		
 		self.dbsession.delete( saved_project_result )
@@ -10977,7 +11068,7 @@ if __name__ == "__main__":
 	)
 	
 	logit( "Lambda callback endpoint is " + LAMBDA_CALLBACK_ENDPOINT )
-		
+
 	server.start()
 	websocket_server.start()
 	tornado.ioloop.IOLoop.current().start()

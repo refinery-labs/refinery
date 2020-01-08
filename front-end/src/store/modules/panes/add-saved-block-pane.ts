@@ -17,6 +17,7 @@ export interface AddSavedBlockPaneState {
   isBusySearching: boolean;
 
   searchInput: string;
+  languageInput: string;
 
   searchPrivateToggleValue: boolean;
   searchPublishedToggleValue: boolean;
@@ -33,6 +34,7 @@ export const baseState: AddSavedBlockPaneState = {
   isBusySearching: false,
 
   searchInput: '',
+  languageInput: '',
 
   searchPrivateToggleValue: true,
   searchPublishedToggleValue: true,
@@ -54,6 +56,7 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
   public isBusySearching: boolean = initialState.isBusySearching;
 
   public searchInput: string = initialState.searchInput;
+  public languageInput: string = initialState.languageInput;
 
   public searchPrivateToggleValue: boolean = initialState.searchPrivateToggleValue;
   public searchPublishedToggleValue: boolean = initialState.searchPublishedToggleValue;
@@ -114,6 +117,11 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
   }
 
   @Mutation
+  public setLanguageInputValue(value: string) {
+    this.languageInput = value;
+  }
+
+  @Mutation
   public setSearchResultsPrivate(results: SavedBlockSearchResult[]) {
     this.searchResultsPrivate = results;
   }
@@ -150,8 +158,8 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
   public async searchSavedBlocks() {
     this.setIsBusySearching(true);
 
-    const privateSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.PRIVATE);
-    const publicSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.PUBLISHED);
+    const privateSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.PRIVATE, this.languageInput);
+    const publicSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.PUBLISHED, this.languageInput);
 
     const privateResult = await privateSearch;
 

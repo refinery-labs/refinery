@@ -4,14 +4,14 @@ import { Prop } from 'vue-property-decorator';
 import Loading from '@/components/Common/Loading.vue';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { CreateSavedBlockViewProps, EditorProps, LoadingContainerProps, MarkdownProps } from '@/types/component-types';
-import { SavedBlockStatusCheckResult, SharedBlockPublishStatus } from '@/types/api-types';
+import { SavedBlockStatusCheckResult, SharedBlockPublishStatus, SavedBlockSaveType } from '@/types/api-types';
 import {
-  addModeTitle,
   alreadyPublishedText,
-  editModeTitle,
+  savedBlockTitles,
   inputDataExample,
   newPublishText
 } from '@/constants/saved-block-constants';
+import { toTitleCase } from '@/lib/general-utils';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { SupportedLanguage } from '@/types/graph';
 import RefineryMarkdown from '@/components/Common/RefineryMarkdown';
@@ -22,6 +22,7 @@ export default class CreateSavedBlockView extends Vue implements CreateSavedBloc
 
   @Prop({ required: true }) descriptionInput!: string | null;
   @Prop({ required: true }) existingBlockMetadata!: SavedBlockStatusCheckResult | null;
+  @Prop({ required: true }) blockSaveType!: SavedBlockSaveType;
   @Prop({ required: true }) descriptionInputValid!: boolean;
   @Prop({ required: true }) nameInput!: string | null;
   @Prop({ required: true }) nameInputValid!: boolean;
@@ -64,7 +65,7 @@ export default class CreateSavedBlockView extends Vue implements CreateSavedBloc
   }
 
   renderContents() {
-    const hasExistingBlock = this.existingBlockMetadata !== null;
+    const blockSaveType = toTitleCase(this.blockSaveType.toString());
     const publishDisabled = this.getPublishDisabled();
 
     const loadingProps: LoadingContainerProps = {
@@ -153,7 +154,7 @@ export default class CreateSavedBlockView extends Vue implements CreateSavedBloc
           </b-form-group>
           <div class="text-align--center">
             <b-button variant="primary" class="col-lg-8 mt-3" type="submit">
-              {hasExistingBlock ? 'Update' : 'Create'} Saved Block
+              {blockSaveType} Saved Block
             </b-button>
           </div>
         </b-form>
@@ -178,7 +179,7 @@ export default class CreateSavedBlockView extends Vue implements CreateSavedBloc
         size="xl max-width--600px"
         hide-footer={true}
         no-close-on-esc={true}
-        title={this.existingBlockMetadata ? editModeTitle : addModeTitle}
+        title={savedBlockTitles[this.blockSaveType]}
         visible={this.modalVisibility}
       >
         {this.renderContents()}

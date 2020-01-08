@@ -430,7 +430,12 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       };
 
       context.commit(DeploymentExecutionsMutators.setProjectExecutions, executions);
-      context.commit(DeploymentExecutionsMutators.setNextTimestampToRetreive, executionsResponse.oldestTimestamp);
+
+      // If we triggered a "load more" action or we're missing a time to start looking from,
+      // set the timestamp for the next "load more" click.
+      if (withExistingToken || context.state.nextTimestampToRetreive === null) {
+        context.commit(DeploymentExecutionsMutators.setNextTimestampToRetreive, executionsResponse.oldestTimestamp);
+      }
 
       if (context.state.selectedProjectExecution !== null) {
         await context.dispatch(DeploymentExecutionsActions.fetchLogsForSelectedBlock);

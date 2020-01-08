@@ -657,6 +657,7 @@ export interface CreateSavedBlockRequest extends BaseApiRequest {
   version?: number;
   share_status?: SharedBlockPublishStatus;
   shared_files: WorkflowFile[];
+  save_type: SavedBlockSaveType;
 }
 
 export interface CreateSavedBlockResponse extends BaseApiResponse {
@@ -668,10 +669,17 @@ export enum SharedBlockPublishStatus {
   PRIVATE = 'PRIVATE'
 }
 
+export enum SavedBlockSaveType {
+  CREATE = 'CREATE',
+  UPDATE = 'UPDATE',
+  FORK = 'FORK'
+}
+
 // SearchSavedBlocks
 export interface SearchSavedBlocksRequest extends BaseApiRequest {
   search_string: string;
   share_status: SharedBlockPublishStatus;
+  language: string;
 }
 
 export interface SearchSavedBlocksResponse extends BaseApiResponse {

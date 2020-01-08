@@ -1,6 +1,6 @@
 import { SupportedLanguage, WorkflowRelationshipType, WorkflowState } from '@/types/graph';
 import { IfDropDownSelectionType } from '@/store/store-types';
-import { SavedBlockStatusCheckResult } from '@/types/api-types';
+import { SavedBlockStatusCheckResult, SavedBlockSaveType } from '@/types/api-types';
 import { ProjectExecution } from '@/types/deployment-executions-types';
 
 export interface EditorProps {
@@ -66,6 +66,7 @@ export interface CreateSavedBlockViewProps {
   isBusyPublishing: boolean;
 
   existingBlockMetadata: SavedBlockStatusCheckResult | null;
+  blockSaveType: SavedBlockSaveType;
 
   nameInput: string | null;
   nameInputValid: boolean | null;

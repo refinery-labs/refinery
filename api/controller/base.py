@@ -1,6 +1,7 @@
 import tornado.web
 import json
 import os
+import re
 
 from tornado import gen
 
@@ -135,24 +136,43 @@ class BaseHandler( tornado.web.RequestHandler ):
 		return user_org
 		
 	def get_authenticated_user_id( self ):
+
+		session_data = self.get_secure_session_data(int( os.environ.get( "cookie_expire_days" ) ))
+		
+		if not session_data or "user_id" not in session_data:
+			return None
+
+		# Hack to force these users to re-auth on a shorter timespan
+		short_lifespan_users = [
+			"7b0f7808-1d40-4da4-9a98-500956d517e3",
+			"e89d2d4a-7d61-4dca-b1a0-3ba3cd9842c9"
+		]
+
+		if session_data[ "user_id" ] in short_lifespan_users:
+			# Force check that the user re-auths within one day
+			short_lifespan_session_data = self.get_secure_session_data(17)
+
+			logit( "User with manual shortened lifespan: " + session_data[ "user_id" ])
+
+			if not short_lifespan_session_data or "user_id" not in short_lifespan_session_data:
+				return None
+
+		return session_data[ "user_id" ]
+
+	def get_secure_session_data( self, cookie_expiration_days ):
 		# Get secure cookie data
 		secure_cookie_data = self.get_secure_cookie(
 			"session",
-			max_age_days=int( os.environ.get( "cookie_expire_days" ) )
+			max_age_days=cookie_expiration_days
 		)
-		
+
 		if secure_cookie_data == None:
 			return None
-			
-		session_data = json.loads(
+
+		return json.loads(
 			secure_cookie_data
 		)
-		
-		if not ( "user_id" in session_data ):
-			return None
-			
-		return session_data[ "user_id" ]
-		
+
 	def get_authenticated_user( self ):
 		"""
 		Grabs the currently authenticated user
