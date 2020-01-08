@@ -1597,6 +1597,17 @@ def _write_inline_code( inline_code, path ):
 		file_handler.write( inline_code.encode( "utf8" ) )
 	return path
 
+def _write_s3_binary( s3_path, local_path ):
+	s3_response = S3_CLIENT.get_object(
+		Bucket=os.environ[ "PACKAGES_BUCKET_NAME" ],
+		Key=s3_path
+	)
+
+	with open( local_path, "w" ) as file_handler:
+		file_handler.write(
+			s3_response[ "Body" ].read()
+		)	
+
 def _setup_inline_execution_shared_files( inline_file_list ):
 	shared_files_base_folder = "/tmp/shared_files/"
 
@@ -1804,10 +1815,25 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 
 			# Base code path
 			executable_path = "/tmp/" + str( uuid.uuid4() )
-			_write_inline_code(
-				lambda_input[ "_refinery" ][ "inline_code" ][ "base_code" ],
-				executable_path
-			)
+			if "base_code" in lambda_input[ "_refinery" ][ "inline_code" ]:
+				_write_inline_code(
+					lambda_input[ "_refinery" ][ "inline_code" ][ "base_code" ],
+					executable_path
+				)
+
+			# Pull in a remote file and execute it. This is used for things like
+			# inline executions using fully-compiled binaries (Go). Since passing
+			# the binary in as input would exceed the max size we pass the S3 path
+			# in and then pull it down at runtime.
+			if "s3_path" in lambda_input[ "_refinery" ][ "inline_code" ]:
+				# Write binary to disk
+				_write_s3_binary(
+					lambda_input[ "_refinery" ][ "inline_code" ][ "s3_path" ],
+					executable_path
+				)
+
+				# Mark as executable
+				os.chmod( executable_path, 0775 )
 			
 		"""
 		For doing live debugging/streaming of the Lambda execution.
