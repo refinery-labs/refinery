@@ -5729,11 +5729,19 @@ class RunTmpLambda( BaseHandler ):
 
 		if self.json[ "language" ] == "go1.12":
 			inline_lambda.code = inline_execution_code
-
-			binary_s3_path = yield builder_manager.get_go112_binary_s3(
-				credentials,
-				inline_lambda
-			)
+			
+			try:
+				binary_s3_path = yield builder_manager.get_go112_binary_s3(
+					credentials,
+					inline_lambda
+				)
+			except BuildException as build_exception:
+				self.write({
+					"success": False,
+					"msg": "An error occurred while building the Code Block package.",
+					"log_output": build_exception.build_output
+				})
+				raise gen.Return()
 
 			execute_lambda_params[ "_refinery" ][ "inline_code" ] = {
 				"s3_path": binary_s3_path,
