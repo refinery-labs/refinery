@@ -147,6 +147,7 @@ class AWSECSManager(object):
 
 		return subnet_ids
 
+	@staticmethod
 	def enable_long_form_arns():
 		"""
 		This code will be irrelevant as of 2019-12-31 23:59:59 -0800
@@ -224,7 +225,7 @@ class AWSECSManager(object):
 			error_message = e.response[ "Error" ][ "Message" ]
 
 			if error_message == "Long arn format must be enabled for ECS managed tags.":
-				enable_long_form_arns()
+				AWSECSManager.enable_long_form_arns()
 				return AWSECSManager._start_builder_ecs_task( credentials )
 
 			# If it's not the expected error then re-raise
