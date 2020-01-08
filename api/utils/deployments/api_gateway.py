@@ -195,8 +195,8 @@ class APIGatewayManager(object):
 				resourceId=resource_id,
 				httpMethod=method,
 			)
-		except:
-			logit( "Exception occurred while deleting method '" + method + "'!" )
+		except Exception as e:
+			logit( "Exception occurred while deleting method '" + method + "'! Exception: " + str(e) )
 			pass
 		
 		return {
