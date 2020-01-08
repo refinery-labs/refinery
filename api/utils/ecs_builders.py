@@ -228,7 +228,7 @@ class AWSECSManager(object):
 			error_message = e.response[ "Error" ][ "Message" ]
 
 			if error_message == "Long arn format must be enabled for ECS managed tags.":
-				AWSECSManager._enable_long_form_arns()
+				AWSECSManager._enable_long_form_arns( credentials )
 				return AWSECSManager._start_builder_ecs_task( credentials )
 
 			# If it's not the expected error then re-raise
