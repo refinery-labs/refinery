@@ -5863,6 +5863,17 @@ def get_environment_variables_for_lambda( credentials, lambda_object ):
 	all_environment_vars = all_environment_vars + get_language_specific_environment_variables(
 		lambda_object.language
 	)
+
+	# TODO: Only set this for free-tier accounts
+	all_environment_vars.append({
+		"key": "ACCOUNT_TYPE",
+		"value": "FREE",
+	})
+
+	all_environment_vars.append({
+		"key": "REDIS_USERNAME",
+		"value": credentials[ "account_id" ],
+	})
 	
 	all_environment_vars.append({
 		"key": "REDIS_HOSTNAME",
@@ -5955,7 +5966,8 @@ def get_layers_for_lambda( language ):
 	# Add the custom runtime layer in all cases
 	if language == "nodejs8.10":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:30"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:30"
+			"arn:aws:lambda:us-west-2:956509444157:layer:refinery-node810-custom-runtime:15"
 		)
 	elif language == "nodejs10.16.3":
 		new_layers.append(
@@ -5971,7 +5983,8 @@ def get_layers_for_lambda( language ):
 		)
 	elif language == "python2.7":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:28"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:28"
+			"arn:aws:lambda:us-west-2:956509444157:layer:refinery-python27-custom-runtime:1"
 		)
 	elif language == "python3.6":
 		new_layers.append(

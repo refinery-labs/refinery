@@ -37,6 +37,7 @@ import datetime
 import StringIO
 import traceback
 import threading
+import functools
 import subprocess
 
 from urlparse import parse_qs
@@ -44,6 +45,134 @@ from websocket import create_connection
 
 # For requests to AWS custom runtime API
 http = urllib3.PoolManager()
+
+# For the locked-down redis free tier server
+# this maps redis commands to their equivalent
+# EVALSHA commands.
+COMMAND_MAP = {}
+
+def hook_function_pre(function, prefunction):
+	@functools.wraps(function)
+	def run(*args, **kwargs):
+		mutated_args_dict = prefunction(
+			args,
+			kwargs
+		)
+
+		return function(
+			*mutated_args_dict["args"],
+			**mutated_args_dict["kwargs"]
+		)
+
+	return run
+
+def hook_function_post(function, postfunction):
+	@functools.wraps(function)
+	def run(*args, **kwargs):
+		return_value = function(
+			args,
+			kwargs
+		)
+
+		return postfunction(
+			return_value
+		)
+
+	return run
+
+def convert_command_to_evalsha(args, kwargs):
+	"""
+	This automatically converts redis commands to
+	the appropriate 
+	"""
+
+	# Convert command to EVALSHA equivalent
+	command = args[0].upper()
+
+	if not command in COMMAND_MAP:
+		return {
+			"args": args,
+			"kwargs": kwargs
+		}
+
+	# Pull out the command args
+	remaining_args = args[1:]
+
+	new_args = (
+		"EVALSHA",
+		COMMAND_MAP[command],
+		len( remaining_args )
+	) + remaining_args
+
+	return {
+		"args": new_args,
+		"kwargs": kwargs
+	}
+
+def convert_pipeline_to_evalsha(args, kwargs):
+	# Pull out commands
+	command_sets = args[1:][0]
+
+	new_command_sets = []
+
+	for command_set in command_sets:
+		command = command_set[0][0]
+
+		# If it's not in our command map we
+		# just use it without mapping it
+		if not command in COMMAND_MAP:
+			new_command_sets.append(
+				command_set
+			)
+			continue
+
+		remaining_args = command_set[0][1:]
+		new_inner_command_set = (
+			"EVALSHA",
+			COMMAND_MAP[command],
+			len( remaining_args )
+		) + remaining_args
+
+		new_command_set = (
+			new_inner_command_set,
+			command_set[-1]
+		)
+
+		new_command_sets.append(
+			new_command_set
+		)
+
+	new_args = (
+		args[0],
+		new_command_sets,
+		args[-1]
+	)
+
+	return {
+		"args": new_args,
+		"kwargs": kwargs
+	}
+
+def convert_pipeline(input_pipeline):
+	input_pipeline._execute_pipeline = hook_function_pre(
+		input_pipeline._execute_pipeline,
+		convert_pipeline_to_evalsha
+	)
+
+	return input_pipeline
+
+def patch_redis_client( input_redis_client ):
+	input_redis_client.execute_command = hook_function_pre(
+		input_redis_client.execute_command,
+		convert_command_to_evalsha
+	)
+
+	input_redis_client.pipeline = hook_function_post(
+		input_redis_client.pipeline,
+		convert_pipeline
+	)
+
+	return input_redis_client
 
 class AlreadyInvokedException( Exception ):
 	def __init__( self, message="This function has already been invoked!" ):
@@ -77,18 +206,51 @@ class Refinery_Memory:
 		bool,
 	]
 
-	def __init__( self, in_hostname, in_password, in_port ):
+	def __init__( self ):
 		self.redis_client = False
-		self.hostname = in_hostname
-		self.password = in_password
-		self.port = in_port
+
+		# New redis ACL has usernames, set it if the Lambda
+		# is configured to user it.
+		if "REDIS_USERNAME" in os.environ:
+			self.username = os.environ[ "REDIS_USERNAME" ]
+
+		self.hostname = os.environ[ "REDIS_HOSTNAME" ]
+		self.password = os.environ[ "REDIS_PASSWORD" ]
+		self.port = int( os.environ[ "REDIS_PORT" ] )
 
 	def connect( self ):
+		"""
+		For free-tier users the shared locked-down redis server.
+
+		For all other customers route them to their dedicated
+		redis instance(s). 
+		"""
+		if "ACCOUNT_TYPE" in os.environ and os.environ[ "ACCOUNT_TYPE" ] == "FREE":
+			global COMMAND_MAP
+			self.redis_client = redis.StrictRedis(
+				username=self.username,
+				host=self.hostname,
+				port=self.port,
+				db=0,
+				socket_timeout=10,
+				password=self.password,
+			)
+
+			COMMAND_MAP = self.redis_client.hgetall(
+				"REFINERY_INTERNAL:COMMAND_MAP"
+			)
+
+			# Hook all commands to use the command map
+			self.redis_client = patch_redis_client(
+				self.redis_client
+			)
+			return
+
 		self.redis_client = redis.StrictRedis(
 			host=self.hostname,
 			port=self.port,
 			db=0,
-			socket_timeout=5,
+			socket_timeout=10,
 			password=self.password,
 		)
 
@@ -100,6 +262,10 @@ class Refinery_Memory:
 		pipeline.get( key )
 		pipeline.delete( key )
 		returned_data = pipeline.execute()
+
+		print("Returned data:")
+		_pprint(returned_data)
+		sys.stdout.flush()
 
 		# Raise an exception if the GET fails
 		# This is how we achieve idempotency
@@ -243,12 +409,13 @@ class Refinery_Memory:
 			
 			# Do a redis pipeline transaction
 			pipeline = self.redis_client.pipeline()
-			
-			# Store all the queue data in redis in a list
-			pipeline.rpush(
-				queue_storage_id,
-				*queue_current_item_batch
-			)
+
+			for queue_current_item_batch_value in queue_current_item_batch:
+				# Store all the queue data in redis in a list
+				pipeline.rpush(
+					queue_storage_id,
+					queue_current_item_batch_value
+				)
 			
 			pipeline.execute()
 			
@@ -272,10 +439,11 @@ class Refinery_Memory:
 		)
 
 		# Store all invocation data in redis in a list
-		pipeline.rpush(
-			invocation_array_id,
-			*invocation_list
-		)
+		for invocation_item in invocation_list:
+			pipeline.rpush(
+				invocation_array_id,
+				invocation_item
+			)
 		
 		# Set expiration of items
 		pipeline.expire(
@@ -635,11 +803,7 @@ def get_merge_invoke_data( new_invoke_data ):
 	return new_invoke_data
 		
 # Make global to enable caching of redis connection
-gmemory = Refinery_Memory(
-	os.environ[ "REDIS_HOSTNAME" ],
-	os.environ[ "REDIS_PASSWORD" ],
-	os.environ[ "REDIS_PORT" ],
-)
+gmemory = Refinery_Memory()
 
 def _parallel_invoke( branch_ids, invoke_queue ):
 	# List of active threads
@@ -1502,12 +1666,18 @@ def _spawner( branch_ids, invocation_id, context ):
 		# Pull at least parallel_invocation_number number of inputs of the queue
 		for i in range( 0, parallel_invocation_number ):
 			try:
-				lambdas_to_invoke.append(
-					gmemory._get_invocation_input_from_queue(
-						invocation_id
-					)
+				invocation_input = gmemory._get_invocation_input_from_queue(
+					invocation_id
 				)
+				lambdas_to_invoke.append(
+					invocation_input
+				)
+				print( "Invocation input: " )
+				print( invocation_input )
+				sys.stdout.flush()
 			except InvokeQueueEmptyException as e:
+				print( "Queue exhausted!" )
+				sys.stdout.flush()
 				queue_exhausted = True
 				# Break out of immediate for loop
 				break

@@ -1,24 +1,26 @@
 """Internal module for Python 2 backwards compatibility."""
 import errno
+import socket
 import sys
+
+
+def sendall(sock, *args, **kwargs):
+    return sock.sendall(*args, **kwargs)
+
+
+def shutdown(sock, *args, **kwargs):
+    return sock.shutdown(*args, **kwargs)
+
+
+def ssl_wrap_socket(context, sock, *args, **kwargs):
+    return context.wrap_socket(sock, *args, **kwargs)
+
 
 # For Python older than 3.5, retry EINTR.
 if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and
                                sys.version_info[1] < 5):
     # Adapted from https://bugs.python.org/review/23863/patch/14532/54418
-    import socket
     import time
-
-    from select import select as _select, error as select_error
-
-    def select(rlist, wlist, xlist, timeout):
-        while True:
-            try:
-                return _select(rlist, wlist, xlist, timeout)
-            except select_error as e:
-                if e.args[0] == errno.EINTR:
-                    continue
-                raise
 
     # Wrapper for handling interruptable system calls.
     def _retryable_call(s, func, *args, **kwargs):
@@ -65,13 +67,49 @@ if sys.version_info[0] < 3 or (sys.version_info[0] == 3 and
         return _retryable_call(sock, sock.recv_into, *args, **kwargs)
 
 else:  # Python 3.5 and above automatically retry EINTR
-    from select import select
-
     def recv(sock, *args, **kwargs):
         return sock.recv(*args, **kwargs)
 
     def recv_into(sock, *args, **kwargs):
         return sock.recv_into(*args, **kwargs)
+
+if sys.version_info[0] < 3:
+    # In Python 3, the ssl module raises socket.timeout whereas it raises
+    # SSLError in Python 2. For compatibility between versions, ensure
+    # socket.timeout is raised for both.
+    import functools
+
+    try:
+        from ssl import SSLError as _SSLError
+    except ImportError:
+        class _SSLError(Exception):
+            """A replacement in case ssl.SSLError is not available."""
+            pass
+
+    _EXPECTED_SSL_TIMEOUT_MESSAGES = (
+        "The handshake operation timed out",
+        "The read operation timed out",
+        "The write operation timed out",
+    )
+
+    def _handle_ssl_timeout(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            try:
+                return func(*args, **kwargs)
+            except _SSLError as e:
+                message = len(e.args) == 1 and unicode(e.args[0]) or ''
+                if any(x in message for x in _EXPECTED_SSL_TIMEOUT_MESSAGES):
+                    # Raise socket.timeout for compatibility with Python 3.
+                    raise socket.timeout(*e.args)
+                raise
+        return wrapper
+
+    recv = _handle_ssl_timeout(recv)
+    recv_into = _handle_ssl_timeout(recv_into)
+    sendall = _handle_ssl_timeout(sendall)
+    shutdown = _handle_ssl_timeout(shutdown)
+    ssl_wrap_socket = _handle_ssl_timeout(ssl_wrap_socket)
 
 if sys.version_info[0] < 3:
     from urllib import unquote
@@ -113,6 +151,7 @@ if sys.version_info[0] < 3:
     basestring = basestring
     unicode = unicode
     long = long
+    BlockingIOError = socket.error
 else:
     from urllib.parse import parse_qs, unquote, urlparse
     from string import ascii_letters
@@ -142,6 +181,7 @@ else:
     unicode = str
     safe_unicode = str
     long = int
+    BlockingIOError = BlockingIOError
 
 try:  # Python 3
     from queue import LifoQueue, Empty, Full
