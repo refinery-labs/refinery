@@ -10,7 +10,7 @@ import {
 import {
   ProjectConfig,
   ProjectLogLevel,
-  RefineryProject,
+  RefineryProject, SupportedLanguage,
   WorkflowFile,
   WorkflowFileLink,
   WorkflowFileLinkType,
@@ -408,6 +408,18 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         }
       });
     },
+    [ProjectViewMutators.setProjectRuntimeLanguage](state, projectRuntimeLanguage: SupportedLanguage) {
+      if (state.openedProjectConfig === null) {
+        console.error('Could not set project runtime language due to no project being opened.');
+        return;
+      }
+      state.openedProjectConfig = Object.assign({}, state.openedProjectConfig, {
+        logging: {
+          ...state.openedProjectConfig.logging,
+          level: projectLoggingLevel
+        }
+      });
+    },
 
     // Deployment Logic
     [ProjectViewMutators.setLatestDeploymentState](state, response: GetLatestProjectDeploymentResponse | null) {
@@ -498,6 +510,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
     async [ProjectViewActions.setProjectConfigLoggingLevel](context, projectLoggingLevel: ProjectLogLevel) {
       context.commit(ProjectViewMutators.setProjectLogLevel, projectLoggingLevel);
+
+      // Save new config to the backend
+      await context.dispatch(ProjectViewActions.saveProjectConfig);
+    },
+    async [ProjectViewActions.setProjectConfigRuntimeLanguage](context, projectConfigRuntimeLanguage: SupportedLanguage) {
+      context.commit(ProjectViewMutators.setProjectRuntimeLanguage, projectConfigRuntimeLanguage);
 
       // Save new config to the backend
       await context.dispatch(ProjectViewActions.saveProjectConfig);

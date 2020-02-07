@@ -69,6 +69,7 @@ export enum ProjectViewMutators {
   isDeployingProject = 'isDeployingProject',
 
   setProjectLogLevel = 'setProjectLogLevel',
+  setProjectRuntimeLanguage = 'setProjectRuntimeLanguage',
 
   markProjectDirtyStatus = 'markProjectDirtyStatus',
   setCytoscapeElements = 'setCytoscapeElements',
@@ -143,6 +144,7 @@ export enum ProjectViewActions {
   cancelEditingTransition = 'cancelEditingTransition',
   resetPanelStates = 'resetPanelStates',
   setProjectConfigLoggingLevel = 'setProjectConfigLoggingLevel',
+  setProjectConfigRuntimeLanguage = 'setProjectConfigRuntimeLanguage',
   saveProjectConfig = 'saveProjectConfig',
   checkBuildStatus = 'checkBuildStatus',
   startLibraryBuild = 'startLibraryBuild',

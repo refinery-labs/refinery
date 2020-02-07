@@ -265,7 +265,7 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     [EditBlockGetters.isApiEndpointPathValid]: state => {
       if (!state.selectedNode || state.selectedNode.type !== WorkflowStateType.API_ENDPOINT) {
         return true;
-      }
+      context}
       // If we have invalid characters, this will return false.
       return /^\/[a-zA-Z0-9/]*$/.test((state.selectedNode as ApiEndpointWorkflowState).api_path);
     }
