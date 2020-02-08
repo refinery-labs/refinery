@@ -15,7 +15,24 @@ from Refinery Labs Inc.
 """
 
 _VERSION = "1.0.0"
+
+# This is overridden in the free-tier usage case.
+# In that case there is a server-side limit which
+# will be obeyed.
 _QUEUE_METADATA_EXPIRATION = ( 60 * 60 * 24 )
+
+# The max size to store in redis for free-tier users
+# before switching to S3 as the backing-store for 
+# passing data between Lambdas. The trade off for
+# using S3 is cost-per-write (PUT) and speed (since we
+# have to use redis and S3). We can't use S3 alone
+# because it won't grant us idempotency since it is
+# eventually consistent.
+
+# We subtract 100 bytes here to account for the redis
+# key in the total size (this is counted as alloc in
+# the server-side sandboxing).
+_FREE_TIER_MAX_REDIS_SIZE = ( 1024 * 100 ) - 100
 
 """
 Base redis connection for pulling configs/etc.
@@ -52,6 +69,13 @@ http = urllib3.PoolManager()
 COMMAND_MAP = {}
 
 def hook_function_pre(function, prefunction):
+	"""
+	Hook a function and call a newly-added
+	function before executing the hooked
+	function. The hooked function is passed
+	the return data of the newly-added function
+	as its input.
+	"""
 	@functools.wraps(function)
 	def run(*args, **kwargs):
 		mutated_args_dict = prefunction(
@@ -67,6 +91,13 @@ def hook_function_pre(function, prefunction):
 	return run
 
 def hook_function_post(function, postfunction):
+	"""
+	Hook a function and call another function with
+	the output of the hooked function as input to
+	the newly-added function. The return data for 
+	the hook function will be the value returned
+	from the newly-added function.
+	"""
 	@functools.wraps(function)
 	def run(*args, **kwargs):
 		return_value = function(
@@ -83,7 +114,8 @@ def hook_function_post(function, postfunction):
 def convert_command_to_evalsha(args, kwargs):
 	"""
 	This automatically converts redis commands to
-	the appropriate 
+	the appropriate EVALSHA calls (which allows us
+	to sandbox free-tier usage of redis).
 	"""
 
 	# Convert command to EVALSHA equivalent
@@ -174,6 +206,19 @@ def patch_redis_client( input_redis_client ):
 
 	return input_redis_client
 
+def is_free_tier_deployment():
+	"""
+	Return True if this Lambda was deployed with env
+	vars setting it as running in the free-tier. This
+	changes how a variety of pieces work for the
+	custom runtime. Mainly how redis is used and how
+	data is passed between different Lambdas.
+	"""
+	return (
+		"ACCOUNT_TYPE" in os.environ
+		and os.environ[ "ACCOUNT_TYPE" ] == "FREE"
+	)
+
 class AlreadyInvokedException( Exception ):
 	def __init__( self, message="This function has already been invoked!" ):
 		# Call the base class constructor with the parameters it needs
@@ -225,7 +270,7 @@ class Refinery_Memory:
 		For all other customers route them to their dedicated
 		redis instance(s). 
 		"""
-		if "ACCOUNT_TYPE" in os.environ and os.environ[ "ACCOUNT_TYPE" ] == "FREE":
+		if is_free_tier_deployment():
 			global COMMAND_MAP
 			self.redis_client = redis.StrictRedis(
 				username=self.username,
@@ -262,10 +307,6 @@ class Refinery_Memory:
 		pipeline.get( key )
 		pipeline.delete( key )
 		returned_data = pipeline.execute()
-
-		print("Returned data:")
-		_pprint(returned_data)
-		sys.stdout.flush()
 
 		# Raise an exception if the GET fails
 		# This is how we achieve idempotency
@@ -604,13 +645,27 @@ class Refinery_Memory:
 		for i in range( 0, len( lambda_invocation_list ) ):
 			new_input_data_key = str( uuid.uuid4() )
 
+			payload_data = json.dumps({
+				"input_data": lambda_invocation_list[ i ][ "input_data" ],
+				"backpack": lambda_invocation_list[ i ][ "backpack" ]
+			})
+
+			# If we're free-tier and the return data is over
+			# the maximum redis allocation size, then we write
+			# the return payload to S3 instead and store the
+			# object key in redis instead.
+			if is_free_tier_deployment() and len( payload_data ) > _FREE_TIER_MAX_REDIS_SIZE:
+				# TODO: If logging is enabled, use the log file
+				# for message passing.
+				payload_data = store_input_data_in_s3(
+					payload_data
+				)
+				payload_data = json.dumps( payload_data )
+
 			pipeline.setex(
 				new_input_data_key,
 				self.return_data_timeout,
-				json.dumps({
-					"input_data": lambda_invocation_list[ i ][ "input_data" ],
-					"backpack": lambda_invocation_list[ i ][ "backpack" ]
-				})
+				payload_data
 			)
 
 			del lambda_invocation_list[ i ][ "input_data" ]
@@ -732,6 +787,126 @@ class Refinery_Memory:
 			branch_ids
 		)
 
+def get_json_from_s3( s3_bucket, s3_path ):
+	s3_client = boto3.client( "s3" )
+
+	# Pull object data from S3
+	object_data = s3_client.get_object(
+		Bucket=s3_bucket,
+		Key=s3_path
+	)
+
+	# Return the decoded object JSON body data
+	return json.loads(
+		object_data[ "Body" ].read()
+	)
+
+def store_input_data_in_s3( input_payload_string ):
+	"""
+	Write the input data to S3.
+	"""
+	s3_client = boto3.client( "s3" )
+	s3_object_key = str( uuid.uuid4() )
+	s3_response = s3_client.put_object(
+		Bucket=os.environ[ "RETURN_DATA_BUCKET_NAME" ],
+		Key=s3_object_key,
+		Body=input_payload_string
+	)
+
+	# We return the format a regular redis store action
+	# would use because we do a redis retrieval before
+	# doing the S3 pull (for idempotency).
+	return {
+		"input_data": {
+			"_refinery": {
+				"indirect": {
+					"type": "redis_s3",
+					"s3_bucket": os.environ[ "RETURN_DATA_BUCKET_NAME" ],
+					"s3_path": s3_object_key
+				}
+			}
+		},
+		# It's fine to set this to be empty, it will be
+		# replaced by the data in S3 upon unzipping.
+		"backpack": {}
+	}
+
+def thread_upload_return_data_to_s3( invocation_data, invocation_list ):
+	s3_ref_metadata = store_input_data_in_s3(
+		json.dumps({
+			"input_data": invocation_data[ "input_data" ],
+			"backpack": invocation_data[ "backpack" ],
+		})
+	)
+	"""
+	lambda_input = stored_input[ "input_data" ]
+	backpack = stored_input[ "backpack" ]
+	"""
+
+	# Delete input data since it's indirect
+	del invocation_data[ "input_data" ]
+
+	"""
+	# Does it have an indirect type key?
+	try:
+		input_data_type = input_data[ "_refinery" ][ "indirect" ][ "type" ]
+	except KeyError:
+		return False
+
+	# Does that type key match the external S3 format?
+	return input_data_type == "redis_s3"
+	"""
+
+	# Update invocation data
+	invocation_data[ "indirect" ] = s3_ref_metadata[ "input_data" ][ "_refinery" ][ "indirect" ]
+	invocation_list.append(invocation_data)
+
+def convert_invoke_data_list_into_s3_extended( invocation_list ):
+	# List with big return items moved into S3 to return
+	modified_invocation_list = []
+
+	# List of active threads
+	active_threads = []
+
+	# Maximum number of threads
+	# TODO: Implement
+	max_threads = 50
+
+	# For every 
+	for invocation_data in invocation_list:
+		# input_data[ "_refinery" ][ "indirect" ][ "type" ] == "redis_s3"
+
+		# If it's too large for redis we upload it to S3
+		# and replace the return data with a reference to
+		# the object in the bucket.
+		if is_free_tier_deployment() and len( json.dumps( invocation_data[ "input_data" ] ) ) > _FREE_TIER_MAX_REDIS_SIZE:
+			new_thread = threading.Thread(
+				target=thread_upload_return_data_to_s3,
+				args=(
+					invocation_data,
+					modified_invocation_list
+				)
+			)
+			new_thread.start()
+			time.sleep(0.05) # Annoying wedge due to boto3 bug
+			active_threads.append(
+				new_thread
+			)
+			continue
+
+		modified_invocation_list.append(
+			invocation_data
+		)
+
+	# Wait till all threads finish
+	for thread in active_threads:
+		thread.join()
+
+	print( "Final invocation list: " )
+	_pprint( modified_invocation_list )
+
+	return modified_invocation_list
+
 def get_branch_id_from_invoke_queue( invoke_queue ):
 	"""
 	This takes an invoke queue and analyzes it to see
@@ -847,6 +1022,37 @@ def _parallel_invoke( branch_ids, invoke_queue ):
 				"indirect": {
 					"type": "redis",
 					"key": return_key,
+				},
+				"parallel": False,
+				"execution_id": execution_id,
+				"fan_out_ids": fan_out_ids,
+			}
+		}
+
+		lambda_client = boto3.client(
+			"lambda"
+		)
+
+		response = lambda_client.invoke(
+			FunctionName=arn,
+			InvocationType="Event",
+			LogType="None",
+			Payload=json.dumps(
+				return_wrapper_data
+			)
+		)
+
+		raise SystemExit
+
+	# Invokes a Lambda asynchronously
+	def lambda_invoker_worker_redis_s3( execution_id, branch_ids, fan_out_ids, arn, s3_bucket, s3_path ):
+		return_wrapper_data = {
+			"_refinery": {
+				"branch_ids": branch_ids,
+				"indirect": {
+					"type": "redis_s3",
+					"s3_bucket": s3_bucket,
+					"s3_path": s3_path,
 				},
 				"parallel": False,
 				"execution_id": execution_id,
@@ -1082,6 +1288,21 @@ def _parallel_invoke( branch_ids, invoke_queue ):
 					new_invoke_data[ "fan_out_ids" ],
 					new_invoke_data[ "arn" ],
 					new_invoke_data[ "input_data" ]
+				)
+			)
+			new_thread.start()
+			time.sleep(0.05) # Annoying wedge due to boto3 bug
+		elif ( new_invoke_data[ "type" ] in lambda_equivalent_types ) and "indirect" in new_invoke_data:
+			# This is for nested fan-outs that are also S3 loaded
+			new_thread = threading.Thread(
+				target=lambda_invoker_worker_redis_s3,
+				args=(
+					new_invoke_data[ "execution_id" ],
+					new_invoke_data[ "branch_ids" ],
+					new_invoke_data[ "fan_out_ids" ],
+					new_invoke_data[ "arn" ],
+					new_invoke_data[ "indirect" ][ "s3_bucket" ],
+					new_invoke_data[ "indirect" ][ "s3_path" ]
 				)
 			)
 			new_thread.start()
@@ -1669,12 +1890,14 @@ def _spawner( branch_ids, invocation_id, context ):
 				invocation_input = gmemory._get_invocation_input_from_queue(
 					invocation_id
 				)
+
+				print( "Invocation input for spawner: " )
+				print( json.dumps(invocation_input) )
+				sys.stdout.flush()
+
 				lambdas_to_invoke.append(
 					invocation_input
 				)
-				print( "Invocation input: " )
-				print( invocation_input )
-				sys.stdout.flush()
 			except InvokeQueueEmptyException as e:
 				print( "Queue exhausted!" )
 				sys.stdout.flush()
@@ -1818,6 +2041,20 @@ def _stream_execution_output_to_websocket( websocket, debug_id, output ):
 		"timestamp": int( time.time() )
 	}))
 
+def is_external_s3_storage_structure( input_data ):
+	# Is it a dictionary?
+	if type( input_data ) != dict:
+		return False
+
+	# Does it have an indirect type key?
+	try:
+		input_data_type = input_data[ "_refinery" ][ "indirect" ][ "type" ]
+	except KeyError:
+		return False
+
+	# Does that type key match the external S3 format?
+	return input_data_type == "redis_s3"
+
 def _init( custom_runtime, request_id, lambda_input, context, execution_details ):
 	start_time = time.time()
 
@@ -1933,9 +2170,16 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 	# By default inline execution is disabled
 	is_inline_execution = False
 
+	print( "Raw input data to Lambda is the following: " )
+	print( json.dumps(lambda_input) )
+	sys.stdout.flush()
+
 	# Detect refinery wrapper and unwrap if existant
 	# Else just leave it unmodified
 	if type( lambda_input ) == dict and "_refinery" in lambda_input:
+		print( "Input contains _refinery, processing...")
+		sys.stdout.flush()
+
 		# If a branch ID array exists in the input, set it.
 		if "branch_ids" in lambda_input[ "_refinery" ]:
 			branch_ids = lambda_input[ "_refinery" ][ "branch_ids" ]
@@ -2084,9 +2328,14 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 
 		_side_loaded = False
 		if "indirect" in lambda_input[ "_refinery" ] and lambda_input[ "_refinery" ][ "indirect" ] and "type" in lambda_input[ "_refinery" ][ "indirect" ]:
+			print( "Indirect load..." )
+			sys.stdout.flush()
+
 			# Input data is stored in redis
 			if lambda_input[ "_refinery" ][ "indirect" ][ "type" ] == "redis":
 				try:
+					print( "Pulling data out of redis..." )
+					sys.stdout.flush()
 					stored_input = gmemory._get_input_data_from_redis(
 						lambda_input[ "_refinery" ][ "indirect" ][ "key" ]
 					)
@@ -2116,6 +2365,33 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 					)
 					return
 				_side_loaded = True
+
+		# Input data is stored in S3 and needs to be pulled
+		# and de-serialized from JSON. Note that Redis is still used
+		# to achieve idempotency so this will be called after the details
+		# are first pulled from redis.
+		# This structure is nested inside the regular redis storage
+		print( "Input data before S3 struct scan: ")
+		print(lambda_input)
+		sys.stdout.flush()
+		if is_external_s3_storage_structure( lambda_input ):
+			print( "External data in S3, retrieving it..." )
+			sys.stdout.flush()
+
+			# Pull input data from S3
+			stored_input = get_json_from_s3(
+				lambda_input[ "_refinery" ][ "indirect" ][ "s3_bucket" ],
+				lambda_input[ "_refinery" ][ "indirect" ][ "s3_path" ]
+			)
+
+			print( "Retrieved data:" )
+			_pprint( stored_input )
+			sys.stdout.flush()
+
+			lambda_input = stored_input[ "input_data" ]
+			backpack = stored_input[ "backpack" ]
+
+			_side_loaded = True
 
 		# If there's an "invoke" key it means we're doing a self-invocation fan-out
 		if is_spawner_invocation:
@@ -2460,7 +2736,7 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 			# Create an invocation for it
 			# Convert into JSON so it can be stored in redis
 			invocation_list.append(
-				json.dumps({
+				{
 					"backpack": backpack,
 					"execution_id": execution_id,
 					"fan_out_ids": new_fan_out_ids,
@@ -2471,8 +2747,27 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 							return_item_data
 						)
 					)
-				})
+				}
 			)
+
+		# Convert all big return data values to S3 refs
+		invocation_list = convert_invoke_data_list_into_s3_extended(
+			invocation_list
+		)
+
+		print( "S3 converted invocation list: " )
+		print( json.dumps(invocation_list) )
+		sys.stdout.flush()
+
+		# Encode all data
+		for i in range( 0, len( invocation_list ) ):
+			invocation_list[i] = json.dumps(
+				invocation_list[i]
+			)
+
+		print( "Encoded invocation list: " )
+		print( json.dumps(invocation_list) )
+		sys.stdout.flush()
 
 		# Sets up atomic counter for fan-in
 		invocation_id = gmemory._set_fan_in_data(

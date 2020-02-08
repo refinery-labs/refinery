@@ -5865,6 +5865,7 @@ def get_environment_variables_for_lambda( credentials, lambda_object ):
 	)
 
 	# TODO: Only set this for free-tier accounts
+	# Don't merge until this is removed.
 	all_environment_vars.append({
 		"key": "ACCOUNT_TYPE",
 		"value": "FREE",
@@ -5898,6 +5899,11 @@ def get_environment_variables_for_lambda( credentials, lambda_object ):
 	all_environment_vars.append({
 		"key": "LOG_BUCKET_NAME",
 		"value": credentials[ "logs_bucket" ],
+	})
+
+	all_environment_vars.append({
+		"key": "RETURN_DATA_BUCKET_NAME",
+		"value": credentials[ "return_storage_bucket" ]
 	})
 
 	all_environment_vars.append({
@@ -5967,7 +5973,7 @@ def get_layers_for_lambda( language ):
 	if language == "nodejs8.10":
 		new_layers.append(
 			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:30"
-			"arn:aws:lambda:us-west-2:956509444157:layer:refinery-node810-custom-runtime:15"
+			"arn:aws:lambda:us-west-2:956509444157:layer:refinery-node810-custom-runtime:49"
 		)
 	elif language == "nodejs10.16.3":
 		new_layers.append(

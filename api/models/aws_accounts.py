@@ -156,6 +156,7 @@ class AWSAccount( Base ):
 		# Generate S3 packages and logging bucket values
 		return_dict[ "lambda_packages_bucket" ] = "refinery-lambda-build-packages-" + self.s3_bucket_suffix
 		return_dict[ "logs_bucket" ] = "refinery-lambda-logging-" + self.s3_bucket_suffix
+		return_dict[ "return_storage_bucket" ] = "lambda-return-storage-" + self.s3_bucket_suffix
 
 		return return_dict
 

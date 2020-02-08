@@ -59,6 +59,13 @@ resource "aws_s3_bucket" "lambda-logging" {
 
   tags = {
     RefineryResource = "true"
+    /*
+    Written as logging-general because this bucket is
+    used for a few different logging situations. If this is
+    a problem we may want to split out the buckets in the
+    future so we can be more granular in our cost breakdowns.
+    */
+    RefineryUsage = "logging-general"
   }
 }
 
@@ -92,6 +99,35 @@ resource "aws_s3_bucket" "lambda-build-packages" {
 
   tags = {
     RefineryResource = "true"
+    RefineryUsage = "lambda-build-packages"
   }
 }
 
+/*
+  S3 bucket used for passing data between Lambdas when the return data
+  size is too large to store purely in redis.
+*/
+
+resource "aws_s3_bucket" "lambda-temp-return-data-storage" {
+  bucket = "lambda-return-storage-${var.s3_bucket_suffix}"
+  acl    = "private"
+
+  lifecycle_rule {
+    enabled = true
+
+    expiration {
+      days = 1
+    }
+
+    noncurrent_version_expiration {
+      days = 1
+    }
+
+    abort_incomplete_multipart_upload_days = 1
+  }
+
+  tags = {
+    RefineryResource = "true"
+    RefineryUsage = "lambda-temp-return-data-storage"
+  }
+}
