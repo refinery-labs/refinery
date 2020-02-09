@@ -553,18 +553,74 @@ class Refinery_Memory:
 		# final backpack. Colliding keys are overwritten.
 		combined_backpack = {}
 
+		# First we go through the return data and we check
+		# for any external S3 storage use. If there is some
+		# we pull the data in from S3.
+		active_threads = []
+
+		# The threads throw results into this list.
+		pulled_return_data_results = []
+
+		# Return data not needed to be pulled from s3
+		direct_return_data = []
+
 		for returned_data_segment in returned_data[0]:
 			returned_data_dict = json.loads(
 				returned_data_segment
 			)
-			
-			if type( returned_data_dict ) == dict:
-				for backpack_key, backpack_value in returned_data_dict[ "backpack" ].iteritems():
+			# thread_get_json_from_s3( s3_bucket, s3_path, results_list )
+			# CANARY
+			print("Return data to maybe pull from s3:" )
+			print(json.dumps(returned_data_dict))
+			sys.stdout.flush()
+
+			if type( returned_data_dict[ "return_data" ] ) != dict or not ( "_refinery" in returned_data_dict[ "return_data" ] ):
+				direct_return_data.append(
+					returned_data_dict
+				)
+				continue
+
+			print( "pulling data from s3..." )
+			sys.stdout.flush()
+			new_thread = threading.Thread(
+				target=thread_get_json_from_s3,
+				args=(
+					returned_data_dict[ "return_data" ][ "_refinery" ][ "indirect" ][ "s3_bucket" ],
+					returned_data_dict[ "return_data" ][ "_refinery" ][ "indirect" ][ "s3_path" ],
+					pulled_return_data_results
+				)
+			)
+			new_thread.start()
+			time.sleep(0.05) # Annoying wedge due to boto3 bug
+			active_threads.append(
+				new_thread
+			)
+
+		# Wait till all threads finish
+		for thread in active_threads:
+			thread.join()
+
+		# Combine data pull from S3 with the data pulled from redis
+		all_returned_data = direct_return_data + pulled_return_data_results
+
+		print( "Direct return data: " )
+		print( json.dumps( direct_return_data ) )
+		print( "Pulled return data: " )
+		print( json.dumps( pulled_return_data_results ) )
+		sys.stdout.flush()
+
+		for returned_data_segment in all_returned_data:			
+			if type( returned_data_segment ) == dict:
+				for backpack_key, backpack_value in returned_data_segment[ "backpack" ].iteritems():
 					combined_backpack[ backpack_key ] = backpack_value
 			
+			print( "Fan-in return data:" )
+			print(json.dumps(returned_data_segment[ "return_data" ]))
+			sys.stdout.flush()
+
 			# Try to JSON-decode each segment
 			decoded_return_data.append(
-				returned_data_dict[ "output" ]
+				returned_data_segment[ "return_data" ]
 			)
 
 		return {
@@ -589,7 +645,7 @@ class Refinery_Memory:
 			"FAN_IN_RESULTS_" + fan_out_id,
 			json.dumps({
 				"backpack": backpack,
-				"output": return_data
+				"return_data": return_data
 			})
 		)
 
@@ -801,9 +857,25 @@ def get_json_from_s3( s3_bucket, s3_path ):
 		object_data[ "Body" ].read()
 	)
 
+def thread_get_json_from_s3( s3_bucket, s3_path, results_list ):
+	results = get_json_from_s3(
+		s3_bucket,
+		s3_path
+	)
+
+	results_list.append({
+		"return_data": results[ "input_data" ],
+		"backpack": results[ "backpack" ]
+	})
+
 def store_input_data_in_s3( input_payload_string ):
 	"""
 	Write the input data to S3.
+
+	input_payload_string: JSON({
+		"backpack": {},
+		"input_data": {}
+	})
 	"""
 	s3_client = boto3.client( "s3" )
 	s3_object_key = str( uuid.uuid4() )
@@ -838,24 +910,9 @@ def thread_upload_return_data_to_s3( invocation_data, invocation_list ):
 			"backpack": invocation_data[ "backpack" ],
 		})
 	)
-	"""
-	lambda_input = stored_input[ "input_data" ]
-	backpack = stored_input[ "backpack" ]
-	"""
 
 	# Delete input data since it's indirect
 	del invocation_data[ "input_data" ]
-
-	"""
-	# Does it have an indirect type key?
-	try:
-		input_data_type = input_data[ "_refinery" ][ "indirect" ][ "type" ]
-	except KeyError:
-		return False
-
-	# Does that type key match the external S3 format?
-	return input_data_type == "redis_s3"
-	"""
 
 	# Update invocation data
 	invocation_data[ "indirect" ] = s3_ref_metadata[ "input_data" ][ "_refinery" ][ "indirect" ]
@@ -874,8 +931,6 @@ def convert_invoke_data_list_into_s3_extended( invocation_list ):
 
 	# For every 
 	for invocation_data in invocation_list:
-		# input_data[ "_refinery" ][ "indirect" ][ "type" ] == "redis_s3"
-
 		# If it's too large for redis we upload it to S3
 		# and replace the return data with a reference to
 		# the object in the bucket.
@@ -2889,11 +2944,28 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 		# Get last fan-out ID
 		fan_out_id = fan_out_ids.pop()
 
+		# Copy backpack
+		backpack_copy = json.loads(json.dumps(backpack))
+
+		# If data is too large, convert to S3 format
+		if is_free_tier_deployment() and len(json.dumps(return_data)) > _FREE_TIER_MAX_REDIS_SIZE:
+			print( "Storing input data in S3 due to size..." )
+			print( return_data )
+			sys.stdout.flush()
+			s3_storage_results = store_input_data_in_s3(json.dumps({
+				"input_data": return_data,
+				"backpack": backpack_copy
+			}))
+			return_data = s3_storage_results[ "input_data" ]
+			# Clear backpack copy as well since we've already
+			# stored the data in S3
+			backpack_copy = {}
+
 		# First we push our returned data into the results list
 		fan_in_results = gmemory._fan_in_operations(
 			fan_out_id,
 			return_data,
-			backpack
+			backpack_copy
 		)
 
 		# If we're the final invocation in the fan-in we
@@ -2901,7 +2973,7 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 		# array as the input.
 		if fan_in_results:
 			invocation_input_list.append({
-				"backpack": backpack,
+				"backpack": backpack_copy,
 				"execution_id": execution_id,
 				"fan_out_ids": fan_out_ids,
 				"type": "lambda_fan_in",

@@ -5973,7 +5973,7 @@ def get_layers_for_lambda( language ):
 	if language == "nodejs8.10":
 		new_layers.append(
 			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:30"
-			"arn:aws:lambda:us-west-2:956509444157:layer:refinery-node810-custom-runtime:49"
+			"arn:aws:lambda:us-west-2:956509444157:layer:refinery-node810-custom-runtime:62"
 		)
 	elif language == "nodejs10.16.3":
 		new_layers.append(
