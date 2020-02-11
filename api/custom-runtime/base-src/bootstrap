@@ -380,11 +380,20 @@ class Refinery_Memory:
 		if not self.redis_client:
 			self.connect()
 			
-		return json.loads(
+		backpack = json.loads(
 			self.redis_client.get(
 				"SQS_BACKPACK_DATA_" + queue_insert_id
 			)
 		)
+
+		# If the backpack is in S3 pull it down and set it
+		if "_refinery" in backpack and "indirect" in backpack[ "_refinery" ]:
+			backpack = get_json_from_s3(
+				backpack[ "_refinery" ][ "indirect" ][ "s3_bucket" ],
+				backpack[ "_refinery" ][ "indirect" ][ "s3_path" ],
+			)
+
+		return backpack
 		
 	def _set_queue_data( self, queue_url, queue_items, backpack ):
 		if not self.redis_client:
@@ -404,12 +413,59 @@ class Refinery_Memory:
 		
 		# Do a redis pipeline transaction
 		pipeline = self.redis_client.pipeline()
-		
-		# JSON-encode queue items
+
+		# Go over the queue items and upload any items that
+		# are over the max-size limit to S3 and replace the queue
+		# item with the S3 object metadata.
+		s3_queue_items = []
+
+		# For items that are not too big for direct redis store
+		regular_queue_items = []
+
+		# List of active threads
+		active_threads = []
+
+		# Maximum number of threads
+		# TODO: Implement
+		max_threads = 50
+
 		for i in range( 0, len( queue_items ) ):
-			queue_items[i] = json.dumps(
-				queue_items[i]
+			queue_item = json.dumps( queue_items[i] )
+
+			if is_free_tier_deployment() and len( queue_item ) > _FREE_TIER_MAX_REDIS_SIZE:
+				new_thread = threading.Thread(
+					target=thread_upload_raw_data_to_s3,
+					args=(
+						queue_item,
+						s3_queue_items
+					)
+				)
+				new_thread.start()
+				time.sleep(0.05) # Annoying wedge due to boto3 bug
+				active_threads.append(
+					new_thread
+				)
+				continue
+
+			regular_queue_items.append(
+				queue_item
 			)
+
+		# Wait till all threads finish
+		for thread in active_threads:
+			thread.join()
+
+		# JSON encode and format S3 queue items
+		for i in range( 0, len( s3_queue_items ) ):
+			s3_queue_items[i] = json.dumps({
+				"_refinery": {
+					"indirect": s3_queue_items[i]
+				}
+			})
+
+		# Combine S3 items
+		queue_items = []
+		queue_items = s3_queue_items + regular_queue_items
 
 		# Set the queue URL
 		pipeline.setex(
@@ -417,14 +473,23 @@ class Refinery_Memory:
 			_QUEUE_METADATA_EXPIRATION, # 1-Day expiration
 			queue_url
 		)
+
+		# Encode backpack as JSON
+		backpack_string = json.dumps(backpack)
+
+		# First check if backpack is over max redis size
+		# if it is we need to write it to S3.
+		if is_free_tier_deployment() and len( backpack_string ) > _FREE_TIER_MAX_REDIS_SIZE:
+			s3_ref_metadata = store_input_data_in_s3( backpack_string )
+			backpack_string = json.dumps(
+				s3_ref_metadata[ "input_data" ]
+			)
 		
 		# Set the backpack
 		pipeline.setex(
 			sqs_backpack_key,
 			_QUEUE_METADATA_EXPIRATION, # 1-Day expiration
-			json.dumps(
-				backpack
-			)
+			backpack_string
 		)
 		
 		# Set expiration of items
@@ -568,8 +633,6 @@ class Refinery_Memory:
 			returned_data_dict = json.loads(
 				returned_data_segment
 			)
-			# thread_get_json_from_s3( s3_bucket, s3_path, results_list )
-			# CANARY
 			print("Return data to maybe pull from s3:" )
 			print(json.dumps(returned_data_dict))
 			sys.stdout.flush()
@@ -599,6 +662,13 @@ class Refinery_Memory:
 		# Wait till all threads finish
 		for thread in active_threads:
 			thread.join()
+
+		# Encode S3 ref data, take raw S3 JSON and format it
+		for i in range( 0, len( pulled_return_data_results ) ):
+			pulled_return_data_results[i] = {
+				"return_data": pulled_return_data_results[i][ "input_data" ],
+				"backpack": pulled_return_data_results[i][ "backpack" ],
+			}
 
 		# Combine data pull from S3 with the data pulled from redis
 		all_returned_data = direct_return_data + pulled_return_data_results
@@ -736,15 +806,27 @@ class Refinery_Memory:
 		# Do a redis pipeline transaction
 		pipeline = self.redis_client.pipeline()
 
+		merge_payload = json.dumps({
+			"backpack": backpack,
+			"return_data": return_data,
+			"branch_ids": branch_ids,
+		})
+
+		# If the merge payload is over max size then write
+		# it to S3 to be pulled out later.
+		"""
+		if is_free_tier_deployment() and len( merge_payload ) > _FREE_TIER_MAX_REDIS_SIZE:
+			s3_ref_metadata = store_input_data_in_s3( merge_payload )
+			merge_payload = json.dumps(
+				s3_ref_metadata[ "input_data" ]
+			)
+		"""
+
 		# Store return data in HASH
 		pipeline.hset(
 			hset_name,
 			current_lambda_arn,
-			json.dumps({
-				"backpack": backpack,
-				"return_data": return_data,
-				"branch_ids": branch_ids,
-			})
+			merge_payload
 		)
 
 		# Set expiration for the HASH
@@ -785,10 +867,17 @@ class Refinery_Memory:
 		return_values = []
 		combined_backpack = {}
 
+		# CANARY
+
+		# First pull any merge data from S3
 		for lambda_return_metadata in lambda_return_metadata_list:
 			returned_data_dict = json.loads(
 				lambda_return_metadata
 			)
+
+			print( "Return data dict is: " )
+			print( json.dumps( returned_data_dict ) )
+			sys.stdout.flush()
 
 			for branch_id in returned_data_dict[ "branch_ids" ]:
 				if not ( branch_id in branch_ids ):
@@ -863,10 +952,7 @@ def thread_get_json_from_s3( s3_bucket, s3_path, results_list ):
 		s3_path
 	)
 
-	results_list.append({
-		"return_data": results[ "input_data" ],
-		"backpack": results[ "backpack" ]
-	})
+	results_list.append(results)
 
 def store_input_data_in_s3( input_payload_string ):
 	"""
@@ -902,6 +988,15 @@ def store_input_data_in_s3( input_payload_string ):
 		# replaced by the data in S3 upon unzipping.
 		"backpack": {}
 	}
+
+def thread_upload_raw_data_to_s3( json_data_string, return_data_list ):
+	s3_ref_metadata = store_input_data_in_s3(
+		json_data_string
+	)
+	
+	return_data_list.append(
+		s3_ref_metadata[ "input_data" ][ "_refinery" ][ "indirect" ]
+	)
 
 def thread_upload_return_data_to_s3( invocation_data, invocation_list ):
 	s3_ref_metadata = store_input_data_in_s3(
@@ -1283,6 +1378,26 @@ def _parallel_invoke( branch_ids, invoke_queue ):
 				"backpack": backpack
 			}
 		}
+
+		# If data is above 265K SNS max size
+		# Then we publish it to S3
+		print( "Storing input data in S3 due to size..." )
+		print( input_data )
+		sys.stdout.flush()
+
+		if len( json.dumps( input_data ) ) > _FREE_TIER_MAX_REDIS_SIZE:
+			print( "Size too big for SNS, storing in S3..." )
+			sys.stdout.flush()
+			s3_storage_results = store_input_data_in_s3(json.dumps({
+				"input_data": input_data,
+				"backpack": backpack
+			}))
+			del return_wrapper_data[ "_refinery" ][ "input_data" ]
+			return_wrapper_data[ "_refinery" ][ "indirect" ] = s3_storage_results[ "input_data" ][ "_refinery" ][ "indirect" ]
+
+			print( "New converted format: " )
+			print( json.dumps( input_data ) )
+			sys.stdout.flush()
 
 		response = sns_client.publish(
 			TopicArn=arn,
@@ -2104,7 +2219,7 @@ def is_external_s3_storage_structure( input_data ):
 	# Does it have an indirect type key?
 	try:
 		input_data_type = input_data[ "_refinery" ][ "indirect" ][ "type" ]
-	except KeyError:
+	except ( KeyError, TypeError ), e:
 		return False
 
 	# Does that type key match the external S3 format?
@@ -2197,6 +2312,10 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 			batch_input_data = json.loads(
 				batch_item[ "body" ]
 			)
+
+			print( "Queue batch input data: " )
+			print( batch_input_data )
+			sys.stdout.flush()
 			
 			if "_refinery" in batch_input_data:
 				# Set the metadata
@@ -2204,10 +2323,43 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 				fan_out_ids = batch_input_data[ "_refinery" ][ "fan_out_ids" ]
 				queue_insert_id = batch_input_data[ "_refinery" ][ "queue_insert_id" ]
 				branch_ids = batch_input_data[ "_refinery" ][ "branch_ids" ]
+
+			sqs_input_data = batch_input_data[ "_refinery" ][ "input_data" ]
+
+			# Maximum number of threads
+			# TODO: Implement
+			max_threads = 50
+			active_threads = []
+
+			pulled_return_data_results = []
+
+			# Check if the input data is actually an external S3 reference
+			if type( sqs_input_data ) == dict and "_refinery" in sqs_input_data:
+				new_thread = threading.Thread(
+					target=thread_get_json_from_s3,
+					args=(
+						sqs_input_data[ "_refinery" ][ "indirect" ][ "s3_bucket" ],
+						sqs_input_data[ "_refinery" ][ "indirect" ][ "s3_path" ],
+						pulled_return_data_results
+					)
+				)
+				new_thread.start()
+				time.sleep(0.05) # Annoying wedge due to boto3 bug
+				active_threads.append(
+					new_thread
+				)
+				continue
 				
 			lambda_input_list.append(
-				batch_input_data[ "_refinery" ][ "input_data" ]
+				sqs_input_data
 			)
+
+		# Wait till all threads finish
+		for thread in active_threads:
+			thread.join()
+
+		# Merge the S3 pulled data and the regular stored data
+		lambda_input_list = lambda_input_list + pulled_return_data_results
 				
 		# Let's grab the backpack
 		backpack = gmemory._get_queue_backpack(
@@ -2426,9 +2578,6 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 		# to achieve idempotency so this will be called after the details
 		# are first pulled from redis.
 		# This structure is nested inside the regular redis storage
-		print( "Input data before S3 struct scan: ")
-		print(lambda_input)
-		sys.stdout.flush()
 		if is_external_s3_storage_structure( lambda_input ):
 			print( "External data in S3, retrieving it..." )
 			sys.stdout.flush()
@@ -2460,6 +2609,7 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 				""
 			)
 			return
+
 		# Just directly passed input data
 		if not _side_loaded and "input_data" in lambda_input[ "_refinery" ]:
 			lambda_input = lambda_input[ "_refinery" ][ "input_data" ]
@@ -2947,16 +3097,20 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 		# Copy backpack
 		backpack_copy = json.loads(json.dumps(backpack))
 
+		# Copy return data
+		return_data_copy = json.loads(json.dumps(return_data))
+
 		# If data is too large, convert to S3 format
-		if is_free_tier_deployment() and len(json.dumps(return_data)) > _FREE_TIER_MAX_REDIS_SIZE:
+		if is_free_tier_deployment() and len(json.dumps(return_data_copy)) > _FREE_TIER_MAX_REDIS_SIZE:
 			print( "Storing input data in S3 due to size..." )
-			print( return_data )
+			print( return_data_copy )
 			sys.stdout.flush()
 			s3_storage_results = store_input_data_in_s3(json.dumps({
-				"input_data": return_data,
+				"input_data": return_data_copy,
 				"backpack": backpack_copy
 			}))
-			return_data = s3_storage_results[ "input_data" ]
+			return_data_copy = s3_storage_results[ "input_data" ]
+
 			# Clear backpack copy as well since we've already
 			# stored the data in S3
 			backpack_copy = {}
@@ -2964,7 +3118,7 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 		# First we push our returned data into the results list
 		fan_in_results = gmemory._fan_in_operations(
 			fan_out_id,
-			return_data,
+			return_data_copy,
 			backpack_copy
 		)
 
