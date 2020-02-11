@@ -28,6 +28,7 @@ export interface CreateSavedBlockViewState {
   savedDataInput: string | null;
 
   publishStatus: boolean;
+  publishDisabled: boolean;
   modalVisibility: boolean;
   saveType: SavedBlockSaveType;
 
@@ -41,6 +42,7 @@ export const baseState: CreateSavedBlockViewState = {
   descriptionInput: null,
   savedDataInput: inputDataExample,
   publishStatus: false,
+  publishDisabled: false,
   modalVisibility: false,
   saveType: SavedBlockSaveType.CREATE,
 
@@ -68,6 +70,7 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
   public savedDataInput = initialState.savedDataInput;
 
   public publishStatus = initialState.publishStatus;
+  public publishDisabled = initialState.publishDisabled;
   public saveType = initialState.saveType;
   public modalVisibility = initialState.modalVisibility;
   public busyPublishingBlock = initialState.busyPublishingBlock;
@@ -103,6 +106,11 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
   @Mutation
   public setPublishStatus(publishStatus: boolean) {
     this.publishStatus = publishStatus;
+  }
+
+  @Mutation
+  public setPublishDisabled(publishDisabled: boolean) {
+    this.publishDisabled = publishDisabled;
   }
 
   @Mutation
@@ -151,6 +159,8 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
       }
     }
 
+    let isPublished = false;
+
     const isBlockOwner =
       editBlockPaneState.selectedNodeMetadata && editBlockPaneState.selectedNodeMetadata.is_block_owner;
 
@@ -161,12 +171,17 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
       // this.setSavedData(metadata.)
       this.setName(metadata.name);
       this.setDescription(metadata.description);
-      this.setPublishStatus(metadata.share_status === SharedBlockPublishStatus.PUBLISHED);
+
+      isPublished = metadata.share_status === SharedBlockPublishStatus.PUBLISHED;
 
       if (this.saveType !== SavedBlockSaveType.FORK) {
         this.setSaveType(SavedBlockSaveType.UPDATE);
       }
     }
+
+    const isForkingBlock = saveType === SavedBlockSaveType.FORK;
+    this.setPublishDisabled(isPublished && !isForkingBlock);
+    this.setPublishStatus(isPublished && !isForkingBlock);
 
     this.setModalVisibility(true);
   }

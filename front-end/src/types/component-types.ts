@@ -75,6 +75,7 @@ export interface CreateSavedBlockViewProps {
   savedDataInput: string | null;
 
   publishStatus: boolean;
+  publishDisabled: boolean;
 
   setName: (s: string) => void;
   setDescription: (s: string) => void;
