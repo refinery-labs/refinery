@@ -14,6 +14,10 @@ from models.organizations import Organization
 from utils.general import logit
 from utils.locker import Locker
 
+CSRF_EXEMPT_ENDPOINTS = [
+	"/services/v1/mark_account_needs_closing"
+]
+
 # Pull list of allowed Access-Control-Allow-Origin values from environment var
 allowed_origins = json.loads( os.environ.get( "access_control_allow_origins" ) )
 
@@ -231,8 +235,9 @@ class BaseHandler( tornado.web.RequestHandler ):
 			"X-CSRF-Validation-Header",
 			False
 		)
-		
-		if not csrf_validated and self.request.method != "OPTIONS" and self.request.method != "GET" and not self.request.path in CSRF_EXEMPT_ENDPOINTS:
+
+		if not csrf_validated and self.request.method != "OPTIONS" and \
+				self.request.method != "GET" and not self.request.path in CSRF_EXEMPT_ENDPOINTS:
 			self.error(
 				"No CSRF validation header supplied!",
 				"INVALID_CSRF"
