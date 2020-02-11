@@ -133,6 +133,11 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
     this.busyPublishingBlock = busy;
   }
 
+  private setPublishState(isForkingBlock: boolean, isPublished: boolean) {
+    this.setPublishDisabled(isPublished && !isForkingBlock);
+    this.setPublishStatus(isPublished && !isForkingBlock);
+  }
+
   @Action
   public async openModal(saveType: SavedBlockSaveType) {
     // Don't allow this action to happen in Demo Mode
@@ -159,7 +164,7 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
       }
     }
 
-    let isPublished = false;
+    const isForkingBlock = saveType === SavedBlockSaveType.FORK;
 
     const isBlockOwner =
       editBlockPaneState.selectedNodeMetadata && editBlockPaneState.selectedNodeMetadata.is_block_owner;
@@ -172,16 +177,15 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
       this.setName(metadata.name);
       this.setDescription(metadata.description);
 
-      isPublished = metadata.share_status === SharedBlockPublishStatus.PUBLISHED;
+      const isPublished = metadata.share_status === SharedBlockPublishStatus.PUBLISHED;
+      this.setPublishState(isForkingBlock, isPublished);
 
       if (this.saveType !== SavedBlockSaveType.FORK) {
         this.setSaveType(SavedBlockSaveType.UPDATE);
       }
+    } else {
+      this.setPublishState(isForkingBlock, false);
     }
-
-    const isForkingBlock = saveType === SavedBlockSaveType.FORK;
-    this.setPublishDisabled(isPublished && !isForkingBlock);
-    this.setPublishStatus(isPublished && !isForkingBlock);
 
     this.setModalVisibility(true);
   }
