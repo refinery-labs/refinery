@@ -1,4 +1,4 @@
-import { Module } from 'vuex';
+import {Module} from 'vuex';
 import uuid from 'uuid/v4';
 import LZString from 'lz-string';
 import {
@@ -10,7 +10,8 @@ import {
 import {
   ProjectConfig,
   ProjectLogLevel,
-  RefineryProject, SupportedLanguage,
+  RefineryProject,
+  SupportedLanguage,
   WorkflowFile,
   WorkflowFileLink,
   WorkflowFileLinkType,
@@ -20,8 +21,8 @@ import {
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import { generateCytoscapeElements, generateCytoscapeStyle } from '@/lib/refinery-to-cytoscript-converter';
-import { CssStyleDeclaration, LayoutOptions } from 'cytoscape';
+import {generateCytoscapeElements, generateCytoscapeStyle} from '@/lib/refinery-to-cytoscript-converter';
+import {CssStyleDeclaration, LayoutOptions} from 'cytoscape';
 import cytoscape from '@/components/CytoscapeGraph';
 import {
   DeploymentViewActions,
@@ -30,8 +31,8 @@ import {
   ProjectViewMutators,
   UserActions
 } from '@/constants/store-constants';
-import { makeApiRequest } from '@/store/fetchers/refinery-api';
-import { API_ENDPOINT } from '@/constants/api-constants';
+import {makeApiRequest} from '@/store/fetchers/refinery-api';
+import {API_ENDPOINT} from '@/constants/api-constants';
 import {
   GetLatestProjectDeploymentRequest,
   GetLatestProjectDeploymentResponse,
@@ -62,25 +63,25 @@ import {
 } from '@/utils/project-helpers';
 import {
   availableTransitions,
-  blockTypeToImageLookup,
+  blockTypeToImageLookup, DEFAULT_LANGUAGE_CODE,
   demoModeBlacklist,
   savedBlockType
 } from '@/constants/project-editor-constants';
-import EditBlockPaneModule, { EditBlockActions, EditBlockGetters } from '@/store/modules/panes/edit-block-pane';
-import { createToast } from '@/utils/toasts-utils';
-import { ToastVariant } from '@/types/toasts-types';
+import EditBlockPaneModule, {EditBlockActions, EditBlockGetters} from '@/store/modules/panes/edit-block-pane';
+import {createToast} from '@/utils/toasts-utils';
+import {ToastVariant} from '@/types/toasts-types';
 import router from '@/router';
-import { deepJSONCopy } from '@/lib/general-utils';
-import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
-import { createShortlink, deployProject, openProject, teardownProject } from '@/store/fetchers/api-helpers';
-import { CyElements, CyStyle } from '@/types/cytoscape-types';
-import { addAPIBlocksToProject, createNewBlock, createNewTransition } from '@/utils/block-utils';
-import { saveEditBlockToProject } from '@/utils/store-utils';
+import {deepJSONCopy} from '@/lib/general-utils';
+import EditTransitionPaneModule, {EditTransitionActions} from '@/store/modules/panes/edit-transition-pane';
+import {createShortlink, deployProject, openProject, teardownProject} from '@/store/fetchers/api-helpers';
+import {CyElements, CyStyle} from '@/types/cytoscape-types';
+import {addAPIBlocksToProject, createNewBlock, createNewTransition} from '@/utils/block-utils';
+import {saveEditBlockToProject} from '@/utils/store-utils';
 import ImportableRefineryProject from '@/types/export-project';
-import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
-import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
-import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shared-files';
-import { EditSharedFilePaneModule } from '@/store';
+import {AllProjectsActions, AllProjectsGetters} from '@/store/modules/all-projects';
+import {kickOffLibraryBuildForBlocks} from '@/utils/block-build-utils';
+import {AddSharedFileArguments, AddSharedFileLinkArguments} from '@/types/shared-files';
+import {EditSharedFilePaneModule} from '@/store';
 
 export interface ChangeTransitionArguments {
   transition: WorkflowRelationship;
@@ -414,10 +415,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
       state.openedProjectConfig = Object.assign({}, state.openedProjectConfig, {
-        logging: {
-          ...state.openedProjectConfig.logging,
-          level: projectLoggingLevel
-        }
+        ...state.openedProjectConfig,
+        default_language: projectRuntimeLanguage,
       });
     },
 
@@ -605,6 +604,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
           warmup_concurrency_level: 0,
           api_gateway: { gateway_id: false },
           logging: { level: ProjectLogLevel.LOG_ALL },
+          default_language: SupportedLanguage.NODEJS_8,
           version: '1'
         },
         // We mark it as dirty so that we always show the save button ;)
@@ -1491,6 +1491,15 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       let newBlockName: string = `Untitled ${blockTypeToImageLookup[blockType].name}`;
       if (immutable_names.includes(blockType)) {
         newBlockName = blockTypeToImageLookup[blockType].name;
+      }
+
+      // Set configured new block defaults
+      if (context.state.openedProjectConfig) {
+        let defaultLanguage = context.state.openedProjectConfig.default_language || SupportedLanguage.NODEJS_8;
+        addBlockArgs.customBlockProperties = Object.assign({}, addBlockArgs.customBlockProperties, {
+          language: defaultLanguage,
+          code: DEFAULT_LANGUAGE_CODE[defaultLanguage],
+        });
       }
 
       const newBlock = createNewBlock(blockType, newBlockName, addBlockArgs.customBlockProperties);
