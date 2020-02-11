@@ -814,13 +814,11 @@ class Refinery_Memory:
 
 		# If the merge payload is over max size then write
 		# it to S3 to be pulled out later.
-		"""
 		if is_free_tier_deployment() and len( merge_payload ) > _FREE_TIER_MAX_REDIS_SIZE:
 			s3_ref_metadata = store_input_data_in_s3( merge_payload )
 			merge_payload = json.dumps(
 				s3_ref_metadata[ "input_data" ]
 			)
-		"""
 
 		# Store return data in HASH
 		pipeline.hset(
@@ -852,6 +850,9 @@ class Refinery_Memory:
 		return len( lambda_return_values_list ) == len( merge_lambda_arns )
 
 	def _get_merge_data( self, hset_name, branch_ids ):
+		if not self.redis_client:
+			self.connect()
+
 		# Since we're the last Lambda in the merge we'll pull it all out.
 		pipeline = self.redis_client.pipeline()
 		pipeline.hvals(
@@ -869,26 +870,62 @@ class Refinery_Memory:
 
 		# CANARY
 
-		# First pull any merge data from S3
+		# Maximum number of threads
+		# TODO: Implement
+		max_threads = 50
+		active_threads = []
+
+		s3_return_metadata_list = []
+		regular_return_metadata_list = []
+
 		for lambda_return_metadata in lambda_return_metadata_list:
 			returned_data_dict = json.loads(
 				lambda_return_metadata
 			)
 
-			print( "Return data dict is: " )
-			print( json.dumps( returned_data_dict ) )
-			sys.stdout.flush()
+			# Check if it's an S3 file, pull it down if it is.
+			if "_refinery" in returned_data_dict and "indirect" in returned_data_dict[ "_refinery" ]:
+				new_thread = threading.Thread(
+					target=thread_get_json_from_s3,
+					args=(
+						returned_data_dict[ "_refinery" ][ "indirect" ][ "s3_bucket" ],
+						returned_data_dict[ "_refinery" ][ "indirect" ][ "s3_path" ],
+						s3_return_metadata_list
+					)
+				)
+				new_thread.start()
+				time.sleep(0.05) # Annoying wedge due to boto3 bug
+				active_threads.append(
+					new_thread
+				)
+				continue
 
-			for branch_id in returned_data_dict[ "branch_ids" ]:
-				if not ( branch_id in branch_ids ):
-					branch_ids.insert(0, branch_id)
+			regular_return_metadata_list.append(
+				returned_data_dict
+			)
 
+		# Wait until all threads finish
+		for thread in active_threads:
+			thread.join()
+
+		lambda_return_metadata_list = regular_return_metadata_list + s3_return_metadata_list
+
+		print( "Combined list: " )
+		print( json.dumps( lambda_return_metadata_list ) )
+		sys.stdout.flush()
+
+		# First pull any merge data from S3
+		for returned_data_dict in lambda_return_metadata_list:
 			for backpack_key, backpack_value in returned_data_dict[ "backpack" ].iteritems():
 				combined_backpack[ backpack_key ] = backpack_value
 
 			return_values.append(
 				returned_data_dict[ "return_data" ]
 			)
+
+			for branch_id in returned_data_dict[ "branch_ids" ]:
+				if not ( branch_id in branch_ids ):
+					branch_ids.insert(0, branch_id)
 
 		return {
 			"backpack": combined_backpack,
@@ -926,11 +963,11 @@ class Refinery_Memory:
 		if not should_merge:
 			return None
 
-		# Pull the merge data from redis and return it
-		return self._get_merge_data(
-			hset_name,
-			branch_ids
-		)
+		# Return data to do a merge on next invoke
+		return {
+			"hset_name": hset_name,
+			"branch_ids": branch_ids
+		}
 
 def get_json_from_s3( s3_bucket, s3_path ):
 	s3_client = boto3.client( "s3" )
@@ -1102,30 +1139,23 @@ def get_merge_invoke_data( new_invoke_data ):
 	if merge_result == None:
 		return merge_result
 
-	# Pull the shared branch IDs from redis
-	new_invoke_data[ "branch_ids" ] = merge_result[ "branch_ids" ]
-
-	# Remove the last branch ID
-	new_invoke_data[ "branch_ids" ] = new_invoke_data[ "branch_ids" ][1:]
-
-	# If the return value was not None that means it's the final
-	# Lambda in the merge and we can do a "then" transition with
-	# the combined array of results as the input.
-	new_invoke_data = {
+	"""
+	The actual pulling of the merge data is done at the
+	start of the next invoked function.
+	"""
+	return {
 		"branch_ids": new_invoke_data[ "branch_ids" ],
-		"backpack": merge_result[ "backpack" ],
+		"backpack": new_invoke_data[ "backpack" ],
 		"execution_id": new_invoke_data[ "execution_id" ],
 		"fan_out_ids": new_invoke_data[ "fan_out_ids" ],
 		"type": "merge",
 		"arn": new_invoke_data[ "arn" ],
-		"input_data": json.loads(
-			json.dumps(
-				merge_result[ "return_data" ]
-			)
-		)
+		"indirect": {
+			"type": "merge",
+			"hset_name": merge_result[ "hset_name" ],
+			"branch_ids": merge_result[ "branch_ids" ],
+		}
 	}
-
-	return new_invoke_data
 		
 # Make global to enable caching of redis connection
 gmemory = Refinery_Memory()
@@ -1195,15 +1225,11 @@ def _parallel_invoke( branch_ids, invoke_queue ):
 		raise SystemExit
 
 	# Invokes a Lambda asynchronously
-	def lambda_invoker_worker_redis_s3( execution_id, branch_ids, fan_out_ids, arn, s3_bucket, s3_path ):
+	def lambda_invoker_worker_indirect_input( execution_id, branch_ids, fan_out_ids, arn, indirect_data ):
 		return_wrapper_data = {
 			"_refinery": {
 				"branch_ids": branch_ids,
-				"indirect": {
-					"type": "redis_s3",
-					"s3_bucket": s3_bucket,
-					"s3_path": s3_path,
-				},
+				"indirect": indirect_data,
 				"parallel": False,
 				"execution_id": execution_id,
 				"fan_out_ids": fan_out_ids,
@@ -1465,14 +1491,13 @@ def _parallel_invoke( branch_ids, invoke_queue ):
 		elif ( new_invoke_data[ "type" ] in lambda_equivalent_types ) and "indirect" in new_invoke_data:
 			# This is for nested fan-outs that are also S3 loaded
 			new_thread = threading.Thread(
-				target=lambda_invoker_worker_redis_s3,
+				target=lambda_invoker_worker_indirect_input,
 				args=(
 					new_invoke_data[ "execution_id" ],
 					new_invoke_data[ "branch_ids" ],
 					new_invoke_data[ "fan_out_ids" ],
 					new_invoke_data[ "arn" ],
-					new_invoke_data[ "indirect" ][ "s3_bucket" ],
-					new_invoke_data[ "indirect" ][ "s3_path" ]
+					new_invoke_data[ "indirect" ]
 				)
 			)
 			new_thread.start()
@@ -2571,6 +2596,27 @@ def _init( custom_runtime, request_id, lambda_input, context, execution_details 
 						""
 					)
 					return
+				_side_loaded = True
+			# We're a Lambda that is from a merge, we need to pull in all
+			# the merge data returned from previous Code Blocks and set it
+			# as our input.
+			elif lambda_input[ "_refinery" ][ "indirect" ][ "type" ] == "merge":
+				merge_data = gmemory._get_merge_data(
+					lambda_input[ "_refinery" ][ "indirect" ][ "hset_name" ],
+					lambda_input[ "_refinery" ][ "indirect" ][ "branch_ids" ]
+				)
+				# Set backpack from merge data
+				backpack = merge_data[ "backpack" ]
+
+				# Set input data to all merge return data
+				lambda_input = merge_data[ "return_data" ]
+
+				# Pull the branch IDs
+				branch_ids = merge_data[ "branch_ids" ]
+
+				# Remove the last branch ID
+				branch_ids = branch_ids[1:]
+
 				_side_loaded = True
 
 		# Input data is stored in S3 and needs to be pulled
