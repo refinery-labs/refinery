@@ -1,19 +1,18 @@
 import Vue from 'vue';
 import Component from 'vue-class-component';
-import { Prop } from 'vue-property-decorator';
+import {Prop} from 'vue-property-decorator';
 import Loading from '@/components/Common/Loading.vue';
-import { preventDefaultWrapper } from '@/utils/dom-utils';
-import { CreateSavedBlockViewProps, EditorProps, LoadingContainerProps, MarkdownProps } from '@/types/component-types';
-import { SavedBlockStatusCheckResult, SharedBlockPublishStatus, SavedBlockSaveType } from '@/types/api-types';
+import {preventDefaultWrapper} from '@/utils/dom-utils';
+import {CreateSavedBlockViewProps, EditorProps, LoadingContainerProps, MarkdownProps} from '@/types/component-types';
+import {SavedBlockSaveType, SavedBlockStatusCheckResult, SharedBlockPublishStatus} from '@/types/api-types';
 import {
   alreadyPublishedText,
-  savedBlockTitles,
   inputDataExample,
-  newPublishText
+  newPublishText,
+  savedBlockTitles
 } from '@/constants/saved-block-constants';
-import { toTitleCase } from '@/lib/general-utils';
+import {toTitleCase} from '@/lib/general-utils';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
-import { SupportedLanguage } from '@/types/graph';
 import RefineryMarkdown from '@/components/Common/RefineryMarkdown';
 
 @Component
@@ -39,12 +38,14 @@ export default class CreateSavedBlockView extends Vue implements CreateSavedBloc
   @Prop() modalVisibility?: boolean;
   @Prop() setModalVisibility?: (b: boolean) => void;
 
-  getPublishDisabled() {
+  getPublishingDisabled() {
     if (!this.existingBlockMetadata) {
       return false;
     }
 
-    return this.existingBlockMetadata.share_status === SharedBlockPublishStatus.PUBLISHED;
+    const isPublished = this.existingBlockMetadata.share_status === SharedBlockPublishStatus.PUBLISHED;
+    const isForkingBlock = this.blockSaveType === SavedBlockSaveType.FORK;
+    return isPublished && !isForkingBlock;
   }
 
   renderRenderedDescriptionMarkdown() {
@@ -66,7 +67,7 @@ export default class CreateSavedBlockView extends Vue implements CreateSavedBloc
 
   renderContents() {
     const blockSaveType = toTitleCase(this.blockSaveType.toString());
-    const publishDisabled = this.getPublishDisabled();
+    const publishDisabled = this.getPublishingDisabled();
 
     const loadingProps: LoadingContainerProps = {
       label: 'Publishing Saved Block...',
