@@ -28,6 +28,7 @@ export default class CreateSavedBlockView extends Vue implements CreateSavedBloc
   @Prop({ required: true }) savedDataInput!: string | null;
   @Prop({ required: true }) isBusyPublishing!: boolean;
   @Prop({ required: true }) publishStatus!: boolean;
+  @Prop({ required: true }) publishDisabled!: boolean;
 
   @Prop({ required: true }) publishBlock!: () => void;
   @Prop({ required: true }) setDescription!: (s: string) => void;
@@ -37,16 +38,6 @@ export default class CreateSavedBlockView extends Vue implements CreateSavedBloc
 
   @Prop() modalVisibility?: boolean;
   @Prop() setModalVisibility?: (b: boolean) => void;
-
-  getPublishingDisabled() {
-    if (!this.existingBlockMetadata) {
-      return false;
-    }
-
-    const isPublished = this.existingBlockMetadata.share_status === SharedBlockPublishStatus.PUBLISHED;
-    const isForkingBlock = this.blockSaveType === SavedBlockSaveType.FORK;
-    return isPublished && !isForkingBlock;
-  }
 
   renderRenderedDescriptionMarkdown() {
     if (!this.descriptionInput) {
@@ -67,7 +58,6 @@ export default class CreateSavedBlockView extends Vue implements CreateSavedBloc
 
   renderContents() {
     const blockSaveType = toTitleCase(this.blockSaveType.toString());
-    const publishDisabled = this.getPublishingDisabled();
 
     const loadingProps: LoadingContainerProps = {
       label: 'Publishing Saved Block...',
@@ -138,17 +128,17 @@ export default class CreateSavedBlockView extends Vue implements CreateSavedBloc
 
           <b-form-group
             class="padding-bottom--normal-small margin-bottom--normal-small"
-            description={publishDisabled ? alreadyPublishedText : newPublishText}
+            description={this.publishDisabled ? alreadyPublishedText : newPublishText}
           >
             <b-form-checkbox
               class="mr-sm-2 mb-sm-0"
-              disabled={publishDisabled}
+              disabled={this.publishDisabled}
               on={{
                 change: () => this.setPublishStatus(!this.publishStatus)
               }}
               checked={this.publishStatus}
             >
-              {publishDisabled
+              {this.publishDisabled
                 ? 'This block has already been publicly published.'
                 : 'Publish to the public Refinery Block Repository?'}
             </b-form-checkbox>
