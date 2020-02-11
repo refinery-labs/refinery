@@ -21,6 +21,14 @@ export default class ProjectSettings extends Vue {
     return this.openedProjectConfig.logging.level;
   }
 
+  private getDefaultRuntimeLanguage() {
+    // TODO: Move this business logic to an action in the store.
+    if (!this.openedProjectConfig || !this.openedProjectConfig.default_language) {
+      return SupportedLanguage.NODEJS_8;
+    }
+    return this.openedProjectConfig.default_language;
+  }
+
   private renderLogLevel() {
     return (
       <b-form-group description="The logging level to use when Code Blocks run in production. Note that changing this level requires a re-deploy to take effect!">
@@ -58,7 +66,7 @@ export default class ProjectSettings extends Vue {
         <div class="input-group with-focus">
           <b-form-select
             id="logging-level-input-select"
-            value={this.getLogLevelValue()}
+            value={this.getDefaultRuntimeLanguage()}
             on={{ change: this.setProjectConfigRuntimeLanguage }}
             options={languageOptions}
           ></b-form-select>
