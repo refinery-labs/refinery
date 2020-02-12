@@ -1,5 +1,7 @@
+
 import tornado.web
 import json
+import time
 import os
 import re
 
@@ -62,6 +64,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 			"session",
 			json.dumps({
 				"user_id": user_id,
+				"created_at": int( time.time() ),
 			}),
 			expires_days=int( os.environ.get( "cookie_expire_days" ) )
 		)
@@ -160,17 +163,22 @@ class BaseHandler( tornado.web.RequestHandler ):
 		return session_data[ "user_id" ]
 
 	def get_secure_session_data( self, cookie_expiration_days ):
-		# Get secure cookie data
-		secure_cookie_data = self.get_secure_cookie(
-			"session",
-			max_age_days=cookie_expiration_days
-		)
+		# Retrieves data from the session cookie
+		session_data = self.get_secure_cookie_data( "session", cookie_expiration_days )
 
-		if secure_cookie_data == None:
+		try:
+			return json.loads(
+				session_data
+			)
+		except ValueError as e:
+			logit("Unable to deserialize session data: " + repr(e), "warning")
 			return None
 
-		return json.loads(
-			secure_cookie_data
+	def get_secure_cookie_data( self, cookie_name, cookie_expiration_days ):
+		# Get secure cookie data
+		return self.get_secure_cookie(
+			cookie_name,
+			max_age_days=cookie_expiration_days
 		)
 
 	def get_authenticated_user( self ):
@@ -223,13 +231,13 @@ class BaseHandler( tornado.web.RequestHandler ):
 					"ACCESS_DENIED_SHARED_SECRET_REQUIRED"
 				)
 				return
-		
+
 		csrf_validated = self.request.headers.get(
 			"X-CSRF-Validation-Header",
 			False
 		)
-		
-		if not csrf_validated and self.request.method != "OPTIONS" and self.request.method != "GET" and not self.request.path in CSRF_EXEMPT_ENDPOINTS:
+
+		if not csrf_validated and self.request.method != "OPTIONS" and self.request.method != "GET":
 			self.error(
 				"No CSRF validation header supplied!",
 				"INVALID_CSRF"

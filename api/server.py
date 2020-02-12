@@ -48,6 +48,8 @@ from tornado.concurrent import run_on_executor, futures
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from email_validator import validate_email, EmailNotValidError
 
+from controller.auth.authenticate_with_github import AuthenticateWithGithub
+from controller.auth.github_auth_mixin import GithubMixin
 from utils.general import attempt_json_decode, logit, split_list_into_chunks, get_random_node_id, get_urand_password, get_random_id, get_random_deploy_id
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
@@ -9587,7 +9589,8 @@ class Logout( BaseHandler ):
 		self.write({
 			"success": True
 		})
-		
+
+
 class GetBillingMonthTotals( BaseHandler ):
 	@authenticated
 	@gen.coroutine
@@ -10941,6 +10944,7 @@ def make_app( tornado_config ):
 		( r"/api/v1/auth/me", GetAuthenticationStatus ),
 		( r"/api/v1/auth/register", NewRegistration ),
 		( r"/api/v1/auth/login", Authenticate ),
+		tornado.web.url( r"/api/v1/auth/github", AuthenticateWithGithub, name="auth_github" ),
 		( r"/api/v1/auth/logout", Logout ),
 		( r"/api/v1/logs/executions/get-logs", GetProjectExecutionLogObjects ),
 		( r"/api/v1/logs/executions/get-contents", GetProjectExecutionLogsPage ),

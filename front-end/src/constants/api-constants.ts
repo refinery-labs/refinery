@@ -4,6 +4,7 @@ export enum API_ENDPOINT {
   NewRegistration = 'NewRegistration',
   Login = 'Login',
   Logout = 'Logout',
+  AuthenticateWithGithub = 'AuthenticateWithGithub',
   GetProjectExecutionLogs = 'GetProjectExecutionLogs',
   GetProjectExecutions = 'GetProjectExecutions',
   GetProjectExecutionLogsPage = 'GetProjectExecutionLogsPage',
@@ -84,6 +85,10 @@ export const ApiConfigMap: ApiConfigMapType = {
   [API_ENDPOINT.Logout]: {
     path: '/api/v1/auth/logout',
     method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.AuthenticateWithGithub]: {
+    path: '/api/v1/auth/github',
+    method: HTTP_METHOD.GET
   },
   [API_ENDPOINT.SearchSavedProjects]: {
     path: '/api/v1/projects/search',

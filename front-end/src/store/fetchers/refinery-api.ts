@@ -2,8 +2,12 @@ import { HttpUtil } from '@/utils/make-request';
 import {
   AddPaymentMethodRequest,
   AddPaymentMethodResponse,
+  AuthenticateWithGithubRequest,
+  AuthenticateWithGithubResponse,
   BaseApiRequest,
   BaseApiResponse,
+  CreateProjectShortlinkRequest,
+  CreateProjectShortlinkResponse,
   CreateSavedBlockRequest,
   CreateSavedBlockResponse,
   CreateScheduleTriggerRequest,
@@ -32,16 +36,20 @@ import {
   GetLatestMonthlyBillResponse,
   GetLatestProjectDeploymentRequest,
   GetLatestProjectDeploymentResponse,
-  GetProjectExecutionLogsPageRequest,
-  GetProjectExecutionLogsPageResponse,
   GetPaymentMethodsRequest,
   GetPaymentMethodsResponse,
   GetProjectConfigRequest,
   GetProjectConfigResponse,
+  GetProjectExecutionLogObjectsRequest,
+  GetProjectExecutionLogObjectsResponse,
+  GetProjectExecutionLogsPageRequest,
+  GetProjectExecutionLogsPageResponse,
   GetProjectExecutionLogsRequest,
   GetProjectExecutionLogsResponse,
   GetProjectExecutionsRequest,
   GetProjectExecutionsResponse,
+  GetProjectShortlinkRequest,
+  GetProjectShortlinkResponse,
   GetSavedProjectRequest,
   GetSavedProjectResponse,
   HealthCheckRequest,
@@ -58,6 +66,8 @@ import {
   MakePrimaryMethodResponse,
   NewRegistrationRequest,
   NewRegistrationResponse,
+  RenameProjectRequest,
+  RenameProjectResponse,
   RunLambdaRequest,
   RunLambdaResponse,
   RunTmpLambdaRequest,
@@ -83,15 +93,7 @@ import {
   StashStateLogRequest,
   StashStateLogResponse,
   UpdateEnvironmentVariablesRequest,
-  UpdateEnvironmentVariablesResponse,
-  GetProjectExecutionLogObjectsResponse,
-  GetProjectExecutionLogObjectsRequest,
-  GetProjectShortlinkRequest,
-  CreateProjectShortlinkResponse,
-  GetProjectShortlinkResponse,
-  CreateProjectShortlinkRequest,
-  RenameProjectResponse,
-  RenameProjectRequest
+  UpdateEnvironmentVariablesResponse
 } from '@/types/api-types';
 import { API_ENDPOINT, ApiConfigMap } from '@/constants/api-constants';
 
@@ -134,6 +136,9 @@ export class RefineryApi implements RefineryApiTypeMap {
   );
   [API_ENDPOINT.Login] = makeApiClient<LoginRequest, LoginResponse>(API_ENDPOINT.Login);
   [API_ENDPOINT.Logout] = makeApiClient<LogoutRequest, LogoutResponse>(API_ENDPOINT.Logout);
+  [API_ENDPOINT.AuthenticateWithGithub] = makeApiClient<AuthenticateWithGithubRequest, AuthenticateWithGithubResponse>(
+    API_ENDPOINT.AuthenticateWithGithub
+  );
   [API_ENDPOINT.CreateSQSQueueTrigger] = makeApiClient<CreateSQSQueueTriggerRequest, CreateSQSQueueTriggerResponse>(
     API_ENDPOINT.CreateSQSQueueTrigger
   );
