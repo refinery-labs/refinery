@@ -1,17 +1,17 @@
 import Vue from 'vue';
 import Component from 'vue-class-component';
-import {Prop} from 'vue-property-decorator';
+import { Prop } from 'vue-property-decorator';
 import Loading from '@/components/Common/Loading.vue';
-import {preventDefaultWrapper} from '@/utils/dom-utils';
-import {CreateSavedBlockViewProps, EditorProps, LoadingContainerProps, MarkdownProps} from '@/types/component-types';
-import {SavedBlockSaveType, SavedBlockStatusCheckResult, SharedBlockPublishStatus} from '@/types/api-types';
+import { preventDefaultWrapper } from '@/utils/dom-utils';
+import { CreateSavedBlockViewProps, EditorProps, LoadingContainerProps, MarkdownProps } from '@/types/component-types';
+import { SavedBlockSaveType, SavedBlockStatusCheckResult, SharedBlockPublishStatus } from '@/types/api-types';
 import {
   alreadyPublishedText,
   inputDataExample,
   newPublishText,
   savedBlockTitles
 } from '@/constants/saved-block-constants';
-import {toTitleCase} from '@/lib/general-utils';
+import { toTitleCase } from '@/lib/general-utils';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import RefineryMarkdown from '@/components/Common/RefineryMarkdown';
 
