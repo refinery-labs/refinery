@@ -2,7 +2,9 @@ import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { ProjectConfig, ProjectLogLevel, SupportedLanguage } from '@/types/graph';
 import { namespace } from 'vuex-class';
-import {languages} from 'monaco-editor';
+import { languages } from 'monaco-editor';
+import Loading from '@/components/Common/Loading.vue';
+import { LoadingContainerProps } from '@/types/component-types';
 
 const project = namespace('project');
 
@@ -69,21 +71,32 @@ export default class ProjectSettings extends Vue {
             value={this.getDefaultRuntimeLanguage()}
             on={{ change: this.setProjectConfigRuntimeLanguage }}
             options={languageOptions}
-          ></b-form-select>
+          />
         </div>
       </b-form-group>
-    )
+    );
   }
 
   private renderSettingsCard(name: string) {
+    const loadingProps: LoadingContainerProps = {
+      show: false,
+      label: 'Loading config values...'
+    };
+
+    if (!this.openedProjectConfig) {
+      loadingProps.show = true;
+    }
+
     return (
-      <div class="card card-default">
-        <div class="card-header">{name}</div>
-        <div class="card-body text-align--left">
-          {this.renderLogLevel()}
-          {this.renderRuntimeLanguage()}
+      <Loading props={loadingProps}>
+        <div class="card card-default">
+          <div class="card-header">{name}</div>
+          <div class="card-body text-align--left">
+            {this.renderLogLevel()}
+            {this.renderRuntimeLanguage()}
+          </div>
         </div>
-      </div>
+      </Loading>
     );
   }
 
@@ -100,9 +113,7 @@ export default class ProjectSettings extends Vue {
         </div>
         <div class="layout--constrain">
           <div class="row justify-content-lg-center">
-            <div class="col-lg-8 align-self-center">
-              {this.renderSettingsCard('Project Settings')}
-            </div>
+            <div class="col-lg-8 align-self-center">{this.renderSettingsCard('Project Settings')}</div>
           </div>
         </div>
       </div>
