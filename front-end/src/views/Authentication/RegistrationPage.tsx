@@ -329,7 +329,7 @@ export default class RegistrationPage extends Vue {
 
     const footer = (
       <div class="p-3 text-center">
-        <span>&copy; 2019 - Refinery Labs, Inc.</span>
+        <span>&copy; 2020 - Refinery Labs, Inc.</span>
       </div>
     );
 
