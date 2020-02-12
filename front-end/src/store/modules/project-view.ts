@@ -415,10 +415,10 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         console.error('Could not set project runtime language due to no project being opened.');
         return;
       }
-      state.openedProjectConfig = Object.assign({}, state.openedProjectConfig, {
+      state.openedProjectConfig = {
         ...state.openedProjectConfig,
         default_language: projectRuntimeLanguage
-      });
+      };
     },
 
     // Deployment Logic
