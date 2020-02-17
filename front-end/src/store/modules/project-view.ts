@@ -104,6 +104,7 @@ const moduleState: ProjectViewState = {
   openedProjectConfigOriginal: null,
 
   isInDemoMode: false,
+  currentTooltip: 0,
   isCreatingShortlink: false,
   shortlinkUrl: null,
 

@@ -7,6 +7,9 @@ import { LayoutOptions } from 'cytoscape';
 import { AvailableTransition } from '@/store/store-types';
 import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
+import TourWrapper from '@/lib/TourWrapper';
+import { DemoWalkthroughStoreModule } from '@/store';
+import { TooltipType } from '@/types/demo-walkthrough-types';
 
 const project = namespace('project');
 
@@ -24,12 +27,14 @@ export default class OpenedProjectGraphContainer extends Vue {
 
   @project.State isLoadingProject!: boolean;
   @project.State isInDemoMode!: boolean;
+  @project.State currentTooltip!: number;
   @State windowWidth?: number;
 
   @project.Getter getValidBlockToBlockTransitions!: AvailableTransition[] | null;
   @project.Getter getCodeBlockIDs!: string[];
 
   @project.Action clearSelection!: () => void;
+  @project.Action nextTooltip!: () => void;
   @project.Action selectNode!: (element: string) => void;
   @project.Action selectEdge!: (element: string) => void;
   @project.Action openRightSidebarPane!: (sidebarPane: SIDEBAR_PANE) => void;
@@ -83,6 +88,9 @@ export default class OpenedProjectGraphContainer extends Vue {
       clearSelection: this.clearSelection,
       selectNode: this.selectNode,
       selectEdge: this.selectEdge,
+      currentTooltips: DemoWalkthroughStoreModule.currentCyTooltips,
+      loadCyTooltips: DemoWalkthroughStoreModule.loadCyTooltips,
+      nextTooltip: DemoWalkthroughStoreModule.nextTooltip,
       elements: this.cytoscapeElements,
       stylesheet: this.cytoscapeStyle,
       layout: this.cytoscapeLayoutOptions,
@@ -117,6 +125,17 @@ export default class OpenedProjectGraphContainer extends Vue {
       </b-tooltip>
     );
 
+    const tourProps = {
+      steps: DemoWalkthroughStoreModule.currentHtmlTooltips,
+      nextTooltip: DemoWalkthroughStoreModule.nextTooltip
+    };
+
+    const introWalkthrough = (
+      <div>
+        <TourWrapper props={tourProps} />
+      </div>
+    );
+
     const demoButtons = (
       <div>
         <b-button
@@ -145,6 +164,7 @@ export default class OpenedProjectGraphContainer extends Vue {
           </h4>
         </div>
         {this.isInDemoMode && introTooltip}
+        {this.isInDemoMode && introWalkthrough}
         <CytoscapeGraph props={graphProps} />
       </div>
     );

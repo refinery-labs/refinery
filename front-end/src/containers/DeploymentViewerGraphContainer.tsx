@@ -4,6 +4,7 @@ import CytoscapeGraph from '@/components/CytoscapeGraph';
 import { namespace, State } from 'vuex-class';
 import { LayoutOptions } from 'cytoscape';
 import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
+import { DemoWalkthroughStoreModule } from '@/store';
 
 const deployment = namespace('deployment');
 const deploymentExecutions = namespace('deploymentExecutions');
@@ -36,6 +37,9 @@ export default class DeploymentViewerGraphContainer extends Vue {
       clearSelection: this.clearSelection,
       selectNode: this.selectNode,
       selectEdge: this.selectEdge,
+      currentTooltips: DemoWalkthroughStoreModule.currentCyTooltips,
+      loadCyTooltips: DemoWalkthroughStoreModule.loadCyTooltips,
+      nextTooltip: DemoWalkthroughStoreModule.nextTooltip,
       elements: this.graphElementsWithExecutionStatus || this.cytoscapeElements,
       stylesheet: this.cytoscapeStyle,
       layout: this.cytoscapeLayoutOptions,

@@ -79,6 +79,8 @@ export enum ProjectViewMutators {
   setLeftSidebarPane = 'setLeftSidebarPane',
   setRightSidebarPane = 'setRightSidebarPane',
 
+  setNextTooltip = 'setNextTooltip',
+
   // Deployment
   setLatestDeploymentState = 'setLatestDeploymentState',
   setDeploymentError = 'setDeploymentError',

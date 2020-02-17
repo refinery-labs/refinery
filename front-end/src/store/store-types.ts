@@ -29,6 +29,8 @@ import { SharedFilesPaneState } from '@/store/modules/panes/shared-files';
 import { EditSharedFilePaneState } from '@/store/modules/panes/edit-shared-file';
 import { CodeBlockSharedFilesPaneState } from '@/store/modules/panes/code-block-shared-files';
 import { ViewSharedFilePaneState } from '@/store/modules/panes/view-shared-file';
+import { DemoWalkthroughState } from '@/store/modules/demo-walkthrough';
+import { CreateDemoNotesViewState } from '@/store/modules/panes/demo-notes-pane';
 
 export enum StoreType {
   addSavedBlockPane = 'addSavedBlockPane',
@@ -52,7 +54,8 @@ export enum StoreType {
   viewSharedFile = 'viewSharedFile',
   codeBlockSharedFiles = 'codeBlockSharedFiles',
   unauthViewProject = 'unauthViewProject',
-  readmeEditor = 'readmeEditor'
+  readmeEditor = 'readmeEditor',
+  demoWalkthrough = 'demoWalkthrough'
 }
 
 export interface RootState {
@@ -77,6 +80,7 @@ export interface RootState {
   editSharedFile: EditSharedFilePaneState;
   viewSharedFile: ViewSharedFilePaneState;
   codeBlockSharedFiles: CodeBlockSharedFilesPaneState;
+  demoWalkthrough: DemoWalkthroughState;
 }
 
 export enum UserInterfaceSettings {
@@ -172,6 +176,7 @@ export interface ProjectViewState {
   openedProjectConfigOriginal: ProjectConfig | null;
 
   isInDemoMode: boolean;
+  currentTooltip: number;
   isCreatingShortlink: boolean;
   shortlinkUrl: string | null;
 

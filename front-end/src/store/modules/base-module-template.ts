@@ -2,11 +2,9 @@ import { VuexModule, Module, Mutation, Action, getModule } from 'vuex-module-dec
 import store from '@/store';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
-import { RootState } from '@/store/store-types';
+import { RootState, StoreType } from '@/store/store-types';
 
-// This is the name that this will be added to the Vuex store with.
 // You will need to add to the `RootState` interface if you want to access this state via `rootState` from anywhere.
-const storeName = 'REPLACE_ME_BASE_STORE';
 
 export interface ExampleBaseState {
   example: string;
@@ -21,8 +19,9 @@ const initialState = deepJSONCopy(baseState);
 
 // We need to leave this as a "dynamic" module so that we can use the fancy `this` rebinding. Otherwise we have to use
 // The old school `context.commit` and `context.dispatch` style syntax.
-@Module({ namespaced: true, dynamic: true, store, name: storeName })
-class ExampleBaseStore extends VuexModule<ThisType<ExampleBaseState>, RootState> implements ExampleBaseState {
+// name would be set to: StoreType.exampleBase if exampleBase were defined in StoreType
+@Module({ namespaced: true, name: '' })
+export class ExampleBaseStore extends VuexModule<ThisType<ExampleBaseState>, RootState> implements ExampleBaseState {
   public example: string = initialState.example;
 
   // Example of "getter" syntax.
@@ -47,5 +46,3 @@ class ExampleBaseStore extends VuexModule<ThisType<ExampleBaseState>, RootState>
     this.setExample(value);
   }
 }
-
-export const ExampleBaseStoreModule = getModule(ExampleBaseStore);
