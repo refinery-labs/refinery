@@ -15,6 +15,7 @@ import './lib/class-component-hooks';
 
 import BootstrapVue from 'bootstrap-vue';
 import VueIntercom from 'vue-intercom';
+import VueTour from 'vue-tour';
 import { sync } from 'vuex-router-sync';
 
 import './vendor';
@@ -31,8 +32,11 @@ import router from './router';
 import './registerServiceWorker';
 import { setupWebsocketVuePlugin } from '@/setup-websocket';
 
+//require('vue-tour/dist/vue-tour.css')
+
 Vue.use(BootstrapVue);
 Vue.use(VueIntercom, { appId: 'sjaaunj7' });
+Vue.use(VueTour);
 
 Vue.config.productionTip = false;
 

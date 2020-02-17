@@ -7,10 +7,16 @@ import { animationBegin, animationEnd, baseCytoscapeStyles, STYLE_CLASSES } from
 import { timeout } from '@/utils/async-utils';
 import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
 import { registerCustomDagre } from '@/lib/dagre-cytoscape';
+import { CyTooltip, DemoTooltip, TooltipType } from '@/types/demo-walkthrough-types';
 
 // @ts-ignore
 cytoscape.use(registerCustomDagre);
 cyCanvas(cytoscape);
+
+interface CytoscapeLayer {
+  layer: CytoscapeCanvasInstance;
+  ctx: CanvasRenderingContext2D;
+}
 
 function areCytoResourcesTheSame(a: NodeDefinition | EdgeDefinition, b: NodeDefinition | EdgeDefinition): boolean {
   const aKeys = Object.keys(a);
@@ -76,6 +82,19 @@ function areCytoGraphsTheSame(val: CyElements, oldVal: CyElements) {
   return true;
 }
 
+function hashCode(str: string) {
+  var hash = 0,
+    i,
+    chr;
+  if (str.length === 0) return hash;
+  for (i = 0; i < str.length; i++) {
+    chr = str.charCodeAt(i);
+    hash = (hash << 5) - hash + chr;
+    hash |= 0; // Convert to 32bit integer
+  }
+  return hash;
+}
+
 @Component
 export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
   cy!: cytoscape.Core;
@@ -90,6 +109,10 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
   @Prop({ required: true }) public clearSelection!: () => void;
   @Prop({ required: true }) public selectNode!: (id: string) => void;
   @Prop({ required: true }) public selectEdge!: (id: string) => void;
+  @Prop({ required: true }) public nextTooltip!: () => void;
+  @Prop({ required: true }) public loadCyTooltips!: (cy: cytoscape.Core) => void;
+
+  @Prop() public currentTooltips!: CyTooltip[];
   @Prop() public selected!: string | null;
   @Prop() public enabledNodeIds!: string[] | null;
   @Prop() public backgroundGrid!: boolean;
@@ -394,8 +417,10 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
     cy.on('mouseout', 'edge', removeHighlight);
 
     cy.on('tap', e => {
-      // Tap on background of canvas
-      if (e.target === cy) {
+      if (this.tooltipTapped(cy, e)) {
+        this.nextTooltip();
+      } else if (e.target === cy) {
+        // Tap on background of canvas
         this.clearSelection();
       }
     });
@@ -413,7 +438,7 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
     });
   }
 
-  public setupCanvasBackground(cy: cytoscape.Core) {
+  private getBottomCyLayer(cy: cytoscape.Core): CytoscapeLayer | null {
     // @ts-ignore
     const getLayer: (args?: any) => CytoscapeCanvasInstance = args => cy.cyCanvas(args);
 
@@ -424,21 +449,149 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
     const ctx = canvas.getContext('2d');
 
     if (!ctx) {
+      return null;
+    }
+    return {
+      layer: bottomLayer,
+      ctx: ctx
+    };
+  }
+
+  public drawBackground(cyLayer: CytoscapeLayer) {
+    const { layer, ctx } = cyLayer;
+
+    if (!this.backgroundGrid) {
+      return;
+    }
+
+    layer.resetTransform(ctx);
+    layer.clear(ctx);
+    layer.setTransform(ctx);
+
+    layer.drawGrid(ctx);
+  }
+
+  public drawTooltips(cyLayer: CytoscapeLayer) {
+    const { ctx } = cyLayer;
+    this.currentTooltips.forEach(tooltip => {
+      const contentHash = this.tooltipHash(tooltip);
+      if (this.$refs[contentHash]) {
+        //@ts-ignore
+        ctx.drawImage(this.$refs[contentHash], tooltip.x + tooltip.offsetX, tooltip.y + tooltip.offsetY);
+      }
+    });
+  }
+
+  public setupCanvasBackground(cy: cytoscape.Core) {
+    const cyLayer = this.getBottomCyLayer(cy);
+    if (!cyLayer) {
       return;
     }
 
     // Draw a background
     cy.on('render cyCanvas.resize', evt => {
-      if (!this.backgroundGrid) {
-        return;
-      }
-
-      bottomLayer.resetTransform(ctx);
-      bottomLayer.clear(ctx);
-      bottomLayer.setTransform(ctx);
-
-      bottomLayer.drawGrid(ctx);
+      this.drawBackground(cyLayer);
+      this.drawTooltips(cyLayer);
     });
+  }
+
+  private tooltipTapped(cy: cytoscape.Core, event: EventObject): boolean {
+    const cyLayer = this.getBottomCyLayer(cy);
+    if (!cyLayer) {
+      return false;
+    }
+    const { layer, ctx } = cyLayer;
+
+    return (
+      this.currentTooltips.filter(tooltip => {
+        const img = this.$refs[this.tooltipHash(tooltip)] as HTMLImageElement;
+        return layer.tooltipTapped(ctx, tooltip, img, event.position);
+      }).length > 0
+    );
+  }
+
+  public tooltipHash(tooltip: CyTooltip) {
+    return hashCode(tooltip.header + tooltip.body);
+  }
+
+  public renderTooltipSVG(tooltip: CyTooltip) {
+    var data = `
+  <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
+    <foreignObject width="100%" height="100%">
+      <div xmlns="http://www.w3.org/1999/xhtml" style="">
+        <style>
+        * {
+          font-size: .875rem;
+        }
+        .btn {
+          background: transparent;
+          border: .05rem solid #fff;
+          border-radius: .1rem;
+          color: #fff;
+          cursor: pointer;
+          display: inline-block;
+          outline: none;
+          margin: 0 .2rem;
+          padding: .35rem;
+          text-align: center;
+          text-decoration: none;
+          -webkit-transition: all .2s ease;
+          transition: all .2s ease;
+          vertical-align: middle;
+          white-space: nowrap;
+          font-size: .6rem;
+        }
+        .step {
+          color: white;
+          background: #50596c;
+          max-width: 320px;
+          border-radius: 3px;
+          -webkit-filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
+          filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.5));
+          padding: 1rem;
+          text-align: center;
+        }
+        .header {
+          margin: -1rem -1rem .5rem;
+          padding: .5rem;
+          background-color: #454d5d;
+          border-top-left-radius: 3px;
+          border-top-right-radius: 3px;
+        }
+        .content {
+          font-size: .7rem;
+          margin-bottom: .5rem;
+        }
+        </style>
+        <div class="step">
+          <div class="header">
+            ${tooltip.header}
+          </div>
+          <div class="content">
+            ${tooltip.body}
+          </div>
+            <button class="btn">
+              continue
+            </button>
+        </div>
+      </div>
+    </foreignObject>
+  </svg>`;
+
+    const DOMURL = window.URL || window.webkitURL || window;
+
+    const svg = new Blob([data], {
+      type: 'image/svg+xml;charset=utf-8'
+    });
+    const url = DOMURL.createObjectURL(svg);
+
+    const contentHash = this.tooltipHash(tooltip);
+    return <img src={url} ref={contentHash} />;
+  }
+
+  public loadTooltips() {
+    const svgs = this.currentTooltips.map(tooltip => this.renderTooltipSVG(tooltip));
+    return <div style="display:none">{svgs}</div>;
   }
 
   public mounted() {
@@ -461,6 +614,8 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
     this.setupCanvasBackground(this.cy);
 
     this.$forceUpdate();
+
+    this.loadCyTooltips(this.cy);
   }
 
   public beforeDestroy() {
@@ -481,6 +636,28 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
       );
     }
 
-    return <div ref="container" class="graph-container" />;
+    if (this.currentTooltips.length > 0) {
+      const eles = this.cy.$(`#${this.currentTooltips[0].id}`);
+      console.log(this.windowWidth);
+
+      const viewPort = Math.min(this.cy.width(), this.cy.height());
+      if (viewPort <= 450) {
+        this.cy.fit(eles, 100);
+      } else if (viewPort <= 800) {
+        this.cy.fit(eles, 250);
+      } else {
+        this.cy.fit(eles, (viewPort - 200) / 2);
+      }
+      this.cy.panBy({
+        x: -150,
+        y: 0
+      });
+    }
+
+    return (
+      <div ref="container" class="graph-container">
+        {this.loadTooltips()}
+      </div>
+    );
   }
 }

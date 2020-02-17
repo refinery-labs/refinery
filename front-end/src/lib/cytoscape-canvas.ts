@@ -1,8 +1,21 @@
+import { CyTooltip } from '@/types/demo-walkthrough-types';
+
 export interface CytoscapeCanvasInstance {
   getCanvas(): HTMLCanvasElement;
+
   clear(ctx: CanvasRenderingContext2D): void;
+
   resetTransform(ctx: CanvasRenderingContext2D): void;
+
   setTransform(ctx: CanvasRenderingContext2D): void;
+
+  tooltipTapped(
+    ctx: CanvasRenderingContext2D,
+    tooltip: CyTooltip,
+    img: HTMLImageElement,
+    pos: cytoscape.Position
+  ): boolean;
+
   drawGrid(ctx: CanvasRenderingContext2D): void;
 }
 
@@ -90,6 +103,16 @@ const register = function(cytoscape: (extensionName: string, foo: string, bar: a
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.translate(pan.x * pixelRatio, pan.y * pixelRatio);
         ctx.scale(zoom * pixelRatio, zoom * pixelRatio);
+      },
+      tooltipTapped(
+        ctx: CanvasRenderingContext2D,
+        tooltip: CyTooltip,
+        img: HTMLImageElement,
+        pos: cytoscape.Position
+      ): boolean {
+        const x = tooltip.x + tooltip.offsetX;
+        const y = tooltip.y + tooltip.offsetY;
+        return pos.x > x && pos.x < x + img.width && (pos.y > y && pos.y < y + img.height);
       },
       drawGrid(ctx: CanvasRenderingContext2D) {
         const pan = cy.pan();
