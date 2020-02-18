@@ -83,7 +83,7 @@ export default class OpenedProjectGraphContainer extends Vue {
     }
 
     // If we have tooltips to display then add some padding between sub graphs on the canvas
-    const subGraphPadding = DemoWalkthroughStoreModule.currentCyTooltips.length ? 200 : undefined;
+    const subGraphPadding = DemoWalkthroughStoreModule.currentCyTooltips.length > 0 ? 200 : undefined;
 
     // By holding these in the stores, we can compare pointers because the data is "immutable".
     const graphProps: CytoscapeGraphProps = {
@@ -100,8 +100,7 @@ export default class OpenedProjectGraphContainer extends Vue {
       selected: this.selectedResource,
       enabledNodeIds: this.getEnabledNodeIds(),
       backgroundGrid: true,
-      windowWidth: this.windowWidth,
-      subGraphPadding: subGraphPadding
+      windowWidth: this.windowWidth
     };
 
     const containerClasses = {
