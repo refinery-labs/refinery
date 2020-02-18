@@ -1,4 +1,5 @@
 import { HTTP_METHOD } from '@/constants/api-constants';
+import { DemoTooltip, TooltipType } from '@/types/demo-walkthrough-types';
 
 export interface BaseRefineryResource {
   name: string;
@@ -11,6 +12,7 @@ export interface RefineryProject {
   project_id: string;
   readme: string;
   version: number;
+  demo_walkthrough: DemoTooltip[];
   workflow_states: WorkflowState[];
   workflow_relationships: WorkflowRelationship[];
   workflow_files: WorkflowFile[];

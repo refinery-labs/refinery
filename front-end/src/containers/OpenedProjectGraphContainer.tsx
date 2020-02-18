@@ -34,7 +34,6 @@ export default class OpenedProjectGraphContainer extends Vue {
   @project.Getter getCodeBlockIDs!: string[];
 
   @project.Action clearSelection!: () => void;
-  @project.Action nextTooltip!: () => void;
   @project.Action selectNode!: (element: string) => void;
   @project.Action selectEdge!: (element: string) => void;
   @project.Action openRightSidebarPane!: (sidebarPane: SIDEBAR_PANE) => void;
@@ -164,7 +163,7 @@ export default class OpenedProjectGraphContainer extends Vue {
           </h4>
         </div>
         {this.isInDemoMode && introTooltip}
-        {this.isInDemoMode && introWalkthrough}
+        {introWalkthrough}
         <CytoscapeGraph props={graphProps} />
       </div>
     );

@@ -82,7 +82,7 @@ import ImportableRefineryProject from '@/types/export-project';
 import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shared-files';
-import { EditSharedFilePaneModule } from '@/store';
+import { DemoWalkthroughStoreModule, EditSharedFilePaneModule } from '@/store';
 
 export interface ChangeTransitionArguments {
   transition: WorkflowRelationship;
@@ -572,6 +572,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       await context.dispatch(ProjectViewActions.loadProjectConfig);
 
+      DemoWalkthroughStoreModule.setCurrentTooltips(project.demo_walkthrough);
+
       context.commit(ProjectViewMutators.isLoadingProject, false);
 
       kickOffLibraryBuildForBlocks(project.workflow_states);
@@ -603,7 +605,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
           // Merge in the JSON object and setup other properties with new values
           ...demoProject,
           project_id: uuid(),
-          version: 1
+          version: 1,
+          demo_walkthrough: []
         },
         config: {
           environment_variables: {},

@@ -30,7 +30,6 @@ import { EditSharedFilePaneState } from '@/store/modules/panes/edit-shared-file'
 import { CodeBlockSharedFilesPaneState } from '@/store/modules/panes/code-block-shared-files';
 import { ViewSharedFilePaneState } from '@/store/modules/panes/view-shared-file';
 import { DemoWalkthroughState } from '@/store/modules/demo-walkthrough';
-import { CreateDemoNotesViewState } from '@/store/modules/panes/demo-notes-pane';
 
 export enum StoreType {
   addSavedBlockPane = 'addSavedBlockPane',
