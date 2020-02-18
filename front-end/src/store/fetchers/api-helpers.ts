@@ -59,7 +59,7 @@ import { DeployProjectParams, DeployProjectResult } from '@/types/project-editor
 import { CURRENT_TRANSITION_SCHEMA } from '@/constants/graph-constants';
 import { timeout } from '@/utils/async-utils';
 import ImportableRefineryProject from '@/types/export-project';
-import { CY_CONFIG_DEFAULTS, TooltipType } from '@/types/demo-walkthrough-types';
+import { CY_CONFIG_DEFAULTS, DemoTooltip, TooltipType } from '@/types/demo-walkthrough-types';
 
 export interface LibraryBuildArguments {
   language: SupportedLanguage;
@@ -355,19 +355,10 @@ export async function openProject(request: GetSavedProjectRequest) {
     return null;
   }
 
-  // Ensures that we have all fields, especially if the schema changes.
-  project.workflow_states = project.workflow_states.map(wfs => ({
-    ...blockTypeToDefaultStateMapping[wfs.type](),
-    ...wfs
-  }));
-
-  project.workflow_relationships = project.workflow_relationships.map(wr => ({
-    version: CURRENT_TRANSITION_SCHEMA,
-    ...wr
-  }));
-
+  let tooltipLookup: Record<string, DemoTooltip> = {};
   project.demo_walkthrough = project.demo_walkthrough.map(t => {
     if (t.type === TooltipType.CyTooltip) {
+      tooltipLookup[t.target] = t;
       return {
         config: CY_CONFIG_DEFAULTS,
         ...t
@@ -375,6 +366,18 @@ export async function openProject(request: GetSavedProjectRequest) {
     }
     return t;
   });
+
+  // Ensures that we have all fields, especially if the schema changes.
+  project.workflow_states = project.workflow_states.map(wfs => ({
+    ...blockTypeToDefaultStateMapping[wfs.type](),
+    ...wfs,
+    tooltip: tooltipLookup[wfs.id] || false
+  }));
+
+  project.workflow_relationships = project.workflow_relationships.map(wr => ({
+    version: CURRENT_TRANSITION_SCHEMA,
+    ...wr
+  }));
 
   return project;
 }

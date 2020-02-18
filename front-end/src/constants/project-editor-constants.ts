@@ -44,6 +44,7 @@ import CodeBlockSharedFilesPane from '@/components/ProjectEditor/CodeBlockShared
 import ViewSharedFilePane from '@/components/ProjectEditor/ViewSharedFile';
 import ViewReadmePane from '@/components/ProjectEditor/ViewReadme';
 import EditReadmePane from '@/components/ProjectEditor/EditReadme';
+import { DemoTooltip } from '@/types/demo-walkthrough-types';
 
 export const savedBlockType = 'saved_block';
 

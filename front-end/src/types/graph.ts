@@ -102,6 +102,7 @@ export interface LambdaWorkflowState extends WorkflowState {
   saved_backpack_data?: string;
   environment_variables: BlockEnvironmentVariableList;
   reserved_concurrency_count: number | false;
+  tooltip?: DemoTooltip | false;
 }
 
 export interface BlockEnvironmentVariableList {

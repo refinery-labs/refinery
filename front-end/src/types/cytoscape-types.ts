@@ -23,5 +23,4 @@ export interface CytoscapeGraphProps {
   config: cytoscape.CytoscapeOptions | null;
   windowWidth?: number;
   animationDisabled?: boolean;
-  subGraphPadding?: number;
 }

@@ -44,6 +44,20 @@ function classOnlyConverter<T extends WorkflowState>(classname: string): (e: Wor
   return e => basicConverter(e, classname);
 }
 
+function lambdaConverter(classname: string): (e: WorkflowState) => NodeDefinition {
+  return e => {
+    const converted = basicConverter(e, classname);
+    const state = e as LambdaWorkflowState;
+    return {
+      ...converted,
+      scratch: {
+        ...converted.scratch,
+        _tooltip: state.tooltip
+      }
+    };
+  };
+}
+
 export type WorkflowStateTypeConverterLookup = {
   [key in WorkflowStateType]: ((w: WorkflowState) => NodeDefinition) | null
 };
@@ -57,7 +71,7 @@ export const workflowStateTypeToConverter: WorkflowStateTypeConverterLookup = {
   [WorkflowStateType.API_GATEWAY_RESPONSE]: classOnlyConverter<ApiGatewayResponseWorkflowState>(
     WorkflowStateType.API_GATEWAY_RESPONSE
   ),
-  [WorkflowStateType.LAMBDA]: classOnlyConverter<LambdaWorkflowState>(WorkflowStateType.LAMBDA),
+  [WorkflowStateType.LAMBDA]: lambdaConverter(WorkflowStateType.LAMBDA),
   [WorkflowStateType.SCHEDULE_TRIGGER]: classOnlyConverter<ScheduleTriggerWorkflowState>(
     WorkflowStateType.SCHEDULE_TRIGGER
   ),
