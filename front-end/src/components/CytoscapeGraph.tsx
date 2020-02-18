@@ -119,6 +119,7 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
   @Prop() public backgroundGrid!: boolean;
   @Prop() public windowWidth?: number;
   @Prop() public animationDisabled?: boolean;
+  @Prop() public subGraphPadding?: number;
 
   // This is a catch-all for any additional options that need to be specified
   @Prop({
@@ -374,6 +375,7 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
       // animationEasing: 'cubic',
       spacingFactor: 1.15,
       padding: 20,
+      subGraphPadding: this.paddingBetweenSubGraphs(),
       // @ts-ignore
       edgeSep: 100,
       rankSep: 70,
@@ -498,7 +500,7 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
     }
 
     // Draw a background
-    cy.on('render cyCanvas.resize', evt => {
+    cy.on('render resize', evt => {
       this.drawBackground(cyLayer);
       this.drawTooltips(cyLayer);
     });
@@ -641,6 +643,10 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
       return 250;
     }
     return (viewPort - 200) / 2;
+  }
+
+  public paddingBetweenSubGraphs(): number {
+    return this.subGraphPadding ? this.subGraphPadding : 60;
   }
 
   public centerOnTooltip(tooltip: DemoTooltip) {

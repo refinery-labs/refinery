@@ -31,6 +31,8 @@ export class DagreLayout implements DagreOptions {
   padding: number = 30;
   spacingFactor?: number;
   nodeDimensionsIncludeLabels: boolean = false;
+  // specific padding between chains of blocks
+  subGraphPadding: number = 60;
 
   animate: boolean = false;
   animateFilter = (node: any, i: number) => true;
@@ -196,7 +198,7 @@ export class DagreLayout implements DagreOptions {
       }
 
       // Keep track of where the previous graph was and add a slight offset. This prevents overlaps from happening.
-      offsetX += 60 + graphWidth;
+      offsetX += this.subGraphPadding + graphWidth;
     });
 
     const nodes = this.eles.nodes();
