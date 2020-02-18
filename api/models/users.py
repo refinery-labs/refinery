@@ -91,6 +91,16 @@ class User( Base ):
 		cascade="all, delete-orphan",
 		backref="user",
 	)
+
+	# One user can have many OAuth tokens
+	oauth_token_entries = relationship(
+		"UserOAuthAccountModel",
+		lazy="dynamic",
+		# When a user is deleted all oauth tokens should
+		# be deleted as well.
+		cascade="all, delete-orphan",
+		backref="user",
+	)
 	
 	# One user can have many state logs
 	state_logs = relationship(

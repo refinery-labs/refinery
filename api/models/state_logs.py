@@ -1,3 +1,5 @@
+from sqlalchemy import Index
+
 from initiate_database import *
 import json
 import uuid
@@ -59,3 +61,6 @@ class StateLog( Base ):
 
 	def __str__( self ):
 		return self.id
+
+
+Index('ix_statelogs_session_id', StateLog.session_id )

@@ -1,123 +1,72 @@
+from data_types.oauth_providers import OAuthProvider
+from sqlalchemy import Enum, Index, TEXT
 from initiate_database import *
 import json
 import uuid
-import time
-import os
 
-class User( Base ):
-	__tablename__ = "users"
+from models.model_exceptions import InvalidModelCreationError
+
+
+class UserOAuthAccountModel( Base ):
+	"""
+	Stores information about users that have authenticated via OAuth.
+	"""
+	__tablename__ = "user_oauth_accounts"
 	
 	id = Column(
-		CHAR(36),
+		TEXT(),
 		primary_key=True
 	)
 	
-	# The name of the user
-	name = Column(Text())
-	
-	# Email address of the user
-	# Unique constraint because users should only sign up
-	# with one email address per account.
-	email = Column(
-		Text(),
-		unique=True
-	)
-	
-	# Whether we've validated ownership of the email
-	email_verified = Column(
-		Boolean(),
-		default=False,
-	)
-	
-	# Whether the user's account is disabled
-	# A disabled user cannot log in to Refinery
-	disabled = Column(
-		Boolean(),
-		default=False
-	)
-	
-	# If the user has a payment method added
-	# This is used to determine if the user's account
-	# should be "frozen" after their "free trial" period
-	# has expired (e.g. after 14 days or whatever)
-	has_valid_payment_method_on_file = Column(
-		Boolean(),
-		default=False,
-	)
-	
-	# What level the user is in an organization
-	# For now there's only one level - ADMIN
-	permission_level = Column(
-		Text(),
-		default="ADMIN",
-	)
-	
-	# Payment ID - currently this means Stripe
-	payment_id = Column(Text())
-	
-	# Phone number of the user
-	phone_number = Column(Text())
-	
+	provider = Column( Enum( OAuthProvider ), nullable=False )
+
 	# Parent organization the user belongs to
-	organization_id = Column(
-		CHAR(36),
+	user_id = Column(
+		TEXT(),
 		ForeignKey(
-			"organizations.id"
-		)
+			"users.id"
+		),
+		nullable=False
 	)
-	organization = relationship(
-		"Organization",
-		back_populates="billing_admin_user"
+
+	# Unique identifier provided by the OAuth provider.
+	# We use this to match up the OAuth data received against a specific user.
+	provider_unique_id = Column(
+		TEXT(),
+		nullable=False
 	)
-	
-	# Many to many relationship to users
-	# A user can belong to many projects
-	# A project can belong to many users
-	projects = relationship(
-		"Project",
+
+	# One user can have many OAuth data records
+	oauth_data_records = relationship(
+		"UserOAuthDataRecordModel",
 		lazy="dynamic",
-		secondary=users_projects_association_table,
-		back_populates="users"
-	)
-	
-	# One user can have many email auth tokens
-	# When a user is deleted it makes sense to clear all
-	# auth tokens from the database
-	email_auth_tokens = relationship(
-		"EmailAuthToken",
-		lazy="dynamic",
-		# When a user is deleted all auth tokens should
+		# When a user is deleted all oauth tokens should
 		# be deleted as well.
 		cascade="all, delete-orphan",
-		backref="user",
+		backref="user_oauth_accounts"
 	)
-	
-	# One user can have many state logs
-	state_logs = relationship(
-		"StateLog",
-		lazy="dynamic",
-		# When a user is deleted all session state logs
-		# should be deleted as well.
-		cascade="all, delete-orphan",
-		backref="user",
-	)
-	
-	timestamp = Column(Integer())
 
-	def __init__( self ):
+	def __init__( self, provider, provider_unique_id, user_id ):
+		if provider is None or provider is "":
+			raise InvalidModelCreationError( "Must provide 'provider' when creating OAuth account" )
+
+		if user_id is None or user_id is "":
+			raise InvalidModelCreationError( "Must provide 'user_id' when creating OAuth account" )
+
+		self.provider = str( provider )
+
 		self.id = str( uuid.uuid4() )
-		self.email_verified = False
-		self.disabled = False
-		self.permission_level = "ADMIN"
-		self.has_valid_payment_method_on_file = False
-		self.timestamp = int( time.time() )
+
+		self.provider_unique_id = str( provider_unique_id )
+
+		self.user_id = str( user_id )
 
 	def to_dict( self ):
 		exposed_attributes = [
 			"id",
-			"name",
-			"email",
-			"timestamp"
+			"provider",
+			"timestamp",
+			"user_id"
 		]
 		
 		json_attributes = []
@@ -135,3 +84,12 @@ class User( Base ):
 
 	def __str__( self ):
 		return self.id
+
+
+Index('idx_provider__user', UserOAuthAccountModel.provider, UserOAuthAccountModel.user_id, unique=True )
+Index(
+	'idx_provider__provider_unique_id',
+	UserOAuthAccountModel.provider,
+	UserOAuthAccountModel.provider_unique_id,
+	unique=True
+)

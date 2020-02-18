@@ -2,8 +2,6 @@
 import tornado.web
 import json
 import time
-import os
-import re
 
 from tornado import gen
 
@@ -18,7 +16,11 @@ from utils.general import logit
 # Pull list of allowed Access-Control-Allow-Origin values from environment var
 allowed_origins = json.loads( os.environ.get( "access_control_allow_origins" ) )
 
+
 class BaseHandler( tornado.web.RequestHandler ):
+	# Useful for mocking the database in tests
+	_test_dbsession = None
+
 	def __init__( self, *args, **kwargs ):
 		super( BaseHandler, self ).__init__( *args, **kwargs )
 		self.set_header( "Access-Control-Allow-Headers", "Content-Type, X-CSRF-Validation-Header" )
@@ -40,22 +42,15 @@ class BaseHandler( tornado.web.RequestHandler ):
 		self.user_aws_credentials = None
 
 		self._dbsession = None
-    
-	def initialize( self ):
-		if "Origin" not in self.request.headers:
-			return
 
-		host_header = self.request.headers[ "Origin" ]
-
-		# Identify if the request is coming from a domain that is in the whitelist
-		# If it is, set the necessary CORS response header to allow the request to succeed.
-		if host_header in allowed_origins:
-			self.set_header( "Access-Control-Allow-Origin", host_header )
-			
 	@property
 	def dbsession( self ):
+		if self._test_dbsession is not None:
+			return self._test_dbsession
+
 		if self._dbsession is None:
 			self._dbsession = DBSession()
+
 		return self._dbsession
 		
 	def authenticate_user_id( self, user_id ):
@@ -104,7 +99,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 		# Pull the authenticated user's organization
 		user_organization = self.get_authenticated_user_org()
 
-		if user_organization == None:
+		if user_organization is None:
 			logit( "Account has no organization associated with it!" )
 
 			# credential error is raised, does not return
@@ -128,7 +123,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 		# First we grab the organization ID
 		authentication_user = self.get_authenticated_user()
 		
-		if authentication_user == None:
+		if authentication_user is None:
 			return None
 			
 		# Get organization user is a part of
@@ -188,12 +183,12 @@ class BaseHandler( tornado.web.RequestHandler ):
 		This will be cached after the first call of
 		this method,
 		"""
-		if self.authenticated_user != None:
+		if self.authenticated_user is not None:
 			return self.authenticated_user
 		
 		user_id = self.get_authenticated_user_id()
 		
-		if user_id == None:
+		if user_id is None:
 			return None
 		
 		# Pull related user
@@ -243,7 +238,16 @@ class BaseHandler( tornado.web.RequestHandler ):
 				"INVALID_CSRF"
 			)
 			raise gen.Return()
-		
+
+		# Logic for adding Cross-origin resource sharing (CORS) headers.
+		if "Origin" in self.request.headers:
+			host_header = self.request.headers[ "Origin" ]
+
+			# Identify if the request is coming from a domain that is in the whitelist
+			# If it is, set the necessary CORS response header to allow the request to succeed.
+			if host_header in allowed_origins:
+				self.set_header( "Access-Control-Allow-Origin", host_header )
+
 		self.json = False
 		
 		if self.request.body:
@@ -280,3 +284,9 @@ class BaseHandler( tornado.web.RequestHandler ):
 	def on_finish( self ):
 		if self._dbsession is not None:
 			self._dbsession.close()
+
+	# Required to be implemented on abstract class
+	# TODO: Figure out what to do with this
+	def data_received( self, chunk ):
+		pass
+

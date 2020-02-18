@@ -27,6 +27,7 @@ class Organization( Base ):
 	# Whether the organization is "billing exempt"
 	billing_exempt = Column(
 		Boolean(),
+		nullable=False,
 		default=False
 	)
 	
