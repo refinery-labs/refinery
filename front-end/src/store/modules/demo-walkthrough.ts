@@ -2,52 +2,18 @@ import { Action, Module, Mutation, VuexModule } from 'vuex-module-decorators';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState, StoreType } from '@/store/store-types';
-import { CY_TOOLTIP_DEFAULTS, CyTooltip, DemoTooltip, HTMLTooltip, TooltipType } from '@/types/demo-walkthrough-types';
-import { CytoscapeCanvasInstance } from '@/lib/cytoscape-canvas';
+import { DemoTooltip, TooltipType } from '@/types/demo-walkthrough-types';
 
 export interface DemoWalkthroughState {
   currentTooltip: number;
   tooltips: DemoTooltip[];
+  tooltipsLoaded: boolean;
 }
 
 export const baseState: DemoWalkthroughState = {
   currentTooltip: 0,
-  tooltips: [
-    {
-      type: TooltipType.HTMLTooltip,
-      visible: true,
-      tooltip: {
-        target: '.project-sidebar-container',
-        header: {
-          title: 'API Response'
-        },
-        content:
-          'Once your Code Block has done what it needs to do, you can then send a response to the caller of your endpoint. The response will contain whatever JSON data you returned from the last connected Code Block.'
-      }
-    },
-    {
-      type: TooltipType.CyTooltip,
-      visible: false,
-      tooltip: {
-        ...CY_TOOLTIP_DEFAULTS,
-        id: 'a660c1d8-5534-4138-8729-9eec8f252b69',
-        header: 'API Endpoint',
-        body:
-          'Using refinery, it is super fast to create an HTTP endpoint that is accessible to the Internet. You start with an API Endpoint block.'
-      }
-    },
-    {
-      type: TooltipType.CyTooltip,
-      visible: false,
-      tooltip: {
-        ...CY_TOOLTIP_DEFAULTS,
-        id: 'b7f55a48-f9d6-4a41-8b8e-2c8fc4b6d413',
-        header: 'The Code',
-        body:
-          'Connecting a Code Block to an API Endpoint will let you process any data that was sent. For example, you might want to do something with the query parameters.'
-      }
-    }
-  ]
+  tooltips: [],
+  tooltipsLoaded: false
 };
 
 const initialState = deepJSONCopy(baseState);
@@ -59,13 +25,27 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   implements DemoWalkthroughState {
   public currentTooltip: number = initialState.currentTooltip;
   public tooltips: DemoTooltip[] = initialState.tooltips;
+  public tooltipsLoaded: boolean = initialState.tooltipsLoaded;
 
-  get currentCyTooltips(): CyTooltip[] {
-    return this.tooltips.filter(t => t.visible && t.type == TooltipType.CyTooltip).map(t => t.tooltip as CyTooltip);
+  get currentCyTooltips(): DemoTooltip[] {
+    return this.tooltips.filter(t => t.visible && t.type == TooltipType.CyTooltip);
   }
 
-  get currentHtmlTooltips(): HTMLTooltip[] {
-    return this.tooltips.filter(t => t.visible && t.type == TooltipType.HTMLTooltip).map(t => t.tooltip as HTMLTooltip);
+  get currentHtmlTooltips(): DemoTooltip[] {
+    return this.tooltips.filter(t => t.visible && t.type == TooltipType.HTMLTooltip);
+  }
+
+  get areTooltipsLoaded(): boolean {
+    return this.tooltipsLoaded;
+  }
+
+  @Mutation
+  public setCurrentTooltips(tooltips: DemoTooltip[]) {
+    if (tooltips.length > 0) {
+      tooltips[this.currentTooltip].visible = true;
+    }
+    this.tooltipsLoaded = false;
+    this.tooltips = tooltips;
   }
 
   @Mutation
@@ -74,31 +54,32 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   }
 
   @Mutation
-  public setTooltipPosition(i: number, pos: cytoscape.Position) {}
-
-  @Mutation
   public loadCyTooltips(cy: cytoscape.Core) {
+    if (this.tooltipsLoaded) {
+      return;
+    }
+
     const tooltips = [...this.tooltips];
 
     for (let i = 0; i < tooltips.length; i++) {
       const t = tooltips[i];
-      if (t.type != TooltipType.CyTooltip) {
+      if (t.type !== TooltipType.CyTooltip) {
         continue;
       }
 
-      let cyTooltip = t.tooltip as CyTooltip;
-      const pos = cy.getElementById(cyTooltip.id).position();
+      const pos = cy.getElementById(t.target).position();
       if (pos) {
-        cyTooltip.x = pos.x;
-        cyTooltip.y = pos.y;
-        tooltips[i].tooltip = cyTooltip;
+        tooltips[i].config = {
+          ...tooltips[i].config,
+          ...pos
+        };
       }
     }
 
+    this.tooltipsLoaded = true;
     this.tooltips = tooltips;
   }
 
-  // This is able to call a Mutator via the `this` context because of magic.
   @Mutation
   public nextTooltip() {
     const tooltips = [...this.tooltips];

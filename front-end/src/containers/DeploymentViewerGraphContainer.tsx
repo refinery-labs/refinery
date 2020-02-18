@@ -5,6 +5,7 @@ import { namespace, State } from 'vuex-class';
 import { LayoutOptions } from 'cytoscape';
 import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
 import { DemoWalkthroughStoreModule } from '@/store';
+import TourWrapper from '@/lib/TourWrapper';
 
 const deployment = namespace('deployment');
 const deploymentExecutions = namespace('deploymentExecutions');
@@ -52,8 +53,20 @@ export default class DeploymentViewerGraphContainer extends Vue {
       animationDisabled: true
     };
 
+    const tourProps = {
+      steps: DemoWalkthroughStoreModule.currentHtmlTooltips,
+      nextTooltip: DemoWalkthroughStoreModule.nextTooltip
+    };
+
+    const introWalkthrough = (
+      <div>
+        <TourWrapper props={tourProps} />
+      </div>
+    );
+
     return (
       <div class="deployment-viewer-graph-container project-graph-container">
+        {introWalkthrough}
         <CytoscapeGraph props={graphProps} />
       </div>
     );

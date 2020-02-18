@@ -58,6 +58,7 @@ import { DeployProjectParams, DeployProjectResult } from '@/types/project-editor
 import { CURRENT_TRANSITION_SCHEMA } from '@/constants/graph-constants';
 import { timeout } from '@/utils/async-utils';
 import ImportableRefineryProject from '@/types/export-project';
+import { CY_CONFIG_DEFAULTS, TooltipType } from '@/types/demo-walkthrough-types';
 
 export interface LibraryBuildArguments {
   language: SupportedLanguage;
@@ -363,6 +364,16 @@ export async function openProject(request: GetSavedProjectRequest) {
     version: CURRENT_TRANSITION_SCHEMA,
     ...wr
   }));
+
+  project.demo_walkthrough = project.demo_walkthrough.map(t => {
+    if (t.type === TooltipType.CyTooltip) {
+      return {
+        config: CY_CONFIG_DEFAULTS,
+        ...t
+      };
+    }
+    return t;
+  });
 
   return project;
 }

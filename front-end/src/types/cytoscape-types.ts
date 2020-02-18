@@ -1,7 +1,6 @@
 import { ElementsDefinition, LayoutOptions, Stylesheet } from 'cytoscape';
-import { WorkflowRelationship, WorkflowState } from '@/types/graph';
 import cytoscape from '@/components/CytoscapeGraph';
-import { CyTooltip, DemoTooltip } from '@/types/demo-walkthrough-types';
+import { DemoTooltip } from '@/types/demo-walkthrough-types';
 
 // Let's just not support promises in our API style. If we need it we'll figure it out
 export type CyElements = ElementsDefinition;
@@ -18,7 +17,7 @@ export interface CytoscapeGraphProps {
   nextTooltip: () => void;
   loadCyTooltips: (cy: cytoscape.Core) => void;
 
-  currentTooltips: CyTooltip[];
+  currentTooltips: DemoTooltip[];
   selected: string | null;
   enabledNodeIds: string[] | null;
   config: cytoscape.CytoscapeOptions | null;

@@ -7,7 +7,8 @@ import { animationBegin, animationEnd, baseCytoscapeStyles, STYLE_CLASSES } from
 import { timeout } from '@/utils/async-utils';
 import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
 import { registerCustomDagre } from '@/lib/dagre-cytoscape';
-import { CyTooltip, DemoTooltip, TooltipType } from '@/types/demo-walkthrough-types';
+import { DemoTooltip, TooltipType } from '@/types/demo-walkthrough-types';
+import { DemoWalkthroughStoreModule } from '@/store';
 
 // @ts-ignore
 cytoscape.use(registerCustomDagre);
@@ -112,7 +113,7 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
   @Prop({ required: true }) public nextTooltip!: () => void;
   @Prop({ required: true }) public loadCyTooltips!: (cy: cytoscape.Core) => void;
 
-  @Prop() public currentTooltips!: CyTooltip[];
+  @Prop() public currentTooltips!: DemoTooltip[];
   @Prop() public selected!: string | null;
   @Prop() public enabledNodeIds!: string[] | null;
   @Prop() public backgroundGrid!: boolean;
@@ -120,7 +121,14 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
   @Prop() public animationDisabled?: boolean;
 
   // This is a catch-all for any additional options that need to be specified
-  @Prop({ default: () => {} }) public config!: cytoscape.CytoscapeOptions | null;
+  @Prop({
+    default: () => {}
+  })
+  public config!: cytoscape.CytoscapeOptions | null;
+
+  public visibleTooltips() {
+    return this.currentTooltips.filter(tooltip => tooltip.visible);
+  }
 
   public cytoscapeValueModified() {
     if (!this.cy) {
@@ -473,11 +481,12 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
 
   public drawTooltips(cyLayer: CytoscapeLayer) {
     const { ctx } = cyLayer;
-    this.currentTooltips.forEach(tooltip => {
+    this.visibleTooltips().forEach(tooltip => {
       const contentHash = this.tooltipHash(tooltip);
       if (this.$refs[contentHash]) {
+        const config = tooltip.config;
         //@ts-ignore
-        ctx.drawImage(this.$refs[contentHash], tooltip.x + tooltip.offsetX, tooltip.y + tooltip.offsetY);
+        ctx.drawImage(this.$refs[contentHash], config.x + config.offsetX, config.y + config.offsetY);
       }
     });
   }
@@ -503,18 +512,18 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
     const { layer, ctx } = cyLayer;
 
     return (
-      this.currentTooltips.filter(tooltip => {
+      this.visibleTooltips().filter(tooltip => {
         const img = this.$refs[this.tooltipHash(tooltip)] as HTMLImageElement;
         return layer.tooltipTapped(ctx, tooltip, img, event.position);
       }).length > 0
     );
   }
 
-  public tooltipHash(tooltip: CyTooltip) {
+  public tooltipHash(tooltip: DemoTooltip) {
     return hashCode(tooltip.header + tooltip.body);
   }
 
-  public renderTooltipSVG(tooltip: CyTooltip) {
+  public renderTooltipSVG(tooltip: DemoTooltip) {
     var data = `
   <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
     <foreignObject width="100%" height="100%">
@@ -614,8 +623,6 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
     this.setupCanvasBackground(this.cy);
 
     this.$forceUpdate();
-
-    this.loadCyTooltips(this.cy);
   }
 
   public beforeDestroy() {
@@ -627,6 +634,36 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
     this.cy.destroy();
   }
 
+  public paddingForViewport(viewPort: number): number {
+    if (viewPort <= 450) {
+      return 100;
+    } else if (viewPort <= 800) {
+      return 250;
+    }
+    return (viewPort - 200) / 2;
+  }
+
+  public centerOnTooltip(tooltip: DemoTooltip) {
+    const eles = this.cy.$(`#${tooltip.target}`);
+
+    const viewPort = Math.min(this.cy.width(), this.cy.height());
+    const padding = this.paddingForViewport(viewPort);
+
+    // TODO (cthompson): figure out how to panBy({x: -150, y: 0}) at the same time as fit
+    this.cy.animate(
+      {
+        fit: {
+          eles: eles,
+          padding: padding
+        },
+        easing: 'ease-out'
+      },
+      {
+        duration: 300
+      }
+    );
+  }
+
   public render(h: CreateElement): VNode {
     if (!this.$refs.container) {
       return (
@@ -636,23 +673,11 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
       );
     }
 
-    if (this.currentTooltips.length > 0) {
-      const eles = this.cy.$(`#${this.currentTooltips[0].id}`);
-      console.log(this.windowWidth);
-
-      const viewPort = Math.min(this.cy.width(), this.cy.height());
-      if (viewPort <= 450) {
-        this.cy.fit(eles, 100);
-      } else if (viewPort <= 800) {
-        this.cy.fit(eles, 250);
-      } else {
-        this.cy.fit(eles, (viewPort - 200) / 2);
-      }
-      this.cy.panBy({
-        x: -150,
-        y: 0
-      });
+    if (DemoWalkthroughStoreModule.areTooltipsLoaded && this.visibleTooltips().length > 0) {
+      this.centerOnTooltip(this.visibleTooltips()[0]);
     }
+
+    this.loadCyTooltips(this.cy);
 
     return (
       <div ref="container" class="graph-container">
