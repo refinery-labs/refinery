@@ -92,7 +92,6 @@ export default class ViewProject extends mixins(CreateToastMixin) {
   renderDeploymentsTab() {
     const basePath = `/p/${this.$route.params.projectId}`;
     const deploymentToolTip = 'You currently do not have anything deployed. Click "Deploy Project" to do so.';
-    console.log(this.latestDeploymentState);
 
     if (!this.latestDeploymentState || !this.latestDeploymentState.result) {
       return (

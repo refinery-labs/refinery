@@ -54,7 +54,7 @@ export default class DeploymentViewerGraphContainer extends Vue {
     };
 
     const tourProps = {
-      steps: DemoWalkthroughStoreModule.currentHtmlTooltips,
+      steps: DemoWalkthroughStoreModule.visibleHtmlTooltips,
       nextTooltip: DemoWalkthroughStoreModule.nextTooltip
     };
 

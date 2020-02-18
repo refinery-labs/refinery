@@ -34,7 +34,7 @@
 			"type": "CyTooltip",
       "target": "ec89acf7-cbbd-4d6d-ad2e-91fc8305f1a5",
 			"header": "Branching out",
-			"body": "You can use Transitions to send data to more than just one Block. In this case, we both send an HTTP response to the original HTTP request with our calculated data as well as continue executing more code. This is especially usefull if you have some other processing you need to get done, but do not want to cause an HTTP timeout."
+			"body": "You can use Transitions to send data to more than just one Block. In this case, we send an HTTP response to the original HTTP request with our calculated data as well as continue executing more code. This is especially usefull if you have some other processing you need to get done, but do not want to cause an HTTP timeout."
     },
 		{
 			"type": "CyTooltip",

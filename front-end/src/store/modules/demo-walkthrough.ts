@@ -28,10 +28,10 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   public tooltipsLoaded: boolean = initialState.tooltipsLoaded;
 
   get currentCyTooltips(): DemoTooltip[] {
-    return this.tooltips.filter(t => t.visible && t.type == TooltipType.CyTooltip);
+    return this.tooltips.filter(t => t.type == TooltipType.CyTooltip);
   }
 
-  get currentHtmlTooltips(): DemoTooltip[] {
+  get visibleHtmlTooltips(): DemoTooltip[] {
     return this.tooltips.filter(t => t.visible && t.type == TooltipType.HTMLTooltip);
   }
 
