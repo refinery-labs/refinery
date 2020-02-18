@@ -16,6 +16,10 @@ from utils.general import logit
 # Pull list of allowed Access-Control-Allow-Origin values from environment var
 allowed_origins = json.loads( os.environ.get( "access_control_allow_origins" ) )
 
+CSRF_EXEMPT_ENDPOINTS = [
+	"/services/v1/store_lambda_execution_details"
+]
+
 class BaseHandler( tornado.web.RequestHandler ):
 	def __init__( self, *args, **kwargs ):
 		super( BaseHandler, self ).__init__( *args, **kwargs )

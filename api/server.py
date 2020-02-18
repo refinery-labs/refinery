@@ -67,6 +67,8 @@ from controller.executions_controller import ExecutionsControllerServer
 from controller.lambda_connect_back import LambdaConnectBackServer
 from controller.dangling_resources import CleanupDanglingResources
 from controller.clear_invoice_drafts import ClearStripeInvoiceDrafts
+from controller.inbound_lambda_exec_details_processor import StoreLambdaExecutionDetails
+from controller.usage_data import GetUsageData
 
 from data_types.aws_resources.alambda import Lambda
 
@@ -4478,6 +4480,15 @@ class TaskSpawner(object):
 			retention_response = cloudwatch_logs.put_retention_policy(
 				logGroupName=group_name,
 				retentionInDays=retention_days
+			)
+
+			subscription_response = cloudwatch_logs.put_subscription_filter(
+				logGroupName=group_name,
+				filterName="LambdaExecInfo",
+				filterPattern='"REPORT" "RequestId:" "Duration:" "Billed Duration:" "Memory Size:" "Max Memory Used:"',
+				# This is the ARN of the master account which has a Kinesis stream waiting to process the inbound
+				# log lines with the Lambda execution metadata.
+				destinationArn="arn:aws:logs:us-west-2:134071937287:destination:LambdaExecutionsInfoDestination"
 			)
 			
 			return {
@@ -11000,6 +11011,7 @@ def make_app( tornado_config ):
 		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer, {
 			"websocket_router": tornado_config[ "websocket_router" ]
 		}),
+		( r"/api/v1/usage", GetUsageData ),
 		
 		# Temporarily disabled since it doesn't cache the CostExplorer results
 		#( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast ),
@@ -11018,6 +11030,7 @@ def make_app( tornado_config ):
 		( r"/services/v1/clear_s3_build_packages", ClearAllS3BuildPackages ),
 		( r"/services/v1/dangling_resources/([a-f0-9\-]+)", CleanupDanglingResources ),
 		( r"/services/v1/clear_stripe_invoice_drafts", ClearStripeInvoiceDrafts ),
+		( r"/services/v1/store_lambda_execution_details", StoreLambdaExecutionDetails ),
 	], **tornado_config)
 	
 def get_lambda_callback_endpoint( tornado_config ):

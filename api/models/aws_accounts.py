@@ -118,6 +118,15 @@ class AWSAccount( Base ):
 		lazy="dynamic",
 		cascade="all, delete-orphan"
 	)
+
+	# Child Lambda execution(s) to the AWS account
+	lambda_executions = relationship(
+		"LambdaExecutions",
+		lazy="dynamic",
+		# When an AWS account is deleted the Lambda 
+		# execution logs can be deleted as well.
+		cascade="all, delete-orphan"
+	)
 	
 	def __init__( self ):
 		self.id = str( uuid.uuid4() )
