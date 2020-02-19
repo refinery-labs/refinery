@@ -28,6 +28,7 @@ export interface CreateSavedBlockViewState {
   savedDataInput: string | null;
 
   publishStatus: boolean;
+  publishDisabled: boolean;
   modalVisibility: boolean;
   saveType: SavedBlockSaveType;
 
@@ -41,6 +42,7 @@ export const baseState: CreateSavedBlockViewState = {
   descriptionInput: null,
   savedDataInput: inputDataExample,
   publishStatus: false,
+  publishDisabled: false,
   modalVisibility: false,
   saveType: SavedBlockSaveType.CREATE,
 
@@ -68,6 +70,7 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
   public savedDataInput = initialState.savedDataInput;
 
   public publishStatus = initialState.publishStatus;
+  public publishDisabled = initialState.publishDisabled;
   public saveType = initialState.saveType;
   public modalVisibility = initialState.modalVisibility;
   public busyPublishingBlock = initialState.busyPublishingBlock;
@@ -106,6 +109,11 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
   }
 
   @Mutation
+  public setPublishDisabled(publishDisabled: boolean) {
+    this.publishDisabled = publishDisabled;
+  }
+
+  @Mutation
   public setSaveType(saveType: SavedBlockSaveType) {
     this.saveType = saveType;
   }
@@ -123,6 +131,11 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
   @Mutation
   public setBusyPublishing(busy: boolean) {
     this.busyPublishingBlock = busy;
+  }
+
+  private setPublishState(isForkingBlock: boolean, isPublished: boolean) {
+    this.setPublishDisabled(isPublished && !isForkingBlock);
+    this.setPublishStatus(isPublished && !isForkingBlock);
   }
 
   @Action
@@ -151,6 +164,8 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
       }
     }
 
+    const isForkingBlock = saveType === SavedBlockSaveType.FORK;
+
     const isBlockOwner =
       editBlockPaneState.selectedNodeMetadata && editBlockPaneState.selectedNodeMetadata.is_block_owner;
 
@@ -161,11 +176,15 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
       // this.setSavedData(metadata.)
       this.setName(metadata.name);
       this.setDescription(metadata.description);
-      this.setPublishStatus(metadata.share_status === SharedBlockPublishStatus.PUBLISHED);
+
+      const isPublished = metadata.share_status === SharedBlockPublishStatus.PUBLISHED;
+      this.setPublishState(isForkingBlock, isPublished);
 
       if (this.saveType !== SavedBlockSaveType.FORK) {
         this.setSaveType(SavedBlockSaveType.UPDATE);
       }
+    } else {
+      this.setPublishState(isForkingBlock, false);
     }
 
     this.setModalVisibility(true);
