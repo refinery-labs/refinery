@@ -424,9 +424,9 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
     cy.on('mouseover', 'edge', addHighlight);
     cy.on('mouseout', 'edge', removeHighlight);
 
-    cy.on('tap', e => {
+    cy.on('tap', async e => {
       if (this.tooltipTapped(cy, e)) {
-        this.nextTooltip();
+        await this.nextTooltip();
       } else if (e.target === cy) {
         // Tap on background of canvas
         this.clearSelection();

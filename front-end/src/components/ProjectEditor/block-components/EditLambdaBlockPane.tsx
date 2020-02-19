@@ -291,6 +291,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
               on={runCodeOnClick}
               class="show-block-container__expand-button mr-2 flex-grow--1"
               variant="outline-success"
+              data-tooltip-id="block-editor-run-code"
             >
               <span class="icon-control-play" />
               {'  '}Run Code

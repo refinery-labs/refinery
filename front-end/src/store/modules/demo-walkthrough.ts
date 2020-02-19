@@ -2,7 +2,9 @@ import { Action, Module, Mutation, VuexModule } from 'vuex-module-decorators';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState, StoreType } from '@/store/store-types';
-import { DemoTooltip, TooltipType } from '@/types/demo-walkthrough-types';
+import { DemoTooltip, DemoTooltipAction, DemoTooltipActionType, TooltipType } from '@/types/demo-walkthrough-types';
+import { ProjectViewActions } from '@/constants/store-constants';
+import { ActionContext } from 'vuex';
 
 export interface DemoWalkthroughState {
   currentTooltip: number;
@@ -27,6 +29,14 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   public tooltips: DemoTooltip[] = initialState.tooltips;
   public tooltipsLoaded: boolean = initialState.tooltipsLoaded;
 
+  private actionLookup: Record<
+    DemoTooltipActionType,
+    (context: ActionContext<ThisType<DemoWalkthroughState>, RootState>) => void
+  > = {
+    [DemoTooltipActionType.openBlockModal]: this.openBlockModal,
+    [DemoTooltipActionType.closeBlockModal]: this.closeBlockModal
+  };
+
   get currentCyTooltips(): DemoTooltip[] {
     return this.tooltips.filter(t => t.type == TooltipType.CyTooltip);
   }
@@ -46,6 +56,7 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     }
     this.tooltipsLoaded = false;
     this.tooltips = tooltips;
+    this.currentTooltip = 0;
   }
 
   @Mutation
@@ -83,14 +94,65 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   @Mutation
   public nextTooltip() {
     const tooltips = [...this.tooltips];
+
     tooltips[this.currentTooltip].visible = false;
 
     const nextCurrentTooltip = this.currentTooltip + 1;
     if (nextCurrentTooltip < this.tooltips.length) {
-      tooltips[this.currentTooltip + 1].visible = true;
+      tooltips[nextCurrentTooltip].visible = true;
 
       this.currentTooltip = nextCurrentTooltip;
       this.tooltips = tooltips;
     }
   }
+
+  @Action
+  public async performAction(action: DemoTooltipAction) {
+    switch (action.action) {
+      case DemoTooltipActionType.openBlockModal:
+        await this.context.dispatch(
+          `project/${ProjectViewActions.selectNode}`,
+          this.tooltips[this.currentTooltip].target,
+          {
+            root: true
+          }
+        );
+        break;
+      case DemoTooltipActionType.closeBlockModal:
+        await this.context.dispatch(`project/${ProjectViewActions.clearSelection}`, null, {
+          root: true
+        });
+        break;
+    }
+  }
+
+  @Action
+  public async doTooltipAction(type: string) {
+    if (type === 'setup') {
+      const setup = this.tooltips[this.currentTooltip].setup;
+      if (setup && this.actionLookup[setup.action]) {
+        await this.performAction(setup);
+      }
+    }
+    if (type === 'teardown') {
+      const teardown = this.tooltips[this.currentTooltip].teardown;
+      if (teardown && this.actionLookup[teardown.action]) {
+        await this.performAction(teardown);
+      }
+    }
+  }
+
+  public async openBlockModal() {
+    await this.context.dispatch(`project/${ProjectViewActions.selectNode}`, this.tooltips[this.currentTooltip].target, {
+      root: true
+    });
+  }
+
+  public async closeBlockModal() {
+    await this.context.dispatch(`project/${ProjectViewActions.clearSelection}`, null, {
+      root: true
+    });
+  }
+
+  public async viewExampleProjectDeployment() {}
 }

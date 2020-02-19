@@ -2,6 +2,7 @@ import Vue from 'vue';
 import Component from 'vue-class-component';
 import { Prop, Watch } from 'vue-property-decorator';
 import { DemoTooltip } from '@/types/demo-walkthrough-types';
+import { DemoWalkthroughStoreModule } from '@/store';
 
 @Component
 export default class TourWrapper extends Vue {

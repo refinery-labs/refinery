@@ -17,11 +17,27 @@ export enum TooltipType {
   HTMLTooltip = 'HTMLTooltip'
 }
 
+export enum DemoTooltipActionType {
+  openBlockModal = 'openBlockModal',
+  closeBlockModal = 'closeBlockModal'
+}
+
+export interface DemoOpenBlockModalOptions {
+  nodeId: string;
+}
+
+export interface DemoTooltipAction {
+  action: DemoTooltipActionType;
+  options?: DemoOpenBlockModalOptions;
+}
+
 export interface DemoTooltip {
   type: TooltipType;
   visible: boolean;
   target: string;
   header: string;
   body: string;
+  setup?: DemoTooltipAction;
+  teardown?: DemoTooltipAction;
   config: CyConfig;
 }
