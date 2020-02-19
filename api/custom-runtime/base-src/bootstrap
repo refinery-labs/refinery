@@ -270,9 +270,7 @@ class Refinery_Memory:
 		For all other customers route them to their dedicated
 		redis instance(s). 
 		"""
-		print( "Connected to redis." )
-		sys.stdout.flush()
-		
+
 		if is_free_tier_deployment():
 			global COMMAND_MAP
 			self.redis_client = redis.StrictRedis(
@@ -1149,6 +1147,10 @@ def get_merge_invoke_data( new_invoke_data ):
 gmemory = Refinery_Memory()
 
 def _parallel_invoke( branch_ids, invoke_queue ):
+	# If we have an empty invoke queue we can stop here
+	if len( invoke_queue ) == 0:
+		return
+
 	# List of active threads
 	active_threads = []
 
