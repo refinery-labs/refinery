@@ -27,6 +27,7 @@ export default class CreateSavedBlockViewContainer extends Vue implements Create
       savedDataInput: CreateSavedBlockViewStoreModule.savedDataInput,
       publishBlock: CreateSavedBlockViewStoreModule.publishBlock,
       publishStatus: CreateSavedBlockViewStoreModule.publishStatus,
+      publishDisabled: CreateSavedBlockViewStoreModule.publishDisabled,
       setDescription: CreateSavedBlockViewStoreModule.setDescription,
       setModalVisibility: CreateSavedBlockViewStoreModule.setModalVisibility,
       setName: CreateSavedBlockViewStoreModule.setName,
