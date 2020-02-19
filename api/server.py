@@ -78,7 +78,7 @@ from models.saved_block_version import SavedBlockVersion
 from models.project_versions import ProjectVersion
 from models.projects import Project
 from models.organizations import Organization
-from models.users import User
+from models.users import User, RefineryUserTier
 from models.email_auth_tokens import EmailAuthToken
 from models.aws_accounts import AWSAccount
 from models.deployments import Deployment
@@ -5875,12 +5875,14 @@ def get_environment_variables_for_lambda( credentials, lambda_object ):
 		lambda_object.language
 	)
 
-	# TODO: Only set this for free-tier accounts
-	# Don't merge until this is removed.
-	all_environment_vars.append({
-		"key": "ACCOUNT_TYPE",
-		"value": "FREE",
-	})
+	# If the user is free-tier then set the appropriate environment variable
+	# to change the custom runtime mode to use the free-tier shared redis server
+	# with the sandboxing/EVALSHA 
+	if credentials[ "tier" ] == RefineryUserTier.FREE:
+		all_environment_vars.append({
+			"key": "ACCOUNT_TYPE",
+			"value": "FREE",
+		})
 
 	all_environment_vars.append({
 		"key": "REDIS_USERNAME",
@@ -5984,32 +5986,37 @@ def get_layers_for_lambda( language ):
 	if language == "nodejs8.10":
 		new_layers.append(
 			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:30"
-			"arn:aws:lambda:us-west-2:956509444157:layer:refinery-node810-custom-runtime:106"
+			"arn:aws:lambda:us-west-2:956509444157:layer:refinery-node810-custom-runtime:108"
 		)
 	elif language == "nodejs10.16.3":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-nodejs10-custom-runtime:9"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-nodejs10-custom-runtime:9"
+			"arn:aws:lambda:us-west-2:956509444157:layer:refinery-nodejs10-custom-runtime:1"
 		)
 	elif language == "php7.3":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:28"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:28"
+			"arn:aws:lambda:us-west-2:956509444157:layer:refinery-php73-custom-runtime:1"
 		)
 	elif language == "go1.12":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:29"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-go112-custom-runtime:29"
+			"arn:aws:lambda:us-west-2:956509444157:layer:refinery-go112-custom-runtime:1"
 		)
 	elif language == "python2.7":
 		new_layers.append(
 			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:28"
-			"arn:aws:lambda:us-west-2:956509444157:layer:refinery-python27-custom-runtime:1"
+			"arn:aws:lambda:us-west-2:956509444157:layer:refinery-python27-custom-runtime:3"
 		)
 	elif language == "python3.6":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:29"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-python36-custom-runtime:29"
+			"arn:aws:lambda:us-west-2:956509444157:layer:refinery-python36-custom-runtime:1"
 		)
 	elif language == "ruby2.6.4":
 		new_layers.append(
-			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:29"
+			#"arn:aws:lambda:us-west-2:134071937287:layer:refinery-ruby264-custom-runtime:29"
+			"arn:aws:lambda:us-west-2:956509444157:layer:refinery-ruby264-custom-runtime:1"
 		)
 		
 	return new_layers

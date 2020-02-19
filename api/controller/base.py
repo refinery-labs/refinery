@@ -6,7 +6,7 @@ import re
 from tornado import gen
 
 from models.initiate_database import *
-from models.users import User
+from models.users import User, RefineryUserTier
 from models.projects import Project
 from models.aws_accounts import AWSAccount
 from models.organizations import Organization
@@ -116,8 +116,16 @@ class BaseHandler( tornado.web.RequestHandler ):
 			aws_account_status="IN_USE"
 		).first()
 
+		# We also pull their account because we want to include
+		# What tier the user is at in the returned dict so we can
+		# use it to make deploy-decisions/etc.
+		# This access is for free since it's stored on the handler
+		# due to the get_authenticated_user_org() call above.
+		user = self.get_authenticated_user()
+
 		if aws_account:
 			self.user_aws_credentials = aws_account.to_dict()
+			self.user_aws_credentials[ "tier" ] = user.tier
 			return self.user_aws_credentials
 
 		logit( "Account has no AWS account associated with it!" )
