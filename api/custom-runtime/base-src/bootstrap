@@ -270,6 +270,9 @@ class Refinery_Memory:
 		For all other customers route them to their dedicated
 		redis instance(s). 
 		"""
+		print( "Connected to redis." )
+		sys.stdout.flush()
+		
 		if is_free_tier_deployment():
 			global COMMAND_MAP
 			self.redis_client = redis.StrictRedis(

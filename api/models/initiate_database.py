@@ -6,7 +6,7 @@ engine = create_engine( "postgresql://" + os.environ.get( "postgreql_username" )
 from sqlalchemy.ext.declarative import declarative_base
 Base = declarative_base()
 from sqlalchemy import or_ as sql_or
-from sqlalchemy import Column, Integer, String, func, update, Text, Binary, Boolean, BigInteger, event, select, exc, CHAR, ForeignKey, JSON, Table, Float
+from sqlalchemy import Column, Integer, String, func, update, Text, Binary, Boolean, BigInteger, event, select, exc, CHAR, ForeignKey, JSON, Table, Float, Enum
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship, synonym
 from contextlib import contextmanager
 

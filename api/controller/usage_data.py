@@ -28,20 +28,6 @@ class GetUsageData( BaseHandler ):
 		This is for displaying to the user how much of their
 		free-tier they've used up in Lambda execution time.
 		"""
-		"""
-		schema = {
-			"type": "object",
-			"properties": {
-				"account_id": {
-					"type": "string",
-				}
-			},
-			"required": []
-		}
-		
-		validate_schema( self.json, schema )
-		"""
-
 		credentials = self.get_authenticated_user_cloud_configuration()
 
 		# Get timestamp window for the beggining of this month to
@@ -89,10 +75,8 @@ class GetUsageData( BaseHandler ):
 				billed_exec_duration_ms * billed_exec_mb
 			)
 
+		# Get total GB/seconds used
 		total_gb_seconds_used = total_gb_milliseconds_used / 1000
-		print( "Total GB/second(s) used: " )
-		print( total_gb_seconds_used )
-
 
 		# Create recent execution(s) list
 		recent_executions_list = []

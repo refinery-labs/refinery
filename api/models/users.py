@@ -1,8 +1,15 @@
 from initiate_database import *
+import enum
 import json
 import uuid
 import time
 import os
+
+class RefineryUserTier( enum.Enum ):
+	# Free tier, makes use of the shared redis cluster
+	FREE = 'free'
+	# Paid tier, uses their own dedicated redis instance
+	PAID = 'paid'
 
 class User( Base ):
 	__tablename__ = "users"
@@ -57,6 +64,9 @@ class User( Base ):
 	
 	# Phone number of the user
 	phone_number = Column(Text())
+
+	# Tier the user's account is under (free/paid)
+	tier = Column( Enum( RefineryUserTier ), nullable=False )
 	
 	# Parent organization the user belongs to
 	organization_id = Column(
