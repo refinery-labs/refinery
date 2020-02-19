@@ -6,8 +6,15 @@ Create Date: 2020-02-19 11:05:17.089495
 
 """
 from alembic import op
+
+import enum
 import sqlalchemy as sa
 
+class RefineryUserTier( enum.Enum ):
+	# Free tier, makes use of the shared redis cluster
+	FREE = 'free'
+	# Paid tier, uses their own dedicated redis instance
+	PAID = 'paid'
 
 # revision identifiers, used by Alembic.
 revision = '820815b85cf7'
@@ -17,18 +24,17 @@ depends_on = None
 
 
 def upgrade():
-	op.add_column(
+	op.add_column( 
 		'users',
 		sa.Column(
 			'tier',
-			sa.Text,
-			nullable=True
+			sa.Enum( RefineryUserTier ),
+			nullable=True,
+			# Set default to paid since all users before free-tier
+			# will indeed be paid users
+			server_default="PAID"
 		)
 	)
-
-	# Set default to paid since all users before free-tier
-	# will indeed be paid users
-	op.execute("UPDATE users SET tier = 'paid'")
 
 	# Now modify the column to not allow null
 	op.alter_column(
