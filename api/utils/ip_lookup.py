@@ -47,8 +47,8 @@ def get_random_ipv4_resolution_function():
 	so callbacks will fail if an IPv6 endpoint has been exposed.
 	"""
 	IP_RESOLUTION_FUNCTIONS = [
-		#ip_lookup_tasks.get_ipify_ip,
-		#ip_lookup_tasks.get_icanhazip_ip,
+		ip_lookup_tasks.get_ipify_ip,
+		ip_lookup_tasks.get_icanhazip_ip,
 		ip_lookup_tasks.get_aws_ip
 	]
 	
