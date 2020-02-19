@@ -53,12 +53,10 @@ export default class ProjectSettings extends Vue {
   }
 
   private renderRuntimeLanguage() {
-    const languageOptions = {
-      ...Object.values(SupportedLanguage).map(v => ({
-        value: v,
-        text: v
-      }))
-    };
+    const languageOptions = Object.values(SupportedLanguage).map(v => ({
+      value: v,
+      text: v
+    }));
 
     return (
       <b-form-group description="The default runtime language to use when creating a new block.">
