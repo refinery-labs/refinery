@@ -69,6 +69,7 @@ from controller.lambda_connect_back import LambdaConnectBackServer
 from controller.dangling_resources import CleanupDanglingResources
 from controller.clear_invoice_drafts import ClearStripeInvoiceDrafts
 from controller.inbound_lambda_exec_details_processor import StoreLambdaExecutionDetails
+from controller.rescan_free_tier_accounts import RescanFreeTierAccounts
 
 from data_types.aws_resources.alambda import Lambda
 
@@ -94,6 +95,7 @@ from models.inline_execution_lambdas import InlineExecutionLambda
 from pyexceptions.builds import BuildException
 
 from pyconstants.project_constants import EMPTY_ZIP_DATA
+from pyconstants.customer_iam_policy import CUSTOMER_IAM_POLICY
 
 from botocore.client import Config
 
@@ -120,7 +122,7 @@ csv.field_size_limit( sys.maxsize )
 LAMBDA_CALLBACK_ENDPOINT = False
 			
 def on_start():
-	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES, CUSTOMER_IAM_POLICY, DEFAULT_PROJECT_ARRAY, DEFAULT_PROJECT_CONFIG
+	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES, DEFAULT_PROJECT_ARRAY, DEFAULT_PROJECT_CONFIG
 	
 	DEFAULT_PROJECT_CONFIG = {
 		"version": "1.0.0",
@@ -175,14 +177,6 @@ def on_start():
 	]
 	
 	CUSTOM_RUNTIME_CODE = ""
-	
-	CUSTOMER_IAM_POLICY = ""
-	
-	# Load the default customer IAM policy
-	with open( "./install/refinery-customer-iam-policy.json", "r" ) as file_handler:
-		CUSTOMER_IAM_POLICY = json.loads(
-			file_handler.read()
-		)
 	
 	# Load the default bootstrap code
 	with open( "./custom-runtime/base-src/bootstrap", "r" ) as file_handler:
@@ -5055,6 +5049,16 @@ class RunLambda( BaseHandler ):
 		logit( "Running Lambda with ARN of '" + self.json[ "arn" ] + "'..." )
 		
 		credentials = self.get_authenticated_user_cloud_configuration()
+
+		# If account is frozen we let the user know they can't do the
+		# execution until their free-tier quota re-ups.
+		if credentials[ "is_frozen" ]:
+			self.write({
+				"success": False,
+				"failure_reason": "Error: You are over your free-tier quota.",
+				"failure_msg": "You are over your free-tier quota, please upgrade your a paid tier to continue.\n\nYour free-tier quota will be refreshed at the beggining of the month."
+			})
+			raise gen.Return()
 		
 		backpack_data = {}
 		input_data = self.json[ "input_data" ]
@@ -5229,6 +5233,16 @@ class RunTmpLambda( BaseHandler ):
 		logit( "Building Lambda package..." )
 		
 		credentials = self.get_authenticated_user_cloud_configuration()
+
+		# If account is frozen we let the user know they can't do the
+		# execution until their free-tier quota re-ups.
+		if credentials[ "is_frozen" ]:
+			self.write({
+				"success": False,
+				"msg": "Error: You are over your free-tier quota.",
+				"log_output": "You are over your free-tier quota, please upgrade your a paid tier to continue.\n\nYour free-tier quota will be refreshed at the beggining of the month."
+			})
+			raise gen.Return()
 		
 		random_node_id = get_random_node_id()
 		
@@ -7625,6 +7639,24 @@ class DeployDiagram( BaseHandler ):
 		
 		credentials = self.get_authenticated_user_cloud_configuration()
 
+		# If the account is frozen we prevent new deployments
+		if credentials[ "is_frozen" ]:
+			self.write({
+				"success": True,
+				"result": {
+					"deployment_success": False,
+					"exceptions": [
+						{
+							"id": "",
+							"name": "Account Exceeded Free-Tier Quotas",
+							"type": "EXCEEDED_FREE_TIER",
+							"exception": "Your account has exceeded your monthly free-tier quota.\nPlease wait until next month when your free-credits renew.\nYou can also upgrade to a paid account to remove these limits."
+						}
+					],
+				}
+			})
+			raise gen.Return()
+
 		deployment_data = yield deploy_diagram(
 			credentials,
 			project_name,
@@ -9726,6 +9758,13 @@ class BuildLibrariesPackage( BaseHandler ):
 		
 		current_user = self.get_authenticated_user()
 		credentials = self.get_authenticated_user_cloud_configuration()
+
+		# If the account is frozen we just stop here.
+		if credentials[ "is_frozen" ]:
+			self.write({
+				"success": True,
+			})
+			raise gen.Return()
 		
 		# TODO just accept a dict/object in of an
 		# array followed by converting it to one.
@@ -9809,6 +9848,19 @@ class GetAWSConsoleCredentials( BaseHandler ):
 		advantages that we haven't abstracted upon (and to use Cloudwatch, etc).
 		"""
 		credentials = self.get_authenticated_user_cloud_configuration()
+
+		# If the account is frozen we return dummy creds so the user can't
+		# modify any of the AWS resources to cause more usage/get around settings
+		if credentials[ "is_frozen" ]:
+			self.write({
+				"success": True,
+				"console_credentials": {
+					"username": "Your account is frozen due to exceeding your monthly free quota.",
+					"password": "Please upgrade your account to a paid tier or wait until next month's quota refresh.",
+					"signin_url": "",
+				}
+			})
+			raise gen.Return()
 		
 		aws_console_signin_url = "https://" + credentials[ "account_id" ] + ".signin.aws.amazon.com/console/?region=" + os.environ.get( "region_name" )
 		
@@ -10650,6 +10702,7 @@ def make_app( tornado_config ):
 		( r"/services/v1/dangling_resources/([a-f0-9\-]+)", CleanupDanglingResources ),
 		( r"/services/v1/clear_stripe_invoice_drafts", ClearStripeInvoiceDrafts ),
 		( r"/services/v1/store_lambda_execution_details", StoreLambdaExecutionDetails ),
+		( r"/services/v1/rescan_free_tier_accounts", RescanFreeTierAccounts ),
 	], **tornado_config)
 	
 def get_lambda_callback_endpoint( tornado_config ):

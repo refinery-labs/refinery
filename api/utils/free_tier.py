@@ -75,6 +75,7 @@ class UsageSpawner(BaseSpawner):
 			return {
 				"is_free_tier_user": False,
 				"is_over_limit": False,
+				"is_frozen": credentials[ "is_frozen" ],
 				"month_totals": {
 					"gb_seconds": 0,
 					"gb_milliseconds": 0,
@@ -175,6 +176,7 @@ class UsageSpawner(BaseSpawner):
 		return {
 			"is_free_tier_user": True,
 			"is_over_limit": ( remaining_gb_seconds == 0 ),
+			"is_frozen": credentials[ "is_frozen" ],
 			"month_totals": {
 				"gb_seconds": total_gb_seconds_used,
 				"gb_milliseconds": total_gb_milliseconds_used,

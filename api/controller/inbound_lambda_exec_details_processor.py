@@ -150,7 +150,8 @@ class StoreLambdaExecutionDetails( BaseHandler ):
 		# If they've hit their free-tier limit we have to limit
 		# their ability to deploy and freeze all of their current
 		# Lambdas that they've deployed.
-		if free_tier_info[ "is_over_limit" ]:
+		#if free_tier_info[ "is_over_limit" ]:
+		if True:
 			logit("User " + self.json[ "account_id" ] + " is over their free-tier limit! Limiting their account...")
 
 			# Kick off account freezer since user is over their limit
