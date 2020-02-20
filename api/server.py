@@ -59,6 +59,7 @@ from utils.deployments.api_gateway import api_gateway_manager, strip_api_gateway
 from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda, add_shared_files_symlink_to_zip
 from utils.ecs_builders import builder_manager, BuilderManager
 from utils.aws_account_management.preterraform import preterraform_manager
+from utils.free_tier import usage_spawner
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
@@ -68,7 +69,6 @@ from controller.lambda_connect_back import LambdaConnectBackServer
 from controller.dangling_resources import CleanupDanglingResources
 from controller.clear_invoice_drafts import ClearStripeInvoiceDrafts
 from controller.inbound_lambda_exec_details_processor import StoreLambdaExecutionDetails
-from controller.usage_data import GetUsageData
 
 from data_types.aws_resources.alambda import Lambda
 
@@ -1387,327 +1387,7 @@ class TaskSpawner(object):
 				shutil.rmtree( base_dir )
 				
 			return terraform_configuration_data
-		
-		@run_on_executor
-		def unfreeze_aws_account( self, credentials ):
-			return TaskSpawner._unfreeze_aws_account(
-				credentials
-			)
-		
-		@staticmethod
-		def _unfreeze_aws_account( credentials ):
-			"""
-			Unfreezes a previously-frozen AWS account, this is for situations
-			where a user has gone over their free-trial or billing limit leading
-			to their account getting frozen. By calling this the account will be
-			re-enabled for regular Refinery use.
-			* De-throttle all AWS Lambdas
-			* Turn on EC2 instances (redis)
-			"""
-			logit( "Unfreezing AWS account..." )
-			
-			lambda_client = get_aws_client(
-				"lambda",
-				credentials
-			)
-			
-			ec2_client = get_aws_client(
-				"ec2",
-				credentials
-			)
-			
-			# Pull all Lambda ARN(s)
-			lambda_arns = TaskSpawner.get_lambda_arns(
-				credentials
-			)
-			
-			# Remove function throttle from each Lambda
-			for lambda_arn in lambda_arns:
-				lambda_client.delete_function_concurrency(
-					FunctionName=lambda_arn
-				)
-			
-			# Start EC2 instance(s)
-			ec2_instance_ids = TaskSpawner.get_ec2_instance_ids( credentials )
-			
-			# Max attempts
-			remaining_attempts = 20
 
-			# Prevents issue if a freeze happens too quickly after an un-freeze
-			while remaining_attempts > 0:
-				try:
-					start_instance_response = ec2_client.start_instances(
-						InstanceIds=ec2_instance_ids
-					)
-				except botocore.exceptions.ClientError as boto_error:
-					if boto_error.response[ "Error" ][ "Code" ] != "IncorrectInstanceState":
-						raise
-					
-					logit( "EC2 instance isn't ready to be started yet!" )
-					logit( "Waiting 2 seconds and trying again..." )
-					time.sleep(2)
-					
-				remaining_attempts = remaining_attempts - 1
-			
-			return True
-			
-		@staticmethod
-		def get_lambda_arns( credentials ):
-			lambda_client = get_aws_client(
-				"lambda",
-				credentials
-			)
-			
-			# Now we throttle all of the user's Lambdas so none will execute
-			# First we pull all of the user's Lambdas
-			lambda_list_params = {
-				"MaxItems": 50,
-			}
-			
-			# The list of Lambda ARNs
-			lambda_arn_list = []
-			
-			while True:
-				lambda_functions_response = lambda_client.list_functions(
-					**lambda_list_params
-				)
-				
-				for lambda_function_data in lambda_functions_response[ "Functions" ]:
-					lambda_arn_list.append(
-						lambda_function_data[ "FunctionArn" ]
-					)
-				
-				# Only do another loop if we have more results
-				if not ( "NextMarker" in lambda_functions_response ):
-					break
-				
-				lambda_list_params[ "Marker" ] = lambda_functions_response[ "NextMarker" ]
-
-			# Iterate over list of Lambda ARNs and set concurrency to zero for all
-			for lambda_arn in lambda_arn_list:
-				lambda_client.put_function_concurrency(
-					FunctionName=lambda_arn,
-					ReservedConcurrentExecutions=0
-				)
-				
-			return lambda_arn_list
-			
-		@staticmethod
-		def get_ec2_instance_ids( credentials ):
-			ec2_client = get_aws_client(
-				"ec2",
-				credentials
-			)
-			
-			# Turn off all EC2 instances (AKA just redis)
-			ec2_describe_instances_response = ec2_client.describe_instances(
-				MaxResults=1000
-			)
-
-			# List of EC2 instance IDs
-			ec2_instance_ids = []
-			
-			for ec2_instance_data in ec2_describe_instances_response[ "Reservations" ][0][ "Instances" ]:
-				ec2_instance_ids.append(
-					ec2_instance_data[ "InstanceId" ]
-				)
-				
-			return ec2_instance_ids
-			
-		@run_on_executor
-		def freeze_aws_account( self, credentials ):
-			return TaskSpawner._freeze_aws_account( credentials )
-		
-		@staticmethod
-		def _freeze_aws_account( credentials ):
-			"""
-			Freezes an AWS sub-account when the user has gone past
-			their free trial or when they have gone tardy on their bill.
-			
-			This is different from closing an AWS sub-account in that it preserves
-			the underlying resources in the account. Generally this is the
-			"warning shot" before we later close the account and delete it all.
-			
-			The steps are as follows:
-			* Disable AWS console access by changing the password
-			* Revoke all active AWS console sessions - TODO
-			* Iterate over all deployed Lambdas and throttle them
-			* Stop all active CodeBuilds
-			* Turn-off EC2 instances (redis)
-			"""
-			logit( "Freezing AWS account..." )
-			
-			iam_client = get_aws_client(
-				"iam",
-				credentials
-			)
-			
-			lambda_client = get_aws_client(
-				"lambda",
-				credentials
-			)
-			
-			codebuild_client = get_aws_client(
-				"codebuild",
-				credentials
-			)
-			
-			ec2_client = get_aws_client(
-				"ec2",
-				credentials
-			)
-			
-			# Rotate and log out users from the AWS console
-			new_console_user_password = TaskSpawner._recreate_aws_console_account(
-				credentials,
-				True
-			)
-			
-			# Update the console login in the database
-			dbsession = DBSession()
-			aws_account = dbsession.query( AWSAccount ).filter_by(
-				account_id=credentials[ "account_id" ]
-			).first()
-			aws_account.iam_admin_password = new_console_user_password
-			dbsession.commit()
-			
-			# Get Lambda ARNs
-			lambda_arn_list = TaskSpawner.get_lambda_arns( credentials )
-			
-			# List all CodeBuild builds and stop any that are running
-			codebuild_build_ids = []
-			codebuild_list_params = {}
-			
-			while True:
-				codebuild_list_response = codebuild_client.list_builds(
-					**codebuild_list_params
-				)
-				
-				for build_id in codebuild_list_response[ "ids" ]:
-					codebuild_build_ids.append(
-						build_id
-					)
-				
-				if not ( "nextToken" in codebuild_list_response ):
-					break
-				
-				codebuild_list_params[ "nextToken" ] = codebuild_list_response[ "nextToken" ]
-			
-			# We now scan these builds to see if they are currently running.
-			# We can do this in batches of 100
-			active_build_ids = []
-			chunk_size = 100
-			
-			while len( codebuild_build_ids ) > 0:
-				chunk_of_build_ids = codebuild_build_ids[:chunk_size]
-				remaining_build_ids = codebuild_build_ids[chunk_size:]
-				codebuild_build_ids = remaining_build_ids
-				
-				# Pull the information for the build ID chunk
-				builds_info_response = codebuild_client.batch_get_builds(
-					ids=chunk_of_build_ids,
-				)
-				
-				# Iterate over the builds info response to find live build IDs
-				for build_info in builds_info_response[ "builds" ]:
-					if build_info[ "buildStatus" ] == "IN_PROGRESS":
-						active_build_ids.append(
-							build_info[ "id" ]
-						)
-			
-			# Run through all active builds and stop them in their place
-			for active_build_id in active_build_ids:
-				stop_build_response = codebuild_client.stop_build(
-					id=active_build_id
-				)
-				
-			ec2_instance_ids = TaskSpawner.get_ec2_instance_ids( credentials )
-
-			stop_instance_response = ec2_client.stop_instances(
-				InstanceIds=ec2_instance_ids
-			)
-			
-			dbsession.close()
-			return False
-			
-		@run_on_executor
-		def recreate_aws_console_account( self, credentials, rotate_password ):
-			return TaskSpawner._recreate_aws_console_account(
-				credentials,
-				rotate_password
-			)
-			
-		@staticmethod
-		def _recreate_aws_console_account( credentials, rotate_password ):
-			iam_client = get_aws_client(
-				"iam",
-				credentials
-			)
-			
-			# The only way to revoke an AWS Console user's session
-			# is to delete the console user and create a new one.
-			
-			# Generate the IAM policy ARN
-			iam_policy_arn = "arn:aws:iam::" + credentials[ "account_id" ] + ":policy/RefineryCustomerPolicy"
-			
-			logit( "Deleting AWS console user..." )
-			
-			# Delete the current AWS console user
-			delete_user_profile_response = iam_client.delete_login_profile(
-				UserName=credentials[ "iam_admin_username" ],
-			)
-		
-			# Remove the policy from the user
-			detach_user_policy = iam_client.detach_user_policy(
-				UserName=credentials[ "iam_admin_username" ],
-				PolicyArn=iam_policy_arn
-			)
-			
-			# Delete the IAM user
-			delete_user_response = iam_client.delete_user(
-				UserName=credentials[ "iam_admin_username" ],
-			)
-			
-			logit( "Re-creating the AWS console user..." )
-			
-			# Create the IAM user again
-			delete_user_response = iam_client.create_user(
-				UserName=credentials[ "iam_admin_username" ],
-			)
-			
-			# Create the IAM user again
-			delete_policy_response = iam_client.delete_policy(
-				PolicyArn=iam_policy_arn
-			)
-			
-			# Create IAM policy for the user
-			create_policy_response = iam_client.create_policy(
-				PolicyName="RefineryCustomerPolicy",
-				PolicyDocument=json.dumps( CUSTOMER_IAM_POLICY ),
-				Description="Refinery Labs managed AWS customer account policy."
-			)
-			
-			# Attach the limiting IAM policy to it.
-			attach_policy_response = iam_client.attach_user_policy(
-				UserName=credentials[ "iam_admin_username" ],
-				PolicyArn=iam_policy_arn
-			)
-				
-			# Generate a new user console password
-			new_console_user_password = get_urand_password( 32 )
-			
-			if rotate_password == False:
-				new_console_user_password = credentials[ "iam_admin_password" ]
-		
-			# Create the console user again.
-			create_user_response = iam_client.create_login_profile(
-				UserName=credentials[ "iam_admin_username" ],
-				Password=new_console_user_password,
-				PasswordResetRequired=False
-			)
-				
-			return new_console_user_password
-		
 		@run_on_executor
 		def send_email( self, to_email_string, subject_string, message_text_string, message_html_string ):
 			"""
@@ -2158,61 +1838,6 @@ class TaskSpawner(object):
 				ce_params[ "NextPageToken" ] = ce_response[ "NextPageToken" ]
 				
 			return aws_account_running_cost_list
-			
-		@run_on_executor
-		def enforce_account_limits( self, aws_account_running_cost_list ):
-			"""
-			{
-				"aws_account_id": "00000000000",
-				"billing_total": "12.39",
-				"unit": "USD",
-			}
-			"""
-			dbsession = DBSession()
-			
-			# Pull the configured free trial account limits
-			free_trial_user_max_amount = float( os.environ.get( "free_trial_billing_limit" ) )
-			
-			# Iterate over the input list and pull the related accounts
-			for aws_account_info in aws_account_running_cost_list:
-				# Pull relevant AWS account
-				aws_account = dbsession.query( AWSAccount ).filter_by(
-					account_id=aws_account_info[ "aws_account_id" ],
-					aws_account_status="IN_USE",
-				).first()
-				
-				# If there's no related AWS account in the database
-				# we just skip over it because it's likely a non-customer
-				# AWS account
-				if aws_account == None:
-					continue
-				
-				# Pull related organization
-				owner_organization = dbsession.query( Organization ).filter_by(
-					id=aws_account.organization_id
-				).first()
-				
-				# Check if the user is a free trial user
-				user_trial_info = get_user_free_trial_information( owner_organization.billing_admin_user )
-				
-				# If they are a free trial user, check if their usage has
-				# exceeded the allowed limits
-				exceeds_free_trial_limit = float( aws_account_info[ "billing_total" ] ) >= free_trial_user_max_amount
-				if user_trial_info[ "is_using_trial" ] and exceeds_free_trial_limit:
-					logit( "[ STATUS ] Enumerated user has exceeded their free trial.")
-					logit( "[ STATUS ] Taking action against free-trial account..." )
-					freeze_result = TaskSpawner._freeze_aws_account(
-						aws_account.to_dict()
-					)
-					
-					# Send account frozen email to us to know that it happened
-					TaskSpawner.send_account_freeze_email(
-						aws_account_info[ "aws_account_id" ],
-						aws_account_info[ "billing_total" ],
-						owner_organization.billing_admin_user.email
-					)
-					
-			dbsession.close()
 	
 		@run_on_executor
 		def get_sub_account_month_billing_data( self, account_id, account_type, billing_month, use_cache ):
@@ -9533,6 +9158,11 @@ class GetAuthenticationStatus( BaseHandler ):
 	def get( self ):
 		current_user = self.get_authenticated_user()
 
+		# Pull free-tier status
+		free_tier_info = yield usage_spawner.get_usage_data(
+			self.get_authenticated_user_cloud_configuration()
+		)
+
 		if current_user:
 			intercom_user_hmac = hmac.new(
 				# secret key (keep safe!)
@@ -9547,6 +9177,8 @@ class GetAuthenticationStatus( BaseHandler ):
 				"authenticated": True,
 				"name": current_user.name,
 				"email": current_user.email,
+				"tier": current_user.tier.value,
+				"free_tier_info": free_tier_info,
 				"permission_level": current_user.permission_level,
 				"trial_information": get_user_free_trial_information(
 					self.get_authenticated_user()
@@ -9746,24 +9378,6 @@ class GetBillingDateRangeForecast( BaseHandler ):
 		)
 		
 		self.write( forecast_data )
-
-class RunBillingWatchdogJob( BaseHandler ):
-	@gen.coroutine
-	def get( self ):
-		"""
-		This job checks the running account totals of each AWS account to see
-		if their usage has gone over the safety limits. This is mainly for free
-		trial users and for alerting users that they may incur a large bill.
-		"""
-		self.write({
-			"success": True,
-			"msg": "Watchdog job has been started!"
-		})
-		self.finish()
-		logit( "[ STATUS ] Initiating billing watchdog job, scanning all accounts to check for billing anomalies..." )
-		aws_account_running_cost_list = yield local_tasks.pull_current_month_running_account_totals()
-		logit( "[ STATUS ] " + str( len( aws_account_running_cost_list ) ) + " account(s) pulled from billing, checking against rules..." )
-		yield local_tasks.enforce_account_limits( aws_account_running_cost_list )
 		
 def is_organization_first_month( aws_account_id ):
 	# Pull the relevant organization from the database to check
@@ -11018,7 +10632,6 @@ def make_app( tornado_config ):
 		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer, {
 			"websocket_router": tornado_config[ "websocket_router" ]
 		}),
-		( r"/api/v1/usage", GetUsageData ),
 		
 		# Temporarily disabled since it doesn't cache the CostExplorer results
 		#( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast ),
@@ -11027,7 +10640,6 @@ def make_app( tornado_config ):
 		# External users are blocked from ever reaching these routes
 		( r"/services/v1/assume_account_role/([a-f0-9\-]+)", AdministrativeAssumeAccount ),
 		( r"/services/v1/maintain_aws_account_pool", MaintainAWSAccountReserves ),
-		( r"/services/v1/billing_watchdog", RunBillingWatchdogJob ),
 		( r"/services/v1/bill_customers", RunMonthlyStripeBillingJob ),
 		( r"/services/v1/perform_terraform_plan_on_fleet", PerformTerraformPlanOnFleet ),
 		( r"/services/v1/dangerously_terraform_update_fleet", PerformTerraformUpdateOnFleet ),

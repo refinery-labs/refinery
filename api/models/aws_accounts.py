@@ -77,6 +77,13 @@ class AWSAccount( Base ):
 	# MANAGED is for sub-accounts that we manage
 	# THIRDPARTY is for third-party AWS accounts we don't manage.
 	account_type = Column(Text())
+
+	# If the AWS account is frozen, so we know to unfreeze it at
+	# the end of the month when the account's free-tier limits reset.
+	is_frozen = Column(
+		Boolean(),
+		default=False
+	)
 	
 	timestamp = Column(Integer())
 	
@@ -148,6 +155,8 @@ class AWSAccount( Base ):
 			"account_type",
 			"aws_account_status",
 			"terraform_state",
+			"organization_id",
+			"is_frozen",
 			"timestamp"
 		]
 		

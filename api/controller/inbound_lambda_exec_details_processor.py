@@ -2,8 +2,12 @@ from tornado import gen
 from controller.base import BaseHandler
 
 from models.lambda_executions import LambdaExecutions
+from models.initiate_database import DBSession
+from models.aws_accounts import AWSAccount
 
 from utils.general import logit
+from utils.free_tier import usage_spawner
+from utils.free_tier import free_tier_freezer
 from sqlalchemy.exc import IntegrityError
 from jsonschema import validate as validate_schema
 
@@ -32,6 +36,7 @@ class StoreLambdaExecutionDetails( BaseHandler ):
 			"properties": {
 				"account_id": {
 					"type": "string",
+					"pattern": "[0-9]{12}"
 				},
 				"log_name": {
 					"type": "string",
@@ -131,9 +136,27 @@ class StoreLambdaExecutionDetails( BaseHandler ):
 			# then we'll rethrow it
 			raise
 
-		# TODO check to see if the user is a free user
-		# and if they've gone over their execution limit
-		# If they have we probably want to freeze them.
+		# First pull the relevant AWS account
+		aws_account = self.dbsession.query( AWSAccount ).filter_by(
+			account_id=self.json[ "account_id" ],
+		).first()
+		credentials = aws_account.to_dict()
+
+		# Pull their free-tier status
+		free_tier_info = yield usage_spawner.get_usage_data(
+			credentials
+		)
+
+		# If they've hit their free-tier limit we have to limit
+		# their ability to deploy and freeze all of their current
+		# Lambdas that they've deployed.
+		if free_tier_info[ "is_over_limit" ]:
+			logit("User " + self.json[ "account_id" ] + " is over their free-tier limit! Limiting their account...")
+
+			# Kick off account freezer since user is over their limit
+			yield free_tier_freezer.freeze_aws_account(
+				credentials
+			)
 
 		self.write({
 			"success": True
