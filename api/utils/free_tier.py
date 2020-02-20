@@ -48,6 +48,12 @@ class UsageSpawner(BaseSpawner):
 		# are paid tier.
 		organization_id = credentials[ "organization_id" ]
 
+
+		# If there's no organization associated with the account
+		# then it's free-tier by default.
+		if not organization_id:
+			return True
+
 		dbsession = DBSession()
 		org_users = dbsession.query( User ).filter_by(
 			organization_id=organization_id

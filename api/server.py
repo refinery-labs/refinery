@@ -37,9 +37,11 @@ import re
 import os
 import io
 
+from os import listdir
 from tornado import gen
 import unicodecsv as csv
 from datetime import timedelta
+from os.path import isfile, join
 from tornado.web import asynchronous
 from ansi2html import Ansi2HTMLConverter
 from botocore.exceptions import ClientError
@@ -1090,6 +1092,27 @@ class TaskSpawner(object):
 					aws_account_dict,
 					temporary_dir
 				)
+
+				# Delete all paid-tier files if the user is free-tier
+				# This will ensure the deploy matches the user's tier.
+
+				# Get files in temporary directory
+				temporary_dir_files = [f for f in listdir(temporary_dir) if isfile(join(temporary_dir, f))]
+
+				# Delete all files starting with 'PAID-' if we're the free-tier
+				is_free_tier = usage_spawner._is_free_tier_account(
+					aws_account_dict
+				)
+
+				# If it's a free-tier account, we delete the paid-tier terraform files
+				if is_free_tier:
+					for temporary_dir_file in temporary_dir_files:
+						if temporary_dir_file.startswith( "PAID-" ):
+							file_to_delete = temporary_dir + temporary_dir_file
+							os.remove(
+								file_to_delete
+							)
+
 			except Exception as e:
 				logit( "An exception occurred while writing terraform base files for AWS account ID " + aws_account_dict[ "account_id" ] )
 				logit( e )
