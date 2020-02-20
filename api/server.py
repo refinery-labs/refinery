@@ -1718,6 +1718,22 @@ class TaskSpawner(object):
 						aws_account.to_dict()
 					)
 				dbsession.close()
+
+				# Check if the user is free-tier, if they are then we can
+				# skip them.
+				is_free_tier = False
+				for organization_aws_account in organization_aws_accounts:
+					is_free_tier_account = usage_spawner._is_free_tier_account(
+						organization_aws_account
+					)
+
+					if is_free_tier_account:
+						is_free_tier = True
+
+				# If they are free-tier we can skip them.
+				if is_free_tier:
+					print( "Organization ID '" + organization_dict[ "id" ] + "' is free-tier, skipping..." )
+					continue
 				
 				# Pull billing information for each AWS account
 				for aws_account_dict in organization_aws_accounts:
