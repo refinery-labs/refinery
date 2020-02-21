@@ -83,9 +83,9 @@ export default class OpenedProjectGraphContainer extends Vue {
     }
 
     const nextDemoTooltip = async () => {
-      await DemoWalkthroughStoreModule.doTooltipAction('teardown');
+      await DemoWalkthroughStoreModule.doTooltipTeardownAction();
       DemoWalkthroughStoreModule.nextTooltip();
-      await DemoWalkthroughStoreModule.doTooltipAction('setup');
+      await DemoWalkthroughStoreModule.doTooltipSetupAction();
     };
 
     // By holding these in the stores, we can compare pointers because the data is "immutable".

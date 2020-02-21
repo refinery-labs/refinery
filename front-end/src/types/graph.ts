@@ -12,11 +12,11 @@ export interface RefineryProject {
   project_id: string;
   readme: string;
   version: number;
-  demo_walkthrough: DemoTooltip[];
   workflow_states: WorkflowState[];
   workflow_relationships: WorkflowRelationship[];
   workflow_files: WorkflowFile[];
   workflow_file_links: WorkflowFileLink[];
+  demo_walkthrough?: DemoTooltip[];
 }
 
 export enum SupportedLanguage {

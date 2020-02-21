@@ -3,8 +3,27 @@ import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState, StoreType } from '@/store/store-types';
 import { DemoTooltip, DemoTooltipAction, DemoTooltipActionType, TooltipType } from '@/types/demo-walkthrough-types';
-import { ProjectViewActions } from '@/constants/store-constants';
-import { ActionContext } from 'vuex';
+import {
+  DeploymentViewActions,
+  DeploymentViewMutators,
+  ProjectViewActions,
+  ProjectViewMutators
+} from '@/constants/store-constants';
+import router from '@/router';
+import { RefineryProject, WorkflowRelationshipType } from '@/types/graph';
+import { GetLatestProjectDeploymentResult, RunLambdaResult } from '@/types/api-types';
+import {
+  DeploymentExecutionsActions,
+  DeploymentExecutionsMutators
+} from '@/store/modules/panes/deployment-executions-pane';
+import {
+  AddBlockExecutionsPayload,
+  BlockExecutionLogContentsByLogId,
+  ProjectExecutionsByExecutionId
+} from '@/types/deployment-executions-types';
+import { ExecutionStatusType } from '@/types/execution-logs-types';
+import { SIDEBAR_PANE } from '@/types/project-editor-types';
+import { RunLambdaMutators } from '@/store/modules/run-lambda';
 
 export interface DemoWalkthroughState {
   currentTooltip: number;
@@ -28,13 +47,15 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   public currentTooltip: number = initialState.currentTooltip;
   public tooltips: DemoTooltip[] = initialState.tooltips;
   public tooltipsLoaded: boolean = initialState.tooltipsLoaded;
-
-  private actionLookup: Record<
-    DemoTooltipActionType,
-    (context: ActionContext<ThisType<DemoWalkthroughState>, RootState>) => void
-  > = {
-    [DemoTooltipActionType.openBlockModal]: this.openBlockModal,
-    [DemoTooltipActionType.closeBlockModal]: this.closeBlockModal
+  public actionLookup: Record<DemoTooltipActionType, () => void> = {
+    [DemoTooltipActionType.openBlockEditorPane]: this.openBlockEditorPane,
+    [DemoTooltipActionType.closeBlockEditorPane]: this.closeBlockEditorPane,
+    [DemoTooltipActionType.viewDeployment]: this.viewExampleProjectDeployment,
+    [DemoTooltipActionType.openExecutionsPane]: this.openExecutionsPane,
+    [DemoTooltipActionType.addDeploymentExecution]: this.addDeploymentExecution,
+    [DemoTooltipActionType.viewExecutionLogs]: this.viewExecutionLogs,
+    [DemoTooltipActionType.openCodeRunner]: this.openCodeRunner,
+    [DemoTooltipActionType.setCodeRunnerOutput]: this.setCodeRunnerOutput
   };
 
   get currentCyTooltips(): DemoTooltip[] {
@@ -49,11 +70,18 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     return this.tooltipsLoaded;
   }
 
+  get showingDemoWalkthrough(): boolean {
+    return this.tooltips.filter(t => t.visible).length > 0;
+  }
+
   @Mutation
   public setCurrentTooltips(tooltips: DemoTooltip[]) {
-    if (tooltips.length > 0) {
-      tooltips[this.currentTooltip].visible = true;
+    if (tooltips.length == 0) {
+      this.tooltips = [];
+      return;
     }
+
+    tooltips[this.currentTooltip].visible = true;
     this.tooltipsLoaded = false;
     this.tooltips = tooltips;
     this.currentTooltip = 0;
@@ -84,6 +112,8 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
           ...tooltips[i].config,
           ...pos
         };
+      } else {
+        console.error('unable to locate element by ID', t.target);
       }
     }
 
@@ -107,52 +137,202 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   }
 
   @Action
-  public async performAction(action: DemoTooltipAction) {
-    switch (action.action) {
-      case DemoTooltipActionType.openBlockModal:
-        await this.context.dispatch(
-          `project/${ProjectViewActions.selectNode}`,
-          this.tooltips[this.currentTooltip].target,
-          {
-            root: true
-          }
-        );
-        break;
-      case DemoTooltipActionType.closeBlockModal:
-        await this.context.dispatch(`project/${ProjectViewActions.clearSelection}`, null, {
-          root: true
-        });
-        break;
+  public async doTooltipSetupAction() {
+    const setup = this.tooltips[this.currentTooltip].setup;
+    if (setup) {
+      await this.actionLookup[setup.action].call(this);
     }
   }
 
   @Action
-  public async doTooltipAction(type: string) {
-    if (type === 'setup') {
-      const setup = this.tooltips[this.currentTooltip].setup;
-      if (setup && this.actionLookup[setup.action]) {
-        await this.performAction(setup);
-      }
-    }
-    if (type === 'teardown') {
-      const teardown = this.tooltips[this.currentTooltip].teardown;
-      if (teardown && this.actionLookup[teardown.action]) {
-        await this.performAction(teardown);
-      }
+  public async doTooltipTeardownAction() {
+    const teardown = this.tooltips[this.currentTooltip].teardown;
+    if (teardown) {
+      await this.actionLookup[teardown.action].call(this);
     }
   }
 
-  public async openBlockModal() {
+  @Action
+  public async openBlockEditorPane() {
     await this.context.dispatch(`project/${ProjectViewActions.selectNode}`, this.tooltips[this.currentTooltip].target, {
       root: true
     });
   }
 
-  public async closeBlockModal() {
+  @Action
+  public async closeBlockEditorPane() {
     await this.context.dispatch(`project/${ProjectViewActions.clearSelection}`, null, {
       root: true
     });
   }
 
-  public async viewExampleProjectDeployment() {}
+  @Action
+  public async openExecutionsPane() {
+    await this.context.dispatch(`deployment/${DeploymentViewActions.openViewExecutionsPane}`, null, {
+      root: true
+    });
+  }
+
+  @Action
+  public async openCodeRunner() {
+    await this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, SIDEBAR_PANE.runEditorCodeBlock, {
+      root: true
+    });
+  }
+
+  @Action
+  public async setCodeRunnerOutput() {
+    const result: RunLambdaResult = {
+      is_error: false,
+      version: '1',
+      logs: 'test',
+      truncated: false,
+      status_code: 200,
+      arn: 'test',
+      returned_data: 'asdf'
+    };
+    await this.context.commit(`runLambda/${RunLambdaMutators.setDevLambdaRunResult}`, result, {
+      root: true
+    });
+  }
+
+  @Action
+  public async viewExecutionLogs() {
+    const openedProject = this.context.rootState.project.openedProject as RefineryProject;
+    const blockId = openedProject.workflow_states[0].id;
+    const payload: AddBlockExecutionsPayload = {
+      blockId: blockId,
+      logs: {
+        demo: {
+          function_name: 'asdf',
+          log_id: 'test',
+          s3_key: 'test',
+          timestamp: 0,
+          type: ExecutionStatusType.SUCCESS
+        }
+      }
+    };
+    const logContents: BlockExecutionLogContentsByLogId = {
+      test: {
+        arn: 'asdf',
+        backpack: {},
+        input_data: 'asdf',
+        log_id: 'test',
+        name: 'asdf',
+        program_output: 'asdf',
+        project_id: openedProject.project_id,
+        return_data: 'asdf',
+        timestamp: 0,
+        type: ExecutionStatusType.SUCCESS
+      }
+    };
+
+    await this.context.commit(
+      `deploymentExecutions/${DeploymentExecutionsMutators.addBlockExecutionLogMetadata}`,
+      payload,
+      {
+        root: true
+      }
+    );
+    await this.context.commit(
+      `deploymentExecutions/${DeploymentExecutionsMutators.addBlockExecutionLogContents}`,
+      logContents,
+      {
+        root: true
+      }
+    );
+    await this.context.dispatch(
+      `deploymentExecutions/${DeploymentExecutionsActions.warmLogCacheAndSelectDefault}`,
+      payload,
+      {
+        root: true
+      }
+    );
+    await this.context.dispatch(`deploymentExecutions/${DeploymentExecutionsActions.selectLogByLogId}`, 'demo', {
+      root: true
+    });
+
+    await this.context.dispatch(`deploymentExecutions/${DeploymentExecutionsActions.doOpenExecutionGroup}`, 'demo', {
+      root: true
+    });
+  }
+
+  @Action
+  public async addDeploymentExecution() {
+    const openedProject = this.context.rootState.project.openedProject as RefineryProject;
+    const blockId = openedProject.workflow_states[0].id;
+    const blockName = openedProject.workflow_states[0].name;
+    const projectExecutions: ProjectExecutionsByExecutionId = {
+      demo: {
+        errorCount: 0,
+        caughtErrorCount: 0,
+        successCount: 1,
+        oldestTimestamp: 0,
+        executionId: 'demo',
+        numberOfLogs: 1,
+        blockExecutionGroupByBlockId: {
+          [blockId]: {
+            executionStatus: ExecutionStatusType.SUCCESS,
+            executionResult: {
+              arn: '',
+              SUCCESS: 0,
+              EXCEPTION: 0,
+              CAUGHT_EXCEPTION: 0
+            },
+            timestamp: 0,
+            totalExecutionCount: 1,
+            executionId: 'demo',
+            blockId: blockId,
+            blockName: blockName,
+            blockArn: ''
+          }
+        }
+      }
+    };
+    await this.context.commit(
+      `deploymentExecutions/${DeploymentExecutionsMutators.setProjectExecutions}`,
+      projectExecutions,
+      {
+        root: true
+      }
+    );
+  }
+
+  @Action
+  public async viewExampleProjectDeployment() {
+    const openedProject = this.context.rootState.project.openedProject as RefineryProject;
+    const latestDeploymentResponse: GetLatestProjectDeploymentResult = {
+      deployment_json: {
+        ...openedProject,
+        workflow_states: openedProject.workflow_states.map(s => {
+          return {
+            ...s,
+            transitions: {
+              [WorkflowRelationshipType.THEN]: [],
+              [WorkflowRelationshipType.IF]: [],
+              [WorkflowRelationshipType.FAN_IN]: [],
+              [WorkflowRelationshipType.FAN_OUT]: [],
+              [WorkflowRelationshipType.EXCEPTION]: [],
+              [WorkflowRelationshipType.ELSE]: [],
+              [WorkflowRelationshipType.MERGE]: []
+            }
+          };
+        })
+      },
+      project_id: openedProject.project_id,
+      id: 'asdf',
+      timestamp: 0
+    };
+
+    this.context.commit(`deployment/${DeploymentViewMutators.setOpenedDeployment}`, latestDeploymentResponse, {
+      root: true
+    });
+
+    router.push({
+      name: 'deployment',
+      params: {
+        projectId: openedProject.project_id
+      }
+    });
+  }
 }

@@ -80,6 +80,26 @@ export async function importRawProjectJson(json: string, generateNewName: boolea
   return await importProject(remappedJson);
 }
 
+function reassignDemoWalkthrough(
+  demoWalkthrough: DemoTooltip[] | undefined,
+  oldIdToNewIdLookup: { [key: string]: string }
+): DemoTooltip[] {
+  if (!demoWalkthrough) {
+    return [];
+  }
+  return demoWalkthrough.reduce(
+    (outputTooltips, tooltip) => {
+      if (tooltip.type === TooltipType.CyTooltip) {
+        tooltip.target = oldIdToNewIdLookup[tooltip.target];
+      }
+
+      outputTooltips.push(tooltip);
+      return outputTooltips;
+    },
+    [] as DemoTooltip[]
+  );
+}
+
 function reassignProjectIds(project: RefineryProject): RefineryProject {
   // Keep this lookup so that we can remap the IDs in edges/relationships
   const oldIdToNewIdLookup: { [key: string]: string } = {};
@@ -134,17 +154,7 @@ function reassignProjectIds(project: RefineryProject): RefineryProject {
   );
 
   // Update the IDs of every walkthrough tooltip
-  const newDemoWalkthrough = project.demo_walkthrough.reduce(
-    (outputTooltips, tooltip) => {
-      if (tooltip.type === TooltipType.CyTooltip) {
-        tooltip.target = oldIdToNewIdLookup[tooltip.target];
-      }
-
-      outputTooltips.push(tooltip);
-      return outputTooltips;
-    },
-    [] as DemoTooltip[]
-  );
+  const newDemoWalkthrough = reassignDemoWalkthrough(project.demo_walkthrough, oldIdToNewIdLookup);
 
   // Finally, update the file links using the new ID lookups.
   const newWorkflowFileLinks = project.workflow_file_links.reduce(

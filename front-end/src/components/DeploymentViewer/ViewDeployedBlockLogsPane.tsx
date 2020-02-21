@@ -246,6 +246,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
       loadingProps.show = true;
     }
 
+    console.log(this.currentlySelectedLogId, executionData);
     if (!this.currentlySelectedLogId && !executionData && !isLoading) {
       loadingProps.label = 'Executions are still loading, please wait...';
     }

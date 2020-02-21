@@ -572,7 +572,10 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       await context.dispatch(ProjectViewActions.loadProjectConfig);
 
-      DemoWalkthroughStoreModule.setCurrentTooltips(project.demo_walkthrough);
+      if (project.demo_walkthrough) {
+        DemoWalkthroughStoreModule.setCurrentTooltips(project.demo_walkthrough);
+        await DemoWalkthroughStoreModule.doTooltipSetupAction();
+      }
 
       context.commit(ProjectViewMutators.isLoadingProject, false);
 

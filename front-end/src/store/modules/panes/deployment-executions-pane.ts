@@ -24,6 +24,7 @@ import { autoRefreshJob, timeout, waitUntil } from '@/utils/async-utils';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { DeploymentViewActions } from '@/constants/store-constants';
 import { ExecutionLogMetadata, ExecutionStatusType } from '@/types/execution-logs-types';
+import { DemoWalkthroughStoreModule } from '@/store';
 
 // Enums
 export enum DeploymentExecutionsGetters {
@@ -63,6 +64,7 @@ export enum DeploymentExecutionsActions {
   activatePane = 'activatePane',
   getExecutionsForOpenedDeployment = 'getExecutionsForOpenedDeployment',
   forceSelectExecutionGroup = 'forceSelectExecutionGroup',
+  doOpenExecutionGroup = 'doOpenExecutionGroup',
   openExecutionGroup = 'openExecutionGroup',
   fetchLogsForSelectedBlock = 'fetchLogsForSelectedBlock',
   selectLogByLogId = 'selectLogByLogId',
@@ -164,6 +166,8 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
     [DeploymentExecutionsGetters.currentlySelectedLogId]: (state, getters) => {
       const blockLogIds: string[] | null = getters[DeploymentExecutionsGetters.getAllLogIdsForSelectedBlock];
 
+      console.log(blockLogIds, state.selectedBlockExecutionLog);
+
       // We don't have logs for the selected block
       if (!blockLogIds) {
         return null;
@@ -182,14 +186,19 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       const allLogMetadata: ExecutionLogMetadata[] | null =
         getters[DeploymentExecutionsGetters.getAllLogMetadataForSelectedBlock];
 
+      console.log(allLogMetadata);
+
       return allLogMetadata ? allLogMetadata.map(log => log.log_id) : null;
     },
     [DeploymentExecutionsGetters.getAllLogMetadataForSelectedBlock]: (state, getters, rootState) => {
+      console.log(rootState.viewBlock.selectedNode);
       if (!rootState.viewBlock.selectedNode) {
         return null;
       }
 
       const selectedBlockLogs = state.blockExecutionLogsForBlockId[rootState.viewBlock.selectedNode.id];
+
+      console.log(state.blockExecutionLogsForBlockId, rootState.viewBlock.selectedNode.id);
 
       if (!selectedBlockLogs) {
         return null;
@@ -342,6 +351,8 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
           [log.blockId]: log.totalExecutions
         };
       }
+
+      console.log(state.blockExecutionLogsForBlockId);
     },
     [DeploymentExecutionsMutators.addBlockExecutionLogContents](state, logs: BlockExecutionLogContentsByLogId) {
       state.blockExecutionLogByLogId = {
@@ -462,9 +473,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       // Ignore awaiting this because otherwise we block while the logs are fetched
       context.dispatch(DeploymentExecutionsActions.openExecutionGroup, executionId);
     },
-    async [DeploymentExecutionsActions.openExecutionGroup](context, executionId: string) {
-      context.commit(DeploymentExecutionsMutators.resetLogState);
-
+    async [DeploymentExecutionsActions.doOpenExecutionGroup](context, executionId: string) {
       context.commit(DeploymentExecutionsMutators.setSelectedExecutionGroup, executionId);
 
       const selectedExecution: ProjectExecution =
@@ -511,6 +520,10 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         );
       }
     },
+    async [DeploymentExecutionsActions.openExecutionGroup](context, executionId: string) {
+      context.commit(DeploymentExecutionsMutators.resetLogState);
+      await context.dispatch(DeploymentExecutionsActions.doOpenExecutionGroup, executionId);
+    },
     async [DeploymentExecutionsActions.fetchLogsForSelectedBlock](context) {
       const selectedProjectExecution: ProjectExecution =
         context.getters[DeploymentExecutionsGetters.getSelectedProjectExecution];
@@ -544,27 +557,30 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         return;
       }
 
-      context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, true);
+      // TODO (cthompson) remove this and replace with a mocked response
+      if (!DemoWalkthroughStoreModule.showingDemoWalkthrough) {
+        context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, true);
 
-      const response = await getLogsForExecutions(
-        context.rootState.deployment.openedDeployment,
-        blockExecutionGroupForSelectedBlock
-      );
+        const response = await getLogsForExecutions(
+          context.rootState.deployment.openedDeployment,
+          blockExecutionGroupForSelectedBlock
+        );
 
-      if (!response) {
-        console.error('Unable to retrieve logs for execution');
+        if (!response) {
+          console.error('Unable to retrieve logs for execution');
+          context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, false);
+          return;
+        }
+
+        const payload: AddBlockExecutionsPayload = response;
+
+        context.commit(DeploymentExecutionsMutators.addBlockExecutionLogMetadata, payload);
+
         context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, false);
-        return;
-      }
 
-      const payload: AddBlockExecutionsPayload = response;
-
-      context.commit(DeploymentExecutionsMutators.addBlockExecutionLogMetadata, payload);
-
-      context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, false);
-
-      if (context.state.selectedBlockExecutionLog === null) {
-        await context.dispatch(DeploymentExecutionsActions.warmLogCacheAndSelectDefault, response);
+        if (context.state.selectedBlockExecutionLog === null) {
+          await context.dispatch(DeploymentExecutionsActions.warmLogCacheAndSelectDefault, response);
+        }
       }
     },
     // TODO: Merge this with the above logic because it's gross af.

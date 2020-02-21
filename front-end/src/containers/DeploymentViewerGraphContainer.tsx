@@ -33,6 +33,12 @@ export default class DeploymentViewerGraphContainer extends Vue {
       return <h2>{errorMessage}</h2>;
     }
 
+    const nextDemoTooltip = async () => {
+      await DemoWalkthroughStoreModule.doTooltipTeardownAction();
+      DemoWalkthroughStoreModule.nextTooltip();
+      await DemoWalkthroughStoreModule.doTooltipSetupAction();
+    };
+
     // By holding these in the stores, we can compare pointers because the data is "immutable".
     const graphProps: CytoscapeGraphProps = {
       clearSelection: this.clearSelection,
@@ -40,7 +46,7 @@ export default class DeploymentViewerGraphContainer extends Vue {
       selectEdge: this.selectEdge,
       currentTooltips: DemoWalkthroughStoreModule.currentCyTooltips,
       loadCyTooltips: DemoWalkthroughStoreModule.loadCyTooltips,
-      nextTooltip: DemoWalkthroughStoreModule.nextTooltip,
+      nextTooltip: nextDemoTooltip,
       elements: this.graphElementsWithExecutionStatus || this.cytoscapeElements,
       stylesheet: this.cytoscapeStyle,
       layout: this.cytoscapeLayoutOptions,
@@ -55,7 +61,7 @@ export default class DeploymentViewerGraphContainer extends Vue {
 
     const tourProps = {
       steps: DemoWalkthroughStoreModule.visibleHtmlTooltips,
-      nextTooltip: DemoWalkthroughStoreModule.nextTooltip
+      nextTooltip: nextDemoTooltip
     };
 
     const introWalkthrough = (

@@ -11,7 +11,7 @@
 			"target": "b7f55a48-f9d6-4a41-8b8e-2c8fc4b6d413",
 			"header": "Running some code",
 			"body": "A Code Block can contain code from any supported language, which is quite a few!. Try clicking on the block to see what it does."
-		}
+		},
 		{
 			"type": "CyTooltip",
 			"target": "7d0f7c79-8c22-4260-8168-141dbea15050",

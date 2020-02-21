@@ -18,8 +18,14 @@ export enum TooltipType {
 }
 
 export enum DemoTooltipActionType {
-  openBlockModal = 'openBlockModal',
-  closeBlockModal = 'closeBlockModal'
+  openBlockEditorPane = 'openBlockEditorPane',
+  closeBlockEditorPane = 'closeBlockEditorPane',
+  viewDeployment = 'viewDeployment',
+  openExecutionsPane = 'openExecutionsPane',
+  addDeploymentExecution = 'addDeploymentExecution',
+  viewExecutionLogs = 'viewExecutionLogs',
+  openCodeRunner = 'openCodeRunner',
+  setCodeRunnerOutput = 'setCodeRunnerOutput'
 }
 
 export interface DemoOpenBlockModalOptions {

@@ -31,6 +31,7 @@ import {
 import { teardownProject } from '@/store/fetchers/api-helpers';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
+import { DemoWalkthroughStoreModule } from '@/store';
 
 const moduleState: DeploymentViewState = {
   openedDeployment: null,
@@ -183,19 +184,21 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
         });
       };
 
-      const deploymentResponse = await makeApiRequest<
-        GetLatestProjectDeploymentRequest,
-        GetLatestProjectDeploymentResponse
-      >(API_ENDPOINT.GetLatestProjectDeployment, {
-        project_id: projectId
-      });
+      if (!DemoWalkthroughStoreModule.showingDemoWalkthrough) {
+        const deploymentResponse = await makeApiRequest<
+          GetLatestProjectDeploymentRequest,
+          GetLatestProjectDeploymentResponse
+        >(API_ENDPOINT.GetLatestProjectDeployment, {
+          project_id: projectId
+        });
 
-      if (!deploymentResponse || !deploymentResponse.success || !deploymentResponse.result) {
-        await handleError('Unable to open project, missing deployment data');
-        return;
+        if (!deploymentResponse || !deploymentResponse.success || !deploymentResponse.result) {
+          await handleError('Unable to open project, missing deployment data');
+          return;
+        }
+
+        context.commit(DeploymentViewMutators.setOpenedDeployment, deploymentResponse.result);
       }
-
-      context.commit(DeploymentViewMutators.setOpenedDeployment, deploymentResponse.result);
 
       if (!context.state.openedDeployment) {
         await handleError('Unable to open project, unknown state');

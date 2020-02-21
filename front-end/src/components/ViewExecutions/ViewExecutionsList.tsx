@@ -84,6 +84,37 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
     );
   }
 
+  public noExecutions() {
+    return (
+      <div>
+        <h4 style="margin: 10px;">
+          There are not any executions of this pipeline yet.
+          <br />
+          Click on "Code Runner" to manually run a block.
+          <br />
+          For more information please read{' '}
+          <a href="https://docs.refinery.io/debugging/" target="_blank">
+            these docs
+          </a>
+          .
+        </h4>
+        <h4>
+          <b-spinner small /> Polling for execution logs...
+        </h4>
+      </div>
+    );
+  }
+
+  public listExecutions(projectExecutions: ProjectExecution[]) {
+    return (
+      <div>
+        <b-list-group>
+          {Object.values(projectExecutions).map(execution => this.renderExecution(execution))}
+        </b-list-group>
+      </div>
+    );
+  }
+
   public render(h: CreateElement): VNode {
     const containerClasses = {
       'view-executions-list-container scrollable-pane-container': true,
@@ -102,34 +133,9 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
     }
 
     const projectExecutions = this.projectExecutions;
-
-    if (Object.keys(projectExecutions).length === 0) {
-      return (
-        <div class={containerClasses}>
-          <h4 style="margin: 10px;">
-            There are not any executions of this pipeline yet.
-            <br />
-            Click on "Code Runner" to manually run a block.
-            <br />
-            For more information please read{' '}
-            <a href="https://docs.refinery.io/debugging/" target="_blank">
-              these docs
-            </a>
-            .
-          </h4>
-          <h4>
-            <b-spinner small /> Polling for execution logs...
-          </h4>
-          {this.renderLoadButton()}
-        </div>
-      );
-    }
-
     return (
-      <div class={containerClasses}>
-        <b-list-group>
-          {Object.values(projectExecutions).map(execution => this.renderExecution(execution))}
-        </b-list-group>
+      <div class={containerClasses} data-tooltip-id="block-execution-pane">
+        {Object.keys(projectExecutions).length === 0 ? this.noExecutions() : this.listExecutions(projectExecutions)}
         {this.renderLoadButton()}
       </div>
     );
