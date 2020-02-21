@@ -102,6 +102,7 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
   playAnimation!: boolean;
   isLayoutRunning!: boolean;
   currentAnimationGroupNonce!: number;
+  tooltipCentered!: boolean;
 
   @Prop({ required: true }) public elements!: CyElements;
   @Prop() public layout!: LayoutOptions | null;
@@ -466,27 +467,20 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
   }
 
   public drawBackground(cyLayer: CytoscapeLayer) {
-    const { layer, ctx } = cyLayer;
-
     if (!this.backgroundGrid) {
       return;
     }
 
-    layer.resetTransform(ctx);
-    layer.clear(ctx);
-    layer.setTransform(ctx);
-
-    layer.drawGrid(ctx);
+    cyLayer.layer.drawGrid(cyLayer.ctx);
   }
 
   public drawTooltips(cyLayer: CytoscapeLayer) {
-    const { ctx } = cyLayer;
     this.visibleTooltips().forEach(tooltip => {
       const contentHash = this.tooltipHash(tooltip);
       if (this.$refs[contentHash]) {
         const config = tooltip.config;
         //@ts-ignore
-        ctx.drawImage(this.$refs[contentHash], config.x + config.offsetX, config.y + config.offsetY);
+        cyLayer.ctx.drawImage(this.$refs[contentHash], config.x + config.offsetX, config.y + config.offsetY);
       }
     });
   }
@@ -499,8 +493,15 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
 
     // Draw a background
     cy.on('render resize', evt => {
+      const { layer, ctx } = cyLayer;
+
+      layer.resetTransform(ctx);
+      layer.clear(ctx);
+      layer.setTransform(ctx);
+
       this.drawBackground(cyLayer);
       this.drawTooltips(cyLayer);
+      this.tooltipCentered = false;
     });
   }
 
@@ -673,8 +674,9 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
       );
     }
 
-    if (DemoWalkthroughStoreModule.areTooltipsLoaded && this.visibleTooltips().length > 0) {
+    if (DemoWalkthroughStoreModule.areTooltipsLoaded && this.visibleTooltips().length > 0 && !this.tooltipCentered) {
       this.centerOnTooltip(this.visibleTooltips()[0]);
+      this.tooltipCentered = true;
     }
 
     this.loadCyTooltips(this.cy);

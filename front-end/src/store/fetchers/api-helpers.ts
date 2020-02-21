@@ -355,16 +355,18 @@ export async function openProject(request: GetSavedProjectRequest) {
   }
 
   let tooltipLookup: Record<string, DemoTooltip> = {};
-  project.demo_walkthrough = project.demo_walkthrough.map(t => {
-    if (t.type === TooltipType.CyTooltip) {
-      tooltipLookup[t.target] = t;
-      return {
-        config: CY_CONFIG_DEFAULTS,
-        ...t
-      };
-    }
-    return t;
-  });
+  if (project.demo_walkthrough) {
+    project.demo_walkthrough = project.demo_walkthrough.map(t => {
+      if (t.type === TooltipType.CyTooltip) {
+        tooltipLookup[t.target] = t;
+        return {
+          config: CY_CONFIG_DEFAULTS,
+          ...t
+        };
+      }
+      return t;
+    });
+  }
 
   // Ensures that we have all fields, especially if the schema changes.
   project.workflow_states = project.workflow_states.map(wfs => ({

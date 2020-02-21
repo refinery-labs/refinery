@@ -171,7 +171,6 @@ export interface ProductionDeploymentRefineryProjectJson {
   version: number;
   name: string;
   readme: string;
-  demo_walkthrough: DemoTooltip[];
   workflow_states: ProductionWorkflowState[];
   workflow_relationships: ProductionWorkflowRelationship[];
   workflow_files: ProductionWorkflowFile[];
