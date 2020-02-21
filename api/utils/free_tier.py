@@ -230,6 +230,9 @@ class FreeTierFreezerSpawner(BaseSpawner):
 
 		# Get Lambda ARNs
 		lambda_arn_list = FreeTierFreezerSpawner.get_lambda_arns( credentials )
+		lambda_arn_list = FreeTierFreezerSpawner.filter_out_free_tier_limiter(
+			lambda_arn_list
+		)
 
 		FreeTierFreezerSpawner.set_zero_concurrency_for_lambdas(
 			credentials,
@@ -255,6 +258,29 @@ class FreeTierFreezerSpawner(BaseSpawner):
 		logit( "Account freezing complete, stay frosty!" )
 
 		return False
+
+	@staticmethod
+	def filter_out_free_tier_limiter( lambda_arn_list ):
+		"""
+		This removes the Free Tier Concurrency Limiter Lambda
+		from the ARN list so it's concurrency is not changed.
+
+		That Lambda is a special case because it's used to limit
+		the number of concurrent Lambdas a free-tier user can
+		execute at the same time.
+		"""
+		return_list = []
+
+		for lambda_arn in lambda_arn_list:
+			# If it's the free-tier limiter, skip it.
+			if lambda_arn.endswith( ":FreeTierConcurrencyLimiter" ):
+				continue
+
+			return_list.append(
+				lambda_arn
+			)
+
+		return return_list
 
 	@staticmethod
 	def stop_all_ec2_instances( credentials ):
@@ -431,19 +457,12 @@ class FreeTierFreezerSpawner(BaseSpawner):
 		"""
 		logit( "Unfreezing AWS account..." )
 		
-		lambda_client = get_aws_client(
-			"lambda",
-			credentials
-		)
-		
-		ec2_client = get_aws_client(
-			"ec2",
-			credentials
-		)
-		
 		# Pull all Lambda ARN(s)
 		lambda_arns = FreeTierFreezerSpawner.get_lambda_arns(
 			credentials
+		)
+		lambda_arns = FreeTierFreezerSpawner.filter_out_free_tier_limiter(
+			lambda_arns
 		)
 
 		FreeTierFreezerSpawner.remove_lambda_concurrency_limits(
@@ -454,12 +473,11 @@ class FreeTierFreezerSpawner(BaseSpawner):
 		# Start EC2 instance(s)
 		ec2_instance_ids = FreeTierFreezerSpawner.get_ec2_instance_ids( credentials )
 		
-		FreeTierFreezerSpawner.start_ec2_instances(
-			credentials,
-			ec2_instance_ids
-		)
-
-		logit( "Unfreezing of account is complete!" )
+		if len(ec2_instance_ids) > 0:
+			FreeTierFreezerSpawner.start_ec2_instances(
+				credentials,
+				ec2_instance_ids
+			)
 
 		dbsession = DBSession()
 		aws_account = dbsession.query( AWSAccount ).filter_by(
@@ -468,6 +486,8 @@ class FreeTierFreezerSpawner(BaseSpawner):
 		aws_account.is_frozen = False
 		dbsession.commit()
 		dbsession.close()
+
+		logit( "Unfreezing of account is complete!" )
 		
 		return True
 
@@ -580,10 +600,12 @@ class FreeTierFreezerSpawner(BaseSpawner):
 			credentials
 		)
 		
-		# Turn off all EC2 instances (AKA just redis)
 		ec2_describe_instances_response = ec2_client.describe_instances(
 			MaxResults=1000
 		)
+
+		if len( ec2_describe_instances_response[ "Reservations" ] ) == 0:
+			return []
 
 		# List of EC2 instance IDs
 		ec2_instance_ids = []
@@ -592,7 +614,7 @@ class FreeTierFreezerSpawner(BaseSpawner):
 			ec2_instance_ids.append(
 				ec2_instance_data[ "InstanceId" ]
 			)
-			
+
 		return ec2_instance_ids
 
 free_tier_freezer = FreeTierFreezerSpawner()

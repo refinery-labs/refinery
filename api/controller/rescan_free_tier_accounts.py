@@ -31,6 +31,11 @@ class RescanFreeTierAccounts( BaseHandler ):
 		on the first of every month (or every day) as it will only unfreeze
 		accounts which have not exceeded their quota for the current month.
 		"""
+		self.write({
+			"success": True,
+			"msg": "Free-tier frozen AWS account scanner started."
+		})
+		self.finish()
 
 		# Get all AWS accounts that are currently frozen
 		dbsession = DBSession()
@@ -45,20 +50,9 @@ class RescanFreeTierAccounts( BaseHandler ):
 		dbsession.close()
 
 		if len(frozen_aws_accounts) == 0:
-			logit( "No accounts need unfreezing." )
-			self.write({
-				"success": True,
-				"msg": "Free-tier account scanner started."
-			})
+			logit( "No AWS accounts need unfreezing." )
 			raise gen.Return()
 
 		logit( str(len(frozen_aws_accounts)) + " are currently frozen, checking if we can unfreeze them..." )
 
-		# Don't yield for a response here, we just return immediately
-		# to report that the scanner has been started.
-		scan_aws_accounts(frozen_aws_accounts)
-
-		self.write({
-			"success": True,
-			"msg": "Free-tier account scanner started."
-		})
+		yield scan_aws_accounts(frozen_aws_accounts)

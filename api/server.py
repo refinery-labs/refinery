@@ -1099,19 +1099,28 @@ class TaskSpawner(object):
 				# Get files in temporary directory
 				temporary_dir_files = [f for f in listdir(temporary_dir) if isfile(join(temporary_dir, f))]
 
-				# Delete all files starting with 'PAID-' if we're the free-tier
+				# Pull the account tier (paid/free)
 				is_free_tier = usage_spawner._is_free_tier_account(
 					aws_account_dict
 				)
 
-				# If it's a free-tier account, we delete the paid-tier terraform files
-				if is_free_tier:
-					for temporary_dir_file in temporary_dir_files:
-						if temporary_dir_file.startswith( "PAID-" ):
-							file_to_delete = temporary_dir + temporary_dir_file
-							os.remove(
-								file_to_delete
-							)
+				# Set appropriate prefix to delete depending on if the account
+				# is on the free-tier or not.
+				# For example:
+				# Delete all files starting with 'PAID-' if we're the free-tier
+				# Delete all files starting with 'FREE-' if we're the paid-tier
+				deletion_prefix = "PAID-" if is_free_tier else "FREE-"
+
+				print( "Deletion prefix is " + deletion_prefix )
+
+				# Delete the appropriate files with the specified prefix
+				for temporary_dir_file in temporary_dir_files:
+					if temporary_dir_file.startswith( deletion_prefix ):
+						file_to_delete = temporary_dir + temporary_dir_file
+						print( "Deleting '" + file_to_delete + "'...")
+						os.remove(
+							file_to_delete
+						)
 
 			except Exception as e:
 				logit( "An exception occurred while writing terraform base files for AWS account ID " + aws_account_dict[ "account_id" ] )
@@ -1250,8 +1259,8 @@ class TaskSpawner(object):
 				
 				if process_stderr.strip() != "":
 					logit( "The 'terraform apply' has failed!", "error" )
-					logit( process_stderr, "error" )
-					logit( process_stdout, "error" )
+					sys.stderr.write( process_stderr )
+					sys.stderr.write( process_stdout )
 					
 					# Alert us of the provisioning error so we can response to it
 					TaskSpawner.send_terraform_provisioning_error(
@@ -1308,8 +1317,8 @@ class TaskSpawner(object):
 				
 				if process_stderr.strip() != "":
 					logit( "The 'terraform plan' has failed!", "error" )
-					logit( process_stderr, "error" )
-					logit( process_stdout, "error" )
+					sys.stderr.write( process_stderr )
+					sys.stderr.write( process_stdout )
 					
 					raise Exception( "Terraform plan failed." )
 			finally:
@@ -1396,9 +1405,22 @@ class TaskSpawner(object):
 					terraform_state = file_handler.read()
 				
 				terraform_configuration_data[ "terraform_state" ] = terraform_state
-				terraform_configuration_data[ "redis_hostname" ] = terraform_provisioned_account_details[ "redis_elastic_ip" ][ "value" ]
-				terraform_configuration_data[ "ssh_public_key" ] = terraform_provisioned_account_details[ "refinery_redis_ssh_key_public_key_openssh" ][ "value" ]
-				terraform_configuration_data[ "ssh_private_key" ] = terraform_provisioned_account_details[ "refinery_redis_ssh_key_private_key_pem" ][ "value" ]
+
+				# By default, set the redis hostname to the free-tier server.
+				# If the output of terraform has another redis hostname we use that instead
+				terraform_configuration_data[ "redis_hostname" ] = os.environ.get( "free_tier_redis_server_hostname" )
+				terraform_configuration_data[ "ssh_public_key" ] = ""
+				terraform_configuration_data[ "ssh_private_key" ] = ""
+
+				if "redis_elastic_ip" in terraform_provisioned_account_details:
+					terraform_configuration_data[ "redis_hostname" ] = terraform_provisioned_account_details[ "redis_elastic_ip" ][ "value" ]
+
+				if "refinery_redis_ssh_key_public_key_openssh" in terraform_configuration_data:
+					terraform_configuration_data[ "ssh_public_key" ] = terraform_provisioned_account_details[ "refinery_redis_ssh_key_public_key_openssh" ][ "value" ]
+
+				if "refinery_redis_ssh_key_private_key_pem" in terraform_configuration_data:
+					terraform_configuration_data[ "ssh_private_key" ] = terraform_provisioned_account_details[ "refinery_redis_ssh_key_private_key_pem" ][ "value" ]
+
 			finally:
 				# Ensure we clear the temporary directory no matter what
 				shutil.rmtree( base_dir )
