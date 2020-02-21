@@ -61,7 +61,8 @@ from utils.deployments.api_gateway import api_gateway_manager, strip_api_gateway
 from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda, add_shared_files_symlink_to_zip
 from utils.ecs_builders import builder_manager, BuilderManager
 from utils.aws_account_management.preterraform import preterraform_manager
-from utils.free_tier import usage_spawner
+from utils.free_tier import usage_spawner, free_tier_freezer
+from utils.emails import EmailSpawner, email_spawner
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
@@ -98,6 +99,7 @@ from pyexceptions.builds import BuildException
 
 from pyconstants.project_constants import EMPTY_ZIP_DATA
 from pyconstants.customer_iam_policy import CUSTOMER_IAM_POLICY
+from pyconstants.email_templates import EMAIL_TEMPLATES
 
 from botocore.client import Config
 
@@ -124,7 +126,7 @@ csv.field_size_limit( sys.maxsize )
 LAMBDA_CALLBACK_ENDPOINT = False
 			
 def on_start():
-	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES, DEFAULT_PROJECT_ARRAY, DEFAULT_PROJECT_CONFIG
+	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, DEFAULT_PROJECT_ARRAY, DEFAULT_PROJECT_CONFIG
 	
 	DEFAULT_PROJECT_CONFIG = {
 		"version": "1.0.0",
@@ -136,14 +138,6 @@ def on_start():
 			"level": "LOG_ALL",
 		}
 	}
-	
-	# Email templates
-	email_templates_folder = "./email_templates/"
-	EMAIL_TEMPLATES = {}
-	for filename in os.listdir( email_templates_folder ):
-		template_name = filename.split( "." )[0]
-		with open( email_templates_folder + filename, "r" ) as file_handler:
-			EMAIL_TEMPLATES[ template_name ] = file_handler.read()
 	
 	LAMDBA_BASE_CODES = {}
 	
@@ -1426,54 +1420,10 @@ class TaskSpawner(object):
 				shutil.rmtree( base_dir )
 				
 			return terraform_configuration_data
-
-		@run_on_executor
-		def send_email( self, to_email_string, subject_string, message_text_string, message_html_string ):
-			"""
-			to_email_string: "example@refinery.io"
-			subject_string: "Your important email"
-			message_text_string: "You have an important email here!"
-			message_html_string: "<h1>ITS IMPORTANT AF!</h1>"
-			"""
-			return TaskSpawner._send_email(
-				to_email_string,
-				subject_string,
-				message_text_string,
-				message_html_string
-			)
-			
-		@staticmethod
-		def _send_email( to_email_string, subject_string, message_text_string, message_html_string ):
-			logit( "Sending email to '" + to_email_string + "' with subject '" + subject_string + "'..." )
-			
-			requests_options = {
-				"auth": ( "api", os.environ.get( "mailgun_api_key" ) ),
-				"data": {
-					"from": os.environ.get( "from_email" ),
-					"h:Reply-To": "support@refinery.io",
-					"to": [
-						to_email_string
-					],
-					"subject": subject_string,
-				}
-			}
-			
-			if message_text_string:
-				requests_options[ "data" ][ "text" ] = message_text_string
-				
-			if message_html_string:
-				requests_options[ "data" ][ "html" ] = message_html_string
-			
-			response = requests.post(
-				"https://api.mailgun.net/v3/mail.refinery.io/messages",
-				**requests_options
-			)
-			
-			return response.text
 			
 		@staticmethod
 		def send_terraform_provisioning_error( aws_account_id, error_output ):
-			TaskSpawner._send_email(
+			EmailSpawner._send_email(
 				os.environ.get( "alerts_email" ),
 				"[AWS Account Provisioning Error] The Refinery AWS Account #" + aws_account_id + " Encountered a Fatal Error During Terraform Provisioning",
 				pystache.render(
@@ -1485,29 +1435,12 @@ class TaskSpawner(object):
 				),
 				False,
 			)
-			
-		@staticmethod
-		def send_account_freeze_email( aws_account_id, amount_accumulated, organization_admin_email ):
-			TaskSpawner._send_email(
-				os.environ.get( "alerts_email" ),
-				"[Freeze Alert] The Refinery AWS Account #" + aws_account_id + " has been frozen for going over its account limit!",
-				False,
-				pystache.render(
-					EMAIL_TEMPLATES[ "account_frozen_alert" ],
-					{
-						"aws_account_id": aws_account_id,
-						"free_trial_billing_limit": os.environ.get( "free_trial_billing_limit" ),
-						"amount_accumulated": amount_accumulated,
-						"organization_admin_email": organization_admin_email,
-					}
-				),
-			)
 		
 		@run_on_executor
 		def send_registration_confirmation_email( self, email_address, auth_token ):
 			registration_confirmation_link = os.environ.get( "web_origin" ) + "/authentication/email/" + auth_token
 			
-			TaskSpawner._send_email(
+			EmailSpawner._send_email(
 				email_address,
 				"Refinery.io - Confirm your Refinery registration",
 				pystache.render(
@@ -1526,7 +1459,7 @@ class TaskSpawner(object):
 			
 		@run_on_executor
 		def send_internal_registration_confirmation_email( self, customer_email_address, customer_name, customer_phone ):
-			TaskSpawner._send_email(
+			EmailSpawner._send_email(
 				os.environ.get( "internal_signup_notification_email" ),
 				"Refinery User Signup, " + customer_email_address,
 				pystache.render(
@@ -1551,7 +1484,7 @@ class TaskSpawner(object):
 		def send_authentication_email( self, email_address, auth_token ):
 			authentication_link = os.environ.get( "web_origin" ) + "/authentication/email/" + auth_token
 			
-			TaskSpawner._send_email(
+			EmailSpawner._send_email(
 				email_address,
 				"Refinery.io - Login by email confirmation",
 				pystache.render(
@@ -1829,7 +1762,7 @@ class TaskSpawner(object):
 						logit( e )
 
 			# Notify finance department that they have an hour to review the invoices
-			return TaskSpawner._send_email(
+			return EmailSpawner._send_email(
 				os.environ.get( "billing_alert_email" ),
 				"[URGENT][IMPORTANT]: Monthly customer invoice generation has completed. One hour to auto-finalization.",
 				False,
@@ -2210,7 +2143,7 @@ class TaskSpawner(object):
 					**usage_parameters
 				)
 			except ClientError as e:
-				TaskSpawner._send_email(
+				EmailSpawner._send_email(
 					os.environ.get( "alerts_email" ),
 					"[Billing Notification] The Refinery AWS Account #" + account_id + " Encountered An Error When Calculating the Bill",
 					"See HTML email.",
@@ -10167,7 +10100,7 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 		else:
 			final_email_subject = "[ APPLY SUCCEEDED ] " + final_email_subject
 		
-		yield local_tasks.send_email(
+		yield email_spawner.send_email(
 			os.environ.get( "alerts_email" ),
 			final_email_subject,
 			False, # No text version of email
@@ -10238,7 +10171,7 @@ class PerformTerraformPlanOnFleet( BaseHandler ):
 		final_email_html += "<hr /><b>That is all.</b>"
 		
 		logit( "Sending email with results from terraform plan..." )
-		yield local_tasks.send_email(
+		yield email_spawner.send_email(
 			os.environ.get( "alerts_email" ),
 			"Terraform Plan Results from Across the Fleet " + str( int( time.time() ) ), # Make subject unique so Gmail doesn't group
 			False, # No text version of email
@@ -10333,7 +10266,7 @@ class UpdateIAMConsoleUserIAM( BaseHandler ):
 		
 		for aws_account_dict in aws_account_dicts:
 			logit( "Updating console account for AWS account ID " + aws_account_dict[ "account_id" ] + "...")
-			yield local_tasks.recreate_aws_console_account(
+			yield free_tier_freezer.recreate_aws_console_account(
 				aws_account_dict,
 				False
 			)
@@ -10401,7 +10334,7 @@ class OnboardThirdPartyAWSAccountPlan( BaseHandler ):
 		final_email_html += "<hr /><b>That is all.</b>"
 		
 		logit( "Sending email with results from terraform plan..." )
-		yield local_tasks.send_email(
+		yield email_spawner.send_email(
 			os.environ.get( "alerts_email" ),
 			"Terraform Plan Results for Onboarding Third-Party AWS Account " + str( int( time.time() ) ), # Make subject unique so Gmail doesn't group
 			False, # No text version of email

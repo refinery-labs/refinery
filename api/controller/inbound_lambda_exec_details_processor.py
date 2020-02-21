@@ -1,15 +1,19 @@
+import pystache
 from tornado import gen
 from controller.base import BaseHandler
 
-from models.lambda_executions import LambdaExecutions
-from models.initiate_database import DBSession
 from models.aws_accounts import AWSAccount
+from models.initiate_database import DBSession
+from models.users import User, RefineryUserTier
+from models.lambda_executions import LambdaExecutions
 
 from utils.general import logit
 from utils.free_tier import usage_spawner
 from utils.free_tier import free_tier_freezer
+from utils.emails import EmailSpawner, email_spawner
 from sqlalchemy.exc import IntegrityError
 from jsonschema import validate as validate_schema
+from pyconstants.email_templates import EMAIL_TEMPLATES
 
 class StoreLambdaExecutionDetails( BaseHandler ):
 	@gen.coroutine
@@ -158,6 +162,24 @@ class StoreLambdaExecutionDetails( BaseHandler ):
 			yield free_tier_freezer.freeze_aws_account(
 				credentials
 			)
+
+			# Send an email to the user explaining the situation
+			user_emails = []
+			organization_users = self.dbsession.query( User ).filter_by(
+				organization_id=credentials[ "organization_id" ]
+			).all()
+			for organization_user in organization_users:
+				yield email_spawner.send_email(
+					organization_user.email,
+					"[IMPORTANT] You've exceeded your Refinery free-tier quota!",
+					False,
+					pystache.render(
+						EMAIL_TEMPLATES[ "account_frozen_alert" ],
+						{
+							"name": organization_user.name
+						}
+					),
+				)
 
 		self.write({
 			"success": True

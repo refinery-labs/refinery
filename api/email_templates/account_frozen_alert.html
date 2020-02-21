@@ -1,7 +1,20 @@
-The AWS account <code style="-webkit-box-sizing: border-box;-moz-box-sizing: border-box;box-sizing: border-box;font-family: Menlo,Monaco,Consolas,&quot;Courier New&quot;,monospace;font-size: 90%;padding: 2px 4px;color: #c7254e;background-color: #f9f2f4;border-radius: 4px;">#{{aws_account_id}}</code> has been frozen for going over the free trial bill limit of <code style="-webkit-box-sizing: border-box;-moz-box-sizing: border-box;box-sizing: border-box;font-family: Menlo,Monaco,Consolas,&quot;Courier New&quot;,monospace;font-size: 90%;padding: 2px 4px;color: #c7254e;background-color: #f9f2f4;border-radius: 4px;">{{free_trial_billing_limit}}</code>.
+Hello {{name}},<br />
 <br />
-AWS Account ID: <code style="-webkit-box-sizing: border-box;-moz-box-sizing: border-box;box-sizing: border-box;font-family: Menlo,Monaco,Consolas,&quot;Courier New&quot;,monospace;font-size: 90%;padding: 2px 4px;color: #c7254e;background-color: #f9f2f4;border-radius: 4px;">{{aws_account_id}}</code><br />
-Amount Accumulated: <code style="-webkit-box-sizing: border-box;-moz-box-sizing: border-box;box-sizing: border-box;font-family: Menlo,Monaco,Consolas,&quot;Courier New&quot;,monospace;font-size: 90%;padding: 2px 4px;color: #c7254e;background-color: #f9f2f4;border-radius: 4px;">{{amount_accumulated}}</code><br />
-Organization Admin Email: <code style="-webkit-box-sizing: border-box;-moz-box-sizing: border-box;box-sizing: border-box;font-family: Menlo,Monaco,Consolas,&quot;Courier New&quot;,monospace;font-size: 90%;padding: 2px 4px;color: #c7254e;background-color: #f9f2f4;border-radius: 4px;">{{organization_admin_email}}</code><br />
-<br />
-That is all.
+You have exceeded your Refinery monthly free-tier quota for the current month. All of your deployed projects and Code Blocks have been paused and will no longer execute.
+<p>
+	<b>What is happening?</b><br />
+	Due to this overage we are temporarily pausing execution of all of your deployed Code Blocks. This means that your deployed projects will not continue to run and any deployed API Endpoints will no longer be operational.
+</p>
+<p>
+	<b>When will my Code Blocks be unpaused?</b><br />
+	Your Code Blocks will be unpaused as soon as you have free-tier quota available. This quota refreshes at beggining of each month. This means your Code Blocks and projects will be unpaused on the 1st of the coming month. This action is automatic and requires no manual intervention to be performed.
+	<br /><br />
+	<b><i>Important: </i></b> You can also unpause your account by upgrading to one of our paid offerings. See <a href="https://www.refinery.io/pricing" target="_blank">our Pricing page</a> for more information on the plans available.
+</p>
+<p>
+	<b>This is a mistake! What can I do?</b><br />
+	If you believe this action has been taken in error please reach out to us via <a href="https://join.slack.com/t/refinerydevs/shared_invite/enQtNzkxNTgzNDU3MzQ0LTljNzA1NTMxYTQ2ZTdlNzc1MzU4MDkzNmU0Nzg0NDk3NzFmYjgzM2E5ZjA3MmQxZjBlZTI2MTFiNTAxNTIwNTQ" target="_blank">Slack</a> or reply to this email.
+</p>
+<hr />
+Cheers,<br />
+-The Refinery Team

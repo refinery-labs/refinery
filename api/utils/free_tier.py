@@ -291,9 +291,10 @@ class FreeTierFreezerSpawner(BaseSpawner):
 
 		ec2_instance_ids = FreeTierFreezerSpawner.get_ec2_instance_ids( credentials )
 
-		stop_instance_response = ec2_client.stop_instances(
-			InstanceIds=ec2_instance_ids
-		)
+		if len(ec2_instance_ids) > 0:
+			stop_instance_response = ec2_client.stop_instances(
+				InstanceIds=ec2_instance_ids
+			)
 
 	@staticmethod
 	def stop_all_codebuilds( credentials ):
@@ -393,8 +394,9 @@ class FreeTierFreezerSpawner(BaseSpawner):
 			delete_user_response = iam_client.delete_user(
 				UserName=credentials[ "iam_admin_username" ],
 			)
-		except:
+		except Exception as e:
 			logit( "Error deleting user, continuing..." )
+			print(e)
 		
 		logit( "Re-creating the AWS console user..." )
 		
@@ -408,8 +410,9 @@ class FreeTierFreezerSpawner(BaseSpawner):
 			delete_policy_response = iam_client.delete_policy(
 				PolicyArn=iam_policy_arn
 			)
-		except:
+		except Exception as e:
 			logit( "Error deleting IAM policy, continuing..." )
+			print(e)
 		
 		# Create IAM policy for the user
 		create_policy_response = iam_client.create_policy(
