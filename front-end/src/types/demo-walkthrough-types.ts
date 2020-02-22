@@ -25,7 +25,8 @@ export enum DemoTooltipActionType {
   addDeploymentExecution = 'addDeploymentExecution',
   viewExecutionLogs = 'viewExecutionLogs',
   openCodeRunner = 'openCodeRunner',
-  setCodeRunnerOutput = 'setCodeRunnerOutput'
+  setCodeRunnerOutput = 'setCodeRunnerOutput',
+  closeOpenedPane = 'closeOpenedPane'
 }
 
 export interface DemoOpenBlockModalOptions {

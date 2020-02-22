@@ -10,6 +10,7 @@ import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import TourWrapper from '@/lib/TourWrapper';
 import { DemoWalkthroughStoreModule } from '@/store';
 import { TooltipType } from '@/types/demo-walkthrough-types';
+import { timeout, waitUntil } from '@/utils/async-utils';
 
 const project = namespace('project');
 
@@ -84,7 +85,7 @@ export default class OpenedProjectGraphContainer extends Vue {
 
     const nextDemoTooltip = async () => {
       await DemoWalkthroughStoreModule.doTooltipTeardownAction();
-      DemoWalkthroughStoreModule.nextTooltip();
+      await DemoWalkthroughStoreModule.nextTooltip();
       await DemoWalkthroughStoreModule.doTooltipSetupAction();
     };
 
@@ -132,12 +133,15 @@ export default class OpenedProjectGraphContainer extends Vue {
 
     const tourProps = {
       steps: DemoWalkthroughStoreModule.visibleHtmlTooltips,
-      nextTooltip: nextDemoTooltip
+      nextTooltip: nextDemoTooltip,
+      stepIndex: DemoWalkthroughStoreModule.currentTooltip
     };
 
     const introWalkthrough = (
       <div>
-        <TourWrapper props={tourProps} />
+        {/*
+         // @ts-ignore */}
+        <TourWrapper key={tourProps.stepIndex} props={tourProps} />
       </div>
     );
 

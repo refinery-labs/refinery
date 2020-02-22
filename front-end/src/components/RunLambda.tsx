@@ -251,22 +251,33 @@ export default class RunLambda extends Vue implements RunLambdaProps {
           <Split props={{ direction: 'vertical' as Object }}>
             <SplitArea props={{ size: 40 as Object }}>
               <b-tabs nav-class="nav-justified" content-class="padding--none position--relative flex-grow--1">
-                <b-tab title="Input Data" active={true} no-body={true} title-link-class="dark-nav-tab">
+                <b-tab
+                  title="Input Data"
+                  active={true}
+                  no-body={true}
+                  title-link-class="dark-nav-tab"
+                  data-tooltip-id="input-data-tab"
+                >
                   <div class="display--flex flex-grow--1 ace-hack margin-left--negative-micro margin-right--negative-micro">
                     {renderEditorWrapper(null, inputDataEditor)}
                   </div>
                 </b-tab>
-                <b-tab title="Backpack Data" no-body={true} title-link-class="dark-nav-tab">
+                <b-tab
+                  title="Backpack Data"
+                  no-body={true}
+                  title-link-class="dark-nav-tab"
+                  data-tooltip-id="backpack-data-tab"
+                >
                   <div class="display--flex flex-grow--1 ace-hack margin-left--negative-micro margin-right--negative-micro">
                     {renderEditorWrapper(null, backpackDataEditor)}
                   </div>
                 </b-tab>
               </b-tabs>
             </SplitArea>
-            <SplitArea props={{ size: 30 as Object }}>
+            <SplitArea data-tooltip-id="return-data-textarea" props={{ size: 30 as Object }}>
               {renderEditorWrapper('Return Data', <RefineryCodeEditor props={resultDataEditorProps} />)}
             </SplitArea>
-            <SplitArea props={{ size: 30 as Object }}>
+            <SplitArea data-tooltip-id="execution-output-textarea" props={{ size: 30 as Object }}>
               {renderEditorWrapper('Execution Output', <RefineryCodeEditor props={resultOutputEditorProps} />)}
             </SplitArea>
           </Split>
