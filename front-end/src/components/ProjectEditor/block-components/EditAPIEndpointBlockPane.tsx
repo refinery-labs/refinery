@@ -64,7 +64,7 @@ export class EditAPIEndpointBlock extends Vue implements EditBlockPaneProps {
         <label class="d-block" htmlFor={`block-http-method-${this.selectedNode.id}`}>
           HTTP Method:
         </label>
-        <div class="input-group with-focus">
+        <div class="input-group with-focus" data-tooltip-id="endpoint-http-method">
           <b-form-select
             options={httpMethods}
             disabled={this.readOnly}
@@ -87,7 +87,7 @@ export class EditAPIEndpointBlock extends Vue implements EditBlockPaneProps {
         <label class="d-block" htmlFor={`block-http-path-${this.selectedNode.id}`}>
           HTTP Path:
         </label>
-        <div class="input-group with-focus">
+        <div class="input-group with-focus" data-tooltip-id="endpoint-http-path">
           <div class="input-group-prepend">
             <span class="input-group-text">/refinery</span>
           </div>

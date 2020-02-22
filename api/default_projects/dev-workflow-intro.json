@@ -1,0 +1,167 @@
+{
+  "demo_walkthrough": [
+    {
+			"type": "CyTooltip",
+			"target": "02ce00f8-020c-4ea2-9f2e-b731491e4eea",
+			"header": "Listening for HTTP requests",
+      "body": "An API Endpoint Block will wait until a request has been sent to the specified path (in this case, the path is '/example/web/path'). When someone sends a request to this endpoint, the request's data is sent along to connected blocks.",
+      "teardown": {
+        "action": "openBlockEditorPane"
+      }
+    },
+		{
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"endpoint-http-method\"]",
+			"header": "Endpoint Method",
+      "body": "Here is where you would configure what HTTP method your endpoint will accept."
+    },
+		{
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"endpoint-http-path\"]",
+			"header": "Endpoint Path",
+      "body": "Change the path that this endpoint is listening on.",
+      "teardown": {
+        "action": "closeOpenedPane"
+      }
+    },
+		{
+			"type": "CyTooltip",
+			"target": "c8e31b00-adf8-44c2-89ba-6df0e982805e",
+			"header": "Running some code",
+      "body": "A Code Block can contain code from any supported language, which is quite a few!.",
+      "teardown": {
+        "action": "openBlockEditorPane"
+      }
+		},
+		{
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"editorpane-edit-block\"]",
+			"header": "Write some code",
+			"body": ""
+    },
+		{
+      "type": "HTMLTooltip",
+      "target": "button[data-tooltip-id=\"modify-libraries-button\"]",
+			"header": "Import some libraries",
+			"body": ""
+    },
+		{
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"code-editor-language-selector\"]",
+			"header": "Change your language",
+      "body": ""
+    },
+		{
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"navitems-code-runner\"]",
+			"header": "See how your code runs",
+      "body": "",
+      "teardown": {
+        "action": "openCodeRunner"
+      }
+    },
+		{
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"input-data-tab\"]",
+			"header": "Block Input Data",
+      "body": "",
+      "teardown": {
+        "action": "setCodeRunnerOutput"
+      }
+    },
+		{
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"return-data-textarea\"]",
+			"header": "Your code's output",
+      "body": "",
+      "teardown": {
+        "action": "closeOpenedPane"
+      }
+    },
+		{
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"navitems-deploy-project\"]",
+			"header": "Let's trying deploying this project!",
+      "body": "",
+      "teardown": {
+        "action": "viewDeployment"
+      }
+    },
+		{
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"navitems-block-executions\"]",
+			"header": "Viewing your deployed code's logs",
+      "body": "",
+      "setup": {
+        "action": "addDeploymentExecution"
+      },
+      "teardown": {
+        "action": "viewExecutionLogs"
+      }
+    },
+		{
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"block-execution-pane\"]",
+			"header": "Deployment executions",
+      "body": "",
+      "setup": {
+        "action": "openExecutionsPane"
+      }
+    }
+  ],
+  "name": "Dev Workflow Introduction",
+  "workflow_relationships": [
+    {
+      "node": "02ce00f8-020c-4ea2-9f2e-b731491e4eea",
+      "next": "c8e31b00-adf8-44c2-89ba-6df0e982805e",
+      "type": "then",
+      "name": "then",
+      "expression": "",
+      "id": "422abd51-f9ac-43b6-8771-cb5e9495c7de",
+      "version": "1.0.0"
+    },
+    {
+      "node": "c8e31b00-adf8-44c2-89ba-6df0e982805e",
+      "next": "6436ed07-121b-4a74-af82-361cb70db5fc",
+      "type": "then",
+      "name": "then",
+      "expression": "",
+      "id": "549aaec4-c459-4fa4-b6a5-53cc5b8f29fb",
+      "version": "1.0.0"
+    }
+  ],
+  "workflow_states": [
+    {
+      "id": "6436ed07-121b-4a74-af82-361cb70db5fc",
+      "name": "API Endpoint Response Block",
+      "version": "1.0.0",
+      "type": "api_gateway_response"
+    },
+    {
+      "id": "02ce00f8-020c-4ea2-9f2e-b731491e4eea",
+      "name": "API Endpoint Block",
+      "version": "1.0.0",
+      "type": "api_endpoint",
+      "api_path": "/replaceme/proudcurtainsentry",
+      "http_method": "GET"
+    },
+    {
+      "id": "c8e31b00-adf8-44c2-89ba-6df0e982805e",
+      "name": "Hello World Code Block",
+      "version": "1.0.0",
+      "type": "lambda",
+      "language": "nodejs8.10",
+      "code": "\nasync function main(blockInput, backpack) {\n    return 'Hello World!';\n}\n",
+      "memory": 768,
+      "libraries": [],
+      "layers": [],
+      "max_execution_time": 900,
+      "environment_variables": {},
+      "reserved_concurrency_count": false
+    }
+  ],
+  "workflow_files": [],
+  "workflow_file_links": [],
+  "version": 1,
+  "readme": "# Untitled Project README\n\nThis is a Refinery project README, update it to explain more about the project."
+}

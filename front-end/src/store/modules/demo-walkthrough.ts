@@ -24,6 +24,7 @@ import {
 import { ExecutionStatusType } from '@/types/execution-logs-types';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { RunLambdaMutators } from '@/store/modules/run-lambda';
+import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 
 export interface DemoWalkthroughState {
   currentTooltip: number;
@@ -55,7 +56,8 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     [DemoTooltipActionType.addDeploymentExecution]: this.addDeploymentExecution,
     [DemoTooltipActionType.viewExecutionLogs]: this.viewExecutionLogs,
     [DemoTooltipActionType.openCodeRunner]: this.openCodeRunner,
-    [DemoTooltipActionType.setCodeRunnerOutput]: this.setCodeRunnerOutput
+    [DemoTooltipActionType.setCodeRunnerOutput]: this.setCodeRunnerOutput,
+    [DemoTooltipActionType.closeOpenedPane]: this.closeOpenedPane
   };
 
   get currentCyTooltips(): DemoTooltip[] {
@@ -76,6 +78,8 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
 
   @Mutation
   public setCurrentTooltips(tooltips: DemoTooltip[]) {
+    resetStoreState(this, baseState);
+
     if (tooltips.length == 0) {
       this.tooltips = [];
       return;
@@ -150,6 +154,13 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     if (teardown) {
       await this.actionLookup[teardown.action].call(this);
     }
+  }
+
+  @Action
+  public async closeOpenedPane() {
+    await this.context.dispatch(`project/editBlockPane/${EditBlockActions.cancelAndResetBlock}`, null, {
+      root: true
+    });
   }
 
   @Action

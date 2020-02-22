@@ -8,14 +8,15 @@ import { DemoWalkthroughStoreModule } from '@/store';
 export default class TourWrapper extends Vue {
   @Prop({ required: true }) nextTooltip!: () => void;
   @Prop({ required: true }) steps!: DemoTooltip[];
+  @Prop({ required: true }) stepIndex!: number;
 
   mounted() {
     // @ts-ignore
     this.$tours['step'].start();
   }
 
-  onStop() {
-    this.nextTooltip();
+  async onStop() {
+    await this.nextTooltip();
   }
 
   render() {

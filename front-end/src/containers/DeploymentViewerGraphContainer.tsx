@@ -35,7 +35,7 @@ export default class DeploymentViewerGraphContainer extends Vue {
 
     const nextDemoTooltip = async () => {
       await DemoWalkthroughStoreModule.doTooltipTeardownAction();
-      DemoWalkthroughStoreModule.nextTooltip();
+      await DemoWalkthroughStoreModule.nextTooltip();
       await DemoWalkthroughStoreModule.doTooltipSetupAction();
     };
 
@@ -61,7 +61,8 @@ export default class DeploymentViewerGraphContainer extends Vue {
 
     const tourProps = {
       steps: DemoWalkthroughStoreModule.visibleHtmlTooltips,
-      nextTooltip: nextDemoTooltip
+      nextTooltip: nextDemoTooltip,
+      stepIndex: DemoWalkthroughStoreModule.currentTooltip
     };
 
     const introWalkthrough = (
