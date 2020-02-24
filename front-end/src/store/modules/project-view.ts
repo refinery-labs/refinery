@@ -11,6 +11,7 @@ import {
   ProjectConfig,
   ProjectLogLevel,
   RefineryProject,
+  SupportedLanguage,
   WorkflowFile,
   WorkflowFileLink,
   WorkflowFileLinkType,
@@ -63,6 +64,7 @@ import {
 import {
   availableTransitions,
   blockTypeToImageLookup,
+  DEFAULT_LANGUAGE_CODE,
   demoModeBlacklist,
   savedBlockType
 } from '@/constants/project-editor-constants';
@@ -408,6 +410,16 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         }
       });
     },
+    [ProjectViewMutators.setProjectRuntimeLanguage](state, projectRuntimeLanguage: SupportedLanguage) {
+      if (state.openedProjectConfig === null) {
+        console.error('Could not set project runtime language due to no project being opened.');
+        return;
+      }
+      state.openedProjectConfig = {
+        ...state.openedProjectConfig,
+        default_language: projectRuntimeLanguage
+      };
+    },
 
     // Deployment Logic
     [ProjectViewMutators.setLatestDeploymentState](state, response: GetLatestProjectDeploymentResponse | null) {
@@ -502,6 +514,15 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Save new config to the backend
       await context.dispatch(ProjectViewActions.saveProjectConfig);
     },
+    async [ProjectViewActions.setProjectConfigRuntimeLanguage](
+      context,
+      projectConfigRuntimeLanguage: SupportedLanguage
+    ) {
+      context.commit(ProjectViewMutators.setProjectRuntimeLanguage, projectConfigRuntimeLanguage);
+
+      // Save new config to the backend
+      await context.dispatch(ProjectViewActions.saveProjectConfig);
+    },
     async [ProjectViewActions.setIfExpression](context, ifExpressionValue: string) {
       await context.commit(ProjectViewMutators.setIfExpression, ifExpressionValue);
     },
@@ -587,6 +608,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
           warmup_concurrency_level: 0,
           api_gateway: { gateway_id: false },
           logging: { level: ProjectLogLevel.LOG_ALL },
+          default_language: SupportedLanguage.NODEJS_8,
           version: '1'
         },
         // We mark it as dirty so that we always show the save button ;)
@@ -1473,6 +1495,15 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       let newBlockName: string = `Untitled ${blockTypeToImageLookup[blockType].name}`;
       if (immutable_names.includes(blockType)) {
         newBlockName = blockTypeToImageLookup[blockType].name;
+      }
+
+      // Set configured new block defaults
+      if (context.state.openedProjectConfig) {
+        const defaultLanguage = context.state.openedProjectConfig.default_language || SupportedLanguage.NODEJS_8;
+        addBlockArgs.customBlockProperties = Object.assign({}, addBlockArgs.customBlockProperties, {
+          language: defaultLanguage,
+          code: DEFAULT_LANGUAGE_CODE[defaultLanguage]
+        });
       }
 
       const newBlock = createNewBlock(blockType, newBlockName, addBlockArgs.customBlockProperties);

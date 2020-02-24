@@ -144,6 +144,7 @@ export interface ProjectConfig {
   api_gateway: { gateway_id: string | false };
   version: string;
   logging: { level: ProjectLogLevel };
+  default_language: SupportedLanguage;
   warmup_concurrency_level: number;
 }
 
