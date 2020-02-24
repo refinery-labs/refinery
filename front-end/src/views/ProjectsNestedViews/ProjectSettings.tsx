@@ -76,14 +76,11 @@ export default class ProjectSettings extends Vue {
   }
 
   private renderSettingsCard(name: string) {
+    const missingProjectConfig = this.openedProjectConfig === null;
     const loadingProps: LoadingContainerProps = {
-      show: false,
+      show: missingProjectConfig,
       label: 'Loading config values...'
     };
-
-    if (!this.openedProjectConfig) {
-      loadingProps.show = true;
-    }
 
     return (
       <Loading props={loadingProps}>
