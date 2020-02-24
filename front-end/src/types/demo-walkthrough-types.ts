@@ -1,8 +1,14 @@
+import { ExecutionStatusType } from '@/types/execution-logs-types';
+
 export interface CyConfig {
   x: number;
   y: number;
   offsetX: number;
   offsetY: number;
+}
+
+export interface HTMLConfig {
+  placement: string;
 }
 
 export const CY_CONFIG_DEFAULTS: CyConfig = {
@@ -26,16 +32,36 @@ export enum DemoTooltipActionType {
   viewExecutionLogs = 'viewExecutionLogs',
   openCodeRunner = 'openCodeRunner',
   setCodeRunnerOutput = 'setCodeRunnerOutput',
-  closeOpenedPane = 'closeOpenedPane'
+  closeEditPane = 'closeEditPane',
+  closeLeftPane = 'closeLeftPane',
+  promptUserSignup = 'promptUserSignup'
 }
 
-export interface DemoOpenBlockModalOptions {
-  nodeId: string;
+export interface SetCodeRunnerOutputOptions {
+  logs: string;
+  returned_data: string;
+}
+
+export interface ViewExecutionLogsOptions {
+  backpack: object;
+  input_data: string;
+  name: string;
+  program_output: string;
+  return_data: string;
+}
+
+export interface AddDeploymentExecutionInfo {
+  blockIndex: number;
+  status: ExecutionStatusType;
+}
+
+export interface AddDeploymentExecutionOptions {
+  executions: AddDeploymentExecutionInfo[];
 }
 
 export interface DemoTooltipAction {
   action: DemoTooltipActionType;
-  options?: DemoOpenBlockModalOptions;
+  options?: SetCodeRunnerOutputOptions | ViewExecutionLogsOptions | AddDeploymentExecutionOptions;
 }
 
 export interface DemoTooltip {
@@ -46,5 +72,5 @@ export interface DemoTooltip {
   body: string;
   setup?: DemoTooltipAction;
   teardown?: DemoTooltipAction;
-  config: CyConfig;
+  config?: CyConfig | HTMLConfig;
 }

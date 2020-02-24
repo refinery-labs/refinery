@@ -249,7 +249,7 @@ export default class RunLambda extends Vue implements RunLambdaProps {
       <div class="display--flex flex-direction--column flex-grow--1">
         <div class="display--flex flex-grow--1 height--100percent">
           <Split props={{ direction: 'vertical' as Object }}>
-            <SplitArea props={{ size: 40 as Object }}>
+            <SplitArea data-tooltip-id="input-data-textarea" props={{ size: 40 as Object }}>
               <b-tabs nav-class="nav-justified" content-class="padding--none position--relative flex-grow--1">
                 <b-tab
                   title="Input Data"

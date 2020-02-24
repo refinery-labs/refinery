@@ -166,8 +166,6 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
     [DeploymentExecutionsGetters.currentlySelectedLogId]: (state, getters) => {
       const blockLogIds: string[] | null = getters[DeploymentExecutionsGetters.getAllLogIdsForSelectedBlock];
 
-      console.log(blockLogIds, state.selectedBlockExecutionLog);
-
       // We don't have logs for the selected block
       if (!blockLogIds) {
         return null;
@@ -186,19 +184,14 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       const allLogMetadata: ExecutionLogMetadata[] | null =
         getters[DeploymentExecutionsGetters.getAllLogMetadataForSelectedBlock];
 
-      console.log(allLogMetadata);
-
       return allLogMetadata ? allLogMetadata.map(log => log.log_id) : null;
     },
     [DeploymentExecutionsGetters.getAllLogMetadataForSelectedBlock]: (state, getters, rootState) => {
-      console.log(rootState.viewBlock.selectedNode);
       if (!rootState.viewBlock.selectedNode) {
         return null;
       }
 
       const selectedBlockLogs = state.blockExecutionLogsForBlockId[rootState.viewBlock.selectedNode.id];
-
-      console.log(state.blockExecutionLogsForBlockId, rootState.viewBlock.selectedNode.id);
 
       if (!selectedBlockLogs) {
         return null;
@@ -351,8 +344,6 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
           [log.blockId]: log.totalExecutions
         };
       }
-
-      console.log(state.blockExecutionLogsForBlockId);
     },
     [DeploymentExecutionsMutators.addBlockExecutionLogContents](state, logs: BlockExecutionLogContentsByLogId) {
       state.blockExecutionLogByLogId = {

@@ -1,4 +1,4 @@
-import { DemoTooltip } from '@/types/demo-walkthrough-types';
+import { CyConfig, DemoTooltip } from '@/types/demo-walkthrough-types';
 
 export interface CytoscapeCanvasInstance {
   getCanvas(): HTMLCanvasElement;
@@ -110,8 +110,9 @@ const register = function(cytoscape: (extensionName: string, foo: string, bar: a
         img: HTMLImageElement,
         pos: cytoscape.Position
       ): boolean {
-        const x = tooltip.config.x + tooltip.config.offsetX;
-        const y = tooltip.config.y + tooltip.config.offsetY;
+        const config = tooltip.config as CyConfig;
+        const x = config.x + config.offsetX;
+        const y = config.y + config.offsetY;
         return pos.x > x && pos.x < x + img.width && (pos.y > y && pos.y < y + img.height);
       },
       drawGrid(ctx: CanvasRenderingContext2D) {

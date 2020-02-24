@@ -116,7 +116,7 @@ export default class ViewProject extends mixins(CreateToastMixin) {
     return (
       <div class="view-project-page">
         <b-nav tabs justified>
-          <b-nav-item exact to={basePath} active-nav-item-class="active">
+          <b-nav-item exact to={basePath} active-nav-item-class="active" data-tooltip-id="editor-nav-item">
             Editor
           </b-nav-item>
           {this.renderDeploymentsTab()}

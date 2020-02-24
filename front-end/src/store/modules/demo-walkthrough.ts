@@ -2,13 +2,16 @@ import { Action, Module, Mutation, VuexModule } from 'vuex-module-decorators';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState, StoreType } from '@/store/store-types';
-import { DemoTooltip, DemoTooltipAction, DemoTooltipActionType, TooltipType } from '@/types/demo-walkthrough-types';
 import {
-  DeploymentViewActions,
-  DeploymentViewMutators,
-  ProjectViewActions,
-  ProjectViewMutators
-} from '@/constants/store-constants';
+  AddDeploymentExecutionOptions,
+  DemoTooltip,
+  DemoTooltipAction,
+  DemoTooltipActionType,
+  SetCodeRunnerOutputOptions,
+  TooltipType,
+  ViewExecutionLogsOptions
+} from '@/types/demo-walkthrough-types';
+import { DeploymentViewActions, DeploymentViewMutators, ProjectViewActions } from '@/constants/store-constants';
 import router from '@/router';
 import { RefineryProject, WorkflowRelationshipType } from '@/types/graph';
 import { GetLatestProjectDeploymentResult, RunLambdaResult } from '@/types/api-types';
@@ -22,9 +25,10 @@ import {
   ProjectExecutionsByExecutionId
 } from '@/types/deployment-executions-types';
 import { ExecutionStatusType } from '@/types/execution-logs-types';
-import { SIDEBAR_PANE } from '@/types/project-editor-types';
+import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import { RunLambdaMutators } from '@/store/modules/run-lambda';
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
+import { error } from 'util';
 
 export interface DemoWalkthroughState {
   currentTooltip: number;
@@ -38,6 +42,14 @@ export const baseState: DemoWalkthroughState = {
   tooltipsLoaded: false
 };
 
+const INITIAL_TOOLTIP: DemoTooltip = {
+  type: TooltipType.HTMLTooltip,
+  visible: false,
+  target: 'li[data-tooltip-id="editor-nav-item"]',
+  header: 'Start the walkthrough',
+  body: 'Get to know this project and Refinery a little better by clicking through this demo.'
+};
+
 const initialState = deepJSONCopy(baseState);
 
 // We need to leave this as a "dynamic" module so that we can use the fancy `this` rebinding. Otherwise we have to use
@@ -48,7 +60,7 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   public currentTooltip: number = initialState.currentTooltip;
   public tooltips: DemoTooltip[] = initialState.tooltips;
   public tooltipsLoaded: boolean = initialState.tooltipsLoaded;
-  public actionLookup: Record<DemoTooltipActionType, () => void> = {
+  public actionLookup: Record<DemoTooltipActionType, (action: DemoTooltipAction) => void> = {
     [DemoTooltipActionType.openBlockEditorPane]: this.openBlockEditorPane,
     [DemoTooltipActionType.closeBlockEditorPane]: this.closeBlockEditorPane,
     [DemoTooltipActionType.viewDeployment]: this.viewExampleProjectDeployment,
@@ -57,7 +69,9 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     [DemoTooltipActionType.viewExecutionLogs]: this.viewExecutionLogs,
     [DemoTooltipActionType.openCodeRunner]: this.openCodeRunner,
     [DemoTooltipActionType.setCodeRunnerOutput]: this.setCodeRunnerOutput,
-    [DemoTooltipActionType.closeOpenedPane]: this.closeOpenedPane
+    [DemoTooltipActionType.closeEditPane]: this.closeEditPane,
+    [DemoTooltipActionType.closeLeftPane]: this.closeLeftPane,
+    [DemoTooltipActionType.promptUserSignup]: this.promptUserSignup
   };
 
   get currentCyTooltips(): DemoTooltip[] {
@@ -85,6 +99,8 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
       return;
     }
 
+    tooltips = [INITIAL_TOOLTIP, ...tooltips];
+
     tooltips[this.currentTooltip].visible = true;
     this.tooltipsLoaded = false;
     this.tooltips = tooltips;
@@ -111,9 +127,10 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
       }
 
       const pos = cy.getElementById(t.target).position();
-      if (pos) {
+      const tooltipConfig = tooltips[i].config;
+      if (pos && tooltipConfig) {
         tooltips[i].config = {
-          ...tooltips[i].config,
+          ...tooltipConfig,
           ...pos
         };
       } else {
@@ -141,23 +158,28 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   }
 
   @Action
-  public async doTooltipSetupAction() {
-    const setup = this.tooltips[this.currentTooltip].setup;
-    if (setup) {
-      await this.actionLookup[setup.action].call(this);
+  private async performTooltipAction(tooltipAction: DemoTooltipAction | undefined) {
+    if (tooltipAction) {
+      if (!(tooltipAction.action in this.actionLookup)) {
+        console.error('Unable to find setup action in lookup', tooltipAction.action);
+        return;
+      }
+      await this.actionLookup[tooltipAction.action].call(this, tooltipAction);
     }
+  }
+
+  @Action
+  public async doTooltipSetupAction() {
+    await this.performTooltipAction(this.tooltips[this.currentTooltip].setup);
   }
 
   @Action
   public async doTooltipTeardownAction() {
-    const teardown = this.tooltips[this.currentTooltip].teardown;
-    if (teardown) {
-      await this.actionLookup[teardown.action].call(this);
-    }
+    await this.performTooltipAction(this.tooltips[this.currentTooltip].teardown);
   }
 
   @Action
-  public async closeOpenedPane() {
+  public async closeEditPane() {
     await this.context.dispatch(`project/editBlockPane/${EditBlockActions.cancelAndResetBlock}`, null, {
       root: true
     });
@@ -179,6 +201,12 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
 
   @Action
   public async openExecutionsPane() {
+    await this.context.dispatch(`deploymentExecutions/${DeploymentExecutionsActions.selectLogByLogId}`, 'demo', {
+      root: true
+    });
+    await this.context.dispatch(`deploymentExecutions/${DeploymentExecutionsActions.doOpenExecutionGroup}`, 'demo', {
+      root: true
+    });
     await this.context.dispatch(`deployment/${DeploymentViewActions.openViewExecutionsPane}`, null, {
       root: true
     });
@@ -192,15 +220,27 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   }
 
   @Action
-  public async setCodeRunnerOutput() {
+  public async closeLeftPane() {
+    await this.context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.left, {
+      root: true
+    });
+  }
+
+  @Action
+  public async promptUserSignup() {
+    console.log('pls signup');
+  }
+
+  @Action
+  public async setCodeRunnerOutput(action: DemoTooltipAction) {
+    const codeRunnerAction = action.options as SetCodeRunnerOutputOptions;
     const result: RunLambdaResult = {
+      ...codeRunnerAction,
       is_error: false,
       version: '1',
-      logs: 'test',
       truncated: false,
       status_code: 200,
-      arn: 'test',
-      returned_data: 'asdf'
+      arn: 'test'
     };
     await this.context.commit(`runLambda/${RunLambdaMutators.setDevLambdaRunResult}`, result, {
       root: true
@@ -208,7 +248,9 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   }
 
   @Action
-  public async viewExecutionLogs() {
+  public async viewExecutionLogs(action: DemoTooltipAction) {
+    const execLogsAction = action.options as ViewExecutionLogsOptions;
+
     const openedProject = this.context.rootState.project.openedProject as RefineryProject;
     const blockId = openedProject.workflow_states[0].id;
     const payload: AddBlockExecutionsPayload = {
@@ -225,14 +267,10 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     };
     const logContents: BlockExecutionLogContentsByLogId = {
       test: {
+        ...execLogsAction,
         arn: 'asdf',
-        backpack: {},
-        input_data: 'asdf',
         log_id: 'test',
-        name: 'asdf',
-        program_output: 'asdf',
         project_id: openedProject.project_id,
-        return_data: 'asdf',
         timestamp: 0,
         type: ExecutionStatusType.SUCCESS
       }
@@ -259,45 +297,46 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
         root: true
       }
     );
-    await this.context.dispatch(`deploymentExecutions/${DeploymentExecutionsActions.selectLogByLogId}`, 'demo', {
-      root: true
-    });
-
-    await this.context.dispatch(`deploymentExecutions/${DeploymentExecutionsActions.doOpenExecutionGroup}`, 'demo', {
-      root: true
-    });
   }
 
   @Action
-  public async addDeploymentExecution() {
+  public async addDeploymentExecution(action: DemoTooltipAction) {
     const openedProject = this.context.rootState.project.openedProject as RefineryProject;
-    const blockId = openedProject.workflow_states[0].id;
-    const blockName = openedProject.workflow_states[0].name;
+    const addExecAction = action.options as AddDeploymentExecutionOptions;
+
+    const blockExecutionGroup = addExecAction.executions.reduce((group, execution) => {
+      const block = openedProject.workflow_states[execution.blockIndex];
+      return {
+        [block.id]: {
+          executionStatus: execution.status,
+          executionResult: {
+            arn: '',
+            SUCCESS: 0,
+            EXCEPTION: 0,
+            CAUGHT_EXCEPTION: 0
+          },
+          timestamp: 0,
+          totalExecutionCount: 1,
+          executionId: 'demo',
+          blockId: block.id,
+          blockName: block.name,
+          blockArn: ''
+        }
+      };
+    }, {});
+
+    const errorExecs = addExecAction.executions.filter(e => e.status == ExecutionStatusType.EXCEPTION).length;
+    const caughtExecs = addExecAction.executions.filter(e => e.status == ExecutionStatusType.CAUGHT_EXCEPTION).length;
+    const successfulExecs = addExecAction.executions.filter(e => e.status == ExecutionStatusType.SUCCESS).length;
     const projectExecutions: ProjectExecutionsByExecutionId = {
       demo: {
-        errorCount: 0,
-        caughtErrorCount: 0,
-        successCount: 1,
+        errorCount: errorExecs,
+        caughtErrorCount: caughtExecs,
+        successCount: successfulExecs,
         oldestTimestamp: 0,
         executionId: 'demo',
-        numberOfLogs: 1,
-        blockExecutionGroupByBlockId: {
-          [blockId]: {
-            executionStatus: ExecutionStatusType.SUCCESS,
-            executionResult: {
-              arn: '',
-              SUCCESS: 0,
-              EXCEPTION: 0,
-              CAUGHT_EXCEPTION: 0
-            },
-            timestamp: 0,
-            totalExecutionCount: 1,
-            executionId: 'demo',
-            blockId: blockId,
-            blockName: blockName,
-            blockArn: ''
-          }
-        }
+        numberOfLogs: addExecAction.executions.length,
+        blockExecutionGroupByBlockId: blockExecutionGroup
       }
     };
     await this.context.commit(

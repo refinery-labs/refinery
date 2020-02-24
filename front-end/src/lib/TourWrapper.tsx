@@ -1,7 +1,7 @@
 import Vue from 'vue';
 import Component from 'vue-class-component';
 import { Prop, Watch } from 'vue-property-decorator';
-import { DemoTooltip } from '@/types/demo-walkthrough-types';
+import { DemoTooltip, HTMLConfig } from '@/types/demo-walkthrough-types';
 import { DemoWalkthroughStoreModule } from '@/store';
 
 @Component
@@ -31,12 +31,17 @@ export default class TourWrapper extends Vue {
     };
 
     const formattedSteps = this.steps.map(step => {
+      const config = (step.config as HTMLConfig) || {};
+      const params = {
+        placement: config.placement || 'bottom'
+      };
       return {
         ...step,
         header: {
           title: step.header
         },
-        content: step.body
+        content: step.body,
+        params: params
       };
     });
 
