@@ -1,0 +1,3 @@
+
+class InvalidConfigurationException( Exception ):
+	pass

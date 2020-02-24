@@ -107,3 +107,10 @@ alembic.ini
 custom-runtime.zip
 layer-contents.zip
 layer-contents/
+
+# Ignore files cached by Hypothesis...
+api/.hypothesis/*
+# except for the examples directory
+!api/.hypothesis/examples/
+
+.coverage
