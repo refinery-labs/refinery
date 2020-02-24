@@ -52,5 +52,5 @@ class EmailSpawner(BaseSpawner):
 		)
 		
 		return response.text
-
+		
 email_spawner = EmailSpawner()

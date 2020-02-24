@@ -63,6 +63,7 @@ from utils.ecs_builders import builder_manager, BuilderManager
 from utils.aws_account_management.preterraform import preterraform_manager
 from utils.free_tier import usage_spawner, free_tier_freezer
 from utils.emails import EmailSpawner, email_spawner
+from utils.free_tier_redis import free_tier_redis_manager, FreeTierRedisManagerSpawner
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
@@ -9142,13 +9143,13 @@ class EmailLinkAuthentication( BaseHandler ):
 				logit( "Adding a reserved AWS account to the newly registered Refinery account..." )
 				aws_reserved_account.aws_account_status = "IN_USE"
 				aws_reserved_account.organization_id = user_organization.id
+				aws_reserved_account.redis_hostname = os.environ.get( "free_tier_redis_server_hostname" )
 				self.dbsession.commit()
-				
-				# Don't yield because we don't care about the result
-				# Unfreeze/thaw the account so that it's ready for the new user
-				# This takes ~30 seconds - worth noting. But that **should** be fine.
-				local_tasks.unfreeze_aws_account(
-					aws_reserved_account.to_dict()
+
+				logit( "Creating redis account on free-tier redis server..." )
+				yield free_tier_redis_manager.add_redis_user(
+					str( aws_reserved_account.id ),
+					aws_reserved_account.redis_password,
 				)
 		
 		self.dbsession.commit()
@@ -9957,7 +9958,9 @@ class MaintainAWSAccountReserves( BaseHandler ):
 				).first()
 				
 				# Update the AWS account with this new information
-				current_aws_account.redis_hostname = account_provisioning_details[ "redis_hostname" ]
+				# Set redis server to free-tier redis
+				current_aws_account.redis_hostname = os.environ.get( "free_tier_redis_server_hostname" )
+
 				current_aws_account.terraform_state = account_provisioning_details[ "terraform_state" ]
 				current_aws_account.ssh_public_key = account_provisioning_details[ "ssh_public_key" ]
 				current_aws_account.ssh_private_key = account_provisioning_details[ "ssh_private_key" ]
@@ -9980,14 +9983,6 @@ class MaintainAWSAccountReserves( BaseHandler ):
 			logit( "Commiting new account state of '" + current_aws_account.aws_account_status + "' to database..." )
 			dbsession.add(current_aws_account)
 			dbsession.commit()
-			
-			logit( "Freezing the account until it's used by someone..." )
-			
-			TaskSpawner._freeze_aws_account(
-				current_aws_account.to_dict()
-			)
-			
-			logit( "Account frozen successfully." )
 			
 		# Create sub-accounts and let them age before applying terraform
 		for i in range( 0, accounts_to_create ):

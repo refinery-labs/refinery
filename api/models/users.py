@@ -66,7 +66,11 @@ class User( Base ):
 	phone_number = Column(Text())
 
 	# Tier the user's account is under (free/paid)
-	tier = Column( Enum( RefineryUserTier ), nullable=False )
+	tier = Column(
+		Enum( RefineryUserTier ),
+		default=RefineryUserTier.FREE,
+		nullable=False
+	)
 	
 	# Parent organization the user belongs to
 	organization_id = Column(
