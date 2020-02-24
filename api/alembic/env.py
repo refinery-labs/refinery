@@ -7,6 +7,33 @@ from alembic import context
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
+
+# TODO: Figure out how to import all of these files automatically instead of this disgusting verbosity
+from models import aws_accounts, \
+    cached_billing_collections, \
+    cached_billing_items, \
+    cached_execution_logs_shard, \
+    deployments, \
+    email_auth_tokens, \
+    inline_execution_lambdas, \
+    model_exceptions, \
+    organizations, \
+    project_config, \
+    project_short_links, \
+    project_versions, \
+    projects, \
+    saved_block,\
+    saved_block_version, \
+    state_logs, \
+    terraform_state_versions, \
+    user_oauth_account, \
+    user_oauth_data_record, \
+    users
+from models.initiate_database import Base
+
+import sys
+[sys.path.append(i) for i in ['.', '..']]
+
 config = context.config
 
 # Interpret the config file for Python logging.
@@ -16,8 +43,8 @@ fileConfig(config.config_file_name)
 # add your model's MetaData object here
 # for 'autogenerate' support
 # from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
-target_metadata = None
+target_metadata = Base.metadata
+# target_metadata = None
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:

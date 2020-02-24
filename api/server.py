@@ -6,52 +6,48 @@ import tornado.escape
 import tornado.ioloop
 import tornado.web
 import subprocess
-import sqlalchemy
 import traceback
 import functools
 import botocore
 import datetime
 import requests
 import pystache
-import binascii
 import hashlib
-import ctypes
 import shutil
 import stripe
 import base64
-import string
 import boto3
 import numpy
-import codecs
-import struct
 import uuid
 import hmac
 import json
-import yaml
 import copy
 import math
 import time
-import jwt
 import sys
 import re
-import os
 import io
 
 from tornado import gen
 import unicodecsv as csv
-from datetime import timedelta
-from tornado.web import asynchronous
 from ansi2html import Ansi2HTMLConverter
 from botocore.exceptions import ClientError
 from jsonschema import validate as validate_schema
 from tornado.concurrent import run_on_executor, futures
-from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from email_validator import validate_email, EmailNotValidError
 
-from utils.general import attempt_json_decode, logit, split_list_into_chunks, get_random_node_id, get_urand_password, get_random_id, get_random_deploy_id
+from assistants.user_creation_assistant import UserCreationAssistant
+from controller.auth.github.http_handler import AuthenticateWithGithub
+
+from controller.auth.github.oauth_provider import GithubOAuthProvider
+from services.auth.oauth_service import OAuthService
+from services.project_inventory.project_inventory_service import ProjectInventoryService
+from services.stripe.stripe_service import StripeService
+from services.user_management.user_management_service import UserManagementService
+from utils.general import attempt_json_decode, logit, split_list_into_chunks, get_random_node_id, get_urand_password, \
+	get_random_deploy_id
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
-from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda
 from utils.aws_client import get_aws_client, STS_CLIENT
 from utils.deployments.teardown import teardown_infrastructure
 from utils.deployments.awslambda import lambda_manager
@@ -9151,6 +9147,7 @@ class GetCloudWatchLogsForLambda( BaseHandler ):
 			}
 		})
 
+
 class NewRegistration( BaseHandler ):
 	@gen.coroutine
 	def post( self ):
@@ -9234,7 +9231,8 @@ class NewRegistration( BaseHandler ):
 				}
 			})
 			raise gen.Return()
-		
+
+
 		# Create the user itself and add it to the organization
 		new_user = User()
 		new_user.name = self.json[ "name" ]
@@ -9380,7 +9378,8 @@ class NewRegistration( BaseHandler ):
 			self.json[ "name" ],
 			self.json[ "phone" ]
 		)
-		
+
+
 class EmailLinkAuthentication( BaseHandler ):
 	@gen.coroutine
 	def get( self, email_authentication_token=None ):
@@ -9587,7 +9586,8 @@ class Logout( BaseHandler ):
 		self.write({
 			"success": True
 		})
-		
+
+
 class GetBillingMonthTotals( BaseHandler ):
 	@authenticated
 	@gen.coroutine
@@ -9822,7 +9822,8 @@ class AddCreditCardToken( BaseHandler ):
 			"success": True,
 			"msg": "The credit card has been successfully added to your account!"
 		})
-		
+
+
 class ListCreditCards( BaseHandler ):
 	@authenticated
 	@gen.coroutine
@@ -10935,12 +10936,56 @@ def make_websocket_server( tornado_config ):
 	], **tornado_config)
 		
 def make_app( tornado_config ):
+	# Sets up dependencies
+	logger = logit
+
+	# Standalone dependencies that just rely on configuration
+	github_oauth_provider = GithubOAuthProvider(
+		os.environ["github_client_id"],
+		os.environ["github_client_secret"],
+		os.environ["cookie_expire_days"],
+		logger
+	)
+
+	# Service Instantiation:
+	# Services only take in a logger instance or configuration.
+	# They do not depend on each other.
+	oauth_service = OAuthService( logger )
+	user_service = UserManagementService( logger )
+	project_inventory_service = ProjectInventoryService( logger )
+	stripe_service = StripeService( local_tasks.executor, logger )
+
+	# Assistant Instantiation:
+	# Assistants rely on Services and are basically business logic + glue code between them.
+	# These exist to keep logic outside of HTTP Controllers (and DRY).
+	user_creation_assistant = UserCreationAssistant(
+		logger,
+		oauth_service,
+		github_oauth_provider,
+		project_inventory_service,
+		stripe_service,
+		user_service
+	)
+
+	# TODO: Figure out how DI works in Tornado
+	dependencies = dict(
+		github_oauth_provider=github_oauth_provider,
+		logger=logger,
+		#project_inventory_service=project_inventory_service,
+		#stripe_service=stripe_service,
+		#oauth_service=oauth_service,
+		user_creation_assistant=user_creation_assistant,
+		#user_service=user_service
+	)
+
+	# Sets up routes
 	return tornado.web.Application([
 		( r"/api/v1/health", HealthHandler ),
 		( r"/authentication/email/([a-z0-9]+)", EmailLinkAuthentication ),
 		( r"/api/v1/auth/me", GetAuthenticationStatus ),
 		( r"/api/v1/auth/register", NewRegistration ),
 		( r"/api/v1/auth/login", Authenticate ),
+		tornado.web.url( r"/api/v1/auth/github", AuthenticateWithGithub, dependencies, name="auth_github" ),
 		( r"/api/v1/auth/logout", Logout ),
 		( r"/api/v1/logs/executions/get-logs", GetProjectExecutionLogObjects ),
 		( r"/api/v1/logs/executions/get-contents", GetProjectExecutionLogsPage ),
@@ -11066,7 +11111,10 @@ if __name__ == "__main__":
 		)
 	)
 
-	Base.metadata.create_all( engine )
+	# Creates tables for any new models
+	# This is commented out by default because it makes Alembic autogenerated migrations not work
+	# (unless you drop the tables manually before you auto-generate)
+	# Base.metadata.create_all( engine )
 		
 	# Resolve what our callback endpoint is, this is different in DEV vs PROD
 	# one assumes you have an external IP address and the other does not (and

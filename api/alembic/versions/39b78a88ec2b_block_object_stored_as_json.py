@@ -33,13 +33,19 @@ def upgrade():
     conn = op.get_bind()
 
     for saved_block in conn.execute(saved_block_versions.select()):
-        conn.execute(
-            saved_block_versions.update().where(
-                saved_block_versions.c.id == saved_block.id
-            ).values(
-                block_object_json=json.loads(saved_block.block_object),
+
+        try:
+            saved_block_json = json.loads(saved_block.block_object)
+            conn.execute(
+                saved_block_versions.update().where(
+                    saved_block_versions.c.id == saved_block.id
+                ).values(
+                    block_object_json=saved_block_json
+                )
             )
-        )
+        except TypeError as e:
+            print( "Failed to upgrade block: " + repr( saved_block ) )
+
 
 def downgrade():
     op.drop_column('saved_block_versions', 'block_object_json')

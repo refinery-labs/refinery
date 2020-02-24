@@ -1,0 +1,2 @@
+class InvalidModelCreationError( Exception ):
+	pass
