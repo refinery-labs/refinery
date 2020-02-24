@@ -1,5 +1,57 @@
 {
   "demo_walkthrough": [
+		{
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"navitems-deploy-project\"]",
+			"header": "Let's trying deploying this project!",
+      "body": "After testing all of our blocks with the code runner, we can try deploying this project to see how it actually workds end to end!",
+      "setup": {
+        "action": "closeLeftPane"
+      },
+      "teardown": {
+        "action": "viewDeployment"
+      }
+    },
+		{
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"navitems-block-executions\"]",
+			"header": "Viewing your deployed code's logs",
+      "body": "`Block Executions` will let you see every time your project is executed, what data is passed between your blocks and what they returned.",
+      "setup": {
+        "action": "addDeploymentExecution",
+        "options": {
+          "executions": [
+            {
+              "blockIndex": 0,
+              "status": "SUCCESS"
+            }
+          ]
+        }
+      },
+      "teardown": {
+        "action": "viewExecutionLogs",
+        "options": {
+          "backpack": {
+            "test": "test"
+          },
+          "input_data": "input data",
+          "name": "test name",
+          "blockIndex": 0,
+          "status": "SUCCESS",
+          "program_output": "output",
+          "return_data": "returned data"
+        }
+      }
+    },
+		{
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"block-execution-pane\"]",
+			"header": "Deployment executions",
+      "body": "Just like when looking at the `Code Runner` output, Deployment Executions shows the data that was passed in and returned by each block as it was executed.",
+      "setup": {
+        "action": "openExecutionsPane"
+      }
+    },
     {
 			"type": "CyTooltip",
 			"target": "02ce00f8-020c-4ea2-9f2e-b731491e4eea",
@@ -83,58 +135,6 @@
       "body": "Once you have your block data set, you can click `Execute With Data` to actually run your code with the simulated inputs.",
       "teardown": {
         "action": "closeEditPane"
-      }
-    },
-		{
-      "type": "HTMLTooltip",
-      "target": "div[data-tooltip-id=\"navitems-deploy-project\"]",
-			"header": "Let's trying deploying this project!",
-      "body": "After testing all of our blocks with the code runner, we can try deploying this project to see how it actually workds end to end!",
-      "setup": {
-        "action": "closeLeftPane"
-      },
-      "teardown": {
-        "action": "viewDeployment"
-      }
-    },
-		{
-      "type": "HTMLTooltip",
-      "target": "div[data-tooltip-id=\"navitems-block-executions\"]",
-			"header": "Viewing your deployed code's logs",
-      "body": "`Block Executions` will let you see every time your project is executed, what data is passed between your blocks and what they returned.",
-      "setup": {
-        "action": "addDeploymentExecution",
-        "options": {
-          "executions": [
-            {
-              "blockIndex": 0,
-              "status": "SUCCESS"
-            }
-          ]
-        }
-      },
-      "teardown": {
-        "action": "viewExecutionLogs",
-        "options": {
-          "backpack": {
-            "test": "test"
-          },
-          "input_data": "input data",
-          "name": "test name",
-          "blockIndex": 0,
-          "status": "SUCCESS",
-          "program_output": "output",
-          "return_data": "returned data"
-        }
-      }
-    },
-		{
-      "type": "HTMLTooltip",
-      "target": "div[data-tooltip-id=\"block-execution-pane\"]",
-			"header": "Deployment executions",
-      "body": "Just like when looking at the `Code Runner` output, Deployment Executions shows the data that was passed in and returned by each block as it was executed.",
-      "setup": {
-        "action": "openExecutionsPane"
       }
     },
     {

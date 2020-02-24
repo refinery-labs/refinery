@@ -11,9 +11,11 @@ import {
   AddBlockExecutionsPayload,
   BlockExecutionGroup,
   BlockExecutionLogContentsByLogId,
+  BlockExecutionLogData,
   BlockExecutionLogsForBlockId,
   BlockExecutionPagesByBlockId,
   BlockExecutionTotalsByBlockId,
+  ProductionExecutionResponse,
   ProjectExecution,
   ProjectExecutionsByExecutionId
 } from '@/types/deployment-executions-types';
@@ -417,12 +419,19 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       // We may either use the last timestamp or not.
       const timestampToContinueWith = withExistingToken ? context.state.nextTimestampToRetreive : null;
 
-      const executionsResponse = await getProjectExecutions(deploymentStore.openedDeployment, timestampToContinueWith);
+      let executionsResponse: ProductionExecutionResponse;
+      if (!DemoWalkthroughStoreModule.showingDemoWalkthrough) {
+        const executionsResp = await getProjectExecutions(deploymentStore.openedDeployment, timestampToContinueWith);
 
-      if (!executionsResponse) {
-        console.error('Unable to fetch execution logs, did not receive any results from server');
-        context.commit(statusMessageType, false);
-        return;
+        if (!executionsResp) {
+          console.error('Unable to fetch execution logs, did not receive any results from server');
+          context.commit(statusMessageType, false);
+          return;
+        }
+        executionsResponse = executionsResp;
+      } else {
+        executionsResponse = await DemoWalkthroughStoreModule.mockAddDeploymentExecution();
+        console.log(executionsResponse);
       }
 
       // Merge against existing executions
@@ -548,30 +557,34 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         return;
       }
 
-      // TODO (cthompson) remove this and replace with a mocked response
-      if (!DemoWalkthroughStoreModule.showingDemoWalkthrough) {
-        context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, true);
+      context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, true);
 
-        const response = await getLogsForExecutions(
+      // TODO (cthompson) remove this and replace with a mocked response
+      let response: BlockExecutionLogData;
+      if (!DemoWalkthroughStoreModule.showingDemoWalkthrough) {
+        const resp = await getLogsForExecutions(
           context.rootState.deployment.openedDeployment,
           blockExecutionGroupForSelectedBlock
         );
 
-        if (!response) {
+        if (!resp) {
           console.error('Unable to retrieve logs for execution');
           context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, false);
           return;
         }
+        response = resp;
+      } else {
+        response = DemoWalkthroughStoreModule.mockGetLogsForExecutions();
+      }
 
-        const payload: AddBlockExecutionsPayload = response;
+      const payload: AddBlockExecutionsPayload = response;
 
-        context.commit(DeploymentExecutionsMutators.addBlockExecutionLogMetadata, payload);
+      context.commit(DeploymentExecutionsMutators.addBlockExecutionLogMetadata, payload);
 
-        context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, false);
+      context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, false);
 
-        if (context.state.selectedBlockExecutionLog === null) {
-          await context.dispatch(DeploymentExecutionsActions.warmLogCacheAndSelectDefault, response);
-        }
+      if (context.state.selectedBlockExecutionLog === null) {
+        await context.dispatch(DeploymentExecutionsActions.warmLogCacheAndSelectDefault, response);
       }
     },
     // TODO: Merge this with the above logic because it's gross af.
@@ -659,7 +672,12 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         return;
       }
 
-      const logContents = await getContentsForLogs(logsToFetch);
+      let logContents: BlockExecutionLogContentsByLogId | null;
+      if (!DemoWalkthroughStoreModule.showingDemoWalkthrough) {
+        logContents = await getContentsForLogs(logsToFetch);
+      } else {
+        logContents = DemoWalkthroughStoreModule.mockContentsForLogs();
+      }
 
       if (!logContents) {
         console.error('Unable to fetch log contents, api request did not succeed');

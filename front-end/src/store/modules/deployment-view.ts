@@ -184,8 +184,9 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
         });
       };
 
+      let deploymentResponse: GetLatestProjectDeploymentResponse | null;
       if (!DemoWalkthroughStoreModule.showingDemoWalkthrough) {
-        const deploymentResponse = await makeApiRequest<
+        deploymentResponse = await makeApiRequest<
           GetLatestProjectDeploymentRequest,
           GetLatestProjectDeploymentResponse
         >(API_ENDPOINT.GetLatestProjectDeployment, {
@@ -196,9 +197,10 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
           await handleError('Unable to open project, missing deployment data');
           return;
         }
-
-        context.commit(DeploymentViewMutators.setOpenedDeployment, deploymentResponse.result);
+      } else {
+        deploymentResponse = DemoWalkthroughStoreModule.mockGetLatestProjectDeployment;
       }
+      context.commit(DeploymentViewMutators.setOpenedDeployment, deploymentResponse.result);
 
       if (!context.state.openedDeployment) {
         await handleError('Unable to open project, unknown state');

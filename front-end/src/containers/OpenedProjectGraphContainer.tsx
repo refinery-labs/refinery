@@ -84,8 +84,10 @@ export default class OpenedProjectGraphContainer extends Vue {
     }
 
     const nextDemoTooltip = async () => {
+      DemoWalkthroughStoreModule.isDoingSetup = false;
       await DemoWalkthroughStoreModule.doTooltipTeardownAction();
       await DemoWalkthroughStoreModule.nextTooltip();
+      DemoWalkthroughStoreModule.isDoingSetup = true;
       await DemoWalkthroughStoreModule.doTooltipSetupAction();
     };
 

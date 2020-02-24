@@ -1,11 +1,13 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
-import CytoscapeGraph from '@/components/CytoscapeGraph';
 import { namespace, State } from 'vuex-class';
 import { LayoutOptions } from 'cytoscape';
+import CytoscapeGraph from '@/components/CytoscapeGraph';
 import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
 import { DemoWalkthroughStoreModule } from '@/store';
 import TourWrapper from '@/lib/TourWrapper';
+import { AddDeploymentExecutionOptions, DemoTooltipActionType } from '@/types/demo-walkthrough-types';
+import { ProductionExecutionResponse } from '@/types/deployment-executions-types';
 
 const deployment = namespace('deployment');
 const deploymentExecutions = namespace('deploymentExecutions');
@@ -34,9 +36,15 @@ export default class DeploymentViewerGraphContainer extends Vue {
     }
 
     const nextDemoTooltip = async () => {
+      DemoWalkthroughStoreModule.isDoingSetup = false;
       await DemoWalkthroughStoreModule.doTooltipTeardownAction();
       await DemoWalkthroughStoreModule.nextTooltip();
-      await DemoWalkthroughStoreModule.doTooltipSetupAction();
+      DemoWalkthroughStoreModule.isDoingSetup = true;
+      const resp = await DemoWalkthroughStoreModule.doTooltipSetupAction();
+      const tooltip = DemoWalkthroughStoreModule.tooltips[DemoWalkthroughStoreModule.currentTooltip];
+      if (tooltip.setup && tooltip.setup.action == DemoTooltipActionType.addDeploymentExecution) {
+        DemoWalkthroughStoreModule.setGetProjectExecutions = resp as ProductionExecutionResponse;
+      }
     };
 
     // By holding these in the stores, we can compare pointers because the data is "immutable".

@@ -26,9 +26,9 @@ export enum TooltipType {
 export enum DemoTooltipActionType {
   openBlockEditorPane = 'openBlockEditorPane',
   closeBlockEditorPane = 'closeBlockEditorPane',
+  addDeploymentExecution = 'addDeploymentExecution',
   viewDeployment = 'viewDeployment',
   openExecutionsPane = 'openExecutionsPane',
-  addDeploymentExecution = 'addDeploymentExecution',
   viewExecutionLogs = 'viewExecutionLogs',
   openCodeRunner = 'openCodeRunner',
   setCodeRunnerOutput = 'setCodeRunnerOutput',

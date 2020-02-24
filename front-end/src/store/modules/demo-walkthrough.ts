@@ -14,32 +14,35 @@ import {
 import { DeploymentViewActions, DeploymentViewMutators, ProjectViewActions } from '@/constants/store-constants';
 import router from '@/router';
 import { RefineryProject, WorkflowRelationshipType } from '@/types/graph';
-import { GetLatestProjectDeploymentResult, RunLambdaResult } from '@/types/api-types';
 import {
-  DeploymentExecutionsActions,
-  DeploymentExecutionsMutators
-} from '@/store/modules/panes/deployment-executions-pane';
+  GetLatestProjectDeploymentResponse,
+  GetLatestProjectDeploymentResult,
+  RunLambdaResult
+} from '@/types/api-types';
+import { DeploymentExecutionsActions } from '@/store/modules/panes/deployment-executions-pane';
 import {
-  AddBlockExecutionsPayload,
   BlockExecutionLogContentsByLogId,
-  ProjectExecutionsByExecutionId
+  BlockExecutionLogData,
+  ProductionExecutionResponse
 } from '@/types/deployment-executions-types';
 import { ExecutionStatusType } from '@/types/execution-logs-types';
 import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import { RunLambdaMutators } from '@/store/modules/run-lambda';
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
-import { error } from 'util';
+import { debug } from 'util';
 
 export interface DemoWalkthroughState {
   currentTooltip: number;
   tooltips: DemoTooltip[];
   tooltipsLoaded: boolean;
+  doingSetup: boolean;
 }
 
 export const baseState: DemoWalkthroughState = {
   currentTooltip: 0,
   tooltips: [],
-  tooltipsLoaded: false
+  tooltipsLoaded: false,
+  doingSetup: false
 };
 
 const INITIAL_TOOLTIP: DemoTooltip = {
@@ -60,19 +63,21 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   public currentTooltip: number = initialState.currentTooltip;
   public tooltips: DemoTooltip[] = initialState.tooltips;
   public tooltipsLoaded: boolean = initialState.tooltipsLoaded;
-  public actionLookup: Record<DemoTooltipActionType, (action: DemoTooltipAction) => void> = {
+  public doingSetup: boolean = initialState.doingSetup;
+  public actionLookup: Record<DemoTooltipActionType, (action: DemoTooltipAction) => object | undefined> = {
     [DemoTooltipActionType.openBlockEditorPane]: this.openBlockEditorPane,
     [DemoTooltipActionType.closeBlockEditorPane]: this.closeBlockEditorPane,
     [DemoTooltipActionType.viewDeployment]: this.viewExampleProjectDeployment,
     [DemoTooltipActionType.openExecutionsPane]: this.openExecutionsPane,
-    [DemoTooltipActionType.addDeploymentExecution]: this.addDeploymentExecution,
     [DemoTooltipActionType.viewExecutionLogs]: this.viewExecutionLogs,
     [DemoTooltipActionType.openCodeRunner]: this.openCodeRunner,
     [DemoTooltipActionType.setCodeRunnerOutput]: this.setCodeRunnerOutput,
     [DemoTooltipActionType.closeEditPane]: this.closeEditPane,
     [DemoTooltipActionType.closeLeftPane]: this.closeLeftPane,
-    [DemoTooltipActionType.promptUserSignup]: this.promptUserSignup
+    [DemoTooltipActionType.promptUserSignup]: this.promptUserSignup,
+    [DemoTooltipActionType.addDeploymentExecution]: this.addDeploymentExecution
   };
+  public mockNetworkResponses: Record<string, object> = {};
 
   get currentCyTooltips(): DemoTooltip[] {
     return this.tooltips.filter(t => t.type == TooltipType.CyTooltip);
@@ -87,7 +92,23 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   }
 
   get showingDemoWalkthrough(): boolean {
-    return this.tooltips.filter(t => t.visible).length > 0;
+    return this.tooltips.length > 0;
+  }
+
+  set setGetProjectExecutions(execution: ProductionExecutionResponse) {
+    this.mockNetworkResponses = {
+      ...this.mockNetworkResponses,
+      getProjectExecutions: execution
+    };
+    console.log(this.mockNetworkResponses);
+  }
+
+  set isDoingSetup(doingSetup: boolean) {
+    this.doingSetup = doingSetup;
+  }
+
+  get setupAction(): boolean {
+    return this.doingSetup;
   }
 
   @Mutation
@@ -158,24 +179,26 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   }
 
   @Action
-  private async performTooltipAction(tooltipAction: DemoTooltipAction | undefined) {
+  private async performTooltipAction(tooltipAction: DemoTooltipAction | undefined): Promise<object | undefined> {
     if (tooltipAction) {
       if (!(tooltipAction.action in this.actionLookup)) {
-        console.error('Unable to find setup action in lookup', tooltipAction.action);
+        console.error('Unable to find action in lookup', tooltipAction.action);
         return;
       }
-      await this.actionLookup[tooltipAction.action].call(this, tooltipAction);
+
+      return this.actionLookup[tooltipAction.action].call(this, tooltipAction);
     }
+    return;
   }
 
   @Action
-  public async doTooltipSetupAction() {
-    await this.performTooltipAction(this.tooltips[this.currentTooltip].setup);
+  public async doTooltipSetupAction(): Promise<object | undefined> {
+    return this.performTooltipAction(this.tooltips[this.currentTooltip].setup);
   }
 
   @Action
-  public async doTooltipTeardownAction() {
-    await this.performTooltipAction(this.tooltips[this.currentTooltip].teardown);
+  public async doTooltipTeardownAction(): Promise<object | undefined> {
+    return this.performTooltipAction(this.tooltips[this.currentTooltip].teardown);
   }
 
   @Action
@@ -248,12 +271,10 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   }
 
   @Action
-  public async viewExecutionLogs(action: DemoTooltipAction) {
-    const execLogsAction = action.options as ViewExecutionLogsOptions;
-
+  public mockGetLogsForExecutions(): BlockExecutionLogData {
     const openedProject = this.context.rootState.project.openedProject as RefineryProject;
     const blockId = openedProject.workflow_states[0].id;
-    const payload: AddBlockExecutionsPayload = {
+    return {
       blockId: blockId,
       logs: {
         demo: {
@@ -263,9 +284,24 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
           timestamp: 0,
           type: ExecutionStatusType.SUCCESS
         }
-      }
+      },
+      pages: [],
+      totalExecutions: 0
     };
-    const logContents: BlockExecutionLogContentsByLogId = {
+  }
+
+  @Action
+  public mockContentsForLogs(): BlockExecutionLogContentsByLogId {
+    const tooltip = this.tooltips[this.currentTooltip];
+    const action = this.doingSetup ? tooltip.setup : tooltip.teardown;
+    if (!action) {
+      return {};
+    }
+
+    const execLogsAction = action.options as ViewExecutionLogsOptions;
+
+    const openedProject = this.context.rootState.project.openedProject as RefineryProject;
+    return {
       test: {
         ...execLogsAction,
         arn: 'asdf',
@@ -275,32 +311,10 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
         type: ExecutionStatusType.SUCCESS
       }
     };
-
-    await this.context.commit(
-      `deploymentExecutions/${DeploymentExecutionsMutators.addBlockExecutionLogMetadata}`,
-      payload,
-      {
-        root: true
-      }
-    );
-    await this.context.commit(
-      `deploymentExecutions/${DeploymentExecutionsMutators.addBlockExecutionLogContents}`,
-      logContents,
-      {
-        root: true
-      }
-    );
-    await this.context.dispatch(
-      `deploymentExecutions/${DeploymentExecutionsActions.warmLogCacheAndSelectDefault}`,
-      payload,
-      {
-        root: true
-      }
-    );
   }
 
   @Action
-  public async addDeploymentExecution(action: DemoTooltipAction) {
+  public async addDeploymentExecution(action: DemoTooltipAction): Promise<ProductionExecutionResponse> {
     const openedProject = this.context.rootState.project.openedProject as RefineryProject;
     const addExecAction = action.options as AddDeploymentExecutionOptions;
 
@@ -328,28 +342,31 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     const errorExecs = addExecAction.executions.filter(e => e.status == ExecutionStatusType.EXCEPTION).length;
     const caughtExecs = addExecAction.executions.filter(e => e.status == ExecutionStatusType.CAUGHT_EXCEPTION).length;
     const successfulExecs = addExecAction.executions.filter(e => e.status == ExecutionStatusType.SUCCESS).length;
-    const projectExecutions: ProjectExecutionsByExecutionId = {
-      demo: {
-        errorCount: errorExecs,
-        caughtErrorCount: caughtExecs,
-        successCount: successfulExecs,
-        oldestTimestamp: 0,
-        executionId: 'demo',
-        numberOfLogs: addExecAction.executions.length,
-        blockExecutionGroupByBlockId: blockExecutionGroup
-      }
+    return {
+      executions: {
+        demo: {
+          errorCount: errorExecs,
+          caughtErrorCount: caughtExecs,
+          successCount: successfulExecs,
+          oldestTimestamp: 0,
+          executionId: 'demo',
+          numberOfLogs: addExecAction.executions.length,
+          blockExecutionGroupByBlockId: blockExecutionGroup
+        }
+      },
+      oldestTimestamp: 0
     };
-    await this.context.commit(
-      `deploymentExecutions/${DeploymentExecutionsMutators.setProjectExecutions}`,
-      projectExecutions,
-      {
-        root: true
-      }
-    );
   }
 
   @Action
-  public async viewExampleProjectDeployment() {
+  public async viewExecutionLogs(action: DemoTooltipAction) {}
+
+  @Action
+  public mockAddDeploymentExecution(): ProductionExecutionResponse {
+    return this.mockNetworkResponses['getProjectExecutions'] as ProductionExecutionResponse;
+  }
+
+  get mockGetLatestProjectDeployment(): GetLatestProjectDeploymentResponse {
     const openedProject = this.context.rootState.project.openedProject as RefineryProject;
     const latestDeploymentResponse: GetLatestProjectDeploymentResult = {
       deployment_json: {
@@ -373,11 +390,15 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
       id: 'asdf',
       timestamp: 0
     };
+    return {
+      result: latestDeploymentResponse,
+      success: true
+    };
+  }
 
-    this.context.commit(`deployment/${DeploymentViewMutators.setOpenedDeployment}`, latestDeploymentResponse, {
-      root: true
-    });
-
+  @Action
+  public async viewExampleProjectDeployment() {
+    const openedProject = this.context.rootState.project.openedProject as RefineryProject;
     router.push({
       name: 'deployment',
       params: {
