@@ -31,6 +31,7 @@ import { RunLambdaMutators } from '@/store/modules/run-lambda';
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 import { debug } from 'util';
 import { ViewBlockActions, ViewBlockMutators } from '@/store/modules/panes/view-block-pane';
+import cytoscape from 'cytoscape';
 
 export interface DemoWalkthroughState {
   currentTooltip: number;
@@ -116,33 +117,32 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   }
 
   @Mutation
-  public loadCyTooltips(cy: cytoscape.Core) {
+  public loadCyTooltips(lookup: Record<string, cytoscape.Position>) {
     if (this.tooltipsLoaded) {
       return;
     }
 
-    const tooltips = [...this.tooltips];
-
-    for (let i = 0; i < tooltips.length; i++) {
-      const t = tooltips[i];
+    this.tooltips = this.tooltips.map(t => {
+      // only do this for cytooltips
       if (t.type !== TooltipType.CyTooltip) {
-        continue;
+        return t;
       }
 
-      const pos = cy.getElementById(t.target).position();
-      const tooltipConfig = tooltips[i].config;
-      if (pos && tooltipConfig) {
-        tooltips[i].config = {
-          ...tooltipConfig,
+      // lookup the position of the tooltip on the canvas
+      const pos = lookup[t.target];
+      if (!pos) {
+        return t;
+      }
+
+      return {
+        ...t,
+        config: {
+          ...t.config,
           ...pos
-        };
-      } else {
-        console.error('unable to locate element by ID', t.target);
-      }
-    }
-
+        }
+      };
+    });
     this.tooltipsLoaded = true;
-    this.tooltips = tooltips;
   }
 
   @Mutation

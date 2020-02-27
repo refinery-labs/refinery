@@ -15,7 +15,7 @@ export interface CytoscapeGraphProps {
   selectNode: (id: string) => void;
   selectEdge: (id: string) => void;
   nextTooltip: () => void;
-  loadCyTooltips: (cy: cytoscape.Core) => void;
+  loadCyTooltips: (lookup: Record<string, cytoscape.Position>) => void;
 
   currentTooltips: DemoTooltip[];
   selected: string | null;

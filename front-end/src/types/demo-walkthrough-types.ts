@@ -72,5 +72,5 @@ export interface DemoTooltip {
   body: string;
   setup?: DemoTooltipAction;
   teardown?: DemoTooltipAction;
-  config?: CyConfig | HTMLConfig;
+  config: CyConfig | HTMLConfig;
 }
