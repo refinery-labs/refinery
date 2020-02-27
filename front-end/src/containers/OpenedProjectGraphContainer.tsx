@@ -9,8 +9,9 @@ import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-type
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import TourWrapper from '@/lib/TourWrapper';
 import { DemoWalkthroughStoreModule } from '@/store';
-import { TooltipType } from '@/types/demo-walkthrough-types';
+import { DemoTooltipActionType, TooltipType } from '@/types/demo-walkthrough-types';
 import { timeout, waitUntil } from '@/utils/async-utils';
+import { ProductionExecutionResponse } from '@/types/deployment-executions-types';
 
 const project = namespace('project');
 
@@ -84,11 +85,19 @@ export default class OpenedProjectGraphContainer extends Vue {
     }
 
     const nextDemoTooltip = async () => {
-      DemoWalkthroughStoreModule.isDoingSetup = false;
       await DemoWalkthroughStoreModule.doTooltipTeardownAction();
+      const t = DemoWalkthroughStoreModule.tooltips[DemoWalkthroughStoreModule.currentTooltip];
+      if (t.teardown && t.teardown.action == DemoTooltipActionType.viewExecutionLogs) {
+        const response = DemoWalkthroughStoreModule.getBlockExecutionLogContentsByLogId(t.teardown);
+        DemoWalkthroughStoreModule.setBlockExecutionLogContentsByLogId(response);
+      }
       await DemoWalkthroughStoreModule.nextTooltip();
-      DemoWalkthroughStoreModule.isDoingSetup = true;
       await DemoWalkthroughStoreModule.doTooltipSetupAction();
+      const tooltip = DemoWalkthroughStoreModule.tooltips[DemoWalkthroughStoreModule.currentTooltip];
+      if (tooltip.setup && tooltip.setup.action == DemoTooltipActionType.addDeploymentExecution) {
+        const response = DemoWalkthroughStoreModule.getDeploymentExecution(tooltip.setup);
+        DemoWalkthroughStoreModule.setDeploymentExecutionResponse(response);
+      }
     };
 
     // By holding these in the stores, we can compare pointers because the data is "immutable".

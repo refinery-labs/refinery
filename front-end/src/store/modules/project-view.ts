@@ -604,12 +604,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
           // Default values in the event these are not specified in the imported JSON
           workflow_files: [],
           workflow_file_links: [],
+          demo_walkthrough: [],
           readme: ``,
           // Merge in the JSON object and setup other properties with new values
           ...demoProject,
           project_id: uuid(),
-          version: 1,
-          demo_walkthrough: []
+          version: 1
         },
         config: {
           environment_variables: {},
@@ -624,6 +624,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       };
 
       await context.dispatch(ProjectViewActions.updateProject, params);
+
+      if (params.project && params.project.demo_walkthrough) {
+        DemoWalkthroughStoreModule.setCurrentTooltips(params.project.demo_walkthrough);
+        await DemoWalkthroughStoreModule.doTooltipSetupAction();
+      }
     },
     async [ProjectViewActions.updateProject](context, params: OpenProjectMutation) {
       const stylesheetOverrides: CssStyleDeclaration = Object.keys(

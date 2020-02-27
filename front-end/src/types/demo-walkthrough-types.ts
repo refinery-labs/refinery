@@ -33,7 +33,7 @@ export enum DemoTooltipActionType {
   openCodeRunner = 'openCodeRunner',
   setCodeRunnerOutput = 'setCodeRunnerOutput',
   closeEditPane = 'closeEditPane',
-  closeLeftPane = 'closeLeftPane',
+  closeOpenPanes = 'closeOpenPanes',
   promptUserSignup = 'promptUserSignup'
 }
 

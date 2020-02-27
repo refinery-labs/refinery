@@ -1,22 +1,101 @@
 {
   "demo_walkthrough": [
-		{
-      "type": "HTMLTooltip",
-      "target": "div[data-tooltip-id=\"navitems-deploy-project\"]",
-			"header": "Let's trying deploying this project!",
-      "body": "After testing all of our blocks with the code runner, we can try deploying this project to see how it actually workds end to end!",
-      "setup": {
-        "action": "closeLeftPane"
-      },
+    {
+      "type": "CyTooltip",
+      "target": "02ce00f8-020c-4ea2-9f2e-b731491e4eea",
+      "header": "Listening for HTTP requests",
+      "body": "An API Endpoint Block will wait until a request has been sent to the specified path (in this case, the path is '/example/web/path'). When someone sends a request to this endpoint, the request's data is sent along to connected blocks.",
       "teardown": {
-        "action": "viewDeployment"
+        "action": "openBlockEditorPane"
       }
     },
-		{
+    {
       "type": "HTMLTooltip",
-      "target": "div[data-tooltip-id=\"navitems-block-executions\"]",
-			"header": "Viewing your deployed code's logs",
-      "body": "`Block Executions` will let you see every time your project is executed, what data is passed between your blocks and what they returned.",
+      "target": "div[data-tooltip-id=\"endpoint-http-method\"]",
+      "header": "Endpoint Method",
+      "body": "Here is where you would configure what HTTP method your endpoint will accept."
+    },
+    {
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"endpoint-http-path\"]",
+      "header": "Endpoint Path",
+      "body": "Change the path that this endpoint is listening on.",
+      "teardown": {
+        "action": "closeEditPane"
+      }
+    },
+    {
+      "type": "CyTooltip",
+      "target": "c8e31b00-adf8-44c2-89ba-6df0e982805e",
+      "header": "Running some code",
+      "body": "A Code Block can contain code from any supported language, which is quite a few!",
+      "teardown": {
+        "action": "openBlockEditorPane"
+      }
+    },
+    {
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"editorpane-edit-block\"]",
+      "header": "Code Editor",
+      "body": "Boilerplate code for each language is provided to get you started. It is important to note that the `blockInput` parameter in each language is set to the value that is passed into the block.",
+      "config": {
+        "placement": "top"
+      }
+    },
+    {
+      "type": "HTMLTooltip",
+      "target": "button[data-tooltip-id=\"modify-libraries-button\"]",
+      "header": "Import some libraries",
+      "body": "As you write code in the editor and import libraries, you will have to also specify the libraries you wish to import here."
+    },
+    {
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"code-editor-language-selector\"]",
+      "header": "Change your language",
+      "body": "Every code block is essentially an isolated program, so you are able to change between languages throughout your project."
+    },
+    {
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"navitems-code-runner\"]",
+      "header": "See how your code runs",
+      "body": "Just as you would test your code on your computer, the Code Runner lets you test out your code before it is deployed.",
+      "config": {
+        "placement": "left"
+      },
+      "teardown": {
+        "action": "openCodeRunner"
+      }
+    },
+    {
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"input-data-textarea\"]",
+      "header": "Passing data in",
+      "body": "`Input Data` simulates data which is passed into this block and `Backpack Data` is data passed through the current execution context, or data that you will need later on in other blocks.",
+      "teardown": {
+        "action": "setCodeRunnerOutput",
+        "options": {
+          "logs": "asdf",
+          "returned_data": "Hello World!"
+        }
+      }
+    },
+    {
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"return-data-textarea\"]",
+      "header": "Run and see your code's output",
+      "body": "Once you have your block data set, you can click `Execute With Data` to actually run your code with the simulated inputs.",
+      "teardown": {
+        "action": "closeOpenPanes"
+      }
+    },
+    {
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"navitems-deploy-project\"]",
+      "header": "Let's trying deploying this project!",
+      "body": "After testing all of our blocks with the code runner, we can try deploying this project to see how it actually workds end to end!",
+      "config": {
+        "placement": "left"
+      },
       "setup": {
         "action": "addDeploymentExecution",
         "options": {
@@ -28,6 +107,15 @@
           ]
         }
       },
+      "teardown": {
+        "action": "viewDeployment"
+      }
+    },
+    {
+      "type": "HTMLTooltip",
+      "target": "div[data-tooltip-id=\"navitems-block-executions\"]",
+      "header": "Viewing your deployed code's logs",
+      "body": "`Block Executions` will let you see every time your project is executed, what data is passed between your blocks and what they returned.",
       "teardown": {
         "action": "viewExecutionLogs",
         "options": {
@@ -43,98 +131,16 @@
         }
       }
     },
-		{
-      "type": "HTMLTooltip",
-      "target": "div[data-tooltip-id=\"block-execution-pane\"]",
-			"header": "Deployment executions",
-      "body": "Just like when looking at the `Code Runner` output, Deployment Executions shows the data that was passed in and returned by each block as it was executed.",
-      "setup": {
-        "action": "openExecutionsPane"
-      }
-    },
     {
-			"type": "CyTooltip",
-			"target": "02ce00f8-020c-4ea2-9f2e-b731491e4eea",
-			"header": "Listening for HTTP requests",
-      "body": "An API Endpoint Block will wait until a request has been sent to the specified path (in this case, the path is '/example/web/path'). When someone sends a request to this endpoint, the request's data is sent along to connected blocks.",
-      "teardown": {
-        "action": "openBlockEditorPane"
-      }
-    },
-		{
       "type": "HTMLTooltip",
-      "target": "div[data-tooltip-id=\"endpoint-http-method\"]",
-			"header": "Endpoint Method",
-      "body": "Here is where you would configure what HTTP method your endpoint will accept."
-    },
-		{
-      "type": "HTMLTooltip",
-      "target": "div[data-tooltip-id=\"endpoint-http-path\"]",
-			"header": "Endpoint Path",
-      "body": "Change the path that this endpoint is listening on.",
-      "teardown": {
-        "action": "closeEditPane"
-      }
-    },
-		{
-			"type": "CyTooltip",
-			"target": "c8e31b00-adf8-44c2-89ba-6df0e982805e",
-			"header": "Running some code",
-      "body": "A Code Block can contain code from any supported language, which is quite a few!",
-      "teardown": {
-        "action": "openBlockEditorPane"
-      }
-		},
-		{
-      "type": "HTMLTooltip",
-      "target": "div[data-tooltip-id=\"editorpane-edit-block\"]",
-			"header": "Code Editor",
-      "body": "Boilerplate code for each language is provided to get you started. It is important to note that the `blockInput` parameter in each language is set to the value that is passed into the block.",
+      "target": "div[data-tooltip-id=\"editorpane-block-execution logs\"]",
+      "header": "Deployment executions",
+      "body": "Just like when looking at the `Code Runner` output, Deployment Executions shows the data that was passed in and returned by each block as it was executed.",
       "config": {
         "placement": "top"
-      }
-    },
-		{
-      "type": "HTMLTooltip",
-      "target": "button[data-tooltip-id=\"modify-libraries-button\"]",
-			"header": "Import some libraries",
-			"body": "As you write code in the editor and import libraries, you will have to also specify the libraries you wish to import here."
-    },
-		{
-      "type": "HTMLTooltip",
-      "target": "div[data-tooltip-id=\"code-editor-language-selector\"]",
-			"header": "Change your language",
-      "body": "Every code block is essentially an isolated program, so you are able to change between languages throughout your project."
-    },
-		{
-      "type": "HTMLTooltip",
-      "target": "div[data-tooltip-id=\"navitems-code-runner\"]",
-			"header": "See how your code runs",
-      "body": "Just as you would test your code on your computer, the Code Runner lets you test out your code before it is deployed.",
-      "teardown": {
-        "action": "openCodeRunner"
-      }
-    },
-		{
-      "type": "HTMLTooltip",
-      "target": "div[data-tooltip-id=\"input-data-textarea\"]",
-			"header": "Passing data in",
-      "body": "`Input Data` simulates data which is passed into this block and `Backpack Data` is data passed through the current execution context, or data that you will need later on in other blocks.",
-      "teardown": {
-        "action": "setCodeRunnerOutput",
-        "options": {
-          "logs": "asdf",
-          "returned_data": "Hello World!"
-        }
-      }
-    },
-		{
-      "type": "HTMLTooltip",
-      "target": "div[data-tooltip-id=\"return-data-textarea\"]",
-			"header": "Run and see your code's output",
-      "body": "Once you have your block data set, you can click `Execute With Data` to actually run your code with the simulated inputs.",
-      "teardown": {
-        "action": "closeEditPane"
+      },
+      "setup": {
+        "action": "openExecutionsPane"
       }
     },
     {

@@ -431,7 +431,6 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         executionsResponse = executionsResp;
       } else {
         executionsResponse = await DemoWalkthroughStoreModule.mockAddDeploymentExecution();
-        console.log(executionsResponse);
       }
 
       // Merge against existing executions
@@ -574,7 +573,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         }
         response = resp;
       } else {
-        response = DemoWalkthroughStoreModule.mockGetLogsForExecutions();
+        response = await DemoWalkthroughStoreModule.mockGetLogsForExecutions();
       }
 
       const payload: AddBlockExecutionsPayload = response;
@@ -676,7 +675,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       if (!DemoWalkthroughStoreModule.showingDemoWalkthrough) {
         logContents = await getContentsForLogs(logsToFetch);
       } else {
-        logContents = DemoWalkthroughStoreModule.mockContentsForLogs();
+        logContents = await DemoWalkthroughStoreModule.mockContentsForLogs();
       }
 
       if (!logContents) {

@@ -674,12 +674,14 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
       );
     }
 
-    if (DemoWalkthroughStoreModule.areTooltipsLoaded && this.visibleTooltips().length > 0 && !this.tooltipCentered) {
-      this.centerOnTooltip(this.visibleTooltips()[0]);
-      this.tooltipCentered = true;
+    if (DemoWalkthroughStoreModule.areTooltipsLoaded) {
+      if (this.visibleTooltips().length > 0 && !this.tooltipCentered) {
+        this.centerOnTooltip(this.visibleTooltips()[0]);
+        this.tooltipCentered = true;
+      }
+    } else {
+      this.loadCyTooltips(this.cy);
     }
-
-    this.loadCyTooltips(this.cy);
 
     return (
       <div ref="container" class="graph-container">

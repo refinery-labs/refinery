@@ -30,19 +30,18 @@ import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import { RunLambdaMutators } from '@/store/modules/run-lambda';
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 import { debug } from 'util';
+import { ViewBlockActions, ViewBlockMutators } from '@/store/modules/panes/view-block-pane';
 
 export interface DemoWalkthroughState {
   currentTooltip: number;
   tooltips: DemoTooltip[];
   tooltipsLoaded: boolean;
-  doingSetup: boolean;
 }
 
 export const baseState: DemoWalkthroughState = {
   currentTooltip: 0,
   tooltips: [],
-  tooltipsLoaded: false,
-  doingSetup: false
+  tooltipsLoaded: false
 };
 
 const INITIAL_TOOLTIP: DemoTooltip = {
@@ -63,8 +62,7 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   public currentTooltip: number = initialState.currentTooltip;
   public tooltips: DemoTooltip[] = initialState.tooltips;
   public tooltipsLoaded: boolean = initialState.tooltipsLoaded;
-  public doingSetup: boolean = initialState.doingSetup;
-  public actionLookup: Record<DemoTooltipActionType, (action: DemoTooltipAction) => object | undefined> = {
+  public actionLookup: Record<DemoTooltipActionType, (action: DemoTooltipAction) => void> = {
     [DemoTooltipActionType.openBlockEditorPane]: this.openBlockEditorPane,
     [DemoTooltipActionType.closeBlockEditorPane]: this.closeBlockEditorPane,
     [DemoTooltipActionType.viewDeployment]: this.viewExampleProjectDeployment,
@@ -73,9 +71,9 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     [DemoTooltipActionType.openCodeRunner]: this.openCodeRunner,
     [DemoTooltipActionType.setCodeRunnerOutput]: this.setCodeRunnerOutput,
     [DemoTooltipActionType.closeEditPane]: this.closeEditPane,
-    [DemoTooltipActionType.closeLeftPane]: this.closeLeftPane,
+    [DemoTooltipActionType.closeOpenPanes]: this.closeOpenPanes,
     [DemoTooltipActionType.promptUserSignup]: this.promptUserSignup,
-    [DemoTooltipActionType.addDeploymentExecution]: this.addDeploymentExecution
+    [DemoTooltipActionType.addDeploymentExecution]: () => {}
   };
   public mockNetworkResponses: Record<string, object> = {};
 
@@ -93,22 +91,6 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
 
   get showingDemoWalkthrough(): boolean {
     return this.tooltips.length > 0;
-  }
-
-  set setGetProjectExecutions(execution: ProductionExecutionResponse) {
-    this.mockNetworkResponses = {
-      ...this.mockNetworkResponses,
-      getProjectExecutions: execution
-    };
-    console.log(this.mockNetworkResponses);
-  }
-
-  set isDoingSetup(doingSetup: boolean) {
-    this.doingSetup = doingSetup;
-  }
-
-  get setupAction(): boolean {
-    return this.doingSetup;
   }
 
   @Mutation
@@ -179,26 +161,25 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   }
 
   @Action
-  private async performTooltipAction(tooltipAction: DemoTooltipAction | undefined): Promise<object | undefined> {
+  private async performTooltipAction(tooltipAction: DemoTooltipAction | undefined) {
     if (tooltipAction) {
       if (!(tooltipAction.action in this.actionLookup)) {
         console.error('Unable to find action in lookup', tooltipAction.action);
         return;
       }
 
-      return this.actionLookup[tooltipAction.action].call(this, tooltipAction);
+      this.actionLookup[tooltipAction.action].call(this, tooltipAction);
     }
-    return;
   }
 
   @Action
-  public async doTooltipSetupAction(): Promise<object | undefined> {
-    return this.performTooltipAction(this.tooltips[this.currentTooltip].setup);
+  public async doTooltipSetupAction() {
+    this.performTooltipAction(this.tooltips[this.currentTooltip].setup);
   }
 
   @Action
-  public async doTooltipTeardownAction(): Promise<object | undefined> {
-    return this.performTooltipAction(this.tooltips[this.currentTooltip].teardown);
+  public async doTooltipTeardownAction() {
+    this.performTooltipAction(this.tooltips[this.currentTooltip].teardown);
   }
 
   @Action
@@ -224,9 +205,6 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
 
   @Action
   public async openExecutionsPane() {
-    await this.context.dispatch(`deploymentExecutions/${DeploymentExecutionsActions.selectLogByLogId}`, 'demo', {
-      root: true
-    });
     await this.context.dispatch(`deploymentExecutions/${DeploymentExecutionsActions.doOpenExecutionGroup}`, 'demo', {
       root: true
     });
@@ -243,7 +221,11 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   }
 
   @Action
-  public async closeLeftPane() {
+  public async closeOpenPanes() {
+    await this.context.dispatch(`project/editBlockPane/${EditBlockActions.cancelAndResetBlock}`, null, {
+      root: true
+    });
+
     await this.context.dispatch(`project/${ProjectViewActions.closePane}`, PANE_POSITION.left, {
       root: true
     });
@@ -251,7 +233,9 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
 
   @Action
   public async promptUserSignup() {
-    console.log('pls signup');
+    await this.context.dispatch(`unauthViewProject/promptDemoModeSignup`, true, {
+      root: true
+    });
   }
 
   @Action
@@ -279,7 +263,7 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
       logs: {
         demo: {
           function_name: 'asdf',
-          log_id: 'test',
+          log_id: 'demo',
           s3_key: 'test',
           timestamp: 0,
           type: ExecutionStatusType.SUCCESS
@@ -291,21 +275,15 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   }
 
   @Action
-  public mockContentsForLogs(): BlockExecutionLogContentsByLogId {
-    const tooltip = this.tooltips[this.currentTooltip];
-    const action = this.doingSetup ? tooltip.setup : tooltip.teardown;
-    if (!action) {
-      return {};
-    }
-
+  public getBlockExecutionLogContentsByLogId(action: DemoTooltipAction): BlockExecutionLogContentsByLogId {
     const execLogsAction = action.options as ViewExecutionLogsOptions;
 
     const openedProject = this.context.rootState.project.openedProject as RefineryProject;
     return {
-      test: {
+      demo: {
         ...execLogsAction,
         arn: 'asdf',
-        log_id: 'test',
+        log_id: 'demo',
         project_id: openedProject.project_id,
         timestamp: 0,
         type: ExecutionStatusType.SUCCESS
@@ -313,8 +291,21 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     };
   }
 
+  @Mutation
+  public setBlockExecutionLogContentsByLogId(logs: BlockExecutionLogContentsByLogId) {
+    this.mockNetworkResponses = {
+      ...this.mockNetworkResponses,
+      blockExecutionLogContentsByLogId: logs
+    };
+  }
+
   @Action
-  public async addDeploymentExecution(action: DemoTooltipAction): Promise<ProductionExecutionResponse> {
+  public mockContentsForLogs(): BlockExecutionLogContentsByLogId {
+    return this.mockNetworkResponses.blockExecutionLogContentsByLogId as BlockExecutionLogContentsByLogId;
+  }
+
+  @Action
+  public getDeploymentExecution(action: DemoTooltipAction): ProductionExecutionResponse {
     const openedProject = this.context.rootState.project.openedProject as RefineryProject;
     const addExecAction = action.options as AddDeploymentExecutionOptions;
 
@@ -358,12 +349,20 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     };
   }
 
+  @Mutation
+  public setDeploymentExecutionResponse(executions: ProductionExecutionResponse) {
+    this.mockNetworkResponses = {
+      ...this.mockNetworkResponses,
+      getProjectExecutions: executions
+    };
+  }
+
   @Action
   public async viewExecutionLogs(action: DemoTooltipAction) {}
 
   @Action
   public mockAddDeploymentExecution(): ProductionExecutionResponse {
-    return this.mockNetworkResponses['getProjectExecutions'] as ProductionExecutionResponse;
+    return this.mockNetworkResponses.getProjectExecutions as ProductionExecutionResponse;
   }
 
   get mockGetLatestProjectDeployment(): GetLatestProjectDeploymentResponse {

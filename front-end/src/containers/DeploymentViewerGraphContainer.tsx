@@ -36,14 +36,18 @@ export default class DeploymentViewerGraphContainer extends Vue {
     }
 
     const nextDemoTooltip = async () => {
-      DemoWalkthroughStoreModule.isDoingSetup = false;
       await DemoWalkthroughStoreModule.doTooltipTeardownAction();
+      const t = DemoWalkthroughStoreModule.tooltips[DemoWalkthroughStoreModule.currentTooltip];
+      if (t.teardown && t.teardown.action == DemoTooltipActionType.viewExecutionLogs) {
+        const response = DemoWalkthroughStoreModule.getBlockExecutionLogContentsByLogId(t.teardown);
+        DemoWalkthroughStoreModule.setBlockExecutionLogContentsByLogId(response);
+      }
       await DemoWalkthroughStoreModule.nextTooltip();
-      DemoWalkthroughStoreModule.isDoingSetup = true;
-      const resp = await DemoWalkthroughStoreModule.doTooltipSetupAction();
+      await DemoWalkthroughStoreModule.doTooltipSetupAction();
       const tooltip = DemoWalkthroughStoreModule.tooltips[DemoWalkthroughStoreModule.currentTooltip];
       if (tooltip.setup && tooltip.setup.action == DemoTooltipActionType.addDeploymentExecution) {
-        DemoWalkthroughStoreModule.setGetProjectExecutions = resp as ProductionExecutionResponse;
+        const response = DemoWalkthroughStoreModule.getDeploymentExecution(tooltip.setup);
+        DemoWalkthroughStoreModule.setDeploymentExecutionResponse(response);
       }
     };
 
@@ -75,7 +79,9 @@ export default class DeploymentViewerGraphContainer extends Vue {
 
     const introWalkthrough = (
       <div>
-        <TourWrapper props={tourProps} />
+        {/*
+         // @ts-ignore */}
+        <TourWrapper key={tourProps.stepIndex} props={tourProps} />
       </div>
     );
 
