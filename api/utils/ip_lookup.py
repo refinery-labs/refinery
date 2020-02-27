@@ -1,3 +1,4 @@
+import re
 import traceback
 import requests
 import tornado
@@ -9,11 +10,12 @@ from tornado.concurrent import run_on_executor, futures
 from utils.general import logit
 from tornado import gen
 
-class IPLookupSpawner(object):
-	def __init__(self, loop=None):
+
+class IPLookupSpawner( object ):
+	def __init__( self, loop=None ):
 		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()
-	
+
 	@run_on_executor
 	def get_ipify_ip( self ):
 		logit( "Attempting to resolve remote IPv4 IP via api.ipify.org..." )
@@ -21,7 +23,7 @@ class IPLookupSpawner(object):
 			"https://api.ipify.org/?format=text"
 		)
 		return response.text.strip()
-		
+
 	@run_on_executor
 	def get_icanhazip_ip( self ):
 		logit( "Attempting to resolve remote IPv4 IP via icanhazip.com..." )
@@ -38,7 +40,9 @@ class IPLookupSpawner(object):
 		)
 		return response.text.strip()
 
+
 ip_lookup_tasks = IPLookupSpawner()
+
 
 def get_random_ipv4_resolution_function():
 	"""
@@ -47,28 +51,38 @@ def get_random_ipv4_resolution_function():
 	so callbacks will fail if an IPv6 endpoint has been exposed.
 	"""
 	IP_RESOLUTION_FUNCTIONS = [
-		# ip_lookup_tasks.get_ipify_ip,
-		# ip_lookup_tasks.get_icanhazip_ip,
+		ip_lookup_tasks.get_ipify_ip,
+		ip_lookup_tasks.get_icanhazip_ip,
 		ip_lookup_tasks.get_aws_ip
 	]
-	
+
 	return random.choice(
 		IP_RESOLUTION_FUNCTIONS
 	)
-	
+
+
+ipv4_regex = re.compile( r"^(?:(?:^|\.)(?:2(?:5[0-5]|[0-4]\d)|1?\d?\d)){4}$" )
+
+
 def is_valid_ipv4_ip( input_ip_string ):
 	"""
 	Uses the socket API to validate that an IP address is indeed in the
 	valid IPv4 format and is not malformed.
 	"""
+
+	# Check if the IP even is syntactically valid first
+	if re.match( ipv4_regex, input_ip_string ) is None:
+		return False
+
 	try:
 		socket.inet_aton(
 			input_ip_string
 		)
 	except socket.error:
 		return False
-		
+
 	return True
+
 
 @gen.coroutine
 def get_external_ipv4_address():
@@ -78,9 +92,9 @@ def get_external_ipv4_address():
 	to be to the specific machine and not the LB (which will RR it to
 	potentially another box altogether).
 	"""
-	
+
 	remote_ipv4_ip = False
-	
+
 	while not remote_ipv4_ip:
 		try:
 			ipv4_resolution_function = get_random_ipv4_resolution_function()
@@ -88,12 +102,12 @@ def get_external_ipv4_address():
 		except:
 			logit( "An exception occurred while attempted to get our IPv4 IP, we'll try another site..." )
 			traceback.print_exc()
-			time.sleep(1)
+			time.sleep( 1 )
 			pass
-		
+
 		# Ensure we've received a valid IPv4 address
 		# If we haven't then just set it to False
 		if remote_ipv4_ip and is_valid_ipv4_ip( remote_ipv4_ip ):
 			break
-		
+
 	raise gen.Return( remote_ipv4_ip )
