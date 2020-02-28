@@ -1,9 +1,8 @@
+import time
 import traceback
 import requests
 import tornado
-import random
 import socket
-import time
 
 from tornado.concurrent import run_on_executor, futures
 from utils.general import logit
@@ -19,7 +18,8 @@ class IPLookupSpawner( object ):
 	def get_ipify_ip( self ):
 		logit( "Attempting to resolve remote IPv4 IP via api.ipify.org..." )
 		response = requests.get(
-			"https://api.ipify.org/?format=text"
+			"https://api.ipify.org/?format=text",
+			timeout=3
 		)
 		return response.text.strip()
 
@@ -27,7 +27,8 @@ class IPLookupSpawner( object ):
 	def get_icanhazip_ip( self ):
 		logit( "Attempting to resolve remote IPv4 IP via icanhazip.com..." )
 		response = requests.get(
-			"https://icanhazip.com/ipv4"
+			"https://icanhazip.com/ipv4",
+			timeout=3
 		)
 		return response.text.strip()
 
@@ -35,29 +36,19 @@ class IPLookupSpawner( object ):
 	def get_aws_ip( self ):
 		logit( "Attempting to resolve remote IPv4 IP via checkip.amazonaws.com..." )
 		response = requests.get(
-			"https://checkip.amazonaws.com/"
+			"https://checkip.amazonaws.com/",
+			timeout=3
 		)
 		return response.text.strip()
 
 
 ip_lookup_tasks = IPLookupSpawner()
 
-
-def get_random_ipv4_resolution_function():
-	"""
-	Pick a random IPv4 resolution endpoint to detect our external
-	IPv4 IP. This MUST be IPv4 because Lambda does NOT support IPV6
-	so callbacks will fail if an IPv6 endpoint has been exposed.
-	"""
-	IP_RESOLUTION_FUNCTIONS = [
-		ip_lookup_tasks.get_ipify_ip,
-		ip_lookup_tasks.get_icanhazip_ip,
-		ip_lookup_tasks.get_aws_ip
-	]
-
-	return random.choice(
-		IP_RESOLUTION_FUNCTIONS
-	)
+IP_RESOLUTION_FUNCTIONS = [
+	ip_lookup_tasks.get_aws_ip,
+	ip_lookup_tasks.get_icanhazip_ip,
+	ip_lookup_tasks.get_ipify_ip
+]
 
 
 def is_valid_ipv4_ip( input_ip_string ):
@@ -88,14 +79,18 @@ def get_external_ipv4_address():
 	potentially another box altogether).
 	"""
 
-	remote_ipv4_ip = ""
+	while True:
+		for ipv4_resolution_function in IP_RESOLUTION_FUNCTIONS:
+			try:
+				remote_ipv4_ip = yield ipv4_resolution_function()
 
-	while not is_valid_ipv4_ip( remote_ipv4_ip ):
-		try:
-			ipv4_resolution_function = get_random_ipv4_resolution_function()
-			remote_ipv4_ip = yield ipv4_resolution_function()
-		except:
-			logit( "An exception occurred while attempted to get our IPv4 IP, we'll try another site..." )
-			traceback.print_exc()
+				if is_valid_ipv4_ip( remote_ipv4_ip ):
+					raise gen.Return( remote_ipv4_ip )
 
-	raise gen.Return( remote_ipv4_ip )
+				time.sleep( 0.2 )
+			except gen.Return as result:
+				raise gen.Return( result.value )
+			except:
+				logit( "An exception occurred while attempted to get our IPv4 IP, we'll try another site..." )
+				traceback.print_exc()
+
