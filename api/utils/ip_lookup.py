@@ -1,4 +1,3 @@
-import re
 import traceback
 import requests
 import tornado
@@ -61,17 +60,13 @@ def get_random_ipv4_resolution_function():
 	)
 
 
-ipv4_regex = re.compile( r"^(?:(?:^|\.)(?:2(?:5[0-5]|[0-4]\d)|1?\d?\d)){4}$" )
-
-
 def is_valid_ipv4_ip( input_ip_string ):
 	"""
 	Uses the socket API to validate that an IP address is indeed in the
 	valid IPv4 format and is not malformed.
 	"""
 
-	# Check if the IP even is syntactically valid first
-	if re.match( ipv4_regex, input_ip_string ) is None:
+	if not input_ip_string:
 		return False
 
 	try:
@@ -93,21 +88,14 @@ def get_external_ipv4_address():
 	potentially another box altogether).
 	"""
 
-	remote_ipv4_ip = False
+	remote_ipv4_ip = ""
 
-	while not remote_ipv4_ip:
+	while not is_valid_ipv4_ip( remote_ipv4_ip ):
 		try:
 			ipv4_resolution_function = get_random_ipv4_resolution_function()
 			remote_ipv4_ip = yield ipv4_resolution_function()
 		except:
 			logit( "An exception occurred while attempted to get our IPv4 IP, we'll try another site..." )
 			traceback.print_exc()
-			time.sleep( 1 )
-			pass
-
-		# Ensure we've received a valid IPv4 address
-		# If we haven't then just set it to False
-		if remote_ipv4_ip and is_valid_ipv4_ip( remote_ipv4_ip ):
-			break
 
 	raise gen.Return( remote_ipv4_ip )
