@@ -37,7 +37,7 @@
       "type": "HTMLTooltip",
       "target": "div[data-tooltip-id=\"editorpane-edit-block\"]",
       "header": "Code Editor",
-      "body": "Boilerplate code for each language is provided to get you started. It is important to note that the `blockInput` parameter in each language is set to the value that is passed into the block.",
+      "body": "Boilerplate code for each language is provided to get you started. It is important to note that the <code>blockInput</code> parameter in each language is set to the value that is passed into the block.",
       "config": {
         "placement": "top"
       }
@@ -58,7 +58,7 @@
       "type": "HTMLTooltip",
       "target": "div[data-tooltip-id=\"navitems-code-runner\"]",
       "header": "See how your code runs",
-      "body": "Just as you would test your code on your computer, the Code Runner lets you test out your code before it is deployed.",
+      "body": "Just as you would test your code on your computer, the <b>Code Runner</b> lets you test out your code before it is deployed.",
       "config": {
         "placement": "left"
       },
@@ -70,7 +70,7 @@
       "type": "HTMLTooltip",
       "target": "div[data-tooltip-id=\"input-data-textarea\"]",
       "header": "Passing data in",
-      "body": "`Input Data` simulates data which is passed into this block and `Backpack Data` is data passed through the current execution context, or data that you will need later on in other blocks.",
+      "body": "<b>Input Data</b> simulates data which is passed into this block and <b>Backpack Data</b> is data passed through the current execution context, or data that you will need later on in other blocks.",
       "teardown": {
         "action": "setCodeRunnerOutput",
         "options": {
@@ -83,7 +83,7 @@
       "type": "HTMLTooltip",
       "target": "div[data-tooltip-id=\"return-data-textarea\"]",
       "header": "Run and see your code's output",
-      "body": "Once you have your block data set, you can click `Execute With Data` to actually run your code with the simulated inputs.",
+      "body": "Once you have your block data set, you can click <b>Execute With Data</b> to actually run your code with the simulated inputs.",
       "teardown": {
         "action": "closeOpenPanes"
       }
@@ -92,7 +92,7 @@
       "type": "HTMLTooltip",
       "target": "div[data-tooltip-id=\"navitems-deploy-project\"]",
       "header": "Let's trying deploying this project!",
-      "body": "After testing all of our blocks with the code runner, we can try deploying this project to see how it actually workds end to end!",
+      "body": "After testing all of our blocks with the code runner, we can try deploying this project to see how it actually works end to end!",
       "config": {
         "placement": "left"
       },
@@ -115,7 +115,7 @@
       "type": "HTMLTooltip",
       "target": "div[data-tooltip-id=\"navitems-block-executions\"]",
       "header": "Viewing your deployed code's logs",
-      "body": "`Block Executions` will let you see every time your project is executed, what data is passed between your blocks and what they returned.",
+      "body": "<b>Block Executions</b> will let you see every time your project is executed, what data is passed between your blocks and what they returned.",
       "teardown": {
         "action": "viewExecutionLogs",
         "options": {
@@ -135,7 +135,7 @@
       "type": "HTMLTooltip",
       "target": "div[data-tooltip-id=\"editorpane-block-execution logs\"]",
       "header": "Deployment executions",
-      "body": "Just like when looking at the `Code Runner` output, Deployment Executions shows the data that was passed in and returned by each block as it was executed.",
+      "body": "Just like when looking at the <b>Code Runner</b> output, Deployment Executions shows the data that was passed in and returned by each block as it was executed.",
       "config": {
         "placement": "top"
       },
@@ -147,7 +147,7 @@
       "type": "HTMLTooltip",
       "target": "li[data-tooltip-id=\"editor-nav-item\"]",
       "header": "What are you going to make?",
-      "body": "Unfortunately we are at the end of the Refinery intro tour, but exciting possibilies await you by signing up for our free tier! Give Refinery a test run for solving your problems today :)",
+      "body": "Unfortunately we are at the end of the Refinery intro tour, but exciting possibilities await you by signing up for our free tier! Give Refinery a test run for solving your problems today :)",
       "teardown": {
         "action": "promptUserSignup"
       }

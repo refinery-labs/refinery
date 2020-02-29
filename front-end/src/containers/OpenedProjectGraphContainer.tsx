@@ -7,11 +7,12 @@ import { LayoutOptions } from 'cytoscape';
 import { AvailableTransition } from '@/store/store-types';
 import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
-import TourWrapper from '@/lib/TourWrapper';
+import TourWrapper from '@/lib/Tooltip';
 import { DemoWalkthroughStoreModule } from '@/store';
 import { DemoTooltipActionType, TooltipType } from '@/types/demo-walkthrough-types';
 import { timeout, waitUntil } from '@/utils/async-utils';
 import { ProductionExecutionResponse } from '@/types/deployment-executions-types';
+import Tooltip from '@/lib/Tooltip';
 
 const project = namespace('project');
 
@@ -73,6 +74,28 @@ export default class OpenedProjectGraphContainer extends Vue {
     return this.getValidBlockToBlockTransitions.map(v => v.toNode.id);
   }
 
+  public getDemoWalkthrough() {
+    const tourProps = {
+      step: DemoWalkthroughStoreModule.currentTooltip,
+      nextTooltip: DemoWalkthroughStoreModule.nextTooltip,
+      skipTooltips: async () => {
+        await DemoWalkthroughStoreModule.setCurrentTooltips([]);
+      }
+    };
+
+    if (
+      DemoWalkthroughStoreModule.currentTooltip &&
+      DemoWalkthroughStoreModule.currentTooltip.type == TooltipType.HTMLTooltip
+    ) {
+      return (
+        <div>
+          <Tooltip props={tourProps} />
+        </div>
+      );
+    }
+    return <div />;
+  }
+
   public render(h: CreateElement): VNode {
     if (this.isLoadingProject) {
       return <h2>Waiting for data...</h2>;
@@ -84,22 +107,6 @@ export default class OpenedProjectGraphContainer extends Vue {
       return <h2>{errorMessage}</h2>;
     }
 
-    const nextDemoTooltip = async () => {
-      await DemoWalkthroughStoreModule.doTooltipTeardownAction();
-      const t = DemoWalkthroughStoreModule.tooltips[DemoWalkthroughStoreModule.currentTooltip];
-      if (t.teardown && t.teardown.action == DemoTooltipActionType.viewExecutionLogs) {
-        const response = DemoWalkthroughStoreModule.getBlockExecutionLogContentsByLogId(t.teardown);
-        DemoWalkthroughStoreModule.setBlockExecutionLogContentsByLogId(response);
-      }
-      await DemoWalkthroughStoreModule.nextTooltip();
-      await DemoWalkthroughStoreModule.doTooltipSetupAction();
-      const tooltip = DemoWalkthroughStoreModule.tooltips[DemoWalkthroughStoreModule.currentTooltip];
-      if (tooltip.setup && tooltip.setup.action == DemoTooltipActionType.addDeploymentExecution) {
-        const response = DemoWalkthroughStoreModule.getDeploymentExecution(tooltip.setup);
-        DemoWalkthroughStoreModule.setDeploymentExecutionResponse(response);
-      }
-    };
-
     // By holding these in the stores, we can compare pointers because the data is "immutable".
     const graphProps: CytoscapeGraphProps = {
       clearSelection: this.clearSelection,
@@ -107,7 +114,7 @@ export default class OpenedProjectGraphContainer extends Vue {
       selectEdge: this.selectEdge,
       currentTooltips: DemoWalkthroughStoreModule.currentCyTooltips,
       loadCyTooltips: DemoWalkthroughStoreModule.loadCyTooltips,
-      nextTooltip: nextDemoTooltip,
+      nextTooltip: DemoWalkthroughStoreModule.nextTooltip,
       elements: this.cytoscapeElements,
       stylesheet: this.cytoscapeStyle,
       layout: this.cytoscapeLayoutOptions,
@@ -142,19 +149,7 @@ export default class OpenedProjectGraphContainer extends Vue {
       </b-tooltip>
     );
 
-    const tourProps = {
-      steps: DemoWalkthroughStoreModule.visibleHtmlTooltips,
-      nextTooltip: nextDemoTooltip,
-      stepIndex: DemoWalkthroughStoreModule.currentTooltip
-    };
-
-    const introWalkthrough = (
-      <div>
-        {/*
-         // @ts-ignore */}
-        <TourWrapper key={tourProps.stepIndex} props={tourProps} />
-      </div>
-    );
+    const demoWalkthrough = this.getDemoWalkthrough();
 
     const demoButtons = (
       <div>
@@ -184,7 +179,7 @@ export default class OpenedProjectGraphContainer extends Vue {
           </h4>
         </div>
         {this.isInDemoMode && introTooltip}
-        {introWalkthrough}
+        {demoWalkthrough}
         <CytoscapeGraph props={graphProps} />
       </div>
     );

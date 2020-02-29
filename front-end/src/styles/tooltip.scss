@@ -17,7 +17,7 @@ body.v-tour--active {
   position: relative
 }
 
-.v-step[data-v-7c9c03f0] {
+.v-step {
   background: #50596c;
   color: #fff;
   max-width: 320px;
@@ -29,7 +29,7 @@ body.v-tour--active {
   z-index: 10000
 }
 
-.v-step .v-step__arrow[data-v-7c9c03f0] {
+.v-step .v-step__arrow {
   width: 0;
   height: 0;
   border-style: solid;
@@ -38,15 +38,15 @@ body.v-tour--active {
   border-color: #50596c
 }
 
-.v-step .v-step__arrow--dark[data-v-7c9c03f0] {
+.v-step .v-step__arrow--dark {
   border-color: #454d5d
 }
 
-.v-step[x-placement^=top][data-v-7c9c03f0] {
+.v-step[x-placement^=top] {
   margin-bottom: .5rem
 }
 
-.v-step[x-placement^=top] .v-step__arrow[data-v-7c9c03f0] {
+.v-step[x-placement^=top] .v-step__arrow {
   border-width: .5rem .5rem 0 .5rem;
   border-left-color: transparent;
   border-right-color: transparent;
@@ -57,11 +57,11 @@ body.v-tour--active {
   margin-bottom: 0
 }
 
-.v-step[x-placement^=bottom][data-v-7c9c03f0] {
+.v-step[x-placement^=bottom] {
   margin-top: .5rem
 }
 
-.v-step[x-placement^=bottom] .v-step__arrow[data-v-7c9c03f0] {
+.v-step[x-placement^=bottom] .v-step__arrow {
   border-width: 0 .5rem .5rem .5rem;
   border-left-color: transparent;
   border-right-color: transparent;
@@ -72,11 +72,11 @@ body.v-tour--active {
   margin-bottom: 0
 }
 
-.v-step[x-placement^=right][data-v-7c9c03f0] {
+.v-step[x-placement^=right] {
   margin-left: .5rem
 }
 
-.v-step[x-placement^=right] .v-step__arrow[data-v-7c9c03f0] {
+.v-step[x-placement^=right] .v-step__arrow {
   border-width: .5rem .5rem .5rem 0;
   border-left-color: transparent;
   border-top-color: transparent;
@@ -87,11 +87,11 @@ body.v-tour--active {
   margin-right: 0
 }
 
-.v-step[x-placement^=left][data-v-7c9c03f0] {
+.v-step[x-placement^=left] {
   margin-right: .5rem
 }
 
-.v-step[x-placement^=left] .v-step__arrow[data-v-7c9c03f0] {
+.v-step[x-placement^=left] .v-step__arrow {
   border-width: .5rem 0 .5rem .5rem;
   border-top-color: transparent;
   border-right-color: transparent;
@@ -102,7 +102,7 @@ body.v-tour--active {
   margin-right: 0
 }
 
-.v-step__header[data-v-7c9c03f0] {
+.v-step__header {
   margin: -1rem -1rem .5rem;
   padding: .5rem;
   background-color: #454d5d;
@@ -110,11 +110,11 @@ body.v-tour--active {
   border-top-right-radius: 3px
 }
 
-.v-step__content[data-v-7c9c03f0] {
+.v-step__content {
   margin: 0 0 1rem 0
 }
 
-.v-step__button[data-v-7c9c03f0] {
+.v-step__button {
   background: transparent;
   border: .05rem solid #fff;
   border-radius: .1rem;
@@ -135,7 +135,11 @@ body.v-tour--active {
   white-space: nowrap
 }
 
-.v-step__button[data-v-7c9c03f0]:hover {
+.v-step__button:hover {
   background-color: hsla(0, 0%, 100%, .95);
   color: #50596c
+}
+
+.v-step-hidden {
+  display: none;
 }

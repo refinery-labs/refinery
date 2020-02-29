@@ -32,15 +32,16 @@ import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 import { debug } from 'util';
 import { ViewBlockActions, ViewBlockMutators } from '@/store/modules/panes/view-block-pane';
 import cytoscape from 'cytoscape';
+import { DemoWalkthroughStoreModule, UnauthViewProjectStoreModule } from '@/store';
 
 export interface DemoWalkthroughState {
-  currentTooltip: number;
+  currentIndex: number;
   tooltips: DemoTooltip[];
   tooltipsLoaded: boolean;
 }
 
 export const baseState: DemoWalkthroughState = {
-  currentTooltip: 0,
+  currentIndex: 0,
   tooltips: [],
   tooltipsLoaded: false
 };
@@ -50,7 +51,10 @@ const INITIAL_TOOLTIP: DemoTooltip = {
   visible: false,
   target: 'li[data-tooltip-id="editor-nav-item"]',
   header: 'Start the walkthrough',
-  body: 'Get to know this project and Refinery a little better by clicking through this demo.'
+  body: 'Get to know this project and Refinery a little better by clicking through this demo.',
+  config: {
+    placement: 'bottom'
+  }
 };
 
 const initialState = deepJSONCopy(baseState);
@@ -60,7 +64,7 @@ const initialState = deepJSONCopy(baseState);
 @Module({ namespaced: true, name: StoreType.demoWalkthrough })
 export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughState>, RootState>
   implements DemoWalkthroughState {
-  public currentTooltip: number = initialState.currentTooltip;
+  public currentIndex: number = initialState.currentIndex;
   public tooltips: DemoTooltip[] = initialState.tooltips;
   public tooltipsLoaded: boolean = initialState.tooltipsLoaded;
   public actionLookup: Record<DemoTooltipActionType, (action: DemoTooltipAction) => void> = {
@@ -74,7 +78,7 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     [DemoTooltipActionType.closeEditPane]: this.closeEditPane,
     [DemoTooltipActionType.closeOpenPanes]: this.closeOpenPanes,
     [DemoTooltipActionType.promptUserSignup]: this.promptUserSignup,
-    [DemoTooltipActionType.addDeploymentExecution]: () => {}
+    [DemoTooltipActionType.addDeploymentExecution]: this.addDeploymentExecution
   };
   public mockNetworkResponses: Record<string, object> = {};
 
@@ -94,8 +98,22 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     return this.tooltips.length > 0;
   }
 
+  get currentTooltip(): DemoTooltip | undefined {
+    return this.tooltips[this.currentIndex];
+  }
+
+  @Action
+  public async setCurrentTooltips(tooltips: DemoTooltip[]) {
+    await this.doSetCurrentTooltips(tooltips);
+
+    const tooltip = this.currentTooltip;
+    if (tooltip !== undefined) {
+      await this.performTooltipAction(tooltip.setup);
+    }
+  }
+
   @Mutation
-  public setCurrentTooltips(tooltips: DemoTooltip[]) {
+  private doSetCurrentTooltips(tooltips: DemoTooltip[]) {
     resetStoreState(this, baseState);
 
     if (tooltips.length == 0) {
@@ -105,10 +123,10 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
 
     tooltips = [INITIAL_TOOLTIP, ...tooltips];
 
-    tooltips[this.currentTooltip].visible = true;
+    this.currentIndex = 0;
+    tooltips[this.currentIndex].visible = true;
     this.tooltipsLoaded = false;
     this.tooltips = tooltips;
-    this.currentTooltip = 0;
   }
 
   @Mutation
@@ -145,19 +163,38 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     this.tooltipsLoaded = true;
   }
 
+  @Action
+  public async nextTooltip() {
+    if (this.currentTooltip !== undefined) {
+      await this.performTooltipAction(this.currentTooltip.teardown);
+    }
+
+    this.progressTooltip();
+
+    if (this.currentTooltip !== undefined) {
+      await this.performTooltipAction(this.currentTooltip.setup);
+    }
+  }
+
   @Mutation
-  public nextTooltip() {
+  public progressTooltip() {
+    if (this.tooltips.length == 0) {
+      return;
+    }
+
     const tooltips = [...this.tooltips];
 
-    tooltips[this.currentTooltip].visible = false;
+    tooltips[this.currentIndex].visible = false;
 
-    const nextCurrentTooltip = this.currentTooltip + 1;
+    const nextCurrentTooltip = this.currentIndex + 1;
     if (nextCurrentTooltip < this.tooltips.length) {
       tooltips[nextCurrentTooltip].visible = true;
 
-      this.currentTooltip = nextCurrentTooltip;
+      this.currentIndex = nextCurrentTooltip;
       this.tooltips = tooltips;
+      return true;
     }
+    return false;
   }
 
   @Action
@@ -173,16 +210,6 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   }
 
   @Action
-  public async doTooltipSetupAction() {
-    this.performTooltipAction(this.tooltips[this.currentTooltip].setup);
-  }
-
-  @Action
-  public async doTooltipTeardownAction() {
-    this.performTooltipAction(this.tooltips[this.currentTooltip].teardown);
-  }
-
-  @Action
   public async closeEditPane() {
     await this.context.dispatch(`project/editBlockPane/${EditBlockActions.cancelAndResetBlock}`, null, {
       root: true
@@ -191,9 +218,11 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
 
   @Action
   public async openBlockEditorPane() {
-    await this.context.dispatch(`project/${ProjectViewActions.selectNode}`, this.tooltips[this.currentTooltip].target, {
-      root: true
-    });
+    if (this.currentTooltip !== undefined) {
+      await this.context.dispatch(`project/${ProjectViewActions.selectNode}`, this.currentTooltip.target, {
+        root: true
+      });
+    }
   }
 
   @Action
@@ -233,9 +262,7 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
 
   @Action
   public async promptUserSignup() {
-    await this.context.dispatch(`unauthViewProject/promptDemoModeSignup`, true, {
-      root: true
-    });
+    await UnauthViewProjectStoreModule.promptDemoModeSignup(true);
   }
 
   @Action
@@ -305,6 +332,12 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   }
 
   @Action
+  public async viewExecutionLogs(action: DemoTooltipAction) {
+    const response = this.getBlockExecutionLogContentsByLogId(action);
+    this.setBlockExecutionLogContentsByLogId(response);
+  }
+
+  @Action
   public getDeploymentExecution(action: DemoTooltipAction): ProductionExecutionResponse {
     const openedProject = this.context.rootState.project.openedProject as RefineryProject;
     const addExecAction = action.options as AddDeploymentExecutionOptions;
@@ -358,7 +391,10 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   }
 
   @Action
-  public async viewExecutionLogs(action: DemoTooltipAction) {}
+  public addDeploymentExecution(tooltipAction: DemoTooltipAction) {
+    const response = this.getDeploymentExecution(tooltipAction);
+    this.setDeploymentExecutionResponse(response);
+  }
 
   @Action
   public mockAddDeploymentExecution(): ProductionExecutionResponse {

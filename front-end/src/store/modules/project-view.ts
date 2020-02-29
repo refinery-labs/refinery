@@ -573,8 +573,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.loadProjectConfig);
 
       if (project.demo_walkthrough) {
-        DemoWalkthroughStoreModule.setCurrentTooltips(project.demo_walkthrough);
-        await DemoWalkthroughStoreModule.doTooltipSetupAction();
+        await DemoWalkthroughStoreModule.setCurrentTooltips(project.demo_walkthrough);
       }
 
       context.commit(ProjectViewMutators.isLoadingProject, false);
@@ -626,8 +625,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.updateProject, params);
 
       if (params.project && params.project.demo_walkthrough) {
-        DemoWalkthroughStoreModule.setCurrentTooltips(params.project.demo_walkthrough);
-        await DemoWalkthroughStoreModule.doTooltipSetupAction();
+        await DemoWalkthroughStoreModule.setCurrentTooltips(params.project.demo_walkthrough);
       }
     },
     async [ProjectViewActions.updateProject](context, params: OpenProjectMutation) {

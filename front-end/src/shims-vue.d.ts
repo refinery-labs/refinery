@@ -60,11 +60,6 @@ declare module 'vue-monaco' {
   export interface VueMonacoPlugin extends PluginObject<{ appId: string }> {}
 }
 
-declare module 'vue-tour' {
-  import { PluginObject } from 'vue';
+declare module 'popper' {}
 
-  const VueTour: VueTourPlugin;
-  export default VueTour;
-  export interface VueTourPlugin extends PluginObject<{ appId: string }> {}
-}
 declare module 'vue-native-websocket';

@@ -1,23 +1,5 @@
 import { ExecutionStatusType } from '@/types/execution-logs-types';
 
-export interface CyConfig {
-  x: number;
-  y: number;
-  offsetX: number;
-  offsetY: number;
-}
-
-export interface HTMLConfig {
-  placement: string;
-}
-
-export const CY_CONFIG_DEFAULTS: CyConfig = {
-  x: 0,
-  y: 0,
-  offsetX: 120,
-  offsetY: -50
-};
-
 export enum TooltipType {
   CyTooltip = 'CyTooltip',
   HTMLTooltip = 'HTMLTooltip'
@@ -36,6 +18,35 @@ export enum DemoTooltipActionType {
   closeOpenPanes = 'closeOpenPanes',
   promptUserSignup = 'promptUserSignup'
 }
+
+export interface CyConfig {
+  x: number;
+  y: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+export interface HTMLConfig {
+  placement: string;
+}
+
+export const CY_CONFIG_DEFAULTS: CyConfig = {
+  x: 0,
+  y: 0,
+  offsetX: 120,
+  offsetY: -50
+};
+
+export const EMPTY_HTML_TOOLTIP: DemoTooltip = {
+  type: TooltipType.HTMLTooltip,
+  header: '',
+  body: '',
+  visible: false,
+  target: '',
+  config: {
+    placement: ''
+  }
+};
 
 export interface SetCodeRunnerOutputOptions {
   logs: string;
