@@ -1,11 +1,11 @@
 import Vue from 'vue';
 import Component from 'vue-class-component';
 import { Prop, Watch } from 'vue-property-decorator';
-import { DemoTooltip, EMPTY_HTML_TOOLTIP, HTMLConfig, TooltipType } from '@/types/demo-walkthrough-types';
+import { DemoTooltip, HTMLConfig } from '@/types/demo-walkthrough-types';
 
 import '@/styles/tooltip.scss';
 import PopperJS from 'popper.js';
-import { timeout, waitUntil } from '@/utils/async-utils';
+import RefineryMarkdown from '@/components/Common/RefineryMarkdown';
 
 @Component
 export default class Tooltip extends Vue {
@@ -51,10 +51,16 @@ export default class Tooltip extends Vue {
   }
 
   render() {
+    const contentMarkdown = {
+      content: this.step.body
+    };
+
     return (
       <div class="v-step v-step-hidden" ref="demo-tooltip">
         <div class="v-step__header">{this.step.header}</div>
-        <div class="v-step__content">{this.step.body}</div>
+        <div class="v-step__content">
+          <RefineryMarkdown props={contentMarkdown} />
+        </div>
 
         <div class="v-step__buttons">
           <button class="v-step__button v-step__button-skip" onclick={this.onSkip}>
