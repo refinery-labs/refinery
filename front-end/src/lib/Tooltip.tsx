@@ -23,7 +23,7 @@ export default class Tooltip extends Vue {
       const target = document.querySelector(this.step.target);
       const element = this.$refs['demo-tooltip'] as Element;
 
-      if (target !== null) {
+      if (target !== null && element !== undefined) {
         target.scrollIntoView({ behavior: 'smooth' });
 
         const placement = (config ? config.placement : 'bottom') as PopperJS.Placement;
@@ -42,6 +42,11 @@ export default class Tooltip extends Vue {
   }
 
   onNext() {
+    const element = this.$refs['demo-tooltip'] as Element;
+    if (element !== undefined) {
+      element.classList.add('v-step-hidden');
+    }
+
     this.nextTooltip();
     this.setupTooltip();
   }

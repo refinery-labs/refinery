@@ -192,9 +192,7 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
 
       this.currentIndex = nextCurrentTooltip;
       this.tooltips = tooltips;
-      return true;
     }
-    return false;
   }
 
   @Action
