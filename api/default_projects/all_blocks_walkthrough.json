@@ -74,9 +74,15 @@
     },
     {
       "type": "HTMLTooltip",
-      "target": "#app > div.flex-grow--3 > div > div > section > div > div > div.graph-visibility.graph-with-grid.flex-grow--1.display--flex > div > div.project-sidebar-container > div > div:nth-child(8)",
+      "target": "div[data-tooltip-id=\"navitems-deploy-project\"]",
       "header": "Deploying your code",
       "body": "Deployment with Refinery is as simple as a single button press. Rapidly see your application running as your users would see it."
+    },
+    {
+      "type": "HTMLTooltip",
+      "target": "li[data-tooltip-id=\"live-chat-link\"",
+      "header": "What are you going to make?",
+      "body": "We have come to the end of the developer workflow introduction. Want to learn more about what you can do with Refinery? [Go check out our docs](https://docs.refinery.io/getting-started/). You can also go back to the projects page to check out other examples of what you can do with Refinery. If you have any questions, let us know in the live chat or on Slack and we will help you out."
     }
   ],
   "workflow_files": [],
