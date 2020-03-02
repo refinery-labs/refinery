@@ -31,9 +31,7 @@ export default class DeploymentViewerGraphContainer extends Vue {
     const tourProps = {
       step: DemoWalkthroughStoreModule.currentTooltip,
       nextTooltip: DemoWalkthroughStoreModule.nextTooltip,
-      skipTooltips: async () => {
-        await DemoWalkthroughStoreModule.setCurrentTooltips([]);
-      }
+      skipTooltips: DemoWalkthroughStoreModule.skipWalkthrough
     };
 
     if (

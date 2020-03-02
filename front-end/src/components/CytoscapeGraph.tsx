@@ -610,7 +610,6 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
     const viewPort = Math.min(this.cy.width(), this.cy.height());
     const padding = this.paddingForViewport(viewPort);
 
-    // TODO (cthompson): figure out how to panBy({x: -150, y: 0}) at the same time as fit
     this.cy.animate(
       {
         fit: {

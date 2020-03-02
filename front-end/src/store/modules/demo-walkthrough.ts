@@ -103,6 +103,11 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   }
 
   @Action
+  public skipWalkthrough() {
+    this.doSetCurrentTooltips([]);
+  }
+
+  @Action
   public async setCurrentTooltips(tooltips: DemoTooltip[]) {
     await this.doSetCurrentTooltips(tooltips);
 
