@@ -5,7 +5,6 @@
 import tornado.escape
 import tornado.ioloop
 import tornado.web
-import subprocess
 import sqlalchemy
 import traceback
 import functools
@@ -16,7 +15,6 @@ import pystache
 import binascii
 import hashlib
 import ctypes
-import shutil
 import stripe
 import base64
 import string
@@ -37,11 +35,9 @@ import re
 import os
 import io
 
-from os import listdir
 from tornado import gen
 import unicodecsv as csv
 from datetime import timedelta
-from os.path import isfile, join
 from tornado.web import asynchronous
 from ansi2html import Ansi2HTMLConverter
 from botocore.exceptions import ClientError
@@ -54,7 +50,7 @@ from utils.general import attempt_json_decode, logit, split_list_into_chunks, ge
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
 from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda
-from utils.aws_client import get_aws_client, STS_CLIENT
+from utils.aws_client import get_aws_client
 from utils.deployments.teardown import teardown_infrastructure
 from utils.deployments.awslambda import lambda_manager
 from utils.deployments.api_gateway import api_gateway_manager, strip_api_gateway
@@ -64,6 +60,8 @@ from utils.aws_account_management.preterraform import preterraform_manager
 from utils.free_tier import usage_spawner, free_tier_freezer
 from utils.emails import EmailSpawner, email_spawner
 from utils.free_tier_redis import free_tier_redis_manager, FreeTierRedisManagerSpawner
+from utils.billing import billing_spawner, BillingSpawner
+from utils.terraform import terraform_spawner, TerraformSpawner
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
@@ -74,6 +72,7 @@ from controller.dangling_resources import CleanupDanglingResources
 from controller.clear_invoice_drafts import ClearStripeInvoiceDrafts
 from controller.inbound_lambda_exec_details_processor import StoreLambdaExecutionDetails
 from controller.rescan_free_tier_accounts import RescanFreeTierAccounts
+from controller.change_account_tier import ChangeAccountTier
 
 from data_types.aws_resources.alambda import Lambda
 
@@ -879,35 +878,6 @@ class TaskSpawner(object):
 				account_status_data = response[ "CreateAccountStatus" ]
 		
 		@staticmethod
-		def _get_assume_role_credentials( aws_account_id, session_lifetime ):
-			# Generate ARN for the sub-account AWS administrator role
-			sub_account_admin_role_arn = "arn:aws:iam::" + str( aws_account_id ) + ":role/" + os.environ.get( "customer_aws_admin_assume_role" )
-			
-			# Session lifetime must be a minimum of 15 minutes
-			# https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts.html#STS.Client.assume_role
-			min_session_lifetime_seconds = 900
-			if session_lifetime < min_session_lifetime_seconds:
-				session_lifetime = min_session_lifetime_seconds
-			
-			role_session_name = "Refinery-Managed-Account-Support-" + get_urand_password( 12 )
-			
-			response = STS_CLIENT.assume_role(
-				RoleArn=sub_account_admin_role_arn,
-				RoleSessionName=role_session_name,
-				DurationSeconds=session_lifetime
-			)
-			
-			return {
-				"access_key_id": response[ "Credentials" ][ "AccessKeyId" ],
-				"secret_access_key": response[ "Credentials" ][ "SecretAccessKey" ],
-				"session_token": response[ "Credentials" ][ "SessionToken" ],
-				"expiration_date": response[ "Credentials" ][ "Expiration" ],
-				"assumed_role_id": response[ "AssumedRoleUser" ][ "AssumedRoleId" ],
-				"role_session_name": role_session_name,
-				"arn": response[ "AssumedRoleUser" ][ "Arn" ],
-			}
-		
-		@staticmethod
 		def _create_new_console_user( access_key_id, secret_access_key, session_token, username, password ):
 			# Create a Boto3 session with the assumed role credentials
 			# This allows us to create a client which will be authenticated
@@ -1013,7 +983,7 @@ class TaskSpawner(object):
 				
 				try:
 					# We then assume the administrator role for the sub-account we created
-					assumed_role_credentials = TaskSpawner._get_assume_role_credentials(
+					assumed_role_credentials = terraform_spawner._get_assume_role_credentials(
 						str( new_aws_account.account_id ),
 						3600 # One hour - TODO CHANGEME
 					)
@@ -1052,390 +1022,6 @@ class TaskSpawner(object):
 			logit( "New AWS account created successfully and stored in database as 'CREATED'!" )
 			
 			return True
-			
-		@run_on_executor
-		def terraform_configure_aws_account( self, aws_account_dict ):
-			return TaskSpawner._terraform_configure_aws_account(
-				aws_account_dict
-			)
-			
-		@run_on_executor
-		def write_terraform_base_files( self, aws_account_dict ):
-			return TaskSpawner._write_terraform_base_files(
-				aws_account_dict
-			)
-			
-		@staticmethod
-		def _write_terraform_base_files( aws_account_dict ):
-			# Create a temporary working directory for the work.
-			# Even if there's some exception thrown during the process
-			# we will still delete the underlying state.
-			temporary_dir = "/tmp/" + str( uuid.uuid4() ) + "/"
-			
-			result = False
-			
-			terraform_configuration_data = {}
-			
-			try:
-				# Recursively copy files to the directory
-				shutil.copytree(
-					"/work/install/",
-					temporary_dir
-				)
-				
-				terraform_configuration_data = TaskSpawner.__write_terraform_base_files(
-					aws_account_dict,
-					temporary_dir
-				)
-
-				# Delete all paid-tier files if the user is free-tier
-				# This will ensure the deploy matches the user's tier.
-
-				# Get files in temporary directory
-				temporary_dir_files = [f for f in listdir(temporary_dir) if isfile(join(temporary_dir, f))]
-
-				# Pull the account tier (paid/free)
-				is_free_tier = usage_spawner._is_free_tier_account(
-					aws_account_dict
-				)
-
-				# Set appropriate prefix to delete depending on if the account
-				# is on the free-tier or not.
-				# For example:
-				# Delete all files starting with 'PAID-' if we're the free-tier
-				# Delete all files starting with 'FREE-' if we're the paid-tier
-				deletion_prefix = "PAID-" if is_free_tier else "FREE-"
-
-				print( "Deletion prefix is " + deletion_prefix )
-
-				# Delete the appropriate files with the specified prefix
-				for temporary_dir_file in temporary_dir_files:
-					if temporary_dir_file.startswith( deletion_prefix ):
-						file_to_delete = temporary_dir + temporary_dir_file
-						print( "Deleting '" + file_to_delete + "'...")
-						os.remove(
-							file_to_delete
-						)
-
-			except Exception as e:
-				logit( "An exception occurred while writing terraform base files for AWS account ID " + aws_account_dict[ "account_id" ] )
-				logit( e )
-				
-				# Delete the temporary directory reguardless.
-				shutil.rmtree( temporary_dir )
-				
-				raise
-			
-			return terraform_configuration_data
-		
-		@staticmethod
-		def __write_terraform_base_files( aws_account_data, base_dir ):
-			logit( "Setting up the base Terraform files (AWS Acc. ID '" + aws_account_data[ "account_id" ] + "')..." )
-			
-			# Get some temporary assume role credentials for the account
-			assumed_role_credentials = TaskSpawner._get_assume_role_credentials(
-				str( aws_account_data[ "account_id" ] ),
-				3600 # One hour - TODO CHANGEME
-			)
-			
-			sub_account_admin_role_arn = "arn:aws:iam::" + str( aws_account_data[ "account_id" ] ) + ":role/" + os.environ.get( "customer_aws_admin_assume_role" )
-			
-			# Write out the terraform configuration data
-			terraform_configuration_data = {
-				"session_token": assumed_role_credentials[ "session_token" ],
-				"role_session_name": assumed_role_credentials[ "role_session_name" ],
-				"assume_role_arn": sub_account_admin_role_arn,
-				"access_key": assumed_role_credentials[ "access_key_id" ],
-				"secret_key": assumed_role_credentials[ "secret_access_key" ],
-				"region": os.environ.get( "region_name" ),
-				"s3_bucket_suffix": aws_account_data[ "s3_bucket_suffix" ],
-				"redis_secrets": {
-					"password": aws_account_data[ "redis_password" ],
-					"secret_prefix": aws_account_data[ "redis_secret_prefix" ],
-				}
-			}
-			
-			logit( "Writing Terraform input variables to file..." )
-			
-			# Write configuration data to a file for Terraform to use.
-			with open( base_dir + "customer_config.json", "w" ) as file_handler:
-				file_handler.write(
-					json.dumps(
-						terraform_configuration_data
-					)
-				)
-				
-			# Write the latest terraform state to terraform.tfstate
-			# If we have any state at all.
-			if aws_account_data[ "terraform_state" ] != "":
-				# First we write the current version to the database as a version to keep track
-				
-				terraform_state_file_path = base_dir + "terraform.tfstate"
-				
-				logit( "A previous terraform state file exists! Writing it to '" + terraform_state_file_path + "'..." )
-				
-				with open( terraform_state_file_path, "w" ) as file_handler:
-					file_handler.write(
-						aws_account_data[ "terraform_state" ]
-					)
-				
-			logit( "The base terraform files have been created successfully at " + base_dir )
-			
-			terraform_configuration_data[ "base_dir" ] = base_dir
-			
-			return terraform_configuration_data
-			
-		@run_on_executor
-		def terraform_apply( self, aws_account_data ):
-			"""
-			This applies the latest terraform config to an account.
-			
-			THIS IS DANGEROUS, MAKE SURE YOU DID A FLEET TERRAFORM PLAN
-			FIRST. NO EXCUSES, THIS IS ONE OF THE FEW WAYS TO BREAK PROD
-			FOR OUR CUSTOMERS.
-			
-			-mandatory
-			"""
-			return TaskSpawner._terraform_apply(
-				aws_account_data
-			)
-		
-		@staticmethod
-		def _terraform_apply( aws_account_data ):
-			logit( "Ensuring existence of ECS service-linked role before continuing with terraform apply..." )
-			preterraform_manager._ensure_ecs_service_linked_role_exists(
-				aws_account_data
-			)
-
-			# The return data
-			return_data = {
-				"success": True,
-				"stdout": "",
-				"stderr": "",
-				"original_tfstate": str(
-					copy.copy(
-						aws_account_data[ "terraform_state" ]
-					)
-				),
-				"new_tfstate": "",
-			}
-			
-			terraform_configuration_data = TaskSpawner._write_terraform_base_files(
-				aws_account_data
-			)
-			temporary_directory = terraform_configuration_data[ "base_dir" ]
-			
-			try:
-				logit( "Performing 'terraform apply' to AWS Account " + aws_account_data[ "account_id" ] + "..." )
-				
-				# Terraform plan
-				process_handler = subprocess.Popen(
-					[
-						temporary_directory + "terraform",
-						"apply",
-						"-auto-approve",
-						"-var-file",
-						temporary_directory + "customer_config.json",
-					],
-					stdout=subprocess.PIPE,
-					stderr=subprocess.PIPE,
-					shell=False,
-					universal_newlines=True,
-					cwd=temporary_directory,
-				)
-				process_stdout, process_stderr = process_handler.communicate()
-				return_data[ "stdout" ] = process_stdout
-				return_data[ "stderr" ] = process_stderr
-				
-				# Pull the latest terraform state and return it
-				# We need to do this regardless of if an error occurred.
-				with open( temporary_directory + "terraform.tfstate", "r" ) as file_handler:
-					return_data[ "new_tfstate" ] = file_handler.read()
-				
-				if process_stderr.strip() != "":
-					logit( "The 'terraform apply' has failed!", "error" )
-					sys.stderr.write( process_stderr )
-					sys.stderr.write( process_stdout )
-					
-					# Alert us of the provisioning error so we can response to it
-					TaskSpawner.send_terraform_provisioning_error(
-						aws_account_data[ "account_id" ],
-						str( process_stderr )
-					)
-					
-					return_data[ "success" ] = False
-			finally:
-				# Ensure we clear the temporary directory no matter what
-				shutil.rmtree( temporary_directory )
-			
-			logit( "'terraform apply' completed, returning results..." )
-			
-			return return_data
-		
-		@run_on_executor
-		def terraform_plan( self, aws_account_data ):
-			"""
-			This does a terraform plan to an account and sends an email
-			with the results. This allows us to see the impact of a new
-			terraform change before we roll it out across our customer's
-			AWS accounts.
-			"""
-			return TaskSpawner._terraform_plan(
-				aws_account_data
-			)
-		
-		@staticmethod
-		def _terraform_plan( aws_account_data ):
-			terraform_configuration_data = TaskSpawner._write_terraform_base_files(
-				aws_account_data
-			)
-			temporary_directory = terraform_configuration_data[ "base_dir" ]
-			
-			try:
-				logit( "Performing 'terraform plan' to AWS account " + aws_account_data[ "account_id" ] + "..." )
-				
-				# Terraform plan
-				process_handler = subprocess.Popen(
-					[
-						temporary_directory + "terraform",
-						"plan",
-						"-var-file",
-						temporary_directory + "customer_config.json",
-					],
-					stdout=subprocess.PIPE,
-					stderr=subprocess.PIPE,
-					shell=False,
-					universal_newlines=True,
-					cwd=temporary_directory,
-				)
-				process_stdout, process_stderr = process_handler.communicate()
-				
-				if process_stderr.strip() != "":
-					logit( "The 'terraform plan' has failed!", "error" )
-					sys.stderr.write( process_stderr )
-					sys.stderr.write( process_stdout )
-					
-					raise Exception( "Terraform plan failed." )
-			finally:
-				# Ensure we clear the temporary directory no matter what
-				shutil.rmtree( temporary_directory )
-			
-			logit( "Terraform plan completed successfully, returning output." )
-			return process_stdout
-			
-		@staticmethod
-		def _terraform_configure_aws_account( aws_account_data ):
-			logit( "Ensuring existence of ECS service-linked role before continuing with AWS account configuration..." )
-			preterraform_manager._ensure_ecs_service_linked_role_exists(
-				aws_account_data
-			)
-
-			terraform_configuration_data = TaskSpawner._write_terraform_base_files(
-				aws_account_data
-			)
-			base_dir = terraform_configuration_data[ "base_dir" ]
-			
-			try:
-				logit( "Setting up AWS account with terraform (AWS Acc. ID '" + aws_account_data[ "account_id" ] + "')..." )
-				
-				# Terraform apply
-				process_handler = subprocess.Popen(
-					[
-						base_dir + "terraform",
-						"apply",
-						"-auto-approve",
-						"-var-file",
-						base_dir + "customer_config.json",
-					],
-					stdout=subprocess.PIPE,
-					stderr=subprocess.PIPE,
-					shell=False,
-					universal_newlines=True,
-					cwd=base_dir,
-				)
-				process_stdout, process_stderr = process_handler.communicate()
-				
-				if process_stderr.strip() != "":
-					logit( "The Terraform provisioning has failed!", "error" )
-					logit( process_stderr, "error" )
-					logit( process_stdout, "error" )
-					
-					# Alert us of the provisioning error so we can get ahead of
-					# it with AWS support.
-					TaskSpawner.send_terraform_provisioning_error(
-						aws_account_data[ "account_id" ],
-						str( process_stderr )
-					)
-					
-					raise Exception( "Terraform provisioning failed, AWS account marked as \"CORRUPT\"" )
-				
-				logit( "Running 'terraform output' to pull the account details..." )
-				
-				# Print Terraform output as JSON so we can read it.
-				process_handler = subprocess.Popen(
-					[
-						base_dir + "terraform",
-						"output",
-						"-json"
-					],
-					stdout=subprocess.PIPE,
-					stderr=subprocess.PIPE,
-					shell=False,
-					universal_newlines=True,
-					cwd=base_dir,
-				)
-				process_stdout, process_stderr = process_handler.communicate()
-				
-				# Parse Terraform JSON output
-				terraform_provisioned_account_details = json.loads(
-					process_stdout
-				)
-				
-				logit( "Pulled Terraform output successfully." )
-				
-				# Pull the terraform state and pull it so we can later
-				# make terraform changes to user accounts.
-				terraform_state = ""
-				with open( base_dir + "terraform.tfstate", "r" ) as file_handler:
-					terraform_state = file_handler.read()
-				
-				terraform_configuration_data[ "terraform_state" ] = terraform_state
-
-				# By default, set the redis hostname to the free-tier server.
-				# If the output of terraform has another redis hostname we use that instead
-				terraform_configuration_data[ "redis_hostname" ] = os.environ.get( "free_tier_redis_server_hostname" )
-				terraform_configuration_data[ "ssh_public_key" ] = ""
-				terraform_configuration_data[ "ssh_private_key" ] = ""
-
-				if "redis_elastic_ip" in terraform_provisioned_account_details:
-					terraform_configuration_data[ "redis_hostname" ] = terraform_provisioned_account_details[ "redis_elastic_ip" ][ "value" ]
-
-				if "refinery_redis_ssh_key_public_key_openssh" in terraform_configuration_data:
-					terraform_configuration_data[ "ssh_public_key" ] = terraform_provisioned_account_details[ "refinery_redis_ssh_key_public_key_openssh" ][ "value" ]
-
-				if "refinery_redis_ssh_key_private_key_pem" in terraform_configuration_data:
-					terraform_configuration_data[ "ssh_private_key" ] = terraform_provisioned_account_details[ "refinery_redis_ssh_key_private_key_pem" ][ "value" ]
-
-			finally:
-				# Ensure we clear the temporary directory no matter what
-				shutil.rmtree( base_dir )
-				
-			return terraform_configuration_data
-			
-		@staticmethod
-		def send_terraform_provisioning_error( aws_account_id, error_output ):
-			EmailSpawner._send_email(
-				os.environ.get( "alerts_email" ),
-				"[AWS Account Provisioning Error] The Refinery AWS Account #" + aws_account_id + " Encountered a Fatal Error During Terraform Provisioning",
-				pystache.render(
-					EMAIL_TEMPLATES[ "terraform_provisioning_error_alert" ],
-					{
-						"aws_account_id": aws_account_id,
-						"error_output": error_output,
-					}
-				),
-				False,
-			)
 		
 		@run_on_executor
 		def send_registration_confirmation_email( self, email_address, auth_token ):
@@ -1526,44 +1112,6 @@ class TaskSpawner(object):
 			return new_card[ "id" ]
 			
 		@run_on_executor
-		def get_account_cards( self, stripe_customer_id ):
-			return TaskSpawner._get_account_cards( stripe_customer_id )
-			
-		@staticmethod
-		def _get_account_cards( stripe_customer_id ):
-			# Pull all of the metadata for the cards the customer
-			# has on file with Stripe
-			cards = stripe.Customer.list_sources(
-				stripe_customer_id,
-				object="card",
-				limit=100,
-			)
-			
-			# Pull the user's default card and add that
-			# metadata to the card
-			customer_info = TaskSpawner._get_stripe_customer_information(
-				stripe_customer_id
-			)
-			
-			for card in cards:
-				is_primary = False
-				if card[ "id" ] == customer_info[ "default_source" ]:
-					is_primary = True
-				card[ "is_primary" ] = is_primary
-			
-			return cards[ "data" ]
-			
-		@run_on_executor
-		def get_stripe_customer_information( self, stripe_customer_id ):
-			return TaskSpawner._get_stripe_customer_information( stripe_customer_id )
-			
-		@staticmethod
-		def _get_stripe_customer_information( stripe_customer_id ):
-			return stripe.Customer.retrieve(
-				stripe_customer_id
-			)
-			
-		@run_on_executor
 		def set_stripe_customer_default_payment_source( self, stripe_customer_id, card_id ):
 			customer_update_response = stripe.Customer.modify(
 				stripe_customer_id,
@@ -1577,7 +1125,7 @@ class TaskSpawner(object):
 			# We first have to pull the customers information so we
 			# can verify that they are not deleting their default
 			# payment source from Stripe.
-			customer_information = TaskSpawner._get_stripe_customer_information(
+			customer_information = BillingSpawner._get_stripe_customer_information(
 				stripe_customer_id
 			)
 			
@@ -9511,7 +9059,7 @@ class ListCreditCards( BaseHandler ):
 		"""
 		current_user = self.get_authenticated_user()
 		
-		cards_info_list = yield local_tasks.get_account_cards(
+		cards_info_list = yield billing_spawner.get_account_cards(
 			current_user.payment_id,
 		)
 		
@@ -9935,54 +9483,7 @@ class MaintainAWSAccountReserves( BaseHandler ):
 		logit( "Target pool amount: " + str( reserved_aws_pool_target_amount ) )
 		logit( "Number of accounts to be created: " + str( accounts_to_create ) )
 		
-		# Kick off the terraform apply jobs for the accounts which are "aged" for it.
-		for aws_account_id in aws_account_ids:
-			dbsession = DBSession()
-			current_aws_account = dbsession.query( AWSAccount ).filter(
-				AWSAccount.account_id == aws_account_id,
-			).first()
-			current_aws_account_dict = current_aws_account.to_dict()
-			dbsession.close()
-			
-			logit( "Kicking off terraform set-up for AWS account '" + current_aws_account_dict[ "account_id" ] + "'..." )
-			try:
-				account_provisioning_details = yield local_tasks.terraform_configure_aws_account(
-					current_aws_account_dict
-				)
-				
-				logit( "Adding AWS account to the database the pool of \"AVAILABLE\" accounts..." )
-				
-				dbsession = DBSession()
-				current_aws_account = dbsession.query( AWSAccount ).filter(
-					AWSAccount.account_id == aws_account_id,
-				).first()
-				
-				# Update the AWS account with this new information
-				# Set redis server to free-tier redis
-				current_aws_account.redis_hostname = os.environ.get( "free_tier_redis_server_hostname" )
-
-				current_aws_account.terraform_state = account_provisioning_details[ "terraform_state" ]
-				current_aws_account.ssh_public_key = account_provisioning_details[ "ssh_public_key" ]
-				current_aws_account.ssh_private_key = account_provisioning_details[ "ssh_private_key" ]
-				current_aws_account.aws_account_status = "AVAILABLE"
-				
-				# Create a new terraform state version
-				terraform_state_version = TerraformStateVersion()
-				terraform_state_version.terraform_state = account_provisioning_details[ "terraform_state" ]
-				current_aws_account.terraform_state_versions.append(
-					terraform_state_version
-				)
-			except Exception as e:
-				logit( "An error occurred while provision AWS account '" + current_aws_account.account_id + "' with terraform!", "error" )
-				logit( e )
-				logit( "Marking the account as 'CORRUPT'..." )
-				
-				# Mark the account as corrupt since the provisioning failed.
-				current_aws_account.aws_account_status = "CORRUPT"
-			
-			logit( "Commiting new account state of '" + current_aws_account.aws_account_status + "' to database..." )
-			dbsession.add(current_aws_account)
-			dbsession.commit()
+		# TODO CANARY REPLACE ME WITH REFACTORED FUNCTION CALL
 			
 		# Create sub-accounts and let them age before applying terraform
 		for i in range( 0, accounts_to_create ):
@@ -10043,7 +9544,7 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 			dbsession.close()
 			
 			logit( "Running 'terraform apply' against AWS Account " + current_aws_account_dict[ "account_id" ] )
-			terraform_apply_results = yield local_tasks.terraform_apply(
+			terraform_apply_results = yield terraform_spawner.terraform_apply(
 				current_aws_account_dict
 			)
 			
@@ -10149,7 +9650,7 @@ class PerformTerraformPlanOnFleet( BaseHandler ):
 			dbsession.close()
 			
 			logit( "Performing a terraform plan for AWS account " + str( counter ) + "/" + str( total_accounts ) + "..." )
-			terraform_plan_output = yield local_tasks.terraform_plan(
+			terraform_plan_output = yield terraform_spawner.terraform_plan(
 				current_aws_account
 			)
 			
@@ -10313,7 +9814,7 @@ class OnboardThirdPartyAWSAccountPlan( BaseHandler ):
 		dbsession.close()
 		
 		logit( "Performing a terraform plan against the third-party account..." )
-		terraform_plan_output = yield local_tasks.terraform_plan(
+		terraform_plan_output = yield terraform_spawner.terraform_plan(
 			third_party_aws_account_dict
 		)
 		
@@ -10394,7 +9895,7 @@ class OnboardThirdPartyAWSAccountApply( BaseHandler ):
 			
 		try:
 			logit( "Creating Refinery base infrastructure on third-party AWS account..." )
-			account_provisioning_details = yield local_tasks.terraform_configure_aws_account(
+			account_provisioning_details = yield terraform_spawner.terraform_configure_aws_account(
 				third_party_aws_account_dict
 			)
 	
@@ -10669,6 +10170,7 @@ def make_app( tornado_config ):
 		( r"/api/v1/internal/log", StashStateLog ),
 		( r"/api/v1/project_short_link/create", CreateProjectShortlink ),
 		( r"/api/v1/project_short_link/get", GetProjectShortlink ),
+		( r"/api/v1/change_account_tier", ChangeAccountTier ),
 		# WebSocket endpoint for live debugging Lambdas
 		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer, {
 			"websocket_router": tornado_config[ "websocket_router" ]

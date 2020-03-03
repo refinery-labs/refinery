@@ -148,7 +148,6 @@ class BaseHandler( tornado.web.RequestHandler ):
 		return user_org
 		
 	def get_authenticated_user_id( self ):
-
 		session_data = self.get_secure_session_data(int( os.environ.get( "cookie_expire_days" ) ))
 		
 		if not session_data or "user_id" not in session_data:

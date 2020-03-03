@@ -35,4 +35,42 @@ class BillingSpawner(BaseSpawner):
 
 		logit( "Deleting draft invoices completed successfully!" )
 
+	@run_on_executor
+	def get_account_cards( self, stripe_customer_id ):
+		return BillingSpawner._get_account_cards( stripe_customer_id )
+		
+	@staticmethod
+	def _get_account_cards( stripe_customer_id ):
+		# Pull all of the metadata for the cards the customer
+		# has on file with Stripe
+		cards = stripe.Customer.list_sources(
+			stripe_customer_id,
+			object="card",
+			limit=100,
+		)
+		
+		# Pull the user's default card and add that
+		# metadata to the card
+		customer_info = BillingSpawner._get_stripe_customer_information(
+			stripe_customer_id
+		)
+		
+		for card in cards:
+			is_primary = False
+			if card[ "id" ] == customer_info[ "default_source" ]:
+				is_primary = True
+			card[ "is_primary" ] = is_primary
+		
+		return cards[ "data" ]
+
+	@run_on_executor
+	def get_stripe_customer_information( self, stripe_customer_id ):
+		return BillingSpawner._get_stripe_customer_information( stripe_customer_id )
+		
+	@staticmethod
+	def _get_stripe_customer_information( stripe_customer_id ):
+		return stripe.Customer.retrieve(
+			stripe_customer_id
+		)
+
 billing_spawner = BillingSpawner()
