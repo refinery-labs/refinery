@@ -72,7 +72,8 @@ from controller.dangling_resources import CleanupDanglingResources
 from controller.clear_invoice_drafts import ClearStripeInvoiceDrafts
 from controller.inbound_lambda_exec_details_processor import StoreLambdaExecutionDetails
 from controller.rescan_free_tier_accounts import RescanFreeTierAccounts
-from controller.change_account_tier import ChangeAccountTier
+from controller.upgrade_account_tier import UpgradeAccountTier
+from controller.downgrade_account_tier import DowngradeAccountTier
 
 from data_types.aws_resources.alambda import Lambda
 
@@ -9483,7 +9484,20 @@ class MaintainAWSAccountReserves( BaseHandler ):
 		logit( "Target pool amount: " + str( reserved_aws_pool_target_amount ) )
 		logit( "Number of accounts to be created: " + str( accounts_to_create ) )
 		
-		# TODO CANARY REPLACE ME WITH REFACTORED FUNCTION CALL
+		for aws_account_id in aws_account_ids:
+			dbsession = DBSession()
+			current_aws_account = dbsession.query( AWSAccount ).filter(
+				AWSAccount.account_id == aws_account_id,
+			).first()
+			current_aws_account_dict = current_aws_account.to_dict()
+			dbsession.close()
+
+			logit( "Kicking off terraform set-up for AWS account '" + current_aws_account_dict[ "account_id" ] + "'..." )
+
+			yield terraform_spawner.terraform_update_aws_account(
+				current_aws_account_dict,
+				"AVAILABLE"
+			)
 			
 		# Create sub-accounts and let them age before applying terraform
 		for i in range( 0, accounts_to_create ):
@@ -10170,7 +10184,7 @@ def make_app( tornado_config ):
 		( r"/api/v1/internal/log", StashStateLog ),
 		( r"/api/v1/project_short_link/create", CreateProjectShortlink ),
 		( r"/api/v1/project_short_link/get", GetProjectShortlink ),
-		( r"/api/v1/change_account_tier", ChangeAccountTier ),
+		( r"/api/v1/change_account_tier", UpgradeAccountTier ),
 		# WebSocket endpoint for live debugging Lambdas
 		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer, {
 			"websocket_router": tornado_config[ "websocket_router" ]
@@ -10194,6 +10208,7 @@ def make_app( tornado_config ):
 		( r"/services/v1/clear_stripe_invoice_drafts", ClearStripeInvoiceDrafts ),
 		( r"/services/v1/store_lambda_execution_details", StoreLambdaExecutionDetails ),
 		( r"/services/v1/rescan_free_tier_accounts", RescanFreeTierAccounts ),
+		( r"/services/v1/downgrade_account_tier", DowngradeAccountTier ),
 	], **tornado_config)
 	
 def get_lambda_callback_endpoint( tornado_config ):

@@ -4,60 +4,76 @@ from jsonschema import validate as validate_schema
 
 from models.initiate_database import DBSession
 from models.users import User, RefineryUserTier
+from models.aws_accounts import AWSAccount
 
 from utils.general import logit
 from utils.billing import billing_spawner
 from utils.free_tier import usage_spawner, free_tier_freezer
 from utils.terraform import terraform_spawner, TerraformSpawner
 
-class ChangeAccountTier( BaseHandler ):
+class DowngradeAccountTier( BaseHandler ):
 	@gen.coroutine
 	def get( self ):
 		"""
-		Changes an account's tier from free->paid.
+		Changes an account's tier from paid->free.
 
-		Validates that the upgrade is indeed possible
-		by checking that a valid payment method exists, etc.
-
-		To go from paid->free we'll have to ask them to
-		contact support so that we can be sure the outstanding
-		billing amount has been collected.
+		This is available as a /service/ endpoint to
+		allow 
 		"""
-		schema = {
-			"type": "object",
-			"properties": {
-				"tier": {
-					"type": "string",
-					"enum": ["paid", "free"]
-				}
-			},
-			"required": [
-				"tier"
-			]
-		}
-		
-		validate_schema( self.json, schema )
-
-		current_user = self.get_authenticated_user()
-
-		user_payment_cards = yield billing_spawner.get_account_cards(
-			current_user.payment_id,
+		user_id = self.get_argument(
+			"user_id",
+			None,
+			True
 		)
 
-		if len( user_payment_cards ) == 0:
+		if user_id == None:
 			self.write({
 				"success": False,
-				"code": "NO_PAYMENT_INFORMATION",
-				"msg": "You have no payment methods on file so you can't be upgraded to the paid tier!",
+				"code": "NO_ACCOUNT_SPECIFIED",
+				"msg": "Please specify a 'user_id' parameter for which account we should downgrade to the free-tier.",
+			})
+			raise gen.Return()
+
+		# Pull related user
+		current_user = self.dbsession.query( User ).filter_by(
+			id=str( user_id )
+		).first()
+
+		if current_user == None:
+			self.write({
+				"success": False,
+				"code": "ACCOUNT_DOES_NOT_EXIST",
+				"msg": "The ID provided does not correspond to a user account that exists in the database.",
+			})
+			raise gen.Return()
+
+		if current_user.tier == RefineryUserTier.FREE:
+			self.write({
+				"success": False,
+				"code": "ALREADY_FREE_TIER",
+				"msg": "Your account is already on the paid-tier, no need to upgrade.",
 			})
 			raise gen.Return()
 
 		# Update account in database to be on the paid tier
 		dbsession = DBSession()
-		current_user.tier = RefineryUserTier.PAID 
+		current_user.tier = RefineryUserTier.FREE 
 		self.dbsession.commit()
 
-		credentials = self.get_authenticated_user_cloud_configuration()
+		aws_account = self.dbsession.query( AWSAccount ).filter_by(
+			organization_id=current_user.organization_id,
+			aws_account_status="IN_USE"
+		).first()
+
+		if aws_account == None:
+			self.write({
+				"success": False,
+				"code": "NO_AWS_ACCOUNT",
+				"msg": "The specified account does not have an AWS account associated with it.",
+			})
+			raise gen.Return()
+
+		credentials = aws_account.to_dict()
 
 		# We do a terraform apply to the account to add the dedicate redis
 		# instance that users get as part of being part of the paid-tier.
