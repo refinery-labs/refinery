@@ -17,6 +17,13 @@ STS_CLIENT = boto3.client(
 	)
 )
 
+CLOUDWATCH_CLIENT = boto3.client(
+	"cloudwatch",
+	aws_access_key_id=os.environ.get( "aws_access_key" ),
+	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+	region_name=os.environ.get( "region_name" )
+)
+
 """
 This is some poor-man's caching to greately speed up Boto3
 client access times. We basically just cache and return the client
@@ -30,6 +37,8 @@ BOTO3_CLIENT_CACHE = ExpiringDict(
 	max_len=500,
 	max_age_seconds=( int( os.environ.get( "assume_role_session_lifetime_seconds" ) ) - 60 )
 )
+
+
 def get_aws_client( client_type, credentials ):
 	"""
 	Take an AWS client type ("s3", "lambda", etc) and utilize
