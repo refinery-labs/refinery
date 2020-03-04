@@ -52,7 +52,7 @@ from utils.general import attempt_json_decode, logit, split_list_into_chunks, ge
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
 from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda
-from utils.aws_client import get_aws_client, STS_CLIENT
+from utils.aws_client import get_aws_client, STS_CLIENT, CLOUDWATCH_CLIENT
 from utils.deployments.teardown import teardown_infrastructure
 from utils.deployments.awslambda import lambda_manager
 from utils.deployments.api_gateway import api_gateway_manager, strip_api_gateway
@@ -94,6 +94,8 @@ from pyexceptions.builds import BuildException
 from pyconstants.project_constants import EMPTY_ZIP_DATA
 
 from botocore.client import Config
+
+from utils.performance_decorators import emit_runtime_metrics
 
 try:
 	# for Python 2.x
@@ -237,7 +239,7 @@ ORGANIZATION_CLIENT = boto3.client(
 		max_pool_connections=( 1000 * 2 )
 	)
 )
-		
+
 """
 Decorators
 """
@@ -355,10 +357,14 @@ REGEX_WHITELISTS = {
 THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME = "RefinerySelfHostedLambdaRole"
 
 class TaskSpawner(object):
-		def __init__(self, loop=None):
+		def __init__(self, logger, cloudwatch_client, loop=None):
 			self.executor = futures.ThreadPoolExecutor( 60 )
 			self.loop = loop or tornado.ioloop.IOLoop.current()
-		
+
+			self.logger = logger
+			self.cloudwatch_client = cloudwatch_client
+
+		@emit_runtime_metrics( "create_third_party_aws_lambda_execute_role" )
 		@run_on_executor
 		def create_third_party_aws_lambda_execute_role( self, credentials ):
 			# Create IAM client
@@ -394,7 +400,8 @@ class TaskSpawner(object):
 			)
 			
 			return True
-		
+
+		@emit_runtime_metrics( "get_json_from_s3" )
 		@run_on_executor
 		def get_json_from_s3( self, credentials, s3_bucket, s3_path ):
 			# Create S3 client
@@ -411,7 +418,8 @@ class TaskSpawner(object):
 			return json.loads(
 				response[ "Body" ].read()
 			)
-			
+
+		@emit_runtime_metrics( "write_json_to_s3" )
 		@run_on_executor
 		def write_json_to_s3( self, credentials, s3_bucket, s3_path, input_data ):
 			# Create S3 client
@@ -428,7 +436,8 @@ class TaskSpawner(object):
 					input_data
 				)
 			)
-			
+
+		@emit_runtime_metrics( "get_block_executions" )
 		@run_on_executor
 		def get_block_executions( self, credentials, project_id, execution_pipeline_id, arn, oldest_timestamp ):
 			return TaskSpawner._get_block_executions(
@@ -505,6 +514,7 @@ class TaskSpawner(object):
 
 			return query_results
 
+		@emit_runtime_metrics( "get_project_execution_logs" )
 		@run_on_executor
 		def get_project_execution_logs( self, credentials, project_id, oldest_timestamp ):
 			return TaskSpawner._get_project_execution_logs(
@@ -649,6 +659,7 @@ class TaskSpawner(object):
 
 			return final_return_format
 
+		@emit_runtime_metrics( "create_project_id_log_table" )
 		@run_on_executor
 		def create_project_id_log_table( self, credentials, project_id ):
 			return TaskSpawner._create_project_id_log_table(
@@ -717,7 +728,8 @@ class TaskSpawner(object):
 				query,
 				False
 			)
-			
+
+		@emit_runtime_metrics( "perform_athena_query" )
 		@run_on_executor
 		def perform_athena_query( self, credentials, query, return_results ):
 			return TaskSpawner._perform_athena_query(
@@ -817,6 +829,7 @@ class TaskSpawner(object):
 				s3_path
 			)
 
+		@emit_runtime_metrics( "get_athena_results_from_s3" )
 		@run_on_executor
 		def get_athena_results_from_s3( self, credentials, s3_bucket, s3_path ):
 			return TaskSpawner._get_athena_results_from_s3(
@@ -960,7 +973,8 @@ class TaskSpawner(object):
 				"password": password,
 				"arn": create_user_response[ "User" ][ "Arn" ]
 			}
-			
+
+		@emit_runtime_metrics( "create_new_sub_aws_account" )
 		@run_on_executor
 		def create_new_sub_aws_account( self, account_type, aws_account_id ):
 			return TaskSpawner._create_new_sub_aws_account(
@@ -1059,13 +1073,15 @@ class TaskSpawner(object):
 			logit( "New AWS account created successfully and stored in database as 'CREATED'!" )
 			
 			return True
-			
+
+		@emit_runtime_metrics( "terraform_configure_aws_account" )
 		@run_on_executor
 		def terraform_configure_aws_account( self, aws_account_dict ):
 			return TaskSpawner._terraform_configure_aws_account(
 				aws_account_dict
 			)
-			
+
+		@emit_runtime_metrics( "write_terraform_base_files" )
 		@run_on_executor
 		def write_terraform_base_files( self, aws_account_dict ):
 			return TaskSpawner._write_terraform_base_files(
@@ -1161,7 +1177,8 @@ class TaskSpawner(object):
 			terraform_configuration_data[ "base_dir" ] = base_dir
 			
 			return terraform_configuration_data
-			
+
+		@emit_runtime_metrics( "terraform_apply" )
 		@run_on_executor
 		def terraform_apply( self, aws_account_data ):
 			"""
@@ -1248,7 +1265,8 @@ class TaskSpawner(object):
 			logit( "'terraform apply' completed, returning results..." )
 			
 			return return_data
-		
+
+		@emit_runtime_metrics( "terraform_plan" )
 		@run_on_executor
 		def terraform_plan( self, aws_account_data ):
 			"""
@@ -1385,7 +1403,8 @@ class TaskSpawner(object):
 				shutil.rmtree( base_dir )
 				
 			return terraform_configuration_data
-		
+
+		@emit_runtime_metrics( "unfreeze_aws_account" )
 		@run_on_executor
 		def unfreeze_aws_account( self, credentials ):
 			return TaskSpawner._unfreeze_aws_account(
@@ -1511,7 +1530,8 @@ class TaskSpawner(object):
 				)
 				
 			return ec2_instance_ids
-			
+
+		@emit_runtime_metrics( "freeze_aws_account" )
 		@run_on_executor
 		def freeze_aws_account( self, credentials ):
 			return TaskSpawner._freeze_aws_account( credentials )
@@ -1627,7 +1647,8 @@ class TaskSpawner(object):
 			
 			dbsession.close()
 			return False
-			
+
+		@emit_runtime_metrics( "recreate_aws_console_account" )
 		@run_on_executor
 		def recreate_aws_console_account( self, credentials, rotate_password ):
 			return TaskSpawner._recreate_aws_console_account(
@@ -1705,7 +1726,8 @@ class TaskSpawner(object):
 			)
 				
 			return new_console_user_password
-		
+
+		@emit_runtime_metrics( "send_email" )
 		@run_on_executor
 		def send_email( self, to_email_string, subject_string, message_text_string, message_html_string ):
 			"""
@@ -1781,7 +1803,8 @@ class TaskSpawner(object):
 					}
 				),
 			)
-		
+
+		@emit_runtime_metrics( "send_registration_confirmation_email" )
 		@run_on_executor
 		def send_registration_confirmation_email( self, email_address, auth_token ):
 			registration_confirmation_link = os.environ.get( "web_origin" ) + "/authentication/email/" + auth_token
@@ -1802,7 +1825,8 @@ class TaskSpawner(object):
 					}
 				),
 			)
-			
+
+		@emit_runtime_metrics( "send_internal_registration_confirmation_email" )
 		@run_on_executor
 		def send_internal_registration_confirmation_email( self, customer_email_address, customer_name, customer_phone ):
 			TaskSpawner._send_email(
@@ -1825,7 +1849,8 @@ class TaskSpawner(object):
 					}
 				),
 			)
-	
+
+		@emit_runtime_metrics( "send_authentication_email" )
 		@run_on_executor
 		def send_authentication_email( self, email_address, auth_token ):
 			authentication_link = os.environ.get( "web_origin" ) + "/authentication/email/" + auth_token
@@ -1847,6 +1872,7 @@ class TaskSpawner(object):
 				),
 			)
 
+		@emit_runtime_metrics( "stripe_create_customer" )
 		@run_on_executor
 		def stripe_create_customer( self, email, name, phone_number, source_token, metadata_dict ):
 			# Create a customer in Stripe
@@ -1859,7 +1885,8 @@ class TaskSpawner(object):
 			)
 			
 			return customer[ "id" ]
-			
+
+		@emit_runtime_metrics( "associate_card_token_with_customer_account" )
 		@run_on_executor
 		def associate_card_token_with_customer_account( self, stripe_customer_id, card_token ):
 			# Add the card to the customer's account.
@@ -1869,7 +1896,8 @@ class TaskSpawner(object):
 			)
 			
 			return new_card[ "id" ]
-			
+
+		@emit_runtime_metrics( "get_account_cards" )
 		@run_on_executor
 		def get_account_cards( self, stripe_customer_id ):
 			return TaskSpawner._get_account_cards( stripe_customer_id )
@@ -1897,7 +1925,8 @@ class TaskSpawner(object):
 				card[ "is_primary" ] = is_primary
 			
 			return cards[ "data" ]
-			
+
+		@emit_runtime_metrics( "get_stripe_customer_information" )
 		@run_on_executor
 		def get_stripe_customer_information( self, stripe_customer_id ):
 			return TaskSpawner._get_stripe_customer_information( stripe_customer_id )
@@ -1907,7 +1936,8 @@ class TaskSpawner(object):
 			return stripe.Customer.retrieve(
 				stripe_customer_id
 			)
-			
+
+		@emit_runtime_metrics( "set_stripe_customer_default_payment_source" )
 		@run_on_executor
 		def set_stripe_customer_default_payment_source( self, stripe_customer_id, card_id ):
 			customer_update_response = stripe.Customer.modify(
@@ -1916,7 +1946,8 @@ class TaskSpawner(object):
 			)
 			
 			logit( customer_update_response )
-			
+
+		@emit_runtime_metrics( "delete_card_from_account" )
 		@run_on_executor
 		def delete_card_from_account( self, stripe_customer_id, card_id ):
 			# We first have to pull the customers information so we
@@ -1937,7 +1968,8 @@ class TaskSpawner(object):
 			)
 
 			return True
-			
+
+		@emit_runtime_metrics( "generate_managed_accounts_invoices" )
 		@run_on_executor
 		def generate_managed_accounts_invoices( self, start_date_string, end_date_string ):
 			"""
@@ -2099,6 +2131,7 @@ class TaskSpawner(object):
 				"The monthly Stripe invoice generation has completed. You have <b>one hour</b> to review invoices before they go out to customers.<br /><a href=\"https://dashboard.stripe.com/invoices\"><b>Click here to review the generated invoices</b></a><br /><br />",
 			)
 
+		@emit_runtime_metrics( "pull_current_month_running_account_totals" )
 		@run_on_executor
 		def pull_current_month_running_account_totals( self ):
 			"""
@@ -2156,7 +2189,8 @@ class TaskSpawner(object):
 				ce_params[ "NextPageToken" ] = ce_response[ "NextPageToken" ]
 				
 			return aws_account_running_cost_list
-			
+
+		@emit_runtime_metrics( "enforce_account_limits" )
 		@run_on_executor
 		def enforce_account_limits( self, aws_account_running_cost_list ):
 			"""
@@ -2211,7 +2245,8 @@ class TaskSpawner(object):
 					)
 					
 			dbsession.close()
-	
+
+		@emit_runtime_metrics( "get_sub_account_month_billing_data" )
 		@run_on_executor
 		def get_sub_account_month_billing_data( self, account_id, account_type, billing_month, use_cache ):
 			# Parse the billing month into a datetime object
@@ -2561,7 +2596,8 @@ class TaskSpawner(object):
 				})
 			
 			return service_breakdown_list
-			
+
+		@emit_runtime_metrics( "get_sub_account_billing_forecast" )
 		@run_on_executor
 		def get_sub_account_billing_forecast( self, account_id, start_date, end_date, granularity ):
 			"""
@@ -2604,7 +2640,8 @@ class TaskSpawner(object):
 				"forecasted_total": forecast_total_string,
 				"unit": forecast_unit
 			}
-			
+
+		@emit_runtime_metrics( "check_if_layer_exists" )
 		@run_on_executor
 		def check_if_layer_exists( self, credentials, layer_name ):
 			lambda_client = get_aws_client( "lambda", credentials )
@@ -2619,7 +2656,8 @@ class TaskSpawner(object):
 					return False
 					
 			return True
-			
+
+		@emit_runtime_metrics( "create_lambda_layer" )
 		@run_on_executor
 		def create_lambda_layer( self, credentials, layer_name, description, s3_bucket, s3_object_key ):
 			lambda_client = get_aws_client( "lambda", credentials )
@@ -2646,7 +2684,8 @@ class TaskSpawner(object):
 				"layer_version_arn": response[ "LayerVersionArn" ],
 				"created_date": response[ "CreatedDate" ]
 			}
-			
+
+		@emit_runtime_metrics( "warm_up_lambda" )
 		@run_on_executor
 		def warm_up_lambda( self, credentials, arn, warmup_concurrency_level ):
 			lambda_client = get_aws_client(
@@ -2663,7 +2702,8 @@ class TaskSpawner(object):
 					}
 				})
 			)
-			
+
+		@emit_runtime_metrics( "execute_aws_lambda" )
 		@run_on_executor
 		def execute_aws_lambda( self, credentials, arn, input_data ):
 			return TaskSpawner._execute_aws_lambda( credentials, arn, input_data )
@@ -2766,7 +2806,8 @@ class TaskSpawner(object):
 				"is_error": is_error,
 				"returned_data": full_response,
 			}
-			
+
+		@emit_runtime_metrics( "delete_aws_lambda" )
 		@run_on_executor
 		def delete_aws_lambda( self, credentials, arn_or_name ):
 			return TaskSpawner._delete_aws_lambda( credentials, arn_or_name )
@@ -2777,7 +2818,8 @@ class TaskSpawner(object):
 			return lambda_client.delete_function(
 				FunctionName=arn_or_name
 			)
-			
+
+		@emit_runtime_metrics( "update_lambda_environment_variables" )
 		@run_on_executor
 		def update_lambda_environment_variables( self, credentials, func_name, environment_variables ):
 			lambda_client = get_aws_client( "lambda", credentials )
@@ -2862,7 +2904,8 @@ class TaskSpawner(object):
 				)
 				
 			return package_zip_data
-			
+
+		@emit_runtime_metrics( "set_lambda_reserved_concurrency" )
 		@run_on_executor
 		def set_lambda_reserved_concurrency( self, credentials, arn, reserved_concurrency_count ):
 			# Create Lambda client
@@ -2875,7 +2918,8 @@ class TaskSpawner(object):
 				FunctionName=arn,
 				ReservedConcurrentExecutions=int( reserved_concurrency_count )
 			)
-			
+
+		@emit_runtime_metrics( "deploy_aws_lambda" )
 		@run_on_executor
 		def deploy_aws_lambda( self, credentials, lambda_object ):
 			"""
@@ -3147,7 +3191,8 @@ class TaskSpawner(object):
 				raise
 			
 			return response
-		
+
+		@emit_runtime_metrics( "get_final_zip_package_path" )
 		@run_on_executor
 		def get_final_zip_package_path( self, language, libraries ):
 			return TaskSpawner._get_final_zip_package_path( language, libraries )
@@ -3269,7 +3314,8 @@ class TaskSpawner(object):
 				build_id,
 				final_s3_package_zip_path
 			)
-			
+
+		@emit_runtime_metrics( "start_python36_codebuild" )
 		@run_on_executor
 		def start_python36_codebuild( self, credentials, libraries_object ):
 			return TaskSpawner._start_python36_codebuild( credentials, libraries_object )
@@ -3363,7 +3409,8 @@ class TaskSpawner(object):
 			
 			build_id = codebuild_response[ "build" ][ "id" ]
 			return build_id
-			
+
+		@emit_runtime_metrics( "start_python27_codebuild" )
 		@run_on_executor
 		def start_python27_codebuild( self, credentials, libraries_object ):
 			return TaskSpawner._start_python27_codebuild( credentials, libraries_object )
@@ -3457,7 +3504,8 @@ class TaskSpawner(object):
 			
 			build_id = codebuild_response[ "build" ][ "id" ]
 			return build_id
-			
+
+		@emit_runtime_metrics( "start_ruby264_codebuild" )
 		@run_on_executor
 		def start_ruby264_codebuild( self, credentials, libraries_object ):
 			return TaskSpawner._start_ruby264_codebuild( credentials, libraries_object )
@@ -3566,7 +3614,8 @@ class TaskSpawner(object):
 			build_id = codebuild_response[ "build" ][ "id" ]
 			
 			return build_id
-		
+
+		@emit_runtime_metrics( "start_node810_codebuild" )
 		@run_on_executor
 		def start_node810_codebuild( self, credentials, libraries_object ):
 			return TaskSpawner._start_node810_codebuild( credentials, libraries_object )
@@ -3669,7 +3718,8 @@ class TaskSpawner(object):
 			build_id = codebuild_response[ "build" ][ "id" ]
 			
 			return build_id
-	
+
+		@emit_runtime_metrics( "s3_object_exists" )
 		@run_on_executor
 		def s3_object_exists( self, credentials, bucket_name, object_key ):
 			return TaskSpawner._s3_object_exists(
@@ -3774,7 +3824,8 @@ class TaskSpawner(object):
 				build_id,
 				final_s3_package_zip_path
 			)
-		
+
+		@emit_runtime_metrics( "get_codebuild_artifact_zip_data" )
 		@run_on_executor
 		def get_codebuild_artifact_zip_data( self, credentials, build_id, final_s3_package_zip_path ):
 			return TaskSpawner._get_codebuild_artifact_zip_data(
@@ -3804,7 +3855,8 @@ class TaskSpawner(object):
 				credentials[ "lambda_packages_bucket" ],
 				final_s3_package_zip_path
 			)
-			
+
+		@emit_runtime_metrics( "finalize_codebuild" )
 		@run_on_executor
 		def finalize_codebuild( self, credentials, build_id, final_s3_package_zip_path ):
 			return TaskSpawner._finalize_codebuild(
@@ -3917,6 +3969,7 @@ class TaskSpawner(object):
 				final_s3_package_zip_path
 			)
 
+		@emit_runtime_metrics( "start_php73_codebuild" )
 		@run_on_executor
 		def start_php73_codebuild( self, credentials, libraries_object ):
 			return TaskSpawner._start_php73_codebuild( credentials, libraries_object )
@@ -4186,7 +4239,8 @@ class TaskSpawner(object):
 				build_id,
 				final_s3_package_zip_path
 			)
-			
+
+		@emit_runtime_metrics( "start_node10163_codebuild" )
 		@run_on_executor
 		def start_node10163_codebuild( self, credentials, libraries_object ):
 			return TaskSpawner._start_node810_codebuild( credentials, libraries_object )
@@ -4461,7 +4515,8 @@ class TaskSpawner(object):
 				)
 			
 			return schedule_expression
-			
+
+		@emit_runtime_metrics( "create_cloudwatch_group" )
 		@run_on_executor
 		def create_cloudwatch_group( self, credentials, group_name, tags_dict, retention_days ):
 			# Create S3 client
@@ -4484,7 +4539,8 @@ class TaskSpawner(object):
 				"group_name": group_name,
 				"tags_dict": tags_dict
 			}
-			
+
+		@emit_runtime_metrics( "create_cloudwatch_rule" )
 		@run_on_executor
 		def create_cloudwatch_rule( self, credentials, id, name, schedule_expression, description, input_string ):
 			events_client = get_aws_client(
@@ -4524,7 +4580,8 @@ class TaskSpawner(object):
 				"arn": rule_arn,
 				"input_string": input_string,
 			}
-			
+
+		@emit_runtime_metrics( "add_rule_target" )
 		@run_on_executor
 		def add_rule_target( self, credentials, rule_name, target_id, target_arn, input_string ):
 			# Automatically parse JSON
@@ -4574,7 +4631,8 @@ class TaskSpawner(object):
 			)
 			
 			return rule_creation_response
-		
+
+		@emit_runtime_metrics( "create_sns_topic" )
 		@run_on_executor
 		def create_sns_topic( self, credentials, id, topic_name ):
 			sns_client = get_aws_client(
@@ -4598,7 +4656,8 @@ class TaskSpawner(object):
 				"name": topic_name,
 				"arn": response[ "TopicArn" ]
 			}
-			
+
+		@emit_runtime_metrics( "subscribe_lambda_to_sns_topic" )
 		@run_on_executor
 		def subscribe_lambda_to_sns_topic( self, credentials, topic_arn, lambda_arn ):
 			"""
@@ -4636,7 +4695,8 @@ class TaskSpawner(object):
 				"statement": lambda_permission_add_response[ "Statement" ],
 				"arn": sns_topic_response[ "SubscriptionArn" ]
 			}
-		
+
+		@emit_runtime_metrics( "create_sqs_queue" )
 		@run_on_executor
 		def create_sqs_queue( self, credentials, id, queue_name, batch_size, visibility_timeout ):
 			sqs_client = get_aws_client(
@@ -4681,7 +4741,8 @@ class TaskSpawner(object):
 				"arn": sqs_arn,
 				"batch_size": batch_size
 			}
-			
+
+		@emit_runtime_metrics( "map_sqs_to_lambda" )
 		@run_on_executor
 		def map_sqs_to_lambda( self, credentials, sqs_arn, lambda_arn, batch_size ):
 			lambda_client = get_aws_client(
@@ -4698,6 +4759,7 @@ class TaskSpawner(object):
 			
 			return response
 
+		@emit_runtime_metrics( "read_from_s3_and_return_input" )
 		@run_on_executor
 		def read_from_s3_and_return_input( self, credentials, s3_bucket, path ):
 			return_data = TaskSpawner._read_from_s3(
@@ -4711,7 +4773,8 @@ class TaskSpawner(object):
 				"path": path,
 				"body": return_data
 			}
-			
+
+		@emit_runtime_metrics( "read_from_s3" )
 		@run_on_executor
 		def read_from_s3( self, credentials, s3_bucket, path ):
 			return TaskSpawner._read_from_s3(
@@ -4740,7 +4803,8 @@ class TaskSpawner(object):
 				return "{}"
 				
 			return s3_object[ "Body" ].read()
-			
+
+		@emit_runtime_metrics( "bulk_s3_delete" )
 		@run_on_executor
 		def bulk_s3_delete( self, credentials, s3_bucket, s3_path_list ):
 			s3_client = get_aws_client(
@@ -4763,7 +4827,8 @@ class TaskSpawner(object):
 			)
 			
 			return response
-			
+
+		@emit_runtime_metrics( "get_s3_pipeline_execution_logs" )
 		@run_on_executor
 		def get_s3_pipeline_execution_logs( self, credentials, s3_prefix, max_results ):
 			return TaskSpawner.get_all_s3_paths(
@@ -4772,7 +4837,8 @@ class TaskSpawner(object):
 				s3_prefix,
 				max_results
 			)
-			
+
+		@emit_runtime_metrics( "get_build_packages" )
 		@run_on_executor
 		def get_build_packages( self, credentials, s3_prefix, max_results ):
 			return TaskSpawner.get_all_s3_paths(
@@ -4781,7 +4847,8 @@ class TaskSpawner(object):
 				s3_prefix,
 				max_results
 			)
-		
+
+		@emit_runtime_metrics( "get_s3_list_from_prefix" )
 		@run_on_executor
 		def get_s3_list_from_prefix( self, credentials, s3_bucket, s3_prefix, continuation_token, start_after ):
 			s3_client = get_aws_client(
@@ -4887,7 +4954,8 @@ class TaskSpawner(object):
 				continuation_token = response[ "NextContinuationToken" ]
 					
 			return return_array
-			
+
+		@emit_runtime_metrics( "get_s3_pipeline_execution_ids" )
 		@run_on_executor
 		def get_s3_pipeline_execution_ids( self, credentials, timestamp_prefix, max_results, continuation_token ):
 			return TaskSpawner.get_all_s3_prefixes(
@@ -4897,7 +4965,8 @@ class TaskSpawner(object):
 				max_results,
 				continuation_token
 			)
-		
+
+		@emit_runtime_metrics( "get_s3_pipeline_timestamp_prefixes" )
 		@run_on_executor
 		def get_s3_pipeline_timestamp_prefixes( self, credentials, project_id, max_results, continuation_token ):
 			return TaskSpawner.get_all_s3_prefixes(
@@ -4972,7 +5041,8 @@ class TaskSpawner(object):
 				"prefixes": return_array,
 				"continuation_token": continuation_token
 			}
-			
+
+		@emit_runtime_metrics( "get_aws_lambda_existence_info" )
 		@run_on_executor
 		def get_aws_lambda_existence_info( self, credentials, id, type, lambda_name ):
 			return TaskSpawner._get_aws_lambda_existence_info( credentials, id, type, lambda_name )
@@ -5003,7 +5073,8 @@ class TaskSpawner(object):
 				"exists": True,
 				"arn": response[ "Configuration" ][ "FunctionArn" ]
 			}
-			
+
+		@emit_runtime_metrics( "get_lambda_cloudwatch_logs" )
 		@run_on_executor
 		def get_lambda_cloudwatch_logs( self, credentials, log_group_name, stream_id ):
 			return TaskSpawner._get_lambda_cloudwatch_logs( credentials, log_group_name, stream_id )
@@ -5068,7 +5139,8 @@ class TaskSpawner(object):
 					log_output += event_data[ "message" ]
 					
 			return log_output
-			
+
+		@emit_runtime_metrics( "get_cloudwatch_existence_info" )
 		@run_on_executor
 		def get_cloudwatch_existence_info( self, credentials, id, type, name ):
 			return TaskSpawner._get_cloudwatch_existence_info( credentials, id, type, name )
@@ -5099,7 +5171,8 @@ class TaskSpawner(object):
 				"arn": response[ "Arn" ],
 				"exists": True,
 			}
-			
+
+		@emit_runtime_metrics( "get_sqs_existence_info" )
 		@run_on_executor
 		def get_sqs_existence_info( self, credentials, id, type, name ):
 			return TaskSpawner._get_sqs_existence_info( credentials, id, type, name )
@@ -5130,7 +5203,8 @@ class TaskSpawner(object):
 				"arn": "arn:aws:sqs:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + name,
 				"exists": True,
 			}
-			
+
+		@emit_runtime_metrics( "get_sns_existence_info" )
 		@run_on_executor
 		def get_sns_existence_info( self, credentials, id, type, name ):
 			return TaskSpawner._get_sns_existence_info( credentials, id, type, name )
@@ -5164,6 +5238,7 @@ class TaskSpawner(object):
 				"exists": True,
 			}
 
+		@emit_runtime_metrics( "create_rest_api" )
 		@run_on_executor
 		def create_rest_api( self, credentials, name, description, version ):
 			api_gateway_client = get_aws_client(
@@ -5196,6 +5271,7 @@ class TaskSpawner(object):
 				"version": response[ "version" ]
 			}
 
+		@emit_runtime_metrics( "deploy_api_gateway_to_stage" )
 		@run_on_executor
 		def deploy_api_gateway_to_stage( self, credentials, rest_api_id, stage_name ):
 			api_gateway_client = get_aws_client(
@@ -5218,6 +5294,7 @@ class TaskSpawner(object):
 				"deployment_id": deployment_id,
 			}
 
+		@emit_runtime_metrics( "create_resource" )
 		@run_on_executor
 		def create_resource( self, credentials, rest_api_id, parent_id, path_part ):
 			api_gateway_client = get_aws_client(
@@ -5236,7 +5313,8 @@ class TaskSpawner(object):
 				"api_gateway_id": rest_api_id,
 				"parent_id": parent_id,
 			}
-			
+
+		@emit_runtime_metrics( "create_method" )
 		@run_on_executor
 		def create_method( self, credentials, method_name, rest_api_id, resource_id, http_method, api_key_required ):
 			api_gateway_client = get_aws_client(
@@ -5260,7 +5338,8 @@ class TaskSpawner(object):
 				"http_method": http_method,
 				"api_key_required": api_key_required,
 			}
-			
+
+		@emit_runtime_metrics( "clean_lambda_iam_policies" )
 		@run_on_executor
 		def clean_lambda_iam_policies( self, credentials, lambda_name ):
 			lambda_client = get_aws_client(
@@ -5314,6 +5393,7 @@ class TaskSpawner(object):
 			
 			return {}
 
+		@emit_runtime_metrics( "add_integration_response" )
 		@run_on_executor
 		def add_integration_response( self, credentials, rest_api_id, resource_id, http_method, lambda_name ):
 			api_gateway_client = get_aws_client(
@@ -5327,7 +5407,8 @@ class TaskSpawner(object):
 				statusCode="200",
 				contentHandling="CONVERT_TO_TEXT"
 			)
-			
+
+		@emit_runtime_metrics( "run_on_executor" )
 		@run_on_executor
 		def link_api_method_to_lambda( self, credentials, rest_api_id, resource_id, http_method, api_path, lambda_name ):
 			api_gateway_client = get_aws_client(
@@ -5382,7 +5463,7 @@ class TaskSpawner(object):
 			}
 
 
-local_tasks = TaskSpawner()
+local_tasks = TaskSpawner( logit, CLOUDWATCH_CLIENT )
 
 
 class RunLambda( BaseHandler ):
