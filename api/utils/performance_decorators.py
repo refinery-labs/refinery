@@ -49,19 +49,24 @@ def emit_runtime_metrics( metric_name ):
 
 			elapsed_ms = end_ms - start_ms
 
-			cloudwatch_client.put_metric_data(
-				Namespace="Refinery-Performance-Metrics__" + env_name,
-				MetricData=[
-					{
-						"MetricName": "task_invocation." + metric_name,
-						# Time that this was created at
-						"Timestamp": start,
-						# Time that it took for the request to process
-						"Value": elapsed_ms,
-						"Unit": "Milliseconds"
-					}
-				]
-			)
+			# Best effort to log the metric to Cloudwatch
+			try:
+				cloudwatch_client.put_metric_data(
+					Namespace="Refinery-Performance-Metrics__" + env_name,
+					MetricData=[
+						{
+							"MetricName": "task_invocation." + metric_name,
+							# Time that this was created at
+							"Timestamp": start,
+							# Time that it took for the request to process
+							"Value": elapsed_ms,
+							"Unit": "Milliseconds"
+						}
+					]
+				)
+			except Exception as e:
+				# Gotta catch em' all!
+				logger( "Unable to emit metric " + metric_name + ": " + repr( e ), "warning" )
 
 			logger(
 				"[End Task]   [ID " + task_uuid + "]: " + metric_name + " @ " + str( end_ms / 1000 ) + " -- " + str( elapsed_ms ) + "ms"
