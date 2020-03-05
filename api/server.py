@@ -204,13 +204,6 @@ def on_start():
 				)
 			)
 
-	# Clear out all task locks in case there are some which were left
-	# in a bad state due to a shutdown
-	dbsession = DBSession()
-	dbsession.query( TaskLock ).delete()
-	dbsession.commit()
-	dbsession.close()
-
 mailgun_api_key = os.environ.get( "mailgun_api_key" )
 
 if mailgun_api_key is None:
