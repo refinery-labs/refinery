@@ -59,6 +59,7 @@ from utils.deployments.api_gateway import api_gateway_manager, strip_api_gateway
 from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda, add_shared_files_symlink_to_zip
 from utils.ecs_builders import builder_manager, BuilderManager
 from utils.aws_account_management.preterraform import preterraform_manager
+from utils.locker import AcquireFailure
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
@@ -88,6 +89,7 @@ from models.state_logs import StateLog
 from models.cached_execution_logs_shard import CachedExecutionLogsShard
 from models.project_short_links import ProjectShortLink
 from models.inline_execution_lambdas import InlineExecutionLambda
+from models.task_locks import TaskLock
 
 from pyexceptions.builds import BuildException
 
@@ -202,6 +204,13 @@ def on_start():
 					file_handler.read()
 				)
 			)
+
+	# Clear out all task locks in case there are some which were left
+	# in a bad state due to a shutdown
+	dbsession = DBSession()
+	dbsession.query( TaskLock ).delete()
+	dbsession.commit()
+	dbsession.close()
 
 mailgun_api_key = os.environ.get( "mailgun_api_key" )
 
@@ -7939,6 +7948,84 @@ class DeleteSavedProject( BaseHandler ):
 				)
 
 class DeployDiagram( BaseHandler ):
+	@gen.coroutine
+	def do_diagram_deployment( self, project_name, project_id, diagram_data, project_config ):
+		credentials = self.get_authenticated_user_cloud_configuration()
+
+		# Attempt to deploy diagram
+		deployment_data = yield deploy_diagram(
+			credentials,
+			project_name,
+			project_id,
+			diagram_data,
+			project_config
+		)
+
+		# Check if the deployment failed
+		if deployment_data[ "success" ] == False:
+			logit( "We are now rolling back the deployments we've made...", "error" )
+			yield teardown_infrastructure(
+				credentials,
+				deployment_data[ "teardown_nodes_list" ]
+			)
+			logit( "We've completed our rollback, returning an error...", "error" )
+
+			# For now we'll just raise
+			self.write({
+				"success": True, # Success meaning we caught it
+				"result": {
+					"deployment_success": False,
+					"exceptions": deployment_data[ "exceptions" ],
+				}
+			})
+			raise gen.Return()
+
+		# TODO: Update the project data? Deployments should probably
+		# be an explicit "Save Project" action.
+
+		# Add a reference to this deployment from the associated project
+		existing_project = self.dbsession.query( Project ).filter_by(
+			id=project_id
+		).first()
+
+		if existing_project is None:
+			self.write({
+				"success": False,
+				"code": "DEPLOYMENT_UPDATE",
+				"msg": "Unable to find project when updating deployment.",
+			})
+			raise gen.Return()
+
+		new_deployment = Deployment()
+		new_deployment.project_id = project_id
+		new_deployment.deployment_json = json.dumps(
+			deployment_data[ "deployment_diagram" ]
+		)
+
+		existing_project.deployments.append(
+			new_deployment
+		)
+
+		self.dbsession.commit()
+
+		# Update project config
+		logit( "Updating database with new project config..." )
+		update_project_config(
+			self.dbsession,
+			project_id,
+			deployment_data[ "project_config" ]
+		)
+
+		self.write({
+			"success": True,
+			"result": {
+				"deployment_success": True,
+				"diagram_data": deployment_data[ "deployment_diagram" ],
+				"project_id": project_id,
+				"deployment_id": new_deployment.id,
+			}
+		})
+
 	@authenticated
 	@disable_on_overdue_payment
 	@gen.coroutine
@@ -7951,82 +8038,33 @@ class DeployDiagram( BaseHandler ):
 			self.write({
 				"success": False,
 				"code": "ACCESS_DENIED",
-				"msg": "You do not have priveleges to deploy that!",
+				"msg": "You do not have privileges to deploy that!",
 			})
 			raise gen.Return()
-		
-		project_id = self.json[ "project_id" ]
-		project_name = self.json[ "project_name" ]
-		project_config = self.json[ "project_config" ]
-		
-		diagram_data = json.loads( self.json[ "diagram_data" ] )
-		
-		credentials = self.get_authenticated_user_cloud_configuration()
 
-		deployment_data = yield deploy_diagram(
-			credentials,
-			project_name,
-			project_id,
-			diagram_data,
-			project_config
-		)
-		
-		# Check if the deployment failed
-		if deployment_data[ "success" ] == False:
-			logit( "We are now rolling back the deployments we've made...", "error" )
-			yield teardown_infrastructure(
-				credentials,
-				deployment_data[ "teardown_nodes_list" ]
-			)
-			logit( "We've completed our rollback, returning an error...", "error" )
-			
-			# For now we'll just raise
+		project_name = self.json[ "project_name" ]
+		project_id = self.json[ "project_id" ]
+		diagram_data = json.loads( self.json[ "diagram_data" ] )
+		project_config = self.json[ "project_config" ]
+
+		lock_id = "deploy_diagram_" + project_id
+
+		task_lock = self.task_locker.lock( self.dbsession, lock_id )
+
+		try:
+			# Enforce that we are only attempting to do this multiple times simultaneously for the same project
+			with task_lock:
+				yield self.do_diagram_deployment(
+					project_name, project_id, diagram_data, project_config)
+
+		except AcquireFailure:
+			logit( "unable to acquire deploy diagram lock for " + project_id )
 			self.write({
-				"success": True, # Success meaning we caught it
-				"result": {
-					"deployment_success": False,
-					"exceptions": deployment_data[ "exceptions" ],
-				}
+				"success": False,
+				"code": "DEPLOYMENT_LOCK_FAILURE",
+				"msg": "Deployment for this project is already in progress",
 			})
-			raise gen.Return()
-		
-		# TODO: Update the project data? Deployments should probably
-		# be an explicit "Save Project" action.
-		
-		existing_project = self.dbsession.query( Project ).filter_by(
-			id=project_id
-		).first()
-		
-		new_deployment = Deployment()
-		new_deployment.project_id = project_id
-		new_deployment.deployment_json = json.dumps(
-			deployment_data[ "deployment_diagram" ]
-		)
-		
-		existing_project.deployments.append(
-			new_deployment
-		)
-		
-		self.dbsession.commit()
-		
-		# Update project config
-		logit( "Updating database with new project config..." )
-		update_project_config(
-			self.dbsession,
-			project_id,
-			deployment_data[ "project_config" ]
-		)
-		
-		self.write({
-			"success": True,
-			"result": {
-				"deployment_success": True,
-				"diagram_data": deployment_data[ "deployment_diagram" ],
-				"project_id": project_id,
-				"deployment_id": new_deployment.id,
-			}
-		})
-		
+
 class GetProjectConfig( BaseHandler ):
 	@authenticated
 	@gen.coroutine
