@@ -8070,7 +8070,7 @@ class DeployDiagram( BaseHandler ):
 			self.write({
 				"success": False,
 				"code": "DEPLOYMENT_UPDATE",
-				"msg": "Unable to find project when updating deployment.",
+				"msg": "Unable to find project when updating deployment information.",
 			})
 			raise gen.Return()
 
@@ -8138,7 +8138,7 @@ class DeployDiagram( BaseHandler ):
 		except AcquireFailure:
 			logit( "unable to acquire deploy diagram lock for " + project_id )
 			self.write({
-				"success": False,
+				"success": True,
 				"code": "DEPLOYMENT_LOCK_FAILURE",
 				"msg": "Deployment for this project is already in progress",
 			})
