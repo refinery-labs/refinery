@@ -12,6 +12,7 @@ from models.aws_accounts import AWSAccount
 from models.organizations import Organization
 
 from utils.general import logit
+from utils.locker import Locker
 
 # Pull list of allowed Access-Control-Allow-Origin values from environment var
 allowed_origins = json.loads( os.environ.get( "access_control_allow_origins" ) )
@@ -42,6 +43,12 @@ class BaseHandler( tornado.web.RequestHandler ):
 		self.user_aws_credentials = None
 
 		self._dbsession = None
+
+		self.task_locker = Locker( "refinery" )
+    
+	def initialize( self ):
+		if "Origin" not in self.request.headers:
+			return
 
 	@property
 	def dbsession( self ):
