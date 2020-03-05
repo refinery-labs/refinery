@@ -110,7 +110,13 @@ export interface DeployDiagramRequest extends BaseApiRequest {
   diagram_data: string;
 }
 
+export enum DeployDiagramResponseCode {
+  AccessDenied = 'ACCESS_DENIED',
+  DeploymentLockFailure = 'DEPLOYMENT_LOCK_FAILURE'
+}
+
 export interface DeployDiagramResponse extends BaseApiResponse {
+  code?: DeployDiagramResponseCode;
   result: DeployDiagramResponseResult;
 }
 
