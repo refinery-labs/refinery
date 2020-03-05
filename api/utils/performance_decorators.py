@@ -55,7 +55,13 @@ def emit_runtime_metrics( metric_name ):
 					Namespace="Refinery-Performance-Metrics__" + env_name,
 					MetricData=[
 						{
-							"MetricName": "task_invocation." + metric_name,
+							"MetricName": "task_invocation",
+							"Dimensions": [
+								{
+									"Name": "Task Name",
+									"Value": metric_name
+								}
+							],
 							# Time that this was created at
 							"Timestamp": start,
 							# Time that it took for the request to process
