@@ -8060,7 +8060,7 @@ class DeployDiagram( BaseHandler ):
 		except AcquireFailure:
 			logit( "unable to acquire deploy diagram lock for " + project_id )
 			self.write({
-				"success": True,
+				"success": False,
 				"code": "DEPLOYMENT_LOCK_FAILURE",
 				"msg": "Deployment for this project is already in progress",
 			})
