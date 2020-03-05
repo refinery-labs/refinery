@@ -54,7 +54,7 @@ class Lock:
             # if the lock has expired, reset the lock an acquire lock
             current_time = datetime.now()
             if current_time > task_lock.expiry:
-                task_lock.locked = False
+                task_lock.locked = True
                 task_lock.expiry = self._future_expiry()
                 self.session.commit()
                 return True
