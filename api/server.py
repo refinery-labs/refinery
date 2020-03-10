@@ -89,7 +89,6 @@ from models.state_logs import StateLog
 from models.cached_execution_logs_shard import CachedExecutionLogsShard
 from models.project_short_links import ProjectShortLink
 from models.inline_execution_lambdas import InlineExecutionLambda
-from models.task_locks import TaskLock
 
 from pyexceptions.builds import BuildException
 
@@ -120,6 +119,10 @@ csv.field_size_limit( sys.maxsize )
 # The WebSocket callback endpoint to use when live streaming the output
 # of Lambdas via WebSockets.
 LAMBDA_CALLBACK_ENDPOINT = False
+
+# For loops which do not have a discreet conditional break, we enforce
+# an upper bound of iterations.
+MAX_LOOP_ITERATIONS = 10000
 			
 def on_start():
 	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES, CUSTOMER_IAM_POLICY, DEFAULT_PROJECT_ARRAY, DEFAULT_PROJECT_CONFIG
@@ -8126,7 +8129,7 @@ class DeployDiagram( BaseHandler ):
 		task_lock = self.task_locker.lock( self.dbsession, lock_id )
 
 		try:
-			# Enforce that we are only attempting to do this multiple times simultaneously for the same project
+			# Enforce that we are only attempting to do this once for the same project at any given time
 			with task_lock:
 				yield self.do_diagram_deployment(
 					project_name, project_id, diagram_data, project_config)
@@ -8403,7 +8406,23 @@ def load_further_partitions( credentials, project_id, new_shards_list ):
 		query,
 		False
 	)
-	
+
+@gen.coroutine
+def do_update_athena_table_partitions( task_locker, credentials, project_id ):
+	dbsession = DBSession()
+
+	lock_id = "get_project_executions_" + project_id
+	task_lock = task_locker.lock( dbsession, lock_id )
+	try:
+		# Enforce that we are only attempting to do this once for the same project at any given time
+		with task_lock:
+			yield update_athena_table_partitions( credentials, project_id )
+
+	except AcquireFailure:
+		logit( "Unable to acquire lock for:" + lock_id )
+	finally:
+		dbsession.close()
+
 @gen.coroutine
 def update_athena_table_partitions( credentials, project_id ):
 	"""
@@ -8450,8 +8469,11 @@ def update_athena_table_partitions( credentials, project_id ):
 	latest_athena_known_shard = False
 	if len( athena_known_shards ) > 0:
 		latest_athena_known_shard = s3_prefix + athena_known_shards[-1]
-		
-	while True:
+
+	# Bound this loop to only execute MAX_LOOP_ITERATION times since we
+	# cannot guarantee that the condition `continuation_token == False`
+	# will ever be true.
+	for _ in xrange(MAX_LOOP_ITERATIONS):
 		s3_list_results = yield local_tasks.get_s3_list_from_prefix(
 			credentials,
 			credentials[ "logs_bucket" ],
@@ -8577,7 +8599,10 @@ def get_execution_stats_since_timestamp( credentials, project_id, oldest_timesta
 	
 	continuation_token = False
 	
-	while True:
+	# Bound this loop to only execute MAX_LOOP_ITERATION times since we
+	# cannot guarantee that the condition `continuation_token == False`
+	# will ever be true.
+	for _ in xrange(MAX_LOOP_ITERATIONS):
 		# List shards in the S3 bucket starting at the oldest available shard
 		# That's because S3 buckets will start at the oldest time and end at
 		# the latest time (due to inverse binary UTF-8 sort order)
@@ -8818,18 +8843,21 @@ class GetProjectExecutions( BaseHandler ):
 		}
 		
 		validate_schema( self.json, schema )
-		
+
+		project_id = self.json[ "project_id" ]
+
 		credentials = self.get_authenticated_user_cloud_configuration()
-		
+
 		# We do this to always keep Athena partitioned for the later
-		# steps of querying
-		update_athena_table_partitions(
+		# steps of querying.
+		do_update_athena_table_partitions(
+			self.task_locker,
 			credentials,
-			self.json[ "project_id" ]
+			project_id
 		)
-		
+
 		# Ensure user is owner of the project
-		if not self.is_owner_of_project( self.json[ "project_id" ] ):
+		if not self.is_owner_of_project( project_id ):
 			self.write({
 				"success": False,
 				"code": "ACCESS_DENIED",
@@ -8842,7 +8870,7 @@ class GetProjectExecutions( BaseHandler ):
 		# Pull the logs
 		execution_pipeline_totals = yield get_execution_stats_since_timestamp(
 			credentials,
-			self.json[ "project_id" ],
+			project_id,
 			self.json[ "oldest_timestamp" ]
 		)
 		
@@ -10414,7 +10442,8 @@ class MaintainAWSAccountReserves( BaseHandler ):
 					"MANAGED",
 					False
 				)
-			except:
+			except Exception as e:
+				print e
 				logit( "An error occurred while creating an AWS sub-account.", "error" )
 				pass
 		
