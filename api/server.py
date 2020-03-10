@@ -207,6 +207,8 @@ def on_start():
 				)
 			)
 
+delete_account_lambda_arn = os.environ.get( "delete_account_lambda_arn" )
+
 mailgun_api_key = os.environ.get( "mailgun_api_key" )
 
 if mailgun_api_key is None:
@@ -242,6 +244,18 @@ ORGANIZATION_CLIENT = boto3.client(
 	)
 )
 
+# The AWS lambda API for invoking functions configured to run
+# by the root account. (ex. account deactivation)
+LAMBDA_CLIENT = boto3.client(
+	"lambda",
+	aws_access_key_id=os.environ.get( "aws_access_key" ),
+	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+	region_name=os.environ.get( "region_name" ),
+	config=Config(
+		max_pool_connections=( 1000 * 2 )
+	)
+)
+		
 """
 Decorators
 """
@@ -2274,7 +2288,89 @@ class TaskSpawner(object):
 				"monthly",
 				use_cache
 			)
-			
+
+		@run_on_executor
+		def mark_account_needs_closing( self, email ):
+			dbsession = DBSession()
+
+			row = dbsession.query(User, Organization, AWSAccount).filter(
+				User.organization_id == Organization.id
+			).filter(
+				Organization.id == AWSAccount.organization_id
+			).filter(
+				AWSAccount.aws_account_status == "IN_USE",
+				AWSAccount.account_type == "MANAGED",
+				User.email == email
+			).first()
+
+			if row is None:
+				logit('unable to find user with email: ' + email)
+				return False
+
+			aws_account = row[2]
+			aws_account.aws_account_status = "NEEDS_CLOSING"
+
+			dbsession.commit()
+			dbsession.close()
+			return True
+
+		@run_on_executor
+		def do_account_cleanup( self ):
+			"""
+			When an account has been closed on refinery, the AWS account associated with it has gone stale.
+			In order to prevent any future charges of this account, we close it out using a script which:
+			1) Resets the root AWS account password (required to do anything with the account)
+			2) Waits for the mailgun API to receive the email
+			3) Logs into the root AWS account
+			4) Marks account to be closed
+			"""
+			dbsession = DBSession()
+
+			# find all organizations which have been marked as 'disabled'
+			rows = dbsession.query(User, Organization, AWSAccount).filter(
+				User.organization_id == Organization.id
+			).filter(
+				Organization.id == AWSAccount.organization_id
+			).filter(
+				AWSAccount.aws_account_status == "NEEDS_CLOSING",
+				AWSAccount.account_type == "MANAGED"
+			).all()
+
+			# load all of the results to be processed
+			accounts = [
+				(row[2].id, row[2].aws_account_email) for row in rows]
+			dbsession.close()
+
+			removed_accounts = 0
+			for aws_account in accounts:
+				account_id = aws_account[0]
+				email = aws_account[1]
+
+				response = LAMBDA_CLIENT.invoke(
+					FunctionName=delete_account_lambda_arn,
+					InvocationType="RequestResponse",
+					LogType="Tail",
+					Payload=json.dumps({
+						"email": email
+					})
+				)
+
+				if response["ResponseMetadata"]["HTTPStatusCode"] != 200:
+					logit("failed to remove account: " + email)
+				else:
+					# mark the account as closed
+					dbsession = DBSession()
+					account = dbsession.query(AWSAccount).filter(
+						AWSAccount.id == account_id
+					).first()
+					account.aws_account_status = "CLOSED"
+					dbsession.commit()
+					dbsession.close()
+
+					removed_accounts += 1
+
+			return removed_accounts
+
 		@staticmethod
 		def _get_sub_account_billing_data( account_id, account_type, start_date, end_date, granularity, use_cache ):
 			"""
@@ -2844,7 +2940,7 @@ class TaskSpawner(object):
 		def build_lambda( credentials, lambda_object ):
 			logit( "Building Lambda " + lambda_object.language + " with libraries: " + str( lambda_object.libraries ), "info" )
 			if not ( lambda_object.language in LAMBDA_SUPPORTED_LANGUAGES ):
-				raise Exception( "Error, this language '" + language + "' is not yet supported by refinery!" )
+				raise Exception( "Error, this language '" + lambda_object.language + "' is not yet supported by refinery!" )
 			
 			if lambda_object.language == "python2.7":
 				package_zip_data = TaskSpawner._build_python27_lambda(
@@ -9739,7 +9835,47 @@ class GetBillingMonthTotals( BaseHandler ):
 			"success": True,
 			"billing_data": billing_data,
 		})
-		
+
+class MarkAccountNeedsClosing( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Mark an account as "NEEDS_CLOSING" so that it can be
+		cleaned up when aws accounts are being reaped.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"email": {
+					"type": "string",
+					"pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
+				}
+			},
+			"required": [
+				"email"
+			]
+		}
+
+		validate_schema( self.json, schema )
+
+		ok = yield local_tasks.mark_account_needs_closing(self.json['email'])
+
+		self.write({
+			"ok": ok,
+		})
+
+class RemoveNeedsClosingAccounts( BaseHandler ):
+	@gen.coroutine
+	def get( self ):
+		"""
+		Removes accounts which have been marked as 'NEEDS_CLOSING'
+		"""
+		removed_count = yield local_tasks.do_account_cleanup()
+
+		self.write({
+			"removed": removed_count,
+		})
+
 def get_last_month_start_and_end_date_strings():
 	"""
 	Returns the start date string of the previous month and
@@ -11111,6 +11247,8 @@ def make_app( tornado_config ):
 		( r"/services/v1/clear_s3_build_packages", ClearAllS3BuildPackages ),
 		( r"/services/v1/dangling_resources/([a-f0-9\-]+)", CleanupDanglingResources ),
 		( r"/services/v1/clear_stripe_invoice_drafts", ClearStripeInvoiceDrafts ),
+		( r"/services/v1/mark_account_needs_closing", MarkAccountNeedsClosing ),
+		( r"/services/v1/remove_needs_closing_accounts", RemoveNeedsClosingAccounts ),
 	], **tornado_config)
 	
 def get_lambda_callback_endpoint( tornado_config ):
