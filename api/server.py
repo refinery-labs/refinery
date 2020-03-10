@@ -8135,7 +8135,7 @@ class DeployDiagram( BaseHandler ):
 					project_name, project_id, diagram_data, project_config)
 
 		except AcquireFailure:
-			logit( "unable to acquire deploy diagram lock for " + project_id )
+			logit( "unable to acquire deploy diagram lock for " + project_id, "error" )
 			self.write({
 				"success": False,
 				"code": "DEPLOYMENT_LOCK_FAILURE",
@@ -8419,7 +8419,7 @@ def do_update_athena_table_partitions( task_locker, credentials, project_id ):
 			yield update_athena_table_partitions( credentials, project_id )
 
 	except AcquireFailure:
-		logit( "Unable to acquire lock for:" + lock_id )
+		logit( "Unable to acquire lock for:" + lock_id, "error" )
 	finally:
 		dbsession.close()
 
@@ -8484,6 +8484,7 @@ def update_athena_table_partitions( credentials, project_id ):
 		
 		s3_shards = s3_list_results[ "common_prefixes" ]
 		continuation_token = s3_list_results[ "continuation_token" ]
+		print(continuation_token)
 		
 		# Add all new shards to the list
 		for s3_shard in s3_shards:
@@ -10443,8 +10444,7 @@ class MaintainAWSAccountReserves( BaseHandler ):
 					False
 				)
 			except Exception as e:
-				print e
-				logit( "An error occurred while creating an AWS sub-account.", "error" )
+				logit( "An error occurred while creating an AWS sub-account: " + repr(e), "error" )
 				pass
 		
 		dbsession.close()
