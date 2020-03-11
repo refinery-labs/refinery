@@ -1,3 +1,5 @@
+import MarkdownIt from 'markdown-it';
+
 const tooltipStyle = `
 <style>
   * {
@@ -46,6 +48,11 @@ const tooltipStyle = `
 `;
 
 export function generateTooltipSVGContents(header: string, body: string): string {
+  const md = new MarkdownIt();
+  const formattedHeader = md.renderInline(header);
+  const formattedBody = md.renderInline(body);
+  console.log(formattedHeader);
+
   return `
   <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">
     <foreignObject width="100%" height="100%">
@@ -53,10 +60,10 @@ export function generateTooltipSVGContents(header: string, body: string): string
         ${tooltipStyle}
         <div class="step">
           <div class="header">
-            ${header}
+            ${formattedHeader}
           </div>
           <div class="content">
-            ${body}
+            ${formattedBody}
           </div>
             <button class="btn">
               continue
