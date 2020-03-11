@@ -28,7 +28,7 @@ import {
   DeploymentExecutionsGetters,
   DeploymentExecutionsMutators
 } from '@/store/modules/panes/deployment-executions-pane';
-import { teardownProject } from '@/store/fetchers/api-helpers';
+import { getLatestProjectDeployment, teardownProject } from '@/store/fetchers/api-helpers';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
 import { DemoWalkthroughStoreModule } from '@/store';
@@ -184,22 +184,13 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
         });
       };
 
-      let deploymentResponse: GetLatestProjectDeploymentResponse | null;
-      if (!DemoWalkthroughStoreModule.showingDemoWalkthrough) {
-        deploymentResponse = await makeApiRequest<
-          GetLatestProjectDeploymentRequest,
-          GetLatestProjectDeploymentResponse
-        >(API_ENDPOINT.GetLatestProjectDeployment, {
-          project_id: projectId
-        });
+      const deploymentResponse = await getLatestProjectDeployment(projectId);
 
-        if (!deploymentResponse || !deploymentResponse.success || !deploymentResponse.result) {
-          await handleError('Unable to open project, missing deployment data');
-          return;
-        }
-      } else {
-        deploymentResponse = DemoWalkthroughStoreModule.mockGetLatestProjectDeployment;
+      if (!deploymentResponse || !deploymentResponse.success || !deploymentResponse.result) {
+        await handleError('Unable to open project, missing deployment data');
+        return;
       }
+
       context.commit(DeploymentViewMutators.setOpenedDeployment, deploymentResponse.result);
 
       if (!context.state.openedDeployment) {

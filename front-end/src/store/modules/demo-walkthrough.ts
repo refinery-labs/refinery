@@ -4,14 +4,17 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState, StoreType } from '@/store/store-types';
 import {
   AddDeploymentExecutionOptions,
+  CyTooltip,
+  DemoMockNetworkResponseLookup,
   DemoTooltip,
   DemoTooltipAction,
   DemoTooltipActionType,
+  ExecutionLogsOptions,
+  HTMLTooltip,
   SetCodeRunnerOutputOptions,
-  TooltipType,
-  ViewExecutionLogsOptions
+  TooltipType
 } from '@/types/demo-walkthrough-types';
-import { DeploymentViewActions, DeploymentViewMutators, ProjectViewActions } from '@/constants/store-constants';
+import { DeploymentViewActions, ProjectViewActions } from '@/constants/store-constants';
 import router from '@/router';
 import { RefineryProject, WorkflowRelationshipType } from '@/types/graph';
 import {
@@ -29,10 +32,9 @@ import { ExecutionStatusType } from '@/types/execution-logs-types';
 import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import { RunLambdaMutators } from '@/store/modules/run-lambda';
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
-import { debug } from 'util';
-import { ViewBlockActions, ViewBlockMutators } from '@/store/modules/panes/view-block-pane';
 import cytoscape from 'cytoscape';
-import { DemoWalkthroughStoreModule, UnauthViewProjectStoreModule } from '@/store';
+import { UnauthViewProjectStoreModule } from '@/store';
+import { languages } from 'monaco-editor';
 
 export interface DemoWalkthroughState {
   currentIndex: number;
@@ -46,13 +48,13 @@ export const baseState: DemoWalkthroughState = {
   tooltipsLoaded: false
 };
 
-const INITIAL_TOOLTIP: DemoTooltip = {
+const INITIAL_TOOLTIP: HTMLTooltip = {
   type: TooltipType.HTMLTooltip,
   visible: false,
-  target: 'li[data-tooltip-id="editor-nav-item"]',
   header: 'Start the walkthrough',
   body: 'Get to know this project and Refinery a little better by clicking through this demo.',
   config: {
+    htmlSelector: 'li[data-tooltip-id="editor-nav-item"]',
     placement: 'bottom'
   }
 };
@@ -80,14 +82,21 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     [DemoTooltipActionType.promptUserSignup]: this.promptUserSignup,
     [DemoTooltipActionType.addDeploymentExecution]: this.addDeploymentExecution
   };
-  public mockNetworkResponses: Record<string, object> = {};
+  public mockNetworkResponses: DemoMockNetworkResponseLookup = {};
 
-  get currentCyTooltips(): DemoTooltip[] {
-    return this.tooltips.filter(t => t.type == TooltipType.CyTooltip);
+  get cyTooltips(): CyTooltip[] {
+    return this.tooltips.filter(t => t.type == TooltipType.CyTooltip).map(t => t as CyTooltip);
   }
 
-  get visibleHtmlTooltips(): DemoTooltip[] {
-    return this.tooltips.filter(t => t.visible && t.type == TooltipType.HTMLTooltip);
+  get currentHTMLTooltip(): HTMLTooltip | undefined {
+    const htmlTooltips = this.tooltips
+      .filter(t => t.visible && t.type == TooltipType.HTMLTooltip)
+      .map(t => t as HTMLTooltip);
+
+    if (htmlTooltips.length > 0) {
+      return htmlTooltips[0];
+    }
+    return undefined;
   }
 
   get areTooltipsLoaded(): boolean {
@@ -135,36 +144,36 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   }
 
   @Mutation
-  public resetState() {
-    resetStoreState(this, baseState);
-  }
-
-  @Mutation
   public loadCyTooltips(lookup: Record<string, cytoscape.Position>) {
     if (this.tooltipsLoaded) {
       return;
     }
 
-    this.tooltips = this.tooltips.map(t => {
-      // only do this for cytooltips
-      if (t.type !== TooltipType.CyTooltip) {
-        return t;
-      }
+    this.tooltips = this.tooltips.reduce((tooltips: DemoTooltip[], t: DemoTooltip) => {
+      if (t.type == TooltipType.CyTooltip) {
+        const cyTooltip = t as CyTooltip;
 
-      // lookup the position of the tooltip on the canvas
-      const pos = lookup[t.target];
-      if (!pos) {
-        return t;
-      }
-
-      return {
-        ...t,
-        config: {
-          ...t.config,
-          ...pos
+        // lookup the position of the tooltip on the canvas
+        const pos = lookup[cyTooltip.config.blockId];
+        if (!pos) {
+          // block does not exist on the canvas, so we remove it from the list
+          return tooltips;
         }
-      };
-    });
+
+        const newCyTooltip = {
+          ...cyTooltip,
+          config: {
+            ...cyTooltip.config,
+            ...pos
+          }
+        };
+
+        tooltips.push(newCyTooltip);
+      } else {
+        tooltips.push(t);
+      }
+      return tooltips;
+    }, []);
     this.tooltipsLoaded = true;
   }
 
@@ -197,6 +206,8 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
 
       this.currentIndex = nextCurrentTooltip;
       this.tooltips = tooltips;
+    } else {
+      resetStoreState(this, baseState);
     }
   }
 
@@ -221,8 +232,10 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
 
   @Action
   public async openBlockEditorPane() {
-    if (this.currentTooltip !== undefined) {
-      await this.context.dispatch(`project/${ProjectViewActions.selectNode}`, this.currentTooltip.target, {
+    if (this.currentTooltip !== undefined && this.currentTooltip.type === TooltipType.CyTooltip) {
+      const currentTooltip = this.currentTooltip as CyTooltip;
+      const blockId = currentTooltip.config.blockId;
+      await this.context.dispatch(`project/${ProjectViewActions.selectNode}`, blockId, {
         root: true
       });
     }
@@ -285,18 +298,16 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   }
 
   @Action
-  public mockGetLogsForExecutions(): BlockExecutionLogData {
+  public getLogDataForExecutions(action: DemoTooltipAction): BlockExecutionLogData {
+    const execLogDataOptions = action.options as ExecutionLogsOptions;
     const openedProject = this.context.rootState.project.openedProject as RefineryProject;
-    const blockId = openedProject.workflow_states[0].id;
+    const blockId = openedProject.workflow_states[execLogDataOptions.block_index].id;
     return {
       blockId: blockId,
       logs: {
-        demo: {
-          function_name: 'asdf',
-          log_id: 'demo',
-          s3_key: 'test',
-          timestamp: 0,
-          type: ExecutionStatusType.SUCCESS
+        [execLogDataOptions.log_id]: {
+          ...execLogDataOptions.data,
+          log_id: execLogDataOptions.log_id
         }
       },
       pages: [],
@@ -304,16 +315,32 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     };
   }
 
+  @Mutation
+  public setLogsForExecutions(logData: BlockExecutionLogData) {
+    this.mockNetworkResponses.blockExecutionLogData = logData;
+  }
+
+  @Action
+  public mockExecutionLogData(): BlockExecutionLogData | null {
+    return this.mockNetworkResponses.blockExecutionLogData || null;
+  }
+
+  @Action
+  public async viewExecutionLogData(action: DemoTooltipAction) {
+    const logData = this.getLogDataForExecutions(action);
+    this.setLogsForExecutions(logData);
+  }
+
   @Action
   public getBlockExecutionLogContentsByLogId(action: DemoTooltipAction): BlockExecutionLogContentsByLogId {
-    const execLogsAction = action.options as ViewExecutionLogsOptions;
+    const execLogsAction = action.options as ExecutionLogsOptions;
 
     const openedProject = this.context.rootState.project.openedProject as RefineryProject;
     return {
-      demo: {
-        ...execLogsAction,
-        arn: 'asdf',
-        log_id: 'demo',
+      [execLogsAction.log_id]: {
+        ...execLogsAction.contents,
+        arn: '',
+        log_id: execLogsAction.log_id,
         project_id: openedProject.project_id,
         timestamp: 0,
         type: ExecutionStatusType.SUCCESS
@@ -323,21 +350,20 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
 
   @Mutation
   public setBlockExecutionLogContentsByLogId(logs: BlockExecutionLogContentsByLogId) {
-    this.mockNetworkResponses = {
-      ...this.mockNetworkResponses,
-      blockExecutionLogContentsByLogId: logs
-    };
+    this.mockNetworkResponses.blockExecutionLogContentsByLogId = logs;
   }
 
   @Action
-  public mockContentsForLogs(): BlockExecutionLogContentsByLogId {
-    return this.mockNetworkResponses.blockExecutionLogContentsByLogId as BlockExecutionLogContentsByLogId;
+  public mockContentsForLogs(): BlockExecutionLogContentsByLogId | null {
+    return this.mockNetworkResponses.blockExecutionLogContentsByLogId || null;
   }
 
   @Action
   public async viewExecutionLogs(action: DemoTooltipAction) {
     const response = this.getBlockExecutionLogContentsByLogId(action);
     this.setBlockExecutionLogContentsByLogId(response);
+
+    this.viewExecutionLogData(action);
   }
 
   @Action
@@ -346,7 +372,7 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     const addExecAction = action.options as AddDeploymentExecutionOptions;
 
     const blockExecutionGroup = addExecAction.executions.reduce((group, execution) => {
-      const block = openedProject.workflow_states[execution.blockIndex];
+      const block = openedProject.workflow_states[execution.block_index];
       return {
         [block.id]: {
           executionStatus: execution.status,
@@ -387,10 +413,7 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
 
   @Mutation
   public setDeploymentExecutionResponse(executions: ProductionExecutionResponse) {
-    this.mockNetworkResponses = {
-      ...this.mockNetworkResponses,
-      getProjectExecutions: executions
-    };
+    this.mockNetworkResponses.getProjectExecutions = executions;
   }
 
   @Action
@@ -400,11 +423,12 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   }
 
   @Action
-  public mockAddDeploymentExecution(): ProductionExecutionResponse {
-    return this.mockNetworkResponses.getProjectExecutions as ProductionExecutionResponse;
+  public mockAddDeploymentExecution(): ProductionExecutionResponse | null {
+    return this.mockNetworkResponses.getProjectExecutions || null;
   }
 
-  get mockGetLatestProjectDeployment(): GetLatestProjectDeploymentResponse {
+  @Action
+  public mockGetLatestProjectDeployment(): GetLatestProjectDeploymentResponse {
     const openedProject = this.context.rootState.project.openedProject as RefineryProject;
     const latestDeploymentResponse: GetLatestProjectDeploymentResult = {
       deployment_json: {

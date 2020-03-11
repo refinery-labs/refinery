@@ -7,6 +7,7 @@ import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-type
 import { DemoWalkthroughStoreModule } from '@/store';
 import Tooltip from '@/lib/Tooltip';
 import { TooltipType } from '@/types/demo-walkthrough-types';
+import { TooltipProps } from '@/types/tooltip-types';
 
 const deployment = namespace('deployment');
 const deploymentExecutions = namespace('deploymentExecutions');
@@ -28,19 +29,16 @@ export default class DeploymentViewerGraphContainer extends Vue {
   @deployment.Action selectEdge!: (element: string) => void;
 
   public getDemoWalkthrough() {
-    const tourProps = {
-      step: DemoWalkthroughStoreModule.currentTooltip,
+    const tooltipProps: TooltipProps = {
+      step: DemoWalkthroughStoreModule.currentHTMLTooltip,
       nextTooltip: DemoWalkthroughStoreModule.nextTooltip,
       skipTooltips: DemoWalkthroughStoreModule.skipWalkthrough
     };
 
-    if (
-      DemoWalkthroughStoreModule.currentTooltip &&
-      DemoWalkthroughStoreModule.currentTooltip.type == TooltipType.HTMLTooltip
-    ) {
+    if (DemoWalkthroughStoreModule.currentHTMLTooltip) {
       return (
         <div>
-          <Tooltip props={tourProps} />
+          <Tooltip props={tooltipProps} />
         </div>
       );
     }
@@ -59,7 +57,7 @@ export default class DeploymentViewerGraphContainer extends Vue {
       clearSelection: this.clearSelection,
       selectNode: this.selectNode,
       selectEdge: this.selectEdge,
-      currentTooltips: DemoWalkthroughStoreModule.currentCyTooltips,
+      currentTooltips: DemoWalkthroughStoreModule.cyTooltips,
       loadCyTooltips: DemoWalkthroughStoreModule.loadCyTooltips,
       nextTooltip: DemoWalkthroughStoreModule.nextTooltip,
       elements: this.graphElementsWithExecutionStatus || this.cytoscapeElements,

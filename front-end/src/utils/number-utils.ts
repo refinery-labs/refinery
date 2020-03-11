@@ -18,6 +18,7 @@ export function tryParseInt(rawValue: string | string[], defaultValue: any) {
   }
 }
 
+// Taken from: https://stackoverflow.com/a/8076436
 export function hashCode(str: string): number {
   let hash = 0,
     i,

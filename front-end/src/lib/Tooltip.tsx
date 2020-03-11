@@ -1,7 +1,7 @@
 import Vue from 'vue';
 import Component from 'vue-class-component';
 import { Prop, Watch } from 'vue-property-decorator';
-import { DemoTooltip, HTMLConfig } from '@/types/demo-walkthrough-types';
+import { DemoTooltip, HTMLConfig, HTMLTooltip } from '@/types/demo-walkthrough-types';
 
 import '@/styles/tooltip.scss';
 import PopperJS from 'popper.js';
@@ -11,7 +11,7 @@ import RefineryMarkdown from '@/components/Common/RefineryMarkdown';
 export default class Tooltip extends Vue {
   @Prop({ required: true }) nextTooltip!: () => void;
   @Prop({ required: true }) skipTooltips!: () => void;
-  @Prop({ required: true }) step!: DemoTooltip;
+  @Prop({ required: true }) step!: HTMLTooltip;
 
   setupTooltip() {
     if (this.step === undefined) {
@@ -20,7 +20,7 @@ export default class Tooltip extends Vue {
 
     setTimeout(() => {
       const config = this.step.config as HTMLConfig;
-      const target = document.querySelector(this.step.target);
+      const target = document.querySelector(this.step.config.htmlSelector);
       const element = this.$refs['demo-tooltip'] as Element;
 
       if (target !== null && element !== undefined) {

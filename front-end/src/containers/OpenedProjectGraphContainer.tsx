@@ -13,6 +13,7 @@ import { DemoTooltipActionType, TooltipType } from '@/types/demo-walkthrough-typ
 import { timeout, waitUntil } from '@/utils/async-utils';
 import { ProductionExecutionResponse } from '@/types/deployment-executions-types';
 import Tooltip from '@/lib/Tooltip';
+import { TooltipProps } from '@/types/tooltip-types';
 
 const project = namespace('project');
 
@@ -75,8 +76,8 @@ export default class OpenedProjectGraphContainer extends Vue {
   }
 
   public getDemoWalkthrough() {
-    const tourProps = {
-      step: DemoWalkthroughStoreModule.currentTooltip,
+    const tourProps: TooltipProps = {
+      step: DemoWalkthroughStoreModule.currentHTMLTooltip,
       nextTooltip: DemoWalkthroughStoreModule.nextTooltip,
       skipTooltips: DemoWalkthroughStoreModule.skipWalkthrough
     };
@@ -110,7 +111,7 @@ export default class OpenedProjectGraphContainer extends Vue {
       clearSelection: this.clearSelection,
       selectNode: this.selectNode,
       selectEdge: this.selectEdge,
-      currentTooltips: DemoWalkthroughStoreModule.currentCyTooltips,
+      currentTooltips: DemoWalkthroughStoreModule.cyTooltips,
       loadCyTooltips: DemoWalkthroughStoreModule.loadCyTooltips,
       nextTooltip: DemoWalkthroughStoreModule.nextTooltip,
       elements: this.cytoscapeElements,

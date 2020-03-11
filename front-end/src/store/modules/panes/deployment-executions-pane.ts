@@ -26,7 +26,6 @@ import { autoRefreshJob, timeout, waitUntil } from '@/utils/async-utils';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { DeploymentViewActions } from '@/constants/store-constants';
 import { ExecutionLogMetadata, ExecutionStatusType } from '@/types/execution-logs-types';
-import { DemoWalkthroughStoreModule } from '@/store';
 
 // Enums
 export enum DeploymentExecutionsGetters {
@@ -419,18 +418,12 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       // We may either use the last timestamp or not.
       const timestampToContinueWith = withExistingToken ? context.state.nextTimestampToRetreive : null;
 
-      let executionsResponse: ProductionExecutionResponse;
-      if (!DemoWalkthroughStoreModule.showingDemoWalkthrough) {
-        const executionsResp = await getProjectExecutions(deploymentStore.openedDeployment, timestampToContinueWith);
+      const executionsResponse = await getProjectExecutions(deploymentStore.openedDeployment, timestampToContinueWith);
 
-        if (!executionsResp) {
-          console.error('Unable to fetch execution logs, did not receive any results from server');
-          context.commit(statusMessageType, false);
-          return;
-        }
-        executionsResponse = executionsResp;
-      } else {
-        executionsResponse = await DemoWalkthroughStoreModule.mockAddDeploymentExecution();
+      if (!executionsResponse) {
+        console.error('Unable to fetch execution logs, did not receive any results from server');
+        context.commit(statusMessageType, false);
+        return;
       }
 
       // Merge against existing executions
@@ -558,22 +551,15 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
 
       context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, true);
 
-      // TODO (cthompson) remove this and replace with a mocked response
-      let response: BlockExecutionLogData;
-      if (!DemoWalkthroughStoreModule.showingDemoWalkthrough) {
-        const resp = await getLogsForExecutions(
-          context.rootState.deployment.openedDeployment,
-          blockExecutionGroupForSelectedBlock
-        );
+      const response = await getLogsForExecutions(
+        context.rootState.deployment.openedDeployment,
+        blockExecutionGroupForSelectedBlock
+      );
 
-        if (!resp) {
-          console.error('Unable to retrieve logs for execution');
-          context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, false);
-          return;
-        }
-        response = resp;
-      } else {
-        response = await DemoWalkthroughStoreModule.mockGetLogsForExecutions();
+      if (!response) {
+        console.error('Unable to retrieve logs for execution');
+        context.commit(DeploymentExecutionsMutators.setIsFetchingLogs, false);
+        return;
       }
 
       const payload: AddBlockExecutionsPayload = response;
@@ -671,12 +657,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
         return;
       }
 
-      let logContents: BlockExecutionLogContentsByLogId | null;
-      if (!DemoWalkthroughStoreModule.showingDemoWalkthrough) {
-        logContents = await getContentsForLogs(logsToFetch);
-      } else {
-        logContents = await DemoWalkthroughStoreModule.mockContentsForLogs();
-      }
+      const logContents = await getContentsForLogs(logsToFetch);
 
       if (!logContents) {
         console.error('Unable to fetch log contents, api request did not succeed');

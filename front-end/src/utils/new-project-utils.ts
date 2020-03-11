@@ -5,7 +5,7 @@ import { NewProjectConfig } from '@/types/new-project-types';
 import { unwrapJson } from '@/utils/project-helpers';
 import { RefineryProject, WorkflowFile, WorkflowFileLink, WorkflowRelationship, WorkflowState } from '@/types/graph';
 import generateStupidName from '@/lib/silly-names';
-import { DemoTooltip, TooltipType } from '@/types/demo-walkthrough-types';
+import { CyTooltip, DemoTooltip, TooltipType } from '@/types/demo-walkthrough-types';
 
 export async function createNewProjectFromConfig(config: NewProjectConfig) {
   if (!config.json && !config.name) {
@@ -90,7 +90,10 @@ function reassignDemoWalkthrough(
   return demoWalkthrough.reduce(
     (outputTooltips, tooltip) => {
       if (tooltip.type === TooltipType.CyTooltip) {
-        tooltip.target = oldIdToNewIdLookup[tooltip.target];
+        const cyTooltip = tooltip as CyTooltip;
+        cyTooltip.config.blockId = oldIdToNewIdLookup[cyTooltip.config.blockId];
+
+        tooltip = cyTooltip;
       }
 
       outputTooltips.push(tooltip);
