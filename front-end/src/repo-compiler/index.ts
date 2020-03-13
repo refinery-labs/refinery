@@ -1,9 +1,6 @@
-#!/usr/bin/env node
-
-import program = require('commander');
-import {LambdaWorkflowState, RefineryProject, WorkflowState, WorkflowStateType} from '../lib/front-end/src/types/graph';
-import {languageToFileExtension} from '../lib/front-end/src/utils/project-debug-utils';
-const process = require('process');
+const program = require('commander');
+import { LambdaWorkflowState, RefineryProject, WorkflowState, WorkflowStateType } from '@/types/graph';
+import { languageToFileExtension } from '@/utils/project-debug-utils';
 const Path = require('path');
 const fs = require('fs');
 const slugify = require('slugify');
@@ -61,9 +58,10 @@ function defaultHandler(projectDir: string, workflowState: WorkflowState): Workf
   return workflowState;
 }
 
-const workflowStateActions:
-  Record<WorkflowStateType, (projectDir: string, e: WorkflowState) => WorkflowState | null> =
-{
+const workflowStateActions: Record<
+  WorkflowStateType,
+  (projectDir: string, e: WorkflowState) => WorkflowState | null
+> = {
   [WorkflowStateType.LAMBDA]: handleLambda,
   [WorkflowStateType.API_ENDPOINT]: defaultHandler,
   [WorkflowStateType.API_GATEWAY]: defaultHandler,
@@ -71,7 +69,7 @@ const workflowStateActions:
   [WorkflowStateType.SCHEDULE_TRIGGER]: defaultHandler,
   [WorkflowStateType.SNS_TOPIC]: defaultHandler,
   [WorkflowStateType.SQS_QUEUE]: defaultHandler,
-  [WorkflowStateType.WARMER_TRIGGER]: defaultHandler,
+  [WorkflowStateType.WARMER_TRIGGER]: defaultHandler
 };
 
 function saveProjectToRepo(projectDir: string, project: RefineryProject) {
@@ -80,13 +78,14 @@ function saveProjectToRepo(projectDir: string, project: RefineryProject) {
   // any workflow state that is not explicitly handled will be
   // dropped into the main config
   const newWorkflowStates = project.workflow_states.reduce(
-    (workflowStates, w) => {
+    (workflowStates: WorkflowState[], w: WorkflowState) => {
       const workflowState = workflowStateActions[w.type](projectDir, w);
       if (workflowState) {
         workflowStates.push(workflowState);
       }
-      return workflowStates
-    }, [] as WorkflowState[]
+      return workflowStates;
+    },
+    [] as WorkflowState[]
   );
 
   project.workflow_states = newWorkflowStates;
@@ -104,9 +103,7 @@ function load(config: string) {
   saveProjectToRepo(projectDir, project);
 }
 
-function save(dir: string) {
-
-}
+function save(dir: string) {}
 
 program
   .command('load <config>')
@@ -118,4 +115,4 @@ program
   //.option('-r, --recursive', 'Remove recursively')
   .action(save);
 
-program.parse(process.argv)
+program.parse(process.argv);
