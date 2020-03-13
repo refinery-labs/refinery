@@ -1,9 +1,17 @@
 const program = require('commander');
 import { LambdaWorkflowState, RefineryProject, WorkflowState, WorkflowStateType } from '@/types/graph';
-import { languageToFileExtension } from '@/utils/project-debug-utils';
+import {
+  convertProjectDownloadZipConfigToFileList,
+  createDownloadZipConfig,
+  languageToFileExtension
+} from '@/utils/project-debug-utils';
 const Path = require('path');
 const fs = require('fs');
 const slugify = require('slugify');
+
+function getFolderName(name: string) {
+  return slugify(name).toLowerCase();
+}
 
 function deleteFolderRecursive(path: string) {
   fs.readdirSync(path).forEach((file: string, index: number) => {
@@ -36,31 +44,38 @@ function writeConfig(out: string, data: any, replacer?: (this: any, key: string,
   fs.writeFileSync(out, serializedConfig);
 }
 
-function handleLambda(projectDir: string, workflowState: WorkflowState): WorkflowState | null {
+function handleLambda(
+  projectDir: string,
+  project: RefineryProject,
+  workflowState: WorkflowState
+): WorkflowState | null {
   const lambda = workflowState as LambdaWorkflowState;
 
-  const blockDir = slugify(lambda.name);
+  const blockDir = getFolderName(lambda.name);
   const lambdaDir = Path.join(projectDir, blockDir);
   resetDir(lambdaDir);
 
-  const blockExt = languageToFileExtension[lambda.language];
-  const blockCodePath = Path.join(lambdaDir, `block.${blockExt}`);
+  const config = createDownloadZipConfig(project, lambda);
+  const filesToZip = convertProjectDownloadZipConfigToFileList(config);
 
-  fs.writeFileSync(blockCodePath, lambda.code);
+  filesToZip.forEach(file => {
+    const path = Path.join(lambdaDir, file.fileName);
+    fs.writeFileSync(path, file.contents);
+  });
 
-  const lambdaConfig = Path.join(lambdaDir, 'lambda.json');
+  const lambdaConfig = Path.join(lambdaDir, 'config.json');
   writeConfig(lambdaConfig, lambda, lambdaConfigReplacer);
 
   return null;
 }
 
-function defaultHandler(projectDir: string, workflowState: WorkflowState): WorkflowState {
+function defaultHandler(projectDir: string, project: RefineryProject, workflowState: WorkflowState): WorkflowState {
   return workflowState;
 }
 
 const workflowStateActions: Record<
   WorkflowStateType,
-  (projectDir: string, e: WorkflowState) => WorkflowState | null
+  (projectDir: string, project: RefineryProject, e: WorkflowState) => WorkflowState | null
 > = {
   [WorkflowStateType.LAMBDA]: handleLambda,
   [WorkflowStateType.API_ENDPOINT]: defaultHandler,
@@ -79,7 +94,7 @@ function saveProjectToRepo(projectDir: string, project: RefineryProject) {
   // dropped into the main config
   const newWorkflowStates = project.workflow_states.reduce(
     (workflowStates: WorkflowState[], w: WorkflowState) => {
-      const workflowState = workflowStateActions[w.type](projectDir, w);
+      const workflowState = workflowStateActions[w.type](projectDir, project, w);
       if (workflowState) {
         workflowStates.push(workflowState);
       }
@@ -99,7 +114,7 @@ function load(config: string) {
   const projectJSON = JSON.parse(configData);
   const project = projectJSON as RefineryProject;
 
-  const projectDir = slugify(project.name);
+  const projectDir = getFolderName(project.name);
   saveProjectToRepo(projectDir, project);
 }
 

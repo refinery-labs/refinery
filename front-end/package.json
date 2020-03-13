@@ -14,7 +14,7 @@
     "postinstall": "mkdir tmp-build; npm run modernizr; npm run compile-validators",
     "test:e2e": "vue-cli-service test:e2e --headless",
     "test:unit": "vue-cli-service test:unit",
-    "buile:repo-cli": ""
+    "repo-cli": "node -r tsconfig-paths/register -r ts-node/register src/repo-compiler/index.ts"
   },
   "dependencies": {
     "@fortawesome/fontawesome-free": "^5.8.1",
@@ -56,8 +56,10 @@
     "screenfull": "^4.2.0",
     "simple-line-icons": "2.4.1",
     "sl-vue-tree": "^1.8.4",
+    "slugify": "^1.4.0",
     "split.js": "^1.5.11",
     "tinyqueue": "2.0.3",
+    "tsconfig-paths": "^3.9.0",
     "typescript-json-schema": "^0.38.3",
     "typescript-json-validator": "^2.2.2",
     "uuid": "^3.3.2",
