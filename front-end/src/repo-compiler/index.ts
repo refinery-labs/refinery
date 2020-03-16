@@ -1,5 +1,5 @@
 const program = require('commander');
-import { LambdaWorkflowState, RefineryProject, WorkflowState, WorkflowStateType } from '@/types/graph';
+import { LambdaWorkflowState, RefineryProject, WorkflowFile, WorkflowState, WorkflowStateType } from '@/types/graph';
 import {
   convertProjectDownloadZipConfigToFileList,
   createDownloadZipConfig,
@@ -32,6 +32,12 @@ function resetDir(dir: string) {
   fs.mkdirSync(dir);
 }
 
+function makeDirExist(dir: string) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir);
+  }
+}
+
 function lambdaConfigReplacer(key: string, value: any) {
   if (key === 'code') {
     return undefined;
@@ -44,15 +50,14 @@ function writeConfig(out: string, data: any, replacer?: (this: any, key: string,
   fs.writeFileSync(out, serializedConfig);
 }
 
-function handleLambda(
-  projectDir: string,
-  project: RefineryProject,
-  workflowState: WorkflowState
-): WorkflowState | null {
+function handleLambda(projectDir: string, project: RefineryProject, workflowState: WorkflowState): string | null {
   const lambda = workflowState as LambdaWorkflowState;
 
+  const typePath = Path.join(projectDir, getFolderName(workflowState.type));
+  makeDirExist(typePath);
+
   const blockDir = getFolderName(lambda.name);
-  const lambdaDir = Path.join(projectDir, blockDir);
+  const lambdaDir = Path.join(typePath, blockDir);
   resetDir(lambdaDir);
 
   const config = createDownloadZipConfig(project, lambda);
@@ -66,16 +71,16 @@ function handleLambda(
   const lambdaConfig = Path.join(lambdaDir, 'config.json');
   writeConfig(lambdaConfig, lambda, lambdaConfigReplacer);
 
-  return null;
+  return lambdaDir;
 }
 
-function defaultHandler(projectDir: string, project: RefineryProject, workflowState: WorkflowState): WorkflowState {
-  return workflowState;
+function defaultHandler(projectDir: string, project: RefineryProject, workflowState: WorkflowState): null {
+  return null;
 }
 
 const workflowStateActions: Record<
   WorkflowStateType,
-  (projectDir: string, project: RefineryProject, e: WorkflowState) => WorkflowState | null
+  (projectDir: string, project: RefineryProject, e: WorkflowState) => string | null
 > = {
   [WorkflowStateType.LAMBDA]: handleLambda,
   [WorkflowStateType.API_ENDPOINT]: defaultHandler,
@@ -90,23 +95,53 @@ const workflowStateActions: Record<
 function saveProjectToRepo(projectDir: string, project: RefineryProject) {
   resetDir(projectDir);
 
-  // any workflow state that is not explicitly handled will be
-  // dropped into the main config
-  const newWorkflowStates = project.workflow_states.reduce(
-    (workflowStates: WorkflowState[], w: WorkflowState) => {
-      const workflowState = workflowStateActions[w.type](projectDir, project, w);
-      if (workflowState) {
-        workflowStates.push(workflowState);
+  const nodeToWorkflowState = project.workflow_states.reduce(
+    (workflowStates, w: WorkflowState) => {
+      const path = workflowStateActions[w.type](projectDir, project, w);
+      if (path) {
+        return {
+          ...workflowStates,
+          [w.id]: path
+        };
       }
       return workflowStates;
     },
-    [] as WorkflowState[]
+    {} as Record<string, string>
   );
 
+  const sharedFilesPath = Path.join(projectDir, 'shared-files');
+  makeDirExist(sharedFilesPath);
+  const sharedFileLookup = project.workflow_files.reduce(
+    (lookup, file) => {
+      const sharedFileFilename = Path.join(sharedFilesPath, file.name) as string;
+      fs.writeFileSync(sharedFileFilename, file.body);
+      return {
+        ...lookup,
+        [file.id]: {
+          file: file,
+          path: sharedFileFilename
+        }
+      };
+    },
+    {} as Record<string, { file: WorkflowFile; path: string }>
+  );
+
+  project.workflow_file_links
+    .filter(f => f.type == 'shared_file_link')
+    .forEach(fileLink => {
+      const sharedFile = sharedFileLookup[fileLink.file_id];
+      const sharedFileLinkPath = Path.join(nodeToWorkflowState[fileLink.node], sharedFile.file.name);
+      fs.linkSync(sharedFile.path, sharedFileLinkPath);
+
+      // TODO update dockerfile?
+    });
+
+  /* ignore this for now
   project.workflow_states = newWorkflowStates;
 
   const projectConfig = Path.join(projectDir, 'project.json');
   writeConfig(projectConfig, project);
+  */
 }
 
 function load(config: string) {
@@ -118,16 +153,15 @@ function load(config: string) {
   saveProjectToRepo(projectDir, project);
 }
 
-function save(dir: string) {}
+function lint(dir: string) {
+  if (!fs.existsSync(dir)) {
+    console.error(`Unable to find dir ${dir}`);
+    return;
+  }
+}
 
-program
-  .command('load <config>')
-  //.option('-r, --recursive', 'Remove recursively')
-  .action(load);
+program.command('load <config>').action(load);
 
-program
-  .command('save <dir>')
-  //.option('-r, --recursive', 'Remove recursively')
-  .action(save);
+program.command('lint <dir>').action(lint);
 
 program.parse(process.argv);

@@ -145,6 +145,7 @@ export interface ProjectConfig {
   version: string;
   logging: { level: ProjectLogLevel };
   default_language: SupportedLanguage;
+  project_repo: string;
   warmup_concurrency_level: number;
 }
 

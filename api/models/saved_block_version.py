@@ -4,6 +4,7 @@ import json
 import uuid
 import time
 import os
+import hashlib
 
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -24,9 +25,24 @@ class SavedBlockVersion( Base ):
 	# deprecated: use block_object_json
 	block_object = Column(Text())
 
-	block_object_json = Column(
+	_block_object_json = Column(
+		"block_object_json",
 		JSONB(astext_type=Text)
 	)
+
+	# sha256 hash to uniquely identify this block with its hashable properties
+	block_hash = CHAR(64)
+
+	@property
+	def block_object_json(self):
+		return self._block_object_json
+
+	@block_object_json.setter
+	def block_object_json( self, block_json ):
+		self.block_object_json = block_json
+
+		serialized_block = json.dumps(block_json)
+		self.block_hash = hashlib.sha256(serialized_block).digest()
 
 	@property
 	def shared_files( self ):

@@ -420,6 +420,16 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         default_language: projectRuntimeLanguage
       };
     },
+    [ProjectViewMutators.setProjectRepo](state, projectRepo: string) {
+      if (state.openedProjectConfig === null) {
+        console.error('Could not set project git repo due to no project being opened.');
+        return;
+      }
+      state.openedProjectConfig = {
+        ...state.openedProjectConfig,
+        project_repo: projectRepo
+      };
+    },
 
     // Deployment Logic
     [ProjectViewMutators.setLatestDeploymentState](state, response: GetLatestProjectDeploymentResponse | null) {
@@ -523,6 +533,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Save new config to the backend
       await context.dispatch(ProjectViewActions.saveProjectConfig);
     },
+    async [ProjectViewActions.setProjectConfigRepo](context, projectConfigRepo: string) {
+      context.commit(ProjectViewMutators.setProjectRepo, projectConfigRepo);
+
+      // Save new config to the backend
+      await context.dispatch(ProjectViewActions.saveProjectConfig);
+    },
     async [ProjectViewActions.setIfExpression](context, ifExpressionValue: string) {
       await context.commit(ProjectViewMutators.setIfExpression, ifExpressionValue);
     },
@@ -609,6 +625,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
           api_gateway: { gateway_id: false },
           logging: { level: ProjectLogLevel.LOG_ALL },
           default_language: SupportedLanguage.NODEJS_8,
+          project_repo: '',
           version: '1'
         },
         // We mark it as dirty so that we always show the save button ;)
