@@ -1,7 +1,12 @@
 import uuid
 
-from controller.base import  BaseHandler
-from server import authenticated, validate_schema, logit
+from tornado import gen
+from jsonschema import validate as validate_schema
+
+from controller.base import BaseHandler
+from controller.decorators import authenticated
+from utils.general import logit
+from utils.locker import  AcquireFailure
 
 from models.initiate_database import *
 from models.saved_block import SavedBlock
@@ -178,12 +183,15 @@ def generate_saved_block_filters(share_status, block_language, search_string, au
 			)
 		)
 
-	if share_status == "PRIVATE":
+	if share_status == "PRIVATE" or share_status == "GIT":
 		if authenticated_user_id == None:
 			# Return nothing because we're not logged in, so there can't possibly be private blocks to search.
 			return [False]
 
 		# Default is to just search your own saved blocks
+		saved_block_filters.append(
+			SavedBlock.share_status == share_status
+		)
 		saved_block_filters.append(
 			SavedBlock.user_id == authenticated_user_id
 		)
@@ -195,7 +203,7 @@ def generate_saved_block_filters(share_status, block_language, search_string, au
 
 	if block_language != "":
 		saved_block_filters.append(
-			SavedBlockVersion.block_object_json[ "language" ].astext == block_language
+			SavedBlockVersion._block_object_json[ "language" ].astext == block_language
 		)
 
 	return saved_block_filters
@@ -402,8 +410,14 @@ class SavedBlockDelete( BaseHandler ):
 		})
 
 class SavedBlockImport( BaseHandler ):
+	def initialize( self, repo_assistant ):
+		super( SavedBlockImport, self ).initialize()
+
+		self.repo_assistant = repo_assistant
+
 	@authenticated
-	def delete( self ):
+	@gen.coroutine
+	def post( self ):
 		"""
 		Import saved Blocks from configured repository
 		"""
@@ -412,10 +426,14 @@ class SavedBlockImport( BaseHandler ):
 			"properties": {
 				"project_id": {
 					"type": "string",
+				},
+				"project_repo": {
+					"type": "string"
 				}
 			},
 			"required": [
-				"project_id"
+				"project_id",
+				"project_repo"
 			]
 		}
 
@@ -423,7 +441,34 @@ class SavedBlockImport( BaseHandler ):
 
 		logit( "Importing saved blocks for project: " + self.json[ "project_id" ] )
 
-		
+		project_id = self.json[ "project_id" ]
+		project_repo = self.json[ "project_repo" ]
+
+		# Ensure user is owner of the project
+		if not self.is_owner_of_project( project_id ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have privileges to access that project version!",
+			})
+			raise gen.Return()
+
+		user_id = self.get_authenticated_user_id()
+
+		lock_id = "git_block_import_" + project_id
+		lock = self.task_locker.lock(self.dbsession, lock_id)
+		try:
+			with lock:
+				# do not wait for upsert to complete, this will run in the background
+				self.repo_assistant.upsert_blocks_from_repo(self.dbsession, user_id, project_id, project_repo)
+		except AcquireFailure:
+			logit( "unable to acquire git block lock for " + project_id )
+			self.write({
+				"success": False,
+				"code": "GIT_BLOCK_UPSERT_LOCK_FAILURE",
+				"msg": "Importing git blocks for this project is already in progress",
+			})
+			raise gen.Return()
 
 		self.write({
 			"success": True

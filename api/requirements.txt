@@ -39,5 +39,5 @@ SQLAlchemy==1.2.11
 stripe==2.28.2
 tornado==5.1
 unicodecsv==0.14.1
-urllib3==1.23
+urllib3==1.24
 gitpython

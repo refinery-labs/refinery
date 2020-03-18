@@ -133,6 +133,7 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
     this.busyPublishingBlock = busy;
   }
 
+  @Action
   private setPublishState(isForkingBlock: boolean, isPublished: boolean) {
     this.setPublishDisabled(isPublished && !isForkingBlock);
     this.setPublishStatus(isPublished && !isForkingBlock);
@@ -184,6 +185,7 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
         this.setSaveType(SavedBlockSaveType.UPDATE);
       }
     } else {
+      debugger;
       this.setPublishState(isForkingBlock, false);
     }
 

@@ -30,6 +30,8 @@ import {
   InfraTearDownResponse,
   RenameProjectRequest,
   RenameProjectResponse,
+  SavedBlockImportRequest,
+  SavedBlockImportResponse,
   SavedBlockStatusCheckRequest,
   SavedBlockStatusCheckResponse,
   SaveProjectRequest,
@@ -408,6 +410,23 @@ export async function getSavedBlockStatus(block: WorkflowState) {
   }
 
   return response.results[0];
+}
+
+export async function importSavedBlocks(projectId: string, projectRepo: string) {
+  const result = await makeApiRequest<SavedBlockImportRequest, SavedBlockImportResponse>(
+    API_ENDPOINT.SavedBlockImport,
+    {
+      project_id: projectId,
+      project_repo: projectRepo
+    }
+  );
+
+  if (!result || !result.success) {
+    // TODO: raise error?
+    return null;
+  }
+
+  return null;
 }
 
 export async function deployProject({ project, projectConfig }: DeployProjectParams): Promise<DeployProjectResult> {

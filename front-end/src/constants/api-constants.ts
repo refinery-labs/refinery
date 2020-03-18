@@ -44,7 +44,8 @@ export enum API_ENDPOINT {
   SavedBlockStatusCheck = 'SavedBlockStatusCheck',
   CreateProjectShortlink = 'CreateProjectShortlink',
   GetProjectShortlink = 'GetProjectShortlink',
-  DeleteSavedBlock = 'DeleteSavedBlock'
+  DeleteSavedBlock = 'DeleteSavedBlock',
+  SavedBlockImport = 'SavedBlockImport'
 }
 
 export enum HTTP_METHOD {
@@ -248,6 +249,10 @@ export const ApiConfigMap: ApiConfigMapType = {
   },
   [API_ENDPOINT.DeleteSavedBlock]: {
     path: '/api/v1/saved_blocks/delete',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.SavedBlockImport]: {
+    path: '/api/v1/saved_blocks/import',
     method: HTTP_METHOD.POST
   }
 };

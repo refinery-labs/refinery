@@ -46,10 +46,12 @@ import ViewReadmePane from '@/components/ProjectEditor/ViewReadme';
 import EditReadmePane from '@/components/ProjectEditor/EditReadme';
 
 export const savedBlockType = 'saved_block';
+export const gitBlockType = 'git_block';
 
 export const BlockSelectionType = {
   ...WorkflowStateType,
-  saved_block: savedBlockType
+  saved_block: savedBlockType,
+  git_block: gitBlockType
 };
 
 export interface AddGraphElementConfig {
@@ -134,6 +136,7 @@ export const blockTypeToImageLookup: BlockTypeConfig = {
 export const availableBlocks: string[] = [
   WorkflowStateType.LAMBDA,
   BlockSelectionType.saved_block,
+  BlockSelectionType.git_block,
   WorkflowStateType.SCHEDULE_TRIGGER,
   WorkflowStateType.API_ENDPOINT,
   WorkflowStateType.SNS_TOPIC,

@@ -29,6 +29,7 @@ import re
 import io
 
 from tornado import gen
+from tornado.web import url
 import unicodecsv as csv
 from ansi2html import Ansi2HTMLConverter
 from botocore.exceptions import ClientError
@@ -61,11 +62,14 @@ from utils.locker import AcquireFailure
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
 from controller.base import BaseHandler
+from controller.decorators import authenticated, disable_on_overdue_payment
 from controller.executions_controller import ExecutionsControllerServer
 from controller.lambda_connect_back import LambdaConnectBackServer
 from controller.dangling_resources import CleanupDanglingResources
 from controller.clear_invoice_drafts import ClearStripeInvoiceDrafts
 from controller.saved_blocks_controller import SavedBlockDelete, SavedBlockImport, SavedBlocksCreate, SavedBlockSearch, SavedBlockStatusCheck
+
+from assistants.project_repo import ProjectRepoAssistant
 
 from data_types.aws_resources.alambda import Lambda
 
@@ -240,79 +244,6 @@ ORGANIZATION_CLIENT = boto3.client(
 	)
 )
 
-"""
-Decorators
-"""
-def authenticated( func ):
-	"""
-	Decorator to ensure the user is currently authenticated.
-	
-	If the user is not, the response will be:
-	{
-		"success": false,
-		"code": "AUTH_REQUIRED",
-		"msg": "...",
-	}
-	"""
-	def wrapper( *args, **kwargs ):
-		self_reference = args[0]
-		
-		authenticated_user = self_reference.get_authenticated_user()
-		
-		if authenticated_user == None:
-			self_reference.write({
-				"success": False,
-				"code": "AUTH_REQUIRED",
-				"msg": "You must be authenticated to do this!",
-			})
-			return
-		
-		return func( *args, **kwargs )
-	return wrapper
-
-def disable_on_overdue_payment( func ):
-	"""
-	Decorator to disable specific endpoints if the user
-	is in collections and needs to settle up their bill.
-	
-	If the user is not, the response will be:
-	{
-		"success": false,
-		"code": "ORGANIZATION_UNSETTLED_BILLS",
-		"msg": "...",
-	}
-	"""
-	def wrapper( *args, **kwargs ):
-		self_reference = args[0]
-		
-		# Pull the authenticated user
-		authenticated_user = self_reference.get_authenticated_user()
-		
-		# Pull the user's org to see if any payments are overdue
-		authenticated_user_org = authenticated_user.organization
-		
-		if authenticated_user_org.payments_overdue == True:
-			self_reference.write({
-				"success": False,
-				"code": "ORGANIZATION_UNSETTLED_BILLS",
-				"msg": "This organization has an unsettled bill which is overdue for payment. This action can not be performed until the outstanding bills have been paid.",
-			})
-			return
-		
-		# Check if the user is on a free trial and if the free trial is over
-		trial_info = get_user_free_trial_information( authenticated_user )
-		
-		if trial_info[ "is_using_trial" ] and trial_info[ "trial_over" ]:
-			self_reference.write({
-				"success": False,
-				"code": "USER_FREE_TRIAL_ENDED",
-				"msg": "Your free trial has ended, you must supply a payment method in order to perform this action.",
-			})
-			return
-		
-		return func( *args, **kwargs )
-	return wrapper
-	
 def get_billing_rounded_float( input_price_float ):
 	"""
 	This is used because Stripe only allows you to charge line
@@ -7742,6 +7673,7 @@ class DeployDiagram( BaseHandler ):
 				"code": "DEPLOYMENT_LOCK_FAILURE",
 				"msg": "Deployment for this project is already in progress",
 			})
+			raise gen.Return()
 
 class GetProjectConfig( BaseHandler ):
 	@authenticated
@@ -10641,6 +10573,7 @@ class GetProjectShortlink( BaseHandler ):
 def get_tornado_app_config( is_debug ):
 	return {
 		"debug": is_debug,
+		"offline_dev": os.environ.get( "offline_dev" ),
 		"ngrok_enabled": os.environ.get( "ngrok_enabled" ),
 		"cookie_secret": os.environ.get( "cookie_secret_value" ),
 		"compress_response": True,
@@ -10698,6 +10631,8 @@ def make_app( tornado_config ):
 		#user_service=user_service
 	)
 
+	repo_assistant = ProjectRepoAssistant(logit)
+
 	# Sets up routes
 	return tornado.web.Application([
 		( r"/api/v1/health", HealthHandler ),
@@ -10716,7 +10651,7 @@ def make_app( tornado_config ):
 		( r"/api/v1/saved_blocks/search", SavedBlockSearch ),
 		( r"/api/v1/saved_blocks/status_check", SavedBlockStatusCheck ),
 		( r"/api/v1/saved_blocks/delete", SavedBlockDelete ),
-		( r"/api/v1/saved_blocks/import", SavedBlockImport ),
+		url( r"/api/v1/saved_blocks/import", SavedBlockImport, dict(repo_assistant=repo_assistant) ),
 		( r"/api/v1/lambdas/run", RunLambda ),
 		( r"/api/v1/lambdas/logs", GetCloudWatchLogsForLambda ),
 		( r"/api/v1/lambdas/env_vars/update", UpdateEnvironmentVariables ),
@@ -10768,6 +10703,10 @@ def make_app( tornado_config ):
 	], **tornado_config)
 	
 def get_lambda_callback_endpoint( tornado_config ):
+	if tornado_config["offline_dev"] == "true":
+		logit("Currently developing offline, setting lambda callback to localhost")
+		return "ws://localhost:3333/ws/v1/lambdas/connectback"
+
 	if tornado_config["ngrok_enabled"] == "true":
 		logit( "Setting up the ngrok tunnel to the local websocket server..." )
 		ngrok_http_endpoint = tornado.ioloop.IOLoop.current().run_sync(

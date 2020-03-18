@@ -4,7 +4,12 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState, StoreType } from '@/store/store-types';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
-import { LibraryBuildArguments, searchSavedBlocks, startLibraryBuild } from '@/store/fetchers/api-helpers';
+import {
+  importSavedBlocks,
+  LibraryBuildArguments,
+  searchSavedBlocks,
+  startLibraryBuild
+} from '@/store/fetchers/api-helpers';
 import { SavedBlockSearchResult, SharedBlockPublishStatus } from '@/types/api-types';
 import { ChosenBlock } from '@/types/add-block-types';
 import { BlockEnvironmentVariable, LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
@@ -18,6 +23,7 @@ export interface AddSavedBlockPaneState {
 
   searchInput: string;
   languageInput: string;
+  blockTypeInput: string;
 
   searchPrivateToggleValue: boolean;
   searchPublishedToggleValue: boolean;
@@ -35,6 +41,7 @@ export const baseState: AddSavedBlockPaneState = {
 
   searchInput: '',
   languageInput: '',
+  blockTypeInput: SharedBlockPublishStatus.PRIVATE,
 
   searchPrivateToggleValue: true,
   searchPublishedToggleValue: true,
@@ -57,12 +64,14 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
 
   public searchInput: string = initialState.searchInput;
   public languageInput: string = initialState.languageInput;
+  public blockTypeInput: string = initialState.blockTypeInput;
 
   public searchPrivateToggleValue: boolean = initialState.searchPrivateToggleValue;
   public searchPublishedToggleValue: boolean = initialState.searchPublishedToggleValue;
 
   public searchResultsPrivate: SavedBlockSearchResult[] = initialState.searchResultsPrivate;
   public searchResultsPublished: SavedBlockSearchResult[] = initialState.searchResultsPublished;
+  public searchResultsGit: SavedBlockSearchResult[] = initialState.searchResultsPublished;
 
   public environmentVariablesInputs: { [key: string]: string } = initialState.environmentVariablesInputs;
 
@@ -122,6 +131,11 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
   }
 
   @Mutation
+  public setBlockTypeInputValue(value: string) {
+    this.blockTypeInput = value;
+  }
+
+  @Mutation
   public setSearchResultsPrivate(results: SavedBlockSearchResult[]) {
     this.searchResultsPrivate = results;
   }
@@ -129,6 +143,11 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
   @Mutation
   public setSearchResultsPublished(results: SavedBlockSearchResult[]) {
     this.searchResultsPublished = results;
+  }
+
+  @Mutation
+  public setSearchResultsGit(results: SavedBlockSearchResult[]) {
+    this.searchResultsGit = results;
   }
 
   @Mutation
@@ -160,6 +179,7 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
 
     const privateSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.PRIVATE, this.languageInput);
     const publicSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.PUBLISHED, this.languageInput);
+    const gitSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.GIT, this.languageInput);
 
     const privateResult = await privateSearch;
 
@@ -175,6 +195,13 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
       return;
     }
 
+    const gitResult = await gitSearch;
+
+    if (!gitResult) {
+      console.error('Unable to perform saved block search, server did not yield a response');
+      return;
+    }
+
     this.setSearchResultsPrivate(privateResult);
 
     // Only add unique results. This strips out all public blocks that are in our saved blocks already.
@@ -184,7 +211,26 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
 
     this.setSearchResultsPublished(filteredPublicResults);
 
+    this.setSearchResultsGit(gitResult);
+
     this.setIsBusySearching(false);
+  }
+
+  @Action async importProjectGitBlocks() {
+    if (!this.context.rootState.project.openedProject) {
+      console.error('No project is currently opened');
+      return;
+    }
+
+    if (!this.context.rootState.project.openedProjectConfig) {
+      console.error('No project config was able to be found');
+      return;
+    }
+
+    const projectId = this.context.rootState.project.openedProject.project_id;
+    const projectRepo = this.context.rootState.project.openedProjectConfig.project_repo;
+
+    await importSavedBlocks(projectId, projectRepo);
   }
 
   @Action
@@ -192,8 +238,10 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
     const searchMatchFn = (result: SavedBlockSearchResult) => result.id === id;
 
     const privateMatches = this.searchResultsPrivate.filter(searchMatchFn);
+    const publishedMatches = this.searchResultsPublished.filter(searchMatchFn);
+    const gitMatches = this.searchResultsGit.filter(searchMatchFn);
 
-    const matches = [...privateMatches, ...this.searchResultsPublished.filter(searchMatchFn)];
+    const matches = [...privateMatches, ...publishedMatches, ...gitMatches];
 
     if (matches.length > 1) {
       console.error(

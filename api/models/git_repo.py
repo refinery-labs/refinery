@@ -1,15 +1,11 @@
 from initiate_database import *
-import json
 import uuid
-import time
-import os
 
 class GitRepo( Base ):
 	__tablename__ = "git_repos"
 
 	id = Column(Text(), primary_key=True)
 
-	# Parent user the saved function
 	project_id = Column(
 		CHAR(36),
 		ForeignKey(
@@ -20,8 +16,7 @@ class GitRepo( Base ):
 	url = Column(Text())
 
 	blocks = relationship(
-		"SavedBlock",
-		backref="git_repos",
+		"GitBlock",
 		cascade="all, delete-orphan"
 	)
 

@@ -681,7 +681,8 @@ export interface CreateSavedBlockResponse extends BaseApiResponse {
 
 export enum SharedBlockPublishStatus {
   PUBLISHED = 'PUBLISHED',
-  PRIVATE = 'PRIVATE'
+  PRIVATE = 'PRIVATE',
+  GIT = 'GIT'
 }
 
 export enum SavedBlockSaveType {
@@ -719,6 +720,14 @@ export interface DeleteSavedBlockRequest extends BaseApiRequest {
 }
 
 export interface DeleteSavedBlockResponse extends BaseApiResponse {}
+
+// SavedBlockImport
+export interface SavedBlockImportRequest extends BaseApiRequest {
+  project_id: string;
+  project_repo: string;
+}
+
+export interface SavedBlockImportResponse extends BaseApiResponse {}
 
 // SavedBlockStatusCheck
 export interface SavedBlockStatusCheckRequest extends BaseApiRequest {
