@@ -9,8 +9,8 @@ $aside-wd-collapsed-text:                 76px;
 $aside-bg:                                #fff;
 
 $content-bg:                              $body-bg;
-$content-heading-bg:                      #fafbfc;
-$content-heading-border:                  #cfdbe2;
+$content-heading-bg:                      #2a2a2a;
+$content-heading-border:                  #3f3f3f;
 $content-padding:                         20px;
 
 $footer-hg:                               30px;
@@ -23,3 +23,31 @@ $z-index-main-section:                    111;
 $blur-amount:                             2px;
 
 $light:                                   #f8f9fa;
+
+$card-bg:                                 #444;
+$card-header-bg:                          #444;
+
+$dark-tab-border:                         #4a5052;
+$dark-tab-bg-color:                       #21242d;
+$dark-tab-border-active:                  #5b6163;
+$dark-tab-color-active:                   #fff;
+$dark-tab-bg-color-active:                #484d5f;
+$nav-link-border-color:                   #a9a9a9;
+
+$nav-tabs-border-color:                   $nav-link-border-color;
+$view-project-page-content-border-color:  $nav-link-border-color;
+$footer-container-border:                 $nav-link-border-color;
+
+$view-project-selected-tab-bottom-border: $dark-tab-border-active;
+$view-project-selected-tab-bg:            $dark-tab-border-active;
+
+$pane-bg-color:                           #333;
+$input-color:                             #efefef;
+$input-bg:                                #1a1a1a;
+$input-border-color:                      #8a8a8a;
+
+$scrollable-pane-container:               #8a8a8a;
+
+$card-default-border-color:               #a9a9a9;
+
+$input-group-addon-bg:                    #555;

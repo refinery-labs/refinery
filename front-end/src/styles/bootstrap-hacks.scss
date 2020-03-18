@@ -6,12 +6,12 @@
 
 .dark-modal {
   .dark-nav-tab {
-    border: 1px solid #4a5052 !important;
-    background-color: #21242d !important;
+    border: 1px solid $dark-tab-border !important;
+    background-color: $dark-tab-bg-color !important;
 
     &.active {
-      border: 1px solid #5b6163 !important;
-      background-color: #484d5f !important;
+      border: 1px solid $dark-tab-border-active !important;
+      background-color: $dark-tab-bg-color-active !important;
     }
   }
 }

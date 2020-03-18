@@ -94,13 +94,15 @@ hr {
     padding: 0.625rem 0.9375rem;
 }
 
+$card-header-bg: #fff !default;
+
 .card-default {
 
     border-top-width: 3px;
     border-color: $card-default-border-color;
 
     .card-header {
-        background-color: #fff;
+        background-color: $card-header-bg;
     }
 }
 
@@ -116,12 +118,14 @@ hr {
     }
 }
 
+$nav-link-border-color: $gray !default;
+
 .nav-tabs>.nav-item>.nav-link {
     font-weight: bold;
     color: $body-color;
     background-color: $gray-lighter;
     margin: 0;
-    border: 1px solid $gray;
+    border: 1px solid $nav-link-border-color;
     border-radius: 0;
     padding: 10px 20px;
     &.active {

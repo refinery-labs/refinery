@@ -1,10 +1,10 @@
 
 // Cutoms Gray colors for theme
-$gray-darker:           #232735;
-$gray-dark:             #3a3f51;
+$gray-darker:           #edf1f2;
+$gray-dark:             #e4eaec;
 $gray:                  #dde6e9;
 $gray-light:            #e4eaec;
-$gray-lighter:          #edf1f2;
+$gray-lighter:          #232735;
 
 // Custom brand colors for theme
 $inverse:               #131e26;
@@ -51,12 +51,12 @@ $yellow-dark:           darken($yellow, $amountOfLight);
 $navbar-height:                    45px;
 
 // Button secondary redefinition style for theme
-$btn-secondary-color:              #333;
-$btn-secondary-bg:                 #fff;
-$btn-secondary-border:             #eaeaea;
+$btn-secondary-color:              #fff;
+$btn-secondary-bg:                 #222;
+$btn-secondary-border:             #555;
 
 // Top Border color for custom default cards (.card-default)
-$card-default-border-color:        #cfdbe2;
+$card-default-border-color:        #cfdbe2 !default;
 
 
 // ---------------------
@@ -138,8 +138,8 @@ $theme-colors: (
 
 // Body
 
-$body-bg:                   #f5f7fa;
-$body-color:                #656565;
+$body-bg:                   #1a1a1a;
+$body-color:                #dfdfdf;
 
 $border-radius:               .25rem;
 $border-radius-lg:            .375rem;
@@ -148,14 +148,14 @@ $line-height-base:            1.528571429;
 
 $headings-line-height:        1.1;
 
-$text-muted:                  #555e63;
+$text-muted:                  #bababa;
 
 // Tables
 
-$table-accent-bg:             #fafbfc;
-$table-hover-bg:              #fafbfc;
+$table-accent-bg:             #111;
+$table-hover-bg:              #1f1f1f;
 
-$table-border-color:          #eee;
+$table-border-color:          #343434;
 
 // Buttons + Forms
 
@@ -173,7 +173,7 @@ $input-height:                2.1875rem; // 35px
 // Forms
 
 $input-disabled-bg:                     $gray-lighter;
-$input-border-color:                    $gray;
+$input-border-color:                    $gray !default;
 $input-focus-border-color:              #66afe9;
 $input-placeholder-color:               #b7bac9;
 
@@ -182,11 +182,11 @@ $form-feedback-icon-invalid:            none;
 
 // Dropdowns
 
-$dropdown-border-color:             #e1e1e1;
+$dropdown-border-color:             #4a4a4a4a;
 
 // Navs
 
-$nav-tabs-link-active-bg:           #fff;
+$nav-tabs-link-active-bg:           #000;
 
 // Jumbotron
 
@@ -203,6 +203,6 @@ $thumbnail-padding:                 .125rem;
 
 // Breadcrumbs
 
-$breadcrumb-bg:                     #fafafa;
-$breadcrumb-divider-color:          #c1c2c3;
+$breadcrumb-bg:                     #1f1f1f;
+$breadcrumb-divider-color:          #6a6a6a;
 $breadcrumb-active-color:           $body-color;

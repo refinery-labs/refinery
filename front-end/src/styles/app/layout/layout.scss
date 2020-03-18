@@ -30,6 +30,8 @@ body {
     height: 100%;
 }
 
+$footer-container-border: $gray-light !default;
+
 // Main wrapper
 // -----------------------------
 .wrapper {
@@ -87,7 +89,7 @@ body {
         right: 0;
         bottom: 0;
         height: $footer-hg;
-        border-top: 1px solid $gray-light;
+        border-top: 1px solid $footer-container-border;
         padding: 5px;
         // This z-index is busted for modals
         z-index: 0; //$z-index-main-section - 2;

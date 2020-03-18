@@ -7,8 +7,8 @@
 
 // LAYOUT
 
-$content-bg:                    #f5f7fa;
-$aside-bg:                      #fff;
+$content-bg:                    #2a2a2a;
+$aside-bg:                      #000;
 
 // NAVBAR TOP
 
@@ -17,7 +17,7 @@ $nav-top-bg-start:              $nav-top-bg;
 $nav-top-bg-end:                $purple-light;
 $nav-header-bg:                 transparent;
 
-$nav-top-item:                  #fff;
+$nav-top-item:                  #000;
 $nav-top-item-active:           darken($nav-top-bg, 20%);
 
 // SIDEBAR
@@ -39,7 +39,7 @@ $sidebar-label-color:             $sidebar-item-color;
 
 // OFFSIDEBAR
 
-$offsidebar-bg:           #fff;
+$offsidebar-bg:           #333;
 $offsidebar-border-color: greyscale(darken($offsidebar-bg, 20%));
 $offsidebar-color:        $body-color;
 
