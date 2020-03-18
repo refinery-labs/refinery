@@ -1498,7 +1498,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       // Set configured new block defaults
-      if (context.state.openedProjectConfig) {
+      if (context.state.openedProjectConfig && !addBlockArgs.customBlockProperties) {
         const defaultLanguage = context.state.openedProjectConfig.default_language || SupportedLanguage.NODEJS_8;
         addBlockArgs.customBlockProperties = Object.assign({}, addBlockArgs.customBlockProperties, {
           language: defaultLanguage,
