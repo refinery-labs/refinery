@@ -142,10 +142,18 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
       }))
     ];
 
-    const typeOptions = Object.values(SharedBlockPublishStatus).map(v => ({
-      value: v,
-      text: toTitleCase(v)
-    }));
+    const defaultTypesOption = {
+      value: '',
+      text: 'All'
+    };
+
+    const typeOptions = [
+      defaultTypesOption,
+      ...Object.values(SharedBlockPublishStatus).map(v => ({
+        value: v,
+        text: toTitleCase(v)
+      }))
+    ];
 
     const buttonOnClicks = {
       click: () => {

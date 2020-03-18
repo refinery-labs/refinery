@@ -57,7 +57,7 @@ class ProjectRepoAssistant:
 
 		return saved_block
 
-	def create_new_saved_block_version( self, dbsession, saved_block_id, block_config, block_config_hash, shared_files ):
+	def create_new_saved_block_version( self, dbsession, saved_block_id, block_config, shared_files ):
 		# Get the latest saved block version
 		saved_block_latest_version = dbsession.query( SavedBlockVersion ).filter_by(
 			saved_block_id=saved_block_id
@@ -73,7 +73,6 @@ class ProjectRepoAssistant:
 		new_saved_block_version.saved_block_id = saved_block_id
 		new_saved_block_version.version = block_version
 		new_saved_block_version.block_object_json = block_config
-		#new_saved_block_version.block_hash = block_config_hash
 		new_saved_block_version.shared_files = shared_files
 
 		return new_saved_block_version
@@ -100,6 +99,8 @@ class ProjectRepoAssistant:
 
 		dbsession.add( git_block )
 		dbsession.commit()
+
+		return git_block
 
 	def parse_lambda( self, git_url, lambda_path ):
 		def get_file_contents(path, parse_json=False):
@@ -134,7 +135,6 @@ class ProjectRepoAssistant:
 
 		return block_config_json
 
-	@gen.coroutine
 	def upsert_blocks_from_repo( self, dbsession, user_id, project_id, git_url ):
 		repo_id = self.clear_existing_git_saved_blocks(dbsession, project_id)
 
@@ -183,7 +183,7 @@ class ProjectRepoAssistant:
 
 			# TODO figure out shared files
 			shared_files = []
-			git_block = self.create_git_saved_block(dbsession, user_id, repo_id, lambda_block_config, block_config_hash, shared_files)
+			git_block = self.create_git_saved_block(dbsession, user_id, repo_id, lambda_block_config, shared_files)
 			git_blocks.append(git_block)
 
 		# update saved blocks for git repo

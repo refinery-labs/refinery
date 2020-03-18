@@ -177,9 +177,26 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
   public async searchSavedBlocks() {
     this.setIsBusySearching(true);
 
-    const privateSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.PRIVATE, this.languageInput);
-    const publicSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.PUBLISHED, this.languageInput);
-    const gitSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.GIT, this.languageInput);
+    if (!this.context.rootState.project.openedProject) {
+      console.error('No project is currently opened');
+      return;
+    }
+
+    const projectId = this.context.rootState.project.openedProject.project_id;
+
+    const privateSearch = searchSavedBlocks(
+      this.searchInput,
+      SharedBlockPublishStatus.PRIVATE,
+      this.languageInput,
+      projectId
+    );
+    const publicSearch = searchSavedBlocks(
+      this.searchInput,
+      SharedBlockPublishStatus.PUBLISHED,
+      this.languageInput,
+      projectId
+    );
+    const gitSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.GIT, this.languageInput, projectId);
 
     const privateResult = await privateSearch;
 

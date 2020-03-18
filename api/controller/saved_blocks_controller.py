@@ -11,6 +11,8 @@ from utils.locker import  AcquireFailure
 from models.initiate_database import *
 from models.saved_block import SavedBlock
 from models.saved_block_version import SavedBlockVersion
+from models.git_repo import GitRepo
+from models.git_block import GitBlock
 
 class SavedBlocksCreate( BaseHandler ):
 	@authenticated
@@ -171,7 +173,7 @@ class SavedBlocksCreate( BaseHandler ):
 		})
 
 
-def generate_saved_block_filters(share_status, block_language, search_string, authenticated_user_id):
+def generate_saved_block_filters(share_status, block_language, search_string, authenticated_user_id, project_id):
 	# filters to apply when searching for saved blocks
 	saved_block_filters = []
 
@@ -183,7 +185,12 @@ def generate_saved_block_filters(share_status, block_language, search_string, au
 			)
 		)
 
-	if share_status == "PRIVATE" or share_status == "GIT":
+	if share_status == "GIT":
+		saved_block_filters.append(
+			GitRepo.project_id == project_id
+		)
+
+	if share_status == "PRIVATE":
 		if authenticated_user_id == None:
 			# Return nothing because we're not logged in, so there can't possibly be private blocks to search.
 			return [False]
@@ -229,6 +236,9 @@ class SavedBlockSearch( BaseHandler ):
 				},
 				"language": {
 					"type": "string",
+				},
+				"project_id": {
+					"type": "string"
 				}
 			},
 			"required": [
@@ -243,6 +253,7 @@ class SavedBlockSearch( BaseHandler ):
 		share_status = "PRIVATE"
 		block_language = ""
 		search_string = ""
+		project_id = ""
 
 		if "share_status" in self.json:
 			share_status = self.json[ "share_status" ]
@@ -253,17 +264,38 @@ class SavedBlockSearch( BaseHandler ):
 		if "search_string" in self.json:
 			search_string = self.json[ "search_string" ]
 
+		if "project_id" in self.json:
+			project_id = self.json[ "project_id" ]
+
+			# Ensure user is owner of the project
+			if not self.is_owner_of_project( project_id ):
+				self.write({
+					"success": False,
+					"code": "ACCESS_DENIED",
+					"msg": "You do not have privileges to access that project version!",
+				})
+				raise gen.Return()
+
 		authenticated_user_id = self.get_authenticated_user_id()
 
 		saved_block_filters = generate_saved_block_filters(
-			share_status, block_language, search_string, authenticated_user_id
+			share_status, block_language, search_string, authenticated_user_id, project_id
 		)
 
 		# TODO: Add pagination and limit the number of results returned.
-		saved_blocks = self.dbsession.query( SavedBlock ).distinct(SavedBlock.id).join(
+		saved_blocks_query = self.dbsession.query( SavedBlock ).distinct(SavedBlock.id).join(
 			# join the saved block and version tables based on IDs
 			SavedBlockVersion, SavedBlock.id == SavedBlockVersion.saved_block_id
-		).filter(
+		)
+
+		if share_status == "GIT":
+			saved_blocks_query = saved_blocks_query.join(
+				GitBlock, SavedBlock.id == GitBlock.saved_block_id
+			).join(
+				GitRepo, GitBlock.repo_id == GitRepo.id
+			)
+
+		saved_blocks = saved_blocks_query.filter(
 			*saved_block_filters
 		).all()
 
