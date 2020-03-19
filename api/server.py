@@ -10882,14 +10882,8 @@ class ResetIAMConsoleUserIAMForAccount( BaseHandler ):
 			})
 			raise gen.Return()
 
-		self.write({
-			"success": True,
-			"msg": "Console user is being updated for account: " + account_id
-		})
-		self.finish()
-
 		dbsession = DBSession()
-		aws_account_results = dbsession.query( AWSAccount ).filter(
+		aws_account_result = dbsession.query( AWSAccount ).filter(
 			AWSAccount.account_id == account_id
 		).filter(
 			sql_or(
@@ -10898,7 +10892,16 @@ class ResetIAMConsoleUserIAMForAccount( BaseHandler ):
 				)
 		).first()
 
-		aws_account_dict = aws_account_results.to_dict()
+		if aws_account_result is None:
+			msg = "Could not find account to reset IAM for: " + account_id
+			logit( msg, "error" )
+			self.write({
+				"success": False,
+				"msg": msg
+			})
+			raise gen.Return()
+
+		aws_account_dict = aws_account_result.to_dict()
 
 		dbsession.close()
 
@@ -10911,6 +10914,12 @@ class ResetIAMConsoleUserIAMForAccount( BaseHandler ):
 		)
 
 		logit( "AWS console account updated successfully for account: " + account_id )
+
+		self.write({
+			"success": True,
+			"msg": "Console user successfully updated for: " + account_id
+		})
+		self.finish()
 
 
 class OnboardThirdPartyAWSAccountPlan( BaseHandler ):
