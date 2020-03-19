@@ -1199,7 +1199,7 @@ class TaskSpawner(object):
 
 		@run_on_executor
 		@emit_runtime_metrics( "terraform_apply" )
-		def terraform_apply( self, aws_account_data ):
+		def terraform_apply( self, aws_account_data, refresh_terraform_state=False ):
 			"""
 			This applies the latest terraform config to an account.
 			
@@ -1208,13 +1208,16 @@ class TaskSpawner(object):
 			FOR OUR CUSTOMERS.
 			
 			-mandatory
+
+			:param: refresh_terraform_state This value tells Terraform if it should refresh the state before running plan
 			"""
 			return TaskSpawner._terraform_apply(
-				aws_account_data
+				aws_account_data,
+				refresh_terraform_state=refresh_terraform_state
 			)
 		
 		@staticmethod
-		def _terraform_apply( aws_account_data ):
+		def _terraform_apply( aws_account_data, refresh_terraform_state=False ):
 			logit( "Ensuring existence of ECS service-linked role before continuing with terraform apply..." )
 			preterraform_manager._ensure_ecs_service_linked_role_exists(
 				aws_account_data
@@ -1240,12 +1243,15 @@ class TaskSpawner(object):
 			
 			try:
 				logit( "Performing 'terraform apply' to AWS Account " + aws_account_data[ "account_id" ] + "..." )
-				
+
+				refresh_state_parameter = "true" if refresh_terraform_state else "false"
+
 				# Terraform plan
 				process_handler = subprocess.Popen(
 					[
 						temporary_directory + "terraform",
 						"apply",
+						"-refresh=" + refresh_state_parameter,
 						"-auto-approve",
 						"-var-file",
 						temporary_directory + "customer_config.json",
@@ -1287,32 +1293,37 @@ class TaskSpawner(object):
 
 		@run_on_executor
 		@emit_runtime_metrics( "terraform_plan" )
-		def terraform_plan( self, aws_account_data ):
+		def terraform_plan( self, aws_account_data, refresh_terraform_state=False ):
 			"""
 			This does a terraform plan to an account and sends an email
 			with the results. This allows us to see the impact of a new
 			terraform change before we roll it out across our customer's
 			AWS accounts.
+			:param: refresh_terraform_state This value tells Terraform if it should refresh the state before running plan
 			"""
 			return TaskSpawner._terraform_plan(
-				aws_account_data
+				aws_account_data,
+				refresh_terraform_state=refresh_terraform_state
 			)
 		
 		@staticmethod
-		def _terraform_plan( aws_account_data ):
+		def _terraform_plan( aws_account_data, refresh_terraform_state=False ):
 			terraform_configuration_data = TaskSpawner._write_terraform_base_files(
 				aws_account_data
 			)
 			temporary_directory = terraform_configuration_data[ "base_dir" ]
-			
+
 			try:
 				logit( "Performing 'terraform plan' to AWS account " + aws_account_data[ "account_id" ] + "..." )
+
+				refresh_state_parameter = "true" if refresh_terraform_state else "false"
 				
 				# Terraform plan
 				process_handler = subprocess.Popen(
 					[
 						temporary_directory + "terraform",
 						"plan",
+						"-refresh=" + refresh_state_parameter,
 						"-var-file",
 						temporary_directory + "customer_config.json",
 					],
@@ -1330,13 +1341,15 @@ class TaskSpawner(object):
 					logit( process_stdout, "error" )
 					
 					raise Exception( "Terraform plan failed." )
+
+
 			finally:
 				# Ensure we clear the temporary directory no matter what
 				shutil.rmtree( temporary_directory )
 			
 			logit( "Terraform plan completed successfully, returning output." )
 			return process_stdout
-			
+
 		@staticmethod
 		def _terraform_configure_aws_account( aws_account_data ):
 			logit( "Ensuring existence of ECS service-linked role before continuing with AWS account configuration..." )
@@ -10591,7 +10604,8 @@ class MaintainAWSAccountReserves( BaseHandler ):
 				pass
 		
 		dbsession.close()
-			
+
+
 class PerformTerraformUpdateOnFleet( BaseHandler ):
 	@gen.coroutine
 	def get( self ):
@@ -10695,7 +10709,103 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 		)
 		
 		dbsession.close()
-			
+
+
+class PerformTerraformUpdateForAccount( BaseHandler ):
+	@gen.coroutine
+	def get( self, account_id=None ):
+
+		if not account_id:
+			self.write({
+				"success": False,
+				"msg": "Please provide an 'account_id' to terraform apply for"
+			})
+			raise gen.Return()
+
+		dbsession = DBSession()
+		aws_account = dbsession.query( AWSAccount ).filter(
+			AWSAccount.account_id == account_id
+		).filter(
+			sql_or(
+				AWSAccount.aws_account_status == "IN_USE",
+				AWSAccount.aws_account_status == "AVAILABLE",
+				)
+		).first()
+
+		if aws_account is None:
+			msg = "Could not find account to Terraform apply for: " + account_id
+			logit( msg, "error" )
+			self.write({
+				"success": False,
+				"msg": msg
+			})
+			raise gen.Return()
+
+		aws_account_dict = aws_account.to_dict()
+
+		dbsession.close()
+
+		response_html_template = """
+		<html>
+		<body>
+			<h1>Terraform Apply Results for Account {}</h1>
+			<h2>Result: {}</h2>
+			<p>{}</p>
+		</body>
+		</html>
+		"""
+
+		logit( "Running 'terraform apply' for AWS Account " + account_id )
+		terraform_apply_results = yield local_tasks.terraform_apply(
+			aws_account_dict,
+			refresh_terraform_state=True
+		)
+
+		# Write the old terraform version to the database
+		logit( "Updating current tfstate for the AWS account..." )
+
+		dbsession = DBSession()
+		current_aws_account = dbsession.query( AWSAccount ).filter(
+			AWSAccount.account_id == account_id,
+		).first()
+
+		previous_terraform_state = TerraformStateVersion()
+		previous_terraform_state.aws_account_id = current_aws_account.id
+		previous_terraform_state.terraform_state = terraform_apply_results[ "original_tfstate" ]
+		current_aws_account.terraform_state_versions.append(
+			previous_terraform_state
+		)
+
+		# Update the current terraform state as well.
+		current_aws_account.terraform_state = terraform_apply_results[ "new_tfstate" ]
+
+		dbsession.add( current_aws_account )
+		dbsession.commit()
+		dbsession.close()
+
+		# Convert terraform plan terminal output to HTML
+		ansiconverter = Ansi2HTMLConverter()
+
+		if terraform_apply_results[ "success" ]:
+			terraform_output_html = ansiconverter.convert(
+				terraform_apply_results[ "stdout" ]
+			)
+		else:
+			terraform_output_html = ansiconverter.convert(
+				terraform_apply_results[ "stderr" ]
+			)
+
+		rendered_html_output = response_html_template.format(
+			account_id,
+			"[ APPLY SUCCEEDED ]" if terraform_apply_results[ "success" ] else "[ APPLY FAILED ]",
+			terraform_output_html
+		)
+
+		logit( "Results from account 'terraform apply': " + rendered_html_output )
+
+		self.write( rendered_html_output )
+
+
 class PerformTerraformPlanOnFleet( BaseHandler ):
 	@gen.coroutine
 	def get( self ):
@@ -10764,7 +10874,79 @@ class PerformTerraformPlanOnFleet( BaseHandler ):
 			False, # No text version of email
 			final_email_html
 		)
-			
+
+
+class PerformTerraformPlanForAccount( BaseHandler ):
+	@gen.coroutine
+	def get( self, account_id=None ):
+		"""
+		This endpoint will perform a Terraform Plan and return the results synchronously.
+		"""
+
+		if not account_id:
+			self.write({
+				"success": False,
+				"msg": "Please provide an 'account_id' to terraform plan for"
+			})
+			raise gen.Return()
+
+		dbsession = DBSession()
+		aws_account = dbsession.query( AWSAccount ).filter(
+			AWSAccount.account_id == account_id
+		).filter(
+			sql_or(
+				AWSAccount.aws_account_status == "IN_USE",
+				AWSAccount.aws_account_status == "AVAILABLE",
+				)
+		).first()
+
+		if aws_account is None:
+			msg = "Could not find account to Terraform plan for: " + account_id
+			logit( msg, "error" )
+			self.write({
+				"success": False,
+				"msg": msg
+			})
+			raise gen.Return()
+
+		aws_account_dict = aws_account.to_dict()
+
+		response_html_template = """
+		<html>
+		<body>
+			<h1>Terraform Plan Result for Account: {}</h1>
+			Please note that this is <b>not</b> applying these changes.
+			It is purely to understand what would happen if we did.
+			<hr />
+			<h3>Output</h3>
+			<p>{}</p>
+		</body>
+		</html>
+		"""
+
+		dbsession.close()
+
+		logit( "Performing a terraform plan for AWS account: " + str( account_id ) )
+		terraform_plan_output = yield local_tasks.terraform_plan(
+			aws_account_dict,
+			refresh_terraform_state=True
+		)
+
+		# Convert terraform plan terminal output to HTML
+		ansiconverter = Ansi2HTMLConverter()
+		terraform_output_html = ansiconverter.convert(
+			terraform_plan_output
+		)
+
+		rendered_html_output = response_html_template.format(
+			account_id,
+			terraform_output_html
+		)
+
+		logit( "Generated response output for plan: " + rendered_html_output )
+		self.write( rendered_html_output )
+
+
 class StashStateLog( BaseHandler ):
 	def post( self ):
 		"""
@@ -10903,17 +11085,10 @@ class UpdateIAMConsoleUserIAM( BaseHandler ):
 
 class ResetIAMConsoleUserIAMForAccount( BaseHandler ):
 	@gen.coroutine
-	def get( self ):
+	def get( self, account_id=None ):
 		"""
 		This blows away all the IAM policies for a specific AWS account and updates it with the latest policy.
 		"""
-
-		# Get AWS account ID
-		account_id = self.get_argument(
-			"account_id",
-			default=None,
-			strip=True
-		)
 
 		if not account_id:
 			self.write({
@@ -11380,8 +11555,10 @@ def make_app( tornado_config ):
 		( r"/services/v1/bill_customers", RunMonthlyStripeBillingJob ),
 		( r"/services/v1/perform_terraform_plan_on_fleet", PerformTerraformPlanOnFleet ),
 		( r"/services/v1/dangerously_terraform_update_fleet", PerformTerraformUpdateOnFleet ),
+		( r"/services/v1/perform_terraform_plan_for_account/([a-f0-9\-]+)", PerformTerraformPlanForAccount ),
+		( r"/services/v1/dangerously_terraform_update_for_account/([a-f0-9\-]+)", PerformTerraformUpdateForAccount ),
 		( r"/services/v1/update_managed_console_users_iam", UpdateIAMConsoleUserIAM ),
-		( r"/services/v1/reset_iam_console_user_for_account", ResetIAMConsoleUserIAMForAccount ),
+		( r"/services/v1/reset_iam_console_user_for_account/([a-f0-9\-]+)", ResetIAMConsoleUserIAMForAccount ),
 		( r"/services/v1/onboard_third_party_aws_account_plan", OnboardThirdPartyAWSAccountPlan ),
 		( r"/services/v1/dangerously_finalize_third_party_aws_onboarding", OnboardThirdPartyAWSAccountApply ),
 		( r"/services/v1/clear_s3_build_packages", ClearAllS3BuildPackages ),
