@@ -1199,7 +1199,7 @@ class TaskSpawner(object):
 
 		@run_on_executor
 		@emit_runtime_metrics( "terraform_apply" )
-		def terraform_apply( self, aws_account_data, refresh_terraform_state=False ):
+		def terraform_apply( self, aws_account_data, refresh_terraform_state=True ):
 			"""
 			This applies the latest terraform config to an account.
 			
@@ -1293,7 +1293,7 @@ class TaskSpawner(object):
 
 		@run_on_executor
 		@emit_runtime_metrics( "terraform_plan" )
-		def terraform_plan( self, aws_account_data, refresh_terraform_state=False ):
+		def terraform_plan( self, aws_account_data, refresh_terraform_state=True ):
 			"""
 			This does a terraform plan to an account and sends an email
 			with the results. This allows us to see the impact of a new
@@ -10757,8 +10757,7 @@ class PerformTerraformUpdateForAccount( BaseHandler ):
 
 		logit( "Running 'terraform apply' for AWS Account " + account_id )
 		terraform_apply_results = yield local_tasks.terraform_apply(
-			aws_account_dict,
-			refresh_terraform_state=True
+			aws_account_dict
 		)
 
 		# Write the old terraform version to the database
@@ -10928,8 +10927,7 @@ class PerformTerraformPlanForAccount( BaseHandler ):
 
 		logit( "Performing a terraform plan for AWS account: " + str( account_id ) )
 		terraform_plan_output = yield local_tasks.terraform_plan(
-			aws_account_dict,
-			refresh_terraform_state=True
+			aws_account_dict
 		)
 
 		# Convert terraform plan terminal output to HTML
