@@ -10853,8 +10853,7 @@ class AssumeRoleCredentials( BaseHandler ):
 			self.write({
 				"success": True,
 				"access_key_id": assumed_role_credentials[ "access_key_id" ],
-				"secret_access_key": assumed_role_credentials[ "secret_access_key" ],
-				"session_token": assumed_role_credentials[ "session_token" ]
+				"secret_access_key": assumed_role_credentials[ "secret_access_key" ]
 			})
 			return
 
