@@ -1059,7 +1059,7 @@ class TaskSpawner(object):
 					)
 					break
 				except botocore.exceptions.ClientError as boto_error:
-					print( boto_error )
+					logit( "Assume role boto error:" + repr( boto_error ), "error" )
 					# If it's not an AccessDenied exception it's not what we except so we re-raise
 					if boto_error.response[ "Error" ][ "Code" ] != "AccessDenied":
 						logit( "Unexpected Boto3 response: " + boto_error.response[ "Error" ][ "Code" ] )
@@ -7300,9 +7300,6 @@ class SavedBlockSearch( BaseHandler ):
 				saved_block_id=saved_block.id
 			).order_by( SavedBlockVersion.version.desc() ).first()
 
-			if saved_block_latest_version is None or saved_block_latest_version.block_object_json is None:
-				print('not found ', saved_block_latest_version.saved_block_id, saved_block_latest_version.version, saved_block_latest_version.block_object, saved_block_latest_version.block_object_json)
-
 			block_object = saved_block_latest_version.block_object_json
 			block_object[ "id" ] = str( uuid.uuid4() )
 			
@@ -8591,8 +8588,7 @@ def update_athena_table_partitions( credentials, project_id ):
 		
 		s3_shards = s3_list_results[ "common_prefixes" ]
 		continuation_token = s3_list_results[ "continuation_token" ]
-		print(continuation_token)
-		
+
 		# Add all new shards to the list
 		for s3_shard in s3_shards:
 			if not ( s3_shard in s3_pulled_shards ):
