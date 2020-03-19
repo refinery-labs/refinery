@@ -1303,7 +1303,7 @@ class TaskSpawner(object):
 			"""
 			return TaskSpawner._terraform_plan(
 				aws_account_data,
-				refresh_terraform_state=refresh_terraform_state
+				refresh_terraform_state
 			)
 		
 		@staticmethod
