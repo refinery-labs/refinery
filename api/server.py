@@ -1059,7 +1059,7 @@ class TaskSpawner(object):
 					)
 					break
 				except botocore.exceptions.ClientError as boto_error:
-					print( boto_error )
+					logit( "Assume role boto error:" + repr( boto_error ), "error" )
 					# If it's not an AccessDenied exception it's not what we except so we re-raise
 					if boto_error.response[ "Error" ][ "Code" ] != "AccessDenied":
 						logit( "Unexpected Boto3 response: " + boto_error.response[ "Error" ][ "Code" ] )
@@ -1669,14 +1669,15 @@ class TaskSpawner(object):
 
 		@run_on_executor
 		@emit_runtime_metrics( "recreate_aws_console_account" )
-		def recreate_aws_console_account( self, credentials, rotate_password ):
+		def recreate_aws_console_account( self, credentials, rotate_password, force_continue=False ):
 			return TaskSpawner._recreate_aws_console_account(
 				credentials,
-				rotate_password
+				rotate_password,
+				force_continue=force_continue
 			)
 			
 		@staticmethod
-		def _recreate_aws_console_account( credentials, rotate_password ):
+		def _recreate_aws_console_account( credentials, rotate_password, force_continue=False ):
 			iam_client = get_aws_client(
 				"iam",
 				credentials
@@ -1689,22 +1690,29 @@ class TaskSpawner(object):
 			iam_policy_arn = "arn:aws:iam::" + credentials[ "account_id" ] + ":policy/RefineryCustomerPolicy"
 			
 			logit( "Deleting AWS console user..." )
-			
-			# Delete the current AWS console user
-			delete_user_profile_response = iam_client.delete_login_profile(
-				UserName=credentials[ "iam_admin_username" ],
-			)
-		
-			# Remove the policy from the user
-			detach_user_policy = iam_client.detach_user_policy(
-				UserName=credentials[ "iam_admin_username" ],
-				PolicyArn=iam_policy_arn
-			)
-			
-			# Delete the IAM user
-			delete_user_response = iam_client.delete_user(
-				UserName=credentials[ "iam_admin_username" ],
-			)
+
+			try:
+				# Delete the current AWS console user
+				delete_user_profile_response = iam_client.delete_login_profile(
+					UserName=credentials[ "iam_admin_username" ],
+				)
+
+				# Remove the policy from the user
+				detach_user_policy = iam_client.detach_user_policy(
+					UserName=credentials[ "iam_admin_username" ],
+					PolicyArn=iam_policy_arn
+				)
+
+				# Delete the IAM user
+				delete_user_response = iam_client.delete_user(
+					UserName=credentials[ "iam_admin_username" ],
+				)
+			except Exception as e:
+				logit( "Unable to delete IAM user during recreate process" )
+
+				# Raise the exception again unless the flag is set to force continuation
+				if force_continue is False:
+					raise e
 			
 			logit( "Re-creating the AWS console user..." )
 			
@@ -8580,8 +8588,7 @@ def update_athena_table_partitions( credentials, project_id ):
 		
 		s3_shards = s3_list_results[ "common_prefixes" ]
 		continuation_token = s3_list_results[ "continuation_token" ]
-		print(continuation_token)
-		
+
 		# Add all new shards to the list
 		for s3_shard in s3_shards:
 			if not ( s3_shard in s3_pulled_shards ):
@@ -10852,7 +10859,69 @@ class UpdateIAMConsoleUserIAM( BaseHandler ):
 			)
 		
 		logit( "AWS console accounts updated successfully!" )
-		
+
+
+class ResetIAMConsoleUserIAMForAccount( BaseHandler ):
+	@gen.coroutine
+	def get( self ):
+		"""
+		This blows away all the IAM policies for a specific AWS account and updates it with the latest policy.
+		"""
+
+		# Get AWS account ID
+		account_id = self.get_argument(
+			"account_id",
+			default=None,
+			strip=True
+		)
+
+		if not account_id:
+			self.write({
+				"success": False,
+				"msg": "Please provide an 'account_id' to reset the IAM Console user"
+			})
+			raise gen.Return()
+
+		dbsession = DBSession()
+		aws_account_result = dbsession.query( AWSAccount ).filter(
+			AWSAccount.account_id == account_id
+		).filter(
+			sql_or(
+				AWSAccount.aws_account_status == "IN_USE",
+				AWSAccount.aws_account_status == "AVAILABLE",
+				)
+		).first()
+
+		if aws_account_result is None:
+			msg = "Could not find account to reset IAM for: " + account_id
+			logit( msg, "error" )
+			self.write({
+				"success": False,
+				"msg": msg
+			})
+			raise gen.Return()
+
+		aws_account_dict = aws_account_result.to_dict()
+
+		dbsession.close()
+
+		logit( "Updating console account for single AWS account ID " + aws_account_dict[ "account_id" ] + "...")
+		yield local_tasks.recreate_aws_console_account(
+			aws_account_dict,
+			False,
+			# We set this flag so that if the user was deleted, it will be recreated
+			force_continue=True
+		)
+
+		logit( "AWS console account updated successfully for account: " + account_id )
+
+		self.write({
+			"success": True,
+			"msg": "Console user successfully updated for: " + account_id
+		})
+		self.finish()
+
+
 class OnboardThirdPartyAWSAccountPlan( BaseHandler ):
 	@gen.coroutine
 	def get( self ):
@@ -11271,6 +11340,7 @@ def make_app( tornado_config ):
 		( r"/services/v1/perform_terraform_plan_on_fleet", PerformTerraformPlanOnFleet ),
 		( r"/services/v1/dangerously_terraform_update_fleet", PerformTerraformUpdateOnFleet ),
 		( r"/services/v1/update_managed_console_users_iam", UpdateIAMConsoleUserIAM ),
+		( r"/services/v1/reset_iam_console_user_for_account", ResetIAMConsoleUserIAMForAccount ),
 		( r"/services/v1/onboard_third_party_aws_account_plan", OnboardThirdPartyAWSAccountPlan ),
 		( r"/services/v1/dangerously_finalize_third_party_aws_onboarding", OnboardThirdPartyAWSAccountApply ),
 		( r"/services/v1/clear_s3_build_packages", ClearAllS3BuildPackages ),
