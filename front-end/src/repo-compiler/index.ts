@@ -1,9 +1,20 @@
+import { DEFAULT_LANGUAGE_CODE } from '@/constants/project-editor-constants';
+
 const program = require('commander');
-import { LambdaWorkflowState, RefineryProject, WorkflowFile, WorkflowState, WorkflowStateType } from '@/types/graph';
+import {
+  LambdaWorkflowState,
+  RefineryProject,
+  SupportedLanguage,
+  WorkflowFile,
+  WorkflowState,
+  WorkflowStateType
+} from '@/types/graph';
 import {
   convertProjectDownloadZipConfigToFileList,
   createDownloadZipConfig,
-  languageToFileExtension
+  languageToFileExtension,
+  ProjectDownloadZipConfig,
+  ProjectDownloadZipMetadata
 } from '@/utils/project-debug-utils';
 const Path = require('path');
 const fs = require('fs');
@@ -144,6 +155,46 @@ function saveProjectToRepo(projectDir: string, project: RefineryProject) {
   */
 }
 
+interface NewBlockOptions {
+  language: string;
+}
+
+function newBlock(projectdir: string, type: string, name: string, options: NewBlockOptions) {
+  if (type === 'lambda') {
+    const lambdaLanguage = options.language as SupportedLanguage;
+    if (!Object.values(SupportedLanguage).includes(lambdaLanguage)) {
+      console.error('Lambda block language ${lambdaLanguage} not supported');
+      return;
+    }
+
+    const blockName = slugify(name).toLowerCase();
+
+    const lambdaConfig: ProjectDownloadZipConfig = {
+      inputData: '{}',
+      backpackData: '{}',
+      blockCode: DEFAULT_LANGUAGE_CODE[lambdaLanguage],
+      blockLanguage: lambdaLanguage,
+      metadata: {
+        projectName: '',
+        projectId: '',
+        projectVersion: 1,
+        blockName: blockName,
+        blockId: '',
+        exportedTimestamp: 0,
+        version: ''
+      }
+    };
+
+    const lambdaFiles = convertProjectDownloadZipConfigToFileList(lambdaConfig);
+    lambdaFiles.forEach(file => {
+      const path = Path.join(projectdir, 'lambda', file.fileName);
+      fs.writeFileSync(path, file.contents);
+    });
+  } else {
+    console.error('Unsupported type: ${type}');
+  }
+}
+
 function load(config: string) {
   const configData = fs.readFileSync(config, 'utf8');
   const projectJSON = JSON.parse(configData);
@@ -161,6 +212,11 @@ function lint(dir: string) {
 }
 
 program.command('load <config>').action(load);
+
+program
+  .command('new <projectdir> <type> <name>')
+  .option('--language <language>')
+  .action(newBlock);
 
 program.command('lint <dir>').action(lint);
 
