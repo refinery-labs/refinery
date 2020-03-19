@@ -1213,11 +1213,11 @@ class TaskSpawner(object):
 			"""
 			return TaskSpawner._terraform_apply(
 				aws_account_data,
-				refresh_terraform_state=refresh_terraform_state
+				refresh_terraform_state
 			)
 		
 		@staticmethod
-		def _terraform_apply( aws_account_data, refresh_terraform_state=False ):
+		def _terraform_apply( aws_account_data, refresh_terraform_state ):
 			logit( "Ensuring existence of ECS service-linked role before continuing with terraform apply..." )
 			preterraform_manager._ensure_ecs_service_linked_role_exists(
 				aws_account_data
@@ -1307,7 +1307,7 @@ class TaskSpawner(object):
 			)
 		
 		@staticmethod
-		def _terraform_plan( aws_account_data, refresh_terraform_state=False ):
+		def _terraform_plan( aws_account_data, refresh_terraform_state ):
 			terraform_configuration_data = TaskSpawner._write_terraform_base_files(
 				aws_account_data
 			)
