@@ -10822,7 +10822,47 @@ class AdministrativeAssumeAccount( BaseHandler ):
 		self.redirect(
 			"/"
 		)
-		
+
+class AssumeRoleCredentials( BaseHandler ):
+	def get( self, account_id=None ):
+		"""
+		For helping customers with their accounts.
+		"""
+		if not account_id:
+			self.write({
+				"success": False,
+				"msg": "You must specify a account_id via the URL (/UUID/)."
+			})
+
+		assumed_role_credentials = None
+		try:
+			# We then assume the administrator role for the sub-account we created
+			assumed_role_credentials = TaskSpawner._get_assume_role_credentials(
+				str( account_id ),
+				3600 # One hour - TODO CHANGEME
+			)
+		except botocore.exceptions.ClientError as boto_error:
+			logit( "Assume role boto error:" + repr( boto_error ), "error" )
+			# If it's not an AccessDenied exception it's not what we except so we re-raise
+			if boto_error.response[ "Error" ][ "Code" ] != "AccessDenied":
+				logit( "Unexpected Boto3 response: " + boto_error.response[ "Error" ][ "Code" ] )
+				logit( boto_error.response )
+				raise boto_error
+
+		if assumed_role_credentials:
+			self.write({
+				"success": True,
+				"access_key_id": assumed_role_credentials[ "access_key_id" ],
+				"secret_access_key": assumed_role_credentials[ "secret_access_key" ],
+				"session_token": assumed_role_credentials[ "session_token" ]
+			})
+			return
+
+		self.write({
+			"success": False,
+			"msg": "Unable to get assume role credentials for provided account"
+		})
+
 class UpdateIAMConsoleUserIAM( BaseHandler ):
 	@gen.coroutine
 	def get( self ):
@@ -11334,6 +11374,7 @@ def make_app( tornado_config ):
 		# These are "services" which are only called by external crons, etc.
 		# External users are blocked from ever reaching these routes
 		( r"/services/v1/assume_account_role/([a-f0-9\-]+)", AdministrativeAssumeAccount ),
+		( r"/services/v1/assume_role_credentials/([a-f0-9\-]+)", AssumeRoleCredentials ),
 		( r"/services/v1/maintain_aws_account_pool", MaintainAWSAccountReserves ),
 		( r"/services/v1/billing_watchdog", RunBillingWatchdogJob ),
 		( r"/services/v1/bill_customers", RunMonthlyStripeBillingJob ),
