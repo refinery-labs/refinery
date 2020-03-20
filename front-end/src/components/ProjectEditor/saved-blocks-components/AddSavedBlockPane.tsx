@@ -1,7 +1,7 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import moment from 'moment';
-import { blockTypeToImageLookup } from '@/constants/project-editor-constants';
+import { blockTypeToImageLookup } from '@/constants/project-editor-img-constants';
 import { debounce } from 'debounce';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { Prop } from 'vue-property-decorator';

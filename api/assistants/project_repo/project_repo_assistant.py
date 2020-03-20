@@ -161,11 +161,15 @@ class ProjectRepoAssistant:
 		repo_dir = tempfile.mkdtemp()
 		shutil.rmtree(repo_dir)
 
-		# TODO figure this shit out
-		#git_repo = Repo.clone_from(git_url, repo_dir)
-		shutil.copytree(git_url, repo_dir)
+		repo = Repo.init(repo_dir)
+		repo.git.remote("add", "origin", git_url)
 
-		print(repo_dir)
+		# TODO kill clone after timeout
+		repo.git.pull("origin", "master", depth=1)
+
+		self.logger("Cloned repo {} for project {}".format(git_url, project_id))
+
+		# TODO check if clone was successful
 
 		lambda_block_configs = []
 		try:
@@ -184,6 +188,8 @@ class ProjectRepoAssistant:
 				lambda_block_configs.append(lambda_block_config)
 		finally:
 			shutil.rmtree(repo_dir)
+
+		self.logger("Project {} had {} blocks in {}".format(project_id, len(lambda_block_configs), git_url))
 
 		git_blocks = []
 		for lambda_block_config in lambda_block_configs:

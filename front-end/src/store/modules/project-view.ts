@@ -61,12 +61,8 @@ import {
   unwrapJson,
   wrapJson
 } from '@/utils/project-helpers';
-import {
-  availableTransitions,
-  blockTypeToImageLookup,
-  DEFAULT_LANGUAGE_CODE,
-  savedBlockType
-} from '@/constants/project-editor-constants';
+import { availableTransitions, DEFAULT_LANGUAGE_CODE, savedBlockType } from '@/constants/project-editor-constants';
+import { blockTypeToImageLookup } from '@/constants/project-editor-img-constants';
 import { demoModeBlacklist } from '@/constants/project-editor-pane-constants';
 import EditBlockPaneModule, { EditBlockActions, EditBlockGetters } from '@/store/modules/panes/edit-block-pane';
 import { createToast } from '@/utils/toasts-utils';

@@ -3,7 +3,7 @@ import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import debounce from 'debounce';
 import { WorkflowState, WorkflowStateType } from '@/types/graph';
-import { blockTypeToEditorComponentLookup } from '@/constants/project-editor-constants';
+import { blockTypeToEditorComponentLookup } from '@/constants/project-editor-pane-constants';
 import { EditBlockPaneProps } from '@/types/component-types';
 import Resizer from '@/lib/Resizer';
 import { SettingsAppStoreModule } from '@/store';
