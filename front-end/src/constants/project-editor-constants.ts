@@ -10,40 +10,8 @@ import {
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import { ActiveSidebarPaneToContainerMapping, SIDEBAR_PANE } from '@/types/project-editor-types';
-import AddBlockPane from '@/components/ProjectEditor/AddBlockPane';
-import AddTransitionPane from '@/components/ProjectEditor/AddTransitionPane';
-import EditBlockPane from '@/components/ProjectEditor/EditBlockPane';
 import { HTTP_METHOD } from '@/constants/api-constants';
-import DeployProjectPane from '@/components/ProjectEditor/DeployProjectPane';
-import ExportProjectPane from '@/components/ProjectEditor/ExportProjectPane';
-import ViewApiEndpointsPane from '@/components/DeploymentViewer/ViewApiEndpointsPane';
-import ViewExecutionsPane from '@/components/DeploymentViewer/ViewExecutionsPane';
-import ViewDeployedBlockPane from '@/components/DeploymentViewer/ViewDeployedBlockPane';
-import ViewDeployedTransitionPane from '@/components/DeploymentViewer/ViewDeployedTransitionPane';
-import DestroyDeploymentPane from '@/components/DeploymentViewer/DestroyDeploymentPane';
-import { EditLambdaBlock } from '@/components/ProjectEditor/block-components/EditLambdaBlockPane';
-import { EditAPIEndpointBlock } from '@/components/ProjectEditor/block-components/EditAPIEndpointBlockPane';
-import { EditQueueBlock } from '@/components/ProjectEditor/block-components/EditQueuePane';
-import { EditAPIResponseBlock } from '@/components/ProjectEditor/block-components/EditAPIResponseBlockPane';
-import { EditScheduleTriggerBlock } from '@/components/ProjectEditor/block-components/EditScheduleTriggerBlockPane';
-import { EditTopicBlock } from '@/components/ProjectEditor/block-components/EditTopicBlockPane';
-import RunEditorCodeBlockPane from '@/components/ProjectEditor/RunEditorCodeBlockPane';
-import EditTransitionPane from '@/components/ProjectEditor/EditTransitionPane';
-import RunDeployedCodeBlockPane from '@/components/DeploymentViewer/RunDeployedCodeBlockPane';
-import ViewDeployedBlockLogsPane from '@/components/DeploymentViewer/ViewDeployedBlockLogsPane';
 import generateStupidName from '@/lib/silly-names';
-import { Vue } from 'vue/types/vue';
-import { VueClass } from 'vue-class-component/lib/declarations';
-import AddSavedBlockPaneContainer from '@/components/ProjectEditor/saved-blocks-components/AddSavedBlockPaneContainer';
-import SharedFilesPane from '@/components/ProjectEditor/SharedFiles';
-import EditSharedFilePane from '@/components/ProjectEditor/EditSharedFile';
-import EditSharedFileLinksPane from '@/components/ProjectEditor/SharedFileLinks';
-import AddingSharedFileLinkPane from '@/components/ProjectEditor/AddingSharedFileLink';
-import CodeBlockSharedFilesPane from '@/components/ProjectEditor/CodeBlockSharedFiles';
-import ViewSharedFilePane from '@/components/ProjectEditor/ViewSharedFile';
-import ViewReadmePane from '@/components/ProjectEditor/ViewReadme';
-import EditReadmePane from '@/components/ProjectEditor/EditReadme';
 
 export const savedBlockType = 'saved_block';
 export const gitBlockType = 'git_block';
@@ -68,70 +36,6 @@ export interface BlockTypeConfig extends BlockTypeToImage {
 
   // saved_lambda: AddGraphElementConfig;
 }
-
-// A little bit of impedance mismatch going on, unfortunately.
-export const blockTypeToImageLookup: BlockTypeConfig = {
-  [WorkflowStateType.API_ENDPOINT]: {
-    path: require('../../public/img/node-icons/api-gateway.png'),
-    name: 'API Endpoint Block',
-    description:
-      'Creates a web endpoint and passes web request data to the connected Code Block. ' +
-      'Must be used with an API Response block to return a web response.'
-  },
-  [WorkflowStateType.API_GATEWAY]: {
-    path: require('../../public/img/node-icons/api-gateway.png'),
-    name: 'API Gateway Block',
-    description: 'Why do you see this? Please report!'
-  },
-  [WorkflowStateType.WARMER_TRIGGER]: {
-    path: require('../../public/img/node-icons/api-gateway.png'),
-    name: 'Warmer Trigger',
-    description: 'Why do you see this? Please report!'
-  },
-  [WorkflowStateType.API_GATEWAY_RESPONSE]: {
-    path: require('../../public/img/node-icons/api-gateway.png'),
-    name: 'API Endpoint Response Block',
-    description:
-      'Returns the output from a Code Block to the web request started by the API Endpoint block. ' +
-      'Must be downstream from an API Endpoint block, ' +
-      'responses which take over 29 seconds will time out the API Endpoint response.'
-  },
-  [WorkflowStateType.LAMBDA]: {
-    path: require('../../public/img/node-icons/code-icon.png'),
-    name: 'Code Block',
-    description:
-      'Runs a user-defined script in PHP/Python/Node/Go. ' +
-      'Takes output from a previous block as input to the script and returns the result returned from it.'
-  },
-  [WorkflowStateType.SCHEDULE_TRIGGER]: {
-    path: require('../../public/img/node-icons/clock-icon.png'),
-    name: 'Timer Block',
-    description:
-      'Runs blocks connected to it on a user-specified schedule. ' +
-      'For example, run a block every minute or run a workflow every day at 3:00 PM.'
-  },
-  [WorkflowStateType.SNS_TOPIC]: {
-    path: require('../../public/img/node-icons/sns-topic.png'),
-    name: 'Topic Block',
-    description:
-      'Concurrently executes all Code Blocks connected to it and passes the input to the connected ' +
-      'blocks. For example, take some input data and then immediately execute three Code blocks with that input.'
-  },
-  [WorkflowStateType.SQS_QUEUE]: {
-    path: require('../../public/img/node-icons/sqs_queue.png'),
-    name: 'Queue Block',
-    description:
-      'Takes input items to process and sends them to the connected Code Block. ' +
-      'This block will automatically increase concurrent executions of the connected Code Block until ' +
-      'either the concurrency ceiling is hit or the queue empties.'
-  },
-  [BlockSelectionType.saved_block]: {
-    path: require('../../public/img/node-icons/code-icon.png'),
-    name: 'Saved Block / Community Repository Block',
-    description:
-      'Import a previously created Saved Block into your current project. This can be a Saved Block you created or any of the Saved Blocks publicly published by other Refinery users.'
-  }
-};
 
 export const availableBlocks: string[] = [
   WorkflowStateType.LAMBDA,
@@ -450,35 +354,6 @@ export const blockTypeToDefaultStateMapping: BlockTypeToDefaultState = {
   [WorkflowStateType.WARMER_TRIGGER]: () => SHARED_BLOCK_DEFAULTS
 };
 
-export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
-  [SIDEBAR_PANE.runEditorCodeBlock]: RunEditorCodeBlockPane,
-  [SIDEBAR_PANE.runDeployedCodeBlock]: RunDeployedCodeBlockPane,
-  [SIDEBAR_PANE.addBlock]: AddBlockPane,
-  [SIDEBAR_PANE.addSavedBlock]: AddSavedBlockPaneContainer,
-  [SIDEBAR_PANE.addTransition]: AddTransitionPane,
-  [SIDEBAR_PANE.allBlocks]: AddBlockPane,
-  [SIDEBAR_PANE.allVersions]: AddBlockPane,
-  [SIDEBAR_PANE.exportProject]: ExportProjectPane,
-  [SIDEBAR_PANE.deployProject]: DeployProjectPane,
-  [SIDEBAR_PANE.saveProject]: AddBlockPane,
-  [SIDEBAR_PANE.editBlock]: EditBlockPane,
-  [SIDEBAR_PANE.editTransition]: EditTransitionPane,
-  [SIDEBAR_PANE.viewApiEndpoints]: ViewApiEndpointsPane,
-  [SIDEBAR_PANE.viewExecutions]: ViewExecutionsPane,
-  [SIDEBAR_PANE.destroyDeploy]: DestroyDeploymentPane,
-  [SIDEBAR_PANE.viewDeployedBlock]: ViewDeployedBlockPane,
-  [SIDEBAR_PANE.viewDeployedBlockLogs]: ViewDeployedBlockLogsPane,
-  [SIDEBAR_PANE.viewDeployedTransition]: ViewDeployedTransitionPane,
-  [SIDEBAR_PANE.sharedFiles]: SharedFilesPane,
-  [SIDEBAR_PANE.editSharedFile]: EditSharedFilePane,
-  [SIDEBAR_PANE.editSharedFileLinks]: EditSharedFileLinksPane,
-  [SIDEBAR_PANE.addingSharedFileLink]: AddingSharedFileLinkPane,
-  [SIDEBAR_PANE.codeBlockSharedFiles]: CodeBlockSharedFilesPane,
-  [SIDEBAR_PANE.viewSharedFile]: ViewSharedFilePane,
-  [SIDEBAR_PANE.viewReadme]: ViewReadmePane,
-  [SIDEBAR_PANE.editReadme]: EditReadmePane
-};
-
 export const blockNameText = 'Name of the block.';
 export const returnDataText = 'Data returned from the Code.';
 export const languagesText = 'Language of code block.';
@@ -487,20 +362,4 @@ export const codeEditorText = 'Code to be executed by the block.';
 export const maxExecutionTimeText = 'Maximum time the code may execute before being killed in seconds.';
 export const maxExecutionMemoryText = 'Maximum memory for the code to use during execution.';
 
-// This returns a function because it will allow dynamic component refreshes
-export type BlockTypeToEditorComponent = { [key in WorkflowStateType]: () => VueClass<Vue> };
-
-export const blockTypeToEditorComponentLookup: BlockTypeToEditorComponent = {
-  [WorkflowStateType.LAMBDA]: () => EditLambdaBlock,
-  [WorkflowStateType.SNS_TOPIC]: () => EditTopicBlock,
-  [WorkflowStateType.SCHEDULE_TRIGGER]: () => EditScheduleTriggerBlock,
-  [WorkflowStateType.API_ENDPOINT]: () => EditAPIEndpointBlock,
-  [WorkflowStateType.API_GATEWAY]: () => EditAPIEndpointBlock,
-  [WorkflowStateType.WARMER_TRIGGER]: () => EditAPIEndpointBlock,
-  [WorkflowStateType.API_GATEWAY_RESPONSE]: () => EditAPIResponseBlock,
-  [WorkflowStateType.SQS_QUEUE]: () => EditQueueBlock
-};
-
 export const arnRegex = /^arn:aws:lambda:us-west-2:\d+:layer:[a-zA-Z0-9-_]+:\d+$/;
-
-export const demoModeBlacklist = [SIDEBAR_PANE.saveProject, SIDEBAR_PANE.deployProject];

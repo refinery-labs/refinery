@@ -167,7 +167,7 @@ function newBlock(projectdir: string, type: string, name: string, options: NewBl
       return;
     }
 
-    const blockName = slugify(name).toLowerCase();
+    const blockName = getFolderName(name);
 
     const lambdaConfig: ProjectDownloadZipConfig = {
       inputData: '{}',
@@ -185,9 +185,12 @@ function newBlock(projectdir: string, type: string, name: string, options: NewBl
       }
     };
 
+    const blockPath = Path.join(projectdir, 'lambda', blockName);
+    resetDir(blockPath);
+
     const lambdaFiles = convertProjectDownloadZipConfigToFileList(lambdaConfig);
     lambdaFiles.forEach(file => {
-      const path = Path.join(projectdir, 'lambda', file.fileName);
+      const path = Path.join(blockPath, file.fileName);
       fs.writeFileSync(path, file.contents);
     });
   } else {

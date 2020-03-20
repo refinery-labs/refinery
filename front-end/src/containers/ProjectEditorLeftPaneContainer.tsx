@@ -3,7 +3,7 @@ import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import { LeftSidebarPaneState, PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import { paneTypeToWindowNameLookup } from '@/menu';
-import { paneToContainerMapping } from '@/constants/project-editor-constants';
+import { paneToContainerMapping } from '@/constants/project-editor-pane-constants';
 
 const project = namespace('project');
 

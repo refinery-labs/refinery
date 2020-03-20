@@ -1,7 +1,8 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
-import { availableBlocks, AddGraphElementConfig, blockTypeToImageLookup } from '@/constants/project-editor-constants';
+import { availableBlocks, AddGraphElementConfig } from '@/constants/project-editor-constants';
+import { blockTypeToImageLookup } from '@/constants/project-editor-img-constants';
 
 const project = namespace('project');
 

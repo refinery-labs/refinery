@@ -7,7 +7,7 @@ import { paneTypeToNameLookup, SidebarMenuItems } from '@/menu';
 import ProjectEditorLeftPaneContainer from '@/containers/ProjectEditorLeftPaneContainer';
 import { DeployProjectResult, PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import EditorPaneWrapper from '@/components/EditorPaneWrapper';
-import { paneToContainerMapping } from '@/constants/project-editor-constants';
+import { paneToContainerMapping } from '@/constants/project-editor-pane-constants';
 import { UserInterfaceState } from '@/store/store-types';
 
 const project = namespace('project');

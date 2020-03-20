@@ -73,15 +73,11 @@ from block_code import main
 # Begin Refinery Generated Code
 with open('input-data.json') as input_data_raw:
   input_data = json.load(input_data_raw)
-  
-  # Set to default of string
-  if "data" not in input_data:
-    input_data["data"] = ""
 
 with open('backpack-data.json') as backpack_data_raw:
   backpack_data = json.load(backpack_data_raw)
 
-output_data = main(input_data["data"], backpack_data)
+output_data = main(input_data, backpack_data)
 
 print(json.dumps(output_data, indent=2))
 # End Refinery Generated Code
@@ -96,7 +92,7 @@ const { main } = require('./block_code.js');
 if (typeof main !== undefined) {
   async function runMainAsync() {
     try {
-      const outputData = await main(inputData.data, backpackData);
+      const outputData = await main(inputData, backpackData);
       console.log(JSON.stringify(outputData, null, 2));
     } catch (e) {
       console.error(JSON.stringify(e, null, 2));
@@ -107,7 +103,7 @@ if (typeof main !== undefined) {
   runMainAsync();
 
 } else if (typeof mainCallback !== undefined) {
-  mainCallback(inputData.data, backpackData, (err, outputData) => {
+  mainCallback(inputData, backpackData, (err, outputData) => {
     if (err) {
       console.error(JSON.stringify(e, null, 2));
       throw new Error(e);

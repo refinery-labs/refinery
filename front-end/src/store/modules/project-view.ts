@@ -65,9 +65,9 @@ import {
   availableTransitions,
   blockTypeToImageLookup,
   DEFAULT_LANGUAGE_CODE,
-  demoModeBlacklist,
   savedBlockType
 } from '@/constants/project-editor-constants';
+import { demoModeBlacklist } from '@/constants/project-editor-pane-constants';
 import EditBlockPaneModule, { EditBlockActions, EditBlockGetters } from '@/store/modules/panes/edit-block-pane';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';

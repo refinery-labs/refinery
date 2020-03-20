@@ -24,7 +24,7 @@ LANGUAGE_TO_EXT = {
 	"ruby2.6.4": "rb"
 }
 
-BLOCK_CODE_FILENAME = "block-code"
+BLOCK_CODE_FILENAME = "block_code"
 
 class ProjectRepoAssistant:
 

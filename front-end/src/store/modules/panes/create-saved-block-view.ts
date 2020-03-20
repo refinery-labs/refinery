@@ -185,7 +185,6 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
         this.setSaveType(SavedBlockSaveType.UPDATE);
       }
     } else {
-      debugger;
       this.setPublishState(isForkingBlock, false);
     }
 
