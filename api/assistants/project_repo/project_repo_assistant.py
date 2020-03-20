@@ -5,6 +5,7 @@ import tempfile
 import hashlib
 
 from tornado import gen
+from tornado.concurrent import run_on_executor, futures
 
 from git import Repo
 
@@ -29,6 +30,7 @@ class ProjectRepoAssistant:
 
 	def __init__( self, logger ):
 		self.logger = logger
+		self.executor = futures.ThreadPoolExecutor( 60 )
 
 	def clear_existing_git_saved_blocks( self, dbsession, project_id ):
 		git_repo = dbsession.query( GitRepo ).filter_by(
@@ -86,7 +88,7 @@ class ProjectRepoAssistant:
 			saved_block = self.create_new_saved_block(user_id, block_config)
 
 		new_saved_block_version = self.create_new_saved_block_version(
-			dbsession, saved_block.id, block_config, block_config_hash, shared_files)
+			dbsession, saved_block.id, block_config, shared_files)
 
 		saved_block.versions.append(
 			new_saved_block_version
@@ -116,10 +118,14 @@ class ProjectRepoAssistant:
 						return f.read()
 			except ValueError as e:
 				self.logger("Unable to parse {} for block: {} in {}".format( path, lambda_path, git_url ) )
-				return
+				return None
 
 		block_config_path = os.path.join( lambda_path, "config.json" )
 		block_config_json = get_file_contents(block_config_path, parse_json=True)
+
+		if block_config_json is None:
+			self.logger("Unable to get get block config for {} in {}".format( lambda_path, git_url ) )
+			return None
 
 		if "language" not in block_config_json:
 			self.logger("No language set in block {} in {}".format( lambda_path, git_url ) )
@@ -131,10 +137,16 @@ class ProjectRepoAssistant:
 		block_code_path = os.path.join( lambda_path, block_code_filename )
 		block_code = get_file_contents(block_code_path)
 
+		if block_code is None:
+			self.logger("Unable to get get block code for {} in {}".format( lambda_path, git_url ) )
+			return None
+
 		block_config_json[ "code" ] = block_code
 
 		return block_config_json
 
+	@run_on_executor
+	@gen.coroutine
 	def upsert_blocks_from_repo( self, dbsession, user_id, project_id, git_url ):
 		repo_id = self.clear_existing_git_saved_blocks(dbsession, project_id)
 
@@ -149,7 +161,11 @@ class ProjectRepoAssistant:
 		repo_dir = tempfile.mkdtemp()
 		shutil.rmtree(repo_dir)
 
-		git_repo = Repo.clone_from(git_url, repo_dir)
+		# TODO figure this shit out
+		#git_repo = Repo.clone_from(git_url, repo_dir)
+		shutil.copytree(git_url, repo_dir)
+
+		print(repo_dir)
 
 		lambda_block_configs = []
 		try:
@@ -162,6 +178,9 @@ class ProjectRepoAssistant:
 					continue
 
 				lambda_block_config = self.parse_lambda(git_url, lambda_block_path)
+				if lambda_block_config is None:
+					continue
+
 				lambda_block_configs.append(lambda_block_config)
 		finally:
 			shutil.rmtree(repo_dir)

@@ -492,7 +492,7 @@ class SavedBlockImport( BaseHandler ):
 		try:
 			with lock:
 				# do not wait for upsert to complete, this will run in the background
-				self.repo_assistant.upsert_blocks_from_repo(self.dbsession, user_id, project_id, project_repo)
+				yield self.repo_assistant.upsert_blocks_from_repo(self.dbsession, user_id, project_id, project_repo)
 		except AcquireFailure:
 			logit( "unable to acquire git block lock for " + project_id )
 			self.write({
