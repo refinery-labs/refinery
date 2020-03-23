@@ -60,6 +60,7 @@
     <option name="requirementsPath" value="$MODULE_DIR$/api/requirements.txt" />
   </component>
   <component name="TestRunnerService">
-    <option name="PROJECT_TEST_RUNNER" value="Unittests" />
+    <option name="projectConfiguration" value="pytest" />
+    <option name="PROJECT_TEST_RUNNER" value="pytest" />
   </component>
 </module>

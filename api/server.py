@@ -37,6 +37,7 @@ from tornado.concurrent import run_on_executor, futures
 from email_validator import validate_email, EmailNotValidError
 
 from assistants.user_creation_assistant import UserCreationAssistant
+from config.app_config import load_app_config
 from controller.auth.github.http_handler import AuthenticateWithGithub
 
 from controller.auth.github.oauth_provider import GithubOAuthProvider
@@ -100,11 +101,18 @@ except ImportError:
 
 import zipfile
 
-reload( sys )
-sys.setdefaultencoding( "utf8" )
+# noinspection PyBroadException
+try:
+	# for Python 2.x
+	# noinspection PyCompatibility
+	reload( sys )
+except Exception:
+	# for Python 3.4+
+	# noinspection PyUnresolvedReferences
+	from importlib import reload
+	reload( sys )
 
-# Initialize Stripe
-stripe.api_key = os.environ.get( "stripe_api_key" )
+sys.setdefaultencoding( "utf8" )
 
 # Increase CSV field size to be the max
 csv.field_size_limit( sys.maxsize )
@@ -114,7 +122,15 @@ csv.field_size_limit( sys.maxsize )
 LAMBDA_CALLBACK_ENDPOINT = False
 			
 def on_start():
-	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES, CUSTOMER_IAM_POLICY, DEFAULT_PROJECT_ARRAY, DEFAULT_PROJECT_CONFIG
+	global LAMDBA_BASE_CODES, \
+		LAMBDA_BASE_LIBRARIES, \
+		LAMBDA_SUPPORTED_LANGUAGES, \
+		CUSTOM_RUNTIME_CODE, \
+		CUSTOM_RUNTIME_LANGUAGES, \
+		EMAIL_TEMPLATES, \
+		CUSTOMER_IAM_POLICY, \
+		DEFAULT_PROJECT_ARRAY, \
+		DEFAULT_PROJECT_CONFIG
 	
 	DEFAULT_PROJECT_CONFIG = {
 		"version": "1.0.0",
@@ -199,11 +215,6 @@ def on_start():
 				)
 			)
 
-mailgun_api_key = os.environ.get( "mailgun_api_key" )
-
-if mailgun_api_key is None:
-	print( "Please configure a Mailgun API key, this is needed for authentication and regular operations." )
-	exit()
 
 # This is purely for sending emails as part of Refinery's
 # regular operations (e.g. authentication via email code, etc).
@@ -339,7 +350,7 @@ def get_billing_rounded_float( input_price_float ):
 	
 # Custom exceptions
 class CardIsPrimaryException(Exception):
-    pass
+	pass
 
 # Regex for character whitelists for different fields
 REGEX_WHITELISTS = {
@@ -6031,14 +6042,14 @@ def deploy_lambda( credentials, id, lambda_object ):
 		"name": lambda_object.name,
 		"arn": deployed_lambda_data[ "FunctionArn" ]
 	})
-	
+
 def get_node_by_id( target_id, workflow_states ):
 	for workflow_state in workflow_states:
 		if workflow_state[ "id" ] == target_id:
 			return workflow_state
 	
 	return False
-	
+
 def update_workflow_states_list( updated_node, workflow_states ):
 	for i in range( 0, len( workflow_states ) ):
 		if workflow_states[i][ "id" ] == updated_node[ "id" ]:
@@ -6071,7 +6082,7 @@ def get_merge_lambda_arn_list( target_id, workflow_relationships, workflow_state
 			)
 
 	return arn_list
-	
+
 @gen.coroutine
 def deploy_diagram( credentials, project_name, project_id, diagram_data, project_config ):
 	"""
@@ -6431,7 +6442,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				sqs_queue_node[ "id" ],
 				sqs_queue_name,
 				int( sqs_queue_node[ "batch_size" ] ), # Not used, passed along
-				900, # Max Lambda runtime - TODO set this to the linked Lambda amount
+				900,  # Max Lambda runtime - TODO set this to the linked Lambda amount
 			)
 		})
 		
@@ -6498,7 +6509,7 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 				deployed_api_endpoints.append(
 					output
 				)
-		except Exception, e:
+		except Exception as e:
 			logit( "Failed to deploy node '" + deploy_future_data[ "name" ] + "'!", "error" )
 			logit( "The full exception details can be seen below: ", "error" )
 			logit( traceback.format_exc(), "error" )
@@ -10918,14 +10929,16 @@ class GetProjectShortlink( BaseHandler ):
 			}
 		})
 
-def get_tornado_app_config( is_debug ):
+
+def get_tornado_app_config( app_config ):
 	return {
-		"debug": is_debug,
-		"ngrok_enabled": os.environ.get( "ngrok_enabled" ),
-		"cookie_secret": os.environ.get( "cookie_secret_value" ),
+		"debug": app_config.get( "app" ).get( "debug" ),
+		"ngrok_enabled": app_config.get( "app" ).get( "ngrok_enabled" ),
+		"cookie_secret": app_config.get( "env" ).get( "cookie_secret_value" ),
 		"compress_response": True,
 		"websocket_router": WebSocketRouter()
 	}
+
 
 def make_websocket_server( tornado_config ):
 	return tornado.web.Application([
@@ -10934,16 +10947,17 @@ def make_websocket_server( tornado_config ):
 			"websocket_router": tornado_config[ "websocket_router" ]
 		}),
 	], **tornado_config)
-		
-def make_app( tornado_config ):
+
+
+def make_app( app_config, tornado_config ):
 	# Sets up dependencies
 	logger = logit
 
 	# Standalone dependencies that just rely on configuration
 	github_oauth_provider = GithubOAuthProvider(
-		os.environ["github_client_id"],
-		os.environ["github_client_secret"],
-		os.environ["cookie_expire_days"],
+		app_config.get( "env" ).get( "github_client_id" ),
+		app_config.get( "env" ).get( "github_client_secret" ),
+		app_config.get( "env" ).get( "cookie_expire_days" ),
 		logger
 	)
 
@@ -10971,11 +10985,16 @@ def make_app( tornado_config ):
 	dependencies = dict(
 		github_oauth_provider=github_oauth_provider,
 		logger=logger,
-		#project_inventory_service=project_inventory_service,
-		#stripe_service=stripe_service,
-		#oauth_service=oauth_service,
+		project_inventory_service=project_inventory_service,
+		stripe_service=stripe_service,
+		oauth_service=oauth_service,
 		user_creation_assistant=user_creation_assistant,
-		#user_service=user_service
+		user_service=user_service
+	)
+
+	# Must have this because if Tornado tries to inject a dependency that the class doesn't ask for, it throws.
+	tornado_dependency_holder = dict(
+		dependencies=dependencies
 	)
 
 	# Sets up routes
@@ -10985,7 +11004,7 @@ def make_app( tornado_config ):
 		( r"/api/v1/auth/me", GetAuthenticationStatus ),
 		( r"/api/v1/auth/register", NewRegistration ),
 		( r"/api/v1/auth/login", Authenticate ),
-		tornado.web.url( r"/api/v1/auth/github", AuthenticateWithGithub, dependencies, name="auth_github" ),
+		tornado.web.url( r"/api/v1/auth/github", AuthenticateWithGithub, tornado_dependency_holder, name="auth_github" ),
 		( r"/api/v1/auth/logout", Logout ),
 		( r"/api/v1/logs/executions/get-logs", GetProjectExecutionLogObjects ),
 		( r"/api/v1/logs/executions/get-contents", GetProjectExecutionLogsPage ),
@@ -11024,6 +11043,7 @@ def make_app( tornado_config ):
 		( r"/api/v1/project_short_link/get", GetProjectShortlink ),
 		# WebSocket endpoint for live debugging Lambdas
 		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer, {
+
 			"websocket_router": tornado_config[ "websocket_router" ]
 		}),
 		
@@ -11045,9 +11065,10 @@ def make_app( tornado_config ):
 		( r"/services/v1/dangling_resources/([a-f0-9\-]+)", CleanupDanglingResources ),
 		( r"/services/v1/clear_stripe_invoice_drafts", ClearStripeInvoiceDrafts ),
 	], **tornado_config)
-	
+
+
 def get_lambda_callback_endpoint( tornado_config ):
-	if tornado_config["ngrok_enabled"] == "true":
+	if tornado_config[ "ngrok_enabled" ] == "true":
 		logit( "Setting up the ngrok tunnel to the local websocket server..." )
 		ngrok_http_endpoint = tornado.ioloop.IOLoop.current().run_sync(
 			set_up_ngrok_websocket_tunnel
@@ -11066,19 +11087,31 @@ def get_lambda_callback_endpoint( tornado_config ):
 	)
 	return "ws://" + remote_ipv4_address + ":3333/ws/v1/lambdas/connectback"
 
+
 if __name__ == "__main__":
 	logit( "Starting the Refinery service...", "info" )
+
+	app_config = load_app_config()
+
+	# Initialize Stripe
+	stripe.api_key = app_config.get( "env" ).get( "stripe_api_key" )
+
+	mailgun_api_key = app_config.get( "env" ).get( "mailgun_api_key" )
+
+	if mailgun_api_key is None:
+		print( "Please configure a Mailgun API key, this is needed for authentication and regular operations." )
+		exit()
+
 	on_start()
-	
-	is_debug = ( os.environ.get( "is_debug" ).lower() == "true" )
-	
+
 	# Generate tornado config
 	tornado_config = get_tornado_app_config(
-		is_debug
+		app_config
 	)
 	
 	# Start API server
 	app = make_app(
+		app_config,
 		tornado_config
 	)
 	server = tornado.httpserver.HTTPServer(

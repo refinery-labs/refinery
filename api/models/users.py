@@ -1,3 +1,6 @@
+from sqlalchemy import Enum
+
+from data_types.oauth_providers import RefineryUserTier
 from initiate_database import *
 import json
 import uuid
@@ -113,6 +116,9 @@ class User( Base ):
 	)
 	
 	timestamp = Column(Integer())
+
+	# Tier the user's account is under (free/paid)
+	# tier = Column( Enum( RefineryUserTier ), nullable=False )
 
 	def __init__( self ):
 		self.id = str( uuid.uuid4() )
