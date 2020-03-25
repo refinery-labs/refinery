@@ -691,6 +691,7 @@ class TaskSpawner(object):
 			project_id = re.sub( REGEX_WHITELISTS[ "project_id" ], "", project_id )
 			table_name = "PRJ_" + project_id.replace( "-", "_" )
 
+			# We set case sensitivity (because of nested JSON) and to ignore malformed JSON (just in case)
 			query_template = """
 			CREATE EXTERNAL TABLE IF NOT EXISTS refinery.{{REPLACE_ME_PROJECT_TABLE_NAME}} (
 			  `arn` string,
@@ -717,7 +718,9 @@ class TaskSpawner(object):
 			PARTITIONED BY (dt string)
 			ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe'
 			WITH SERDEPROPERTIES (
-			  'serialization.format' = '1'
+			  'serialization.format' = '1',
+			  'ignore.malformed.json' = 'true',
+			  'case.insensitive' = 'false'
 			) LOCATION 's3://refinery-lambda-logging-{{S3_BUCKET_SUFFIX}}/{{REPLACE_ME_PROJECT_ID}}/'
 			TBLPROPERTIES ('has_encrypted_data'='false');
 			"""
