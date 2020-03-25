@@ -43,6 +43,15 @@ class AppConfig:
 		"""
 		return self._config[ key ]
 
+	def get_if_exists( self, key ):
+		"""
+		Retrieves a key from the configuration file if it exists.
+		If it does not exist, None will be returned.
+		:param key: String to read from the configuration dictionary.
+		:return: Value associated with the given key or None.
+		"""
+		return self._config.get( key )
+
 	@staticmethod
 	def _get_env_vars_dict():
 		"""
@@ -131,3 +140,9 @@ def load_app_config( app_env=None, overrides=None ):
 
 class InvalidEnvironmentError(Exception):
 	pass
+
+
+# TODO REMOVE THIS FROM GLOBAL SCOPE
+# THIS IS A TEMPORARY LOCATION SO THAT WE
+# CAN REFACTOR PIECE BY PIECE
+global_app_config = load_app_config()

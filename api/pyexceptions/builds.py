@@ -1,4 +1,4 @@
 class BuildException( Exception ):
-	def __init__( self, input_dict ):
-		self.msg = input_dict["msg"]
-		self.build_output = input_dict["build_output"]
+	def __init__( self, msg, build_output ):
+		self.msg = msg
+		self.build_output = build_output

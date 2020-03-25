@@ -5,13 +5,15 @@ from botocore.client import Config
 from expiringdict import ExpiringDict
 from utils.general import get_urand_password
 
+from config.app_config import global_app_config
+
 # This client is used to assume role into all of our customer's
 # AWS accounts as a root-priveleged support account ("DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT")
 STS_CLIENT = boto3.client(
 	"sts",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" ),
+	aws_access_key_id=global_app_config.get( "aws_access_key" ),
+	aws_secret_access_key=global_app_config.get( "aws_secret_key" ),
+	region_name=global_app_config.get( "region_name" ),
 	config=Config(
 		max_pool_connections=( 1000 * 2 )
 	)
@@ -28,8 +30,10 @@ can take ~35 seconds to pull the logs, with the caching it takes ~5.
 """
 BOTO3_CLIENT_CACHE = ExpiringDict(
 	max_len=500,
-	max_age_seconds=( int( os.environ.get( "assume_role_session_lifetime_seconds" ) ) - 60 )
+	max_age_seconds=( int( global_app_config.get( "assume_role_session_lifetime_seconds" ) ) - 60 )
 )
+
+
 def get_aws_client( client_type, credentials ):
 	"""
 	Take an AWS client type ("s3", "lambda", etc) and utilize
@@ -53,7 +57,7 @@ def get_aws_client( client_type, credentials ):
 	assume_role_response = STS_CLIENT.assume_role(
 		RoleArn=sub_account_admin_role_arn,
 		RoleSessionName=role_session_name,
-		DurationSeconds=int( os.environ.get( "assume_role_session_lifetime_seconds" ) )
+		DurationSeconds=int( global_app_config.get( "assume_role_session_lifetime_seconds" ) )
 	)
 	
 	# Remove non-JSON serializable part from response

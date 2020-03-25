@@ -4,6 +4,8 @@ import uuid
 import time
 import os
 
+from user_project_associations import users_projects_association_table
+
 class Project( Base ):
 	__tablename__ = "projects"
 

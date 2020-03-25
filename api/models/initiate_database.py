@@ -10,33 +10,34 @@ from sqlalchemy import Column, Integer, String, func, update, Text, Binary, Bool
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship, synonym
 from contextlib import contextmanager
 
-if "SKIP_DATABASE_CONNECT" not in os.environ:
-	# TODO: Don't initiate the database connection on import -- likely move into an exported function
-	engine = create_engine( "postgresql://" + os.environ.get( "postgreql_username" ) + ":" + os.environ.get( "postgreql_password" ) + "@" + os.environ.get( "postgresql_host" ) + "/" + os.environ.get( "postgres_db" ) + "?client_encoding=utf8", pool_recycle=60, encoding="utf8")
+from config.app_config import global_app_config
 
-	# TODO: Generate this lazily to allow for testing (don't call on import)
-	DBSession = scoped_session(sessionmaker(
+engine_url_format = "postgresql://{username}:{password}@{host}/{db}?client_encoding=utf8"
+
+
+def create_scoped_db_session_maker(app_config):
+	if app_config.get_if_exists( "SKIP_DATABASE_CONNECT" ):
+		return None
+
+	postgresql_username = app_config.get( "postgreql_username" )
+	postgresql_password = app_config.get( "postgreql_password" )
+	postgresql_host = app_config.get( "postgresql_host" )
+	postgresql_db = app_config.get( "postgres_db" )
+
+	engine_url = engine_url_format.format(
+		username=postgresql_username,
+		password=postgresql_password,
+		host=postgresql_host,
+		db=postgresql_db
+	)
+	engine = create_engine( engine_url, pool_recycle=60, encoding="utf8" )
+
+	return scoped_session(sessionmaker(
 		bind=engine,
 		autocommit=False,
 		autoflush=True
 	))
 
-# TODO: Move this into another file
-users_projects_association_table = Table(
-	"user_projects_association",
-	Base.metadata,
-	Column(
-		"users",
-		CHAR(36),
-		ForeignKey(
-			"users.id"
-		)
-	),
-	Column(
-		"projects",
-		CHAR(36),
-		ForeignKey(
-			"projects.id"
-		)
-	)
-)
+
+# TODO THIS IS TEMPORARY UNTIL WE MAKE A DENT IN DEP INJECTION
+DBSession = create_scoped_db_session_maker(global_app_config)

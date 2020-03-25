@@ -50,7 +50,8 @@ class AuthenticateWithGithub( BaseHandler ):
 	# Hook point for Tornado to inject dependencies
 	def initialize(
 			self,
-			dependencies
+			github_oauth_provider,
+			user_creation_assistant
 		):
 		"""
 		Called by Tornado with dependencies for this service to run.
@@ -60,9 +61,8 @@ class AuthenticateWithGithub( BaseHandler ):
 		:param user_creation_assistant: Instance of UserCreationAssistant
 		:type user_creation_assistant: UserCreationAssistant
 		"""
-		self.github_oauth_provider = dependencies.github_oauth_provider
-		self.logger = dependencies.logger
-		self.user_creation_assistant = dependencies.user_creation_assistant
+		self.github_oauth_provider = github_oauth_provider
+		self.user_creation_assistant = user_creation_assistant
 
 	@gen.coroutine
 	def get( self ):

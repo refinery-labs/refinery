@@ -8,6 +8,7 @@ import subprocess
 from tornado.concurrent import run_on_executor, futures
 from utils.general import logit
 from tornado import gen
+from config.app_config import global_app_config
 
 class NgrokSpawner(object):
 	def __init__(self, loop=None):
@@ -16,7 +17,7 @@ class NgrokSpawner(object):
 		
 	@run_on_executor
 	def start_ngrok_tunnel( self, port ):
-		if not "ngrok_api_secret" in os.environ:
+		if not "ngrok_api_secret" in global_app_config:
 			logit( "No ngrok API secret specified! Please enable one so Lambda callbacks work in dev!" )
 			return
 		
@@ -26,7 +27,7 @@ class NgrokSpawner(object):
 				"http",
 				str( port ),
 				"--authtoken",
-				os.environ.get( "ngrok_api_secret" )
+				global_app_config.get( "ngrok_api_secret" )
 			],
 			stdout=subprocess.PIPE,
 			stderr=subprocess.STDOUT,

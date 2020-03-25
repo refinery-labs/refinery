@@ -37,7 +37,7 @@ from tornado.concurrent import run_on_executor, futures
 from email_validator import validate_email, EmailNotValidError
 
 from assistants.user_creation_assistant import UserCreationAssistant
-from config.app_config import load_app_config
+from config.app_config import load_app_config, global_app_config
 from controller.auth.github.http_handler import AuthenticateWithGithub
 
 from controller.auth.github.oauth_provider import GithubOAuthProvider
@@ -56,6 +56,7 @@ from utils.deployments.api_gateway import api_gateway_manager, strip_api_gateway
 from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda, add_shared_files_symlink_to_zip
 from utils.ecs_builders import builder_manager, BuilderManager
 from utils.aws_account_management.preterraform import preterraform_manager
+from utils.billing import BillingSpawner
 
 from services.websocket_router import WebSocketRouter, run_scheduled_heartbeat
 
@@ -225,9 +226,9 @@ def on_start():
 # to pull the billing for all of our sub-accounts
 COST_EXPLORER = boto3.client(
 	"ce",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" ),
+	aws_access_key_id=global_app_config.get( "aws_access_key" ),
+	aws_secret_access_key=global_app_config.get( "aws_secret_key" ),
+	region_name=global_app_config.get( "region_name" ),
 	config=Config(
 		max_pool_connections=( 1000 * 2 )
 	)
@@ -237,14 +238,14 @@ COST_EXPLORER = boto3.client(
 # for customers to use.
 ORGANIZATION_CLIENT = boto3.client(
 	"organizations",
-	aws_access_key_id=os.environ.get( "aws_access_key" ),
-	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
-	region_name=os.environ.get( "region_name" ),
+	aws_access_key_id=global_app_config.get( "aws_access_key" ),
+	aws_secret_access_key=global_app_config.get( "aws_secret_key" ),
+	region_name=global_app_config.get( "region_name" ),
 	config=Config(
 		max_pool_connections=( 1000 * 2 )
 	)
 )
-		
+
 """
 Decorators
 """
@@ -862,7 +863,7 @@ class TaskSpawner(object):
 			
 			response = ORGANIZATION_CLIENT.create_account(
 				Email=email,
-				RoleName=os.environ.get( "customer_aws_admin_assume_role" ),
+				RoleName=global_app_config.get( "customer_aws_admin_assume_role" ),
 				AccountName=account_name,
 				IamUserAccessToBilling="DENY"
 			)
@@ -895,7 +896,7 @@ class TaskSpawner(object):
 		@staticmethod
 		def _get_assume_role_credentials( aws_account_id, session_lifetime ):
 			# Generate ARN for the sub-account AWS administrator role
-			sub_account_admin_role_arn = "arn:aws:iam::" + str( aws_account_id ) + ":role/" + os.environ.get( "customer_aws_admin_assume_role" )
+			sub_account_admin_role_arn = "arn:aws:iam::" + str( aws_account_id ) + ":role/" + global_app_config.get( "customer_aws_admin_assume_role" )
 			
 			# Session lifetime must be a minimum of 15 minutes
 			# https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts.html#STS.Client.assume_role
@@ -983,7 +984,7 @@ class TaskSpawner(object):
 			# Store the AWS account in the database
 			new_aws_account = AWSAccount()
 			new_aws_account.account_label = ""
-			new_aws_account.region = os.environ.get( "region_name" )
+			new_aws_account.region = global_app_config.get( "region_name" )
 			new_aws_account.s3_bucket_suffix = str( get_urand_password( 32 ) ).lower()
 			new_aws_account.iam_admin_username = "refinery-customer"
 			new_aws_account.iam_admin_password = get_urand_password( 32 )
@@ -994,7 +995,7 @@ class TaskSpawner(object):
 			new_aws_account.terraform_state = ""
 			new_aws_account.ssh_public_key = ""
 			new_aws_account.ssh_private_key = ""
-			new_aws_account.aws_account_email = os.environ.get( "customer_aws_email_prefix" ) + aws_unique_account_id + os.environ.get( "customer_aws_email_suffix" )
+			new_aws_account.aws_account_email = global_app_config.get( "customer_aws_email_prefix" ) + aws_unique_account_id + global_app_config.get( "customer_aws_email_suffix" )
 			new_aws_account.terraform_state_versions = []
 			new_aws_account.aws_account_status = "CREATED"
 			new_aws_account.account_type = account_type
@@ -1122,7 +1123,7 @@ class TaskSpawner(object):
 				3600 # One hour - TODO CHANGEME
 			)
 			
-			sub_account_admin_role_arn = "arn:aws:iam::" + str( aws_account_data[ "account_id" ] ) + ":role/" + os.environ.get( "customer_aws_admin_assume_role" )
+			sub_account_admin_role_arn = "arn:aws:iam::" + str( aws_account_data[ "account_id" ] ) + ":role/" + global_app_config.get( "customer_aws_admin_assume_role" )
 			
 			# Write out the terraform configuration data
 			terraform_configuration_data = {
@@ -1131,7 +1132,7 @@ class TaskSpawner(object):
 				"assume_role_arn": sub_account_admin_role_arn,
 				"access_key": assumed_role_credentials[ "access_key_id" ],
 				"secret_key": assumed_role_credentials[ "secret_access_key" ],
-				"region": os.environ.get( "region_name" ),
+				"region": global_app_config.get( "region_name" ),
 				"s3_bucket_suffix": aws_account_data[ "s3_bucket_suffix" ],
 				"redis_secrets": {
 					"password": aws_account_data[ "redis_password" ],
@@ -1733,9 +1734,9 @@ class TaskSpawner(object):
 			logit( "Sending email to '" + to_email_string + "' with subject '" + subject_string + "'..." )
 			
 			requests_options = {
-				"auth": ( "api", os.environ.get( "mailgun_api_key" ) ),
+				"auth": ( "api", global_app_config.get( "mailgun_api_key" ) ),
 				"data": {
-					"from": os.environ.get( "from_email" ),
+					"from": global_app_config.get( "from_email" ),
 					"h:Reply-To": "support@refinery.io",
 					"to": [
 						to_email_string
@@ -1760,7 +1761,7 @@ class TaskSpawner(object):
 		@staticmethod
 		def send_terraform_provisioning_error( aws_account_id, error_output ):
 			TaskSpawner._send_email(
-				os.environ.get( "alerts_email" ),
+				global_app_config.get( "alerts_email" ),
 				"[AWS Account Provisioning Error] The Refinery AWS Account #" + aws_account_id + " Encountered a Fatal Error During Terraform Provisioning",
 				pystache.render(
 					EMAIL_TEMPLATES[ "terraform_provisioning_error_alert" ],
@@ -1775,14 +1776,14 @@ class TaskSpawner(object):
 		@staticmethod
 		def send_account_freeze_email( aws_account_id, amount_accumulated, organization_admin_email ):
 			TaskSpawner._send_email(
-				os.environ.get( "alerts_email" ),
+				global_app_config.get( "alerts_email" ),
 				"[Freeze Alert] The Refinery AWS Account #" + aws_account_id + " has been frozen for going over its account limit!",
 				False,
 				pystache.render(
 					EMAIL_TEMPLATES[ "account_frozen_alert" ],
 					{
 						"aws_account_id": aws_account_id,
-						"free_trial_billing_limit": os.environ.get( "free_trial_billing_limit" ),
+						"free_trial_billing_limit": global_app_config.get( "free_trial_billing_limit" ),
 						"amount_accumulated": amount_accumulated,
 						"organization_admin_email": organization_admin_email,
 					}
@@ -1791,7 +1792,7 @@ class TaskSpawner(object):
 		
 		@run_on_executor
 		def send_registration_confirmation_email( self, email_address, auth_token ):
-			registration_confirmation_link = os.environ.get( "web_origin" ) + "/authentication/email/" + auth_token
+			registration_confirmation_link = global_app_config.get( "web_origin" ) + "/authentication/email/" + auth_token
 			
 			TaskSpawner._send_email(
 				email_address,
@@ -1813,7 +1814,7 @@ class TaskSpawner(object):
 		@run_on_executor
 		def send_internal_registration_confirmation_email( self, customer_email_address, customer_name, customer_phone ):
 			TaskSpawner._send_email(
-				os.environ.get( "internal_signup_notification_email" ),
+				global_app_config.get( "internal_signup_notification_email" ),
 				"Refinery User Signup, " + customer_email_address,
 				pystache.render(
 					EMAIL_TEMPLATES[ "internal_registration_notification_text" ],
@@ -1835,7 +1836,7 @@ class TaskSpawner(object):
 	
 		@run_on_executor
 		def send_authentication_email( self, email_address, auth_token ):
-			authentication_link = os.environ.get( "web_origin" ) + "/authentication/email/" + auth_token
+			authentication_link = global_app_config.get( "web_origin" ) + "/authentication/email/" + auth_token
 			
 			TaskSpawner._send_email(
 				email_address,
@@ -1984,7 +1985,7 @@ class TaskSpawner(object):
 			# or if manual approve/editing is enabled. One is more careful
 			# than the others.
 			finalize_invoices_enabled = json.loads(
-				os.environ.get( "stripe_finalize_invoices" )
+				global_app_config.get( "stripe_finalize_invoices" )
 			)
 			
 			# Iterate over each organization
@@ -2100,7 +2101,7 @@ class TaskSpawner(object):
 
 			# Notify finance department that they have an hour to review the invoices
 			return TaskSpawner._send_email(
-				os.environ.get( "billing_alert_email" ),
+				global_app_config.get( "billing_alert_email" ),
 				"[URGENT][IMPORTANT]: Monthly customer invoice generation has completed. One hour to auto-finalization.",
 				False,
 				"The monthly Stripe invoice generation has completed. You have <b>one hour</b> to review invoices before they go out to customers.<br /><a href=\"https://dashboard.stripe.com/invoices\"><b>Click here to review the generated invoices</b></a><br /><br />",
@@ -2176,7 +2177,7 @@ class TaskSpawner(object):
 			dbsession = DBSession()
 			
 			# Pull the configured free trial account limits
-			free_trial_user_max_amount = float( os.environ.get( "free_trial_billing_limit" ) )
+			free_trial_user_max_amount = float( global_app_config.get( "free_trial_billing_limit" ) )
 			
 			# Iterate over the input list and pull the related accounts
 			for aws_account_info in aws_account_running_cost_list:
@@ -2294,7 +2295,7 @@ class TaskSpawner(object):
 				"EC2"
 			]
 
-			markup_multiplier = 1 + ( int( os.environ.get( "mark_up_percent" ) ) / 100 )
+			markup_multiplier = 1 + ( int( global_app_config.get( "mark_up_percent" ) ) / 100 )
 			
 			# Markup multiplier
 			if account_type == "THIRDPARTY":
@@ -2536,7 +2537,7 @@ class TaskSpawner(object):
 				)
 			except ClientError as e:
 				TaskSpawner._send_email(
-					os.environ.get( "alerts_email" ),
+					global_app_config.get( "alerts_email" ),
 					"[Billing Notification] The Refinery AWS Account #" + account_id + " Encountered An Error When Calculating the Bill",
 					"See HTML email.",
 					pystache.render(
@@ -2580,7 +2581,7 @@ class TaskSpawner(object):
 			metric_name = "NET_UNBLENDED_COST"
 			
 			# Markup multiplier
-			markup_multiplier = 1 + ( int( os.environ.get( "mark_up_percent" ) ) / 100 )
+			markup_multiplier = 1 + ( int( global_app_config.get( "mark_up_percent" ) ) / 100 )
 			
 			forcecast_parameters = {
 				"TimePeriod": {
@@ -3867,12 +3868,10 @@ class TaskSpawner(object):
 					log_group_name,
 					log_stream_name
 				)
-				
-				raise BuildException({
-					"msg": "Build ID " + build_id + " failed with status code '" + build_status + "'!",
-					"build_output": log_output,
-				})
-			
+
+				msg = "Build ID " + build_id + " failed with status code '" + build_status + "'!"
+				raise BuildException(msg, log_output)
+
 			# We now copy this artifact to a location with a deterministic hash name
 			# so that we can query for its existence and cache previously-build packages.
 			s3_copy_response = s3_client.copy_object(
@@ -4577,7 +4576,7 @@ class TaskSpawner(object):
 				Action="lambda:*",
 				Principal="events.amazonaws.com",
 				SourceArn="arn:aws:events:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":rule/" + rule_name,
-				#SourceAccount=os.environ.get( "aws_account_id" ) # THIS IS A BUG IN AWS NEVER PASS THIS
+				#SourceAccount=global_app_config.get( "aws_account_id" ) # THIS IS A BUG IN AWS NEVER PASS THIS
 			)
 			
 			return rule_creation_response
@@ -4628,7 +4627,7 @@ class TaskSpawner(object):
 				Action="lambda:*",
 				Principal="sns.amazonaws.com",
 				SourceArn=topic_arn,
-				#SourceAccount=os.environ.get( "aws_account_id" ) # THIS IS A BUG IN AWS NEVER PASS THIS
+				#SourceAccount=global_app_config.get( "aws_account_id" ) # THIS IS A BUG IN AWS NEVER PASS THIS
 			)
 			
 			sns_topic_response = sns_client.subscribe(
@@ -6027,7 +6026,7 @@ def deploy_lambda( credentials, id, lambda_object ):
 		credentials,
 		lambda_object
 	)
-	
+
 	# If we have concurrency set, then we'll set that for our deployed Lambda
 	if lambda_object.reserved_concurrency_count:
 		logit( "Setting reserved concurrency for Lambda '" + deployed_lambda_data[ "FunctionArn" ] + "' to " + str( lambda_object.reserved_concurrency_count ) + "..." )
@@ -6512,12 +6511,17 @@ def deploy_diagram( credentials, project_name, project_id, diagram_data, project
 		except Exception as e:
 			logit( "Failed to deploy node '" + deploy_future_data[ "name" ] + "'!", "error" )
 			logit( "The full exception details can be seen below: ", "error" )
-			logit( traceback.format_exc(), "error" )
+
+			exception_msg = traceback.format_exc()
+			if type(e) is BuildException:
+				exception_msg = e.build_output
+
+			logit( exception_msg, "error" )
 			deployment_exceptions.append({
 				"id": deploy_future_data[ "id" ],
 				"name": deploy_future_data[ "name" ],
 				"type": deploy_future_data[ "type" ],
-				"exception": traceback.format_exc()
+				"exception": exception_msg
 			})
 	
 	# This is the earliest point we can apply the breaks in the case of an exception
@@ -9423,7 +9427,7 @@ class EmailLinkAuthentication( BaseHandler ):
 		
 		# Check if the token is older than the allowed lifetime
 		# If it is then mark it expired and return an error
-		if token_age >= int( os.environ.get( "email_token_lifetime" ) ):
+		if token_age >= int( global_app_config.get( "email_token_lifetime" ) ):
 			logit( "The user's email token was too old and was marked as expired." )
 			
 			# Mark the token as expired in the database
@@ -9509,7 +9513,7 @@ class GetAuthenticationStatus( BaseHandler ):
 		if current_user:
 			intercom_user_hmac = hmac.new(
 				# secret key (keep safe!)
-				os.environ["intercom_hmac_secret"],
+				global_app_config.get("intercom_hmac_secret"),
 				# user's email address
 				current_user.email,
 				# hash function
@@ -10171,7 +10175,7 @@ class GetAWSConsoleCredentials( BaseHandler ):
 		"""
 		credentials = self.get_authenticated_user_cloud_configuration()
 		
-		aws_console_signin_url = "https://" + credentials[ "account_id" ] + ".signin.aws.amazon.com/console/?region=" + os.environ.get( "region_name" )
+		aws_console_signin_url = "https://" + credentials[ "account_id" ] + ".signin.aws.amazon.com/console/?region=" + global_app_config.get( "region_name" )
 		
 		self.write({
 			"success": True,
@@ -10200,7 +10204,7 @@ class MaintainAWSAccountReserves( BaseHandler ):
 		
 		dbsession = DBSession()
 		
-		reserved_aws_pool_target_amount = int( os.environ.get( "reserved_aws_pool_target_amount" ) )
+		reserved_aws_pool_target_amount = int( global_app_config.get( "reserved_aws_pool_target_amount" ) )
 		
 		# Get the number of AWS accounts which are ready to be
 		# assigned to new users that are signing up ("AVAILABLE").
@@ -10416,7 +10420,7 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 			final_email_subject = "[ APPLY SUCCEEDED ] " + final_email_subject
 		
 		yield local_tasks.send_email(
-			os.environ.get( "alerts_email" ),
+			global_app_config.get( "alerts_email" ),
 			final_email_subject,
 			False, # No text version of email
 			final_email_html
@@ -10487,7 +10491,7 @@ class PerformTerraformPlanOnFleet( BaseHandler ):
 		
 		logit( "Sending email with results from terraform plan..." )
 		yield local_tasks.send_email(
-			os.environ.get( "alerts_email" ),
+			global_app_config.get( "alerts_email" ),
 			"Terraform Plan Results from Across the Fleet " + str( int( time.time() ) ), # Make subject unique so Gmail doesn't group
 			False, # No text version of email
 			final_email_html
@@ -10650,7 +10654,7 @@ class OnboardThirdPartyAWSAccountPlan( BaseHandler ):
 		
 		logit( "Sending email with results from terraform plan..." )
 		yield local_tasks.send_email(
-			os.environ.get( "alerts_email" ),
+			global_app_config.get( "alerts_email" ),
 			"Terraform Plan Results for Onboarding Third-Party AWS Account " + str( int( time.time() ) ), # Make subject unique so Gmail doesn't group
 			False, # No text version of email
 			final_email_html
@@ -10932,9 +10936,9 @@ class GetProjectShortlink( BaseHandler ):
 
 def get_tornado_app_config( app_config ):
 	return {
-		"debug": app_config.get( "app" ).get( "debug" ),
-		"ngrok_enabled": app_config.get( "app" ).get( "ngrok_enabled" ),
-		"cookie_secret": app_config.get( "env" ).get( "cookie_secret_value" ),
+		"debug": app_config.get( "debug" ),
+		"ngrok_enabled": app_config.get( "ngrok_enabled" ),
+		"cookie_secret": app_config.get( "cookie_secret_value" ),
 		"compress_response": True,
 		"websocket_router": WebSocketRouter()
 	}
@@ -10955,9 +10959,9 @@ def make_app( app_config, tornado_config ):
 
 	# Standalone dependencies that just rely on configuration
 	github_oauth_provider = GithubOAuthProvider(
-		app_config.get( "env" ).get( "github_client_id" ),
-		app_config.get( "env" ).get( "github_client_secret" ),
-		app_config.get( "env" ).get( "cookie_expire_days" ),
+		app_config.get( "github_client_id" ),
+		app_config.get( "github_client_secret" ),
+		app_config.get( "cookie_expire_days" ),
 		logger
 	)
 
@@ -10982,9 +10986,8 @@ def make_app( app_config, tornado_config ):
 	)
 
 	# TODO: Figure out how DI works in Tornado
-	dependencies = dict(
+	github_auth_deps = dict(
 		github_oauth_provider=github_oauth_provider,
-		logger=logger,
 		project_inventory_service=project_inventory_service,
 		stripe_service=stripe_service,
 		oauth_service=oauth_service,
@@ -10992,19 +10995,88 @@ def make_app( app_config, tornado_config ):
 		user_service=user_service
 	)
 
-	# Must have this because if Tornado tries to inject a dependency that the class doesn't ask for, it throws.
-	tornado_dependency_holder = dict(
-		dependencies=dependencies
+	executions_controller_deps = dict(
+		websocket_router=tornado_config[ "websocket_router" ]
 	)
 
-	# Sets up routes
-	return tornado.web.Application([
+	billing_spawner = BillingSpawner(app_config=app_config)
+	clear_stripe_invoice_drafts_deps = dict(
+		billing_spawner=billing_spawner
+	)
+
+	db_session_maker = create_scoped_db_session_maker(app_config)
+
+	# Must have this because if Tornado tries to inject a dependency that the class doesn't ask for, it throws.
+	common_dependencies = dict(
+		app_config=app_config,
+		logger=logger,
+		db_session_maker=db_session_maker
+	)
+
+	def merge_dependencies(deps1, deps2):
+		out_deps = deps1.copy()
+		out_deps.update(deps2)
+		return out_deps
+
+	def valid_handler_config(handler_config):
+		"""
+		Enforce that the handler config is of the form:
+			("path", handler)
+			-- or --
+			("path", handler, dependencies)
+
+		:param handler_config:
+		:return:
+		"""
+		if len(handler_config) >= 2 and \
+				type(handler_config[0]) is str and \
+				type(handler_config[1]) is type:
+
+			# TODO enforce that handler_config[1] is a subclass of BaseHandler?
+
+			# Config only has at least a route and handler class...
+
+			if len(handler_config) == 2:
+				# Config only has route and handler class
+				return True
+
+			elif len(handler_config) == 3 and \
+					type(handler_config[2]) is dict:
+				# Config also as dependencies to inject
+				return True
+			else:
+				return False
+		return False
+
+	def get_deps_from_handler_config(handler_config):
+		if len(handler_config) == 3:
+			return handler_config[2]
+		return dict()
+
+	def inject_handler_dependencies(handler_configs):
+		tornado_urls = []
+		for handler_config in handler_configs:
+			if not valid_handler_config(handler_config):
+				raise Exception("provided handler config is not valid {}".format(handler_config))
+
+			deps = get_deps_from_handler_config(handler_config)
+			merged_deps = merge_dependencies(common_dependencies, deps)
+
+			url_path = handler_config[0]
+			handler_class = handler_config[1]
+			tornado_url = (url_path, handler_class, merged_deps)
+
+			tornado_urls.append(tornado_url)
+
+		return tornado_urls
+
+	handlers = [
 		( r"/api/v1/health", HealthHandler ),
 		( r"/authentication/email/([a-z0-9]+)", EmailLinkAuthentication ),
 		( r"/api/v1/auth/me", GetAuthenticationStatus ),
 		( r"/api/v1/auth/register", NewRegistration ),
 		( r"/api/v1/auth/login", Authenticate ),
-		tornado.web.url( r"/api/v1/auth/github", AuthenticateWithGithub, tornado_dependency_holder, name="auth_github" ),
+		( r"/api/v1/auth/github", AuthenticateWithGithub, github_auth_deps ),
 		( r"/api/v1/auth/logout", Logout ),
 		( r"/api/v1/logs/executions/get-logs", GetProjectExecutionLogObjects ),
 		( r"/api/v1/logs/executions/get-contents", GetProjectExecutionLogsPage ),
@@ -11042,14 +11114,11 @@ def make_app( app_config, tornado_config ):
 		( r"/api/v1/project_short_link/create", CreateProjectShortlink ),
 		( r"/api/v1/project_short_link/get", GetProjectShortlink ),
 		# WebSocket endpoint for live debugging Lambdas
-		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer, {
+		( r"/ws/v1/lambdas/livedebug", ExecutionsControllerServer, executions_controller_deps),
 
-			"websocket_router": tornado_config[ "websocket_router" ]
-		}),
-		
 		# Temporarily disabled since it doesn't cache the CostExplorer results
 		#( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast ),
-		
+
 		# These are "services" which are only called by external crons, etc.
 		# External users are blocked from ever reaching these routes
 		( r"/services/v1/assume_account_role/([a-f0-9\-]+)", AdministrativeAssumeAccount ),
@@ -11063,8 +11132,13 @@ def make_app( app_config, tornado_config ):
 		( r"/services/v1/dangerously_finalize_third_party_aws_onboarding", OnboardThirdPartyAWSAccountApply ),
 		( r"/services/v1/clear_s3_build_packages", ClearAllS3BuildPackages ),
 		( r"/services/v1/dangling_resources/([a-f0-9\-]+)", CleanupDanglingResources ),
-		( r"/services/v1/clear_stripe_invoice_drafts", ClearStripeInvoiceDrafts ),
-	], **tornado_config)
+		( r"/services/v1/clear_stripe_invoice_drafts", ClearStripeInvoiceDrafts, clear_stripe_invoice_drafts_deps ),
+	]
+
+	# Sets up routes
+	return tornado.web.Application(
+		inject_handler_dependencies(handlers),
+		**tornado_config)
 
 
 def get_lambda_callback_endpoint( tornado_config ):
@@ -11094,9 +11168,9 @@ if __name__ == "__main__":
 	app_config = load_app_config()
 
 	# Initialize Stripe
-	stripe.api_key = app_config.get( "env" ).get( "stripe_api_key" )
+	stripe.api_key = app_config.get( "stripe_api_key" )
 
-	mailgun_api_key = app_config.get( "env" ).get( "mailgun_api_key" )
+	mailgun_api_key = app_config.get( "mailgun_api_key" )
 
 	if mailgun_api_key is None:
 		print( "Please configure a Mailgun API key, this is needed for authentication and regular operations." )

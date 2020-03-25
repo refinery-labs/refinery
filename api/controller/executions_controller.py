@@ -5,13 +5,14 @@ import tornado
 from pyexceptions.runtime_errors import InvalidConfigurationException
 from utils.general import logit
 from utils.websocket import parse_websocket_message
+from config.app_config import global_app_config
 
 class ExecutionsControllerServer(tornado.websocket.WebSocketHandler):
 	connected_front_end_clients = []
 	websocket_router = None
 	
-	def initialize( self, app_config, **kwargs ):
-		access_control_allow_origins = app_config.get( "env" ).get( "access_control_allow_origins" )
+	def initialize( self, **kwargs ):
+		access_control_allow_origins = global_app_config.get( "access_control_allow_origins" )
 
 		if access_control_allow_origins is None:
 			raise InvalidConfigurationException( "Missing CORS origins" )

@@ -578,24 +578,24 @@ class BuilderManager(object):
 		if build_status == "SUCCESS":
 			return response.content
 		elif build_status == "GO_GET_ERROR":
-			raise BuildException({
-				"msg": "An error occurred while running \"go get\", see the build output for more information.",
-				"build_output": response.text,
-			})
+			raise BuildException(
+				"An error occurred while running \"go get\", see the build output for more information.",
+				response.text
+			)
 		elif build_status == "GO_BUILD_ERROR":
-			raise BuildException({
-				"msg": "An error occurred while building the Go binary, see the build output for more information.",
-				"build_output": response.text,
-			})
+			raise BuildException(
+				"An error occurred while building the Go binary, see the build output for more information.",
+				response.text
+			)
 		elif build_status == "UNKNOWN":
-			raise BuildException({
-				"msg": "An unknown error occurred while compiling your Go binary.",
-				"build_output": response.text,
-			})
+			raise BuildException(
+				"An unknown error occurred while compiling your Go binary.",
+				response.text
+			)
 
-		raise BuildException({
-			"msg": "An unknown error occurred while building your Go binary.",
-			"build_output": "The Refinery builder agent failed while trying to build your package, please submit this to Refinery support.",
-		})
+		raise BuildException(
+			"An unknown error occurred while building your Go binary.",
+			"The Refinery builder agent failed while trying to build your package, please submit this to Refinery support.",
+		)
 
 builder_manager = BuilderManager()

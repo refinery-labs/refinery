@@ -7,9 +7,10 @@ from utils.general import logit
 from tornado import gen
 
 from utils.base_spawner import BaseSpawner
+from config.app_config import global_app_config
 
 # Initialize Stripe
-stripe.api_key = os.environ.get( "stripe_api_key" )
+stripe.api_key = global_app_config.get( "stripe_api_key" )
 
 class BillingSpawner(BaseSpawner):
 	@run_on_executor
@@ -34,5 +35,3 @@ class BillingSpawner(BaseSpawner):
 			)
 
 		logit( "Deleting draft invoices completed successfully!" )
-
-billing_spawner = BillingSpawner()

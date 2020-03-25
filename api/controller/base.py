@@ -2,6 +2,7 @@
 import tornado.web
 import json
 import time
+import traceback
 
 from tornado import gen
 
@@ -13,16 +14,27 @@ from models.organizations import Organization
 
 from utils.general import logit
 
-# Pull list of allowed Access-Control-Allow-Origin values from environment var
-allowed_origins = json.loads( os.environ.get( "access_control_allow_origins" ) )
+from config.app_config import global_app_config
+
+import traceback
 
 
 class BaseHandler( tornado.web.RequestHandler ):
-	# Useful for mocking the database in tests
-	_test_dbsession = None
+	# Dependencies
+	logger = None
+	db_session_maker = None
+	app_config = None
+
+	_dbsession = None
+	allowed_origins = None
 
 	def __init__( self, *args, **kwargs ):
 		super( BaseHandler, self ).__init__( *args, **kwargs )
+
+		# If initialize has been overridden, also initialize the base handler
+		if not BaseHandler.initialize == self.initialize:
+			BaseHandler.initialize(self, **kwargs)
+
 		self.set_header( "Access-Control-Allow-Headers", "Content-Type, X-CSRF-Validation-Header" )
 		self.set_header( "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD" )
 		self.set_header( "Access-Control-Allow-Credentials", "true" )
@@ -41,15 +53,26 @@ class BaseHandler( tornado.web.RequestHandler ):
 		# For caching the user's aws credentials
 		self.user_aws_credentials = None
 
-		self._dbsession = None
+	def initialize( self, logger, db_session_maker, app_config ):
+		"""
+		Note: This method is private in order to avoid overriding initialize
+		of a BaseHandler subclass
+		:param logger:
+		:param app_config:
+		:param db_session_maker:
+		:return:
+		"""
+		self.logger = logger
+		self.db_session_maker = db_session_maker
+		self.app_config = app_config
+
+		# Pull list of allowed Access-Control-Allow-Origin values from environment var
+		self.allowed_origins = json.loads( app_config.get( "access_control_allow_origins" ) )
 
 	@property
 	def dbsession( self ):
-		if self._test_dbsession is not None:
-			return self._test_dbsession
-
 		if self._dbsession is None:
-			self._dbsession = DBSession()
+			self._dbsession = self.db_session_maker()
 
 		return self._dbsession
 		
@@ -61,7 +84,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 				"user_id": user_id,
 				"created_at": int( time.time() ),
 			}),
-			expires_days=int( os.environ.get( "cookie_expire_days" ) )
+			expires_days=int( global_app_config.get( "cookie_expire_days" ) )
 		)
 		
 	def is_owner_of_project( self, project_id ):
@@ -134,8 +157,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 		return user_org
 		
 	def get_authenticated_user_id( self ):
-
-		session_data = self.get_secure_session_data(int( os.environ.get( "cookie_expire_days" ) ))
+		session_data = self.get_secure_session_data(int( global_app_config.get( "cookie_expire_days" ) ))
 		
 		if not session_data or "user_id" not in session_data:
 			return None
@@ -160,6 +182,9 @@ class BaseHandler( tornado.web.RequestHandler ):
 	def get_secure_session_data( self, cookie_expiration_days ):
 		# Retrieves data from the session cookie
 		session_data = self.get_secure_cookie_data( "session", cookie_expiration_days )
+		if session_data is None:
+			logit("Unable to get session data", "warning")
+			return None
 
 		try:
 			return json.loads(
@@ -220,7 +245,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 			elif services_auth_param:
 				service_secret = services_auth_param
 				
-			if os.environ.get( "service_shared_secret" ) != service_secret:
+			if global_app_config.get( "service_shared_secret" ) != service_secret:
 				self.error(
 					"You are hitting a service URL, you MUST provide the shared secret in either a 'secret' parameter or the 'X-Service-Secret' header to use this.",
 					"ACCESS_DENIED_SHARED_SECRET_REQUIRED"
@@ -245,7 +270,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 
 			# Identify if the request is coming from a domain that is in the whitelist
 			# If it is, set the necessary CORS response header to allow the request to succeed.
-			if host_header in allowed_origins:
+			if host_header in self.allowed_origins:
 				self.set_header( "Access-Control-Allow-Origin", host_header )
 
 		self.json = False
