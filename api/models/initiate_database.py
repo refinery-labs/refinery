@@ -13,10 +13,7 @@ from contextlib import contextmanager
 engine_url_format = "postgresql://{username}:{password}@{host}/{db}?client_encoding=utf8"
 
 
-def create_scoped_db_session_maker(app_config):
-	if app_config.get_if_exists( "SKIP_DATABASE_CONNECT" ):
-		return None
-
+def get_refinery_engine( app_config ):
 	postgresql_username = app_config.get( "postgreql_username" )
 	postgresql_password = app_config.get( "postgreql_password" )
 	postgresql_host = app_config.get( "postgresql_host" )
@@ -28,7 +25,12 @@ def create_scoped_db_session_maker(app_config):
 		host=postgresql_host,
 		db=postgresql_db
 	)
-	engine = create_engine( engine_url, pool_recycle=60, encoding="utf8" )
+	return create_engine( engine_url, pool_recycle=60, encoding="utf8" )
+
+
+def create_scoped_db_session_maker( app_config, engine ):
+	if app_config.get_if_exists( "SKIP_DATABASE_CONNECT" ):
+		return None
 
 	return scoped_session(sessionmaker(
 		bind=engine,

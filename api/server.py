@@ -11039,8 +11039,13 @@ def make_websocket_server( tornado_config ):
 	], **tornado_config)
 
 
-def make_app( app_config, tornado_config ):
-	db_session_maker = create_scoped_db_session_maker(app_config)
+def make_app( app_config, tornado_config, mocked_deps=dict() ):
+	def should_mock(name, dep):
+		return dep if not mocked_deps.get(name) else mocked_deps.get(name)
+
+	# TODO figure out a better way to mock dependencies than this
+	engine = get_refinery_engine( app_config )
+	db_session_maker = should_mock("db_session_maker", create_scoped_db_session_maker(app_config, engine))
 
 	# AWS Clients
 	aws_cost_explorer = new_aws_cost_explorer( app_config )
