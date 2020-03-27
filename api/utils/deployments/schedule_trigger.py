@@ -62,5 +62,3 @@ class ScheduleTriggerManager(object):
 			"arn": arn,
 			"deleted": was_deleted,
 		}
-
-schedule_trigger_manager = ScheduleTriggerManager()

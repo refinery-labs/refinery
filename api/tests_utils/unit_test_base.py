@@ -1,6 +1,7 @@
 
 from server import make_app
 from tests_utils.hypothesis_unit_test_base import HypothesisUnitTestBase
+from config.app_config import load_app_config
 
 
 class ServerUnitTestBase( HypothesisUnitTestBase ):
@@ -16,6 +17,7 @@ class ServerUnitTestBase( HypothesisUnitTestBase ):
 		"""
 
 		return make_app(
+			load_app_config("test"),
 			self.get_tornado_app_config()
 		)
 
@@ -24,5 +26,6 @@ class ServerUnitTestBase( HypothesisUnitTestBase ):
 			"debug": False,
 			"ngrok_enabled": False,
 			"cookie_secret": "oogaboogatesttest112",
-			"compress_response": False
+			"compress_response": False,
+			"websocket_router": None
 		}

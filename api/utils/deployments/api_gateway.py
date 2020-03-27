@@ -11,7 +11,7 @@ from tornado import gen
 from botocore.exceptions import ClientError
 
 @gen.coroutine
-def strip_api_gateway( credentials, api_gateway_id ):
+def strip_api_gateway( api_gateway_manager, credentials, api_gateway_id ):
 	"""
 	Strip a given API Gateway of all of it's:
 	* Resources
@@ -221,5 +221,3 @@ class APIGatewayManager(object):
 			"rest_api_id": rest_api_id,
 			"stage_name": stage_name
 		}
-
-api_gateway_manager = APIGatewayManager()

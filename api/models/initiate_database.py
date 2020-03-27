@@ -10,8 +10,6 @@ from sqlalchemy import Column, Integer, String, func, update, Text, Binary, Bool
 from sqlalchemy.orm import sessionmaker, scoped_session, relationship, synonym
 from contextlib import contextmanager
 
-from config.app_config import global_app_config
-
 engine_url_format = "postgresql://{username}:{password}@{host}/{db}?client_encoding=utf8"
 
 
@@ -37,7 +35,3 @@ def create_scoped_db_session_maker(app_config):
 		autocommit=False,
 		autoflush=True
 	))
-
-
-# TODO THIS IS TEMPORARY UNTIL WE MAKE A DENT IN DEP INJECTION
-DBSession = create_scoped_db_session_maker(global_app_config)

@@ -11,6 +11,19 @@ from utils.deployments.teardown import teardown_infrastructure
 from utils.general import logit
 
 class CleanupDanglingResources( BaseHandler ):
+	lambda_manager = None
+	api_gateway_manager = None
+	schedule_trigger_manager = None
+	sns_manager = None
+	sqs_manager = None
+
+	def _initialize( self, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager, sqs_manager ):
+		self.lambda_manager = lambda_manager
+		self.api_gateway_manager = api_gateway_manager
+		self.schedule_trigger_manager = schedule_trigger_manager
+		self.sns_manager = sns_manager
+		self.sqs_manager = sqs_manager
+
 	@gen.coroutine
 	def get( self, user_id=None ):
 		delete_resources = self.get_argument( "confirm", False )
@@ -44,6 +57,7 @@ class CleanupDanglingResources( BaseHandler ):
 
 		# Get user dangling records
 		dangling_resources = yield get_user_dangling_resources(
+			self.db_session_maker,
 			user_id,
 			credentials
 		)
@@ -58,6 +72,11 @@ class CleanupDanglingResources( BaseHandler ):
 
 			# Tear down all dangling nodes
 			teardown_results = yield teardown_infrastructure(
+				self.api_gateway_manager,
+				self.lambda_manager,
+				self.schedule_trigger_manager,
+				self.sns_manager,
+				self.sqs_manager,
 				credentials,
 				dangling_resources
 			)

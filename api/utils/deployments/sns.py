@@ -41,5 +41,3 @@ class SNSManager(object):
 			"arn": arn,
 			"deleted": was_deleted,
 		}
-
-sns_manager = SNSManager()

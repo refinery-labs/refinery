@@ -3,6 +3,7 @@ import tornado.web
 import json
 import time
 import traceback
+import inspect
 
 from tornado import gen
 
@@ -16,14 +17,27 @@ from utils.general import logit
 
 from config.app_config import global_app_config
 
-import traceback
 
+def get_expected_init_deps(obj, passed_kwargs):
+	assert hasattr(obj, '_initialize')
+
+	expected_dep_params = [p for p in inspect.getargspec(obj._initialize)[0] if p != 'self']
+	init_kwargs = dict()
+	for expected_dep_param in expected_dep_params:
+		expected_dep = passed_kwargs.get(expected_dep_param)
+		if expected_dep is None:
+			classname = obj.__class__ if not obj.__class__ is type else obj
+			raise Exception("expected dependency {} was not provided for {}".format(expected_dep_param, classname))
+
+		init_kwargs[expected_dep_param] = expected_dep
+	return init_kwargs
 
 class BaseHandler( tornado.web.RequestHandler ):
 	# Dependencies
 	logger = None
 	db_session_maker = None
 	app_config = None
+	local_tasks = None
 
 	_dbsession = None
 	allowed_origins = None
@@ -31,9 +45,12 @@ class BaseHandler( tornado.web.RequestHandler ):
 	def __init__( self, *args, **kwargs ):
 		super( BaseHandler, self ).__init__( *args, **kwargs )
 
-		# If initialize has been overridden, also initialize the base handler
-		if not BaseHandler.initialize == self.initialize:
-			BaseHandler.initialize(self, **kwargs)
+		if self._initialize != BaseHandler._initialize:
+			init_deps = get_expected_init_deps(BaseHandler, kwargs)
+			BaseHandler._initialize(self, **init_deps)
+
+		init_deps = get_expected_init_deps(self, kwargs)
+		self._initialize(**init_deps)
 
 		self.set_header( "Access-Control-Allow-Headers", "Content-Type, X-CSRF-Validation-Header" )
 		self.set_header( "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD" )
@@ -53,7 +70,10 @@ class BaseHandler( tornado.web.RequestHandler ):
 		# For caching the user's aws credentials
 		self.user_aws_credentials = None
 
-	def initialize( self, logger, db_session_maker, app_config ):
+	def initialize(self, **kwargs):
+		pass
+
+	def _initialize( self, logger, db_session_maker, app_config, local_tasks ):
 		"""
 		Note: This method is private in order to avoid overriding initialize
 		of a BaseHandler subclass
@@ -65,6 +85,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 		self.logger = logger
 		self.db_session_maker = db_session_maker
 		self.app_config = app_config
+		self.local_tasks = local_tasks
 
 		# Pull list of allowed Access-Control-Allow-Origin values from environment var
 		self.allowed_origins = json.loads( app_config.get( "access_control_allow_origins" ) )

@@ -2,14 +2,10 @@ from tornado import gen
 
 from utils.general import logit
 
-from utils.deployments.sqs import sqs_manager
-from utils.deployments.sns import sns_manager
-from utils.deployments.awslambda import lambda_manager
-from utils.deployments.schedule_trigger import schedule_trigger_manager
-from utils.deployments.api_gateway import api_gateway_manager, strip_api_gateway
+from utils.deployments.api_gateway import strip_api_gateway
 
 @gen.coroutine
-def teardown_infrastructure( credentials, teardown_nodes ):
+def teardown_infrastructure( api_gateway_manager, lambda_manager, schedule_trigger_manager, sns_manager, sqs_manager, credentials, teardown_nodes ):
 	"""
 	[
 		{
@@ -81,6 +77,7 @@ def teardown_infrastructure( credentials, teardown_nodes ):
 		elif teardown_node[ "type" ] == "api_gateway":
 			teardown_operation_futures.append(
 				strip_api_gateway(
+					api_gateway_manager,
 					credentials,
 					teardown_node[ "rest_api_id" ],
 				)

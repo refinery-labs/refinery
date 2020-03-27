@@ -17,8 +17,8 @@ from models.users import User
 from models.initiate_database import *
 
 @gen.coroutine
-def get_user_dangling_resources( user_id, credentials ):
-	dbsession = DBSession()
+def get_user_dangling_resources( db_session_maker, user_id, credentials ):
+	dbsession = db_session_maker()
 	user = dbsession.query( User ).filter_by(
 		id=str( user_id )
 	).first()

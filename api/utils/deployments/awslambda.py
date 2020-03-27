@@ -40,5 +40,3 @@ class LambdaManager(object):
 			"arn": arn,
 			"deleted": was_deleted,
 		}
-
-lambda_manager = LambdaManager()

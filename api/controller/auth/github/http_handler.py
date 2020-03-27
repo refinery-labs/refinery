@@ -48,7 +48,7 @@ from services.user_management.user_management_service import UserManagementServi
 class AuthenticateWithGithub( BaseHandler ):
 
 	# Hook point for Tornado to inject dependencies
-	def initialize(
+	def _initialize(
 			self,
 			github_oauth_provider,
 			user_creation_assistant

@@ -6,7 +6,7 @@ from utils.general import logit
 # noinspection PyMethodOverriding, PyAttributeOutsideInit
 class ClearStripeInvoiceDrafts( BaseHandler ):
 
-	def initialize(self, billing_spawner):
+	def _initialize(self, billing_spawner):
 		"""
 		:type dependencies: Object
 		"""

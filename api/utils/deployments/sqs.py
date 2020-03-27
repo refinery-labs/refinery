@@ -71,5 +71,3 @@ class SQSManager(object):
 			"arn": arn,
 			"deleted": was_deleted,
 		}
-
-sqs_manager = SQSManager()
