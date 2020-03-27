@@ -29,9 +29,6 @@ def get_refinery_engine( app_config ):
 
 
 def create_scoped_db_session_maker( app_config, engine ):
-	if app_config.get_if_exists( "SKIP_DATABASE_CONNECT" ):
-		return None
-
 	return scoped_session(sessionmaker(
 		bind=engine,
 		autocommit=False,
