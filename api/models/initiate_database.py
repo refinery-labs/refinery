@@ -28,7 +28,7 @@ def get_refinery_engine( app_config ):
 	return create_engine( engine_url, pool_recycle=60, encoding="utf8" )
 
 
-def create_scoped_db_session_maker( app_config, engine ):
+def create_scoped_db_session_maker( engine ):
 	return scoped_session(sessionmaker(
 		bind=engine,
 		autocommit=False,

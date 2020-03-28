@@ -34,7 +34,7 @@ class ServerUnitTestBase( HypothesisUnitTestBase ):
 
 		Base.metadata.create_all( engine )
 
-		db_session_maker = create_scoped_db_session_maker(app_config, engine)
+		db_session_maker = create_scoped_db_session_maker(engine)
 		mocked_deps = dict(
 			db_session_maker=db_session_maker
 		)

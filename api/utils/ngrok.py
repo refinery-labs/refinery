@@ -10,14 +10,19 @@ from utils.general import logit
 from tornado import gen
 from config.app_config import global_app_config
 
+
 class NgrokSpawner(object):
-	def __init__(self, loop=None):
+	app_config = None
+
+	def __init__(self, app_config, loop=None):
 		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()
+
+		self.app_config = app_config
 		
 	@run_on_executor
 	def start_ngrok_tunnel( self, port ):
-		if not "ngrok_api_secret" in global_app_config:
+		if not self.app_config.get( "ngrok_api_secret" ):
 			logit( "No ngrok API secret specified! Please enable one so Lambda callbacks work in dev!" )
 			return
 		
@@ -53,16 +58,14 @@ class NgrokSpawner(object):
 				)
 				ngrok_url = response_dict[ "tunnels" ][0][ "public_url" ]
 				logit( "ngrok tunnel established successfully, endpoint is " + ngrok_url )
-			except:
+			except Exception as e:
 				logit( "API server is not yet up, trying again shortly..." )
 				time.sleep(1)
 
 		return ngrok_url
-		
-ngrok_tasks = NgrokSpawner()
-		
+
 @gen.coroutine
-def set_up_ngrok_websocket_tunnel():
+def set_up_ngrok_websocket_tunnel(ngrok_tasks):
 	logit( "Creating exposed ngrok tunnel to WebSocket server..." )
 	
 	# Don't yield, we want to run ngrok in the background

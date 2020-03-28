@@ -4,6 +4,9 @@ from six import string_types
 
 import yaml
 
+from config.app_init_config import app_init_config
+from pyconstants.project_constants import LAMBDA_BASE_LIBRARIES
+
 
 class AppConfig:
 	"""
@@ -135,7 +138,12 @@ def load_app_config( app_env=None, overrides=None ):
 	if app_env is None:
 		app_env = os.environ[ "REFINERY_ENV" ]
 
-	return AppConfig( app_env, overrides=overrides )
+	app_config = AppConfig( app_env, overrides=overrides )
+
+	# Add dynamic configuration values to app config
+	app_init_config( app_config )
+
+	return app_config
 
 
 class InvalidEnvironmentError(Exception):
