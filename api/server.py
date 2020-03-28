@@ -34,7 +34,7 @@ from controller.logs import *
 from controller.projects import *
 from controller.saved_blocks import *
 from controller.services import *
-from controller.websocket import *
+from controller.websockets import *
 
 from services.auth.oauth_service import OAuthService
 from services.project_inventory.project_inventory_service import ProjectInventoryService

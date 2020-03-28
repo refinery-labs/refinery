@@ -337,6 +337,10 @@ class EmailLinkAuthentication( BaseHandler ):
 		user_organization = self.dbsession.query( Organization ).filter_by(
 			id=email_authentication_token.user.organization_id
 		).first()
+		if user_organization is None:
+			self.logger( "User login was denied due to their account not having an organization" )
+			self.write( "Your account is in a corrupt state, please contact customer support for more information." )
+			raise gen.Return()
 
 		# Check if the user has previously authenticated via
 		# their email address. If not we'll mark their email
@@ -416,7 +420,7 @@ class Authenticate( BaseHandler ):
 			email=self.json[ "email" ]
 		).first()
 
-		if user == None:
+		if user is None:
 			self.write({
 				"success": False,
 				"code": "USER_NOT_FOUND",
