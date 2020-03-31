@@ -7,10 +7,22 @@ import random
 import struct
 import logging
 
+import pinject
+
 logging.basicConfig(
 	stream=sys.stdout,
 	level=logging.INFO
 )
+
+
+class UtilsBindingSpec(pinject.BindingSpec):
+
+	def configure( self, bind ):
+		pass
+
+	@pinject.provides('logger')
+	def provider_logger( self ):
+		return logit
 
 
 def attempt_json_decode( input_data ):
@@ -86,3 +98,18 @@ def get_lambda_safe_name( input_name ):
 	whitelist = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
 	input_name = input_name.replace( " ", "_" )
 	return "".join([c for c in input_name if c in whitelist])[:64]
+
+
+def log_exception(f):
+	def wrapped(*args, **kw):
+		try:
+			result = f(*args, **kw)
+		except Exception as e:
+			logging.warning("exception", exc_info=True)
+			raise e
+		return result
+	return wrapped
+
+
+def print_object_graph(object_graph):
+	print(object_graph._obj_provider._binding_mapping._binding_key_to_binding)

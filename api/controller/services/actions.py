@@ -6,9 +6,9 @@ from utils.general import logit
 
 
 @gen.coroutine
-def clear_sub_account_packages( local_tasks, credentials ):
+def clear_sub_account_packages( task_spawner, credentials ):
 	while True:
-		package_paths = yield local_tasks.get_build_packages(
+		package_paths = yield task_spawner.get_build_packages(
 			credentials,
 			"",
 			1000
@@ -19,7 +19,7 @@ def clear_sub_account_packages( local_tasks, credentials ):
 		if len( package_paths ) == 0:
 			break
 
-		yield local_tasks.bulk_s3_delete(
+		yield task_spawner.bulk_s3_delete(
 			credentials,
 			credentials[ "lambda_packages_bucket" ],
 			package_paths

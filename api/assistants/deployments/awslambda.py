@@ -1,23 +1,25 @@
+import pinject
 import tornado
 
 from tornado.concurrent import run_on_executor, futures
 
-from assistants.aws_clients.aws_clients_assistant import get_aws_client
-
 from botocore.exceptions import ClientError
 
 class LambdaManager(object):
-	def __init__(self, loop=None):
+	aws_client_factory = None
+
+	@pinject.copy_args_to_public_fields
+	def __init__(self, aws_client_factory, loop=None):
 		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()
 
 	@run_on_executor
 	def delete_lambda( self, credentials, id, type, name, arn ):
-		return self._delete_lambda( credentials, id, type, name, arn )
+		return self._delete_lambda( self.aws_client_factory, credentials, id, type, name, arn )
 		
 	@staticmethod
-	def _delete_lambda( credentials, id, type, name, arn ):
-		lambda_client = get_aws_client(
+	def _delete_lambda( aws_client_factory, credentials, id, type, name, arn ):
+		lambda_client = aws_client_factory.get_aws_client(
 			"lambda",
 			credentials
 		)

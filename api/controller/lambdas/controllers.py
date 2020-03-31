@@ -67,7 +67,7 @@ class RunLambda( BaseHandler ):
 			}
 
 		self.logger( "Executing Lambda..." )
-		lambda_result = yield self.local_tasks.execute_aws_lambda(
+		lambda_result = yield self.task_spawner.execute_aws_lambda(
 			credentials,
 			self.json[ "arn" ],
 			lambda_input_data
@@ -100,7 +100,7 @@ class GetCloudWatchLogsForLambda( BaseHandler ):
 		lambda_name = arn_parts[ -1 ]
 		log_group_name = "/aws/lambda/" + lambda_name
 
-		log_output = yield self.local_tasks.get_lambda_cloudwatch_logs(
+		log_output = yield self.task_spawner.get_lambda_cloudwatch_logs(
 			credentials,
 			log_group_name,
 			False
@@ -137,7 +137,7 @@ class UpdateEnvironmentVariables( BaseHandler ):
 
 		credentials = self.get_authenticated_user_cloud_configuration()
 
-		response = yield self.local_tasks.update_lambda_environment_variables(
+		response = yield self.task_spawner.update_lambda_environment_variables(
 			credentials,
 			self.json[ "arn" ],
 			self.json[ "environment_variables" ],
@@ -195,38 +195,38 @@ class BuildLibrariesPackage( BaseHandler ):
 		build_id = False
 
 		# Get the final S3 path
-		final_s3_package_zip_path = yield self.local_tasks.get_final_zip_package_path(
+		final_s3_package_zip_path = yield self.task_spawner.get_final_zip_package_path(
 			self.json[ "language" ],
 			libraries_dict,
 		)
 
 		if self.json[ "language" ] == "python2.7":
-			build_id = yield self.local_tasks.start_python27_codebuild(
+			build_id = yield self.task_spawner.start_python27_codebuild(
 				credentials,
 				libraries_dict
 			)
 		elif self.json[ "language" ] == "python3.6":
-			build_id = yield self.local_tasks.start_python36_codebuild(
+			build_id = yield self.task_spawner.start_python36_codebuild(
 				credentials,
 				libraries_dict
 			)
 		elif self.json[ "language" ] == "nodejs8.10":
-			build_id = yield self.local_tasks.start_node810_codebuild(
+			build_id = yield self.task_spawner.start_node810_codebuild(
 				credentials,
 				libraries_dict
 			)
 		elif self.json[ "language" ] == "nodejs10.16.3":
-			build_id = yield self.local_tasks.start_node10163_codebuild(
+			build_id = yield self.task_spawner.start_node10163_codebuild(
 				credentials,
 				libraries_dict
 			)
 		elif self.json[ "language" ] == "php7.3":
-			build_id = yield self.local_tasks.start_php73_codebuild(
+			build_id = yield self.task_spawner.start_php73_codebuild(
 				credentials,
 				libraries_dict
 			)
 		elif self.json[ "language" ] == "ruby2.6.4":
-			build_id = yield self.local_tasks.start_ruby264_codebuild(
+			build_id = yield self.task_spawner.start_ruby264_codebuild(
 				credentials,
 				libraries_dict
 			)
@@ -247,7 +247,7 @@ class BuildLibrariesPackage( BaseHandler ):
 		if build_id:
 			# Don't yield here because we don't care about the outcome of this task
 			# we just want to kick it off in the background
-			self.local_tasks.finalize_codebuild(
+			self.task_spawner.finalize_codebuild(
 				credentials,
 				build_id,
 				final_s3_package_zip_path
@@ -271,7 +271,7 @@ class CheckIfLibrariesCached( BaseHandler ):
 		credentials = self.get_authenticated_user_cloud_configuration()
 
 		is_already_cached = yield is_build_package_cached(
-			self.local_tasks,
+			self.task_spawner,
 			credentials,
 			self.json[ "language" ],
 			self.json[ "libraries" ]

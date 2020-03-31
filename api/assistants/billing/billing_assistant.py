@@ -4,10 +4,6 @@ from tornado.concurrent import run_on_executor
 from utils.general import logit
 
 from utils.base_spawner import BaseSpawner
-from config.app_config import global_app_config
-
-# Initialize Stripe
-stripe.api_key = global_app_config.get( "stripe_api_key" )
 
 
 class BillingSpawner(BaseSpawner):

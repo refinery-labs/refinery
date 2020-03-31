@@ -2,22 +2,23 @@ import tornado
 
 from tornado.concurrent import run_on_executor, futures
 
-from assistants.aws_clients.aws_clients_assistant import get_aws_client
-
 from botocore.exceptions import ClientError
 
-class SNSManager(object):
-	def __init__(self, loop=None):
+
+class SnsManager( object ):
+	aws_client_factory = None
+
+	def __init__(self, aws_client_factory, loop=None):
 		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()
 
 	@run_on_executor
 	def delete_sns_topic( self, credentials, id, type, name, arn ):
-		return self._delete_sns_topic( credentials, id, type, name, arn )
+		return self._delete_sns_topic( self.aws_client_factory, credentials, id, type, name, arn )
 		
 	@staticmethod
-	def _delete_sns_topic( credentials, id, type, name, arn ):
-		sns_client = get_aws_client(
+	def _delete_sns_topic( aws_client_factory, credentials, id, type, name, arn ):
+		sns_client = aws_client_factory.get_aws_client(
 			"sns",
 			credentials,
 		)

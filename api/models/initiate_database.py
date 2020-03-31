@@ -1,3 +1,4 @@
+import pinject
 import yaml
 import os
 
@@ -34,3 +35,16 @@ def create_scoped_db_session_maker( engine ):
 		autocommit=False,
 		autoflush=True
 	))
+
+
+class DatabaseBindingSpec(pinject.BindingSpec):
+	def configure( self, bind ):
+		pass
+
+	@pinject.provides('db_engine')
+	def provide_db_engine( self, app_config ):
+		return get_refinery_engine( app_config )
+
+	@pinject.provides('db_session_maker')
+	def provide_db_session_maker( self, db_engine ):
+		return create_scoped_db_session_maker( db_engine )

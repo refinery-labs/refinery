@@ -9,7 +9,6 @@ import re
 
 from tornado.concurrent import run_on_executor, futures
 
-from assistants.aws_clients.aws_clients_assistant import get_aws_client
 from assistants.deployments.sqs import get_sqs_arn_from_url
 from utils.general import logit
 from tornado import gen
@@ -18,7 +17,7 @@ from models.users import User
 from models.initiate_database import *
 
 @gen.coroutine
-def get_user_dangling_resources( db_session_maker, user_id, credentials ):
+def get_user_dangling_resources( aws_resource_enumerator, db_session_maker, user_id, credentials ):
 	dbsession = db_session_maker()
 	user = dbsession.query( User ).filter_by(
 		id=str( user_id )
@@ -89,8 +88,11 @@ def convert_type_to_teardown_node_type( input_type ):
 
 	return input_type
 
-class AWSResourceEnumerator(object):
-	def __init__(self, loop=None):
+class AwsResourceEnumerator( object ):
+	aws_client_factory = None
+
+	@pinject.copy_args_to_public_fields
+	def __init__(self, aws_client_factory, loop=None):
 		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()
 	
@@ -224,7 +226,7 @@ class AWSResourceEnumerator(object):
 		arn_key: In the list of resources in the response, what key holds the ARN.
 		extra_options: Extra parameters to send to list function
 		"""
-		aws_client = get_aws_client(
+		aws_client = self.aws_client_factory.get_aws_client(
 			client_type,
 			credentials
 		)
@@ -281,7 +283,7 @@ class AWSResourceEnumerator(object):
 
 	@run_on_executor
 	def get_all_sqs_queues( self, credentials ):
-		sqs_client = get_aws_client(
+		sqs_client = self.aws_client_factory.get_aws_client(
 			"sqs",
 			credentials
 		)
@@ -297,5 +299,3 @@ class AWSResourceEnumerator(object):
 			})
 
 		return return_list
-
-aws_resource_enumerator = AWSResourceEnumerator()

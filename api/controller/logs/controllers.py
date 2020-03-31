@@ -30,7 +30,7 @@ class GetProjectExecutionLogObjects( BaseHandler ):
 			s3_key = log_to_fetch[ "s3_key" ]
 			log_id = log_to_fetch[ "log_id" ]
 
-			log_data = yield self.local_tasks.get_json_from_s3(
+			log_data = yield self.task_spawner.get_json_from_s3(
 				credentials,
 				credentials[ "logs_bucket" ],
 				s3_key
@@ -63,7 +63,7 @@ class GetProjectExecutionLogs( BaseHandler ):
 
 		credentials = self.get_authenticated_user_cloud_configuration()
 
-		results = yield self.local_tasks.get_block_executions(
+		results = yield self.task_spawner.get_block_executions(
 			credentials,
 			self.json[ "project_id" ],
 			self.json[ "execution_pipeline_id" ],
@@ -120,7 +120,7 @@ class GetProjectExecutionLogs( BaseHandler ):
 
 		# Write the remaining results
 		yield write_remaining_project_execution_log_pages(
-			self.local_tasks,
+			self.task_spawner,
 			credentials,
 			data_to_write_list
 		)
@@ -149,7 +149,7 @@ class GetProjectExecutionLogsPage( BaseHandler ):
 		# all sensitive again :)
 		for i in range( 0, 2 ):
 			try:
-				results = yield self.local_tasks.get_json_from_s3(
+				results = yield self.task_spawner.get_json_from_s3(
 					credentials,
 					credentials[ "logs_bucket" ],
 					"log_pagination_result_pages/" + self.json[ "id" ] + ".json"
@@ -187,7 +187,7 @@ class GetProjectExecutions( BaseHandler ):
 		# We do this to always keep Athena partitioned for the later
 		# steps of querying
 		update_athena_table_partitions(
-			self.local_tasks,
+			self.task_spawner,
 			credentials,
 			self.json[ "project_id" ]
 		)
@@ -206,7 +206,7 @@ class GetProjectExecutions( BaseHandler ):
 		# Pull the logs
 		execution_pipeline_totals = yield get_execution_stats_since_timestamp(
 			self.db_session_maker,
-			self.local_tasks,
+			self.task_spawner,
 			credentials,
 			self.json[ "project_id" ],
 			self.json[ "oldest_timestamp" ]

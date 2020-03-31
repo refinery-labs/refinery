@@ -1,11 +1,12 @@
 import time
 
+import pinject
 from ansi2html import Ansi2HTMLConverter
 from sqlalchemy import or_ as sql_or
 from tornado import gen
 
 from assistants.deployments.teardown import teardown_infrastructure
-from assistants.local_tasks.local_tasks_assistant import TaskSpawner
+from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from controller import BaseHandler
 from controller.services.actions import clear_sub_account_packages, get_last_month_start_and_end_date_strings
 from models import AWSAccount, User, TerraformStateVersion
@@ -64,7 +65,7 @@ class UpdateIAMConsoleUserIAM( BaseHandler ):
 
 		for aws_account_dict in aws_account_dicts:
 			self.logger( "Updating console account for AWS account ID " + aws_account_dict[ "account_id" ] + "...")
-			yield self.local_tasks.recreate_aws_console_account(
+			yield self.task_spawner.recreate_aws_console_account(
 				aws_account_dict,
 				False
 			)
@@ -102,7 +103,7 @@ class OnboardThirdPartyAWSAccountPlan( BaseHandler ):
 		# First we set up the AWS Account in our database so we have a record
 		# of it going forward. This also creates the AWS console user.
 		self.logger( "Adding third-party AWS account to the database..." )
-		yield self.local_tasks.create_new_sub_aws_account(
+		yield self.task_spawner.create_new_sub_aws_account(
 			"THIRDPARTY",
 			account_id
 		)
@@ -116,7 +117,7 @@ class OnboardThirdPartyAWSAccountPlan( BaseHandler ):
 		dbsession.close()
 
 		self.logger( "Performing a terraform plan against the third-party account..." )
-		terraform_plan_output = yield self.local_tasks.terraform_plan(
+		terraform_plan_output = yield self.task_spawner.terraform_plan(
 			third_party_aws_account_dict
 		)
 
@@ -132,7 +133,7 @@ class OnboardThirdPartyAWSAccountPlan( BaseHandler ):
 		final_email_html += "<hr /><b>That is all.</b>"
 
 		self.logger( "Sending email with results from terraform plan..." )
-		yield self.local_tasks.send_email(
+		yield self.task_spawner.send_email(
 			self.app_config.get( "alerts_email" ),
 
 			# Make subject unique so Gmail doesn't group
@@ -197,13 +198,13 @@ class OnboardThirdPartyAWSAccountApply( BaseHandler ):
 		dbsession.close()
 
 		self.logger( "Creating the '" + THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME + "' role for Lambda executions..." )
-		yield self.local_tasks.create_third_party_aws_lambda_execute_role(
+		yield self.task_spawner.create_third_party_aws_lambda_execute_role(
 			third_party_aws_account_dict
 		)
 
 		try:
 			self.logger( "Creating Refinery base infrastructure on third-party AWS account..." )
-			account_provisioning_details = yield self.local_tasks.terraform_configure_aws_account(
+			account_provisioning_details = yield self.task_spawner.terraform_configure_aws_account(
 				third_party_aws_account_dict
 			)
 
@@ -275,7 +276,7 @@ class OnboardThirdPartyAWSAccountApply( BaseHandler ):
 		# Close the previous Refinery-managed AWS account
 		self.logger( "Closing previously-assigned Refinery AWS account..." )
 		self.logger( "Freezing the account so it costs us less while we do the process of closing it..." )
-		yield self.local_tasks.freeze_aws_account(
+		yield self.task_spawner.freeze_aws_account(
 			previous_aws_account_dict
 		)
 
@@ -316,7 +317,7 @@ class ClearAllS3BuildPackages( BaseHandler ):
 		for aws_account_dict in aws_account_dicts:
 			self.logger( "Clearing build packages for account ID " + aws_account_dict[ "account_id" ] + "..." )
 			yield clear_sub_account_packages(
-				self.local_tasks,
+				self.task_spawner,
 				aws_account_dict
 			)
 
@@ -400,7 +401,7 @@ class MaintainAWSAccountReserves( BaseHandler ):
 
 			self.logger( "Kicking off terraform set-up for AWS account '" + current_aws_account_dict[ "account_id" ] + "'..." )
 			try:
-				account_provisioning_details = yield self.local_tasks.terraform_configure_aws_account(
+				account_provisioning_details = yield self.task_spawner.terraform_configure_aws_account(
 					current_aws_account_dict
 				)
 
@@ -451,7 +452,7 @@ class MaintainAWSAccountReserves( BaseHandler ):
 			# We have to yield because you can't mint more than one sub-account at a time
 			# (AWS can litterally only process one request at a time).
 			try:
-				yield self.local_tasks.create_new_sub_aws_account(
+				yield self.task_spawner.create_new_sub_aws_account(
 					"MANAGED",
 					False
 				)
@@ -505,7 +506,7 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 			dbsession.close()
 
 			self.logger( "Running 'terraform apply' against AWS Account " + current_aws_account_dict[ "account_id" ] )
-			terraform_apply_results = yield self.local_tasks.terraform_apply(
+			terraform_apply_results = yield self.task_spawner.terraform_apply(
 				current_aws_account_dict
 			)
 
@@ -557,7 +558,7 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 		else:
 			final_email_subject = "[ APPLY SUCCEEDED ] " + final_email_subject
 
-		yield self.local_tasks.send_email(
+		yield self.task_spawner.send_email(
 			self.app_config.get( "alerts_email" ),
 			final_email_subject,
 			False, # No text version of email
@@ -611,7 +612,7 @@ class PerformTerraformPlanOnFleet( BaseHandler ):
 			dbsession.close()
 
 			self.logger( "Performing a terraform plan for AWS account " + str( counter ) + "/" + str( total_accounts ) + "..." )
-			terraform_plan_output = yield self.local_tasks.terraform_plan(
+			terraform_plan_output = yield self.task_spawner.terraform_plan(
 				current_aws_account
 			)
 
@@ -628,7 +629,7 @@ class PerformTerraformPlanOnFleet( BaseHandler ):
 		final_email_html += "<hr /><b>That is all.</b>"
 
 		self.logger( "Sending email with results from terraform plan..." )
-		yield self.local_tasks.send_email(
+		yield self.task_spawner.send_email(
 			self.app_config.get( "alerts_email" ),
 			"Terraform Plan Results from Across the Fleet " + str( int( time.time() ) ), # Make subject unique so Gmail doesn't group
 			False, # No text version of email
@@ -650,9 +651,9 @@ class RunBillingWatchdogJob( BaseHandler ):
 		})
 		self.finish()
 		self.logger( "[ STATUS ] Initiating billing watchdog job, scanning all accounts to check for billing anomalies..." )
-		aws_account_running_cost_list = yield self.local_tasks.pull_current_month_running_account_totals()
+		aws_account_running_cost_list = yield self.task_spawner.pull_current_month_running_account_totals()
 		self.logger( "[ STATUS ] " + str( len( aws_account_running_cost_list ) ) + " account(s) pulled from billing, checking against rules..." )
-		yield self.local_tasks.enforce_account_limits( aws_account_running_cost_list )
+		yield self.task_spawner.enforce_account_limits( aws_account_running_cost_list )
 
 
 class RunMonthlyStripeBillingJob( BaseHandler ):
@@ -674,27 +675,36 @@ class RunMonthlyStripeBillingJob( BaseHandler ):
 
 		self.logger( "[ STATUS ] Generating invoices for " + date_info[ "month_start_date" ] + " -> " + date_info[ "next_month_first_day" ]  )
 
-		yield self.local_tasks.generate_managed_accounts_invoices(
+		yield self.task_spawner.generate_managed_accounts_invoices(
 			date_info[ "month_start_date"],
 			date_info[ "next_month_first_day" ],
 		)
 		self.logger( "[ STATUS ] Stripe billing job has completed!" )
 
 
+class CleanupDanglingResourcesDependencies:
+	@pinject.copy_args_to_public_fields
+	def __init__(
+			self,
+			lambda_manager,
+			api_gateway_manager,
+			schedule_trigger_manager,
+			sns_manager,
+			sqs_manager,
+			aws_resource_enumerator
+	):
+		pass
+
+
 # noinspection PyMethodOverriding, PyAttributeOutsideInit
 class CleanupDanglingResources( BaseHandler ):
+	dependencies = CleanupDanglingResourcesDependencies
 	lambda_manager = None
 	api_gateway_manager = None
 	schedule_trigger_manager = None
 	sns_manager = None
 	sqs_manager = None
-
-	def _initialize( self, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager, sqs_manager ):
-		self.lambda_manager = lambda_manager
-		self.api_gateway_manager = api_gateway_manager
-		self.schedule_trigger_manager = schedule_trigger_manager
-		self.sns_manager = sns_manager
-		self.sqs_manager = sqs_manager
+	aws_resource_enumerator = None
 
 	@gen.coroutine
 	def get( self, user_id=None ):
@@ -729,6 +739,7 @@ class CleanupDanglingResources( BaseHandler ):
 
 		# Get user dangling records
 		dangling_resources = yield get_user_dangling_resources(
+			self.aws_resource_enumerator,
 			self.db_session_maker,
 			user_id,
 			credentials
@@ -764,14 +775,16 @@ class CleanupDanglingResources( BaseHandler ):
 		})
 
 
+class ClearStripeInvoiceDraftsDependencies:
+	@pinject.copy_args_to_public_fields
+	def __init__( self, billing_spawner ):
+		pass
+
+
 # noinspection PyMethodOverriding, PyAttributeOutsideInit
 class ClearStripeInvoiceDrafts( BaseHandler ):
-
-	def _initialize(self, billing_spawner):
-		"""
-		:type dependencies: Object
-		"""
-		self.billing_spawner = billing_spawner
+	dependencies = ClearStripeInvoiceDraftsDependencies
+	billing_spawner = None
 
 	@gen.coroutine
 	def get( self ):

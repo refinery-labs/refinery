@@ -9,12 +9,14 @@ import re
 import shutil
 import subprocess
 import time
+import traceback
 import uuid
 import zipfile
 
 import boto3
 import botocore
 import numpy
+import pinject
 import pystache
 import requests
 import stripe
@@ -23,19 +25,18 @@ import yaml
 from botocore.exceptions import ClientError
 
 from assistants.accounts import get_user_free_trial_information
-from assistants.aws_clients.aws_clients_assistant import get_aws_client, STS_CLIENT
 from tornado.concurrent import run_on_executor, futures
 
+from assistants.aws_clients.aws_clients_assistant import AwsClientFactory
 from assistants.deployments.ecs_builders import BuilderManager
 from assistants.deployments.shared_files import add_shared_files_symlink_to_zip, add_shared_files_to_zip
-from assistants.local_tasks.actions import get_current_month_start_and_end_date_strings, is_organization_first_month, \
+from assistants.task_spawner.actions import get_current_month_start_and_end_date_strings, is_organization_first_month, \
 	get_billing_rounded_float
-from config.app_config import global_app_config
 from models import AWSAccount, Organization, CachedBillingCollection, CachedBillingItem, InlineExecutionLambda
 from pyconstants.project_constants import EMPTY_ZIP_DATA, REGEX_WHITELISTS, THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME, LAMBDA_SUPPORTED_LANGUAGES
 from pyexceptions.billing import CardIsPrimaryException
 from pyexceptions.builds import BuildException
-from utils.general import logit, get_urand_password, get_lambda_safe_name
+from utils.general import logit, get_urand_password, get_lambda_safe_name, log_exception
 
 try:
 	# for Python 2.x
@@ -55,7 +56,10 @@ class TaskSpawner(object):
 	schedule_trigger_manager = None
 	sns_manager = None
 	preterraform_manager = None
+	aws_client_factory = None  # type: AwsClientFactory
+	sts_client = None
 
+	@pinject.copy_args_to_public_fields
 	def __init__(
 			self,
 			app_config,
@@ -67,26 +71,18 @@ class TaskSpawner(object):
 			schedule_trigger_manager,
 			sns_manager,
 			preterraform_manager,
+			aws_client_factory,
+			sts_client,
 			loop=None
 	):
 		self.executor = futures.ThreadPoolExecutor( 60 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()
 
-		self.app_config = app_config
-		self.db_session_maker = db_session_maker
-		self.aws_cost_explorer = aws_cost_explorer
-		self.aws_organization_client = aws_organization_client
-		self.api_gateway_manager = api_gateway_manager
-		self.lambda_manager = lambda_manager
-		self.schedule_trigger_manager = schedule_trigger_manager
-		self.sns_manager = sns_manager
-		self.preterraform_manager = preterraform_manager
-
 
 	@run_on_executor
 	def create_third_party_aws_lambda_execute_role( self, credentials ):
 		# Create IAM client
-		iam_client = get_aws_client(
+		iam_client = self.aws_client_factory.get_aws_client(
 			"iam",
 			credentials
 		)
@@ -124,7 +120,7 @@ class TaskSpawner(object):
 	@run_on_executor
 	def get_json_from_s3( self, credentials, s3_bucket, s3_path ):
 		# Create S3 client
-		s3_client = get_aws_client(
+		s3_client = self.aws_client_factory.get_aws_client(
 			"s3",
 			credentials
 		)
@@ -141,7 +137,7 @@ class TaskSpawner(object):
 	@run_on_executor
 	def write_json_to_s3( self, credentials, s3_bucket, s3_path, input_data ):
 		# Create S3 client
-		s3_client = get_aws_client(
+		s3_client = self.aws_client_factory.get_aws_client(
 			"s3",
 			credentials
 		)
@@ -158,6 +154,7 @@ class TaskSpawner(object):
 	@run_on_executor
 	def get_block_executions( self, credentials, project_id, execution_pipeline_id, arn, oldest_timestamp ):
 		return TaskSpawner._get_block_executions(
+			self.aws_client_factory,
 			credentials,
 			project_id,
 			execution_pipeline_id,
@@ -166,7 +163,7 @@ class TaskSpawner(object):
 		)
 
 	@staticmethod
-	def _get_block_executions( credentials, project_id, execution_pipeline_id, arn, oldest_timestamp ):
+	def _get_block_executions( aws_client_factory, credentials, project_id, execution_pipeline_id, arn, oldest_timestamp ):
 		project_id = re.sub( REGEX_WHITELISTS[ "project_id" ], "", project_id )
 		timestamp_datetime = datetime.datetime.fromtimestamp( oldest_timestamp )
 
@@ -199,6 +196,7 @@ class TaskSpawner(object):
 		# Query for project execution logs
 		logit( "Performing Athena query..." )
 		query_results = TaskSpawner._perform_athena_query(
+			aws_client_factory,
 			credentials,
 			query,
 			True
@@ -230,14 +228,6 @@ class TaskSpawner(object):
 		logit( "Athena results have been processed.")
 
 		return query_results
-
-	@run_on_executor
-	def get_project_execution_logs( self, credentials, project_id, oldest_timestamp ):
-		return TaskSpawner._get_project_execution_logs(
-			credentials,
-			project_id,
-			oldest_timestamp
-		)
 
 	@staticmethod
 	def _execution_log_query_results_to_pipeline_id_dict( query_results ):
@@ -303,8 +293,17 @@ class TaskSpawner(object):
 
 		return execution_pipeline_id_dict
 
+	@run_on_executor
+	def get_project_execution_logs( self, credentials, project_id, oldest_timestamp ):
+		return TaskSpawner._get_project_execution_logs(
+			self.aws_client_factory,
+			credentials,
+			project_id,
+			oldest_timestamp
+		)
+
 	@staticmethod
-	def _get_project_execution_logs( credentials, project_id, oldest_timestamp ):
+	def _get_project_execution_logs( aws_client_factory, credentials, project_id, oldest_timestamp ):
 		timestamp_datetime = datetime.datetime.fromtimestamp( oldest_timestamp )
 		project_id = re.sub( REGEX_WHITELISTS[ "project_id" ], "", project_id )
 
@@ -327,6 +326,7 @@ class TaskSpawner(object):
 
 		# Query for project execution logs
 		query_results = TaskSpawner._perform_athena_query(
+			aws_client_factory,
 			credentials,
 			query,
 			True
@@ -378,12 +378,13 @@ class TaskSpawner(object):
 	@run_on_executor
 	def create_project_id_log_table( self, credentials, project_id ):
 		return TaskSpawner._create_project_id_log_table(
+			self.aws_client_factory,
 			credentials,
 			project_id
 		)
 
 	@staticmethod
-	def _create_project_id_log_table( credentials, project_id ):
+	def _create_project_id_log_table( aws_client_factory, credentials, project_id ):
 		project_id = re.sub( REGEX_WHITELISTS[ "project_id" ], "", project_id )
 		table_name = "PRJ_" + project_id.replace( "-", "_" )
 
@@ -439,6 +440,7 @@ class TaskSpawner(object):
 
 		# Perform the table creation query
 		query_results = TaskSpawner._perform_athena_query(
+			aws_client_factory,
 			credentials,
 			query,
 			False
@@ -447,14 +449,15 @@ class TaskSpawner(object):
 	@run_on_executor
 	def perform_athena_query( self, credentials, query, return_results ):
 		return TaskSpawner._perform_athena_query(
+			self.aws_client_factory,
 			credentials,
 			query,
 			return_results
 		)
 
 	@staticmethod
-	def _perform_athena_query( credentials, query, return_results ):
-		athena_client = get_aws_client(
+	def _perform_athena_query( aws_client_factory, credentials, query, return_results ):
+		athena_client = aws_client_factory.get_aws_client(
 			"athena",
 			credentials,
 		)
@@ -527,7 +530,7 @@ class TaskSpawner(object):
 		# Sometimes we don't care about the result
 		# In those cases we just return the S3 path in case the caller
 		# Wants to grab the results themselves later
-		if return_results == False:
+		if not return_results:
 			return s3_object_location
 
 		# Get S3 bucket and path from the s3 location string
@@ -538,6 +541,7 @@ class TaskSpawner(object):
 		)
 
 		return TaskSpawner._get_athena_results_from_s3(
+			aws_client_factory,
 			credentials,
 			"refinery-lambda-logging-" + credentials[ "s3_bucket_suffix" ],
 			s3_path
@@ -546,14 +550,16 @@ class TaskSpawner(object):
 	@run_on_executor
 	def get_athena_results_from_s3( self, credentials, s3_bucket, s3_path ):
 		return TaskSpawner._get_athena_results_from_s3(
+			self.aws_client_factory,
 			credentials,
 			s3_bucket,
 			s3_path
 		)
 
 	@staticmethod
-	def _get_athena_results_from_s3( credentials, s3_bucket, s3_path ):
+	def _get_athena_results_from_s3( aws_client_factory, credentials, s3_bucket, s3_path ):
 		csv_data = TaskSpawner._read_from_s3(
+			aws_client_factory,
 			credentials,
 			s3_bucket,
 			s3_path
@@ -576,12 +582,12 @@ class TaskSpawner(object):
 		return return_array
 
 	@staticmethod
-	def _create_aws_org_sub_account( aws_organization_client, refinery_aws_account_id, email ):
+	def _create_aws_org_sub_account( app_config, aws_organization_client, refinery_aws_account_id, email ):
 		account_name = "Refinery Customer Account " + refinery_aws_account_id
 
 		response = aws_organization_client.create_account(
 			Email=email,
-			RoleName=global_app_config.get( "customer_aws_admin_assume_role" ),
+			RoleName=app_config.get( "customer_aws_admin_assume_role" ),
 			AccountName=account_name,
 			IamUserAccessToBilling="DENY"
 		)
@@ -612,9 +618,9 @@ class TaskSpawner(object):
 			account_status_data = response[ "CreateAccountStatus" ]
 
 	@staticmethod
-	def _get_assume_role_credentials( aws_account_id, session_lifetime ):
+	def _get_assume_role_credentials( app_config, sts_client, aws_account_id, session_lifetime ):
 		# Generate ARN for the sub-account AWS administrator role
-		sub_account_admin_role_arn = "arn:aws:iam::" + str( aws_account_id ) + ":role/" + global_app_config.get( "customer_aws_admin_assume_role" )
+		sub_account_admin_role_arn = "arn:aws:iam::" + str( aws_account_id ) + ":role/" + app_config.get( "customer_aws_admin_assume_role" )
 
 		# Session lifetime must be a minimum of 15 minutes
 		# https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sts.html#STS.Client.assume_role
@@ -624,7 +630,7 @@ class TaskSpawner(object):
 
 		role_session_name = "Refinery-Managed-Account-Support-" + get_urand_password( 12 )
 
-		response = STS_CLIENT.assume_role(
+		response = sts_client.assume_role(
 			RoleArn=sub_account_admin_role_arn,
 			RoleSessionName=role_session_name,
 			DurationSeconds=session_lifetime
@@ -693,19 +699,20 @@ class TaskSpawner(object):
 			self.app_config,
 			self.db_session_maker,
 			self.aws_organization_client,
+			self.sts_client,
 			account_type,
 			aws_account_id
 		)
 
 	@staticmethod
-	def _create_new_sub_aws_account( app_config, db_session_maker, aws_organization_client, account_type, aws_account_id ):
+	def _create_new_sub_aws_account( app_config, db_session_maker, aws_organization_client, sts_client, account_type, aws_account_id ):
 		# Create a unique ID for the Refinery AWS account
 		aws_unique_account_id = get_urand_password( 16 ).lower()
 
 		# Store the AWS account in the database
 		new_aws_account = AWSAccount()
 		new_aws_account.account_label = ""
-		new_aws_account.region = global_app_config.get( "region_name" )
+		new_aws_account.region = app_config.get( "region_name" )
 		new_aws_account.s3_bucket_suffix = str( get_urand_password( 32 ) ).lower()
 		new_aws_account.iam_admin_username = "refinery-customer"
 		new_aws_account.iam_admin_password = get_urand_password( 32 )
@@ -716,7 +723,7 @@ class TaskSpawner(object):
 		new_aws_account.terraform_state = ""
 		new_aws_account.ssh_public_key = ""
 		new_aws_account.ssh_private_key = ""
-		new_aws_account.aws_account_email = global_app_config.get( "customer_aws_email_prefix" ) + aws_unique_account_id + global_app_config.get( "customer_aws_email_suffix" )
+		new_aws_account.aws_account_email = app_config.get( "customer_aws_email_prefix" ) + aws_unique_account_id + app_config.get( "customer_aws_email_suffix" )
 		new_aws_account.terraform_state_versions = []
 		new_aws_account.aws_account_status = "CREATED"
 		new_aws_account.account_type = account_type
@@ -729,6 +736,7 @@ class TaskSpawner(object):
 		if account_type == "MANAGED":
 			# Create sub-AWS account
 			account_creation_response = TaskSpawner._create_aws_org_sub_account(
+				app_config,
 				aws_organization_client,
 				aws_unique_account_id,
 				str( new_aws_account.aws_account_email ),
@@ -751,6 +759,8 @@ class TaskSpawner(object):
 			try:
 				# We then assume the administrator role for the sub-account we created
 				assumed_role_credentials = TaskSpawner._get_assume_role_credentials(
+					app_config,
+					sts_client,
 					str( new_aws_account.account_id ),
 					3600 # One hour - TODO CHANGEME
 				)
@@ -796,17 +806,20 @@ class TaskSpawner(object):
 		return TaskSpawner._terraform_configure_aws_account(
 			self.app_config,
 			self.preterraform_manager,
+			self.sts_client,
 			aws_account_dict
 		)
 
 	@run_on_executor
 	def write_terraform_base_files( self, aws_account_dict ):
 		return TaskSpawner._write_terraform_base_files(
+			self.app_config,
+			self.sts_client,
 			aws_account_dict
 		)
 
 	@staticmethod
-	def _write_terraform_base_files( aws_account_dict ):
+	def _write_terraform_base_files( app_config, sts_client, aws_account_dict ):
 		# Create a temporary working directory for the work.
 		# Even if there's some exception thrown during the process
 		# we will still delete the underlying state.
@@ -824,6 +837,8 @@ class TaskSpawner(object):
 			)
 
 			terraform_configuration_data = TaskSpawner.__write_terraform_base_files(
+				app_config,
+				sts_client,
 				aws_account_dict,
 				temporary_dir
 			)
@@ -839,16 +854,18 @@ class TaskSpawner(object):
 		return terraform_configuration_data
 
 	@staticmethod
-	def __write_terraform_base_files( aws_account_data, base_dir ):
+	def __write_terraform_base_files( app_config, sts_client, aws_account_data, base_dir ):
 		logit( "Setting up the base Terraform files (AWS Acc. ID '" + aws_account_data[ "account_id" ] + "')..." )
 
 		# Get some temporary assume role credentials for the account
 		assumed_role_credentials = TaskSpawner._get_assume_role_credentials(
+			app_config,
+			sts_client,
 			str( aws_account_data[ "account_id" ] ),
 			3600 # One hour - TODO CHANGEME
 		)
 
-		sub_account_admin_role_arn = "arn:aws:iam::" + str( aws_account_data[ "account_id" ] ) + ":role/" + global_app_config.get( "customer_aws_admin_assume_role" )
+		sub_account_admin_role_arn = "arn:aws:iam::" + str( aws_account_data[ "account_id" ] ) + ":role/" + app_config.get( "customer_aws_admin_assume_role" )
 
 		# Write out the terraform configuration data
 		terraform_configuration_data = {
@@ -857,7 +874,7 @@ class TaskSpawner(object):
 			"assume_role_arn": sub_account_admin_role_arn,
 			"access_key": assumed_role_credentials[ "access_key_id" ],
 			"secret_key": assumed_role_credentials[ "secret_access_key" ],
-			"region": global_app_config.get( "region_name" ),
+			"region": app_config.get( "region_name" ),
 			"s3_bucket_suffix": aws_account_data[ "s3_bucket_suffix" ],
 			"redis_secrets": {
 				"password": aws_account_data[ "redis_password" ],
@@ -909,11 +926,12 @@ class TaskSpawner(object):
 		return TaskSpawner._terraform_apply(
 			self.app_config,
 			self.preterraform_manager,
+			self.sts_client,
 			aws_account_data
 		)
 
 	@staticmethod
-	def _terraform_apply( app_config, preterraform_manager, aws_account_data ):
+	def _terraform_apply( app_config, preterraform_manager, sts_client, aws_account_data ):
 		logit( "Ensuring existence of ECS service-linked role before continuing with terraform apply..." )
 		preterraform_manager._ensure_ecs_service_linked_role_exists(
 			aws_account_data
@@ -933,6 +951,8 @@ class TaskSpawner(object):
 		}
 
 		terraform_configuration_data = TaskSpawner._write_terraform_base_files(
+			app_config,
+			sts_client,
 			aws_account_data
 		)
 		temporary_directory = terraform_configuration_data[ "base_dir" ]
@@ -994,12 +1014,16 @@ class TaskSpawner(object):
 		AWS accounts.
 		"""
 		return TaskSpawner._terraform_plan(
+			self.app_config,
+			self.sts_client,
 			aws_account_data
 		)
 
 	@staticmethod
-	def _terraform_plan( aws_account_data ):
+	def _terraform_plan( app_config, sts_client, aws_account_data ):
 		terraform_configuration_data = TaskSpawner._write_terraform_base_files(
+			app_config,
+			sts_client,
 			aws_account_data
 		)
 		temporary_directory = terraform_configuration_data[ "base_dir" ]
@@ -1037,13 +1061,15 @@ class TaskSpawner(object):
 		return process_stdout
 
 	@staticmethod
-	def _terraform_configure_aws_account( app_config, preterraform_manager, aws_account_data ):
+	def _terraform_configure_aws_account( app_config, sts_client, preterraform_manager, aws_account_data ):
 		logit( "Ensuring existence of ECS service-linked role before continuing with AWS account configuration..." )
 		preterraform_manager._ensure_ecs_service_linked_role_exists(
 			aws_account_data
 		)
 
 		terraform_configuration_data = TaskSpawner._write_terraform_base_files(
+			app_config,
+			sts_client,
 			aws_account_data
 		)
 		base_dir = terraform_configuration_data[ "base_dir" ]
@@ -1126,11 +1152,12 @@ class TaskSpawner(object):
 	@run_on_executor
 	def unfreeze_aws_account( self, credentials ):
 		return TaskSpawner._unfreeze_aws_account(
+			self.aws_client_factory,
 			credentials
 		)
 
 	@staticmethod
-	def _unfreeze_aws_account( credentials ):
+	def _unfreeze_aws_account( aws_client_factory, credentials ):
 		"""
 		Unfreezes a previously-frozen AWS account, this is for situations
 		where a user has gone over their free-trial or billing limit leading
@@ -1141,18 +1168,19 @@ class TaskSpawner(object):
 		"""
 		logit( "Unfreezing AWS account..." )
 
-		lambda_client = get_aws_client(
+		lambda_client = aws_client_factory.get_aws_client(
 			"lambda",
 			credentials
 		)
 
-		ec2_client = get_aws_client(
+		ec2_client = aws_client_factory.get_aws_client(
 			"ec2",
 			credentials
 		)
 
 		# Pull all Lambda ARN(s)
 		lambda_arns = TaskSpawner.get_lambda_arns(
+			aws_client_factory,
 			credentials
 		)
 
@@ -1163,7 +1191,7 @@ class TaskSpawner(object):
 			)
 
 		# Start EC2 instance(s)
-		ec2_instance_ids = TaskSpawner.get_ec2_instance_ids( credentials )
+		ec2_instance_ids = TaskSpawner.get_ec2_instance_ids( aws_client_factory, credentials )
 
 		# Max attempts
 		remaining_attempts = 20
@@ -1187,8 +1215,8 @@ class TaskSpawner(object):
 		return True
 
 	@staticmethod
-	def get_lambda_arns( credentials ):
-		lambda_client = get_aws_client(
+	def get_lambda_arns( aws_client_factory, credentials ):
+		lambda_client = aws_client_factory.get_aws_client(
 			"lambda",
 			credentials
 		)
@@ -1228,8 +1256,8 @@ class TaskSpawner(object):
 		return lambda_arn_list
 
 	@staticmethod
-	def get_ec2_instance_ids( credentials ):
-		ec2_client = get_aws_client(
+	def get_ec2_instance_ids( aws_client_factory, credentials ):
+		ec2_client = aws_client_factory.get_aws_client(
 			"ec2",
 			credentials
 		)
@@ -1254,7 +1282,7 @@ class TaskSpawner(object):
 		return TaskSpawner._freeze_aws_account( self.db_session_maker, credentials )
 
 	@staticmethod
-	def _freeze_aws_account( db_session_maker, credentials ):
+	def _freeze_aws_account( aws_client_factory, db_session_maker, credentials ):
 		"""
 		Freezes an AWS sub-account when the user has gone past
 		their free trial or when they have gone tardy on their bill.
@@ -1272,22 +1300,22 @@ class TaskSpawner(object):
 		"""
 		logit( "Freezing AWS account..." )
 
-		iam_client = get_aws_client(
+		iam_client = aws_client_factory.get_aws_client(
 			"iam",
 			credentials
 		)
 
-		lambda_client = get_aws_client(
+		lambda_client = aws_client_factory.get_aws_client(
 			"lambda",
 			credentials
 		)
 
-		codebuild_client = get_aws_client(
+		codebuild_client = aws_client_factory.get_aws_client(
 			"codebuild",
 			credentials
 		)
 
-		ec2_client = get_aws_client(
+		ec2_client = aws_client_factory.get_aws_client(
 			"ec2",
 			credentials
 		)
@@ -1307,7 +1335,7 @@ class TaskSpawner(object):
 		dbsession.commit()
 
 		# Get Lambda ARNs
-		lambda_arn_list = TaskSpawner.get_lambda_arns( credentials )
+		lambda_arn_list = TaskSpawner.get_lambda_arns( aws_client_factory, credentials )
 
 		# List all CodeBuild builds and stop any that are running
 		codebuild_build_ids = []
@@ -1356,7 +1384,7 @@ class TaskSpawner(object):
 				id=active_build_id
 			)
 
-		ec2_instance_ids = TaskSpawner.get_ec2_instance_ids( credentials )
+		ec2_instance_ids = TaskSpawner.get_ec2_instance_ids( aws_client_factory, credentials )
 
 		stop_instance_response = ec2_client.stop_instances(
 			InstanceIds=ec2_instance_ids
@@ -1369,13 +1397,14 @@ class TaskSpawner(object):
 	def recreate_aws_console_account( self, credentials, rotate_password ):
 		return TaskSpawner._recreate_aws_console_account(
 			self.app_config,
+			self.aws_client_factory,
 			credentials,
 			rotate_password
 		)
 
 	@staticmethod
-	def _recreate_aws_console_account( app_config, credentials, rotate_password ):
-		iam_client = get_aws_client(
+	def _recreate_aws_console_account( app_config, aws_client_factory, credentials, rotate_password ):
+		iam_client = aws_client_factory.get_aws_client(
 			"iam",
 			credentials
 		)
@@ -1455,6 +1484,7 @@ class TaskSpawner(object):
 		message_html_string: "<h1>ITS IMPORTANT AF!</h1>"
 		"""
 		return TaskSpawner._send_email(
+			self.app_config,
 			to_email_string,
 			subject_string,
 			message_text_string,
@@ -1462,13 +1492,13 @@ class TaskSpawner(object):
 		)
 
 	@staticmethod
-	def _send_email( to_email_string, subject_string, message_text_string, message_html_string ):
+	def _send_email( app_config, to_email_string, subject_string, message_text_string, message_html_string ):
 		logit( "Sending email to '" + to_email_string + "' with subject '" + subject_string + "'..." )
 
 		requests_options = {
-			"auth": ( "api", global_app_config.get( "mailgun_api_key" ) ),
+			"auth": ( "api", app_config.get( "mailgun_api_key" ) ),
 			"data": {
-				"from": global_app_config.get( "from_email" ),
+				"from": app_config.get( "from_email" ),
 				"h:Reply-To": "support@refinery.io",
 				"to": [
 					to_email_string
@@ -1493,7 +1523,8 @@ class TaskSpawner(object):
 	@staticmethod
 	def send_terraform_provisioning_error( app_config, aws_account_id, error_output ):
 		TaskSpawner._send_email(
-			global_app_config.get( "alerts_email" ),
+			app_config,
+			app_config.get( "alerts_email" ),
 			"[AWS Account Provisioning Error] The Refinery AWS Account #" + aws_account_id + " Encountered a Fatal Error During Terraform Provisioning",
 			pystache.render(
 				app_config.get( "EMAIL_TEMPLATES" )[ "terraform_provisioning_error_alert" ],
@@ -1503,30 +1534,32 @@ class TaskSpawner(object):
 				}
 			),
 			False,
-			)
+		)
 
 	@staticmethod
 	def send_account_freeze_email( app_config, aws_account_id, amount_accumulated, organization_admin_email ):
 		TaskSpawner._send_email(
-			global_app_config.get( "alerts_email" ),
+			app_config,
+			app_config.get( "alerts_email" ),
 			"[Freeze Alert] The Refinery AWS Account #" + aws_account_id + " has been frozen for going over its account limit!",
 			False,
 			pystache.render(
 				app_config.get( "EMAIL_TEMPLATES" )[ "account_frozen_alert" ],
 				{
 					"aws_account_id": aws_account_id,
-					"free_trial_billing_limit": global_app_config.get( "free_trial_billing_limit" ),
+					"free_trial_billing_limit": app_config.get( "free_trial_billing_limit" ),
 					"amount_accumulated": amount_accumulated,
 					"organization_admin_email": organization_admin_email,
 				}
 			),
-			)
+		)
 
 	@run_on_executor
 	def send_registration_confirmation_email( self, email_address, auth_token ):
-		registration_confirmation_link = global_app_config.get( "web_origin" ) + "/authentication/email/" + auth_token
+		registration_confirmation_link = self.app_config.get( "web_origin" ) + "/authentication/email/" + auth_token
 
 		TaskSpawner._send_email(
+			self.app_config,
 			email_address,
 			"Refinery.io - Confirm your Refinery registration",
 			pystache.render(
@@ -1546,7 +1579,8 @@ class TaskSpawner(object):
 	@run_on_executor
 	def send_internal_registration_confirmation_email( self, customer_email_address, customer_name, customer_phone ):
 		TaskSpawner._send_email(
-			global_app_config.get( "internal_signup_notification_email" ),
+			self.app_config,
+			self.app_config.get( "internal_signup_notification_email" ),
 			"Refinery User Signup, " + customer_email_address,
 			pystache.render(
 				self.app_config.get( "EMAIL_TEMPLATES" )[ "internal_registration_notification_text" ],
@@ -1568,9 +1602,10 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def send_authentication_email( self, email_address, auth_token ):
-		authentication_link = global_app_config.get( "web_origin" ) + "/authentication/email/" + auth_token
+		authentication_link = self.app_config.get( "web_origin" ) + "/authentication/email/" + auth_token
 
 		TaskSpawner._send_email(
+			self.app_config,
 			email_address,
 			"Refinery.io - Login by email confirmation",
 			pystache.render(
@@ -1717,7 +1752,7 @@ class TaskSpawner(object):
 		# or if manual approve/editing is enabled. One is more careful
 		# than the others.
 		finalize_invoices_enabled = json.loads(
-			global_app_config.get( "stripe_finalize_invoices" )
+			self.app_config.get( "stripe_finalize_invoices" )
 		)
 
 		# Iterate over each organization
@@ -1766,6 +1801,7 @@ class TaskSpawner(object):
 					self.app_config,
 					self.db_session_maker,
 					self.aws_cost_explorer,
+					self.aws_client_factory,
 					aws_account_dict[ "account_id" ],
 					aws_account_dict[ "account_type" ],
 					start_date_string,
@@ -1836,7 +1872,8 @@ class TaskSpawner(object):
 
 		# Notify finance department that they have an hour to review the invoices
 		return TaskSpawner._send_email(
-			global_app_config.get( "billing_alert_email" ),
+			self.app_config,
+			self.app_config.get( "billing_alert_email" ),
 			"[URGENT][IMPORTANT]: Monthly customer invoice generation has completed. One hour to auto-finalization.",
 			False,
 			"The monthly Stripe invoice generation has completed. You have <b>one hour</b> to review invoices before they go out to customers.<br /><a href=\"https://dashboard.stripe.com/invoices\"><b>Click here to review the generated invoices</b></a><br /><br />",
@@ -1912,7 +1949,7 @@ class TaskSpawner(object):
 		dbsession = self.db_session_maker()
 
 		# Pull the configured free trial account limits
-		free_trial_user_max_amount = float( global_app_config.get( "free_trial_billing_limit" ) )
+		free_trial_user_max_amount = float( self.app_config.get( "free_trial_billing_limit" ) )
 
 		# Iterate over the input list and pull the related accounts
 		for aws_account_info in aws_account_running_cost_list:
@@ -1943,12 +1980,14 @@ class TaskSpawner(object):
 				logit( "[ STATUS ] Enumerated user has exceeded their free trial.")
 				logit( "[ STATUS ] Taking action against free-trial account..." )
 				freeze_result = TaskSpawner._freeze_aws_account(
+					self.aws_client_factory,
 					self.db_session_maker,
 					aws_account.to_dict()
 				)
 
 				# Send account frozen email to us to know that it happened
 				TaskSpawner.send_account_freeze_email(
+					self.app_config,
 					aws_account_info[ "aws_account_id" ],
 					aws_account_info[ "billing_total" ],
 					owner_organization.billing_admin_user.email
@@ -1977,6 +2016,7 @@ class TaskSpawner(object):
 			self.app_config,
 			self.db_session_maker,
 			self.aws_cost_explorer,
+			self.aws_client_factory,
 			account_id,
 			account_type,
 			billing_start_date,
@@ -1986,7 +2026,7 @@ class TaskSpawner(object):
 		)
 
 	@staticmethod
-	def _get_sub_account_billing_data( app_config, db_session_maker, aws_cost_explorer, account_id, account_type, start_date, end_date, granularity, use_cache ):
+	def _get_sub_account_billing_data( app_config, db_session_maker, aws_cost_explorer, aws_client_factory, account_id, account_type, start_date, end_date, granularity, use_cache ):
 		"""
 		Pull the service breakdown list and return it along with the totals.
 		Note that this data is not marked up. This function does the work of marking it up.
@@ -2007,6 +2047,7 @@ class TaskSpawner(object):
 			app_config,
 			db_session_maker,
 			aws_cost_explorer,
+			aws_client_factory,
 			account_id,
 			account_type,
 			start_date,
@@ -2037,7 +2078,7 @@ class TaskSpawner(object):
 			"EC2"
 		]
 
-		markup_multiplier = 1 + ( int( global_app_config.get( "mark_up_percent" ) ) / 100 )
+		markup_multiplier = 1 + ( int( app_config.get( "mark_up_percent" ) ) / 100 )
 
 		# Markup multiplier
 		if account_type == "THIRDPARTY":
@@ -2107,7 +2148,7 @@ class TaskSpawner(object):
 		return return_data
 
 	@staticmethod
-	def _get_sub_account_service_breakdown_list( app_config, db_session_maker, aws_cost_explorer, account_id, account_type, start_date, end_date, granularity, use_cache ):
+	def _get_sub_account_service_breakdown_list( app_config, db_session_maker, aws_cost_explorer, aws_client_factory, account_id, account_type, start_date, end_date, granularity, use_cache ):
 		"""
 		Return format:
 
@@ -2169,6 +2210,7 @@ class TaskSpawner(object):
 			app_config,
 			db_session_maker,
 			aws_cost_explorer,
+			aws_client_factory,
 			account_id,
 			account_type,
 			start_date,
@@ -2201,7 +2243,7 @@ class TaskSpawner(object):
 		return service_breakdown_list
 
 	@staticmethod
-	def _api_get_sub_account_billing_data( app_config, db_session_maker, aws_cost_explorer, account_id, account_type, start_date, end_date, granularity ):
+	def _api_get_sub_account_billing_data( app_config, db_session_maker, aws_cost_explorer, aws_client_factory, account_id, account_type, start_date, end_date, granularity ):
 		"""
 		account_id: 994344292413
 		start_date: 2017-05-01
@@ -2242,7 +2284,7 @@ class TaskSpawner(object):
 			aws_account_dict = aws_account.to_dict()
 			dbsession.close()
 
-			billing_client = get_aws_client(
+			billing_client = aws_client_factory.get_aws_client(
 				"ce",
 				aws_account_dict
 			)
@@ -2283,7 +2325,8 @@ class TaskSpawner(object):
 			)
 		except ClientError as e:
 			TaskSpawner._send_email(
-				global_app_config.get( "alerts_email" ),
+				app_config,
+				app_config.get( "alerts_email" ),
 				"[Billing Notification] The Refinery AWS Account #" + account_id + " Encountered An Error When Calculating the Bill",
 				"See HTML email.",
 				pystache.render(
@@ -2327,7 +2370,7 @@ class TaskSpawner(object):
 		metric_name = "NET_UNBLENDED_COST"
 
 		# Markup multiplier
-		markup_multiplier = 1 + ( int( global_app_config.get( "mark_up_percent" ) ) / 100 )
+		markup_multiplier = 1 + ( int( self.app_config.get( "mark_up_percent" ) ) / 100 )
 
 		forcecast_parameters = {
 			"TimePeriod": {
@@ -2361,7 +2404,7 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def check_if_layer_exists( self, credentials, layer_name ):
-		lambda_client = get_aws_client( "lambda", credentials )
+		lambda_client = self.aws_client_factory.get_aws_client( "lambda", credentials )
 
 		try:
 			response = lambda_client.get_layer_version(
@@ -2376,7 +2419,7 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def create_lambda_layer( self, credentials, layer_name, description, s3_bucket, s3_object_key ):
-		lambda_client = get_aws_client( "lambda", credentials )
+		lambda_client = self.aws_client_factory.get_aws_client( "lambda", credentials )
 
 		response = lambda_client.publish_layer_version(
 			LayerName="RefineryManagedLayer_" + layer_name,
@@ -2403,7 +2446,7 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def warm_up_lambda( self, credentials, arn, warmup_concurrency_level ):
-		lambda_client = get_aws_client(
+		lambda_client = self.aws_client_factory.get_aws_client(
 			"lambda",
 			credentials
 		)
@@ -2420,11 +2463,16 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def execute_aws_lambda( self, credentials, arn, input_data ):
-		return TaskSpawner._execute_aws_lambda( credentials, arn, input_data )
+		return TaskSpawner._execute_aws_lambda(
+			self.aws_client_factory,
+			credentials,
+			arn,
+			input_data
+		)
 
 	@staticmethod
-	def _execute_aws_lambda( credentials, arn, input_data ):
-		lambda_client = get_aws_client( "lambda", credentials )
+	def _execute_aws_lambda( aws_client_factory, credentials, arn, input_data ):
+		lambda_client = aws_client_factory.get_aws_client( "lambda", credentials )
 		response = lambda_client.invoke(
 			FunctionName=arn,
 			InvocationType="RequestResponse",
@@ -2523,18 +2571,22 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def delete_aws_lambda( self, credentials, arn_or_name ):
-		return TaskSpawner._delete_aws_lambda( credentials, arn_or_name )
+		return TaskSpawner._delete_aws_lambda(
+			self.aws_client_factory,
+			credentials,
+			arn_or_name
+		)
 
 	@staticmethod
-	def _delete_aws_lambda( credentials, arn_or_name ):
-		lambda_client = get_aws_client( "lambda", credentials )
+	def _delete_aws_lambda( aws_client_factory, credentials, arn_or_name ):
+		lambda_client = aws_client_factory.get_aws_client( "lambda", credentials )
 		return lambda_client.delete_function(
 			FunctionName=arn_or_name
 		)
 
 	@run_on_executor
 	def update_lambda_environment_variables( self, credentials, func_name, environment_variables ):
-		lambda_client = get_aws_client( "lambda", credentials )
+		lambda_client = self.aws_client_factory.get_aws_client( "lambda", credentials )
 
 		# Generate environment variables data structure
 		env_data = {}
@@ -2551,7 +2603,7 @@ class TaskSpawner(object):
 		return response
 
 	@staticmethod
-	def build_lambda( app_config, credentials, lambda_object ):
+	def build_lambda( app_config, aws_client_factory, credentials, lambda_object ):
 		logit( "Building Lambda " + lambda_object.language + " with libraries: " + str( lambda_object.libraries ), "info" )
 		if not ( lambda_object.language in LAMBDA_SUPPORTED_LANGUAGES ):
 			raise Exception( "Error, this language '" + lambda_object.language + "' is not yet supported by refinery!" )
@@ -2559,6 +2611,7 @@ class TaskSpawner(object):
 		if lambda_object.language == "python2.7":
 			package_zip_data = TaskSpawner._build_python27_lambda(
 				app_config,
+				aws_client_factory,
 				credentials,
 				lambda_object.code,
 				lambda_object.libraries
@@ -2566,6 +2619,7 @@ class TaskSpawner(object):
 		elif lambda_object.language == "python3.6":
 			package_zip_data = TaskSpawner._build_python36_lambda(
 				app_config,
+				aws_client_factory,
 				credentials,
 				lambda_object.code,
 				lambda_object.libraries
@@ -2573,6 +2627,7 @@ class TaskSpawner(object):
 		elif lambda_object.language == "php7.3":
 			package_zip_data = TaskSpawner._build_php_73_lambda(
 				app_config,
+				aws_client_factory,
 				credentials,
 				lambda_object.code,
 				lambda_object.libraries
@@ -2580,6 +2635,7 @@ class TaskSpawner(object):
 		elif lambda_object.language == "nodejs8.10":
 			package_zip_data = TaskSpawner._build_nodejs_810_lambda(
 				app_config,
+				aws_client_factory,
 				credentials,
 				lambda_object.code,
 				lambda_object.libraries
@@ -2587,6 +2643,7 @@ class TaskSpawner(object):
 		elif lambda_object.language == "nodejs10.16.3":
 			package_zip_data = TaskSpawner._build_nodejs_10163_lambda(
 				app_config,
+				aws_client_factory,
 				credentials,
 				lambda_object.code,
 				lambda_object.libraries
@@ -2597,12 +2654,14 @@ class TaskSpawner(object):
 				lambda_object.code
 			)
 			package_zip_data = BuilderManager._get_go112_zip(
+				aws_client_factory,
 				credentials,
 				lambda_object
 			)
 		elif lambda_object.language == "ruby2.6.4":
 			package_zip_data = TaskSpawner._build_ruby_264_lambda(
 				app_config,
+				aws_client_factory,
 				credentials,
 				lambda_object.code,
 				lambda_object.libraries
@@ -2627,7 +2686,7 @@ class TaskSpawner(object):
 	@run_on_executor
 	def set_lambda_reserved_concurrency( self, credentials, arn, reserved_concurrency_count ):
 		# Create Lambda client
-		lambda_client = get_aws_client(
+		lambda_client = self.aws_client_factory.get_aws_client(
 			"lambda",
 			credentials
 		)
@@ -2638,6 +2697,7 @@ class TaskSpawner(object):
 		)
 
 	@run_on_executor
+	@log_exception
 	def deploy_aws_lambda( self, credentials, lambda_object ):
 		"""
 		Here we do caching to see if we've done this exact build before
@@ -2669,13 +2729,14 @@ class TaskSpawner(object):
 		already_exists = False
 
 		# Create S3 client
-		s3_client = get_aws_client(
+		s3_client = self.aws_client_factory.get_aws_client(
 			"s3",
 			credentials
 		)
 
 		# Check if we've already deployed this exact same Lambda before
 		already_exists = TaskSpawner._s3_object_exists(
+			self.aws_client_factory,
 			credentials,
 			credentials[ "lambda_packages_bucket" ],
 			s3_package_zip_path
@@ -2685,6 +2746,7 @@ class TaskSpawner(object):
 			# Build the Lambda package .zip and return the zip data for it
 			lambda_zip_package_data = TaskSpawner.build_lambda(
 				self.app_config,
+				self.aws_client_factory,
 				credentials,
 				lambda_object
 			)
@@ -2697,6 +2759,7 @@ class TaskSpawner(object):
 			)
 
 		lambda_deploy_result = TaskSpawner._deploy_aws_lambda(
+			self.aws_client_factory,
 			credentials,
 			lambda_object,
 			s3_package_zip_path,
@@ -2859,14 +2922,14 @@ class TaskSpawner(object):
 		return hash_key
 
 	@staticmethod
-	def _deploy_aws_lambda( credentials, lambda_object, s3_package_zip_path ):
+	def _deploy_aws_lambda( aws_client_factory, credentials, lambda_object, s3_package_zip_path ):
 		# Generate environment variables data structure
 		env_data = {}
 		for env_pair in lambda_object.environment_variables:
 			env_data[ env_pair[ "key" ] ] = env_pair[ "value" ]
 
 		# Create Lambda client
-		lambda_client = get_aws_client(
+		lambda_client = aws_client_factory.get_aws_client(
 			"lambda",
 			credentials
 		)
@@ -2902,12 +2965,15 @@ class TaskSpawner(object):
 			if e.response[ "Error" ][ "Code" ] == "ResourceConflictException":
 				# Delete the existing lambda
 				delete_response = TaskSpawner._delete_aws_lambda(
+					aws_client_factory,
 					credentials,
 					lambda_object.name
 				)
 
 				# Now create it since we're clear
+				# TODO: THIS IS A POTENTIAL INFINITE LOOP!
 				return TaskSpawner._deploy_aws_lambda(
+					aws_client_factory,
 					credentials,
 					lambda_object,
 					s3_package_zip_path
@@ -2930,8 +2996,8 @@ class TaskSpawner(object):
 		return final_s3_package_zip_path
 
 	@staticmethod
-	def get_python36_lambda_base_zip( credentials, libraries ):
-		s3_client = get_aws_client(
+	def get_python36_lambda_base_zip( aws_client_factory, credentials, libraries ):
+		s3_client = aws_client_factory.get_aws_client(
 			"s3",
 			credentials
 		)
@@ -2968,8 +3034,8 @@ class TaskSpawner(object):
 		)
 
 	@staticmethod
-	def get_python27_lambda_base_zip( credentials, libraries ):
-		s3_client = get_aws_client(
+	def get_python27_lambda_base_zip( aws_client_factory, credentials, libraries ):
+		s3_client = aws_client_factory.get_aws_client(
 			"s3",
 			credentials
 		)
@@ -3008,6 +3074,9 @@ class TaskSpawner(object):
 	@staticmethod
 	def get_go112_zip( credentials, code ):
 		# Kick off CodeBuild
+
+		raise Exception("Go112 building is not implemented!")
+
 		build_id = TaskSpawner.start_go112_codebuild(
 			credentials,
 			code
@@ -3040,19 +3109,23 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def start_python36_codebuild( self, credentials, libraries_object ):
-		return TaskSpawner._start_python36_codebuild( credentials, libraries_object )
+		return TaskSpawner._start_python36_codebuild(
+			self.aws_client_factory,
+			credentials,
+			libraries_object
+		)
 
 	@staticmethod
-	def _start_python36_codebuild( credentials, libraries_object ):
+	def _start_python36_codebuild( aws_client_factory, credentials, libraries_object ):
 		"""
 		Returns a build ID to be polled at a later time
 		"""
-		codebuild_client = get_aws_client(
+		codebuild_client = aws_client_factory.get_aws_client(
 			"codebuild",
 			credentials
 		)
 
-		s3_client = get_aws_client(
+		s3_client = aws_client_factory.get_aws_client(
 			"s3",
 			credentials
 		)
@@ -3134,19 +3207,23 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def start_python27_codebuild( self, credentials, libraries_object ):
-		return TaskSpawner._start_python27_codebuild( credentials, libraries_object )
+		return TaskSpawner._start_python27_codebuild(
+			self.aws_client_factory,
+			credentials,
+			libraries_object
+		)
 
 	@staticmethod
-	def _start_python27_codebuild( credentials, libraries_object ):
+	def _start_python27_codebuild( aws_client_factory, credentials, libraries_object ):
 		"""
 		Returns a build ID to be polled at a later time
 		"""
-		codebuild_client = get_aws_client(
+		codebuild_client = aws_client_factory.get_aws_client(
 			"codebuild",
 			credentials
 		)
 
-		s3_client = get_aws_client(
+		s3_client = aws_client_factory.get_aws_client(
 			"s3",
 			credentials
 		)
@@ -3228,7 +3305,11 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def start_ruby264_codebuild( self, credentials, libraries_object ):
-		return TaskSpawner._start_ruby264_codebuild( credentials, libraries_object )
+		return TaskSpawner._start_ruby264_codebuild(
+			self.aws_client_factory,
+			credentials,
+			libraries_object
+		)
 
 	@staticmethod
 	def _get_gemfile( libraries_object ):
@@ -3245,16 +3326,16 @@ class TaskSpawner(object):
 		return gemfile
 
 	@staticmethod
-	def _start_ruby264_codebuild( credentials, libraries_object ):
+	def _start_ruby264_codebuild( aws_client_factory, credentials, libraries_object ):
 		"""
 		Returns a build ID to be polled at a later time
 		"""
-		codebuild_client = get_aws_client(
+		codebuild_client = aws_client_factory.get_aws_client(
 			"codebuild",
 			credentials
 		)
 
-		s3_client = get_aws_client(
+		s3_client = aws_client_factory.get_aws_client(
 			"s3",
 			credentials
 		)
@@ -3337,19 +3418,23 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def start_node810_codebuild( self, credentials, libraries_object ):
-		return TaskSpawner._start_node810_codebuild( credentials, libraries_object )
+		return TaskSpawner._start_node810_codebuild(
+			self.aws_client_factory,
+			credentials,
+			libraries_object
+		)
 
 	@staticmethod
-	def _start_node810_codebuild( credentials, libraries_object ):
+	def _start_node810_codebuild( aws_client_factory, credentials, libraries_object ):
 		"""
 		Returns a build ID to be polled at a later time
 		"""
-		codebuild_client = get_aws_client(
+		codebuild_client = aws_client_factory.get_aws_client(
 			"codebuild",
 			credentials
 		)
 
-		s3_client = get_aws_client(
+		s3_client = aws_client_factory.get_aws_client(
 			"s3",
 			credentials
 		)
@@ -3441,14 +3526,15 @@ class TaskSpawner(object):
 	@run_on_executor
 	def s3_object_exists( self, credentials, bucket_name, object_key ):
 		return TaskSpawner._s3_object_exists(
+			self.aws_client_factory,
 			credentials,
 			bucket_name,
 			object_key
 		)
 
 	@staticmethod
-	def _s3_object_exists( credentials, bucket_name, object_key ):
-		s3_client = get_aws_client(
+	def _s3_object_exists( aws_client_factory, credentials, bucket_name, object_key ):
+		s3_client = aws_client_factory.get_aws_client(
 			"s3",
 			credentials
 		)
@@ -3468,8 +3554,8 @@ class TaskSpawner(object):
 		return already_exists
 
 	@staticmethod
-	def get_ruby_264_lambda_base_zip( credentials, libraries ):
-		s3_client = get_aws_client(
+	def get_ruby_264_lambda_base_zip( aws_client_factory, credentials, libraries ):
+		s3_client = aws_client_factory.get_aws_client(
 			"s3",
 			credentials
 		)
@@ -3493,6 +3579,7 @@ class TaskSpawner(object):
 		# Kick off CodeBuild for the libraries to get a zip artifact of
 		# all of the libraries.
 		build_id = TaskSpawner._start_ruby264_codebuild(
+			aws_client_factory,
 			credentials,
 			libraries_object
 		)
@@ -3500,14 +3587,15 @@ class TaskSpawner(object):
 		# This continually polls for the CodeBuild build to finish
 		# Once it does it returns the raw artifact zip data.
 		return TaskSpawner._get_codebuild_artifact_zip_data(
+			aws_client_factory,
 			credentials,
 			build_id,
 			final_s3_package_zip_path
 		)
 
 	@staticmethod
-	def get_nodejs_810_lambda_base_zip( credentials, libraries ):
-		s3_client = get_aws_client(
+	def get_nodejs_810_lambda_base_zip( aws_client_factory, credentials, libraries ):
+		s3_client = aws_client_factory.get_aws_client(
 			"s3",
 			credentials
 		)
@@ -3531,6 +3619,7 @@ class TaskSpawner(object):
 		# Kick off CodeBuild for the libraries to get a zip artifact of
 		# all of the libraries.
 		build_id = TaskSpawner._start_node810_codebuild(
+			aws_client_factory,
 			credentials,
 			libraries_object
 		)
@@ -3538,6 +3627,7 @@ class TaskSpawner(object):
 		# This continually polls for the CodeBuild build to finish
 		# Once it does it returns the raw artifact zip data.
 		return TaskSpawner._get_codebuild_artifact_zip_data(
+			aws_client_factory,
 			credentials,
 			build_id,
 			final_s3_package_zip_path
@@ -3546,14 +3636,15 @@ class TaskSpawner(object):
 	@run_on_executor
 	def get_codebuild_artifact_zip_data( self, credentials, build_id, final_s3_package_zip_path ):
 		return TaskSpawner._get_codebuild_artifact_zip_data(
+			self.aws_client_factory,
 			credentials,
 			build_id,
 			final_s3_package_zip_path
 		)
 
 	@staticmethod
-	def _get_codebuild_artifact_zip_data( credentials, build_id, final_s3_package_zip_path ):
-		s3_client = get_aws_client(
+	def _get_codebuild_artifact_zip_data( aws_client_factory, credentials, build_id, final_s3_package_zip_path ):
+		s3_client = aws_client_factory.get_aws_client(
 			"s3",
 			credentials
 		)
@@ -3582,13 +3673,13 @@ class TaskSpawner(object):
 		)
 
 	@staticmethod
-	def _finalize_codebuild( credentials, build_id, final_s3_package_zip_path ):
-		codebuild_client = get_aws_client(
+	def _finalize_codebuild( aws_client_factory, credentials, build_id, final_s3_package_zip_path ):
+		codebuild_client = aws_client_factory.get_aws_client(
 			"codebuild",
 			credentials
 		)
 
-		s3_client = get_aws_client(
+		s3_client = aws_client_factory.get_aws_client(
 			"s3",
 			credentials
 		)
@@ -3646,8 +3737,8 @@ class TaskSpawner(object):
 		return True
 
 	@staticmethod
-	def get_php73_lambda_base_zip( credentials, libraries ):
-		s3_client = get_aws_client(
+	def get_php73_lambda_base_zip( aws_client_factory, credentials, libraries ):
+		s3_client = aws_client_factory.get_aws_client(
 			"s3",
 			credentials
 		)
@@ -3678,6 +3769,7 @@ class TaskSpawner(object):
 		# This continually polls for the CodeBuild build to finish
 		# Once it does it returns the raw artifact zip data.
 		return TaskSpawner._get_codebuild_artifact_zip_data(
+			aws_client_factory,
 			credentials,
 			build_id,
 			final_s3_package_zip_path
@@ -3685,19 +3777,23 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def start_php73_codebuild( self, credentials, libraries_object ):
-		return TaskSpawner._start_php73_codebuild( credentials, libraries_object )
+		return TaskSpawner._start_php73_codebuild(
+			self.aws_client_factory,
+			credentials,
+			libraries_object
+		)
 
 	@staticmethod
-	def _start_php73_codebuild( credentials, libraries_object ):
+	def _start_php73_codebuild( aws_client_factory, credentials, libraries_object ):
 		"""
 		Returns a build ID to be polled at a later time
 		"""
-		codebuild_client = get_aws_client(
+		codebuild_client = aws_client_factory.get_aws_client(
 			"codebuild",
 			credentials
 		)
 
-		s3_client = get_aws_client(
+		s3_client = aws_client_factory.get_aws_client(
 			"s3",
 			credentials
 		)
@@ -3786,7 +3882,7 @@ class TaskSpawner(object):
 		return code
 
 	@staticmethod
-	def _build_php_73_lambda( app_config, credentials, code, libraries ):
+	def _build_php_73_lambda( app_config, aws_client_factory, credentials, code, libraries ):
 		code = TaskSpawner._get_php_73_base_code(
 			app_config,
 			code
@@ -3796,6 +3892,7 @@ class TaskSpawner(object):
 		base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
 		if len( libraries ) > 0:
 			base_zip_data = TaskSpawner.get_php73_lambda_base_zip(
+				aws_client_factory,
 				credentials,
 				libraries
 			)
@@ -3831,7 +3928,7 @@ class TaskSpawner(object):
 		return code
 
 	@staticmethod
-	def _build_ruby_264_lambda( app_config, credentials, code, libraries ):
+	def _build_ruby_264_lambda( app_config, aws_client_factory, credentials, code, libraries ):
 		code = TaskSpawner._get_ruby_264_base_code(
 			app_config,
 			code
@@ -3842,6 +3939,7 @@ class TaskSpawner(object):
 
 		if len( libraries ) > 0:
 			base_zip_data = TaskSpawner.get_ruby_264_lambda_base_zip(
+				aws_client_factory,
 				credentials,
 				libraries
 			)
@@ -3884,7 +3982,7 @@ class TaskSpawner(object):
 		return code
 
 	@staticmethod
-	def _build_nodejs_10163_lambda( app_config, credentials, code, libraries ):
+	def _build_nodejs_10163_lambda( app_config, aws_client_factory, credentials, code, libraries ):
 		code = TaskSpawner._get_nodejs_10163_base_code(
 			app_config,
 			code
@@ -3894,6 +3992,7 @@ class TaskSpawner(object):
 		base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
 		if len( libraries ) > 0:
 			base_zip_data = TaskSpawner.get_nodejs_10163_lambda_base_zip(
+				aws_client_factory,
 				credentials,
 				libraries
 			)
@@ -3919,8 +4018,8 @@ class TaskSpawner(object):
 		return lambda_package_zip_data
 
 	@staticmethod
-	def get_nodejs_10163_lambda_base_zip( credentials, libraries ):
-		s3_client = get_aws_client(
+	def get_nodejs_10163_lambda_base_zip( aws_client_factory, credentials, libraries ):
+		s3_client = aws_client_factory.get_aws_client(
 			"s3",
 			credentials
 		)
@@ -3951,6 +4050,7 @@ class TaskSpawner(object):
 		# This continually polls for the CodeBuild build to finish
 		# Once it does it returns the raw artifact zip data.
 		return TaskSpawner._get_codebuild_artifact_zip_data(
+			aws_client_factory,
 			credentials,
 			build_id,
 			final_s3_package_zip_path
@@ -3958,19 +4058,23 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def start_node10163_codebuild( self, credentials, libraries_object ):
-		return TaskSpawner._start_node810_codebuild( credentials, libraries_object )
+		return TaskSpawner._start_node810_codebuild(
+			self.aws_client_factory,
+			credentials,
+			libraries_object
+		)
 
 	@staticmethod
-	def _start_node10163_codebuild( credentials, libraries_object ):
+	def _start_node10163_codebuild( aws_client_factory, credentials, libraries_object ):
 		"""
 		Returns a build ID to be polled at a later time
 		"""
-		codebuild_client = get_aws_client(
+		codebuild_client = aws_client_factory.get_aws_client(
 			"codebuild",
 			credentials
 		)
 
-		s3_client = get_aws_client(
+		s3_client = aws_client_factory.get_aws_client(
 			"s3",
 			credentials
 		)
@@ -4077,7 +4181,7 @@ class TaskSpawner(object):
 		return code
 
 	@staticmethod
-	def _build_nodejs_810_lambda( app_config, credentials, code, libraries ):
+	def _build_nodejs_810_lambda( app_config, aws_client_factory, credentials, code, libraries ):
 		code = TaskSpawner._get_nodejs_810_base_code(
 			app_config,
 			code
@@ -4087,6 +4191,7 @@ class TaskSpawner(object):
 		base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
 		if len( libraries ) > 0:
 			base_zip_data = TaskSpawner.get_nodejs_810_lambda_base_zip(
+				aws_client_factory,
 				credentials,
 				libraries
 			)
@@ -4117,7 +4222,7 @@ class TaskSpawner(object):
 		return code
 
 	@staticmethod
-	def _build_python36_lambda( app_config, credentials, code, libraries ):
+	def _build_python36_lambda( app_config, aws_client_factory, credentials, code, libraries ):
 		code = TaskSpawner._get_python36_base_code(
 			app_config,
 			code
@@ -4126,6 +4231,7 @@ class TaskSpawner(object):
 		base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
 		if len( libraries ) > 0:
 			base_zip_data = TaskSpawner.get_python36_lambda_base_zip(
+				aws_client_factory,
 				credentials,
 				libraries
 			)
@@ -4156,7 +4262,7 @@ class TaskSpawner(object):
 		return code
 
 	@staticmethod
-	def _build_python27_lambda( app_config, credentials, code, libraries ):
+	def _build_python27_lambda( app_config, aws_client_factory, credentials, code, libraries ):
 		"""
 		Build Lambda package zip and return zip data
 		"""
@@ -4175,6 +4281,7 @@ class TaskSpawner(object):
 		base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
 		if len( libraries ) > 0:
 			base_zip_data = TaskSpawner.get_python27_lambda_base_zip(
+				aws_client_factory,
 				credentials,
 				libraries
 			)
@@ -4237,7 +4344,7 @@ class TaskSpawner(object):
 	@run_on_executor
 	def create_cloudwatch_group( self, credentials, group_name, tags_dict, retention_days ):
 		# Create S3 client
-		cloudwatch_logs = get_aws_client(
+		cloudwatch_logs = self.aws_client_factory.get_aws_client(
 			"logs",
 			credentials
 		)
@@ -4259,7 +4366,7 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def create_cloudwatch_rule( self, credentials, id, name, schedule_expression, description, input_string ):
-		events_client = get_aws_client(
+		events_client = self.aws_client_factory.get_aws_client(
 			"events",
 			credentials,
 		)
@@ -4307,12 +4414,12 @@ class TaskSpawner(object):
 		except:
 			pass
 
-		events_client = get_aws_client(
+		events_client = self.aws_client_factory.get_aws_client(
 			"events",
 			credentials,
 		)
 
-		lambda_client = get_aws_client(
+		lambda_client = self.aws_client_factory.get_aws_client(
 			"lambda",
 			credentials,
 		)
@@ -4342,14 +4449,14 @@ class TaskSpawner(object):
 			Action="lambda:*",
 			Principal="events.amazonaws.com",
 			SourceArn="arn:aws:events:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":rule/" + rule_name,
-			#SourceAccount=global_app_config.get( "aws_account_id" ) # THIS IS A BUG IN AWS NEVER PASS THIS
+			#SourceAccount=self.app_config.get( "aws_account_id" ) # THIS IS A BUG IN AWS NEVER PASS THIS
 		)
 
 		return rule_creation_response
 
 	@run_on_executor
 	def create_sns_topic( self, credentials, id, topic_name ):
-		sns_client = get_aws_client(
+		sns_client = self.aws_client_factory.get_aws_client(
 			"sns",
 			credentials
 		)
@@ -4377,12 +4484,12 @@ class TaskSpawner(object):
 		For AWS Lambda you need to add a permission to the Lambda function itself
 		via the add_permission API call to allow invocation via the SNS event.
 		"""
-		lambda_client = get_aws_client(
+		lambda_client = self.aws_client_factory.get_aws_client(
 			"lambda",
 			credentials
 		)
 
-		sns_client = get_aws_client(
+		sns_client = self.aws_client_factory.get_aws_client(
 			"sns",
 			credentials,
 		)
@@ -4393,7 +4500,7 @@ class TaskSpawner(object):
 			Action="lambda:*",
 			Principal="sns.amazonaws.com",
 			SourceArn=topic_arn,
-			#SourceAccount=global_app_config.get( "aws_account_id" ) # THIS IS A BUG IN AWS NEVER PASS THIS
+			#SourceAccount=self.app_config.get( "aws_account_id" ) # THIS IS A BUG IN AWS NEVER PASS THIS
 		)
 
 		sns_topic_response = sns_client.subscribe(
@@ -4411,7 +4518,7 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def create_sqs_queue( self, credentials, id, queue_name, batch_size, visibility_timeout ):
-		sqs_client = get_aws_client(
+		sqs_client = self.aws_client_factory.get_aws_client(
 			"sqs",
 			credentials
 		)
@@ -4456,7 +4563,7 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def map_sqs_to_lambda( self, credentials, sqs_arn, lambda_arn, batch_size ):
-		lambda_client = get_aws_client(
+		lambda_client = self.aws_client_factory.get_aws_client(
 			"lambda",
 			credentials
 		)
@@ -4473,6 +4580,7 @@ class TaskSpawner(object):
 	@run_on_executor
 	def read_from_s3_and_return_input( self, credentials, s3_bucket, path ):
 		return_data = TaskSpawner._read_from_s3(
+			self.aws_client_factory,
 			credentials,
 			s3_bucket,
 			path
@@ -4487,14 +4595,15 @@ class TaskSpawner(object):
 	@run_on_executor
 	def read_from_s3( self, credentials, s3_bucket, path ):
 		return TaskSpawner._read_from_s3(
+			self.aws_client_factory,
 			credentials,
 			s3_bucket,
 			path
 		)
 
 	@staticmethod
-	def _read_from_s3( credentials, s3_bucket, path ):
-		s3_client = get_aws_client(
+	def _read_from_s3( aws_client_factory, credentials, s3_bucket, path ):
+		s3_client = aws_client_factory.get_aws_client(
 			"s3",
 			credentials,
 		)
@@ -4515,7 +4624,7 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def bulk_s3_delete( self, credentials, s3_bucket, s3_path_list ):
-		s3_client = get_aws_client(
+		s3_client = self.aws_client_factory.get_aws_client(
 			"s3",
 			credentials,
 		)
@@ -4539,6 +4648,7 @@ class TaskSpawner(object):
 	@run_on_executor
 	def get_s3_pipeline_execution_logs( self, credentials, s3_prefix, max_results ):
 		return TaskSpawner.get_all_s3_paths(
+			self.aws_client_factory,
 			credentials,
 			credentials[ "logs_bucket" ],
 			s3_prefix,
@@ -4548,6 +4658,7 @@ class TaskSpawner(object):
 	@run_on_executor
 	def get_build_packages( self, credentials, s3_prefix, max_results ):
 		return TaskSpawner.get_all_s3_paths(
+			self.aws_client_factory,
 			credentials,
 			credentials[ "lambda_packages_bucket" ],
 			s3_prefix,
@@ -4556,7 +4667,7 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def get_s3_list_from_prefix( self, credentials, s3_bucket, s3_prefix, continuation_token, start_after ):
-		s3_client = get_aws_client(
+		s3_client = self.aws_client_factory.get_aws_client(
 			"s3",
 			credentials,
 		)
@@ -4606,15 +4717,15 @@ class TaskSpawner(object):
 		}
 
 	@staticmethod
-	def get_all_s3_paths( credentials, s3_bucket, prefix, max_results, **kwargs ):
-		s3_client = get_aws_client(
+	def get_all_s3_paths( aws_client_factory, credentials, s3_bucket, prefix, max_results, **kwargs ):
+		s3_client = aws_client_factory.get_aws_client(
 			"s3",
 			credentials,
 		)
 
 		return_array = []
 		continuation_token = False
-		if max_results == -1: # max_results -1 means get all results
+		if max_results == -1:  # max_results -1 means get all results
 			max_keys = 1000
 		elif max_results <= 1000:
 			max_keys = max_results
@@ -4625,7 +4736,7 @@ class TaskSpawner(object):
 		response = s3_client.list_objects_v2(
 			Bucket=s3_bucket,
 			Prefix=prefix,
-			MaxKeys=max_keys, # Max keys you can request at once
+			MaxKeys=max_keys,  # Max keys you can request at once
 			**kwargs
 		)
 
@@ -4635,7 +4746,7 @@ class TaskSpawner(object):
 				response = s3_client.list_objects_v2(
 					Bucket=s3_bucket,
 					Prefix=prefix,
-					MaxKeys=max_keys, # Max keys you can request at once
+					MaxKeys=max_keys,  # Max keys you can request at once
 					ContinuationToken=continuation_token,
 					**kwargs
 				)
@@ -4653,7 +4764,7 @@ class TaskSpawner(object):
 			if ( max_results != -1 ) and max_results <= len( return_array ):
 				break
 
-			if response[ "IsTruncated" ] == False:
+			if not response[ "IsTruncated" ]:
 				break
 
 			continuation_token = response[ "NextContinuationToken" ]
@@ -4663,6 +4774,7 @@ class TaskSpawner(object):
 	@run_on_executor
 	def get_s3_pipeline_execution_ids( self, credentials, timestamp_prefix, max_results, continuation_token ):
 		return TaskSpawner.get_all_s3_prefixes(
+			self.aws_client_factory,
 			credentials,
 			credentials[ "logs_bucket" ],
 			timestamp_prefix,
@@ -4673,6 +4785,7 @@ class TaskSpawner(object):
 	@run_on_executor
 	def get_s3_pipeline_timestamp_prefixes( self, credentials, project_id, max_results, continuation_token ):
 		return TaskSpawner.get_all_s3_prefixes(
+			self.aws_client_factory,
 			credentials,
 			credentials[ "logs_bucket" ],
 			project_id + "/",
@@ -4681,8 +4794,8 @@ class TaskSpawner(object):
 		)
 
 	@staticmethod
-	def get_all_s3_prefixes( credentials, s3_bucket, prefix, max_results, continuation_token ):
-		s3_client = get_aws_client(
+	def get_all_s3_prefixes( aws_client_factory, credentials, s3_bucket, prefix, max_results, continuation_token ):
+		s3_client = aws_client_factory.get_aws_client(
 			"s3",
 			credentials,
 		)
@@ -4737,7 +4850,7 @@ class TaskSpawner(object):
 			if ( max_results != -1 ) and max_results <= len( return_array ):
 				break
 
-			if response[ "IsTruncated" ] == False:
+			if not response[ "IsTruncated" ]:
 				break
 
 		return {
@@ -4746,12 +4859,12 @@ class TaskSpawner(object):
 		}
 
 	@run_on_executor
-	def get_aws_lambda_existence_info( self, credentials, id, type, lambda_name ):
-		return TaskSpawner._get_aws_lambda_existence_info( credentials, id, type, lambda_name )
+	def get_aws_lambda_existence_info( self, credentials, _id, _type, lambda_name ):
+		return TaskSpawner._get_aws_lambda_existence_info( self.aws_client_factory, credentials, _id, _type, lambda_name )
 
 	@staticmethod
-	def _get_aws_lambda_existence_info( credentials, id, type, lambda_name ):
-		lambda_client = get_aws_client(
+	def _get_aws_lambda_existence_info( aws_client_factory, credentials, _id, _type, lambda_name ):
+		lambda_client = aws_client_factory.get_aws_client(
 			"lambda",
 			credentials
 		)
@@ -4762,15 +4875,15 @@ class TaskSpawner(object):
 			)
 		except lambda_client.exceptions.ResourceNotFoundException:
 			return {
-				"id": id,
-				"type": type,
+				"id": _id,
+				"type": _type,
 				"name": lambda_name,
 				"exists": False
 			}
 
 		return {
-			"id": id,
-			"type": type,
+			"id": _id,
+			"type": _type,
 			"name": lambda_name,
 			"exists": True,
 			"arn": response[ "Configuration" ][ "FunctionArn" ]
@@ -4778,18 +4891,18 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def get_lambda_cloudwatch_logs( self, credentials, log_group_name, stream_id ):
-		return TaskSpawner._get_lambda_cloudwatch_logs( credentials, log_group_name, stream_id )
+		return TaskSpawner._get_lambda_cloudwatch_logs( self.aws_client_factory, credentials, log_group_name, stream_id )
 
 	@staticmethod
-	def _get_lambda_cloudwatch_logs( credentials, log_group_name, stream_id ):
-		cloudwatch_logs_client = get_aws_client(
+	def _get_lambda_cloudwatch_logs( aws_client_factory, credentials, log_group_name, stream_id ):
+		cloudwatch_logs_client = aws_client_factory.get_aws_client(
 			"logs",
 			credentials
 		)
 
-		if stream_id == False:
+		if not stream_id:
 			# Pull the last stream from CloudWatch
-			# Streams take time to propogate so wait if needed
+			# Streams take time to propagate so wait if needed
 			streams_data = cloudwatch_logs_client.describe_log_streams(
 				logGroupName=log_group_name,
 				orderBy="LastEventTime",
@@ -4842,12 +4955,12 @@ class TaskSpawner(object):
 		return log_output
 
 	@run_on_executor
-	def get_cloudwatch_existence_info( self, credentials, id, type, name ):
-		return TaskSpawner._get_cloudwatch_existence_info( credentials, id, type, name )
+	def get_cloudwatch_existence_info( self, credentials, _id, _type, name ):
+		return TaskSpawner._get_cloudwatch_existence_info( self.aws_client_factory, credentials, _id, _type, name )
 
 	@staticmethod
-	def _get_cloudwatch_existence_info( credentials, id, type, name ):
-		events_client = get_aws_client(
+	def _get_cloudwatch_existence_info( aws_client_factory, credentials, _id, _type, name ):
+		events_client = aws_client_factory.get_aws_client(
 			"events",
 			credentials
 		)
@@ -4858,27 +4971,27 @@ class TaskSpawner(object):
 			)
 		except events_client.exceptions.ResourceNotFoundException:
 			return {
-				"id": id,
-				"type": type,
+				"id": _id,
+				"type": _type,
 				"name": name,
 				"exists": False
 			}
 
 		return {
-			"id": id,
-			"type": type,
+			"id": _id,
+			"type": _type,
 			"name": name,
 			"arn": response[ "Arn" ],
 			"exists": True,
 		}
 
 	@run_on_executor
-	def get_sqs_existence_info( self, credentials, id, type, name ):
-		return TaskSpawner._get_sqs_existence_info( credentials, id, type, name )
+	def get_sqs_existence_info( self, credentials, _id, _type, name ):
+		return TaskSpawner._get_sqs_existence_info( self.aws_client_factory, credentials, _id, _type, name )
 
 	@staticmethod
-	def _get_sqs_existence_info( credentials, id, type, name ):
-		sqs_client = get_aws_client(
+	def _get_sqs_existence_info( aws_client_factory, credentials, _id, _type, name ):
+		sqs_client = aws_client_factory.get_aws_client(
 			"sqs",
 			credentials,
 		)
@@ -4889,27 +5002,28 @@ class TaskSpawner(object):
 			)
 		except sqs_client.exceptions.QueueDoesNotExist:
 			return {
-				"id": id,
-				"type": type,
+				"id": _id,
+				"type": _type,
 				"name": name,
 				"exists": False
 			}
 
 		return {
-			"id": id,
-			"type": type,
+			"id": _id,
+			"type": _type,
 			"name": name,
 			"arn": "arn:aws:sqs:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + name,
 			"exists": True,
 		}
 
 	@run_on_executor
-	def get_sns_existence_info( self, credentials, id, type, name ):
-		return TaskSpawner._get_sns_existence_info( credentials, id, type, name )
+	def get_sns_existence_info( self, credentials, _id, _type, name ):
+		return TaskSpawner._get_sns_existence_info(
+			self.aws_client_factory, credentials, _id, _type, name )
 
 	@staticmethod
-	def _get_sns_existence_info( credentials, id, type, name ):
-		sns_client = get_aws_client(
+	def _get_sns_existence_info( aws_client_factory, credentials, _id, _type, name ):
+		sns_client = aws_client_factory.get_aws_client(
 			"sns",
 			credentials
 		)
@@ -4922,15 +5036,15 @@ class TaskSpawner(object):
 			)
 		except sns_client.exceptions.NotFoundException:
 			return {
-				"id": id,
-				"type": type,
+				"id": _id,
+				"type": _type,
 				"name": name,
 				"exists": False
 			}
 
 		return {
-			"id": id,
-			"type": type,
+			"id": _id,
+			"type": _type,
 			"name": name,
 			"arn": sns_topic_arn,
 			"exists": True,
@@ -4938,7 +5052,7 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def create_rest_api( self, credentials, name, description, version ):
-		api_gateway_client = get_aws_client(
+		api_gateway_client = self.aws_client_factory.get_aws_client(
 			"apigateway",
 			credentials
 		)
@@ -4970,7 +5084,7 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def deploy_api_gateway_to_stage( self, credentials, rest_api_id, stage_name ):
-		api_gateway_client = get_aws_client(
+		api_gateway_client = self.aws_client_factory.get_aws_client(
 			"apigateway",
 			credentials
 		)
@@ -4992,7 +5106,7 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def create_resource( self, credentials, rest_api_id, parent_id, path_part ):
-		api_gateway_client = get_aws_client(
+		api_gateway_client = self.aws_client_factory.get_aws_client(
 			"apigateway",
 			credentials
 		)
@@ -5011,7 +5125,7 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def create_method( self, credentials, method_name, rest_api_id, resource_id, http_method, api_key_required ):
-		api_gateway_client = get_aws_client(
+		api_gateway_client = self.aws_client_factory.get_aws_client(
 			"apigateway",
 			credentials
 		)
@@ -5035,12 +5149,12 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def clean_lambda_iam_policies( self, credentials, lambda_name ):
-		lambda_client = get_aws_client(
+		lambda_client = self.aws_client_factory.get_aws_client(
 			"lambda",
 			credentials
 		)
 
-		api_gateway_client = get_aws_client(
+		api_gateway_client = self.aws_client_factory.get_aws_client(
 			"apigateway",
 			credentials
 		)
@@ -5088,7 +5202,7 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def add_integration_response( self, credentials, rest_api_id, resource_id, http_method, lambda_name ):
-		api_gateway_client = get_aws_client(
+		api_gateway_client = self.aws_client_factory.get_aws_client(
 			"apigateway",
 			credentials
 		)
@@ -5102,12 +5216,12 @@ class TaskSpawner(object):
 
 	@run_on_executor
 	def link_api_method_to_lambda( self, credentials, rest_api_id, resource_id, http_method, api_path, lambda_name ):
-		api_gateway_client = get_aws_client(
+		api_gateway_client = self.aws_client_factory.get_aws_client(
 			"apigateway",
 			credentials
 		)
 
-		lambda_client = get_aws_client(
+		lambda_client = self.aws_client_factory.get_aws_client(
 			"lambda",
 			credentials
 		)

@@ -1,5 +1,6 @@
 import json
 
+import pinject
 from jsonschema import validate as validate_schema
 from sqlalchemy import or_ as sql_or
 from tornado import gen
@@ -232,20 +233,20 @@ class GetSavedProject( BaseHandler ):
 		return project_version_result
 
 
+class DeleteSavedProjectDependencies:
+	@pinject.copy_args_to_public_fields
+	def __init__( self, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager, sqs_manager ):
+		pass
+
+
 # noinspection PyMethodOverriding, PyAttributeOutsideInit
 class DeleteSavedProject( BaseHandler ):
+	dependencies = DeleteSavedProjectDependencies
 	lambda_manager = None
 	api_gateway_manager = None
 	schedule_trigger_manager = None
 	sns_manager = None
 	sqs_manager = None
-
-	def _initialize( self, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager, sqs_manager ):
-		self.lambda_manager = lambda_manager
-		self.api_gateway_manager = api_gateway_manager
-		self.schedule_trigger_manager = schedule_trigger_manager
-		self.sns_manager = sns_manager
-		self.sqs_manager = sqs_manager
 
 	@authenticated
 	@gen.coroutine
@@ -303,7 +304,7 @@ class DeleteSavedProject( BaseHandler ):
 
 		# delete existing logs for the project
 		delete_logs(
-			self.local_tasks,
+			self.task_spawner,
 			credentials,
 			project_id
 		)

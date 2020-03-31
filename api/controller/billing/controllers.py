@@ -1,7 +1,7 @@
 from jsonschema import validate as validate_schema
 from tornado import gen
 
-from assistants.local_tasks.actions import get_current_month_start_and_end_date_strings
+from assistants.task_spawner.actions import get_current_month_start_and_end_date_strings
 from controller import BaseHandler
 from controller.billing.schemas import *
 from controller.decorators import authenticated
@@ -23,7 +23,7 @@ class GetBillingMonthTotals( BaseHandler ):
 
 		credentials = self.get_authenticated_user_cloud_configuration()
 
-		billing_data = yield self.local_tasks.get_sub_account_month_billing_data(
+		billing_data = yield self.task_spawner.get_sub_account_month_billing_data(
 			credentials[ "account_id" ],
 			credentials[ "account_type" ],
 			self.json[ "billing_month" ],
@@ -51,7 +51,7 @@ class AddCreditCardToken( BaseHandler ):
 
 		current_user = self.get_authenticated_user()
 
-		yield self.local_tasks.associate_card_token_with_customer_account(
+		yield self.task_spawner.associate_card_token_with_customer_account(
 			current_user.payment_id,
 			self.json[ "token" ]
 		)
@@ -72,7 +72,7 @@ class ListCreditCards( BaseHandler ):
 		"""
 		current_user = self.get_authenticated_user()
 
-		cards_info_list = yield self.local_tasks.get_account_cards(
+		cards_info_list = yield self.task_spawner.get_account_cards(
 			current_user.payment_id,
 		)
 
@@ -121,7 +121,7 @@ class DeleteCreditCard( BaseHandler ):
 		current_user = self.get_authenticated_user()
 
 		try:
-			yield self.local_tasks.delete_card_from_account(
+			yield self.task_spawner.delete_card_from_account(
 				current_user.payment_id,
 				self.json[ "id" ]
 			)
@@ -150,7 +150,7 @@ class MakeCreditCardPrimary( BaseHandler ):
 		current_user = self.get_authenticated_user()
 
 		try:
-			yield self.local_tasks.set_stripe_customer_default_payment_source(
+			yield self.task_spawner.set_stripe_customer_default_payment_source(
 				current_user.payment_id,
 				self.json[ "id" ]
 			)
@@ -186,7 +186,7 @@ class GetBillingDateRangeForecast( BaseHandler ):
 
 		date_info = get_current_month_start_and_end_date_strings()
 
-		forecast_data = yield self.local_tasks.get_sub_account_billing_forecast(
+		forecast_data = yield self.task_spawner.get_sub_account_billing_forecast(
 			credentials[ "account_id" ],
 			date_info[ "current_date"],
 			date_info[ "next_month_first_day" ],

@@ -1,7 +1,7 @@
+import pinject
 import tornado
 import botocore.exceptions
 
-from assistants.aws_clients.aws_clients_assistant import get_aws_client
 from utils.general import get_random_node_id
 
 from tornado.concurrent import run_on_executor, futures
@@ -92,14 +92,17 @@ def strip_api_gateway( api_gateway_manager, credentials, api_gateway_id ):
 	raise gen.Return( return_data )
 
 
-class APIGatewayManager(object):
-	def __init__(self, loop=None):
+class ApiGatewayManager(object):
+	aws_client_factory = None
+
+	@pinject.copy_args_to_public_fields
+	def __init__(self, aws_client_factory, loop=None):
 		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()
 
 	@run_on_executor
 	def api_gateway_exists( self, credentials, api_gateway_id ):
-		api_gateway_client = get_aws_client(
+		api_gateway_client = self.aws_client_factory.get_aws_client(
 			"apigateway",
 			credentials
 		)
@@ -116,7 +119,7 @@ class APIGatewayManager(object):
 
 	@run_on_executor
 	def get_resources( self, credentials, rest_api_id ):
-		api_gateway_client = get_aws_client(
+		api_gateway_client = self.aws_client_factory.get_aws_client(
 			"apigateway",
 			credentials
 		)
@@ -130,7 +133,7 @@ class APIGatewayManager(object):
 		
 	@run_on_executor
 	def get_stages( self, credentials, rest_api_id ):
-		api_gateway_client = get_aws_client(
+		api_gateway_client = self.aws_client_factory.get_aws_client(
 			"apigateway",
 			credentials
 		)
@@ -143,7 +146,7 @@ class APIGatewayManager(object):
 
 	@run_on_executor
 	def delete_rest_api( self, credentials, rest_api_id ):
-		api_gateway_client = get_aws_client(
+		api_gateway_client = self.aws_client_factory.get_aws_client(
 			"apigateway",
 			credentials
 		)
@@ -163,7 +166,7 @@ class APIGatewayManager(object):
 		
 	@run_on_executor
 	def delete_rest_api_resource( self, credentials, rest_api_id, resource_id ):
-		api_gateway_client = get_aws_client(
+		api_gateway_client = self.aws_client_factory.get_aws_client(
 			"apigateway",
 			credentials
 		)
@@ -185,7 +188,7 @@ class APIGatewayManager(object):
 		
 	@run_on_executor
 	def delete_rest_api_resource_method( self, credentials, rest_api_id, resource_id, method ):
-		api_gateway_client = get_aws_client(
+		api_gateway_client = self.aws_client_factory.get_aws_client(
 			"apigateway",
 			credentials
 		)
@@ -208,7 +211,7 @@ class APIGatewayManager(object):
 
 	@run_on_executor
 	def delete_stage( self, credentials, rest_api_id, stage_name ):
-		api_gateway_client = get_aws_client(
+		api_gateway_client = self.aws_client_factory.get_aws_client(
 			"apigateway",
 			credentials
 		)

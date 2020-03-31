@@ -7,7 +7,7 @@ from tornado import gen
 
 from assistants.deployments.api_gateway import strip_api_gateway
 from assistants.deployments.shared_files import get_shared_files_for_lambda
-from assistants.local_tasks.local_tasks_assistant import TaskSpawner
+from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from data_types.aws_resources.alambda import Lambda
 from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
 from pyexceptions.builds import BuildException
@@ -167,7 +167,7 @@ def get_environment_variables_for_lambda( credentials, lambda_object ):
 
 
 @gen.coroutine
-def deploy_lambda( local_tasks, credentials, id, lambda_object ):
+def deploy_lambda( task_spawner, credentials, id, lambda_object ):
 	"""
 	Here we build the default required environment variables.
 	"""
@@ -189,7 +189,7 @@ def deploy_lambda( local_tasks, credentials, id, lambda_object ):
 
 	# Don't yield for it, but we'll also create a log group at the same time
 	# We're set a tag for that log group for cost tracking
-	local_tasks.create_cloudwatch_group(
+	task_spawner.create_cloudwatch_group(
 		credentials,
 		"/aws/lambda/" + lambda_object.name,
 		{
@@ -198,7 +198,7 @@ def deploy_lambda( local_tasks, credentials, id, lambda_object ):
 		7
 	)
 
-	deployed_lambda_data = yield local_tasks.deploy_aws_lambda(
+	deployed_lambda_data = yield task_spawner.deploy_aws_lambda(
 		credentials,
 		lambda_object
 	)
@@ -206,7 +206,7 @@ def deploy_lambda( local_tasks, credentials, id, lambda_object ):
 	# If we have concurrency set, then we'll set that for our deployed Lambda
 	if lambda_object.reserved_concurrency_count:
 		logit( "Setting reserved concurrency for Lambda '" + deployed_lambda_data[ "FunctionArn" ] + "' to " + str( lambda_object.reserved_concurrency_count ) + "..." )
-		yield local_tasks.set_lambda_reserved_concurrency(
+		yield task_spawner.set_lambda_reserved_concurrency(
 			credentials,
 			deployed_lambda_data[ "FunctionArn" ],
 			lambda_object.reserved_concurrency_count
@@ -301,7 +301,7 @@ def get_merge_lambda_arn_list( target_id, workflow_relationships, workflow_state
 
 
 @gen.coroutine
-def create_lambda_api_route( local_tasks, api_gateway_manager, credentials, api_gateway_id, http_method, route, lambda_name, overwrite_existing ):
+def create_lambda_api_route( task_spawner, api_gateway_manager, credentials, api_gateway_id, http_method, route, lambda_name, overwrite_existing ):
 	def not_empty( input_item ):
 		return ( input_item != "" )
 	path_parts = route.split( "/" )
@@ -309,7 +309,7 @@ def create_lambda_api_route( local_tasks, api_gateway_manager, credentials, api_
 
 	# First we clean the Lambda of API Gateway policies which point
 	# to dead API Gateways
-	yield local_tasks.clean_lambda_iam_policies(
+	yield task_spawner.clean_lambda_iam_policies(
 		credentials,
 		lambda_name
 	)
@@ -352,7 +352,7 @@ def create_lambda_api_route( local_tasks, api_gateway_manager, credentials, api_
 			current_base_pointer_id = path_existence_map[ current_path ]
 		else:
 			# Otherwise go ahead and create one
-			new_resource = yield local_tasks.create_resource(
+			new_resource = yield task_spawner.create_resource(
 				credentials,
 				api_gateway_id,
 				current_base_pointer_id,
@@ -362,7 +362,7 @@ def create_lambda_api_route( local_tasks, api_gateway_manager, credentials, api_
 			current_base_pointer_id = new_resource[ "id" ]
 
 	# Create method on base resource
-	method_response = yield local_tasks.create_method(
+	method_response = yield task_spawner.create_method(
 		credentials,
 		"HTTP Method",
 		api_gateway_id,
@@ -372,7 +372,7 @@ def create_lambda_api_route( local_tasks, api_gateway_manager, credentials, api_
 	)
 
 	# Link the API Gateway to the lambda
-	link_response = yield local_tasks.link_api_method_to_lambda(
+	link_response = yield task_spawner.link_api_method_to_lambda(
 		credentials,
 		api_gateway_id,
 		current_base_pointer_id,
@@ -387,7 +387,7 @@ def create_lambda_api_route( local_tasks, api_gateway_manager, credentials, api_
 	)
 
 	# Clown-shoes AWS bullshit for binary response
-	yield local_tasks.add_integration_response(
+	yield task_spawner.add_integration_response(
 		credentials,
 		api_gateway_id,
 		current_base_pointer_id,
@@ -397,11 +397,11 @@ def create_lambda_api_route( local_tasks, api_gateway_manager, credentials, api_
 
 
 @gen.coroutine
-def create_warmer_for_lambda_set( local_tasks, credentials, warmup_concurrency_level, unique_deploy_id, combined_warmup_list, diagram_data ):
+def create_warmer_for_lambda_set( task_spawner, credentials, warmup_concurrency_level, unique_deploy_id, combined_warmup_list, diagram_data ):
 	# Create Lambda warmers if enabled
 	warmer_trigger_name = "WarmerTrigger" + unique_deploy_id
 	logit( "Deploying auto-warmer CloudWatch rule..." )
-	warmer_trigger_result = yield local_tasks.create_cloudwatch_rule(
+	warmer_trigger_result = yield task_spawner.create_cloudwatch_rule(
 		credentials,
 		get_random_node_id(),
 		warmer_trigger_name,
@@ -422,7 +422,7 @@ def create_warmer_for_lambda_set( local_tasks, credentials, warmup_concurrency_l
 	# Additionally we'll invoke them all once with a warmup request so
 	# that they are hot if hit immediately
 	for deployed_lambda in combined_warmup_list:
-		yield local_tasks.add_rule_target(
+		yield task_spawner.add_rule_target(
 			credentials,
 			warmer_trigger_name,
 			deployed_lambda[ "name" ],
@@ -434,7 +434,7 @@ def create_warmer_for_lambda_set( local_tasks, credentials, warmup_concurrency_l
 			})
 		)
 
-		local_tasks.warm_up_lambda(
+		task_spawner.warm_up_lambda(
 			credentials,
 			deployed_lambda[ "arn" ],
 			warmup_concurrency_level
@@ -442,7 +442,7 @@ def create_warmer_for_lambda_set( local_tasks, credentials, warmup_concurrency_l
 
 
 @gen.coroutine
-def add_auto_warmup( local_tasks, credentials, warmup_concurrency_level, unique_deploy_id, combined_warmup_list, diagram_data ):
+def add_auto_warmup( task_spawner, credentials, warmup_concurrency_level, unique_deploy_id, combined_warmup_list, diagram_data ):
 	# Split warmup list into a list of lists with each list containing five elements.
 	# This is so that we match the limit for CloudWatch Rules max targets (5 per rule).
 	# See "Targets" under this following URL:
@@ -460,7 +460,7 @@ def add_auto_warmup( local_tasks, credentials, warmup_concurrency_level, unique_
 	for warmup_chunk_list in split_combined_warmup_list:
 		warmup_futures.append(
 			create_warmer_for_lambda_set(
-				local_tasks,
+				task_spawner,
 				credentials,
 				warmup_concurrency_level,
 				unique_deploy_id + "_W" + str( warmup_unique_counter ),
@@ -476,7 +476,7 @@ def add_auto_warmup( local_tasks, credentials, warmup_concurrency_level, unique_
 
 
 @gen.coroutine
-def deploy_diagram( local_tasks, api_gateway_manager, credentials, project_name, project_id, diagram_data, project_config ):
+def deploy_diagram( task_spawner, api_gateway_manager, credentials, project_name, project_id, diagram_data, project_config ):
 	"""
 	Deploy the diagram to AWS
 	"""
@@ -489,7 +489,7 @@ def deploy_diagram( local_tasks, api_gateway_manager, credentials, project_name,
 	# Kick off the creation of the log table for the project ID
 	# This is fine to do if one already exists because the SQL
 	# query explicitly specifies not to create one if it exists.
-	project_log_table_future = local_tasks.create_project_id_log_table(
+	project_log_table_future = task_spawner.create_project_id_log_table(
 		credentials,
 		project_id
 	)
@@ -748,7 +748,7 @@ def deploy_diagram( local_tasks, api_gateway_manager, credentials, project_name,
 			"name": lambda_safe_name,
 			"type": lambda_node[ "type" ],
 			"future": deploy_lambda(
-				local_tasks,
+				task_spawner,
 				credentials,
 				lambda_node[ "id" ],
 				lambda_object
@@ -790,7 +790,7 @@ def deploy_diagram( local_tasks, api_gateway_manager, credentials, project_name,
 			"name": get_lambda_safe_name( api_endpoint_node[ "name" ] ),
 			"type": api_endpoint_node[ "type" ],
 			"future": deploy_lambda(
-				local_tasks,
+				task_spawner,
 				credentials,
 				api_endpoint_node[ "id" ],
 				lambda_object
@@ -809,7 +809,7 @@ def deploy_diagram( local_tasks, api_gateway_manager, credentials, project_name,
 			"id": schedule_trigger_node[ "id" ],
 			"name": schedule_trigger_name,
 			"type": schedule_trigger_node[ "type" ],
-			"future": local_tasks.create_cloudwatch_rule(
+			"future": task_spawner.create_cloudwatch_rule(
 				credentials,
 				schedule_trigger_node[ "id" ],
 				schedule_trigger_name,
@@ -831,7 +831,7 @@ def deploy_diagram( local_tasks, api_gateway_manager, credentials, project_name,
 			"id": sqs_queue_node[ "id" ],
 			"name": sqs_queue_name,
 			"type": sqs_queue_node[ "type" ],
-			"future": local_tasks.create_sqs_queue(
+			"future": task_spawner.create_sqs_queue(
 				credentials,
 				sqs_queue_node[ "id" ],
 				sqs_queue_name,
@@ -853,7 +853,7 @@ def deploy_diagram( local_tasks, api_gateway_manager, credentials, project_name,
 			"id": sns_topic_node[ "id" ],
 			"name": sns_topic_name,
 			"type": sns_topic_node[ "type" ],
-			"future": local_tasks.create_sns_topic(
+			"future": task_spawner.create_sns_topic(
 				credentials,
 				sns_topic_node[ "id" ],
 				sns_topic_name,
@@ -905,13 +905,14 @@ def deploy_diagram( local_tasks, api_gateway_manager, credentials, project_name,
 				)
 		except Exception as e:
 			logit( "Failed to deploy node '" + deploy_future_data[ "name" ] + "'!", "error" )
-			logit( "The full exception details can be seen below: ", "error" )
+			#logit( "The full exception details can be seen below: ", "error" )
 
 			exception_msg = traceback.format_exc()
 			if type(e) is BuildException:
 				exception_msg = e.build_output
 
-			logit( exception_msg, "error" )
+			#logit( exception_msg, "error" )
+			print exception_msg
 			deployment_exceptions.append({
 				"id": deploy_future_data[ "id" ],
 				"name": deploy_future_data[ "name" ],
@@ -973,7 +974,7 @@ def deploy_diagram( local_tasks, api_gateway_manager, credentials, project_name,
 				"-",
 				""
 			)
-			create_gateway_result = yield local_tasks.create_rest_api(
+			create_gateway_result = yield task_spawner.create_rest_api(
 				credentials,
 				rest_api_name,
 				"API Gateway created by Refinery. Associated with project ID " + project_id,
@@ -1005,7 +1006,7 @@ def deploy_diagram( local_tasks, api_gateway_manager, credentials, project_name,
 				if workflow_state[ "id" ] == deployed_api_endpoint[ "id" ]:
 					logit( "Setting up route " + workflow_state[ "http_method" ] + " " + workflow_state[ "api_path" ] + " for API Endpoint '" + workflow_state[ "name" ] + "'..." )
 					yield create_lambda_api_route(
-						local_tasks,
+						task_spawner,
 						api_gateway_manager,
 						credentials,
 						api_gateway_id,
@@ -1017,7 +1018,7 @@ def deploy_diagram( local_tasks, api_gateway_manager, credentials, project_name,
 
 
 		logit( "Now deploying API gateway to stage..." )
-		deploy_stage_results = yield local_tasks.deploy_api_gateway_to_stage(
+		deploy_stage_results = yield task_spawner.deploy_api_gateway_to_stage(
 			credentials,
 			api_gateway_id,
 			"refinery"
@@ -1082,7 +1083,7 @@ def deploy_diagram( local_tasks, api_gateway_manager, credentials, project_name,
 	schedule_trigger_targeting_futures = []
 	for schedule_trigger_pair in schedule_trigger_pairs_to_deploy:
 		schedule_trigger_targeting_futures.append(
-			local_tasks.add_rule_target(
+			task_spawner.add_rule_target(
 				credentials,
 				schedule_trigger_pair[ "scheduled_trigger" ][ "name" ],
 				schedule_trigger_pair[ "target_lambda" ][ "name" ],
@@ -1109,7 +1110,7 @@ def deploy_diagram( local_tasks, api_gateway_manager, credentials, project_name,
 	sqs_queue_trigger_targeting_futures = []
 	for sqs_queue_trigger in sqs_queue_triggers_to_deploy:
 		sqs_queue_trigger_targeting_futures.append(
-			local_tasks.map_sqs_to_lambda(
+			task_spawner.map_sqs_to_lambda(
 				credentials,
 				sqs_queue_trigger[ "sqs_queue_trigger" ][ "arn" ],
 				sqs_queue_trigger[ "target_lambda" ][ "arn" ],
@@ -1135,7 +1136,7 @@ def deploy_diagram( local_tasks, api_gateway_manager, credentials, project_name,
 	sns_topic_trigger_targeting_futures = []
 	for sns_topic_trigger in sns_topic_triggers_to_deploy:
 		sns_topic_trigger_targeting_futures.append(
-			local_tasks.subscribe_lambda_to_sns_topic(
+			task_spawner.subscribe_lambda_to_sns_topic(
 				credentials,
 				sns_topic_trigger[ "sns_topic_trigger" ][ "arn" ],
 				sns_topic_trigger[ "target_lambda" ][ "arn" ],
@@ -1160,7 +1161,7 @@ def deploy_diagram( local_tasks, api_gateway_manager, credentials, project_name,
 		logit( "Adding auto-warming to the deployment..." )
 		warmup_concurrency_level = int( project_config[ "warmup_concurrency_level" ] )
 		yield add_auto_warmup(
-			local_tasks,
+			task_spawner,
 			credentials,
 			warmup_concurrency_level,
 			unique_deploy_id,

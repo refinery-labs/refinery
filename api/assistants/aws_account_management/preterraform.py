@@ -1,16 +1,16 @@
 import time
+
+import pinject
 import tornado
 import botocore
 
 from tornado.concurrent import run_on_executor, futures
 
-from assistants.aws_clients.aws_clients_assistant import get_aws_client
 from utils.general import logit
-from tornado import gen
 
 from botocore.exceptions import ClientError
 
-class PreTerraformManager(object):
+class PreterraformManager( object ):
 	"""
 	There are some steps that need to be done pre-terraform because
 	terraform can not handle certain situations where specific AWS
@@ -32,20 +32,24 @@ class PreTerraformManager(object):
 	to finish before applying the actual terraform config. This mitigates the
 	problem from occuring.
 	"""
-	def __init__(self, loop=None):
+
+	aws_client_factory = None
+
+	@pinject.copy_args_to_public_fields
+	def __init__(self, aws_client_factory, loop=None):
 		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()
 
 	@run_on_executor
 	def ensure_ecs_service_linked_role_exists( self, credentials ):
-		return PreTerraformManager._ensure_ecs_service_linked_role_exists( credentials )
+		return PreterraformManager._ensure_ecs_service_linked_role_exists( credentials )
 
 	@staticmethod
 	def _ensure_ecs_service_linked_role_exists( credentials ):
 		logit( "Checking if ECS service-linked role exists..." )
 
 		# First check to see if the role exists
-		ecs_service_linked_role_exists = PreTerraformManager._check_if_ecs_service_linked_role_exists(
+		ecs_service_linked_role_exists = PreterraformManager._check_if_ecs_service_linked_role_exists(
 			credentials
 		)
 
@@ -54,7 +58,7 @@ class PreTerraformManager(object):
 			return
 
 		logit( "ECS service-linked role does not exist, creating it..." )
-		PreTerraformManager._create_ecs_service_linked_role(
+		PreterraformManager._create_ecs_service_linked_role(
 			credentials
 		)
 
@@ -63,17 +67,17 @@ class PreTerraformManager(object):
 		# Wait a bit for propogation
 		time.sleep( 3 )
 
-		return PreTerraformManager._ensure_ecs_service_linked_role_exists(
+		return PreterraformManager._ensure_ecs_service_linked_role_exists(
 			credentials
 		)
 
 	@run_on_executor
 	def check_if_ecs_service_linked_role_exists( self, credentials ):
-		return PreTerraformManager._check_if_ecs_service_linked_role_exists( credentials )
+		return PreterraformManager._check_if_ecs_service_linked_role_exists( self.aws_client_factory, credentials )
 
 	@staticmethod
-	def _check_if_ecs_service_linked_role_exists( credentials ):
-		iam_client = get_aws_client(
+	def _check_if_ecs_service_linked_role_exists( aws_client_factory, credentials ):
+		iam_client = aws_client_factory.get_aws_client(
 			"iam",
 			credentials
 		)
@@ -92,11 +96,11 @@ class PreTerraformManager(object):
 
 	@run_on_executor
 	def create_ecs_service_linked_role( self, credentials ):
-		return PreTerraformManager._create_ecs_service_linked_role( credentials )
+		return PreterraformManager._create_ecs_service_linked_role( self.aws_client_factory, credentials )
 		
 	@staticmethod
-	def _create_ecs_service_linked_role( credentials ):
-		iam_client = get_aws_client(
+	def _create_ecs_service_linked_role( aws_client_factory, credentials ):
+		iam_client = aws_client_factory.get_aws_client(
 			"iam",
 			credentials
 		)

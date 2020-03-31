@@ -170,7 +170,7 @@ class NewRegistration( BaseHandler ):
 
 		try:
 			# Additionally since they've validated their email we'll add them to Stripe
-			customer_id = yield self.local_tasks.stripe_create_customer(
+			customer_id = yield self.task_spawner.stripe_create_customer(
 				new_user.email,
 				new_user.name,
 				new_user.phone_number,
@@ -261,7 +261,7 @@ class NewRegistration( BaseHandler ):
 		# The first time they authenticate via this link it will both confirm
 		# their email address and authenticate them.
 		self.logger( "Sending user their registration confirmation email..." )
-		yield self.local_tasks.send_registration_confirmation_email(
+		yield self.task_spawner.send_registration_confirmation_email(
 			self.json[ "email" ],
 			raw_email_authentication_token
 		)
@@ -274,7 +274,7 @@ class NewRegistration( BaseHandler ):
 		})
 
 		# This is sent internally so that we can keep tabs on new users coming through.
-		self.local_tasks.send_internal_registration_confirmation_email(
+		self.task_spawner.send_internal_registration_confirmation_email(
 			self.json[ "email" ],
 			self.json[ "name" ],
 			self.json[ "phone" ]
@@ -363,7 +363,7 @@ class EmailLinkAuthentication( BaseHandler ):
 				# Don't yield because we don't care about the result
 				# Unfreeze/thaw the account so that it's ready for the new user
 				# This takes ~30 seconds - worth noting. But that **should** be fine.
-				self.local_tasks.unfreeze_aws_account(
+				self.task_spawner.unfreeze_aws_account(
 					aws_reserved_account.to_dict()
 				)
 
@@ -442,7 +442,7 @@ class Authenticate( BaseHandler ):
 
 		self.dbsession.commit()
 
-		yield self.local_tasks.send_authentication_email(
+		yield self.task_spawner.send_authentication_email(
 			user.email,
 			raw_email_authentication_token
 		)

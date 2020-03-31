@@ -2,11 +2,12 @@ import json
 import time
 
 import botocore
+import pinject
 from jsonschema import validate as validate_schema
 from tornado import gen
 
 from assistants.deployments.teardown import teardown_infrastructure
-from assistants.local_tasks.local_tasks_assistant import TaskSpawner
+from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from controller import BaseHandler
 from controller.aws.actions import get_layers_for_lambda, get_environment_variables_for_lambda, deploy_lambda, \
 	get_base_lambda_code, get_lambda_safe_name, deploy_diagram
@@ -20,12 +21,16 @@ from pyexceptions.builds import BuildException
 from utils.general import get_random_node_id, attempt_json_decode
 
 
+class RunTmpLambdaDependencies:
+	@pinject.copy_args_to_public_fields
+	def __init__( self, builder_manager ):
+		pass
+
+
 # noinspection PyMethodOverriding, PyAttributeOutsideInit
 class RunTmpLambda( BaseHandler ):
+	dependencies = RunTmpLambdaDependencies
 	builder_manager = None
-
-	def _initialize( self, builder_manager ):
-		self.builder_manager = builder_manager
 
 	@authenticated
 	@disable_on_overdue_payment
@@ -136,7 +141,7 @@ class RunTmpLambda( BaseHandler ):
 		else:
 			try:
 				lambda_info = yield deploy_lambda(
-					self.local_tasks,
+					self.task_spawner,
 					credentials,
 					random_node_id,
 					inline_lambda
@@ -212,7 +217,7 @@ class RunTmpLambda( BaseHandler ):
 
 		self.logger( "Executing Lambda '" + lambda_info[ "arn" ] + "'..." )
 
-		lambda_result = yield self.local_tasks.execute_aws_lambda(
+		lambda_result = yield self.task_spawner.execute_aws_lambda(
 			credentials,
 			lambda_info[ "arn" ],
 			execute_lambda_params
@@ -231,7 +236,7 @@ class RunTmpLambda( BaseHandler ):
 			return_data = json.loads(
 				lambda_result[ "returned_data" ]
 			)
-			s3_object = yield self.local_tasks.read_from_s3(
+			s3_object = yield self.task_spawner.read_from_s3(
 				credentials,
 				credentials[ "logs_bucket" ],
 				return_data[ "_refinery" ][ "indirect" ][ "s3_path" ]
@@ -269,7 +274,7 @@ class RunTmpLambda( BaseHandler ):
 			self.logger( "Deleting Lambda..." )
 
 			# Now we delete the lambda, don't yield because we don't need to wait
-			delete_result = self.local_tasks.delete_aws_lambda(
+			delete_result = self.task_spawner.delete_aws_lambda(
 				credentials,
 				random_node_id
 			)
@@ -281,20 +286,27 @@ class RunTmpLambda( BaseHandler ):
 		})
 
 
+class InfraTearDownDependencies:
+	@pinject.copy_args_to_public_fields
+	def __init__(
+			self,
+			api_gateway_manager,
+			lambda_manager,
+			schedule_trigger_manager,
+			sns_manager,
+			sqs_manager
+	):
+		pass
+
+
 # noinspection PyMethodOverriding, PyAttributeOutsideInit
 class InfraTearDown( BaseHandler ):
+	dependencies = InfraTearDownDependencies
 	api_gateway_manager = None
 	lambda_manager = None
 	schedule_trigger_manager = None
 	sns_manager = None
 	sqs_manager = None
-
-	def _initialize( self, api_gateway_manager, lambda_manager, schedule_trigger_manager, sns_manager, sqs_manager ):
-		self.api_gateway_manager = api_gateway_manager
-		self.lambda_manager = lambda_manager
-		self.schedule_trigger_manager = schedule_trigger_manager
-		self.sns_manager = sns_manager
-		self.sqs_manager = sqs_manager
 
 	@authenticated
 	@gen.coroutine
@@ -316,7 +328,7 @@ class InfraTearDown( BaseHandler ):
 		# Delete our logs
 		# No need to yield till it completes
 		delete_logs(
-			self.local_tasks,
+			self.task_spawner,
 			credentials,
 			self.json[ "project_id" ]
 		)
@@ -359,7 +371,7 @@ class InfraCollisionCheck( BaseHandler ):
 			# Check for Lambda collision
 			if workflow_state[ "type" ] == "lambda":
 				collision_check_futures.append(
-					self.local_tasks.get_aws_lambda_existence_info(
+					self.task_spawner.get_aws_lambda_existence_info(
 						credentials,
 						workflow_state[ "id" ],
 						workflow_state[ "type" ],
@@ -371,7 +383,7 @@ class InfraCollisionCheck( BaseHandler ):
 			# Check for Schedule Trigger collisions (CloudWatch)
 			elif workflow_state[ "type" ] == "schedule_trigger":
 				collision_check_futures.append(
-					self.local_tasks.get_cloudwatch_existence_info(
+					self.task_spawner.get_cloudwatch_existence_info(
 						credentials,
 						workflow_state[ "id" ],
 						workflow_state[ "type" ],
@@ -382,7 +394,7 @@ class InfraCollisionCheck( BaseHandler ):
 				)
 			elif workflow_state[ "type" ] == "sqs_queue":
 				collision_check_futures.append(
-					self.local_tasks.get_sqs_existence_info(
+					self.task_spawner.get_sqs_existence_info(
 						credentials,
 						workflow_state[ "id" ],
 						workflow_state[ "type" ],
@@ -393,7 +405,7 @@ class InfraCollisionCheck( BaseHandler ):
 				)
 			elif workflow_state[ "type" ] == "sns_topic":
 				collision_check_futures.append(
-					self.local_tasks.get_sns_existence_info(
+					self.task_spawner.get_sns_existence_info(
 						credentials,
 						workflow_state[ "id" ],
 						workflow_state[ "type" ],
@@ -412,17 +424,19 @@ class InfraCollisionCheck( BaseHandler ):
 		})
 
 
+class DeployDiagramDependencies:
+	@pinject.copy_args_to_public_fields
+	def __init__( self, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager, sqs_manager ):
+		pass
+
+
 class DeployDiagram( BaseHandler ):
+	dependencies = DeployDiagramDependencies
 	lambda_manager = None
 	api_gateway_manager = None
 	schedule_trigger_manager = None
 	sns_manager = None
-
-	def _initialize( self, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager ):
-		self.lambda_manager = lambda_manager
-		self.api_gateway_manager = api_gateway_manager
-		self.schedule_trigger_manager = schedule_trigger_manager
-		self.sns_manager = sns_manager
+	sqs_manager = None
 
 	@authenticated
 	@disable_on_overdue_payment
@@ -437,7 +451,7 @@ class DeployDiagram( BaseHandler ):
 			self.write({
 				"success": False,
 				"code": "ACCESS_DENIED",
-				"msg": "You do not have priveleges to deploy that!",
+				"msg": "You do not have privileges to deploy that!",
 			})
 			raise gen.Return()
 
@@ -450,7 +464,7 @@ class DeployDiagram( BaseHandler ):
 		credentials = self.get_authenticated_user_cloud_configuration()
 
 		deployment_data = yield deploy_diagram(
-			self.local_tasks,
+			self.task_spawner,
 			self.api_gateway_manager,
 			credentials,
 			project_name,
@@ -460,12 +474,14 @@ class DeployDiagram( BaseHandler ):
 		)
 
 		# Check if the deployment failed
-		if deployment_data[ "success" ] == False:
+		if not deployment_data[ "success" ]:
 			self.logger( "We are now rolling back the deployments we've made...", "error" )
 			yield teardown_infrastructure(
+				self.api_gateway_manager,
 				self.lambda_manager,
 				self.schedule_trigger_manager,
 				self.sns_manager,
+				self.sqs_manager,
 				credentials,
 				deployment_data[ "teardown_nodes_list" ]
 			)

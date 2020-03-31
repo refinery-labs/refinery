@@ -8,7 +8,6 @@ import subprocess
 from tornado.concurrent import run_on_executor, futures
 from utils.general import logit
 from tornado import gen
-from config.app_config import global_app_config
 
 
 class NgrokSpawner(object):
@@ -32,7 +31,7 @@ class NgrokSpawner(object):
 				"http",
 				str( port ),
 				"--authtoken",
-				global_app_config.get( "ngrok_api_secret" )
+				self.app_config.get( "ngrok_api_secret" )
 			],
 			stdout=subprocess.PIPE,
 			stderr=subprocess.STDOUT,

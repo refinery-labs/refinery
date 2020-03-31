@@ -4,17 +4,17 @@ import time
 
 from tornado import gen
 
-from assistants.local_tasks.local_tasks_assistant import TaskSpawner
+from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from models import CachedExecutionLogsShard
 from pyconstants.project_constants import REGEX_WHITELISTS
 from utils.general import logit
 
 
 @gen.coroutine
-def delete_logs( local_tasks, credentials, project_id ):
+def delete_logs( task_spawner, credentials, project_id ):
 	while True:
 		# Delete 1K logs at a time
-		log_paths = yield local_tasks.get_s3_pipeline_execution_logs(
+		log_paths = yield task_spawner.get_s3_pipeline_execution_logs(
 			credentials,
 			project_id + "/",
 			1000
@@ -25,7 +25,7 @@ def delete_logs( local_tasks, credentials, project_id ):
 		if len( log_paths ) == 0:
 			break
 
-		yield local_tasks.bulk_s3_delete(
+		yield task_spawner.bulk_s3_delete(
 			credentials,
 			credentials[ "logs_bucket" ],
 			log_paths
@@ -47,7 +47,7 @@ def chunk_list( input_list, chunk_size ):
 
 
 @gen.coroutine
-def write_remaining_project_execution_log_pages( local_tasks, credentials, data_to_write_list ):
+def write_remaining_project_execution_log_pages( task_spawner, credentials, data_to_write_list ):
 	# How many logs to write to S3 in parallel
 	parallel_write_num = 5
 
@@ -61,7 +61,7 @@ def write_remaining_project_execution_log_pages( local_tasks, credentials, data_
 
 		data_to_write = data_to_write_list.pop(0)
 		s3_write_futures.append(
-			local_tasks.write_json_to_s3(
+			task_spawner.write_json_to_s3(
 				credentials,
 				credentials[ "logs_bucket" ],
 				data_to_write[ "s3_path" ],
@@ -87,7 +87,7 @@ def write_remaining_project_execution_log_pages( local_tasks, credentials, data_
 
 
 @gen.coroutine
-def update_athena_table_partitions( local_tasks, credentials, project_id ):
+def update_athena_table_partitions( task_spawner, credentials, project_id ):
 	"""
 	Check all the partitions that are in the Athena project table and
 	check S3 to see if there are any partitions which need to be added to the
@@ -105,7 +105,7 @@ def update_athena_table_partitions( local_tasks, credentials, project_id ):
 	)
 
 	logit( "Retrieving table partitions... ", "debug" )
-	results = yield local_tasks.perform_athena_query(
+	results = yield task_spawner.perform_athena_query(
 		credentials,
 		query,
 		True
@@ -134,7 +134,7 @@ def update_athena_table_partitions( local_tasks, credentials, project_id ):
 		latest_athena_known_shard = s3_prefix + athena_known_shards[-1]
 
 	while True:
-		s3_list_results = yield local_tasks.get_s3_list_from_prefix(
+		s3_list_results = yield task_spawner.get_s3_list_from_prefix(
 			credentials,
 			credentials[ "logs_bucket" ],
 			s3_prefix,
@@ -178,7 +178,7 @@ def update_athena_table_partitions( local_tasks, credentials, project_id ):
 	# If we have new partitions let's load them.
 	if len( new_s3_shards ) > 0:
 		yield load_further_partitions(
-			local_tasks,
+			task_spawner,
 			credentials,
 			project_id,
 			new_s3_shards
@@ -188,7 +188,7 @@ def update_athena_table_partitions( local_tasks, credentials, project_id ):
 
 
 @gen.coroutine
-def load_further_partitions( local_tasks, credentials, project_id, new_shards_list ):
+def load_further_partitions( task_spawner, credentials, project_id, new_shards_list ):
 	project_id = re.sub( REGEX_WHITELISTS[ "project_id" ], "", project_id )
 
 	query_template = "ALTER TABLE PRJ_{{PROJECT_ID_REPLACE_ME}} ADD IF NOT EXISTS\n"
@@ -207,7 +207,7 @@ def load_further_partitions( local_tasks, credentials, project_id, new_shards_li
 		query += project_id + "/" + new_shard + "/'\n"
 
 	logit( "Updating previously un-indexed partitions... ", "debug" )
-	yield local_tasks.perform_athena_query(
+	yield task_spawner.perform_athena_query(
 		credentials,
 		query,
 		False
@@ -228,7 +228,7 @@ def dt_to_shard( input_dt ):
 
 
 @gen.coroutine
-def get_execution_stats_since_timestamp( db_session_maker, local_tasks, credentials, project_id, oldest_timestamp ):
+def get_execution_stats_since_timestamp( db_session_maker, task_spawner, credentials, project_id, oldest_timestamp ):
 	# Database session for pulling cached data
 	dbsession = db_session_maker()
 
@@ -269,7 +269,7 @@ def get_execution_stats_since_timestamp( db_session_maker, local_tasks, credenti
 		# List shards in the S3 bucket starting at the oldest available shard
 		# That's because S3 buckets will start at the oldest time and end at
 		# the latest time (due to inverse binary UTF-8 sort order)
-		s3_list_results = yield local_tasks.get_s3_list_from_prefix(
+		s3_list_results = yield task_spawner.get_s3_list_from_prefix(
 			credentials,
 			credentials[ "logs_bucket" ],
 			s3_prefix,
@@ -378,7 +378,7 @@ def get_execution_stats_since_timestamp( db_session_maker, local_tasks, credenti
 		full_shard = project_id + "/" + s3_shard
 
 		start_time = time.time()
-		execution_logs = yield local_tasks.get_s3_pipeline_execution_logs(
+		execution_logs = yield task_spawner.get_s3_pipeline_execution_logs(
 			credentials,
 			full_shard,
 			-1

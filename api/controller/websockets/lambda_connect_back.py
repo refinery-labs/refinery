@@ -1,18 +1,26 @@
+import pinject
 import tornado.websocket
 
+from controller.websockets.dependency_injection import TornadoWebsocketInjectionMixin
 from utils.general import logit
 from utils.websocket import parse_websocket_message
 
 
-class LambdaConnectBackServer(tornado.websocket.WebSocketHandler):
-	connected_lambdas = []
-	
-	def initialize( self, **kwargs ):
-		self.websocket_router = kwargs[ "websocket_router" ]
-	
+class LambdaConnectBackServerDependencies:
+	@pinject.copy_args_to_public_fields
+	def __init__( self, websocket_router ):
+		pass
+
+
+class LambdaConnectBackServer(TornadoWebsocketInjectionMixin, tornado.websocket.WebSocketHandler):
+	dependencies = LambdaConnectBackServerDependencies
+	websocket_router = None
+
+	_connected_lambdas = []
+
 	def open( self ):
 		logit( "A new Lambda has connected to us from " + self.request.remote_ip )
-		self.connected_lambdas.append( self )
+		self._connected_lambdas.append( self )
 	
 	def on_message( self, message ):
 		message_contents = parse_websocket_message( message )
@@ -38,7 +46,7 @@ class LambdaConnectBackServer(tornado.websocket.WebSocketHandler):
 	
 	def on_close( self ):
 		logit( "Lambda has closed the WebSocket connection, source IP: " + self.request.remote_ip )
-		self.connected_lambdas.remove( self )
+		self._connected_lambdas.remove( self )
 		self.websocket_router.clean_connection_from_websocket_router(
 			self
 		)

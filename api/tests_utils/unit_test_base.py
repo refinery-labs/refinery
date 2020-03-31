@@ -1,11 +1,18 @@
+import json
 import os
 import sys
+
+import pinject
 from sqlalchemy import create_engine
-from server import make_app
+
+from app import TornadoApp
+from config.provider import load_app_config
+from models import User, Organization
 from models.initiate_database import create_scoped_db_session_maker, Base
 from tests_utils.hypothesis_unit_test_base import HypothesisUnitTestBase
-from config.app_config import load_app_config
 import pkg_resources
+
+from utils.general import UtilsBindingSpec, print_object_graph
 
 
 def add_sqlite_json_shim():
@@ -32,6 +39,40 @@ def get_tornado_app_config():
 	}
 
 
+class MockDatabaseBindingSpec(pinject.BindingSpec):
+	def configure( self, bind ):
+		pass
+
+	@pinject.provides("db_engine")
+	def provide_db_engine( self ):
+		add_sqlite_json_shim()
+		engine = create_engine( "sqlite:///:memory:", encoding="utf8", plugins=["jsonplugin"] )
+
+		Base.metadata.create_all( engine )
+		return engine
+
+	@pinject.provides("db_session_maker")
+	def provide_db_session_maker( self, db_engine ):
+		return create_scoped_db_session_maker( db_engine )
+
+
+class TestConfigBindingSpec(pinject.BindingSpec):
+	def configure( self, bind ):
+		pass
+
+	@pinject.provides("app_config")
+	def provide_app_config( self ):
+		return load_app_config("test")
+
+	@pinject.provides("tornado_config")
+	def provide_tornado_config( self ):
+		return get_tornado_app_config()
+
+	@pinject.provides("lambda_callback_endpoint")
+	def provide_lambda_callback_endpoint( self ):
+		return "ws://localhost:3333/ws/v1/lambdas/connectback"
+
+
 class ServerUnitTestBase( HypothesisUnitTestBase ):
 	"""
 	Base class to inherit from for tests that need to hit a Refinery server instance.
@@ -39,47 +80,80 @@ class ServerUnitTestBase( HypothesisUnitTestBase ):
 	"""
 	db_session_maker = None
 	dbsession = None
+	classes = []
+	binding_specs = []
+
+	app_object_graph = None
 
 	def tearDown(self):
 		self.dbsession.close()
 
-	def mocked_dependencies( self ):
-		add_sqlite_json_shim()
-		engine = create_engine( 'sqlite:///:memory:', encoding="utf8", plugins=["jsonplugin"] )
+	@staticmethod
+	def load_fixture( fixture_name, load_json=False ):
+		fixture_path = os.path.join(os.path.dirname(__file__), "..", "tests", "fixtures", fixture_name)
+		with open(fixture_path, 'r') as f:
+			if load_json:
+				return json.load(f)
+			else:
+				return f.read()
 
-		Base.metadata.create_all( engine )
-
-		db_session_maker = create_scoped_db_session_maker(engine)
-		mocked_deps = dict(
-			db_session_maker=db_session_maker
-		)
-		return mocked_deps
-
-	def create_and_save_obj( self, obj ):
+	def create_and_save_obj( self, obj, to_dict=False ):
 		self.dbsession.add(obj)
 		self.dbsession.commit()
 
-		if hasattr(obj, 'to_dict'):
-			obj_dict = obj.to_dict()
-		else:
-			obj_dict = dict(obj)
+		if to_dict:
+			if hasattr(obj, 'to_dict'):
+				obj = obj.to_dict()
+			else:
+				obj = dict(obj)
 
-		return obj_dict
+		return obj
+
+	def get_user_from_id( self, user_id ):
+		return self.dbsession.query( User ).filter( User.id == user_id ).first()
+
+	def create_test_user_organization( self, user_id ):
+		org = Organization()
+		self.dbsession.add(org)
+		self.dbsession.commit()
+
+		user = self.get_user_from_id( user_id )
+		user.organization_id = org.id
+		self.dbsession.commit()
+
+		return org
+
+	def create_test_user( self ):
+		user = User()
+		user.email = "test@test.com"
+		return self.create_and_save_obj( user )
 
 	def get_app( self ):
 		"""
 		Creates an instance of the app for the Tornado test base
 		:return:
 		"""
-		mocked_deps = self.mocked_dependencies()
+		common_specs = [
+			MockDatabaseBindingSpec(),
+			TestConfigBindingSpec(),
+			UtilsBindingSpec()
+		]
+		self.binding_specs = self.binding_specs + common_specs
 
-		self.db_session_maker = mocked_deps[ 'db_session_maker' ]
+		self.app_object_graph = pinject.new_object_graph(modules=[], classes=self.classes, binding_specs=self.binding_specs)
+
+		"""
+		A hack to extract deps from object graph
+		"""
+		class GetDepsFromObjectGraph:
+			@pinject.copy_args_to_public_fields
+			def __init__( self, db_session_maker ):
+				pass
+
+		deps_from_object_graph = self.app_object_graph.provide(GetDepsFromObjectGraph)
+		self.db_session_maker = deps_from_object_graph.db_session_maker
+
 		self.dbsession = self.db_session_maker()
 
-		test_app_config = load_app_config("test")
-
-		return make_app(
-			test_app_config,
-			get_tornado_app_config(),
-			mocked_deps=mocked_deps
-		)
+		tornado_app = self.app_object_graph.provide(TornadoApp)
+		return tornado_app.make_app( self.app_object_graph )

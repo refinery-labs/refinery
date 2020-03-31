@@ -1,4 +1,6 @@
 import hashlib
+
+import pinject
 import requests
 import tornado
 import random
@@ -9,7 +11,6 @@ import io
 from tornado.concurrent import run_on_executor, futures
 from requests.exceptions import ConnectionError
 
-from assistants.aws_clients.aws_clients_assistant import get_aws_client
 from pyexceptions.builds import BuildException
 from pyconstants.project_constants import EMPTY_ZIP_DATA
 from botocore.exceptions import ClientError
@@ -53,6 +54,7 @@ ECS_MEM_CACHE = ExpiringDict(
 	max_age_seconds=( 5 * 60 )
 )
 
+
 """
 Generate a build container password. To save us from having to store
 more state in the database we repurpose the "iam_admin_username" and
@@ -83,20 +85,25 @@ def get_builder_shared_secret( credentials ):
 		hash_material
 	).hexdigest()
 
-class AWSECSManager(object):
+
+class AwsEcsManager( object ):
 	"""
 	This handles the logic for spinning up build tasks using ECS.
 
 	The build server will automatically shut itself off after 60
 	minutes of idling for cost savings.
 	"""
-	def __init__(self, loop=None):
+
+	aws_client_factory = None
+
+	@pinject.copy_args_to_public_fields
+	def __init__(self, aws_client_factory, loop=None):
 		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()
 
 	@staticmethod
-	def _get_security_group_id_by_group_name( credentials, security_group_name ):
-		ec2_client = get_aws_client(
+	def _get_security_group_id_by_group_name( aws_client_factory, credentials, security_group_name ):
+		ec2_client = aws_client_factory.get_aws_client(
 			"ec2",
 			credentials
 		)
@@ -118,8 +125,8 @@ class AWSECSManager(object):
 		return None
 
 	@staticmethod
-	def _get_all_subnets( credentials ):
-		ec2_client = get_aws_client(
+	def _get_all_subnets( aws_client_factory, credentials ):
+		ec2_client = aws_client_factory.get_aws_client(
 			"ec2",
 			credentials
 		)
@@ -141,14 +148,14 @@ class AWSECSManager(object):
 		return subnet_ids
 
 	@staticmethod
-	def _enable_long_form_arns( credentials ):
+	def _enable_long_form_arns( aws_client_factory, credentials ):
 		"""
 		This code will be irrelevant as of 2019-12-31 23:59:59 -0800
 
 		However, before then we'll need to have this to enabled long-form
 		ARNs for tasks and services since AWS is going through a migration.
 		"""
-		ecs_client = get_aws_client(
+		ecs_client = aws_client_factory.get_aws_client(
 			"ecs",
 			credentials
 		)
@@ -160,14 +167,15 @@ class AWSECSManager(object):
 		)
 
 	@staticmethod
-	def _start_builder_ecs_task( credentials ):
-		ecs_client = get_aws_client(
+	def _start_builder_ecs_task( aws_client_factory, credentials ):
+		ecs_client = aws_client_factory.get_aws_client(
 			"ecs",
 			credentials
 		)
 
-		subnet_ids = AWSECSManager._get_all_subnets( credentials )
-		security_group_id = AWSECSManager._get_security_group_id_by_group_name(
+		subnet_ids = AwsEcsManager._get_all_subnets( aws_client_factory, credentials )
+		security_group_id = AwsEcsManager._get_security_group_id_by_group_name(
+			aws_client_factory,
 			credentials,
 			"refinery_builders_security_group"
 		)
@@ -221,8 +229,8 @@ class AWSECSManager(object):
 			error_message = e.response[ "Error" ][ "Message" ]
 
 			if error_message == "Long arn format must be enabled for ECS managed tags.":
-				AWSECSManager._enable_long_form_arns( credentials )
-				return AWSECSManager._start_builder_ecs_task( credentials )
+				AwsEcsManager._enable_long_form_arns( aws_client_factory, credentials )
+				return AwsEcsManager._start_builder_ecs_task( aws_client_factory, credentials )
 
 			# If it's not the expected error then re-raise
 			raise
@@ -233,8 +241,8 @@ class AWSECSManager(object):
 		return response[ "tasks" ][0][ "taskArn" ]
 
 	@staticmethod
-	def _get_running_task_arns( credentials ):
-		ecs_client = get_aws_client(
+	def _get_running_task_arns( aws_client_factory, credentials ):
+		ecs_client = aws_client_factory.get_aws_client(
 			"ecs",
 			credentials
 		)
@@ -271,8 +279,8 @@ class AWSECSManager(object):
 		return task_arns
 
 	@staticmethod
-	def _get_tasks_metadata_list( credentials, arn_list ):
-		ecs_client = get_aws_client(
+	def _get_tasks_metadata_list( aws_client_factory, credentials, arn_list ):
+		ecs_client = aws_client_factory.get_aws_client(
 			"ecs",
 			credentials
 		)
@@ -288,8 +296,8 @@ class AWSECSManager(object):
 		return response[ "tasks" ]
 
 	@staticmethod
-	def _get_public_ips_from_private_ip_addresses( credentials, private_ip_addresses ):
-		ec2_client = get_aws_client(
+	def _get_public_ips_from_private_ip_addresses( aws_client_factory, credentials, private_ip_addresses ):
+		ec2_client = aws_client_factory.get_aws_client(
 			"ec2",
 			credentials
 		)
@@ -330,13 +338,14 @@ class AWSECSManager(object):
 		return ip_addresses
 
 	@staticmethod
-	def _get_cached_data( credentials ):
+	def _get_cached_data( aws_client_factory, credentials ):
 		remaining_attempts = 5 * 60
 		
 		while remaining_attempts > 0:
 			if not credentials[ "account_id" ] in ECS_MEM_CACHE:
 				# Expired from cache, let's just kick off another task
-				return AWSECSManager._get_build_container_ips(
+				return AwsEcsManager._get_build_container_ips(
+					aws_client_factory,
 					credentials,
 					True
 				)
@@ -351,13 +360,14 @@ class AWSECSManager(object):
 			remaining_attempts = remaining_attempts - 1
 
 		# We tried to wait, let's just launch it ourselves.
-		return AWSECSManager._get_build_container_ips(
+		return AwsEcsManager._get_build_container_ips(
+			aws_client_factory,
 			credentials,
 			True,
 		)
 
 	@staticmethod
-	def _get_build_container_ips( credentials, bypass_memory_cache ):
+	def _get_build_container_ips( aws_client_factory, credentials, bypass_memory_cache ):
 		"""
 		Searchs for an already-running build container.
 
@@ -368,7 +378,7 @@ class AWSECSManager(object):
 		after not doing any work for a given period of time).
 		"""
 		if not bypass_memory_cache and credentials[ "account_id" ] in ECS_MEM_CACHE:
-			return AWSECSManager._get_cached_data( credentials )
+			return AwsEcsManager._get_cached_data( aws_client_factory, credentials )
 
 		# Set "IN_PROGRESS" for the ECS memory cache so we
 		# don't ever kick off two relatively expensive ECS tasks.
@@ -379,17 +389,19 @@ class AWSECSManager(object):
 		logit( "Pulling all existing task ARNs..." )
 
 		# First check if we have any already-running containers
-		existing_task_arns = AWSECSManager._get_running_task_arns(
+		existing_task_arns = AwsEcsManager._get_running_task_arns(
+			aws_client_factory,
 			credentials
 		)
 
 		if len( existing_task_arns ) == 0:
 			logit( "No existing tasks found, starting one and retrying action..." )
-			AWSECSManager._start_builder_ecs_task( credentials )
+			AwsEcsManager._start_builder_ecs_task( aws_client_factory, credentials )
 
 			# Eventual consistency so we'll wait a bit
 			time.sleep(2)
-			return AWSECSManager._get_build_container_ips(
+			return AwsEcsManager._get_build_container_ips(
+				aws_client_factory,
 				credentials,
 				True
 			)
@@ -397,7 +409,8 @@ class AWSECSManager(object):
 		logit( "Existing tasks found, pulling metadata for tasks..." )
 
 		# Pull the metadata for all running and pending tasks
-		task_info_list = AWSECSManager._get_tasks_metadata_list(
+		task_info_list = AwsEcsManager._get_tasks_metadata_list(
+			aws_client_factory,
 			credentials,
 			existing_task_arns
 		)
@@ -413,13 +426,15 @@ class AWSECSManager(object):
 		if len( build_container_private_ips ) == 0:
 			logit( "No RUNNING build instances found, waiting briefly and retrying action..." )
 			time.sleep(2)
-			return AWSECSManager._get_build_container_ips(
+			return AwsEcsManager._get_build_container_ips(
+				aws_client_factory,
 				credentials,
 				True
 			)
 
 		# Exchange interface IDs for interface public IPs
-		build_container_instance_ips = AWSECSManager._get_public_ips_from_private_ip_addresses(
+		build_container_instance_ips = AwsEcsManager._get_public_ips_from_private_ip_addresses(
+			aws_client_factory,
 			credentials,
 			build_container_private_ips
 		)
@@ -429,28 +444,31 @@ class AWSECSManager(object):
 
 		return build_container_instance_ips
 
-aws_ecs_manager = AWSECSManager()
-
 
 class BuilderManager(object):
 	"""
 	This communicates with already-spun-up ECS builder tasks to
 	kick off builds and get the results.
 	"""
-	def __init__(self, loop=None):
+	aws_client_factory = None
+
+	@pinject.copy_args_to_public_fields
+	def __init__(self, aws_client_factory, loop=None):
 		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()
 
 	@run_on_executor
 	def get_build_container_ip( self, credentials ):
 		return BuilderManager._get_build_container_ip(
+			self.aws_client_factory,
 			credentials
 		)
 
 	@staticmethod
-	def _get_build_container_ip( credentials ):
+	def _get_build_container_ip( aws_client_factory, credentials ):
 		# Get build container IPs
-		build_container_ips = AWSECSManager._get_build_container_ips(
+		build_container_ips = AwsEcsManager._get_build_container_ips(
+			aws_client_factory,
 			credentials,
 			False
 		)
@@ -462,8 +480,9 @@ class BuilderManager(object):
 		return build_container_ips[0]
 
 	@staticmethod
-	def _get_go112_zip( credentials, lambda_object ):
+	def _get_go112_zip( aws_client_factory, credentials, lambda_object ):
 		build_container_ip = BuilderManager._get_build_container_ip(
+			aws_client_factory,
 			credentials
 		)
 
@@ -479,11 +498,12 @@ class BuilderManager(object):
 
 	@run_on_executor
 	def get_go112_binary_s3( self, credentials, lambda_object ):
-		return BuilderManager._get_go112_binary_s3( credentials, lambda_object )
+		return BuilderManager._get_go112_binary_s3( self.aws_client_factory, credentials, lambda_object )
 
 	@staticmethod
-	def _get_go112_binary_s3( credentials, lambda_object ):
+	def _get_go112_binary_s3( aws_client_factory, credentials, lambda_object ):
 		build_container_ip = BuilderManager._get_build_container_ip(
+			aws_client_factory,
 			credentials
 		)
 
@@ -499,19 +519,21 @@ class BuilderManager(object):
 			# We'll clear it and try again
 			del ECS_MEM_CACHE[ credentials[ "account_id" ] ]
 			return BuilderManager._get_go112_binary_s3(
+				aws_client_factory,
 				credentials,
 				lambda_object
 			)
 
 		# Upload binary to S3
 		return BuilderManager._upload_binary_to_s3(
+			aws_client_factory,
 			credentials,
 			go_binary_data
 		)
 
 	@staticmethod
-	def _upload_binary_to_s3( credentials, go_binary_data ):
-		s3_client = get_aws_client(
+	def _upload_binary_to_s3( aws_client_factory, credentials, go_binary_data ):
+		s3_client = aws_client_factory.get_aws_client(
 			"s3",
 			credentials
 		)

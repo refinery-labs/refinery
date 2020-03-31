@@ -72,6 +72,7 @@ RUN_TMP_LAMBDA_SCHEMA = {
 }
 
 DEPLOY_DIAGRAM_SCHEMA = {
+	"title": "Deploy Diagram",
 	"type": "object",
 	"properties": {
 		"project_id": { "type": "string" },

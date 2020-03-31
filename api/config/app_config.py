@@ -133,24 +133,5 @@ class AppConfig:
 		return b_copy
 
 
-def load_app_config( app_env=None, overrides=None ):
-
-	if app_env is None:
-		app_env = os.environ[ "REFINERY_ENV" ]
-
-	app_config = AppConfig( app_env, overrides=overrides )
-
-	# Add dynamic configuration values to app config
-	app_init_config( app_config )
-
-	return app_config
-
-
 class InvalidEnvironmentError(Exception):
 	pass
-
-
-# TODO REMOVE THIS FROM GLOBAL SCOPE
-# THIS IS A TEMPORARY LOCATION SO THAT WE
-# CAN REFACTOR PIECE BY PIECE
-global_app_config = load_app_config()

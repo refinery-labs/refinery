@@ -1,12 +1,10 @@
+import pinject
 import tornado
 
 from tornado.concurrent import run_on_executor, futures
 
-from assistants.aws_clients.aws_clients_assistant import get_aws_client
-from utils.general import logit
-from tornado import gen
-
 from botocore.exceptions import ClientError
+
 
 def get_sqs_arn_from_url( input_queue_url ):
 	stripped_queue_url = input_queue_url.replace(
@@ -21,24 +19,31 @@ def get_sqs_arn_from_url( input_queue_url ):
 
 	return "arn:aws:sqs:" + region + ":" + account_id + ":" + queue_name
 
-class SQSManager(object):
-	def __init__(self, loop=None):
+
+class SqsManager( object ):
+	aws_client_factory = None
+
+	@pinject.copy_args_to_public_fields
+	def __init__(self, aws_client_factory, loop=None):
 		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()
 
+		self.aws_client_factory = aws_client_factory
+
 	@run_on_executor
-	def delete_sqs_queue( self, credentials, id, type, name, arn ):
+	def delete_sqs_queue( self, credentials, _id, _type, name, arn ):
 		return self._delete_sqs_queue(
+			self.aws_client_factory,
 			credentials,
-			id,
-			type,
+			_id,
+			_type,
 			name,
 			arn
 		)
 		
 	@staticmethod
-	def _delete_sqs_queue( credentials, id, type, name, arn ):
-		sqs_client = get_aws_client(
+	def _delete_sqs_queue( aws_client_factory, credentials, _id, _type, name, arn ):
+		sqs_client = aws_client_factory.get_aws_client(
 			"sqs",
 			credentials,
 		)
@@ -66,8 +71,8 @@ class SQSManager(object):
 				raise
 		
 		return {
-			"id": id,
-			"type": type,
+			"id": _id,
+			"type": _type,
 			"name": name,
 			"arn": arn,
 			"deleted": was_deleted,

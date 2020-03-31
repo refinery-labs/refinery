@@ -1,0 +1,16 @@
+{
+  "diagram_data": "{\"name\":\"asdf\",\"project_id\":\"207a950d-b170-4c8c-bf7a-5c1c862492e9\",\"workflow_relationships\":[{\"node\":\"89765a6a-dc1a-4aff-b001-6e2a6e5a677a\",\"next\":\"1a5aaa69-1b2c-47a2-9601-2b9dc0ef6437\",\"type\":\"then\",\"name\":\"then\",\"expression\":\"\",\"id\":\"790723c6-72a6-4e6a-9fe1-a1ef5918a155\",\"version\":\"1.0.0\"},{\"node\":\"1a5aaa69-1b2c-47a2-9601-2b9dc0ef6437\",\"next\":\"200c1605-cf7b-4f1d-921b-46408884efab\",\"type\":\"then\",\"name\":\"then\",\"expression\":\"\",\"id\":\"a624ea37-c2c3-4a93-a9e4-309f09ab5431\",\"version\":\"1.0.0\"}],\"workflow_states\":[{\"id\":\"89765a6a-dc1a-4aff-b001-6e2a6e5a677a\",\"name\":\"Untitled API Endpoint Block\",\"version\":\"1.0.0\",\"type\":\"api_endpoint\",\"api_path\":\"/replaceme/stonelightningslayer\",\"http_method\":\"GET\"},{\"id\":\"200c1605-cf7b-4f1d-921b-46408884efab\",\"name\":\"API Endpoint Response Block\",\"version\":\"1.0.0\",\"type\":\"api_gateway_response\"},{\"id\":\"1a5aaa69-1b2c-47a2-9601-2b9dc0ef6437\",\"name\":\"Untitled Code Block\",\"version\":\"1.0.0\",\"type\":\"lambda\",\"language\":\"nodejs8.10\",\"code\":\"\\nasync function main(blockInput, backpack) {\\n    return 'Hello World!';\\n}\\n\",\"memory\":768,\"libraries\":[],\"layers\":[],\"max_execution_time\":900,\"environment_variables\":{},\"reserved_concurrency_count\":false}],\"workflow_files\":[],\"workflow_file_links\":[],\"version\":3,\"readme\":\"# Untitled Project README\\n\\nThis is a Refinery project README, update it to explain more about the project.\"}",
+  "project_config": {
+    "environment_variables": {},
+    "api_gateway": {
+      "gateway_id": false
+    },
+    "version": "1.0.0",
+    "logging": {
+      "level": "LOG_ALL"
+    },
+    "warmup_concurrency_level": 0
+  },
+  "project_id": "207a950d-b170-4c8c-bf7a-5c1c862492e9",
+  "project_name": "asdf"
+}
