@@ -1,7 +1,6 @@
 from tornado import gen
 
 from assistants.deployments.api_gateway import strip_api_gateway
-from utils.general import logit
 
 @gen.coroutine
 def teardown_infrastructure( api_gateway_manager, lambda_manager, schedule_trigger_manager, sns_manager, sqs_manager, credentials, teardown_nodes ):

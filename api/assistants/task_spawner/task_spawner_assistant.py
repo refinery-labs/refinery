@@ -3011,8 +3011,9 @@ class TaskSpawner(object):
 			libraries_object
 		)
 
-		if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
+		if TaskSpawner._s3_object_exists( aws_client_factory, credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
 			return TaskSpawner._read_from_s3(
+				aws_client_factory,
 				credentials,
 				credentials[ "lambda_packages_bucket" ],
 				final_s3_package_zip_path
@@ -3021,6 +3022,7 @@ class TaskSpawner(object):
 		# Kick off CodeBuild for the libraries to get a zip artifact of
 		# all of the libraries.
 		build_id = TaskSpawner._start_python36_codebuild(
+			aws_client_factory,
 			credentials,
 			libraries_object
 		)
@@ -3028,6 +3030,7 @@ class TaskSpawner(object):
 		# This continually polls for the CodeBuild build to finish
 		# Once it does it returns the raw artifact zip data.
 		return TaskSpawner._get_codebuild_artifact_zip_data(
+			aws_client_factory,
 			credentials,
 			build_id,
 			final_s3_package_zip_path
@@ -3049,8 +3052,9 @@ class TaskSpawner(object):
 			libraries_object
 		)
 
-		if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
+		if TaskSpawner._s3_object_exists( aws_client_factory, credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
 			return TaskSpawner._read_from_s3(
+				aws_client_factory,
 				credentials,
 				credentials[ "lambda_packages_bucket" ],
 				final_s3_package_zip_path
@@ -3059,6 +3063,7 @@ class TaskSpawner(object):
 		# Kick off CodeBuild for the libraries to get a zip artifact of
 		# all of the libraries.
 		build_id = TaskSpawner._start_python27_codebuild(
+			aws_client_factory,
 			credentials,
 			libraries_object
 		)
@@ -3066,42 +3071,7 @@ class TaskSpawner(object):
 		# This continually polls for the CodeBuild build to finish
 		# Once it does it returns the raw artifact zip data.
 		return TaskSpawner._get_codebuild_artifact_zip_data(
-			credentials,
-			build_id,
-			final_s3_package_zip_path
-		)
-
-	@staticmethod
-	def get_go112_zip( credentials, code ):
-		# Kick off CodeBuild
-
-		raise Exception("Go112 building is not implemented!")
-
-		build_id = TaskSpawner.start_go112_codebuild(
-			credentials,
-			code
-		)
-
-		# Since go doesn't have the traditional libraries
-		# files like requirements.txt or package.json we
-		# just use the code as a hash here.
-		libraries_object = { "code": code }
-
-		final_s3_package_zip_path = TaskSpawner._get_final_zip_package_path(
-			"go1.12",
-			libraries_object
-		)
-
-		if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
-			return TaskSpawner._read_from_s3(
-				credentials,
-				credentials[ "lambda_packages_bucket" ],
-				final_s3_package_zip_path
-			)
-
-		# This continually polls for the CodeBuild build to finish
-		# Once it does it returns the raw artifact zip data.
-		return TaskSpawner._get_codebuild_artifact_zip_data(
+			aws_client_factory,
 			credentials,
 			build_id,
 			final_s3_package_zip_path
@@ -3653,12 +3623,14 @@ class TaskSpawner(object):
 		# This is pieced out so that we can also kick off codebuilds
 		# without having to pull the final zip result
 		TaskSpawner._finalize_codebuild(
+			aws_client_factory,
 			credentials,
 			build_id,
 			final_s3_package_zip_path
 		)
 
 		return TaskSpawner._read_from_s3(
+			aws_client_factory,
 			credentials,
 			credentials[ "lambda_packages_bucket" ],
 			final_s3_package_zip_path
@@ -3667,6 +3639,7 @@ class TaskSpawner(object):
 	@run_on_executor
 	def finalize_codebuild( self, credentials, build_id, final_s3_package_zip_path ):
 		return TaskSpawner._finalize_codebuild(
+			self.aws_client_factory,
 			credentials,
 			build_id,
 			final_s3_package_zip_path

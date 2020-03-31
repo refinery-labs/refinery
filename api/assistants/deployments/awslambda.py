@@ -5,6 +5,9 @@ from tornado.concurrent import run_on_executor, futures
 
 from botocore.exceptions import ClientError
 
+from utils.general import log_exception
+
+
 class LambdaManager(object):
 	aws_client_factory = None
 
@@ -14,6 +17,7 @@ class LambdaManager(object):
 		self.loop = loop or tornado.ioloop.IOLoop.current()
 
 	@run_on_executor
+	@log_exception
 	def delete_lambda( self, credentials, id, type, name, arn ):
 		return self._delete_lambda( self.aws_client_factory, credentials, id, type, name, arn )
 		

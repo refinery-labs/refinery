@@ -2,7 +2,7 @@ import pinject
 import tornado
 import botocore.exceptions
 
-from utils.general import get_random_node_id
+from utils.general import get_random_node_id, log_exception
 
 from tornado.concurrent import run_on_executor, futures
 from utils.general import logit
@@ -11,6 +11,7 @@ from tornado import gen
 from botocore.exceptions import ClientError
 
 @gen.coroutine
+@log_exception
 def strip_api_gateway( api_gateway_manager, credentials, api_gateway_id ):
 	"""
 	Strip a given API Gateway of all of it's:

@@ -5,6 +5,8 @@ from tornado.concurrent import run_on_executor, futures
 
 from botocore.exceptions import ClientError
 
+from utils.general import log_exception
+
 
 def get_sqs_arn_from_url( input_queue_url ):
 	stripped_queue_url = input_queue_url.replace(
@@ -28,9 +30,8 @@ class SqsManager( object ):
 		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()
 
-		self.aws_client_factory = aws_client_factory
-
 	@run_on_executor
+	@log_exception
 	def delete_sqs_queue( self, credentials, _id, _type, name, arn ):
 		return self._delete_sqs_queue(
 			self.aws_client_factory,

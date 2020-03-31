@@ -5,6 +5,9 @@ from tornado.concurrent import run_on_executor, futures
 
 from botocore.exceptions import ClientError
 
+from utils.general import log_exception
+
+
 class ScheduleTriggerManager(object):
 	aws_client_factory = None
 
@@ -14,6 +17,7 @@ class ScheduleTriggerManager(object):
 		self.loop = loop or tornado.ioloop.IOLoop.current()
 
 	@run_on_executor
+	@log_exception
 	def delete_schedule_trigger( self, credentials, id, type, name, arn ):
 		return self._delete_schedule_trigger( self.aws_client_factory, credentials, id, type, name, arn )
 		
