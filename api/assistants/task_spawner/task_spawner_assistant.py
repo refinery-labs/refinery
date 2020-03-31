@@ -1962,7 +1962,7 @@ class TaskSpawner(object):
 			# If there's no related AWS account in the database
 			# we just skip over it because it's likely a non-customer
 			# AWS account
-			if aws_account == None:
+			if aws_account is None:
 				continue
 
 			# Pull related organization
@@ -2265,6 +2265,7 @@ class TaskSpawner(object):
 			}
 		]
 
+		billing_client = None
 		if account_type == "MANAGED":
 			and_statements.append({
 				"Dimensions": {
@@ -2297,6 +2298,9 @@ class TaskSpawner(object):
 					]
 				}
 			})
+
+		if billing_client is None:
+			raise Exception("billing_client not set due to unhandled account type: {}".format(account_type))
 
 		usage_parameters = {
 			"TimePeriod": {
@@ -3539,8 +3543,9 @@ class TaskSpawner(object):
 			libraries_object
 		)
 
-		if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
+		if TaskSpawner._s3_object_exists( aws_client_factory, credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
 			return TaskSpawner._read_from_s3(
+				aws_client_factory,
 				credentials,
 				credentials[ "lambda_packages_bucket" ],
 				final_s3_package_zip_path
@@ -3579,8 +3584,9 @@ class TaskSpawner(object):
 			libraries_object
 		)
 
-		if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
+		if TaskSpawner._s3_object_exists( aws_client_factory, credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
 			return TaskSpawner._read_from_s3(
+				aws_client_factory,
 				credentials,
 				credentials[ "lambda_packages_bucket" ],
 				final_s3_package_zip_path
@@ -3688,6 +3694,7 @@ class TaskSpawner(object):
 			log_stream_name = build_info[ "logs" ][ "streamName" ]
 
 			log_output = TaskSpawner._get_lambda_cloudwatch_logs(
+				aws_client_factory,
 				credentials,
 				log_group_name,
 				log_stream_name
@@ -3727,6 +3734,7 @@ class TaskSpawner(object):
 
 		if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
 			return TaskSpawner._read_from_s3(
+				aws_client_factory,
 				credentials,
 				credentials[ "lambda_packages_bucket" ],
 				final_s3_package_zip_path
@@ -3735,6 +3743,7 @@ class TaskSpawner(object):
 		# Kick off CodeBuild for the libraries to get a zip artifact of
 		# all of the libraries.
 		build_id = TaskSpawner._start_php73_codebuild(
+			aws_client_factory,
 			credentials,
 			libraries_object
 		)
@@ -4008,6 +4017,7 @@ class TaskSpawner(object):
 
 		if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
 			return TaskSpawner._read_from_s3(
+				aws_client_factory,
 				credentials,
 				credentials[ "lambda_packages_bucket" ],
 				final_s3_package_zip_path
