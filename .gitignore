@@ -1,6 +1,6 @@
 env/
-*.yaml
-*.yml
+docker-*.yaml
+docker-*.yml
 !buildspec.yml
 *.pyc
 tmp/
