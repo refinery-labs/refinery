@@ -18,7 +18,9 @@ Lambdas to the subscribing websocket connections.
 	}
 }
 """
-class WebSocketRouter:
+
+
+class WebsocketRouter:
 	def __init__( self ):
 		self.WEBSOCKET_ROUTER = {}
 		
@@ -111,6 +113,7 @@ class WebSocketRouter:
 				"timestamp": int( time.time() )
 			})
 
+
 def run_scheduled_heartbeat( websocket_object ):
 	logit( "Sending heartbeat to all connected Websocket users...", "debug" )
 	websocket_object.send_heartbeed()
@@ -123,3 +126,19 @@ def run_scheduled_heartbeat( websocket_object ):
 			websocket_object
 		)
 	)
+
+
+class ScheduledHeartbeatRunner:
+	def __init__( self, websocket_router ):
+		self.run_scheduled_hearbeat_partial = functools.partial(
+			run_scheduled_heartbeat,
+			websocket_router
+		)
+
+	def start( self ):
+		tornado.ioloop.IOLoop.instance().add_timeout(
+			datetime.timedelta(
+				seconds=5
+			),
+			self.run_scheduled_hearbeat_partial
+		)

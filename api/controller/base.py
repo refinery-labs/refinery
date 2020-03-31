@@ -15,42 +15,46 @@ from models.organizations import Organization
 
 from utils.general import logit
 
-from config.app_config import global_app_config
+
+class TornadoBaseHandlerInjectionMixin:
+	dependencies = None
+
+	@staticmethod
+	def set_object_deps(object_graph, obj, dep_class):
+		provided_deps = object_graph.provide(dep_class)
+		for name, dep in provided_deps.__dict__.iteritems():
+			setattr(obj, name, dep)
+
+	def initialize( self, **kwargs ):
+		object_graph = kwargs[ "object_graph" ]
+
+		if self.dependencies != BaseHandler.dependencies:
+			self.set_object_deps(object_graph, self, BaseHandler.dependencies)
+		self.set_object_deps(object_graph, self, self.dependencies)
 
 
-def get_expected_init_deps(obj, passed_kwargs):
-	assert hasattr(obj, '_initialize')
+class BaseHandlerDependencies:
+	@pinject.copy_args_to_public_fields
+	def __init__( self, logger, db_session_maker, app_config, task_spawner ):
+		pass
 
-	expected_dep_params = [p for p in inspect.getargspec(obj._initialize)[0] if p != 'self']
-	init_kwargs = dict()
-	for expected_dep_param in expected_dep_params:
-		expected_dep = passed_kwargs.get(expected_dep_param)
-		if expected_dep is None:
-			classname = obj.__class__ if not obj.__class__ is type else obj
-			raise Exception("expected dependency {} was not provided for {}".format(expected_dep_param, classname))
 
-		init_kwargs[expected_dep_param] = expected_dep
-	return init_kwargs
-
-class BaseHandler( tornado.web.RequestHandler ):
-	# Dependencies
+class BaseHandler( TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler ):
+	dependencies = BaseHandlerDependencies
 	logger = None
 	db_session_maker = None
 	app_config = None
-	local_tasks = None
+	task_spawner = None
 
 	_dbsession = None
+	json = None
 	allowed_origins = None
 
 	def __init__( self, *args, **kwargs ):
 		super( BaseHandler, self ).__init__( *args, **kwargs )
 
-		if self._initialize != BaseHandler._initialize:
-			init_deps = get_expected_init_deps(BaseHandler, kwargs)
-			BaseHandler._initialize(self, **init_deps)
-
-		init_deps = get_expected_init_deps(self, kwargs)
-		self._initialize(**init_deps)
+		if self.initialize != BaseHandler.initialize:
+			BaseHandler.initialize(self, **kwargs)
 
 		self.set_header( "Access-Control-Allow-Headers", "Content-Type, X-CSRF-Validation-Header" )
 		self.set_header( "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD" )
@@ -70,25 +74,8 @@ class BaseHandler( tornado.web.RequestHandler ):
 		# For caching the user's aws credentials
 		self.user_aws_credentials = None
 
-	def initialize(self, **kwargs):
-		pass
-
-	def _initialize( self, logger, db_session_maker, app_config, local_tasks ):
-		"""
-		Note: This method is private in order to avoid overriding initialize
-		of a BaseHandler subclass
-		:param logger:
-		:param app_config:
-		:param db_session_maker:
-		:return:
-		"""
-		self.logger = logger
-		self.db_session_maker = db_session_maker
-		self.app_config = app_config
-		self.local_tasks = local_tasks
-
 		# Pull list of allowed Access-Control-Allow-Origin values from environment var
-		self.allowed_origins = json.loads( app_config.get( "access_control_allow_origins" ) )
+		self.allowed_origins = json.loads( self.app_config.get( "access_control_allow_origins" ) )
 
 	@property
 	def dbsession( self ):
@@ -105,7 +92,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 				"user_id": user_id,
 				"created_at": int( time.time() ),
 			}),
-			expires_days=int( global_app_config.get( "cookie_expire_days" ) )
+			expires_days=int( self.app_config.get( "cookie_expire_days" ) )
 		)
 		
 	def is_owner_of_project( self, project_id ):
@@ -178,7 +165,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 		return user_org
 		
 	def get_authenticated_user_id( self ):
-		session_data = self.get_secure_session_data(int( global_app_config.get( "cookie_expire_days" ) ))
+		session_data = self.get_secure_session_data(int( self.app_config.get( "cookie_expire_days" ) ))
 		
 		if not session_data or "user_id" not in session_data:
 			return None
@@ -193,7 +180,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 			# Force check that the user re-auths within one day
 			short_lifespan_session_data = self.get_secure_session_data(17)
 
-			logit( "User with manual shortened lifespan: " + session_data[ "user_id" ])
+			self.logger( "User with manual shortened lifespan: " + session_data[ "user_id" ])
 
 			if not short_lifespan_session_data or "user_id" not in short_lifespan_session_data:
 				return None
@@ -204,7 +191,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 		# Retrieves data from the session cookie
 		session_data = self.get_secure_cookie_data( "session", cookie_expiration_days )
 		if session_data is None:
-			logit("Unable to get session data", "warning")
+			self.logger("Unable to get session data", "warning")
 			return None
 
 		try:
@@ -212,7 +199,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 				session_data
 			)
 		except ValueError as e:
-			logit("Unable to deserialize session data: " + repr(e), "warning")
+			self.logger("Unable to deserialize session data: " + repr(e), "warning")
 			return None
 
 	def get_secure_cookie_data( self, cookie_name, cookie_expiration_days ):
@@ -266,7 +253,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 			elif services_auth_param:
 				service_secret = services_auth_param
 				
-			if global_app_config.get( "service_shared_secret" ) != service_secret:
+			if self.app_config.get( "service_shared_secret" ) != service_secret:
 				self.error(
 					"You are hitting a service URL, you MUST provide the shared secret in either a 'secret' parameter or the 'X-Service-Secret' header to use this.",
 					"ACCESS_DENIED_SHARED_SECRET_REQUIRED"
@@ -295,7 +282,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 				self.set_header( "Access-Control-Allow-Origin", host_header )
 
 		self.json = False
-		
+
 		if self.request.body:
 			try:
 				json_data = json.loads(self.request.body)

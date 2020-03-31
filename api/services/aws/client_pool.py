@@ -51,7 +51,6 @@ class AWSClientPool:
 
 		self.app_config = app_config
 
-
 	def get_aws_client( self, client_type, credentials ):
 		"""
 		Take an AWS client type ("s3", "lambda", etc) and utilize

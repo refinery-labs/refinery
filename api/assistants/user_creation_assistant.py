@@ -1,3 +1,4 @@
+import pinject
 from tornado import gen
 
 from models.organizations import Organization
@@ -5,7 +6,7 @@ from models.users import User
 
 
 class UserCreationAssistant:
-
+	@pinject.copy_args_to_public_fields
 	def __init__(
 			self,
 			logger,
@@ -13,7 +14,7 @@ class UserCreationAssistant:
 			github_oauth_provider,
 			project_inventory_service,
 			stripe_service,
-			user_service
+			user_management_service
 	):
 		"""
 		This class contains logic for creating and managing User instances by utilizing many services.
@@ -24,12 +25,7 @@ class UserCreationAssistant:
 		:type stripe_service: StripeService
 		:type user_service: UserService
 		"""
-		self.github_oauth_provider = github_oauth_provider
-		self.logger = logger
-		self.oauth_service = oauth_service
-		self.project_inventory_service = project_inventory_service
-		self.stripe_service = stripe_service
-		self.user_service = user_service
+		pass
 
 	@gen.coroutine
 	def setup_initial_user_state( self, dbsession, request, user ):
