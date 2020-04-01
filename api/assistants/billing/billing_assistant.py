@@ -4,10 +4,12 @@ from tornado.concurrent import run_on_executor
 from utils.general import logit
 
 from utils.base_spawner import BaseSpawner
+from utils.performance_decorators import emit_runtime_metrics
 
 
 class BillingSpawner(BaseSpawner):
 	@run_on_executor
+	@emit_runtime_metrics( "clear_draft_invoices" )
 	def clear_draft_invoices( self ):
 		"""
 		Clears all Stripe invoices which are in a "draft" state. Useful for backing out of

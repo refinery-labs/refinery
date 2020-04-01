@@ -6,18 +6,22 @@ from tornado.concurrent import run_on_executor, futures
 from botocore.exceptions import ClientError
 
 from utils.general import log_exception
+from utils.performance_decorators import emit_runtime_metrics
 
 
 class LambdaManager(object):
 	aws_client_factory = None
+	aws_cloudwatch_client = None
+	logger = None
 
 	@pinject.copy_args_to_public_fields
-	def __init__(self, aws_client_factory, loop=None):
+	def __init__(self, aws_client_factory, aws_cloudwatch_client, logger, loop=None):
 		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()
 
 	@run_on_executor
 	@log_exception
+	@emit_runtime_metrics( "lambda_manager__delete_lambda" )
 	def delete_lambda( self, credentials, id, type, name, arn ):
 		return self._delete_lambda( self.aws_client_factory, credentials, id, type, name, arn )
 		

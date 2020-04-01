@@ -19,6 +19,7 @@ from data_types.aws_resources.alambda import Lambda
 from models import InlineExecutionLambda, Project, Deployment
 from pyexceptions.builds import BuildException
 from utils.general import get_random_node_id, attempt_json_decode
+from utils.locker import AcquireFailure
 
 
 class RunTmpLambdaDependencies:
@@ -441,28 +442,10 @@ class DeployDiagram( BaseHandler ):
 	@authenticated
 	@disable_on_overdue_payment
 	@gen.coroutine
-	def post( self ):
-		validate_schema( self.json, DEPLOY_DIAGRAM_SCHEMA)
-
-		self.logger( "Deploying diagram to production..." )
-
-		# Ensure user is owner of the project
-		if not self.is_owner_of_project( self.json[ "project_id" ] ):
-			self.write({
-				"success": False,
-				"code": "ACCESS_DENIED",
-				"msg": "You do not have privileges to deploy that!",
-			})
-			raise gen.Return()
-
-		project_id = self.json[ "project_id" ]
-		project_name = self.json[ "project_name" ]
-		project_config = self.json[ "project_config" ]
-
-		diagram_data = json.loads( self.json[ "diagram_data" ] )
-
+	def do_diagram_deployment( self, project_name, project_id, diagram_data, project_config ):
 		credentials = self.get_authenticated_user_cloud_configuration()
 
+		# Attempt to deploy diagram
 		deployment_data = yield deploy_diagram(
 			self.task_spawner,
 			self.api_gateway_manager,
@@ -500,9 +483,18 @@ class DeployDiagram( BaseHandler ):
 		# TODO: Update the project data? Deployments should probably
 		# be an explicit "Save Project" action.
 
+		# Add a reference to this deployment from the associated project
 		existing_project = self.dbsession.query( Project ).filter_by(
 			id=project_id
 		).first()
+
+		if existing_project is None:
+			self.write({
+				"success": False,
+				"code": "DEPLOYMENT_UPDATE",
+				"msg": "Unable to find project when updating deployment information.",
+			})
+			raise gen.Return()
 
 		new_deployment = Deployment()
 		new_deployment.project_id = project_id
@@ -533,6 +525,45 @@ class DeployDiagram( BaseHandler ):
 				"deployment_id": new_deployment.id,
 			}
 		})
+
+	@authenticated
+	@disable_on_overdue_payment
+	@gen.coroutine
+	def post( self ):
+		# TODO: Add jsonschema
+		self.logger( "Deploying diagram to production..." )
+
+		# Ensure user is owner of the project
+		if not self.is_owner_of_project( self.json[ "project_id" ] ):
+			self.write({
+				"success": False,
+				"code": "ACCESS_DENIED",
+				"msg": "You do not have privileges to deploy that!",
+			})
+			raise gen.Return()
+
+		project_name = self.json[ "project_name" ]
+		project_id = self.json[ "project_id" ]
+		diagram_data = json.loads( self.json[ "diagram_data" ] )
+		project_config = self.json[ "project_config" ]
+
+		lock_id = "deploy_diagram_" + project_id
+
+		task_lock = self.task_locker.lock( self.dbsession, lock_id )
+
+		try:
+			# Enforce that we are only attempting to do this multiple times simultaneously for the same project
+			with task_lock:
+				yield self.do_diagram_deployment(
+					project_name, project_id, diagram_data, project_config)
+
+		except AcquireFailure:
+			self.logger( "Unable to acquire deploy diagram lock for " + project_id )
+			self.write({
+				"success": False,
+				"code": "DEPLOYMENT_LOCK_FAILURE",
+				"msg": "Deployment for this project is already in progress",
+			})
 
 
 class GetAWSConsoleCredentials( BaseHandler ):

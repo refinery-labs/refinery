@@ -8,11 +8,12 @@ from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from models import CachedExecutionLogsShard
 from pyconstants.project_constants import REGEX_WHITELISTS
 from utils.general import logit
+from utils.locker import AcquireFailure
 
 
 @gen.coroutine
 def delete_logs( task_spawner, credentials, project_id ):
-	while True:
+	for _ in xrange(1000):
 		# Delete 1K logs at a time
 		log_paths = yield task_spawner.get_s3_pipeline_execution_logs(
 			credentials,
@@ -87,6 +88,23 @@ def write_remaining_project_execution_log_pages( task_spawner, credentials, data
 
 
 @gen.coroutine
+def do_update_athena_table_partitions( db_session_maker, task_locker, credentials, project_id ):
+	dbsession = db_session_maker()
+
+	lock_id = "get_project_executions_" + project_id
+	task_lock = task_locker.lock( dbsession, lock_id )
+	try:
+		# Enforce that we are only attempting to do this once for the same project at any given time
+		with task_lock:
+			yield update_athena_table_partitions( credentials, project_id )
+
+	except AcquireFailure:
+		logit( "Unable to acquire lock for:" + lock_id, "error" )
+	finally:
+		dbsession.close()
+
+
+@gen.coroutine
 def update_athena_table_partitions( task_spawner, credentials, project_id ):
 	"""
 	Check all the partitions that are in the Athena project table and
@@ -133,7 +151,14 @@ def update_athena_table_partitions( task_spawner, credentials, project_id ):
 	if len( athena_known_shards ) > 0:
 		latest_athena_known_shard = s3_prefix + athena_known_shards[-1]
 
-	while True:
+	# For loops which do not have a discreet conditional break, we enforce
+	# an upper bound of iterations.
+	MAX_LOOP_ITERATIONS = 1000
+
+	# Bound this loop to only execute MAX_LOOP_ITERATION times since we
+	# cannot guarantee that the condition `continuation_token == False`
+	# will ever be true.
+	for _ in xrange(MAX_LOOP_ITERATIONS):
 		s3_list_results = yield task_spawner.get_s3_list_from_prefix(
 			credentials,
 			credentials[ "logs_bucket" ],
@@ -265,7 +290,15 @@ def get_execution_stats_since_timestamp( db_session_maker, task_spawner, credent
 
 	continuation_token = False
 
-	while True:
+	# For loops which do not have a discreet conditional break, we enforce
+	# an upper bound of iterations.
+	MAX_LOOP_ITERATIONS = 1000
+
+
+	# Bound this loop to only execute MAX_LOOP_ITERATION times since we
+	# cannot guarantee that the condition `continuation_token == False`
+	# will ever be true.
+	for _ in xrange(MAX_LOOP_ITERATIONS):
 		# List shards in the S3 bucket starting at the oldest available shard
 		# That's because S3 buckets will start at the oldest time and end at
 		# the latest time (due to inverse binary UTF-8 sort order)

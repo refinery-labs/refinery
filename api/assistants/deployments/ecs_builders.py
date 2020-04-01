@@ -16,6 +16,7 @@ from pyconstants.project_constants import EMPTY_ZIP_DATA
 from botocore.exceptions import ClientError
 from expiringdict import ExpiringDict
 from utils.general import logit
+from utils.performance_decorators import emit_runtime_metrics
 
 try:
 	# for Python 2.x
@@ -451,13 +452,16 @@ class BuilderManager(object):
 	kick off builds and get the results.
 	"""
 	aws_client_factory = None
+	aws_cloudwatch_client = None
+	logger = None
 
 	@pinject.copy_args_to_public_fields
-	def __init__(self, aws_client_factory, loop=None):
+	def __init__(self, aws_client_factory, aws_cloudwatch_client, logger, loop=None):
 		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()
 
 	@run_on_executor
+	@emit_runtime_metrics( "ecs_builders__get_build_container_ip" )
 	def get_build_container_ip( self, credentials ):
 		return BuilderManager._get_build_container_ip(
 			self.aws_client_factory,
@@ -497,6 +501,7 @@ class BuilderManager(object):
 		)
 
 	@run_on_executor
+	@emit_runtime_metrics( "ecs_builders__get_go112_binary_s3" )
 	def get_go112_binary_s3( self, credentials, lambda_object ):
 		return BuilderManager._get_go112_binary_s3( self.aws_client_factory, credentials, lambda_object )
 

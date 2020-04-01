@@ -6,7 +6,7 @@ from tornado import gen
 from controller import BaseHandler
 from controller.decorators import authenticated, disable_on_overdue_payment
 from controller.logs.actions import chunk_list, write_remaining_project_execution_log_pages, \
-	update_athena_table_partitions, get_execution_stats_since_timestamp
+	update_athena_table_partitions, get_execution_stats_since_timestamp, do_update_athena_table_partitions
 from controller.logs.schemas import *
 
 
@@ -182,14 +182,17 @@ class GetProjectExecutions( BaseHandler ):
 		"""
 		validate_schema( self.json, GET_PROJECT_EXECUTIONS_SCHEMA )
 
+		project_id = self.json[ "project_id" ]
+
 		credentials = self.get_authenticated_user_cloud_configuration()
 
 		# We do this to always keep Athena partitioned for the later
 		# steps of querying
-		update_athena_table_partitions(
-			self.task_spawner,
+		do_update_athena_table_partitions(
+			self.db_session_maker,
+			self.task_locker,
 			credentials,
-			self.json[ "project_id" ]
+			project_id
 		)
 
 		# Ensure user is owner of the project
@@ -208,7 +211,7 @@ class GetProjectExecutions( BaseHandler ):
 			self.db_session_maker,
 			self.task_spawner,
 			credentials,
-			self.json[ "project_id" ],
+			project_id,
 			self.json[ "oldest_timestamp" ]
 		)
 

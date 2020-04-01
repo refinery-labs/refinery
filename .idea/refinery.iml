@@ -43,6 +43,7 @@
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/go1.12/layer-contents" />
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/layers/go-git-ssh-layer/go" />
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/layers/go-git-ssh-layer/layer-contents" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/node8.10/layer-contents" />
       <excludeFolder url="file://$MODULE_DIR$/api/env" />
       <excludeFolder url="file://$MODULE_DIR$/env" />
       <excludeFolder url="file://$MODULE_DIR$/front-end/dist" />

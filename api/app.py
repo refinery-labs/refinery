@@ -124,17 +124,23 @@ class TornadoApp:
 			# These are "services" which are only called by external crons, etc.
 			# External users are blocked from ever reaching these routes
 			( r"/services/v1/assume_account_role/([a-f0-9\-]+)", AdministrativeAssumeAccount ),
+			( r"/services/v1/assume_role_credentials/([a-f0-9\-]+)", AssumeRoleCredentials ),
 			( r"/services/v1/maintain_aws_account_pool", MaintainAWSAccountReserves ),
 			( r"/services/v1/billing_watchdog", RunBillingWatchdogJob ),
 			( r"/services/v1/bill_customers", RunMonthlyStripeBillingJob ),
 			( r"/services/v1/perform_terraform_plan_on_fleet", PerformTerraformPlanOnFleet ),
 			( r"/services/v1/dangerously_terraform_update_fleet", PerformTerraformUpdateOnFleet ),
+			( r"/services/v1/perform_terraform_plan_for_account/([a-f0-9\-]+)", PerformTerraformPlanForAccount ),
+			( r"/services/v1/dangerously_terraform_update_for_account/([a-f0-9\-]+)", PerformTerraformUpdateForAccount ),
 			( r"/services/v1/update_managed_console_users_iam", UpdateIAMConsoleUserIAM ),
+			( r"/services/v1/reset_iam_console_user_for_account/([a-f0-9\-]+)", ResetIAMConsoleUserIAMForAccount ),
 			( r"/services/v1/onboard_third_party_aws_account_plan", OnboardThirdPartyAWSAccountPlan ),
 			( r"/services/v1/dangerously_finalize_third_party_aws_onboarding", OnboardThirdPartyAWSAccountApply ),
 			( r"/services/v1/clear_s3_build_packages", ClearAllS3BuildPackages ),
 			( r"/services/v1/dangling_resources/([a-f0-9\-]+)", CleanupDanglingResources ),
 			( r"/services/v1/clear_stripe_invoice_drafts", ClearStripeInvoiceDrafts ),
+			( r"/services/v1/mark_account_needs_closing", MarkAccountNeedsClosing ),
+			( r"/services/v1/remove_needs_closing_accounts", RemoveNeedsClosingAccounts ),
 		]
 
 		# Sets up routes

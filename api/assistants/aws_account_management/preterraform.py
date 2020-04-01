@@ -10,6 +10,9 @@ from utils.general import logit
 
 from botocore.exceptions import ClientError
 
+from utils.performance_decorators import emit_runtime_metrics
+
+
 class PreterraformManager( object ):
 	"""
 	There are some steps that need to be done pre-terraform because
@@ -34,13 +37,16 @@ class PreterraformManager( object ):
 	"""
 
 	aws_client_factory = None
+	aws_cloudwatch_client = None
+	logger = None
 
 	@pinject.copy_args_to_public_fields
-	def __init__(self, aws_client_factory, loop=None):
+	def __init__(self, aws_client_factory, aws_cloudwatch_client, logger, loop=None):
 		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()
 
 	@run_on_executor
+	@emit_runtime_metrics( "preterraform__ensure_ecs_service_linked_role_exists" )
 	def ensure_ecs_service_linked_role_exists( self, credentials ):
 		return PreterraformManager._ensure_ecs_service_linked_role_exists( credentials )
 
@@ -72,6 +78,7 @@ class PreterraformManager( object ):
 		)
 
 	@run_on_executor
+	@emit_runtime_metrics( "preterraform__check_if_ecs_service_linked_role_exists" )
 	def check_if_ecs_service_linked_role_exists( self, credentials ):
 		return PreterraformManager._check_if_ecs_service_linked_role_exists( self.aws_client_factory, credentials )
 
@@ -95,6 +102,7 @@ class PreterraformManager( object ):
 		return True
 
 	@run_on_executor
+	@emit_runtime_metrics( "preterraform__create_ecs_service_linked_role" )
 	def create_ecs_service_linked_role( self, credentials ):
 		return PreterraformManager._create_ecs_service_linked_role( self.aws_client_factory, credentials )
 		

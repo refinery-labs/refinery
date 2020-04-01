@@ -1,7 +1,9 @@
 import time
+from jsonschema import validate as validate_schema
 
 import pinject
 from ansi2html import Ansi2HTMLConverter
+from botocore.exceptions import ClientError
 from sqlalchemy import or_ as sql_or
 from tornado import gen
 
@@ -33,6 +35,47 @@ class AdministrativeAssumeAccount( BaseHandler ):
 		self.redirect(
 			"/"
 		)
+
+
+class AssumeRoleCredentials( BaseHandler ):
+	def get( self, account_id=None ):
+		"""
+		For helping customers with their accounts.
+		"""
+		if not account_id:
+			self.write({
+				"success": False,
+				"msg": "You must specify a account_id via the URL (/UUID/)."
+			})
+
+		assumed_role_credentials = None
+		try:
+			# We then assume the administrator role for the sub-account we created
+			assumed_role_credentials = TaskSpawner.get_assume_role_credentials(
+				str( account_id ),
+				3600 # One hour - TODO CHANGEME
+			)
+		except ClientError as boto_error:
+			self.logger( "Assume role boto error:" + repr( boto_error ), "error" )
+			# If it's not an AccessDenied exception it's not what we except so we re-raise
+			if boto_error.response[ "Error" ][ "Code" ] != "AccessDenied":
+				self.logger( "Unexpected Boto3 response: " + boto_error.response[ "Error" ][ "Code" ] )
+				self.logger( boto_error.response )
+				raise boto_error
+
+		if assumed_role_credentials:
+			self.write({
+				"success": True,
+				"access_key_id": assumed_role_credentials[ "access_key_id" ],
+				"secret_access_key": assumed_role_credentials[ "secret_access_key" ],
+				"session_token": assumed_role_credentials[ "session_token" ]
+			})
+			return
+
+		self.write({
+			"success": False,
+			"msg": "Unable to get assume role credentials for provided account"
+		})
 
 
 class UpdateIAMConsoleUserIAM( BaseHandler ):
@@ -456,8 +499,8 @@ class MaintainAWSAccountReserves( BaseHandler ):
 					"MANAGED",
 					False
 				)
-			except:
-				self.logger( "An error occurred while creating an AWS sub-account.", "error" )
+			except Exception as e:
+				self.logger( "An error occurred while creating an AWS sub-account: " + repr(e), "error" )
 				pass
 
 		dbsession.close()
@@ -566,6 +609,171 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 		)
 
 		dbsession.close()
+
+
+class PerformTerraformPlanForAccount( BaseHandler ):
+	@gen.coroutine
+	def get( self, account_id=None ):
+		"""
+		This endpoint will perform a Terraform Plan and return the results synchronously.
+		"""
+
+		if not account_id:
+			self.write({
+				"success": False,
+				"msg": "Please provide an 'account_id' to terraform plan for"
+			})
+			raise gen.Return()
+
+		dbsession = self.db_session_maker()
+		aws_account = dbsession.query( AWSAccount ).filter(
+			AWSAccount.account_id == account_id
+		).filter(
+			sql_or(
+				AWSAccount.aws_account_status == "IN_USE",
+				AWSAccount.aws_account_status == "AVAILABLE",
+				)
+		).first()
+
+		if aws_account is None:
+			msg = "Could not find account to Terraform plan for: " + account_id
+			self.logger( msg, "error" )
+			self.write({
+				"success": False,
+				"msg": msg
+			})
+			raise gen.Return()
+
+		aws_account_dict = aws_account.to_dict()
+
+		response_html_template = """
+		<html>
+		<body>
+			<h1>Terraform Plan Result for Account: {}</h1>
+			Please note that this is <b>not</b> applying these changes.
+			It is purely to understand what would happen if we did.
+			<hr />
+			<h3>Output</h3>
+			<p>{}</p>
+		</body>
+		</html>
+		"""
+
+		dbsession.close()
+
+		self.logger( "Performing a terraform plan for AWS account: " + str( account_id ) )
+		terraform_plan_output = yield self.task_spawner.terraform_plan(
+			aws_account_dict
+		)
+
+		# Convert terraform plan terminal output to HTML
+		ansiconverter = Ansi2HTMLConverter()
+		terraform_output_html = ansiconverter.convert(
+			terraform_plan_output
+		)
+
+		rendered_html_output = response_html_template.format(
+			account_id,
+			terraform_output_html
+		)
+
+		self.logger( "Generated response output for plan: " + rendered_html_output )
+		self.write( rendered_html_output )
+
+
+class PerformTerraformUpdateForAccount( BaseHandler ):
+	@gen.coroutine
+	def get( self, account_id=None ):
+
+		if not account_id:
+			self.write({
+				"success": False,
+				"msg": "Please provide an 'account_id' to terraform apply for"
+			})
+			raise gen.Return()
+
+		dbsession = self.db_session_maker()
+		aws_account = dbsession.query( AWSAccount ).filter(
+			AWSAccount.account_id == account_id
+		).filter(
+			sql_or(
+				AWSAccount.aws_account_status == "IN_USE",
+				AWSAccount.aws_account_status == "AVAILABLE",
+				)
+		).first()
+
+		if aws_account is None:
+			msg = "Could not find account to Terraform apply for: " + account_id
+			self.logger( msg, "error" )
+			self.write({
+				"success": False,
+				"msg": msg
+			})
+			raise gen.Return()
+
+		aws_account_dict = aws_account.to_dict()
+
+		dbsession.close()
+
+		response_html_template = """
+		<html>
+		<body>
+			<h1>Terraform Apply Results for Account {}</h1>
+			<h2>Result: {}</h2>
+			<p>{}</p>
+		</body>
+		</html>
+		"""
+
+		self.logger( "Running 'terraform apply' for AWS Account " + account_id )
+		terraform_apply_results = yield self.task_spawner.terraform_apply(
+			aws_account_dict
+		)
+
+		# Write the old terraform version to the database
+		self.logger( "Updating current tfstate for the AWS account..." )
+
+		dbsession = self.db_session_maker()
+		current_aws_account = dbsession.query( AWSAccount ).filter(
+			AWSAccount.account_id == account_id,
+			).first()
+
+		previous_terraform_state = TerraformStateVersion()
+		previous_terraform_state.aws_account_id = current_aws_account.id
+		previous_terraform_state.terraform_state = terraform_apply_results[ "original_tfstate" ]
+		current_aws_account.terraform_state_versions.append(
+			previous_terraform_state
+		)
+
+		# Update the current terraform state as well.
+		current_aws_account.terraform_state = terraform_apply_results[ "new_tfstate" ]
+
+		dbsession.add( current_aws_account )
+		dbsession.commit()
+		dbsession.close()
+
+		# Convert terraform plan terminal output to HTML
+		ansiconverter = Ansi2HTMLConverter()
+
+		if terraform_apply_results[ "success" ]:
+			terraform_output_html = ansiconverter.convert(
+				terraform_apply_results[ "stdout" ]
+			)
+		else:
+			terraform_output_html = ansiconverter.convert(
+				terraform_apply_results[ "stderr" ]
+			)
+
+		rendered_html_output = response_html_template.format(
+			account_id,
+			"[ APPLY SUCCEEDED ]" if terraform_apply_results[ "success" ] else "[ APPLY FAILED ]",
+			terraform_output_html
+		)
+
+		self.logger( "Results from account 'terraform apply': " + rendered_html_output )
+
+		self.write( rendered_html_output )
+
 
 class PerformTerraformPlanOnFleet( BaseHandler ):
 	@gen.coroutine
@@ -795,3 +1003,107 @@ class ClearStripeInvoiceDrafts( BaseHandler ):
 			"success": True,
 			"msg": "Invoice drafts have been cleared!"
 		})
+
+
+class ResetIAMConsoleUserIAMForAccount( BaseHandler ):
+	@gen.coroutine
+	def get( self, account_id=None ):
+		"""
+		This blows away all the IAM policies for a specific AWS account and updates it with the latest policy.
+		"""
+
+		# Get AWS account ID
+		account_id = self.get_argument(
+			"account_id",
+			default=None,
+			strip=True
+		)
+
+		if not account_id:
+			self.write({
+				"success": False,
+				"msg": "Please provide an 'account_id' to reset the IAM Console user"
+			})
+			raise gen.Return()
+
+		dbsession = self.db_session_maker()
+		aws_account_result = dbsession.query( AWSAccount ).filter(
+			AWSAccount.account_id == account_id
+		).filter(
+			sql_or(
+				AWSAccount.aws_account_status == "IN_USE",
+				AWSAccount.aws_account_status == "AVAILABLE",
+				)
+		).first()
+
+		if aws_account_result is None:
+			msg = "Could not find account to reset IAM for: " + account_id
+			self.logger( msg, "error" )
+			self.write({
+				"success": False,
+				"msg": msg
+			})
+			raise gen.Return()
+
+		aws_account_dict = aws_account_result.to_dict()
+
+		dbsession.close()
+
+		self.logger( "Updating console account for single AWS account ID " + aws_account_dict[ "account_id" ] + "...")
+		yield self.task_spawner.recreate_aws_console_account(
+			aws_account_dict,
+			False,
+			# We set this flag so that if the user was deleted, it will be recreated
+			force_continue=True
+		)
+
+		self.logger( "AWS console account updated successfully for account: " + account_id )
+
+		self.write({
+			"success": True,
+			"msg": "Console user successfully updated for: " + account_id
+		})
+		self.finish()
+
+
+class MarkAccountNeedsClosing( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Mark an account as "NEEDS_CLOSING" so that it can be
+		cleaned up when aws accounts are being reaped.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"email": {
+					"type": "string",
+					"pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
+				}
+			},
+			"required": [
+				"email"
+			]
+		}
+
+		validate_schema( self.json, schema )
+
+		ok = yield self.task_spawner.mark_account_needs_closing(self.json['email'])
+
+		self.write({
+			"ok": ok,
+		})
+
+
+class RemoveNeedsClosingAccounts( BaseHandler ):
+	@gen.coroutine
+	def get( self ):
+		"""
+		Removes accounts which have been marked as 'NEEDS_CLOSING'
+		"""
+		removed_count = yield self.task_spawner.do_account_cleanup()
+
+		self.write({
+			"removed": removed_count,
+		})
+

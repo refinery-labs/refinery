@@ -119,7 +119,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     e.preventDefault();
     await this.saveBlock();
 
-    CreateSavedBlockViewStoreModule.openModal(SavedBlockSaveType.CREATE);
+    await CreateSavedBlockViewStoreModule.openModal(SavedBlockSaveType.CREATE);
   }
 
   public async beginForkBlockClicked(e: Event) {

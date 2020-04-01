@@ -14,6 +14,11 @@ from models.aws_accounts import AWSAccount
 from models.organizations import Organization
 
 from utils.general import logit
+from utils.locker import Locker
+
+CSRF_EXEMPT_ENDPOINTS = [
+	"/services/v1/mark_account_needs_closing"
+]
 
 
 class TornadoBaseHandlerInjectionMixin:
@@ -74,8 +79,11 @@ class BaseHandler( TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler 
 		# For caching the user's aws credentials
 		self.user_aws_credentials = None
 
-		# Pull list of allowed Access-Control-Allow-Origin values from environment var
+		self._dbsession = None
+
 		self.allowed_origins = json.loads( self.app_config.get( "access_control_allow_origins" ) )
+
+		self.task_locker = Locker( "refinery" )
 
 	@property
 	def dbsession( self ):
@@ -265,7 +273,8 @@ class BaseHandler( TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler 
 			False
 		)
 
-		if not csrf_validated and self.request.method != "OPTIONS" and self.request.method != "GET":
+		if not csrf_validated and self.request.method != "OPTIONS" and \
+				self.request.method != "GET" and not self.request.path in CSRF_EXEMPT_ENDPOINTS:
 			self.error(
 				"No CSRF validation header supplied!",
 				"INVALID_CSRF"

@@ -7,7 +7,8 @@ from utils.general import logit
 
 @gen.coroutine
 def clear_sub_account_packages( task_spawner, credentials ):
-	while True:
+	# Delete up to 1000 pages of packages
+	for _ in xrange(1000):
 		package_paths = yield task_spawner.get_build_packages(
 			credentials,
 			"",

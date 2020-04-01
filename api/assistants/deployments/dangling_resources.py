@@ -1,9 +1,6 @@
-import traceback
 import functools
 import tornado
-import boto3
 import copy
-import time
 import json
 import re
 
@@ -15,6 +12,8 @@ from tornado import gen
 
 from models.users import User
 from models.initiate_database import *
+from utils.performance_decorators import emit_runtime_metrics
+
 
 @gen.coroutine
 def get_user_dangling_resources( aws_resource_enumerator, db_session_maker, user_id, credentials ):
@@ -48,6 +47,7 @@ def get_user_dangling_resources( aws_resource_enumerator, db_session_maker, user
 
 	raise gen.Return( dangling_resources )
 
+
 def get_arns_from_deployment_diagram( deployment_schema ):
 	deployed_arns = []
 
@@ -58,6 +58,7 @@ def get_arns_from_deployment_diagram( deployment_schema ):
 			)
 
 	return deployed_arns
+
 
 def get_arns_from_deployment_diagrams( deployment_schemas_list ):
 	all_deployed_arns = []
@@ -70,6 +71,7 @@ def get_arns_from_deployment_diagrams( deployment_schemas_list ):
 		all_deployed_arns = all_deployed_arns + deployed_arns
 
 	return all_deployed_arns
+
 
 def convert_type_to_teardown_node_type( input_type ):
 	"""
@@ -88,11 +90,14 @@ def convert_type_to_teardown_node_type( input_type ):
 
 	return input_type
 
+
 class AwsResourceEnumerator( object ):
 	aws_client_factory = None
+	aws_cloudwatch_client = None
+	logger = None
 
 	@pinject.copy_args_to_public_fields
-	def __init__(self, aws_client_factory, loop=None):
+	def __init__(self, aws_client_factory, aws_cloudwatch_client, logger, loop=None):
 		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()
 	
@@ -217,6 +222,7 @@ class AwsResourceEnumerator( object ):
 		raise gen.Return( all_resources_list )
 
 	@run_on_executor
+	@emit_runtime_metrics( "dangling_resources__iterate_list_pages" )
 	def iterate_list_pages( self, credentials, client_type, list_function, marker_name, next_marker_name, result_key, arn_key, extra_options ):
 		"""
 		client_type: Type of resource being listed (e.g. "sns", "lambda")
@@ -282,6 +288,7 @@ class AwsResourceEnumerator( object ):
 		return return_list
 
 	@run_on_executor
+	@emit_runtime_metrics( "dangling_resources__get_all_sqs_queues" )
 	def get_all_sqs_queues( self, credentials ):
 		sqs_client = self.aws_client_factory.get_aws_client(
 			"sqs",
