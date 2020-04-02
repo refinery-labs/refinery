@@ -6,6 +6,7 @@ import traceback
 import uuid
 
 import yaml
+import yaml.parser
 
 from tornado.concurrent import run_on_executor, futures
 
@@ -24,9 +25,12 @@ LANGUAGE_TO_EXT = {
 }
 
 BLOCK_CODE_FILENAME = "block_code"
+LAMBDA_CONFIG_FILENAME = "config.yaml"
+
 
 class RepoCompilationException(Exception):
 	pass
+
 
 class ProjectRepoAssistant:
 
@@ -34,49 +38,57 @@ class ProjectRepoAssistant:
 		self.logger = logger
 		self.executor = futures.ThreadPoolExecutor( 60 )
 
-	def parse_lambda( self, git_url, lambda_path ):
-		def get_file_contents(path, parse_yaml=False):
-			if not os.path.exists(path):
-				self.logger("Unable to find file {} for block: {} in {}".format( path, lambda_path, git_url ) )
-				return
-
-			try:
-				with open(path, "rb") as f:
-					if parse_yaml:
-						return yaml.safe_load(f)
-					else:
-						return f.read()
-			except ValueError as e:
-				self.logger("Unable to parse {} for block: {} in {}".format( path, lambda_path, git_url ) )
-				return None
-
-		block_config_path = os.path.join( lambda_path, "config.yaml" )
-		block_config_yaml = get_file_contents(block_config_path, parse_yaml=True)
-
-		if block_config_yaml is None:
-			self.logger("Unable to get get block config for {} in {}".format( lambda_path, git_url ) )
+	def get_file_contents(self, path, parse_yaml=False):
+		if not os.path.exists(path):
+			self.logger("Unable to find file {}".format(path))
 			return None
 
-		if "language" not in block_config_yaml:
-			self.logger("No language set in block {} in {}".format( lambda_path, git_url ) )
-			return
+		try:
+			# TODO set file size limit
 
-		ext = LANGUAGE_TO_EXT[ block_config_yaml[ "language" ] ]
+			with open(path, "rb") as f:
+				if parse_yaml:
+					return yaml.safe_load(f)
+				else:
+					return f.read()
+		except yaml.parser.ParserError as e:
+			self.logger("Unable to parse {}".format(path))
+			return None
+
+	def load_lambda_code( self, lambda_path, block_config_yaml ):
+
+		if "language" not in block_config_yaml:
+			raise RepoCompilationException("No language set in block {}".format( lambda_path ) )
+		block_config_language = block_config_yaml[ "language" ]
+
+		ext = LANGUAGE_TO_EXT[ block_config_language ]
 		block_code_filename = "{}.{}".format(BLOCK_CODE_FILENAME, ext)
 
 		block_code_path = os.path.join( lambda_path, block_code_filename )
-		block_code = get_file_contents(block_code_path)
+		return self.get_file_contents(block_code_path)
 
+	def parse_lambda( self, lambda_path ):
+
+		# load lambda's config
+		block_config_path = os.path.join( lambda_path, LAMBDA_CONFIG_FILENAME )
+		block_config_yaml = self.get_file_contents(block_config_path, parse_yaml=True)
+		if block_config_yaml is None:
+			raise RepoCompilationException("Unable to get get block config for {}".format( lambda_path ) )
+
+		block_code = self.load_lambda_code(lambda_path, block_config_path)
 		if block_code is None:
-			self.logger("Unable to get get block code for {} in {}".format( lambda_path, git_url ) )
-			return None
-
-		block_config_yaml[ "code" ] = block_code
+			raise RepoCompilationException("Unable to get get block code for {}".format( lambda_path ) )
 
 		# set an id if not set
-		if "id" not in block_config_yaml:
-			block_config_yaml[ "id" ] = str(uuid.uuid4())
+		block_config_id = str(uuid.uuid4())
+		if "id" in block_config_yaml:
+			block_config_id = block_config_yaml["id"]
 
+		# merge loaded config with compiled values
+		block_config_yaml.update({
+			"id": block_config_id,
+			"code": block_code
+		})
 		return block_config_yaml
 
 	@run_on_executor
