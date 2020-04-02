@@ -38,6 +38,7 @@ class AdministrativeAssumeAccount( BaseHandler ):
 
 
 class AssumeRoleCredentials( BaseHandler ):
+	@gen.coroutine
 	def get( self, account_id=None ):
 		"""
 		For helping customers with their accounts.
@@ -51,7 +52,7 @@ class AssumeRoleCredentials( BaseHandler ):
 		assumed_role_credentials = None
 		try:
 			# We then assume the administrator role for the sub-account we created
-			assumed_role_credentials = TaskSpawner.get_assume_role_credentials(
+			assumed_role_credentials = yield self.task_spawner.get_assume_role_credentials(
 				str( account_id ),
 				3600 # One hour - TODO CHANGEME
 			)
@@ -70,7 +71,7 @@ class AssumeRoleCredentials( BaseHandler ):
 				"secret_access_key": assumed_role_credentials[ "secret_access_key" ],
 				"session_token": assumed_role_credentials[ "session_token" ]
 			})
-			return
+			raise gen.Return()
 
 		self.write({
 			"success": False,

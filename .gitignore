@@ -4,7 +4,8 @@ env/
 *.pyc
 tmp/
 elastic-beanstack-package.zip
-docker-compose.yml
+docker-*.yml
+docker-*.yaml
 install/config.yaml
 front-end/node_modules/
 auto-reload.sh
