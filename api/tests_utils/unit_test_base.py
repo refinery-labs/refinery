@@ -4,6 +4,7 @@ import sys
 
 import pinject
 from sqlalchemy import create_engine
+from sqlalchemy.testing import mock
 
 from app import TornadoApp
 from config.provider import load_app_config
@@ -12,6 +13,8 @@ from models.initiate_database import create_scoped_db_session_maker, Base
 from tests_utils.hypothesis_unit_test_base import HypothesisUnitTestBase
 import pkg_resources
 
+from tests_utils.mocks.aws import MockAWSDependencies
+from tests_utils.mocks.task_spawner import MockTaskSpawner
 from utils.general import UtilsBindingSpec, print_object_graph
 
 
@@ -85,7 +88,12 @@ class ServerUnitTestBase( HypothesisUnitTestBase ):
 
 	app_object_graph = None
 
+	def setUp( self ):
+		self._patched_task_spawner = mock.patch('assistants.task_spawner.task_spawner_assistant.TaskSpawner', autospec=True)
+		super(ServerUnitTestBase, self).setUp()
+
 	def tearDown(self):
+		self._patched_task_spawner.stop()
 		self.dbsession.close()
 
 	@staticmethod
@@ -133,8 +141,11 @@ class ServerUnitTestBase( HypothesisUnitTestBase ):
 		Creates an instance of the app for the Tornado test base
 		:return:
 		"""
+
 		common_specs = [
+			MockAWSDependencies(),
 			MockDatabaseBindingSpec(),
+			MockTaskSpawner(self._patched_task_spawner),
 			TestConfigBindingSpec(),
 			UtilsBindingSpec()
 		]
