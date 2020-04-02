@@ -1,4 +1,5 @@
 env/
+api/config/*.yaml
 *.yml
 !buildspec.yml
 *.pyc
