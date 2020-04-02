@@ -19,6 +19,7 @@ import {
 const Path = require('path');
 const fs = require('fs');
 const slugify = require('slugify');
+const yaml = require('js-yaml');
 
 function getFolderName(name: string) {
   return slugify(name).toLowerCase();
@@ -49,16 +50,17 @@ function makeDirExist(dir: string) {
   }
 }
 
-function lambdaConfigReplacer(key: string, value: any) {
-  if (key === 'code') {
-    return undefined;
-  }
-  return value;
+function writeConfig(out: string, data: any) {
+  const serializedConfig = yaml.safeDump(data);
+  fs.writeFileSync(out, serializedConfig);
 }
 
-function writeConfig(out: string, data: any, replacer?: (this: any, key: string, value: any) => any) {
-  const serializedConfig = JSON.stringify(data, replacer, 2);
-  fs.writeFileSync(out, serializedConfig);
+function getLambdaDir(lambdaDir: string, lambdaId: string): string {
+  if (fs.existsSync(lambdaDir)) {
+    const firstPartOfId = lambdaId.split('-')[0];
+    return `${lambdaDir}-${firstPartOfId}`;
+  }
+  return lambdaDir;
 }
 
 function handleLambda(projectDir: string, project: RefineryProject, workflowState: WorkflowState): string | null {
@@ -68,8 +70,11 @@ function handleLambda(projectDir: string, project: RefineryProject, workflowStat
   makeDirExist(typePath);
 
   const blockDir = getFolderName(lambda.name);
-  const lambdaDir = Path.join(typePath, blockDir);
-  resetDir(lambdaDir);
+
+  // check if we have a name collision with an existing lambda
+  // if so, we append the first part of the idea to the folder name
+  const lambdaDir = getLambdaDir(Path.join(typePath, blockDir), lambda.id);
+  makeDirExist(lambdaDir);
 
   const config = createDownloadZipConfig(project, lambda);
   const filesToZip = convertProjectDownloadZipConfigToFileList(config);
@@ -79,8 +84,11 @@ function handleLambda(projectDir: string, project: RefineryProject, workflowStat
     fs.writeFileSync(path, file.contents);
   });
 
-  const lambdaConfig = Path.join(lambdaDir, 'config.json');
-  writeConfig(lambdaConfig, lambda, lambdaConfigReplacer);
+  // remove code from the config since we are tracking it via the file system
+  delete lambda['code'];
+
+  const lambdaConfig = Path.join(lambdaDir, 'config.yaml');
+  writeConfig(lambdaConfig, lambda);
 
   return lambdaDir;
 }
@@ -169,7 +177,7 @@ function saveProjectToRepo(projectDir: string, project: RefineryProject) {
   // we have handled workflow_file_links
   project.workflow_file_links = [];
 
-  const projectConfig = Path.join(projectDir, 'project.json');
+  const projectConfig = Path.join(projectDir, 'project.yaml');
   writeConfig(projectConfig, project);
 }
 

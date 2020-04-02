@@ -2,18 +2,15 @@ import os
 import json
 import shutil
 import tempfile
-import hashlib
 import traceback
 import uuid
 
-from tornado import gen
+import yaml
+
 from tornado.concurrent import run_on_executor, futures
 
 from git import Repo
 
-from models.project_versions import ProjectVersion
-from models.saved_block import SavedBlock
-from models.saved_block_version import SavedBlockVersion
 from models.git_repo import GitRepo
 
 LANGUAGE_TO_EXT = {
@@ -38,33 +35,33 @@ class ProjectRepoAssistant:
 		self.executor = futures.ThreadPoolExecutor( 60 )
 
 	def parse_lambda( self, git_url, lambda_path ):
-		def get_file_contents(path, parse_json=False):
+		def get_file_contents(path, parse_yaml=False):
 			if not os.path.exists(path):
 				self.logger("Unable to find file {} for block: {} in {}".format( path, lambda_path, git_url ) )
 				return
 
 			try:
 				with open(path, "rb") as f:
-					if parse_json:
-						return json.load(f)
+					if parse_yaml:
+						return yaml.safe_load(f)
 					else:
 						return f.read()
 			except ValueError as e:
 				self.logger("Unable to parse {} for block: {} in {}".format( path, lambda_path, git_url ) )
 				return None
 
-		block_config_path = os.path.join( lambda_path, "config.json" )
-		block_config_json = get_file_contents(block_config_path, parse_json=True)
+		block_config_path = os.path.join( lambda_path, "config.yaml" )
+		block_config_yaml = get_file_contents(block_config_path, parse_yaml=True)
 
-		if block_config_json is None:
+		if block_config_yaml is None:
 			self.logger("Unable to get get block config for {} in {}".format( lambda_path, git_url ) )
 			return None
 
-		if "language" not in block_config_json:
+		if "language" not in block_config_yaml:
 			self.logger("No language set in block {} in {}".format( lambda_path, git_url ) )
 			return
 
-		ext = LANGUAGE_TO_EXT[ block_config_json[ "language" ] ]
+		ext = LANGUAGE_TO_EXT[ block_config_yaml[ "language" ] ]
 		block_code_filename = "{}.{}".format(BLOCK_CODE_FILENAME, ext)
 
 		block_code_path = os.path.join( lambda_path, block_code_filename )
@@ -74,13 +71,13 @@ class ProjectRepoAssistant:
 			self.logger("Unable to get get block code for {} in {}".format( lambda_path, git_url ) )
 			return None
 
-		block_config_json[ "code" ] = block_code
+		block_config_yaml[ "code" ] = block_code
 
 		# set an id if not set
-		if "id" not in block_config_json:
-			block_config_json[ "id" ] = str(uuid.uuid4())
+		if "id" not in block_config_yaml:
+			block_config_yaml[ "id" ] = str(uuid.uuid4())
 
-		return block_config_json
+		return block_config_yaml
 
 	@run_on_executor
 	def compile_and_upsert_project_repo( self, dbsession, user_id, project_id, git_url ):
@@ -132,12 +129,12 @@ class ProjectRepoAssistant:
 			"workflow_states": []
 		}
 		try:
-			project_config_file_name = os.path.join(repo_dir, "project.json")
+			project_config_file_name = os.path.join(repo_dir, "project.yaml")
 			if not os.path.exists(project_config_file_name):
-				raise RepoCompilationException("unable to find project.json")
+				raise RepoCompilationException("unable to find project.yaml")
 
 			with open(project_config_file_name, "rb") as opened_project_config:
-				refinery_project.update(json.load(opened_project_config))
+				refinery_project.update(yaml.safe_load(opened_project_config))
 
 			shared_file_dir = os.path.join(repo_dir, "shared-files")
 			if os.path.isdir(shared_file_dir):
