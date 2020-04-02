@@ -44,7 +44,11 @@ class GithubOAuthProvider:
 	# Since we only need email address
 	scope = "user:email"
 
-	def __init__( self, client_id, client_secret, cookie_expire_days, logger ):
+	def __init__( self, app_config, logger ):
+
+		client_id = app_config.get( "github_client_id" ),
+		client_secret = app_config.get( "github_client_secret" ),
+		cookie_expire_days = app_config.get( "cookie_expire_days" ),
 
 		if client_id is None or client_secret is None:
 			raise Exception( "Missing client credentials for Github OAuth API" )

@@ -1,11 +1,10 @@
+import pinject
 from tornado import gen
 
 from assistants.user_creation_assistant import UserCreationAssistant
 from controller.base import BaseHandler
 from controller.auth.github.exceptions import GithubOAuthException, BadRequestStateException
 from controller.auth.github.oauth_provider import GithubOAuthProvider
-from controller.auth.oauth_user_data import OAuthUserData
-from services.user_management.user_management_service import UserManagementService
 
 # Example data returned by Github
 # {
@@ -42,27 +41,24 @@ from services.user_management.user_management_service import UserManagementServi
 #   "login": "freeqaz"
 # }
 
-
-# Disable linter rules because Tornado is special
-# noinspection PyMethodOverriding, PyAttributeOutsideInit
-class AuthenticateWithGithub( BaseHandler ):
-
-	# Hook point for Tornado to inject dependencies
-	def initialize(
-			self,
-			dependencies
-		):
+class AuthenticateWithGithubDependencies:
+	@pinject.copy_args_to_public_fields
+	def __init__(self, github_oauth_provider, user_creation_assistant):
 		"""
 		Called by Tornado with dependencies for this service to run.
 		:param github_oauth_provider: Instance of GithubOAuthProvider
 		:type github_oauth_provider: GithubOAuthProvider
-		:param logger: Instance of a logger to be used by the class
 		:param user_creation_assistant: Instance of UserCreationAssistant
 		:type user_creation_assistant: UserCreationAssistant
 		"""
-		self.github_oauth_provider = dependencies.github_oauth_provider
-		self.logger = dependencies.logger
-		self.user_creation_assistant = dependencies.user_creation_assistant
+		pass
+
+
+# noinspection PyMethodOverriding, PyAttributeOutsideInit
+class AuthenticateWithGithub( BaseHandler ):
+	dependencies = AuthenticateWithGithubDependencies
+	github_oauth_provider = None
+	user_creation_assistant = None
 
 	@gen.coroutine
 	def get( self ):

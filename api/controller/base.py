@@ -2,6 +2,8 @@
 import tornado.web
 import json
 import time
+import traceback
+import inspect
 
 from tornado import gen
 
@@ -12,17 +14,53 @@ from models.aws_accounts import AWSAccount
 from models.organizations import Organization
 
 from utils.general import logit
+from utils.locker import Locker
 
-# Pull list of allowed Access-Control-Allow-Origin values from environment var
-allowed_origins = json.loads( os.environ.get( "access_control_allow_origins" ) )
+CSRF_EXEMPT_ENDPOINTS = [
+	"/services/v1/mark_account_needs_closing"
+]
 
 
-class BaseHandler( tornado.web.RequestHandler ):
-	# Useful for mocking the database in tests
-	_test_dbsession = None
+class TornadoBaseHandlerInjectionMixin:
+	dependencies = None
+
+	@staticmethod
+	def set_object_deps(object_graph, obj, dep_class):
+		provided_deps = object_graph.provide(dep_class)
+		for name, dep in provided_deps.__dict__.iteritems():
+			setattr(obj, name, dep)
+
+	def initialize( self, **kwargs ):
+		object_graph = kwargs[ "object_graph" ]
+
+		if self.dependencies != BaseHandler.dependencies:
+			self.set_object_deps(object_graph, self, BaseHandler.dependencies)
+		self.set_object_deps(object_graph, self, self.dependencies)
+
+
+class BaseHandlerDependencies:
+	@pinject.copy_args_to_public_fields
+	def __init__( self, logger, db_session_maker, app_config, task_spawner ):
+		pass
+
+
+class BaseHandler( TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler ):
+	dependencies = BaseHandlerDependencies
+	logger = None
+	db_session_maker = None
+	app_config = None
+	task_spawner = None
+
+	_dbsession = None
+	json = None
+	allowed_origins = None
 
 	def __init__( self, *args, **kwargs ):
 		super( BaseHandler, self ).__init__( *args, **kwargs )
+
+		if self.initialize != BaseHandler.initialize:
+			BaseHandler.initialize(self, **kwargs)
+
 		self.set_header( "Access-Control-Allow-Headers", "Content-Type, X-CSRF-Validation-Header" )
 		self.set_header( "Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD" )
 		self.set_header( "Access-Control-Allow-Credentials", "true" )
@@ -43,13 +81,14 @@ class BaseHandler( tornado.web.RequestHandler ):
 
 		self._dbsession = None
 
+		self.allowed_origins = json.loads( self.app_config.get( "access_control_allow_origins" ) )
+
+		self.task_locker = Locker( "refinery" )
+
 	@property
 	def dbsession( self ):
-		if self._test_dbsession is not None:
-			return self._test_dbsession
-
 		if self._dbsession is None:
-			self._dbsession = DBSession()
+			self._dbsession = self.db_session_maker()
 
 		return self._dbsession
 		
@@ -61,7 +100,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 				"user_id": user_id,
 				"created_at": int( time.time() ),
 			}),
-			expires_days=int( os.environ.get( "cookie_expire_days" ) )
+			expires_days=int( self.app_config.get( "cookie_expire_days" ) )
 		)
 		
 	def is_owner_of_project( self, project_id ):
@@ -134,8 +173,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 		return user_org
 		
 	def get_authenticated_user_id( self ):
-
-		session_data = self.get_secure_session_data(int( os.environ.get( "cookie_expire_days" ) ))
+		session_data = self.get_secure_session_data(int( self.app_config.get( "cookie_expire_days" ) ))
 		
 		if not session_data or "user_id" not in session_data:
 			return None
@@ -150,7 +188,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 			# Force check that the user re-auths within one day
 			short_lifespan_session_data = self.get_secure_session_data(17)
 
-			logit( "User with manual shortened lifespan: " + session_data[ "user_id" ])
+			self.logger( "User with manual shortened lifespan: " + session_data[ "user_id" ])
 
 			if not short_lifespan_session_data or "user_id" not in short_lifespan_session_data:
 				return None
@@ -160,13 +198,16 @@ class BaseHandler( tornado.web.RequestHandler ):
 	def get_secure_session_data( self, cookie_expiration_days ):
 		# Retrieves data from the session cookie
 		session_data = self.get_secure_cookie_data( "session", cookie_expiration_days )
+		if session_data is None:
+			self.logger("Unable to get session data", "warning")
+			return None
 
 		try:
 			return json.loads(
 				session_data
 			)
 		except ValueError as e:
-			logit("Unable to deserialize session data: " + repr(e), "warning")
+			self.logger("Unable to deserialize session data: " + repr(e), "warning")
 			return None
 
 	def get_secure_cookie_data( self, cookie_name, cookie_expiration_days ):
@@ -220,7 +261,7 @@ class BaseHandler( tornado.web.RequestHandler ):
 			elif services_auth_param:
 				service_secret = services_auth_param
 				
-			if os.environ.get( "service_shared_secret" ) != service_secret:
+			if self.app_config.get( "service_shared_secret" ) != service_secret:
 				self.error(
 					"You are hitting a service URL, you MUST provide the shared secret in either a 'secret' parameter or the 'X-Service-Secret' header to use this.",
 					"ACCESS_DENIED_SHARED_SECRET_REQUIRED"
@@ -232,7 +273,8 @@ class BaseHandler( tornado.web.RequestHandler ):
 			False
 		)
 
-		if not csrf_validated and self.request.method != "OPTIONS" and self.request.method != "GET":
+		if not csrf_validated and self.request.method != "OPTIONS" and \
+				self.request.method != "GET" and not self.request.path in CSRF_EXEMPT_ENDPOINTS:
 			self.error(
 				"No CSRF validation header supplied!",
 				"INVALID_CSRF"
@@ -245,11 +287,11 @@ class BaseHandler( tornado.web.RequestHandler ):
 
 			# Identify if the request is coming from a domain that is in the whitelist
 			# If it is, set the necessary CORS response header to allow the request to succeed.
-			if host_header in allowed_origins:
+			if host_header in self.allowed_origins:
 				self.set_header( "Access-Control-Allow-Origin", host_header )
 
 		self.json = False
-		
+
 		if self.request.body:
 			try:
 				json_data = json.loads(self.request.body)

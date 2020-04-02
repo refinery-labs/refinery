@@ -35,6 +35,7 @@ class AWSAccount( Base ):
 	# NEEDS_CLOSING: The AWS account is no longer used and
 	# needs to be manually closed.
 	# CORRUPT: The AWS account is in a broken state due to an
+	# CLOSED: The AWS account has been closed.
 	# issue with the Terraform setup/provisioning.
 	aws_account_status = Column(Text())
 	

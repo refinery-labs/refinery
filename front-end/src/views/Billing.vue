@@ -22,7 +22,10 @@
                   <div class="table-responsive">
                     <table class="table table-striped table-bordered table-hover">
                       <tbody>
-                        <tr v-for="BillChargeItem in serviceBillingBreakDownArray" v-bind:key="BillChargeItem">
+                        <tr
+                          v-for="(BillChargeItem, index) in serviceBillingBreakDownArray"
+                          v-bind:key="item - { index }"
+                        >
                           <td class="text-align--left">{{ BillChargeItem.service_name }}</td>
                           <td class="text-align--right">${{ BillChargeItem.total }}</td>
                         </tr>
@@ -51,7 +54,7 @@
                   <div class="table-responsive">
                     <table class="table table-striped table-bordered table-hover">
                       <tbody>
-                        <tr v-for="paymentMethod in paymentMethods" v-bind:key="paymentMethod">
+                        <tr v-for="paymentMethod in paymentMethods" v-bind:key="paymentMethod.id">
                           <td>
                             <div class="media align-items-center">
                               <div class="media-body d-flex">
