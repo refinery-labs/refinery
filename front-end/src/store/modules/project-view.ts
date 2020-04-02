@@ -39,6 +39,8 @@ import {
   GetProjectConfigRequest,
   GetProjectConfigResponse,
   GetSavedProjectRequest,
+  ImportProjectRepoRequest,
+  ImportProjectRepoResponse,
   SaveProjectConfigRequest,
   SaveProjectConfigResponse,
   SaveProjectRequest,
@@ -70,7 +72,13 @@ import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
 import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
-import { createShortlink, deployProject, openProject, teardownProject } from '@/store/fetchers/api-helpers';
+import {
+  createShortlink,
+  deployProject,
+  importProjectRepo,
+  openProject,
+  teardownProject
+} from '@/store/fetchers/api-helpers';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
 import { addAPIBlocksToProject, createNewBlock, createNewTransition } from '@/utils/block-utils';
 import { saveEditBlockToProject } from '@/utils/store-utils';
@@ -122,6 +130,7 @@ const moduleState: ProjectViewState = {
     [SIDEBAR_PANE.exportProject]: {},
     [SIDEBAR_PANE.deployProject]: {},
     [SIDEBAR_PANE.saveProject]: {},
+    [SIDEBAR_PANE.importProjectRepo]: {},
     [SIDEBAR_PANE.editBlock]: {},
     [SIDEBAR_PANE.editTransition]: {},
     [SIDEBAR_PANE.viewApiEndpoints]: {},
@@ -329,6 +338,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const compressedData = LZString.compressToEncodedURIComponent(JSON.stringify(rest));
 
       return `https://app.refinery.io/import#${compressedData}`;
+    },
+    [ProjectViewGetters.isProjectRepoSet]: state => {
+      return state.openedProjectConfig && state.openedProjectConfig.project_repo;
     }
   },
   mutations: {
@@ -798,6 +810,36 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       context.commit(ProjectViewMutators.setLatestDeploymentState, latestDeploymentResponse);
     },
+    async [ProjectViewActions.importProjectRepo](context) {
+      const handleSaveError = async (message: string) => {
+        console.error(message);
+        await createToast(context.dispatch, {
+          title: 'Import Error',
+          content: message,
+          variant: ToastVariant.danger
+        });
+      };
+
+      if (!context.state.openedProject || !context.state.openedProjectConfig) {
+        console.error('no project open or no project config');
+        return;
+      }
+
+      if (!context.state.openedProjectConfig.project_repo) {
+        console.error('no project repo configured');
+        return;
+      }
+
+      const project = await importProjectRepo(
+        context.state.openedProject.project_id,
+        context.state.openedProjectConfig.project_repo
+      );
+      if (project) {
+        const elements = generateCytoscapeElements(project);
+        context.commit(ProjectViewMutators.setOpenedProject, project);
+        context.commit(ProjectViewMutators.setCytoscapeElements, elements);
+      }
+    },
     async [ProjectViewActions.deployProject](context) {
       const handleDeploymentError = async (message: string) => {
         context.commit(ProjectViewMutators.isDeployingProject, false);
@@ -1261,6 +1303,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
+      if (leftSidebarPaneType === SIDEBAR_PANE.importProjectRepo) {
+        await context.dispatch(ProjectViewActions.importProjectRepo);
+        return;
+      }
+
       // TODO: Somehow fire a callback on each left pane so that it can reset itself?
       // Using a watcher seems gross... A plugin could work but that feels a little bit too "loose".
       // Better would be a map of Type -> Callback probably? Just trigger other actions to fire?
@@ -1307,6 +1354,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Special case because Mandatory and I agreed that having a pane pop out is annoying af
       if (paneType === SIDEBAR_PANE.saveProject) {
         await context.dispatch(ProjectViewActions.saveProject);
+        return;
+      }
+
+      if (paneType === SIDEBAR_PANE.importProjectRepo) {
+        await context.dispatch(ProjectViewActions.importProjectRepo);
         return;
       }
 

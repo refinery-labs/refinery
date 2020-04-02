@@ -24,7 +24,6 @@ export default class AddSavedBlockPaneContainer extends Vue {
       addChosenBlock: id => AddSavedBlockPaneStoreModule.selectBlockToAdd(id),
       goBackToAddBlockPane: () => AddSavedBlockPaneStoreModule.goBackToAddBlockPane(),
       searchSavedBlocks: () => AddSavedBlockPaneStoreModule.searchSavedBlocks(),
-      importProjectGitBlocks: () => AddSavedBlockPaneStoreModule.importProjectGitBlocks(),
       setSearchInputValue: val => AddSavedBlockPaneStoreModule.setSearchInputValue(val),
       setLanguageInputValue: val => AddSavedBlockPaneStoreModule.setLanguageInputValue(val),
       setBlockTypeInputValue: val => AddSavedBlockPaneStoreModule.setBlockTypeInputValue(val)

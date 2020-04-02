@@ -14,12 +14,10 @@ import { HTTP_METHOD } from '@/constants/api-constants';
 import generateStupidName from '@/lib/silly-names';
 
 export const savedBlockType = 'saved_block';
-export const gitBlockType = 'git_block';
 
 export const BlockSelectionType = {
   ...WorkflowStateType,
-  saved_block: savedBlockType,
-  git_block: gitBlockType
+  saved_block: savedBlockType
 };
 
 export interface AddGraphElementConfig {
@@ -40,7 +38,6 @@ export interface BlockTypeConfig extends BlockTypeToImage {
 export const availableBlocks: string[] = [
   WorkflowStateType.LAMBDA,
   BlockSelectionType.saved_block,
-  BlockSelectionType.git_block,
   WorkflowStateType.SCHEDULE_TRIGGER,
   WorkflowStateType.API_ENDPOINT,
   WorkflowStateType.SNS_TOPIC,

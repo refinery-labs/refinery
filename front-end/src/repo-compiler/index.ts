@@ -112,12 +112,26 @@ function saveProjectToRepo(projectDir: string, project: RefineryProject) {
       if (path) {
         return {
           ...workflowStates,
-          [w.id]: path
+          [w.id]: {
+            workflow_state: w,
+            path: path
+          }
         };
       }
       return workflowStates;
     },
-    {} as Record<string, string>
+    {} as Record<string, { workflow_state: WorkflowState; path: string }>
+  );
+
+  // set project's workflow states to ones that were not handled by compilation
+  project.workflow_states = Object.keys(nodeToWorkflowState).reduce(
+    (newWorkflowStates, nodeId) => {
+      if (nodeToWorkflowState[nodeId].path === null) {
+        newWorkflowStates.push(nodeToWorkflowState[nodeId].workflow_state);
+      }
+      return newWorkflowStates;
+    },
+    [] as WorkflowState[]
   );
 
   const sharedFilesPath = Path.join(projectDir, 'shared-files');
@@ -136,23 +150,27 @@ function saveProjectToRepo(projectDir: string, project: RefineryProject) {
     },
     {} as Record<string, { file: WorkflowFile; path: string }>
   );
+  // we have handled workflow_files
+  project.workflow_files = [];
 
   project.workflow_file_links
     .filter(f => f.type == 'shared_file_link')
     .forEach(fileLink => {
       const sharedFile = sharedFileLookup[fileLink.file_id];
-      const sharedFileLinkPath = Path.join(nodeToWorkflowState[fileLink.node], sharedFile.file.name);
+
+      const lambdaSharedFilePath = Path.join(nodeToWorkflowState[fileLink.node].path, 'shared_files');
+      makeDirExist(lambdaSharedFilePath);
+
+      const sharedFileLinkPath = Path.join(lambdaSharedFilePath, sharedFile.file.name);
       fs.linkSync(sharedFile.path, sharedFileLinkPath);
 
       // TODO update dockerfile?
     });
-
-  /* ignore this for now
-  project.workflow_states = newWorkflowStates;
+  // we have handled workflow_file_links
+  project.workflow_file_links = [];
 
   const projectConfig = Path.join(projectDir, 'project.json');
   writeConfig(projectConfig, project);
-  */
 }
 
 interface NewBlockOptions {

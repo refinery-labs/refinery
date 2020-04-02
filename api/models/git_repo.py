@@ -15,11 +15,6 @@ class GitRepo( Base ):
 
 	url = Column(Text())
 
-	blocks = relationship(
-		"GitBlock",
-		cascade="all, delete-orphan"
-	)
-
 	def __init__( self, project_id, url ):
 		self.id = str( uuid.uuid4() )
 		self.project_id = project_id

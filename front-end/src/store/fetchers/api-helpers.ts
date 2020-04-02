@@ -26,12 +26,12 @@ import {
   GetProjectShortlinkResponse,
   GetSavedProjectRequest,
   GetSavedProjectResponse,
+  ImportProjectRepoRequest,
+  ImportProjectRepoResponse,
   InfraTearDownRequest,
   InfraTearDownResponse,
   RenameProjectRequest,
   RenameProjectResponse,
-  SavedBlockImportRequest,
-  SavedBlockImportResponse,
   SavedBlockStatusCheckRequest,
   SavedBlockStatusCheckResponse,
   SaveProjectRequest,
@@ -418,9 +418,9 @@ export async function getSavedBlockStatus(block: WorkflowState) {
   return response.results[0];
 }
 
-export async function importSavedBlocks(projectId: string, projectRepo: string) {
-  const result = await makeApiRequest<SavedBlockImportRequest, SavedBlockImportResponse>(
-    API_ENDPOINT.SavedBlockImport,
+export async function importProjectRepo(projectId: string, projectRepo: string): Promise<RefineryProject | null> {
+  const result = await makeApiRequest<ImportProjectRepoRequest, ImportProjectRepoResponse>(
+    API_ENDPOINT.ImportProjectRepo,
     {
       project_id: projectId,
       project_repo: projectRepo
@@ -432,7 +432,7 @@ export async function importSavedBlocks(projectId: string, projectRepo: string) 
     return null;
   }
 
-  return null;
+  return result.compiled_project;
 }
 
 export async function deployProject({ project, projectConfig }: DeployProjectParams): Promise<DeployProjectResult> {

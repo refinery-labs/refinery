@@ -94,8 +94,8 @@ import {
   StashStateLogResponse,
   UpdateEnvironmentVariablesRequest,
   UpdateEnvironmentVariablesResponse,
-  SavedBlockImportRequest,
-  SavedBlockImportResponse
+  ImportProjectRepoResponse,
+  ImportProjectRepoRequest
 } from '@/types/api-types';
 import { API_ENDPOINT, ApiConfigMap } from '@/constants/api-constants';
 
@@ -254,8 +254,8 @@ export class RefineryApi implements RefineryApiTypeMap {
   [API_ENDPOINT.DeleteSavedBlock] = makeApiClient<DeleteSavedBlockRequest, DeleteSavedBlockResponse>(
     API_ENDPOINT.DeleteSavedBlock
   );
-  [API_ENDPOINT.SavedBlockImport] = makeApiClient<SavedBlockImportRequest, SavedBlockImportResponse>(
-    API_ENDPOINT.SavedBlockImport
+  [API_ENDPOINT.ImportProjectRepo] = makeApiClient<ImportProjectRepoRequest, ImportProjectRepoResponse>(
+    API_ENDPOINT.ImportProjectRepo
   );
 }
 

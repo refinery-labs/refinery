@@ -23,7 +23,6 @@ export interface AddSavedBlockPaneProps {
   addChosenBlock: (id: string) => void;
   goBackToAddBlockPane: () => void;
   searchSavedBlocks: () => void;
-  importProjectGitBlocks: () => void;
   setSearchInputValue: (value: string) => void;
   setLanguageInputValue: (value: string) => void;
   setBlockTypeInputValue: (value: string) => void;
@@ -44,7 +43,6 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
   @Prop({ required: true }) addChosenBlock!: (id: string) => void;
   @Prop({ required: true }) goBackToAddBlockPane!: () => void;
   @Prop({ required: true }) searchSavedBlocks!: () => void;
-  @Prop({ required: true }) importProjectGitBlocks!: () => void;
   @Prop({ required: true }) setSearchInputValue!: (value: string) => void;
   @Prop({ required: true }) setLanguageInputValue!: (value: string) => void;
   @Prop({ required: true }) setBlockTypeInputValue!: (value: string) => void;
@@ -155,12 +153,6 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
       }))
     ];
 
-    const buttonOnClicks = {
-      click: () => {
-        this.importProjectGitBlocks();
-      }
-    };
-
     return (
       <div class="add-saved-block-container__parent text-align--left mb-2 ml-2 mr-2 mt-0 display--flex flex-direction--column">
         <a
@@ -212,9 +204,6 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
                 />
               </div>
             </b-form-group>
-            <b-button on={buttonOnClicks} variant="primary">
-              Load Git Blocks
-            </b-button>
           </div>
           <div class="filter-pane-column width--100-percent scrollable-pane-container">
             {!zeroResults && (

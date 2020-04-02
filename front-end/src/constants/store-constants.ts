@@ -38,6 +38,7 @@ export enum ProjectViewGetters {
   getValidMenuDisplayTransitionTypes = 'getValidMenuDisplayTransitionTypes',
   canSaveProject = 'canSaveProject',
   canDeployProject = 'canDeployProject',
+  isProjectRepoSet = 'isProjectRepoSet',
   hasCodeBlockSelected = 'hasCodeBlockSelected',
 
   selectedBlockDirty = 'selectedBlockDirty',
@@ -111,6 +112,7 @@ export enum ProjectViewActions {
 
   updateProject = 'updateProject',
   saveProject = 'saveProject',
+  importProjectRepo = 'importProjectRepo',
 
   // Deployment
   deployProject = 'deployProject',

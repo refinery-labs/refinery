@@ -4,12 +4,7 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState, StoreType } from '@/store/store-types';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
-import {
-  importSavedBlocks,
-  LibraryBuildArguments,
-  searchSavedBlocks,
-  startLibraryBuild
-} from '@/store/fetchers/api-helpers';
+import { LibraryBuildArguments, searchSavedBlocks, startLibraryBuild } from '@/store/fetchers/api-helpers';
 import { SavedBlockSearchResult, SharedBlockPublishStatus } from '@/types/api-types';
 import { ChosenBlock } from '@/types/add-block-types';
 import { BlockEnvironmentVariable, LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
@@ -231,23 +226,6 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
     this.setSearchResultsGit(gitResult);
 
     this.setIsBusySearching(false);
-  }
-
-  @Action async importProjectGitBlocks() {
-    if (!this.context.rootState.project.openedProject) {
-      console.error('No project is currently opened');
-      return;
-    }
-
-    if (!this.context.rootState.project.openedProjectConfig) {
-      console.error('No project config was able to be found');
-      return;
-    }
-
-    const projectId = this.context.rootState.project.openedProject.project_id;
-    const projectRepo = this.context.rootState.project.openedProjectConfig.project_repo;
-
-    await importSavedBlocks(projectId, projectRepo);
   }
 
   @Action

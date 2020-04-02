@@ -2,6 +2,7 @@ import {
   LambdaWorkflowState,
   ProjectConfig,
   ProjectEnvironmentVariableList,
+  RefineryProject,
   SupportedLanguage,
   WorkflowFile,
   WorkflowRelationship,
@@ -723,12 +724,14 @@ export interface DeleteSavedBlockRequest extends BaseApiRequest {
 export interface DeleteSavedBlockResponse extends BaseApiResponse {}
 
 // SavedBlockImport
-export interface SavedBlockImportRequest extends BaseApiRequest {
+export interface ImportProjectRepoRequest extends BaseApiRequest {
   project_id: string;
   project_repo: string;
 }
 
-export interface SavedBlockImportResponse extends BaseApiResponse {}
+export interface ImportProjectRepoResponse extends BaseApiResponse {
+  compiled_project: RefineryProject;
+}
 
 // SavedBlockStatusCheck
 export interface SavedBlockStatusCheckRequest extends BaseApiRequest {

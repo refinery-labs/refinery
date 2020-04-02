@@ -67,9 +67,9 @@ from controller.executions_controller import ExecutionsControllerServer
 from controller.lambda_connect_back import LambdaConnectBackServer
 from controller.dangling_resources import CleanupDanglingResources
 from controller.clear_invoice_drafts import ClearStripeInvoiceDrafts
-from controller.saved_blocks_controller import SavedBlockDelete, SavedBlockImport, SavedBlocksCreate, SavedBlockSearch, SavedBlockStatusCheck
+from controller.saved_blocks_controller import SavedBlockDelete, ProjectRepoImport, SavedBlocksCreate, SavedBlockSearch, SavedBlockStatusCheck
 
-from assistants.project_repo import ProjectRepoAssistant
+from assistants.project_repo_assistant import ProjectRepoAssistant
 
 from data_types.aws_resources.alambda import Lambda
 
@@ -10651,7 +10651,6 @@ def make_app( tornado_config ):
 		( r"/api/v1/saved_blocks/search", SavedBlockSearch ),
 		( r"/api/v1/saved_blocks/status_check", SavedBlockStatusCheck ),
 		( r"/api/v1/saved_blocks/delete", SavedBlockDelete ),
-		url( r"/api/v1/saved_blocks/import", SavedBlockImport, dict(repo_assistant=repo_assistant) ),
 		( r"/api/v1/lambdas/run", RunLambda ),
 		( r"/api/v1/lambdas/logs", GetCloudWatchLogsForLambda ),
 		( r"/api/v1/lambdas/env_vars/update", UpdateEnvironmentVariables ),
@@ -10667,6 +10666,7 @@ def make_app( tornado_config ):
 		( r"/api/v1/projects/delete", DeleteSavedProject ),
 		( r"/api/v1/projects/rename", RenameProject ),
 		( r"/api/v1/projects/config/get", GetProjectConfig ),
+		url( r"/api/v1/projects/repo/import", ProjectRepoImport, dict(repo_assistant=repo_assistant) ),
 		( r"/api/v1/deployments/get_latest", GetLatestProjectDeployment ),
 		( r"/api/v1/deployments/delete_all_in_project", DeleteDeploymentsInProject ),
 		( r"/api/v1/billing/get_month_totals", GetBillingMonthTotals ),

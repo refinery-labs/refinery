@@ -42,7 +42,7 @@ class GithubOAuthProvider:
 	_OAUTH_USER_URL = "https://api.github.com/user?access_token="
 
 	# Since we only need email address
-	scope = "user:email"
+	scope = "user:email write:repo_hook"
 
 	def __init__( self, client_id, client_secret, cookie_expire_days, logger ):
 

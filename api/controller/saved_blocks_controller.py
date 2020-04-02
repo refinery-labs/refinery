@@ -12,7 +12,6 @@ from models.initiate_database import *
 from models.saved_block import SavedBlock
 from models.saved_block_version import SavedBlockVersion
 from models.git_repo import GitRepo
-from models.git_block import GitBlock
 
 class SavedBlocksCreate( BaseHandler ):
 	@authenticated
@@ -288,13 +287,6 @@ class SavedBlockSearch( BaseHandler ):
 			SavedBlockVersion, SavedBlock.id == SavedBlockVersion.saved_block_id
 		)
 
-		if share_status == "GIT":
-			saved_blocks_query = saved_blocks_query.join(
-				GitBlock, SavedBlock.id == GitBlock.saved_block_id
-			).join(
-				GitRepo, GitBlock.repo_id == GitRepo.id
-			)
-
 		saved_blocks = saved_blocks_query.filter(
 			*saved_block_filters
 		).all()
@@ -441,18 +433,19 @@ class SavedBlockDelete( BaseHandler ):
 			"success": True
 		})
 
-class SavedBlockImport( BaseHandler ):
+
+# TODO rename to project/repo
+class ProjectRepoImport( BaseHandler ):
+	repo_assistant = None
+
 	def initialize( self, repo_assistant ):
-		super( SavedBlockImport, self ).initialize()
+		super( ProjectRepoImport, self ).initialize()
 
 		self.repo_assistant = repo_assistant
 
 	@authenticated
 	@gen.coroutine
 	def post( self ):
-		"""
-		Import saved Blocks from configured repository
-		"""
 		schema = {
 			"type": "object",
 			"properties": {
@@ -471,7 +464,7 @@ class SavedBlockImport( BaseHandler ):
 
 		validate_schema( self.json, schema )
 
-		logit( "Importing saved blocks for project: " + self.json[ "project_id" ] )
+		logit( "Importing repo for project: " + self.json[ "project_id" ] )
 
 		project_id = self.json[ "project_id" ]
 		project_repo = self.json[ "project_repo" ]
@@ -487,22 +480,23 @@ class SavedBlockImport( BaseHandler ):
 
 		user_id = self.get_authenticated_user_id()
 
-		lock_id = "git_block_import_" + project_id
+		lock_id = "project_repo_import_" + project_id
 		lock = self.task_locker.lock(self.dbsession, lock_id)
 		try:
 			with lock:
 				# do not wait for upsert to complete, this will run in the background
-				yield self.repo_assistant.upsert_blocks_from_repo(self.dbsession, user_id, project_id, project_repo)
+				compiled_project = yield self.repo_assistant.compile_and_upsert_project_repo(self.dbsession, user_id, project_id, project_repo)
+				self.write({
+					"success": True,
+					"compiled_project": compiled_project
+				})
+				raise gen.Return()
 		except AcquireFailure:
-			logit( "unable to acquire git block lock for " + project_id )
+			logit( "unable to acquire project repo lock for " + project_id )
 			self.write({
 				"success": False,
-				"code": "GIT_BLOCK_UPSERT_LOCK_FAILURE",
-				"msg": "Importing git blocks for this project is already in progress",
+				"code": "PROJECT_REPO_LOCK_FAILURE",
+				"msg": "Importing project repo for this project is already in progress",
 			})
 			raise gen.Return()
-
-		self.write({
-			"success": True
-		})
 

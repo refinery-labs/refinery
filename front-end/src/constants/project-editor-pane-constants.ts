@@ -42,6 +42,7 @@ export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
   [SIDEBAR_PANE.allVersions]: AddBlockPane,
   [SIDEBAR_PANE.exportProject]: ExportProjectPane,
   [SIDEBAR_PANE.deployProject]: DeployProjectPane,
+  [SIDEBAR_PANE.importProjectRepo]: AddBlockPane,
   [SIDEBAR_PANE.saveProject]: AddBlockPane,
   [SIDEBAR_PANE.editBlock]: EditBlockPane,
   [SIDEBAR_PANE.editTransition]: EditTransitionPane,
