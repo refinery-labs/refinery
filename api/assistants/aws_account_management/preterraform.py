@@ -23,7 +23,7 @@ class PreterraformManager( object ):
 	role for AWS ECS. It is normally automatically created when you attempt
 	to create a new ECS cluster. However, due to AWS's eventual-consistency
 	nature, terraform will choke on setting up the ECS resources because the
-	AWSServiceRoleForECS role will not be immediately available. Because of 
+	AWSServiceRoleForECS role will not be immediately available. Because of
 	this terraform will attempt to use it when it's not yet ready and will
 	choke out.
 
@@ -48,14 +48,15 @@ class PreterraformManager( object ):
 	@run_on_executor
 	@emit_runtime_metrics( "preterraform__ensure_ecs_service_linked_role_exists" )
 	def ensure_ecs_service_linked_role_exists( self, credentials ):
-		return PreterraformManager._ensure_ecs_service_linked_role_exists( credentials )
+		return PreterraformManager._ensure_ecs_service_linked_role_exists( self.aws_client_factory, credentials )
 
 	@staticmethod
-	def _ensure_ecs_service_linked_role_exists( credentials ):
+	def _ensure_ecs_service_linked_role_exists( aws_client_factory, credentials ):
 		logit( "Checking if ECS service-linked role exists..." )
 
 		# First check to see if the role exists
 		ecs_service_linked_role_exists = PreterraformManager._check_if_ecs_service_linked_role_exists(
+			aws_client_factory,
 			credentials
 		)
 
@@ -65,6 +66,7 @@ class PreterraformManager( object ):
 
 		logit( "ECS service-linked role does not exist, creating it..." )
 		PreterraformManager._create_ecs_service_linked_role(
+			aws_client_factory,
 			credentials
 		)
 
@@ -74,6 +76,7 @@ class PreterraformManager( object ):
 		time.sleep( 3 )
 
 		return PreterraformManager._ensure_ecs_service_linked_role_exists(
+			aws_client_factory,
 			credentials
 		)
 
@@ -105,7 +108,7 @@ class PreterraformManager( object ):
 	@emit_runtime_metrics( "preterraform__create_ecs_service_linked_role" )
 	def create_ecs_service_linked_role( self, credentials ):
 		return PreterraformManager._create_ecs_service_linked_role( self.aws_client_factory, credentials )
-		
+
 	@staticmethod
 	def _create_ecs_service_linked_role( aws_client_factory, credentials ):
 		iam_client = aws_client_factory.get_aws_client(
