@@ -811,15 +811,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       context.commit(ProjectViewMutators.setLatestDeploymentState, latestDeploymentResponse);
     },
     async [ProjectViewActions.importProjectRepo](context) {
-      const handleSaveError = async (message: string) => {
-        console.error(message);
-        await createToast(context.dispatch, {
-          title: 'Import Error',
-          content: message,
-          variant: ToastVariant.danger
-        });
-      };
-
       if (!context.state.openedProject || !context.state.openedProjectConfig) {
         console.error('no project open or no project config');
         return;
@@ -834,11 +825,19 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         context.state.openedProject.project_id,
         context.state.openedProjectConfig.project_repo
       );
-      if (project) {
-        const elements = generateCytoscapeElements(project);
-        context.commit(ProjectViewMutators.setOpenedProject, project);
-        context.commit(ProjectViewMutators.setCytoscapeElements, elements);
-      }
+      console.log(project);
+
+      const config = context.state.openedProjectConfig;
+
+      context.commit(ProjectViewMutators.resetState);
+
+      const params: OpenProjectMutation = {
+        project: project,
+        config: config,
+        markAsDirty: true
+      };
+
+      await context.dispatch(ProjectViewActions.updateProject, params);
     },
     async [ProjectViewActions.deployProject](context) {
       const handleDeploymentError = async (message: string) => {

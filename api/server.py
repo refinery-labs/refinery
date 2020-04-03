@@ -49,7 +49,6 @@ from utils.general import attempt_json_decode, logit, split_list_into_chunks, ge
 	get_random_deploy_id
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
-from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda
 from utils.aws_client import get_aws_client, STS_CLIENT, CLOUDWATCH_CLIENT
 from utils.deployments.teardown import teardown_infrastructure
 from utils.deployments.awslambda import lambda_manager
@@ -69,13 +68,11 @@ from controller.dangling_resources import CleanupDanglingResources
 from controller.clear_invoice_drafts import ClearStripeInvoiceDrafts
 from controller.saved_blocks_controller import SavedBlockDelete, ProjectRepoImport, SavedBlocksCreate, SavedBlockSearch, SavedBlockStatusCheck
 
-from assistants.project_repo_assistant import ProjectRepoAssistant
+from assistants.project_repo.project_repo_assistant import ProjectRepoAssistant
 
 from data_types.aws_resources.alambda import Lambda
 
 from models.initiate_database import *
-from models.saved_block import SavedBlock
-from models.saved_block_version import SavedBlockVersion
 from models.project_versions import ProjectVersion
 from models.projects import Project
 from models.organizations import Organization
@@ -91,7 +88,6 @@ from models.state_logs import StateLog
 from models.cached_execution_logs_shard import CachedExecutionLogsShard
 from models.project_short_links import ProjectShortLink
 from models.inline_execution_lambdas import InlineExecutionLambda
-from models.task_locks import TaskLock
 
 from pyexceptions.builds import BuildException
 

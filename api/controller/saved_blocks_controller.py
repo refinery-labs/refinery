@@ -11,7 +11,6 @@ from utils.locker import  AcquireFailure
 from models.initiate_database import *
 from models.saved_block import SavedBlock
 from models.saved_block_version import SavedBlockVersion
-from models.git_repo import GitRepo
 
 class SavedBlocksCreate( BaseHandler ):
 	@authenticated
@@ -182,11 +181,6 @@ def generate_saved_block_filters(share_status, block_language, search_string, au
 				SavedBlock.name.ilike( "%" + search_string + "%" ),
 				SavedBlock.description.ilike( "%" + search_string + "%" ),
 			)
-		)
-
-	if share_status == "GIT":
-		saved_block_filters.append(
-			GitRepo.project_id == project_id
 		)
 
 	if share_status == "PRIVATE":
@@ -478,18 +472,23 @@ class ProjectRepoImport( BaseHandler ):
 			})
 			raise gen.Return()
 
-		user_id = self.get_authenticated_user_id()
-
 		lock_id = "project_repo_import_" + project_id
 		lock = self.task_locker.lock(self.dbsession, lock_id)
 		try:
 			with lock:
 				# do not wait for upsert to complete, this will run in the background
-				compiled_project = yield self.repo_assistant.compile_and_upsert_project_repo(self.dbsession, user_id, project_id, project_repo)
-				self.write({
-					"success": True,
-					"compiled_project": compiled_project
-				})
+				compiled_project, error_msg = yield self.repo_assistant.compile_and_upsert_project_repo(project_id, project_repo)
+				if compiled_project is not None:
+					self.write({
+						"success": True,
+						"compiled_project": compiled_project
+					})
+				else:
+					self.write({
+						"success": False,
+						"code": "PROJECT_REPO_COMPILATION_FAILURE",
+						"msg": error_msg
+					})
 				raise gen.Return()
 		except AcquireFailure:
 			logit( "unable to acquire project repo lock for " + project_id )

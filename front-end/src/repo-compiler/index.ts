@@ -63,7 +63,7 @@ function getLambdaDir(lambdaDir: string, lambdaId: string): string {
   return lambdaDir;
 }
 
-function handleLambda(projectDir: string, project: RefineryProject, workflowState: WorkflowState): string | null {
+function handleLambda(projectDir: string, project: RefineryProject, workflowState: WorkflowState): string {
   const lambda = workflowState as LambdaWorkflowState;
 
   const typePath = Path.join(projectDir, getFolderName(workflowState.type));
@@ -93,13 +93,13 @@ function handleLambda(projectDir: string, project: RefineryProject, workflowStat
   return lambdaDir;
 }
 
-function defaultHandler(projectDir: string, project: RefineryProject, workflowState: WorkflowState): null {
-  return null;
+function defaultHandler(projectDir: string, project: RefineryProject, workflowState: WorkflowState): string {
+  return '';
 }
 
 const workflowStateActions: Record<
   WorkflowStateType,
-  (projectDir: string, project: RefineryProject, e: WorkflowState) => string | null
+  (projectDir: string, project: RefineryProject, e: WorkflowState) => string
 > = {
   [WorkflowStateType.LAMBDA]: handleLambda,
   [WorkflowStateType.API_ENDPOINT]: defaultHandler,
@@ -117,16 +117,13 @@ function saveProjectToRepo(projectDir: string, project: RefineryProject) {
   const nodeToWorkflowState = project.workflow_states.reduce(
     (workflowStates, w: WorkflowState) => {
       const path = workflowStateActions[w.type](projectDir, project, w);
-      if (path) {
-        return {
-          ...workflowStates,
-          [w.id]: {
-            workflow_state: w,
-            path: path
-          }
-        };
-      }
-      return workflowStates;
+      return {
+        ...workflowStates,
+        [w.id]: {
+          workflow_state: w,
+          path: path
+        }
+      };
     },
     {} as Record<string, { workflow_state: WorkflowState; path: string }>
   );
@@ -134,7 +131,7 @@ function saveProjectToRepo(projectDir: string, project: RefineryProject) {
   // set project's workflow states to ones that were not handled by compilation
   project.workflow_states = Object.keys(nodeToWorkflowState).reduce(
     (newWorkflowStates, nodeId) => {
-      if (nodeToWorkflowState[nodeId].path === null) {
+      if (nodeToWorkflowState[nodeId].path === '') {
         newWorkflowStates.push(nodeToWorkflowState[nodeId].workflow_state);
       }
       return newWorkflowStates;
@@ -142,17 +139,22 @@ function saveProjectToRepo(projectDir: string, project: RefineryProject) {
     [] as WorkflowState[]
   );
 
-  const sharedFilesPath = Path.join(projectDir, 'shared-files');
+  const sharedFilesRoot = 'shared-files';
+  const sharedFilesPath = Path.join(projectDir, sharedFilesRoot);
   makeDirExist(sharedFilesPath);
   const sharedFileLookup = project.workflow_files.reduce(
     (lookup, file) => {
-      const sharedFileFilename = Path.join(sharedFilesPath, file.name) as string;
+      const sharedFileFilename = Path.join(sharedFilesPath, file.name);
       fs.writeFileSync(sharedFileFilename, file.body);
+
+      // need to determine relative path to this file
+      const sharedFileFilenameFromRoot = Path.join(sharedFilesRoot, file.name);
+
       return {
         ...lookup,
         [file.id]: {
           file: file,
-          path: sharedFileFilename
+          path: sharedFileFilenameFromRoot
         }
       };
     },
@@ -168,9 +170,12 @@ function saveProjectToRepo(projectDir: string, project: RefineryProject) {
 
       const lambdaSharedFilePath = Path.join(nodeToWorkflowState[fileLink.node].path, 'shared_files');
       makeDirExist(lambdaSharedFilePath);
-
       const sharedFileLinkPath = Path.join(lambdaSharedFilePath, sharedFile.file.name);
-      fs.linkSync(sharedFile.path, sharedFileLinkPath);
+
+      // we go up from the 'shared_folders', <lambda block folder>, 'lambda' to get to root
+      const relativeSharedFilePath = Path.join('..', '..', '..', sharedFile.path);
+
+      fs.symlinkSync(relativeSharedFilePath, sharedFileLinkPath);
 
       // TODO update dockerfile?
     });
