@@ -842,6 +842,7 @@ class TaskSpawner(object):
 	@emit_runtime_metrics( "terraform_configure_aws_account" )
 	def terraform_configure_aws_account( self, aws_account_dict ):
 		return TaskSpawner._terraform_configure_aws_account(
+			self.aws_client_factory,
 			self.app_config,
 			self.preterraform_manager,
 			self.sts_client,
@@ -966,6 +967,7 @@ class TaskSpawner(object):
 		:param: refresh_terraform_state This value tells Terraform if it should refresh the state before running plan
 		"""
 		return TaskSpawner._terraform_apply(
+			self.aws_client_factory,
 			self.app_config,
 			self.preterraform_manager,
 			self.sts_client,
@@ -974,9 +976,10 @@ class TaskSpawner(object):
 		)
 
 	@staticmethod
-	def _terraform_apply( app_config, preterraform_manager, sts_client, aws_account_data, refresh_terraform_state ):
+	def _terraform_apply( aws_client_factory, app_config, preterraform_manager, sts_client, aws_account_data, refresh_terraform_state ):
 		logit( "Ensuring existence of ECS service-linked role before continuing with terraform apply..." )
 		preterraform_manager._ensure_ecs_service_linked_role_exists(
+			aws_client_factory,
 			aws_account_data
 		)
 
@@ -1113,9 +1116,10 @@ class TaskSpawner(object):
 		return process_stdout
 
 	@staticmethod
-	def _terraform_configure_aws_account( app_config, sts_client, preterraform_manager, aws_account_data ):
+	def _terraform_configure_aws_account( aws_client_factory, app_config, preterraform_manager, sts_client, aws_account_data ):
 		logit( "Ensuring existence of ECS service-linked role before continuing with AWS account configuration..." )
 		preterraform_manager._ensure_ecs_service_linked_role_exists(
+			aws_client_factory,
 			aws_account_data
 		)
 
@@ -1334,10 +1338,10 @@ class TaskSpawner(object):
 	@run_on_executor
 	@emit_runtime_metrics( "freeze_aws_account" )
 	def freeze_aws_account( self, credentials ):
-		return TaskSpawner._freeze_aws_account( self.db_session_maker, credentials )
+		return TaskSpawner._freeze_aws_account( self.app_config, self.aws_client_factory, self.db_session_maker, credentials )
 
 	@staticmethod
-	def _freeze_aws_account( aws_client_factory, db_session_maker, credentials ):
+	def _freeze_aws_account( app_config, aws_client_factory, db_session_maker, credentials ):
 		"""
 		Freezes an AWS sub-account when the user has gone past
 		their free trial or when they have gone tardy on their bill.
@@ -1377,6 +1381,8 @@ class TaskSpawner(object):
 
 		# Rotate and log out users from the AWS console
 		new_console_user_password = TaskSpawner._recreate_aws_console_account(
+			app_config,
+			aws_client_factory,
 			credentials,
 			True
 		)
@@ -2059,6 +2065,7 @@ class TaskSpawner(object):
 				logit( "[ STATUS ] Enumerated user has exceeded their free trial.")
 				logit( "[ STATUS ] Taking action against free-trial account..." )
 				freeze_result = TaskSpawner._freeze_aws_account(
+					self.app_config,
 					self.aws_client_factory,
 					self.db_session_maker,
 					aws_account.to_dict()

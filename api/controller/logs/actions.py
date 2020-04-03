@@ -88,7 +88,7 @@ def write_remaining_project_execution_log_pages( task_spawner, credentials, data
 
 
 @gen.coroutine
-def do_update_athena_table_partitions( db_session_maker, task_locker, credentials, project_id ):
+def do_update_athena_table_partitions( task_spawner, db_session_maker, task_locker, credentials, project_id ):
 	dbsession = db_session_maker()
 
 	lock_id = "get_project_executions_" + project_id
@@ -96,7 +96,7 @@ def do_update_athena_table_partitions( db_session_maker, task_locker, credential
 	try:
 		# Enforce that we are only attempting to do this once for the same project at any given time
 		with task_lock:
-			yield update_athena_table_partitions( credentials, project_id )
+			yield update_athena_table_partitions( task_spawner, credentials, project_id )
 
 	except AcquireFailure:
 		logit( "Unable to acquire lock for:" + lock_id, "error" )
