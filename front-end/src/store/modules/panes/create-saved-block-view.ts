@@ -170,6 +170,11 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
     const isBlockOwner =
       editBlockPaneState.selectedNodeMetadata && editBlockPaneState.selectedNodeMetadata.is_block_owner;
 
+    const setPublishState = (isForkingBlock: boolean, isPublished: boolean) => {
+      this.setPublishDisabled(isPublished && !isForkingBlock);
+      this.setPublishStatus(isPublished && !isForkingBlock);
+    };
+
     if (editBlockPaneState.selectedNode.saved_block_metadata && isBlockOwner) {
       const metadata = editBlockPaneState.selectedNodeMetadata as SavedBlockStatusCheckResult;
 
@@ -179,13 +184,13 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
       this.setDescription(metadata.description);
 
       const isPublished = metadata.share_status === SharedBlockPublishStatus.PUBLISHED;
-      this.setPublishState(isForkingBlock, isPublished);
+      setPublishState(isForkingBlock, isPublished);
 
       if (this.saveType !== SavedBlockSaveType.FORK) {
         this.setSaveType(SavedBlockSaveType.UPDATE);
       }
     } else {
-      this.setPublishState(isForkingBlock, false);
+      setPublishState(isForkingBlock, false);
     }
 
     this.setModalVisibility(true);

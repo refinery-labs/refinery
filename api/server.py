@@ -49,6 +49,7 @@ from utils.general import attempt_json_decode, logit, split_list_into_chunks, ge
 	get_random_deploy_id
 from utils.ngrok import set_up_ngrok_websocket_tunnel
 from utils.ip_lookup import get_external_ipv4_address
+from utils.deployments.shared_files import add_shared_files_to_zip, get_shared_files_for_lambda
 from utils.aws_client import get_aws_client, STS_CLIENT, CLOUDWATCH_CLIENT
 from utils.deployments.teardown import teardown_infrastructure
 from utils.deployments.awslambda import lambda_manager
@@ -118,6 +119,10 @@ csv.field_size_limit( sys.maxsize )
 # The WebSocket callback endpoint to use when live streaming the output
 # of Lambdas via WebSockets.
 LAMBDA_CALLBACK_ENDPOINT = False
+
+# For loops which do not have a discreet conditional break, we enforce
+# an upper bound of iterations.
+MAX_LOOP_ITERATIONS = 10000
 			
 def on_start():
 	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES, CUSTOMER_IAM_POLICY, DEFAULT_PROJECT_ARRAY, DEFAULT_PROJECT_CONFIG
@@ -205,6 +210,8 @@ def on_start():
 				)
 			)
 
+delete_account_lambda_arn = os.environ.get( "delete_account_lambda_arn" )
+
 mailgun_api_key = os.environ.get( "mailgun_api_key" )
 
 if mailgun_api_key is None:
@@ -239,6 +246,48 @@ ORGANIZATION_CLIENT = boto3.client(
 		max_pool_connections=( 1000 * 2 )
 	)
 )
+
+# The AWS lambda API for invoking functions configured to run
+# by the root account. (ex. account deactivation)
+LAMBDA_CLIENT = boto3.client(
+	"lambda",
+	aws_access_key_id=os.environ.get( "aws_access_key" ),
+	aws_secret_access_key=os.environ.get( "aws_secret_key" ),
+	region_name=os.environ.get( "region_name" ),
+	config=Config(
+		max_pool_connections=( 1000 * 2 )
+	)
+)
+		
+"""
+Decorators
+"""
+def authenticated( func ):
+	"""
+	Decorator to ensure the user is currently authenticated.
+	
+	If the user is not, the response will be:
+	{
+		"success": false,
+		"code": "AUTH_REQUIRED",
+		"msg": "...",
+	}
+	"""
+	def wrapper( *args, **kwargs ):
+		self_reference = args[0]
+		
+		authenticated_user = self_reference.get_authenticated_user()
+		
+		if authenticated_user == None:
+			self_reference.write({
+				"success": False,
+				"code": "AUTH_REQUIRED",
+				"msg": "You must be authenticated to do this!",
+			})
+			return
+		
+		return func( *args, **kwargs )
+	return wrapper
 
 def get_billing_rounded_float( input_price_float ):
 	"""
@@ -599,6 +648,7 @@ class TaskSpawner(object):
 			project_id = re.sub( REGEX_WHITELISTS[ "project_id" ], "", project_id )
 			table_name = "PRJ_" + project_id.replace( "-", "_" )
 
+			# We set case sensitivity (because of nested JSON) and to ignore malformed JSON (just in case)
 			query_template = """
 			CREATE EXTERNAL TABLE IF NOT EXISTS refinery.{{REPLACE_ME_PROJECT_TABLE_NAME}} (
 			  `arn` string,
@@ -625,7 +675,9 @@ class TaskSpawner(object):
 			PARTITIONED BY (dt string)
 			ROW FORMAT SERDE 'org.openx.data.jsonserde.JsonSerDe'
 			WITH SERDEPROPERTIES (
-			  'serialization.format' = '1'
+			  'serialization.format' = '1',
+			  'ignore.malformed.json' = 'true',
+			  'case.insensitive' = 'false'
 			) LOCATION 's3://refinery-lambda-logging-{{S3_BUCKET_SUFFIX}}/{{REPLACE_ME_PROJECT_ID}}/'
 			TBLPROPERTIES ('has_encrypted_data'='false');
 			"""
@@ -967,7 +1019,7 @@ class TaskSpawner(object):
 					)
 					break
 				except botocore.exceptions.ClientError as boto_error:
-					print( boto_error )
+					logit( "Assume role boto error:" + repr( boto_error ), "error" )
 					# If it's not an AccessDenied exception it's not what we except so we re-raise
 					if boto_error.response[ "Error" ][ "Code" ] != "AccessDenied":
 						logit( "Unexpected Boto3 response: " + boto_error.response[ "Error" ][ "Code" ] )
@@ -1107,7 +1159,7 @@ class TaskSpawner(object):
 
 		@run_on_executor
 		@emit_runtime_metrics( "terraform_apply" )
-		def terraform_apply( self, aws_account_data ):
+		def terraform_apply( self, aws_account_data, refresh_terraform_state=True ):
 			"""
 			This applies the latest terraform config to an account.
 			
@@ -1116,13 +1168,16 @@ class TaskSpawner(object):
 			FOR OUR CUSTOMERS.
 			
 			-mandatory
+
+			:param: refresh_terraform_state This value tells Terraform if it should refresh the state before running plan
 			"""
 			return TaskSpawner._terraform_apply(
-				aws_account_data
+				aws_account_data,
+				refresh_terraform_state
 			)
 		
 		@staticmethod
-		def _terraform_apply( aws_account_data ):
+		def _terraform_apply( aws_account_data, refresh_terraform_state ):
 			logit( "Ensuring existence of ECS service-linked role before continuing with terraform apply..." )
 			preterraform_manager._ensure_ecs_service_linked_role_exists(
 				aws_account_data
@@ -1148,12 +1203,15 @@ class TaskSpawner(object):
 			
 			try:
 				logit( "Performing 'terraform apply' to AWS Account " + aws_account_data[ "account_id" ] + "..." )
-				
+
+				refresh_state_parameter = "true" if refresh_terraform_state else "false"
+
 				# Terraform plan
 				process_handler = subprocess.Popen(
 					[
 						temporary_directory + "terraform",
 						"apply",
+						"-refresh=" + refresh_state_parameter,
 						"-auto-approve",
 						"-var-file",
 						temporary_directory + "customer_config.json",
@@ -1195,32 +1253,37 @@ class TaskSpawner(object):
 
 		@run_on_executor
 		@emit_runtime_metrics( "terraform_plan" )
-		def terraform_plan( self, aws_account_data ):
+		def terraform_plan( self, aws_account_data, refresh_terraform_state=True ):
 			"""
 			This does a terraform plan to an account and sends an email
 			with the results. This allows us to see the impact of a new
 			terraform change before we roll it out across our customer's
 			AWS accounts.
+			:param: refresh_terraform_state This value tells Terraform if it should refresh the state before running plan
 			"""
 			return TaskSpawner._terraform_plan(
-				aws_account_data
+				aws_account_data,
+				refresh_terraform_state
 			)
 		
 		@staticmethod
-		def _terraform_plan( aws_account_data ):
+		def _terraform_plan( aws_account_data, refresh_terraform_state ):
 			terraform_configuration_data = TaskSpawner._write_terraform_base_files(
 				aws_account_data
 			)
 			temporary_directory = terraform_configuration_data[ "base_dir" ]
-			
+
 			try:
 				logit( "Performing 'terraform plan' to AWS account " + aws_account_data[ "account_id" ] + "..." )
+
+				refresh_state_parameter = "true" if refresh_terraform_state else "false"
 				
 				# Terraform plan
 				process_handler = subprocess.Popen(
 					[
 						temporary_directory + "terraform",
 						"plan",
+						"-refresh=" + refresh_state_parameter,
 						"-var-file",
 						temporary_directory + "customer_config.json",
 					],
@@ -1238,13 +1301,15 @@ class TaskSpawner(object):
 					logit( process_stdout, "error" )
 					
 					raise Exception( "Terraform plan failed." )
+
+
 			finally:
 				# Ensure we clear the temporary directory no matter what
 				shutil.rmtree( temporary_directory )
 			
 			logit( "Terraform plan completed successfully, returning output." )
 			return process_stdout
-			
+
 		@staticmethod
 		def _terraform_configure_aws_account( aws_account_data ):
 			logit( "Ensuring existence of ECS service-linked role before continuing with AWS account configuration..." )
@@ -1577,14 +1642,15 @@ class TaskSpawner(object):
 
 		@run_on_executor
 		@emit_runtime_metrics( "recreate_aws_console_account" )
-		def recreate_aws_console_account( self, credentials, rotate_password ):
+		def recreate_aws_console_account( self, credentials, rotate_password, force_continue=False ):
 			return TaskSpawner._recreate_aws_console_account(
 				credentials,
-				rotate_password
+				rotate_password,
+				force_continue=force_continue
 			)
 			
 		@staticmethod
-		def _recreate_aws_console_account( credentials, rotate_password ):
+		def _recreate_aws_console_account( credentials, rotate_password, force_continue=False ):
 			iam_client = get_aws_client(
 				"iam",
 				credentials
@@ -1597,22 +1663,29 @@ class TaskSpawner(object):
 			iam_policy_arn = "arn:aws:iam::" + credentials[ "account_id" ] + ":policy/RefineryCustomerPolicy"
 			
 			logit( "Deleting AWS console user..." )
-			
-			# Delete the current AWS console user
-			delete_user_profile_response = iam_client.delete_login_profile(
-				UserName=credentials[ "iam_admin_username" ],
-			)
-		
-			# Remove the policy from the user
-			detach_user_policy = iam_client.detach_user_policy(
-				UserName=credentials[ "iam_admin_username" ],
-				PolicyArn=iam_policy_arn
-			)
-			
-			# Delete the IAM user
-			delete_user_response = iam_client.delete_user(
-				UserName=credentials[ "iam_admin_username" ],
-			)
+
+			try:
+				# Delete the current AWS console user
+				delete_user_profile_response = iam_client.delete_login_profile(
+					UserName=credentials[ "iam_admin_username" ],
+				)
+
+				# Remove the policy from the user
+				detach_user_policy = iam_client.detach_user_policy(
+					UserName=credentials[ "iam_admin_username" ],
+					PolicyArn=iam_policy_arn
+				)
+
+				# Delete the IAM user
+				delete_user_response = iam_client.delete_user(
+					UserName=credentials[ "iam_admin_username" ],
+				)
+			except Exception as e:
+				logit( "Unable to delete IAM user during recreate process" )
+
+				# Raise the exception again unless the flag is set to force continuation
+				if force_continue is False:
+					raise e
 			
 			logit( "Re-creating the AWS console user..." )
 			
@@ -2199,7 +2272,89 @@ class TaskSpawner(object):
 				"monthly",
 				use_cache
 			)
-			
+
+		@run_on_executor
+		def mark_account_needs_closing( self, email ):
+			dbsession = DBSession()
+
+			row = dbsession.query(User, Organization, AWSAccount).filter(
+				User.organization_id == Organization.id
+			).filter(
+				Organization.id == AWSAccount.organization_id
+			).filter(
+				AWSAccount.aws_account_status == "IN_USE",
+				AWSAccount.account_type == "MANAGED",
+				User.email == email
+			).first()
+
+			if row is None:
+				logit('unable to find user with email: ' + email)
+				return False
+
+			aws_account = row[2]
+			aws_account.aws_account_status = "NEEDS_CLOSING"
+
+			dbsession.commit()
+			dbsession.close()
+			return True
+
+		@run_on_executor
+		def do_account_cleanup( self ):
+			"""
+			When an account has been closed on refinery, the AWS account associated with it has gone stale.
+			In order to prevent any future charges of this account, we close it out using a script which:
+			1) Resets the root AWS account password (required to do anything with the account)
+			2) Waits for the mailgun API to receive the email
+			3) Logs into the root AWS account
+			4) Marks account to be closed
+			"""
+			dbsession = DBSession()
+
+			# find all organizations which have been marked as 'disabled'
+			rows = dbsession.query(User, Organization, AWSAccount).filter(
+				User.organization_id == Organization.id
+			).filter(
+				Organization.id == AWSAccount.organization_id
+			).filter(
+				AWSAccount.aws_account_status == "NEEDS_CLOSING",
+				AWSAccount.account_type == "MANAGED"
+			).all()
+
+			# load all of the results to be processed
+			accounts = [
+				(row[2].id, row[2].aws_account_email) for row in rows]
+			dbsession.close()
+
+			removed_accounts = 0
+			for aws_account in accounts:
+				account_id = aws_account[0]
+				email = aws_account[1]
+
+				response = LAMBDA_CLIENT.invoke(
+					FunctionName=delete_account_lambda_arn,
+					InvocationType="RequestResponse",
+					LogType="Tail",
+					Payload=json.dumps({
+						"email": email
+					})
+				)
+
+				if response["ResponseMetadata"]["HTTPStatusCode"] != 200:
+					logit("failed to remove account: " + email)
+				else:
+					# mark the account as closed
+					dbsession = DBSession()
+					account = dbsession.query(AWSAccount).filter(
+						AWSAccount.id == account_id
+					).first()
+					account.aws_account_status = "CLOSED"
+					dbsession.commit()
+					dbsession.close()
+
+					removed_accounts += 1
+
+			return removed_accounts
+
 		@staticmethod
 		def _get_sub_account_billing_data( account_id, account_type, start_date, end_date, granularity, use_cache ):
 			"""
@@ -2769,7 +2924,7 @@ class TaskSpawner(object):
 		def build_lambda( credentials, lambda_object ):
 			logit( "Building Lambda " + lambda_object.language + " with libraries: " + str( lambda_object.libraries ), "info" )
 			if not ( lambda_object.language in LAMBDA_SUPPORTED_LANGUAGES ):
-				raise Exception( "Error, this language '" + language + "' is not yet supported by refinery!" )
+				raise Exception( "Error, this language '" + lambda_object.language + "' is not yet supported by refinery!" )
 			
 			if lambda_object.language == "python2.7":
 				package_zip_data = TaskSpawner._build_python27_lambda(
@@ -7657,19 +7812,18 @@ class DeployDiagram( BaseHandler ):
 		task_lock = self.task_locker.lock( self.dbsession, lock_id )
 
 		try:
-			# Enforce that we are only attempting to do this multiple times simultaneously for the same project
+			# Enforce that we are only attempting to do this once for the same project at any given time
 			with task_lock:
 				yield self.do_diagram_deployment(
 					project_name, project_id, diagram_data, project_config)
 
 		except AcquireFailure:
-			logit( "unable to acquire deploy diagram lock for " + project_id )
+			logit( "unable to acquire deploy diagram lock for " + project_id, "error" )
 			self.write({
 				"success": False,
 				"code": "DEPLOYMENT_LOCK_FAILURE",
 				"msg": "Deployment for this project is already in progress",
 			})
-			raise gen.Return()
 
 class GetProjectConfig( BaseHandler ):
 	@authenticated
@@ -7935,7 +8089,23 @@ def load_further_partitions( credentials, project_id, new_shards_list ):
 		query,
 		False
 	)
-	
+
+@gen.coroutine
+def do_update_athena_table_partitions( task_locker, credentials, project_id ):
+	dbsession = DBSession()
+
+	lock_id = "get_project_executions_" + project_id
+	task_lock = task_locker.lock( dbsession, lock_id )
+	try:
+		# Enforce that we are only attempting to do this once for the same project at any given time
+		with task_lock:
+			yield update_athena_table_partitions( credentials, project_id )
+
+	except AcquireFailure:
+		logit( "Unable to acquire lock for:" + lock_id, "error" )
+	finally:
+		dbsession.close()
+
 @gen.coroutine
 def update_athena_table_partitions( credentials, project_id ):
 	"""
@@ -7982,8 +8152,11 @@ def update_athena_table_partitions( credentials, project_id ):
 	latest_athena_known_shard = False
 	if len( athena_known_shards ) > 0:
 		latest_athena_known_shard = s3_prefix + athena_known_shards[-1]
-		
-	while True:
+
+	# Bound this loop to only execute MAX_LOOP_ITERATION times since we
+	# cannot guarantee that the condition `continuation_token == False`
+	# will ever be true.
+	for _ in xrange(MAX_LOOP_ITERATIONS):
 		s3_list_results = yield local_tasks.get_s3_list_from_prefix(
 			credentials,
 			credentials[ "logs_bucket" ],
@@ -7994,7 +8167,7 @@ def update_athena_table_partitions( credentials, project_id ):
 		
 		s3_shards = s3_list_results[ "common_prefixes" ]
 		continuation_token = s3_list_results[ "continuation_token" ]
-		
+
 		# Add all new shards to the list
 		for s3_shard in s3_shards:
 			if not ( s3_shard in s3_pulled_shards ):
@@ -8109,7 +8282,10 @@ def get_execution_stats_since_timestamp( credentials, project_id, oldest_timesta
 	
 	continuation_token = False
 	
-	while True:
+	# Bound this loop to only execute MAX_LOOP_ITERATION times since we
+	# cannot guarantee that the condition `continuation_token == False`
+	# will ever be true.
+	for _ in xrange(MAX_LOOP_ITERATIONS):
 		# List shards in the S3 bucket starting at the oldest available shard
 		# That's because S3 buckets will start at the oldest time and end at
 		# the latest time (due to inverse binary UTF-8 sort order)
@@ -8350,18 +8526,21 @@ class GetProjectExecutions( BaseHandler ):
 		}
 		
 		validate_schema( self.json, schema )
-		
+
+		project_id = self.json[ "project_id" ]
+
 		credentials = self.get_authenticated_user_cloud_configuration()
-		
+
 		# We do this to always keep Athena partitioned for the later
-		# steps of querying
-		update_athena_table_partitions(
+		# steps of querying.
+		do_update_athena_table_partitions(
+			self.task_locker,
 			credentials,
-			self.json[ "project_id" ]
+			project_id
 		)
-		
+
 		# Ensure user is owner of the project
-		if not self.is_owner_of_project( self.json[ "project_id" ] ):
+		if not self.is_owner_of_project( project_id ):
 			self.write({
 				"success": False,
 				"code": "ACCESS_DENIED",
@@ -8374,7 +8553,7 @@ class GetProjectExecutions( BaseHandler ):
 		# Pull the logs
 		execution_pipeline_totals = yield get_execution_stats_since_timestamp(
 			credentials,
-			self.json[ "project_id" ],
+			project_id,
 			self.json[ "oldest_timestamp" ]
 		)
 		
@@ -9275,7 +9454,47 @@ class GetBillingMonthTotals( BaseHandler ):
 			"success": True,
 			"billing_data": billing_data,
 		})
-		
+
+class MarkAccountNeedsClosing( BaseHandler ):
+	@gen.coroutine
+	def post( self ):
+		"""
+		Mark an account as "NEEDS_CLOSING" so that it can be
+		cleaned up when aws accounts are being reaped.
+		"""
+		schema = {
+			"type": "object",
+			"properties": {
+				"email": {
+					"type": "string",
+					"pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
+				}
+			},
+			"required": [
+				"email"
+			]
+		}
+
+		validate_schema( self.json, schema )
+
+		ok = yield local_tasks.mark_account_needs_closing(self.json['email'])
+
+		self.write({
+			"ok": ok,
+		})
+
+class RemoveNeedsClosingAccounts( BaseHandler ):
+	@gen.coroutine
+	def get( self ):
+		"""
+		Removes accounts which have been marked as 'NEEDS_CLOSING'
+		"""
+		removed_count = yield local_tasks.do_account_cleanup()
+
+		self.write({
+			"removed": removed_count,
+		})
+
 def get_last_month_start_and_end_date_strings():
 	"""
 	Returns the start date string of the previous month and
@@ -9951,12 +10170,13 @@ class MaintainAWSAccountReserves( BaseHandler ):
 					"MANAGED",
 					False
 				)
-			except:
-				logit( "An error occurred while creating an AWS sub-account.", "error" )
+			except Exception as e:
+				logit( "An error occurred while creating an AWS sub-account: " + repr(e), "error" )
 				pass
 		
 		dbsession.close()
-			
+
+
 class PerformTerraformUpdateOnFleet( BaseHandler ):
 	@gen.coroutine
 	def get( self ):
@@ -10060,7 +10280,102 @@ class PerformTerraformUpdateOnFleet( BaseHandler ):
 		)
 		
 		dbsession.close()
-			
+
+
+class PerformTerraformUpdateForAccount( BaseHandler ):
+	@gen.coroutine
+	def get( self, account_id=None ):
+
+		if not account_id:
+			self.write({
+				"success": False,
+				"msg": "Please provide an 'account_id' to terraform apply for"
+			})
+			raise gen.Return()
+
+		dbsession = DBSession()
+		aws_account = dbsession.query( AWSAccount ).filter(
+			AWSAccount.account_id == account_id
+		).filter(
+			sql_or(
+				AWSAccount.aws_account_status == "IN_USE",
+				AWSAccount.aws_account_status == "AVAILABLE",
+				)
+		).first()
+
+		if aws_account is None:
+			msg = "Could not find account to Terraform apply for: " + account_id
+			logit( msg, "error" )
+			self.write({
+				"success": False,
+				"msg": msg
+			})
+			raise gen.Return()
+
+		aws_account_dict = aws_account.to_dict()
+
+		dbsession.close()
+
+		response_html_template = """
+		<html>
+		<body>
+			<h1>Terraform Apply Results for Account {}</h1>
+			<h2>Result: {}</h2>
+			<p>{}</p>
+		</body>
+		</html>
+		"""
+
+		logit( "Running 'terraform apply' for AWS Account " + account_id )
+		terraform_apply_results = yield local_tasks.terraform_apply(
+			aws_account_dict
+		)
+
+		# Write the old terraform version to the database
+		logit( "Updating current tfstate for the AWS account..." )
+
+		dbsession = DBSession()
+		current_aws_account = dbsession.query( AWSAccount ).filter(
+			AWSAccount.account_id == account_id,
+		).first()
+
+		previous_terraform_state = TerraformStateVersion()
+		previous_terraform_state.aws_account_id = current_aws_account.id
+		previous_terraform_state.terraform_state = terraform_apply_results[ "original_tfstate" ]
+		current_aws_account.terraform_state_versions.append(
+			previous_terraform_state
+		)
+
+		# Update the current terraform state as well.
+		current_aws_account.terraform_state = terraform_apply_results[ "new_tfstate" ]
+
+		dbsession.add( current_aws_account )
+		dbsession.commit()
+		dbsession.close()
+
+		# Convert terraform plan terminal output to HTML
+		ansiconverter = Ansi2HTMLConverter()
+
+		if terraform_apply_results[ "success" ]:
+			terraform_output_html = ansiconverter.convert(
+				terraform_apply_results[ "stdout" ]
+			)
+		else:
+			terraform_output_html = ansiconverter.convert(
+				terraform_apply_results[ "stderr" ]
+			)
+
+		rendered_html_output = response_html_template.format(
+			account_id,
+			"[ APPLY SUCCEEDED ]" if terraform_apply_results[ "success" ] else "[ APPLY FAILED ]",
+			terraform_output_html
+		)
+
+		logit( "Results from account 'terraform apply': " + rendered_html_output )
+
+		self.write( rendered_html_output )
+
+
 class PerformTerraformPlanOnFleet( BaseHandler ):
 	@gen.coroutine
 	def get( self ):
@@ -10129,7 +10444,78 @@ class PerformTerraformPlanOnFleet( BaseHandler ):
 			False, # No text version of email
 			final_email_html
 		)
-			
+
+
+class PerformTerraformPlanForAccount( BaseHandler ):
+	@gen.coroutine
+	def get( self, account_id=None ):
+		"""
+		This endpoint will perform a Terraform Plan and return the results synchronously.
+		"""
+
+		if not account_id:
+			self.write({
+				"success": False,
+				"msg": "Please provide an 'account_id' to terraform plan for"
+			})
+			raise gen.Return()
+
+		dbsession = DBSession()
+		aws_account = dbsession.query( AWSAccount ).filter(
+			AWSAccount.account_id == account_id
+		).filter(
+			sql_or(
+				AWSAccount.aws_account_status == "IN_USE",
+				AWSAccount.aws_account_status == "AVAILABLE",
+				)
+		).first()
+
+		if aws_account is None:
+			msg = "Could not find account to Terraform plan for: " + account_id
+			logit( msg, "error" )
+			self.write({
+				"success": False,
+				"msg": msg
+			})
+			raise gen.Return()
+
+		aws_account_dict = aws_account.to_dict()
+
+		response_html_template = """
+		<html>
+		<body>
+			<h1>Terraform Plan Result for Account: {}</h1>
+			Please note that this is <b>not</b> applying these changes.
+			It is purely to understand what would happen if we did.
+			<hr />
+			<h3>Output</h3>
+			<p>{}</p>
+		</body>
+		</html>
+		"""
+
+		dbsession.close()
+
+		logit( "Performing a terraform plan for AWS account: " + str( account_id ) )
+		terraform_plan_output = yield local_tasks.terraform_plan(
+			aws_account_dict
+		)
+
+		# Convert terraform plan terminal output to HTML
+		ansiconverter = Ansi2HTMLConverter()
+		terraform_output_html = ansiconverter.convert(
+			terraform_plan_output
+		)
+
+		rendered_html_output = response_html_template.format(
+			account_id,
+			terraform_output_html
+		)
+
+		logit( "Generated response output for plan: " + rendered_html_output )
+		self.write( rendered_html_output )
+
+
 class StashStateLog( BaseHandler ):
 	def post( self ):
 		"""
@@ -10187,7 +10573,47 @@ class AdministrativeAssumeAccount( BaseHandler ):
 		self.redirect(
 			"/"
 		)
-		
+
+class AssumeRoleCredentials( BaseHandler ):
+	def get( self, account_id=None ):
+		"""
+		For helping customers with their accounts.
+		"""
+		if not account_id:
+			self.write({
+				"success": False,
+				"msg": "You must specify a account_id via the URL (/UUID/)."
+			})
+
+		assumed_role_credentials = None
+		try:
+			# We then assume the administrator role for the sub-account we created
+			assumed_role_credentials = TaskSpawner._get_assume_role_credentials(
+				str( account_id ),
+				3600 # One hour - TODO CHANGEME
+			)
+		except botocore.exceptions.ClientError as boto_error:
+			logit( "Assume role boto error:" + repr( boto_error ), "error" )
+			# If it's not an AccessDenied exception it's not what we except so we re-raise
+			if boto_error.response[ "Error" ][ "Code" ] != "AccessDenied":
+				logit( "Unexpected Boto3 response: " + boto_error.response[ "Error" ][ "Code" ] )
+				logit( boto_error.response )
+				raise boto_error
+
+		if assumed_role_credentials:
+			self.write({
+				"success": True,
+				"access_key_id": assumed_role_credentials[ "access_key_id" ],
+				"secret_access_key": assumed_role_credentials[ "secret_access_key" ],
+				"session_token": assumed_role_credentials[ "session_token" ]
+			})
+			return
+
+		self.write({
+			"success": False,
+			"msg": "Unable to get assume role credentials for provided account"
+		})
+
 class UpdateIAMConsoleUserIAM( BaseHandler ):
 	@gen.coroutine
 	def get( self ):
@@ -10224,7 +10650,62 @@ class UpdateIAMConsoleUserIAM( BaseHandler ):
 			)
 		
 		logit( "AWS console accounts updated successfully!" )
-		
+
+
+class ResetIAMConsoleUserIAMForAccount( BaseHandler ):
+	@gen.coroutine
+	def get( self, account_id=None ):
+		"""
+		This blows away all the IAM policies for a specific AWS account and updates it with the latest policy.
+		"""
+
+		if not account_id:
+			self.write({
+				"success": False,
+				"msg": "Please provide an 'account_id' to reset the IAM Console user"
+			})
+			raise gen.Return()
+
+		dbsession = DBSession()
+		aws_account_result = dbsession.query( AWSAccount ).filter(
+			AWSAccount.account_id == account_id
+		).filter(
+			sql_or(
+				AWSAccount.aws_account_status == "IN_USE",
+				AWSAccount.aws_account_status == "AVAILABLE",
+				)
+		).first()
+
+		if aws_account_result is None:
+			msg = "Could not find account to reset IAM for: " + account_id
+			logit( msg, "error" )
+			self.write({
+				"success": False,
+				"msg": msg
+			})
+			raise gen.Return()
+
+		aws_account_dict = aws_account_result.to_dict()
+
+		dbsession.close()
+
+		logit( "Updating console account for single AWS account ID " + aws_account_dict[ "account_id" ] + "...")
+		yield local_tasks.recreate_aws_console_account(
+			aws_account_dict,
+			False,
+			# We set this flag so that if the user was deleted, it will be recreated
+			force_continue=True
+		)
+
+		logit( "AWS console account updated successfully for account: " + account_id )
+
+		self.write({
+			"success": True,
+			"msg": "Console user successfully updated for: " + account_id
+		})
+		self.finish()
+
+
 class OnboardThirdPartyAWSAccountPlan( BaseHandler ):
 	@gen.coroutine
 	def get( self ):
@@ -10685,17 +11166,23 @@ def make_app( tornado_config ):
 		# These are "services" which are only called by external crons, etc.
 		# External users are blocked from ever reaching these routes
 		( r"/services/v1/assume_account_role/([a-f0-9\-]+)", AdministrativeAssumeAccount ),
+		( r"/services/v1/assume_role_credentials/([a-f0-9\-]+)", AssumeRoleCredentials ),
 		( r"/services/v1/maintain_aws_account_pool", MaintainAWSAccountReserves ),
 		( r"/services/v1/billing_watchdog", RunBillingWatchdogJob ),
 		( r"/services/v1/bill_customers", RunMonthlyStripeBillingJob ),
 		( r"/services/v1/perform_terraform_plan_on_fleet", PerformTerraformPlanOnFleet ),
 		( r"/services/v1/dangerously_terraform_update_fleet", PerformTerraformUpdateOnFleet ),
+		( r"/services/v1/perform_terraform_plan_for_account/([a-f0-9\-]+)", PerformTerraformPlanForAccount ),
+		( r"/services/v1/dangerously_terraform_update_for_account/([a-f0-9\-]+)", PerformTerraformUpdateForAccount ),
 		( r"/services/v1/update_managed_console_users_iam", UpdateIAMConsoleUserIAM ),
+		( r"/services/v1/reset_iam_console_user_for_account/([a-f0-9\-]+)", ResetIAMConsoleUserIAMForAccount ),
 		( r"/services/v1/onboard_third_party_aws_account_plan", OnboardThirdPartyAWSAccountPlan ),
 		( r"/services/v1/dangerously_finalize_third_party_aws_onboarding", OnboardThirdPartyAWSAccountApply ),
 		( r"/services/v1/clear_s3_build_packages", ClearAllS3BuildPackages ),
 		( r"/services/v1/dangling_resources/([a-f0-9\-]+)", CleanupDanglingResources ),
 		( r"/services/v1/clear_stripe_invoice_drafts", ClearStripeInvoiceDrafts ),
+		( r"/services/v1/mark_account_needs_closing", MarkAccountNeedsClosing ),
+		( r"/services/v1/remove_needs_closing_accounts", RemoveNeedsClosingAccounts ),
 	], **tornado_config)
 	
 def get_lambda_callback_endpoint( tornado_config ):

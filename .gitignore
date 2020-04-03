@@ -1,5 +1,4 @@
 env/
-*.yaml
 *.yml
 !buildspec.yml
 *.pyc
@@ -11,6 +10,7 @@ front-end/node_modules/
 auto-reload.sh
 nginx-container/front-end-dist/
 *.validator.ts
+secrets.json
 
 # Created by https://www.gitignore.io/api/intellij
 # Edit at https://www.gitignore.io/?templates=intellij
