@@ -69,7 +69,7 @@ class TornadoApp:
 			( r"/api/v1/auth/me", GetAuthenticationStatus ),
 			( r"/api/v1/auth/register", NewRegistration ),
 			( r"/api/v1/auth/login", Authenticate ),
-			( r"/api/v1/auth/github", AuthenticateWithGithub ),
+			# ( r"/api/v1/auth/github", AuthenticateWithGithub ),
 			( r"/api/v1/auth/logout", Logout ),
 
 			( r"/api/v1/logs/executions/get-logs", GetProjectExecutionLogObjects ),
