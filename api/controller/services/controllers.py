@@ -483,10 +483,7 @@ class MaintainAWSAccountReserves( BaseHandler ):
 
 			self.logger( "Freezing the account until it's used by someone..." )
 
-			TaskSpawner._freeze_aws_account(
-				self.db_session_maker,
-				current_aws_account.to_dict()
-			)
+			self.task_spawner.freeze_aws_account( current_aws_account.to_dict() )
 
 			self.logger( "Account frozen successfully." )
 

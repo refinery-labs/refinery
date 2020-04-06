@@ -189,6 +189,7 @@ class GetProjectExecutions( BaseHandler ):
 		# We do this to always keep Athena partitioned for the later
 		# steps of querying
 		do_update_athena_table_partitions(
+			self.task_spawner,
 			self.db_session_maker,
 			self.task_locker,
 			credentials,
