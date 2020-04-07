@@ -89,10 +89,10 @@ import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shar
 import { EditSharedFilePaneModule } from '@/store';
 
 import path from 'path';
-import git, {PromiseFsClient} from 'isomorphic-git';
+import git, { PromiseFsClient } from 'isomorphic-git';
 import http from 'isomorphic-git/http/web';
 import LightningFS from '@isomorphic-git/lightning-fs';
-import {CallbackFsClient} from 'isomorphic-git/index.umd.min';
+import { CallbackFsClient } from 'isomorphic-git/index.umd.min';
 
 export interface ChangeTransitionArguments {
   transition: WorkflowRelationship;

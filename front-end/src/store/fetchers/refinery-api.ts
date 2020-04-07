@@ -95,7 +95,9 @@ import {
   UpdateEnvironmentVariablesRequest,
   UpdateEnvironmentVariablesResponse,
   ImportProjectRepoResponse,
-  ImportProjectRepoRequest, AuthWithGithubResponse, AuthWithGithubRequest
+  ImportProjectRepoRequest,
+  AuthWithGithubResponse,
+  AuthWithGithubRequest
 } from '@/types/api-types';
 import { API_ENDPOINT, ApiConfigMap } from '@/constants/api-constants';
 

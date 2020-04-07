@@ -1,10 +1,11 @@
-import {RefineryProject} from '@/types/graph';
-import LightningFS from "@isomorphic-git/lightning-fs";
+import { RefineryProject } from '@/types/graph';
+import LightningFS from '@isomorphic-git/lightning-fs';
 import git from 'isomorphic-git';
 import http from 'isomorphic-git/http/web';
 
 class RepoCompilationError extends Error {}
 
+/*
 function
 
 function compileProjectRepo(projectID: string, gitURL: string): RefineryProject {
@@ -28,4 +29,4 @@ function compileProjectRepo(projectID: string, gitURL: string): RefineryProject 
   return repo;
 
   // TODO cleanup fs?
-}
+}*/

@@ -5,7 +5,8 @@ import { AllProjectsMutators } from '@/constants/store-constants';
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
 import {
-  AuthWithGithubRequest, AuthWithGithubResponse,
+  AuthWithGithubRequest,
+  AuthWithGithubResponse,
   DeleteSavedProjectRequest,
   DeleteSavedProjectResponse,
   SearchSavedProjectsRequest,

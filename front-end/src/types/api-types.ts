@@ -34,8 +34,7 @@ export interface BaseApiResponse {
 export interface BaseApiRequest {}
 
 // AuthWithGithub
-export interface AuthWithGithubRequest extends BaseApiRequest {
-}
+export interface AuthWithGithubRequest extends BaseApiRequest {}
 
 export interface AuthWithGithubResponse extends BaseApiResponse {
   result: {
