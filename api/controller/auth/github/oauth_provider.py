@@ -81,6 +81,7 @@ class GithubOAuthProvider:
 			"redirect_uri": redirect_uri,
 			"client_id": self.client_id,
 			"state": state,
+			"scope": self.scope,
 			"response_type": "code"
 		}
 
@@ -110,7 +111,12 @@ class GithubOAuthProvider:
 		user_email = user_data_response[ "email" ]
 		user_name = user_data_response[ "name" ]
 
-		self.logger( "Successfully retrieved data for user from Github for user: " + user_email, "info" )
+		if user_email is None:
+			# TODO handle this error
+			user_email = "test@test.com"
+			pass
+		else:
+			self.logger( "Successfully retrieved data for user from Github for user: " + user_email, "info" )
 
 		raise gen.Return( GithubUserData( user_unique_id, user_email, user_name, access_token, user_data_response ) )
 
@@ -129,7 +135,6 @@ class GithubOAuthProvider:
 			"code": code,
 			"client_id": self.client_id,
 			"client_secret": self.client_secret,
-			"scope": self.scope,
 			"state": state
 		}
 

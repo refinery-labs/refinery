@@ -29,6 +29,7 @@ import re
 import io
 
 from tornado import gen
+from tornado.httpserver import HTTPServer
 from tornado.web import url
 import unicodecsv as csv
 from ansi2html import Ansi2HTMLConverter
@@ -41,7 +42,10 @@ from assistants.user_creation_assistant import UserCreationAssistant
 from controller.auth.github.http_handler import AuthenticateWithGithub
 
 from controller.auth.github.oauth_provider import GithubOAuthProvider
+from models.github_webooks import GithubWebhook
+from models.user_oauth_account import UserOAuthAccountModel
 from services.auth.oauth_service import OAuthService
+from services.github.repo_manager import GithubRepoManager
 from services.project_inventory.project_inventory_service import ProjectInventoryService
 from services.stripe.stripe_service import StripeService
 from services.user_management.user_management_service import UserManagementService
@@ -68,6 +72,7 @@ from controller.lambda_connect_back import LambdaConnectBackServer
 from controller.dangling_resources import CleanupDanglingResources
 from controller.clear_invoice_drafts import ClearStripeInvoiceDrafts
 from controller.saved_blocks_controller import SavedBlockDelete, ProjectRepoImport, SavedBlocksCreate, SavedBlockSearch, SavedBlockStatusCheck
+from controller.git_proxy import CustomRouter
 
 from assistants.project_repo.project_repo_assistant import ProjectRepoAssistant
 
@@ -123,7 +128,7 @@ LAMBDA_CALLBACK_ENDPOINT = False
 # For loops which do not have a discreet conditional break, we enforce
 # an upper bound of iterations.
 MAX_LOOP_ITERATIONS = 10000
-			
+
 def on_start():
 	global LAMDBA_BASE_CODES, LAMBDA_BASE_LIBRARIES, LAMBDA_SUPPORTED_LANGUAGES, CUSTOM_RUNTIME_CODE, CUSTOM_RUNTIME_LANGUAGES, EMAIL_TEMPLATES, CUSTOMER_IAM_POLICY, DEFAULT_PROJECT_ARRAY, DEFAULT_PROJECT_CONFIG
 	
@@ -7354,6 +7359,13 @@ class SaveProject( BaseHandler ):
 		})
 	
 class SaveProjectConfig( BaseHandler ):
+	github_repo_manager = None
+
+	def initialize( self, github_repo_manager ):
+		super(SaveProjectConfig, self).initialize()
+
+		self.github_repo_manager = github_repo_manager
+
 	@authenticated
 	def post( self ):
 		"""
@@ -7378,6 +7390,74 @@ class SaveProjectConfig( BaseHandler ):
 				"msg": "You do not have the permissions required to save this project config."
 			})
 			return
+
+		project_config_json = json.loads(self.json["config"])
+
+		project_repo = project_config_json.get("project_repo")
+		if project_repo:
+			GITHUB_REPO_REGEX = "((git|ssh|http(s)?)|(git@[\w\.]+))(:(\/\/)?)github\.com\/(?P<username>[\w\.@\:\/\-~]+)\/(?P<repo_name>[\w\.@\:\/\-~]+)(\.git)(\/)?"
+			repo_url_matches = re.match(GITHUB_REPO_REGEX, project_repo)
+			if not repo_url_matches:
+				self.write({
+					"success": False,
+					"code": "PROJECT_REPO_INVALID",
+					"msg": "Provided repo is not a valid GitHub repo"
+				})
+				return
+
+			repo_name = repo_url_matches.group("repo_name")
+
+			user_id = self.get_authenticated_user_id()
+			user_oauth_account = self.dbsession.query(UserOAuthAccountModel).filter(
+				UserOAuthAccountModel.user_id == user_id
+			).first()
+
+			if user_oauth_account is None:
+				self.write({
+					"success": False,
+					"code": "PROJECT_REPO_MISSING_GITHUB_OAUTH",
+					"msg": "Github OAuth has not been enabled for this account."
+				})
+				return
+
+			# get the latest data record
+			# TODO bounds check
+			oauth_data_record = user_oauth_account.oauth_data_records[-1]
+
+			access_token = oauth_data_record.oauth_token
+
+			# TODO check if exists
+			oauth_json_data = json.loads(oauth_data_record.json_data)
+			username = oauth_json_data['login']
+
+			# TODO perform health checks for webhooks and reinstall if failed?
+
+			project_webhook = self.dbsession.query( GithubWebhook ).filter(
+				GithubWebhook.project_id == project_id
+			).first()
+
+			should_install_webhook = False
+			if project_webhook:
+				github_webhooks = yield self.github_repo_manager.list_repo_webhooks(access_token, username, repo_name)
+
+				# default to unable to find project's webhook
+				should_install_webhook = True
+				for webhook in github_webhooks:
+					if project_webhook.webhook_id == webhook["id"]:
+						# found installed webhook
+						if webhook["config"]["url"] == self.github_repo_manager.webhook_url():
+							# found installed webhook and the url matches the expected webhook
+							should_install_webhook = False
+			else:
+				# no webhook currently installed for repo
+				should_install_webhook = True
+
+			if should_install_webhook:
+				github_webhook = yield self.github_repo_manager.install_repo_webhook(access_token, username, repo_name)
+
+				self.dbsession.delete(project_webhook)
+				self.dbsession.add(github_webhook)
+				self.dbsession.commit()
 		
 		# Update project config
 		update_project_config(
@@ -11047,6 +11127,50 @@ class GetProjectShortlink( BaseHandler ):
 			}
 		})
 
+
+class GithubWebhookCallback( BaseHandler ):
+	repo_assistant = None
+
+	def initialize( self, repo_assistant ):
+		super(GithubWebhookCallback, self).initialize()
+
+		self.repo_assistant = repo_assistant
+
+	@gen.coroutine
+	def post( self ):
+		# TODO json schema
+
+		webhook_id_str = self.json.get("id")
+		if not webhook_id_str:
+			logit("webhook id not present in callback", "error")
+			raise gen.Return()
+
+		try:
+			webhook_id = int(webhook_id_str)
+		except ValueError:
+			logit("unable to parse webhook id as integer", "error")
+			raise gen.Return()
+
+		github_webhook = self.dbsession.query(GithubWebhook).filter(
+			GithubWebhook.webhook_id == webhook_id
+		).first()
+		if not github_webhook:
+			logit("unable to find webhook given webhook id", "error")
+			raise gen.Return()
+
+		git_url = self.json["clone_url"]
+		refinery_project = self.repo_assistant.compile_project_repo(github_webhook.project_id, git_url)
+
+		latest_project_version = self.dbsession.query(ProjectVersion).filter(
+			ProjectVersion.project_id == github_webhook.project_id
+		).order_by(ProjectVersion.version.desc()).first()
+
+		latest_project_version.project_json
+
+		# TODO check if merge is not clean?
+
+		self.write({})
+
 def get_tornado_app_config( is_debug ):
 	return {
 		"debug": is_debug,
@@ -11110,6 +11234,9 @@ def make_app( tornado_config ):
 
 	repo_assistant = ProjectRepoAssistant(logit)
 
+	global NGROK_URL
+	github_repo_manager = GithubRepoManager(logit, NGROK_URL)
+
 	# Sets up routes
 	return tornado.web.Application([
 		( r"/api/v1/health", HealthHandler ),
@@ -11136,7 +11263,8 @@ def make_app( tornado_config ):
 		( r"/api/v1/aws/run_tmp_lambda", RunTmpLambda ),
 		( r"/api/v1/aws/infra_tear_down", InfraTearDown ),
 		( r"/api/v1/aws/infra_collision_check", InfraCollisionCheck ),
-		( r"/api/v1/projects/config/save", SaveProjectConfig ),
+		url( r"/api/v1/github/webhook", GithubWebhookCallback, dict(repo_assistant=repo_assistant) ),
+		url( r"/api/v1/projects/config/save", SaveProjectConfig, dict(github_repo_manager=github_repo_manager) ),
 		( r"/api/v1/projects/save", SaveProject ),
 		( r"/api/v1/projects/search", SearchSavedProjects ),
 		( r"/api/v1/projects/get", GetSavedProject ),
@@ -11195,6 +11323,9 @@ def get_lambda_callback_endpoint( tornado_config ):
 		ngrok_http_endpoint = tornado.ioloop.IOLoop.current().run_sync(
 			set_up_ngrok_websocket_tunnel
 		)
+
+		global NGROK_URL
+		NGROK_URL = ngrok_http_endpoint
 		
 		return ngrok_http_endpoint.replace(
 			"https://",
@@ -11219,7 +11350,14 @@ if __name__ == "__main__":
 	tornado_config = get_tornado_app_config(
 		is_debug
 	)
-	
+
+	# Resolve what our callback endpoint is, this is different in DEV vs PROD
+	# one assumes you have an external IP address and the other does not (and
+	# fixes the situation for you with ngrok).
+	LAMBDA_CALLBACK_ENDPOINT = get_lambda_callback_endpoint(
+		tornado_config
+	)
+
 	# Start API server
 	app = make_app(
 		tornado_config
@@ -11230,6 +11368,10 @@ if __name__ == "__main__":
 	server.bind(
 		7777
 	)
+
+	router = CustomRouter()
+	git_proxy = HTTPServer(router)
+	git_proxy.bind(9999)
 	
 	# Start websocket server
 	websocket_app = make_websocket_server(
@@ -11257,17 +11399,11 @@ if __name__ == "__main__":
 	# Creates tables for any new models
 	# This is commented out by default because it makes Alembic autogenerated migrations not work
 	# (unless you drop the tables manually before you auto-generate)
-	# Base.metadata.create_all( engine )
+	Base.metadata.create_all( engine )
 		
-	# Resolve what our callback endpoint is, this is different in DEV vs PROD
-	# one assumes you have an external IP address and the other does not (and
-	# fixes the situation for you with ngrok).
-	LAMBDA_CALLBACK_ENDPOINT = get_lambda_callback_endpoint(
-		tornado_config
-	)
-	
 	logit( "Lambda callback endpoint is " + LAMBDA_CALLBACK_ENDPOINT )
 
 	server.start()
 	websocket_server.start()
+	git_proxy.start()
 	tornado.ioloop.IOLoop.current().start()

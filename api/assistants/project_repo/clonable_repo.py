@@ -1,13 +1,13 @@
 import shutil
 import tempfile
 
-from git import Repo, RemoteProgress
+#from git import Repo, RemoteProgress
 
 
 class CloningRepoException(Exception):
 	pass
 
-
+"""
 class CloneableRepoProgress(RemoteProgress):
 	succeeded = False
 	last_op_code = 0
@@ -48,3 +48,4 @@ class CloneableRepo(object):
 
 	def __exit__(self, type, value, traceback):
 		shutil.rmtree(self.repo_dir)
+"""

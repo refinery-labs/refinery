@@ -4,6 +4,7 @@ import uuid
 import time
 import os
 
+
 class Project( Base ):
 	__tablename__ = "projects"
 
@@ -43,7 +44,14 @@ class Project( Base ):
 		lazy="dynamic",
 		cascade="all, delete-orphan"
 	)
-	
+
+	webhooks = relationship(
+		"GithubWebhook",
+		lazy="dynamic",
+		backref="webhooks",
+		cascade="all, delete-orphan"
+	)
+
 	timestamp = Column(Integer())
 
 	def __init__( self ):

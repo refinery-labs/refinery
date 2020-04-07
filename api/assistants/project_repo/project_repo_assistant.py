@@ -7,9 +7,9 @@ import yaml.parser
 
 from tornado.concurrent import run_on_executor, futures
 
-from git import Repo, GitCommandError
+#from git import Repo, GitCommandError
 
-from assistants.project_repo.clonable_repo import CloneableRepo, CloningRepoException
+#from assistants.project_repo.clonable_repo import CloneableRepo, CloningRepoException
 
 LANGUAGE_TO_EXT = {
 	"nodejs8.10": "js",
@@ -221,17 +221,17 @@ class ProjectRepoAssistant:
 		return refinery_project
 
 	@run_on_executor
-	def compile_and_upsert_project_repo( self, project_id, git_url ):
+	def compile_project_repo( self, project_id, git_url ):
 		# type: (str, str) -> (Union[dict, None], str)
 		try:
 			return self._compile_and_upsert_project_repo(project_id, git_url), ""
 		except RepoCompilationException as e:
 			self.logger("An error occurred while compiling repository: {}".format(e), "error")
 			return None, str(e)
-		except GitCommandError as e:
-			self.logger("An error occurred while cloning repository: {}".format(e), "error")
-			return None, str(e)
-		except CloningRepoException as e:
+		#except GitCommandError as e:
+		#	self.logger("An error occurred while cloning repository: {}".format(e), "error")
+		#	return None, str(e)
+		#except CloningRepoException as e:
 			self.logger("An error occurred while cloning repository: {}".format(e), "error")
 			return None, str(e)
 		except Exception as e:
@@ -240,6 +240,7 @@ class ProjectRepoAssistant:
 			return None, str(e)
 
 	def _compile_and_upsert_project_repo( self, project_id, git_url ):
+		"""
 		with CloneableRepo(git_url) as repo_dir:
 			self.logger("Cloned repo {} for project {}".format(git_url, project_id))
 
@@ -247,3 +248,5 @@ class ProjectRepoAssistant:
 			refinery_project["project_id"] = project_id
 
 			return refinery_project
+		"""
+		pass
