@@ -33,6 +33,16 @@ export interface BaseApiResponse {
 
 export interface BaseApiRequest {}
 
+// AuthWithGithub
+export interface AuthWithGithubRequest extends BaseApiRequest {}
+
+export interface AuthWithGithubResponse extends BaseApiResponse {
+  result: {
+    redirect_uri: string;
+  };
+  success: boolean;
+}
+
 // SearchSavedProjects
 export interface SearchSavedProjectsRequest extends BaseApiRequest {
   query: string | null;

@@ -88,6 +88,12 @@ import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shared-files';
 import { EditSharedFilePaneModule } from '@/store';
 
+import path from 'path';
+import git, { PromiseFsClient } from 'isomorphic-git';
+import http from 'isomorphic-git/http/web';
+import LightningFS from '@isomorphic-git/lightning-fs';
+import { CallbackFsClient } from 'isomorphic-git/index.umd.min';
+
 export interface ChangeTransitionArguments {
   transition: WorkflowRelationship;
   transitionType: WorkflowRelationshipType;
@@ -825,7 +831,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         context.state.openedProject.project_id,
         context.state.openedProjectConfig.project_repo
       );
-      console.log(project);
 
       const config = context.state.openedProjectConfig;
 

@@ -477,7 +477,7 @@ class ProjectRepoImport( BaseHandler ):
 		try:
 			with lock:
 				# do not wait for upsert to complete, this will run in the background
-				compiled_project, error_msg = yield self.repo_assistant.compile_and_upsert_project_repo(project_id, project_repo)
+				compiled_project, error_msg = yield self.repo_assistant.compile_project_repo( project_id, project_repo )
 				if compiled_project is not None:
 					self.write({
 						"success": True,

@@ -15,7 +15,10 @@ from utils.general import logit
 from utils.locker import Locker
 
 CSRF_EXEMPT_ENDPOINTS = [
-	"/services/v1/mark_account_needs_closing"
+	"/services/v1/mark_account_needs_closing",
+
+	# secret enforcement is done by handler
+	"/api/v1/github/webhook"
 ]
 
 # Pull list of allowed Access-Control-Allow-Origin values from environment var
