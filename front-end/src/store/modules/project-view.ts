@@ -223,6 +223,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return [];
       }
 
+      // TODO: Return only valid blocks here, not all Lambda blocks.
       return getIDsOfBlockType(WorkflowStateType.LAMBDA, state.openedProject);
     },
     /**

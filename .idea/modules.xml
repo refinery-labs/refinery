@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/refinery.iml" filepath="$PROJECT_DIR$/.idea/refinery.iml" />
+      <module fileurl="file://$PROJECT_DIR$/api/api.iml" filepath="$PROJECT_DIR$/api/api.iml" />
+      <module fileurl="file://$PROJECT_DIR$/front-end/front-end.iml" filepath="$PROJECT_DIR$/front-end/front-end.iml" />
+      <module fileurl="file://$PROJECT_DIR$/refinery.iml" filepath="$PROJECT_DIR$/refinery.iml" />
     </modules>
   </component>
 </project>

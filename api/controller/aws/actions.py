@@ -1041,7 +1041,7 @@ def deploy_diagram( task_spawner, api_gateway_manager, credentials, project_name
 				workflow_state[ "arn" ] = deployed_api_endpoint[ "arn" ]
 				workflow_state[ "name" ] = deployed_api_endpoint[ "name" ]
 				workflow_state[ "rest_api_id" ] = api_gateway_id
-				workflow_state[ "url" ] = "https://" + api_gateway_id + ".execute-api." + credentials[ "region" ] + ".amazonaws.com/refinery" + workflow_state[ "api_path" ]
+				workflow_state[ "url" ] = "https://" + str(api_gateway_id) + ".execute-api." + credentials[ "region" ] + ".amazonaws.com/refinery" + workflow_state[ "api_path" ]
 
 	# Update workflow scheduled trigger nodes with arn
 	for deployed_schedule_trigger in deployed_schedule_triggers:
