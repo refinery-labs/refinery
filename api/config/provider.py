@@ -8,7 +8,10 @@ from config.app_init_config import app_init_config
 
 def load_app_config( app_env=None, overrides=None ):
 	if app_env is None:
-		app_env = os.environ[ "REFINERY_ENV" ]
+		if "REFINERY_ENV" not in os.environ:
+			app_env = "production"
+		else:
+			app_env = os.environ[ "REFINERY_ENV" ]
 
 	# In production just read the config vars from the env
 	set_env_vars = app_env is "production"
