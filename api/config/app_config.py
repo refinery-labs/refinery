@@ -31,7 +31,7 @@ class AppConfig:
 
 		# Grabs and sets the environment variables on the config
 		if set_env_vars:
-			self._config = self._merge_configs( self._config, self._get_env_vars_dict() )
+			self._config = self._merge_configs( self._config, dict( os.environ ) )
 
 		# Add overrides, if specified
 		if overrides is not None:
@@ -54,16 +54,6 @@ class AppConfig:
 		:return: Value associated with the given key or None.
 		"""
 		return self._config.get( key )
-
-	@staticmethod
-	def _get_env_vars_dict():
-		"""
-		Creates a dictionary with all env variables nested under 'env'
-		:return:
-		"""
-		env_dict_to_merge = dict()
-		env_dict_to_merge[ "env" ] = dict( os.environ )
-		return env_dict_to_merge
 
 	def _load_named_config( self, file_name ):
 
