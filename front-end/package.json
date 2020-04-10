@@ -112,5 +112,13 @@
       "vue-cli-service lint",
       "git add"
     ]
-  }
+  },
+  "description": "Refinery Front-End",
+  "main": "src/main.ts",
+  "directories": {
+    "test": "tests"
+  },
+  "keywords": [],
+  "author": "Refinery Labs, Inc",
+  "license": "Proprietary"
 }

@@ -32,6 +32,7 @@ from assistants.deployments.ecs_builders import BuilderManager
 from assistants.deployments.shared_files import add_shared_files_symlink_to_zip, add_shared_files_to_zip
 from assistants.task_spawner.actions import get_current_month_start_and_end_date_strings, is_organization_first_month, \
 	get_billing_rounded_float
+from assistants.task_spawner.exceptions import InvalidLanguageException
 from models import AWSAccount, Organization, CachedBillingCollection, CachedBillingItem, InlineExecutionLambda, User
 from pyconstants.project_constants import EMPTY_ZIP_DATA, REGEX_WHITELISTS, THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME, LAMBDA_SUPPORTED_LANGUAGES
 from pyexceptions.billing import CardIsPrimaryException
@@ -41,12 +42,14 @@ from utils.performance_decorators import emit_runtime_metrics
 
 try:
 	# for Python 2.x
+	# noinspection PyCompatibility
 	from StringIO import StringIO
 except ImportError:
 	# for Python 3.x
 	from io import StringIO
 
 
+# noinspection PyTypeChecker,SqlResolve
 class TaskSpawner(object):
 	app_config = None
 	db_session_maker = None
@@ -63,6 +66,7 @@ class TaskSpawner(object):
 	aws_client_factory = None  # type: AwsClientFactory
 	sts_client = None
 
+	# noinspection PyUnresolvedReferences
 	@pinject.copy_args_to_public_fields
 	def __init__(
 			self,
@@ -84,7 +88,6 @@ class TaskSpawner(object):
 	):
 		self.executor = futures.ThreadPoolExecutor( 60 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()
-
 
 	@run_on_executor
 	@emit_runtime_metrics( "create_third_party_aws_lambda_execute_role" )
@@ -275,7 +278,6 @@ class TaskSpawner(object):
 					"block_executions": {}
 				}
 
-
 			# If the timestamp is more recent that what is in the
 			# execution pipeline data then update the field with the value
 			# This is because we'd sort that by time (most recent) on the front end
@@ -345,7 +347,7 @@ class TaskSpawner(object):
 		)
 
 		# Convert the Athena query results into an execution pipeline ID with the
-		# results sorted into a dictionary with the key beign the execution pipeline ID
+		# results sorted into a dictionary with the key being the execution pipeline ID
 		# and the value being an object with information about the total executions for
 		# the execution pipeline ID and the block ARN execution totals contained within
 		# that execution pipeline.
@@ -2850,6 +2852,8 @@ class TaskSpawner(object):
 				lambda_object.code,
 				lambda_object.libraries
 			)
+		else:
+			raise InvalidLanguageException("Unknown language supplied to build Lambda with")
 
 		# Add symlink if it's an inline execution
 		if lambda_object.is_inline_execution:
@@ -2998,12 +3002,17 @@ class TaskSpawner(object):
 
 		dbsession.close()
 
-		logit( "Number of existing Lambdas cached for inline executions: " + str( len( existing_inline_execution_lambdas_objects ) ) )
+		logit(
+			"Number of existing Lambdas cached for inline executions: " + str( len( existing_inline_execution_lambdas_objects ) )
+		)
 
 		return existing_inline_execution_lambdas
 
 	@staticmethod
-	def _delete_cached_inline_execution_lambda( aws_client_factory, db_session_maker, lambda_manager, credentials, arn, lambda_uuid ):
+	def _delete_cached_inline_execution_lambda(
+			aws_client_factory, db_session_maker, lambda_manager, credentials, arn, lambda_uuid ):
+		# TODO: Call instance method not the static one
+		# noinspection PyProtectedMember
 		lambda_manager._delete_lambda(
 			aws_client_factory,
 			credentials,
@@ -3201,7 +3210,14 @@ class TaskSpawner(object):
 			libraries_object
 		)
 
-		if TaskSpawner._s3_object_exists( aws_client_factory, credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
+		object_exists = TaskSpawner._s3_object_exists(
+			aws_client_factory,
+			credentials,
+			credentials[ "lambda_packages_bucket" ],
+			final_s3_package_zip_path
+		)
+
+		if object_exists:
 			return TaskSpawner._read_from_s3(
 				aws_client_factory,
 				credentials,
@@ -3242,7 +3258,14 @@ class TaskSpawner(object):
 			libraries_object
 		)
 
-		if TaskSpawner._s3_object_exists( aws_client_factory, credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
+		object_exists = TaskSpawner._s3_object_exists(
+			aws_client_factory,
+			credentials,
+			credentials[ "lambda_packages_bucket" ],
+			final_s3_package_zip_path
+		)
+
+		if object_exists:
 			return TaskSpawner._read_from_s3(
 				aws_client_factory,
 				credentials,
@@ -3925,7 +3948,7 @@ class TaskSpawner(object):
 			libraries_object
 		)
 
-		if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
+		if TaskSpawner._s3_object_exists( aws_client_factory, credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
 			return TaskSpawner._read_from_s3(
 				aws_client_factory,
 				credentials,
@@ -4209,7 +4232,7 @@ class TaskSpawner(object):
 			libraries_object
 		)
 
-		if TaskSpawner._s3_object_exists( credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
+		if TaskSpawner._s3_object_exists( aws_client_factory, credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
 			return TaskSpawner._read_from_s3(
 				aws_client_factory,
 				credentials,
@@ -4220,6 +4243,7 @@ class TaskSpawner(object):
 		# Kick off CodeBuild for the libraries to get a zip artifact of
 		# all of the libraries.
 		build_id = TaskSpawner._start_node10163_codebuild(
+			aws_client_factory,
 			credentials,
 			libraries_object
 		)

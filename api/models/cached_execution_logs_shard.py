@@ -1,9 +1,7 @@
 from initiate_database import *
 from projects import Project
-import json
 import uuid
 import time
-import os
 
 class CachedExecutionLogsShard( Base ):
 	__tablename__ = "cached_execution_logs_shards"
