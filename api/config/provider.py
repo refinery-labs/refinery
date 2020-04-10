@@ -10,7 +10,10 @@ def load_app_config( app_env=None, overrides=None ):
 	if app_env is None:
 		app_env = os.environ[ "REFINERY_ENV" ]
 
-	app_config = AppConfig( app_env, overrides=overrides )
+	# In production just read the config vars from the env
+	set_env_vars = app_env is "production"
+
+	app_config = AppConfig( app_env, overrides=overrides, set_env_vars=set_env_vars)
 
 	# Add dynamic configuration values to app config
 	app_init_config( app_config )
