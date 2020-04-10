@@ -74,6 +74,7 @@ export const paneTypeToNameLookup: EditorPaneTypeToName = {
   [SIDEBAR_PANE.allVersions]: 'All Versions',
   [SIDEBAR_PANE.exportProject]: 'Share Project',
   [SIDEBAR_PANE.saveProject]: 'Save Project',
+  [SIDEBAR_PANE.importProjectRepo]: 'Import Project Repo',
   [SIDEBAR_PANE.deployProject]: 'Deploy Project',
   [SIDEBAR_PANE.editBlock]: 'Edit Block',
   [SIDEBAR_PANE.editTransition]: 'Edit Transition',
@@ -124,6 +125,7 @@ export const SidebarMenuItems: NavbarItem[] = [
   makeSidebarMenuItem(SIDEBAR_PANE.editReadme, 'fab fa-readme', 'sidebar.nav.VIEW_README', 'outline-primary'),
   makeSidebarMenuItem(SIDEBAR_PANE.exportProject, 'icon-cloud-download', 'sidebar.nav.EXPORT_PROJECT', 'outline-info'),
   makeSidebarMenuItem(SIDEBAR_PANE.saveProject, 'far fa-save', 'sidebar.nav.SAVE_PROJECT', 'success'),
+  makeSidebarMenuItem(SIDEBAR_PANE.importProjectRepo, 'fab fa-github', 'sidebar.nav.IMPORT_PROJECT', 'primary'),
   makeSidebarMenuItem(SIDEBAR_PANE.deployProject, 'icon-cloud-upload', 'sidebar.nav.DEPLOY_PROJECT', 'primary')
 ];
 

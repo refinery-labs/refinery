@@ -45,7 +45,14 @@ class Project( Base ):
 		lazy="dynamic",
 		cascade="all, delete-orphan"
 	)
-	
+
+	webhooks = relationship(
+		"GithubWebhook",
+		lazy="dynamic",
+		backref="webhooks",
+		cascade="all, delete-orphan"
+	)
+
 	timestamp = Column(Integer())
 
 	def __init__( self ):

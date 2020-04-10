@@ -7,7 +7,7 @@ import { paneTypeToNameLookup, SidebarMenuItems } from '@/menu';
 import ProjectEditorLeftPaneContainer from '@/containers/ProjectEditorLeftPaneContainer';
 import { DeployProjectResult, PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import EditorPaneWrapper from '@/components/EditorPaneWrapper';
-import { paneToContainerMapping } from '@/constants/project-editor-constants';
+import { paneToContainerMapping } from '@/constants/project-editor-pane-constants';
 import { UserInterfaceState } from '@/store/store-types';
 
 const project = namespace('project');
@@ -28,6 +28,7 @@ export default class OpenedProjectOverview extends Vue {
   @project.Getter canDeployProject!: boolean;
   @project.Getter transitionAddButtonEnabled!: boolean;
   @project.Getter hasCodeBlockSelected!: boolean;
+  @project.Getter isProjectRepoSet!: boolean;
 
   @project.Action openLeftSidebarPane!: (paneType: SIDEBAR_PANE) => {};
 
@@ -120,6 +121,7 @@ export default class OpenedProjectOverview extends Vue {
       paneTypeToEnabledCheckFunction: {
         [SIDEBAR_PANE.addTransition]: () => this.transitionAddButtonEnabled,
         [SIDEBAR_PANE.saveProject]: () => this.isInDemoMode || this.canSaveProject,
+        [SIDEBAR_PANE.importProjectRepo]: () => this.isProjectRepoSet,
         [SIDEBAR_PANE.deployProject]: () => this.canDeployProject,
         [SIDEBAR_PANE.runEditorCodeBlock]: () => this.hasCodeBlockSelected
       },

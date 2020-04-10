@@ -17,7 +17,12 @@ from utils.general import logit
 from utils.locker import Locker
 
 CSRF_EXEMPT_ENDPOINTS = [
-	"/services/v1/mark_account_needs_closing"
+	"/services/v1/mark_account_needs_closing",
+
+	# secret enforcement is done by handler
+	"/api/v1/github/webhook",
+
+	"/api/v1/github/proxy",
 ]
 
 
@@ -81,9 +86,11 @@ class BaseHandler( TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler 
 
 		self._dbsession = None
 
-		self.allowed_origins = json.loads( self.app_config.get( "access_control_allow_origins" ) )
-
 		self.task_locker = Locker( "refinery" )
+    
+	def initialize( self ):
+		if "Origin" not in self.request.headers:
+			return
 
 	@property
 	def dbsession( self ):
@@ -274,7 +281,8 @@ class BaseHandler( TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler 
 		)
 
 		if not csrf_validated and self.request.method != "OPTIONS" and \
-				self.request.method != "GET" and not self.request.path in CSRF_EXEMPT_ENDPOINTS:
+				self.request.method != "GET" and \
+				not any([self.request.path.startswith(endpoint) for endpoint in CSRF_EXEMPT_ENDPOINTS]):
 			self.error(
 				"No CSRF validation header supplied!",
 				"INVALID_CSRF"

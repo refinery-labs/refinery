@@ -93,7 +93,11 @@ import {
   StashStateLogRequest,
   StashStateLogResponse,
   UpdateEnvironmentVariablesRequest,
-  UpdateEnvironmentVariablesResponse
+  UpdateEnvironmentVariablesResponse,
+  ImportProjectRepoResponse,
+  ImportProjectRepoRequest,
+  AuthWithGithubResponse,
+  AuthWithGithubRequest
 } from '@/types/api-types';
 import { API_ENDPOINT, ApiConfigMap } from '@/constants/api-constants';
 
@@ -251,6 +255,12 @@ export class RefineryApi implements RefineryApiTypeMap {
   );
   [API_ENDPOINT.DeleteSavedBlock] = makeApiClient<DeleteSavedBlockRequest, DeleteSavedBlockResponse>(
     API_ENDPOINT.DeleteSavedBlock
+  );
+  [API_ENDPOINT.ImportProjectRepo] = makeApiClient<ImportProjectRepoRequest, ImportProjectRepoResponse>(
+    API_ENDPOINT.ImportProjectRepo
+  );
+  [API_ENDPOINT.AuthWithGithub] = makeApiClient<AuthWithGithubRequest, AuthWithGithubResponse>(
+    API_ENDPOINT.AuthWithGithub
   );
 }
 

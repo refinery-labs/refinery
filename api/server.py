@@ -97,7 +97,7 @@ if __name__ == "__main__":
 	server.bind(
 		7777
 	)
-	
+
 	# Start websocket server
 	websocket_app = app_object_graph.provide(WebsocketApp)
 	websocket_server = websocket_app.new_server( app_object_graph )
