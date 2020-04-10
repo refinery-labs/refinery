@@ -1,9 +1,9 @@
-FROM node:10
+FROM node:12
 # Note: Using Node 10 because it's the current LTS release and fabric doesn't work with odd numbers.
 
 # Needed for node-gyp
-RUN apt-get update
-RUN apt-get install -y g++ build-essential
+#RUN apt-get update
+#RUN apt-get install -y g++ build-essential
 
 RUN mkdir /work/
 RUN mkdir /work/front-end
@@ -16,7 +16,7 @@ WORKDIR /work/front-end
 RUN mkdir /work/output
 
 # Necessary for certain modules to install correctly (mostly fabric).
-RUN npm install -g node-gyp
+#RUN npm install -g node-gyp
 
 RUN npm install
 

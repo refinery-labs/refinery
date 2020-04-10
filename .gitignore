@@ -1,10 +1,12 @@
 env/
+api/config/*.yaml
 *.yml
 !buildspec.yml
 *.pyc
 tmp/
 elastic-beanstack-package.zip
-docker-compose.yml
+docker-*.yml
+docker-*.yaml
 install/config.yaml
 front-end/node_modules/
 auto-reload.sh
@@ -107,3 +109,10 @@ alembic.ini
 custom-runtime.zip
 layer-contents.zip
 layer-contents/
+
+# Ignore files cached by Hypothesis...
+api/.hypothesis/*
+# except for the examples directory
+!api/.hypothesis/examples/
+
+.coverage

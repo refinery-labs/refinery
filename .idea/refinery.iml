@@ -12,6 +12,8 @@
       <sourceFolder url="file://$MODULE_DIR$/customer-docs" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/front-end" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/api" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/api/tests" isTestSource="true" />
+      <excludeFolder url="file://$MODULE_DIR$/api/.pytest_cache" />
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/boto3" />
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/boto3-1.9.96.dist-info" />
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/base-src/botocore" />
@@ -43,7 +45,9 @@
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/go1.12/layer-contents" />
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/layers/go-git-ssh-layer/go" />
       <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/layers/go-git-ssh-layer/layer-contents" />
+      <excludeFolder url="file://$MODULE_DIR$/api/custom-runtime/node8.10/layer-contents" />
       <excludeFolder url="file://$MODULE_DIR$/api/env" />
+      <excludeFolder url="file://$MODULE_DIR$/api/tests/.pytest_cache" />
       <excludeFolder url="file://$MODULE_DIR$/env" />
       <excludeFolder url="file://$MODULE_DIR$/front-end/dist" />
       <excludeFolder url="file://$MODULE_DIR$/front-end/public/js" />
@@ -60,6 +64,6 @@
     <option name="requirementsPath" value="$MODULE_DIR$/api/requirements.txt" />
   </component>
   <component name="TestRunnerService">
-    <option name="PROJECT_TEST_RUNNER" value="Unittests" />
+    <option name="PROJECT_TEST_RUNNER" value="pytest" />
   </component>
 </module>

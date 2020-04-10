@@ -32,7 +32,7 @@ def emit_runtime_metrics( metric_name ):
 
 			logger = self.logger
 
-			cloudwatch_client = self.cloudwatch_client
+			cloudwatch_client = self.aws_cloudwatch_client
 
 			# Unique ID of the task being invoked to aid debugging
 			task_uuid = str( uuid.uuid4() )

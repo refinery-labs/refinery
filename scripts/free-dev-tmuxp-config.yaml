@@ -1,0 +1,20 @@
+session_name: refinery-dev
+before_script: "docker-machine start ${REFINERY_MACHINE} && docker-machine ssh ${REFINERY_MACHINE} rm -rf /home/docker/refinery"
+shell_command_before:
+  - cd ~/code/refinery
+  - eval $(docker-machine env ${REFINERY_MACHINE}) 
+windows:
+- window_name: background-processes
+  layout: tiled
+  panes:
+    - cd ~ && ./ide-code/idea-IU-183.5429.30/bin/idea.sh
+    - docker-machine ssh machine4 -L 8002:localhost:80 -L 8080:localhost:8080
+    - cd ./scripts/docker-machine-dev-flow/ && ./sync-files-to-docker-machine.sh
+- window_name: refinery-dev-tasks
+  layout: tiled
+  shell_command_before:
+    - docker-compose start postgresdb
+    - sleep 30
+  panes:
+    - docker-compose up refinery
+    - docker-compose up front-end

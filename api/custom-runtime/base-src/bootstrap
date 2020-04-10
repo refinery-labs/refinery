@@ -1635,7 +1635,7 @@ def _clear_temporary_files():
 			shell=True
 		)
 		tmp_handler.communicate()
-	except e:
+	except Exception as e:
 		pass
 	
 def _stream_execution_output_to_websocket( websocket, debug_id, output ):
@@ -2653,10 +2653,10 @@ class CustomRuntime():
 		}
 
 		# Create a context object
-		class ContextObject():
-			def __init__( self, context_dict ):
+		class ContextObject:
+			def __init__( self, context_obj_dict ):
 				# Set values of context object to context dict
-				for key, value in context_dict.iteritems():
+				for key, value in context_obj_dict.iteritems():
 					setattr( self, key, value )
 
 				# Set inner dict
@@ -2700,7 +2700,7 @@ class CustomRuntime():
 				new_context,
 				execution_details
 			)
-		except Exception, err:
+		except Exception as err:
 			exception_string = "You've found a bug in the Refinery custom runtime!\n"
 			exception_string += "Please report the following exception to us: \n"
 			exception_string += traceback.format_exc()

@@ -547,6 +547,15 @@ export interface LogoutResponse extends BaseApiResponse {
   // Empty
 }
 
+// AuthenticateWithGithub
+export interface AuthenticateWithGithubRequest extends BaseApiRequest {
+  // Empty
+}
+
+export interface AuthenticateWithGithubResponse extends BaseApiResponse {
+  // Empty
+}
+
 // Billing Get Credits
 export interface GetPaymentMethodsRequest extends BaseApiRequest {
   // Empty

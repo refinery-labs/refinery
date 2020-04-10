@@ -83,7 +83,7 @@
     "@vue/cli-plugin-pwa": "^3.8.0",
     "@vue/cli-plugin-typescript": "^3.11.0",
     "@vue/cli-plugin-unit-jest": "^3.9.0",
-    "@vue/cli-service": "^3.11.0",
+    "@vue/cli-service": "^3.12.1",
     "@vue/eslint-config-prettier": "^4.0.1",
     "@vue/eslint-config-typescript": "^4.0.0",
     "@vue/test-utils": "1.0.0-beta.29",
@@ -92,7 +92,6 @@
     "cypress": "^3.7.0",
     "eslint": "^5.16.0",
     "eslint-plugin-vue": "^5.2.3",
-    "fibers": "^3.1.1",
     "husky": "^2.7.0",
     "lint-staged": "^8.2.1",
     "sass": "^1.22.12",
@@ -113,5 +112,13 @@
       "vue-cli-service lint",
       "git add"
     ]
-  }
+  },
+  "description": "Refinery Front-End",
+  "main": "src/main.ts",
+  "directories": {
+    "test": "tests"
+  },
+  "keywords": [],
+  "author": "Refinery Labs, Inc",
+  "license": "Proprietary"
 }

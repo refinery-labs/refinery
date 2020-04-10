@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # New style: Push files via lsyncd to the remote box
-lsyncd -nodaemon ./lsync-config.lua
+lsyncd -nodaemon ./lsync-config-local.lua
 
 # Old style: using SSHFS, which "mounts" a remote folder. Unfortunately, the folder is wiped when the machine is restarted... Not super helpful.
 #docker-machine ssh machine4 mkdir refinery &

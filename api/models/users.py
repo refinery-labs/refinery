@@ -1,8 +1,13 @@
+from sqlalchemy import Enum
+
+from data_types.oauth_providers import RefineryUserTier
 from initiate_database import *
 import json
 import uuid
 import time
 import os
+
+from user_project_associations import users_projects_association_table
 
 class User( Base ):
 	__tablename__ = "users"
@@ -91,6 +96,16 @@ class User( Base ):
 		cascade="all, delete-orphan",
 		backref="user",
 	)
+
+	# One user can have many OAuth tokens
+	oauth_token_entries = relationship(
+		"UserOAuthAccountModel",
+		lazy="dynamic",
+		# When a user is deleted all oauth tokens should
+		# be deleted as well.
+		cascade="all, delete-orphan",
+		backref="user",
+	)
 	
 	# One user can have many state logs
 	state_logs = relationship(
@@ -103,6 +118,9 @@ class User( Base ):
 	)
 	
 	timestamp = Column(Integer())
+
+	# Tier the user's account is under (free/paid)
+	# tier = Column( Enum( RefineryUserTier ), nullable=False )
 
 	def __init__( self ):
 		self.id = str( uuid.uuid4() )
