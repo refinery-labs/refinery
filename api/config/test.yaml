@@ -1,0 +1,15 @@
+
+config:
+  ngrok_enabled: false
+  cookie_secret_value: THIS_IS_NOT_SECURE
+  # The HTTP origin to serve in Access-Control-Allow-Origin header
+  access_control_allow_origin: https://example.refinerylabs.io
+  access_control_allow_origins: "[\"http://localhost:1234\",\"http://localhost:8080\",\"http://localhost:8002\"]"
+
+  # Instance URL, used for sending emails, etc.
+  web_origin: "http://localhost:8002"
+
+  github_client_id: FAKE_TESTING_VALUE
+  github_client_secret: FAKE_TESTING_VALUE
+  stripe_api_key: FAKE_TESTING_VALUE
+  mailgun_api_key: FAKE_TESTING_VALUE
