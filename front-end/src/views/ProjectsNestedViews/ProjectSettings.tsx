@@ -14,6 +14,7 @@ export default class ProjectSettings extends Vue {
 
   @project.Action setProjectConfigLoggingLevel!: (projectConfigLoggingLevel: ProjectLogLevel) => void;
   @project.Action setProjectConfigRuntimeLanguage!: (projectConfigRuntimeLanguage: SupportedLanguage) => void;
+  @project.Action setProjectConfigRepo!: (projectConfigRepo: string) => void;
 
   private getLogLevelValue() {
     // TODO: Move this business logic to an action in the store.
@@ -29,6 +30,14 @@ export default class ProjectSettings extends Vue {
       return SupportedLanguage.NODEJS_8;
     }
     return this.openedProjectConfig.default_language;
+  }
+
+  private getProjectRepo() {
+    // TODO: Move this business logic to an action in the store.
+    if (!this.openedProjectConfig || !this.openedProjectConfig.project_repo) {
+      return '';
+    }
+    return this.openedProjectConfig.project_repo;
   }
 
   private renderLogLevel() {
@@ -75,6 +84,19 @@ export default class ProjectSettings extends Vue {
     );
   }
 
+  private renderProjectRepo() {
+    return (
+      <b-form-group description="The git repository where blocks can be imported from.">
+        <label class="d-block" htmlFor="git-repo-input">
+          Project Git Repository
+        </label>
+        <div class="input-group with-focus">
+          <b-form-input id="git-repo-input" value={this.getProjectRepo()} on={{ change: this.setProjectConfigRepo }} />
+        </div>
+      </b-form-group>
+    );
+  }
+
   private renderSettingsCard(name: string) {
     const missingProjectConfig = this.openedProjectConfig === null;
     const loadingProps: LoadingContainerProps = {
@@ -87,6 +109,7 @@ export default class ProjectSettings extends Vue {
         <div class="card card-default">
           <div class="card-header">{name}</div>
           <div class="card-body text-align--left">
+            {this.renderProjectRepo()}
             {this.renderLogLevel()}
             {this.renderRuntimeLanguage()}
           </div>

@@ -2,5 +2,8 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/api/github-secret-scanner" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/api/wordpress-scanner" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/front-end/wordpress-scanner" vcs="Git" />
   </component>
 </project>

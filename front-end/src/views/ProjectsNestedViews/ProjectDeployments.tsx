@@ -6,7 +6,7 @@ import SidebarNav from '@/components/SidebarNav';
 import { paneTypeToNameLookup, DeploymentSidebarMenuItems } from '@/menu';
 import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import EditorPaneWrapper from '@/components/EditorPaneWrapper';
-import { paneToContainerMapping } from '@/constants/project-editor-constants';
+import { paneToContainerMapping } from '@/constants/project-editor-pane-constants';
 import DeploymentViewerGraphContainer from '@/containers/DeploymentViewerGraphContainer';
 import store from '@/store/index';
 import { DeploymentViewActions } from '@/constants/store-constants';

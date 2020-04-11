@@ -2,6 +2,7 @@ import {
   LambdaWorkflowState,
   ProjectConfig,
   ProjectEnvironmentVariableList,
+  RefineryProject,
   SupportedLanguage,
   WorkflowFile,
   WorkflowRelationship,
@@ -31,6 +32,16 @@ export interface BaseApiResponse {
 }
 
 export interface BaseApiRequest {}
+
+// AuthWithGithub
+export interface AuthWithGithubRequest extends BaseApiRequest {}
+
+export interface AuthWithGithubResponse extends BaseApiResponse {
+  result: {
+    redirect_uri: string;
+  };
+  success: boolean;
+}
 
 // SearchSavedProjects
 export interface SearchSavedProjectsRequest extends BaseApiRequest {
@@ -681,7 +692,8 @@ export interface CreateSavedBlockResponse extends BaseApiResponse {
 
 export enum SharedBlockPublishStatus {
   PUBLISHED = 'PUBLISHED',
-  PRIVATE = 'PRIVATE'
+  PRIVATE = 'PRIVATE',
+  GIT = 'GIT'
 }
 
 export enum SavedBlockSaveType {
@@ -695,6 +707,7 @@ export interface SearchSavedBlocksRequest extends BaseApiRequest {
   search_string: string;
   share_status: SharedBlockPublishStatus;
   language: string;
+  project_id: string;
 }
 
 export interface SearchSavedBlocksResponse extends BaseApiResponse {
@@ -719,6 +732,16 @@ export interface DeleteSavedBlockRequest extends BaseApiRequest {
 }
 
 export interface DeleteSavedBlockResponse extends BaseApiResponse {}
+
+// SavedBlockImport
+export interface ImportProjectRepoRequest extends BaseApiRequest {
+  project_id: string;
+  project_repo: string;
+}
+
+export interface ImportProjectRepoResponse extends BaseApiResponse {
+  compiled_project: RefineryProject;
+}
 
 // SavedBlockStatusCheck
 export interface SavedBlockStatusCheckRequest extends BaseApiRequest {

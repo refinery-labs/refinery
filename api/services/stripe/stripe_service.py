@@ -1,4 +1,5 @@
 import stripe
+from concurrent import futures
 
 from tornado import gen
 from tornado.concurrent import run_on_executor
@@ -7,8 +8,8 @@ from services.stripe.exceptions import StripeTransactionException
 
 
 class StripeService:
-	def __init__( self, executor, logger ):
-		self.executor = executor
+	def __init__( self, logger ):
+		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.logger = logger
 
 	@gen.coroutine

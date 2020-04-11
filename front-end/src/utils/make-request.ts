@@ -26,7 +26,7 @@ export const http = <T>(request: RequestInfo): Promise<IHttpResponse<T>> => {
   });
 };
 
-export async function getRequest<T>(path: string, args: {}) {
+export async function getRequest<T>(path: string, args?: {}) {
   return await http<T>(
     new Request(path, {
       method: 'get',
@@ -40,7 +40,7 @@ export async function getRequest<T>(path: string, args: {}) {
   );
 }
 
-export async function postRequest<TReq, TRes>(path: string, body: TReq, args: {}) {
+export async function postRequest<TReq, TRes>(path: string, body: TReq, args?: {}) {
   return await http<TRes>(
     new Request(path, {
       method: 'post',
@@ -56,7 +56,7 @@ export async function postRequest<TReq, TRes>(path: string, body: TReq, args: {}
   );
 }
 
-export async function putRequest<TReq, TRes>(path: string, body: TReq, args: {}) {
+export async function putRequest<TReq, TRes>(path: string, body: TReq, args?: {}) {
   return await http<TRes>(
     new Request(path, {
       method: 'put',
@@ -72,7 +72,7 @@ export async function putRequest<TReq, TRes>(path: string, body: TReq, args: {})
   );
 }
 
-export async function deleteRequest<TReq, TRes>(path: string, body: TReq, args: {}) {
+export async function deleteRequest<TReq, TRes>(path: string, body: TReq, args?: {}) {
   return await http<TRes>(
     new Request(path, {
       method: 'delete',
@@ -88,7 +88,7 @@ export async function deleteRequest<TReq, TRes>(path: string, body: TReq, args: 
   );
 }
 
-export async function optionsRequest<TReq, TRes>(path: string, body: TReq, args: {}) {
+export async function optionsRequest<TReq, TRes>(path: string, body: TReq, args?: {}) {
   return await http<TRes>(
     new Request(path, {
       method: 'options',
@@ -104,7 +104,7 @@ export async function optionsRequest<TReq, TRes>(path: string, body: TReq, args:
   );
 }
 
-export async function headRequest<TReq, TRes>(path: string, body: TReq, args: {}) {
+export async function headRequest<TReq, TRes>(path: string, body: TReq, args?: {}) {
   return await http<TRes>(
     new Request(path, {
       method: 'head',
@@ -119,7 +119,7 @@ export async function headRequest<TReq, TRes>(path: string, body: TReq, args: {}
   );
 }
 
-export async function patchRequest<TReq, TRes>(path: string, body: TReq, args: {}) {
+export async function patchRequest<TReq, TRes>(path: string, body: TReq, args?: {}) {
   return await http<TRes>(
     new Request(path, {
       method: 'options',
@@ -141,13 +141,13 @@ export type HttpMethodLookup = {
 
 export const HttpUtil: HttpMethodLookup = {
   [HTTP_METHOD.GET]: async (path, args?) => await getRequest(path, args),
-  [HTTP_METHOD.POST]: async (path, body, args?) => await postRequest(path, body, args),
-  [HTTP_METHOD.DELETE]: async (path, body, args?) => await deleteRequest(path, body, args),
-  [HTTP_METHOD.OPTIONS]: async (path, body, args?) => await optionsRequest(path, body, args),
-  [HTTP_METHOD.HEAD]: async (path, body, args?) => await headRequest(path, body, args),
-  [HTTP_METHOD.PATCH]: async (path, body, args?) => await patchRequest(path, body, args),
-  [HTTP_METHOD.PUT]: async (path, body, args?) => await putRequest(path, body, args),
-  ANY: async (path, body, args?) => {
+  [HTTP_METHOD.POST]: async (path, body, args?: object) => await postRequest(path, body, args),
+  [HTTP_METHOD.DELETE]: async (path, body, args?: object) => await deleteRequest(path, body, args),
+  [HTTP_METHOD.OPTIONS]: async (path, body, args?: object) => await optionsRequest(path, body, args),
+  [HTTP_METHOD.HEAD]: async (path, body, args?: object) => await headRequest(path, body, args),
+  [HTTP_METHOD.PATCH]: async (path, body, args?: object) => await patchRequest(path, body, args),
+  [HTTP_METHOD.PUT]: async (path, body, args?: object) => await putRequest(path, body, args),
+  ANY: async (path, body, args?: object) => {
     throw new Error('Not implemented');
   }
 };

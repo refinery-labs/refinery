@@ -45,7 +45,7 @@ class Project( Base ):
 		lazy="dynamic",
 		cascade="all, delete-orphan"
 	)
-	
+
 	timestamp = Column(Integer())
 
 	def __init__( self ):

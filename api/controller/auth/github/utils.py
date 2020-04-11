@@ -21,7 +21,7 @@ def decode_response_body( response ):
 
 def generate_redirect_uri( ctx ):
 	"""
-	Returns a URI that is the "redirect" distination FROM Github after the user authenticates.
+	Returns a URI that is the "redirect" destination FROM Github after the user authenticates.
 	This URI should point to OUR server.
 	:param ctx: Tornado request context.
 	:return: URI that the client should return to on our server.

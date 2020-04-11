@@ -1,9 +1,7 @@
 from initiate_database import *
 from saved_block import SavedBlock
-import json
 import uuid
 import time
-import os
 
 from sqlalchemy.dialects.postgresql import JSONB
 
@@ -24,9 +22,18 @@ class SavedBlockVersion( Base ):
 	# deprecated: use block_object_json
 	block_object = Column(Text())
 
-	block_object_json = Column(
+	_block_object_json = Column(
+		"block_object_json",
 		JSONB(astext_type=Text)
 	)
+
+	@property
+	def block_object_json(self):
+		return self._block_object_json
+
+	@block_object_json.setter
+	def block_object_json( self, block_json ):
+		self._block_object_json = block_json
 
 	@property
 	def shared_files( self ):

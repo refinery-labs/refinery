@@ -5,6 +5,8 @@ import { AllProjectsMutators } from '@/constants/store-constants';
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
 import {
+  AuthWithGithubRequest,
+  AuthWithGithubResponse,
   DeleteSavedProjectRequest,
   DeleteSavedProjectResponse,
   SearchSavedProjectsRequest,
@@ -19,6 +21,7 @@ import ImportableRefineryProject from '@/types/export-project';
 import { getShortlinkContents, renameProject } from '@/store/fetchers/api-helpers';
 import { SelectProjectVersion } from '@/types/all-project-types';
 import { getInitialCardStateForSearchResults } from '@/utils/all-projects-utils';
+import router from '@/router';
 
 const moduleState: AllProjectsState = {
   availableProjects: [],
@@ -62,6 +65,7 @@ export enum AllProjectsGetters {
 }
 
 export enum AllProjectsActions {
+  authWithGithub = 'authWithGithub',
   performSearch = 'performSearch',
   createProject = 'createProject',
   uploadProject = 'uploadProject',
@@ -193,6 +197,19 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
     }
   },
   actions: {
+    async [AllProjectsActions.authWithGithub](context) {
+      const result = await makeApiRequest<AuthWithGithubRequest, AuthWithGithubResponse>(
+        API_ENDPOINT.AuthWithGithub,
+        {}
+      );
+
+      if (!result || !result.result || !result.success) {
+        // TODO: Handle this error case
+        console.error('Failure to auth with github');
+        return;
+      }
+      window.location.href = result.result.redirect_uri;
+    },
     async [AllProjectsActions.performSearch](context) {
       context.commit(AllProjectsMutators.setSearchingStatus, true);
 

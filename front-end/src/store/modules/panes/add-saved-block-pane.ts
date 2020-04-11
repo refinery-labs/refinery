@@ -18,6 +18,7 @@ export interface AddSavedBlockPaneState {
 
   searchInput: string;
   languageInput: string;
+  blockTypeInput: string;
 
   searchPrivateToggleValue: boolean;
   searchPublishedToggleValue: boolean;
@@ -35,6 +36,7 @@ export const baseState: AddSavedBlockPaneState = {
 
   searchInput: '',
   languageInput: '',
+  blockTypeInput: SharedBlockPublishStatus.PRIVATE,
 
   searchPrivateToggleValue: true,
   searchPublishedToggleValue: true,
@@ -57,12 +59,14 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
 
   public searchInput: string = initialState.searchInput;
   public languageInput: string = initialState.languageInput;
+  public blockTypeInput: string = initialState.blockTypeInput;
 
   public searchPrivateToggleValue: boolean = initialState.searchPrivateToggleValue;
   public searchPublishedToggleValue: boolean = initialState.searchPublishedToggleValue;
 
   public searchResultsPrivate: SavedBlockSearchResult[] = initialState.searchResultsPrivate;
   public searchResultsPublished: SavedBlockSearchResult[] = initialState.searchResultsPublished;
+  public searchResultsGit: SavedBlockSearchResult[] = initialState.searchResultsPublished;
 
   public environmentVariablesInputs: { [key: string]: string } = initialState.environmentVariablesInputs;
 
@@ -122,6 +126,11 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
   }
 
   @Mutation
+  public setBlockTypeInputValue(value: string) {
+    this.blockTypeInput = value;
+  }
+
+  @Mutation
   public setSearchResultsPrivate(results: SavedBlockSearchResult[]) {
     this.searchResultsPrivate = results;
   }
@@ -129,6 +138,11 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
   @Mutation
   public setSearchResultsPublished(results: SavedBlockSearchResult[]) {
     this.searchResultsPublished = results;
+  }
+
+  @Mutation
+  public setSearchResultsGit(results: SavedBlockSearchResult[]) {
+    this.searchResultsGit = results;
   }
 
   @Mutation
@@ -158,8 +172,26 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
   public async searchSavedBlocks() {
     this.setIsBusySearching(true);
 
-    const privateSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.PRIVATE, this.languageInput);
-    const publicSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.PUBLISHED, this.languageInput);
+    if (!this.context.rootState.project.openedProject) {
+      console.error('No project is currently opened');
+      return;
+    }
+
+    const projectId = this.context.rootState.project.openedProject.project_id;
+
+    const privateSearch = searchSavedBlocks(
+      this.searchInput,
+      SharedBlockPublishStatus.PRIVATE,
+      this.languageInput,
+      projectId
+    );
+    const publicSearch = searchSavedBlocks(
+      this.searchInput,
+      SharedBlockPublishStatus.PUBLISHED,
+      this.languageInput,
+      projectId
+    );
+    const gitSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.GIT, this.languageInput, projectId);
 
     const privateResult = await privateSearch;
 
@@ -175,6 +207,13 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
       return;
     }
 
+    const gitResult = await gitSearch;
+
+    if (!gitResult) {
+      console.error('Unable to perform saved block search, server did not yield a response');
+      return;
+    }
+
     this.setSearchResultsPrivate(privateResult);
 
     // Only add unique results. This strips out all public blocks that are in our saved blocks already.
@@ -184,6 +223,8 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
 
     this.setSearchResultsPublished(filteredPublicResults);
 
+    this.setSearchResultsGit(gitResult);
+
     this.setIsBusySearching(false);
   }
 
@@ -192,8 +233,10 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
     const searchMatchFn = (result: SavedBlockSearchResult) => result.id === id;
 
     const privateMatches = this.searchResultsPrivate.filter(searchMatchFn);
+    const publishedMatches = this.searchResultsPublished.filter(searchMatchFn);
+    const gitMatches = this.searchResultsGit.filter(searchMatchFn);
 
-    const matches = [...privateMatches, ...this.searchResultsPublished.filter(searchMatchFn)];
+    const matches = [...privateMatches, ...publishedMatches, ...gitMatches];
 
     if (matches.length > 1) {
       console.error(

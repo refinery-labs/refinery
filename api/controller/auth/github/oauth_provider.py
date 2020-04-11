@@ -5,6 +5,7 @@
 #
 # Note: Fairly extensive modifications by Refinery team.
 #
+import pinject
 from tornado import gen
 from tornado.httpclient import HTTPError
 from tornado.httputil import url_concat
@@ -21,6 +22,12 @@ except ImportError:
 	from urllib.parse import urlencode
 
 from tornado import httpclient
+
+
+class GithubOAuthProviderBindingSpec(pinject.BindingSpec):
+	@pinject.provides("github_oauth_provider")
+	def provide_torando_config( self, app_config, logger ):
+		return GithubOAuthProvider(app_config, logger)
 
 
 class GithubOAuthProvider:
@@ -42,13 +49,13 @@ class GithubOAuthProvider:
 	_OAUTH_USER_URL = "https://api.github.com/user?access_token="
 
 	# Since we only need email address
-	scope = "user:email"
+	scope = "user:email repo"
 
 	def __init__( self, app_config, logger ):
 
-		client_id = app_config.get( "github_client_id" ),
-		client_secret = app_config.get( "github_client_secret" ),
-		cookie_expire_days = app_config.get( "cookie_expire_days" ),
+		client_id = app_config.get( "github_client_id" )
+		client_secret = app_config.get( "github_client_secret" )
+		cookie_expire_days = app_config.get( "cookie_expire_days" )
 
 		if client_id is None or client_secret is None:
 			raise Exception( "Missing client credentials for Github OAuth API" )
@@ -85,6 +92,7 @@ class GithubOAuthProvider:
 			"redirect_uri": redirect_uri,
 			"client_id": self.client_id,
 			"state": state,
+			"scope": self.scope,
 			"response_type": "code"
 		}
 
@@ -114,7 +122,12 @@ class GithubOAuthProvider:
 		user_email = user_data_response[ "email" ]
 		user_name = user_data_response[ "name" ]
 
-		self.logger( "Successfully retrieved data for user from Github for user: " + user_email, "info" )
+		if user_email is None:
+			# TODO handle this error
+			user_email = "test@test.com"
+			pass
+		else:
+			self.logger( "Successfully retrieved data for user from Github for user: " + user_email, "info" )
 
 		raise gen.Return( GithubUserData( user_unique_id, user_email, user_name, access_token, user_data_response ) )
 
@@ -133,7 +146,6 @@ class GithubOAuthProvider:
 			"code": code,
 			"client_id": self.client_id,
 			"client_secret": self.client_secret,
-			"scope": self.scope,
 			"state": state
 		}
 

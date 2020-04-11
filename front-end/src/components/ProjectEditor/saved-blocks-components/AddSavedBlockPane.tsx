@@ -1,7 +1,7 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import moment from 'moment';
-import { blockTypeToImageLookup } from '@/constants/project-editor-constants';
+import { blockTypeToImageLookup } from '@/constants/project-editor-img-constants';
 import { debounce } from 'debounce';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { Prop } from 'vue-property-decorator';
@@ -9,12 +9,15 @@ import { SavedBlockSearchResult, SharedBlockPublishStatus } from '@/types/api-ty
 import RefineryMarkdown from '@/components/Common/RefineryMarkdown';
 import { MarkdownProps } from '@/types/component-types';
 import { SupportedLanguage } from '@/types/graph';
+import { toTitleCase } from '@/lib/general-utils';
 
 export interface AddSavedBlockPaneProps {
   searchResultsPrivate: SavedBlockSearchResult[];
   searchResultsPublished: SavedBlockSearchResult[];
+  searchResultsGit: SavedBlockSearchResult[];
   searchInput: string;
   languageInput: string;
+  blockTypeInput: string;
   isBusySearching: boolean;
 
   addChosenBlock: (id: string) => void;
@@ -22,6 +25,7 @@ export interface AddSavedBlockPaneProps {
   searchSavedBlocks: () => void;
   setSearchInputValue: (value: string) => void;
   setLanguageInputValue: (value: string) => void;
+  setBlockTypeInputValue: (value: string) => void;
 }
 
 @Component
@@ -30,8 +34,10 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
 
   @Prop({ required: true }) searchResultsPrivate!: SavedBlockSearchResult[];
   @Prop({ required: true }) searchResultsPublished!: SavedBlockSearchResult[];
+  @Prop({ required: true }) searchResultsGit!: SavedBlockSearchResult[];
   @Prop({ required: true }) searchInput!: string;
   @Prop({ required: true }) languageInput!: string;
+  @Prop({ required: true }) blockTypeInput!: string;
   @Prop({ required: true }) isBusySearching!: boolean;
 
   @Prop({ required: true }) addChosenBlock!: (id: string) => void;
@@ -39,6 +45,7 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
   @Prop({ required: true }) searchSavedBlocks!: () => void;
   @Prop({ required: true }) setSearchInputValue!: (value: string) => void;
   @Prop({ required: true }) setLanguageInputValue!: (value: string) => void;
+  @Prop({ required: true }) setBlockTypeInputValue!: (value: string) => void;
 
   mounted() {
     // We have to add this at run time or else it seems to get bjorked
@@ -54,6 +61,11 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
 
   onLanguageBoxInputChanged(language: SupportedLanguage) {
     this.setLanguageInputValue(language);
+    this.runSearchAutomatically();
+  }
+
+  onBlockTypeInputChanged(blockType: SharedBlockPublishStatus) {
+    this.setBlockTypeInputValue(blockType);
     this.runSearchAutomatically();
   }
 
@@ -112,7 +124,8 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
   public render(h: CreateElement): VNode {
     const privateBlocks = this.searchResultsPrivate;
     const publishedBlocks = this.searchResultsPublished;
-    const zeroResults = privateBlocks.length === 0 && publishedBlocks.length === 0;
+    const gitBlocks = this.searchResultsGit;
+    const zeroResults = privateBlocks.length === 0 && publishedBlocks.length === 0 && gitBlocks.length === 0;
 
     const defaultLanguageOption = {
       value: '',
@@ -124,6 +137,19 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
       ...Object.values(SupportedLanguage).map(v => ({
         value: v,
         text: v
+      }))
+    ];
+
+    const defaultTypesOption = {
+      value: '',
+      text: 'All'
+    };
+
+    const typeOptions = [
+      defaultTypesOption,
+      ...Object.values(SharedBlockPublishStatus).map(v => ({
+        value: v,
+        text: toTitleCase(v)
       }))
     ];
 
@@ -159,6 +185,16 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
               </div>
               <div class="padding-bottom--normal-small">
                 <div class="display--flex">
+                  <label class="flex-grow--1">Search by Type:</label>
+                </div>
+                <b-form-select
+                  on={{ input: this.onBlockTypeInputChanged }}
+                  value={this.blockTypeInput}
+                  options={typeOptions}
+                />
+              </div>
+              <div class="padding-bottom--normal-small">
+                <div class="display--flex">
                   <label class="flex-grow--1">Search by Language:</label>
                 </div>
                 <b-form-select
@@ -173,6 +209,7 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
             {!zeroResults && (
               <div class="flex-grow--1">
                 {this.renderResultsByCategory(true, privateBlocks)}
+                {this.renderResultsByCategory(true, gitBlocks)}
                 {this.renderResultsByCategory(false, publishedBlocks)}
               </div>
             )}
