@@ -116,3 +116,4 @@ api/.hypothesis/*
 !api/.hypothesis/examples/
 
 .coverage
+git-server/

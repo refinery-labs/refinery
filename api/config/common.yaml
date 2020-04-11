@@ -1,2 +1,83 @@
 config:
-  debug: false
+  debug: true
+  # Instance URL, used for sending emails, etc.
+  web_origin: "http://localhost:8002"
+  # The HTTP origin to serve in Access-Control-Allow-Origin header
+  access_control_allow_origin: https://example.refinerylabs.io
+  access_control_allow_origins: "[\"http://localhost:1234\",\"http://localhost:8080\",\"http://localhost:8002\"]"
+  aws_access_key: AKIA4FKE6YMLCD4VVKT3
+  aws_secret_key: e+VwpcQsnsdeIezjSjIsSt+myjqSlTB6xxs/qqSX
+  aws_account_id: 836052632342
+  region_name: us-west-2
+  lambda_role: arn:aws:iam::361596142897:role/refinery_aws_lambda_admin_role # Use the install/setup_aws_account.py script to get this
+  events_role: arn:aws:iam::361596142897:role/refinery_aws_cloudwatch_admin_role # Use the install/setup_aws_account.py script to get this
+  delete_account_lambda_arn: arn:aws:lambda:us-west-2:361596142897:function:delete-accounts-dev-deleteAccount # code located in scripts/delete-accounts
+  vpc_data: "{}"
+  postgreql_username: refinery
+  postgreql_password: refinery
+  postgres_db: refinery
+  postgresql_host: postgresdb
+  lambda_redis_hostname: 54.71.241.107
+  lambda_redis_password: 7165fbfc-518f4510-83f2-6c4507c293c
+  lambda_redis_port: 6379
+  tmp_lambda_packages_bucket: lambdabuildpackages-a82d4bf25863445bb29abcaea1647602 # Use the install/setup_aws_account.py script to get this
+  is_debug: "true"
+  offline_dev: "true"
+  ngrok_enabled: "true"
+  ngrok_api_secret: "37kjA1eee7Y6ivubMyExD_4PNQzUCxwvkvRvAxQ6AqQ"
+  cf_enabled: "false"
+  cf_policy_aud: # Get this from Cloudflare access
+  cf_certs_url: https://yoursubdomain-replace-me.cloudflareaccess.com/cdn-cgi/access/certs
+  pipeline_logs_bucket: lambda-logging-7e0dfa0b3ca344498915470c137ef745 # Use the install/setup_aws_account.py script to get this
+  ses_emails_from_email: admin@pimpmysg.com
+  ses_region: us-west-2
+  ses_reply_to: admin@pimpmysg.com
+  # Mailgun for sending email
+  mailgun_api_key: 83a8beca10d541991fb4b01e2d7a5b10-4a62b8e8-a5f91ee4
+  # The send from email
+  from_email: reply-for-help@mail.refinery.io
+  # How long the email token should last before expiring
+  email_token_lifetime: 10800 # 3 hours before the email authentication token no longer works
+  # Secret value for the HMACed cookies
+  cookie_secret_value: YWFmODM5ZjUYYzM4MGJjYzU3YzBmMtA2
+  # How many days the HTTP cookies last for
+  cookie_expire_days: 30
+  # How much we mark up AWS's costs for managed AWS accounts
+  mark_up_percent: 20
+  # The Stripe API key
+  stripe_api_key: sk_test_gdlM7buTmdie7Eg5t1rpJmHM00aneP95gP
+  # Whether to finalize invoices or leave them in draft for manual approval
+  # and final sending.
+  stripe_finalize_invoices: "false"
+  # The email address which is notified when we have an hour to review the
+  # invoices before they go out.
+  billing_alert_email: billing@pimpmysg.com
+  # The free-trial account maxi3551f01e7fb3mum amount that a account is allowed
+  # to incur before the account is frozen.
+  free_trial_billing_limit: "10.00"
+  # This specifies the max time for the assume role action
+  # We have a per-account ceiling of 1-hour, but we should basically always
+  # be assuming for less time than that.
+  assume_role_session_lifetime_seconds: "900"
+  # Alerts for when a free-trial account goes over the limit
+  free_trial_freeze_alerts: 00free@gmail.com
+  # Shared secret for /service/ endpoints to be triggered
+  service_shared_secret: ODZiOWRhZDE5MDAyNzIyMWRhZjI1Mjlj
+  # The email suffix for customer AWS accounts
+  customer_aws_email_suffix: "@mail.refineryusercontent.com"
+  # The prefix for customer AWS accounts
+  customer_aws_email_prefix: "aws-"
+  # The IAM role we have in all customer accounts so we can administrate them
+  # This should only be changed when this is run in dev VS prod. Otherwise this
+  # value should never change
+  customer_aws_admin_assume_role: DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT
+  # The target amount of AWS accounts in the pool, these are the
+  # AWS accounts which are frozen for customers to start using.
+  reserved_aws_pool_target_amount: 2
+  # Alerts for when a free-trial account goes over the limit
+  alerts_email: chrislegolife@gmail.com
+  # Place where to receive signup emails
+  internal_signup_notification_email: chrislegolife@gmail.com
+  intercom_hmac_secret: XVN6p2fDUNEge5lbgxkSuwfd2dtMHkdHqJ0Dy
+  github_client_id: 6adcf23f81a71bdd772b
+  github_client_secret: 6068829ee26bf62a64c3b01ea4a3b801f4c597c7

@@ -21,8 +21,13 @@ from assistants.deployments.sqs import SqsManager
 from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from assistants.user_creation_assistant import UserCreationAssistant
 from config.provider import ConfigBindingSpec
+from controller.auth.github.oauth_provider import GithubOAuthProviderBindingSpec
+from services.auth.oauth_service import OAuthServiceBindingSpec
 
 from services.aws.clients import AWSClientBindingSpec
+from services.project_inventory.project_inventory_service import ProjectInventoryService
+from services.stripe.stripe_service import StripeService
+from services.user_management.user_management_service import UserManagementService
 from utils.general import logit, UtilsBindingSpec
 from assistants.deployments.ecs_builders import BuilderManager, AwsEcsManager
 
@@ -79,7 +84,10 @@ if __name__ == "__main__":
 		AwsClientFactory,
 		AwsResourceEnumerator,
 		WebsocketRouter,
-		TaskSpawner
+		TaskSpawner,
+		ProjectInventoryService,
+		StripeService,
+		UserManagementService
 	]
 
 	binding_specs = [
@@ -88,7 +96,9 @@ if __name__ == "__main__":
 		ConfigBindingSpec(),
 		AWSClientBindingSpec(),
 		STSClientBindingSpec(),
-		TornadoBindingSpec()
+		TornadoBindingSpec(),
+		GithubOAuthProviderBindingSpec(),
+		OAuthServiceBindingSpec()
 	]
 	app_object_graph = pinject.new_object_graph(modules=[], classes=dep_classes, binding_specs=binding_specs)
 
@@ -97,7 +107,7 @@ if __name__ == "__main__":
 	server.bind(
 		7777
 	)
-	
+
 	# Start websocket server
 	websocket_app = app_object_graph.provide(WebsocketApp)
 	websocket_server = websocket_app.new_server( app_object_graph )

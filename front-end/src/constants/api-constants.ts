@@ -23,6 +23,7 @@ export enum API_ENDPOINT {
   InfraCollisionCheck = 'InfraCollisionCheck',
   SaveProject = 'SaveProject',
   RenameProject = 'RenameProject',
+  AuthWithGithub = 'AuthWithGithub',
   SearchSavedProjects = 'SearchSavedProjects',
   GetSavedProject = 'GetSavedProject',
   DeleteSavedProject = 'DeleteSavedProject',
@@ -44,7 +45,8 @@ export enum API_ENDPOINT {
   SavedBlockStatusCheck = 'SavedBlockStatusCheck',
   CreateProjectShortlink = 'CreateProjectShortlink',
   GetProjectShortlink = 'GetProjectShortlink',
-  DeleteSavedBlock = 'DeleteSavedBlock'
+  DeleteSavedBlock = 'DeleteSavedBlock',
+  ImportProjectRepo = 'ImportProjectRepo'
 }
 
 export enum HTTP_METHOD {
@@ -89,6 +91,10 @@ export const ApiConfigMap: ApiConfigMapType = {
   [API_ENDPOINT.AuthenticateWithGithub]: {
     path: '/api/v1/auth/github',
     method: HTTP_METHOD.GET
+  },
+  [API_ENDPOINT.AuthWithGithub]: {
+    path: '/api/v1/auth/github',
+    method: HTTP_METHOD.POST
   },
   [API_ENDPOINT.SearchSavedProjects]: {
     path: '/api/v1/projects/search',
@@ -248,6 +254,10 @@ export const ApiConfigMap: ApiConfigMapType = {
   },
   [API_ENDPOINT.DeleteSavedBlock]: {
     path: '/api/v1/saved_blocks/delete',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.ImportProjectRepo]: {
+    path: '/api/v1/projects/repo/import',
     method: HTTP_METHOD.POST
   }
 };

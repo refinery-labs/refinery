@@ -134,6 +134,12 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
   }
 
   @Action
+  private setPublishState(isForkingBlock: boolean, isPublished: boolean) {
+    this.setPublishDisabled(isPublished && !isForkingBlock);
+    this.setPublishStatus(isPublished && !isForkingBlock);
+  }
+
+  @Action
   public async openModal(saveType: SavedBlockSaveType) {
     // Don't allow this action to happen in Demo Mode
     if (this.context.rootState.project.isInDemoMode) {
@@ -178,13 +184,13 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
       this.setDescription(metadata.description);
 
       const isPublished = metadata.share_status === SharedBlockPublishStatus.PUBLISHED;
-      setPublishState(isForkingBlock, isPublished);
+      this.setPublishState(isForkingBlock, isPublished);
 
       if (this.saveType !== SavedBlockSaveType.FORK) {
         this.setSaveType(SavedBlockSaveType.UPDATE);
       }
     } else {
-      setPublishState(isForkingBlock, false);
+      this.setPublishState(isForkingBlock, false);
     }
 
     this.setModalVisibility(true);

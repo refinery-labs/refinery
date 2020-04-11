@@ -39,6 +39,8 @@ import {
   GetProjectConfigRequest,
   GetProjectConfigResponse,
   GetSavedProjectRequest,
+  ImportProjectRepoRequest,
+  ImportProjectRepoResponse,
   SaveProjectConfigRequest,
   SaveProjectConfigResponse,
   SaveProjectRequest,
@@ -61,20 +63,22 @@ import {
   unwrapJson,
   wrapJson
 } from '@/utils/project-helpers';
-import {
-  availableTransitions,
-  blockTypeToImageLookup,
-  DEFAULT_LANGUAGE_CODE,
-  demoModeBlacklist,
-  savedBlockType
-} from '@/constants/project-editor-constants';
+import { availableTransitions, DEFAULT_LANGUAGE_CODE, savedBlockType } from '@/constants/project-editor-constants';
+import { blockTypeToImageLookup } from '@/constants/project-editor-img-constants';
+import { demoModeBlacklist } from '@/constants/project-editor-pane-constants';
 import EditBlockPaneModule, { EditBlockActions, EditBlockGetters } from '@/store/modules/panes/edit-block-pane';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
 import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
-import { createShortlink, deployProject, openProject, teardownProject } from '@/store/fetchers/api-helpers';
+import {
+  createShortlink,
+  deployProject,
+  importProjectRepo,
+  openProject,
+  teardownProject
+} from '@/store/fetchers/api-helpers';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
 import { addAPIBlocksToProject, createNewBlock, createNewTransition } from '@/utils/block-utils';
 import { saveEditBlockToProject } from '@/utils/store-utils';
@@ -83,6 +87,10 @@ import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-proj
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shared-files';
 import { DemoWalkthroughStoreModule, EditSharedFilePaneModule } from '@/store';
+import { compileProjectRepo } from '@/repo-compiler/lift';
+import { saveProjectToRepo } from '@/repo-compiler/drop';
+import generateStupidName from '@/lib/silly-names';
+import slugify from 'slugify';
 
 export interface ChangeTransitionArguments {
   transition: WorkflowRelationship;
@@ -127,6 +135,7 @@ const moduleState: ProjectViewState = {
     [SIDEBAR_PANE.exportProject]: {},
     [SIDEBAR_PANE.deployProject]: {},
     [SIDEBAR_PANE.saveProject]: {},
+    [SIDEBAR_PANE.importProjectRepo]: {},
     [SIDEBAR_PANE.editBlock]: {},
     [SIDEBAR_PANE.editTransition]: {},
     [SIDEBAR_PANE.viewApiEndpoints]: {},
@@ -335,6 +344,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const compressedData = LZString.compressToEncodedURIComponent(JSON.stringify(rest));
 
       return `https://app.refinery.io/import#${compressedData}`;
+    },
+    [ProjectViewGetters.isProjectRepoSet]: state => {
+      return state.openedProjectConfig && state.openedProjectConfig.project_repo;
     }
   },
   mutations: {
@@ -420,6 +432,16 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       state.openedProjectConfig = {
         ...state.openedProjectConfig,
         default_language: projectRuntimeLanguage
+      };
+    },
+    [ProjectViewMutators.setProjectRepo](state, projectRepo: string) {
+      if (state.openedProjectConfig === null) {
+        console.error('Could not set project git repo due to no project being opened.');
+        return;
+      }
+      state.openedProjectConfig = {
+        ...state.openedProjectConfig,
+        project_repo: projectRepo
       };
     },
 
@@ -525,6 +547,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Save new config to the backend
       await context.dispatch(ProjectViewActions.saveProjectConfig);
     },
+    async [ProjectViewActions.setProjectConfigRepo](context, projectConfigRepo: string) {
+      context.commit(ProjectViewMutators.setProjectRepo, projectConfigRepo);
+
+      // Save new config to the backend
+      await context.dispatch(ProjectViewActions.saveProjectConfig);
+    },
     async [ProjectViewActions.setIfExpression](context, ifExpressionValue: string) {
       await context.commit(ProjectViewMutators.setIfExpression, ifExpressionValue);
     },
@@ -616,6 +644,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
           api_gateway: { gateway_id: false },
           logging: { level: ProjectLogLevel.LOG_ALL },
           default_language: SupportedLanguage.NODEJS_8,
+          project_repo: '',
           version: '1'
         },
         // We mark it as dirty so that we always show the save button ;)
@@ -731,6 +760,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
+      // Project repo is set, drop to fs and push to git
+      if (context.state.openedProjectConfig.project_repo) {
+        await context.dispatch(ProjectViewActions.saveToProjectRepo, null);
+      }
+
       // If a block is "dirty", we need to save it before continuing.
       // TODO: Implement this for transitions too
       if (context.getters[ProjectViewGetters.selectedBlockDirty]) {
@@ -795,6 +829,53 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       });
 
       context.commit(ProjectViewMutators.setLatestDeploymentState, latestDeploymentResponse);
+    },
+    async [ProjectViewActions.importProjectRepo](context) {
+      if (!context.state.openedProject || !context.state.openedProjectConfig) {
+        console.error('no project open or no project config');
+        return;
+      }
+
+      if (!context.state.openedProjectConfig.project_repo) {
+        console.error('no project repo configured');
+        return;
+      }
+
+      const project = await compileProjectRepo(
+        context.state.openedProject.project_id,
+        context.state.openedProjectConfig.project_repo
+      );
+
+      const config = context.state.openedProjectConfig;
+
+      context.commit(ProjectViewMutators.resetState);
+
+      const params: OpenProjectMutation = {
+        project: project,
+        config: config,
+        markAsDirty: true
+      };
+
+      await context.dispatch(ProjectViewActions.updateProject, params);
+    },
+    async [ProjectViewActions.saveToProjectRepo](context) {
+      if (!context.state.openedProject || !context.state.openedProjectConfig) {
+        console.error('no project open or no project config');
+        return;
+      }
+
+      if (!context.state.openedProjectConfig.project_repo) {
+        console.error('no project repo configured');
+        return;
+      }
+
+      // TODO prompt user to enter name
+      const branchName = slugify(generateStupidName()).toLowerCase();
+
+      const repoProject = context.state.openedProject;
+      const projectRepoURL = context.state.openedProjectConfig.project_repo;
+
+      await saveProjectToRepo(repoProject, projectRepoURL, branchName).catch(e => console.error(e));
     },
     async [ProjectViewActions.deployProject](context) {
       const handleDeploymentError = async (message: string) => {
@@ -1259,6 +1340,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
+      if (leftSidebarPaneType === SIDEBAR_PANE.importProjectRepo) {
+        await context.dispatch(ProjectViewActions.importProjectRepo);
+        return;
+      }
+
       // TODO: Somehow fire a callback on each left pane so that it can reset itself?
       // Using a watcher seems gross... A plugin could work but that feels a little bit too "loose".
       // Better would be a map of Type -> Callback probably? Just trigger other actions to fire?
@@ -1305,6 +1391,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Special case because Mandatory and I agreed that having a pane pop out is annoying af
       if (paneType === SIDEBAR_PANE.saveProject) {
         await context.dispatch(ProjectViewActions.saveProject);
+        return;
+      }
+
+      if (paneType === SIDEBAR_PANE.importProjectRepo) {
+        await context.dispatch(ProjectViewActions.importProjectRepo);
         return;
       }
 
@@ -1509,11 +1600,14 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       // Set configured new block defaults
-      if (context.state.openedProjectConfig && !addBlockArgs.customBlockProperties) {
+      if (blockType === WorkflowStateType.LAMBDA && context.state.openedProjectConfig) {
         const defaultLanguage = context.state.openedProjectConfig.default_language || SupportedLanguage.NODEJS_8;
         addBlockArgs.customBlockProperties = Object.assign({}, addBlockArgs.customBlockProperties, {
           language: defaultLanguage,
-          code: DEFAULT_LANGUAGE_CODE[defaultLanguage]
+          code: DEFAULT_LANGUAGE_CODE[defaultLanguage],
+
+          // if customBlockProperties define language and code, then override them here
+          ...addBlockArgs.customBlockProperties
         });
       }
 

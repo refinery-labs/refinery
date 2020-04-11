@@ -2,12 +2,14 @@ import pinject
 import tornado.web
 import tornado.ioloop
 import tornado.httpserver
+from tornado.routing import URLSpec
 
 from controller.auth import *
 from controller.auth.github import *
 from controller.aws import *
 from controller.billing import *
 from controller.deployments import *
+from controller.github.controllers import GithubProxy
 from controller.health import *
 from controller.internal import *
 from controller.lambdas import *
@@ -58,7 +60,10 @@ class TornadoApp:
 		inject_handlers = []
 		object_graph_dep = dict(object_graph=object_graph)
 		for handler in handlers:
-			inject_handlers.append( handler + (object_graph_dep,) )
+			if len(handler) == 3:
+				inject_handlers.append( (handler[0], handler[1], object_graph_dep, handler[2]) )
+			else:
+				inject_handlers.append( handler + (object_graph_dep,) )
 		return inject_handlers
 
 	def make_app( self, object_graph ):
@@ -69,8 +74,8 @@ class TornadoApp:
 			( r"/api/v1/auth/me", GetAuthenticationStatus ),
 			( r"/api/v1/auth/register", NewRegistration ),
 			( r"/api/v1/auth/login", Authenticate ),
-			# ( r"/api/v1/auth/github", AuthenticateWithGithub ),
 			( r"/api/v1/auth/logout", Logout ),
+			( r"/api/v1/auth/github", AuthenticateWithGithub, "auth_github" ),
 
 			( r"/api/v1/logs/executions/get-logs", GetProjectExecutionLogObjects ),
 			( r"/api/v1/logs/executions/get-contents", GetProjectExecutionLogsPage ),
@@ -92,6 +97,8 @@ class TornadoApp:
 			( r"/api/v1/aws/infra_tear_down", InfraTearDown ),
 			( r"/api/v1/aws/infra_collision_check", InfraCollisionCheck ),
 			( r"/api/v1/aws/deploy_diagram", DeployDiagram ),
+
+			( r"/api/v1/github/proxy/(.*)", GithubProxy ),
 
 			( r"/api/v1/projects/config/save", SaveProjectConfig ),
 			( r"/api/v1/projects/save", SaveProject ),

@@ -9,6 +9,7 @@ import { KeyboardEditorMode, keyboardMapToAceConfigMap } from '@/store/modules/s
 import { SettingsAppStoreModule } from '@/store';
 
 const toasts = namespace('toasts');
+const allProjects = namespace('allProjects');
 
 @Component
 export default class OffsideContentBar extends Vue {
@@ -17,6 +18,7 @@ export default class OffsideContentBar extends Vue {
   @Mutation toggleSettingOn!: (name: UserInterfaceSettings) => {};
   @Mutation toggleSettingOff!: (name: UserInterfaceSettings) => {};
   @Action closeGlobalNav!: () => {};
+  @allProjects.Action authWithGithub!: () => void;
 
   @Watch('$route', { deep: true })
   private elementsModified(val: Route, oldVal: Route) {
@@ -100,7 +102,7 @@ export default class OffsideContentBar extends Vue {
             </template>
             <h3 class="text-center text-thin mt-4">User Settings</h3>
             <div class="list-group">
-              Coming soon!
+              <b-button on={{ click: () => this.authWithGithub() }}>Authenticate with github</b-button>
               {/*<b-form-group description="Keyboard mode for text editor blocks.">*/}
               {/*  <label class="d-block">Editor Key Mode:</label>*/}
               {/*  <b-form-select*/}

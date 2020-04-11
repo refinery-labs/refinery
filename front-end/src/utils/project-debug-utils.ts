@@ -29,14 +29,14 @@ export type ZippableFileList = ZippableFileContents[];
 
 export type LanguageToStringLookup = { [key in SupportedLanguage]: string };
 
-export const languageToRunScriptLoopup: LanguageToStringLookup = {
-  [SupportedLanguage.NODEJS_8]: 'node block-code.js',
-  [SupportedLanguage.NODEJS_10]: 'node block-code.js',
-  [SupportedLanguage.PYTHON_3]: 'python block-code.py',
-  [SupportedLanguage.PYTHON_2]: 'python block-code.py',
-  [SupportedLanguage.GO1_12]: 'go run block-code.go',
-  [SupportedLanguage.PHP7]: 'php -f block-code.php',
-  [SupportedLanguage.RUBY2_6_4]: 'ruby block-code.rb'
+export const languageToRunScriptLookup: LanguageToStringLookup = {
+  [SupportedLanguage.NODEJS_8]: 'node run_code.js',
+  [SupportedLanguage.NODEJS_10]: 'node run_code.js',
+  [SupportedLanguage.PYTHON_3]: 'python run_code.py',
+  [SupportedLanguage.PYTHON_2]: 'python run_code.py',
+  [SupportedLanguage.GO1_12]: 'go run run_code.go',
+  [SupportedLanguage.PHP7]: 'php -f run_code.php',
+  [SupportedLanguage.RUBY2_6_4]: 'ruby run_code.rb'
 };
 
 export const languageToFileExtension: LanguageToStringLookup = {
@@ -68,18 +68,16 @@ export const languageToPrependedCode: LanguageToStringLookup = {
 };
 
 const pythonAppendedCode = `
+from block_code import main
+
 # Begin Refinery Generated Code
 with open('input-data.json') as input_data_raw:
   input_data = json.load(input_data_raw)
-  
-  # Set to default of string
-  if "data" not in input_data:
-    input_data["data"] = ""
 
 with open('backpack-data.json') as backpack_data_raw:
   backpack_data = json.load(backpack_data_raw)
 
-output_data = main(input_data["data"], backpack_data)
+output_data = main(input_data, backpack_data)
 
 print(json.dumps(output_data, indent=2))
 # End Refinery Generated Code
@@ -89,11 +87,12 @@ const nodeAppendedCode = `
 // Begin Refinery Generated Code
 const inputData = require('./input-data.json');
 const backpackData = require('./backpack-data.json');
+const { main } = require('./block_code.js');
 
 if (typeof main !== undefined) {
   async function runMainAsync() {
     try {
-      const outputData = await main(inputData.data, backpackData);
+      const outputData = await main(inputData, backpackData);
       console.log(JSON.stringify(outputData, null, 2));
     } catch (e) {
       console.error(JSON.stringify(e, null, 2));
@@ -104,7 +103,7 @@ if (typeof main !== undefined) {
   runMainAsync();
 
 } else if (typeof mainCallback !== undefined) {
-  mainCallback(inputData.data, backpackData, (err, outputData) => {
+  mainCallback(inputData, backpackData, (err, outputData) => {
     if (err) {
       console.error(JSON.stringify(e, null, 2));
       throw new Error(e);
@@ -145,14 +144,18 @@ export function convertProjectDownloadZipConfigToFileList(config: ProjectDownloa
   });
 
   zippableFiles.push({
-    fileName: `block-code.${languageToFileExtension[config.blockLanguage]}`,
-    contents:
-      languageToPrependedCode[config.blockLanguage] + config.blockCode + languageToAppendedCode[config.blockLanguage]
+    fileName: `run_code.${languageToFileExtension[config.blockLanguage]}`,
+    contents: languageToPrependedCode[config.blockLanguage] + languageToAppendedCode[config.blockLanguage]
+  });
+
+  zippableFiles.push({
+    fileName: `block_code.${languageToFileExtension[config.blockLanguage]}`,
+    contents: config.blockCode
   });
 
   zippableFiles.push({
     fileName: `run-code.sh`,
-    contents: languageToRunScriptLoopup[config.blockLanguage]
+    contents: languageToRunScriptLookup[config.blockLanguage]
   });
 
   zippableFiles.push({

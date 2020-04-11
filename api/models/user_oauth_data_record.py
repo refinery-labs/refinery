@@ -50,7 +50,7 @@ class UserOAuthDataRecordModel( Base ):
 		if oauth_account_id is None or oauth_account_id is "":
 			raise InvalidModelCreationError( "Must provide 'oauth_account_id' when creating OAuth account" )
 
-		self.json_data = str( json_data )
+		self.json_data = json.dumps( json_data )
 		self.oauth_token = str( oauth_token )
 		self.oauth_account_id = str( oauth_account_id )
 

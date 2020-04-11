@@ -68,7 +68,7 @@ def set_up_ngrok_websocket_tunnel(ngrok_tasks):
 	logit( "Creating exposed ngrok tunnel to WebSocket server..." )
 	
 	# Don't yield, we want to run ngrok in the background
-	ngrok_tasks.start_ngrok_tunnel( 3333 )
+	ngrok_tasks.start_ngrok_tunnel( 7777 )
 	
 	# Query ngrok API server to get exposed URL
 	ngrok_url = yield ngrok_tasks.get_ngrok_tunnel_hostname()

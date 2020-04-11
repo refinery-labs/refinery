@@ -1,7 +1,15 @@
+import pinject
+
 from controller.auth.oauth_user_data import OAuthUserData
 from models.user_oauth_account import UserOAuthAccountModel
 from models.user_oauth_data_record import UserOAuthDataRecordModel
 from models.users import User
+
+
+class OAuthServiceBindingSpec(pinject.BindingSpec):
+	@pinject.provides("oauth_service")
+	def provider_oauth_service( self, logger ):
+		return OAuthService(logger)
 
 
 class OAuthService:

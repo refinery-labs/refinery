@@ -17,7 +17,8 @@ from utils.general import logit
 from utils.locker import Locker
 
 CSRF_EXEMPT_ENDPOINTS = [
-	"/services/v1/mark_account_needs_closing"
+	"/services/v1/mark_account_needs_closing",
+	"/api/v1/github/proxy"
 ]
 
 
@@ -72,7 +73,7 @@ class BaseHandler( TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler 
 		self.set_header( "Cache-Control", "no-cache, no-store, must-revalidate" )
 		self.set_header( "Pragma", "no-cache" )
 		self.set_header( "Expires", "0" )
-		
+
 		# For caching the currently-authenticated user
 		self.authenticated_user = None
 
@@ -91,7 +92,7 @@ class BaseHandler( TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler 
 			self._dbsession = self.db_session_maker()
 
 		return self._dbsession
-		
+
 	def authenticate_user_id( self, user_id ):
 		# Set authentication cookie
 		self.set_secure_cookie(
@@ -102,23 +103,23 @@ class BaseHandler( TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler 
 			}),
 			expires_days=int( self.app_config.get( "cookie_expire_days" ) )
 		)
-		
+
 	def is_owner_of_project( self, project_id ):
 		# Check to ensure the user owns the project
 		project = self.dbsession.query( Project ).filter_by(
 			id=project_id
 		).first()
-		
+
 		# Iterate over project owners and see if one matches
 		# the currently authenticated user
 		is_owner = False
-		
+
 		for project_owner in project.users:
 			if self.get_authenticated_user_id() == project_owner.id:
 				is_owner = True
-				
+
 		return is_owner
-		
+
 	def get_authenticated_user_cloud_configuration( self ):
 		"""
 		This just returns the first cloud configuration. Short term use since we'll
@@ -161,20 +162,20 @@ class BaseHandler( TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler 
 	def get_authenticated_user_org( self ):
 		# First we grab the organization ID
 		authentication_user = self.get_authenticated_user()
-		
+
 		if authentication_user is None:
 			return None
-			
+
 		# Get organization user is a part of
 		user_org = self.dbsession.query( Organization ).filter_by(
 			id=authentication_user.organization_id
 		).first()
-		
+
 		return user_org
-		
+
 	def get_authenticated_user_id( self ):
 		session_data = self.get_secure_session_data(int( self.app_config.get( "cookie_expire_days" ) ))
-		
+
 		if not session_data or "user_id" not in session_data:
 			return None
 
@@ -220,47 +221,47 @@ class BaseHandler( TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler 
 	def get_authenticated_user( self ):
 		"""
 		Grabs the currently authenticated user
-		
+
 		This will be cached after the first call of
 		this method,
 		"""
 		if self.authenticated_user is not None:
 			return self.authenticated_user
-		
+
 		user_id = self.get_authenticated_user_id()
-		
+
 		if user_id is None:
 			return None
-		
+
 		# Pull related user
 		authenticated_user = self.dbsession.query( User ).filter_by(
 			id=str( user_id )
 		).first()
-		
+
 		self.authenticated_user = authenticated_user
 
 		return authenticated_user
-		
+
 	def prepare( self ):
 		"""
 		For the health endpoint all of this should be skipped.
 		"""
 		if self.request.path == "/api/v1/health":
 			return
-		
+
 		"""
 		/service/ path protection requiring a shared-secret to access them.
 		"""
 		if self.request.path.startswith( "/services/" ):
 			services_auth_header = self.request.headers.get( "X-Service-Secret", None )
 			services_auth_param = self.get_argument( "secret", None )
-			
+
 			service_secret = None
 			if services_auth_header:
 				service_secret = services_auth_header
 			elif services_auth_param:
 				service_secret = services_auth_param
-				
+
 			if self.app_config.get( "service_shared_secret" ) != service_secret:
 				self.error(
 					"You are hitting a service URL, you MUST provide the shared secret in either a 'secret' parameter or the 'X-Service-Secret' header to use this.",
@@ -274,7 +275,8 @@ class BaseHandler( TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler 
 		)
 
 		if not csrf_validated and self.request.method != "OPTIONS" and \
-				self.request.method != "GET" and not self.request.path in CSRF_EXEMPT_ENDPOINTS:
+				self.request.method != "GET" and \
+				not any([self.request.path.startswith(path) for path in CSRF_EXEMPT_ENDPOINTS]):
 			self.error(
 				"No CSRF validation header supplied!",
 				"INVALID_CSRF"
@@ -316,13 +318,13 @@ class BaseHandler( TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler 
 			error_message,
 			message_type="warn"
 		)
-		
+
 		self.finish({
 			"success": False,
 			"msg": error_message,
 			"code": error_id
 		})
-		
+
 	def on_finish( self ):
 		if self._dbsession is not None:
 			self._dbsession.close()
@@ -331,4 +333,3 @@ class BaseHandler( TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler 
 	# TODO: Figure out what to do with this
 	def data_received( self, chunk ):
 		pass
-

@@ -1,5 +1,5 @@
 // This is the "store accessor":
-// It initializes all the modules using a Vuex plugin (see store/index.ts)
+// It initializes all the modules using a Vuex plugin (see store/drop.ts)
 // In here you import all your modules, call getModule on them to turn them
 // into the actual stores, and then re-export them.
 
@@ -82,6 +82,6 @@ export function initializeStores(store: Store<any>): void {
   DemoWalkthroughStoreModule = getModule(DemoWalkthroughStore, store);
 }
 
-// for use in 'modules' store init (see store/index.ts), so each module
+// for use in 'modules' store init (see store/drop.ts), so each module
 // appears as an element of the root store's state.
 // (This is required!)

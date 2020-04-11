@@ -28,6 +28,8 @@ import {
   GetProjectShortlinkResponse,
   GetSavedProjectRequest,
   GetSavedProjectResponse,
+  ImportProjectRepoRequest,
+  ImportProjectRepoResponse,
   InfraTearDownRequest,
   InfraTearDownResponse,
   RenameProjectRequest,
@@ -424,13 +426,19 @@ export async function openProject(request: GetSavedProjectRequest) {
   return project;
 }
 
-export async function searchSavedBlocks(query: string, status: SharedBlockPublishStatus, language: string) {
+export async function searchSavedBlocks(
+  query: string,
+  status: SharedBlockPublishStatus,
+  language: string,
+  projectId: string
+) {
   const searchResult = await makeApiRequest<SearchSavedBlocksRequest, SearchSavedBlocksResponse>(
     API_ENDPOINT.SearchSavedBlocks,
     {
       search_string: query,
       share_status: status,
-      language: language
+      language: language,
+      project_id: projectId
     }
   );
 
@@ -479,6 +487,23 @@ export async function getLatestProjectDeployment(
       project_id: projectId
     }
   );
+}
+
+export async function importProjectRepo(projectId: string, projectRepo: string): Promise<RefineryProject | null> {
+  const result = await makeApiRequest<ImportProjectRepoRequest, ImportProjectRepoResponse>(
+    API_ENDPOINT.ImportProjectRepo,
+    {
+      project_id: projectId,
+      project_repo: projectRepo
+    }
+  );
+
+  if (!result || !result.success) {
+    // TODO: raise error?
+    return null;
+  }
+
+  return result.compiled_project;
 }
 
 export async function deployProject({ project, projectConfig }: DeployProjectParams): Promise<DeployProjectResult> {
