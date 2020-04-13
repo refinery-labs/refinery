@@ -7,6 +7,13 @@ import { LayoutOptions } from 'cytoscape';
 import { AvailableTransition } from '@/store/store-types';
 import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
+import TourWrapper from '@/lib/Tooltip';
+import { DemoWalkthroughStoreModule } from '@/store';
+import { DemoTooltipActionType, TooltipType } from '@/types/demo-walkthrough-types';
+import { timeout, waitUntil } from '@/utils/async-utils';
+import { ProductionExecutionResponse } from '@/types/deployment-executions-types';
+import Tooltip from '@/lib/Tooltip';
+import { TooltipProps } from '@/types/tooltip-types';
 
 const project = namespace('project');
 
@@ -24,6 +31,7 @@ export default class OpenedProjectGraphContainer extends Vue {
 
   @project.State isLoadingProject!: boolean;
   @project.State isInDemoMode!: boolean;
+  @project.State currentTooltip!: number;
   @State windowWidth?: number;
 
   @project.Getter getValidBlockToBlockTransitions!: AvailableTransition[] | null;
@@ -67,6 +75,26 @@ export default class OpenedProjectGraphContainer extends Vue {
     return this.getValidBlockToBlockTransitions.map(v => v.toNode.id);
   }
 
+  public getDemoWalkthrough() {
+    const tourProps: TooltipProps = {
+      step: DemoWalkthroughStoreModule.currentHTMLTooltip,
+      nextTooltip: DemoWalkthroughStoreModule.nextTooltip,
+      skipTooltips: DemoWalkthroughStoreModule.skipWalkthrough
+    };
+
+    if (
+      DemoWalkthroughStoreModule.currentTooltip &&
+      DemoWalkthroughStoreModule.currentTooltip.type == TooltipType.HTMLTooltip
+    ) {
+      return (
+        <div>
+          <Tooltip props={tourProps} />
+        </div>
+      );
+    }
+    return <div />;
+  }
+
   public render(h: CreateElement): VNode {
     if (this.isLoadingProject) {
       return <h2>Waiting for data...</h2>;
@@ -83,6 +111,9 @@ export default class OpenedProjectGraphContainer extends Vue {
       clearSelection: this.clearSelection,
       selectNode: this.selectNode,
       selectEdge: this.selectEdge,
+      currentTooltips: DemoWalkthroughStoreModule.cyTooltips,
+      loadCyTooltips: DemoWalkthroughStoreModule.loadCyTooltips,
+      nextTooltip: DemoWalkthroughStoreModule.nextTooltip,
       elements: this.cytoscapeElements,
       stylesheet: this.cytoscapeStyle,
       layout: this.cytoscapeLayoutOptions,
@@ -117,6 +148,8 @@ export default class OpenedProjectGraphContainer extends Vue {
       </b-tooltip>
     );
 
+    const demoWalkthrough = this.getDemoWalkthrough();
+
     const demoButtons = (
       <div>
         <b-button
@@ -145,6 +178,7 @@ export default class OpenedProjectGraphContainer extends Vue {
           </h4>
         </div>
         {this.isInDemoMode && introTooltip}
+        {demoWalkthrough}
         <CytoscapeGraph props={graphProps} />
       </div>
     );

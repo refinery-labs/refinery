@@ -1,5 +1,6 @@
 {
   "name": "Refinery Example Project: Basic API Endpoint",
+	"workflow_files": [],
   "workflow_relationships": [
     {
       "version": "1.0.0",

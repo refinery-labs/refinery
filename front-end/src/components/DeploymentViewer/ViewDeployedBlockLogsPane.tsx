@@ -151,7 +151,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
     const executionData = this.getLogForSelectedBlock;
 
     return (
-      <div class="display--flex flex-direction--column">
+      <div class="display--flex flex-direction--column" data-tooltip-id="deployed-block-logs-exec-details">
         {this.renderExecutionLabels(executionData)}
         {this.renderCodeEditor(
           'Block Input Data',

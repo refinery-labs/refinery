@@ -59,4 +59,17 @@ declare module 'vue-monaco' {
   export default VueMonaco;
   export interface VueMonacoPlugin extends PluginObject<{ appId: string }> {}
 }
+
+declare module 'markdown-it' {
+  const MarkdownIt: MarkdownItPlugin;
+  export default MarkdownIt;
+  export interface MarkdownItPlugin {
+    new (): MarkdownItPlugin;
+    render(md: string): string;
+    renderInline(md: string): string;
+  }
+}
+
+declare module 'popper' {}
+
 declare module 'vue-native-websocket';

@@ -14,6 +14,8 @@ import {
   GetBuildStatusResponse,
   GetConsoleCredentialsRequest,
   GetConsoleCredentialsResponse,
+  GetLatestProjectDeploymentRequest,
+  GetLatestProjectDeploymentResponse,
   GetProjectExecutionLogObjectsRequest,
   GetProjectExecutionLogObjectsResponse,
   GetProjectExecutionLogsPageRequest,
@@ -59,6 +61,17 @@ import { DeployProjectParams, DeployProjectResult } from '@/types/project-editor
 import { CURRENT_TRANSITION_SCHEMA } from '@/constants/graph-constants';
 import { timeout } from '@/utils/async-utils';
 import ImportableRefineryProject from '@/types/export-project';
+import {
+  CY_CONFIG_DEFAULTS,
+  CyTooltip,
+  DemoTooltip,
+  HTML_CONFIG_DEFAULTS,
+  HTMLTooltip,
+  TooltipType
+} from '@/types/demo-walkthrough-types';
+import { DemoWalkthroughStoreModule } from '@/store';
+import { languages } from 'monaco-editor';
+import html = languages.html;
 
 export interface LibraryBuildArguments {
   language: SupportedLanguage;
@@ -76,6 +89,11 @@ export async function getProjectExecutions(
   project: RefineryProject,
   oldestTimestamp: number | null
 ): Promise<ProductionExecutionResponse | null> {
+  // Mock the response if we are currently showing a demo walkthrough
+  if (DemoWalkthroughStoreModule.showingDemoWalkthrough) {
+    return DemoWalkthroughStoreModule.mockAddDeploymentExecution();
+  }
+
   const defaultTimestamp = getDefaultOffsetTimestamp();
 
   const timestampForQuery = (oldestTimestamp !== null && oldestTimestamp) || defaultTimestamp;
@@ -135,6 +153,11 @@ export async function getLogsForExecutions(
   if (!project) {
     console.error('Tried to fetch logs without specified project');
     return null;
+  }
+
+  // Mock the response if we are currently showing a demo walkthrough
+  if (DemoWalkthroughStoreModule.showingDemoWalkthrough) {
+    return DemoWalkthroughStoreModule.mockExecutionLogData();
   }
 
   const makeRequest = async () =>
@@ -204,6 +227,11 @@ export async function getAdditionalLogsByPage(
 export async function getContentsForLogs(
   logs: ExecutionLogMetadata[]
 ): Promise<BlockExecutionLogContentsByLogId | null> {
+  // Mock the response if we are currently showing a demo walkthrough
+  if (DemoWalkthroughStoreModule.showingDemoWalkthrough) {
+    return DemoWalkthroughStoreModule.mockContentsForLogs();
+  }
+
   // Nothing to fetch
   if (!logs || logs.length === 0) {
     return null;
@@ -354,10 +382,38 @@ export async function openProject(request: GetSavedProjectRequest) {
     return null;
   }
 
+  let tooltipLookup: Record<string, DemoTooltip> = {};
+  if (project.demo_walkthrough) {
+    project.demo_walkthrough = project.demo_walkthrough.map(t => {
+      if (t.type === TooltipType.CyTooltip) {
+        const cyTooltip = t as CyTooltip;
+        tooltipLookup[cyTooltip.config.blockId] = t;
+        return {
+          ...cyTooltip,
+          config: {
+            ...CY_CONFIG_DEFAULTS,
+            ...cyTooltip.config
+          }
+        };
+      } else if (t.type == TooltipType.HTMLTooltip) {
+        const htmlTooltip = t as HTMLTooltip;
+        return {
+          ...htmlTooltip,
+          config: {
+            ...HTML_CONFIG_DEFAULTS,
+            ...htmlTooltip.config
+          }
+        };
+      }
+      return t;
+    });
+  }
+
   // Ensures that we have all fields, especially if the schema changes.
   project.workflow_states = project.workflow_states.map(wfs => ({
     ...blockTypeToDefaultStateMapping[wfs.type](),
-    ...wfs
+    ...wfs,
+    tooltip: tooltipLookup[wfs.id] || false
   }));
 
   project.workflow_relationships = project.workflow_relationships.map(wr => ({
@@ -408,6 +464,21 @@ export async function getSavedBlockStatus(block: WorkflowState) {
   }
 
   return response.results[0];
+}
+
+export async function getLatestProjectDeployment(
+  projectId: string
+): Promise<GetLatestProjectDeploymentResponse | null> {
+  if (DemoWalkthroughStoreModule.showingDemoWalkthrough) {
+    return DemoWalkthroughStoreModule.mockGetLatestProjectDeployment();
+  }
+
+  return await makeApiRequest<GetLatestProjectDeploymentRequest, GetLatestProjectDeploymentResponse>(
+    API_ENDPOINT.GetLatestProjectDeployment,
+    {
+      project_id: projectId
+    }
+  );
 }
 
 export async function deployProject({ project, projectConfig }: DeployProjectParams): Promise<DeployProjectResult> {

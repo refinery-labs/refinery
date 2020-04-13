@@ -11,9 +11,11 @@ import {
   AddBlockExecutionsPayload,
   BlockExecutionGroup,
   BlockExecutionLogContentsByLogId,
+  BlockExecutionLogData,
   BlockExecutionLogsForBlockId,
   BlockExecutionPagesByBlockId,
   BlockExecutionTotalsByBlockId,
+  ProductionExecutionResponse,
   ProjectExecution,
   ProjectExecutionsByExecutionId
 } from '@/types/deployment-executions-types';
@@ -63,6 +65,7 @@ export enum DeploymentExecutionsActions {
   activatePane = 'activatePane',
   getExecutionsForOpenedDeployment = 'getExecutionsForOpenedDeployment',
   forceSelectExecutionGroup = 'forceSelectExecutionGroup',
+  doOpenExecutionGroup = 'doOpenExecutionGroup',
   openExecutionGroup = 'openExecutionGroup',
   fetchLogsForSelectedBlock = 'fetchLogsForSelectedBlock',
   selectLogByLogId = 'selectLogByLogId',
@@ -462,9 +465,7 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
       // Ignore awaiting this because otherwise we block while the logs are fetched
       context.dispatch(DeploymentExecutionsActions.openExecutionGroup, executionId);
     },
-    async [DeploymentExecutionsActions.openExecutionGroup](context, executionId: string) {
-      context.commit(DeploymentExecutionsMutators.resetLogState);
-
+    async [DeploymentExecutionsActions.doOpenExecutionGroup](context, executionId: string) {
       context.commit(DeploymentExecutionsMutators.setSelectedExecutionGroup, executionId);
 
       const selectedExecution: ProjectExecution =
@@ -510,6 +511,10 @@ const DeploymentExecutionsPaneModule: Module<DeploymentExecutionsPaneState, Root
           { root: true }
         );
       }
+    },
+    async [DeploymentExecutionsActions.openExecutionGroup](context, executionId: string) {
+      context.commit(DeploymentExecutionsMutators.resetLogState);
+      await context.dispatch(DeploymentExecutionsActions.doOpenExecutionGroup, executionId);
     },
     async [DeploymentExecutionsActions.fetchLogsForSelectedBlock](context) {
       const selectedProjectExecution: ProjectExecution =

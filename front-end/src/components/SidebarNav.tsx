@@ -67,6 +67,8 @@ export default class SidebarNav extends Vue {
 
     const customContent = this.getCustomContentIfSpecified(navItem.editorPane);
 
+    const tooltipId = `navitems-${splitContent.join('-').toLowerCase()}`;
+
     const buttonProps = {
       variant: navItem.buttonVariant,
       disabled: !enabled
@@ -83,7 +85,7 @@ export default class SidebarNav extends Vue {
     }
 
     return (
-      <div class={divClasses}>
+      <div class={divClasses} data-tooltip-id={tooltipId}>
         <b-button class={buttonClasses} props={buttonProps} on={buttonOnClicks}>
           <em class={navItem.icon} />
           <span>

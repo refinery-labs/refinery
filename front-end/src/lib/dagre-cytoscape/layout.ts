@@ -31,6 +31,8 @@ export class DagreLayout implements DagreOptions {
   padding: number = 30;
   spacingFactor?: number;
   nodeDimensionsIncludeLabels: boolean = false;
+  // specific padding between chains of blocks
+  subGraphPadding: number = 60;
 
   animate: boolean = false;
   animateFilter = (node: any, i: number) => true;
@@ -153,12 +155,14 @@ export class DagreLayout implements DagreOptions {
    * This then stores the data inside of Cytoscape's scratchpad for future rendering.
    * @param graph {Graph} The Graphlib instance to perform the layout on.
    * @param offsetX {number} Value to store inside of Cytoscape to offset the graph by at layout time.
+   * @return {boolean} Whether or not the subgraph should be padded when drawn.
    */
-  runLayoutForNodes(graph: Graph, offsetX: number) {
+  runLayoutForNodes(graph: Graph, offsetX: number): boolean {
     let cy = this.cy;
 
     dagre.layout(graph);
 
+    let padSubgraph = false;
     let gNodeIds = graph.nodes();
     for (let i = 0; i < gNodeIds.length; i++) {
       let id = gNodeIds[i];
@@ -167,7 +171,9 @@ export class DagreLayout implements DagreOptions {
       const scratch = cy.getElementById(id).scratch();
       scratch.groupOffsetX = offsetX;
       scratch.dagre = n;
+      padSubgraph = padSubgraph || scratch._tooltip;
     }
+    return padSubgraph;
   }
 
   /**
@@ -186,7 +192,7 @@ export class DagreLayout implements DagreOptions {
     let offsetX = 80;
 
     subGraphs.map(subGraph => {
-      this.runLayoutForNodes(subGraph, offsetX);
+      const shouldPadSubgraph = this.runLayoutForNodes(subGraph, offsetX);
 
       let graphWidth = (json.write(subGraph) as SerializedGraph).value.width;
 
@@ -196,7 +202,7 @@ export class DagreLayout implements DagreOptions {
       }
 
       // Keep track of where the previous graph was and add a slight offset. This prevents overlaps from happening.
-      offsetX += 60 + graphWidth;
+      offsetX += (shouldPadSubgraph ? 200 : 60) + graphWidth;
     });
 
     const nodes = this.eles.nodes();

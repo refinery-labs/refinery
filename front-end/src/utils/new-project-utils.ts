@@ -3,16 +3,9 @@ import { createProject, importProject } from '@/store/fetchers/api-helpers';
 import { viewProject } from '@/utils/router-utils';
 import { NewProjectConfig } from '@/types/new-project-types';
 import { unwrapJson } from '@/utils/project-helpers';
-import {
-  LambdaWorkflowState,
-  RefineryProject,
-  WorkflowFile,
-  WorkflowFileLink,
-  WorkflowRelationship,
-  WorkflowState,
-  WorkflowStateType
-} from '@/types/graph';
+import { RefineryProject, WorkflowFile, WorkflowFileLink, WorkflowRelationship, WorkflowState } from '@/types/graph';
 import generateStupidName from '@/lib/silly-names';
+import { CyTooltip, DemoTooltip, TooltipType } from '@/types/demo-walkthrough-types';
 
 export async function createNewProjectFromConfig(config: NewProjectConfig) {
   if (!config.json && !config.name) {
@@ -87,6 +80,29 @@ export async function importRawProjectJson(json: string, generateNewName: boolea
   return await importProject(remappedJson);
 }
 
+function reassignDemoWalkthrough(
+  demoWalkthrough: DemoTooltip[] | undefined,
+  oldIdToNewIdLookup: { [key: string]: string }
+): DemoTooltip[] {
+  if (!demoWalkthrough) {
+    return [];
+  }
+  return demoWalkthrough.reduce(
+    (outputTooltips, tooltip) => {
+      if (tooltip.type === TooltipType.CyTooltip) {
+        const cyTooltip = tooltip as CyTooltip;
+        cyTooltip.config.blockId = oldIdToNewIdLookup[cyTooltip.config.blockId];
+
+        tooltip = cyTooltip;
+      }
+
+      outputTooltips.push(tooltip);
+      return outputTooltips;
+    },
+    [] as DemoTooltip[]
+  );
+}
+
 function reassignProjectIds(project: RefineryProject): RefineryProject {
   // Keep this lookup so that we can remap the IDs in edges/relationships
   const oldIdToNewIdLookup: { [key: string]: string } = {};
@@ -140,6 +156,9 @@ function reassignProjectIds(project: RefineryProject): RefineryProject {
     [] as WorkflowFile[]
   );
 
+  // Update the IDs of every walkthrough tooltip
+  const newDemoWalkthrough = reassignDemoWalkthrough(project.demo_walkthrough, oldIdToNewIdLookup);
+
   // Finally, update the file links using the new ID lookups.
   const newWorkflowFileLinks = project.workflow_file_links.reduce(
     (outputFileLinks, fileLink) => {
@@ -170,7 +189,8 @@ function reassignProjectIds(project: RefineryProject): RefineryProject {
     workflow_files: newWorkflowFiles,
     workflow_file_links: newWorkflowFileLinks,
     workflow_relationships: newRelationships,
-    workflow_states: newStates
+    workflow_states: newStates,
+    demo_walkthrough: newDemoWalkthrough
   };
 }
 export function remapImportedProjectJsonProperties(json: string, generateNewName: boolean) {

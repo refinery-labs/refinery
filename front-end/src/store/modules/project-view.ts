@@ -82,7 +82,7 @@ import ImportableRefineryProject from '@/types/export-project';
 import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shared-files';
-import { EditSharedFilePaneModule } from '@/store';
+import { DemoWalkthroughStoreModule, EditSharedFilePaneModule } from '@/store';
 
 export interface ChangeTransitionArguments {
   transition: WorkflowRelationship;
@@ -106,6 +106,7 @@ const moduleState: ProjectViewState = {
   openedProjectConfigOriginal: null,
 
   isInDemoMode: false,
+  currentTooltip: 0,
   isCreatingShortlink: false,
   shortlinkUrl: null,
 
@@ -571,6 +572,10 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       await context.dispatch(ProjectViewActions.loadProjectConfig);
 
+      if (project.demo_walkthrough) {
+        await DemoWalkthroughStoreModule.setCurrentTooltips(project.demo_walkthrough);
+      }
+
       context.commit(ProjectViewMutators.isLoadingProject, false);
 
       kickOffLibraryBuildForBlocks(project.workflow_states);
@@ -598,6 +603,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
           // Default values in the event these are not specified in the imported JSON
           workflow_files: [],
           workflow_file_links: [],
+          demo_walkthrough: [],
           readme: ``,
           // Merge in the JSON object and setup other properties with new values
           ...demoProject,
@@ -617,6 +623,10 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       };
 
       await context.dispatch(ProjectViewActions.updateProject, params);
+
+      if (params.project && params.project.demo_walkthrough) {
+        await DemoWalkthroughStoreModule.setCurrentTooltips(params.project.demo_walkthrough);
+      }
     },
     async [ProjectViewActions.updateProject](context, params: OpenProjectMutation) {
       const stylesheetOverrides: CssStyleDeclaration = Object.keys(

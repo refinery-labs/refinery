@@ -39,8 +39,10 @@ export default class EditorPaneWrapper extends Vue {
       'project-pane-container display--flex': true
     };
 
+    const tooltipId = `editorpane-${this.paneTitle.replace(' ', '-').toLowerCase()}`;
+
     return (
-      <div class={containerClasses}>
+      <div class={containerClasses} data-tooltip-id={tooltipId}>
         <div class="editor-pane-instance__modal-dialog" role="document">
           <div class="display--flex flex-direction--column editor-pane-instance__modal-content">
             {this.renderHeader()}

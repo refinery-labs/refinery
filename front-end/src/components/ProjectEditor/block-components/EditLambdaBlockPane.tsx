@@ -291,6 +291,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
               on={runCodeOnClick}
               class="show-block-container__expand-button mr-2 flex-grow--1"
               variant="outline-success"
+              data-tooltip-id="block-editor-run-code"
             >
               <span class="icon-control-play" />
               {'  '}Run Code
@@ -304,7 +305,9 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
             />
           </div>
         </div>
-        <div class="input-group with-focus show-block-container__code-editor">{this.renderCodeEditor()}</div>
+        <div data-tooltip-id="code-block-code-editor" class="input-group with-focus show-block-container__code-editor">
+          {this.renderCodeEditor()}
+        </div>
       </b-form-group>
     );
   }
@@ -411,7 +414,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
         <label class="d-block" htmlFor={`block-language-${selectedNode.id}`}>
           Block Runtime:
         </label>
-        <div class="input-group with-focus">
+        <div class="input-group with-focus" data-tooltip-id="code-editor-language-selector">
           <b-form-select
             id={`block-language-${selectedNode.id}`}
             value={this.selectedNode.language}
@@ -519,7 +522,12 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     return (
       <b-form-group description="The libraries to install for your Block Code.">
         <label class="d-block">Block Imported Libraries:</label>
-        <b-button variant="dark" class="col-12" on={{ click: this.viewLibraryModal }}>
+        <b-button
+          variant="dark"
+          class="col-12"
+          data-tooltip-id="modify-libraries-button"
+          on={{ click: this.viewLibraryModal }}
+        >
           Modify Libraries (<i>{this.selectedNode.libraries.length.toString()} Imported</i>)
         </b-button>
       </b-form-group>
