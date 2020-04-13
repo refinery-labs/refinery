@@ -5,6 +5,11 @@ const tooltipStyle = `
   * {
     font-size: .875rem;
   }
+  code {
+    font-size: .60rem;
+    color: #f532e5;
+    word-break: break-word;
+  }
   .btn {
     background: transparent;
     border: .05rem solid #fff;
@@ -41,7 +46,7 @@ const tooltipStyle = `
     border-top-right-radius: 3px;
   }
   .content {
-    font-size: .7rem;
+    font-size: .6rem;
     margin-bottom: .5rem;
   }
 </style>
@@ -51,7 +56,6 @@ export function generateTooltipSVGContents(header: string, body: string): string
   const md = new MarkdownIt();
   const formattedHeader = md.renderInline(header);
   const formattedBody = md.renderInline(body);
-  console.log(formattedHeader);
 
   return `
   <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200">

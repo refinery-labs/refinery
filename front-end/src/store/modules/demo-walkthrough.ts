@@ -11,6 +11,7 @@ import {
   DemoTooltipActionType,
   ExecutionLogsOptions,
   HTMLTooltip,
+  SetCodeRunnerInputOptions,
   SetCodeRunnerOutputOptions,
   TooltipType
 } from '@/types/demo-walkthrough-types';
@@ -30,7 +31,7 @@ import {
 } from '@/types/deployment-executions-types';
 import { ExecutionStatusType } from '@/types/execution-logs-types';
 import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
-import { RunLambdaMutators } from '@/store/modules/run-lambda';
+import { RunLambdaActions, RunLambdaMutators } from '@/store/modules/run-lambda';
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 import cytoscape from 'cytoscape';
 import { UnauthViewProjectStoreModule } from '@/store';
@@ -76,6 +77,7 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     [DemoTooltipActionType.openExecutionsPane]: this.openExecutionsPane,
     [DemoTooltipActionType.viewExecutionLogs]: this.viewExecutionLogs,
     [DemoTooltipActionType.openCodeRunner]: this.openCodeRunner,
+    [DemoTooltipActionType.setCodeRunnerInput]: this.setCodeRunnerInput,
     [DemoTooltipActionType.setCodeRunnerOutput]: this.setCodeRunnerOutput,
     [DemoTooltipActionType.closeEditPane]: this.closeEditPane,
     [DemoTooltipActionType.closeOpenPanes]: this.closeOpenPanes,
@@ -279,6 +281,28 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   @Action
   public async promptUserSignup() {
     await UnauthViewProjectStoreModule.promptDemoModeSignup(true);
+  }
+
+  @Action
+  public async setCodeRunnerInput(action: DemoTooltipAction) {
+    const currentTooltip = this.currentTooltip as CyTooltip;
+    const blockId = currentTooltip.config.blockId;
+
+    const codeRunnerInputAction = action.options as SetCodeRunnerInputOptions;
+    await this.context.dispatch(
+      `runLambda/${RunLambdaActions.changeDevLambdaInputData}`,
+      [blockId, JSON.stringify(codeRunnerInputAction.input)],
+      {
+        root: true
+      }
+    );
+    await this.context.dispatch(
+      `runLambda/${RunLambdaActions.changeDevLambdaBackpackData}`,
+      [blockId, JSON.stringify(codeRunnerInputAction.backpack)],
+      {
+        root: true
+      }
+    );
   }
 
   @Action

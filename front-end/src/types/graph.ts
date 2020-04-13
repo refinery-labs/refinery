@@ -82,6 +82,7 @@ export enum ProjectLogLevel {
 export interface WorkflowState extends BaseRefineryResource {
   type: WorkflowStateType;
   saved_block_metadata?: SavedBlockMetadata;
+  tooltip?: DemoTooltip | false;
 }
 
 export interface SavedBlockMetadata {
@@ -102,7 +103,6 @@ export interface LambdaWorkflowState extends WorkflowState {
   saved_backpack_data?: string;
   environment_variables: BlockEnvironmentVariableList;
   reserved_concurrency_count: number | false;
-  tooltip?: DemoTooltip | false;
 }
 
 export interface BlockEnvironmentVariableList {

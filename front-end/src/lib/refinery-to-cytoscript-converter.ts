@@ -32,7 +32,8 @@ function basicConverter<T extends WorkflowState>(workflowState: WorkflowState, c
     // @ts-ignore
     scratch: {
       _rawData: convertedState,
-      _blockType: convertedState.type
+      _blockType: convertedState.type,
+      _tooltip: convertedState.tooltip
     },
     // This is used by Cytoscape to render the image/style for each node
     // This should accept an array too, but I don't want to fight the type definitions today
@@ -42,20 +43,6 @@ function basicConverter<T extends WorkflowState>(workflowState: WorkflowState, c
 
 function classOnlyConverter<T extends WorkflowState>(classname: string): (e: WorkflowState) => NodeDefinition {
   return e => basicConverter(e, classname);
-}
-
-function lambdaConverter(classname: string): (e: WorkflowState) => NodeDefinition {
-  return e => {
-    const converted = basicConverter(e, classname);
-    const state = e as LambdaWorkflowState;
-    return {
-      ...converted,
-      scratch: {
-        ...converted.scratch,
-        _tooltip: state.tooltip
-      }
-    };
-  };
 }
 
 export type WorkflowStateTypeConverterLookup = {
@@ -71,7 +58,7 @@ export const workflowStateTypeToConverter: WorkflowStateTypeConverterLookup = {
   [WorkflowStateType.API_GATEWAY_RESPONSE]: classOnlyConverter<ApiGatewayResponseWorkflowState>(
     WorkflowStateType.API_GATEWAY_RESPONSE
   ),
-  [WorkflowStateType.LAMBDA]: lambdaConverter(WorkflowStateType.LAMBDA),
+  [WorkflowStateType.LAMBDA]: classOnlyConverter<LambdaWorkflowState>(WorkflowStateType.LAMBDA),
   [WorkflowStateType.SCHEDULE_TRIGGER]: classOnlyConverter<ScheduleTriggerWorkflowState>(
     WorkflowStateType.SCHEDULE_TRIGGER
   ),

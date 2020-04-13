@@ -24,7 +24,8 @@ export enum DemoTooltipActionType {
   setCodeRunnerOutput = 'setCodeRunnerOutput',
   closeEditPane = 'closeEditPane',
   closeOpenPanes = 'closeOpenPanes',
-  promptUserSignup = 'promptUserSignup'
+  promptUserSignup = 'promptUserSignup',
+  setCodeRunnerInput = 'setCodeRunnerInput'
 }
 
 export interface DemoMockNetworkResponseLookup {
@@ -70,6 +71,11 @@ export const EMPTY_HTML_TOOLTIP: HTMLTooltip = {
   }
 };
 
+export interface SetCodeRunnerInputOptions {
+  input: object;
+  backpack: object;
+}
+
 export interface SetCodeRunnerOutputOptions {
   logs: string;
   returned_data: string;
@@ -105,7 +111,11 @@ export interface AddDeploymentExecutionOptions {
 
 export interface DemoTooltipAction {
   action: DemoTooltipActionType;
-  options?: SetCodeRunnerOutputOptions | ExecutionLogsOptions | AddDeploymentExecutionOptions;
+  options?:
+    | SetCodeRunnerOutputOptions
+    | ExecutionLogsOptions
+    | AddDeploymentExecutionOptions
+    | SetCodeRunnerInputOptions;
 }
 
 export interface DemoTooltip {
