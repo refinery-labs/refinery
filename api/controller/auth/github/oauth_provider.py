@@ -43,6 +43,8 @@ class GithubOAuthProvider:
 	_API_BASE_HEADERS = {
 		"Accept": "application/json",
 		"User-Agent": "Tornado OAuth"
+
+		# TODO add access token header
 	}
 	_OAUTH_ACCESS_TOKEN_URL = "https://github.com/login/oauth/access_token"
 	_OAUTH_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
