@@ -2,10 +2,10 @@ import { Action, Module, Mutation, VuexModule } from 'vuex-module-decorators';
 import { RootState, StoreType } from '../../store-types';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { resetStoreState } from '@/utils/store-utils';
-import { compileProjectRepo } from '@/repo-compiler/lift';
+import { compileProjectRepo } from '@/repo-compiler/one-to-one/git-to-refinery';
 import { ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
 import { OpenProjectMutation } from '@/types/project-editor-types';
-import { commitAndPushToRepo, saveProjectToRepo } from '@/repo-compiler/drop';
+import { commitAndPushToRepo, saveProjectToRepo } from '@/repo-compiler/one-to-one/refinery-to-git';
 import { ProjectConfig, RefineryProject } from '@/types/graph';
 import LightningFS from '@isomorphic-git/lightning-fs';
 import git, { Errors, PromiseFsClient, StatusRow } from 'isomorphic-git';
@@ -379,7 +379,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     await this.setRepoBranches(repoBranches);
 
     // TODO fs folder should be project id
-    const compiledProject = await compileProjectRepo(fs, getProjectRepoDir(project));
+    const compiledProject = await compileProjectRepo('1234', getProjectRepoDir(project));
 
     const config = this.context.rootState.project.openedProjectConfig;
 

@@ -2,7 +2,6 @@ import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { ProjectConfig, ProjectLogLevel, SupportedLanguage } from '@/types/graph';
 import { namespace } from 'vuex-class';
-import { languages } from 'monaco-editor';
 import Loading from '@/components/Common/Loading.vue';
 import { LoadingContainerProps } from '@/types/component-types';
 

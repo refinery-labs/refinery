@@ -1,5 +1,3 @@
-import './monaco-shims';
-
 // Don't record sessions in dev mode
 if (process.env.NODE_ENV !== 'production') {
   // @ts-ignore
@@ -17,7 +15,7 @@ import BootstrapVue from 'bootstrap-vue';
 import VueIntercom from 'vue-intercom';
 import { sync } from 'vuex-router-sync';
 
-import './vendor';
+import('./vendor');
 
 import '@/styles/fonts.scss';
 import '@/styles/bootstrap.scss';
@@ -28,7 +26,7 @@ import '@/styles/class-helpers.scss';
 import store from './store/index';
 import App from './App';
 import router from './router';
-import './registerServiceWorker';
+import('./registerServiceWorker');
 import { setupWebsocketVuePlugin } from '@/setup-websocket';
 
 Vue.use(BootstrapVue);

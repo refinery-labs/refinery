@@ -1,0 +1,10 @@
+export const PROJECT_CONFIG_FILENAME = 'project.yaml';
+export const PROJECT_LAMBDA_DIR = 'lambda';
+export const PROJECT_SHARED_FILES_DIR = 'shared-files';
+
+export const LAMBDA_CONFIG_FILENAME = 'config.yaml';
+export const LAMBDA_SHARED_FILES_DIR = 'shared_files';
+
+export const BLOCK_CODE_FILENAME = 'block_code';
+
+export const REFINERY_PROJECTS_FOLDER = 'refinery/projects';

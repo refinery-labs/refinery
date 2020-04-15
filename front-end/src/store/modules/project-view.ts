@@ -22,8 +22,7 @@ import {
   WorkflowStateType
 } from '@/types/graph';
 import { generateCytoscapeElements, generateCytoscapeStyle } from '@/lib/refinery-to-cytoscript-converter';
-import { CssStyleDeclaration, LayoutOptions } from 'cytoscape';
-import cytoscape from '@/components/CytoscapeGraph';
+import { CssStyleDeclaration, LayoutOptions, CytoscapeOptions } from 'cytoscape';
 import {
   DeploymentViewActions,
   ProjectViewActions,
@@ -63,7 +62,6 @@ import {
 } from '@/utils/project-helpers';
 import { availableTransitions, DEFAULT_LANGUAGE_CODE, savedBlockType } from '@/constants/project-editor-constants';
 import { blockTypeToImageLookup } from '@/constants/project-editor-img-constants';
-import { demoModeBlacklist } from '@/constants/project-editor-pane-constants';
 import EditBlockPaneModule, { EditBlockActions, EditBlockGetters } from '@/store/modules/panes/edit-block-pane';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
@@ -79,7 +77,8 @@ import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-proj
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shared-files';
 import { DemoWalkthroughStoreModule, EditSharedFilePaneModule, SyncProjectRepoPaneStoreModule } from '@/store';
-import { saveProjectToRepo } from '@/repo-compiler/drop';
+// import { compileProjectRepo } from '@/repo-compiler/one-to-one/git-to-refinery';
+// import { saveProjectToRepo } from '@/repo-compiler/one-to-one/refinery-to-git';
 import generateStupidName from '@/lib/silly-names';
 import slugify from 'slugify';
 
@@ -96,6 +95,8 @@ export interface AddBlockArguments {
    */
   customBlockProperties?: WorkflowState;
 }
+
+export const demoModeBlacklist = [SIDEBAR_PANE.saveProject, SIDEBAR_PANE.deployProject];
 
 const moduleState: ProjectViewState = {
   openedProject: null,
@@ -396,7 +397,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     [ProjectViewMutators.setCytoscapeLayout](state, layout: LayoutOptions) {
       state.cytoscapeLayoutOptions = deepJSONCopy(layout);
     },
-    [ProjectViewMutators.setCytoscapeConfig](state, config: cytoscape.CytoscapeOptions) {
+    [ProjectViewMutators.setCytoscapeConfig](state, config: CytoscapeOptions) {
       state.cytoscapeConfig = deepJSONCopy(config);
     },
     [ProjectViewMutators.setIsAddingSharedFileToCodeBlock](state, value: boolean) {

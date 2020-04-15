@@ -1,5 +1,6 @@
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
+let shimsSet = false;
 // Only shim the Monaco stuff if we're not in dev
 if (!isDevelopment) {
   __webpack_public_path__ = 'https://app.refinery.io/manifest/';
@@ -8,6 +9,12 @@ if (!isDevelopment) {
 }
 
 async function setupMonacoShims() {
+  if (shimsSet) {
+    return;
+  }
+
+  shimsSet = true;
+
   await import('monaco-editor/esm/vs/editor/editor.api');
   (window as any).MonacoEnvironment = {
     getWorkerUrl: function(moduleId: any, label: string) {
@@ -52,3 +59,6 @@ async function setupMonacoShims() {
     }
   };
 }
+
+// Needed to make Typescript happy?
+export const foo = 'foo';

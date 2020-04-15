@@ -1,6 +1,5 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
-import moment from 'moment';
 import { blockTypeToImageLookup } from '@/constants/project-editor-img-constants';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { Prop } from 'vue-property-decorator';
@@ -15,6 +14,7 @@ import ViewSharedFileLinkPane, {
   ViewSharedFileLinkProps
 } from '@/components/ProjectEditor/shared-files-components/ViewSharedFilesList';
 import { ViewSharedFilePaneModule } from '@/store';
+import { getFriendlyDurationSinceString } from '@/utils/time-utils';
 
 export interface ViewChosenSavedBlockPaneProps {
   chosenBlock: ChosenBlock;
@@ -38,7 +38,7 @@ export default class ViewChosenSavedBlockPane extends Vue implements ViewChosenS
     const block = this.chosenBlock.block;
 
     const imagePath = blockTypeToImageLookup[block.type].path;
-    const durationSinceUpdated = moment.duration(-moment().diff(block.timestamp * 1000)).humanize(true);
+    const durationSinceUpdated = getFriendlyDurationSinceString(block.timestamp * 1000);
 
     const isPrivateBlock = this.chosenBlock.blockSource === 'private';
     const sharePillVariable = block.share_status === SharedBlockPublishStatus.PRIVATE ? 'success' : 'primary';
