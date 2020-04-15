@@ -22,8 +22,7 @@ import {
   WorkflowStateType
 } from '@/types/graph';
 import { generateCytoscapeElements, generateCytoscapeStyle } from '@/lib/refinery-to-cytoscript-converter';
-import { CssStyleDeclaration, LayoutOptions } from 'cytoscape';
-import cytoscape from '@/components/CytoscapeGraph';
+import { CssStyleDeclaration, LayoutOptions, CytoscapeOptions } from 'cytoscape';
 import {
   DeploymentViewActions,
   ProjectViewActions,
@@ -65,20 +64,13 @@ import {
 } from '@/utils/project-helpers';
 import { availableTransitions, DEFAULT_LANGUAGE_CODE, savedBlockType } from '@/constants/project-editor-constants';
 import { blockTypeToImageLookup } from '@/constants/project-editor-img-constants';
-import { demoModeBlacklist } from '@/constants/project-editor-pane-constants';
 import EditBlockPaneModule, { EditBlockActions, EditBlockGetters } from '@/store/modules/panes/edit-block-pane';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
 import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
-import {
-  createShortlink,
-  deployProject,
-  importProjectRepo,
-  openProject,
-  teardownProject
-} from '@/store/fetchers/api-helpers';
+import { createShortlink, deployProject, openProject, teardownProject } from '@/store/fetchers/api-helpers';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
 import { addAPIBlocksToProject, createNewBlock, createNewTransition } from '@/utils/block-utils';
 import { saveEditBlockToProject } from '@/utils/store-utils';
@@ -87,8 +79,8 @@ import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-proj
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shared-files';
 import { EditSharedFilePaneModule } from '@/store';
-import { compileProjectRepo } from '@/repo-compiler/lift';
-import { saveProjectToRepo } from '@/repo-compiler/drop';
+// import { compileProjectRepo } from '@/repo-compiler/one-to-one/git-to-refinery';
+// import { saveProjectToRepo } from '@/repo-compiler/one-to-one/refinery-to-git';
 import generateStupidName from '@/lib/silly-names';
 import slugify from 'slugify';
 
@@ -105,6 +97,8 @@ export interface AddBlockArguments {
    */
   customBlockProperties?: WorkflowState;
 }
+
+export const demoModeBlacklist = [SIDEBAR_PANE.saveProject, SIDEBAR_PANE.deployProject];
 
 const moduleState: ProjectViewState = {
   openedProject: null,
@@ -404,7 +398,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     [ProjectViewMutators.setCytoscapeLayout](state, layout: LayoutOptions) {
       state.cytoscapeLayoutOptions = deepJSONCopy(layout);
     },
-    [ProjectViewMutators.setCytoscapeConfig](state, config: cytoscape.CytoscapeOptions) {
+    [ProjectViewMutators.setCytoscapeConfig](state, config: CytoscapeOptions) {
       state.cytoscapeConfig = deepJSONCopy(config);
     },
     [ProjectViewMutators.setIsAddingSharedFileToCodeBlock](state, value: boolean) {
@@ -831,6 +825,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
+      const { compileProjectRepo } = await import('@/repo-compiler/one-to-one/git-to-refinery');
+
       const project = await compileProjectRepo(
         context.state.openedProject.project_id,
         context.state.openedProjectConfig.project_repo
@@ -864,6 +860,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       const repoProject = context.state.openedProject;
       const projectRepoURL = context.state.openedProjectConfig.project_repo;
+
+      const { saveProjectToRepo } = await import('@/repo-compiler/one-to-one/refinery-to-git');
 
       await saveProjectToRepo(repoProject, projectRepoURL, branchName).catch(e => console.error(e));
     },

@@ -75,5 +75,3 @@ export const blockTypeToEditorComponentLookup: BlockTypeToEditorComponent = {
   [WorkflowStateType.API_GATEWAY_RESPONSE]: () => EditAPIResponseBlock,
   [WorkflowStateType.SQS_QUEUE]: () => EditQueueBlock
 };
-
-export const demoModeBlacklist = [SIDEBAR_PANE.saveProject, SIDEBAR_PANE.deployProject];

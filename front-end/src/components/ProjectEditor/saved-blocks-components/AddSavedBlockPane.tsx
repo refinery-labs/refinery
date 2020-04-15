@@ -1,6 +1,5 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
-import moment from 'moment';
 import { blockTypeToImageLookup } from '@/constants/project-editor-img-constants';
 import { debounce } from 'debounce';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
@@ -10,6 +9,7 @@ import RefineryMarkdown from '@/components/Common/RefineryMarkdown';
 import { MarkdownProps } from '@/types/component-types';
 import { SupportedLanguage } from '@/types/graph';
 import { toTitleCase } from '@/lib/general-utils';
+import { getFriendlyDurationSinceString } from '@/utils/time-utils';
 
 export interface AddSavedBlockPaneProps {
   searchResultsPrivate: SavedBlockSearchResult[];
@@ -71,7 +71,7 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
 
   public renderBlockSelect(showStatus: boolean, block: SavedBlockSearchResult) {
     const imagePath = blockTypeToImageLookup[block.type].path;
-    const durationSinceUpdated = moment.duration(-moment().diff(block.timestamp * 1000)).humanize(true);
+    const durationSinceUpdated = getFriendlyDurationSinceString(block.timestamp * 1000);
     const sharePillVariable = block.share_status === SharedBlockPublishStatus.PRIVATE ? 'success' : 'primary';
     const shareStatusText = showStatus && (
       <div class="text-muted text-align--center">

@@ -1,4 +1,3 @@
-import moment from 'moment';
 import * as R from 'ramda';
 import {
   CreateProjectShortlinkRequest,
@@ -61,6 +60,7 @@ import { DeployProjectParams, DeployProjectResult } from '@/types/project-editor
 import { CURRENT_TRANSITION_SCHEMA } from '@/constants/graph-constants';
 import { timeout } from '@/utils/async-utils';
 import ImportableRefineryProject from '@/types/export-project';
+import { sub, getUnixTime, fromUnixTime } from 'date-fns';
 
 export interface LibraryBuildArguments {
   language: SupportedLanguage;
@@ -69,9 +69,7 @@ export interface LibraryBuildArguments {
 
 export function getDefaultOffsetTimestamp() {
   // 6 hours ago
-  return moment()
-    .subtract(6, 'hours')
-    .unix();
+  return getUnixTime(sub(new Date(), { hours: 6 }));
 }
 
 export async function getProjectExecutions(
@@ -101,10 +99,7 @@ export async function getProjectExecutions(
 
   // If we want to "load more", then this is the timestamp for where to begin loading more items.
   // TODO: We are probably "widening" the window with this method. We may need to specify a "from" timestamp too?
-  // We multiply the timestamp by 1000 so that Moment understands the correct time.
-  const nextTimestampToQuery = moment(timestampForQuery * 1000)
-    .subtract(6, 'hours')
-    .unix();
+  const nextTimestampToQuery = getUnixTime(sub(fromUnixTime(timestampForQuery), { hours: 6 }));
 
   return {
     oldestTimestamp: nextTimestampToQuery,

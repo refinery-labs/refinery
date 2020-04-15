@@ -1,3 +1,4 @@
+import('../monaco-shims');
 import Vue, { CreateElement, VNode } from 'vue';
 import Component, { mixins } from 'vue-class-component';
 import OpenedProjectOverview from '@/views/ProjectsNestedViews/OpenedProjectOverview';

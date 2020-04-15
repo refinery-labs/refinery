@@ -4,7 +4,8 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 import { EditorProps } from '@/types/component-types';
 import { SupportedLanguage } from '@/types/graph';
 import { languageToAceLangMap } from '@/types/project-editor-types';
-import MonacoEditor, { MonacoEditorProps } from '@/lib/MonacoEditor';
+import { MonacoEditorProps } from '@/lib/monaco-editor-props';
+// import { MonacoEditor, MonacoEditorProps } from '@/lib/MonacoEditor';
 
 @Component
 export default class RefineryCodeEditor extends Vue implements EditorProps {
@@ -26,6 +27,11 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
 
   @Prop() extraClasses?: string;
   @Prop() collapsible?: boolean;
+  private editor: { MonacoEditor: Function } | null = null;
+
+  async mounted() {
+    this.editor = await import('@/lib/MonacoEditor');
+  }
 
   toggleModalOn() {
     this.fullscreen = true;
@@ -82,9 +88,12 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
       tailOutput: this.tailOutput
     };
 
+    if (this.editor === null) {
+      return 'Loading Editor...';
+    }
+
     return (
-      // @ts-ignore
-      <MonacoEditor
+      <this.editor.MonacoEditor
         key={`${languageToAceLangMap[this.lang]}${this.readOnly ? '-read-only' : ''}`}
         ref="editor"
         props={monacoProps}

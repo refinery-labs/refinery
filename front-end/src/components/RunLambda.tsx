@@ -1,8 +1,7 @@
 import { CreateElement, VNode } from 'vue';
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import { SupportedLanguage } from '@/types/graph';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
-import { EditorProps, LoadingContainerProps } from '@/types/component-types';
+import { EditorProps } from '@/types/component-types';
 import { RunLambdaResult } from '@/types/api-types';
 import Loading from '@/components/Common/Loading.vue';
 import Split from '@/components/Common/Split.vue';

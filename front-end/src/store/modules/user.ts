@@ -184,17 +184,6 @@ const UserModule: Module<UserState, RootState> = {
         return;
       }
 
-      if (context.state.loginEmailInput === 'matt@refinery.io') {
-        const video = document.createElement('video');
-
-        video.src = require('../../../public/img/mandy.mp4');
-        video.autoplay = true;
-
-        const parent = document.querySelector('.card-body');
-        parent && parent.appendChild(video);
-        await timeout(5000);
-      }
-
       context.commit(UserMutators.setIsBusyStatus, true);
 
       const response = await makeApiRequest<LoginRequest, LoginResponse>(API_ENDPOINT.Login, {

@@ -17,15 +17,11 @@ import {
 } from '@/types/production-workflow-types';
 import {
   ExecutionLogMetadata,
-  ExecutionStatusType,
   GetProjectExecutionLogObjectsResult,
   GetProjectExecutionLogsPageResult,
   GetProjectExecutionResult
 } from '@/types/execution-logs-types';
 import ImportableRefineryProject from '@/types/export-project';
-import * as moment from 'moment';
-import Base = moment.unitOfTime.Base;
-import SharedFiles from '@/components/ProjectEditor/SharedFiles';
 
 export interface BaseApiResponse {
   success: boolean;

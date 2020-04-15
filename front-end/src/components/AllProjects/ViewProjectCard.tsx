@@ -1,5 +1,4 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
-import moment from 'moment';
 import { SearchSavedProjectsResult } from '@/types/api-types';
 import { namespace } from 'vuex-class';
 import { linkFormatterUtils } from '@/constants/router-constants';
@@ -102,8 +101,7 @@ export default class ViewProjectCard extends Vue implements ViewProjectCardProps
   public render() {
     const project = this.project;
 
-    const updatedTime = moment(project.timestamp * 1000);
-    const durationSinceUpdated = getFriendlyDurationSinceString(updatedTime);
+    const durationSinceUpdated = getFriendlyDurationSinceString(project.timestamp * 1000);
 
     const disableRenameButton = this.renameProjectId !== null && this.renameProjectId !== project.id;
 

@@ -4,24 +4,24 @@ import Home from './views/Home.vue';
 import Settings from './views/Settings';
 import BlockRepository from './views/BlockRepository';
 import AdminPanel from './views/Admin';
-import AllProjects from './views/AllProjects';
-import ViewProject from './views/ViewProject';
+// import AllProjects from './views/AllProjects';
+// import ViewProject from './views/ViewProject';
 import OpenedWorkflowWrapper from '@/views/ProjectsNestedViews/OpenedWorkflowWrapper';
-import ProjectDeployments from '@/views/ProjectsNestedViews/ProjectDeployments';
+// import ProjectDeployments from '@/views/ProjectsNestedViews/ProjectDeployments';
 import ViewProjectDeployment from '@/views/ProjectsNestedViews/ViewProjectDeployment';
 import EditProjectDeployment from '@/views/ProjectsNestedViews/EditProjectDeployment';
 import Layout from '@/components/Layout/Layout';
 import { baseLinks, projectViewLinks } from '@/constants/router-constants';
 import PageNotFound from '@/views/PageNotFound';
 import ProjectNotFound from '@/views/ProjectsNestedViews/ProjectNotFound';
-import LoginPage from '@/views/Authentication/LoginPage';
-import RegistrationPage from '@/views/Authentication/RegistrationPage';
+// import LoginPage from '@/views/Authentication/LoginPage';
+// import RegistrationPage from '@/views/Authentication/RegistrationPage';
 import HelpPage from '@/views/Help';
-import Billing from '@/views/Billing.vue';
-import ProjectSettings from '@/views/ProjectsNestedViews/ProjectSettings';
+// import Billing from '@/views/Billing.vue';
+// import ProjectSettings from '@/views/ProjectsNestedViews/ProjectSettings';
 import { guardLoggedIn } from '@/utils/auth-utils';
-import ImportProject from '@/views/ImportProject';
-import TermsOfServicePage from '@/views/TermsOfService';
+// import ImportProject from '@/views/ImportProject';
+// import TermsOfServicePage from '@/views/TermsOfService';
 
 Vue.use(Router);
 
@@ -32,17 +32,17 @@ const router = new Router({
     {
       path: '/login',
       name: 'login',
-      component: LoginPage
+      component: () => import(/* webpackChunkName: "login" */ '@/views/Authentication/LoginPage')
     },
     {
       path: '/register',
       name: 'register',
-      component: RegistrationPage
+      component: () => import(/* webpackChunkName: "register" */ '@/views/Authentication/RegistrationPage')
     },
     {
       path: '/terms-of-service',
       name: 'termsOfService',
-      component: TermsOfServicePage
+      component: () => import(/* webpackChunkName: "termsOfService" */ '@/views/TermsOfService')
     },
     {
       path: baseLinks.help,
@@ -61,7 +61,7 @@ const router = new Router({
       children: [
         {
           path: '',
-          component: ImportProject
+          component: () => import(/* webpackChunkName: "importProject" */ '@/views/ImportProject')
         }
       ]
     },
@@ -99,7 +99,7 @@ const router = new Router({
         {
           path: baseLinks.projects,
           name: 'allProjects',
-          component: AllProjects
+          component: () => import(/* webpackChunkName: "allProjects" */ './views/AllProjects')
         },
         // Everything specific to a project is nested under the projectId in the path.
         // A project is akin to a "website" or a collection of "workflows" which map to a collection of tasks.
@@ -108,14 +108,15 @@ const router = new Router({
           path: projectViewLinks.viewProject,
           name: 'project',
           // components: {default: ViewProject, graph: RefineryGraph},
-          component: ViewProject,
+          component: () => import(/* webpackChunkName: "project" */ './views/ViewProject'),
           children: [
             // View all deployments for project
             {
               path: 'deployments',
               name: 'deployment',
               // View all deployments
-              component: ProjectDeployments
+              component: () =>
+                import(/* webpackChunkName: "deployment" */ '@/views/ProjectsNestedViews/ProjectDeployments')
             },
             // View deployment by ID
             {
@@ -136,17 +137,12 @@ const router = new Router({
                 }
               ]
             },
-            // View Usage information for project
-            {
-              path: 'usage',
-              name: 'projectUsage',
-              component: ProjectDeployments
-            },
             // View settings for a project
             {
               path: 'settings',
               name: 'projectSettings',
-              component: ProjectSettings
+              component: () =>
+                import(/* webpackChunkName: "projectSettings" */ '@/views/ProjectsNestedViews/ProjectSettings')
             },
             {
               path: '*',
@@ -162,7 +158,7 @@ const router = new Router({
         {
           path: baseLinks.billing,
           name: 'billing',
-          component: Billing
+          component: () => import(/* webpackChunkName: "billing" */ '@/views/Billing.vue')
         },
         {
           path: baseLinks.admin,
