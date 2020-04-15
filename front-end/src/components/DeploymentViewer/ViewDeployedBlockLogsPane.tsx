@@ -1,18 +1,14 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
-import moment from 'moment';
 import { SupportedLanguage, WorkflowState } from '@/types/graph';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import ViewDeployedBlockPane from '@/components/DeploymentViewer/ViewDeployedBlockPane';
 import { EditorProps, LoadingContainerProps } from '@/types/component-types';
-import {
-  BlockExecutionGroup,
-  BlockExecutionLogContentsByLogId,
-  BlockExecutionLogsForBlockId
-} from '@/types/deployment-executions-types';
+import { BlockExecutionGroup, BlockExecutionLogContentsByLogId } from '@/types/deployment-executions-types';
 import Loading from '@/components/Common/Loading.vue';
 import { ExecutionLogContents, ExecutionLogMetadata, ExecutionStatusType } from '@/types/execution-logs-types';
+import { getFriendlyDurationSinceString } from '@/utils/time-utils';
 
 const viewBlock = namespace('viewBlock');
 const deploymentExecutions = namespace('deploymentExecutions');
@@ -102,7 +98,7 @@ export default class ViewDeployedBlockLogsPane extends Vue {
       );
     }
 
-    const durationSinceUpdated = moment.duration(-moment().diff(execution.timestamp * 1000)).humanize(true);
+    const durationSinceUpdated = getFriendlyDurationSinceString(execution.timestamp * 1000);
     return (
       <div class="text-align--left row">
         <b-col xl={3}>

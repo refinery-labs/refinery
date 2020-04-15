@@ -1,4 +1,3 @@
-import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { LambdaWorkflowState, RefineryProject, SupportedLanguage } from '@/types/graph';
 
@@ -176,7 +175,9 @@ metadata.json
  */
 
 export async function createProjectDownloadZip(config: ProjectDownloadZipConfig) {
-  const zip = JSZip();
+  // Lazy load this library since it is only used once in the app
+  const jszip = await import('jszip');
+  const zip = jszip.default();
 
   const filesToZip = convertProjectDownloadZipConfigToFileList(config);
 

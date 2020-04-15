@@ -1,3 +1,4 @@
+import('../monaco-shims');
 import Vue, { VNode } from 'vue';
 import Component, { mixins } from 'vue-class-component';
 import { namespace, State } from 'vuex-class';

@@ -21,7 +21,6 @@ import ImportableRefineryProject from '@/types/export-project';
 import { getShortlinkContents, renameProject } from '@/store/fetchers/api-helpers';
 import { SelectProjectVersion } from '@/types/all-project-types';
 import { getInitialCardStateForSearchResults } from '@/utils/all-projects-utils';
-import router from '@/router';
 
 const moduleState: AllProjectsState = {
   availableProjects: [],

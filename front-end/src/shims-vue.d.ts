@@ -54,8 +54,6 @@ declare module 'vue-intercom' {
 
 declare module '@isomorphic-git/lightning-fs';
 
-declare module 'js-yaml';
-
 declare module 'vue-monaco' {
   import { PluginObject } from 'vue';
 
