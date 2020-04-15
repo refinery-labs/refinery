@@ -14,7 +14,6 @@ import { toTitleCase } from '@/lib/general-utils';
 export interface AddSavedBlockPaneProps {
   searchResultsPrivate: SavedBlockSearchResult[];
   searchResultsPublished: SavedBlockSearchResult[];
-  searchResultsGit: SavedBlockSearchResult[];
   searchInput: string;
   languageInput: string;
   blockTypeInput: string;
@@ -34,7 +33,6 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
 
   @Prop({ required: true }) searchResultsPrivate!: SavedBlockSearchResult[];
   @Prop({ required: true }) searchResultsPublished!: SavedBlockSearchResult[];
-  @Prop({ required: true }) searchResultsGit!: SavedBlockSearchResult[];
   @Prop({ required: true }) searchInput!: string;
   @Prop({ required: true }) languageInput!: string;
   @Prop({ required: true }) blockTypeInput!: string;
@@ -124,8 +122,7 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
   public render(h: CreateElement): VNode {
     const privateBlocks = this.searchResultsPrivate;
     const publishedBlocks = this.searchResultsPublished;
-    const gitBlocks = this.searchResultsGit;
-    const zeroResults = privateBlocks.length === 0 && publishedBlocks.length === 0 && gitBlocks.length === 0;
+    const zeroResults = privateBlocks.length === 0 && publishedBlocks.length === 0;
 
     const defaultLanguageOption = {
       value: '',
@@ -209,7 +206,6 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
             {!zeroResults && (
               <div class="flex-grow--1">
                 {this.renderResultsByCategory(true, privateBlocks)}
-                {this.renderResultsByCategory(true, gitBlocks)}
                 {this.renderResultsByCategory(false, publishedBlocks)}
               </div>
             )}

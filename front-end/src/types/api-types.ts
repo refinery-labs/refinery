@@ -693,8 +693,7 @@ export interface CreateSavedBlockResponse extends BaseApiResponse {
 
 export enum SharedBlockPublishStatus {
   PUBLISHED = 'PUBLISHED',
-  PRIVATE = 'PRIVATE',
-  GIT = 'GIT'
+  PRIVATE = 'PRIVATE'
 }
 
 export enum SavedBlockSaveType {

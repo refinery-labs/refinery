@@ -16,7 +16,6 @@ export default class AddSavedBlockPaneContainer extends Vue {
     const addSavedBlockPaneProps: AddSavedBlockPaneProps = {
       searchResultsPrivate: AddSavedBlockPaneStoreModule.searchResultsPrivate,
       searchResultsPublished: AddSavedBlockPaneStoreModule.searchResultsPublished,
-      searchResultsGit: AddSavedBlockPaneStoreModule.searchResultsGit,
       isBusySearching: AddSavedBlockPaneStoreModule.isBusySearching,
       searchInput: AddSavedBlockPaneStoreModule.searchInput,
       languageInput: AddSavedBlockPaneStoreModule.languageInput,

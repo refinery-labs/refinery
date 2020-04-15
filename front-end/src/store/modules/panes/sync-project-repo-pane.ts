@@ -10,6 +10,7 @@ import { ProjectConfig, RefineryProject } from '@/types/graph';
 import LightningFS from '@isomorphic-git/lightning-fs';
 import git, { Errors, PromiseFsClient, StatusRow } from 'isomorphic-git';
 import http from '@/repo-compiler/git-http';
+import { newBranchText } from '@/constants/project-editor-constants';
 
 const storeName = StoreType.syncProjectRepo;
 
@@ -29,17 +30,21 @@ const gitPushResultToMessage: Record<GitPushResult, string> = {
 // Types
 export interface SyncProjectRepoPaneState {
   remoteBranchName: string;
+  creatingNewBranch: boolean;
   gitStatusResult: Array<StatusRow>;
   gitPushResult: GitPushResult | undefined;
   repoBranches: string[];
+  pushingToRepo: boolean;
 }
 
 // Initial State
 const moduleState: SyncProjectRepoPaneState = {
   remoteBranchName: 'master',
+  creatingNewBranch: false,
   gitStatusResult: [],
   gitPushResult: undefined,
-  repoBranches: []
+  repoBranches: [],
+  pushingToRepo: false
 };
 
 const initialState = deepJSONCopy(moduleState);
@@ -120,6 +125,14 @@ function getStatusForFileInfo(row: StatusRow): GitStatusResult {
   return { newFiles: 0, modifiedFiles: 0, deletedFiles: 0 };
 }
 
+function isFileUnmodified(row: StatusRow): boolean {
+  const headStatus = row[1];
+  const workdirStatus = row[2];
+  const stageStatus = row[3];
+
+  return headStatus === 1 && workdirStatus === 1 && stageStatus === 1;
+}
+
 function getProjectRepoDir(project: RefineryProject): string {
   return `/${project.project_id}`;
 }
@@ -128,17 +141,19 @@ function getProjectRepoDir(project: RefineryProject): string {
 export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRepoPaneState>, RootState>
   implements SyncProjectRepoPaneState {
   public remoteBranchName: string = initialState.remoteBranchName;
+  public creatingNewBranch: boolean = initialState.creatingNewBranch;
   public gitStatusResult: Array<StatusRow> = initialState.gitStatusResult;
   public gitPushResult: GitPushResult | undefined = initialState.gitPushResult;
   public repoBranches: string[] = initialState.repoBranches;
+  public pushingToRepo: boolean = initialState.pushingToRepo;
 
   @Mutation
   public resetState() {
     resetStoreState(this, initialState);
   }
 
-  get isGitPushResultSet(): boolean {
-    return this.gitPushResult !== undefined;
+  get getRemoteBranchName(): string {
+    return this.remoteBranchName !== newBranchText ? this.remoteBranchName : '';
   }
 
   get getGitPushResultMessage(): string {
@@ -166,16 +181,31 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   }
 
   get formattedGitStatusResult(): string {
-    return this.gitStatusResult.map(fileRow => `${fileRow[0]}: ${getStatusMessageForFileInfo(fileRow)}`).join('\n');
+    return this.gitStatusResult
+      .filter(fileRow => !isFileUnmodified(fileRow))
+      .map(fileRow => `${fileRow[0]}: ${getStatusMessageForFileInfo(fileRow)}`)
+      .join('\n');
   }
 
-  get getRepoBranches(): string[] {
-    return this.repoBranches;
+  get isPushingToRepo(): boolean {
+    return this.pushingToRepo;
   }
 
   @Mutation
   public async setRemoteBranchName(remoteBranchName: string) {
+    this.creatingNewBranch = false;
     this.remoteBranchName = remoteBranchName;
+  }
+
+  @Mutation
+  public async setNewRemoteBranchName(remoteBranchName: string) {
+    this.creatingNewBranch = true;
+    this.remoteBranchName = remoteBranchName;
+  }
+
+  @Mutation
+  public async setIsCreatingNewBranch(creatingNewBranch: boolean) {
+    this.creatingNewBranch = creatingNewBranch;
   }
 
   @Mutation
@@ -191,6 +221,16 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   @Mutation
   public async setRepoBranches(repoBranches: string[]) {
     this.repoBranches = repoBranches;
+  }
+
+  @Mutation
+  public async clearGitPushResult() {
+    this.gitPushResult = undefined;
+  }
+
+  @Mutation
+  public async setPushingToRepo(pushingToRepo: boolean) {
+    this.pushingToRepo = pushingToRepo;
   }
 
   @Action
@@ -231,21 +271,17 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
     // TODO make sure clone was successful
 
-    this.setRepoBranches(
-      await git.listBranches({
-        fs,
-        dir: getProjectRepoDir(project)
-      })
-    );
-
     return fs;
   }
 
   @Action
   public async pushToRepo(force: boolean) {
+    await this.setPushingToRepo(true);
+
     const project = await this.getOpenedProject();
     if (!project) {
       console.error('project not set');
+      await this.setPushingToRepo(false);
       return;
     }
 
@@ -253,6 +289,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
     if (!(await fs.promises.stat(getProjectRepoDir(project)).catch(() => false))) {
       console.error('no project was found in local filesystem');
+      await this.setPushingToRepo(false);
       return;
     }
 
@@ -265,7 +302,8 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
           return GitPushResult.Other;
         }
       });
-    this.setGitPushResult(result);
+    await this.setGitPushResult(result);
+    await this.setPushingToRepo(false);
   }
 
   @Action
@@ -280,7 +318,11 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
   @Action
   public async diffCompiledProject() {
-    this.setGitPushResult(undefined);
+    if (!this.repoBranches.includes(this.remoteBranchName)) {
+      return;
+    }
+
+    await this.clearGitPushResult();
 
     const project = await this.getOpenedProject();
     const projectConfig = await this.getOpenedProjectConfig();
@@ -291,8 +333,19 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
     const fs = new LightningFS('project') as PromiseFsClient;
 
-    // TODO fs folder should be project id
-    const statusMatrix = await saveProjectToRepo(fs, getProjectRepoDir(project), project);
+    await git.checkout({
+      fs,
+      dir: getProjectRepoDir(project),
+      ref: this.remoteBranchName,
+      force: true
+    });
+
+    await saveProjectToRepo(fs, getProjectRepoDir(project), project);
+
+    const statusMatrix = await git.statusMatrix({
+      fs,
+      dir: getProjectRepoDir(project)
+    });
     this.setGitStatusResult(statusMatrix);
   }
 
@@ -310,12 +363,25 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
       return;
     }
 
+    const currentBranch = await git.currentBranch({
+      fs,
+      dir: getProjectRepoDir(project)
+    });
+    if (currentBranch) {
+      await this.setRemoteBranchName(currentBranch);
+    }
+
+    const repoBranches = await git.listBranches({
+      fs,
+      dir: getProjectRepoDir(project),
+      remote: 'origin'
+    });
+    await this.setRepoBranches(repoBranches);
+
     // TODO fs folder should be project id
     const compiledProject = await compileProjectRepo(fs, getProjectRepoDir(project));
 
     const config = this.context.rootState.project.openedProjectConfig;
-
-    this.context.commit(ProjectViewMutators.resetState);
 
     const params: OpenProjectMutation = {
       project: compiledProject,

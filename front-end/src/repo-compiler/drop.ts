@@ -101,11 +101,7 @@ async function maybeMkdir(fs: PromiseFsClient, path: string) {
   }
 }
 
-export async function saveProjectToRepo(
-  fs: PromiseFsClient,
-  dir: string,
-  project: RefineryProject
-): Promise<Array<StatusRow>> {
+export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, project: RefineryProject) {
   // TODO we shouldn't need to wipe this directory if we already pulled from it when compiling the repo
   // TODO we probably just want to fetch get objects and not populate the fs (i think this is possible with git)
 
@@ -213,11 +209,6 @@ export async function saveProjectToRepo(
 
   const projectConfig = Path.join(dir, 'project.yaml');
   await writeConfig(fs, projectConfig, newProject);
-
-  return await git.statusMatrix({
-    fs,
-    dir
-  });
 }
 
 export async function commitAndPushToRepo(

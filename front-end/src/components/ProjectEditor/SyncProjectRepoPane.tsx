@@ -1,24 +1,40 @@
-import Vue, { CreateElement, VNode } from 'vue';
-import Component from 'vue-class-component';
+import { CreateElement, VNode } from 'vue';
+import Component, { mixins } from 'vue-class-component';
 import { namespace } from 'vuex-class';
-import moment from 'moment';
-import { DeploymentException, GetLatestProjectDeploymentResponse } from '@/types/api-types';
-import { DeployProjectResult, SIDEBAR_PANE } from '@/types/project-editor-types';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
-import { EditorProps } from '@/types/component-types';
-import { ProjectConfig } from '@/types/graph';
-import { ProjectViewActions } from '@/constants/store-constants';
 import { SyncProjectRepoPaneStoreModule } from '@/store';
-import { savedBlockTitles } from '@/constants/saved-block-constants';
 import { GitPushResult } from '@/store/modules/panes/sync-project-repo-pane';
+import { branchNameBlacklistRegex, newBranchText } from '@/constants/project-editor-constants';
+import CreateToastMixin from '@/mixins/CreateToastMixin';
+import { Watch } from 'vue-property-decorator';
 
-const project = namespace('project');
-/*
- */
+const syncProjectRepo = namespace('syncProjectRepo');
 
 @Component
-export default class SyncProjectRepoPane extends Vue {
+export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
+  @syncProjectRepo.State gitPushResult!: GitPushResult | undefined;
+  @syncProjectRepo.State remoteBranchName!: string;
+
   public showingGitStatusDetails: boolean = false;
+
+  @Watch('gitPushResult')
+  public async showGitPushErrors() {
+    if (!SyncProjectRepoPaneStoreModule.getGitPushResult) {
+      return;
+    }
+
+    if (SyncProjectRepoPaneStoreModule.getGitPushResult !== GitPushResult.Success) {
+      this.displayErrorToast('Git push failure', SyncProjectRepoPaneStoreModule.getGitPushResultMessage);
+      return;
+    }
+    this.displaySuccessToast('Git push success', SyncProjectRepoPaneStoreModule.getGitPushResultMessage);
+    await SyncProjectRepoPaneStoreModule.clearGitPushResult();
+  }
+
+  @Watch('remoteBranchName')
+  public async diffCompiledProject() {
+    await SyncProjectRepoPaneStoreModule.diffCompiledProject();
+  }
 
   public renderModal() {
     if (!this.showingGitStatusDetails) {
@@ -43,11 +59,13 @@ export default class SyncProjectRepoPane extends Vue {
         on={modalOnHandlers}
         hide-footer={true}
         no-close-on-esc={true}
-        size="xl max-width--600px"
+        size="xl max-width--800px"
         title="Git status details"
         visible={true}
       >
-        <RefineryCodeEditor props={props} />
+        <div style="height: 600px">
+          <RefineryCodeEditor props={props} />
+        </div>
       </b-modal>
     );
   }
@@ -63,9 +81,8 @@ export default class SyncProjectRepoPane extends Vue {
           </p>
           <b-button
             variant="secondary"
-            className="col-12"
+            class="col-12"
             type="submit"
-            ref="confirmDeployButton"
             on={{
               click: () => {
                 this.showingGitStatusDetails = true;
@@ -80,50 +97,40 @@ export default class SyncProjectRepoPane extends Vue {
     return <div />;
   }
 
-  public renderGitPushErrors() {
-    if (!SyncProjectRepoPaneStoreModule.isGitPushResultSet) {
-      return <div />;
-    }
-
-    return (
-      <div>
-        <p>{SyncProjectRepoPaneStoreModule.getGitPushResultMessage}</p>
-      </div>
-    );
-  }
-
   public renderCommitButtons() {
     if (SyncProjectRepoPaneStoreModule.getGitPushResult === GitPushResult.UnableToFastForward) {
       return (
         <div>
-          <b-button
-            variant="primary"
-            className="col-6"
-            type="submit"
-            ref="confirmDeployButton"
-            on={{ click: SyncProjectRepoPaneStoreModule.pushToRemoteBranch }}
-          >
-            Push to branch
-          </b-button>
-          <b-button
-            variant="danger"
-            className="col-6"
-            type="submit"
-            ref="confirmDeployButton"
-            on={{ click: SyncProjectRepoPaneStoreModule.forcePushToRemoteBranch }}
-          >
-            Force push to branch
-          </b-button>
+          <b-button-group class="col-12">
+            <b-button
+              variant="primary"
+              class="col-6"
+              type="submit"
+              disabled={SyncProjectRepoPaneStoreModule.isPushingToRepo}
+              on={{ click: SyncProjectRepoPaneStoreModule.pushToRemoteBranch }}
+            >
+              Push to branch
+            </b-button>
+            <b-button
+              variant="danger"
+              class="col-6"
+              type="submit"
+              disabled={SyncProjectRepoPaneStoreModule.isPushingToRepo}
+              on={{ click: SyncProjectRepoPaneStoreModule.forcePushToRemoteBranch }}
+            >
+              Force push
+            </b-button>
+          </b-button-group>
         </div>
       );
     }
     return (
-      <div>
+      <div class="mt-2">
         <b-button
           variant="primary"
-          className="col-12"
+          class="col-12"
           type="submit"
-          ref="confirmDeployButton"
+          disabled={SyncProjectRepoPaneStoreModule.isPushingToRepo}
           on={{ click: SyncProjectRepoPaneStoreModule.pushToRemoteBranch }}
         >
           Push to branch
@@ -132,7 +139,7 @@ export default class SyncProjectRepoPane extends Vue {
     );
   }
 
-  public async mounted() {
+  public mounted() {
     // async diff project so the UI loads faster
     SyncProjectRepoPaneStoreModule.diffCompiledProject();
   }
@@ -141,27 +148,53 @@ export default class SyncProjectRepoPane extends Vue {
     const loadingClasses = {
       'whirl standard': !SyncProjectRepoPaneStoreModule.gitStatusResult,
       'text-align--left': true,
-      'padding--normal': true
+      'padding--normal': true,
+      'sync-project-repo-container': true
     };
+
+    const repoBranches = SyncProjectRepoPaneStoreModule.repoBranches;
+    const selectRepoBranches = [...repoBranches, newBranchText].map(branch => {
+      return { value: branch, text: branch };
+    });
+    const usingExistingBranch = repoBranches.includes(SyncProjectRepoPaneStoreModule.remoteBranchName);
+    const currentBranch = SyncProjectRepoPaneStoreModule.remoteBranchName;
+    const currentSelectedBranch = usingExistingBranch ? currentBranch : newBranchText;
+
+    const validBranch = currentBranch !== '' ? !branchNameBlacklistRegex.test(currentBranch) : null;
 
     return (
       <div class={loadingClasses}>
-        <label class="d-block">Branch Name:</label>
-        <b-form-input
-          type="text"
-          autofocus={true}
-          required={true}
-          value={SyncProjectRepoPaneStoreModule.remoteBranchName}
-          on={{ input: SyncProjectRepoPaneStoreModule.setRemoteBranchName }}
-          placeholder="eg, new-feature"
-        />
-        <b-form-select
-          on={{ input: SyncProjectRepoPaneStoreModule.setRemoteBranchName }}
-          value={SyncProjectRepoPaneStoreModule.remoteBranchName}
-          options={SyncProjectRepoPaneStoreModule.getRepoBranches}
-        />
+        <div>
+          <div class="padding--small">
+            <label class="d-block">Branch Name:</label>
+            <b-form-select
+              on={{ input: SyncProjectRepoPaneStoreModule.setRemoteBranchName }}
+              value={currentSelectedBranch}
+              options={selectRepoBranches}
+            />
+          </div>
+          {!usingExistingBranch && (
+            <div class="padding--small">
+              <b-form-input
+                type="text"
+                autofocus={true}
+                required={true}
+                state={validBranch}
+                value={SyncProjectRepoPaneStoreModule.getRemoteBranchName}
+                on={{ input: SyncProjectRepoPaneStoreModule.setNewRemoteBranchName }}
+                placeholder="eg, new-feature"
+              />
+            </div>
+          )}
+        </div>
 
-        {this.renderGitPushErrors()}
+        <b-form-invalid-feedback class="padding--small" state={validBranch}>
+          The entered branch name is not valid. Please refer to{' '}
+          <a href="https://mirrors.edge.kernel.org/pub/software/scm/git/docs/git-check-ref-format.html" target="_blank">
+            check-ref-format
+          </a>{' '}
+          for valid branch names.
+        </b-form-invalid-feedback>
 
         <hr />
 

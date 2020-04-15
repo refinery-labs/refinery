@@ -66,7 +66,6 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
 
   public searchResultsPrivate: SavedBlockSearchResult[] = initialState.searchResultsPrivate;
   public searchResultsPublished: SavedBlockSearchResult[] = initialState.searchResultsPublished;
-  public searchResultsGit: SavedBlockSearchResult[] = initialState.searchResultsPublished;
 
   public environmentVariablesInputs: { [key: string]: string } = initialState.environmentVariablesInputs;
 
@@ -141,11 +140,6 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
   }
 
   @Mutation
-  public setSearchResultsGit(results: SavedBlockSearchResult[]) {
-    this.searchResultsGit = results;
-  }
-
-  @Mutation
   public setIsBusySearching(val: boolean) {
     this.isBusySearching = val;
   }
@@ -191,7 +185,6 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
       this.languageInput,
       projectId
     );
-    const gitSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.GIT, this.languageInput, projectId);
 
     const privateResult = await privateSearch;
 
@@ -207,13 +200,6 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
       return;
     }
 
-    const gitResult = await gitSearch;
-
-    if (!gitResult) {
-      console.error('Unable to perform saved block search, server did not yield a response');
-      return;
-    }
-
     this.setSearchResultsPrivate(privateResult);
 
     // Only add unique results. This strips out all public blocks that are in our saved blocks already.
@@ -222,8 +208,6 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
     );
 
     this.setSearchResultsPublished(filteredPublicResults);
-
-    this.setSearchResultsGit(gitResult);
 
     this.setIsBusySearching(false);
   }
@@ -234,9 +218,8 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
 
     const privateMatches = this.searchResultsPrivate.filter(searchMatchFn);
     const publishedMatches = this.searchResultsPublished.filter(searchMatchFn);
-    const gitMatches = this.searchResultsGit.filter(searchMatchFn);
 
-    const matches = [...privateMatches, ...publishedMatches, ...gitMatches];
+    const matches = [...privateMatches, ...publishedMatches];
 
     if (matches.length > 1) {
       console.error(

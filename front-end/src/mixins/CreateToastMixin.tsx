@@ -16,4 +16,12 @@ export default class CreateToastMixin extends Vue {
       variant: ToastVariant.danger
     });
   }
+
+  public displaySuccessToast(title: string, content: string) {
+    this.displayToast({
+      content,
+      title,
+      variant: ToastVariant.success
+    });
+  }
 }

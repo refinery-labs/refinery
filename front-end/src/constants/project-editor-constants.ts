@@ -351,6 +351,7 @@ export const blockTypeToDefaultStateMapping: BlockTypeToDefaultState = {
   [WorkflowStateType.WARMER_TRIGGER]: () => SHARED_BLOCK_DEFAULTS
 };
 
+export const newBranchText = 'New Branch';
 export const blockNameText = 'Name of the block.';
 export const returnDataText = 'Data returned from the Code.';
 export const languagesText = 'Language of code block.';
@@ -360,3 +361,4 @@ export const maxExecutionTimeText = 'Maximum time the code may execute before be
 export const maxExecutionMemoryText = 'Maximum memory for the code to use during execution.';
 
 export const arnRegex = /^arn:aws:lambda:us-west-2:\d+:layer:[a-zA-Z0-9-_]+:\d+$/;
+export const branchNameBlacklistRegex = /[./]|\.\.|@{|[/.]$|^@$|[~^:\00-\x20\x7F\s?*[\\]/;
