@@ -1,4 +1,4 @@
-import { CreateElement, VNode } from 'vue';
+import Vue, { CreateElement, VNode } from 'vue';
 import Component, { mixins } from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';

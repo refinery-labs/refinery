@@ -6,7 +6,6 @@ import { DeployProjectResult } from '@/types/project-editor-types';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { EditorProps } from '@/types/component-types';
 import { ProjectConfig } from '@/types/graph';
-import moment from 'moment';
 import { fromUnixTime, formatRFC7231 } from 'date-fns';
 
 const project = namespace('project');

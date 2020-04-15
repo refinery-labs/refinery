@@ -4,24 +4,15 @@ import Home from './views/Home.vue';
 import Settings from './views/Settings';
 import BlockRepository from './views/BlockRepository';
 import AdminPanel from './views/Admin';
-// import AllProjects from './views/AllProjects';
-// import ViewProject from './views/ViewProject';
 import OpenedWorkflowWrapper from '@/views/ProjectsNestedViews/OpenedWorkflowWrapper';
-// import ProjectDeployments from '@/views/ProjectsNestedViews/ProjectDeployments';
 import ViewProjectDeployment from '@/views/ProjectsNestedViews/ViewProjectDeployment';
 import EditProjectDeployment from '@/views/ProjectsNestedViews/EditProjectDeployment';
 import Layout from '@/components/Layout/Layout';
 import { baseLinks, projectViewLinks } from '@/constants/router-constants';
 import PageNotFound from '@/views/PageNotFound';
 import ProjectNotFound from '@/views/ProjectsNestedViews/ProjectNotFound';
-// import LoginPage from '@/views/Authentication/LoginPage';
-// import RegistrationPage from '@/views/Authentication/RegistrationPage';
 import HelpPage from '@/views/Help';
-// import Billing from '@/views/Billing.vue';
-// import ProjectSettings from '@/views/ProjectsNestedViews/ProjectSettings';
 import { guardLoggedIn } from '@/utils/auth-utils';
-// import ImportProject from '@/views/ImportProject';
-// import TermsOfServicePage from '@/views/TermsOfService';
 
 Vue.use(Router);
 

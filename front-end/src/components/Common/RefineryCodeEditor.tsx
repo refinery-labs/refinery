@@ -5,7 +5,6 @@ import { EditorProps } from '@/types/component-types';
 import { SupportedLanguage } from '@/types/graph';
 import { languageToAceLangMap } from '@/types/project-editor-types';
 import { MonacoEditorProps } from '@/lib/monaco-editor-props';
-// import { MonacoEditor, MonacoEditorProps } from '@/lib/MonacoEditor';
 
 @Component
 export default class RefineryCodeEditor extends Vue implements EditorProps {

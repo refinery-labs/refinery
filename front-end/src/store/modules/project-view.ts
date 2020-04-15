@@ -77,10 +77,6 @@ import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-proj
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shared-files';
 import { DemoWalkthroughStoreModule, EditSharedFilePaneModule, SyncProjectRepoPaneStoreModule } from '@/store';
-// import { compileProjectRepo } from '@/repo-compiler/one-to-one/git-to-refinery';
-// import { saveProjectToRepo } from '@/repo-compiler/one-to-one/refinery-to-git';
-import generateStupidName from '@/lib/silly-names';
-import slugify from 'slugify';
 
 export interface ChangeTransitionArguments {
   transition: WorkflowRelationship;
