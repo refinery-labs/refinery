@@ -1,5 +1,3 @@
-import { DEFAULT_LANGUAGE_CODE } from '@/constants/project-editor-constants';
-
 const program = require('commander');
 import {
   LambdaWorkflowState,
@@ -11,7 +9,7 @@ import {
 } from '@/types/graph';
 import { convertProjectDownloadZipConfigToFileList, createDownloadZipConfig } from '@/utils/project-debug-utils';
 import LightningFS from '@isomorphic-git/lightning-fs';
-import git, { WORKDIR, PromiseFsClient, WalkerEntry } from 'isomorphic-git';
+import git, { WORKDIR, PromiseFsClient, WalkerEntry, StatusRow, PushResult } from 'isomorphic-git';
 import http from '@/repo-compiler/git-http';
 import Path from 'path';
 import slugify from 'slugify';
@@ -103,18 +101,13 @@ async function maybeMkdir(fs: PromiseFsClient, path: string) {
   }
 }
 
-export async function saveProjectToRepo(project: RefineryProject, gitURL: string, branch: string): Promise<boolean> {
-  const fs = new LightningFS('project', { wipe: true }) as PromiseFsClient;
-  const dir = '/project';
-
+export async function saveProjectToRepo(
+  fs: PromiseFsClient,
+  dir: string,
+  project: RefineryProject
+): Promise<Array<StatusRow>> {
+  // TODO we shouldn't need to wipe this directory if we already pulled from it when compiling the repo
   // TODO we probably just want to fetch get objects and not populate the fs (i think this is possible with git)
-  await git.clone({
-    fs,
-    http,
-    dir,
-    url: gitURL,
-    corsProxy: `${process.env.VUE_APP_API_HOST}/api/v1/github/proxy`
-  });
 
   // clean repo of all existing files and dirs
   let dirsToRemove = await git.walk({
@@ -221,6 +214,18 @@ export async function saveProjectToRepo(project: RefineryProject, gitURL: string
   const projectConfig = Path.join(dir, 'project.yaml');
   await writeConfig(fs, projectConfig, newProject);
 
+  return await git.statusMatrix({
+    fs,
+    dir
+  });
+}
+
+export async function commitAndPushToRepo(
+  fs: PromiseFsClient,
+  dir: string,
+  branch: string,
+  force: boolean
+): Promise<PushResult> {
   await git.add({ fs, dir, filepath: '.' });
 
   await git.commit({
@@ -233,15 +238,15 @@ export async function saveProjectToRepo(project: RefineryProject, gitURL: string
     message: 'compiled project from Refinery web'
   });
 
-  const pushResult = await git.push({
+  return await git.push({
     fs,
     http,
     dir,
     remote: 'origin',
     remoteRef: branch,
-    corsProxy: `${process.env.VUE_APP_API_HOST}/api/v1/github/proxy`
+    corsProxy: `${process.env.VUE_APP_API_HOST}/api/v1/github/proxy`,
+    force
   });
-  return pushResult.ok;
 }
 /*
 

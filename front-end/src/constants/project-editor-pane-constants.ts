@@ -31,6 +31,7 @@ import { EditScheduleTriggerBlock } from '@/components/ProjectEditor/block-compo
 import { EditAPIEndpointBlock } from '@/components/ProjectEditor/block-components/EditAPIEndpointBlockPane';
 import { EditAPIResponseBlock } from '@/components/ProjectEditor/block-components/EditAPIResponseBlockPane';
 import { EditQueueBlock } from '@/components/ProjectEditor/block-components/EditQueuePane';
+import SyncProjectRepoPane from '@/components/ProjectEditor/SyncProjectRepoPane';
 
 export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
   [SIDEBAR_PANE.runEditorCodeBlock]: RunEditorCodeBlockPane,
@@ -42,7 +43,7 @@ export const paneToContainerMapping: ActiveSidebarPaneToContainerMapping = {
   [SIDEBAR_PANE.allVersions]: AddBlockPane,
   [SIDEBAR_PANE.exportProject]: ExportProjectPane,
   [SIDEBAR_PANE.deployProject]: DeployProjectPane,
-  [SIDEBAR_PANE.importProjectRepo]: AddBlockPane,
+  [SIDEBAR_PANE.syncProjectRepo]: SyncProjectRepoPane,
   [SIDEBAR_PANE.saveProject]: AddBlockPane,
   [SIDEBAR_PANE.editBlock]: EditBlockPane,
   [SIDEBAR_PANE.editTransition]: EditTransitionPane,

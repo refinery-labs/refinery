@@ -114,8 +114,6 @@ export enum ProjectViewActions {
 
   updateProject = 'updateProject',
   saveProject = 'saveProject',
-  importProjectRepo = 'importProjectRepo',
-  saveToProjectRepo = 'saveToProjectRepo',
 
   // Deployment
   deployProject = 'deployProject',

@@ -211,14 +211,16 @@ async function loadSharedFiles(fs: PromiseFsClient, repoDir: string): Promise<Wo
   }, Promise.resolve({} as WorkflowFileLookup));
 }
 
-async function loadProjectFromDir(fs: PromiseFsClient, projectID: string, repoDir: string): Promise<RefineryProject> {
-  const projectConfigFilename = await pathExists(fs, repoDir, PROJECT_CONFIG_FILENAME);
+async function loadProjectFromDir(fs: PromiseFsClient, projectID: string): Promise<RefineryProject> {
+  const dir = projectID;
+
+  const projectConfigFilename = await pathExists(fs, dir, PROJECT_CONFIG_FILENAME);
   const loadedProjectConfig = yaml.safeLoad(await readFile(fs, projectConfigFilename)) as RefineryProject;
 
-  const sharedFileLookup = await loadSharedFiles(fs, repoDir);
+  const sharedFileLookup = await loadSharedFiles(fs, dir);
   const sharedFileConfigs = Object.values(sharedFileLookup);
 
-  const loadedLambdaConfigs = await loadLambdaBlocks(fs, repoDir, sharedFileLookup);
+  const loadedLambdaConfigs = await loadLambdaBlocks(fs, dir, sharedFileLookup);
 
   return {
     // default values
@@ -238,20 +240,8 @@ async function loadProjectFromDir(fs: PromiseFsClient, projectID: string, repoDi
   };
 }
 
-export async function compileProjectRepo(projectID: string, gitURL: string): Promise<RefineryProject | null> {
-  const fs = new LightningFS('project', { wipe: true });
-  const dir = '/project';
-
-  await git.clone({
-    fs,
-    http,
-    dir,
-    url: gitURL,
-    corsProxy: `${process.env.VUE_APP_API_HOST}/api/v1/github/proxy`
-  });
-
-  // TODO cleanup fs?
-  return await loadProjectFromDir(fs, projectID, dir).catch(e => {
+export async function compileProjectRepo(fs: PromiseFsClient, dir: string): Promise<RefineryProject | null> {
+  return await loadProjectFromDir(fs, dir).catch(e => {
     console.error(e);
     return null;
   });

@@ -54,7 +54,8 @@ export enum StoreType {
   codeBlockSharedFiles = 'codeBlockSharedFiles',
   unauthViewProject = 'unauthViewProject',
   readmeEditor = 'readmeEditor',
-  demoWalkthrough = 'demoWalkthrough'
+  demoWalkthrough = 'demoWalkthrough',
+  syncProjectRepo = 'syncProjectRepo'
 }
 
 export interface RootState {

@@ -39,8 +39,6 @@ import {
   GetProjectConfigRequest,
   GetProjectConfigResponse,
   GetSavedProjectRequest,
-  ImportProjectRepoRequest,
-  ImportProjectRepoResponse,
   SaveProjectConfigRequest,
   SaveProjectConfigResponse,
   SaveProjectRequest,
@@ -72,13 +70,7 @@ import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
 import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
-import {
-  createShortlink,
-  deployProject,
-  importProjectRepo,
-  openProject,
-  teardownProject
-} from '@/store/fetchers/api-helpers';
+import { createShortlink, deployProject, openProject, teardownProject } from '@/store/fetchers/api-helpers';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
 import { addAPIBlocksToProject, createNewBlock, createNewTransition } from '@/utils/block-utils';
 import { saveEditBlockToProject } from '@/utils/store-utils';
@@ -86,8 +78,7 @@ import ImportableRefineryProject from '@/types/export-project';
 import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shared-files';
-import { DemoWalkthroughStoreModule, EditSharedFilePaneModule } from '@/store';
-import { compileProjectRepo } from '@/repo-compiler/lift';
+import { DemoWalkthroughStoreModule, EditSharedFilePaneModule, SyncProjectRepoPaneStoreModule } from '@/store';
 import { saveProjectToRepo } from '@/repo-compiler/drop';
 import generateStupidName from '@/lib/silly-names';
 import slugify from 'slugify';
@@ -135,7 +126,7 @@ const moduleState: ProjectViewState = {
     [SIDEBAR_PANE.exportProject]: {},
     [SIDEBAR_PANE.deployProject]: {},
     [SIDEBAR_PANE.saveProject]: {},
-    [SIDEBAR_PANE.importProjectRepo]: {},
+    [SIDEBAR_PANE.syncProjectRepo]: {},
     [SIDEBAR_PANE.editBlock]: {},
     [SIDEBAR_PANE.editTransition]: {},
     [SIDEBAR_PANE.viewApiEndpoints]: {},
@@ -760,11 +751,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      // Project repo is set, drop to fs and push to git
-      if (context.state.openedProjectConfig.project_repo) {
-        await context.dispatch(ProjectViewActions.saveToProjectRepo, null);
-      }
-
       // If a block is "dirty", we need to save it before continuing.
       // TODO: Implement this for transitions too
       if (context.getters[ProjectViewGetters.selectedBlockDirty]) {
@@ -829,53 +815,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       });
 
       context.commit(ProjectViewMutators.setLatestDeploymentState, latestDeploymentResponse);
-    },
-    async [ProjectViewActions.importProjectRepo](context) {
-      if (!context.state.openedProject || !context.state.openedProjectConfig) {
-        console.error('no project open or no project config');
-        return;
-      }
-
-      if (!context.state.openedProjectConfig.project_repo) {
-        console.error('no project repo configured');
-        return;
-      }
-
-      const project = await compileProjectRepo(
-        context.state.openedProject.project_id,
-        context.state.openedProjectConfig.project_repo
-      );
-
-      const config = context.state.openedProjectConfig;
-
-      context.commit(ProjectViewMutators.resetState);
-
-      const params: OpenProjectMutation = {
-        project: project,
-        config: config,
-        markAsDirty: true
-      };
-
-      await context.dispatch(ProjectViewActions.updateProject, params);
-    },
-    async [ProjectViewActions.saveToProjectRepo](context) {
-      if (!context.state.openedProject || !context.state.openedProjectConfig) {
-        console.error('no project open or no project config');
-        return;
-      }
-
-      if (!context.state.openedProjectConfig.project_repo) {
-        console.error('no project repo configured');
-        return;
-      }
-
-      // TODO prompt user to enter name
-      const branchName = slugify(generateStupidName()).toLowerCase();
-
-      const repoProject = context.state.openedProject;
-      const projectRepoURL = context.state.openedProjectConfig.project_repo;
-
-      await saveProjectToRepo(repoProject, projectRepoURL, branchName).catch(e => console.error(e));
     },
     async [ProjectViewActions.deployProject](context) {
       const handleDeploymentError = async (message: string) => {
@@ -1006,6 +945,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       };
 
       await context.dispatch(ProjectViewActions.updateProject, params);
+
+      await SyncProjectRepoPaneStoreModule.setupLocalProjectRepo(projectConfig);
+
       context.commit(ProjectViewMutators.isLoadingProject, false);
     },
     async [ProjectViewActions.showDeploymentPane](context) {
@@ -1340,11 +1282,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      if (leftSidebarPaneType === SIDEBAR_PANE.importProjectRepo) {
-        await context.dispatch(ProjectViewActions.importProjectRepo);
-        return;
-      }
-
       // TODO: Somehow fire a callback on each left pane so that it can reset itself?
       // Using a watcher seems gross... A plugin could work but that feels a little bit too "loose".
       // Better would be a map of Type -> Callback probably? Just trigger other actions to fire?
@@ -1391,11 +1328,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Special case because Mandatory and I agreed that having a pane pop out is annoying af
       if (paneType === SIDEBAR_PANE.saveProject) {
         await context.dispatch(ProjectViewActions.saveProject);
-        return;
-      }
-
-      if (paneType === SIDEBAR_PANE.importProjectRepo) {
-        await context.dispatch(ProjectViewActions.importProjectRepo);
         return;
       }
 

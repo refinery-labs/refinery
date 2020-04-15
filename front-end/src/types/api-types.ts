@@ -734,16 +734,6 @@ export interface DeleteSavedBlockRequest extends BaseApiRequest {
 
 export interface DeleteSavedBlockResponse extends BaseApiResponse {}
 
-// SavedBlockImport
-export interface ImportProjectRepoRequest extends BaseApiRequest {
-  project_id: string;
-  project_repo: string;
-}
-
-export interface ImportProjectRepoResponse extends BaseApiResponse {
-  compiled_project: RefineryProject;
-}
-
 // SavedBlockStatusCheck
 export interface SavedBlockStatusCheckRequest extends BaseApiRequest {
   block_ids: string[];

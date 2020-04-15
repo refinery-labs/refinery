@@ -12,7 +12,7 @@ export enum SIDEBAR_PANE {
   allVersions = 'allVersions',
   exportProject = 'exportProject',
   saveProject = 'saveProject',
-  importProjectRepo = 'importProjectRepo',
+  syncProjectRepo = 'syncProjectRepo',
   deployProject = 'deployProject',
   editBlock = 'editBlock',
   editTransition = 'editTransition',
