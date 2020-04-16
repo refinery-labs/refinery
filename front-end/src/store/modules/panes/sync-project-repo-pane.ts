@@ -11,6 +11,7 @@ import LightningFS from '@isomorphic-git/lightning-fs';
 import git, { Errors, PromiseFsClient, StatusRow } from 'isomorphic-git';
 import http from '@/repo-compiler/git-http';
 import { newBranchText } from '@/constants/project-editor-constants';
+import Path from 'path';
 
 const storeName = StoreType.syncProjectRepo;
 
@@ -35,6 +36,8 @@ export interface SyncProjectRepoPaneState {
   gitPushResult: GitPushResult | undefined;
   repoBranches: string[];
   pushingToRepo: boolean;
+  currentlyDiffedFile: string | undefined;
+  commitMessage: string;
 }
 
 // Initial State
@@ -44,7 +47,9 @@ const moduleState: SyncProjectRepoPaneState = {
   gitStatusResult: [],
   gitPushResult: undefined,
   repoBranches: [],
-  pushingToRepo: false
+  pushingToRepo: false,
+  currentlyDiffedFile: undefined,
+  commitMessage: 'update project from Refinery UI'
 };
 
 const initialState = deepJSONCopy(moduleState);
@@ -53,6 +58,13 @@ export interface GitStatusResult {
   newFiles: number;
   modifiedFiles: number;
   deletedFiles: number;
+}
+
+type GitDiffFilenameToContent = Record<string, string>;
+
+export interface GitDiffInfo {
+  originalFiles: GitDiffFilenameToContent;
+  changedFiles: GitDiffFilenameToContent;
 }
 
 /*
@@ -117,7 +129,7 @@ function getStatusForFileInfo(row: StatusRow): GitStatusResult {
       }
     }
     if (workdirStatus === 2) {
-      if (stageStatus === 2 || stageStatus === 3) {
+      if (stageStatus === 1 || stageStatus === 2 || stageStatus === 3) {
         return { newFiles: 0, modifiedFiles: 1, deletedFiles: 0 };
       }
     }
@@ -133,6 +145,20 @@ function isFileUnmodified(row: StatusRow): boolean {
   return headStatus === 1 && workdirStatus === 1 && stageStatus === 1;
 }
 
+function isFileNew(row: StatusRow): boolean {
+  const headStatus = row[1];
+  const workdirStatus = row[2];
+
+  return headStatus === 0 && workdirStatus === 2;
+}
+
+function isFileDeletedOrModified(row: StatusRow): boolean {
+  const headStatus = row[1];
+  const workdirStatus = row[2];
+
+  return headStatus === 1 && (workdirStatus === 0 || workdirStatus === 2);
+}
+
 function getProjectRepoDir(project: RefineryProject): string {
   return `/${project.project_id}`;
 }
@@ -146,6 +172,8 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   public gitPushResult: GitPushResult | undefined = initialState.gitPushResult;
   public repoBranches: string[] = initialState.repoBranches;
   public pushingToRepo: boolean = initialState.pushingToRepo;
+  public currentlyDiffedFile: string | undefined = initialState.currentlyDiffedFile;
+  public commitMessage: string = initialState.commitMessage;
 
   @Mutation
   public resetState() {
@@ -180,15 +208,12 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     );
   }
 
-  get formattedGitStatusResult(): string {
-    return this.gitStatusResult
-      .filter(fileRow => !isFileUnmodified(fileRow))
-      .map(fileRow => `${fileRow[0]}: ${getStatusMessageForFileInfo(fileRow)}`)
-      .join('\n');
-  }
-
   get isPushingToRepo(): boolean {
     return this.pushingToRepo;
+  }
+
+  get getCurrentlyDiffedFile(): string | undefined {
+    return this.currentlyDiffedFile;
   }
 
   @Mutation
@@ -229,8 +254,24 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   }
 
   @Mutation
+  public async clearGitStatusResult() {
+    this.gitStatusResult = [];
+    this.currentlyDiffedFile = undefined;
+  }
+
+  @Mutation
   public async setPushingToRepo(pushingToRepo: boolean) {
     this.pushingToRepo = pushingToRepo;
+  }
+
+  @Mutation
+  public async setCurrentlyDiffedFile(currentlyDiffedFile: string | undefined) {
+    this.currentlyDiffedFile = currentlyDiffedFile;
+  }
+
+  @Mutation
+  public async setCommitMessage(commitMessage: string) {
+    this.commitMessage = commitMessage;
   }
 
   @Action
@@ -293,7 +334,13 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
       return;
     }
 
-    const result = await commitAndPushToRepo(fs, getProjectRepoDir(project), this.remoteBranchName, force)
+    const result = await commitAndPushToRepo(
+      fs,
+      getProjectRepoDir(project),
+      this.remoteBranchName,
+      this.commitMessage,
+      force
+    )
       .then(() => GitPushResult.Success)
       .catch((e: Error) => {
         if (e instanceof Errors.PushRejectedError) {
@@ -304,6 +351,57 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
       });
     await this.setGitPushResult(result);
     await this.setPushingToRepo(false);
+
+    await this.clearGitPushResult();
+    await this.clearGitStatusResult();
+
+    const statusMatrix = await git.statusMatrix({
+      fs,
+      dir: getProjectRepoDir(project)
+    });
+    await this.setGitStatusResult(statusMatrix);
+  }
+
+  @Action
+  public async getFilesForDiffing(project: RefineryProject): Promise<GitDiffInfo> {
+    const deletedModifiedFiles = this.gitStatusResult
+      .filter(fileRow => isFileDeletedOrModified(fileRow))
+      .map(fileRow => fileRow[0]);
+    const newFiles = this.gitStatusResult.filter(fileRow => isFileNew(fileRow)).map(fileRow => fileRow[0]);
+
+    const fs = new LightningFS('project') as PromiseFsClient;
+
+    await git.checkout({
+      fs,
+      dir: getProjectRepoDir(project),
+      ref: this.remoteBranchName,
+      force: true
+    });
+
+    const decoder = new TextDecoder('utf-8');
+    const projectRepoDir = getProjectRepoDir(project);
+
+    async function getFilesFromFS(filesToGet: string[]): Promise<Record<string, string>> {
+      return filesToGet.reduce(async (fileLookup, file) => {
+        const awaitedFileLookup = await fileLookup;
+        const fileContent = await fs.promises.readFile(Path.join(projectRepoDir, file)).catch(() => '');
+        return {
+          ...awaitedFileLookup,
+          [file]: typeof fileContent === 'string' ? fileContent : decoder.decode(fileContent)
+        };
+      }, Promise.resolve({} as Record<string, string>));
+    }
+
+    const originalFileContents = await getFilesFromFS(deletedModifiedFiles);
+
+    await saveProjectToRepo(fs, getProjectRepoDir(project), project);
+
+    const changedFileContents = await getFilesFromFS([...deletedModifiedFiles, ...newFiles]);
+
+    return {
+      originalFiles: originalFileContents,
+      changedFiles: changedFileContents
+    };
   }
 
   @Action
@@ -317,9 +415,12 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   }
 
   @Action
-  public async diffCompiledProject() {
+  public async diffCompiledProject(): Promise<GitDiffInfo> {
     if (!this.repoBranches.includes(this.remoteBranchName)) {
-      return;
+      return {
+        originalFiles: {},
+        changedFiles: {}
+      };
     }
 
     await this.clearGitPushResult();
@@ -328,7 +429,10 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     const projectConfig = await this.getOpenedProjectConfig();
     if (!project || !projectConfig || !projectConfig.project_repo) {
       console.error('project or project config not set');
-      return;
+      return {
+        originalFiles: {},
+        changedFiles: {}
+      };
     }
 
     const fs = new LightningFS('project') as PromiseFsClient;
@@ -346,7 +450,9 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
       fs,
       dir: getProjectRepoDir(project)
     });
-    this.setGitStatusResult(statusMatrix);
+    await this.setGitStatusResult(statusMatrix);
+
+    return await this.getFilesForDiffing(project);
   }
 
   @Action

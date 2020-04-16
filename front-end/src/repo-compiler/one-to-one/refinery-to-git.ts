@@ -214,6 +214,7 @@ export async function commitAndPushToRepo(
   fs: PromiseFsClient,
   dir: string,
   branch: string,
+  commitMessage: string,
   force: boolean
 ): Promise<PushResult> {
   await git.add({ fs, dir, filepath: '.' });
@@ -225,7 +226,7 @@ export async function commitAndPushToRepo(
       name: 'Refinery Bot',
       email: 'donotreply@refinery.io'
     },
-    message: 'compiled project from Refinery web'
+    message: commitMessage
   });
 
   return await git.push({

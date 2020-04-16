@@ -48,6 +48,16 @@ export class MonacoEditor extends Vue implements MonacoEditorProps {
     }
   }
 
+  @Watch('original')
+  public watchOriginal(newOriginal: string) {
+    if (this.diffEditor && this.editor) {
+      const editor = this.getOriginalEditor();
+      if (newOriginal !== editor.getValue()) {
+        editor.setValue(newOriginal);
+      }
+    }
+  }
+
   @Watch('language')
   public watchLanguage(newLanguage?: string) {
     if (this.editor) {
@@ -123,6 +133,7 @@ export class MonacoEditor extends Vue implements MonacoEditorProps {
 
     if (this.diffEditor) {
       this.editor = monaco.editor.createDiffEditor(this.$el as HTMLElement, options);
+
       const originalModel = monaco.editor.createModel(this.original || '', this.language);
       const modifiedModel = monaco.editor.createModel(this.value, this.language);
       this.editor.setModel({
@@ -204,6 +215,10 @@ export class MonacoEditor extends Vue implements MonacoEditorProps {
 
   getModifiedEditor() {
     return this.diffEditor ? this.editor.getModifiedEditor() : this.editor;
+  }
+
+  getOriginalEditor() {
+    return this.diffEditor ? this.editor.getOriginalEditor() : undefined;
   }
 
   focus() {

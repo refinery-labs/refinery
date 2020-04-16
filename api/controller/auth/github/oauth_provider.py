@@ -43,12 +43,11 @@ class GithubOAuthProvider:
 	_API_BASE_HEADERS = {
 		"Accept": "application/json",
 		"User-Agent": "Tornado OAuth"
-
-		# TODO add access token header
 	}
+	_ACCESS_TOKEN_HEADER_FORMAT = "token {access_token}"
 	_OAUTH_ACCESS_TOKEN_URL = "https://github.com/login/oauth/access_token"
 	_OAUTH_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
-	_OAUTH_USER_URL = "https://api.github.com/user?access_token="
+	_OAUTH_USER_URL = "https://api.github.com/user"
 
 	# Since we only need email address
 	scope = "user:email repo"
@@ -72,6 +71,11 @@ class GithubOAuthProvider:
 
 		# TODO: Allow this to be stubbed via the constructor
 		self.http = httpclient.AsyncHTTPClient()
+
+	def _get_auth_base_headers( self, access_token ):
+		base_headers = self._API_BASE_HEADERS
+		base_headers["Authorization"] = self._ACCESS_TOKEN_HEADER_FORMAT.format(access_token=access_token)
+		return base_headers
 
 	def redirect_user_to_login( self, ctx ):
 		"""
@@ -188,11 +192,8 @@ class GithubOAuthProvider:
 		"""
 		try:
 			response = yield self.http.fetch(
-				"{}{}".format(
-					self._OAUTH_USER_URL,
-					access_token
-				),
-				headers=self._API_BASE_HEADERS
+				self._OAUTH_USER_URL,
+				headers=self._get_auth_base_headers(access_token)
 			)
 		except HTTPError as e:
 			raise self._trigger_oauth_exception( "Unable to retrieve user information via token from Github", data=e )
