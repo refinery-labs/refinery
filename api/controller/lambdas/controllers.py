@@ -220,6 +220,11 @@ class BuildLibrariesPackage( BaseHandler ):
 				credentials,
 				libraries_dict
 			)
+		elif self.json[ "language" ] == "nodejs10.20.1":
+			build_id = yield self.task_spawner.start_node10201_codebuild(
+				credentials,
+				libraries_dict
+			)
 		elif self.json[ "language" ] == "php7.3":
 			build_id = yield self.task_spawner.start_php73_codebuild(
 				credentials,

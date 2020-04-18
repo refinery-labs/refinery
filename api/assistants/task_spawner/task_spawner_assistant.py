@@ -2834,6 +2834,14 @@ class TaskSpawner(object):
 				lambda_object.code,
 				lambda_object.libraries
 			)
+		elif lambda_object.language == "nodejs10.20.1":
+			package_zip_data = TaskSpawner._build_nodejs_10201_lambda(
+				app_config,
+				aws_client_factory,
+				credentials,
+				lambda_object.code,
+				lambda_object.libraries
+			)
 		elif lambda_object.language == "go1.12":
 			lambda_object.code = TaskSpawner._get_go_112_base_code(
 				app_config,
@@ -4228,7 +4236,7 @@ class TaskSpawner(object):
 			libraries_object[ str( library ) ] = "latest"
 
 		final_s3_package_zip_path = TaskSpawner._get_final_zip_package_path(
-			"nodejs10.16.3",
+			"nodejs10.20.1",
 			libraries_object
 		)
 
@@ -4260,7 +4268,7 @@ class TaskSpawner(object):
 	@run_on_executor
 	@emit_runtime_metrics( "start_node10163_codebuild" )
 	def start_node10163_codebuild( self, credentials, libraries_object ):
-		return TaskSpawner._start_node810_codebuild(
+		return TaskSpawner._start_node10163_codebuild(
 			self.aws_client_factory,
 			credentials,
 			libraries_object
@@ -4268,6 +4276,208 @@ class TaskSpawner(object):
 
 	@staticmethod
 	def _start_node10163_codebuild( aws_client_factory, credentials, libraries_object ):
+		"""
+		Returns a build ID to be polled at a later time
+		"""
+		codebuild_client = aws_client_factory.get_aws_client(
+			"codebuild",
+			credentials
+		)
+
+		s3_client = aws_client_factory.get_aws_client(
+			"s3",
+			credentials
+		)
+
+		package_json_template = {
+			"name": "refinery-lambda",
+			"version": "1.0.0",
+			"description": "Lambda created by Refinery",
+			"main": "main.js",
+			"dependencies": libraries_object,
+			"devDependencies": {},
+			"scripts": {}
+		}
+
+		# Create empty zip file
+		codebuild_zip = io.BytesIO( EMPTY_ZIP_DATA )
+
+		buildspec_template = {
+			"artifacts": {
+				"files": [
+					"**/*"
+				]
+			},
+			"phases": {
+				"build": {
+					"commands": [
+						"npm install"
+					]
+				},
+				"install": {
+					"runtime-versions": {
+						"nodejs": 10
+					}
+				}
+			},
+			"version": 0.2
+		}
+
+		with zipfile.ZipFile( codebuild_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+			# Write buildspec.yml defining the build process
+			buildspec = zipfile.ZipInfo(
+				"buildspec.yml"
+			)
+			buildspec.external_attr = 0777 << 16L
+			zip_file_handler.writestr(
+				buildspec,
+				yaml.dump(
+					buildspec_template
+				)
+			)
+
+			# Write the package.json
+			package_json = zipfile.ZipInfo(
+				"package.json"
+			)
+			package_json.external_attr = 0777 << 16L
+			zip_file_handler.writestr(
+				package_json,
+				json.dumps(
+					package_json_template
+				)
+			)
+
+		codebuild_zip_data = codebuild_zip.getvalue()
+		codebuild_zip.close()
+
+		# S3 object key of the build package, randomly generated.
+		s3_key = "buildspecs/" + str( uuid.uuid4() ) + ".zip"
+
+		# Write the CodeBuild build package to S3
+		s3_response = s3_client.put_object(
+			Bucket=credentials[ "lambda_packages_bucket" ],
+			Body=codebuild_zip_data,
+			Key=s3_key,
+			ACL="public-read", # THIS HAS TO BE PUBLIC READ FOR SOME FUCKED UP REASON I DONT KNOW WHY
+		)
+
+		# Fire-off the build
+		codebuild_response = codebuild_client.start_build(
+			projectName="refinery-builds",
+			sourceTypeOverride="S3",
+			sourceLocationOverride=credentials[ "lambda_packages_bucket" ] + "/" + s3_key,
+		)
+
+		build_id = codebuild_response[ "build" ][ "id" ]
+
+		return build_id
+
+	@staticmethod
+	def _get_nodejs_10201_base_code( app_config, code ):
+		code = re.sub(
+			r"function main\([^\)]+\)[^{]\{",
+			"function main( blockInput ) {",
+			code
+		)
+
+		code = re.sub(
+			r"function mainCallback\([^\)]+\)[^{]\{",
+			"function mainCallback( blockInput, callback ) {",
+			code
+		)
+
+		code = code + "\n\n" + app_config.get( "LAMDBA_BASE_CODES" )[ "nodejs10.20.1" ]
+		return code
+
+	@staticmethod
+	def _build_nodejs_10201_lambda( app_config, aws_client_factory, credentials, code, libraries ):
+		code = TaskSpawner._get_nodejs_10201_base_code(
+			app_config,
+			code
+		)
+
+		# Use CodeBuilder to get a base zip of the libraries
+		base_zip_data = copy.deepcopy( EMPTY_ZIP_DATA )
+		if len( libraries ) > 0:
+			base_zip_data = TaskSpawner._get_nodejs_10201_lambda_base_zip(
+				aws_client_factory,
+				credentials,
+				libraries
+			)
+
+		# Create a virtual file handler for the Lambda zip package
+		lambda_package_zip = io.BytesIO( base_zip_data )
+
+		with zipfile.ZipFile( lambda_package_zip, "a", zipfile.ZIP_DEFLATED ) as zip_file_handler:
+			info = zipfile.ZipInfo(
+				"lambda"
+			)
+			info.external_attr = 0777 << 16L
+
+			# Write lambda.py into new .zip
+			zip_file_handler.writestr(
+				info,
+				str( code )
+			)
+
+		lambda_package_zip_data = lambda_package_zip.getvalue()
+		lambda_package_zip.close()
+
+		return lambda_package_zip_data
+
+	@staticmethod
+	def _get_nodejs_10201_lambda_base_zip( aws_client_factory, credentials, libraries ):
+		s3_client = aws_client_factory.get_aws_client(
+			"s3",
+			credentials
+		)
+
+		libraries_object = {}
+		for library in libraries:
+			libraries_object[ str( library ) ] = "latest"
+
+		final_s3_package_zip_path = TaskSpawner._get_final_zip_package_path(
+			"nodejs10.16.3",
+			libraries_object
+		)
+
+		if TaskSpawner._s3_object_exists( aws_client_factory, credentials, credentials[ "lambda_packages_bucket" ], final_s3_package_zip_path ):
+			return TaskSpawner._read_from_s3(
+				aws_client_factory,
+				credentials,
+				credentials[ "lambda_packages_bucket" ],
+				final_s3_package_zip_path
+			)
+
+		# Kick off CodeBuild for the libraries to get a zip artifact of
+		# all of the libraries.
+		build_id = TaskSpawner._start_node10201_codebuild(
+			aws_client_factory,
+			credentials,
+			libraries_object
+		)
+
+		# This continually polls for the CodeBuild build to finish
+		# Once it does it returns the raw artifact zip data.
+		return TaskSpawner._get_codebuild_artifact_zip_data(
+			aws_client_factory,
+			credentials,
+			build_id,
+			final_s3_package_zip_path
+		)
+
+	@run_on_executor
+	@emit_runtime_metrics( "start_node10201_codebuild" )
+	def start_node10201_codebuild( self, credentials, libraries_object ):
+		return TaskSpawner._start_node10201_codebuild(
+			self.aws_client_factory,
+			credentials,
+			libraries_object
+		)
+
+	@staticmethod
+	def _start_node10201_codebuild( aws_client_factory, credentials, libraries_object ):
 		"""
 		Returns a build ID to be polled at a later time
 		"""

@@ -25,6 +25,7 @@ export enum SupportedLanguage {
   PYTHON_2 = 'python2.7',
   NODEJS_8 = 'nodejs8.10',
   NODEJS_10 = 'nodejs10.16.3',
+  NODEJS_1020 = 'nodejs10.20.1',
   PHP7 = 'php7.3',
   GO1_12 = 'go1.12'
 }
