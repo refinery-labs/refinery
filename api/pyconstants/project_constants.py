@@ -18,6 +18,7 @@ LAMBDA_SUPPORTED_LANGUAGES = [
 	"python2.7",
 	"nodejs8.10",
 	"nodejs10.16.3",
+	"nodejs10.20.1",
 	"php7.3",
 	"go1.12",
 	"ruby2.6.4"
@@ -28,6 +29,7 @@ LAMBDA_SUPPORTED_LANGUAGES = [
 CUSTOM_RUNTIME_LANGUAGES = [
 	"nodejs8.10",
 	"nodejs10.16.3",
+	"nodejs10.20.1",
 	"php7.3",
 	"go1.12",
 	"python2.7",
@@ -41,6 +43,7 @@ LAMBDA_BASE_LIBRARIES = {
 	"python2.7": [],
 	"nodejs8.10": [],
 	"nodejs10.16.3": [],
+	"nodejs10.20.1": [],
 	"php7.3": [],
 	"go1.12": [],
 	"ruby2.6.4": []

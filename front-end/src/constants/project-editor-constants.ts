@@ -325,6 +325,11 @@ async function main(blockInput, backpack) {
     return 'Hello World!';
 }
 `,
+  [SupportedLanguage.NODEJS_1020]: `
+async function main(blockInput, backpack) {
+    return 'Hello World!';
+}
+`,
   [SupportedLanguage.NODEJS_8]: `
 async function main(blockInput, backpack) {
     return 'Hello World!';

@@ -27,7 +27,7 @@ def get_layers_for_lambda( language ):
 	You must do the following:
 	* Extensively test the new custom runtime.
 	* Upload the new layer version to the root AWS account.
-	* Run the following command on the root account to publically allow use of the layer:
+	* Run the following command on the root account to publicly allow use of the layer:
 
 	aws lambda add-layer-version-permission \
 	--layer-name REPLACE_ME_WITH_LAYER_NAME \
@@ -52,6 +52,10 @@ def get_layers_for_lambda( language ):
 	elif language == "nodejs10.16.3":
 		new_layers.append(
 			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-nodejs10-custom-runtime:9"
+		)
+	elif language == "nodejs10.20.1":
+		new_layers.append(
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-nodejs1020-custom-runtime:1"
 		)
 	elif language == "php7.3":
 		new_layers.append(
@@ -89,7 +93,7 @@ def get_language_specific_environment_variables( language ):
 			"key": "PYTHONUNBUFFERED",
 			"value": "1",
 		})
-	elif language == "nodejs8.10" or language == "nodejs10.16.3":
+	elif language == "nodejs8.10" or language == "nodejs10.16.3" or language == "nodejs10.20.1":
 		environment_variables_list.append({
 			"key": "NODE_PATH",
 			"value": "/var/task/node_modules/",
@@ -237,6 +241,11 @@ def get_base_lambda_code( app_config, language, code ):
 		)
 	elif language == "nodejs10.16.3":
 		return TaskSpawner._get_nodejs_10163_base_code(
+			app_config,
+			code
+		)
+	elif language == "nodejs10.20.1":
+		return TaskSpawner._get_nodejs_10201_base_code(
 			app_config,
 			code
 		)
