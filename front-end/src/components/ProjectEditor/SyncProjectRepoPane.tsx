@@ -3,11 +3,12 @@ import Component, { mixins } from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { SyncProjectRepoPaneStoreModule } from '@/store';
-import { GitDiffInfo, GitPushResult } from '@/store/modules/panes/sync-project-repo-pane';
+import { GitPushResult } from '@/store/modules/panes/sync-project-repo-pane';
 import { branchNameBlacklistRegex, newBranchText } from '@/constants/project-editor-constants';
 import CreateToastMixin from '@/mixins/CreateToastMixin';
 import { Watch } from 'vue-property-decorator';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
+import { GitDiffInfo } from '@/repo-compiler/shared/git-types';
 
 const syncProjectRepo = namespace('syncProjectRepo');
 

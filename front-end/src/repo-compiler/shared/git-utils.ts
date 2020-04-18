@@ -1,12 +1,23 @@
-import { CallbackFsClient, PromiseFsClient } from 'isomorphic-git';
+import { CallbackFsClient, PromiseFsClient, StatusRow } from 'isomorphic-git';
 import Path from 'path';
 import { PROJECT_CONFIG_FILENAME } from '@/repo-compiler/shared/constants';
-import { LightningFsFile } from '@/repo-compiler/shared/git-types';
+import { GitStatusResult, LightningFsFile } from '@/repo-compiler/shared/git-types';
+import { RefineryProject } from '@/types/graph';
 
-export class RepoCompilationError extends Error {}
+export interface RepoCompilationErrorContext {
+  filename?: string;
+  fileContent?: string;
+}
 
-export function repoError(e: Error): RepoCompilationError {
-  return new RepoCompilationError(e.toString());
+export class RepoCompilationError extends Error {
+  errorContext: RepoCompilationErrorContext | undefined;
+
+  constructor(message: string, errorContext?: RepoCompilationErrorContext) {
+    super(message);
+
+    this.name = 'RepoCompilationError';
+    this.errorContext = errorContext;
+  }
 }
 
 export async function pathExists(fs: PromiseFsClient, gitDir: string, path: string): Promise<boolean> {
@@ -35,6 +46,12 @@ export async function readFile(fs: PromiseFsClient, gitDir: string, path?: strin
   const filePath = path !== undefined ? Path.join(gitDir, path) : gitDir;
 
   const fileContent = await fs.promises.readFile(filePath);
+
+  // for symlinks the file content will be a string
+  if (typeof fileContent === 'string') {
+    return fileContent;
+  }
+
   return new TextDecoder('utf-8').decode(fileContent);
 }
 
@@ -60,7 +77,12 @@ export async function readlink(fs: PromiseFsClient, path: string): Promise<strin
   if (!fs.promises.readlink) {
     throw new RepoCompilationError('filesystem readlink function is not defined');
   }
-  const result = await fs.promises.readlink(path).catch(repoError);
+  const repoFileContext: RepoCompilationErrorContext = {
+    filename: path
+  };
+  const result = await fs.promises
+    .readlink(path)
+    .catch((e: Error) => new RepoCompilationError(e.toString(), repoFileContext));
   if (result instanceof Error) {
     throw result;
   }
@@ -68,17 +90,123 @@ export async function readlink(fs: PromiseFsClient, path: string): Promise<strin
 }
 
 export async function isPathValidSymlink(fs: PromiseFsClient, path: string) {
-  const pathLStat = await fs.promises.lstat(path).catch((e: Error) => new RepoCompilationError(e.toString()));
+  const repoFileContext: RepoCompilationErrorContext = {
+    filename: path
+  };
+  const pathLStat = await fs.promises
+    .lstat(path)
+    .catch((e: Error) => new RepoCompilationError(e.toString(), repoFileContext));
   if (pathLStat instanceof Error) {
     throw pathLStat;
   }
   const pathIsSymlink = pathLStat.isSymbolicLink();
 
-  const pathStat = await fs.promises.lstat(path).catch(repoError);
+  const pathStat = await fs.promises
+    .lstat(path)
+    .catch((e: Error) => new RepoCompilationError(e.toString(), repoFileContext));
   if (pathStat instanceof Error) {
     throw pathStat;
   }
   const resolvedPathExists = pathStat.isFile();
 
   return pathIsSymlink && resolvedPathExists;
+}
+
+/*
+https://isomorphic-git.org/docs/en/statusMatrix
+[
+  ["a.txt", 0, 2, 0], // new, untracked
+  ["b.txt", 0, 2, 2], // added, staged
+  ["c.txt", 0, 2, 3], // added, staged, with unstaged changes
+  ["d.txt", 1, 1, 1], // unmodified
+  ["e.txt", 1, 2, 1], // modified, unstaged
+  ["f.txt", 1, 2, 2], // modified, staged
+  ["g.txt", 1, 2, 3], // modified, staged, with unstaged changes
+  ["h.txt", 1, 0, 1], // deleted, unstaged
+  ["i.txt", 1, 0, 0], // deleted, staged
+]
+ */
+export function getStatusMessageForFileInfo(row: StatusRow): string {
+  const headStatus = row[1];
+  const workdirStatus = row[2];
+  const stageStatus = row[3];
+
+  if (headStatus === 0) {
+    if (workdirStatus === 2) {
+      if (stageStatus === 0) return 'new, untracked';
+      if (stageStatus === 2) return 'added, staged';
+      if (stageStatus === 3) return 'added, staged, with unstaged changes';
+    }
+  } else {
+    // headStatus === 1
+    if (workdirStatus === 0) {
+      if (stageStatus === 0) return 'deleted, staged';
+      if (stageStatus === 1) return 'deleted, unstaged';
+    }
+    if (workdirStatus === 1) {
+      if (stageStatus === 1) return 'unmodified';
+    }
+    if (workdirStatus === 2) {
+      if (stageStatus === 1) return 'modified, unstaged';
+      if (stageStatus === 2) return 'modified, staged';
+      if (stageStatus === 3) return 'modified, staged, with unstage changes';
+    }
+  }
+  return 'unknown git status';
+}
+
+export function getStatusForFileInfo(row: StatusRow): GitStatusResult {
+  const headStatus = row[1];
+  const workdirStatus = row[2];
+  const stageStatus = row[3];
+
+  if (headStatus === 0) {
+    if (workdirStatus === 2) {
+      if (stageStatus === 0 || stageStatus === 2 || stageStatus === 3) {
+        return { newFiles: 1, modifiedFiles: 0, deletedFiles: 0 };
+      }
+    }
+  } else {
+    // headStatus === 1
+    if (workdirStatus === 0) {
+      if (stageStatus === 0 || stageStatus === 1) {
+        return { newFiles: 0, modifiedFiles: 0, deletedFiles: 1 };
+      }
+    }
+    if (workdirStatus === 2) {
+      if (stageStatus === 1 || stageStatus === 2 || stageStatus === 3) {
+        return { newFiles: 0, modifiedFiles: 1, deletedFiles: 0 };
+      }
+    }
+  }
+  return { newFiles: 0, modifiedFiles: 0, deletedFiles: 0 };
+}
+
+export function isFileUnmodified(row: StatusRow): boolean {
+  const headStatus = row[1];
+  const workdirStatus = row[2];
+  const stageStatus = row[3];
+
+  return headStatus === 1 && workdirStatus === 1 && stageStatus === 1;
+}
+
+export function isFileNew(row: StatusRow): boolean {
+  const headStatus = row[1];
+  const workdirStatus = row[2];
+
+  return headStatus === 0 && workdirStatus === 2;
+}
+
+export function isFileDeleted(row: StatusRow): boolean {
+  const headStatus = row[1];
+  const workdirStatus = row[2];
+
+  return headStatus === 1 && workdirStatus === 0;
+}
+
+export function isFileDeletedOrModified(row: StatusRow): boolean {
+  const headStatus = row[1];
+  const workdirStatus = row[2];
+
+  return headStatus === 1 && (workdirStatus === 0 || workdirStatus === 2);
 }

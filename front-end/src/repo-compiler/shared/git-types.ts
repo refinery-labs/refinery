@@ -14,3 +14,16 @@ export interface LightningFsFile {
   isDirectory(): boolean;
   isSymbolicLink(): boolean;
 }
+
+export interface GitStatusResult {
+  newFiles: number;
+  modifiedFiles: number;
+  deletedFiles: number;
+}
+
+type GitDiffFilenameToContent = Record<string, string>;
+
+export interface GitDiffInfo {
+  originalFiles: GitDiffFilenameToContent;
+  changedFiles: GitDiffFilenameToContent;
+}

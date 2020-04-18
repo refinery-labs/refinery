@@ -759,6 +759,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
+      // If the project repo is set, we do not save the project like this
+      // NOTE: the button will be hidden in the UI, this is just check
+      if (context.state.openedProjectConfig.project_repo) {
+        return;
+      }
+
       context.commit(ProjectViewMutators.isSavingProject, true);
 
       const projectJson = wrapJson(context.state.openedProject);
@@ -943,7 +949,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       await context.dispatch(ProjectViewActions.updateProject, params);
 
-      await SyncProjectRepoPaneStoreModule.setupLocalProjectRepo(projectConfig);
+      if (projectConfig.project_repo) {
+        await SyncProjectRepoPaneStoreModule.setupLocalProjectRepo(projectConfig);
+      }
 
       context.commit(ProjectViewMutators.isLoadingProject, false);
     },

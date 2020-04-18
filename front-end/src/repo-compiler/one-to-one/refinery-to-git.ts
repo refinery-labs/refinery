@@ -13,6 +13,11 @@ import http from '@/repo-compiler/git-http';
 import Path from 'path';
 import slugify from 'slugify';
 import yaml from 'js-yaml';
+import {
+  LAMBDA_SHARED_FILES_DIR,
+  PROJECT_CONFIG_FILENAME,
+  PROJECT_SHARED_FILES_DIR
+} from '@/repo-compiler/shared/constants';
 
 function getFolderName(name: string) {
   return slugify(name).toLowerCase();
@@ -101,8 +106,7 @@ async function maybeMkdir(fs: PromiseFsClient, path: string) {
 }
 
 export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, project: RefineryProject) {
-  // TODO we shouldn't need to wipe this directory if we already pulled from it when compiling the repo
-  // TODO we probably just want to fetch get objects and not populate the fs (i think this is possible with git)
+  // TODO we probably just want to fetch get objects and not populate the fs
 
   // clean repo of all existing files and dirs
   let dirsToRemove = await git.walk({
@@ -155,7 +159,7 @@ export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, projec
     [] as WorkflowState[]
   );
 
-  const sharedFilesRoot = 'shared-files';
+  const sharedFilesRoot = PROJECT_SHARED_FILES_DIR;
   const sharedFilesPath = Path.join(dir, sharedFilesRoot);
   await maybeMkdir(fs, sharedFilesPath);
   const sharedFileLookup = await project.workflow_files.reduce(async (lookup, file) => {
@@ -183,7 +187,7 @@ export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, projec
       .map(async fileLink => {
         const sharedFile = sharedFileLookup[fileLink.file_id];
 
-        const lambdaSharedFilePath = Path.join(nodeToWorkflowState[fileLink.node].path, 'shared_files');
+        const lambdaSharedFilePath = Path.join(nodeToWorkflowState[fileLink.node].path, LAMBDA_SHARED_FILES_DIR);
         await maybeMkdir(fs, lambdaSharedFilePath);
         const sharedFileLinkPath = Path.join(lambdaSharedFilePath, sharedFile.file.name);
 
@@ -206,110 +210,8 @@ export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, projec
     workflow_file_links: newWorkflowFileLinks
   };
 
-  const projectConfig = Path.join(dir, 'project.yaml');
+  const projectConfig = Path.join(dir, PROJECT_CONFIG_FILENAME);
+
+  // TODO we should enforce an ordering of these values so that we don't get modifications every time we write the file
   await writeConfig(fs, projectConfig, newProject);
 }
-
-export async function commitAndPushToRepo(
-  fs: PromiseFsClient,
-  dir: string,
-  branch: string,
-  commitMessage: string,
-  force: boolean
-): Promise<PushResult> {
-  await git.add({ fs, dir, filepath: '.' });
-
-  await git.commit({
-    fs,
-    dir,
-    author: {
-      name: 'Refinery Bot',
-      email: 'donotreply@refinery.io'
-    },
-    message: commitMessage
-  });
-
-  return await git.push({
-    fs,
-    http,
-    dir,
-    remote: 'origin',
-    remoteRef: branch,
-    corsProxy: `${process.env.VUE_APP_API_HOST}/api/v1/github/proxy`,
-    force
-  });
-}
-/*
-
-interface NewBlockOptions {
-  language: string;
-}
-
-function newBlock(projectdir: string, type: string, name: string, options: NewBlockOptions) {
-  if (type === 'lambda') {
-    const lambdaLanguage = options.language as SupportedLanguage;
-    if (!Object.values(SupportedLanguage).includes(lambdaLanguage)) {
-      console.error('Lambda block language ${lambdaLanguage} not supported');
-      return;
-    }
-
-    const blockName = getFolderName(name);
-
-    const lambdaConfig: ProjectDownloadZipConfig = {
-      inputData: '{}',
-      backpackData: '{}',
-      blockCode: DEFAULT_LANGUAGE_CODE[lambdaLanguage],
-      blockLanguage: lambdaLanguage,
-      metadata: {
-        projectName: '',
-        projectId: '',
-        projectVersion: 1,
-        blockName: blockName,
-        blockId: '',
-        exportedTimestamp: 0,
-        version: ''
-      }
-    };
-
-    const blockPath = Path.join(projectdir, 'lambda', blockName);
-    resetDir(blockPath);
-
-    const lambdaFiles = convertProjectDownloadZipConfigToFileList(lambdaConfig);
-    lambdaFiles.forEach(file => {
-      const path = Path.join(blockPath, file.fileName);
-      fs.writeFileSync(path, file.contents);
-    });
-  } else {
-    console.error('Unsupported type: ${type}');
-  }
-}
-
-
-function load(config: string) {
-  const configData = fs.readFileSync(config, 'utf8');
-  const projectJSON = JSON.parse(configData);
-  const project = projectJSON as RefineryProject;
-
-  const projectDir = getFolderName(project.name);
-  saveProjectToRepo(projectDir, project);
-}
-
-function lint(dir: string) {
-  if (!fs.existsSync(dir)) {
-    console.error(`Unable to find dir ${dir}`);
-    return;
-  }
-}
-
-program.command('load <config>').action(load);
-
-program
-  .command('new <projectdir> <type> <name>')
-  .option('--language <language>')
-  .action(newBlock);
-
-program.command('lint <dir>').action(lint);
-
-program.parse(process.argv);
-
- */

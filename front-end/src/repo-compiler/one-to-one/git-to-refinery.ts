@@ -27,7 +27,8 @@ import {
   pathExists,
   readFile,
   readlink,
-  RepoCompilationError
+  RepoCompilationError,
+  RepoCompilationErrorContext
 } from '@/repo-compiler/shared/git-utils';
 import { cloneGitRepo } from '@/repo-compiler/shared/clone-repo';
 import { GitClient } from '@/repo-compiler/shared/git-client';
@@ -38,7 +39,11 @@ async function loadLambdaCode(
   blockConfig: LambdaWorkflowState
 ): Promise<string> {
   if (!blockConfig.language) {
-    throw new RepoCompilationError(`no language set in block ${lambdaPath}`);
+    const repoContext: RepoCompilationErrorContext = {
+      filename: lambdaPath,
+      fileContent: JSON.stringify(blockConfig)
+    };
+    throw new RepoCompilationError(`no language set in block`, repoContext);
   }
   const extension = languageToFileExtension[blockConfig.language];
   const blockCodeFilename = `${BLOCK_CODE_FILENAME}.${extension}`;
@@ -51,7 +56,10 @@ async function loadLambdaBlock(fs: PromiseFsClient, lambdaPath: string): Promise
   const blockConfigPathExists = await pathExists(fs, lambdaPath, LAMBDA_CONFIG_FILENAME);
 
   if (!blockConfigPathExists) {
-    throw new RepoCompilationError('Lambda block does not exist');
+    const repoContext: RepoCompilationErrorContext = {
+      filename: Path.join(lambdaPath, LAMBDA_CONFIG_FILENAME)
+    };
+    throw new RepoCompilationError('Lambda block does not exist', repoContext);
   }
 
   // TODO: Replace with a validator for the JSON contents
@@ -75,7 +83,10 @@ function getLambdaSharedFileLink(
 
   const sharedFileConfig = sharedFileLookup[sharedFilePath];
   if (!sharedFileConfig) {
-    throw new RepoCompilationError(`lambda shared file was not found in shared file folder ${sharedFilePath}`);
+    const repoContext: RepoCompilationErrorContext = {
+      filename: sharedFilePath
+    };
+    throw new RepoCompilationError(`lambda shared file was not found in shared file folder`, repoContext);
   }
 
   return {
@@ -171,11 +182,18 @@ async function loadSharedFiles(fs: PromiseFsClient, repoDir: string): Promise<Wo
   }, Promise.resolve({} as WorkflowFileLookup));
 }
 
-async function loadProjectFromDir(fs: PromiseFsClient, projectID: string, repoDir: string): Promise<RefineryProject> {
+export async function loadProjectFromDir(
+  fs: PromiseFsClient,
+  projectID: string,
+  repoDir: string
+): Promise<RefineryProject> {
   const projectConfigExists = await pathExists(fs, repoDir, PROJECT_CONFIG_FILENAME);
 
   if (!projectConfigExists) {
-    throw new RepoCompilationError('Project config does not exist');
+    const repoContext: RepoCompilationErrorContext = {
+      filename: PROJECT_CONFIG_FILENAME
+    };
+    throw new RepoCompilationError('Project config does not exist', repoContext);
   }
 
   const loadedProjectConfig = yaml.safeLoad(await readFile(fs, repoDir, PROJECT_CONFIG_FILENAME)) as RefineryProject;
@@ -201,16 +219,4 @@ async function loadProjectFromDir(fs: PromiseFsClient, projectID: string, repoDi
     workflow_files: [...loadedProjectConfig.workflow_files, ...sharedFileConfigs],
     workflow_file_links: [...loadedProjectConfig.workflow_file_links, ...loadedLambdaConfigs.sharedFileLinks]
   };
-}
-
-export async function compileProjectRepo(projectID: string, gitURL: string): Promise<RefineryProject | null> {
-  const gitClient = new GitClient(gitURL);
-
-  await gitClient.clone();
-
-  // TODO cleanup fs?
-  return await loadProjectFromDir(gitClient.fs, projectID, gitClient.dir).catch(e => {
-    console.error(e);
-    return null;
-  });
 }

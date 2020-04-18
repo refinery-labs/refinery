@@ -2,16 +2,16 @@ import { Action, Module, Mutation, VuexModule } from 'vuex-module-decorators';
 import { RootState, StoreType } from '../../store-types';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { resetStoreState } from '@/utils/store-utils';
-import { compileProjectRepo } from '@/repo-compiler/one-to-one/git-to-refinery';
 import { ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
 import { OpenProjectMutation } from '@/types/project-editor-types';
-import { commitAndPushToRepo, saveProjectToRepo } from '@/repo-compiler/one-to-one/refinery-to-git';
 import { ProjectConfig, RefineryProject } from '@/types/graph';
-import LightningFS from '@isomorphic-git/lightning-fs';
-import git, { Errors, PromiseFsClient, StatusRow } from 'isomorphic-git';
-import http from '@/repo-compiler/git-http';
+import { StatusRow } from 'isomorphic-git';
 import { newBranchText } from '@/constants/project-editor-constants';
-import Path from 'path';
+import { getStatusForFileInfo, RepoCompilationError } from '@/repo-compiler/shared/git-utils';
+import { GitClient } from '@/repo-compiler/shared/git-client';
+import { loadProjectFromDir } from '@/repo-compiler/one-to-one/git-to-refinery';
+import uuid from 'uuid';
+import { GitDiffInfo, GitStatusResult } from '@/repo-compiler/shared/git-types';
 
 const storeName = StoreType.syncProjectRepo;
 
@@ -38,6 +38,8 @@ export interface SyncProjectRepoPaneState {
   pushingToRepo: boolean;
   currentlyDiffedFile: string | undefined;
   commitMessage: string;
+  repoCompilationError: RepoCompilationError | undefined;
+  projectID: string;
 }
 
 // Initial State
@@ -49,119 +51,12 @@ const moduleState: SyncProjectRepoPaneState = {
   repoBranches: [],
   pushingToRepo: false,
   currentlyDiffedFile: undefined,
-  commitMessage: 'update project from Refinery UI'
+  commitMessage: 'update project from Refinery UI',
+  repoCompilationError: undefined,
+  projectID: ''
 };
 
 const initialState = deepJSONCopy(moduleState);
-
-export interface GitStatusResult {
-  newFiles: number;
-  modifiedFiles: number;
-  deletedFiles: number;
-}
-
-type GitDiffFilenameToContent = Record<string, string>;
-
-export interface GitDiffInfo {
-  originalFiles: GitDiffFilenameToContent;
-  changedFiles: GitDiffFilenameToContent;
-}
-
-/*
-example StatusMatrix
-[
-  ["a.txt", 0, 2, 0], // new, untracked
-  ["b.txt", 0, 2, 2], // added, staged
-  ["c.txt", 0, 2, 3], // added, staged, with unstaged changes
-  ["d.txt", 1, 1, 1], // unmodified
-  ["e.txt", 1, 2, 1], // modified, unstaged
-  ["f.txt", 1, 2, 2], // modified, staged
-  ["g.txt", 1, 2, 3], // modified, staged, with unstaged changes
-  ["h.txt", 1, 0, 1], // deleted, unstaged
-  ["i.txt", 1, 0, 0], // deleted, staged
-]
- */
-function getStatusMessageForFileInfo(row: StatusRow): string {
-  const headStatus = row[1];
-  const workdirStatus = row[2];
-  const stageStatus = row[3];
-
-  if (headStatus === 0) {
-    if (workdirStatus === 2) {
-      if (stageStatus === 0) return 'new, untracked';
-      if (stageStatus === 2) return 'added, staged';
-      if (stageStatus === 3) return 'added, staged, with unstaged changes';
-    }
-  } else {
-    // headStatus === 1
-    if (workdirStatus === 0) {
-      if (stageStatus === 0) return 'deleted, staged';
-      if (stageStatus === 1) return 'deleted, unstaged';
-    }
-    if (workdirStatus === 1) {
-      if (stageStatus === 1) return 'unmodified';
-    }
-    if (workdirStatus === 2) {
-      if (stageStatus === 1) return 'modified, unstaged';
-      if (stageStatus === 2) return 'modified, staged';
-      if (stageStatus === 3) return 'modified, staged, with unstage changes';
-    }
-  }
-  return 'unknown git status';
-}
-
-function getStatusForFileInfo(row: StatusRow): GitStatusResult {
-  const headStatus = row[1];
-  const workdirStatus = row[2];
-  const stageStatus = row[3];
-
-  if (headStatus === 0) {
-    if (workdirStatus === 2) {
-      if (stageStatus === 0 || stageStatus === 2 || stageStatus === 3) {
-        return { newFiles: 1, modifiedFiles: 0, deletedFiles: 0 };
-      }
-    }
-  } else {
-    // headStatus === 1
-    if (workdirStatus === 0) {
-      if (stageStatus === 0 || stageStatus === 1) {
-        return { newFiles: 0, modifiedFiles: 0, deletedFiles: 1 };
-      }
-    }
-    if (workdirStatus === 2) {
-      if (stageStatus === 1 || stageStatus === 2 || stageStatus === 3) {
-        return { newFiles: 0, modifiedFiles: 1, deletedFiles: 0 };
-      }
-    }
-  }
-  return { newFiles: 0, modifiedFiles: 0, deletedFiles: 0 };
-}
-
-function isFileUnmodified(row: StatusRow): boolean {
-  const headStatus = row[1];
-  const workdirStatus = row[2];
-  const stageStatus = row[3];
-
-  return headStatus === 1 && workdirStatus === 1 && stageStatus === 1;
-}
-
-function isFileNew(row: StatusRow): boolean {
-  const headStatus = row[1];
-  const workdirStatus = row[2];
-
-  return headStatus === 0 && workdirStatus === 2;
-}
-
-function isFileDeletedOrModified(row: StatusRow): boolean {
-  const headStatus = row[1];
-  const workdirStatus = row[2];
-
-  return headStatus === 1 && (workdirStatus === 0 || workdirStatus === 2);
-}
-
-function getProjectRepoDir(project: RefineryProject): string {
-  return `/${project.project_id}`;
-}
 
 @Module({ namespaced: true, name: storeName })
 export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRepoPaneState>, RootState>
@@ -174,6 +69,8 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   public pushingToRepo: boolean = initialState.pushingToRepo;
   public currentlyDiffedFile: string | undefined = initialState.currentlyDiffedFile;
   public commitMessage: string = initialState.commitMessage;
+  public repoCompilationError: RepoCompilationError | undefined = initialState.repoCompilationError;
+  public projectID: string = initialState.projectID;
 
   @Mutation
   public resetState() {
@@ -274,6 +171,16 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     this.commitMessage = commitMessage;
   }
 
+  @Mutation
+  public async setRepoCompilationError(repoCompilationError: RepoCompilationError) {
+    this.repoCompilationError = repoCompilationError;
+  }
+
+  @Mutation
+  public async setProjectID(projectID: string) {
+    this.projectID = projectID;
+  }
+
   @Action
   public getOpenedProject(): RefineryProject | undefined {
     if (!this.context.rootState.project.openedProject) {
@@ -293,115 +200,46 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   }
 
   @Action
-  public async setupProjectGitRepo(projectRepoURL: string): Promise<PromiseFsClient | undefined> {
-    const project = await this.getOpenedProject();
-    if (!project) {
-      console.error('project or project config not set');
-      return;
-    }
-
-    const fs = new LightningFS('project', { wipe: true }) as PromiseFsClient;
-
-    await git.clone({
-      fs,
-      http,
-      dir: getProjectRepoDir(project),
-      url: projectRepoURL,
-      corsProxy: `${process.env.VUE_APP_API_HOST}/api/v1/github/proxy`
-    });
-
-    // TODO make sure clone was successful
-
-    return fs;
-  }
-
-  @Action
   public async pushToRepo(force: boolean) {
     await this.setPushingToRepo(true);
 
     const project = await this.getOpenedProject();
-    if (!project) {
-      console.error('project not set');
+    const projectConfig = await this.getOpenedProjectConfig();
+    if (!project || !projectConfig || !projectConfig.project_repo) {
+      console.error('project or project config not set');
       await this.setPushingToRepo(false);
       return;
     }
 
-    const fs = new LightningFS('project') as PromiseFsClient;
+    const gitClient = new GitClient(projectConfig.project_repo, this.projectID);
 
-    if (!(await fs.promises.stat(getProjectRepoDir(project)).catch(() => false))) {
-      console.error('no project was found in local filesystem');
-      await this.setPushingToRepo(false);
-      return;
-    }
-
-    const result = await commitAndPushToRepo(
-      fs,
-      getProjectRepoDir(project),
+    const result = await gitClient.stageFilesAndPushToRemote(
+      this.gitStatusResult,
       this.remoteBranchName,
       this.commitMessage,
       force
-    )
-      .then(() => GitPushResult.Success)
-      .catch((e: Error) => {
-        if (e instanceof Errors.PushRejectedError) {
-          return GitPushResult.UnableToFastForward;
-        } else {
-          return GitPushResult.Other;
-        }
-      });
+    );
     await this.setGitPushResult(result);
     await this.setPushingToRepo(false);
+
+    if (result !== GitPushResult.Success) {
+      // git push did not succeed
+      return;
+    }
+
+    // git push succeeded
+    const params: OpenProjectMutation = {
+      project: this.context.rootState.project.openedProject,
+      config: this.context.rootState.project.openedProjectConfig,
+      markAsDirty: false
+    };
+    await this.context.dispatch(`project/${ProjectViewActions.updateProject}`, params, { root: true });
 
     await this.clearGitPushResult();
     await this.clearGitStatusResult();
 
-    const statusMatrix = await git.statusMatrix({
-      fs,
-      dir: getProjectRepoDir(project)
-    });
-    await this.setGitStatusResult(statusMatrix);
-  }
-
-  @Action
-  public async getFilesForDiffing(project: RefineryProject): Promise<GitDiffInfo> {
-    const deletedModifiedFiles = this.gitStatusResult
-      .filter(fileRow => isFileDeletedOrModified(fileRow))
-      .map(fileRow => fileRow[0]);
-    const newFiles = this.gitStatusResult.filter(fileRow => isFileNew(fileRow)).map(fileRow => fileRow[0]);
-
-    const fs = new LightningFS('project') as PromiseFsClient;
-
-    await git.checkout({
-      fs,
-      dir: getProjectRepoDir(project),
-      ref: this.remoteBranchName,
-      force: true
-    });
-
-    const decoder = new TextDecoder('utf-8');
-    const projectRepoDir = getProjectRepoDir(project);
-
-    async function getFilesFromFS(filesToGet: string[]): Promise<Record<string, string>> {
-      return filesToGet.reduce(async (fileLookup, file) => {
-        const awaitedFileLookup = await fileLookup;
-        const fileContent = await fs.promises.readFile(Path.join(projectRepoDir, file)).catch(() => '');
-        return {
-          ...awaitedFileLookup,
-          [file]: typeof fileContent === 'string' ? fileContent : decoder.decode(fileContent)
-        };
-      }, Promise.resolve({} as Record<string, string>));
-    }
-
-    const originalFileContents = await getFilesFromFS(deletedModifiedFiles);
-
-    await saveProjectToRepo(fs, getProjectRepoDir(project), project);
-
-    const changedFileContents = await getFilesFromFS([...deletedModifiedFiles, ...newFiles]);
-
-    return {
-      originalFiles: originalFileContents,
-      changedFiles: changedFileContents
-    };
+    // we have just pushed successfully, the current branch will have no changes
+    await this.setGitStatusResult([]);
   }
 
   @Action
@@ -435,57 +273,54 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
       };
     }
 
-    const fs = new LightningFS('project') as PromiseFsClient;
-
-    await git.checkout({
-      fs,
-      dir: getProjectRepoDir(project),
+    const gitClient = new GitClient(projectConfig.project_repo, this.projectID);
+    await gitClient.checkout({
       ref: this.remoteBranchName,
       force: true
     });
 
-    await saveProjectToRepo(fs, getProjectRepoDir(project), project);
+    await gitClient.saveProject(project);
 
-    const statusMatrix = await git.statusMatrix({
-      fs,
-      dir: getProjectRepoDir(project)
-    });
-    await this.setGitStatusResult(statusMatrix);
+    // get list of files that were changed
+    const statusResult = await gitClient.status();
+    await this.setGitStatusResult(statusResult);
 
-    return await this.getFilesForDiffing(project);
+    // get contents from changed files before and after they were modified
+    // TODO this call will force checkout and compile the project again, there might be a way to optimize this
+    return await gitClient.getDiffFileInfo(project, this.remoteBranchName, this.gitStatusResult);
+  }
+
+  @Action
+  public async compileClonedProject(gitClient: GitClient): Promise<RefineryProject | undefined> {
+    try {
+      return await loadProjectFromDir(gitClient.fs, this.projectID, gitClient.dir);
+    } catch (e) {
+      if (e instanceof RepoCompilationError) {
+        await this.setRepoCompilationError(e);
+      }
+    }
+    return undefined;
   }
 
   @Action
   public async setupLocalProjectRepo(projectConfig: ProjectConfig) {
-    const project = await this.getOpenedProject();
-    if (!project || !projectConfig || !projectConfig.project_repo) {
-      console.error('project or project config not set');
-      return;
-    }
+    await this.setProjectID(uuid.v4());
 
-    const fs = await this.setupProjectGitRepo(projectConfig.project_repo);
-    if (!fs) {
-      console.error('unable to create local filesystem');
-      return;
-    }
+    const gitClient = new GitClient(projectConfig.project_repo, this.projectID);
+    await gitClient.clone();
 
-    const currentBranch = await git.currentBranch({
-      fs,
-      dir: getProjectRepoDir(project)
-    });
+    const currentBranch = await gitClient.currentBranch();
     if (currentBranch) {
       await this.setRemoteBranchName(currentBranch);
     }
 
-    const repoBranches = await git.listBranches({
-      fs,
-      dir: getProjectRepoDir(project),
-      remote: 'origin'
-    });
+    const repoBranches = await gitClient.listBranches({ remote: 'origin' });
     await this.setRepoBranches(repoBranches);
 
-    // TODO fs folder should be project id
-    const compiledProject = await compileProjectRepo('1234', getProjectRepoDir(project));
+    const compiledProject = await this.compileClonedProject(gitClient);
+    if (!compiledProject) {
+      return;
+    }
 
     const config = this.context.rootState.project.openedProjectConfig;
 
