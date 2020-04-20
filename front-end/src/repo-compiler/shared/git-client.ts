@@ -24,12 +24,17 @@ import {
   statFile,
   tryReadFile
 } from '@/repo-compiler/shared/git-utils';
-import { REFINERY_PROJECTS_FOLDER } from '@/repo-compiler/shared/constants';
+import {
+  REFINERY_COMMIT_AUTHOR_EMAIL,
+  REFINERY_COMMIT_AUTHOR_NAME,
+  REFINERY_PROJECTS_FOLDER
+} from '@/repo-compiler/shared/constants';
 import { InvalidGitRepoStructure } from '@/repo-compiler/shared/errors';
 import { RefineryProject } from '@/types/graph';
 import { saveProjectToRepo } from '@/repo-compiler/one-to-one/refinery-to-git';
 import { GitDiffInfo } from '@/repo-compiler/shared/git-types';
 import { GitPushResult } from '@/store/modules/panes/sync-project-repo-pane';
+import R from 'ramda';
 
 export class GitClient {
   private readonly uri: string;
@@ -111,6 +116,10 @@ export class GitClient {
       fs: this.fs,
       dir: this.dir
     });
+
+    if (currentBranch === '') {
+      return '';
+    }
     return currentBranch || undefined;
   }
 
@@ -266,19 +275,26 @@ export class GitClient {
     return [...deserializedProjects, ...flattenedProjects];
   }
 
-  public async saveProject(project: RefineryProject) {
+  public async writeProjectToDisk(project: RefineryProject) {
     await saveProjectToRepo(this.fs, this.dir, project);
   }
 
   private async getFilesFromFS(filesToGet: string[]): Promise<Record<string, string>> {
-    return filesToGet.reduce(async (fileLookup, file) => {
-      const awaitedFileLookup = await fileLookup;
-      const fileContent = (await tryReadFile(this.fs, this.dir, file)) || '';
-      return {
-        ...awaitedFileLookup,
-        [file]: fileContent
-      };
-    }, Promise.resolve({} as Record<string, string>));
+    const lookupArray = await Promise.all(
+      filesToGet.map(async file => {
+        const fileContent = (await tryReadFile(this.fs, this.dir, file)) || '';
+        return {
+          [file]: fileContent
+        };
+      })
+    );
+    return lookupArray.reduce(
+      (lookup, lookupItem) => ({
+        ...lookup,
+        ...lookupItem
+      }),
+      {} as Record<string, string>
+    );
   }
 
   public async getDiffFileInfo(
@@ -300,7 +316,7 @@ export class GitClient {
     // new files are ignored since they did not exist on the original branch
     const originalFileContents = await this.getFilesFromFS(deletedModifiedFiles);
 
-    await this.saveProject(project);
+    await this.writeProjectToDisk(project);
 
     const changedFileContents = await this.getFilesFromFS([...deletedModifiedFiles, ...newFiles]);
 
@@ -323,8 +339,8 @@ export class GitClient {
 
     await this.commit({
       author: {
-        name: 'Refinery Bot',
-        email: 'donotreply@refinery.io'
+        name: REFINERY_COMMIT_AUTHOR_NAME,
+        email: REFINERY_COMMIT_AUTHOR_EMAIL
       },
       message: commitMessage
     });
@@ -341,6 +357,7 @@ export class GitClient {
       if (e instanceof Errors.PushRejectedError) {
         return GitPushResult.UnableToFastForward;
       } else {
+        console.error(e);
         return GitPushResult.Other;
       }
     }

@@ -46,7 +46,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     await SyncProjectRepoPaneStoreModule.setCurrentlyDiffedFile(file);
   }
 
-  public getOriginalContent(currentlyDiffedFile: string | undefined): string {
+  public getOriginalContent(currentlyDiffedFile: string | null): string {
     if (!currentlyDiffedFile) {
       return '';
     }
@@ -58,7 +58,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     return originalFileContent;
   }
 
-  public getNewContent(currentlyDiffedFile: string | undefined): string {
+  public getNewContent(currentlyDiffedFile: string | null): string {
     if (!currentlyDiffedFile) {
       return '';
     }
@@ -230,9 +230,8 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     );
   }
 
-  public mounted() {
-    // async diff project so the UI loads faster
-    SyncProjectRepoPaneStoreModule.diffCompiledProject().then(gitDiff => {
+  public async mounted() {
+    await SyncProjectRepoPaneStoreModule.diffCompiledProject().then(gitDiff => {
       this.gitDiffInfo = gitDiff;
     });
   }

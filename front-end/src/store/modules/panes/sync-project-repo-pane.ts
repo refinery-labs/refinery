@@ -12,6 +12,7 @@ import { GitClient } from '@/repo-compiler/shared/git-client';
 import { loadProjectFromDir } from '@/repo-compiler/one-to-one/git-to-refinery';
 import uuid from 'uuid';
 import { GitDiffInfo, GitStatusResult } from '@/repo-compiler/shared/git-types';
+import { REFINERY_COMMIT_AUTHOR_NAME } from '@/repo-compiler/shared/constants';
 
 const storeName = StoreType.syncProjectRepo;
 
@@ -22,10 +23,11 @@ export enum GitPushResult {
 }
 
 const gitPushResultToMessage: Record<GitPushResult, string> = {
-  [GitPushResult.Success]: 'Successfully pushed to remote branch',
+  [GitPushResult.Success]: `${REFINERY_COMMIT_AUTHOR_NAME} successfully pushed to the remote branch.`,
   [GitPushResult.UnableToFastForward]:
     'Unable to fast forward, you can force push your project to your remote branch, overwriting any remote changes.',
-  [GitPushResult.Other]: 'Some unknown git push error has occurred'
+  [GitPushResult.Other]:
+    'Some unknown git push error has occurred. If you continue to have this problem, please reach out to the Refinery team.'
 };
 
 // Types
@@ -33,13 +35,14 @@ export interface SyncProjectRepoPaneState {
   remoteBranchName: string;
   creatingNewBranch: boolean;
   gitStatusResult: Array<StatusRow>;
-  gitPushResult: GitPushResult | undefined;
   repoBranches: string[];
   pushingToRepo: boolean;
-  currentlyDiffedFile: string | undefined;
   commitMessage: string;
-  repoCompilationError: RepoCompilationError | undefined;
   projectID: string;
+  currentlyDiffedFile: string | null;
+
+  repoCompilationError?: RepoCompilationError;
+  gitPushResult?: GitPushResult;
 }
 
 // Initial State
@@ -47,13 +50,14 @@ const moduleState: SyncProjectRepoPaneState = {
   remoteBranchName: 'master',
   creatingNewBranch: false,
   gitStatusResult: [],
-  gitPushResult: undefined,
   repoBranches: [],
   pushingToRepo: false,
-  currentlyDiffedFile: undefined,
   commitMessage: 'update project from Refinery UI',
+  projectID: '',
+  currentlyDiffedFile: null,
+
   repoCompilationError: undefined,
-  projectID: ''
+  gitPushResult: undefined
 };
 
 const initialState = deepJSONCopy(moduleState);
@@ -64,13 +68,14 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   public remoteBranchName: string = initialState.remoteBranchName;
   public creatingNewBranch: boolean = initialState.creatingNewBranch;
   public gitStatusResult: Array<StatusRow> = initialState.gitStatusResult;
-  public gitPushResult: GitPushResult | undefined = initialState.gitPushResult;
   public repoBranches: string[] = initialState.repoBranches;
   public pushingToRepo: boolean = initialState.pushingToRepo;
-  public currentlyDiffedFile: string | undefined = initialState.currentlyDiffedFile;
   public commitMessage: string = initialState.commitMessage;
-  public repoCompilationError: RepoCompilationError | undefined = initialState.repoCompilationError;
   public projectID: string = initialState.projectID;
+  public currentlyDiffedFile: string | null = initialState.currentlyDiffedFile;
+
+  public repoCompilationError?: RepoCompilationError = initialState.repoCompilationError;
+  public gitPushResult?: GitPushResult = initialState.gitPushResult;
 
   @Mutation
   public resetState() {
@@ -109,7 +114,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     return this.pushingToRepo;
   }
 
-  get getCurrentlyDiffedFile(): string | undefined {
+  get getCurrentlyDiffedFile(): string | null {
     return this.currentlyDiffedFile;
   }
 
@@ -153,7 +158,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   @Mutation
   public async clearGitStatusResult() {
     this.gitStatusResult = [];
-    this.currentlyDiffedFile = undefined;
+    this.currentlyDiffedFile = null;
   }
 
   @Mutation
@@ -162,7 +167,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   }
 
   @Mutation
-  public async setCurrentlyDiffedFile(currentlyDiffedFile: string | undefined) {
+  public async setCurrentlyDiffedFile(currentlyDiffedFile: string | null) {
     this.currentlyDiffedFile = currentlyDiffedFile;
   }
 
@@ -182,19 +187,17 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   }
 
   @Action
-  public getOpenedProject(): RefineryProject | undefined {
+  public getOpenedProject(): RefineryProject {
     if (!this.context.rootState.project.openedProject) {
-      console.error('no project open or no project config');
-      return undefined;
+      throw new Error('no project open');
     }
     return this.context.rootState.project.openedProject;
   }
 
   @Action
-  public getOpenedProjectConfig(): ProjectConfig | undefined {
+  public getOpenedProjectConfig(): ProjectConfig {
     if (!this.context.rootState.project.openedProjectConfig) {
-      console.error('no project open or no project config');
-      return undefined;
+      throw new Error('no project config open');
     }
     return this.context.rootState.project.openedProjectConfig;
   }
@@ -203,13 +206,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   public async pushToRepo(force: boolean) {
     await this.setPushingToRepo(true);
 
-    const project = await this.getOpenedProject();
     const projectConfig = await this.getOpenedProjectConfig();
-    if (!project || !projectConfig || !projectConfig.project_repo) {
-      console.error('project or project config not set');
-      await this.setPushingToRepo(false);
-      return;
-    }
 
     const gitClient = new GitClient(projectConfig.project_repo, this.projectID);
 
@@ -265,13 +262,6 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
     const project = await this.getOpenedProject();
     const projectConfig = await this.getOpenedProjectConfig();
-    if (!project || !projectConfig || !projectConfig.project_repo) {
-      console.error('project or project config not set');
-      return {
-        originalFiles: {},
-        changedFiles: {}
-      };
-    }
 
     const gitClient = new GitClient(projectConfig.project_repo, this.projectID);
     await gitClient.checkout({
@@ -279,7 +269,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
       force: true
     });
 
-    await gitClient.saveProject(project);
+    await gitClient.writeProjectToDisk(project);
 
     // get list of files that were changed
     const statusResult = await gitClient.status();
