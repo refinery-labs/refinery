@@ -12,7 +12,6 @@ export interface ProjectDownloadZipMetadata {
   projectVersion: number;
   blockName: string;
   blockId: string;
-  exportedTimestamp: number;
   version: string;
 }
 
@@ -217,7 +216,6 @@ export function createDownloadZipConfig(
       projectName: project.name,
       projectId: project.project_id,
       projectVersion: project.version,
-      exportedTimestamp: Date.now(),
       version: '1.0.0'
     }
   };

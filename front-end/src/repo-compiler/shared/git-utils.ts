@@ -1,12 +1,23 @@
-import { CallbackFsClient, PromiseFsClient } from 'isomorphic-git';
+import { CallbackFsClient, PromiseFsClient, StatusRow } from 'isomorphic-git';
 import Path from 'path';
 import { PROJECT_CONFIG_FILENAME } from '@/repo-compiler/shared/constants';
-import { LightningFsFile } from '@/repo-compiler/shared/git-types';
+import { GitStatusResult, LightningFsFile } from '@/repo-compiler/shared/git-types';
+import { RefineryProject } from '@/types/graph';
 
-export class RepoCompilationError extends Error {}
+export interface RepoCompilationErrorContext {
+  filename?: string;
+  fileContent?: string;
+}
 
-export function repoError(e: Error): RepoCompilationError {
-  return new RepoCompilationError(e.toString());
+export class RepoCompilationError extends Error {
+  errorContext: RepoCompilationErrorContext | undefined;
+
+  constructor(message: string, errorContext?: RepoCompilationErrorContext) {
+    super(message);
+
+    this.name = 'RepoCompilationError';
+    this.errorContext = errorContext;
+  }
 }
 
 export async function pathExists(fs: PromiseFsClient, gitDir: string, path: string): Promise<boolean> {
@@ -35,6 +46,12 @@ export async function readFile(fs: PromiseFsClient, gitDir: string, path?: strin
   const filePath = path !== undefined ? Path.join(gitDir, path) : gitDir;
 
   const fileContent = await fs.promises.readFile(filePath);
+
+  // for symlinks the file content will be a string
+  if (typeof fileContent === 'string') {
+    return fileContent;
+  }
+
   return new TextDecoder('utf-8').decode(fileContent);
 }
 
@@ -60,25 +77,111 @@ export async function readlink(fs: PromiseFsClient, path: string): Promise<strin
   if (!fs.promises.readlink) {
     throw new RepoCompilationError('filesystem readlink function is not defined');
   }
-  const result = await fs.promises.readlink(path).catch(repoError);
-  if (result instanceof Error) {
-    throw result;
+  const repoFileContext: RepoCompilationErrorContext = {
+    filename: path
+  };
+  try {
+    return await fs.promises.readlink(path);
+  } catch (e) {
+    throw new RepoCompilationError(e.toString(), repoFileContext);
   }
-  return result;
+}
+
+async function pathIsSymlink(fs: PromiseFsClient, path: string) {
+  const pathLStat = await fs.promises.lstat(path);
+  return pathLStat.isSymbolicLink();
+}
+
+async function resolvedPathExists(fs: PromiseFsClient, path: string) {
+  const pathStat = await fs.promises.lstat(path);
+  return pathStat.isFile();
 }
 
 export async function isPathValidSymlink(fs: PromiseFsClient, path: string) {
-  const pathLStat = await fs.promises.lstat(path).catch((e: Error) => new RepoCompilationError(e.toString()));
-  if (pathLStat instanceof Error) {
-    throw pathLStat;
-  }
-  const pathIsSymlink = pathLStat.isSymbolicLink();
+  const repoFileContext: RepoCompilationErrorContext = {
+    filename: path
+  };
 
-  const pathStat = await fs.promises.lstat(path).catch(repoError);
-  if (pathStat instanceof Error) {
-    throw pathStat;
+  try {
+    return (await pathIsSymlink(fs, path)) && (await resolvedPathExists(fs, path));
+  } catch (e) {
+    throw new RepoCompilationError(e.toString(), repoFileContext);
   }
-  const resolvedPathExists = pathStat.isFile();
+}
 
-  return pathIsSymlink && resolvedPathExists;
+//https://isomorphic-git.org/docs/en/statusMatrix
+
+const STATUS_MAPPING: Record<string, string> = {
+  '020': 'new, untracked',
+  '022': 'added, staged',
+  '023': 'added, staged, with unstaged changes',
+  '100': 'deleted, staged',
+  '101': 'deleted, unstaged',
+  '111': 'unmodified',
+  '121': 'modified, unstaged',
+  '122': 'modified, staged',
+  '123': 'modified, staged, with unstage changes'
+};
+
+export function getStatusMessageForFileInfo(row: StatusRow): string {
+  const lookupKey = `${row[1]}${row[2]}${row[3]}`;
+
+  return (lookupKey !== '' && STATUS_MAPPING[lookupKey]) || 'unknown git status';
+}
+
+const newFilesResult = () => ({ newFiles: 1, modifiedFiles: 0, deletedFiles: 0 });
+const modifiedFilesResult = () => ({ newFiles: 0, modifiedFiles: 1, deletedFiles: 0 });
+const deleteFilesResult = () => ({ newFiles: 0, modifiedFiles: 0, deletedFiles: 1 });
+
+const GIT_RESULT_LOOKUP: Record<string, () => GitStatusResult> = {
+  '020': newFilesResult,
+  '022': newFilesResult,
+  '023': newFilesResult,
+  '100': deleteFilesResult,
+  '101': deleteFilesResult,
+  '121': modifiedFilesResult,
+  '122': modifiedFilesResult,
+  '123': modifiedFilesResult
+};
+
+export function getStatusForFileInfo(row: StatusRow): GitStatusResult {
+  const lookupKey = `${row[1]}${row[2]}${row[3]}`;
+
+  const lookupFn = lookupKey !== '' && GIT_RESULT_LOOKUP[lookupKey];
+
+  if (!lookupFn) {
+    // default case
+    return { newFiles: 0, modifiedFiles: 0, deletedFiles: 0 };
+  }
+
+  return lookupFn();
+}
+
+export function isFileUnmodified(row: StatusRow): boolean {
+  const headStatus = row[1];
+  const workdirStatus = row[2];
+  const stageStatus = row[3];
+
+  return headStatus === 1 && workdirStatus === 1 && stageStatus === 1;
+}
+
+export function isFileNew(row: StatusRow): boolean {
+  const headStatus = row[1];
+  const workdirStatus = row[2];
+
+  return headStatus === 0 && workdirStatus === 2;
+}
+
+export function isFileDeleted(row: StatusRow): boolean {
+  const headStatus = row[1];
+  const workdirStatus = row[2];
+
+  return headStatus === 1 && workdirStatus === 0;
+}
+
+export function isFileDeletedOrModified(row: StatusRow): boolean {
+  const headStatus = row[1];
+  const workdirStatus = row[2];
+
+  return headStatus === 1 && (workdirStatus === 0 || workdirStatus === 2);
 }

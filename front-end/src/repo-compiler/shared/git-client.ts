@@ -4,30 +4,52 @@ import git, {
   AuthCallback,
   AuthFailureCallback,
   AuthSuccessCallback,
+  CallbackFsClient,
+  Errors,
   HttpClient,
   MessageCallback,
   ProgressCallback,
-  PromiseFsClient
+  PromiseFsClient,
+  SignCallback,
+  StatusRow
 } from 'isomorphic-git';
 import http from '@/repo-compiler/git-http';
-import { listFilesInFolder, pathExists, readFile, statFile, tryReadFile } from '@/repo-compiler/shared/git-utils';
-import { REFINERY_PROJECTS_FOLDER } from '@/repo-compiler/shared/constants';
+import {
+  isFileDeleted,
+  isFileDeletedOrModified,
+  isFileNew,
+  listFilesInFolder,
+  pathExists,
+  readFile,
+  statFile,
+  tryReadFile
+} from '@/repo-compiler/shared/git-utils';
+import {
+  REFINERY_COMMIT_AUTHOR_EMAIL,
+  REFINERY_COMMIT_AUTHOR_NAME,
+  REFINERY_PROJECTS_FOLDER
+} from '@/repo-compiler/shared/constants';
 import { InvalidGitRepoStructure } from '@/repo-compiler/shared/errors';
+import { RefineryProject } from '@/types/graph';
+import { saveProjectToRepo } from '@/repo-compiler/one-to-one/refinery-to-git';
+import { GitDiffInfo } from '@/repo-compiler/shared/git-types';
+import { GitPushResult } from '@/store/modules/panes/sync-project-repo-pane';
+import R from 'ramda';
 
 export class GitClient {
   private readonly uri: string;
   public readonly fs: PromiseFsClient;
   public readonly dir: string;
 
-  constructor(uri: string) {
+  constructor(uri: string, projectID: string, resetFS?: boolean) {
     this.uri = uri;
 
     this.fs = new LightningFS('project', {
-      // TODO: Sort out of this is actually necessary or not
-      // wipe: true
+      wipe: resetFS === undefined ? false : resetFS
     });
 
-    this.dir = `/projects/${encodeURIComponent(uri)}`;
+    // TODO this needs to be unique per project in the case of a one to many repo
+    this.dir = `/projects/${projectID}`;
   }
 
   public async checkout(
@@ -89,6 +111,118 @@ export class GitClient {
     });
   }
 
+  public async currentBranch(): Promise<string | undefined> {
+    const currentBranch = await git.currentBranch({
+      fs: this.fs,
+      dir: this.dir
+    });
+
+    if (currentBranch === '') {
+      return '';
+    }
+    return currentBranch || undefined;
+  }
+
+  public async listBranches(
+    options?: Partial<{
+      remote?: string;
+    }>
+  ): Promise<string[]> {
+    return await git.listBranches({
+      fs: this.fs,
+      dir: this.dir,
+      ...options
+    });
+  }
+
+  public async status(): Promise<Array<StatusRow>> {
+    return await git.statusMatrix({
+      fs: this.fs,
+      dir: this.dir
+    });
+  }
+
+  public async add(path: string) {
+    await git.add({
+      fs: this.fs,
+      dir: this.dir,
+      filepath: path
+    });
+  }
+
+  public async remove(path: string) {
+    await git.add({
+      fs: this.fs,
+      dir: this.dir,
+      filepath: path
+    });
+  }
+
+  public async commit(
+    options?: Partial<{
+      fs: CallbackFsClient | PromiseFsClient;
+      onSign?: SignCallback;
+      dir?: string;
+      gitdir?: string;
+      message: string;
+      author?: {
+        name?: string;
+        email?: string;
+        timestamp?: number;
+        timezoneOffset?: number;
+      };
+      committer?: {
+        name?: string;
+        email?: string;
+        timestamp?: number;
+        timezoneOffset?: number;
+      };
+      signingKey?: string;
+      dryRun?: boolean;
+      noUpdateBranch?: boolean;
+      ref?: string;
+      parent?: string[];
+      tree?: string;
+    }>
+  ) {
+    await git.commit({
+      fs: this.fs,
+      dir: this.dir,
+      message: '',
+      ...options
+    });
+  }
+  public async push(
+    options?: Partial<{
+      fs: CallbackFsClient | PromiseFsClient;
+      http: HttpClient;
+      onProgress?: ProgressCallback;
+      onMessage?: MessageCallback;
+      onAuth?: AuthCallback;
+      onAuthFailure?: AuthFailureCallback;
+      onAuthSuccess?: AuthSuccessCallback;
+      dir?: string;
+      gitdir?: string;
+      ref?: string;
+      url?: string;
+      remote?: string;
+      remoteRef?: string;
+      force?: boolean;
+      delete?: boolean;
+      corsProxy?: string;
+      headers?: {
+        [x: string]: string;
+      };
+    }>
+  ) {
+    await git.push({
+      fs: this.fs,
+      dir: this.dir,
+      http,
+      ...options
+    });
+  }
+
   public async getProjectsList() {
     await this.clone({
       noCheckout: true
@@ -139,5 +273,93 @@ export class GitClient {
 
     // Merge together all projects into a list
     return [...deserializedProjects, ...flattenedProjects];
+  }
+
+  public async writeProjectToDisk(project: RefineryProject) {
+    await saveProjectToRepo(this.fs, this.dir, project);
+  }
+
+  private async getFilesFromFS(filesToGet: string[]): Promise<Record<string, string>> {
+    const lookupArray = await Promise.all(
+      filesToGet.map(async file => {
+        const fileContent = (await tryReadFile(this.fs, this.dir, file)) || '';
+        return {
+          [file]: fileContent
+        };
+      })
+    );
+    return lookupArray.reduce(
+      (lookup, lookupItem) => ({
+        ...lookup,
+        ...lookupItem
+      }),
+      {} as Record<string, string>
+    );
+  }
+
+  public async getDiffFileInfo(
+    project: RefineryProject,
+    branchName: string,
+    gitStatusResult: Array<StatusRow>
+  ): Promise<GitDiffInfo> {
+    // TODO symlinks always show up as modified files
+    const deletedModifiedFiles = gitStatusResult
+      .filter(fileRow => isFileDeletedOrModified(fileRow))
+      .map(fileRow => fileRow[0]);
+    const newFiles = gitStatusResult.filter(fileRow => isFileNew(fileRow)).map(fileRow => fileRow[0]);
+
+    await this.checkout({
+      ref: branchName,
+      force: true
+    });
+
+    // new files are ignored since they did not exist on the original branch
+    const originalFileContents = await this.getFilesFromFS(deletedModifiedFiles);
+
+    await this.writeProjectToDisk(project);
+
+    const changedFileContents = await this.getFilesFromFS([...deletedModifiedFiles, ...newFiles]);
+
+    return {
+      originalFiles: originalFileContents,
+      changedFiles: changedFileContents
+    };
+  }
+
+  public async stageFilesAndPushToRemote(
+    gitStatusResult: Array<StatusRow>,
+    branchName: string,
+    commitMessage: string,
+    force: boolean
+  ) {
+    const filesToDelete = gitStatusResult.filter(fileRow => isFileDeleted(fileRow)).map(fileRow => fileRow[0]);
+
+    await this.add('.');
+    await Promise.all(filesToDelete.map(async filepath => await this.remove(filepath)));
+
+    await this.commit({
+      author: {
+        name: REFINERY_COMMIT_AUTHOR_NAME,
+        email: REFINERY_COMMIT_AUTHOR_EMAIL
+      },
+      message: commitMessage
+    });
+
+    try {
+      await this.push({
+        remote: 'origin',
+        remoteRef: branchName,
+        corsProxy: `${process.env.VUE_APP_API_HOST}/api/v1/github/proxy`,
+        force
+      });
+      return GitPushResult.Success;
+    } catch (e) {
+      if (e instanceof Errors.PushRejectedError) {
+        return GitPushResult.UnableToFastForward;
+      } else {
+        console.error(e);
+        return GitPushResult.Other;
+      }
+    }
   }
 }

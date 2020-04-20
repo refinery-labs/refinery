@@ -7,6 +7,8 @@ import { GitPushResult } from '@/store/modules/panes/sync-project-repo-pane';
 import { branchNameBlacklistRegex, newBranchText } from '@/constants/project-editor-constants';
 import CreateToastMixin from '@/mixins/CreateToastMixin';
 import { Watch } from 'vue-property-decorator';
+import { preventDefaultWrapper } from '@/utils/dom-utils';
+import { GitDiffInfo } from '@/repo-compiler/shared/git-types';
 
 const syncProjectRepo = namespace('syncProjectRepo');
 
@@ -16,6 +18,10 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
   @syncProjectRepo.State remoteBranchName!: string;
 
   public showingGitStatusDetails: boolean = false;
+  public forcePushModalVisible: boolean = false;
+
+  // TODO this should be in the store
+  public gitDiffInfo: GitDiffInfo = { originalFiles: {}, changedFiles: {} };
 
   @Watch('gitPushResult')
   public async showGitPushErrors() {
@@ -33,7 +39,31 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
 
   @Watch('remoteBranchName')
   public async diffCompiledProject() {
-    await SyncProjectRepoPaneStoreModule.diffCompiledProject();
+    this.gitDiffInfo = await SyncProjectRepoPaneStoreModule.diffCompiledProject();
+  }
+
+  public async changeCurrentlyDiffedFile(file: string) {
+    await SyncProjectRepoPaneStoreModule.setCurrentlyDiffedFile(file);
+  }
+
+  public getOriginalContent(currentlyDiffedFile: string | null): string {
+    if (!currentlyDiffedFile) {
+      return '';
+    }
+
+    const originalFileContent = this.gitDiffInfo.originalFiles[currentlyDiffedFile];
+    if (!originalFileContent) {
+      return '';
+    }
+    return originalFileContent;
+  }
+
+  public getNewContent(currentlyDiffedFile: string | null): string {
+    if (!currentlyDiffedFile) {
+      return '';
+    }
+
+    return this.gitDiffInfo.changedFiles[currentlyDiffedFile];
   }
 
   public renderModal() {
@@ -45,13 +75,23 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
       hidden: () => (this.showingGitStatusDetails = false)
     };
 
+    const diffFiles = Object.keys(this.gitDiffInfo.changedFiles).map(file => {
+      return { value: file, text: file };
+    });
+
+    const currentlyDiffedFile = SyncProjectRepoPaneStoreModule.getCurrentlyDiffedFile;
+
+    const originalContent = this.getOriginalContent(currentlyDiffedFile);
+    const newContent = this.getNewContent(currentlyDiffedFile);
+
     const props = {
-      name: 'Git Status',
+      name: `Git Status: ${currentlyDiffedFile}`,
       lang: 'text',
-      content: SyncProjectRepoPaneStoreModule.formattedGitStatusResult,
       readOnly: true,
       disableFullscreen: true,
-      extraClasses: 'height--100percent'
+      diffEditor: true,
+      originalContent: originalContent,
+      content: newContent
     };
 
     return (
@@ -63,8 +103,18 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
         title="Git status details"
         visible={true}
       >
-        <div style="height: 600px">
-          <RefineryCodeEditor props={props} />
+        <div>
+          <div style="height: 600px">
+            <RefineryCodeEditor props={props} />
+          </div>
+          <div class="margin-top--normal">
+            <label class="d-block">Choose a file to view diff:</label>
+            <b-form-select
+              on={{ input: this.changeCurrentlyDiffedFile }}
+              value={currentlyDiffedFile}
+              options={diffFiles}
+            />
+          </div>
         </div>
       </b-modal>
     );
@@ -97,30 +147,71 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     return <div />;
   }
 
+  public async forcePushToRepo() {
+    await SyncProjectRepoPaneStoreModule.forcePushToRemoteBranch();
+    this.forcePushModalVisible = false;
+  }
+
+  public showForcePushModal() {
+    this.forcePushModalVisible = true;
+  }
+
+  public renderForcePushWarning() {
+    if (!this.forcePushModalVisible) {
+      return null;
+    }
+
+    const modalOnHandlers = {
+      hidden: () => {
+        this.forcePushModalVisible = false;
+      }
+    };
+
+    return (
+      <b-modal
+        on={modalOnHandlers}
+        hide-footer={true}
+        title={`Force push to the branch ${SyncProjectRepoPaneStoreModule.remoteBranchName}?`}
+        visible={this.forcePushModalVisible}
+      >
+        <b-form on={{ submit: preventDefaultWrapper(this.forcePushToRepo) }}>
+          <h4>Warning! You may break something!</h4>
+          <p>This will overwrite any changes that were made on the branch:</p>
+          <p class="text-bold text-align--center">{SyncProjectRepoPaneStoreModule.remoteBranchName}</p>
+          <p>
+            The contents of the currently opened project will be forcefully set on this branch. Removing any changes
+            that were possibly made by someone else.
+          </p>
+          <p>To resolve this, push this project to another branch and handle the merge conflict outside of Refinery.</p>
+
+          <div class="display--flex">
+            <b-button
+              class="mr-1 ml-1 flex-grow--1 width--100percent"
+              variant="danger"
+              type="submit"
+              disabled={SyncProjectRepoPaneStoreModule.isPushingToRepo}
+            >
+              Confirm Force Push
+            </b-button>
+          </div>
+        </b-form>
+      </b-modal>
+    );
+  }
+
   public renderCommitButtons() {
     if (SyncProjectRepoPaneStoreModule.getGitPushResult === GitPushResult.UnableToFastForward) {
       return (
-        <div>
-          <b-button-group class="col-12">
-            <b-button
-              variant="primary"
-              class="col-6"
-              type="submit"
-              disabled={SyncProjectRepoPaneStoreModule.isPushingToRepo}
-              on={{ click: SyncProjectRepoPaneStoreModule.pushToRemoteBranch }}
-            >
-              Push to branch
-            </b-button>
-            <b-button
-              variant="danger"
-              class="col-6"
-              type="submit"
-              disabled={SyncProjectRepoPaneStoreModule.isPushingToRepo}
-              on={{ click: SyncProjectRepoPaneStoreModule.forcePushToRemoteBranch }}
-            >
-              Force push
-            </b-button>
-          </b-button-group>
+        <div class="mt-2">
+          <b-button
+            variant="danger"
+            class="col-12"
+            type="submit"
+            disabled={SyncProjectRepoPaneStoreModule.isPushingToRepo}
+            on={{ click: this.showForcePushModal }}
+          >
+            Force push
+          </b-button>
         </div>
       );
     }
@@ -139,9 +230,20 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     );
   }
 
-  public mounted() {
-    // async diff project so the UI loads faster
-    SyncProjectRepoPaneStoreModule.diffCompiledProject();
+  public async mounted() {
+    await SyncProjectRepoPaneStoreModule.diffCompiledProject().then(gitDiff => {
+      this.gitDiffInfo = gitDiff;
+    });
+  }
+
+  public async setRemoteBranchName(branchName: string) {
+    await SyncProjectRepoPaneStoreModule.setRemoteBranchName(branchName);
+    await SyncProjectRepoPaneStoreModule.clearGitStatusResult();
+  }
+
+  public async setNewRemoteBranchName(branchName: string) {
+    await SyncProjectRepoPaneStoreModule.setNewRemoteBranchName(branchName);
+    await SyncProjectRepoPaneStoreModule.clearGitStatusResult();
   }
 
   public render(h: CreateElement): VNode {
@@ -161,6 +263,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     const currentSelectedBranch = usingExistingBranch ? currentBranch : newBranchText;
 
     const validBranch = currentBranch !== '' ? !branchNameBlacklistRegex.test(currentBranch) : null;
+    const remoteBranchName = SyncProjectRepoPaneStoreModule.getRemoteBranchName;
 
     return (
       <div class={loadingClasses}>
@@ -168,7 +271,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
           <div class="padding--small">
             <label class="d-block">Branch Name:</label>
             <b-form-select
-              on={{ input: SyncProjectRepoPaneStoreModule.setRemoteBranchName }}
+              on={{ input: this.setRemoteBranchName }}
               value={currentSelectedBranch}
               options={selectRepoBranches}
             />
@@ -180,8 +283,8 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
                 autofocus={true}
                 required={true}
                 state={validBranch}
-                value={SyncProjectRepoPaneStoreModule.getRemoteBranchName}
-                on={{ input: SyncProjectRepoPaneStoreModule.setNewRemoteBranchName }}
+                value={remoteBranchName}
+                on={{ input: this.setNewRemoteBranchName }}
                 placeholder="eg, new-feature"
               />
             </div>
@@ -198,6 +301,14 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
 
         <hr />
 
+        <label class="d-block">Commit message:</label>
+        <b-form-input
+          type="text"
+          required={true}
+          value={SyncProjectRepoPaneStoreModule.commitMessage}
+          on={{ input: SyncProjectRepoPaneStoreModule.setCommitMessage }}
+          placeholder=""
+        />
         {this.renderCommitButtons()}
 
         <hr />
@@ -205,6 +316,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
         <div class="deploy-pane-container__content overflow--scroll-y-auto">{this.renderGitStatusDetails()}</div>
 
         {this.renderModal()}
+        {this.renderForcePushWarning()}
       </div>
     );
   }
