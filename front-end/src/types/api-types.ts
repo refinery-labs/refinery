@@ -189,6 +189,19 @@ export interface ProductionDeploymentRefineryProjectJson {
   workflow_file_links: ProductionWorkflowFileLink[];
 }
 
+// ListReposForUser
+export interface ListGithubReposForUserRequest extends BaseApiRequest {}
+
+export interface GithubRepo {
+  full_name: string;
+  clone_url: string;
+}
+
+export interface ListGithubReposForUserResponse extends BaseApiRequest {
+  repos: GithubRepo[];
+  success: boolean;
+}
+
 // GetProjectConfig
 export interface GetProjectConfigRequest extends BaseApiRequest {
   project_id: string;

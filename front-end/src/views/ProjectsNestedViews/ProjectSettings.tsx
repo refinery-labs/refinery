@@ -4,16 +4,23 @@ import { ProjectConfig, ProjectLogLevel, SupportedLanguage } from '@/types/graph
 import { namespace } from 'vuex-class';
 import Loading from '@/components/Common/Loading.vue';
 import { LoadingContainerProps } from '@/types/component-types';
+import { GithubRepo } from '@/types/api-types';
 
 const project = namespace('project');
+const syncProjectRepo = namespace('syncProjectRepo');
 
 @Component
 export default class ProjectSettings extends Vue {
+  private userRepos: GithubRepo[] | null = null;
+  private repoSearch: string = '';
+  private showingSelectRepoModal: boolean = false;
+
   @project.State openedProjectConfig!: ProjectConfig | null;
 
   @project.Action setProjectConfigLoggingLevel!: (projectConfigLoggingLevel: ProjectLogLevel) => void;
   @project.Action setProjectConfigRuntimeLanguage!: (projectConfigRuntimeLanguage: SupportedLanguage) => void;
   @project.Action setProjectConfigRepo!: (projectConfigRepo: string) => void;
+  @syncProjectRepo.Action listReposForUser!: () => GithubRepo[] | null;
 
   private getLogLevelValue() {
     // TODO: Move this business logic to an action in the store.
@@ -37,6 +44,77 @@ export default class ProjectSettings extends Vue {
       return '';
     }
     return this.openedProjectConfig.project_repo;
+  }
+
+  private setShowingSelectRepoModal(showing: boolean) {
+    this.showingSelectRepoModal = showing;
+  }
+
+  private setRepoSearch(search: string) {
+    this.repoSearch = search;
+  }
+
+  private async doSetProjectRepo(clone_url: string) {
+    await this.setProjectConfigRepo(clone_url);
+    this.setShowingSelectRepoModal(false);
+  }
+
+  private renderUserRepoItem(repo: GithubRepo) {
+    return (
+      <b-list-group-item
+        className="set-project-repo__description display--flex"
+        button
+        on={{ click: async () => await this.doSetProjectRepo(repo.clone_url) }}
+      >
+        <h5 class="mb-1">{repo.full_name}</h5>
+      </b-list-group-item>
+    );
+  }
+
+  private renderUserRepos() {
+    if (!this.userRepos) {
+      return <p>User has not authorized Github</p>;
+    }
+
+    const searchRepoNames = (repo: GithubRepo) => {
+      return repo.full_name.toLowerCase().includes(this.repoSearch.toLowerCase());
+    };
+
+    return (
+      <b-list-group class="set-project-repo">
+        {this.userRepos.filter(searchRepoNames).map(this.renderUserRepoItem)}
+      </b-list-group>
+    );
+  }
+
+  private renderSelectRepoModal() {
+    if (!this.showingSelectRepoModal) {
+      return;
+    }
+
+    const modalOnHandlers = {
+      hidden: () => this.setShowingSelectRepoModal(false)
+    };
+
+    return (
+      <b-modal
+        on={modalOnHandlers}
+        ok-variant="danger"
+        footer-class="p-2"
+        ref="console-modal"
+        hide-footer
+        title="Select Project Repo"
+        visible={true}
+      >
+        <b-form-input
+          class="margin-bottom--normal"
+          placeholder="Search for repo..."
+          value={this.repoSearch}
+          on={{ input: this.setRepoSearch }}
+        />
+        {this.renderUserRepos()}
+      </b-modal>
+    );
   }
 
   private renderLogLevel() {
@@ -85,12 +163,19 @@ export default class ProjectSettings extends Vue {
 
   private renderProjectRepo() {
     return (
-      <b-form-group description="The git repository where blocks can be imported from.">
-        <label class="d-block" htmlFor="git-repo-input">
-          Project Git Repository
-        </label>
+      <b-form-group description="The git repository where this project will be synced with.">
         <div class="input-group with-focus">
-          <b-form-input id="git-repo-input" value={this.getProjectRepo()} on={{ change: this.setProjectConfigRepo }} />
+          <b-button
+            class="margin-right--small"
+            on={{
+              click: () => {
+                this.setShowingSelectRepoModal(true);
+              }
+            }}
+          >
+            Set Project Repo
+          </b-button>
+          <b-form-input value={this.getProjectRepo()} disabled />
         </div>
       </b-form-group>
     );
@@ -108,13 +193,17 @@ export default class ProjectSettings extends Vue {
         <div class="card card-default">
           <div class="card-header">{name}</div>
           <div class="card-body text-align--left">
-            {this.renderProjectRepo()}
             {this.renderLogLevel()}
             {this.renderRuntimeLanguage()}
+            {this.renderProjectRepo()}
           </div>
         </div>
       </Loading>
     );
+  }
+
+  public async mounted() {
+    this.userRepos = await this.listReposForUser();
   }
 
   public render(h: CreateElement): VNode {
@@ -133,6 +222,7 @@ export default class ProjectSettings extends Vue {
             <div class="col-lg-8 align-self-center">{this.renderSettingsCard('Project Settings')}</div>
           </div>
         </div>
+        {this.renderSelectRepoModal()}
       </div>
     );
   }

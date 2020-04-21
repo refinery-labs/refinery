@@ -27,8 +27,11 @@ import {
   GetProjectShortlinkResponse,
   GetSavedProjectRequest,
   GetSavedProjectResponse,
+  GithubRepo,
   InfraTearDownRequest,
   InfraTearDownResponse,
+  ListGithubReposForUserRequest,
+  ListGithubReposForUserResponse,
   RenameProjectRequest,
   RenameProjectResponse,
   SavedBlockStatusCheckRequest,
@@ -575,4 +578,17 @@ export async function renameProject(projectId: string, name: string) {
   }
 
   return null;
+}
+
+export async function listGithubReposForUser(): Promise<GithubRepo[] | null> {
+  const response = await makeApiRequest<ListGithubReposForUserRequest, ListGithubReposForUserResponse>(
+    API_ENDPOINT.ListGithubReposForUser,
+    {}
+  );
+
+  if (!response || !response.success) {
+    return null;
+  }
+
+  return response.repos;
 }
