@@ -40,6 +40,8 @@ from controller.auth.github.oauth_provider import GithubOAuthProvider
 #   "following": 24,
 #   "login": "freeqaz"
 # }
+from controller.decorators import authenticated
+
 
 class AuthenticateWithGithubDependencies:
 	@pinject.copy_args_to_public_fields
@@ -73,9 +75,10 @@ class AuthenticateWithGithub( BaseHandler ):
 			# TODO: Replace this via a "with" statement once we have that setup
 			dbsession = self.dbsession
 
-			user = self.user_creation_assistant.login_user_via_oauth( dbsession, oauth_user_data )
-
-			if not user:
+			user = self.get_authenticated_user()
+			if user:
+				self.user_creation_assistant.login_user_via_oauth( dbsession, user, oauth_user_data )
+			else:
 				user = yield self.user_creation_assistant.create_new_user_via_oauth( dbsession, self.request, oauth_user_data )
 
 			dbsession.commit()
@@ -92,12 +95,7 @@ class AuthenticateWithGithub( BaseHandler ):
 			self.respond_with_error( e.message )
 			raise gen.Return()
 
-		self.write({
-			"success": True,
-			"result": {
-				"msg": "Login via Github successful"
-			}
-		})
+		self.redirect("/projects")
 
 	@gen.coroutine
 	def post( self ):

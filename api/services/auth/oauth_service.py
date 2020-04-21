@@ -21,36 +21,6 @@ class OAuthService:
 		"""
 		self.logger = logger
 
-	def search_for_existing_user( self, dbsession, oauth_user_data ):
-		"""
-		Attempts to associate the OAuth data against an existing user.
-		:type dbsession: sqlalchemy.orm.Session
-		:type oauth_user_data: OAuthUserData
-		:returns If successful, returns the user. Otherwise, returns None.
-		:rtype User
-		"""
-		# Check against the database for any existing OAuth users
-		# TODO: Make this filter be case-insensitive
-		existing_oauth_match = dbsession.query( UserOAuthAccountModel ).filter_by(
-			provider=oauth_user_data.provider,
-			provider_unique_id=oauth_user_data.provider_unique_id
-		).first()
-
-		# Fetch the existing user if there is a match
-		if existing_oauth_match is not None:
-			return dbsession.query( User ).filter_by( id=existing_oauth_match.user_id ).first()
-
-		# Check if any users already are signed up with the same email as what we just retrieved
-		# NOTE: This could result in account takeover so might be worth adding a verification step here eventually
-		# TODO: Make this filter be case-insensitive
-		existing_user_match = dbsession.query( User ).filter_by( email=oauth_user_data.email ).first()
-
-		if existing_user_match is not None:
-			return existing_user_match
-
-		# No matches, so just return nothing
-		return None
-
 	def add_token_for_user( self, dbsession, user, oauth_user_data ):
 		"""
 		Associates the OAuth data against an existing user.
@@ -69,6 +39,8 @@ class OAuthService:
 			user.id,
 			oauth_user_data.provider
 		)
+
+		print user_oauth_account
 
 		user_oauth_data_record = UserOAuthDataRecordModel(
 			oauth_user_data.raw_response_data,

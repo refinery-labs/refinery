@@ -44,38 +44,27 @@ class UserCreationAssistant:
 		for project in example_projects:
 			dbsession.add( project )
 
-	def login_user_via_oauth( self, dbsession, oauth_user_data ):
+	def login_user_via_oauth( self, dbsession, current_user, oauth_user_data ):
 		"""
 		Logs a user into Refinery via OAuth.
 		:type dbsession: sqlalchemy.orm.Session
+		:type current_user: User
+		:param current_user: Currently logged in user
 		:param oauth_user_data: Instance of OAuthUserData that contains information to process the OAuth login.
 		:type oauth_user_data: OAuthUserData
 		:return: User that was located and updated
 		"""
-
-		self.logger( "Searching database for user: " + repr( oauth_user_data.email ) )
-		user = self.oauth_service.search_for_existing_user(
-			dbsession,
-			oauth_user_data
-		)
-
-		# Just update the user and log them in
-		if user is None:
-			return None
-
 		# This records the latest OAuth token to the database
 		self.update_user_oauth_record(
 			dbsession,
-			user,
+			current_user,
 			oauth_user_data
 		)
 
 		# Save the state to the database
-		dbsession.add( user )
+		dbsession.commit()
 
-		self.logger( "Successful Github OAuth login flow for user: " + repr( user.email ) )
-
-		return user
+		self.logger( "Successful Github OAuth login flow for user: " + repr( current_user.email ) )
 
 	@gen.coroutine
 	def create_new_user_via_oauth( self, dbsession, request, oauth_user_data ):

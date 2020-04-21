@@ -101,7 +101,9 @@ export default class OffsideContentBar extends Vue {
             </template>
             <h3 class="text-center text-thin mt-4">User Settings</h3>
             <div class="list-group">
-              <b-button on={{ click: () => this.authWithGithub() }}>Authenticate with github</b-button>
+              <b-button class="margin--normal" on={{ click: () => this.authWithGithub() }}>
+                Authenticate with github
+              </b-button>
               {/*<b-form-group description="Keyboard mode for text editor blocks.">*/}
               {/*  <label class="d-block">Editor Key Mode:</label>*/}
               {/*  <b-form-select*/}
