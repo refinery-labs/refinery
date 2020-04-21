@@ -9,7 +9,8 @@ from models import CachedExecutionLogsShard
 from pyconstants.project_constants import REGEX_WHITELISTS
 from utils.general import logit
 from utils.locker import AcquireFailure
-
+from utils.mapper import execution_pipeline_id_dict_to_frontend_format
+from utils.mapper import execution_log_query_results_to_pipeline_id_dict
 
 @gen.coroutine
 def delete_logs( task_spawner, credentials, project_id ):
@@ -485,13 +486,13 @@ def get_execution_stats_since_timestamp( db_session_maker, task_spawner, credent
 	execution_log_results = execution_log_results + cached_execution_log_results
 
 	start_time = time.time()
-	execution_pipeline_dict = TaskSpawner._execution_log_query_results_to_pipeline_id_dict(
+	execution_pipeline_dict = execution_log_query_results_to_pipeline_id_dict(
 		execution_log_results
 	)
 	logit("--- Converting to execution_pipeline_dict: %s seconds ---" % (time.time() - start_time), "debug" )
 
 	start_time = time.time()
-	frontend_format = TaskSpawner._execution_pipeline_id_dict_to_frontend_format(
+	frontend_format = execution_pipeline_id_dict_to_frontend_format(
 		execution_pipeline_dict
 	)
 	logit("--- Converting to front-end-format: %s seconds ---" % (time.time() - start_time), "debug" )
