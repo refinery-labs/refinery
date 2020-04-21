@@ -26,6 +26,7 @@ export default class ProjectSettings extends Vue {
   @project.Action setProjectConfigRuntimeLanguage!: (projectConfigRuntimeLanguage: SupportedLanguage) => void;
   @project.Action setProjectConfigRepo!: (projectConfigRepo: string) => void;
   @projectSettings.Action listReposForUser!: () => GithubRepo[] | null;
+  @projectSettings.Action reorganizeUserRepos!: () => void;
 
   private getLogLevelValue() {
     // TODO: Move this business logic to an action in the store.
@@ -51,17 +52,27 @@ export default class ProjectSettings extends Vue {
     return this.openedProjectConfig.project_repo;
   }
 
+  private getCurrentlyConfiguredRepoURL(): string | null {
+    if (!this.openedProjectConfig || !this.openedProjectConfig.project_repo) {
+      return null;
+    }
+    return this.openedProjectConfig.project_repo;
+  }
+
   private setShowingSelectRepoModal(showing: boolean) {
     this.showingSelectRepoModal = showing;
+    if (!showing) {
+      this.reorganizeUserRepos();
+    }
   }
 
   private setRepoSearch(search: string) {
     this.repoSearch = search;
   }
 
-  private setProjectRepoAndClose() {
+  private async setProjectRepoAndClose() {
     if (this.selectedRepo) {
-      this.setProjectConfigRepo(this.selectedRepo.clone_url);
+      await this.setProjectConfigRepo(this.selectedRepo.clone_url);
     }
     this.setShowingSelectRepoModal(false);
   }
@@ -70,6 +81,16 @@ export default class ProjectSettings extends Vue {
     const privateRepoBadge = repo.private ? (
       <b-badge pill={false} class="margin-right--small">
         Private
+      </b-badge>
+    ) : (
+      <div />
+    );
+
+    const currentRepoURL = this.getCurrentlyConfiguredRepoURL();
+    const isCurrentlyConfiguredRepo = currentRepoURL && currentRepoURL === repo.clone_url;
+    const currentConfiguredRepoBadge = isCurrentlyConfiguredRepo ? (
+      <b-badge pill={false} variant="primary" class="margin-right--small">
+        Current
       </b-badge>
     ) : (
       <div />
@@ -90,6 +111,7 @@ export default class ProjectSettings extends Vue {
           <div class="d-flex w-100 justify-content-between">
             <h5 class="mb-1">{repo.full_name}</h5>
             <small>
+              {currentConfiguredRepoBadge}
               {privateRepoBadge}
               {lastUpdatedTime}
             </small>
@@ -99,6 +121,11 @@ export default class ProjectSettings extends Vue {
           <b-card-body>
             {repo.description && <p>{repo.description}</p>}
             <small>Stars {repo.stargazers_count}</small>
+            <div class="margin-top--normal display--flex justify-content-end align-right">
+              <b-button variant="primary" on={{ click: this.setProjectRepoAndClose }}>
+                Set repo for project
+              </b-button>
+            </div>
           </b-card-body>
         </b-collapse>
       </b-card>
@@ -147,9 +174,6 @@ export default class ProjectSettings extends Vue {
           on={{ input: this.setRepoSearch }}
         />
         {this.renderUserRepos()}
-        <div class="margin-top--normal display--flex justify-content-center align-center">
-          <b-button on={{ click: this.setProjectRepoAndClose }}>OK</b-button>
-        </div>
       </b-modal>
     );
   }

@@ -46,30 +46,41 @@ export class ProjectSettingsStore extends VuexModule<ThisType<ProjectSettingsSta
   }
 
   @Action
+  public async reorganizeUserRepos() {
+    if (this.reposForUser) {
+      await this.setUserRepos(this.reposForUser);
+    }
+  }
+
+  @Action
+  public async setUserRepos(userRepos: GithubRepo[]) {
+    if (!this.context.rootState.project.openedProjectConfig) {
+      throw new Error('no project config open');
+    }
+
+    const configuredRepo = this.context.rootState.project.openedProjectConfig.project_repo;
+
+    const configuredUserRepo = userRepos.find(repo => repo.clone_url === configuredRepo);
+    if (!configuredUserRepo) {
+      // unable to find configured repo in list, maybe also throw an error?
+      await this.setReposForUser(userRepos);
+    } else {
+      const userReposWithoutConfiguredRepo = userRepos.filter(repo => repo.clone_url !== configuredRepo);
+
+      // put the already configured repo first
+      await this.setReposForUser([configuredUserRepo, ...userReposWithoutConfiguredRepo]);
+      await this.setSelectedRepo(configuredUserRepo);
+    }
+  }
+
+  @Action
   public async listReposForUser(): Promise<void> {
     if (!this.reposForUser) {
       const userRepos = await listGithubReposForUser();
       if (!userRepos) {
         return;
       }
-
-      if (!this.context.rootState.project.openedProjectConfig) {
-        throw new Error('no project config open');
-      }
-
-      const configuredRepo = this.context.rootState.project.openedProjectConfig.project_repo;
-
-      const configuredUserRepo = userRepos.find(repo => repo.clone_url === configuredRepo);
-      if (!configuredUserRepo) {
-        // unable to find configured repo in list, maybe also throw an error?
-        this.setReposForUser(userRepos);
-      } else {
-        const userReposWithoutConfiguredRepo = userRepos.filter(repo => repo.clone_url !== configuredRepo);
-
-        // put the already configured repo first
-        this.setReposForUser([configuredUserRepo, ...userReposWithoutConfiguredRepo]);
-        this.setSelectedRepo(configuredUserRepo);
-      }
+      await this.setUserRepos(userRepos);
     }
   }
 }
