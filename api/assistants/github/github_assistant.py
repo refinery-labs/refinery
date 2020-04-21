@@ -34,7 +34,7 @@ class GithubAssistant:
                 headers=self._get_auth_base_headers(access_token)
             )
         except HTTPError as e:
-            raise Exception( "Unable to list repos for user via token from Github", data=e )
+            raise Exception( "Unable to list repos for user via token from Github: " + str(e) )
 
         if not response:
             raise Exception( "Missing body when listing users via token from Github" )
@@ -46,7 +46,11 @@ class GithubAssistant:
         for repo_result in parsed_response:
             repos.append({
                 "clone_url": repo_result["clone_url"],
-                "full_name": repo_result["full_name"]
+                "description": repo_result["description"],
+                "full_name": repo_result["full_name"],
+                "stargazers_count": repo_result["stargazers_count"],
+                "updated_at": repo_result["updated_at"],
+                "private": repo_result["private"]
             })
 
         raise gen.Return( repos )

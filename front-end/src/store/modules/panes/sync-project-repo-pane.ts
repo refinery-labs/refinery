@@ -205,11 +205,6 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   }
 
   @Action
-  public async listReposForUser(): Promise<GithubRepo[] | null> {
-    return await listGithubReposForUser();
-  }
-
-  @Action
   public async pushToRepo(force: boolean) {
     await this.setPushingToRepo(true);
 

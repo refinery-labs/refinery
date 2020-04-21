@@ -5,22 +5,27 @@ import { namespace } from 'vuex-class';
 import Loading from '@/components/Common/Loading.vue';
 import { LoadingContainerProps } from '@/types/component-types';
 import { GithubRepo } from '@/types/api-types';
+import { formatDistanceToNow, fromUnixTime } from 'date-fns';
+import { getFriendlyDurationSinceString } from '@/utils/time-utils';
 
 const project = namespace('project');
-const syncProjectRepo = namespace('syncProjectRepo');
+const projectSettings = namespace('projectSettings');
 
 @Component
 export default class ProjectSettings extends Vue {
-  private userRepos: GithubRepo[] | null = null;
   private repoSearch: string = '';
   private showingSelectRepoModal: boolean = false;
 
   @project.State openedProjectConfig!: ProjectConfig | null;
+  @projectSettings.State reposForUser?: GithubRepo[] | null;
+  @projectSettings.State selectedRepo!: GithubRepo | null;
+
+  @projectSettings.Mutation setSelectedRepo!: (repo: GithubRepo) => void;
 
   @project.Action setProjectConfigLoggingLevel!: (projectConfigLoggingLevel: ProjectLogLevel) => void;
   @project.Action setProjectConfigRuntimeLanguage!: (projectConfigRuntimeLanguage: SupportedLanguage) => void;
   @project.Action setProjectConfigRepo!: (projectConfigRepo: string) => void;
-  @syncProjectRepo.Action listReposForUser!: () => GithubRepo[] | null;
+  @projectSettings.Action listReposForUser!: () => GithubRepo[] | null;
 
   private getLogLevelValue() {
     // TODO: Move this business logic to an action in the store.
@@ -54,26 +59,65 @@ export default class ProjectSettings extends Vue {
     this.repoSearch = search;
   }
 
-  private async doSetProjectRepo(clone_url: string) {
-    await this.setProjectConfigRepo(clone_url);
+  private setProjectRepoAndClose() {
+    if (this.selectedRepo) {
+      this.setProjectConfigRepo(this.selectedRepo.clone_url);
+    }
     this.setShowingSelectRepoModal(false);
   }
 
   private renderUserRepoItem(repo: GithubRepo) {
+    const privateRepoBadge = repo.private ? (
+      <b-badge pill={false} class="margin-right--small">
+        Private
+      </b-badge>
+    ) : (
+      <div />
+    );
+
+    if (this.selectedRepo && this.selectedRepo.full_name === repo.full_name) {
+      const lastUpdatedTime = getFriendlyDurationSinceString(Date.parse(this.selectedRepo.updated_at));
+      return (
+        <b-list-group-item
+          className="set-project-repo__description display--flex"
+          button
+          active
+          on={{ click: async () => await this.setSelectedRepo(repo) }}
+        >
+          <div class="d-flex w-100 justify-content-between">
+            <h4 class="mb-1">
+              {privateRepoBadge}
+              {this.selectedRepo.full_name}
+            </h4>
+            <small>Stars {this.selectedRepo.stargazers_count}</small>
+          </div>
+          <p class="mb-1">{this.selectedRepo.description}</p>
+          <small>Last updated {lastUpdatedTime}</small>
+        </b-list-group-item>
+      );
+    }
+
     return (
       <b-list-group-item
         className="set-project-repo__description display--flex"
         button
-        on={{ click: async () => await this.doSetProjectRepo(repo.clone_url) }}
+        on={{ click: async () => await this.setSelectedRepo(repo) }}
       >
-        <h5 class="mb-1">{repo.full_name}</h5>
+        <h5 class="mb-1">
+          {privateRepoBadge}
+          {repo.full_name}
+        </h5>
       </b-list-group-item>
     );
   }
 
   private renderUserRepos() {
-    if (!this.userRepos) {
-      return <p>User has not authorized Github</p>;
+    if (this.reposForUser === undefined) {
+      return <p>Loading user's repos...</p>;
+    }
+
+    if (this.reposForUser === null) {
+      return <p>There was an error when getting user's repos.</p>;
     }
 
     const searchRepoNames = (repo: GithubRepo) => {
@@ -82,16 +126,12 @@ export default class ProjectSettings extends Vue {
 
     return (
       <b-list-group class="set-project-repo">
-        {this.userRepos.filter(searchRepoNames).map(this.renderUserRepoItem)}
+        {this.reposForUser.filter(searchRepoNames).map(this.renderUserRepoItem)}
       </b-list-group>
     );
   }
 
   private renderSelectRepoModal() {
-    if (!this.showingSelectRepoModal) {
-      return;
-    }
-
     const modalOnHandlers = {
       hidden: () => this.setShowingSelectRepoModal(false)
     };
@@ -104,7 +144,7 @@ export default class ProjectSettings extends Vue {
         ref="console-modal"
         hide-footer
         title="Select Project Repo"
-        visible={true}
+        visible={this.showingSelectRepoModal}
       >
         <b-form-input
           class="margin-bottom--normal"
@@ -113,6 +153,9 @@ export default class ProjectSettings extends Vue {
           on={{ input: this.setRepoSearch }}
         />
         {this.renderUserRepos()}
+        <div class="margin-top--normal display--flex justify-content-center align-center">
+          <b-button on={{ click: this.setProjectRepoAndClose }}>OK</b-button>
+        </div>
       </b-modal>
     );
   }
@@ -203,7 +246,7 @@ export default class ProjectSettings extends Vue {
   }
 
   public async mounted() {
-    this.userRepos = await this.listReposForUser();
+    await this.listReposForUser();
   }
 
   public render(h: CreateElement): VNode {

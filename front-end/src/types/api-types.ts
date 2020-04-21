@@ -194,7 +194,11 @@ export interface ListGithubReposForUserRequest extends BaseApiRequest {}
 
 export interface GithubRepo {
   full_name: string;
+  description: string;
   clone_url: string;
+  stargazers_count: number;
+  updated_at: string;
+  private: boolean;
 }
 
 export interface ListGithubReposForUserResponse extends BaseApiRequest {

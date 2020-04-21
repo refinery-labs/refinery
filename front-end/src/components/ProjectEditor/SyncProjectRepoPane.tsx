@@ -9,6 +9,8 @@ import CreateToastMixin from '@/mixins/CreateToastMixin';
 import { Watch } from 'vue-property-decorator';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { GitDiffInfo } from '@/repo-compiler/shared/git-types';
+import Loading from '@/components/Common/Loading.vue';
+import { LoadingContainerProps } from '@/types/component-types';
 
 const syncProjectRepo = namespace('syncProjectRepo');
 
@@ -88,7 +90,6 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
       name: `Git Status: ${currentlyDiffedFile}`,
       lang: 'text',
       readOnly: true,
-      disableFullscreen: true,
       diffEditor: true,
       originalContent: originalContent,
       content: newContent
@@ -215,6 +216,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
         </div>
       );
     }
+
     return (
       <div class="mt-2">
         <b-button
@@ -265,58 +267,68 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     const validBranch = currentBranch !== '' ? !branchNameBlacklistRegex.test(currentBranch) : null;
     const remoteBranchName = SyncProjectRepoPaneStoreModule.getRemoteBranchName;
 
+    const gitPushProps: LoadingContainerProps = {
+      show: SyncProjectRepoPaneStoreModule.isPushingToRepo,
+      label: 'Pushing to git repo...'
+    };
+
     return (
       <div class={loadingClasses}>
-        <div>
-          <div class="padding--small">
-            <label class="d-block">Branch Name:</label>
-            <b-form-select
-              on={{ input: this.setRemoteBranchName }}
-              value={currentSelectedBranch}
-              options={selectRepoBranches}
-            />
-          </div>
-          {!usingExistingBranch && (
+        <Loading props={gitPushProps}>
+          <div>
             <div class="padding--small">
-              <b-form-input
-                type="text"
-                autofocus={true}
-                required={true}
-                state={validBranch}
-                value={remoteBranchName}
-                on={{ input: this.setNewRemoteBranchName }}
-                placeholder="eg, new-feature"
+              <label class="d-block">Branch Name:</label>
+              <b-form-select
+                on={{ input: this.setRemoteBranchName }}
+                value={currentSelectedBranch}
+                options={selectRepoBranches}
               />
             </div>
-          )}
-        </div>
+            {!usingExistingBranch && (
+              <div class="padding--small">
+                <b-form-input
+                  type="text"
+                  autofocus={true}
+                  required={true}
+                  state={validBranch}
+                  value={remoteBranchName}
+                  on={{ input: this.setNewRemoteBranchName }}
+                  placeholder="eg, new-feature"
+                />
+              </div>
+            )}
+          </div>
 
-        <b-form-invalid-feedback class="padding--small" state={validBranch}>
-          The entered branch name is not valid. Please refer to{' '}
-          <a href="https://mirrors.edge.kernel.org/pub/software/scm/git/docs/git-check-ref-format.html" target="_blank">
-            check-ref-format
-          </a>{' '}
-          for valid branch names.
-        </b-form-invalid-feedback>
+          <b-form-invalid-feedback class="padding--small" state={validBranch}>
+            The entered branch name is not valid. Please refer to{' '}
+            <a
+              href="https://mirrors.edge.kernel.org/pub/software/scm/git/docs/git-check-ref-format.html"
+              target="_blank"
+            >
+              check-ref-format
+            </a>{' '}
+            for valid branch names.
+          </b-form-invalid-feedback>
 
-        <hr />
+          <hr />
 
-        <label class="d-block">Commit message:</label>
-        <b-form-input
-          type="text"
-          required={true}
-          value={SyncProjectRepoPaneStoreModule.commitMessage}
-          on={{ input: SyncProjectRepoPaneStoreModule.setCommitMessage }}
-          placeholder=""
-        />
-        {this.renderCommitButtons()}
+          <label class="d-block">Commit message:</label>
+          <b-form-input
+            type="text"
+            required={true}
+            value={SyncProjectRepoPaneStoreModule.commitMessage}
+            on={{ input: SyncProjectRepoPaneStoreModule.setCommitMessage }}
+            placeholder=""
+          />
+          {this.renderCommitButtons()}
 
-        <hr />
+          <hr />
 
-        <div class="deploy-pane-container__content overflow--scroll-y-auto">{this.renderGitStatusDetails()}</div>
+          <div class="deploy-pane-container__content overflow--scroll-y-auto">{this.renderGitStatusDetails()}</div>
 
-        {this.renderModal()}
-        {this.renderForcePushWarning()}
+          {this.renderModal()}
+          {this.renderForcePushWarning()}
+        </Loading>
       </div>
     );
   }
