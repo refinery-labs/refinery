@@ -75,39 +75,33 @@ export default class ProjectSettings extends Vue {
       <div />
     );
 
-    if (this.selectedRepo && this.selectedRepo.full_name === repo.full_name) {
-      const lastUpdatedTime = getFriendlyDurationSinceString(Date.parse(this.selectedRepo.updated_at));
-      return (
-        <b-list-group-item
-          className="set-project-repo__description display--flex"
-          button
-          active
-          on={{ click: async () => await this.setSelectedRepo(repo) }}
-        >
-          <div class="d-flex w-100 justify-content-between">
-            <h4 class="mb-1">
-              {privateRepoBadge}
-              {this.selectedRepo.full_name}
-            </h4>
-            <small>Stars {this.selectedRepo.stargazers_count}</small>
-          </div>
-          <p class="mb-1">{this.selectedRepo.description}</p>
-          <small>Last updated {lastUpdatedTime}</small>
-        </b-list-group-item>
-      );
-    }
+    const showingDetails = this.selectedRepo && this.selectedRepo.full_name === repo.full_name;
+    const lastUpdatedTime = getFriendlyDurationSinceString(Date.parse(repo.updated_at));
 
     return (
-      <b-list-group-item
+      <b-card
+        no-body
+        class="mb-1"
+        bg-variant={showingDetails ? 'light' : 'default'}
         className="set-project-repo__description display--flex"
-        button
         on={{ click: async () => await this.setSelectedRepo(repo) }}
       >
-        <h5 class="mb-1">
-          {privateRepoBadge}
-          {repo.full_name}
-        </h5>
-      </b-list-group-item>
+        <b-card-header header-tag="header" class="p-1" role="tab">
+          <div class="d-flex w-100 justify-content-between">
+            <h5 class="mb-1">{repo.full_name}</h5>
+            <small>
+              {privateRepoBadge}
+              {lastUpdatedTime}
+            </small>
+          </div>
+        </b-card-header>
+        <b-collapse id={repo.full_name} visible={showingDetails} accordion="repo-list-accordion" role="tabpanel">
+          <b-card-body>
+            {repo.description && <p>{repo.description}</p>}
+            <small>Stars {repo.stargazers_count}</small>
+          </b-card-body>
+        </b-collapse>
+      </b-card>
     );
   }
 
@@ -125,9 +119,9 @@ export default class ProjectSettings extends Vue {
     };
 
     return (
-      <b-list-group class="set-project-repo">
+      <div role="tablist" class="set-project-repo">
         {this.reposForUser.filter(searchRepoNames).map(this.renderUserRepoItem)}
-      </b-list-group>
+      </div>
     );
   }
 
