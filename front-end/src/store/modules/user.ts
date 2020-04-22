@@ -159,6 +159,11 @@ const UserModule: Module<UserState, RootState> = {
         return;
       }
 
+      const bc = new BroadcastChannel('auth_flow');
+      bc.onmessage = e => {
+        location.reload();
+      };
+
       window.open(result.result.redirect_uri, '_blank');
     },
     async [UserActions.fetchAuthenticationState](context) {

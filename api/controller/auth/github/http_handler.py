@@ -106,8 +106,15 @@ class AuthenticateWithGithub( BaseHandler ):
 		# they started the oauth flow from
 		nonce = str(os.urandom(16)).encode("base64").replace('\n', '')
 
+		broadcast_and_close_js = """
+		const bc = new BroadcastChannel('auth_flow');
+		bc.postMessage('doneWithAuthFlow');
+		window.close();
+		"""
+
 		self.set_header("Content-Security-Policy", "script-src 'nonce-{nonce}'".format(nonce=nonce))
-		self.write("<html><script nonce=\"{nonce}\">window.close();</script></html>".format(nonce=nonce))
+		self.write("<html><script nonce=\"{nonce}\">{broadcast_and_close_js}</script></html>".format(
+			nonce=nonce, broadcast_and_close_js=broadcast_and_close_js))
 
 	@gen.coroutine
 	def post( self ):
