@@ -77,7 +77,10 @@ from tasks.build.common import (
     finalize_codebuild
 )
 from tasks.build.ruby import start_ruby264_codebuild
-from tasks.build.nodejs import start_node810_codebuild
+from tasks.build.nodejs import (
+    start_node810_codebuild,
+    start_node_10163_codebuild
+)
 from tasks.build.python import (
     start_python_36_codebuild,
     start_python27_codebuild,
@@ -529,7 +532,7 @@ class TaskSpawner(object):
     @run_on_executor
     @emit_runtime_metrics("delete_aws_lambda")
     def delete_aws_lambda(self, credentials, arn_or_name):
-        return TaskSpawner._delete_aws_lambda(
+        return delete_aws_lambda(
             self.aws_client_factory,
             credentials,
             arn_or_name
@@ -651,7 +654,7 @@ class TaskSpawner(object):
     @run_on_executor
     @emit_runtime_metrics("start_node10163_codebuild")
     def start_node10163_codebuild(self, credentials, libraries_object):
-        return TaskSpawner._start_node810_codebuild(
+        return start_node_10163_codebuild(
             self.aws_client_factory,
             credentials,
             libraries_object

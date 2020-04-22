@@ -7,7 +7,6 @@ from jsonschema import validate as validate_schema
 from tornado import gen
 
 from assistants.deployments.teardown import teardown_infrastructure
-from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from controller import BaseHandler
 from controller.aws.actions import get_layers_for_lambda, get_environment_variables_for_lambda, deploy_lambda, \
 	get_base_lambda_code, get_lambda_safe_name, deploy_diagram
@@ -18,6 +17,7 @@ from controller.projects.actions import update_project_config
 from data_types.aws_resources.alambda import Lambda
 from models import InlineExecutionLambda, Project, Deployment
 from pyexceptions.builds import BuildException
+from tasks.aws_lambda import get_inline_lambda_hash_key
 from utils.general import get_random_node_id, attempt_json_decode
 from utils.locker import AcquireFailure
 
@@ -104,7 +104,7 @@ class RunTmpLambda( BaseHandler ):
 			inline_lambda
 		)
 
-		inline_lambda_hash_key = TaskSpawner._get_inline_lambda_hash_key(
+		inline_lambda_hash_key = get_inline_lambda_hash_key(
 			self.json[ "language" ],
 			self.json[ "max_execution_time" ],
 			self.json[ "memory" ],
@@ -352,7 +352,7 @@ class InfraCollisionCheck( BaseHandler ):
 
 		"""
 		Returned collisions format:
-		
+
 		[
 			{
 				"id": {{node_id}},

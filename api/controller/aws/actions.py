@@ -7,7 +7,11 @@ from tornado import gen
 
 from assistants.deployments.api_gateway import strip_api_gateway
 from assistants.deployments.shared_files import get_shared_files_for_lambda
-from assistants.task_spawner.task_spawner_assistant import TaskSpawner
+from tasks.build.python import get_python36_base_code, get_python27_base_code
+from tasks.build.nodejs import get_nodejs_810_base_code, get_nodejs_10163_base_code
+from tasks.build.php import get_php_73_base_code
+from tasks.build.ruby import get_ruby_264_base_code
+from tasks.build.golang import get_go_112_base_code
 from data_types.aws_resources.alambda import Lambda
 from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
 from pyexceptions.builds import BuildException
@@ -221,40 +225,19 @@ def deploy_lambda( task_spawner, credentials, id, lambda_object ):
 
 def get_base_lambda_code( app_config, language, code ):
 	if language == "python3.6":
-		return TaskSpawner._get_python36_base_code(
-			app_config,
-			code
-		)
+		return get_python36_base_code(app_config, code)
 	elif language == "python2.7":
-		return TaskSpawner._get_python27_base_code(
-			app_config,
-			code
-		)
+		return get_python27_base_code(app_config, code)
 	elif language == "nodejs8.10":
-		return TaskSpawner._get_nodejs_810_base_code(
-			app_config,
-			code
-		)
+		return get_nodejs_810_base_code(app_config, code)
 	elif language == "nodejs10.16.3":
-		return TaskSpawner._get_nodejs_10163_base_code(
-			app_config,
-			code
-		)
+		return get_nodejs_10163_base_code(app_config, code)
 	elif language == "php7.3":
-		return TaskSpawner._get_php_73_base_code(
-			app_config,
-			code
-		)
+		return get_php_73_base_code(app_config, code)
 	elif language == "ruby2.6.4":
-		return TaskSpawner._get_ruby_264_base_code(
-			app_config,
-			code
-		)
+		return get_ruby_264_base_code(app_config, code)
 	elif language == "go1.12":
-		return TaskSpawner._get_go_112_base_code(
-			app_config,
-			code
-		)
+		return get_go_112_base_code(app_config, code)
 
 
 def get_node_by_id( target_id, workflow_states ):
@@ -539,12 +522,12 @@ def deploy_diagram( task_spawner, api_gateway_manager, credentials, project_name
 
 	"""
 	Here we calculate the teardown data ahead of time.
-	
+
 	This is used when we encounter an error during the
 	deployment process which requires us to roll back.
 	When the rollback occurs we pass our previously-generated
 	list and pass it to the tear down function.
-	
+
 	[
 		{
 			"id": {{node_id}},
@@ -563,7 +546,7 @@ def deploy_diagram( task_spawner, api_gateway_manager, credentials, project_name
 	and teardown what's been deployed so far. After that we return
 	an error to the user with information on what caused the deploy
 	to fail.
-	
+
 	[
 		{
 			"type": "", # The type of the deployed node

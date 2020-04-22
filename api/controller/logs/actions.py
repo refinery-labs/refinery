@@ -4,7 +4,6 @@ import time
 
 from tornado import gen
 
-from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from models import CachedExecutionLogsShard
 from pyconstants.project_constants import REGEX_WHITELISTS
 from utils.general import logit

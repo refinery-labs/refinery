@@ -8,7 +8,6 @@ from sqlalchemy import or_ as sql_or
 from tornado import gen
 
 from assistants.deployments.teardown import teardown_infrastructure
-from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from controller import BaseHandler
 from controller.services.actions import clear_sub_account_packages, get_last_month_start_and_end_date_strings
 from models import AWSAccount, User, TerraformStateVersion

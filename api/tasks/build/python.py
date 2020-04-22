@@ -295,16 +295,16 @@ def build_python36_lambda(app_config, aws_client_factory, credentials, code, lib
 
     base_zip_data = copy.deepcopy(EMPTY_ZIP_DATA)
     if len(libraries) > 0:
-        base_zip_data = TaskSpawner._get_python36_lambda_base_zip(
+        base_zip_data = get_python36_lambda_base_zip(
             aws_client_factory,
             credentials,
             libraries
         )
 
     # Create a virtual file handler for the Lambda zip package
-    lambda_package_zip = io.BytesIO(base_zip_data)
+    lambda_package_zip = BytesIO(base_zip_data)
 
-    with zipfile.ZipFile(lambda_package_zip, "a", zipfile.ZIP_DEFLATED) as zip_file_handler:
+    with ZipFile(lambda_package_zip, "a", ZIP_DEFLATED) as zip_file_handler:
         info = zipfile.ZipInfo(
             "lambda"
         )

@@ -483,7 +483,7 @@ def _deploy_aws_lambda(aws_client_factory, credentials, lambda_object, s3_packag
 
             # Now create it since we're clear
             # TODO: THIS IS A POTENTIAL INFINITE LOOP!
-            return TaskSpawner._deploy_aws_lambda(
+            return _deploy_aws_lambda(
                 aws_client_factory,
                 credentials,
                 lambda_object,
