@@ -29,11 +29,6 @@ class TestAWS( ServerUnitTestBase, AsyncHTTPTestCase ):
 	def get_user_from_id( self, user_id ):
 		return self.dbsession.query( User ).filter( User.id == user_id ).first()
 
-	def create_test_user( self ):
-		user = User()
-		user.email = "test@test.com"
-		return self.create_and_save_obj( user )
-
 	def create_test_project( self, project_id, user ):
 		project = Project()
 		project.id = project_id

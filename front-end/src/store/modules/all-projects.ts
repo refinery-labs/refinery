@@ -64,7 +64,6 @@ export enum AllProjectsGetters {
 }
 
 export enum AllProjectsActions {
-  authWithGithub = 'authWithGithub',
   performSearch = 'performSearch',
   createProject = 'createProject',
   uploadProject = 'uploadProject',
@@ -196,19 +195,6 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
     }
   },
   actions: {
-    async [AllProjectsActions.authWithGithub](context) {
-      const result = await makeApiRequest<AuthWithGithubRequest, AuthWithGithubResponse>(
-        API_ENDPOINT.AuthWithGithub,
-        {}
-      );
-
-      if (!result || !result.result || !result.success) {
-        // TODO: Handle this error case
-        console.error('Failure to auth with github');
-        return;
-      }
-      window.location.href = result.result.redirect_uri;
-    },
     async [AllProjectsActions.performSearch](context) {
       context.commit(AllProjectsMutators.setSearchingStatus, true);
 

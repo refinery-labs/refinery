@@ -2,6 +2,7 @@
 config:
   ngrok_enabled: false
   cookie_secret_value: THIS_IS_NOT_SECURE
+  cookie_expire_days: 1
   # The HTTP origin to serve in Access-Control-Allow-Origin header
   access_control_allow_origin: https://example.refinerylabs.io
   access_control_allow_origins: "[\"http://localhost:1234\",\"http://localhost:8080\",\"http://localhost:8002\"]"

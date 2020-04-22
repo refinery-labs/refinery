@@ -258,6 +258,7 @@ export enum UserMutators {
 }
 
 export enum UserActions {
+  authWithGithub = 'authWithGithub',
   fetchAuthenticationState = 'fetchAuthenticationState',
   redirectIfAuthenticated = 'redirectIfAuthenticated',
   loginUser = 'loginUser',

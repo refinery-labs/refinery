@@ -9,7 +9,7 @@ import { SettingsAppStoreModule } from '@/store';
 import { formatRelative, fromUnixTime } from 'date-fns';
 
 const toasts = namespace('toasts');
-const allProjects = namespace('allProjects');
+const user = namespace('user');
 
 @Component
 export default class OffsideContentBar extends Vue {
@@ -18,7 +18,7 @@ export default class OffsideContentBar extends Vue {
   @Mutation toggleSettingOn!: (name: UserInterfaceSettings) => {};
   @Mutation toggleSettingOff!: (name: UserInterfaceSettings) => {};
   @Action closeGlobalNav!: () => {};
-  @allProjects.Action authWithGithub!: () => void;
+  @user.Action authWithGithub!: () => void;
 
   @Watch('$route', { deep: true })
   private elementsModified(val: Route, oldVal: Route) {

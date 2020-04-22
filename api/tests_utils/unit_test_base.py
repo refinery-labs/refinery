@@ -14,6 +14,7 @@ from tests_utils.hypothesis_unit_test_base import HypothesisUnitTestBase
 import pkg_resources
 
 from tests_utils.mocks.aws import MockAWSDependencies
+from tests_utils.mocks.github import MockGithubDependencies
 from tests_utils.mocks.task_spawner import MockTaskSpawner
 from utils.general import UtilsBindingSpec, print_object_graph
 
