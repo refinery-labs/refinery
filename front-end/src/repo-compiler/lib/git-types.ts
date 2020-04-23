@@ -27,3 +27,5 @@ export interface GitDiffInfo {
   originalFiles: GitDiffFilenameToContent;
   changedFiles: GitDiffFilenameToContent;
 }
+
+export class InvalidGitRepoError extends Error {}

@@ -1,19 +1,8 @@
-import { safeLoad } from 'js-yaml';
-import LightningFS from '@isomorphic-git/lightning-fs';
-import git, {
-  AuthCallback,
-  AuthFailureCallback,
-  AuthSuccessCallback,
-  CallbackFsClient,
-  Errors,
-  HttpClient,
-  MessageCallback,
-  ProgressCallback,
-  PromiseFsClient,
-  SignCallback,
-  StatusRow
-} from 'isomorphic-git';
-import http from '@/repo-compiler/git-http';
+import {
+  REFINERY_COMMIT_AUTHOR_EMAIL,
+  REFINERY_COMMIT_AUTHOR_NAME,
+  REFINERY_PROJECTS_FOLDER
+} from '@/repo-compiler/shared/constants';
 import {
   isFileDeleted,
   isFileDeletedOrModified,
@@ -23,212 +12,29 @@ import {
   readFile,
   statFile,
   tryReadFile
-} from '@/repo-compiler/shared/git-utils';
-import {
-  REFINERY_COMMIT_AUTHOR_EMAIL,
-  REFINERY_COMMIT_AUTHOR_NAME,
-  REFINERY_PROJECTS_FOLDER
-} from '@/repo-compiler/shared/constants';
+} from '@/repo-compiler/lib/git-utils';
 import { InvalidGitRepoStructure } from '@/repo-compiler/shared/errors';
+import { safeLoad } from 'js-yaml';
 import { RefineryProject } from '@/types/graph';
 import { saveProjectToRepo } from '@/repo-compiler/one-to-one/refinery-to-git';
-import { GitDiffInfo } from '@/repo-compiler/shared/git-types';
+import { Errors, StatusRow } from 'isomorphic-git';
+import { GitDiffInfo } from '@/repo-compiler/lib/git-types';
 import { GitPushResult } from '@/store/modules/panes/sync-project-repo-pane';
-import R from 'ramda';
+import { GitClient } from '@/repo-compiler/lib/git-client';
 
-export class GitClient {
-  private readonly uri: string;
-  public readonly fs: PromiseFsClient;
-  public readonly dir: string;
+export class RefineryGitActionHandler {
+  private gitClient: GitClient;
 
-  constructor(uri: string, projectID: string, resetFS?: boolean) {
-    this.uri = uri;
-
-    this.fs = new LightningFS('project', {
-      wipe: resetFS === undefined ? false : resetFS
-    });
-
-    // TODO this needs to be unique per project in the case of a one to many repo
-    this.dir = `/projects/${projectID}`;
-  }
-
-  public async checkout(
-    options?: Partial<{
-      fs: PromiseFsClient;
-      onProgress?: ProgressCallback;
-      dir: string;
-      gitdir?: string;
-      ref?: string;
-      filepaths?: string[];
-      remote?: string;
-      noCheckout?: boolean;
-      noUpdateHead?: boolean;
-      dryRun?: boolean;
-      force?: boolean;
-    }>
-  ) {
-    await git.checkout({
-      fs: this.fs,
-      dir: this.dir,
-      ...options
-    });
-  }
-
-  public async clone(
-    options?: Partial<{
-      fs: PromiseFsClient;
-      http: HttpClient;
-      onProgress?: ProgressCallback;
-      onMessage?: MessageCallback;
-      onAuth?: AuthCallback;
-      onAuthFailure?: AuthFailureCallback;
-      onAuthSuccess?: AuthSuccessCallback;
-      dir: string;
-      gitdir?: string;
-      url: string;
-      corsProxy?: string;
-      ref?: string;
-      singleBranch?: boolean;
-      noCheckout?: boolean;
-      noTags?: boolean;
-      remote?: string;
-      depth?: number;
-      since?: Date;
-      exclude?: string[];
-      relative?: boolean;
-      headers?: {
-        [x: string]: string;
-      };
-    }>
-  ) {
-    await git.clone({
-      fs: this.fs,
-      http,
-      dir: this.dir,
-      url: this.uri,
-      corsProxy: `${process.env.VUE_APP_API_HOST}/api/v1/github/proxy`,
-      ...options
-    });
-  }
-
-  public async currentBranch(): Promise<string | undefined> {
-    const currentBranch = await git.currentBranch({
-      fs: this.fs,
-      dir: this.dir
-    });
-
-    if (currentBranch === '') {
-      return '';
-    }
-    return currentBranch || undefined;
-  }
-
-  public async listBranches(
-    options?: Partial<{
-      remote?: string;
-    }>
-  ): Promise<string[]> {
-    return await git.listBranches({
-      fs: this.fs,
-      dir: this.dir,
-      ...options
-    });
-  }
-
-  public async status(): Promise<Array<StatusRow>> {
-    return await git.statusMatrix({
-      fs: this.fs,
-      dir: this.dir
-    });
-  }
-
-  public async add(path: string) {
-    await git.add({
-      fs: this.fs,
-      dir: this.dir,
-      filepath: path
-    });
-  }
-
-  public async remove(path: string) {
-    await git.add({
-      fs: this.fs,
-      dir: this.dir,
-      filepath: path
-    });
-  }
-
-  public async commit(
-    options?: Partial<{
-      fs: CallbackFsClient | PromiseFsClient;
-      onSign?: SignCallback;
-      dir?: string;
-      gitdir?: string;
-      message: string;
-      author?: {
-        name?: string;
-        email?: string;
-        timestamp?: number;
-        timezoneOffset?: number;
-      };
-      committer?: {
-        name?: string;
-        email?: string;
-        timestamp?: number;
-        timezoneOffset?: number;
-      };
-      signingKey?: string;
-      dryRun?: boolean;
-      noUpdateBranch?: boolean;
-      ref?: string;
-      parent?: string[];
-      tree?: string;
-    }>
-  ) {
-    await git.commit({
-      fs: this.fs,
-      dir: this.dir,
-      message: '',
-      ...options
-    });
-  }
-  public async push(
-    options?: Partial<{
-      fs: CallbackFsClient | PromiseFsClient;
-      http: HttpClient;
-      onProgress?: ProgressCallback;
-      onMessage?: MessageCallback;
-      onAuth?: AuthCallback;
-      onAuthFailure?: AuthFailureCallback;
-      onAuthSuccess?: AuthSuccessCallback;
-      dir?: string;
-      gitdir?: string;
-      ref?: string;
-      url?: string;
-      remote?: string;
-      remoteRef?: string;
-      force?: boolean;
-      delete?: boolean;
-      corsProxy?: string;
-      headers?: {
-        [x: string]: string;
-      };
-    }>
-  ) {
-    await git.push({
-      fs: this.fs,
-      dir: this.dir,
-      http,
-      ...options
-    });
+  constructor(gitClient: GitClient) {
+    this.gitClient = gitClient;
   }
 
   public async getProjectsList() {
-    await this.clone({
+    await this.gitClient.clone({
       noCheckout: true
     });
 
-    await this.checkout({
+    await this.gitClient.checkout({
       filepaths: ['refinery/projects']
     });
   }
@@ -268,7 +74,7 @@ export class GitClient {
 
     // Read the project from the YAML file
     const deserializedProjects = await Promise.all(
-      yamlFiles.map(async yf => safeLoad(await readFile(this.fs, this.dir, path + yf)))
+      yamlFiles.map(async yf => safeLoad(await readFile(this.gitClient.fs, this.gitClient.dir, path + yf)))
     );
 
     // Merge together all projects into a list
@@ -276,13 +82,13 @@ export class GitClient {
   }
 
   public async writeProjectToDisk(project: RefineryProject) {
-    await saveProjectToRepo(this.fs, this.dir, project);
+    await saveProjectToRepo(this.gitClient.fs, this.gitClient.dir, project);
   }
 
   private async getFilesFromFS(filesToGet: string[]): Promise<Record<string, string>> {
     const lookupArray = await Promise.all(
       filesToGet.map(async file => {
-        const fileContent = (await tryReadFile(this.fs, this.dir, file)) || '';
+        const fileContent = (await tryReadFile(this.gitClient.fs, this.gitClient.dir, file)) || '';
         return {
           [file]: fileContent
         };
@@ -308,7 +114,7 @@ export class GitClient {
       .map(fileRow => fileRow[0]);
     const newFiles = gitStatusResult.filter(fileRow => isFileNew(fileRow)).map(fileRow => fileRow[0]);
 
-    await this.checkout({
+    await this.gitClient.checkout({
       ref: branchName,
       force: true
     });
@@ -346,7 +152,7 @@ export class GitClient {
     });
 
     try {
-      await this.push({
+      await this.gitClient.push({
         remote: 'origin',
         remoteRef: branchName,
         corsProxy: `${process.env.VUE_APP_API_HOST}/api/v1/github/proxy`,
