@@ -8,7 +8,7 @@ import { branchNameBlacklistRegex, newBranchText } from '@/constants/project-edi
 import CreateToastMixin from '@/mixins/CreateToastMixin';
 import { Watch } from 'vue-property-decorator';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
-import { GitDiffInfo } from '@/repo-compiler/shared/git-types';
+import { GitDiffInfo } from '@/repo-compiler/lib/git-types';
 
 const syncProjectRepo = namespace('syncProjectRepo');
 

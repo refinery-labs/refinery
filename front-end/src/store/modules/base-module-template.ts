@@ -1,5 +1,4 @@
-import { VuexModule, Module, Mutation, Action, getModule } from 'vuex-module-decorators';
-import store from '@/store';
+import { VuexModule, Module, Mutation, Action } from 'vuex-module-decorators';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState, StoreType } from '@/store/store-types';
@@ -17,10 +16,7 @@ export const baseState: ExampleBaseState = {
 // Must copy so that we can not thrash the pointers...
 const initialState = deepJSONCopy(baseState);
 
-// We need to leave this as a "dynamic" module so that we can use the fancy `this` rebinding. Otherwise we have to use
-// The old school `context.commit` and `context.dispatch` style syntax.
-// name would be set to: StoreType.exampleBase if exampleBase were defined in StoreType
-@Module({ namespaced: true, name: '' })
+@Module({ namespaced: true, name: 'REPLACE_THIS_WITH StoreType.BaseState < and BaseState is your name' })
 export class ExampleBaseStore extends VuexModule<ThisType<ExampleBaseState>, RootState> implements ExampleBaseState {
   public example: string = initialState.example;
 

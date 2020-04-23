@@ -33,20 +33,3 @@ export function mapObjToKeyValueTuple<T1, T2>(fn: (key: string, a: T1) => T2, ar
    */
   return R.map(mapTupleWith(fn), keyValueTuples);
 }
-
-export function groupToArrayBy<T1>(fn: (t: T1) => string | number, arr: T1[]): StringIndexable<T1[]> {
-  const outArr: StringIndexable<T1[]> = {};
-
-  return arr.reduce((previousValue, currentValue) => {
-    const key = fn(currentValue);
-
-    // Create an array to hold the values
-    if (!previousValue[key]) {
-      previousValue[key] = [];
-    }
-
-    previousValue[key].push(currentValue);
-
-    return previousValue;
-  }, outArr);
-}
