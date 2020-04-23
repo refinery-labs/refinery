@@ -55,7 +55,8 @@ export enum StoreType {
   unauthViewProject = 'unauthViewProject',
   readmeEditor = 'readmeEditor',
   demoWalkthrough = 'demoWalkthrough',
-  syncProjectRepo = 'syncProjectRepo'
+  syncProjectRepo = 'syncProjectRepo',
+  projectSettings = 'projectSettings'
 }
 
 export interface RootState {

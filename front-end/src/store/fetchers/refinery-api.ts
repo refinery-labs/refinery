@@ -95,7 +95,9 @@ import {
   UpdateEnvironmentVariablesRequest,
   UpdateEnvironmentVariablesResponse,
   AuthWithGithubResponse,
-  AuthWithGithubRequest
+  AuthWithGithubRequest,
+  ListGithubReposForUserRequest,
+  ListGithubReposForUserResponse
 } from '@/types/api-types';
 import { API_ENDPOINT, ApiConfigMap } from '@/constants/api-constants';
 
@@ -222,6 +224,9 @@ export class RefineryApi implements RefineryApiTypeMap {
   );
   [API_ENDPOINT.GetLatestMonthBill] = makeApiClient<GetLatestMonthlyBillRequest, GetLatestMonthlyBillResponse>(
     API_ENDPOINT.GetLatestMonthBill
+  );
+  [API_ENDPOINT.ListGithubReposForUser] = makeApiClient<ListGithubReposForUserRequest, ListGithubReposForUserResponse>(
+    API_ENDPOINT.ListGithubReposForUser
   );
   [API_ENDPOINT.SaveProjectConfig] = makeApiClient<SaveProjectConfigRequest, SaveProjectConfigResponse>(
     API_ENDPOINT.SaveProjectConfig

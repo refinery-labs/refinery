@@ -13,6 +13,8 @@ import { loadProjectFromDir } from '@/repo-compiler/one-to-one/git-to-refinery';
 import uuid from 'uuid';
 import { GitDiffInfo, GitStatusResult } from '@/repo-compiler/shared/git-types';
 import { REFINERY_COMMIT_AUTHOR_NAME } from '@/repo-compiler/shared/constants';
+import { listGithubReposForUser } from '@/store/fetchers/api-helpers';
+import { GithubRepo } from '@/types/api-types';
 
 const storeName = StoreType.syncProjectRepo;
 

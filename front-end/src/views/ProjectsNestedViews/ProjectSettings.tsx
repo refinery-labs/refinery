@@ -4,16 +4,29 @@ import { ProjectConfig, ProjectLogLevel, SupportedLanguage } from '@/types/graph
 import { namespace } from 'vuex-class';
 import Loading from '@/components/Common/Loading.vue';
 import { LoadingContainerProps } from '@/types/component-types';
+import { GithubRepo } from '@/types/api-types';
+import { formatDistanceToNow, fromUnixTime } from 'date-fns';
+import { getFriendlyDurationSinceString } from '@/utils/time-utils';
 
 const project = namespace('project');
+const projectSettings = namespace('projectSettings');
 
 @Component
 export default class ProjectSettings extends Vue {
+  private repoSearch: string = '';
+  private showingSelectRepoModal: boolean = false;
+
   @project.State openedProjectConfig!: ProjectConfig | null;
+  @projectSettings.State reposForUser?: GithubRepo[] | null;
+  @projectSettings.State selectedRepo!: GithubRepo | null;
+
+  @projectSettings.Mutation setSelectedRepo!: (repo: GithubRepo) => void;
 
   @project.Action setProjectConfigLoggingLevel!: (projectConfigLoggingLevel: ProjectLogLevel) => void;
   @project.Action setProjectConfigRuntimeLanguage!: (projectConfigRuntimeLanguage: SupportedLanguage) => void;
   @project.Action setProjectConfigRepo!: (projectConfigRepo: string) => void;
+  @projectSettings.Action listReposForUser!: () => GithubRepo[] | null;
+  @projectSettings.Action reorganizeUserRepos!: () => void;
 
   private getLogLevelValue() {
     // TODO: Move this business logic to an action in the store.
@@ -37,6 +50,132 @@ export default class ProjectSettings extends Vue {
       return '';
     }
     return this.openedProjectConfig.project_repo;
+  }
+
+  private getCurrentlyConfiguredRepoURL(): string | null {
+    if (!this.openedProjectConfig || !this.openedProjectConfig.project_repo) {
+      return null;
+    }
+    return this.openedProjectConfig.project_repo;
+  }
+
+  private setShowingSelectRepoModal(showing: boolean) {
+    this.showingSelectRepoModal = showing;
+    if (!showing) {
+      this.reorganizeUserRepos();
+    }
+  }
+
+  private setRepoSearch(search: string) {
+    this.repoSearch = search;
+  }
+
+  private async setProjectRepoAndClose() {
+    if (this.selectedRepo) {
+      await this.setProjectConfigRepo(this.selectedRepo.clone_url);
+    }
+    this.setShowingSelectRepoModal(false);
+  }
+
+  private renderUserRepoItem(repo: GithubRepo) {
+    const privateRepoBadge = repo.private ? (
+      <b-badge pill={false} class="margin-right--small">
+        Private
+      </b-badge>
+    ) : (
+      <div />
+    );
+
+    const currentRepoURL = this.getCurrentlyConfiguredRepoURL();
+    const isCurrentlyConfiguredRepo = currentRepoURL && currentRepoURL === repo.clone_url;
+    const currentConfiguredRepoBadge = isCurrentlyConfiguredRepo ? (
+      <b-badge pill={false} variant="primary" class="margin-right--small">
+        Current
+      </b-badge>
+    ) : (
+      <div />
+    );
+
+    const showingDetails = this.selectedRepo && this.selectedRepo.full_name === repo.full_name;
+    const lastUpdatedTime = getFriendlyDurationSinceString(Date.parse(repo.updated_at));
+
+    return (
+      <b-card
+        no-body
+        class="mb-1"
+        bg-variant={showingDetails ? 'light' : 'default'}
+        className="set-project-repo__description display--flex"
+        on={{ click: async () => await this.setSelectedRepo(repo) }}
+      >
+        <b-card-header header-tag="header" class="p-1" role="tab">
+          <div class="d-flex w-100 justify-content-between">
+            <h5 class="mb-1">{repo.full_name}</h5>
+            <small>
+              {currentConfiguredRepoBadge}
+              {privateRepoBadge}
+              {lastUpdatedTime}
+            </small>
+          </div>
+        </b-card-header>
+        <b-collapse id={repo.full_name} visible={showingDetails} accordion="repo-list-accordion" role="tabpanel">
+          <b-card-body>
+            {repo.description && <p>{repo.description}</p>}
+            <small>Stars {repo.stargazers_count}</small>
+            <div class="margin-top--normal display--flex justify-content-end align-right">
+              <b-button variant="primary" on={{ click: this.setProjectRepoAndClose }}>
+                Set repo for project
+              </b-button>
+            </div>
+          </b-card-body>
+        </b-collapse>
+      </b-card>
+    );
+  }
+
+  private renderUserRepos() {
+    if (this.reposForUser === undefined) {
+      return <p>Loading user's repos...</p>;
+    }
+
+    if (this.reposForUser === null) {
+      return <p>There was an error when getting user's repos.</p>;
+    }
+
+    const searchRepoNames = (repo: GithubRepo) => {
+      return repo.full_name.toLowerCase().includes(this.repoSearch.toLowerCase());
+    };
+
+    return (
+      <div role="tablist" class="set-project-repo">
+        {this.reposForUser.filter(searchRepoNames).map(this.renderUserRepoItem)}
+      </div>
+    );
+  }
+
+  private renderSelectRepoModal() {
+    const modalOnHandlers = {
+      hidden: () => this.setShowingSelectRepoModal(false)
+    };
+
+    return (
+      <b-modal
+        on={modalOnHandlers}
+        ok-variant="danger"
+        footer-class="p-2"
+        ref="console-modal"
+        hide-footer
+        title="Select Project Repo"
+        visible={this.showingSelectRepoModal}
+      >
+        <b-form-input
+          class="margin-bottom--normal"
+          placeholder="Search for repo..."
+          value={this.repoSearch}
+          on={{ input: this.setRepoSearch }}
+        />
+        {this.renderUserRepos()}
+      </b-modal>
+    );
   }
 
   private renderLogLevel() {
@@ -85,12 +224,19 @@ export default class ProjectSettings extends Vue {
 
   private renderProjectRepo() {
     return (
-      <b-form-group description="The git repository where blocks can be imported from.">
-        <label class="d-block" htmlFor="git-repo-input">
-          Project Git Repository
-        </label>
+      <b-form-group description="The git repository where this project will be synced with.">
         <div class="input-group with-focus">
-          <b-form-input id="git-repo-input" value={this.getProjectRepo()} on={{ change: this.setProjectConfigRepo }} />
+          <b-button
+            class="margin-right--small"
+            on={{
+              click: () => {
+                this.setShowingSelectRepoModal(true);
+              }
+            }}
+          >
+            Set Project Repo
+          </b-button>
+          <b-form-input value={this.getProjectRepo()} disabled />
         </div>
       </b-form-group>
     );
@@ -108,13 +254,17 @@ export default class ProjectSettings extends Vue {
         <div class="card card-default">
           <div class="card-header">{name}</div>
           <div class="card-body text-align--left">
-            {this.renderProjectRepo()}
             {this.renderLogLevel()}
             {this.renderRuntimeLanguage()}
+            {this.renderProjectRepo()}
           </div>
         </div>
       </Loading>
     );
+  }
+
+  public async mounted() {
+    await this.listReposForUser();
   }
 
   public render(h: CreateElement): VNode {
@@ -133,6 +283,7 @@ export default class ProjectSettings extends Vue {
             <div class="col-lg-8 align-self-center">{this.renderSettingsCard('Project Settings')}</div>
           </div>
         </div>
+        {this.renderSelectRepoModal()}
       </div>
     );
   }

@@ -16,7 +16,7 @@ import git, {
 import http from '@/repo-compiler/git-http';
 import {
   isFileDeleted,
-  isFileDeletedOrModified,
+  isFileModified,
   isFileNew,
   listFilesInFolder,
   pathExists,
@@ -151,7 +151,7 @@ export class GitClient {
   }
 
   public async remove(path: string) {
-    await git.add({
+    await git.remove({
       fs: this.fs,
       dir: this.dir,
       filepath: path
@@ -303,9 +303,8 @@ export class GitClient {
     gitStatusResult: Array<StatusRow>
   ): Promise<GitDiffInfo> {
     // TODO symlinks always show up as modified files
-    const deletedModifiedFiles = gitStatusResult
-      .filter(fileRow => isFileDeletedOrModified(fileRow))
-      .map(fileRow => fileRow[0]);
+    const deletedFiles = gitStatusResult.filter(fileRow => isFileDeleted(fileRow)).map(fileRow => fileRow[0]);
+    const modifiedFiles = gitStatusResult.filter(fileRow => isFileModified(fileRow)).map(fileRow => fileRow[0]);
     const newFiles = gitStatusResult.filter(fileRow => isFileNew(fileRow)).map(fileRow => fileRow[0]);
 
     await this.checkout({
@@ -313,12 +312,13 @@ export class GitClient {
       force: true
     });
 
-    // new files are ignored since they did not exist on the original branch
-    const originalFileContents = await this.getFilesFromFS(deletedModifiedFiles);
+    // new files are ignored since they did not exist in HEAD
+    const originalFileContents = await this.getFilesFromFS([...deletedFiles, ...modifiedFiles]);
 
     await this.writeProjectToDisk(project);
 
-    const changedFileContents = await this.getFilesFromFS([...deletedModifiedFiles, ...newFiles]);
+    // deleted files are ignored since they don't exist after the changes
+    const changedFileContents = await this.getFilesFromFS([...modifiedFiles, ...newFiles]);
 
     return {
       originalFiles: originalFileContents,
@@ -332,9 +332,12 @@ export class GitClient {
     commitMessage: string,
     force: boolean
   ) {
+    const filesToAdd = gitStatusResult
+      .filter(fileRow => isFileNew(fileRow) || isFileModified(fileRow))
+      .map(fileRow => fileRow[0]);
     const filesToDelete = gitStatusResult.filter(fileRow => isFileDeleted(fileRow)).map(fileRow => fileRow[0]);
 
-    await this.add('.');
+    await Promise.all(filesToAdd.map(async filepath => await this.add(filepath)));
     await Promise.all(filesToDelete.map(async filepath => await this.remove(filepath)));
 
     await this.commit({
