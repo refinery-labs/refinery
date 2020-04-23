@@ -234,23 +234,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     await this.setPushingToRepo(false);
 
     if (result !== GitPushResult.Success) {
-      // git push did not succeed
-      // if (result !== GitPushResult.UnableToFastForward) {
       return;
-      // }
-      //
-      // await git.pull({
-      //   fs: gitClient.fs,
-      //   dir: gitClient.dir,
-      //   http,
-      //   ref: this.remoteBranchName
-      // });
-      //
-      // await git.merge({
-      //   fs: gitClient.fs,
-      //   dir: gitClient.dir,
-      //
-      // });
     }
 
     // git push succeeded
