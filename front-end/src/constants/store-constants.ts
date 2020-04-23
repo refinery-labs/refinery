@@ -170,7 +170,8 @@ export enum ProjectViewActions {
 
 export enum DeploymentViewGetters {
   hasValidDeployment = 'hasValidDeployment',
-  getSelectedBlock = 'getSelectedBlock'
+  getSelectedBlock = 'getSelectedBlock',
+  getDeployedAPIEndpoints = 'getDeployedAPIEndpoints'
 }
 
 export enum DeploymentViewMutators {

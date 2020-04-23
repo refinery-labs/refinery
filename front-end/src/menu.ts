@@ -128,8 +128,7 @@ export const SidebarMenuItems: NavbarItem[] = [
 ];
 
 export const DeploymentSidebarMenuItems: NavbarItem[] = [
-  // TODO: Finish this functionality
-  // makeSidebarMenuItem(SIDEBAR_PANE.viewApiEndpoints, 'icon-list', 'sidebar.nav.VIEW_API_ENDPOINTS', 'outline-info'),
+  makeSidebarMenuItem(SIDEBAR_PANE.viewApiEndpoints, 'icon-list', 'sidebar.nav.VIEW_API_ENDPOINTS', 'outline-info'),
   makeSidebarMenuItem(SIDEBAR_PANE.viewExecutions, 'icon-organization', 'sidebar.nav.VIEW_EXECUTIONS', 'outline-info'),
   makeSidebarMenuItem(SIDEBAR_PANE.runDeployedCodeBlock, 'icon-control-play', 'RUN_CODE_BLOCK', 'outline-success'),
   makeSidebarMenuItem(SIDEBAR_PANE.destroyDeploy, 'icon-ban', 'sidebar.nav.DESTROY_DEPLOY', 'danger')

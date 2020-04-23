@@ -19,6 +19,7 @@ export interface MonacoEditorProps {
   wordWrap?: boolean;
   automaticLayout?: boolean;
   tailOutput?: boolean;
+  lineNumbers?: boolean;
 
   onChange?: (s: string) => void;
 }
@@ -40,6 +41,7 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
   @Prop({ default: false }) public wordWrap!: boolean;
   @Prop({ default: false }) public automaticLayout!: boolean;
   @Prop({ default: false }) public tailOutput!: boolean;
+  @Prop({ default: true }) public lineNumbers!: boolean;
 
   @Prop() onChange?: (s: string) => void;
 
@@ -121,6 +123,9 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
   initMonaco() {
     // Annoying... But this satisfies the Typescript beast.
     const wordWrap: 'off' | 'on' | 'wordWrapColumn' | 'bounded' = this.wordWrap ? 'on' : 'off';
+    const lineNumbers: 'on' | 'off' | 'relative' | 'interval' | ((lineNumber: number) => string) = this.lineNumbers
+      ? 'on'
+      : 'off';
 
     const options = Object.assign(
       {},
@@ -129,7 +134,8 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
         theme: this.theme,
         language: this.language,
         readOnly: this.readOnly,
-        wordWrap: wordWrap
+        wordWrap: wordWrap,
+        lineNumbers: lineNumbers
         // This is disabled because the library we use has better performance.
         // automaticLayout: this.automaticLayout
       },
