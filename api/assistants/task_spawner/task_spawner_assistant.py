@@ -1,4 +1,7 @@
+from utils.general import log_exception
 from utils.performance_decorators import emit_runtime_metrics
+from pinject import copy_args_to_public_fields
+
 from tornado.concurrent import run_on_executor, futures
 from tasks.athena import (
     perform_athena_query,
@@ -38,7 +41,7 @@ from tasks.email import (
 from tasks.aws_account import (
     unfreeze_aws_account,
     freeze_aws_account,
-    create_new_sub_aws_account
+    create_new_sub_aws_account,
     recreate_aws_console_account
 )
 from tasks.stripe import (
@@ -46,7 +49,7 @@ from tasks.stripe import (
     get_stripe_customer_information,
     associate_card_token_with_customer_account,
     stripe_create_customer,
-    delete_card_from_account
+    delete_card_from_account,
     set_stripe_customer_default_payment_source
 )
 from tasks.billing import (
@@ -68,7 +71,6 @@ from tasks.aws_lambda import (
     set_lambda_reserved_concurrency,
     deploy_aws_lambda,
     get_aws_lambda_existence_info,
-    get_lambda_cloudwatch_logs,
     clean_lambda_iam_policies
 )
 from tasks.build.common import (
@@ -79,10 +81,10 @@ from tasks.build.common import (
 from tasks.build.ruby import start_ruby264_codebuild
 from tasks.build.nodejs import (
     start_node810_codebuild,
-    start_node_10163_codebuild
+    start_node10163_codebuild
 )
 from tasks.build.python import (
-    start_python_36_codebuild,
+    start_python36_codebuild,
     start_python27_codebuild,
     get_python36_lambda_base_zip,
     get_python27_lambda_base_zip
@@ -98,6 +100,7 @@ from tasks.cloudwatch import (
     create_cloudwatch_rule,
     create_cloudwatch_group,
     add_rule_target,
+    get_lambda_cloudwatch_logs,
     get_cloudwatch_existence_info
 )
 from tasks.sns import (
@@ -113,7 +116,7 @@ from tasks.sqs import (
 from tasks.api_gateway import (
     create_rest_api,
     deploy_api_gateway_to_stage,
-    create_resource
+    create_resource,
     create_method,
     add_integration_response,
     link_api_method_to_lambda
@@ -146,7 +149,7 @@ class TaskSpawner(object):
     sts_client = None
 
     # noinspection PyUnresolvedReferences
-    @pinject.copy_args_to_public_fields
+    @copy_args_to_public_fields
     def __init__(
         self,
         app_config,

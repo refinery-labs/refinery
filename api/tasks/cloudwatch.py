@@ -1,5 +1,7 @@
 from json import dumps, loads
 from re import sub
+from time import sleep
+from utils.general import logit
 
 
 def automatically_fix_schedule_expression(schedule_expression):
@@ -178,3 +180,63 @@ def get_cloudwatch_existence_info(aws_client_factory, credentials, _id, _type, n
     }
 
 
+def get_lambda_cloudwatch_logs(aws_client_factory, credentials, log_group_name, stream_id):
+    cloudwatch_logs_client = aws_client_factory.get_aws_client(
+        "logs",
+        credentials
+    )
+
+    if not stream_id:
+        # Pull the last stream from CloudWatch
+        # Streams take time to propagate so wait if needed
+        streams_data = cloudwatch_logs_client.describe_log_streams(
+            logGroupName=log_group_name,
+            orderBy="LastEventTime",
+            limit=50
+        )
+
+        stream_id = streams_data["logStreams"][0]["logStreamName"]
+
+    log_output = ""
+    attempts_remaining = 4
+    some_log_data_returned = False
+    forward_token = False
+    last_forward_token = False
+
+    while attempts_remaining > 0:
+        logit("[ STATUS ] Grabbing log events from '" +
+                log_group_name + "' at '" + stream_id + "'...")
+        get_log_events_params = {
+            "logGroupName": log_group_name,
+            "logStreamName": stream_id
+        }
+
+        if forward_token:
+            get_log_events_params["nextToken"] = forward_token
+
+        log_data = cloudwatch_logs_client.get_log_events(
+            **get_log_events_params
+        )
+
+        last_forward_token = forward_token
+        forward_token = False
+        forward_token = log_data["nextForwardToken"]
+
+        # If we got nothing in response we'll try again
+        if len(log_data["events"]) == 0 and some_log_data_returned == False:
+            attempts_remaining = attempts_remaining - 1
+            sleep(1)
+            continue
+
+        # If that's the last of the log data, quit out
+        if last_forward_token == forward_token:
+            break
+
+        # Indicate we've at least gotten some log data previously
+        some_log_data_returned = True
+
+        for event_data in log_data["events"]:
+            # Append log data
+            log_output += event_data["message"]
+
+    return log_output

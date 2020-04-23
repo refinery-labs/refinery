@@ -1,11 +1,12 @@
 from copy import deepcopy
 from io import BytesIO
 from json import dumps
+from pyconstants.project_constants import EMPTY_ZIP_DATA
 from re import sub
 from tasks.build.common import get_final_zip_package_path, get_codebuild_artifact_zip_data
 from tasks.s3 import s3_object_exists, read_from_s3
 from uuid import uuid4
-from zipfile import ZipFile, ZipInfo, EMPTY_ZIP_DATA, ZIP_DEFLATED
+from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 
 
 def start_node810_codebuild(aws_client_factory, credentials, libraries_object):

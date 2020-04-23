@@ -1,5 +1,6 @@
 from copy import deepcopy
 from io import BytesIO
+from pyconstants.project_constants import EMPTY_ZIP_DATA
 from tasks.build.common import get_final_zip_package_path, get_codebuild_artifact_zip_data
 from tasks.s3 import s3_object_exists, read_from_s3
 from uuid import uuid4

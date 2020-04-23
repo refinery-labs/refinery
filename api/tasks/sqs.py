@@ -66,7 +66,7 @@ def map_sqs_to_lambda(aws_client_factory, credentials, sqs_arn, lambda_arn, batc
 
     return response
 
-def _get_sqs_existence_info(aws_client_factory, credentials, _id, _type, name):
+def get_sqs_existence_info(aws_client_factory, credentials, _id, _type, name):
     sqs_client = aws_client_factory.get_aws_client(
         "sqs",
         credentials,

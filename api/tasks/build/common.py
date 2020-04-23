@@ -2,9 +2,10 @@ from hashlib import sha256
 from json import dumps
 from pyexceptions.builds import BuildException
 from tasks.s3 import read_from_s3
-from tasks.aws_lambda import get_lambda_cloudwatch_logs
+from tasks.cloudwatch import get_lambda_cloudwatch_logs
 from time import sleep
 from utils.general import logit
+
 
 def get_final_zip_package_path(language, libraries_object):
     hash_input = language + "-" + dumps(libraries_object, sort_keys=True)

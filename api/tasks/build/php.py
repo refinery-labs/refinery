@@ -1,11 +1,11 @@
 from copy import deepcopy
 from io import BytesIO
+from pyconstants.project_constants import EMPTY_ZIP_DATA
 from re import sub
 from tasks.build.common import get_final_zip_package_path, get_codebuild_artifact_zip_data
 from uuid import uuid4
 from yaml import dump
-from zipfile import ZipFile, ZipInfo, EMPTY_ZIP_DATA, ZIP_DEFLATED
-
+from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 
 def get_php73_lambda_base_zip(aws_client_factory, credentials, libraries):
     s3_client = aws_client_factory.get_aws_client(

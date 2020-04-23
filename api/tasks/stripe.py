@@ -1,11 +1,13 @@
-from stripe import Customer
+import stripe
+
+
 from utils.general import logit
 
 
 def get_account_cards(stripe_customer_id):
     # Pull all of the metadata for the cards the customer
     # has on file with Stripe
-    cards = Customer.list_sources(
+    cards = stripe.Customer.list_sources(
         stripe_customer_id,
         object="card",
         limit=100,
@@ -27,14 +29,14 @@ def get_account_cards(stripe_customer_id):
 
 
 def get_stripe_customer_information(stripe_customer_id):
-    return Customer.retrieve(
+    return stripe.Customer.retrieve(
         stripe_customer_id
     )
 
 
 def stripe_create_customer(email, name, phone_number, source_token, metadata_dict):
     # Create a customer in Stripe
-    customer = Customer.create(
+    customer = stripe.Customer.create(
         email=email,
         name=name,
         phone=phone_number,
@@ -47,7 +49,7 @@ def stripe_create_customer(email, name, phone_number, source_token, metadata_dic
 
 def associate_card_token_with_customer_account(stripe_customer_id, card_token):
     # Add the card to the customer's account.
-    new_card = Customer.create_source(
+    new_card = stripe.Customer.create_source(
         stripe_customer_id,
         source=card_token
     )
@@ -55,7 +57,7 @@ def associate_card_token_with_customer_account(stripe_customer_id, card_token):
     return new_card["id"]
 
 def set_stripe_customer_default_payment_source(self, stripe_customer_id, card_id):
-    customer_update_response = Customer.modify(
+    customer_update_response = stripe.Customer.modify(
         stripe_customer_id,
         default_source=card_id,
     )
@@ -74,7 +76,7 @@ def delete_card_from_account(self, stripe_customer_id, card_id):
         raise CardIsPrimaryException()
 
     # Delete the card from STripe
-    delete_response = Customer.delete_source(
+    delete_response = stripe.Customer.delete_source(
         stripe_customer_id,
         card_id
     )

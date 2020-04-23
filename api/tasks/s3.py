@@ -90,7 +90,7 @@ def read_from_s3_and_return_input(self, credentials, s3_bucket, path):
     }
 
 
-def bulk_s3_delete(aws_client_factory,, credentials, s3_bucket, s3_path_list):
+def bulk_s3_delete(aws_client_factory, credentials, s3_bucket, s3_path_list):
     s3_client = aws_client_factory.get_aws_client(
         "s3",
         credentials,

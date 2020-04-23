@@ -1,3 +1,6 @@
+import stripe
+
+
 from assistants.accounts import get_user_free_trial_information
 from assistants.task_spawner.actions import get_current_month_start_and_end_date_strings
 from assistants.task_spawner.actions import is_organization_first_month
@@ -8,7 +11,6 @@ from json import loads
 from models import AWSAccount, Organization, CachedBillingCollection, CachedBillingItem
 from numpy import format_float_positional
 from pystache import render
-from stripe import InvoiceItem, Invoice
 from tasks.aws_account import freeze_aws_account
 from tasks.email import send_email, send_account_freeze_email
 from time import time
@@ -145,7 +147,7 @@ def generate_managed_accounts_invoices(aws_client_factory, aws_cost_explorer, ap
                             " (Cloud Account: '" + \
                             aws_account_billing_data["aws_account_label"] + "')"
 
-                    InvoiceItem.create(
+                    stripe.InvoiceItem.create(
                         # Stripe bills in cents!
                         amount=line_item_cents,
                         currency=str(service_cost_data["unit"]).lower(),
@@ -163,7 +165,7 @@ def generate_managed_accounts_invoices(aws_client_factory, aws_cost_explorer, ap
             }
 
             try:
-                customer_invoice = Invoice.create(
+                customer_invoice = stripe.Invoice.create(
                     **invoice_creation_params
                 )
 
