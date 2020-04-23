@@ -144,6 +144,8 @@ export class RefineryGitActionHandler {
       .map(fileRow => fileRow[0]);
     const filesToDelete = gitStatusResult.filter(fileRow => isFileDeleted(fileRow)).map(fileRow => fileRow[0]);
 
+    console.log('git data: ', filesToAdd, filesToDelete);
+
     await Promise.all(filesToAdd.map(async filepath => await this.gitClient.add(filepath)));
     await Promise.all(filesToDelete.map(async filepath => await this.gitClient.remove(filepath)));
 
@@ -165,6 +167,7 @@ export class RefineryGitActionHandler {
       return GitPushResult.Success;
     } catch (e) {
       if (e instanceof Errors.PushRejectedError) {
+        console.log('Unable to FF');
         return GitPushResult.UnableToFastForward;
       } else {
         console.error(e);

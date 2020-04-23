@@ -54,6 +54,9 @@ export class BlockNameInput extends Vue implements EditBlockPaneProps {
 
     const isEditor = !this.readOnly;
 
+    // @ts-ignore
+    const arnBlock = this.readOnly && <label class="d-block">Lambda ARN: {selectedNode.arn}</label>;
+
     return (
       <b-form-group id={`block-name-group-${selectedNode.id}`} description={this.getDescription(isEditor)}>
         <label class="d-block" htmlFor={isEditor && `block-name-${selectedNode.id}`}>
@@ -61,6 +64,8 @@ export class BlockNameInput extends Vue implements EditBlockPaneProps {
         </label>
 
         {this.readOnly ? this.renderReadOnlyName(selectedNode) : this.renderEditableName(selectedNode)}
+
+        {this.readOnly ? arnBlock : null}
       </b-form-group>
     );
   }

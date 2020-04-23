@@ -14,6 +14,8 @@ import uuid from 'uuid';
 import { GitDiffInfo, GitStatusResult, InvalidGitRepoError } from '@/repo-compiler/lib/git-types';
 import { REFINERY_COMMIT_AUTHOR_NAME } from '@/repo-compiler/shared/constants';
 import { GitStoreModule } from '@/store';
+import git from 'isomorphic-git';
+import { http } from '@/repo-compiler/lib/git-http';
 
 const storeName = StoreType.syncProjectRepo;
 
@@ -211,11 +213,14 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   @Action
   public async pushToRepo(force: boolean) {
     if (this.projectSessionId === null) {
-      throw new InvalidGitRepoError('Cannot push to repo with missing project session id');
+      const msg = 'Cannot push to repo with missing project session id';
+      console.error(msg);
+      throw new InvalidGitRepoError(msg);
     }
 
     await this.setPushingToRepo(true);
 
+    const gitClient = GitStoreModule.getGitClientByProjectId(this.projectSessionId);
     const gitActionHandler = GitStoreModule.getRefineryGitActionHandler(this.projectSessionId);
 
     const result = await gitActionHandler.stageFilesAndPushToRemote(
@@ -224,12 +229,28 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
       this.commitMessage,
       force
     );
+
     await this.setGitPushResult(result);
     await this.setPushingToRepo(false);
 
     if (result !== GitPushResult.Success) {
       // git push did not succeed
+      // if (result !== GitPushResult.UnableToFastForward) {
       return;
+      // }
+      //
+      // await git.pull({
+      //   fs: gitClient.fs,
+      //   dir: gitClient.dir,
+      //   http,
+      //   ref: this.remoteBranchName
+      // });
+      //
+      // await git.merge({
+      //   fs: gitClient.fs,
+      //   dir: gitClient.dir,
+      //
+      // });
     }
 
     // git push succeeded
@@ -260,29 +281,46 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   @Action
   public async diffCompiledProject(): Promise<GitDiffInfo> {
     if (this.projectSessionId === null) {
-      throw new InvalidGitRepoError('Cannot diff repo with missing project session id');
+      const msg = 'Cannot diff repo with missing project session id';
+      console.error(msg);
+      throw new InvalidGitRepoError(msg);
     }
 
-    if (!this.repoBranches.includes(this.remoteBranchName)) {
-      return {
-        originalFiles: {},
-        changedFiles: {}
-      };
-    }
+    // Force a save of the currently selected resource
+    await this.context.dispatch(`project/${ProjectViewActions.saveSelectedResource}`, true, { root: true });
+
+    const gitClient = GitStoreModule.getGitClientByProjectId(this.projectSessionId);
+    const gitActionHandler = GitStoreModule.getRefineryGitActionHandler(this.projectSessionId);
 
     await this.clearGitPushResult();
 
     const project = await this.getOpenedProject();
 
-    const gitClient = GitStoreModule.getGitClientByProjectId(this.projectSessionId);
-    const gitActionHandler = GitStoreModule.getRefineryGitActionHandler(this.projectSessionId);
-
-    // TODO: See if we can move this logic into the Action handler to avoid breaking the Git abstraction
-    await gitClient.checkout({
-      ref: this.remoteBranchName,
-      force: true
-    });
-
+    if (!this.repoBranches.includes(this.remoteBranchName)) {
+      try {
+        await git.branch({
+          fs: gitClient.fs,
+          dir: gitClient.dir,
+          ref: this.remoteBranchName
+        });
+        await gitClient.checkout({
+          ref: this.remoteBranchName,
+          force: true
+        });
+      } catch (e) {
+        console.error('branch error:', e);
+      }
+      // return {
+      //   originalFiles: {},
+      //   changedFiles: {}
+      // };
+    } else {
+      // TODO: See if we can move this logic into the Action handler to avoid breaking the Git abstraction
+      await gitClient.checkout({
+        ref: this.remoteBranchName,
+        force: true
+      });
+    }
     await gitActionHandler.writeProjectToDisk(project);
 
     // get list of files that were changed
@@ -295,25 +333,29 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   }
 
   @Action
-  public async compileClonedProject(gitClient: GitClient): Promise<RefineryProject | undefined> {
+  public async compileClonedProject(gitClient: GitClient): Promise<RefineryProject | null> {
     if (this.projectSessionId === null) {
-      throw new InvalidGitRepoError('Cannot compile clone repo with missing project session id');
+      const msg = 'Cannot compile clone repo with missing project session id';
+      console.error(msg);
+      throw new InvalidGitRepoError(msg);
     }
 
     try {
       return await loadProjectFromDir(gitClient.fs, this.projectSessionId, gitClient.dir);
     } catch (e) {
       if (e instanceof RepoCompilationError) {
-        await this.setRepoCompilationError(e);
+        // await this.setRepoCompilationError(e);
       }
+      return this.context.rootState.project.openedProject;
     }
-    return undefined;
   }
 
   @Action
   public async setupLocalProjectRepo(projectConfig: ProjectConfig) {
     if (!projectConfig.project_repo) {
-      throw new InvalidGitRepoError('Unable to setup local project repo with missing git repo URI');
+      const msg = 'Unable to setup local project repo with missing git repo URI';
+      console.error(msg);
+      throw new InvalidGitRepoError(msg);
     }
 
     const projectSessionId = uuid.v4();
