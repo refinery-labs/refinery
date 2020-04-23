@@ -1,9 +1,8 @@
 import json
 
+import requests
 from tornado import httpclient, gen
 from tornado.httpclient import HTTPError
-
-from controller.auth.github.utils import decode_response_body
 
 
 class GithubAssistant:
@@ -27,10 +26,11 @@ class GithubAssistant:
 
     # https://developer.github.com/v3/repos/#list-repositories-for-the-authenticated-user
     @gen.coroutine
-    def list_repos_for_user( self, access_token ):
+    def list_repos_for_user( self, access_token, page=0 ):
         try:
             response = yield self.http.fetch(
-                self._OAUTH_LIST_USER_URL,
+                # Grab 100 pages at a time and sort them by the most recently updated projects.
+                self._OAUTH_LIST_USER_URL + '?per_page=100&sort=updated&page=' + str(page),
                 headers=self._get_auth_base_headers(access_token)
             )
         except HTTPError as e:
@@ -52,5 +52,15 @@ class GithubAssistant:
                 "updated_at": repo_result["updated_at"],
                 "private": repo_result["private"]
             })
+
+        # Grab additional pages (pagination)
+        if "Link" in response.headers:
+            parsed_links = requests.utils.parse_header_links(response.headers['Link'])
+            next_link = [link for link in parsed_links if link["rel"] == "next"]
+
+            if len(next_link) > 0:
+                # Recursive call with the deeper page
+                # TODO: We can optimize this by grabbing the "last" page and then, in parallel, grabbing the pages.
+                repos = repos + (yield self.list_repos_for_user(access_token, page + 1))
 
         raise gen.Return( repos )
