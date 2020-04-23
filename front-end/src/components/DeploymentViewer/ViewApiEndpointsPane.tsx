@@ -83,11 +83,11 @@ export default class ViewApiEndpointsPane extends Vue {
 
     return (
       <div style="min-width: 500px">
-        <label class="padding--normal">All deployed API Endpoints for this project.</label>
-        <b-list-group className="view-api-endpoints-pane-container">
+        <h4 class="margin--normal">Deployed API Endpoints</h4>
+        <b-list-group class="view-api-endpoints-pane-container margin--normal">
           {this.getDeployedAPIEndpoints.map(e => this.renderAPIEndpoint(e))}
         </b-list-group>
-        <div class="text-align--left">
+        <div class="text-align--left margin--normal">
           <p class="padding-top--normal padding-left--normal">Example endpoint curl request:</p>
           <RefineryCodeEditor props={editorProps} />
         </div>
