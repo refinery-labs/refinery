@@ -7,7 +7,7 @@ import { OpenProjectMutation } from '@/types/project-editor-types';
 import { ProjectConfig, RefineryProject } from '@/types/graph';
 import { StatusRow } from 'isomorphic-git';
 import { newBranchText } from '@/constants/project-editor-constants';
-import { getStatusForFileInfo, RepoCompilationError } from '@/repo-compiler/lib/git-utils';
+import { getStatusForFileInfo, getStatusMessageForFileInfo, RepoCompilationError } from '@/repo-compiler/lib/git-utils';
 import { GitClient } from '@/repo-compiler/lib/git-client';
 import { loadProjectFromDir } from '@/repo-compiler/one-to-one/git-to-refinery';
 import uuid from 'uuid';
@@ -15,7 +15,6 @@ import { GitDiffInfo, GitStatusResult, InvalidGitRepoError } from '@/repo-compil
 import { REFINERY_COMMIT_AUTHOR_NAME } from '@/repo-compiler/shared/constants';
 import { GitStoreModule } from '@/store';
 import git from 'isomorphic-git';
-import { http } from '@/repo-compiler/lib/git-http';
 
 const storeName = StoreType.syncProjectRepo;
 
@@ -220,7 +219,6 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
     await this.setPushingToRepo(true);
 
-    const gitClient = GitStoreModule.getGitClientByProjectId(this.projectSessionId);
     const gitActionHandler = GitStoreModule.getRefineryGitActionHandler(this.projectSessionId);
 
     const result = await gitActionHandler.stageFilesAndPushToRemote(
@@ -260,6 +258,39 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   @Action
   public async pushToRemoteBranch() {
     await this.pushToRepo(false);
+  }
+
+  @Action
+  public async runGitCommand(command: string): Promise<string> {
+    if (this.projectSessionId === null) {
+      const msg = 'Cannot run command with missing project session id';
+      console.error(msg);
+      throw new InvalidGitRepoError(msg);
+    }
+    const gitClient = GitStoreModule.getGitClientByProjectId(this.projectSessionId);
+
+    const gitCommandLookup: Record<string, () => Promise<string>> = {
+      branches: async () => {
+        return (await gitClient.listBranches()).join('\n');
+      },
+      status: async () => {
+        return (await gitClient.status()).map(row => `${row[0]}: ${getStatusMessageForFileInfo(row)}`).join('\n');
+      },
+      log: async () => {
+        return (await gitClient.log())
+          .map(obj => {
+            const commit = obj.commit;
+            return {
+              message: commit.message,
+              parent: commit.parent,
+              tree: commit.tree
+            };
+          })
+          .map(obj => JSON.stringify(obj, null, 2))
+          .join('\n');
+      }
+    };
+    return gitCommandLookup[command] ? await gitCommandLookup[command]() : 'command not found';
   }
 
   @Action

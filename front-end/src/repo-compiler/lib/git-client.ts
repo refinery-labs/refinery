@@ -3,14 +3,16 @@ import git, {
   AuthFailureCallback,
   AuthSuccessCallback,
   CallbackFsClient,
+  CommitObject,
   HttpClient,
   MessageCallback,
   ProgressCallback,
   PromiseFsClient,
+  ReadCommitResult,
   SignCallback,
   StatusRow
 } from 'isomorphic-git';
-import http from '@/repo-compiler/lib/git-http';
+import { http } from '@/repo-compiler/lib/git-http';
 
 export class GitClient {
   private readonly uri: string;
@@ -106,6 +108,13 @@ export class GitClient {
       fs: this.fs,
       dir: this.dir,
       ...options
+    });
+  }
+
+  public async log(): Promise<Array<ReadCommitResult>> {
+    return await git.log({
+      fs: this.fs,
+      dir: this.dir
     });
   }
 

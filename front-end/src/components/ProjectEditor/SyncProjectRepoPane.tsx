@@ -21,6 +21,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
 
   public showingGitStatusDetails: boolean = false;
   public forcePushModalVisible: boolean = false;
+  private gitCommandResult: string = '';
 
   // TODO this should be in the store
   public gitDiffInfo: GitDiffInfo = { originalFiles: {}, changedFiles: {} };
@@ -248,6 +249,10 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     await SyncProjectRepoPaneStoreModule.clearGitStatusResult();
   }
 
+  public async runGitShellCommand(command: string) {
+    this.gitCommandResult = await SyncProjectRepoPaneStoreModule.runGitCommand(command);
+  }
+
   public render(h: CreateElement): VNode {
     const loadingClasses = {
       'whirl standard': !SyncProjectRepoPaneStoreModule.gitStatusResult,
@@ -325,6 +330,11 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
           <hr />
 
           <div class="deploy-pane-container__content overflow--scroll-y-auto">{this.renderGitStatusDetails()}</div>
+
+          <hr />
+
+          <b-form-input type="text" on={{ input: this.runGitShellCommand }} />
+          <b-textarea value={this.gitCommandResult} />
 
           {this.renderModal()}
           {this.renderForcePushWarning()}
