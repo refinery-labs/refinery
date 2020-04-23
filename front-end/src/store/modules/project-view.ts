@@ -540,6 +540,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       // Save new config to the backend
       await context.dispatch(ProjectViewActions.saveProjectConfig);
+
+      // TODO: Refactor project-view to never be able to have this as null....
+      if (context.state.openedProjectConfig) {
+        await SyncProjectRepoPaneStoreModule.setupLocalProjectRepo(context.state.openedProjectConfig);
+      }
     },
     async [ProjectViewActions.setIfExpression](context, ifExpressionValue: string) {
       await context.commit(ProjectViewMutators.setIfExpression, ifExpressionValue);
@@ -981,7 +986,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       context.commit(ProjectViewMutators.setDeploymentError, null);
     },
 
-    async [ProjectViewActions.saveSelectedResource](context) {
+    async [ProjectViewActions.saveSelectedResource](context, dontClose: boolean = false) {
       if (context.getters.selectedResourceDirty && !context.getters[ProjectViewGetters.canSaveProject]) {
         await createToast(context.dispatch, {
           title: 'Invalid Block State Detected',
@@ -996,7 +1001,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         await saveEditBlockToProject();
       }
 
-      await context.dispatch(`editBlockPane/${EditBlockActions.tryToCloseBlock}`);
+      if (!dontClose) {
+        await context.dispatch(`editBlockPane/${EditBlockActions.tryToCloseBlock}`);
+      }
 
       // Dang man, we're gonna have to rewrite these transitions at some point. This architecture is madness!
       if (

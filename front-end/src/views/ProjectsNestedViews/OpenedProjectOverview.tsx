@@ -121,7 +121,7 @@ export default class OpenedProjectOverview extends Vue {
       paneTypeToEnabledCheckFunction: {
         [SIDEBAR_PANE.addTransition]: () => this.transitionAddButtonEnabled,
         [SIDEBAR_PANE.saveProject]: () => this.isInDemoMode || this.canSaveProject,
-        [SIDEBAR_PANE.syncProjectRepo]: () => this.isProjectRepoSet,
+        [SIDEBAR_PANE.syncProjectRepo]: () => this.isProjectRepoSet && this.canSaveProject,
         [SIDEBAR_PANE.deployProject]: () => this.canDeployProject,
         [SIDEBAR_PANE.runEditorCodeBlock]: () => this.hasCodeBlockSelected
       },
