@@ -109,7 +109,9 @@ export class RefineryGitActionHandler {
     gitStatusResult: Array<StatusRow>
   ): Promise<GitDiffInfo> {
     // TODO symlinks always show up as modified files
-    const deletedModifiedFiles = gitStatusResult.filter(fileRow => isFileModified(fileRow)).map(fileRow => fileRow[0]);
+    const deletedFiles = gitStatusResult.filter(fileRow => isFileDeleted(fileRow)).map(fileRow => fileRow[0]);
+    const modifiedFiles = gitStatusResult.filter(fileRow => isFileModified(fileRow)).map(fileRow => fileRow[0]);
+
     const newFiles = gitStatusResult.filter(fileRow => isFileNew(fileRow)).map(fileRow => fileRow[0]);
 
     await this.gitClient.checkout({
@@ -117,12 +119,13 @@ export class RefineryGitActionHandler {
       force: true
     });
 
-    // new files are ignored since they did not exist on the original branch
-    const originalFileContents = await this.getFilesFromFS(deletedModifiedFiles);
+    // new files are ignored since they did not exist in HEAD
+    const originalFileContents = await this.getFilesFromFS([...deletedFiles, ...modifiedFiles]);
 
     await this.writeProjectToDisk(project);
 
-    const changedFileContents = await this.getFilesFromFS([...deletedModifiedFiles, ...newFiles]);
+    // deleted files are ignored since they don't exist after the changes
+    const changedFileContents = await this.getFilesFromFS([...modifiedFiles, ...newFiles]);
 
     return {
       originalFiles: originalFileContents,
@@ -136,9 +139,12 @@ export class RefineryGitActionHandler {
     commitMessage: string,
     force: boolean
   ) {
+    const filesToAdd = gitStatusResult
+      .filter(fileRow => isFileNew(fileRow) || isFileModified(fileRow))
+      .map(fileRow => fileRow[0]);
     const filesToDelete = gitStatusResult.filter(fileRow => isFileDeleted(fileRow)).map(fileRow => fileRow[0]);
 
-    await this.gitClient.add('.');
+    await Promise.all(filesToAdd.map(async filepath => await this.gitClient.add(filepath)));
     await Promise.all(filesToDelete.map(async filepath => await this.gitClient.remove(filepath)));
 
     await this.gitClient.commit({
