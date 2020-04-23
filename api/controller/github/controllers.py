@@ -6,7 +6,8 @@ from tornado import httpclient, gen
 from tornado.httpclient import HTTPClientError
 from tornado.httpserver import HTTPRequest
 
-from controller.base import BaseHandler
+from assistants.github.github_assistant import GithubAssistant
+from controller.base import BaseHandler, pinject
 from controller.decorators import authenticated
 from models.user_oauth_account import UserOAuthAccountModel
 
@@ -97,8 +98,6 @@ class GithubProxy( BaseHandler ):
 
     @gen.coroutine
     def proxy_request( self ):
-        # TODO get auth from header -> user_id
-
         headers = self.request.headers
         for header in GIT_ALLOW_HEADERS:
             if self.request.headers.get( header ):
@@ -118,7 +117,6 @@ class GithubProxy( BaseHandler ):
             return
 
         # get the latest data record
-        # TODO bounds check
         oauth_data_record = user_oauth_account.oauth_data_records[-1]
 
         oauth_json_data = json.loads( oauth_data_record.json_data )
@@ -218,3 +216,42 @@ class GithubProxy( BaseHandler ):
         self.set_header( 'Access-Control-Allow-Headers', ','.join( DEFAULT_ALLOW_HEADERS ) )
         self.set_header( 'Access-Control-Max-Age', CORS_MAX_AGE )
         self.finish()
+
+
+class GithubListUserReposDependencies:
+    @pinject.copy_args_to_public_fields
+    def __init__( self, github_assistant ):
+        pass
+
+
+class GithubListUserRepos(BaseHandler):
+    dependencies = GithubListUserReposDependencies
+
+    github_assistant = None  # type: GithubAssistant
+
+    @gen.coroutine
+    @authenticated
+    def get( self ):
+        user_id = self.get_authenticated_user_id()
+        user_oauth_account = self.dbsession.query( UserOAuthAccountModel ).filter(
+            UserOAuthAccountModel.user_id == user_id
+        ).first()
+
+        if user_oauth_account is None:
+            self.write( {
+                "success": False,
+                "code": "PROJECT_REPO_MISSING_GITHUB_OAUTH",
+                "msg": "Github OAuth has not been enabled for this account."
+            } )
+            return
+
+        # get the latest data record
+        oauth_data_record = user_oauth_account.oauth_data_records[-1]
+
+        access_token = oauth_data_record.oauth_token
+
+        repos = yield self.github_assistant.list_repos_for_user(access_token)
+        self.write({
+            "success": True,
+            "repos": repos
+        })

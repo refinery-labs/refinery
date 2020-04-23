@@ -46,18 +46,18 @@ export class RefineryGitActionHandler {
    * @param path Set to a the default value of the path for Refinery projects in the repo.
    */
   async readProjectsFromRepo(path = REFINERY_PROJECTS_FOLDER): Promise<string[]> {
-    const projectsFolderExists = pathExists(this.fs, this.dir, path);
+    const projectsFolderExists = pathExists(this.gitClient.fs, this.gitClient.dir, path);
 
     if (!projectsFolderExists) {
       throw new InvalidGitRepoStructure('Missing projects folder');
     }
 
     // Grab every file in the Git repo at the given path
-    const projectFiles = await listFilesInFolder(this.fs, this.dir, path);
+    const projectFiles = await listFilesInFolder(this.gitClient.fs, this.gitClient.dir, path);
 
     // Grab any nested directories
     const directories = await Promise.all(
-      projectFiles.filter(async f => (await statFile(this.fs, this.dir, f)).isDirectory())
+      projectFiles.filter(async f => (await statFile(this.gitClient.fs, this.gitClient.dir, f)).isDirectory())
     );
 
     // Go grab all of the nested projects via recursive calls
@@ -140,10 +140,10 @@ export class RefineryGitActionHandler {
   ) {
     const filesToDelete = gitStatusResult.filter(fileRow => isFileDeleted(fileRow)).map(fileRow => fileRow[0]);
 
-    await this.add('.');
-    await Promise.all(filesToDelete.map(async filepath => await this.remove(filepath)));
+    await this.gitClient.add('.');
+    await Promise.all(filesToDelete.map(async filepath => await this.gitClient.remove(filepath)));
 
-    await this.commit({
+    await this.gitClient.commit({
       author: {
         name: REFINERY_COMMIT_AUTHOR_NAME,
         email: REFINERY_COMMIT_AUTHOR_EMAIL

@@ -111,6 +111,18 @@ export async function isPathValidSymlink(fs: PromiseFsClient, path: string) {
 
 //https://isomorphic-git.org/docs/en/statusMatrix
 
+/*
+  ["a.txt", 0, 2, 0], // new, untracked
+  ["b.txt", 0, 2, 2], // added, staged
+  ["c.txt", 0, 2, 3], // added, staged, with unstaged changes
+  ["d.txt", 1, 1, 1], // unmodified
+  ["e.txt", 1, 2, 1], // modified, unstaged
+  ["f.txt", 1, 2, 2], // modified, staged
+  ["g.txt", 1, 2, 3], // modified, staged, with unstaged changes
+  ["h.txt", 1, 0, 1], // deleted, unstaged
+  ["i.txt", 1, 0, 0], // deleted, staged
+ */
+
 const STATUS_MAPPING: Record<string, string> = {
   '020': 'new, untracked',
   '022': 'added, staged',
