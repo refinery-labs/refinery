@@ -14,7 +14,7 @@ import { timeout, waitUntil } from '@/utils/async-utils';
 import { ProductionExecutionResponse } from '@/types/deployment-executions-types';
 import Tooltip from '@/lib/Tooltip';
 import { TooltipProps } from '@/types/tooltip-types';
-import { RepoCompilationError } from '@/repo-compiler/shared/git-utils';
+import { RepoCompilationError } from '@/repo-compiler/lib/git-utils';
 
 const project = namespace('project');
 const syncProjectRepo = namespace('syncProjectRepo');

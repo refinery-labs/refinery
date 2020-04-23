@@ -1,7 +1,7 @@
 import { CallbackFsClient, PromiseFsClient, StatusRow } from 'isomorphic-git';
 import Path from 'path';
 import { PROJECT_CONFIG_FILENAME } from '@/repo-compiler/shared/constants';
-import { GitStatusResult, LightningFsFile } from '@/repo-compiler/shared/git-types';
+import { GitStatusResult, LightningFsFile } from '@/repo-compiler/lib/git-types';
 import { RefineryProject } from '@/types/graph';
 
 export interface RepoCompilationErrorContext {
