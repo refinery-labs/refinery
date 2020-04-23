@@ -5,7 +5,7 @@ import {
 } from '@/repo-compiler/shared/constants';
 import {
   isFileDeleted,
-  isFileDeletedOrModified,
+  isFileModified,
   isFileNew,
   listFilesInFolder,
   pathExists,
@@ -109,9 +109,7 @@ export class RefineryGitActionHandler {
     gitStatusResult: Array<StatusRow>
   ): Promise<GitDiffInfo> {
     // TODO symlinks always show up as modified files
-    const deletedModifiedFiles = gitStatusResult
-      .filter(fileRow => isFileDeletedOrModified(fileRow))
-      .map(fileRow => fileRow[0]);
+    const deletedModifiedFiles = gitStatusResult.filter(fileRow => isFileModified(fileRow)).map(fileRow => fileRow[0]);
     const newFiles = gitStatusResult.filter(fileRow => isFileNew(fileRow)).map(fileRow => fileRow[0]);
 
     await this.gitClient.checkout({

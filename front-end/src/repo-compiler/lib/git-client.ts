@@ -1,4 +1,3 @@
-import LightningFS from '@isomorphic-git/lightning-fs';
 import git, {
   AuthCallback,
   AuthFailureCallback,
@@ -18,15 +17,13 @@ export class GitClient {
   public readonly fs: PromiseFsClient;
   public readonly dir: string;
 
-  constructor(uri: string, projectID: string, resetFS?: boolean) {
+  constructor(uri: string, fs: PromiseFsClient, dir: string, resetFS?: boolean) {
     this.uri = uri;
 
-    this.fs = new LightningFS('project', {
-      wipe: resetFS === undefined ? false : resetFS
-    });
+    this.fs = fs;
 
     // TODO this needs to be unique per project in the case of a one to many repo
-    this.dir = `/projects/${projectID}`;
+    this.dir = dir;
   }
 
   public async checkout(
@@ -169,6 +166,7 @@ export class GitClient {
       ...options
     });
   }
+
   public async push(
     options?: Partial<{
       fs: CallbackFsClient | PromiseFsClient;

@@ -191,9 +191,9 @@ export function isFileDeleted(row: StatusRow): boolean {
   return headStatus === 1 && workdirStatus === 0;
 }
 
-export function isFileDeletedOrModified(row: StatusRow): boolean {
+export function isFileModified(row: StatusRow): boolean {
   const headStatus = row[1];
   const workdirStatus = row[2];
 
-  return headStatus === 1 && (workdirStatus === 0 || workdirStatus === 2);
+  return headStatus === 1 && workdirStatus === 2;
 }
