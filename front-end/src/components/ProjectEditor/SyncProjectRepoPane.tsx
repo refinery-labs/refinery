@@ -268,6 +268,100 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     );
   }
 
+  public renderSelectExistingBranchCard() {
+    const repoBranches = SyncProjectRepoPaneStoreModule.repoBranches;
+
+    const selectRepoBranches = repoBranches.map(branch => {
+      return { value: branch, text: branch };
+    });
+    return (
+      <b-card
+        no-body
+        className="mb-1"
+        bg-variant={!SyncProjectRepoPaneStoreModule.creatingNewBranch ? 'light' : 'default'}
+        on={{ click: async () => await this.setCreatingNewBranch(false) }}
+      >
+        <b-card-header header-tag="header" className="p-1" role="tab">
+          <h5>Use existing branch</h5>
+        </b-card-header>
+        <b-collapse
+          id="existing-branch-collapse"
+          visible={!SyncProjectRepoPaneStoreModule.creatingNewBranch}
+          accordion="repo-branch-accordion"
+          role="tabpanel"
+        >
+          <b-card-body>
+            <b-form-select
+              on={{ input: this.setRemoteBranchName }}
+              value={SyncProjectRepoPaneStoreModule.remoteBranchName}
+              options={selectRepoBranches}
+            />
+          </b-card-body>
+        </b-collapse>
+      </b-card>
+    );
+  }
+
+  public renderCreateNewBranchCard() {
+    const currentBranch = SyncProjectRepoPaneStoreModule.remoteBranchName;
+
+    const validBranch = currentBranch !== '' ? !branchNameBlacklistRegex.test(currentBranch) : null;
+    const remoteBranchName = SyncProjectRepoPaneStoreModule.getRemoteBranchName;
+
+    return (
+      <b-card
+        no-body
+        className="mb-1"
+        bg-variant={SyncProjectRepoPaneStoreModule.creatingNewBranch ? 'light' : 'default'}
+        on={{ click: async () => await this.setCreatingNewBranch(true) }}
+      >
+        <b-card-header header-tag="header" className="p-1" role="tab">
+          <h5>Create a new branch</h5>
+        </b-card-header>
+        <b-collapse
+          id="new-branch-collapse"
+          visible={SyncProjectRepoPaneStoreModule.creatingNewBranch}
+          accordion="repo-branch-accordion"
+          role="tabpanel"
+        >
+          <b-card-body>
+            <b-form-input
+              type="text"
+              autofocus={true}
+              required={true}
+              state={validBranch}
+              value={remoteBranchName}
+              on={{ input: this.setNewRemoteBranchName }}
+              placeholder="eg, new-feature"
+            />
+            <b-form-invalid-feedback className="padding--small" state={validBranch}>
+              The entered branch name is not valid. Please refer to{' '}
+              <a
+                href="https://mirrors.edge.kernel.org/pub/software/scm/git/docs/git-check-ref-format.html"
+                target="_blank"
+              >
+                check-ref-format
+              </a>{' '}
+              for valid branch names.
+            </b-form-invalid-feedback>
+          </b-card-body>
+        </b-collapse>
+      </b-card>
+    );
+  }
+
+  public renderRepoBranchSelect() {
+    return (
+      <div>
+        <label class="d-block">Branch Name:</label>
+        <div role="tablist" class="set-project-repo">
+          {this.renderSelectExistingBranchCard()}
+          {this.renderCreateNewBranchCard()}
+        </div>
+      </div>
+    );
+  }
+
   public render(h: CreateElement): VNode {
     const loadingClasses = {
       'whirl standard': !SyncProjectRepoPaneStoreModule.gitStatusResult,
@@ -275,15 +369,6 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
       'padding--normal': true,
       'sync-project-repo-container': true
     };
-
-    const repoBranches = SyncProjectRepoPaneStoreModule.repoBranches;
-    const selectRepoBranches = repoBranches.map(branch => {
-      return { value: branch, text: branch };
-    });
-    const currentBranch = SyncProjectRepoPaneStoreModule.remoteBranchName;
-
-    const validBranch = currentBranch !== '' ? !branchNameBlacklistRegex.test(currentBranch) : null;
-    const remoteBranchName = SyncProjectRepoPaneStoreModule.getRemoteBranchName;
 
     const gitPushProps: LoadingContainerProps = {
       show: SyncProjectRepoPaneStoreModule.isPushingToRepo,
@@ -293,73 +378,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     return (
       <div class={loadingClasses}>
         <Loading props={gitPushProps}>
-          <div>
-            <label class="d-block">Branch Name:</label>
-            <div role="tablist" class="set-project-repo">
-              <b-card
-                no-body
-                className="mb-1"
-                bg-variant={!SyncProjectRepoPaneStoreModule.creatingNewBranch ? 'light' : 'default'}
-                on={{ click: async () => await this.setCreatingNewBranch(false) }}
-              >
-                <b-card-header header-tag="header" className="p-1" role="tab">
-                  <h5>Use existing branch</h5>
-                </b-card-header>
-                <b-collapse
-                  id="existing-branch-collapse"
-                  visible={!SyncProjectRepoPaneStoreModule.creatingNewBranch}
-                  accordion="repo-branch-accordion"
-                  role="tabpanel"
-                >
-                  <b-card-body>
-                    <b-form-select
-                      on={{ input: this.setRemoteBranchName }}
-                      value={currentBranch}
-                      options={selectRepoBranches}
-                    />
-                  </b-card-body>
-                </b-collapse>
-              </b-card>
-              <b-card
-                no-body
-                className="mb-1"
-                bg-variant={SyncProjectRepoPaneStoreModule.creatingNewBranch ? 'light' : 'default'}
-                on={{ click: async () => await this.setCreatingNewBranch(true) }}
-              >
-                <b-card-header header-tag="header" className="p-1" role="tab">
-                  <h5>Create a new branch</h5>
-                </b-card-header>
-                <b-collapse
-                  id="new-branch-collapse"
-                  visible={SyncProjectRepoPaneStoreModule.creatingNewBranch}
-                  accordion="repo-branch-accordion"
-                  role="tabpanel"
-                >
-                  <b-card-body>
-                    <b-form-input
-                      type="text"
-                      autofocus={true}
-                      required={true}
-                      state={validBranch}
-                      value={remoteBranchName}
-                      on={{ input: this.setNewRemoteBranchName }}
-                      placeholder="eg, new-feature"
-                    />
-                    <b-form-invalid-feedback className="padding--small" state={validBranch}>
-                      The entered branch name is not valid. Please refer to{' '}
-                      <a
-                        href="https://mirrors.edge.kernel.org/pub/software/scm/git/docs/git-check-ref-format.html"
-                        target="_blank"
-                      >
-                        check-ref-format
-                      </a>{' '}
-                      for valid branch names.
-                    </b-form-invalid-feedback>
-                  </b-card-body>
-                </b-collapse>
-              </b-card>
-            </div>
-          </div>
+          {this.renderRepoBranchSelect()}
 
           <label class="d-block">Commit message:</label>
           <b-form-input
