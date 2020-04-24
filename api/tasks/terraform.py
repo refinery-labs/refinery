@@ -1,3 +1,5 @@
+import json
+import shutil
 from copy import copy
 from json import loads
 from shutil import rmtree
@@ -14,10 +16,6 @@ def write_terraform_base_files(app_config, sts_client, aws_account_dict):
     # we will still delete the underlying state.
     temporary_dir = "/tmp/" + str(uuid4()) + "/"
 
-    result = False
-
-    terraform_configuration_data = {}
-
     try:
         # Recursively copy files to the directory
         shutil.copytree(
@@ -25,7 +23,7 @@ def write_terraform_base_files(app_config, sts_client, aws_account_dict):
             temporary_dir
         )
 
-        terraform_configuration_data = _write_terraform_base_files(
+        return _write_terraform_base_files(
             app_config,
             sts_client,
             aws_account_dict,
@@ -40,8 +38,6 @@ def write_terraform_base_files(app_config, sts_client, aws_account_dict):
         rmtree(temporary_dir)
 
         raise
-
-    return terraform_configuration_data
 
 
 # TODO rename this
@@ -81,7 +77,7 @@ def _write_terraform_base_files(app_config, sts_client, aws_account_data, base_d
     # Write configuration data to a file for Terraform to use.
     with open(base_dir + "customer_config.json", "w") as file_handler:
         file_handler.write(
-            dumps(
+            json.dumps(
                 terraform_configuration_data
             )
         )

@@ -7,6 +7,9 @@ from uuid import uuid4
 from yaml import dump
 from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 
+from tasks.s3 import s3_object_exists, read_from_s3
+
+
 def get_php73_lambda_base_zip(aws_client_factory, credentials, libraries):
     s3_client = aws_client_factory.get_aws_client(
         "s3",

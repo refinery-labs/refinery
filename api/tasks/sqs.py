@@ -1,5 +1,7 @@
 from time import sleep
 
+from utils.general import get_lambda_safe_name, logit
+
 
 def create_sqs_queue(aws_client_factory, credentials, id, queue_name, batch_size, visibility_timeout):
     sqs_client = aws_client_factory.get_aws_client(

@@ -1,5 +1,7 @@
 from uuid import uuid4
 
+from utils.general import get_lambda_safe_name
+
 
 def get_sns_existence_info(aws_client_factory, credentials, _id, _type, name):
     sns_client = aws_client_factory.get_aws_client(
@@ -33,7 +35,7 @@ def get_sns_existence_info(aws_client_factory, credentials, _id, _type, name):
 
 
 def create_sns_topic(aws_client_factory, credentials, id, topic_name):
-    sns_client = self.aws_client_factory.get_aws_client(
+    sns_client = aws_client_factory.get_aws_client(
         "sns",
         credentials
     )

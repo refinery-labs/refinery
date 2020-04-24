@@ -1,6 +1,9 @@
 from copy import deepcopy
 from io import BytesIO
 from json import dumps
+
+import yaml
+
 from pyconstants.project_constants import EMPTY_ZIP_DATA
 from re import sub
 from tasks.build.common import get_final_zip_package_path, get_codebuild_artifact_zip_data
