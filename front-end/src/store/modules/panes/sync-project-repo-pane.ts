@@ -224,6 +224,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
     await this.setPushingToRepo(true);
 
+    const gitClient = GitStoreModule.getGitClientByProjectId(this.projectSessionId);
     const gitActionHandler = GitStoreModule.getRefineryGitActionHandler(this.projectSessionId);
 
     const result = await gitActionHandler.stageFilesAndPushToRemote(
@@ -255,6 +256,10 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
     // we have just pushed successfully, the current branch will have no changes
     await this.setGitStatusResult([]);
+
+    const repoBranches = await gitClient.listBranches();
+    await this.setRepoBranches(repoBranches);
+    await this.setCreatingNewBranch(false);
   }
 
   @Action
@@ -316,27 +321,19 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
     const project = await this.getOpenedProject();
 
-    if (!this.repoBranches.includes(this.remoteBranchName)) {
-      try {
-        await git.branch({
-          fs: gitClient.fs,
-          dir: gitClient.dir,
-          ref: this.remoteBranchName
-        });
-        await gitClient.checkout({
-          ref: this.remoteBranchName,
-          force: true
-        });
-      } catch (e) {
-        console.error('branch error:', e);
-      }
+    // TODO: See if we can move this logic into the Action handler to avoid breaking the Git abstraction
+    if (this.creatingNewBranch) {
+      await gitClient.branch({
+        ref: this.remoteBranchName,
+        checkout: true
+      });
     } else {
-      // TODO: See if we can move this logic into the Action handler to avoid breaking the Git abstraction
       await gitClient.checkout({
         ref: this.remoteBranchName,
         force: true
       });
     }
+
     await gitActionHandler.writeProjectToDisk(project);
 
     // get list of files that were changed
@@ -345,7 +342,13 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
     // get contents from changed files before and after they were modified
     // TODO this call will force checkout and compile the project again, there might be a way to optimize this
-    this.setGitDiffInfo(await gitActionHandler.getDiffFileInfo(project, this.remoteBranchName, this.gitStatusResult));
+    const diffInfo = await gitActionHandler.getDiffFileInfo(
+      project,
+      this.remoteBranchName,
+      this.gitStatusResult,
+      this.creatingNewBranch
+    );
+    this.setGitDiffInfo(diffInfo);
   }
 
   @Action
@@ -394,6 +397,11 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
     const repoBranches = await gitClient.listBranches({ remote: 'origin' });
     await this.setRepoBranches(repoBranches);
+
+    if (repoBranches.length === 0) {
+      // there are no branches for us to push to, so we will have to make a new one
+      await this.setCreatingNewBranch(true);
+    }
 
     const compiledProject = await this.compileClonedProject(gitClient);
     if (!compiledProject) {

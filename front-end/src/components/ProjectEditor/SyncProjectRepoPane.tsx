@@ -39,10 +39,8 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
 
   @Watch('remoteBranchName')
   public async diffCompiledProject() {
-    if (!SyncProjectRepoPaneStoreModule.creatingNewBranch) {
-      await SyncProjectRepoPaneStoreModule.clearGitPushResult();
-      await SyncProjectRepoPaneStoreModule.diffCompiledProject();
-    }
+    await SyncProjectRepoPaneStoreModule.clearGitPushResult();
+    await SyncProjectRepoPaneStoreModule.diffCompiledProject();
   }
 
   public async changeCurrentlyDiffedFile(file: string) {
@@ -271,6 +269,10 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
   public renderSelectExistingBranchCard() {
     const repoBranches = SyncProjectRepoPaneStoreModule.repoBranches;
 
+    if (repoBranches.length === 0) {
+      return <div />;
+    }
+
     const selectRepoBranches = repoBranches.map(branch => {
       return { value: branch, text: branch };
     });
@@ -308,22 +310,20 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     const validBranch = currentBranch !== '' ? !branchNameBlacklistRegex.test(currentBranch) : null;
     const remoteBranchName = SyncProjectRepoPaneStoreModule.getRemoteBranchName;
 
+    const repoBranches = SyncProjectRepoPaneStoreModule.repoBranches;
+    const visible = repoBranches.length === 0 || SyncProjectRepoPaneStoreModule.creatingNewBranch;
+
     return (
       <b-card
         no-body
         className="mb-1"
-        bg-variant={SyncProjectRepoPaneStoreModule.creatingNewBranch ? 'light' : 'default'}
+        bg-variant={visible ? 'light' : 'default'}
         on={{ click: async () => await this.setCreatingNewBranch(true) }}
       >
         <b-card-header header-tag="header" className="p-1" role="tab">
           <h5>Create a new branch</h5>
         </b-card-header>
-        <b-collapse
-          id="new-branch-collapse"
-          visible={SyncProjectRepoPaneStoreModule.creatingNewBranch}
-          accordion="repo-branch-accordion"
-          role="tabpanel"
-        >
+        <b-collapse id="new-branch-collapse" visible={visible} accordion="repo-branch-accordion" role="tabpanel">
           <b-card-body>
             <b-form-input
               type="text"
@@ -398,7 +398,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
             </div>
           )}
 
-          {!isDevelopment && (
+          {isDevelopment && (
             <div>
               <hr />
               {this.showDevelopmentGitShell()}

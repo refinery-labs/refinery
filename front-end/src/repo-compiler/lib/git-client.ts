@@ -50,6 +50,23 @@ export class GitClient {
     });
   }
 
+  public async branch(
+    options?: Partial<{
+      fs: CallbackFsClient | PromiseFsClient;
+      dir?: string;
+      gitdir?: string;
+      ref: string;
+      checkout?: boolean;
+    }>
+  ) {
+    await git.branch({
+      fs: this.fs,
+      dir: this.dir,
+      ref: 'master',
+      ...options
+    });
+  }
+
   public async clone(
     options?: Partial<{
       fs: PromiseFsClient;

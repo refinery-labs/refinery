@@ -21,7 +21,6 @@ import { Errors, StatusRow } from 'isomorphic-git';
 import { GitDiffInfo } from '@/repo-compiler/lib/git-types';
 import { GitPushResult } from '@/store/modules/panes/sync-project-repo-pane';
 import { GitClient } from '@/repo-compiler/lib/git-client';
-import { Action } from 'vuex-module-decorators';
 
 export class RefineryGitActionHandler {
   private gitClient: GitClient;
@@ -107,7 +106,8 @@ export class RefineryGitActionHandler {
   public async getDiffFileInfo(
     project: RefineryProject,
     branchName: string,
-    gitStatusResult: Array<StatusRow>
+    gitStatusResult: Array<StatusRow>,
+    creatingNewBranch: boolean
   ): Promise<GitDiffInfo> {
     // TODO symlinks always show up as modified files
     const deletedFiles = gitStatusResult.filter(fileRow => isFileDeleted(fileRow)).map(fileRow => fileRow[0]);
@@ -115,10 +115,17 @@ export class RefineryGitActionHandler {
 
     const newFiles = gitStatusResult.filter(fileRow => isFileNew(fileRow)).map(fileRow => fileRow[0]);
 
-    await this.gitClient.checkout({
-      ref: branchName,
-      force: true
-    });
+    if (creatingNewBranch) {
+      await this.gitClient.branch({
+        ref: branchName,
+        checkout: true
+      });
+    } else {
+      await this.gitClient.checkout({
+        ref: branchName,
+        force: true
+      });
+    }
 
     // new files are ignored since they did not exist in HEAD
     const originalFileContents = await this.getFilesFromFS([...deletedFiles, ...modifiedFiles]);
