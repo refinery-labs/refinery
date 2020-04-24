@@ -12,7 +12,7 @@ from models import InlineExecutionLambda
 from pyconstants.project_constants import LAMBDA_SUPPORTED_LANGUAGES
 from tasks.build.ruby import build_ruby_264_lambda
 from tasks.build.golang import get_go_112_base_code
-from tasks.build.nodejs import build_nodejs_10163_lambda, build_nodejs_810_lambda
+from tasks.build.nodejs import build_nodejs_10163_lambda, build_nodejs_810_lambda, build_nodejs_10201_lambda
 from tasks.build.php import build_php_73_lambda
 from tasks.build.python import build_python36_lambda, build_python27_lambda
 from tasks.s3 import s3_object_exists
