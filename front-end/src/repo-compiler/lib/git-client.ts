@@ -111,10 +111,49 @@ export class GitClient {
     });
   }
 
+  public async deleteBranch(ref: string): Promise<void> {
+    return await git.deleteBranch({
+      fs: this.fs,
+      dir: this.dir,
+      ref: ref
+    });
+  }
+
   public async log(): Promise<Array<ReadCommitResult>> {
     return await git.log({
       fs: this.fs,
       dir: this.dir
+    });
+  }
+
+  public async fastForward(
+    options?: Partial<{
+      fs: CallbackFsClient | PromiseFsClient;
+      http: HttpClient;
+      onProgress?: ProgressCallback;
+      onMessage?: MessageCallback;
+      onAuth?: AuthCallback;
+      onAuthFailure?: AuthFailureCallback;
+      onAuthSuccess?: AuthSuccessCallback;
+      dir: string;
+      gitdir?: string;
+      ref?: string;
+      url?: string;
+      remote?: string;
+      remoteRef?: string;
+      corsProxy?: string;
+      singleBranch?: boolean;
+      headers?: {
+        [x: string]: string;
+      };
+    }>
+  ): Promise<void> {
+    return await git.fastForward({
+      fs: this.fs,
+      dir: this.dir,
+      http,
+      ref: 'master',
+      ...options
     });
   }
 

@@ -21,6 +21,7 @@ import { Errors, StatusRow } from 'isomorphic-git';
 import { GitDiffInfo } from '@/repo-compiler/lib/git-types';
 import { GitPushResult } from '@/store/modules/panes/sync-project-repo-pane';
 import { GitClient } from '@/repo-compiler/lib/git-client';
+import { Action } from 'vuex-module-decorators';
 
 export class RefineryGitActionHandler {
   private gitClient: GitClient;
@@ -171,5 +172,16 @@ export class RefineryGitActionHandler {
         return GitPushResult.Other;
       }
     }
+  }
+
+  /**
+   * Remove branch with commit, check it out again, and then fast forward.
+   * We will now be able to surface the merge conflicts to the user in the diff viewer.
+   * @param remoteBranchName The branch to reset and fast forward.
+   */
+  public async resetBranchAndFastForward(remoteBranchName: string) {
+    await this.gitClient.deleteBranch(remoteBranchName);
+    await this.gitClient.checkout({ ref: remoteBranchName });
+    await this.gitClient.fastForward({ ref: remoteBranchName, singleBranch: true });
   }
 }

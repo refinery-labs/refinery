@@ -351,7 +351,6 @@ export const blockTypeToDefaultStateMapping: BlockTypeToDefaultState = {
   [WorkflowStateType.WARMER_TRIGGER]: () => SHARED_BLOCK_DEFAULTS
 };
 
-export const newBranchText = 'New Branch';
 export const blockNameText = 'Name of the block.';
 export const returnDataText = 'Data returned from the Code.';
 export const languagesText = 'Language of code block.';

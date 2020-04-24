@@ -2,9 +2,9 @@ import Vue, { CreateElement, VNode } from 'vue';
 import Component, { mixins } from 'vue-class-component';
 import { namespace } from 'vuex-class';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
-import { SyncProjectRepoPaneStoreModule } from '@/store';
+import { isDevelopment, SyncProjectRepoPaneStoreModule } from '@/store';
 import { GitPushResult } from '@/store/modules/panes/sync-project-repo-pane';
-import { branchNameBlacklistRegex, newBranchText } from '@/constants/project-editor-constants';
+import { branchNameBlacklistRegex } from '@/constants/project-editor-constants';
 import CreateToastMixin from '@/mixins/CreateToastMixin';
 import { Watch } from 'vue-property-decorator';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
@@ -21,10 +21,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
 
   public showingGitStatusDetails: boolean = false;
   public forcePushModalVisible: boolean = false;
-  private gitCommandResult: string = '';
-
-  // TODO this should be in the store
-  public gitDiffInfo: GitDiffInfo = { originalFiles: {}, changedFiles: {} };
+  public gitCommandResult: string = '';
 
   @Watch('gitPushResult')
   public async showGitPushErrors() {
@@ -42,7 +39,10 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
 
   @Watch('remoteBranchName')
   public async diffCompiledProject() {
-    this.gitDiffInfo = await SyncProjectRepoPaneStoreModule.diffCompiledProject();
+    if (!SyncProjectRepoPaneStoreModule.creatingNewBranch) {
+      await SyncProjectRepoPaneStoreModule.clearGitPushResult();
+      await SyncProjectRepoPaneStoreModule.diffCompiledProject();
+    }
   }
 
   public async changeCurrentlyDiffedFile(file: string) {
@@ -54,7 +54,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
       return '';
     }
 
-    const originalFileContent = this.gitDiffInfo.originalFiles[currentlyDiffedFile];
+    const originalFileContent = SyncProjectRepoPaneStoreModule.gitDiffInfo.originalFiles[currentlyDiffedFile];
     if (!originalFileContent) {
       return '';
     }
@@ -66,7 +66,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
       return '';
     }
 
-    return this.gitDiffInfo.changedFiles[currentlyDiffedFile];
+    return SyncProjectRepoPaneStoreModule.gitDiffInfo.changedFiles[currentlyDiffedFile];
   }
 
   public renderModal() {
@@ -78,7 +78,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
       hidden: () => (this.showingGitStatusDetails = false)
     };
 
-    const diffFiles = Object.keys(this.gitDiffInfo.changedFiles).map(file => {
+    const diffFiles = Object.keys(SyncProjectRepoPaneStoreModule.gitDiffInfo.changedFiles).map(file => {
       return { value: file, text: file };
     });
 
@@ -214,6 +214,9 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
           >
             Force push
           </b-button>
+          <div class="padding-left--normal padding-right--normal">
+            <small>To avoid a force push, 'Create a new branch' and push your changes to this new branch.</small>
+          </div>
         </div>
       );
     }
@@ -234,9 +237,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
   }
 
   public async mounted() {
-    await SyncProjectRepoPaneStoreModule.diffCompiledProject().then(gitDiff => {
-      this.gitDiffInfo = gitDiff;
-    });
+    await SyncProjectRepoPaneStoreModule.diffCompiledProject();
   }
 
   public async setRemoteBranchName(branchName: string) {
@@ -253,6 +254,20 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     this.gitCommandResult = await SyncProjectRepoPaneStoreModule.runGitCommand(command);
   }
 
+  public async setCreatingNewBranch(creatingNewBranch: boolean) {
+    await SyncProjectRepoPaneStoreModule.setCreatingNewBranch(creatingNewBranch);
+  }
+
+  public showDevelopmentGitShell() {
+    return (
+      <div>
+        <h4>Git Shell</h4>
+        <b-form-input type="text" placeholder="command" on={{ input: this.runGitShellCommand }} />
+        <b-textarea placeholder="output" class="margin-top--small" value={this.gitCommandResult} />
+      </div>
+    );
+  }
+
   public render(h: CreateElement): VNode {
     const loadingClasses = {
       'whirl standard': !SyncProjectRepoPaneStoreModule.gitStatusResult,
@@ -262,12 +277,10 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     };
 
     const repoBranches = SyncProjectRepoPaneStoreModule.repoBranches;
-    const selectRepoBranches = [...repoBranches, newBranchText].map(branch => {
+    const selectRepoBranches = repoBranches.map(branch => {
       return { value: branch, text: branch };
     });
-    const usingExistingBranch = repoBranches.includes(SyncProjectRepoPaneStoreModule.remoteBranchName);
     const currentBranch = SyncProjectRepoPaneStoreModule.remoteBranchName;
-    const currentSelectedBranch = usingExistingBranch ? currentBranch : newBranchText;
 
     const validBranch = currentBranch !== '' ? !branchNameBlacklistRegex.test(currentBranch) : null;
     const remoteBranchName = SyncProjectRepoPaneStoreModule.getRemoteBranchName;
@@ -281,41 +294,72 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
       <div class={loadingClasses}>
         <Loading props={gitPushProps}>
           <div>
-            <div class="padding--small">
-              <label class="d-block">Branch Name:</label>
-              <b-form-select
-                on={{ input: this.setRemoteBranchName }}
-                value={currentSelectedBranch}
-                options={selectRepoBranches}
-              />
+            <label class="d-block">Branch Name:</label>
+            <div role="tablist" class="set-project-repo">
+              <b-card
+                no-body
+                className="mb-1"
+                bg-variant={!SyncProjectRepoPaneStoreModule.creatingNewBranch ? 'light' : 'default'}
+                on={{ click: async () => await this.setCreatingNewBranch(false) }}
+              >
+                <b-card-header header-tag="header" className="p-1" role="tab">
+                  <h5>Use existing branch</h5>
+                </b-card-header>
+                <b-collapse
+                  id="existing-branch-collapse"
+                  visible={!SyncProjectRepoPaneStoreModule.creatingNewBranch}
+                  accordion="repo-branch-accordion"
+                  role="tabpanel"
+                >
+                  <b-card-body>
+                    <b-form-select
+                      on={{ input: this.setRemoteBranchName }}
+                      value={currentBranch}
+                      options={selectRepoBranches}
+                    />
+                  </b-card-body>
+                </b-collapse>
+              </b-card>
+              <b-card
+                no-body
+                className="mb-1"
+                bg-variant={SyncProjectRepoPaneStoreModule.creatingNewBranch ? 'light' : 'default'}
+                on={{ click: async () => await this.setCreatingNewBranch(true) }}
+              >
+                <b-card-header header-tag="header" className="p-1" role="tab">
+                  <h5>Create a new branch</h5>
+                </b-card-header>
+                <b-collapse
+                  id="new-branch-collapse"
+                  visible={SyncProjectRepoPaneStoreModule.creatingNewBranch}
+                  accordion="repo-branch-accordion"
+                  role="tabpanel"
+                >
+                  <b-card-body>
+                    <b-form-input
+                      type="text"
+                      autofocus={true}
+                      required={true}
+                      state={validBranch}
+                      value={remoteBranchName}
+                      on={{ input: this.setNewRemoteBranchName }}
+                      placeholder="eg, new-feature"
+                    />
+                    <b-form-invalid-feedback className="padding--small" state={validBranch}>
+                      The entered branch name is not valid. Please refer to{' '}
+                      <a
+                        href="https://mirrors.edge.kernel.org/pub/software/scm/git/docs/git-check-ref-format.html"
+                        target="_blank"
+                      >
+                        check-ref-format
+                      </a>{' '}
+                      for valid branch names.
+                    </b-form-invalid-feedback>
+                  </b-card-body>
+                </b-collapse>
+              </b-card>
             </div>
-            {!usingExistingBranch && (
-              <div class="padding--small">
-                <b-form-input
-                  type="text"
-                  autofocus={true}
-                  required={true}
-                  state={validBranch}
-                  value={remoteBranchName}
-                  on={{ input: this.setNewRemoteBranchName }}
-                  placeholder="eg, new-feature"
-                />
-              </div>
-            )}
           </div>
-
-          <b-form-invalid-feedback class="padding--small" state={validBranch}>
-            The entered branch name is not valid. Please refer to{' '}
-            <a
-              href="https://mirrors.edge.kernel.org/pub/software/scm/git/docs/git-check-ref-format.html"
-              target="_blank"
-            >
-              check-ref-format
-            </a>{' '}
-            for valid branch names.
-          </b-form-invalid-feedback>
-
-          <hr />
 
           <label class="d-block">Commit message:</label>
           <b-form-input
@@ -327,14 +371,20 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
           />
           {this.renderCommitButtons()}
 
-          <hr />
+          {!SyncProjectRepoPaneStoreModule.creatingNewBranch && (
+            <div>
+              <hr />
 
-          <div class="deploy-pane-container__content overflow--scroll-y-auto">{this.renderGitStatusDetails()}</div>
+              <div class="deploy-pane-container__content overflow--scroll-y-auto">{this.renderGitStatusDetails()}</div>
+            </div>
+          )}
 
-          <hr />
-
-          <b-form-input type="text" on={{ input: this.runGitShellCommand }} />
-          <b-textarea value={this.gitCommandResult} />
+          {!isDevelopment && (
+            <div>
+              <hr />
+              {this.showDevelopmentGitShell()}
+            </div>
+          )}
 
           {this.renderModal()}
           {this.renderForcePushWarning()}
