@@ -1,3 +1,6 @@
+from uuid import uuid4
+
+
 def create_rest_api(aws_client_factory, credentials, name, description, version):
     api_gateway_client = aws_client_factory.get_aws_client(
         "apigateway",
@@ -148,7 +151,7 @@ def link_api_method_to_lambda(aws_client_factory, credentials, rest_api_id, reso
 
     lambda_permission_add_response = lambda_client.add_permission(
         FunctionName=lambda_name,
-        StatementId=str(uuid.uuid4()).replace("_", "") + "_statement",
+        StatementId=str(uuid4()).replace("_", "") + "_statement",
         Action="lambda:*",
         Principal="apigateway.amazonaws.com",
         SourceArn=source_arn

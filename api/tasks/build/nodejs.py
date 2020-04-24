@@ -75,7 +75,7 @@ def start_node810_codebuild(aws_client_factory, credentials, libraries_object):
         package_json.external_attr = 0777 << 16L
         zip_file_handler.writestr(
             package_json,
-            json.dumps(
+            dumps(
                 package_json_template
             )
         )

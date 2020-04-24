@@ -75,9 +75,9 @@ def read_from_s3(aws_client_factory, credentials, s3_bucket, path):
     return s3_object["Body"].read()
 
 
-def read_from_s3_and_return_input(self, credentials, s3_bucket, path):
+def read_from_s3_and_return_input(aws_client_factory, credentials, s3_bucket, path):
     return_data = read_from_s3(
-        self.aws_client_factory,
+        aws_client_factory,
         credentials,
         s3_bucket,
         path

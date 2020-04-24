@@ -9,6 +9,7 @@ from botocore.exceptions import ClientError
 from hashlib import sha256
 from json import dumps, loads
 from models import InlineExecutionLambda
+from pyconstants.project_constants import LAMBDA_SUPPORTED_LANGUAGES
 from tasks.build.ruby import build_ruby_264_lambda
 from tasks.build.golang import get_go_112_base_code
 from tasks.build.nodejs import build_nodejs_10163_lambda, build_nodejs_810_lambda
@@ -359,13 +360,13 @@ def deploy_aws_lambda(app_config, aws_client_factory, db_session_maker, lambda_m
     is_inline_execution_string = "-INLINE" if lambda_object.is_inline_execution else "-NOT_INLINE"
 
     # Generate SHA256 hash input for caching key
-    hash_input = lambda_object.language + "-" + lambda_object.code + "-" + json.dumps(
+    hash_input = lambda_object.language + "-" + lambda_object.code + "-" + dumps(
         libraries_object,
         sort_keys=True
-    ) + json.dumps(
+    ) + dumps(
         lambda_object.shared_files_list
     ) + is_inline_execution_string
-    hash_key = hashlib.sha256(
+    hash_key = sha256(
         hash_input
     ).hexdigest()
     s3_package_zip_path = hash_key + ".zip"

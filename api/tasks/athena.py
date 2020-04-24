@@ -2,6 +2,7 @@ from csv import DictReader
 from datetime import datetime
 from tasks.s3 import read_from_s3
 from pyconstants.project_constants import REGEX_WHITELISTS
+from pystache import render
 from time import sleep
 from utils.general import logit
 from re import sub
@@ -173,7 +174,7 @@ def get_block_executions(aws_client_factory, credentials, project_id, execution_
         "oldest_timestamp": timestamp_datetime.strftime("%Y-%m-%d-%H-%M"),
     }
 
-    query = pystache.render(GET_BLOCK_EXECUTIONS, query_template_data)
+    query = render(GET_BLOCK_EXECUTIONS, query_template_data)
 
     # Query for project execution logs
     logit("Performing Athena query...")
@@ -248,7 +249,7 @@ CREATE_PROJECT_ID_LOG_TABLE = """
 
 
 def create_project_id_log_table(aws_client_factory, credentials, project_id):
-    project_id = re.sub(REGEX_WHITELISTS["project_id"], "", project_id)
+    project_id = sub(REGEX_WHITELISTS["project_id"], "", project_id)
     table_name = "PRJ_" + project_id.replace("-", "_")
 
 
@@ -291,14 +292,14 @@ GET_PROJECT_EXECUTION_LOGS = """
 
 def get_project_execution_logs(aws_client_factory, credentials, project_id, oldest_timestamp):
     timestamp_datetime = datetime.fromtimestamp(oldest_timestamp)
-    project_id = re.sub(REGEX_WHITELISTS["project_id"], "", project_id)
+    project_id = sub(REGEX_WHITELISTS["project_id"], "", project_id)
 
     query_template_data = {
         "project_id_table_name": "PRJ_" + project_id.replace("-", "_"),
         "oldest_timestamp": timestamp_datetime.strftime("%Y-%m-%d-%H-%M")
     }
 
-    query = pystache.render(
+    query = render(
         GET_PROJECT_EXECUTION_LOGS,
         query_template_data
     )

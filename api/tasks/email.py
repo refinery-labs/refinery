@@ -1,5 +1,6 @@
 from pystache import render
 from requests import post
+from utils.general import logit
 
 
 def send_email(app_config, to_email_string, subject_string, message_text_string, message_html_string):
@@ -50,7 +51,7 @@ def send_terraform_provisioning_error(app_config, aws_account_id, error_output):
         app_config.get("alerts_email"),
         "[AWS Account Provisioning Error] The Refinery AWS Account #" +
         aws_account_id + " Encountered a Fatal Error During Terraform Provisioning",
-        pystache.render(
+        render(
             app_config.get("EMAIL_TEMPLATES")[
                 "terraform_provisioning_error_alert"],
             {

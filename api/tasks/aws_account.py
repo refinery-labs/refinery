@@ -426,7 +426,7 @@ def recreate_aws_console_account(app_config, aws_client_factory, credentials, ro
     # Create IAM policy for the user
     create_policy_response = iam_client.create_policy(
         PolicyName="RefineryCustomerPolicy",
-        PolicyDocument=json.dumps(app_config.get("CUSTOMER_IAM_POLICY")),
+        PolicyDocument=dumps(app_config.get("CUSTOMER_IAM_POLICY")),
         Description="Refinery Labs managed AWS customer account policy."
     )
 

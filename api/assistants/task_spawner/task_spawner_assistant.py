@@ -1,8 +1,9 @@
 from utils.general import log_exception
 from utils.performance_decorators import emit_runtime_metrics
 from pinject import copy_args_to_public_fields
-
+from tornado.ioloop import IOLoop
 from tornado.concurrent import run_on_executor, futures
+
 from tasks.athena import (
     perform_athena_query,
     get_athena_results_from_s3,
@@ -169,7 +170,7 @@ class TaskSpawner(object):
         loop=None
     ):
         self.executor = futures.ThreadPoolExecutor(60)
-        self.loop = loop or tornado.ioloop.IOLoop.current()
+        self.loop = loop or IOLoop.current()
 
     @run_on_executor
     @emit_runtime_metrics("create_third_party_aws_lambda_execute_role")
@@ -183,7 +184,7 @@ class TaskSpawner(object):
     @emit_runtime_metrics("get_json_from_s3")
     def get_json_from_s3(self, credentials, s3_bucket, s3_path):
         return get_json_from_s3(
-            aws_client_factory,
+            self.aws_client_factory,
             credentials,
             s3_bucket,
             s3_path
@@ -193,7 +194,7 @@ class TaskSpawner(object):
     @emit_runtime_metrics("write_json_to_s3")
     def write_json_to_s3(self, credentials, s3_bucket, s3_path, input_data):
         return write_json_to_s3(
-            aws_client_factory,
+            self.aws_client_factory,
             credentials,
             s3_bucket,
             s3_path,
@@ -222,7 +223,6 @@ class TaskSpawner(object):
             oldest_timestamp
         )
 
-    @staticmethod
     @run_on_executor
     @emit_runtime_metrics("create_project_id_log_table")
     def create_project_id_log_table(self, credentials, project_id):
@@ -378,7 +378,7 @@ class TaskSpawner(object):
     @run_on_executor
     @emit_runtime_metrics("send_authentication_email")
     def send_authentication_email(self, email_address, auth_token):
-        return send_authentication_email(email_address, auth_token)
+        return send_authentication_email(self.app_config, email_address, auth_token)
 
     @run_on_executor
     @emit_runtime_metrics("stripe_create_customer")
@@ -762,7 +762,6 @@ class TaskSpawner(object):
             path
         )
 
-    @staticmethod
     @run_on_executor
     @emit_runtime_metrics("bulk_s3_delete")
     def bulk_s3_delete(self, credentials, s3_bucket, s3_path_list):
