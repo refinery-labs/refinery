@@ -8,7 +8,7 @@ from tornado import gen
 from assistants.deployments.api_gateway import strip_api_gateway
 from assistants.deployments.shared_files import get_shared_files_for_lambda
 from tasks.build.python import get_python36_base_code, get_python27_base_code
-from tasks.build.nodejs import get_nodejs_810_base_code, get_nodejs_10163_base_code
+from tasks.build.nodejs import get_nodejs_810_base_code, get_nodejs_10163_base_code, get_nodejs_10201_base_code
 from tasks.build.php import get_php_73_base_code
 from tasks.build.ruby import get_ruby_264_base_code
 from tasks.build.golang import get_go_112_base_code
@@ -57,6 +57,10 @@ def get_layers_for_lambda( language ):
 		new_layers.append(
 			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-nodejs10-custom-runtime:9"
 		)
+	elif language == "nodejs10.20.1":
+		new_layers.append(
+			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-nodejs1020-custom-runtime:1"
+		)
 	elif language == "php7.3":
 		new_layers.append(
 			"arn:aws:lambda:us-west-2:134071937287:layer:refinery-php73-custom-runtime:28"
@@ -93,7 +97,7 @@ def get_language_specific_environment_variables( language ):
 			"key": "PYTHONUNBUFFERED",
 			"value": "1",
 		})
-	elif language == "nodejs8.10" or language == "nodejs10.16.3":
+	elif language == "nodejs8.10" or language == "nodejs10.16.3" or language == "nodejs10.20.1":
 		environment_variables_list.append({
 			"key": "NODE_PATH",
 			"value": "/var/task/node_modules/",
@@ -232,6 +236,8 @@ def get_base_lambda_code( app_config, language, code ):
 		return get_nodejs_810_base_code(app_config, code)
 	elif language == "nodejs10.16.3":
 		return get_nodejs_10163_base_code(app_config, code)
+	elif language == "nodejs10.20.1":
+		return get_nodejs_10201_base_code(app_config, code)
 	elif language == "php7.3":
 		return get_php_73_base_code(app_config, code)
 	elif language == "ruby2.6.4":

@@ -290,6 +290,14 @@ def build_lambda(app_config, aws_client_factory, credentials, lambda_object):
             lambda_object.code,
             lambda_object.libraries
         )
+    elif lambda_object.language == "nodejs10.20.1":
+        package_zip_data = build_nodejs_10201_lambda(
+            app_config,
+            aws_client_factory,
+            credentials,
+            lambda_object.code,
+            lambda_object.libraries
+        )
     elif lambda_object.language == "go1.12":
         lambda_object.code = get_go_112_base_code(
             app_config,
