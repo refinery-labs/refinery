@@ -82,8 +82,8 @@ from tasks.build.common import (
 from tasks.build.ruby import start_ruby264_codebuild
 from tasks.build.nodejs import (
     start_node810_codebuild,
-    start_node10163_codebuild
-)
+    start_node10163_codebuild,
+    start_node10201_codebuild)
 from tasks.build.python import (
     start_python36_codebuild,
     start_python27_codebuild,
