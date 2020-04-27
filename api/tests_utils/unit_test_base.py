@@ -15,7 +15,7 @@ import pkg_resources
 
 from tests_utils.mocks.aws import MockAWSDependencies
 from tests_utils.mocks.task_spawner import MockTaskSpawner
-from utils.general import UtilsBindingSpec, print_object_graph
+from utils.general import UtilsBindingSpec
 
 
 def add_sqlite_json_shim():
@@ -157,6 +157,8 @@ class ServerUnitTestBase( HypothesisUnitTestBase ):
 		A hack to extract deps from object graph
 		"""
 		class GetDepsFromObjectGraph:
+			db_session_maker = None
+
 			@pinject.copy_args_to_public_fields
 			def __init__( self, db_session_maker ):
 				pass

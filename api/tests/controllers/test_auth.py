@@ -1,10 +1,7 @@
 import json
 
-from tornado import gen
-from tornado.concurrent import Future
-
-from models import User, EmailAuthToken, Organization
-from tests_utils.mocks.task_spawner import MockTaskSpawner, MockTaskSpawnerHolder
+from models import EmailAuthToken
+from tests_utils.mocks.task_spawner import MockTaskSpawnerHolder
 from tests_utils.tornado_test_utils import create_future
 from tests_utils.unit_test_base import ServerUnitTestBase
 
@@ -55,6 +52,8 @@ class TestAuth( ServerUnitTestBase, AsyncHTTPTestCase ):
 		org = self.create_test_user_organization( user.id )
 		email_auth_token = self.create_test_email_auth_token( user.id )
 
+		assert org is not None
+
 		response = yield self.http_client.fetch(
 			self.get_url("/authentication/email/" + email_auth_token["token"]),
 			method='GET',
@@ -62,4 +61,3 @@ class TestAuth( ServerUnitTestBase, AsyncHTTPTestCase ):
 			raise_error=False
 		)
 		assert response.code == 302
-

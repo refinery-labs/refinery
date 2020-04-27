@@ -1,10 +1,9 @@
-import pinject
 import tornado.web
 import tornado.ioloop
 import tornado.httpserver
 
 from controller.auth import *
-from controller.auth.github import *
+# from controller.auth.github import *
 from controller.aws import *
 from controller.billing import *
 from controller.deployments import *

@@ -2,6 +2,7 @@ import traceback
 import json
 import sys
 
+
 def _init():
 	raw_input_data = sys.stdin.read()
 	input_data = json.loads( raw_input_data )
@@ -9,6 +10,7 @@ def _init():
 	backpack = input_data[ "backpack" ]
 
 	try:
+		# noinspection PyUnresolvedReferences
 		output = main( lambda_input, backpack )
 		print( "<REFINERY_OUTPUT_CUSTOM_RUNTIME_START_MARKER>" + json.dumps({
 			"backpack": backpack,
@@ -24,4 +26,6 @@ def _init():
 		exit(-1)
 		
 	exit(0)
+
+
 _init()

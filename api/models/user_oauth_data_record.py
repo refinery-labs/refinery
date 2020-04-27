@@ -3,7 +3,7 @@ import time
 
 import uuid
 
-from sqlalchemy import Column, CHAR, Integer, ForeignKey, Text, Index, TEXT
+from sqlalchemy import Column, Integer, ForeignKey, Text, Index, TEXT
 from sqlalchemy.dialects.postgresql import JSONB
 
 from models.initiate_database import Base

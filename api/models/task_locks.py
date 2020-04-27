@@ -1,7 +1,6 @@
 from initiate_database import *
 import json
-import uuid
-import time
+
 
 class TaskLock( Base ):
 	"""
@@ -45,4 +44,4 @@ class TaskLock( Base ):
 		return return_dict
 
 	def __str__( self ):
-		return self.id
+		return self.task_id

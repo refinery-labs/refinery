@@ -303,10 +303,12 @@ class AwsEcsManager( object ):
 			credentials
 		)
 
+		response = None
+
 		remaining_attempts = 20
 
 		while remaining_attempts > 0:
-			print( "Querying for public IP address from private IP..." )
+			logit( "Querying for public IP address from private IP..." )
 			response = ec2_client.describe_network_interfaces(
 				Filters=[
 					{

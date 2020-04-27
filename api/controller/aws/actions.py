@@ -7,7 +7,11 @@ from tornado import gen
 
 from assistants.deployments.api_gateway import strip_api_gateway
 from assistants.deployments.shared_files import get_shared_files_for_lambda
-from assistants.task_spawner.task_spawner_assistant import TaskSpawner
+from tasks.build.python import get_python36_base_code, get_python27_base_code
+from tasks.build.nodejs import get_nodejs_810_base_code, get_nodejs_10163_base_code, get_nodejs_10201_base_code
+from tasks.build.php import get_php_73_base_code
+from tasks.build.ruby import get_ruby_264_base_code
+from tasks.build.golang import get_go_112_base_code
 from data_types.aws_resources.alambda import Lambda
 from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
 from pyexceptions.builds import BuildException
@@ -225,45 +229,21 @@ def deploy_lambda( task_spawner, credentials, id, lambda_object ):
 
 def get_base_lambda_code( app_config, language, code ):
 	if language == "python3.6":
-		return TaskSpawner._get_python36_base_code(
-			app_config,
-			code
-		)
+		return get_python36_base_code(app_config, code)
 	elif language == "python2.7":
-		return TaskSpawner._get_python27_base_code(
-			app_config,
-			code
-		)
+		return get_python27_base_code(app_config, code)
 	elif language == "nodejs8.10":
-		return TaskSpawner._get_nodejs_810_base_code(
-			app_config,
-			code
-		)
+		return get_nodejs_810_base_code(app_config, code)
 	elif language == "nodejs10.16.3":
-		return TaskSpawner._get_nodejs_10163_base_code(
-			app_config,
-			code
-		)
+		return get_nodejs_10163_base_code(app_config, code)
 	elif language == "nodejs10.20.1":
-		return TaskSpawner._get_nodejs_10201_base_code(
-			app_config,
-			code
-		)
+		return get_nodejs_10201_base_code(app_config, code)
 	elif language == "php7.3":
-		return TaskSpawner._get_php_73_base_code(
-			app_config,
-			code
-		)
+		return get_php_73_base_code(app_config, code)
 	elif language == "ruby2.6.4":
-		return TaskSpawner._get_ruby_264_base_code(
-			app_config,
-			code
-		)
+		return get_ruby_264_base_code(app_config, code)
 	elif language == "go1.12":
-		return TaskSpawner._get_go_112_base_code(
-			app_config,
-			code
-		)
+		return get_go_112_base_code(app_config, code)
 
 
 def get_node_by_id( target_id, workflow_states ):
@@ -309,10 +289,15 @@ def get_merge_lambda_arn_list( target_id, workflow_relationships, workflow_state
 	return arn_list
 
 
+class MissingResourceException(Exception):
+	pass
+
+
 @gen.coroutine
 def create_lambda_api_route( task_spawner, api_gateway_manager, credentials, api_gateway_id, http_method, route, lambda_name, overwrite_existing ):
 	def not_empty( input_item ):
-		return ( input_item != "" )
+		return input_item != ""
+
 	path_parts = route.split( "/" )
 	path_parts = filter( not_empty, path_parts )
 
@@ -330,10 +315,15 @@ def create_lambda_api_route( task_spawner, api_gateway_manager, credentials, api
 		api_gateway_id
 	)
 
+	base_resource_id = None
+
 	for resource in resources:
 		if resource[ "path" ] == "/":
 			base_resource_id = resource[ "id" ]
 			break
+
+	if base_resource_id is None:
+		raise MissingResourceException("Missing API Gateway base resource ID. This should never happen")
 
 	# Create a map of paths to verify existance later
 	# so we don't overwrite existing resources
@@ -548,12 +538,12 @@ def deploy_diagram( task_spawner, api_gateway_manager, credentials, project_name
 
 	"""
 	Here we calculate the teardown data ahead of time.
-	
+
 	This is used when we encounter an error during the
 	deployment process which requires us to roll back.
 	When the rollback occurs we pass our previously-generated
 	list and pass it to the tear down function.
-	
+
 	[
 		{
 			"id": {{node_id}},
@@ -572,7 +562,7 @@ def deploy_diagram( task_spawner, api_gateway_manager, credentials, project_name
 	and teardown what's been deployed so far. After that we return
 	an error to the user with information on what caused the deploy
 	to fail.
-	
+
 	[
 		{
 			"type": "", # The type of the deployed node
@@ -914,14 +904,13 @@ def deploy_diagram( task_spawner, api_gateway_manager, credentials, project_name
 				)
 		except Exception as e:
 			logit( "Failed to deploy node '" + deploy_future_data[ "name" ] + "'!", "error" )
-			#logit( "The full exception details can be seen below: ", "error" )
 
 			exception_msg = traceback.format_exc()
 			if type(e) is BuildException:
+				# noinspection PyUnresolvedReferences
 				exception_msg = e.build_output
 
-			#logit( exception_msg, "error" )
-			print exception_msg
+			logit( "Deployment failure exception details: " + repr(exception_msg), "error" )
 			deployment_exceptions.append({
 				"id": deploy_future_data[ "id" ],
 				"name": deploy_future_data[ "name" ],

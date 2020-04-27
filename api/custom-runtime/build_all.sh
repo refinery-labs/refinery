@@ -12,6 +12,9 @@ cd ../
 cd node8.10/
 ./build.sh
 cd ../
+cd node10.20.1/
+./build.sh
+cd ../
 cd php7.3/
 ./build.sh
 cd ../

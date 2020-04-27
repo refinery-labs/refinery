@@ -1,11 +1,18 @@
 import pinject
 from tornado import gen
 
-from models.organizations import Organization
 from models.users import User
 
 
 class UserCreationAssistant:
+
+	logger = None
+	oauth_service = None
+	github_oauth_provider = None
+	project_inventory_service = None
+	stripe_service = None
+	user_management_service = None
+
 	@pinject.copy_args_to_public_fields
 	def __init__(
 			self,
@@ -23,7 +30,7 @@ class UserCreationAssistant:
 		:type github_oauth_provider: GithubOAuthProvider
 		:type project_inventory_service: ProductInventoryService
 		:type stripe_service: StripeService
-		:type user_service: UserService
+		:type user_management_service: UserManagementService
 		"""
 		pass
 
@@ -87,7 +94,7 @@ class UserCreationAssistant:
 		:type oauth_user_data: OAuthUserData
 		:return: New user that was created
 		"""
-		user, organization = self.user_service.create_new_user_and_organization(
+		user, organization = self.user_management_service.create_new_user_and_organization(
 			dbsession,
 			oauth_user_data.name,
 			oauth_user_data.email,

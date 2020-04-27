@@ -1,9 +1,4 @@
-import mock
 import pinject
-
-from mock import MagicMock
-
-from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 
 
 class MockTaskSpawnerHolder:

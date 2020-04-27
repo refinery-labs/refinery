@@ -1,8 +1,6 @@
 import logging
 from datetime import datetime, timedelta
 
-import sqlalchemy as sa
-
 from models.task_locks import TaskLock
 
 

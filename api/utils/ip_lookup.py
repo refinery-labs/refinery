@@ -10,6 +10,7 @@ from tornado import gen
 
 
 class IPLookupSpawner( object ):
+	# noinspection PyUnresolvedReferences
 	def __init__( self, loop=None ):
 		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()

@@ -1,12 +1,10 @@
 import json
 
-from mock import patch, MagicMock
-from tornado.concurrent import Future
+from mock import patch
 
-from assistants.task_spawner.task_spawner_assistant import TaskSpawner
-from models import User, EmailAuthToken, Organization, Project, AWSAccount
-from tests_utils.mocks.aws import MockAWSDependencies, MockAWSDependenciesHolder
-from tests_utils.mocks.task_spawner import MockTaskSpawner, MockTaskSpawnerHolder
+from models import User, Project, AWSAccount
+from tests_utils.mocks.aws import MockAWSDependenciesHolder
+from tests_utils.mocks.task_spawner import MockTaskSpawnerHolder
 from tests_utils.tornado_test_utils import create_future
 from tests_utils.unit_test_base import ServerUnitTestBase
 
@@ -88,8 +86,14 @@ class TestAWS( ServerUnitTestBase, AsyncHTTPTestCase ):
 
 		user = self.create_test_user()
 		project = self.create_test_project(simple_deployment_request["project_id"], user)
+
+		assert project is not None
+
 		org = self.create_test_user_organization(user.id)
+
 		aws_account = self.create_test_aws_account(org)
+
+		assert aws_account is not None
 
 		get_secure_session_data.return_value = dict(
 			user_id=user.id
@@ -106,4 +110,4 @@ class TestAWS( ServerUnitTestBase, AsyncHTTPTestCase ):
 			}
 		)
 		json_resp = json.loads(response.body)
-		assert json_resp['success'] == True
+		assert json_resp['success'] is True

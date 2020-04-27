@@ -3,7 +3,7 @@ from projects import Project
 import json
 import uuid
 import time
-import os
+
 
 class ProjectVersion( Base ):
 	__tablename__ = "project_versions"
