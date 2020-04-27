@@ -117,8 +117,8 @@ export type LanguageToLibraryRepoURL = { [key in SupportedLanguage]: string | nu
 
 export const LanguageToLibraryRepoURLMap: LanguageToLibraryRepoURL = {
   [SupportedLanguage.NODEJS_8]: LanguageToBaseRepoURLMap[SupportedLanguage.NODEJS_8] + '/package/',
-  [SupportedLanguage.NODEJS_10]: LanguageToBaseRepoURLMap[SupportedLanguage.NODEJS_8] + '/package/',
-  [SupportedLanguage.NODEJS_1020]: LanguageToBaseRepoURLMap[SupportedLanguage.NODEJS_8] + '/package/',
+  [SupportedLanguage.NODEJS_10]: LanguageToBaseRepoURLMap[SupportedLanguage.NODEJS_10] + '/package/',
+  [SupportedLanguage.NODEJS_1020]: LanguageToBaseRepoURLMap[SupportedLanguage.NODEJS_1020] + '/package/',
   [SupportedLanguage.PYTHON_3]: LanguageToBaseRepoURLMap[SupportedLanguage.PYTHON_3] + '/project/',
   [SupportedLanguage.PYTHON_2]: LanguageToBaseRepoURLMap[SupportedLanguage.PYTHON_2] + '/project/',
   [SupportedLanguage.GO1_12]: null,

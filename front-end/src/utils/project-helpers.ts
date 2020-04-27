@@ -201,7 +201,8 @@ export function unwrapProjectJson(response: GetSavedProjectResponse): RefineryPr
       version: project.version || 1,
       readme:
         project.readme ||
-        '# Untitled Project README\n\nThis is a Refinery project README, update it to explain more about the project.'
+        '# Untitled Project README\n\nThis is a Refinery project README, update it to explain more about the project.',
+      demo_walkthrough: project.demo_walkthrough || []
     };
   } catch {
     return null;

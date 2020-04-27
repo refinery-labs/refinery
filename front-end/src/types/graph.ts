@@ -1,4 +1,5 @@
 import { HTTP_METHOD } from '@/constants/api-constants';
+import { DemoTooltip, TooltipType } from '@/types/demo-walkthrough-types';
 
 export interface BaseRefineryResource {
   name: string;
@@ -15,6 +16,7 @@ export interface RefineryProject {
   workflow_relationships: WorkflowRelationship[];
   workflow_files: WorkflowFile[];
   workflow_file_links: WorkflowFileLink[];
+  demo_walkthrough?: DemoTooltip[];
 }
 
 export enum SupportedLanguage {
@@ -81,6 +83,7 @@ export enum ProjectLogLevel {
 export interface WorkflowState extends BaseRefineryResource {
   type: WorkflowStateType;
   saved_block_metadata?: SavedBlockMetadata;
+  tooltip?: DemoTooltip | false;
 }
 
 export interface SavedBlockMetadata {

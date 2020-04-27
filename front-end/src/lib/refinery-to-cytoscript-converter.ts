@@ -32,7 +32,8 @@ function basicConverter<T extends WorkflowState>(workflowState: WorkflowState, c
     // @ts-ignore
     scratch: {
       _rawData: convertedState,
-      _blockType: convertedState.type
+      _blockType: convertedState.type,
+      _tooltip: convertedState.tooltip
     },
     // This is used by Cytoscape to render the image/style for each node
     // This should accept an array too, but I don't want to fight the type definitions today

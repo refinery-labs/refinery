@@ -1,0 +1,285 @@
+{
+  "name": "Dev Workflow Introduction",
+  "workflow_relationships": [
+    {
+      "version": "1.0.0",
+      "node": "0e1674c3-19da-4259-bdf2-c6380fdde29d",
+      "name": "then",
+      "type": "then",
+      "next": "15fcba37-6203-44be-9304-7dba7871a650",
+      "expression": "",
+      "id": "ef636f0a-ab83-4f4a-bad5-2102fd6fe2b8"
+    },
+    {
+      "version": "1.0.0",
+      "node": "15fcba37-6203-44be-9304-7dba7871a650",
+      "name": "then",
+      "type": "then",
+      "next": "4ba04c99-121e-48a4-bdba-212bd81923a9",
+      "expression": "",
+      "id": "9ce7544f-09a3-4b61-8d2c-cdd9ab795581"
+    }
+  ],
+  "workflow_states": [
+    {
+      "id": "4ba04c99-121e-48a4-bdba-212bd81923a9",
+      "name": "API Endpoint Response Block",
+      "version": "1.0.0",
+      "type": "api_gateway_response",
+      "tooltip": false
+    },
+    {
+      "id": "0e1674c3-19da-4259-bdf2-c6380fdde29d",
+      "name": "API Endpoint Block",
+      "version": "1.0.0",
+      "type": "api_endpoint",
+      "api_path": "/replaceme/proudcurtainsentry",
+      "http_method": "GET",
+      "tooltip": {
+        "body": "An API Endpoint Block will create a HTTP endpoint you can access with your provided path (in this case, the path is `/refinery/example/web/path`). When someone sends a request to this endpoint, the request's data is sent along to connected blocks.",
+        "header": "Listening for HTTP requests",
+        "config": {
+          "blockId": "0e1674c3-19da-4259-bdf2-c6380fdde29d"
+        },
+        "type": "CyTooltip",
+        "teardown": {
+          "action": "openBlockEditorPane"
+        }
+      }
+    },
+    {
+      "id": "15fcba37-6203-44be-9304-7dba7871a650",
+      "name": "Hello World Code Block",
+      "version": "1.0.0",
+      "type": "lambda",
+      "language": "nodejs8.10",
+      "code": "\nasync function main(blockInput, backpack) {\n    console.log('Some debug message');\n    return blockInput.msg + ' With <3 from Refinery!';\n}\n",
+      "memory": 768,
+      "libraries": [],
+      "layers": [],
+      "max_execution_time": 900,
+      "environment_variables": {},
+      "reserved_concurrency_count": false,
+      "tooltip": {
+        "body": "A Code Block can contain code from any supported language, which is quite a few!",
+        "header": "Running some code",
+        "config": {
+          "blockId": "15fcba37-6203-44be-9304-7dba7871a650"
+        },
+        "type": "CyTooltip",
+        "teardown": {
+          "action": "openBlockEditorPane"
+        }
+      }
+    }
+  ],
+  "workflow_files": [],
+  "workflow_file_links": [],
+  "version": 2,
+  "readme": "# Untitled Project README\n\nThis is a Refinery project README, update it to explain more about the project.",
+  "demo_walkthrough": [
+    {
+      "body": "An API Endpoint Block will create a HTTP endpoint you can access with your provided path (in this case, the path is `/refinery/example/web/path`). When someone sends a request to this endpoint, the request's data is sent along to connected blocks.",
+      "header": "Listening for HTTP requests",
+      "config": {
+        "blockId": "0e1674c3-19da-4259-bdf2-c6380fdde29d",
+        "x": 0,
+        "y": 0,
+        "offsetX": 120,
+        "offsetY": -50
+      },
+      "type": "CyTooltip",
+      "teardown": {
+        "action": "openBlockEditorPane"
+      }
+    },
+    {
+      "body": "Here is where you would configure what HTTP method your endpoint will accept.",
+      "header": "Endpoint Method",
+      "config": {
+        "htmlSelector": "div[data-tooltip-id=\"endpoint-http-method\"]",
+        "placement": "top"
+      },
+      "type": "HTMLTooltip"
+    },
+    {
+      "body": "Change the path that this endpoint is listening on.",
+      "header": "Endpoint Path",
+      "config": {
+        "htmlSelector": "div[data-tooltip-id=\"endpoint-http-path\"]",
+        "placement": "top"
+      },
+      "type": "HTMLTooltip",
+      "teardown": {
+        "action": "closeEditPane"
+      }
+    },
+    {
+      "body": "A Code Block can contain code from any supported language, which is quite a few!",
+      "header": "Running some code",
+      "config": {
+        "blockId": "15fcba37-6203-44be-9304-7dba7871a650",
+        "x": 0,
+        "y": 0,
+        "offsetX": 120,
+        "offsetY": -50
+      },
+      "type": "CyTooltip",
+			"setup": {
+				"action": "setCodeRunnerInput",
+				"options": {
+					"input": {"msg": "From the code runner!"},
+					"backpack": {}
+				}
+			},
+      "teardown": {
+        "action": "openBlockEditorPane"
+      }
+    },
+    {
+      "body": "Boilerplate code for each language is provided to get you started. It is important to note that the `blockInput` parameter in each language is set to the value that is passed into the block.",
+      "header": "Code Editor",
+      "config": {
+        "htmlSelector": "div[data-tooltip-id=\"editorpane-edit-block\"]",
+        "placement": "top"
+      },
+      "type": "HTMLTooltip"
+    },
+    {
+      "body": "As you write code in the editor and import libraries, you will have to also specify the libraries you wish to import here.",
+      "header": "Import some libraries",
+      "config": {
+        "htmlSelector": "button[data-tooltip-id=\"modify-libraries-button\"]",
+        "placement": "top"
+      },
+      "type": "HTMLTooltip"
+    },
+    {
+      "body": "Every code block is essentially an isolated program, so you are able to change between languages throughout your project.",
+      "header": "Change your language",
+      "config": {
+        "htmlSelector": "div[data-tooltip-id=\"code-editor-language-selector\"]",
+        "placement": "top"
+      },
+      "type": "HTMLTooltip"
+    },
+    {
+      "body": "Just as you would test your code on your computer, the **Code Runner** lets you test out your code before it is deployed.",
+      "header": "See how your code runs",
+      "config": {
+        "htmlSelector": "div[data-tooltip-id=\"navitems-code-runner\"]",
+        "placement": "left"
+      },
+      "type": "HTMLTooltip",
+      "teardown": {
+        "action": "openCodeRunner"
+      }
+    },
+    {
+      "body": "**Input Data** simulates data which is passed into this block and **Backpack Data** is data passed through the current execution context, or data that you will need later on in other blocks.",
+      "header": "Passing data in",
+      "config": {
+        "htmlSelector": "div[data-tooltip-id=\"input-data-textarea\"]",
+        "placement": "top"
+      },
+      "type": "HTMLTooltip",
+      "teardown": {
+        "action": "setCodeRunnerOutput",
+        "options": {
+          "logs": "Some debug message",
+          "returned_data": "Hello World! From the code runner!"
+        }
+      }
+    },
+    {
+      "body": "Once you have your block data set, you can click **Execute With Data** to actually run your code with the simulated inputs.",
+      "header": "Run and see your code's output",
+      "config": {
+        "htmlSelector": "div[data-tooltip-id=\"return-data-textarea\"]",
+        "placement": "top"
+      },
+      "type": "HTMLTooltip",
+      "teardown": {
+        "action": "closeOpenPanes"
+      }
+    },
+    {
+      "body": "After testing all of our blocks with the code runner, we can try deploying this project to see how it actually works end to end!",
+      "teardown": {
+        "action": "viewDeployment"
+      },
+      "type": "HTMLTooltip",
+      "setup": {
+        "action": "addDeploymentExecution",
+        "options": {
+          "executions": [
+            {
+              "status": "SUCCESS",
+              "block_index": 2
+            }
+          ]
+        }
+      },
+      "header": "Let's trying deploying this project!",
+      "config": {
+        "htmlSelector": "div[data-tooltip-id=\"navitems-deploy-project\"]",
+        "placement": "left"
+      }
+    },
+    {
+      "body": "**Block Executions** will let you see every time your project is executed, what data is passed between your blocks and what they returned.",
+      "header": "Viewing your deployed code's logs",
+      "config": {
+        "htmlSelector": "div[data-tooltip-id=\"navitems-block-executions\"]",
+        "placement": "top"
+      },
+      "type": "HTMLTooltip",
+      "teardown": {
+        "action": "viewExecutionLogs",
+        "options": {
+          "log_id": "demo",
+          "block_index": 2,
+          "data": {
+            "s3_key": "asdf",
+            "timestamp": 0,
+            "type": "SUCCESS",
+            "function_name": "asdf"
+          },
+          "contents": {
+            "status": "SUCCESS",
+            "name": "test name",
+            "backpack": {
+              "test": "test"
+            },
+            "input_data": {
+              "msg": "Hello, world!"
+            },
+            "return_data": "Hello, world! With <3 from Refinery!",
+            "program_output": "Some debug message"
+          }
+        }
+      }
+    },
+    {
+      "body": "Just like when looking at the **Code Runner** output, Deployment Executions shows the data that was passed in and returned by each block as it was executed.",
+      "header": "Deployment executions",
+      "setup": {
+        "action": "openExecutionsPane"
+      },
+      "config": {
+        "htmlSelector": "div[data-tooltip-id=\"editorpane-block-execution logs\"]",
+        "placement": "top"
+      },
+      "type": "HTMLTooltip"
+    },
+    {
+      "body": "We have come to the end of the developer workflow introduction. Want to learn more about what you can do with Refinery? [Go check out our docs](https://docs.refinery.io/getting-started/). You can also go back to the projects page to check out other examples of what you can do with Refinery. If you have any questions, let us know in the live chat or on Slack and we will help you out.",
+      "header": "What are you going to make?",
+      "config": {
+        "htmlSelector": "li[data-tooltip-id=\"live-chat-link\"",
+        "placement": "top"
+      },
+      "type": "HTMLTooltip"
+    }
+  ]
+}

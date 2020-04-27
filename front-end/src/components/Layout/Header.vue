@@ -87,7 +87,7 @@
             <span class="hide-on-mobile"> Join Slack</span>
           </a>
         </li>
-        <li class="nav-item">
+        <li class="nav-item" data-tooltip-id="live-chat-link">
           <a href="" to="Live Chat" class="nav-link intercom-open-chat-button">
             <i class="fas fa-headset"></i>
             <span class="hide-on-mobile"> Live Chat</span>

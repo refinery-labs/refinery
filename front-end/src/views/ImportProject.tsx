@@ -53,7 +53,19 @@ export default class ImportProject extends mixins(CreateToastMixin) {
   }
 
   renderUnauthGraph() {
-    return <OpenedProjectOverview />;
+    const classes = {
+      'graph-visibility': true,
+
+      'graph-with-grid': true,
+      'flex-grow--1': true,
+      'display--flex': true
+    };
+
+    return (
+      <div class={classes}>
+        <OpenedProjectOverview />;
+      </div>
+    );
   }
 
   public renderContents(): VNode {
@@ -98,7 +110,7 @@ export default class ImportProject extends mixins(CreateToastMixin) {
       );
     }
 
-    return <div class="unauth-graph-container">{this.renderUnauthGraph()}</div>;
+    return <div>{this.renderUnauthGraph()}</div>;
   }
 
   public render() {
@@ -109,9 +121,18 @@ export default class ImportProject extends mixins(CreateToastMixin) {
     };
 
     return (
-      <div>
-        {this.renderContents()}
-        <SignupModal props={signupModalProps} />
+      <div class="view-project-page">
+        <b-nav tabs justified>
+          <b-nav-item exact active-nav-item-class="active" data-tooltip-id="editor-nav-item">
+            Editor
+          </b-nav-item>
+          <b-nav-item>Deployment</b-nav-item>
+          <b-nav-item>Settings</b-nav-item>
+        </b-nav>
+        <div class="view-project-page-content position--relative flex-grow--1 width--100percent height--100percent">
+          {this.renderContents()}
+          <SignupModal props={signupModalProps} />
+        </div>
       </div>
     );
   }

@@ -37,14 +37,14 @@ from tasks.terraform import (
 from tasks.email import (
     send_email,
     send_registration_confirmation_email,
-    send_authentication_email,
-    send_internal_registration_confirmation_email)
+    send_authentication_email
+)
 from tasks.aws_account import (
     unfreeze_aws_account,
     freeze_aws_account,
     create_new_sub_aws_account,
-    recreate_aws_console_account,
-    mark_account_needs_closing, do_account_cleanup)
+    recreate_aws_console_account
+)
 from tasks.stripe import (
     get_account_cards,
     get_stripe_customer_information,
@@ -82,8 +82,8 @@ from tasks.build.common import (
 from tasks.build.ruby import start_ruby264_codebuild
 from tasks.build.nodejs import (
     start_node810_codebuild,
-    start_node10163_codebuild,
-    start_node10201_codebuild)
+    start_node10163_codebuild
+)
 from tasks.build.python import (
     start_python36_codebuild,
     start_python27_codebuild,
@@ -657,16 +657,7 @@ class TaskSpawner(object):
     @run_on_executor
     @emit_runtime_metrics("start_node10163_codebuild")
     def start_node10163_codebuild(self, credentials, libraries_object):
-        return start_node10163_codebuild(
-            self.aws_client_factory,
-            credentials,
-            libraries_object
-        )
-
-    @run_on_executor
-    @emit_runtime_metrics("start_node10201_codebuild")
-    def start_node10201_codebuild(self, credentials, libraries_object):
-        return start_node10201_codebuild(
+        return start_node_10163_codebuild(
             self.aws_client_factory,
             credentials,
             libraries_object

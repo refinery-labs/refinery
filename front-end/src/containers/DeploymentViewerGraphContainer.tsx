@@ -1,9 +1,13 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
-import CytoscapeGraph from '@/components/CytoscapeGraph';
 import { namespace, State } from 'vuex-class';
 import { LayoutOptions } from 'cytoscape';
+import CytoscapeGraph from '@/components/CytoscapeGraph';
 import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
+import { DemoWalkthroughStoreModule } from '@/store';
+import Tooltip from '@/lib/Tooltip';
+import { TooltipType } from '@/types/demo-walkthrough-types';
+import { TooltipProps } from '@/types/tooltip-types';
 
 const deployment = namespace('deployment');
 const deploymentExecutions = namespace('deploymentExecutions');
@@ -24,6 +28,23 @@ export default class DeploymentViewerGraphContainer extends Vue {
   @deployment.Action selectNode!: (element: string) => void;
   @deployment.Action selectEdge!: (element: string) => void;
 
+  public getDemoWalkthrough() {
+    const tooltipProps: TooltipProps = {
+      step: DemoWalkthroughStoreModule.currentHTMLTooltip,
+      nextTooltip: DemoWalkthroughStoreModule.nextTooltip,
+      skipTooltips: DemoWalkthroughStoreModule.skipWalkthrough
+    };
+
+    if (DemoWalkthroughStoreModule.currentHTMLTooltip) {
+      return (
+        <div>
+          <Tooltip props={tooltipProps} />
+        </div>
+      );
+    }
+    return <div />;
+  }
+
   public render(h: CreateElement): VNode {
     if (!this.cytoscapeElements || !this.cytoscapeStyle) {
       const errorMessage = 'Graph unable to render, missing data!';
@@ -36,6 +57,9 @@ export default class DeploymentViewerGraphContainer extends Vue {
       clearSelection: this.clearSelection,
       selectNode: this.selectNode,
       selectEdge: this.selectEdge,
+      currentTooltips: DemoWalkthroughStoreModule.cyTooltips,
+      loadCyTooltips: DemoWalkthroughStoreModule.loadCyTooltips,
+      nextTooltip: DemoWalkthroughStoreModule.nextTooltip,
       elements: this.graphElementsWithExecutionStatus || this.cytoscapeElements,
       stylesheet: this.cytoscapeStyle,
       layout: this.cytoscapeLayoutOptions,
@@ -48,8 +72,11 @@ export default class DeploymentViewerGraphContainer extends Vue {
       animationDisabled: true
     };
 
+    const demoWalkthrough = this.getDemoWalkthrough();
+
     return (
       <div class="deployment-viewer-graph-container project-graph-container">
+        {demoWalkthrough}
         <CytoscapeGraph props={graphProps} />
       </div>
     );

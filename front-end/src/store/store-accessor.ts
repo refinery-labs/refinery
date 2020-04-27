@@ -19,6 +19,7 @@ import { RootState, StoreType } from '@/store/store-types';
 import { UnauthViewProjectStore } from '@/store/modules/unauth-view-project';
 import { ViewSharedFilePaneStore } from '@/store/modules/panes/view-shared-file';
 import { ReadmeEditorPaneStore } from '@/store/modules/panes/readme-editor-pane';
+import { DemoWalkthroughStore } from '@/store/modules/demo-walkthrough';
 
 declare type ConstructorOf<C> = {
   new (...args: any[]): C;
@@ -45,7 +46,8 @@ export const storeModules: { [key in StoreType]: ConstructorOf<VuexModule> & Mod
   settingsApp: SettingsAppStore,
   sharedFiles: SharedFilesPaneStore,
   unauthViewProject: UnauthViewProjectStore,
-  readmeEditor: ReadmeEditorPaneStore
+  readmeEditor: ReadmeEditorPaneStore,
+  demoWalkthrough: DemoWalkthroughStore
 };
 
 export let AddSavedBlockPaneStoreModule: AddSavedBlockPaneStore;
@@ -60,6 +62,7 @@ export let SettingsAppStoreModule: SettingsAppStore;
 export let SharedFilesPaneModule: SharedFilesPaneStore;
 export let UnauthViewProjectStoreModule: UnauthViewProjectStore;
 export let ReadmeEditorPaneStoreModule: ReadmeEditorPaneStore;
+export let DemoWalkthroughStoreModule: DemoWalkthroughStore;
 
 // Creates the actual instances of the store for each module.
 // These instances are what the app uses to reference the store in a "nice" way.
@@ -76,6 +79,7 @@ export function initializeStores(store: Store<any>): void {
   SharedFilesPaneModule = getModule(SharedFilesPaneStore, store);
   UnauthViewProjectStoreModule = getModule(UnauthViewProjectStore, store);
   ReadmeEditorPaneStoreModule = getModule(ReadmeEditorPaneStore, store);
+  DemoWalkthroughStoreModule = getModule(DemoWalkthroughStore, store);
 }
 
 // for use in 'modules' store init (see store/index.ts), so each module
