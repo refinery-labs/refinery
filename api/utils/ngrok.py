@@ -1,4 +1,3 @@
-import os
 import time
 import json
 import tornado
@@ -13,6 +12,7 @@ from tornado import gen
 class NgrokSpawner(object):
 	app_config = None
 
+	# noinspection PyUnresolvedReferences
 	def __init__(self, app_config, loop=None):
 		self.executor = futures.ThreadPoolExecutor( 10 )
 		self.loop = loop or tornado.ioloop.IOLoop.current()

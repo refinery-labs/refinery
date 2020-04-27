@@ -1,4 +1,5 @@
-from utils.general import attempt_json_decode, logit
+from utils.general import attempt_json_decode
+
 
 def parse_websocket_message( input_message ):
 	"""

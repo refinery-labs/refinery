@@ -3,7 +3,7 @@ from projects import Project
 import json
 import uuid
 import time
-import os
+
 
 class Deployment( Base ):
 	__tablename__ = "deployments"

@@ -94,6 +94,8 @@ def perform_athena_query(aws_client_factory, credentials, query, return_results)
     # an upper bound of iterations.
     MAX_LOOP_ITERATIONS = 10000
 
+    query_status_result = None
+
     # Bound this loop to only execute MAX_LOOP_ITERATION times since we
     # cannot guarantee that the condition `continuation_token == False`
     # will ever be true.

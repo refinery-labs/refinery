@@ -2,7 +2,7 @@ from initiate_database import *
 import json
 import uuid
 import time
-import os
+
 
 class TerraformStateVersion( Base ):
 	"""

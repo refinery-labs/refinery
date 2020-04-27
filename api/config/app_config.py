@@ -4,9 +4,6 @@ from six import string_types
 
 import yaml
 
-from config.app_init_config import app_init_config
-from pyconstants.project_constants import LAMBDA_BASE_LIBRARIES
-
 
 class AppConfig:
 	"""

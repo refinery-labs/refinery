@@ -5,7 +5,7 @@ import tornado.websocket
 import datetime
 import functools
 
-from utils.general import attempt_json_decode, logit
+from utils.general import logit
 
 """
 This is a dict which automatically routes messages from running
@@ -117,6 +117,7 @@ class WebsocketRouter:
 def run_scheduled_heartbeat( websocket_object ):
 	logit( "Sending heartbeat to all connected Websocket users...", "debug" )
 	websocket_object.send_heartbeed()
+	# noinspection PyUnresolvedReferences
 	tornado.ioloop.IOLoop.instance().add_timeout(
 		datetime.timedelta(
 			seconds=5
@@ -135,6 +136,7 @@ class ScheduledHeartbeatRunner:
 			websocket_router
 		)
 
+	# noinspection PyUnresolvedReferences
 	def start( self ):
 		tornado.ioloop.IOLoop.instance().add_timeout(
 			datetime.timedelta(

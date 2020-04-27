@@ -4,7 +4,7 @@ import string
 import json
 import uuid
 import time
-import os
+
 
 class ProjectShortLink( Base ):
 	__tablename__ = "project_short_links"

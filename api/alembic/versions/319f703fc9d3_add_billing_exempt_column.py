@@ -6,8 +6,7 @@ Create Date: 2019-11-01 10:58:41.746322
 
 """
 from alembic import op
-import sqlalchemy as sa
-from sqlalchemy import Column, Integer, String, func, update, Text, Binary, Boolean, BigInteger, event, select, exc, CHAR, ForeignKey, JSON, Table
+from sqlalchemy import Column, Boolean
 
 # revision identifiers, used by Alembic.
 revision = '319f703fc9d3'

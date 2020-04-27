@@ -140,6 +140,7 @@ class RunTmpLambda( BaseHandler ):
 				"arn": cached_inline_execution_lambda_dict[ "arn" ]
 			}
 		else:
+			# noinspection PyUnresolvedReferences
 			try:
 				lambda_info = yield deploy_lambda(
 					self.task_spawner,

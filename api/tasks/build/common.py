@@ -59,6 +59,8 @@ def finalize_codebuild(aws_client_factory, credentials, build_id, final_s3_packa
     build_id_parts = build_id.split(":")
     output_artifact_path = build_id_parts[1] + "/package.zip"
 
+    build_status = None
+
     # Loop until we have the build information (up to ~2 minutes)
     for _ in xrange(50):
         # Check the status of the build we just kicked off

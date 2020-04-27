@@ -170,13 +170,10 @@ def test_setting_and_reading_env_var():
 	os.environ[ "SOME_RANDOM_ENV_VAR" ] = "foobar"
 
 	# Create dict with environment variables in it
-	env_var_dict = AppConfig._get_env_vars_dict()
-
-	assert "env" in env_var_dict, "Output variable nests environment variables under 'env'"
+	config = AppConfig("test")
 
 	# Check every environment variable is read correctly.
 	# Note: Mostly doing this because we can't reliably set env vars ourselves.
 	for key, value in six.viewitems( dict( os.environ ) ):
-		assert key in env_var_dict[ "env" ], "Environment variable exists in output dict"
-		assert env_var_dict[ "env" ][ key ] == os.environ[ key ], "Environment variable values match"
+		assert config.get(key) == os.environ[ key ], "Environment variable values match"
 

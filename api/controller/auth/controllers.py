@@ -168,6 +168,7 @@ class NewRegistration( BaseHandler ):
 		x_forwarded_for = self.request.headers.get( "X-Forwarded-For", "Unknown" )
 		client_ip = self.request.remote_ip
 
+		# noinspection PyUnresolvedReferences
 		try:
 			# Additionally since they've validated their email we'll add them to Stripe
 			customer_id = yield self.task_spawner.stripe_create_customer(

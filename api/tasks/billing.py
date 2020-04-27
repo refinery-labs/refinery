@@ -147,6 +147,7 @@ def generate_managed_accounts_invoices(aws_client_factory, aws_cost_explorer, ap
                             " (Cloud Account: '" + \
                             aws_account_billing_data["aws_account_label"] + "')"
 
+                    # noinspection PyUnresolvedReferences
                     stripe.InvoiceItem.create(
                         # Stripe bills in cents!
                         amount=line_item_cents,
@@ -165,6 +166,7 @@ def generate_managed_accounts_invoices(aws_client_factory, aws_cost_explorer, ap
             }
 
             try:
+                # noinspection PyUnresolvedReferences
                 customer_invoice = stripe.Invoice.create(
                     **invoice_creation_params
                 )

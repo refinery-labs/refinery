@@ -289,10 +289,15 @@ def get_merge_lambda_arn_list( target_id, workflow_relationships, workflow_state
 	return arn_list
 
 
+class MissingResourceException(Exception):
+	pass
+
+
 @gen.coroutine
 def create_lambda_api_route( task_spawner, api_gateway_manager, credentials, api_gateway_id, http_method, route, lambda_name, overwrite_existing ):
 	def not_empty( input_item ):
-		return ( input_item != "" )
+		return input_item != ""
+
 	path_parts = route.split( "/" )
 	path_parts = filter( not_empty, path_parts )
 
@@ -310,10 +315,15 @@ def create_lambda_api_route( task_spawner, api_gateway_manager, credentials, api
 		api_gateway_id
 	)
 
+	base_resource_id = None
+
 	for resource in resources:
 		if resource[ "path" ] == "/":
 			base_resource_id = resource[ "id" ]
 			break
+
+	if base_resource_id is None:
+		raise MissingResourceException("Missing API Gateway base resource ID. This should never happen")
 
 	# Create a map of paths to verify existance later
 	# so we don't overwrite existing resources
@@ -894,14 +904,13 @@ def deploy_diagram( task_spawner, api_gateway_manager, credentials, project_name
 				)
 		except Exception as e:
 			logit( "Failed to deploy node '" + deploy_future_data[ "name" ] + "'!", "error" )
-			#logit( "The full exception details can be seen below: ", "error" )
 
 			exception_msg = traceback.format_exc()
 			if type(e) is BuildException:
+				# noinspection PyUnresolvedReferences
 				exception_msg = e.build_output
 
-			#logit( exception_msg, "error" )
-			print exception_msg
+			logit( "Deployment failure exception details: " + repr(exception_msg), "error" )
 			deployment_exceptions.append({
 				"id": deploy_future_data[ "id" ],
 				"name": deploy_future_data[ "name" ],

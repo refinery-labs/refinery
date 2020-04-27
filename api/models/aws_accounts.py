@@ -2,7 +2,7 @@ from initiate_database import *
 import json
 import uuid
 import time
-import os
+
 
 class AWSAccount( Base ):
 	__tablename__ = "aws_accounts"

@@ -1,13 +1,10 @@
-from sqlalchemy import Enum
-
-from data_types.oauth_providers import RefineryUserTier
 from initiate_database import *
 import json
 import uuid
 import time
-import os
 
 from user_project_associations import users_projects_association_table
+
 
 class User( Base ):
 	__tablename__ = "users"

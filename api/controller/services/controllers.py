@@ -245,6 +245,8 @@ class OnboardThirdPartyAWSAccountApply( BaseHandler ):
 			third_party_aws_account_dict
 		)
 
+		current_aws_account = None
+
 		try:
 			self.logger( "Creating Refinery base infrastructure on third-party AWS account..." )
 			account_provisioning_details = yield self.task_spawner.terraform_configure_aws_account(
@@ -292,7 +294,8 @@ class OnboardThirdPartyAWSAccountApply( BaseHandler ):
 				terraform_state_version
 			)
 		except Exception as e:
-			self.logger( "An error occurred while provision AWS account '" + current_aws_account.account_id + "' with terraform!", "error" )
+			if current_aws_account is not None:
+				self.logger( "An error occurred while provision AWS account '" + current_aws_account.account_id + "' with terraform!", "error" )
 			self.logger( e )
 			self.logger( "Marking the account as 'CORRUPT'..." )
 

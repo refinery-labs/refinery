@@ -1,11 +1,10 @@
 from initiate_database import *
 from saved_block import SavedBlock
-import json
 import uuid
 import time
-import os
 
 from sqlalchemy.dialects.postgresql import JSONB
+
 
 class SavedBlockVersion( Base ):
 	__tablename__ = "saved_block_versions"
@@ -33,7 +32,7 @@ class SavedBlockVersion( Base ):
 		"""
 		Returns an empty list by default.
 		"""
-		if self._shared_files == None:
+		if self._shared_files is None:
 			return []
 		return self._shared_files
 
