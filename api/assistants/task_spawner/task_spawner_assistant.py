@@ -664,6 +664,16 @@ class TaskSpawner(object):
         )
 
     @run_on_executor
+    @emit_runtime_metrics("start_node10201_codebuild")
+    def start_node10201_codebuild(self, credentials, libraries_object):
+        return start_node_10201_codebuild(
+            self.aws_client_factory,
+            credentials,
+            libraries_object
+        )
+
+
+    @run_on_executor
     @emit_runtime_metrics("create_cloudwatch_group")
     def create_cloudwatch_group(self, credentials, group_name, tags_dict, retention_days):
         return create_cloudwatch_group(

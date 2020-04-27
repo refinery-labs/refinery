@@ -235,21 +235,9 @@ def get_base_lambda_code( app_config, language, code ):
 	elif language == "nodejs8.10":
 		return get_nodejs_810_base_code(app_config, code)
 	elif language == "nodejs10.16.3":
-<<<<<<< HEAD
 		return get_nodejs_10163_base_code(app_config, code)
 	elif language == "nodejs10.20.1":
 		return get_nodejs_10201_base_code(app_config, code)
-=======
-		return TaskSpawner._get_nodejs_10163_base_code(
-			app_config,
-			code
-		)
-	elif language == "nodejs10.20.1":
-		return TaskSpawner._get_nodejs_10201_base_code(
-			app_config,
-			code
-		)
->>>>>>> master
 	elif language == "php7.3":
 		return get_php_73_base_code(app_config, code)
 	elif language == "ruby2.6.4":
