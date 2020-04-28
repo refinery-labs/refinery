@@ -136,7 +136,7 @@ export async function patchRequest<TReq, TRes>(path: string, body: TReq, args: {
 }
 
 export type HttpMethodLookup = {
-  [key in HTTP_METHOD]: <TReq, TRes>(path: string, req: TReq) => Promise<IHttpResponse<TRes>>
+  [key in HTTP_METHOD]: <TReq, TRes>(path: string, req: TReq) => Promise<IHttpResponse<TRes>>;
 };
 
 export const HttpUtil: HttpMethodLookup = {
