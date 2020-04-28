@@ -86,10 +86,10 @@ def execution_log_query_results_to_pipeline_id_dict(query_results):
 
         # Add execution count to execution ID totals
         execution_pipeline_id_dict[query_result["execution_pipeline_id"]
-                                    ][query_result["type"]] += execution_int_count
+                                   ][query_result["type"]] += execution_int_count
 
         # Add execution count to ARN execution totals
         block_executions[query_result["arn"]
-                            ][query_result["type"]] += execution_int_count
+                         ][query_result["type"]] += execution_int_count
 
     return execution_pipeline_id_dict

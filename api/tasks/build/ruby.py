@@ -69,7 +69,7 @@ def start_ruby264_codebuild(aws_client_factory, credentials, libraries_object):
         buildspec = ZipInfo(
             "buildspec.yml"
         )
-        buildspec.external_attr = 0777 << 16L
+        buildspec.external_attr = 0o777 << 16
         zip_file_handler.writestr(
             buildspec,
             dump(
@@ -81,7 +81,7 @@ def start_ruby264_codebuild(aws_client_factory, credentials, libraries_object):
         gemfile_ref = ZipInfo(
             "Gemfile"
         )
-        gemfile_ref.external_attr = 0777 << 16L
+        gemfile_ref.external_attr = 0o777 << 16
         zip_file_handler.writestr(
             gemfile_ref,
             gemfile
@@ -154,7 +154,6 @@ def get_ruby_264_lambda_base_zip(aws_client_factory, credentials, libraries):
     )
 
 
-
 def build_ruby_264_lambda(app_config, aws_client_factory, credentials, code, libraries):
     code = get_ruby_264_base_code(
         app_config,
@@ -178,7 +177,7 @@ def build_ruby_264_lambda(app_config, aws_client_factory, credentials, code, lib
         info = ZipInfo(
             "lambda"
         )
-        info.external_attr = 0777 << 16L
+        info.external_attr = 0o777 << 16
 
         # Write lambda.py into new .zip
         zip_file_handler.writestr(
@@ -191,6 +190,7 @@ def build_ruby_264_lambda(app_config, aws_client_factory, credentials, code, lib
 
     return lambda_package_zip_data
 
+
 def get_ruby_264_base_code(app_config, code):
-    code = code + "\n\n" + app_config.get( "LAMDBA_BASE_CODES" )[ "ruby2.6.4" ]
+    code = code + "\n\n" + app_config.get("LAMDBA_BASE_CODES")["ruby2.6.4"]
     return code

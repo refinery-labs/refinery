@@ -140,7 +140,7 @@ def execute_aws_lambda(aws_client_factory, credentials, arn, input_data):
                 full_response
             )
         )
-    except:
+    except BaseException:
         pass
 
     prettify_types = [
@@ -154,7 +154,7 @@ def execute_aws_lambda(aws_client_factory, credentials, arn, input_data):
             indent=4
         )
 
-    if type(full_response) != str:
+    if not isinstance(full_response, str):
         full_response = str(full_response)
 
     # Detect from response if it was an error
@@ -244,7 +244,7 @@ def update_lambda_environment_variables(aws_client_factory, credentials, func_na
 
 def build_lambda(app_config, aws_client_factory, credentials, lambda_object):
     logit("Building Lambda " + lambda_object.language +
-            " with libraries: " + str(lambda_object.libraries), "info")
+          " with libraries: " + str(lambda_object.libraries), "info")
     if not (lambda_object.language in LAMBDA_SUPPORTED_LANGUAGES):
         raise Exception("Error, this language '" +
                         lambda_object.language + "' is not yet supported by refinery!")
@@ -533,6 +533,7 @@ def get_cached_inline_execution_lambda_entries(db_session_maker, credentials):
 
     return existing_inline_execution_lambdas
 
+
 def delete_cached_inline_execution_lambda(aws_client_factory, db_session_maker, lambda_manager, credentials, arn, lambda_uuid):
     # TODO: Call instance method not the static one
     # noinspection PyProtectedMember
@@ -554,6 +555,7 @@ def delete_cached_inline_execution_lambda(aws_client_factory, db_session_maker, 
     dbsession.commit()
     dbsession.close()
 
+
 def add_inline_execution_lambda_entry(db_session_maker, credentials, inline_execution_hash_key, arn, lambda_size):
     # Add Lambda to inline execution database so we know we can
     # re-use it at a later time.
@@ -568,7 +570,8 @@ def add_inline_execution_lambda_entry(db_session_maker, credentials, inline_exec
     dbsession.close()
 
 
-def cache_inline_lambda_execution(aws_client_factory, db_session_maker, lambda_manager, credentials, language, timeout, memory, environment_variables, layers, libraries, arn, lambda_size):
+def cache_inline_lambda_execution(aws_client_factory, db_session_maker, lambda_manager, credentials, language,
+                                  timeout, memory, environment_variables, layers, libraries, arn, lambda_size):
     inline_execution_hash_key = get_inline_lambda_hash_key(
         language,
         timeout,
@@ -594,7 +597,7 @@ def cache_inline_lambda_execution(aws_client_factory, db_session_maker, lambda_m
             existing_inline_execution_lambdas) - max_number_of_inline_execution_lambdas
 
         logit("Deleting #" + str(number_of_lambdas_to_delete) +
-                " old cached inline execution Lambda(s) from AWS...")
+              " old cached inline execution Lambda(s) from AWS...")
 
         lambdas_to_delete = existing_inline_execution_lambdas[:number_of_lambdas_to_delete]
 
@@ -617,6 +620,7 @@ def cache_inline_lambda_execution(aws_client_factory, db_session_maker, lambda_m
         arn,
         lambda_size
     )
+
 
 def get_inline_lambda_hash_key(language, timeout, memory, environment_variables, lambda_layers, libraries):
     hash_dict = {
@@ -700,7 +704,7 @@ def clean_lambda_iam_policies(aws_client_factory, credentials, lambda_name):
         try:
             source_arn = statement["Condition"]["ArnLike"]["AWS:SourceArn"]
             arn_parts = source_arn.split(":")
-        except:
+        except BaseException:
             continue
 
         # Make sure it's an API Gateway policy
@@ -712,7 +716,7 @@ def clean_lambda_iam_policies(aws_client_factory, credentials, lambda_name):
             api_gateway_data = api_gateway_client.get_rest_api(
                 restApiId=api_gateway_id,
             )
-        except:
+        except BaseException:
             logit("API Gateway does not exist, deleting IAM policy...")
 
             delete_permission_response = lambda_client.remove_permission(

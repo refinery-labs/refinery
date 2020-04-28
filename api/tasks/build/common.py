@@ -76,7 +76,7 @@ def finalize_codebuild(aws_client_factory, credentials, build_id, final_s3_packa
             break
 
         logit("Build ID " + build_id +
-                " is still in progress, querying the status again in 2 seconds...")
+              " is still in progress, querying the status again in 2 seconds...")
         sleep(2)
 
     if build_status != "SUCCEEDED":

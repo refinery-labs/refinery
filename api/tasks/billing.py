@@ -312,7 +312,8 @@ def enforce_account_limits(app_config, aws_client_factory, db_session_maker, aws
     dbsession.close()
 
 
-def get_sub_account_month_billing_data(app_config, db_session_maker, aws_cost_explorer, aws_client_factory, account_id, account_type, billing_month, use_cache):
+def get_sub_account_month_billing_data(app_config, db_session_maker, aws_cost_explorer, aws_client_factory,
+                                       account_id, account_type, billing_month, use_cache):
     # Parse the billing month into a datetime object
     billing_month_datetime = datetime.strptime(
         billing_month,
@@ -341,7 +342,9 @@ def get_sub_account_month_billing_data(app_config, db_session_maker, aws_cost_ex
         use_cache
     )
 
-def get_sub_account_billing_data(app_config, db_session_maker, aws_cost_explorer, aws_client_factory, account_id, account_type, start_date, end_date, granularity, use_cache):
+
+def get_sub_account_billing_data(app_config, db_session_maker, aws_cost_explorer, aws_client_factory,
+                                 account_id, account_type, start_date, end_date, granularity, use_cache):
     """
     Pull the service breakdown list and return it along with the totals.
     Note that this data is not marked up. This function does the work of marking it up.
@@ -463,7 +466,8 @@ def get_sub_account_billing_data(app_config, db_session_maker, aws_cost_explorer
     return return_data
 
 
-def get_sub_account_service_breakdown_list(app_config, db_session_maker, aws_cost_explorer, aws_client_factory, account_id, account_type, start_date, end_date, granularity, use_cache):
+def get_sub_account_service_breakdown_list(app_config, db_session_maker, aws_cost_explorer, aws_client_factory,
+                                           account_id, account_type, start_date, end_date, granularity, use_cache):
     """
     Return format:
 
@@ -560,8 +564,8 @@ def get_sub_account_service_breakdown_list(app_config, db_session_maker, aws_cos
     return service_breakdown_list
 
 
-
-def api_get_sub_account_billing_data(app_config, db_session_maker, aws_cost_explorer, aws_client_factory, account_id, account_type, start_date, end_date, granularity):
+def api_get_sub_account_billing_data(app_config, db_session_maker, aws_cost_explorer, aws_client_factory,
+                                     account_id, account_type, start_date, end_date, granularity):
     """
     account_id: 994344292413
     start_date: 2017-05-01
@@ -684,7 +688,7 @@ def api_get_sub_account_billing_data(app_config, db_session_maker, aws_cost_expl
     return service_breakdown_list
 
 
-def get_sub_account_billing_forecast(app_config, aws_cost_explorer,account_id, start_date, end_date, granularity):
+def get_sub_account_billing_forecast(app_config, aws_cost_explorer, account_id, start_date, end_date, granularity):
     """
     account_id: 994344292413
     start_date: 2017-05-01

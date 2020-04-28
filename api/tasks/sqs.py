@@ -53,6 +53,7 @@ def create_sqs_queue(aws_client_factory, credentials, id, queue_name, batch_size
         "batch_size": batch_size
     }
 
+
 def map_sqs_to_lambda(aws_client_factory, credentials, sqs_arn, lambda_arn, batch_size):
     lambda_client = aws_client_factory.get_aws_client(
         "lambda",
@@ -67,6 +68,7 @@ def map_sqs_to_lambda(aws_client_factory, credentials, sqs_arn, lambda_arn, batc
     )
 
     return response
+
 
 def get_sqs_existence_info(aws_client_factory, credentials, _id, _type, name):
     sqs_client = aws_client_factory.get_aws_client(

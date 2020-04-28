@@ -154,7 +154,7 @@ def start_python36_codebuild(aws_client_factory, credentials, libraries_object):
         buildspec = ZipInfo(
             "buildspec.yml"
         )
-        buildspec.external_attr = 0777 << 16L
+        buildspec.external_attr = 0o777 << 16
         zip_file_handler.writestr(
             buildspec,
             yaml.dump(
@@ -166,7 +166,7 @@ def start_python36_codebuild(aws_client_factory, credentials, libraries_object):
         requirements_txt_file = ZipInfo(
             "requirements.txt"
         )
-        requirements_txt_file.external_attr = 0777 << 16L
+        requirements_txt_file.external_attr = 0o777 << 16
         zip_file_handler.writestr(
             requirements_txt_file,
             requirements_text
@@ -244,7 +244,7 @@ def start_python27_codebuild(aws_client_factory, credentials, libraries_object):
         buildspec = ZipInfo(
             "buildspec.yml"
         )
-        buildspec.external_attr = 0777 << 16L
+        buildspec.external_attr = 0o777 << 16
         zip_file_handler.writestr(
             buildspec,
             yaml.dump(
@@ -256,7 +256,7 @@ def start_python27_codebuild(aws_client_factory, credentials, libraries_object):
         requirements_txt_file = ZipInfo(
             "requirements.txt"
         )
-        requirements_txt_file.external_attr = 0777 << 16L
+        requirements_txt_file.external_attr = 0o777 << 16
         zip_file_handler.writestr(
             requirements_txt_file,
             requirements_text
@@ -314,7 +314,7 @@ def build_python36_lambda(app_config, aws_client_factory, credentials, code, lib
         info = zipfile.ZipInfo(
             "lambda"
         )
-        info.external_attr = 0777 << 16L
+        info.external_attr = 0o777 << 16
 
         # Write lambda.py into new .zip
         zip_file_handler.writestr(
@@ -364,7 +364,7 @@ def build_python27_lambda(app_config, aws_client_factory, credentials, code, lib
         info = ZipInfo(
             "lambda"
         )
-        info.external_attr = 0777 << 16L
+        info.external_attr = 0o777 << 16
 
         # Write lambda.py into new .zip
         zip_file_handler.writestr(
@@ -376,5 +376,3 @@ def build_python27_lambda(app_config, aws_client_factory, credentials, code, lib
     lambda_package_zip.close()
 
     return lambda_package_zip_data
-
-

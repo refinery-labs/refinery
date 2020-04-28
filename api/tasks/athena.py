@@ -12,7 +12,6 @@ from utils.mapper import (
 )
 
 
-
 try:
     # for Python 2.x
     # noinspection PyCompatibility
@@ -149,7 +148,6 @@ def perform_athena_query(aws_client_factory, credentials, query, return_results)
     )
 
 
-
 GET_BLOCK_EXECUTIONS = """
     SELECT type, id, function_name, timestamp, dt
     FROM "refinery"."{{{project_id_table_name}}}"
@@ -254,7 +252,6 @@ def create_project_id_log_table(aws_client_factory, credentials, project_id):
     project_id = sub(REGEX_WHITELISTS["project_id"], "", project_id)
     table_name = "PRJ_" + project_id.replace("-", "_")
 
-
     # Replace with the formatted Athena table name
     query = CREATE_PROJECT_ID_LOG_TABLE.replace(
         "{{REPLACE_ME_PROJECT_TABLE_NAME}}",
@@ -281,7 +278,6 @@ def create_project_id_log_table(aws_client_factory, credentials, project_id):
         query,
         False
     )
-
 
 
 GET_PROJECT_EXECUTION_LOGS = """

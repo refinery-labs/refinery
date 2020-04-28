@@ -39,6 +39,7 @@ def get_json_from_s3(aws_client_factory, credentials, s3_bucket, s3_path):
         response["Body"].read()
     )
 
+
 def write_json_to_s3(aws_client_factory, credentials, s3_bucket, s3_path, input_data):
     # Create S3 client
     s3_client = aws_client_factory.get_aws_client(
@@ -69,7 +70,7 @@ def read_from_s3(aws_client_factory, credentials, s3_bucket, path):
             Bucket=s3_bucket,
             Key=path
         )
-    except:
+    except BaseException:
         return "{}"
 
     return s3_object["Body"].read()
@@ -113,7 +114,6 @@ def bulk_s3_delete(aws_client_factory, credentials, s3_bucket, s3_path_list):
     return response
 
 
-
 def get_s3_pipeline_execution_logs(aws_client_factory, credentials, s3_prefix, max_results):
     return get_all_s3_paths(
         aws_client_factory,
@@ -122,6 +122,7 @@ def get_s3_pipeline_execution_logs(aws_client_factory, credentials, s3_prefix, m
         s3_prefix,
         max_results
     )
+
 
 def get_build_packages(aws_client_factory, credentials, s3_prefix, max_results):
     return get_all_s3_paths(
@@ -239,6 +240,7 @@ def get_all_s3_paths(aws_client_factory, credentials, s3_bucket, prefix, max_res
 
     return return_array
 
+
 def get_s3_pipeline_execution_ids(aws_client_factory, credentials, timestamp_prefix, max_results, continuation_token):
     return get_all_s3_prefixes(
         aws_client_factory,
@@ -327,5 +329,3 @@ def get_all_s3_prefixes(aws_client_factory, credentials, s3_bucket, prefix, max_
         "prefixes": return_array,
         "continuation_token": continuation_token
     }
-
-

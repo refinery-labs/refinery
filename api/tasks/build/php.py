@@ -98,7 +98,7 @@ def start_php73_codebuild(aws_client_factory, credentials, libraries_object):
         buildspec = ZipInfo(
             "buildspec.yml"
         )
-        buildspec.external_attr = 0777 << 16L
+        buildspec.external_attr = 0o777 << 16
         zip_file_handler.writestr(
             buildspec,
             dump(
@@ -130,6 +130,7 @@ def start_php73_codebuild(aws_client_factory, credentials, libraries_object):
     build_id = codebuild_response["build"]["id"]
 
     return build_id
+
 
 def get_php_73_base_code(app_config, code):
     code = sub(
@@ -169,7 +170,7 @@ def build_php_73_lambda(app_config, aws_client_factory, credentials, code, libra
         info = ZipInfo(
             "lambda"
         )
-        info.external_attr = 0777 << 16L
+        info.external_attr = 0o777 << 16
 
         # Write lambda.php into new .zip
         zip_file_handler.writestr(
@@ -181,5 +182,3 @@ def build_php_73_lambda(app_config, aws_client_factory, credentials, code, libra
     lambda_package_zip.close()
 
     return lambda_package_zip_data
-
-

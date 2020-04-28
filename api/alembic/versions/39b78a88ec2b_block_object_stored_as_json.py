@@ -28,8 +28,8 @@ depends_on = None
 
 def upgrade():
     op.add_column('saved_block_versions',
-      Column('block_object_json', JSONB())
-    )
+                  Column('block_object_json', JSONB())
+                  )
     conn = op.get_bind()
 
     for saved_block in conn.execute(saved_block_versions.select()):
@@ -44,7 +44,7 @@ def upgrade():
                 )
             )
         except TypeError as e:
-            print( "Failed to upgrade block: " + repr( saved_block ) )
+            print("Failed to upgrade block: " + repr(saved_block))
 
 
 def downgrade():
