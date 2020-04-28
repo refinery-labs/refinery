@@ -16,9 +16,9 @@ export default class ViewApiEndpointsPane extends Vue {
   @deployment.Action selectNode!: (nodeId: string) => void;
 
   renderAPIEndpoint(endpoint: ProductionApiEndpointWorkflowState) {
-    const isActive = this.getSelectedBlock && this.getSelectedBlock.id == endpoint.id;
+    const isActive = this.getSelectedBlock && this.getSelectedBlock.id === endpoint.id;
     const endpointPath =
-      endpoint.http_method == HTTP_METHOD.GET ? (
+      endpoint.http_method === HTTP_METHOD.GET ? (
         <a href={endpoint.url} class={isActive ? 'text-light' : ''}>
           {endpoint.api_path}
         </a>
@@ -44,17 +44,15 @@ export default class ViewApiEndpointsPane extends Vue {
       case HTTP_METHOD.GET:
         return `curl '${endpoint.url}?key=value'`;
       default:
-        return `curl -X ${endpoint.http_method} -H 'Content-Type: application/json' -d '{"key":"value"}' '${
-          endpoint.url
-        }'`;
+        return `curl -X ${endpoint.http_method} -H 'Content-Type: application/json' -d '{"key":"value"}' '${endpoint.url}'`;
     }
   }
 
   endpointCurlRequest() {
     if (this.getSelectedBlock) {
       const selectedBlock = this.getSelectedBlock;
-      const selectedEndpoints = this.getDeployedAPIEndpoints.filter(e => e.id == selectedBlock.id);
-      if (selectedEndpoints.length == 1) {
+      const selectedEndpoints = this.getDeployedAPIEndpoints.filter(e => e.id === selectedBlock.id);
+      if (selectedEndpoints.length === 1) {
         const selectedEndpoint = selectedEndpoints[0];
         return this.getExampleCurlRequest(selectedEndpoint);
       }
@@ -63,7 +61,7 @@ export default class ViewApiEndpointsPane extends Vue {
   }
 
   public render(h: CreateElement): VNode {
-    if (this.getDeployedAPIEndpoints.length == 0) {
+    if (this.getDeployedAPIEndpoints.length === 0) {
       return (
         <div class="padding--normal">
           <p>No deployed API Endpoints</p>
