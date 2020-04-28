@@ -112,4 +112,4 @@ def log_exception(f):
 
 
 def print_object_graph(object_graph):
-    print((object_graph._obj_provider._binding_mapping._binding_key_to_binding))
+    print(object_graph._obj_provider._binding_mapping._binding_key_to_binding)

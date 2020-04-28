@@ -1,4 +1,4 @@
-from . import stripe
+import stripe
 
 
 from assistants.accounts import get_user_free_trial_information

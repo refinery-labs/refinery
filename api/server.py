@@ -29,25 +29,10 @@ from .assistants.deployments.ecs_builders import BuilderManager, AwsEcsManager
 from .services.websocket_router import ScheduledHeartbeatRunner, WebsocketRouter
 
 from .models.initiate_database import *
-import importlib
+from io import StringIO
+from importlib import reload
 
-try:
-    # for Python 2.x
-    from io import StringIO
-except ImportError:
-    # for Python 3.x
-    from io import StringIO
-
-# noinspection PyBroadException
-try:
-    # for Python 2.x
-    # noinspection PyCompatibility
-    importlib.reload(sys)
-except Exception:
-    # for Python 3.4+
-    # noinspection PyUnresolvedReferences
-    from importlib import reload
-    importlib.reload(sys)
+reload(sys)
 
 sys.setdefaultencoding("utf8")
 

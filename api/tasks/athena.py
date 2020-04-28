@@ -10,15 +10,7 @@ from utils.mapper import (
     execution_log_query_results_to_pipeline_id_dict,
     execution_pipeline_id_dict_to_frontend_format
 )
-
-
-try:
-    # for Python 2.x
-    # noinspection PyCompatibility
-    from io import StringIO
-except ImportError:
-    # for Python 3.x
-    from io import StringIO
+from io import StringIO
 
 
 def get_athena_results_from_s3(aws_client_factory, credentials, s3_bucket, s3_path):
