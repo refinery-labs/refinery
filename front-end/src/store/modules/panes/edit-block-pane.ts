@@ -1,21 +1,19 @@
-import { Dispatch, Module } from 'vuex';
+import { Module } from 'vuex';
 import deepEqual from 'fast-deep-equal';
 import { RootState } from '../../store-types';
 import {
   ApiEndpointWorkflowState,
   LambdaWorkflowState,
-  RefineryProject,
   SavedBlockMetadata,
   ScheduleTriggerWorkflowState,
   SqsQueueWorkflowState,
   SupportedLanguage,
-  WorkflowFile,
   WorkflowRelationship,
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
 import { getNodeDataById, getSharedFilesForCodeBlock, getTransitionsForNode } from '@/utils/project-helpers';
-import { ProjectViewActions } from '@/constants/store-constants';
+import { ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
 import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import { DEFAULT_LANGUAGE_CODE } from '@/constants/project-editor-constants';
 import { HTTP_METHOD } from '@/constants/api-constants';
@@ -121,7 +119,8 @@ export enum EditBlockGetters {
   isEditedBlockValid = 'isEditedBlockValid',
   scheduleExpressionValid = 'scheduleExpressionValid',
   collidingApiEndpointBlocks = 'collidingApiEndpointBlocks',
-  isApiEndpointPathValid = 'isApiEndpointPathValid'
+  isApiEndpointPathValid = 'isApiEndpointPathValid',
+  projectGlobalExceptionHandler = 'projectGlobalExceptionHandler'
 }
 
 // Types
@@ -268,6 +267,12 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
       }
       // If we have invalid characters, this will return false.
       return /^\/[a-zA-Z0-9/]*$/.test((state.selectedNode as ApiEndpointWorkflowState).api_path);
+    },
+    [EditBlockGetters.projectGlobalExceptionHandler]: (state, getters, rootState) => {
+      if (!rootState.project.openedProject) {
+        return undefined;
+      }
+      return rootState.project.openedProject.global_handlers.exception_handler;
     }
   },
   mutations: {

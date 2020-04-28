@@ -478,6 +478,23 @@ def add_auto_warmup(task_spawner, credentials, warmup_concurrency_level, unique_
     yield warmup_futures
 
 
+def set_default_exception_handler(workflow_states, default_handler_id, default_exception_transition):
+    for workflow_state in workflow_states:
+        # Only set the exception handler for lambdas and api endpoints
+        if workflow_state[ "type" ] != "lambda" and workflow_state[ "type" ] != "api_endpoint":
+            continue
+
+        # Do not set the exception handler for the exception handler!
+        if workflow_state[ "id" ] == default_handler_id:
+            continue
+
+        # If there are exception handlers already set for this workflow state, do not set the default handler
+        if len(workflow_state[ "transitions" ][ "exception" ]) > 0:
+            continue
+
+        workflow_state[ "transitions" ][ "exception" ] = default_exception_transition
+
+
 @gen.coroutine
 def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name, project_id, diagram_data, project_config):
     """
@@ -485,9 +502,9 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
     """
 
     """
-	Process workflow relationships and tag Lambda
-	nodes with an array of transitions.
-	"""
+    Process workflow relationships and tag Lambda
+    nodes with an array of transitions.
+    """
 
     # Kick off the creation of the log table for the project ID
     # This is fine to do if one already exists because the SQL
@@ -507,183 +524,193 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
     # { "LAMBDA_UUID": [{ "key": "", "value": ""}] }
     env_var_dict = {}
 
+    # Set the default exception handler if there is one set in the project
+    default_exception_transition = []
+
+    default_exception_handler_id = ""
+    if "exception_handler" in diagram_data[ "global_handlers" ]:
+        default_exception_handler_id = diagram_data[ "global_handlers" ][ "exception_handler" ][ "id" ]
+
     # First just set an empty array for each lambda node
-    for workflow_state in diagram_data["workflow_states"]:
+    for workflow_state in diagram_data[ "workflow_states" ]:
         # Update all of the workflow states with new random deploy ID
         if "name" in workflow_state:
-            workflow_state["name"] += unique_deploy_id + str(unique_name_counter)
+            workflow_state[ "name" ] += unique_deploy_id + str(unique_name_counter)
 
         # Make an environment variable array if there isn't one already
-        env_var_dict[workflow_state["id"]] = []
+        env_var_dict[ workflow_state[ "id" ] ] = []
 
         # If there are environment variables in project_config, add them to the Lambda node data
-        if workflow_state["type"] == "lambda" and "environment_variables" in workflow_state:
-            for env_var_uuid, env_data in workflow_state["environment_variables"].iteritems():
-                if env_var_uuid in project_config["environment_variables"]:
+        if workflow_state[ "type" ] == "lambda" and "environment_variables" in workflow_state:
+            for env_var_uuid, env_data in workflow_state[ "environment_variables" ].iteritems():
+                if env_var_uuid in project_config[ "environment_variables" ]:
                     # Add value to match schema
-                    workflow_state["environment_variables"][env_var_uuid]["value"] = project_config["environment_variables"][env_var_uuid]["value"]
-                    env_var_dict[workflow_state["id"]].append({
-                        "key": workflow_state["environment_variables"][env_var_uuid]["name"],
-                        "value": project_config["environment_variables"][env_var_uuid]["value"]
+                    workflow_state[ "environment_variables" ][ env_var_uuid ][ "value" ] = project_config[ "environment_variables" ][ env_var_uuid ][ "value" ]
+                    env_var_dict[ workflow_state[ "id" ] ].append({
+                        "key": workflow_state[ "environment_variables" ][ env_var_uuid ][ "name" ],
+                        "value": project_config[ "environment_variables" ][ env_var_uuid ][ "value" ]
                     })
 
-        if workflow_state["type"] == "lambda" or workflow_state["type"] == "api_endpoint":
+        if workflow_state[ "type" ] == "lambda" or workflow_state[ "type" ] == "api_endpoint":
             # Set up default transitions data
-            workflow_state["transitions"] = {}
-            workflow_state["transitions"]["if"] = []
-            workflow_state["transitions"]["else"] = []
-            workflow_state["transitions"]["exception"] = []
-            workflow_state["transitions"]["then"] = []
-            workflow_state["transitions"]["fan-out"] = []
-            workflow_state["transitions"]["fan-in"] = []
-            workflow_state["transitions"]["merge"] = []
+            workflow_state[ "transitions" ] = {}
+            workflow_state[ "transitions" ][ "if" ] = []
+            workflow_state[ "transitions" ][ "else" ] = []
+            workflow_state[ "transitions" ][ "exception" ] = []
+            workflow_state[ "transitions" ][ "then" ] = []
+            workflow_state[ "transitions" ][ "fan-out" ] = []
+            workflow_state[ "transitions" ][ "fan-in" ] = []
+            workflow_state[ "transitions" ][ "merge" ] = []
 
         unique_name_counter = unique_name_counter + 1
 
     """
-	Here we calculate the teardown data ahead of time.
+    Here we calculate the teardown data ahead of time.
 
-	This is used when we encounter an error during the
-	deployment process which requires us to roll back.
-	When the rollback occurs we pass our previously-generated
-	list and pass it to the tear down function.
+    This is used when we encounter an error during the
+    deployment process which requires us to roll back.
+    When the rollback occurs we pass our previously-generated
+    list and pass it to the tear down function.
 
-	[
-		{
-			"id": {{node_id}},
-			"arn": {{production_resource_arn}},
-			"name": {{node_name}},
-			"type": {{node_type}},
-		}
-	]
-	"""
+    [
+        {
+            "id": {{node_id}},
+            "arn": {{production_resource_arn}},
+            "name": {{node_name}},
+            "type": {{node_type}},
+        }
+    ]
+    """
     teardown_nodes_list = []
 
     """
-	This holds all of the exception data which occurred during a
-	deployment. Upon an unhandled exception occurring we rollback
-	and teardown what's been deployed so far. After that we return
-	an error to the user with information on what caused the deploy
-	to fail.
+    This holds all of the exception data which occurred during a
+    deployment. Upon an unhandled exception occurring we rollback
+    and teardown what's been deployed so far. After that we return
+    an error to the user with information on what caused the deploy
+    to fail.
 
-	[
-		{
-			"type": "", # The type of the deployed node
-			"name": "", # The name of the specific node
-			"id": "", # The ID of the specific node
-			"exception": "", # String of the exception details
-		}
-	]
-	"""
+    [
+        {
+            "type": "", # The type of the deployed node
+            "name": "", # The name of the specific node
+            "id": "", # The ID of the specific node
+            "exception": "", # String of the exception details
+        }
+    ]
+    """
     deployment_exceptions = []
 
-    for workflow_state in diagram_data["workflow_states"]:
-        if workflow_state["type"] == "lambda":
-            node_arn = "arn:aws:lambda:" + credentials["region"] + ":" + \
-                str(credentials["account_id"]) + ":function:" + get_lambda_safe_name(workflow_state["name"])
-        elif workflow_state["type"] == "sns_topic":
-            node_arn = "arn:aws:sns:" + credentials["region"] + ":" + \
-                str(credentials["account_id"]) + ":" + get_lambda_safe_name(workflow_state["name"])
-        elif workflow_state["type"] == "sqs_queue":
-            node_arn = "arn:aws:sqs:" + credentials["region"] + ":" + \
-                str(credentials["account_id"]) + ":" + get_lambda_safe_name(workflow_state["name"])
-        elif workflow_state["type"] == "schedule_trigger":
-            node_arn = "arn:aws:events:" + credentials["region"] + ":" + \
-                str(credentials["account_id"]) + ":rule/" + get_lambda_safe_name(workflow_state["name"])
-        elif workflow_state["type"] == "api_endpoint":
-            node_arn = "arn:aws:lambda:" + credentials["region"] + ":" + \
-                str(credentials["account_id"]) + ":function:" + get_lambda_safe_name(workflow_state["name"])
+    for workflow_state in diagram_data[ "workflow_states" ]:
+        if workflow_state[ "type" ] == "lambda":
+            node_arn = "arn:aws:lambda:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":function:" + get_lambda_safe_name( workflow_state[ "name" ] )
+        elif workflow_state[ "type" ] == "sns_topic":
+            node_arn = "arn:aws:sns:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + get_lambda_safe_name( workflow_state[ "name" ] )
+        elif workflow_state[ "type" ] == "sqs_queue":
+            node_arn = "arn:aws:sqs:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + get_lambda_safe_name( workflow_state[ "name" ] )
+        elif workflow_state[ "type" ] == "schedule_trigger":
+            node_arn = "arn:aws:events:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":rule/" + get_lambda_safe_name( workflow_state[ "name" ] )
+        elif workflow_state[ "type" ] == "api_endpoint":
+            node_arn = "arn:aws:lambda:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":function:" + get_lambda_safe_name( workflow_state[ "name" ] )
         else:
             node_arn = False
 
         # For pseudo-nodes like API Responses we don't need to create a teardown entry
         if node_arn:
             # Set ARN on workflow state
-            workflow_state["arn"] = node_arn
+            workflow_state[ "arn" ] = node_arn
 
             teardown_nodes_list.append({
-                "id": workflow_state["id"],
+                "id": workflow_state[ "id" ],
                 "arn": node_arn,
-                "name": get_lambda_safe_name(workflow_state["name"]),
-                "type": workflow_state["type"],
+                "name": get_lambda_safe_name( workflow_state[ "name" ] ),
+                "type": workflow_state[ "type" ],
             })
 
+        if workflow_state[ "id" ] == default_exception_handler_id:
+            default_exception_transition = [workflow_state]
+
+    if len(default_exception_transition) > 0:
+        set_default_exception_handler(diagram_data[ "workflow_states" ], default_exception_handler_id, default_exception_transition)
+
     # Now add transition data to each Lambda
-    for workflow_relationship in diagram_data["workflow_relationships"]:
+    for workflow_relationship in diagram_data[ "workflow_relationships" ]:
         origin_node_data = get_node_by_id(
-            workflow_relationship["node"],
-            diagram_data["workflow_states"]
+            workflow_relationship[ "node" ],
+            diagram_data[ "workflow_states" ]
         )
 
         target_node_data = get_node_by_id(
-            workflow_relationship["next"],
-            diagram_data["workflow_states"]
+            workflow_relationship[ "next" ],
+            diagram_data[ "workflow_states" ]
         )
 
-        if origin_node_data["type"] == "lambda" or origin_node_data["type"] == "api_endpoint":
-            if target_node_data["type"] == "lambda":
-                target_arn = "arn:aws:lambda:" + credentials["region"] + ":" + \
-                    str(credentials["account_id"]) + ":function:" + get_lambda_safe_name(target_node_data["name"])
-            elif target_node_data["type"] == "sns_topic":
-                target_arn = "arn:aws:sns:" + credentials["region"] + ":" + \
-                    str(credentials["account_id"]) + ":" + get_lambda_safe_name(target_node_data["name"])
-            elif target_node_data["type"] == "api_gateway_response":
+        if origin_node_data[ "type" ] == "lambda" or origin_node_data[ "type" ] == "api_endpoint":
+            if target_node_data[ "type" ] == "lambda":
+                target_arn = "arn:aws:lambda:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":function:" + get_lambda_safe_name( target_node_data[ "name" ] )
+            elif target_node_data[ "type" ] == "sns_topic":
+                target_arn = "arn:aws:sns:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] )+ ":" + get_lambda_safe_name( target_node_data[ "name" ] )
+            elif target_node_data[ "type" ] == "api_gateway_response":
                 # API Gateway responses are a pseudo node and don't have an ARN
                 target_arn = False
-            elif target_node_data["type"] == "sqs_queue":
-                target_arn = "arn:aws:sqs:" + credentials["region"] + ":" + \
-                    str(credentials["account_id"]) + ":" + get_lambda_safe_name(target_node_data["name"])
+            elif target_node_data[ "type" ] == "sqs_queue":
+                target_arn = "arn:aws:sqs:" + credentials[ "region" ] + ":" + str( credentials[ "account_id" ] ) + ":" + get_lambda_safe_name( target_node_data[ "name" ] )
 
-            if workflow_relationship["type"] == "then":
-                origin_node_data["transitions"]["then"].append({
-                    "type": target_node_data["type"],
+            if workflow_relationship[ "type" ] == "then":
+                origin_node_data[ "transitions" ][ "then" ].append({
+                    "type": target_node_data[ "type" ],
                     "arn": target_arn,
                 })
-            elif workflow_relationship["type"] == "else":
-                origin_node_data["transitions"]["else"].append({
-                    "type": target_node_data["type"],
+            elif workflow_relationship[ "type" ] == "else":
+                origin_node_data[ "transitions" ][ "else" ].append({
+                    "type": target_node_data[ "type" ],
                     "arn": target_arn,
                 })
-            elif workflow_relationship["type"] == "exception":
-                origin_node_data["transitions"]["exception"].append({
-                    "type": target_node_data["type"],
+            elif workflow_relationship[ "type" ] == "exception":
+
+                # If the default exception handler is set, unset it since the exception will be handled
+                if origin_node_data[ "transitions" ][ "exception" ] == default_exception_transition:
+                    origin_node_data[ "transitions" ][ "exception" ] = []
+
+                origin_node_data[ "transitions" ][ "exception" ].append({
+                    "type": target_node_data[ "type" ],
                     "arn": target_arn,
                 })
-            elif workflow_relationship["type"] == "if":
-                origin_node_data["transitions"]["if"].append({
+            elif workflow_relationship[ "type" ] == "if":
+                origin_node_data[ "transitions" ][ "if" ].append({
                     "arn": target_arn,
-                    "type": target_node_data["type"],
-                    "expression": workflow_relationship["expression"]
+                    "type": target_node_data[ "type" ],
+                    "expression": workflow_relationship[ "expression" ]
                 })
-            elif workflow_relationship["type"] == "fan-out":
-                origin_node_data["transitions"]["fan-out"].append({
-                    "type": target_node_data["type"],
-                    "arn": target_arn,
-                })
-            elif workflow_relationship["type"] == "fan-in":
-                origin_node_data["transitions"]["fan-in"].append({
-                    "type": target_node_data["type"],
+            elif workflow_relationship[ "type" ] == "fan-out":
+                origin_node_data[ "transitions" ][ "fan-out" ].append({
+                    "type": target_node_data[ "type" ],
                     "arn": target_arn,
                 })
-            elif workflow_relationship["type"] == "merge":
-                origin_node_data["transitions"]["merge"].append({
-                    "type": target_node_data["type"],
+            elif workflow_relationship[ "type" ] == "fan-in":
+                origin_node_data[ "transitions" ][ "fan-in" ].append({
+                    "type": target_node_data[ "type" ],
+                    "arn": target_arn,
+                })
+            elif workflow_relationship[ "type" ] == "merge":
+                origin_node_data[ "transitions" ][ "merge" ].append({
+                    "type": target_node_data[ "type" ],
                     "arn": target_arn,
                     "merge_lambdas": get_merge_lambda_arn_list(
-                        target_node_data["id"],
-                        diagram_data["workflow_relationships"],
-                        diagram_data["workflow_states"]
+                        target_node_data[ "id" ],
+                        diagram_data[ "workflow_relationships" ],
+                        diagram_data[ "workflow_states" ]
                     )
                 })
 
-            diagram_data["workflow_states"] = update_workflow_states_list(
+            diagram_data[ "workflow_states" ] = update_workflow_states_list(
                 origin_node_data,
-                diagram_data["workflow_states"]
+                diagram_data[ "workflow_states" ]
             )
 
     """
-	Separate out nodes into different types
-	"""
+    Separate out nodes into different types
+    """
     lambda_nodes = []
     schedule_trigger_nodes = []
     sqs_queue_nodes = []
@@ -713,8 +740,8 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
             )
 
     """
-	Deploy all Lambdas to production
-	"""
+    Deploy all Lambdas to production
+    """
     lambda_node_deploy_futures = []
 
     for lambda_node in lambda_nodes:
@@ -766,8 +793,8 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
         })
 
     """
-	Deploy all API Endpoints to production
-	"""
+    Deploy all API Endpoints to production
+    """
     api_endpoint_node_deploy_futures = []
 
     for api_endpoint_node in api_endpoint_nodes:
@@ -808,8 +835,8 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
         })
 
     """
-	Deploy all time triggers to production
-	"""
+    Deploy all time triggers to production
+    """
     schedule_trigger_node_deploy_futures = []
 
     for schedule_trigger_node in schedule_trigger_nodes:
@@ -830,8 +857,8 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
         })
 
     """
-	Deploy all SQS queues to production
-	"""
+    Deploy all SQS queues to production
+    """
     sqs_queue_nodes_deploy_futures = []
 
     for sqs_queue_node in sqs_queue_nodes:
@@ -851,8 +878,8 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
         })
 
     """
-	Deploy all SNS topics to production
-	"""
+    Deploy all SNS topics to production
+    """
     sns_topic_nodes_deploy_futures = []
 
     for sns_topic_node in sns_topic_nodes:
@@ -941,8 +968,8 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
         })
 
     """
-	Set up API Gateways to be attached to API Endpoints
-	"""
+    Set up API Gateways to be attached to API Endpoints
+    """
 
     # The API Gateway ID
     api_gateway_id = False
@@ -1040,8 +1067,8 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
         )
 
     """
-	Update all nodes with deployed ARN for easier teardown
-	"""
+    Update all nodes with deployed ARN for easier teardown
+    """
     # Update workflow lambda nodes with arn
     for deployed_lambda in deployed_lambdas:
         for workflow_state in diagram_data["workflow_states"]:
@@ -1081,8 +1108,8 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
                 workflow_state["name"] = deployed_sns_topic["name"]
 
     """
-	Link deployed schedule triggers to Lambdas
-	"""
+    Link deployed schedule triggers to Lambdas
+    """
     schedule_trigger_pairs_to_deploy = []
     for deployed_schedule_trigger in deployed_schedule_triggers:
         for workflow_relationship in diagram_data["workflow_relationships"]:
@@ -1108,8 +1135,8 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
         )
 
     """
-	Link deployed SQS queues to their target Lambdas
-	"""
+    Link deployed SQS queues to their target Lambdas
+    """
     sqs_queue_triggers_to_deploy = []
     for deployed_sqs_queue in deployed_sqs_queues:
         for workflow_relationship in diagram_data["workflow_relationships"]:
@@ -1134,8 +1161,8 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
         )
 
     """
-	Link deployed SNS topics to their Lambdas
-	"""
+    Link deployed SNS topics to their Lambdas
+    """
     sns_topic_triggers_to_deploy = []
     for deployed_sns_topic in deployed_sns_topics:
         for workflow_relationship in diagram_data["workflow_relationships"]:

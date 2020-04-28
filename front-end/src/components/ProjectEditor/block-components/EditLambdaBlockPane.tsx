@@ -78,6 +78,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
   @editBlock.State fileSyncModalVisible!: boolean;
 
   @editBlock.Getter isEditedBlockValid!: boolean;
+  @editBlock.Getter projectGlobalExceptionHandler!: string | undefined;
 
   @editBlock.Mutation setCodeModalVisibility!: (visible: boolean) => void;
 
@@ -404,7 +405,6 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
       </b-form-group>
     );
   }
-
   public renderLanguageSelector() {
     const selectedNode = this.selectedNode;
     const changeCodeLanguage = this.readOnly ? nopWrite : this.changeCodeLanguage;
