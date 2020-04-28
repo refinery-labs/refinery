@@ -435,24 +435,21 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
 
       const block = config.codeBlock;
 
-      const runLambdaEnvironmentVariables = Object.keys(block.environment_variables).reduce(
-        (envVarsOut, id) => {
-          const configVariable = config.projectConfig.environment_variables[id];
+      const runLambdaEnvironmentVariables = Object.keys(block.environment_variables).reduce((envVarsOut, id) => {
+        const configVariable = config.projectConfig.environment_variables[id];
 
-          // Missing value... Just keep going.
-          if (!configVariable) {
-            return envVarsOut;
-          }
-
-          envVarsOut.push({
-            key: block.environment_variables[id].name,
-            value: configVariable.value
-          });
-
+        // Missing value... Just keep going.
+        if (!configVariable) {
           return envVarsOut;
-        },
-        [] as RunTmpLambdaEnvironmentVariable[]
-      );
+        }
+
+        envVarsOut.push({
+          key: block.environment_variables[id].name,
+          value: configVariable.value
+        });
+
+        return envVarsOut;
+      }, [] as RunTmpLambdaEnvironmentVariable[]);
 
       const inputDataCacheValue = context.state.devLambdaInputDataCache[block.id];
 
