@@ -1,2 +1,2 @@
 class StripeTransactionException(Exception):
-	pass
+    pass

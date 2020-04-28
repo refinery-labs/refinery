@@ -6,17 +6,17 @@ from tornado.concurrent import futures
 
 class BaseSpawner(object):
 
-	aws_cloudwatch_client = None
-	logger = None
+    aws_cloudwatch_client = None
+    logger = None
 
-	# noinspection PyUnresolvedReferences
-	@pinject.copy_args_to_public_fields
-	def __init__(self, aws_cloudwatch_client, logger, loop=None, app_config=None):
-		"""
+    # noinspection PyUnresolvedReferences
+    @pinject.copy_args_to_public_fields
+    def __init__(self, aws_cloudwatch_client, logger, loop=None, app_config=None):
+        """
 
-		:param loop:
-		:type app_config: AppConfig
-		"""
-		self.executor = futures.ThreadPoolExecutor( 10 )
-		self.loop = loop or tornado.ioloop.IOLoop.current()
-		self.app_config = app_config
+        :param loop:
+        :type app_config: AppConfig
+        """
+        self.executor = futures.ThreadPoolExecutor(10)
+        self.loop = loop or tornado.ioloop.IOLoop.current()
+        self.app_config = app_config

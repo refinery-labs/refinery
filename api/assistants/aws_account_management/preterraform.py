@@ -13,111 +13,111 @@ from botocore.exceptions import ClientError
 from utils.performance_decorators import emit_runtime_metrics
 
 
-class PreterraformManager( object ):
-	"""
-	There are some steps that need to be done pre-terraform because
-	terraform can not handle certain situations where specific AWS
-	resources do not exist.
+class PreterraformManager(object):
+    """
+    There are some steps that need to be done pre-terraform because
+    terraform can not handle certain situations where specific AWS
+    resources do not exist.
 
-	One such example is AWSServiceRoleForECS which is a service-linked
-	role for AWS ECS. It is normally automatically created when you attempt
-	to create a new ECS cluster. However, due to AWS's eventual-consistency
-	nature, terraform will choke on setting up the ECS resources because the
-	AWSServiceRoleForECS role will not be immediately available. Because of
-	this terraform will attempt to use it when it's not yet ready and will
-	choke out.
+    One such example is AWSServiceRoleForECS which is a service-linked
+    role for AWS ECS. It is normally automatically created when you attempt
+    to create a new ECS cluster. However, due to AWS's eventual-consistency
+    nature, terraform will choke on setting up the ECS resources because the
+    AWSServiceRoleForECS role will not be immediately available. Because of
+    this terraform will attempt to use it when it's not yet ready and will
+    choke out.
 
-	The specific bug can be found here:
-	https://github.com/terraform-providers/terraform-provider-aws/issues/11417
+    The specific bug can be found here:
+    https://github.com/terraform-providers/terraform-provider-aws/issues/11417
 
-	To mitigate this, we use the Boto3 API to create the AWSServiceRoleForECS
-	role ahead of time before we run terraform. We then wait for the propogation
-	to finish before applying the actual terraform config. This mitigates the
-	problem from occuring.
-	"""
+    To mitigate this, we use the Boto3 API to create the AWSServiceRoleForECS
+    role ahead of time before we run terraform. We then wait for the propogation
+    to finish before applying the actual terraform config. This mitigates the
+    problem from occuring.
+    """
 
-	aws_client_factory = None
-	aws_cloudwatch_client = None
-	logger = None
+    aws_client_factory = None
+    aws_cloudwatch_client = None
+    logger = None
 
-	# noinspection PyUnresolvedReferences
-	@pinject.copy_args_to_public_fields
-	def __init__(self, aws_client_factory, aws_cloudwatch_client, logger, loop=None):
-		self.executor = futures.ThreadPoolExecutor( 10 )
-		self.loop = loop or tornado.ioloop.IOLoop.current()
+    # noinspection PyUnresolvedReferences
+    @pinject.copy_args_to_public_fields
+    def __init__(self, aws_client_factory, aws_cloudwatch_client, logger, loop=None):
+        self.executor = futures.ThreadPoolExecutor(10)
+        self.loop = loop or tornado.ioloop.IOLoop.current()
 
-	@run_on_executor
-	@emit_runtime_metrics( "preterraform__ensure_ecs_service_linked_role_exists" )
-	def ensure_ecs_service_linked_role_exists( self, credentials ):
-		return PreterraformManager._ensure_ecs_service_linked_role_exists( self.aws_client_factory, credentials )
+    @run_on_executor
+    @emit_runtime_metrics("preterraform__ensure_ecs_service_linked_role_exists")
+    def ensure_ecs_service_linked_role_exists(self, credentials):
+        return PreterraformManager._ensure_ecs_service_linked_role_exists(self.aws_client_factory, credentials)
 
-	@staticmethod
-	def _ensure_ecs_service_linked_role_exists( aws_client_factory, credentials ):
-		logit( "Checking if ECS service-linked role exists..." )
+    @staticmethod
+    def _ensure_ecs_service_linked_role_exists(aws_client_factory, credentials):
+        logit("Checking if ECS service-linked role exists...")
 
-		# First check to see if the role exists
-		ecs_service_linked_role_exists = PreterraformManager._check_if_ecs_service_linked_role_exists(
-			aws_client_factory,
-			credentials
-		)
+        # First check to see if the role exists
+        ecs_service_linked_role_exists = PreterraformManager._check_if_ecs_service_linked_role_exists(
+            aws_client_factory,
+            credentials
+        )
 
-		if ecs_service_linked_role_exists == True:
-			logit( "ECS service-linked role exists! We're good to go." )
-			return
+        if ecs_service_linked_role_exists == True:
+            logit("ECS service-linked role exists! We're good to go.")
+            return
 
-		logit( "ECS service-linked role does not exist, creating it..." )
-		PreterraformManager._create_ecs_service_linked_role(
-			aws_client_factory,
-			credentials
-		)
+        logit("ECS service-linked role does not exist, creating it...")
+        PreterraformManager._create_ecs_service_linked_role(
+            aws_client_factory,
+            credentials
+        )
 
-		logit( "ECS service-linked role created, waiting a bit before retrying operation..." )
+        logit("ECS service-linked role created, waiting a bit before retrying operation...")
 
-		# Wait a bit for propogation
-		time.sleep( 3 )
+        # Wait a bit for propogation
+        time.sleep(3)
 
-		return PreterraformManager._ensure_ecs_service_linked_role_exists(
-			aws_client_factory,
-			credentials
-		)
+        return PreterraformManager._ensure_ecs_service_linked_role_exists(
+            aws_client_factory,
+            credentials
+        )
 
-	@run_on_executor
-	@emit_runtime_metrics( "preterraform__check_if_ecs_service_linked_role_exists" )
-	def check_if_ecs_service_linked_role_exists( self, credentials ):
-		return PreterraformManager._check_if_ecs_service_linked_role_exists( self.aws_client_factory, credentials )
+    @run_on_executor
+    @emit_runtime_metrics("preterraform__check_if_ecs_service_linked_role_exists")
+    def check_if_ecs_service_linked_role_exists(self, credentials):
+        return PreterraformManager._check_if_ecs_service_linked_role_exists(self.aws_client_factory, credentials)
 
-	@staticmethod
-	def _check_if_ecs_service_linked_role_exists( aws_client_factory, credentials ):
-		iam_client = aws_client_factory.get_aws_client(
-			"iam",
-			credentials
-		)
+    @staticmethod
+    def _check_if_ecs_service_linked_role_exists(aws_client_factory, credentials):
+        iam_client = aws_client_factory.get_aws_client(
+            "iam",
+            credentials
+        )
 
-		try:
-			linked_role_get_response = iam_client.get_role(
-				RoleName="AWSServiceRoleForECS"
-			)
-		except botocore.exceptions.ClientError as boto_error:
-			if boto_error.response[ "Error" ][ "Code" ] != "NoSuchEntity":
-				# If it's not the exception we expect then throw
-				raise
-			return False
+        try:
+            linked_role_get_response = iam_client.get_role(
+                RoleName="AWSServiceRoleForECS"
+            )
+        except botocore.exceptions.ClientError as boto_error:
+            if boto_error.response["Error"]["Code"] != "NoSuchEntity":
+                # If it's not the exception we expect then throw
+                raise
+            return False
 
-		return True
+        return True
 
-	@run_on_executor
-	@emit_runtime_metrics( "preterraform__create_ecs_service_linked_role" )
-	def create_ecs_service_linked_role( self, credentials ):
-		return PreterraformManager._create_ecs_service_linked_role( self.aws_client_factory, credentials )
+    @run_on_executor
+    @emit_runtime_metrics("preterraform__create_ecs_service_linked_role")
+    def create_ecs_service_linked_role(self, credentials):
+        return PreterraformManager._create_ecs_service_linked_role(self.aws_client_factory, credentials)
 
-	@staticmethod
-	def _create_ecs_service_linked_role( aws_client_factory, credentials ):
-		iam_client = aws_client_factory.get_aws_client(
-			"iam",
-			credentials
-		)
+    @staticmethod
+    def _create_ecs_service_linked_role(aws_client_factory, credentials):
+        iam_client = aws_client_factory.get_aws_client(
+            "iam",
+            credentials
+        )
 
-		created_service_linked_role_response = iam_client.create_service_linked_role(
-			AWSServiceName="ecs.amazonaws.com",
-			Description="Role to enable Amazon ECS to manage your cluster."
-		)
+        created_service_linked_role_response = iam_client.create_service_linked_role(
+            AWSServiceName="ecs.amazonaws.com",
+            Description="Role to enable Amazon ECS to manage your cluster."
+        )

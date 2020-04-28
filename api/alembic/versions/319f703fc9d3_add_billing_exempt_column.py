@@ -17,8 +17,8 @@ depends_on = None
 
 def upgrade():
     op.add_column('organizations',
-        Column('billing_exempt', Boolean(), nullable=False, server_default="False")
-    )
+                  Column('billing_exempt', Boolean(), nullable=False, server_default="False")
+                  )
 
 
 def downgrade():

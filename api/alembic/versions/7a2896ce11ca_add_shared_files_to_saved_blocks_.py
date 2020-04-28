@@ -1,7 +1,7 @@
 """Add Shared Files to Saved Blocks database model
 
 Revision ID: 7a2896ce11ca
-Revises: 
+Revises:
 Create Date: 2019-10-10 14:49:01.468927
 
 """

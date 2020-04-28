@@ -1,2 +1,2 @@
-class InvalidModelCreationError( Exception ):
-	pass
+class InvalidModelCreationError(Exception):
+    pass

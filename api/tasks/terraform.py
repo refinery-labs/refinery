@@ -31,7 +31,7 @@ def write_terraform_base_files(app_config, sts_client, aws_account_dict):
         )
     except Exception as e:
         logit("An exception occurred while writing terraform base files for AWS account ID " +
-                aws_account_dict["account_id"])
+              aws_account_dict["account_id"])
         logit(e)
 
         # Delete the temporary directory reguardless.
@@ -43,7 +43,7 @@ def write_terraform_base_files(app_config, sts_client, aws_account_dict):
 # TODO rename this
 def _write_terraform_base_files(app_config, sts_client, aws_account_data, base_dir):
     logit("Setting up the base Terraform files (AWS Acc. ID '" +
-            aws_account_data["account_id"] + "')...")
+          aws_account_data["account_id"] + "')...")
 
     # Get some temporary assume role credentials for the account
     assumed_role_credentials = get_assume_role_credentials(
@@ -90,7 +90,7 @@ def _write_terraform_base_files(app_config, sts_client, aws_account_data, base_d
         terraform_state_file_path = base_dir + "terraform.tfstate"
 
         logit("A previous terraform state file exists! Writing it to '" +
-                terraform_state_file_path + "'...")
+              terraform_state_file_path + "'...")
 
         with open(terraform_state_file_path, "w") as file_handler:
             file_handler.write(
@@ -120,7 +120,7 @@ def terraform_configure_aws_account(aws_client_factory, app_config, preterraform
 
     try:
         logit("Setting up AWS account with terraform (AWS Acc. ID '" +
-                aws_account_data["account_id"] + "')...")
+              aws_account_data["account_id"] + "')...")
 
         # Terraform apply
         process_handler = Popen(
@@ -197,6 +197,7 @@ def terraform_configure_aws_account(aws_client_factory, app_config, preterraform
 
     return terraform_configuration_data
 
+
 def terraform_apply(aws_client_factory, app_config, preterraform_manager, sts_client, aws_account_data, refresh_terraform_state):
     """
     This applies the latest terraform config to an account.
@@ -238,7 +239,7 @@ def terraform_apply(aws_client_factory, app_config, preterraform_manager, sts_cl
 
     try:
         logit("Performing 'terraform apply' to AWS Account " +
-                aws_account_data["account_id"] + "...")
+              aws_account_data["account_id"] + "...")
 
         refresh_state_parameter = "true" if refresh_terraform_state else "false"
 
@@ -307,7 +308,7 @@ def terraform_plan(app_config, sts_client, aws_account_data, refresh_terraform_s
 
     try:
         logit("Performing 'terraform plan' to AWS account " +
-                aws_account_data["account_id"] + "...")
+              aws_account_data["account_id"] + "...")
 
         refresh_state_parameter = "true" if refresh_terraform_state else "false"
 

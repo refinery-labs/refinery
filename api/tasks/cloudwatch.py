@@ -17,7 +17,7 @@ def automatically_fix_schedule_expression(schedule_expression):
 
     if schedule_expression in known_bad_cases:
         return sub(
-            "s\)$",
+            r"s\)$",
             ")",
             schedule_expression
         )
@@ -31,7 +31,7 @@ def automatically_fix_schedule_expression(schedule_expression):
     # Outside of the above cases it should always be plural
     if not (schedule_expression.endswith("s)")):
         return sub(
-            "\)$",
+            r"\)$",
             "s)",
             schedule_expression
         )
@@ -109,7 +109,7 @@ def add_rule_target(aws_client_factory, credentials, rule_name, target_id, targe
     # Automatically parse JSON
     try:
         input_string = loads(input_string)
-    except:
+    except BaseException:
         pass
 
     events_client = aws_client_factory.get_aws_client(
@@ -205,7 +205,7 @@ def get_lambda_cloudwatch_logs(aws_client_factory, credentials, log_group_name, 
 
     while attempts_remaining > 0:
         logit("[ STATUS ] Grabbing log events from '" +
-                log_group_name + "' at '" + stream_id + "'...")
+              log_group_name + "' at '" + stream_id + "'...")
         get_log_events_params = {
             "logGroupName": log_group_name,
             "logStreamName": stream_id

@@ -1,3 +1,3 @@
 
-class InvalidConfigurationException( Exception ):
-	pass
+class InvalidConfigurationException(Exception):
+    pass

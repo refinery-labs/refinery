@@ -12,7 +12,7 @@ def send_email(app_config, to_email_string, subject_string, message_text_string,
     """
 
     logit("Sending email to '" + to_email_string +
-            "' with subject '" + subject_string + "'...")
+          "' with subject '" + subject_string + "'...")
 
     requests_options = {
         "auth": ("api", app_config.get("mailgun_api_key")),

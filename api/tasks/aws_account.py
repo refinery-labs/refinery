@@ -40,7 +40,7 @@ def create_aws_org_sub_account(app_config, aws_organization_client, refinery_aws
             return False
 
         logit("Current AWS account creation status is '" +
-                account_status_data["State"] + "', waiting 5 seconds before checking again...")
+              account_status_data["State"] + "', waiting 5 seconds before checking again...")
         sleep(5)
 
         # Poll AWS again to see if the account creation has progressed
@@ -123,7 +123,7 @@ def create_new_sub_aws_account(app_config, db_session_maker, aws_organization_cl
 
     # Create AWS sub-account
     logit("Creating AWS sub-account '" +
-            str(new_aws_account.aws_account_email) + "'...")
+          str(new_aws_account.aws_account_email) + "'...")
 
     # Only create a sub-account if this is a MANAGED AWS account and skip
     # this step if we're onboarding a THIRDPARTY AWS account (e.g. self-hosted)
@@ -141,11 +141,11 @@ def create_new_sub_aws_account(app_config, db_session_maker, aws_organization_cl
 
         new_aws_account.account_id = account_creation_response["account_id"]
         logit("Sub-account created! AWS account ID is " +
-                new_aws_account.account_id + ".")
+              new_aws_account.account_id + ".")
     elif account_type == "THIRDPARTY":
         new_aws_account.account_id = aws_account_id
         logit("Using provided AWS Account ID " +
-                new_aws_account.account_id + ".")
+              new_aws_account.account_id + ".")
 
     assumed_role_credentials = {}
 
@@ -167,7 +167,7 @@ def create_new_sub_aws_account(app_config, db_session_maker, aws_organization_cl
             # If it's not an AccessDenied exception it's not what we except so we re-raise
             if boto_error.response["Error"]["Code"] != "AccessDenied":
                 logit("Unexpected Boto3 response: " +
-                        boto_error.response["Error"]["Code"])
+                      boto_error.response["Error"]["Code"])
                 logit(boto_error.response)
                 raise boto_error
 
@@ -199,6 +199,7 @@ def create_new_sub_aws_account(app_config, db_session_maker, aws_organization_cl
     logit("New AWS account created successfully and stored in database as 'CREATED'!")
 
     return True
+
 
 def unfreeze_aws_account(aws_client_factory, credentials):
     """
@@ -373,6 +374,7 @@ def freeze_aws_account(app_config, aws_client_factory, db_session_maker, credent
 
     dbsession.close()
     return False
+
 
 def recreate_aws_console_account(app_config, aws_client_factory, credentials, rotate_password, force_continue=False):
     iam_client = aws_client_factory.get_aws_client(

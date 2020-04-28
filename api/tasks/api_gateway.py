@@ -73,6 +73,7 @@ def create_resource(aws_client_factory, credentials, rest_api_id, parent_id, pat
         "parent_id": parent_id,
     }
 
+
 def create_method(aws_client_factory, credentials, method_name, rest_api_id, resource_id, http_method, api_key_required):
     api_gateway_client = aws_client_factory.get_aws_client(
         "apigateway",

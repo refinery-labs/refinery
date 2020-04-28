@@ -71,5 +71,3 @@ def get_assume_role_credentials(app_config, sts_client, aws_account_id, session_
         "role_session_name": role_session_name,
         "arn": response["AssumedRoleUser"]["Arn"],
     }
-
-

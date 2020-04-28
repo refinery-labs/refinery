@@ -8,42 +8,42 @@ from botocore.exceptions import ClientError
 from utils.general import log_exception
 
 
-class SnsManager( object ):
-	aws_client_factory = None
+class SnsManager(object):
+    aws_client_factory = None
 
-	# noinspection PyUnresolvedReferences
-	@pinject.copy_args_to_public_fields
-	def __init__(self, aws_client_factory, loop=None):
-		self.executor = futures.ThreadPoolExecutor( 10 )
-		self.loop = loop or tornado.ioloop.IOLoop.current()
+    # noinspection PyUnresolvedReferences
+    @pinject.copy_args_to_public_fields
+    def __init__(self, aws_client_factory, loop=None):
+        self.executor = futures.ThreadPoolExecutor(10)
+        self.loop = loop or tornado.ioloop.IOLoop.current()
 
-	@run_on_executor
-	@log_exception
-	def delete_sns_topic( self, credentials, sns_id, sns_type, name, arn ):
-		return self._delete_sns_topic( self.aws_client_factory, credentials, sns_id, sns_type, name, arn )
-		
-	@staticmethod
-	def _delete_sns_topic( aws_client_factory, credentials, sns_id, sns_type, name, arn ):
-		sns_client = aws_client_factory.get_aws_client(
-			"sns",
-			credentials,
-		)
-		
-		was_deleted = False
-		
-		try:
-			response = sns_client.delete_topic(
-				TopicArn=arn,
-			)
-			was_deleted = True
-		except ClientError as e:
-			if e.response[ "Error" ][ "Code" ] != "ResourceNotFoundException":
-				raise
-		
-		return {
-			"id": sns_id,
-			"type": sns_type,
-			"name": name,
-			"arn": arn,
-			"deleted": was_deleted,
-		}
+    @run_on_executor
+    @log_exception
+    def delete_sns_topic(self, credentials, sns_id, sns_type, name, arn):
+        return self._delete_sns_topic(self.aws_client_factory, credentials, sns_id, sns_type, name, arn)
+
+    @staticmethod
+    def _delete_sns_topic(aws_client_factory, credentials, sns_id, sns_type, name, arn):
+        sns_client = aws_client_factory.get_aws_client(
+            "sns",
+            credentials,
+        )
+
+        was_deleted = False
+
+        try:
+            response = sns_client.delete_topic(
+                TopicArn=arn,
+            )
+            was_deleted = True
+        except ClientError as e:
+            if e.response["Error"]["Code"] != "ResourceNotFoundException":
+                raise
+
+        return {
+            "id": sns_id,
+            "type": sns_type,
+            "name": name,
+            "arn": arn,
+            "deleted": was_deleted,
+        }
