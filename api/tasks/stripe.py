@@ -1,5 +1,5 @@
 # noinspection PyUnresolvedReferences
-import stripe
+from . import stripe
 from pyexceptions.billing import CardIsPrimaryException
 
 from utils.general import logit

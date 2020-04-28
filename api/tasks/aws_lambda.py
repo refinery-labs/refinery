@@ -35,7 +35,7 @@ def get_lambda_arns(aws_client_factory, credentials):
     lambda_arn_list = []
 
     # Don't list more than 200 pages of Lambdas (I hope this is never happens!)
-    for _ in xrange(200):
+    for _ in range(200):
         lambda_functions_response = lambda_client.list_functions(
             **lambda_list_params
         )

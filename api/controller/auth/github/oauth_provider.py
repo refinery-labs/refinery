@@ -14,7 +14,7 @@ from controller.auth.github.utils import decode_response_body, generate_redirect
 from controller.auth.oauth_user_data import GithubUserData
 
 try:
-    from urllib import urlencode
+    from urllib.parse import urlencode
 except ImportError:
     # python 3
     # noinspection PyCompatibility, PyUnresolvedReferences

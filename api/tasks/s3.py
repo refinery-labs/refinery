@@ -209,7 +209,7 @@ def get_all_s3_paths(aws_client_factory, credentials, s3_bucket, prefix, max_res
     )
 
     # Only list up to 10k pages (I hope this never happens!)
-    for _ in xrange(10000):
+    for _ in range(10000):
         if continuation_token:
             # Grab another page of results
             response = s3_client.list_objects_v2(
@@ -295,7 +295,7 @@ def get_all_s3_prefixes(aws_client_factory, credentials, s3_bucket, prefix, max_
     # Bound this loop to only execute MAX_LOOP_ITERATION times since we
     # cannot guarantee that the condition `continuation_token == False`
     # will ever be true.
-    for _ in xrange(1000):
+    for _ in range(1000):
         if continuation_token:
             list_objects_params["ContinuationToken"] = continuation_token
             # Grab another page of results

@@ -303,7 +303,7 @@ def create_lambda_api_route(task_spawner, api_gateway_manager, credentials, api_
         return input_item != ""
 
     path_parts = route.split("/")
-    path_parts = filter(not_empty, path_parts)
+    path_parts = list(filter(not_empty, path_parts))
 
     # First we clean the Lambda of API Gateway policies which point
     # to dead API Gateways
@@ -518,7 +518,7 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
 
         # If there are environment variables in project_config, add them to the Lambda node data
         if workflow_state["type"] == "lambda" and "environment_variables" in workflow_state:
-            for env_var_uuid, env_data in workflow_state["environment_variables"].iteritems():
+            for env_var_uuid, env_data in workflow_state["environment_variables"].items():
                 if env_var_uuid in project_config["environment_variables"]:
                     # Add value to match schema
                     workflow_state["environment_variables"][env_var_uuid]["value"] = project_config["environment_variables"][env_var_uuid]["value"]

@@ -20,7 +20,7 @@ from utils.performance_decorators import emit_runtime_metrics
 
 try:
     # for Python 2.x
-    from StringIO import StringIO
+    from io import StringIO
 except ImportError:
     # for Python 3.x
     from io import StringIO

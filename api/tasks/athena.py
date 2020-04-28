@@ -15,7 +15,7 @@ from utils.mapper import (
 try:
     # for Python 2.x
     # noinspection PyCompatibility
-    from StringIO import StringIO
+    from io import StringIO
 except ImportError:
     # for Python 3.x
     from io import StringIO
@@ -98,7 +98,7 @@ def perform_athena_query(aws_client_factory, credentials, query, return_results)
     # Bound this loop to only execute MAX_LOOP_ITERATION times since we
     # cannot guarantee that the condition `continuation_token == False`
     # will ever be true.
-    for _ in xrange(MAX_LOOP_ITERATIONS):
+    for _ in range(MAX_LOOP_ITERATIONS):
         # Check the status of the query
         query_status_result = athena_client.get_query_execution(
             QueryExecutionId=query_execution_id

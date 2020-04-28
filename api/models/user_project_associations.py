@@ -1,4 +1,4 @@
-from initiate_database import Base
+from .initiate_database import Base
 from sqlalchemy import Column, CHAR, ForeignKey, Table
 
 users_projects_association_table = Table(

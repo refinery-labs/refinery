@@ -44,7 +44,7 @@ def upgrade():
                 )
             )
         except TypeError as e:
-            print("Failed to upgrade block: " + repr(saved_block))
+            print(("Failed to upgrade block: " + repr(saved_block)))
 
 
 def downgrade():

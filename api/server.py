@@ -8,31 +8,32 @@ import sys
 
 import unicodecsv as csv
 
-from app import TornadoBindingSpec, TornadoApp, WebsocketApp
-from assistants.aws_account_management.preterraform import PreterraformManager
-from assistants.aws_clients.aws_clients_assistant import STSClientBindingSpec, AwsClientFactory
-from assistants.billing.billing_assistant import BillingSpawner
-from assistants.deployments.api_gateway import ApiGatewayManager
-from assistants.deployments.awslambda import LambdaManager
-from assistants.deployments.dangling_resources import AwsResourceEnumerator
-from assistants.deployments.schedule_trigger import ScheduleTriggerManager
-from assistants.deployments.sns import SnsManager
-from assistants.deployments.sqs import SqsManager
-from assistants.task_spawner.task_spawner_assistant import TaskSpawner
-from assistants.user_creation_assistant import UserCreationAssistant
-from config.provider import ConfigBindingSpec
+from .app import TornadoBindingSpec, TornadoApp, WebsocketApp
+from .assistants.aws_account_management.preterraform import PreterraformManager
+from .assistants.aws_clients.aws_clients_assistant import STSClientBindingSpec, AwsClientFactory
+from .assistants.billing.billing_assistant import BillingSpawner
+from .assistants.deployments.api_gateway import ApiGatewayManager
+from .assistants.deployments.awslambda import LambdaManager
+from .assistants.deployments.dangling_resources import AwsResourceEnumerator
+from .assistants.deployments.schedule_trigger import ScheduleTriggerManager
+from .assistants.deployments.sns import SnsManager
+from .assistants.deployments.sqs import SqsManager
+from .assistants.task_spawner.task_spawner_assistant import TaskSpawner
+from .assistants.user_creation_assistant import UserCreationAssistant
+from .config.provider import ConfigBindingSpec
 
-from services.aws.clients import AWSClientBindingSpec
-from utils.general import logit, UtilsBindingSpec
-from assistants.deployments.ecs_builders import BuilderManager, AwsEcsManager
+from .services.aws.clients import AWSClientBindingSpec
+from .utils.general import logit, UtilsBindingSpec
+from .assistants.deployments.ecs_builders import BuilderManager, AwsEcsManager
 
-from services.websocket_router import ScheduledHeartbeatRunner, WebsocketRouter
+from .services.websocket_router import ScheduledHeartbeatRunner, WebsocketRouter
 
-from models.initiate_database import *
+from .models.initiate_database import *
+import importlib
 
 try:
     # for Python 2.x
-    from StringIO import StringIO
+    from io import StringIO
 except ImportError:
     # for Python 3.x
     from io import StringIO
@@ -41,12 +42,12 @@ except ImportError:
 try:
     # for Python 2.x
     # noinspection PyCompatibility
-    reload(sys)
+    importlib.reload(sys)
 except Exception:
     # for Python 3.4+
     # noinspection PyUnresolvedReferences
     from importlib import reload
-    reload(sys)
+    importlib.reload(sys)
 
 sys.setdefaultencoding("utf8")
 

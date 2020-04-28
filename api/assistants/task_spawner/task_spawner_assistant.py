@@ -120,7 +120,7 @@ from tasks.api_gateway import (
 try:
     # for Python 2.x
     # noinspection PyCompatibility
-    from StringIO import StringIO
+    from io import StringIO
 except ImportError:
     # for Python 3.x
     from io import StringIO
