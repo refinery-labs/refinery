@@ -5,13 +5,14 @@ import { ProjectExecution } from '@/types/deployment-executions-types';
 
 export interface EditorProps {
   name: string;
-  lang: SupportedLanguage | 'text' | 'json' | 'markdown';
+  lang: SupportedLanguage | 'text' | 'json' | 'markdown' | 'shell';
   content: string;
   theme?: string;
   onChange?: (s: string) => void;
   onChangeContext?: (c: { value: string; this: any }) => void;
   fullscreenToggled?: () => void;
   disableFullscreen?: boolean;
+  lineNumbers?: boolean;
 
   // Ace Props
   readOnly?: boolean;

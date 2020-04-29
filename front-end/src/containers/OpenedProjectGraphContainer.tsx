@@ -84,7 +84,7 @@ export default class OpenedProjectGraphContainer extends Vue {
 
     if (
       DemoWalkthroughStoreModule.currentTooltip &&
-      DemoWalkthroughStoreModule.currentTooltip.type == TooltipType.HTMLTooltip
+      DemoWalkthroughStoreModule.currentTooltip.type === TooltipType.HTMLTooltip
     ) {
       return (
         <div>

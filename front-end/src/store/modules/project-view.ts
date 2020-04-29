@@ -1044,7 +1044,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const existingFileLinks = openedProject.workflow_file_links.filter(workflow_file_link => {
         return (
           workflow_file_link.node === addSharedFileLinkArgs.node &&
-          workflow_file_link.file_id == addSharedFileLinkArgs.file_id
+          workflow_file_link.file_id === addSharedFileLinkArgs.file_id
         );
       });
 
