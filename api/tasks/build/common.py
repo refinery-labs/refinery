@@ -8,8 +8,7 @@ from utils.general import logit
 
 
 def get_final_zip_package_path(language, libraries_object):
-    hash_input = language + "-" + dumps(libraries_object, sort_keys=True)
-
+    hash_input = bytes(language + "-" + dumps(libraries_object, sort_keys=True), encoding='UTF-8')
     hash_key = sha256(
         hash_input
     ).hexdigest()
