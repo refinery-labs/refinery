@@ -2,23 +2,23 @@ import tornado.web
 import tornado.ioloop
 import tornado.httpserver
 
-from .controller.auth import *
+from controller.auth import *
 # from controller.auth.github import *
-from .controller.aws import *
-from .controller.billing import *
-from .controller.deployments import *
-from .controller.health import *
-from .controller.internal import *
-from .controller.lambdas import *
-from .controller.logs import *
-from .controller.projects import *
-from .controller.saved_blocks import *
-from .controller.services import *
-from .controller.websockets import *
+from controller.aws import *
+from controller.billing import *
+from controller.deployments import *
+from controller.health import *
+from controller.internal import *
+from controller.lambdas import *
+from controller.logs import *
+from controller.projects import *
+from controller.saved_blocks import *
+from controller.services import *
+from controller.websockets import *
 
-from .controller.websockets import LambdaConnectBackServer
-from .utils.ip_lookup import get_external_ipv4_address
-from .utils.ngrok import NgrokSpawner, set_up_ngrok_websocket_tunnel
+from controller.websockets import LambdaConnectBackServer
+from utils.ip_lookup import get_external_ipv4_address
+from utils.ngrok import NgrokSpawner, set_up_ngrok_websocket_tunnel
 
 
 class TornadoApp:

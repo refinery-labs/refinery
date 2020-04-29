@@ -6,7 +6,7 @@ RUN mkdir /work/
 WORKDIR /work/
 
 COPY ./requirements.txt /work/requirements.txt
-RUN pip install -r /work/requirements.txt
+RUN pip3 install -r /work/requirements.txt
 
 COPY ./ /work/
 

@@ -6,38 +6,33 @@ import tornado.ioloop
 import tornado.web
 import sys
 
-import unicodecsv as csv
+from app import TornadoBindingSpec, TornadoApp, WebsocketApp
+from assistants.aws_account_management.preterraform import PreterraformManager
+from assistants.aws_clients.aws_clients_assistant import STSClientBindingSpec, AwsClientFactory
+from assistants.billing.billing_assistant import BillingSpawner
+from assistants.deployments.api_gateway import ApiGatewayManager
+from assistants.deployments.awslambda import LambdaManager
+from assistants.deployments.dangling_resources import AwsResourceEnumerator
+from assistants.deployments.schedule_trigger import ScheduleTriggerManager
+from assistants.deployments.sns import SnsManager
+from assistants.deployments.sqs import SqsManager
+from assistants.task_spawner.task_spawner_assistant import TaskSpawner
+from assistants.user_creation_assistant import UserCreationAssistant
+from config.provider import ConfigBindingSpec
 
-from .app import TornadoBindingSpec, TornadoApp, WebsocketApp
-from .assistants.aws_account_management.preterraform import PreterraformManager
-from .assistants.aws_clients.aws_clients_assistant import STSClientBindingSpec, AwsClientFactory
-from .assistants.billing.billing_assistant import BillingSpawner
-from .assistants.deployments.api_gateway import ApiGatewayManager
-from .assistants.deployments.awslambda import LambdaManager
-from .assistants.deployments.dangling_resources import AwsResourceEnumerator
-from .assistants.deployments.schedule_trigger import ScheduleTriggerManager
-from .assistants.deployments.sns import SnsManager
-from .assistants.deployments.sqs import SqsManager
-from .assistants.task_spawner.task_spawner_assistant import TaskSpawner
-from .assistants.user_creation_assistant import UserCreationAssistant
-from .config.provider import ConfigBindingSpec
+from services.aws.clients import AWSClientBindingSpec
+from utils.general import logit, UtilsBindingSpec
+from assistants.deployments.ecs_builders import BuilderManager, AwsEcsManager
 
-from .services.aws.clients import AWSClientBindingSpec
-from .utils.general import logit, UtilsBindingSpec
-from .assistants.deployments.ecs_builders import BuilderManager, AwsEcsManager
+from services.websocket_router import ScheduledHeartbeatRunner, WebsocketRouter
 
-from .services.websocket_router import ScheduledHeartbeatRunner, WebsocketRouter
-
-from .models.initiate_database import *
+from models.initiate_database import *
 from io import StringIO
-from importlib import reload
-
-reload(sys)
-
-sys.setdefaultencoding("utf8")
+from sys import maxsize
+from csv import field_size_limit
 
 # Increase CSV field size to be the max
-csv.field_size_limit(sys.maxsize)
+field_size_limit(maxsize)
 
 
 if __name__ == "__main__":
