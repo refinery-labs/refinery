@@ -80,7 +80,7 @@ export default class ViewApiEndpointsPane extends Vue {
     };
 
     return (
-      <div style="min-width: 500px">
+      <div class="min-width--500px">
         <h4 class="margin--normal">Deployed API Endpoints</h4>
         <b-list-group class="view-api-endpoints-pane-container margin--normal">
           {this.getDeployedAPIEndpoints.map(e => this.renderAPIEndpoint(e))}

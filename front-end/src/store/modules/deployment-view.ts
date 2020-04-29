@@ -87,9 +87,9 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
         return null;
       }
       // Filter workflow states to only have endpoints and then cast them
-      return state.openedDeployment.workflow_states
-        .filter(e => e.type === WorkflowStateType.API_ENDPOINT)
-        .map(e => e as ProductionApiEndpointWorkflowState);
+      return state.openedDeployment.workflow_states.filter(
+        e => e.type === WorkflowStateType.API_ENDPOINT
+      ) as ProductionApiEndpointWorkflowState[];
     }
   },
   mutations: {
