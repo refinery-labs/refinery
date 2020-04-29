@@ -46,7 +46,7 @@ from tasks.aws_account import (
     create_new_sub_aws_account,
     recreate_aws_console_account,
     mark_account_needs_closing, do_account_cleanup)
-from tasks.stripe import (
+from tasks.stripe_tasks import (
     get_account_cards,
     get_stripe_customer_information,
     associate_card_token_with_customer_account,
