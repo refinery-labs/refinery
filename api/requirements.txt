@@ -18,3 +18,4 @@ tornado==6.0.4
 unicodecsv==0.14.1
 alembic==1.4.2
 stripe==2.46.0
+psycopg2==2.8.5

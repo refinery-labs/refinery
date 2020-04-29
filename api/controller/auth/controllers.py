@@ -24,9 +24,9 @@ class GetAuthenticationStatus(BaseHandler):
         if current_user:
             intercom_user_hmac = hmac.new(
                 # secret key (keep safe!)
-                self.app_config.get("intercom_hmac_secret"),
+                bytes(self.app_config.get("intercom_hmac_secret"), encoding="UTF-8"),
                 # user's email address
-                current_user.email,
+                bytes(current_user.email, encoding="UTF-8"),
                 # hash function
                 digestmod=hashlib.sha256
             ).hexdigest()
