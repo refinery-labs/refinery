@@ -496,7 +496,7 @@ def set_default_exception_handler(workflow_states, default_handler_id, default_e
 
 
 @gen.coroutine
-def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name, project_id, diagram_data, project_config):
+def deploy_diagram( task_spawner, api_gateway_manager, credentials, project_name, project_id, diagram_data, project_config ):
     """
     Deploy the diagram to AWS
     """
@@ -525,7 +525,7 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
     env_var_dict = {}
 
     # Set the default exception handler if there is one set in the project
-    default_exception_transition = []
+    default_exception_transitions = []
 
     default_exception_handler_id = ""
     if "exception_handler" in diagram_data[ "global_handlers" ]:
@@ -583,6 +583,7 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
     """
     teardown_nodes_list = []
 
+
     """
     This holds all of the exception data which occurred during a
     deployment. Upon an unhandled exception occurring we rollback
@@ -628,10 +629,10 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
             })
 
         if workflow_state[ "id" ] == default_exception_handler_id:
-            default_exception_transition = [workflow_state]
+            default_exception_transitions = [workflow_state]
 
-    if len(default_exception_transition) > 0:
-        set_default_exception_handler(diagram_data[ "workflow_states" ], default_exception_handler_id, default_exception_transition)
+    if len(default_exception_transitions) > 0:
+        set_default_exception_handler(diagram_data[ "workflow_states" ], default_exception_handler_id, default_exception_transitions)
 
     # Now add transition data to each Lambda
     for workflow_relationship in diagram_data[ "workflow_relationships" ]:
@@ -669,7 +670,7 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
             elif workflow_relationship[ "type" ] == "exception":
 
                 # If the default exception handler is set, unset it since the exception will be handled
-                if origin_node_data[ "transitions" ][ "exception" ] == default_exception_transition:
+                if origin_node_data[ "transitions" ][ "exception" ] == default_exception_transitions:
                     origin_node_data[ "transitions" ][ "exception" ] = []
 
                 origin_node_data[ "transitions" ][ "exception" ].append({
@@ -717,24 +718,24 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
     sns_topic_nodes = []
     api_endpoint_nodes = []
 
-    for workflow_state in diagram_data["workflow_states"]:
-        if workflow_state["type"] == "lambda":
+    for workflow_state in diagram_data[ "workflow_states" ]:
+        if workflow_state[ "type" ] == "lambda":
             lambda_nodes.append(
                 workflow_state
             )
-        elif workflow_state["type"] == "schedule_trigger":
+        elif workflow_state[ "type" ] == "schedule_trigger":
             schedule_trigger_nodes.append(
                 workflow_state
             )
-        elif workflow_state["type"] == "sqs_queue":
+        elif workflow_state[ "type" ] == "sqs_queue":
             sqs_queue_nodes.append(
                 workflow_state
             )
-        elif workflow_state["type"] == "sns_topic":
+        elif workflow_state[ "type" ] == "sns_topic":
             sns_topic_nodes.append(
                 workflow_state
             )
-        elif workflow_state["type"] == "api_endpoint":
+        elif workflow_state[ "type" ] == "api_endpoint":
             api_endpoint_nodes.append(
                 workflow_state
             )
@@ -745,49 +746,49 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
     lambda_node_deploy_futures = []
 
     for lambda_node in lambda_nodes:
-        lambda_safe_name = get_lambda_safe_name(lambda_node["name"])
-        logit("Deploying Lambda '" + lambda_safe_name + "'...")
+        lambda_safe_name = get_lambda_safe_name( lambda_node[ "name" ] )
+        logit( "Deploying Lambda '" + lambda_safe_name + "'..." )
 
         # For backwards compatibility
-        if not ("reserved_concurrency_count" in lambda_node):
-            lambda_node["reserved_concurrency_count"] = False
+        if not ( "reserved_concurrency_count" in lambda_node ):
+            lambda_node[ "reserved_concurrency_count" ] = False
 
         lambda_layers = get_layers_for_lambda(
-            lambda_node["language"]
-        ) + lambda_node["layers"]
+            lambda_node[ "language" ]
+        ) + lambda_node[ "layers" ]
 
         shared_files = get_shared_files_for_lambda(
-            lambda_node["id"],
+            lambda_node[ "id" ],
             diagram_data
         )
 
         # Create Lambda object
         lambda_object = Lambda(
             name=lambda_safe_name,
-            language=lambda_node["language"],
-            code=lambda_node["code"],
-            libraries=lambda_node["libraries"],
-            max_execution_time=lambda_node["max_execution_time"],
-            memory=lambda_node["memory"],
-            transitions=lambda_node["transitions"],
+            language=lambda_node[ "language" ],
+            code=lambda_node[ "code" ],
+            libraries=lambda_node[ "libraries" ],
+            max_execution_time=lambda_node[ "max_execution_time" ],
+            memory=lambda_node[ "memory" ],
+            transitions=lambda_node[ "transitions" ],
             execution_mode="REGULAR",
             execution_pipeline_id=project_id,
-            execution_log_level=project_config["logging"]["level"],
-            environment_variables=env_var_dict[lambda_node["id"]],
+            execution_log_level=project_config[ "logging" ][ "level" ],
+            environment_variables=env_var_dict[ lambda_node[ "id" ] ],
             layers=lambda_layers,
-            reserved_concurrency_count=lambda_node["reserved_concurrency_count"],
+            reserved_concurrency_count=lambda_node[ "reserved_concurrency_count" ],
             is_inline_execution=False,
             shared_files_list=shared_files
         )
 
         lambda_node_deploy_futures.append({
-            "id": lambda_node["id"],
+            "id": lambda_node[ "id" ],
             "name": lambda_safe_name,
-            "type": lambda_node["type"],
+            "type": lambda_node[ "type" ],
             "future": deploy_lambda(
                 task_spawner,
                 credentials,
-                lambda_node["id"],
+                lambda_node[ "id" ],
                 lambda_object
             )
         })
@@ -798,10 +799,10 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
     api_endpoint_node_deploy_futures = []
 
     for api_endpoint_node in api_endpoint_nodes:
-        api_endpoint_safe_name = get_lambda_safe_name(api_endpoint_node["name"])
-        logit("Deploying API Endpoint '" + api_endpoint_safe_name + "'...")
+        api_endpoint_safe_name = get_lambda_safe_name( api_endpoint_node[ "name" ] )
+        logit( "Deploying API Endpoint '" + api_endpoint_safe_name + "'..." )
 
-        lambda_layers = get_layers_for_lambda("python2.7")
+        lambda_layers = get_layers_for_lambda( "python2.7" )
 
         # Create Lambda object
         lambda_object = Lambda(
@@ -811,10 +812,10 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
             libraries=[],
             max_execution_time=30,
             memory=512,
-            transitions=api_endpoint_node["transitions"],
+            transitions=api_endpoint_node[ "transitions" ],
             execution_mode="API_ENDPOINT",
             execution_pipeline_id=project_id,
-            execution_log_level=project_config["logging"]["level"],
+            execution_log_level=project_config[ "logging" ][ "level" ],
             environment_variables=[],
             layers=lambda_layers,
             reserved_concurrency_count=False,
@@ -823,13 +824,13 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
         )
 
         api_endpoint_node_deploy_futures.append({
-            "id": api_endpoint_node["id"],
-            "name": get_lambda_safe_name(api_endpoint_node["name"]),
-            "type": api_endpoint_node["type"],
+            "id": api_endpoint_node[ "id" ],
+            "name": get_lambda_safe_name( api_endpoint_node[ "name" ] ),
+            "type": api_endpoint_node[ "type" ],
             "future": deploy_lambda(
                 task_spawner,
                 credentials,
-                api_endpoint_node["id"],
+                api_endpoint_node[ "id" ],
                 lambda_object
             )
         })
@@ -840,19 +841,19 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
     schedule_trigger_node_deploy_futures = []
 
     for schedule_trigger_node in schedule_trigger_nodes:
-        schedule_trigger_name = get_lambda_safe_name(schedule_trigger_node["name"])
-        logit("Deploying schedule trigger '" + schedule_trigger_name + "'...")
+        schedule_trigger_name = get_lambda_safe_name( schedule_trigger_node[ "name" ] )
+        logit( "Deploying schedule trigger '" + schedule_trigger_name + "'..." )
         schedule_trigger_node_deploy_futures.append({
-            "id": schedule_trigger_node["id"],
+            "id": schedule_trigger_node[ "id" ],
             "name": schedule_trigger_name,
-            "type": schedule_trigger_node["type"],
+            "type": schedule_trigger_node[ "type" ],
             "future": task_spawner.create_cloudwatch_rule(
                 credentials,
-                schedule_trigger_node["id"],
+                schedule_trigger_node[ "id" ],
                 schedule_trigger_name,
-                schedule_trigger_node["schedule_expression"],
-                schedule_trigger_node["description"],
-                schedule_trigger_node["input_string"],
+                schedule_trigger_node[ "schedule_expression" ],
+                schedule_trigger_node[ "description" ],
+                schedule_trigger_node[ "input_string" ],
             )
         })
 
@@ -862,17 +863,17 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
     sqs_queue_nodes_deploy_futures = []
 
     for sqs_queue_node in sqs_queue_nodes:
-        sqs_queue_name = get_lambda_safe_name(sqs_queue_node["name"])
-        logit("Deploying SQS queue '" + sqs_queue_name + "'...")
+        sqs_queue_name = get_lambda_safe_name( sqs_queue_node[ "name" ] )
+        logit( "Deploying SQS queue '" + sqs_queue_name + "'..." )
         sqs_queue_nodes_deploy_futures.append({
-            "id": sqs_queue_node["id"],
+            "id": sqs_queue_node[ "id" ],
             "name": sqs_queue_name,
-            "type": sqs_queue_node["type"],
+            "type": sqs_queue_node[ "type" ],
             "future": task_spawner.create_sqs_queue(
                 credentials,
-                sqs_queue_node["id"],
+                sqs_queue_node[ "id" ],
                 sqs_queue_name,
-                int(sqs_queue_node["batch_size"]),  # Not used, passed along
+                int( sqs_queue_node[ "batch_size" ] ), # Not used, passed along
                 900,  # Max Lambda runtime - TODO set this to the linked Lambda amount
             )
         })
@@ -883,16 +884,16 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
     sns_topic_nodes_deploy_futures = []
 
     for sns_topic_node in sns_topic_nodes:
-        sns_topic_name = get_lambda_safe_name(sns_topic_node["name"])
-        logit("Deploying SNS topic '" + sns_topic_name + "'...")
+        sns_topic_name = get_lambda_safe_name( sns_topic_node[ "name" ] )
+        logit( "Deploying SNS topic '" + sns_topic_name + "'..." )
 
         sns_topic_nodes_deploy_futures.append({
-            "id": sns_topic_node["id"],
+            "id": sns_topic_node[ "id" ],
             "name": sns_topic_name,
-            "type": sns_topic_node["type"],
+            "type": sns_topic_node[ "type" ],
             "future": task_spawner.create_sns_topic(
                 credentials,
-                sns_topic_node["id"],
+                sns_topic_node[ "id" ],
                 sns_topic_name,
             )
         })
@@ -915,52 +916,52 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
     # Wait till everything is deployed
     for deploy_future_data in combined_futures_list:
         try:
-            output = yield deploy_future_data["future"]
+            output = yield deploy_future_data[ "future" ]
 
-            logit("Deployed node '" + deploy_future_data["name"] + "' successfully!")
+            logit( "Deployed node '" + deploy_future_data[ "name" ] + "' successfully!" )
 
             # Append to approriate lists
-            if deploy_future_data["type"] == "lambda":
+            if deploy_future_data[ "type" ] == "lambda":
                 deployed_lambdas.append(
                     output
                 )
-            elif deploy_future_data["type"] == "sqs_queue":
+            elif deploy_future_data[ "type" ] == "sqs_queue":
                 deployed_sqs_queues.append(
                     output
                 )
-            elif deploy_future_data["type"] == "schedule_trigger":
+            elif deploy_future_data[ "type" ] == "schedule_trigger":
                 deployed_schedule_triggers.append(
                     output
                 )
-            elif deploy_future_data["type"] == "sns_topic":
+            elif deploy_future_data[ "type" ] == "sns_topic":
                 deployed_sns_topics.append(
                     output
                 )
-            elif deploy_future_data["type"] == "api_endpoint":
+            elif deploy_future_data[ "type" ] == "api_endpoint":
                 deployed_api_endpoints.append(
                     output
                 )
         except Exception as e:
-            logit("Failed to deploy node '" + deploy_future_data["name"] + "'!", "error")
+            logit( "Failed to deploy node '" + deploy_future_data[ "name" ] + "'!", "error" )
 
             exception_msg = traceback.format_exc()
-            if isinstance(e, BuildException):
+            if type(e) is BuildException:
                 # noinspection PyUnresolvedReferences
                 exception_msg = e.build_output
 
-            logit("Deployment failure exception details: " + repr(exception_msg), "error")
+            logit( "Deployment failure exception details: " + repr(exception_msg), "error" )
             deployment_exceptions.append({
-                "id": deploy_future_data["id"],
-                "name": deploy_future_data["name"],
-                "type": deploy_future_data["type"],
+                "id": deploy_future_data[ "id" ],
+                "name": deploy_future_data[ "name" ],
+                "type": deploy_future_data[ "type" ],
                 "exception": exception_msg
             })
 
     # This is the earliest point we can apply the breaks in the case of an exception
     # It's the callers responsibility to tear down the nodes
-    if len(deployment_exceptions) > 0:
-        logit("[ ERROR ] An uncaught exception occurred during the deployment process!", "error")
-        logit(deployment_exceptions, "error")
+    if len( deployment_exceptions ) > 0:
+        logit( "[ ERROR ] An uncaught exception occurred during the deployment process!", "error" )
+        logit( deployment_exceptions, "error" )
         raise gen.Return({
             "success": False,
             "teardown_nodes_list": teardown_nodes_list,
@@ -975,16 +976,16 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
     api_gateway_id = False
 
     # Pull previous API Gateway ID if it exists
-    if project_config["api_gateway"]["gateway_id"]:
-        api_gateway_id = project_config["api_gateway"]["gateway_id"]
-        logit("Previous API Gateway exists with ID of '" + api_gateway_id + "'...")
+    if project_config[ "api_gateway" ][ "gateway_id" ]:
+        api_gateway_id = project_config[ "api_gateway" ][ "gateway_id" ]
+        logit( "Previous API Gateway exists with ID of '" + api_gateway_id + "'..." )
 
-    if len(deployed_api_endpoints) > 0:
+    if len( deployed_api_endpoints ) > 0:
         api_route_futures = []
 
         # Verify the existance of API Gateway before proceeding
         # It could have been deleted.
-        logit("Verifying existance of API Gateway...")
+        logit( "Verifying existance of API Gateway..." )
         if api_gateway_id:
             api_gateway_exists = yield api_gateway_manager.api_gateway_exists(
                 credentials,
@@ -999,14 +1000,14 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
             api_gateway_id = False
 
         # We need to create an API gateway
-        logit("Deploying API Gateway for API Endpoint(s)...")
+        logit( "Deploying API Gateway for API Endpoint(s)..." )
 
         # Create a new API Gateway if one does not already exist
         if api_gateway_id == False:
             # We just generate a random ID for the API Gateway, no great other way to do it.
             # e.g. when you change the project name now it's hard to know what the API Gateway
             # is...
-            rest_api_name = "Refinery-API-Gateway_" + str(uuid.uuid4()).replace(
+            rest_api_name = "Refinery-API-Gateway_" + str( uuid.uuid4() ).replace(
                 "-",
                 ""
             )
@@ -1017,20 +1018,20 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
                 "1.0.0"
             )
 
-            api_gateway_id = create_gateway_result["id"]
+            api_gateway_id = create_gateway_result[ "id" ]
 
             # Update project config
-            project_config["api_gateway"]["gateway_id"] = api_gateway_id
+            project_config[ "api_gateway" ][ "gateway_id" ] = api_gateway_id
         else:
             # We do another strip of the gateway just to be sure
             yield strip_api_gateway(
                 api_gateway_manager,
                 credentials,
-                project_config["api_gateway"]["gateway_id"],
+                project_config[ "api_gateway" ][ "gateway_id" ],
             )
 
         # Add the API Gateway as a new node
-        diagram_data["workflow_states"].append({
+        diagram_data[ "workflow_states" ].append({
             "id": get_random_node_id(),
             "type": "api_gateway",
             "name": "__api_gateway__",
@@ -1038,28 +1039,22 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
         })
 
         for deployed_api_endpoint in deployed_api_endpoints:
-            for workflow_state in diagram_data["workflow_states"]:
-                if workflow_state["id"] == deployed_api_endpoint["id"]:
-                    logit(
-                        "Setting up route " +
-                        workflow_state["http_method"] +
-                        " " +
-                        workflow_state["api_path"] +
-                        " for API Endpoint '" +
-                        workflow_state["name"] +
-                        "'...")
+            for workflow_state in diagram_data[ "workflow_states" ]:
+                if workflow_state[ "id" ] == deployed_api_endpoint[ "id" ]:
+                    logit( "Setting up route " + workflow_state[ "http_method" ] + " " + workflow_state[ "api_path" ] + " for API Endpoint '" + workflow_state[ "name" ] + "'..." )
                     yield create_lambda_api_route(
                         task_spawner,
                         api_gateway_manager,
                         credentials,
                         api_gateway_id,
-                        workflow_state["http_method"],
-                        workflow_state["api_path"],
-                        deployed_api_endpoint["name"],
+                        workflow_state[ "http_method" ],
+                        workflow_state[ "api_path" ],
+                        deployed_api_endpoint[ "name" ],
                         True
                     )
 
-        logit("Now deploying API gateway to stage...")
+
+        logit( "Now deploying API gateway to stage..." )
         deploy_stage_results = yield task_spawner.deploy_api_gateway_to_stage(
             credentials,
             api_gateway_id,
@@ -1071,52 +1066,52 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
     """
     # Update workflow lambda nodes with arn
     for deployed_lambda in deployed_lambdas:
-        for workflow_state in diagram_data["workflow_states"]:
-            if workflow_state["id"] == deployed_lambda["id"]:
-                workflow_state["arn"] = deployed_lambda["arn"]
-                workflow_state["name"] = deployed_lambda["name"]
+        for workflow_state in diagram_data[ "workflow_states" ]:
+            if workflow_state[ "id" ] == deployed_lambda[ "id" ]:
+                workflow_state[ "arn" ] = deployed_lambda[ "arn" ]
+                workflow_state[ "name" ] = deployed_lambda[ "name" ]
 
     # Update workflow API Endpoint nodes with arn
     for deployed_api_endpoint in deployed_api_endpoints:
-        for workflow_state in diagram_data["workflow_states"]:
-            if workflow_state["id"] == deployed_api_endpoint["id"]:
-                workflow_state["arn"] = deployed_api_endpoint["arn"]
-                workflow_state["name"] = deployed_api_endpoint["name"]
-                workflow_state["rest_api_id"] = api_gateway_id
-                workflow_state["url"] = "https://" + str(api_gateway_id) + ".execute-api." + \
-                    credentials["region"] + ".amazonaws.com/refinery" + workflow_state["api_path"]
+        for workflow_state in diagram_data[ "workflow_states" ]:
+            if workflow_state[ "id" ] == deployed_api_endpoint[ "id" ]:
+                workflow_state[ "arn" ] = deployed_api_endpoint[ "arn" ]
+                workflow_state[ "name" ] = deployed_api_endpoint[ "name" ]
+                workflow_state[ "rest_api_id" ] = api_gateway_id
+                workflow_state[ "url" ] = "https://" + str(api_gateway_id) + ".execute-api." + credentials[ "region" ] + ".amazonaws.com/refinery" + workflow_state[ "api_path" ]
 
     # Update workflow scheduled trigger nodes with arn
     for deployed_schedule_trigger in deployed_schedule_triggers:
-        for workflow_state in diagram_data["workflow_states"]:
-            if workflow_state["id"] == deployed_schedule_trigger["id"]:
-                workflow_state["arn"] = deployed_schedule_trigger["arn"]
-                workflow_state["name"] = deployed_schedule_trigger["name"]
+        for workflow_state in diagram_data[ "workflow_states" ]:
+            if workflow_state[ "id" ] == deployed_schedule_trigger[ "id" ]:
+                workflow_state[ "arn" ] = deployed_schedule_trigger[ "arn" ]
+                workflow_state[ "name" ] = deployed_schedule_trigger[ "name" ]
 
     # Update SQS queue nodes with arn
     for deployed_sqs_queue in deployed_sqs_queues:
-        for workflow_state in diagram_data["workflow_states"]:
-            if workflow_state["id"] == deployed_sqs_queue["id"]:
-                workflow_state["arn"] = deployed_sqs_queue["arn"]
-                workflow_state["name"] = deployed_sqs_queue["name"]
+        for workflow_state in diagram_data[ "workflow_states" ]:
+            if workflow_state[ "id" ] == deployed_sqs_queue[ "id" ]:
+                workflow_state[ "arn" ] = deployed_sqs_queue[ "arn" ]
+                workflow_state[ "name" ] = deployed_sqs_queue[ "name" ]
 
     # Update SNS topics with arn
     for deployed_sns_topic in deployed_sns_topics:
-        for workflow_state in diagram_data["workflow_states"]:
-            if workflow_state["id"] == deployed_sns_topic["id"]:
-                workflow_state["arn"] = deployed_sns_topic["arn"]
-                workflow_state["name"] = deployed_sns_topic["name"]
+        for workflow_state in diagram_data[ "workflow_states" ]:
+            if workflow_state[ "id" ] == deployed_sns_topic[ "id" ]:
+                workflow_state[ "arn" ] = deployed_sns_topic[ "arn" ]
+                workflow_state[ "name" ] = deployed_sns_topic[ "name" ]
+
 
     """
     Link deployed schedule triggers to Lambdas
     """
     schedule_trigger_pairs_to_deploy = []
     for deployed_schedule_trigger in deployed_schedule_triggers:
-        for workflow_relationship in diagram_data["workflow_relationships"]:
-            if deployed_schedule_trigger["id"] == workflow_relationship["node"]:
+        for workflow_relationship in diagram_data[ "workflow_relationships" ]:
+            if deployed_schedule_trigger[ "id" ] == workflow_relationship[ "node" ]:
                 # Find target node
                 for deployed_lambda in deployed_lambdas:
-                    if deployed_lambda["id"] == workflow_relationship["next"]:
+                    if deployed_lambda[ "id" ] == workflow_relationship[ "next" ]:
                         schedule_trigger_pairs_to_deploy.append({
                             "scheduled_trigger": deployed_schedule_trigger,
                             "target_lambda": deployed_lambda,
@@ -1127,10 +1122,10 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
         schedule_trigger_targeting_futures.append(
             task_spawner.add_rule_target(
                 credentials,
-                schedule_trigger_pair["scheduled_trigger"]["name"],
-                schedule_trigger_pair["target_lambda"]["name"],
-                schedule_trigger_pair["target_lambda"]["arn"],
-                schedule_trigger_pair["scheduled_trigger"]["input_string"]
+                schedule_trigger_pair[ "scheduled_trigger" ][ "name" ],
+                schedule_trigger_pair[ "target_lambda" ][ "name" ],
+                schedule_trigger_pair[ "target_lambda" ][ "arn" ],
+                schedule_trigger_pair[ "scheduled_trigger" ][ "input_string" ]
             )
         )
 
@@ -1139,11 +1134,11 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
     """
     sqs_queue_triggers_to_deploy = []
     for deployed_sqs_queue in deployed_sqs_queues:
-        for workflow_relationship in diagram_data["workflow_relationships"]:
-            if deployed_sqs_queue["id"] == workflow_relationship["node"]:
+        for workflow_relationship in diagram_data[ "workflow_relationships" ]:
+            if deployed_sqs_queue[ "id" ] == workflow_relationship[ "node" ]:
                 # Find target node
                 for deployed_lambda in deployed_lambdas:
-                    if deployed_lambda["id"] == workflow_relationship["next"]:
+                    if deployed_lambda[ "id" ] == workflow_relationship[ "next" ]:
                         sqs_queue_triggers_to_deploy.append({
                             "sqs_queue_trigger": deployed_sqs_queue,
                             "target_lambda": deployed_lambda,
@@ -1154,9 +1149,9 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
         sqs_queue_trigger_targeting_futures.append(
             task_spawner.map_sqs_to_lambda(
                 credentials,
-                sqs_queue_trigger["sqs_queue_trigger"]["arn"],
-                sqs_queue_trigger["target_lambda"]["arn"],
-                int(sqs_queue_trigger["sqs_queue_trigger"]["batch_size"])
+                sqs_queue_trigger[ "sqs_queue_trigger" ][ "arn" ],
+                sqs_queue_trigger[ "target_lambda" ][ "arn" ],
+                int( sqs_queue_trigger[ "sqs_queue_trigger" ][ "batch_size" ] )
             )
         )
 
@@ -1165,11 +1160,11 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
     """
     sns_topic_triggers_to_deploy = []
     for deployed_sns_topic in deployed_sns_topics:
-        for workflow_relationship in diagram_data["workflow_relationships"]:
-            if deployed_sns_topic["id"] == workflow_relationship["node"]:
+        for workflow_relationship in diagram_data[ "workflow_relationships" ]:
+            if deployed_sns_topic[ "id" ] == workflow_relationship[ "node" ]:
                 # Find target node
                 for deployed_lambda in deployed_lambdas:
-                    if deployed_lambda["id"] == workflow_relationship["next"]:
+                    if deployed_lambda[ "id" ] == workflow_relationship[ "next" ]:
                         sns_topic_triggers_to_deploy.append({
                             "sns_topic_trigger": deployed_sns_topic,
                             "target_lambda": deployed_lambda,
@@ -1180,8 +1175,8 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
         sns_topic_trigger_targeting_futures.append(
             task_spawner.subscribe_lambda_to_sns_topic(
                 credentials,
-                sns_topic_trigger["sns_topic_trigger"]["arn"],
-                sns_topic_trigger["target_lambda"]["arn"],
+                sns_topic_trigger[ "sns_topic_trigger" ][ "arn" ],
+                sns_topic_trigger[ "target_lambda" ][ "arn" ],
             )
         )
 
@@ -1199,9 +1194,9 @@ def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name,
         )
     )
 
-    if "warmup_concurrency_level" in project_config and project_config["warmup_concurrency_level"]:
-        logit("Adding auto-warming to the deployment...")
-        warmup_concurrency_level = int(project_config["warmup_concurrency_level"])
+    if "warmup_concurrency_level" in project_config and project_config[ "warmup_concurrency_level" ]:
+        logit( "Adding auto-warming to the deployment..." )
+        warmup_concurrency_level = int( project_config[ "warmup_concurrency_level" ] )
         yield add_auto_warmup(
             task_spawner,
             credentials,
