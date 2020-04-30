@@ -21,7 +21,7 @@ def get_athena_results_from_s3(aws_client_factory, credentials, s3_bucket, s3_pa
         s3_path
     )
 
-    csv_handler = StringIO(csv_data)
+    csv_handler = StringIO(csv_data.decode("UTF-8"))
     csv_reader = DictReader(
         csv_handler,
         delimiter=",",

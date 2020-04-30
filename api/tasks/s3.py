@@ -73,6 +73,7 @@ def read_from_s3(aws_client_factory, credentials, s3_bucket, path):
     except BaseException:
         return "{}"
 
+    # bytes
     return s3_object["Body"].read()
 
 
