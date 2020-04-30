@@ -43,8 +43,8 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     await SyncProjectRepoPaneStoreModule.diffCompiledProject();
   }
 
-  public async changeCurrentlyDiffedFile(file: string) {
-    await SyncProjectRepoPaneStoreModule.setCurrentlyDiffedFile(file);
+  public changeCurrentlyDiffedFile(file: string) {
+    SyncProjectRepoPaneStoreModule.setCurrentlyDiffedFile(file);
   }
 
   public getOriginalContent(currentlyDiffedFile: string | null): string {
@@ -144,7 +144,20 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
         </div>
       );
     }
-    return <div />;
+    return null;
+  }
+
+  public renderGitStatus() {
+    if (!SyncProjectRepoPaneStoreModule.creatingNewBranch) {
+      return (
+        <div>
+          <hr />
+
+          <div class="deploy-pane-container__content overflow--scroll-y-auto">{this.renderGitStatusDetails()}</div>
+        </div>
+      );
+    }
+    return null;
   }
 
   public async forcePushToRepo() {
@@ -238,22 +251,22 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     await SyncProjectRepoPaneStoreModule.diffCompiledProject();
   }
 
-  public async setRemoteBranchName(branchName: string) {
-    await SyncProjectRepoPaneStoreModule.setRemoteBranchName(branchName);
-    await SyncProjectRepoPaneStoreModule.clearGitStatusResult();
+  public setRemoteBranchName(branchName: string) {
+    SyncProjectRepoPaneStoreModule.setRemoteBranchName(branchName);
+    SyncProjectRepoPaneStoreModule.clearGitStatusResult();
   }
 
-  public async setNewRemoteBranchName(branchName: string) {
-    await SyncProjectRepoPaneStoreModule.setNewRemoteBranchName(branchName);
-    await SyncProjectRepoPaneStoreModule.clearGitStatusResult();
+  public setNewRemoteBranchName(branchName: string) {
+    SyncProjectRepoPaneStoreModule.setNewRemoteBranchName(branchName);
+    SyncProjectRepoPaneStoreModule.clearGitStatusResult();
   }
 
   public async runGitShellCommand(command: string) {
     this.gitCommandResult = await SyncProjectRepoPaneStoreModule.runGitCommand(command);
   }
 
-  public async setCreatingNewBranch(creatingNewBranch: boolean) {
-    await SyncProjectRepoPaneStoreModule.setCreatingNewBranch(creatingNewBranch);
+  public setCreatingNewBranch(creatingNewBranch: boolean) {
+    SyncProjectRepoPaneStoreModule.setCreatingNewBranch(creatingNewBranch);
   }
 
   public showDevelopmentGitShell() {
@@ -270,7 +283,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     const repoBranches = SyncProjectRepoPaneStoreModule.repoBranches;
 
     if (repoBranches.length === 0) {
-      return <div />;
+      return null;
     }
 
     const selectRepoBranches = repoBranches.map(branch => {
@@ -279,9 +292,8 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     return (
       <b-card
         no-body
-        className="mb-1"
         bg-variant={!SyncProjectRepoPaneStoreModule.creatingNewBranch ? 'light' : 'default'}
-        on={{ click: async () => await this.setCreatingNewBranch(false) }}
+        on={{ click: () => this.setCreatingNewBranch(false) }}
       >
         <b-card-header header-tag="header" className="p-1" role="tab">
           <h5>Use existing branch</h5>
@@ -362,6 +374,18 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     );
   }
 
+  public renderDevelopmentShell() {
+    if (isDevelopment) {
+      return (
+        <div>
+          <hr />
+          {this.showDevelopmentGitShell()}
+        </div>
+      );
+    }
+    return null;
+  }
+
   public render(h: CreateElement): VNode {
     const loadingClasses = {
       'whirl standard': !SyncProjectRepoPaneStoreModule.gitStatusResult,
@@ -390,20 +414,9 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
           />
           {this.renderCommitButtons()}
 
-          {!SyncProjectRepoPaneStoreModule.creatingNewBranch && (
-            <div>
-              <hr />
+          {this.renderGitStatus()}
 
-              <div class="deploy-pane-container__content overflow--scroll-y-auto">{this.renderGitStatusDetails()}</div>
-            </div>
-          )}
-
-          {isDevelopment && (
-            <div>
-              <hr />
-              {this.showDevelopmentGitShell()}
-            </div>
-          )}
+          {this.renderDevelopmentShell()}
 
           {this.renderModal()}
           {this.renderForcePushWarning()}

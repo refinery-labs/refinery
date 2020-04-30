@@ -103,6 +103,20 @@ export class RefineryGitActionHandler {
     );
   }
 
+  private async createOrCheckoutBranch(creatingNewBranch: boolean, branchName: string) {
+    if (creatingNewBranch) {
+      await this.gitClient.branch({
+        ref: branchName,
+        checkout: true
+      });
+      return;
+    }
+    await this.gitClient.checkout({
+      ref: branchName,
+      force: true
+    });
+  }
+
   public async getDiffFileInfo(
     project: RefineryProject,
     branchName: string,
@@ -115,17 +129,7 @@ export class RefineryGitActionHandler {
 
     const newFiles = gitStatusResult.filter(fileRow => isFileNew(fileRow)).map(fileRow => fileRow[0]);
 
-    if (creatingNewBranch) {
-      await this.gitClient.branch({
-        ref: branchName,
-        checkout: true
-      });
-    } else {
-      await this.gitClient.checkout({
-        ref: branchName,
-        force: true
-      });
-    }
+    await this.createOrCheckoutBranch(creatingNewBranch, branchName);
 
     // new files are ignored since they did not exist in HEAD
     const originalFileContents = await this.getFilesFromFS([...deletedFiles, ...modifiedFiles]);
