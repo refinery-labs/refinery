@@ -3,14 +3,16 @@ import git, {
   AuthFailureCallback,
   AuthSuccessCallback,
   CallbackFsClient,
+  CommitObject,
   HttpClient,
   MessageCallback,
   ProgressCallback,
   PromiseFsClient,
+  ReadCommitResult,
   SignCallback,
   StatusRow
 } from 'isomorphic-git';
-import http from '@/repo-compiler/lib/git-http';
+import { http } from '@/repo-compiler/lib/git-http';
 
 export class GitClient {
   private readonly uri: string;
@@ -44,6 +46,23 @@ export class GitClient {
     await git.checkout({
       fs: this.fs,
       dir: this.dir,
+      ...options
+    });
+  }
+
+  public async branch(
+    options?: Partial<{
+      fs: CallbackFsClient | PromiseFsClient;
+      dir?: string;
+      gitdir?: string;
+      ref: string;
+      checkout?: boolean;
+    }>
+  ) {
+    await git.branch({
+      fs: this.fs,
+      dir: this.dir,
+      ref: 'master',
       ...options
     });
   }
@@ -105,6 +124,52 @@ export class GitClient {
     return await git.listBranches({
       fs: this.fs,
       dir: this.dir,
+      ...options
+    });
+  }
+
+  public async deleteBranch(ref: string): Promise<void> {
+    return await git.deleteBranch({
+      fs: this.fs,
+      dir: this.dir,
+      ref: ref
+    });
+  }
+
+  public async log(): Promise<Array<ReadCommitResult>> {
+    return await git.log({
+      fs: this.fs,
+      dir: this.dir
+    });
+  }
+
+  public async fastForward(
+    options?: Partial<{
+      fs: CallbackFsClient | PromiseFsClient;
+      http: HttpClient;
+      onProgress?: ProgressCallback;
+      onMessage?: MessageCallback;
+      onAuth?: AuthCallback;
+      onAuthFailure?: AuthFailureCallback;
+      onAuthSuccess?: AuthSuccessCallback;
+      dir: string;
+      gitdir?: string;
+      ref?: string;
+      url?: string;
+      remote?: string;
+      remoteRef?: string;
+      corsProxy?: string;
+      singleBranch?: boolean;
+      headers?: {
+        [x: string]: string;
+      };
+    }>
+  ): Promise<void> {
+    return await git.fastForward({
+      fs: this.fs,
+      dir: this.dir,
+      http,
+      ref: 'master',
       ...options
     });
   }

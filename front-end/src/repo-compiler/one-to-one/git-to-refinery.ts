@@ -30,8 +30,6 @@ import {
   RepoCompilationError,
   RepoCompilationErrorContext
 } from '@/repo-compiler/lib/git-utils';
-import { cloneGitRepo } from '@/repo-compiler/shared/clone-repo';
-import { GitClient } from '@/repo-compiler/lib/git-client';
 
 async function loadLambdaCode(
   fs: PromiseFsClient,

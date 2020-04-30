@@ -132,5 +132,4 @@ export async function request({ body, url, method, headers }: GitHttpRequest) {
   };
 }
 
-export default { request };
 export const http = { request };

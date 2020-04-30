@@ -7,9 +7,7 @@ import {
   WorkflowStateType
 } from '@/types/graph';
 import { convertProjectDownloadZipConfigToFileList, createDownloadZipConfig } from '@/utils/project-debug-utils';
-import LightningFS from '@isomorphic-git/lightning-fs';
-import git, { WORKDIR, PromiseFsClient, WalkerEntry, StatusRow, PushResult } from 'isomorphic-git';
-import http from '@/repo-compiler/lib/git-http';
+import git, { WORKDIR, PromiseFsClient, WalkerEntry } from 'isomorphic-git';
 import Path from 'path';
 import slugify from 'slugify';
 import yaml from 'js-yaml';

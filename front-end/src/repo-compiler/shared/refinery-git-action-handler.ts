@@ -103,10 +103,25 @@ export class RefineryGitActionHandler {
     );
   }
 
+  private async createOrCheckoutBranch(creatingNewBranch: boolean, branchName: string) {
+    if (creatingNewBranch) {
+      await this.gitClient.branch({
+        ref: branchName,
+        checkout: true
+      });
+      return;
+    }
+    await this.gitClient.checkout({
+      ref: branchName,
+      force: true
+    });
+  }
+
   public async getDiffFileInfo(
     project: RefineryProject,
     branchName: string,
-    gitStatusResult: Array<StatusRow>
+    gitStatusResult: Array<StatusRow>,
+    creatingNewBranch: boolean
   ): Promise<GitDiffInfo> {
     // TODO symlinks always show up as modified files
     const deletedFiles = gitStatusResult.filter(fileRow => isFileDeleted(fileRow)).map(fileRow => fileRow[0]);
@@ -114,10 +129,7 @@ export class RefineryGitActionHandler {
 
     const newFiles = gitStatusResult.filter(fileRow => isFileNew(fileRow)).map(fileRow => fileRow[0]);
 
-    await this.gitClient.checkout({
-      ref: branchName,
-      force: true
-    });
+    await this.createOrCheckoutBranch(creatingNewBranch, branchName);
 
     // new files are ignored since they did not exist in HEAD
     const originalFileContents = await this.getFilesFromFS([...deletedFiles, ...modifiedFiles]);
@@ -171,5 +183,16 @@ export class RefineryGitActionHandler {
         return GitPushResult.Other;
       }
     }
+  }
+
+  /**
+   * Remove branch with commit, check it out again, and then fast forward.
+   * We will now be able to surface the merge conflicts to the user in the diff viewer.
+   * @param remoteBranchName The branch to reset and fast forward.
+   */
+  public async resetBranchAndFastForward(remoteBranchName: string) {
+    await this.gitClient.deleteBranch(remoteBranchName);
+    await this.gitClient.checkout({ ref: remoteBranchName });
+    await this.gitClient.fastForward({ ref: remoteBranchName, singleBranch: true });
   }
 }

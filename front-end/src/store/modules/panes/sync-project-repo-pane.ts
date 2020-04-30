@@ -6,8 +6,7 @@ import { ProjectViewActions, ProjectViewMutators } from '@/constants/store-const
 import { OpenProjectMutation } from '@/types/project-editor-types';
 import { ProjectConfig, RefineryProject } from '@/types/graph';
 import { StatusRow } from 'isomorphic-git';
-import { newBranchText } from '@/constants/project-editor-constants';
-import { getStatusForFileInfo, RepoCompilationError } from '@/repo-compiler/lib/git-utils';
+import { getStatusForFileInfo, getStatusMessageForFileInfo, RepoCompilationError } from '@/repo-compiler/lib/git-utils';
 import { GitClient } from '@/repo-compiler/lib/git-client';
 import { loadProjectFromDir } from '@/repo-compiler/one-to-one/git-to-refinery';
 import uuid from 'uuid';
@@ -15,7 +14,6 @@ import { GitDiffInfo, GitStatusResult, InvalidGitRepoError } from '@/repo-compil
 import { REFINERY_COMMIT_AUTHOR_NAME } from '@/repo-compiler/shared/constants';
 import { GitStoreModule } from '@/store';
 import git from 'isomorphic-git';
-import { http } from '@/repo-compiler/lib/git-http';
 
 const storeName = StoreType.syncProjectRepo;
 
@@ -43,6 +41,7 @@ export interface SyncProjectRepoPaneState {
   commitMessage: string;
   projectSessionId: string | null;
   currentlyDiffedFile: string | null;
+  gitDiffInfo: GitDiffInfo;
 
   repoCompilationError?: RepoCompilationError;
   gitPushResult?: GitPushResult;
@@ -58,6 +57,7 @@ const moduleState: SyncProjectRepoPaneState = {
   commitMessage: 'update project from Refinery UI',
   projectSessionId: null,
   currentlyDiffedFile: null,
+  gitDiffInfo: { originalFiles: {}, changedFiles: {} },
 
   repoCompilationError: undefined,
   gitPushResult: undefined
@@ -76,6 +76,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   public commitMessage: string = initialState.commitMessage;
   public projectSessionId: string | null = initialState.projectSessionId;
   public currentlyDiffedFile: string | null = initialState.currentlyDiffedFile;
+  public gitDiffInfo: GitDiffInfo = initialState.gitDiffInfo;
 
   public repoCompilationError?: RepoCompilationError = initialState.repoCompilationError;
   public gitPushResult?: GitPushResult = initialState.gitPushResult;
@@ -91,7 +92,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   }
 
   get getRemoteBranchName(): string {
-    return this.remoteBranchName !== newBranchText ? this.remoteBranchName : '';
+    return this.remoteBranchName;
   }
 
   get getGitPushResultMessage(): string {
@@ -127,70 +128,73 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   }
 
   @Mutation
-  public async setRemoteBranchName(remoteBranchName: string) {
-    this.creatingNewBranch = false;
+  public setRemoteBranchName(remoteBranchName: string) {
     this.remoteBranchName = remoteBranchName;
   }
 
   @Mutation
-  public async setNewRemoteBranchName(remoteBranchName: string) {
-    this.creatingNewBranch = true;
+  public setNewRemoteBranchName(remoteBranchName: string) {
     this.remoteBranchName = remoteBranchName;
   }
 
   @Mutation
-  public async setIsCreatingNewBranch(creatingNewBranch: boolean) {
+  public setCreatingNewBranch(creatingNewBranch: boolean) {
     this.creatingNewBranch = creatingNewBranch;
   }
 
   @Mutation
-  public async setGitStatusResult(gitStatusResult: Array<StatusRow>) {
+  public setGitStatusResult(gitStatusResult: Array<StatusRow>) {
     this.gitStatusResult = gitStatusResult;
   }
 
   @Mutation
-  public async setGitPushResult(gitPushResult: GitPushResult | undefined) {
+  public setGitPushResult(gitPushResult: GitPushResult | undefined) {
     this.gitPushResult = gitPushResult;
   }
 
   @Mutation
-  public async setRepoBranches(repoBranches: string[]) {
+  public setGitDiffInfo(gitDiffInfo: GitDiffInfo) {
+    this.gitDiffInfo = gitDiffInfo;
+  }
+
+  @Mutation
+  public setRepoBranches(repoBranches: string[]) {
     this.repoBranches = repoBranches;
   }
 
   @Mutation
-  public async clearGitPushResult() {
+  public clearGitPushResult() {
     this.gitPushResult = undefined;
   }
 
   @Mutation
-  public async clearGitStatusResult() {
+  public clearGitStatusResult() {
     this.gitStatusResult = [];
     this.currentlyDiffedFile = null;
   }
 
   @Mutation
-  public async setPushingToRepo(pushingToRepo: boolean) {
+  public setPushingToRepo(pushingToRepo: boolean) {
     this.pushingToRepo = pushingToRepo;
   }
 
   @Mutation
-  public async setCurrentlyDiffedFile(currentlyDiffedFile: string | null) {
+  public setCurrentlyDiffedFile(currentlyDiffedFile: string | null) {
     this.currentlyDiffedFile = currentlyDiffedFile;
   }
 
   @Mutation
-  public async setCommitMessage(commitMessage: string) {
+  public setCommitMessage(commitMessage: string) {
     this.commitMessage = commitMessage;
   }
 
   @Mutation
-  public async setRepoCompilationError(repoCompilationError: RepoCompilationError) {
+  public setRepoCompilationError(repoCompilationError: RepoCompilationError) {
     this.repoCompilationError = repoCompilationError;
   }
 
   @Mutation
-  public async setRandomSessionProjectId(projectID: string) {
+  public setRandomSessionProjectId(projectID: string) {
     this.projectSessionId = projectID;
   }
 
@@ -218,7 +222,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
       throw new InvalidGitRepoError(msg);
     }
 
-    await this.setPushingToRepo(true);
+    this.setPushingToRepo(true);
 
     const gitClient = GitStoreModule.getGitClientByProjectId(this.projectSessionId);
     const gitActionHandler = GitStoreModule.getRefineryGitActionHandler(this.projectSessionId);
@@ -230,10 +234,12 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
       force
     );
 
-    await this.setGitPushResult(result);
-    await this.setPushingToRepo(false);
+    this.setGitPushResult(result);
+    this.setPushingToRepo(false);
 
     if (result !== GitPushResult.Success) {
+      await gitActionHandler.resetBranchAndFastForward(this.remoteBranchName);
+      await this.diffCompiledProject();
       return;
     }
 
@@ -245,11 +251,15 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     };
     await this.context.dispatch(`project/${ProjectViewActions.updateProject}`, params, { root: true });
 
-    await this.clearGitPushResult();
-    await this.clearGitStatusResult();
+    this.clearGitPushResult();
+    this.clearGitStatusResult();
 
     // we have just pushed successfully, the current branch will have no changes
-    await this.setGitStatusResult([]);
+    this.setGitStatusResult([]);
+
+    const repoBranches = await gitClient.listBranches();
+    this.setRepoBranches(repoBranches);
+    this.setCreatingNewBranch(false);
   }
 
   @Action
@@ -263,7 +273,40 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   }
 
   @Action
-  public async diffCompiledProject(): Promise<GitDiffInfo> {
+  public async runGitCommand(command: string): Promise<string> {
+    if (this.projectSessionId === null) {
+      const msg = 'Cannot run command with missing project session id';
+      console.error(msg);
+      throw new InvalidGitRepoError(msg);
+    }
+    const gitClient = GitStoreModule.getGitClientByProjectId(this.projectSessionId);
+
+    const gitCommandLookup: Record<string, () => Promise<string>> = {
+      branches: async () => {
+        return (await gitClient.listBranches()).join('\n');
+      },
+      status: async () => {
+        return (await gitClient.status()).map(row => `${row[0]}: ${getStatusMessageForFileInfo(row)}`).join('\n');
+      },
+      log: async () => {
+        return (await gitClient.log())
+          .map(obj => {
+            const commit = obj.commit;
+            return {
+              message: commit.message,
+              parent: commit.parent,
+              tree: commit.tree
+            };
+          })
+          .map(obj => JSON.stringify(obj, null, 2))
+          .join('\n');
+      }
+    };
+    return gitCommandLookup[command] ? await gitCommandLookup[command]() : 'command not found';
+  }
+
+  @Action
+  public async diffCompiledProject() {
     if (this.projectSessionId === null) {
       const msg = 'Cannot diff repo with missing project session id';
       console.error(msg);
@@ -276,44 +319,36 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     const gitClient = GitStoreModule.getGitClientByProjectId(this.projectSessionId);
     const gitActionHandler = GitStoreModule.getRefineryGitActionHandler(this.projectSessionId);
 
-    await this.clearGitPushResult();
-
     const project = await this.getOpenedProject();
 
-    if (!this.repoBranches.includes(this.remoteBranchName)) {
-      try {
-        await git.branch({
-          fs: gitClient.fs,
-          dir: gitClient.dir,
-          ref: this.remoteBranchName
-        });
-        await gitClient.checkout({
-          ref: this.remoteBranchName,
-          force: true
-        });
-      } catch (e) {
-        console.error('branch error:', e);
-      }
-      // return {
-      //   originalFiles: {},
-      //   changedFiles: {}
-      // };
+    // TODO: See if we can move this logic into the Action handler to avoid breaking the Git abstraction
+    if (this.creatingNewBranch) {
+      await gitClient.branch({
+        ref: this.remoteBranchName,
+        checkout: true
+      });
     } else {
-      // TODO: See if we can move this logic into the Action handler to avoid breaking the Git abstraction
       await gitClient.checkout({
         ref: this.remoteBranchName,
         force: true
       });
     }
+
     await gitActionHandler.writeProjectToDisk(project);
 
     // get list of files that were changed
     const statusResult = await gitClient.status();
-    await this.setGitStatusResult(statusResult);
+    this.setGitStatusResult(statusResult);
 
     // get contents from changed files before and after they were modified
     // TODO this call will force checkout and compile the project again, there might be a way to optimize this
-    return await gitActionHandler.getDiffFileInfo(project, this.remoteBranchName, this.gitStatusResult);
+    const diffInfo = await gitActionHandler.getDiffFileInfo(
+      project,
+      this.remoteBranchName,
+      this.gitStatusResult,
+      this.creatingNewBranch
+    );
+    this.setGitDiffInfo(diffInfo);
   }
 
   @Action
@@ -328,7 +363,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
       return await loadProjectFromDir(gitClient.fs, this.projectSessionId, gitClient.dir);
     } catch (e) {
       if (e instanceof RepoCompilationError) {
-        // await this.setRepoCompilationError(e);
+        // this.setRepoCompilationError(e);
       }
       return this.context.rootState.project.openedProject;
     }
@@ -344,7 +379,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
     const projectSessionId = uuid.v4();
 
-    await this.setRandomSessionProjectId(projectSessionId);
+    this.setRandomSessionProjectId(projectSessionId);
 
     GitStoreModule.createGitStore({
       projectId: projectSessionId,
@@ -357,11 +392,16 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
     const currentBranch = await gitClient.currentBranch();
     if (currentBranch) {
-      await this.setRemoteBranchName(currentBranch);
+      this.setRemoteBranchName(currentBranch);
     }
 
     const repoBranches = await gitClient.listBranches({ remote: 'origin' });
-    await this.setRepoBranches(repoBranches);
+    this.setRepoBranches(repoBranches);
+
+    if (repoBranches.length === 0) {
+      // there are no branches for us to push to, so we will have to make a new one
+      this.setCreatingNewBranch(true);
+    }
 
     const compiledProject = await this.compileClonedProject(gitClient);
     if (!compiledProject) {

@@ -104,7 +104,6 @@ export default class ProjectSettings extends Vue {
         no-body
         class="mb-1"
         bg-variant={showingDetails ? 'light' : 'default'}
-        className="set-project-repo__description display--flex"
         on={{ click: async () => await this.setSelectedRepo(repo) }}
       >
         <b-card-header header-tag="header" class="p-1" role="tab">
