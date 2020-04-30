@@ -1,7 +1,4 @@
 import { ExecutionStatusType } from '@/types/execution-logs-types';
-import { languages } from 'monaco-editor';
-import html = languages.html;
-import placeholder from 'cypress/types/lodash/fp/placeholder';
 import {
   BlockExecutionLogContentsByLogId,
   BlockExecutionLogData,
