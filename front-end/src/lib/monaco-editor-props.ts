@@ -9,6 +9,7 @@ export interface MonacoEditorProps {
   wordWrap?: boolean;
   automaticLayout?: boolean;
   tailOutput?: boolean;
+  lineNumbers: boolean;
 
   onChange?: (s: string) => void;
 }

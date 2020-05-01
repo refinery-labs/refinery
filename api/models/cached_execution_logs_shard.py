@@ -3,22 +3,23 @@ from projects import Project
 import uuid
 import time
 
-class CachedExecutionLogsShard( Base ):
-	__tablename__ = "cached_execution_logs_shards"
 
-	id = Column(
-		CHAR(36),
-		primary_key=True
-	)
-	
-	# The date shard this refers to
-	# e.g. "dt=2019-07-15-13-35"
-	date_shard = Column(
-		Text(),
-		index=True
-	)
+class CachedExecutionLogsShard(Base):
+    __tablename__ = "cached_execution_logs_shards"
 
-	"""
+    id = Column(
+        CHAR(36),
+        primary_key=True
+    )
+
+    # The date shard this refers to
+    # e.g. "dt=2019-07-15-13-35"
+    date_shard = Column(
+        Text(),
+        index=True
+    )
+
+    """
 	# All of the cached data for a given shard (e.g. "dt=2019-07-15-13-35")
 	[
 		{
@@ -45,36 +46,36 @@ class CachedExecutionLogsShard( Base ):
 		}
 	]
 	"""
-	shard_data = Column(JSON())
-	
-	# Project ID these logs are related to
-	project_id = Column(
-		CHAR(36),
-		ForeignKey( Project.id ),
-		primary_key=True
-	)
-	
-	timestamp = Column(Integer())
-	
-	def __init__( self ):
-		self.id = str( uuid.uuid4() )
-		self.timestamp = int( time.time() )
+    shard_data = Column(JSON())
 
-	def to_dict( self ):
-		exposed_attributes = [
-			"id",
-			"date_shard",
-			"shard_data",
-			"project_id",
-			"timestamp"
-		]
-		
-		return_dict = {}
+    # Project ID these logs are related to
+    project_id = Column(
+        CHAR(36),
+        ForeignKey(Project.id),
+        primary_key=True
+    )
 
-		for attribute in exposed_attributes:
-			return_dict[ attribute ] = getattr( self, attribute )
-				
-		return return_dict
+    timestamp = Column(Integer())
 
-	def __str__( self ):
-		return self.id
+    def __init__(self):
+        self.id = str(uuid.uuid4())
+        self.timestamp = int(time.time())
+
+    def to_dict(self):
+        exposed_attributes = [
+            "id",
+            "date_shard",
+            "shard_data",
+            "project_id",
+            "timestamp"
+        ]
+
+        return_dict = {}
+
+        for attribute in exposed_attributes:
+            return_dict[attribute] = getattr(self, attribute)
+
+        return return_dict
+
+    def __str__(self):
+        return self.id

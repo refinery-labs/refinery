@@ -3,7 +3,15 @@ import { createProject, importProject } from '@/store/fetchers/api-helpers';
 import { viewProject } from '@/utils/router-utils';
 import { NewProjectConfig } from '@/types/new-project-types';
 import { unwrapJson } from '@/utils/project-helpers';
-import { RefineryProject, WorkflowFile, WorkflowFileLink, WorkflowRelationship, WorkflowState } from '@/types/graph';
+import {
+  GlobalExceptionHandler,
+  GlobalHandlers,
+  RefineryProject,
+  WorkflowFile,
+  WorkflowFileLink,
+  WorkflowRelationship,
+  WorkflowState
+} from '@/types/graph';
 import generateStupidName from '@/lib/silly-names';
 import { CyTooltip, DemoTooltip, TooltipType } from '@/types/demo-walkthrough-types';
 
@@ -87,20 +95,17 @@ function reassignDemoWalkthrough(
   if (!demoWalkthrough) {
     return [];
   }
-  return demoWalkthrough.reduce(
-    (outputTooltips, tooltip) => {
-      if (tooltip.type === TooltipType.CyTooltip) {
-        const cyTooltip = tooltip as CyTooltip;
-        cyTooltip.config.blockId = oldIdToNewIdLookup[cyTooltip.config.blockId];
+  return demoWalkthrough.reduce((outputTooltips, tooltip) => {
+    if (tooltip.type === TooltipType.CyTooltip) {
+      const cyTooltip = tooltip as CyTooltip;
+      cyTooltip.config.blockId = oldIdToNewIdLookup[cyTooltip.config.blockId];
 
-        tooltip = cyTooltip;
-      }
+      tooltip = cyTooltip;
+    }
 
-      outputTooltips.push(tooltip);
-      return outputTooltips;
-    },
-    [] as DemoTooltip[]
-  );
+    outputTooltips.push(tooltip);
+    return outputTooltips;
+  }, [] as DemoTooltip[]);
 }
 
 function reassignProjectIds(project: RefineryProject): RefineryProject {
@@ -108,80 +113,101 @@ function reassignProjectIds(project: RefineryProject): RefineryProject {
   const oldIdToNewIdLookup: { [key: string]: string } = {};
 
   // Assign new Ids to all of the workflow states
-  const newStates = project.workflow_states.reduce(
-    (outputStates, state) => {
-      const newId = uuid();
+  const newStates = project.workflow_states.reduce((outputStates, state) => {
+    const newId = uuid();
 
-      oldIdToNewIdLookup[state.id] = newId;
+    oldIdToNewIdLookup[state.id] = newId;
 
-      outputStates.push({
-        ...state,
-        id: newId
-      });
+    outputStates.push({
+      ...state,
+      id: newId
+    });
 
-      return outputStates;
-    },
-    [] as WorkflowState[]
-  );
+    return outputStates;
+  }, [] as WorkflowState[]);
 
   // Go through existing relationships and ensure that they point to the new node Ids.
-  const newRelationships = project.workflow_relationships.reduce(
-    (outputRelationships, relationship) => {
-      outputRelationships.push({
-        ...relationship,
-        id: uuid(),
-        node: oldIdToNewIdLookup[relationship.node],
-        next: oldIdToNewIdLookup[relationship.next]
-      });
+  const newRelationships = project.workflow_relationships.reduce((outputRelationships, relationship) => {
+    outputRelationships.push({
+      ...relationship,
+      id: uuid(),
+      node: oldIdToNewIdLookup[relationship.node],
+      next: oldIdToNewIdLookup[relationship.next]
+    });
 
-      return outputRelationships;
-    },
-    [] as WorkflowRelationship[]
-  );
+    return outputRelationships;
+  }, [] as WorkflowRelationship[]);
 
   // Update the IDs of every file
-  const newWorkflowFiles = project.workflow_files.reduce(
-    (outputFiles, file) => {
-      const newId = uuid();
+  const newWorkflowFiles = project.workflow_files.reduce((outputFiles, file) => {
+    const newId = uuid();
 
-      oldIdToNewIdLookup[file.id] = newId;
+    oldIdToNewIdLookup[file.id] = newId;
 
-      outputFiles.push({
-        ...file,
-        id: newId
-      });
+    outputFiles.push({
+      ...file,
+      id: newId
+    });
 
-      return outputFiles;
-    },
-    [] as WorkflowFile[]
-  );
+    return outputFiles;
+  }, [] as WorkflowFile[]);
 
   // Update the IDs of every walkthrough tooltip
   const newDemoWalkthrough = reassignDemoWalkthrough(project.demo_walkthrough, oldIdToNewIdLookup);
 
-  // Finally, update the file links using the new ID lookups.
-  const newWorkflowFileLinks = project.workflow_file_links.reduce(
-    (outputFileLinks, fileLink) => {
-      const missingFileForLink = oldIdToNewIdLookup[fileLink.file_id] === undefined;
-      const missingNodeForLink = oldIdToNewIdLookup[fileLink.node] === undefined;
+  // Update the file links using the new ID lookups.
+  const newWorkflowFileLinks = project.workflow_file_links.reduce((outputFileLinks, fileLink) => {
+    const missingFileForLink = oldIdToNewIdLookup[fileLink.file_id] === undefined;
+    const missingNodeForLink = oldIdToNewIdLookup[fileLink.node] === undefined;
 
-      // Don't propagate bad state -- deal with it here and move on.
-      if (missingFileForLink || missingNodeForLink) {
-        console.warn('Skipping adding file link, detected invalid state at import.', fileLink);
-        return outputFileLinks;
-      }
-
-      outputFileLinks.push({
-        ...fileLink,
-        id: uuid(),
-        file_id: oldIdToNewIdLookup[fileLink.file_id],
-        node: oldIdToNewIdLookup[fileLink.node]
-      });
-
+    // Don't propagate bad state -- deal with it here and move on.
+    if (missingFileForLink || missingNodeForLink) {
+      console.warn('Skipping adding file link, detected invalid state at import.', fileLink);
       return outputFileLinks;
-    },
-    [] as WorkflowFileLink[]
-  );
+    }
+
+    outputFileLinks.push({
+      ...fileLink,
+      id: uuid(),
+      file_id: oldIdToNewIdLookup[fileLink.file_id],
+      node: oldIdToNewIdLookup[fileLink.node]
+    });
+
+    // Don't propagate bad state -- deal with it here and move on.
+    if (missingFileForLink || missingNodeForLink) {
+      console.warn('Skipping adding file link, detected invalid state at import.', fileLink);
+      return outputFileLinks;
+    }
+
+    outputFileLinks.push({
+      ...fileLink,
+      id: uuid(),
+      file_id: oldIdToNewIdLookup[fileLink.file_id],
+      node: oldIdToNewIdLookup[fileLink.node]
+    });
+
+    return outputFileLinks;
+  }, [] as WorkflowFileLink[]);
+
+  // Finally, update the ids in the global handlers
+  const remapGlobalHandlerId = (handler: GlobalExceptionHandler | undefined): GlobalHandlers => {
+    if (!handler) {
+      return {};
+    }
+    const newHandlerId = oldIdToNewIdLookup[handler.id];
+    if (newHandlerId === undefined) {
+      console.warn(`Unable to remap global handler with id: ${handler.id}`);
+      return {};
+    }
+    return {
+      exception_handler: {
+        id: newHandlerId
+      }
+    };
+  };
+  const newGlobalHandlers = {
+    ...remapGlobalHandlerId(project.global_handlers.exception_handler)
+  };
 
   // Return a new project with the new ids in place.
   return {
@@ -190,6 +216,7 @@ function reassignProjectIds(project: RefineryProject): RefineryProject {
     workflow_file_links: newWorkflowFileLinks,
     workflow_relationships: newRelationships,
     workflow_states: newStates,
+    global_handlers: newGlobalHandlers,
     demo_walkthrough: newDemoWalkthrough
   };
 }
@@ -216,6 +243,5 @@ function getProjectName(baseName: string, needsNewName: boolean) {
   if (needsNewName) {
     return `${baseName} - ${generateStupidName()}`;
   }
-
   return baseName;
 }

@@ -1,5 +1,6 @@
 #!/bin/bash
 echo "Building Node 10.16.3 Refinery custom runtime layer package..."
+mkdir -p ./layer-contents
 rm -rf ./layer-contents/*
 cp runtime ./layer-contents/
 cp -r ../base-src/* ./layer-contents/

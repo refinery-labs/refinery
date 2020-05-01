@@ -85,11 +85,13 @@ export interface MonacoLanguageLookup extends SupportedLanguageToAceLang {
   text: 'text';
   json: 'json';
   markdown: 'markdown';
+  shell: 'shell';
 }
 
 export const languageToAceLangMap: MonacoLanguageLookup = {
   [SupportedLanguage.NODEJS_8]: 'javascript',
   [SupportedLanguage.NODEJS_10]: 'javascript',
+  [SupportedLanguage.NODEJS_1020]: 'javascript',
   [SupportedLanguage.PYTHON_2]: 'python',
   [SupportedLanguage.PYTHON_3]: 'python',
   [SupportedLanguage.GO1_12]: 'go',
@@ -97,7 +99,8 @@ export const languageToAceLangMap: MonacoLanguageLookup = {
   [SupportedLanguage.RUBY2_6_4]: 'ruby',
   text: 'text',
   json: 'json',
-  markdown: 'markdown'
+  markdown: 'markdown',
+  shell: 'shell'
 };
 
 export type LanguageToBaseRepoURL = { [key in SupportedLanguage]: string | null };
@@ -105,6 +108,7 @@ export type LanguageToBaseRepoURL = { [key in SupportedLanguage]: string | null 
 export const LanguageToBaseRepoURLMap: LanguageToBaseRepoURL = {
   [SupportedLanguage.NODEJS_8]: 'https://www.npmjs.com',
   [SupportedLanguage.NODEJS_10]: 'https://www.npmjs.com',
+  [SupportedLanguage.NODEJS_1020]: 'https://www.npmjs.com',
   [SupportedLanguage.PYTHON_2]: 'https://pypi.org',
   [SupportedLanguage.PYTHON_3]: 'https://pypi.org',
   [SupportedLanguage.GO1_12]: null,
@@ -116,7 +120,8 @@ export type LanguageToLibraryRepoURL = { [key in SupportedLanguage]: string | nu
 
 export const LanguageToLibraryRepoURLMap: LanguageToLibraryRepoURL = {
   [SupportedLanguage.NODEJS_8]: LanguageToBaseRepoURLMap[SupportedLanguage.NODEJS_8] + '/package/',
-  [SupportedLanguage.NODEJS_10]: LanguageToBaseRepoURLMap[SupportedLanguage.NODEJS_8] + '/package/',
+  [SupportedLanguage.NODEJS_10]: LanguageToBaseRepoURLMap[SupportedLanguage.NODEJS_10] + '/package/',
+  [SupportedLanguage.NODEJS_1020]: LanguageToBaseRepoURLMap[SupportedLanguage.NODEJS_1020] + '/package/',
   [SupportedLanguage.PYTHON_3]: LanguageToBaseRepoURLMap[SupportedLanguage.PYTHON_3] + '/project/',
   [SupportedLanguage.PYTHON_2]: LanguageToBaseRepoURLMap[SupportedLanguage.PYTHON_2] + '/project/',
   [SupportedLanguage.GO1_12]: null,

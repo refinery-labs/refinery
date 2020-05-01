@@ -16,6 +16,7 @@ export interface RefineryProject {
   workflow_relationships: WorkflowRelationship[];
   workflow_files: WorkflowFile[];
   workflow_file_links: WorkflowFileLink[];
+  global_handlers: GlobalHandlers;
   demo_walkthrough?: DemoTooltip[];
 }
 
@@ -25,6 +26,7 @@ export enum SupportedLanguage {
   PYTHON_2 = 'python2.7',
   NODEJS_8 = 'nodejs8.10',
   NODEJS_10 = 'nodejs10.16.3',
+  NODEJS_1020 = 'nodejs10.20.1',
   PHP7 = 'php7.3',
   GO1_12 = 'go1.12'
 }
@@ -140,6 +142,14 @@ export interface WorkflowRelationship extends BaseRefineryResource {
   type: WorkflowRelationshipType;
   next: string;
   expression: string;
+}
+
+export interface GlobalHandlers {
+  exception_handler?: GlobalExceptionHandler;
+}
+
+export interface GlobalExceptionHandler {
+  id: string;
 }
 
 export interface ProjectConfig {

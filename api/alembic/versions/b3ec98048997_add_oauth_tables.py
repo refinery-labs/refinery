@@ -5,8 +5,6 @@ Revises: 39b78a88ec2b
 Create Date: 2020-02-17 23:26:23.083613
 
 """
-from alembic import op
-import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
@@ -19,7 +17,8 @@ depends_on = None
 
 
 def upgrade():
-	pass
+    pass
+
 
 def downgrade():
-	pass
+    pass

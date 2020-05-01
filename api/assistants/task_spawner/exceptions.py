@@ -1,3 +1,3 @@
 
 class InvalidLanguageException(Exception):
-	pass
+    pass

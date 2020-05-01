@@ -8,26 +8,26 @@ from utils.performance_decorators import emit_runtime_metrics
 
 
 class BillingSpawner(BaseSpawner):
-	@run_on_executor
-	@emit_runtime_metrics( "clear_draft_invoices" )
-	def clear_draft_invoices( self ):
-		"""
-		Clears all Stripe invoices which are in a "draft" state. Useful for backing out of
-		a state where invalid invoices were generated and you need to clear everything out
-		and then try again.
-		"""
-		invoice_ids_to_delete = []
+    @run_on_executor
+    @emit_runtime_metrics("clear_draft_invoices")
+    def clear_draft_invoices(self):
+        """
+        Clears all Stripe invoices which are in a "draft" state. Useful for backing out of
+        a state where invalid invoices were generated and you need to clear everything out
+        and then try again.
+        """
+        invoice_ids_to_delete = []
 
-		for stripe_invoice in stripe.Invoice.list():
-			if stripe_invoice[ "status" ] == "draft":
-				invoice_ids_to_delete.append(
-					stripe_invoice[ "id" ]
-				)
+        for stripe_invoice in stripe.Invoice.list():
+            if stripe_invoice["status"] == "draft":
+                invoice_ids_to_delete.append(
+                    stripe_invoice["id"]
+                )
 
-		for invoice_id in invoice_ids_to_delete:
-			logit( "Deleting invoice ID '" + invoice_id + "'..." )
-			response = stripe.Invoice.delete(
-				invoice_id,
-			)
+        for invoice_id in invoice_ids_to_delete:
+            logit("Deleting invoice ID '" + invoice_id + "'...")
+            response = stripe.Invoice.delete(
+                invoice_id,
+            )
 
-		logit( "Deleting draft invoices completed successfully!" )
+        logit("Deleting draft invoices completed successfully!")

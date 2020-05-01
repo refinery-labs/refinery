@@ -1,11 +1,17 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
-import { ProjectConfig, ProjectLogLevel, SupportedLanguage } from '@/types/graph';
+import {
+  LambdaWorkflowState,
+  ProjectConfig,
+  ProjectLogLevel,
+  RefineryProject,
+  SupportedLanguage,
+  WorkflowStateType
+} from '@/types/graph';
 import { namespace } from 'vuex-class';
 import Loading from '@/components/Common/Loading.vue';
 import { LoadingContainerProps } from '@/types/component-types';
 import { GithubRepo } from '@/types/api-types';
-import { formatDistanceToNow, fromUnixTime } from 'date-fns';
 import { getFriendlyDurationSinceString } from '@/utils/time-utils';
 
 const project = namespace('project');
@@ -16,6 +22,7 @@ export default class ProjectSettings extends Vue {
   private repoSearch: string = '';
   private showingSelectRepoModal: boolean = false;
 
+  @project.State openedProject!: RefineryProject | null;
   @project.State openedProjectConfig!: ProjectConfig | null;
   @projectSettings.State reposForUser?: GithubRepo[] | null;
   @projectSettings.State selectedRepo!: GithubRepo | null;
@@ -24,9 +31,13 @@ export default class ProjectSettings extends Vue {
 
   @project.Action setProjectConfigLoggingLevel!: (projectConfigLoggingLevel: ProjectLogLevel) => void;
   @project.Action setProjectConfigRuntimeLanguage!: (projectConfigRuntimeLanguage: SupportedLanguage) => void;
+  @project.Action setProjectGlobalExceptionHandler!: (nodeId: string | null) => void;
+
   @project.Action setProjectConfigRepo!: (projectConfigRepo: string) => void;
   @projectSettings.Action listReposForUser!: () => GithubRepo[] | null;
   @projectSettings.Action reorganizeUserRepos!: () => void;
+
+  private isSettingGlobalExceptionHandler: boolean = false;
 
   private getLogLevelValue() {
     // TODO: Move this business logic to an action in the store.
@@ -177,6 +188,29 @@ export default class ProjectSettings extends Vue {
     );
   }
 
+  private getGlobalExceptionHandler(): string | undefined {
+    if (!this.openedProject || !this.openedProject.global_handlers.exception_handler) {
+      return undefined;
+    }
+    return this.openedProject.global_handlers.exception_handler.id;
+  }
+
+  private getLambdaWorkflowStates(): LambdaWorkflowState[] {
+    if (!this.openedProject) {
+      return [];
+    }
+    return this.openedProject.workflow_states
+      .filter(w => w.type === WorkflowStateType.LAMBDA)
+      .map(w => w as LambdaWorkflowState);
+  }
+
+  private async setIsSettingGlobalExceptionHandler(checked: boolean) {
+    this.isSettingGlobalExceptionHandler = checked;
+    if (!checked) {
+      await this.setProjectGlobalExceptionHandler(null);
+    }
+  }
+
   private renderLogLevel() {
     return (
       <b-form-group description="The logging level to use when Code Blocks run in production. Note that changing this level requires a re-deploy to take effect!">
@@ -221,6 +255,43 @@ export default class ProjectSettings extends Vue {
     );
   }
 
+  public renderGlobalExceptionHandler() {
+    const globalExceptionHandler = this.getGlobalExceptionHandler();
+
+    const exceptionHandlerToggleChecked = globalExceptionHandler !== undefined || this.isSettingGlobalExceptionHandler;
+    const disabledExceptionHandlerSelect =
+      globalExceptionHandler === undefined && !this.isSettingGlobalExceptionHandler;
+
+    const handlerOptions = this.getLambdaWorkflowStates().map(w => ({
+      value: w.id,
+      text: w.name
+    }));
+
+    return (
+      <b-form-group>
+        <b-form-checkbox
+          id="global-exception-handler-toggle"
+          on={{ change: this.setIsSettingGlobalExceptionHandler }}
+          disabled={false}
+          checked={exceptionHandlerToggleChecked}
+        >
+          Use a Default Exception Handler Block
+        </b-form-checkbox>
+        <small>
+          Enabling this will add an exception transition to all blocks <em>without an exception transition</em> by
+          default. All unhandled exceptions will be handled by the block chosen below.
+        </small>
+        <b-form-select
+          id="logging-level-input-select"
+          value={globalExceptionHandler}
+          on={{ change: this.setProjectGlobalExceptionHandler }}
+          disabled={disabledExceptionHandlerSelect}
+          options={handlerOptions}
+        />
+      </b-form-group>
+    );
+  }
+
   private renderProjectRepo() {
     return (
       <b-form-group description="The git repository where this project will be synced with.">
@@ -256,6 +327,7 @@ export default class ProjectSettings extends Vue {
             {this.renderLogLevel()}
             {this.renderRuntimeLanguage()}
             {this.renderProjectRepo()}
+            {this.renderGlobalExceptionHandler()}
           </div>
         </div>
       </Loading>

@@ -1,3 +1,3 @@
 # Custom exceptions
 class CardIsPrimaryException(Exception):
-	pass
+    pass
