@@ -51,12 +51,14 @@ import {
   UpdateLeftSidebarPaneStateMutation
 } from '@/types/project-editor-types';
 import {
+  getExceptionHandlerNodes,
   getIDsOfBlockType,
   getNodeDataById,
   getTransitionDataById,
   getValidBlockToBlockTransitions,
   getValidTransitionsForEdge,
   getValidTransitionsForNode,
+  hookProjectDeployment,
   isValidTransition,
   unwrapJson,
   wrapJson
@@ -83,6 +85,7 @@ import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-proj
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shared-files';
 import { DemoWalkthroughStoreModule, EditSharedFilePaneModule } from '@/store';
+import { BaseGraphHelper } from '@/lib/graph-helpers';
 
 export interface ChangeTransitionArguments {
   transition: WorkflowRelationship;
@@ -155,6 +158,7 @@ const moduleState: ProjectViewState = {
   selectedResource: null,
   // If this is "null" then it enables all elements
   enabledGraphElements: null,
+  exceptionHandlerNodes: null,
 
   // Cytoscape Specific state
   cytoscapeElements: null,
@@ -224,8 +228,13 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return [];
       }
 
-      // TODO: Return only valid blocks here, not all Lambda blocks.
-      return getIDsOfBlockType(WorkflowStateType.LAMBDA, state.openedProject);
+      function isValidBlock(blockID: string) {
+        if (state.exceptionHandlerNodes) {
+          return !state.exceptionHandlerNodes.includes(blockID);
+        }
+      }
+
+      return getIDsOfBlockType(WorkflowStateType.LAMBDA, state.openedProject).filter(isValidBlock);
     },
     /**
      * Returns the list of "next" valid blocks to select
@@ -396,6 +405,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     [ProjectViewMutators.setCytoscapeConfig](state, config: cytoscape.CytoscapeOptions) {
       state.cytoscapeConfig = deepJSONCopy(config);
     },
+    [ProjectViewMutators.setExceptionHandlerNodes](state, elements: string[]) {
+      state.exceptionHandlerNodes = elements;
+    },
     [ProjectViewMutators.setIsAddingSharedFileToCodeBlock](state, value: boolean) {
       state.isAddingSharedFileToCodeBlock = value;
     },
@@ -483,8 +495,10 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
+      const excludedNodeIDs = state.exceptionHandlerNodes ? state.exceptionHandlerNodes : [];
+
       // Assigning this in a mutator because this algorithm is O(n^2) and that feels bad in a getter
-      state.availableTransitions = getValidTransitionsForNode(state.openedProject, node);
+      state.availableTransitions = getValidTransitionsForNode(state.openedProject, node, excludedNodeIDs);
     },
 
     // Edit Transition Pane
@@ -685,6 +699,13 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       if (params.project) {
         const elements = generateCytoscapeElements(params.project);
+
+        const globalExceptionHandler = params.project.global_handlers.exception_handler;
+        if (globalExceptionHandler) {
+          const exceptionHandlerNodes = getExceptionHandlerNodes(globalExceptionHandler.id, elements);
+          context.commit(ProjectViewMutators.setExceptionHandlerNodes, exceptionHandlerNodes);
+        }
+
         context.commit(ProjectViewMutators.setOpenedProject, params.project);
         context.commit(ProjectViewMutators.setCytoscapeElements, elements);
       }
@@ -875,9 +896,14 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         }
       }
 
+      // Hook the deployment process and inject "invisible" nodes and transitions which we want to
+      // include in the project, but not to surface to the user
+      const excludedNodeIDs = context.state.exceptionHandlerNodes ? context.state.exceptionHandlerNodes : [];
+      const hookedOpenedProject = hookProjectDeployment(openedProject, excludedNodeIDs);
+
       try {
         const deploymentExceptions = await deployProject({
-          project: openedProject,
+          project: hookedOpenedProject,
           projectConfig: context.state.openedProjectConfig
         });
 
@@ -1244,6 +1270,17 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
+      const nodeIsInExceptionHandler = await context.dispatch(ProjectViewActions.nodeIsInExceptionHandler, toNode);
+      if (nodeIsInExceptionHandler) {
+        await createToast(context.dispatch, {
+          title: 'Error, invalid transition!',
+          content:
+            'That is not a valid transition, please select one of the flashing blocks to add a valid transition.',
+          variant: ToastVariant.danger
+        });
+        return;
+      }
+
       // Validate the transition is possible. e.g. Not Code Block -> Timer Block
       if (!isValidTransition(fromNode, toNode)) {
         await createToast(context.dispatch, {
@@ -1261,6 +1298,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // await context.dispatch(ProjectViewActions.selectEdge, newTransition.id);
 
       // TODO: Open right sidebar pane
+    },
+    async [ProjectViewActions.nodeIsInExceptionHandler](context, node: WorkflowState) {
+      if (!context.state.exceptionHandlerNodes) {
+        return false;
+      }
+      return context.state.exceptionHandlerNodes.includes(node.id);
     },
     async [ProjectViewActions.openLeftSidebarPane](context, leftSidebarPaneType: SIDEBAR_PANE) {
       // If it's the Shared File pane we need to hook it to add it to the history.

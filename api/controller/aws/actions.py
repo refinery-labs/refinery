@@ -478,23 +478,6 @@ def add_auto_warmup(task_spawner, credentials, warmup_concurrency_level, unique_
     yield warmup_futures
 
 
-def set_default_exception_handler(workflow_states, default_handler_id, default_exception_transition):
-    for workflow_state in workflow_states:
-        # Only set the exception handler for lambdas and api endpoints
-        if workflow_state[ "type" ] != "lambda" and workflow_state[ "type" ] != "api_endpoint":
-            continue
-
-        # Do not set the exception handler for the exception handler!
-        if workflow_state[ "id" ] == default_handler_id:
-            continue
-
-        # If there are exception handlers already set for this workflow state, do not set the default handler
-        if len(workflow_state[ "transitions" ][ "exception" ]) > 0:
-            continue
-
-        workflow_state[ "transitions" ][ "exception" ] = default_exception_transition
-
-
 @gen.coroutine
 def deploy_diagram( task_spawner, api_gateway_manager, credentials, project_name, project_id, diagram_data, project_config ):
     """
@@ -628,12 +611,6 @@ def deploy_diagram( task_spawner, api_gateway_manager, credentials, project_name
                 "type": workflow_state[ "type" ],
             })
 
-        if workflow_state[ "id" ] == default_exception_handler_id:
-            default_exception_transitions = [workflow_state]
-
-    if len(default_exception_transitions) > 0:
-        set_default_exception_handler(diagram_data[ "workflow_states" ], default_exception_handler_id, default_exception_transitions)
-
     # Now add transition data to each Lambda
     for workflow_relationship in diagram_data[ "workflow_relationships" ]:
         origin_node_data = get_node_by_id(
@@ -668,11 +645,6 @@ def deploy_diagram( task_spawner, api_gateway_manager, credentials, project_name
                     "arn": target_arn,
                 })
             elif workflow_relationship[ "type" ] == "exception":
-
-                # If the default exception handler is set, unset it since the exception will be handled
-                if origin_node_data[ "transitions" ][ "exception" ] == default_exception_transitions:
-                    origin_node_data[ "transitions" ][ "exception" ] = []
-
                 origin_node_data[ "transitions" ][ "exception" ].append({
                     "type": target_node_data[ "type" ],
                     "arn": target_arn,

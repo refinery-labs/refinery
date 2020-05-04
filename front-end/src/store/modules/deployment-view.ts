@@ -20,7 +20,7 @@ import { PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
-import { getNodeDataById } from '@/utils/project-helpers';
+import { getNodeDataById, removeGlobalExceptionHandlerTransitions } from '@/utils/project-helpers';
 import { ViewBlockActions } from '@/store/modules/panes/view-block-pane';
 import { ViewTransitionActions } from '@/store/modules/panes/view-transition-pane';
 import {
@@ -32,7 +32,7 @@ import { getLatestProjectDeployment, teardownProject } from '@/store/fetchers/ap
 import { deepJSONCopy } from '@/lib/general-utils';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
 import { DemoWalkthroughStoreModule } from '@/store';
-import { WorkflowStateType } from '@/types/graph';
+import { RefineryProject, WorkflowStateType } from '@/types/graph';
 import { ProductionApiEndpointWorkflowState } from '@/types/production-workflow-types';
 
 const moduleState: DeploymentViewState = {
@@ -209,7 +209,12 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
         return;
       }
 
-      const elements = generateCytoscapeElements(context.state.openedDeployment);
+      // Remove default exception transitions since they will clutter up the graph view
+      const hookedOpenedDeployment: RefineryProject = removeGlobalExceptionHandlerTransitions(
+        context.state.openedDeployment
+      );
+
+      const elements = generateCytoscapeElements(hookedOpenedDeployment);
 
       const stylesheet = generateCytoscapeStyle();
 

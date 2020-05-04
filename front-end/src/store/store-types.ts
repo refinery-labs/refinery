@@ -197,6 +197,9 @@ export interface ProjectViewState {
   selectedResource: string | null;
   // If this is "null" then it enables all elements
   enabledGraphElements: string[] | null;
+  // Elements which comprise the exception handler call chain, or null if
+  // no exception handler is configured
+  exceptionHandlerNodes: string[] | null;
 
   // Cytoscape Specific state
   cytoscapeElements: CyElements | null;
