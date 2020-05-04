@@ -31,7 +31,7 @@ export default class ProjectSettings extends Vue {
 
   @project.Action setProjectConfigLoggingLevel!: (projectConfigLoggingLevel: ProjectLogLevel) => void;
   @project.Action setProjectConfigRuntimeLanguage!: (projectConfigRuntimeLanguage: SupportedLanguage) => void;
-  @project.Action setProjectGlobalExceptionHandler!: (nodeId: string | null) => void;
+  @project.Action setProjectGlobalExceptionHandlerToNode!: (nodeId: string | null) => void;
 
   @project.Action setProjectConfigRepo!: (projectConfigRepo: string) => void;
   @projectSettings.Action listReposForUser!: () => GithubRepo[] | null;
@@ -207,7 +207,7 @@ export default class ProjectSettings extends Vue {
   private async setIsSettingGlobalExceptionHandler(checked: boolean) {
     this.isSettingGlobalExceptionHandler = checked;
     if (!checked) {
-      await this.setProjectGlobalExceptionHandler(null);
+      await this.setProjectGlobalExceptionHandlerToNode(null);
     }
   }
 
@@ -284,7 +284,7 @@ export default class ProjectSettings extends Vue {
         <b-form-select
           id="logging-level-input-select"
           value={globalExceptionHandler}
-          on={{ change: this.setProjectGlobalExceptionHandler }}
+          on={{ change: this.setProjectGlobalExceptionHandlerToNode }}
           disabled={disabledExceptionHandlerSelect}
           options={handlerOptions}
         />

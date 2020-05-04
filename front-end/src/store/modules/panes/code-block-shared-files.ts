@@ -10,6 +10,7 @@ import { getSharedFileById, getSharedFilesForCodeBlock } from '@/utils/project-h
 import { ISlTreeNodeModel } from 'sl-vue-tree';
 import { languageToFileExtension } from '@/utils/project-debug-utils';
 import { CodeBlockSharedFilesPaneModule, EditSharedFilePaneModule } from '@/store/store-accessor';
+import { LoggingAction } from '@/lib/LoggingMutation';
 
 const storeName = StoreType.codeBlockSharedFiles;
 
@@ -128,7 +129,7 @@ export class CodeBlockSharedFilesPaneStore extends VuexModule<ThisType<CodeBlock
     this.codeBlock = deepJSONCopy(codeBlock);
   }
 
-  @Action
+  @LoggingAction
   public selectedFileTreeNode(fileNodeMetadata: FileNodeMetadata | null) {
     if (fileNodeMetadata === null) {
       console.error('Selected file tree node is null, quitting out.');
@@ -159,13 +160,13 @@ export class CodeBlockSharedFilesPaneStore extends VuexModule<ThisType<CodeBlock
     EditSharedFilePaneModule.openSharedFile(sharedFile);
   }
 
-  @Action
+  @LoggingAction
   public async openCodeBlockSharedFiles(codeBlock: LambdaWorkflowState) {
     this.setCodeBlock(codeBlock);
     EditSharedFilePaneModule.setCurrentSharedFilePane(SIDEBAR_PANE.codeBlockSharedFiles);
   }
 
-  @Action
+  @LoggingAction
   public async addSharedFileToCodeBlock(sharedFile: WorkflowFile) {
     if (CodeBlockSharedFilesPaneModule.codeBlock === null) {
       console.error('No Code Block is selected.');

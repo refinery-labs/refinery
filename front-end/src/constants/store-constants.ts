@@ -152,7 +152,7 @@ export enum ProjectViewActions {
   resetPanelStates = 'resetPanelStates',
   setProjectConfigLoggingLevel = 'setProjectConfigLoggingLevel',
   setProjectConfigRuntimeLanguage = 'setProjectConfigRuntimeLanguage',
-  setProjectGlobalExceptionHandler = 'setProjectGlobalExceptionHandler',
+  setProjectGlobalExceptionHandlerToNode = 'setProjectGlobalExceptionHandlerToNode',
   setProjectConfigRepo = 'setProjectConfigRepo',
   saveProjectConfig = 'saveProjectConfig',
   checkBuildStatus = 'checkBuildStatus',

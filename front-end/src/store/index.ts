@@ -1,5 +1,6 @@
 import Vue from 'vue';
 import Vuex, { Store } from 'vuex';
+
 import SettingPlugin from './plugins/setting';
 import ActionLoggerPlugin from '@/store/plugins/action-logger';
 import createPersistedState from 'vuex-persistedstate';

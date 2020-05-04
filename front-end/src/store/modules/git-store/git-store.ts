@@ -8,6 +8,7 @@ import { PromiseFsClient } from 'isomorphic-git';
 import { InvalidGitStoreState } from '@/store/modules/git-store/types';
 import { RefineryGitActionHandler } from '@/repo-compiler/shared/refinery-git-action-handler';
 import { removeKeyFromObject } from '@/lib/funtional-extensions';
+import { LoggingAction } from '@/lib/LoggingMutation';
 
 export interface GitProjectConfig {
   repoUri: string;
@@ -125,7 +126,7 @@ export class GitStore extends VuexModule<ThisType<GitState>, RootState> implemen
     this.projectIdToGitConfigLookup = removeKeyFromObject(this.projectIdToGitConfigLookup, projectId);
   }
 
-  @Action
+  @LoggingAction
   public async deleteProjectFromCache(projectId: string) {
     const gitConfig = this.projectIdToGitConfigLookup[projectId];
 
@@ -163,7 +164,7 @@ export class GitStore extends VuexModule<ThisType<GitState>, RootState> implemen
     };
   }
 
-  @Action
+  @LoggingAction
   public setExampleViaAction(value: string) {
     // this.setExample(value);
   }

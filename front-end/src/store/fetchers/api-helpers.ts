@@ -419,6 +419,11 @@ export async function openProject(request: GetSavedProjectRequest) {
     ...wr
   }));
 
+  // Ensure there an object for the exception handler
+  if (!project.global_handlers) {
+    project.global_handlers = {};
+  }
+
   return project;
 }
 

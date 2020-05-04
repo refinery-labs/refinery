@@ -4,6 +4,7 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState, StoreType } from '@/store/store-types';
 import { listGithubReposForUser } from '@/store/fetchers/api-helpers';
 import { GithubRepo } from '@/types/api-types';
+import { LoggingAction } from '@/lib/LoggingMutation';
 
 // This is the name that this will be added to the Vuex store with.
 // You will need to add to the `RootState` interface if you want to access this state via `rootState` from anywhere.
@@ -45,14 +46,14 @@ export class ProjectSettingsStore extends VuexModule<ThisType<ProjectSettingsSta
     this.selectedRepo = repo;
   }
 
-  @Action
+  @LoggingAction
   public async reorganizeUserRepos() {
     if (this.reposForUser) {
       await this.setUserRepos(this.reposForUser);
     }
   }
 
-  @Action
+  @LoggingAction
   public async setUserRepos(userRepos: GithubRepo[]) {
     if (!this.context.rootState.project.openedProjectConfig) {
       throw new Error('no project config open');
@@ -73,7 +74,7 @@ export class ProjectSettingsStore extends VuexModule<ThisType<ProjectSettingsSta
     }
   }
 
-  @Action
+  @LoggingAction
   public async listReposForUser(): Promise<void> {
     if (!this.reposForUser) {
       const userRepos = await listGithubReposForUser();

@@ -5,6 +5,7 @@ import { resetStoreState } from '@/utils/store-utils';
 import { RefineryProject, WorkflowFile } from '@/types/graph';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { OpenProjectMutation, SIDEBAR_PANE } from '@/types/project-editor-types';
+import { LoggingAction } from '@/lib/LoggingMutation';
 
 const storeName = StoreType.readmeEditor;
 
@@ -35,12 +36,12 @@ export class ReadmeEditorPaneStore extends VuexModule<ThisType<ReadmeEditorPaneS
     this.isFullScreenEditorModalVisible = isFullScreenEditorModalVisible;
   }
 
-  @Action
+  @LoggingAction
   public setFullScreenEditorModalVisibilityAction(isFullScreenEditorModalVisible: boolean) {
     this.setFullScreenEditorModalVisibility(isFullScreenEditorModalVisible);
   }
 
-  @Action
+  @LoggingAction
   public async setReadmeContents(readmeString: string) {
     const project = this.context.rootState.project.openedProject;
 

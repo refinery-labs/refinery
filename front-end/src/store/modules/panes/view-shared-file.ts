@@ -6,6 +6,7 @@ import { LambdaWorkflowState, SupportedLanguage, WorkflowFile } from '@/types/gr
 import { ProjectViewActions } from '@/constants/store-constants';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { getLanguageFromFileName } from '@/utils/editor-utils';
+import { LoggingAction } from '@/lib/LoggingMutation';
 
 const storeName = StoreType.viewSharedFile;
 
@@ -36,7 +37,7 @@ export class ViewSharedFilePaneStore extends VuexModule<ThisType<ViewSharedFileP
     this.sharedFile = sharedFile;
   }
 
-  @Action
+  @LoggingAction
   public viewSharedFile(sharedFile: WorkflowFile) {
     this.setSharedFile(sharedFile);
     this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, SIDEBAR_PANE.viewSharedFile, {
@@ -44,7 +45,7 @@ export class ViewSharedFilePaneStore extends VuexModule<ThisType<ViewSharedFileP
     });
   }
 
-  @Action
+  @LoggingAction
   public backToSavedBlockView() {
     this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, SIDEBAR_PANE.addSavedBlock, {
       root: true
