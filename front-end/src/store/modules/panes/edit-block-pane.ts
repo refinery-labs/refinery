@@ -554,6 +554,13 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
 
       await context.dispatch('blockLocalCodeSync/stopSyncJobForSelectedBlock', null, { root: true });
 
+      const exceptionHandler = projectStore.openedProject.global_handlers.exception_handler;
+      if (exceptionHandler && context.state.selectedNode.id) {
+        context.commit(`project/${ProjectViewMutators.setProjectGlobalExceptionHandler}`, null, {
+          root: true
+        });
+      }
+
       // The array of transitions we need to delete
       const transitions_to_delete: WorkflowRelationship[] = getTransitionsForNode(
         projectStore.openedProject,

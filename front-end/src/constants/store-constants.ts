@@ -103,8 +103,6 @@ export enum ProjectViewMutators {
   setEditingTransitionStatus = 'setEditingTransitionStatus',
   setEditingTransitionType = 'setEditingTransitionType',
 
-  setGlobalExceptionHandler = 'setGlobalExceptionHandler',
-
   setWarmupConcurrencyLevel = 'setWarmupConcurrencyLevel',
 
   setIsAddingSharedFileToCodeBlock = 'setIsAddingSharedFileToCodeBlock'

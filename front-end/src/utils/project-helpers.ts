@@ -140,19 +140,16 @@ export function getValidTransitionsForEdge(
 
 export function getValidTransitionsForNode(
   project: RefineryProject,
-  fromNode: WorkflowState,
-  excludedNodeIDs: string[]
+  fromNode: WorkflowState
 ): AvailableTransitionsByType {
   const otherNodes = project.workflow_states.filter(n => n.id !== fromNode.id);
 
   const availableTransitions = otherNodes.map(toNode => {
     const { simple, complex } = findTransitionsBetweenNodes(fromNode, toNode);
 
-    const isNotExcluded = !excludedNodeIDs.includes(toNode.id);
-
     return {
       // Simple boolean that we can filter on later.
-      valid: isNotExcluded && (simple.length > 0 || complex.length > 0),
+      valid: simple.length > 0 || complex.length > 0,
       fromNode,
       toNode,
       simple: simple.length > 0,
@@ -290,7 +287,14 @@ function getExceptionHandlerEdges(project: RefineryProject, excludedNodeIDs: str
   if (!project.global_handlers.exception_handler) {
     return [];
   }
+
   const exceptionHandlerNode = project.global_handlers.exception_handler.id;
+
+  const handlerDoesNotExistInProject = project.workflow_states.filter(w => w.id === exceptionHandlerNode).length === 0;
+  if (handlerDoesNotExistInProject) {
+    console.error('project global exception handler was set, but it does not exist in the project');
+    return [];
+  }
 
   function validNodeToAddExceptionHandler(w: WorkflowState) {
     const validWorkflowState = w.type === WorkflowStateType.LAMBDA || w.type === WorkflowStateType.API_GATEWAY;

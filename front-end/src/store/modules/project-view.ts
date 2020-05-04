@@ -495,10 +495,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         return;
       }
 
-      const excludedNodeIDs = state.exceptionHandlerNodes ? state.exceptionHandlerNodes : [];
-
       // Assigning this in a mutator because this algorithm is O(n^2) and that feels bad in a getter
-      state.availableTransitions = getValidTransitionsForNode(state.openedProject, node, excludedNodeIDs);
+      state.availableTransitions = getValidTransitionsForNode(state.openedProject, node);
     },
 
     // Edit Transition Pane
