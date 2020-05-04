@@ -9,7 +9,7 @@ from alembic import context
 # access to the values within the .ini file in use.
 
 # TODO: Figure out how to import all of these files automatically instead of this disgusting verbosity
-# noinspection PyUnresolvedReferences
+from config.provider import load_app_config
 from models import aws_accounts, \
     cached_billing_collections, \
     cached_billing_items, \
@@ -30,7 +30,7 @@ from models import aws_accounts, \
     user_oauth_account, \
     user_oauth_data_record, \
     users
-from models.initiate_database import Base
+from models.initiate_database import Base, get_refinery_engine
 
 import sys
 [sys.path.append(i) for i in ['.', '..']]

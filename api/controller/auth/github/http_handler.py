@@ -5,7 +5,7 @@ from tornado import gen
 from assistants.user_creation_assistant import UserCreationAssistant
 from controller.base import BaseHandler
 from controller.auth.github.exceptions import GithubOAuthException, BadRequestStateException
-from controller.auth.github.oauth_provider import GithubOAuthProvider
+from services.github.oauth_provider import GithubOAuthProvider
 
 # Example data returned by Github
 # {
@@ -41,8 +41,6 @@ from controller.auth.github.oauth_provider import GithubOAuthProvider
 #   "following": 24,
 #   "login": "freeqaz"
 # }
-from controller.decorators import authenticated
-
 
 
 class AuthenticateWithGithubDependencies:

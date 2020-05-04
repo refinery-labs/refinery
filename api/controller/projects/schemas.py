@@ -113,3 +113,17 @@ GET_PROJECT_SHORT_LINK_SCHEMA = {
         "project_short_link_id"
     ]
 }
+
+CREATE_GIT_REPO_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "uri": {
+            "type": "string",
+        }
+    },
+    "required": [
+        "uri"
+    ]
+}
+
+
