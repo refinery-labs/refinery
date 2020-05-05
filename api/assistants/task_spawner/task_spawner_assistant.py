@@ -46,7 +46,7 @@ from tasks.aws_account import (
     create_new_sub_aws_account,
     recreate_aws_console_account,
     mark_account_needs_closing, do_account_cleanup)
-from tasks.stripe_tasks import (
+from tasks.stripe_api import (
     get_account_cards,
     get_stripe_customer_information,
     associate_card_token_with_customer_account,
@@ -116,14 +116,6 @@ from tasks.api_gateway import (
     add_integration_response,
     link_api_method_to_lambda
 )
-
-try:
-    # for Python 2.x
-    # noinspection PyCompatibility
-    from StringIO import StringIO
-except ImportError:
-    # for Python 3.x
-    from io import StringIO
 
 
 # noinspection PyTypeChecker,SqlResolve

@@ -1,6 +1,6 @@
 from data_types.oauth_providers import OAuthProvider
 from sqlalchemy import Enum, Index, TEXT
-from initiate_database import *
+from .initiate_database import *
 import json
 import uuid
 

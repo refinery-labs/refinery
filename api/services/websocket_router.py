@@ -102,7 +102,7 @@ class WebsocketRouter:
 
     def send_heartbeed(self):
         websockets_to_ping = []
-        for debug_id, websocket_metadata in self.WEBSOCKET_ROUTER.iteritems():
+        for debug_id, websocket_metadata in self.WEBSOCKET_ROUTER.items():
             websockets_to_ping = websockets_to_ping + websocket_metadata["users"]
 
         for websocket_to_ping in websockets_to_ping:

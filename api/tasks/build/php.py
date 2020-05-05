@@ -66,7 +66,7 @@ def start_php73_codebuild(aws_client_factory, credentials, libraries_object):
 
     commands = []
 
-    for key, value in libraries_object.iteritems():
+    for key, value in libraries_object.items():
         commands.append(
             "composer require " + key
         )

@@ -6,6 +6,7 @@ import string
 import random
 import struct
 import logging
+import math
 
 import pinject
 
@@ -79,7 +80,12 @@ def get_random_node_id():
 # For generating crytographically-secure random strings
 def get_urand_password(length):
     symbols = string.ascii_letters + string.digits
-    return "".join([symbols[x * len(symbols) / 256] for x in struct.unpack("%dB" % (length,), os.urandom(length))])
+
+    return "".join([
+        symbols[math.floor(x * len(symbols) / 256)]
+        for x in
+        struct.unpack("%dB" % (length,), os.urandom(length))
+    ])
 
 
 def get_random_id(length):
