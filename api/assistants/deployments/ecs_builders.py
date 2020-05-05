@@ -17,7 +17,6 @@ from botocore.exceptions import ClientError
 from expiringdict import ExpiringDict
 from utils.general import logit
 from utils.performance_decorators import emit_runtime_metrics
-from io import StringIO
 
 import zipfile
 
@@ -79,7 +78,7 @@ but we'll be doing this fairly often, so I want to be gentle to the server.
 def get_builder_shared_secret(credentials):
     hash_material = credentials["iam_admin_username"] + ":" + credentials["iam_admin_password"]
     return hashlib.sha512(
-        hash_material
+        bytes(hash_material, encoding="UTF-8")
     ).hexdigest()
 
 
