@@ -17,7 +17,7 @@ import { deepJSONCopy } from '@/lib/general-utils';
 import { createNewTransition } from '@/utils/block-utils';
 import { BaseGraphHelper } from '@/lib/graph-helpers';
 import { Graph } from 'graphlib';
-import { addCytoscapeElementsToShadowGraph, recursiveSuccessorMark } from '@/lib/graph-helpers/utils';
+import * as graphlib from 'graphlib';
 
 export function getNodeDataById(project: RefineryProject, nodeId: string): WorkflowState | null {
   const targetStates = project.workflow_states;
@@ -273,14 +273,21 @@ export function getSharedLinksForSharedFile(sharedFileId: string, project: Refin
   return project.workflow_file_links.filter(workflow_file_link => workflow_file_link.file_id === sharedFileId);
 }
 
-export function getExceptionHandlerNodes(exceptionHandlerID: string, elements: cytoscape.ElementsDefinition): string[] {
+export function getExceptionHandlerNodes(project: RefineryProject, exceptionHandlerID: string): string[] {
   const graph = new Graph({
     multigraph: true,
     compound: true
   });
 
-  addCytoscapeElementsToShadowGraph(graph, elements.nodes, elements.edges);
-  return recursiveSuccessorMark(graph, exceptionHandlerID, [exceptionHandlerID]);
+  project.workflow_states.forEach(node => {
+    graph.setNode(node.id);
+  });
+
+  project.workflow_relationships.forEach(edge => {
+    graph.setEdge(edge.node, edge.next, {}, edge.id);
+  });
+
+  return graphlib.alg.preorder(graph, [exceptionHandlerID]);
 }
 
 function getExceptionHandlerEdges(project: RefineryProject, excludedNodeIDs: string[]): WorkflowRelationship[] {
@@ -290,14 +297,13 @@ function getExceptionHandlerEdges(project: RefineryProject, excludedNodeIDs: str
 
   const exceptionHandlerNode = project.global_handlers.exception_handler.id;
 
-  const handlerDoesNotExistInProject = project.workflow_states.filter(w => w.id === exceptionHandlerNode).length === 0;
-  if (handlerDoesNotExistInProject) {
-    console.error('project global exception handler was set, but it does not exist in the project');
-    return [];
+  const matchingHandlerNodes = project.workflow_states.filter(w => w.id === exceptionHandlerNode);
+  if (matchingHandlerNodes.length === 0) {
+    throw new Error('project global exception handler was set, but it does not exist in the project');
   }
 
   function validNodeToAddExceptionHandler(w: WorkflowState) {
-    const validWorkflowState = w.type === WorkflowStateType.LAMBDA || w.type === WorkflowStateType.API_GATEWAY;
+    const validWorkflowState = w.type === WorkflowStateType.LAMBDA;
     const nodeIsNotExcluded = !excludedNodeIDs.includes(w.id);
     return validWorkflowState && nodeIsNotExcluded;
   }
@@ -322,6 +328,6 @@ export function removeGlobalExceptionHandlerTransitions(project: RefineryProject
   const exceptionHandlerId = project.global_handlers.exception_handler.id;
   return {
     ...project,
-    workflow_relationships: [...project.workflow_relationships.filter(r => r.next !== exceptionHandlerId)]
+    workflow_relationships: project.workflow_relationships.filter(r => r.next !== exceptionHandlerId)
   };
 }

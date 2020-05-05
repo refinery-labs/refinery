@@ -47,7 +47,8 @@ export enum ProjectViewGetters {
   getValidEditMenuDisplayTransitionTypes = 'getValidEditMenuDisplayTransitionTypes',
   exportProjectJson = 'exportProjectJson',
   shareProjectUrl = 'shareProjectUrl',
-  getCodeBlockIDs = 'getCodeBlockIDs'
+  getCodeBlockIDs = 'getCodeBlockIDs',
+  exceptionHandlerNodes = 'exceptionHandlerNodes'
 }
 
 export enum ProjectViewMutators {
@@ -77,7 +78,6 @@ export enum ProjectViewMutators {
   setCytoscapeStyle = 'setCytoscapeStyle',
   setCytoscapeLayout = 'setCytoscapeLayout',
   setCytoscapeConfig = 'setCytoscapeConfig',
-  setExceptionHandlerNodes = 'setExceptionHandlerNodes',
   setLeftSidebarPaneState = 'setLeftSidebarPaneState',
   setLeftSidebarPane = 'setLeftSidebarPane',
   setRightSidebarPane = 'setRightSidebarPane',
@@ -151,7 +151,6 @@ export enum ProjectViewActions {
   setProjectConfigRuntimeLanguage = 'setProjectConfigRuntimeLanguage',
   setProjectGlobalExceptionHandler = 'setProjectGlobalExceptionHandler',
   saveProjectConfig = 'saveProjectConfig',
-  nodeIsInExceptionHandler = 'nodeIsInExceptionHandler',
   checkBuildStatus = 'checkBuildStatus',
   startLibraryBuild = 'startLibraryBuild',
   loadProjectConfig = 'loadProjectConfig',
