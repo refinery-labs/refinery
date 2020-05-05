@@ -30,7 +30,7 @@ pluggy==0.13.1
 psycopg2==2.8.5
 py==1.8.1
 pycrypto==2.6.1
-pygobject==3.26.1
+PyGObject==3.36.0
 pyparsing==2.4.7
 pyrsistent==0.16.0
 pystache==0.5.4

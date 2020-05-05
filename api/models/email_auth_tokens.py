@@ -41,7 +41,7 @@ class EmailAuthToken(Base):
         self.id = str(uuid.uuid4())
         self.token = binascii.hexlify(
             os.urandom(32)
-        )
+        ).decode()
         self.expired = False
         self.timestamp = int(time.time())
 

@@ -143,18 +143,15 @@ def execute_aws_lambda(aws_client_factory, credentials, arn, input_data):
     except BaseException:
         pass
 
-    prettify_types = [
-        dict,
-        list
-    ]
-
-    if type(full_response) in prettify_types:
+    if type(full_response) in [dict, list]:
+        # make the response pretty if we can
         full_response = dumps(
             full_response,
             indent=4
         )
-
-    if not isinstance(full_response, str):
+    elif isinstance(full_response, bytes):
+        full_response = full_response.decode('utf-8')
+    else:
         full_response = str(full_response)
 
     # Detect from response if it was an error
@@ -165,7 +162,7 @@ def execute_aws_lambda(aws_client_factory, credentials, arn, input_data):
 
     log_output = b64decode(
         response["LogResult"]
-    )
+    ).decode("utf-8")
 
     # Strip the Lambda stuff from the output
     if "RequestId:" in log_output:
@@ -639,7 +636,7 @@ def get_inline_lambda_hash_key(language, timeout, memory, environment_variables,
         dumps(
             hash_dict,
             sort_keys=True
-        )
+        ).encode('utf-8')
     ).hexdigest()
 
     return hash_key
