@@ -87,12 +87,12 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   public mockNetworkResponses: DemoMockNetworkResponseLookup = {};
 
   get cyTooltips(): CyTooltip[] {
-    return this.tooltips.filter(t => t.type === TooltipType.CyTooltip).map(t => t as CyTooltip);
+    return this.tooltips.filter(t => t.type == TooltipType.CyTooltip).map(t => t as CyTooltip);
   }
 
   get currentHTMLTooltip(): HTMLTooltip | undefined {
     const htmlTooltips = this.tooltips
-      .filter(t => t.visible && t.type === TooltipType.HTMLTooltip)
+      .filter(t => t.visible && t.type == TooltipType.HTMLTooltip)
       .map(t => t as HTMLTooltip);
 
     if (htmlTooltips.length > 0) {
@@ -132,7 +132,7 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
   private doSetCurrentTooltips(tooltips: DemoTooltip[]) {
     resetStoreState(this, baseState);
 
-    if (tooltips.length === 0) {
+    if (tooltips.length == 0) {
       this.tooltips = [];
       return;
     }
@@ -152,7 +152,7 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     }
 
     this.tooltips = this.tooltips.reduce((tooltips: DemoTooltip[], t: DemoTooltip) => {
-      if (t.type === TooltipType.CyTooltip) {
+      if (t.type == TooltipType.CyTooltip) {
         const cyTooltip = t as CyTooltip;
 
         // lookup the position of the tooltip on the canvas
@@ -194,7 +194,7 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
 
   @Mutation
   public progressTooltip() {
-    if (this.tooltips.length === 0) {
+    if (this.tooltips.length == 0) {
       return;
     }
 
@@ -416,9 +416,9 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
       };
     }, {});
 
-    const errorExecs = addExecAction.executions.filter(e => e.status === ExecutionStatusType.EXCEPTION).length;
-    const caughtExecs = addExecAction.executions.filter(e => e.status === ExecutionStatusType.CAUGHT_EXCEPTION).length;
-    const successfulExecs = addExecAction.executions.filter(e => e.status === ExecutionStatusType.SUCCESS).length;
+    const errorExecs = addExecAction.executions.filter(e => e.status == ExecutionStatusType.EXCEPTION).length;
+    const caughtExecs = addExecAction.executions.filter(e => e.status == ExecutionStatusType.CAUGHT_EXCEPTION).length;
+    const successfulExecs = addExecAction.executions.filter(e => e.status == ExecutionStatusType.SUCCESS).length;
     return {
       executions: {
         demo: {

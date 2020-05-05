@@ -70,7 +70,6 @@ export enum ProjectViewMutators {
 
   setProjectLogLevel = 'setProjectLogLevel',
   setProjectRuntimeLanguage = 'setProjectRuntimeLanguage',
-  setProjectGlobalExceptionHandler = 'setProjectGlobalExceptionHandler',
 
   markProjectDirtyStatus = 'markProjectDirtyStatus',
   setCytoscapeElements = 'setCytoscapeElements',
@@ -101,8 +100,6 @@ export enum ProjectViewMutators {
   setValidEditTransitions = 'setValidEditTransitions',
   setEditingTransitionStatus = 'setEditingTransitionStatus',
   setEditingTransitionType = 'setEditingTransitionType',
-
-  setGlobalExceptionHandler = 'setGlobalExceptionHandler',
 
   setWarmupConcurrencyLevel = 'setWarmupConcurrencyLevel',
 
@@ -150,7 +147,6 @@ export enum ProjectViewActions {
   resetPanelStates = 'resetPanelStates',
   setProjectConfigLoggingLevel = 'setProjectConfigLoggingLevel',
   setProjectConfigRuntimeLanguage = 'setProjectConfigRuntimeLanguage',
-  setProjectGlobalExceptionHandler = 'setProjectGlobalExceptionHandler',
   saveProjectConfig = 'saveProjectConfig',
   checkBuildStatus = 'checkBuildStatus',
   startLibraryBuild = 'startLibraryBuild',
@@ -174,8 +170,7 @@ export enum ProjectViewActions {
 
 export enum DeploymentViewGetters {
   hasValidDeployment = 'hasValidDeployment',
-  getSelectedBlock = 'getSelectedBlock',
-  getDeployedAPIEndpoints = 'getDeployedAPIEndpoints'
+  getSelectedBlock = 'getSelectedBlock'
 }
 
 export enum DeploymentViewMutators {

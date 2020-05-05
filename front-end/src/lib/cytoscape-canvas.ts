@@ -113,7 +113,7 @@ const register = function(cytoscape: (extensionName: string, foo: string, bar: a
         const config = tooltip.config as CyConfig;
         const x = config.x + config.offsetX;
         const y = config.y + config.offsetY;
-        return pos.x > x && pos.x < x + img.width && pos.y > y && pos.y < y + img.height;
+        return pos.x > x && pos.x < x + img.width && (pos.y > y && pos.y < y + img.height);
       },
       drawGrid(ctx: CanvasRenderingContext2D) {
         const pan = cy.pan();

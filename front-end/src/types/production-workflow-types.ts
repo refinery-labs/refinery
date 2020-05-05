@@ -1,5 +1,4 @@
 import {
-  GlobalHandlers,
   RefineryProject,
   SupportedLanguage,
   WorkflowFile,
@@ -37,8 +36,6 @@ export interface ProductionTransition {
   type: WorkflowStateType;
   arn: string;
 }
-
-export interface ProductionGlobalHandlers extends GlobalHandlers {}
 
 export type ProductionTransitionLookup = { [key in WorkflowRelationshipType]: ProductionTransition[] };
 

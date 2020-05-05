@@ -198,7 +198,6 @@ export function unwrapProjectJson(response: GetSavedProjectResponse): RefineryPr
       workflow_states: project.workflow_states || [],
       workflow_files: project.workflow_files || [],
       workflow_file_links: project.workflow_file_links || [],
-      global_handlers: project.global_handlers || {},
       version: project.version || 1,
       readme:
         project.readme ||
@@ -212,7 +211,7 @@ export function unwrapProjectJson(response: GetSavedProjectResponse): RefineryPr
 
 export function getIDsOfBlockType(blockType: WorkflowStateType, project: RefineryProject) {
   const matchingWorkflowStates = project.workflow_states.filter(workflow_state => {
-    return workflow_state.type === blockType;
+    return workflow_state.type == blockType;
   });
 
   return matchingWorkflowStates.map(workflow_state => {

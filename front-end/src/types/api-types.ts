@@ -9,7 +9,6 @@ import {
   WorkflowStateType
 } from '@/types/graph';
 import {
-  ProductionGlobalHandlers,
   ProductionWorkflowFile,
   ProductionWorkflowFileLink,
   ProductionWorkflowRelationship,
@@ -182,7 +181,6 @@ export interface ProductionDeploymentRefineryProjectJson {
   workflow_relationships: ProductionWorkflowRelationship[];
   workflow_files: ProductionWorkflowFile[];
   workflow_file_links: ProductionWorkflowFileLink[];
-  global_handlers: ProductionGlobalHandlers;
 }
 
 // GetProjectConfig

@@ -186,10 +186,8 @@ class NewRegistration(BaseHandler):
             self.logger(e)
             self.write({
                 "success": False,
-                "result": {
-                    "code": "INVALID_CARD_ERROR",
-                    "msg": "Invalid payment information!"
-                }
+                "code": "INVALID_CARD_ERROR",
+                "msg": "Invalid payment information!"
             })
             self.dbsession.rollback()
             raise gen.Return()
@@ -198,10 +196,8 @@ class NewRegistration(BaseHandler):
             self.logger(e)
             self.write({
                 "success": False,
-                "result": {
-                    "code": "GENERIC_STRIPE_ERROR",
-                    "msg": "An error occurred while communicating with the Stripe API."
-                }
+                "code": "GENERIC_STRIPE_ERROR",
+                "msg": "An error occurred while communicating with the Stripe API."
             })
             self.dbsession.rollback()
             raise gen.Return()
@@ -210,10 +206,8 @@ class NewRegistration(BaseHandler):
             self.logger(e)
             self.write({
                 "success": False,
-                "result": {
-                    "code": "UNKNOWN_ERROR",
-                    "msg": "Some unknown error occurred, this shouldn't happen!"
-                }
+                "code": "UNKNOWN_ERROR",
+                "msg": "Some unknown error occurred, this shouldn't happen!"
             })
             self.dbsession.rollback()
             raise gen.Return()

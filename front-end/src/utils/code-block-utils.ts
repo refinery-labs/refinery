@@ -33,20 +33,28 @@ export function getLinkForArn(arn: string) {
   const parsedArn = parseArn(arn);
 
   if (parsedArn.resourceType === 'sns') {
-    return `https://${parsedArn.awsRegion}.console.aws.amazon.com/sns/v2/home?region=${parsedArn.awsRegion}#/topic/${parsedArn.fullArn}`;
+    return `https://${parsedArn.awsRegion}.console.aws.amazon.com/sns/v2/home?region=${parsedArn.awsRegion}#/topic/${
+      parsedArn.fullArn
+    }`;
   }
 
   if (parsedArn.resourceType === 'lambda') {
-    return `https://${parsedArn.awsRegion}.console.aws.amazon.com/lambda/home?region=${parsedArn.awsRegion}#/functions/${parsedArn.resourceName}?tab=graph`;
+    return `https://${parsedArn.awsRegion}.console.aws.amazon.com/lambda/home?region=${
+      parsedArn.awsRegion
+    }#/functions/${parsedArn.resourceName}?tab=graph`;
   }
 
   // Timer block
   if (parsedArn.resourceType === 'events') {
-    return `https://${parsedArn.awsRegion}.console.aws.amazon.com/cloudwatch/home?region=${parsedArn.awsRegion}#rules:name=${parsedArn.resourceName}`;
+    return `https://${parsedArn.awsRegion}.console.aws.amazon.com/cloudwatch/home?region=${
+      parsedArn.awsRegion
+    }#rules:name=${parsedArn.resourceName}`;
   }
 
   if (parsedArn.resourceType === 'sqs') {
-    return `https://console.aws.amazon.com/sqs/home?region=${parsedArn.awsRegion}#queue-browser:selected=https://sqs.${parsedArn.awsRegion}.amazonaws.com/${parsedArn.accountId}/${parsedArn.resourceName};prefix=`;
+    return `https://console.aws.amazon.com/sqs/home?region=${parsedArn.awsRegion}#queue-browser:selected=https://sqs.${
+      parsedArn.awsRegion
+    }.amazonaws.com/${parsedArn.accountId}/${parsedArn.resourceName};prefix=`;
   }
 
   return null;
@@ -59,7 +67,9 @@ export function getMonitorLinkForCodeBlockArn(arn: string) {
     return null;
   }
 
-  return `https://${parsedArn.awsRegion}.console.aws.amazon.com/lambda/home?region=${parsedArn.awsRegion}#/functions/${parsedArn.resourceName}?tab=monitoring`;
+  return `https://${parsedArn.awsRegion}.console.aws.amazon.com/lambda/home?region=${parsedArn.awsRegion}#/functions/${
+    parsedArn.resourceName
+  }?tab=monitoring`;
 }
 
 export function getCloudWatchLinkForCodeBlockArn(arn: string) {
@@ -69,5 +79,7 @@ export function getCloudWatchLinkForCodeBlockArn(arn: string) {
     return null;
   }
 
-  return `https://${parsedArn.awsRegion}.console.aws.amazon.com/cloudwatch/home?region=${parsedArn.awsRegion}#logStream:group=/aws/lambda/${parsedArn.resourceName};streamFilter=typeLogStreamPrefix`;
+  return `https://${parsedArn.awsRegion}.console.aws.amazon.com/cloudwatch/home?region=${
+    parsedArn.awsRegion
+  }#logStream:group=/aws/lambda/${parsedArn.resourceName};streamFilter=typeLogStreamPrefix`;
 }

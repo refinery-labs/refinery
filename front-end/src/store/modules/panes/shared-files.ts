@@ -32,7 +32,7 @@ export function isSharedFileNameValid(fileName: string) {
     return null;
   }
 
-  if (fileName.trim() === '' || !validFileNameRegex.test(fileName)) {
+  if (fileName.trim() == '' || !validFileNameRegex.test(fileName)) {
     return false;
   }
 

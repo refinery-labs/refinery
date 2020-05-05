@@ -33,7 +33,7 @@ function validatePathHasLeadingSlash(apiPath: string) {
 }
 
 function validatePathTail(apiPath: string) {
-  if (apiPath !== '/' && apiPath.endsWith('/')) {
+  if (apiPath != '/' && apiPath.endsWith('/')) {
     return apiPath.slice(0, -1);
   }
   return apiPath;
@@ -163,53 +163,59 @@ export async function safelyDuplicateBlock(
     const newIds = existingEnvVariableIds.map(() => uuid());
 
     // Go through the existing env variable IDs and give them new IDs
-    duplicateLambdaBlock.environment_variables = existingEnvVariableIds.reduce((newEnvVars, oldId, index) => {
-      const newId = newIds[index];
+    duplicateLambdaBlock.environment_variables = existingEnvVariableIds.reduce(
+      (newEnvVars, oldId, index) => {
+        const newId = newIds[index];
 
-      // Look for any matching overrides
-      const foundMatchingOverride =
-        overrideEnvironmentVariables && overrideEnvironmentVariables.find(t => t.id === oldId);
+        // Look for any matching overrides
+        const foundMatchingOverride =
+          overrideEnvironmentVariables && overrideEnvironmentVariables.find(t => t.id === oldId);
 
-      // If we have an override specified, flesh that out.
-      const newValue: BlockEnvironmentVariable = !foundMatchingOverride
-        ? duplicateLambdaBlock.environment_variables[oldId]
-        : {
-            required: foundMatchingOverride.required,
-            description: foundMatchingOverride.description,
-            name: foundMatchingOverride.name,
-            original_id: foundMatchingOverride.original_id
-          };
+        // If we have an override specified, flesh that out.
+        const newValue: BlockEnvironmentVariable = !foundMatchingOverride
+          ? duplicateLambdaBlock.environment_variables[oldId]
+          : {
+              required: foundMatchingOverride.required,
+              description: foundMatchingOverride.description,
+              name: foundMatchingOverride.name,
+              original_id: foundMatchingOverride.original_id
+            };
 
-      // Replace the value under the new ID
-      newEnvVars[newId] = {
-        ...newValue,
-        // This copy lets us associate environment variables later
-        original_id: oldId
-      };
+        // Replace the value under the new ID
+        newEnvVars[newId] = {
+          ...newValue,
+          // This copy lets us associate environment variables later
+          original_id: oldId
+        };
 
-      return newEnvVars;
-    }, {} as BlockEnvironmentVariableList);
+        return newEnvVars;
+      },
+      {} as BlockEnvironmentVariableList
+    );
 
     // Go through the project config and create new IDs for the environment variables, while preserving the values
-    const newProjectConfigVars = existingEnvVariableIds.reduce((newEnvVars, oldId, index) => {
-      const newId = newIds[index];
+    const newProjectConfigVars = existingEnvVariableIds.reduce(
+      (newEnvVars, oldId, index) => {
+        const newId = newIds[index];
 
-      // Look for any matching overrides
-      const foundMatchingOverride =
-        overrideEnvironmentVariables && overrideEnvironmentVariables.find(t => t.id === oldId);
+        // Look for any matching overrides
+        const foundMatchingOverride =
+          overrideEnvironmentVariables && overrideEnvironmentVariables.find(t => t.id === oldId);
 
-      // Override values take precedence
-      const existingValue = foundMatchingOverride || duplicateOfProjectConfig.environment_variables[oldId];
+        // Override values take precedence
+        const existingValue = foundMatchingOverride || duplicateOfProjectConfig.environment_variables[oldId];
 
-      const newValue: ProjectConfigEnvironmentVariable = {
-        value: existingValue && existingValue.value !== undefined ? existingValue.value : '',
-        timestamp: Date.now()
-      };
+        const newValue: ProjectConfigEnvironmentVariable = {
+          value: existingValue && existingValue.value !== undefined ? existingValue.value : '',
+          timestamp: Date.now()
+        };
 
-      newEnvVars[newId] = deepJSONCopy(newValue);
+        newEnvVars[newId] = deepJSONCopy(newValue);
 
-      return newEnvVars;
-    }, {} as ProjectEnvironmentVariableList);
+        return newEnvVars;
+      },
+      {} as ProjectEnvironmentVariableList
+    );
 
     // Merge the new list of variables with the old one.
     duplicateOfProjectConfig.environment_variables = {
@@ -239,17 +245,20 @@ export async function safelyDuplicateBlock(
 
 // Creates a lookup of environment variables IDs from current ID -> original ID
 export function associateBlockConfigVariables(block: LambdaWorkflowState) {
-  return Object.keys(block.environment_variables).reduce((newEnvVars, oldId) => {
-    const currentVariable = block.environment_variables[oldId];
+  return Object.keys(block.environment_variables).reduce(
+    (newEnvVars, oldId) => {
+      const currentVariable = block.environment_variables[oldId];
 
-    const originalId = currentVariable && currentVariable.original_id;
+      const originalId = currentVariable && currentVariable.original_id;
 
-    // Take the original block env variable ID and map that to the "original id"
-    // This lets us pull in config when we update a saved block
-    newEnvVars[oldId] = originalId ? originalId : oldId;
+      // Take the original block env variable ID and map that to the "original id"
+      // This lets us pull in config when we update a saved block
+      newEnvVars[oldId] = originalId ? originalId : oldId;
 
-    return newEnvVars;
-  }, {} as { [key: string]: string });
+      return newEnvVars;
+    },
+    {} as { [key: string]: string }
+  );
 }
 
 export function updateBlockWithNewSavedBlockVersion(
@@ -346,17 +355,20 @@ export function updateBlockWithNewSavedBlockVersion(
 
 // Replaces the IDs of environment variables with the original ID
 export function replaceBlockConfigVariableIds(list: BlockEnvironmentVariableList, lookup: { [key: string]: string }) {
-  return Object.keys(list).reduce((output, id) => {
-    const lookupMatch = lookup[id];
+  return Object.keys(list).reduce(
+    (output, id) => {
+      const lookupMatch = lookup[id];
 
-    const { original_id, ...rest } = list[id];
+      const { original_id, ...rest } = list[id];
 
-    output[lookupMatch] = {
-      ...rest
-    };
+      output[lookupMatch] = {
+        ...rest
+      };
 
-    return output;
-  }, {} as BlockEnvironmentVariableList);
+      return output;
+    },
+    {} as BlockEnvironmentVariableList
+  );
 }
 
 export function createBlockDataForPublishedSavedBlock(

@@ -12,14 +12,13 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
   linkCopiedIconVisible = false;
 
   @Prop({ required: true }) name!: string;
-  @Prop({ required: true }) lang!: SupportedLanguage | 'text' | 'json' | 'markdown' | 'shell';
+  @Prop({ required: true }) lang!: SupportedLanguage | 'text' | 'json' | 'markdown';
   @Prop({ required: true }) content!: string;
   @Prop() theme?: string;
   @Prop() onChange?: (s: string) => void;
   @Prop() fullscreenToggled?: () => void;
   @Prop({ default: false }) disableFullscreen!: boolean;
   @Prop({ default: false }) tailOutput!: boolean;
-  @Prop({ default: false }) lineNumbers!: boolean;
 
   // Ace Props
   @Prop() readOnly?: boolean;
@@ -80,8 +79,7 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
       theme: this.theme || 'vs-dark',
       automaticLayout: true,
       onChange: this.onChange,
-      tailOutput: this.tailOutput,
-      lineNumbers: this.lineNumbers
+      tailOutput: this.tailOutput
     };
 
     return (

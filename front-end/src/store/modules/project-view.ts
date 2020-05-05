@@ -422,19 +422,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         default_language: projectRuntimeLanguage
       };
     },
-    [ProjectViewMutators.setProjectGlobalExceptionHandler](state, nodeId: string | null) {
-      if (!state.openedProject) {
-        return;
-      }
-      if (!nodeId) {
-        state.openedProject.global_handlers.exception_handler = undefined;
-        return;
-      }
-
-      state.openedProject.global_handlers.exception_handler = {
-        id: nodeId
-      };
-    },
 
     // Deployment Logic
     [ProjectViewMutators.setLatestDeploymentState](state, response: GetLatestProjectDeploymentResponse | null) {
@@ -538,18 +525,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Save new config to the backend
       await context.dispatch(ProjectViewActions.saveProjectConfig);
     },
-    async [ProjectViewActions.setProjectGlobalExceptionHandler](context, nodeId: string | null) {
-      await context.commit(ProjectViewMutators.setProjectGlobalExceptionHandler, nodeId);
-
-      await context.commit(ProjectViewMutators.markProjectDirtyStatus, true);
-      await context.dispatch(ProjectViewActions.saveProject);
-
-      await createToast(context.dispatch, {
-        title: 'Project Config Updated',
-        content: 'Project settings saved successfully!',
-        variant: ToastVariant.success
-      });
-    },
     async [ProjectViewActions.setIfExpression](context, ifExpressionValue: string) {
       await context.commit(ProjectViewMutators.setIfExpression, ifExpressionValue);
     },
@@ -629,7 +604,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
           workflow_files: [],
           workflow_file_links: [],
           demo_walkthrough: [],
-          global_handlers: {},
           readme: ``,
           // Merge in the JSON object and setup other properties with new values
           ...demoProject,
@@ -1070,7 +1044,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const existingFileLinks = openedProject.workflow_file_links.filter(workflow_file_link => {
         return (
           workflow_file_link.node === addSharedFileLinkArgs.node &&
-          workflow_file_link.file_id === addSharedFileLinkArgs.file_id
+          workflow_file_link.file_id == addSharedFileLinkArgs.file_id
         );
       });
 

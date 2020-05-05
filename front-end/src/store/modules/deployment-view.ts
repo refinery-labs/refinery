@@ -32,8 +32,6 @@ import { getLatestProjectDeployment, teardownProject } from '@/store/fetchers/ap
 import { deepJSONCopy } from '@/lib/general-utils';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
 import { DemoWalkthroughStoreModule } from '@/store';
-import { WorkflowStateType } from '@/types/graph';
-import { ProductionApiEndpointWorkflowState } from '@/types/production-workflow-types';
 
 const moduleState: DeploymentViewState = {
   openedDeployment: null,
@@ -81,15 +79,6 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
 
       // Will only return a Block and automatically excludes edges
       return getNodeDataById(state.openedDeployment, state.selectedResource);
-    },
-    [DeploymentViewGetters.getDeployedAPIEndpoints]: state => {
-      if (!state.openedDeployment) {
-        return null;
-      }
-      // Filter workflow states to only have endpoints and then cast them
-      return state.openedDeployment.workflow_states.filter(
-        e => e.type === WorkflowStateType.API_ENDPOINT
-      ) as ProductionApiEndpointWorkflowState[];
     }
   },
   mutations: {

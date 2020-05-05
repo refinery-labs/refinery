@@ -395,7 +395,7 @@ export async function openProject(request: GetSavedProjectRequest) {
             ...cyTooltip.config
           }
         };
-      } else if (t.type === TooltipType.HTMLTooltip) {
+      } else if (t.type == TooltipType.HTMLTooltip) {
         const htmlTooltip = t as HTMLTooltip;
         return {
           ...htmlTooltip,
@@ -501,7 +501,7 @@ export async function deployProject({ project, projectConfig }: DeployProjectPar
   });
 
   if (!response || !response.success) {
-    if (response && response.code && response.code === DeployDiagramResponseCode.DeploymentLockFailure) {
+    if (response && response.code && response.code == DeployDiagramResponseCode.DeploymentLockFailure) {
       throw new Error('Deployment is currently in progress for this project.');
     }
     throw new Error('Unable to create new deployment.');

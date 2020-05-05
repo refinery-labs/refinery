@@ -46,7 +46,7 @@ function classOnlyConverter<T extends WorkflowState>(classname: string): (e: Wor
 }
 
 export type WorkflowStateTypeConverterLookup = {
-  [key in WorkflowStateType]: ((w: WorkflowState) => NodeDefinition) | null;
+  [key in WorkflowStateType]: ((w: WorkflowState) => NodeDefinition) | null
 };
 
 /**
