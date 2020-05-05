@@ -55,13 +55,10 @@ function createLogsGroupedByBlockId(project: RefineryProject, executionResult: G
   const pairedExecutionWithBlock = pairExecutionWithBlock(project, executionResult);
 
   // Put the ID of the element as the key and the execution result as the value.
-  const executionTuplesByBlockId = pairedExecutionWithBlock.reduce(
-    (acc, elem) => {
-      acc[elem.block.id] = elem;
-      return acc;
-    },
-    {} as { [key: string]: BlockExecutionTuple }
-  );
+  const executionTuplesByBlockId = pairedExecutionWithBlock.reduce((acc, elem) => {
+    acc[elem.block.id] = elem;
+    return acc;
+  }, {} as { [key: string]: BlockExecutionTuple });
 
   // Iterate through the Object's values and create a BlockExecutionGroup from the values.
   return R.mapObjIndexed(({ block, execution }: BlockExecutionTuple) => {

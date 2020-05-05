@@ -98,27 +98,21 @@ export class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeS
   @Mutation
   public removeJobForBlock(jobToRemove: FileWatchJobState) {
     // Remove the job from the list
-    this.jobIdToJobStateLookup = Object.values(this.jobIdToJobStateLookup).reduce(
-      (jobLookup, jobState) => {
-        // Add back every job that isn't the one we want to remove.
-        if (jobState.jobId !== jobToRemove.jobId) {
-          jobLookup[jobState.jobId] = jobState;
-        }
+    this.jobIdToJobStateLookup = Object.values(this.jobIdToJobStateLookup).reduce((jobLookup, jobState) => {
+      // Add back every job that isn't the one we want to remove.
+      if (jobState.jobId !== jobToRemove.jobId) {
+        jobLookup[jobState.jobId] = jobState;
+      }
 
-        return jobLookup;
-      },
-      {} as JobIdToJobState
-    );
+      return jobLookup;
+    }, {} as JobIdToJobState);
 
     // Go through the new list of jobs and create the association
-    this.blockIdToJobIdLookup = Object.values(this.jobIdToJobStateLookup).reduce(
-      (blockLookup, jobState) => {
-        // Create the association for the lookup
-        blockLookup[jobState.blockId] = jobState.jobId;
-        return blockLookup;
-      },
-      {} as BlockIdToJobId
-    );
+    this.blockIdToJobIdLookup = Object.values(this.jobIdToJobStateLookup).reduce((blockLookup, jobState) => {
+      // Create the association for the lookup
+      blockLookup[jobState.blockId] = jobState.jobId;
+      return blockLookup;
+    }, {} as BlockIdToJobId);
   }
 
   @Mutation

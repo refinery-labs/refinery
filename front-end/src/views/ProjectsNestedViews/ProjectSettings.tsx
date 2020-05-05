@@ -1,8 +1,14 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
-import { ProjectConfig, ProjectLogLevel, SupportedLanguage } from '@/types/graph';
+import {
+  LambdaWorkflowState,
+  ProjectConfig,
+  ProjectLogLevel,
+  RefineryProject,
+  SupportedLanguage,
+  WorkflowStateType
+} from '@/types/graph';
 import { namespace } from 'vuex-class';
-import { languages } from 'monaco-editor';
 import Loading from '@/components/Common/Loading.vue';
 import { LoadingContainerProps } from '@/types/component-types';
 
@@ -10,10 +16,14 @@ const project = namespace('project');
 
 @Component
 export default class ProjectSettings extends Vue {
+  @project.State openedProject!: RefineryProject | null;
   @project.State openedProjectConfig!: ProjectConfig | null;
 
   @project.Action setProjectConfigLoggingLevel!: (projectConfigLoggingLevel: ProjectLogLevel) => void;
   @project.Action setProjectConfigRuntimeLanguage!: (projectConfigRuntimeLanguage: SupportedLanguage) => void;
+  @project.Action setProjectGlobalExceptionHandler!: (nodeId: string | null) => void;
+
+  private isSettingGlobalExceptionHandler: boolean = false;
 
   private getLogLevelValue() {
     // TODO: Move this business logic to an action in the store.
@@ -29,6 +39,29 @@ export default class ProjectSettings extends Vue {
       return SupportedLanguage.NODEJS_8;
     }
     return this.openedProjectConfig.default_language;
+  }
+
+  private getGlobalExceptionHandler(): string | undefined {
+    if (!this.openedProject || !this.openedProject.global_handlers.exception_handler) {
+      return undefined;
+    }
+    return this.openedProject.global_handlers.exception_handler.id;
+  }
+
+  private getLambdaWorkflowStates(): LambdaWorkflowState[] {
+    if (!this.openedProject) {
+      return [];
+    }
+    return this.openedProject.workflow_states
+      .filter(w => w.type == WorkflowStateType.LAMBDA)
+      .map(w => w as LambdaWorkflowState);
+  }
+
+  private async setIsSettingGlobalExceptionHandler(checked: boolean) {
+    this.isSettingGlobalExceptionHandler = checked;
+    if (!checked) {
+      await this.setProjectGlobalExceptionHandler(null);
+    }
   }
 
   private renderLogLevel() {
@@ -75,6 +108,43 @@ export default class ProjectSettings extends Vue {
     );
   }
 
+  public renderGlobalExceptionHandler() {
+    const globalExceptionHandler = this.getGlobalExceptionHandler();
+
+    const exceptionHandlerToggleChecked = globalExceptionHandler !== undefined || this.isSettingGlobalExceptionHandler;
+    const disabledExceptionHandlerSelect =
+      globalExceptionHandler === undefined && !this.isSettingGlobalExceptionHandler;
+
+    const handlerOptions = this.getLambdaWorkflowStates().map(w => ({
+      value: w.id,
+      text: w.name
+    }));
+
+    return (
+      <b-form-group>
+        <b-form-checkbox
+          id="global-exception-handler-toggle"
+          on={{ change: this.setIsSettingGlobalExceptionHandler }}
+          disabled={false}
+          checked={exceptionHandlerToggleChecked}
+        >
+          Use a Default Exception Handler Block
+        </b-form-checkbox>
+        <small>
+          Enabling this will add an exception transition to all blocks <em>without an exception transition</em> by
+          default. All unhandled exceptions will be handled by the block chosen below.
+        </small>
+        <b-form-select
+          id="logging-level-input-select"
+          value={globalExceptionHandler}
+          on={{ change: this.setProjectGlobalExceptionHandler }}
+          disabled={disabledExceptionHandlerSelect}
+          options={handlerOptions}
+        />
+      </b-form-group>
+    );
+  }
+
   private renderSettingsCard(name: string) {
     const missingProjectConfig = this.openedProjectConfig === null;
     const loadingProps: LoadingContainerProps = {
@@ -89,6 +159,7 @@ export default class ProjectSettings extends Vue {
           <div class="card-body text-align--left">
             {this.renderLogLevel()}
             {this.renderRuntimeLanguage()}
+            {this.renderGlobalExceptionHandler()}
           </div>
         </div>
       </Loading>

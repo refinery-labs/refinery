@@ -84,6 +84,7 @@ export interface MonacoLanguageLookup extends SupportedLanguageToAceLang {
   text: 'text';
   json: 'json';
   markdown: 'markdown';
+  shell: 'shell';
 }
 
 export const languageToAceLangMap: MonacoLanguageLookup = {
@@ -97,7 +98,8 @@ export const languageToAceLangMap: MonacoLanguageLookup = {
   [SupportedLanguage.RUBY2_6_4]: 'ruby',
   text: 'text',
   json: 'json',
-  markdown: 'markdown'
+  markdown: 'markdown',
+  shell: 'shell'
 };
 
 export type LanguageToBaseRepoURL = { [key in SupportedLanguage]: string | null };

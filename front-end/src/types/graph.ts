@@ -16,6 +16,7 @@ export interface RefineryProject {
   workflow_relationships: WorkflowRelationship[];
   workflow_files: WorkflowFile[];
   workflow_file_links: WorkflowFileLink[];
+  global_handlers: GlobalHandlers;
   demo_walkthrough?: DemoTooltip[];
 }
 
@@ -141,6 +142,14 @@ export interface WorkflowRelationship extends BaseRefineryResource {
   type: WorkflowRelationshipType;
   next: string;
   expression: string;
+}
+
+export interface GlobalHandlers {
+  exception_handler?: GlobalExceptionHandler;
+}
+
+export interface GlobalExceptionHandler {
+  id: string;
 }
 
 export interface ProjectConfig {
