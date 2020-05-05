@@ -12,6 +12,7 @@ class MockAWSDependenciesHolder:
     sns_manager = None
     sqs_manager = None
     preterraform_manager = None
+    sts_client = None
 
     @pinject.copy_args_to_public_fields
     def __init__(
@@ -23,7 +24,8 @@ class MockAWSDependenciesHolder:
         schedule_trigger_manager,
         sns_manager,
         sqs_manager,
-        preterraform_manager
+        preterraform_manager,
+        sts_client
     ):
         pass
 
@@ -59,4 +61,8 @@ class MockAWSDependencies(pinject.BindingSpec):
 
     @pinject.provides("preterraform_manager")
     def provide_preterraform_manager(self):
+        return MagicMock()
+
+    @pinject.provides("sts_client")
+    def provide_sts_client(self):
         return MagicMock()

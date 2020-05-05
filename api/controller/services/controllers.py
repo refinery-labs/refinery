@@ -63,18 +63,18 @@ class AssumeRoleCredentials(BaseHandler):
                 self.logger(boto_error.response)
                 raise boto_error
 
-        if assumed_role_credentials:
+        if not assumed_role_credentials:
             self.write({
-                "success": True,
-                "access_key_id": assumed_role_credentials["access_key_id"],
-                "secret_access_key": assumed_role_credentials["secret_access_key"],
-                "session_token": assumed_role_credentials["session_token"]
+                "success": False,
+                "msg": "Unable to get assume role credentials for provided account"
             })
             raise gen.Return()
 
         self.write({
-            "success": False,
-            "msg": "Unable to get assume role credentials for provided account"
+            "success": True,
+            "access_key_id": assumed_role_credentials["access_key_id"],
+            "secret_access_key": assumed_role_credentials["secret_access_key"],
+            "session_token": assumed_role_credentials["session_token"]
         })
 
 

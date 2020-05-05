@@ -15,9 +15,6 @@ class TestAWS(ServerUnitTestBase, AsyncHTTPTestCase):
     mock_aws = None
     mock_task_spawner = None
 
-    def __init__(self, *args, **kwargs):
-        super(TestAWS, self).__init__(*args, **kwargs)
-
     def setUp(self):
         super(TestAWS, self).setUp()
 
