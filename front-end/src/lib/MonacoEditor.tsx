@@ -7,6 +7,7 @@ import elementResizeDetector from 'element-resize-detector';
 import IModelContentChangedEvent = monaco.editor.IModelContentChangedEvent;
 import { timeout } from '@/utils/async-utils';
 import { IScrollEvent } from 'monaco-editor';
+import { MonacoEditorLineNumbers, MonacoEditorWordWrap } from '@/types/monaco-types';
 
 export interface MonacoEditorProps {
   readOnly?: boolean;
@@ -122,10 +123,9 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
 
   initMonaco() {
     // Annoying... But this satisfies the Typescript beast.
-    const wordWrap: 'off' | 'on' | 'wordWrapColumn' | 'bounded' = this.wordWrap ? 'on' : 'off';
-    const lineNumbers: 'on' | 'off' | 'relative' | 'interval' | ((lineNumber: number) => string) = this.lineNumbers
-      ? 'on'
-      : 'off';
+    const wordWrap: MonacoEditorWordWrap = this.wordWrap ? 'on' : 'off';
+    const lineNumbers: MonacoEditorLineNumbers =
+      this.lineNumbers !== undefined ? (this.lineNumbers ? 'on' : 'off') : 'on';
 
     const options = Object.assign(
       {},
