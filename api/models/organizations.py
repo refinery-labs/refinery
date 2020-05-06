@@ -62,6 +62,15 @@ class Organization(Base):
         cascade="all, delete-orphan"
     )
 
+    # Git Repos owned by the organization
+    git_repos = relationship(
+        "GitRepoModel",
+        lazy="dynamic",
+        # When an org is deleted, all git repos accounts should be deleted too
+        cascade="all, delete-orphan",
+        backref="organizations"
+    )
+
     timestamp = Column(Integer())
 
     def __init__(self):

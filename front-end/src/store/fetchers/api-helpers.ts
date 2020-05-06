@@ -72,8 +72,6 @@ import {
   TooltipType
 } from '@/types/demo-walkthrough-types';
 import { DemoWalkthroughStoreModule } from '@/store';
-import { languages } from 'monaco-editor';
-import html = languages.html;
 import { sub, getUnixTime, fromUnixTime } from 'date-fns';
 
 export interface LibraryBuildArguments {

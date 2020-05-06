@@ -8,7 +8,7 @@ from cached_billing_items import CachedBillingItem
 from cached_execution_logs_shard import CachedExecutionLogsShard
 from deployments import Deployment
 from email_auth_tokens import EmailAuthToken
-from git_repos import GitRepoModel
+from git_repo import GitRepoModel
 from inline_execution_lambdas import InlineExecutionLambda
 from organizations import Organization
 from project_config import ProjectConfig

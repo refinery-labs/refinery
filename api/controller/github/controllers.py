@@ -1,10 +1,9 @@
+import pinject
 from tornado import gen
 
 from assistants.github.github_assistant import GithubAssistant
-from controller.base import BaseHandler, pinject
-from controller.decorators import authenticated
+from controller.base import BaseHandler
 from controller.github.decorators import github_authenticated
-from controller.github.github_utils import get_existing_github_oauth_user_data
 
 
 class GithubListUserReposDependencies:
@@ -21,7 +20,6 @@ class GithubListUserRepos(BaseHandler):
     @gen.coroutine
     @github_authenticated
     def get( self, oauth_token, oauth_json_data ):
-        print(oauth_token, oauth_json_data);
 
         repos = yield self.github_assistant.list_repos_for_user(oauth_token)
         self.write({

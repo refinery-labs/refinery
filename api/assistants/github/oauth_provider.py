@@ -25,8 +25,11 @@ from tornado import httpclient
 
 
 class GithubOAuthProviderBindingSpec(pinject.BindingSpec):
+    def configure(self, bind):
+        pass
+
     @pinject.provides("github_oauth_provider")
-    def provide_torando_config( self, app_config, logger ):
+    def provide_tornado_config( self, app_config, logger ):
         return GithubOAuthProvider(app_config, logger)
 
 

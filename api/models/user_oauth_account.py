@@ -20,7 +20,6 @@ class UserOAuthAccountModel(Base):
 
     provider = Column(Enum(OAuthProvider), nullable=False)
 
-    # Parent organization the user belongs to
     user_id = Column(
         TEXT(),
         ForeignKey(

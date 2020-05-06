@@ -35,7 +35,6 @@ import { RunLambdaActions, RunLambdaMutators } from '@/store/modules/run-lambda'
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 import cytoscape from 'cytoscape';
 import { UnauthViewProjectStoreModule } from '@/store';
-import { languages } from 'monaco-editor';
 import { LoggingAction } from '@/lib/LoggingMutation';
 
 export interface DemoWalkthroughState {

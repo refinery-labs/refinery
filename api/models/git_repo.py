@@ -19,12 +19,24 @@ class GitRepoModel(Base):
         primary_key=True
     )
 
-    date_added = Column(Integer(), nullable=False)
+    """
+    This ID is used by us to keep track of the data received about a repo.
+    """
+    repo_data_record_id = Column(
+        TEXT(),
+        nullable=False
+    )
 
-    name = Column(TEXT(), nullable=False)
-    description = Column(TEXT(), nullable=False)
+    # One user can have many Git repo data records
+    git_repo_data_records = relationship(
+        "GitRepoDataRecordsModel",
+        lazy="dynamic",
+        # When a repo is deleted all repo data should be deleted as well.
+        cascade="all, delete-orphan",
+        backref="git_repos"
+    )
 
-    # Parent organization the user belongs to
+    # Parent organization the repo belongs to
     organization_id = Column(
         TEXT(),
         ForeignKey(
@@ -33,32 +45,26 @@ class GitRepoModel(Base):
         nullable=False
     )
 
-    def __init__(self, organization_id, name, description):
+    organization = relationship("Organization", back_populates="git_repos")
+
+    def __init__(self, repo_data_record_id, organization_id):
         if organization_id is None or organization_id is "":
             raise InvalidModelCreationError("Must provide 'organization_id' when creating git repo")
 
-        if name is None or name is "":
-            raise InvalidModelCreationError("Must provide 'name' when creating git repo")
-
-        if description is None or description is "":
-            raise InvalidModelCreationError("Must provide 'description' when creating git repo")
+        if repo_data_record_id is None or repo_data_record_id is "":
+            raise InvalidModelCreationError("Must provide 'repo_data_record_id' when creating git repo")
 
         self.organization_id = str(organization_id)
 
-        self.name = str(name)
-        self.description = str(description)
+        self.repo_data_record_id = str(repo_data_record_id)
 
         self.id = str(uuid.uuid4())
-
-        self.date_added = int(time.time())
 
     def to_dict(self):
         exposed_attributes = [
             "id",
-            "description",
-            "name",
             "organization_id",
-            "date_added"
+            "repo_data_record_id"
         ]
 
         json_attributes = []

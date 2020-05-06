@@ -22,7 +22,7 @@ from assistants.github.github_assistant import GithubAssistant
 from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from assistants.user_creation_assistant import UserCreationAssistant
 from config.provider import ConfigBindingSpec
-from services.github.oauth_provider import GithubOAuthProviderBindingSpec
+from assistants.github.oauth_provider import GithubOAuthProviderBindingSpec
 from services.auth.oauth_service import OAuthServiceBindingSpec
 
 from services.aws.clients import AWSClientBindingSpec
@@ -64,7 +64,7 @@ if __name__ == "__main__":
     logit("Starting the Refinery service...", "info")
 
     """
-    NOTE: Classes added here must have camel casing without two capitol letters back to back.
+    NOTE: Classes added here must have camel casing without two capital letters back to back.
 
     For example, the name "AWSManager" would not be valid as "A" is followed by another uppercase
     letter "W". We would write this class as "AwsManager". Alternatively, you can create a

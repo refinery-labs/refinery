@@ -5,12 +5,16 @@ const aliases = {};
 const transpileDependencies = [];
 
 // General plugins for all environments
-const plugins = [new MonacoEditorPlugin(['javascript', 'php', 'python', 'go', 'json', 'markdown', 'ruby'])];
+const plugins = [
+  new MonacoEditorPlugin({
+    filename: '[name]-[hash].worker.js',
+    publicPath: '/manifest/',
+    languages: ['javascript', 'php', 'python', 'go', 'json', 'markdown', 'ruby']
+  })
+];
 
 // These plugins are for only production
 if (process.env.NODE_ENV === 'production') {
-  const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
-  plugins.push(new BundleAnalyzerPlugin());
   plugins.push(
     new webpack.SourceMapDevToolPlugin({
       // Local daemon address for retrieving sourcemaps from private S3 bucket.
@@ -18,9 +22,6 @@ if (process.env.NODE_ENV === 'production') {
       filename: '[file].map[query]'
     })
   );
-
-  aliases['bootstrap-vue$'] = 'bootstrap-vue/src/index.js';
-  transpileDependencies.push('bootstrap-vue');
 }
 
 module.exports = {

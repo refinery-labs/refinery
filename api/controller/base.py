@@ -217,6 +217,7 @@ class BaseHandler(TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler):
         )
 
     def get_authenticated_user( self ):
+        # type: () -> User or None
         """
         Grabs the currently authenticated user
 
