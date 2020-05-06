@@ -1,1 +1,1 @@
-/usr/bin/python -u /work/server.py
+/usr/bin/python3 -u /work/server.py

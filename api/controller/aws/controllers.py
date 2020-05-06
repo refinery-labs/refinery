@@ -259,7 +259,7 @@ class RunTmpLambda(BaseHandler):
 
             # Clearer logging for raw Lambda error output
             if "logs" in lambda_result:
-                print(lambda_result["logs"])
+                print((lambda_result["logs"]))
 
             self.write({
                 "success": False,

@@ -1,4 +1,4 @@
-from initiate_database import *
+from .initiate_database import *
 import random
 import string
 import json

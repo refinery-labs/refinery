@@ -123,7 +123,7 @@ def start_python36_codebuild(aws_client_factory, credentials, libraries_object):
     )
 
     requirements_text = ""
-    for key, value in libraries_object.iteritems():
+    for key, value in libraries_object.items():
         if value != "latest":
             requirements_text += key + "==" + value + "\n"
         else:
@@ -213,7 +213,7 @@ def start_python27_codebuild(aws_client_factory, credentials, libraries_object):
     )
 
     requirements_text = ""
-    for key, value in libraries_object.iteritems():
+    for key, value in libraries_object.items():
         if value != "latest":
             requirements_text += key + "==" + value + "\n"
         else:

@@ -1,6 +1,6 @@
 from data_types.oauth_providers import OAuthProvider
 from sqlalchemy import Enum, Index, TEXT
-from initiate_database import *
+from .initiate_database import *
 import json
 import uuid
 
@@ -47,10 +47,10 @@ class UserOAuthAccountModel(Base):
     )
 
     def __init__(self, provider, provider_unique_id, user_id):
-        if provider is None or provider is "":
+        if provider is None or provider == "":
             raise InvalidModelCreationError("Must provide 'provider' when creating OAuth account")
 
-        if user_id is None or user_id is "":
+        if user_id is None or user_id == "":
             raise InvalidModelCreationError("Must provide 'user_id' when creating OAuth account")
 
         self.provider = str(provider)

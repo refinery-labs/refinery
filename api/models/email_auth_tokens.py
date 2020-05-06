@@ -1,4 +1,4 @@
-from initiate_database import *
+from .initiate_database import *
 import binascii
 import json
 import uuid
@@ -41,7 +41,7 @@ class EmailAuthToken(Base):
         self.id = str(uuid.uuid4())
         self.token = binascii.hexlify(
             os.urandom(32)
-        )
+        ).decode()
         self.expired = False
         self.timestamp = int(time.time())
 
