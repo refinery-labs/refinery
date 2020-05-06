@@ -67,7 +67,7 @@ def strip_api_gateway(api_gateway_manager, credentials, api_gateway_id):
 
         # Delete the methods
         if "resourceMethods" in resource_item:
-            for http_method, values in resource_item["resourceMethods"].iteritems():
+            for http_method, values in resource_item["resourceMethods"].items():
                 deletion_futures.append(
                     api_gateway_manager.delete_rest_api_resource_method(
                         credentials,

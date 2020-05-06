@@ -6,8 +6,6 @@ import tornado.ioloop
 import tornado.web
 import sys
 
-import unicodecsv as csv
-
 from app import TornadoBindingSpec, TornadoApp, WebsocketApp
 from assistants.aws_account_management.preterraform import PreterraformManager
 from assistants.aws_clients.aws_clients_assistant import STSClientBindingSpec, AwsClientFactory
@@ -29,29 +27,11 @@ from assistants.deployments.ecs_builders import BuilderManager, AwsEcsManager
 from services.websocket_router import ScheduledHeartbeatRunner, WebsocketRouter
 
 from models.initiate_database import *
-
-try:
-    # for Python 2.x
-    from StringIO import StringIO
-except ImportError:
-    # for Python 3.x
-    from io import StringIO
-
-# noinspection PyBroadException
-try:
-    # for Python 2.x
-    # noinspection PyCompatibility
-    reload(sys)
-except Exception:
-    # for Python 3.4+
-    # noinspection PyUnresolvedReferences
-    from importlib import reload
-    reload(sys)
-
-sys.setdefaultencoding("utf8")
+from sys import maxsize
+from csv import field_size_limit
 
 # Increase CSV field size to be the max
-csv.field_size_limit(sys.maxsize)
+field_size_limit(maxsize)
 
 
 if __name__ == "__main__":

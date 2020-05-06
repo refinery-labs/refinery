@@ -80,7 +80,7 @@ def get_external_ipv4_address():
     potentially another box altogether).
     """
 
-    for _ in xrange(10000):
+    for _ in range(10000):
         for ipv4_resolution_function in IP_RESOLUTION_FUNCTIONS:
             try:
                 remote_ipv4_ip = yield ipv4_resolution_function()

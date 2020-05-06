@@ -13,7 +13,7 @@ def get_gemfile(libraries_object):
     # Below specifies ruby 2.6.3 because that's what AWS's CodeBuild
     # has installed.
     gemfile = """source "https://rubygems.org"\n"""
-    for key, value in libraries_object.iteritems():
+    for key, value in libraries_object.items():
         if value == "latest":
             gemfile += "gem '" + key + "'\n"
         else:

@@ -1,5 +1,5 @@
-from initiate_database import *
-from projects import Project
+from .initiate_database import *
+from .projects import Project
 import uuid
 import time
 

@@ -92,7 +92,7 @@ class ListCreditCards(BaseHandler):
 
         for card_info in cards_info_list:
             filtered_card_info = {}
-            for key, value in card_info.iteritems():
+            for key, value in card_info.items():
                 if key in returnable_keys:
                     filtered_card_info[key] = value
 

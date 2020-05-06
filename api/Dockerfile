@@ -1,12 +1,12 @@
 FROM ubuntu:18.04
 
-RUN apt-get update && apt-get -y install zip python python-dev python-pip curl wget unzip
+RUN apt-get update && apt-get -y install zip python3 python3-dev python3-pip curl wget unzip libpq-dev pkg-config libcairo2-dev libgirepository1.0-dev
 
 RUN mkdir /work/
 WORKDIR /work/
 
 COPY ./requirements.txt /work/requirements.txt
-RUN pip install -r /work/requirements.txt
+RUN pip3 install -r /work/requirements.txt
 
 COPY ./ /work/
 

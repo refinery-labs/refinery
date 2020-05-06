@@ -26,7 +26,7 @@ def create_aws_org_sub_account(app_config, aws_organization_client, refinery_aws
     create_account_id = account_status_data["Id"]
 
     # Loop while the account is being created (up to ~5 minutes)
-    for _ in xrange(60):
+    for _ in range(60):
         if account_status_data["State"] == "SUCCEEDED" and "AccountId" in account_status_data:
             return {
                 "account_name": account_name,
@@ -150,7 +150,7 @@ def create_new_sub_aws_account(app_config, db_session_maker, aws_organization_cl
     assumed_role_credentials = {}
 
     # Try to assume the role up to 10 times
-    for _ in xrange(10):
+    for _ in range(10):
         logit("Attempting to assume the sub-account's administrator role...")
 
         try:
@@ -322,7 +322,7 @@ def freeze_aws_account(app_config, aws_client_factory, db_session_maker, credent
     codebuild_list_params = {}
 
     # Bound this loop to only execute MAX_LOOP_ITERATION times
-    for _ in xrange(1000):
+    for _ in range(1000):
         codebuild_list_response = codebuild_client.list_builds(
             **codebuild_list_params
         )

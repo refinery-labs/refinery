@@ -2,6 +2,8 @@
 config:
   ngrok_enabled: false
   cookie_secret_value: THIS_IS_NOT_SECURE
+  cookie_expire_days: 30
+  email_token_lifetime: 10800 # 3 hours before the email authentication token no longer works
   # The HTTP origin to serve in Access-Control-Allow-Origin header
   access_control_allow_origin: https://example.refinerylabs.io
   access_control_allow_origins: "[\"http://localhost:1234\",\"http://localhost:8080\",\"http://localhost:8002\"]"
@@ -13,3 +15,5 @@ config:
   github_client_secret: FAKE_TESTING_VALUE
   stripe_api_key: FAKE_TESTING_VALUE
   mailgun_api_key: FAKE_TESTING_VALUE
+  service_shared_secret: FAKE_TESTING_VALUE
+  reserved_aws_pool_target_amount: 3

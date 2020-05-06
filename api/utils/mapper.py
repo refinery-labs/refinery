@@ -3,10 +3,10 @@ def execution_pipeline_id_dict_to_frontend_format(execution_pipeline_id_dict):
     final_return_format = []
 
     # Now convert it into the usable front-end format
-    for execution_pipeline_id, aggregate_data in execution_pipeline_id_dict.iteritems():
+    for execution_pipeline_id, aggregate_data in execution_pipeline_id_dict.items():
         block_executions = []
 
-        for block_arn, execution_status_counts in aggregate_data["block_executions"].iteritems():
+        for block_arn, execution_status_counts in aggregate_data["block_executions"].items():
             block_executions.append({
                 "arn": block_arn,
                 "SUCCESS": execution_status_counts["SUCCESS"],

@@ -1,2 +1,2 @@
-from lambda_connect_back import LambdaConnectBackServer
-from executions_controller import ExecutionsControllerServer
+from .lambda_connect_back import LambdaConnectBackServer
+from .executions_controller import ExecutionsControllerServer
