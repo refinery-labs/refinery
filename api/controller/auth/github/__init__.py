@@ -1,1 +1,1 @@
-from http_handler import AuthenticateWithGithub
+from .http_handler import AuthenticateWithGithub

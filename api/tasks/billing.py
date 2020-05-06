@@ -224,7 +224,7 @@ def pull_current_month_running_account_totals(aws_cost_explorer):
     ce_response = {}
 
     # Bound this loop to only execute MAX_LOOP_ITERATION times
-    for _ in xrange(1000):
+    for _ in range(1000):
         ce_response = aws_cost_explorer.get_cost_and_usage(
             **ce_params
         )

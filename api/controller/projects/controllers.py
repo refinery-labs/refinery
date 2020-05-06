@@ -111,7 +111,10 @@ class SearchSavedProjects(BaseHandler):
                 })
 
             # Sort project versions highest to lowest
-            project_item["versions"].sort(reverse=True)
+            project_item["versions"].sort(
+                reverse=True,
+                key=lambda i: i['version']
+            )
 
             results_list.append(
                 project_item

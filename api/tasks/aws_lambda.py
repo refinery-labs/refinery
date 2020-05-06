@@ -35,7 +35,7 @@ def get_lambda_arns(aws_client_factory, credentials):
     lambda_arn_list = []
 
     # Don't list more than 200 pages of Lambdas (I hope this is never happens!)
-    for _ in xrange(200):
+    for _ in range(200):
         lambda_functions_response = lambda_client.list_functions(
             **lambda_list_params
         )
@@ -143,18 +143,15 @@ def execute_aws_lambda(aws_client_factory, credentials, arn, input_data):
     except BaseException:
         pass
 
-    prettify_types = [
-        dict,
-        list
-    ]
-
-    if type(full_response) in prettify_types:
+    if type(full_response) in [dict, list]:
+        # make the response pretty if we can
         full_response = dumps(
             full_response,
             indent=4
         )
-
-    if not isinstance(full_response, str):
+    elif isinstance(full_response, bytes):
+        full_response = full_response.decode('utf-8')
+    else:
         full_response = str(full_response)
 
     # Detect from response if it was an error
@@ -165,7 +162,7 @@ def execute_aws_lambda(aws_client_factory, credentials, arn, input_data):
 
     log_output = b64decode(
         response["LogResult"]
-    )
+    ).decode("utf-8")
 
     # Strip the Lambda stuff from the output
     if "RequestId:" in log_output:
@@ -373,9 +370,7 @@ def deploy_aws_lambda(app_config, aws_client_factory, db_session_maker, lambda_m
     ) + dumps(
         lambda_object.shared_files_list
     ) + is_inline_execution_string
-    hash_key = sha256(
-        hash_input
-    ).hexdigest()
+    hash_key = sha256(bytes(hash_input, encoding="UTF-8")).hexdigest()
     s3_package_zip_path = hash_key + ".zip"
 
     # Check to see if it's in the S3 cache
@@ -641,7 +636,7 @@ def get_inline_lambda_hash_key(language, timeout, memory, environment_variables,
         dumps(
             hash_dict,
             sort_keys=True
-        )
+        ).encode('utf-8')
     ).hexdigest()
 
     return hash_key
