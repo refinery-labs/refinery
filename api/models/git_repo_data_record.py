@@ -2,9 +2,13 @@ import time
 
 from psycopg2.extensions import JSONB
 from sqlalchemy import Index, TEXT
-from initiate_database import *
+from .initiate_database import *
 import json
 import uuid
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from . import GitRepoModel
 
 from models.model_exceptions import InvalidModelCreationError
 

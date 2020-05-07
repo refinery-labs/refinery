@@ -20,32 +20,32 @@ class CachedExecutionLogsShard(Base):
     )
 
     """
-	# All of the cached data for a given shard (e.g. "dt=2019-07-15-13-35")
-	[
-		{
-		    "arn": "arn:aws:lambda:us-west-2:532121572788:function:Untitled_Code_Block_RFNItzJNn2",
-		    "count": "1",
-		    "dt": "2019-07-15-13-35",
-		    "execution_pipeline_id": "46b0fdd3-266d-4c6f-af7c-79198a112e96",
-		    "function_name": "Untitled_Code_Block_RFNItzJNn2",
-		    "log_id": "22e4625e-46d1-401a-b935-bcde17f8b667",
-		    "project_id": "08757409-4bc8-4a29-ade7-371b1a46f99e",
-		    "timestamp": 1563197795,
-		    "type": "SUCCESS"
-		}
-		{
-		    "arn": "arn:aws:lambda:us-west-2:532121572788:function:Untitled_Code_Block_RFNItzJNn3",
-		    "count": "1",
-		    "dt": "2019-07-15-13-35",
-		    "execution_pipeline_id": "46b0fdd3-266d-4c6f-af7c-79198a112e96",
-		    "function_name": "Untitled_Code_Block_RFNItzJNn3",
-		    "log_id": "40b02027-c856-4d2b-bd63-c62f300944e5",
-		    "project_id": "08757409-4bc8-4a29-ade7-371b1a46f99e",
-		    "timestamp": 1563197795,
-		    "type": "SUCCESS"
-		}
-	]
-	"""
+    # All of the cached data for a given shard (e.g. "dt=2019-07-15-13-35")
+    [
+        {
+            "arn": "arn:aws:lambda:us-west-2:532121572788:function:Untitled_Code_Block_RFNItzJNn2",
+            "count": "1",
+            "dt": "2019-07-15-13-35",
+            "execution_pipeline_id": "46b0fdd3-266d-4c6f-af7c-79198a112e96",
+            "function_name": "Untitled_Code_Block_RFNItzJNn2",
+            "log_id": "22e4625e-46d1-401a-b935-bcde17f8b667",
+            "project_id": "08757409-4bc8-4a29-ade7-371b1a46f99e",
+            "timestamp": 1563197795,
+            "type": "SUCCESS"
+        }
+        {
+            "arn": "arn:aws:lambda:us-west-2:532121572788:function:Untitled_Code_Block_RFNItzJNn3",
+            "count": "1",
+            "dt": "2019-07-15-13-35",
+            "execution_pipeline_id": "46b0fdd3-266d-4c6f-af7c-79198a112e96",
+            "function_name": "Untitled_Code_Block_RFNItzJNn3",
+            "log_id": "40b02027-c856-4d2b-bd63-c62f300944e5",
+            "project_id": "08757409-4bc8-4a29-ade7-371b1a46f99e",
+            "timestamp": 1563197795,
+            "type": "SUCCESS"
+        }
+    ]
+    """
     shard_data = Column(JSON())
 
     # Project ID these logs are related to
