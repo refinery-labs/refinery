@@ -21,7 +21,6 @@ class GithubListUserRepos(BaseHandler):
     @gen.coroutine
     @github_authenticated
     def get( self, oauth_token, oauth_json_data ):
-        print(oauth_token, oauth_json_data);
 
         repos = yield self.github_assistant.list_repos_for_user(oauth_token)
         self.write({
