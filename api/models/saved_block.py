@@ -1,6 +1,10 @@
-from initiate_database import *
+from .initiate_database import *
 import uuid
 import time
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from . import SavedBlockVersion
 
 
 class SavedBlock(Base):

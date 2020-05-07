@@ -1,7 +1,11 @@
-from initiate_database import *
+from .initiate_database import *
 import json
 import uuid
 import time
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from models import AWSAccount
 
 
 class TerraformStateVersion(Base):

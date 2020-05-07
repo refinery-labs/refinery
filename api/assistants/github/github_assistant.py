@@ -1,4 +1,5 @@
 import json
+import os
 
 import requests
 from tornado import httpclient, gen
@@ -41,6 +42,10 @@ class GithubAssistant:
 
         # TODO check exception
         parsed_response = json.loads(response.body)
+
+        # print('response', json.dumps(parsed_response, indent=2))
+        with open('/work/text-contents.json', 'w') as json_file:
+            json_file.write(response.body)
 
         repos = []
         for repo_result in parsed_response:

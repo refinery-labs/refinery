@@ -1,13 +1,16 @@
 import json
 
 from sqlalchemy.orm import Session
+from typing import Callable, Optional, Tuple
 
 from models import UserOAuthAccountModel
-from utils.general import logit
+from utils.general import LogLevelTypes
 
 
-def get_existing_github_oauth_user_data(dbsession, logger, user_id):
-    # type: (Session, logit, basestring) -> ((str, dict) or None)
+def get_existing_github_oauth_user_data(
+        dbsession: Session,
+        logger: Callable[[str, LogLevelTypes], None],
+        user_id: str) -> Optional[Tuple[str, dict]]:
     """
     Retrieves the latest copy of a User's OAuth Github data.
     :param dbsession: Existing DBSession

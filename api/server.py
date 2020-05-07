@@ -6,8 +6,6 @@ import tornado.ioloop
 import tornado.web
 import sys
 
-import unicodecsv as csv
-
 from app import TornadoBindingSpec, TornadoApp, WebsocketApp
 from assistants.aws_account_management.preterraform import PreterraformManager
 from assistants.aws_clients.aws_clients_assistant import STSClientBindingSpec, AwsClientFactory
@@ -22,7 +20,7 @@ from assistants.github.github_assistant import GithubAssistant
 from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from assistants.user_creation_assistant import UserCreationAssistant
 from config.provider import ConfigBindingSpec
-from services.github.oauth_provider import GithubOAuthProviderBindingSpec
+from assistants.github.oauth_provider import GithubOAuthProviderBindingSpec
 from services.auth.oauth_service import OAuthServiceBindingSpec
 
 from services.aws.clients import AWSClientBindingSpec
@@ -35,36 +33,18 @@ from assistants.deployments.ecs_builders import BuilderManager, AwsEcsManager
 from services.websocket_router import ScheduledHeartbeatRunner, WebsocketRouter
 
 from models.initiate_database import *
-
-try:
-    # for Python 2.x
-    from StringIO import StringIO
-except ImportError:
-    # for Python 3.x
-    from io import StringIO
-
-# noinspection PyBroadException
-try:
-    # for Python 2.x
-    # noinspection PyCompatibility
-    reload(sys)
-except Exception:
-    # for Python 3.4+
-    # noinspection PyUnresolvedReferences
-    from importlib import reload
-    reload(sys)
-
-sys.setdefaultencoding("utf8")
+from sys import maxsize
+from csv import field_size_limit
 
 # Increase CSV field size to be the max
-csv.field_size_limit(sys.maxsize)
+field_size_limit(maxsize)
 
 
 if __name__ == "__main__":
     logit("Starting the Refinery service...", "info")
 
     """
-    NOTE: Classes added here must have camel casing without two capitol letters back to back.
+    NOTE: Classes added here must have camel casing without two capital letters back to back.
 
     For example, the name "AWSManager" would not be valid as "A" is followed by another uppercase
     letter "W". We would write this class as "AwsManager". Alternatively, you can create a

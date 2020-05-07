@@ -14,7 +14,7 @@ def load_app_config(app_env=None, overrides=None):
             app_env = os.environ["REFINERY_ENV"]
 
     # In production just read the config vars from the env
-    set_env_vars = app_env is "production"
+    set_env_vars = app_env == "production"
 
     app_config = AppConfig(app_env, overrides=overrides, set_env_vars=set_env_vars)
 

@@ -51,7 +51,7 @@ def upgrade():
     op.create_index(
         'idx_oauth_account_id__timestamp',
         'user_oauth_data_records',
-        ['oauth_account_id', sa.text(u'timestamp DESC')],
+        ['oauth_account_id', sa.text('timestamp DESC')],
         unique=False
     )
 

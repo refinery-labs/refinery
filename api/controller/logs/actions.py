@@ -14,7 +14,7 @@ from utils.mapper import execution_log_query_results_to_pipeline_id_dict
 
 @gen.coroutine
 def delete_logs(task_spawner, credentials, project_id):
-    for _ in xrange(1000):
+    for _ in range(1000):
         # Delete 1K logs at a time
         log_paths = yield task_spawner.get_s3_pipeline_execution_logs(
             credentials,
@@ -133,7 +133,7 @@ def update_athena_table_partitions(task_spawner, credentials, project_id):
     athena_known_shards = []
 
     for result in results:
-        for key, shard_string in result.iteritems():
+        for key, shard_string in result.items():
             if not (shard_string in athena_known_shards):
                 athena_known_shards.append(
                     shard_string
@@ -159,7 +159,7 @@ def update_athena_table_partitions(task_spawner, credentials, project_id):
     # Bound this loop to only execute MAX_LOOP_ITERATION times since we
     # cannot guarantee that the condition `continuation_token == False`
     # will ever be true.
-    for _ in xrange(MAX_LOOP_ITERATIONS):
+    for _ in range(MAX_LOOP_ITERATIONS):
         s3_list_results = yield task_spawner.get_s3_list_from_prefix(
             credentials,
             credentials["logs_bucket"],
@@ -298,7 +298,7 @@ def get_execution_stats_since_timestamp(db_session_maker, task_spawner, credenti
     # Bound this loop to only execute MAX_LOOP_ITERATION times since we
     # cannot guarantee that the condition `continuation_token == False`
     # will ever be true.
-    for _ in xrange(MAX_LOOP_ITERATIONS):
+    for _ in range(MAX_LOOP_ITERATIONS):
         # List shards in the S3 bucket starting at the oldest available shard
         # That's because S3 buckets will start at the oldest time and end at
         # the latest time (due to inverse binary UTF-8 sort order)
@@ -499,7 +499,7 @@ def get_execution_stats_since_timestamp(db_session_maker, task_spawner, credenti
     start_time = time.time()
     # We now store all cachable shard data in the database so we don't have
     # to rescan those shards in S3.
-    for date_shard_key, cachable_execution_list in cachable_dict.iteritems():
+    for date_shard_key, cachable_execution_list in cachable_dict.items():
         new_execution_log_shard = CachedExecutionLogsShard()
         new_execution_log_shard.date_shard = "dt=" + date_shard_key
         new_execution_log_shard.shard_data = cachable_execution_list

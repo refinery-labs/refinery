@@ -1,5 +1,8 @@
-from initiate_database import *
-from saved_block import SavedBlock
+from sqlalchemy.orm import SynonymProperty
+from typing import Any
+
+from .initiate_database import *
+from .saved_block import SavedBlock
 import uuid
 import time
 
@@ -25,7 +28,7 @@ class SavedBlockVersion(Base):
 
     _block_object_json = Column(
         "block_object_json",
-        JSONB(astext_type=Text)
+        JSONB()
     )
 
     @property
@@ -36,26 +39,10 @@ class SavedBlockVersion(Base):
     def block_object_json( self, block_json ):
         self._block_object_json = block_json
 
-    @property
-    def shared_files(self):
-        """
-        Returns an empty list by default.
-        """
-        if self._shared_files is None:
-            return []
-        return self._shared_files
-
-    @shared_files.setter
-    def shared_files(self, value):
-        self._shared_files = value
-
-    _shared_files = Column(
+    shared_files = Column(
         "shared_files",
-        JSON()
-    )
-    shared_files = synonym(
-        '_shared_files',
-        descriptor=shared_files
+        JSON(),
+        default="[]"
     )
 
     timestamp = Column(Integer())

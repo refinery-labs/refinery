@@ -6,8 +6,10 @@ import string
 import random
 import struct
 import logging
+import math
 
 import pinject
+from typing_extensions import Literal
 
 logging.basicConfig(
     stream=sys.stdout,
@@ -37,7 +39,10 @@ def attempt_json_decode(input_data):
     return input_data
 
 
-def logit(message, message_type="info"):
+LogLevelTypes = Literal["info", "warning", "error", "debug"]
+
+
+def logit(message: str, message_type: LogLevelTypes = "info") -> None:
     # Attempt to parse the message as json
     # If we can then prettify it before printing
     try:
@@ -79,7 +84,12 @@ def get_random_node_id():
 # For generating crytographically-secure random strings
 def get_urand_password(length):
     symbols = string.ascii_letters + string.digits
-    return "".join([symbols[x * len(symbols) / 256] for x in struct.unpack("%dB" % (length,), os.urandom(length))])
+
+    return "".join([
+        symbols[math.floor(x * len(symbols) / 256)]
+        for x in
+        struct.unpack("%dB" % (length,), os.urandom(length))
+    ])
 
 
 def get_random_id(length):

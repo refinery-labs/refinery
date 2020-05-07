@@ -10,15 +10,7 @@ from utils.mapper import (
     execution_log_query_results_to_pipeline_id_dict,
     execution_pipeline_id_dict_to_frontend_format
 )
-
-
-try:
-    # for Python 2.x
-    # noinspection PyCompatibility
-    from StringIO import StringIO
-except ImportError:
-    # for Python 3.x
-    from io import StringIO
+from io import StringIO
 
 
 def get_athena_results_from_s3(aws_client_factory, credentials, s3_bucket, s3_path):
@@ -29,7 +21,7 @@ def get_athena_results_from_s3(aws_client_factory, credentials, s3_bucket, s3_pa
         s3_path
     )
 
-    csv_handler = StringIO(csv_data)
+    csv_handler = StringIO(csv_data.decode("UTF-8"))
     csv_reader = DictReader(
         csv_handler,
         delimiter=",",
@@ -98,7 +90,7 @@ def perform_athena_query(aws_client_factory, credentials, query, return_results)
     # Bound this loop to only execute MAX_LOOP_ITERATION times since we
     # cannot guarantee that the condition `continuation_token == False`
     # will ever be true.
-    for _ in xrange(MAX_LOOP_ITERATIONS):
+    for _ in range(MAX_LOOP_ITERATIONS):
         # Check the status of the query
         query_status_result = athena_client.get_query_execution(
             QueryExecutionId=query_execution_id

@@ -5,8 +5,8 @@ from tornado import gen
 from controller import BaseHandler
 from controller.decorators import authenticated
 from controller.projects import CREATE_GIT_REPO_SCHEMA
-from models import ProjectShortLink
-from services.github.oauth_provider import GithubOAuthProvider
+from models import GitRepoModel
+from assistants.github.oauth_provider import GithubOAuthProvider
 
 
 class CreateGitRepoDependencies:
@@ -27,7 +27,11 @@ class CreateGitRepo(BaseHandler):
         """
         validate_schema(self.json, CREATE_GIT_REPO_SCHEMA)
 
-        new_project_shortlink = ProjectShortLink()
+        user = self.get_authenticated_user()
+
+        git_repo_id = self.json['git_repo_id']
+
+        new_project_shortlink = GitRepoModel(user.organization_id, )
         new_project_shortlink.project_json = self.json["diagram_data"]
         self.dbsession.add(new_project_shortlink)
         self.dbsession.commit()

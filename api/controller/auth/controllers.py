@@ -24,9 +24,9 @@ class GetAuthenticationStatus(BaseHandler):
         if current_user:
             intercom_user_hmac = hmac.new(
                 # secret key (keep safe!)
-                self.app_config.get("intercom_hmac_secret"),
+                bytes(self.app_config.get("intercom_hmac_secret"), encoding="UTF-8"),
                 # user's email address
-                current_user.email,
+                bytes(current_user.email, encoding="UTF-8"),
                 # hash function
                 digestmod=hashlib.sha256
             ).hexdigest()
@@ -186,10 +186,8 @@ class NewRegistration(BaseHandler):
             self.logger(e)
             self.write({
                 "success": False,
-                "result": {
-                    "code": "INVALID_CARD_ERROR",
-                    "msg": "Invalid payment information!"
-                }
+                "code": "INVALID_CARD_ERROR",
+                "msg": "Invalid payment information!"
             })
             self.dbsession.rollback()
             raise gen.Return()
@@ -198,10 +196,8 @@ class NewRegistration(BaseHandler):
             self.logger(e)
             self.write({
                 "success": False,
-                "result": {
-                    "code": "GENERIC_STRIPE_ERROR",
-                    "msg": "An error occurred while communicating with the Stripe API."
-                }
+                "code": "GENERIC_STRIPE_ERROR",
+                "msg": "An error occurred while communicating with the Stripe API."
             })
             self.dbsession.rollback()
             raise gen.Return()
@@ -210,10 +206,8 @@ class NewRegistration(BaseHandler):
             self.logger(e)
             self.write({
                 "success": False,
-                "result": {
-                    "code": "UNKNOWN_ERROR",
-                    "msg": "Some unknown error occurred, this shouldn't happen!"
-                }
+                "code": "UNKNOWN_ERROR",
+                "msg": "Some unknown error occurred, this shouldn't happen!"
             })
             self.dbsession.rollback()
             raise gen.Return()

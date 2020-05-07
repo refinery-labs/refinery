@@ -30,7 +30,7 @@ def app_init_config(app_config):
             file_handler.read()
         )
 
-    for language_name, libraries in LAMBDA_BASE_LIBRARIES.iteritems():
+    for language_name, libraries in LAMBDA_BASE_LIBRARIES.items():
         # Load Lambda base templates
         with open("./lambda_bases/" + language_name, "r") as file_handler:
             lamdba_base_codes[language_name] = file_handler.read()
@@ -54,5 +54,5 @@ def app_init_config(app_config):
         CUSTOMER_IAM_POLICY=customer_iam_policy,
         DEFAULT_PROJECT_ARRAY=default_project_array
     )
-    for k, v in init_config.iteritems():
+    for k, v in init_config.items():
         app_config._config[k] = v

@@ -1,6 +1,6 @@
 import json
 import re
-from urlparse import urlparse
+from urllib.parse import urlparse
 
 from tornado import httpclient, gen
 from tornado.httpclient import HTTPClientError

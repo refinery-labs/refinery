@@ -5,7 +5,7 @@ from tornado import gen
 from assistants.user_creation_assistant import UserCreationAssistant
 from controller.base import BaseHandler
 from controller.auth.github.exceptions import GithubOAuthException, BadRequestStateException
-from services.github.oauth_provider import GithubOAuthProvider
+from assistants.github.oauth_provider import GithubOAuthProvider
 
 # Example data returned by Github
 # {

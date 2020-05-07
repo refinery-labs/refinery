@@ -75,7 +75,7 @@ class AppConfig:
 
         c = dict()
 
-        all_keys = set(a.keys() + b.keys())
+        all_keys = set(list(a.keys()) + list(b.keys()))
 
         for key in all_keys:
             c[key] = AppConfig._merge_key(a, b, key)

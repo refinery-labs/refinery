@@ -21,7 +21,7 @@ export default class RefineryCodeEditor extends Vue implements EditorProps {
   @Prop({ default: false }) disableFullscreen!: boolean;
   @Prop({ default: false }) tailOutput!: boolean;
   @Prop({ default: false }) diffEditor!: boolean;
-  @Prop({ default: false }) lineNumbers!: boolean;
+  @Prop({ default: true }) lineNumbers!: boolean;
 
   // Ace Props
   @Prop() readOnly?: boolean;

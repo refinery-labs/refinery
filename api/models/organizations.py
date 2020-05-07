@@ -1,7 +1,11 @@
-from initiate_database import *
+from .initiate_database import *
 import json
 import uuid
 import time
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from . import AWSAccount, GitRepoModel, User
 
 
 class Organization(Base):
@@ -60,6 +64,15 @@ class Organization(Base):
         lazy="dynamic",
         # When an org is deleted, all AWS accounts should be deleted too
         cascade="all, delete-orphan"
+    )
+
+    # Git Repos owned by the organization
+    git_repos = relationship(
+        "GitRepoModel",
+        lazy="dynamic",
+        # When an org is deleted, all git repos accounts should be deleted too
+        cascade="all, delete-orphan",
+        backref="organizations"
     )
 
     timestamp = Column(Integer())

@@ -132,9 +132,9 @@ class ServerUnitTestBase(HypothesisUnitTestBase):
 
         return org
 
-    def create_test_user(self):
+    def create_test_user(self, email="test@test.com"):
         user = User()
-        user.email = "test@test.com"
+        user.email = email
         return self.create_and_save_obj(user)
 
     def get_app(self):

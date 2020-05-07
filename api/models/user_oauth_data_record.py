@@ -41,13 +41,13 @@ class UserOAuthDataRecordModel(Base):
 
     def __init__(self, json_data, oauth_token, oauth_account_id):
 
-        if json_data is None or json_data is "":
+        if json_data is None or json_data == "":
             raise InvalidModelCreationError("Must provide 'json_data' when creating OAuth account")
 
-        if oauth_token is None or oauth_token is "":
+        if oauth_token is None or oauth_token == "":
             raise InvalidModelCreationError("Must provide 'oauth_token' when creating OAuth account")
 
-        if oauth_account_id is None or oauth_account_id is "":
+        if oauth_account_id is None or oauth_account_id == "":
             raise InvalidModelCreationError("Must provide 'oauth_account_id' when creating OAuth account")
 
         self.json_data = json.dumps( json_data )
