@@ -17,6 +17,7 @@ import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 import { inputDataExample } from '@/constants/saved-block-constants';
 import { createBlockDataForPublishedSavedBlock } from '@/utils/block-utils';
 import { getSharedFilesForCodeBlock } from '@/utils/project-helpers';
+import { LoggingAction } from '@/lib/LoggingMutation';
 
 const storeName = StoreType.createSavedBlockView;
 
@@ -133,13 +134,13 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
     this.busyPublishingBlock = busy;
   }
 
-  @Action
+  @LoggingAction
   private setPublishState(isForkingBlock: boolean, isPublished: boolean) {
     this.setPublishDisabled(isPublished && !isForkingBlock);
     this.setPublishStatus(isPublished && !isForkingBlock);
   }
 
-  @Action
+  @LoggingAction
   public async openModal(saveType: SavedBlockSaveType) {
     // Don't allow this action to happen in Demo Mode
     if (this.context.rootState.project.isInDemoMode) {
@@ -196,7 +197,7 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
     this.setModalVisibility(true);
   }
 
-  @Action
+  @LoggingAction
   public closeModal() {
     if (this.busyPublishingBlock) {
       console.error('Tried to close publish modal while busy, please wait!');
@@ -208,7 +209,7 @@ export class CreateSavedBlockViewStore extends VuexModule<ThisType<CreateSavedBl
     this.resetState();
   }
 
-  @Action
+  @LoggingAction
   public async publishBlock() {
     const editBlockPaneStore = this.context.rootState.project.editBlockPane;
     if (!editBlockPaneStore || !editBlockPaneStore.selectedNode || !this.context.rootState.project.openedProject) {

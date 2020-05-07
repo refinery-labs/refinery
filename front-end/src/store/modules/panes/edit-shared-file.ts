@@ -7,6 +7,7 @@ import { ProjectViewActions } from '@/constants/store-constants';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { isSharedFileNameValid } from '@/store/modules/panes/shared-files';
 import { getLanguageFromFileName } from '@/utils/editor-utils';
+import { LoggingAction } from '@/lib/LoggingMutation';
 
 const storeName = StoreType.editSharedFile;
 
@@ -94,24 +95,24 @@ export class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFileP
     this.currentSharedFilePane = currentSharedFilePane;
   }
 
-  @Action
+  @LoggingAction
   public async openSharedFile(value: WorkflowFile) {
     this.setSharedFile(value);
     await this.setCurrentSharedFilePane(SIDEBAR_PANE.editSharedFile);
   }
 
-  @Action
+  @LoggingAction
   public async saveSharedFile() {
     await this.context.dispatch(`project/${ProjectViewActions.saveSharedFile}`, this.sharedFile, { root: true });
   }
 
-  @Action
+  @LoggingAction
   public async deleteSharedFile() {
     await this.context.dispatch(`project/${ProjectViewActions.deleteSharedFile}`, this.sharedFile, { root: true });
     await this.navigateToPreviousSharedFilesPane();
   }
 
-  @Action
+  @LoggingAction
   public setCurrentShareFilePaneHistory(sharedFileLocation: SIDEBAR_PANE) {
     if (this.currentSharedFilePane !== sharedFileLocation) {
       this.pushLastSharedFilePaneLocationToHistory(this.currentSharedFilePane);
@@ -119,7 +120,7 @@ export class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFileP
     this.setCurrentSharedFilePaneLocation(sharedFileLocation);
   }
 
-  @Action
+  @LoggingAction
   public async setCurrentSharedFilePane(sharedFileLocation: SIDEBAR_PANE) {
     this.setCurrentShareFilePaneHistory(sharedFileLocation);
     await this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, sharedFileLocation, {
@@ -127,7 +128,7 @@ export class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFileP
     });
   }
 
-  @Action
+  @LoggingAction
   public async navigateToPreviousSharedFilesPane() {
     const lastSharedFilePane = this.previousSharedFilePanes[this.previousSharedFilePanes.length - 1];
     this.removeLastSharedFilePaneLocationFromHistory();
@@ -137,12 +138,12 @@ export class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFileP
     });
   }
 
-  @Action
+  @LoggingAction
   public async openSharedFileLinks() {
     await this.setCurrentSharedFilePane(SIDEBAR_PANE.editSharedFileLinks);
   }
 
-  @Action
+  @LoggingAction
   public async selectCodeBlockToAddSharedFileTo() {
     await this.setCurrentSharedFilePane(SIDEBAR_PANE.addingSharedFileLink);
     await this.context.dispatch(`project/${ProjectViewActions.setIsAddingSharedFileToCodeBlock}`, true, {
@@ -150,12 +151,12 @@ export class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFileP
     });
   }
 
-  @Action
+  @LoggingAction
   public async getSharedFile() {
     return deepJSONCopy(this.sharedFile);
   }
 
-  @Action
+  @LoggingAction
   public async cancelSelectingCodeBlockToAddSharedFileTo() {
     await this.navigateToPreviousSharedFilesPane();
 
@@ -164,20 +165,20 @@ export class EditSharedFilePaneStore extends VuexModule<ThisType<EditSharedFileP
     });
   }
 
-  @Action
+  @LoggingAction
   public async viewCodeBlockSharedFiles(codeBlock: LambdaWorkflowState) {
     await this.context.dispatch(`codeBlockSharedFiles/openCodeBlockSharedFiles`, codeBlock, {
       root: true
     });
   }
 
-  @Action
+  @LoggingAction
   public async fileNameChange(fileName: string) {
     this.setSharedFileName(fileName);
     await this.saveSharedFile();
   }
 
-  @Action
+  @LoggingAction
   public async codeEditorChange(value: string) {
     this.setSharedFileBody(value);
     await this.saveSharedFile();

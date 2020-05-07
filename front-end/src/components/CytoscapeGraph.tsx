@@ -1,6 +1,6 @@
 import { CreateElement, VNode } from 'vue';
 import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
-import cytoscape, { EdgeDefinition, EventObject, LayoutOptions, NodeDefinition } from 'cytoscape';
+import cytoscape, { EdgeDefinition, EventObject, LayoutOptions, NodeDefinition, Stylesheet } from 'cytoscape';
 import cyCanvas, { CytoscapeCanvasInstance } from '../lib/cytoscape-canvas';
 import deepEqual from 'fast-deep-equal';
 import { animationBegin, animationEnd, baseCytoscapeStyles, STYLE_CLASSES } from '@/lib/cytoscape-styles';
@@ -406,6 +406,8 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
   }
 
   public generateInitialCytoscapeConfig(): cytoscape.CytoscapeOptions {
+    const styles = [...Object.values(this.stylesheet), ...baseCytoscapeStyles] as Stylesheet[];
+
     return {
       layout: this.getLayoutConfig(true),
 
@@ -415,7 +417,7 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
       maxZoom: 4,
       wheelSensitivity: 0.8,
 
-      style: [...Object.values(this.stylesheet), ...baseCytoscapeStyles],
+      style: styles,
 
       elements: this.elements || {
         // Prevents a "default" node from rendering when the list is empty...

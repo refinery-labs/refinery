@@ -65,7 +65,6 @@ class UserOAuthAccountModel(Base):
         exposed_attributes = [
             "id",
             "provider",
-            "timestamp",
             "user_id"
         ]
 

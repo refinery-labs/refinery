@@ -7,7 +7,6 @@ import {
   WorkflowFileType
 } from '@/types/graph';
 import { PromiseFsClient } from 'isomorphic-git';
-
 import Path from 'path';
 import yaml from 'js-yaml';
 import uuid from 'uuid/v4';
@@ -104,7 +103,11 @@ async function loadLambdaSharedBlocks(
   sharedFileLookup: WorkflowFileLookup
 ): Promise<WorkflowFileLink[]> {
   const sharedFileLinksPath = Path.join(lambdaPath, LAMBDA_SHARED_FILES_DIR);
-  if (!(await fs.promises.stat(sharedFileLinksPath).catch(() => false))) {
+
+  try {
+    await fs.promises.stat(sharedFileLinksPath);
+  } catch (e) {
+    console.error('Could not stat file: ' + sharedFileLinksPath);
     return [];
   }
 
@@ -126,7 +129,10 @@ async function loadLambdaBlocks(
   sharedFileLookup: WorkflowFileLookup
 ): Promise<LoadedLambdaConfigs> {
   const lambdaPath = Path.join(repoDir, PROJECT_LAMBDA_DIR);
-  if (!(await fs.promises.stat(lambdaPath).catch(() => false))) {
+  try {
+    await fs.promises.stat(lambdaPath);
+  } catch (e) {
+    console.error('Could not stat block: ' + lambdaPath);
     return {
       sharedFileLinks: [],
       lambdaBlockConfigs: []
@@ -165,7 +171,11 @@ async function loadSharedFileConfig(
 
 async function loadSharedFiles(fs: PromiseFsClient, repoDir: string): Promise<WorkflowFileLookup> {
   const sharedFilesPath = Path.join(repoDir, PROJECT_SHARED_FILES_DIR);
-  if (!(await fs.promises.stat(sharedFilesPath).catch(() => false))) {
+
+  try {
+    await fs.promises.stat(sharedFilesPath);
+  } catch (e) {
+    console.error('Could not stat shared file: ' + sharedFilesPath);
     return {};
   }
 
@@ -194,6 +204,7 @@ export async function loadProjectFromDir(
     throw new RepoCompilationError('Project config does not exist', repoContext);
   }
 
+  // TODO: Add validation of object here
   const loadedProjectConfig = yaml.safeLoad(await readFile(fs, repoDir, PROJECT_CONFIG_FILENAME)) as RefineryProject;
 
   const sharedFileLookup = await loadSharedFiles(fs, repoDir);

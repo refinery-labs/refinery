@@ -1,23 +1,23 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component, { mixins } from 'vue-class-component';
-import { namespace } from 'vuex-class';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
-import { isDevelopment, SyncProjectRepoPaneStoreModule } from '@/store';
+import { isDevelopment, SyncProjectRepoPaneStoreModule as SyncProjectStore } from '@/store';
 import { GitPushResult } from '@/store/modules/panes/sync-project-repo-pane';
 import { branchNameBlacklistRegex } from '@/constants/project-editor-constants';
 import CreateToastMixin from '@/mixins/CreateToastMixin';
 import { Watch } from 'vue-property-decorator';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
-import { GitDiffInfo } from '@/repo-compiler/lib/git-types';
 import Loading from '@/components/Common/Loading.vue';
 import { LoadingContainerProps } from '@/types/component-types';
 
-const syncProjectRepo = namespace('syncProjectRepo');
-
 @Component
 export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
-  @syncProjectRepo.State gitPushResult!: GitPushResult | undefined;
-  @syncProjectRepo.State remoteBranchName!: string;
+  get gitPushResult() {
+    return SyncProjectStore.gitPushResult;
+  }
+  get remoteBranchName() {
+    return SyncProjectStore.remoteBranchName;
+  }
 
   public showingGitStatusDetails: boolean = false;
   public forcePushModalVisible: boolean = false;
@@ -25,26 +25,26 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
 
   @Watch('gitPushResult')
   public async showGitPushErrors() {
-    if (!SyncProjectRepoPaneStoreModule.getGitPushResult) {
+    if (!SyncProjectStore.getGitPushResult) {
       return;
     }
 
-    if (SyncProjectRepoPaneStoreModule.getGitPushResult !== GitPushResult.Success) {
-      this.displayErrorToast('Git push failure', SyncProjectRepoPaneStoreModule.getGitPushResultMessage);
+    if (SyncProjectStore.getGitPushResult !== GitPushResult.Success) {
+      this.displayErrorToast('Git push failure', SyncProjectStore.getGitPushResultMessage);
       return;
     }
-    this.displaySuccessToast('Git push success', SyncProjectRepoPaneStoreModule.getGitPushResultMessage);
-    await SyncProjectRepoPaneStoreModule.clearGitPushResult();
+    this.displaySuccessToast('Git push success', SyncProjectStore.getGitPushResultMessage);
+    await SyncProjectStore.clearGitPushResult();
   }
 
   @Watch('remoteBranchName')
   public async diffCompiledProject() {
-    await SyncProjectRepoPaneStoreModule.clearGitPushResult();
-    await SyncProjectRepoPaneStoreModule.diffCompiledProject();
+    await SyncProjectStore.clearGitPushResult();
+    await SyncProjectStore.diffCompiledProject();
   }
 
   public changeCurrentlyDiffedFile(file: string) {
-    SyncProjectRepoPaneStoreModule.setCurrentlyDiffedFile(file);
+    SyncProjectStore.setCurrentlyDiffedFile(file);
   }
 
   public getOriginalContent(currentlyDiffedFile: string | null): string {
@@ -52,7 +52,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
       return '';
     }
 
-    const originalFileContent = SyncProjectRepoPaneStoreModule.gitDiffInfo.originalFiles[currentlyDiffedFile];
+    const originalFileContent = SyncProjectStore.gitDiffInfo.originalFiles[currentlyDiffedFile];
     if (!originalFileContent) {
       return '';
     }
@@ -64,7 +64,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
       return '';
     }
 
-    return SyncProjectRepoPaneStoreModule.gitDiffInfo.changedFiles[currentlyDiffedFile];
+    return SyncProjectStore.gitDiffInfo.changedFiles[currentlyDiffedFile];
   }
 
   public renderModal() {
@@ -76,11 +76,11 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
       hidden: () => (this.showingGitStatusDetails = false)
     };
 
-    const diffFiles = Object.keys(SyncProjectRepoPaneStoreModule.gitDiffInfo.changedFiles).map(file => {
+    const diffFiles = Object.keys(SyncProjectStore.gitDiffInfo.changedFiles).map(file => {
       return { value: file, text: file };
     });
 
-    const currentlyDiffedFile = SyncProjectRepoPaneStoreModule.getCurrentlyDiffedFile;
+    const currentlyDiffedFile = SyncProjectStore.getCurrentlyDiffedFile;
 
     const originalContent = this.getOriginalContent(currentlyDiffedFile);
     const newContent = this.getNewContent(currentlyDiffedFile);
@@ -121,8 +121,8 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
   }
 
   public renderGitStatusDetails() {
-    if (SyncProjectRepoPaneStoreModule.gitStatusResult.length > 0) {
-      const stats = SyncProjectRepoPaneStoreModule.getGitStatusStats;
+    if (SyncProjectStore.gitStatusResult.length > 0) {
+      const stats = SyncProjectStore.getGitStatusStats;
       return (
         <div class="display--flex flex-direction--column">
           <h4 class="text-align--left">Git Status:</h4>
@@ -148,7 +148,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
   }
 
   public renderGitStatus() {
-    if (!SyncProjectRepoPaneStoreModule.creatingNewBranch) {
+    if (!SyncProjectStore.creatingNewBranch) {
       return (
         <div>
           <hr />
@@ -161,7 +161,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
   }
 
   public async forcePushToRepo() {
-    await SyncProjectRepoPaneStoreModule.forcePushToRemoteBranch();
+    await SyncProjectStore.forcePushToRemoteBranch();
     this.forcePushModalVisible = false;
   }
 
@@ -184,13 +184,13 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
       <b-modal
         on={modalOnHandlers}
         hide-footer={true}
-        title={`Force push to the branch ${SyncProjectRepoPaneStoreModule.remoteBranchName}?`}
+        title={`Force push to the branch ${SyncProjectStore.remoteBranchName}?`}
         visible={this.forcePushModalVisible}
       >
         <b-form on={{ submit: preventDefaultWrapper(this.forcePushToRepo) }}>
           <h4>Warning! You may break something!</h4>
           <p>This will overwrite any changes that were made on the branch:</p>
-          <p class="text-bold text-align--center">{SyncProjectRepoPaneStoreModule.remoteBranchName}</p>
+          <p class="text-bold text-align--center">{SyncProjectStore.remoteBranchName}</p>
           <p>
             The contents of the currently opened project will be forcefully set on this branch. Removing any changes
             that were possibly made by someone else.
@@ -202,7 +202,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
               class="mr-1 ml-1 flex-grow--1 width--100percent"
               variant="danger"
               type="submit"
-              disabled={SyncProjectRepoPaneStoreModule.isPushingToRepo}
+              disabled={SyncProjectStore.isPushingToRepo}
             >
               Confirm Force Push
             </b-button>
@@ -213,14 +213,14 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
   }
 
   public renderCommitButtons() {
-    if (SyncProjectRepoPaneStoreModule.getGitPushResult === GitPushResult.UnableToFastForward) {
+    if (SyncProjectStore.getGitPushResult === GitPushResult.UnableToFastForward) {
       return (
         <div class="mt-2">
           <b-button
             variant="danger"
             class="col-12"
             type="submit"
-            disabled={SyncProjectRepoPaneStoreModule.isPushingToRepo}
+            disabled={SyncProjectStore.isPushingToRepo}
             on={{ click: this.showForcePushModal }}
           >
             Force push
@@ -238,8 +238,8 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
           variant="primary"
           class="col-12"
           type="submit"
-          disabled={SyncProjectRepoPaneStoreModule.isPushingToRepo}
-          on={{ click: SyncProjectRepoPaneStoreModule.pushToRemoteBranch }}
+          disabled={SyncProjectStore.isPushingToRepo}
+          on={{ click: SyncProjectStore.pushToRemoteBranch }}
         >
           Push to branch
         </b-button>
@@ -248,25 +248,25 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
   }
 
   public async mounted() {
-    await SyncProjectRepoPaneStoreModule.diffCompiledProject();
+    await SyncProjectStore.diffCompiledProject();
   }
 
   public setRemoteBranchName(branchName: string) {
-    SyncProjectRepoPaneStoreModule.setRemoteBranchName(branchName);
-    SyncProjectRepoPaneStoreModule.clearGitStatusResult();
+    SyncProjectStore.setRemoteBranchName(branchName);
+    SyncProjectStore.clearGitStatusResult();
   }
 
   public setNewRemoteBranchName(branchName: string) {
-    SyncProjectRepoPaneStoreModule.setNewRemoteBranchName(branchName);
-    SyncProjectRepoPaneStoreModule.clearGitStatusResult();
+    SyncProjectStore.setNewRemoteBranchName(branchName);
+    SyncProjectStore.clearGitStatusResult();
   }
 
   public async runGitShellCommand(command: string) {
-    this.gitCommandResult = await SyncProjectRepoPaneStoreModule.runGitCommand(command);
+    this.gitCommandResult = await SyncProjectStore.runGitCommand(command);
   }
 
   public setCreatingNewBranch(creatingNewBranch: boolean) {
-    SyncProjectRepoPaneStoreModule.setCreatingNewBranch(creatingNewBranch);
+    SyncProjectStore.setCreatingNewBranch(creatingNewBranch);
   }
 
   public showDevelopmentGitShell() {
@@ -280,7 +280,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
   }
 
   public renderSelectExistingBranchCard() {
-    const repoBranches = SyncProjectRepoPaneStoreModule.repoBranches;
+    const repoBranches = SyncProjectStore.repoBranches;
 
     if (repoBranches.length === 0) {
       return null;
@@ -292,7 +292,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     return (
       <b-card
         no-body
-        bg-variant={!SyncProjectRepoPaneStoreModule.creatingNewBranch ? 'light' : 'default'}
+        bg-variant={!SyncProjectStore.creatingNewBranch ? 'light' : 'default'}
         on={{ click: () => this.setCreatingNewBranch(false) }}
       >
         <b-card-header header-tag="header" className="p-1" role="tab">
@@ -300,14 +300,14 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
         </b-card-header>
         <b-collapse
           id="existing-branch-collapse"
-          visible={!SyncProjectRepoPaneStoreModule.creatingNewBranch}
+          visible={!SyncProjectStore.creatingNewBranch}
           accordion="repo-branch-accordion"
           role="tabpanel"
         >
           <b-card-body>
             <b-form-select
               on={{ input: this.setRemoteBranchName }}
-              value={SyncProjectRepoPaneStoreModule.remoteBranchName}
+              value={SyncProjectStore.remoteBranchName}
               options={selectRepoBranches}
             />
           </b-card-body>
@@ -317,13 +317,13 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
   }
 
   public renderCreateNewBranchCard() {
-    const currentBranch = SyncProjectRepoPaneStoreModule.remoteBranchName;
+    const currentBranch = SyncProjectStore.remoteBranchName;
 
     const validBranch = currentBranch !== '' ? !branchNameBlacklistRegex.test(currentBranch) : null;
-    const remoteBranchName = SyncProjectRepoPaneStoreModule.getRemoteBranchName;
+    const remoteBranchName = SyncProjectStore.getRemoteBranchName;
 
-    const repoBranches = SyncProjectRepoPaneStoreModule.repoBranches;
-    const visible = repoBranches.length === 0 || SyncProjectRepoPaneStoreModule.creatingNewBranch;
+    const repoBranches = SyncProjectStore.repoBranches;
+    const visible = repoBranches.length === 0 || SyncProjectStore.creatingNewBranch;
 
     return (
       <b-card
@@ -388,14 +388,14 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
 
   public render(h: CreateElement): VNode {
     const loadingClasses = {
-      'whirl standard': !SyncProjectRepoPaneStoreModule.gitStatusResult,
+      'whirl standard': !SyncProjectStore.gitStatusResult,
       'text-align--left': true,
       'padding--normal': true,
       'sync-project-repo-container': true
     };
 
     const gitPushProps: LoadingContainerProps = {
-      show: SyncProjectRepoPaneStoreModule.isPushingToRepo,
+      show: SyncProjectStore.isPushingToRepo,
       label: 'Pushing to git repo...'
     };
 
@@ -408,8 +408,8 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
           <b-form-input
             type="text"
             required={true}
-            value={SyncProjectRepoPaneStoreModule.commitMessage}
-            on={{ input: SyncProjectRepoPaneStoreModule.setCommitMessage }}
+            value={SyncProjectStore.commitMessage}
+            on={{ input: SyncProjectStore.setCommitMessage }}
             placeholder=""
           />
           {this.renderCommitButtons()}

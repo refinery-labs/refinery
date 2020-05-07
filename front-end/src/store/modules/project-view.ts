@@ -436,6 +436,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       if (!state.openedProject) {
         return;
       }
+
       if (!nodeId) {
         state.openedProject.global_handlers.exception_handler = undefined;
         return;
@@ -559,7 +560,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         await SyncProjectRepoPaneStoreModule.setupLocalProjectRepo(context.state.openedProjectConfig);
       }
     },
-    async [ProjectViewActions.setProjectGlobalExceptionHandler](context, nodeId: string | null) {
+    async [ProjectViewActions.setProjectGlobalExceptionHandlerToNode](context, nodeId: string | null) {
       await context.commit(ProjectViewMutators.setProjectGlobalExceptionHandler, nodeId);
 
       await context.commit(ProjectViewMutators.markProjectDirtyStatus, true);

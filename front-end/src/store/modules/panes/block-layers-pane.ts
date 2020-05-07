@@ -6,6 +6,7 @@ import { LambdaWorkflowState } from '@/types/graph';
 import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types';
 import { EditBlockMutators } from '@/store/modules/panes/edit-block-pane';
 import { ProjectViewMutators } from '@/constants/store-constants';
+import { LoggingAction } from '@/lib/LoggingMutation';
 
 const storeName = StoreType.blockLayers;
 
@@ -87,25 +88,25 @@ export class BlockLayersStore extends VuexModule<ThisType<BlockLayersState>, Roo
     this.layers = [...this.layers, ''];
   }
 
-  @Action
+  @LoggingAction
   public editBlockLayersModal(selectedBlock: LambdaWorkflowState) {
     this.setSelectedBlock(selectedBlock);
     this.setLayers(selectedBlock.layers || []);
     this.setModalVisibility({ modalVisibility: true, readOnly: false });
   }
 
-  @Action
+  @LoggingAction
   public viewBlockLayersModal(selectedBlock: ProductionLambdaWorkflowState) {
     this.setSelectedBlock(selectedBlock);
     this.setLayers(selectedBlock.layers || []);
     this.setModalVisibility({ modalVisibility: true, readOnly: true });
   }
 
-  @Action closeModal(readOnly: boolean) {
+  @LoggingAction closeModal(readOnly: boolean) {
     this.setModalVisibility({ modalVisibility: false, readOnly });
   }
 
-  @Action closeEditor({ discard, readOnly }: { discard: boolean; readOnly: boolean }) {
+  @LoggingAction closeEditor({ discard, readOnly }: { discard: boolean; readOnly: boolean }) {
     this.setModalVisibility({ modalVisibility: false, readOnly: readOnly });
 
     if (discard) {

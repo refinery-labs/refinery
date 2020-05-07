@@ -6,6 +6,7 @@ import { AddSharedFileArguments } from '@/types/shared-files';
 import { EditSharedFilePaneModule, SharedFilesPaneModule } from '@/store';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
+import { LoggingAction } from '@/lib/LoggingMutation';
 
 const storeName = StoreType.sharedFiles;
 
@@ -62,12 +63,12 @@ export class SharedFilesPaneStore extends VuexModule<ThisType<SharedFilesPaneSta
     this.searchText = value;
   }
 
-  @Action
+  @LoggingAction
   public resetPane() {
     this.resetState();
   }
 
-  @Action
+  @LoggingAction
   public async addNewSharedFile() {
     const newSharedFile = await this.context.dispatch(
       `project/${ProjectViewActions.addSharedFile}`,

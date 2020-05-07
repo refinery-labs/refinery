@@ -10,6 +10,7 @@ import { ChosenBlock } from '@/types/add-block-types';
 import { BlockEnvironmentVariable, LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
 import { AddSavedBlockEnvironmentVariable } from '@/types/saved-blocks-types';
 import { addSharedFilesToProject, linkSharedFilesToCodeBlock, safelyDuplicateBlock } from '@/utils/block-utils';
+import { LoggingAction } from '@/lib/LoggingMutation';
 
 const storeName = StoreType.addSavedBlockPane;
 
@@ -162,7 +163,7 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
     };
   }
 
-  @Action
+  @LoggingAction
   public async searchSavedBlocks() {
     this.setIsBusySearching(true);
 
@@ -212,7 +213,7 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
     this.setIsBusySearching(false);
   }
 
-  @Action
+  @LoggingAction
   public async selectBlockToAdd(id: string) {
     const searchMatchFn = (result: SavedBlockSearchResult) => result.id === id;
 
@@ -239,7 +240,7 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
     });
   }
 
-  @Action
+  @LoggingAction
   public async addChosenBlock() {
     const chosenBlock = this.chosenBlock;
 
@@ -310,7 +311,7 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
   /**
    * This returns the pane to the AddBlock pane. Effectively going "back" in the add block flow.
    */
-  @Action
+  @LoggingAction
   public async goBackToAddBlockPane() {
     await this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, SIDEBAR_PANE.addBlock, {
       root: true

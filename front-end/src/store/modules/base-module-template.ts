@@ -2,6 +2,7 @@ import { VuexModule, Module, Mutation, Action } from 'vuex-module-decorators';
 import { resetStoreState } from '@/utils/store-utils';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { RootState, StoreType } from '@/store/store-types';
+import { LoggingAction } from '@/lib/LoggingMutation';
 
 // You will need to add to the `RootState` interface if you want to access this state via `rootState` from anywhere.
 
@@ -37,7 +38,7 @@ export class ExampleBaseStore extends VuexModule<ThisType<ExampleBaseState>, Roo
   }
 
   // This is able to call a Mutator via the `this` context because of magic.
-  @Action
+  @LoggingAction
   public setExampleViaAction(value: string) {
     this.setExample(value);
   }

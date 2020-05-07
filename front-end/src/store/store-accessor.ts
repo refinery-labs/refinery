@@ -4,6 +4,7 @@
 // into the actual stores, and then re-export them.
 
 import { Module, Store } from 'vuex';
+
 import { getModule, VuexModule } from 'vuex-module-decorators';
 
 import { CreateSavedBlockViewStore } from '@/store/modules/panes/create-saved-block-view';

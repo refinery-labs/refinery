@@ -2,7 +2,7 @@ import { Action, Module, Mutation, VuexModule } from 'vuex-module-decorators';
 import { RootState, StoreType } from '../../store-types';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { resetStoreState } from '@/utils/store-utils';
-import { ProjectViewActions, ProjectViewMutators } from '@/constants/store-constants';
+import { ProjectViewActions } from '@/constants/store-constants';
 import { OpenProjectMutation } from '@/types/project-editor-types';
 import { ProjectConfig, RefineryProject } from '@/types/graph';
 import { StatusRow } from 'isomorphic-git';
@@ -13,7 +13,7 @@ import uuid from 'uuid';
 import { GitDiffInfo, GitStatusResult, InvalidGitRepoError } from '@/repo-compiler/lib/git-types';
 import { REFINERY_COMMIT_AUTHOR_NAME } from '@/repo-compiler/shared/constants';
 import { GitStoreModule } from '@/store';
-import git from 'isomorphic-git';
+import { LoggingAction } from '@/lib/LoggingMutation';
 
 const storeName = StoreType.syncProjectRepo;
 
@@ -23,7 +23,11 @@ export enum GitPushResult {
   Other = 'Other'
 }
 
-const gitPushResultToMessage: Record<GitPushResult, string> = {
+type GitPushResultMessageLookup = {
+  [key in GitPushResult]: string;
+};
+
+const gitPushResultToMessage: GitPushResultMessageLookup = {
   [GitPushResult.Success]: `${REFINERY_COMMIT_AUTHOR_NAME} successfully pushed to the remote branch.`,
   [GitPushResult.UnableToFastForward]:
     'Unable to fast forward, you can force push your project to your remote branch, overwriting any remote changes.',
@@ -198,7 +202,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     this.projectSessionId = projectID;
   }
 
-  @Action
+  @LoggingAction
   public getOpenedProject(): RefineryProject {
     if (!this.context.rootState.project.openedProject) {
       throw new Error('no project open');
@@ -206,7 +210,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     return this.context.rootState.project.openedProject;
   }
 
-  @Action
+  @LoggingAction
   public getOpenedProjectConfig(): ProjectConfig {
     if (!this.context.rootState.project.openedProjectConfig) {
       throw new Error('no project config open');
@@ -214,7 +218,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     return this.context.rootState.project.openedProjectConfig;
   }
 
-  @Action
+  @LoggingAction
   public async pushToRepo(force: boolean) {
     if (this.projectSessionId === null) {
       const msg = 'Cannot push to repo with missing project session id';
@@ -262,17 +266,17 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     this.setCreatingNewBranch(false);
   }
 
-  @Action
+  @LoggingAction
   public async forcePushToRemoteBranch() {
     await this.pushToRepo(true);
   }
 
-  @Action
+  @LoggingAction
   public async pushToRemoteBranch() {
     await this.pushToRepo(false);
   }
 
-  @Action
+  @LoggingAction
   public async runGitCommand(command: string): Promise<string> {
     if (this.projectSessionId === null) {
       const msg = 'Cannot run command with missing project session id';
@@ -305,7 +309,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     return gitCommandLookup[command] ? await gitCommandLookup[command]() : 'command not found';
   }
 
-  @Action
+  @LoggingAction
   public async diffCompiledProject() {
     if (this.projectSessionId === null) {
       const msg = 'Cannot diff repo with missing project session id';
@@ -351,7 +355,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     this.setGitDiffInfo(diffInfo);
   }
 
-  @Action
+  @LoggingAction
   public async compileClonedProject(gitClient: GitClient): Promise<RefineryProject | null> {
     if (this.projectSessionId === null) {
       const msg = 'Cannot compile clone repo with missing project session id';
@@ -369,7 +373,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     }
   }
 
-  @Action
+  @LoggingAction
   public async setupLocalProjectRepo(projectConfig: ProjectConfig) {
     if (!projectConfig.project_repo) {
       const msg = 'Unable to setup local project repo with missing git repo URI';

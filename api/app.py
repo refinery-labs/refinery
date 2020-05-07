@@ -1,19 +1,20 @@
 import tornado.web
 import tornado.ioloop
 import tornado.httpserver
-from tornado.routing import URLSpec
 
 from controller.auth import *
 from controller.auth.github import *
 from controller.aws import *
 from controller.billing import *
 from controller.deployments import *
-from controller.github.controllers import GithubProxy, GithubListUserRepos
+from controller.github.controllers import GithubListUserRepos
+from controller.github.controllers_github_proxy import GithubProxy
 from controller.health import *
 from controller.internal import *
 from controller.lambdas import *
 from controller.logs import *
 from controller.projects import *
+from controller.projects.controllers_short_links import GetProjectShortlink, CreateProjectShortlink
 from controller.saved_blocks import *
 from controller.services import *
 from controller.websockets import *
