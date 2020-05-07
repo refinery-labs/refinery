@@ -5,7 +5,6 @@ import json
 import uuid
 import time
 
-
 class StateLog(Base):
     """
     This is for storing logs from the frontend.

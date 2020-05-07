@@ -1,4 +1,9 @@
 from .initiate_database import *
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from models import CachedBillingCollection, Deployment, InlineExecutionLambda, TerraformStateVersion
+
 import json
 import uuid
 import time

@@ -1,3 +1,5 @@
+from typing import Dict, List, Any
+
 EMPTY_ZIP_DATA = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 
 
@@ -38,7 +40,7 @@ CUSTOM_RUNTIME_LANGUAGES = [
 ]
 
 
-LAMBDA_BASE_LIBRARIES = {
+LAMBDA_BASE_LIBRARIES: Dict[str, List[str]] = {
     "python3.6": [],
     "python2.7": [],
     "nodejs8.10": [],

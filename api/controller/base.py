@@ -4,7 +4,9 @@ import json
 import time
 
 from tornado import gen
+from typing import Optional
 
+from models import User
 from models.initiate_database import *
 from models.users import User
 from models.projects import Project
@@ -44,6 +46,7 @@ class BaseHandlerDependencies:
 
 
 class BaseHandler(TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler):
+    authenticated_user: Optional[User]
     dependencies = BaseHandlerDependencies
     logger = None
     db_session_maker = None
@@ -216,8 +219,7 @@ class BaseHandler(TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler):
             max_age_days=cookie_expiration_days
         )
 
-    def get_authenticated_user( self ):
-        # type: () -> User or None
+    def get_authenticated_user( self):
         """
         Grabs the currently authenticated user
 
@@ -233,7 +235,7 @@ class BaseHandler(TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler):
             return None
 
         # Pull related user
-        authenticated_user = self.dbsession.query( User ).filter_by(
+        authenticated_user: User = self.dbsession.query( User ).filter_by(
             id=str( user_id )
         ).first()
 

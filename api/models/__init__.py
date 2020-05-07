@@ -9,6 +9,7 @@ from .cached_execution_logs_shard import CachedExecutionLogsShard
 from .deployments import Deployment
 from .email_auth_tokens import EmailAuthToken
 from .git_repo import GitRepoModel
+from .git_repo_data_record import GitRepoDataRecordsModel
 from .inline_execution_lambdas import InlineExecutionLambda
 from .organizations import Organization
 from .project_config import ProjectConfig

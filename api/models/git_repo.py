@@ -7,6 +7,10 @@ import uuid
 
 from models.model_exceptions import InvalidModelCreationError
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from models import GitRepoDataRecordsModel, Organization
+
 
 class GitRepoModel(Base):
     """
