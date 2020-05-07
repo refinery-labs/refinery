@@ -1,7 +1,6 @@
 import json
 import os
 
-import pyperclip
 import requests
 from tornado import httpclient, gen
 from tornado.httpclient import HTTPError

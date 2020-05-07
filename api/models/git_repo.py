@@ -1,7 +1,7 @@
 import time
 
 from sqlalchemy import Index, TEXT
-from initiate_database import *
+from .initiate_database import *
 import json
 import uuid
 
