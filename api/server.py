@@ -22,7 +22,7 @@ from assistants.github.github_assistant import GithubAssistant
 from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from assistants.user_creation_assistant import UserCreationAssistant
 from config.provider import ConfigBindingSpec
-from controller.auth.github.oauth_provider import GithubOAuthProviderBindingSpec
+from services.github.oauth_provider import GithubOAuthProviderBindingSpec
 from services.auth.oauth_service import OAuthServiceBindingSpec
 
 from services.aws.clients import AWSClientBindingSpec

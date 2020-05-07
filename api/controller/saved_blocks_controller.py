@@ -208,6 +208,7 @@ def generate_saved_block_filters(share_status, block_language, search_string, au
 
 	return saved_block_filters
 
+
 class SavedBlockSearch( BaseHandler ):
 	def post( self ):
 		"""
