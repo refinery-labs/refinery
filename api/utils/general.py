@@ -7,9 +7,9 @@ import random
 import struct
 import logging
 import math
+from typing import Literal
 
 import pinject
-from typing_extensions import Literal
 
 logging.basicConfig(
     stream=sys.stdout,

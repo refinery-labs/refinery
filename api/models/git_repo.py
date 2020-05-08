@@ -52,10 +52,10 @@ class GitRepoModel(Base):
     organization = relationship("Organization", back_populates="git_repos")
 
     def __init__(self, repo_data_record_id, organization_id):
-        if organization_id is None or organization_id is "":
+        if organization_id is None or organization_id == "":
             raise InvalidModelCreationError("Must provide 'organization_id' when creating git repo")
 
-        if repo_data_record_id is None or repo_data_record_id is "":
+        if repo_data_record_id is None or repo_data_record_id == "":
             raise InvalidModelCreationError("Must provide 'repo_data_record_id' when creating git repo")
 
         self.organization_id = str(organization_id)

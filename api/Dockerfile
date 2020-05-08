@@ -1,6 +1,6 @@
-FROM ubuntu:18.04
-
-RUN apt-get update && apt-get -y install zip python3 python3-dev python3-pip curl wget unzip libpq-dev pkg-config libcairo2-dev libgirepository1.0-dev
+FROM ubuntu:20.04
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get -y install zip python3 python3-dev python3-pip curl wget libssl-dev unzip libpq-dev pkg-config libcairo2-dev libgirepository1.0-dev
 
 RUN mkdir /work/
 WORKDIR /work/
