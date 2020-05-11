@@ -47,7 +47,8 @@ export enum ProjectViewGetters {
   getValidEditMenuDisplayTransitionTypes = 'getValidEditMenuDisplayTransitionTypes',
   exportProjectJson = 'exportProjectJson',
   shareProjectUrl = 'shareProjectUrl',
-  getCodeBlockIDs = 'getCodeBlockIDs'
+  getCodeBlockIDs = 'getCodeBlockIDs',
+  exceptionHandlerNodes = 'exceptionHandlerNodes'
 }
 
 export enum ProjectViewMutators {
@@ -101,8 +102,6 @@ export enum ProjectViewMutators {
   setValidEditTransitions = 'setValidEditTransitions',
   setEditingTransitionStatus = 'setEditingTransitionStatus',
   setEditingTransitionType = 'setEditingTransitionType',
-
-  setGlobalExceptionHandler = 'setGlobalExceptionHandler',
 
   setWarmupConcurrencyLevel = 'setWarmupConcurrencyLevel',
 
