@@ -1,6 +1,6 @@
 from time import sleep
 
-from utils.general import get_lambda_safe_name, logit
+from utils.general import get_safe_workflow_state_name, logit
 
 
 def create_sqs_queue(aws_client_factory, credentials, id, queue_name, batch_size, visibility_timeout):
@@ -9,7 +9,7 @@ def create_sqs_queue(aws_client_factory, credentials, id, queue_name, batch_size
         credentials
     )
 
-    sqs_queue_name = get_lambda_safe_name(queue_name)
+    sqs_queue_name = get_safe_workflow_state_name(queue_name)
 
     queue_deleted = False
 

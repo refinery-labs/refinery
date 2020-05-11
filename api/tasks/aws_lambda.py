@@ -8,6 +8,8 @@ from base64 import b64decode
 from botocore.exceptions import ClientError
 from hashlib import sha256
 from json import dumps, loads
+
+from controller.aws.aws_deployment_types import LambdaWorkflowState
 from models import InlineExecutionLambda
 from pyconstants.project_constants import LAMBDA_SUPPORTED_LANGUAGES
 from tasks.build.ruby import build_ruby_264_lambda
@@ -348,7 +350,7 @@ def set_lambda_reserved_concurrency(aws_client_factory, credentials, arn, reserv
 
 
 @log_exception
-def deploy_aws_lambda(app_config, aws_client_factory, db_session_maker, lambda_manager, credentials, lambda_object):
+def deploy_aws_lambda(app_config, aws_client_factory, db_session_maker, lambda_manager, credentials, lambda_object: LambdaWorkflowState):
     """
     Here we do caching to see if we've done this exact build before
     (e.g. the same language, code, and libraries). If we have an the
@@ -436,22 +438,17 @@ def deploy_aws_lambda(app_config, aws_client_factory, db_session_maker, lambda_m
     return lambda_deploy_result
 
 
-def _deploy_aws_lambda(aws_client_factory, credentials, lambda_object, s3_package_zip_path):
+def _deploy_aws_lambda(aws_client_factory, credentials, lambda_object: LambdaWorkflowState, s3_package_zip_path):
     # Generate environment variables data structure
     env_data = {}
-    for env_pair in lambda_object.environment_variables:
-        env_data[env_pair["key"]] = env_pair["value"]
+    for key, value in lambda_object.environment_variables.items():
+        env_data[key] = value
 
     # Create Lambda client
     lambda_client = aws_client_factory.get_aws_client(
         "lambda",
         credentials
     )
-
-    # Add pricing tag
-    lambda_object.tags_dict = {
-        "RefineryResource": "true"
-    }
 
     try:
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#Lambda.Client.create_function
@@ -615,31 +612,6 @@ def cache_inline_lambda_execution(aws_client_factory, db_session_maker, lambda_m
         arn,
         lambda_size
     )
-
-
-def get_inline_lambda_hash_key(language, timeout, memory, environment_variables, lambda_layers, libraries):
-    hash_dict = {
-        "language": language,
-        "timeout": timeout,
-        "memory": memory,
-        "environment_variables": environment_variables,
-        "layers": lambda_layers
-    }
-
-    # For Go we don't include the libraries in the inline Lambda
-    # hash key because the final binary is built in ECS before
-    # being pulled down by the inline Lambda.
-    if language != "go1.12":
-        hash_dict["libraries"] = libraries
-
-    hash_key = sha256(
-        dumps(
-            hash_dict,
-            sort_keys=True
-        ).encode('utf-8')
-    ).hexdigest()
-
-    return hash_key
 
 
 def get_aws_lambda_existence_info(aws_client_factory, credentials, _id, _type, lambda_name):

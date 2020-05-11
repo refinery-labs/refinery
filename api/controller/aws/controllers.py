@@ -1,5 +1,6 @@
 import json
 import time
+import uuid
 
 import botocore
 import pinject
@@ -8,17 +9,17 @@ from tornado import gen
 
 from assistants.deployments.teardown import teardown_infrastructure
 from controller import BaseHandler
-from controller.aws.actions import get_layers_for_lambda, get_environment_variables_for_lambda, deploy_lambda, \
-    get_base_lambda_code, get_lambda_safe_name, deploy_diagram
+from controller.aws.actions import get_base_lambda_code
+from controller.aws.aws_deploy_diagram import deploy_diagram
+from controller.aws.aws_deployment_types import DeploymentDiagram, LambdaWorkflowState, \
+    StateTypes
 from controller.aws.schemas import *
 from controller.decorators import authenticated, disable_on_overdue_payment
 from controller.logs.actions import delete_logs
 from controller.projects.actions import update_project_config
-from data_types.aws_resources.alambda import Lambda
 from models import InlineExecutionLambda, Project, Deployment
 from pyexceptions.builds import BuildException
-from tasks.aws_lambda import get_inline_lambda_hash_key
-from utils.general import get_random_node_id, attempt_json_decode
+from utils.general import get_random_node_id, attempt_json_decode, get_safe_workflow_state_name
 from utils.locker import AcquireFailure
 
 
@@ -62,58 +63,22 @@ class RunTmpLambda(BaseHandler):
                 self.json["backpack"]
             )
 
-        # Empty transitions data
-        empty_transitions_dict = {
-            "then": [],
-            "exception": [],
-            "fan-out": [],
-            "else": [],
-            "fan-in": [],
-            "if": [],
-            "merge": []
-        }
-
         # Dummy pipeline execution ID
         pipeline_execution_id = "SHOULD_NEVER_HAPPEN_TMP_LAMBDA_RUN"
 
-        # Lambda layers to add
-        lambda_layers = get_layers_for_lambda(self.json["language"]) + self.json["layers"]
+        deployment_diagram = DeploymentDiagram(pipeline_execution_id, project_config={
+            "logging": {
+                "level": "LOG_NONE"
+            }
+        })
 
-        # Create Lambda object
-        inline_lambda = Lambda(
-            name=random_node_id,
-            language=self.json["language"],
-            code=self.json["code"],
-            libraries=self.json["libraries"],
-            max_execution_time=self.json["max_execution_time"],
-            memory=self.json["memory"],
-            transitions=empty_transitions_dict,
-            execution_mode="REGULAR",
-            execution_pipeline_id=pipeline_execution_id,
-            execution_log_level="LOG_NONE",
-            environment_variables=self.json["environment_variables"],
-            layers=lambda_layers,
-            reserved_concurrency_count=False,
-            is_inline_execution=True,
-            shared_files_list=self.json["shared_files"]
+        inline_lambda = LambdaWorkflowState(
+            credentials, str(uuid.uuid4()),
+            random_node_id, StateTypes.LAMBDA, is_inline_execution=True
         )
+        inline_lambda.setup(deployment_diagram, self.json)
 
-        # Get inline hash key
-        environment_variables = get_environment_variables_for_lambda(
-            credentials,
-            inline_lambda
-        )
-
-        inline_lambda_hash_key = get_inline_lambda_hash_key(
-            self.json["language"],
-            self.json["max_execution_time"],
-            self.json["memory"],
-            environment_variables,
-            lambda_layers,
-            self.json["libraries"]
-        )
-
-        cached_inline_execution_lambda = None
+        inline_lambda_hash_key = inline_lambda.get_hash_key()
 
         # Check if we already have an inline execution Lambda for it.
         cached_inline_execution_lambda = self.dbsession.query(InlineExecutionLambda).filter_by(
@@ -142,12 +107,8 @@ class RunTmpLambda(BaseHandler):
         else:
             # noinspection PyUnresolvedReferences
             try:
-                lambda_info = yield deploy_lambda(
-                    self.task_spawner,
-                    credentials,
-                    random_node_id,
-                    inline_lambda
-                )
+                deploy_data = inline_lambda.deploy(self.task_spawner, project_id=None, project_config=None)
+                lambda_info = yield deploy_data["future"]
             except BuildException as build_exception:
                 self.write({
                     "success": False,
@@ -377,7 +338,7 @@ class InfraCollisionCheck(BaseHandler):
                         credentials,
                         workflow_state["id"],
                         workflow_state["type"],
-                        get_lambda_safe_name(
+                        get_safe_workflow_state_name(
                             workflow_state["name"]
                         )
                     )
@@ -389,7 +350,7 @@ class InfraCollisionCheck(BaseHandler):
                         credentials,
                         workflow_state["id"],
                         workflow_state["type"],
-                        get_lambda_safe_name(
+                        get_safe_workflow_state_name(
                             workflow_state["name"]
                         )
                     )
@@ -400,7 +361,7 @@ class InfraCollisionCheck(BaseHandler):
                         credentials,
                         workflow_state["id"],
                         workflow_state["type"],
-                        get_lambda_safe_name(
+                        get_safe_workflow_state_name(
                             workflow_state["name"]
                         )
                     )
@@ -411,7 +372,7 @@ class InfraCollisionCheck(BaseHandler):
                         credentials,
                         workflow_state["id"],
                         workflow_state["type"],
-                        get_lambda_safe_name(
+                        get_safe_workflow_state_name(
                             workflow_state["name"]
                         )
                     )

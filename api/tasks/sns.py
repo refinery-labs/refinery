@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from utils.general import get_lambda_safe_name
+from utils.general import get_safe_workflow_state_name
 
 
 def get_sns_existence_info(aws_client_factory, credentials, _id, _type, name):
@@ -40,7 +40,7 @@ def create_sns_topic(aws_client_factory, credentials, id, topic_name):
         credentials
     )
 
-    topic_name = get_lambda_safe_name(topic_name)
+    topic_name = get_safe_workflow_state_name(topic_name)
     response = sns_client.create_topic(
         Name=topic_name,
         Tags=[
