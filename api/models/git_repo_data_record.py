@@ -1,7 +1,8 @@
 import time
 
-from psycopg2.extensions import JSONB
 from sqlalchemy import Index, TEXT
+from sqlalchemy.dialects.postgresql import JSONB
+
 from .initiate_database import *
 import json
 import uuid
@@ -93,7 +94,7 @@ class GitRepoDataRecordsModel(Base):
     )
 
     def __init__(self, parent_git_repo_id, raw_json, parsed_json=None):
-        if parent_git_repo_id is None or parent_git_repo_id is "":
+        if parent_git_repo_id is None or parent_git_repo_id == "":
             raise InvalidModelCreationError("Must provide 'parent_git_repo_id' when creating git repo data")
 
         if raw_json is None:

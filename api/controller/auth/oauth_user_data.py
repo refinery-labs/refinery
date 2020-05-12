@@ -3,7 +3,7 @@ from controller.auth.github.exceptions import InvalidOAuthDataException
 
 class OAuthUserData:
     def __init__(self, provider, provider_unique_id, email, name, access_token, raw_response_data):
-        if provider is None or provider is "":
+        if provider is None or provider == "":
             raise InvalidOAuthDataException("Invalid provider for OAuth user data")
 
         if email is None or name is None or access_token is None or raw_response_data is None:
