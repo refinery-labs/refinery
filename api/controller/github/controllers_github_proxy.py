@@ -107,10 +107,10 @@ class GithubProxy( BaseHandler ):
         username = oauth_json_data['login']
         password = oauth_token
 
-        u = urlparse( self.request.full_url() )
+        u = urlparse(self.request.full_url())
 
         p = u.path
-        parts = re.match( '^/api/v1/github/proxy/([^/]*)/(.*)$', p )
+        parts = re.match('^/api/v1/github/proxy/([^/]*)/(.*)$', p)
         remainingpath = parts.group( 2 )
 
         # TODO support other git servers, we do this to prevent ssrf
@@ -153,7 +153,7 @@ class GithubProxy( BaseHandler ):
         request_service = self.request.arguments.get( 'service' )
         if not request_service or len( request_service ) != 1:
             return False
-        request_service = request_service[0]
+        request_service = str(request_service[0])
 
         valid_service = (
                 request_service.endswith( 'git-upload-pack' )

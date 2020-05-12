@@ -45,7 +45,7 @@ class GithubAssistant:
 
         # print('response', json.dumps(parsed_response, indent=2))
         with open('/work/text-contents.json', 'w') as json_file:
-            json_file.write(response.body)
+            json_file.write(str(response.body))
 
         repos = []
         for repo_result in parsed_response:

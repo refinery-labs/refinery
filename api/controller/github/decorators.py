@@ -33,10 +33,10 @@ def github_authenticated(func):
             return
 
         if 'oauth_token' in getargspec(func).args:
-            kwargs['oauth_token'] = oauth_token
+            kwargs['oauth_token'] = str(oauth_token)
 
         if 'oauth_json_data' in getargspec(func).args:
-            kwargs['oauth_json_data'] = oauth_json_data
+            kwargs['oauth_json_data'] = str(oauth_json_data)
 
         return func(*args, **kwargs)
 
