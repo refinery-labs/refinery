@@ -66,7 +66,7 @@ class RunTmpLambda(BaseHandler):
         # Dummy pipeline execution ID
         pipeline_execution_id = "SHOULD_NEVER_HAPPEN_TMP_LAMBDA_RUN"
 
-        deployment_diagram = DeploymentDiagram(pipeline_execution_id, project_config={
+        deployment_diagram = DeploymentDiagram(pipeline_execution_id, None, project_config={
             "logging": {
                 "level": "LOG_NONE"
             }

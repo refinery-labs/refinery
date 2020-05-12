@@ -414,6 +414,7 @@ def deploy_aws_lambda(app_config, aws_client_factory, db_session_maker, lambda_m
         lambda_object,
         s3_package_zip_path,
     )
+    lambda_object.arn = lambda_deploy_result["FunctionArn"]
 
     # If it's an inline execution we can cache the
     # built Lambda and re-used it for future executions
@@ -425,13 +426,7 @@ def deploy_aws_lambda(app_config, aws_client_factory, db_session_maker, lambda_m
             db_session_maker,
             lambda_manager,
             credentials,
-            lambda_object.language,
-            lambda_object.max_execution_time,
-            lambda_object.memory,
-            lambda_object.environment_variables,
-            lambda_object.layers,
-            lambda_object.libraries,
-            lambda_deploy_result["FunctionArn"],
+            lambda_object,
             lambda_deploy_result["CodeSize"]
         )
 
@@ -562,17 +557,7 @@ def add_inline_execution_lambda_entry(db_session_maker, credentials, inline_exec
     dbsession.close()
 
 
-def cache_inline_lambda_execution(aws_client_factory, db_session_maker, lambda_manager, credentials, language,
-                                  timeout, memory, environment_variables, layers, libraries, arn, lambda_size):
-    inline_execution_hash_key = get_inline_lambda_hash_key(
-        language,
-        timeout,
-        memory,
-        environment_variables,
-        layers,
-        libraries
-    )
-
+def cache_inline_lambda_execution(aws_client_factory, db_session_maker, lambda_manager, credentials, lambda_object, lambda_size):
     # Maximum amount of inline execution Lambdas to leave deployed
     # at a time in AWS. This is a tradeoff between speed and storage
     # amount consumed in AWS.
@@ -608,8 +593,8 @@ def cache_inline_lambda_execution(aws_client_factory, db_session_maker, lambda_m
     add_inline_execution_lambda_entry(
         db_session_maker,
         credentials,
-        inline_execution_hash_key,
-        arn,
+        lambda_object.get_hash_key(),
+        lambda_object.arn,
         lambda_size
     )
 

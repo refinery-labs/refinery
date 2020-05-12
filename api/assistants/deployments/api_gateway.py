@@ -55,15 +55,8 @@ def strip_api_gateway(api_gateway_manager, credentials, api_gateway_id):
     # Iterate over resources and delete everything that
     # can be deleted.
     for resource_item in rest_resources:
-        # We can't delete the root resource
-        if resource_item["path"] != "/":
-            deletion_futures.append(
-                api_gateway_manager.delete_rest_api_resource(
-                    credentials,
-                    api_gateway_id,
-                    resource_item["id"]
-                )
-            )
+        # TODO there is a race here where the api resource _could_ be deleted
+        # before the method is deleted, does that matter?
 
         # Delete the methods
         if "resourceMethods" in resource_item:
@@ -76,6 +69,15 @@ def strip_api_gateway(api_gateway_manager, credentials, api_gateway_id):
                         http_method
                     )
                 )
+        # We can't delete the root resource
+        if resource_item["path"] != "/":
+            deletion_futures.append(
+                api_gateway_manager.delete_rest_api_resource(
+                    credentials,
+                    api_gateway_id,
+                    resource_item["id"]
+                )
+            )
 
     rest_stages = yield api_gateway_manager.get_stages(
         credentials,
@@ -213,7 +215,7 @@ class ApiGatewayManager(object):
                 httpMethod=method,
             )
         except Exception as e:
-            logit("Exception occurred while deleting method '" + method + "'! Exception: " + str(e))
+            logit(f"Exception occurred while deleting {resource_id} in {rest_api_id}, method '{method}'! Exception: {e}")
             pass
 
         return {

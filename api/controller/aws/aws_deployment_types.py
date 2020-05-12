@@ -130,9 +130,13 @@ class WorkflowRelationship:
 	def serialize(self, use_arns=True):
 		origin_node_id = self.origin_node.arn if use_arns else self.origin_node.id
 		next_node_id = self.next_node.arn if use_arns else self.next_node.id
+		serialized_arn = {"arn": origin_node_id} if use_arns else {}
 		return {
+			**serialized_arn,
 			"id": self.id,
-			"type": self.type.value,
+			"name": str(self.type.value).lower(),
+			"type": self.next_node.type.value,
+			"arn": self.next_node.arn,
 			"node": origin_node_id,
 			"next": next_node_id
 		}
@@ -143,11 +147,25 @@ class IfWorkflowRelationship(WorkflowRelationship):
 		super(IfWorkflowRelationship, self).__init__(*args, **kwargs)
 		self.expression = expression
 
+	def serialize(self, use_arns=True):
+		base_relationship = super(IfWorkflowRelationship, self).serialize(use_arns=use_arns)
+		return {
+			**base_relationship,
+			"expression": self.expression
+		}
+
 
 class MergeWorkflowRelationship(WorkflowRelationship):
 	def __init__(self, *args, **kwargs):
 		super(MergeWorkflowRelationship, self).__init__(*args, **kwargs)
 		self.merge_lambdas = []
+
+	def serialize(self, use_arns=True):
+		base_relationship = super(MergeWorkflowRelationship, self).serialize(use_arns=use_arns)
+		return {
+			**base_relationship,
+			"merge_lambdas": self.merge_lambdas
+		}
 
 
 class DeploymentDiagram:
@@ -606,12 +624,30 @@ class LambdaWorkflowState(WorkflowState):
 
 		self._workflow_files: List = []
 
+	def serialize(self):
+		base_ws_state = super(LambdaWorkflowState, self).serialize()
+		return {
+			**base_ws_state,
+			"code": self.code,
+			"language": self.language,
+			"memory": self.memory,
+			"libraries": self.libraries,
+			"layers": self.layers,
+			"max_execution_time": self.max_execution_time,
+			"environment_variables": self.environment_variables,
+			"reserved_concurrency_count": self.reserved_concurrency_count
+		}
+
 	def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
 		self.execution_pipeline_id = deploy_diagram.project_id
 		self.execution_log_level = deploy_diagram.project_config["logging"]["level"]
 
 		if self.is_inline_execution:
-			self.environment_variables = workflow_state_json["environment_variables"]
+			env_vars = {
+				env_var["key"]: env_var["value"]
+				for env_var in workflow_state_json["environment_variables"]
+			}
+			self._set_environment_variables_for_lambda(env_vars)
 		else:
 			env_vars = self._get_project_env_vars(deploy_diagram, workflow_state_json)
 			self._set_environment_variables_for_lambda(env_vars)
@@ -720,14 +756,11 @@ class LambdaWorkflowState(WorkflowState):
 
 		# If we have concurrency set, then we'll set that for our deployed Lambda
 		if self.reserved_concurrency_count:
-			logit("Setting reserved concurrency for Lambda '" +
-				  deployed_lambda_data["FunctionArn"] +
-				  "' to " +
-				  str(self.reserved_concurrency_count) +
-				  "...")
+			arn = deployed_lambda_data["FunctionArn"]
+			logit(f"Setting reserved concurrency for Lambda '{arn}' to {self.reserved_concurrency_count}...")
 			yield task_spawner.set_lambda_reserved_concurrency(
 				self._credentials,
-				deployed_lambda_data["FunctionArn"],
+				arn,
 				self.reserved_concurrency_count
 			)
 
@@ -815,8 +848,6 @@ class ApiGatewayWorkflowState(WorkflowState):
 				self.api_gateway_id
 			)
 
-		print(self.api_gateway_id, api_gateway_exists)
-
 		if self.api_gateway_id is None or not api_gateway_exists:
 			# We need to create an API gateway
 			logit("Deploying API Gateway for API Endpoint(s)...")
@@ -856,9 +887,25 @@ class ApiEndpointWorkflowState(LambdaWorkflowState):
 		self.url = None
 		self.rest_api_id = None
 
+	def serialize(self):
+		serialized_ws_state = WorkflowState.serialize(self)
+		return {
+			**serialized_ws_state,
+			"url": self.url,
+			"rest_api_id": self.rest_api_id,
+			"http_method": self.http_method,
+			"api_path": self.api_path
+		}
+
 	def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
 		self.http_method = workflow_state_json["http_method"]
 		self.api_path = workflow_state_json["api_path"]
+
+		self.execution_pipeline_id = deploy_diagram.project_id
+		self.execution_log_level = deploy_diagram.project_config["logging"]["level"]
+		self.execution_mode = "API_ENDPOINT"
+
+		self._set_environment_variables_for_lambda({})
 
 	def set_api_url(self, api_gateway_id):
 		self.rest_api_id = api_gateway_id
@@ -881,7 +928,6 @@ class ApiEndpointWorkflowState(LambdaWorkflowState):
 		self.execution_mode = "API_ENDPOINT",
 		self.execution_pipeline_id = project_id,
 		self.execution_log_level = project_config["logging"]["level"],
-		self.environment_variables = {}
 		self.layers = lambda_layers
 		self.reserved_concurrency_count = False
 		self.is_inline_execution = False
