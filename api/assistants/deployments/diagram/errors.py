@@ -1,0 +1,3 @@
+
+class InvalidDeployment(Exception):
+	pass

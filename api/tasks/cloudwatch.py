@@ -62,27 +62,24 @@ def create_cloudwatch_group(aws_client_factory, credentials, group_name, tags_di
     }
 
 
-def create_cloudwatch_rule(aws_client_factory, credentials, id, name, schedule_expression, description, input_string):
+def create_cloudwatch_rule(aws_client_factory, credentials, cloudwatch_rule):
     events_client = aws_client_factory.get_aws_client(
         "events",
         credentials,
     )
 
-    schedule_expression = automatically_fix_schedule_expression(schedule_expression)
+    schedule_expression = automatically_fix_schedule_expression(cloudwatch_rule.schedule_expression)
 
     # Events role ARN is able to be generated off of the account ID
     # The role name should be the same for all accounts.
-    events_role_arn = "arn:aws:iam::" + \
-        str(credentials["account_id"]) + \
-        ":role/refinery_default_aws_cloudwatch_role"
 
     response = events_client.put_rule(
-        Name=name,
+        Name=cloudwatch_rule.name,
         # cron(0 20 * * ? *) or rate(5 minutes)
         ScheduleExpression=schedule_expression,
         State="ENABLED",
-        Description=description,
-        RoleArn=events_role_arn
+        Description=cloudwatch_rule.description,
+        RoleArn=cloudwatch_rule.events_role_arn
     )
 
     rule_arn = response["RuleArn"]
@@ -97,21 +94,17 @@ def create_cloudwatch_rule(aws_client_factory, credentials, id, name, schedule_e
         ]
     )
 
+    cloudwatch_rule.arn = rule_arn
+
     return {
-        "id": id,
-        "name": name,
-        "arn": rule_arn,
-        "input_string": input_string,
+        "id": cloudwatch_rule.id,
+        "name": cloudwatch_rule.name,
+        "arn": cloudwatch_rule.arn,
+        "input_string": cloudwatch_rule.input_string,
     }
 
 
-def add_rule_target(aws_client_factory, credentials, rule_name, target_id, target_arn, input_string):
-    # Automatically parse JSON
-    try:
-        input_string = loads(input_string)
-    except BaseException:
-        pass
-
+def add_rule_target(aws_client_factory, credentials, rule, target):
     events_client = aws_client_factory.get_aws_client(
         "events",
         credentials,
@@ -123,13 +116,13 @@ def add_rule_target(aws_client_factory, credentials, rule_name, target_id, targe
     )
 
     targets_data = {
-        "Id": target_id,
-        "Arn": target_arn,
-        "Input": dumps(input_string)
+        "Id": target.name,
+        "Arn": target.arn,
+        "Input": rule.input_string
     }
 
     rule_creation_response = events_client.put_targets(
-        Rule=rule_name,
+        Rule=rule.name,
         Targets=[
             targets_data
         ]
@@ -140,13 +133,11 @@ def add_rule_target(aws_client_factory, credentials, rule_name, target_id, targe
     via the add_permission API call to allow invocation via the CloudWatch event.
     """
     lambda_permission_add_response = lambda_client.add_permission(
-        FunctionName=target_arn,
-        StatementId=rule_name + "_statement",
+        FunctionName=target.arn,
+        StatementId=rule.name + "_statement",
         Action="lambda:*",
         Principal="events.amazonaws.com",
-        SourceArn="arn:aws:events:" +
-        credentials["region"] + ":" +
-        str(credentials["account_id"]) + ":rule/" + rule_name,
+        SourceArn=rule.arn,
         # SourceAccount=self.app_config.get( "aws_account_id" ) # THIS IS A BUG IN AWS NEVER PASS THIS
     )
 

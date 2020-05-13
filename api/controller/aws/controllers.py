@@ -7,12 +7,13 @@ import pinject
 from jsonschema import validate as validate_schema
 from tornado import gen
 
+from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
+from assistants.deployments.diagram.lambda_workflow_state import LambdaWorkflowState
+from assistants.deployments.diagram.utils import get_base_lambda_code
+from assistants.deployments.diagram.workflow_states import StateTypes
 from assistants.deployments.teardown import teardown_infrastructure
 from controller import BaseHandler
-from controller.aws.actions import get_base_lambda_code
-from controller.aws.aws_deploy_diagram import deploy_diagram
-from controller.aws.aws_deployment_types import DeploymentDiagram, LambdaWorkflowState, \
-    StateTypes
+from controller.aws.actions import deploy_diagram
 from controller.aws.schemas import *
 from controller.decorators import authenticated, disable_on_overdue_payment
 from controller.logs.actions import delete_logs
@@ -407,6 +408,12 @@ class DeployDiagram(BaseHandler):
     def do_diagram_deployment(self, project_name, project_id, diagram_data, project_config):
         credentials = self.get_authenticated_user_cloud_configuration()
 
+        latest_deployment = self.dbsession.query(Deployment).filter_by(
+            project_id=project_id
+        ).order_by(
+            Deployment.timestamp.desc()
+        ).first()
+
         # Attempt to deploy diagram
         deployment_data = yield deploy_diagram(
             self.task_spawner,
@@ -415,7 +422,8 @@ class DeployDiagram(BaseHandler):
             project_name,
             project_id,
             diagram_data,
-            project_config
+            project_config,
+            latest_deployment
         )
 
         # Check if the deployment failed

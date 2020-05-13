@@ -1,3 +1,4 @@
+from assistants.deployments.diagram.lambda_workflow_state import LambdaWorkflowState
 from assistants.deployments.ecs_builders import BuilderManager
 from assistants.deployments.shared_files import (
     add_shared_files_symlink_to_zip,
@@ -9,7 +10,6 @@ from botocore.exceptions import ClientError
 from hashlib import sha256
 from json import dumps, loads
 
-from controller.aws.aws_deployment_types import LambdaWorkflowState
 from models import InlineExecutionLambda
 from pyconstants.project_constants import LAMBDA_SUPPORTED_LANGUAGES
 from tasks.build.ruby import build_ruby_264_lambda
@@ -460,7 +460,7 @@ def _deploy_aws_lambda(aws_client_factory, credentials, lambda_object: LambdaWor
             Timeout=int(lambda_object.max_execution_time),
             MemorySize=int(lambda_object.memory),
             Publish=True,
-            VpcConfig=lambda_object.vpc_data,
+            VpcConfig={},
             Environment={
                 "Variables": env_data
             },

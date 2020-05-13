@@ -1,246 +1,67 @@
-import copy
-import json
-import traceback
-import uuid
-
 from tornado import gen
 
-from tasks.build.python import get_python36_base_code, get_python27_base_code
-from tasks.build.nodejs import get_nodejs_810_base_code, get_nodejs_10163_base_code, get_nodejs_10201_base_code
-from tasks.build.php import get_php_73_base_code
-from tasks.build.ruby import get_ruby_264_base_code
-from tasks.build.golang import get_go_112_base_code
-from utils.general import logit, get_random_node_id, split_list_into_chunks
-
-
-def get_language_specific_environment_variables(language):
-    if language == "python2.7" or language == "python3.6":
-        return {
-            "PYTHONPATH": "/var/task/",
-            "PYTHONUNBUFFERED": "1"
-        }
-    elif language == "nodejs8.10" or language == "nodejs10.16.3" or language == "nodejs10.20.1":
-        return {
-            "NODE_PATH": "/var/task/node_modules/"
-        }
-    return {}
-
-
-def get_base_lambda_code(app_config, language, code):
-    if language == "python3.6":
-        return get_python36_base_code(app_config, code)
-    elif language == "python2.7":
-        return get_python27_base_code(app_config, code)
-    elif language == "nodejs8.10":
-        return get_nodejs_810_base_code(app_config, code)
-    elif language == "nodejs10.16.3":
-        return get_nodejs_10163_base_code(app_config, code)
-    elif language == "nodejs10.20.1":
-        return get_nodejs_10201_base_code(app_config, code)
-    elif language == "php7.3":
-        return get_php_73_base_code(app_config, code)
-    elif language == "ruby2.6.4":
-        return get_ruby_264_base_code(app_config, code)
-    elif language == "go1.12":
-        return get_go_112_base_code(app_config, code)
-
-
-def get_node_by_id(target_id, workflow_states):
-    for workflow_state in workflow_states:
-        if workflow_state["id"] == target_id:
-            return workflow_state
-
-    return False
-
-
-def update_workflow_states_list(updated_node, workflow_states):
-    for i in range(0, len(workflow_states)):
-        if workflow_states[i]["id"] == updated_node["id"]:
-            workflow_states[i] = updated_node
-            break
-
-    return workflow_states
-
-
-class MissingResourceException(Exception):
-    pass
+from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
+from assistants.deployments.diagram.new_workflow_object import workflow_state_from_json, workflow_relationship_from_json
+from utils.general import logit
 
 
 @gen.coroutine
-def create_lambda_api_route(task_spawner, api_gateway_manager, credentials, api_gateway_id, http_method, route, lambda_name, overwrite_existing):
-    def not_empty(input_item):
-        return input_item != ""
+def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name, project_id, diagram_data, project_config, latest_deployment):
+	# Kick off the creation of the log table for the project ID
+	# This is fine to do if one already exists because the SQL
+	# query explicitly specifies not to create one if it exists.
+	project_log_table_future = task_spawner.create_project_id_log_table(
+		credentials,
+		project_id
+	)
 
-    path_parts = route.split("/")
-    path_parts = list(filter(not_empty, path_parts))
+	deployment_diagram: DeploymentDiagram = DeploymentDiagram(project_id, project_name, project_config, latest_deployment)
 
-    # First we clean the Lambda of API Gateway policies which point
-    # to dead API Gateways
-    yield task_spawner.clean_lambda_iam_policies(
-        credentials,
-        lambda_name
-    )
+	# If we have workflow files and links, add them to the deployment
+	workflow_files_json = diagram_data.get("workflow_files")
+	workflow_file_links_json = diagram_data.get("workflow_file_links")
+	if workflow_files_json and workflow_file_links_json:
+		deployment_diagram.add_workflow_files(workflow_files_json, workflow_file_links_json)
 
-    # A default resource is created along with an API gateway, we grab
-    # it so we can make our base method
-    resources = yield api_gateway_manager.get_resources(
-        credentials,
-        api_gateway_id
-    )
+	# Create an in-memory representation of the deployment data
+	for n, workflow_state_json in enumerate(diagram_data["workflow_states"]):
+		workflow_state = workflow_state_from_json(
+			credentials, deployment_diagram, workflow_state_json)
 
-    base_resource_id = None
+		deployment_diagram.add_workflow_state(workflow_state)
 
-    for resource in resources:
-        if resource["path"] == "/":
-            base_resource_id = resource["id"]
-            break
+	# If we did not find an api gateway, let's create a placeholder for now
+	if deployment_diagram.api_gateway is None:
+		deployment_diagram.initialize_api_gateway(credentials)
 
-    if base_resource_id is None:
-        raise MissingResourceException("Missing API Gateway base resource ID. This should never happen")
+	# Add transition data to each Lambda
+	for workflow_relationship_json in diagram_data["workflow_relationships"]:
+		workflow_relationship_from_json(deployment_diagram, workflow_relationship_json)
+	deployment_diagram.finalize_merge_transitions()
 
-    # Create a map of paths to verify existance later
-    # so we don't overwrite existing resources
-    path_existence_map = {}
-    for resource in resources:
-        path_existence_map[resource["path"]] = resource["id"]
+	deployment_exceptions = yield deployment_diagram.deploy(
+		task_spawner, api_gateway_manager, credentials)
 
-    # Set the pointer to the base
-    current_base_pointer_id = base_resource_id
+	if len(deployment_exceptions) > 0:
+		# This is the earliest point we can apply the breaks in the case of an exception
+		# It's the callers responsibility to tear down the nodes
 
-    # Path level, continously updated
-    current_path = ""
+		logit("[ ERROR ] An uncaught exception occurred during the deployment process!", "error")
+		logit(deployment_exceptions, "error")
+		raise gen.Return({
+			"success": False,
+			"teardown_nodes_list": deployment_diagram.get_workflow_states_for_teardown(),
+			"exceptions": deployment_exceptions,
+		})
 
-    # Create entire path from chain
-    for path_part in path_parts:
-        """
-        TODO: Check for conflicting resources and don't
-        overwrite an existing resource if it exists already.
-        """
-        # Check if there's a conflicting resource here
-        current_path = current_path + "/" + path_part
+	# Make sure that log table is set up
+	# It almost certainly is by this point
+	yield project_log_table_future
 
-        # Get existing resource ID instead of creating one
-        if current_path in path_existence_map:
-            current_base_pointer_id = path_existence_map[current_path]
-        else:
-            # Otherwise go ahead and create one
-            new_resource = yield task_spawner.create_resource(
-                credentials,
-                api_gateway_id,
-                current_base_pointer_id,
-                path_part
-            )
-
-            current_base_pointer_id = new_resource["id"]
-
-    # Create method on base resource
-    method_response = yield task_spawner.create_method(
-        credentials,
-        "HTTP Method",
-        api_gateway_id,
-        current_base_pointer_id,
-        http_method,
-        False,
-    )
-
-    # Link the API Gateway to the lambda
-    link_response = yield task_spawner.link_api_method_to_lambda(
-        credentials,
-        api_gateway_id,
-        current_base_pointer_id,
-        http_method,  # GET was previous here
-        route,
-        lambda_name
-    )
-
-    resources = yield api_gateway_manager.get_resources(
-        credentials,
-        api_gateway_id
-    )
-
-    # Clown-shoes AWS bullshit for binary response
-    yield task_spawner.add_integration_response(
-        credentials,
-        api_gateway_id,
-        current_base_pointer_id,
-        http_method,
-        lambda_name
-    )
-
-
-@gen.coroutine
-def create_warmer_for_lambda_set(task_spawner, credentials, warmup_concurrency_level, unique_deploy_id, combined_warmup_list):
-    # Create Lambda warmers if enabled
-    warmer_trigger_name = "WarmerTrigger" + unique_deploy_id
-    logit("Deploying auto-warmer CloudWatch rule...")
-    warmer_trigger_result = yield task_spawner.create_cloudwatch_rule(
-        credentials,
-        get_random_node_id(),
-        warmer_trigger_name,
-        "rate(5 minutes)",
-        "A CloudWatch Event trigger to keep the deployed Lambdas warm.",
-        "",
-    )
-
-    # Go through all the Lambdas deployed and make them the targets of the
-    # warmer Lambda so everything is kept hot.
-    # Additionally we'll invoke them all once with a warmup request so
-    # that they are hot if hit immediately
-    for deployed_lambda in combined_warmup_list:
-        yield task_spawner.add_rule_target(
-            credentials,
-            warmer_trigger_name,
-            deployed_lambda["name"],
-            deployed_lambda["arn"],
-            json.dumps({
-                "_refinery": {
-                    "warmup": warmup_concurrency_level,
-                }
-            })
-        )
-
-        task_spawner.warm_up_lambda(
-            credentials,
-            deployed_lambda["arn"],
-            warmup_concurrency_level
-        )
-
-    raise gen.Return({
-        "id": warmer_trigger_result["id"],
-        "name": warmer_trigger_name,
-        "arn": warmer_trigger_result["arn"]
-    })
-
-
-@gen.coroutine
-def add_auto_warmup(task_spawner, credentials, warmup_concurrency_level, unique_deploy_id, combined_warmup_list):
-    # Split warmup list into a list of lists with each list containing five elements.
-    # This is so that we match the limit for CloudWatch Rules max targets (5 per rule).
-    # See "Targets" under this following URL:
-    # https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/cloudwatch_limits_cwe.html
-    split_combined_warmup_list = split_list_into_chunks(
-        combined_warmup_list,
-        5
-    )
-
-    # Ensure each Cloudwatch Rule has a unique name
-    warmup_unique_counter = 0
-
-    warmup_futures = []
-
-    for warmup_chunk_list in split_combined_warmup_list:
-        warmup_futures.append(
-            create_warmer_for_lambda_set(
-                task_spawner,
-                credentials,
-                warmup_concurrency_level,
-                unique_deploy_id + "_W" + str(warmup_unique_counter),
-                warmup_chunk_list
-            )
-        )
-
-        warmup_unique_counter += 1
-
-    # Wait for all of the concurrent Cloudwatch Rule creations to finish
-    warmer_triggers = yield warmup_futures
-    raise gen.Return(warmer_triggers)
+	raise gen.Return({
+		"success": True,
+		"project_name": project_name,
+		"project_id": project_id,
+		"deployment_diagram": deployment_diagram.serialize(),
+		"project_config": project_config
+	})
