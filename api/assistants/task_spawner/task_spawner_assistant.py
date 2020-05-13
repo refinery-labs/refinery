@@ -673,27 +673,21 @@ class TaskSpawner(object):
 
     @run_on_executor
     @emit_runtime_metrics("create_cloudwatch_rule")
-    def create_cloudwatch_rule(self, credentials, id, name, schedule_expression, description, input_string):
+    def create_cloudwatch_rule(self, credentials, cloudwatch_rule):
         return create_cloudwatch_rule(
             self.aws_client_factory,
             credentials,
-            id,
-            name,
-            schedule_expression,
-            description,
-            input_string
+            cloudwatch_rule
         )
 
     @run_on_executor
     @emit_runtime_metrics("add_rule_target")
-    def add_rule_target(self, credentials, rule_name, target_id, target_arn, input_string):
+    def add_rule_target(self, credentials, rule, target):
         return add_rule_target(
             self.aws_client_factory,
             credentials,
-            rule_name,
-            target_id,
-            target_arn,
-            input_string
+            rule,
+            target
         )
 
     @run_on_executor
@@ -718,25 +712,21 @@ class TaskSpawner(object):
 
     @run_on_executor
     @emit_runtime_metrics("create_sqs_queue")
-    def create_sqs_queue(self, credentials, id, queue_name, batch_size, visibility_timeout):
+    def create_sqs_queue(self, credentials, sqs_queue_state):
         return create_sqs_queue(
             self.aws_client_factory,
             credentials,
-            id,
-            queue_name,
-            batch_size,
-            visibility_timeout
+            sqs_queue_state
         )
 
     @run_on_executor
     @emit_runtime_metrics("map_sqs_to_lambda")
-    def map_sqs_to_lambda(self, credentials, sqs_arn, lambda_arn, batch_size):
+    def map_sqs_to_lambda(self, credentials, sqs_node, next_node):
         return map_sqs_to_lambda(
             self.aws_client_factory,
             credentials,
-            sqs_arn,
-            lambda_arn,
-            batch_size
+            sqs_node,
+            next_node
         )
 
     @run_on_executor
