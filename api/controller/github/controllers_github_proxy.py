@@ -96,10 +96,9 @@ class GithubProxy( BaseHandler ):
     def set_default_cors( self ):
         self.set_header( 'Access-Control-Allow-Credentials', 'true' )
 
-    @gen.coroutine
     @github_authenticated
-    def proxy_request( self, oauth_token, oauth_json_data ):
-        headers = self.request.headers
+    async def proxy_request( self, oauth_token, oauth_json_data ):
+        headers = {}
         for header in GIT_ALLOW_HEADERS:
             if self.request.headers.get( header ):
                 headers[header] = self.request.headers[header]
@@ -122,12 +121,12 @@ class GithubProxy( BaseHandler ):
         )
 
         try:
-            proxy_res = yield self.http.fetch(
+            proxy_res: httpclient.HTTPResponse = await self.http.fetch(
                 proxy_url,
                 method=self.request.method,
                 headers=headers,
                 body=self.request.body if self.request.method != 'GET' else None
-            )  # type: httpclient.HTTPResponse
+            )
 
             code = proxy_res.code
             reason = proxy_res.reason
@@ -153,11 +152,12 @@ class GithubProxy( BaseHandler ):
         request_service = self.request.arguments.get( 'service' )
         if not request_service or len( request_service ) != 1:
             return False
-        request_service = str(request_service[0])
+
+        first_request_service = request_service[0].decode()
 
         valid_service = (
-                request_service.endswith( 'git-upload-pack' )
-                or request_service.endswith( 'git-receive-pack' )
+                first_request_service.endswith( 'git-upload-pack' )
+                or first_request_service.endswith( 'git-receive-pack' )
         )
 
         return valid_path and valid_service
@@ -176,26 +176,23 @@ class GithubProxy( BaseHandler ):
 
         return is_push or is_pull
 
-    @gen.coroutine
     @authenticated
-    def get( self, url ):
+    async def get( self, url ):
         self.set_default_cors()
         if self.is_info_refs():
-            yield self.proxy_request()
-        self.finish()
+            await self.proxy_request()
+        await self.finish()
 
-    @gen.coroutine
     @authenticated
-    def post( self, url ):
+    async def post( self, url ):
         self.set_default_cors()
         if self.is_pull_or_push():
-            yield self.proxy_request()
-        self.finish()
+            await self.proxy_request()
+        await self.finish()
 
-    @gen.coroutine
-    def options( self, url ):
+    async def options( self, url ):
         self.set_default_cors()
         self.set_header( 'Access-Control-Allow-Methods', ','.join( DEFAULT_ALLOW_METHODS ) )
         self.set_header( 'Access-Control-Allow-Headers', ','.join( DEFAULT_ALLOW_HEADERS ) )
         self.set_header( 'Access-Control-Max-Age', CORS_MAX_AGE )
-        self.finish()
+        await self.finish()
