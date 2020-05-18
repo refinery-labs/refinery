@@ -33,6 +33,7 @@ def teardown_infrastructure(api_gateway_manager, lambda_manager, schedule_trigge
         if "exists" in teardown_node and teardown_node["exists"] == False:
             continue
 
+        """
         if teardown_node["type"] == "lambda" or teardown_node["type"] == "api_endpoint":
             teardown_operation_futures.append(
                 lambda_manager.delete_lambda(
@@ -43,7 +44,8 @@ def teardown_infrastructure(api_gateway_manager, lambda_manager, schedule_trigge
                     teardown_node["arn"],
                 )
             )
-        elif teardown_node["type"] == "sns_topic":
+        """
+        if teardown_node["type"] == "sns_topic":
             teardown_operation_futures.append(
                 sns_manager.delete_sns_topic(
                     credentials,

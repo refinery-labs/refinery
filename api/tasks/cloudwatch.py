@@ -1,6 +1,8 @@
-from json import dumps, loads
 from re import sub
 from time import sleep
+
+import botocore.errorfactory
+
 from utils.general import logit
 
 
@@ -46,10 +48,16 @@ def create_cloudwatch_group(aws_client_factory, credentials, group_name, tags_di
         credentials
     )
 
-    response = cloudwatch_logs.create_log_group(
-        logGroupName=group_name,
-        tags=tags_dict
-    )
+    try:
+        response = cloudwatch_logs.create_log_group(
+            logGroupName=group_name,
+            tags=tags_dict
+        )
+    except cloudwatch_logs.exceptions.ResourceAlreadyExistsException as e:
+        # TODO we should be fine if this already exists, perhaps we want to clean out the
+        # existing logs?
+        logit(f"cloudwatch log group for {group_name} already exists", "warning")
+        pass
 
     retention_response = cloudwatch_logs.put_retention_policy(
         logGroupName=group_name,
@@ -144,7 +152,7 @@ def add_rule_target(aws_client_factory, credentials, rule, target):
     return rule_creation_response
 
 
-def get_cloudwatch_existence_info(aws_client_factory, credentials, _id, _type, name):
+def get_cloudwatch_existence_info(aws_client_factory, credentials, schedule_object):
     events_client = aws_client_factory.get_aws_client(
         "events",
         credentials
@@ -152,23 +160,12 @@ def get_cloudwatch_existence_info(aws_client_factory, credentials, _id, _type, n
 
     try:
         response = events_client.describe_rule(
-            Name=name,
+            Name=schedule_object.name,
         )
     except events_client.exceptions.ResourceNotFoundException:
-        return {
-            "id": _id,
-            "type": _type,
-            "name": name,
-            "exists": False
-        }
+        return False
 
-    return {
-        "id": _id,
-        "type": _type,
-        "name": name,
-        "arn": response["Arn"],
-        "exists": True,
-    }
+    return True
 
 
 def get_lambda_cloudwatch_logs(aws_client_factory, credentials, log_group_name, stream_id):

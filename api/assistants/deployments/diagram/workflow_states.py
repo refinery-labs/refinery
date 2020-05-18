@@ -1,42 +1,61 @@
 from __future__ import annotations
 
-from typing import Dict, List, TYPE_CHECKING
+from tornado import gen
+from typing import Dict, List, TYPE_CHECKING, Union
 
-from assistants.deployments.diagram.types import StateTypes, RelationshipTypes
+from assistants.deployments.diagram.types import StateTypes, RelationshipTypes, DeploymentState
 from assistants.deployments.diagram.workflow_relationship import WorkflowRelationship, IfWorkflowRelationship, \
 	MergeWorkflowRelationship
 from utils.general import get_safe_workflow_state_name
 
 if TYPE_CHECKING:
 	from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
-	from assistants.deployments.diagram.api_endpoint_workflow_states import ApiEndpointWorkflowState
-	from assistants.deployments.diagram.lambda_workflow_state import LambdaWorkflowState
-	from assistants.deployments.diagram.trigger_workflow_states import SnsTopicWorkflowState, ScheduleTriggerWorkflowState, \
-		SqsQueueWorkflowState
+
+INTERNAL_ERROR_MSG = 'When deploying this project, Refinery experienced an internal error.\nPlease reach out to the Refinery devs if this problem persists.'
 
 
 class DeploymentException(Exception):
-	def __init__(self, node_id, name, node_type, msg):
+	def __init__(self, node_id, name, node_type, internal_error, msg):
 		self.id = node_id
 		self.name = name
 		self.node_type = node_type
+		self.internal_error = internal_error
 		self.msg = msg
 
-	def __repr__(self):
+	def __str__(self):
 		return f'name: {self.name}, id: {self.id}, type: {self.node_type}, exception:\n{self.msg}'
 
+	def serialize(self):
+		msg = self.msg if not self.internal_error else INTERNAL_ERROR_MSG
+		return {
+			'name': self.name,
+			'id': self.id,
+			'type': self.node_type,
+			'exception': msg
+		}
 
-class WorkflowState:
+
+class WorkflowState(DeploymentState):
 	def __init__(self, credentials, _id, name, _type, arn=None):
+		super(DeploymentState, self).__init__()
+
 		self._credentials = credentials
 
 		self.id: str = _id
-		self.name: str = get_safe_workflow_state_name(name)
+		self.name: str = get_safe_workflow_state_name(name + _id)
 		self.type: StateTypes = _type
-		self.arn = self.get_arn_name() if arn is None else arn
 
 		self.transitions: Dict[RelationshipTypes, List[WorkflowRelationship]] = {transition_type: [] for
 																			   transition_type in RelationshipTypes}
+
+		self.deployed_state: Union[DeploymentState, None] = None
+
+		arn = self.get_arn_name() if arn is None else arn
+		self.current_state: DeploymentState = DeploymentState(arn)
+
+	@property
+	def arn(self):
+		return self.current_state.arn if self.state_has_changed() else self.deployed_state.arn
 
 	def serialize(self):
 		return {
@@ -47,14 +66,30 @@ class WorkflowState:
 		}
 
 	def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
-		pass
+		self.deployed_state = deploy_diagram.get_previous_state(self.id)
+
+	@gen.coroutine
+	def predeploy(self, task_spawner):
+		raise gen.Return()
 
 	def deploy(self, task_spawner, project_id, project_config):
 		pass
 
+	def state_has_changed(self) -> bool:
+		assert self.current_state is not None
+
+		if self.deployed_state is None:
+			return True
+		return self.deployed_state.state_changed(self.current_state)
+
+	def deployed_state_exists(self) -> bool:
+		if self.deployed_state is None:
+			return False
+		return self.deployed_state.exists
+
 	def set_name(self, name):
 		self.name = name
-		self.arn = self.get_arn_name()
+		self.current_state.arn = self.get_arn_name()
 
 	def get_arn_name(self):
 		name_prefix = ''
@@ -124,6 +159,8 @@ class WorkflowState:
 		:return:
 		"""
 		for merge_transition in self.transitions[RelationshipTypes.MERGE]:
+			assert isinstance(merge_transition, MergeWorkflowRelationship)
+
 			if merge_transition.next_node.id == next_node_id:
-				merge_transition.merge_lambdas = arn_list
+				merge_transition.set_merge_lambdas(arn_list)
 				break

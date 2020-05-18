@@ -57,6 +57,12 @@ class ScheduleTriggerWorkflowState(TriggerWorkflowState):
 			self
 		)
 
+	def predeploy(self, task_spawner):
+		return task_spawner.get_cloudwatch_existence_info(
+			self._credentials,
+			self
+		)
+
 	def _link_trigger_to_next_deployed_state(self, task_spawner, next_node):
 		return task_spawner.add_rule_target(
 			self._credentials,
@@ -91,6 +97,12 @@ class SqsQueueWorkflowState(TriggerWorkflowState):
 			self
 		)
 
+	def predeploy(self, task_spawner):
+		return task_spawner.get_sqs_existence_info(
+			self._credentials,
+			self
+		)
+
 	def _link_trigger_to_next_deployed_state(self, task_spawner, next_node):
 		return task_spawner.map_sqs_to_lambda(
 			self._credentials,
@@ -107,6 +119,12 @@ class SnsTopicWorkflowState(TriggerWorkflowState):
 			self._credentials,
 			self.id,
 			self.name
+		)
+
+	def predeploy(self, task_spawner):
+		return task_spawner.get_sns_existence_info(
+			self._credentials,
+			self
 		)
 
 	def _link_trigger_to_next_deployed_state(self, task_spawner, next_node):

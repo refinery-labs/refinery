@@ -3,35 +3,20 @@ from uuid import uuid4
 from utils.general import get_safe_workflow_state_name
 
 
-def get_sns_existence_info(aws_client_factory, credentials, _id, _type, name):
+def get_sns_existence_info(aws_client_factory, credentials, sns_object):
     sns_client = aws_client_factory.get_aws_client(
         "sns",
         credentials
     )
 
-    sns_topic_arn = "arn:aws:sns:" + \
-        credentials["region"] + ":" + \
-        str(credentials["account_id"]) + ":" + name
-
     try:
         response = sns_client.get_topic_attributes(
-            TopicArn=sns_topic_arn
+            TopicArn=sns_object.arn
         )
     except sns_client.exceptions.NotFoundException:
-        return {
-            "id": _id,
-            "type": _type,
-            "name": name,
-            "exists": False
-        }
+        return False
 
-    return {
-        "id": _id,
-        "type": _type,
-        "name": name,
-        "arn": sns_topic_arn,
-        "exists": True,
-    }
+    return True
 
 
 def create_sns_topic(aws_client_factory, credentials, id, topic_name):

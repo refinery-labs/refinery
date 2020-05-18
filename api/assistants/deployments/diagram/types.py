@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from enum import Enum
 
 
@@ -21,3 +23,15 @@ class RelationshipTypes(Enum):
 	FAN_OUT = "fan-out"
 	FAN_IN = "fan-in"
 	MERGE = "merge"
+
+
+class DeploymentState:
+	def __init__(self, arn=None, state_hash=None):
+		self.arn = arn
+
+		self.state_hash = state_hash
+
+		self.exists = False
+
+	def state_changed(self, current_state: DeploymentState):
+		return self.state_hash != current_state.state_hash

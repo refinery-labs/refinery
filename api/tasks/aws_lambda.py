@@ -349,35 +349,7 @@ def set_lambda_reserved_concurrency(aws_client_factory, credentials, arn, reserv
     )
 
 
-@log_exception
-def deploy_aws_lambda(app_config, aws_client_factory, db_session_maker, lambda_manager, credentials, lambda_object: LambdaWorkflowState):
-    """
-    Here we do caching to see if we've done this exact build before
-    (e.g. the same language, code, and libraries). If we have an the
-    previous zip package is still in S3 we can just return that.
-
-    The zip key is {{SHA256_OF_LANG-CODE-LIBRARIES}}.zip
-    """
-    # Generate libraries object for now until we modify it to be a dict/object
-    libraries_object = {}
-    for library in lambda_object.libraries:
-        libraries_object[str(library)] = "latest"
-
-    is_inline_execution_string = "-INLINE" if lambda_object.is_inline_execution else "-NOT_INLINE"
-
-    # Generate SHA256 hash input for caching key
-    hash_input = lambda_object.language + "-" + lambda_object.code + "-" + dumps(
-        libraries_object,
-        sort_keys=True
-    ) + dumps(
-        lambda_object.shared_files_list
-    ) + is_inline_execution_string
-    hash_key = sha256(bytes(hash_input, encoding="UTF-8")).hexdigest()
-    s3_package_zip_path = hash_key + ".zip"
-
-    # Check to see if it's in the S3 cache
-    already_exists = False
-
+def upload_aws_lambda_code_to_s3(app_config, aws_client_factory, credentials, lambda_object, s3_package_zip_path):
     # Create S3 client
     s3_client = aws_client_factory.get_aws_client(
         "s3",
@@ -392,6 +364,7 @@ def deploy_aws_lambda(app_config, aws_client_factory, db_session_maker, lambda_m
         s3_package_zip_path
     )
 
+    # Check to see if it's in the S3 cache
     if not already_exists:
         # Build the Lambda package .zip and return the zip data for it
         lambda_zip_package_data = build_lambda(
@@ -408,13 +381,26 @@ def deploy_aws_lambda(app_config, aws_client_factory, db_session_maker, lambda_m
             Body=lambda_zip_package_data,
         )
 
+
+@log_exception
+def deploy_aws_lambda(app_config, aws_client_factory, db_session_maker, lambda_manager, credentials, lambda_object: LambdaWorkflowState):
+    """
+    Here we do caching to see if we've done this exact build before
+    (e.g. the same language, code, and libraries). If we have an the
+    previous zip package is still in S3 we can just return that.
+
+    The zip key is {{SHA256_OF_LANG-CODE-LIBRARIES}}.zip
+    """
+    s3_package_zip_path = lambda_object.get_s3_package_hash() + ".zip"
+
+    upload_aws_lambda_code_to_s3(app_config, aws_client_factory, credentials, lambda_object, s3_package_zip_path)
+
     lambda_deploy_result = _deploy_aws_lambda(
         aws_client_factory,
         credentials,
         lambda_object,
         s3_package_zip_path,
     )
-    lambda_object.arn = lambda_deploy_result["FunctionArn"]
 
     # If it's an inline execution we can cache the
     # built Lambda and re-used it for future executions
@@ -429,8 +415,6 @@ def deploy_aws_lambda(app_config, aws_client_factory, db_session_maker, lambda_m
             lambda_object,
             lambda_deploy_result["CodeSize"]
         )
-
-    return lambda_deploy_result
 
 
 def _deploy_aws_lambda(aws_client_factory, credentials, lambda_object: LambdaWorkflowState, s3_package_zip_path):
@@ -484,6 +468,88 @@ def _deploy_aws_lambda(aws_client_factory, credentials, lambda_object: LambdaWor
                 lambda_object,
                 s3_package_zip_path
             )
+        raise
+
+    return response
+
+
+def publish_new_aws_lambda_version(app_config, aws_client_factory, credentials, lambda_object: LambdaWorkflowState):
+    """
+    Here we do caching to see if we've done this exact build before
+    (e.g. the same language, code, and libraries). If we have an the
+    previous zip package is still in S3 we can just return that.
+
+    The zip key is {{SHA256_OF_LANG-CODE-LIBRARIES}}.zip
+    """
+
+    s3_package_zip_path = lambda_object.get_s3_package_hash() + ".zip"
+
+    upload_aws_lambda_code_to_s3(app_config, aws_client_factory, credentials, lambda_object, s3_package_zip_path)
+
+    # Create Lambda client
+    lambda_client = aws_client_factory.get_aws_client(
+        "lambda",
+        credentials
+    )
+
+    lambda_packages_bucket = credentials["lambda_packages_bucket"]
+
+    code_sha256 = update_aws_lambda_code(lambda_client, lambda_packages_bucket, lambda_object, s3_package_zip_path)
+    update_aws_lambda_configuration(lambda_client, lambda_object)
+
+    new_lambda_version = create_aws_lambda_version(lambda_client, lambda_object, code_sha256)
+    return new_lambda_version
+
+
+def create_aws_lambda_version(lambda_client, lambda_object: LambdaWorkflowState, code_sha256):
+    try:
+        response = lambda_client.publish_version(
+            FunctionName=lambda_object.name,
+            CodeSha256=code_sha256
+
+            # TODO should we use this when versioning?
+            # RevisionId='string'
+        )
+    except ClientError as e:
+        raise
+
+    return response.get('Version')
+
+
+def update_aws_lambda_code(lambda_client, lambda_packages_bucket, lambda_object: LambdaWorkflowState, s3_package_zip_path):
+    try:
+        response = lambda_client.update_function_code(
+            FunctionName=lambda_object.name,
+            S3Bucket=lambda_packages_bucket,
+            S3Key=s3_package_zip_path,
+
+            # TODO do we want to use this for versioning?
+            # S3ObjectVersion='string',
+        )
+    except ClientError as e:
+        raise
+
+    return response.get('CodeSha256')
+
+
+def update_aws_lambda_configuration(lambda_client, lambda_object: LambdaWorkflowState):
+    # Generate environment variables data structure
+    env_data = {}
+    for key, value in lambda_object.environment_variables.items():
+        env_data[key] = value
+
+    try:
+        response = lambda_client.update_function_configuration(
+            FunctionName=lambda_object.name,
+            Role=lambda_object.role,
+            Timeout=int(lambda_object.max_execution_time),
+            MemorySize=int(lambda_object.memory),
+            Environment={
+                "Variables": env_data
+            },
+            Layers=lambda_object.layers,
+        )
+    except ClientError as e:
         raise
 
     return response
@@ -593,13 +659,13 @@ def cache_inline_lambda_execution(aws_client_factory, db_session_maker, lambda_m
     add_inline_execution_lambda_entry(
         db_session_maker,
         credentials,
-        lambda_object.get_hash_key(),
+        lambda_object.get_content_hash(),
         lambda_object.arn,
         lambda_size
     )
 
 
-def get_aws_lambda_existence_info(aws_client_factory, credentials, _id, _type, lambda_name):
+def get_aws_lambda_existence_info(aws_client_factory, credentials, lambda_object):
     lambda_client = aws_client_factory.get_aws_client(
         "lambda",
         credentials
@@ -607,23 +673,12 @@ def get_aws_lambda_existence_info(aws_client_factory, credentials, _id, _type, l
 
     try:
         response = lambda_client.get_function(
-            FunctionName=lambda_name
+            FunctionName=lambda_object.name
         )
     except lambda_client.exceptions.ResourceNotFoundException:
-        return {
-            "id": _id,
-            "type": _type,
-            "name": lambda_name,
-            "exists": False
-        }
+        return False
 
-    return {
-        "id": _id,
-        "type": _type,
-        "name": lambda_name,
-        "exists": True,
-        "arn": response["Configuration"]["FunctionArn"]
-    }
+    return True
 
 
 def clean_lambda_iam_policies(aws_client_factory, credentials, lambda_name):

@@ -79,7 +79,7 @@ class RunTmpLambda(BaseHandler):
         )
         inline_lambda.setup(deployment_diagram, self.json)
 
-        inline_lambda_hash_key = inline_lambda.get_hash_key()
+        inline_lambda_hash_key = inline_lambda.get_content_hash()
 
         # Check if we already have an inline execution Lambda for it.
         cached_inline_execution_lambda = self.dbsession.query(InlineExecutionLambda).filter_by(
@@ -101,15 +101,13 @@ class RunTmpLambda(BaseHandler):
             self.dbsession.commit()
 
             cached_inline_execution_lambda_dict = cached_inline_execution_lambda.to_dict()
-
-            lambda_info = {
-                "arn": cached_inline_execution_lambda_dict["arn"]
-            }
         else:
             # noinspection PyUnresolvedReferences
             try:
-                deploy_data = inline_lambda.deploy(self.task_spawner, project_id=None, project_config=None)
-                lambda_info = yield deploy_data["future"]
+                yield inline_lambda.predeploy(self.task_spawner)
+                yield inline_lambda.deploy(
+                    self.task_spawner, project_id=None, project_config=None
+                )
             except BuildException as build_exception:
                 self.write({
                     "success": False,
@@ -179,11 +177,11 @@ class RunTmpLambda(BaseHandler):
                 "websocket_uri": self.app_config.get("LAMBDA_CALLBACK_ENDPOINT"),
             }
 
-        self.logger("Executing Lambda '" + lambda_info["arn"] + "'...")
+        self.logger(f"Executing Lambda '{inline_lambda.arn}'...")
 
         lambda_result = yield self.task_spawner.execute_aws_lambda(
             credentials,
-            lambda_info["arn"],
+            inline_lambda.arn,
             execute_lambda_params
         )
 
@@ -307,84 +305,9 @@ class InfraCollisionCheck(BaseHandler):
     @authenticated
     @gen.coroutine
     def post(self):
-        self.logger("Checking for production collisions...")
-
-        diagram_data = json.loads(self.json["diagram_data"])
-
-        credentials = self.get_authenticated_user_cloud_configuration()
-
-        """
-		Returned collisions format:
-
-		[
-			{
-				"id": {{node_id}},
-				"arn": {{production_resource_arn}},
-				"name": {{node_name}},
-				"type": {{node_type}},
-			}
-		]
-		"""
-        collision_check_futures = []
-
-        """
-		Iterate through workflow states and check for collisions
-		for each node in production based off get_lambda_safe_name
-		"""
-        for workflow_state in diagram_data["workflow_states"]:
-            # Check for Lambda collision
-            if workflow_state["type"] == "lambda":
-                collision_check_futures.append(
-                    self.task_spawner.get_aws_lambda_existence_info(
-                        credentials,
-                        workflow_state["id"],
-                        workflow_state["type"],
-                        get_safe_workflow_state_name(
-                            workflow_state["name"]
-                        )
-                    )
-                )
-            # Check for Schedule Trigger collisions (CloudWatch)
-            elif workflow_state["type"] == "schedule_trigger":
-                collision_check_futures.append(
-                    self.task_spawner.get_cloudwatch_existence_info(
-                        credentials,
-                        workflow_state["id"],
-                        workflow_state["type"],
-                        get_safe_workflow_state_name(
-                            workflow_state["name"]
-                        )
-                    )
-                )
-            elif workflow_state["type"] == "sqs_queue":
-                collision_check_futures.append(
-                    self.task_spawner.get_sqs_existence_info(
-                        credentials,
-                        workflow_state["id"],
-                        workflow_state["type"],
-                        get_safe_workflow_state_name(
-                            workflow_state["name"]
-                        )
-                    )
-                )
-            elif workflow_state["type"] == "sns_topic":
-                collision_check_futures.append(
-                    self.task_spawner.get_sns_existence_info(
-                        credentials,
-                        workflow_state["id"],
-                        workflow_state["type"],
-                        get_safe_workflow_state_name(
-                            workflow_state["name"]
-                        )
-                    )
-                )
-
-        # Wait for all collision checks to finish
-        collision_check_results = yield collision_check_futures
-
+        # TODO remove this endpoint
         self.write({
-            "success": True,
-            "result": collision_check_results
+            "success": True
         })
 
 
@@ -408,11 +331,37 @@ class DeployDiagram(BaseHandler):
     def do_diagram_deployment(self, project_name, project_id, diagram_data, project_config):
         credentials = self.get_authenticated_user_cloud_configuration()
 
+        dry_run = False
+
         latest_deployment = self.dbsession.query(Deployment).filter_by(
             project_id=project_id
         ).order_by(
             Deployment.timestamp.desc()
         ).first()
+
+        latest_deployment_json = None
+        if latest_deployment is not None:
+            latest_deployment_json = json.loads(latest_deployment.deployment_json)
+
+        if not dry_run and latest_deployment_json is not None:
+            teardown_nodes = latest_deployment_json["workflow_states"]
+            teardown_operation_results = yield teardown_infrastructure(
+                self.api_gateway_manager,
+                self.lambda_manager,
+                self.schedule_trigger_manager,
+                self.sns_manager,
+                self.sqs_manager,
+                credentials,
+                teardown_nodes
+            )
+
+            # Delete our logs
+            # No need to yield till it completes
+            yield delete_logs(
+                self.task_spawner,
+                credentials,
+                self.json["project_id"]
+            )
 
         # Attempt to deploy diagram
         deployment_data = yield deploy_diagram(
@@ -423,31 +372,35 @@ class DeployDiagram(BaseHandler):
             project_id,
             diagram_data,
             project_config,
-            latest_deployment
+            latest_deployment_json
         )
 
         # Check if the deployment failed
         if not deployment_data["success"]:
             self.logger("We are now rolling back the deployments we've made...", "error")
-            yield teardown_infrastructure(
-                self.api_gateway_manager,
-                self.lambda_manager,
-                self.schedule_trigger_manager,
-                self.sns_manager,
-                self.sqs_manager,
-                credentials,
-                deployment_data["teardown_nodes_list"]
-            )
-            self.logger("We've completed our rollback, returning an error...", "error")
 
-            # For now we'll just raise
-            self.write({
-                "success": True,  # Success meaning we caught it
-                "result": {
-                    "deployment_success": False,
-                    "exceptions": deployment_data["exceptions"],
-                }
-            })
+            # TODO do we need to do a teardown on an error?
+
+            if not dry_run:
+                yield teardown_infrastructure(
+                    self.api_gateway_manager,
+                    self.lambda_manager,
+                    self.schedule_trigger_manager,
+                    self.sns_manager,
+                    self.sqs_manager,
+                    credentials,
+                    deployment_data["teardown_nodes_list"]
+                )
+                self.logger("We've completed our rollback, returning an error...", "error")
+
+                # For now we'll just raise
+                self.write({
+                    "success": True,  # Success meaning we caught it
+                    "result": {
+                        "deployment_success": False,
+                        "exceptions": [e.serialize() for e in deployment_data["exceptions"]],
+                    }
+                })
             raise gen.Return()
 
         # TODO: Update the project data? Deployments should probably

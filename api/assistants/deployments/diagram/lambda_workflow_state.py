@@ -13,6 +13,7 @@ from utils.general import logit
 
 if TYPE_CHECKING:
 	from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
+	from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 
 
 class LambdaWorkflowState(WorkflowState):
@@ -44,23 +45,6 @@ class LambdaWorkflowState(WorkflowState):
 		else:
 			self.role = "arn:aws:iam::" + str(credentials["account_id"]) + ":role/refinery_default_aws_lambda_role"
 
-		# Save the original name the user made for this lambda
-		self._original_name = self.name
-		self._previous_deploy_hash = None
-		self._current_deploy_hash = None
-
-	def hash(self):
-		lambda_values = {
-			**self.serialize(),
-			"execution_pipeline_id": self.execution_pipeline_id,
-			"execution_log_level": self.execution_log_level,
-			"shared_files_list": self.shared_files_list,
-			"role": self.role,
-			"name": self._original_name
-		}
-		serialized_lambda_values = json.dumps(lambda_values).encode('utf-8')
-		self._current_deploy_hash = hashlib.sha256(serialized_lambda_values).hexdigest()
-
 	def serialize(self) -> Dict[str, str]:
 		base_ws_state = super(LambdaWorkflowState, self).serialize()
 		return {
@@ -73,10 +57,30 @@ class LambdaWorkflowState(WorkflowState):
 			"layers": self.layers,
 			"libraries": self.libraries,
 			"environment_variables": self.environment_variables,
-			"hash": self._current_deploy_hash
+			"state_hash": self.current_state.state_hash,
 		}
 
-	def get_hash_key(self):
+	def get_state_hash(self):
+		lambda_values = {
+			**self.serialize(),
+			"execution_pipeline_id": self.execution_pipeline_id,
+			"execution_log_level": self.execution_log_level,
+			"shared_files_list": self.shared_files_list,
+			"role": self.role,
+
+			# transitions are held in environment variables
+
+			# override the attributes we want to hold constant
+			"name": self.name,
+			"arn": ""
+		}
+
+		# print(json.dumps(lambda_values, indent=2))
+
+		serialized_lambda_values = json.dumps(lambda_values).encode('utf-8')
+		return hashlib.sha256(serialized_lambda_values).hexdigest()
+
+	def get_content_hash(self):
 		"""
 		Used by the Code Runner to determine if there is a lambda already deployed
 		that can be reused.
@@ -104,7 +108,24 @@ class LambdaWorkflowState(WorkflowState):
 			).encode('utf-8')
 		).hexdigest()
 
+	def get_s3_package_hash(self):
+		# Generate libraries object for now until we modify it to be a dict/object
+		libraries_object = {str(library): "latest" for library in self.libraries}
+
+		is_inline_execution_string = "-INLINE" if self.is_inline_execution else "-NOT_INLINE"
+
+		# Generate SHA256 hash input for caching key
+		hash_input = self.language + "-" + self.code + "-" + json.dumps(
+			libraries_object,
+			sort_keys=True
+		) + json.dumps(
+			self.shared_files_list
+		) + is_inline_execution_string
+		return hashlib.sha256(bytes(hash_input, encoding="UTF-8")).hexdigest()
+
 	def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
+		super(LambdaWorkflowState, self).setup(deploy_diagram, workflow_state_json)
+
 		self.execution_pipeline_id = deploy_diagram.project_id
 		self.execution_log_level = deploy_diagram.project_config["logging"]["level"]
 
@@ -132,10 +153,6 @@ class LambdaWorkflowState(WorkflowState):
 
 		if "reserved_concurrency_count" in workflow_state_json:
 			self.reserved_concurrency_count = workflow_state_json["reserved_concurrency_count"]
-
-		self.set_name(self.name + deploy_diagram.get_unique_workflow_state_name())
-
-		self._previous_deploy_hash = deploy_diagram.get_previous_state(self.id)
 
 	def _set_environment_variables_for_lambda(self, env_vars):
 		# Add environment variables depending on language
@@ -195,12 +212,12 @@ class LambdaWorkflowState(WorkflowState):
 			for _, env_var in tmp_env_vars.items()
 		}
 
-	def set_transition_env_data(self):
+	def _get_transition_env_data(self):
 		env_transitions = {
 			transition_type.value: [t.serialize() for t in transitions_for_type]
 			for transition_type, transitions_for_type in self.transitions.items()
 		}
-		self.environment_variables["TRANSITION_DATA"] = json.dumps(env_transitions)
+		return json.dumps(env_transitions)
 
 	@gen.coroutine
 	def deploy_lambda(self, task_spawner):
@@ -234,24 +251,55 @@ class LambdaWorkflowState(WorkflowState):
 				self.reserved_concurrency_count
 			)
 
-		raise gen.Return({
-			"id": self.id,
-			"name": self.name,
-			"arn": deployed_lambda_data["FunctionArn"]
-		})
+	@gen.coroutine
+	def update_lambda(self, task_spawner: TaskSpawner):
+		updated_lambda_version = yield task_spawner.publish_new_aws_lambda_version(
+			self._credentials,
+			self
+		)
+
+		logit(f"Created a new version for lambda {self.name}, version: {updated_lambda_version}")
+
+	@gen.coroutine
+	def predeploy(self, task_spawner):
+		logit(f"Preeploy for Lambda '{self.name}'...")
+
+		# finalize the transition data into an environment variable
+		self.environment_variables["TRANSITION_DATA"] = self._get_transition_env_data()
+
+		# calculate the current state's hash so we can later on
+		# determine if this state has been modified
+		# NOTE: aws lambda has their own tracking for this with RevisionId
+		# but we choose to use our own hash so that we are not too tightly coupled
+		# with their versioning logic
+		self.current_state.state_hash = self.get_state_hash()
+
+		if self.deployed_state is not None:
+			# check on the deployed state to see if it exists
+			exists = yield task_spawner.get_aws_lambda_existence_info(
+				self._credentials,
+				self
+			)
+			self.deployed_state.exists = exists
 
 	def deploy(self, task_spawner, project_id, project_config):
 		logit(f"Deploying Lambda '{self.name}'...")
 
-		self.set_transition_env_data()
-
+		# set this workflow's layers to be the language specific layer in addition
+		# to any user supplied layers
 		self.layers = get_layers_for_lambda(
 			self.language
 		) + self.layers
 
-		self.hash()
+		# if the state has not changed and the lambda exists, then we do not need to do anything
+		if not self.state_has_changed() and self.deployed_state_exists():
+			logit(f"{self.name} has not changed and is currently deployed, not redeploying")
+			return None
 
-		print(self._current_deploy_hash, self._previous_deploy_hash)
+		# if the state has changed but the lambda exists, then we can publish a new version of the lambda
+		if self.deployed_state_exists():
+			logit(f"{self.name} has changed and lambda exists, creating new version")
+			return self.update_lambda(task_spawner)
 
-		# TODO we could probably clean up this interface
+		# lambda does not exist, we must create a new one
 		return self.deploy_lambda(task_spawner)

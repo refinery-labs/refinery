@@ -112,10 +112,13 @@ class ApiEndpointWorkflowState(LambdaWorkflowState):
 			"url": self.url,
 			"rest_api_id": self.rest_api_id,
 			"http_method": self.http_method,
-			"api_path": self.api_path
+			"api_path": self.api_path,
+			"state_hash": self.current_state.state_hash
 		}
 
 	def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
+		super(LambdaWorkflowState, self).setup(deploy_diagram, workflow_state_json)
+
 		self.http_method = workflow_state_json["http_method"]
 		self.api_path = workflow_state_json["api_path"]
 
@@ -124,8 +127,6 @@ class ApiEndpointWorkflowState(LambdaWorkflowState):
 		self.execution_mode = "API_ENDPOINT"
 
 		self._set_environment_variables_for_lambda({})
-
-		self.set_name(self.name + deploy_diagram.get_unique_workflow_state_name())
 
 	def set_api_url(self, api_gateway_id):
 		self.rest_api_id = api_gateway_id
@@ -136,10 +137,16 @@ class ApiEndpointWorkflowState(LambdaWorkflowState):
 	def deploy(self, task_spawner, project_id, project_config):
 		logit(f"Deploying API Endpoint '{self.name}'...")
 
-		self.set_transition_env_data()
-
+		# TODO move this to predeploy
 		self.execution_pipeline_id = project_id,
-		self.execution_log_level = project_config["logging"]["level"],
+		self.execution_log_level = project_config["logging"]["level"]
+
+		# TODO we also might want to check the api gateway to prove that the routes are also still setup?
+
+		state_changed = self.state_has_changed()
+		if not state_changed and self.deployed_state.exists:
+			logit(f"{self.name} has not changed and is currently deployed, not redeploying")
+			return None
 
 		return self.deploy_lambda(task_spawner)
 

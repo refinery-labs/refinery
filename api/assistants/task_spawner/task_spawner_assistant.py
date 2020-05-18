@@ -73,8 +73,7 @@ from tasks.aws_lambda import (
     set_lambda_reserved_concurrency,
     deploy_aws_lambda,
     get_aws_lambda_existence_info,
-    clean_lambda_iam_policies
-)
+    clean_lambda_iam_policies, publish_new_aws_lambda_version)
 from tasks.build.common import (
     finalize_codebuild
 )
@@ -563,6 +562,17 @@ class TaskSpawner(object):
         )
 
     @run_on_executor
+    @log_exception
+    @emit_runtime_metrics("publish_new_aws_lambda_version")
+    def publish_new_aws_lambda_version(self, credentials, lambda_object):
+        return publish_new_aws_lambda_version(
+            self.app_config,
+            self.aws_client_factory,
+            credentials,
+            lambda_object
+        )
+
+    @run_on_executor
     @emit_runtime_metrics("get_final_zip_package_path")
     def get_final_zip_package_path(self, language, libraries):
         return get_final_zip_package_path(language, libraries)
@@ -815,8 +825,8 @@ class TaskSpawner(object):
 
     @run_on_executor
     @emit_runtime_metrics("get_aws_lambda_existence_info")
-    def get_aws_lambda_existence_info(self, credentials, _id, _type, lambda_name):
-        return get_aws_lambda_existence_info(self.aws_client_factory, credentials, _id, _type, lambda_name)
+    def get_aws_lambda_existence_info(self, credentials, lambda_object):
+        return get_aws_lambda_existence_info(self.aws_client_factory, credentials, lambda_object)
 
     @run_on_executor
     @emit_runtime_metrics("get_lambda_cloudwatch_logs")
@@ -825,18 +835,18 @@ class TaskSpawner(object):
 
     @run_on_executor
     @emit_runtime_metrics("get_cloudwatch_existence_info")
-    def get_cloudwatch_existence_info(self, credentials, _id, _type, name):
-        return get_cloudwatch_existence_info(self.aws_client_factory, credentials, _id, _type, name)
+    def get_cloudwatch_existence_info(self, credentials, schedule_object):
+        return get_cloudwatch_existence_info(self.aws_client_factory, credentials, schedule_object)
 
     @run_on_executor
     @emit_runtime_metrics("get_sqs_existence_info")
-    def get_sqs_existence_info(self, credentials, _id, _type, name):
-        return get_sqs_existence_info(self.aws_client_factory, credentials, _id, _type, name)
+    def get_sqs_existence_info(self, credentials, sqs_object):
+        return get_sqs_existence_info(self.aws_client_factory, credentials, sqs_object)
 
     @run_on_executor
     @emit_runtime_metrics("get_sns_existence_info")
-    def get_sns_existence_info(self, credentials, _id, _type, name):
-        return get_sns_existence_info(self.aws_client_factory, credentials, _id, _type, name)
+    def get_sns_existence_info(self, credentials, sns_object):
+        return get_sns_existence_info(self.aws_client_factory, credentials, sns_object)
 
     @run_on_executor
     @emit_runtime_metrics("create_rest_api")
