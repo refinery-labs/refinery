@@ -1,5 +1,7 @@
 from uuid import uuid4
 
+from assistants.deployments.diagram.api_endpoint_workflow_states import ApiEndpointWorkflowState
+
 
 def create_rest_api(aws_client_factory, credentials, name, description, version):
     api_gateway_client = aws_client_factory.get_aws_client(
@@ -25,12 +27,7 @@ def create_rest_api(aws_client_factory, credentials, name, description, version)
         }
     )
 
-    return {
-        "id": response["id"],
-        "name": response["name"],
-        "description": response["description"],
-        "version": response["version"]
-    }
+    return response["id"]
 
 
 def deploy_api_gateway_to_stage(aws_client_factory, credentials, rest_api_id, stage_name):
@@ -67,11 +64,7 @@ def create_resource(aws_client_factory, credentials, rest_api_id, parent_id, pat
         pathPart=path_part
     )
 
-    return {
-        "id": response["id"],
-        "api_gateway_id": rest_api_id,
-        "parent_id": parent_id,
-    }
+    return response["id"]
 
 
 def create_method(aws_client_factory, credentials, method_name, rest_api_id, resource_id, http_method, api_key_required):
@@ -98,21 +91,7 @@ def create_method(aws_client_factory, credentials, method_name, rest_api_id, res
     }
 
 
-def add_integration_response(aws_client_factory, credentials, rest_api_id, resource_id, http_method, lambda_name):
-    api_gateway_client = aws_client_factory.get_aws_client(
-        "apigateway",
-        credentials
-    )
-    response = api_gateway_client.put_integration_response(
-        restApiId=rest_api_id,
-        resourceId=resource_id,
-        httpMethod=http_method,
-        statusCode="200",
-        contentHandling="CONVERT_TO_TEXT"
-    )
-
-
-def link_api_method_to_lambda(aws_client_factory, credentials, rest_api_id, resource_id, http_method, api_path, lambda_name):
+def link_api_method_to_lambda(aws_client_factory, credentials, rest_api_id, resource_id, api_endpoint: ApiEndpointWorkflowState):
     api_gateway_client = aws_client_factory.get_aws_client(
         "apigateway",
         credentials
@@ -127,12 +106,12 @@ def link_api_method_to_lambda(aws_client_factory, credentials, rest_api_id, reso
     api_version = lambda_client.meta.service_model.api_version
     account_id = credentials["account_id"]
     lambda_uri = f"arn:aws:apigateway:{region}:lambda:path/{api_version}/functions/arn:aws:lambda:{region}:" + \
-                 f"{account_id}:function:{lambda_name}/invocations"
+                 f"{account_id}:function:{api_endpoint.name}/invocations"
 
     integration_response = api_gateway_client.put_integration(
         restApiId=rest_api_id,
         resourceId=resource_id,
-        httpMethod=http_method,
+        httpMethod=api_endpoint.http_method,
         type="AWS_PROXY",
         # MUST be POST: https://github.com/boto/boto3/issues/572#issuecomment-239294381
         integrationHttpMethod="POST",
@@ -143,25 +122,34 @@ def link_api_method_to_lambda(aws_client_factory, credentials, rest_api_id, reso
 
     # For AWS Lambda you need to add a permission to the Lambda function itself
     # via the add_permission API call to allow invocation via the CloudWatch event.
-    source_arn = f"arn:aws:execute-api:{region}:{account_id}:{rest_api_id}/*/{http_method}{api_path}"
+    source_arn = f"arn:aws:execute-api:{region}:{account_id}:{rest_api_id}/*/{api_endpoint.http_method}{api_endpoint.api_path}"
 
     # We have to clean previous policies we added from this Lambda
     # Scan over all policies and delete any which aren't associated with
     # API Gateways that actually exist!
 
     lambda_permission_add_response = lambda_client.add_permission(
-        FunctionName=lambda_name,
+        FunctionName=api_endpoint.name,
         StatementId=str(uuid4()).replace("_", "") + "_statement",
         Action="lambda:*",
         Principal="apigateway.amazonaws.com",
         SourceArn=source_arn
     )
 
+    # Clown-shoes AWS bullshit for binary response
+    response = api_gateway_client.put_integration_response(
+        restApiId=rest_api_id,
+        resourceId=resource_id,
+        httpMethod=api_endpoint.http_method,
+        statusCode="200",
+        contentHandling="CONVERT_TO_TEXT"
+    )
+
     return {
         "api_gateway_id": rest_api_id,
         "resource_id": resource_id,
-        "http_method": http_method,
-        "lambda_name": lambda_name,
+        "http_method": api_endpoint.http_method,
+        "lambda_name": api_endpoint.name,
         "type": integration_response["type"],
         "arn": integration_response["uri"],
         "statement": lambda_permission_add_response["Statement"]

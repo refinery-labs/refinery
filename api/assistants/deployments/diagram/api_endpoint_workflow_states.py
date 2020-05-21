@@ -3,9 +3,9 @@ from __future__ import annotations
 import uuid
 
 from tornado import gen
-from typing import Dict, TYPE_CHECKING
+from typing import Dict, TYPE_CHECKING, List
 
-from assistants.deployments.api_gateway import strip_api_gateway
+from assistants.deployments.api_gateway import strip_api_gateway, ApiGatewayManager
 from assistants.deployments.diagram.lambda_workflow_state import LambdaWorkflowState
 from assistants.deployments.diagram.utils import get_layers_for_lambda
 from assistants.deployments.diagram.workflow_states import WorkflowState, StateTypes
@@ -15,8 +15,69 @@ if TYPE_CHECKING:
 	from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
 
 
-class ApiGatewayResponseWorkflowState(WorkflowState):
+class MissingResourceException(Exception):
 	pass
+
+
+API_GATEWAY_STATE_NAME = "__api_gateway__"
+API_GATEWAY_STATE_ARN = "API_GATEWAY"
+API_GATEWAY_STAGE_NAME = "refinery"
+
+
+class ApiGatewayEndpoint:
+	def __init__(self, _id, path):
+		self.id = _id
+		self.path = path
+
+		# map HTTP methods to whether or not they are in use
+		self._methods: Dict[str, bool] = dict()
+
+	def set_method_in_use(self, method):
+		self._methods[method] = True
+
+	def get_methods_to_be_removed(self):
+		return [method for method, in_use in self._methods.items() if not in_use]
+
+	def endpoint_can_be_removed(self):
+		# if all of the methods are not being used, then we can remove this
+		return all([not in_use for in_use in self._methods.values()])
+
+
+class ApiGatewayResources:
+	def __init__(self):
+		self.base_resource_id = None
+		self.stages = []
+		self._path_existence_map: Dict[str, ApiGatewayEndpoint] = {}
+
+	def add_endpoint(self, api_endpoint: ApiGatewayEndpoint):
+		self._path_existence_map[api_endpoint.path] = api_endpoint
+
+	def get_endpoint_from_path(self, path: str) -> ApiGatewayEndpoint:
+		return self._path_existence_map.get(path)
+
+	@gen.coroutine
+	def remove_unused_resources(self, api_gateway_manager, credentials, api_gateway_id):
+		deletion_futures = []
+		for api_endpoint in self._path_existence_map.values():
+			methods = api_endpoint.get_methods_to_be_removed()
+			for method in methods:
+				future = api_gateway_manager.delete_rest_api_resource_method(
+					credentials,
+					api_gateway_id,
+					api_endpoint.id,
+					method
+				)
+				deletion_futures.append(future)
+
+			if api_endpoint.endpoint_can_be_removed():
+				future = api_gateway_manager.delete_rest_api_resource(
+					credentials,
+					api_gateway_id,
+					api_endpoint.id
+				)
+				deletion_futures.append(future)
+
+		yield deletion_futures
 
 
 class ApiGatewayWorkflowState(WorkflowState):
@@ -24,63 +85,145 @@ class ApiGatewayWorkflowState(WorkflowState):
 		super(ApiGatewayWorkflowState, self).__init__(
 			credentials,
 			get_random_node_id(),
-			"__api_gateway__",
-			StateTypes.API_GATEWAY
+			API_GATEWAY_STATE_NAME,
+			StateTypes.API_GATEWAY,
+			arn=API_GATEWAY_STATE_ARN
 		)
 
 		self.project_id = ""
 		self.api_gateway_id = None
 
-	def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
-		gateway_id = deploy_diagram.project_config["api_gateway"]["gateway_id"]
-		if not gateway_id:
-			return
+		self.deployed_state_resources = ApiGatewayResources()
 
-		self.api_gateway_id = gateway_id
+	def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
+		previous_api_gateway = deploy_diagram.get_previous_api_gateway_state(API_GATEWAY_STATE_ARN)
+		self.api_gateway_id = previous_api_gateway.
+
 		self.project_id = deploy_diagram.project_id
 
 		# set the api gateway for this deployment since it already exists
-		deploy_diagram.api_gateway = self
+		deploy_diagram.set_api_gateway(self)
+
+	def serialize(self):
+		ws_serialized = super(ApiGatewayWorkflowState, self).serialize()
+		return {
+			**ws_serialized,
+			"rest_api_id": self.api_gateway_id
+		}
 
 	@gen.coroutine
-	def use_or_create_api_gateway(self, task_spawner, api_gateway_manager):
-		api_gateway_exists = False
+	def get_api_gateway_deployment_state(self, api_gateway_manager: ApiGatewayManager):
+		rest_resources = yield api_gateway_manager.get_resources(
+			self._credentials,
+			self.api_gateway_id
+		)
 
+		for resource_item in rest_resources:
+			resource_id = resource_item["id"]
+			resource_path = resource_item["path"]
+
+			# A default resource is created along with an API gateway, we grab
+			# it so we can make our base method
+			if resource_path == "/":
+				self.deployed_state_resources.base_resource_id = resource_id
+				continue
+
+			resource_methods = {}
+			if "resourceMethods" in resource_item:
+				resource_methods = resource_item.get("resourceMethods")
+
+			gateway_endpoint = ApiGatewayEndpoint(
+				resource_item["id"],
+				resource_item["path"]
+			)
+			for method in resource_methods.keys():
+				gateway_endpoint.set_method_in_use(method)
+
+			# Create a map of paths to verify existance later
+			# so we don't overwrite existing resources
+			self.deployed_state_resources.add_endpoint(gateway_endpoint)
+
+		if self.deployed_state_resources.base_resource_id is None:
+			raise MissingResourceException("Missing API Gateway base resource ID. This should never happen")
+
+		""" TODO don't think we need this
+		rest_stages = yield api_gateway_manager.get_stages(
+			self._credentials,
+			self.api_gateway_id
+		)
+
+		self.deployed_state_resources.stages = [rest_stage["stageName"] for rest_stage in rest_stages]
+		"""
+
+	@gen.coroutine
+	def setup_api_endpoints(self, task_spawner, api_gateway_manager, deployed_api_endpoints):
+		for api_endpoint in deployed_api_endpoints:
+			assert isinstance(api_endpoint, ApiEndpointWorkflowState)
+
+			if not api_endpoint.state_has_changed() and api_endpoint.deployed_state_exists():
+				logit(f"API Endpoint {api_endpoint.id} has not changed and exists, skipping setting up API route")
+				continue
+
+			yield api_endpoint.create_lambda_api_route(
+				task_spawner,
+				self
+			)
+
+		logit("Cleaning up unused API endpoints from API gateway...")
+		yield self.deployed_state_resources.remove_unused_resources(
+			api_gateway_manager,
+			self._credentials,
+			self.api_gateway_id
+		)
+
+		logit("Now deploying API gateway to stage...")
+		deploy_stage_results = yield task_spawner.deploy_api_gateway_to_stage(
+			self._credentials,
+			self.api_gateway_id,
+			API_GATEWAY_STAGE_NAME
+		)
+
+		# TODO check deploy_stage_results?
+
+	@gen.coroutine
+	def predeploy(self, task_spawner, api_gateway_manager):
 		if self.api_gateway_id is not None:
 			logit("Verifying existence of API Gateway...")
-			api_gateway_exists = yield api_gateway_manager.api_gateway_exists(
+			self.deployed_state.exists = yield api_gateway_manager.api_gateway_exists(
 				self._credentials,
 				self.api_gateway_id
 			)
 
-		if self.api_gateway_id is None or not api_gateway_exists:
-			# We need to create an API gateway
-			logit("Deploying API Gateway for API Endpoint(s)...")
+			# TODO when the api gateway id doesnt exists, we need to set it up again
 
-			# We just generate a random ID for the API Gateway, no great other way to do it.
-			# e.g. when you change the project name now it's hard to know what the API Gateway
-			# is...
-			formatted_uuid = str(uuid.uuid4()).replace(
-				"-",
-				""
-			)
-			rest_api_name = f"Refinery-API-Gateway_{formatted_uuid}"
+		if self.deployed_state_exists():
+			yield self.get_api_gateway_deployment_state(api_gateway_manager)
 
-			create_gateway_result = yield task_spawner.create_rest_api(
-				self._credentials,
-				rest_api_name,
-				"API Gateway created by Refinery. Associated with project ID " + self.project_id,
-				"1.0.0"
-			)
+	@gen.coroutine
+	def deploy(self, task_spawner, api_gateway_manager, project_id, project_config):
+		# If we have a gateway id and the api gateway exists, we do not need to redeploy it
+		if self.api_gateway_id is not None and self.deployed_state_exists():
+			raise gen.Return()
 
-			self.api_gateway_id = create_gateway_result["id"]
-		else:
-			# We do another strip of the gateway just to be sure
-			yield strip_api_gateway(
-				api_gateway_manager,
-				self._credentials,
-				self.api_gateway_id
-			)
+		# We need to create an API gateway
+		logit("Deploying API Gateway for API Endpoint(s)...")
+
+		# We just generate a random ID for the API Gateway, no great other way to do it.
+		# e.g. when you change the project name now it's hard to know what the API Gateway
+		# is...
+		formatted_uuid = str(uuid.uuid4()).replace('-', '')
+
+		rest_api_name = f"Refinery-API-Gateway_{formatted_uuid}"
+
+		gateway_id = yield task_spawner.create_rest_api(
+			self._credentials,
+			rest_api_name,
+			"API Gateway created by Refinery. Associated with project ID " + self.project_id,
+			"1.0.0"
+		)
+		self.api_gateway_id = gateway_id
+
+		yield self.get_api_gateway_deployment_state(api_gateway_manager)
 
 
 class ApiEndpointWorkflowState(LambdaWorkflowState):
@@ -134,6 +277,76 @@ class ApiEndpointWorkflowState(LambdaWorkflowState):
 		api_path = self.api_path
 		self.url = f"https://{api_gateway_id}.execute-api.{region}.amazonaws.com/refinery{api_path}"
 
+	@gen.coroutine
+	def create_lambda_api_route(self, task_spawner, api_gateway: ApiGatewayWorkflowState):
+		logit(f"Setting up route {self.http_method} {self.api_path} for API Endpoint '{self.name}'...")
+
+		path_parts = self.api_path.split("/")
+		path_parts = list(filter(lambda s: s != '', path_parts))
+
+		# First we clean the Lambda of API Gateway policies which point
+		# to dead API Gateways
+		yield task_spawner.clean_lambda_iam_policies(
+			self._credentials,
+			self.name
+		)
+
+		# Set the pointer to the base
+		current_base_pointer_id = api_gateway.deployed_state_resources.base_resource_id
+
+		# Path level, continuously updated
+		current_path = ""
+
+		# Create entire path from chain
+		for path_part in path_parts:
+			"""
+			TODO: Check for conflicting resources and don't
+			overwrite an existing resource if it exists already.
+			"""
+			# Check if there's a conflicting resource here
+			current_path += "/" + path_part
+
+			# Get existing resource ID instead of creating one
+			api_endpoint = api_gateway.deployed_state_resources.get_endpoint_from_path(current_path)
+			if api_endpoint is not None:
+				current_base_pointer_id = api_endpoint.id
+			else:
+				logit(f"Creating resource {api_gateway.api_gateway_id}, {current_base_pointer_id}, {path_part}")
+				# Otherwise go ahead and create one
+				new_resource_id = yield task_spawner.create_resource(
+					self._credentials,
+					api_gateway.api_gateway_id,
+					current_base_pointer_id,
+					path_part
+				)
+				current_base_pointer_id = new_resource_id
+
+				# Create a new api endpoint resource and add it to our deployed state
+				api_endpoint = ApiGatewayEndpoint(
+					current_base_pointer_id, current_path)
+				api_gateway.deployed_state_resources.add_endpoint(api_endpoint)
+
+			# Mark this retrieved endpoint as one that is in use
+			api_endpoint.set_method_in_use(self.http_method)
+
+		# Create method on base resource
+		method_response = yield task_spawner.create_method(
+			self._credentials,
+			"HTTP Method",
+			api_gateway.api_gateway_id,
+			current_base_pointer_id,
+			self.http_method,
+			False,
+		)
+
+		# Link the API Gateway to the lambda
+		link_response = yield task_spawner.link_api_method_to_lambda(
+			self._credentials,
+			api_gateway.api_gateway_id,
+			current_base_pointer_id,
+			self
+		)
+
 	def deploy(self, task_spawner, project_id, project_config):
 		logit(f"Deploying API Endpoint '{self.name}'...")
 
@@ -150,3 +363,6 @@ class ApiEndpointWorkflowState(LambdaWorkflowState):
 
 		return self.deploy_lambda(task_spawner)
 
+
+class ApiGatewayResponseWorkflowState(WorkflowState):
+	pass

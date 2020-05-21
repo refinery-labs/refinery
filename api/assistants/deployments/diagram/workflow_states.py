@@ -36,7 +36,7 @@ class DeploymentException(Exception):
 
 
 class WorkflowState(DeploymentState):
-	def __init__(self, credentials, _id, name, _type, arn=None):
+	def __init__(self, credentials, _id, name, _type, arn=None, force_redeploy=False):
 		super(DeploymentState, self).__init__()
 
 		self._credentials = credentials
@@ -53,6 +53,8 @@ class WorkflowState(DeploymentState):
 		arn = self.get_arn_name() if arn is None else arn
 		self.current_state: DeploymentState = DeploymentState(arn)
 
+		self.force_redeploy = force_redeploy
+
 	@property
 	def arn(self):
 		return self.current_state.arn if self.state_has_changed() else self.deployed_state.arn
@@ -62,7 +64,11 @@ class WorkflowState(DeploymentState):
 			"id": self.id,
 			"name": self.name,
 			"type": self.type.value,
-			"arn": self.arn
+			"arn": self.arn,
+			"transitions": {
+				transition_type.value: [t.serialize() for t in transitions_for_type]
+				for transition_type, transitions_for_type in self.transitions.items()
+			}
 		}
 
 	def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
@@ -77,6 +83,9 @@ class WorkflowState(DeploymentState):
 
 	def state_has_changed(self) -> bool:
 		assert self.current_state is not None
+
+		if self.force_redeploy:
+			return True
 
 		if self.deployed_state is None:
 			return True

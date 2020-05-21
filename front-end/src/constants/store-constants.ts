@@ -104,7 +104,7 @@ export enum ProjectViewMutators {
 
   setGlobalExceptionHandler = 'setGlobalExceptionHandler',
 
-  setWarmupConcurrencyLevel = 'setWarmupConcurrencyLevel',
+  setForceRedeploy = 'setForceRedeploy',
 
   setIsAddingSharedFileToCodeBlock = 'setIsAddingSharedFileToCodeBlock'
 }

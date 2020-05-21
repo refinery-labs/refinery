@@ -6,7 +6,16 @@ from utils.general import logit
 
 
 @gen.coroutine
-def deploy_diagram(task_spawner, api_gateway_manager, credentials, project_name, project_id, diagram_data, project_config, latest_deployment):
+def deploy_diagram(
+	task_spawner,
+	api_gateway_manager,
+	credentials,
+	project_name,
+	project_id,
+	diagram_data,
+	project_config,
+	latest_deployment
+):
 	# Kick off the creation of the log table for the project ID
 	# This is fine to do if one already exists because the SQL
 	# query explicitly specifies not to create one if it exists.

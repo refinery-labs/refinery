@@ -328,10 +328,8 @@ class DeployDiagram(BaseHandler):
     @authenticated
     @disable_on_overdue_payment
     @gen.coroutine
-    def do_diagram_deployment(self, project_name, project_id, diagram_data, project_config):
+    def do_diagram_deployment(self, project_name, project_id, diagram_data, project_config, force_redeploy):
         credentials = self.get_authenticated_user_cloud_configuration()
-
-        dry_run = False
 
         latest_deployment = self.dbsession.query(Deployment).filter_by(
             project_id=project_id
@@ -343,7 +341,7 @@ class DeployDiagram(BaseHandler):
         if latest_deployment is not None:
             latest_deployment_json = json.loads(latest_deployment.deployment_json)
 
-        if not dry_run and latest_deployment_json is not None:
+        if latest_deployment_json is not None:
             teardown_nodes = latest_deployment_json["workflow_states"]
             teardown_operation_results = yield teardown_infrastructure(
                 self.api_gateway_manager,
@@ -363,6 +361,10 @@ class DeployDiagram(BaseHandler):
                 self.json["project_id"]
             )
 
+        # Force a redeploy of the project
+        if force_redeploy:
+            latest_deployment_json = None
+
         # Attempt to deploy diagram
         deployment_data = yield deploy_diagram(
             self.task_spawner,
@@ -381,26 +383,25 @@ class DeployDiagram(BaseHandler):
 
             # TODO do we need to do a teardown on an error?
 
-            if not dry_run:
-                yield teardown_infrastructure(
-                    self.api_gateway_manager,
-                    self.lambda_manager,
-                    self.schedule_trigger_manager,
-                    self.sns_manager,
-                    self.sqs_manager,
-                    credentials,
-                    deployment_data["teardown_nodes_list"]
-                )
-                self.logger("We've completed our rollback, returning an error...", "error")
+            yield teardown_infrastructure(
+                self.api_gateway_manager,
+                self.lambda_manager,
+                self.schedule_trigger_manager,
+                self.sns_manager,
+                self.sqs_manager,
+                credentials,
+                deployment_data["teardown_nodes_list"]
+            )
+            self.logger("We've completed our rollback, returning an error...", "error")
 
-                # For now we'll just raise
-                self.write({
-                    "success": True,  # Success meaning we caught it
-                    "result": {
-                        "deployment_success": False,
-                        "exceptions": [e.serialize() for e in deployment_data["exceptions"]],
-                    }
-                })
+            # For now we'll just raise
+            self.write({
+                "success": True,  # Success meaning we caught it
+                "result": {
+                    "deployment_success": False,
+                    "exceptions": [e.serialize() for e in deployment_data["exceptions"]],
+                }
+            })
             raise gen.Return()
 
         # TODO: Update the project data? Deployments should probably
@@ -469,6 +470,7 @@ class DeployDiagram(BaseHandler):
         project_id = self.json["project_id"]
         diagram_data = json.loads(self.json["diagram_data"])
         project_config = self.json["project_config"]
+        force_redeploy = self.json["force_redeploy"]
 
         lock_id = "deploy_diagram_" + project_id
 
@@ -478,7 +480,7 @@ class DeployDiagram(BaseHandler):
             # Enforce that we are only attempting to do this multiple times simultaneously for the same project
             with task_lock:
                 yield self.do_diagram_deployment(
-                    project_name, project_id, diagram_data, project_config)
+                    project_name, project_id, diagram_data, project_config, force_redeploy)
 
         except AcquireFailure:
             self.logger("Unable to acquire deploy diagram lock for " + project_id)

@@ -33,7 +33,8 @@ def teardown_infrastructure(api_gateway_manager, lambda_manager, schedule_trigge
         if "exists" in teardown_node and teardown_node["exists"] == False:
             continue
 
-        """
+        # TODO we should just pass the workflow states into here
+
         if teardown_node["type"] == "lambda" or teardown_node["type"] == "api_endpoint":
             teardown_operation_futures.append(
                 lambda_manager.delete_lambda(
@@ -44,7 +45,6 @@ def teardown_infrastructure(api_gateway_manager, lambda_manager, schedule_trigge
                     teardown_node["arn"],
                 )
             )
-        """
         if teardown_node["type"] == "sns_topic":
             teardown_operation_futures.append(
                 sns_manager.delete_sns_topic(

@@ -59,112 +59,6 @@ def update_workflow_states_list(updated_node, workflow_states):
 	return workflow_states
 
 
-class MissingResourceException(Exception):
-	pass
-
-
-@gen.coroutine
-def create_lambda_api_route(task_spawner, api_gateway_manager, credentials, api_gateway_id, http_method, route, lambda_name, overwrite_existing):
-	def not_empty(input_item):
-		return input_item != ""
-
-	path_parts = route.split("/")
-	path_parts = list(filter(not_empty, path_parts))
-
-	# First we clean the Lambda of API Gateway policies which point
-	# to dead API Gateways
-	yield task_spawner.clean_lambda_iam_policies(
-		credentials,
-		lambda_name
-	)
-
-	# A default resource is created along with an API gateway, we grab
-	# it so we can make our base method
-	resources = yield api_gateway_manager.get_resources(
-		credentials,
-		api_gateway_id
-	)
-
-	base_resource_id = None
-
-	for resource in resources:
-		if resource["path"] == "/":
-			base_resource_id = resource["id"]
-			break
-
-	if base_resource_id is None:
-		raise MissingResourceException("Missing API Gateway base resource ID. This should never happen")
-
-	# Create a map of paths to verify existance later
-	# so we don't overwrite existing resources
-	path_existence_map = {}
-	for resource in resources:
-		path_existence_map[resource["path"]] = resource["id"]
-
-	# Set the pointer to the base
-	current_base_pointer_id = base_resource_id
-
-	# Path level, continously updated
-	current_path = ""
-
-	# Create entire path from chain
-	for path_part in path_parts:
-		"""
-		TODO: Check for conflicting resources and don't
-		overwrite an existing resource if it exists already.
-		"""
-		# Check if there's a conflicting resource here
-		current_path = current_path + "/" + path_part
-
-		# Get existing resource ID instead of creating one
-		if current_path in path_existence_map:
-			current_base_pointer_id = path_existence_map[current_path]
-		else:
-			# Otherwise go ahead and create one
-			new_resource = yield task_spawner.create_resource(
-				credentials,
-				api_gateway_id,
-				current_base_pointer_id,
-				path_part
-			)
-
-			current_base_pointer_id = new_resource["id"]
-
-	# Create method on base resource
-	method_response = yield task_spawner.create_method(
-		credentials,
-		"HTTP Method",
-		api_gateway_id,
-		current_base_pointer_id,
-		http_method,
-		False,
-	)
-
-	# Link the API Gateway to the lambda
-	link_response = yield task_spawner.link_api_method_to_lambda(
-		credentials,
-		api_gateway_id,
-		current_base_pointer_id,
-		http_method,  # GET was previous here
-		route,
-		lambda_name
-	)
-
-	resources = yield api_gateway_manager.get_resources(
-		credentials,
-		api_gateway_id
-	)
-
-	# Clown-shoes AWS bullshit for binary response
-	yield task_spawner.add_integration_response(
-		credentials,
-		api_gateway_id,
-		current_base_pointer_id,
-		http_method,
-		lambda_name
-	)
-
-
 @gen.coroutine
 def create_warmer_for_lambda_set(task_spawner, credentials, warmup_concurrency_level, unique_deploy_id, combined_warmup_list):
 	# Create Lambda warmers if enabled
@@ -241,6 +135,7 @@ def add_auto_warmup(task_spawner, credentials, warmup_concurrency_level, unique_
 	# Wait for all of the concurrent Cloudwatch Rule creations to finish
 	warmer_triggers = yield warmup_futures
 	raise gen.Return(warmer_triggers)
+
 
 def get_layers_for_lambda(language):
 	"""

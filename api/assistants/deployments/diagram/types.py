@@ -33,5 +33,8 @@ class DeploymentState:
 
 		self.exists = False
 
+	def __str__(self):
+		return f'Deployment State arn: {self.arn}, state_hash: {self.state_hash}, exists: {self.exists}'
+
 	def state_changed(self, current_state: DeploymentState):
 		return self.state_hash != current_state.state_hash

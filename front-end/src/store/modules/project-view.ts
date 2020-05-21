@@ -178,7 +178,9 @@ const moduleState: ProjectViewState = {
   newTransitionTypeSpecifiedInEditFlow: null,
 
   // Adding a shared block to a file
-  isAddingSharedFileToCodeBlock: false
+  isAddingSharedFileToCodeBlock: false,
+
+  shouldForceRedeploy: false
 };
 
 const ProjectViewModule: Module<ProjectViewState, RootState> = {
@@ -502,6 +504,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
     [ProjectViewMutators.setEditingTransitionType](state, transitionType: WorkflowRelationshipType | null) {
       state.newTransitionTypeSpecifiedInEditFlow = transitionType;
+    },
+    [ProjectViewMutators.setForceRedeploy](state, forceRedeploy: boolean) {
+      state.shouldForceRedeploy = forceRedeploy;
     }
   },
   actions: {
@@ -859,7 +864,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       try {
         const deploymentExceptions = await deployProject({
           project: openedProject,
-          projectConfig: context.state.openedProjectConfig
+          projectConfig: context.state.openedProjectConfig,
+          forceRedeploy: context.state.shouldForceRedeploy
         });
 
         if (deploymentExceptions) {

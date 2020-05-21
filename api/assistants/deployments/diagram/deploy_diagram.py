@@ -9,7 +9,7 @@ from assistants.deployments.diagram.api_endpoint_workflow_states import ApiGatew
 from assistants.deployments.diagram.errors import InvalidDeployment
 from assistants.deployments.diagram.trigger_workflow_states import TriggerWorkflowState, WarmerTriggerWorkflowState
 from assistants.deployments.diagram.types import DeploymentState
-from assistants.deployments.diagram.utils import create_lambda_api_route, add_auto_warmup
+from assistants.deployments.diagram.utils import add_auto_warmup
 from assistants.deployments.diagram.workflow_states import WorkflowState, StateTypes, DeploymentException
 from pyexceptions.builds import BuildException
 from utils.general import logit
@@ -30,7 +30,6 @@ class DeploymentDiagram:
 				ws["id"]: DeploymentState(ws.get("arn"), ws.get("state_hash"))
 				for ws in latest_deployment["workflow_states"]
 			}
-			# print(json.dumps(latest_deployment, indent=2))
 
 		self._workflow_file_lookup: Dict[str, List] = {}
 		self._workflow_state_lookup: Dict[str, WorkflowState] = {}
@@ -60,13 +59,23 @@ class DeploymentDiagram:
 			return None
 		return self._previous_state_lookup.get(state_id)
 
+	def get_previous_api_gateway_state(self, api_gateway_arn: str) -> Union[DeploymentState, None]:
+		if self._previous_state_lookup is None:
+			return None
+
+		# try to locate the API Gateway from the previous deployment
+		api_gateway_results = [state for state in self._previous_state_lookup.values() if state.arn == api_gateway_arn]
+
+		if len(api_gateway_results) > 0:
+			return api_gateway_results[0]
+		return None
+
+	def set_api_gateway(self, api_gateway_state: ApiGatewayWorkflowState):
+		self.api_gateway = api_gateway_state
+
 	def initialize_api_gateway(self, credentials):
 		self.api_gateway = ApiGatewayWorkflowState(credentials)
-
-		# If for some reason we have an api gateway id in the config but not
-		# included as a workflow state, we set that up here
-		if self.project_config["api_gateway"]["gateway_id"]:
-			self.api_gateway.setup(self, self.project_config)
+		self.api_gateway.setup(self, None)
 
 	def add_workflow_files(self, workflow_file_links_json, workflow_files_json):
 		workflow_file_lookup = {}
@@ -128,40 +137,6 @@ class DeploymentDiagram:
 
 		return files
 
-	@gen.coroutine
-	def _setup_api_endpoints(self, task_spawner, api_gateway_manager, credentials, deployed_api_endpoints):
-		yield self.api_gateway.use_or_create_api_gateway(task_spawner, api_gateway_manager)
-
-		api_gateway_id = self.api_gateway.api_gateway_id
-
-		for api_endpoint in deployed_api_endpoints:
-			assert isinstance(api_endpoint, ApiEndpointWorkflowState)
-
-			http_method = api_endpoint.http_method
-			api_path = api_endpoint.api_path
-			name = api_endpoint.name
-
-			logit(f"Setting up route {http_method} {api_path} for API Endpoint '{name}'...")
-
-			yield create_lambda_api_route(
-				task_spawner,
-				api_gateway_manager,
-				credentials,
-				api_gateway_id,
-				http_method,
-				api_path,
-				name,
-				True
-			)
-
-		logit("Now deploying API gateway to stage...")
-		deploy_stage_results = yield task_spawner.deploy_api_gateway_to_stage(
-			credentials,
-			api_gateway_id,
-			"refinery"
-		)
-	# TODO check deploy_stage_results?
-
 	def _update_workflow_states_with_deploy_info(self, task_spawner, deployed_workflow_states):
 		update_futures = []
 
@@ -221,30 +196,38 @@ class DeploymentDiagram:
 
 	@gen.coroutine
 	def deploy(self, task_spawner, api_gateway_manager, credentials):
-		dry_run = False
-
-		predeploy_futures = []
-		for workflow_state in self._workflow_state_lookup.values():
-			predeploy_futures.append(workflow_state.predeploy(task_spawner))
-
-		yield predeploy_futures
-
-		if dry_run:
-			raise gen.Return({
-				"success": False
-			})
-
 		# Initialize list of results
 		deployment_type_lookup: Dict[StateTypes, List] = {
 			state_type: [] for state_type in StateTypes
 		}
 
-		deploy_futures = []
+		predeploy_futures = []
 		for workflow_state in self._workflow_state_lookup.values():
 			deployment_type_lookup[workflow_state.type].append(workflow_state)
 
-			deploy_future = workflow_state.deploy(
-				task_spawner, self.project_id, self.project_config)
+			predeploy_futures.append(workflow_state.predeploy(task_spawner))
+
+		predeploy_futures.append(
+			self.api_gateway.predeploy(task_spawner, api_gateway_manager)
+		)
+
+		yield predeploy_futures
+
+		# If we have api endpoints to deploy, we will deploy an api gateway for them
+		deployed_api_endpoints = deployment_type_lookup[StateTypes.API_ENDPOINT]
+		deploying_api_gateway = len(deployed_api_endpoints) > 0
+
+		if deploying_api_gateway:
+			self.add_workflow_state(self.api_gateway)
+
+		deploy_futures = []
+		for workflow_state in self._workflow_state_lookup.values():
+			if isinstance(workflow_state, ApiGatewayWorkflowState):
+				deploy_future = workflow_state.deploy(
+					task_spawner, api_gateway_manager, self.project_id, self.project_config)
+			else:
+				deploy_future = workflow_state.deploy(
+					task_spawner, self.project_id, self.project_config)
 
 			if deploy_future is None:
 				continue
@@ -285,13 +268,13 @@ class DeploymentDiagram:
 					exception_msg
 				))
 
+		# If we experienced exceptions while deploying, we must stop deployment
 		if len(deployment_exceptions) != 0:
 			raise gen.Return(deployment_exceptions)
 
-		if len(deployment_type_lookup[StateTypes.API_ENDPOINT]) > 0:
-			deployed_api_endpoints = deployment_type_lookup[StateTypes.API_ENDPOINT]
-			yield self._setup_api_endpoints(
-				task_spawner, api_gateway_manager, credentials, deployed_api_endpoints)
+		if deploying_api_gateway:
+			yield self.api_gateway.setup_api_endpoints(
+				task_spawner, api_gateway_manager, deployed_api_endpoints)
 
 		update_futures = []
 		for state_type in StateTypes:

@@ -68,8 +68,6 @@ class LambdaWorkflowState(WorkflowState):
 			"shared_files_list": self.shared_files_list,
 			"role": self.role,
 
-			# transitions are held in environment variables
-
 			# override the attributes we want to hold constant
 			"name": self.name,
 			"arn": ""
@@ -121,6 +119,7 @@ class LambdaWorkflowState(WorkflowState):
 		) + json.dumps(
 			self.shared_files_list
 		) + is_inline_execution_string
+
 		return hashlib.sha256(bytes(hash_input, encoding="UTF-8")).hexdigest()
 
 	def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):

@@ -114,7 +114,6 @@ from tasks.api_gateway import (
     deploy_api_gateway_to_stage,
     create_resource,
     create_method,
-    add_integration_response,
     link_api_method_to_lambda
 )
 
@@ -903,26 +902,12 @@ class TaskSpawner(object):
         )
 
     @run_on_executor
-    @emit_runtime_metrics("add_integration_response")
-    def add_integration_response(self, credentials, rest_api_id, resource_id, http_method, lambda_name):
-        return add_integration_response(
-            self.aws_client_factory,
-            credentials,
-            rest_api_id,
-            resource_id,
-            http_method,
-            lambda_name
-        )
-
-    @run_on_executor
     @emit_runtime_metrics("link_api_method_to_lambda")
-    def link_api_method_to_lambda(self, credentials, rest_api_id, resource_id, http_method, api_path, lambda_name):
+    def link_api_method_to_lambda(self, credentials, rest_api_id, resource_id, api_endpoint):
         return link_api_method_to_lambda(
             self.aws_client_factory,
             credentials,
             rest_api_id,
             resource_id,
-            http_method,
-            api_path,
-            lambda_name
+            api_endpoint
         )
