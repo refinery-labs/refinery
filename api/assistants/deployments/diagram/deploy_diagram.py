@@ -8,11 +8,36 @@ from assistants.deployments.diagram.api_endpoint_workflow_states import ApiGatew
 	ApiEndpointWorkflowState
 from assistants.deployments.diagram.errors import InvalidDeployment
 from assistants.deployments.diagram.trigger_workflow_states import TriggerWorkflowState, WarmerTriggerWorkflowState
-from assistants.deployments.diagram.types import DeploymentState
+from assistants.deployments.diagram.types import DeploymentState, ApiGatewayDeploymentState, SnsTopicDeploymentState, \
+	LambdaDeploymentState
 from assistants.deployments.diagram.utils import add_auto_warmup
 from assistants.deployments.diagram.workflow_states import WorkflowState, StateTypes, DeploymentException
+from assistants.deployments.teardown import teardown_deployed_states
 from pyexceptions.builds import BuildException
 from utils.general import logit
+
+
+def json_to_deployment_state(workflow_state_json):
+	arn = workflow_state_json.get("arn")
+	ws_type = workflow_state_json.get("type")
+	state_hash = workflow_state_json.get("state_hash")
+
+	try:
+		state_type = StateTypes(ws_type)
+	except ValueError as e:
+		raise InvalidDeployment(f"workflow state {arn} has invalid type {ws_type}")
+
+	if state_type == StateTypes.LAMBDA:
+		return LambdaDeploymentState(state_type, arn, state_hash)
+
+	elif state_type == StateTypes.API_GATEWAY:
+		api_gateway_id = workflow_state_json.get("api_gateway_id")
+		return ApiGatewayDeploymentState(state_type, arn, state_hash, api_gateway_id)
+
+	elif state_type == StateTypes.SNS_TOPIC:
+		return SnsTopicDeploymentState(state_type, arn, state_hash)
+
+	return DeploymentState(state_type, arn, state_hash)
 
 
 class DeploymentDiagram:
@@ -23,18 +48,47 @@ class DeploymentDiagram:
 		self.api_gateway: Union[ApiGatewayWorkflowState, None] = None
 
 		self._unique_deploy_id = "random"
-		self._previous_state_lookup = None
+		self._previous_state_lookup: Union[None, Dict[str, DeploymentState]] = None
 
 		if latest_deployment is not None and "workflow_states" in latest_deployment:
-			self._previous_state_lookup: Dict[str, DeploymentState] = {
-				ws["id"]: DeploymentState(ws.get("arn"), ws.get("state_hash"))
-				for ws in latest_deployment["workflow_states"]
-			}
+			self._setup_previous_state_lookup(latest_deployment["workflow_states"])
 
 		self._workflow_file_lookup: Dict[str, List] = {}
 		self._workflow_state_lookup: Dict[str, WorkflowState] = {}
 		self._merge_workflow_relationship_lookup: Dict = {}
 		self._workflow_state_env_vars: Dict = {}
+
+	def _setup_previous_state_lookup(self, latest_workflow_states):
+		self._previous_state_lookup = {
+			ws["id"]: json_to_deployment_state(ws)
+			for ws in latest_workflow_states
+		}
+
+	def _unused_workflow_states(self) -> List[DeploymentState]:
+		previous_state_ids = set(self._previous_state_lookup.keys())
+		current_state_ids = set(self._workflow_state_lookup.keys())
+		state_ids = previous_state_ids - current_state_ids
+		return [self._previous_state_lookup[state_id] for state_id in state_ids]
+
+	@gen.coroutine
+	def cleanup_unused_workflow_states(
+			self,
+			api_gateway_manager,
+			lambda_manager,
+			schedule_trigger_manager,
+			sns_manager,
+			sqs_manager,
+			credentials
+	):
+		workflow_states = self._unused_workflow_states()
+
+		# TODO catch any errors here?
+
+		yield teardown_deployed_states(
+			api_gateway_manager, lambda_manager, schedule_trigger_manager,
+			sns_manager, sqs_manager, credentials, workflow_states)
+
+		return workflow_states
 
 	def serialize(self):
 		workflow_states: [Dict] = []
@@ -281,6 +335,30 @@ class DeploymentDiagram:
 			deployed_workflow_states = deployment_type_lookup[state_type]
 			update_futures = self._update_workflow_states_with_deploy_info(task_spawner, deployed_workflow_states)
 
+		"""
+		TODO add 'cleanup' futures
+		
+		What we need to cleanup:
+		
+		lambdas:
+			* sqs event source mappings on lambdas (for sqs queues that don't exist anymore)
+			* lambda functions not being used in current deployment?
+		
+		scheduled trigger:
+			* events client targets (lambda arns that do not exist in current deployment)
+		
+		api gateway:
+			* unused resources (including the gateway itself if nothing exists)
+		
+		sqs queue:
+			* the queue itself if nothing is using it (create a map of used sqs queues to lambda from lambda source mappings)
+		
+		sns topic:
+			* remove lambda subscriptions for lambdas that are not used anymore
+			* sns itself if it is not being used
+		
+		"""
+
 		warmup_concurrency_level = self.project_config.get("warmup_concurrency_level")
 		if warmup_concurrency_level:
 			yield self._create_auto_warmers(
@@ -298,10 +376,5 @@ class DeploymentDiagram:
 	def get_workflow_states_for_teardown(self) -> [Dict]:
 		nodes = []
 		for workflow_state in self._workflow_state_lookup.values():
-			nodes.append({
-				"id": workflow_state.id,
-				"arn": workflow_state.arn,
-				"name": workflow_state.name,
-				"type": workflow_state.type.value
-			})
+			nodes.append(workflow_state.serialize())
 		return nodes

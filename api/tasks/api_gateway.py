@@ -91,6 +91,16 @@ def create_method(aws_client_factory, credentials, method_name, rest_api_id, res
     }
 
 
+def get_lambda_uri_for_api_method(aws_client_factory, credentials, api_endpoint: ApiEndpointWorkflowState):
+    lambda_client = aws_client_factory.get_aws_client(
+        "lambda",
+        credentials
+    )
+
+    api_version = lambda_client.meta.service_model.api_version
+    return api_endpoint.get_lambda_uri(api_version)
+
+
 def link_api_method_to_lambda(aws_client_factory, credentials, rest_api_id, resource_id, api_endpoint: ApiEndpointWorkflowState):
     api_gateway_client = aws_client_factory.get_aws_client(
         "apigateway",
@@ -102,11 +112,8 @@ def link_api_method_to_lambda(aws_client_factory, credentials, rest_api_id, reso
         credentials
     )
 
-    region = credentials["region"]
     api_version = lambda_client.meta.service_model.api_version
-    account_id = credentials["account_id"]
-    lambda_uri = f"arn:aws:apigateway:{region}:lambda:path/{api_version}/functions/arn:aws:lambda:{region}:" + \
-                 f"{account_id}:function:{api_endpoint.name}/invocations"
+    lambda_uri = api_endpoint.get_lambda_uri(api_version)
 
     integration_response = api_gateway_client.put_integration(
         restApiId=rest_api_id,
@@ -120,9 +127,7 @@ def link_api_method_to_lambda(aws_client_factory, credentials, rest_api_id, reso
         timeoutInMillis=29000  # 29 seconds
     )
 
-    # For AWS Lambda you need to add a permission to the Lambda function itself
-    # via the add_permission API call to allow invocation via the CloudWatch event.
-    source_arn = f"arn:aws:execute-api:{region}:{account_id}:{rest_api_id}/*/{api_endpoint.http_method}{api_endpoint.api_path}"
+    source_arn = api_endpoint.get_source_arn(rest_api_id)
 
     # We have to clean previous policies we added from this Lambda
     # Scan over all policies and delete any which aren't associated with

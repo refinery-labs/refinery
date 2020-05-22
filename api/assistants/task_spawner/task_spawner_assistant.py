@@ -73,7 +73,7 @@ from tasks.aws_lambda import (
     set_lambda_reserved_concurrency,
     deploy_aws_lambda,
     get_aws_lambda_existence_info,
-    clean_lambda_iam_policies, publish_new_aws_lambda_version)
+    clean_lambda_iam_policies, publish_new_aws_lambda_version, list_lambda_event_source_mappings)
 from tasks.build.common import (
     finalize_codebuild
 )
@@ -102,8 +102,7 @@ from tasks.cloudwatch import (
 from tasks.sns import (
     create_sns_topic,
     subscribe_lambda_to_sns_topic,
-    get_sns_existence_info
-)
+    get_sns_topic_endpoints)
 from tasks.sqs import (
     create_sqs_queue,
     map_sqs_to_lambda,
@@ -114,8 +113,8 @@ from tasks.api_gateway import (
     deploy_api_gateway_to_stage,
     create_resource,
     create_method,
-    link_api_method_to_lambda
-)
+    link_api_method_to_lambda,
+    get_lambda_uri_for_api_method)
 
 
 # noinspection PyTypeChecker,SqlResolve
@@ -572,6 +571,16 @@ class TaskSpawner(object):
         )
 
     @run_on_executor
+    @log_exception
+    @emit_runtime_metrics("list_lambda_event_source_mappings")
+    def list_lambda_event_source_mappings(self, credentials, lambda_object):
+        return list_lambda_event_source_mappings(
+            self.aws_client_factory,
+            credentials,
+            lambda_object
+        )
+
+    @run_on_executor
     @emit_runtime_metrics("get_final_zip_package_path")
     def get_final_zip_package_path(self, language, libraries):
         return get_final_zip_package_path(language, libraries)
@@ -711,12 +720,12 @@ class TaskSpawner(object):
 
     @run_on_executor
     @emit_runtime_metrics("subscribe_lambda_to_sns_topic")
-    def subscribe_lambda_to_sns_topic(self, credentials, topic_arn, lambda_arn):
+    def subscribe_lambda_to_sns_topic(self, credentials, topic_object, lambda_object):
         return subscribe_lambda_to_sns_topic(
             self.aws_client_factory,
             credentials,
-            topic_arn,
-            lambda_arn
+            topic_object,
+            lambda_object
         )
 
     @run_on_executor
@@ -843,9 +852,9 @@ class TaskSpawner(object):
         return get_sqs_existence_info(self.aws_client_factory, credentials, sqs_object)
 
     @run_on_executor
-    @emit_runtime_metrics("get_sns_existence_info")
-    def get_sns_existence_info(self, credentials, sns_object):
-        return get_sns_existence_info(self.aws_client_factory, credentials, sns_object)
+    @emit_runtime_metrics("get_sns_topic_endpoints")
+    def get_sns_topic_endpoints(self, credentials, sns_object):
+        return get_sns_topic_endpoints(self.aws_client_factory, credentials, sns_object)
 
     @run_on_executor
     @emit_runtime_metrics("create_rest_api")
@@ -899,6 +908,13 @@ class TaskSpawner(object):
             self.aws_client_factory,
             credentials,
             lambda_name
+        )
+
+    def get_lambda_uri_for_api_method(self, credentials, api_endpoint):
+        return get_lambda_uri_for_api_method(
+            self.aws_client_factory,
+            credentials,
+            api_endpoint
         )
 
     @run_on_executor

@@ -207,7 +207,7 @@ class LambdaWorkflowState(WorkflowState):
 		deploy_diagram.set_env_vars_for_workflow_state(self, workflow_state_env_vars)
 
 		return {
-			env_var["name"]: env_var["value"]
+			env_var["name"]: env_var.get("value") if env_var.get("value") is not None else ""
 			for _, env_var in tmp_env_vars.items()
 		}
 
@@ -260,8 +260,8 @@ class LambdaWorkflowState(WorkflowState):
 		logit(f"Created a new version for lambda {self.name}, version: {updated_lambda_version}")
 
 	@gen.coroutine
-	def predeploy(self, task_spawner):
-		logit(f"Preeploy for Lambda '{self.name}'...")
+	def predeploy(self, task_spawner: TaskSpawner):
+		logit(f"Predeploy for Lambda '{self.name}'...")
 
 		# finalize the transition data into an environment variable
 		self.environment_variables["TRANSITION_DATA"] = self._get_transition_env_data()
@@ -280,6 +280,13 @@ class LambdaWorkflowState(WorkflowState):
 				self
 			)
 			self.deployed_state.exists = exists
+
+		# Enumerate the event source mappings for this lambda if it exists
+		if self.deployed_state_exists():
+			self.deployed_state.event_source_arns = yield task_spawner.list_lambda_event_source_mappings(
+				self._credentials,
+				self
+			)
 
 	def deploy(self, task_spawner, project_id, project_config):
 		logit(f"Deploying Lambda '{self.name}'...")

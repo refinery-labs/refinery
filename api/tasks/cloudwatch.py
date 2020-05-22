@@ -102,7 +102,7 @@ def create_cloudwatch_rule(aws_client_factory, credentials, cloudwatch_rule):
         ]
     )
 
-    cloudwatch_rule.arn = rule_arn
+    cloudwatch_rule.set_arn(rule_arn)
 
     return {
         "id": cloudwatch_rule.id,

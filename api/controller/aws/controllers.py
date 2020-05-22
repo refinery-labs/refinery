@@ -317,6 +317,13 @@ class DeployDiagramDependencies:
         pass
 
 
+def filter_teardown_nodes(teardown_nodes):
+    return [
+        node for node in teardown_nodes
+        if node["type"] not in ["lambda", "api_endpoint", "api_gateway", "sqs_queue", "sns_topic"]
+    ]
+
+
 class DeployDiagram(BaseHandler):
     dependencies = DeployDiagramDependencies
     lambda_manager = None
@@ -343,6 +350,8 @@ class DeployDiagram(BaseHandler):
 
         if latest_deployment_json is not None:
             teardown_nodes = latest_deployment_json["workflow_states"]
+            teardown_nodes = filter_teardown_nodes(teardown_nodes)
+
             teardown_operation_results = yield teardown_infrastructure(
                 self.api_gateway_manager,
                 self.lambda_manager,
@@ -382,6 +391,7 @@ class DeployDiagram(BaseHandler):
             self.logger("We are now rolling back the deployments we've made...", "error")
 
             # TODO do we need to do a teardown on an error?
+            teardown_nodes = deployment_data["teardown_nodes_list"]
 
             yield teardown_infrastructure(
                 self.api_gateway_manager,
@@ -390,7 +400,7 @@ class DeployDiagram(BaseHandler):
                 self.sns_manager,
                 self.sqs_manager,
                 credentials,
-                deployment_data["teardown_nodes_list"]
+                teardown_nodes
             )
             self.logger("We've completed our rollback, returning an error...", "error")
 

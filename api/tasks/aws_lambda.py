@@ -555,6 +555,32 @@ def update_aws_lambda_configuration(lambda_client, lambda_object: LambdaWorkflow
     return response
 
 
+def list_lambda_event_source_mappings(aws_client_factory, credentials, lambda_object: LambdaWorkflowState):
+    lambda_client = aws_client_factory.get_aws_client(
+        "lambda",
+        credentials
+    )
+
+    marker = None
+    source_arns = []
+
+    while True:
+        response = lambda_client.list_event_source_mappings(
+            FunctionName=lambda_object.name,
+            Marker=marker
+        )
+
+        mappings = response["EventSourceMappings"]
+
+        source_arns.extend([mapping["EventSourceArn"] for mapping in mappings])
+
+        marker = response.get("NextMarker")
+        if marker is None:
+            break
+
+    return source_arns
+
+
 def get_cached_inline_execution_lambda_entries(db_session_maker, credentials):
     # Check how many inline execution Lambdas we already have
     # saved in AWS. If it's too many we need to clean up!

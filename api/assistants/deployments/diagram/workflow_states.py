@@ -59,6 +59,9 @@ class WorkflowState(DeploymentState):
 	def arn(self):
 		return self.current_state.arn if self.state_has_changed() else self.deployed_state.arn
 
+	def set_arn(self, arn):
+		self.current_state.arn = arn
+
 	def serialize(self):
 		return {
 			"id": self.id,
@@ -79,6 +82,10 @@ class WorkflowState(DeploymentState):
 		raise gen.Return()
 
 	def deploy(self, task_spawner, project_id, project_config):
+		pass
+
+	@gen.coroutine
+	def cleanup(self, task_spawner, deployent):
 		pass
 
 	def state_has_changed(self) -> bool:

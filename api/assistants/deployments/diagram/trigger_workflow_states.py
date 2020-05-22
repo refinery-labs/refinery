@@ -8,6 +8,7 @@ from utils.general import logit
 
 if TYPE_CHECKING:
 	from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
+	from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 
 
 class WarmerTriggerWorkflowState(WorkflowState):
@@ -121,11 +122,14 @@ class SnsTopicWorkflowState(TriggerWorkflowState):
 			self.name
 		)
 
-	def predeploy(self, task_spawner):
-		return task_spawner.get_sns_existence_info(
+	def predeploy(self, task_spawner: TaskSpawner):
+		sns_topic_info = yield task_spawner.get_sns_topic_endpoints(
 			self._credentials,
 			self
 		)
+
+		self.deployed_state.exists = sns_topic_info["exists"]
+		endpoint_arns = sns_topic_info["endpoints"]
 
 	def _link_trigger_to_next_deployed_state(self, task_spawner, next_node):
 		return task_spawner.subscribe_lambda_to_sns_topic(
