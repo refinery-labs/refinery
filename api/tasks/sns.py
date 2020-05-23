@@ -1,32 +1,40 @@
 from uuid import uuid4
 
+from assistants.deployments.diagram.types import TopicSubscription
 from utils.general import get_safe_workflow_state_name
 
 
-def get_sns_topic_endpoints(aws_client_factory, credentials, sns_object):
+def get_sns_topic_subscriptions(aws_client_factory, credentials, sns_object):
     sns_client = aws_client_factory.get_aws_client(
         "sns",
         credentials
     )
 
-    endpoint_arns = []
+    topic_subs = []
 
     try:
         response = sns_client.get_topic_attributes(
             TopicArn=sns_object.arn
         )
 
-        topic_arn = response["TopicArn"]
+        topic_arn = response["Attributes"]["TopicArn"]
 
         next_token = None
         while True:
+            next_token_param = dict(NextToken=next_token) if next_token is not None else dict()
+
             response = sns_client.list_subscriptions_by_topic(
                 TopicArn=topic_arn,
-                NextToken=next_token
+                **next_token_param
             )
 
             subscriptions = response["Subscriptions"]
-            endpoint_arns.extend([subscription["Endpoint"] for subscription in subscriptions])
+            topic_subs.extend(
+                [
+                    TopicSubscription(sub["SubscriptionArn"], sub["Endpoint"])
+                    for sub in subscriptions
+                ]
+            )
 
             next_token = response.get("NextToken")
             if next_token is None:
@@ -35,12 +43,12 @@ def get_sns_topic_endpoints(aws_client_factory, credentials, sns_object):
     except sns_client.exceptions.NotFoundException:
         return {
             "exists": False,
-            "endpoints": []
+            "subscriptions": []
         }
 
     return {
         "exists": True,
-        "endpoints": endpoint_arns
+        "subscriptions": topic_subs
     }
 
 
@@ -104,3 +112,13 @@ def subscribe_lambda_to_sns_topic(aws_client_factory, credentials, topic_object,
         "statement": lambda_permission_add_response["Statement"],
         "arn": sns_topic_response["SubscriptionArn"]
     }
+
+
+def unsubscribe_lambda_from_sns_topic(aws_client_factory, credentials, subscription_arn):
+    sns_client = aws_client_factory.get_aws_client(
+        "sns",
+        credentials,
+    )
+
+    # TODO do something with response?
+    response = sns_client.unsubscribe(subscription_arn)

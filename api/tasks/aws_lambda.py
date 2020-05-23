@@ -1,4 +1,5 @@
 from assistants.deployments.diagram.lambda_workflow_state import LambdaWorkflowState
+from assistants.deployments.diagram.types import LambdaEventSourceMapping
 from assistants.deployments.ecs_builders import BuilderManager
 from assistants.deployments.shared_files import (
     add_shared_files_symlink_to_zip,
@@ -562,23 +563,43 @@ def list_lambda_event_source_mappings(aws_client_factory, credentials, lambda_ob
     )
 
     marker = None
-    source_arns = []
+    source_mappings = []
 
     while True:
+        marker_param = dict(Marker=marker) if marker is not None else dict()
+
         response = lambda_client.list_event_source_mappings(
             FunctionName=lambda_object.name,
-            Marker=marker
+            **marker_param
         )
 
         mappings = response["EventSourceMappings"]
 
-        source_arns.extend([mapping["EventSourceArn"] for mapping in mappings])
+        source_mappings.extend(
+            [
+                LambdaEventSourceMapping(mapping["UUID"], mapping["EventSourceArn"])
+                for mapping in mappings
+            ]
+        )
 
         marker = response.get("NextMarker")
         if marker is None:
             break
 
-    return source_arns
+    return source_mappings
+
+
+def delete_lambda_event_source_mapping(aws_client_factory, credentials, event_source_uuid):
+    lambda_client = aws_client_factory.get_aws_client(
+        "lambda",
+        credentials
+    )
+
+    # TODO check response?
+    # TODO catch the case where this does not exist
+    response = lambda_client.delete_event_source_mapping(
+        UUID=event_source_uuid
+    )
 
 
 def get_cached_inline_execution_lambda_entries(db_session_maker, credentials):

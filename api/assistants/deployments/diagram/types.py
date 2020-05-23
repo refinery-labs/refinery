@@ -3,9 +3,11 @@ from __future__ import annotations
 from enum import Enum
 
 from tornado import gen
-from typing import List, Dict
+from typing import List, Dict, TYPE_CHECKING, Union
 
-from assistants.deployments.diagram.api_endpoint_workflow_states import ApiEndpointWorkflowState
+if TYPE_CHECKING:
+	from assistants.deployments.diagram.api_endpoint_workflow_states import ApiEndpointWorkflowState
+	from assistants.deployments.diagram.workflow_states import WorkflowState
 
 
 class StateTypes(Enum):
@@ -30,11 +32,28 @@ class RelationshipTypes(Enum):
 	MERGE = "merge"
 
 
+class LambdaEventSourceMapping:
+	def __init__(self, uuid, event_source_arn):
+		self.uuid = uuid
+		self.event_source_arn = event_source_arn
+
+
+class TopicSubscription:
+	def __init__(self, subscription_arn, endpoint):
+		self.subscription_arn = subscription_arn
+		self.endpoint = endpoint
+
+
+class CloudwatchRuleTarget:
+	def __init__(self, arn):
+		self.arn = arn
+
+
 class DeploymentState:
-	def __init__(self, state_type: StateTypes, arn: str, state_hash: str):
+	def __init__(self, state_type: StateTypes, arn: str, state_hash: Union[str, None]):
 		self.type: StateTypes = state_type
 		self.arn: str = arn
-		self.state_hash: str = state_hash
+		self.state_hash: Union[str, None] = state_hash
 
 		self.exists: bool = False
 
@@ -49,7 +68,13 @@ class LambdaDeploymentState(DeploymentState):
 	def __init__(self, state_type, arn, state_hash):
 		super(LambdaDeploymentState, self).__init__(state_type, arn, state_hash)
 
-		self.event_source_arns: List[str] = []
+		self.event_source_mappings: List[LambdaEventSourceMapping] = []
+
+	def __str__(self):
+		return f'Lambda Deployment State arn: {self.arn}, state_hash: {self.state_hash}, exists: {self.exists}, event_source_mappings: {self.event_source_mappings}'
+
+	def is_linked_to_trigger(self, workflow_state: WorkflowState):
+		return any([mapping.event_source_arn == workflow_state.arn for mapping in self.event_source_mappings])
 
 
 class ApiGatewayEndpoint:
@@ -138,10 +163,20 @@ class ApiGatewayDeploymentState(DeploymentState):
 
 
 class SnsTopicDeploymentState(DeploymentState):
-	def __init__(self, state_type, arn, state_hash, endpoints=None):
+	def __init__(self, state_type, arn, state_hash):
 		super(SnsTopicDeploymentState, self).__init__(state_type, arn, state_hash)
 
-		self.connected_endpoints: List[str] = endpoints
+		self.subscriptions: List[TopicSubscription] = []
 
 	def __str__(self):
-		return f'Sns Topic Deployment State arn: {self.arn}, state_hash: {self.state_hash}, exists: {self.exists}, connected_endpoints: {self.connected_endpoints}'
+		return f'Sns Topic Deployment State arn: {self.arn}, state_hash: {self.state_hash}, exists: {self.exists}, subscriptions: {self.subscriptions}'
+
+
+class ScheduleTriggerDeploymentState(DeploymentState):
+	def __init__(self, state_type, arn, state_hash):
+		super(ScheduleTriggerDeploymentState, self).__init__(state_type, arn, state_hash)
+
+		self.rules: List[CloudwatchRuleTarget] = []
+
+	def __str__(self):
+		return f'Schedule Trigger Deployment State arn: {self.arn}, state_hash: {self.state_hash}, exists: {self.exists}, rules: {self.rules}'

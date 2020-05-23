@@ -73,7 +73,8 @@ from tasks.aws_lambda import (
     set_lambda_reserved_concurrency,
     deploy_aws_lambda,
     get_aws_lambda_existence_info,
-    clean_lambda_iam_policies, publish_new_aws_lambda_version, list_lambda_event_source_mappings)
+    clean_lambda_iam_policies, publish_new_aws_lambda_version, list_lambda_event_source_mappings,
+    delete_lambda_event_source_mapping)
 from tasks.build.common import (
     finalize_codebuild
 )
@@ -97,12 +98,12 @@ from tasks.cloudwatch import (
     create_cloudwatch_group,
     add_rule_target,
     get_lambda_cloudwatch_logs,
-    get_cloudwatch_existence_info
-)
+    get_cloudwatch_existence_info,
+    get_cloudwatch_rules)
 from tasks.sns import (
     create_sns_topic,
     subscribe_lambda_to_sns_topic,
-    get_sns_topic_endpoints)
+    get_sns_topic_subscriptions, unsubscribe_lambda_from_sns_topic)
 from tasks.sqs import (
     create_sqs_queue,
     map_sqs_to_lambda,
@@ -581,6 +582,16 @@ class TaskSpawner(object):
         )
 
     @run_on_executor
+    @log_exception
+    @emit_runtime_metrics("delete_lambda_event_source_mapping")
+    def delete_lambda_event_source_mapping(self, credentials, event_source_uuid):
+        return delete_lambda_event_source_mapping(
+            self.aws_client_factory,
+            credentials,
+            event_source_uuid
+        )
+
+    @run_on_executor
     @emit_runtime_metrics("get_final_zip_package_path")
     def get_final_zip_package_path(self, language, libraries):
         return get_final_zip_package_path(language, libraries)
@@ -729,6 +740,15 @@ class TaskSpawner(object):
         )
 
     @run_on_executor
+    @emit_runtime_metrics("unsubscribe_lambda_from_sns_topic")
+    def unsubscribe_lambda_from_sns_topic(self, credentials, subscription_arn):
+        return unsubscribe_lambda_from_sns_topic(
+            self.aws_client_factory,
+            credentials,
+            subscription_arn
+        )
+
+    @run_on_executor
     @emit_runtime_metrics("create_sqs_queue")
     def create_sqs_queue(self, credentials, sqs_queue_state):
         return create_sqs_queue(
@@ -847,14 +867,19 @@ class TaskSpawner(object):
         return get_cloudwatch_existence_info(self.aws_client_factory, credentials, schedule_object)
 
     @run_on_executor
+    @emit_runtime_metrics("get_cloudwatch_rules")
+    def get_cloudwatch_rules(self, credentials, rule):
+        return get_cloudwatch_rules(self.aws_client_factory, credentials, rule)
+
+    @run_on_executor
     @emit_runtime_metrics("get_sqs_existence_info")
     def get_sqs_existence_info(self, credentials, sqs_object):
         return get_sqs_existence_info(self.aws_client_factory, credentials, sqs_object)
 
     @run_on_executor
-    @emit_runtime_metrics("get_sns_topic_endpoints")
-    def get_sns_topic_endpoints(self, credentials, sns_object):
-        return get_sns_topic_endpoints(self.aws_client_factory, credentials, sns_object)
+    @emit_runtime_metrics("get_sns_topic_subscriptions")
+    def get_sns_topic_subscriptions(self, credentials, sns_object):
+        return get_sns_topic_subscriptions(self.aws_client_factory, credentials, sns_object)
 
     @run_on_executor
     @emit_runtime_metrics("create_rest_api")

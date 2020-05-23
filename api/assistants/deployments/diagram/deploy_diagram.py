@@ -1,5 +1,6 @@
 import json
 import traceback
+import uuid
 
 from tornado import gen
 from typing import Union, Dict, List
@@ -7,6 +8,7 @@ from typing import Union, Dict, List
 from assistants.deployments.diagram.api_endpoint_workflow_states import ApiGatewayWorkflowState, \
 	ApiEndpointWorkflowState
 from assistants.deployments.diagram.errors import InvalidDeployment
+from assistants.deployments.diagram.new_workflow_object import workflow_state_from_json, workflow_relationship_from_json
 from assistants.deployments.diagram.trigger_workflow_states import TriggerWorkflowState, WarmerTriggerWorkflowState
 from assistants.deployments.diagram.types import DeploymentState, ApiGatewayDeploymentState, SnsTopicDeploymentState, \
 	LambdaDeploymentState
@@ -49,12 +51,14 @@ class DeploymentDiagram:
 
 		self._unique_deploy_id = "random"
 		self._previous_state_lookup: Union[None, Dict[str, DeploymentState]] = None
+		self._previous_state_lookup_by_arn: Union[None, Dict[str, DeploymentState]] = None
 
 		if latest_deployment is not None and "workflow_states" in latest_deployment:
 			self._setup_previous_state_lookup(latest_deployment["workflow_states"])
 
 		self._workflow_file_lookup: Dict[str, List] = {}
 		self._workflow_state_lookup: Dict[str, WorkflowState] = {}
+		self._workflow_state_lookup_by_arn: Dict[str, WorkflowState] = {}
 		self._merge_workflow_relationship_lookup: Dict = {}
 		self._workflow_state_env_vars: Dict = {}
 
@@ -63,32 +67,77 @@ class DeploymentDiagram:
 			ws["id"]: json_to_deployment_state(ws)
 			for ws in latest_workflow_states
 		}
+		self._previous_state_lookup_by_arn = {
+			ws.arn: ws
+			for ws in self._previous_state_lookup.values()
+		}
 
-	def _unused_workflow_states(self) -> List[DeploymentState]:
+	def unused_workflow_states(self) -> List[DeploymentState]:
+		if self._previous_state_lookup is None:
+			return []
+
 		previous_state_ids = set(self._previous_state_lookup.keys())
 		current_state_ids = set(self._workflow_state_lookup.keys())
-		state_ids = previous_state_ids - current_state_ids
-		return [self._previous_state_lookup[state_id] for state_id in state_ids]
+		removable_state_ids = previous_state_ids - current_state_ids
+		return [self._previous_state_lookup[state_id] for state_id in removable_state_ids]
+
+	def current_deployment_workflow_states(self) -> List[DeploymentState]:
+		return [ws.current_state for ws in self._workflow_state_lookup.values()]
 
 	@gen.coroutine
-	def cleanup_unused_workflow_states(
+	def remove_workflow_states(
 			self,
 			api_gateway_manager,
 			lambda_manager,
 			schedule_trigger_manager,
 			sns_manager,
 			sqs_manager,
-			credentials
+			credentials,
+			successful_deploy
 	):
-		workflow_states = self._unused_workflow_states()
+		if successful_deploy:
+			# If we had a successful deploy, then we only want to remove unused resources
+			workflow_states = self.unused_workflow_states()
+		else:
+			# Otherwise, we remove the entire current deployment since it failed
+			workflow_states = self.current_deployment_workflow_states()
 
-		# TODO catch any errors here?
+		print(workflow_states)
 
 		yield teardown_deployed_states(
 			api_gateway_manager, lambda_manager, schedule_trigger_manager,
 			sns_manager, sqs_manager, credentials, workflow_states)
 
 		return workflow_states
+
+	def _add_previous_state_for_cleanup(self, deployment_state: DeploymentState):
+		# Create a random UUID since we are just going to be cleaning this up
+		state_id = uuid.uuid4()
+
+		self._previous_state_lookup[state_id] = deployment_state
+		self._previous_state_lookup_by_arn[deployment_state.arn] = deployment_state
+
+	def validate_arn_exists(self, state_type: StateTypes, arn: str):
+		"""
+		Validate if an arn exists in the current deployment.
+		If it does not, then we check if we know to remove it via the previous state.
+		Otherwise, we add this to our previous state so we know to clean it up.
+
+		:param state_type:
+		:param arn:
+		:return: boolean of whether the arn exists in the current deployment.
+		"""
+
+		workflow_state = self._workflow_state_lookup_by_arn.get(arn)
+		if workflow_state is not None:
+			return True
+
+		previous_workflow_state = self._previous_state_lookup_by_arn.get(arn)
+		if previous_workflow_state is None:
+			deploy_state = DeploymentState(state_type, arn, "")
+			self._add_previous_state_for_cleanup(deploy_state)
+
+		return False
 
 	def serialize(self):
 		workflow_states: [Dict] = []
@@ -113,16 +162,21 @@ class DeploymentDiagram:
 			return None
 		return self._previous_state_lookup.get(state_id)
 
-	def get_previous_api_gateway_state(self, api_gateway_arn: str) -> Union[DeploymentState, None]:
+	def get_previous_api_gateway_state(self, api_gateway_arn: str) -> ApiGatewayDeploymentState:
+		non_existing_deployment_state = ApiGatewayDeploymentState(StateTypes.API_GATEWAY, api_gateway_arn, None)
+
 		if self._previous_state_lookup is None:
-			return None
+			return non_existing_deployment_state
 
 		# try to locate the API Gateway from the previous deployment
 		api_gateway_results = [state for state in self._previous_state_lookup.values() if state.arn == api_gateway_arn]
 
 		if len(api_gateway_results) > 0:
-			return api_gateway_results[0]
-		return None
+			api_gateway_deployment_state = api_gateway_results[0]
+			assert isinstance(api_gateway_deployment_state, ApiGatewayDeploymentState)
+
+			return api_gateway_deployment_state
+		return non_existing_deployment_state
 
 	def set_api_gateway(self, api_gateway_state: ApiGatewayWorkflowState):
 		self.api_gateway = api_gateway_state
@@ -131,13 +185,16 @@ class DeploymentDiagram:
 		self.api_gateway = ApiGatewayWorkflowState(credentials)
 		self.api_gateway.setup(self, None)
 
-	def add_workflow_files(self, workflow_file_links_json, workflow_files_json):
+	def add_workflow_files(self, workflow_files_json, workflow_file_links_json):
 		workflow_file_lookup = {}
 		for workflow_file_json in workflow_files_json:
 			workflow_file_lookup[workflow_file_json["id"]] = workflow_file_json
 
 		for workflow_file_link_json in workflow_file_links_json:
-			file_id = workflow_file_link_json["file_id"]
+			file_id = workflow_file_link_json.get("file_id")
+			if file_id is None:
+				raise InvalidDeployment(f"no 'file_id' found in workflow file link: {workflow_file_link_json}")
+
 			workflow_file = workflow_file_lookup.get(file_id)
 			if workflow_file is None:
 				raise InvalidDeployment(f"no workflow_file found with ID: {file_id}")
@@ -151,6 +208,7 @@ class DeploymentDiagram:
 
 	def add_workflow_state(self, workflow_state: WorkflowState):
 		self._workflow_state_lookup[workflow_state.id] = workflow_state
+		self._workflow_state_lookup_by_arn[workflow_state.arn] = workflow_state
 
 	def add_node_to_merge_transition(self, origin_node: WorkflowState, next_node: WorkflowState):
 		existing_next_nodes = self._merge_workflow_relationship_lookup.get(next_node.id)
@@ -191,10 +249,10 @@ class DeploymentDiagram:
 
 		return files
 
-	def _update_workflow_states_with_deploy_info(self, task_spawner, deployed_workflow_states):
+	def _update_workflow_states_with_deploy_info(self, task_spawner):
 		update_futures = []
 
-		for workflow_state in deployed_workflow_states:
+		for workflow_state in self._workflow_state_lookup.values():
 			if isinstance(workflow_state, ApiEndpointWorkflowState):
 				api_gateway_id = self.api_gateway.api_gateway_id
 				workflow_state.set_api_url(api_gateway_id)
@@ -205,6 +263,13 @@ class DeploymentDiagram:
 				update_futures.extend(workflow_state_futures)
 
 		return update_futures
+
+	def _cleanup_unused_workflow_state_resources(self, task_spawner):
+		cleanup_futures = []
+		for workflow_state in self._workflow_state_lookup.values():
+			cleanup_futures.append(workflow_state.cleanup(task_spawner, self))
+
+		return cleanup_futures
 
 	@gen.coroutine
 	def _create_auto_warmers(
@@ -330,10 +395,7 @@ class DeploymentDiagram:
 			yield self.api_gateway.setup_api_endpoints(
 				task_spawner, api_gateway_manager, deployed_api_endpoints)
 
-		update_futures = []
-		for state_type in StateTypes:
-			deployed_workflow_states = deployment_type_lookup[state_type]
-			update_futures = self._update_workflow_states_with_deploy_info(task_spawner, deployed_workflow_states)
+		update_futures = self._update_workflow_states_with_deploy_info(task_spawner)
 
 		"""
 		TODO add 'cleanup' futures
@@ -346,6 +408,7 @@ class DeploymentDiagram:
 		
 		scheduled trigger:
 			* events client targets (lambda arns that do not exist in current deployment)
+			* the scheduled trigger itself if it is not being used in the current deployment
 		
 		api gateway:
 			* unused resources (including the gateway itself if nothing exists)
@@ -371,10 +434,64 @@ class DeploymentDiagram:
 
 		yield update_futures
 
-		raise gen.Return([])
+		cleanup_futures = self._cleanup_unused_workflow_state_resources(task_spawner)
+		yield cleanup_futures
 
-	def get_workflow_states_for_teardown(self) -> [Dict]:
-		nodes = []
-		for workflow_state in self._workflow_state_lookup.values():
-			nodes.append(workflow_state.serialize())
-		return nodes
+		raise gen.Return(deployment_exceptions)
+
+	@gen.coroutine
+	def deploy_diagram(
+			self,
+			task_spawner,
+			api_gateway_manager,
+			credentials,
+			diagram_data,
+	):
+		# TODO enforce json schema for incoming deployment data?
+
+		# Kick off the creation of the log table for the project ID
+		# This is fine to do if one already exists because the SQL
+		# query explicitly specifies not to create one if it exists.
+		project_log_table_future = task_spawner.create_project_id_log_table(
+			credentials,
+			self.project_id
+		)
+
+		# If we have workflow files and links, add them to the deployment
+		workflow_files_json = diagram_data.get("workflow_files")
+		workflow_file_links_json = diagram_data.get("workflow_file_links")
+		if workflow_files_json and workflow_file_links_json:
+			self.add_workflow_files(workflow_files_json, workflow_file_links_json)
+
+		# Create an in-memory representation of the deployment data
+		for n, workflow_state_json in enumerate(diagram_data["workflow_states"]):
+			workflow_state = workflow_state_from_json(
+				credentials, self, workflow_state_json)
+
+			self.add_workflow_state(workflow_state)
+
+		# If we did not find an api gateway, let's create a placeholder for now
+		if self.api_gateway is None:
+			self.initialize_api_gateway(credentials)
+
+		# Add transition data to each Lambda
+		for workflow_relationship_json in diagram_data["workflow_relationships"]:
+			workflow_relationship_from_json(self, workflow_relationship_json)
+		self.finalize_merge_transitions()
+
+		deployment_exceptions = yield self.deploy(
+			task_spawner, api_gateway_manager, credentials)
+
+		if len(deployment_exceptions) > 0:
+			# This is the earliest point we can apply the breaks in the case of an exception
+			# It's the callers responsibility to tear down the nodes
+
+			logit("[ ERROR ] An uncaught exception occurred during the deployment process!", "error")
+			logit(deployment_exceptions, "error")
+			raise gen.Return(deployment_exceptions)
+
+		# Make sure that log table is set up
+		# It almost certainly is by this point
+		yield project_log_table_future
+
+		raise gen.Return(deployment_exceptions)

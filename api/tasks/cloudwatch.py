@@ -3,6 +3,7 @@ from time import sleep
 
 import botocore.errorfactory
 
+from assistants.deployments.diagram.types import CloudwatchRuleTarget
 from utils.general import logit
 
 
@@ -109,6 +110,47 @@ def create_cloudwatch_rule(aws_client_factory, credentials, cloudwatch_rule):
         "name": cloudwatch_rule.name,
         "arn": cloudwatch_rule.arn,
         "input_string": cloudwatch_rule.input_string,
+    }
+
+
+def get_cloudwatch_rules(aws_client_factory, credentials, rule):
+    events_client = aws_client_factory.get_aws_client(
+        "events",
+        credentials
+    )
+
+    cloudwatch_rules = []
+
+    try:
+        next_token = None
+        while True:
+            next_token_param = dict(NextToken=next_token) if next_token is not None else dict()
+
+            response = events_client.list_targets_by_rule(
+                Rule=rule.name,
+                **next_token_param
+            )
+
+            targets = response["Targets"]
+            cloudwatch_rules.extend(
+                [
+                    CloudwatchRuleTarget(target["Arn"])
+                    for target in targets
+                ]
+            )
+
+            next_token = response.get("NextToken")
+            if next_token is None:
+                break
+    except events_client.exceptions.ResourceNotFoundException:
+        return {
+            "exists": False,
+            "rules": []
+        }
+
+    return {
+        "exists": True,
+        "rules": cloudwatch_rules
     }
 
 

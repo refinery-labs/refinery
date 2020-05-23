@@ -37,25 +37,23 @@ class ApiGatewayWorkflowState(WorkflowState):
 		)
 
 		self.project_id = ""
-		self.api_gateway_id = None
 
 		# TODO is there a better way redeclare the type of a member variable?
 		self.deployed_state: ApiGatewayDeploymentState = self.deployed_state
+		self.current_state: ApiGatewayDeploymentState = self.current_state
 
 	def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
-		previous_api_gateway = deploy_diagram.get_previous_api_gateway_state(API_GATEWAY_STATE_ARN)
-
-		if previous_api_gateway is None:
-			return
-
-		assert isinstance(previous_api_gateway, ApiGatewayDeploymentState)
-
-		self.api_gateway_id = previous_api_gateway.api_gateway_id
+		self.deployed_state = deploy_diagram.get_previous_api_gateway_state(API_GATEWAY_STATE_ARN)
 
 		self.project_id = deploy_diagram.project_id
 
 		# set the api gateway for this deployment since it already exists
 		deploy_diagram.set_api_gateway(self)
+
+	@property
+	def api_gateway_id(self):
+		return self.deployed_state.api_gateway_id \
+			if self.deployed_state_exists() else self.current_state.api_gateway_id
 
 	def serialize(self):
 		ws_serialized = super(ApiGatewayWorkflowState, self).serialize()
@@ -153,11 +151,11 @@ class ApiGatewayWorkflowState(WorkflowState):
 
 	@gen.coroutine
 	def predeploy(self, task_spawner, api_gateway_manager):
-		if self.api_gateway_id is not None:
+		if self.deployed_state.api_gateway_id is not None:
 			logit("Verifying existence of API Gateway...")
 			self.deployed_state.exists = yield api_gateway_manager.api_gateway_exists(
 				self._credentials,
-				self.api_gateway_id
+				self.deployed_state.api_gateway_id
 			)
 
 			# TODO when the api gateway id doesnt exists, we need to set it up again
@@ -168,7 +166,7 @@ class ApiGatewayWorkflowState(WorkflowState):
 	@gen.coroutine
 	def deploy(self, task_spawner, api_gateway_manager, project_id, project_config):
 		# If we have a gateway id and the api gateway exists, we do not need to redeploy it
-		if self.api_gateway_id is not None and self.deployed_state_exists():
+		if self.deployed_state.api_gateway_id is not None and self.deployed_state_exists():
 			raise gen.Return()
 
 		# We need to create an API gateway
@@ -187,7 +185,7 @@ class ApiGatewayWorkflowState(WorkflowState):
 			"API Gateway created by Refinery. Associated with project ID " + self.project_id,
 			"1.0.0"
 		)
-		self.api_gateway_id = gateway_id
+		self.current_state.api_gateway_id = gateway_id
 
 		yield self.get_api_gateway_deployment_state(api_gateway_manager)
 

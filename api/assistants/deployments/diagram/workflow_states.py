@@ -10,6 +10,8 @@ from utils.general import get_safe_workflow_state_name
 
 if TYPE_CHECKING:
 	from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
+	from assistants.task_spawner.task_spawner_assistant import TaskSpawner
+
 
 INTERNAL_ERROR_MSG = 'When deploying this project, Refinery experienced an internal error.\nPlease reach out to the Refinery devs if this problem persists.'
 
@@ -51,13 +53,13 @@ class WorkflowState(DeploymentState):
 		self.deployed_state: Union[DeploymentState, None] = None
 
 		arn = self.get_arn_name() if arn is None else arn
-		self.current_state: DeploymentState = DeploymentState(arn)
+		self.current_state: DeploymentState = DeploymentState(self.type, arn, None)
 
 		self.force_redeploy = force_redeploy
 
 	@property
 	def arn(self):
-		return self.current_state.arn if self.state_has_changed() else self.deployed_state.arn
+		return self.current_state.arn # TODO do we need this? -> if self.state_has_changed() else self.deployed_state.arn
 
 	def set_arn(self, arn):
 		self.current_state.arn = arn
@@ -78,14 +80,14 @@ class WorkflowState(DeploymentState):
 		self.deployed_state = deploy_diagram.get_previous_state(self.id)
 
 	@gen.coroutine
-	def predeploy(self, task_spawner):
+	def predeploy(self, task_spawner: TaskSpawner):
 		raise gen.Return()
 
-	def deploy(self, task_spawner, project_id, project_config):
+	def deploy(self, task_spawner: TaskSpawner, project_id, project_config):
 		pass
 
 	@gen.coroutine
-	def cleanup(self, task_spawner, deployent):
+	def cleanup(self, task_spawner: TaskSpawner, deployment: DeploymentDiagram):
 		pass
 
 	def state_has_changed(self) -> bool:

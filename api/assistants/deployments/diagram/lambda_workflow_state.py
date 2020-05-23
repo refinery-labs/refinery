@@ -6,6 +6,7 @@ import json
 from tornado import gen
 from typing import Dict, List, TYPE_CHECKING
 
+from assistants.deployments.diagram.types import LambdaDeploymentState, StateTypes
 from assistants.deployments.diagram.utils import get_language_specific_environment_variables, get_layers_for_lambda
 from assistants.deployments.diagram.workflow_states import WorkflowState
 from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
@@ -44,6 +45,8 @@ class LambdaWorkflowState(WorkflowState):
 			self.role = "arn:aws:iam::" + str(credentials["account_id"]) + ":role/" + THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
 		else:
 			self.role = "arn:aws:iam::" + str(credentials["account_id"]) + ":role/refinery_default_aws_lambda_role"
+
+		self.deployed_state: LambdaDeploymentState = self.deployed_state
 
 	def serialize(self) -> Dict[str, str]:
 		base_ws_state = super(LambdaWorkflowState, self).serialize()
@@ -124,6 +127,9 @@ class LambdaWorkflowState(WorkflowState):
 
 	def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
 		super(LambdaWorkflowState, self).setup(deploy_diagram, workflow_state_json)
+
+		if self.deployed_state is None:
+			self.deployed_state = LambdaDeploymentState(self.type, self.arn, None)
 
 		self.execution_pipeline_id = deploy_diagram.project_id
 		self.execution_log_level = deploy_diagram.project_config["logging"]["level"]
@@ -283,7 +289,7 @@ class LambdaWorkflowState(WorkflowState):
 
 		# Enumerate the event source mappings for this lambda if it exists
 		if self.deployed_state_exists():
-			self.deployed_state.event_source_arns = yield task_spawner.list_lambda_event_source_mappings(
+			self.deployed_state.event_source_mappings = yield task_spawner.list_lambda_event_source_mappings(
 				self._credentials,
 				self
 			)
@@ -309,3 +315,21 @@ class LambdaWorkflowState(WorkflowState):
 
 		# lambda does not exist, we must create a new one
 		return self.deploy_lambda(task_spawner)
+
+	@gen.coroutine
+	def cleanup(self, task_spawner: TaskSpawner, deployment: DeploymentDiagram):
+		if not self.deployed_state_exists():
+			raise gen.Return()
+
+		# Remove any event source mappings created by sqs queues that do not exist anymore
+		for mapping in self.deployed_state.event_source_mappings:
+			queue_uuid = mapping.uuid
+			queue_arn = mapping.event_source_arn
+
+			# TODO can we guarantee that this will be a sqs queue?
+			exists = deployment.validate_arn_exists(StateTypes.SQS_QUEUE, queue_arn)
+			if not exists:
+				task_spawner.delete_lambda_event_source_mapping(
+					self._credentials,
+					queue_uuid
+				)
