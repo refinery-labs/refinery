@@ -98,7 +98,7 @@ class ApiGatewayEndpoint:
 
 	def endpoint_can_be_removed(self):
 		# if all of the methods are not being used, then we can remove this
-		return not self._in_use and all([not in_use for in_use in self._methods.values()])
+		return (not self._in_use) and (not any([in_use for in_use in self._methods.values()]))
 
 
 class ApiGatewayLambdaConfig:

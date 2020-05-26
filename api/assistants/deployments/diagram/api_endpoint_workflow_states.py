@@ -52,6 +52,11 @@ class ApiGatewayWorkflowState(WorkflowState):
 
 	@property
 	def api_gateway_id(self):
+		"""
+		If the deployed state exists, then we return the api gateway id from there, otherwise we return
+		the api gateway id we created in the current deployment.
+		:return: api gateway id
+		"""
 		return self.deployed_state.api_gateway_id \
 			if self.deployed_state_exists() else self.current_state.api_gateway_id
 
@@ -64,6 +69,14 @@ class ApiGatewayWorkflowState(WorkflowState):
 
 	@gen.coroutine
 	def get_api_gateway_deployment_state(self, api_gateway_manager: ApiGatewayManager):
+		"""
+		For all resources that exist in this API Gateway, create an in-memory representation of them.
+
+		API Gateway resources have a nested structure of {path, methods, integration (lambda arn)}
+
+		:param api_gateway_manager:
+		:return:
+		"""
 		rest_resources = yield api_gateway_manager.get_resources(
 			self._credentials,
 			self.api_gateway_id

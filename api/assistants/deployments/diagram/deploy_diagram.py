@@ -79,7 +79,16 @@ class DeploymentDiagram:
 		previous_state_ids = set(self._previous_state_lookup.keys())
 		current_state_ids = set(self._workflow_state_lookup.keys())
 		removable_state_ids = previous_state_ids - current_state_ids
-		return [self._previous_state_lookup[state_id] for state_id in removable_state_ids]
+
+		removeable_states = [
+			self._previous_state_lookup[state_id] for state_id in removable_state_ids
+		]
+
+		# Additional filtering step for api gateways since we give them random ids
+		return [
+			state for state in removeable_states
+			if isinstance(state, ApiGatewayWorkflowState) and self.api_gateway.api_gateway_id != state.api_gateway_id
+		]
 
 	def current_deployment_workflow_states(self) -> List[DeploymentState]:
 		return [ws.current_state for ws in self._workflow_state_lookup.values()]
@@ -396,31 +405,6 @@ class DeploymentDiagram:
 				task_spawner, api_gateway_manager, deployed_api_endpoints)
 
 		update_futures = self._update_workflow_states_with_deploy_info(task_spawner)
-
-		"""
-		TODO add 'cleanup' futures
-		
-		What we need to cleanup:
-		
-		lambdas:
-			* sqs event source mappings on lambdas (for sqs queues that don't exist anymore)
-			* lambda functions not being used in current deployment?
-		
-		scheduled trigger:
-			* events client targets (lambda arns that do not exist in current deployment)
-			* the scheduled trigger itself if it is not being used in the current deployment
-		
-		api gateway:
-			* unused resources (including the gateway itself if nothing exists)
-		
-		sqs queue:
-			* the queue itself if nothing is using it (create a map of used sqs queues to lambda from lambda source mappings)
-		
-		sns topic:
-			* remove lambda subscriptions for lambdas that are not used anymore
-			* sns itself if it is not being used
-		
-		"""
 
 		warmup_concurrency_level = self.project_config.get("warmup_concurrency_level")
 		if warmup_concurrency_level:
