@@ -73,8 +73,8 @@ class LambdaDeploymentState(DeploymentState):
 	def __str__(self):
 		return f'Lambda Deployment State arn: {self.arn}, state_hash: {self.state_hash}, exists: {self.exists}, event_source_mappings: {self.event_source_mappings}'
 
-	def is_linked_to_trigger(self, workflow_state: WorkflowState):
-		return any([mapping.event_source_arn == workflow_state.arn for mapping in self.event_source_mappings])
+	def is_linked_to_trigger(self, trigger_state: WorkflowState):
+		return any([mapping.event_source_arn == trigger_state.arn for mapping in self.event_source_mappings])
 
 
 class ApiGatewayEndpoint:

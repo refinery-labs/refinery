@@ -557,6 +557,11 @@ def update_aws_lambda_configuration(lambda_client, lambda_object: LambdaWorkflow
 
 
 def list_lambda_event_source_mappings(aws_client_factory, credentials, lambda_object: LambdaWorkflowState):
+    return list_lambda_event_source_mappings_by_name(aws_client_factory, credentials, lambda_object.name)
+
+
+# TODO we shouldn't need this, we should only be using workflow state objects
+def list_lambda_event_source_mappings_by_name(aws_client_factory, credentials, lambda_name):
     lambda_client = aws_client_factory.get_aws_client(
         "lambda",
         credentials
@@ -569,7 +574,7 @@ def list_lambda_event_source_mappings(aws_client_factory, credentials, lambda_ob
         marker_param = dict(Marker=marker) if marker is not None else dict()
 
         response = lambda_client.list_event_source_mappings(
-            FunctionName=lambda_object.name,
+            FunctionName=lambda_name,
             **marker_param
         )
 

@@ -102,8 +102,6 @@ class DeploymentDiagram:
 			# Otherwise, we remove the entire current deployment since it failed
 			workflow_states = self.current_deployment_workflow_states()
 
-		print(workflow_states)
-
 		yield teardown_deployed_states(
 			api_gateway_manager, lambda_manager, schedule_trigger_manager,
 			sns_manager, sqs_manager, credentials, workflow_states)

@@ -69,14 +69,8 @@ class LambdaWorkflowState(WorkflowState):
 			"execution_pipeline_id": self.execution_pipeline_id,
 			"execution_log_level": self.execution_log_level,
 			"shared_files_list": self.shared_files_list,
-			"role": self.role,
-
-			# override the attributes we want to hold constant
-			"name": self.name,
-			"arn": ""
+			"role": self.role
 		}
-
-		# print(json.dumps(lambda_values, indent=2))
 
 		serialized_lambda_values = json.dumps(lambda_values).encode('utf-8')
 		return hashlib.sha256(serialized_lambda_values).hexdigest()
@@ -287,7 +281,7 @@ class LambdaWorkflowState(WorkflowState):
 			)
 			self.deployed_state.exists = exists
 
-		# Enumerate the event source mappings for this lambda if it exists
+		# Enumerate the event source mappings for this lambda
 		if self.deployed_state_exists():
 			self.deployed_state.event_source_mappings = yield task_spawner.list_lambda_event_source_mappings(
 				self._credentials,

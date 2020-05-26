@@ -1,7 +1,9 @@
+import json
 from re import sub
 from time import sleep
 
 import botocore.errorfactory
+from botocore.exceptions import ClientError
 
 from assistants.deployments.diagram.types import CloudwatchRuleTarget
 from utils.general import logit
@@ -155,6 +157,14 @@ def get_cloudwatch_rules(aws_client_factory, credentials, rule):
 
 
 def add_rule_target(aws_client_factory, credentials, rule, target):
+    # events.put_targets will try to do some nonsense with parsing the input_string
+    # so we will try to load it as json, and then dump it back as a string
+    input_string = rule.input_string
+    try:
+        input_string = json.loads(rule.input_string)
+    except json.decoder.JSONDecodeError:
+        pass
+
     events_client = aws_client_factory.get_aws_client(
         "events",
         credentials,
@@ -168,7 +178,7 @@ def add_rule_target(aws_client_factory, credentials, rule, target):
     targets_data = {
         "Id": target.name,
         "Arn": target.arn,
-        "Input": rule.input_string
+        "Input": json.dumps(input_string)
     }
 
     rule_creation_response = events_client.put_targets(
@@ -178,13 +188,43 @@ def add_rule_target(aws_client_factory, credentials, rule, target):
         ]
     )
 
+    try:
+        response = lambda_client.get_policy(
+            FunctionName=target.arn,
+        )
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ResourceNotFoundException":
+            return {}
+        raise
+
+    statement_id = rule.name + "_statement"
+
+    existing_lambda_statements = json.loads(
+        response["Policy"]
+    )["Statement"]
+
+    def remove_if_matches_expected_permission(statement):
+        sid = statement.get('Sid')
+        if sid == statement_id:
+            try:
+                response = lambda_client.remove_permission(
+                    FunctionName=target.arn,
+                    StatementId=sid
+                )
+            except ClientError as e:
+                if e.response["Error"]["Code"] != "ResourceNotFoundException":
+                    raise
+
+    for statement in existing_lambda_statements:
+        remove_if_matches_expected_permission(statement)
+
     """
     For AWS Lambda you need to add a permission to the Lambda function itself
     via the add_permission API call to allow invocation via the CloudWatch event.
     """
     lambda_permission_add_response = lambda_client.add_permission(
         FunctionName=target.arn,
-        StatementId=rule.name + "_statement",
+        StatementId=statement_id,
         Action="lambda:*",
         Principal="events.amazonaws.com",
         SourceArn=rule.arn,
