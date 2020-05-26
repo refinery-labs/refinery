@@ -43,6 +43,14 @@ def json_to_deployment_state(workflow_state_json):
 
 
 class DeploymentDiagram:
+	"""
+	DeploymentDiagram represents high level actions which are performed in regards to the deployment of a
+	user created graph.
+
+	The deployment diagram will diff the existing infrastructure which exists with that that needs to be deployed.
+	The comparison of state for each component of a deployment is delegated to each component.
+	"""
+
 	def __init__(self, project_id, project_name, project_config, latest_deployment=None):
 		self.project_id = project_id
 		self.project_name = project_name
@@ -62,7 +70,13 @@ class DeploymentDiagram:
 		self._merge_workflow_relationship_lookup: Dict = {}
 		self._workflow_state_env_vars: Dict = {}
 
-	def _setup_previous_state_lookup(self, latest_workflow_states):
+	def _setup_previous_state_lookup(self, latest_workflow_states: List[Dict[str, str]]):
+		"""
+		Deserialize the workflow states from the previous deployment to use them as a reference when diffing.
+
+		:param latest_workflow_states: A list of previously deployed workflow states.
+		:return:
+		"""
 		self._previous_state_lookup = {
 			ws["id"]: json_to_deployment_state(ws)
 			for ws in latest_workflow_states
@@ -73,6 +87,12 @@ class DeploymentDiagram:
 		}
 
 	def unused_workflow_states(self) -> List[DeploymentState]:
+		"""
+		At the end of deployment, any workflow states that do not exist in the current state of deployment will be
+		returned with the intent of removal.
+
+		:return: A list of deployment states marked for removal.
+		"""
 		if self._previous_state_lookup is None:
 			return []
 
@@ -118,6 +138,13 @@ class DeploymentDiagram:
 		return workflow_states
 
 	def _add_previous_state_for_cleanup(self, deployment_state: DeploymentState):
+		"""
+		To ensure all resources are cleaned up, it may be necessary to appened a discovered resource to
+		the list of previously deployed states.
+
+		:param deployment_state: A discovered deployed state while deploying the current state.
+		:return:
+		"""
 		# Create a random UUID since we are just going to be cleaning this up
 		state_id = uuid.uuid4()
 
@@ -171,8 +198,6 @@ class DeploymentDiagram:
 
 	def get_previous_api_gateway_state(self, api_gateway_arn: str) -> ApiGatewayDeploymentState:
 		non_existing_deployment_state = ApiGatewayDeploymentState(StateTypes.API_GATEWAY, api_gateway_arn, None)
-
-		print("Previous state lookup", self._previous_state_lookup)
 
 		if self._previous_state_lookup is None:
 			return non_existing_deployment_state
@@ -324,6 +349,26 @@ class DeploymentDiagram:
 
 	@gen.coroutine
 	def deploy(self, task_spawner, api_gateway_manager, credentials):
+		"""
+		For every workflow state, deployment is broken up into:
+		# predeploy
+			- Transitions between workflow states are enumerated and created
+			- Existence of whether the workflow state is deployed is determined
+			- The current state is hashed for later use
+		# deploy
+			- Current state hashes are compared to their previous state for determining if redeployment is required
+			- Future is returned for the deployment of the state, if needed
+			- If an exception occurs for the deployment of any state, the entire function will return with all encountered errors
+		# update
+			- Any states which depend on the deployed state of another state will be appropriately updated
+		# cleanup
+			- Any states which may have resources to remove post deployment (from a past state) will be removed here
+
+		:param task_spawner:
+		:param api_gateway_manager:
+		:param credentials:
+		:return:
+		"""
 		# Initialize list of results
 		deployment_type_lookup: Dict[StateTypes, List] = {
 			state_type: [] for state_type in StateTypes

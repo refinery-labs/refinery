@@ -72,7 +72,8 @@ class ApiGatewayWorkflowState(WorkflowState):
 		"""
 		For all resources that exist in this API Gateway, create an in-memory representation of them.
 
-		API Gateway resources have a nested structure of {path, methods, integration (lambda arn)}
+		API Gateway resources have {path, methods, integration (lambda arn)}. They are a nested structure
+		that have children.
 
 		:param api_gateway_manager:
 		:return:
@@ -273,6 +274,11 @@ class ApiEndpointWorkflowState(LambdaWorkflowState):
 
 	@gen.coroutine
 	def create_or_mark_lambda_api_route(self, task_spawner, api_gateway: ApiGatewayWorkflowState, creating_new_route):
+
+		#
+		# TODO clean up this method, it is too long
+		#
+
 		logit(f"Setting up route {self.http_method} {self.api_path} for API Endpoint '{self.name}'...")
 
 		path_parts = self.api_path.split("/")

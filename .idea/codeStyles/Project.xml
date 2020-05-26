@@ -25,11 +25,6 @@
         <option name="TAB_SIZE" value="2" />
       </indentOptions>
     </codeStyleSettings>
-    <codeStyleSettings language="Python">
-      <indentOptions>
-        <option name="USE_TAB_CHARACTER" value="true" />
-      </indentOptions>
-    </codeStyleSettings>
     <codeStyleSettings language="TypeScript">
       <indentOptions>
         <option name="INDENT_SIZE" value="2" />
