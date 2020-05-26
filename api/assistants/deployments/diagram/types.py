@@ -33,9 +33,10 @@ class RelationshipTypes(Enum):
 
 
 class LambdaEventSourceMapping:
-	def __init__(self, uuid, event_source_arn):
+	def __init__(self, uuid, event_source_arn, state):
 		self.uuid = uuid
 		self.event_source_arn = event_source_arn
+		self.state = state
 
 
 class TopicSubscription:
@@ -81,6 +82,7 @@ class ApiGatewayEndpoint:
 	def __init__(self, _id, path):
 		self.id = _id
 		self.path = path
+		self._in_use = False
 
 		# map HTTP methods to whether or not they are in use
 		self._methods: Dict[str, bool] = dict()
@@ -88,12 +90,15 @@ class ApiGatewayEndpoint:
 	def set_method_in_use(self, method):
 		self._methods[method] = True
 
+	def set_endpoint_in_use(self):
+		self._in_use = True
+
 	def get_methods_to_be_removed(self):
 		return [method for method, in_use in self._methods.items() if not in_use]
 
 	def endpoint_can_be_removed(self):
 		# if all of the methods are not being used, then we can remove this
-		return all([not in_use for in_use in self._methods.values()])
+		return not self._in_use and all([not in_use for in_use in self._methods.values()])
 
 
 class ApiGatewayLambdaConfig:

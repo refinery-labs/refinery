@@ -6,7 +6,7 @@ from tornado.concurrent import run_on_executor, futures
 from botocore.exceptions import ClientError
 
 from tasks.aws_lambda import list_lambda_event_source_mappings_by_name
-from utils.general import log_exception
+from utils.general import log_exception, logit
 from utils.performance_decorators import emit_runtime_metrics
 
 
@@ -37,6 +37,9 @@ class LambdaManager(object):
         # Cleanup the source mappings for when we recreate this lambda and they do not persist
         event_source_mappings = list_lambda_event_source_mappings_by_name(aws_client_factory, credentials, name)
         for mapping in event_source_mappings:
+            if mapping.state != "Enabled" and mapping.state != "Disabled":
+                logit("TODO if this event source mapping is not in a deletable state, then we have to wait")
+
             lambda_client.delete_event_source_mapping(
                 UUID=mapping.uuid
             )

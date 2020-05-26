@@ -9,7 +9,7 @@ from assistants.deployments.api_gateway import strip_api_gateway, ApiGatewayMana
 from assistants.deployments.diagram.lambda_workflow_state import LambdaWorkflowState
 from assistants.deployments.diagram.types import ApiGatewayDeploymentState, ApiGatewayEndpoint, ApiGatewayLambdaConfig
 from assistants.deployments.diagram.utils import get_layers_for_lambda
-from assistants.deployments.diagram.workflow_states import WorkflowState, StateTypes
+from assistants.deployments.diagram.workflow_states import WorkflowState, StateTypes, DeploymentException
 from utils.general import get_random_node_id, logit
 
 if TYPE_CHECKING:
@@ -121,16 +121,19 @@ class ApiGatewayWorkflowState(WorkflowState):
 			endpoint_is_configured = self.deployed_state.endpoint_is_configured(
 				task_spawner, self._credentials, api_endpoint)
 
+			creating_new_route = True
 			if not api_endpoint.state_has_changed() \
 				and api_endpoint.deployed_state_exists() \
 				and endpoint_is_configured:
 
 				logit(f"API Endpoint {api_endpoint.id} has not changed and exists, skipping setting up API route")
-				continue
 
-			yield api_endpoint.create_lambda_api_route(
+				creating_new_route = False
+
+			yield api_endpoint.create_or_mark_lambda_api_route(
 				task_spawner,
-				self
+				self,
+				creating_new_route
 			)
 
 		logit("Cleaning up unused API endpoints from API gateway...")
@@ -256,18 +259,19 @@ class ApiEndpointWorkflowState(LambdaWorkflowState):
 		return f"arn:aws:execute-api:{region}:{account_id}:{rest_api_id}/*/{self.http_method}{self.api_path}"
 
 	@gen.coroutine
-	def create_lambda_api_route(self, task_spawner, api_gateway: ApiGatewayWorkflowState):
+	def create_or_mark_lambda_api_route(self, task_spawner, api_gateway: ApiGatewayWorkflowState, creating_new_route):
 		logit(f"Setting up route {self.http_method} {self.api_path} for API Endpoint '{self.name}'...")
 
 		path_parts = self.api_path.split("/")
 		path_parts = list(filter(lambda s: s != '', path_parts))
 
-		# First we clean the Lambda of API Gateway policies which point
-		# to dead API Gateways
-		yield task_spawner.clean_lambda_iam_policies(
-			self._credentials,
-			self.name
-		)
+		if creating_new_route:
+			# First we clean the Lambda of API Gateway policies which point
+			# to dead API Gateways
+			yield task_spawner.clean_lambda_iam_policies(
+				self._credentials,
+				self.name
+			)
 
 		# Set the pointer to the base
 		current_base_pointer_id = api_gateway.deployed_state.base_resource_id
@@ -287,8 +291,16 @@ class ApiEndpointWorkflowState(LambdaWorkflowState):
 			# Get existing resource ID instead of creating one
 			api_endpoint = api_gateway.deployed_state.get_endpoint_from_path(current_path)
 			if api_endpoint is not None:
+				# The current endpoint we are looking at is in the path of what we are searching for
+				# so we will want to keep it
+				api_endpoint.set_endpoint_in_use()
+
 				current_base_pointer_id = api_endpoint.id
 			else:
+				if not creating_new_route:
+					raise DeploymentException(
+						self.id, self.name, self.type, False, f"Expected this endpoint {current_path} to exist, but it is missing")
+
 				# Otherwise go ahead and create one
 				new_resource_id = yield task_spawner.create_resource(
 					self._credentials,
@@ -301,28 +313,30 @@ class ApiEndpointWorkflowState(LambdaWorkflowState):
 				# Create a new api endpoint resource and add it to our deployed state
 				api_endpoint = ApiGatewayEndpoint(
 					current_base_pointer_id, current_path)
+				api_endpoint.set_endpoint_in_use()
 				api_gateway.deployed_state.add_endpoint(api_endpoint)
 
 			# Mark this retrieved endpoint as one that is in use
 			api_endpoint.set_method_in_use(self.http_method)
 
-		# Create method on base resource
-		method_response = yield task_spawner.create_method(
-			self._credentials,
-			"HTTP Method",
-			api_gateway.api_gateway_id,
-			current_base_pointer_id,
-			self.http_method,
-			False,
-		)
+		if creating_new_route:
+			# Create method on base resource
+			method_response = yield task_spawner.create_method(
+				self._credentials,
+				"HTTP Method",
+				api_gateway.api_gateway_id,
+				current_base_pointer_id,
+				self.http_method,
+				False,
+			)
 
-		# Link the API Gateway to the lambda
-		link_response = yield task_spawner.link_api_method_to_lambda(
-			self._credentials,
-			api_gateway.api_gateway_id,
-			current_base_pointer_id,
-			self
-		)
+			# Link the API Gateway to the lambda
+			link_response = yield task_spawner.link_api_method_to_lambda(
+				self._credentials,
+				api_gateway.api_gateway_id,
+				current_base_pointer_id,
+				self
+			)
 
 	def deploy(self, task_spawner, project_id, project_config):
 		logit(f"Deploying API Endpoint '{self.name}'...")

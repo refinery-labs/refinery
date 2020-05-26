@@ -33,7 +33,7 @@ def json_to_deployment_state(workflow_state_json):
 		return LambdaDeploymentState(state_type, arn, state_hash)
 
 	elif state_type == StateTypes.API_GATEWAY:
-		api_gateway_id = workflow_state_json.get("api_gateway_id")
+		api_gateway_id = workflow_state_json.get("rest_api_id")
 		return ApiGatewayDeploymentState(state_type, arn, state_hash, api_gateway_id)
 
 	elif state_type == StateTypes.SNS_TOPIC:
@@ -162,6 +162,8 @@ class DeploymentDiagram:
 
 	def get_previous_api_gateway_state(self, api_gateway_arn: str) -> ApiGatewayDeploymentState:
 		non_existing_deployment_state = ApiGatewayDeploymentState(StateTypes.API_GATEWAY, api_gateway_arn, None)
+
+		print("Previous state lookup", self._previous_state_lookup)
 
 		if self._previous_state_lookup is None:
 			return non_existing_deployment_state

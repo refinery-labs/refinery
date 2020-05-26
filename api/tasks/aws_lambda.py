@@ -582,7 +582,7 @@ def list_lambda_event_source_mappings_by_name(aws_client_factory, credentials, l
 
         source_mappings.extend(
             [
-                LambdaEventSourceMapping(mapping["UUID"], mapping["EventSourceArn"])
+                LambdaEventSourceMapping(mapping["UUID"], mapping["EventSourceArn"], mapping["State"])
                 for mapping in mappings
             ]
         )
