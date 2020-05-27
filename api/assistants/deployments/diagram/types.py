@@ -6,7 +6,7 @@ from tornado import gen
 from typing import List, Dict, TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
-	from assistants.deployments.diagram.api_endpoint_workflow_states import ApiEndpointWorkflowState
+	from assistants.deployments.aws.api_endpoint_workflow_states import ApiEndpointWorkflowState
 	from assistants.deployments.diagram.workflow_states import WorkflowState
 
 

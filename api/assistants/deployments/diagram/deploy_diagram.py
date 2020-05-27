@@ -5,14 +5,14 @@ import uuid
 from tornado import gen
 from typing import Union, Dict, List
 
-from assistants.deployments.diagram.api_endpoint_workflow_states import ApiGatewayWorkflowState, \
+from assistants.deployments.aws.api_endpoint_workflow_states import ApiGatewayWorkflowState, \
 	ApiEndpointWorkflowState
 from assistants.deployments.diagram.errors import InvalidDeployment
 from assistants.deployments.diagram.new_workflow_object import workflow_state_from_json, workflow_relationship_from_json
-from assistants.deployments.diagram.trigger_workflow_states import TriggerWorkflowState, WarmerTriggerWorkflowState
+from assistants.deployments.aws.trigger_workflow_states import TriggerWorkflowState, WarmerTriggerWorkflowState
 from assistants.deployments.diagram.types import DeploymentState, ApiGatewayDeploymentState, SnsTopicDeploymentState, \
 	LambdaDeploymentState
-from assistants.deployments.diagram.utils import add_auto_warmup
+from assistants.deployments.aws.utils import add_auto_warmup
 from assistants.deployments.diagram.workflow_states import WorkflowState, StateTypes, DeploymentException
 from assistants.deployments.teardown import teardown_deployed_states
 from pyexceptions.builds import BuildException
@@ -281,7 +281,7 @@ class DeploymentDiagram:
 		for workflow_state in self._workflow_state_lookup.values():
 			if isinstance(workflow_state, ApiEndpointWorkflowState):
 				api_gateway_id = self.api_gateway.api_gateway_id
-				workflow_state.set_api_url(api_gateway_id)
+				workflow_state.set_gateway_id(api_gateway_id)
 
 			elif isinstance(workflow_state, TriggerWorkflowState):
 				# If this workflow state feels triggered, calm it down by associating it with its deployed children

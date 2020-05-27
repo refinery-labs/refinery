@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from assistants.deployments.diagram.api_endpoint_workflow_states import ApiEndpointWorkflowState
+from assistants.deployments.aws.api_endpoint_workflow_states import ApiEndpointWorkflowState
 
 
 def create_rest_api(aws_client_factory, credentials, name, description, version):

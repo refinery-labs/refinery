@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from utils.general import get_safe_workflow_state_name, logit
 
 if TYPE_CHECKING:
-    from assistants.deployments.diagram.trigger_workflow_states import SqsQueueWorkflowState
+    from assistants.deployments.aws.trigger_workflow_states import SqsQueueWorkflowState
 
 
 def create_sqs_queue(aws_client_factory, credentials, sqs_queue_state: SqsQueueWorkflowState):

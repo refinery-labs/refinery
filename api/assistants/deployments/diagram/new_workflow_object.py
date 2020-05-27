@@ -5,10 +5,10 @@ from typing import Dict, TYPE_CHECKING, Union, Type
 from assistants.deployments.diagram.errors import InvalidDeployment
 from assistants.deployments.diagram.types import StateTypes, RelationshipTypes
 
-from assistants.deployments.diagram.api_endpoint_workflow_states import ApiEndpointWorkflowState, \
+from assistants.deployments.aws.api_endpoint_workflow_states import ApiEndpointWorkflowState, \
 	ApiGatewayResponseWorkflowState
-from assistants.deployments.diagram.lambda_workflow_state import LambdaWorkflowState
-from assistants.deployments.diagram.trigger_workflow_states import SnsTopicWorkflowState, ScheduleTriggerWorkflowState, \
+from assistants.deployments.aws.lambda_workflow_state import LambdaWorkflowState
+from assistants.deployments.aws.trigger_workflow_states import SnsTopicWorkflowState, ScheduleTriggerWorkflowState, \
 	SqsQueueWorkflowState
 
 

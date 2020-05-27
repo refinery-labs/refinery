@@ -1,4 +1,4 @@
-from assistants.deployments.diagram.lambda_workflow_state import LambdaWorkflowState
+from assistants.deployments.aws.lambda_workflow_state import LambdaWorkflowState
 from assistants.deployments.diagram.types import LambdaEventSourceMapping
 from assistants.deployments.ecs_builders import BuilderManager
 from assistants.deployments.shared_files import (
@@ -8,7 +8,6 @@ from assistants.deployments.shared_files import (
 from assistants.task_spawner.exceptions import InvalidLanguageException
 from base64 import b64decode
 from botocore.exceptions import ClientError
-from hashlib import sha256
 from json import dumps, loads
 
 from models import InlineExecutionLambda
