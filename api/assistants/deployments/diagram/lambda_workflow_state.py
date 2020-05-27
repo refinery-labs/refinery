@@ -18,6 +18,10 @@ if TYPE_CHECKING:
 
 
 class LambdaWorkflowState(WorkflowState):
+	"""
+	LambdaWorkflowState is an in-memory representation of a lambda object which is created by the user.
+	"""
+
 	def __init__(self, credentials, _id, name, _type, is_inline_execution=False):
 		super(LambdaWorkflowState, self).__init__(credentials, _id, name, _type)
 
