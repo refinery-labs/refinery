@@ -2,10 +2,9 @@ import json
 from re import sub
 from time import sleep
 
-import botocore.errorfactory
 from botocore.exceptions import ClientError
 
-from assistants.deployments.diagram.types import CloudwatchRuleTarget
+from assistants.deployments.aws.response_types import CloudwatchRuleTarget
 from utils.general import logit
 
 

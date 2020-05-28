@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from typing import Dict, TYPE_CHECKING, Union, Type
 
+from assistants.deployments.aws.api_endpoint import ApiEndpointWorkflowState
+from assistants.deployments.aws.api_gateway import ApiGatewayResponseWorkflowState
+from assistants.deployments.aws.cloudwatch_rule import ScheduleTriggerWorkflowState
+from assistants.deployments.aws.lambda_function import LambdaWorkflowState
+from assistants.deployments.aws.sns_topic import SnsTopicWorkflowState
+from assistants.deployments.aws.sqs_queue import SqsQueueWorkflowState
 from assistants.deployments.diagram.errors import InvalidDeployment
 from assistants.deployments.diagram.types import StateTypes, RelationshipTypes
-
-from assistants.deployments.aws.api_endpoint_workflow_states import ApiEndpointWorkflowState, \
-	ApiGatewayResponseWorkflowState
-from assistants.deployments.aws.lambda_workflow_state import LambdaWorkflowState
-from assistants.deployments.aws.trigger_workflow_states import SnsTopicWorkflowState, ScheduleTriggerWorkflowState, \
-	SqsQueueWorkflowState
 
 
 if TYPE_CHECKING:

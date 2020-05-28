@@ -1,16 +1,9 @@
 from __future__ import annotations
 
-import hashlib
-import json
-
 from tornado import gen
 from typing import Dict, List, TYPE_CHECKING
 
-from assistants.deployments.diagram.types import LambdaDeploymentState, StateTypes
-from assistants.deployments.aws.utils import get_language_specific_environment_variables, get_layers_for_lambda
 from assistants.deployments.diagram.workflow_states import WorkflowState
-from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
-from utils.general import logit
 
 if TYPE_CHECKING:
     from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
@@ -18,8 +11,8 @@ if TYPE_CHECKING:
 
 
 class CodeBlockWorkflowState(WorkflowState):
-    def __init__(self, *args, is_inline_execution=False):
-        super().__init__(*args)
+    def __init__(self, is_inline_execution=False, **kwargs):
+        super().__init__(**kwargs)
 
         self.language = None
         self.code = None
@@ -33,9 +26,6 @@ class CodeBlockWorkflowState(WorkflowState):
 
     def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
         super().setup(deploy_diagram, workflow_state_json)
-
-        if self.deployed_state is None:
-            self.deployed_state = LambdaDeploymentState(self.type, self.arn, None)
 
         if self.is_inline_execution:
             self.environment_variables = {

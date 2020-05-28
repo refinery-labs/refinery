@@ -1,8 +1,16 @@
+from tornado import gen
+from typing import Dict
+
+from assistants.deployments.aws.lambda_function import LambdaWorkflowState
+from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
+from assistants.deployments.diagram.errors import InvalidDeployment
+from assistants.deployments.diagram.queue import QueueWorkflowState
+from utils.general import logit
 
 
-class SqsQueueWorkflowState(TriggerWorkflowState):
+class SqsQueueWorkflowState(QueueWorkflowState):
     def __init__(self, *args, **kwargs):
-        super(SqsQueueWorkflowState, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         # TODO should we change this name to something random since it takes up to 60 seconds to delete a queue?
         # we are unable to create a queue with the same name on redeploy until the other one has been deleted.
@@ -21,7 +29,7 @@ class SqsQueueWorkflowState(TriggerWorkflowState):
         }
 
     def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, str]):
-        super(SqsQueueWorkflowState, self).setup(deploy_diagram, workflow_state_json)
+        super().setup(deploy_diagram, workflow_state_json)
 
         region = self._credentials["region"]
         account_id = self._credentials["account_id"]

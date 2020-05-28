@@ -2,6 +2,8 @@ import pinject
 import tornado
 import botocore.exceptions
 
+from assistants.deployments.aws.api_gateway import ApiGatewayWorkflowState
+from assistants.deployments.diagram.types import ApiGatewayLambdaConfig, ApiGatewayEndpoint
 from utils.general import get_random_node_id, log_exception
 
 from tornado.concurrent import run_on_executor, futures
@@ -120,7 +122,19 @@ class ApiGatewayManager(object):
 
     @run_on_executor
     @emit_runtime_metrics("api_gateway__get_resources")
-    def get_resources(self, credentials, rest_api_id):
+    def get_resources(self, credentials, rest_api_id, api_gateway: ApiGatewayWorkflowState):
+        """
+        For all resources that exist in this API Gateway, create an in-memory representation of them.
+
+        API Gateway resources have {path, methods, integration (lambda arn)}. They are a nested structure
+        that have children.
+
+        :param credentials:
+        :param rest_api_id:
+        :param api_gateway:
+        :return:
+        """
+
         api_gateway_client = self.aws_client_factory.get_aws_client(
             "apigateway",
             credentials
@@ -131,7 +145,48 @@ class ApiGatewayManager(object):
             limit=500
         )
 
-        return response["items"]
+        gateway_endpoints = []
+        lambda_configs = []
+
+        items = response["items"]
+        for item in items:
+            resource_id = item["id"]
+            resource_path = item["path"]
+
+            # A default resource is created along with an API gateway, we grab
+            # it so we can make our base method
+            if resource_path == "/":
+                api_gateway.deployed_state.base_resource_id = resource_id
+                continue
+
+            resource_methods = {}
+            if "resourceMethods" in item:
+                resource_methods = item.get("resourceMethods")
+
+            gateway_endpoint = ApiGatewayEndpoint(
+                resource_id,
+                resource_path
+            )
+            for method, method_attributes in resource_methods.items():
+                # Set the method as being used
+                gateway_endpoint.set_method_in_use(method)
+
+                # Get the linked lambda and add it to the list of configured lambdas
+                method_integration = method_attributes.get("methodIntegration")
+                if method_integration is None:
+                    continue
+
+                linked_lambda_uri = method_integration["uri"]
+
+                lambda_config = ApiGatewayLambdaConfig(linked_lambda_uri, method, resource_path)
+                lambda_configs.append(lambda_config)
+
+            gateway_endpoints.append(gateway_endpoint)
+
+        return dict(
+            gateway_endpoints=gateway_endpoints,
+            lambda_configs=lambda_configs
+        )
 
     @run_on_executor
     @emit_runtime_metrics("api_gateway__get_stages")

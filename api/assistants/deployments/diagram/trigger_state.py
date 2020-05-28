@@ -1,7 +1,7 @@
+from assistants.deployments.diagram.workflow_states import WorkflowState
 
 
 class TriggerWorkflowState(WorkflowState):
-    # TODO make abstract
     def _link_trigger_to_next_deployed_state(self, task_spawner, next_node):
         return None
 

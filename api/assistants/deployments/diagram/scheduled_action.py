@@ -1,0 +1,16 @@
+from typing import Dict
+
+from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
+from assistants.deployments.diagram.trigger_state import TriggerWorkflowState
+
+
+class ScheduledActionWorkflowState(TriggerWorkflowState):
+    def __init__(self, *args):
+        super().__init__(*args)
+
+        self.schedule_expression = None
+        self.input_string = None
+
+    def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
+        self.schedule_expression = workflow_state_json["schedule_expression"]
+        self.input_string = workflow_state_json["input_string"]

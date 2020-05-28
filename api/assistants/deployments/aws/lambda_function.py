@@ -6,19 +6,41 @@ import json
 from tornado import gen
 from typing import Dict, List, TYPE_CHECKING
 
+from assistants.deployments.aws.aws_workflow_state import AwsWorkflowState
+from assistants.deployments.aws.types import AwsDeploymentState
 from assistants.deployments.diagram.code_block import CodeBlockWorkflowState
-from assistants.deployments.diagram.types import LambdaDeploymentState, StateTypes
+from assistants.deployments.diagram.types import StateTypes, DeploymentState
 from assistants.deployments.aws.utils import get_language_specific_environment_variables, get_layers_for_lambda
 from assistants.deployments.diagram.workflow_states import WorkflowState
 from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
 from utils.general import logit
+
+
+class LambdaEventSourceMapping:
+	def __init__(self, uuid, event_source_arn, state):
+		self.uuid = uuid
+		self.event_source_arn = event_source_arn
+		self.state = state
 
 if TYPE_CHECKING:
 	from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
 	from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 
 
-class LambdaWorkflowState(CodeBlockWorkflowState):
+class LambdaDeploymentState(AwsDeploymentState):
+	def __init__(self, state_type, state_hash, arn):
+		super().__init__(state_type, state_hash, arn=arn)
+
+		self.event_source_mappings: List[LambdaEventSourceMapping] = []
+
+	def __str__(self):
+		return f'Lambda Deployment State arn: {self.arn}, state_hash: {self.state_hash}, exists: {self.exists}, event_source_mappings: {self.event_source_mappings}'
+
+	def is_linked_to_trigger(self, trigger_state: AwsWorkflowState):
+		return any([mapping.event_source_arn == trigger_state.arn for mapping in self.event_source_mappings])
+
+
+class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
 	"""
 	LambdaWorkflowState is an in-memory representation of a lambda object which is created by the user.
 	"""
@@ -50,6 +72,9 @@ class LambdaWorkflowState(CodeBlockWorkflowState):
 
 	def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
 		super().setup(deploy_diagram, workflow_state_json)
+
+		if self.deployed_state is None:
+			self.deployed_state = LambdaDeploymentState(self.type, None, arn=self.arn)
 
 		self.execution_pipeline_id = deploy_diagram.project_id
 		self.execution_log_level = deploy_diagram.project_config["logging"]["level"]
@@ -154,36 +179,6 @@ class LambdaWorkflowState(CodeBlockWorkflowState):
 			all_environment_vars["IS_INLINE_EXECUTOR"] = "True"
 
 		self.environment_variables = all_environment_vars
-
-	def _get_project_env_vars(self, deploy_diagram: DeploymentDiagram, workflow_state_json):
-		workflow_state_env_vars = []
-
-		tmp_env_vars: Dict[str, Dict[str, str]] = {
-			env_var_uuid: env_var
-			for env_var_uuid, env_var in workflow_state_json["environment_variables"].items()
-		}
-
-		project_env_vars = deploy_diagram.project_config["environment_variables"]
-		for env_var_uuid, env_data in tmp_env_vars.items():
-			project_env_var = project_env_vars.get(env_var_uuid)
-
-			if project_env_var is None:
-				continue
-
-			# Add value to match schema
-			tmp_env_vars[env_var_uuid]["value"] = project_env_var["value"]
-
-			workflow_state_env_vars.append({
-				"key": tmp_env_vars[env_var_uuid]["name"],
-				"value": project_env_var["value"]
-			})
-
-		deploy_diagram.set_env_vars_for_workflow_state(self, workflow_state_env_vars)
-
-		return {
-			env_var["name"]: env_var.get("value") if env_var.get("value") is not None else ""
-			for _, env_var in tmp_env_vars.items()
-		}
 
 	def _get_transition_env_data(self):
 		env_transitions = {

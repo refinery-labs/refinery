@@ -1,4 +1,31 @@
-class SnsTopicWorkflowState(TriggerWorkflowState):
+from tornado import gen
+from typing import Dict, List, TYPE_CHECKING
+
+from assistants.deployments.aws.aws_workflow_state import AwsWorkflowState
+from assistants.deployments.aws.lambda_function import LambdaWorkflowState
+from assistants.deployments.aws.response_types import TopicSubscription
+from assistants.deployments.aws.types import AwsDeploymentState
+from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
+from assistants.deployments.diagram.topic import TopicWorkflowState
+from assistants.deployments.diagram.types import StateTypes
+from assistants.task_spawner.task_spawner_assistant import TaskSpawner
+from utils.general import logit
+
+if TYPE_CHECKING:
+    from assistants.deployments.aws.aws_deployment import AwsDeployment
+
+
+class SnsTopicDeploymentState(AwsDeploymentState):
+    def __init__(self, state_type, state_hash, arn):
+        super().__init__(state_type, state_hash, arn=arn)
+
+        self.subscriptions: List[TopicSubscription] = []
+
+    def __str__(self):
+        return f'Sns Topic Deployment State arn: {self.arn}, state_hash: {self.state_hash}, exists: {self.exists}, subscriptions: {self.subscriptions}'
+
+
+class SnsTopicWorkflowState(AwsWorkflowState, TopicWorkflowState):
     def __init__(self, *args, **kwargs):
         super(SnsTopicWorkflowState, self).__init__(*args, **kwargs)
 
@@ -7,7 +34,7 @@ class SnsTopicWorkflowState(TriggerWorkflowState):
     def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
         super(SnsTopicWorkflowState, self).setup(deploy_diagram, workflow_state_json)
         if self.deployed_state is None:
-            self.deployed_state = SnsTopicDeploymentState(self.type, self.arn, None)
+            self.deployed_state = SnsTopicDeploymentState(self.type, None, self.arn)
 
     def deploy(self, task_spawner, project_id, project_config):
         logit(f"Deploying SNS topic '{self.name}'...")
@@ -29,7 +56,7 @@ class SnsTopicWorkflowState(TriggerWorkflowState):
         self.deployed_state.subscriptions = sns_subs_info["subscriptions"]
 
     @gen.coroutine
-    def cleanup(self, task_spawner: TaskSpawner, deployment: DeploymentDiagram):
+    def cleanup(self, task_spawner: TaskSpawner, deployment: AwsDeployment):
         for subscription in self.deployed_state.subscriptions:
             sub_arn = subscription.subscription_arn
             endpoint = subscription.endpoint
