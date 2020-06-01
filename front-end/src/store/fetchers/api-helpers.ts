@@ -473,12 +473,19 @@ export async function getLatestProjectDeployment(
     return DemoWalkthroughStoreModule.mockGetLatestProjectDeployment();
   }
 
-  return await makeApiRequest<GetLatestProjectDeploymentRequest, GetLatestProjectDeploymentResponse>(
+  const result = await makeApiRequest<GetLatestProjectDeploymentRequest, GetLatestProjectDeploymentResponse>(
     API_ENDPOINT.GetLatestProjectDeployment,
     {
       project_id: projectId
     }
   );
+
+  if (result && result.result) {
+    // Set a default value for the global_handlers to avoid crashes if missing in old JSON
+    result.result.deployment_json.global_handlers = result.result.deployment_json.global_handlers || {};
+  }
+
+  return result;
 }
 
 export async function deployProject({ project, projectConfig }: DeployProjectParams): Promise<DeployProjectResult> {
