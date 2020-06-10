@@ -488,7 +488,11 @@ export async function getLatestProjectDeployment(
   );
 }
 
-export async function deployProject({ project, projectConfig }: DeployProjectParams): Promise<DeployProjectResult> {
+export async function deployProject({
+  project,
+  projectConfig,
+  forceRedeploy
+}: DeployProjectParams): Promise<DeployProjectResult> {
   if (!project || !projectConfig) {
     console.error('Unable to deploy project, missing data');
     throw new Error('Unable to deploy project, missing data');
@@ -504,7 +508,8 @@ export async function deployProject({ project, projectConfig }: DeployProjectPar
     diagram_data: projectJson,
     project_config: projectConfig,
     project_id: project.project_id,
-    project_name: project.name
+    project_name: project.name,
+    force_redeploy: forceRedeploy
   });
 
   if (!response || !response.success) {

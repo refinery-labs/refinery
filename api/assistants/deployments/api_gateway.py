@@ -24,14 +24,6 @@ def strip_api_gateway(api_gateway_manager, credentials, api_gateway_id):
 
     Allowing for the configuration details to be replaced.
     """
-    return_data = {
-        "deleted": True,
-        "type": "api_gateway",
-        "id": get_random_node_id(),
-        "arn": "arn:aws:apigateway:" + credentials["region"] + "::/restapis/" + api_gateway_id,
-        "name": "__api_gateway__",
-    }
-
     # Verify the existance of API Gateway before proceeding
     logit("Verifying existance of API Gateway...")
     api_gateway_exists = yield api_gateway_manager.api_gateway_exists(
@@ -42,7 +34,7 @@ def strip_api_gateway(api_gateway_manager, credentials, api_gateway_id):
     # If it doesn't exist we can stop here - there's nothing
     # to strip!
     if not api_gateway_exists:
-        raise gen.Return(return_data)
+        raise gen.Return()
 
     rest_resources = yield api_gateway_manager.get_resources(
         credentials,
@@ -55,15 +47,7 @@ def strip_api_gateway(api_gateway_manager, credentials, api_gateway_id):
     # Iterate over resources and delete everything that
     # can be deleted.
     for resource_item in rest_resources:
-        # We can't delete the root resource
-        if resource_item["path"] != "/":
-            deletion_futures.append(
-                api_gateway_manager.delete_rest_api_resource(
-                    credentials,
-                    api_gateway_id,
-                    resource_item["id"]
-                )
-            )
+        # TODO there is a race here where the api resource _could_ be deleted before the method is deleted, does that matter?
 
         # Delete the methods
         if "resourceMethods" in resource_item:
@@ -76,6 +60,15 @@ def strip_api_gateway(api_gateway_manager, credentials, api_gateway_id):
                         http_method
                     )
                 )
+        # We can't delete the root resource
+        if resource_item["path"] != "/":
+            deletion_futures.append(
+                api_gateway_manager.delete_rest_api_resource(
+                    credentials,
+                    api_gateway_id,
+                    resource_item["id"]
+                )
+            )
 
     rest_stages = yield api_gateway_manager.get_stages(
         credentials,
@@ -93,7 +86,7 @@ def strip_api_gateway(api_gateway_manager, credentials, api_gateway_id):
 
     yield deletion_futures
 
-    raise gen.Return(return_data)
+    raise gen.Return()
 
 
 class ApiGatewayManager(object):
@@ -213,7 +206,7 @@ class ApiGatewayManager(object):
                 httpMethod=method,
             )
         except Exception as e:
-            logit("Exception occurred while deleting method '" + method + "'! Exception: " + str(e))
+            logit(f"Exception occurred while deleting {resource_id} in {rest_api_id}, method '{method}'! Exception: {e}")
             pass
 
         return {

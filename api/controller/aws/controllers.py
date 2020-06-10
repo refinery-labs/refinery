@@ -1,24 +1,25 @@
 import json
 import time
+import uuid
 
 import botocore
 import pinject
 from jsonschema import validate as validate_schema
 from tornado import gen
 
+from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
+from assistants.deployments.diagram.lambda_workflow_state import LambdaWorkflowState
+from assistants.deployments.diagram.utils import get_base_lambda_code
+from assistants.deployments.diagram.workflow_states import StateTypes
 from assistants.deployments.teardown import teardown_infrastructure
 from controller import BaseHandler
-from controller.aws.actions import get_layers_for_lambda, get_environment_variables_for_lambda, deploy_lambda, \
-    get_base_lambda_code, get_lambda_safe_name, deploy_diagram
 from controller.aws.schemas import *
 from controller.decorators import authenticated, disable_on_overdue_payment
 from controller.logs.actions import delete_logs
 from controller.projects.actions import update_project_config
-from data_types.aws_resources.alambda import Lambda
 from models import InlineExecutionLambda, Project, Deployment
 from pyexceptions.builds import BuildException
-from tasks.aws_lambda import get_inline_lambda_hash_key
-from utils.general import get_random_node_id, attempt_json_decode
+from utils.general import get_random_node_id, attempt_json_decode, get_safe_workflow_state_name
 from utils.locker import AcquireFailure
 
 
@@ -62,58 +63,22 @@ class RunTmpLambda(BaseHandler):
                 self.json["backpack"]
             )
 
-        # Empty transitions data
-        empty_transitions_dict = {
-            "then": [],
-            "exception": [],
-            "fan-out": [],
-            "else": [],
-            "fan-in": [],
-            "if": [],
-            "merge": []
-        }
-
         # Dummy pipeline execution ID
         pipeline_execution_id = "SHOULD_NEVER_HAPPEN_TMP_LAMBDA_RUN"
 
-        # Lambda layers to add
-        lambda_layers = get_layers_for_lambda(self.json["language"]) + self.json["layers"]
+        deployment_diagram = DeploymentDiagram(pipeline_execution_id, None, project_config={
+            "logging": {
+                "level": "LOG_NONE"
+            }
+        })
 
-        # Create Lambda object
-        inline_lambda = Lambda(
-            name=random_node_id,
-            language=self.json["language"],
-            code=self.json["code"],
-            libraries=self.json["libraries"],
-            max_execution_time=self.json["max_execution_time"],
-            memory=self.json["memory"],
-            transitions=empty_transitions_dict,
-            execution_mode="REGULAR",
-            execution_pipeline_id=pipeline_execution_id,
-            execution_log_level="LOG_NONE",
-            environment_variables=self.json["environment_variables"],
-            layers=lambda_layers,
-            reserved_concurrency_count=False,
-            is_inline_execution=True,
-            shared_files_list=self.json["shared_files"]
+        inline_lambda = LambdaWorkflowState(
+            credentials, str(uuid.uuid4()),
+            random_node_id, StateTypes.LAMBDA, is_inline_execution=True
         )
+        inline_lambda.setup(deployment_diagram, self.json)
 
-        # Get inline hash key
-        environment_variables = get_environment_variables_for_lambda(
-            credentials,
-            inline_lambda
-        )
-
-        inline_lambda_hash_key = get_inline_lambda_hash_key(
-            self.json["language"],
-            self.json["max_execution_time"],
-            self.json["memory"],
-            environment_variables,
-            lambda_layers,
-            self.json["libraries"]
-        )
-
-        cached_inline_execution_lambda = None
+        inline_lambda_hash_key = inline_lambda.get_content_hash()
 
         # Check if we already have an inline execution Lambda for it.
         cached_inline_execution_lambda = self.dbsession.query(InlineExecutionLambda).filter_by(
@@ -135,18 +100,12 @@ class RunTmpLambda(BaseHandler):
             self.dbsession.commit()
 
             cached_inline_execution_lambda_dict = cached_inline_execution_lambda.to_dict()
-
-            lambda_info = {
-                "arn": cached_inline_execution_lambda_dict["arn"]
-            }
         else:
             # noinspection PyUnresolvedReferences
             try:
-                lambda_info = yield deploy_lambda(
-                    self.task_spawner,
-                    credentials,
-                    random_node_id,
-                    inline_lambda
+                yield inline_lambda.predeploy(self.task_spawner)
+                yield inline_lambda.deploy(
+                    self.task_spawner, project_id=None, project_config=None
                 )
             except BuildException as build_exception:
                 self.write({
@@ -217,11 +176,11 @@ class RunTmpLambda(BaseHandler):
                 "websocket_uri": self.app_config.get("LAMBDA_CALLBACK_ENDPOINT"),
             }
 
-        self.logger("Executing Lambda '" + lambda_info["arn"] + "'...")
+        self.logger(f"Executing Lambda '{inline_lambda.arn}'...")
 
         lambda_result = yield self.task_spawner.execute_aws_lambda(
             credentials,
-            lambda_info["arn"],
+            inline_lambda.arn,
             execute_lambda_params
         )
 
@@ -345,84 +304,9 @@ class InfraCollisionCheck(BaseHandler):
     @authenticated
     @gen.coroutine
     def post(self):
-        self.logger("Checking for production collisions...")
-
-        diagram_data = json.loads(self.json["diagram_data"])
-
-        credentials = self.get_authenticated_user_cloud_configuration()
-
-        """
-		Returned collisions format:
-
-		[
-			{
-				"id": {{node_id}},
-				"arn": {{production_resource_arn}},
-				"name": {{node_name}},
-				"type": {{node_type}},
-			}
-		]
-		"""
-        collision_check_futures = []
-
-        """
-		Iterate through workflow states and check for collisions
-		for each node in production based off get_lambda_safe_name
-		"""
-        for workflow_state in diagram_data["workflow_states"]:
-            # Check for Lambda collision
-            if workflow_state["type"] == "lambda":
-                collision_check_futures.append(
-                    self.task_spawner.get_aws_lambda_existence_info(
-                        credentials,
-                        workflow_state["id"],
-                        workflow_state["type"],
-                        get_lambda_safe_name(
-                            workflow_state["name"]
-                        )
-                    )
-                )
-            # Check for Schedule Trigger collisions (CloudWatch)
-            elif workflow_state["type"] == "schedule_trigger":
-                collision_check_futures.append(
-                    self.task_spawner.get_cloudwatch_existence_info(
-                        credentials,
-                        workflow_state["id"],
-                        workflow_state["type"],
-                        get_lambda_safe_name(
-                            workflow_state["name"]
-                        )
-                    )
-                )
-            elif workflow_state["type"] == "sqs_queue":
-                collision_check_futures.append(
-                    self.task_spawner.get_sqs_existence_info(
-                        credentials,
-                        workflow_state["id"],
-                        workflow_state["type"],
-                        get_lambda_safe_name(
-                            workflow_state["name"]
-                        )
-                    )
-                )
-            elif workflow_state["type"] == "sns_topic":
-                collision_check_futures.append(
-                    self.task_spawner.get_sns_existence_info(
-                        credentials,
-                        workflow_state["id"],
-                        workflow_state["type"],
-                        get_lambda_safe_name(
-                            workflow_state["name"]
-                        )
-                    )
-                )
-
-        # Wait for all collision checks to finish
-        collision_check_results = yield collision_check_futures
-
+        # TODO remove this endpoint
         self.write({
-            "success": True,
-            "result": collision_check_results
+            "success": True
         })
 
 
@@ -430,6 +314,13 @@ class DeployDiagramDependencies:
     @pinject.copy_args_to_public_fields
     def __init__(self, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager, sqs_manager):
         pass
+
+
+def filter_teardown_nodes(teardown_nodes):
+    return [
+        node for node in teardown_nodes
+        if node["type"] not in ["lambda", "api_endpoint", "api_gateway", "sqs_queue", "sns_topic"]
+    ]
 
 
 class DeployDiagram(BaseHandler):
@@ -440,35 +331,59 @@ class DeployDiagram(BaseHandler):
     sns_manager = None
     sqs_manager = None
 
+    @gen.coroutine
+    def cleanup_deployment(self, deployment_diagram, credentials, successful_deploy):
+        yield deployment_diagram.remove_workflow_states(
+            self.api_gateway_manager,
+            self.lambda_manager,
+            self.schedule_trigger_manager,
+            self.sns_manager,
+            self.sqs_manager,
+            credentials,
+            successful_deploy
+        )
+
+        # Delete our logs
+        # No need to yield till it completes
+        delete_logs(
+            self.task_spawner,
+            credentials,
+            deployment_diagram.project_id
+        )
+
     @authenticated
     @disable_on_overdue_payment
     @gen.coroutine
-    def do_diagram_deployment(self, project_name, project_id, diagram_data, project_config):
+    def do_diagram_deployment(self, project_name, project_id, diagram_data, project_config, force_redeploy):
         credentials = self.get_authenticated_user_cloud_configuration()
 
-        # Attempt to deploy diagram
-        deployment_data = yield deploy_diagram(
+        latest_deployment = self.dbsession.query(Deployment).filter_by(
+            project_id=project_id
+        ).order_by(
+            Deployment.timestamp.desc()
+        ).first()
+
+        latest_deployment_json = None
+        if not force_redeploy and latest_deployment is not None:
+            latest_deployment_json = json.loads(latest_deployment.deployment_json)
+
+        # Model a deployment in memory to handle the deployment of each state
+        deployment_diagram: DeploymentDiagram = DeploymentDiagram(
+            project_id, project_name, project_config, latest_deployment_json)
+
+        exceptions = yield deployment_diagram.deploy_diagram(
             self.task_spawner,
             self.api_gateway_manager,
             credentials,
-            project_name,
-            project_id,
             diagram_data,
-            project_config
         )
 
         # Check if the deployment failed
-        if not deployment_data["success"]:
+        if len(exceptions) != 0:
             self.logger("We are now rolling back the deployments we've made...", "error")
-            yield teardown_infrastructure(
-                self.api_gateway_manager,
-                self.lambda_manager,
-                self.schedule_trigger_manager,
-                self.sns_manager,
-                self.sqs_manager,
-                credentials,
-                deployment_data["teardown_nodes_list"]
-            )
+
+            yield self.cleanup_deployment(deployment_diagram, credentials, successful_deploy=False)
+
             self.logger("We've completed our rollback, returning an error...", "error")
 
             # For now we'll just raise
@@ -476,13 +391,15 @@ class DeployDiagram(BaseHandler):
                 "success": True,  # Success meaning we caught it
                 "result": {
                     "deployment_success": False,
-                    "exceptions": deployment_data["exceptions"],
+                    "exceptions": [e.serialize() for e in exceptions],
                 }
             })
             raise gen.Return()
 
-        # TODO: Update the project data? Deployments should probably
-        # be an explicit "Save Project" action.
+        # Cleanup any unused resources
+        yield self.cleanup_deployment(deployment_diagram, credentials, successful_deploy=True)
+
+        # TODO: Update the project data? Deployments should probably be an explicit "Save Project" action.
 
         # Add a reference to this deployment from the associated project
         existing_project = self.dbsession.query(Project).filter_by(
@@ -495,12 +412,17 @@ class DeployDiagram(BaseHandler):
                 "code": "DEPLOYMENT_UPDATE",
                 "msg": "Unable to find project when updating deployment information.",
             })
+
+            # TODO we probably want to teardown the deployment if this is the case
+
             raise gen.Return()
+
+        serialized_deployment = deployment_diagram.serialize()
 
         new_deployment = Deployment()
         new_deployment.project_id = project_id
         new_deployment.deployment_json = json.dumps(
-            deployment_data["deployment_diagram"]
+           serialized_deployment
         )
 
         existing_project.deployments.append(
@@ -514,14 +436,14 @@ class DeployDiagram(BaseHandler):
         update_project_config(
             self.dbsession,
             project_id,
-            deployment_data["project_config"]
+            deployment_diagram.project_config
         )
 
         self.write({
             "success": True,
             "result": {
                 "deployment_success": True,
-                "diagram_data": deployment_data["deployment_diagram"],
+                "diagram_data": serialized_deployment,
                 "project_id": project_id,
                 "deployment_id": new_deployment.id,
             }
@@ -547,6 +469,7 @@ class DeployDiagram(BaseHandler):
         project_id = self.json["project_id"]
         diagram_data = json.loads(self.json["diagram_data"])
         project_config = self.json["project_config"]
+        force_redeploy = self.json["force_redeploy"]
 
         lock_id = "deploy_diagram_" + project_id
 
@@ -556,7 +479,7 @@ class DeployDiagram(BaseHandler):
             # Enforce that we are only attempting to do this multiple times simultaneously for the same project
             with task_lock:
                 yield self.do_diagram_deployment(
-                    project_name, project_id, diagram_data, project_config)
+                    project_name, project_id, diagram_data, project_config, force_redeploy)
 
         except AcquireFailure:
             self.logger("Unable to acquire deploy diagram lock for " + project_id)

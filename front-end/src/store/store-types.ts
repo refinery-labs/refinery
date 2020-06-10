@@ -226,6 +226,8 @@ export interface ProjectViewState {
 
   // Adding shared files to Code Blocks
   isAddingSharedFileToCodeBlock: boolean;
+
+  shouldForceRedeploy: boolean;
 }
 
 export enum IfDropDownSelectionType {
