@@ -178,7 +178,9 @@ const moduleState: ProjectViewState = {
   newTransitionTypeSpecifiedInEditFlow: null,
 
   // Adding a shared block to a file
-  isAddingSharedFileToCodeBlock: false
+  isAddingSharedFileToCodeBlock: false,
+
+  shouldForceRedeploy: false
 };
 
 const ProjectViewModule: Module<ProjectViewState, RootState> = {
@@ -502,6 +504,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     },
     [ProjectViewMutators.setEditingTransitionType](state, transitionType: WorkflowRelationshipType | null) {
       state.newTransitionTypeSpecifiedInEditFlow = transitionType;
+    },
+    [ProjectViewMutators.setForceRedeploy](state, forceRedeploy: boolean) {
+      state.shouldForceRedeploy = forceRedeploy;
     }
   },
   actions: {
@@ -856,29 +861,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       const openedProject = context.state.openedProject as RefineryProject;
 
-      if (!context.state.latestDeploymentState) {
-        return await handleDeploymentError('Missing latest project deployment information');
-      }
-
-      if (context.state.latestDeploymentState.result && context.state.latestDeploymentState.result.deployment_json) {
-        try {
-          await teardownProject(
-            openedProject.project_id,
-            context.state.latestDeploymentState.result.deployment_json.workflow_states
-          );
-          // Reset the state
-          await context.dispatch(`deployment/${DeploymentViewActions.resetDeploymentState}`, null, { root: true });
-        } catch (e) {
-          console.error(e);
-          await handleDeploymentError('Unable to delete existing deployment.');
-          return;
-        }
-      }
-
       try {
         const deploymentExceptions = await deployProject({
           project: openedProject,
-          projectConfig: context.state.openedProjectConfig
+          projectConfig: context.state.openedProjectConfig,
+          forceRedeploy: context.state.shouldForceRedeploy
         });
 
         if (deploymentExceptions) {
@@ -890,6 +877,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       } finally {
         context.commit(ProjectViewMutators.isDeployingProject, false);
       }
+
+      // Reset the state
+      await context.dispatch(`deployment/${DeploymentViewActions.resetDeploymentState}`, null, { root: true });
 
       await context.dispatch(ProjectViewActions.closePane, PANE_POSITION.left);
 

@@ -69,7 +69,7 @@ def map_sqs_to_lambda(aws_client_factory, credentials, sqs_node, next_node):
     return response
 
 
-def get_sqs_existence_info(aws_client_factory, credentials, _id, _type, name):
+def get_sqs_existence_info(aws_client_factory, credentials, sqs_object):
     sqs_client = aws_client_factory.get_aws_client(
         "sqs",
         credentials,
@@ -77,20 +77,9 @@ def get_sqs_existence_info(aws_client_factory, credentials, _id, _type, name):
 
     try:
         queue_url_response = sqs_client.get_queue_url(
-            QueueName=name,
+            QueueName=sqs_object.name,
         )
     except sqs_client.exceptions.QueueDoesNotExist:
-        return {
-            "id": _id,
-            "type": _type,
-            "name": name,
-            "exists": False
-        }
+        return False
 
-    return {
-        "id": _id,
-        "type": _type,
-        "name": name,
-        "arn": "arn:aws:sqs:" + credentials["region"] + ":" + str(credentials["account_id"]) + ":" + name,
-        "exists": True,
-    }
+    return True

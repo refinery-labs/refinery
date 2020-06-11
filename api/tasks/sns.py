@@ -1,36 +1,54 @@
 from uuid import uuid4
 
+from assistants.deployments.diagram.types import TopicSubscription
 from utils.general import get_safe_workflow_state_name
 
 
-def get_sns_existence_info(aws_client_factory, credentials, _id, _type, name):
+def get_sns_topic_subscriptions(aws_client_factory, credentials, sns_object):
     sns_client = aws_client_factory.get_aws_client(
         "sns",
         credentials
     )
 
-    sns_topic_arn = "arn:aws:sns:" + \
-        credentials["region"] + ":" + \
-        str(credentials["account_id"]) + ":" + name
+    topic_subs = []
 
     try:
         response = sns_client.get_topic_attributes(
-            TopicArn=sns_topic_arn
+            TopicArn=sns_object.arn
         )
+
+        topic_arn = response["Attributes"]["TopicArn"]
+
+        next_token = None
+        while True:
+            next_token_param = dict(NextToken=next_token) if next_token is not None else dict()
+
+            response = sns_client.list_subscriptions_by_topic(
+                TopicArn=topic_arn,
+                **next_token_param
+            )
+
+            subscriptions = response["Subscriptions"]
+            topic_subs.extend(
+                [
+                    TopicSubscription(sub["SubscriptionArn"], sub["Endpoint"])
+                    for sub in subscriptions
+                ]
+            )
+
+            next_token = response.get("NextToken")
+            if next_token is None:
+                break
+
     except sns_client.exceptions.NotFoundException:
         return {
-            "id": _id,
-            "type": _type,
-            "name": name,
-            "exists": False
+            "exists": False,
+            "subscriptions": []
         }
 
     return {
-        "id": _id,
-        "type": _type,
-        "name": name,
-        "arn": sns_topic_arn,
         "exists": True,
+        "subscriptions": topic_subs
     }
 
 
@@ -58,7 +76,7 @@ def create_sns_topic(aws_client_factory, credentials, id, topic_name):
     }
 
 
-def subscribe_lambda_to_sns_topic(aws_client_factory, credentials, topic_arn, lambda_arn):
+def subscribe_lambda_to_sns_topic(aws_client_factory, credentials, topic_object, lambda_object):
     """
     For AWS Lambda you need to add a permission to the Lambda function itself
     via the add_permission API call to allow invocation via the SNS event.
@@ -74,18 +92,18 @@ def subscribe_lambda_to_sns_topic(aws_client_factory, credentials, topic_arn, la
     )
 
     lambda_permission_add_response = lambda_client.add_permission(
-        FunctionName=lambda_arn,
+        FunctionName=lambda_object.arn,
         StatementId=str(uuid4()),
         Action="lambda:*",
         Principal="sns.amazonaws.com",
-        SourceArn=topic_arn,
+        SourceArn=topic_object.arn,
         # SourceAccount=self.app_config.get( "aws_account_id" ) # THIS IS A BUG IN AWS NEVER PASS THIS
     )
 
     sns_topic_response = sns_client.subscribe(
-        TopicArn=topic_arn,
+        TopicArn=topic_object.arn,
         Protocol="lambda",
-        Endpoint=lambda_arn,
+        Endpoint=lambda_object.arn,
         Attributes={},
         ReturnSubscriptionArn=True
     )
@@ -94,3 +112,13 @@ def subscribe_lambda_to_sns_topic(aws_client_factory, credentials, topic_arn, la
         "statement": lambda_permission_add_response["Statement"],
         "arn": sns_topic_response["SubscriptionArn"]
     }
+
+
+def unsubscribe_lambda_from_sns_topic(aws_client_factory, credentials, subscription_arn):
+    sns_client = aws_client_factory.get_aws_client(
+        "sns",
+        credentials,
+    )
+
+    # TODO do something with response?
+    response = sns_client.unsubscribe(subscription_arn)

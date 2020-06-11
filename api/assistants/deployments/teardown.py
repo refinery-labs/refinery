@@ -1,6 +1,8 @@
 from tornado import gen
+from typing import List
 
 from assistants.deployments.api_gateway import strip_api_gateway
+from assistants.deployments.diagram.types import StateTypes, DeploymentState, ApiGatewayDeploymentState
 
 
 @gen.coroutine
@@ -33,6 +35,8 @@ def teardown_infrastructure(api_gateway_manager, lambda_manager, schedule_trigge
         if "exists" in teardown_node and teardown_node["exists"] == False:
             continue
 
+        # TODO we should just pass the workflow states into here
+
         if teardown_node["type"] == "lambda" or teardown_node["type"] == "api_endpoint":
             teardown_operation_futures.append(
                 lambda_manager.delete_lambda(
@@ -43,7 +47,7 @@ def teardown_infrastructure(api_gateway_manager, lambda_manager, schedule_trigge
                     teardown_node["arn"],
                 )
             )
-        elif teardown_node["type"] == "sns_topic":
+        if teardown_node["type"] == "sns_topic":
             teardown_operation_futures.append(
                 sns_manager.delete_sns_topic(
                     credentials,
@@ -79,6 +83,62 @@ def teardown_infrastructure(api_gateway_manager, lambda_manager, schedule_trigge
                     api_gateway_manager,
                     credentials,
                     teardown_node["rest_api_id"],
+                )
+            )
+
+    teardown_operation_results = yield teardown_operation_futures
+
+    raise gen.Return(teardown_operation_results)
+
+
+@gen.coroutine
+def teardown_deployed_states(api_gateway_manager, lambda_manager, schedule_trigger_manager, sns_manager, sqs_manager, credentials, teardown_nodes: List[DeploymentState]):
+    teardown_operation_futures = []
+
+    # TODO refactor teardown functions so that they only take have the necessary info
+
+    for teardown_node in teardown_nodes:
+        if teardown_node.type == StateTypes.LAMBDA or teardown_node.type == StateTypes.API_ENDPOINT:
+            teardown_operation_futures.append(
+                lambda_manager.delete_lambda(
+                    credentials,
+                    None, None, None,
+                    teardown_node.arn,
+                )
+            )
+        if teardown_node.type == StateTypes.SNS_TOPIC:
+            teardown_operation_futures.append(
+                sns_manager.delete_sns_topic(
+                    credentials,
+                    None, None, None,
+                    teardown_node.arn
+                )
+            )
+        elif teardown_node.type == StateTypes.SQS_QUEUE:
+            teardown_operation_futures.append(
+                sqs_manager.delete_sqs_queue(
+                    credentials,
+                    None, None, None,
+                    teardown_node.arn
+                )
+            )
+        elif teardown_node.type == StateTypes.SCHEDULE_TRIGGER or teardown_node.type == StateTypes.WARMER_TRIGGER:
+            teardown_operation_futures.append(
+                schedule_trigger_manager.delete_schedule_trigger(
+                    credentials,
+                    None, None, None,
+                    teardown_node.arn
+                )
+            )
+        elif teardown_node.type == StateTypes.API_GATEWAY:
+
+            assert isinstance(teardown_node, ApiGatewayDeploymentState)
+
+            teardown_operation_futures.append(
+                strip_api_gateway(
+                    api_gateway_manager,
+                    credentials,
+                    teardown_node.api_gateway_id,
                 )
             )
 

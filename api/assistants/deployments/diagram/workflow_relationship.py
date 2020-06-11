@@ -49,6 +49,9 @@ class MergeWorkflowRelationship(WorkflowRelationship):
 		super(MergeWorkflowRelationship, self).__init__(*args, **kwargs)
 		self.merge_lambdas = []
 
+	def set_merge_lambdas(self, merge_lambdas):
+		self.merge_lambdas = merge_lambdas
+
 	def serialize(self, use_arns=True):
 		base_relationship = super(MergeWorkflowRelationship, self).serialize(use_arns=use_arns)
 		return {
