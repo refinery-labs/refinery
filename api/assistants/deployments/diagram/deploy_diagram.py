@@ -62,29 +62,21 @@ class DeploymentDiagram:
 		self._previous_state_lookup_by_arn: Union[None, Dict[str, DeploymentState]] = None
 
 		if latest_deployment is not None and "workflow_states" in latest_deployment:
-			self._setup_previous_state_lookup(latest_deployment["workflow_states"])
+			# deserialize the workflow states from the previous deployment to use them as a reference when diffing.
+			self._previous_state_lookup = {
+				ws["id"]: json_to_deployment_state(ws)
+				for ws in latest_deployment["workflow_states"]
+			}
+			self._previous_state_lookup_by_arn = {
+				ws.arn: ws
+				for ws in self._previous_state_lookup.values()
+			}
 
 		self._workflow_file_lookup: Dict[str, List] = {}
 		self._workflow_state_lookup: Dict[str, WorkflowState] = {}
 		self._workflow_state_lookup_by_arn: Dict[str, WorkflowState] = {}
 		self._merge_workflow_relationship_lookup: Dict = {}
 		self._workflow_state_env_vars: Dict = {}
-
-	def _setup_previous_state_lookup(self, latest_workflow_states: List[Dict[str, str]]):
-		"""
-		Deserialize the workflow states from the previous deployment to use them as a reference when diffing.
-
-		:param latest_workflow_states: A list of previously deployed workflow states.
-		:return:
-		"""
-		self._previous_state_lookup = {
-			ws["id"]: json_to_deployment_state(ws)
-			for ws in latest_workflow_states
-		}
-		self._previous_state_lookup_by_arn = {
-			ws.arn: ws
-			for ws in self._previous_state_lookup.values()
-		}
 
 	def unused_workflow_states(self) -> List[DeploymentState]:
 		"""
@@ -151,7 +143,7 @@ class DeploymentDiagram:
 		self._previous_state_lookup[state_id] = deployment_state
 		self._previous_state_lookup_by_arn[deployment_state.arn] = deployment_state
 
-	def validate_arn_exists(self, state_type: StateTypes, arn: str):
+	def validate_arn_exists_and_mark_for_cleanup(self, state_type: StateTypes, arn: str):
 		"""
 		Validate if an arn exists in the current deployment.
 		If it does not, then we check if we know to remove it via the previous state.

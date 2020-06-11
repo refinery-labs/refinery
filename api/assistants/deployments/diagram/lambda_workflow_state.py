@@ -325,7 +325,7 @@ class LambdaWorkflowState(WorkflowState):
 			queue_arn = mapping.event_source_arn
 
 			# TODO can we guarantee that this will be a sqs queue?
-			exists = deployment.validate_arn_exists(StateTypes.SQS_QUEUE, queue_arn)
+			exists = deployment.validate_arn_exists_and_mark_for_cleanup(StateTypes.SQS_QUEUE, queue_arn)
 			if not exists:
 				task_spawner.delete_lambda_event_source_mapping(
 					self._credentials,
