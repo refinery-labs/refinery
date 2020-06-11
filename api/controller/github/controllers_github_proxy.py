@@ -153,7 +153,7 @@ class GithubProxy( BaseHandler ):
         request_service = self.request.arguments.get( 'service' )
         if not request_service or len( request_service ) != 1:
             return False
-        request_service = request_service[0]
+        request_service = request_service[0].decode('utf-8')
 
         valid_service = (
                 request_service.endswith( 'git-upload-pack' )
