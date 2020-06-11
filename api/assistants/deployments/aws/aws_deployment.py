@@ -35,7 +35,7 @@ def json_to_aws_deployment_state(workflow_state_json):
 
     elif state_type == StateTypes.API_GATEWAY:
         api_gateway_id = workflow_state_json.get("rest_api_id")
-        return ApiGatewayDeploymentState(state_type, state_hash, api_gateway_id, arn)
+        return ApiGatewayDeploymentState(state_type, state_hash, arn, api_gateway_id)
 
     elif state_type == StateTypes.SNS_TOPIC:
         return SnsTopicDeploymentState(state_type, state_hash, arn)
@@ -43,14 +43,11 @@ def json_to_aws_deployment_state(workflow_state_json):
     return AwsDeploymentState(state_type, state_hash, arn)
 
 
-
 class AwsDeployment(DeploymentDiagram):
-    def __init__(self, api_gateway_manager, latest_deployment, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, *args, api_gateway_manager=None, latest_deployment=None, **kwargs):
+        super().__init__(*args, **kwargs)
 
         self.api_gateway_manager = api_gateway_manager
-
-        self.api_gateway: Union[ApiGatewayWorkflowState, None] = None
 
         self._workflow_state_lookup: StateLookup[AwsWorkflowState] = self._workflow_state_lookup
         self._previous_state_lookup: StateLookup[AwsDeploymentState] = StateLookup[AwsDeploymentState]()
@@ -87,8 +84,9 @@ class AwsDeployment(DeploymentDiagram):
             state = json_to_aws_deployment_state(ws)
             self._previous_state_lookup.add_state(state)
 
-    def get_api_gateway(self):
-        return self.api_gateway
+    @property
+    def api_gateway(self) -> Union[ApiGatewayWorkflowState, None]:
+        return self._workflow_state_lookup.find_state(lambda state: state.type == StateTypes.API_GATEWAY)
 
     def current_deployment_workflow_states(self) -> List[AwsDeploymentState]:
         return [ws.current_state for ws in self._workflow_state_lookup.states()]
@@ -213,6 +211,16 @@ class AwsDeployment(DeploymentDiagram):
 
         return update_futures
 
+    def _use_or_create_api_gateway(self):
+        api_gateway = self.api_gateway
+
+        # If we did not find an api gateway, let's create a placeholder for now
+        if api_gateway is None:
+            api_gateway = ApiGatewayWorkflowState(self.credentials)
+            api_gateway.setup(self, {})
+
+        self.add_workflow_state(api_gateway)
+
     @gen.coroutine
     def _create_auto_warmers(
             self,
@@ -247,19 +255,36 @@ class AwsDeployment(DeploymentDiagram):
                 None, warmer_id, name, StateTypes.WARMER_TRIGGER, arn=arn)
             self.add_workflow_state(warmer_trigger_state)
 
-    def get_predeploy_futures(self):
-        futures = super().get_predeploy_futures()
-        futures.append(
-            self.api_gateway.predeploy(self.task_spawner, self.api_gateway_manager)
-        )
-        return futures
+    def get_workflow_state_predeploy_future(self, workflow_state: WorkflowState):
+        if isinstance(workflow_state, ApiGatewayWorkflowState):
+            return self.api_gateway.predeploy(self.task_spawner, self.api_gateway_manager)
+        return None
 
-    def get_workflow_state_future(self, workflow_state: WorkflowState):
+    def get_workflow_state_deploy_future(self, workflow_state: WorkflowState):
         if isinstance(workflow_state, ApiGatewayWorkflowState):
             return workflow_state.deploy(
                 self.task_spawner, self.api_gateway_manager, self.project_id, self.project_config)
         return None
 
+    @gen.coroutine
+    def execute_predeploy(self):
+        predeploy_futures = self.get_workflow_state_futures(
+            self.create_predeploy_future,
+            self.get_workflow_state_predeploy_future
+        )
+        predeploy_exceptions = yield self.handle_deploy_futures(predeploy_futures)
+        raise gen.Return(predeploy_exceptions)
+
+    @gen.coroutine
+    def execute_deploy(self):
+        deploy_futures = self.get_workflow_state_futures(
+            self.create_deploy_future,
+            self.get_workflow_state_deploy_future
+        )
+        deployment_exceptions = yield self.handle_deploy_futures(deploy_futures)
+        raise gen.Return(deployment_exceptions)
+
+    @gen.coroutine
     def deploy(self):
         # If we have api endpoints to deploy, we will deploy an api gateway for them
         deployed_api_endpoints = self._workflow_state_lookup.find_states(
@@ -268,23 +293,20 @@ class AwsDeployment(DeploymentDiagram):
         deploying_api_gateway = len(deployed_api_endpoints) > 0
 
         if deploying_api_gateway:
-            self.add_workflow_state(self.api_gateway)
+            self._use_or_create_api_gateway()
 
-        yield self.get_predeploy_futures()
-
-        deploy_futures = self.get_workflow_state_futures()
-
-        deployment_exceptions = yield self.handle_deploy_futures(deploy_futures)
+        predeploy_exceptions = yield self.execute_predeploy()
+        if len(predeploy_exceptions) != 0:
+            raise gen.Return([])
 
         # If we experienced exceptions while deploying, we must stop deployment
+        deployment_exceptions = yield self.execute_deploy()
         if len(deployment_exceptions) != 0:
             raise gen.Return(deployment_exceptions)
 
         if deploying_api_gateway:
             yield self.api_gateway.setup_api_endpoints(
                 self.task_spawner, self.api_gateway_manager, deployed_api_endpoints)
-
-        yield self.handle_deploy_futures(deploy_futures)
 
         update_futures = self._update_workflow_states_with_deploy_info(self.task_spawner)
 
@@ -323,13 +345,6 @@ class AwsDeployment(DeploymentDiagram):
         )
 
         self.load_deployment_graph(diagram_data)
-
-        # If we did not find an api gateway, let's create a placeholder for now
-        if self.get_api_gateway() is None:
-            api_gateway = ApiGatewayWorkflowState(self.credentials)
-            api_gateway.setup(self, {})
-
-            self.add_workflow_state(api_gateway)
 
         deployment_exceptions = yield self.deploy()
 

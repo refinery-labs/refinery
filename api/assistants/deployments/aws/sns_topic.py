@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from tornado import gen
 from typing import Dict, List, TYPE_CHECKING
 
@@ -5,7 +7,6 @@ from assistants.deployments.aws.aws_workflow_state import AwsWorkflowState
 from assistants.deployments.aws.lambda_function import LambdaWorkflowState
 from assistants.deployments.aws.response_types import TopicSubscription
 from assistants.deployments.aws.types import AwsDeploymentState
-from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
 from assistants.deployments.diagram.topic import TopicWorkflowState
 from assistants.deployments.diagram.types import StateTypes
 from assistants.task_spawner.task_spawner_assistant import TaskSpawner
@@ -13,11 +14,12 @@ from utils.general import logit
 
 if TYPE_CHECKING:
     from assistants.deployments.aws.aws_deployment import AwsDeployment
+    from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
 
 
 class SnsTopicDeploymentState(AwsDeploymentState):
     def __init__(self, state_type, state_hash, arn):
-        super().__init__(state_type, state_hash, arn=arn)
+        super().__init__(state_type, state_hash, arn)
 
         self.subscriptions: List[TopicSubscription] = []
 
@@ -27,12 +29,12 @@ class SnsTopicDeploymentState(AwsDeploymentState):
 
 class SnsTopicWorkflowState(AwsWorkflowState, TopicWorkflowState):
     def __init__(self, *args, **kwargs):
-        super(SnsTopicWorkflowState, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.deployed_state: SnsTopicDeploymentState = self.deployed_state
 
     def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
-        super(SnsTopicWorkflowState, self).setup(deploy_diagram, workflow_state_json)
+        super().setup(deploy_diagram, workflow_state_json)
         if self.deployed_state is None:
             self.deployed_state = SnsTopicDeploymentState(self.type, None, self.arn)
 

@@ -2,7 +2,9 @@ from tornado import gen
 from typing import List
 
 from assistants.deployments.api_gateway import strip_api_gateway
-from assistants.deployments.diagram.types import StateTypes, DeploymentState, ApiGatewayDeploymentState
+from assistants.deployments.aws.api_gateway import ApiGatewayDeploymentState
+from assistants.deployments.aws.types import AwsDeploymentState
+from assistants.deployments.diagram.types import StateTypes
 
 
 @gen.coroutine
@@ -92,7 +94,7 @@ def teardown_infrastructure(api_gateway_manager, lambda_manager, schedule_trigge
 
 
 @gen.coroutine
-def teardown_deployed_states(api_gateway_manager, lambda_manager, schedule_trigger_manager, sns_manager, sqs_manager, credentials, teardown_nodes: List[DeploymentState]):
+def teardown_deployed_states(api_gateway_manager, lambda_manager, schedule_trigger_manager, sns_manager, sqs_manager, credentials, teardown_nodes: List[AwsDeploymentState]):
     teardown_operation_futures = []
 
     # TODO refactor teardown functions so that they only take have the necessary info

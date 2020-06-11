@@ -14,7 +14,7 @@ from assistants.deployments.diagram.types import StateTypes, RelationshipTypes
 
 if TYPE_CHECKING:
 	from assistants.deployments.diagram.workflow_states import WorkflowState
-	from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
+	from assistants.deployments.aws.aws_deployment import AwsDeployment
 
 	WorkflowStateTypes = Type[Union[
 		LambdaWorkflowState, ApiEndpointWorkflowState, SqsQueueWorkflowState,
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 	]]
 
 
-def workflow_state_from_json(credentials, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict) -> WorkflowState:
+def workflow_state_from_json(credentials, deploy_diagram: AwsDeployment, workflow_state_json: Dict) -> WorkflowState:
 	node_id = workflow_state_json["id"]
 	node_type = workflow_state_json["type"]
 
@@ -57,7 +57,7 @@ def workflow_state_from_json(credentials, deploy_diagram: DeploymentDiagram, wor
 	return workflow_state
 
 
-def workflow_relationship_from_json(deploy_diagram: DeploymentDiagram, workflow_relationship_json: Dict):
+def workflow_relationship_from_json(deploy_diagram: AwsDeployment, workflow_relationship_json: Dict):
 	try:
 		relation_type = RelationshipTypes(workflow_relationship_json["type"])
 	except ValueError as e:

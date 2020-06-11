@@ -7,29 +7,23 @@ from tornado import gen
 from typing import Dict, List, TYPE_CHECKING
 
 from assistants.deployments.aws.aws_workflow_state import AwsWorkflowState
+from assistants.deployments.aws.response_types import LambdaEventSourceMapping
 from assistants.deployments.aws.types import AwsDeploymentState
 from assistants.deployments.diagram.code_block import CodeBlockWorkflowState
-from assistants.deployments.diagram.types import StateTypes, DeploymentState
+from assistants.deployments.diagram.types import StateTypes
 from assistants.deployments.aws.utils import get_language_specific_environment_variables, get_layers_for_lambda
-from assistants.deployments.diagram.workflow_states import WorkflowState
 from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
 from utils.general import logit
 
 
-class LambdaEventSourceMapping:
-	def __init__(self, uuid, event_source_arn, state):
-		self.uuid = uuid
-		self.event_source_arn = event_source_arn
-		self.state = state
-
 if TYPE_CHECKING:
-	from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
 	from assistants.task_spawner.task_spawner_assistant import TaskSpawner
+	from assistants.deployments.aws.aws_deployment import AwsDeployment
 
 
 class LambdaDeploymentState(AwsDeploymentState):
 	def __init__(self, state_type, state_hash, arn):
-		super().__init__(state_type, state_hash, arn=arn)
+		super().__init__(state_type, state_hash, arn)
 
 		self.event_source_mappings: List[LambdaEventSourceMapping] = []
 
@@ -45,8 +39,8 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
 	LambdaWorkflowState is an in-memory representation of a lambda object which is created by the user.
 	"""
 
-	def __init__(self, *args, **kwargs):
-		super().__init__(*args, **kwargs)
+	def __init__(self, credentials, _id, name, _type, **kwargs):
+		super().__init__(credentials, _id, name, _type, **kwargs)
 
 		self.max_execution_time = None
 		self.memory = None
@@ -70,7 +64,7 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
 
 		self.deployed_state: LambdaDeploymentState = self.deployed_state
 
-	def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
+	def setup(self, deploy_diagram: AwsDeployment, workflow_state_json: Dict[str, object]):
 		super().setup(deploy_diagram, workflow_state_json)
 
 		if self.deployed_state is None:
@@ -93,8 +87,7 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
 			**base_ws_state,
 			"max_execution_time": self.max_execution_time,
 			"memory": self.memory,
-			"reserved_concurrency_count": self.reserved_concurrency_count,
-			"state_hash": self.current_state.state_hash,
+			"reserved_concurrency_count": self.reserved_concurrency_count
 		}
 
 	def get_state_hash(self):
@@ -168,6 +161,7 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
 			"LOG_BUCKET_NAME": self._credentials["logs_bucket"],
 			"PACKAGES_BUCKET_NAME": self._credentials["lambda_packages_bucket"],
 			"PIPELINE_LOGGING_LEVEL": self.execution_log_level,
+			"EXECUTION_MODE": self.execution_mode,
 			**language_specific_env_vars,
 			**self.environment_variables
 		}
@@ -280,7 +274,7 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
 		return self.deploy_lambda(task_spawner)
 
 	@gen.coroutine
-	def cleanup(self, task_spawner: TaskSpawner, deployment: DeploymentDiagram):
+	def cleanup(self, task_spawner: TaskSpawner, deployment: AwsDeployment):
 		if not self.deployed_state_exists():
 			raise gen.Return()
 

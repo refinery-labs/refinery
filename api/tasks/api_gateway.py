@@ -1,6 +1,11 @@
+from __future__ import annotations
+
 from uuid import uuid4
 
-from assistants.deployments.aws.api_endpoint_workflow_states import ApiEndpointWorkflowState
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from assistants.deployments.aws.api_endpoint import ApiEndpointWorkflowState
 
 
 def create_rest_api(aws_client_factory, credentials, name, description, version):

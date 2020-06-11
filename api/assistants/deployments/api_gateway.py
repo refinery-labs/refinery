@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import pinject
 import tornado
 import botocore.exceptions
+from typing import TYPE_CHECKING
 
-from assistants.deployments.aws.api_gateway import ApiGatewayWorkflowState
-from assistants.deployments.diagram.types import ApiGatewayLambdaConfig, ApiGatewayEndpoint
-from utils.general import get_random_node_id, log_exception
+from assistants.deployments.aws.api_gateway_types import ApiGatewayEndpoint, ApiGatewayLambdaConfig
+from utils.general import log_exception
 
 from tornado.concurrent import run_on_executor, futures
 from utils.general import logit
@@ -14,6 +16,8 @@ from botocore.exceptions import ClientError
 
 from utils.performance_decorators import emit_runtime_metrics
 
+if TYPE_CHECKING:
+    from assistants.deployments.aws.api_gateway import ApiGatewayWorkflowState
 
 @gen.coroutine
 @log_exception

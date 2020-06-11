@@ -5,6 +5,7 @@ from typing import Dict, TYPE_CHECKING, List
 
 from assistants.deployments.api_gateway import ApiGatewayManager
 from assistants.deployments.aws.api_endpoint import ApiEndpointWorkflowState
+from assistants.deployments.aws.aws_workflow_state import AwsWorkflowState
 from assistants.deployments.aws.types import AwsDeploymentState
 from assistants.deployments.diagram.workflow_states import WorkflowState, StateTypes
 from utils.general import logit
@@ -14,9 +15,8 @@ API_GATEWAY_STATE_ARN = "API_GATEWAY"
 API_GATEWAY_STAGE_NAME = "refinery"
 
 if TYPE_CHECKING:
-    from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
+    from assistants.deployments.aws.aws_deployment import AwsDeployment
     from assistants.task_spawner.task_spawner_assistant import TaskSpawner
-    from assistants.deployments.diagram.types import DeploymentState
     from assistants.deployments.aws.api_gateway_types import ApiGatewayEndpoint, ApiGatewayLambdaConfig
 
 
@@ -29,8 +29,8 @@ class ApiGatewayResponseWorkflowState(WorkflowState):
 
 
 class ApiGatewayDeploymentState(AwsDeploymentState):
-    def __init__(self, state_type, state_hash, arn, api_gateway_id=None):
-        super().__init__(state_type, state_hash, arn=arn)
+    def __init__(self, state_type, state_hash, arn, api_gateway_id):
+        super().__init__(state_type, state_hash, arn)
 
         self.api_gateway_id = api_gateway_id
 
@@ -85,7 +85,7 @@ class ApiGatewayDeploymentState(AwsDeploymentState):
         return f'Api Gateway Deployment State arn: {self.arn}, state_hash: {self.state_hash}, exists: {self.exists}, api gateway id: {self.api_gateway_id}'
 
 
-class ApiGatewayWorkflowState(WorkflowState):
+class ApiGatewayWorkflowState(AwsWorkflowState):
     def __init__(self, credentials):
         super().__init__(
             credentials,
@@ -95,17 +95,21 @@ class ApiGatewayWorkflowState(WorkflowState):
 
             API_GATEWAY_STATE_NAME,
             StateTypes.API_GATEWAY,
-            arn=API_GATEWAY_STATE_ARN
+            API_GATEWAY_STATE_ARN
         )
 
         # TODO is there a better way redeclare the type of a member variable?
         self.deployed_state: ApiGatewayDeploymentState = self.deployed_state
         self.current_state: ApiGatewayDeploymentState = self.current_state
 
-    def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
+    def setup(self, deploy_diagram: AwsDeployment, workflow_state_json: Dict[str, object]):
         # There will only ever be one API Gateway per project, so we can use the project id as the
         # identifier for this component
         self.deployed_state = deploy_diagram.get_previous_state(deploy_diagram.project_id)
+        if self.deployed_state is None:
+            self.deployed_state = ApiGatewayDeploymentState(
+                StateTypes.API_GATEWAY, None, API_GATEWAY_STATE_ARN, None
+            )
 
         self.id = deploy_diagram.project_id.replace('-', '')
 
@@ -120,14 +124,18 @@ class ApiGatewayWorkflowState(WorkflowState):
             if self.deployed_state_exists() else self.current_state.api_gateway_id
 
     def serialize(self):
-        ws_serialized = super(ApiGatewayWorkflowState, self).serialize()
+        ws_serialized = super().serialize()
         return {
             **ws_serialized,
             "rest_api_id": self.api_gateway_id
         }
 
     @gen.coroutine
-    def get_api_gateway_deployment_state(self, api_gateway_manager: ApiGatewayManager):
+    def _setup_deployment_state(
+        self,
+        api_gateway_manager: ApiGatewayManager,
+        deployment_state: ApiGatewayDeploymentState
+    ):
         rest_resources = yield api_gateway_manager.get_resources(
             self._credentials,
             self.api_gateway_id
@@ -138,12 +146,12 @@ class ApiGatewayWorkflowState(WorkflowState):
         # Create a map of paths to verify existence later
         # so we don't overwrite existing resources
         for lambda_config in lambda_configs:
-            self.deployed_state.add_configured_lambda(lambda_config.lambda_uri, lambda_config)
+            deployment_state.add_configured_lambda(lambda_config.lambda_uri, lambda_config)
 
         for gateway_endpoint in gateway_endpoints:
-            self.deployed_state.add_endpoint(gateway_endpoint)
+            deployment_state.add_endpoint(gateway_endpoint)
 
-        if self.deployed_state.base_resource_id is None:
+        if deployment_state.base_resource_id is None:
             raise MissingResourceException("Missing API Gateway base resource ID. This should never happen.")
 
         # TODO don't think we need this since we only ever create one state: 'refinery'
@@ -156,6 +164,10 @@ class ApiGatewayWorkflowState(WorkflowState):
 
         self.deployed_state.stages = [rest_stage["stageName"] for rest_stage in rest_stages]
         """
+
+    @gen.coroutine
+    def get_deployed_state(self, api_gateway_manager: ApiGatewayManager):
+        yield self._setup_deployment_state(api_gateway_manager, self.deployed_state)
 
     @gen.coroutine
     def create_api_resource(self, task_spawner, parent_id, path_part, current_path):
@@ -290,7 +302,7 @@ class ApiGatewayWorkflowState(WorkflowState):
             )
 
         if self.deployed_state_exists():
-            yield self.get_api_gateway_deployment_state(api_gateway_manager)
+            yield self.get_deployed_state(api_gateway_manager)
 
     @gen.coroutine
     def deploy(self, task_spawner, api_gateway_manager, project_id, project_config):
@@ -313,4 +325,4 @@ class ApiGatewayWorkflowState(WorkflowState):
 
         # Once we have this deployed, cache the state of the API Gateway resources so we can
         # later verify if lambdas are already configured for it.
-        yield self.get_api_gateway_deployment_state(api_gateway_manager)
+        yield self.get_deployed_state(api_gateway_manager)

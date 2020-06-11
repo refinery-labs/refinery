@@ -1,7 +1,11 @@
-from typing import Dict
+from __future__ import annotations
 
-from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
+from typing import Dict, TYPE_CHECKING
+
 from assistants.deployments.diagram.trigger_state import TriggerWorkflowState
+
+if TYPE_CHECKING:
+    from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
 
 
 class ScheduledActionWorkflowState(TriggerWorkflowState):

@@ -11,8 +11,8 @@ if TYPE_CHECKING:
 
 
 class CodeBlockWorkflowState(WorkflowState):
-    def __init__(self, is_inline_execution=False, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, *args, is_inline_execution=False, **kwargs):
+        super().__init__(*args, **kwargs)
 
         self.language = None
         self.code = None

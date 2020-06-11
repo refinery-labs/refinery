@@ -82,39 +82,6 @@ class WorkflowState:
 	def cleanup(self, task_spawner: TaskSpawner, deployment: DeploymentDiagram):
 		pass
 
-	def create_transition(
-			self,
-			deploy_diagram: DeploymentDiagram,
-			transition_type: RelationshipTypes,
-			next_node: WorkflowState,
-			workflow_relationship_json: Dict
-	):
-		if transition_type == RelationshipTypes.IF:
-			relationship = IfWorkflowRelationship(
-				workflow_relationship_json["expression"],
-				workflow_relationship_json["id"],
-				transition_type,
-				self,
-				next_node
-			)
-		elif transition_type == RelationshipTypes.MERGE:
-			relationship = MergeWorkflowRelationship(
-				workflow_relationship_json["id"],
-				transition_type,
-				self,
-				next_node
-			)
-			deploy_diagram.add_node_to_merge_transition(self, next_node)
-		else:
-			relationship = WorkflowRelationship(
-				workflow_relationship_json["id"],
-				transition_type,
-				self,
-				next_node
-			)
-
-		self.transitions[transition_type].append(relationship)
-
 	def set_merge_siblings_for_target(self, next_node_id, sibling_list):
 		"""
 		In the case with merge transitions, we need all of the sibilings to

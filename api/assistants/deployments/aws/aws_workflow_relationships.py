@@ -1,15 +1,12 @@
 from __future__ import annotations
 
-from typing import Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-from assistants.deployments.aws.aws_workflow_state import AwsWorkflowState
-from assistants.deployments.diagram.errors import InvalidDeployment
-from assistants.deployments.diagram.types import RelationshipTypes
 from assistants.deployments.diagram.workflow_relationship import WorkflowRelationship, IfWorkflowRelationship, \
     MergeWorkflowRelationship
 
 if TYPE_CHECKING:
-    from assistants.deployments.diagram.workflow_states import WorkflowState
+    from assistants.deployments.aws.aws_workflow_state import AwsWorkflowState
 
 
 class AwsWorkflowRelationship(WorkflowRelationship):

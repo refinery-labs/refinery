@@ -1,12 +1,10 @@
-import json
 import traceback
-import uuid
 
 from tornado import gen
-from typing import Union, Dict, List, Generic, TypeVar
+from typing import Dict, List
 
 from assistants.deployments.diagram.errors import InvalidDeployment, DeploymentException
-from assistants.deployments.diagram.new_workflow_object import workflow_state_from_json, workflow_relationship_from_json
+from assistants.deployments.aws.new_workflow_object import workflow_state_from_json, workflow_relationship_from_json
 from assistants.deployments.diagram.workflow_states import WorkflowState, StateLookup
 from pyexceptions.builds import BuildException
 from utils.general import logit
@@ -108,14 +106,6 @@ class DeploymentDiagram:
 
 		return cleanup_futures
 
-	def get_predeploy_futures(self):
-		predeploy_futures = []
-
-		for workflow_state in self._workflow_state_lookup.states():
-			predeploy_futures.append(workflow_state.predeploy(self.task_spawner))
-
-		return predeploy_futures
-
 	@gen.coroutine
 	def handle_deploy_futures(self, deploy_futures):
 		deployment_exceptions = []
@@ -151,17 +141,25 @@ class DeploymentDiagram:
 
 		raise gen.Return(deployment_exceptions)
 
-	def get_workflow_state_future(self, workflow_state: WorkflowState):
+	def get_workflow_state_predeploy_future(self, workflow_state: WorkflowState):
 		return None
 
-	def get_workflow_state_futures(self):
+	def get_workflow_state_deploy_future(self, workflow_state: WorkflowState):
+		return None
+
+	def create_predeploy_future(self, workflow_state: WorkflowState):
+		return workflow_state.predeploy(self.task_spawner)
+
+	def create_deploy_future(self, workflow_state: WorkflowState):
+		return workflow_state.deploy(self.task_spawner, self.project_id, self.project_config)
+
+	def get_workflow_state_futures(self, create_future, workflow_state_handler):
 		deploy_futures = []
 		for workflow_state in self._workflow_state_lookup.states():
-			deploy_future = self.get_workflow_state_future(workflow_state)
+			deploy_future = workflow_state_handler(workflow_state)
 
 			if deploy_future is None:
-				deploy_future = workflow_state.deploy(
-					self.task_spawner, self.project_id, self.project_config)
+				deploy_future = create_future(workflow_state)
 
 			if deploy_future is None:
 				continue

@@ -1,14 +1,21 @@
-from tornado import gen
-from typing import Dict
+from __future__ import annotations
 
+from tornado import gen
+from typing import Dict, TYPE_CHECKING
+
+from assistants.deployments.aws.aws_workflow_state import AwsWorkflowState
 from assistants.deployments.aws.lambda_function import LambdaWorkflowState
-from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
+from assistants.deployments.aws.types import AwsDeploymentState
 from assistants.deployments.diagram.errors import InvalidDeployment
 from assistants.deployments.diagram.queue import QueueWorkflowState
+from assistants.deployments.diagram.types import StateTypes
 from utils.general import logit
 
+if TYPE_CHECKING:
+    from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
 
-class SqsQueueWorkflowState(QueueWorkflowState):
+
+class SqsQueueWorkflowState(AwsWorkflowState, QueueWorkflowState):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -22,7 +29,7 @@ class SqsQueueWorkflowState(QueueWorkflowState):
         self.visibility_timeout = 900 # Max Lambda runtime - TODO set this to the linked Lambda amount
 
     def serialize(self):
-        serialized_ws = super(SqsQueueWorkflowState, self).serialize()
+        serialized_ws = super().serialize()
         return {
             **serialized_ws,
             "batch_size": self.batch_size
@@ -30,6 +37,9 @@ class SqsQueueWorkflowState(QueueWorkflowState):
 
     def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, str]):
         super().setup(deploy_diagram, workflow_state_json)
+
+        if self.deployed_state is None:
+            self.deployed_state = AwsDeploymentState(StateTypes.SQS_QUEUE, None, self.arn)
 
         region = self._credentials["region"]
         account_id = self._credentials["account_id"]
@@ -42,6 +52,8 @@ class SqsQueueWorkflowState(QueueWorkflowState):
             raise InvalidDeployment(f"unable to parse 'batch_size' for SQS Queue: {self.name}")
 
     def deploy(self, task_spawner, project_id, project_config):
+        # TODO add logic to see if we need to redeploy
+
         logit(f"Deploying SQS queue '{self.name}'...")
         return task_spawner.create_sqs_queue(
             self._credentials,
@@ -50,7 +62,7 @@ class SqsQueueWorkflowState(QueueWorkflowState):
 
     @gen.coroutine
     def predeploy(self, task_spawner):
-        return task_spawner.get_sqs_existence_info(
+        self.deployed_state.exists = task_spawner.get_sqs_existence_info(
             self._credentials,
             self
         )

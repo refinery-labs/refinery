@@ -1,24 +1,28 @@
-from typing import Union, Dict, List
+from __future__ import annotations
 
-from assistants.deployments.aws.aws_deployment import AwsDeployment
-from assistants.deployments.aws.aws_workflow_relationships import AwsWorkflowRelationship
+from typing import Union, Dict, List, TYPE_CHECKING
+
+from assistants.deployments.aws.aws_workflow_relationships import AwsWorkflowRelationship, AwsIfWorkflowRelationship, \
+    AwsMergeWorkflowRelationship
 from assistants.deployments.aws.types import AwsDeploymentState
-from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
 from assistants.deployments.diagram.types import StateTypes, RelationshipTypes
-from assistants.deployments.diagram.workflow_relationship import MergeWorkflowRelationship
 from assistants.deployments.diagram.workflow_states import WorkflowState
+
+if TYPE_CHECKING:
+    from assistants.deployments.aws.aws_deployment import AwsDeployment
+    from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
 
 
 class AwsWorkflowState(WorkflowState):
-    def __init__(self, *args, arn=None, force_redeploy=False, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, credentials, _id, name, _type, arn=None, force_redeploy=False):
+        super().__init__(credentials, _id, name, _type)
 
         arn = self.get_arn_name() if arn is None else arn
         self.deployed_state: Union[AwsDeploymentState, None] = None
 
         self.transitions: Dict[RelationshipTypes, List[AwsWorkflowRelationship]] = self.transitions
 
-        self.current_state: AwsDeploymentState = AwsDeploymentState(self.type, None, arn=arn)
+        self.current_state: AwsDeploymentState = AwsDeploymentState(self.type, None, arn)
 
         self.force_redeploy = force_redeploy
 
@@ -35,7 +39,8 @@ class AwsWorkflowState(WorkflowState):
                 transition_type.value: [t.serialize() for t in transitions_for_type]
                 for transition_type, transitions_for_type in self.transitions.items()
             },
-            "arn": self.arn
+            "arn": self.arn,
+            "state_hash": self.current_state.state_hash,
         }
 
     def get_state_id(self):
@@ -88,3 +93,36 @@ class AwsWorkflowState(WorkflowState):
     def set_name(self, name):
         self.name = name
         self.current_state.arn = self.get_arn_name()
+
+    def create_transition(
+            self,
+            deploy_diagram: DeploymentDiagram,
+            transition_type: RelationshipTypes,
+            next_node: WorkflowState,
+            workflow_relationship_json: Dict
+    ):
+        if transition_type == RelationshipTypes.IF:
+            relationship = AwsIfWorkflowRelationship(
+                workflow_relationship_json["expression"],
+                workflow_relationship_json["id"],
+                transition_type,
+                self,
+                next_node
+            )
+        elif transition_type == RelationshipTypes.MERGE:
+            relationship = AwsMergeWorkflowRelationship(
+                workflow_relationship_json["id"],
+                transition_type,
+                self,
+                next_node
+            )
+            deploy_diagram.add_node_to_merge_transition(self, next_node)
+        else:
+            relationship = AwsWorkflowRelationship(
+                workflow_relationship_json["id"],
+                transition_type,
+                self,
+                next_node
+            )
+
+        self.transitions[transition_type].append(relationship)

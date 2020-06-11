@@ -1,5 +1,8 @@
-from assistants.deployments.aws.lambda_workflow_state import LambdaWorkflowState
-from assistants.deployments.diagram.types import LambdaEventSourceMapping
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from assistants.deployments.aws.response_types import LambdaEventSourceMapping
 from assistants.deployments.ecs_builders import BuilderManager
 from assistants.deployments.shared_files import (
     add_shared_files_symlink_to_zip,
@@ -19,6 +22,9 @@ from tasks.build.php import build_php_73_lambda
 from tasks.build.python import build_python36_lambda, build_python27_lambda
 from tasks.s3 import s3_object_exists
 from utils.general import logit, log_exception
+
+if TYPE_CHECKING:
+    from assistants.deployments.aws.lambda_function import LambdaWorkflowState
 
 
 def get_lambda_arns(aws_client_factory, credentials):

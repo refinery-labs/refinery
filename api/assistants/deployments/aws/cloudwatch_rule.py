@@ -1,20 +1,25 @@
+from __future__ import annotations
+
 import hashlib
 import json
 
 from tornado import gen
-from typing import Dict, List
+from typing import Dict, List, TYPE_CHECKING
 
 from assistants.deployments.aws.aws_workflow_state import AwsWorkflowState
 from assistants.deployments.aws.lambda_function import LambdaWorkflowState
+from assistants.deployments.aws.response_types import CloudwatchRuleTarget
 from assistants.deployments.aws.types import AwsDeploymentState
-from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
 from assistants.deployments.diagram.scheduled_action import ScheduledActionWorkflowState
 from utils.general import logit
 
+if TYPE_CHECKING:
+    from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
+
 
 class ScheduleTriggerDeploymentState(AwsDeploymentState):
-    def __init__(self, state_type, arn, state_hash):
-        super(ScheduleTriggerDeploymentState, self).__init__(state_type, arn, state_hash)
+    def __init__(self, state_type, state_hash, arn):
+        super().__init__(state_type, state_hash, arn)
 
         self.rules: List[CloudwatchRuleTarget] = []
 
@@ -41,8 +46,7 @@ class ScheduleTriggerWorkflowState(AwsWorkflowState, ScheduledActionWorkflowStat
             **serialized_ws,
             "schedule_expression": self.schedule_expression,
             "input_string": self.input_string,
-            "description": self.description,
-            "state_hash": self.current_state.state_hash
+            "description": self.description
         }
 
     def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
