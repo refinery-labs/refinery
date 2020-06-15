@@ -9,7 +9,7 @@ sync {
   delay = 1,
   source="../../",
   -- Replace this host with your docker-machine host
-  host="docker@192.168.99.102",
+  host="docker@192.168.42.74",
   targetdir="/home/docker/refinery",
   exclude = {
     "/.idea",
@@ -18,7 +18,7 @@ sync {
   },
   ssh = {
     -- Replace the path of this key with your docker-machine key (substitute machine4 probably)
-    identityFile = "~/.docker/machine/machines/machine4/id_rsa",
+    identityFile = "~/.docker/machine/machines/machine-kvm-rancher/id_rsa",
   }
 }
 

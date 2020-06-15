@@ -160,7 +160,7 @@ class AuthenticateWithGithub(BaseHandler):
             raise BadRequestStateException("Missing state token in parameters")
 
         # Compares tokens to validate the request originated from the same user (is not a CSRF attack)
-        if client_state != oauth_state_cookie:
+        if client_state != oauth_state_cookie.decode("utf-8"):
             raise BadRequestStateException("Client state and session state mismatched")
 
         return code, client_state
