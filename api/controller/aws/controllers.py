@@ -420,7 +420,6 @@ class DeployDiagram(BaseHandler):
             raise gen.Return()
 
         serialized_deployment = deployment_diagram.serialize()
-        print(json.dumps(serialized_deployment, indent=2))
 
         new_deployment = Deployment()
         new_deployment.project_id = project_id

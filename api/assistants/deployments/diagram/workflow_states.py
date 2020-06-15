@@ -23,6 +23,9 @@ class StateLookup(Generic[T]):
 	def __getitem__(self, item) -> Union[T, None]:
 		return self._state_lookup.get(item)
 
+	def __str__(self):
+		return str(self._state_lookup)
+
 	def states(self) -> List[T]:
 		return list(self._state_lookup.values())
 

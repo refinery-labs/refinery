@@ -18,8 +18,8 @@ if TYPE_CHECKING:
 
 
 class SnsTopicDeploymentState(AwsDeploymentState):
-    def __init__(self, state_type, state_hash, arn):
-        super().__init__(state_type, state_hash, arn)
+    def __init__(self, name, state_type, state_hash, arn):
+        super().__init__(name, state_type, state_hash, arn)
 
         self.subscriptions: List[TopicSubscription] = []
 

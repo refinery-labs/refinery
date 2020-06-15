@@ -3,7 +3,7 @@ from __future__ import annotations
 import pinject
 import tornado
 import botocore.exceptions
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
 from assistants.deployments.aws.api_gateway_types import ApiGatewayEndpoint, ApiGatewayLambdaConfig
 from utils.general import log_exception
@@ -47,25 +47,26 @@ def strip_api_gateway(api_gateway_manager, credentials, api_gateway_id):
         api_gateway_id
     )
 
+    lambda_configs: List[ApiGatewayLambdaConfig] = rest_resources["lambda_configs"]
+
     # List of futures to finish before we continue
     deletion_futures = []
 
     # Iterate over resources and delete everything that
     # can be deleted.
-    for resource_item in rest_resources:
+    for lambda_config in lambda_configs:
         # TODO there is a race here where the api resource _could_ be deleted before the method is deleted, does that matter?
 
         # Delete the methods
-        if "resourceMethods" in resource_item:
-            for http_method, values in resource_item["resourceMethods"].items():
-                deletion_futures.append(
-                    api_gateway_manager.delete_rest_api_resource_method(
-                        credentials,
-                        api_gateway_id,
-                        resource_item["id"],
-                        http_method
-                    )
-                )
+        deletion_futures.append(
+            api_gateway_manager.delete_rest_api_resource_method(
+                credentials,
+                api_gateway_id,
+                lambda_config,
+                lambda_config.method
+            )
+        )
+
         # We can't delete the root resource
         if resource_item["path"] != "/":
             deletion_futures.append(
@@ -126,7 +127,7 @@ class ApiGatewayManager(object):
 
     @run_on_executor
     @emit_runtime_metrics("api_gateway__get_resources")
-    def get_resources(self, credentials, rest_api_id, api_gateway: ApiGatewayWorkflowState):
+    def get_resources(self, credentials, rest_api_id):
         """
         For all resources that exist in this API Gateway, create an in-memory representation of them.
 
@@ -151,6 +152,7 @@ class ApiGatewayManager(object):
 
         gateway_endpoints = []
         lambda_configs = []
+        base_resource_id = None
 
         items = response["items"]
         for item in items:
@@ -160,7 +162,7 @@ class ApiGatewayManager(object):
             # A default resource is created along with an API gateway, we grab
             # it so we can make our base method
             if resource_path == "/":
-                api_gateway.deployed_state.base_resource_id = resource_id
+                base_resource_id = resource_id
                 continue
 
             resource_methods = {}
@@ -182,12 +184,13 @@ class ApiGatewayManager(object):
 
                 linked_lambda_uri = method_integration["uri"]
 
-                lambda_config = ApiGatewayLambdaConfig(linked_lambda_uri, method, resource_path)
+                lambda_config = ApiGatewayLambdaConfig(resource_id, linked_lambda_uri, method, resource_path)
                 lambda_configs.append(lambda_config)
 
             gateway_endpoints.append(gateway_endpoint)
 
         return dict(
+            base_resource_id=base_resource_id,
             gateway_endpoints=gateway_endpoints,
             lambda_configs=lambda_configs
         )

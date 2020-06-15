@@ -24,6 +24,7 @@ def json_to_aws_deployment_state(workflow_state_json):
     arn = workflow_state_json.get("arn")
     ws_type = workflow_state_json.get("type")
     state_hash = workflow_state_json.get("state_hash")
+    name = workflow_state_json.get("name")
 
     try:
         state_type = StateTypes(ws_type)
@@ -31,16 +32,16 @@ def json_to_aws_deployment_state(workflow_state_json):
         raise InvalidDeployment(f"workflow state {arn} has invalid type {ws_type}")
 
     if state_type == StateTypes.LAMBDA:
-        return LambdaDeploymentState(state_type, state_hash, arn)
+        return LambdaDeploymentState(name, state_type, state_hash, arn)
 
     elif state_type == StateTypes.API_GATEWAY:
         api_gateway_id = workflow_state_json.get("rest_api_id")
-        return ApiGatewayDeploymentState(state_type, state_hash, arn, api_gateway_id)
+        return ApiGatewayDeploymentState(name, state_type, state_hash, arn, api_gateway_id)
 
     elif state_type == StateTypes.SNS_TOPIC:
-        return SnsTopicDeploymentState(state_type, state_hash, arn)
+        return SnsTopicDeploymentState(name, state_type, state_hash, arn)
 
-    return AwsDeploymentState(state_type, state_hash, arn)
+    return AwsDeploymentState(name, state_type, state_hash, arn)
 
 
 class AwsDeployment(DeploymentDiagram):
@@ -53,7 +54,10 @@ class AwsDeployment(DeploymentDiagram):
         self._previous_state_lookup: StateLookup[AwsDeploymentState] = StateLookup[AwsDeploymentState]()
 
         if latest_deployment is not None and "workflow_states" in latest_deployment:
-            self._setup_previous_state_lookup(latest_deployment["workflow_states"])
+            # deserialize the workflow states from the previous deployment to use them as a reference when diffing.
+            for ws in latest_deployment["workflow_states"]:
+                state = json_to_aws_deployment_state(ws)
+                self._previous_state_lookup.add_state(state)
 
     def serialize(self):
         serialized_deployment = super().serialize()
@@ -73,17 +77,6 @@ class AwsDeployment(DeploymentDiagram):
             "workflow_relationships": workflow_relationships,
         }
 
-    def _setup_previous_state_lookup(self, latest_workflow_states: List[Dict[str, str]]):
-        """
-        Deserialize the workflow states from the previous deployment to use them as a reference when diffing.
-
-        :param latest_workflow_states: A list of previously deployed workflow states.
-        :return:
-        """
-        for ws in latest_workflow_states:
-            state = json_to_aws_deployment_state(ws)
-            self._previous_state_lookup.add_state(state)
-
     @property
     def api_gateway(self) -> Union[ApiGatewayWorkflowState, None]:
         return self._workflow_state_lookup.find_state(lambda state: state.type == StateTypes.API_GATEWAY)
@@ -97,7 +90,7 @@ class AwsDeployment(DeploymentDiagram):
         return self._previous_state_lookup[state_id]
 
     def get_previous_api_gateway_state(self, api_gateway_arn: str) -> ApiGatewayDeploymentState:
-        non_existing_deployment_state = ApiGatewayDeploymentState(StateTypes.API_GATEWAY, None, api_gateway_arn)
+        non_existing_deployment_state = ApiGatewayDeploymentState(None, StateTypes.API_GATEWAY, None, api_gateway_arn, None)
 
         if self._previous_state_lookup is None:
             return non_existing_deployment_state
@@ -191,7 +184,7 @@ class AwsDeployment(DeploymentDiagram):
 
         previous_workflow_state = self._previous_state_lookup.find_state(find_state_by_arn)
         if previous_workflow_state is None:
-            deploy_state = AwsDeploymentState(state_type, None, arn)
+            deploy_state = AwsDeploymentState(None, state_type, None, arn)
             self._add_previous_state_for_cleanup(deploy_state)
 
         return False

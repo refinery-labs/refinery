@@ -12,6 +12,9 @@ class ApiGatewayEndpoint:
         # map HTTP methods to whether or not they are in use
         self._methods: Dict[str, bool] = dict()
 
+    def get_all_methods(self):
+        return self._methods.items()
+
     def set_method_in_use(self, method):
         self._methods[method] = True
 
@@ -27,7 +30,8 @@ class ApiGatewayEndpoint:
 
 
 class ApiGatewayLambdaConfig:
-    def __init__(self, lambda_uri, method, path):
+    def __init__(self, resource_id, lambda_uri, method, path):
+        self.resource_id = resource_id
         self.lambda_uri = lambda_uri
         self.method = method
         self.path = path

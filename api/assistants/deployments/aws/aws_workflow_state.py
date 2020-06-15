@@ -22,14 +22,14 @@ class AwsWorkflowState(WorkflowState):
 
         self.transitions: Dict[RelationshipTypes, List[AwsWorkflowRelationship]] = self.transitions
 
-        self.current_state: AwsDeploymentState = AwsDeploymentState(self.type, None, arn)
+        self.current_state: AwsDeploymentState = AwsDeploymentState(self.name, self.type, None, arn)
 
         self.force_redeploy = force_redeploy
 
     def setup(self, deploy_diagram: AwsDeployment, workflow_state_json: Dict[str, object]):
         super().setup(deploy_diagram, workflow_state_json)
 
-        self.deployed_state = deploy_diagram.get_previous_state(self.id)
+        self.deployed_state = deploy_diagram.get_previous_state(self.arn)
 
     def serialize(self):
         ws_serialized = super().serialize()

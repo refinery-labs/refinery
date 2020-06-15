@@ -104,8 +104,7 @@ def teardown_deployed_states(api_gateway_manager, lambda_manager, schedule_trigg
             teardown_operation_futures.append(
                 lambda_manager.delete_lambda(
                     credentials,
-                    None, None, None,
-                    teardown_node.arn,
+                    None, None, teardown_node.name, teardown_node.arn
                 )
             )
         if teardown_node.type == StateTypes.SNS_TOPIC:
@@ -135,6 +134,9 @@ def teardown_deployed_states(api_gateway_manager, lambda_manager, schedule_trigg
         elif teardown_node.type == StateTypes.API_GATEWAY:
 
             assert isinstance(teardown_node, ApiGatewayDeploymentState)
+
+            if teardown_node.api_gateway_id is None:
+                continue
 
             teardown_operation_futures.append(
                 strip_api_gateway(

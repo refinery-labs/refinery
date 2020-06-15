@@ -28,7 +28,8 @@ class RelationshipTypes(Enum):
 
 
 class DeploymentState:
-	def __init__(self, state_type: StateTypes, state_hash: Union[str, None]):
+	def __init__(self, name, state_type: StateTypes, state_hash: Union[str, None]):
+		self.name = name
 		self.type: StateTypes = state_type
 		self.state_hash: Union[str, None] = state_hash
 

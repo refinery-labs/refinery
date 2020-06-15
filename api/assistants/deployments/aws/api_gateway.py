@@ -7,8 +7,9 @@ from assistants.deployments.api_gateway import ApiGatewayManager
 from assistants.deployments.aws.api_endpoint import ApiEndpointWorkflowState
 from assistants.deployments.aws.aws_workflow_state import AwsWorkflowState
 from assistants.deployments.aws.types import AwsDeploymentState
-from assistants.deployments.diagram.workflow_states import WorkflowState, StateTypes
+from assistants.deployments.diagram.workflow_states import StateTypes
 from utils.general import logit
+from assistants.deployments.aws.api_gateway_types import ApiGatewayEndpoint, ApiGatewayLambdaConfig
 
 API_GATEWAY_STATE_NAME = "__api_gateway__"
 API_GATEWAY_STATE_ARN = "API_GATEWAY"
@@ -17,20 +18,19 @@ API_GATEWAY_STAGE_NAME = "refinery"
 if TYPE_CHECKING:
     from assistants.deployments.aws.aws_deployment import AwsDeployment
     from assistants.task_spawner.task_spawner_assistant import TaskSpawner
-    from assistants.deployments.aws.api_gateway_types import ApiGatewayEndpoint, ApiGatewayLambdaConfig
 
 
 class MissingResourceException(Exception):
     pass
 
 
-class ApiGatewayResponseWorkflowState(WorkflowState):
+class ApiGatewayResponseWorkflowState(AwsWorkflowState):
     pass
 
 
 class ApiGatewayDeploymentState(AwsDeploymentState):
-    def __init__(self, state_type, state_hash, arn, api_gateway_id):
-        super().__init__(state_type, state_hash, arn)
+    def __init__(self, name, state_type, state_hash, arn, api_gateway_id):
+        super().__init__(name, state_type, state_hash, arn)
 
         self.api_gateway_id = api_gateway_id
 
@@ -100,7 +100,7 @@ class ApiGatewayWorkflowState(AwsWorkflowState):
 
         # TODO is there a better way redeclare the type of a member variable?
         self.deployed_state: ApiGatewayDeploymentState = self.deployed_state
-        self.current_state: ApiGatewayDeploymentState = self.current_state
+        self.current_state: ApiGatewayDeploymentState = ApiGatewayDeploymentState(self.name, StateTypes.API_GATEWAY, None, self.arn, None)
 
     def setup(self, deploy_diagram: AwsDeployment, workflow_state_json: Dict[str, object]):
         # There will only ever be one API Gateway per project, so we can use the project id as the
@@ -108,7 +108,7 @@ class ApiGatewayWorkflowState(AwsWorkflowState):
         self.deployed_state = deploy_diagram.get_previous_state(deploy_diagram.project_id)
         if self.deployed_state is None:
             self.deployed_state = ApiGatewayDeploymentState(
-                StateTypes.API_GATEWAY, None, API_GATEWAY_STATE_ARN, None
+                self.name, StateTypes.API_GATEWAY, None, API_GATEWAY_STATE_ARN, None
             )
 
         self.id = deploy_diagram.project_id.replace('-', '')
@@ -140,6 +140,9 @@ class ApiGatewayWorkflowState(AwsWorkflowState):
             self._credentials,
             self.api_gateway_id
         )
+
+        self.deployed_state.base_resource_id = rest_resources["base_resource_id"]
+
         gateway_endpoints: List[ApiGatewayEndpoint] = rest_resources["gateway_endpoints"]
         lambda_configs: List[ApiGatewayLambdaConfig] = rest_resources["lambda_configs"]
 
@@ -207,7 +210,7 @@ class ApiGatewayWorkflowState(AwsWorkflowState):
             # Get existing resource ID instead of creating one
             api_gateway_endpoint = self.deployed_state.get_endpoint_from_path(current_path)
             if api_gateway_endpoint is not None:
-                current_base_pointer_id = api_endpoint.id
+                current_base_pointer_id = api_gateway_endpoint.id
             else:
                 # Otherwise go ahead and create one
                 api_gateway_endpoint = yield self.create_api_resource(
@@ -224,6 +227,8 @@ class ApiGatewayWorkflowState(AwsWorkflowState):
         if api_gateway_endpoint is not None:
             # Mark the method in the api endpoint, at the end of the path, as in use
             api_gateway_endpoint.set_method_in_use(api_endpoint.http_method)
+
+        raise gen.Return(current_base_pointer_id)
 
     @gen.coroutine
     def create_lambda_api_route(self, task_spawner, api_endpoint: ApiEndpointWorkflowState):
@@ -318,7 +323,7 @@ class ApiGatewayWorkflowState(AwsWorkflowState):
         gateway_id = yield task_spawner.create_rest_api(
             self._credentials,
             rest_api_name,
-            f"API Gateway created by Refinery. Associated with project ID {project_id}"
+            f"API Gateway created by Refinery. Associated with project ID {project_id}",
             "1.0.0"
         )
         self.current_state.api_gateway_id = gateway_id

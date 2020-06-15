@@ -4,8 +4,8 @@ from assistants.deployments.diagram.types import DeploymentState, StateTypes
 
 
 class AwsDeploymentState(DeploymentState):
-    def __init__(self, state_type: StateTypes, state_hash, arn):
-        super().__init__(state_type, state_hash)
+    def __init__(self, name, state_type: StateTypes, state_hash, arn):
+        super().__init__(name, state_type, state_hash)
         self.arn: str = arn
 
     @property
