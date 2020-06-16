@@ -15,6 +15,9 @@ class ApiGatewayEndpoint:
     def get_all_methods(self):
         return self._methods.items()
 
+    def method_exists(self, method):
+        return self._methods.get(method)
+
     def set_method_in_use(self, method):
         self._methods[method] = True
 

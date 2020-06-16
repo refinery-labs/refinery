@@ -202,23 +202,36 @@ def add_rule_target(aws_client_factory, credentials, rule, target):
         ]
     )
 
+    statement_id = rule.name + "_statement"
+
+    response = None
     try:
         response = lambda_client.get_policy(
             FunctionName=target.arn,
         )
     except ClientError as e:
-        if e.response["Error"]["Code"] == "ResourceNotFoundException":
-            return {}
-        raise
+        if e.response["Error"]["Code"] != "ResourceNotFoundException":
+            raise
 
-    statement_id = rule.name + "_statement"
+    if response is not None:
+        existing_lambda_statements = json.loads(
+            response["Policy"]
+        )["Statement"]
 
-    existing_lambda_statements = json.loads(
-        response["Policy"]
-    )["Statement"]
+        def remove_if_matches_expected_permission(statement):
+            sid = statement.get('Sid')
+            if sid == statement_id:
+                try:
+                    response = lambda_client.remove_permission(
+                        FunctionName=target.arn,
+                        StatementId=sid
+                    )
+                except ClientError as e:
+                    if e.response["Error"]["Code"] != "ResourceNotFoundException":
+                        raise
 
-    for statement in existing_lambda_statements:
-        remove_if_matches_expected_permission(lambda_client, target, statement)
+        for statement in existing_lambda_statements:
+            remove_if_matches_expected_permission(statement)
 
     """
     For AWS Lambda you need to add a permission to the Lambda function itself

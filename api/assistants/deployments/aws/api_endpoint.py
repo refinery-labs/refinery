@@ -1,33 +1,25 @@
 from __future__ import annotations
 
+from typing import Dict, TYPE_CHECKING
+
 from assistants.deployments.aws.utils import get_layers_for_lambda
 from assistants.deployments.diagram.endpoint import EndpointWorkflowState
 from assistants.deployments.aws.lambda_function import LambdaWorkflowState
 from utils.general import logit
+
+if TYPE_CHECKING:
+    from assistants.deployments.aws.aws_deployment import AwsDeployment
 
 API_GATEWAY_STATE_NAME = "__api_gateway__"
 API_GATEWAY_STATE_ARN = "API_GATEWAY"
 API_GATEWAY_STAGE_NAME = "refinery"
 
 
-class ApiEndpointWorkflowState(EndpointWorkflowState, LambdaWorkflowState):
+class ApiEndpointWorkflowState(LambdaWorkflowState, EndpointWorkflowState):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.rest_api_id = None
-
-        lambda_layers = get_layers_for_lambda("python2.7")
-
-        self.language = "python2.7"
-        self.code = ""
-        self.libraries = []
-        self.max_execution_time = 30
-        self.memory = 512
-        self.execution_mode = "API_ENDPOINT",
-        self.layers = lambda_layers
-        self.reserved_concurrency_count = False
-        self.is_inline_execution = False
-        self.shared_files_list = []
 
     def serialize(self):
         serialized_ws_state = super().serialize()
@@ -39,6 +31,25 @@ class ApiEndpointWorkflowState(EndpointWorkflowState, LambdaWorkflowState):
             "api_path": self.api_path,
             "state_hash": self.current_state.state_hash
         }
+
+    def setup(self, deploy_diagram: AwsDeployment, workflow_state_json: Dict[str, object]):
+        super().setup(deploy_diagram, workflow_state_json)
+
+        lambda_layers = get_layers_for_lambda("python2.7")
+
+        self.language = "python2.7"
+        self.code = ""
+        self.libraries = []
+        self.max_execution_time = 30
+        self.memory = 512
+        self.execution_mode = "API_ENDPOINT"
+        self.layers = lambda_layers
+        self.reserved_concurrency_count = False
+        self.is_inline_execution = False
+        self.shared_files_list = []
+
+        self.environment_variables = {}
+        self._set_environment_variables_for_lambda()
 
     def set_gateway_id(self, api_gateway_id):
         self.rest_api_id = api_gateway_id

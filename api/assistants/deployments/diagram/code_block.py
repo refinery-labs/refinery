@@ -40,10 +40,22 @@ class CodeBlockWorkflowState(WorkflowState):
 
         self.shared_files_list.extend(deploy_diagram.lookup_workflow_files(self.id))
 
-        self.language = workflow_state_json["language"]
-        self.code = workflow_state_json["code"]
-        self.libraries = workflow_state_json["libraries"]
-        self.layers = workflow_state_json["layers"]
+        language = workflow_state_json.get("language")
+        code = workflow_state_json.get("code")
+        libraries = workflow_state_json.get("libraries")
+        layers = workflow_state_json.get("layers")
+
+        if language is not None:
+            self.language = language
+
+        if code is not None:
+            self.code = code
+
+        if libraries is not None:
+            self.libraries = libraries
+
+        if layers is not None:
+            self.layers = layers
 
     def serialize(self) -> Dict[str, str]:
         base_ws_state = super().serialize()
@@ -59,9 +71,14 @@ class CodeBlockWorkflowState(WorkflowState):
     def _get_project_env_vars(self, deploy_diagram: DeploymentDiagram, workflow_state_json):
         workflow_state_env_vars = []
 
+        environment_variables = workflow_state_json.get("environment_variables")
+
+        if environment_variables is None:
+            return {}
+
         tmp_env_vars: Dict[str, Dict[str, str]] = {
             env_var_uuid: env_var
-            for env_var_uuid, env_var in workflow_state_json["environment_variables"].items()
+            for env_var_uuid, env_var in environment_variables.items()
         }
 
         project_env_vars = deploy_diagram.project_config["environment_variables"]

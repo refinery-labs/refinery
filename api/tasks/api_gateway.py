@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import time
 from uuid import uuid4
 
+import botocore
 from typing import TYPE_CHECKING
+
+from utils.general import logit
 
 if TYPE_CHECKING:
     from assistants.deployments.aws.api_endpoint import ApiEndpointWorkflowState
@@ -14,23 +18,36 @@ def create_rest_api(aws_client_factory, credentials, name, description, version)
         credentials
     )
 
-    response = api_gateway_client.create_rest_api(
-        name=name,
-        description=description,
-        version=version,
-        apiKeySource="HEADER",
-        endpointConfiguration={
-            "types": [
-                "EDGE",
-            ]
-        },
-        binaryMediaTypes=[
-            "*/*"
-        ],
-        tags={
-            "RefineryResource": "true"
-        }
-    )
+    attempts = 0
+    response = None
+    while attempts < 5:
+        try:
+            response = api_gateway_client.create_rest_api(
+                name=name,
+                description=description,
+                version=version,
+                apiKeySource="HEADER",
+                endpointConfiguration={
+                    "types": [
+                        "EDGE",
+                    ]
+                },
+                binaryMediaTypes=[
+                    "*/*"
+                ],
+                tags={
+                    "RefineryResource": "true"
+                }
+            )
+            break
+
+        except botocore.exceptions.ClientError as err:
+            response = err.response
+            if response and response.get("Error", {}).get("Code") == "TooManyRequestsException":
+                logit("TooManyRequestsException when trying to deploy the api gateway")
+                # we are calling the api too fast, let's try sleeping for a bit and trying again
+                time.sleep(1)
+                attempts += 1
 
     return response["id"]
 

@@ -68,12 +68,12 @@ def strip_api_gateway(api_gateway_manager, credentials, api_gateway_id):
         )
 
         # We can't delete the root resource
-        if resource_item["path"] != "/":
+        if lambda_config.path != "/":
             deletion_futures.append(
                 api_gateway_manager.delete_rest_api_resource(
                     credentials,
                     api_gateway_id,
-                    resource_item["id"]
+                    lambda_config.resource_id
                 )
             )
 
@@ -120,7 +120,7 @@ class ApiGatewayManager(object):
             )
         except ClientError as e:
             if e.response["Error"]["Code"] == "NotFoundException":
-                logit("API Gateway " + api_gateway_id + " appears to have been deleted or no longer exists!")
+                logit(f"API Gateway {api_gateway_id} appears to have been deleted or no longer exists!")
                 return False
 
         return True

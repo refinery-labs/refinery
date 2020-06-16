@@ -83,6 +83,7 @@ class AwsWorkflowState(WorkflowState):
 
         if self.deployed_state is None:
             return True
+
         return self.deployed_state.state_changed(self.current_state)
 
     def deployed_state_exists(self) -> bool:

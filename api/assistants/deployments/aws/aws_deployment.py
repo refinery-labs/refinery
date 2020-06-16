@@ -4,6 +4,7 @@ import uuid
 from tornado import gen
 from typing import Union, Dict, List
 
+from assistants.deployments.api_gateway import strip_api_gateway
 from assistants.deployments.aws.api_endpoint import ApiEndpointWorkflowState
 from assistants.deployments.aws.api_gateway import ApiGatewayWorkflowState, ApiGatewayDeploymentState
 from assistants.deployments.aws.aws_workflow_state import AwsWorkflowState
@@ -205,12 +206,8 @@ class AwsDeployment(DeploymentDiagram):
         return update_futures
 
     def _use_or_create_api_gateway(self):
-        api_gateway = self.api_gateway
-
-        # If we did not find an api gateway, let's create a placeholder for now
-        if api_gateway is None:
-            api_gateway = ApiGatewayWorkflowState(self.credentials)
-            api_gateway.setup(self, {})
+        api_gateway = ApiGatewayWorkflowState(self.credentials)
+        api_gateway.setup(self, {})
 
         self.add_workflow_state(api_gateway)
 

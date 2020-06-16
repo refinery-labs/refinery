@@ -68,7 +68,7 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
 		super().setup(deploy_diagram, workflow_state_json)
 
 		if self.deployed_state is None:
-			self.deployed_state = LambdaDeploymentState(self.type, None, arn=self.arn)
+			self.deployed_state = LambdaDeploymentState(self.name, self.type, None, arn=self.arn)
 
 		self.execution_pipeline_id = deploy_diagram.project_id
 		self.execution_log_level = deploy_diagram.project_config["logging"]["level"]

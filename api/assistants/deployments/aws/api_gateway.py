@@ -105,7 +105,7 @@ class ApiGatewayWorkflowState(AwsWorkflowState):
     def setup(self, deploy_diagram: AwsDeployment, workflow_state_json: Dict[str, object]):
         # There will only ever be one API Gateway per project, so we can use the project id as the
         # identifier for this component
-        self.deployed_state = deploy_diagram.get_previous_state(deploy_diagram.project_id)
+        self.deployed_state = deploy_diagram.get_previous_state(API_GATEWAY_STATE_ARN)
         if self.deployed_state is None:
             self.deployed_state = ApiGatewayDeploymentState(
                 self.name, StateTypes.API_GATEWAY, None, API_GATEWAY_STATE_ARN, None
@@ -173,21 +173,14 @@ class ApiGatewayWorkflowState(AwsWorkflowState):
         yield self._setup_deployment_state(api_gateway_manager, self.deployed_state)
 
     @gen.coroutine
-    def create_api_resource(self, task_spawner, parent_id, path_part, current_path):
+    def create_api_resource(self, task_spawner, parent_id, path_part):
         new_resource_id = yield task_spawner.create_resource(
             self._credentials,
             self.api_gateway_id,
             parent_id,
             path_part
         )
-        current_base_pointer_id = new_resource_id
-
-        # Create a new api endpoint resource and add it to our deployed state
-        api_endpoint = ApiGatewayEndpoint(current_base_pointer_id, current_path)
-
-        self.deployed_state.add_endpoint(api_endpoint)
-
-        raise gen.Return(api_endpoint)
+        raise gen.Return(new_resource_id)
 
     @gen.coroutine
     def ensure_endpoint_exists_in_api_gateway(self, task_spawner, api_endpoint: ApiEndpointWorkflowState):
@@ -202,33 +195,49 @@ class ApiGatewayWorkflowState(AwsWorkflowState):
         # The endpoint as it exists in API Gateway
         api_gateway_endpoint = None
 
+        should_create_method = False
+
         # Create entire path from chain
         for path_part in path_parts:
             # Check if there's a conflicting resource here
-            current_path += "/" + path_part
+            check_path = current_path + "/" + path_part
 
             # Get existing resource ID instead of creating one
-            api_gateway_endpoint = self.deployed_state.get_endpoint_from_path(current_path)
+            api_gateway_endpoint = self.deployed_state.get_endpoint_from_path(check_path)
             if api_gateway_endpoint is not None:
                 current_base_pointer_id = api_gateway_endpoint.id
             else:
+                should_create_method = True
                 # Otherwise go ahead and create one
-                api_gateway_endpoint = yield self.create_api_resource(
+                current_base_pointer_id = yield self.create_api_resource(
                     task_spawner,
                     current_base_pointer_id,
-                    path_part,
-                    current_path
+                    path_part
                 )
+
+                # Create a new api endpoint resource and add it to our deployed state
+                api_gateway_endpoint = ApiGatewayEndpoint(current_base_pointer_id, check_path)
+
+                self.deployed_state.add_endpoint(api_gateway_endpoint)
 
             # The current endpoint we are looking at is in the path of what we are searching for
             # so we will want to prevent it from being cleaned at the end of deployment
             api_gateway_endpoint.set_endpoint_in_use()
 
+            current_path = check_path
+
         if api_gateway_endpoint is not None:
             # Mark the method in the api endpoint, at the end of the path, as in use
             api_gateway_endpoint.set_method_in_use(api_endpoint.http_method)
 
-        raise gen.Return(current_base_pointer_id)
+        should_create_method = should_create_method or not (api_gateway_endpoint.method_exists(api_endpoint.http_method))
+
+        raise gen.Return(
+            dict(
+                current_base_pointer_id=current_base_pointer_id,
+                should_create_method=should_create_method
+            )
+        )
 
     @gen.coroutine
     def create_lambda_api_route(self, task_spawner, api_endpoint: ApiEndpointWorkflowState):
@@ -241,17 +250,21 @@ class ApiGatewayWorkflowState(AwsWorkflowState):
             api_endpoint.name
         )
 
-        current_base_pointer_id = yield self.ensure_endpoint_exists_in_api_gateway(task_spawner, api_endpoint)
+        return_data = yield self.ensure_endpoint_exists_in_api_gateway(task_spawner, api_endpoint)
 
-        # Create method on base resource
-        method_response = yield task_spawner.create_method(
-            self._credentials,
-            "HTTP Method",
-            self.api_gateway_id,
-            current_base_pointer_id,
-            api_endpoint.http_method,
-            False,
-        )
+        current_base_pointer_id = return_data.get("current_base_pointer_id")
+        should_create_method = return_data.get("should_create_method")
+
+        if should_create_method:
+            # Create method on base resource
+            method_response = yield task_spawner.create_method(
+                self._credentials,
+                "HTTP Method",
+                self.api_gateway_id,
+                current_base_pointer_id,
+                api_endpoint.http_method,
+                False,
+            )
 
         # Link the API Gateway to the lambda
         link_response = yield task_spawner.link_api_method_to_lambda(
@@ -269,10 +282,12 @@ class ApiGatewayWorkflowState(AwsWorkflowState):
             endpoint_is_configured = self.deployed_state.endpoint_is_configured(
                 task_spawner, self._credentials, api_endpoint)
 
-            if not api_endpoint.state_has_changed() \
-                    and api_endpoint.deployed_state_exists() \
-                    and endpoint_is_configured:
+            endpoint_unchanged_and_exists = (
+                not api_endpoint.state_has_changed()
+                and api_endpoint.deployed_state_exists()
+            )
 
+            if endpoint_unchanged_and_exists and endpoint_is_configured:
                 logit(f"API Endpoint {api_endpoint.id} has not changed and exists, skipping setting up API route")
 
                 # If this is the case, we can skip setting up the lambda api endpoint, we just need

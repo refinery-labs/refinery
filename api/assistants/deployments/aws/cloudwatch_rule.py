@@ -18,8 +18,8 @@ if TYPE_CHECKING:
 
 
 class ScheduleTriggerDeploymentState(AwsDeploymentState):
-    def __init__(self, state_type, state_hash, arn):
-        super().__init__(state_type, state_hash, arn)
+    def __init__(self, name, state_type, state_hash, arn):
+        super().__init__(name, state_type, state_hash, arn)
 
         self.rules: List[CloudwatchRuleTarget] = []
 
@@ -53,7 +53,7 @@ class ScheduleTriggerWorkflowState(AwsWorkflowState, ScheduledActionWorkflowStat
         super().setup(deploy_diagram, workflow_state_json)
 
         if self.deployed_state is None:
-            self.deployed_state = ScheduleTriggerDeploymentState(self.type, self.arn, None)
+            self.deployed_state = ScheduleTriggerDeploymentState(self.name, self.type, self.arn, None)
 
         self.description = workflow_state_json["description"]
 
@@ -70,10 +70,11 @@ class ScheduleTriggerWorkflowState(AwsWorkflowState, ScheduledActionWorkflowStat
         return any([rule.arn == state.arn for rule in self.deployed_state.rules])
 
     def _link_trigger_to_next_deployed_state(self, task_spawner, next_node):
+        """
         if not self.state_has_changed() and self._rule_exists_for_state(next_node):
             # Cloudwatch rule has not changed and is already configured for this next state
             return None
-
+        """
         return task_spawner.add_rule_target(
             self._credentials,
             self,

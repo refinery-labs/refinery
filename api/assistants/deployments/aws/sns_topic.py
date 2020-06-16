@@ -36,7 +36,7 @@ class SnsTopicWorkflowState(AwsWorkflowState, TopicWorkflowState):
     def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
         super().setup(deploy_diagram, workflow_state_json)
         if self.deployed_state is None:
-            self.deployed_state = SnsTopicDeploymentState(self.type, None, self.arn)
+            self.deployed_state = SnsTopicDeploymentState(self.name, self.type, None, self.arn)
 
     def deploy(self, task_spawner, project_id, project_config):
         logit(f"Deploying SNS topic '{self.name}'...")

@@ -39,7 +39,7 @@ class SqsQueueWorkflowState(AwsWorkflowState, QueueWorkflowState):
         super().setup(deploy_diagram, workflow_state_json)
 
         if self.deployed_state is None:
-            self.deployed_state = AwsDeploymentState(StateTypes.SQS_QUEUE, None, self.arn)
+            self.deployed_state = AwsDeploymentState(self.name, StateTypes.SQS_QUEUE, None, self.arn)
 
         region = self._credentials["region"]
         account_id = self._credentials["account_id"]
