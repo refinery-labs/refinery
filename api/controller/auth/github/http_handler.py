@@ -1,4 +1,6 @@
 import os
+from base64 import b64encode
+
 import pinject
 from tornado import gen
 
@@ -103,7 +105,7 @@ class AuthenticateWithGithub(BaseHandler):
 
         # return script for closing this window, the user should be taken back to the original page
         # they started the oauth flow from
-        nonce = str(os.urandom(16)).encode("base64").replace('\n', '')
+        nonce = b64encode(os.urandom(16))
 
         broadcast_and_close_js = """
         const bc = new BroadcastChannel('auth_flow');

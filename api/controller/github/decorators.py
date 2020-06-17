@@ -1,3 +1,5 @@
+import inspect
+import json
 from inspect import getargspec
 from controller.decorators import authenticated
 from controller.github.github_utils import get_existing_github_oauth_user_data
@@ -32,11 +34,13 @@ def github_authenticated(func):
             })
             return
 
-        if 'oauth_token' in getargspec(func).args:
+        func_parameters = inspect.signature(func).parameters
+
+        if 'oauth_token' in func_parameters:
             kwargs['oauth_token'] = str(oauth_token)
 
-        if 'oauth_json_data' in getargspec(func).args:
-            kwargs['oauth_json_data'] = str(oauth_json_data)
+        if 'oauth_json_data' in func_parameters:
+            kwargs['oauth_json_data'] = oauth_json_data
 
         return func(*args, **kwargs)
 
