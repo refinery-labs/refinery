@@ -21,6 +21,7 @@ from assistants.user_creation_assistant import UserCreationAssistant
 from config.provider import ConfigBindingSpec
 
 from services.aws.clients import AWSClientBindingSpec
+from services.terraform import TerraformService
 from utils.general import logit, UtilsBindingSpec
 from assistants.deployments.ecs_builders import BuilderManager, AwsEcsManager
 
@@ -59,7 +60,8 @@ if __name__ == "__main__":
         AwsClientFactory,
         AwsResourceEnumerator,
         WebsocketRouter,
-        TaskSpawner
+        TaskSpawner,
+        TerraformService
     ]
 
     binding_specs = [
