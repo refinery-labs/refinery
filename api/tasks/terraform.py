@@ -10,6 +10,9 @@ from uuid import uuid4
 from utils.general import logit
 
 
+TERRAFORM_TIMEOUT = 300  # 5 minutes
+
+
 def write_terraform_base_files(app_config, sts_client, aws_account_dict):
     # Create a temporary working directory for the work.
     # Even if there's some exception thrown during the process
@@ -137,7 +140,7 @@ def terraform_configure_aws_account(aws_client_factory, app_config, preterraform
             universal_newlines=True,
             cwd=base_dir,
         )
-        process_stdout, process_stderr = process_handler.communicate()
+        process_stdout, process_stderr = run_terraform_process(process_handler)
 
         if process_stderr.strip() != "":
             logit("The Terraform provisioning has failed!", "error")
@@ -170,7 +173,7 @@ def terraform_configure_aws_account(aws_client_factory, app_config, preterraform
             universal_newlines=True,
             cwd=base_dir,
         )
-        process_stdout, process_stderr = process_handler.communicate()
+        process_stdout, process_stderr = run_terraform_process(process_handler)
 
         # Parse Terraform JSON output
         terraform_provisioned_account_details = loads(
@@ -259,7 +262,7 @@ def terraform_apply(aws_client_factory, app_config, preterraform_manager, sts_cl
             universal_newlines=True,
             cwd=temporary_directory,
         )
-        process_stdout, process_stderr = process_handler.communicate()
+        process_stdout, process_stderr = run_terraform_process(process_handler)
         return_data["stdout"] = process_stdout
         return_data["stderr"] = process_stderr
 
@@ -327,7 +330,7 @@ def terraform_plan(app_config, sts_client, aws_account_data, refresh_terraform_s
             universal_newlines=True,
             cwd=temporary_directory,
         )
-        process_stdout, process_stderr = process_handler.communicate()
+        process_stdout, process_stderr = run_terraform_process(process_handler)
 
         if process_stderr.strip() != "":
             logit("The 'terraform plan' has failed!", "error")
@@ -342,3 +345,7 @@ def terraform_plan(app_config, sts_client, aws_account_data, refresh_terraform_s
     logit("Terraform plan completed successfully, returning output.")
 
     return process_stdout
+
+
+def run_terraform_process(process):
+    return process.communicate(timeout=TERRAFORM_TIMEOUT)
