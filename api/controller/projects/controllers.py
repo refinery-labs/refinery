@@ -11,7 +11,7 @@ from controller.decorators import authenticated
 from controller.logs.actions import delete_logs
 from controller.projects.actions import update_project_config
 from controller.projects.schemas import *
-from models import Deployment, ProjectVersion, ProjectConfig, Project, ProjectShortLink
+from models import Deployment, ProjectVersion, ProjectConfig, Project, ProjectShortLink, CachedExecutionLogsShard
 
 
 class SaveProjectConfig(BaseHandler):
@@ -304,6 +304,12 @@ class DeleteSavedProject(BaseHandler):
                 credentials,
                 teardown_nodes
             )
+
+            self.dbsession.query(
+                CachedExecutionLogsShard
+            ).filter(
+                CachedExecutionLogsShard.project_id == project_id
+            ).delete()
 
         # delete existing logs for the project
         delete_logs(

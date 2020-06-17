@@ -1,5 +1,8 @@
+import time
+
 import pinject
 import tornado
+from tornado import gen
 
 from tornado.concurrent import run_on_executor, futures
 
@@ -37,12 +40,18 @@ class LambdaManager(object):
         # Cleanup the source mappings for when we recreate this lambda and they do not persist
         event_source_mappings = list_lambda_event_source_mappings_by_name(aws_client_factory, credentials, name)
         for mapping in event_source_mappings:
-            if mapping.state != "Enabled" and mapping.state != "Disabled":
-                logit("TODO if this event source mapping is not in a deletable state, then we have to wait")
+            attempts = 0
+            while attempts < 5:
+                try:
+                    lambda_client.delete_event_source_mapping(
+                        UUID=mapping.uuid
+                    )
+                except ClientError as e:
+                    if e.response["Error"]["Code"] != "ResourceInUseException":
+                        raise
 
-            lambda_client.delete_event_source_mapping(
-                UUID=mapping.uuid
-            )
+                    attempts += 1
+                    time.sleep(1)
 
         was_deleted = False
         try:
