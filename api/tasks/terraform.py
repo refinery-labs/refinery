@@ -141,7 +141,7 @@ def terraform_configure_aws_account(aws_client_factory, app_config, preterraform
         )
         process_stdout, process_stderr = run_terraform_process(process_handler)
 
-        if process_stderr.strip() != "":
+        if process_stderr.strip():
             logit("The Terraform provisioning has failed!", "error")
             logit(process_stderr, "error")
             logit(process_stdout, "error")
@@ -268,7 +268,7 @@ def terraform_apply(aws_client_factory, app_config, preterraform_manager, sts_cl
         with open(temporary_directory + "terraform.tfstate", "r") as file_handler:
             return_data["new_tfstate"] = file_handler.read()
 
-        if process_stderr.strip() != "":
+        if process_stderr.strip():
             logit("The 'terraform apply' has failed!", "error")
             logit(process_stderr, "error")
             logit(process_stdout, "error")
@@ -328,7 +328,7 @@ def terraform_plan(app_config, sts_client, aws_account_data, refresh_terraform_s
         )
         process_stdout, process_stderr = run_terraform_process(process_handler)
 
-        if process_stderr.strip() != "":
+        if process_stderr.strip():
             logit("The 'terraform plan' has failed!", "error")
             logit(process_stderr, "error")
             logit(process_stdout, "error")
