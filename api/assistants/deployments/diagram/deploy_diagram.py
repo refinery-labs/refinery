@@ -102,7 +102,12 @@ class DeploymentDiagram:
 	def _cleanup_unused_workflow_state_resources(self, task_spawner):
 		cleanup_futures = []
 		for workflow_state in self._workflow_state_lookup.states():
-			cleanup_futures.append(workflow_state.cleanup(task_spawner, self))
+			cleanup_futures.append(
+				dict(
+					future=workflow_state.cleanup(task_spawner, self),
+					workflow_state=workflow_state
+				)
+			)
 
 		return cleanup_futures
 

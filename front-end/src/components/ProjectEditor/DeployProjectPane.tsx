@@ -152,9 +152,10 @@ Exception: ${error.exception}
             </div>
           </b-form-group>
 
-          <hr />
-
-          <b-form-group id="force-redeploy-input-group">
+          <b-form-group
+            id="force-redeploy-input-group"
+            description="Force redeploying this project will remove all currently deployed blocks and redeploy them."
+          >
             <b-form-checkbox
               id="force-redeploy-input"
               name="force-redeploy-input"

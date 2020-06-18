@@ -275,6 +275,23 @@ class AwsDeployment(DeploymentDiagram):
         raise gen.Return(deployment_exceptions)
 
     @gen.coroutine
+    def execute_setup_api_endpoints(self, deployed_api_endpoints):
+        setup_endpoint_futures = self.api_gateway.setup_api_endpoints(
+                self.task_spawner, deployed_api_endpoints)
+
+        setup_endpoint_executions = yield self.handle_deploy_futures(setup_endpoint_futures)
+        raise gen.Return(setup_endpoint_executions)
+
+    @gen.coroutine
+    def execute_finalize_gateway(self):
+        future = dict(
+            future=self.api_gateway.finalize_setup(self.task_spawner, self.api_gateway_manager),
+            workflow_state=self.api_gateway
+        )
+        exceptions = yield self.handle_deploy_futures([future])
+        raise gen.Return(exceptions)
+
+    @gen.coroutine
     def deploy(self):
         # If we have api endpoints to deploy, we will deploy an api gateway for them
         deployed_api_endpoints = self._workflow_state_lookup.find_states(
@@ -295,8 +312,13 @@ class AwsDeployment(DeploymentDiagram):
             raise gen.Return(deployment_exceptions)
 
         if deploying_api_gateway:
-            yield self.api_gateway.setup_api_endpoints(
-                self.task_spawner, self.api_gateway_manager, deployed_api_endpoints)
+            setup_api_endpoint_exceptions = yield self.execute_setup_api_endpoints(deployed_api_endpoints)
+            if len(setup_api_endpoint_exceptions) != 0:
+                raise gen.Return(setup_api_endpoint_exceptions)
+
+            finalize_exceptions = yield self.execute_finalize_gateway()
+            if len(finalize_exceptions) != 0:
+                raise gen.Return(finalize_exceptions)
 
         update_futures = self._update_workflow_states_with_deploy_info(self.task_spawner)
 
@@ -315,10 +337,14 @@ class AwsDeployment(DeploymentDiagram):
                 workflow_states
             )
 
-        yield update_futures
+        update_exceptions = yield self.handle_deploy_futures(update_futures)
+        if len(update_exceptions) != 0:
+            raise gen.Return(update_exceptions)
 
         cleanup_futures = self._cleanup_unused_workflow_state_resources(self.task_spawner)
-        yield cleanup_futures
+        cleanup_exceptions = yield self.handle_deploy_futures(cleanup_futures)
+        if len(cleanup_exceptions) != 0:
+            raise gen.Return(cleanup_exceptions)
 
         raise gen.Return(deployment_exceptions)
 

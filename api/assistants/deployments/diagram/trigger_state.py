@@ -17,6 +17,11 @@ class TriggerWorkflowState(WorkflowState):
                 if future is None:
                     continue
 
-                deploy_trigger_futures.append(future)
+                deploy_trigger_futures.append(
+                    dict(
+                        future=future,
+                        workflow_state=self
+                    )
+                )
 
         return deploy_trigger_futures

@@ -12,6 +12,9 @@ class ApiGatewayEndpoint:
         # map HTTP methods to whether or not they are in use
         self._methods: Dict[str, bool] = dict()
 
+    def __str__(self):
+        return f"ApiGatewayEndpoint id: {self.id} path: {self.path}"
+
     def get_all_methods(self):
         return self._methods.items()
 
