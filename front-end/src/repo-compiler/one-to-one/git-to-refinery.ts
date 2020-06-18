@@ -15,14 +15,16 @@ import generateStupidName from '@/lib/silly-names';
 import { LoadedLambdaConfigs, WorkflowFileLookup } from '@/repo-compiler/one-to-one/types';
 import {
   BLOCK_CODE_FILENAME,
+  GLOBAL_BASE_PATH,
   LAMBDA_CONFIG_FILENAME,
   LAMBDA_SHARED_FILES_DIR,
-  PROJECT_CONFIG_FILENAME,
   PROJECT_LAMBDA_DIR,
-  PROJECT_SHARED_FILES_DIR
+  PROJECT_SHARED_FILES_DIR,
+  PROJECTS_CONFIG_FOLDER
 } from '@/repo-compiler/shared/constants';
 import {
   isPathValidSymlink,
+  listFilesInFolder,
   pathExists,
   readFile,
   readlink,
@@ -128,7 +130,7 @@ async function loadLambdaBlocks(
   repoDir: string,
   sharedFileLookup: WorkflowFileLookup
 ): Promise<LoadedLambdaConfigs> {
-  const lambdaPath = Path.join(repoDir, PROJECT_LAMBDA_DIR);
+  const lambdaPath = Path.join(repoDir, GLOBAL_BASE_PATH, PROJECT_LAMBDA_DIR);
   try {
     await fs.promises.stat(lambdaPath);
   } catch (e) {
@@ -170,7 +172,7 @@ async function loadSharedFileConfig(
 }
 
 async function loadSharedFiles(fs: PromiseFsClient, repoDir: string): Promise<WorkflowFileLookup> {
-  const sharedFilesPath = Path.join(repoDir, PROJECT_SHARED_FILES_DIR);
+  const sharedFilesPath = Path.join(repoDir, GLOBAL_BASE_PATH, PROJECT_SHARED_FILES_DIR);
 
   try {
     await fs.promises.stat(sharedFilesPath);
@@ -193,19 +195,21 @@ async function loadSharedFiles(fs: PromiseFsClient, repoDir: string): Promise<Wo
 export async function loadProjectFromDir(
   fs: PromiseFsClient,
   projectID: string,
+  sessionID: string,
   repoDir: string
 ): Promise<RefineryProject> {
-  const projectConfigExists = await pathExists(fs, repoDir, PROJECT_CONFIG_FILENAME);
+  const projectConfigFilename = Path.join(GLOBAL_BASE_PATH, `${PROJECTS_CONFIG_FOLDER}${projectID}.yaml`);
+  const projectConfigExists = await pathExists(fs, repoDir, projectConfigFilename);
 
   if (!projectConfigExists) {
     const repoContext: RepoCompilationErrorContext = {
-      filename: PROJECT_CONFIG_FILENAME
+      filename: projectConfigFilename
     };
     throw new RepoCompilationError('Project config does not exist', repoContext);
   }
 
   // TODO: Add validation of object here
-  const loadedProjectConfig = yaml.safeLoad(await readFile(fs, repoDir, PROJECT_CONFIG_FILENAME)) as RefineryProject;
+  const loadedProjectConfig = yaml.safeLoad(await readFile(fs, repoDir, projectConfigFilename)) as RefineryProject;
 
   const sharedFileLookup = await loadSharedFiles(fs, repoDir);
   const sharedFileConfigs = Object.values(sharedFileLookup);

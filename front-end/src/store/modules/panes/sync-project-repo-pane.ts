@@ -44,6 +44,7 @@ export interface SyncProjectRepoPaneState {
   pushingToRepo: boolean;
   commitMessage: string;
   projectSessionId: string | null;
+  viewingProjectId: string | null;
   currentlyDiffedFile: string | null;
   gitDiffInfo: GitDiffInfo;
 
@@ -60,6 +61,7 @@ const moduleState: SyncProjectRepoPaneState = {
   pushingToRepo: false,
   commitMessage: 'update project from Refinery UI',
   projectSessionId: null,
+  viewingProjectId: null,
   currentlyDiffedFile: null,
   gitDiffInfo: { originalFiles: {}, changedFiles: {} },
 
@@ -79,6 +81,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   public pushingToRepo: boolean = initialState.pushingToRepo;
   public commitMessage: string = initialState.commitMessage;
   public projectSessionId: string | null = initialState.projectSessionId;
+  public viewingProjectId: string | null = initialState.viewingProjectId;
   public currentlyDiffedFile: string | null = initialState.currentlyDiffedFile;
   public gitDiffInfo: GitDiffInfo = initialState.gitDiffInfo;
 
@@ -200,6 +203,11 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   @Mutation
   public setRandomSessionProjectId(projectID: string) {
     this.projectSessionId = projectID;
+  }
+
+  @Mutation
+  public setViewingProjectId(projectID: string) {
+    this.viewingProjectId = projectID;
   }
 
   @LoggingAction
@@ -357,6 +365,12 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
   @LoggingAction
   public async compileClonedProject(gitClient: GitClient): Promise<RefineryProject | null> {
+    if (this.viewingProjectId === null) {
+      const msg = 'Cannot compile clone repo with missing viewing project id';
+      console.error(msg);
+      throw new InvalidGitRepoError(msg);
+    }
+
     if (this.projectSessionId === null) {
       const msg = 'Cannot compile clone repo with missing project session id';
       console.error(msg);
@@ -364,7 +378,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     }
 
     try {
-      return await loadProjectFromDir(gitClient.fs, this.projectSessionId, gitClient.dir);
+      return await loadProjectFromDir(gitClient.fs, this.viewingProjectId, this.projectSessionId, gitClient.dir);
     } catch (e) {
       if (e instanceof RepoCompilationError) {
         // this.setRepoCompilationError(e);
@@ -374,7 +388,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   }
 
   @LoggingAction
-  public async setupLocalProjectRepo(projectConfig: ProjectConfig) {
+  public async setupLocalProjectRepo([projectConfig, projectId]: [ProjectConfig, string]) {
     if (!projectConfig.project_repo) {
       const msg = 'Unable to setup local project repo with missing git repo URI';
       console.error(msg);
@@ -384,6 +398,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     const projectSessionId = uuid.v4();
 
     this.setRandomSessionProjectId(projectSessionId);
+    this.setViewingProjectId(projectId);
 
     GitStoreModule.createGitStore({
       projectId: projectSessionId,

@@ -103,8 +103,6 @@ class GithubProxy( BaseHandler ):
             if self.request.headers.get( header ):
                 headers[header] = self.request.headers[header]
 
-        print(oauth_json_data)
-
         username = oauth_json_data['login']
         password = oauth_token
 

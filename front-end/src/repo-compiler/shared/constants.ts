@@ -1,4 +1,5 @@
-export const PROJECT_CONFIG_FILENAME = 'project.yaml';
+export const GLOBAL_BASE_PATH = 'refinery/';
+export const PROJECTS_CONFIG_FOLDER = 'projects/';
 export const PROJECT_LAMBDA_DIR = 'lambda';
 export const PROJECT_SHARED_FILES_DIR = 'shared-files';
 
