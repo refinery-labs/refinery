@@ -389,6 +389,7 @@ class MaintainAWSAccountReserves(BaseHandler):
         })
         self.finish()
 
+        self.terraform_service.maintain_aws_account_reserves()
 
 
 class PerformTerraformUpdateOnFleet(BaseHandler):

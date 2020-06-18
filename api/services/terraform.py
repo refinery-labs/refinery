@@ -1,6 +1,7 @@
-from pinject import copy_args_to_public_fields
 import json
 import shutil
+
+
 from copy import copy
 from models import AWSAccount, TerraformStateVersion
 from json import loads
@@ -8,8 +9,11 @@ from shutil import rmtree
 from subprocess import Popen, PIPE
 from tasks.email import send_terraform_provisioning_error
 from tasks.role import get_assume_role_credentials
+from time import time
 from uuid import uuid4
 from utils.general import logit
+from pinject import copy_args_to_public_fields
+from traceback import print_exc
 
 
 class TerraformService(object):
@@ -18,6 +22,7 @@ class TerraformService(object):
     preterraform_manager = None
     aws_client_factory = None  # type: AwsClientFactory
     db_session_maker = None
+    task_spawner = None
 
     # noinspection PyUnresolvedReferences
     @copy_args_to_public_fields
@@ -27,7 +32,8 @@ class TerraformService(object):
         sts_client,
         preterraform_manager,
         aws_client_factory,
-        db_session_maker
+        db_session_maker,
+        task_spawner
     ):
         pass
 
@@ -341,13 +347,7 @@ class TerraformService(object):
 
         return process_stdout
 
-    def maintain_aws_account_reserves(self):
-        """
-        This job checks the number of AWS accounts in the reserve pool and will
-        automatically create accounts for the pool if there are less than the
-        target amount. This job is run regularly (every minute) to ensure that
-        we always have enough AWS accounts ready to use.
-        """
+    def get_account_create_info(self):
         dbsession = self.db_session_maker()
 
         reserved_aws_pool_target_amount = int(self.app_config.get("reserved_aws_pool_target_amount"))
@@ -370,7 +370,7 @@ class TerraformService(object):
         # to actually perform the Terraform step.
         # We'll do 20 because it usually takes 15 to get the "Account Verified" email.
         minimum_account_age_seconds = (60 * 5)
-        current_timestamp = int(time.time())
+        current_timestamp = int(time())
         non_setup_aws_accounts = dbsession.query(AWSAccount).filter(
             AWSAccount.aws_account_status == "CREATED",
             AWSAccount.timestamp <= (current_timestamp - minimum_account_age_seconds)
@@ -399,72 +399,87 @@ class TerraformService(object):
         self.logger("Target pool amount: " + str(reserved_aws_pool_target_amount))
         self.logger("Number of accounts to be created: " + str(accounts_to_create))
 
-        # Kick off the terraform apply jobs for the accounts which are "aged" for it.
-        for aws_account_id in aws_account_ids:
+        return aws_account_ids, accounts_to_create
+
+    def terraform_apply_aged_account(self, aws_account_id):
+        dbsession = self.db_session_maker()
+        current_aws_account = dbsession.query(AWSAccount).filter(
+            AWSAccount.account_id == aws_account_id,
+        ).first()
+        current_aws_account_dict = current_aws_account.to_dict()
+        dbsession.close()
+
+        self.logger("Kicking off terraform set-up for AWS account '" + current_aws_account_dict["account_id"] + "'...")
+        try:
+            account_provisioning_details = yield self.task_spawner.terraform_configure_aws_account(
+                current_aws_account_dict
+            )
+
+            self.logger("Adding AWS account to the database the pool of \"AVAILABLE\" accounts...")
+
             dbsession = self.db_session_maker()
             current_aws_account = dbsession.query(AWSAccount).filter(
                 AWSAccount.account_id == aws_account_id,
             ).first()
-            current_aws_account_dict = current_aws_account.to_dict()
-            dbsession.close()
 
-            self.logger("Kicking off terraform set-up for AWS account '" + current_aws_account_dict["account_id"] + "'...")
-            try:
-                account_provisioning_details = yield self.task_spawner.terraform_configure_aws_account(
-                    current_aws_account_dict
-                )
+            # Update the AWS account with this new information
+            current_aws_account.redis_hostname = account_provisioning_details["redis_hostname"]
+            current_aws_account.terraform_state = account_provisioning_details["terraform_state"]
+            current_aws_account.ssh_public_key = account_provisioning_details["ssh_public_key"]
+            current_aws_account.ssh_private_key = account_provisioning_details["ssh_private_key"]
+            current_aws_account.aws_account_status = "AVAILABLE"
 
-                self.logger("Adding AWS account to the database the pool of \"AVAILABLE\" accounts...")
+            # Create a new terraform state version
+            terraform_state_version = TerraformStateVersion()
+            terraform_state_version.terraform_state = account_provisioning_details["terraform_state"]
+            current_aws_account.terraform_state_versions.append(
+                terraform_state_version
+            )
+        except Exception as e:
+            self.logger("An error occurred while provision AWS account '" + current_aws_account.account_id + "' with terraform!", "error")
+            self.logger(e)
+            print_exc()
+            self.logger("Marking the account as 'CORRUPT'...")
 
-                dbsession = self.db_session_maker()
-                current_aws_account = dbsession.query(AWSAccount).filter(
-                    AWSAccount.account_id == aws_account_id,
-                ).first()
+            # Mark the account as corrupt since the provisioning failed.
+            current_aws_account.aws_account_status = "CORRUPT"
 
-                # Update the AWS account with this new information
-                current_aws_account.redis_hostname = account_provisioning_details["redis_hostname"]
-                current_aws_account.terraform_state = account_provisioning_details["terraform_state"]
-                current_aws_account.ssh_public_key = account_provisioning_details["ssh_public_key"]
-                current_aws_account.ssh_private_key = account_provisioning_details["ssh_private_key"]
-                current_aws_account.aws_account_status = "AVAILABLE"
+        self.logger("Commiting new account state of '" + current_aws_account.aws_account_status + "' to database...")
+        dbsession.add(current_aws_account)
+        dbsession.commit()
 
-                # Create a new terraform state version
-                terraform_state_version = TerraformStateVersion()
-                terraform_state_version.terraform_state = account_provisioning_details["terraform_state"]
-                current_aws_account.terraform_state_versions.append(
-                    terraform_state_version
-                )
-            except Exception as e:
-                self.logger("An error occurred while provision AWS account '" + current_aws_account.account_id + "' with terraform!", "error")
-                self.logger(e)
-                print_exc()
-                self.logger("Marking the account as 'CORRUPT'...")
+        self.logger("Freezing the account until it's used by someone...")
 
-                # Mark the account as corrupt since the provisioning failed.
-                current_aws_account.aws_account_status = "CORRUPT"
+        self.task_spawner.freeze_aws_account(current_aws_account.to_dict())
 
-            self.logger("Commiting new account state of '" + current_aws_account.aws_account_status + "' to database...")
-            dbsession.add(current_aws_account)
-            dbsession.commit()
+        self.logger("Account frozen successfully.")
 
-            self.logger("Freezing the account until it's used by someone...")
+    def create_sub_account_for_later_use(self):
+        self.logger("Creating a new AWS sub-account for later terraform use...")
+        # We have to yield because you can't mint more than one sub-account at a time
+        # (AWS can litterally only process one request at a time).
+        try:
+            yield self.task_spawner.create_new_sub_aws_account(
+                "MANAGED",
+                False
+            )
+        except Exception as e:
+            self.logger("An error occurred while creating an AWS sub-account: " + repr(e), "error")
 
-            self.task_spawner.freeze_aws_account(current_aws_account.to_dict())
+    def maintain_aws_account_reserves(self):
+        """
+        This job checks the number of AWS accounts in the reserve pool and will
+        automatically create accounts for the pool if there are less than the
+        target amount. This job is run regularly (every minute) to ensure that
+        we always have enough AWS accounts ready to use.
+        """
 
-            self.logger("Account frozen successfully.")
+        aws_account_ids, accounts_to_create = self.get_account_create_info()
+
+        # Kick off the terraform apply jobs for the accounts which are "aged" for it.
+        for aws_account_id in aws_account_ids:
+            self.terraform_apply_aged_account(aws_account_id)
 
         # Create sub-accounts and let them age before applying terraform
         for i in range(0, accounts_to_create):
-            self.logger("Creating a new AWS sub-account for later terraform use...")
-            # We have to yield because you can't mint more than one sub-account at a time
-            # (AWS can litterally only process one request at a time).
-            try:
-                yield self.task_spawner.create_new_sub_aws_account(
-                    "MANAGED",
-                    False
-                )
-            except Exception as e:
-                self.logger("An error occurred while creating an AWS sub-account: " + repr(e), "error")
-                pass
-
-        dbsession.close()
+            self.create_sub_account_for_later_use()
