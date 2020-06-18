@@ -137,7 +137,6 @@ def terraform_configure_aws_account(aws_client_factory, app_config, preterraform
             stdout=PIPE,
             stderr=PIPE,
             shell=False,
-            universal_newlines=True,
             cwd=base_dir,
         )
         process_stdout, process_stderr = run_terraform_process(process_handler)
@@ -170,7 +169,6 @@ def terraform_configure_aws_account(aws_client_factory, app_config, preterraform
             stdout=PIPE,
             stderr=PIPE,
             shell=False,
-            universal_newlines=True,
             cwd=base_dir,
         )
         process_stdout, process_stderr = run_terraform_process(process_handler)
@@ -259,7 +257,6 @@ def terraform_apply(aws_client_factory, app_config, preterraform_manager, sts_cl
             stdout=PIPE,
             stderr=PIPE,
             shell=False,
-            universal_newlines=True,
             cwd=temporary_directory,
         )
         process_stdout, process_stderr = run_terraform_process(process_handler)
@@ -327,7 +324,6 @@ def terraform_plan(app_config, sts_client, aws_account_data, refresh_terraform_s
             stdout=PIPE,
             stderr=PIPE,
             shell=False,
-            universal_newlines=True,
             cwd=temporary_directory,
         )
         process_stdout, process_stderr = run_terraform_process(process_handler)
