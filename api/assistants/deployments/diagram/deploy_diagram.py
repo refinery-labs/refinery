@@ -32,11 +32,13 @@ class DeploymentDiagram:
 		self._workflow_state_lookup: StateLookup[WorkflowState] = StateLookup[WorkflowState]()
 		self._merge_workflow_relationship_lookup: Dict = {}
 		self._workflow_state_env_vars: Dict = {}
+		self._global_handlers: Dict = {}
 
 	def serialize(self):
 		return {
 			"name": self.project_name,
 			"project_id": self.project_id,
+			"global_handlers": self._global_handlers
 		}
 
 	def add_workflow_files(self, workflow_files_json, workflow_file_links_json):
@@ -215,3 +217,7 @@ class DeploymentDiagram:
 		for workflow_relationship_json in diagram_data["workflow_relationships"]:
 			workflow_relationship_from_json(self, workflow_relationship_json)
 		self.finalize_merge_transitions()
+
+		# Load all handlers in order to return them back to the front end when
+		# serializing.
+		self._global_handlers = diagram_data["global_handlers"]
