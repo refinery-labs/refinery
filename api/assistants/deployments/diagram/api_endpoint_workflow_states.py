@@ -102,15 +102,6 @@ class ApiGatewayWorkflowState(WorkflowState):
                 resource_item["path"]
             )
             for method, method_attributes in resource_methods.items():
-
-                if "methodIntegration" not in method_attributes:
-                    logit(
-                        "Missing methodIntegration, Gateway ID: " + self.api_gateway_id
-                        + " Resource: " + repr(resource_item),
-                        "error"
-                    )
-                    # continue
-
                 # Set the method as being used
                 gateway_endpoint.set_method_in_use(method)
 
