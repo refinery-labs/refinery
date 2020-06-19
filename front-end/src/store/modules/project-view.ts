@@ -555,6 +555,10 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.saveProjectConfig);
     },
     async [ProjectViewActions.setProjectConfigRepo](context, projectConfigRepo: string) {
+      if (context.state.openedProject === null) {
+        throw new Error('Unable to set project config repo without opened project');
+      }
+
       context.commit(ProjectViewMutators.setProjectRepo, projectConfigRepo);
 
       // Save new config to the backend
@@ -562,7 +566,10 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       // TODO: Refactor project-view to never be able to have this as null....
       if (context.state.openedProjectConfig) {
-        await SyncProjectRepoPaneStoreModule.setupLocalProjectRepo(context.state.openedProjectConfig);
+        await SyncProjectRepoPaneStoreModule.setupLocalProjectRepo([
+          context.state.openedProjectConfig,
+          context.state.openedProject.project_id
+        ]);
       }
     },
     async [ProjectViewActions.setProjectGlobalExceptionHandlerToNode](context, nodeId: string | null) {
@@ -972,7 +979,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.updateProject, params);
 
       if (projectConfig.project_repo) {
-        await SyncProjectRepoPaneStoreModule.setupLocalProjectRepo(projectConfig);
+        await SyncProjectRepoPaneStoreModule.setupLocalProjectRepo([projectConfig, project.project_id]);
       }
 
       context.commit(ProjectViewMutators.isLoadingProject, false);

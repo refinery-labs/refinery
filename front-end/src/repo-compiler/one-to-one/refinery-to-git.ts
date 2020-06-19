@@ -12,9 +12,10 @@ import Path from 'path';
 import slugify from 'slugify';
 import yaml from 'js-yaml';
 import {
+  GLOBAL_BASE_PATH,
   LAMBDA_SHARED_FILES_DIR,
-  PROJECT_CONFIG_FILENAME,
-  PROJECT_SHARED_FILES_DIR
+  PROJECT_SHARED_FILES_DIR,
+  PROJECTS_CONFIG_FOLDER
 } from '@/repo-compiler/shared/constants';
 
 function getFolderName(name: string) {
@@ -27,11 +28,13 @@ async function writeConfig(fs: PromiseFsClient, out: string, data: any) {
 }
 
 async function getLambdaDir(fs: PromiseFsClient, lambdaDir: string, lambdaId: string): Promise<string> {
-  if (await fs.promises.stat(lambdaDir).catch(() => false)) {
+  try {
+    await fs.promises.stat(lambdaDir);
     const firstPartOfId = lambdaId.split('-')[0];
     return `${lambdaDir}-${firstPartOfId}`;
+  } catch (e) {
+    return lambdaDir;
   }
-  return lambdaDir;
 }
 
 async function handleLambda(
@@ -42,7 +45,7 @@ async function handleLambda(
 ): Promise<string> {
   const lambda = workflowState as LambdaWorkflowState;
 
-  const typePath = Path.join(projectDir, getFolderName(workflowState.type));
+  const typePath = Path.join(projectDir, GLOBAL_BASE_PATH, getFolderName(workflowState.type));
   await maybeMkdir(fs, typePath);
 
   const blockDir = getFolderName(lambda.name);
@@ -98,13 +101,15 @@ const workflowStateActions: Record<
 };
 
 async function maybeMkdir(fs: PromiseFsClient, path: string) {
-  if (!(await fs.promises.stat(path).catch(() => false))) {
-    await fs.promises.mkdir(path).catch((e: Error) => console.error('error while mkdir: ' + path + ' ' + e));
+  try {
+    await fs.promises.lstat(path);
+  } catch (e) {
+    await fs.promises.mkdir(path);
   }
 }
 
 export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, project: RefineryProject) {
-  // TODO we probably just want to fetch get objects and not populate the fs
+  await maybeMkdir(fs, Path.join(dir, GLOBAL_BASE_PATH));
 
   // clean repo of all existing files and dirs
   let dirsToRemove = await git.walk({
@@ -134,6 +139,8 @@ export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, projec
     })
   );
 
+  await maybeMkdir(fs, Path.join(dir, GLOBAL_BASE_PATH));
+
   const nodeToWorkflowState = await project.workflow_states.reduce(async (workflowStates, w: WorkflowState) => {
     const awaitedWorkflowStates = await workflowStates;
     const path = await workflowStateActions[w.type](fs, dir, project, w);
@@ -147,18 +154,14 @@ export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, projec
   }, Promise.resolve({} as Record<string, { workflow_state: WorkflowState; path: string }>));
 
   // set project's workflow states to ones that were not handled by compilation
-  const newWorkflowStates = Object.keys(nodeToWorkflowState).reduce(
-    (newWorkflowStates, nodeId) => {
-      if (nodeToWorkflowState[nodeId].path === '') {
-        newWorkflowStates.push(nodeToWorkflowState[nodeId].workflow_state);
-      }
-      return newWorkflowStates;
-    },
-    [] as WorkflowState[]
-  );
+  const newWorkflowStates = Object.keys(nodeToWorkflowState).reduce((newWorkflowStates, nodeId) => {
+    if (nodeToWorkflowState[nodeId].path === '') {
+      newWorkflowStates.push(nodeToWorkflowState[nodeId].workflow_state);
+    }
+    return newWorkflowStates;
+  }, [] as WorkflowState[]);
 
-  const sharedFilesRoot = PROJECT_SHARED_FILES_DIR;
-  const sharedFilesPath = Path.join(dir, sharedFilesRoot);
+  const sharedFilesPath = Path.join(dir, GLOBAL_BASE_PATH, PROJECT_SHARED_FILES_DIR);
   await maybeMkdir(fs, sharedFilesPath);
   const sharedFileLookup = await project.workflow_files.reduce(async (lookup, file) => {
     const awaitedLookup = await lookup;
@@ -166,7 +169,7 @@ export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, projec
     await fs.promises.writeFile(sharedFileFilename, file.body);
 
     // need to determine relative path to this file
-    const sharedFileFilenameFromRoot = Path.join(sharedFilesRoot, file.name);
+    const sharedFileFilenameFromRoot = Path.join(GLOBAL_BASE_PATH, PROJECT_SHARED_FILES_DIR, file.name);
 
     return {
       ...awaitedLookup,
@@ -181,7 +184,7 @@ export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, projec
 
   await Promise.all(
     project.workflow_file_links
-      .filter(f => f.type == 'shared_file_link')
+      .filter(f => f.type === 'shared_file_link')
       .map(async fileLink => {
         const sharedFile = sharedFileLookup[fileLink.file_id];
 
@@ -208,7 +211,11 @@ export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, projec
     workflow_file_links: newWorkflowFileLinks
   };
 
-  const projectConfig = Path.join(dir, PROJECT_CONFIG_FILENAME);
+  const projectFolder = Path.join(dir, GLOBAL_BASE_PATH, PROJECTS_CONFIG_FOLDER);
+
+  await maybeMkdir(fs, projectFolder);
+
+  const projectConfig = Path.join(projectFolder, `${project.project_id}.yaml`);
 
   // TODO we should enforce an ordering of these values so that we don't get modifications every time we write the file
   await writeConfig(fs, projectConfig, newProject);

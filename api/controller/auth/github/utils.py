@@ -2,6 +2,7 @@ import codecs
 import json
 import os
 import re
+from binascii import hexlify
 
 
 def decode_response_body(response):
@@ -38,4 +39,4 @@ def generate_state_token():
     Returns a random "state" token to be used for an OAuth flow.
     :return: The random string
     """
-    return os.urandom(16).encode("hex")
+    return hexlify(os.urandom(16))

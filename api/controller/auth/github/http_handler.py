@@ -1,4 +1,6 @@
 import os
+from base64 import b64encode
+
 import pinject
 from tornado import gen
 
@@ -103,7 +105,7 @@ class AuthenticateWithGithub(BaseHandler):
 
         # return script for closing this window, the user should be taken back to the original page
         # they started the oauth flow from
-        nonce = str(os.urandom(16)).encode("base64").replace('\n', '')
+        nonce = b64encode(os.urandom(16))
 
         broadcast_and_close_js = """
         const bc = new BroadcastChannel('auth_flow');
@@ -160,7 +162,7 @@ class AuthenticateWithGithub(BaseHandler):
             raise BadRequestStateException("Missing state token in parameters")
 
         # Compares tokens to validate the request originated from the same user (is not a CSRF attack)
-        if client_state != oauth_state_cookie:
+        if client_state != oauth_state_cookie.decode("utf-8"):
             raise BadRequestStateException("Client state and session state mismatched")
 
         return code, client_state

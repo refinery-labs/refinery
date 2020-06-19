@@ -1,6 +1,5 @@
 import { CallbackFsClient, PromiseFsClient, StatusRow } from 'isomorphic-git';
 import Path from 'path';
-import { PROJECT_CONFIG_FILENAME } from '@/repo-compiler/shared/constants';
 import { GitStatusResult, LightningFsFile } from '@/repo-compiler/lib/git-types';
 import { RefineryProject } from '@/types/graph';
 
@@ -56,7 +55,7 @@ export async function readFile(fs: PromiseFsClient, gitDir: string, path?: strin
 }
 
 export async function tryReadFile(fs: PromiseFsClient, gitDir: string, path: string): Promise<string | null> {
-  const exists = await pathExists(fs, gitDir, PROJECT_CONFIG_FILENAME);
+  const exists = await pathExists(fs, gitDir, path);
 
   if (!exists) {
     return null;

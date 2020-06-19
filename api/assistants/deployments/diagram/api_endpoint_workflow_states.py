@@ -137,8 +137,8 @@ class ApiGatewayWorkflowState(WorkflowState):
 
 			creating_new_route = True
 			if not api_endpoint.state_has_changed() \
-				and api_endpoint.deployed_state_exists() \
-				and endpoint_is_configured:
+					and api_endpoint.deployed_state_exists() \
+					and endpoint_is_configured:
 
 				logit(f"API Endpoint {api_endpoint.id} has not changed and exists, skipping setting up API route")
 
@@ -164,7 +164,7 @@ class ApiGatewayWorkflowState(WorkflowState):
 			API_GATEWAY_STAGE_NAME
 		)
 
-		# TODO check deploy_stage_results?
+	# TODO check deploy_stage_results?
 
 	@gen.coroutine
 	def predeploy(self, task_spawner, api_gateway_manager):
@@ -175,7 +175,7 @@ class ApiGatewayWorkflowState(WorkflowState):
 				self.deployed_state.api_gateway_id
 			)
 
-			# TODO when the api gateway id doesnt exists, we need to set it up again
+		# TODO when the api gateway id doesnt exists, we need to set it up again
 
 		if self.deployed_state_exists():
 			yield self.get_api_gateway_deployment_state(api_gateway_manager)
@@ -262,7 +262,7 @@ class ApiEndpointWorkflowState(LambdaWorkflowState):
 		region = self._credentials["region"]
 		account_id = self._credentials["account_id"]
 		return f"arn:aws:apigateway:{region}:lambda:path/{api_version}/functions/arn:aws:lambda:{region}:" + \
-					 f"{account_id}:function:{self.name}/invocations"
+			   f"{account_id}:function:{self.name}/invocations"
 
 	def get_source_arn(self, rest_api_id: str):
 		region = self._credentials["region"]
