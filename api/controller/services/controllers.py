@@ -6,6 +6,7 @@ from ansi2html import Ansi2HTMLConverter
 from botocore.exceptions import ClientError
 from sqlalchemy import or_ as sql_or
 from tornado import gen
+from traceback import print_exc
 
 from assistants.deployments.teardown import teardown_infrastructure
 from controller import BaseHandler
@@ -297,6 +298,7 @@ class OnboardThirdPartyAWSAccountApply(BaseHandler):
         except Exception as e:
             if current_aws_account is not None:
                 self.logger("An error occurred while provision AWS account '" + current_aws_account.account_id + "' with terraform!", "error")
+            print_exc()
             self.logger(e)
             self.logger("Marking the account as 'CORRUPT'...")
 
@@ -476,6 +478,7 @@ class MaintainAWSAccountReserves(BaseHandler):
             except Exception as e:
                 self.logger("An error occurred while provision AWS account '" + current_aws_account.account_id + "' with terraform!", "error")
                 self.logger(e)
+                print_exc()
                 self.logger("Marking the account as 'CORRUPT'...")
 
                 # Mark the account as corrupt since the provisioning failed.

@@ -51,12 +51,14 @@ import {
   UpdateLeftSidebarPaneStateMutation
 } from '@/types/project-editor-types';
 import {
+  getExceptionHandlerNodes,
   getIDsOfBlockType,
   getNodeDataById,
   getTransitionDataById,
   getValidBlockToBlockTransitions,
   getValidTransitionsForEdge,
   getValidTransitionsForNode,
+  hookProjectDeployment,
   isValidTransition,
   unwrapJson,
   wrapJson
@@ -83,6 +85,7 @@ import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-proj
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shared-files';
 import { DemoWalkthroughStoreModule, EditSharedFilePaneModule } from '@/store';
+import { BaseGraphHelper } from '@/lib/graph-helpers';
 
 export interface ChangeTransitionArguments {
   transition: WorkflowRelationship;
@@ -225,8 +228,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       if (state.openedProject === null) {
         return [];
       }
-
-      // TODO: Return only valid blocks here, not all Lambda blocks.
       return getIDsOfBlockType(WorkflowStateType.LAMBDA, state.openedProject);
     },
     /**
@@ -337,6 +338,16 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const compressedData = LZString.compressToEncodedURIComponent(JSON.stringify(rest));
 
       return `https://app.refinery.io/import#${compressedData}`;
+    },
+    [ProjectViewGetters.exceptionHandlerNodes]: state => {
+      if (!state.openedProject) {
+        return [];
+      }
+      const globalExceptionHandler = state.openedProject.global_handlers.exception_handler;
+      if (!globalExceptionHandler) {
+        return [];
+      }
+      return getExceptionHandlerNodes(state.openedProject, globalExceptionHandler.id);
     }
   },
   mutations: {
@@ -690,6 +701,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       if (params.project) {
         const elements = generateCytoscapeElements(params.project);
+
         context.commit(ProjectViewMutators.setOpenedProject, params.project);
         context.commit(ProjectViewMutators.setCytoscapeElements, elements);
       }
@@ -862,8 +874,13 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       const openedProject = context.state.openedProject as RefineryProject;
 
       try {
+        // Hook the deployment process and inject "invisible" nodes and transitions which we want to
+        // include in the project, but not to surface to the user
+        const excludedNodeIDs = context.getters[ProjectViewGetters.exceptionHandlerNodes];
+        const hookedOpenedProject = hookProjectDeployment(openedProject, excludedNodeIDs);
+
         const deploymentExceptions = await deployProject({
-          project: openedProject,
+          project: hookedOpenedProject,
           projectConfig: context.state.openedProjectConfig,
           forceRedeploy: context.state.shouldForceRedeploy
         });
@@ -1233,6 +1250,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         await context.dispatch(ProjectViewActions.cancelAddingTransition);
         return;
       }
+
+      // TODO check if adding the transition would create cycles in the graph
 
       // Validate the transition is possible. e.g. Not Code Block -> Timer Block
       if (!isValidTransition(fromNode, toNode)) {

@@ -9,8 +9,7 @@ import {
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import cytoscape from 'cytoscape';
-import { CssStyleDeclaration, EdgeDefinition, ElementsDefinition, NodeDefinition } from 'cytoscape';
+import cytoscape, { CssStyleDeclaration, EdgeDefinition, ElementsDefinition, NodeDefinition } from 'cytoscape';
 import { baseEdgeStyle, baseNodeStyle } from '@/lib/cytoscape-styles';
 
 const baseElementProperties = {

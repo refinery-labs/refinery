@@ -19,7 +19,7 @@ export default class ViewApiEndpointsPane extends Vue {
     const isActive = this.getSelectedBlock && this.getSelectedBlock.id === endpoint.id;
     const endpointPath =
       endpoint.http_method === HTTP_METHOD.GET ? (
-        <a href={endpoint.url} class={isActive ? 'text-light' : ''}>
+        <a href={endpoint.url} class={isActive ? 'text-light' : ''} target="_blank">
           {endpoint.api_path}
         </a>
       ) : (
