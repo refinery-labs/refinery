@@ -154,15 +154,15 @@ Exception: ${error.exception}
 
           <b-form-group
             id="force-redeploy-input-group"
-            description="Force redeploying this project will remove all currently deployed blocks and redeploy them."
+            description="Checking this will speed up deployment by only re-deploying parts that have changed."
           >
             <b-form-checkbox
               id="force-redeploy-input"
               name="force-redeploy-input"
               on={{ change: () => this.setForceRedeploy(!this.shouldForceRedeploy) }}
-              checked={this.shouldForceRedeploy}
+              checked={!this.shouldForceRedeploy}
             >
-              Force redeploy this project?
+              Deploy differences only? (Experimental)
             </b-form-checkbox>
           </b-form-group>
 
