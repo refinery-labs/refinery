@@ -6,65 +6,88 @@ import json
 from tornado import gen
 from typing import Dict, List, TYPE_CHECKING
 
-from assistants.deployments.diagram.types import LambdaDeploymentState, StateTypes
-from assistants.deployments.diagram.utils import get_language_specific_environment_variables, get_layers_for_lambda
-from assistants.deployments.diagram.workflow_states import WorkflowState
+from assistants.deployments.aws.aws_workflow_state import AwsWorkflowState
+from assistants.deployments.aws.response_types import LambdaEventSourceMapping
+from assistants.deployments.aws.types import AwsDeploymentState
+from assistants.deployments.diagram.code_block import CodeBlockWorkflowState
+from assistants.deployments.diagram.types import StateTypes
+from assistants.deployments.aws.utils import get_language_specific_environment_variables, get_layers_for_lambda
 from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
 from utils.general import logit
 
+
 if TYPE_CHECKING:
-	from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
 	from assistants.task_spawner.task_spawner_assistant import TaskSpawner
+	from assistants.deployments.aws.aws_deployment import AwsDeployment
 
 
-class LambdaWorkflowState(WorkflowState):
+class LambdaDeploymentState(AwsDeploymentState):
+	def __init__(self, name, state_type, state_hash, arn):
+		super().__init__(name, state_type, state_hash, arn)
+
+		self.event_source_mappings: List[LambdaEventSourceMapping] = []
+
+	def __str__(self):
+		return f'Lambda Deployment State arn: {self.arn}, state_hash: {self.state_hash}, exists: {self.exists}, event_source_mappings: {self.event_source_mappings}'
+
+	def is_linked_to_trigger(self, trigger_state: AwsWorkflowState):
+		return any([mapping.event_source_arn == trigger_state.arn for mapping in self.event_source_mappings])
+
+
+class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
 	"""
 	LambdaWorkflowState is an in-memory representation of a lambda object which is created by the user.
 	"""
 
-	def __init__(self, credentials, _id, name, _type, is_inline_execution=False):
-		super(LambdaWorkflowState, self).__init__(credentials, _id, name, _type)
+	def __init__(self, credentials, _id, name, _type, **kwargs):
+		super().__init__(credentials, _id, name, _type, **kwargs)
 
-		self.language = None
-		self.code = None
 		self.max_execution_time = None
 		self.memory = None
 		self.execution_pipeline_id = None
 		self.execution_log_level = None
 		self.reserved_concurrency_count = False
-		self.layers = None
-		self.libraries = None
-		self.is_inline_execution = is_inline_execution
 
 		self.execution_mode = "REGULAR"
 		self.tags_dict = {
 			"RefineryResource": "true"
 		}
-		self.environment_variables = {}
-		self.shared_files_list: List = []
 
 		# If it's a self-hosted (THIRDPARTY) AWS account we deploy with a different role
 		# name which they manage themselves.
-		if credentials["account_type"] == "THIRDPARTY":
-			self.role = "arn:aws:iam::" + str(credentials["account_id"]) + ":role/" + THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
+		account_id = str(self._credentials["account_id"])
+		account_type = self._credentials["account_type"]
+		if account_type == "THIRDPARTY":
+			self.role = f"arn:aws:iam::{account_id}:role/{THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME}"
 		else:
-			self.role = "arn:aws:iam::" + str(credentials["account_id"]) + ":role/refinery_default_aws_lambda_role"
+			self.role = f"arn:aws:iam::{account_id}:role/refinery_default_aws_lambda_role"
 
 		self.deployed_state: LambdaDeploymentState = self.deployed_state
 
+	def setup(self, deploy_diagram: AwsDeployment, workflow_state_json: Dict[str, object]):
+		super().setup(deploy_diagram, workflow_state_json)
+
+		if self.deployed_state is None:
+			self.deployed_state = LambdaDeploymentState(self.name, self.type, None, arn=self.arn)
+
+		self.execution_pipeline_id = deploy_diagram.project_id
+		self.execution_log_level = deploy_diagram.project_config["logging"]["level"]
+
+		self.memory = workflow_state_json.get("memory")
+		self.max_execution_time = workflow_state_json.get("max_execution_time")
+
+		if "reserved_concurrency_count" in workflow_state_json:
+			self.reserved_concurrency_count = workflow_state_json["reserved_concurrency_count"]
+
+		self._set_environment_variables_for_lambda()
+
 	def serialize(self) -> Dict[str, str]:
-		base_ws_state = super(LambdaWorkflowState, self).serialize()
+		base_ws_state = super().serialize()
 		return {
 			**base_ws_state,
-			"language": self.language,
-			"code": self.code,
 			"max_execution_time": self.max_execution_time,
 			"memory": self.memory,
-			"reserved_concurrency_count": self.reserved_concurrency_count,
-			"layers": self.layers,
-			"libraries": self.libraries,
-			"environment_variables": self.environment_variables,
-			"state_hash": self.current_state.state_hash,
+			"reserved_concurrency_count": self.reserved_concurrency_count
 		}
 
 	def get_state_hash(self):
@@ -123,44 +146,10 @@ class LambdaWorkflowState(WorkflowState):
 
 		return hashlib.sha256(bytes(hash_input, encoding="UTF-8")).hexdigest()
 
-	def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
-		super(LambdaWorkflowState, self).setup(deploy_diagram, workflow_state_json)
-
-		if self.deployed_state is None:
-			self.deployed_state = LambdaDeploymentState(self.type, self.arn, None)
-
-		self.execution_pipeline_id = deploy_diagram.project_id
-		self.execution_log_level = deploy_diagram.project_config["logging"]["level"]
-
-		if self.is_inline_execution:
-			env_vars = {
-				env_var["key"]: env_var["value"]
-				for env_var in workflow_state_json["environment_variables"]
-			}
-			self._set_environment_variables_for_lambda(env_vars)
-		else:
-			env_vars = self._get_project_env_vars(deploy_diagram, workflow_state_json)
-			self._set_environment_variables_for_lambda(env_vars)
-
-		if "shared_files" in workflow_state_json:
-			self.shared_files_list = workflow_state_json["shared_files"]
-
-		self.shared_files_list.extend(deploy_diagram.lookup_workflow_files(self.id))
-
-		self.language = workflow_state_json["language"]
-		self.code = workflow_state_json["code"]
-		self.libraries = workflow_state_json["libraries"]
-		self.max_execution_time = workflow_state_json["max_execution_time"]
-		self.memory = workflow_state_json["memory"]
-		self.layers = workflow_state_json["layers"]
-
-		if "reserved_concurrency_count" in workflow_state_json:
-			self.reserved_concurrency_count = workflow_state_json["reserved_concurrency_count"]
-
-	def _set_environment_variables_for_lambda(self, env_vars):
+	def _set_environment_variables_for_lambda(self):
 		# Add environment variables depending on language
 		# This is mainly for module loading when we're doing inline executions.
-		language_specifc_env_vars = get_language_specific_environment_variables(
+		language_specific_env_vars = get_language_specific_environment_variables(
 			self.language
 		)
 
@@ -173,8 +162,8 @@ class LambdaWorkflowState(WorkflowState):
 			"PACKAGES_BUCKET_NAME": self._credentials["lambda_packages_bucket"],
 			"PIPELINE_LOGGING_LEVEL": self.execution_log_level,
 			"EXECUTION_MODE": self.execution_mode,
-			**language_specifc_env_vars,
-			**env_vars
+			**language_specific_env_vars,
+			**self.environment_variables
 		}
 
 		if self.is_inline_execution:
@@ -184,36 +173,6 @@ class LambdaWorkflowState(WorkflowState):
 			all_environment_vars["IS_INLINE_EXECUTOR"] = "True"
 
 		self.environment_variables = all_environment_vars
-
-	def _get_project_env_vars(self, deploy_diagram: DeploymentDiagram, workflow_state_json):
-		workflow_state_env_vars = []
-
-		tmp_env_vars: Dict[str, Dict[str, str]] = {
-			env_var_uuid: env_var
-			for env_var_uuid, env_var in workflow_state_json["environment_variables"].items()
-		}
-
-		project_env_vars = deploy_diagram.project_config["environment_variables"]
-		for env_var_uuid, env_data in tmp_env_vars.items():
-			project_env_var = project_env_vars.get(env_var_uuid)
-
-			if project_env_var is None:
-				continue
-
-			# Add value to match schema
-			tmp_env_vars[env_var_uuid]["value"] = project_env_var["value"]
-
-			workflow_state_env_vars.append({
-				"key": tmp_env_vars[env_var_uuid]["name"],
-				"value": project_env_var["value"]
-			})
-
-		deploy_diagram.set_env_vars_for_workflow_state(self, workflow_state_env_vars)
-
-		return {
-			env_var["name"]: env_var.get("value") if env_var.get("value") is not None else ""
-			for _, env_var in tmp_env_vars.items()
-		}
 
 	def _get_transition_env_data(self):
 		env_transitions = {
@@ -315,7 +274,7 @@ class LambdaWorkflowState(WorkflowState):
 		return self.deploy_lambda(task_spawner)
 
 	@gen.coroutine
-	def cleanup(self, task_spawner: TaskSpawner, deployment: DeploymentDiagram):
+	def cleanup(self, task_spawner: TaskSpawner, deployment: AwsDeployment):
 		if not self.deployed_state_exists():
 			raise gen.Return()
 

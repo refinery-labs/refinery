@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 import pinject
 import tornado
 import botocore.exceptions
+from typing import TYPE_CHECKING, List
 
-from utils.general import get_random_node_id, log_exception
+from assistants.deployments.aws.api_gateway_types import ApiGatewayEndpoint, ApiGatewayLambdaConfig
+from utils.general import log_exception
 
 from tornado.concurrent import run_on_executor, futures
 from utils.general import logit
@@ -12,6 +16,8 @@ from botocore.exceptions import ClientError
 
 from utils.performance_decorators import emit_runtime_metrics
 
+if TYPE_CHECKING:
+    from assistants.deployments.aws.api_gateway import ApiGatewayWorkflowState
 
 @gen.coroutine
 @log_exception
@@ -41,32 +47,33 @@ def strip_api_gateway(api_gateway_manager, credentials, api_gateway_id):
         api_gateway_id
     )
 
+    lambda_configs: List[ApiGatewayLambdaConfig] = rest_resources["lambda_configs"]
+
     # List of futures to finish before we continue
     deletion_futures = []
 
     # Iterate over resources and delete everything that
     # can be deleted.
-    for resource_item in rest_resources:
+    for lambda_config in lambda_configs:
         # TODO there is a race here where the api resource _could_ be deleted before the method is deleted, does that matter?
 
         # Delete the methods
-        if "resourceMethods" in resource_item:
-            for http_method, values in resource_item["resourceMethods"].items():
-                deletion_futures.append(
-                    api_gateway_manager.delete_rest_api_resource_method(
-                        credentials,
-                        api_gateway_id,
-                        resource_item["id"],
-                        http_method
-                    )
-                )
+        deletion_futures.append(
+            api_gateway_manager.delete_rest_api_resource_method(
+                credentials,
+                api_gateway_id,
+                lambda_config,
+                lambda_config.method
+            )
+        )
+
         # We can't delete the root resource
-        if resource_item["path"] != "/":
+        if lambda_config.path != "/":
             deletion_futures.append(
                 api_gateway_manager.delete_rest_api_resource(
                     credentials,
                     api_gateway_id,
-                    resource_item["id"]
+                    lambda_config.resource_id
                 )
             )
 
@@ -87,6 +94,25 @@ def strip_api_gateway(api_gateway_manager, credentials, api_gateway_id):
     yield deletion_futures
 
     raise gen.Return()
+
+
+def parse_api_gateway_resource_methods(gateway_endpoint, resource_id, resource_path, resource_methods):
+    lambda_configs = []
+    for method, method_attributes in resource_methods.items():
+        # Set the method as being used
+        gateway_endpoint.set_method_in_use(method)
+
+        # Get the linked lambda and add it to the list of configured lambdas
+        method_integration = method_attributes.get("methodIntegration")
+        if method_integration is None:
+            continue
+
+        linked_lambda_uri = method_integration["uri"]
+
+        lambda_config = ApiGatewayLambdaConfig(resource_id, linked_lambda_uri, method, resource_path)
+        lambda_configs.append(lambda_config)
+
+    return lambda_configs
 
 
 class ApiGatewayManager(object):
@@ -113,7 +139,7 @@ class ApiGatewayManager(object):
             )
         except ClientError as e:
             if e.response["Error"]["Code"] == "NotFoundException":
-                logit("API Gateway " + api_gateway_id + " appears to have been deleted or no longer exists!")
+                logit(f"API Gateway {api_gateway_id} appears to have been deleted or no longer exists!")
                 return False
 
         return True
@@ -121,6 +147,18 @@ class ApiGatewayManager(object):
     @run_on_executor
     @emit_runtime_metrics("api_gateway__get_resources")
     def get_resources(self, credentials, rest_api_id):
+        """
+        For all resources that exist in this API Gateway, create an in-memory representation of them.
+
+        API Gateway resources have {path, methods, integration (lambda arn)}. They are a nested structure
+        that have children.
+
+        :param credentials:
+        :param rest_api_id:
+        :param api_gateway:
+        :return:
+        """
+
         api_gateway_client = self.aws_client_factory.get_aws_client(
             "apigateway",
             credentials
@@ -128,10 +166,51 @@ class ApiGatewayManager(object):
 
         response = api_gateway_client.get_resources(
             restApiId=rest_api_id,
-            limit=500
+            limit=500,
+            embed=[
+                "methods"
+            ]
         )
 
-        return response["items"]
+        gateway_endpoints = []
+        lambda_configs = []
+        base_resource_id = None
+
+        items = response["items"]
+        for item in items:
+            resource_id = item["id"]
+            resource_path = item["path"]
+
+            # A default resource is created along with an API gateway, we grab
+            # it so we can make our base method
+            if resource_path == "/":
+                base_resource_id = resource_id
+                continue
+
+            resource_methods = {}
+            if "resourceMethods" in item:
+                resource_methods = item.get("resourceMethods")
+
+            gateway_endpoint = ApiGatewayEndpoint(
+                resource_id,
+                resource_path
+            )
+
+            resource_lambda_configs = parse_api_gateway_resource_methods(
+                gateway_endpoint,
+                resource_id,
+                resource_path,
+                resource_methods
+            )
+            lambda_configs.extend(resource_lambda_configs)
+
+            gateway_endpoints.append(gateway_endpoint)
+
+        return dict(
+            base_resource_id=base_resource_id,
+            gateway_endpoints=gateway_endpoints,
+            lambda_configs=lambda_configs
+        )
 
     @run_on_executor
     @emit_runtime_metrics("api_gateway__get_stages")

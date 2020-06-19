@@ -2,10 +2,9 @@ import json
 from re import sub
 from time import sleep
 
-import botocore.errorfactory
 from botocore.exceptions import ClientError
 
-from assistants.deployments.diagram.types import CloudwatchRuleTarget
+from assistants.deployments.aws.response_types import CloudwatchRuleTarget
 from utils.general import logit
 
 
@@ -156,9 +155,9 @@ def get_cloudwatch_rules(aws_client_factory, credentials, rule):
     }
 
 
-def remove_if_matches_expected_permission(lambda_client, target, statement):
+def remove_if_matches_expected_permission(lambda_client, target, statement, statement_id):
     sid = statement.get('Sid')
-    if not sid:
+    if not sid or sid != statement_id:
         return None
 
     try:
@@ -203,23 +202,24 @@ def add_rule_target(aws_client_factory, credentials, rule, target):
         ]
     )
 
+    statement_id = rule.name + "_statement"
+
+    response = None
     try:
         response = lambda_client.get_policy(
             FunctionName=target.arn,
         )
     except ClientError as e:
-        if e.response["Error"]["Code"] == "ResourceNotFoundException":
-            return {}
-        raise
+        if e.response["Error"]["Code"] != "ResourceNotFoundException":
+            raise
 
-    statement_id = rule.name + "_statement"
+    if response is not None:
+        existing_lambda_statements = json.loads(
+            response["Policy"]
+        )["Statement"]
 
-    existing_lambda_statements = json.loads(
-        response["Policy"]
-    )["Statement"]
-
-    for statement in existing_lambda_statements:
-        remove_if_matches_expected_permission(lambda_client, target, statement)
+        for statement in existing_lambda_statements:
+            remove_if_matches_expected_permission(lambda_client, target, statement, statement_id)
 
     """
     For AWS Lambda you need to add a permission to the Lambda function itself

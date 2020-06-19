@@ -7,9 +7,9 @@ import pinject
 from jsonschema import validate as validate_schema
 from tornado import gen
 
-from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
-from assistants.deployments.diagram.lambda_workflow_state import LambdaWorkflowState
-from assistants.deployments.diagram.utils import get_base_lambda_code
+from assistants.deployments.aws.aws_deployment import AwsDeployment
+from assistants.deployments.aws.lambda_function import LambdaWorkflowState
+from assistants.deployments.aws.utils import get_base_lambda_code
 from assistants.deployments.diagram.workflow_states import StateTypes
 from assistants.deployments.teardown import teardown_infrastructure
 from controller import BaseHandler
@@ -19,7 +19,7 @@ from controller.logs.actions import delete_logs
 from controller.projects.actions import update_project_config
 from models import InlineExecutionLambda, Project, Deployment
 from pyexceptions.builds import BuildException
-from utils.general import get_random_node_id, attempt_json_decode, get_safe_workflow_state_name
+from utils.general import get_random_node_id, attempt_json_decode
 from utils.locker import AcquireFailure
 
 
@@ -66,7 +66,7 @@ class RunTmpLambda(BaseHandler):
         # Dummy pipeline execution ID
         pipeline_execution_id = "SHOULD_NEVER_HAPPEN_TMP_LAMBDA_RUN"
 
-        deployment_diagram = DeploymentDiagram(pipeline_execution_id, None, project_config={
+        deployment_diagram = AwsDeployment(pipeline_execution_id, None, project_config={
             "logging": {
                 "level": "LOG_NONE"
             }
@@ -368,15 +368,17 @@ class DeployDiagram(BaseHandler):
             latest_deployment_json = json.loads(latest_deployment.deployment_json)
 
         # Model a deployment in memory to handle the deployment of each state
-        deployment_diagram: DeploymentDiagram = DeploymentDiagram(
-            project_id, project_name, project_config, latest_deployment_json)
-
-        exceptions = yield deployment_diagram.deploy_diagram(
+        deployment_diagram: AwsDeployment = AwsDeployment(
+            project_id,
+            project_name,
+            project_config,
             self.task_spawner,
-            self.api_gateway_manager,
             credentials,
-            diagram_data,
+            api_gateway_manager=self.api_gateway_manager,
+            latest_deployment=latest_deployment_json
         )
+
+        exceptions = yield deployment_diagram.deploy_diagram(diagram_data)
 
         # Check if the deployment failed
         if len(exceptions) != 0:
