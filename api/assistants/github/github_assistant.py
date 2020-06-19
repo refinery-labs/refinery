@@ -43,10 +43,6 @@ class GithubAssistant:
         # TODO check exception
         parsed_response = json.loads(response.body)
 
-        # print('response', json.dumps(parsed_response, indent=2))
-        with open('/work/text-contents.json', 'w') as json_file:
-            json_file.write(str(response.body))
-
         repos = []
         for repo_result in parsed_response:
             repos.append({

@@ -153,11 +153,11 @@ class GithubProxy( BaseHandler ):
         if not request_service or len( request_service ) != 1:
             return False
 
-        first_request_service = request_service[0].decode()
+        request_service = request_service[0].decode('utf-8')
 
         valid_service = (
-                first_request_service.endswith( 'git-upload-pack' )
-                or first_request_service.endswith( 'git-receive-pack' )
+                request_service.endswith( 'git-upload-pack' )
+                or request_service.endswith( 'git-receive-pack' )
         )
 
         return valid_path and valid_service
