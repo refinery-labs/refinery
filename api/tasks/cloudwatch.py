@@ -155,9 +155,9 @@ def get_cloudwatch_rules(aws_client_factory, credentials, rule):
     }
 
 
-def remove_if_matches_expected_permission(lambda_client, target, statement):
+def remove_if_matches_expected_permission(lambda_client, target, statement, statement_id):
     sid = statement.get('Sid')
-    if not sid:
+    if not sid or sid != statement_id:
         return None
 
     try:
@@ -218,20 +218,8 @@ def add_rule_target(aws_client_factory, credentials, rule, target):
             response["Policy"]
         )["Statement"]
 
-        def remove_if_matches_expected_permission(statement):
-            sid = statement.get('Sid')
-            if sid == statement_id:
-                try:
-                    response = lambda_client.remove_permission(
-                        FunctionName=target.arn,
-                        StatementId=sid
-                    )
-                except ClientError as e:
-                    if e.response["Error"]["Code"] != "ResourceNotFoundException":
-                        raise
-
         for statement in existing_lambda_statements:
-            remove_if_matches_expected_permission(statement)
+            remove_if_matches_expected_permission(lambda_client, target, statement, statement_id)
 
     """
     For AWS Lambda you need to add a permission to the Lambda function itself

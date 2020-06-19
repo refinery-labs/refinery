@@ -166,7 +166,7 @@ class AwsDeployment(DeploymentDiagram):
 
         return workflow_states
 
-    def validate_arn_exists(self, state_type: StateTypes, arn: str):
+    def validate_arn_exists_and_mark_for_cleanup(self, state_type: StateTypes, arn: str):
         """
         Validate if an arn exists in the current deployment.
         If it does not, then we check if we know to remove it via the previous state.

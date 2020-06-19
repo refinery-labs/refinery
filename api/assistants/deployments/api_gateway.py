@@ -96,6 +96,25 @@ def strip_api_gateway(api_gateway_manager, credentials, api_gateway_id):
     raise gen.Return()
 
 
+def parse_api_gateway_resource_methods(gateway_endpoint, resource_id, resource_path, resource_methods):
+    lambda_configs = []
+    for method, method_attributes in resource_methods.items():
+        # Set the method as being used
+        gateway_endpoint.set_method_in_use(method)
+
+        # Get the linked lambda and add it to the list of configured lambdas
+        method_integration = method_attributes.get("methodIntegration")
+        if method_integration is None:
+            continue
+
+        linked_lambda_uri = method_integration["uri"]
+
+        lambda_config = ApiGatewayLambdaConfig(resource_id, linked_lambda_uri, method, resource_path)
+        lambda_configs.append(lambda_config)
+
+    return lambda_configs
+
+
 class ApiGatewayManager(object):
     aws_client_factory = None
     aws_cloudwatch_client = None
@@ -147,7 +166,10 @@ class ApiGatewayManager(object):
 
         response = api_gateway_client.get_resources(
             restApiId=rest_api_id,
-            limit=500
+            limit=500,
+            embed=[
+                "methods"
+            ]
         )
 
         gateway_endpoints = []
@@ -173,19 +195,14 @@ class ApiGatewayManager(object):
                 resource_id,
                 resource_path
             )
-            for method, method_attributes in resource_methods.items():
-                # Set the method as being used
-                gateway_endpoint.set_method_in_use(method)
 
-                # Get the linked lambda and add it to the list of configured lambdas
-                method_integration = method_attributes.get("methodIntegration")
-                if method_integration is None:
-                    continue
-
-                linked_lambda_uri = method_integration["uri"]
-
-                lambda_config = ApiGatewayLambdaConfig(resource_id, linked_lambda_uri, method, resource_path)
-                lambda_configs.append(lambda_config)
+            resource_lambda_configs = parse_api_gateway_resource_methods(
+                gateway_endpoint,
+                resource_id,
+                resource_path,
+                resource_methods
+            )
+            lambda_configs.extend(resource_lambda_configs)
 
             gateway_endpoints.append(gateway_endpoint)
 

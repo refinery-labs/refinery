@@ -196,8 +196,24 @@ class ApiGatewayWorkflowState(AwsWorkflowState):
     @gen.coroutine
     def get_api_resource(self, check_path):
         endpoint = yield self.deployed_state.get_endpoint_from_path(check_path)
-        logit(f"path: {check_path} endpoint: {endpoint}")
         raise gen.Return(endpoint)
+
+    @gen.coroutine
+    def get_or_create_endpoint(self, task_spawner, current_base_pointer_id, check_path, path_part):
+        with (yield self._lookup_endpoint_lock.acquire()):
+            api_gateway_endpoint = yield self.get_api_resource(check_path)
+            if api_gateway_endpoint is None:
+                logit(f"Creating new api resource: {check_path}")
+                # Otherwise go ahead and create one
+                api_gateway_endpoint = yield self.create_api_resource(
+                    task_spawner,
+                    current_base_pointer_id,
+                    check_path,
+                    path_part
+                )
+        raise gen.Return(
+            api_gateway_endpoint
+        )
 
     @gen.coroutine
     def ensure_endpoint_exists_in_api_gateway(self, task_spawner, api_endpoint: ApiEndpointWorkflowState):
@@ -218,17 +234,12 @@ class ApiGatewayWorkflowState(AwsWorkflowState):
             check_path = current_path + "/" + path_part
 
             # Get existing resource ID instead of creating one
-            with (yield self._lookup_endpoint_lock.acquire()):
-                api_gateway_endpoint = yield self.get_api_resource(check_path)
-                if api_gateway_endpoint is None:
-                    logit(f"Creating new api resource: {check_path}")
-                    # Otherwise go ahead and create one
-                    api_gateway_endpoint = yield self.create_api_resource(
-                        task_spawner,
-                        current_base_pointer_id,
-                        check_path,
-                        path_part
-                    )
+            api_gateway_endpoint = yield self.get_or_create_endpoint(
+                task_spawner,
+                current_base_pointer_id,
+                check_path,
+                path_part
+            )
 
             current_base_pointer_id = api_gateway_endpoint.id
 
