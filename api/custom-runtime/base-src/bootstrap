@@ -985,6 +985,8 @@ def _parallel_invoke( branch_ids, invoke_queue ):
 			)
 			new_thread.start()
 			time.sleep(0.05) # Annoying wedge due to boto3 bug
+		else:
+			raise Exception("No known handler for invocation: " + json.dumps(new_invoke_data))
 
 		return new_thread
 
