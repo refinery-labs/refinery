@@ -2,7 +2,7 @@ import json
 
 import pinject
 from jsonschema import validate as validate_schema
-from sqlalchemy import or_ as sql_or
+from sqlalchemy import or_ as sql_or, and_
 from tornado import gen
 
 from assistants.deployments.teardown import teardown_infrastructure
@@ -11,7 +11,7 @@ from controller.decorators import authenticated
 from controller.logs.actions import delete_logs
 from controller.projects.actions import update_project_config
 from controller.projects.schemas import *
-from models import Deployment, ProjectVersion, ProjectConfig, Project, ProjectShortLink
+from models import Deployment, ProjectVersion, ProjectConfig, Project, ProjectShortLink, User
 
 
 class SaveProjectConfig(BaseHandler):
@@ -58,7 +58,7 @@ class SearchSavedProjects(BaseHandler):
 
         self.logger("Searching saved projects...")
 
-        authenticated_user = self.get_authenticated_user()
+        user_id = self.get_authenticated_user_id()
 
         # Projects that match the query
         project_search_results = []
@@ -68,14 +68,12 @@ class SearchSavedProjects(BaseHandler):
 
         # This is extremely inefficient and needs to be fixed to do it in SQL.
         # My fault hacking it this way for YC :)
-        for project_data in authenticated_user.projects:
-            if self.json["query"].lower() in str(project_data.name).lower():
-                project_search_results.append(
-                    project_data
-                )
-                project_ids.append(
-                    project_data.id
-                )
+        query = self.json["query"]
+
+        projects = self.dbsession\
+            .query(Project)\
+            .join(User)\
+            .filter(and_(User.id == user_id, Project.name.ilike(query)).all()
 
         results_list = []
 
