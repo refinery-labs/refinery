@@ -70,6 +70,12 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
         if self.deployed_state is None:
             self.deployed_state = LambdaDeploymentState(self.name, self.type, None, arn=self.arn)
 
+        # set this workflow's layers to be the language specific layer in addition
+        # to any user supplied layers
+        self.layers = get_layers_for_lambda(
+            self.language
+        ) + self.layers
+
         self.execution_pipeline_id = deploy_diagram.project_id
         self.execution_log_level = deploy_diagram.project_config["logging"]["level"]
 
@@ -253,12 +259,6 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
 
     def deploy(self, task_spawner, project_id, project_config):
         logit(f"Deploying Lambda '{self.name}'...")
-
-        # set this workflow's layers to be the language specific layer in addition
-        # to any user supplied layers
-        self.layers = get_layers_for_lambda(
-            self.language
-        ) + self.layers
 
         # if the state has not changed and the lambda exists, then we do not need to do anything
         if not self.state_has_changed() and self.deployed_state_exists():
