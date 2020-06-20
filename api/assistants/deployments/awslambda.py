@@ -38,7 +38,10 @@ class LambdaManager(object):
         )
 
         # Cleanup the source mappings for when we recreate this lambda and they do not persist
-        event_source_mappings = list_lambda_event_source_mappings_by_name(aws_client_factory, credentials, name)
+        event_source_mappings = []
+        if name is not None:
+            event_source_mappings = list_lambda_event_source_mappings_by_name(aws_client_factory, credentials, name)
+
         for mapping in event_source_mappings:
             attempts = 0
             while attempts < 5:
