@@ -23,9 +23,7 @@ export enum GitPushResult {
   Other = 'Other'
 }
 
-type GitPushResultMessageLookup = {
-  [key in GitPushResult]: string;
-};
+type GitPushResultMessageLookup = { [key in GitPushResult]: string };
 
 const gitPushResultToMessage: GitPushResultMessageLookup = {
   [GitPushResult.Success]: `${REFINERY_COMMIT_AUTHOR_NAME} successfully pushed to the remote branch.`,

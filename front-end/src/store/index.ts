@@ -66,7 +66,7 @@ if (isDevelopment) {
   // plugins.push(ActionLoggerPlugin);
 } else {
   // Only push this in production because it's very annoying in the development logs...
-  plugins.push(ServerStateLoggerPlugin);
+  // plugins.push(ServerStateLoggerPlugin);
 }
 
 /**
