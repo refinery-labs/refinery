@@ -113,8 +113,7 @@ class SearchSavedProjects(BaseHandler):
         })
 
     def get_projects_by_last_modified(self, user_id, query):
-        escaped_query = query.replace("%", "%%")
-        like_query = f"%{escaped_query}%"
+        like_query = f"%{query}%"
 
         t = self.dbsession.query(
             ProjectVersion.project_id,
