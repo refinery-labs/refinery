@@ -2,7 +2,7 @@ import json
 
 import pinject
 from jsonschema import validate as validate_schema
-from sqlalchemy import or_ as sql_or
+from sqlalchemy import or_ as sql_or, and_, func
 from tornado import gen
 
 from assistants.deployments.teardown import teardown_infrastructure
@@ -11,7 +11,7 @@ from controller.decorators import authenticated
 from controller.logs.actions import delete_logs
 from controller.projects.actions import update_project_config
 from controller.projects.schemas import *
-from models import Deployment, ProjectVersion, ProjectConfig, Project, ProjectShortLink, CachedExecutionLogsShard
+from models import Deployment, ProjectVersion, ProjectConfig, Project, ProjectShortLink, User, CachedExecutionLogsShard
 
 
 class SaveProjectConfig(BaseHandler):
@@ -47,6 +47,27 @@ class SaveProjectConfig(BaseHandler):
         })
 
 
+def serialize_versions(project_versions):
+    return [
+        {
+            "timestamp": project_version.timestamp,
+            "version": project_version.version
+        }
+        for project_version in project_versions
+    ]
+
+
+def serialize_project(project, last_modified, versions, deployment_exists):
+    return {
+        "id": project.id,
+        "name": project.name,
+        "timestamp": project.timestamp,
+        "last_modified": last_modified,
+        "deployment": deployment_exists,
+        "versions": versions
+    }
+
+
 class SearchSavedProjects(BaseHandler):
     @authenticated
     @gen.coroutine
@@ -58,63 +79,29 @@ class SearchSavedProjects(BaseHandler):
 
         self.logger("Searching saved projects...")
 
-        authenticated_user = self.get_authenticated_user()
+        user_id = self.get_authenticated_user_id()
 
-        # Projects that match the query
-        project_search_results = []
+        query = self.json["query"]
 
-        # Project IDs which we'll use in querying for matching deployments
-        project_ids = []
-
-        # This is extremely inefficient and needs to be fixed to do it in SQL.
-        # My fault hacking it this way for YC :)
-        for project_data in authenticated_user.projects:
-            if self.json["query"].lower() in str(project_data.name).lower():
-                project_search_results.append(
-                    project_data
-                )
-                project_ids.append(
-                    project_data.id
-                )
+        projects = self.get_projects_by_last_modified(user_id, query)
 
         results_list = []
 
-        # Pull all deployments in a batch SQL query
-        deployments_list = self.get_batch_project_deployments(
-            project_ids
-        )
+        for last_modified, project in projects:
+            # Pull all deployments in a batch SQL query
+            deployment = self.dbsession.query(Deployment).filter_by(
+                project_id=project.id
+            ).first()
 
-        for project_search_result in project_search_results:
-            matching_deployment = self.get_deployment_if_in_list(
-                project_search_result.id,
-                deployments_list
-            )
+            deployment_exists = deployment is not None
 
-            project_item = {
-                "id": project_search_result.id,
-                "name": project_search_result.name,
-                "timestamp": project_search_result.timestamp,
-                "deployment": matching_deployment,
-                "versions": []
-            }
+            project_versions = project.versions.order_by(
+                ProjectVersion.timestamp.desc()
+            ).all()
 
-            for project_version in project_search_result.versions:
-                project_version_data = self.fetch_project_by_version(project_search_result.id, project_version.version)
+            versions = serialize_versions(project_versions)
 
-                # Skip any invalid project versions, since we can't get the diagram data anyway...
-                if project_version_data is None:
-                    continue
-
-                project_item["versions"].append({
-                    "timestamp": project_version_data.timestamp,
-                    "version": project_version.version
-                })
-
-            # Sort project versions highest to lowest
-            project_item["versions"].sort(
-                reverse=True,
-                key=lambda i: i['version']
-            )
+            project_item = serialize_project(project, last_modified, versions, deployment_exists)
 
             results_list.append(
                 project_item
@@ -125,49 +112,32 @@ class SearchSavedProjects(BaseHandler):
             "results": results_list
         })
 
-    @staticmethod
-    def get_deployment_if_in_list(project_id, deployments_list):
-        """
-        Checks passed-in list of deployments for one that matches
-        the specified project ID. If one exists it'll return it, otherwise
-        it will return None (null).
-        """
-        for deployment in deployments_list:
-            if deployment["project_id"] == project_id:
-                return deployment["id"]
+    def get_projects_by_last_modified(self, user_id, query):
+        like_query = f"%{query}%"
 
-        return None
+        t = self.dbsession.query(
+            ProjectVersion.project_id,
+            func.max(ProjectVersion.timestamp).label('last_modified')
+        ).group_by(
+            ProjectVersion.project_id
+        ).subquery('t')
 
-    def get_batch_project_deployments(self, project_ids):
-        """
-        Batch up the project deployment lookups so it's fast.
-        """
-        deployments = self.dbsession.query(Deployment).filter(
-            # If the deployment matches any of the project IDs we've enumerated
-            sql_or(
-                *[Deployment.project_id == project_id for project_id in project_ids]
+        projects = self.dbsession.query(
+            t.c.last_modified,
+            Project
+        ).join(
+            User, Project.users
+        ).filter(
+            and_(
+                User.id == user_id,
+                Project.name.ilike(like_query),
+                Project.id == t.c.project_id
             )
         ).order_by(
-            Deployment.timestamp.desc()
+            t.c.last_modified
         ).all()
 
-        deployment_dicts = []
-
-        for deployment in deployments:
-            if deployment:
-                deployment_dicts.append(
-                    deployment.to_dict()
-                )
-
-        return deployment_dicts
-
-    def fetch_project_by_version(self, project_id, version):
-        project_version_result = self.dbsession.query(ProjectVersion).filter_by(
-            project_id=project_id,
-            version=version
-        ).first()
-
-        return project_version_result
+        return projects
 
 
 class GetSavedProject(BaseHandler):
