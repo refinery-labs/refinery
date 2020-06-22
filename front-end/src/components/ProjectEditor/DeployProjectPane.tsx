@@ -18,6 +18,9 @@ export default class DeployProjectPane extends Vue {
   @project.State deploymentError!: DeployProjectResult;
   @project.State hasProjectBeenModified!: boolean;
   @project.State openedProjectConfig!: ProjectConfig | null;
+  @project.State shouldForceRedeploy!: boolean;
+
+  @project.Mutation setForceRedeploy!: (forceRedeploy: boolean) => void;
 
   @project.Action deployProject!: () => void;
   @project.Action resetDeploymentPane!: () => void;
@@ -147,6 +150,20 @@ Exception: ${error.exception}
                 <option value={10}>10x Concurrency Auto-Warming</option>
               </b-form-select>
             </div>
+          </b-form-group>
+
+          <b-form-group
+            id="force-redeploy-input-group"
+            description="Checking this will speed up deployment by only re-deploying parts that have changed."
+          >
+            <b-form-checkbox
+              id="force-redeploy-input"
+              name="force-redeploy-input"
+              on={{ change: () => this.setForceRedeploy(!this.shouldForceRedeploy) }}
+              checked={!this.shouldForceRedeploy}
+            >
+              Deploy differences only? (Experimental)
+            </b-form-checkbox>
           </b-form-group>
 
           <div class="row mt-2">

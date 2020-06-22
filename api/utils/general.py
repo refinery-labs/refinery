@@ -100,7 +100,7 @@ def get_random_deploy_id():
     return "_RFN" + get_random_id(6)
 
 
-def get_lambda_safe_name(input_name):
+def get_safe_workflow_state_name(input_name):
     whitelist = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-"
     input_name = input_name.replace(" ", "_")
     return "".join([c for c in input_name if c in whitelist])[:64]
