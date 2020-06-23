@@ -5,15 +5,20 @@ import shutil
 from copy import copy
 from models import AWSAccount, TerraformStateVersion
 from json import loads
+from os.path import join
 from shutil import rmtree
-from subprocess import Popen, PIPE
 from tasks.email import send_terraform_provisioning_error
 from tasks.role import get_assume_role_credentials
 from time import time
 from uuid import uuid4
 from utils.general import logit
+from utils.ipc import popen_communicate
 from pinject import copy_args_to_public_fields
 from traceback import print_exc
+
+
+TERRAFORM_TFSTATE = "terraform.tfstate"
+CUSTOMER_CONFIG_JSON = "customer_config.json"
 
 
 class TerraformService(object):
@@ -50,10 +55,16 @@ class TerraformService(object):
                 temporary_dir
             )
 
-            return self._write_terraform_base_files(aws_account_dict, temporary_dir)
+            return self._write_terraform_base_files(
+                aws_account_dict,
+                temporary_dir
+            )
         except Exception as e:
-            logit("An exception occurred while writing terraform base files for AWS account ID " +
-                aws_account_dict["account_id"])
+            msg = (
+                "Exception occurred while writing terraform base files "
+                "for AWS account ID: {}"
+            )
+            logit(msg.format(aws_account_dict['account_id']))
             logit(e)
 
             # Delete the temporary directory reguardless.
@@ -63,8 +74,8 @@ class TerraformService(object):
 
     # TODO rename this
     def _write_terraform_base_files(self, aws_account_data, base_dir):
-        logit("Setting up the base Terraform files (AWS Acc. ID '" +
-            aws_account_data["account_id"] + "')...")
+        msg = 'Setting up base Terraform files (AWS Acc ID: "{}")...'
+        logit(msg.format(aws_account_data['account_id']))
 
         # Get some temporary assume role credentials for the account
         assumed_role_credentials = get_assume_role_credentials(
@@ -74,17 +85,63 @@ class TerraformService(object):
             3600  # One hour - TODO CHANGEME
         )
 
-        sub_account_admin_role_arn = "arn:aws:iam::" + \
-            str(aws_account_data["account_id"]) + ":role/" + \
-            self.app_config.get("customer_aws_admin_assume_role")
+        sub_account_admin_role_arn = self.get_sub_account_admin_role_arn(aws_account_data)
 
         # Write out the terraform configuration data
-        terraform_configuration_data = {
-            "session_token": assumed_role_credentials["session_token"],
-            "role_session_name": assumed_role_credentials["role_session_name"],
-            "assume_role_arn": sub_account_admin_role_arn,
-            "access_key": assumed_role_credentials["access_key_id"],
-            "secret_key": assumed_role_credentials["secret_access_key"],
+        terraform_configuration_data = self.get_terraform_config(
+            aws_account_data,
+            assumed_role_credentials,
+            sub_account_admin_role_arn
+        )
+
+        logit("Writing Terraform input variables to file...")
+        self.write_customer_config(terraform_configuration_data, base_dir)
+
+        self.write_terraform_state(aws_account_data, base_dir)
+        logit(f"Base terraform files have been created successfully at {base_dir}")
+
+        terraform_configuration_data["base_dir"] = base_dir
+
+        return terraform_configuration_data
+
+    def get_sub_account_admin_role_arn(self, aws_account_data):
+        account_id = str(aws_account_data['account_id'])
+        # TODO what if this is None?
+        assume_role = self.app_config.get("customer_aws_admin_assume_role")
+
+        return f"arn:aws_iam::{account_id}:role/{assume_role}"
+
+    def write_customer_config(self, config, base_dir):
+        # Write configuration data to a file for Terraform to use.
+        with open(join(base_dir, CUSTOMER_CONFIG_JSON), "w") as f:
+            f.write(json.dumps(config))
+
+    def write_terraform_state(self, aws_account_data, base_dir):
+        """
+        Write the latest terraform state to terraform.tfstate if there is any.
+        """
+        if not aws_account_data["terraform_state"]:
+            # Write the current version to the database
+
+            path = join(base_dir, TERRAFORM_TFSTATE)
+            logit(f'Previous terraform state file exists! Writing to "{path}"')
+
+            with open(path, "w") as f:
+                f.write(aws_account_data["terraform_state"])
+
+    def read_terraform_state(self, base_dir):
+        path = join(base_dir, TERRAFORM_TFSTATE)
+
+        with open(path, "r") as f:
+            return f.read()
+
+    def get_terraform_config(self, aws_account_data, credentials, role_arn):
+        return {
+            "session_token": credentials["session_token"],
+            "role_session_name": credentials["role_session_name"],
+            "assume_role_arn": role_arn,
+            "access_key": credentials["access_key_id"],
+            "secret_key": credentials["secret_access_key"],
             "region": self.app_config.get("region_name"),
             "s3_bucket_suffix": aws_account_data["s3_bucket_suffix"],
             "redis_secrets": {
@@ -93,37 +150,6 @@ class TerraformService(object):
             }
         }
 
-        logit("Writing Terraform input variables to file...")
-
-        # Write configuration data to a file for Terraform to use.
-        with open(base_dir + "customer_config.json", "w") as file_handler:
-            file_handler.write(
-                json.dumps(
-                    terraform_configuration_data
-                )
-            )
-
-        # Write the latest terraform state to terraform.tfstate
-        # If we have any state at all.
-        if aws_account_data["terraform_state"] != "":
-            # First we write the current version to the database as a version to keep track
-
-            terraform_state_file_path = base_dir + "terraform.tfstate"
-
-            logit("A previous terraform state file exists! Writing it to '" +
-                terraform_state_file_path + "'...")
-
-            with open(terraform_state_file_path, "w") as file_handler:
-                file_handler.write(
-                    aws_account_data["terraform_state"]
-                )
-
-        logit("The base terraform files have been created successfully at " + base_dir)
-
-        terraform_configuration_data["base_dir"] = base_dir
-
-        return terraform_configuration_data
-
     def terraform_configure_aws_account(self, aws_account_data):
         logit("Ensuring existence of ECS service-linked role before continuing with AWS account configuration...")
         self.preterraform_manager._ensure_ecs_service_linked_role_exists(
@@ -131,85 +157,73 @@ class TerraformService(object):
             aws_account_data
         )
 
-        terraform_configuration_data = self.write_terraform_base_files(aws_account_data)
-        base_dir = terraform_configuration_data["base_dir"]
+        terraform_config = self.write_terraform_base_files(aws_account_data)
+        base_dir = terraform_config["base_dir"]
 
         try:
-            logit("Setting up AWS account with terraform (AWS Acc. ID '" +
-                aws_account_data["account_id"] + "')...")
-
-            # Terraform apply
-            process_handler = Popen(
-                [
-                    base_dir + "terraform",
-                    "apply",
-                    "-auto-approve",
-                    "-var-file",
-                    base_dir + "customer_config.json",
-                ],
-                stdout=PIPE,
-                stderr=PIPE,
-                shell=False,
-                universal_newlines=True,
-                cwd=base_dir,
-            )
-            process_stdout, process_stderr = process_handler.communicate()
-
-            if process_stderr.strip() != "":
-                logit("The Terraform provisioning has failed!", "error")
-                logit(process_stderr, "error")
-                logit(process_stdout, "error")
-
-                # Alert us of the provisioning error so we can get ahead of
-                # it with AWS support.
-                send_terraform_provisioning_error(
-                    self.app_config,
-                    aws_account_data["account_id"],
-                    str(process_stderr)
-                )
-
-                raise Exception(
-                    "Terraform provisioning failed, AWS account marked as \"CORRUPT\"")
+            self.setup_aws_account_with_terraform(aws_account_data, terraform_config)
 
             logit("Running 'terraform output' to pull the account details...")
 
-            # Print Terraform output as JSON so we can read it.
-            process_handler = Popen(
-                [
-                    base_dir + "terraform",
-                    "output",
-                    "-json"
-                ],
-                stdout=PIPE,
-                stderr=PIPE,
-                shell=False,
-                universal_newlines=True,
-                cwd=base_dir,
-            )
-            process_stdout, process_stderr = process_handler.communicate()
-
-            # Parse Terraform JSON output
-            terraform_provisioned_account_details = loads(process_stdout)
-
+            terraform_output = self.terraform_output(terraform_config)
+            terraform_state = self.read_terraform_state(base_dir)
             logit("Pulled Terraform output successfully.")
 
-            # Pull the terraform state and pull it so we can later
-            # make terraform changes to user accounts.
-            terraform_state = ""
-            with open(base_dir + "terraform.tfstate", "r") as file_handler:
-                terraform_state = file_handler.read()
-
-            terraform_configuration_data["terraform_state"] = terraform_state
-            terraform_configuration_data["redis_hostname"] = terraform_provisioned_account_details["redis_elastic_ip"]["value"]
-            terraform_configuration_data["ssh_public_key"] = terraform_provisioned_account_details[
-                "refinery_redis_ssh_key_public_key_openssh"]["value"]
-            terraform_configuration_data["ssh_private_key"] = terraform_provisioned_account_details[
-                "refinery_redis_ssh_key_private_key_pem"]["value"]
         finally:
             # Ensure we clear the temporary directory no matter what
             rmtree(base_dir)
 
-        return terraform_configuration_data
+        return self.get_terraform_aws_account_config(
+            terraform_config,
+            terraform_state,
+            terraform_output
+        )
+
+    def get_terraform_aws_account_config(self, config, state, output):
+        result = {}
+
+        result.update(config)
+
+        result["terraform_state"] = state
+        result["redis_hostname"] = output["redis_elastic_ip"]["value"]
+        result["ssh_public_key"] = output["refinery_redis_ssh_key_public_key_openssh"]["value"]
+        result["ssh_private_key"] = output["refinery_redis_ssh_key_private_key_pem"]["value"]
+
+        return result
+
+    def setup_aws_account_with_terraform(self, aws_account_data, terraform_config):
+        base_dir = terraform_config["base_dir"]
+
+        # Terraform apply
+        stdout, stderr = popen_communicate([
+            base_dir + "terraform",
+            "apply",
+            "-auto-approve",
+            "-var-file",
+            join(base_dir, CUSTOMER_CONFIG_JSON)
+        ], cwd=base_dir)
+
+        self.handle_terraform_result(
+            'Terraform provisioning failed, AWS account marked as "CORRUPT"',
+            stderr,
+            stdout,
+            aws_account_data,
+            throw=True,
+            email=True
+        )
+
+    def terraform_output(self, terraform_config):
+        base_dir = terraform_config["base_dir"]
+
+        # Print Terraform output as readable JSON
+        stdout, stderr = popen_communicate([
+            base_dir + "terraform",
+            "output",
+            "-json"
+        ], cwd=base_dir)
+
+        # Parse Terraform JSON output
+        return loads(stdout)
 
     def terraform_apply(self, aws_account_data, refresh_terraform_state):
         """
@@ -231,10 +245,10 @@ class TerraformService(object):
         )
 
         # The return data
-        return_data = {
+        result = {
             "success": True,
-            "stdout": "",
-            "stderr": "",
+            "stdout": None,
+            "stderr": None,
             "original_tfstate": str(
                 copy(
                     aws_account_data["terraform_state"]
@@ -244,59 +258,65 @@ class TerraformService(object):
         }
 
         terraform_configuration_data = self.write_terraform_base_files(aws_account_data)
-        temporary_directory = terraform_configuration_data["base_dir"]
+        base_dir = terraform_configuration_data["base_dir"]
 
         try:
-            logit("Performing 'terraform apply' to AWS Account " +
-                aws_account_data["account_id"] + "...")
+            msg = "Performing 'terraform apply' to AWS Account {}..."
+            logit(msg.format(aws_account_data["account_id"]))
 
-            refresh_state_parameter = "true" if refresh_terraform_state else "false"
+            refresh_state = str(bool(refresh_terraform_state)).lower()
 
             # Terraform plan
-            process_handler = Popen(
-                [
-                    temporary_directory + "terraform",
+            process_stdout, process_stderr = popen_communicate([
+                    join(base_dir, "terraform"),
                     "apply",
-                    "-refresh=" + refresh_state_parameter,
+                    "-refresh=" + refresh_state,
                     "-auto-approve",
                     "-var-file",
-                    temporary_directory + "customer_config.json",
-                ],
-                stdout=PIPE,
-                stderr=PIPE,
-                shell=False,
-                universal_newlines=True,
-                cwd=temporary_directory,
+                    join(base_dir, CUSTOMER_CONFIG_JSON)
+                ], cwd=base_dir
             )
-            process_stdout, process_stderr = process_handler.communicate()
-            return_data["stdout"] = process_stdout
-            return_data["stderr"] = process_stderr
+            result["stdout"] = process_stdout
+            result["stderr"] = process_stderr
 
             # Pull the latest terraform state and return it
             # We need to do this regardless of if an error occurred.
-            with open(temporary_directory + "terraform.tfstate", "r") as file_handler:
-                return_data["new_tfstate"] = file_handler.read()
-
-            if process_stderr.strip() != "":
-                logit("The 'terraform apply' has failed!", "error")
-                logit(process_stderr, "error")
-                logit(process_stdout, "error")
-
-                # Alert us of the provisioning error so we can response to it
-                send_terraform_provisioning_error(
-                    self.app_config,
-                    aws_account_data["account_id"],
-                    str(process_stderr)
-                )
-
-                return_data["success"] = False
+            result['new_tfstate'] = self.read_terraform_state(base_dir)
+            result['success'] = self.handle_terraform_result(
+                "The 'terraform apply' has failed!",
+                process_stderr,
+                process_stdout,
+                aws_account_data,
+                email=True
+            )
         finally:
             # Ensure we clear the temporary directory no matter what
-            rmtree(temporary_directory)
+            rmtree(base_dir)
 
         logit("'terraform apply' completed, returning results...")
 
-        return return_data
+        return result
+
+    def handle_terraform_result(self, msg, stderr, stdout, aws_account_data, email=False, throw=False):
+        if stderr.strip():
+            logit(msg, "error")
+            logit(stderr, "error")
+            logit(stdout, "error")
+
+            # Alert us of the provisioning error so we can response to it
+            if email:
+                send_terraform_provisioning_error(
+                    self.app_config,
+                    aws_account_data.get("account_id", "NO AWS ACCOUNT ID"),
+                    str(stderr)
+                )
+
+            if throw:
+                raise Exception(msg)
+
+            return False
+
+        return True
 
     def terraform_plan(self, aws_account_data, refresh_terraform_state):
         """
@@ -311,34 +331,29 @@ class TerraformService(object):
         temporary_directory = terraform_configuration_data["base_dir"]
 
         try:
-            logit("Performing 'terraform plan' to AWS account " +
-                aws_account_data["account_id"] + "...")
+            msg = "Performing 'terraform plan' to AWS account {}..."
+            logit(msg.format(aws_account_data['account_id']))
 
-            refresh_state_parameter = "true" if refresh_terraform_state else "false"
+            refresh_state = str(bool(refresh_terraform_state)).lower()
 
             # Terraform plan
-            process_handler = Popen(
-                [
-                    temporary_directory + "terraform",
-                    "plan",
-                    "-refresh=" + refresh_state_parameter,
-                    "-var-file",
-                    temporary_directory + "customer_config.json",
-                ],
-                stdout=PIPE,
-                stderr=PIPE,
-                shell=False,
-                universal_newlines=True,
-                cwd=temporary_directory,
-            )
+            process_handler = popen_communicate([
+                temporary_directory + "terraform",
+                "plan",
+                "-refresh=" + refresh_state,
+                "-var-file",
+                join(temporary_directory, CUSTOMER_CONFIG_JSON)
+            ], temporary_directory)
+
             process_stdout, process_stderr = process_handler.communicate()
 
-            if process_stderr.strip() != "":
-                logit("The 'terraform plan' has failed!", "error")
-                logit(process_stderr, "error")
-                logit(process_stdout, "error")
-
-                raise Exception("Terraform plan failed.")
+            self.handle_terraform_result(
+                "The 'terraform plan' has failed",
+                process_stderr,
+                process_stdout,
+                aws_account_data,
+                throw=True
+            )
         finally:
             # Ensure we clear the temporary directory no matter what
             rmtree(temporary_directory)
@@ -401,7 +416,7 @@ class TerraformService(object):
 
         return aws_account_ids, accounts_to_create
 
-    def terraform_apply_aged_account(self, aws_account_id):
+    def get_aws_account_by_id(self, aws_account_id):
         dbsession = self.db_session_maker()
         current_aws_account = dbsession.query(AWSAccount).filter(
             AWSAccount.account_id == aws_account_id,
@@ -409,48 +424,70 @@ class TerraformService(object):
         current_aws_account_dict = current_aws_account.to_dict()
         dbsession.close()
 
-        self.logger("Kicking off terraform set-up for AWS account '" + current_aws_account_dict["account_id"] + "'...")
+        return current_aws_account_dict
+
+    def mark_account_as_available(self, db, aws_account_id, provision_info):
+        aws_account = db.query(AWSAccount).filter(
+            AWSAccount.account_id == aws_account_id,
+        ).first()
+
+        # Update the AWS account with this new information
+        aws_account.redis_hostname = provision_info["redis_hostname"]
+        aws_account.terraform_state = provision_info["terraform_state"]
+        aws_account.ssh_public_key = provision_info["ssh_public_key"]
+        aws_account.ssh_private_key = provision_info["ssh_private_key"]
+        aws_account.aws_account_status = "AVAILABLE"
+
+        return aws_account
+
+    def create_terraform_state_version(self, provision_info, aws_account):
+        terraform_state_version = TerraformStateVersion()
+        terraform_state_version.terraform_state = provision_info["terraform_state"]
+        aws_account.terraform_state_versions.append(
+            terraform_state_version
+        )
+
+        return terraform_state_version
+
+    def terraform_apply_aged_account(self, aws_account_id):
+        msg = 'Kicking off terraform set-up for AWS account "{}"...'
+        self.logger(msg.format(aws_account_id))
+        aws_account_dict = self.get_aws_account_by_id(aws_account_id)
+
         try:
-            account_provisioning_details = yield self.task_spawner.terraform_configure_aws_account(
-                current_aws_account_dict
+            # TODO make direct call instead?
+            provision_info = yield self.task_spawner.terraform_configure_aws_account(
+                aws_account_dict
             )
 
-            self.logger("Adding AWS account to the database the pool of \"AVAILABLE\" accounts...")
+            self.logger(
+                'Adding AWS account to the database'
+                'the pool of "AVAILABLE" accounts...'
+            )
 
             dbsession = self.db_session_maker()
-            current_aws_account = dbsession.query(AWSAccount).filter(
-                AWSAccount.account_id == aws_account_id,
-            ).first()
 
-            # Update the AWS account with this new information
-            current_aws_account.redis_hostname = account_provisioning_details["redis_hostname"]
-            current_aws_account.terraform_state = account_provisioning_details["terraform_state"]
-            current_aws_account.ssh_public_key = account_provisioning_details["ssh_public_key"]
-            current_aws_account.ssh_private_key = account_provisioning_details["ssh_private_key"]
-            current_aws_account.aws_account_status = "AVAILABLE"
-
-            # Create a new terraform state version
-            terraform_state_version = TerraformStateVersion()
-            terraform_state_version.terraform_state = account_provisioning_details["terraform_state"]
-            current_aws_account.terraform_state_versions.append(
-                terraform_state_version
-            )
+            aws_account = self.mark_account_as_available(dbsession, aws_account_id, provision_info)
+            terraform_state_version = self.create_terraform_state_version(provision_info, aws_account)
         except Exception as e:
-            self.logger("An error occurred while provision AWS account '" + current_aws_account.account_id + "' with terraform!", "error")
+            msg = 'Error occurred while provisioning AWS account "{}" with terraform!'
+            self.logger(msg.format(aws_account.account_id), "error")
             self.logger(e)
             print_exc()
             self.logger("Marking the account as 'CORRUPT'...")
 
-            # Mark the account as corrupt since the provisioning failed.
-            current_aws_account.aws_account_status = "CORRUPT"
+            # Provision failed, mark the account as corrupt
+            aws_account.aws_account_status = "CORRUPT"
 
-        self.logger("Commiting new account state of '" + current_aws_account.aws_account_status + "' to database...")
-        dbsession.add(current_aws_account)
+        msg = 'Commiting new account state of "{}" to database...'
+        self.logger(msg.format(aws_account.aws_account_status))
+        dbsession.add(terraform_state_version)
+        dbsession.add(aws_account)
         dbsession.commit()
 
         self.logger("Freezing the account until it's used by someone...")
 
-        self.task_spawner.freeze_aws_account(current_aws_account.to_dict())
+        self.task_spawner.freeze_aws_account(aws_account.to_dict())
 
         self.logger("Account frozen successfully.")
 
@@ -476,7 +513,7 @@ class TerraformService(object):
 
         aws_account_ids, accounts_to_create = self.get_account_create_info()
 
-        # Kick off the terraform apply jobs for the accounts which are "aged" for it.
+        # Kick off the terraform apply jobs for aged accounts
         for aws_account_id in aws_account_ids:
             self.terraform_apply_aged_account(aws_account_id)
 
