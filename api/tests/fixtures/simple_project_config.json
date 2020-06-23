@@ -1,0 +1,11 @@
+  {
+    "environment_variables": {},
+    "api_gateway": {
+      "gateway_id": false
+    },
+    "version": "1.0.0",
+    "logging": {
+      "level": "LOG_ALL"
+    },
+    "warmup_concurrency_level": 0
+  }
