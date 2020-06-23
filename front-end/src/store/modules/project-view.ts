@@ -179,7 +179,7 @@ const moduleState: ProjectViewState = {
   // Adding a shared block to a file
   isAddingSharedFileToCodeBlock: false,
 
-  shouldForceRedeploy: false
+  shouldForceRedeploy: true
 };
 
 const ProjectViewModule: Module<ProjectViewState, RootState> = {

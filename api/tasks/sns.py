@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from assistants.deployments.diagram.types import TopicSubscription
+from assistants.deployments.aws.response_types import TopicSubscription
 from utils.general import get_safe_workflow_state_name
 
 

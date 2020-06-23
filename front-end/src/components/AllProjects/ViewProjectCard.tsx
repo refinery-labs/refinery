@@ -87,7 +87,7 @@ export default class ViewProjectCard extends Vue implements ViewProjectCardProps
   }
 
   public renderDeployedStatusMessage() {
-    if (this.project.deployment === null) {
+    if (!this.project.deployment) {
       return <div />;
     }
 

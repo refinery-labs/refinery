@@ -2,7 +2,9 @@ from tornado import gen
 from typing import List
 
 from assistants.deployments.api_gateway import strip_api_gateway
-from assistants.deployments.diagram.types import StateTypes, DeploymentState, ApiGatewayDeploymentState
+from assistants.deployments.aws.api_gateway import ApiGatewayDeploymentState
+from assistants.deployments.aws.types import AwsDeploymentState
+from assistants.deployments.diagram.types import StateTypes
 
 
 @gen.coroutine
@@ -92,7 +94,7 @@ def teardown_infrastructure(api_gateway_manager, lambda_manager, schedule_trigge
 
 
 @gen.coroutine
-def teardown_deployed_states(api_gateway_manager, lambda_manager, schedule_trigger_manager, sns_manager, sqs_manager, credentials, teardown_nodes: List[DeploymentState]):
+def teardown_deployed_states(api_gateway_manager, lambda_manager, schedule_trigger_manager, sns_manager, sqs_manager, credentials, teardown_nodes: List[AwsDeploymentState]):
     teardown_operation_futures = []
 
     # TODO refactor teardown functions so that they only take have the necessary info
@@ -102,8 +104,7 @@ def teardown_deployed_states(api_gateway_manager, lambda_manager, schedule_trigg
             teardown_operation_futures.append(
                 lambda_manager.delete_lambda(
                     credentials,
-                    None, None, None,
-                    teardown_node.arn,
+                    None, None, teardown_node.name, teardown_node.arn
                 )
             )
         if teardown_node.type == StateTypes.SNS_TOPIC:
@@ -133,6 +134,9 @@ def teardown_deployed_states(api_gateway_manager, lambda_manager, schedule_trigg
         elif teardown_node.type == StateTypes.API_GATEWAY:
 
             assert isinstance(teardown_node, ApiGatewayDeploymentState)
+
+            if teardown_node.api_gateway_id is None:
+                continue
 
             teardown_operation_futures.append(
                 strip_api_gateway(

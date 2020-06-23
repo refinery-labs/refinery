@@ -1,6 +1,16 @@
+from __future__ import annotations
+
+import time
 from uuid import uuid4
 
-from assistants.deployments.diagram.api_endpoint_workflow_states import ApiEndpointWorkflowState
+import botocore
+from botocore.exceptions import ClientError
+from typing import TYPE_CHECKING
+
+from utils.general import logit
+
+if TYPE_CHECKING:
+    from assistants.deployments.aws.api_endpoint import ApiEndpointWorkflowState
 
 
 def create_rest_api(aws_client_factory, credentials, name, description, version):
@@ -9,23 +19,36 @@ def create_rest_api(aws_client_factory, credentials, name, description, version)
         credentials
     )
 
-    response = api_gateway_client.create_rest_api(
-        name=name,
-        description=description,
-        version=version,
-        apiKeySource="HEADER",
-        endpointConfiguration={
-            "types": [
-                "EDGE",
-            ]
-        },
-        binaryMediaTypes=[
-            "*/*"
-        ],
-        tags={
-            "RefineryResource": "true"
-        }
-    )
+    attempts = 0
+    response = None
+    while attempts < 5:
+        try:
+            response = api_gateway_client.create_rest_api(
+                name=name,
+                description=description,
+                version=version,
+                apiKeySource="HEADER",
+                endpointConfiguration={
+                    "types": [
+                        "EDGE",
+                    ]
+                },
+                binaryMediaTypes=[
+                    "*/*"
+                ],
+                tags={
+                    "RefineryResource": "true"
+                }
+            )
+            break
+
+        except botocore.exceptions.ClientError as err:
+            response = err.response
+            if response and response.get("Error", {}).get("Code") == "TooManyRequestsException":
+                logit("TooManyRequestsException when trying to deploy the api gateway")
+                # we are calling the api too fast, let's try sleeping for a bit and trying again
+                time.sleep(1)
+                attempts += 1
 
     return response["id"]
 
@@ -115,17 +138,20 @@ def link_api_method_to_lambda(aws_client_factory, credentials, rest_api_id, reso
     api_version = lambda_client.meta.service_model.api_version
     lambda_uri = api_endpoint.get_lambda_uri(api_version)
 
-    integration_response = api_gateway_client.put_integration(
-        restApiId=rest_api_id,
-        resourceId=resource_id,
-        httpMethod=api_endpoint.http_method,
-        type="AWS_PROXY",
-        # MUST be POST: https://github.com/boto/boto3/issues/572#issuecomment-239294381
-        integrationHttpMethod="POST",
-        uri=lambda_uri,
-        connectionType="INTERNET",
-        timeoutInMillis=29000  # 29 seconds
-    )
+    try:
+        integration_response = api_gateway_client.put_integration(
+            restApiId=rest_api_id,
+            resourceId=resource_id,
+            httpMethod=api_endpoint.http_method,
+            type="AWS_PROXY",
+            # MUST be POST: https://github.com/boto/boto3/issues/572#issuecomment-239294381
+            integrationHttpMethod="POST",
+            uri=lambda_uri,
+            connectionType="INTERNET",
+            timeoutInMillis=29000  # 29 seconds
+        )
+    except ClientError as e:
+        raise Exception(f"Unable to set integration {rest_api_id} {resource_id} for lambda {lambda_uri}")
 
     source_arn = api_endpoint.get_source_arn(rest_api_id)
 

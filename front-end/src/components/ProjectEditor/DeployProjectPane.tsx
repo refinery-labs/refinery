@@ -152,16 +152,17 @@ Exception: ${error.exception}
             </div>
           </b-form-group>
 
-          <hr />
-
-          <b-form-group id="force-redeploy-input-group">
+          <b-form-group
+            id="force-redeploy-input-group"
+            description="Checking this will speed up deployment by only re-deploying parts that have changed."
+          >
             <b-form-checkbox
               id="force-redeploy-input"
               name="force-redeploy-input"
               on={{ change: () => this.setForceRedeploy(!this.shouldForceRedeploy) }}
-              checked={this.shouldForceRedeploy}
+              checked={!this.shouldForceRedeploy}
             >
-              Force redeploy this project?
+              Deploy differences only? (Experimental)
             </b-form-checkbox>
           </b-form-group>
 
