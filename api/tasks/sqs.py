@@ -1,25 +1,19 @@
-from __future__ import annotations
-
 from time import sleep
 
-from typing import TYPE_CHECKING
-
-from utils.general import get_safe_workflow_state_name, logit
-
-if TYPE_CHECKING:
-    from assistants.deployments.aws.sqs_queue import SqsQueueWorkflowState
+from utils.general import get_lambda_safe_name, logit
 
 
-def create_sqs_queue(aws_client_factory, credentials, sqs_queue_state: SqsQueueWorkflowState):
+def create_sqs_queue(aws_client_factory, credentials, id, queue_name, batch_size, visibility_timeout):
     sqs_client = aws_client_factory.get_aws_client(
         "sqs",
         credentials
     )
 
-    sqs_queue_name = get_safe_workflow_state_name(sqs_queue_state.name)
+    sqs_queue_name = get_lambda_safe_name(queue_name)
 
     queue_deleted = False
-    while not queue_deleted:
+
+    while queue_deleted == False:
         try:
             sqs_response = sqs_client.create_queue(
                 QueueName=sqs_queue_name,
@@ -27,7 +21,7 @@ def create_sqs_queue(aws_client_factory, credentials, sqs_queue_state: SqsQueueW
                     "DelaySeconds": str(0),
                     "MaximumMessageSize": "262144",
                     # Lambda max time plus ten seconds
-                    "VisibilityTimeout": str(sqs_queue_state.visibility_timeout),
+                    "VisibilityTimeout": str(visibility_timeout),
                 }
             )
 
@@ -38,8 +32,15 @@ def create_sqs_queue(aws_client_factory, credentials, sqs_queue_state: SqsQueueW
 
             sleep(10)
 
+    sqs_arn = "arn:aws:sqs:" + \
+        credentials["region"] + ":" + \
+        str(credentials["account_id"]) + ":" + queue_name
+    sqs_url = "https://sqs." + \
+        credentials["region"] + ".amazonaws.com/" + \
+        str(credentials["account_id"]) + "/" + queue_name
+
     sqs_tag_queue_response = sqs_client.tag_queue(
-        QueueUrl=sqs_queue_state.url,
+        QueueUrl=sqs_url,
         Tags={
             "RefineryResource": "true"
         }
@@ -47,29 +48,29 @@ def create_sqs_queue(aws_client_factory, credentials, sqs_queue_state: SqsQueueW
 
     return {
         "id": id,
-        "name": sqs_queue_state.name,
-        "arn": sqs_queue_state.arn,
-        "batch_size": sqs_queue_state.batch_size
+        "name": queue_name,
+        "arn": sqs_arn,
+        "batch_size": batch_size
     }
 
 
-def map_sqs_to_lambda(aws_client_factory, credentials, sqs_node, next_node):
+def map_sqs_to_lambda(aws_client_factory, credentials, sqs_arn, lambda_arn, batch_size):
     lambda_client = aws_client_factory.get_aws_client(
         "lambda",
         credentials
     )
 
     response = lambda_client.create_event_source_mapping(
-        EventSourceArn=sqs_node.arn,
-        FunctionName=next_node.arn,
+        EventSourceArn=sqs_arn,
+        FunctionName=lambda_arn,
         Enabled=True,
-        BatchSize=sqs_node.batch_size,
+        BatchSize=batch_size,
     )
 
     return response
 
 
-def get_sqs_existence_info(aws_client_factory, credentials, sqs_object):
+def get_sqs_existence_info(aws_client_factory, credentials, _id, _type, name):
     sqs_client = aws_client_factory.get_aws_client(
         "sqs",
         credentials,
@@ -77,9 +78,20 @@ def get_sqs_existence_info(aws_client_factory, credentials, sqs_object):
 
     try:
         queue_url_response = sqs_client.get_queue_url(
-            QueueName=sqs_object.name,
+            QueueName=name,
         )
     except sqs_client.exceptions.QueueDoesNotExist:
-        return False
+        return {
+            "id": _id,
+            "type": _type,
+            "name": name,
+            "exists": False
+        }
 
-    return True
+    return {
+        "id": _id,
+        "type": _type,
+        "name": name,
+        "arn": "arn:aws:sqs:" + credentials["region"] + ":" + str(credentials["account_id"]) + ":" + name,
+        "exists": True,
+    }

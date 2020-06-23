@@ -1,5 +1,3 @@
-from tornado import gen
-
 from assistants.aws_clients.aws_clients_assistant import AwsClientFactory
 from utils.general import log_exception
 from utils.performance_decorators import emit_runtime_metrics
@@ -73,8 +71,8 @@ from tasks.aws_lambda import (
     set_lambda_reserved_concurrency,
     deploy_aws_lambda,
     get_aws_lambda_existence_info,
-    clean_lambda_iam_policies, publish_new_aws_lambda_version, list_lambda_event_source_mappings,
-    delete_lambda_event_source_mapping)
+    clean_lambda_iam_policies
+)
 from tasks.build.common import (
     finalize_codebuild
 )
@@ -98,12 +96,13 @@ from tasks.cloudwatch import (
     create_cloudwatch_group,
     add_rule_target,
     get_lambda_cloudwatch_logs,
-    get_cloudwatch_existence_info,
-    get_cloudwatch_rules)
+    get_cloudwatch_existence_info
+)
 from tasks.sns import (
     create_sns_topic,
     subscribe_lambda_to_sns_topic,
-    get_sns_topic_subscriptions, unsubscribe_lambda_from_sns_topic)
+    get_sns_existence_info
+)
 from tasks.sqs import (
     create_sqs_queue,
     map_sqs_to_lambda,
@@ -114,8 +113,9 @@ from tasks.api_gateway import (
     deploy_api_gateway_to_stage,
     create_resource,
     create_method,
-    link_api_method_to_lambda,
-    get_lambda_uri_for_api_method)
+    add_integration_response,
+    link_api_method_to_lambda
+)
 
 
 # noinspection PyTypeChecker,SqlResolve
@@ -561,37 +561,6 @@ class TaskSpawner(object):
         )
 
     @run_on_executor
-    @log_exception
-    @emit_runtime_metrics("publish_new_aws_lambda_version")
-    def publish_new_aws_lambda_version(self, credentials, lambda_object):
-        return publish_new_aws_lambda_version(
-            self.app_config,
-            self.aws_client_factory,
-            credentials,
-            lambda_object
-        )
-
-    @run_on_executor
-    @log_exception
-    @emit_runtime_metrics("list_lambda_event_source_mappings")
-    def list_lambda_event_source_mappings(self, credentials, lambda_object):
-        return list_lambda_event_source_mappings(
-            self.aws_client_factory,
-            credentials,
-            lambda_object
-        )
-
-    @run_on_executor
-    @log_exception
-    @emit_runtime_metrics("delete_lambda_event_source_mapping")
-    def delete_lambda_event_source_mapping(self, credentials, event_source_uuid):
-        return delete_lambda_event_source_mapping(
-            self.aws_client_factory,
-            credentials,
-            event_source_uuid
-        )
-
-    @run_on_executor
     @emit_runtime_metrics("get_final_zip_package_path")
     def get_final_zip_package_path(self, language, libraries):
         return get_final_zip_package_path(language, libraries)
@@ -702,21 +671,27 @@ class TaskSpawner(object):
 
     @run_on_executor
     @emit_runtime_metrics("create_cloudwatch_rule")
-    def create_cloudwatch_rule(self, credentials, cloudwatch_rule):
+    def create_cloudwatch_rule(self, credentials, id, name, schedule_expression, description, input_string):
         return create_cloudwatch_rule(
             self.aws_client_factory,
             credentials,
-            cloudwatch_rule
+            id,
+            name,
+            schedule_expression,
+            description,
+            input_string
         )
 
     @run_on_executor
     @emit_runtime_metrics("add_rule_target")
-    def add_rule_target(self, credentials, rule, target):
+    def add_rule_target(self, credentials, rule_name, target_id, target_arn, input_string):
         return add_rule_target(
             self.aws_client_factory,
             credentials,
-            rule,
-            target
+            rule_name,
+            target_id,
+            target_arn,
+            input_string
         )
 
     @run_on_executor
@@ -731,40 +706,35 @@ class TaskSpawner(object):
 
     @run_on_executor
     @emit_runtime_metrics("subscribe_lambda_to_sns_topic")
-    def subscribe_lambda_to_sns_topic(self, credentials, topic_object, lambda_object):
+    def subscribe_lambda_to_sns_topic(self, credentials, topic_arn, lambda_arn):
         return subscribe_lambda_to_sns_topic(
             self.aws_client_factory,
             credentials,
-            topic_object,
-            lambda_object
-        )
-
-    @run_on_executor
-    @emit_runtime_metrics("unsubscribe_lambda_from_sns_topic")
-    def unsubscribe_lambda_from_sns_topic(self, credentials, subscription_arn):
-        return unsubscribe_lambda_from_sns_topic(
-            self.aws_client_factory,
-            credentials,
-            subscription_arn
+            topic_arn,
+            lambda_arn
         )
 
     @run_on_executor
     @emit_runtime_metrics("create_sqs_queue")
-    def create_sqs_queue(self, credentials, sqs_queue_state):
+    def create_sqs_queue(self, credentials, id, queue_name, batch_size, visibility_timeout):
         return create_sqs_queue(
             self.aws_client_factory,
             credentials,
-            sqs_queue_state
+            id,
+            queue_name,
+            batch_size,
+            visibility_timeout
         )
 
     @run_on_executor
     @emit_runtime_metrics("map_sqs_to_lambda")
-    def map_sqs_to_lambda(self, credentials, sqs_node, next_node):
+    def map_sqs_to_lambda(self, credentials, sqs_arn, lambda_arn, batch_size):
         return map_sqs_to_lambda(
             self.aws_client_factory,
             credentials,
-            sqs_node,
-            next_node
+            sqs_arn,
+            lambda_arn,
+            batch_size
         )
 
     @run_on_executor
@@ -853,8 +823,8 @@ class TaskSpawner(object):
 
     @run_on_executor
     @emit_runtime_metrics("get_aws_lambda_existence_info")
-    def get_aws_lambda_existence_info(self, credentials, lambda_object):
-        return get_aws_lambda_existence_info(self.aws_client_factory, credentials, lambda_object)
+    def get_aws_lambda_existence_info(self, credentials, _id, _type, lambda_name):
+        return get_aws_lambda_existence_info(self.aws_client_factory, credentials, _id, _type, lambda_name)
 
     @run_on_executor
     @emit_runtime_metrics("get_lambda_cloudwatch_logs")
@@ -863,23 +833,18 @@ class TaskSpawner(object):
 
     @run_on_executor
     @emit_runtime_metrics("get_cloudwatch_existence_info")
-    def get_cloudwatch_existence_info(self, credentials, schedule_object):
-        return get_cloudwatch_existence_info(self.aws_client_factory, credentials, schedule_object)
-
-    @run_on_executor
-    @emit_runtime_metrics("get_cloudwatch_rules")
-    def get_cloudwatch_rules(self, credentials, rule):
-        return get_cloudwatch_rules(self.aws_client_factory, credentials, rule)
+    def get_cloudwatch_existence_info(self, credentials, _id, _type, name):
+        return get_cloudwatch_existence_info(self.aws_client_factory, credentials, _id, _type, name)
 
     @run_on_executor
     @emit_runtime_metrics("get_sqs_existence_info")
-    def get_sqs_existence_info(self, credentials, sqs_object):
-        return get_sqs_existence_info(self.aws_client_factory, credentials, sqs_object)
+    def get_sqs_existence_info(self, credentials, _id, _type, name):
+        return get_sqs_existence_info(self.aws_client_factory, credentials, _id, _type, name)
 
     @run_on_executor
-    @emit_runtime_metrics("get_sns_topic_subscriptions")
-    def get_sns_topic_subscriptions(self, credentials, sns_object):
-        return get_sns_topic_subscriptions(self.aws_client_factory, credentials, sns_object)
+    @emit_runtime_metrics("get_sns_existence_info")
+    def get_sns_existence_info(self, credentials, _id, _type, name):
+        return get_sns_existence_info(self.aws_client_factory, credentials, _id, _type, name)
 
     @run_on_executor
     @emit_runtime_metrics("create_rest_api")
@@ -935,20 +900,27 @@ class TaskSpawner(object):
             lambda_name
         )
 
-    def get_lambda_uri_for_api_method(self, credentials, api_endpoint):
-        return get_lambda_uri_for_api_method(
+    @run_on_executor
+    @emit_runtime_metrics("add_integration_response")
+    def add_integration_response(self, credentials, rest_api_id, resource_id, http_method, lambda_name):
+        return add_integration_response(
             self.aws_client_factory,
             credentials,
-            api_endpoint
+            rest_api_id,
+            resource_id,
+            http_method,
+            lambda_name
         )
 
     @run_on_executor
     @emit_runtime_metrics("link_api_method_to_lambda")
-    def link_api_method_to_lambda(self, credentials, rest_api_id, resource_id, api_endpoint):
+    def link_api_method_to_lambda(self, credentials, rest_api_id, resource_id, http_method, api_path, lambda_name):
         return link_api_method_to_lambda(
             self.aws_client_factory,
             credentials,
             rest_api_id,
             resource_id,
-            api_endpoint
+            http_method,
+            api_path,
+            lambda_name
         )

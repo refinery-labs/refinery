@@ -64,11 +64,11 @@ class DeleteDeploymentsInProject(BaseHandler):
             })
             raise gen.Return()
 
-        deployments = self.dbsession.query(Deployment).filter_by(
+        deployment = self.dbsession.query(Deployment).filter_by(
             project_id=self.json["project_id"]
-        )
+        ).first()
 
-        for deployment in deployments:
+        if deployment:
             self.dbsession.delete(deployment)
             self.dbsession.commit()
 

@@ -110,7 +110,6 @@ export interface DeployDiagramRequest extends BaseApiRequest {
   project_id: string;
   project_config: ProjectConfig;
   diagram_data: string;
-  force_redeploy: boolean;
 }
 
 export enum DeployDiagramResponseCode {

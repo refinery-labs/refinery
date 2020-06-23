@@ -131,7 +131,6 @@ export const LanguageToLibraryRepoURLMap: LanguageToLibraryRepoURL = {
 export interface DeployProjectParams {
   project: RefineryProject;
   projectConfig: ProjectConfig;
-  forceRedeploy: boolean;
 }
 
 export type DeployProjectResult = DeploymentException[] | null;
