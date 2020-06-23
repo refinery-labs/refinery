@@ -4,6 +4,7 @@ import uuid
 from tornado import gen
 from typing import Union, Dict, List
 
+from assistants.deployments.api_gateway import strip_api_gateway
 from assistants.deployments.aws.api_endpoint import ApiEndpointWorkflowState
 from assistants.deployments.aws.api_gateway import ApiGatewayWorkflowState, ApiGatewayDeploymentState
 from assistants.deployments.aws.aws_workflow_state import AwsWorkflowState
@@ -53,18 +54,10 @@ class AwsDeployment(DeploymentDiagram):
         self._workflow_state_lookup: StateLookup[AwsWorkflowState] = self._workflow_state_lookup
         self._previous_state_lookup: StateLookup[AwsDeploymentState] = StateLookup[AwsDeploymentState]()
 
-        self.gateway_id = None
-        if self.project_config.get("api_gateway") and self.project_config["api_gateway"].get("gateway_id"):
-            self.gateway_id = self.project_config["api_gateway"]["gateway_id"]
-
         if latest_deployment is not None and "workflow_states" in latest_deployment:
             # deserialize the workflow states from the previous deployment to use them as a reference when diffing.
             for ws in latest_deployment["workflow_states"]:
                 state = json_to_aws_deployment_state(ws)
-
-                if isinstance(state, ApiGatewayDeploymentState) and self.gateway_id is not None:
-                    state.api_gateway_id = self.gateway_id
-
                 self._previous_state_lookup.add_state(state)
 
     def serialize(self):
@@ -83,14 +76,6 @@ class AwsDeployment(DeploymentDiagram):
             **serialized_deployment,
             "workflow_states": workflow_states,
             "workflow_relationships": workflow_relationships,
-        }
-
-    def get_updated_config(self):
-        return {
-            **self.project_config,
-            "api_gateway": {
-                "gateway_id": self.api_gateway.api_gateway_id
-            }
         }
 
     @property

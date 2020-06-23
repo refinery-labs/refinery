@@ -1,4 +1,3 @@
-import random
 import time
 
 import pinject
@@ -55,7 +54,7 @@ class LambdaManager(object):
                         raise
 
                     attempts += 1
-                    time.sleep(attempts * 2 + random.randint(0, 5))
+                    time.sleep(1)
 
         was_deleted = False
         try:

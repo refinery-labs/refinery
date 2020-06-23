@@ -153,7 +153,7 @@ class ApiGatewayWorkflowState(AwsWorkflowState):
         self.deployed_state = deploy_diagram.get_previous_state(API_GATEWAY_STATE_ARN)
         if self.deployed_state is None:
             self.deployed_state = ApiGatewayDeploymentState(
-                self.name, StateTypes.API_GATEWAY, None, API_GATEWAY_STATE_ARN, deploy_diagram.gateway_id
+                self.name, StateTypes.API_GATEWAY, None, API_GATEWAY_STATE_ARN, None
             )
 
         self.id = deploy_diagram.project_id.replace('-', '')
