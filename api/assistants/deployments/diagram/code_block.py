@@ -16,8 +16,8 @@ class CodeBlockWorkflowState(WorkflowState):
 
         self.language = None
         self.code = None
+        self.layers = None
         self.libraries = None
-        self.layers = []
 
         self.is_inline_execution = is_inline_execution
 

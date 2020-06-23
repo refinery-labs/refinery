@@ -66,30 +66,15 @@ class RunTmpLambda(BaseHandler):
         # Dummy pipeline execution ID
         pipeline_execution_id = "SHOULD_NEVER_HAPPEN_TMP_LAMBDA_RUN"
 
-        # This needs:
-        # project_id
-        # project_name
-        # project_config
-        # task_spawner
-        # credentials
-        deployment_diagram = AwsDeployment(
-            pipeline_execution_id,
-            None,
-            project_config={
-                "logging": {
-                    "level": "LOG_NONE"
-                }
-            },
-            credentials=credentials,
-            task_spawner=self.task_spawner
-        )
+        deployment_diagram = AwsDeployment(pipeline_execution_id, None, project_config={
+            "logging": {
+                "level": "LOG_NONE"
+            }
+        })
 
         inline_lambda = LambdaWorkflowState(
-            credentials,
-            str(uuid.uuid4()),
-            random_node_id,
-            StateTypes.LAMBDA,
-            is_inline_execution=True
+            credentials, str(uuid.uuid4()),
+            random_node_id, StateTypes.LAMBDA, is_inline_execution=True
         )
         inline_lambda.setup(deployment_diagram, self.json)
 
