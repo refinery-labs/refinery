@@ -73,7 +73,7 @@ export const baseCytoscapeStyles = [
     selector: 'node.disabled',
     style: {
       'background-blacken': 0.4,
-      opacity: 0.8
+      opacity: '0.8'
     }
   },
   {

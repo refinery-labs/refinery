@@ -1,8 +1,5 @@
 from hashlib import sha256
 from json import dumps
-
-from botocore.exceptions import ClientError
-
 from pyexceptions.builds import BuildException
 from tasks.s3 import read_from_s3
 from tasks.cloudwatch import get_lambda_cloudwatch_logs
@@ -66,19 +63,11 @@ def finalize_codebuild(aws_client_factory, credentials, build_id, final_s3_packa
     # Loop until we have the build information (up to ~2 minutes)
     for _ in range(50):
         # Check the status of the build we just kicked off
-        try:
-            codebuild_build_status_response = codebuild_client.batch_get_builds(
-                ids=[
-                    build_id
-                ]
-            )
-        except ClientError as e:
-            if e.response["Error"]["Code"] != "ThrottlingException":
-                raise
-
-            sleep(1)
-            continue
-
+        codebuild_build_status_response = codebuild_client.batch_get_builds(
+            ids=[
+                build_id
+            ]
+        )
         build_info = codebuild_build_status_response["builds"][0]
         build_status = build_info["buildStatus"]
 

@@ -1,15 +1,11 @@
-import time
-
 import pinject
 import tornado
-from tornado import gen
 
 from tornado.concurrent import run_on_executor, futures
 
 from botocore.exceptions import ClientError
 
-from tasks.aws_lambda import list_lambda_event_source_mappings_by_name
-from utils.general import log_exception, logit
+from utils.general import log_exception
 from utils.performance_decorators import emit_runtime_metrics
 
 
@@ -36,22 +32,6 @@ class LambdaManager(object):
             "lambda",
             credentials
         )
-
-        # Cleanup the source mappings for when we recreate this lambda and they do not persist
-        event_source_mappings = list_lambda_event_source_mappings_by_name(aws_client_factory, credentials, name)
-        for mapping in event_source_mappings:
-            attempts = 0
-            while attempts < 5:
-                try:
-                    lambda_client.delete_event_source_mapping(
-                        UUID=mapping.uuid
-                    )
-                except ClientError as e:
-                    if e.response["Error"]["Code"] != "ResourceInUseException":
-                        raise
-
-                    attempts += 1
-                    time.sleep(1)
 
         was_deleted = False
         try:

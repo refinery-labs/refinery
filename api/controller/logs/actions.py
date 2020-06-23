@@ -92,7 +92,17 @@ def write_remaining_project_execution_log_pages(task_spawner, credentials, data_
 def do_update_athena_table_partitions(task_spawner, db_session_maker, task_locker, credentials, project_id):
     dbsession = db_session_maker()
 
-    yield update_athena_table_partitions(task_spawner, credentials, project_id)
+    lock_id = "get_project_executions_" + project_id
+    task_lock = task_locker.lock(dbsession, lock_id)
+    try:
+        # Enforce that we are only attempting to do this once for the same project at any given time
+        with task_lock:
+            yield update_athena_table_partitions(task_spawner, credentials, project_id)
+
+    except AcquireFailure:
+        logit("Unable to acquire lock for:" + lock_id, "error")
+    finally:
+        dbsession.close()
 
 
 @gen.coroutine
