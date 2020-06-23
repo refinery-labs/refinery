@@ -422,8 +422,6 @@ def deploy_aws_lambda(app_config, aws_client_factory, db_session_maker, lambda_m
             lambda_deploy_result["CodeSize"]
         )
 
-    return lambda_deploy_result
-
 
 def _deploy_aws_lambda(aws_client_factory, credentials, lambda_object: LambdaWorkflowState, s3_package_zip_path):
     # Generate environment variables data structure

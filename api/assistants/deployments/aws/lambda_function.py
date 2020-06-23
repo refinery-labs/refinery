@@ -209,15 +209,13 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
             self
         )
 
-        deployed_arn = deployed_lambda_data["FunctionArn"]
-        self.set_arn(deployed_arn)
-
         # If we have concurrency set, then we'll set that for our deployed Lambda
         if self.reserved_concurrency_count:
-            logit(f"Setting reserved concurrency for Lambda '{deployed_arn}' to {self.reserved_concurrency_count}...")
+            arn = deployed_lambda_data["FunctionArn"]
+            logit(f"Setting reserved concurrency for Lambda '{arn}' to {self.reserved_concurrency_count}...")
             yield task_spawner.set_lambda_reserved_concurrency(
                 self._credentials,
-                deployed_arn,
+                arn,
                 self.reserved_concurrency_count
             )
 
