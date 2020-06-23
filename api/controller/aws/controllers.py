@@ -453,7 +453,7 @@ class DeployDiagram(BaseHandler):
         update_project_config(
             self.dbsession,
             project_id,
-            deployment_diagram.project_config
+            deployment_diagram.get_updated_config()
         )
 
         self.write({
