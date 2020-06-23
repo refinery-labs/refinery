@@ -644,7 +644,7 @@ def get_cached_inline_execution_lambda_entries(db_session_maker, credentials):
     return existing_inline_execution_lambdas
 
 
-def delete_cached_inline_execution_lambda(aws_client_factory, db_session_maker, lambda_manager, credentials, arn, lambda_uuid):
+def delete_cached_inline_execution_lambda(aws_client_factory, db_session_maker, lambda_manager, credentials, name, arn, lambda_uuid):
     # TODO: Call instance method not the static one
     # noinspection PyProtectedMember
     lambda_manager._delete_lambda(
@@ -652,7 +652,7 @@ def delete_cached_inline_execution_lambda(aws_client_factory, db_session_maker, 
         credentials,
         False,
         False,
-        None,
+        name,
         arn
     )
 
@@ -709,6 +709,7 @@ def cache_inline_lambda_execution(aws_client_factory, db_session_maker, lambda_m
                 db_session_maker,
                 lambda_manager,
                 credentials,
+                lambda_to_delete["name"],
                 lambda_to_delete["arn"],
                 lambda_to_delete["id"]
             )
