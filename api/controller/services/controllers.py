@@ -60,7 +60,8 @@ class AssumeRoleCredentials(BaseHandler):
             self.logger("Assume role boto error:" + repr(boto_error), "error")
             # If it's not an AccessDenied exception it's not what we except so we re-raise
             if boto_error.response["Error"]["Code"] != "AccessDenied":
-                self.logger("Unexpected Boto3 response: " + boto_error.response["Error"]["Code"])
+                self.logger("Unexpected Boto3 response: " +
+                            boto_error.response["Error"]["Code"])
                 self.logger(boto_error.response)
                 raise boto_error
 
@@ -108,7 +109,8 @@ class UpdateIAMConsoleUserIAM(BaseHandler):
         dbsession.close()
 
         for aws_account_dict in aws_account_dicts:
-            self.logger("Updating console account for AWS account ID " + aws_account_dict["account_id"] + "...")
+            self.logger("Updating console account for AWS account ID " +
+                        aws_account_dict["account_id"] + "...")
             yield self.task_spawner.recreate_aws_console_account(
                 aws_account_dict,
                 False
@@ -161,7 +163,8 @@ class OnboardThirdPartyAWSAccountPlan(BaseHandler):
         third_party_aws_account_dict = third_party_aws_account.to_dict()
         dbsession.close()
 
-        self.logger("Performing a terraform plan against the third-party account...")
+        self.logger(
+            "Performing a terraform plan against the third-party account...")
         terraform_plan_output = yield self.task_spawner.terraform_plan(
             third_party_aws_account_dict
         )
@@ -172,7 +175,8 @@ class OnboardThirdPartyAWSAccountPlan(BaseHandler):
             terraform_plan_output
         )
 
-        final_email_html += "<hr /><h1>AWS Account " + third_party_aws_account_dict["account_id"] + "</h1>"
+        final_email_html += "<hr /><h1>AWS Account " + \
+            third_party_aws_account_dict["account_id"] + "</h1>"
         final_email_html += terraform_output_html
 
         final_email_html += "<hr /><b>That is all.</b>"
@@ -182,7 +186,8 @@ class OnboardThirdPartyAWSAccountPlan(BaseHandler):
             self.app_config.get("alerts_email"),
 
             # Make subject unique so Gmail doesn't group
-            "Terraform Plan Results for Onboarding Third-Party AWS Account " + str(int(time.time())),
+            "Terraform Plan Results for Onboarding Third-Party AWS Account " + \
+            str(int(time.time())),
 
             # No text version of email
             False,
@@ -242,7 +247,8 @@ class OnboardThirdPartyAWSAccountApply(BaseHandler):
         third_party_aws_account_dict = third_party_aws_account.to_dict()
         dbsession.close()
 
-        self.logger("Creating the '" + THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME + "' role for Lambda executions...")
+        self.logger("Creating the '" + THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME +
+                    "' role for Lambda executions...")
         yield self.task_spawner.create_third_party_aws_lambda_execute_role(
             third_party_aws_account_dict
         )
@@ -250,7 +256,8 @@ class OnboardThirdPartyAWSAccountApply(BaseHandler):
         current_aws_account = None
 
         try:
-            self.logger("Creating Refinery base infrastructure on third-party AWS account...")
+            self.logger(
+                "Creating Refinery base infrastructure on third-party AWS account...")
             account_provisioning_details = yield self.task_spawner.terraform_configure_aws_account(
                 third_party_aws_account_dict
             )
@@ -275,7 +282,8 @@ class OnboardThirdPartyAWSAccountApply(BaseHandler):
             previous_aws_account_dict = previous_aws_account.to_dict()
             previous_aws_account_id = previous_aws_account.id
 
-            self.logger("Previously-assigned AWS Account has UUID of " + previous_aws_account_id)
+            self.logger(
+                "Previously-assigned AWS Account has UUID of " + previous_aws_account_id)
 
             # Set the previously-assigned AWS account to be
             previous_aws_account.aws_account_status = "NEEDS_CLOSING"
@@ -291,13 +299,15 @@ class OnboardThirdPartyAWSAccountApply(BaseHandler):
 
             # Create a new terraform state version
             terraform_state_version = TerraformStateVersion()
-            terraform_state_version.terraform_state = account_provisioning_details["terraform_state"]
+            terraform_state_version.terraform_state = account_provisioning_details[
+                "terraform_state"]
             current_aws_account.terraform_state_versions.append(
                 terraform_state_version
             )
         except Exception as e:
             if current_aws_account is not None:
-                self.logger("An error occurred while provision AWS account '" + current_aws_account.account_id + "' with terraform!", "error")
+                self.logger("An error occurred while provision AWS account '" +
+                            current_aws_account.account_id + "' with terraform!", "error")
             print_exc()
             self.logger(e)
             self.logger("Marking the account as 'CORRUPT'...")
@@ -324,7 +334,8 @@ class OnboardThirdPartyAWSAccountApply(BaseHandler):
 
         # Close the previous Refinery-managed AWS account
         self.logger("Closing previously-assigned Refinery AWS account...")
-        self.logger("Freezing the account so it costs us less while we do the process of closing it...")
+        self.logger(
+            "Freezing the account so it costs us less while we do the process of closing it...")
         yield self.task_spawner.freeze_aws_account(
             previous_aws_account_dict
         )
@@ -365,7 +376,8 @@ class ClearAllS3BuildPackages(BaseHandler):
         dbsession.close()
 
         for aws_account_dict in aws_account_dicts:
-            self.logger("Clearing build packages for account ID " + aws_account_dict["account_id"] + "...")
+            self.logger("Clearing build packages for account ID " +
+                        aws_account_dict["account_id"] + "...")
             yield clear_sub_account_packages(
                 self.task_spawner,
                 aws_account_dict
@@ -434,7 +446,8 @@ class PerformTerraformUpdateOnFleet(BaseHandler):
             current_aws_account_dict = current_aws_account.to_dict()
             dbsession.close()
 
-            self.logger("Running 'terraform apply' against AWS Account " + current_aws_account_dict["account_id"])
+            self.logger("Running 'terraform apply' against AWS Account " +
+                        current_aws_account_dict["account_id"])
             terraform_apply_results = yield self.task_spawner.terraform_apply(
                 current_aws_account_dict
             )
@@ -474,14 +487,16 @@ class PerformTerraformUpdateOnFleet(BaseHandler):
                 )
                 issue_occurred_during_updates = True
 
-            final_email_html += "<hr /><h1>AWS Account " + current_aws_account_dict["account_id"] + "</h1>"
+            final_email_html += "<hr /><h1>AWS Account " + \
+                current_aws_account_dict["account_id"] + "</h1>"
             final_email_html += terraform_output_html
 
         final_email_html += "<hr /><b>That is all.</b>"
 
         self.logger("Sending email with results from 'terraform apply'...")
 
-        final_email_subject = "Terraform Apply Results from Across the Fleet " + str(int(time.time()))  # Make subject unique so Gmail doesn't group
+        final_email_subject = "Terraform Apply Results from Across the Fleet " + \
+            str(int(time.time()))  # Make subject unique so Gmail doesn't group
         if issue_occurred_during_updates:
             final_email_subject = "[ APPLY FAILED ] " + final_email_subject
         else:
@@ -547,7 +562,8 @@ class PerformTerraformPlanForAccount(BaseHandler):
 
         dbsession.close()
 
-        self.logger("Performing a terraform plan for AWS account: " + str(account_id))
+        self.logger(
+            "Performing a terraform plan for AWS account: " + str(account_id))
         terraform_plan_output = yield self.task_spawner.terraform_plan(
             aws_account_dict
         )
@@ -563,7 +579,8 @@ class PerformTerraformPlanForAccount(BaseHandler):
             terraform_output_html
         )
 
-        self.logger("Generated response output for plan: " + rendered_html_output)
+        self.logger("Generated response output for plan: " +
+                    rendered_html_output)
         self.write(rendered_html_output)
 
 
@@ -656,7 +673,8 @@ class PerformTerraformUpdateForAccount(BaseHandler):
             terraform_output_html
         )
 
-        self.logger("Results from account 'terraform apply': " + rendered_html_output)
+        self.logger("Results from account 'terraform apply': " +
+                    rendered_html_output)
 
         self.write(rendered_html_output)
 
@@ -670,64 +688,37 @@ class PerformTerraformPlanOnFleet(BaseHandler):
         })
         self.finish()
 
-        dbsession = self.db_session_maker()
+        email_html_tokens = [
+            """
+                <h1>Terraform Plan Results Across the Customer Fleet</h1>
+                Please note that this is <b>not</b> applying these changes.
+                It is purely to understand what would happen if we did.
+            """
+        ]
 
-        aws_accounts = dbsession.query(AWSAccount).filter(
-            sql_or(
-                AWSAccount.aws_account_status == "IN_USE",
-                AWSAccount.aws_account_status == "AVAILABLE",
-            )
-        ).all()
+        results = self.terraform_service.terraform_plan_on_fleet()
 
-        final_email_html = """
-		<h1>Terraform Plan Results Across the Customer Fleet</h1>
-		Please note that this is <b>not</b> applying these changes.
-		It is purely to understand what would happen if we did.
-		"""
-
-        total_accounts = len(aws_accounts)
-        counter = 1
-
-        # Pull the list of AWS account IDs to work on.
-        aws_account_ids = []
-        for aws_account in aws_accounts:
-            aws_account_ids.append(
-                aws_account.account_id
-            )
-
-        dbsession.close()
-
-        for aws_account_id in aws_account_ids:
-            dbsession = self.db_session_maker()
-            current_aws_account = dbsession.query(AWSAccount).filter(
-                AWSAccount.account_id == aws_account_id,
-            ).first()
-            current_aws_account = current_aws_account.to_dict()
-            dbsession.close()
-
-            self.logger("Performing a terraform plan for AWS account " + str(counter) + "/" + str(total_accounts) + "...")
-            terraform_plan_output = yield self.task_spawner.terraform_plan(
-                current_aws_account
-            )
-
+        for aws_account_id, terraform_plan_output in results:
             # Convert terraform plan terminal output to HTML
             ansiconverter = Ansi2HTMLConverter()
             terraform_output_html = ansiconverter.convert(
                 terraform_plan_output
             )
+            email_html_tokens.extend([
+                f"<hr /><h1>AWS Account {aws_account_id}</h1>",
+                terraform_output_html
+            ])
 
-            final_email_html += "<hr /><h1>AWS Account " + current_aws_account["account_id"] + "</h1>"
-            final_email_html += terraform_output_html
-            counter = counter + 1
-
-        final_email_html += "<hr /><b>That is all.</b>"
+        email_html_tokens.append("<hr /><b>That is all.</b>")
 
         self.logger("Sending email with results from terraform plan...")
+
         yield self.task_spawner.send_email(
             self.app_config.get("alerts_email"),
-            "Terraform Plan Results from Across the Fleet " + str(int(time.time())),  # Make subject unique so Gmail doesn't group
+            "Terraform Plan Results from Across the Fleet " +
+            str(int(time.time())),  # Make subject unique so Gmail won't group
             False,  # No text version of email
-            final_email_html
+            "".join(email_html_tokens)
         )
 
 
@@ -744,9 +735,11 @@ class RunBillingWatchdogJob(BaseHandler):
             "msg": "Watchdog job has been started!"
         })
         self.finish()
-        self.logger("[ STATUS ] Initiating billing watchdog job, scanning all accounts to check for billing anomalies...")
+        self.logger(
+            "[ STATUS ] Initiating billing watchdog job, scanning all accounts to check for billing anomalies...")
         aws_account_running_cost_list = yield self.task_spawner.pull_current_month_running_account_totals()
-        self.logger("[ STATUS ] " + str(len(aws_account_running_cost_list)) + " account(s) pulled from billing, checking against rules...")
+        self.logger("[ STATUS ] " + str(len(aws_account_running_cost_list)) +
+                    " account(s) pulled from billing, checking against rules...")
         yield self.task_spawner.enforce_account_limits(aws_account_running_cost_list)
 
 
@@ -764,10 +757,12 @@ class RunMonthlyStripeBillingJob(BaseHandler):
             "msg": "The billing job has been started!"
         })
         self.finish()
-        self.logger("[ STATUS ] Running monthly Stripe billing job to invoice all Refinery customers.")
+        self.logger(
+            "[ STATUS ] Running monthly Stripe billing job to invoice all Refinery customers.")
         date_info = get_last_month_start_and_end_date_strings()
 
-        self.logger("[ STATUS ] Generating invoices for " + date_info["month_start_date"] + " -> " + date_info["next_month_first_day"])
+        self.logger("[ STATUS ] Generating invoices for " +
+                    date_info["month_start_date"] + " -> " + date_info["next_month_first_day"])
 
         yield self.task_spawner.generate_managed_accounts_invoices(
             date_info["month_start_date"],
@@ -841,7 +836,8 @@ class CleanupDanglingResources(BaseHandler):
 
         number_of_resources = len(dangling_resources)
 
-        self.logger(str(len(dangling_resources)) + " resource(s) enumerated in account.")
+        self.logger(str(len(dangling_resources)) +
+                    " resource(s) enumerated in account.")
 
         # If the "confirm" parameter is passed we can proceed to delete it all.
         if delete_resources:
@@ -935,7 +931,8 @@ class ResetIAMConsoleUserIAMForAccount(BaseHandler):
 
         dbsession.close()
 
-        self.logger("Updating console account for single AWS account ID " + aws_account_dict["account_id"] + "...")
+        self.logger("Updating console account for single AWS account ID " +
+                    aws_account_dict["account_id"] + "...")
         yield self.task_spawner.recreate_aws_console_account(
             aws_account_dict,
             False,
@@ -943,7 +940,8 @@ class ResetIAMConsoleUserIAMForAccount(BaseHandler):
             force_continue=True
         )
 
-        self.logger("AWS console account updated successfully for account: " + account_id)
+        self.logger(
+            "AWS console account updated successfully for account: " + account_id)
 
         self.write({
             "success": True,

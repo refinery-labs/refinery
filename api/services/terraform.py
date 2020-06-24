@@ -14,6 +14,7 @@ from uuid import uuid4
 from utils.general import logit
 from utils.ipc import popen_communicate
 from pinject import copy_args_to_public_fields
+from sqlalchemy import or_ as sql_or
 from traceback import print_exc
 
 
@@ -343,7 +344,7 @@ class TerraformService(object):
                 "-refresh=" + refresh_state,
                 "-var-file",
                 join(temporary_directory, CUSTOMER_CONFIG_JSON)
-            ], temporary_directory)
+            ], cwd=temporary_directory)
 
             process_stdout, process_stderr = process_handler.communicate()
 
@@ -490,6 +491,51 @@ class TerraformService(object):
         self.task_spawner.freeze_aws_account(aws_account.to_dict())
 
         self.logger("Account frozen successfully.")
+
+    def get_aws_account_ids_by_status(self, *statuses):
+        dbsession = self.db_session_maker()
+
+        aws_accounts = dbsession.query(AWSAccount).filter(
+            sql_or(*[AWSAccount.aws_account_status == s for s in statuses])
+        ).all()
+
+        # Pull the list of AWS account IDs to work on.
+        aws_account_ids = []
+        for aws_account in aws_accounts:
+            aws_account_ids.append(
+                aws_account.account_id
+            )
+
+        dbsession.close()
+
+        return aws_account_ids
+
+    def terraform_plan_on_fleet(self):
+        results = ()
+
+        account_ids = self.get_aws_account_ids_by_status("IN_USE", "AVAILABLE")
+        total_accounts = len(account_ids)
+
+        for index, aws_account_id in enumerate(account_ids):
+            dbsession = self.db_session_maker()
+            current_aws_account = dbsession.query(AWSAccount).filter(
+                AWSAccount.account_id == aws_account_id,
+            ).first()
+            current_aws_account = current_aws_account.to_dict()
+            dbsession.close()
+
+            msg = "Terraform plan for AWS account {}/{}..."
+            self.logger(msg.format(index + 1, total_accounts))
+            terraform_plan_output = yield self.task_spawner.terraform_plan(
+                current_aws_account
+            )
+
+            results.append((
+                current_aws_account['account_id'],
+                terraform_plan_output
+            ))
+
+        return results
 
     def create_sub_account_for_later_use(self):
         self.logger("Creating a new AWS sub-account for later terraform use...")
