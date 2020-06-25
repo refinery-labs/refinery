@@ -75,10 +75,6 @@ def start_node810_codebuild(aws_client_factory, credentials, libraries_object):
             )
         )
 
-        print(dumps(
-            package_json_template
-        ))
-
         # Write the package.json
         package_json = ZipInfo("package.json")
         package_json.external_attr = 0o777 << 16
