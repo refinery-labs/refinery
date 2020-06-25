@@ -11,6 +11,8 @@ from tasks.s3 import s3_object_exists, read_from_s3
 from uuid import uuid4
 from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 
+from utils.block_libraries import generate_libraries_dict
+
 
 def get_python36_lambda_base_zip(aws_client_factory, credentials, libraries):
     s3_client = aws_client_factory.get_aws_client(
@@ -18,9 +20,7 @@ def get_python36_lambda_base_zip(aws_client_factory, credentials, libraries):
         credentials
     )
 
-    libraries_object = {}
-    for library in libraries:
-        libraries_object[str(library)] = "latest"
+    libraries_object = generate_libraries_dict(libraries)
 
     final_s3_package_zip_path = get_final_zip_package_path(
         "python3.6",
@@ -66,9 +66,7 @@ def get_python27_lambda_base_zip(aws_client_factory, credentials, libraries):
         credentials
     )
 
-    libraries_object = {}
-    for library in libraries:
-        libraries_object[str(library)] = "latest"
+    libraries_object = generate_libraries_dict(libraries)
 
     final_s3_package_zip_path = get_final_zip_package_path(
         "python2.7",
