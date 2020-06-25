@@ -20,7 +20,8 @@ import {
   LAMBDA_SHARED_FILES_DIR,
   PROJECT_LAMBDA_DIR,
   PROJECT_SHARED_FILES_DIR,
-  PROJECTS_CONFIG_FOLDER
+  PROJECTS_CONFIG_FOLDER,
+  README_FILENAME
 } from '@/repo-compiler/shared/constants';
 import {
   isPathValidSymlink,
@@ -109,7 +110,6 @@ async function loadLambdaSharedBlocks(
   try {
     await fs.promises.stat(sharedFileLinksPath);
   } catch (e) {
-    console.error('Could not stat file: ' + sharedFileLinksPath);
     return [];
   }
 
@@ -177,7 +177,7 @@ async function loadSharedFiles(fs: PromiseFsClient, repoDir: string): Promise<Wo
   try {
     await fs.promises.stat(sharedFilesPath);
   } catch (e) {
-    console.error('Could not stat shared file: ' + sharedFilesPath);
+    console.error('Could not stat shared file folder: ' + sharedFilesPath);
     return {};
   }
 
@@ -222,7 +222,6 @@ export async function loadProjectFromDir(
     version: 1,
     project_id: projectID,
     workflow_relationships: [],
-    readme: '',
 
     // overridden values by project config
     ...loadedProjectConfig,

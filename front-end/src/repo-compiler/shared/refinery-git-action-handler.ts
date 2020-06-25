@@ -103,7 +103,7 @@ export class RefineryGitActionHandler {
     );
   }
 
-  private async createOrCheckoutBranch(creatingNewBranch: boolean, branchName: string) {
+  public async createOrCheckoutBranch(creatingNewBranch: boolean, branchName: string) {
     if (creatingNewBranch) {
       await this.gitClient.branch({
         ref: branchName,
@@ -120,16 +120,13 @@ export class RefineryGitActionHandler {
   public async getDiffFileInfo(
     project: RefineryProject,
     branchName: string,
-    gitStatusResult: Array<StatusRow>,
-    creatingNewBranch: boolean
+    gitStatusResult: Array<StatusRow>
   ): Promise<GitDiffInfo> {
     // TODO symlinks always show up as modified files
     const deletedFiles = gitStatusResult.filter(fileRow => isFileDeleted(fileRow)).map(fileRow => fileRow[0]);
     const modifiedFiles = gitStatusResult.filter(fileRow => isFileModified(fileRow)).map(fileRow => fileRow[0]);
 
     const newFiles = gitStatusResult.filter(fileRow => isFileNew(fileRow)).map(fileRow => fileRow[0]);
-
-    await this.createOrCheckoutBranch(creatingNewBranch, branchName);
 
     // new files are ignored since they did not exist in HEAD
     const originalFileContents = await this.getFilesFromFS([...deletedFiles, ...modifiedFiles]);

@@ -15,7 +15,8 @@ import {
   GLOBAL_BASE_PATH,
   LAMBDA_SHARED_FILES_DIR,
   PROJECT_SHARED_FILES_DIR,
-  PROJECTS_CONFIG_FOLDER
+  PROJECTS_CONFIG_FOLDER,
+  README_FILENAME
 } from '@/repo-compiler/shared/constants';
 
 function getFolderName(name: string) {
@@ -134,7 +135,11 @@ export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, projec
   await Promise.all(
     dirsToRemove.map(async (dirToRemove: string | null) => {
       if (dirToRemove !== null && dirToRemove !== '.') {
-        await fs.promises.rmdir(Path.join(dir, dirToRemove));
+        try {
+          await fs.promises.rmdir(Path.join(dir, dirToRemove));
+        } catch (e) {
+          console.log(Path.join(dir, dirToRemove), e);
+        }
       }
     })
   );
@@ -193,13 +198,15 @@ export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, projec
         const sharedFileLinkPath = Path.join(lambdaSharedFilePath, sharedFile.file.name);
 
         // we go up from the 'shared_folders', <lambda block folder>, 'lambda' to get to root
-        const relativeSharedFilePath = Path.join('..', '..', '..', sharedFile.path);
+        const relativeSharedFilePath = Path.join('..', '..', '..', '..', sharedFile.path);
 
         if (fs.promises.symlink) {
           await fs.promises.symlink(relativeSharedFilePath, sharedFileLinkPath);
         }
       })
   );
+
+  const projectFolder = Path.join(dir, GLOBAL_BASE_PATH, PROJECTS_CONFIG_FOLDER);
 
   // we have handled workflow_file_links
   const newWorkflowFileLinks: WorkflowFileLink[] = [];
@@ -210,8 +217,6 @@ export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, projec
     workflow_files: newWorkflowFiles,
     workflow_file_links: newWorkflowFileLinks
   };
-
-  const projectFolder = Path.join(dir, GLOBAL_BASE_PATH, PROJECTS_CONFIG_FOLDER);
 
   await maybeMkdir(fs, projectFolder);
 

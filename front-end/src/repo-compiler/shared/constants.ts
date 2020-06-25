@@ -12,3 +12,5 @@ export const REFINERY_PROJECTS_FOLDER = 'refinery/projects';
 
 export const REFINERY_COMMIT_AUTHOR_NAME = 'Refinery Bot';
 export const REFINERY_COMMIT_AUTHOR_EMAIL = 'donotreply@refinery.io';
+
+export const README_FILENAME = 'README.md';

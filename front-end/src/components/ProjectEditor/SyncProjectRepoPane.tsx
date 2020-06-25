@@ -20,6 +20,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
   }
 
   public showingGitStatusDetails: boolean = false;
+  public hasToggledNewBranch: boolean = false;
   public forcePushModalVisible: boolean = false;
   public gitCommandResult: string = '';
 
@@ -40,7 +41,16 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
   @Watch('remoteBranchName')
   public async diffCompiledProject() {
     await SyncProjectStore.clearGitPushResult();
-    await SyncProjectStore.diffCompiledProject();
+
+    if (!this.hasToggledNewBranch) {
+      try {
+        await SyncProjectStore.diffCompiledProjectAndRemoveBranch();
+      } catch (e) {
+        this.displayErrorToast('Error diffing branch', e.toString());
+      }
+    } else {
+      await SyncProjectStore.checkRemoteBranchName();
+    }
   }
 
   public changeCurrentlyDiffedFile(file: string) {
@@ -238,7 +248,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
           variant="primary"
           class="col-12"
           type="submit"
-          disabled={SyncProjectStore.isPushingToRepo}
+          disabled={SyncProjectStore.isPushingToRepo || SyncProjectStore.isDiffingBranch}
           on={{ click: SyncProjectStore.pushToRemoteBranch }}
         >
           Push to branch
@@ -248,7 +258,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
   }
 
   public async mounted() {
-    await SyncProjectStore.diffCompiledProject();
+    await SyncProjectStore.diffCompiledProjectAndRemoveBranch();
   }
 
   public setRemoteBranchName(branchName: string) {
@@ -266,6 +276,13 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
   }
 
   public setCreatingNewBranch(creatingNewBranch: boolean) {
+    if (creatingNewBranch && !this.hasToggledNewBranch) {
+      SyncProjectStore.setRandomRemoteBranchName();
+      this.hasToggledNewBranch = true;
+    }
+    if (!creatingNewBranch) {
+      this.hasToggledNewBranch = false;
+    }
     SyncProjectStore.setCreatingNewBranch(creatingNewBranch);
   }
 
@@ -273,6 +290,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     return (
       <div>
         <h4>Git Shell</h4>
+        <p>Project Session ID: {SyncProjectStore.projectSessionId}</p>
         <b-form-input type="text" placeholder="command" on={{ input: this.runGitShellCommand }} />
         <b-textarea placeholder="output" class="margin-top--small" value={this.gitCommandResult} />
       </div>
@@ -289,11 +307,15 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     const selectRepoBranches = repoBranches.map(branch => {
       return { value: branch, text: branch };
     });
+    const branchName = repoBranches.includes(SyncProjectStore.remoteBranchName)
+      ? SyncProjectStore.remoteBranchName
+      : repoBranches[0];
+
     return (
       <b-card
         no-body
         bg-variant={!SyncProjectStore.creatingNewBranch ? 'light' : 'default'}
-        on={{ click: () => this.setCreatingNewBranch(false) }}
+        on={{ click: async () => await this.setCreatingNewBranch(false) }}
       >
         <b-card-header header-tag="header" className="p-1" role="tab">
           <h5>Use existing branch</h5>
@@ -305,11 +327,7 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
           role="tabpanel"
         >
           <b-card-body>
-            <b-form-select
-              on={{ input: this.setRemoteBranchName }}
-              value={SyncProjectStore.remoteBranchName}
-              options={selectRepoBranches}
-            />
+            <b-form-select on={{ input: this.setRemoteBranchName }} value={branchName} options={selectRepoBranches} />
           </b-card-body>
         </b-collapse>
       </b-card>
@@ -317,9 +335,6 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
   }
 
   public renderCreateNewBranchCard() {
-    const currentBranch = SyncProjectStore.remoteBranchName;
-
-    const validBranch = currentBranch !== '' ? !branchNameBlacklistRegex.test(currentBranch) : null;
     const remoteBranchName = SyncProjectStore.getRemoteBranchName;
 
     const repoBranches = SyncProjectStore.repoBranches;
@@ -341,12 +356,12 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
               type="text"
               autofocus={true}
               required={true}
-              state={validBranch}
+              state={SyncProjectStore.isValidRemoteBranchName}
               value={remoteBranchName}
               on={{ input: this.setNewRemoteBranchName }}
               placeholder="eg, new-feature"
             />
-            <b-form-invalid-feedback className="padding--small" state={validBranch}>
+            <b-form-invalid-feedback className="padding--small" state={SyncProjectStore.isValidRemoteBranchName}>
               The entered branch name is not valid. Please refer to{' '}
               <a
                 href="https://mirrors.edge.kernel.org/pub/software/scm/git/docs/git-check-ref-format.html"
@@ -363,13 +378,19 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
   }
 
   public renderRepoBranchSelect() {
+    const gitBranchProps: LoadingContainerProps = {
+      show: SyncProjectStore.isDiffingBranch,
+      label: 'Diffing branch...'
+    };
     return (
       <div>
-        <label class="d-block">Branch Name:</label>
-        <div role="tablist" class="set-project-repo">
-          {this.renderSelectExistingBranchCard()}
-          {this.renderCreateNewBranchCard()}
-        </div>
+        <Loading props={gitBranchProps}>
+          <label class="d-block">Branch Name:</label>
+          <div role="tablist" class="set-project-repo">
+            {this.renderSelectExistingBranchCard()}
+            {this.renderCreateNewBranchCard()}
+          </div>
+        </Loading>
       </div>
     );
   }

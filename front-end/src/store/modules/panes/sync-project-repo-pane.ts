@@ -5,7 +5,7 @@ import { resetStoreState } from '@/utils/store-utils';
 import { ProjectViewActions } from '@/constants/store-constants';
 import { OpenProjectMutation } from '@/types/project-editor-types';
 import { ProjectConfig, RefineryProject } from '@/types/graph';
-import { StatusRow } from 'isomorphic-git';
+import { Errors, StatusRow } from 'isomorphic-git';
 import { getStatusForFileInfo, getStatusMessageForFileInfo, RepoCompilationError } from '@/repo-compiler/lib/git-utils';
 import { GitClient } from '@/repo-compiler/lib/git-client';
 import { loadProjectFromDir } from '@/repo-compiler/one-to-one/git-to-refinery';
@@ -14,6 +14,9 @@ import { GitDiffInfo, GitStatusResult, InvalidGitRepoError } from '@/repo-compil
 import { REFINERY_COMMIT_AUTHOR_NAME } from '@/repo-compiler/shared/constants';
 import { GitStoreModule } from '@/store';
 import { LoggingAction } from '@/lib/LoggingMutation';
+import generateStupidName from '@/lib/silly-names';
+import slugify from 'slugify';
+import { branchNameBlacklistRegex } from '@/constants/project-editor-constants';
 
 const storeName = StoreType.syncProjectRepo;
 
@@ -36,9 +39,11 @@ const gitPushResultToMessage: GitPushResultMessageLookup = {
 // Types
 export interface SyncProjectRepoPaneState {
   remoteBranchName: string;
+  isValidRemoteBranchName: boolean;
   creatingNewBranch: boolean;
   gitStatusResult: Array<StatusRow>;
   repoBranches: string[];
+  diffingBranch: boolean;
   pushingToRepo: boolean;
   commitMessage: string;
   projectSessionId: string | null;
@@ -53,9 +58,11 @@ export interface SyncProjectRepoPaneState {
 // Initial State
 const moduleState: SyncProjectRepoPaneState = {
   remoteBranchName: 'master',
+  isValidRemoteBranchName: true,
   creatingNewBranch: false,
   gitStatusResult: [],
   repoBranches: [],
+  diffingBranch: false,
   pushingToRepo: false,
   commitMessage: 'update project from Refinery UI',
   projectSessionId: null,
@@ -73,9 +80,11 @@ const initialState = deepJSONCopy(moduleState);
 export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRepoPaneState>, RootState>
   implements SyncProjectRepoPaneState {
   public remoteBranchName: string = initialState.remoteBranchName;
+  public isValidRemoteBranchName: boolean = initialState.isValidRemoteBranchName;
   public creatingNewBranch: boolean = initialState.creatingNewBranch;
   public gitStatusResult: Array<StatusRow> = initialState.gitStatusResult;
   public repoBranches: string[] = initialState.repoBranches;
+  public diffingBranch: boolean = initialState.diffingBranch;
   public pushingToRepo: boolean = initialState.pushingToRepo;
   public commitMessage: string = initialState.commitMessage;
   public projectSessionId: string | null = initialState.projectSessionId;
@@ -124,6 +133,10 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     );
   }
 
+  get isDiffingBranch(): boolean {
+    return this.diffingBranch;
+  }
+
   get isPushingToRepo(): boolean {
     return this.pushingToRepo;
   }
@@ -140,6 +153,11 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   @Mutation
   public setNewRemoteBranchName(remoteBranchName: string) {
     this.remoteBranchName = remoteBranchName;
+  }
+
+  @Mutation
+  public setRandomRemoteBranchName() {
+    this.remoteBranchName = slugify(generateStupidName()).toLowerCase();
   }
 
   @Mutation
@@ -179,6 +197,11 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   }
 
   @Mutation
+  public setDiffingBranch(diffingBranch: boolean) {
+    this.diffingBranch = diffingBranch;
+  }
+
+  @Mutation
   public setPushingToRepo(pushingToRepo: boolean) {
     this.pushingToRepo = pushingToRepo;
   }
@@ -208,6 +231,32 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     this.viewingProjectId = projectID;
   }
 
+  @Mutation
+  public setIsValidRemoteBranchName(isValid: boolean) {
+    this.isValidRemoteBranchName = isValid;
+  }
+
+  @LoggingAction
+  public async checkRemoteBranchName() {
+    if (!this.projectSessionId) {
+      this.setIsValidRemoteBranchName(false);
+      return;
+    }
+
+    const gitClient = GitStoreModule.getGitClientByProjectId(this.projectSessionId);
+
+    try {
+      await gitClient.branch({
+        ref: this.remoteBranchName
+      });
+      await gitClient.deleteBranch(this.remoteBranchName);
+
+      this.setIsValidRemoteBranchName(true);
+    } catch (e) {
+      this.setIsValidRemoteBranchName(false);
+    }
+  }
+
   @LoggingAction
   public getOpenedProject(): RefineryProject {
     if (!this.context.rootState.project.openedProject) {
@@ -230,6 +279,16 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
       const msg = 'Cannot push to repo with missing project session id';
       console.error(msg);
       throw new InvalidGitRepoError(msg);
+    }
+
+    if (this.creatingNewBranch && !this.isValidRemoteBranchName) {
+      const msg = 'Trying to push to invalid remote branch name';
+      console.error(msg);
+      throw new InvalidGitRepoError(msg);
+    }
+
+    if (this.creatingNewBranch) {
+      await this.diffCompiledProject();
     }
 
     this.setPushingToRepo(true);
@@ -291,14 +350,14 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     }
     const gitClient = GitStoreModule.getGitClientByProjectId(this.projectSessionId);
 
-    const gitCommandLookup: Record<string, () => Promise<string>> = {
-      branches: async () => {
+    const gitCommandLookup: Record<string, (commandParts: string[]) => Promise<string>> = {
+      branches: async commandParts => {
         return (await gitClient.listBranches()).join('\n');
       },
-      status: async () => {
+      status: async commandParts => {
         return (await gitClient.status()).map(row => `${row[0]}: ${getStatusMessageForFileInfo(row)}`).join('\n');
       },
-      log: async () => {
+      log: async commandParts => {
         return (await gitClient.log())
           .map(obj => {
             const commit = obj.commit;
@@ -310,9 +369,35 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
           })
           .map(obj => JSON.stringify(obj, null, 2))
           .join('\n');
+      },
+      ls: async commandParts => {
+        const directory = commandParts[1];
+        return (await gitClient.fs.promises.readdir(directory)).join('\n');
       }
     };
-    return gitCommandLookup[command] ? await gitCommandLookup[command]() : 'command not found';
+    const commandParts = command.split(' ');
+    const commandName = commandParts[0];
+    return gitCommandLookup[commandName] ? await gitCommandLookup[commandName](commandParts) : 'command not found';
+  }
+
+  @LoggingAction
+  public async diffCompiledProjectAndRemoveBranch() {
+    if (this.projectSessionId === null) {
+      const msg = 'Cannot diff repo with missing project session id';
+      console.error(msg);
+      throw new InvalidGitRepoError(msg);
+    }
+
+    this.setDiffingBranch(true);
+
+    const gitClient = GitStoreModule.getGitClientByProjectId(this.projectSessionId);
+
+    await this.diffCompiledProject();
+    if (this.creatingNewBranch) {
+      await gitClient.deleteBranch(this.remoteBranchName);
+    }
+
+    this.setDiffingBranch(false);
   }
 
   @LoggingAction
@@ -331,17 +416,16 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
     const project = await this.getOpenedProject();
 
-    // TODO: See if we can move this logic into the Action handler to avoid breaking the Git abstraction
-    if (this.creatingNewBranch) {
-      await gitClient.branch({
-        ref: this.remoteBranchName,
-        checkout: true
-      });
-    } else {
-      await gitClient.checkout({
-        ref: this.remoteBranchName,
-        force: true
-      });
+    try {
+      await gitActionHandler.createOrCheckoutBranch(this.creatingNewBranch, this.remoteBranchName);
+    } catch (e) {
+      if (!(e instanceof Errors.AlreadyExistsError)) {
+        throw e;
+      }
+
+      const msg = `Unable to create branch '${this.remoteBranchName}' as it already exists.`;
+      console.error(msg);
+      throw new InvalidGitRepoError(msg);
     }
 
     await gitActionHandler.writeProjectToDisk(project);
@@ -352,12 +436,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
     // get contents from changed files before and after they were modified
     // TODO this call will force checkout and compile the project again, there might be a way to optimize this
-    const diffInfo = await gitActionHandler.getDiffFileInfo(
-      project,
-      this.remoteBranchName,
-      this.gitStatusResult,
-      this.creatingNewBranch
-    );
+    const diffInfo = await gitActionHandler.getDiffFileInfo(project, this.remoteBranchName, this.gitStatusResult);
     this.setGitDiffInfo(diffInfo);
   }
 
