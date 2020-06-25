@@ -262,6 +262,10 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
   }
 
   public setRemoteBranchName(branchName: string) {
+    if (SyncProjectStore.creatingNewBranch) {
+      return;
+    }
+
     SyncProjectStore.setRemoteBranchName(branchName);
     SyncProjectStore.clearGitStatusResult();
   }
