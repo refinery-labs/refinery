@@ -190,7 +190,12 @@ class BuildLibrariesPackage(BaseHandler):
         # array followed by converting it to one.
         libraries_dict = {}
         for library in self.json["libraries"]:
-            libraries_dict[str(library)] = "latest"
+            library_version = "latest"
+            if "@" in str(library):
+                library_tuple = str(library).split('@', 1)
+                libraries_dict[library_tuple[0]] = library_tuple[1]
+            else:
+                libraries_dict[str(library)] = library_version
 
         build_id = False
 
