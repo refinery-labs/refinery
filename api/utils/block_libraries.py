@@ -39,6 +39,5 @@ def generate_libraries_dict(libraries_list):
         library_name, library_version = split_library_version_string(library)
 
         libraries_dict[library_name] = library_version
-    print(repr(libraries_dict))
 
     return libraries_dict
