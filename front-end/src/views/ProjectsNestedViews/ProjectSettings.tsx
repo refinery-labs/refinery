@@ -33,7 +33,7 @@ export default class ProjectSettings extends Vue {
   @project.Action setProjectConfigRuntimeLanguage!: (projectConfigRuntimeLanguage: SupportedLanguage) => void;
   @project.Action setProjectGlobalExceptionHandlerToNode!: (nodeId: string | null) => void;
 
-  @project.Action setProjectConfigRepo!: (projectConfigRepo: string) => void;
+  @project.Action setProjectConfigRepo!: (projectConfigRepo: string | undefined) => void;
   @projectSettings.Action listReposForUser!: () => GithubRepo[] | null;
   @projectSettings.Action reorganizeUserRepos!: () => void;
 
@@ -85,6 +85,11 @@ export default class ProjectSettings extends Vue {
     if (this.selectedRepo) {
       await this.setProjectConfigRepo(this.selectedRepo.clone_url);
     }
+    this.setShowingSelectRepoModal(false);
+  }
+
+  private async removeProjectRepoAndClose() {
+    await this.setProjectConfigRepo(undefined);
     this.setShowingSelectRepoModal(false);
   }
 
@@ -184,6 +189,11 @@ export default class ProjectSettings extends Vue {
           on={{ input: this.setRepoSearch }}
         />
         {this.renderUserRepos()}
+        <div class="text-align--center margin-top--normal">
+          <b-button variant="danger" on={{ click: this.removeProjectRepoAndClose }}>
+            Clear repo for project
+          </b-button>
+        </div>
       </b-modal>
     );
   }

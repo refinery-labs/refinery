@@ -564,7 +564,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Save new config to the backend
       await context.dispatch(ProjectViewActions.saveProjectConfig);
     },
-    async [ProjectViewActions.setProjectConfigRepo](context, projectConfigRepo: string) {
+    async [ProjectViewActions.setProjectConfigRepo](context, projectConfigRepo: string | undefined) {
       if (context.state.openedProject === null) {
         throw new Error('Unable to set project config repo without opened project');
       }
@@ -575,7 +575,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.saveProjectConfig);
 
       // TODO: Refactor project-view to never be able to have this as null....
-      if (context.state.openedProjectConfig) {
+      if (context.state.openedProjectConfig && context.state.openedProjectConfig.project_repo) {
         await SyncProjectRepoPaneStoreModule.setupLocalProjectRepo([
           context.state.openedProjectConfig,
           context.state.openedProject.project_id
