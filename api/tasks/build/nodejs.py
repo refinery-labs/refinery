@@ -11,6 +11,8 @@ from tasks.s3 import s3_object_exists, read_from_s3
 from uuid import uuid4
 from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 
+from utils.block_libraries import generate_libraries_dict
+
 
 def start_node810_codebuild(aws_client_factory, credentials, libraries_object):
     """
@@ -115,9 +117,7 @@ def get_nodejs_810_lambda_base_zip(aws_client_factory, credentials, libraries):
         credentials
     )
 
-    libraries_object = {}
-    for library in libraries:
-        libraries_object[str(library)] = "latest"
+    libraries_object = generate_libraries_dict(libraries)
 
     final_s3_package_zip_path = get_final_zip_package_path(
         "nodejs8.10",
@@ -263,9 +263,7 @@ def get_nodejs_10163_lambda_base_zip(aws_client_factory, credentials, libraries)
         credentials
     )
 
-    libraries_object = {}
-    for library in libraries:
-        libraries_object[str(library)] = "latest"
+    libraries_object = generate_libraries_dict(libraries)
 
     # TODO we should deprecate 10163, this is a temporary fix for a known bug fixed upstream
     final_s3_package_zip_path = get_final_zip_package_path(
@@ -457,9 +455,7 @@ def get_nodejs_10201_lambda_base_zip(aws_client_factory, credentials, libraries)
         credentials
     )
 
-    libraries_object = {}
-    for library in libraries:
-        libraries_object[str(library)] = "latest"
+    libraries_object = generate_libraries_dict(libraries)
 
     final_s3_package_zip_path = get_final_zip_package_path(
         "nodejs10.16.3",

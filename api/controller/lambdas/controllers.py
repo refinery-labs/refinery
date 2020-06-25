@@ -8,6 +8,7 @@ from controller.decorators import authenticated, disable_on_overdue_payment
 from controller.lambdas.actions import is_build_package_cached
 from controller.lambdas.schemas import *
 from models import Deployment
+from utils.block_libraries import generate_libraries_dict
 
 
 class RunLambda(BaseHandler):
@@ -186,11 +187,7 @@ class BuildLibrariesPackage(BaseHandler):
         current_user = self.get_authenticated_user()
         credentials = self.get_authenticated_user_cloud_configuration()
 
-        # TODO just accept a dict/object in of an
-        # array followed by converting it to one.
-        libraries_dict = {}
-        for library in self.json["libraries"]:
-            libraries_dict[str(library)] = "latest"
+        libraries_dict = generate_libraries_dict(self.json["libraries"])
 
         build_id = False
 

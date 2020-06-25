@@ -7,6 +7,8 @@ from uuid import uuid4
 from yaml import dump
 from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 
+from utils.block_libraries import generate_libraries_dict
+
 
 def get_gemfile(libraries_object):
     # Generate "Gemfile" with dependencies
@@ -119,9 +121,7 @@ def get_ruby_264_lambda_base_zip(aws_client_factory, credentials, libraries):
         credentials
     )
 
-    libraries_object = {}
-    for library in libraries:
-        libraries_object[str(library)] = "latest"
+    libraries_object = generate_libraries_dict(libraries)
 
     final_s3_package_zip_path = get_final_zip_package_path(
         "ruby2.6.4",

@@ -8,6 +8,7 @@ from yaml import dump
 from zipfile import ZipFile, ZipInfo, ZIP_DEFLATED
 
 from tasks.s3 import s3_object_exists, read_from_s3
+from utils.block_libraries import generate_libraries_dict
 
 
 def get_php73_lambda_base_zip(aws_client_factory, credentials, libraries):
@@ -16,9 +17,7 @@ def get_php73_lambda_base_zip(aws_client_factory, credentials, libraries):
         credentials
     )
 
-    libraries_object = {}
-    for library in libraries:
-        libraries_object[str(library)] = "latest"
+    libraries_object = generate_libraries_dict(libraries)
 
     final_s3_package_zip_path = get_final_zip_package_path(
         "php7.3",
