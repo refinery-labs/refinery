@@ -388,8 +388,7 @@ class ClearAllS3BuildPackages(BaseHandler):
 
 
 class MaintainAWSAccountReserves(BaseHandler):
-    @gen.coroutine
-    def get(self):
+    async def get(self):
         """
         This job checks the number of AWS accounts in the reserve pool and will
         automatically create accounts for the pool if there are less than the
@@ -402,7 +401,7 @@ class MaintainAWSAccountReserves(BaseHandler):
         })
         self.finish()
 
-        self.terraform_service.maintain_aws_account_reserves()
+        await self.terraform_service.maintain_aws_account_reserves()
 
 
 class PerformTerraformUpdateOnFleet(BaseHandler):

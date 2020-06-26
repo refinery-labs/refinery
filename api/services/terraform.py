@@ -366,13 +366,13 @@ class TerraformService(object):
         return process_stdout
 
     # TODO deprecate
-    def terraform_plan_by_account_id(self, account_id):
+    async def terraform_plan_by_account_id(self, account_id):
         account = self.get_provisioned_aws_account_by_id(account_id, as_dict=True)
 
         if not account:
             raise TerraformError(f"No such AWS account {account_id}")
 
-        terraform_plan_output = yield self.task_spawner.terraform_plan(account)
+        terraform_plan_output = await self.task_spawner.terraform_plan(account)
 
         return terraform_plan_output
 
@@ -484,14 +484,14 @@ class TerraformService(object):
 
         return terraform_state_version
 
-    def terraform_apply_aged_account(self, aws_account_id):
+    async def terraform_apply_aged_account(self, aws_account_id):
         msg = 'Kicking off terraform set-up for AWS account "{}"...'
         self.logger(msg.format(aws_account_id))
         aws_account_dict = self.get_aws_account_by_id(aws_account_id, as_dict=True)
 
         try:
             # TODO make direct call instead?
-            provision_info = yield self.task_spawner.terraform_configure_aws_account(
+            provision_info = await self.task_spawner.terraform_configure_aws_account(
                 aws_account_dict
             )
 
@@ -544,7 +544,7 @@ class TerraformService(object):
 
         return aws_account_ids
 
-    def terraform_plan_on_fleet(self):
+    async def terraform_plan_on_fleet(self):
         results = ()
 
         account_ids = self.get_aws_account_ids_by_status("IN_USE", "AVAILABLE")
@@ -554,7 +554,7 @@ class TerraformService(object):
 
             msg = "Terraform plan for AWS account {} {}/{}..."
             self.logger(msg.format(account_id, index + 1, len(account_ids)))
-            terraform_plan_output = yield self.task_spawner.terraform_plan(
+            terraform_plan_output = await self.task_spawner.terraform_plan(
                 aws_account
             )
 
@@ -584,7 +584,7 @@ class TerraformService(object):
 
         return previous_terraform_state
 
-    def terraform_update_fleet(self):
+    async def terraform_update_fleet(self):
         account_ids = self.get_aws_account_ids_by_status("IN_USE", "AVAILABLE")
         results = []
 
@@ -594,7 +594,7 @@ class TerraformService(object):
 
             self.logger(msg.format(account_id, index + 1, len(account_ids)))
 
-            apply_result = yield self.task_spawner.terraform_apply(aws_account)
+            apply_result = await self.task_spawner.terraform_apply(aws_account)
             old_state = apply_result['original_tfstate']
             new_state = apply_result['new_tfstate']
 
@@ -609,7 +609,7 @@ class TerraformService(object):
 
         return results
 
-    def terraform_update(self, account_id):
+    async def terraform_update(self, account_id):
         account = self.get_provisioned_aws_account_by_id(account_id)
 
         if account is None:
@@ -618,7 +618,7 @@ class TerraformService(object):
             )
 
         self.logger(f"Running 'terraform apply' for AWS Account {account_id}")
-        apply_result = yield self.task_spawner.terraform_apply(account)
+        apply_result = await self.task_spawner.terraform_apply(account)
         old_state = apply_result["original_tfstate"]
         new_state = apply_result["new_tfstate"]
 
@@ -628,19 +628,19 @@ class TerraformService(object):
 
         return apply_result
 
-    def create_sub_account_for_later_use(self):
+    async def create_sub_account_for_later_use(self):
         self.logger("Creating a new AWS sub-account for later terraform use...")
-        # We have to yield because you can't mint more than one sub-account at a time
+        # We have to await  because you can't mint more than one sub-account at a time
         # (AWS can litterally only process one request at a time).
         try:
-            yield self.task_spawner.create_new_sub_aws_account(
+            await self.task_spawner.create_new_sub_aws_account(
                 "MANAGED",
                 False
             )
         except Exception as e:
             self.logger("An error occurred while creating an AWS sub-account: " + repr(e), "error")
 
-    def maintain_aws_account_reserves(self):
+    async def maintain_aws_account_reserves(self):
         """
         This job checks the number of AWS accounts in the reserve pool and will
         automatically create accounts for the pool if there are less than the
@@ -652,8 +652,8 @@ class TerraformService(object):
 
         # Kick off the terraform apply jobs for aged accounts
         for aws_account_id in aws_account_ids:
-            self.terraform_apply_aged_account(aws_account_id)
+            await self.terraform_apply_aged_account(aws_account_id)
 
         # Create sub-accounts and let them age before applying terraform
         for i in range(0, accounts_to_create):
-            self.create_sub_account_for_later_use()
+            await self.create_sub_account_for_later_use()
