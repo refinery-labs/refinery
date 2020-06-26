@@ -11,6 +11,7 @@ from traceback import print_exc
 from assistants.deployments.teardown import teardown_infrastructure
 from controller import BaseHandler
 from controller.services.actions import clear_sub_account_packages, get_last_month_start_and_end_date_strings
+from exc import TerraformError
 from models import AWSAccount, User, TerraformStateVersion
 from assistants.deployments.dangling_resources import get_user_dangling_resources
 from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
@@ -142,10 +143,10 @@ class OnboardThirdPartyAWSAccountPlan(BaseHandler):
             raise gen.Return()
 
         final_email_html = """
-		<h1>Terraform Plan Results for Onboarding Third-Party Customer AWS Account</h1>
-		Please note that this is <b>not</b> applying these changes.
-		It is purely to understand what would happen if we did.
-		"""
+        <h1>Terraform Plan Results for Onboarding Third-Party Customer AWS Account</h1>
+        Please note that this is <b>not</b> applying these changes.
+        It is purely to understand what would happen if we did.
+        """
 
         # First we set up the AWS Account in our database so we have a record
         # of it going forward. This also creates the AWS console user.
@@ -409,114 +410,55 @@ class PerformTerraformUpdateOnFleet(BaseHandler):
     def get(self):
         self.write({
             "success": True,
-            "msg": "Terraform apply job has been kicked off, I hope you planned first!"
+            "msg": "Terraform apply job started, did you plan first?"
         })
         self.finish()
+        results = self.terraform_service.terraform_update_fleet()
+        all_success = all([r['success'] for i, r in results])
 
-        dbsession = self.db_session_maker()
+        email_html_tokens = [(
+            "<h1>Terraform Apply Results Across the Customer Fleet</h1>"
+            "If the subject line doesn't read <b>APPLY SUCCEEDED</b> "
+            "you have some work to do!"
+        )]
 
-        aws_accounts = dbsession.query(AWSAccount).filter(
-            sql_or(
-                AWSAccount.aws_account_status == "IN_USE",
-                AWSAccount.aws_account_status == "AVAILABLE",
-            )
-        ).all()
-
-        final_email_html = """
-		<h1>Terraform Apply Results Across the Customer Fleet</h1>
-		If the subject line doesn't read <b>APPLY SUCCEEDED</b> you have some work to do!
-		"""
-
-        issue_occurred_during_updates = False
-
-        # Pull the list of AWS account IDs to work on.
-        aws_account_ids = []
-        for aws_account in aws_accounts:
-            aws_account_ids.append(
-                aws_account.account_id
-            )
-
-        dbsession.close()
-
-        for aws_account_id in aws_account_ids:
-            dbsession = self.db_session_maker()
-            current_aws_account = dbsession.query(AWSAccount).filter(
-                AWSAccount.account_id == aws_account_id,
-            ).first()
-            current_aws_account_dict = current_aws_account.to_dict()
-            dbsession.close()
-
-            self.logger("Running 'terraform apply' against AWS Account " +
-                        current_aws_account_dict["account_id"])
-            terraform_apply_results = yield self.task_spawner.terraform_apply(
-                current_aws_account_dict
-            )
-
-            # Write the old terraform version to the database
-            self.logger("Updating current tfstate for the AWS account...")
-
-            dbsession = self.db_session_maker()
-            current_aws_account = dbsession.query(AWSAccount).filter(
-                AWSAccount.account_id == aws_account_id,
-            ).first()
-
-            previous_terraform_state = TerraformStateVersion()
-            previous_terraform_state.aws_account_id = current_aws_account.id
-            previous_terraform_state.terraform_state = terraform_apply_results["original_tfstate"]
-            current_aws_account.terraform_state_versions.append(
-                previous_terraform_state
-            )
-
-            # Update the current terraform state as well.
-            current_aws_account.terraform_state = terraform_apply_results["new_tfstate"]
-
-            dbsession.add(current_aws_account)
-            dbsession.commit()
-            dbsession.close()
-
+        for account_id, apply_result in results:
             # Convert terraform plan terminal output to HTML
             ansiconverter = Ansi2HTMLConverter()
+            success = apply_result['success']
+            stdout = apply_result['stdout']
+            stderr = apply_result['stderr']
+            body = ansiconverter.convert(stdout if success else stderr)
 
-            if terraform_apply_results["success"]:
-                terraform_output_html = ansiconverter.convert(
-                    terraform_apply_results["stdout"]
-                )
-            else:
-                terraform_output_html = ansiconverter.convert(
-                    terraform_apply_results["stderr"]
-                )
-                issue_occurred_during_updates = True
+            email_html_tokens.append(
+                f"<hr /><h1>AWS Account {account_id}</h1>{body}"
+            )
 
-            final_email_html += "<hr /><h1>AWS Account " + \
-                current_aws_account_dict["account_id"] + "</h1>"
-            final_email_html += terraform_output_html
+        email_html_tokens.append("<hr /><b>That is all.</b>")
 
-        final_email_html += "<hr /><b>That is all.</b>"
-
-        self.logger("Sending email with results from 'terraform apply'...")
-
-        final_email_subject = "Terraform Apply Results from Across the Fleet " + \
-            str(int(time.time()))  # Make subject unique so Gmail doesn't group
-        if issue_occurred_during_updates:
-            final_email_subject = "[ APPLY FAILED ] " + final_email_subject
-        else:
-            final_email_subject = "[ APPLY SUCCEEDED ] " + final_email_subject
-
-        yield self.task_spawner.send_email(
-            self.app_config.get("alerts_email"),
-            final_email_subject,
-            False,  # No text version of email
-            final_email_html
+        # Make subject unique so Gmail doesn't group
+        timestamp = str(int(time.time()))
+        status = "SUCCEEDED" if all_success else "FAILED"
+        subject = (
+            f"[ APPLY {status} ] "
+            f"Terraform Apply Results from Across the Fleet {timestamp}"
         )
 
-        dbsession.close()
+        self.logger("Sending email with results from 'terraform apply'...")
+        yield self.task_spawner.send_email(
+            self.app_config.get("alerts_email"),
+            subject,
+            False,  # No text version of email
+            "".join(email_html_tokens)
+        )
 
 
 class PerformTerraformPlanForAccount(BaseHandler):
     @gen.coroutine
     def get(self, account_id=None):
         """
-        This endpoint will perform a Terraform Plan and return the results synchronously.
+        This endpoint will perform a Terraform Plan and return the results
+        synchronously.
         """
 
         if not account_id:
@@ -526,68 +468,33 @@ class PerformTerraformPlanForAccount(BaseHandler):
             })
             raise gen.Return()
 
-        dbsession = self.db_session_maker()
-        aws_account = dbsession.query(AWSAccount).filter(
-            AWSAccount.account_id == account_id
-        ).filter(
-            sql_or(
-                AWSAccount.aws_account_status == "IN_USE",
-                AWSAccount.aws_account_status == "AVAILABLE",
-            )
-        ).first()
-
-        if aws_account is None:
-            msg = "Could not find account to Terraform plan for: " + account_id
-            self.logger(msg, "error")
-            self.write({
-                "success": False,
-                "msg": msg
-            })
-            raise gen.Return()
-
-        aws_account_dict = aws_account.to_dict()
-
-        response_html_template = """
-		<html>
-		<body>
-			<h1>Terraform Plan Result for Account: {}</h1>
-			Please note that this is <b>not</b> applying these changes.
-			It is purely to understand what would happen if we did.
-			<hr />
-			<h3>Output</h3>
-			<p>{}</p>
-		</body>
-		</html>
-		"""
-
-        dbsession.close()
-
-        self.logger(
-            "Performing a terraform plan for AWS account: " + str(account_id))
-        terraform_plan_output = yield self.task_spawner.terraform_plan(
-            aws_account_dict
-        )
+        template = """
+        <html>
+        <body>
+            <h1>Terraform Plan Result for Account: {}</h1>
+            Please note that this is <b>not</b> applying these changes.
+            It is purely to understand what would happen if we did.
+            <hr />
+            <h3>Output</h3>
+            <p>{}</p>
+        </body>
+        </html>
+        """
 
         # Convert terraform plan terminal output to HTML
+        result = self.terraform_service.terraform_plan_by_account_id(
+            account_id)
         ansiconverter = Ansi2HTMLConverter()
-        terraform_output_html = ansiconverter.convert(
-            terraform_plan_output
-        )
+        terraform_output_html = ansiconverter.convert(result)
+        rendered = template.format(account_id, terraform_output_html)
 
-        rendered_html_output = response_html_template.format(
-            account_id,
-            terraform_output_html
-        )
-
-        self.logger("Generated response output for plan: " +
-                    rendered_html_output)
-        self.write(rendered_html_output)
+        self.logger(f"Generated response output for plan: {rendered}")
+        self.write(rendered)
 
 
 class PerformTerraformUpdateForAccount(BaseHandler):
     @gen.coroutine
     def get(self, account_id=None):
-
         if not account_id:
             self.write({
                 "success": False,
@@ -595,88 +502,36 @@ class PerformTerraformUpdateForAccount(BaseHandler):
             })
             raise gen.Return()
 
-        dbsession = self.db_session_maker()
-        aws_account = dbsession.query(AWSAccount).filter(
-            AWSAccount.account_id == account_id
-        ).filter(
-            sql_or(
-                AWSAccount.aws_account_status == "IN_USE",
-                AWSAccount.aws_account_status == "AVAILABLE",
-            )
-        ).first()
-
-        if aws_account is None:
-            msg = "Could not find account to Terraform apply for: " + account_id
-            self.logger(msg, "error")
+        try:
+            result = self.terraform_service.terraform_update(account_id)
+        except TerraformError as e:
             self.write({
                 "success": False,
-                "msg": msg
+                "msg": e.args[0]
             })
             raise gen.Return()
 
-        aws_account_dict = aws_account.to_dict()
+        template = """
+            <html>
+                <body>
+                    <h1>Terraform Apply Results for Account {}</h1>
+                    <h2>Result: [ APPLY {} ]</h2>
+                    <p>{}</p>
+                </body>
+            </html>
+        """
 
-        dbsession.close()
-
-        response_html_template = """
-		<html>
-		<body>
-			<h1>Terraform Apply Results for Account {}</h1>
-			<h2>Result: {}</h2>
-			<p>{}</p>
-		</body>
-		</html>
-		"""
-
-        self.logger("Running 'terraform apply' for AWS Account " + account_id)
-        terraform_apply_results = yield self.task_spawner.terraform_apply(
-            aws_account_dict
-        )
-
-        # Write the old terraform version to the database
-        self.logger("Updating current tfstate for the AWS account...")
-
-        dbsession = self.db_session_maker()
-        current_aws_account = dbsession.query(AWSAccount).filter(
-            AWSAccount.account_id == account_id,
-        ).first()
-
-        previous_terraform_state = TerraformStateVersion()
-        previous_terraform_state.aws_account_id = current_aws_account.id
-        previous_terraform_state.terraform_state = terraform_apply_results["original_tfstate"]
-        current_aws_account.terraform_state_versions.append(
-            previous_terraform_state
-        )
-
-        # Update the current terraform state as well.
-        current_aws_account.terraform_state = terraform_apply_results["new_tfstate"]
-
-        dbsession.add(current_aws_account)
-        dbsession.commit()
-        dbsession.close()
-
-        # Convert terraform plan terminal output to HTML
         ansiconverter = Ansi2HTMLConverter()
+        success = result['success']
+        stdout = result['stdout']
+        stderr = result['stderr']
+        body = ansiconverter.convert(stdout if success else stderr)
+        status = "SUCCEEDED" if success else "FAILED"
+        rendered = template.format(account_id, status, body)
 
-        if terraform_apply_results["success"]:
-            terraform_output_html = ansiconverter.convert(
-                terraform_apply_results["stdout"]
-            )
-        else:
-            terraform_output_html = ansiconverter.convert(
-                terraform_apply_results["stderr"]
-            )
+        self.logger(f"Results from account 'terraform apply': {rendered}")
 
-        rendered_html_output = response_html_template.format(
-            account_id,
-            "[ APPLY SUCCEEDED ]" if terraform_apply_results["success"] else "[ APPLY FAILED ]",
-            terraform_output_html
-        )
-
-        self.logger("Results from account 'terraform apply': " +
-                    rendered_html_output)
-
-        self.write(rendered_html_output)
+        self.write(rendered)
 
 
 class PerformTerraformPlanOnFleet(BaseHandler):
@@ -688,13 +543,11 @@ class PerformTerraformPlanOnFleet(BaseHandler):
         })
         self.finish()
 
-        email_html_tokens = [
-            """
-                <h1>Terraform Plan Results Across the Customer Fleet</h1>
-                Please note that this is <b>not</b> applying these changes.
-                It is purely to understand what would happen if we did.
-            """
-        ]
+        email_html_tokens = [(
+            '<h1>Terraform Plan Results Across the Customer Fleet</h1>'
+            'Please note that this is <b>not</b> applying these changes.'
+            'It is purely to understand what would happen if we did.'
+        )]
 
         results = self.terraform_service.terraform_plan_on_fleet()
 
@@ -713,10 +566,12 @@ class PerformTerraformPlanOnFleet(BaseHandler):
 
         self.logger("Sending email with results from terraform plan...")
 
+        timestamp = str(int(time.time()))
+        subject = f'Terraform Plan Results from Across the Fleet {timestamp}'
+
         yield self.task_spawner.send_email(
             self.app_config.get("alerts_email"),
-            "Terraform Plan Results from Across the Fleet " +
-            str(int(time.time())),  # Make subject unique so Gmail won't group
+            subject,
             False,  # No text version of email
             "".join(email_html_tokens)
         )

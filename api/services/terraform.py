@@ -3,6 +3,7 @@ import shutil
 
 
 from copy import copy
+from exc import TerraformError
 from models import AWSAccount, TerraformStateVersion
 from json import loads
 from os.path import join
@@ -247,6 +248,7 @@ class TerraformService(object):
 
         # The return data
         result = {
+            # TODO should this default to true?
             "success": True,
             "stdout": None,
             "stderr": None,
@@ -363,6 +365,17 @@ class TerraformService(object):
 
         return process_stdout
 
+    # TODO deprecate
+    def terraform_plan_by_account_id(self, account_id):
+        account = self.get_provisioned_aws_account_by_id(account_id, as_dict=True)
+
+        if not account:
+            raise TerraformError(f"No such AWS account {account_id}")
+
+        terraform_plan_output = yield self.task_spawner.terraform_plan(account)
+
+        return terraform_plan_output
+
     def get_account_create_info(self):
         dbsession = self.db_session_maker()
 
@@ -417,15 +430,36 @@ class TerraformService(object):
 
         return aws_account_ids, accounts_to_create
 
-    def get_aws_account_by_id(self, aws_account_id):
+    def get_aws_account_by_id(self, aws_account_id, as_dict=False):
         dbsession = self.db_session_maker()
-        current_aws_account = dbsession.query(AWSAccount).filter(
+        result = dbsession.query(AWSAccount).filter(
             AWSAccount.account_id == aws_account_id,
         ).first()
-        current_aws_account_dict = current_aws_account.to_dict()
+
+        if as_dict:
+            result = result.to_dict()
+
         dbsession.close()
 
-        return current_aws_account_dict
+        return result
+
+    def get_provisioned_aws_account_by_id(self, account_id, as_dict=False):
+        dbsession = self.db_session_maker()
+        result = dbsession.query(AWSAccount).filter(
+            AWSAccount.account_id == account_id
+        ).filter(
+            sql_or(
+                AWSAccount.aws_account_status == "IN_USE",
+                AWSAccount.aws_account_status == "AVAILABLE",
+            )
+        ).first()
+
+        if as_dict:
+            result = result.as_dict
+
+        dbsession.close()
+
+        return result
 
     def mark_account_as_available(self, db, aws_account_id, provision_info):
         aws_account = db.query(AWSAccount).filter(
@@ -453,7 +487,7 @@ class TerraformService(object):
     def terraform_apply_aged_account(self, aws_account_id):
         msg = 'Kicking off terraform set-up for AWS account "{}"...'
         self.logger(msg.format(aws_account_id))
-        aws_account_dict = self.get_aws_account_by_id(aws_account_id)
+        aws_account_dict = self.get_aws_account_by_id(aws_account_id, as_dict=True)
 
         try:
             # TODO make direct call instead?
@@ -514,28 +548,85 @@ class TerraformService(object):
         results = ()
 
         account_ids = self.get_aws_account_ids_by_status("IN_USE", "AVAILABLE")
-        total_accounts = len(account_ids)
 
-        for index, aws_account_id in enumerate(account_ids):
-            dbsession = self.db_session_maker()
-            current_aws_account = dbsession.query(AWSAccount).filter(
-                AWSAccount.account_id == aws_account_id,
-            ).first()
-            current_aws_account = current_aws_account.to_dict()
-            dbsession.close()
+        for index, account_id in enumerate(account_ids):
+            aws_account = self.get_aws_account_by_id(account_id, as_dict=True)
 
-            msg = "Terraform plan for AWS account {}/{}..."
-            self.logger(msg.format(index + 1, total_accounts))
+            msg = "Terraform plan for AWS account {} {}/{}..."
+            self.logger(msg.format(account_id, index + 1, len(account_ids)))
             terraform_plan_output = yield self.task_spawner.terraform_plan(
-                current_aws_account
+                aws_account
             )
 
-            results.append((
-                current_aws_account['account_id'],
-                terraform_plan_output
-            ))
+            results.append((account_id, terraform_plan_output))
 
         return results
+
+    def update_terraform_state(self, aws_account_id, old_state, new_state):
+        dbsession = self.db_session_maker()
+        aws_account = dbsession.query(AWSAccount).filter(
+            AWSAccount.account_id == aws_account_id,
+        ).first()
+
+        previous_terraform_state = TerraformStateVersion()
+        previous_terraform_state.aws_account_id = aws_account_id
+        previous_terraform_state.terraform_state = old_state
+        aws_account.terraform_state_versions.append(
+            previous_terraform_state
+        )
+
+        # Update the current terraform state as well.
+        aws_account.terraform_state = new_state
+
+        dbsession.add(aws_account)
+        dbsession.commit()
+        dbsession.close()
+
+        return previous_terraform_state
+
+    def terraform_update_fleet(self):
+        account_ids = self.get_aws_account_ids_by_status("IN_USE", "AVAILABLE")
+        results = []
+
+        for index, account_id in enumerate(account_ids):
+            aws_account = self.get_aws_account_by_id(account_id)
+            msg = "Terraform update for AWS account {} {}/{}..."
+
+            self.logger(msg.format(account_id, index + 1, len(account_ids)))
+
+            apply_result = yield self.task_spawner.terraform_apply(aws_account)
+            old_state = apply_result['original_tfstate']
+            new_state = apply_result['new_tfstate']
+
+            # Write the old terraform version to the database
+            self.logger("Updating current tfstate for the AWS account...")
+            self.update_terraform_state(account_id, old_state, new_state)
+
+            results.append(
+                account_id,
+                apply_result
+            )
+
+        return results
+
+    def terraform_update(self, account_id):
+        account = self.get_provisioned_aws_account_by_id(account_id)
+
+        if account is None:
+            raise TerraformError(
+                f"Could not find account to terraform apply: {account_id}"
+            )
+
+        self.logger(f"Running 'terraform apply' for AWS Account {account_id}")
+        apply_result = yield self.task_spawner.terraform_apply(account)
+        old_state = apply_result["original_tfstate"]
+        new_state = apply_result["new_tfstate"]
+
+        # Write the old terraform version to the database
+        self.logger("Updating current tfstate for the AWS account...")
+        self.update_terraform_state(account_id, old_state, new_state)
+
+        return apply_result
 
     def create_sub_account_for_later_use(self):
         self.logger("Creating a new AWS sub-account for later terraform use...")

@@ -38,7 +38,7 @@ class TornadoBaseHandlerInjectionMixin:
 
 class BaseHandlerDependencies:
     @pinject.copy_args_to_public_fields
-    def __init__(self, logger, db_session_maker, app_config, task_spawner):
+    def __init__(self, logger, db_session_maker, app_config, task_spawner, terraform_service):
         pass
 
 
@@ -48,6 +48,7 @@ class BaseHandler(TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler):
     db_session_maker = None
     app_config = None
     task_spawner = None
+    terraform_service = None
 
     _dbsession = None
     json = None
