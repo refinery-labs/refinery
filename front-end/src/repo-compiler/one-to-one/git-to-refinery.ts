@@ -18,7 +18,7 @@ import {
   GLOBAL_BASE_PATH,
   LAMBDA_CONFIG_FILENAME,
   LAMBDA_SHARED_FILES_DIR,
-  PROJECT_LAMBDA_DIR,
+  PROJECT_BLOCKS_DIR,
   PROJECT_SHARED_FILES_DIR,
   PROJECTS_CONFIG_FOLDER,
   README_FILENAME
@@ -130,7 +130,7 @@ async function loadLambdaBlocks(
   repoDir: string,
   sharedFileLookup: WorkflowFileLookup
 ): Promise<LoadedLambdaConfigs> {
-  const lambdaPath = Path.join(repoDir, GLOBAL_BASE_PATH, PROJECT_LAMBDA_DIR);
+  const lambdaPath = Path.join(repoDir, GLOBAL_BASE_PATH, PROJECT_BLOCKS_DIR);
   try {
     await fs.promises.stat(lambdaPath);
   } catch (e) {

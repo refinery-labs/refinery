@@ -18,6 +18,7 @@ import {
   PROJECTS_CONFIG_FOLDER,
   README_FILENAME
 } from '@/repo-compiler/shared/constants';
+import { getPlaceholderReadmeContent } from '@/repo-compiler/shared/utils';
 
 function getFolderName(name: string) {
   return slugify(name).toLowerCase();
@@ -105,17 +106,33 @@ async function maybeMkdir(fs: PromiseFsClient, path: string) {
   try {
     await fs.promises.lstat(path);
   } catch (e) {
-    await fs.promises.mkdir(path);
+    try {
+      await fs.promises.mkdir(path);
+    } catch (e) {
+      if (e.code !== 'EEXIST') {
+        throw e;
+      }
+    }
   }
 }
 
 export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, project: RefineryProject) {
-  await maybeMkdir(fs, Path.join(dir, GLOBAL_BASE_PATH));
+  const readmePath = Path.join(dir, README_FILENAME);
+
+  try {
+    await fs.promises.lstat(readmePath);
+  } catch (e) {
+    await fs.promises.writeFile(readmePath, getPlaceholderReadmeContent(project.name));
+  }
+
+  const refineryDir = Path.join(dir, GLOBAL_BASE_PATH);
+
+  await maybeMkdir(fs, refineryDir);
 
   // clean repo of all existing files and dirs
   let dirsToRemove = await git.walk({
     fs,
-    dir,
+    dir: refineryDir,
     trees: [WORKDIR()],
     map: async (filename: string, entries: Array<WalkerEntry> | null) => {
       if (filename.startsWith('.git')) {
@@ -126,7 +143,7 @@ export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, projec
         return filename;
       }
 
-      await fs.promises.unlink(Path.join(dir, filename));
+      await fs.promises.unlink(Path.join(refineryDir, filename));
       return null;
     }
   });
@@ -136,15 +153,15 @@ export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, projec
     dirsToRemove.map(async (dirToRemove: string | null) => {
       if (dirToRemove !== null && dirToRemove !== '.') {
         try {
-          await fs.promises.rmdir(Path.join(dir, dirToRemove));
+          await fs.promises.rmdir(Path.join(refineryDir, dirToRemove));
         } catch (e) {
-          console.log(Path.join(dir, dirToRemove), e);
+          console.log(Path.join(refineryDir, dirToRemove), e);
         }
       }
     })
   );
 
-  await maybeMkdir(fs, Path.join(dir, GLOBAL_BASE_PATH));
+  await maybeMkdir(fs, refineryDir);
 
   const nodeToWorkflowState = await project.workflow_states.reduce(async (workflowStates, w: WorkflowState) => {
     const awaitedWorkflowStates = await workflowStates;
@@ -166,7 +183,7 @@ export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, projec
     return newWorkflowStates;
   }, [] as WorkflowState[]);
 
-  const sharedFilesPath = Path.join(dir, GLOBAL_BASE_PATH, PROJECT_SHARED_FILES_DIR);
+  const sharedFilesPath = Path.join(refineryDir, PROJECT_SHARED_FILES_DIR);
   await maybeMkdir(fs, sharedFilesPath);
   const sharedFileLookup = await project.workflow_files.reduce(async (lookup, file) => {
     const awaitedLookup = await lookup;
@@ -206,7 +223,7 @@ export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, projec
       })
   );
 
-  const projectFolder = Path.join(dir, GLOBAL_BASE_PATH, PROJECTS_CONFIG_FOLDER);
+  const projectFolder = Path.join(refineryDir, PROJECTS_CONFIG_FOLDER);
 
   // we have handled workflow_file_links
   const newWorkflowFileLinks: WorkflowFileLink[] = [];
