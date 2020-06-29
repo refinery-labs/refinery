@@ -8,4 +8,4 @@ cp -r env/lib/python2.7/site-packages runtime
 cp -r dist/custom_runtime dist/custom_runtime-0.0.1.dist-info runtime
 cp bootstrap runtime
 deactivate
-rm -rf env dist build
+rm -rf env dist build custom_runtime.egg-info

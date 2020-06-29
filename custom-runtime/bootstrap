@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 
 """
 Copyright (C) Refinery Labs Inc. - All Rights Reserved
@@ -13,33 +14,14 @@ is strictly forbidden unless prior written permission is obtained
 from Refinery Labs Inc.
 """
 
-import boto3
-import urllib3
+
+from custom_runtime.base import CustomRuntime
 
 
-from os import environ
-from os.path import dirname, realpath, join
+# We'll be called by the AWS Custom Runtime agent
+if __name__ == "__main__":
+    new_runtime = CustomRuntime()
 
-
-from .memory import RefineryMemory
-
-
-# For requests to AWS custom runtime API
-http = urllib3.PoolManager()
-
-
-_VERSION = "1.0.0"
-
-RUNTIME_DIR = join(dirname(dirname(realpath(__file__))), "runtime")
-
-# Make global to enable caching of redis connection
-gmemory = RefineryMemory(
-    environ["REDIS_HOSTNAME"],
-    environ["REDIS_PASSWORD"],
-    environ["REDIS_PORT"],
-)
-
-
-S3_CLIENT = boto3.client(
-    "s3"
-)
+    # Loop infinitely to keep processing events
+    while 1:
+        new_runtime.process_next_event()

@@ -25,7 +25,7 @@ import sys
 import os
 
 
-from .constants import gmemory, _VERSION
+from .constants import gmemory, _VERSION, RUNTIME_DIR
 from .clock import _start_clock, _stop_clock
 from .exc import AlreadyInvokedException
 from .parallel_invoke import _parallel_invoke
@@ -370,9 +370,11 @@ def _init(custom_runtime, request_id, lambda_input, context, execution_details):
     if execution_mode == "REGULAR":
         _start_clock("Executing Lambda")
 
+        print(RUNTIME_DIR, executable_path)
+
         process_handler = subprocess.Popen(
             [
-                os.path.dirname(os.path.realpath(__file__)) + "/runtime",
+                RUNTIME_DIR,
                 executable_path
             ],
             stdout=subprocess.PIPE,

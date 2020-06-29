@@ -16,7 +16,6 @@ from Refinery Labs Inc.
 import traceback
 import time
 import json
-import http
 import sys
 import os
 
@@ -24,6 +23,7 @@ import os
 from .clock import _start_clock, _stop_clock
 from .init import _init
 from .utils import _write_pipeline_logs
+from .constants import http
 
 
 class CustomRuntime():
