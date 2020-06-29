@@ -1,8 +1,9 @@
 #!/bin/bash
 echo "Building PHP 7.3 Refinery custom runtime layer package..."
+mkdir -p ./layer-contents
 rm -rf ./layer-contents/*
 cp runtime ./layer-contents/
-cp -r ../base-src/* ./layer-contents/
+cp -r ../../base-src/* ./layer-contents/
 cp -r ./bin ./layer-contents/
 cp -r ./bref ./layer-contents/
 cd ./layer-contents/
