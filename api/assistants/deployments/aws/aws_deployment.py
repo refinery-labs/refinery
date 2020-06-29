@@ -89,7 +89,7 @@ class AwsDeployment(DeploymentDiagram):
         return {
             **self.project_config,
             "api_gateway": {
-                "gateway_id": self.api_gateway.api_gateway_id
+                "gateway_id": self.api_gateway.api_gateway_id if self.api_gateway is not None else None
             }
         }
 
