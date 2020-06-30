@@ -3,7 +3,7 @@ import Component, { mixins } from 'vue-class-component';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { isDevelopment, SyncProjectRepoPaneStoreModule as SyncProjectStore } from '@/store';
 import { GitPushResult } from '@/store/modules/panes/sync-project-repo-pane';
-import { branchNameBlacklistRegex } from '@/constants/project-editor-constants';
+import { branchNameBlacklistRegex, masterBranchName } from '@/constants/project-editor-constants';
 import CreateToastMixin from '@/mixins/CreateToastMixin';
 import { Watch } from 'vue-property-decorator';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
@@ -12,13 +12,6 @@ import { LoadingContainerProps } from '@/types/component-types';
 
 @Component
 export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
-  get gitPushResult() {
-    return SyncProjectStore.gitPushResult;
-  }
-  get remoteBranchName() {
-    return SyncProjectStore.remoteBranchName;
-  }
-
   public showingGitStatusDetails: boolean = false;
   public hasToggledNewBranch: boolean = false;
   public forcePushModalVisible: boolean = false;
@@ -51,6 +44,13 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     } else {
       await SyncProjectStore.checkRemoteBranchName();
     }
+  }
+
+  get gitPushResult() {
+    return SyncProjectStore.gitPushResult;
+  }
+  get remoteBranchName() {
+    return SyncProjectStore.remoteBranchName;
   }
 
   public changeCurrentlyDiffedFile(file: string) {
@@ -290,6 +290,26 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     SyncProjectStore.setCreatingNewBranch(creatingNewBranch);
   }
 
+  public getFirstBranchName() {
+    const repoBranches = SyncProjectStore.repoBranches;
+
+    if (repoBranches.includes(SyncProjectStore.remoteBranchName)) {
+      return SyncProjectStore.remoteBranchName;
+    }
+
+    if (repoBranches.includes(masterBranchName)) {
+      return masterBranchName;
+    }
+    return repoBranches[0];
+  }
+
+  public async clickExistingBranchCard() {
+    await this.setCreatingNewBranch(false);
+
+    const firstBranch = this.getFirstBranchName();
+    this.setRemoteBranchName(firstBranch);
+  }
+
   public showDevelopmentGitShell() {
     return (
       <div>
@@ -311,15 +331,13 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
     const selectRepoBranches = repoBranches.map(branch => {
       return { value: branch, text: branch };
     });
-    const branchName = repoBranches.includes(SyncProjectStore.remoteBranchName)
-      ? SyncProjectStore.remoteBranchName
-      : repoBranches[0];
+    const branchName = this.getFirstBranchName();
 
     return (
       <b-card
         no-body
         bg-variant={!SyncProjectStore.creatingNewBranch ? 'light' : 'default'}
-        on={{ click: async () => await this.setCreatingNewBranch(false) }}
+        on={{ click: this.clickExistingBranchCard }}
       >
         <b-card-header header-tag="header" className="p-1" role="tab">
           <h5>Use existing branch</h5>

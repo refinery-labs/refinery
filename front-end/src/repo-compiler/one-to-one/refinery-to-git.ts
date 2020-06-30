@@ -12,6 +12,8 @@ import Path from 'path';
 import slugify from 'slugify';
 import yaml from 'js-yaml';
 import {
+  GIT_IGNORE_CONTENT,
+  GIT_IGNORE_FILENAME,
   GLOBAL_BASE_PATH,
   LAMBDA_SHARED_FILES_DIR,
   PROJECT_SHARED_FILES_DIR,
@@ -116,14 +118,19 @@ async function maybeMkdir(fs: PromiseFsClient, path: string) {
   }
 }
 
-export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, project: RefineryProject) {
-  const readmePath = Path.join(dir, README_FILENAME);
+async function createFileIfDoesNotExist(fs: PromiseFsClient, dir: string, name: string, content: string) {
+  const readmePath = Path.join(dir, name);
 
   try {
     await fs.promises.lstat(readmePath);
   } catch (e) {
-    await fs.promises.writeFile(readmePath, getPlaceholderReadmeContent(project.name));
+    await fs.promises.writeFile(readmePath, content);
   }
+}
+
+export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, project: RefineryProject) {
+  await createFileIfDoesNotExist(fs, dir, README_FILENAME, getPlaceholderReadmeContent(project.name));
+  await createFileIfDoesNotExist(fs, dir, GIT_IGNORE_FILENAME, GIT_IGNORE_CONTENT);
 
   const refineryDir = Path.join(dir, GLOBAL_BASE_PATH);
 

@@ -227,16 +227,22 @@ def main(block_input, backpack):
 async function main(blockInput, backpack) {
     return 'Hello World!';
 }
+
+module.exports = { main };
 `,
   [SupportedLanguage.NODEJS_1020]: `
 async function main(blockInput, backpack) {
     return 'Hello World!';
 }
+
+module.exports = { main };
 `,
   [SupportedLanguage.NODEJS_8]: `
 async function main(blockInput, backpack) {
     return 'Hello World!';
 }
+
+module.exports = { main };
 `,
   [SupportedLanguage.PHP7]: `
 <?php
@@ -366,3 +372,5 @@ export const maxExecutionMemoryText = 'Maximum memory for the code to use during
 
 export const arnRegex = /^arn:aws:lambda:us-west-2:\d+:layer:[a-zA-Z0-9-_]+:\d+$/;
 export const branchNameBlacklistRegex = /[./]|\.\.|@{|[/.]$|^@$|[~^:\00-\x20\x7F\s?*[\\]/;
+
+export const masterBranchName = 'master';

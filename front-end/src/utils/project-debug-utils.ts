@@ -1,6 +1,8 @@
 import { saveAs } from 'file-saver';
 import { LambdaWorkflowState, RefineryProject, SupportedLanguage } from '@/types/graph';
 import yaml from 'js-yaml';
+import slugify from 'slugify';
+import { EXAMPLE_INPUT_DATA } from '@/repo-compiler/shared/constants';
 
 export interface ZippableFileContents {
   fileName: string;
@@ -18,8 +20,8 @@ export interface ProjectDownloadZipMetadata {
 }
 
 export interface ProjectDownloadZipConfig {
-  inputData: object;
-  backpackData: object;
+  inputData: string | object;
+  backpackData: string | object;
   blockCode: string;
   blockLanguage: SupportedLanguage;
   metadata: ProjectDownloadZipMetadata;
@@ -90,9 +92,11 @@ function setPackageJsonDepsToLatest(dependencies: string[]) {
 function getFormattedNodeDependencies(name: string, dependencies: string[]): ZippableFileContents | undefined {
   const hookedDependencies = [...dependencies, 'js-yaml'];
 
+  const sluggedName = slugify(name).toLowerCase();
+
   const serializedPackageJson = JSON.stringify({
     ...codeBlockPackageJson,
-    name: name,
+    name: sluggedName,
     dependencies: setPackageJsonDepsToLatest(hookedDependencies)
   });
 
@@ -118,7 +122,7 @@ export const languageToDependencies: Record<
   (name: string, dependencies: string[]) => ZippableFileContents | undefined
 > = {
   [SupportedLanguage.NODEJS_8]: getFormattedNodeDependencies,
-  [SupportedLanguage.NODEJS_10]: getFormattedPythonDependencies,
+  [SupportedLanguage.NODEJS_10]: getFormattedNodeDependencies,
   [SupportedLanguage.NODEJS_1020]: getFormattedNodeDependencies,
   [SupportedLanguage.PYTHON_3]: getFormattedPythonDependencies,
   [SupportedLanguage.PYTHON_2]: getFormattedPythonDependencies,
@@ -133,7 +137,7 @@ import yaml
 from block_code import main
 
 # Begin Refinery Generated Code
-with open('block_config.json') as block_config_raw:
+with open('input_config.yaml') as block_config_raw:
   block_config = yaml.safe_load(block_config_raw)
   input_data = block_config["input_data"]
   backpack_data = block_config["backpack_data"]
@@ -150,10 +154,10 @@ const fs = require('fs');
 const yaml = require('js-yaml');
 const { main } = require('./block_code.js');
 
-if (typeof main !== undefined) {
+if (main !== undefined) {
   async function runMainAsync() {
     try {
-      const blockConfig = yaml.safeLoad(fs.readFileSync('./block_config.yaml', 'utf8'));
+      const blockConfig = yaml.safeLoad(fs.readFileSync('./input_config.yaml', 'utf8'));
       const outputData = await main(blockConfig.input_data, blockConfig.backpack_data);
       console.log(JSON.stringify(outputData, null, 2));
     } catch (e) {
@@ -163,18 +167,8 @@ if (typeof main !== undefined) {
   }
 
   runMainAsync();
-
-} else if (typeof mainCallback !== undefined) {
-  mainCallback(inputData, backpackData, (err, outputData) => {
-    if (err) {
-      console.error(JSON.stringify(e, null, 2));
-      throw new Error(e);
-    }
-   
-    console.log(JSON.stringify(outputData, null, 2)); 
-  });
 } else {
-  throw new Error('No entrypoint defined');
+  throw new Error('Block code is not exported, please make sure \\'block_code.js\\' exports \\'main \\' (ex. having the line \\'module.exports = { main };\\' at the bottom of \\'block_code.js\\')');
 }
 // End Refinery Generated Code
 `;
@@ -232,15 +226,6 @@ export function convertProjectDownloadZipConfigToFileList(config: ProjectDownloa
   return zippableFiles;
 }
 
-/*
-## Contents:
-input-data.json
-backpack-data.json
-run-code.sh
-block-code.py
-metadata.json
- */
-
 export async function createProjectDownloadZip(config: ProjectDownloadZipConfig) {
   // Lazy load this library since it is only used once in the app
   const jszip = await import('jszip');
@@ -269,13 +254,21 @@ export async function downloadCodeBlockCode(block: LambdaWorkflowState) {
   saveAs(blob, `${block.name}-${Date.now()}.${languageToFileExtension[block.language]}`.replace(/ /g, '_'));
 }
 
+function getObjectOrString(data: string): string | object {
+  try {
+    return JSON.parse(data);
+  } catch (e) {
+    return data;
+  }
+}
+
 export function createDownloadZipConfig(
   project: RefineryProject,
   block: LambdaWorkflowState
 ): ProjectDownloadZipConfig {
   return {
-    inputData: JSON.parse(block.saved_input_data || '{}'),
-    backpackData: {},
+    inputData: getObjectOrString(block.saved_input_data || EXAMPLE_INPUT_DATA),
+    backpackData: getObjectOrString(block.saved_backpack_data || EXAMPLE_INPUT_DATA),
     blockCode: block.code,
     blockLanguage: block.language,
     metadata: {
