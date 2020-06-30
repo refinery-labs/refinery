@@ -40,3 +40,12 @@ export interface ToastNotification {
   specialForceRefresh?: boolean;
   noAutoHide: boolean;
 }
+
+export interface ToastNotificationConfig {
+  content: string;
+  title: string;
+  variant?: ToastVariant;
+  toaster?: ToastLocation;
+  specialForceRefresh?: boolean;
+  noAutoHide?: boolean;
+}
