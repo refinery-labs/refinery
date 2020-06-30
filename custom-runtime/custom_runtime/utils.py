@@ -14,16 +14,23 @@ from Refinery Labs Inc.
 """
 
 
+import base64
 import boto3
+import datetime
 import json
 import subprocess
 import os
+import sys
 import time
-import websocket
+import uuid
 
 
-from .exc import AlreadyInvokedException
+from urlparse import parse_qs
+
+
+from .exc import AlreadyInvokedException, InvokeQueueEmptyException
 from .constants import gmemory, S3_CLIENT
+from .parallel_invoke import _parallel_invoke
 
 
 def _api_endpoint(lambda_input, execution_id, context):

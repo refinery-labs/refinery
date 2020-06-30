@@ -21,9 +21,6 @@ import uuid
 import sys
 
 
-from urllib.parse import parse_qs
-
-
 from .constants import gmemory
 
 
