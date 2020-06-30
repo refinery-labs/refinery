@@ -8,9 +8,11 @@ import { timeout } from '@/utils/async-utils';
 import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
 import { registerCustomDagre } from '@/lib/dagre-cytoscape';
 import { CyConfig, CyTooltip } from '@/types/demo-walkthrough-types';
-import { DemoWalkthroughStoreModule } from '@/store';
+import { DemoWalkthroughStoreModule, SyncProjectRepoPaneStoreModule as SyncProjectStore } from '@/store';
 import { hashCode } from '@/utils/number-utils';
 import { generateTooltipSVGContents } from '@/utils/tooltip-utils';
+import { mixins } from 'vue-class-component';
+import CreateToastMixin from '@/mixins/CreateToastMixin';
 
 // @ts-ignore
 cytoscape.use(registerCustomDagre);
@@ -86,7 +88,7 @@ function areCytoGraphsTheSame(val: CyElements, oldVal: CyElements) {
 }
 
 @Component
-export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
+export default class CytoscapeGraph extends mixins(CreateToastMixin) implements CytoscapeGraphProps {
   cy!: cytoscape.Core;
   playAnimation!: boolean;
   isLayoutRunning!: boolean;
@@ -595,7 +597,12 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
     // Have to cast to specifically HTMLElement for this to work.
     config.container = this.$refs.container as HTMLElement;
 
-    this.cy = cytoscape(config);
+    try {
+      this.cy = cytoscape(config);
+    } catch (e) {
+      this.displayErrorToast('Error displaying graph', e.toString(), false);
+      throw e;
+    }
 
     this.setupEventHandlers(this.cy);
 

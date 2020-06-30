@@ -9,19 +9,21 @@ const toasts = namespace('toasts');
 export default class CreateToastMixin extends Vue {
   @toasts.Action displayToast!: (toast: ToastNotification) => void;
 
-  public displayErrorToast(title: string, content: string) {
+  public displayErrorToast(title: string, content: string, autoHide?: boolean) {
     this.displayToast({
       content,
       title,
-      variant: ToastVariant.danger
+      variant: ToastVariant.danger,
+      noAutoHide: autoHide !== undefined ? !autoHide : false
     });
   }
 
-  public displaySuccessToast(title: string, content: string) {
+  public displaySuccessToast(title: string, content: string, autoHide?: boolean) {
     this.displayToast({
       content,
       title,
-      variant: ToastVariant.success
+      variant: ToastVariant.success,
+      noAutoHide: autoHide !== undefined ? !autoHide : false
     });
   }
 }

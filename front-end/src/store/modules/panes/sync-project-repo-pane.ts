@@ -458,7 +458,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
       return await loadProjectFromDir(gitClient.fs, this.viewingProjectId, this.projectSessionId, gitClient.dir);
     } catch (e) {
       if (e instanceof RepoCompilationError) {
-        // this.setRepoCompilationError(e);
+        this.setRepoCompilationError(e);
       }
       return this.context.rootState.project.openedProject;
     }

@@ -131,34 +131,31 @@ export default class SyncProjectRepoPane extends mixins(CreateToastMixin) {
   }
 
   public renderGitStatusDetails() {
-    if (SyncProjectStore.gitStatusResult.length > 0) {
-      const stats = SyncProjectStore.getGitStatusStats;
-      return (
-        <div class="display--flex flex-direction--column">
-          <h4 class="text-align--left">Git Status:</h4>
-          <p>
-            New files: {stats.newFiles}, Modified files: {stats.modifiedFiles}, Deleted files: {stats.deletedFiles}
-          </p>
-          <b-button
-            variant="secondary"
-            class="col-12"
-            type="submit"
-            on={{
-              click: () => {
-                this.showingGitStatusDetails = true;
-              }
-            }}
-          >
-            Details
-          </b-button>
-        </div>
-      );
-    }
-    return null;
+    const stats = SyncProjectStore.getGitStatusStats;
+    return (
+      <div class="display--flex flex-direction--column">
+        <h4 class="text-align--left">Git Status:</h4>
+        <p>
+          New files: {stats.newFiles}, Modified files: {stats.modifiedFiles}, Deleted files: {stats.deletedFiles}
+        </p>
+        <b-button
+          variant="secondary"
+          class="col-12"
+          type="submit"
+          on={{
+            click: () => {
+              this.showingGitStatusDetails = true;
+            }
+          }}
+        >
+          Details
+        </b-button>
+      </div>
+    );
   }
 
   public renderGitStatus() {
-    if (!SyncProjectStore.creatingNewBranch) {
+    if (!SyncProjectStore.creatingNewBranch && SyncProjectStore.gitStatusResult.length > 0) {
       return (
         <div>
           <hr />
