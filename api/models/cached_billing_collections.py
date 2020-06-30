@@ -3,6 +3,10 @@ import json
 import uuid
 import time
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from . import AWSAccount, CachedBillingItem
+
 
 class CachedBillingCollection(Base):
     """

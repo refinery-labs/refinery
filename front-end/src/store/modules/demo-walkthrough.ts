@@ -35,7 +35,7 @@ import { RunLambdaActions, RunLambdaMutators } from '@/store/modules/run-lambda'
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 import cytoscape from 'cytoscape';
 import { UnauthViewProjectStoreModule } from '@/store';
-import { languages } from 'monaco-editor';
+import { LoggingAction } from '@/lib/LoggingMutation';
 
 export interface DemoWalkthroughState {
   currentIndex: number;
@@ -113,12 +113,12 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     return this.tooltips[this.currentIndex];
   }
 
-  @Action
+  @LoggingAction
   public skipWalkthrough() {
     this.doSetCurrentTooltips([]);
   }
 
-  @Action
+  @LoggingAction
   public async setCurrentTooltips(tooltips: DemoTooltip[]) {
     await this.doSetCurrentTooltips(tooltips);
 
@@ -179,7 +179,7 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     this.tooltipsLoaded = true;
   }
 
-  @Action
+  @LoggingAction
   public async nextTooltip() {
     if (this.currentTooltip !== undefined) {
       await this.performTooltipAction(this.currentTooltip.teardown);
@@ -213,7 +213,7 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     }
   }
 
-  @Action
+  @LoggingAction
   private async performTooltipAction(tooltipAction: DemoTooltipAction | undefined) {
     if (tooltipAction) {
       if (!(tooltipAction.action in this.actionLookup)) {
@@ -225,14 +225,14 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     }
   }
 
-  @Action
+  @LoggingAction
   public async closeEditPane() {
     await this.context.dispatch(`project/editBlockPane/${EditBlockActions.cancelAndResetBlock}`, null, {
       root: true
     });
   }
 
-  @Action
+  @LoggingAction
   public async openBlockEditorPane() {
     if (this.currentTooltip !== undefined && this.currentTooltip.type === TooltipType.CyTooltip) {
       const currentTooltip = this.currentTooltip as CyTooltip;
@@ -243,14 +243,14 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     }
   }
 
-  @Action
+  @LoggingAction
   public async closeBlockEditorPane() {
     await this.context.dispatch(`project/${ProjectViewActions.clearSelection}`, null, {
       root: true
     });
   }
 
-  @Action
+  @LoggingAction
   public async openExecutionsPane() {
     await this.context.dispatch(`deploymentExecutions/${DeploymentExecutionsActions.doOpenExecutionGroup}`, 'demo', {
       root: true
@@ -260,14 +260,14 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     });
   }
 
-  @Action
+  @LoggingAction
   public async openCodeRunner() {
     await this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, SIDEBAR_PANE.runEditorCodeBlock, {
       root: true
     });
   }
 
-  @Action
+  @LoggingAction
   public async closeOpenPanes() {
     await this.context.dispatch(`project/editBlockPane/${EditBlockActions.cancelAndResetBlock}`, null, {
       root: true
@@ -278,12 +278,12 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     });
   }
 
-  @Action
+  @LoggingAction
   public async promptUserSignup() {
     await UnauthViewProjectStoreModule.promptDemoModeSignup(true);
   }
 
-  @Action
+  @LoggingAction
   public async setCodeRunnerInput(action: DemoTooltipAction) {
     const currentTooltip = this.currentTooltip as CyTooltip;
     const blockId = currentTooltip.config.blockId;
@@ -305,7 +305,7 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     );
   }
 
-  @Action
+  @LoggingAction
   public async setCodeRunnerOutput(action: DemoTooltipAction) {
     const codeRunnerAction = action.options as SetCodeRunnerOutputOptions;
     const result: RunLambdaResult = {
@@ -321,7 +321,7 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     });
   }
 
-  @Action
+  @LoggingAction
   public getLogDataForExecutions(action: DemoTooltipAction): BlockExecutionLogData {
     const execLogDataOptions = action.options as ExecutionLogsOptions;
     const openedProject = this.context.rootState.project.openedProject as RefineryProject;
@@ -344,18 +344,18 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     this.mockNetworkResponses.blockExecutionLogData = logData;
   }
 
-  @Action
+  @LoggingAction
   public mockExecutionLogData(): BlockExecutionLogData | null {
     return this.mockNetworkResponses.blockExecutionLogData || null;
   }
 
-  @Action
+  @LoggingAction
   public async viewExecutionLogData(action: DemoTooltipAction) {
     const logData = this.getLogDataForExecutions(action);
     this.setLogsForExecutions(logData);
   }
 
-  @Action
+  @LoggingAction
   public getBlockExecutionLogContentsByLogId(action: DemoTooltipAction): BlockExecutionLogContentsByLogId {
     const execLogsAction = action.options as ExecutionLogsOptions;
 
@@ -377,12 +377,12 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     this.mockNetworkResponses.blockExecutionLogContentsByLogId = logs;
   }
 
-  @Action
+  @LoggingAction
   public mockContentsForLogs(): BlockExecutionLogContentsByLogId | null {
     return this.mockNetworkResponses.blockExecutionLogContentsByLogId || null;
   }
 
-  @Action
+  @LoggingAction
   public async viewExecutionLogs(action: DemoTooltipAction) {
     const response = this.getBlockExecutionLogContentsByLogId(action);
     this.setBlockExecutionLogContentsByLogId(response);
@@ -390,7 +390,7 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     this.viewExecutionLogData(action);
   }
 
-  @Action
+  @LoggingAction
   public getDeploymentExecution(action: DemoTooltipAction): ProductionExecutionResponse {
     const openedProject = this.context.rootState.project.openedProject as RefineryProject;
     const addExecAction = action.options as AddDeploymentExecutionOptions;
@@ -440,18 +440,18 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     this.mockNetworkResponses.getProjectExecutions = executions;
   }
 
-  @Action
+  @LoggingAction
   public addDeploymentExecution(tooltipAction: DemoTooltipAction) {
     const response = this.getDeploymentExecution(tooltipAction);
     this.setDeploymentExecutionResponse(response);
   }
 
-  @Action
+  @LoggingAction
   public mockAddDeploymentExecution(): ProductionExecutionResponse | null {
     return this.mockNetworkResponses.getProjectExecutions || null;
   }
 
-  @Action
+  @LoggingAction
   public mockGetLatestProjectDeployment(): GetLatestProjectDeploymentResponse {
     const openedProject = this.context.rootState.project.openedProject as RefineryProject;
     const latestDeploymentResponse: GetLatestProjectDeploymentResult = {
@@ -482,7 +482,7 @@ export class DemoWalkthroughStore extends VuexModule<ThisType<DemoWalkthroughSta
     };
   }
 
-  @Action
+  @LoggingAction
   public async viewExampleProjectDeployment() {
     const openedProject = this.context.rootState.project.openedProject as RefineryProject;
     router.push({

@@ -9,7 +9,7 @@ import {
   WorkflowState,
   WorkflowStateType
 } from '@/types/graph';
-import cytoscape, { CssStyleDeclaration, EdgeDefinition, ElementsDefinition, NodeDefinition } from 'cytoscape';
+import { CytoscapeOptions, CssStyleDeclaration, EdgeDefinition, ElementsDefinition, NodeDefinition } from 'cytoscape';
 import { baseEdgeStyle, baseNodeStyle } from '@/lib/cytoscape-styles';
 
 const baseElementProperties = {
@@ -45,7 +45,7 @@ function classOnlyConverter<T extends WorkflowState>(classname: string): (e: Wor
 }
 
 export type WorkflowStateTypeConverterLookup = {
-  [key in WorkflowStateType]: ((w: WorkflowState) => NodeDefinition) | null;
+  [key in WorkflowStateType]: ((w: WorkflowState) => NodeDefinition) | null
 };
 
 /**
@@ -151,7 +151,7 @@ export function generateCytoscapeStyle(stylesheetOverrides?: CssStyleDeclaration
   return [baseNodeStyle, baseEdgeStyle, ...filledStyleHelper, ...(stylesheetOverrides || [])];
 }
 
-export function convertRefineryProjectToCytoscape(project: RefineryProject): cytoscape.CytoscapeOptions {
+export function convertRefineryProjectToCytoscape(project: RefineryProject): CytoscapeOptions {
   return {
     elements: generateCytoscapeElements(project),
     // Per spec here: http://js.cytoscape.org/#style

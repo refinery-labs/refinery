@@ -1,10 +1,13 @@
+import os
+from base64 import b64encode
+
 import pinject
 from tornado import gen
 
 from assistants.user_creation_assistant import UserCreationAssistant
 from controller.base import BaseHandler
 from controller.auth.github.exceptions import GithubOAuthException, BadRequestStateException
-from controller.auth.github.oauth_provider import GithubOAuthProvider
+from assistants.github.oauth_provider import GithubOAuthProvider
 
 # Example data returned by Github
 # {
@@ -58,8 +61,8 @@ class AuthenticateWithGithubDependencies:
 # noinspection PyMethodOverriding, PyAttributeOutsideInit
 class AuthenticateWithGithub(BaseHandler):
     dependencies = AuthenticateWithGithubDependencies
-    github_oauth_provider = None
-    user_creation_assistant = None
+    github_oauth_provider = None  # type: GithubOAuthProvider
+    user_creation_assistant = None  # type: UserCreationAssistant
 
     @gen.coroutine
     def get(self):
@@ -74,17 +77,24 @@ class AuthenticateWithGithub(BaseHandler):
             # TODO: Replace this via a "with" statement once we have that setup
             dbsession = self.dbsession
 
-            user = self.user_creation_assistant.login_user_via_oauth(dbsession, oauth_user_data)
-
+            user = self.get_authenticated_user()
+            # case 1: user is already logged in and we simply associate the user with the oauth data
             if not user:
-                user = yield self.user_creation_assistant.create_new_user_via_oauth(dbsession, self.request, oauth_user_data)
+                # case 2: user is not logged in, but they already have an existing Refinery account
+                # case 3: user is not logged in, and they do not have a Refinery account.
+                user = yield self.user_creation_assistant.find_or_create_user_via_oauth( dbsession, oauth_user_data, self.request )
+
+            # This writes the OAuth token to the database
+            self.user_creation_assistant.update_user_oauth_record(
+                dbsession,
+                user,
+                oauth_user_data
+            )
 
             dbsession.commit()
 
             # Log the user in :)
             self.authenticate_user_id(user.id)
-
-            dbsession.close()
 
         except BadRequestStateException as e:
             self.respond_with_error(e.message)
@@ -93,12 +103,19 @@ class AuthenticateWithGithub(BaseHandler):
             self.respond_with_error(e.message)
             raise gen.Return()
 
-        self.write({
-            "success": True,
-            "result": {
-                "msg": "Login via Github successful"
-            }
-        })
+        # return script for closing this window, the user should be taken back to the original page
+        # they started the oauth flow from
+        nonce = b64encode(os.urandom(16))
+
+        broadcast_and_close_js = """
+        const bc = new BroadcastChannel('auth_flow');
+        bc.postMessage('doneWithAuthFlow');
+        window.close();
+        """
+
+        self.set_header("Content-Security-Policy", "script-src 'nonce-{nonce}'".format(nonce=nonce))
+        self.write("<html><script nonce=\"{nonce}\">{broadcast_and_close_js}</script></html>".format(
+            nonce=nonce, broadcast_and_close_js=broadcast_and_close_js))
 
     @gen.coroutine
     def post(self):
@@ -145,7 +162,7 @@ class AuthenticateWithGithub(BaseHandler):
             raise BadRequestStateException("Missing state token in parameters")
 
         # Compares tokens to validate the request originated from the same user (is not a CSRF attack)
-        if client_state != oauth_state_cookie:
+        if client_state != oauth_state_cookie.decode("utf-8"):
             raise BadRequestStateException("Client state and session state mismatched")
 
         return code, client_state

@@ -30,6 +30,7 @@ import { EditSharedFilePaneState } from '@/store/modules/panes/edit-shared-file'
 import { CodeBlockSharedFilesPaneState } from '@/store/modules/panes/code-block-shared-files';
 import { ViewSharedFilePaneState } from '@/store/modules/panes/view-shared-file';
 import { DemoWalkthroughState } from '@/store/modules/demo-walkthrough';
+import { GitState } from '@/store/modules/git-store/git-store';
 
 export enum StoreType {
   addSavedBlockPane = 'addSavedBlockPane',
@@ -40,6 +41,7 @@ export enum StoreType {
   // deployment = 'deployment',
   // deploymentExecutions = 'deploymentExecutions',
   environmentVariablesEditor = 'environmentVariablesEditor',
+  git = 'git',
   // viewBlock = 'viewBlock',
   // project = 'project',
   // allProjects = 'allProjects',
@@ -54,7 +56,9 @@ export enum StoreType {
   codeBlockSharedFiles = 'codeBlockSharedFiles',
   unauthViewProject = 'unauthViewProject',
   readmeEditor = 'readmeEditor',
-  demoWalkthrough = 'demoWalkthrough'
+  demoWalkthrough = 'demoWalkthrough',
+  syncProjectRepo = 'syncProjectRepo',
+  projectSettings = 'projectSettings'
 }
 
 export interface RootState {
@@ -66,6 +70,7 @@ export interface RootState {
   deployment: DeploymentViewState;
   deploymentExecutions: DeploymentExecutionsPaneState;
   environmentVariablesEditor: EnvironmentVariablesEditorPaneState;
+  git: GitState;
   viewBlock: ViewBlockPaneState;
   project: ProjectViewState;
   allProjects: AllProjectsState;

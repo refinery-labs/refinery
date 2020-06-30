@@ -113,3 +113,18 @@ GET_PROJECT_SHORT_LINK_SCHEMA = {
         "project_short_link_id"
     ]
 }
+
+CREATE_GIT_REPO_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "git_repo_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+        }
+    },
+    "required": [
+        "git_repo_id"
+    ]
+}
+
+

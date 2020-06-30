@@ -1,5 +1,6 @@
 import Vue from 'vue';
 import Vuex, { Store } from 'vuex';
+
 import SettingPlugin from './plugins/setting';
 import ActionLoggerPlugin from '@/store/plugins/action-logger';
 import createPersistedState from 'vuex-persistedstate';
@@ -20,7 +21,7 @@ import BillingPaneModule from '@/store/modules/billing';
 
 Vue.use(Vuex);
 
-const isDevelopment = process.env.NODE_ENV !== 'production';
+export const isDevelopment = process.env.NODE_ENV !== 'production';
 
 // Note: Dynamic modules won't work here because they overwrite the state by default.
 const persistedStorePaths = [

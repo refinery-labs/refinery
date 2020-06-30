@@ -1,7 +1,6 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
-import moment from 'moment';
-import { blockTypeToImageLookup } from '@/constants/project-editor-constants';
+import { blockTypeToImageLookup } from '@/constants/project-editor-img-constants';
 import { debounce } from 'debounce';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { Prop } from 'vue-property-decorator';
@@ -9,12 +8,15 @@ import { SavedBlockSearchResult, SharedBlockPublishStatus } from '@/types/api-ty
 import RefineryMarkdown from '@/components/Common/RefineryMarkdown';
 import { MarkdownProps } from '@/types/component-types';
 import { SupportedLanguage } from '@/types/graph';
+import { toTitleCase } from '@/lib/general-utils';
+import { getFriendlyDurationSinceString } from '@/utils/time-utils';
 
 export interface AddSavedBlockPaneProps {
   searchResultsPrivate: SavedBlockSearchResult[];
   searchResultsPublished: SavedBlockSearchResult[];
   searchInput: string;
   languageInput: string;
+  blockTypeInput: string;
   isBusySearching: boolean;
 
   addChosenBlock: (id: string) => void;
@@ -22,6 +24,7 @@ export interface AddSavedBlockPaneProps {
   searchSavedBlocks: () => void;
   setSearchInputValue: (value: string) => void;
   setLanguageInputValue: (value: string) => void;
+  setBlockTypeInputValue: (value: string) => void;
 }
 
 @Component
@@ -32,6 +35,7 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
   @Prop({ required: true }) searchResultsPublished!: SavedBlockSearchResult[];
   @Prop({ required: true }) searchInput!: string;
   @Prop({ required: true }) languageInput!: string;
+  @Prop({ required: true }) blockTypeInput!: string;
   @Prop({ required: true }) isBusySearching!: boolean;
 
   @Prop({ required: true }) addChosenBlock!: (id: string) => void;
@@ -39,6 +43,7 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
   @Prop({ required: true }) searchSavedBlocks!: () => void;
   @Prop({ required: true }) setSearchInputValue!: (value: string) => void;
   @Prop({ required: true }) setLanguageInputValue!: (value: string) => void;
+  @Prop({ required: true }) setBlockTypeInputValue!: (value: string) => void;
 
   mounted() {
     // We have to add this at run time or else it seems to get bjorked
@@ -57,9 +62,14 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
     this.runSearchAutomatically();
   }
 
+  onBlockTypeInputChanged(blockType: SharedBlockPublishStatus) {
+    this.setBlockTypeInputValue(blockType);
+    this.runSearchAutomatically();
+  }
+
   public renderBlockSelect(showStatus: boolean, block: SavedBlockSearchResult) {
     const imagePath = blockTypeToImageLookup[block.type].path;
-    const durationSinceUpdated = moment.duration(-moment().diff(block.timestamp * 1000)).humanize(true);
+    const durationSinceUpdated = getFriendlyDurationSinceString(block.timestamp * 1000);
     const sharePillVariable = block.share_status === SharedBlockPublishStatus.PRIVATE ? 'success' : 'primary';
     const shareStatusText = showStatus && (
       <div class="text-muted text-align--center">
@@ -127,6 +137,19 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
       }))
     ];
 
+    const defaultTypesOption = {
+      value: '',
+      text: 'All'
+    };
+
+    const typeOptions = [
+      defaultTypesOption,
+      ...Object.values(SharedBlockPublishStatus).map(v => ({
+        value: v,
+        text: toTitleCase(v)
+      }))
+    ];
+
     return (
       <div class="add-saved-block-container__parent text-align--left mb-2 ml-2 mr-2 mt-0 display--flex flex-direction--column">
         <a
@@ -155,6 +178,16 @@ export default class AddSavedBlockPane extends Vue implements AddSavedBlockPaneP
                   value={this.searchInput}
                   on={{ input: this.onSearchBoxInputChanged }}
                   placeholder="eg, Daily Timer"
+                />
+              </div>
+              <div class="padding-bottom--normal-small">
+                <div class="display--flex">
+                  <label class="flex-grow--1">Search by Type:</label>
+                </div>
+                <b-form-select
+                  on={{ input: this.onBlockTypeInputChanged }}
+                  value={this.blockTypeInput}
+                  options={typeOptions}
                 />
               </div>
               <div class="padding-bottom--normal-small">

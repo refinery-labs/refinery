@@ -1,7 +1,15 @@
+import pinject
+
 from controller.auth.oauth_user_data import OAuthUserData
 from models.user_oauth_account import UserOAuthAccountModel
 from models.user_oauth_data_record import UserOAuthDataRecordModel
 from models.users import User
+
+
+class OAuthServiceBindingSpec(pinject.BindingSpec):
+    @pinject.provides("oauth_service")
+    def provider_oauth_service( self, logger ):
+        return OAuthService(logger)
 
 
 class OAuthService:
@@ -13,7 +21,8 @@ class OAuthService:
         """
         self.logger = logger
 
-    def search_for_existing_user(self, dbsession, oauth_user_data):
+    @staticmethod
+    def search_for_existing_user( dbsession, oauth_user_data ):
         """
         Attempts to associate the OAuth data against an existing user.
         :type dbsession: sqlalchemy.orm.Session
@@ -23,7 +32,7 @@ class OAuthService:
         """
         # Check against the database for any existing OAuth users
         # TODO: Make this filter be case-insensitive
-        existing_oauth_match = dbsession.query(UserOAuthAccountModel).filter_by(
+        existing_oauth_match = dbsession.query( UserOAuthAccountModel ).filter_by(
             provider=oauth_user_data.provider,
             provider_unique_id=oauth_user_data.provider_unique_id
         ).first()
@@ -90,6 +99,7 @@ class OAuthService:
         """
 
         user_oauth_account = self.get_existing_oauth_provider_for_user(dbsession, user_id, provider)
+        print(user_oauth_account)
 
         if user_oauth_account is not None:
             return user_oauth_account

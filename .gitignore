@@ -1,4 +1,5 @@
 env/
+api/.mypy_cache/
 api/config/development.yaml
 *.yml
 !buildspec.yml
@@ -116,3 +117,4 @@ api/.hypothesis/*
 !api/.hypothesis/examples/
 
 .coverage
+git-server/

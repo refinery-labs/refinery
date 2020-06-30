@@ -6,6 +6,10 @@ import uuid
 
 from models.model_exceptions import InvalidModelCreationError
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from . import UserOAuthDataRecordModel
+
 
 class UserOAuthAccountModel(Base):
     """
@@ -20,7 +24,6 @@ class UserOAuthAccountModel(Base):
 
     provider = Column(Enum(OAuthProvider), nullable=False)
 
-    # Parent organization the user belongs to
     user_id = Column(
         TEXT(),
         ForeignKey(
@@ -65,7 +68,6 @@ class UserOAuthAccountModel(Base):
         exposed_attributes = [
             "id",
             "provider",
-            "timestamp",
             "user_id"
         ]
 

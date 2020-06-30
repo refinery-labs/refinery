@@ -38,6 +38,7 @@ export enum ProjectViewGetters {
   getValidMenuDisplayTransitionTypes = 'getValidMenuDisplayTransitionTypes',
   canSaveProject = 'canSaveProject',
   canDeployProject = 'canDeployProject',
+  isProjectRepoSet = 'isProjectRepoSet',
   hasCodeBlockSelected = 'hasCodeBlockSelected',
 
   selectedBlockDirty = 'selectedBlockDirty',
@@ -71,6 +72,7 @@ export enum ProjectViewMutators {
 
   setProjectLogLevel = 'setProjectLogLevel',
   setProjectRuntimeLanguage = 'setProjectRuntimeLanguage',
+  setProjectRepo = 'setProjectRepo',
   setProjectGlobalExceptionHandler = 'setProjectGlobalExceptionHandler',
 
   markProjectDirtyStatus = 'markProjectDirtyStatus',
@@ -152,7 +154,8 @@ export enum ProjectViewActions {
   resetPanelStates = 'resetPanelStates',
   setProjectConfigLoggingLevel = 'setProjectConfigLoggingLevel',
   setProjectConfigRuntimeLanguage = 'setProjectConfigRuntimeLanguage',
-  setProjectGlobalExceptionHandler = 'setProjectGlobalExceptionHandler',
+  setProjectGlobalExceptionHandlerToNode = 'setProjectGlobalExceptionHandlerToNode',
+  setProjectConfigRepo = 'setProjectConfigRepo',
   saveProjectConfig = 'saveProjectConfig',
   checkBuildStatus = 'checkBuildStatus',
   startLibraryBuild = 'startLibraryBuild',
@@ -262,6 +265,7 @@ export enum UserMutators {
 }
 
 export enum UserActions {
+  authWithGithub = 'authWithGithub',
   fetchAuthenticationState = 'fetchAuthenticationState',
   redirectIfAuthenticated = 'redirectIfAuthenticated',
   loginUser = 'loginUser',

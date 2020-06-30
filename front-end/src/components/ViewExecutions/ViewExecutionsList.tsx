@@ -2,8 +2,8 @@ import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { Prop } from 'vue-property-decorator';
 import { ViewExecutionsListProps } from '@/types/component-types';
-import moment from 'moment';
 import { ProjectExecution } from '@/types/deployment-executions-types';
+import { getFriendlyDurationSinceString } from '@/utils/time-utils';
 
 @Component
 export default class ViewExecutionsList extends Vue implements ViewExecutionsListProps {
@@ -27,7 +27,7 @@ export default class ViewExecutionsList extends Vue implements ViewExecutionsLis
   }
 
   public renderExecution(execution: ProjectExecution) {
-    const durationSinceUpdated = moment.duration(-moment().diff(execution.oldestTimestamp * 1000)).humanize(true);
+    const durationSinceUpdated = getFriendlyDurationSinceString(execution.oldestTimestamp * 1000);
 
     const isActive = execution.executionId === this.selectedProjectExecution;
 

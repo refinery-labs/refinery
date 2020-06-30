@@ -7,6 +7,7 @@ import random
 import struct
 import logging
 import math
+from typing import Literal
 
 import pinject
 
@@ -38,7 +39,10 @@ def attempt_json_decode(input_data):
     return input_data
 
 
-def logit(message, message_type="info"):
+LogLevelTypes = Literal["info", "warning", "error", "debug"]
+
+
+def logit(message: str, message_type: LogLevelTypes = "info") -> None:
     # Attempt to parse the message as json
     # If we can then prettify it before printing
     try:

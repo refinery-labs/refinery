@@ -2,6 +2,10 @@ import { Module } from 'vuex';
 import uuid from 'uuid/v4';
 import { RootState } from '../store-types';
 import { ToastConfig, ToastLocation, ToastNotification, ToastVariant } from '@/types/toasts-types';
+import { makeApiRequest } from '@/store/fetchers/refinery-api';
+import { AuthWithGithubRequest, AuthWithGithubResponse } from '@/types/api-types';
+import { API_ENDPOINT } from '@/constants/api-constants';
+import { AllProjectsActions } from '@/store/modules/all-projects';
 
 // Enums
 export enum ToastMutators {
@@ -53,12 +57,14 @@ const ToastPaneModule: Module<ToastPaneState, RootState> = {
         return;
       }
 
+      const toastDelay = !toast.noAutoHide ? { autoHideDelay: 3000 } : {};
+
       const newToast: ToastConfig = {
         variant: ToastVariant.default,
         toaster: ToastLocation.TopRight,
         ...toast,
+        ...toastDelay,
         id: uuid(),
-        autoHideDelay: 3000,
         shown: false,
         timestamp: new Date().getTime()
       };

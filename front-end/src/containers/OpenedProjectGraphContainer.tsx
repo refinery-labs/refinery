@@ -14,8 +14,10 @@ import { timeout, waitUntil } from '@/utils/async-utils';
 import { ProductionExecutionResponse } from '@/types/deployment-executions-types';
 import Tooltip from '@/lib/Tooltip';
 import { TooltipProps } from '@/types/tooltip-types';
+import { RepoCompilationError } from '@/repo-compiler/lib/git-utils';
 
 const project = namespace('project');
+const syncProjectRepo = namespace('syncProjectRepo');
 
 @Component
 export default class OpenedProjectGraphContainer extends Vue {
@@ -30,6 +32,7 @@ export default class OpenedProjectGraphContainer extends Vue {
   @project.State isAddingSharedFileToCodeBlock!: boolean;
 
   @project.State isLoadingProject!: boolean;
+  @syncProjectRepo.State repoCompilationError!: RepoCompilationError | undefined;
   @project.State isInDemoMode!: boolean;
   @project.State currentTooltip!: number;
   @State windowWidth?: number;
@@ -98,6 +101,17 @@ export default class OpenedProjectGraphContainer extends Vue {
   public render(h: CreateElement): VNode {
     if (this.isLoadingProject) {
       return <h2>Waiting for data...</h2>;
+    }
+
+    if (this.repoCompilationError) {
+      return (
+        <div>
+          <h2>Error while compiling graph</h2>
+          <p>{this.repoCompilationError.message}</p>
+          <h4>{this.repoCompilationError.errorContext && this.repoCompilationError.errorContext.filename}</h4>
+          <code>{this.repoCompilationError.errorContext && this.repoCompilationError.errorContext.fileContent}</code>
+        </div>
+      );
     }
 
     if (!this.cytoscapeElements || !this.cytoscapeStyle) {

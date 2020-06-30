@@ -83,14 +83,12 @@
 import Vue from 'vue';
 import { mapState } from 'vuex';
 import SidebarRun from './Sidebar.run';
-import { SidebarMenuItems as Menu } from '../../menu';
 import { UserInterfaceSettings } from '../../store/store-types';
 
 export default Vue.extend({
   name: 'Sidebar',
   data() {
     return {
-      Menu,
       collapse: this.buildCollapseList()
     };
   },

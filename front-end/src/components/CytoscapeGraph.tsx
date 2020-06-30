@@ -1,6 +1,6 @@
 import { CreateElement, VNode } from 'vue';
 import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
-import cytoscape, { EdgeDefinition, EventObject, LayoutOptions, NodeDefinition } from 'cytoscape';
+import cytoscape, { EdgeDefinition, EventObject, LayoutOptions, NodeDefinition, Stylesheet } from 'cytoscape';
 import cyCanvas, { CytoscapeCanvasInstance } from '../lib/cytoscape-canvas';
 import deepEqual from 'fast-deep-equal';
 import { animationBegin, animationEnd, baseCytoscapeStyles, STYLE_CLASSES } from '@/lib/cytoscape-styles';
@@ -8,9 +8,11 @@ import { timeout } from '@/utils/async-utils';
 import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
 import { registerCustomDagre } from '@/lib/dagre-cytoscape';
 import { CyConfig, CyTooltip } from '@/types/demo-walkthrough-types';
-import { DemoWalkthroughStoreModule } from '@/store';
+import { DemoWalkthroughStoreModule, SyncProjectRepoPaneStoreModule as SyncProjectStore } from '@/store';
 import { hashCode } from '@/utils/number-utils';
 import { generateTooltipSVGContents } from '@/utils/tooltip-utils';
+import { mixins } from 'vue-class-component';
+import CreateToastMixin from '@/mixins/CreateToastMixin';
 
 // @ts-ignore
 cytoscape.use(registerCustomDagre);
@@ -86,7 +88,7 @@ function areCytoGraphsTheSame(val: CyElements, oldVal: CyElements) {
 }
 
 @Component
-export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
+export default class CytoscapeGraph extends mixins(CreateToastMixin) implements CytoscapeGraphProps {
   cy!: cytoscape.Core;
   playAnimation!: boolean;
   isLayoutRunning!: boolean;
@@ -406,6 +408,8 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
   }
 
   public generateInitialCytoscapeConfig(): cytoscape.CytoscapeOptions {
+    const styles = [...Object.values(this.stylesheet), ...baseCytoscapeStyles] as Stylesheet[];
+
     return {
       layout: this.getLayoutConfig(true),
 
@@ -415,7 +419,7 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
       maxZoom: 4,
       wheelSensitivity: 0.8,
 
-      style: [...Object.values(this.stylesheet), ...baseCytoscapeStyles],
+      style: styles,
 
       elements: this.elements || {
         // Prevents a "default" node from rendering when the list is empty...
@@ -593,7 +597,12 @@ export default class CytoscapeGraph extends Vue implements CytoscapeGraphProps {
     // Have to cast to specifically HTMLElement for this to work.
     config.container = this.$refs.container as HTMLElement;
 
-    this.cy = cytoscape(config);
+    try {
+      this.cy = cytoscape(config);
+    } catch (e) {
+      this.displayErrorToast('Error displaying graph', e.toString(), false);
+      throw e;
+    }
 
     this.setupEventHandlers(this.cy);
 

@@ -1,5 +1,4 @@
 import Vue from 'vue';
-import moment from 'moment';
 import { Component, Watch } from 'vue-property-decorator';
 import { Route } from 'vue-router';
 import { UserInterfaceSettings } from '@/store/store-types';
@@ -7,8 +6,10 @@ import { Action, Getter, Mutation, namespace } from 'vuex-class';
 import { ToastConfig } from '@/types/toasts-types';
 import { KeyboardEditorMode, keyboardMapToAceConfigMap } from '@/store/modules/settings-app';
 import { SettingsAppStoreModule } from '@/store';
+import { formatRelative, fromUnixTime } from 'date-fns';
 
 const toasts = namespace('toasts');
+const user = namespace('user');
 
 @Component
 export default class OffsideContentBar extends Vue {
@@ -17,6 +18,7 @@ export default class OffsideContentBar extends Vue {
   @Mutation toggleSettingOn!: (name: UserInterfaceSettings) => {};
   @Mutation toggleSettingOff!: (name: UserInterfaceSettings) => {};
   @Action closeGlobalNav!: () => {};
+  @user.Action authWithGithub!: () => void;
 
   @Watch('$route', { deep: true })
   private elementsModified(val: Route, oldVal: Route) {
@@ -48,8 +50,7 @@ export default class OffsideContentBar extends Vue {
   }
 
   renderNotification(toast: ToastConfig) {
-    const updatedTime = moment(toast.timestamp);
-    const durationSinceUpdated = moment.duration(-moment().diff(updatedTime)).humanize(true);
+    const durationSinceUpdated = formatRelative(new Date(), fromUnixTime(toast.timestamp / 1000));
     return (
       <div class="p-2">
         <div role="alert" aria-live="assertive" aria-atomic="true" class="b-toast b-toast-prepend">
@@ -100,7 +101,9 @@ export default class OffsideContentBar extends Vue {
             </template>
             <h3 class="text-center text-thin mt-4">User Settings</h3>
             <div class="list-group">
-              Coming soon!
+              <b-button class="margin--normal" on={{ click: () => this.authWithGithub() }}>
+                Authenticate with github
+              </b-button>
               {/*<b-form-group description="Keyboard mode for text editor blocks.">*/}
               {/*  <label class="d-block">Editor Key Mode:</label>*/}
               {/*  <b-form-select*/}

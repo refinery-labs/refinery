@@ -74,6 +74,7 @@ export const paneTypeToNameLookup: EditorPaneTypeToName = {
   [SIDEBAR_PANE.allVersions]: 'All Versions',
   [SIDEBAR_PANE.exportProject]: 'Share Project',
   [SIDEBAR_PANE.saveProject]: 'Save Project',
+  [SIDEBAR_PANE.syncProjectRepo]: 'Sync Repo',
   [SIDEBAR_PANE.deployProject]: 'Deploy Project',
   [SIDEBAR_PANE.editBlock]: 'Edit Block',
   [SIDEBAR_PANE.editTransition]: 'Edit Transition',
@@ -113,19 +114,34 @@ function makeSidebarMenuItem(type: SIDEBAR_PANE, icon: string, translate: string
   };
 }
 
-// TODO: Make a small helper to generate these instead of copy-pasting
-export const SidebarMenuItems: NavbarItem[] = [
-  makeSidebarMenuItem(SIDEBAR_PANE.addBlock, 'icon-plus', 'sidebar.nav.ADD_BLOCK', 'outline-primary'),
-  makeSidebarMenuItem(SIDEBAR_PANE.addTransition, 'icon-cursor-move', 'sidebar.nav.ADD_TRANSITION', 'outline-primary'),
-  makeSidebarMenuItem(SIDEBAR_PANE.runEditorCodeBlock, 'icon-control-play', 'RUN_CODE_BLOCK', 'outline-success'),
-  makeSidebarMenuItem(SIDEBAR_PANE.sharedFiles, 'icon-docs', 'RUN_CODE_BLOCK', 'outline-primary'),
-  // makeSidebarMenuItem(SIDEBAR_PANE.allBlocks, 'icon-grid', 'sidebar.nav.ALL_BLOCKS', 'outline-info'),
-  // makeSidebarMenuItem(SIDEBAR_PANE.allVersions, 'icon-chart', 'sidebar.nav.ALL_VERSIONS', 'outline-info'),
-  makeSidebarMenuItem(SIDEBAR_PANE.editReadme, 'fab fa-readme', 'sidebar.nav.VIEW_README', 'outline-primary'),
-  makeSidebarMenuItem(SIDEBAR_PANE.exportProject, 'icon-cloud-download', 'sidebar.nav.EXPORT_PROJECT', 'outline-info'),
-  makeSidebarMenuItem(SIDEBAR_PANE.saveProject, 'far fa-save', 'sidebar.nav.SAVE_PROJECT', 'success'),
-  makeSidebarMenuItem(SIDEBAR_PANE.deployProject, 'icon-cloud-upload', 'sidebar.nav.DEPLOY_PROJECT', 'primary')
-];
+export function getSidebarMenuItems(isRepoPresent: boolean): NavbarItem[] {
+  const saveSidebarItem = isRepoPresent
+    ? makeSidebarMenuItem(SIDEBAR_PANE.syncProjectRepo, 'fab fa-github', 'sidebar.nav.IMPORT_PROJECT', 'success')
+    : makeSidebarMenuItem(SIDEBAR_PANE.saveProject, 'far fa-save', 'sidebar.nav.SAVE_PROJECT', 'success');
+
+  return [
+    makeSidebarMenuItem(SIDEBAR_PANE.addBlock, 'icon-plus', 'sidebar.nav.ADD_BLOCK', 'outline-primary'),
+    makeSidebarMenuItem(
+      SIDEBAR_PANE.addTransition,
+      'icon-cursor-move',
+      'sidebar.nav.ADD_TRANSITION',
+      'outline-primary'
+    ),
+    makeSidebarMenuItem(SIDEBAR_PANE.runEditorCodeBlock, 'icon-control-play', 'RUN_CODE_BLOCK', 'outline-success'),
+    makeSidebarMenuItem(SIDEBAR_PANE.sharedFiles, 'icon-docs', 'RUN_CODE_BLOCK', 'outline-primary'),
+    // makeSidebarMenuItem(SIDEBAR_PANE.allBlocks, 'icon-grid', 'sidebar.nav.ALL_BLOCKS', 'outline-info'),
+    // makeSidebarMenuItem(SIDEBAR_PANE.allVersions, 'icon-chart', 'sidebar.nav.ALL_VERSIONS', 'outline-info'),
+    makeSidebarMenuItem(SIDEBAR_PANE.editReadme, 'fab fa-readme', 'sidebar.nav.VIEW_README', 'outline-primary'),
+    makeSidebarMenuItem(
+      SIDEBAR_PANE.exportProject,
+      'icon-cloud-download',
+      'sidebar.nav.EXPORT_PROJECT',
+      'outline-info'
+    ),
+    saveSidebarItem,
+    makeSidebarMenuItem(SIDEBAR_PANE.deployProject, 'icon-cloud-upload', 'sidebar.nav.DEPLOY_PROJECT', 'primary')
+  ];
+}
 
 export const DeploymentSidebarMenuItems: NavbarItem[] = [
   makeSidebarMenuItem(SIDEBAR_PANE.viewApiEndpoints, 'icon-list', 'sidebar.nav.VIEW_API_ENDPOINTS', 'outline-info'),

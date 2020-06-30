@@ -52,6 +52,8 @@ declare module 'vue-intercom' {
   export interface VueIntercomPlugin extends PluginObject<{ appId: string }> {}
 }
 
+declare module '@isomorphic-git/lightning-fs';
+
 declare module 'vue-monaco' {
   import { PluginObject } from 'vue';
 

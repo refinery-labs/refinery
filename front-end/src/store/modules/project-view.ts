@@ -22,8 +22,7 @@ import {
   WorkflowStateType
 } from '@/types/graph';
 import { generateCytoscapeElements, generateCytoscapeStyle } from '@/lib/refinery-to-cytoscript-converter';
-import { CssStyleDeclaration, LayoutOptions } from 'cytoscape';
-import cytoscape from '@/components/CytoscapeGraph';
+import { CssStyleDeclaration, LayoutOptions, CytoscapeOptions } from 'cytoscape';
 import {
   DeploymentViewActions,
   ProjectViewActions,
@@ -63,13 +62,8 @@ import {
   unwrapJson,
   wrapJson
 } from '@/utils/project-helpers';
-import {
-  availableTransitions,
-  blockTypeToImageLookup,
-  DEFAULT_LANGUAGE_CODE,
-  demoModeBlacklist,
-  savedBlockType
-} from '@/constants/project-editor-constants';
+import { availableTransitions, DEFAULT_LANGUAGE_CODE, savedBlockType } from '@/constants/project-editor-constants';
+import { blockTypeToImageLookup } from '@/constants/project-editor-img-constants';
 import EditBlockPaneModule, { EditBlockActions, EditBlockGetters } from '@/store/modules/panes/edit-block-pane';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
@@ -84,8 +78,7 @@ import ImportableRefineryProject from '@/types/export-project';
 import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shared-files';
-import { DemoWalkthroughStoreModule, EditSharedFilePaneModule } from '@/store';
-import { BaseGraphHelper } from '@/lib/graph-helpers';
+import { DemoWalkthroughStoreModule, EditSharedFilePaneModule, SyncProjectRepoPaneStoreModule } from '@/store';
 
 export interface ChangeTransitionArguments {
   transition: WorkflowRelationship;
@@ -100,6 +93,8 @@ export interface AddBlockArguments {
    */
   customBlockProperties?: WorkflowState;
 }
+
+export const demoModeBlacklist = [SIDEBAR_PANE.saveProject, SIDEBAR_PANE.deployProject];
 
 const moduleState: ProjectViewState = {
   openedProject: null,
@@ -130,6 +125,7 @@ const moduleState: ProjectViewState = {
     [SIDEBAR_PANE.exportProject]: {},
     [SIDEBAR_PANE.deployProject]: {},
     [SIDEBAR_PANE.saveProject]: {},
+    [SIDEBAR_PANE.syncProjectRepo]: {},
     [SIDEBAR_PANE.editBlock]: {},
     [SIDEBAR_PANE.editTransition]: {},
     [SIDEBAR_PANE.viewApiEndpoints]: {},
@@ -339,6 +335,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       return `https://app.refinery.io/import#${compressedData}`;
     },
+    [ProjectViewGetters.isProjectRepoSet]: state => {
+      return state.openedProjectConfig && state.openedProjectConfig.project_repo;
+    },
     [ProjectViewGetters.exceptionHandlerNodes]: state => {
       if (!state.openedProject) {
         return [];
@@ -406,7 +405,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
     [ProjectViewMutators.setCytoscapeLayout](state, layout: LayoutOptions) {
       state.cytoscapeLayoutOptions = deepJSONCopy(layout);
     },
-    [ProjectViewMutators.setCytoscapeConfig](state, config: cytoscape.CytoscapeOptions) {
+    [ProjectViewMutators.setCytoscapeConfig](state, config: CytoscapeOptions) {
       state.cytoscapeConfig = deepJSONCopy(config);
     },
     [ProjectViewMutators.setIsAddingSharedFileToCodeBlock](state, value: boolean) {
@@ -435,10 +434,21 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         default_language: projectRuntimeLanguage
       };
     },
+    [ProjectViewMutators.setProjectRepo](state, projectRepo: string) {
+      if (state.openedProjectConfig === null) {
+        console.error('Could not set project git repo due to no project being opened.');
+        return;
+      }
+      state.openedProjectConfig = {
+        ...state.openedProjectConfig,
+        project_repo: projectRepo
+      };
+    },
     [ProjectViewMutators.setProjectGlobalExceptionHandler](state, nodeId: string | null) {
       if (!state.openedProject) {
         return;
       }
+
       if (!nodeId) {
         state.openedProject.global_handlers.exception_handler = undefined;
         return;
@@ -554,7 +564,25 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       // Save new config to the backend
       await context.dispatch(ProjectViewActions.saveProjectConfig);
     },
-    async [ProjectViewActions.setProjectGlobalExceptionHandler](context, nodeId: string | null) {
+    async [ProjectViewActions.setProjectConfigRepo](context, projectConfigRepo: string | undefined) {
+      if (context.state.openedProject === null) {
+        throw new Error('Unable to set project config repo without opened project');
+      }
+
+      context.commit(ProjectViewMutators.setProjectRepo, projectConfigRepo);
+
+      // Save new config to the backend
+      await context.dispatch(ProjectViewActions.saveProjectConfig);
+
+      // TODO: Refactor project-view to never be able to have this as null....
+      if (context.state.openedProjectConfig && context.state.openedProjectConfig.project_repo) {
+        await SyncProjectRepoPaneStoreModule.setupLocalProjectRepo([
+          context.state.openedProjectConfig,
+          context.state.openedProject.project_id
+        ]);
+      }
+    },
+    async [ProjectViewActions.setProjectGlobalExceptionHandlerToNode](context, nodeId: string | null) {
       await context.commit(ProjectViewMutators.setProjectGlobalExceptionHandler, nodeId);
 
       await context.commit(ProjectViewMutators.markProjectDirtyStatus, true);
@@ -658,6 +686,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
           api_gateway: { gateway_id: false },
           logging: { level: ProjectLogLevel.LOG_ALL },
           default_language: SupportedLanguage.NODEJS_8,
+          project_repo: '',
           version: '1'
         },
         // We mark it as dirty so that we always show the save button ;)
@@ -782,6 +811,12 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       // Skip everything else because we're in demo mode.
       if (context.state.isInDemoMode) {
+        return;
+      }
+
+      // If the project repo is set, we do not save the project like this
+      // NOTE: the button will be hidden in the UI, this is just check
+      if (context.state.openedProjectConfig.project_repo) {
         return;
       }
 
@@ -958,6 +993,11 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       };
 
       await context.dispatch(ProjectViewActions.updateProject, params);
+
+      if (projectConfig.project_repo) {
+        await SyncProjectRepoPaneStoreModule.setupLocalProjectRepo([projectConfig, project.project_id]);
+      }
+
       context.commit(ProjectViewMutators.isLoadingProject, false);
     },
     async [ProjectViewActions.showDeploymentPane](context) {
@@ -986,7 +1026,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       context.commit(ProjectViewMutators.setDeploymentError, null);
     },
 
-    async [ProjectViewActions.saveSelectedResource](context) {
+    async [ProjectViewActions.saveSelectedResource](context, dontClose: boolean = false) {
       if (context.getters.selectedResourceDirty && !context.getters[ProjectViewGetters.canSaveProject]) {
         await createToast(context.dispatch, {
           title: 'Invalid Block State Detected',
@@ -1001,7 +1041,9 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
         await saveEditBlockToProject();
       }
 
-      await context.dispatch(`editBlockPane/${EditBlockActions.tryToCloseBlock}`);
+      if (!dontClose) {
+        await context.dispatch(`editBlockPane/${EditBlockActions.tryToCloseBlock}`);
+      }
 
       // Dang man, we're gonna have to rewrite these transitions at some point. This architecture is madness!
       if (
@@ -1544,11 +1586,14 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       }
 
       // Set configured new block defaults
-      if (context.state.openedProjectConfig && !addBlockArgs.customBlockProperties) {
+      if (blockType === WorkflowStateType.LAMBDA && context.state.openedProjectConfig) {
         const defaultLanguage = context.state.openedProjectConfig.default_language || SupportedLanguage.NODEJS_8;
         addBlockArgs.customBlockProperties = Object.assign({}, addBlockArgs.customBlockProperties, {
           language: defaultLanguage,
-          code: DEFAULT_LANGUAGE_CODE[defaultLanguage]
+          code: DEFAULT_LANGUAGE_CODE[defaultLanguage],
+
+          // if customBlockProperties define language and code, then override them here
+          ...addBlockArgs.customBlockProperties
         });
       }
 

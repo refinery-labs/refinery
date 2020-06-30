@@ -2,7 +2,8 @@ export interface ToastConfig {
   id: string;
   content: string;
   title: string;
-  autoHideDelay: number;
+  noAutoHide: boolean;
+  autoHideDelay?: number;
   variant: ToastVariant;
   toaster: ToastLocation;
   shown: boolean;
@@ -37,4 +38,14 @@ export interface ToastNotification {
   variant?: ToastVariant;
   toaster?: ToastLocation;
   specialForceRefresh?: boolean;
+  noAutoHide: boolean;
+}
+
+export interface ToastNotificationConfig {
+  content: string;
+  title: string;
+  variant?: ToastVariant;
+  toaster?: ToastLocation;
+  specialForceRefresh?: boolean;
+  noAutoHide?: boolean;
 }

@@ -12,6 +12,7 @@ import { ProductionLambdaWorkflowState } from '@/types/production-workflow-types
 import { EditBlockMutators } from '@/store/modules/panes/edit-block-pane';
 import { ProjectViewMutators } from '@/constants/store-constants';
 import { RootState, StoreType } from '@/store/store-types';
+import { LoggingAction } from '@/lib/LoggingMutation';
 
 export interface EnvironmentVariablesEditorPaneState {
   isModalVisible: boolean;
@@ -179,7 +180,7 @@ export class EnvironmentVariablesEditorStore
     this.activeBlockName = block.name;
   }
 
-  @Action
+  @LoggingAction
   public setVariableName({ id, name }: { id: string; name: string }) {
     this.updateVariable({
       id,
@@ -191,22 +192,22 @@ export class EnvironmentVariablesEditorStore
     });
   }
 
-  @Action
+  @LoggingAction
   public setVariableValue({ id, value }: { id: string; value: string }) {
     this.updateVariable({ id, updateFn: t => (t.value = value) });
   }
 
-  @Action
+  @LoggingAction
   public setVariableDescription({ id, description }: { id: string; description: string }) {
     this.updateVariable({ id, updateFn: t => (t.description = description) });
   }
 
-  @Action
+  @LoggingAction
   public setVariableRequired({ id, required }: { id: string; required: boolean }) {
     this.updateVariable({ id, updateFn: t => (t.required = required) });
   }
 
-  @Action
+  @LoggingAction
   public editBlockInModal(params: OpenEnvironmentVariablesParams) {
     if (!params || !params.block || !params.config) {
       throw new Error('Cannot open environment variables with missing block or config');
@@ -216,7 +217,7 @@ export class EnvironmentVariablesEditorStore
     this.setModalVisibility({ modalVisibility: true, readOnly: false });
   }
 
-  @Action
+  @LoggingAction
   public viewProductionBlockInModal(block: ProductionLambdaWorkflowState) {
     if (!block) {
       throw new Error('Cannot open environment variables with missing production block');
@@ -226,11 +227,11 @@ export class EnvironmentVariablesEditorStore
     this.setModalVisibility({ modalVisibility: true, readOnly: true });
   }
 
-  @Action closeModal(readOnly: boolean) {
+  @LoggingAction closeModal(readOnly: boolean) {
     this.setModalVisibility({ modalVisibility: false, readOnly });
   }
 
-  @Action closeEditor({ discard, readOnly }: { discard: boolean; readOnly: boolean }) {
+  @LoggingAction closeEditor({ discard, readOnly }: { discard: boolean; readOnly: boolean }) {
     this.setModalVisibility({ modalVisibility: false, readOnly: readOnly });
 
     if (discard) {

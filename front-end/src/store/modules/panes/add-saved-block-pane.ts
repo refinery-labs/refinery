@@ -10,6 +10,7 @@ import { ChosenBlock } from '@/types/add-block-types';
 import { BlockEnvironmentVariable, LambdaWorkflowState, WorkflowStateType } from '@/types/graph';
 import { AddSavedBlockEnvironmentVariable } from '@/types/saved-blocks-types';
 import { addSharedFilesToProject, linkSharedFilesToCodeBlock, safelyDuplicateBlock } from '@/utils/block-utils';
+import { LoggingAction } from '@/lib/LoggingMutation';
 
 const storeName = StoreType.addSavedBlockPane;
 
@@ -18,6 +19,7 @@ export interface AddSavedBlockPaneState {
 
   searchInput: string;
   languageInput: string;
+  blockTypeInput: string;
 
   searchPrivateToggleValue: boolean;
   searchPublishedToggleValue: boolean;
@@ -35,6 +37,7 @@ export const baseState: AddSavedBlockPaneState = {
 
   searchInput: '',
   languageInput: '',
+  blockTypeInput: SharedBlockPublishStatus.PRIVATE,
 
   searchPrivateToggleValue: true,
   searchPublishedToggleValue: true,
@@ -57,6 +60,7 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
 
   public searchInput: string = initialState.searchInput;
   public languageInput: string = initialState.languageInput;
+  public blockTypeInput: string = initialState.blockTypeInput;
 
   public searchPrivateToggleValue: boolean = initialState.searchPrivateToggleValue;
   public searchPublishedToggleValue: boolean = initialState.searchPublishedToggleValue;
@@ -122,6 +126,11 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
   }
 
   @Mutation
+  public setBlockTypeInputValue(value: string) {
+    this.blockTypeInput = value;
+  }
+
+  @Mutation
   public setSearchResultsPrivate(results: SavedBlockSearchResult[]) {
     this.searchResultsPrivate = results;
   }
@@ -154,12 +163,29 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
     };
   }
 
-  @Action
+  @LoggingAction
   public async searchSavedBlocks() {
     this.setIsBusySearching(true);
 
-    const privateSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.PRIVATE, this.languageInput);
-    const publicSearch = searchSavedBlocks(this.searchInput, SharedBlockPublishStatus.PUBLISHED, this.languageInput);
+    if (!this.context.rootState.project.openedProject) {
+      console.error('No project is currently opened');
+      return;
+    }
+
+    const projectId = this.context.rootState.project.openedProject.project_id;
+
+    const privateSearch = searchSavedBlocks(
+      this.searchInput,
+      SharedBlockPublishStatus.PRIVATE,
+      this.languageInput,
+      projectId
+    );
+    const publicSearch = searchSavedBlocks(
+      this.searchInput,
+      SharedBlockPublishStatus.PUBLISHED,
+      this.languageInput,
+      projectId
+    );
 
     const privateResult = await privateSearch;
 
@@ -187,13 +213,14 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
     this.setIsBusySearching(false);
   }
 
-  @Action
+  @LoggingAction
   public async selectBlockToAdd(id: string) {
     const searchMatchFn = (result: SavedBlockSearchResult) => result.id === id;
 
     const privateMatches = this.searchResultsPrivate.filter(searchMatchFn);
+    const publishedMatches = this.searchResultsPublished.filter(searchMatchFn);
 
-    const matches = [...privateMatches, ...this.searchResultsPublished.filter(searchMatchFn)];
+    const matches = [...privateMatches, ...publishedMatches];
 
     if (matches.length > 1) {
       console.error(
@@ -213,7 +240,7 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
     });
   }
 
-  @Action
+  @LoggingAction
   public async addChosenBlock() {
     const chosenBlock = this.chosenBlock;
 
@@ -284,7 +311,7 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
   /**
    * This returns the pane to the AddBlock pane. Effectively going "back" in the add block flow.
    */
-  @Action
+  @LoggingAction
   public async goBackToAddBlockPane() {
     await this.context.dispatch(`project/${ProjectViewActions.openLeftSidebarPane}`, SIDEBAR_PANE.addBlock, {
       root: true

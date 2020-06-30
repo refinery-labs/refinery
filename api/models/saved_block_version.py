@@ -1,3 +1,6 @@
+from sqlalchemy.orm import SynonymProperty
+from typing import Any
+
 from .initiate_database import *
 from .saved_block import SavedBlock
 import uuid
@@ -23,30 +26,23 @@ class SavedBlockVersion(Base):
     # deprecated: use block_object_json
     block_object = Column(Text())
 
-    block_object_json = Column(
-        JSONB(astext_type=Text)
+    _block_object_json = Column(
+        "block_object_json",
+        JSONB()
     )
 
     @property
-    def shared_files(self):
-        """
-        Returns an empty list by default.
-        """
-        if self._shared_files is None:
-            return []
-        return self._shared_files
+    def block_object_json(self):
+        return self._block_object_json
 
-    @shared_files.setter
-    def shared_files(self, value):
-        self._shared_files = value
+    @block_object_json.setter
+    def block_object_json( self, block_json ):
+        self._block_object_json = block_json
 
-    _shared_files = Column(
+    shared_files = Column(
         "shared_files",
-        JSON()
-    )
-    shared_files = synonym(
-        '_shared_files',
-        descriptor=shared_files
+        JSON(),
+        default="[]"
     )
 
     timestamp = Column(Integer())

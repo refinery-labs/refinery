@@ -44,7 +44,9 @@ export default class ViewApiEndpointsPane extends Vue {
       case HTTP_METHOD.GET:
         return `curl '${endpoint.url}?key=value'`;
       default:
-        return `curl -X ${endpoint.http_method} -H 'Content-Type: application/json' -d '{"key":"value"}' '${endpoint.url}'`;
+        return `curl -X ${endpoint.http_method} -H 'Content-Type: application/json' -d '{"key":"value"}' '${
+          endpoint.url
+        }'`;
     }
   }
 

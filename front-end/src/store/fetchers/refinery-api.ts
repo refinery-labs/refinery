@@ -93,7 +93,11 @@ import {
   StashStateLogRequest,
   StashStateLogResponse,
   UpdateEnvironmentVariablesRequest,
-  UpdateEnvironmentVariablesResponse
+  UpdateEnvironmentVariablesResponse,
+  AuthWithGithubResponse,
+  AuthWithGithubRequest,
+  ListGithubReposForUserRequest,
+  ListGithubReposForUserResponse
 } from '@/types/api-types';
 import { API_ENDPOINT, ApiConfigMap } from '@/constants/api-constants';
 
@@ -221,6 +225,9 @@ export class RefineryApi implements RefineryApiTypeMap {
   [API_ENDPOINT.GetLatestMonthBill] = makeApiClient<GetLatestMonthlyBillRequest, GetLatestMonthlyBillResponse>(
     API_ENDPOINT.GetLatestMonthBill
   );
+  [API_ENDPOINT.ListGithubReposForUser] = makeApiClient<ListGithubReposForUserRequest, ListGithubReposForUserResponse>(
+    API_ENDPOINT.ListGithubReposForUser
+  );
   [API_ENDPOINT.SaveProjectConfig] = makeApiClient<SaveProjectConfigRequest, SaveProjectConfigResponse>(
     API_ENDPOINT.SaveProjectConfig
   );
@@ -251,6 +258,9 @@ export class RefineryApi implements RefineryApiTypeMap {
   );
   [API_ENDPOINT.DeleteSavedBlock] = makeApiClient<DeleteSavedBlockRequest, DeleteSavedBlockResponse>(
     API_ENDPOINT.DeleteSavedBlock
+  );
+  [API_ENDPOINT.AuthWithGithub] = makeApiClient<AuthWithGithubRequest, AuthWithGithubResponse>(
+    API_ENDPOINT.AuthWithGithub
   );
 }
 

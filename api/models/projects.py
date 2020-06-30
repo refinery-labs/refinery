@@ -5,6 +5,10 @@ import time
 
 from .user_project_associations import users_projects_association_table
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from models import Deployment, ProjectConfig, ProjectVersion, User
+
 
 class Project(Base):
     __tablename__ = "projects"

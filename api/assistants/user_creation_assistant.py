@@ -2,16 +2,21 @@ import pinject
 from tornado import gen
 
 from models.users import User
+from services.auth.oauth_service import OAuthService
+from services.project_inventory.project_inventory_service import ProjectInventoryService
+from services.stripe.stripe_service import StripeService
+from services.user_management.user_management_service import UserManagementService
+from utils.general import logit
 
 
 class UserCreationAssistant:
+    logger = None  # type: logit
+    oauth_service = None  # type: OAuthService
+    github_oauth_provider = None  # type: GithubOAuthProvider
+    project_inventory_service = None  # type: ProjectInventoryService
+    stripe_service = None  # type: StripeService
+    user_management_service = None  # type: UserManagementService
 
-    logger = None
-    oauth_service = None
-    github_oauth_provider = None
-    project_inventory_service = None
-    stripe_service = None
-    user_management_service = None
 
     @pinject.copy_args_to_public_fields
     def __init__(
@@ -51,61 +56,41 @@ class UserCreationAssistant:
         for project in example_projects:
             dbsession.add(project)
 
-    def login_user_via_oauth(self, dbsession, oauth_user_data):
+    @gen.coroutine
+    def find_or_create_user_via_oauth( self, dbsession, oauth_user_data, request ):
         """
-        Logs a user into Refinery via OAuth.
+        Finds or creates a user via OAuth.
         :type dbsession: sqlalchemy.orm.Session
         :param oauth_user_data: Instance of OAuthUserData that contains information to process the OAuth login.
         :type oauth_user_data: OAuthUserData
-        :return: User that was located and updated
+        :param request: Subset of the Tornado request object to pull headers from.
+        :return: Found user or new user that was created
         """
+        user = self.find_existing_user_via_oauth(dbsession, oauth_user_data)
+        if not user:
+            user = yield self.create_user_via_oauth(dbsession, oauth_user_data, request)
 
-        self.logger("Searching database for user: " + repr(oauth_user_data.email))
-        user = self.oauth_service.search_for_existing_user(
-            dbsession,
-            oauth_user_data
-        )
+        raise gen.Return( user )
 
-        # Just update the user and log them in
-        if user is None:
-            return None
-
-        # This records the latest OAuth token to the database
-        self.update_user_oauth_record(
-            dbsession,
-            user,
-            oauth_user_data
-        )
-
-        # Save the state to the database
-        dbsession.add(user)
-
-        self.logger("Successful Github OAuth login flow for user: " + repr(user.email))
-
-        return user
+    def find_existing_user_via_oauth( self, dbsession, oauth_user_data ):
+        return self.oauth_service.search_for_existing_user(dbsession, oauth_user_data)
 
     @gen.coroutine
-    def create_new_user_via_oauth(self, dbsession, request, oauth_user_data):
+    def create_user_via_oauth( self, dbsession, oauth_user_data, request ):
         """
         Creates a user via OAuth.
         :type dbsession: sqlalchemy.orm.Session
-        :param request: Subset of the Tornado request object to pull headers from.
         :param oauth_user_data: Instance of OAuthUserData that contains information to process the OAuth login.
         :type oauth_user_data: OAuthUserData
+        :param request: Subset of the Tornado request object to pull headers from.
         :return: New user that was created
         """
+
         user, organization = self.user_management_service.create_new_user_and_organization(
             dbsession,
             oauth_user_data.name,
             oauth_user_data.email,
             require_email_verification=False
-        )
-
-        # This writes the OAuth token to the database
-        self.update_user_oauth_record(
-            dbsession,
-            user,
-            oauth_user_data
         )
 
         yield self.setup_initial_user_state(dbsession, request, user)

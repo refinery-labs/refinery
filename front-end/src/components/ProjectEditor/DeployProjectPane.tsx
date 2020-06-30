@@ -1,12 +1,12 @@
 import Vue, { CreateElement, VNode } from 'vue';
 import Component from 'vue-class-component';
 import { namespace } from 'vuex-class';
-import moment from 'moment';
 import { DeploymentException, GetLatestProjectDeploymentResponse } from '@/types/api-types';
 import { DeployProjectResult } from '@/types/project-editor-types';
 import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 import { EditorProps } from '@/types/component-types';
 import { ProjectConfig } from '@/types/graph';
+import { fromUnixTime, formatRFC7231 } from 'date-fns';
 
 const project = namespace('project');
 const deployment = namespace('deployment');
@@ -104,7 +104,7 @@ Exception: ${error.exception}
       );
     }
 
-    const displayTime = moment(this.latestDeploymentState.result.timestamp * 1000).format('LLLL');
+    const displayTime = formatRFC7231(fromUnixTime(this.latestDeploymentState.result.timestamp));
 
     return (
       <div class="display--flex flex-direction--column text-align--left">

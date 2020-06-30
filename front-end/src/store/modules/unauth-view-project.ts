@@ -7,6 +7,7 @@ import { ProjectViewGetters } from '@/constants/store-constants';
 import { EditBlockActions } from '@/store/modules/panes/edit-block-pane';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
+import { LoggingAction } from '@/lib/LoggingMutation';
 
 // This is the name that this will be added to the Vuex store with.
 // You will need to add to the `RootState` interface if you want to access this state via `rootState` from anywhere.
@@ -40,7 +41,7 @@ export class UnauthViewProjectStore extends VuexModule<ThisType<UnauthViewProjec
     this.showSignupModal = show;
   }
 
-  @Action
+  @LoggingAction
   public async promptDemoModeSignup(triggerSaveIfAuthenticated: boolean) {
     // TODO: Display Demo Mode signup modal
     const signupResult = await signupDemoUser();

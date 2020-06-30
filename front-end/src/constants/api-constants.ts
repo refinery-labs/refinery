@@ -23,9 +23,11 @@ export enum API_ENDPOINT {
   InfraCollisionCheck = 'InfraCollisionCheck',
   SaveProject = 'SaveProject',
   RenameProject = 'RenameProject',
+  AuthWithGithub = 'AuthWithGithub',
   SearchSavedProjects = 'SearchSavedProjects',
   GetSavedProject = 'GetSavedProject',
   DeleteSavedProject = 'DeleteSavedProject',
+  ListGithubReposForUser = 'ListResponseForUser',
   GetProjectConfig = 'GetProjectConfig',
   GetLatestProjectDeployment = 'GetLatestProjectDeployment',
   DeleteDeploymentsInProject = 'DeleteDeploymentsInProject',
@@ -89,6 +91,10 @@ export const ApiConfigMap: ApiConfigMapType = {
   [API_ENDPOINT.AuthenticateWithGithub]: {
     path: '/api/v1/auth/github',
     method: HTTP_METHOD.GET
+  },
+  [API_ENDPOINT.AuthWithGithub]: {
+    path: '/api/v1/auth/github',
+    method: HTTP_METHOD.POST
   },
   [API_ENDPOINT.SearchSavedProjects]: {
     path: '/api/v1/projects/search',
@@ -165,6 +171,10 @@ export const ApiConfigMap: ApiConfigMapType = {
   [API_ENDPOINT.RenameProject]: {
     path: '/api/v1/projects/rename',
     method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.ListGithubReposForUser]: {
+    path: '/api/v1/github/repos',
+    method: HTTP_METHOD.GET
   },
   [API_ENDPOINT.SaveProjectConfig]: {
     path: '/api/v1/projects/config/save',

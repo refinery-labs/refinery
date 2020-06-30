@@ -2,6 +2,7 @@ import {
   LambdaWorkflowState,
   ProjectConfig,
   ProjectEnvironmentVariableList,
+  RefineryProject,
   SupportedLanguage,
   WorkflowFile,
   WorkflowRelationship,
@@ -17,22 +18,27 @@ import {
 } from '@/types/production-workflow-types';
 import {
   ExecutionLogMetadata,
-  ExecutionStatusType,
   GetProjectExecutionLogObjectsResult,
   GetProjectExecutionLogsPageResult,
   GetProjectExecutionResult
 } from '@/types/execution-logs-types';
 import ImportableRefineryProject from '@/types/export-project';
-import * as moment from 'moment';
-import Base = moment.unitOfTime.Base;
-import SharedFiles from '@/components/ProjectEditor/SharedFiles';
-import { DemoTooltip } from '@/types/demo-walkthrough-types';
 
 export interface BaseApiResponse {
   success: boolean;
 }
 
 export interface BaseApiRequest {}
+
+// AuthWithGithub
+export interface AuthWithGithubRequest extends BaseApiRequest {}
+
+export interface AuthWithGithubResponse extends BaseApiResponse {
+  result: {
+    redirect_uri: string;
+  };
+  success: boolean;
+}
 
 // SearchSavedProjects
 export interface SearchSavedProjectsRequest extends BaseApiRequest {
@@ -184,6 +190,23 @@ export interface ProductionDeploymentRefineryProjectJson {
   workflow_files: ProductionWorkflowFile[];
   workflow_file_links: ProductionWorkflowFileLink[];
   global_handlers: ProductionGlobalHandlers;
+}
+
+// ListReposForUser
+export interface ListGithubReposForUserRequest extends BaseApiRequest {}
+
+export interface GithubRepo {
+  full_name: string;
+  description: string;
+  clone_url: string;
+  stargazers_count: number;
+  updated_at: string;
+  private: boolean;
+}
+
+export interface ListGithubReposForUserResponse extends BaseApiRequest {
+  repos: GithubRepo[];
+  success: boolean;
 }
 
 // GetProjectConfig
@@ -699,6 +722,7 @@ export interface SearchSavedBlocksRequest extends BaseApiRequest {
   search_string: string;
   share_status: SharedBlockPublishStatus;
   language: string;
+  project_id: string;
 }
 
 export interface SearchSavedBlocksResponse extends BaseApiResponse {

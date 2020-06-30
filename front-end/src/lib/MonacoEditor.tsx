@@ -1,4 +1,4 @@
-import * as monaco from 'monaco-editor';
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 import Vue from 'vue';
 import Component from 'vue-class-component';
 import { Prop, Watch } from 'vue-property-decorator';
@@ -6,7 +6,6 @@ import { Prop, Watch } from 'vue-property-decorator';
 import elementResizeDetector from 'element-resize-detector';
 import IModelContentChangedEvent = monaco.editor.IModelContentChangedEvent;
 import { timeout } from '@/utils/async-utils';
-import { IScrollEvent } from 'monaco-editor';
 import { MonacoEditorLineNumbers, MonacoEditorWordWrap } from '@/types/monaco-types';
 
 export interface MonacoEditorProps {
@@ -26,7 +25,7 @@ export interface MonacoEditorProps {
 }
 
 @Component
-export default class MonacoEditor extends Vue implements MonacoEditorProps {
+export class MonacoEditor extends Vue implements MonacoEditorProps {
   editor?: any;
   lastEditorHeight?: number;
   lastEditorContentsLength?: number;
@@ -63,6 +62,16 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
       }
 
       this.onTailedContentRefreshed();
+    }
+  }
+
+  @Watch('original')
+  public watchOriginal(newOriginal: string) {
+    if (this.diffEditor && this.editor) {
+      const editor = this.getOriginalEditor();
+      if (newOriginal !== editor.getValue()) {
+        editor.setValue(newOriginal);
+      }
     }
   }
 
@@ -144,6 +153,7 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
 
     if (this.diffEditor) {
       this.editor = monaco.editor.createDiffEditor(this.$el as HTMLElement, options);
+
       const originalModel = monaco.editor.createModel(this.original || '', this.language);
       const modifiedModel = monaco.editor.createModel(this.value, this.language);
       this.editor.setModel({
@@ -173,7 +183,7 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
     // This is used with the tailing of output functionality to calculate if
     // a user scrolled while the output was being tailed. If they have and it
     // wasn't programmatically-caused then we need to stop tailing!
-    editor.onDidScrollChange((event: IScrollEvent) => {
+    editor.onDidScrollChange((event: monaco.IScrollEvent) => {
       if (this.lastEditorHeight === undefined) {
         return;
       }
@@ -225,6 +235,10 @@ export default class MonacoEditor extends Vue implements MonacoEditorProps {
 
   getModifiedEditor() {
     return this.diffEditor ? this.editor.getModifiedEditor() : this.editor;
+  }
+
+  getOriginalEditor() {
+    return this.diffEditor ? this.editor.getOriginalEditor() : undefined;
   }
 
   focus() {

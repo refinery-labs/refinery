@@ -5,6 +5,8 @@ import router from '../../router';
 import { RootState, UserState } from '@/store/store-types';
 import { UserActions, UserMutators } from '@/constants/store-constants';
 import {
+  AuthWithGithubRequest,
+  AuthWithGithubResponse,
   GetAuthenticationStatusResponse,
   LoginRequest,
   LoginResponse,
@@ -17,6 +19,7 @@ import { API_ENDPOINT } from '@/constants/api-constants';
 import { autoRefreshJob, timeout, waitUntil } from '@/utils/async-utils';
 import { LOGIN_STATUS_CHECK_INTERVAL, MAX_LOGIN_CHECK_ATTEMPTS } from '@/constants/user-constants';
 import { checkLoginStatus } from '@/store/fetchers/api-helpers';
+import { AllProjectsActions } from '@/store/modules/all-projects';
 
 const nameRegex = /^(\D{1,32} ?)+\D{1,32}$/;
 
@@ -144,6 +147,25 @@ const UserModule: Module<UserState, RootState> = {
     }
   },
   actions: {
+    async [UserActions.authWithGithub](context) {
+      const result = await makeApiRequest<AuthWithGithubRequest, AuthWithGithubResponse>(
+        API_ENDPOINT.AuthWithGithub,
+        {}
+      );
+
+      if (!result || !result.result || !result.success) {
+        // TODO: Handle this error case
+        console.error('Failure to auth with github');
+        return;
+      }
+
+      const bc = new BroadcastChannel('auth_flow');
+      bc.onmessage = e => {
+        location.reload();
+      };
+
+      window.open(result.result.redirect_uri, '_blank');
+    },
     async [UserActions.fetchAuthenticationState](context) {
       try {
         const response = await checkLoginStatus();
@@ -182,17 +204,6 @@ const UserModule: Module<UserState, RootState> = {
         console.error(message);
         context.commit(UserMutators.setLoginErrorMessage, message);
         return;
-      }
-
-      if (context.state.loginEmailInput === 'matt@refinery.io') {
-        const video = document.createElement('video');
-
-        video.src = require('../../../public/img/mandy.mp4');
-        video.autoplay = true;
-
-        const parent = document.querySelector('.card-body');
-        parent && parent.appendChild(video);
-        await timeout(5000);
       }
 
       context.commit(UserMutators.setIsBusyStatus, true);

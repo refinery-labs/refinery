@@ -1,4 +1,3 @@
-import moment from 'moment';
 import * as R from 'ramda';
 import {
   CreateProjectShortlinkRequest,
@@ -28,8 +27,11 @@ import {
   GetProjectShortlinkResponse,
   GetSavedProjectRequest,
   GetSavedProjectResponse,
+  GithubRepo,
   InfraTearDownRequest,
   InfraTearDownResponse,
+  ListGithubReposForUserRequest,
+  ListGithubReposForUserResponse,
   RenameProjectRequest,
   RenameProjectResponse,
   SavedBlockStatusCheckRequest,
@@ -70,8 +72,7 @@ import {
   TooltipType
 } from '@/types/demo-walkthrough-types';
 import { DemoWalkthroughStoreModule } from '@/store';
-import { languages } from 'monaco-editor';
-import html = languages.html;
+import { sub, getUnixTime, fromUnixTime } from 'date-fns';
 
 export interface LibraryBuildArguments {
   language: SupportedLanguage;
@@ -80,9 +81,7 @@ export interface LibraryBuildArguments {
 
 export function getDefaultOffsetTimestamp() {
   // 6 hours ago
-  return moment()
-    .subtract(6, 'hours')
-    .unix();
+  return getUnixTime(sub(new Date(), { hours: 6 }));
 }
 
 export async function getProjectExecutions(
@@ -117,10 +116,7 @@ export async function getProjectExecutions(
 
   // If we want to "load more", then this is the timestamp for where to begin loading more items.
   // TODO: We are probably "widening" the window with this method. We may need to specify a "from" timestamp too?
-  // We multiply the timestamp by 1000 so that Moment understands the correct time.
-  const nextTimestampToQuery = moment(timestampForQuery * 1000)
-    .subtract(6, 'hours')
-    .unix();
+  const nextTimestampToQuery = getUnixTime(sub(fromUnixTime(timestampForQuery), { hours: 6 }));
 
   return {
     oldestTimestamp: nextTimestampToQuery,
@@ -421,16 +417,27 @@ export async function openProject(request: GetSavedProjectRequest) {
     ...wr
   }));
 
+  // Ensure there an object for the exception handler
+  if (!project.global_handlers) {
+    project.global_handlers = {};
+  }
+
   return project;
 }
 
-export async function searchSavedBlocks(query: string, status: SharedBlockPublishStatus, language: string) {
+export async function searchSavedBlocks(
+  query: string,
+  status: SharedBlockPublishStatus,
+  language: string,
+  projectId: string
+) {
   const searchResult = await makeApiRequest<SearchSavedBlocksRequest, SearchSavedBlocksResponse>(
     API_ENDPOINT.SearchSavedBlocks,
     {
       search_string: query,
       share_status: status,
-      language: language
+      language: language,
+      project_id: projectId
     }
   );
 
@@ -586,4 +593,17 @@ export async function renameProject(projectId: string, name: string) {
   }
 
   return null;
+}
+
+export async function listGithubReposForUser(): Promise<GithubRepo[] | null> {
+  const response = await makeApiRequest<ListGithubReposForUserRequest, ListGithubReposForUserResponse>(
+    API_ENDPOINT.ListGithubReposForUser,
+    {}
+  );
+
+  if (!response || !response.success) {
+    return null;
+  }
+
+  return response.repos;
 }

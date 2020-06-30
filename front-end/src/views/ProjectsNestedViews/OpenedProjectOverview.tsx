@@ -3,11 +3,11 @@ import Component from 'vue-class-component';
 import OpenedProjectGraphContainer from '@/containers/OpenedProjectGraphContainer';
 import { Getter, namespace } from 'vuex-class';
 import SidebarNav from '@/components/SidebarNav';
-import { paneTypeToNameLookup, SidebarMenuItems } from '@/menu';
+import { getSidebarMenuItems, paneTypeToNameLookup } from '@/menu';
 import ProjectEditorLeftPaneContainer from '@/containers/ProjectEditorLeftPaneContainer';
 import { DeployProjectResult, PANE_POSITION, SIDEBAR_PANE } from '@/types/project-editor-types';
 import EditorPaneWrapper from '@/components/EditorPaneWrapper';
-import { paneToContainerMapping } from '@/constants/project-editor-constants';
+import { paneToContainerMapping } from '@/constants/project-editor-pane-constants';
 import { UserInterfaceState } from '@/store/store-types';
 
 const project = namespace('project');
@@ -28,6 +28,7 @@ export default class OpenedProjectOverview extends Vue {
   @project.Getter canDeployProject!: boolean;
   @project.Getter transitionAddButtonEnabled!: boolean;
   @project.Getter hasCodeBlockSelected!: boolean;
+  @project.Getter isProjectRepoSet!: boolean;
 
   @project.Action openLeftSidebarPane!: (paneType: SIDEBAR_PANE) => {};
 
@@ -109,7 +110,7 @@ export default class OpenedProjectOverview extends Vue {
     }
 
     const sidebarNavProps = {
-      navItems: SidebarMenuItems,
+      navItems: getSidebarMenuItems(this.isProjectRepoSet),
       activeLeftSidebarPane: this.activeLeftSidebarPane,
       onNavItemClicked: this.handleItemClicked,
       paneTypeToActiveCheckFunction: {
@@ -120,6 +121,7 @@ export default class OpenedProjectOverview extends Vue {
       paneTypeToEnabledCheckFunction: {
         [SIDEBAR_PANE.addTransition]: () => this.transitionAddButtonEnabled,
         [SIDEBAR_PANE.saveProject]: () => this.isInDemoMode || this.canSaveProject,
+        [SIDEBAR_PANE.syncProjectRepo]: () => this.isProjectRepoSet && this.canSaveProject,
         [SIDEBAR_PANE.deployProject]: () => this.canDeployProject,
         [SIDEBAR_PANE.runEditorCodeBlock]: () => this.hasCodeBlockSelected
       },

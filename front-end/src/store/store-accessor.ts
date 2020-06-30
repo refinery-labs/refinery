@@ -1,9 +1,10 @@
 // This is the "store accessor":
-// It initializes all the modules using a Vuex plugin (see store/index.ts)
+// It initializes all the modules using a Vuex plugin (see store/drop.ts)
 // In here you import all your modules, call getModule on them to turn them
 // into the actual stores, and then re-export them.
 
 import { Module, Store } from 'vuex';
+
 import { getModule, VuexModule } from 'vuex-module-decorators';
 
 import { CreateSavedBlockViewStore } from '@/store/modules/panes/create-saved-block-view';
@@ -20,6 +21,9 @@ import { UnauthViewProjectStore } from '@/store/modules/unauth-view-project';
 import { ViewSharedFilePaneStore } from '@/store/modules/panes/view-shared-file';
 import { ReadmeEditorPaneStore } from '@/store/modules/panes/readme-editor-pane';
 import { DemoWalkthroughStore } from '@/store/modules/demo-walkthrough';
+import { SyncProjectRepoPaneStore } from '@/store/modules/panes/sync-project-repo-pane';
+import { GitStore } from '@/store/modules/git-store/git-store';
+import { ProjectSettingsStore } from '@/store/modules/project-settings';
 
 declare type ConstructorOf<C> = {
   new (...args: any[]): C;
@@ -28,7 +32,7 @@ declare type ConstructorOf<C> = {
 // To add a new decorated module:
 //   1: Add a new entry in the StoreType enum
 //   2: Copy-paste the `base-module-template.ts` file to your new file. Setup names as you see fit.
-//   3: Add to `decoratedModules` with the name of your enum and your store as the value
+//   3: Add to `storeModules` with the name of your enum and your store as the value
 //   4: Export your store below (notice suffix is "Module")
 //   5: Re-assign the value to your exported store via a call to `getModule(<STORE>)`
 //   6: Add your store state to `RootState`
@@ -41,13 +45,16 @@ export const storeModules: { [key in StoreType]: ConstructorOf<VuexModule> & Mod
   codeBlockSharedFiles: CodeBlockSharedFilesPaneStore,
   createSavedBlockView: CreateSavedBlockViewStore,
   editSharedFile: EditSharedFilePaneStore,
+  git: GitStore,
   viewSharedFile: ViewSharedFilePaneStore,
   environmentVariablesEditor: EnvironmentVariablesEditorStore,
   settingsApp: SettingsAppStore,
   sharedFiles: SharedFilesPaneStore,
   unauthViewProject: UnauthViewProjectStore,
   readmeEditor: ReadmeEditorPaneStore,
-  demoWalkthrough: DemoWalkthroughStore
+  demoWalkthrough: DemoWalkthroughStore,
+  syncProjectRepo: SyncProjectRepoPaneStore,
+  projectSettings: ProjectSettingsStore
 };
 
 export let AddSavedBlockPaneStoreModule: AddSavedBlockPaneStore;
@@ -56,6 +63,7 @@ export let BlockLocalCodeSyncStoreModule: BlockLocalCodeSyncStore;
 export let CodeBlockSharedFilesPaneModule: CodeBlockSharedFilesPaneStore;
 export let CreateSavedBlockViewStoreModule: CreateSavedBlockViewStore;
 export let EditSharedFilePaneModule: EditSharedFilePaneStore;
+export let GitStoreModule: GitStore;
 export let ViewSharedFilePaneModule: ViewSharedFilePaneStore;
 export let EnvironmentVariablesEditorModule: EnvironmentVariablesEditorStore;
 export let SettingsAppStoreModule: SettingsAppStore;
@@ -63,6 +71,8 @@ export let SharedFilesPaneModule: SharedFilesPaneStore;
 export let UnauthViewProjectStoreModule: UnauthViewProjectStore;
 export let ReadmeEditorPaneStoreModule: ReadmeEditorPaneStore;
 export let DemoWalkthroughStoreModule: DemoWalkthroughStore;
+export let SyncProjectRepoPaneStoreModule: SyncProjectRepoPaneStore;
+export let ProjectSettingsStoreModule: ProjectSettingsStore;
 
 // Creates the actual instances of the store for each module.
 // These instances are what the app uses to reference the store in a "nice" way.
@@ -73,6 +83,7 @@ export function initializeStores(store: Store<any>): void {
   CodeBlockSharedFilesPaneModule = getModule(CodeBlockSharedFilesPaneStore, store);
   CreateSavedBlockViewStoreModule = getModule(CreateSavedBlockViewStore, store);
   EditSharedFilePaneModule = getModule(EditSharedFilePaneStore, store);
+  GitStoreModule = getModule(GitStore, store);
   ViewSharedFilePaneModule = getModule(ViewSharedFilePaneStore, store);
   EnvironmentVariablesEditorModule = getModule(EnvironmentVariablesEditorStore, store);
   SettingsAppStoreModule = getModule(SettingsAppStore, store);
@@ -80,8 +91,10 @@ export function initializeStores(store: Store<any>): void {
   UnauthViewProjectStoreModule = getModule(UnauthViewProjectStore, store);
   ReadmeEditorPaneStoreModule = getModule(ReadmeEditorPaneStore, store);
   DemoWalkthroughStoreModule = getModule(DemoWalkthroughStore, store);
+  SyncProjectRepoPaneStoreModule = getModule(SyncProjectRepoPaneStore, store);
+  ProjectSettingsStoreModule = getModule(ProjectSettingsStore, store);
 }
 
-// for use in 'modules' store init (see store/index.ts), so each module
+// for use in 'modules' store init (see store/drop.ts), so each module
 // appears as an element of the root store's state.
 // (This is required!)

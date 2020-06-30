@@ -11,6 +11,8 @@ import uuid from 'uuid/v4';
 import { RunCodeBlockLambdaConfig } from '@/types/run-lambda-types';
 import { RunLambdaActions } from '@/store/modules/run-lambda';
 import { OpenProjectMutation, SIDEBAR_PANE } from '@/types/project-editor-types';
+import { removeKeyFromObject } from '@/lib/funtional-extensions';
+import { LoggingAction } from '@/lib/LoggingMutation';
 
 const storeName = StoreType.blockLocalCodeSync;
 
@@ -98,21 +100,10 @@ export class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeS
   @Mutation
   public removeJobForBlock(jobToRemove: FileWatchJobState) {
     // Remove the job from the list
-    this.jobIdToJobStateLookup = Object.values(this.jobIdToJobStateLookup).reduce((jobLookup, jobState) => {
-      // Add back every job that isn't the one we want to remove.
-      if (jobState.jobId !== jobToRemove.jobId) {
-        jobLookup[jobState.jobId] = jobState;
-      }
-
-      return jobLookup;
-    }, {} as JobIdToJobState);
+    this.jobIdToJobStateLookup = removeKeyFromObject(this.jobIdToJobStateLookup, jobToRemove.jobId);
 
     // Go through the new list of jobs and create the association
-    this.blockIdToJobIdLookup = Object.values(this.jobIdToJobStateLookup).reduce((blockLookup, jobState) => {
-      // Create the association for the lookup
-      blockLookup[jobState.blockId] = jobState.jobId;
-      return blockLookup;
-    }, {} as BlockIdToJobId);
+    this.blockIdToJobIdLookup = removeKeyFromObject(this.blockIdToJobIdLookup, jobToRemove.jobId);
   }
 
   @Mutation
@@ -148,7 +139,7 @@ export class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeS
     this.localFileSyncModalUniqueId = id;
   }
 
-  @Action
+  @LoggingAction
   public resetModal() {
     this.setModalVisibility(false);
     this.setModalUniqueId(null);
@@ -158,7 +149,7 @@ export class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeS
     this.setExecuteBlockOnFileChangeToggled(false);
   }
 
-  @Action
+  @LoggingAction
   public async updateProjectStoreBlockCode(jobState: FileWatchJobState) {
     const projectStore = this.context.rootState.project;
 
@@ -188,7 +179,7 @@ export class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeS
     await this.context.dispatch(`project/${ProjectViewActions.updateExistingBlock}`, newBlock, { root: true });
   }
 
-  @Action
+  @LoggingAction
   public async updateEditBlockPaneBlockCode(jobState: FileWatchJobState) {
     const projectStore = this.context.rootState.project;
 
@@ -218,7 +209,7 @@ export class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeS
     });
   }
 
-  @Action
+  @LoggingAction
   public async executeBlockCode(jobState: FileWatchJobState) {
     const editBlockPane = this.context.rootState.project.editBlockPane;
 
@@ -254,7 +245,7 @@ export class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeS
     await this.context.dispatch(`runLambda/${RunLambdaActions.runLambdaCode}`, runLambdaConfig, { root: true });
   }
 
-  @Action
+  @LoggingAction
   public async updateBlockCode(jobId: string) {
     // TODO: Check if the file contents have changed and dispatch updates
     const jobState = this.jobIdToJobStateLookup[jobId];
@@ -278,7 +269,7 @@ export class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeS
     }
   }
 
-  @Action
+  @LoggingAction
   public async addBlockWatchJob() {
     const jobId = this.localFileSyncModalUniqueId;
     const selectedBlock = this.selectedBlockForModal;
@@ -393,7 +384,7 @@ export class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeS
     });
   }
 
-  @Action
+  @LoggingAction
   public async OpenSyncFileModal() {
     if (this.context.rootState.project.openedProject === null) {
       throw new Error('No project is open to sync block');
@@ -418,7 +409,7 @@ export class BlockLocalCodeSyncStore extends VuexModule<ThisType<BlockLocalCodeS
     this.setModalVisibility(true);
   }
 
-  @Action
+  @LoggingAction
   public async stopSyncJobForSelectedBlock() {
     const editBlockStore = this.context.rootState.project.editBlockPane;
 
