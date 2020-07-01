@@ -10,3 +10,5 @@ cp -r dist/custom_runtime dist/custom_runtime-0.0.1.dist-info base-src
 cp bootstrap base-src
 deactivate
 rm -rf env dist build custom_runtime.egg-info
+rm -rf base-src/pip
+find base-src -name "*.pyc" | xargs rm
