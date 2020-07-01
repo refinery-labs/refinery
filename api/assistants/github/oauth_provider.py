@@ -17,6 +17,8 @@ from urllib.parse import urlencode
 
 from tornado import httpclient
 
+from utils.general import logit
+
 
 class GithubOAuthProviderBindingSpec(pinject.BindingSpec):
     def configure(self, bind):
@@ -87,6 +89,7 @@ class GithubOAuthProvider:
         """
         state = generate_state_token()
 
+        logit(f"[Request Context] host: {ctx.request.host}")
         redirect_uri = generate_redirect_uri(ctx, self.web_origin)
 
         # Set authentication cookie

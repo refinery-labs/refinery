@@ -3,6 +3,7 @@ import json
 import os
 import re
 from binascii import hexlify
+from urllib.parse import urljoin
 
 from utils.general import logit
 
@@ -30,11 +31,7 @@ def generate_redirect_uri(ctx, web_origin):
     :param web_origin: Origin of the web server.
     :return: URI that the client should return to on our server.
     """
-    logit(ctx.request.protocol + " " + ctx.request.host + " " + ctx.reverse_url("auth_github"))
-    return "{0}{1}".format(
-        web_origin,
-        ctx.reverse_url("auth_github")
-    )
+    return urljoin(web_origin, ctx.reverse_url("auth_github"))
 
 
 def generate_state_token():
