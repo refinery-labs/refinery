@@ -236,7 +236,7 @@ export function remapImportedProjectJsonProperties(json: string, generateNewName
 
   project.name = getProjectName(baseName, needsNewName);
 
-  project.global_handlers = {};
+  project.global_handlers = project.global_handlers || {};
 
   return JSON.stringify(reassignProjectIds(project));
 }
