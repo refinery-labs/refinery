@@ -96,10 +96,7 @@ class AuthenticateWithGithub(BaseHandler):
             # Log the user in :)
             self.authenticate_user_id(user.id)
 
-        except BadRequestStateException as e:
-            self.respond_with_error(e.message)
-            raise gen.Return()
-        except GithubOAuthException as e:
+        except (BadRequestStateException, GithubOAuthException) as e:
             self.respond_with_error(e.message)
             raise gen.Return()
 
