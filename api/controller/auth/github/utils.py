@@ -3,6 +3,9 @@ import json
 import os
 import re
 from binascii import hexlify
+from urllib.parse import urljoin
+
+from utils.general import logit
 
 
 def decode_response_body(response):
@@ -20,18 +23,15 @@ def decode_response_body(response):
     return json.loads(body)
 
 
-def generate_redirect_uri(ctx):
+def generate_redirect_uri(ctx, web_origin):
     """
 	Returns a URI that is the "redirect" destination FROM Github after the user authenticates.
     This URI should point to OUR server.
     :param ctx: Tornado request context.
+    :param web_origin: Origin of the web server.
     :return: URI that the client should return to on our server.
     """
-    return "{0}://{1}{2}".format(
-        ctx.request.protocol,
-        ctx.request.host,
-        ctx.reverse_url("auth_github")
-    )
+    return urljoin(web_origin, ctx.reverse_url("auth_github"))
 
 
 def generate_state_token():

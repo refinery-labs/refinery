@@ -17,6 +17,8 @@ from urllib.parse import urlencode
 
 from tornado import httpclient
 
+from utils.general import logit
+
 
 class GithubOAuthProviderBindingSpec(pinject.BindingSpec):
     def configure(self, bind):
@@ -54,9 +56,13 @@ class GithubOAuthProvider:
         client_id = app_config.get( "github_client_id" )
         client_secret = app_config.get( "github_client_secret" )
         cookie_expire_days = app_config.get( "cookie_expire_days" )
+        web_origin = app_config.get( "web_origin" )
 
         if client_id is None or client_secret is None:
             raise Exception("Missing client credentials for Github OAuth API")
+
+        if web_origin is None:
+            raise Exception("Missing web origin for Github OAuth client")
 
         if cookie_expire_days is None:
             raise Exception("Missing cookie configuration for Github OAuth client")
@@ -64,6 +70,7 @@ class GithubOAuthProvider:
         self.client_id = client_id
         self.client_secret = client_secret
         self.cookie_expire_days = cookie_expire_days
+        self.web_origin = web_origin
         self.logger = logger
 
         # TODO: Allow this to be stubbed via the constructor
@@ -82,7 +89,8 @@ class GithubOAuthProvider:
         """
         state = generate_state_token()
 
-        redirect_uri = generate_redirect_uri(ctx)
+        logit(f"[Request Context] host: {ctx.request.host}")
+        redirect_uri = generate_redirect_uri(ctx, self.web_origin)
 
         # Set authentication cookie
         ctx.set_secure_cookie(
