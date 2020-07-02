@@ -279,12 +279,14 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
       await gitClient.branch({
         ref: this.remoteBranchName
       });
-      await gitClient.deleteBranch(this.remoteBranchName);
-
       this.setIsValidRemoteBranchName(true);
     } catch (e) {
       this.setIsValidRemoteBranchName(false);
     }
+
+    try {
+      await gitClient.deleteBranch(this.remoteBranchName);
+    } catch (e) {}
   }
 
   @LoggingAction
