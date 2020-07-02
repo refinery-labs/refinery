@@ -65,3 +65,7 @@ class GithubAssistant:
                 repos = repos + (yield self.list_repos_for_user(access_token, page + 1))
 
         raise gen.Return( repos )
+
+    @gen.coroutine
+    def create_new_user_repo(self, access_token, repo_name):
+        pass
