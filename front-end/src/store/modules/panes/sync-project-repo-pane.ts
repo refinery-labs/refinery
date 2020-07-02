@@ -16,7 +16,8 @@ import { GitStoreModule } from '@/store';
 import { LoggingAction } from '@/lib/LoggingMutation';
 import generateStupidName from '@/lib/silly-names';
 import slugify from 'slugify';
-import { branchNameBlacklistRegex } from '@/constants/project-editor-constants';
+import { createToast } from '@/utils/toasts-utils';
+import { ToastVariant } from '@/types/toasts-types';
 
 const storeName = StoreType.syncProjectRepo;
 
@@ -103,6 +104,35 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     }
 
     resetStoreState(this, initialState);
+  }
+
+  get formattedCompilationErrorFileContent(): string {
+    if (
+      !this.repoCompilationError ||
+      !this.repoCompilationError.errorContext ||
+      !this.repoCompilationError.errorContext.fileContent
+    ) {
+      return '';
+    }
+
+    const content = this.repoCompilationError.errorContext.fileContent;
+    const truncatedContent = content.substr(0, 150);
+    const hasAdditionalContent = truncatedContent.length !== content.length ? '...' : '';
+    return `File contents: ${truncatedContent}${hasAdditionalContent}`;
+  }
+
+  get formattedCompilationError(): string {
+    if (!this.repoCompilationError) {
+      return 'Uncaught error when loading project from repository. Please reach out to the Refinery team if this problem persists.';
+    }
+
+    const errMsg = this.repoCompilationError.message.toLowerCase();
+    if (!this.repoCompilationError.errorContext) {
+      return errMsg;
+    }
+
+    const filename = this.repoCompilationError.errorContext.filename || '';
+    return `Error while processing: ${filename}, ${errMsg}.${this.formattedCompilationErrorFileContent}`;
   }
 
   get getRemoteBranchName(): string {
@@ -249,12 +279,14 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
       await gitClient.branch({
         ref: this.remoteBranchName
       });
-      await gitClient.deleteBranch(this.remoteBranchName);
-
       this.setIsValidRemoteBranchName(true);
     } catch (e) {
       this.setIsValidRemoteBranchName(false);
     }
+
+    try {
+      await gitClient.deleteBranch(this.remoteBranchName);
+    } catch (e) {}
   }
 
   @LoggingAction
@@ -459,8 +491,10 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     } catch (e) {
       if (e instanceof RepoCompilationError) {
         this.setRepoCompilationError(e);
+        return null;
       }
-      return this.context.rootState.project.openedProject;
+      console.error(e);
+      return null;
     }
   }
 
@@ -501,7 +535,13 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
     const compiledProject = await this.compileClonedProject(gitClient);
     if (!compiledProject) {
-      return;
+      const toastContent = `${this.formattedCompilationError} Falling back to the last saved Refinery project from the server.`;
+      await createToast(this.context.dispatch, {
+        title: 'Unable to load project from repository',
+        content: toastContent,
+        variant: ToastVariant.danger,
+        noAutoHide: true
+      });
     }
 
     const config = this.context.rootState.project.openedProjectConfig;
