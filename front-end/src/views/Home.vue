@@ -6,7 +6,7 @@
     <div class="display--flex justify-content-center">
       <div class="text-align--left" style="max-width: 420px; margin-left: 20px; margin-right: 20px;">
         <p>
-          We recommend taking a look at the
+          Thank you for checking us out! We recommend taking a look at the
           <a href="https://docs.refinery.io/quickstart/intro/" target="_blank">Quick Start Guide</a>.
         </p>
         <p>

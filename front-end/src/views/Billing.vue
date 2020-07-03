@@ -22,10 +22,7 @@
                   <div class="table-responsive">
                     <table class="table table-striped table-bordered table-hover">
                       <tbody>
-                        <tr
-                          v-for="(BillChargeItem, index) in serviceBillingBreakDownArray"
-                          v-bind:key="item - { index }"
-                        >
+                        <tr v-for="(BillChargeItem, index) in serviceBillingBreakDownArray" v-bind:key="index">
                           <td class="text-align--left">{{ BillChargeItem.service_name }}</td>
                           <td class="text-align--right">${{ BillChargeItem.total }}</td>
                         </tr>
@@ -150,7 +147,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import { namespace } from 'vuex-class';
 import { BillChargeItem, BillTotal, PaymentCardResult } from '@/types/api-types';
 import StripeAddPaymentCard from '@/components/Common/StripeAddPaymentCard.vue';
-import moment from 'moment';
+import { format } from 'date-fns';
 
 const billing = namespace('billing');
 const user = namespace('user');
@@ -176,11 +173,11 @@ export default class Billing extends Vue {
   @user.State email!: string | null;
 
   getCurrentMonthHuman() {
-    return moment().format('MMMM YYYY');
+    return format(new Date(), 'MMMM yyyy');
   }
 
   async getLatestMonthBill() {
-    await this.getMonthBill(moment().format('YYYY-MM'));
+    await this.getMonthBill(format(new Date(), 'yyyy-MM'));
   }
 
   getEmailLink() {
