@@ -6,5 +6,3 @@
 # https://github.com/vuejs/vue-cli/issues/3571
 sed -i 's/https:\/\/d3asw1bke2pwdg.cloudfront.net\/manifest.json/\/manifest\/manifest.json/g' dist/index.html
 sed -i 's/https:\/\/d3asw1bke2pwdg.cloudfront.net\/precache-manifest/\/manifest\/precache-manifest/g' dist/service-worker.js
-sed -i 's/\"https:\/\/d3asw1bke2pwdg.cloudfront.net\/\",\"service-worker.js\"/\"\/manifest\/service-worker.js\"/g' dist/js/*.js
-sed -i 's/\"https:\/\/d3asw1bke2pwdg.cloudfront.net\/service-worker.js\"/\"\/manifest\/service-worker.js\"/g' dist/js/*.js
