@@ -1,11 +1,15 @@
 GITHUB_CREATE_NEW_REPO_SCHEMA = {
     "type": "object",
     "properties": {
-        "repo_name": {
+        "name": {
+            "type": "string",
+        },
+        "description": {
             "type": "string",
         }
     },
     "required": [
-        "repo_name"
+        "name",
+        "description"
     ]
 }

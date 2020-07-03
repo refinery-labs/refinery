@@ -97,7 +97,9 @@ import {
   AuthWithGithubResponse,
   AuthWithGithubRequest,
   ListGithubReposForUserRequest,
-  ListGithubReposForUserResponse
+  ListGithubReposForUserResponse,
+  CreateNewRepoForUserRequest,
+  CreateNewRepoForUserResponse
 } from '@/types/api-types';
 import { API_ENDPOINT, ApiConfigMap } from '@/constants/api-constants';
 
@@ -227,6 +229,9 @@ export class RefineryApi implements RefineryApiTypeMap {
   );
   [API_ENDPOINT.ListGithubReposForUser] = makeApiClient<ListGithubReposForUserRequest, ListGithubReposForUserResponse>(
     API_ENDPOINT.ListGithubReposForUser
+  );
+  [API_ENDPOINT.CreateNewRepoForUser] = makeApiClient<CreateNewRepoForUserRequest, CreateNewRepoForUserResponse>(
+    API_ENDPOINT.CreateNewRepoForUser
   );
   [API_ENDPOINT.SaveProjectConfig] = makeApiClient<SaveProjectConfigRequest, SaveProjectConfigResponse>(
     API_ENDPOINT.SaveProjectConfig

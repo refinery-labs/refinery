@@ -14,7 +14,7 @@ class GithubListUserReposDependencies:
         pass
 
 
-class GithubListUserRepos(BaseHandler):
+class GithubUserRepos(BaseHandler):
     dependencies = GithubListUserReposDependencies
 
     github_assistant = None  # type: GithubAssistant
@@ -29,26 +29,16 @@ class GithubListUserRepos(BaseHandler):
             "repos": repos
         })
 
-class GithubCreateNewRepoDependencies:
-    @pinject.copy_args_to_public_fields
-    def __init__( self, github_assistant ):
-        pass
-
-
-class GithubCreateNewRepo(BaseHandler):
-    dependencies = GithubCreateNewRepoDependencies
-
-    github_assistant = None  # type: GithubAssistant
-
     @gen.coroutine
     @github_authenticated
     def post( self, oauth_token, oauth_json_data ):
         validate_schema(self.json, GITHUB_CREATE_NEW_REPO_SCHEMA)
 
-        repo_name = self.json["repo_name"]
+        repo_name = self.json["name"]
+        repo_description = self.json["description"]
 
-        repos = yield self.github_assistant.create_new_user_repo(oauth_token, repo_name)
+        repo = yield self.github_assistant.create_new_user_repo(oauth_token, repo_name, repo_description)
         self.write({
             "success": True,
-            "repos": repos
+            "repo": repo
         })

@@ -12,7 +12,7 @@ import { loadProjectFromDir } from '@/repo-compiler/one-to-one/git-to-refinery';
 import uuid from 'uuid';
 import { GitDiffInfo, GitStatusResult, InvalidGitRepoError } from '@/repo-compiler/lib/git-types';
 import { REFINERY_COMMIT_AUTHOR_NAME } from '@/repo-compiler/shared/constants';
-import { GitStoreModule } from '@/store';
+import { GitStoreModule, ProjectSettingsStoreModule, RepoSelectionModalStoreModule } from '@/store';
 import { LoggingAction } from '@/lib/LoggingMutation';
 import generateStupidName from '@/lib/silly-names';
 import slugify from 'slugify';
@@ -412,6 +412,10 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
   @LoggingAction
   public async diffCompiledProjectAndRemoveBranch() {
+    if (this.repoBranches.length === 0) {
+      return;
+    }
+
     if (this.projectSessionId === null) {
       const msg = 'Cannot diff repo with missing project session id';
       console.error(msg);
@@ -532,14 +536,17 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     }
 
     const compiledProject = await this.compileClonedProject(gitClient);
-    if (!compiledProject) {
+    if (!compiledProject && !RepoSelectionModalStoreModule.isCreatingNewRepo) {
       const toastContent = `${this.formattedCompilationError} Falling back to the last saved Refinery project from the server.`;
       await createToast(this.context.dispatch, {
         title: 'Unable to load project from repository',
         content: toastContent,
-        variant: ToastVariant.danger,
-        noAutoHide: true
+        variant: ToastVariant.danger
       });
+    }
+
+    if (RepoSelectionModalStoreModule.isCreatingNewRepo) {
+      return;
     }
 
     const config = this.context.rootState.project.openedProjectConfig;

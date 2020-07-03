@@ -204,9 +204,19 @@ export interface GithubRepo {
   private: boolean;
 }
 
-export interface ListGithubReposForUserResponse extends BaseApiRequest {
+export interface ListGithubReposForUserResponse extends BaseApiResponse {
   repos: GithubRepo[];
   success: boolean;
+}
+
+// CreateNewRepoForUser
+export interface CreateNewRepoForUserRequest extends BaseApiRequest {
+  name: string;
+  description: string;
+}
+
+export interface CreateNewRepoForUserResponse extends BaseApiResponse {
+  repo: GithubRepo;
 }
 
 // GetProjectConfig

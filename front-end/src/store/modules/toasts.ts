@@ -57,13 +57,10 @@ const ToastPaneModule: Module<ToastPaneState, RootState> = {
         return;
       }
 
-      const toastDelay = !toast.noAutoHide ? { autoHideDelay: 3000 } : {};
-
       const newToast: ToastConfig = {
         variant: ToastVariant.default,
         toaster: ToastLocation.TopRight,
         ...toast,
-        ...toastDelay,
         id: uuid(),
         shown: false,
         timestamp: new Date().getTime()
