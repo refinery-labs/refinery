@@ -37,7 +37,15 @@ class GithubUserRepos(BaseHandler):
         repo_name = self.json["name"]
         repo_description = self.json["description"]
 
-        repo = yield self.github_assistant.create_new_user_repo(oauth_token, repo_name, repo_description)
+        try:
+            repo = yield self.github_assistant.create_new_user_repo(oauth_token, repo_name, repo_description)
+        except Exception as e:
+            self.logger("Error when creating a new user repo: " + str(e), "error")
+            self.write({
+                "success": False
+            })
+            raise gen.Return()
+
         self.write({
             "success": True,
             "repo": repo
