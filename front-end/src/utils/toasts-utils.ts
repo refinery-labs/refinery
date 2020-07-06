@@ -4,8 +4,15 @@ import { ToastActions } from '@/store/modules/toasts';
 import store from '../store/index';
 
 function toastConfigToNotifcation(toast: ToastNotificationConfig): ToastNotification {
+  if (toast.noAutoHide) {
+    return {
+      noAutoHide: true,
+      ...toast
+    };
+  }
   return {
     noAutoHide: false,
+    autoHideDelay: 3000,
     ...toast
   };
 }

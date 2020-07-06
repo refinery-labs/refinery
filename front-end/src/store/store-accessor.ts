@@ -24,6 +24,7 @@ import { DemoWalkthroughStore } from '@/store/modules/demo-walkthrough';
 import { SyncProjectRepoPaneStore } from '@/store/modules/panes/sync-project-repo-pane';
 import { GitStore } from '@/store/modules/git-store/git-store';
 import { ProjectSettingsStore } from '@/store/modules/project-settings';
+import { RepoSelectionModalStore } from '@/store/modules/modals/repo-selection-modal';
 
 declare type ConstructorOf<C> = {
   new (...args: any[]): C;
@@ -54,7 +55,8 @@ export const storeModules: { [key in StoreType]: ConstructorOf<VuexModule> & Mod
   readmeEditor: ReadmeEditorPaneStore,
   demoWalkthrough: DemoWalkthroughStore,
   syncProjectRepo: SyncProjectRepoPaneStore,
-  projectSettings: ProjectSettingsStore
+  projectSettings: ProjectSettingsStore,
+  repoSelectionModal: RepoSelectionModalStore
 };
 
 export let AddSavedBlockPaneStoreModule: AddSavedBlockPaneStore;
@@ -73,6 +75,7 @@ export let ReadmeEditorPaneStoreModule: ReadmeEditorPaneStore;
 export let DemoWalkthroughStoreModule: DemoWalkthroughStore;
 export let SyncProjectRepoPaneStoreModule: SyncProjectRepoPaneStore;
 export let ProjectSettingsStoreModule: ProjectSettingsStore;
+export let RepoSelectionModalStoreModule: RepoSelectionModalStore;
 
 // Creates the actual instances of the store for each module.
 // These instances are what the app uses to reference the store in a "nice" way.
@@ -93,6 +96,7 @@ export function initializeStores(store: Store<any>): void {
   DemoWalkthroughStoreModule = getModule(DemoWalkthroughStore, store);
   SyncProjectRepoPaneStoreModule = getModule(SyncProjectRepoPaneStore, store);
   ProjectSettingsStoreModule = getModule(ProjectSettingsStore, store);
+  RepoSelectionModalStoreModule = getModule(RepoSelectionModalStore, store);
 }
 
 // for use in 'modules' store init (see store/drop.ts), so each module

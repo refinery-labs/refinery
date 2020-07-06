@@ -12,7 +12,7 @@ class GithubAssistant:
         "User-Agent": "Tornado OAuth"
     }
     _ACCESS_TOKEN_HEADER_FORMAT = "token {access_token}"
-    _OAUTH_LIST_USER_URL = "https://api.github.com/user/repos"
+    _OAUTH_USER_REPOS_URL = "https://api.github.com/user/repos"
 
     def __init__(self, logger):
         self.logger = logger
@@ -31,7 +31,7 @@ class GithubAssistant:
         try:
             response = yield self.http.fetch(
                 # Grab 100 pages at a time and sort them by the most recently updated projects.
-                self._OAUTH_LIST_USER_URL + '?per_page=100&sort=updated&page=' + str(page),
+                self._OAUTH_USER_REPOS_URL + '?per_page=100&sort=updated&page=' + str(page),
                 headers=self._get_auth_base_headers(access_token)
             )
         except HTTPError as e:
@@ -65,3 +65,29 @@ class GithubAssistant:
                 repos = repos + (yield self.list_repos_for_user(access_token, page + 1))
 
         raise gen.Return( repos )
+
+    @gen.coroutine
+    def create_new_user_repo(self, access_token, repo_name, repo_description):
+        body = {
+            "name": repo_name,
+            "description": repo_description,
+            "private": True
+        }
+
+        try:
+            response = yield self.http.fetch(
+                # Grab 100 pages at a time and sort them by the most recently updated projects.
+                self._OAUTH_USER_REPOS_URL,
+                method="POST",
+                body=json.dumps(body),
+                headers=self._get_auth_base_headers(access_token)
+            )
+        except HTTPError as e:
+            raise Exception( "Unable to create new repo for user via token from Github: " + str(e) )
+
+        if not response:
+            raise Exception( "Missing body when creating a new user repo on Github" )
+
+        repo = json.loads(response.body)
+        return repo
+

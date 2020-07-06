@@ -7,7 +7,7 @@ from controller.auth.github import *
 from controller.aws import *
 from controller.billing import *
 from controller.deployments import *
-from controller.github.controllers import GithubListUserRepos
+from controller.github.controllers import GithubUserRepos
 from controller.github.controllers_github_proxy import GithubProxy
 from controller.health import *
 from controller.internal import *
@@ -99,7 +99,7 @@ class TornadoApp:
             (r"/api/v1/aws/deploy_diagram", DeployDiagram),
 
             ( r"/api/v1/github/proxy/(.*)", GithubProxy ),
-            ( r"/api/v1/github/repos", GithubListUserRepos ),
+            ( r"/api/v1/github/repos", GithubUserRepos ),
 
             (r"/api/v1/projects/config/save", SaveProjectConfig),
             (r"/api/v1/projects/save", SaveProject),

@@ -1,5 +1,7 @@
 import * as R from 'ramda';
 import {
+  CreateNewRepoForUserRequest,
+  CreateNewRepoForUserResponse,
   CreateProjectShortlinkRequest,
   CreateProjectShortlinkResponse,
   DeleteDeploymentsInProjectRequest,
@@ -606,4 +608,20 @@ export async function listGithubReposForUser(): Promise<GithubRepo[] | null> {
   }
 
   return response.repos;
+}
+
+export async function createNewRepoForUser(repoName: string, repoDescription: string): Promise<GithubRepo | null> {
+  const response = await makeApiRequest<CreateNewRepoForUserRequest, CreateNewRepoForUserResponse>(
+    API_ENDPOINT.CreateNewRepoForUser,
+    {
+      name: repoName,
+      description: repoDescription
+    }
+  );
+
+  if (!response || !response.success) {
+    return null;
+  }
+
+  return response.repo;
 }

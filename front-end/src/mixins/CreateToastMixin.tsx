@@ -14,7 +14,8 @@ export default class CreateToastMixin extends Vue {
       content,
       title,
       variant: ToastVariant.danger,
-      noAutoHide: autoHide !== undefined ? !autoHide : false
+      noAutoHide: autoHide !== undefined ? !autoHide : false,
+      autoHideDelay: 3000
     });
   }
 
@@ -23,7 +24,8 @@ export default class CreateToastMixin extends Vue {
       content,
       title,
       variant: ToastVariant.success,
-      noAutoHide: autoHide !== undefined ? !autoHide : false
+      noAutoHide: autoHide !== undefined ? !autoHide : false,
+      autoHideDelay: 3000
     });
   }
 }

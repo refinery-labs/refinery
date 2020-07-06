@@ -31,6 +31,8 @@ import { CodeBlockSharedFilesPaneState } from '@/store/modules/panes/code-block-
 import { ViewSharedFilePaneState } from '@/store/modules/panes/view-shared-file';
 import { DemoWalkthroughState } from '@/store/modules/demo-walkthrough';
 import { GitState } from '@/store/modules/git-store/git-store';
+import RepoSelectionModal from '@/components/ProjectSettings/RepoSelectionModal';
+import { RepoSelectionModalState } from '@/store/modules/modals/repo-selection-modal';
 
 export enum StoreType {
   addSavedBlockPane = 'addSavedBlockPane',
@@ -58,7 +60,8 @@ export enum StoreType {
   readmeEditor = 'readmeEditor',
   demoWalkthrough = 'demoWalkthrough',
   syncProjectRepo = 'syncProjectRepo',
-  projectSettings = 'projectSettings'
+  projectSettings = 'projectSettings',
+  repoSelectionModal = 'repoSelectionModal'
 }
 
 export interface RootState {

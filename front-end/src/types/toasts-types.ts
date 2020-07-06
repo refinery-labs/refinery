@@ -39,6 +39,7 @@ export interface ToastNotification {
   toaster?: ToastLocation;
   specialForceRefresh?: boolean;
   noAutoHide: boolean;
+  autoHideDelay?: number;
 }
 
 export interface ToastNotificationConfig {
@@ -48,4 +49,5 @@ export interface ToastNotificationConfig {
   toaster?: ToastLocation;
   specialForceRefresh?: boolean;
   noAutoHide?: boolean;
+  autoHideDelay?: number;
 }
