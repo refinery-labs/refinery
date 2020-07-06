@@ -60,9 +60,7 @@ export default class RepoSelectionModal extends Vue {
       <b-badge pill={false} class="margin-right--small">
         Private
       </b-badge>
-    ) : (
-      <div />
-    );
+    ) : null;
 
     const currentRepoURL = this.getCurrentlyConfiguredRepoURL();
     const isCurrentlyConfiguredRepo = currentRepoURL && currentRepoURL === repo.clone_url;
@@ -70,9 +68,7 @@ export default class RepoSelectionModal extends Vue {
       <b-badge pill={false} variant="primary" class="margin-right--small">
         Current
       </b-badge>
-    ) : (
-      <div />
-    );
+    ) : null;
 
     const showingDetails =
       RepoSelectionModalStoreModule.selectedRepo &&

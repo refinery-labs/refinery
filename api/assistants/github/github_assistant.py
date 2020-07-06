@@ -74,7 +74,6 @@ class GithubAssistant:
             "private": True
         }
 
-        response = None
         try:
             response = yield self.http.fetch(
                 # Grab 100 pages at a time and sort them by the most recently updated projects.
@@ -86,5 +85,9 @@ class GithubAssistant:
         except HTTPError as e:
             raise Exception( "Unable to create new repo for user via token from Github: " + str(e) )
 
+        if not response:
+            raise Exception( "Missing body when creating a new user repo on Github" )
+
         repo = json.loads(response.body)
         return repo
+

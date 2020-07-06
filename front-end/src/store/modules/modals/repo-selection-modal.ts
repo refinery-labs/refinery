@@ -123,13 +123,14 @@ export class RepoSelectionModalStore extends VuexModule<ThisType<RepoSelectionMo
     if (!configuredUserRepo) {
       // unable to find configured repo in list, maybe also throw an error?
       await this.setReposForUser(userRepos);
-    } else {
-      const userReposWithoutConfiguredRepo = userRepos.filter(repo => repo.clone_url !== configuredRepo);
-
-      // put the already configured repo first
-      await this.setReposForUser([configuredUserRepo, ...userReposWithoutConfiguredRepo]);
-      await this.setSelectedRepo(configuredUserRepo);
+      return;
     }
+
+    const userReposWithoutConfiguredRepo = userRepos.filter(repo => repo.clone_url !== configuredRepo);
+
+    // put the already configured repo first
+    await this.setReposForUser([configuredUserRepo, ...userReposWithoutConfiguredRepo]);
+    await this.setSelectedRepo(configuredUserRepo);
   }
 
   @LoggingAction
