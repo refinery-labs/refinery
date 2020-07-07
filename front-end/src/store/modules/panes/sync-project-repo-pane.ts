@@ -503,13 +503,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   }
 
   @LoggingAction
-  public async setupLocalProjectRepo([projectConfig, projectId]: [ProjectConfig, string]) {
-    if (!projectConfig.project_repo) {
-      const msg = 'Unable to setup local project repo with missing git repo URI';
-      console.error(msg);
-      throw new InvalidGitRepoError(msg);
-    }
-
+  public async compileAndSetupProjectRepo([projectRepo, projectId]: [string, string]): Promise<RefineryProject | null> {
     const projectSessionId = uuid.v4();
 
     this.setRandomSessionProjectId(projectSessionId);
@@ -517,7 +511,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
     GitStoreModule.createGitStore({
       projectId: projectSessionId,
-      repoUri: projectConfig.project_repo
+      repoUri: projectRepo
     });
 
     const gitClient = GitStoreModule.getGitClientByProjectId(projectSessionId);
@@ -545,9 +539,16 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
         content: toastContent,
         variant: ToastVariant.danger
       });
+      return null;
     }
+    return compiledProject;
+  }
 
-    if (RepoSelectionModalStoreModule.isCreatingNewRepo) {
+  @LoggingAction
+  public async setupLocalProjectRepoAndUpdateProject([projectRepo, projectId]: [string, string]) {
+    const compiledProject = await this.compileAndSetupProjectRepo([projectRepo, projectId]);
+
+    if (!compiledProject || RepoSelectionModalStoreModule.isCreatingNewRepo) {
       return;
     }
 

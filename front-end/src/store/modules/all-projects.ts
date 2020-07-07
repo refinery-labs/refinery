@@ -21,6 +21,8 @@ import ImportableRefineryProject from '@/types/export-project';
 import { getShortlinkContents, renameProject } from '@/store/fetchers/api-helpers';
 import { SelectProjectVersion } from '@/types/all-project-types';
 import { getInitialCardStateForSearchResults } from '@/utils/all-projects-utils';
+import { SyncProjectRepoPaneStoreModule } from '@/store';
+import uuid from 'uuid';
 
 const moduleState: AllProjectsState = {
   availableProjects: [],
@@ -314,6 +316,25 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
         }
 
         context.commit(AllProjectsMutators.setImportProjectFromUrlContent, response);
+
+        return;
+      }
+
+      const repoURL = urlParams.get('r');
+      const projectId = urlParams.get('i');
+      if (repoURL && projectId) {
+        context.commit(AllProjectsMutators.setImportProjectFromUrlBusy, true);
+
+        const compiledProject = await SyncProjectRepoPaneStoreModule.compileAndSetupProjectRepo([repoURL, projectId]);
+
+        context.commit(AllProjectsMutators.setImportProjectFromUrlBusy, false);
+
+        if (!compiledProject) {
+          context.commit(AllProjectsMutators.setImportProjectFromUrlError, 'Unable to setup git repo');
+          return;
+        }
+
+        context.commit(AllProjectsMutators.setImportProjectFromUrlContent, compiledProject);
 
         return;
       }

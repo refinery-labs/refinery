@@ -82,7 +82,7 @@ export class RefineryGitActionHandler {
   }
 
   public async writeProjectToDisk(project: RefineryProject) {
-    await saveProjectToRepo(this.gitClient.fs, this.gitClient.dir, project);
+    await saveProjectToRepo(this.gitClient.fs, this.gitClient.dir, project, this.gitClient.uri);
   }
 
   private async getFilesFromFS(filesToGet: string[]): Promise<Record<string, string>> {
