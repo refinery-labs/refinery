@@ -9,9 +9,12 @@ import {
   AuthWithGithubResponse,
   DeleteSavedProjectRequest,
   DeleteSavedProjectResponse,
+  GetProjectVersionsRequest,
+  GetProjectVersionsResponse,
   SearchSavedProjectsRequest,
   SearchSavedProjectsResponse,
-  SearchSavedProjectsResult
+  SearchSavedProjectsResult,
+  SearchSavedProjectVersionMetadata
 } from '@/types/api-types';
 import { createNewProjectFromConfig } from '@/utils/new-project-utils';
 import { getFileFromEvent, readFileAsText } from '@/utils/dom-utils';
@@ -65,6 +68,7 @@ export enum AllProjectsGetters {
 
 export enum AllProjectsActions {
   performSearch = 'performSearch',
+  getAllProjectVersions = 'getAllProjectVersions',
   createProject = 'createProject',
   uploadProject = 'uploadProject',
   getUploadFileContents = 'getUploadFileContents',
@@ -215,6 +219,33 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
       context.commit(AllProjectsMutators.setCardStateLookup, getInitialCardStateForSearchResults(result.results));
       context.commit(AllProjectsMutators.setAvailableProjects, result.results.reverse());
       context.commit(AllProjectsMutators.setSearchingStatus, false);
+    },
+    async [AllProjectsActions.getAllProjectVersions](context, project_id: string) {
+      const result = await makeApiRequest<GetProjectVersionsRequest, GetProjectVersionsResponse>(
+        API_ENDPOINT.GetProjectVersions,
+        {
+          project_id: project_id
+        }
+      );
+
+      if (!result || !result.success) {
+        console.error('Failure to retrieve available project versions');
+        return;
+      }
+
+      const newAvailableProjects = context.state.availableProjects.reduce((availableProjects, project) => {
+        if (project.id === project_id) {
+          const updatedProjectResult: SearchSavedProjectsResult = {
+            ...project,
+            versions: result.versions
+          };
+          return [...availableProjects, updatedProjectResult];
+        }
+        return [...availableProjects, project];
+      }, [] as SearchSavedProjectsResult[]);
+
+      context.commit(AllProjectsMutators.setCardStateLookup, getInitialCardStateForSearchResults(newAvailableProjects));
+      context.commit(AllProjectsMutators.setAvailableProjects, newAvailableProjects);
     },
     async [AllProjectsActions.createProject](context) {
       if (!context.getters[AllProjectsGetters.newProjectInputValid] || context.state.newProjectInput === null) {

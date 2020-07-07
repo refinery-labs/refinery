@@ -25,6 +25,7 @@ export enum API_ENDPOINT {
   RenameProject = 'RenameProject',
   AuthWithGithub = 'AuthWithGithub',
   SearchSavedProjects = 'SearchSavedProjects',
+  GetProjectVersions = 'GetProjectVersions',
   GetSavedProject = 'GetSavedProject',
   DeleteSavedProject = 'DeleteSavedProject',
   ListGithubReposForUser = 'ListGithubReposForUser',
@@ -99,6 +100,10 @@ export const ApiConfigMap: ApiConfigMapType = {
   },
   [API_ENDPOINT.SearchSavedProjects]: {
     path: '/api/v1/projects/search',
+    method: HTTP_METHOD.POST
+  },
+  [API_ENDPOINT.GetProjectVersions]: {
+    path: '/api/v1/projects/versions',
     method: HTTP_METHOD.POST
   },
   [API_ENDPOINT.GetProjectExecutionLogs]: {

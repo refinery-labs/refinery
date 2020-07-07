@@ -7,6 +7,7 @@ import CardToolTsx from '@/components/Common/CardToolTsx';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 import ViewProjectCard, { ViewProjectCardProps } from '@/components/AllProjects/ViewProjectCard';
 import { ProjectCardStateLookup, SelectProjectVersion } from '@/types/all-project-types';
+import { loadMoreProjectVersionsOptionValue } from '@/constants/project-editor-constants';
 
 const allProjects = namespace('allProjects');
 
@@ -45,6 +46,7 @@ export default class Search extends Vue {
   @allProjects.Mutation setCardSelectedVersion!: (params: SelectProjectVersion) => void;
 
   @allProjects.Action performSearch!: (e: string) => {};
+  @allProjects.Action getAllProjectVersions!: (e: string) => {};
   @allProjects.Action createProject!: () => void;
   @allProjects.Action uploadProject!: () => void;
   @allProjects.Action importProject!: () => void;
@@ -218,11 +220,18 @@ export default class Search extends Vue {
     const cardProps: ViewProjectCardProps = {
       project: project,
       selectedVersion: cardState.selectedVersion,
-      onSelectedVersionChanged: (version: number) =>
+      onSelectedVersionChanged: (version: number) => {
+        const selectedVersion = version !== loadMoreProjectVersionsOptionValue ? version : project.versions[0].version;
+
+        if (version === loadMoreProjectVersionsOptionValue) {
+          this.getAllProjectVersions(project.id);
+        }
+
         this.setCardSelectedVersion({
           projectId: project.id,
-          selectedVersion: version
-        })
+          selectedVersion: selectedVersion
+        });
+      }
     };
 
     return <ViewProjectCard props={cardProps} />;
