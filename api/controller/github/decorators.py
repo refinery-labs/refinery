@@ -1,11 +1,9 @@
 import inspect
-import json
-from inspect import getargspec
 from controller.decorators import authenticated
 from controller.github.github_utils import get_existing_github_oauth_user_data
 
 
-def github_authenticated(func):
+def github_authenticated(allow_unauth=False):
     """
     Decorator to grab the current user's github auth data
 
@@ -16,32 +14,43 @@ def github_authenticated(func):
             "msg": "...",
     }
     """
-    @authenticated
-    def wrapper(*args, **kwargs):
-        self_reference = args[0]
+    def github_authenticated_func(func):
+        def wrapper(*args, **kwargs):
+            self_reference = args[0]
 
-        oauth_token, oauth_json_data = get_existing_github_oauth_user_data(
-            self_reference.dbsession,
-            self_reference.logger,
-            self_reference.get_authenticated_user_id()
-        )
+            auth_data = get_existing_github_oauth_user_data(
+                self_reference.dbsession,
+                self_reference.logger,
+                self_reference.get_authenticated_user_id()
+            )
 
-        if oauth_json_data is None or oauth_token is None:
-            self_reference.write({
-                "success": False,
-                "code": "AUTH_REQUIRED",
-                "msg": "Github OAuth has not been enabled for this account",
-            })
-            return
+            if auth_data is None:
+                if allow_unauth:
+                    kwargs['oauth_token'] = None
+                    kwargs['oauth_json_data'] = None
+                    return func(*args, **kwargs)
 
-        func_parameters = inspect.signature(func).parameters
+                self_reference.write({
+                    "success": False,
+                    "code": "AUTH_REQUIRED",
+                    "msg": "Github OAuth has not been enabled for this account",
+                })
+                return
 
-        if 'oauth_token' in func_parameters:
-            kwargs['oauth_token'] = str(oauth_token)
+            oauth_token, oauth_json_data = auth_data
 
-        if 'oauth_json_data' in func_parameters:
-            kwargs['oauth_json_data'] = oauth_json_data
+            func_parameters = inspect.signature(func).parameters
 
-        return func(*args, **kwargs)
+            if 'oauth_token' in func_parameters:
+                kwargs['oauth_token'] = str(oauth_token)
 
-    return wrapper
+            if 'oauth_json_data' in func_parameters:
+                kwargs['oauth_json_data'] = oauth_json_data
+
+            return func(*args, **kwargs)
+
+        if allow_unauth:
+            return wrapper
+        return authenticated(wrapper)
+
+    return github_authenticated_func

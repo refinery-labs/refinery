@@ -87,6 +87,14 @@ def cors( req, res_headers ):
 CORS_MAX_AGE = 60 * 60 * 24
 
 
+def format_git_auth(oauth_json_data, oauth_token):
+    if oauth_json_data and oauth_json_data.get('login') and oauth_token:
+        username = oauth_json_data['login']
+        password = oauth_token
+        return f"{username}:{password}@"
+    return ""
+
+
 class GithubProxy( BaseHandler ):
     http = None  # type: httpclient.AsyncHTTPClient
 
@@ -96,27 +104,23 @@ class GithubProxy( BaseHandler ):
     def set_default_cors( self ):
         self.set_header( 'Access-Control-Allow-Credentials', 'true' )
 
-    @github_authenticated
+    @github_authenticated(allow_unauth=True)
     async def proxy_request( self, oauth_token, oauth_json_data ):
         headers = {}
         for header in GIT_ALLOW_HEADERS:
             if self.request.headers.get( header ):
                 headers[header] = self.request.headers[header]
 
-        username = oauth_json_data['login']
-        password = oauth_token
-
         u = urlparse(self.request.full_url())
 
         p = u.path
         parts = re.match('^/api/v1/github/proxy/([^/]*)/(.*)$', p)
-        remainingpath = parts.group( 2 )
+        remaining_path = parts.group( 2 )
 
         # TODO support other git servers, we do this to prevent ssrf
-        proxy_url = "https://{username}:{password}@github.com/{remainingpath}{params}".format(
-            username=username,
-            password=password,
-            remainingpath=remainingpath,
+        proxy_url = "https://{git_auth_format}github.com/{remaining_path}{params}".format(
+            git_auth_format=format_git_auth(oauth_json_data, oauth_token),
+            remaining_path=remaining_path,
             params='?' + self.request.query if self.request.query else '',
         )
 
@@ -176,14 +180,12 @@ class GithubProxy( BaseHandler ):
 
         return is_push or is_pull
 
-    @authenticated
     async def get( self, url ):
         self.set_default_cors()
         if self.is_info_refs():
             await self.proxy_request()
         await self.finish()
 
-    @authenticated
     async def post( self, url ):
         self.set_default_cors()
         if self.is_pull_or_push():

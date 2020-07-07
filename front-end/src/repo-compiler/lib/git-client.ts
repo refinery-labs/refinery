@@ -15,7 +15,7 @@ import git, {
 import { http } from '@/repo-compiler/lib/git-http';
 
 export class GitClient {
-  private readonly uri: string;
+  public readonly uri: string;
   public readonly fs: PromiseFsClient;
   public readonly dir: string;
 

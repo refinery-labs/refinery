@@ -576,8 +576,8 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       // TODO: Refactor project-view to never be able to have this as null....
       if (context.state.openedProjectConfig && context.state.openedProjectConfig.project_repo) {
-        await SyncProjectRepoPaneStoreModule.setupLocalProjectRepo([
-          context.state.openedProjectConfig,
+        await SyncProjectRepoPaneStoreModule.setupLocalProjectRepoAndUpdateProject([
+          context.state.openedProjectConfig.project_repo,
           context.state.openedProject.project_id
         ]);
       }
@@ -995,7 +995,10 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.updateProject, params);
 
       if (projectConfig.project_repo) {
-        await SyncProjectRepoPaneStoreModule.setupLocalProjectRepo([projectConfig, project.project_id]);
+        await SyncProjectRepoPaneStoreModule.setupLocalProjectRepoAndUpdateProject([
+          projectConfig.project_repo,
+          project.project_id
+        ]);
       }
 
       context.commit(ProjectViewMutators.isLoadingProject, false);

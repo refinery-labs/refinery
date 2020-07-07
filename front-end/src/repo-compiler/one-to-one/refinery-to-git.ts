@@ -128,8 +128,8 @@ async function createFileIfDoesNotExist(fs: PromiseFsClient, dir: string, name: 
   }
 }
 
-export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, project: RefineryProject) {
-  await createFileIfDoesNotExist(fs, dir, README_FILENAME, getPlaceholderReadmeContent(project.name));
+export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, project: RefineryProject, gitURL: string) {
+  await createFileIfDoesNotExist(fs, dir, README_FILENAME, getPlaceholderReadmeContent(project, gitURL));
   await createFileIfDoesNotExist(fs, dir, GIT_IGNORE_FILENAME, GIT_IGNORE_CONTENT);
 
   const refineryDir = Path.join(dir, GLOBAL_BASE_PATH);

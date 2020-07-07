@@ -20,7 +20,7 @@ class GithubUserRepos(BaseHandler):
     github_assistant = None  # type: GithubAssistant
 
     @gen.coroutine
-    @github_authenticated
+    @github_authenticated(allow_unauth=False)
     def get( self, oauth_token, oauth_json_data ):
 
         repos = yield self.github_assistant.list_repos_for_user(oauth_token)
@@ -30,7 +30,7 @@ class GithubUserRepos(BaseHandler):
         })
 
     @gen.coroutine
-    @github_authenticated
+    @github_authenticated(allow_unauth=False)
     def post( self, oauth_token, oauth_json_data ):
         validate_schema(self.json, GITHUB_CREATE_NEW_REPO_SCHEMA)
 
