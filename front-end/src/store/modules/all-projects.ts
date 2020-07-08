@@ -21,7 +21,7 @@ import { getFileFromEvent, readFileAsText } from '@/utils/dom-utils';
 import { unwrapJson, wrapJson } from '@/utils/project-helpers';
 import validate from '../../types/export-project.validator';
 import ImportableRefineryProject from '@/types/export-project';
-import { getShortlinkContents, renameProject } from '@/store/fetchers/api-helpers';
+import { getProjectVersions, getShortlinkContents, renameProject } from '@/store/fetchers/api-helpers';
 import { SelectProjectVersion } from '@/types/all-project-types';
 import { getInitialCardStateForSearchResults } from '@/utils/all-projects-utils';
 
@@ -220,24 +220,18 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
       context.commit(AllProjectsMutators.setAvailableProjects, result.results.reverse());
       context.commit(AllProjectsMutators.setSearchingStatus, false);
     },
-    async [AllProjectsActions.getAllProjectVersions](context, project_id: string) {
-      const result = await makeApiRequest<GetProjectVersionsRequest, GetProjectVersionsResponse>(
-        API_ENDPOINT.GetProjectVersions,
-        {
-          project_id: project_id
-        }
-      );
+    async [AllProjectsActions.getAllProjectVersions](context, projectId: string) {
+      const versions = await getProjectVersions(projectId);
 
-      if (!result || !result.success) {
-        console.error('Failure to retrieve available project versions');
+      if (versions === null) {
         return;
       }
 
       const newAvailableProjects = context.state.availableProjects.reduce((availableProjects, project) => {
-        if (project.id === project_id) {
+        if (project.id === projectId) {
           const updatedProjectResult: SearchSavedProjectsResult = {
             ...project,
-            versions: result.versions
+            versions
           };
           return [...availableProjects, updatedProjectResult];
         }

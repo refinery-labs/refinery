@@ -27,6 +27,8 @@ import {
   GetProjectExecutionsResponse,
   GetProjectShortlinkRequest,
   GetProjectShortlinkResponse,
+  GetProjectVersionsRequest,
+  GetProjectVersionsResponse,
   GetSavedProjectRequest,
   GetSavedProjectResponse,
   GithubRepo,
@@ -42,6 +44,7 @@ import {
   SaveProjectResponse,
   SearchSavedBlocksRequest,
   SearchSavedBlocksResponse,
+  SearchSavedProjectVersionMetadata,
   SharedBlockPublishStatus,
   StartLibraryBuildRequest,
   StartLibraryBuildResponse
@@ -124,6 +127,21 @@ export async function getProjectExecutions(
     oldestTimestamp: nextTimestampToQuery,
     executions: convertedExecutions
   };
+}
+
+export async function getProjectVersions(projectId: string): Promise<SearchSavedProjectVersionMetadata[] | null> {
+  const result = await makeApiRequest<GetProjectVersionsRequest, GetProjectVersionsResponse>(
+    API_ENDPOINT.GetProjectVersions,
+    {
+      project_id: projectId
+    }
+  );
+
+  if (!result || !result.success) {
+    console.error('Failure to retrieve available project versions');
+    return null;
+  }
+  return result.versions;
 }
 
 async function makeRequestWithRetry<T>(

@@ -221,9 +221,12 @@ export default class Search extends Vue {
       project: project,
       selectedVersion: cardState.selectedVersion,
       onSelectedVersionChanged: (version: number) => {
-        const selectedVersion = version !== loadMoreProjectVersionsOptionValue ? version : project.versions[0].version;
+        const firstProjectVersion = project.versions[0].version;
+        const selectedLoadMore = version === loadMoreProjectVersionsOptionValue;
 
-        if (version === loadMoreProjectVersionsOptionValue) {
+        const selectedVersion = !selectedLoadMore ? version : firstProjectVersion;
+
+        if (selectedLoadMore) {
           this.getAllProjectVersions(project.id);
         }
 
