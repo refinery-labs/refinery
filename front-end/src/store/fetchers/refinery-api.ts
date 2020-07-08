@@ -99,7 +99,9 @@ import {
   ListGithubReposForUserRequest,
   ListGithubReposForUserResponse,
   CreateNewRepoForUserRequest,
-  CreateNewRepoForUserResponse
+  CreateNewRepoForUserResponse,
+  GetProjectVersionsRequest,
+  GetProjectVersionsResponse
 } from '@/types/api-types';
 import { API_ENDPOINT, ApiConfigMap } from '@/constants/api-constants';
 
@@ -207,6 +209,9 @@ export class RefineryApi implements RefineryApiTypeMap {
   );
   [API_ENDPOINT.SearchSavedProjects] = makeApiClient<SearchSavedProjectsRequest, SearchSavedProjectsResponse>(
     API_ENDPOINT.SearchSavedProjects
+  );
+  [API_ENDPOINT.GetProjectVersions] = makeApiClient<GetProjectVersionsRequest, GetProjectVersionsResponse>(
+    API_ENDPOINT.GetProjectVersions
   );
   [API_ENDPOINT.UpdateEnvironmentVariables] = makeApiClient<
     UpdateEnvironmentVariablesRequest,

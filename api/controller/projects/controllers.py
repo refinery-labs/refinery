@@ -88,7 +88,7 @@ class SearchSavedProjects(BaseHandler):
         results_list = []
 
         for last_modified, project in projects:
-        # Pull all deployments in a batch SQL query
+            # Pull all deployments in a batch SQL query
             deployment = self.dbsession.query(Deployment).filter_by(
                 project_id=project.id
             ).first()
@@ -97,7 +97,7 @@ class SearchSavedProjects(BaseHandler):
 
             project_versions = project.versions.order_by(
                 ProjectVersion.timestamp.desc()
-            ).all()
+            ).limit(10).all()
 
             versions = serialize_versions(project_versions)
 
@@ -138,6 +138,42 @@ class SearchSavedProjects(BaseHandler):
         ).all()
 
         return projects
+
+
+class GetProjectVersions(BaseHandler):
+    @authenticated
+    @gen.coroutine
+    def post(self):
+        """
+        Get project versions for the provided project.
+        """
+        validate_schema(self.json, GET_PROJECT_VERSIONS_SCHEMA)
+
+        self.logger("Searching saved projects...")
+
+        project_id = self.json["project_id"]
+
+        # Ensure user is owner of the project
+        if not self.is_owner_of_project(project_id):
+            self.write({
+                "success": False,
+                "code": "ACCESS_DENIED",
+                "msg": "You do not have privileges to access versions for that project!",
+            })
+            raise gen.Return()
+
+        project_versions = self.dbsession.query(
+            ProjectVersion
+        ).filter(
+            ProjectVersion.project_id == project_id
+        ).all()
+
+        versions = serialize_versions(project_versions)
+
+        self.write({
+            "success": True,
+            "versions": versions
+        })
 
 
 class GetSavedProject(BaseHandler):

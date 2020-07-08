@@ -26,6 +26,18 @@ SEARCH_SAVED_PROJECTS_SCHEMA = {
     ]
 }
 
+GET_PROJECT_VERSIONS_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "project_id": {
+            "type": "string",
+        }
+    },
+    "required": [
+        "project_id",
+    ]
+}
+
 DELETE_SAVED_PROJECT_SCHEMA = {
     "type": "object",
     "properties": {

@@ -105,6 +105,7 @@ class TornadoApp:
             (r"/api/v1/projects/save", SaveProject),
             (r"/api/v1/projects/search", SearchSavedProjects),
             (r"/api/v1/projects/get", GetSavedProject),
+            (r"/api/v1/projects/versions", GetProjectVersions),
             (r"/api/v1/projects/delete", DeleteSavedProject),
             (r"/api/v1/projects/rename", RenameProject),
             (r"/api/v1/projects/config/get", GetProjectConfig),

@@ -62,6 +62,15 @@ export interface SearchSavedProjectVersionMetadata {
   version: number;
 }
 
+// GetProjectVersions
+export interface GetProjectVersionsRequest extends BaseApiRequest {
+  project_id: string;
+}
+
+export interface GetProjectVersionsResponse extends BaseApiResponse {
+  versions: SearchSavedProjectVersionMetadata[];
+}
+
 // CreateSQSQueueTrigger
 export interface CreateSQSQueueTriggerRequest extends BaseApiRequest {
   batch_size: number;

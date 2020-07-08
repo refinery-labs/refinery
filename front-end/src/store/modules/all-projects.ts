@@ -9,16 +9,19 @@ import {
   AuthWithGithubResponse,
   DeleteSavedProjectRequest,
   DeleteSavedProjectResponse,
+  GetProjectVersionsRequest,
+  GetProjectVersionsResponse,
   SearchSavedProjectsRequest,
   SearchSavedProjectsResponse,
-  SearchSavedProjectsResult
+  SearchSavedProjectsResult,
+  SearchSavedProjectVersionMetadata
 } from '@/types/api-types';
 import { createNewProjectFromConfig } from '@/utils/new-project-utils';
 import { getFileFromEvent, readFileAsText } from '@/utils/dom-utils';
 import { unwrapJson, wrapJson } from '@/utils/project-helpers';
 import validate from '../../types/export-project.validator';
 import ImportableRefineryProject from '@/types/export-project';
-import { getShortlinkContents, renameProject } from '@/store/fetchers/api-helpers';
+import { getProjectVersions, getShortlinkContents, renameProject } from '@/store/fetchers/api-helpers';
 import { SelectProjectVersion } from '@/types/all-project-types';
 import { getInitialCardStateForSearchResults } from '@/utils/all-projects-utils';
 import { SyncProjectRepoPaneStoreModule } from '@/store';
@@ -67,6 +70,7 @@ export enum AllProjectsGetters {
 
 export enum AllProjectsActions {
   performSearch = 'performSearch',
+  getAllProjectVersions = 'getAllProjectVersions',
   createProject = 'createProject',
   uploadProject = 'uploadProject',
   getUploadFileContents = 'getUploadFileContents',
@@ -217,6 +221,27 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
       context.commit(AllProjectsMutators.setCardStateLookup, getInitialCardStateForSearchResults(result.results));
       context.commit(AllProjectsMutators.setAvailableProjects, result.results.reverse());
       context.commit(AllProjectsMutators.setSearchingStatus, false);
+    },
+    async [AllProjectsActions.getAllProjectVersions](context, projectId: string) {
+      const versions = await getProjectVersions(projectId);
+
+      if (versions === null) {
+        return;
+      }
+
+      const newAvailableProjects = context.state.availableProjects.reduce((availableProjects, project) => {
+        if (project.id === projectId) {
+          const updatedProjectResult: SearchSavedProjectsResult = {
+            ...project,
+            versions
+          };
+          return [...availableProjects, updatedProjectResult];
+        }
+        return [...availableProjects, project];
+      }, [] as SearchSavedProjectsResult[]);
+
+      context.commit(AllProjectsMutators.setCardStateLookup, getInitialCardStateForSearchResults(newAvailableProjects));
+      context.commit(AllProjectsMutators.setAvailableProjects, newAvailableProjects);
     },
     async [AllProjectsActions.createProject](context) {
       if (!context.getters[AllProjectsGetters.newProjectInputValid] || context.state.newProjectInput === null) {

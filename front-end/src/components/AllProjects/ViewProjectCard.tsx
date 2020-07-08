@@ -5,6 +5,7 @@ import { linkFormatterUtils } from '@/constants/router-constants';
 import { LoadingContainerProps } from '@/types/component-types';
 import Loading from '@/components/Common/Loading.vue';
 import { getFriendlyDurationSinceString } from '@/utils/time-utils';
+import { loadMoreProjectVersionsOptionValue } from '@/constants/project-editor-constants';
 
 const allProjects = namespace('allProjects');
 
@@ -82,6 +83,7 @@ export default class ViewProjectCard extends Vue implements ViewProjectCardProps
             v{version} - {getFriendlyDurationSinceString(timestamp * 1000)}
           </option>
         ))}
+        <option value={loadMoreProjectVersionsOptionValue}>Load more versions...</option>
       </b-form-select>
     );
   }
