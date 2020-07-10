@@ -1,4 +1,5 @@
 from asyncio import get_event_loop
+from pidgeon.framework.app_config import AppConfig
 from pidgeon.framework.constants import PROJECT_ROOT
 from pidgeon.framework.controller import Controller
 from pidgeon.framework.server import start_http_server
@@ -8,9 +9,10 @@ from pidgeon.graph import get_object_graph
 
 
 def start():
-    # TODO read config
-    host = "0.0.0.0"
-    port = 8080
+    # TODO use the proper AppConfig instance instantiated in the object_graph
+    config = AppConfig("common")
+    host = config.get("http_host")
+    port = config.get("http_port")
     loop = get_event_loop()
     controllers = get_impls(Controller, "pidgeon.controller", PROJECT_ROOT)
     object_graph = get_object_graph()
