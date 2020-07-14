@@ -20,7 +20,7 @@ import {
   PROJECTS_CONFIG_FOLDER,
   README_FILENAME
 } from '@/repo-compiler/shared/constants';
-import { getPlaceholderReadmeContent } from '@/repo-compiler/shared/utils';
+import { getPlaceholderReadmeContent } from '@/repo-compiler/shared/readme-placeholder-content';
 
 function getFolderName(name: string) {
   return slugify(name).toLowerCase();
