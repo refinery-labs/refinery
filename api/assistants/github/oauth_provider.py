@@ -129,9 +129,9 @@ class GithubOAuthProvider:
 
         user_data_response = yield self._fetch_user_via_access_token(access_token)
 
-        user_unique_id = user_data_response["id"]
-        user_email = user_data_response["email"]
-        user_name = user_data_response["name"]
+        user_unique_id = user_data_response.get("id")
+        user_email = user_data_response.get("email")
+        user_name = user_data_response.get("name")
 
         if user_email is None:
             # TODO handle this error

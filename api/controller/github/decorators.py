@@ -1,6 +1,6 @@
 import inspect
 from controller.decorators import authenticated
-from controller.github.github_utils import get_existing_github_oauth_user_data
+from controller.github.github_utils import get_existing_github_oauth_user_data, CorruptGithubOauthDataException
 
 
 def github_authenticated(allow_unauth=False):
@@ -18,11 +18,19 @@ def github_authenticated(allow_unauth=False):
         def wrapper(*args, **kwargs):
             self_reference = args[0]
 
-            auth_data = get_existing_github_oauth_user_data(
-                self_reference.dbsession,
-                self_reference.logger,
-                self_reference.get_authenticated_user_id()
-            )
+            try:
+                auth_data = get_existing_github_oauth_user_data(
+                    self_reference.dbsession,
+                    self_reference.logger,
+                    self_reference.get_authenticated_user_id()
+                )
+            except CorruptGithubOauthDataException as e:
+                self_reference.write({
+                    "success": False,
+                    "code": "CORRUPT_OAUTH_STATE",
+                    "msg": "Github OAuth is in a corrupt state for this account",
+                })
+                return
 
             if auth_data is None:
                 if allow_unauth:
