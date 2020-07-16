@@ -1,18 +1,16 @@
 from aiohttp.web import Response, Server, ServerRunner, TCPSite
 from asyncio import get_event_loop, sleep
 from json import loads, dumps
-from pidgeon.framework.controller import get_path_controller_map
+from pidgeon.framework.constants import ENCODING
+from pidgeon.framework.component.controller import get_path_controller_map
 from pidgeon.framework.exc import ApplicationError
 from pidgeon.framework.log import log
 from sys import maxsize
 from traceback import print_exc
 from uuid import uuid4
 
-from pidgeon.framework.controller import Controller
-
 
 DEFAULT_CONTENT_TYPE = "application/json"
-ENCODING = "UTF-8"
 
 
 class RequestHandler:

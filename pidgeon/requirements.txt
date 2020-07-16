@@ -10,6 +10,7 @@ idna==2.10
 idna-ssl==1.1.0
 multidict==4.7.6
 pinject==0.14.1
+PyNaCl==1.4.0
 PyYAML==5.3.1
 readline==6.2.4.1
 six==1.15.0

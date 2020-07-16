@@ -1,4 +1,4 @@
-from pidgeon.framework.controller import Controller, handle
+from pidgeon.framework.component.controller import Controller, handle
 
 
 class HealthController(Controller):
