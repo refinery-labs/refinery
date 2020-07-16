@@ -7,6 +7,10 @@ from models import UserOAuthAccountModel
 from utils.general import LogLevelTypes
 
 
+class CorruptGithubOauthDataException(Exception):
+    pass
+
+
 def get_existing_github_oauth_user_data(
         dbsession: Session,
         logger: Callable[[str, LogLevelTypes], None],
@@ -33,5 +37,6 @@ def get_existing_github_oauth_user_data(
     except ValueError as e:
         # Should never happen but just in case
         logger('Invalid JSON data in UserOAuthDataRecordModel: ' + repr(e), 'error')
-        return None
+
+        raise CorruptGithubOauthDataException()
 
