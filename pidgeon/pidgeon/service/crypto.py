@@ -2,13 +2,13 @@ from base64 import b64encode, b64decode
 from nacl.secret import SecretBox
 from nacl.utils import random
 from pidgeon.framework.constants import ENCODING
-from pidgeon.framework.service import Service
+from pidgeon.framework.component.service import Service
 
 
 NONCE_SIZE = SecretBox.NONCE_SIZE
 
 
-class SymmetricCryptoService(Service):
+class SymCrypto(Service):
     def encrypt(self, key: str, message: str) -> str:
         box = self._get_secret_box(key)
         plaintext = message.encode(ENCODING)
@@ -25,7 +25,8 @@ class SymmetricCryptoService(Service):
 
         return plaintext.decode(ENCODING)
 
-    def keygen(self, size: int = SecretBox.KEY_SIZE) -> str:
+    @staticmethod
+    def keygen(size: int = SecretBox.KEY_SIZE) -> str:
         return b64encode(random(size)).decode(ENCODING)
 
     def _get_secret_box(self, key: str) -> SecretBox:

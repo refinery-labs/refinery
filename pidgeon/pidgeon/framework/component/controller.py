@@ -1,6 +1,6 @@
 from collections import namedtuple
-from pidgeon.framework.component import Component
-from pidgeon.framework.util import scan_for_attrs_with_prop
+from pidgeon.framework.component.component import Component
+from pidgeon.framework.util.reflect import scan_for_attrs_with_prop
 
 
 PATH_ATTRIBUTE = "__url_path"

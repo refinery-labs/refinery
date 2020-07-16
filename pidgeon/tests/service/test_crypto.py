@@ -1,13 +1,13 @@
-from pidgeon.service.crypto import SymmetricCryptoService
+from pidgeon.service.crypto import SymCrypto
 from pytest import fixture, raises
 from random import randint, choice
 from string import ascii_letters
 
 
-class TestSymmetricCryptoService():
+class TestSymmetricCryptoService:
     @fixture
     def service(self):
-        return SymmetricCryptoService()
+        return SymCrypto()
 
     def test_encrypt_decrypt(self, service):
         scenarios = [
@@ -19,6 +19,7 @@ class TestSymmetricCryptoService():
             encrypted = service.encrypt(key, message)
             decrypted = service.decrypt(key, encrypted)
 
+            assert decrypted
             assert decrypted == message
 
     def _get_random_string(self):

@@ -1,3 +1,4 @@
 config:
   http_host: "0.0.0.0"
   http_port: 8080
+  sqlite_kv_path: "pidgeonkv.db"

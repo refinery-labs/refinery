@@ -1,12 +1,14 @@
 import copy
 import os
-from six import string_types
-from pidgeon.framework.constants import CONFIG_DIR
-
 import yaml
 
 
-class AppConfig:
+from six import string_types
+from pidgeon.framework.constants import CONFIG_DIR
+from pidgeon.framework.exc import InvalidEnvironmentError
+
+
+class Config:
     """
     This class holds configuration information for the application to use at runtime.
     Configuration files are stored on disk as YAML files.
@@ -79,7 +81,7 @@ class AppConfig:
         all_keys = set(list(a.keys()) + list(b.keys()))
 
         for key in all_keys:
-            c[key] = AppConfig._merge_key(a, b, key)
+            c[key] = Config._merge_key(a, b, key)
 
         return c
 
@@ -115,11 +117,7 @@ class AppConfig:
 
         # Merge dictionaries recursively
         if isinstance(a[key], dict) and isinstance(b[key], dict):
-            return AppConfig._merge_configs(a[key], b[key])
+            return Config._merge_configs(a[key], b[key])
 
         # Otherwise we'll just assume this is a basic type and return B's value
         return b_copy
-
-
-class InvalidEnvironmentError(Exception):
-    pass
