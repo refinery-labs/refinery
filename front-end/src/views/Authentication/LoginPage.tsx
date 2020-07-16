@@ -22,6 +22,7 @@ export default class LoginPage extends Vue {
 
   @user.Action loginUser!: () => void;
   @user.Action redirectIfAuthenticated!: () => void;
+  @user.Action authWithGithub!: () => void;
 
   onSubmit(evt: Event) {
     evt.preventDefault();
@@ -121,6 +122,12 @@ export default class LoginPage extends Vue {
             {this.loginAttemptMessage}
           </b-form-valid-feedback>
         </b-form>
+        <hr />
+        <h5>OR</h5>
+        <b-button class="btn btn-block btn-secondary mt-3" on={{ click: () => this.authWithGithub() }}>
+          <em class="fab fa-github"></em> Login/Register via Github
+        </b-button>
+        <hr />
         <p class="pt-3 text-center">Need to Signup?</p>
         <router-link class="btn btn-block btn-secondary" to="/register">
           Register Now

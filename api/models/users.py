@@ -1,13 +1,27 @@
-from .initiate_database import *
+import enum
+
+import sqlalchemy
+from sqlalchemy import Column, CHAR, Text, Boolean, ForeignKey, Integer
+
 import json
 import uuid
 import time
 
+from sqlalchemy.orm import relationship
+
+from .initiate_database import Base
 from .user_project_associations import users_projects_association_table
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from . import EmailAuthToken, Organization, Project, StateLog, UserOAuthAccountModel
+
+
+class RefineryUserTier( enum.Enum ):
+    # Free tier, makes use of the shared redis cluster
+    FREE = 'free'
+    # Paid tier, uses their own dedicated redis instance
+    PAID = 'paid'
 
 
 class User(Base):
@@ -64,6 +78,13 @@ class User(Base):
     # Phone number of the user
     phone_number = Column(Text())
 
+    # Tier the user's account is under (free/paid)
+    tier = Column(
+        sqlalchemy.Enum(RefineryUserTier),
+        default=RefineryUserTier.FREE,
+        nullable=False
+    )
+
     # Parent organization the user belongs to
     organization_id = Column(
         CHAR(36),
@@ -119,9 +140,6 @@ class User(Base):
     )
 
     timestamp = Column(Integer())
-
-    # Tier the user's account is under (free/paid)
-    # tier = Column( Enum( RefineryUserTier ), nullable=False )
 
     def __init__(self):
         self.id = str(uuid.uuid4())

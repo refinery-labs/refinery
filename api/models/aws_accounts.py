@@ -1,6 +1,9 @@
-from .initiate_database import *
-
+from sqlalchemy import CHAR, Column, Text, BigInteger, Integer, ForeignKey
+from sqlalchemy.orm import relationship
 from typing import TYPE_CHECKING
+
+from models.initiate_database import Base
+
 if TYPE_CHECKING:
     from models import CachedBillingCollection, Deployment, InlineExecutionLambda, TerraformStateVersion
 

@@ -2,11 +2,12 @@
 # coding=utf8
 # -*- coding: utf8 -*-
 # vim: set fileencoding=utf8 :
+import pinject
 import tornado.ioloop
 import tornado.web
-import sys
 
 from app import TornadoBindingSpec, TornadoApp, WebsocketApp
+from assistants.aws_account_management.account_freezer import AwsAccountFreezer
 from assistants.aws_account_management.preterraform import PreterraformManager
 from assistants.aws_clients.aws_clients_assistant import STSClientBindingSpec, AwsClientFactory
 from assistants.billing.billing_assistant import BillingSpawner
@@ -16,11 +17,13 @@ from assistants.deployments.dangling_resources import AwsResourceEnumerator
 from assistants.deployments.schedule_trigger import ScheduleTriggerManager
 from assistants.deployments.sns import SnsManager
 from assistants.deployments.sqs import SqsManager
+from assistants.free_tier.free_tier_assistant import UsageSpawner
 from assistants.github.github_assistant import GithubAssistant
 from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from assistants.user_creation_assistant import UserCreationAssistant
 from config.provider import ConfigBindingSpec
 from assistants.github.oauth_provider import GithubOAuthProviderBindingSpec
+from models.initiate_database import DatabaseBindingSpec
 from services.auth.oauth_service import OAuthServiceBindingSpec
 
 from services.aws.clients import AWSClientBindingSpec
@@ -32,7 +35,6 @@ from assistants.deployments.ecs_builders import BuilderManager, AwsEcsManager
 
 from services.websocket_router import ScheduledHeartbeatRunner, WebsocketRouter
 
-from models.initiate_database import *
 from sys import maxsize
 from csv import field_size_limit
 
@@ -69,7 +71,9 @@ if __name__ == "__main__":
         ProjectInventoryService,
         StripeService,
         UserManagementService,
-        GithubAssistant
+        GithubAssistant,
+        UsageSpawner,
+        AwsAccountFreezer
     ]
 
     binding_specs = [

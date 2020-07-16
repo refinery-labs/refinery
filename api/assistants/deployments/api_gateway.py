@@ -62,7 +62,7 @@ def strip_api_gateway(api_gateway_manager, credentials, api_gateway_id):
             api_gateway_manager.delete_rest_api_resource_method(
                 credentials,
                 api_gateway_id,
-                lambda_config,
+                lambda_config.resource_id,
                 lambda_config.method
             )
         )

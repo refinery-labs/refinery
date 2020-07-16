@@ -43,7 +43,7 @@ def automatically_fix_schedule_expression(schedule_expression):
     return schedule_expression
 
 
-def create_cloudwatch_group(aws_client_factory, credentials, group_name, tags_dict, retention_days):
+def create_cloudwatch_group(app_config, aws_client_factory, credentials, group_name, tags_dict, retention_days):
     # Create S3 client
     cloudwatch_logs = aws_client_factory.get_aws_client(
         "logs",
@@ -64,6 +64,13 @@ def create_cloudwatch_group(aws_client_factory, credentials, group_name, tags_di
     retention_response = cloudwatch_logs.put_retention_policy(
         logGroupName=group_name,
         retentionInDays=retention_days
+    )
+
+    cloudwatch_logs.put_subscription_filter(
+        logGroupName=group_name,
+        filterName="Destination",
+        filterPattern="REPORT",
+        destinationArn=app_config.get("lambda_execution_logs_destination_arn")
     )
 
     return {

@@ -195,7 +195,7 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
 
         # Don't yield for it, but we'll also create a log group at the same time
         # We're set a tag for that log group for cost tracking
-        task_spawner.create_cloudwatch_group(
+        yield task_spawner.create_cloudwatch_group(
             self._credentials,
             f"/aws/lambda/{self.name}",
             {

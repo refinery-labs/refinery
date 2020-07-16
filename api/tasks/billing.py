@@ -11,7 +11,6 @@ from json import loads
 from models import AWSAccount, Organization, CachedBillingCollection, CachedBillingItem
 from numpy import format_float_positional
 from pystache import render
-from tasks.aws_account import freeze_aws_account
 from tasks.email import send_email, send_account_freeze_email
 from time import time
 from utils.general import logit
@@ -248,7 +247,7 @@ def pull_current_month_running_account_totals(aws_cost_explorer):
     return aws_account_running_cost_list
 
 
-def enforce_account_limits(app_config, aws_client_factory, db_session_maker, aws_account_running_cost_list):
+def enforce_account_limits(app_config, aws_client_factory, db_session_maker, aws_account_freezer, aws_account_running_cost_list):
     """
     {
             "aws_account_id": "00000000000",
@@ -294,7 +293,7 @@ def enforce_account_limits(app_config, aws_client_factory, db_session_maker, aws
         if user_trial_info["is_using_trial"] and exceeds_free_trial_limit:
             logit("[ STATUS ] Enumerated user has exceeded their free trial.")
             logit("[ STATUS ] Taking action against free-trial account...")
-            freeze_result = freeze_aws_account(
+            freeze_result = aws_account_freezer.freeze_aws_account(
                 app_config,
                 aws_client_factory,
                 db_session_maker,

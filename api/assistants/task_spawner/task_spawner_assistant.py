@@ -43,10 +43,7 @@ from tasks.email import (
     send_authentication_email,
     send_internal_registration_confirmation_email)
 from tasks.aws_account import (
-    unfreeze_aws_account,
-    freeze_aws_account,
     create_new_sub_aws_account,
-    recreate_aws_console_account,
     mark_account_needs_closing, do_account_cleanup)
 from tasks.stripe_api import (
     get_account_cards,
@@ -145,6 +142,7 @@ class TaskSpawner(object):
         aws_cost_explorer,
         aws_organization_client,
         aws_lambda_client,
+        aws_account_freezer,
         api_gateway_manager,
         lambda_manager,
         logger,
@@ -303,35 +301,6 @@ class TaskSpawner(object):
         )
 
     @run_on_executor
-    @emit_runtime_metrics("unfreeze_aws_account")
-    def unfreeze_aws_account(self, credentials):
-        return unfreeze_aws_account(
-            self.aws_client_factory,
-            credentials
-        )
-
-    @run_on_executor
-    @emit_runtime_metrics("freeze_aws_account")
-    def freeze_aws_account(self, credentials):
-        return freeze_aws_account(
-            self.app_config,
-            self.aws_client_factory,
-            self.db_session_maker,
-            credentials
-        )
-
-    @run_on_executor
-    @emit_runtime_metrics("recreate_aws_console_account")
-    def recreate_aws_console_account(self, credentials, rotate_password, force_continue=False):
-        return recreate_aws_console_account(
-            self.app_config,
-            self.aws_client_factory,
-            credentials,
-            rotate_password,
-            force_continue=force_continue
-        )
-
-    @run_on_executor
     @emit_runtime_metrics("send_email")
     def send_email(self, to_email_string, subject_string, message_text_string, message_html_string):
         return send_email(
@@ -434,6 +403,7 @@ class TaskSpawner(object):
             self.app_config,
             self.aws_client_factory,
             self.db_session_maker,
+            self.aws_account_freezer,
             aws_account_running_cost_list
         )
 
@@ -693,6 +663,7 @@ class TaskSpawner(object):
     @emit_runtime_metrics("create_cloudwatch_group")
     def create_cloudwatch_group(self, credentials, group_name, tags_dict, retention_days):
         return create_cloudwatch_group(
+            self.app_config,
             self.aws_client_factory,
             credentials,
             group_name,

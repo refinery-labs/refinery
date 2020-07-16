@@ -1,8 +1,11 @@
-from .initiate_database import *
 import json
 import uuid
 import time
 
+from sqlalchemy import CHAR, Column, Text, Integer
+from sqlalchemy.orm import relationship
+
+from .initiate_database import Base
 from .user_project_associations import users_projects_association_table
 
 from typing import TYPE_CHECKING

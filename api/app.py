@@ -3,7 +3,9 @@ import tornado.ioloop
 import tornado.httpserver
 
 from controller.auth import *
+from controller.auth.downgrade_account_tier import DowngradeAccountTier
 from controller.auth.github import *
+from controller.auth.upgrade_account_tier import UpgradeAccountTier
 from controller.aws import *
 from controller.billing import *
 from controller.deployments import *
@@ -12,11 +14,13 @@ from controller.github.controllers_github_proxy import GithubProxy
 from controller.health import *
 from controller.internal import *
 from controller.lambdas import *
+from controller.lambdas.inbound_exec_details_processor import StoreLambdaExecutionDetails
 from controller.logs import *
 from controller.projects import *
 from controller.projects.controllers_short_links import GetProjectShortlink, CreateProjectShortlink
 from controller.saved_blocks import *
 from controller.services import *
+from controller.services.rescan_free_tier_accounts import RescanFreeTierAccounts
 from controller.websockets import *
 
 from controller.websockets import LambdaConnectBackServer
@@ -75,7 +79,7 @@ class TornadoApp:
             (r"/api/v1/auth/register", NewRegistration),
             (r"/api/v1/auth/login", Authenticate),
             (r"/api/v1/auth/logout", Logout),
-            ( r"/api/v1/auth/github", AuthenticateWithGithub, "auth_github" ),
+            (r"/api/v1/auth/github", AuthenticateWithGithub, "auth_github"),
 
             (r"/api/v1/logs/executions/get-logs", GetProjectExecutionLogObjects),
             (r"/api/v1/logs/executions/get-contents", GetProjectExecutionLogsPage),
@@ -117,6 +121,7 @@ class TornadoApp:
             (r"/api/v1/billing/creditcards/list", ListCreditCards),
             (r"/api/v1/billing/creditcards/delete", DeleteCreditCard),
             (r"/api/v1/billing/creditcards/make_primary", MakeCreditCardPrimary),
+            (r"/api/v1/billing/tier/upgrade", UpgradeAccountTier),
             # Temporarily disabled since it doesn't cache the CostExplorer results
             #( r"/api/v1/billing/forecast_for_date_range", GetBillingDateRangeForecast ),
 
@@ -149,6 +154,9 @@ class TornadoApp:
             (r"/services/v1/clear_stripe_invoice_drafts", ClearStripeInvoiceDrafts),
             (r"/services/v1/mark_account_needs_closing", MarkAccountNeedsClosing),
             (r"/services/v1/remove_needs_closing_accounts", RemoveNeedsClosingAccounts),
+            (r"/services/v1/store_lambda_execution_details", StoreLambdaExecutionDetails),
+            (r"/services/v1/rescan_free_tier_accounts", RescanFreeTierAccounts),
+            (r"/services/v1/downgrade_account_tier", DowngradeAccountTier),
         ]
 
         # Sets up routes
