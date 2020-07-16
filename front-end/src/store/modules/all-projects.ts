@@ -229,16 +229,16 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
         return;
       }
 
-      const newAvailableProjects = context.state.availableProjects.reduce((availableProjects, project) => {
+      const newAvailableProjects = context.state.availableProjects.map(project => {
         if (project.id === projectId) {
-          const updatedProjectResult: SearchSavedProjectsResult = {
+          return {
             ...project,
             versions
           };
-          return [...availableProjects, updatedProjectResult];
         }
-        return [...availableProjects, project];
-      }, [] as SearchSavedProjectsResult[]);
+
+        return project;
+      });
 
       context.commit(AllProjectsMutators.setCardStateLookup, getInitialCardStateForSearchResults(newAvailableProjects));
       context.commit(AllProjectsMutators.setAvailableProjects, newAvailableProjects);

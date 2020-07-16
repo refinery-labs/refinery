@@ -52,6 +52,7 @@ export interface SearchSavedProjectsResponse extends BaseApiResponse {
 export interface SearchSavedProjectsResult {
   timestamp: number;
   versions: SearchSavedProjectVersionMetadata[];
+  total_versions?: number;
   deployment: string | null;
   id: string;
   name: string;

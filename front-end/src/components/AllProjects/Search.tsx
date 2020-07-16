@@ -15,6 +15,8 @@ const allProjects = namespace('allProjects');
   components: { ContentWrapper }
 })
 export default class Search extends Vue {
+  private loadingMoreProjectsForProjectWithId: null | string = null;
+
   @allProjects.State availableProjects!: SearchSavedProjectsResult[];
   @allProjects.State isSearching!: Boolean;
   @allProjects.State searchBoxText!: string;
@@ -220,19 +222,21 @@ export default class Search extends Vue {
     const cardProps: ViewProjectCardProps = {
       project: project,
       selectedVersion: cardState.selectedVersion,
-      onSelectedVersionChanged: (version: number) => {
-        const firstProjectVersion = project.versions[0].version;
-        const selectedLoadMore = version === loadMoreProjectVersionsOptionValue;
+      isLoadingMoreProjects: this.loadingMoreProjectsForProjectWithId === project.id,
+      onSelectedVersionChanged: async (version: number) => {
+        const loadMoreVersions = version === loadMoreProjectVersionsOptionValue;
 
-        const selectedVersion = !selectedLoadMore ? version : firstProjectVersion;
-
-        if (selectedLoadMore) {
-          this.getAllProjectVersions(project.id);
+        if (loadMoreVersions) {
+          this.loadingMoreProjectsForProjectWithId = project.id;
+          await this.getAllProjectVersions(project.id);
+          this.loadingMoreProjectsForProjectWithId = null;
         }
+
+        const versionToSelect = loadMoreVersions ? project.versions[0].version : version;
 
         this.setCardSelectedVersion({
           projectId: project.id,
-          selectedVersion: selectedVersion
+          selectedVersion: versionToSelect
         });
       }
     };
