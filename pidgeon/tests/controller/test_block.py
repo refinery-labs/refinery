@@ -19,11 +19,11 @@ class TestBlock:
     @mark.asyncio
     async def test_ops_cycle(self, controller):
         scenarios = [
-            (str(uuid4()), str(uuid4()), str(uuid4()))
+            (str(uuid4()), str(uuid4()), str(uuid4()), str(uuid4()))
             for _ in range(100)
         ]
 
-        for user_uuid, execution_id, data in scenarios:
+        for user_uuid, execution_id, result_id, data in scenarios:
             auth = self._get_auth(
                 user_uuid,
                 execution_id,
@@ -32,17 +32,17 @@ class TestBlock:
             )
             data = str(uuid4())
             # Put
-            await controller.set_block_state(auth, user_uuid, execution_id, data)
+            await controller.set_block_state(auth, user_uuid, execution_id, result_id, data)
             # Get
-            result = await controller.get_block_state(auth, user_uuid, execution_id)
+            result = await controller.get_block_state(auth, user_uuid, execution_id, result_id)
 
             assert result == data
             # Delete
-            await controller.delete_block_state(auth, user_uuid, execution_id)
+            await controller.delete_block_state(auth, user_uuid, execution_id, result_id)
 
             # Get and fail
             with raises(Exception):
-                await controller.get_block_state(auth, user_uuid, execution_id)
+                await controller.get_block_state(auth, user_uuid, execution_id, result_id)
 
     def test_validate_key_mismatch(self, controller):
         pass
