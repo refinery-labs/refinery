@@ -1,12 +1,16 @@
+from sqlalchemy.orm import relationship
+
 from data_types.oauth_providers import OAuthProvider
-from sqlalchemy import Enum, Index, TEXT
-from .initiate_database import *
+from sqlalchemy import Enum, Index, TEXT, Column, ForeignKey
 import json
 import uuid
 
 from models.model_exceptions import InvalidModelCreationError
 
 from typing import TYPE_CHECKING
+
+from .initiate_database import Base
+
 if TYPE_CHECKING:
     from . import UserOAuthDataRecordModel
 

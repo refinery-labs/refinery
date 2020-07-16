@@ -1,13 +1,16 @@
 import time
 
-from sqlalchemy import Index, TEXT
+from sqlalchemy import Index, TEXT, Column, ForeignKey, Integer, Boolean
 from sqlalchemy.dialects.postgresql import JSONB
 
-from .initiate_database import *
 import json
 import uuid
 
+from sqlalchemy.orm import relationship
 from typing import TYPE_CHECKING
+
+from .initiate_database import Base
+
 if TYPE_CHECKING:
     from . import GitRepoModel
 

@@ -1,7 +1,6 @@
-from sqlalchemy.orm import SynonymProperty
-from typing import Any
+from sqlalchemy import Column, Text, Integer, ForeignKey, JSON
 
-from .initiate_database import *
+from .initiate_database import Base
 from .saved_block import SavedBlock
 import uuid
 import time

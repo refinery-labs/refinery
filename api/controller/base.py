@@ -1,13 +1,13 @@
+from __future__ import annotations
 
+import pinject
 import tornado.web
 import json
 import time
 
 from tornado import gen
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
-from models import User
-from models.initiate_database import *
 from models.users import User
 from models.projects import Project
 from models.aws_accounts import AWSAccount
@@ -16,9 +16,14 @@ from models.organizations import Organization
 from utils.general import logit
 from utils.locker import Locker
 
+if TYPE_CHECKING:
+    from assistants.task_spawner.task_spawner_assistant import TaskSpawner
+    from config.app_config import AppConfig
+
 CSRF_EXEMPT_ENDPOINTS = [
     "/services/v1/mark_account_needs_closing",
-    "/api/v1/github/proxy"
+    "/api/v1/github/proxy",
+    "/services/v1/store_lambda_execution_details"
 ]
 
 
@@ -50,8 +55,8 @@ class BaseHandler(TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler):
     dependencies = BaseHandlerDependencies
     logger = None
     db_session_maker = None
-    app_config = None
-    task_spawner = None
+    app_config: AppConfig = None
+    task_spawner: TaskSpawner = None
 
     _dbsession = None
     json = None
@@ -151,8 +156,16 @@ class BaseHandler(TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler):
             aws_account_status="IN_USE"
         ).first()
 
+        # We also pull their account because we want to include
+        # What tier the user is at in the returned dict so we can
+        # use it to make deploy-decisions/etc.
+        # This access is for free since it's stored on the handler
+        # due to the get_authenticated_user_org() call above.
+        user = self.get_authenticated_user()
+
         if aws_account:
             self.user_aws_credentials = aws_account.to_dict()
+            self.user_aws_credentials[ "tier" ] = user.tier
             return self.user_aws_credentials
 
         logit("Account has no AWS account associated with it!")

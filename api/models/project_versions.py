@@ -1,4 +1,6 @@
-from .initiate_database import *
+from sqlalchemy import Column, CHAR, ForeignKey, Integer, Text
+
+from .initiate_database import Base
 from .projects import Project
 import json
 import uuid

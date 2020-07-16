@@ -3,6 +3,7 @@ import hashlib
 import json
 import time
 
+import pinject
 import stripe
 from email_validator import validate_email, EmailNotValidError
 from tornado import gen
@@ -281,7 +282,16 @@ class NewRegistration(BaseHandler):
         )
 
 
+class EmailLinkAuthenticationDependencies:
+    @pinject.copy_args_to_public_fields
+    def __init__(self, aws_account_freezer):
+        pass
+
+
 class EmailLinkAuthentication(BaseHandler):
+    dependencies = EmailLinkAuthenticationDependencies
+    aws_account_freezer = None
+
     @gen.coroutine
     def get(self, email_authentication_token=None):
         """
@@ -363,7 +373,7 @@ class EmailLinkAuthentication(BaseHandler):
                 # Don't yield because we don't care about the result
                 # Unfreeze/thaw the account so that it's ready for the new user
                 # This takes ~30 seconds - worth noting. But that **should** be fine.
-                self.task_spawner.unfreeze_aws_account(
+                self.aws_account_freezer.unfreeze_aws_account(
                     aws_reserved_account.to_dict()
                 )
 
@@ -371,14 +381,14 @@ class EmailLinkAuthentication(BaseHandler):
 
         # Check if the user's account is disabled
         # If it's disabled don't allow the user to log in at all.
-        if email_authentication_token.user.disabled == True:
+        if email_authentication_token.user.disabled:
             self.logger("User login was denied due to their account being disabled!")
             self.write("Your account is currently disabled, please contact customer support for more information.")
             raise gen.Return()
 
         # Check if the user's organization is disabled
         # If it's disabled don't allow the user to log in at all.
-        if user_organization.disabled == True:
+        if user_organization.disabled:
             self.logger("User login was denied due to their organization being disabled!")
             self.write("Your organization is currently disabled, please contact customer support for more information.")
             raise gen.Return()

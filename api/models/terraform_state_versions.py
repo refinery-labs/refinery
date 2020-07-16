@@ -1,9 +1,13 @@
-from .initiate_database import *
 import json
 import uuid
 import time
 
+from sqlalchemy import Column, CHAR, Text, ForeignKey, Integer
+from sqlalchemy.orm import relationship
 from typing import TYPE_CHECKING
+
+from models.initiate_database import Base
+
 if TYPE_CHECKING:
     from models import AWSAccount
 

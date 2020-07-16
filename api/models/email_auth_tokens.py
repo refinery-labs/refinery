@@ -1,9 +1,12 @@
-from .initiate_database import *
+from sqlalchemy import Column, CHAR, Text, Boolean, ForeignKey, Integer
+
 import binascii
 import json
 import uuid
 import time
 import os
+
+from models.initiate_database import Base
 
 
 class EmailAuthToken(Base):
