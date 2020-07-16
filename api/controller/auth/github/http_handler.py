@@ -102,7 +102,7 @@ class AuthenticateWithGithub(BaseHandler):
 
         # return script for closing this window, the user should be taken back to the original page
         # they started the oauth flow from
-        nonce = b64encode(os.urandom(16))
+        nonce = b64encode(os.urandom(16)).decode('utf-8')
 
         broadcast_and_close_js = """
         const bc = new BroadcastChannel('auth_flow');
