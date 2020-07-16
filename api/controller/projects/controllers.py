@@ -57,14 +57,15 @@ def serialize_versions(project_versions):
     ]
 
 
-def serialize_project(project, last_modified, versions, deployment_exists):
+def serialize_project(project, last_modified, versions, total_versions, deployment_exists):
     return {
         "id": project.id,
         "name": project.name,
         "timestamp": project.timestamp,
         "last_modified": last_modified,
         "deployment": deployment_exists,
-        "versions": versions
+        "versions": versions,
+        "total_versions": total_versions
     }
 
 
@@ -101,7 +102,14 @@ class SearchSavedProjects(BaseHandler):
 
             versions = serialize_versions(project_versions)
 
-            project_item = serialize_project(project, last_modified, versions, deployment_exists)
+            # Optimized for select speed, per the following posts:
+            # https://stackoverflow.com/questions/12941416/how-to-count-rows-with-select-count-with-sqlalchemy
+            # https://docs.sqlalchemy.org/en/13/orm/tutorial.html#counting
+            total_versions = self.dbsession.query(func.count('*')).select_from(ProjectVersion).filter_by(
+                project_id=project.id
+            ).scalar()
+
+            project_item = serialize_project(project, last_modified, versions, total_versions, deployment_exists)
 
             results_list.append(
                 project_item
@@ -166,6 +174,8 @@ class GetProjectVersions(BaseHandler):
             ProjectVersion
         ).filter(
             ProjectVersion.project_id == project_id
+        ).order_by(
+            ProjectVersion.timestamp.desc()
         ).all()
 
         versions = serialize_versions(project_versions)

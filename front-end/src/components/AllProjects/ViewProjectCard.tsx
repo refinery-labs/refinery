@@ -12,6 +12,7 @@ const allProjects = namespace('allProjects');
 export interface ViewProjectCardProps {
   project: SearchSavedProjectsResult;
   selectedVersion: number;
+  isLoadingMoreProjects: boolean;
   onSelectedVersionChanged: (version: number) => void;
 }
 
@@ -28,6 +29,7 @@ export default class ViewProjectCard extends Vue implements ViewProjectCardProps
 
   @Prop() project!: SearchSavedProjectsResult;
   @Prop() selectedVersion!: number;
+  @Prop() isLoadingMoreProjects!: boolean;
 
   @Prop() onSelectedVersionChanged!: (version: number) => void;
 
@@ -69,9 +71,14 @@ export default class ViewProjectCard extends Vue implements ViewProjectCardProps
     const latestVersion = this.project.versions[0];
     const otherVersions = this.project.versions.slice(1);
 
+    const totalVersions = this.project.total_versions;
+    const hasMoreVersionsAvailable = totalVersions === undefined || this.project.versions.length !== totalVersions;
+
     return (
       <b-form-select
         class="width--auto min-width--200px"
+        // Setting the key forces a reload of the element when more elements load in. This prevents "sticking" to "load more" in the list.
+        key={this.project.versions.length}
         value={this.selectedVersion}
         on={{ change: this.onSelectedVersionChanged }}
       >
@@ -83,7 +90,9 @@ export default class ViewProjectCard extends Vue implements ViewProjectCardProps
             v{version} - {getFriendlyDurationSinceString(timestamp * 1000)}
           </option>
         ))}
-        <option value={loadMoreProjectVersionsOptionValue}>Load more versions...</option>
+        {hasMoreVersionsAvailable ? (
+          <option value={loadMoreProjectVersionsOptionValue}>Load more versions...</option>
+        ) : null}
       </b-form-select>
     );
   }
@@ -115,9 +124,12 @@ export default class ViewProjectCard extends Vue implements ViewProjectCardProps
       'fa-check': this.renameProjectId === project.id
     };
 
+    const loadingText = this.isLoadingMoreProjects ? 'Loading project versions...' : 'Renaming...';
+    const isRenamingProject = this.renameProjectBusy && this.renameProjectId === project.id;
+
     const loadingProps: LoadingContainerProps = {
-      label: 'Renaming...',
-      show: this.renameProjectBusy && this.renameProjectId === project.id
+      label: loadingText,
+      show: isRenamingProject || this.isLoadingMoreProjects
     };
 
     return (
