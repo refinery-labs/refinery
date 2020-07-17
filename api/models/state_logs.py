@@ -1,9 +1,11 @@
-from sqlalchemy import Index
+from sqlalchemy import Index, Column, CHAR, Text, JSON, ForeignKey, Integer
 
-from .initiate_database import *
 import json
 import uuid
 import time
+
+from models.initiate_database import Base
+
 
 class StateLog(Base):
     """

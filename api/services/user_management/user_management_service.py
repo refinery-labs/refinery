@@ -1,6 +1,6 @@
 from models.email_auth_tokens import EmailAuthToken
 from models.organizations import Organization
-from models.users import User
+from models.users import User, RefineryUserTier
 from services.user_management.exceptions import DuplicateUserCreationError
 
 
@@ -105,6 +105,7 @@ class UserManagementService:
         new_user.email = email
         new_user.phone_number = phone
         new_user.has_valid_payment_method_on_file = True
+        new_user.tier = RefineryUserTier.FREE
 
         # TODO: Port over Email verification logic from server.py
         if require_email_verification:

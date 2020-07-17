@@ -109,7 +109,7 @@ class UpdateIAMConsoleUserIAM(BaseHandler):
 
         for aws_account_dict in aws_account_dicts:
             self.logger("Updating console account for AWS account ID " + aws_account_dict["account_id"] + "...")
-            yield self.task_spawner.recreate_aws_console_account(
+            yield self.aws_account_freezer.recreate_aws_console_account(
                 aws_account_dict,
                 False
             )
@@ -196,7 +196,16 @@ class OnboardThirdPartyAWSAccountPlan(BaseHandler):
         })
 
 
+class OnboardThirdPartyAWSAccountApplyDependencies:
+    @pinject.copy_args_to_public_fields
+    def __init__(self, aws_account_freezer):
+        pass
+
+
 class OnboardThirdPartyAWSAccountApply(BaseHandler):
+    dependencies = OnboardThirdPartyAWSAccountApplyDependencies
+    aws_account_freezer = None
+
     @gen.coroutine
     def get(self):
         """
@@ -325,7 +334,7 @@ class OnboardThirdPartyAWSAccountApply(BaseHandler):
         # Close the previous Refinery-managed AWS account
         self.logger("Closing previously-assigned Refinery AWS account...")
         self.logger("Freezing the account so it costs us less while we do the process of closing it...")
-        yield self.task_spawner.freeze_aws_account(
+        yield self.aws_account_freezer.freeze_aws_account(
             previous_aws_account_dict
         )
 
@@ -374,7 +383,52 @@ class ClearAllS3BuildPackages(BaseHandler):
         self.logger("S3 package clearing complete.")
 
 
+class MaintainAWSAccountReservesDependencies:
+    @pinject.copy_args_to_public_fields
+    def __init__(self, aws_account_freezer):
+        pass
+
+
 class MaintainAWSAccountReserves(BaseHandler):
+    dependencies = MaintainAWSAccountReservesDependencies
+    aws_account_freezer = None
+
+    def terraform_setup_aws_account(self, aws_account_id, current_aws_account):
+        current_aws_account_dict = current_aws_account.to_dict()
+        try:
+            account_provisioning_details = yield self.task_spawner.terraform_configure_aws_account(
+                current_aws_account_dict
+            )
+
+            self.logger("Adding AWS account to the database the pool of \"AVAILABLE\" accounts...")
+
+            dbsession = self.db_session_maker()
+            current_aws_account = dbsession.query(AWSAccount).filter(
+                AWSAccount.account_id == aws_account_id,
+                ).first()
+
+            # Update the AWS account with this new information
+            current_aws_account.redis_hostname = account_provisioning_details["redis_hostname"]
+            current_aws_account.terraform_state = account_provisioning_details["terraform_state"]
+            current_aws_account.ssh_public_key = account_provisioning_details["ssh_public_key"]
+            current_aws_account.ssh_private_key = account_provisioning_details["ssh_private_key"]
+            current_aws_account.aws_account_status = "AVAILABLE"
+
+            # Create a new terraform state version
+            terraform_state_version = TerraformStateVersion()
+            terraform_state_version.terraform_state = account_provisioning_details["terraform_state"]
+            current_aws_account.terraform_state_versions.append(
+                terraform_state_version
+            )
+        except Exception as e:
+            self.logger(f"An error occurred while provision AWS account '{current_aws_account.account_id}' with terraform!", "error")
+            self.logger(e)
+            print_exc()
+            self.logger("Marking the account as 'CORRUPT'...")
+
+            # Mark the account as corrupt since the provisioning failed.
+            current_aws_account.aws_account_status = "CORRUPT"
+
     @gen.coroutine
     def get(self):
         """
@@ -446,51 +500,18 @@ class MaintainAWSAccountReserves(BaseHandler):
             current_aws_account = dbsession.query(AWSAccount).filter(
                 AWSAccount.account_id == aws_account_id,
             ).first()
-            current_aws_account_dict = current_aws_account.to_dict()
             dbsession.close()
 
-            self.logger("Kicking off terraform set-up for AWS account '" + current_aws_account_dict["account_id"] + "'...")
-            try:
-                account_provisioning_details = yield self.task_spawner.terraform_configure_aws_account(
-                    current_aws_account_dict
-                )
+            self.logger(f"Kicking off terraform set-up for AWS account '{current_aws_account.account_id}'...")
+            self.terraform_setup_aws_account(aws_account_id, current_aws_account)
 
-                self.logger("Adding AWS account to the database the pool of \"AVAILABLE\" accounts...")
-
-                dbsession = self.db_session_maker()
-                current_aws_account = dbsession.query(AWSAccount).filter(
-                    AWSAccount.account_id == aws_account_id,
-                ).first()
-
-                # Update the AWS account with this new information
-                current_aws_account.redis_hostname = account_provisioning_details["redis_hostname"]
-                current_aws_account.terraform_state = account_provisioning_details["terraform_state"]
-                current_aws_account.ssh_public_key = account_provisioning_details["ssh_public_key"]
-                current_aws_account.ssh_private_key = account_provisioning_details["ssh_private_key"]
-                current_aws_account.aws_account_status = "AVAILABLE"
-
-                # Create a new terraform state version
-                terraform_state_version = TerraformStateVersion()
-                terraform_state_version.terraform_state = account_provisioning_details["terraform_state"]
-                current_aws_account.terraform_state_versions.append(
-                    terraform_state_version
-                )
-            except Exception as e:
-                self.logger("An error occurred while provision AWS account '" + current_aws_account.account_id + "' with terraform!", "error")
-                self.logger(e)
-                print_exc()
-                self.logger("Marking the account as 'CORRUPT'...")
-
-                # Mark the account as corrupt since the provisioning failed.
-                current_aws_account.aws_account_status = "CORRUPT"
-
-            self.logger("Commiting new account state of '" + current_aws_account.aws_account_status + "' to database...")
+            self.logger(f"Commiting new account state of '{current_aws_account.aws_account_status}' to database...")
             dbsession.add(current_aws_account)
             dbsession.commit()
 
             self.logger("Freezing the account until it's used by someone...")
 
-            self.task_spawner.freeze_aws_account(current_aws_account.to_dict())
+            self.aws_account_freezer.freeze_aws_account(current_aws_account.to_dict())
 
             self.logger("Account frozen successfully.")
 
@@ -1010,7 +1031,16 @@ class ClearStripeInvoiceDrafts(BaseHandler):
         })
 
 
+class ResetIAMConsoleUserIAMForAccountDependencies:
+    @pinject.copy_args_to_public_fields
+    def __init__(self, aws_account_freezer):
+        pass
+
+
 class ResetIAMConsoleUserIAMForAccount(BaseHandler):
+    dependencies = ResetIAMConsoleUserIAMForAccountDependencies
+    aws_account_freezer = None
+
     @gen.coroutine
     def get(self, account_id=None):
         """
@@ -1055,7 +1085,7 @@ class ResetIAMConsoleUserIAMForAccount(BaseHandler):
         dbsession.close()
 
         self.logger("Updating console account for single AWS account ID " + aws_account_dict["account_id"] + "...")
-        yield self.task_spawner.recreate_aws_console_account(
+        yield self.aws_account_freezer.recreate_aws_console_account(
             aws_account_dict,
             False,
             # We set this flag so that if the user was deleted, it will be recreated

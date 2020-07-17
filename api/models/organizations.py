@@ -1,9 +1,14 @@
-from .initiate_database import *
 import json
 import uuid
 import time
 
+from sqlalchemy.orm import relationship
+
+from .initiate_database import Base
+
+from sqlalchemy import Column, CHAR, BigInteger, Boolean, Integer, Text
 from typing import TYPE_CHECKING
+
 if TYPE_CHECKING:
     from . import AWSAccount, GitRepoModel, User
 

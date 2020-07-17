@@ -1,7 +1,11 @@
-from .initiate_database import *
+from sqlalchemy import Column, Text, Boolean, DateTime
+
 import json
 
 from typing import TYPE_CHECKING
+
+from .initiate_database import Base
+
 if TYPE_CHECKING:
     from . import *
 

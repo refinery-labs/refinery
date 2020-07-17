@@ -1,10 +1,10 @@
-import time
-
-from sqlalchemy import Index, TEXT
-from .initiate_database import *
+from sqlalchemy import Index, TEXT, Column, ForeignKey
 import json
 import uuid
 
+from sqlalchemy.orm import relationship
+
+from models.initiate_database import Base
 from models.model_exceptions import InvalidModelCreationError
 
 from typing import TYPE_CHECKING

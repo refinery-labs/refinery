@@ -1,9 +1,12 @@
-from .initiate_database import *
 import random
 import string
 import json
 import uuid
 import time
+
+from sqlalchemy import Column, CHAR, Text, JSON, Integer
+
+from models.initiate_database import Base
 
 
 class ProjectShortLink(Base):

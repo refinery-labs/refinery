@@ -1,5 +1,6 @@
 import functools
 import tornado
+import pinject
 import copy
 import json
 import re
@@ -11,7 +12,6 @@ from utils.general import logit
 from tornado import gen
 
 from models.users import User
-from models.initiate_database import *
 from utils.performance_decorators import emit_runtime_metrics
 
 

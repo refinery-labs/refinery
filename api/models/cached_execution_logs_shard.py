@@ -1,4 +1,6 @@
-from .initiate_database import *
+from sqlalchemy import Column, Text, CHAR, JSON, ForeignKey, Integer
+
+from .initiate_database import Base
 from .projects import Project
 import uuid
 import time
