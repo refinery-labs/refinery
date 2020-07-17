@@ -7,23 +7,33 @@ from pytest import fixture, raises, mark
 from uuid import uuid4
 
 
+class MockAuth:
+    def __init__(self, deployment_id):
+        self.deployment_id = deployment_id
+
+    async def authorize_block_result(self, auth):
+        return self.deployment_id
+
+
 class TestBlock:
     @fixture
     def controller(self):
         config = {"block_result_key": SymCrypto.keygen()}
         block_state = BlockState(DictKv())
+        auth = MockAuth(str(uuid4()))
         sym_crypto = SymCrypto()
 
-        return Block(config, block_state, sym_crypto)
+        return Block(config, block_state, sym_crypto, auth)
 
     @mark.asyncio
     async def test_ops_cycle(self, controller):
+        deployment_id = controller.auth.deployment_id
         scenarios = [
-            (str(uuid4()), str(uuid4()), str(uuid4()), str(uuid4()))
+            (str(uuid4()), str(uuid4()), str(uuid4()))
             for _ in range(100)
         ]
 
-        for deployment_id, execution_id, result_id, data in scenarios:
+        for execution_id, result_id, data in scenarios:
             auth = self._get_auth(
                 deployment_id,
                 controller.config['block_result_key'],
