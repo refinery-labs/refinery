@@ -84,11 +84,16 @@ class RunTmpLambda(BaseHandler):
             task_spawner=self.task_spawner
         )
 
+        # TODO pass in tier here
+        user_tier = 'paid'
+
         inline_lambda = LambdaWorkflowState(
             credentials,
             str(uuid.uuid4()),
             random_node_id,
             StateTypes.LAMBDA,
+            user_tier,
+            self.app_config.get("pidgeon_key"),
             is_inline_execution=True
         )
         inline_lambda.setup(deployment_diagram, self.json)
