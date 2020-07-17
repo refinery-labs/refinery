@@ -385,5 +385,10 @@ POLICY
 resource "aws_iam_role_policy_attachment" "refinery_codebuild_builds_attachment" {
   role       = aws_iam_role.codebuild-refinery-builds-service-role.id
   policy_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/service-role/refinery_codebuild_base_policy"
+
+  depends_on = [
+    aws_iam_policy.refinery_codebuild_base_policy,
+    aws_iam_role.codebuild-refinery-builds-service-role
+  ]
 }
 

@@ -1,4 +1,4 @@
-from sqlalchemy import CHAR, Column, Text, BigInteger, Integer, ForeignKey
+from sqlalchemy import CHAR, Column, Text, BigInteger, Integer, ForeignKey, Boolean
 from sqlalchemy.orm import relationship
 from typing import TYPE_CHECKING
 
@@ -89,6 +89,13 @@ class AWSAccount(Base):
 
     timestamp = Column(Integer())
 
+    # If the AWS account is frozen, so we know to unfreeze it at
+    # the end of the month when the account's free-tier limits reset.
+    is_frozen = Column(
+        Boolean(),
+        default=False
+    )
+
     # Parent organization the AWS account belongs to
     organization_id = Column(
         CHAR(36),
@@ -128,6 +135,15 @@ class AWSAccount(Base):
         cascade="all, delete-orphan"
     )
 
+    # Child Lambda execution(s) to the AWS account
+    lambda_executions = relationship(
+        "LambdaExecutions",
+        lazy="dynamic",
+        # When an AWS account is deleted the Lambda
+        # execution logs can be deleted as well.
+        cascade="all, delete-orphan"
+    )
+
     def __init__(self):
         self.id = str(uuid.uuid4())
         self.timestamp = int(time.time())
@@ -148,6 +164,8 @@ class AWSAccount(Base):
             "account_type",
             "aws_account_status",
             "terraform_state",
+            "organization_id",
+            "is_frozen",
             "timestamp"
         ]
 
@@ -167,6 +185,7 @@ class AWSAccount(Base):
         return_dict["logs_bucket"] = "refinery-lambda-logging-" + self.s3_bucket_suffix
 
         return return_dict
+
 
     def __str__(self):
         return self.id

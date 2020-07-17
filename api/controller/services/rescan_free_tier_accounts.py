@@ -20,6 +20,8 @@ def scan_aws_accounts(usage_spawner, aws_account_freezer, frozen_aws_accounts):
                 frozen_aws_account
             )
 
+        # TODO cleanup lambda executions which fall outside of window?
+
 
 class RescanFreeTierAccountsDependencies:
     @pinject.copy_args_to_public_fields

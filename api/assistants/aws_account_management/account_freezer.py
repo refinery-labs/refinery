@@ -41,10 +41,12 @@ class AwsAccountFreezer(BaseSpawner):
             True
         )
 
+        account_id = credentials["account_id"]
+
         # Update the console login in the database
         dbsession = db_session_maker()
         aws_account = dbsession.query( AWSAccount ).filter_by(
-            account_id=credentials[ "account_id" ]
+            account_id=account_id
         ).first()
         aws_account.iam_admin_password = new_console_user_password
         dbsession.commit()
@@ -71,13 +73,13 @@ class AwsAccountFreezer(BaseSpawner):
 
         dbsession = db_session_maker()
         aws_account = dbsession.query( AWSAccount ).filter_by(
-            account_id=credentials[ "account_id" ]
+            account_id=account_id
         ).first()
         aws_account.is_frozen = True
         dbsession.commit()
         dbsession.close()
 
-        logit( "Account freezing complete, stay frosty!" )
+        logit(f"Account freezing complete for {account_id}, stay frosty!")
 
         return False
 

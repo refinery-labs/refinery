@@ -59,6 +59,14 @@ resource "aws_s3_bucket" "lambda-logging" {
 
   tags = {
     RefineryResource = "true"
+
+    /*
+      Written as logging-general because this bucket is
+      used for a few different logging situations. If this is
+      a problem we may want to split out the buckets in the
+      future so we can be more granular in our cost breakdowns.
+    */
+    RefineryUsage = "logging-general"
   }
 }
 
@@ -92,6 +100,6 @@ resource "aws_s3_bucket" "lambda-build-packages" {
 
   tags = {
     RefineryResource = "true"
+    RefineryUsage = "lambda-build-packages"
   }
 }
-
