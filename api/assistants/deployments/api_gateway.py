@@ -62,7 +62,7 @@ def strip_api_gateway(api_gateway_manager, credentials, api_gateway_id):
             api_gateway_manager.delete_rest_api_resource_method(
                 credentials,
                 api_gateway_id,
-                lambda_config,
+                lambda_config.resource_id,
                 lambda_config.method
             )
         )
@@ -284,7 +284,7 @@ class ApiGatewayManager(object):
                 resourceId=resource_id,
                 httpMethod=method,
             )
-        except Exception as e:
+        except botocore.exceptions.ClientError as e:
             logit(f"Exception occurred while deleting {resource_id} in {rest_api_id}, method '{method}'! Exception: {e}")
             pass
 
