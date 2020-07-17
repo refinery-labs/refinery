@@ -16,13 +16,13 @@ class TestBlockState:
             for _ in range(100)
         ]
 
-        for user_uuid, execution_id, result_id, data in scenarios:
-            await service.set_block_result(user_uuid, execution_id, result_id, data)
-            result = await service.get_block_result(user_uuid, execution_id, result_id)
+        for deployment_id, execution_id, result_id, data in scenarios:
+            await service.set_block_result(deployment_id, execution_id, result_id, data)
+            result = await service.get_block_result(deployment_id, execution_id, result_id)
 
             assert result == data
 
-            await service.delete_block_result(user_uuid, execution_id, result_id)
+            await service.delete_block_result(deployment_id, execution_id, result_id)
 
             with raises(Exception):
-                await service.get_block_result(user_uuid, execution_id, result_id)
+                await service.get_block_result(deployment_id, execution_id, result_id)
