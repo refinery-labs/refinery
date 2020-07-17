@@ -254,6 +254,12 @@
                     ]
                 }
             }
+        },
+        {
+            "Sid": "VisualEditor8",
+            "Effect": "Deny",
+            "Action": "lambda:*",
+            "Resource": "arn:aws:lambda:*:*:function:FreeTierConcurrencyLimiter"
         }
     ]
 }
