@@ -14,7 +14,7 @@ from controller.github.controllers_github_proxy import GithubProxy
 from controller.health import *
 from controller.internal import *
 from controller.lambdas import *
-from controller.lambdas.inbound_exec_details_processor import StoreLambdaExecutionDetails
+from controller.lambdas.inbound_exec_details_processor import RealtimeBillingWatchdog
 from controller.logs import *
 from controller.projects import *
 from controller.projects.controllers_short_links import GetProjectShortlink, CreateProjectShortlink
@@ -155,7 +155,7 @@ class TornadoApp:
             (r"/services/v1/clear_stripe_invoice_drafts", ClearStripeInvoiceDrafts),
             (r"/services/v1/mark_account_needs_closing", MarkAccountNeedsClosing),
             (r"/services/v1/remove_needs_closing_accounts", RemoveNeedsClosingAccounts),
-            (r"/services/v1/store_lambda_execution_details", StoreLambdaExecutionDetails),
+            (r"/services/v1/store_lambda_execution_details", RealtimeBillingWatchdog),
             (r"/services/v1/rescan_free_tier_accounts", RescanFreeTierAccounts),
             (r"/services/v1/downgrade_account_tier", DowngradeAccountTier),
         ]

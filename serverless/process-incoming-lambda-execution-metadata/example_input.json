@@ -1,0 +1,20 @@
+{
+	"Records": [
+		{
+			"kinesis": {
+				"kinesisSchemaVersion": "1.0",
+				"partitionKey": "478db89d5cf9053b8837ea164029c057",
+				"sequenceNumber": "49604214434069132300201110536477800077439135128890638338",
+				"data": "H4sIAAAAAAAAAE2QS2/bMBCE/4og9BhFfD90s2M1CFCjhaWcYsMgpXVAVA9XopumQf57NmqL5kbMLL/ZnZe0h3l2j1A/nyEt0s2qXh23ZVWtbsv0Kh2fBphQVoxbIhk1UlqUu/HxdhovZ3Ry9zTnnet96/L7IYbYQXu8GVs4rrux+d6Y1qnGqOzkfZsJL2nmtRSZEgZpjnPQ/g+wihO4HomMMJITnVOdP3z6sqrLqj5wAt5q4PjXCXxZo7wUQFpgVmtmEDFf/NxM4RzDOHwOXYRpTouHdANzDIN7V9PDElT+hCG+ey9paDGPS6kJoUJKI4mQRGpFDeFcKasZF5QIQfF8JS2ujCZnFCc4wcwYsL3oeiyCSisRoqgy0l79axXxu/Lb112d7ODHBWfv2iLhzYk4RlVGPYdMNFpnxrUqs4Se1IlYxgnfx81lWrYuEqPttWJJP+/jOnTYb/Lfo4qQxdlCP07PSRV+Q5FoZZLtGkX3K/lr3M+A0ZTyxbgbQvxAUUpeW7lw9kP6enh9A4wElJAXAgAA",
+				"approximateArrivalTimestamp": 1595014625.785
+			},
+			"eventSource": "aws:kinesis",
+			"eventVersion": "1.0",
+			"eventID": "shardId-000000000000:49604214434069132300201110536477800077439135128890638338",
+			"eventName": "aws:kinesis:record",
+			"invokeIdentityArn": "arn:aws:iam::134071937287:role/processIncomingLambdaExecutionMetadata-prod-us-west-2-lambdaRole",
+			"awsRegion": "us-west-2",
+			"eventSourceARN": "arn:aws:kinesis:us-west-2:134071937287:stream/LambdaExecutionsInfoStream"
+		}
+	]
+}

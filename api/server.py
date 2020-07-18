@@ -17,7 +17,6 @@ from assistants.deployments.dangling_resources import AwsResourceEnumerator
 from assistants.deployments.schedule_trigger import ScheduleTriggerManager
 from assistants.deployments.sns import SnsManager
 from assistants.deployments.sqs import SqsManager
-from assistants.free_tier.free_tier_assistant import UsageSpawner
 from assistants.github.github_assistant import GithubAssistant
 from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from assistants.user_creation_assistant import UserCreationAssistant
@@ -72,7 +71,6 @@ if __name__ == "__main__":
         StripeService,
         UserManagementService,
         GithubAssistant,
-        UsageSpawner,
         AwsAccountFreezer
     ]
 

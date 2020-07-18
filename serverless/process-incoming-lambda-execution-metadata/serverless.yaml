@@ -9,7 +9,7 @@ provider:
   region: us-west-2
   timeout: 60
   environment:
-    WEBHOOK_URL: https://webhook.site/d1a311c1-5e1a-42e0-8ca6-0a84293fbd3b
+    WEBHOOK_URL: ${env:WEBHOOK_URL}
     SERVICE_SHARED_SECRET: ${self:custom.service_shared_secret.SERVICE_SHARED_SECRET}
 
 functions:
@@ -18,11 +18,12 @@ functions:
     timeout: 60
     events:
       - stream:
-          arn: arn:aws:kinesis:region:XXXXXX:stream/foo
-          batchSize: 100
+          arn: ${env:KINESIS_STREAM_ARN}
+          batchSize: 5000
+          batchWindow: 60
           startingPosition: LATEST
           maximumRetryAttempts: 10
-          enabled: false
+          enabled: true
 
 custom:
     service_shared_secret: ${ssm:/aws/reference/secretsmanager/service_shared_secret~true}

@@ -11,7 +11,7 @@ def decode_kinesis_records(records):
     # Convert the data to something reasonable from the
     # standard inbound Kinesis event
     for record in records:
-        record_data = record["data"]
+        record_data = record["kinesis"]["data"]
 
         decoded_data = zlib.decompress(
             base64.b64decode(
@@ -140,9 +140,7 @@ def process_inbound_data_log_events(inbound_records_data):
 
 
 def lambda_handler(event, context):
-    print(event)
-
-    records = event["records"]
+    records = event["Records"]
 
     inbound_records_data = decode_kinesis_records(records)
 

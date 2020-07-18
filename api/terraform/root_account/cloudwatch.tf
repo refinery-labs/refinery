@@ -60,15 +60,17 @@ data "aws_iam_policy_document" "lambda_execution_destination_policy" {
       aws_cloudwatch_log_destination.lambda_execution_info_destination.arn,
     ]
 
+/*
+    TODO figure out why this isn't working as expected
+
     condition {
       test = "ForAnyValue:StringLike"
 
       variable = "aws:PrincipalOrgPaths"
 
-      values = [
-        var.refinery_root_organization_id
-      ]
+      values = var.refinery_root_organization_ids
     }
+*/
   }
 }
 

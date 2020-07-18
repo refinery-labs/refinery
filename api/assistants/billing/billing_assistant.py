@@ -1,6 +1,7 @@
 import stripe
 
 from tornado.concurrent import run_on_executor
+
 from utils.general import logit
 
 from utils.base_spawner import BaseSpawner
@@ -8,6 +9,12 @@ from utils.performance_decorators import emit_runtime_metrics
 
 
 class BillingSpawner(BaseSpawner):
+
+    def __init__(self, aws_cloudwatch_client, logger, app_config, db_session_maker):
+        super().__init__(self, aws_cloudwatch_client, logger, app_config)
+
+        self.db_session_maker = db_session_maker
+
     @run_on_executor
     @emit_runtime_metrics("clear_draft_invoices")
     def clear_draft_invoices(self):

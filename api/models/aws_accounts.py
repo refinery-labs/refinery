@@ -136,8 +136,8 @@ class AWSAccount(Base):
     )
 
     # Child Lambda execution(s) to the AWS account
-    lambda_executions = relationship(
-        "LambdaExecutions",
+    lambda_execution_reports = relationship(
+        "LambdaExecutionMonthlyReport",
         lazy="dynamic",
         # When an AWS account is deleted the Lambda
         # execution logs can be deleted as well.
@@ -185,7 +185,6 @@ class AWSAccount(Base):
         return_dict["logs_bucket"] = "refinery-lambda-logging-" + self.s3_bucket_suffix
 
         return return_dict
-
 
     def __str__(self):
         return self.id
