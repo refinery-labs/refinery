@@ -14,6 +14,8 @@ from assistants.deployments.diagram.types import StateTypes
 from assistants.deployments.aws.utils import get_language_specific_environment_variables, get_layers_for_lambda
 from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
 from utils.general import logit
+from utils.sym_crypto import encrypt
+
 
 if TYPE_CHECKING:
     from assistants.task_spawner.task_spawner_assistant import TaskSpawner
@@ -38,7 +40,7 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
     LambdaWorkflowState is an in-memory representation of a lambda object which is created by the user.
     """
 
-    def __init__(self, credentials, _id, name, _type, is_inline_execution=False, **kwargs):
+    def __init__(self, credentials, _id, name, _type, user_tier, pidgeon_key, is_inline_execution=False, **kwargs):
         super().__init__(credentials, _id, name, _type, **kwargs)
 
         self.is_inline_execution = is_inline_execution
@@ -47,6 +49,8 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
         self.execution_pipeline_id = None
         self.execution_log_level = None
         self.reserved_concurrency_count = False
+        self.user_tier = user_tier
+        self.pidgeon_key = pidgeon_key
 
         self.execution_mode = "REGULAR"
         self.tags_dict = {
@@ -160,9 +164,7 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
         )
 
         all_environment_vars = {
-            "REDIS_HOSTNAME": self._credentials["redis_hostname"],
-            "REDIS_PASSWORD": self._credentials["redis_password"],
-            "REDIS_PORT": str(self._credentials["redis_port"]),
+           # Deployment id
             "EXECUTION_PIPELINE_ID": self.execution_pipeline_id,
             "LOG_BUCKET_NAME": self._credentials["logs_bucket"],
             "PACKAGES_BUCKET_NAME": self._credentials["lambda_packages_bucket"],
@@ -172,6 +174,18 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
             **self.environment_variables
         }
 
+        if self._uses_pidgeon():
+            all_environment_vars.update({
+                "PIDGEON_URL": self._get_pidgeon_url(),
+                "PIDGEON_AUTH": self._get_pidgeon_auth(self.execution_pipeline_id)
+            })
+        else:
+            all_environment_vars.update({
+                "REDIS_HOSTNAME": self._credentials["redis_hostname"],
+                "REDIS_PASSWORD": self._credentials["redis_password"],
+                "REDIS_PORT": str(self._credentials["redis_port"])
+            })
+
         if self.is_inline_execution:
             # The environment variable activates it as
             # an inline execution Lambda and allows us to
@@ -179,6 +193,16 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
             all_environment_vars["IS_INLINE_EXECUTOR"] = "True"
 
         self.environment_variables = all_environment_vars
+
+    def _uses_pidgeon(self):
+        # TODO user constants
+        return self.user_tier == "free"
+
+    def _get_pidgeon_url(self):
+        return ""
+
+    def _get_pidgeon_auth(self, deployment_id):
+        return encrypt(self.pidgeon_key, {"deployment_id": deployment_id})
 
     def _get_transition_env_data(self):
         env_transitions = {
@@ -195,7 +219,7 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
 
         # Don't yield for it, but we'll also create a log group at the same time
         # We're set a tag for that log group for cost tracking
-        yield task_spawner.create_cloudwatch_group(
+        task_spawner.create_cloudwatch_group(
             self._credentials,
             f"/aws/lambda/{self.name}",
             {
