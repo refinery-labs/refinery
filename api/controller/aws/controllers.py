@@ -48,6 +48,7 @@ class RunTmpLambda(BaseHandler):
         self.logger("Building Lambda package...")
 
         credentials = self.get_authenticated_user_cloud_configuration()
+        user = self.get_authenticated_user()
 
         random_node_id = get_random_node_id()
 
@@ -84,15 +85,12 @@ class RunTmpLambda(BaseHandler):
             task_spawner=self.task_spawner
         )
 
-        # TODO pass in tier here
-        user_tier = 'paid'
-
         inline_lambda = LambdaWorkflowState(
             credentials,
             str(uuid.uuid4()),
             random_node_id,
             StateTypes.LAMBDA,
-            user_tier,
+            user.tier,
             self.app_config.get("pidgeon_key"),
             is_inline_execution=True
         )

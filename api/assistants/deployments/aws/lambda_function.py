@@ -12,6 +12,7 @@ from assistants.deployments.aws.types import AwsDeploymentState
 from assistants.deployments.diagram.code_block import CodeBlockWorkflowState
 from assistants.deployments.diagram.types import StateTypes
 from assistants.deployments.aws.utils import get_language_specific_environment_variables, get_layers_for_lambda
+from models.users import RefineryUserTier
 from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
 from utils.general import logit
 from utils.sym_crypto import encrypt
@@ -196,7 +197,7 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
 
     def _uses_pidgeon(self):
         # TODO user constants
-        return self.user_tier == "free"
+        return self.user_tier == RefineryUserTier.FREE
 
     def _get_pidgeon_url(self):
         return ""
