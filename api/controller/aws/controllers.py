@@ -91,7 +91,9 @@ class RunTmpLambda(BaseHandler):
             random_node_id,
             StateTypes.LAMBDA,
             user.tier,
+            # TODO use aws secrets
             self.app_config.get("pidgeon_key"),
+            self.app_config.get("pidgeon_url"),
             is_inline_execution=True
         )
         inline_lambda.setup(deployment_diagram, self.json)

@@ -41,7 +41,7 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
     LambdaWorkflowState is an in-memory representation of a lambda object which is created by the user.
     """
 
-    def __init__(self, credentials, _id, name, _type, user_tier, pidgeon_key, is_inline_execution=False, **kwargs):
+    def __init__(self, credentials, _id, name, _type, user_tier, pidgeon_key, pidgeon_url, is_inline_execution=False, **kwargs):
         super().__init__(credentials, _id, name, _type, **kwargs)
 
         self.is_inline_execution = is_inline_execution
@@ -52,6 +52,7 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
         self.reserved_concurrency_count = False
         self.user_tier = user_tier
         self.pidgeon_key = pidgeon_key
+        self.pidgeon_url = pidgeon_url
 
         self.execution_mode = "REGULAR"
         self.tags_dict = {
@@ -200,7 +201,7 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
         return self.user_tier == RefineryUserTier.FREE
 
     def _get_pidgeon_url(self):
-        return ""
+        return self.pidgeon_url
 
     def _get_pidgeon_auth(self, deployment_id):
         return encrypt(self.pidgeon_key, {"deployment_id": deployment_id})
