@@ -14,8 +14,6 @@ from assistants.deployments.diagram.types import StateTypes
 from assistants.deployments.aws.utils import get_language_specific_environment_variables, get_layers_for_lambda
 from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
 from utils.general import logit
-from utils.sym_crypto import encrypt
-
 
 if TYPE_CHECKING:
     from assistants.task_spawner.task_spawner_assistant import TaskSpawner
@@ -164,7 +162,7 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
         all_environment_vars = {
             "REDIS_HOSTNAME": self._credentials["redis_hostname"],
             "REDIS_PASSWORD": self._credentials["redis_password"],
-            "REDIS_PORT": str(self._credentials["redis_port"])
+            "REDIS_PORT": str(self._credentials["redis_port"]),
             # Deployment id
             "EXECUTION_PIPELINE_ID": self.execution_pipeline_id,
             "LOG_BUCKET_NAME": self._credentials["logs_bucket"],
