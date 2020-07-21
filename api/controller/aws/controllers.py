@@ -19,13 +19,14 @@ from controller.logs.actions import delete_logs
 from controller.projects.actions import update_project_config
 from models import InlineExecutionLambda, Project, Deployment
 from pyexceptions.builds import BuildException
+from tasks.aws_secrets import get_secret
 from utils.general import get_random_node_id, attempt_json_decode
 from utils.locker import AcquireFailure
 
 
 class RunTmpLambdaDependencies:
     @pinject.copy_args_to_public_fields
-    def __init__(self, builder_manager):
+    def __init__(self, builder_manager, aws_secrets_client):
         pass
 
 
@@ -33,6 +34,7 @@ class RunTmpLambdaDependencies:
 class RunTmpLambda(BaseHandler):
     dependencies = RunTmpLambdaDependencies
     builder_manager = None
+    aws_secrets_client = None
 
     @authenticated
     @disable_on_overdue_payment
@@ -67,6 +69,13 @@ class RunTmpLambda(BaseHandler):
         # Dummy pipeline execution ID
         pipeline_execution_id = "SHOULD_NEVER_HAPPEN_TMP_LAMBDA_RUN"
 
+        # Get block encryption key
+        pidgeon_key = get_secret(
+            self.aws_secrets_client,
+            self.app_config.get("block_encryption_secret_id"),
+            self.app_config.get("block_encryption_secret_key")
+        )
+
         # This needs:
         # project_id
         # project_name
@@ -92,7 +101,7 @@ class RunTmpLambda(BaseHandler):
             StateTypes.LAMBDA,
             user.tier,
             # TODO use aws secrets
-            self.app_config.get("pidgeon_key"),
+            pidgeon_key,
             self.app_config.get("pidgeon_url"),
             is_inline_execution=True
         )

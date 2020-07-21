@@ -65,3 +65,12 @@ class AWSClientBindingSpec(pinject.BindingSpec):
             aws_secret_access_key=app_config.get("aws_secret_key"),
             region_name=app_config.get("region_name")
         )
+
+    @pinject.provides('aws_secrets_client')
+    def new_aws_secrets_client(self, app_config):
+        return boto3.client(
+            'secretsmanager',
+            aws_access_key_id=app_config.get("aws_access_key"),
+            aws_secret_access_key=app_config.get("aws_secret_key"),
+            region_name=app_config.get("region_name")
+        )
