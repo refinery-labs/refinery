@@ -167,7 +167,7 @@ class AwsAccountFreezer(BaseSpawner):
         account_id = credentials["account_id"]
 
         # Update the console login in the database
-        with session_scope(db_session_maker()) as dbsession:
+        with session_scope(db_session_maker) as dbsession:
             aws_account = dbsession.query( AWSAccount ).filter_by(
                 account_id=account_id
             ).first()

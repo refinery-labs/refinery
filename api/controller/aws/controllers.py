@@ -266,11 +266,7 @@ class InfraTearDownDependencies:
     @pinject.copy_args_to_public_fields
     def __init__(
         self,
-        api_gateway_manager,
-        lambda_manager,
-        schedule_trigger_manager,
-        sns_manager,
-        sqs_manager
+        aws_teardown_manager
     ):
         pass
 

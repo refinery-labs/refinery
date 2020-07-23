@@ -35,19 +35,11 @@ class AwsTeardownManager(BaseSpawner):
         self.sns_manager = sns_manager
         self.sqs_manager = sqs_manager
 
-    @run_on_executor
+    @gen.coroutine
     def delete_logs(self, credentials, project_id):
-        return AwsTeardownManager._delete_logs(
-            self.task_spawner,
-            credentials,
-            project_id
-        )
-
-    @staticmethod
-    def _delete_logs(task_spawner: TaskSpawner, credentials, project_id):
         for _ in range(1000):
             # Delete 1K logs at a time
-            log_paths = yield task_spawner.get_s3_pipeline_execution_logs(
+            log_paths = yield self.task_spawner.get_s3_pipeline_execution_logs(
                 credentials,
                 project_id + "/",
                 1000
@@ -58,7 +50,7 @@ class AwsTeardownManager(BaseSpawner):
             if len(log_paths) == 0:
                 break
 
-            yield task_spawner.bulk_s3_delete(
+            yield self.task_spawner.bulk_s3_delete(
                 credentials,
                 credentials["logs_bucket"],
                 log_paths
@@ -93,20 +85,8 @@ class AwsTeardownManager(BaseSpawner):
             api_gateway_id
         )
 
-    @run_on_executor
+    @gen.coroutine
     def teardown_infrastructure(self, credentials, teardown_nodes):
-        return AwsTeardownManager._teardown_infrastructure(
-            self.api_gateway_manager,
-            self.lambda_manager,
-            self.schedule_trigger_manager,
-            self.sns_manager,
-            self.sqs_manager,
-            credentials,
-            teardown_nodes
-        )
-
-    @staticmethod
-    def _teardown_infrastructure(api_gateway_manager, lambda_manager, schedule_trigger_manager, sns_manager, sqs_manager, credentials, teardown_nodes):
         """
         [
                 {
@@ -139,7 +119,7 @@ class AwsTeardownManager(BaseSpawner):
 
             if teardown_node["type"] == "lambda" or teardown_node["type"] == "api_endpoint":
                 teardown_operation_futures.append(
-                    lambda_manager.delete_lambda(
+                    self.lambda_manager.delete_lambda(
                         credentials,
                         teardown_node["id"],
                         teardown_node["type"],
@@ -149,7 +129,7 @@ class AwsTeardownManager(BaseSpawner):
                 )
             if teardown_node["type"] == "sns_topic":
                 teardown_operation_futures.append(
-                    sns_manager.delete_sns_topic(
+                    self.sns_manager.delete_sns_topic(
                         credentials,
                         teardown_node["id"],
                         teardown_node["type"],
@@ -159,7 +139,7 @@ class AwsTeardownManager(BaseSpawner):
                 )
             elif teardown_node["type"] == "sqs_queue":
                 teardown_operation_futures.append(
-                    sqs_manager.delete_sqs_queue(
+                    self.sqs_manager.delete_sqs_queue(
                         credentials,
                         teardown_node["id"],
                         teardown_node["type"],
@@ -169,7 +149,7 @@ class AwsTeardownManager(BaseSpawner):
                 )
             elif teardown_node["type"] == "schedule_trigger" or teardown_node["type"] == "warmer_trigger":
                 teardown_operation_futures.append(
-                    schedule_trigger_manager.delete_schedule_trigger(
+                    self.schedule_trigger_manager.delete_schedule_trigger(
                         credentials,
                         teardown_node["id"],
                         teardown_node["type"],
@@ -180,30 +160,17 @@ class AwsTeardownManager(BaseSpawner):
             elif teardown_node["type"] == "api_gateway":
                 teardown_operation_futures.append(
                     strip_api_gateway(
-                        api_gateway_manager,
+                        self.api_gateway_manager,
                         credentials,
                         teardown_node["rest_api_id"],
                     )
                 )
 
         teardown_operation_results = yield teardown_operation_futures
-
         raise gen.Return(teardown_operation_results)
 
-    @run_on_executor
+    @gen.coroutine
     def teardown_deployed_states(self, credentials, teardown_nodes: List[AwsDeploymentState]):
-        return AwsTeardownManager._teardown_deployed_states(
-            self.api_gateway_manager,
-            self.lambda_manager,
-            self.schedule_trigger_manager,
-            self.sns_manager,
-            self.sqs_manager,
-            credentials,
-            teardown_nodes
-        )
-
-    @staticmethod
-    def _teardown_deployed_states(api_gateway_manager, lambda_manager, schedule_trigger_manager, sns_manager, sqs_manager, credentials, teardown_nodes: List[AwsDeploymentState]):
         teardown_operation_futures = []
 
         # TODO refactor teardown functions so that they only take have the necessary info
@@ -211,14 +178,14 @@ class AwsTeardownManager(BaseSpawner):
         for teardown_node in teardown_nodes:
             if teardown_node.type == StateTypes.LAMBDA or teardown_node.type == StateTypes.API_ENDPOINT:
                 teardown_operation_futures.append(
-                    lambda_manager.delete_lambda(
+                    self.lambda_manager.delete_lambda(
                         credentials,
                         None, None, teardown_node.name, teardown_node.arn
                     )
                 )
             if teardown_node.type == StateTypes.SNS_TOPIC:
                 teardown_operation_futures.append(
-                    sns_manager.delete_sns_topic(
+                    self.sns_manager.delete_sns_topic(
                         credentials,
                         None, None, None,
                         teardown_node.arn
@@ -226,7 +193,7 @@ class AwsTeardownManager(BaseSpawner):
                 )
             elif teardown_node.type == StateTypes.SQS_QUEUE:
                 teardown_operation_futures.append(
-                    sqs_manager.delete_sqs_queue(
+                    self.sqs_manager.delete_sqs_queue(
                         credentials,
                         None, None, None,
                         teardown_node.arn
@@ -234,7 +201,7 @@ class AwsTeardownManager(BaseSpawner):
                 )
             elif teardown_node.type == StateTypes.SCHEDULE_TRIGGER or teardown_node.type == StateTypes.WARMER_TRIGGER:
                 teardown_operation_futures.append(
-                    schedule_trigger_manager.delete_schedule_trigger(
+                    self.schedule_trigger_manager.delete_schedule_trigger(
                         credentials,
                         None, None, None,
                         teardown_node.arn
@@ -249,12 +216,11 @@ class AwsTeardownManager(BaseSpawner):
 
                 teardown_operation_futures.append(
                     strip_api_gateway(
-                        api_gateway_manager,
+                        self.api_gateway_manager,
                         credentials,
                         teardown_node.api_gateway_id,
                     )
                 )
 
         teardown_operation_results = yield teardown_operation_futures
-
         raise gen.Return(teardown_operation_results)
