@@ -34,7 +34,7 @@ class AWSAccount(Base):
     # AWS region
     region = Column(Text())
 
-    # The account status, this can be any of the followin:
+    # The account status, this can be any of the following:
     # CREATED: This means the account has been created but
     # not-yet set up via Terraform.
     # AVAILABLE: The AWS account has been set up via Terraform

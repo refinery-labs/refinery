@@ -2,13 +2,13 @@
 resource "aws_lambda_function" "limiter_lambda" {
   filename      = "FreeTierConcurrencyLimiter.zip"
   function_name = "FreeTierConcurrencyLimiter"
-  role          = "${aws_iam_role.limiter_lambda_iam_role.arn}"
+  role          = aws_iam_role.limiter_lambda_iam_role.arn
   handler       = "index.handler"
 
   # The filebase64sha256() function is available in Terraform 0.11.12 and later
   # For Terraform 0.11.11 and earlier, use the base64sha256() function and the file() function:
   # source_code_hash = "${base64sha256(file("lambda_function_payload.zip"))}"
-  source_code_hash = "${filebase64sha256("FreeTierConcurrencyLimiter.zip")}"
+  source_code_hash = filebase64sha256("FreeTierConcurrencyLimiter.zip")
 
   runtime = "nodejs10.x"
   memory_size = 128
@@ -62,8 +62,8 @@ EOF
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_logs" {
-  role = "${aws_iam_role.limiter_lambda_iam_role.name}"
-  policy_arn = "${aws_iam_policy.limiter_lambda_logging_policy.arn}"
+  role = aws_iam_role.limiter_lambda_iam_role.name
+  policy_arn = aws_iam_policy.limiter_lambda_logging_policy.arn
 }
 
 resource "aws_iam_role" "limiter_lambda_iam_role" {

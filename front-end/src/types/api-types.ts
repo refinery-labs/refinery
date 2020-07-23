@@ -30,6 +30,12 @@ export interface BaseApiResponse {
 
 export interface BaseApiRequest {}
 
+export enum BillingIssueResponseCodes {
+  ORGANIZATION_UNSETTLED_BILLS = 'ORGANIZATION_UNSETTLED_BILLS',
+  ACCOUNT_LIMIT_REACHED = 'ACCOUNT_LIMIT_REACHED',
+  USER_FREE_TRIAL_ENDED = 'USER_FREE_TRIAL_ENDED'
+}
+
 // AuthWithGithub
 export interface AuthWithGithubRequest extends BaseApiRequest {}
 
@@ -135,7 +141,8 @@ export enum DeployDiagramResponseCode {
 }
 
 export interface DeployDiagramResponse extends BaseApiResponse {
-  code?: DeployDiagramResponseCode;
+  code?: DeployDiagramResponseCode | BillingIssueResponseCodes;
+  msg?: string;
   result: DeployDiagramResponseResult;
 }
 

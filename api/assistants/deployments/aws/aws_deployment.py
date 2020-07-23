@@ -16,7 +16,7 @@ from assistants.deployments.diagram.errors import InvalidDeployment
 from assistants.deployments.diagram.trigger_state import TriggerWorkflowState
 from assistants.deployments.diagram.types import StateTypes
 from assistants.deployments.diagram.workflow_states import WorkflowState, StateLookup
-from assistants.deployments.teardown import teardown_deployed_states
+from assistants.deployments.teardown_manager import AwsTeardownManager
 from utils.general import logit
 
 
@@ -160,11 +160,7 @@ class AwsDeployment(DeploymentDiagram):
     @gen.coroutine
     def remove_workflow_states(
             self,
-            api_gateway_manager,
-            lambda_manager,
-            schedule_trigger_manager,
-            sns_manager,
-            sqs_manager,
+            aws_teardown_manager: AwsTeardownManager,
             credentials,
             successful_deploy
     ):
@@ -175,9 +171,7 @@ class AwsDeployment(DeploymentDiagram):
             # Otherwise, we remove the entire current deployment since it failed
             workflow_states = self.current_deployment_workflow_states()
 
-        yield teardown_deployed_states(
-            api_gateway_manager, lambda_manager, schedule_trigger_manager,
-            sns_manager, sqs_manager, credentials, workflow_states)
+        yield aws_teardown_manager.teardown_deployed_states(credentials, workflow_states)
 
         return workflow_states
 

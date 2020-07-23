@@ -1,6 +1,7 @@
 from tornado import gen
 
 from assistants.aws_clients.aws_clients_assistant import AwsClientFactory
+from assistants.billing.billing_assistant import generate_managed_accounts_invoices
 from utils.general import log_exception
 from utils.performance_decorators import emit_runtime_metrics
 from pinject import copy_args_to_public_fields
@@ -43,8 +44,7 @@ from tasks.email import (
     send_authentication_email,
     send_internal_registration_confirmation_email)
 from tasks.aws_account import (
-    create_new_sub_aws_account,
-    mark_account_needs_closing, do_account_cleanup)
+    create_new_sub_aws_account, do_account_cleanup)
 from tasks.stripe_api import (
     get_account_cards,
     get_stripe_customer_information,
@@ -52,13 +52,6 @@ from tasks.stripe_api import (
     stripe_create_customer,
     delete_card_from_account,
     set_stripe_customer_default_payment_source
-)
-from tasks.billing import (
-    generate_managed_accounts_invoices,
-    pull_current_month_running_account_totals,
-    enforce_account_limits,
-    get_sub_account_month_billing_data,
-    get_sub_account_billing_forecast
 )
 from tasks.aws_lambda import (
     check_if_layer_exists,
@@ -142,7 +135,6 @@ class TaskSpawner(object):
         aws_cost_explorer,
         aws_organization_client,
         aws_lambda_client,
-        aws_account_freezer,
         api_gateway_manager,
         lambda_manager,
         logger,
@@ -390,61 +382,12 @@ class TaskSpawner(object):
         )
 
     @run_on_executor
-    @emit_runtime_metrics("pull_current_month_running_account_totals")
-    def pull_current_month_running_account_totals(self):
-        return pull_current_month_running_account_totals(
-            self.aws_cost_explorer
-        )
-
-    @run_on_executor
-    @emit_runtime_metrics("enforce_account_limits")
-    def enforce_account_limits(self, aws_account_running_cost_list):
-        return enforce_account_limits(
-            self.app_config,
-            self.aws_client_factory,
-            self.db_session_maker,
-            self.aws_account_freezer,
-            aws_account_running_cost_list
-        )
-
-    @run_on_executor
-    @emit_runtime_metrics("get_sub_account_month_billing_data")
-    def get_sub_account_month_billing_data(self, account_id, account_type, billing_month, use_cache):
-        return get_sub_account_month_billing_data(
-            self.app_config,
-            self.db_session_maker,
-            self.aws_cost_explorer,
-            self.aws_client_factory,
-            account_id,
-            account_type,
-            billing_month,
-            use_cache
-        )
-
-    @run_on_executor
-    @emit_runtime_metrics("mark_account_needs_closing")
-    def mark_account_needs_closing(self, email):
-        return mark_account_needs_closing(self.db_session_maker, email)
-
-    @run_on_executor
     @emit_runtime_metrics("do_account_cleanup")
     def do_account_cleanup(self):
         return do_account_cleanup(
             self.app_config,
             self.db_session_maker,
             self.aws_lambda_client
-        )
-
-    @run_on_executor
-    @emit_runtime_metrics("get_sub_account_billing_forecast")
-    def get_sub_account_billing_forecast(self, account_id, start_date, end_date, granularity):
-        return get_sub_account_billing_forecast(
-            self.app_config,
-            self.aws_cost_explorer,
-            account_id,
-            start_date,
-            end_date,
-            granularity
         )
 
     @run_on_executor

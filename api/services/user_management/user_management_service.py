@@ -72,7 +72,6 @@ class UserManagementService:
         new_organization.users.append(
             new_user
         )
-
         return new_organization
 
     def _create_new_user(self, dbsession, name, email, phone=None, require_email_verification=True):

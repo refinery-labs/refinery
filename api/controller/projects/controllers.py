@@ -5,10 +5,9 @@ from jsonschema import validate as validate_schema
 from sqlalchemy import or_ as sql_or, and_, func
 from tornado import gen
 
-from assistants.deployments.teardown import teardown_infrastructure
+from assistants.deployments.teardown_manager import AwsTeardownManager
 from controller import BaseHandler
 from controller.decorators import authenticated
-from controller.logs.actions import delete_logs
 from controller.projects.actions import update_project_config
 from controller.projects.schemas import *
 from models import Deployment, ProjectVersion, ProjectConfig, Project, ProjectShortLink, User, CachedExecutionLogsShard
@@ -254,18 +253,14 @@ class GetSavedProject(BaseHandler):
 
 class DeleteSavedProjectDependencies:
     @pinject.copy_args_to_public_fields
-    def __init__(self, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager, sqs_manager):
+    def __init__(self, aws_teardown_manager):
         pass
 
 
 # noinspection PyMethodOverriding, PyAttributeOutsideInit
 class DeleteSavedProject(BaseHandler):
     dependencies = DeleteSavedProjectDependencies
-    lambda_manager = None
-    api_gateway_manager = None
-    schedule_trigger_manager = None
-    sns_manager = None
-    sqs_manager = None
+    aws_teardown_manager: AwsTeardownManager = None
 
     @authenticated
     @gen.coroutine
@@ -295,7 +290,11 @@ class DeleteSavedProject(BaseHandler):
         ).first()
 
         if project_config is not None:
-            self.delete_api_gateway(project_config)
+            yield self.aws_teardown_manager.delete_api_gateway(
+                self.logger,
+                credentials,
+                project_config.to_dict()
+            )
 
         # delete all AWS deployments
         deployed_projects = self.dbsession.query(Deployment).filter_by(
@@ -311,24 +310,19 @@ class DeleteSavedProject(BaseHandler):
             teardown_nodes = deployment_json["workflow_states"]
 
             # do the teardown of the deployed aws infra
-            yield teardown_infrastructure(
-                self.api_gateway_manager,
-                self.lambda_manager,
-                self.schedule_trigger_manager,
-                self.sns_manager,
-                self.sqs_manager,
+            yield self.aws_teardown_manager.teardown_infrastructure(
                 credentials,
                 teardown_nodes
             )
 
-            self.dbsession.query(
-                CachedExecutionLogsShard
-            ).filter(
-                CachedExecutionLogsShard.project_id == project_id
-            ).delete()
+        self.dbsession.query(
+            CachedExecutionLogsShard
+        ).filter(
+            CachedExecutionLogsShard.project_id == project_id
+        ).delete()
 
         # delete existing logs for the project
-        delete_logs(
+        self.aws_teardown_manager.delete_logs(
             self.task_spawner,
             credentials,
             project_id
@@ -344,24 +338,6 @@ class DeleteSavedProject(BaseHandler):
         self.write({
             "success": True
         })
-
-    def delete_api_gateway(self, project_config):
-        credentials = self.get_authenticated_user_cloud_configuration()
-        project_config_data = project_config.to_dict()
-        project_config_dict = project_config_data["config_json"]
-
-        # Delete the API Gateway associated with this project
-        if "api_gateway" in project_config_dict:
-            # TODO we do not store the gateway in the config anymore, it is an included workflow state
-            api_gateway_id = project_config_dict["api_gateway"]["gateway_id"]
-
-            if api_gateway_id:
-                self.logger("Deleting associated API Gateway '" + api_gateway_id + "'...")
-
-                yield self.api_gateway_manager.delete_rest_api(
-                    credentials,
-                    api_gateway_id
-                )
 
 
 class GetProjectConfig(BaseHandler):

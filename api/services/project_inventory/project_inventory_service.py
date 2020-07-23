@@ -19,29 +19,18 @@ class ProjectInventoryService:
         }
     }
 
-    def __init__(self, logger):
+    def __init__(self, app_config, logger):
+        self.app_config = app_config
         self.logger = logger
-        self.default_project_directory = "./default_projects/"
-        self.default_projects = []
-
-    def read_example_projects_from_disk(self):
-
-        for filename in os.listdir(self.default_project_directory):
-            with open(self.default_project_directory + filename, "r") as file_handler:
-                self.default_projects.append(
-                    json.loads(
-                        file_handler.read()
-                    )
-                )
 
     def add_example_projects_user(self, user):
         output_projects = []
 
         # Add default projects to the user's account
-        for default_project_data in self.default_projects:
+        for default_project_data in self.app_config.get("DEFAULT_PROJECT_ARRAY"):
             project_name = default_project_data["name"]
 
-            self.logger("Adding default project name '" + project_name + "' to the user's account...")
+            self.logger(f"Adding default project name '{project_name}' to the user's account...")
 
             new_project = Project()
             new_project.name = project_name

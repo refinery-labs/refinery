@@ -3,6 +3,11 @@ Decorators used by controllers to enforce endpoint preconditions
 """
 import time
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from controller import BaseHandler
+
 
 def authenticated(func):
     """
@@ -30,6 +35,7 @@ def authenticated(func):
 
         return func(*args, **kwargs)
     return wrapper
+
 
 def get_user_free_trial_information( input_user ):
     return_data = {
@@ -77,7 +83,7 @@ def disable_on_overdue_payment(func):
     }
     """
     def wrapper(*args, **kwargs):
-        self_reference = args[0]
+        self_reference: BaseHandler = args[0]
 
         # Pull the authenticated user
         authenticated_user = self_reference.get_authenticated_user()
@@ -85,11 +91,22 @@ def disable_on_overdue_payment(func):
         # Pull the user's org to see if any payments are overdue
         authenticated_user_org = authenticated_user.organization
 
+        # Pull the org's cloud configuration to see if frozen
+        cloud_configuration = self_reference.get_authenticated_user_cloud_configuration()
+
         if authenticated_user_org.payments_overdue:
             self_reference.write({
                 "success": False,
                 "code": "ORGANIZATION_UNSETTLED_BILLS",
                 "msg": "This organization has an unsettled bill which is overdue for payment. This action can not be performed until the outstanding bills have been paid.",
+            })
+            return
+
+        if cloud_configuration["is_frozen"]:
+            self_reference.write({
+                "success": False,
+                "code": "ACCOUNT_LIMIT_REACHED",
+                "msg": "Your account has reached its maximum usage for the month. If you would like to continue to use Refinery for this month, please consider upgrading your usage plan.",
             })
             return
 

@@ -4,6 +4,8 @@ import zlib
 import base64
 import requests
 
+from collections import defaultdict
+
 
 def decode_kinesis_records(records):
     inbound_records_data = []
@@ -113,10 +115,9 @@ def process_inbound_data_log_event(inbound_data):
 
     billing_log_report = parse_log_event_report(log_line)
 
-    return {
+    processed_log_event = {
         # Do not ever encode AWS account IDs as integers
         # You have been warned.
-        "account_id": account_id,
         "log_name": log_group,
         "log_stream": log_stream,
         "lambda_name": log_group.replace(
@@ -130,13 +131,18 @@ def process_inbound_data_log_event(inbound_data):
         **billing_log_report
     }
 
+    return account_id, processed_log_event
+
 
 def process_inbound_data_log_events(inbound_records_data):
-    log_events = []
+    log_events_by_account_id = defaultdict(lambda: [])
+
     for inbound_data in inbound_records_data:
-        log_event = process_inbound_data_log_event(inbound_data)
-        log_events.append(log_event)
-    return log_events
+        account_id, log_event = process_inbound_data_log_event(inbound_data)
+
+        log_events_by_account_id[account_id].append(log_event)
+
+    return log_events_by_account_id
 
 
 def lambda_handler(event, context):

@@ -1,6 +1,8 @@
 import pinject
 from tornado import gen
 
+from assistants.aws_account_management.account_pool_manager import AwsAccountPoolManager, AwsAccountPoolEmptyException
+from assistants.github.oauth_provider import GithubOAuthProvider
 from models.users import User
 from services.auth.oauth_service import OAuthService
 from services.project_inventory.project_inventory_service import ProjectInventoryService
@@ -10,12 +12,13 @@ from utils.general import logit
 
 
 class UserCreationAssistant:
-    logger = None  # type: logit
-    oauth_service = None  # type: OAuthService
-    github_oauth_provider = None  # type: GithubOAuthProvider
-    project_inventory_service = None  # type: ProjectInventoryService
-    stripe_service = None  # type: StripeService
-    user_management_service = None  # type: UserManagementService
+    logger: logit = None
+    oauth_service: OAuthService = None
+    github_oauth_provider: GithubOAuthProvider = None
+    project_inventory_service: ProjectInventoryService = None
+    stripe_service: StripeService = None
+    user_management_service: UserManagementService = None
+    aws_account_pool_manager: AwsAccountPoolManager = None
 
 
     @pinject.copy_args_to_public_fields
@@ -26,7 +29,8 @@ class UserCreationAssistant:
         github_oauth_provider,
         project_inventory_service,
         stripe_service,
-        user_management_service
+        user_management_service,
+        aws_account_pool_manager
     ):
         """
         This class contains logic for creating and managing User instances by utilizing many services.
@@ -40,14 +44,21 @@ class UserCreationAssistant:
         pass
 
     @gen.coroutine
-    def setup_initial_user_state(self, dbsession, request, user):
+    def setup_initial_user_state(self, dbsession, request, user, organization):
         """
         Handles setting up the initial state for a new user.
         Should be called whenever a new user is created (sets up example projects, etc).
+        :param organization:
         :type dbsession: sqlalchemy.orm.Session
         :param request: Subset of the Tornado request object to pull headers from.
         :type user: User
         """
+
+        try:
+            self.aws_account_pool_manager.reserve_aws_account_for_organization(dbsession, organization.id)
+        except AwsAccountPoolEmptyException:
+            raise gen.Return()
+
         customer_id = yield self.create_stripe_record_for_user(request, user)
         user.payment_id = customer_id
 
@@ -55,6 +66,8 @@ class UserCreationAssistant:
 
         for project in example_projects:
             dbsession.add(project)
+
+        dbsession.commit()
 
     @gen.coroutine
     def find_or_create_user_via_oauth( self, dbsession, oauth_user_data, request ):
@@ -93,10 +106,11 @@ class UserCreationAssistant:
             require_email_verification=False
         )
 
-        yield self.setup_initial_user_state(dbsession, request, user)
-
         # This adds all of the different "relationships" of data in one step (organization, user, oauth, oauth data)
         dbsession.add(organization)
+        dbsession.commit()
+
+        yield self.setup_initial_user_state(dbsession, request, user, organization)
 
         self.logger("Wrote new user to the database: " + user.email)
 

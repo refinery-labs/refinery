@@ -47,6 +47,7 @@ class GithubOAuthProvider:
     _OAUTH_ACCESS_TOKEN_URL = "https://github.com/login/oauth/access_token"
     _OAUTH_AUTHORIZE_URL = "https://github.com/login/oauth/authorize"
     _OAUTH_USER_URL = "https://api.github.com/user"
+    _OAUTH_USER_EMAIL_URL = "https://api.github.com/user/emails"
 
     # Since we only need email address
     scope = "user:email repo"
@@ -134,11 +135,15 @@ class GithubOAuthProvider:
         user_name = user_data_response.get("name")
 
         if user_email is None:
-            # TODO handle this error
-            user_email = "test@test.com"
-            pass
+            # If the email was None, try to directly query for the primary email
+            user_email = yield self._fetch_users_primary_email(access_token)
+            if user_email is None:
+                raise self._trigger_oauth_exception(
+                    "Invalid response from Github -- missing required email",
+                    data=user_data_response
+                )
         else:
-            self.logger( "Successfully retrieved data for user from Github for user: " + user_email, "info" )
+            self.logger(f"Successfully retrieved data for user from Github for user: {user_email}", "info" )
 
         raise gen.Return(GithubUserData(user_unique_id, user_email, user_name, access_token, user_data_response))
 
@@ -211,11 +216,35 @@ class GithubOAuthProvider:
         if not user:
             raise self._trigger_oauth_exception("Missing body when retrieving user information via token from Github")
 
-        # if "email" not in user or "name" not in user[ "user" ]:
-        #	raise self._trigger_oauth_exception( "Invalid response from Github -- missing required data", data=response )
-
         # Hand back the user object for future usage
         raise gen.Return(user)
+
+    @gen.coroutine
+    def _fetch_users_primary_email(self, access_token):
+        """
+        Get the user's primary email in the case that we were not able to do this in the previous user info request.
+        :param access_token: The access token returned by Github during the second part of the flow.
+        """
+        try:
+            response = yield self.http.fetch(
+                self._OAUTH_USER_EMAIL_URL,
+                headers=self._get_auth_base_headers(access_token)
+            )
+        except HTTPError as e:
+            raise self._trigger_oauth_exception("Unable to retrieve user's emails via token from Github", data=e)
+
+        # Fix GitHub response.
+        emails = decode_response_body(response)
+
+        for email in emails:
+            is_primary = email.get("primary")
+
+            # If this email is marked as the primary email, return it
+            if is_primary:
+                email_value = email["email"]
+                raise gen.Return(email_value)
+
+        raise gen.Return(None)
 
     def _trigger_oauth_exception(self, message, data=None, level="warning"):
         """

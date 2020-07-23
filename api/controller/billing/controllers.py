@@ -1,14 +1,26 @@
+import pinject
 from jsonschema import validate as validate_schema
 from tornado import gen
 
-from assistants.task_spawner.actions import get_current_month_start_and_end_date_strings
+from assistants.aws_account_management.account_usage_manager import get_current_month_start_and_end_date_strings, \
+    get_last_month_start_and_end_date_strings, AwsAccountUsageManager
+from assistants.billing.billing_assistant import BillingSpawner
 from controller import BaseHandler
 from controller.billing.schemas import *
 from controller.decorators import authenticated
 from pyexceptions.billing import CardIsPrimaryException
 
 
+class GetBillingTotalsDependencies:
+    @pinject.copy_args_to_public_fields
+    def __init__(self, aws_account_usage_manager):
+        pass
+
+
 class GetBillingMonthTotals(BaseHandler):
+    dependencies = GetBillingTotalsDependencies
+    aws_account_usage_manager: AwsAccountUsageManager = None
+
     @authenticated
     @gen.coroutine
     def post(self):
@@ -23,7 +35,7 @@ class GetBillingMonthTotals(BaseHandler):
 
         credentials = self.get_authenticated_user_cloud_configuration()
 
-        billing_data = yield self.task_spawner.get_sub_account_month_billing_data(
+        billing_data = yield self.aws_account_usage_manager.get_sub_account_month_billing_data(
             credentials["account_id"],
             credentials["account_type"],
             self.json["billing_month"],
@@ -34,6 +46,34 @@ class GetBillingMonthTotals(BaseHandler):
             "success": True,
             "billing_data": billing_data,
         })
+
+
+class GetBillingDateRangeForecast(BaseHandler):
+    dependencies = GetBillingTotalsDependencies
+    aws_account_usage_manager: AwsAccountUsageManager = None
+
+    @authenticated
+    @gen.coroutine
+    def post(self):
+        """
+        Pulls the billing totals for a given date range.
+
+        This allows for the frontend to pull things like:
+        * The user's current total costs for the month
+        * The total costs for the last three months.
+        """
+        credentials = self.get_authenticated_user_cloud_configuration()
+
+        date_info = get_current_month_start_and_end_date_strings()
+
+        forecast_data = yield self.aws_account_usage_manager.get_sub_account_billing_forecast(
+            credentials["account_id"],
+            date_info["current_date"],
+            date_info["next_month_first_day"],
+            "monthly"
+        )
+
+        self.write(forecast_data)
 
 
 class AddCreditCardToken(BaseHandler):
@@ -169,28 +209,82 @@ class MakeCreditCardPrimary(BaseHandler):
         })
 
 
-# UNUSED
-class GetBillingDateRangeForecast(BaseHandler):
-    @authenticated
+class RunBillingWatchdogJobDependencies:
+    @pinject.copy_args_to_public_fields
+    def __init__(self, aws_account_usage_manager, billing_spawner):
+        pass
+
+
+class RunBillingWatchdogJob(BaseHandler):
+    dependencies = RunBillingWatchdogJobDependencies
+    aws_account_usage_manager: AwsAccountUsageManager = None
+    billing_spawner: BillingSpawner = None
+
     @gen.coroutine
-    def post(self):
+    def get(self):
         """
-        Pulls the billing totals for a given date range.
-
-        This allows for the frontend to pull things like:
-        * The user's current total costs for the month
-        * The total costs for the last three months.
+        This job checks the running account totals of each AWS account to see
+        if their usage has gone over the safety limits. This is mainly for free
+        trial users and for alerting users that they may incur a large bill.
         """
-        current_user = self.get_authenticated_user()
-        credentials = self.get_authenticated_user_cloud_configuration()
+        self.write({
+            "success": True,
+            "msg": "Watchdog job has been started!"
+        })
+        self.finish()
 
-        date_info = get_current_month_start_and_end_date_strings()
+        self.logger("[ STATUS ] Initiating billing watchdog job, scanning all accounts to check for billing anomalies...")
 
-        forecast_data = yield self.task_spawner.get_sub_account_billing_forecast(
-            credentials["account_id"],
-            date_info["current_date"],
+        aws_account_running_cost_list = yield self.aws_account_usage_manager.pull_current_month_running_account_totals()
+
+        self.logger("[ STATUS ] " + str(len(aws_account_running_cost_list)) + " account(s) pulled from billing, checking against rules...")
+
+        yield self.billing_spawner.enforce_account_limits(aws_account_running_cost_list)
+
+
+class RunMonthlyStripeBillingJob(BaseHandler):
+    @gen.coroutine
+    def get(self):
+        """
+        Runs at the first of the month and creates auto-finalizing draft
+        invoices for all Refinery customers. After it does this it emails
+        the "billing_alert_email" email with a notice to review the drafts
+        before they auto-finalize after one-hour.
+        """
+        self.write({
+            "success": True,
+            "msg": "The billing job has been started!"
+        })
+        self.finish()
+        self.logger("[ STATUS ] Running monthly Stripe billing job to invoice all Refinery customers.")
+        date_info = get_last_month_start_and_end_date_strings()
+
+        self.logger("[ STATUS ] Generating invoices for " + date_info["month_start_date"] + " -> " + date_info["next_month_first_day"])
+
+        yield self.task_spawner.generate_managed_accounts_invoices(
+            date_info["month_start_date"],
             date_info["next_month_first_day"],
-            "monthly"
         )
+        self.logger("[ STATUS ] Stripe billing job has completed!")
 
-        self.write(forecast_data)
+
+class ClearStripeInvoiceDraftsDependencies:
+    @pinject.copy_args_to_public_fields
+    def __init__(self, billing_spawner):
+        pass
+
+
+# noinspection PyMethodOverriding, PyAttributeOutsideInit
+class ClearStripeInvoiceDrafts(BaseHandler):
+    dependencies = ClearStripeInvoiceDraftsDependencies
+    billing_spawner = None
+
+    @gen.coroutine
+    def get(self):
+        self.logger("Clearing all draft Stripe invoices...")
+        yield self.billing_spawner.clear_draft_invoices()
+
+        self.write({
+            "success": True,
+            "msg": "Invoice drafts have been cleared!"
+        })

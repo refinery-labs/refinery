@@ -199,7 +199,6 @@ class AwsResourceEnumerator(object):
             }
         ]
 
-        resources_list = []
         resource_futures = []
 
         for resource_enumeration_input in resource_enumeration_inputs:

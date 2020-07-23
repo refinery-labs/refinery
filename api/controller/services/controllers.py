@@ -8,9 +8,9 @@ from sqlalchemy import or_ as sql_or
 from tornado import gen
 from traceback import print_exc
 
-from assistants.deployments.teardown import teardown_infrastructure
+from assistants.deployments.teardown_manager import AwsTeardownManager
 from controller import BaseHandler
-from controller.services.actions import clear_sub_account_packages, get_last_month_start_and_end_date_strings
+from controller.services.actions import clear_sub_account_packages
 from models import AWSAccount, User, TerraformStateVersion
 from assistants.deployments.dangling_resources import get_user_dangling_resources
 from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
@@ -695,7 +695,7 @@ class PerformTerraformPlanForAccount(BaseHandler):
         # Convert terraform plan terminal output to HTML
         ansiconverter = Ansi2HTMLConverter()
         terraform_output_html = ansiconverter.convert(
-            terraform_plan_output
+            terraform_plan_output.decode('utf-8')
         )
 
         rendered_html_output = response_html_template.format(
@@ -783,11 +783,11 @@ class PerformTerraformUpdateForAccount(BaseHandler):
 
         if terraform_apply_results["success"]:
             terraform_output_html = ansiconverter.convert(
-                terraform_apply_results["stdout"]
+                terraform_apply_results["stdout"].decode('utf-8')
             )
         else:
             terraform_output_html = ansiconverter.convert(
-                terraform_apply_results["stderr"]
+                terraform_apply_results["stderr"].decode('utf-8')
             )
 
         rendered_html_output = response_html_template.format(
@@ -871,60 +871,11 @@ class PerformTerraformPlanOnFleet(BaseHandler):
         )
 
 
-class RunBillingWatchdogJob(BaseHandler):
-    @gen.coroutine
-    def get(self):
-        """
-        This job checks the running account totals of each AWS account to see
-        if their usage has gone over the safety limits. This is mainly for free
-        trial users and for alerting users that they may incur a large bill.
-        """
-        self.write({
-            "success": True,
-            "msg": "Watchdog job has been started!"
-        })
-        self.finish()
-        self.logger("[ STATUS ] Initiating billing watchdog job, scanning all accounts to check for billing anomalies...")
-        aws_account_running_cost_list = yield self.task_spawner.pull_current_month_running_account_totals()
-        self.logger("[ STATUS ] " + str(len(aws_account_running_cost_list)) + " account(s) pulled from billing, checking against rules...")
-        yield self.task_spawner.enforce_account_limits(aws_account_running_cost_list)
-
-
-class RunMonthlyStripeBillingJob(BaseHandler):
-    @gen.coroutine
-    def get(self):
-        """
-        Runs at the first of the month and creates auto-finalizing draft
-        invoices for all Refinery customers. After it does this it emails
-        the "billing_alert_email" email with a notice to review the drafts
-        before they auto-finalize after one-hour.
-        """
-        self.write({
-            "success": True,
-            "msg": "The billing job has been started!"
-        })
-        self.finish()
-        self.logger("[ STATUS ] Running monthly Stripe billing job to invoice all Refinery customers.")
-        date_info = get_last_month_start_and_end_date_strings()
-
-        self.logger("[ STATUS ] Generating invoices for " + date_info["month_start_date"] + " -> " + date_info["next_month_first_day"])
-
-        yield self.task_spawner.generate_managed_accounts_invoices(
-            date_info["month_start_date"],
-            date_info["next_month_first_day"],
-        )
-        self.logger("[ STATUS ] Stripe billing job has completed!")
-
-
 class CleanupDanglingResourcesDependencies:
     @pinject.copy_args_to_public_fields
     def __init__(
         self,
-        lambda_manager,
-        api_gateway_manager,
-        schedule_trigger_manager,
-        sns_manager,
-        sqs_manager,
+        aws_teardown_manager,
         aws_resource_enumerator
     ):
         pass
@@ -933,11 +884,7 @@ class CleanupDanglingResourcesDependencies:
 # noinspection PyMethodOverriding, PyAttributeOutsideInit
 class CleanupDanglingResources(BaseHandler):
     dependencies = CleanupDanglingResourcesDependencies
-    lambda_manager = None
-    api_gateway_manager = None
-    schedule_trigger_manager = None
-    sns_manager = None
-    sqs_manager = None
+    aws_teardown_manager: AwsTeardownManager = None
     aws_resource_enumerator = None
 
     @gen.coroutine
@@ -988,12 +935,7 @@ class CleanupDanglingResources(BaseHandler):
             self.logger("Deleting all dangling resources...")
 
             # Tear down all dangling nodes
-            teardown_results = yield teardown_infrastructure(
-                self.api_gateway_manager,
-                self.lambda_manager,
-                self.schedule_trigger_manager,
-                self.sns_manager,
-                self.sqs_manager,
+            teardown_results = yield self.aws_teardown_manager.teardown_infrastructure(
                 credentials,
                 dangling_resources
             )
@@ -1006,28 +948,6 @@ class CleanupDanglingResources(BaseHandler):
             "success": True,
             "total_resources": len(dangling_resources),
             "result": dangling_resources
-        })
-
-
-class ClearStripeInvoiceDraftsDependencies:
-    @pinject.copy_args_to_public_fields
-    def __init__(self, billing_spawner):
-        pass
-
-
-# noinspection PyMethodOverriding, PyAttributeOutsideInit
-class ClearStripeInvoiceDrafts(BaseHandler):
-    dependencies = ClearStripeInvoiceDraftsDependencies
-    billing_spawner = None
-
-    @gen.coroutine
-    def get(self):
-        self.logger("Clearing all draft Stripe invoices...")
-        yield self.billing_spawner.clear_draft_invoices()
-
-        self.write({
-            "success": True,
-            "msg": "Invoice drafts have been cleared!"
         })
 
 

@@ -10,10 +10,12 @@ from tornado import gen
 from jsonschema import validate as validate_schema
 
 from assistants.accounts import get_user_free_trial_information
+from assistants.aws_account_management.account_pool_manager import AwsAccountPoolManager, AwsAccountPoolEmptyException
 from controller import BaseHandler
 from controller.decorators import authenticated
 from models import Organization, User, EmailAuthToken, Project, ProjectVersion, ProjectConfig, AWSAccount
 from pyconstants.project_constants import DEFAULT_PROJECT_CONFIG
+from services.project_inventory.project_inventory_service import ProjectInventoryService
 
 
 class GetAuthenticationStatus(BaseHandler):
@@ -50,7 +52,16 @@ class GetAuthenticationStatus(BaseHandler):
         })
 
 
+class NewRegistrationDependencies:
+    @pinject.copy_args_to_public_fields
+    def __init__(self, project_inventory_service):
+        pass
+
+
 class NewRegistration(BaseHandler):
+    dependencies = NewRegistrationDependencies
+    project_inventory_service: ProjectInventoryService = None
+
     @gen.coroutine
     def post(self):
         """
@@ -63,21 +74,21 @@ class NewRegistration(BaseHandler):
         schema = {
             "type": "object",
             "properties": {
-                    "organization_name": {
-                        "type": "string",
-                    },
+                "organization_name": {
+                    "type": "string",
+                },
                 "name": {
-                        "type": "string",
-                        },
+                    "type": "string",
+                },
                 "email": {
-                        "type": "string",
-                    },
+                    "type": "string",
+                },
                 "phone": {
-                        "type": "string",
-                    },
+                    "type": "string",
+                },
                 "stripe_token": {
-                        "type": "string",
-                    }
+                    "type": "string",
+                }
             },
             "required": [
                 "organization_name",
@@ -219,42 +230,10 @@ class NewRegistration(BaseHandler):
         self.dbsession.commit()
 
         # Add default projects to the user's account
-        for default_project_data in self.app_config.get("DEFAULT_PROJECT_ARRAY"):
-            project_name = default_project_data["name"]
+        example_projects = self.project_inventory_service.add_example_projects_user(user)
 
-            self.logger("Adding default project name '" + project_name + "' to the user's account...")
-
-            new_project = Project()
-            new_project.name = project_name
-
-            # Add the user to the project so they can access it
-            new_project.users.append(
-                new_user
-            )
-
-            new_project_version = ProjectVersion()
-            new_project_version.version = 1
-            new_project_version.project_json = json.dumps(
-                default_project_data
-            )
-
-            # Add new version to the project
-            new_project.versions.append(
-                new_project_version
-            )
-
-            new_project_config = ProjectConfig()
-            new_project_config.project_id = new_project.id
-            new_project_config.config_json = json.dumps(
-                DEFAULT_PROJECT_CONFIG
-            )
-
-            # Add project config to the new project
-            new_project.configs.append(
-                new_project_config
-            )
-
-            self.dbsession.add(new_project)
+        for project in example_projects:
+            self.dbsession.add(project)
 
         self.dbsession.commit()
 
@@ -284,13 +263,14 @@ class NewRegistration(BaseHandler):
 
 class EmailLinkAuthenticationDependencies:
     @pinject.copy_args_to_public_fields
-    def __init__(self, aws_account_freezer):
+    def __init__(self, aws_account_freezer, aws_account_pool_manager):
         pass
 
 
 class EmailLinkAuthentication(BaseHandler):
     dependencies = EmailLinkAuthenticationDependencies
     aws_account_freezer = None
+    aws_account_pool_manager: AwsAccountPoolManager = None
 
     @gen.coroutine
     def get(self, email_authentication_token=None):
@@ -308,7 +288,7 @@ class EmailLinkAuthentication(BaseHandler):
         ).first()
 
         if email_authentication_token is None:
-            self.logger("User's token was not found in the database")
+            self.logger("User's token was not found in the database", "error")
             self.write("Invalid authentication token, did you copy the link correctly?")
             raise gen.Return()
 
@@ -317,7 +297,7 @@ class EmailLinkAuthentication(BaseHandler):
 
         # Check if the token is expired
         if email_authentication_token.is_expired == True:
-            self.logger("The user's email token was already marked as expired.")
+            self.logger("The user's email token was already marked as expired.", "error")
             self.write("That email token has expired, please try authenticating again to request a new one.")
             raise gen.Return()
 
@@ -355,27 +335,17 @@ class EmailLinkAuthentication(BaseHandler):
         # Check if the user has previously authenticated via
         # their email address. If not we'll mark their email
         # as validated as well.
-        if email_authentication_token.user.email_verified == False:
-            email_authentication_token.user.email_verified = True
+        if not email_authentication_token.user.email_verified:
+            try:
+                self.aws_account_pool_manager.reserve_aws_account_for_organization(self.dbsession, user_organization.id)
+                email_authentication_token.user.email_verified = True
+            except AwsAccountPoolEmptyException:
+                # If we have no accounts to provide this organization, we want to raise an error
+                self.logger(f"Unable to provide organization {user_organization.id} with an AWS account", "error")
 
-            # Check if there are reserved AWS accounts available
-            aws_reserved_account = self.dbsession.query(AWSAccount).filter_by(
-                aws_account_status="AVAILABLE"
-            ).first()
-
-            # If one exists, add it to the account
-            if aws_reserved_account is not None:
-                self.logger("Adding a reserved AWS account to the newly registered Refinery account...")
-                aws_reserved_account.aws_account_status = "IN_USE"
-                aws_reserved_account.organization_id = user_organization.id
-                self.dbsession.commit()
-
-                # Don't yield because we don't care about the result
-                # Unfreeze/thaw the account so that it's ready for the new user
-                # This takes ~30 seconds - worth noting. But that **should** be fine.
-                self.aws_account_freezer.unfreeze_aws_account(
-                    aws_reserved_account.to_dict()
-                )
+                # TODO this message should be standardized
+                self.write("Unable to complete account registration due to an internal error, please reach out to the Refinery team to have this issue resolved.")
+                raise gen.Return()
 
         self.dbsession.commit()
 
@@ -414,9 +384,9 @@ class Authenticate(BaseHandler):
         schema = {
             "type": "object",
             "properties": {
-                    "email": {
-                        "type": "string",
-                    }
+                "email": {
+                    "type": "string",
+                }
             },
             "required": [
                 "email"

@@ -517,13 +517,9 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
         return;
       }
 
-      if (
-        !runTmpLambdaResult.success &&
-        runTmpLambdaResult.msg !== undefined &&
-        runTmpLambdaResult.log_output !== undefined
-      ) {
+      if (!runTmpLambdaResult.success && runTmpLambdaResult.msg !== undefined) {
         baseError.returned_data = `Error Running Block: ${runTmpLambdaResult.msg}`;
-        baseError.logs = runTmpLambdaResult.log_output;
+        baseError.logs = runTmpLambdaResult.log_output || '';
 
         context.commit(RunLambdaMutators.setDevLambdaRunResult, baseError);
         context.commit(RunLambdaMutators.setDevLambdaRunResultId, request.block_id);

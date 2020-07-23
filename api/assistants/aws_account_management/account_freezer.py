@@ -1,25 +1,148 @@
 import json
+
+import pystache
 import time
 
 import botocore
+from tornado import gen
 from tornado.concurrent import run_on_executor
 
+from assistants.deployments.teardown_manager import AwsTeardownManager
+from models import User, CachedExecutionLogsShard, Deployment
 from utils.base_spawner import BaseSpawner
+from utils.db_session_scope import session_scope
 from utils.general import logit
 from utils.general import get_urand_password
 from utils.aws_client import get_aws_client
 from models.aws_accounts import AWSAccount
 
 
-class AwsAccountFreezer(BaseSpawner):
-    def __init__(self, aws_cloudwatch_client, logger, db_session_maker, app_config):
-        super().__init__(self, aws_cloudwatch_client, logger, app_config=app_config)
+@gen.coroutine
+def send_exceeded_free_tier_quota_email(task_spawner, account_frozen_alert_template, org_user_email, org_user_name):
+    yield task_spawner.send_email(
+        org_user_email,
+        "[IMPORTANT] You've exceeded your Refinery free-tier quota!",
+        False,
+        pystache.render(
+            account_frozen_alert_template,
+            {
+                "name": org_user_name
+            }
+        ),
+    )
 
+
+class AwsAccountFreezer(BaseSpawner):
+    def __init__(
+            self,
+            aws_cloudwatch_client,
+            logger,
+            task_spawner,
+            db_session_maker,
+            app_config,
+            aws_teardown_manager
+    ):
+        super().__init__(aws_cloudwatch_client, logger, app_config=app_config)
+
+        self.task_spawner = task_spawner
         self.db_session_maker = db_session_maker
+        self.aws_teardown_manager = aws_teardown_manager
+
+    @gen.coroutine
+    def handle_user_over_limit(self, credentials):
+        with session_scope(self.db_session_maker) as dbsession:
+            # Send an email to the user explaining the situation
+            organization_user_objs = dbsession.query(User).filter_by(
+                organization_id=credentials["organization_id"]
+            ).all()
+
+            organization_users = [user.to_dict() for user in organization_user_objs]
+
+        # Kick off account freezer since user is over their limit
+        yield self.freeze_aws_account(
+            credentials
+        )
+
+        email_templates = self.app_config.get("EMAIL_TEMPLATES")
+        account_frozen_alert_template = email_templates["account_frozen_alert"]
+
+        for organization_user in organization_users:
+            yield self.teardown_all_user_deployments(
+                credentials,
+                organization_user["id"]
+            )
+
+            yield send_exceeded_free_tier_quota_email(
+                self.task_spawner,
+                account_frozen_alert_template,
+                organization_user["email"],
+                organization_user["name"]
+            )
+
+    @gen.coroutine
+    def teardown_all_user_deployments(self, credentials, user_id):
+        self.logger(f"Removing all deployed projects for {user_id}")
+
+        deployment_schemas_list = []
+        project_id_list = []
+        project_deployment_id_list = []
+        with session_scope(self.db_session_maker) as dbsession:
+            user = dbsession.query(User).filter_by(
+                id=user_id
+            ).first()
+
+            for project in user.projects:
+                project_id_list.append(project.id)
+
+                for deployment in project.deployments:
+                    project_deployment_id_list.append(deployment.id)
+
+                    deployment_schemas_list.append(
+                        json.loads(
+                            deployment.deployment_json
+                        )
+                    )
+
+        for deployment_json in deployment_schemas_list:
+            if "workflow_states" not in deployment_json:
+                self.logger("Corrupt deployment JSON data read from database, missing workflow_states for teardown")
+
+            teardown_nodes = deployment_json["workflow_states"]
+
+            # do the teardown of the deployed aws infra
+            yield self.aws_teardown_manager.teardown_infrastructure(
+                credentials,
+                teardown_nodes
+            )
+
+        with session_scope(self.db_session_maker) as dbsession:
+            for deployment_id in project_deployment_id_list:
+                dbsession.query(
+                    Deployment
+                ).filter(
+                    Deployment.id == deployment_id
+                ).delete()
+
+            for project_id in project_id_list:
+                dbsession.query(
+                    CachedExecutionLogsShard
+                ).filter(
+                    CachedExecutionLogsShard.project_id == project_id
+                ).delete()
+
+                # delete existing logs for the project
+                self.aws_teardown_manager.delete_logs(
+                    credentials,
+                    project_id
+                )
 
     @run_on_executor
     def freeze_aws_account( self, credentials ):
-        return AwsAccountFreezer._freeze_aws_account(self.app_config, self.db_session_maker, credentials)
+        return AwsAccountFreezer._freeze_aws_account(
+            self.app_config,
+            self.db_session_maker,
+            credentials
+        )
 
     @staticmethod
     def _freeze_aws_account( app_config, db_session_maker, credentials ):
@@ -44,13 +167,11 @@ class AwsAccountFreezer(BaseSpawner):
         account_id = credentials["account_id"]
 
         # Update the console login in the database
-        dbsession = db_session_maker()
-        aws_account = dbsession.query( AWSAccount ).filter_by(
-            account_id=account_id
-        ).first()
-        aws_account.iam_admin_password = new_console_user_password
-        dbsession.commit()
-        dbsession.close()
+        with session_scope(db_session_maker()) as dbsession:
+            aws_account = dbsession.query( AWSAccount ).filter_by(
+                account_id=account_id
+            ).first()
+            aws_account.iam_admin_password = new_console_user_password
 
         # Get Lambda ARNs
         lambda_arn_list = AwsAccountFreezer.get_lambda_arns(credentials)
@@ -71,13 +192,11 @@ class AwsAccountFreezer(BaseSpawner):
             credentials
         )
 
-        dbsession = db_session_maker()
-        aws_account = dbsession.query( AWSAccount ).filter_by(
-            account_id=account_id
-        ).first()
-        aws_account.is_frozen = True
-        dbsession.commit()
-        dbsession.close()
+        with session_scope(db_session_maker) as dbsession:
+            aws_account = dbsession.query( AWSAccount ).filter_by(
+                account_id=account_id
+            ).first()
+            aws_account.is_frozen = True
 
         logit(f"Account freezing complete for {account_id}, stay frosty!")
 
@@ -96,7 +215,7 @@ class AwsAccountFreezer(BaseSpawner):
 
         for lambda_arn in lambda_arn_list:
             # If it's the free-tier limiter, skip it.
-            if lambda_arn.endswith( ":FreeTierConcurrencyLimiter" ):
+            if lambda_arn.endswith(":FreeTierConcurrencyLimiter"):
                 continue
 
             return_list.append(
@@ -212,6 +331,15 @@ class AwsAccountFreezer(BaseSpawner):
             )
         except:
             logit( "Error detaching user policy, continuing..." )
+
+        try:
+            # Delete the IAM login profile
+            delete_user_response = iam_client.delete_login_profile(
+                UserName=credentials[ "iam_admin_username" ],
+            )
+        except Exception as e:
+            logit( "Error deleting login profile, continuing..." )
+            print(e)
 
         try:
             # Delete the IAM user

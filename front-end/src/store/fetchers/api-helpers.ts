@@ -543,6 +543,10 @@ export async function deployProject({
     if (response && response.code && response.code === DeployDiagramResponseCode.DeploymentLockFailure) {
       throw new Error('Deployment is currently in progress for this project.');
     }
+
+    if (response && response.msg) {
+      throw new Error(response.msg);
+    }
     throw new Error('Unable to create new deployment.');
   }
 
@@ -572,7 +576,7 @@ export async function createShortlink(diagramData: ImportableRefineryProject): P
   );
 
   if (!response || !response.success) {
-    throw new Error('Unable to create new deployment.');
+    throw new Error('Unable to create shortlink.');
   }
 
   return response.result.project_short_link_id;

@@ -99,7 +99,6 @@ class OAuthService:
         """
 
         user_oauth_account = self.get_existing_oauth_provider_for_user(dbsession, user_id, provider)
-        print(user_oauth_account)
 
         if user_oauth_account is not None:
             return user_oauth_account

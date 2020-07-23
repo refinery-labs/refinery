@@ -7,15 +7,15 @@ import pinject
 from jsonschema import validate as validate_schema
 from tornado import gen
 
+from assistants.deployments.api_gateway import ApiGatewayManager
 from assistants.deployments.aws.aws_deployment import AwsDeployment
 from assistants.deployments.aws.lambda_function import LambdaWorkflowState
 from assistants.deployments.aws.utils import get_base_lambda_code
 from assistants.deployments.diagram.workflow_states import StateTypes
-from assistants.deployments.teardown import teardown_infrastructure
+from assistants.deployments.teardown_manager import AwsTeardownManager
 from controller import BaseHandler
 from controller.aws.schemas import *
 from controller.decorators import authenticated, disable_on_overdue_payment
-from controller.logs.actions import delete_logs
 from controller.projects.actions import update_project_config
 from models import InlineExecutionLambda, Project, Deployment
 from pyexceptions.builds import BuildException
@@ -278,11 +278,7 @@ class InfraTearDownDependencies:
 # noinspection PyMethodOverriding, PyAttributeOutsideInit
 class InfraTearDown(BaseHandler):
     dependencies = InfraTearDownDependencies
-    api_gateway_manager = None
-    lambda_manager = None
-    schedule_trigger_manager = None
-    sns_manager = None
-    sqs_manager = None
+    aws_teardown_manager: AwsTeardownManager = None
 
     @authenticated
     @gen.coroutine
@@ -291,20 +287,14 @@ class InfraTearDown(BaseHandler):
 
         credentials = self.get_authenticated_user_cloud_configuration()
 
-        teardown_operation_results = yield teardown_infrastructure(
-            self.api_gateway_manager,
-            self.lambda_manager,
-            self.schedule_trigger_manager,
-            self.sns_manager,
-            self.sqs_manager,
+        teardown_operation_results = yield self.aws_teardown_manager.teardown_infrastructure(
             credentials,
             teardown_nodes
         )
 
         # Delete our logs
         # No need to yield till it completes
-        delete_logs(
-            self.task_spawner,
+        self.aws_teardown_manager.delete_logs(
             credentials,
             self.json["project_id"]
         )
@@ -327,7 +317,7 @@ class InfraCollisionCheck(BaseHandler):
 
 class DeployDiagramDependencies:
     @pinject.copy_args_to_public_fields
-    def __init__(self, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager, sqs_manager):
+    def __init__(self, aws_teardown_manager, api_gateway_manager):
         pass
 
 
@@ -340,28 +330,20 @@ def filter_teardown_nodes(teardown_nodes):
 
 class DeployDiagram(BaseHandler):
     dependencies = DeployDiagramDependencies
-    lambda_manager = None
-    api_gateway_manager = None
-    schedule_trigger_manager = None
-    sns_manager = None
-    sqs_manager = None
+    aws_teardown_manager: AwsTeardownManager = None
+    api_gateway_manager: ApiGatewayManager = None
 
     @gen.coroutine
     def cleanup_deployment(self, deployment_diagram, credentials, successful_deploy):
         yield deployment_diagram.remove_workflow_states(
-            self.api_gateway_manager,
-            self.lambda_manager,
-            self.schedule_trigger_manager,
-            self.sns_manager,
-            self.sqs_manager,
+            self.aws_teardown_manager,
             credentials,
             successful_deploy
         )
 
         # Delete our logs
         # No need to yield till it completes
-        delete_logs(
-            self.task_spawner,
+        self.aws_teardown_manager.delete_logs(
             credentials,
             deployment_diagram.project_id
         )

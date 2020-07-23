@@ -12,28 +12,6 @@ from utils.mapper import execution_pipeline_id_dict_to_frontend_format
 from utils.mapper import execution_log_query_results_to_pipeline_id_dict
 
 
-@gen.coroutine
-def delete_logs(task_spawner, credentials, project_id):
-    for _ in range(1000):
-        # Delete 1K logs at a time
-        log_paths = yield task_spawner.get_s3_pipeline_execution_logs(
-            credentials,
-            project_id + "/",
-            1000
-        )
-
-        logit("Deleting #" + str(len(log_paths)) + " log files for project ID " + project_id + "...")
-
-        if len(log_paths) == 0:
-            break
-
-        yield task_spawner.bulk_s3_delete(
-            credentials,
-            credentials["logs_bucket"],
-            log_paths
-        )
-
-
 def chunk_list(input_list, chunk_size):
     """
     Chunk an input list into a list of lists
