@@ -23,6 +23,8 @@ export enum AllProjectsMutators {
   setUploadProjectErrorMessage = 'setUploadProjectErrorMessage',
   setUploadProjectBusy = 'setUploadProjectBusy',
 
+  setImportProjectType = 'setImportProjectType',
+
   setImportProjectInput = 'setImportProjectInput',
   setImportProjectErrorMessage = 'setImportProjectErrorMessage',
   setImportProjectBusy = 'setImportProjectBusy',

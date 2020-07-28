@@ -110,7 +110,7 @@ class RealtimeLambdaBillingWatchdog(BaseHandler):
         validate_schema(self.json, STORE_LAMBDA_EXECUTION_DETAILS_SCHEMA)
 
         for account_id, lambda_execution_reports in self.json.items():
-            yield self.process_lambda_execution_reports(account_id, lambda_execution_reports)
+            self.process_lambda_execution_reports(account_id, lambda_execution_reports)
 
         self.write({
             "success": True

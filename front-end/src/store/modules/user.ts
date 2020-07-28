@@ -16,10 +16,11 @@ import {
 } from '@/types/api-types';
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
-import { autoRefreshJob, timeout, waitUntil } from '@/utils/async-utils';
+import { autoRefreshJob, waitUntil } from '@/utils/async-utils';
 import { LOGIN_STATUS_CHECK_INTERVAL, MAX_LOGIN_CHECK_ATTEMPTS } from '@/constants/user-constants';
 import { checkLoginStatus } from '@/store/fetchers/api-helpers';
-import { AllProjectsActions } from '@/store/modules/all-projects';
+import { GithubSignupFlowStoreModule, RepoManagerStoreModule, RepoSelectorStoreModule } from '@/store';
+import { DeployFromGithubStateType } from '@/types/github-signup-flow-types';
 
 const nameRegex = /^(\D{1,32} ?)+\D{1,32}$/;
 
@@ -148,6 +149,10 @@ const UserModule: Module<UserState, RootState> = {
   },
   actions: {
     async [UserActions.authWithGithub](context) {
+      if (GithubSignupFlowStoreModule.isConnectingToGithub) {
+        GithubSignupFlowStoreModule.setGithubSignupState(DeployFromGithubStateType.WAITING_FOR_GITHUB_RESPONSE);
+      }
+
       const result = await makeApiRequest<AuthWithGithubRequest, AuthWithGithubResponse>(
         API_ENDPOINT.AuthWithGithub,
         {}
@@ -160,8 +165,16 @@ const UserModule: Module<UserState, RootState> = {
       }
 
       const bc = new BroadcastChannel('auth_flow');
-      bc.onmessage = e => {
-        location.reload();
+      bc.onmessage = async e => {
+        if (GithubSignupFlowStoreModule.isWaitingForGithubResponse) {
+          await RepoSelectorStoreModule.cacheReposForUser();
+
+          await GithubSignupFlowStoreModule.createNewProject();
+
+          GithubSignupFlowStoreModule.setGithubSignupState(DeployFromGithubStateType.CHOOSING_GITHUB_REPO);
+          return;
+        }
+        //location.reload();
       };
 
       window.open(result.result.redirect_uri, '_blank');

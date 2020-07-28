@@ -54,6 +54,9 @@ module.exports = {
   },
   configureWebpack: {
     plugins,
+    devServer: {
+      disableHostCheck: true
+    },
     optimization: {
       splitChunks: {
         chunks: 'all',

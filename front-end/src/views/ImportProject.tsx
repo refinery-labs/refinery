@@ -1,5 +1,4 @@
-import('../monaco-shims');
-import Vue, { VNode } from 'vue';
+import { VNode } from 'vue';
 import Component, { mixins } from 'vue-class-component';
 import { namespace, State } from 'vuex-class';
 import ImportableRefineryProject from '@/types/export-project';
@@ -9,12 +8,17 @@ import { DeploymentViewMutators, ProjectViewActions, ProjectViewMutators } from 
 import OpenedProjectOverview from '@/views/ProjectsNestedViews/OpenedProjectOverview';
 import SignupModal, { SignupModalProps } from '@/components/Demo/SignupModal';
 import CreateToastMixin from '@/mixins/CreateToastMixin';
+import { ImportProjectType } from '@/store/store-types';
+import DeployFromGithub from '@/components/Signup/DeployFromGithub';
+
+import('../monaco-shims');
 
 const allProjects = namespace('allProjects');
 const project = namespace('project');
 
 @Component
 export default class ImportProject extends mixins(CreateToastMixin) {
+  @allProjects.State importProjectType!: ImportProjectType | null;
   @allProjects.State importProjectFromUrlContent!: string | null;
   @allProjects.State importProjectFromUrlError!: string | null;
   @allProjects.State importProjectFromUrlBusy!: boolean;
@@ -114,27 +118,40 @@ export default class ImportProject extends mixins(CreateToastMixin) {
     return <div>{this.renderUnauthGraph()}</div>;
   }
 
-  public render() {
-    const signupModalProps: SignupModalProps = {
-      showModal: UnauthViewProjectStoreModule.showSignupModal,
-      isModal: true,
-      closeModal: () => UnauthViewProjectStoreModule.setShowSignupModal(false)
-    };
+  public getImportView() {
+    if (this.importProjectType === ImportProjectType.URL) {
+      const signupModalProps: SignupModalProps = {
+        showModal: UnauthViewProjectStoreModule.showSignupModal,
+        isModal: true,
+        closeModal: () => UnauthViewProjectStoreModule.setShowSignupModal(false)
+      };
 
-    return (
-      <div class="view-project-page">
-        <b-nav tabs justified>
-          <b-nav-item exact active-nav-item-class="active" data-tooltip-id="editor-nav-item">
-            Editor
-          </b-nav-item>
-          <b-nav-item>Deployment</b-nav-item>
-          <b-nav-item>Settings</b-nav-item>
-        </b-nav>
-        <div class="view-project-page-content position--relative flex-grow--1 width--100percent height--100percent">
-          {this.renderContents()}
-          <SignupModal props={signupModalProps} />
+      return (
+        <div>
+          <b-nav tabs justified>
+            <b-nav-item exact active-nav-item-class="active" data-tooltip-id="editor-nav-item">
+              Editor
+            </b-nav-item>
+            <b-nav-item>Deployment</b-nav-item>
+            <b-nav-item>Settings</b-nav-item>
+          </b-nav>
+          <div class="view-project-page-content position--relative flex-grow--1 width--100percent height--100percent">
+            {this.renderContents()}
+            <SignupModal props={signupModalProps} />
+          </div>
         </div>
-      </div>
-    );
+      );
+    } else if (this.importProjectType === ImportProjectType.REPO) {
+      return <DeployFromGithub />;
+    }
+    return null;
+  }
+
+  public render() {
+    if (this.importProjectType === null) {
+      return null;
+    }
+
+    return <div class="view-project-page">{this.getImportView()}</div>;
   }
 }

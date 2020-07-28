@@ -291,7 +291,6 @@ class DeleteSavedProject(BaseHandler):
 
         if project_config is not None:
             yield self.aws_teardown_manager.delete_api_gateway(
-                self.logger,
                 credentials,
                 project_config.to_dict()
             )
@@ -323,7 +322,6 @@ class DeleteSavedProject(BaseHandler):
 
         # delete existing logs for the project
         self.aws_teardown_manager.delete_logs(
-            self.task_spawner,
             credentials,
             project_id
         )

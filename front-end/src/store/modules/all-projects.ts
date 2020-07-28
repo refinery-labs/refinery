@@ -1,20 +1,15 @@
 import { Module } from 'vuex';
 import LZString from 'lz-string';
-import { AllProjectsState, RootState } from '@/store/store-types';
-import { AllProjectsMutators } from '@/constants/store-constants';
+import { AllProjectsState, ImportProjectType, RootState } from '@/store/store-types';
+import { AllProjectsMutators, UserActions } from '@/constants/store-constants';
 import { makeApiRequest } from '@/store/fetchers/refinery-api';
 import { API_ENDPOINT } from '@/constants/api-constants';
 import {
-  AuthWithGithubRequest,
-  AuthWithGithubResponse,
   DeleteSavedProjectRequest,
   DeleteSavedProjectResponse,
-  GetProjectVersionsRequest,
-  GetProjectVersionsResponse,
   SearchSavedProjectsRequest,
   SearchSavedProjectsResponse,
-  SearchSavedProjectsResult,
-  SearchSavedProjectVersionMetadata
+  SearchSavedProjectsResult
 } from '@/types/api-types';
 import { createNewProjectFromConfig } from '@/utils/new-project-utils';
 import { getFileFromEvent, readFileAsText } from '@/utils/dom-utils';
@@ -24,8 +19,8 @@ import ImportableRefineryProject from '@/types/export-project';
 import { getProjectVersions, getShortlinkContents, renameProject } from '@/store/fetchers/api-helpers';
 import { SelectProjectVersion } from '@/types/all-project-types';
 import { getInitialCardStateForSearchResults } from '@/utils/all-projects-utils';
-import { SyncProjectRepoPaneStoreModule } from '@/store';
-import uuid from 'uuid';
+import { GithubSignupFlowStoreModule, RepoManagerStoreModule, RepoSelectorStoreModule } from '@/store';
+import { DeployFromGithubStateType } from '@/types/github-signup-flow-types';
 
 const moduleState: AllProjectsState = {
   availableProjects: [],
@@ -50,6 +45,8 @@ const moduleState: AllProjectsState = {
   uploadProjectInput: null,
   uploadProjectErrorMessage: null,
   uploadProjectBusy: false,
+
+  importProjectType: null,
 
   importProjectInput: null,
   importProjectErrorMessage: null,
@@ -178,6 +175,10 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
     },
     [AllProjectsMutators.setUploadProjectBusy](state, val) {
       state.uploadProjectBusy = val;
+    },
+
+    [AllProjectsMutators.setImportProjectType](state, type) {
+      state.importProjectType = type;
     },
 
     [AllProjectsMutators.setImportProjectInput](state, text) {
@@ -329,6 +330,8 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
 
       const shortlink = urlParams.get('q');
       if (shortlink) {
+        context.commit(AllProjectsMutators.setImportProjectType, ImportProjectType.URL);
+
         context.commit(AllProjectsMutators.setImportProjectFromUrlBusy, true);
 
         const response = await getShortlinkContents(shortlink);
@@ -348,9 +351,13 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
       const repoURL = urlParams.get('r');
       const projectId = urlParams.get('i');
       if (repoURL && projectId) {
+        context.commit(AllProjectsMutators.setImportProjectType, ImportProjectType.REPO);
+
         context.commit(AllProjectsMutators.setImportProjectFromUrlBusy, true);
 
-        const compiledProject = await SyncProjectRepoPaneStoreModule.compileAndSetupProjectRepo([repoURL, projectId]);
+        GithubSignupFlowStoreModule.setGithubSignupState(DeployFromGithubStateType.COMPILING_PROJECT_FROM_GITHUB);
+
+        const compiledProject = await RepoManagerStoreModule.compileAndSetupProjectRepo([repoURL, projectId]);
 
         context.commit(AllProjectsMutators.setImportProjectFromUrlBusy, false);
 
@@ -360,6 +367,20 @@ const AllProjectsModule: Module<AllProjectsState, RootState> = {
         }
 
         context.commit(AllProjectsMutators.setImportProjectFromUrlContent, compiledProject);
+
+        // TODO enable
+        // if (!context.rootState.user.authenticated) {
+
+        // We have successfully imported a project from Github, we now want to have the user auth with Github
+
+        GithubSignupFlowStoreModule.setGithubSignupState(DeployFromGithubStateType.WAITING_FOR_GITHUB_AUTH);
+
+        RepoSelectorStoreModule.setNewRepoName(compiledProject.name);
+        RepoSelectorStoreModule.setNewRepoDescription(`An imported Refinery.io project from ${repoURL}`);
+
+        // } else {
+        //   GithubSignupFlowStoreModule.setGithubSignupState(DeployFromGithubStateType.FINISHED);
+        // }
 
         return;
       }

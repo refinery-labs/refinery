@@ -30,9 +30,9 @@ import { EditSharedFilePaneState } from '@/store/modules/panes/edit-shared-file'
 import { CodeBlockSharedFilesPaneState } from '@/store/modules/panes/code-block-shared-files';
 import { ViewSharedFilePaneState } from '@/store/modules/panes/view-shared-file';
 import { DemoWalkthroughState } from '@/store/modules/demo-walkthrough';
-import { GitState } from '@/store/modules/git-store/git-store';
+import { GitState } from '@/store/modules/git-repos/git-store';
 import RepoSelectionModal from '@/components/ProjectSettings/RepoSelectionModal';
-import { RepoSelectionModalState } from '@/store/modules/modals/repo-selection-modal';
+import { RepoSelectorState } from '@/store/modules/git-repos/repo-selector';
 
 export enum StoreType {
   addSavedBlockPane = 'addSavedBlockPane',
@@ -59,9 +59,10 @@ export enum StoreType {
   unauthViewProject = 'unauthViewProject',
   readmeEditor = 'readmeEditor',
   demoWalkthrough = 'demoWalkthrough',
-  syncProjectRepo = 'syncProjectRepo',
+  repoManager = 'repoManager',
   projectSettings = 'projectSettings',
-  repoSelectionModal = 'repoSelectionModal'
+  repoSelector = 'repoSelector',
+  githubSignupFlow = 'githubSignupFlow'
 }
 
 export interface RootState {
@@ -242,6 +243,11 @@ export enum IfDropDownSelectionType {
   DEFAULT = 'DEFAULT'
 }
 
+export enum ImportProjectType {
+  URL = 'URL',
+  REPO = 'REPO'
+}
+
 export type IfDropdownSelectionKeys = { [key in IfDropDownSelectionType]: string };
 
 export const IfDropdownSelectionExpressionValues: IfDropdownSelectionKeys = {
@@ -276,6 +282,8 @@ export interface AllProjectsState {
   uploadProjectInput: string | null;
   uploadProjectErrorMessage: string | null;
   uploadProjectBusy: boolean;
+
+  importProjectType: ImportProjectType | null;
 
   importProjectInput: string | null;
   importProjectErrorMessage: string | null;

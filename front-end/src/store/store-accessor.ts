@@ -21,10 +21,11 @@ import { UnauthViewProjectStore } from '@/store/modules/unauth-view-project';
 import { ViewSharedFilePaneStore } from '@/store/modules/panes/view-shared-file';
 import { ReadmeEditorPaneStore } from '@/store/modules/panes/readme-editor-pane';
 import { DemoWalkthroughStore } from '@/store/modules/demo-walkthrough';
-import { SyncProjectRepoPaneStore } from '@/store/modules/panes/sync-project-repo-pane';
-import { GitStore } from '@/store/modules/git-store/git-store';
+import { RepoManagerStore } from '@/store/modules/git-repos/repo-manager';
+import { GitStore } from '@/store/modules/git-repos/git-store';
 import { ProjectSettingsStore } from '@/store/modules/project-settings';
-import { RepoSelectionModalStore } from '@/store/modules/modals/repo-selection-modal';
+import { RepoSelectorStore } from '@/store/modules/git-repos/repo-selector';
+import { GithubSignupFlowStore } from '@/store/modules/github-signup-flow';
 
 declare type ConstructorOf<C> = {
   new (...args: any[]): C;
@@ -54,9 +55,10 @@ export const storeModules: { [key in StoreType]: ConstructorOf<VuexModule> & Mod
   unauthViewProject: UnauthViewProjectStore,
   readmeEditor: ReadmeEditorPaneStore,
   demoWalkthrough: DemoWalkthroughStore,
-  syncProjectRepo: SyncProjectRepoPaneStore,
+  repoManager: RepoManagerStore,
   projectSettings: ProjectSettingsStore,
-  repoSelectionModal: RepoSelectionModalStore
+  repoSelector: RepoSelectorStore,
+  githubSignupFlow: GithubSignupFlowStore
 };
 
 export let AddSavedBlockPaneStoreModule: AddSavedBlockPaneStore;
@@ -73,9 +75,10 @@ export let SharedFilesPaneModule: SharedFilesPaneStore;
 export let UnauthViewProjectStoreModule: UnauthViewProjectStore;
 export let ReadmeEditorPaneStoreModule: ReadmeEditorPaneStore;
 export let DemoWalkthroughStoreModule: DemoWalkthroughStore;
-export let SyncProjectRepoPaneStoreModule: SyncProjectRepoPaneStore;
+export let RepoManagerStoreModule: RepoManagerStore;
 export let ProjectSettingsStoreModule: ProjectSettingsStore;
-export let RepoSelectionModalStoreModule: RepoSelectionModalStore;
+export let RepoSelectorStoreModule: RepoSelectorStore;
+export let GithubSignupFlowStoreModule: GithubSignupFlowStore;
 
 // Creates the actual instances of the store for each module.
 // These instances are what the app uses to reference the store in a "nice" way.
@@ -94,9 +97,10 @@ export function initializeStores(store: Store<any>): void {
   UnauthViewProjectStoreModule = getModule(UnauthViewProjectStore, store);
   ReadmeEditorPaneStoreModule = getModule(ReadmeEditorPaneStore, store);
   DemoWalkthroughStoreModule = getModule(DemoWalkthroughStore, store);
-  SyncProjectRepoPaneStoreModule = getModule(SyncProjectRepoPaneStore, store);
+  RepoManagerStoreModule = getModule(RepoManagerStore, store);
   ProjectSettingsStoreModule = getModule(ProjectSettingsStore, store);
-  RepoSelectionModalStoreModule = getModule(RepoSelectionModalStore, store);
+  RepoSelectorStoreModule = getModule(RepoSelectorStore, store);
+  GithubSignupFlowStoreModule = getModule(GithubSignupFlowStore, store);
 }
 
 // for use in 'modules' store init (see store/drop.ts), so each module
