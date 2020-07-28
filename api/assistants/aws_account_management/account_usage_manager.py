@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, timedelta, date
 
 from botocore.exceptions import ClientError
 from time import time
@@ -16,6 +16,7 @@ from models import AWSAccount, Organization, CachedBillingCollection, CachedBill
 from models.lambda_execution_monthly_report import LambdaExecutionMonthlyReport
 from tasks.email import send_email
 from utils.base_spawner import BaseSpawner
+from utils.db_session_scope import session_scope
 from utils.general import logit
 from utils.performance_decorators import emit_runtime_metrics
 
@@ -50,9 +51,9 @@ class AwsUsageData:
 
 
 def get_first_day_of_month():
-    today = datetime.date.today()
+    today = datetime.today()
     if today.day > 25:
-        today += datetime.timedelta(7)
+        today += timedelta(7)
     return today.replace(day=1)
 
 
@@ -69,8 +70,8 @@ def get_current_month_start_and_end_date_strings():
     billing for the current month.
     """
     # Get tomorrow date
-    today_date = datetime.date.today()
-    tomorrow_date = datetime.date.today() + datetime.timedelta(days=1)
+    today_date = datetime.today()
+    tomorrow_date = datetime.today() + timedelta(days=1)
     start_date = tomorrow_date
 
     # We could potentially be on the last day of the month
@@ -91,7 +92,7 @@ def get_current_month_start_and_end_date_strings():
         next_month_num = 1
         current_year_num = current_year_num + 1
 
-    next_month_start_date = datetime.date(
+    next_month_start_date = date(
         current_year_num,
         next_month_num,
         1
@@ -111,8 +112,8 @@ def get_last_month_start_and_end_date_strings():
     billing for the last month.
     """
     # Get first day of last month
-    today_date = datetime.date.today()
-    one_month_ago_date = datetime.date.today() - datetime.timedelta(days=30)
+    today_date = datetime.today()
+    one_month_ago_date = datetime.today() - timedelta(days=30)
 
     return {
         "current_date": today_date.strftime("%Y-%m-%d"),
@@ -124,23 +125,27 @@ def get_last_month_start_and_end_date_strings():
 def is_organization_first_month(db_session_maker, aws_account_id):
     # Pull the relevant organization from the database to check
     # how old the account is to know if the first-month's base fee should be applied.
-    dbsession = db_session_maker()
-    aws_account = dbsession.query(AWSAccount).filter_by(
-        account_id=aws_account_id
-    ).first()
-    organization = dbsession.query(Organization).filter_by(
-        id=aws_account.organization_id
-    ).first()
-    organization_dict = organization.to_dict()
-    dbsession.close()
 
-    account_creation_dt = datetime.datetime.fromtimestamp(
-        organization.timestamp
-    )
+    with session_scope(db_session_maker) as dbsession:
+        aws_account = dbsession.query(
+            Organization.timestamp
+        ).join(
+            AWSAccount
+        ).filter_by(
+            account_id=aws_account_id
+        ).first()
 
-    current_datetime = datetime.datetime.now()
+        organization = dbsession.query(Organization).filter_by(
+            id=aws_account.organization_id
+        ).first()
 
-    if account_creation_dt > (current_datetime - datetime.timedelta(days=40)):
+        account_creation_dt = datetime.fromtimestamp(
+            organization.timestamp
+        )
+
+    current_datetime = datetime.now()
+
+    if account_creation_dt > (current_datetime - timedelta(days=40)):
         return True
 
     return False

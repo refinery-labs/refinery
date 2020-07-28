@@ -78,7 +78,7 @@ import ImportableRefineryProject from '@/types/export-project';
 import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-projects';
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shared-files';
-import { DemoWalkthroughStoreModule, EditSharedFilePaneModule, SyncProjectRepoPaneStoreModule } from '@/store';
+import { DemoWalkthroughStoreModule, EditSharedFilePaneModule, RepoManagerStoreModule } from '@/store';
 
 export interface ChangeTransitionArguments {
   transition: WorkflowRelationship;
@@ -576,7 +576,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       // TODO: Refactor project-view to never be able to have this as null....
       if (context.state.openedProjectConfig && context.state.openedProjectConfig.project_repo) {
-        await SyncProjectRepoPaneStoreModule.setupLocalProjectRepoAndUpdateProject([
+        await RepoManagerStoreModule.setupLocalProjectRepoAndUpdateProject([
           context.state.openedProjectConfig.project_repo,
           context.state.openedProject.project_id
         ]);
@@ -995,7 +995,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.updateProject, params);
 
       if (projectConfig.project_repo) {
-        await SyncProjectRepoPaneStoreModule.setupLocalProjectRepoAndUpdateProject([
+        await RepoManagerStoreModule.setupLocalProjectRepoAndUpdateProject([
           projectConfig.project_repo,
           project.project_id
         ]);

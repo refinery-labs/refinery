@@ -12,14 +12,14 @@ import { loadProjectFromDir } from '@/repo-compiler/one-to-one/git-to-refinery';
 import uuid from 'uuid';
 import { GitDiffInfo, GitStatusResult, InvalidGitRepoError } from '@/repo-compiler/lib/git-types';
 import { REFINERY_COMMIT_AUTHOR_NAME } from '@/repo-compiler/shared/constants';
-import { GitStoreModule, ProjectSettingsStoreModule, RepoSelectionModalStoreModule } from '@/store';
+import { GitStoreModule, ProjectSettingsStoreModule, RepoSelectorStoreModule } from '@/store';
 import { LoggingAction } from '@/lib/LoggingMutation';
 import generateStupidName from '@/lib/silly-names';
 import slugify from 'slugify';
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
 
-const storeName = StoreType.syncProjectRepo;
+const storeName = StoreType.repoManager;
 
 export enum GitPushResult {
   Success = 'Success',
@@ -38,7 +38,7 @@ const gitPushResultToMessage: GitPushResultMessageLookup = {
 };
 
 // Types
-export interface SyncProjectRepoPaneState {
+export interface RepoManagerState {
   remoteBranchName: string;
   isValidRemoteBranchName: boolean;
   creatingNewBranch: boolean;
@@ -57,7 +57,7 @@ export interface SyncProjectRepoPaneState {
 }
 
 // Initial State
-const moduleState: SyncProjectRepoPaneState = {
+const moduleState: RepoManagerState = {
   remoteBranchName: 'master',
   isValidRemoteBranchName: true,
   creatingNewBranch: false,
@@ -78,8 +78,7 @@ const moduleState: SyncProjectRepoPaneState = {
 const initialState = deepJSONCopy(moduleState);
 
 @Module({ namespaced: true, name: storeName })
-export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRepoPaneState>, RootState>
-  implements SyncProjectRepoPaneState {
+export class RepoManagerStore extends VuexModule<ThisType<RepoManagerState>, RootState> implements RepoManagerState {
   public remoteBranchName: string = initialState.remoteBranchName;
   public isValidRemoteBranchName: boolean = initialState.isValidRemoteBranchName;
   public creatingNewBranch: boolean = initialState.creatingNewBranch;
@@ -532,7 +531,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     }
 
     const compiledProject = await this.compileClonedProject(gitClient);
-    if (!compiledProject && !RepoSelectionModalStoreModule.isCreatingNewRepo) {
+    if (!compiledProject && !RepoSelectorStoreModule.isCreatingNewRepo) {
       const toastContent = `${this.formattedCompilationError} Falling back to the last saved Refinery project from the server.`;
       await createToast(this.context.dispatch, {
         title: 'Unable to load project from repository',
@@ -548,7 +547,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
   public async setupLocalProjectRepoAndUpdateProject([projectRepo, projectId]: [string, string]) {
     const compiledProject = await this.compileAndSetupProjectRepo([projectRepo, projectId]);
 
-    if (!compiledProject || RepoSelectionModalStoreModule.isCreatingNewRepo) {
+    if (!compiledProject || RepoSelectorStoreModule.isCreatingNewRepo) {
       return;
     }
 

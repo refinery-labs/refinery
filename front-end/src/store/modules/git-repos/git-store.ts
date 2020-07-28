@@ -5,7 +5,7 @@ import { RootState, StoreType } from '@/store/store-types';
 import { GitClient } from '@/repo-compiler/lib/git-client';
 import LightningFS from '@isomorphic-git/lightning-fs';
 import { PromiseFsClient } from 'isomorphic-git';
-import { InvalidGitStoreState } from '@/store/modules/git-store/types';
+import { InvalidGitStoreState } from '@/store/modules/git-repos/types';
 import { RefineryGitActionHandler } from '@/repo-compiler/shared/refinery-git-action-handler';
 import { removeKeyFromObject } from '@/lib/funtional-extensions';
 import { LoggingAction } from '@/lib/LoggingMutation';

@@ -19,7 +19,7 @@ import { RefineryProject } from '@/types/graph';
 import { saveProjectToRepo } from '@/repo-compiler/one-to-one/refinery-to-git';
 import { Errors, StatusRow } from 'isomorphic-git';
 import { GitDiffInfo } from '@/repo-compiler/lib/git-types';
-import { GitPushResult } from '@/store/modules/panes/sync-project-repo-pane';
+import { GitPushResult } from '@/store/modules/git-repos/repo-manager';
 import { GitClient } from '@/repo-compiler/lib/git-client';
 
 export class RefineryGitActionHandler {

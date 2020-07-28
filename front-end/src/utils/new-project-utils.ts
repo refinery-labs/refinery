@@ -15,10 +15,10 @@ import {
 import generateStupidName from '@/lib/silly-names';
 import { CyTooltip, DemoTooltip, TooltipType } from '@/types/demo-walkthrough-types';
 
-export async function createNewProjectFromConfig(config: NewProjectConfig) {
+export async function createNewProjectFromConfig(config: NewProjectConfig): Promise<string | null> {
   if (!config.json && !config.name) {
     config.setError('Cannot create project without either name or json');
-    return;
+    return null;
   }
 
   // Reset the error to nothing
@@ -34,17 +34,18 @@ export async function createNewProjectFromConfig(config: NewProjectConfig) {
 
   if (!response) {
     config.setError(config.unknownError);
-    return;
+    return null;
   }
 
   if (!response.success) {
     config.setError(response.msg || null);
-    return;
+    return null;
   }
 
   if (config.navigateToNewProject) {
     viewProject(response.project_id);
   }
+  return response.project_id;
 }
 
 async function makeProjectApiCallForConfig(config: NewProjectConfig) {
