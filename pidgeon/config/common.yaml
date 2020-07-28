@@ -6,3 +6,6 @@ config:
   # TODO create local dev environment and set block_result_key there instead
   block_result_secret_id: "prod/block_results"
   block_result_secret_key: "block_result_key"
+  aws_secret_access_key: ""
+  aws_access_key_id: ""
+  aws_region: "us-west-2"
