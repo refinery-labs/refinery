@@ -7,6 +7,7 @@ import botocore
 from botocore.exceptions import ClientError
 from typing import TYPE_CHECKING
 
+from assistants.decorators import aws_exponential_backoff
 from utils.general import logit
 
 if TYPE_CHECKING:
@@ -53,17 +54,26 @@ def create_rest_api(aws_client_factory, credentials, name, description, version)
     return response["id"]
 
 
+@aws_exponential_backoff()
+def try_deploy_api_gateway_to_stage(api_gateway_client, rest_api_id, stage_name):
+    return api_gateway_client.create_deployment(
+        restApiId=rest_api_id,
+        stageName=stage_name,
+        stageDescription="API Gateway deployment deployed via refinery",
+        description="API Gateway deployment deployed via refinery"
+    )
+
+
 def deploy_api_gateway_to_stage(aws_client_factory, credentials, rest_api_id, stage_name):
     api_gateway_client = aws_client_factory.get_aws_client(
         "apigateway",
         credentials
     )
 
-    deployment_response = api_gateway_client.create_deployment(
-        restApiId=rest_api_id,
-        stageName=stage_name,
-        stageDescription="API Gateway deployment deployed via refinery",
-        description="API Gateway deployment deployed via refinery"
+    deployment_response = try_deploy_api_gateway_to_stage(
+        api_gateway_client,
+        rest_api_id,
+        stage_name
     )
 
     deployment_id = deployment_response["id"]
@@ -75,19 +85,41 @@ def deploy_api_gateway_to_stage(aws_client_factory, credentials, rest_api_id, st
     }
 
 
+@aws_exponential_backoff()
+def try_to_create_resource(api_gateway_client, rest_api_id, parent_id, path_part):
+    return api_gateway_client.create_resource(
+        restApiId=rest_api_id,
+        parentId=parent_id,
+        pathPart=path_part
+    )
+
+
 def create_resource(aws_client_factory, credentials, rest_api_id, parent_id, path_part):
     api_gateway_client = aws_client_factory.get_aws_client(
         "apigateway",
         credentials
     )
 
-    response = api_gateway_client.create_resource(
-        restApiId=rest_api_id,
-        parentId=parent_id,
-        pathPart=path_part
+    response = try_to_create_resource(
+        api_gateway_client,
+        rest_api_id,
+        parent_id,
+        path_part
     )
 
     return response["id"]
+
+
+@aws_exponential_backoff(max_attempts=10)
+def try_to_create_method(api_gateway_client, rest_api_id, resource_id, http_method, api_key_required, method_name):
+    return api_gateway_client.put_method(
+        restApiId=rest_api_id,
+        resourceId=resource_id,
+        httpMethod=http_method,
+        authorizationType="NONE",
+        apiKeyRequired=api_key_required,
+        operationName=method_name,
+    )
 
 
 def create_method(aws_client_factory, credentials, method_name, rest_api_id, resource_id, http_method, api_key_required):
@@ -96,13 +128,13 @@ def create_method(aws_client_factory, credentials, method_name, rest_api_id, res
         credentials
     )
 
-    response = api_gateway_client.put_method(
-        restApiId=rest_api_id,
-        resourceId=resource_id,
-        httpMethod=http_method,
-        authorizationType="NONE",
-        apiKeyRequired=api_key_required,
-        operationName=method_name,
+    try_to_create_method(
+        api_gateway_client,
+        rest_api_id,
+        resource_id,
+        http_method,
+        api_key_required,
+        method_name
     )
 
     return {
@@ -124,6 +156,32 @@ def get_lambda_uri_for_api_method(aws_client_factory, credentials, api_endpoint:
     return api_endpoint.get_lambda_uri(api_version)
 
 
+@aws_exponential_backoff(max_attempts=10)
+def try_to_put_api_integration(api_gateway_client, rest_api_id, resource_id, api_endpoint: ApiEndpointWorkflowState, lambda_uri):
+    return api_gateway_client.put_integration(
+        restApiId=rest_api_id,
+        resourceId=resource_id,
+        httpMethod=api_endpoint.http_method,
+        type="AWS_PROXY",
+        # MUST be POST: https://github.com/boto/boto3/issues/572#issuecomment-239294381
+        integrationHttpMethod="POST",
+        uri=lambda_uri,
+        connectionType="INTERNET",
+        timeoutInMillis=29000  # 29 seconds
+    )
+
+
+@aws_exponential_backoff(max_attempts=10)
+def try_to_put_integration_response(api_gateway_client, rest_api_id, resource_id, api_endpoint):
+    return api_gateway_client.put_integration_response(
+        restApiId=rest_api_id,
+        resourceId=resource_id,
+        httpMethod=api_endpoint.http_method,
+        statusCode="200",
+        contentHandling="CONVERT_TO_TEXT"
+    )
+
+
 def link_api_method_to_lambda(aws_client_factory, credentials, rest_api_id, resource_id, api_endpoint: ApiEndpointWorkflowState):
     api_gateway_client = aws_client_factory.get_aws_client(
         "apigateway",
@@ -139,19 +197,15 @@ def link_api_method_to_lambda(aws_client_factory, credentials, rest_api_id, reso
     lambda_uri = api_endpoint.get_lambda_uri(api_version)
 
     try:
-        integration_response = api_gateway_client.put_integration(
-            restApiId=rest_api_id,
-            resourceId=resource_id,
-            httpMethod=api_endpoint.http_method,
-            type="AWS_PROXY",
-            # MUST be POST: https://github.com/boto/boto3/issues/572#issuecomment-239294381
-            integrationHttpMethod="POST",
-            uri=lambda_uri,
-            connectionType="INTERNET",
-            timeoutInMillis=29000  # 29 seconds
+        integration_response = try_to_put_api_integration(
+            api_gateway_client,
+            rest_api_id,
+            resource_id,
+            api_endpoint,
+            lambda_uri
         )
     except ClientError as e:
-        raise Exception(f"Unable to set integration {rest_api_id} {resource_id} for lambda {lambda_uri}")
+        raise Exception(f"Unable to set integration {rest_api_id} {resource_id} for lambda {lambda_uri}: {str(e)}")
 
     source_arn = api_endpoint.get_source_arn(rest_api_id)
 
@@ -168,13 +222,15 @@ def link_api_method_to_lambda(aws_client_factory, credentials, rest_api_id, reso
     )
 
     # Clown-shoes AWS bullshit for binary response
-    response = api_gateway_client.put_integration_response(
-        restApiId=rest_api_id,
-        resourceId=resource_id,
-        httpMethod=api_endpoint.http_method,
-        statusCode="200",
-        contentHandling="CONVERT_TO_TEXT"
-    )
+    try:
+        try_to_put_integration_response(
+            api_gateway_client,
+            rest_api_id,
+            resource_id,
+            api_endpoint
+        )
+    except ClientError as e:
+        raise Exception(f"Unable to set integration response {rest_api_id} {resource_id} for lambda {lambda_uri}: {str(e)}")
 
     return {
         "api_gateway_id": rest_api_id,
