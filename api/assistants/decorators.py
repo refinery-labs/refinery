@@ -4,6 +4,7 @@ from functools import wraps
 
 from botocore.exceptions import ClientError
 
+NOT_FOUND_EXCEPTION = "NotFoundException"
 RESOURCE_IN_USE_EXCEPTION = "ResourceInUseException"
 RESOURCE_NOT_FOUND_EXCEPTION = "ResourceNotFoundException"
 TOO_MANY_REQUESTS_EXCEPTION = "TooManyRequestsException"
