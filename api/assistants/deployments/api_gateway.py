@@ -5,6 +5,7 @@ import tornado
 import botocore.exceptions
 from typing import TYPE_CHECKING, List
 
+from assistants.decorators import aws_exponential_backoff, RESOURCE_NOT_FOUND_EXCEPTION, NOT_FOUND_EXCEPTION
 from assistants.deployments.aws.api_gateway_types import ApiGatewayEndpoint, ApiGatewayLambdaConfig
 from utils.general import log_exception
 
@@ -247,6 +248,14 @@ class ApiGatewayManager(object):
             "id": rest_api_id,
         }
 
+    @staticmethod
+    @aws_exponential_backoff(breaking_errors=[NOT_FOUND_EXCEPTION])
+    def try_delete_rest_api_resource(api_gateway_client, rest_api_id, resource_id):
+        return api_gateway_client.delete_resource(
+            restApiId=rest_api_id,
+            resourceId=resource_id,
+        )
+
     @run_on_executor
     @emit_runtime_metrics("api_gateway__delete_rest_api_resource")
     def delete_rest_api_resource(self, credentials, rest_api_id, resource_id):
@@ -255,20 +264,25 @@ class ApiGatewayManager(object):
             credentials
         )
 
-        try:
-            response = api_gateway_client.delete_resource(
-                restApiId=rest_api_id,
-                resourceId=resource_id,
-            )
-        except botocore.exceptions.ClientError as boto_error:
-            # If it's not an NotFoundException exception it's not what we except so we re-raise
-            if boto_error.response["Error"]["Code"] != "NotFoundException":
-                raise
+        ApiGatewayManager.try_delete_rest_api_resource(
+            api_gateway_client,
+            rest_api_id,
+            resource_id
+        )
 
         return {
             "rest_api_id": rest_api_id,
             "resource_id": resource_id
         }
+
+    @staticmethod
+    @aws_exponential_backoff(breaking_errors=[NOT_FOUND_EXCEPTION])
+    def try_delete_rest_api_resource_method(api_gateway_client, rest_api_id, resource_id, method):
+        return api_gateway_client.delete_method(
+            restApiId=rest_api_id,
+            resourceId=resource_id,
+            httpMethod=method,
+        )
 
     @run_on_executor
     @emit_runtime_metrics("api_gateway__delete_rest_api_resource_method")
@@ -278,15 +292,12 @@ class ApiGatewayManager(object):
             credentials
         )
 
-        try:
-            response = api_gateway_client.delete_method(
-                restApiId=rest_api_id,
-                resourceId=resource_id,
-                httpMethod=method,
-            )
-        except botocore.exceptions.ClientError as e:
-            logit(f"Exception occurred while deleting {resource_id} in {rest_api_id}, method '{method}'! Exception: {e}")
-            pass
+        ApiGatewayManager.try_delete_rest_api_resource_method(
+            api_gateway_client,
+            rest_api_id,
+            resource_id,
+            method
+        )
 
         return {
             "rest_api_id": rest_api_id,
