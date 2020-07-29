@@ -763,7 +763,7 @@ export interface SavedBlockSearchResult {
   share_status: SharedBlockPublishStatus;
   type: WorkflowStateType;
   block_object: WorkflowState;
-  shared_files: WorkflowFile[];
+  shared_files?: WorkflowFile[];
   version: number;
   timestamp: number;
 }
