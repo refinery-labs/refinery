@@ -153,7 +153,7 @@ export default class ViewChosenSavedBlockPane extends Vue implements ViewChosenS
   }
 
   renderSharedFiles() {
-    if (this.chosenBlock.block.shared_files.length === 0) {
+    if (!this.chosenBlock.block.shared_files || this.chosenBlock.block.shared_files.length === 0) {
       return <div />;
     }
 

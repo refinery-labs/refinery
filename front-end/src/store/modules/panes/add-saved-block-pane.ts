@@ -281,7 +281,7 @@ export class AddSavedBlockPaneStore extends VuexModule<ThisType<AddSavedBlockPan
     // Add the Saved Block's Shared Files to the project
     const addedSharedFiles = await addSharedFilesToProject(
       this.context.dispatch,
-      chosenBlock.block.shared_files,
+      chosenBlock.block.shared_files || [],
       this.context.rootState.project.openedProject
     );
 
