@@ -1,10 +1,6 @@
-import json
-
-from tornado import gen
 from tornado.testing import AsyncHTTPTestCase, gen_test
 
-from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
-from assistants.deployments.diagram.types import LambdaEventSourceMapping
+from assistants.deployments.aws.aws_deployment import AwsDeployment
 from tests_utils.mocks.aws import MockAWSDependenciesHolder
 from tests_utils.mocks.task_spawner import MockTaskSpawnerHolder
 from tests_utils.tornado_test_utils import create_future
@@ -82,13 +78,10 @@ class TestDeployDiagram(ServerUnitTestBase, AsyncHTTPTestCase):
 		simple_project_config = self.load_fixture("simple_project_config.json", load_json=True)
 		latest_simple_deployment = None
 
-		deployment_diagram: DeploymentDiagram = DeploymentDiagram(
+		deployment_diagram: AwsDeployment = AwsDeployment(
 			"test-id", "test", simple_project_config, latest_simple_deployment)
 
 		exceptions = yield deployment_diagram.deploy_diagram(
-			self.mock_task_spawner,
-			self.mock_aws.api_gateway_manager,
-			self.get_credentials(),
 			simple_deployment,
 		)
 
@@ -130,14 +123,11 @@ class TestDeployDiagram(ServerUnitTestBase, AsyncHTTPTestCase):
 		simple_project_config = self.load_fixture("simple_project_config.json", load_json=True)
 		latest_simple_deployment = self.load_fixture("simple_deployment_previous_deploy.json", load_json=True)
 
-		deployment_diagram: DeploymentDiagram = DeploymentDiagram(
+		deployment_diagram: AwsDeployment = AwsDeployment(
 			"test-id", "test", simple_project_config, latest_simple_deployment)
 
 		exceptions = yield deployment_diagram.deploy_diagram(
-			self.mock_task_spawner,
-			self.mock_aws.api_gateway_manager,
-			self.get_credentials(),
-			simple_deployment,
+			simple_deployment
 		)
 
 		assert len(exceptions) == 0

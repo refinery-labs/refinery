@@ -10,6 +10,7 @@ from app import TornadoApp
 from config.provider import load_app_config
 from models import User, Organization
 from models.initiate_database import create_scoped_db_session_maker, Base
+from models.users import RefineryUserTier
 from tests_utils.hypothesis_unit_test_base import HypothesisUnitTestBase
 import pkg_resources
 
@@ -132,9 +133,10 @@ class ServerUnitTestBase(HypothesisUnitTestBase):
 
         return org
 
-    def create_test_user(self, email="test@test.com"):
+    def create_test_user(self, email="test@test.com", tier=RefineryUserTier.PAID):
         user = User()
         user.email = email
+        user.tier = tier
         return self.create_and_save_obj(user)
 
     def get_app(self):

@@ -17,3 +17,5 @@ config:
   mailgun_api_key: FAKE_TESTING_VALUE
   service_shared_secret: FAKE_TESTING_VALUE
   reserved_aws_pool_target_amount: 3
+  assume_role_session_lifetime_seconds: 900
+  free_tier_monthly_max_gb_seconds: 10

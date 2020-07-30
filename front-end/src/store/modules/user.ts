@@ -174,7 +174,7 @@ const UserModule: Module<UserState, RootState> = {
           GithubSignupFlowStoreModule.setGithubSignupState(DeployFromGithubStateType.CHOOSING_GITHUB_REPO);
           return;
         }
-        //location.reload();
+        location.reload();
       };
 
       window.open(result.result.redirect_uri, '_blank');

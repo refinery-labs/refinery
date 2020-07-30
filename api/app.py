@@ -14,7 +14,6 @@ from controller.github.controllers_github_proxy import GithubProxy
 from controller.health import *
 from controller.internal import *
 from controller.lambdas import *
-from controller.lambdas.realtime_lambda_billing_watchdog import RealtimeLambdaBillingWatchdog
 from controller.logs import *
 from controller.projects import *
 from controller.projects.controllers_short_links import GetProjectShortlink, CreateProjectShortlink
