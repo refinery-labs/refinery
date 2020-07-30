@@ -4,16 +4,16 @@ import pystache
 import time
 
 import botocore
+from botocore.exceptions import ClientError
 from tornado import gen
 from tornado.concurrent import run_on_executor
 
-from assistants.deployments.teardown_manager import AwsTeardownManager
+from assistants.aws_clients.aws_clients_assistant import AwsClientFactory
 from models import User, CachedExecutionLogsShard, Deployment
 from utils.base_spawner import BaseSpawner
 from utils.db_session_scope import session_scope
 from utils.general import logit
 from utils.general import get_urand_password
-from utils.aws_client import get_aws_client
 from models.aws_accounts import AWSAccount
 
 
@@ -40,13 +40,15 @@ class AwsAccountFreezer(BaseSpawner):
             task_spawner,
             db_session_maker,
             app_config,
-            aws_teardown_manager
+            aws_teardown_manager,
+            aws_client_factory
     ):
         super().__init__(aws_cloudwatch_client, logger, app_config=app_config)
 
         self.task_spawner = task_spawner
         self.db_session_maker = db_session_maker
         self.aws_teardown_manager = aws_teardown_manager
+        self.aws_client_factory = aws_client_factory
 
     @gen.coroutine
     def handle_user_over_limit(self, credentials):
@@ -139,13 +141,19 @@ class AwsAccountFreezer(BaseSpawner):
     @run_on_executor
     def freeze_aws_account( self, credentials ):
         return AwsAccountFreezer._freeze_aws_account(
+            self.aws_client_factory,
             self.app_config,
             self.db_session_maker,
             credentials
         )
 
     @staticmethod
-    def _freeze_aws_account( app_config, db_session_maker, credentials ):
+    def _freeze_aws_account(
+        aws_client_factory: AwsClientFactory,
+        app_config,
+        db_session_maker,
+        credentials
+    ):
         """
         Freezes an AWS sub-account when the user exceeds their free-tier
         monthly-quota.
@@ -159,6 +167,7 @@ class AwsAccountFreezer(BaseSpawner):
 
         # Rotate and log out users from the AWS console
         new_console_user_password = AwsAccountFreezer._recreate_aws_console_account(
+            aws_client_factory,
             app_config,
             credentials,
             True
@@ -174,21 +183,27 @@ class AwsAccountFreezer(BaseSpawner):
             aws_account.iam_admin_password = new_console_user_password
 
         # Get Lambda ARNs
-        lambda_arn_list = AwsAccountFreezer.get_lambda_arns(credentials)
+        lambda_arn_list = AwsAccountFreezer.get_lambda_arns(
+            aws_client_factory,
+            credentials
+        )
         lambda_arn_list = AwsAccountFreezer.filter_out_free_tier_limiter(
             lambda_arn_list
         )
 
         AwsAccountFreezer.set_zero_concurrency_for_lambdas(
+            aws_client_factory,
             credentials,
             lambda_arn_list
         )
 
         AwsAccountFreezer.stop_all_codebuilds(
+            aws_client_factory,
             credentials
         )
 
         AwsAccountFreezer.stop_all_ec2_instances(
+            aws_client_factory,
             credentials
         )
 
@@ -225,22 +240,25 @@ class AwsAccountFreezer(BaseSpawner):
         return return_list
 
     @staticmethod
-    def stop_all_ec2_instances( credentials ):
-        ec2_client = get_aws_client(
+    def stop_all_ec2_instances( aws_client_factory: AwsClientFactory, credentials ):
+        ec2_client = aws_client_factory.get_aws_client(
             "ec2",
             credentials
         )
 
-        ec2_instance_ids = AwsAccountFreezer.get_ec2_instance_ids(credentials)
+        ec2_instance_ids = AwsAccountFreezer.get_ec2_instance_ids(
+            aws_client_factory,
+            credentials
+        )
 
         if len(ec2_instance_ids) > 0:
-            stop_instance_response = ec2_client.stop_instances(
+            ec2_client.stop_instances(
                 InstanceIds=ec2_instance_ids
             )
 
     @staticmethod
-    def stop_all_codebuilds( credentials ):
-        codebuild_client = get_aws_client(
+    def stop_all_codebuilds( aws_client_factory: AwsClientFactory, credentials ):
+        codebuild_client = aws_client_factory.get_aws_client(
             "codebuild",
             credentials
         )
@@ -288,21 +306,22 @@ class AwsAccountFreezer(BaseSpawner):
 
         # Run through all active builds and stop them in their place
         for active_build_id in active_build_ids:
-            stop_build_response = codebuild_client.stop_build(
+            codebuild_client.stop_build(
                 id=active_build_id
             )
 
     @run_on_executor
     def recreate_aws_console_account( self, credentials, rotate_password ):
         return AwsAccountFreezer._recreate_aws_console_account(
+            self.aws_client_factory,
             self.app_config,
             credentials,
             rotate_password
         )
 
     @staticmethod
-    def _recreate_aws_console_account( app_config, credentials, rotate_password ):
-        iam_client = get_aws_client(
+    def _recreate_aws_console_account( aws_client_factory: AwsClientFactory, app_config, credentials, rotate_password ):
+        iam_client = aws_client_factory.get_aws_client(
             "iam",
             credentials
         )
@@ -317,64 +336,66 @@ class AwsAccountFreezer(BaseSpawner):
 
         try:
             # Delete the current AWS console user
-            delete_user_profile_response = iam_client.delete_login_profile(
+            iam_client.delete_login_profile(
                 UserName=credentials[ "iam_admin_username" ],
             )
-        except:
+        except ClientError as e:
             logit( "Error deleting login profile, continuing...")
+            logit(str(e), "error")
 
         try:
             # Remove the policy from the user
-            detach_user_policy = iam_client.detach_user_policy(
+            iam_client.detach_user_policy(
                 UserName=credentials[ "iam_admin_username" ],
                 PolicyArn=iam_policy_arn
             )
-        except:
+        except ClientError as e:
             logit( "Error detaching user policy, continuing..." )
+            logit(str(e), "error")
 
         try:
             # Delete the IAM login profile
-            delete_user_response = iam_client.delete_login_profile(
+            iam_client.delete_login_profile(
                 UserName=credentials[ "iam_admin_username" ],
             )
-        except Exception as e:
-            logit( "Error deleting login profile, continuing..." )
-            print(e)
+        except ClientError as e:
+            logit("Error deleting login profile, continuing...", "error")
+            logit(str(e), "error")
 
         try:
             # Delete the IAM user
-            delete_user_response = iam_client.delete_user(
+            iam_client.delete_user(
                 UserName=credentials[ "iam_admin_username" ],
             )
-        except Exception as e:
+        except ClientError as e:
             logit( "Error deleting user, continuing..." )
-            print(e)
+            logit(str(e), "error")
 
         logit( "Re-creating the AWS console user..." )
 
         # Create the IAM user again
-        delete_user_response = iam_client.create_user(
+        iam_client.create_user(
             UserName=credentials[ "iam_admin_username" ],
         )
 
         try:
             # Delete the IAM policy
-            delete_policy_response = iam_client.delete_policy(
+            iam_client.delete_policy(
                 PolicyArn=iam_policy_arn
             )
-        except Exception as e:
+        except ClientError as e:
             logit( "Error deleting IAM policy, continuing..." )
-            print(e)
+            logit(str(e), "error")
 
         # Create IAM policy for the user
-        create_policy_response = iam_client.create_policy(
+        iam_client.create_policy(
             PolicyName="RefineryCustomerPolicy",
             PolicyDocument=json.dumps( app_config.get("CUSTOMER_IAM_POLICY") ),
             Description="Refinery Labs managed AWS customer account policy."
         )
 
         # Attach the limiting IAM policy to it.
-        attach_policy_response = iam_client.attach_user_policy(
+        iam_client.attach_user_policy(
             UserName=credentials[ "iam_admin_username" ],
             PolicyArn=iam_policy_arn
         )
@@ -382,11 +403,11 @@ class AwsAccountFreezer(BaseSpawner):
         # Generate a new user console password
         new_console_user_password = get_urand_password( 32 )
 
-        if rotate_password == False:
+        if not rotate_password:
             new_console_user_password = credentials[ "iam_admin_password" ]
 
         # Create the console user again.
-        create_user_response = iam_client.create_login_profile(
+        iam_client.create_login_profile(
             UserName=credentials[ "iam_admin_username" ],
             Password=new_console_user_password,
             PasswordResetRequired=False
@@ -397,12 +418,13 @@ class AwsAccountFreezer(BaseSpawner):
     @run_on_executor
     def unfreeze_aws_account( self, credentials ):
         return AwsAccountFreezer._unfreeze_aws_account(
+            self.aws_client_factory,
             self.db_session_maker,
             credentials
         )
 
     @staticmethod
-    def _unfreeze_aws_account( db_session_maker, credentials ):
+    def _unfreeze_aws_account( aws_client_factory: AwsClientFactory, db_session_maker, credentials ):
         """
         Unfreezes a previously-frozen AWS account, this is for situations
         where a user has gone over their free-trial or billing limit leading
@@ -415,6 +437,7 @@ class AwsAccountFreezer(BaseSpawner):
 
         # Pull all Lambda ARN(s)
         lambda_arns = AwsAccountFreezer.get_lambda_arns(
+            aws_client_factory,
             credentials
         )
         lambda_arns = AwsAccountFreezer.filter_out_free_tier_limiter(
@@ -422,15 +445,20 @@ class AwsAccountFreezer(BaseSpawner):
         )
 
         AwsAccountFreezer.remove_lambda_concurrency_limits(
+            aws_client_factory,
             credentials,
             lambda_arns
         )
 
         # Start EC2 instance(s)
-        ec2_instance_ids = AwsAccountFreezer.get_ec2_instance_ids(credentials)
+        ec2_instance_ids = AwsAccountFreezer.get_ec2_instance_ids(
+            aws_client_factory,
+            credentials
+        )
 
         if len(ec2_instance_ids) > 0:
             AwsAccountFreezer.start_ec2_instances(
+                aws_client_factory,
                 credentials,
                 ec2_instance_ids
             )
@@ -448,8 +476,8 @@ class AwsAccountFreezer(BaseSpawner):
         return True
 
     @staticmethod
-    def start_ec2_instances( credentials, ec2_instance_ids ):
-        ec2_client = get_aws_client(
+    def start_ec2_instances( aws_client_factory: AwsClientFactory, credentials, ec2_instance_ids ):
+        ec2_client = aws_client_factory.get_aws_client(
             "ec2",
             credentials
         )
@@ -460,10 +488,10 @@ class AwsAccountFreezer(BaseSpawner):
         # Prevents issue if a freeze happens too quickly after an un-freeze
         while remaining_attempts > 0:
             try:
-                start_instance_response = ec2_client.start_instances(
+                ec2_client.start_instances(
                     InstanceIds=ec2_instance_ids
                 )
-            except botocore.exceptions.ClientError as boto_error:
+            except ClientError as boto_error:
                 if boto_error.response[ "Error" ][ "Code" ] != "IncorrectInstanceState":
                     raise
 
@@ -474,8 +502,8 @@ class AwsAccountFreezer(BaseSpawner):
             remaining_attempts = remaining_attempts - 1
 
     @staticmethod
-    def get_lambda_arns( credentials ):
-        lambda_client = get_aws_client(
+    def get_lambda_arns( aws_client_factory: AwsClientFactory, credentials ):
+        lambda_client = aws_client_factory.get_aws_client(
             "lambda",
             credentials
         )
@@ -508,7 +536,7 @@ class AwsAccountFreezer(BaseSpawner):
         return lambda_arn_list
 
     @staticmethod
-    def remove_lambda_concurrency_limits( credentials, lambda_arn_list ):
+    def remove_lambda_concurrency_limits( aws_client_factory: AwsClientFactory, credentials, lambda_arn_list ):
         """
         Note their is a subtle bug here:
         If someone sets reserved concurrency for their Lambda and their
@@ -520,7 +548,7 @@ class AwsAccountFreezer(BaseSpawner):
         * Consult the deployment diagrams to get the Lambdas pre-freeze concurrency
         limit.
         """
-        lambda_client = get_aws_client(
+        lambda_client = aws_client_factory.get_aws_client(
             "lambda",
             credentials
         )
@@ -532,8 +560,8 @@ class AwsAccountFreezer(BaseSpawner):
             )
 
     @staticmethod
-    def set_zero_concurrency_for_lambdas( credentials, lambda_arn_list ):
-        lambda_client = get_aws_client(
+    def set_zero_concurrency_for_lambdas( aws_client_factory: AwsClientFactory, credentials, lambda_arn_list ):
+        lambda_client = aws_client_factory.get_aws_client(
             "lambda",
             credentials
         )
@@ -548,8 +576,8 @@ class AwsAccountFreezer(BaseSpawner):
         return True
 
     @staticmethod
-    def get_ec2_instance_ids( credentials ):
-        ec2_client = get_aws_client(
+    def get_ec2_instance_ids( aws_client_factory: AwsClientFactory, credentials ):
+        ec2_client = aws_client_factory.get_aws_client(
             "ec2",
             credentials
         )

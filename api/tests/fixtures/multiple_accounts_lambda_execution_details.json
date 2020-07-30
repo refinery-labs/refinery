@@ -1,0 +1,90 @@
+{
+  "123451104803": [
+    {
+      "log_name": "/aws/lambda/API_Endpoint_Block4726a6f3-b0fb-4f49-b21b-ab57a0966f30",
+      "log_stream": "2020/07/29/[$LATEST]066217d7b3e649c7a3ff36246cbf3cfb",
+      "lambda_name": "API_Endpoint_Block4726a6f3-b0fb-4f49-b21b-ab57a0966f30",
+      "raw_line": "REPORT RequestId: 2cb26494-ef9e-480c-a0ec-e3c1d3caa645\tDuration: 2372.40 ms\tBilled Duration: 3100 ms\tMemory Size: 512 MB\tMax Memory Used: 77 MB\tInit Duration: 682.16 ms\t\n",
+      "timestamp": 1596051691,
+      "timestamp_ms": 1596051691874,
+      "report_requestid": "2cb26494-ef9e-480c-a0ec-e3c1d3caa645",
+      "duration": "2372.40",
+      "billed_duration": 3100,
+      "memory_size": 512,
+      "max_memory_used": 77,
+      "init_duration": "682.16"
+    },
+    {
+      "log_name": "/aws/lambda/Print_World5412216d-b913-45b9-9262-7d70db0d8d55",
+      "log_stream": "2020/07/29/[$LATEST]9bf9ac40ab514896ae2d67e0a37a94c6",
+      "lambda_name": "Print_World5412216d-b913-45b9-9262-7d70db0d8d55",
+      "raw_line": "REPORT RequestId: 4d1041c8-3272-4f34-89c3-d1cb5202c60b\tDuration: 381.87 ms\tBilled Duration: 1100 ms\tMemory Size: 768 MB\tMax Memory Used: 79 MB\tInit Duration: 673.15 ms\t\n",
+      "timestamp": 1596051690,
+      "timestamp_ms": 1596051690992,
+      "report_requestid": "4d1041c8-3272-4f34-89c3-d1cb5202c60b",
+      "duration": "381.87",
+      "billed_duration": 1100,
+      "memory_size": 768,
+      "max_memory_used": 79,
+      "init_duration": "673.15"
+    },
+    {
+      "log_name": "/aws/lambda/Say_Hello33407aa7-e638-4f9c-af87-45e979ff73a8",
+      "log_stream": "2020/07/29/[$LATEST]382456ce89384a72aaba03fc5399974a",
+      "lambda_name": "Say_Hello33407aa7-e638-4f9c-af87-45e979ff73a8",
+      "raw_line": "REPORT RequestId: c419b3a8-25cd-458e-bef4-8f4ad14da340\tDuration: 238.60 ms\tBilled Duration: 1000 ms\tMemory Size: 768 MB\tMax Memory Used: 77 MB\tInit Duration: 730.43 ms\t\n",
+      "timestamp": 1596051691,
+      "timestamp_ms": 1596051691975,
+      "report_requestid": "c419b3a8-25cd-458e-bef4-8f4ad14da340",
+      "duration": "238.60",
+      "billed_duration": 1000,
+      "memory_size": 768,
+      "max_memory_used": 77,
+      "init_duration": "730.43"
+    }
+  ],
+  "753651104803": [
+    {
+      "log_name": "/aws/lambda/API_Endpoint_Block4726a6f3-b0fb-4f49-b21b-ab57a0966f30",
+      "log_stream": "2020/07/29/[$LATEST]066217d7b3e649c7a3ff36246cbf3cfb",
+      "lambda_name": "API_Endpoint_Block4726a6f3-b0fb-4f49-b21b-ab57a0966f30",
+      "raw_line": "REPORT RequestId: 2cb26494-ef9e-480c-a0ec-e3c1d3caa645\tDuration: 2372.40 ms\tBilled Duration: 3100 ms\tMemory Size: 512 MB\tMax Memory Used: 77 MB\tInit Duration: 682.16 ms\t\n",
+      "timestamp": 1596051691,
+      "timestamp_ms": 1596051691874,
+      "report_requestid": "2cb26494-ef9e-480c-a0ec-e3c1d3caa645",
+      "duration": "2372.40",
+      "billed_duration": 3100,
+      "memory_size": 512,
+      "max_memory_used": 77,
+      "init_duration": "682.16"
+    },
+    {
+      "log_name": "/aws/lambda/Print_World5412216d-b913-45b9-9262-7d70db0d8d55",
+      "log_stream": "2020/07/29/[$LATEST]9bf9ac40ab514896ae2d67e0a37a94c6",
+      "lambda_name": "Print_World5412216d-b913-45b9-9262-7d70db0d8d55",
+      "raw_line": "REPORT RequestId: 4d1041c8-3272-4f34-89c3-d1cb5202c60b\tDuration: 381.87 ms\tBilled Duration: 1100 ms\tMemory Size: 768 MB\tMax Memory Used: 79 MB\tInit Duration: 673.15 ms\t\n",
+      "timestamp": 1596051690,
+      "timestamp_ms": 1596051690992,
+      "report_requestid": "4d1041c8-3272-4f34-89c3-d1cb5202c60b",
+      "duration": "381.87",
+      "billed_duration": 1100,
+      "memory_size": 768,
+      "max_memory_used": 79,
+      "init_duration": "673.15"
+    },
+    {
+      "log_name": "/aws/lambda/Say_Hello33407aa7-e638-4f9c-af87-45e979ff73a8",
+      "log_stream": "2020/07/29/[$LATEST]382456ce89384a72aaba03fc5399974a",
+      "lambda_name": "Say_Hello33407aa7-e638-4f9c-af87-45e979ff73a8",
+      "raw_line": "REPORT RequestId: c419b3a8-25cd-458e-bef4-8f4ad14da340\tDuration: 238.60 ms\tBilled Duration: 1000 ms\tMemory Size: 768 MB\tMax Memory Used: 77 MB\tInit Duration: 730.43 ms\t\n",
+      "timestamp": 1596051691,
+      "timestamp_ms": 1596051691975,
+      "report_requestid": "c419b3a8-25cd-458e-bef4-8f4ad14da340",
+      "duration": "238.60",
+      "billed_duration": 1000,
+      "memory_size": 768,
+      "max_memory_used": 77,
+      "init_duration": "730.43"
+    }
+  ]
+}
