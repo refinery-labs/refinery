@@ -13,6 +13,7 @@ from assistants.deployments.aws.lambda_function import LambdaWorkflowState
 from assistants.deployments.aws.utils import get_base_lambda_code
 from assistants.deployments.diagram.workflow_states import StateTypes
 from assistants.deployments.teardown_manager import AwsTeardownManager
+from assistants.tier_assistant import TierAssistant
 from controller import BaseHandler
 from controller.aws.schemas import *
 from controller.decorators import authenticated, disable_on_overdue_payment
@@ -25,7 +26,7 @@ from utils.locker import AcquireFailure
 
 class RunTmpLambdaDependencies:
     @pinject.copy_args_to_public_fields
-    def __init__(self, builder_manager):
+    def __init__(self, builder_manager, tier_assistant):
         pass
 
 
@@ -33,6 +34,7 @@ class RunTmpLambdaDependencies:
 class RunTmpLambda(BaseHandler):
     dependencies = RunTmpLambdaDependencies
     builder_manager = None
+    tier_assistant = None
 
     @authenticated
     @disable_on_overdue_payment
@@ -75,6 +77,7 @@ class RunTmpLambda(BaseHandler):
         deployment_diagram = AwsDeployment(
             pipeline_execution_id,
             None,
+            tier_assistant=self.tier_assistant,
             project_config={
                 "logging": {
                     "level": "LOG_NONE"
@@ -313,7 +316,7 @@ class InfraCollisionCheck(BaseHandler):
 
 class DeployDiagramDependencies:
     @pinject.copy_args_to_public_fields
-    def __init__(self, aws_teardown_manager, api_gateway_manager):
+    def __init__(self, aws_teardown_manager, api_gateway_manager, tier_assistant):
         pass
 
 
@@ -328,6 +331,7 @@ class DeployDiagram(BaseHandler):
     dependencies = DeployDiagramDependencies
     aws_teardown_manager: AwsTeardownManager = None
     api_gateway_manager: ApiGatewayManager = None
+    tier_assistant: TierAssistant = None
 
     @gen.coroutine
     def cleanup_deployment(self, deployment_diagram, credentials, successful_deploy):
@@ -367,6 +371,7 @@ class DeployDiagram(BaseHandler):
             project_config,
             self.task_spawner,
             credentials,
+            tier_assistant=self.tier_assistant,
             api_gateway_manager=self.api_gateway_manager,
             latest_deployment=latest_deployment_json
         )

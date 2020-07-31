@@ -19,11 +19,15 @@ class DeploymentDiagram:
 	The comparison of state for each component of a deployment is delegated to each component.
 	"""
 
-	def __init__(self, project_id, project_name, project_config, task_spawner, credentials):
+	def __init__(self, project_id, project_name, project_config, task_spawner, credentials, tier_assistant=None):
 		self.project_id = project_id
 		self.project_name = project_name
 		self.project_config = project_config
 		self.task_spawner = task_spawner
+
+		assert tier_assistant is not None
+		self.tier_assistant = tier_assistant
+
 		self.credentials = credentials
 
 		self._unique_deploy_id = "random"
