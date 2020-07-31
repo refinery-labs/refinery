@@ -415,7 +415,7 @@ export default class CytoscapeGraph extends mixins(CreateToastMixin) implements 
 
       boxSelectionEnabled: false,
       autounselectify: true,
-      minZoom: 0.25,
+      minZoom: 0.05,
       maxZoom: 4,
       wheelSensitivity: 0.8,
 
