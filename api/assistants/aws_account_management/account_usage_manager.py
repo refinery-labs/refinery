@@ -216,8 +216,6 @@ def get_monthly_user_lambda_execution_report(dbsession, account_id) -> Union[Lam
         get_first_day_of_next_month().strftime("%s")
     )
 
-    print(first_day_of_month_timestamp, first_day_of_next_month_timestamp)
-
     lambda_execution_report: LambdaExecutionMonthlyReport = dbsession.query(LambdaExecutionMonthlyReport).filter_by(
         account_id=account_id
     ).filter(

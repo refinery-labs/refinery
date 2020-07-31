@@ -176,7 +176,6 @@ class TestBilling(ServerUnitTestBase, AsyncHTTPTestCase):
 
         monthly_report = LambdaExecutionMonthlyReport(aws_account.id, 0)
         monthly_report.timestamp = int(date(2020, 1, 2).strftime('%s'))
-        print(monthly_report.timestamp)
         self.dbsession.add(monthly_report)
         self.dbsession.commit()
 
