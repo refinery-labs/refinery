@@ -12,6 +12,7 @@ from assistants.deployments.aws.types import AwsDeploymentState
 from assistants.deployments.diagram.code_block import CodeBlockWorkflowState
 from assistants.deployments.diagram.types import StateTypes
 from assistants.deployments.aws.utils import get_language_specific_environment_variables, get_layers_for_lambda
+from assistants.tier_assistant import TierAssistant
 from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
 from utils.general import logit
 
@@ -47,6 +48,7 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
         self.execution_pipeline_id = None
         self.execution_log_level = None
         self.reserved_concurrency_count = False
+        self.log_retention_days = 1
 
         self.execution_mode = "REGULAR"
         self.tags_dict = {
@@ -66,6 +68,10 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
 
     def setup(self, deploy_diagram: AwsDeployment, workflow_state_json: Dict[str, object]):
         super().setup(deploy_diagram, workflow_state_json)
+
+        self.log_retention_days = deploy_diagram.tier_assistant.log_retention_days(
+            self._credentials["tier"]
+        )
 
         if self.deployed_state is None:
             self.deployed_state = LambdaDeploymentState(self.name, self.type, None, arn=self.arn)
@@ -202,7 +208,7 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
             {
                 "RefineryResource": "true"
             },
-            7
+            self.log_retention_days
         )
 
         deployed_lambda_data = yield task_spawner.deploy_aws_lambda(

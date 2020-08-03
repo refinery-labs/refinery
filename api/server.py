@@ -22,6 +22,7 @@ from assistants.deployments.sqs import SqsManager
 from assistants.deployments.teardown_manager import AwsTeardownManager
 from assistants.github.github_assistant import GithubAssistant
 from assistants.task_spawner.task_spawner_assistant import TaskSpawner
+from assistants.tier_assistant import TierAssistant
 from assistants.user_creation_assistant import UserCreationAssistant
 from config.provider import ConfigBindingSpec
 from assistants.github.oauth_provider import GithubOAuthProviderBindingSpec
@@ -77,7 +78,8 @@ if __name__ == "__main__":
         AwsAccountFreezer,
         AwsAccountPoolManager,
         AwsAccountUsageManager,
-        AwsTeardownManager
+        AwsTeardownManager,
+        TierAssistant
     ]
 
     binding_specs = [
