@@ -7,17 +7,12 @@ import { LayoutOptions } from 'cytoscape';
 import { AvailableTransition } from '@/store/store-types';
 import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
-import TourWrapper from '@/lib/Tooltip';
 import { DemoWalkthroughStoreModule } from '@/store';
-import { DemoTooltipActionType, TooltipType } from '@/types/demo-walkthrough-types';
-import { timeout, waitUntil } from '@/utils/async-utils';
-import { ProductionExecutionResponse } from '@/types/deployment-executions-types';
+import { TooltipType } from '@/types/demo-walkthrough-types';
 import Tooltip from '@/lib/Tooltip';
 import { TooltipProps } from '@/types/tooltip-types';
-import { RepoCompilationError } from '@/repo-compiler/lib/git-utils';
 
 const project = namespace('project');
-const syncProjectRepo = namespace('syncProjectRepo');
 
 @Component
 export default class OpenedProjectGraphContainer extends Vue {
