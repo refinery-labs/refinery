@@ -24,6 +24,8 @@ export default class LoginPage extends Vue {
   @user.Action redirectIfAuthenticated!: () => void;
   @user.Action authWithGithub!: () => void;
 
+  private oauthLoginVisible: boolean = true;
+
   onSubmit(evt: Event) {
     evt.preventDefault();
     this.loginUser();
@@ -50,6 +52,10 @@ export default class LoginPage extends Vue {
     this.setEmailInputValue(val);
   }
 
+  toggleLoginProvider() {
+    this.oauthLoginVisible = !this.oauthLoginVisible;
+  }
+
   public renderLoginFormAwaitingEmailContents() {
     const textContents = this.loginAttemptMessage || 'Please check your email. Waiting for login status...';
 
@@ -69,69 +75,87 @@ export default class LoginPage extends Vue {
   }
 
   public renderLoginFormContents() {
+    const altLoginLinkText = this.oauthLoginVisible ? 'Login with email' : 'Login with Github';
     return (
       <div>
         <p class="text-center py-2">
           Welcome to Refinery! <br />
           Please sign in to continue.
         </p>
-        <b-form on={{ submit: this.onSubmit, reset: this.onReset }} class="mb-3 text-align--left">
-          <b-form-group id="user-email-group" description="You will receive an email with a magical link to log in.">
-            <label class="text-muted d-block" for="user-email-input" id="user-email-group">
-              Email address:
-            </label>
-            <div class="input-group with-focus">
-              <b-form-input
-                id="user-email-input"
-                class="form-control border-right-0"
-                value={this.loginEmailInput}
-                on={{ input: this.onEmailInputUpdated }}
-                type="email"
-                required
-                placeholder="user@example.com"
-                state={this.loginEmailInputValid}
-                autofocus={true}
-              />
-              <div class="input-group-append">
-                <span class="input-group-text text-muted bg-transparent border-left-0">
-                  <em class="fa fa-envelope" />
-                </span>
-              </div>
-            </div>
-            <b-form-invalid-feedback state={this.loginEmailInputValid}>
-              Email address must be supplied. Eg, user@example.com
-            </b-form-invalid-feedback>
-          </b-form-group>
-          <div class="text-align--left">
-            <b-form-checkbox
-              id="checkbox-1"
-              name="checkbox-1"
-              on={{ change: this.onRememberMeUpdated }}
-              checked={this.rememberMeToggled}
-            >
-              Remember Me
-            </b-form-checkbox>
+        <div>
+          <div hidden={!this.oauthLoginVisible}>
+            <b-button class="margin--normal" on={{ click: () => this.authWithGithub() }}>
+              <em
+                class="fab fa-github display--flex justify-content-center padding--normal"
+                style="font-size: 50px"
+              ></em>{' '}
+              <div>Login with Github</div>
+            </b-button>
           </div>
-          <button class="btn btn-block btn-primary mt-3" type="submit">
-            Login
-          </button>
-          <b-form-invalid-feedback state={this.loginErrorMessage === null}>
-            {this.loginErrorMessage}
-          </b-form-invalid-feedback>
-          <b-form-valid-feedback state={this.loginAttemptMessage !== null}>
-            {this.loginAttemptMessage}
-          </b-form-valid-feedback>
-        </b-form>
+          <div hidden={this.oauthLoginVisible}>
+            <b-form on={{ submit: this.onSubmit, reset: this.onReset }} class="mb-3 text-align--left">
+              <b-form-group
+                id="user-email-group"
+                description="You will receive an email with a magical link to log in."
+              >
+                <label class="text-muted d-block" for="user-email-input" id="user-email-group">
+                  Email address:
+                </label>
+                <div class="input-group with-focus">
+                  <b-form-input
+                    id="user-email-input"
+                    className="form-control border-right-0"
+                    value={this.loginEmailInput}
+                    on={{ input: this.onEmailInputUpdated }}
+                    type="email"
+                    required
+                    placeholder="user@example.com"
+                    state={this.loginEmailInputValid}
+                    autofocus={true}
+                  />
+                  <div class="input-group-append">
+                    <span class="input-group-text text-muted bg-transparent border-left-0">
+                      <em class="fa fa-envelope" />
+                    </span>
+                  </div>
+                </div>
+                <b-form-invalid-feedback state={this.loginEmailInputValid}>
+                  Email address must be supplied. Eg, user@example.com
+                </b-form-invalid-feedback>
+              </b-form-group>
+              <div class="text-align--left">
+                <b-form-checkbox
+                  id="checkbox-1"
+                  name="checkbox-1"
+                  on={{ change: this.onRememberMeUpdated }}
+                  checked={this.rememberMeToggled}
+                >
+                  Remember Me
+                </b-form-checkbox>
+              </div>
+              <button class="btn btn-block btn-primary mt-3" type="submit">
+                Login
+              </button>
+              <b-form-invalid-feedback state={this.loginErrorMessage === null}>
+                {this.loginErrorMessage}
+              </b-form-invalid-feedback>
+              <b-form-valid-feedback state={this.loginAttemptMessage !== null}>
+                {this.loginAttemptMessage}
+              </b-form-valid-feedback>
+            </b-form>
+          </div>
+        </div>
         <hr />
-        <h5>OR</h5>
-        <b-button class="btn btn-block btn-secondary mt-3" on={{ click: () => this.authWithGithub() }}>
-          <em class="fab fa-github"></em> Login/Register via Github
-        </b-button>
-        <hr />
-        <p class="pt-3 text-center">Need to Signup?</p>
-        <router-link class="btn btn-block btn-secondary" to="/register">
-          Register Now
-        </router-link>
+        <b-row>
+          <b-col>
+            <b-link on={{ click: this.toggleLoginProvider }}>{altLoginLinkText}</b-link>
+          </b-col>
+          <b-col>
+            <router-link className="btn btn-block btn-secondary" to="/register">
+              Register Now
+            </router-link>
+          </b-col>
+        </b-row>
       </div>
     );
   }

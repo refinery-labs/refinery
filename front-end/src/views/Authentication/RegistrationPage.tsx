@@ -37,7 +37,10 @@ export default class RegistrationPage extends Vue {
 
   @user.Action registerUser!: () => void;
   @user.Action redirectIfAuthenticated!: () => void;
+  @user.Action authWithGithub!: () => void;
   @user.Mutation cancelAutoRefreshJob!: () => void;
+
+  private oauthRegisterVisible: boolean = true;
 
   @Prop() inDemoMode?: boolean;
 
@@ -101,190 +104,218 @@ export default class RegistrationPage extends Vue {
     );
   }
 
-  public renderRegistrationFormContents() {
+  registerWithEmailForm() {
     const stripeCardProps = {
       setRegistrationStripeTokenValue: this.setStripeToken
     };
-
-    const callToAction = this.renderCallToAction();
 
     const invalidEmailAddressMessage = 'Your must register with a valid email address.';
     const emailInputErrorMessage = this.registrationEmailErrorMessage || invalidEmailAddressMessage;
 
     return (
-      <div>
-        {callToAction}
-        <b-form on={{ submit: this.onSubmit, reset: this.onReset }} class="mb-3 text-align--left">
-          <b-form-group id="user-email-group">
-            <b-form-invalid-feedback state={this.registrationErrorMessage === null}>
-              {this.registrationErrorMessage}
-            </b-form-invalid-feedback>
-            <label class="text-muted d-block" htmlFor="user-email-input">
-              Email address <span style="color: red;">*</span>
-            </label>
-
-            <div class="input-group with-focus">
-              <b-form-input
-                id="user-email-input"
-                class="form-control border-right-0"
-                value={this.registrationEmailInput}
-                on={{ change: this.setRegisterEmailInputValue }}
-                type="email"
-                required
-                placeholder="user@example.com"
-                state={this.registrationEmailInputValid}
-                autofocus={true}
-              />
-              <div class="input-group-append">
-                <span class="input-group-text text-muted bg-transparent border-left-0">
-                  <em class="fa fa-envelope" />
-                </span>
-              </div>
-            </div>
-            <label class="form-text text-muted">
-              You must provide a valid email address in order to log in to your account. No password required!
-            </label>
-            <b-form-invalid-feedback state={this.registrationEmailInputValid}>
-              {emailInputErrorMessage}
-            </b-form-invalid-feedback>
-          </b-form-group>
-          <b-form-group id="user-name-group">
-            <label class="text-muted d-block" htmlFor="user-name-input" id="user-name-group">
-              Billing Name <span style="color: red;">*</span>
-            </label>
-
-            <div class="input-group with-focus">
-              <b-form-input
-                id="user-name-input"
-                class="form-control border-right-0"
-                value={this.registrationNameInput}
-                on={{ change: this.setRegisterNameInputValue }}
-                type="text"
-                required
-                placeholder="John Doe"
-                state={this.registrationNameInputValid}
-              />
-              <div class="input-group-append">
-                <span class="input-group-text text-muted bg-transparent border-left-0">
-                  <em class="fa fa-file-signature" />
-                </span>
-              </div>
-            </div>
-            <label class="form-text text-muted">
-              Please use the same name as the one that appears on your credit card.
-            </label>
-            <b-form-invalid-feedback state={this.registrationNameInputValid}>
-              Your name must contain First + Last name and not contain numbers.
-            </b-form-invalid-feedback>
-          </b-form-group>
-          <b-form-group id="stripe-payment">
-            <label class="text-muted d-block" htmlFor="user-name-input" id="user-name-group">
-              Payment Information <span style="color: red;">*</span>
-            </label>
-            {/* TypeScript can fuck right off, this works fine.
-            // @ts-ignore */}
-            <StripeAddPaymentCard props={stripeCardProps} />
-            {/*TODO: Replace Pricing page with actual link.*/}
-            <label class="text-muted d-block">
-              Free $5 credit on signup. Service is usage based (code block executions, log storage, etc) and billed on
-              the 1st of every month.
-              <br />
-              Minimum $5 per month for compute used.
-              <br />
-              For more information about our pricing, see our{' '}
-              <a href="https://www.refinery.io/pricing" target="_blank">
-                Pricing page
-              </a>
-              .
-            </label>
-          </b-form-group>
-          <b-form-group id="user-phone-group">
-            <label class="text-muted d-block" htmlFor="user-phone-input" id="user-phone-group">
-              Phone Number (optional)
-            </label>
-            <div class="input-group with-focus">
-              <b-form-input
-                id="user-phone-input"
-                class="form-control border-right-0"
-                value={this.registrationPhoneInput}
-                on={{ change: this.setRegisterPhoneInputValue }}
-                type="tel"
-                placeholder="+1 (555) 555-5555"
-                required={false}
-              />
-              <div class="input-group-append">
-                <span class="input-group-text text-muted bg-transparent border-left-0">
-                  <em class="fa fa-phone" />
-                </span>
-              </div>
-            </div>
-            <label class="form-text text-muted">
-              Please provide a real phone number. This helps us prevent abuse of our service and helps us improve our
-              customer experience.
-            </label>
-          </b-form-group>
-          <b-form-group id="org-name-group">
-            <label class="text-muted d-block" htmlFor="org-name-input" id="org-name-group">
-              Organization Name (optional):
-            </label>
-            <div class="input-group with-focus">
-              <b-form-input
-                id="org-name-input"
-                class="form-control border-right-0"
-                value={this.registrationOrgNameInput}
-                on={{ change: this.setRegisterOrgNameInputValue }}
-                type="text"
-                placeholder="Startup Company Inc."
-                state={this.registrationOrgNameInputValid}
-              />
-              <div class="input-group-append">
-                <span class="input-group-text text-muted bg-transparent border-left-0">
-                  <em class="fa fa-users" />
-                </span>
-              </div>
-            </div>
-            <label class="form-text text-muted">
-              If you are not part of an organization, you can just leave this blank.
-            </label>
-            <b-form-invalid-feedback state={this.registrationOrgNameInputValid}>
-              Your must provide a valid Organization name.
-            </b-form-invalid-feedback>
-          </b-form-group>
-          <b-form-group id="terms-agree-group" class="text-align--left">
-            <b-form-checkbox
-              id="checkbox-1"
-              name="checkbox-1"
-              required
-              on={{ change: this.onTermsCheckboxUpdated }}
-              state={this.termsAndConditionsAgreedValid}
-              checked={this.termsAndConditionsAgreed}
-            >
-              I have read and agree with the
-              <a class="ml-1" href="/terms-of-service" target="_blank">
-                terms and conditions
-              </a>
-              . <span style="color: red;">*</span>
-            </b-form-checkbox>
-
-            <b-form-invalid-feedback state={this.termsAndConditionsAgreedValid}>
-              Your must agree to the terms and conditions.
-            </b-form-invalid-feedback>
-          </b-form-group>
+      <b-form on={{ submit: this.onSubmit, reset: this.onReset }} className="mb-3 text-align--left">
+        <b-form-group id="user-email-group">
           <b-form-invalid-feedback state={this.registrationErrorMessage === null}>
             {this.registrationErrorMessage}
           </b-form-invalid-feedback>
-          <span style="color: red;">*</span> = Required Field
-          <button class="btn btn-block btn-primary mt-3" type="submit">
-            Create account
-          </button>
-          <b-form-valid-feedback state={this.registrationSuccessMessage !== null}>
-            {this.registrationSuccessMessage}
-          </b-form-valid-feedback>
-        </b-form>
-        <p class="pt-3 text-center">Already have an account?</p>
-        <a class="btn btn-block btn-secondary" href="/login" target="_blank">
-          Login
-        </a>
+          <label class="text-muted d-block" htmlFor="user-email-input">
+            Email address <span style="color: red;">*</span>
+          </label>
+
+          <div class="input-group with-focus">
+            <b-form-input
+              id="user-email-input"
+              className="form-control border-right-0"
+              value={this.registrationEmailInput}
+              on={{ change: this.setRegisterEmailInputValue }}
+              type="email"
+              required
+              placeholder="user@example.com"
+              state={this.registrationEmailInputValid}
+              autofocus={true}
+            />
+            <div class="input-group-append">
+              <span class="input-group-text text-muted bg-transparent border-left-0">
+                <em class="fa fa-envelope" />
+              </span>
+            </div>
+          </div>
+          <label class="form-text text-muted">
+            You must provide a valid email address in order to log in to your account. No password required!
+          </label>
+          <b-form-invalid-feedback state={this.registrationEmailInputValid}>
+            {emailInputErrorMessage}
+          </b-form-invalid-feedback>
+        </b-form-group>
+        <b-form-group id="user-name-group">
+          <label class="text-muted d-block" htmlFor="user-name-input" id="user-name-group">
+            Billing Name <span style="color: red;">*</span>
+          </label>
+
+          <div class="input-group with-focus">
+            <b-form-input
+              id="user-name-input"
+              className="form-control border-right-0"
+              value={this.registrationNameInput}
+              on={{ change: this.setRegisterNameInputValue }}
+              type="text"
+              required
+              placeholder="John Doe"
+              state={this.registrationNameInputValid}
+            />
+            <div class="input-group-append">
+              <span class="input-group-text text-muted bg-transparent border-left-0">
+                <em class="fa fa-file-signature" />
+              </span>
+            </div>
+          </div>
+          <label class="form-text text-muted">
+            Please use the same name as the one that appears on your credit card.
+          </label>
+          <b-form-invalid-feedback state={this.registrationNameInputValid}>
+            Your name must contain First + Last name and not contain numbers.
+          </b-form-invalid-feedback>
+        </b-form-group>
+        <b-form-group id="stripe-payment">
+          <label class="text-muted d-block" htmlFor="user-name-input" id="user-name-group">
+            Payment Information <span style="color: red;">*</span>
+          </label>
+          {/* TypeScript can fuck right off, this works fine.
+            // @ts-ignore */}
+          <StripeAddPaymentCard props={stripeCardProps} />
+          {/*TODO: Replace Pricing page with actual link.*/}
+          <label class="text-muted d-block">
+            Free $5 credit on signup. Service is usage based (code block executions, log storage, etc) and billed on the
+            1st of every month.
+            <br />
+            Minimum $5 per month for compute used.
+            <br />
+            For more information about our pricing, see our{' '}
+            <a href="https://www.refinery.io/pricing" target="_blank">
+              Pricing page
+            </a>
+            .
+          </label>
+        </b-form-group>
+        <b-form-group id="user-phone-group">
+          <label class="text-muted d-block" htmlFor="user-phone-input" id="user-phone-group">
+            Phone Number (optional)
+          </label>
+          <div class="input-group with-focus">
+            <b-form-input
+              id="user-phone-input"
+              className="form-control border-right-0"
+              value={this.registrationPhoneInput}
+              on={{ change: this.setRegisterPhoneInputValue }}
+              type="tel"
+              placeholder="+1 (555) 555-5555"
+              required={false}
+            />
+            <div class="input-group-append">
+              <span class="input-group-text text-muted bg-transparent border-left-0">
+                <em class="fa fa-phone" />
+              </span>
+            </div>
+          </div>
+          <label class="form-text text-muted">
+            Please provide a real phone number. This helps us prevent abuse of our service and helps us improve our
+            customer experience.
+          </label>
+        </b-form-group>
+        <b-form-group id="org-name-group">
+          <label class="text-muted d-block" htmlFor="org-name-input" id="org-name-group">
+            Organization Name (optional):
+          </label>
+          <div class="input-group with-focus">
+            <b-form-input
+              id="org-name-input"
+              className="form-control border-right-0"
+              value={this.registrationOrgNameInput}
+              on={{ change: this.setRegisterOrgNameInputValue }}
+              type="text"
+              placeholder="Startup Company Inc."
+              state={this.registrationOrgNameInputValid}
+            />
+            <div class="input-group-append">
+              <span class="input-group-text text-muted bg-transparent border-left-0">
+                <em class="fa fa-users" />
+              </span>
+            </div>
+          </div>
+          <label class="form-text text-muted">
+            If you are not part of an organization, you can just leave this blank.
+          </label>
+          <b-form-invalid-feedback state={this.registrationOrgNameInputValid}>
+            Your must provide a valid Organization name.
+          </b-form-invalid-feedback>
+        </b-form-group>
+        <b-form-group id="terms-agree-group" className="text-align--left">
+          <b-form-checkbox
+            id="checkbox-1"
+            name="checkbox-1"
+            required
+            on={{ change: this.onTermsCheckboxUpdated }}
+            state={this.termsAndConditionsAgreedValid}
+            checked={this.termsAndConditionsAgreed}
+          >
+            I have read and agree with the
+            <a class="ml-1" href="/terms-of-service" target="_blank">
+              terms and conditions
+            </a>
+            . <span style="color: red;">*</span>
+          </b-form-checkbox>
+
+          <b-form-invalid-feedback state={this.termsAndConditionsAgreedValid}>
+            Your must agree to the terms and conditions.
+          </b-form-invalid-feedback>
+        </b-form-group>
+        <b-form-invalid-feedback state={this.registrationErrorMessage === null}>
+          {this.registrationErrorMessage}
+        </b-form-invalid-feedback>
+        <span style="color: red;">*</span> = Required Field
+        <button class="btn btn-block btn-primary mt-3" type="submit">
+          Create account
+        </button>
+        <b-form-valid-feedback state={this.registrationSuccessMessage !== null}>
+          {this.registrationSuccessMessage}
+        </b-form-valid-feedback>
+      </b-form>
+    );
+  }
+
+  toggleRegisterProvider() {
+    this.oauthRegisterVisible = !this.oauthRegisterVisible;
+  }
+
+  public renderRegistrationFormContents() {
+    const altRegisterLinkText = this.oauthRegisterVisible ? 'Register with email' : 'Register with Github';
+
+    return (
+      <div>
+        {this.renderCallToAction()}
+        <div>
+          <div hidden={!this.oauthRegisterVisible}>
+            <b-button className="margin--normal" on={{ click: () => this.authWithGithub() }}>
+              <em
+                class="fab fa-github display--flex justify-content-center padding--normal"
+                style="font-size: 50px"
+              ></em>
+              <div>Register with Github</div>
+            </b-button>
+          </div>
+          <div hidden={this.oauthRegisterVisible}>{this.registerWithEmailForm()}</div>
+        </div>
+        <hr />
+        <b-row>
+          <b-col>
+            <b-link on={{ click: this.toggleRegisterProvider }}>{altRegisterLinkText}</b-link>
+          </b-col>
+          <b-col>
+            <router-link className="btn btn-block btn-secondary" to="/login" target="_blank">
+              Login to an existing account
+            </router-link>
+          </b-col>
+        </b-row>
       </div>
     );
   }
