@@ -42,10 +42,17 @@ class RealtimeLambdaBillingWatchdog(BaseHandler):
 
     @gen.coroutine
     def process_lambda_execution_reports(self, account_id, lambda_execution_reports):
+        # TODO create a dedicated dbsession here since we might be highly concurrent?
+
         # First pull the relevant AWS account
         aws_account = self.dbsession.query(AWSAccount).filter_by(
             account_id=account_id,
         ).first()
+
+        if aws_account is None:
+            self.logger(f"AWS Account {account_id} does not exist when processing lambda execution report", "warning")
+            raise gen.Return()
+
         credentials = aws_account.to_dict()
         is_free_tier_user = is_free_tier_account(self.dbsession, credentials)
 
@@ -58,16 +65,17 @@ class RealtimeLambdaBillingWatchdog(BaseHandler):
             billed_duration = lambda_execution_report["billed_duration"]
             memory_size = lambda_execution_report["memory_size"]
 
-            gb_seconds_used = calculate_total_gb_seconds_used(billed_duration, memory_size)
+            gb_seconds_used += calculate_total_gb_seconds_used(billed_duration, memory_size)
 
         try:
             monthly_report = self.aws_account_usage_manager.get_or_create_lambda_monthly_report(
                 self.dbsession,
                 account_id,
-                gb_seconds_used
+                gb_seconds_used,
+                len(lambda_execution_reports)
             )
         except AwsAccountForUsageNotFoundException:
-            logit(f"Received Lambda execution data for an AWS account we don't have a record of {account_id}. Ignoring it.")
+            self.logger(f"Received Lambda execution data for an AWS account we don't have a record of {account_id}. Ignoring it.")
             raise gen.Return()
 
         # Pull their free-tier status
@@ -80,7 +88,7 @@ class RealtimeLambdaBillingWatchdog(BaseHandler):
         if not usage_info.is_over_limit:
             raise gen.Return()
 
-        logit(f"User {account_id} is over their free-tier limit! Limiting their account...")
+        self.logger(f"User {account_id} is over their free-tier limit! Limiting their account...")
 
         yield self.aws_account_freezer.handle_user_over_limit(credentials)
 
@@ -110,7 +118,7 @@ class RealtimeLambdaBillingWatchdog(BaseHandler):
         validate_schema(self.json, STORE_LAMBDA_EXECUTION_DETAILS_SCHEMA)
 
         for account_id, lambda_execution_reports in self.json.items():
-            yield self.process_lambda_execution_reports(account_id, lambda_execution_reports)
+            self.process_lambda_execution_reports(account_id, lambda_execution_reports)
 
         self.write({
             "success": True

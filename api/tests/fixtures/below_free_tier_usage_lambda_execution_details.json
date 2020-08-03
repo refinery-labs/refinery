@@ -1,0 +1,18 @@
+{
+  "123451104803": [
+    {
+      "log_name": "/aws/lambda/API_Endpoint_Block4726a6f3-b0fb-4f49-b21b-ab57a0966f30",
+      "log_stream": "2020/07/29/[$LATEST]066217d7b3e649c7a3ff36246cbf3cfb",
+      "lambda_name": "API_Endpoint_Block4726a6f3-b0fb-4f49-b21b-ab57a0966f30",
+      "raw_line": "REPORT RequestId: 2cb26494-ef9e-480c-a0ec-e3c1d3caa645\tDuration: 2372.40 ms\tBilled Duration: 3100 ms\tMemory Size: 512 MB\tMax Memory Used: 77 MB\tInit Duration: 682.16 ms\t\n",
+      "timestamp": 1596051691,
+      "timestamp_ms": 1596051691874,
+      "report_requestid": "2cb26494-ef9e-480c-a0ec-e3c1d3caa645",
+      "duration": "2372.40",
+      "billed_duration": 10000,
+      "memory_size": 512,
+      "max_memory_used": 77,
+      "init_duration": "682.16"
+    }
+  ]
+}

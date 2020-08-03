@@ -21,9 +21,6 @@ class TestAWS(ServerUnitTestBase, AsyncHTTPTestCase):
         self.mock_aws = self.app_object_graph.provide(MockAWSDependenciesHolder)
         self.mock_task_spawner = self.app_object_graph.provide(MockTaskSpawnerHolder).task_spawner
 
-    def get_user_from_id(self, user_id):
-        return self.dbsession.query(User).filter(User.id == user_id).first()
-
     def create_test_project(self, project_id, user):
         project = Project()
         project.id = project_id

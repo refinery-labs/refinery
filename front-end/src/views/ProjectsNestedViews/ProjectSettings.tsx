@@ -11,24 +11,23 @@ import {
 import { namespace } from 'vuex-class';
 import Loading from '@/components/Common/Loading.vue';
 import { LoadingContainerProps } from '@/types/component-types';
-import RepoSelectionModal from '@/components/ProjectSettings/RepoSelectionModal';
+import RepoSelectionModal, { RepoSelectionModalProps } from '@/components/ProjectSettings/RepoSelectionModal';
 
 const project = namespace('project');
-const repoSelectionModal = namespace('repoSelectionModal');
+const repoSelector = namespace('repoSelector');
 
 @Component
 export default class ProjectSettings extends Vue {
   @project.State openedProject!: RefineryProject | null;
   @project.State openedProjectConfig!: ProjectConfig | null;
 
-  @repoSelectionModal.Mutation setRepoSelectionModalVisible!: (showing: boolean) => void;
-
-  @repoSelectionModal.Action cacheReposForUser!: () => void;
+  @repoSelector.Action cacheReposForUser!: () => void;
   @project.Action setProjectConfigLoggingLevel!: (projectConfigLoggingLevel: ProjectLogLevel) => void;
   @project.Action setProjectConfigRuntimeLanguage!: (projectConfigRuntimeLanguage: SupportedLanguage) => void;
   @project.Action setProjectGlobalExceptionHandlerToNode!: (nodeId: string | null) => void;
 
   private isSettingGlobalExceptionHandler: boolean = false;
+  private repoSelectorModalVisible: boolean = false;
 
   private getLogLevelValue() {
     // TODO: Move this business logic to an action in the store.
@@ -78,7 +77,11 @@ export default class ProjectSettings extends Vue {
   }
 
   private showSelectRepoModal() {
-    this.setRepoSelectionModalVisible(true);
+    this.repoSelectorModalVisible = true;
+  }
+
+  private setRepoSelectorModalHidden() {
+    this.repoSelectorModalVisible = false;
   }
 
   private renderLogLevel() {
@@ -205,6 +208,11 @@ export default class ProjectSettings extends Vue {
   }
 
   public render(h: CreateElement): VNode {
+    const repoSelectionModalProps: RepoSelectionModalProps = {
+      visible: this.repoSelectorModalVisible,
+      hidden: this.setRepoSelectorModalHidden
+    };
+
     return (
       <div class="content-wrapper">
         <div class="content-heading display-flex">
@@ -220,7 +228,7 @@ export default class ProjectSettings extends Vue {
             <div class="col-lg-8 align-self-center">{this.renderSettingsCard('Project Settings')}</div>
           </div>
         </div>
-        <RepoSelectionModal />
+        <RepoSelectionModal props={repoSelectionModalProps} />
       </div>
     );
   }

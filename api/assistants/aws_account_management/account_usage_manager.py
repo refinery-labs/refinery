@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime, timedelta, date
 
 from botocore.exceptions import ClientError
 from time import time
@@ -8,7 +8,6 @@ import math
 import pystache
 from dateutil import relativedelta
 from numpy import format_float_positional
-from sqlalchemy.exc import IntegrityError
 from tornado.concurrent import run_on_executor
 from typing import Union
 
@@ -16,11 +15,12 @@ from models import AWSAccount, Organization, CachedBillingCollection, CachedBill
 from models.lambda_execution_monthly_report import LambdaExecutionMonthlyReport
 from tasks.email import send_email
 from utils.base_spawner import BaseSpawner
+from utils.db_session_scope import session_scope
 from utils.general import logit
 from utils.performance_decorators import emit_runtime_metrics
 
 
-class AwsAccountForUsageNotFoundException(BaseException):
+class AwsAccountForUsageNotFoundException(Exception):
     pass
 
 
@@ -50,9 +50,9 @@ class AwsUsageData:
 
 
 def get_first_day_of_month():
-    today = datetime.date.today()
+    today = datetime.today()
     if today.day > 25:
-        today += datetime.timedelta(7)
+        today += timedelta(7)
     return today.replace(day=1)
 
 
@@ -69,8 +69,8 @@ def get_current_month_start_and_end_date_strings():
     billing for the current month.
     """
     # Get tomorrow date
-    today_date = datetime.date.today()
-    tomorrow_date = datetime.date.today() + datetime.timedelta(days=1)
+    today_date = datetime.today()
+    tomorrow_date = datetime.today() + timedelta(days=1)
     start_date = tomorrow_date
 
     # We could potentially be on the last day of the month
@@ -91,7 +91,7 @@ def get_current_month_start_and_end_date_strings():
         next_month_num = 1
         current_year_num = current_year_num + 1
 
-    next_month_start_date = datetime.date(
+    next_month_start_date = date(
         current_year_num,
         next_month_num,
         1
@@ -111,8 +111,8 @@ def get_last_month_start_and_end_date_strings():
     billing for the last month.
     """
     # Get first day of last month
-    today_date = datetime.date.today()
-    one_month_ago_date = datetime.date.today() - datetime.timedelta(days=30)
+    today_date = datetime.today()
+    one_month_ago_date = datetime.today() - timedelta(days=30)
 
     return {
         "current_date": today_date.strftime("%Y-%m-%d"),
@@ -124,23 +124,27 @@ def get_last_month_start_and_end_date_strings():
 def is_organization_first_month(db_session_maker, aws_account_id):
     # Pull the relevant organization from the database to check
     # how old the account is to know if the first-month's base fee should be applied.
-    dbsession = db_session_maker()
-    aws_account = dbsession.query(AWSAccount).filter_by(
-        account_id=aws_account_id
-    ).first()
-    organization = dbsession.query(Organization).filter_by(
-        id=aws_account.organization_id
-    ).first()
-    organization_dict = organization.to_dict()
-    dbsession.close()
 
-    account_creation_dt = datetime.datetime.fromtimestamp(
-        organization.timestamp
-    )
+    with session_scope(db_session_maker) as dbsession:
+        aws_account = dbsession.query(
+            Organization.timestamp
+        ).join(
+            AWSAccount
+        ).filter_by(
+            account_id=aws_account_id
+        ).first()
 
-    current_datetime = datetime.datetime.now()
+        organization = dbsession.query(Organization).filter_by(
+            id=aws_account.organization_id
+        ).first()
 
-    if account_creation_dt > (current_datetime - datetime.timedelta(days=40)):
+        account_creation_dt = datetime.fromtimestamp(
+            organization.timestamp
+        )
+
+    current_datetime = datetime.now()
+
+    if account_creation_dt > (current_datetime - timedelta(days=40)):
         return True
 
     return False
@@ -181,7 +185,7 @@ def calculate_total_gb_seconds_used(billed_exec_duration_ms, exec_mb):
     # Get fraction of GB-second and multiply it by
     # the billed execution to get the total GB-seconds
     # used in milliseconds.
-    gb_fraction = 1024 / exec_mb
+    gb_fraction = exec_mb / 1024
     return (gb_fraction * billed_exec_duration_ms) / 1000
 
 
@@ -362,7 +366,7 @@ def get_sub_account_billing_data(app_config, db_session_maker, aws_cost_explorer
 
     # This is where we upgrade the billing total if it's not at least $5/mo
     # $5/mo is our floor price.
-    if total_amount < 5.00 and is_first_account_billing_month == False:
+    if total_amount < 5.00 and not is_first_account_billing_month:
         amount_to_add = (5.00 - total_amount)
         return_data["service_breakdown"].append({
             "service_name": "Floor Fee (Bills are minimum $5/month, see refinery.io/pricing for more information).",
@@ -425,7 +429,7 @@ def pull_current_month_running_account_totals(aws_cost_explorer):
             })
 
         # Stop here if there are no more pages to iterate through.
-        if ("NextPageToken" in ce_response) == False:
+        if "NextPageToken" not in ce_response:
             break
 
         # If we have a next page token, then add it to our
@@ -716,7 +720,6 @@ class AwsAccountUsageManager(BaseSpawner):
         self.free_tier_monthly_max_gb_seconds = app_config.get("free_tier_monthly_max_gb_seconds")
 
     def get_aws_usage_data(self, is_free_tier_user, lambda_execution_report) -> AwsUsageData:
-
         # If the lambda execution report doesn't exist, then we are in a new month and able to unfreeze a user's account.
         if lambda_execution_report is None:
             return AwsUsageData(
@@ -742,7 +745,7 @@ class AwsAccountUsageManager(BaseSpawner):
         )
 
     @staticmethod
-    def get_or_create_lambda_monthly_report(dbsession, account_id, gb_seconds_used) -> LambdaExecutionMonthlyReport:
+    def get_or_create_lambda_monthly_report(dbsession, account_id, gb_seconds_used, executions) -> LambdaExecutionMonthlyReport:
         monthly_report = get_monthly_user_lambda_execution_report(dbsession, account_id)
 
         if monthly_report is None:
@@ -751,33 +754,9 @@ class AwsAccountUsageManager(BaseSpawner):
         else:
             monthly_report.gb_seconds_used += gb_seconds_used
 
-        monthly_report.total_executions += 1
+        monthly_report.total_executions += executions
 
-        try:
-            dbsession.commit()
-        except IntegrityError as e:
-            """
-            An expected error case is when we get an execution
-            for an AWS account which is no longer in the database.
-            This can happen specifically for third-party AWS accounts
-            which are no longer managed by us but are still sending us
-            their Lambda execution data. For these instances we just
-            print a line about it occurring and suppress the full
-            SQL exception.
-            """
-            sql_error_message = str(e.orig)
-
-            is_non_existent_aws_account = (
-                    "Key (account_id)=(" in sql_error_message
-                    and "is not present in table \"aws_accounts\"." in sql_error_message
-            )
-
-            if is_non_existent_aws_account:
-                raise AwsAccountForUsageNotFoundException()
-
-            # If it's not a non-existent AWS account issue
-            # then we'll rethrow it
-            raise
+        dbsession.commit()
 
         return monthly_report
 

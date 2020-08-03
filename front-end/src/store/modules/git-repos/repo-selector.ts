@@ -12,12 +12,11 @@ import { createNewRepoForUser, listGithubReposForUser } from '@/store/fetchers/a
 import { createToast } from '@/utils/toasts-utils';
 import { ToastVariant } from '@/types/toasts-types';
 import { ProjectViewActions } from '@/constants/store-constants';
-import { SyncProjectRepoPaneStoreModule } from '@/store';
+import { RepoManagerStoreModule } from '@/store';
 
-const storeName = StoreType.repoSelectionModal;
+const storeName = StoreType.repoSelector;
 
-export interface RepoSelectionModalState {
-  visible: boolean;
+export interface RepoSelectorState {
   reposForUser?: GithubRepo[] | null;
   selectedRepo: GithubRepo | null;
   newRepoName: string;
@@ -25,13 +24,12 @@ export interface RepoSelectionModalState {
   creatingRepoState: NewGitRepoStateType;
 }
 
-export const baseState: RepoSelectionModalState = {
-  visible: false,
+export const baseState: RepoSelectorState = {
   reposForUser: null,
   selectedRepo: null,
   newRepoName: '',
   newRepoDescription: '',
-  creatingRepoState: NewGitRepoStateType.REPO_NOT_CREATED
+  creatingRepoState: NewGitRepoStateType.NOT_STARTED
 };
 
 // Must copy so that we can not thrash the pointers...
@@ -40,9 +38,7 @@ const initialState = deepJSONCopy(baseState);
 // We need to leave this as a "dynamic" module so that we can use the fancy `this` rebinding. Otherwise we have to use
 // The old school `context.commit` and `context.dispatch` style syntax.
 @Module({ namespaced: true, name: storeName })
-export class RepoSelectionModalStore extends VuexModule<ThisType<RepoSelectionModalState>, RootState>
-  implements RepoSelectionModalState {
-  public visible: boolean = initialState.visible;
+export class RepoSelectorStore extends VuexModule<ThisType<RepoSelectorState>, RootState> implements RepoSelectorState {
   public reposForUser?: GithubRepo[] | null = initialState.reposForUser;
   public selectedRepo: GithubRepo | null = initialState.selectedRepo;
   public newRepoName: string = initialState.newRepoName;
@@ -51,6 +47,7 @@ export class RepoSelectionModalStore extends VuexModule<ThisType<RepoSelectionMo
 
   get isCreatingNewRepo(): boolean {
     return (
+      this.creatingRepoState === NewGitRepoStateType.REPO_NOT_CREATED ||
       this.creatingRepoState === NewGitRepoStateType.REPO_CREATED ||
       this.creatingRepoState === NewGitRepoStateType.PROJECT_COMPILED
     );
@@ -70,11 +67,6 @@ export class RepoSelectionModalStore extends VuexModule<ThisType<RepoSelectionMo
   }
 
   @Mutation
-  public async setRepoSelectionModalVisible(visible: boolean) {
-    this.visible = visible;
-  }
-
-  @Mutation
   public async setReposForUser(reposForUser: GithubRepo[] | null) {
     this.reposForUser = reposForUser;
   }
@@ -85,12 +77,12 @@ export class RepoSelectionModalStore extends VuexModule<ThisType<RepoSelectionMo
   }
 
   @Mutation
-  public async setNewRepoName(newRepoName: string) {
+  public setNewRepoName(newRepoName: string) {
     this.newRepoName = newRepoName;
   }
 
   @Mutation
-  public async setNewRepoDescription(newRepoDescription: string) {
+  public setNewRepoDescription(newRepoDescription: string) {
     this.newRepoDescription = newRepoDescription;
   }
 
@@ -101,7 +93,7 @@ export class RepoSelectionModalStore extends VuexModule<ThisType<RepoSelectionMo
 
   @Mutation
   public async resetCreatingRepoState() {
-    this.creatingRepoState = NewGitRepoStateType.REPO_NOT_CREATED;
+    this.creatingRepoState = NewGitRepoStateType.NOT_STARTED;
   }
 
   @LoggingAction
@@ -172,7 +164,7 @@ export class RepoSelectionModalStore extends VuexModule<ThisType<RepoSelectionMo
 
     this.setCreatingRepoState(NewGitRepoStateType.PROJECT_COMPILED);
 
-    await SyncProjectRepoPaneStoreModule.pushToRemoteBranch();
+    await RepoManagerStoreModule.pushToRemoteBranch();
 
     this.setCreatingRepoState(NewGitRepoStateType.PROJECT_PUSHED);
   }

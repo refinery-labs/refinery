@@ -8,7 +8,7 @@ import { timeout } from '@/utils/async-utils';
 import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
 import { registerCustomDagre } from '@/lib/dagre-cytoscape';
 import { CyConfig, CyTooltip } from '@/types/demo-walkthrough-types';
-import { DemoWalkthroughStoreModule, SyncProjectRepoPaneStoreModule as SyncProjectStore } from '@/store';
+import { DemoWalkthroughStoreModule, RepoManagerStoreModule as SyncProjectStore } from '@/store';
 import { hashCode } from '@/utils/number-utils';
 import { generateTooltipSVGContents } from '@/utils/tooltip-utils';
 import { mixins } from 'vue-class-component';

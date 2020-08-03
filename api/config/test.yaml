@@ -6,10 +6,10 @@ config:
   email_token_lifetime: 10800 # 3 hours before the email authentication token no longer works
   # The HTTP origin to serve in Access-Control-Allow-Origin header
   access_control_allow_origin: https://example.refinerylabs.io
-  access_control_allow_origins: "[\"http://localhost:1234\",\"http://localhost:8080\",\"http://localhost:8002\"]"
+  access_control_allow_origins: "[\"http://localhost\", \"http://localhost:1234\",\"http://localhost:8080\",\"http://localhost:8002\"]"
 
   # Instance URL, used for sending emails, etc.
-  web_origin: "http://localhost:8002"
+  web_origin: "http://localhost"
 
   github_client_id: FAKE_TESTING_VALUE
   github_client_secret: FAKE_TESTING_VALUE
@@ -17,3 +17,5 @@ config:
   mailgun_api_key: FAKE_TESTING_VALUE
   service_shared_secret: FAKE_TESTING_VALUE
   reserved_aws_pool_target_amount: 3
+  assume_role_session_lifetime_seconds: 900
+  free_tier_monthly_max_gb_seconds: 10
