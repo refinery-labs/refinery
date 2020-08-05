@@ -1,0 +1,24 @@
+{
+  "AWSEBDockerrunVersion": 2,
+  "containerDefinitions": [
+    {
+      "name": "pidgeon-server",
+      "memory": 7168,
+      "image": "134071937287.dkr.ecr.us-west-2.amazonaws.com/pidgeon-server-prod",
+      "essential": true,
+      "portMappings": [
+        {
+          "hostPort": 8080,
+          "containerPort": 8080
+        }
+      ],
+      "logConfiguration": {
+      	"logDriver": "awslogs",
+        "options": {
+            "awslogs-group": "Pidgeon-EB-Container-Output",
+            "awslogs-region": "us-west-2"
+        }
+      }
+    }
+  ]
+}
