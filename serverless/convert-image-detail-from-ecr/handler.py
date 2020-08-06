@@ -18,6 +18,7 @@ Example input:
 
 
 def main(event, context):
+    print(type(event), event)
     return """
 {{
   "AWSEBDockerrunVersion": "1",
