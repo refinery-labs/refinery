@@ -26,5 +26,5 @@ phases:
       - docker push $REPOSITORY_URI:latest
       - docker push $REPOSITORY_URI:$IMAGE_TAG
 artifacts:
-  base-directory: elasticbeanstalk-config/pidgeon/
+  base-directory: elasticbeanstalk-config/
   files: "**/*"
