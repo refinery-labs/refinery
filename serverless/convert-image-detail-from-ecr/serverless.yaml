@@ -1,0 +1,12 @@
+service: convertImageDetailFromECR
+
+provider:
+  name: aws
+  runtime: python3.8
+  region: us-west-2
+  timeout: 60
+
+functions:
+  imageDetailHandler:
+    handler: handler.main
+    timeout: 60
