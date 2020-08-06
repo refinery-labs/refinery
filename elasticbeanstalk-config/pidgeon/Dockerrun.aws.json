@@ -1,0 +1,13 @@
+{
+  "AWSEBDockerrunVersion": "1",
+  "Image": {
+    "Name": "134071937287.dkr.ecr.us-west-2.amazonaws.com/pidgeon-server-prod",
+    "Update": "true"
+  },
+  "Ports": [
+    {
+      "HostPort": "8080",
+      "ContainerPort": "8080"
+    }
+  ]
+}
