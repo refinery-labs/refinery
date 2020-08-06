@@ -16,21 +16,19 @@ Example input:
 }
 """
 
-
 def main(event, context):
-    print(type(event), event)
     return """
-{{
+{
   "AWSEBDockerrunVersion": "1",
-  "Image": {{
-    "Name": "{imageName}",
+  "Image": {
+    "Name": "134071937287.dkr.ecr.us-west-2.amazonaws.com/pidgeon-server-prod:latest",
     "Update": "true"
-  }},
+  },
   "Ports": [
-    {{
+    {
       "HostPort": "8080",
       "ContainerPort": "8080"
-    }}
+    }
   ]
-}}
-""".format(imageName=event["ImageURI"])
+}
+"""
