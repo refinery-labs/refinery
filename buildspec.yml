@@ -34,5 +34,5 @@ phases:
       - docker push $REPOSITORY_NGINX_URI:latest
       - docker push $REPOSITORY_NGINX_URI:$IMAGE_TAG
 artifacts:
-    base-directory: elasticbeanstalk-config/
+    base-directory: elasticbeanstalk-config/refinery-api/
     files: "**/*"
