@@ -12,17 +12,17 @@ class TestBlockState:
     @mark.asyncio
     async def test_ops_cycle(self, service):
         scenarios = [
-            (str(uuid4()), str(uuid4()), str(uuid4()), str(uuid4()))
+            (str(uuid4()), str(uuid4()), str(uuid4()))
             for _ in range(100)
         ]
 
-        for deployment_id, execution_id, result_id, data in scenarios:
-            await service.set_block_result(deployment_id, execution_id, result_id, data)
-            result = await service.get_block_result(deployment_id, execution_id, result_id)
+        for deployment_id, execution_id, data in scenarios:
+            await service.set_block_result(deployment_id, execution_id, data)
+            result = await service.get_block_result(deployment_id, execution_id)
 
             assert result == data
 
-            await service.delete_block_result(deployment_id, execution_id, result_id)
+            await service.delete_block_result(deployment_id, execution_id)
 
             with raises(Exception):
-                await service.get_block_result(deployment_id, execution_id, result_id)
+                await service.get_block_result(deployment_id, execution_id)

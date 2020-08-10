@@ -13,8 +13,11 @@ is strictly forbidden unless prior written permission is obtained
 from Refinery Labs Inc.
 """
 
-import json
+
 import uuid
+from httplib import HTTPSConnection, HTTPConnection
+from json import loads, dumps
+from urlparse import urlparse, urljoin
 from .exc import AlreadyInvokedException, InvokeQueueEmptyException
 
 
@@ -38,20 +41,51 @@ class RefineryMemory:
         bool,
     ]
 
-    def __init__(self):
-        pass
+    def __init__(self, pidgeon_url, pidgeon_auth):
+        self.pidgeon_url = pidgeon_url
+        self.pidgeon_auth = pidgeon_auth
+
+    def _call_pidgeon_block(self, path, **kwargs):
+        kwargs.update({"auth": self.pidgeon_auth})
+        data = dumps(kwargs)
+        parts = urlparse(self.pidgeon_url)
+        is_https = self.pidgeon_url.startswith("https")
+        host = parts.netloc
+        port = 443 if is_https else 80
+        cls = HTTPSConnection if is_https else HTTPConnection
+        path = urljoin(parts.path, path)
+
+        if ":" in parts.netloc:
+            host, port = parts.netloc.split(':')
+
+        conn = cls(host, port)
+        conn.request("POST", path, data)
+
+        resp = conn.getresponse()
+
+        return loads(resp.read())
 
     def _get_input_data_from_redis(self, key, **kwargs):
-        pass
+        return self._call_pidgeon_block(
+            "/block/state/get",
+            key=key
+        )
 
     def _get_queue_input_from_redis(self, queue_insert_id, pop_number):
         pass
 
     def _get_queue_url(self, queue_insert_id):
-        pass
+        return self._call_pidgeon_block(
+            "/block/state/get",
+            key="SQS_TARGET_QUEUE_URL_" + queue_insert_id
+        )
+
 
     def _get_queue_backpack(self, queue_insert_id):
-        pass
+        return self._call_pidgeon_block(
+            "/block/state/get",
+            key="SQS_BACKPACK_DATA_" + queue_insert_id
+        )
 
     def _set_queue_data(self, queue_url, queue_items, backpack):
         pass

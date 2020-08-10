@@ -16,16 +16,16 @@ class Block(Controller):
         pass
 
     @handle("/block/state/get")
-    async def get_block_state(self, auth, execution_id, result_id):
+    async def get_block_state(self, auth, key):
         deployment_id = await self.auth.authorize_block_result(auth)
-        return await self.block_state.get_block_result(deployment_id, execution_id, result_id)
+        return await self.block_state.get_block_result(deployment_id, key)
 
     @handle("/block/state/set")
-    async def set_block_state(self, auth, execution_id, result_id, data):
+    async def set_block_state(self, auth, key, data):
         deployment_id = await self.auth.authorize_block_result(auth)
-        await self.block_state.set_block_result(deployment_id, execution_id, result_id, data)
+        await self.block_state.set_block_result(deployment_id, key, data)
 
     @handle("/block/state/delete")
-    async def delete_block_state(self, auth, execution_id, result_id):
+    async def delete_block_state(self, auth, key):
         deployment_id = await self.auth.authorize_block_result(auth)
-        await self.block_state.delete_block_result(deployment_id, execution_id, result_id)
+        await self.block_state.delete_block_result(deployment_id, key)
