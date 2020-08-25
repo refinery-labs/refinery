@@ -451,6 +451,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
     const gitActionHandler = GitStoreModule.getRefineryGitActionHandler(this.projectSessionId);
 
     const project = await this.getOpenedProject();
+    const config = await this.getOpenedProjectConfig();
 
     try {
       await gitActionHandler.createOrCheckoutBranch(this.creatingNewBranch, this.remoteBranchName);
@@ -464,7 +465,7 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
       throw new InvalidGitRepoError(msg);
     }
 
-    await gitActionHandler.writeProjectToDisk(project);
+    await gitActionHandler.writeProjectToDisk(project, config);
 
     // get list of files that were changed
     const statusResult = await gitClient.status();
@@ -472,7 +473,12 @@ export class SyncProjectRepoPaneStore extends VuexModule<ThisType<SyncProjectRep
 
     // get contents from changed files before and after they were modified
     // TODO this call will force checkout and compile the project again, there might be a way to optimize this
-    const diffInfo = await gitActionHandler.getDiffFileInfo(project, this.remoteBranchName, this.gitStatusResult);
+    const diffInfo = await gitActionHandler.getDiffFileInfo(
+      project,
+      config,
+      this.remoteBranchName,
+      this.gitStatusResult
+    );
     this.setGitDiffInfo(diffInfo);
   }
 

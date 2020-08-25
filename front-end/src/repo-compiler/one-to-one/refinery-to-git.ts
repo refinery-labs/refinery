@@ -1,5 +1,6 @@
 import {
   LambdaWorkflowState,
+  ProjectConfig,
   RefineryProject,
   WorkflowFile,
   WorkflowFileLink,
@@ -9,8 +10,6 @@ import {
 import { convertProjectDownloadZipConfigToFileList, createDownloadZipConfig } from '@/utils/project-debug-utils';
 import git, { WORKDIR, PromiseFsClient, WalkerEntry } from 'isomorphic-git';
 import Path from 'path';
-import slugify from 'slugify';
-import yaml from 'js-yaml';
 import {
   GIT_IGNORE_CONTENT,
   GIT_IGNORE_FILENAME,
@@ -21,25 +20,8 @@ import {
   README_FILENAME
 } from '@/repo-compiler/shared/constants';
 import { getPlaceholderReadmeContent } from '@/repo-compiler/shared/readme-placeholder-content';
-
-function getFolderName(name: string) {
-  return slugify(name).toLowerCase();
-}
-
-async function writeConfig(fs: PromiseFsClient, out: string, data: any) {
-  const serializedConfig = yaml.safeDump(data);
-  await fs.promises.writeFile(out, serializedConfig);
-}
-
-async function getLambdaDir(fs: PromiseFsClient, lambdaDir: string, lambdaId: string): Promise<string> {
-  try {
-    await fs.promises.stat(lambdaDir);
-    const firstPartOfId = lambdaId.split('-')[0];
-    return `${lambdaDir}-${firstPartOfId}`;
-  } catch (e) {
-    return lambdaDir;
-  }
-}
+import { getFolderName, getUniqueLambdaIdentifier, maybeMkdir, writeConfig } from '@/repo-compiler/shared/fs-utils';
+import { saveProjectToServerlessFramework } from '@/repo-compiler/serverless-framework/refinery-to-serverless-framework';
 
 async function handleLambda(
   fs: PromiseFsClient,
@@ -56,7 +38,10 @@ async function handleLambda(
 
   // check if we have a name collision with an existing lambda
   // if so, we append the first part of the idea to the folder name
-  const lambdaDir = await getLambdaDir(fs, Path.join(typePath, blockDir), lambda.id);
+  const relativeLambdaDir = Path.join(typePath, blockDir);
+  const lambdaIdentifier = await getUniqueLambdaIdentifier(fs, relativeLambdaDir, lambda.id);
+  const lambdaSuffix = lambdaIdentifier ? '-' + lambdaIdentifier : '';
+  const lambdaDir = relativeLambdaDir + lambdaSuffix;
   await maybeMkdir(fs, lambdaDir);
 
   const config = createDownloadZipConfig(project, lambda);
@@ -81,7 +66,7 @@ async function handleLambda(
   return lambdaDir;
 }
 
-async function defaultHandler(
+export async function defaultWorkflowStateHandler(
   fs: PromiseFsClient,
   projectDir: string,
   project: RefineryProject,
@@ -90,33 +75,21 @@ async function defaultHandler(
   return '';
 }
 
-const workflowStateActions: Record<
+export type WorkflowStateActions = Record<
   WorkflowStateType,
   (fs: PromiseFsClient, projectDir: string, project: RefineryProject, e: WorkflowState) => Promise<string>
-> = {
-  [WorkflowStateType.LAMBDA]: handleLambda,
-  [WorkflowStateType.API_ENDPOINT]: defaultHandler,
-  [WorkflowStateType.API_GATEWAY]: defaultHandler,
-  [WorkflowStateType.API_GATEWAY_RESPONSE]: defaultHandler,
-  [WorkflowStateType.SCHEDULE_TRIGGER]: defaultHandler,
-  [WorkflowStateType.SNS_TOPIC]: defaultHandler,
-  [WorkflowStateType.SQS_QUEUE]: defaultHandler,
-  [WorkflowStateType.WARMER_TRIGGER]: defaultHandler
-};
+>;
 
-async function maybeMkdir(fs: PromiseFsClient, path: string) {
-  try {
-    await fs.promises.lstat(path);
-  } catch (e) {
-    try {
-      await fs.promises.mkdir(path);
-    } catch (e) {
-      if (e.code !== 'EEXIST') {
-        throw e;
-      }
-    }
-  }
-}
+const refineryWorkflowStateActions: WorkflowStateActions = {
+  [WorkflowStateType.LAMBDA]: handleLambda,
+  [WorkflowStateType.API_ENDPOINT]: defaultWorkflowStateHandler,
+  [WorkflowStateType.API_GATEWAY]: defaultWorkflowStateHandler,
+  [WorkflowStateType.API_GATEWAY_RESPONSE]: defaultWorkflowStateHandler,
+  [WorkflowStateType.SCHEDULE_TRIGGER]: defaultWorkflowStateHandler,
+  [WorkflowStateType.SNS_TOPIC]: defaultWorkflowStateHandler,
+  [WorkflowStateType.SQS_QUEUE]: defaultWorkflowStateHandler,
+  [WorkflowStateType.WARMER_TRIGGER]: defaultWorkflowStateHandler
+};
 
 async function createFileIfDoesNotExist(fs: PromiseFsClient, dir: string, name: string, content: string) {
   const readmePath = Path.join(dir, name);
@@ -128,11 +101,26 @@ async function createFileIfDoesNotExist(fs: PromiseFsClient, dir: string, name: 
   }
 }
 
-export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, project: RefineryProject, gitURL: string) {
+export async function saveProjectToRepo(
+  fs: PromiseFsClient,
+  dir: string,
+  project: RefineryProject,
+  config: ProjectConfig,
+  gitURL: string
+) {
+  await doSaveProjectToRepo(fs, dir, project, gitURL, refineryWorkflowStateActions);
+  await saveProjectToServerlessFramework(fs, dir, project, config, gitURL);
+}
+
+export async function setupProjectRepo(
+  fs: PromiseFsClient,
+  dir: string,
+  project: RefineryProject,
+  gitURL: string,
+  refineryDir: string
+) {
   await createFileIfDoesNotExist(fs, dir, README_FILENAME, getPlaceholderReadmeContent(project, gitURL));
   await createFileIfDoesNotExist(fs, dir, GIT_IGNORE_FILENAME, GIT_IGNORE_CONTENT);
-
-  const refineryDir = Path.join(dir, GLOBAL_BASE_PATH);
 
   await maybeMkdir(fs, refineryDir);
 
@@ -169,6 +157,18 @@ export async function saveProjectToRepo(fs: PromiseFsClient, dir: string, projec
   );
 
   await maybeMkdir(fs, refineryDir);
+}
+
+export async function doSaveProjectToRepo(
+  fs: PromiseFsClient,
+  dir: string,
+  project: RefineryProject,
+  gitURL: string,
+  workflowStateActions: WorkflowStateActions
+) {
+  const refineryDir = Path.join(dir, GLOBAL_BASE_PATH);
+
+  await setupProjectRepo(fs, dir, project, gitURL, refineryDir);
 
   const nodeToWorkflowState = await project.workflow_states.reduce(async (workflowStates, w: WorkflowState) => {
     const awaitedWorkflowStates = await workflowStates;
