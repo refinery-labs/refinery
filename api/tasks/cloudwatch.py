@@ -15,9 +15,9 @@ def automatically_fix_schedule_expression(schedule_expression):
 
     # The known bad cases we want to auto-fix
     known_bad_cases = [
-        "rate(1 minutes)",
-        "rate(1 hours)",
-        "rate(1 days)",
+        "rate(1 minute)",
+        "rate(1 hour)",
+        "rate(1 day)",
     ]
 
     if schedule_expression in known_bad_cases:

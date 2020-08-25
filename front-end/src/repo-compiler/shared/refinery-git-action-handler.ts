@@ -15,7 +15,7 @@ import {
 } from '@/repo-compiler/lib/git-utils';
 import { InvalidGitRepoStructure } from '@/repo-compiler/shared/errors';
 import { safeLoad } from 'js-yaml';
-import { RefineryProject } from '@/types/graph';
+import { ProjectConfig, RefineryProject } from '@/types/graph';
 import { saveProjectToRepo } from '@/repo-compiler/one-to-one/refinery-to-git';
 import { Errors, StatusRow } from 'isomorphic-git';
 import { GitDiffInfo } from '@/repo-compiler/lib/git-types';
@@ -81,8 +81,8 @@ export class RefineryGitActionHandler {
     return [...deserializedProjects, ...flattenedProjects];
   }
 
-  public async writeProjectToDisk(project: RefineryProject) {
-    await saveProjectToRepo(this.gitClient.fs, this.gitClient.dir, project, this.gitClient.uri);
+  public async writeProjectToDisk(project: RefineryProject, config: ProjectConfig) {
+    await saveProjectToRepo(this.gitClient.fs, this.gitClient.dir, project, config, this.gitClient.uri);
   }
 
   private async getFilesFromFS(filesToGet: string[]): Promise<Record<string, string>> {
@@ -119,6 +119,7 @@ export class RefineryGitActionHandler {
 
   public async getDiffFileInfo(
     project: RefineryProject,
+    config: ProjectConfig,
     branchName: string,
     gitStatusResult: Array<StatusRow>
   ): Promise<GitDiffInfo> {
@@ -131,7 +132,7 @@ export class RefineryGitActionHandler {
     // new files are ignored since they did not exist in HEAD
     const originalFileContents = await this.getFilesFromFS([...deletedFiles, ...modifiedFiles]);
 
-    await this.writeProjectToDisk(project);
+    await this.writeProjectToDisk(project, config);
 
     // deleted files are ignored since they don't exist after the changes
     const changedFileContents = await this.getFilesFromFS([...modifiedFiles, ...newFiles]);
