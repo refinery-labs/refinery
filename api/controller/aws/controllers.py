@@ -446,8 +446,9 @@ class DeployDiagram(BaseHandler):
             new_deployment
         )
 
+        org = self.get_authenticated_user_org()
         deployment_log = DeploymentLog()
-        deployment_log.aws_account_id = credentials['account_id']
+        deployment_log.org_id = org.id
 
         self.dbsession.add(deployment_log)
         self.dbsession.commit()

@@ -84,7 +84,6 @@ def get_deployed_projects_count(db_session_maker, aws_account_id, start_date, en
     ).filter(
         func.date(DeploymentLog.timestamp) >= start_date,
         func.date(DeploymentLog.timestamp) < end_date
-
     ).count()
     dbsession.close()
 
