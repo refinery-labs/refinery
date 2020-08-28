@@ -446,6 +446,10 @@ class DeployDiagram(BaseHandler):
             new_deployment
         )
 
+        deployment_log = DeploymentLog()
+        deployment_log.aws_account_id = credentials['account_id']
+
+        self.dbsession.add(deployment_log)
         self.dbsession.commit()
 
         # Update project config

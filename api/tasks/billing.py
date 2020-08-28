@@ -5,6 +5,7 @@ from assistants.accounts import get_user_free_trial_information
 from assistants.task_spawner.actions import get_current_month_start_and_end_date_strings
 from assistants.task_spawner.actions import is_organization_first_month
 from assistants.task_spawner.actions import get_billing_rounded_float
+from assistants.task_spawner.actions import get_deployed_projects_count
 from botocore.exceptions import ClientError
 from datetime import timedelta, datetime
 from json import loads
@@ -450,16 +451,26 @@ def get_sub_account_billing_data(app_config, db_session_maker, aws_cost_explorer
 
             total_amount = total_amount + service_total
 
+    # Get number of deployed projects
+    deployed_project_count = get_deployed_projects_count(
+        db_session_maker,
+        account_id,
+        start_date,
+        end_date
+    )
+
     # This is where we upgrade the billing total if it's not at least $5/mo
-    # $5/mo is our floor price.
+    # $5/mo is our floor price. If there are no deployed projects then the
+    # billing total is reduced to $0.
     if total_amount < 5.00 and is_first_account_billing_month == False:
-        amount_to_add = (5.00 - total_amount)
-        return_data["service_breakdown"].append({
-            "service_name": "Floor Fee (Bills are minimum $5/month, see refinery.io/pricing for more information).",
-            "unit": "usd",
-            "total": ("%.2f" % amount_to_add),
-        })
-        total_amount = 5.00
+        if deployed_project_count < 0:
+            amount_to_add = (5.00 - total_amount)
+            return_data["service_breakdown"].append({
+                "service_name": "Floor Fee (Bills are minimum $5/month, see refinery.io/pricing for more information).",
+                "unit": "usd",
+                "total": ("%.2f" % amount_to_add),
+            })
+            total_amount = 5.00
 
     return_data["bill_total"] = ("%.2f" % total_amount)
 

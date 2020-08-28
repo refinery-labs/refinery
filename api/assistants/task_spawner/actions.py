@@ -4,7 +4,8 @@ TODO when local tasks get refactored this should probably be refactored too
 import datetime
 import math
 
-from models import AWSAccount, Organization
+from sqlalchemy.sql import func
+from models import AWSAccount, Organization, DeploymentLog
 
 
 def get_current_month_start_and_end_date_strings():
@@ -72,6 +73,22 @@ def is_organization_first_month(db_session_maker, aws_account_id):
         return True
 
     return False
+
+
+def get_deployed_projects_count(db_session_maker, aws_account_id, start_date, end_date):
+    # Pull the relevant organization from the database to check
+    # how old the account is to know if the first-month's base fee should be applied.
+    dbsession = db_session_maker()
+    count = dbsession.query(DeploymentLog).filter_by(
+        account_id=aws_account_id,
+    ).filter(
+        func.date(DeploymentLog.timestamp) >= start_date,
+        func.date(DeploymentLog.timestamp) < end_date
+
+    ).count()
+    dbsession.close()
+
+    return count
 
 
 def get_billing_rounded_float(input_price_float):
