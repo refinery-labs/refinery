@@ -9,7 +9,7 @@ class DeploymentLog(Base):
     id = Column(CHAR(36), primary_key=True)
     # No need for constraints or references for these values as they're only
     # used for logging purposes.
-    aws_account_id = Column(CHAR(36))
+    org_id = Column(CHAR(36))
     timestamp = Column(DateTime())
 
     def __init__(self):
