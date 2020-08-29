@@ -6,6 +6,7 @@ from assistants.task_spawner.actions import get_current_month_start_and_end_date
 from assistants.task_spawner.actions import is_organization_first_month
 from assistants.task_spawner.actions import get_billing_rounded_float
 from assistants.task_spawner.actions import get_deployed_projects_count
+from assistants.task_spawner.actions import get_active_deployed_projects_count
 from botocore.exceptions import ClientError
 from datetime import timedelta, datetime
 from json import loads
@@ -345,7 +346,7 @@ def get_sub_account_month_billing_data(app_config, db_session_maker, aws_cost_ex
 
 
 def get_sub_account_billing_data(app_config, db_session_maker, aws_cost_explorer, aws_client_factory,
-                                 account_id, account_type, start_date, end_date, granularity, use_cache):
+                                 account_id, account_type, org_id, start_date, end_date, granularity, use_cache):
     """
     Pull the service breakdown list and return it along with the totals.
     Note that this data is not marked up. This function does the work of marking it up.
@@ -454,9 +455,14 @@ def get_sub_account_billing_data(app_config, db_session_maker, aws_cost_explorer
     # Get number of deployed projects
     deployed_project_count = get_deployed_projects_count(
         db_session_maker,
-        account_id,
+        org_id,
         start_date,
         end_date
+    )
+
+    active_deployed_projects = get_active_deployed_projects_count(
+        db_session_maker,
+        org_id
     )
 
     # This is where we upgrade the billing total if it's not at least $5/mo
