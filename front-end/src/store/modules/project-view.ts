@@ -22,7 +22,7 @@ import {
   WorkflowStateType
 } from '@/types/graph';
 import { generateCytoscapeElements, generateCytoscapeStyle } from '@/lib/refinery-to-cytoscript-converter';
-import { CssStyleDeclaration, LayoutOptions, CytoscapeOptions } from 'cytoscape';
+import { CssStyleDeclaration, CytoscapeOptions, LayoutOptions } from 'cytoscape';
 import {
   DeploymentViewActions,
   ProjectViewActions,
@@ -70,7 +70,7 @@ import { ToastVariant } from '@/types/toasts-types';
 import router from '@/router';
 import { deepJSONCopy } from '@/lib/general-utils';
 import EditTransitionPaneModule, { EditTransitionActions } from '@/store/modules/panes/edit-transition-pane';
-import { createShortlink, deployProject, openProject, teardownProject } from '@/store/fetchers/api-helpers';
+import { createShortlink, deployProject, openProject } from '@/store/fetchers/api-helpers';
 import { CyElements, CyStyle } from '@/types/cytoscape-types';
 import { addAPIBlocksToProject, createNewBlock, createNewTransition } from '@/utils/block-utils';
 import { saveEditBlockToProject } from '@/utils/store-utils';
@@ -995,10 +995,19 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       await context.dispatch(ProjectViewActions.updateProject, params);
 
       if (projectConfig.project_repo) {
-        await SyncProjectRepoPaneStoreModule.setupLocalProjectRepoAndUpdateProject([
-          projectConfig.project_repo,
-          project.project_id
-        ]);
+        try {
+          await SyncProjectRepoPaneStoreModule.setupLocalProjectRepoAndUpdateProject([
+            projectConfig.project_repo,
+            project.project_id
+          ]);
+        } catch (e) {
+          await createToast(context.dispatch, {
+            content:
+              'Unable to open project. Please re-authenticate your Github account. If this persists, please contact the Refinery team.',
+            title: 'Git Error',
+            variant: ToastVariant.danger
+          });
+        }
       }
 
       context.commit(ProjectViewMutators.isLoadingProject, false);
