@@ -278,7 +278,6 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
       return [];
     },
     [ProjectViewGetters.canSaveProject]: (state, getters, rootState, rootGetters) => {
-      return true;
       const editedBlockIsValid = rootGetters[`project/editBlockPane/${EditBlockGetters.isEditedBlockValid}`];
 
       const isEditorStateValid = !state.isProjectBusy && !state.isAddingTransitionCurrently && editedBlockIsValid;
