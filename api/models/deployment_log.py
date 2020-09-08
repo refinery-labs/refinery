@@ -9,12 +9,17 @@ class DeploymentLog(Base):
     id = Column(CHAR(36), primary_key=True)
     # No need for constraints or references for these values as they're only
     # used for logging purposes.
-    org_id = Column(CHAR(36))
-    timestamp = Column(DateTime())
+    org_id = Column(
+        CHAR(36),
+        ForeignKey(
+            "organizations.id"
+        )
+    )
+
+   timestamp = Column(DateTime, server_default=func.now())
 
     def __init__(self):
         self.id = str(uuid.uuid4())
-        self.timestamp = datetime.now()
 
     def __str__(self):
         return self.id
