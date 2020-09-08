@@ -16,7 +16,7 @@ class DeploymentLog(Base):
         )
     )
 
-   timestamp = Column(DateTime, server_default=func.now())
+    timestamp = Column(DateTime, server_default=func.now())
 
     def __init__(self):
         self.id = str(uuid.uuid4())
