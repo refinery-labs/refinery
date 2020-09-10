@@ -5,7 +5,7 @@ import datetime
 import math
 
 from sqlalchemy.sql import func
-from models import AWSAccount, Organization, DeploymentLog, Deployments
+from models import AWSAccount, Organization, DeploymentLog, Deployment
 
 
 def get_current_month_start_and_end_date_strings():
