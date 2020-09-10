@@ -7,6 +7,7 @@ from .cached_billing_collections import CachedBillingCollection
 from .cached_billing_items import CachedBillingItem
 from .cached_execution_logs_shard import CachedExecutionLogsShard
 from .deployments import Deployment
+from .deployment_log import DeploymentLog
 from .email_auth_tokens import EmailAuthToken
 from .git_repo import GitRepoModel
 from .git_repo_data_record import GitRepoDataRecordsModel

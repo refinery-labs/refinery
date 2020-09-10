@@ -15,6 +15,7 @@ from models import aws_accounts, \
     cached_billing_items, \
     cached_execution_logs_shard, \
     deployments, \
+    deployment_log, \
     email_auth_tokens, \
     inline_execution_lambdas, \
     model_exceptions, \

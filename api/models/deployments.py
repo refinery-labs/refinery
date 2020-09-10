@@ -24,6 +24,13 @@ class Deployment(Base):
         )
     )
 
+    organization_id = Column(
+        CHAR(36),
+        ForeignKey(
+            "organizations.id"
+        )
+    )
+
     deployment_json = Column(Text())
 
     timestamp = Column(Integer())
@@ -36,6 +43,7 @@ class Deployment(Base):
         exposed_attributes = [
             "id",
             "project_id",
+            "organization_id",
             "deployment_json",
             "timestamp"
         ]

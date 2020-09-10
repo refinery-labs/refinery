@@ -435,8 +435,10 @@ class DeployDiagram(BaseHandler):
             raise gen.Return()
 
         serialized_deployment = deployment_diagram.serialize()
+        org = self.get_authenticated_user_org()
 
         new_deployment = Deployment()
+        new_deployment.organization_id = org.id
         new_deployment.project_id = project_id
         new_deployment.deployment_json = json.dumps(
            serialized_deployment
@@ -446,6 +448,10 @@ class DeployDiagram(BaseHandler):
             new_deployment
         )
 
+        deployment_log = DeploymentLog()
+        deployment_log.org_id = org.id
+
+        self.dbsession.add(deployment_log)
         self.dbsession.commit()
 
         # Update project config
