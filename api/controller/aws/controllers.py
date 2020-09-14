@@ -17,7 +17,7 @@ from controller.aws.schemas import *
 from controller.decorators import authenticated, disable_on_overdue_payment
 from controller.logs.actions import delete_logs
 from controller.projects.actions import update_project_config
-from models import InlineExecutionLambda, Project, Deployment
+from models import InlineExecutionLambda, Project, Deployment, DeploymentLog
 from pyexceptions.builds import BuildException
 from utils.general import get_random_node_id, attempt_json_decode
 from utils.locker import AcquireFailure
