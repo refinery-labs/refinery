@@ -44,6 +44,7 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
         self.is_inline_execution = is_inline_execution
         self.max_execution_time = None
         self.memory = None
+        self.original_name = name
         self.execution_pipeline_id = None
         self.execution_log_level = None
         self.reserved_concurrency_count = False
