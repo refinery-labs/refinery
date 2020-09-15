@@ -25,6 +25,7 @@ export interface ProductionLambdaEnvironmentVariable {
 
 export interface ProductionWorkflowState extends WorkflowState {
   arn?: string;
+  original_name?: string;
   transitions: ProductionTransitionLookup;
 }
 

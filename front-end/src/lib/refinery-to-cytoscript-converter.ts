@@ -11,6 +11,7 @@ import {
 } from '@/types/graph';
 import { CytoscapeOptions, CssStyleDeclaration, EdgeDefinition, ElementsDefinition, NodeDefinition } from 'cytoscape';
 import { baseEdgeStyle, baseNodeStyle } from '@/lib/cytoscape-styles';
+import { ProductionWorkflowState } from '@/types/production-workflow-types';
 
 const baseElementProperties = {
   // group: 'nodes' as ElementGroup,
@@ -18,13 +19,23 @@ const baseElementProperties = {
   grabbable: false
 };
 
+function getBlockName<T extends WorkflowState>(workflowState: WorkflowState) {
+  const productionBlockName = (workflowState as ProductionWorkflowState).original_name;
+
+  if (productionBlockName !== undefined) {
+    return productionBlockName;
+  }
+
+  return workflowState.name;
+}
+
 function basicConverter<T extends WorkflowState>(workflowState: WorkflowState, classname: string): NodeDefinition {
   const convertedState = workflowState as T;
 
   return {
     ...baseElementProperties,
     data: {
-      name: convertedState.name,
+      name: getBlockName(convertedState),
       id: convertedState.id
     },
     // Holy crap these type definitions have a typo lol
@@ -45,7 +56,7 @@ function classOnlyConverter<T extends WorkflowState>(classname: string): (e: Wor
 }
 
 export type WorkflowStateTypeConverterLookup = {
-  [key in WorkflowStateType]: ((w: WorkflowState) => NodeDefinition) | null
+  [key in WorkflowStateType]: ((w: WorkflowState) => NodeDefinition) | null;
 };
 
 /**
