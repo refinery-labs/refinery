@@ -55,7 +55,7 @@ class WorkflowState:
 		self._credentials = credentials
 
 		self.id: str = _id
-		self.original_name: str = name + ""  # copy the name for the graph on the client to use
+		self.original_name: str = str(name)  # copy the name for the graph on the client to use
 		self.name: str = get_safe_workflow_state_name(name + _id)
 		self.type: StateTypes = _type
 
