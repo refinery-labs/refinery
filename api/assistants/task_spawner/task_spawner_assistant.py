@@ -103,7 +103,7 @@ from tasks.cloudwatch import (
 from tasks.sns import (
     create_sns_topic,
     subscribe_lambda_to_sns_topic,
-    get_sns_topic_subscriptions, unsubscribe_lambda_from_sns_topic)
+    get_sns_topic_subscriptions, unsubscribe_lambda_from_sns_topic, subscribe_pigeon_to_sns_topic)
 from tasks.sqs import (
     create_sqs_queue,
     map_sqs_to_lambda,
@@ -115,7 +115,7 @@ from tasks.api_gateway import (
     create_resource,
     create_method,
     link_api_method_to_lambda,
-    get_lambda_uri_for_api_method)
+    get_lambda_uri_for_api_method, link_api_method_to_pigeon)
 
 
 # noinspection PyTypeChecker,SqlResolve
@@ -749,6 +749,25 @@ class TaskSpawner(object):
         )
 
     @run_on_executor
+    @emit_runtime_metrics("subscribe_pigeon_to_sns_topic")
+    def subscribe_pigeon_to_sns_topic(self, credentials, topic_object, pigeon_url):
+        return subscribe_pigeon_to_sns_topic(
+            self.aws_client_factory,
+            credentials,
+            topic_object,
+            pigeon_url
+        )
+
+    @run_on_executor
+    @emit_runtime_metrics("unsubscribe_pigeon_from_sns_topic")
+    def unsubscribe_pigeon_from_sns_topic(self, credentials, subscription_arn):
+        return unsubscribe_lambda_from_sns_topic(
+            self.aws_client_factory,
+            credentials,
+            subscription_arn
+        )
+
+    @run_on_executor
     @emit_runtime_metrics("create_sqs_queue")
     def create_sqs_queue(self, credentials, sqs_queue_state):
         return create_sqs_queue(
@@ -765,6 +784,16 @@ class TaskSpawner(object):
             credentials,
             sqs_node,
             next_node
+        )
+
+    @run_on_executor
+    @emit_runtime_metrics("map_sqs_to_pigeon")
+    def map_sqs_to_lambda(self, credentials, sqs_node, pigeon_url):
+        return map_sqs_to_lambda(
+            self.aws_client_factory,
+            credentials,
+            sqs_node,
+            pigeon_url
         )
 
     @run_on_executor
@@ -946,6 +975,17 @@ class TaskSpawner(object):
     @emit_runtime_metrics("link_api_method_to_lambda")
     def link_api_method_to_lambda(self, credentials, rest_api_id, resource_id, api_endpoint):
         return link_api_method_to_lambda(
+            self.aws_client_factory,
+            credentials,
+            rest_api_id,
+            resource_id,
+            api_endpoint
+        )
+
+    @run_on_executor
+    @emit_runtime_metrics("link_api_method_to_pigeon")
+    def link_api_method_to_pigeon(self, credentials, rest_api_id, resource_id, api_endpoint):
+        return link_api_method_to_pigeon(
             self.aws_client_factory,
             credentials,
             rest_api_id,

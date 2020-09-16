@@ -24,6 +24,7 @@ from assistants.github.oauth_provider import GithubOAuthProviderBindingSpec
 from services.auth.oauth_service import OAuthServiceBindingSpec
 
 from services.aws.clients import AWSClientBindingSpec
+from services.pigeon.pigeon_service import PigeonService
 from services.project_inventory.project_inventory_service import ProjectInventoryService
 from services.stripe.stripe_service import StripeService
 from services.user_management.user_management_service import UserManagementService
@@ -69,7 +70,8 @@ if __name__ == "__main__":
         ProjectInventoryService,
         StripeService,
         UserManagementService,
-        GithubAssistant
+        GithubAssistant,
+        PigeonService
     ]
 
     binding_specs = [

@@ -7,7 +7,7 @@ import pinject
 from jsonschema import validate as validate_schema
 from tornado import gen
 
-from assistants.deployments.aws.aws_deployment import AwsDeployment
+from assistants.deployments.aws_pigeon.aws_deployment import AwsDeployment
 from assistants.deployments.aws.lambda_function import LambdaWorkflowState
 from assistants.deployments.aws.utils import get_base_lambda_code
 from assistants.deployments.diagram.workflow_states import StateTypes
@@ -19,6 +19,7 @@ from controller.logs.actions import delete_logs
 from controller.projects.actions import update_project_config
 from models import InlineExecutionLambda, Project, Deployment
 from pyexceptions.builds import BuildException
+from services.pigeon.pigeon_service import PigeonService
 from utils.general import get_random_node_id, attempt_json_decode
 from utils.locker import AcquireFailure
 
@@ -80,6 +81,7 @@ class RunTmpLambda(BaseHandler):
                     "level": "LOG_NONE"
                 }
             },
+            app_config=self.app_config,
             credentials=credentials,
             task_spawner=self.task_spawner
         )
@@ -327,7 +329,7 @@ class InfraCollisionCheck(BaseHandler):
 
 class DeployDiagramDependencies:
     @pinject.copy_args_to_public_fields
-    def __init__(self, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager, sqs_manager):
+    def __init__(self, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager, sqs_manager, pigeon_service):
         pass
 
 
@@ -345,6 +347,7 @@ class DeployDiagram(BaseHandler):
     schedule_trigger_manager = None
     sns_manager = None
     sqs_manager = None
+    pigeon_service: PigeonService = None
 
     @gen.coroutine
     def cleanup_deployment(self, deployment_diagram, credentials, successful_deploy):
@@ -389,6 +392,7 @@ class DeployDiagram(BaseHandler):
             project_config,
             self.task_spawner,
             credentials,
+            app_config=self.app_config,
             api_gateway_manager=self.api_gateway_manager,
             latest_deployment=latest_deployment_json
         )
@@ -436,7 +440,9 @@ class DeployDiagram(BaseHandler):
 
         serialized_deployment = deployment_diagram.serialize()
 
-        new_deployment = Deployment()
+        self.pigeon_service.create_workflows_for_deployment(serialized_deployment)
+
+        new_deployment = Deployment(id=deployment_diagram.deployment_id)
         new_deployment.project_id = project_id
         new_deployment.deployment_json = json.dumps(
            serialized_deployment
