@@ -41,3 +41,14 @@ def generate_libraries_dict(libraries_list):
         libraries_dict[library_name] = library_version
 
     return libraries_dict
+
+
+def get_requirements_text(libraries_dict):
+    requirements_text = ""
+    for key, value in libraries_object.items():
+        if value != "latest":
+            requirements_text += key + "==" + value + "\n"
+        else:
+            requirements_text += key + "\n"
+
+    return requirements_text

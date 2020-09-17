@@ -51,6 +51,10 @@ LAMBDA_BASE_LIBRARIES: Dict[str, List[str]] = {
     "ruby2.6.4": []
 }
 
+LAMBDA_TEMPORAL_RUNTIMES: Dict[str, str] = {
+    "python3.6": "python36"
+}
+
 # Regex for character whitelists for different fields
 REGEX_WHITELISTS = {
     "arn": r"[^a-zA-Z0-9\:\_\-]+",
