@@ -36,7 +36,7 @@ def app_init_config(app_config):
         with open("./lambda_bases/" + language_name, "r") as file_handler:
             lamdba_base_codes[language_name] = file_handler.read()
 
-    for language_name, folder_name in LAMBDA_TEMPORAL_RUNTIMES:
+    for language_name, folder_name in LAMBDA_TEMPORAL_RUNTIMES.items():
         # Load temporal runtimes
         # TODO, this wont work for runtimes that are multiple files.
         # I did it this way to prevent an additional file read on every build.

@@ -20,6 +20,7 @@ from tasks.build.golang import get_go_112_base_code
 from tasks.build.nodejs import build_nodejs_10163_lambda, build_nodejs_810_lambda, build_nodejs_10201_lambda
 from tasks.build.php import build_php_73_lambda
 from tasks.build.python import build_python36_lambda, build_python27_lambda
+from tasks.build.temporal.python import Python36Builder
 from tasks.s3 import s3_object_exists
 from utils.general import logit, log_exception
 
@@ -320,6 +321,9 @@ def build_lambda(app_config, aws_client_factory, credentials, lambda_object):
             lambda_object.code,
             lambda_object.libraries
         )
+    elif lambda_object.language == Python36Builder.RUNTIME_PRETTY_NAME:
+        builder = Python36Builder(app_config, aws_client_factory, credentials, code, libraries)
+        package_zip_data = builder.build()
     else:
         raise InvalidLanguageException(
             "Unknown language supplied to build Lambda with"

@@ -1,11 +1,12 @@
 from io import BytesIO
 from tasks.build.common import get_final_zip_package_path, get_codebuild_artifact_zip_data
 from utils.general import add_file_to_zipfile
-from pyconstants.project_constants import EMPTY_ZIP_DATA
+from pyconstants.project_constants import EMPTY_ZIP_DATA, PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME
 from utils.block_libraries import generate_libraries_dict, get_requirements_text
+from yaml import dump
 
 
-BUILDSPEC = yaml.dump({
+BUILDSPEC = dump({
     "artifacts": {
         "files": [
             "**/*"
@@ -25,6 +26,7 @@ BUILDSPEC = yaml.dump({
 
 class Python36Builder:
     RUNTIME = "python3.6"
+    RUNTIME_PRETTY_NAME = PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME
 
     def __init__(self, app_config, aws_client_factory, credentials, code, libraries):
         # TODO use dependency injection
@@ -86,7 +88,7 @@ class Python36Builder:
         # Create empty zip file
         codebuild_zip = BytesIO(EMPTY_ZIP_DATA)
 
-       with ZipFile(codebuild_zip, "a", ZIP_DEFLATED) as zip_file_handler:
+        with ZipFile(codebuild_zip, "a", ZIP_DEFLATED) as zip_file_handler:
             # Write buildspec.yml defining the build process
             add_file_to_zipfile(
                 zip_file_handler,
