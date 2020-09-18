@@ -322,7 +322,13 @@ def build_lambda(app_config, aws_client_factory, credentials, lambda_object):
             lambda_object.libraries
         )
     elif lambda_object.language == Python36Builder.RUNTIME_PRETTY_NAME:
-        builder = Python36Builder(app_config, aws_client_factory, credentials, code, libraries)
+        builder = Python36Builder(
+            app_config,
+            aws_client_factory,
+            credentials,
+            lambda_object.code,
+            lambda_object.libraries
+        )
         package_zip_data = builder.build()
     else:
         raise InvalidLanguageException(

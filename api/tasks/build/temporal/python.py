@@ -4,7 +4,7 @@ from utils.general import add_file_to_zipfile
 from pyconstants.project_constants import EMPTY_ZIP_DATA, PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME
 from utils.block_libraries import generate_libraries_dict, get_requirements_text
 from yaml import dump
-
+from zipfile import ZipFile, ZIP_DEFLATED
 
 BUILDSPEC = dump({
     "artifacts": {
@@ -15,8 +15,7 @@ BUILDSPEC = dump({
     "phases": {
         "build": {
             "commands": [
-                "pip install --target . -r requirements.txt"
-            ]
+                "pip install --target . -r requirements.txt" ]
         },
     },
     "run-as": "root",
@@ -33,25 +32,25 @@ class Python36Builder:
         self.app_config = app_config
         self.aws_client_factory = aws_client_factory
         self.credentials = credentials
-        self.code = code
+        self.code = str(code)
         self.libraries = libraries
         self.libraries_object = generate_libraries_dict(self.libraries)
 
     @property
     def lambda_function(self):
-        return self.app_config.get("LAMBDA_TEMPORAL_RUNTIMES")[RUNTIME]
+        return self.app_config.get("LAMBDA_TEMPORAL_RUNTIMES")[self.RUNTIME]
 
     def build(self):
         base_zip_data = EMPTY_ZIP_DATA
 
-        if len(libraries) > 0:
+        if len(self.libraries) > 0:
             base_zip_data = self.get_zip_with_deps()
 
         # Create a virtual file handler for the Lambda zip package
         lambda_package_zip = BytesIO(base_zip_data)
 
         with ZipFile(lambda_package_zip, "a", ZIP_DEFLATED) as zip_file_handler:
-            add_file_to_zipfile(zip_file_handler, "refinery_main.py", str(code))
+            add_file_to_zipfile(zip_file_handler, "refinery_main.py", self.code)
             add_file_to_zipfile(zip_file_handler, "lambda_function.py", self.lambda_function)
 
         lambda_package_zip_data = lambda_package_zip.getvalue()
