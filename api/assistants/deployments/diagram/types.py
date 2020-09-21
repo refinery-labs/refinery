@@ -9,6 +9,7 @@ class StateTypes(Enum):
 	INVALID = "invalid"
 	LAMBDA = "lambda"
 	SQS_QUEUE = "sqs_queue"
+	SQS_QUEUE_HANDLER = "sqs_queue_handler"
 	SNS_TOPIC = "sns_topic"
 	SCHEDULE_TRIGGER = "schedule_trigger"
 	API_ENDPOINT = "api_endpoint"

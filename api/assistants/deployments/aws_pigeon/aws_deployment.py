@@ -4,14 +4,15 @@ import uuid
 from tornado import gen
 from typing import Union, Dict, List
 
-from assistants.deployments.aws.api_endpoint import ApiEndpointWorkflowState
-from assistants.deployments.aws.api_gateway import ApiGatewayWorkflowState, ApiGatewayDeploymentState
-from assistants.deployments.aws.aws_workflow_state import AwsWorkflowState
-from assistants.deployments.aws.lambda_function import LambdaDeploymentState
-from assistants.deployments.aws.new_workflow_object import workflow_relationship_from_json, workflow_state_from_json
-from assistants.deployments.aws.sns_topic import SnsTopicDeploymentState
-from assistants.deployments.aws.types import AwsDeploymentState
-from assistants.deployments.aws.warmer_trigger import add_auto_warmup, WarmerTriggerWorkflowState
+from assistants.deployments.aws_pigeon.api_endpoint import ApiEndpointWorkflowState
+from assistants.deployments.aws_pigeon.api_gateway import ApiGatewayWorkflowState, ApiGatewayDeploymentState
+from assistants.deployments.aws_pigeon.aws_workflow_state import AwsWorkflowState
+from assistants.deployments.aws_pigeon.lambda_function import LambdaDeploymentState
+from assistants.deployments.aws_pigeon.new_workflow_object import workflow_relationship_from_json, \
+    workflow_state_from_json
+from assistants.deployments.aws_pigeon.sns_topic import SnsTopicDeploymentState
+from assistants.deployments.aws_pigeon.types import AwsDeploymentState
+from assistants.deployments.aws_pigeon.warmer_trigger import add_auto_warmup, WarmerTriggerWorkflowState
 from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
 from assistants.deployments.diagram.errors import InvalidDeployment
 from assistants.deployments.diagram.trigger_state import TriggerWorkflowState
@@ -46,13 +47,15 @@ def json_to_aws_deployment_state(workflow_state_json):
 
 
 class AwsDeployment(DeploymentDiagram):
-    def __init__(self, *args, api_gateway_manager=None, latest_deployment=None, **kwargs):
+    def __init__(self, *args, app_config=None, api_gateway_manager=None, latest_deployment=None, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.api_gateway_manager = api_gateway_manager
 
         self._workflow_state_lookup: StateLookup[AwsWorkflowState] = self._workflow_state_lookup
         self._previous_state_lookup: StateLookup[AwsDeploymentState] = StateLookup[AwsDeploymentState]()
+
+        self.pigeon_api_url = app_config.get("pigeon_api_url")
 
         self.gateway_id = None
         if self.project_config.get("api_gateway") and self.project_config["api_gateway"].get("gateway_id"):
@@ -93,6 +96,9 @@ class AwsDeployment(DeploymentDiagram):
                 "gateway_id": self.api_gateway.api_gateway_id if self.api_gateway is not None else None
             }
         }
+
+    def get_pigeon_invoke_url(self, workflow_state_id: str):
+        return f"{self.pigeon_api_url}/deployment/{self.deployment_id}/workflow/{workflow_state_id}"
 
     @property
     def api_gateway(self) -> Union[ApiGatewayWorkflowState, None]:

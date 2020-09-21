@@ -1,4 +1,5 @@
 import traceback
+import uuid
 
 from tornado import gen
 from typing import Dict, List
@@ -25,6 +26,7 @@ class DeploymentDiagram:
 		self.project_config = project_config
 		self.task_spawner = task_spawner
 		self.credentials = credentials
+		self.deployment_id = str(uuid.uuid4())
 
 		self._unique_deploy_id = "random"
 
@@ -38,6 +40,7 @@ class DeploymentDiagram:
 		return {
 			"name": self.project_name,
 			"project_id": self.project_id,
+			"deployment_id": self.deployment_id,
 			"global_handlers": self._global_handlers
 		}
 
@@ -154,6 +157,9 @@ class DeploymentDiagram:
 	def get_workflow_state_deploy_future(self, workflow_state: WorkflowState):
 		return None
 
+	def get_pigeon_invoke_url(self, workflow_state_id: str):
+		return None
+
 	def create_predeploy_future(self, workflow_state: WorkflowState):
 		return workflow_state.predeploy(self.task_spawner)
 
@@ -198,26 +204,3 @@ class DeploymentDiagram:
 		:return:
 		"""
 		pass
-
-	def load_deployment_graph(self, diagram_data):
-		# If we have workflow files and links, add them to the deployment
-		workflow_files_json = diagram_data.get("workflow_files")
-		workflow_file_links_json = diagram_data.get("workflow_file_links")
-		if workflow_files_json and workflow_file_links_json:
-			self.add_workflow_files(workflow_files_json, workflow_file_links_json)
-
-		# Create an in-memory representation of the deployment data
-		for n, workflow_state_json in enumerate(diagram_data["workflow_states"]):
-			workflow_state = workflow_state_from_json(
-				self.credentials, self, workflow_state_json)
-
-			self.add_workflow_state(workflow_state)
-
-		# Add transition data to each Lambda
-		for workflow_relationship_json in diagram_data["workflow_relationships"]:
-			workflow_relationship_from_json(self, workflow_relationship_json)
-		self.finalize_merge_transitions()
-
-		# Load all handlers in order to return them back to the front end when
-		# serializing.
-		self._global_handlers = diagram_data["global_handlers"]

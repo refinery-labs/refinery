@@ -41,6 +41,7 @@ export enum WorkflowStateType {
   API_ENDPOINT = 'api_endpoint',
   SNS_TOPIC = 'sns_topic',
   SQS_QUEUE = 'sqs_queue',
+  SQS_QUEUE_HANDLER = 'sqs_queue_handler',
   SCHEDULE_TRIGGER = 'schedule_trigger'
 }
 

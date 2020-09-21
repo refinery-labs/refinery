@@ -75,7 +75,8 @@ export const workflowStateTypeToConverter: WorkflowStateTypeConverterLookup = {
   [WorkflowStateType.SNS_TOPIC]: classOnlyConverter<SnsTopicWorkflowState>(WorkflowStateType.SNS_TOPIC),
   [WorkflowStateType.SQS_QUEUE]: classOnlyConverter<SqsQueueWorkflowState>(WorkflowStateType.SQS_QUEUE),
   [WorkflowStateType.API_GATEWAY]: null,
-  [WorkflowStateType.WARMER_TRIGGER]: null
+  [WorkflowStateType.WARMER_TRIGGER]: null,
+  [WorkflowStateType.SQS_QUEUE_HANDLER]: null
 };
 
 export function generateCytoscapeElements(project: RefineryProject): ElementsDefinition {
