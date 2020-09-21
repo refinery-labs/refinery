@@ -232,7 +232,11 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
         });
       };
 
-      if (!context.state.openedDeploymentProjectId || !context.state.openedDeployment) {
+      if (
+        !context.state.openedDeploymentProjectId ||
+        !context.state.openedDeployment ||
+        !context.state.openedDeploymentId
+      ) {
         await handleError('Must have valid opened project to initiate Destroy Deployment');
         return;
       }
@@ -240,7 +244,11 @@ const DeploymentViewModule: Module<DeploymentViewState, RootState> = {
       context.commit(DeploymentViewMutators.setIsDestroyingDeployment, true);
 
       try {
-        await teardownProject(context.state.openedDeploymentProjectId, context.state.openedDeployment.workflow_states);
+        await teardownProject(
+          context.state.openedDeploymentProjectId,
+          context.state.openedDeploymentId,
+          context.state.openedDeployment.workflow_states
+        );
       } catch (e) {
         await handleError(e.message);
         return;

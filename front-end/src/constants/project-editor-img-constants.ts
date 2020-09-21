@@ -15,6 +15,11 @@ export const blockTypeToImageLookup: BlockTypeConfig = {
     name: 'API Gateway Block',
     description: 'Why do you see this? Please report!'
   },
+  [WorkflowStateType.API_GATEWAY]: {
+    path: require('../../public/img/node-icons/api-gateway.png'),
+    name: 'API Gateway Block',
+    description: 'Why do you see this? Please report!'
+  },
   [WorkflowStateType.WARMER_TRIGGER]: {
     path: require('../../public/img/node-icons/api-gateway.png'),
     name: 'Warmer Trigger',
@@ -56,6 +61,11 @@ export const blockTypeToImageLookup: BlockTypeConfig = {
       'Takes input items to process and sends them to the connected Code Block. ' +
       'This block will automatically increase concurrent executions of the connected Code Block until ' +
       'either the concurrency ceiling is hit or the queue empties.'
+  },
+  [WorkflowStateType.SQS_QUEUE_HANDLER]: {
+    path: require('../../public/img/node-icons/sqs_queue.png'),
+    name: 'Queue Handler Block',
+    description: 'Why do you see this? Please report!'
   },
   [BlockSelectionType.saved_block]: {
     path: require('../../public/img/node-icons/code-icon.png'),

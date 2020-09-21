@@ -74,7 +74,7 @@ from tasks.aws_lambda import (
     deploy_aws_lambda,
     get_aws_lambda_existence_info,
     clean_lambda_iam_policies, publish_new_aws_lambda_version, list_lambda_event_source_mappings,
-    delete_lambda_event_source_mapping)
+    delete_lambda_event_source_mapping, deploy_aws_lambda_with_code)
 from tasks.build.common import (
     finalize_codebuild
 )
@@ -562,6 +562,17 @@ class TaskSpawner(object):
 
     @run_on_executor
     @log_exception
+    @emit_runtime_metrics("deploy_aws_lambda_with_code")
+    def deploy_aws_lambda_with_code(self, credentials, lambda_object, pigeon_invoke_url):
+        return deploy_aws_lambda_with_code(
+            self.aws_client_factory,
+            credentials,
+            lambda_object,
+            pigeon_invoke_url
+        )
+
+    @run_on_executor
+    @log_exception
     @emit_runtime_metrics("publish_new_aws_lambda_version")
     def publish_new_aws_lambda_version(self, credentials, lambda_object):
         return publish_new_aws_lambda_version(
@@ -784,16 +795,6 @@ class TaskSpawner(object):
             credentials,
             sqs_node,
             next_node
-        )
-
-    @run_on_executor
-    @emit_runtime_metrics("map_sqs_to_pigeon")
-    def map_sqs_to_lambda(self, credentials, sqs_node, pigeon_url):
-        return map_sqs_to_lambda(
-            self.aws_client_factory,
-            credentials,
-            sqs_node,
-            pigeon_url
         )
 
     @run_on_executor

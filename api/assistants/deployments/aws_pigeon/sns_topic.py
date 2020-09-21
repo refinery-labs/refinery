@@ -30,6 +30,8 @@ class SnsTopicWorkflowState(AwsWorkflowState, TopicWorkflowState):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+        self._deployment_id = None
+
         self.deployed_state: SnsTopicDeploymentState = self.deployed_state
 
     def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, object]):
@@ -37,9 +39,7 @@ class SnsTopicWorkflowState(AwsWorkflowState, TopicWorkflowState):
         if self.deployed_state is None:
             self.deployed_state = SnsTopicDeploymentState(self.name, self.type, None, self.arn)
 
-        deploymentID = deploy_diagram.deployment_id
-        workflowID = self.id
-        self._pigeon_invoke_url = f"https://5nz8oicvrl.execute-api.us-west-2.amazonaws.com/refinery/replaceme/coffeeyakhorn?deploymentID={deploymentID}&workflowID={workflowID}"
+        self._deployment_id = deploy_diagram.deployment_id
 
     def deploy(self, task_spawner, project_id, project_config):
         logit(f"Deploying SNS topic '{self.name}'...")
@@ -74,8 +74,9 @@ class SnsTopicWorkflowState(AwsWorkflowState, TopicWorkflowState):
                 )
 
     def _link_trigger_to_next_deployed_state(self, task_spawner, next_node):
+        pigeon_invoke_url = f"https://5nz8oicvrl.execute-api.us-west-2.amazonaws.com/refinery/replaceme/coffeeyakhorn?deploymentID={self._deployment_id}&workflowID={next_node.id}"
         return task_spawner.subscribe_pigeon_to_sns_topic(
             self._credentials,
             self,
-            self._pigeon_invoke_url
+            pigeon_invoke_url
         )

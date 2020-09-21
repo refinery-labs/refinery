@@ -272,7 +272,8 @@ class InfraTearDownDependencies:
         lambda_manager,
         schedule_trigger_manager,
         sns_manager,
-        sqs_manager
+        sqs_manager,
+        pigeon_service
     ):
         pass
 
@@ -285,6 +286,7 @@ class InfraTearDown(BaseHandler):
     schedule_trigger_manager = None
     sns_manager = None
     sqs_manager = None
+    pigeon_service: PigeonService = None
 
     @authenticated
     @gen.coroutine
@@ -310,6 +312,8 @@ class InfraTearDown(BaseHandler):
             credentials,
             self.json["project_id"]
         )
+
+        self.pigeon_service.delete_deployment_workflows(self.json["deployment_id"])
 
         self.write({
             "success": True,

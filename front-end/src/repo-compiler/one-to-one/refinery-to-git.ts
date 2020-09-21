@@ -101,6 +101,7 @@ const workflowStateActions: Record<
   [WorkflowStateType.SCHEDULE_TRIGGER]: defaultHandler,
   [WorkflowStateType.SNS_TOPIC]: defaultHandler,
   [WorkflowStateType.SQS_QUEUE]: defaultHandler,
+  [WorkflowStateType.SQS_QUEUE_HANDLER]: defaultHandler,
   [WorkflowStateType.WARMER_TRIGGER]: defaultHandler
 };
 

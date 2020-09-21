@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import copy
+import zipfile
+from io import BytesIO
 from typing import TYPE_CHECKING
+from zipfile import ZIP_DEFLATED, ZipFile
 
 from assistants.deployments.aws.response_types import LambdaEventSourceMapping
 from assistants.deployments.ecs_builders import BuilderManager
@@ -14,7 +18,7 @@ from botocore.exceptions import ClientError
 from json import dumps, loads
 
 from models import InlineExecutionLambda
-from pyconstants.project_constants import LAMBDA_SUPPORTED_LANGUAGES
+from pyconstants.project_constants import LAMBDA_SUPPORTED_LANGUAGES, EMPTY_ZIP_DATA
 from tasks.build.ruby import build_ruby_264_lambda
 from tasks.build.golang import get_go_112_base_code
 from tasks.build.nodejs import build_nodejs_10163_lambda, build_nodejs_810_lambda, build_nodejs_10201_lambda
@@ -475,6 +479,76 @@ def _deploy_aws_lambda(aws_client_factory, credentials, lambda_object: LambdaWor
                 credentials,
                 lambda_object,
                 s3_package_zip_path
+            )
+        raise
+
+    return response
+
+
+def deploy_aws_lambda_with_code(aws_client_factory, credentials, lambda_object: LambdaWorkflowState, pigeon_invoke_url):
+    # Generate environment variables data structure
+    env_data = {
+        "WORKFLOW_CALLBACK_URL": pigeon_invoke_url
+    }
+
+    # Create Lambda client
+    lambda_client = aws_client_factory.get_aws_client(
+        "lambda",
+        credentials
+    )
+
+    lambda_package_zip = BytesIO()
+    with zipfile.ZipFile(lambda_package_zip, "w") as zip_file_handler:
+        info = zipfile.ZipInfo(
+            "lambda.js"
+        )
+        info.external_attr = 0o777 << 16
+
+        # Write lambda.py into new .zip
+        zip_file_handler.writestr(
+            info,
+            str(lambda_object.code)
+        )
+
+    lambda_package_zip_data = lambda_package_zip.getvalue()
+    lambda_package_zip.close()
+
+    try:
+        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#Lambda.Client.create_function
+        response = lambda_client.create_function(
+            FunctionName=lambda_object.name,
+            Runtime="nodejs12.x",
+            Role=lambda_object.role,
+            Handler="lambda.handler",
+            Code={
+                "ZipFile": lambda_package_zip_data,
+            },
+            Description="A Lambda deployed by refinery",
+            Timeout=int(lambda_object.max_execution_time),
+            MemorySize=int(lambda_object.memory),
+            Publish=True,
+            VpcConfig={},
+            Environment={
+                "Variables": env_data
+            },
+            Tags=lambda_object.tags_dict,
+        )
+    except ClientError as e:
+        if e.response["Error"]["Code"] == "ResourceConflictException":
+            # Delete the existing lambda
+            delete_response = delete_aws_lambda(
+                aws_client_factory,
+                credentials,
+                lambda_object.name
+            )
+
+            # Now create it since we're clear
+            # TODO: THIS IS A POTENTIAL INFINITE LOOP!
+            return deploy_aws_lambda_with_code(
+                aws_client_factory,
+                credentials,
+                lambda_object,
+                pigeon_invoke_url
             )
         raise
 
