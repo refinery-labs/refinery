@@ -451,9 +451,9 @@ def _deploy_aws_lambda(aws_client_factory, credentials, lambda_object: LambdaWor
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#Lambda.Client.create_function
         response = lambda_client.create_function(
             FunctionName=lambda_object.name,
-            Runtime="provided",
+            Runtime=lambda_object.runtime,
             Role=lambda_object.role,
-            Handler="lambda._init",
+            Handler=lambda_object.handler,
             Code={
                 "S3Bucket": credentials["lambda_packages_bucket"],
                 "S3Key": s3_package_zip_path,

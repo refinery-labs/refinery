@@ -1,7 +1,7 @@
 from io import BytesIO
 from tasks.build.common import get_final_zip_package_path, get_codebuild_artifact_zip_data
 from utils.general import add_file_to_zipfile
-from pyconstants.project_constants import EMPTY_ZIP_DATA, PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME
+from pyconstants.project_constants import PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME
 from utils.block_libraries import generate_libraries_dict, get_requirements_text
 from yaml import dump
 from zipfile import ZipFile, ZIP_DEFLATED
@@ -41,10 +41,7 @@ class Python36Builder:
         return self.app_config.get("LAMBDA_TEMPORAL_RUNTIMES")[self.RUNTIME]
 
     def build(self):
-        base_zip_data = EMPTY_ZIP_DATA
-
-        if len(self.libraries) > 0:
-            base_zip_data = self.get_zip_with_deps()
+        base_zip_data = self.get_zip_with_deps() if len(self.libraries) > 0 else b''
 
         # Create a virtual file handler for the Lambda zip package
         lambda_package_zip = BytesIO(base_zip_data)
