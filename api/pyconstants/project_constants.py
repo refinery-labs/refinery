@@ -3,6 +3,7 @@ from typing import Dict, List, Any
 EMPTY_ZIP_DATA = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 
 PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME = "Python 3.6 Temporal"
+NODEJS_12_TEMPORAL_RUNTIME_PRETTY_NAME = "Node JS 12 Temporal"
 
 DEFAULT_PROJECT_CONFIG = {
     "version": "1.0.0",
@@ -25,7 +26,8 @@ LAMBDA_SUPPORTED_LANGUAGES = [
     "php7.3",
     "go1.12",
     "ruby2.6.4",
-    PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME
+    PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME,
+    NODEJS_12_TEMPORAL_RUNTIME_PRETTY_NAME
 ]
 
 
@@ -54,7 +56,8 @@ LAMBDA_BASE_LIBRARIES: Dict[str, List[str]] = {
 }
 
 LAMBDA_TEMPORAL_RUNTIMES: Dict[str, str] = {
-    "python3.6": "python36/lambda_function.py"
+    "python3.6": "python36/lambda_function.py",
+    "nodejs12.x": "nodejs12/lambda_function.js"
 }
 
 # Regex for character whitelists for different fields
