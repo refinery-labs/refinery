@@ -55,6 +55,9 @@ class CodeBlockWorkflowState(WorkflowState):
         if language == PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME:
             self.runtime = "python3.6"
             self.handler = "lambda_function.lambda_handler"
+        elif language == NODEJS_12_TEMPORAL_RUNTIME_PRETTY_NAME:
+            self.runtime = "nodejs12.x"
+            self.handler = "index.handler"
 
         if code is not None:
             self.code = code

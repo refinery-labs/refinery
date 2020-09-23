@@ -2,6 +2,9 @@ from typing import Dict, List, Any
 
 EMPTY_ZIP_DATA = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 
+
+# Note: These are referenced CodeBlockWorkflowState.setup, when adding a new value here, make sure the
+# runtime is properly set if the value is specified as a language.
 PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME = "Python 3.6 Temporal"
 NODEJS_12_TEMPORAL_RUNTIME_PRETTY_NAME = "Node JS 12 Temporal"
 
