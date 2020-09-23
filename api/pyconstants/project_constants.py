@@ -6,7 +6,7 @@ EMPTY_ZIP_DATA = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0
 # Note: These are referenced CodeBlockWorkflowState.setup, when adding a new value here, make sure the
 # runtime is properly set if the value is specified as a language.
 PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME = "Python 3.6 Temporal"
-NODEJS_12_TEMPORAL_RUNTIME_PRETTY_NAME = "Node JS 12 Temporal"
+NODEJS_12_TEMPORAL_RUNTIME_PRETTY_NAME = "Node.js 12 Temporal"
 
 DEFAULT_PROJECT_CONFIG = {
     "version": "1.0.0",
@@ -60,7 +60,7 @@ LAMBDA_BASE_LIBRARIES: Dict[str, List[str]] = {
 
 LAMBDA_TEMPORAL_RUNTIMES: Dict[str, str] = {
     "python3.6": "python36/lambda_function.py",
-    "nodejs12.x": "nodejs12/lambda_function.js"
+    "nodejs12.x": "nodejs12/index.js"
 }
 
 # Regex for character whitelists for different fields
