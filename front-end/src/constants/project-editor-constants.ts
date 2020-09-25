@@ -219,7 +219,7 @@ end
 def main(block_input, backpack):
     return "Hello World!"
 `,
-  [SupportedLanguage.NODEJS_12_TEMPORAL]: `
+  [SupportedLanguage.NODEJS_10_TEMPORAL]: `
 async function main(blockInput, backpack) {
     return 'Hello World!';
 }

@@ -30,7 +30,7 @@ export enum SupportedLanguage {
   PHP7 = 'php7.3',
   GO1_12 = 'go1.12',
   PYTHON_36_TEMPORAL = 'Python 3.6 Temporal',
-  NODEJS_12_TEMPORAL = 'Node.js 12 Temporal'
+  NODEJS_10_TEMPORAL = 'Node.js 10 Temporal'
 }
 
 export enum WorkflowStateType {
