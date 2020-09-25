@@ -1,13 +1,15 @@
 from io import BytesIO
 from json import dumps
-from pyconstants.project_constants import NODEJS_12_TEMPORAL_RUNTIME_PRETTY_NAME
-from tasks.build.common import get_final_zip_package_path, get_codebuild_artifact_zip_data
-from tasks.s3 import s3_object_exists, read_from_s3
+from uuid import uuid4
+from zipfile import ZIP_DEFLATED, ZipFile
+
+from yaml import dump
+
+from pyconstants.project_constants import NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME
+from tasks.build.common import get_codebuild_artifact_zip_data, get_final_zip_package_path
+from tasks.s3 import read_from_s3, s3_object_exists
 from utils.block_libraries import generate_libraries_dict
 from utils.general import add_file_to_zipfile
-from yaml import dump
-from zipfile import ZipFile, ZIP_DEFLATED
-
 
 BUILDSPEC = dump({
     "artifacts": {
@@ -32,8 +34,8 @@ BUILDSPEC = dump({
 
 
 class NodeJs12Builder:
-    RUNTIME = "nodejs12.x"
-    RUNTIME_PRETTY_NAME = NODEJS_12_TEMPORAL_RUNTIME_PRETTY_NAME
+    RUNTIME = "nodejs10.x"
+    RUNTIME_PRETTY_NAME = NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME
 
     def __init__(self, app_config, aws_client_factory, credentials, code, libraries):
         self.app_config = app_config
@@ -43,12 +45,12 @@ class NodeJs12Builder:
         self.libraries = libraries
         self.libraries_object = generate_libraries_dict(self.libraries)
 
-
     @property
     def lambda_function(self):
         return self.app_config.get("LAMBDA_TEMPORAL_RUNTIMES")[self.RUNTIME]
 
     def build(self):
+        # Create a virtual file handler for the Lambda zip package
         package_zip = BytesIO(self.get_zip())
 
         with ZipFile(package_zip, "a", ZIP_DEFLATED) as zip_file_handler:
@@ -58,16 +60,11 @@ class NodeJs12Builder:
         zip_data = package_zip.getvalue()
         package_zip.close()
 
-        return lambda_package_zip_data
+        return zip_data
 
     def get_zip(self):
-        if self.libraries == 0:
+        if len(self.libraries) == 0:
             return b''
-
-        s3_client = self.aws_client_factory.get_aws_client(
-            "s3",
-            credentials
-        )
 
         s3_zip_path = get_final_zip_package_path(self.RUNTIME, self.libraries_object)
         exists = s3_object_exists(
@@ -92,22 +89,22 @@ class NodeJs12Builder:
         # This continually polls for the CodeBuild build to finish
         # Once it does it returns the raw artifact zip data.
         return get_codebuild_artifact_zip_data(
-            aws_client_factory,
-            credentials,
+            self.aws_client_factory,
+            self.credentials,
             build_id,
-            final_s3_package_zip_path
+            s3_zip_path
         )
 
     def start_codebuild(self):
         """
         Returns a build ID to be polled at a later time
         """
-        codebuild_client = aws_client_factory.get_aws_client(
+        codebuild_client = self.aws_client_factory.get_aws_client(
             "codebuild",
             self.credentials
         )
 
-        s3_client = aws_client_factory.get_aws_client(
+        s3_client = self.aws_client_factory.get_aws_client(
             "s3",
             self.credentials
         )
@@ -127,7 +124,7 @@ class NodeJs12Builder:
 
         with ZipFile(codebuild_zip, "a", ZIP_DEFLATED) as zip_file_handler:
             # Write buildspec.yml defining the build process
-            add_file_to_zipfile(zip_file_handler, "buildspec.tml", BUILDSPEC)
+            add_file_to_zipfile(zip_file_handler, "buildspec.yml", BUILDSPEC)
             add_file_to_zipfile(zip_file_handler, "package.json", dumps(package_json))
 
         codebuild_zip_data = codebuild_zip.getvalue()
@@ -137,7 +134,7 @@ class NodeJs12Builder:
         s3_key = "buildspecs/{}.zip".format(str(uuid4()))
 
         # Write the CodeBuild build package to S3
-        s3_response = s3_client.put_object(
+        s3_client.put_object(
             Bucket=self.credentials["lambda_packages_bucket"],
             Body=codebuild_zip_data,
             Key=s3_key,
@@ -151,5 +148,5 @@ class NodeJs12Builder:
             sourceLocationOverride="{}/{}".format(self.credentials["lambda_packages_bucket"], s3_key)
         )
 
-        build_id codebuild_response["build"]["id"]
+        build_id = codebuild_response["build"]["id"]
         return build_id

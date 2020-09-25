@@ -1,10 +1,12 @@
 from io import BytesIO
-from tasks.build.common import get_final_zip_package_path, get_codebuild_artifact_zip_data
-from utils.general import add_file_to_zipfile
-from pyconstants.project_constants import PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME
-from utils.block_libraries import generate_libraries_dict, get_requirements_text
+from zipfile import ZIP_DEFLATED, ZipFile
+
 from yaml import dump
-from zipfile import ZipFile, ZIP_DEFLATED
+
+from pyconstants.project_constants import PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME
+from tasks.build.common import get_codebuild_artifact_zip_data, get_final_zip_package_path
+from utils.block_libraries import generate_libraries_dict, get_requirements_text
+from utils.general import add_file_to_zipfile
 
 BUILDSPEC = dump({
     "artifacts": {

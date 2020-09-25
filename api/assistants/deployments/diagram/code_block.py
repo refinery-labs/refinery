@@ -5,6 +5,7 @@ from typing import Dict, List, TYPE_CHECKING
 
 from assistants.deployments.diagram.workflow_states import WorkflowState
 from pyconstants.project_constants import PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME
+from pyconstants.project_constants import NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME
 
 if TYPE_CHECKING:
     from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
@@ -55,7 +56,7 @@ class CodeBlockWorkflowState(WorkflowState):
         if language == PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME:
             self.runtime = "python3.6"
             self.handler = "lambda_function.lambda_handler"
-        elif language == NODEJS_12_TEMPORAL_RUNTIME_PRETTY_NAME:
+        elif language == NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME:
             self.runtime = "nodejs12.x"
             self.handler = "index.handler"
 
