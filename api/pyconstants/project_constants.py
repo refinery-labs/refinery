@@ -2,7 +2,11 @@ from typing import Dict, List, Any
 
 EMPTY_ZIP_DATA = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 
+
+# Note: These are referenced CodeBlockWorkflowState.setup, when adding a new value here, make sure the
+# runtime is properly set if the value is specified as a language.
 PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME = "Python 3.6 Temporal"
+NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME = "Node.js 10 Temporal"
 
 DEFAULT_PROJECT_CONFIG = {
     "version": "1.0.0",
@@ -25,7 +29,8 @@ LAMBDA_SUPPORTED_LANGUAGES = [
     "php7.3",
     "go1.12",
     "ruby2.6.4",
-    PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME
+    PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME,
+    NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME
 ]
 
 
@@ -54,7 +59,8 @@ LAMBDA_BASE_LIBRARIES: Dict[str, List[str]] = {
 }
 
 LAMBDA_TEMPORAL_RUNTIMES: Dict[str, str] = {
-    "python3.6": "python36/lambda_function.py"
+    "python3.6": "python36/lambda_function.py",
+    "nodejs10.x": "nodejs10/index.js"
 }
 
 # Regex for character whitelists for different fields
