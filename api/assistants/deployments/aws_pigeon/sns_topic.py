@@ -41,14 +41,24 @@ class SnsTopicWorkflowState(AwsWorkflowState, TopicWorkflowState):
 
         self._deployment_id = deploy_diagram.deployment_id
 
-    def deploy(self, task_spawner, project_id, project_config):
-        logit(f"Deploying SNS topic '{self.name}'...")
-
-        return task_spawner.create_sns_topic(
+    @gen.coroutine
+    def _do_deploy(self, task_spawner):
+        yield task_spawner.create_sns_topic(
             self._credentials,
             self.id,
             self.name
         )
+
+        pigeon_invoke_url = f"https://5nz8oicvrl.execute-api.us-west-2.amazonaws.com/refinery/replaceme/coffeeyakhorn?deploymentID={self._deployment_id}&workflowID={self.id}"
+        yield task_spawner.subscribe_pigeon_to_sns_topic(
+            self._credentials,
+            self,
+            pigeon_invoke_url
+        )
+
+    def deploy(self, task_spawner, project_id, project_config):
+        logit(f"Deploying SNS topic '{self.name}'...")
+        return self._do_deploy(task_spawner)
 
     @gen.coroutine
     def predeploy(self, task_spawner: TaskSpawner):
@@ -66,6 +76,11 @@ class SnsTopicWorkflowState(AwsWorkflowState, TopicWorkflowState):
             sub_arn = subscription.subscription_arn
             endpoint = subscription.endpoint
 
+            if subscription.subscription_arn == "PendingConfirmation":
+                # TODO figure out how to clean this up properly
+                # We can't clean this subscription up since it doesn't have an ARN yet :/
+                pass
+
             exists = deployment.validate_arn_exists_and_mark_for_cleanup(StateTypes.LAMBDA, endpoint)
             if not exists:
                 yield task_spawner.unsubscribe_pigeon_from_sns_topic(
@@ -74,9 +89,4 @@ class SnsTopicWorkflowState(AwsWorkflowState, TopicWorkflowState):
                 )
 
     def _link_trigger_to_next_deployed_state(self, task_spawner, next_node):
-        pigeon_invoke_url = f"https://5nz8oicvrl.execute-api.us-west-2.amazonaws.com/refinery/replaceme/coffeeyakhorn?deploymentID={self._deployment_id}&workflowID={next_node.id}"
-        return task_spawner.subscribe_pigeon_to_sns_topic(
-            self._credentials,
-            self,
-            pigeon_invoke_url
-        )
+        return None

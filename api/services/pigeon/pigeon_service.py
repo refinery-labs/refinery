@@ -11,7 +11,7 @@ class PigeonService:
 
     def __init__(self, logger, app_config):
         self.logger = logger
-        self.pigeon_api_url = app_config.get("pigeon_api_url")
+        self.workflow_manager_api_url = app_config.get("workflow_manager_api_url")
 
         # TODO: Allow this to be stubbed via the constructor
         self.http = httpclient.AsyncHTTPClient()
@@ -20,7 +20,7 @@ class PigeonService:
     def create_workflows_for_deployment(self, serialized_deployment):
         try:
             response = yield self.http.fetch(
-                f"{self.pigeon_api_url}/{self._PIGEON_CREATE_WORKFLOWS_PATH}",
+                f"{self.workflow_manager_api_url}/{self._PIGEON_CREATE_WORKFLOWS_PATH}",
                 headers={"Content-Type": "application/json"},
                 method="POST",
                 body=json.dumps(serialized_deployment)
@@ -36,7 +36,7 @@ class PigeonService:
     def delete_deployment_workflows(self, deployment_id):
         try:
             response = yield self.http.fetch(
-                f"{self.pigeon_api_url}/{self._PIGEON_CREATE_WORKFLOWS_PATH}/{deployment_id}",
+                f"{self.workflow_manager_api_url}/{self._PIGEON_CREATE_WORKFLOWS_PATH}/{deployment_id}",
                 method="DELETE",
             )
         except HTTPError as e:
