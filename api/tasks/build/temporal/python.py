@@ -8,6 +8,8 @@ from pyconstants.project_constants import PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME
 from tasks.build.common import get_codebuild_artifact_zip_data, get_final_zip_package_path
 from utils.block_libraries import generate_libraries_dict, get_requirements_text
 from utils.general import add_file_to_zipfile
+from uuid import uuid4
+
 
 BUILDSPEC = dump({
     "artifacts": {
@@ -71,7 +73,12 @@ class Python36Builder:
 
         # This continually polls for the CodeBuild build to finish
         # Once it does it returns the raw artifact zip data.
-        return get_codebuild_artifact_zip_data(self.aws_client_factory, self.credentials, build_id, s3_zip_path)
+        return get_codebuild_artifact_zip_data(
+            self.aws_client_factory,
+            self.credentials,
+            build_id,
+            s3_zip_path
+        )
 
     def start_codebuild(self):
         """
@@ -88,7 +95,7 @@ class Python36Builder:
         )
 
         # Create empty zip file
-        codebuild_zip = BytesIO(EMPTY_ZIP_DATA)
+        codebuild_zip = BytesIO()
 
         with ZipFile(codebuild_zip, "a", ZIP_DEFLATED) as zip_file_handler:
             # Write buildspec.yml defining the build process
