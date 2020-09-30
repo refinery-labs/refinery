@@ -7,6 +7,8 @@ from pyconstants.project_constants import PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME
 from tasks.build.common import get_codebuild_artifact_zip_data, get_final_zip_package_path
 from utils.block_libraries import generate_libraries_dict, get_requirements_text
 from utils.general import add_file_to_zipfile
+from uuid import uuid4
+
 
 BUILDSPEC = dump({
     "artifacts": {
@@ -67,7 +69,12 @@ class Python36Builder:
 
         # This continually polls for the CodeBuild build to finish
         # Once it does it returns the raw artifact zip data.
-        return self.get_codebuild_artifact_zip_data(build_id, s3_zip_path)
+        return get_codebuild_artifact_zip_data(
+            self.aws_client_factory,
+            self.credentials,
+            build_id,
+            s3_zip_path
+        )
 
     def start_codebuild(self):
         """
@@ -84,7 +91,7 @@ class Python36Builder:
         )
 
         # Create empty zip file
-        codebuild_zip = BytesIO(EMPTY_ZIP_DATA)
+        codebuild_zip = BytesIO()
 
         with ZipFile(codebuild_zip, "a", ZIP_DEFLATED) as zip_file_handler:
             # Write buildspec.yml defining the build process
@@ -98,7 +105,7 @@ class Python36Builder:
             add_file_to_zipfile(
                 zip_file_handler,
                 "requirements.txt",
-                get_requirements_text(self.libraries_dict)
+                get_requirements_text(self.libraries_object)
             )
 
         codebuild_zip_data = codebuild_zip.getvalue()
@@ -109,7 +116,7 @@ class Python36Builder:
 
         # Write the CodeBuild build package to S3
         s3_response = s3_client.put_object(
-            Bucket=credentials["lambda_packages_bucket"],
+            Bucket=self.credentials["lambda_packages_bucket"],
             Body=codebuild_zip_data,
             Key=s3_key,
             ACL="public-read",  # THIS HAS TO BE PUBLIC READ FOR SOME FUCKED UP REASON I DONT KNOW WHY
@@ -120,7 +127,7 @@ class Python36Builder:
             projectName="refinery-builds",
             sourceTypeOverride="S3",
             imageOverride="docker.io/python:3.6.9",
-            sourceLocationOverride=credentials["lambda_packages_bucket"] + "/" + s3_key,
+            sourceLocationOverride=self.credentials["lambda_packages_bucket"] + "/" + s3_key,
         )
 
         build_id = codebuild_response["build"]["id"]
