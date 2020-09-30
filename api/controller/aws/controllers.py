@@ -445,7 +445,7 @@ class DeployDiagram(BaseHandler):
         serialized_deployment = deployment_diagram.serialize()
         org = self.get_authenticated_user_org()
 
-        self.pigeon_service.create_workflows_for_deployment(serialized_deployment)
+        yield self.pigeon_service.create_workflows_for_deployment(serialized_deployment)
 
         new_deployment = Deployment(id=deployment_diagram.deployment_id)
         new_deployment.organization_id = org.id
