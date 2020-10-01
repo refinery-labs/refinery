@@ -55,7 +55,7 @@ class AwsDeployment(DeploymentDiagram):
         self._workflow_state_lookup: StateLookup[AwsWorkflowState] = self._workflow_state_lookup
         self._previous_state_lookup: StateLookup[AwsDeploymentState] = StateLookup[AwsDeploymentState]()
 
-        self.pigeon_api_url = app_config.get("pigeon_api_url")
+        self.workflow_manager_api_url = app_config.get("workflow_manager_api_url")
 
         self.gateway_id = None
         if self.project_config.get("api_gateway") and self.project_config["api_gateway"].get("gateway_id"):
@@ -98,7 +98,7 @@ class AwsDeployment(DeploymentDiagram):
         }
 
     def get_pigeon_invoke_url(self, workflow_state_id: str):
-        return f"{self.pigeon_api_url}/deployment/{self.deployment_id}/workflow/{workflow_state_id}"
+        return f"{self.workflow_manager_api_url}/deployment/{self.deployment_id}/workflow/{workflow_state_id}"
 
     @property
     def api_gateway(self) -> Union[ApiGatewayWorkflowState, None]:

@@ -60,7 +60,7 @@ LAMBDA_BASE_LIBRARIES: Dict[str, List[str]] = {
 
 LAMBDA_TEMPORAL_RUNTIMES: Dict[str, str] = {
     "python3.6": "python36/lambda_function.py",
-    "nodejs10.x": "nodejs10/index.js"
+    "nodejs12.x": "nodejs12.x/index.js"
 }
 
 # Regex for character whitelists for different fields
