@@ -109,6 +109,7 @@ def generate_managed_accounts_invoices(aws_client_factory, aws_cost_explorer, ap
                 aws_client_factory,
                 aws_account_dict["account_id"],
                 aws_account_dict["account_type"],
+                aws_account_dict["organization_id"],
                 start_date_string,
                 end_date_string,
                 "monthly",
@@ -315,7 +316,7 @@ def enforce_account_limits(app_config, aws_client_factory, db_session_maker, aws
 
 
 def get_sub_account_month_billing_data(app_config, db_session_maker, aws_cost_explorer, aws_client_factory,
-                                       account_id, account_type, billing_month, use_cache):
+                                       account_id, account_type, org_id, billing_month, use_cache):
     # Parse the billing month into a datetime object
     billing_month_datetime = datetime.strptime(
         billing_month,
@@ -338,6 +339,7 @@ def get_sub_account_month_billing_data(app_config, db_session_maker, aws_cost_ex
         aws_client_factory,
         account_id,
         account_type,
+        org_id,
         billing_start_date,
         billing_end_date,
         "monthly",

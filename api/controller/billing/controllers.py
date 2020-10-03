@@ -26,6 +26,7 @@ class GetBillingMonthTotals(BaseHandler):
         billing_data = yield self.task_spawner.get_sub_account_month_billing_data(
             credentials["account_id"],
             credentials["account_type"],
+            credentials["organization_id"],
             self.json["billing_month"],
             True
         )
