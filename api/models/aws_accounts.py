@@ -142,6 +142,7 @@ class AWSAccount(Base):
             "redis_password",
             "redis_port",
             "redis_secret_prefix",
+            "organization_id",
             "account_type",
             "aws_account_status",
             "terraform_state",
