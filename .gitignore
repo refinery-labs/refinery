@@ -118,3 +118,4 @@ api/.hypothesis/*
 
 .coverage
 git-server/
+s3-log-deleter.db
