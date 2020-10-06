@@ -181,6 +181,19 @@ POLICY
 
 }
 
+resource "aws_iam_policy" "refinery_workflow_manager_aws_lambda_policy" {
+  name        = "refinery_workflow_manager_aws_lambda_policy"
+  path        = "/"
+  description = "Policy for a lambda which is orchestrated by Workflow Manager."
+  policy      = <<POLICY
+{
+    "Version": "2012-10-17",
+    "Statement": [
+    ]
+}
+POLICY
+}
+
 resource "aws_iam_policy" "refinery_workflow_manager_policy" {
   name        = "refinery_workflow_manager_policy"
   path        = "/"
@@ -205,10 +218,7 @@ resource "aws_iam_policy" "refinery_workflow_manager_policy" {
                 "sns:Publish",
                 "sqs:SendMessage"
             ],
-            "Resource": [
-                "arn:aws:sns:*:134071937287:*",
-                "arn:aws:sqs:*:134071937287:*"
-            ]
+            "Resource": "*"
         }
     ]
 }
