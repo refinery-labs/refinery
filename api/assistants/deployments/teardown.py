@@ -2,8 +2,8 @@ from tornado import gen
 from typing import List
 
 from assistants.deployments.api_gateway import strip_api_gateway
-from assistants.deployments.aws_pigeon.api_gateway import ApiGatewayDeploymentState
-from assistants.deployments.aws_pigeon.types import AwsDeploymentState
+from assistants.deployments.aws_workflow_manager.api_gateway import ApiGatewayDeploymentState
+from assistants.deployments.aws_workflow_manager.types import AwsDeploymentState
 from assistants.deployments.diagram.types import StateTypes
 
 

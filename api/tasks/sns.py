@@ -126,7 +126,7 @@ def unsubscribe_lambda_from_sns_topic(aws_client_factory, credentials, subscript
     )
 
 
-def subscribe_pigeon_to_sns_topic(aws_client_factory, credentials, topic_object, pigeon_url):
+def subscribe_workflow_to_sns_topic(aws_client_factory, credentials, topic_object, workflow_manager_url):
     sns_client = aws_client_factory.get_aws_client(
         "sns",
         credentials,
@@ -135,7 +135,7 @@ def subscribe_pigeon_to_sns_topic(aws_client_factory, credentials, topic_object,
     sns_topic_response = sns_client.subscribe(
         TopicArn=topic_object.arn,
         Protocol="https",
-        Endpoint=pigeon_url,
+        Endpoint=workflow_manager_url,
         Attributes={},
         ReturnSubscriptionArn=True
     )

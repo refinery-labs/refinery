@@ -3,16 +3,16 @@ from __future__ import annotations
 from tornado import gen
 from typing import Dict, List, TYPE_CHECKING
 
-from assistants.deployments.aws_pigeon.aws_workflow_state import AwsWorkflowState
-from assistants.deployments.aws_pigeon.response_types import TopicSubscription
-from assistants.deployments.aws_pigeon.types import AwsDeploymentState
+from assistants.deployments.aws_workflow_manager.aws_workflow_state import AwsWorkflowState
+from assistants.deployments.aws_workflow_manager.response_types import TopicSubscription
+from assistants.deployments.aws_workflow_manager.types import AwsDeploymentState
 from assistants.deployments.diagram.topic import TopicWorkflowState
 from assistants.deployments.diagram.types import StateTypes
 from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from utils.general import logit
 
 if TYPE_CHECKING:
-    from assistants.deployments.aws_pigeon.aws_deployment import AwsDeployment
+    from assistants.deployments.aws_workflow_manager.aws_deployment import AwsDeployment
     from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
 
 
@@ -49,11 +49,11 @@ class SnsTopicWorkflowState(AwsWorkflowState, TopicWorkflowState):
             self.name
         )
 
-        pigeon_invoke_url = f"https://5nz8oicvrl.execute-api.us-west-2.amazonaws.com/refinery/replaceme/coffeeyakhorn?deploymentID={self._deployment_id}&workflowID={self.id}"
-        yield task_spawner.subscribe_pigeon_to_sns_topic(
+        workflow_manager_invoke_url = f"https://5nz8oicvrl.execute-api.us-west-2.amazonaws.com/refinery/replaceme/coffeeyakhorn?deploymentID={self._deployment_id}&workflowID={self.id}"
+        yield task_spawner.subscribe_workflow_to_sns_topic(
             self._credentials,
             self,
-            pigeon_invoke_url
+            workflow_manager_invoke_url
         )
 
     def deploy(self, task_spawner, project_id, project_config):
@@ -83,7 +83,7 @@ class SnsTopicWorkflowState(AwsWorkflowState, TopicWorkflowState):
 
             exists = deployment.validate_arn_exists_and_mark_for_cleanup(StateTypes.LAMBDA, endpoint)
             if not exists:
-                yield task_spawner.unsubscribe_pigeon_from_sns_topic(
+                yield task_spawner.unsubscribe_workflow_from_sns_topic(
                     self._credentials,
                     sub_arn
                 )

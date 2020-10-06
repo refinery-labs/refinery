@@ -456,6 +456,55 @@ def recreate_aws_console_account(app_config, aws_client_factory, credentials, ro
 
     return new_console_user_password
 
+def create_deployment_aws_console_account(app_config, aws_client_factory, credentials, deployment_id):
+    iam_client = aws_client_factory.get_aws_client(
+        "iam",
+        credentials
+    )
+
+    iam_policy_arn = "arn:aws:iam::" + \
+                     credentials["account_id"] + ":policy/refinery_workflow_manager_policy"
+
+    logit("Creating AWS console user for deployment...")
+
+    # Create the IAM user again
+    delete_user_response = iam_client.create_user(
+        UserName=username,
+    )
+
+    # Create the IAM user again
+    delete_policy_response = iam_client.delete_policy(
+        PolicyArn=iam_policy_arn
+    )
+
+    # Create IAM policy for the user
+    create_policy_response = iam_client.create_policy(
+        PolicyName="RefineryCustomerPolicy",
+        PolicyDocument=dumps(app_config.get("CUSTOMER_IAM_POLICY")),
+        Description="Refinery Labs managed AWS customer account policy."
+    )
+
+    # Attach the limiting IAM policy to it.
+    attach_policy_response = iam_client.attach_user_policy(
+        UserName=credentials["iam_admin_username"],
+        PolicyArn=iam_policy_arn
+    )
+
+    # Generate a new user console password
+    new_console_user_password = get_urand_password(32)
+
+    if rotate_password == False:
+        new_console_user_password = credentials["iam_admin_password"]
+
+    # Create the console user again.
+    create_user_response = iam_client.create_login_profile(
+        UserName=credentials["iam_admin_username"],
+        Password=new_console_user_password,
+        PasswordResetRequired=False
+    )
+
+    return new_console_user_password
+
 
 def do_account_cleanup(app_config, db_session_maker, aws_lambda_client):
     """

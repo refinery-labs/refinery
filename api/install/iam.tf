@@ -181,6 +181,40 @@ POLICY
 
 }
 
+resource "aws_iam_policy" "refinery_workflow_manager_policy" {
+  name        = "refinery_workflow_manager_policy"
+  path        = "/"
+  description = "Policy for the Refinery Workflow Manager to be able to orchestrate a workflow."
+  policy      = <<POLICY
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "lambda:InvokeFunction"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "sns:Publish",
+                "sqs:SendMessage"
+            ],
+            "Resource": [
+                "arn:aws:sns:*:134071937287:*",
+                "arn:aws:sqs:*:134071937287:*"
+            ]
+        }
+    ]
+}
+POLICY
+}
+
 /*
 	Defines the default IAM role for the deployed Refinery
 	Lambdas to assume. The assume role policy defines what

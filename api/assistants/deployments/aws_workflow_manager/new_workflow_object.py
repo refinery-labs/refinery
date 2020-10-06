@@ -2,19 +2,19 @@ from __future__ import annotations
 
 from typing import Dict, TYPE_CHECKING, Union, Type
 
-from assistants.deployments.aws_pigeon.api_endpoint import ApiEndpointWorkflowState
-from assistants.deployments.aws_pigeon.api_gateway import ApiGatewayResponseWorkflowState
-from assistants.deployments.aws_pigeon.cloudwatch_rule import ScheduleTriggerWorkflowState
-from assistants.deployments.aws_pigeon.lambda_function import LambdaWorkflowState
-from assistants.deployments.aws_pigeon.sns_topic import SnsTopicWorkflowState
-from assistants.deployments.aws_pigeon.sqs_queue import SqsQueueWorkflowState
+from assistants.deployments.aws_workflow_manager.api_endpoint import ApiEndpointWorkflowState
+from assistants.deployments.aws_workflow_manager.api_gateway import ApiGatewayResponseWorkflowState
+from assistants.deployments.aws_workflow_manager.cloudwatch_rule import ScheduleTriggerWorkflowState
+from assistants.deployments.aws_workflow_manager.lambda_function import LambdaWorkflowState
+from assistants.deployments.aws_workflow_manager.sns_topic import SnsTopicWorkflowState
+from assistants.deployments.aws_workflow_manager.sqs_queue import SqsQueueWorkflowState
 from assistants.deployments.diagram.errors import InvalidDeployment
 from assistants.deployments.diagram.types import StateTypes, RelationshipTypes
 
 
 if TYPE_CHECKING:
 	from assistants.deployments.diagram.workflow_states import WorkflowState
-	from assistants.deployments.aws_pigeon.aws_deployment import AwsDeployment
+	from assistants.deployments.aws_workflow_manager.aws_deployment import AwsDeployment
 
 	WorkflowStateTypes = Type[Union[
 		LambdaWorkflowState, ApiEndpointWorkflowState, SqsQueueWorkflowState,

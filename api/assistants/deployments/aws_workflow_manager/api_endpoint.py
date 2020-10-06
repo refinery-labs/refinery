@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Dict, TYPE_CHECKING
 
-from assistants.deployments.aws_pigeon.aws_workflow_state import AwsWorkflowState
+from assistants.deployments.aws_workflow_manager.aws_workflow_state import AwsWorkflowState
 from assistants.deployments.diagram.endpoint import EndpointWorkflowState
 
 if TYPE_CHECKING:
@@ -32,7 +32,7 @@ class ApiEndpointWorkflowState(AwsWorkflowState, EndpointWorkflowState):
 
     def setup(self, deploy_diagram: AwsDeployment, workflow_state_json: Dict[str, object]):
         super().setup(deploy_diagram, workflow_state_json)
-        self._pigeon_invoke_url = deploy_diagram.get_pigeon_invoke_url(self.id)
+        self._workflow_manager_invoke_url = deploy_diagram.get_workflow_manager_invoke_url(self.id)
 
     def set_gateway_id(self, api_gateway_id):
         self.rest_api_id = api_gateway_id

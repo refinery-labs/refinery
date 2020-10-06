@@ -7,7 +7,7 @@ import pinject
 from jsonschema import validate as validate_schema
 from tornado import gen
 
-from assistants.deployments.aws_pigeon.aws_deployment import AwsDeployment
+from assistants.deployments.aws_workflow_manager.aws_deployment import AwsDeployment
 from assistants.deployments.aws.lambda_function import LambdaWorkflowState
 from assistants.deployments.aws.utils import get_base_lambda_code
 from assistants.deployments.diagram.workflow_states import StateTypes
@@ -19,7 +19,7 @@ from controller.logs.actions import delete_logs
 from controller.projects.actions import update_project_config
 from models import InlineExecutionLambda, Project, Deployment, DeploymentLog
 from pyexceptions.builds import BuildException
-from services.pigeon.pigeon_service import PigeonService
+from services.workflow_manager.workflow_manager_service import WorkflowManagerService
 from utils.general import get_random_node_id, attempt_json_decode
 from utils.locker import AcquireFailure
 
@@ -273,7 +273,7 @@ class InfraTearDownDependencies:
         schedule_trigger_manager,
         sns_manager,
         sqs_manager,
-        pigeon_service
+        workflow_manager_service
     ):
         pass
 
@@ -286,7 +286,7 @@ class InfraTearDown(BaseHandler):
     schedule_trigger_manager = None
     sns_manager = None
     sqs_manager = None
-    pigeon_service: PigeonService = None
+    workflow_manager_service: WorkflowManagerService = None
 
     @authenticated
     @gen.coroutine
@@ -313,7 +313,7 @@ class InfraTearDown(BaseHandler):
             self.json["project_id"]
         )
 
-        self.pigeon_service.delete_deployment_workflows(self.json["deployment_id"])
+        self.workflow_manager_service.delete_deployment_workflows(self.json["deployment_id"])
 
         self.write({
             "success": True,
@@ -333,7 +333,7 @@ class InfraCollisionCheck(BaseHandler):
 
 class DeployDiagramDependencies:
     @pinject.copy_args_to_public_fields
-    def __init__(self, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager, sqs_manager, pigeon_service):
+    def __init__(self, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager, sqs_manager, workflow_manager_service):
         pass
 
 
@@ -351,7 +351,7 @@ class DeployDiagram(BaseHandler):
     schedule_trigger_manager = None
     sns_manager = None
     sqs_manager = None
-    pigeon_service: PigeonService = None
+    workflow_manager_service: WorkflowManagerService = None
 
     @gen.coroutine
     def cleanup_deployment(self, deployment_diagram, credentials, successful_deploy):
@@ -445,7 +445,13 @@ class DeployDiagram(BaseHandler):
         serialized_deployment = deployment_diagram.serialize()
         org = self.get_authenticated_user_org()
 
-        yield self.pigeon_service.create_workflows_for_deployment(serialized_deployment)
+        # Add log bucket for the workflow manager to log to
+        workflow_manager_serialized_deployment = {
+            **serialized_deployment,
+            "logs_bucket": credentials["logs_bucket"]
+        }
+
+        yield self.workflow_manager_service.create_workflows_for_deployment(workflow_manager_serialized_deployment)
 
         new_deployment = Deployment(id=deployment_diagram.deployment_id)
         new_deployment.organization_id = org.id
