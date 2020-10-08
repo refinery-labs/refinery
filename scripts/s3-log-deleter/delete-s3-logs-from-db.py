@@ -88,23 +88,47 @@ def scrub(table_name):
     return str(''.join(chr for chr in table_name if (chr.isalnum() or chr == '-')))
 
 
+def parse_args(argv):
+    run_config = dict()
+    run_config["db"] = "s3-log-deleter.db"
+
+    opts, args = getopt.getopt(argv, None, ['db=', 'table_name=', 'bucket_name=', 'credentials_profile='])
+
+    for opt in opts:
+        if opt[0].startswith('--'):
+            run_config[opt[0][2:]] = opt[1]
+
+
+    assert ("db" in run_config), "Script requires db"
+    assert ("table_name" in run_config), "Script requires table_name"
+    assert ("bucket_name" in run_config), "Script requires bucket_name"
+    assert ("credentials_profile" in run_config), "Script requires AWS credentials_profile"
+
+    return run_config
+
+
 if __name__ == "__main__":
-    connection = sqlite3.connect('s3-log-deleter.db')
+    """
+    May be invoked from the CLI using the following example:
+    ./delete-s3-logs-from-db.py --db asdf --table_name asdf2 --bucket_name 33 --credentials_profile asdf5
+    """
+    import getopt
+    import sys
 
-    table_name = 'paths-206d552b-fdb4-4752-aa95-08ccb443b7c0'
+    argv = sys.argv[1:]
 
-    bucket_name = 'refinery-lambda-logging-3vt3mh5yjgpxv9shpaxbcg8z1ojhdkrz'
+    config = parse_args(argv)
 
-    credentials_profile = 'mensatech'
+    connection = sqlite3.connect(config['db'])
 
     # TODO: Replace this argument with the name of then table read from cli args
-    paths = get_all_paths(connection, table_name)
+    paths = get_all_paths(connection, config['table_name'])
 
     print("Deleting %s logs from bucket" % len(paths))
 
-    s3_client = create_s3_client(credentials_profile)
+    s3_client = create_s3_client(config['credentials_profile'])
 
-    if not delete_s3_files(s3_client, bucket_name, paths):
+    if not delete_s3_files(s3_client, config['bucket_name'], paths):
         raise Exception("Unable to delete all paths")
 
     print("Successfully deleted %s logs from bucket" % len(paths))
