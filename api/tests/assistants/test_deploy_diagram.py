@@ -4,7 +4,6 @@ from tornado import gen
 from tornado.testing import AsyncHTTPTestCase, gen_test
 
 from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
-from assistants.deployments.diagram.types import LambdaEventSourceMapping
 from tests_utils.mocks.aws import MockAWSDependenciesHolder
 from tests_utils.mocks.task_spawner import MockTaskSpawnerHolder
 from tests_utils.tornado_test_utils import create_future
@@ -81,14 +80,16 @@ class TestDeployDiagram(ServerUnitTestBase, AsyncHTTPTestCase):
 		simple_deployment = self.load_fixture("simple_deployment.json", load_json=True)
 		simple_project_config = self.load_fixture("simple_project_config.json", load_json=True)
 		latest_simple_deployment = None
+		test_credentials = self.get_credentials()
 
 		deployment_diagram: DeploymentDiagram = DeploymentDiagram(
-			"test-id", "test", simple_project_config, latest_simple_deployment)
+			"test-id", "test", simple_project_config, latest_simple_deployment, test_credentials)
 
+		# TODO: Fix this test because the following method doesn't exist
 		exceptions = yield deployment_diagram.deploy_diagram(
 			self.mock_task_spawner,
 			self.mock_aws.api_gateway_manager,
-			self.get_credentials(),
+			test_credentials,
 			simple_deployment,
 		)
 
@@ -129,14 +130,16 @@ class TestDeployDiagram(ServerUnitTestBase, AsyncHTTPTestCase):
 		simple_deployment = self.load_fixture("simple_deployment.json", load_json=True)
 		simple_project_config = self.load_fixture("simple_project_config.json", load_json=True)
 		latest_simple_deployment = self.load_fixture("simple_deployment_previous_deploy.json", load_json=True)
+		test_credentials = self.get_credentials()
 
 		deployment_diagram: DeploymentDiagram = DeploymentDiagram(
-			"test-id", "test", simple_project_config, latest_simple_deployment)
+			"test-id", "test", simple_project_config, latest_simple_deployment, test_credentials)
 
+		# TODO: Fix this test because the following method doesn't exist
 		exceptions = yield deployment_diagram.deploy_diagram(
 			self.mock_task_spawner,
 			self.mock_aws.api_gateway_manager,
-			self.get_credentials(),
+			test_credentials,
 			simple_deployment,
 		)
 

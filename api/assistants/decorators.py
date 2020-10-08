@@ -14,7 +14,11 @@ class ExponentialBackoffException(Exception):
     pass
 
 
-def aws_exponential_backoff(allowed_errors=[], breaking_errors=[], max_attempts=5):
+def aws_exponential_backoff(allowed_errors=None, breaking_errors=None, max_attempts=5):
+    if breaking_errors is None:
+        breaking_errors = []
+    if allowed_errors is None:
+        allowed_errors = []
     allowed_client_errors = allowed_errors + [TOO_MANY_REQUESTS_EXCEPTION]
 
     def decorator(func):

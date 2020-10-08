@@ -439,7 +439,7 @@ class TaskSpawner(object):
 
     @run_on_executor
     @emit_runtime_metrics("get_sub_account_month_billing_data")
-    def get_sub_account_month_billing_data(self, account_id, account_type, billing_month, use_cache):
+    def get_sub_account_month_billing_data(self, account_id, account_type, org_id, billing_month, use_cache):
         return get_sub_account_month_billing_data(
             self.app_config,
             self.db_session_maker,
@@ -447,6 +447,7 @@ class TaskSpawner(object):
             self.aws_client_factory,
             account_id,
             account_type,
+            org_id,
             billing_month,
             use_cache
         )

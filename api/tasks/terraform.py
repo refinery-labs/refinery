@@ -34,8 +34,7 @@ def write_terraform_base_files(app_config, sts_client, aws_account_dict):
         )
     except Exception as e:
         logit("An exception occurred while writing terraform base files for AWS account ID " +
-              aws_account_dict["account_id"])
-        logit(e)
+              aws_account_dict["account_id"] + "\n" + repr(e), message_type="error")
 
         # Delete the temporary directory reguardless.
         rmtree(temporary_dir)

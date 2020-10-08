@@ -921,6 +921,7 @@ class CleanupDanglingResources(BaseHandler):
 
     @gen.coroutine
     def get(self, user_id=None):
+        # noinspection PyTypeChecker
         delete_resources = self.get_argument("confirm", False)
 
         # Get user's organization

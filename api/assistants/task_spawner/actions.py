@@ -92,7 +92,7 @@ def get_deployed_projects_count(db_session_maker, org_id, start_date, end_date):
 
 def get_active_deployed_projects_count(db_session_maker, org_id):
     dbsession = db_session_maker()
-    count = dbsession.query(Deployments).filter_by(
+    count = dbsession.query(Deployment).filter_by(
         organization_id=org_id
     ).count()
     dbsession.close()
