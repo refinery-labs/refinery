@@ -58,8 +58,7 @@ def logit(message: str, message_type: LogLevelTypes = "info") -> None:
 
     logging_func = getattr(
         logging,
-        #message_type,
-        "warning",
+        message_type,
         logging.info
     )
 

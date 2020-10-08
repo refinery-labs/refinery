@@ -58,9 +58,10 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
         account_id = str(self._credentials["account_id"])
         account_type = self._credentials["account_type"]
         if account_type == "THIRDPARTY":
+            # TODO this role needs to change for the workflow manager
             self.role = f"arn:aws:iam::{account_id}:role/{THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME}"
         else:
-            self.role = f"arn:aws:iam::{account_id}:role/refinery_default_aws_lambda_role"
+            self.role = f"arn:aws:iam::{account_id}:role/refinery_workflow_manager_aws_lambda_role"
 
         self.deployed_state: LambdaDeploymentState = self.deployed_state
 

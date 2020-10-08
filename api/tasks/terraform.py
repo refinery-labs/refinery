@@ -62,6 +62,7 @@ def _write_terraform_base_files(app_config, sts_client, aws_account_data, base_d
 
     # Write out the terraform configuration data
     terraform_configuration_data = {
+        "root_account_id": app_config.get("aws_account_id"),
         "session_token": assumed_role_credentials["session_token"],
         "role_session_name": assumed_role_credentials["role_session_name"],
         "assume_role_arn": sub_account_admin_role_arn,
@@ -260,8 +261,8 @@ def terraform_apply(aws_client_factory, app_config, preterraform_manager, sts_cl
             cwd=temporary_directory,
         )
         process_stdout, process_stderr = run_terraform_process(process_handler)
-        return_data["stdout"] = process_stdout
-        return_data["stderr"] = process_stderr
+        return_data["stdout"] = process_stdout.decode()
+        return_data["stderr"] = process_stderr.decode()
 
         # Pull the latest terraform state and return it
         # We need to do this regardless of if an error occurred.
@@ -340,7 +341,7 @@ def terraform_plan(app_config, sts_client, aws_account_data, refresh_terraform_s
 
     logit("Terraform plan completed successfully, returning output.")
 
-    return process_stdout
+    return process_stdout.decode()
 
 
 def run_terraform_process(process):

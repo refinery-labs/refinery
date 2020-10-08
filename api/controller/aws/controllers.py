@@ -448,7 +448,8 @@ class DeployDiagram(BaseHandler):
         # Add log bucket for the workflow manager to log to
         workflow_manager_serialized_deployment = {
             **serialized_deployment,
-            "logs_bucket": credentials["logs_bucket"]
+            "logs_bucket": credentials["logs_bucket"],
+            "account_id": credentials["account_id"]
         }
 
         yield self.workflow_manager_service.create_workflows_for_deployment(workflow_manager_serialized_deployment)
