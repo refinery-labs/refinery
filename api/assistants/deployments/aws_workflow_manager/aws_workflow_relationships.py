@@ -6,7 +6,7 @@ from assistants.deployments.diagram.workflow_relationship import WorkflowRelatio
     MergeWorkflowRelationship
 
 if TYPE_CHECKING:
-    from assistants.deployments.aws_pigeon.aws_workflow_state import AwsWorkflowState
+    from assistants.deployments.aws_workflow_manager.aws_workflow_state import AwsWorkflowState
 
 
 class AwsWorkflowRelationship(WorkflowRelationship):

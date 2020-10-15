@@ -8,6 +8,7 @@ from botocore.exceptions import ClientError
 from typing import TYPE_CHECKING
 
 from assistants.decorators import aws_exponential_backoff
+from assistants.deployments.aws_workflow_manager import api_endpoint
 from utils.general import logit
 
 if TYPE_CHECKING:
@@ -257,7 +258,7 @@ def link_api_method_to_lambda(aws_client_factory, credentials, rest_api_id, reso
     }
 
 
-def link_api_method_to_pigeon(aws_client_factory, credentials, rest_api_id, resource_id, api_endpoint: ApiEndpointWorkflowState):
+def link_api_method_to_workflow(aws_client_factory, credentials, rest_api_id, resource_id, api_endpoint: api_endpoint.ApiEndpointWorkflowState):
     api_gateway_client = aws_client_factory.get_aws_client(
         "apigateway",
         credentials
@@ -269,10 +270,10 @@ def link_api_method_to_pigeon(aws_client_factory, credentials, rest_api_id, reso
             rest_api_id,
             resource_id,
             api_endpoint,
-            api_endpoint._pigeon_invoke_url
+            api_endpoint._workflow_manager_invoke_url
         )
     except ClientError as e:
-        raise Exception(f"Unable to set integration {rest_api_id} {resource_id} for url {pigeon_invoke_url}: {str(e)}")
+        raise Exception(f"Unable to set integration {rest_api_id} {resource_id} for url {api_endpoint._workflow_manager_invoke_url}: {str(e)}")
 
     # Clown-shoes AWS bullshit for binary response
     try:
@@ -283,4 +284,4 @@ def link_api_method_to_pigeon(aws_client_factory, credentials, rest_api_id, reso
             api_endpoint
         )
     except ClientError as e:
-        raise Exception(f"Unable to set integration response {rest_api_id} {resource_id} for ur {pigeon_invoke_url}: {str(e)}")
+        raise Exception(f"Unable to set integration response {rest_api_id} {resource_id} for ur {api_endpoint._workflow_manager_invoke_url}: {str(e)}")

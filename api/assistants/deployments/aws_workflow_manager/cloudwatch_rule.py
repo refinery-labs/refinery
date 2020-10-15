@@ -6,9 +6,9 @@ import json
 from tornado import gen
 from typing import Dict, List, TYPE_CHECKING
 
-from assistants.deployments.aws_pigeon.aws_workflow_state import AwsWorkflowState
-from assistants.deployments.aws_pigeon.response_types import CloudwatchRuleTarget
-from assistants.deployments.aws_pigeon.types import AwsDeploymentState
+from assistants.deployments.aws_workflow_manager.aws_workflow_state import AwsWorkflowState
+from assistants.deployments.aws_workflow_manager.response_types import CloudwatchRuleTarget
+from assistants.deployments.aws_workflow_manager.types import AwsDeploymentState
 from assistants.deployments.diagram.scheduled_action import ScheduledActionWorkflowState
 
 if TYPE_CHECKING:

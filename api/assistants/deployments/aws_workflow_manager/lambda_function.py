@@ -6,18 +6,18 @@ import json
 from tornado import gen
 from typing import Dict, List, TYPE_CHECKING
 
-from assistants.deployments.aws_pigeon.aws_workflow_state import AwsWorkflowState
-from assistants.deployments.aws_pigeon.response_types import LambdaEventSourceMapping
-from assistants.deployments.aws_pigeon.types import AwsDeploymentState
+from assistants.deployments.aws_workflow_manager.aws_workflow_state import AwsWorkflowState
+from assistants.deployments.aws_workflow_manager.response_types import LambdaEventSourceMapping
+from assistants.deployments.aws_workflow_manager.types import AwsDeploymentState
 from assistants.deployments.diagram.code_block import CodeBlockWorkflowState
 from assistants.deployments.diagram.types import StateTypes
-from assistants.deployments.aws_pigeon.utils import get_language_specific_environment_variables, get_layers_for_lambda
+from assistants.deployments.aws_workflow_manager.utils import get_language_specific_environment_variables, get_layers_for_lambda
 from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
 from utils.general import logit
 
 if TYPE_CHECKING:
     from assistants.task_spawner.task_spawner_assistant import TaskSpawner
-    from assistants.deployments.aws_pigeon.aws_deployment import AwsDeployment
+    from assistants.deployments.aws_workflow_manager.aws_deployment import AwsDeployment
 
 
 class LambdaDeploymentState(AwsDeploymentState):
@@ -58,9 +58,10 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
         account_id = str(self._credentials["account_id"])
         account_type = self._credentials["account_type"]
         if account_type == "THIRDPARTY":
+            # TODO this role needs to change for the workflow manager
             self.role = f"arn:aws:iam::{account_id}:role/{THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME}"
         else:
-            self.role = f"arn:aws:iam::{account_id}:role/refinery_default_aws_lambda_role"
+            self.role = f"arn:aws:iam::{account_id}:role/refinery_workflow_manager_aws_lambda_role"
 
         self.deployed_state: LambdaDeploymentState = self.deployed_state
 
@@ -87,7 +88,7 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
 
         self._set_environment_variables_for_lambda()
 
-        self._pigeon_invoke_url = deploy_diagram.get_pigeon_invoke_url(self.id)
+        self._workflow_manager_invoke_url = deploy_diagram.get_workflow_manager_invoke_url(self.id)
 
     def serialize(self) -> Dict[str, str]:
         base_ws_state = super().serialize()

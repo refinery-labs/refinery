@@ -169,7 +169,7 @@ def get_block_executions(aws_client_factory, credentials, project_id, execution_
     query = render(GET_BLOCK_EXECUTIONS, query_template_data)
 
     # Query for project execution logs
-    logit("Performing Athena query...")
+    logit("Performing Athena query...", "debug")
     query_results = perform_athena_query(
         aws_client_factory,
         credentials,
@@ -177,7 +177,7 @@ def get_block_executions(aws_client_factory, credentials, project_id, execution_
         True
     )
 
-    logit("Processing Athena results...")
+    logit("Processing Athena results...", "debug")
 
     # Format query results
     for query_result in query_results:
@@ -200,7 +200,7 @@ def get_block_executions(aws_client_factory, credentials, project_id, execution_
 
         del query_result["dt"]
 
-    logit("Athena results have been processed.")
+    logit("Athena results have been processed.", "debug")
 
     return query_results
 

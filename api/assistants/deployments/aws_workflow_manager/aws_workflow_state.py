@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from typing import Union, Dict, List, TYPE_CHECKING
 
-from assistants.deployments.aws_pigeon.aws_workflow_relationships import AwsWorkflowRelationship, AwsIfWorkflowRelationship, \
+from assistants.deployments.aws_workflow_manager.aws_workflow_relationships import AwsWorkflowRelationship, AwsIfWorkflowRelationship, \
     AwsMergeWorkflowRelationship
-from assistants.deployments.aws_pigeon.types import AwsDeploymentState
+from assistants.deployments.aws_workflow_manager.types import AwsDeploymentState
 from assistants.deployments.diagram.types import StateTypes, RelationshipTypes
 from assistants.deployments.diagram.workflow_states import WorkflowState
 
 if TYPE_CHECKING:
-    from assistants.deployments.aws_pigeon.aws_deployment import AwsDeployment
+    from assistants.deployments.aws_workflow_manager.aws_deployment import AwsDeployment
     from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
 
 
@@ -26,12 +26,12 @@ class AwsWorkflowState(WorkflowState):
 
         self.force_redeploy = force_redeploy
 
-        self._pigeon_invoke_url = None
+        self._workflow_manager_invoke_url = None
 
     def setup(self, deploy_diagram: AwsDeployment, workflow_state_json: Dict[str, object]):
         super().setup(deploy_diagram, workflow_state_json)
 
-        self._pigeon_invoke_url = deploy_diagram.get_pigeon_invoke_url(self.id)
+        self._workflow_manager_invoke_url = deploy_diagram.get_workflow_manager_invoke_url(self.id)
 
         self.deployed_state = deploy_diagram.get_previous_state(self.arn)
 

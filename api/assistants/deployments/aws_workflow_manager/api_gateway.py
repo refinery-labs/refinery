@@ -5,19 +5,19 @@ from tornado import gen, locks
 from typing import Dict, TYPE_CHECKING, List
 
 from assistants.deployments.api_gateway import ApiGatewayManager
-from assistants.deployments.aws_pigeon.api_endpoint import ApiEndpointWorkflowState
-from assistants.deployments.aws_pigeon.aws_workflow_state import AwsWorkflowState
-from assistants.deployments.aws_pigeon.types import AwsDeploymentState
+from assistants.deployments.aws_workflow_manager.api_endpoint import ApiEndpointWorkflowState
+from assistants.deployments.aws_workflow_manager.aws_workflow_state import AwsWorkflowState
+from assistants.deployments.aws_workflow_manager.types import AwsDeploymentState
 from assistants.deployments.diagram.workflow_states import StateTypes
 from utils.general import logit
-from assistants.deployments.aws_pigeon.api_gateway_types import ApiGatewayEndpoint, ApiGatewayLambdaConfig
+from assistants.deployments.aws_workflow_manager.api_gateway_types import ApiGatewayEndpoint, ApiGatewayLambdaConfig
 
 API_GATEWAY_STATE_NAME = "__api_gateway__"
 API_GATEWAY_STATE_ARN = "API_GATEWAY"
 API_GATEWAY_STAGE_NAME = "refinery"
 
 if TYPE_CHECKING:
-    from assistants.deployments.aws_pigeon.aws_deployment import AwsDeployment
+    from assistants.deployments.aws_workflow_manager.aws_deployment import AwsDeployment
     from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 
 
@@ -365,7 +365,7 @@ class ApiGatewayWorkflowState(AwsWorkflowState):
                 raise
 
         # Link the API Gateway to the lambda
-        link_response = yield task_spawner.link_api_method_to_pigeon(
+        link_response = yield task_spawner.link_api_method_to_workflow(
             self._credentials,
             self.api_gateway_id,
             current_base_pointer_id,

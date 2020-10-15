@@ -4,10 +4,10 @@ from tornado import httpclient, gen
 from tornado.httpclient import HTTPError
 
 
-class PigeonService:
+class WorkflowManagerService:
     _API_BASE_HEADERS = {
     }
-    _PIGEON_CREATE_WORKFLOWS_PATH = "deployment"
+    _WORKFLOW_MANAGER_CREATE_WORKFLOWS_PATH = "deployment"
 
     def __init__(self, logger, app_config):
         self.logger = logger
@@ -20,28 +20,28 @@ class PigeonService:
     def create_workflows_for_deployment(self, serialized_deployment):
         try:
             response = yield self.http.fetch(
-                f"{self.workflow_manager_api_url}/{self._PIGEON_CREATE_WORKFLOWS_PATH}",
+                f"{self.workflow_manager_api_url}/{self._WORKFLOW_MANAGER_CREATE_WORKFLOWS_PATH}",
                 headers={"Content-Type": "application/json"},
                 method="POST",
                 body=json.dumps(serialized_deployment)
             )
         except HTTPError as e:
-            raise Exception("Unable to create Pigeon workflows: " + str(e))
+            raise Exception("Unable to create Workflow Manager workflows: " + str(e))
 
         parsed_response = json.loads(response.body)
         if not parsed_response["success"]:
-            raise Exception("Unable to create Pigeon workflows: " + parsed_response["error"])
+            raise Exception("Unable to create Workflow Manager workflows: " + parsed_response["error"])
 
     @gen.coroutine
     def delete_deployment_workflows(self, deployment_id):
         try:
             response = yield self.http.fetch(
-                f"{self.workflow_manager_api_url}/{self._PIGEON_CREATE_WORKFLOWS_PATH}/{deployment_id}",
+                f"{self.workflow_manager_api_url}/{self._WORKFLOW_MANAGER_CREATE_WORKFLOWS_PATH}/{deployment_id}",
                 method="DELETE",
             )
         except HTTPError as e:
-            raise Exception("Unable to delete Pigeon workflows: " + str(e))
+            raise Exception("Unable to delete Workflow Manager workflows: " + str(e))
 
         parsed_response = json.loads(response.body)
         if not parsed_response["success"]:
-            raise Exception("Unable to delete Pigeon workflows: " + parsed_response["error"])
+            raise Exception("Unable to delete Workflow Manager workflows: " + parsed_response["error"])

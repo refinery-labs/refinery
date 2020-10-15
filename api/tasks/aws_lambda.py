@@ -505,10 +505,10 @@ def _deploy_aws_lambda(aws_client_factory, credentials, lambda_object: LambdaWor
     return response
 
 
-def deploy_aws_lambda_with_code(aws_client_factory, credentials, lambda_object: LambdaWorkflowState, pigeon_invoke_url):
+def deploy_aws_lambda_with_code(aws_client_factory, credentials, lambda_object: LambdaWorkflowState, workflow_manager_invoke_url):
     # Generate environment variables data structure
     env_data = {
-        "WORKFLOW_CALLBACK_URL": pigeon_invoke_url
+        "WORKFLOW_CALLBACK_URL": workflow_manager_invoke_url
     }
 
     # Create Lambda client
@@ -568,7 +568,7 @@ def deploy_aws_lambda_with_code(aws_client_factory, credentials, lambda_object: 
                 aws_client_factory,
                 credentials,
                 lambda_object,
-                pigeon_invoke_url
+                workflow_manager_invoke_url
             )
         raise
 

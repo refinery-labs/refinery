@@ -1,6 +1,6 @@
 from typing import Dict
 
-from assistants.deployments.aws_pigeon.api_endpoint import ApiEndpointWorkflowState
+from assistants.deployments.aws_workflow_manager.api_endpoint import ApiEndpointWorkflowState
 
 
 class ApiGatewayEndpoint:

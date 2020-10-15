@@ -2,7 +2,7 @@ import json
 
 from tornado import gen
 
-from assistants.deployments.aws_pigeon.aws_workflow_state import AwsWorkflowState
+from assistants.deployments.aws_workflow_manager.aws_workflow_state import AwsWorkflowState
 from utils.general import get_random_node_id, logit, split_list_into_chunks
 
 

@@ -5,10 +5,10 @@ import uuid
 from tornado import gen
 from typing import Dict, TYPE_CHECKING
 
-from assistants.deployments.aws_pigeon.aws_workflow_state import AwsWorkflowState
-from assistants.deployments.aws_pigeon.lambda_function import LambdaWorkflowState
-from assistants.deployments.aws_pigeon.sqs_queue_handler import SqsQueueHandlerWorkflowState
-from assistants.deployments.aws_pigeon.types import AwsDeploymentState
+from assistants.deployments.aws_workflow_manager.aws_workflow_state import AwsWorkflowState
+from assistants.deployments.aws_workflow_manager.lambda_function import LambdaWorkflowState
+from assistants.deployments.aws_workflow_manager.sqs_queue_handler import SqsQueueHandlerWorkflowState
+from assistants.deployments.aws_workflow_manager.types import AwsDeploymentState
 from assistants.deployments.diagram.errors import InvalidDeployment
 from assistants.deployments.diagram.queue import QueueWorkflowState
 from assistants.deployments.diagram.types import StateTypes
@@ -53,7 +53,7 @@ class SqsQueueWorkflowState(AwsWorkflowState, QueueWorkflowState):
 
         self.url = f"https://sqs.{region}.amazonaws.com/{account_id}/{self.name}"
 
-        self._pigeon_invoke_url = deploy_diagram.get_pigeon_invoke_url(self.id)
+        self._workflow_manager_invoke_url = deploy_diagram.get_workflow_manager_invoke_url(self.id)
 
         self._queue_handler = SqsQueueHandlerWorkflowState(
             self._credentials,
@@ -73,7 +73,7 @@ class SqsQueueWorkflowState(AwsWorkflowState, QueueWorkflowState):
         resp = yield task_spawner.deploy_aws_lambda_with_code(
             self._credentials,
             self._queue_handler,
-            self._pigeon_invoke_url
+            self._workflow_manager_invoke_url
         )
         deployed_arn = resp["FunctionArn"]
         self._queue_handler.set_arn(deployed_arn)

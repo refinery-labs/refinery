@@ -157,7 +157,7 @@ class DeploymentDiagram:
 	def get_workflow_state_deploy_future(self, workflow_state: WorkflowState):
 		return None
 
-	def get_pigeon_invoke_url(self, workflow_state_id: str):
+	def get_workflow_manager_invoke_url(self, workflow_state_id: str):
 		return None
 
 	def create_predeploy_future(self, workflow_state: WorkflowState):

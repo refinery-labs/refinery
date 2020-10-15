@@ -39,8 +39,7 @@ class Python36Builder:
         self.credentials = credentials
         self.code = str(code)
         self.libraries = [
-            *libraries,
-            "boto3"
+            *libraries
         ]
         self.libraries_object = generate_libraries_dict(self.libraries)
 

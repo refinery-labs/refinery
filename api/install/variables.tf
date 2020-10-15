@@ -1,3 +1,5 @@
+variable "root_account_id" {}
+
 variable "access_key" {
 }
 
