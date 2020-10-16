@@ -74,5 +74,6 @@ export const blockTypeToEditorComponentLookup: BlockTypeToEditorComponent = {
   [WorkflowStateType.API_GATEWAY]: () => EditAPIEndpointBlock,
   [WorkflowStateType.WARMER_TRIGGER]: () => EditAPIEndpointBlock,
   [WorkflowStateType.API_GATEWAY_RESPONSE]: () => EditAPIResponseBlock,
-  [WorkflowStateType.SQS_QUEUE]: () => EditQueueBlock
+  [WorkflowStateType.SQS_QUEUE]: () => EditQueueBlock,
+  [WorkflowStateType.SQS_QUEUE_HANDLER]: () => EditQueueBlock
 };

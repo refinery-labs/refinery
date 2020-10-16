@@ -8,6 +8,7 @@ from botocore.exceptions import ClientError
 from typing import TYPE_CHECKING
 
 from assistants.decorators import aws_exponential_backoff
+from assistants.deployments.aws_workflow_manager import api_endpoint
 from utils.general import logit
 
 if TYPE_CHECKING:
@@ -172,6 +173,20 @@ def try_to_put_api_integration(api_gateway_client, rest_api_id, resource_id, api
 
 
 @aws_exponential_backoff(max_attempts=10)
+def try_to_put_http_api_integration(api_gateway_client, rest_api_id, resource_id, api_endpoint: ApiEndpointWorkflowState, http_url):
+    return api_gateway_client.put_integration(
+        restApiId=rest_api_id,
+        resourceId=resource_id,
+        httpMethod=api_endpoint.http_method,
+        type="HTTP_PROXY",
+        integrationHttpMethod=api_endpoint.http_method,
+        uri=http_url,
+        connectionType="INTERNET",
+        timeoutInMillis=29000  # 29 seconds
+    )
+
+
+@aws_exponential_backoff(max_attempts=10)
 def try_to_put_integration_response(api_gateway_client, rest_api_id, resource_id, api_endpoint):
     return api_gateway_client.put_integration_response(
         restApiId=rest_api_id,
@@ -241,3 +256,32 @@ def link_api_method_to_lambda(aws_client_factory, credentials, rest_api_id, reso
         "arn": integration_response["uri"],
         "statement": lambda_permission_add_response["Statement"]
     }
+
+
+def link_api_method_to_workflow(aws_client_factory, credentials, rest_api_id, resource_id, api_endpoint: api_endpoint.ApiEndpointWorkflowState):
+    api_gateway_client = aws_client_factory.get_aws_client(
+        "apigateway",
+        credentials
+    )
+
+    try:
+        integration_response = try_to_put_http_api_integration(
+            api_gateway_client,
+            rest_api_id,
+            resource_id,
+            api_endpoint,
+            api_endpoint._workflow_manager_invoke_url
+        )
+    except ClientError as e:
+        raise Exception(f"Unable to set integration {rest_api_id} {resource_id} for url {api_endpoint._workflow_manager_invoke_url}: {str(e)}")
+
+    # Clown-shoes AWS bullshit for binary response
+    try:
+        try_to_put_integration_response(
+            api_gateway_client,
+            rest_api_id,
+            resource_id,
+            api_endpoint
+        )
+    except ClientError as e:
+        raise Exception(f"Unable to set integration response {rest_api_id} {resource_id} for ur {api_endpoint._workflow_manager_invoke_url}: {str(e)}")

@@ -322,6 +322,7 @@ export interface InfraCollisionResult {
 // InfraTearDown
 export interface InfraTearDownRequest extends BaseApiRequest {
   teardown_nodes: ProductionWorkflowState[];
+  deployment_id: string;
   project_id: string;
 }
 

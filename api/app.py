@@ -49,6 +49,7 @@ class TornadoApp:
             exit()
 
         logger("Lambda callback endpoint is " + app_config.get("LAMBDA_CALLBACK_ENDPOINT"))
+        logger("Workflow manager is " + app_config.get("workflow_manager_api_url"))
 
     def new_server(self, object_graph):
         return tornado.httpserver.HTTPServer(

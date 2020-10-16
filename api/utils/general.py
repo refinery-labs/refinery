@@ -8,6 +8,7 @@ import struct
 import logging
 import math
 from typing import Literal
+from zipfile import ZipInfo
 
 import pinject
 
@@ -123,3 +124,10 @@ def log_exception(f):
 
 def print_object_graph(object_graph):
     print(object_graph._obj_provider._binding_mapping._binding_key_to_binding)
+
+
+def add_file_to_zipfile(handler, file_name, contents):
+    # Write buildspec.yml defining the build process
+    info = ZipInfo(file_name)
+    info.external_attr = 0o777 << 16
+    handler.writestr(info, contents)

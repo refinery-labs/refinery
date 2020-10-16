@@ -2,8 +2,8 @@ from tornado import gen
 from typing import List
 
 from assistants.deployments.api_gateway import strip_api_gateway
-from assistants.deployments.aws.api_gateway import ApiGatewayDeploymentState
-from assistants.deployments.aws.types import AwsDeploymentState
+from assistants.deployments.aws_workflow_manager.api_gateway import ApiGatewayDeploymentState
+from assistants.deployments.aws_workflow_manager.types import AwsDeploymentState
 from assistants.deployments.diagram.types import StateTypes
 
 
@@ -39,7 +39,7 @@ def teardown_infrastructure(api_gateway_manager, lambda_manager, schedule_trigge
 
         # TODO we should just pass the workflow states into here
 
-        if teardown_node["type"] == "lambda" or teardown_node["type"] == "api_endpoint":
+        if teardown_node["type"] == "lambda" or teardown_node["type"] == "api_endpoint" or teardown_node["type"] == "sqs_queue_handler":
             teardown_operation_futures.append(
                 lambda_manager.delete_lambda(
                     credentials,
@@ -100,7 +100,7 @@ def teardown_deployed_states(api_gateway_manager, lambda_manager, schedule_trigg
     # TODO refactor teardown functions so that they only take have the necessary info
 
     for teardown_node in teardown_nodes:
-        if teardown_node.type == StateTypes.LAMBDA or teardown_node.type == StateTypes.API_ENDPOINT:
+        if teardown_node.type == StateTypes.LAMBDA or teardown_node.type == StateTypes.API_ENDPOINT or teardown_node.type == StateTypes.SQS_QUEUE_HANDLER:
             teardown_operation_futures.append(
                 lambda_manager.delete_lambda(
                     credentials,
