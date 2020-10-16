@@ -5,6 +5,7 @@
       <module fileurl="file://$PROJECT_DIR$/api/api.iml" filepath="$PROJECT_DIR$/api/api.iml" />
       <module fileurl="file://$PROJECT_DIR$/front-end/front-end.iml" filepath="$PROJECT_DIR$/front-end/front-end.iml" />
       <module fileurl="file://$PROJECT_DIR$/refinery.iml" filepath="$PROJECT_DIR$/refinery.iml" />
+      <module fileurl="file://$PROJECT_DIR$/scripts/s3-log-deleter/s3-log-deleter.iml" filepath="$PROJECT_DIR$/scripts/s3-log-deleter/s3-log-deleter.iml" />
     </modules>
   </component>
 </project>
