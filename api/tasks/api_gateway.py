@@ -48,7 +48,7 @@ def create_rest_api(aws_client_factory, credentials, name, description, version)
             if response and response.get("Error", {}).get("Code") == "TooManyRequestsException":
                 logit("TooManyRequestsException when trying to deploy the api gateway")
                 # we are calling the api too fast, let's try sleeping for a bit and trying again
-                time.sleep(1)
+                time.sleep((attempts + 1) * (attempts + 1))
                 attempts += 1
 
     return response["id"]
