@@ -4,7 +4,6 @@ import time
 from typing import TYPE_CHECKING
 
 from assistants.decorators import aws_exponential_backoff
-from assistants.deployments.aws.exceptions import LambdaTimeoutError
 from assistants.deployments.aws.response_types import LambdaEventSourceMapping
 from assistants.deployments.ecs_builders import BuilderManager
 from assistants.deployments.shared_files import (
