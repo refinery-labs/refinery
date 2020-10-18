@@ -4,6 +4,7 @@ from time import sleep
 
 from botocore.exceptions import ClientError
 
+from assistants.decorators import aws_exponential_backoff
 from assistants.deployments.aws.response_types import CloudwatchRuleTarget
 from utils.general import logit
 
@@ -43,6 +44,7 @@ def automatically_fix_schedule_expression(schedule_expression):
     return schedule_expression
 
 
+@aws_exponential_backoff(allowed_errors=["ThrottlingException"])
 def create_cloudwatch_group(aws_client_factory, credentials, group_name, tags_dict, retention_days):
     # Create S3 client
     cloudwatch_logs = aws_client_factory.get_aws_client(

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING
 
+from assistants.decorators import aws_exponential_backoff
+from assistants.deployments.aws.exceptions import LambdaTimeoutError
 from assistants.deployments.aws.response_types import LambdaEventSourceMapping
 from assistants.deployments.ecs_builders import BuilderManager
 from assistants.deployments.shared_files import (
@@ -425,6 +428,7 @@ def deploy_aws_lambda(app_config, aws_client_factory, db_session_maker, lambda_m
     return lambda_deploy_result
 
 
+@aws_exponential_backoff(allowed_errors=["ResourceConflictException"])
 def _deploy_aws_lambda(aws_client_factory, credentials, lambda_object: LambdaWorkflowState, s3_package_zip_path):
     # Generate environment variables data structure
     env_data = {}
@@ -468,14 +472,6 @@ def _deploy_aws_lambda(aws_client_factory, credentials, lambda_object: LambdaWor
                 lambda_object.name
             )
 
-            # Now create it since we're clear
-            # TODO: THIS IS A POTENTIAL INFINITE LOOP!
-            return _deploy_aws_lambda(
-                aws_client_factory,
-                credentials,
-                lambda_object,
-                s3_package_zip_path
-            )
         raise
 
     return response
@@ -568,6 +564,7 @@ def list_lambda_event_source_mappings(aws_client_factory, credentials, lambda_ob
 
 
 # TODO we shouldn't need this, we should only be using workflow state objects
+@aws_exponential_backoff()
 def list_lambda_event_source_mappings_by_name(aws_client_factory, credentials, lambda_name):
     lambda_client = aws_client_factory.get_aws_client(
         "lambda",
