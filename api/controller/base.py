@@ -239,6 +239,8 @@ class BaseHandler(TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler):
             id=str( user_id )
         ).first()
 
+        self.dbsession.expunge(authenticated_user)
+
         self.authenticated_user = authenticated_user
 
         return authenticated_user
