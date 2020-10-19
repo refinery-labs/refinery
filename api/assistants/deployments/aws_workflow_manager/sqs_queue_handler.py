@@ -4,11 +4,8 @@ from typing import Dict, TYPE_CHECKING
 
 from tornado import gen
 
-from assistants.deployments.aws.utils import get_layers_for_lambda
-from assistants.deployments.diagram.endpoint import EndpointWorkflowState
-from assistants.deployments.aws.lambda_function import LambdaWorkflowState
+from assistants.deployments.aws_workflow_manager.lambda_function import LambdaWorkflowState
 from assistants.task_spawner.task_spawner_assistant import TaskSpawner
-from utils.general import logit
 
 if TYPE_CHECKING:
     from assistants.deployments.aws.aws_deployment import AwsDeployment
@@ -69,7 +66,8 @@ module.exports.handler = async event => {
 };
 """
 
-class SqsQueueHandlerWorkflowState(LambdaWorkflowState, EndpointWorkflowState):
+
+class SqsQueueHandlerWorkflowState(LambdaWorkflowState):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

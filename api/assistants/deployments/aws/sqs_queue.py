@@ -32,6 +32,7 @@ class SqsQueueWorkflowState(AwsWorkflowState, QueueWorkflowState):
         serialized_ws = super().serialize()
         return {
             **serialized_ws,
+            "url": self.url,
             "batch_size": self.batch_size
         }
 

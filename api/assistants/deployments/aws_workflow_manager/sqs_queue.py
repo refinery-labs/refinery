@@ -5,12 +5,9 @@ import uuid
 from tornado import gen
 from typing import Dict, TYPE_CHECKING
 
-from assistants.deployments.aws_workflow_manager.aws_workflow_state import AwsWorkflowState
+from assistants.deployments.aws import sqs_queue
 from assistants.deployments.aws_workflow_manager.lambda_function import LambdaWorkflowState
 from assistants.deployments.aws_workflow_manager.sqs_queue_handler import SqsQueueHandlerWorkflowState
-from assistants.deployments.aws_workflow_manager.types import AwsDeploymentState
-from assistants.deployments.diagram.errors import InvalidDeployment
-from assistants.deployments.diagram.queue import QueueWorkflowState
 from assistants.deployments.diagram.types import StateTypes
 from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from utils.general import logit
@@ -19,39 +16,15 @@ if TYPE_CHECKING:
     from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
 
 
-class SqsQueueWorkflowState(AwsWorkflowState, QueueWorkflowState):
+class SqsQueueWorkflowState(sqs_queue.SqsQueueWorkflowState):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # TODO should we change this name to something random since it takes up to 60 seconds to delete a queue?
-        # we are unable to create a queue with the same name on redeploy until the other one has been deleted.
-        # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sqs.html#SQS.Client.delete_queue
-        # self.name += random_value
-
-        self.url = ''
-        self.batch_size = None
-        self.visibility_timeout = 900 # Max Lambda runtime - TODO set this to the linked Lambda amount
-
         self._queue_handler: LambdaWorkflowState = None
-
-    def serialize(self):
-        serialized_ws = super().serialize()
-        return {
-            **serialized_ws,
-            "url": self.url,
-            "batch_size": self.batch_size
-        }
+        self._workflow_manager_invoke_url = None
 
     def setup(self, deploy_diagram: DeploymentDiagram, workflow_state_json: Dict[str, str]):
         super().setup(deploy_diagram, workflow_state_json)
-
-        if self.deployed_state is None:
-            self.deployed_state = AwsDeploymentState(self.name, StateTypes.SQS_QUEUE, None, self.arn)
-
-        region = self._credentials["region"]
-        account_id = self._credentials["account_id"]
-
-        self.url = f"https://sqs.{region}.amazonaws.com/{account_id}/{self.name}"
 
         self._workflow_manager_invoke_url = deploy_diagram.get_workflow_manager_invoke_url(self.id)
 
@@ -62,11 +35,6 @@ class SqsQueueWorkflowState(AwsWorkflowState, QueueWorkflowState):
             StateTypes.SQS_QUEUE_HANDLER
         )
         deploy_diagram.add_workflow_state(self._queue_handler)
-
-        try:
-            self.batch_size = int(workflow_state_json["batch_size"])
-        except ValueError:
-            raise InvalidDeployment(f"unable to parse 'batch_size' for SQS Queue: {self.name}")
 
     @gen.coroutine
     def deploy_and_link_sqs_queue(self, task_spawner):
@@ -100,13 +68,6 @@ class SqsQueueWorkflowState(AwsWorkflowState, QueueWorkflowState):
     def deploy(self, task_spawner, project_id, project_config):
         logit(f"Deploying SQS queue '{self.name}'...")
         return self.deploy_and_link_sqs_queue(task_spawner)
-
-    @gen.coroutine
-    def predeploy(self, task_spawner):
-        self.deployed_state.exists = task_spawner.get_sqs_existence_info(
-            self._credentials,
-            self
-        )
 
     def _link_trigger_to_next_deployed_state(self, task_spawner: TaskSpawner, next_node: LambdaWorkflowState):
         pass
