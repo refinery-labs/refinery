@@ -1,18 +1,10 @@
 from __future__ import annotations
 
-import hashlib
-import json
-
 from tornado import gen
-from typing import Dict, List, TYPE_CHECKING
+from typing import Dict, TYPE_CHECKING
 
 from assistants.deployments.aws import lambda_function
-from assistants.deployments.aws_workflow_manager.aws_workflow_state import AwsWorkflowState
-from assistants.deployments.aws_workflow_manager.response_types import LambdaEventSourceMapping
-from assistants.deployments.aws_workflow_manager.types import AwsDeploymentState
-from assistants.deployments.diagram.code_block import CodeBlockWorkflowState
-from assistants.deployments.diagram.types import StateTypes
-from assistants.deployments.aws_workflow_manager.utils import get_language_specific_environment_variables, get_layers_for_lambda
+from assistants.deployments.aws.utils import get_language_specific_environment_variables
 from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
 from utils.general import logit
 

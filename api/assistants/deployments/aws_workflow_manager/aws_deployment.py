@@ -3,7 +3,7 @@ from assistants.deployments.aws import aws_deployment
 
 class AwsDeployment(aws_deployment.AwsDeployment):
     def __init__(self, *args, app_config=None, api_gateway_manager=None, latest_deployment=None, **kwargs):
-        super().__init__(*args, app_config=app_config, api_gateway_manager=api_gateway_manager, latest_deployment=latest_deployment, **kwargs)
+        super().__init__(*args, api_gateway_manager=api_gateway_manager, latest_deployment=latest_deployment, **kwargs)
 
         self.workflow_manager_api_url = app_config.get("workflow_manager_api_url")
 
