@@ -5,6 +5,7 @@ from time import sleep
 from typing import TYPE_CHECKING
 
 from utils.general import get_safe_workflow_state_name, logit
+from utils.wrapped_aws_functions import sqs_get_queue_url, lambda_create_event_source_mapping, sqs_create_queue
 
 if TYPE_CHECKING:
     from assistants.deployments.aws.sqs_queue import SqsQueueWorkflowState
@@ -21,9 +22,10 @@ def create_sqs_queue(aws_client_factory, credentials, sqs_queue_state: SqsQueueW
     queue_deleted = False
     while not queue_deleted:
         try:
-            sqs_response = sqs_client.create_queue(
-                QueueName=sqs_queue_name,
-                Attributes={
+            sqs_response = sqs_create_queue(
+                sqs_client,
+                queue_name=sqs_queue_name,
+                attributes={
                     "DelaySeconds": str(0),
                     "MaximumMessageSize": "262144",
                     # Lambda max time plus ten seconds
@@ -59,11 +61,12 @@ def map_sqs_to_lambda(aws_client_factory, credentials, sqs_node, next_node):
         credentials
     )
 
-    response = lambda_client.create_event_source_mapping(
-        EventSourceArn=sqs_node.arn,
-        FunctionName=next_node.arn,
-        Enabled=True,
-        BatchSize=sqs_node.batch_size,
+    response = lambda_create_event_source_mapping(
+        lambda_client,
+        event_source_arn=sqs_node.arn,
+        function_name=next_node.arn,
+        enabled=True,
+        batch_size=sqs_node.batch_size,
     )
 
     return response
@@ -76,8 +79,9 @@ def get_sqs_existence_info(aws_client_factory, credentials, sqs_object):
     )
 
     try:
-        queue_url_response = sqs_client.get_queue_url(
-            QueueName=sqs_object.name,
+        queue_url_response = sqs_get_queue_url(
+            sqs_client,
+            queue_name=sqs_object.name,
         )
     except sqs_client.exceptions.QueueDoesNotExist:
         return False

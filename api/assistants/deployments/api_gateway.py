@@ -16,6 +16,10 @@ from tornado import gen
 from botocore.exceptions import ClientError
 
 from utils.performance_decorators import emit_runtime_metrics
+from utils.wrapped_aws_functions import api_gateway_delete_rest_api_resource, \
+    api_gateway_delete_rest_api_resource_method, \
+    api_gateway_get_rest_api, api_gateway_get_resources, api_gateway_get_stages, api_gateway_delete_rest_api, \
+    api_gateway_delete_stage
 
 if TYPE_CHECKING:
     from assistants.deployments.aws.api_gateway import ApiGatewayWorkflowState
@@ -135,8 +139,9 @@ class ApiGatewayManager(object):
             credentials
         )
         try:
-            api_gateway_data = api_gateway_client.get_rest_api(
-                restApiId=api_gateway_id,
+            api_gateway_data = api_gateway_get_rest_api(
+                api_gateway_client,
+                rest_api_id=api_gateway_id,
             )
         except ClientError as e:
             if e.response["Error"]["Code"] == "NotFoundException":
@@ -165,8 +170,9 @@ class ApiGatewayManager(object):
             credentials
         )
 
-        response = api_gateway_client.get_resources(
-            restApiId=rest_api_id,
+        response = api_gateway_get_resources(
+            api_gateway_client,
+            rest_api_id=rest_api_id,
             limit=500,
             embed=[
                 "methods"
@@ -221,8 +227,9 @@ class ApiGatewayManager(object):
             credentials
         )
 
-        response = api_gateway_client.get_stages(
-            restApiId=rest_api_id
+        response = api_gateway_get_stages(
+            api_gateway_client,
+            rest_api_id=rest_api_id
         )
 
         return response["item"]
@@ -236,7 +243,8 @@ class ApiGatewayManager(object):
         )
 
         try:
-            response = api_gateway_client.delete_rest_api(
+            response = api_gateway_delete_rest_api(
+                api_gateway_client,
                 restApiId=rest_api_id,
             )
         except botocore.exceptions.ClientError as boto_error:
@@ -248,13 +256,6 @@ class ApiGatewayManager(object):
             "id": rest_api_id,
         }
 
-    @staticmethod
-    @aws_exponential_backoff(breaking_errors=[NOT_FOUND_EXCEPTION])
-    def try_delete_rest_api_resource(api_gateway_client, rest_api_id, resource_id):
-        return api_gateway_client.delete_resource(
-            restApiId=rest_api_id,
-            resourceId=resource_id,
-        )
 
     @run_on_executor
     @emit_runtime_metrics("api_gateway__delete_rest_api_resource")
@@ -264,7 +265,7 @@ class ApiGatewayManager(object):
             credentials
         )
 
-        ApiGatewayManager.try_delete_rest_api_resource(
+        api_gateway_delete_rest_api_resource(
             api_gateway_client,
             rest_api_id,
             resource_id
@@ -275,15 +276,6 @@ class ApiGatewayManager(object):
             "resource_id": resource_id
         }
 
-    @staticmethod
-    @aws_exponential_backoff(breaking_errors=[NOT_FOUND_EXCEPTION])
-    def try_delete_rest_api_resource_method(api_gateway_client, rest_api_id, resource_id, method):
-        return api_gateway_client.delete_method(
-            restApiId=rest_api_id,
-            resourceId=resource_id,
-            httpMethod=method,
-        )
-
     @run_on_executor
     @emit_runtime_metrics("api_gateway__delete_rest_api_resource_method")
     def delete_rest_api_resource_method(self, credentials, rest_api_id, resource_id, method):
@@ -292,7 +284,7 @@ class ApiGatewayManager(object):
             credentials
         )
 
-        ApiGatewayManager.try_delete_rest_api_resource_method(
+        api_gateway_delete_rest_api_resource_method(
             api_gateway_client,
             rest_api_id,
             resource_id,
@@ -313,7 +305,7 @@ class ApiGatewayManager(object):
             credentials
         )
 
-        response = api_gateway_client.delete_stage(
+        response = api_gateway_delete_stage(
             restApiId=rest_api_id,
             stageName=stage_name
         )

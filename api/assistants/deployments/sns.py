@@ -6,6 +6,7 @@ from tornado.concurrent import run_on_executor, futures
 from botocore.exceptions import ClientError
 
 from utils.general import log_exception
+from utils.wrapped_aws_functions import sns_delete_topic
 
 
 class SnsManager(object):
@@ -32,8 +33,9 @@ class SnsManager(object):
         was_deleted = False
 
         try:
-            response = sns_client.delete_topic(
-                TopicArn=arn,
+            response = sns_delete_topic(
+                sns_client,
+                arn=arn,
             )
             was_deleted = True
         except ClientError as e:
