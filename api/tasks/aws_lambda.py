@@ -457,7 +457,12 @@ def publish_new_aws_lambda_version(app_config, aws_client_factory, credentials, 
 
     lambda_packages_bucket = credentials["lambda_packages_bucket"]
 
-    response = lambda_update_function_code(lambda_client, lambda_packages_bucket, lambda_object.name, s3_package_zip_path)
+    response = lambda_update_function_code(
+        lambda_client,
+        s3_bucket=lambda_packages_bucket,
+        function_name=lambda_object.name,
+        s3_key=s3_package_zip_path
+    )
 
     # Generate environment variables data structure
     env_data = {}
