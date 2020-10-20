@@ -39,3 +39,5 @@ class ApiGatewayWorkflowState(api_gateway.ApiGatewayWorkflowState):
             api_endpoint
         )
 
+    def setup_api_endpoint(self, task_spawner, api_endpoint):
+        return self.create_lambda_api_route(task_spawner, api_endpoint)

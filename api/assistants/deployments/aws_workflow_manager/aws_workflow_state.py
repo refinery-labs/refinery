@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, TYPE_CHECKING
 
 from assistants.deployments.aws import aws_workflow_state
-from assistants.deployments.aws_workflow_manager.aws_deployment import AwsDeployment
+
+if TYPE_CHECKING:
+    from assistants.deployments.aws_workflow_manager.aws_deployment import AwsDeployment
 
 
 class AwsWorkflowState(aws_workflow_state.AwsWorkflowState):

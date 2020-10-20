@@ -1,13 +1,9 @@
 from __future__ import annotations
 
 from tornado import gen
-from typing import Dict, List, TYPE_CHECKING
+from typing import Dict, TYPE_CHECKING
 
 from assistants.deployments.aws import sns_topic
-from assistants.deployments.aws_workflow_manager.aws_workflow_state import AwsWorkflowState
-from assistants.deployments.aws_workflow_manager.response_types import TopicSubscription
-from assistants.deployments.aws_workflow_manager.types import AwsDeploymentState
-from assistants.deployments.diagram.topic import TopicWorkflowState
 from assistants.deployments.diagram.types import StateTypes
 from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from utils.general import logit

@@ -416,7 +416,10 @@ class DeployDiagram(BaseHandler):
         try:
             yield self.workflow_manager_service.create_workflows_for_deployment(workflow_manager_serialized_deployment)
         except WorkflowManagerException as e:
+            self.logger("An error occurred while trying to create workflows in the Workflow Manager: " + str(e), "error")
+
             yield self.rollback_deployment(deployment_diagram, credentials, [str(e)])
+
             raise gen.Return()
 
         # TODO: Update the project data? Deployments should probably be an explicit "Save Project" action.
