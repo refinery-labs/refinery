@@ -645,7 +645,7 @@ def clean_lambda_iam_policies(aws_client_factory, credentials, lambda_name):
     try:
         response = lambda_get_policy(
             lambda_client,
-            FunctionName=lambda_name,
+            function_name=lambda_name,
         )
     except ClientError as e:
         if e.response["Error"]["Code"] == "ResourceNotFoundException":
