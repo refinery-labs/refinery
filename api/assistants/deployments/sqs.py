@@ -5,6 +5,7 @@ from tornado.concurrent import run_on_executor, futures
 
 from botocore.exceptions import ClientError
 
+from assistants.decorators import aws_exponential_backoff
 from utils.general import log_exception
 from utils.performance_decorators import emit_runtime_metrics
 
@@ -48,6 +49,7 @@ class SqsManager(object):
         )
 
     @staticmethod
+    @aws_exponential_backoff()
     def _delete_sqs_queue(aws_client_factory, credentials, _id, _type, name, arn):
         sqs_client = aws_client_factory.get_aws_client(
             "sqs",

@@ -1,4 +1,5 @@
 from tornado import gen
+from typing import AnyStr
 
 from assistants.aws_clients.aws_clients_assistant import AwsClientFactory
 from utils.general import log_exception
@@ -64,17 +65,13 @@ from tasks.billing import (
     get_sub_account_billing_forecast
 )
 from tasks.aws_lambda import (
-    check_if_layer_exists,
-    create_lambda_layer,
     warm_up_lambda,
     execute_aws_lambda,
-    delete_aws_lambda,
     update_lambda_environment_variables,
     set_lambda_reserved_concurrency,
     deploy_aws_lambda,
-    get_aws_lambda_existence_info,
     clean_lambda_iam_policies, publish_new_aws_lambda_version, list_lambda_event_source_mappings,
-    delete_lambda_event_source_mapping)
+)
 from tasks.build.common import (
     finalize_codebuild
 )
@@ -93,6 +90,7 @@ from tasks.build.common import (
 from tasks.build.php import (
     start_php73_codebuild
 )
+
 from tasks.cloudwatch import (
     create_cloudwatch_rule,
     create_cloudwatch_group,
@@ -119,6 +117,15 @@ from tasks.api_gateway import (
 
 
 # noinspection PyTypeChecker,SqlResolve
+from utils.wrapped_aws_functions import (
+    lambda_get_layer_version,
+    lambda_delete_event_source_mapping,
+    lambda_publish_layer_version,
+    delete_aws_lambda,
+    lambda_check_if_function_exists
+)
+
+
 class TaskSpawner(object):
     app_config = None
     db_session_maker = None
@@ -481,18 +488,24 @@ class TaskSpawner(object):
     @run_on_executor
     @emit_runtime_metrics("check_if_layer_exists")
     def check_if_layer_exists(self, credentials, layer_name):
-        return check_if_layer_exists(
-            self.aws_client_factory,
-            credentials,
-            layer_name
-        )
+        lambda_client = self.aws_client_factory.get_aws_client("lambda", credentials)
+
+        return lambda_get_layer_version(lambda_client, layer_name)
 
     @run_on_executor
     @emit_runtime_metrics("create_lambda_layer")
-    def create_lambda_layer(self, credentials, layer_name, description, s3_bucket, s3_object_key):
-        return create_lambda_layer(
-            self.aws_client_factory,
+    def create_lambda_layer(
+            self,
             credentials,
+            layer_name: AnyStr,
+            description: AnyStr,
+            s3_bucket: AnyStr,
+            s3_object_key: AnyStr
+    ):
+        lambda_client = self.aws_client_factory.get_aws_client("lambda", credentials)
+
+        return lambda_publish_layer_version(
+            lambda_client,
             layer_name,
             description,
             s3_bucket,
@@ -586,9 +599,13 @@ class TaskSpawner(object):
     @log_exception
     @emit_runtime_metrics("delete_lambda_event_source_mapping")
     def delete_lambda_event_source_mapping(self, credentials, event_source_uuid):
-        return delete_lambda_event_source_mapping(
-            self.aws_client_factory,
-            credentials,
+        lambda_client = self.aws_client_factory.get_aws_client(
+            "lambda",
+            credentials
+        )
+
+        return lambda_delete_event_source_mapping(
+            lambda_client,
             event_source_uuid
         )
 
@@ -855,7 +872,7 @@ class TaskSpawner(object):
     @run_on_executor
     @emit_runtime_metrics("get_aws_lambda_existence_info")
     def get_aws_lambda_existence_info(self, credentials, lambda_object):
-        return get_aws_lambda_existence_info(self.aws_client_factory, credentials, lambda_object)
+        return lambda_check_if_function_exists(self.aws_client_factory, credentials, lambda_object)
 
     @run_on_executor
     @emit_runtime_metrics("get_lambda_cloudwatch_logs")

@@ -64,7 +64,7 @@ def finalize_codebuild(aws_client_factory, credentials, build_id, final_s3_packa
     build_status = None
 
     # Loop until we have the build information (up to ~2 minutes)
-    for _ in range(50):
+    for _ in range(100):
         # Check the status of the build we just kicked off
         try:
             codebuild_build_status_response = codebuild_client.batch_get_builds(

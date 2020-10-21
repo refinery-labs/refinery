@@ -2,6 +2,8 @@ from uuid import uuid4
 
 from assistants.deployments.aws.response_types import TopicSubscription
 from utils.general import get_safe_workflow_state_name
+from utils.wrapped_aws_functions import sns_get_topic_attributes, sns_list_subscriptions_by_topic, sns_create_topic, \
+    sns_subscribe
 
 
 def get_sns_topic_subscriptions(aws_client_factory, credentials, sns_object):
@@ -13,19 +15,19 @@ def get_sns_topic_subscriptions(aws_client_factory, credentials, sns_object):
     topic_subs = []
 
     try:
-        response = sns_client.get_topic_attributes(
-            TopicArn=sns_object.arn
+        response = sns_get_topic_attributes(
+            sns_client,
+            arn=sns_object.arn
         )
 
         topic_arn = response["Attributes"]["TopicArn"]
 
         next_token = None
         while True:
-            next_token_param = dict(NextToken=next_token) if next_token is not None else dict()
-
-            response = sns_client.list_subscriptions_by_topic(
-                TopicArn=topic_arn,
-                **next_token_param
+            response = sns_list_subscriptions_by_topic(
+                sns_client,
+                topic_arn=topic_arn,
+                next_token=next_token
             )
 
             subscriptions = response["Subscriptions"]
@@ -59,9 +61,10 @@ def create_sns_topic(aws_client_factory, credentials, id, topic_name):
     )
 
     topic_name = get_safe_workflow_state_name(topic_name)
-    response = sns_client.create_topic(
-        Name=topic_name,
-        Tags=[
+    response = sns_create_topic(
+        sns_client,
+        name=topic_name,
+        tags=[
             {
                 "Key": "RefineryResource",
                 "Value": "true"
@@ -100,7 +103,8 @@ def subscribe_lambda_to_sns_topic(aws_client_factory, credentials, topic_object,
         # SourceAccount=self.app_config.get( "aws_account_id" ) # THIS IS A BUG IN AWS NEVER PASS THIS
     )
 
-    sns_topic_response = sns_client.subscribe(
+    sns_topic_response = sns_subscribe(
+        sns_client,
         TopicArn=topic_object.arn,
         Protocol="lambda",
         Endpoint=lambda_object.arn,
