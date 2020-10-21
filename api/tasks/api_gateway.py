@@ -28,13 +28,13 @@ def create_rest_api(aws_client_factory, credentials, name, description, version)
         name=name,
         description=description,
         version=version,
-        apiKeySource="HEADER",
-        endpointConfiguration={
+        api_key_source="HEADER",
+        endpoint_configuration={
             "types": [
                 "EDGE",
             ]
         },
-        binaryMediaTypes=[
+        binary_media_types=[
             "*/*"
         ],
         tags={

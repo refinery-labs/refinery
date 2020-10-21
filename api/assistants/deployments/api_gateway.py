@@ -245,7 +245,7 @@ class ApiGatewayManager(object):
         try:
             response = api_gateway_delete_rest_api(
                 api_gateway_client,
-                restApiId=rest_api_id,
+                rest_api_id=rest_api_id,
             )
         except botocore.exceptions.ClientError as boto_error:
             # If it's not an NotFoundException exception it's not what we except so we re-raise
@@ -306,8 +306,9 @@ class ApiGatewayManager(object):
         )
 
         response = api_gateway_delete_stage(
-            restApiId=rest_api_id,
-            stageName=stage_name
+            api_gateway_client,
+            rest_api_id,
+            stage_name
         )
 
         return {

@@ -684,8 +684,8 @@ def clean_lambda_iam_policies(aws_client_factory, credentials, lambda_name):
 
             delete_permission_response = lambda_remove_permission(
                 lambda_client,
-                FunctionName=lambda_name,
-                StatementId=statement["Sid"]
+                function_name=lambda_name,
+                statement_id=statement["Sid"]
             )
 
     return {}

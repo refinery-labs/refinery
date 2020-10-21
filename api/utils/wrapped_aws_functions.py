@@ -322,7 +322,9 @@ def lambda_update_function_configuration(
         Role=role,
         Timeout=timeout,
         MemorySize=memory_size,
-        Environment=env_data,
+        Environment={
+            "Variables": env_data
+        },
         Layers=layers,
     )
 

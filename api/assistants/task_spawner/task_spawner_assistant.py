@@ -506,7 +506,6 @@ class TaskSpawner(object):
 
         return lambda_publish_layer_version(
             lambda_client,
-            credentials,
             layer_name,
             description,
             s3_bucket,
