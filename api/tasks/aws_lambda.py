@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import copy
 import zipfile
 from io import BytesIO
 from typing import TYPE_CHECKING
-from zipfile import ZIP_DEFLATED, ZipFile
 
+from assistants.decorators import aws_exponential_backoff
 from assistants.deployments.aws.response_types import LambdaEventSourceMapping
 from assistants.deployments.ecs_builders import BuilderManager
 from assistants.deployments.shared_files import (
@@ -28,6 +27,10 @@ from tasks.build.temporal.python import Python36Builder
 from tasks.build.temporal.nodejs import NodeJs12Builder
 from tasks.s3 import s3_object_exists
 from utils.general import logit, log_exception
+from utils.wrapped_aws_functions import lambda_list_event_source_mappings, api_gateway_get_rest_api, \
+    lambda_list_functions, lambda_put_function_concurrency, lambda_invoke, LambdaLogType, LambdaInvocationType, \
+    lambda_delete_function, lambda_publish_version, lambda_update_function_code, lambda_update_function_configuration, \
+    lambda_get_policy, lambda_remove_permission, delete_aws_lambda
 
 if TYPE_CHECKING:
     from assistants.deployments.aws.lambda_function import LambdaWorkflowState
@@ -50,9 +53,7 @@ def get_lambda_arns(aws_client_factory, credentials):
 
     # Don't list more than 200 pages of Lambdas (I hope this is never happens!)
     for _ in range(200):
-        lambda_functions_response = lambda_client.list_functions(
-            **lambda_list_params
-        )
+        lambda_functions_response = lambda_list_functions(lambda_client, **lambda_list_params)
 
         for lambda_function_data in lambda_functions_response["Functions"]:
             lambda_arn_list.append(
@@ -67,7 +68,8 @@ def get_lambda_arns(aws_client_factory, credentials):
 
     # Iterate over list of Lambda ARNs and set concurrency to zero for all
     for lambda_arn in lambda_arn_list:
-        lambda_client.put_function_concurrency(
+        lambda_put_function_concurrency(
+            lambda_client,
             FunctionName=lambda_arn,
             ReservedConcurrentExecutions=0
         )
@@ -75,59 +77,17 @@ def get_lambda_arns(aws_client_factory, credentials):
     return lambda_arn_list
 
 
-def check_if_layer_exists(aws_client_factory, credentials, layer_name):
-    lambda_client = aws_client_factory.get_aws_client(
-        "lambda", credentials)
-
-    try:
-        response = lambda_client.get_layer_version(
-            LayerName=layer_name,
-            VersionNumber=1
-        )
-    except ClientError as e:
-        if e.response["Error"]["Code"] == "ResourceNotFoundException":
-            return False
-
-    return True
-
-
-def create_lambda_layer(aws_client_factory, credentials, layer_name, description, s3_bucket, s3_object_key):
-    lambda_client = aws_client_factory.get_aws_client("lambda", credentials)
-
-    response = lambda_client.publish_layer_version(
-        LayerName="RefineryManagedLayer_" + layer_name,
-        Description=description,
-        Content={
-            "S3Bucket": s3_bucket,
-            "S3Key": s3_object_key,
-        },
-        CompatibleRuntimes=[
-            "python2.7",
-            "provided",
-        ],
-        LicenseInfo="See layer contents for license information."
-    )
-
-    return {
-        "sha256": response["Content"]["CodeSha256"],
-        "size": response["Content"]["CodeSize"],
-        "version": response["Version"],
-        "layer_arn": response["LayerArn"],
-        "layer_version_arn": response["LayerVersionArn"],
-        "created_date": response["CreatedDate"]
-    }
-
-
 def warm_up_lambda(aws_client_factory, credentials, arn, warmup_concurrency_level):
     lambda_client = aws_client_factory.get_aws_client(
         "lambda",
         credentials
     )
-    response = lambda_client.invoke(
-        FunctionName=arn,
-        InvocationType="Event",
-        LogType="Tail",
-        Payload=dumps({
+    response = lambda_invoke(
+        lambda_client,
+        arn=arn,
+        invocation_type=LambdaInvocationType.EVENT,
+        log_type=LambdaLogType.TAIL,
+        payload=dumps({
             "_refinery": {
                 "warmup": warmup_concurrency_level,
             }
@@ -136,13 +96,12 @@ def warm_up_lambda(aws_client_factory, credentials, arn, warmup_concurrency_leve
 
 
 def execute_aws_lambda(aws_client_factory, credentials, arn, input_data):
-    lambda_client = aws_client_factory.get_aws_client(
-        "lambda", credentials)
-    response = lambda_client.invoke(
-        FunctionName=arn,
-        InvocationType="RequestResponse",
-        LogType="Tail",
-        Payload=dumps(input_data)
+    lambda_client = aws_client_factory.get_aws_client("lambda", credentials)
+    response = lambda_invoke(
+        lambda_client,
+        arn=arn,
+        invocation_type=LambdaInvocationType.REQUEST_RESPONSE,
+        payload=dumps(input_data)
     )
 
     full_response = response["Payload"].read()
@@ -230,11 +189,7 @@ def execute_aws_lambda(aws_client_factory, credentials, arn, input_data):
     }
 
 
-def delete_aws_lambda(aws_client_factory, credentials, arn_or_name):
-    lambda_client = aws_client_factory.get_aws_client("lambda", credentials)
-    return lambda_client.delete_function(FunctionName=arn_or_name)
-
-
+@aws_exponential_backoff()
 def update_lambda_environment_variables(aws_client_factory, credentials, func_name, environment_variables):
     lambda_client = aws_client_factory.get_aws_client("lambda", credentials)
 
@@ -366,6 +321,7 @@ def build_lambda(app_config, aws_client_factory, credentials, lambda_object):
     return package_zip_data
 
 
+@aws_exponential_backoff()
 def set_lambda_reserved_concurrency(aws_client_factory, credentials, arn, reserved_concurrency_count):
     # Create Lambda client
     lambda_client = aws_client_factory.get_aws_client(
@@ -379,6 +335,7 @@ def set_lambda_reserved_concurrency(aws_client_factory, credentials, arn, reserv
     )
 
 
+@aws_exponential_backoff()
 def upload_aws_lambda_code_to_s3(app_config, aws_client_factory, credentials, lambda_object, s3_package_zip_path):
     # Create S3 client
     s3_client = aws_client_factory.get_aws_client(
@@ -449,6 +406,7 @@ def deploy_aws_lambda(app_config, aws_client_factory, db_session_maker, lambda_m
     return lambda_deploy_result
 
 
+@aws_exponential_backoff(allowed_errors=["ResourceConflictException"])
 def _deploy_aws_lambda(aws_client_factory, credentials, lambda_object: LambdaWorkflowState, s3_package_zip_path):
     # Generate environment variables data structure
     env_data = {}
@@ -485,26 +443,20 @@ def _deploy_aws_lambda(aws_client_factory, credentials, lambda_object: LambdaWor
         )
     except ClientError as e:
         if e.response["Error"]["Code"] == "ResourceConflictException":
+            lambda_client = aws_client_factory.get_aws_client("lambda", credentials)
+
             # Delete the existing lambda
-            delete_response = delete_aws_lambda(
-                aws_client_factory,
-                credentials,
+            delete_response = lambda_delete_function(
+                lambda_client,
                 lambda_object.name
             )
 
-            # Now create it since we're clear
-            # TODO: THIS IS A POTENTIAL INFINITE LOOP!
-            return _deploy_aws_lambda(
-                aws_client_factory,
-                credentials,
-                lambda_object,
-                s3_package_zip_path
-            )
         raise
 
     return response
 
 
+@aws_exponential_backoff()
 def deploy_aws_lambda_with_code(aws_client_factory, credentials, lambda_object: LambdaWorkflowState, workflow_manager_invoke_url):
     # Generate environment variables data structure
     env_data = {
@@ -575,6 +527,7 @@ def deploy_aws_lambda_with_code(aws_client_factory, credentials, lambda_object: 
     return response
 
 
+@aws_exponential_backoff()
 def publish_new_aws_lambda_version(app_config, aws_client_factory, credentials, lambda_object: LambdaWorkflowState):
     """
     Here we do caching to see if we've done this exact build before
@@ -596,65 +549,33 @@ def publish_new_aws_lambda_version(app_config, aws_client_factory, credentials, 
 
     lambda_packages_bucket = credentials["lambda_packages_bucket"]
 
-    code_sha256 = update_aws_lambda_code(lambda_client, lambda_packages_bucket, lambda_object, s3_package_zip_path)
-    update_aws_lambda_configuration(lambda_client, lambda_object)
+    response = lambda_update_function_code(
+        lambda_client,
+        s3_bucket=lambda_packages_bucket,
+        function_name=lambda_object.name,
+        s3_key=s3_package_zip_path
+    )
 
-    new_lambda_version = create_aws_lambda_version(lambda_client, lambda_object, code_sha256)
-    return new_lambda_version
-
-
-def create_aws_lambda_version(lambda_client, lambda_object: LambdaWorkflowState, code_sha256):
-    try:
-        response = lambda_client.publish_version(
-            FunctionName=lambda_object.name,
-            CodeSha256=code_sha256
-
-            # TODO should we use this when versioning?
-            # RevisionId='string'
-        )
-    except ClientError as e:
-        raise
-
-    return response.get('Version')
-
-
-def update_aws_lambda_code(lambda_client, lambda_packages_bucket, lambda_object: LambdaWorkflowState, s3_package_zip_path):
-    try:
-        response = lambda_client.update_function_code(
-            FunctionName=lambda_object.name,
-            S3Bucket=lambda_packages_bucket,
-            S3Key=s3_package_zip_path,
-
-            # TODO do we want to use this for versioning?
-            # S3ObjectVersion='string',
-        )
-    except ClientError as e:
-        raise
-
-    return response.get('CodeSha256')
-
-
-def update_aws_lambda_configuration(lambda_client, lambda_object: LambdaWorkflowState):
     # Generate environment variables data structure
     env_data = {}
     for key, value in lambda_object.environment_variables.items():
         env_data[key] = value
 
-    try:
-        response = lambda_client.update_function_configuration(
-            FunctionName=lambda_object.name,
-            Role=lambda_object.role,
-            Timeout=int(lambda_object.max_execution_time),
-            MemorySize=int(lambda_object.memory),
-            Environment={
-                "Variables": env_data
-            },
-            Layers=lambda_object.layers,
-        )
-    except ClientError as e:
-        raise
+    lambda_update_function_configuration(
+        lambda_client,
+        env_data=env_data,
+        function_name=lambda_object.name,
+        layers=lambda_object.layers,
+        memory_size=int(lambda_object.memory),
+        role=lambda_object.role,
+        timeout=int(lambda_object.max_execution_time),
+    )
 
-    return response
+    response = lambda_publish_version(lambda_client, lambda_object.arn, response.get('CodeSha256'))
+
+    new_lambda_version = response.get('Version')
+
+    return new_lambda_version
 
 
 def list_lambda_event_source_mappings(aws_client_factory, credentials, lambda_object: LambdaWorkflowState):
@@ -674,7 +595,8 @@ def list_lambda_event_source_mappings_by_name(aws_client_factory, credentials, l
     while True:
         marker_param = dict(Marker=marker) if marker is not None else dict()
 
-        response = lambda_client.list_event_source_mappings(
+        response = lambda_list_event_source_mappings(
+            lambda_client,
             FunctionName=lambda_name,
             **marker_param
         )
@@ -693,19 +615,6 @@ def list_lambda_event_source_mappings_by_name(aws_client_factory, credentials, l
             break
 
     return source_mappings
-
-
-def delete_lambda_event_source_mapping(aws_client_factory, credentials, event_source_uuid):
-    lambda_client = aws_client_factory.get_aws_client(
-        "lambda",
-        credentials
-    )
-
-    # TODO check response?
-    # TODO catch the case where this does not exist
-    response = lambda_client.delete_event_source_mapping(
-        UUID=event_source_uuid
-    )
 
 
 def get_cached_inline_execution_lambda_entries(db_session_maker, credentials):
@@ -818,22 +727,6 @@ def cache_inline_lambda_execution(aws_client_factory, db_session_maker, lambda_m
     )
 
 
-def get_aws_lambda_existence_info(aws_client_factory, credentials, lambda_object):
-    lambda_client = aws_client_factory.get_aws_client(
-        "lambda",
-        credentials
-    )
-
-    try:
-        response = lambda_client.get_function(
-            FunctionName=lambda_object.name
-        )
-    except lambda_client.exceptions.ResourceNotFoundException:
-        return False
-
-    return True
-
-
 def clean_lambda_iam_policies(aws_client_factory, credentials, lambda_name):
     lambda_client = aws_client_factory.get_aws_client(
         "lambda",
@@ -847,8 +740,9 @@ def clean_lambda_iam_policies(aws_client_factory, credentials, lambda_name):
 
     logit("Cleaning up IAM policies from no-longer-existing API Gateways attached to Lambda...")
     try:
-        response = lambda_client.get_policy(
-            FunctionName=lambda_name,
+        response = lambda_get_policy(
+            lambda_client,
+            function_name=lambda_name,
         )
     except ClientError as e:
         if e.response["Error"]["Code"] == "ResourceNotFoundException":
@@ -873,15 +767,17 @@ def clean_lambda_iam_policies(aws_client_factory, credentials, lambda_name):
 
         try:
             api_gateway_id = arn_parts[5]
-            api_gateway_data = api_gateway_client.get_rest_api(
-                restApiId=api_gateway_id,
+            api_gateway_data = api_gateway_get_rest_api(
+                api_gateway_client,
+                rest_api_id=api_gateway_id
             )
         except BaseException:
             logit("API Gateway does not exist, deleting IAM policy...")
 
-            delete_permission_response = lambda_client.remove_permission(
-                FunctionName=lambda_name,
-                StatementId=statement["Sid"]
+            delete_permission_response = lambda_remove_permission(
+                lambda_client,
+                function_name=lambda_name,
+                statement_id=statement["Sid"]
             )
 
     return {}
