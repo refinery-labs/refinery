@@ -664,8 +664,13 @@ def clean_lambda_iam_policies(aws_client_factory, credentials, lambda_name):
     for statement in existing_lambda_statements:
         # Try to extract API gateway
         try:
+            # example source_arn: "arn:aws:execute-api:us-west-2:944870815613:i46abzd8cg/*/POST/L2BSF/AcceptanceConsent/SignRequestWebhook"
             source_arn = statement["Condition"]["ArnLike"]["AWS:SourceArn"]
             arn_parts = source_arn.split(":")
+            arn_name = arn_parts[5]
+
+            arn_name_parts = arn_name.split("/")
+            api_gateway_id = arn_name_parts[0]
         except BaseException:
             continue
 
@@ -674,7 +679,6 @@ def clean_lambda_iam_policies(aws_client_factory, credentials, lambda_name):
             continue
 
         try:
-            api_gateway_id = arn_parts[5]
             api_gateway_data = api_gateway_get_rest_api(
                 api_gateway_client,
                 rest_api_id=api_gateway_id
