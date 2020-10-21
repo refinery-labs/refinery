@@ -247,7 +247,7 @@ def lambda_list_functions(lambda_client, **kwargs):
 
 @aws_exponential_backoff()
 def lambda_remove_permission(lambda_client, function_name: AnyStr, statement_id: AnyStr):
-    return lambda_client.list_functions(FunctionName=function_name, StatementId=statement_id)
+    return lambda_client.remove_permission(FunctionName=function_name, StatementId=statement_id)
 
 
 @aws_exponential_backoff()
