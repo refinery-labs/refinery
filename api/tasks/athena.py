@@ -1,5 +1,7 @@
 from csv import DictReader
 from datetime import datetime
+
+from assistants.decorators import aws_exponential_backoff
 from tasks.s3 import read_from_s3
 from pyconstants.project_constants import REGEX_WHITELISTS
 from pystache import render
@@ -21,7 +23,10 @@ def get_athena_results_from_s3(aws_client_factory, credentials, s3_bucket, s3_pa
         s3_path
     )
 
-    csv_handler = StringIO(csv_data.decode("UTF-8"))
+    if type(csv_data) is bytes:
+        csv_data = csv_data.decode("UTF-8")
+
+    csv_handler = StringIO(csv_data)
     csv_reader = DictReader(
         csv_handler,
         delimiter=",",
@@ -38,6 +43,16 @@ def get_athena_results_from_s3(aws_client_factory, credentials, s3_bucket, s3_pa
     return return_array
 
 
+@aws_exponential_backoff(max_attempts=3)
+def _start_athena_query_execution(athena_client, **kwargs):
+    return athena_client.start_query_execution(**kwargs)
+
+
+@aws_exponential_backoff(max_attempts=5)
+def _get_athena_execution_result(athena_client, **kwargs):
+    return athena_client.get_query_execution(**kwargs)
+
+
 def perform_athena_query(aws_client_factory, credentials, query, return_results):
     athena_client = aws_client_factory.get_aws_client(
         "athena",
@@ -48,7 +63,8 @@ def perform_athena_query(aws_client_factory, credentials, query, return_results)
         credentials["s3_bucket_suffix"] + "/athena/"
 
     # Start the query
-    query_start_response = athena_client.start_query_execution(
+    query_start_response = _start_athena_query_execution(
+        athena_client,
         QueryString=query,
         QueryExecutionContext={
             "Database": "refinery"
@@ -92,7 +108,8 @@ def perform_athena_query(aws_client_factory, credentials, query, return_results)
     # will ever be true.
     for _ in range(MAX_LOOP_ITERATIONS):
         # Check the status of the query
-        query_status_result = athena_client.get_query_execution(
+        query_status_result = _get_athena_execution_result(
+            athena_client,
             QueryExecutionId=query_execution_id
         )
 

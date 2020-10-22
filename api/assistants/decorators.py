@@ -38,7 +38,7 @@ def aws_exponential_backoff(allowed_errors=None, breaking_errors=None, max_attem
                         raise
 
                     attempts += 1
-                    time.sleep(attempts * 2 + random.randint(0, 5))
+                    time.sleep(attempts * attempts + random.randint(1, 5))
             raise ExponentialBackoffException()
         return wrapper
 

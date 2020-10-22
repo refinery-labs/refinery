@@ -4,6 +4,10 @@ from tornado import httpclient, gen
 from tornado.httpclient import HTTPError
 
 
+class WorkflowManagerException(Exception):
+    pass
+
+
 class WorkflowManagerService:
     _API_BASE_HEADERS = {
     }
@@ -26,11 +30,11 @@ class WorkflowManagerService:
                 body=json.dumps(serialized_deployment)
             )
         except HTTPError as e:
-            raise Exception("Unable to create Workflow Manager workflows: " + str(e))
+            raise WorkflowManagerException("Unable to create Workflow Manager workflows: " + str(e))
 
         parsed_response = json.loads(response.body)
         if not parsed_response["success"]:
-            raise Exception("Unable to create Workflow Manager workflows: " + parsed_response["error"])
+            raise WorkflowManagerException("Unable to create Workflow Manager workflows: " + parsed_response["error"])
 
     @gen.coroutine
     def delete_deployment_workflows(self, deployment_id):
@@ -40,8 +44,8 @@ class WorkflowManagerService:
                 method="DELETE",
             )
         except HTTPError as e:
-            raise Exception("Unable to delete Workflow Manager workflows: " + str(e))
+            raise WorkflowManagerException("Unable to delete Workflow Manager workflows: " + str(e))
 
         parsed_response = json.loads(response.body)
         if not parsed_response["success"]:
-            raise Exception("Unable to delete Workflow Manager workflows: " + parsed_response["error"])
+            raise WorkflowManagerException("Unable to delete Workflow Manager workflows: " + parsed_response["error"])

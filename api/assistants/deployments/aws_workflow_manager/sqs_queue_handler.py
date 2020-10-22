@@ -4,11 +4,10 @@ from typing import Dict, TYPE_CHECKING
 
 from tornado import gen
 
-from assistants.deployments.aws.utils import get_layers_for_lambda
-from assistants.deployments.diagram.endpoint import EndpointWorkflowState
-from assistants.deployments.aws.lambda_function import LambdaWorkflowState
+from assistants.deployments.aws_workflow_manager.lambda_function import LambdaWorkflowState
 from assistants.task_spawner.task_spawner_assistant import TaskSpawner
-from utils.general import logit
+
+from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
 
 if TYPE_CHECKING:
     from assistants.deployments.aws.aws_deployment import AwsDeployment
@@ -69,7 +68,8 @@ module.exports.handler = async event => {
 };
 """
 
-class SqsQueueHandlerWorkflowState(LambdaWorkflowState, EndpointWorkflowState):
+
+class SqsQueueHandlerWorkflowState(LambdaWorkflowState):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -83,6 +83,14 @@ class SqsQueueHandlerWorkflowState(LambdaWorkflowState, EndpointWorkflowState):
         self.reserved_concurrency_count = False
         self.is_inline_execution = False
         self.shared_files_list = []
+
+        account_id = str(self._credentials["account_id"])
+        account_type = self._credentials["account_type"]
+        if account_type == "THIRDPARTY":
+            # TODO this role needs to change for the workflow manager
+            self.role = f"arn:aws:iam::{account_id}:role/{THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME}"
+        else:
+            self.role = f"arn:aws:iam::{account_id}:role/refinery_workflow_manager_queue_handler_role"
 
         self.environment_variables = {}
         self._set_environment_variables_for_lambda()

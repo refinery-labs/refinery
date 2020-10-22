@@ -17,12 +17,14 @@ class DeploymentException(Exception):
 		return f'name: {self.name}, id: {self.id}, type: {self.node_type}, exception:\n{self.msg}'
 
 	def serialize(self):
-		msg = self.msg if not self.internal_error else INTERNAL_ERROR_MSG
+		# TODO since these are happening so frequently now, let's surface them
+		# but keep in mind to eventually remove them from being sent back to the frontend.
+		# msg = self.msg if not self.internal_error else INTERNAL_ERROR_MSG
 		return {
 			'name': self.name,
 			'id': self.id,
 			'type': self.node_type,
-			'exception': msg
+			'exception': self.msg
 		}
 
 

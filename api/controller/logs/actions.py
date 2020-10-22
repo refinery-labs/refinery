@@ -90,7 +90,8 @@ def write_remaining_project_execution_log_pages(task_spawner, credentials, data_
 
 @gen.coroutine
 def do_update_athena_table_partitions(task_spawner, db_session_maker, task_locker, credentials, project_id):
-    dbsession = db_session_maker()
+    # TODO: Should we be locking on this operation..?
+    # dbsession = db_session_maker()
 
     yield update_athena_table_partitions(task_spawner, credentials, project_id)
 

@@ -34,7 +34,7 @@ class TestDeployDiagram(ServerUnitTestBase, AsyncHTTPTestCase):
 	@gen_test
 	def test_deploy_diagram( self ):
 		ts = self.mock_task_spawner
-		ts.get_aws_lambda_existence_info.return_value = create_future(False)
+		ts.lambda_check_if_function_exists.return_value = create_future(False)
 		ts.deploy_aws_lambda.return_value = create_future()
 		ts.create_rest_api.return_value = create_future("test-api-gateway-id")
 		ts.clean_lambda_iam_policies.return_value = create_future()
@@ -98,7 +98,7 @@ class TestDeployDiagram(ServerUnitTestBase, AsyncHTTPTestCase):
 	@gen_test
 	def test_deploy_diagram_with_previous_deploy( self ):
 		ts = self.mock_task_spawner
-		ts.get_aws_lambda_existence_info.return_value = create_future(True)
+		ts.lambda_check_if_function_exists.return_value = create_future(True)
 		ts.list_lambda_event_source_mappings.return_value = create_future([])
 		ts.get_lambda_uri_for_api_method.return_value = "Untitled_API_Endpoint_Block89765a6a-dc1a-4aff-b001-6e2a6e5a677a"
 		ts.deploy_api_gateway_to_stage.return_value = create_future()

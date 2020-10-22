@@ -6,6 +6,7 @@ import botocore
 
 from tornado.concurrent import run_on_executor, futures
 
+from assistants.decorators import aws_exponential_backoff
 from utils.general import logit
 
 from botocore.exceptions import ClientError
@@ -87,6 +88,7 @@ class PreterraformManager(object):
         return PreterraformManager._check_if_ecs_service_linked_role_exists(self.aws_client_factory, credentials)
 
     @staticmethod
+    @aws_exponential_backoff()
     def _check_if_ecs_service_linked_role_exists(aws_client_factory, credentials):
         iam_client = aws_client_factory.get_aws_client(
             "iam",
