@@ -220,11 +220,13 @@ export async function loadProjectFromDir(
     // default values
     name: generateStupidName(),
     version: 1,
-    project_id: projectID,
     workflow_relationships: [],
 
     // overridden values by project config
     ...loadedProjectConfig,
+
+    // Must happen after merging of the loaded Project config, otherwise can result in clobbering of UUIDs between projects
+    project_id: projectID,
 
     // values tracked by file system
     workflow_states: [...loadedProjectConfig.workflow_states, ...loadedLambdaConfigs.lambdaBlockConfigs],
