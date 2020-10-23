@@ -11,13 +11,10 @@ import {
   ValidTransitionConfig
 } from '@/constants/project-editor-constants';
 import { AvailableTransitionsByType, ProjectViewState } from '@/store/store-types';
-import { GetSavedProjectResponse } from '@/types/api-types';
-import uuid from 'uuid/v4';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { createNewTransition } from '@/utils/block-utils';
-import { BaseGraphHelper } from '@/lib/graph-helpers';
-import { Graph } from 'graphlib';
 import * as graphlib from 'graphlib';
+import { Graph } from 'graphlib';
 
 export function getNodeDataById(project: RefineryProject, nodeId: string): WorkflowState | null {
   const targetStates = project.workflow_states;
@@ -172,42 +169,6 @@ export function unwrapJson<T>(json: string | null) {
 
   try {
     return JSON.parse(json) as T;
-  } catch {
-    return null;
-  }
-}
-
-export function wrapJson(obj: any) {
-  if (obj === null || obj === undefined) {
-    return null;
-  }
-
-  try {
-    return JSON.stringify(obj);
-  } catch {
-    return null;
-  }
-}
-
-export function unwrapProjectJson(response: GetSavedProjectResponse): RefineryProject | null {
-  try {
-    const project = JSON.parse(response.project_json) as RefineryProject;
-
-    // could probably have used spread, oh well
-    return {
-      name: project.name || 'Unknown Project',
-      project_id: response.project_id || project.project_id || uuid(),
-      workflow_relationships: project.workflow_relationships || [],
-      workflow_states: project.workflow_states || [],
-      workflow_files: project.workflow_files || [],
-      workflow_file_links: project.workflow_file_links || [],
-      global_handlers: project.global_handlers || {},
-      version: project.version || 1,
-      readme:
-        project.readme ||
-        '# Untitled Project README\n\nThis is a Refinery project README, update it to explain more about the project.',
-      demo_walkthrough: project.demo_walkthrough || []
-    };
   } catch {
     return null;
   }

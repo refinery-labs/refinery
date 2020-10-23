@@ -62,7 +62,6 @@ import { convertExecutionResponseToProjectExecutionGroup } from '@/utils/project
 import { RefineryProject, SupportedLanguage, WorkflowState } from '@/types/graph';
 import { ProductionWorkflowState } from '@/types/production-workflow-types';
 import { blockTypeToDefaultStateMapping, DEFAULT_PROJECT_CONFIG } from '@/constants/project-editor-constants';
-import { unwrapProjectJson, wrapJson } from '@/utils/project-helpers';
 import { ExecutionLogMetadata } from '@/types/execution-logs-types';
 import { DeployProjectParams, DeployProjectResult } from '@/types/project-editor-types';
 import { CURRENT_TRANSITION_SCHEMA } from '@/constants/graph-constants';
@@ -78,6 +77,7 @@ import {
 } from '@/types/demo-walkthrough-types';
 import { DemoWalkthroughStoreModule } from '@/store';
 import { sub, getUnixTime, fromUnixTime } from 'date-fns';
+import { unwrapProjectJson, wrapJson } from '@/utils/json-helpers';
 
 export interface LibraryBuildArguments {
   language: SupportedLanguage;
