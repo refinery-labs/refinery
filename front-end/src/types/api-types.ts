@@ -127,7 +127,6 @@ export interface DeployDiagramRequest extends BaseApiRequest {
   project_config: ProjectConfig;
   diagram_data: string;
   force_redeploy: boolean;
-  version_token: string;
 }
 
 export enum DeployDiagramResponseCode {
@@ -137,8 +136,7 @@ export enum DeployDiagramResponseCode {
 
 export interface DeployDiagramResponse extends BaseApiResponse {
   code?: DeployDiagramResponseCode;
-  result?: DeployDiagramResponseResult;
-  error?: string;
+  result: DeployDiagramResponseResult;
 }
 
 export interface DeployDiagramResponseResult {
@@ -326,12 +324,10 @@ export interface InfraTearDownRequest extends BaseApiRequest {
   teardown_nodes: ProductionWorkflowState[];
   deployment_id: string;
   project_id: string;
-  version_token: string;
 }
 
 export interface InfraTearDownResponse extends BaseApiResponse {
-  error?: string;
-  result?: Array<InfraTearDownResult>;
+  result: Array<InfraTearDownResult>;
 }
 
 export interface InfraTearDownResult {
