@@ -197,7 +197,6 @@ async function loadSharedFiles(fs: PromiseFsClient, repoDir: string): Promise<Wo
 export async function loadProjectFromDir(
   fs: PromiseFsClient,
   projectID: string,
-  sessionID: string,
   repoDir: string
 ): Promise<RefineryProject> {
   const projectConfigFilename = Path.join(GLOBAL_BASE_PATH, `${PROJECTS_CONFIG_FOLDER}${projectID}.yaml`);

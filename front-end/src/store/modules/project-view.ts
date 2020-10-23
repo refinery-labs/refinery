@@ -59,8 +59,7 @@ import {
   getValidTransitionsForNode,
   hookProjectDeployment,
   isValidTransition,
-  unwrapJson,
-  wrapJson
+  unwrapJson
 } from '@/utils/project-helpers';
 import { availableTransitions, DEFAULT_LANGUAGE_CODE, savedBlockType } from '@/constants/project-editor-constants';
 import { blockTypeToImageLookup } from '@/constants/project-editor-img-constants';
@@ -79,6 +78,7 @@ import { AllProjectsActions, AllProjectsGetters } from '@/store/modules/all-proj
 import { kickOffLibraryBuildForBlocks } from '@/utils/block-build-utils';
 import { AddSharedFileArguments, AddSharedFileLinkArguments } from '@/types/shared-files';
 import { DemoWalkthroughStoreModule, EditSharedFilePaneModule, SyncProjectRepoPaneStoreModule } from '@/store';
+import { wrapJson } from '@/utils/json-helpers';
 
 export interface ChangeTransitionArguments {
   transition: WorkflowRelationship;

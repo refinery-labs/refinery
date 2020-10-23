@@ -1,7 +1,4 @@
 import uuid from 'uuid/v4';
-import { createProject, importProject } from '@/store/fetchers/api-helpers';
-import { viewProject } from '@/utils/router-utils';
-import { NewProjectConfig } from '@/types/new-project-types';
 import { unwrapJson } from '@/utils/project-helpers';
 import {
   GlobalExceptionHandler,
@@ -14,79 +11,6 @@ import {
 } from '@/types/graph';
 import generateStupidName from '@/lib/silly-names';
 import { CyTooltip, DemoTooltip, TooltipType } from '@/types/demo-walkthrough-types';
-
-export async function createNewProjectFromConfig(config: NewProjectConfig) {
-  if (!config.json && !config.name) {
-    config.setError('Cannot create project without either name or json');
-    return;
-  }
-
-  // Reset the error to nothing
-  config.setError(null);
-
-  // Sets the busy status to true
-  config.setStatus(true);
-
-  let response = await makeProjectApiCallForConfig(config);
-
-  // Reset busy status.
-  config.setStatus(false);
-
-  if (!response) {
-    config.setError(config.unknownError);
-    return;
-  }
-
-  if (!response.success) {
-    config.setError(response.msg || null);
-    return;
-  }
-
-  if (config.navigateToNewProject) {
-    viewProject(response.project_id);
-  }
-}
-
-async function makeProjectApiCallForConfig(config: NewProjectConfig) {
-  if (config.json) {
-    const response = await importRawProjectJson(config.json, false);
-
-    // Attempt to make the project with a stupid and unique name.
-    if (response && response.code === 'PROJECT_NAME_EXISTS') {
-      // Reset the error because we know it's just the name being a dupe
-      config.setError(null);
-      return await importRawProjectJson(config.json, true);
-    }
-
-    return response;
-  }
-
-  if (config.name) {
-    const response = await createProject(config.name);
-
-    // Attempt to make the project with a stupid and unique name.
-    if (response && response.code === 'PROJECT_NAME_EXISTS') {
-      // Reset the error because we know it's just the name being a dupe
-      config.setError(null);
-      return await createProject(`${config.name} - ${generateStupidName()}`);
-    }
-
-    return response;
-  }
-
-  console.error('Both name and config were not specified. Invalid Project to import.');
-  return null;
-}
-
-export async function importRawProjectJson(json: string, generateNewName: boolean) {
-  const remappedJson = remapImportedProjectJsonProperties(json, generateNewName);
-
-  if (!remappedJson) {
-    return null;
-  }
-
-  return await importProject(remappedJson);
-}
 
 function reassignDemoWalkthrough(
   demoWalkthrough: DemoTooltip[] | undefined,
@@ -227,6 +151,12 @@ export function remapImportedProjectJsonProperties(json: string, generateNewName
     return null;
   }
 
+  const newProject = remapProjectJsonProperties(project, generateNewName);
+
+  return JSON.stringify(newProject);
+}
+
+export function remapProjectJsonProperties(project: RefineryProject, generateNewName: boolean) {
   project.project_id = uuid();
 
   project.version = 1;
@@ -238,7 +168,7 @@ export function remapImportedProjectJsonProperties(json: string, generateNewName
 
   project.global_handlers = project.global_handlers || {};
 
-  return JSON.stringify(reassignProjectIds(project));
+  return reassignProjectIds(project);
 }
 
 function getProjectName(baseName: string, needsNewName: boolean) {
