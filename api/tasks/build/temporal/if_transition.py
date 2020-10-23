@@ -1,4 +1,11 @@
+from assistants.decorators import aws_exponential_backoff
+from botocore.exceptions import ClientError
+from hashlib import sha256
 from io import BytesIO
+from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
+from tasks.s3 import s3_object_exists
+from utils.general import add_file_to_zipfile
+from utils.wrapped_aws_functions import lambda_delete_function
 from zipfile import ZIP_DEFLATED, ZipFile
 
 
@@ -33,7 +40,12 @@ BOOL_EXPR_TEMPLATE = """
 
 
 class IfTransitionBuilder:
-    def __init__(self, deploy_config):
+    runtime = "python3.6"
+    handler = "lambda_function.lambda_handler"
+
+    def __init__(self, deploy_config, aws_client_factory, credentials):
+        self.aws_client_factory = aws_client_factory
+        self.credentials = credentials
         self.deploy_config = deploy_config
         self.if_transitions = self.get_if_transitions()
 
@@ -51,20 +63,106 @@ class IfTransitionBuilder:
 
         return result
 
-    def build(self):
+    def perform(self):
+        zip_data = self.get_zip_data()
+        key = self.upload_to_s3(zip_data)
+        arn = self.deploy_lambda(key)
+
+        return arn
+
+    def get_zip_data(self):
         if not self.if_transitions:
             return
 
         package_zip = BytesIO()
 
         with ZipFile(package_zip, "a", ZIP_DEFLATED) as zip_file_handler:
-            for transition in self.if_transitions:
-                self.add_transition(package_zip, transition)
+            add_file_to_zipfile(
+                zip_file_handler,
+                "lambda_function.py",
+                self.lambda_function
+            )
 
         zip_data = package_zip.getvalue()
         package_zip.close()
 
         return zip_data
+
+    def get_s3_key(self, zip_data):
+        shasum = sha256(zip_data).hexdigest()
+
+        return f'if_transition_{shasum}.zip'
+
+    def upload_to_s3(self, zip_data):
+        key = self.get_s3_key(zip_data)
+        bucket = self.credentials['lambda_packages_bucket']
+        s3_client = self.aws_client_factory.get_aws_client(
+            "s3",
+            self.credentials
+        )
+
+        exists = s3_object_exists(
+            self.aws_client_factory,
+            self.credentials,
+            bucket,
+            key
+        )
+
+        if exists:
+            return
+
+        s3_client.put_object(
+            Key=key,
+            Bucket=bucket,
+            Body=zip_data,
+        )
+
+        return key
+
+    @property
+    def role(self):
+        account_id = str(self.credentials["account_id"])
+        account_type = self.credentials["account_type"]
+
+        if account_type == "THIRDPARTY":
+            return f"arn:aws:iam::{account_id}:role/{THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME}"
+        else:
+            return f"arn:aws:iam::{account_id}:role/refinery_default_aws_lambda_role"
+
+    def deploy_lambda(self, path):
+        lambda_client = self.aws_client_factory.get_aws_client(
+            "lambda",
+            self.credentials
+        )
+
+        try:
+            # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#Lambda.Client.create_function
+            response = lambda_client.create_function(
+                FunctionName=path,
+                Runtime=self.runtime,
+                Role=self.role,
+                Handler=self.handler,
+                Code={
+                    "S3Bucket": self.credentials["lambda_packages_bucket"],
+                    "S3Key": path,
+                },
+                Description="A Lambda deployed by refinery, manages if transitions",
+                Timeout=int(30),
+                Publish=True,
+            )
+        except ClientError as e:
+            if e.response["Error"]["Code"] == "ResourceConflictException":
+                lambda_client = self.aws_client_factory.get_aws_client("lambda", self.credentials)
+
+                # Delete the existing lambda
+                delete_response = lambda_delete_function(
+                    lambda_client,
+                    path
+                )
+
+            raise
+
+        return response['FunctionArn']
 
     @property
     def lambda_function(self):
@@ -88,7 +186,7 @@ class IfTransitionBuilder:
     def get_transition_fn(self, transition):
         fn_name = self.get_fn_name(transition['node'])
         expression = transition['expression']
- 
+
         return TRANSITION_FUNCTION_TEMPLATE.format(
             fn_name=fn_name,
             expression=expression
