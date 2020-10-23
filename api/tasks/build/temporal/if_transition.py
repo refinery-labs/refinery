@@ -109,7 +109,7 @@ class IfTransitionBuilder:
         )
 
         if exists:
-            return
+            return key
 
         s3_client.put_object(
             Key=key,
@@ -146,7 +146,7 @@ class IfTransitionBuilder:
                     "S3Bucket": self.credentials["lambda_packages_bucket"],
                     "S3Key": path,
                 },
-                Description="A Lambda deployed by refinery, manages if transitions",
+                Description="A Lambda deployed by refinery, manages transitions",
                 Timeout=int(30),
                 Publish=True,
             )
