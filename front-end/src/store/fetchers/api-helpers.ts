@@ -327,11 +327,17 @@ export async function teardownProject(
     {
       project_id: openedDeploymentProjectId,
       deployment_id: openedDeploymentId,
-      teardown_nodes: states
+      teardown_nodes: states,
+      // This is here only because Lachlan has potentially old client-side code and I don't want him to keep breaking his other project due to a bug
+      version_token: '5e92c868'
     }
   );
 
-  if (!destroyDeploymentResult || !destroyDeploymentResult.success) {
+  if (!destroyDeploymentResult || !destroyDeploymentResult.success || !destroyDeploymentResult.result) {
+    if (destroyDeploymentResult && destroyDeploymentResult.error) {
+      throw new Error(destroyDeploymentResult.error);
+    }
+
     throw new Error('Server failed to handle Destroy Deployment request');
   }
 
@@ -438,8 +444,8 @@ export async function openProject(request: GetSavedProjectRequest) {
   }));
 
   project.workflow_relationships = project.workflow_relationships.map(wr => ({
-    version: CURRENT_TRANSITION_SCHEMA,
-    ...wr
+    ...wr,
+    version: CURRENT_TRANSITION_SCHEMA
   }));
 
   // Ensure there an object for the exception handler
@@ -541,13 +547,21 @@ export async function deployProject({
     project_config: projectConfig,
     project_id: project.project_id,
     project_name: project.name,
-    force_redeploy: forceRedeploy
+    force_redeploy: forceRedeploy,
+    // This is here only because Lachlan has potentially old client-side code and I don't want him to keep breaking his other project due to a bug
+    version_token: '5e92c868'
   });
 
-  if (!response || !response.success) {
+  if (!response || !response.success || !response.result) {
+    // Handle case where server sends us the error message
+    if (response && response.error) {
+      throw new Error(response.error);
+    }
+
     if (response && response.code && response.code === DeployDiagramResponseCode.DeploymentLockFailure) {
       throw new Error('Deployment is currently in progress for this project.');
     }
+
     throw new Error('Unable to create new deployment.');
   }
 

@@ -66,6 +66,8 @@ async function loadLambdaBlock(fs: PromiseFsClient, lambdaPath: string): Promise
   const blockConfig = yaml.safeLoad(await readFile(fs, lambdaPath, LAMBDA_CONFIG_FILENAME)) as LambdaWorkflowState;
 
   return {
+    // @ts-ignore
+    // Just in case there is not an ID... Add it.
     id: uuid(),
     ...blockConfig,
     code: await loadLambdaCode(fs, lambdaPath, blockConfig)
@@ -217,9 +219,14 @@ export async function loadProjectFromDir(
   const loadedLambdaConfigs = await loadLambdaBlocks(fs, repoDir, sharedFileLookup);
 
   return {
+    // @ts-ignore
     // default values
     name: generateStupidName(),
+
+    // @ts-ignore
     version: 1,
+
+    // @ts-ignore
     workflow_relationships: [],
 
     // overridden values by project config

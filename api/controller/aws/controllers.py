@@ -257,6 +257,16 @@ class InfraTearDown(BaseHandler):
     @authenticated
     @gen.coroutine
     def post(self):
+        version_token = self.json["version_token"]
+
+        if version_token != "5e92c868":
+            self.write({
+                "success": False,
+                "error": "Attempted tear down with old client-side code. Please refresh your bundle and include the "
+                         "proper 'version_token'."
+            })
+            raise gen.Return()
+
         teardown_nodes = self.json["teardown_nodes"]
 
         credentials = self.get_authenticated_user_cloud_configuration()
@@ -514,6 +524,16 @@ class DeployDiagram(BaseHandler):
                 "success": False,
                 "code": "ACCESS_DENIED",
                 "msg": "You do not have privileges to deploy that!",
+            })
+            raise gen.Return()
+
+        version_token = self.json["version_token"]
+
+        if version_token != '5e92c868':
+            self.write({
+                "success": False,
+                "error": "Attempted deploy with old client-side code. Please refresh your bundle and include the "
+                         "proper 'version_token'."
             })
             raise gen.Return()
 
