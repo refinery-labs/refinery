@@ -227,10 +227,10 @@ def lambda_invoke(
         payload: AnyStr,
         log_type: LambdaLogType = LambdaLogType.TAIL
 ):
-    return lambda_client.get_layer_version(
+    return lambda_client.invoke(
         FunctionName=arn,
-        InvocationType=invocation_type,
-        LogType=log_type,
+        InvocationType=str(invocation_type.value[0]),
+        LogType=str(log_type.value),
         Payload=payload
     )
 
