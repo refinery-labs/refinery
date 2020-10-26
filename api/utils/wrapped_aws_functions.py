@@ -232,10 +232,10 @@ def lambda_invoke(
         payload: AnyStr,
         log_type: LambdaLogType = LambdaLogType.TAIL
 ):
-    return lambda_client.get_layer_version(
+    return lambda_client.invoke(
         FunctionName=arn,
-        InvocationType=invocation_type,
-        LogType=log_type,
+        InvocationType=str(invocation_type.value[0]),
+        LogType=str(log_type.value),
         Payload=payload
     )
 
@@ -252,7 +252,7 @@ def lambda_list_functions(lambda_client, **kwargs):
 
 @aws_exponential_backoff()
 def lambda_remove_permission(lambda_client, function_name: AnyStr, statement_id: AnyStr):
-    return lambda_client.list_functions(FunctionName=function_name, StatementId=statement_id)
+    return lambda_client.remove_permission(FunctionName=function_name, StatementId=statement_id)
 
 
 @aws_exponential_backoff()
