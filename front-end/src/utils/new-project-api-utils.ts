@@ -3,13 +3,14 @@ import { NewProjectConfig } from '@/types/new-project-types';
 import generateStupidName from '@/lib/silly-names';
 import { remapImportedProjectJsonProperties } from '@/utils/new-project-utils';
 import { viewProject } from '@/utils/router-utils';
+import { RenameProjectResponseCode } from '@/types/api-types';
 
 export async function makeProjectApiCallForConfig(config: NewProjectConfig) {
   if (config.json) {
     const response = await importRawProjectJson(config.json, false);
 
     // Attempt to make the project with a stupid and unique name.
-    if (response && response.code === 'PROJECT_NAME_EXISTS') {
+    if (response && response.code === RenameProjectResponseCode.ProjectNameExists) {
       // Reset the error because we know it's just the name being a dupe
       config.setError(null);
       return await importRawProjectJson(config.json, true);
@@ -22,7 +23,7 @@ export async function makeProjectApiCallForConfig(config: NewProjectConfig) {
     const response = await createProject(config.name);
 
     // Attempt to make the project with a stupid and unique name.
-    if (response && response.code === 'PROJECT_NAME_EXISTS') {
+    if (response && response.code === RenameProjectResponseCode.ProjectNameExists) {
       // Reset the error because we know it's just the name being a dupe
       config.setError(null);
       return await createProject(`${config.name} - ${generateStupidName()}`);

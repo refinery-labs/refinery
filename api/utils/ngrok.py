@@ -40,8 +40,8 @@ class NgrokSpawner(object):
             universal_newlines=True,
         )
         stdout, stderr = process_handler.communicate()
-        print("ngrok stdout: ", stdout)
-        print("ngrok stderr: ", stderr)
+        logit("ngrok stdout: ", stdout)
+        logit("ngrok stderr: ", stderr)
 
     @run_on_executor
     def get_ngrok_tunnel_hostname(self):
