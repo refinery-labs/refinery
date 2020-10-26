@@ -287,6 +287,7 @@ class InfraTearDown(BaseHandler):
     @authenticated
     @gen.coroutine
     def post(self):
+
         teardown_nodes = self.json["teardown_nodes"]
 
         credentials = self.get_authenticated_user_cloud_configuration()

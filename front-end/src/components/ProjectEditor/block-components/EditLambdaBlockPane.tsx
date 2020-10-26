@@ -329,11 +329,11 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
             max={inputProps.max}
             min={inputProps.min}
             step={inputProps.step}
+            {...inputProps}
             readonly={inputProps.readOnly}
             disabled={inputProps.disabled}
             value={inputProps.value}
             on={inputProps.on}
-            {...inputProps}
           />
         </div>
       </b-form-group>

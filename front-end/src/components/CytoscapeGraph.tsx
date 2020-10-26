@@ -3,7 +3,7 @@ import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 import cytoscape, { EdgeDefinition, EventObject, LayoutOptions, NodeDefinition, Stylesheet } from 'cytoscape';
 import cyCanvas, { CytoscapeCanvasInstance } from '../lib/cytoscape-canvas';
 import deepEqual from 'fast-deep-equal';
-import { animationBegin, animationEnd, baseCytoscapeStyles, STYLE_CLASSES } from '@/lib/cytoscape-styles';
+import { animationBegin, animationEnd, baseCytoscapeStyles } from '@/lib/cytoscape-styles';
 import { timeout } from '@/utils/async-utils';
 import { CyElements, CyStyle, CytoscapeGraphProps } from '@/types/cytoscape-types';
 import { registerCustomDagre } from '@/lib/dagre-cytoscape';
@@ -13,6 +13,7 @@ import { hashCode } from '@/utils/number-utils';
 import { generateTooltipSVGContents } from '@/utils/tooltip-utils';
 import { mixins } from 'vue-class-component';
 import CreateToastMixin from '@/mixins/CreateToastMixin';
+import { STYLE_CLASSES } from '@/lib/cytoscape-enums';
 
 // @ts-ignore
 cytoscape.use(registerCustomDagre);
@@ -576,6 +577,7 @@ export default class CytoscapeGraph extends mixins(CreateToastMixin) implements 
     const svg = new Blob([svgContents], {
       type: 'image/svg+xml;charset=utf-8'
     });
+    // @ts-ignore
     const url = DOMURL.createObjectURL(svg);
 
     const contentHash = this.tooltipHash(tooltip);

@@ -16,9 +16,8 @@ import {
   SearchSavedProjectsResult,
   SearchSavedProjectVersionMetadata
 } from '@/types/api-types';
-import { createNewProjectFromConfig } from '@/utils/new-project-utils';
 import { getFileFromEvent, readFileAsText } from '@/utils/dom-utils';
-import { unwrapJson, wrapJson } from '@/utils/project-helpers';
+import { unwrapJson } from '@/utils/project-helpers';
 import validate from '../../types/export-project.validator';
 import ImportableRefineryProject from '@/types/export-project';
 import { getProjectVersions, getShortlinkContents, renameProject } from '@/store/fetchers/api-helpers';
@@ -26,6 +25,8 @@ import { SelectProjectVersion } from '@/types/all-project-types';
 import { getInitialCardStateForSearchResults } from '@/utils/all-projects-utils';
 import { SyncProjectRepoPaneStoreModule } from '@/store';
 import uuid from 'uuid';
+import { wrapJson } from '@/utils/json-helpers';
+import { createNewProjectFromConfig } from '@/utils/new-project-api-utils';
 
 const moduleState: AllProjectsState = {
   availableProjects: [],
