@@ -298,7 +298,7 @@ def lambda_put_function_concurrency(lambda_client, **kwargs):
     return lambda_client.put_function_concurrency(**kwargs)
 
 
-@aws_exponential_backoff()
+@aws_exponential_backoff(allowed_errors=["ResourceConflictException"])
 def lambda_update_function_code(lambda_client, function_name: AnyStr, s3_bucket: AnyStr, s3_key: AnyStr):
     return lambda_client.update_function_code(
         FunctionName=function_name,
@@ -307,7 +307,7 @@ def lambda_update_function_code(lambda_client, function_name: AnyStr, s3_bucket:
     )
 
 
-@aws_exponential_backoff()
+@aws_exponential_backoff(allowed_errors=["ResourceConflictException"])
 def lambda_update_function_configuration(
         lambda_client,
         env_data: Dict[AnyStr, AnyStr],
