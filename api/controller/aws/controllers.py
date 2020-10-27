@@ -403,6 +403,11 @@ class DeployDiagram(BaseHandler):
         if not force_redeploy and latest_deployment is not None:
             latest_deployment_json = json.loads(latest_deployment.deployment_json)
 
+        # Kill the current session because deployment can take a very long time.
+        # A new session will be automatically opened when the session is grabbed again.
+        self.dbsession.close()
+        self._dbsession = None
+
         # Model a deployment in memory to handle the deployment of each state
         deployment_diagram: AwsDeployment = AwsDeployment(
             project_id,
@@ -466,6 +471,10 @@ class DeployDiagram(BaseHandler):
             )
 
             raise gen.Return()
+
+        org = self.get_authenticated_user_org()
+
+        serialized_deployment = deployment_diagram.serialize()
 
         new_deployment = Deployment(id=deployment_diagram.deployment_id)
         new_deployment.organization_id = org.id
