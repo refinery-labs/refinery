@@ -373,6 +373,8 @@ class DeployDiagram(BaseHandler):
     def do_diagram_deployment(self, project_name, project_id, diagram_data, project_config, force_redeploy):
         credentials = self.get_authenticated_user_cloud_configuration()
 
+        org_id = self.get_authenticated_user_org().id
+
         latest_deployment = self.dbsession.query(Deployment).filter_by(
             project_id=project_id
         ).order_by(
@@ -386,6 +388,7 @@ class DeployDiagram(BaseHandler):
         # Kill the current session because deployment can take a very long time.
         # A new session will be automatically opened when the session is grabbed again.
         self.dbsession.close()
+
         self._dbsession = None
 
         # Model a deployment in memory to handle the deployment of each state
@@ -440,12 +443,10 @@ class DeployDiagram(BaseHandler):
 
             raise gen.Return()
 
-        org = self.get_authenticated_user_org()
-
         serialized_deployment = deployment_diagram.serialize()
 
         new_deployment = Deployment()
-        new_deployment.organization_id = org.id
+        new_deployment.organization_id = org_id
         new_deployment.project_id = project_id
         new_deployment.deployment_json = json.dumps(
            serialized_deployment
@@ -456,7 +457,7 @@ class DeployDiagram(BaseHandler):
         )
 
         deployment_log = DeploymentLog()
-        deployment_log.org_id = org.id
+        deployment_log.org_id = org_id
 
         self.dbsession.add(deployment_log)
         self.dbsession.commit()
