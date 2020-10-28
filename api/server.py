@@ -42,6 +42,8 @@ field_size_limit(maxsize)
 
 
 if __name__ == "__main__":
+    import debugpy
+    debugpy.listen(('0.0.0.0', 5678))
     logit("Starting the Refinery service...", "info")
 
     """

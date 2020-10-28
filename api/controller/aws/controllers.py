@@ -26,7 +26,7 @@ from utils.locker import AcquireFailure
 
 class RunTmpLambdaDependencies:
     @pinject.copy_args_to_public_fields
-    def __init__(self, builder_manager):
+    def __init__(self, builder_manager, aws_client_factory):
         pass
 
 
@@ -34,6 +34,7 @@ class RunTmpLambdaDependencies:
 class RunTmpLambda(BaseHandler):
     dependencies = RunTmpLambdaDependencies
     builder_manager = None
+    aws_client_factory = None
 
     @authenticated
     @disable_on_overdue_payment
@@ -77,6 +78,7 @@ class RunTmpLambda(BaseHandler):
             },
             app_config=self.app_config,
             credentials=credentials,
+            aws_client_factory=self.aws_client_factory,
             task_spawner=self.task_spawner
         )
 
@@ -297,7 +299,7 @@ class InfraCollisionCheck(BaseHandler):
 
 class DeployDiagramDependencies:
     @pinject.copy_args_to_public_fields
-    def __init__(self, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager, sqs_manager, workflow_manager_service):
+    def __init__(self, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager, sqs_manager, workflow_manager_service, aws_client_factory):
         pass
 
 
@@ -315,6 +317,7 @@ class DeployDiagram(BaseHandler):
     schedule_trigger_manager = None
     sns_manager = None
     sqs_manager = None
+    aws_client_factory = None
     workflow_manager_service: WorkflowManagerService = None
 
     @gen.coroutine
@@ -385,6 +388,7 @@ class DeployDiagram(BaseHandler):
             self.task_spawner,
             credentials,
             app_config=self.app_config,
+            aws_client_factory=self.aws_client_factory,
             api_gateway_manager=self.api_gateway_manager,
             latest_deployment=latest_deployment_json
         )

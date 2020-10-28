@@ -27,6 +27,8 @@ class AwsDeployment(aws_deployment.AwsDeployment):
 
             self.add_workflow_state(workflow_state)
 
+        self.build_transitions(diagram_data)
+
         # Add transition data to each Lambda
         for workflow_relationship_json in diagram_data["workflow_relationships"]:
             workflow_relationship_from_json(self, workflow_relationship_json)
@@ -34,6 +36,7 @@ class AwsDeployment(aws_deployment.AwsDeployment):
 
         # Load all handlers in order to return them back to the front end when
         # serializing.
+
         self._global_handlers = diagram_data["global_handlers"]
 
     def _use_or_create_api_gateway(self):

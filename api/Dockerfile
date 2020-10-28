@@ -16,6 +16,7 @@ RUN /work/install/terraform init
 WORKDIR /work/
 
 EXPOSE 7777
+EXPOSE 5678
 EXPOSE 9999
 EXPOSE 3333
 

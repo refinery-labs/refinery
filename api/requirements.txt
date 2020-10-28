@@ -57,3 +57,4 @@ python-jsonschema-objects==0.3.12
 pytest-mock==2.0.0
 wcwidth==0.1.9
 zipp==3.1.0
+debugpy

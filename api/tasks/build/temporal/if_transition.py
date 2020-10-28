@@ -129,6 +129,7 @@ class IfTransitionBuilder:
         else:
             return f"arn:aws:iam::{account_id}:role/refinery_default_aws_lambda_role"
 
+    @aws_exponential_backoff(allowedErrors=['ResourceConflictException'])
     def deploy_lambda(self, path):
         lambda_client = self.aws_client_factory.get_aws_client(
             "lambda",
