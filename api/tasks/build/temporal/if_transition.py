@@ -2,12 +2,13 @@ from assistants.decorators import aws_exponential_backoff
 from botocore.exceptions import ClientError
 from hashlib import sha256
 from io import BytesIO
+from itertools import chain
 from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
 from tasks.s3 import s3_object_exists
 from utils.general import add_file_to_zipfile
 from utils.wrapped_aws_functions import lambda_delete_function
 from zipfile import ZIP_DEFLATED, ZipFile
-
+from assistants.deployments.diagram.types import RelationshipTypes
 
 LAMBDA_FUNCTION_TEMPLATE = """
 def lambda_handler(event, context):
@@ -50,23 +51,16 @@ class IfTransitionBuilder:
         self.if_transitions = self.get_if_transitions()
 
     def get_if_transitions(self):
-        relationships = self.deploy_config.get("workflow_relationships", [])
-        result = []
-
-        for relationship in relationships:
-            transition_type = relationship.get('type')
-            expression = relationship.get('expression')
-            node = relationship.get('node')
-
-            if transition_type == 'if' and expression and node:
-                result.append(relationship)
-
-        return result
+        return list(chain(*[
+            i.transitions[RelationshipTypes.IF]
+            for i in self.deploy_config.states()
+            if i.transitions[RelationshipTypes.IF]
+        ]))
 
     def perform(self):
         zip_data = self.get_zip_data()
-        key = self.upload_to_s3(zip_data)
-        arn = self.deploy_lambda(key)
+        shasum, key = self.upload_to_s3(zip_data)
+        arn = self.deploy_lambda(shasum, key)
 
         return arn
 
@@ -88,13 +82,9 @@ class IfTransitionBuilder:
 
         return zip_data
 
-    def get_s3_key(self, zip_data):
-        shasum = sha256(zip_data).hexdigest()
-
-        return f'if_transition_{shasum}.zip'
-
     def upload_to_s3(self, zip_data):
-        key = self.get_s3_key(zip_data)
+        shasum = sha256(zip_data).hexdigest()
+        key = f'if_transition_{shasum}.zip'
         bucket = self.credentials['lambda_packages_bucket']
         s3_client = self.aws_client_factory.get_aws_client(
             "s3",
@@ -109,7 +99,7 @@ class IfTransitionBuilder:
         )
 
         if exists:
-            return key
+            return shasum, key
 
         s3_client.put_object(
             Key=key,
@@ -117,7 +107,7 @@ class IfTransitionBuilder:
             Body=zip_data,
         )
 
-        return key
+        return shasum, key
 
     @property
     def role(self):
@@ -129,8 +119,8 @@ class IfTransitionBuilder:
         else:
             return f"arn:aws:iam::{account_id}:role/refinery_default_aws_lambda_role"
 
-    @aws_exponential_backoff(allowedErrors=['ResourceConflictException'])
-    def deploy_lambda(self, path):
+    @aws_exponential_backoff(allowed_errors=['ResourceConflictException'])
+    def deploy_lambda(self, shasum, path):
         lambda_client = self.aws_client_factory.get_aws_client(
             "lambda",
             self.credentials
@@ -139,7 +129,7 @@ class IfTransitionBuilder:
         try:
             # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#Lambda.Client.create_function
             response = lambda_client.create_function(
-                FunctionName=path,
+                FunctionName=shasum,
                 Runtime=self.runtime,
                 Role=self.role,
                 Handler=self.handler,
@@ -185,8 +175,8 @@ class IfTransitionBuilder:
         return "perform_{}".format(node_id.replace('-', '_'))
 
     def get_transition_fn(self, transition):
-        fn_name = self.get_fn_name(transition['node'])
-        expression = transition['expression']
+        fn_name = self.get_fn_name(transition.origin_node.id)
+        expression = transition.expression
 
         return TRANSITION_FUNCTION_TEMPLATE.format(
             fn_name=fn_name,
@@ -194,7 +184,7 @@ class IfTransitionBuilder:
         )
 
     def get_bool_expr(self, index, transition):
-        node_id = transition['node']
+        node_id = transition.origin_node.id
         fn_name = self.get_fn_name(node_id)
         statement = 'if' if index == 0 else 'elif'
 

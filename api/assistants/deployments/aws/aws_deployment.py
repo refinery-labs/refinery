@@ -51,7 +51,7 @@ class AwsDeployment(DeploymentDiagram):
         super().__init__(*args, **kwargs)
 
         self.api_gateway_manager = api_gateway_manager
-        self.aws_client_factory = None
+        self.aws_client_factory = aws_client_factory
 
         self._workflow_state_lookup: StateLookup[AwsWorkflowState] = self._workflow_state_lookup
         self._previous_state_lookup: StateLookup[AwsDeploymentState] = StateLookup[AwsDeploymentState]()
@@ -71,11 +71,6 @@ class AwsDeployment(DeploymentDiagram):
                 self._previous_state_lookup.add_state(state)
 
         self._if_transition_arn = None
-        self._has_if_transition = bool([
-            i.transitions[RelationshipTypes.IF]
-            for i in self._workflow_state_lookup.states()
-            if i.transitions[RelationshipTypes.IF]
-        ])
 
     def serialize(self):
         serialized_deployment = super().serialize()
@@ -324,7 +319,13 @@ class AwsDeployment(DeploymentDiagram):
 
     @gen.coroutine
     def deploy_if_transitions(self):
-        if not self._has_if_transition:
+        has_if_transition = bool([
+            i.transitions[RelationshipTypes.IF]
+            for i in self._workflow_state_lookup.states()
+            if i.transitions[RelationshipTypes.IF]
+        ])
+
+        if not has_if_transition:
             return
 
         builder = IfTransitionBuilder(self._workflow_state_lookup, self.aws_client_factory, self.credentials)
@@ -350,6 +351,8 @@ class AwsDeployment(DeploymentDiagram):
         if len(deployment_exceptions) != 0:
             raise gen.Return(deployment_exceptions)
 
+        yield self.deploy_if_transitions()
+
         if deploying_api_gateway:
             setup_api_endpoint_exceptions = yield self.execute_setup_api_endpoints(deployed_api_endpoints)
             if len(setup_api_endpoint_exceptions) != 0:
@@ -358,8 +361,6 @@ class AwsDeployment(DeploymentDiagram):
             finalize_exceptions = yield self.execute_finalize_gateway()
             if len(finalize_exceptions) != 0:
                 raise gen.Return(finalize_exceptions)
-
-        setup_if_transitions = yield self.deploy_if_transitions()
 
         update_futures = self._update_workflow_states_with_deploy_info(self.task_spawner)
 
