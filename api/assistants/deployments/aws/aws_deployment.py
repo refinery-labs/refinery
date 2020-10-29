@@ -15,9 +15,10 @@ from assistants.deployments.aws.warmer_trigger import add_auto_warmup, WarmerTri
 from assistants.deployments.diagram.deploy_diagram import DeploymentDiagram
 from assistants.deployments.diagram.errors import InvalidDeployment
 from assistants.deployments.diagram.trigger_state import TriggerWorkflowState
-from assistants.deployments.diagram.types import StateTypes
+from assistants.deployments.diagram.types import StateTypes, RelationshipTypes
 from assistants.deployments.diagram.workflow_states import WorkflowState, StateLookup
 from assistants.deployments.teardown import teardown_deployed_states
+from tasks.build.temporal.if_transition import IfTransitionBuilder
 from utils.general import logit
 
 
@@ -46,10 +47,11 @@ def json_to_aws_deployment_state(workflow_state_json):
 
 
 class AwsDeployment(DeploymentDiagram):
-    def __init__(self, *args, api_gateway_manager=None, latest_deployment=None, **kwargs):
+    def __init__(self, *args, api_gateway_manager=None, aws_client_factory=None, latest_deployment=None, **kwargs):
         super().__init__(*args, **kwargs)
 
         self.api_gateway_manager = api_gateway_manager
+        self.aws_client_factory = aws_client_factory
 
         self._workflow_state_lookup: StateLookup[AwsWorkflowState] = self._workflow_state_lookup
         self._previous_state_lookup: StateLookup[AwsDeploymentState] = StateLookup[AwsDeploymentState]()
@@ -68,6 +70,8 @@ class AwsDeployment(DeploymentDiagram):
 
                 self._previous_state_lookup.add_state(state)
 
+        self._if_transition_arn = None
+
     def serialize(self):
         serialized_deployment = super().serialize()
         workflow_states: [Dict] = []
@@ -80,11 +84,17 @@ class AwsDeployment(DeploymentDiagram):
                     [transition.serialize(use_arns=False) for transition in transition_type_transitions]
                 )
 
-        return {
+        result = {
             **serialized_deployment,
             "workflow_states": workflow_states,
             "workflow_relationships": workflow_relationships,
+            "transition_handlers": {}
         }
+
+        if self._if_transition_arn:
+            result['transition_handlers']['If'] = self._if_transition_arn
+
+        return result
 
     def get_updated_config(self):
         return {
@@ -308,6 +318,20 @@ class AwsDeployment(DeploymentDiagram):
         raise gen.Return(exceptions)
 
     @gen.coroutine
+    def deploy_if_transitions(self):
+        has_if_transition = bool([
+            i.transitions[RelationshipTypes.IF]
+            for i in self._workflow_state_lookup.states()
+            if i.transitions[RelationshipTypes.IF]
+        ])
+
+        if not has_if_transition:
+            return
+
+        builder = IfTransitionBuilder(self._workflow_state_lookup, self.aws_client_factory, self.credentials)
+        self._if_transition_arn = builder.perform()
+
+    @gen.coroutine
     def deploy(self):
         # If we have api endpoints to deploy, we will deploy an api gateway for them
         deployed_api_endpoints = self._workflow_state_lookup.find_states(
@@ -326,6 +350,8 @@ class AwsDeployment(DeploymentDiagram):
         deployment_exceptions = yield self.execute_deploy()
         if len(deployment_exceptions) != 0:
             raise gen.Return(deployment_exceptions)
+
+        yield self.deploy_if_transitions()
 
         if deploying_api_gateway:
             setup_api_endpoint_exceptions = yield self.execute_setup_api_endpoints(deployed_api_endpoints)
@@ -385,6 +411,7 @@ class AwsDeployment(DeploymentDiagram):
 
         # Load all handlers in order to return them back to the front end when
         # serializing.
+
         self._global_handlers = diagram_data["global_handlers"]
 
     @gen.coroutine

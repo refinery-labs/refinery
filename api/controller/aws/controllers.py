@@ -26,7 +26,7 @@ from utils.locker import AcquireFailure
 
 class RunTmpLambdaDependencies:
     @pinject.copy_args_to_public_fields
-    def __init__(self, builder_manager):
+    def __init__(self, builder_manager, aws_client_factory):
         pass
 
 
@@ -34,6 +34,7 @@ class RunTmpLambdaDependencies:
 class RunTmpLambda(BaseHandler):
     dependencies = RunTmpLambdaDependencies
     builder_manager = None
+    aws_client_factory = None
 
     @authenticated
     @disable_on_overdue_payment
@@ -77,6 +78,7 @@ class RunTmpLambda(BaseHandler):
             },
             app_config=self.app_config,
             credentials=credentials,
+            aws_client_factory=self.aws_client_factory,
             task_spawner=self.task_spawner
         )
 
@@ -259,6 +261,7 @@ class InfraTearDown(BaseHandler):
 
         credentials = self.get_authenticated_user_cloud_configuration()
 
+        yield self._append_transition_arns(self.json['deployment_id'], teardown_nodes)
         teardown_operation_results = yield teardown_infrastructure(
             self.api_gateway_manager,
             self.lambda_manager,
@@ -278,11 +281,32 @@ class InfraTearDown(BaseHandler):
         )
 
         self.workflow_manager_service.delete_deployment_workflows(self.json["deployment_id"])
+        # TODO client should send ARN to server
 
         self.write({
             "success": True,
             "result": teardown_operation_results
         })
+
+    @gen.coroutine
+    def _append_transition_arns(self, deployment_id, teardown_nodes):
+        deployment = self.db_session_maker.query(Deployment).filter_by(
+            id=deployment_id
+        ).first()
+
+        if not deployment:
+            return
+
+        deploy_info = json.loads(deployment.deployment_json) or {}
+        transition_handlers = deploy_info.get('transition_handlers', {})
+
+        for arn in transition_handlers.values():
+            teardown_nodes.append({
+                "type": "lambda",
+                "name": arn,
+                "id": arn,
+                "arn": arn
+            })
 
 
 class InfraCollisionCheck(BaseHandler):
@@ -297,7 +321,7 @@ class InfraCollisionCheck(BaseHandler):
 
 class DeployDiagramDependencies:
     @pinject.copy_args_to_public_fields
-    def __init__(self, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager, sqs_manager, workflow_manager_service):
+    def __init__(self, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager, sqs_manager, workflow_manager_service, aws_client_factory):
         pass
 
 
@@ -315,6 +339,7 @@ class DeployDiagram(BaseHandler):
     schedule_trigger_manager = None
     sns_manager = None
     sqs_manager = None
+    aws_client_factory = None
     workflow_manager_service: WorkflowManagerService = None
 
     @gen.coroutine
@@ -385,6 +410,7 @@ class DeployDiagram(BaseHandler):
             self.task_spawner,
             credentials,
             app_config=self.app_config,
+            aws_client_factory=self.aws_client_factory,
             api_gateway_manager=self.api_gateway_manager,
             latest_deployment=latest_deployment_json
         )
