@@ -261,6 +261,7 @@ class InfraTearDown(BaseHandler):
 
         credentials = self.get_authenticated_user_cloud_configuration()
 
+        yield self._append_transition_arns(self.json['deployment_id'], teardown_nodes)
         teardown_operation_results = yield teardown_infrastructure(
             self.api_gateway_manager,
             self.lambda_manager,
@@ -280,11 +281,32 @@ class InfraTearDown(BaseHandler):
         )
 
         self.workflow_manager_service.delete_deployment_workflows(self.json["deployment_id"])
+        # TODO client should send ARN to server
 
         self.write({
             "success": True,
             "result": teardown_operation_results
         })
+
+    @gen.coroutine
+    def _append_transition_arns(self, deployment_id, teardown_nodes):
+        deployment = self.db_session_maker.query(Deployment).filter_by(
+            id=deployment_id
+        ).first()
+
+        if not deployment:
+            return
+
+        deploy_info = json.loads(deployment.deployment_json) or {}
+        transition_handlers = deploy_info.get('transition_handlers', {})
+
+        for arn in transition_handlers.values():
+            teardown_nodes.append({
+                "type": "lambda",
+                "name": arn,
+                "id": arn,
+                "arn": arn
+            })
 
 
 class InfraCollisionCheck(BaseHandler):

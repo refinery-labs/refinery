@@ -148,7 +148,7 @@ class IfTransitionBuilder:
                 # Delete the existing lambda
                 delete_response = lambda_delete_function(
                     lambda_client,
-                    path
+                    shasum
                 )
 
             raise
