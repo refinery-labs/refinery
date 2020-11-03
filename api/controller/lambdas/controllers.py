@@ -207,6 +207,11 @@ class BuildLibrariesPackage(BaseHandler):
                 credentials,
                 libraries_dict
             )
+        elif self.json["language"] == "python3.8":
+            build_id = yield self.task_spawner.start_python38_codebuild(
+                credentials,
+                libraries_dict
+            )
         elif self.json["language"] == "nodejs8.10":
             build_id = yield self.task_spawner.start_node810_codebuild(
                 credentials,
