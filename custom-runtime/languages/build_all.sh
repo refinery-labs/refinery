@@ -24,6 +24,9 @@ cd ../
 cd python3.6/
 ./build.sh
 cd ../
+cd python3.8/
+./build.sh
+cd ../
 cd ruby2.6.4/
 ./build.sh
 cd ../
