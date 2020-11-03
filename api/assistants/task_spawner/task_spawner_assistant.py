@@ -80,6 +80,7 @@ from tasks.build.nodejs import (
     start_node810_codebuild,
     start_node10163_codebuild, start_node10201_codebuild)
 from tasks.build.python import (
+    start_python38_codebuild,
     start_python36_codebuild,
     start_python27_codebuild
 )
@@ -613,6 +614,15 @@ class TaskSpawner(object):
     @emit_runtime_metrics("get_final_zip_package_path")
     def get_final_zip_package_path(self, language, libraries):
         return get_final_zip_package_path(language, libraries)
+
+    @run_on_executor
+    @emit_runtime_metrics("start_python38_codebuild")
+    def start_python38_codebuild(self, credentials, libraries_object):
+        return start_python38_codebuild(
+            self.aws_client_factory,
+            credentials,
+            libraries_object
+        )
 
     @run_on_executor
     @emit_runtime_metrics("start_python36_codebuild")
