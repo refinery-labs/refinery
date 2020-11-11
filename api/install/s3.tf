@@ -7,6 +7,23 @@ resource "aws_s3_bucket" "lambda-logging" {
   acl    = "private"
 
   lifecycle_rule {
+    id     = "bucket_root"
+    prefix = ""
+
+    enabled = true
+
+    expiration {
+      days = 7
+    }
+
+    noncurrent_version_expiration {
+      days = 7
+    }
+
+    abort_incomplete_multipart_upload_days = 7
+  }
+
+  lifecycle_rule {
     id     = "athena_query_output"
     prefix = "athena/"
 
