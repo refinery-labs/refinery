@@ -6,8 +6,9 @@ from tornado import gen
 from controller import BaseHandler
 from controller.decorators import authenticated, disable_on_overdue_payment
 from controller.logs.actions import chunk_list, write_remaining_project_execution_log_pages, \
-    get_execution_stats_since_timestamp, do_update_athena_table_partitions
+    get_execution_stats_since_timestamp, update_athena_table_partitions
 from controller.logs.schemas import *
+from utils.locker import AcquireFailure
 
 
 class GetProjectExecutionLogObjects(BaseHandler):
@@ -186,15 +187,24 @@ class GetProjectExecutions(BaseHandler):
 
         credentials = self.get_authenticated_user_cloud_configuration()
 
-        # We do this to always keep Athena partitioned for the later
-        # steps of querying
-        do_update_athena_table_partitions(
-            self.task_spawner,
-            self.db_session_maker,
-            self.task_locker,
-            credentials,
-            project_id
-        )
+        lock_id = "get_project_executions_" + project_id
+
+        task_lock = self.task_locker.lock(self.dbsession, lock_id)
+        try:
+            # Enforce that we are only attempting to do this once per project
+            with task_lock:
+                # We do this to always keep Athena partitioned for the later
+                # steps of querying
+                self.logger("Updating athena table partitions for project: " + project_id)
+                update_athena_table_partitions(
+                    self.task_spawner,
+                    credentials,
+                    project_id
+                )
+
+        except AcquireFailure:
+            # This is not an error, we just already have one in progress
+            self.logger("Unable to acquire get project executions lock for " + project_id)
 
         # Ensure user is owner of the project
         if not self.is_owner_of_project(self.json["project_id"]):
