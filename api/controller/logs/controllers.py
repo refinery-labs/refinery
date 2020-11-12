@@ -6,7 +6,7 @@ from tornado import gen
 from controller import BaseHandler
 from controller.decorators import authenticated, disable_on_overdue_payment
 from controller.logs.actions import chunk_list, write_remaining_project_execution_log_pages, \
-    get_execution_stats_since_timestamp, do_update_athena_table_partitions, update_athena_table_partitions
+    get_execution_stats_since_timestamp, update_athena_table_partitions
 from controller.logs.schemas import *
 from utils.locker import AcquireFailure
 
@@ -195,6 +195,7 @@ class GetProjectExecutions(BaseHandler):
             with task_lock:
                 # We do this to always keep Athena partitioned for the later
                 # steps of querying
+                self.logger("Updating athena table partitions for project: " + project_id)
                 update_athena_table_partitions(
                     self.task_spawner,
                     credentials,

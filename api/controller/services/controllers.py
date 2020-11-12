@@ -762,11 +762,11 @@ class PerformTerraformUpdateForAccount(BaseHandler):
 
         if terraform_apply_results["success"]:
             terraform_output_html = ansiconverter.convert(
-                terraform_apply_results["stdout"]
+                terraform_apply_results["stdout"].decode()
             )
         else:
             terraform_output_html = ansiconverter.convert(
-                terraform_apply_results["stderr"]
+                terraform_apply_results["stderr"].decode()
             )
 
         rendered_html_output = response_html_template.format(
