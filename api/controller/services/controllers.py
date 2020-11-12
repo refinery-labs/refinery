@@ -585,11 +585,11 @@ class PerformTerraformUpdateOnFleet(BaseHandler):
 
             if terraform_apply_results["success"]:
                 terraform_output_html = ansiconverter.convert(
-                    terraform_apply_results["stdout"]
+                    terraform_apply_results["stdout"].decode()
                 )
             else:
                 terraform_output_html = ansiconverter.convert(
-                    terraform_apply_results["stderr"]
+                    terraform_apply_results["stderr"].decode()
                 )
                 issue_occurred_during_updates = True
 
