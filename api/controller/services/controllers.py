@@ -169,7 +169,7 @@ class OnboardThirdPartyAWSAccountPlan(BaseHandler):
         # Convert terraform plan terminal output to HTML
         ansiconverter = Ansi2HTMLConverter()
         terraform_output_html = ansiconverter.convert(
-            terraform_plan_output.decode("utf-8")
+            terraform_plan_output.decode()
         )
 
         final_email_html += "<hr /><h1>AWS Account " + third_party_aws_account_dict["account_id"] + "</h1>"
@@ -674,7 +674,7 @@ class PerformTerraformPlanForAccount(BaseHandler):
         # Convert terraform plan terminal output to HTML
         ansiconverter = Ansi2HTMLConverter()
         terraform_output_html = ansiconverter.convert(
-            terraform_plan_output.decode("utf-8")
+            terraform_plan_output.decode()
         )
 
         rendered_html_output = response_html_template.format(
@@ -832,7 +832,7 @@ class PerformTerraformPlanOnFleet(BaseHandler):
             # Convert terraform plan terminal output to HTML
             ansiconverter = Ansi2HTMLConverter()
             terraform_output_html = ansiconverter.convert(
-                terraform_plan_output.decode("utf-8")
+                terraform_plan_output.decode()
             )
 
             final_email_html += "<hr /><h1>AWS Account " + current_aws_account["account_id"] + "</h1>"
