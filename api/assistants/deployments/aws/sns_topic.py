@@ -63,6 +63,9 @@ class SnsTopicWorkflowState(AwsWorkflowState, TopicWorkflowState):
             sub_arn = subscription.subscription_arn
             endpoint = subscription.endpoint
 
+            if sub_arn == "PendingConfirmation":
+                continue
+
             exists = deployment.validate_arn_exists_and_mark_for_cleanup(StateTypes.LAMBDA, endpoint)
             if not exists:
                 yield task_spawner.unsubscribe_lambda_from_sns_topic(

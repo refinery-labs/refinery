@@ -8,6 +8,7 @@ from assistants.deployments.aws.api_endpoint import ApiEndpointWorkflowState
 from assistants.deployments.aws.api_gateway import ApiGatewayWorkflowState, ApiGatewayDeploymentState
 from assistants.deployments.aws.aws_workflow_state import AwsWorkflowState
 from assistants.deployments.aws.lambda_function import LambdaDeploymentState
+from assistants.deployments.aws.new_workflow_object import workflow_relationship_from_json, workflow_state_from_json
 from assistants.deployments.aws.sns_topic import SnsTopicDeploymentState
 from assistants.deployments.aws.types import AwsDeploymentState
 from assistants.deployments.aws.warmer_trigger import add_auto_warmup, WarmerTriggerWorkflowState
@@ -362,6 +363,29 @@ class AwsDeployment(DeploymentDiagram):
             raise gen.Return(cleanup_exceptions)
 
         raise gen.Return(deployment_exceptions)
+
+    def load_deployment_graph(self, diagram_data):
+        # If we have workflow files and links, add them to the deployment
+        workflow_files_json = diagram_data.get("workflow_files")
+        workflow_file_links_json = diagram_data.get("workflow_file_links")
+        if workflow_files_json and workflow_file_links_json:
+            self.add_workflow_files(workflow_files_json, workflow_file_links_json)
+
+        # Create an in-memory representation of the deployment data
+        for n, workflow_state_json in enumerate(diagram_data["workflow_states"]):
+            workflow_state = workflow_state_from_json(
+                self.credentials, self, workflow_state_json)
+
+            self.add_workflow_state(workflow_state)
+
+        # Add transition data to each Lambda
+        for workflow_relationship_json in diagram_data["workflow_relationships"]:
+            workflow_relationship_from_json(self, workflow_relationship_json)
+        self.finalize_merge_transitions()
+
+        # Load all handlers in order to return them back to the front end when
+        # serializing.
+        self._global_handlers = diagram_data["global_handlers"]
 
     @gen.coroutine
     def deploy_diagram(self, diagram_data):

@@ -1,6 +1,6 @@
 config:
   http_host: "0.0.0.0"
-  http_port: 8080
+  http_port: 8081
   sqlite_kv_path: "pidgeonkv.db"
   # WARNING: This key is only used for local development, do not use in prod
   # TODO create local dev environment and set block_result_key there instead

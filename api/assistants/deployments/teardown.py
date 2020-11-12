@@ -39,7 +39,7 @@ def teardown_infrastructure(api_gateway_manager, lambda_manager, schedule_trigge
 
         # TODO we should just pass the workflow states into here
 
-        if teardown_node["type"] == "lambda" or teardown_node["type"] == "api_endpoint":
+        if teardown_node["type"] == "lambda" or teardown_node["type"] == "api_endpoint" or teardown_node["type"] == "sqs_queue_handler":
             teardown_operation_futures.append(
                 lambda_manager.delete_lambda(
                     credentials,
@@ -100,7 +100,7 @@ def teardown_deployed_states(api_gateway_manager, lambda_manager, schedule_trigg
     # TODO refactor teardown functions so that they only take have the necessary info
 
     for teardown_node in teardown_nodes:
-        if teardown_node.type == StateTypes.LAMBDA or teardown_node.type == StateTypes.API_ENDPOINT:
+        if teardown_node.type == StateTypes.LAMBDA or teardown_node.type == StateTypes.API_ENDPOINT or teardown_node.type == StateTypes.SQS_QUEUE_HANDLER:
             teardown_operation_futures.append(
                 lambda_manager.delete_lambda(
                     credentials,

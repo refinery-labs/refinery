@@ -22,7 +22,12 @@ if TYPE_CHECKING:
 	]]
 
 
-def workflow_state_from_json(credentials, deploy_diagram: AwsDeployment, workflow_state_json: Dict) -> WorkflowState:
+def do_workflow_state_from_json(
+	state_type_to_workflow_state: Dict[StateTypes, WorkflowStateTypes],
+	credentials,
+	deploy_diagram: AwsDeployment,
+	workflow_state_json: Dict
+) -> WorkflowState:
 	node_id = workflow_state_json["id"]
 	node_type = workflow_state_json["type"]
 
@@ -30,15 +35,6 @@ def workflow_state_from_json(credentials, deploy_diagram: AwsDeployment, workflo
 		state_type = StateTypes(workflow_state_json["type"])
 	except ValueError as e:
 		raise InvalidDeployment(f"workflow state {node_id} has invalid type {node_type}")
-
-	state_type_to_workflow_state: Dict[StateTypes, WorkflowStateTypes] = {
-		StateTypes.LAMBDA: LambdaWorkflowState,
-		StateTypes.API_ENDPOINT: ApiEndpointWorkflowState,
-		StateTypes.SQS_QUEUE: SqsQueueWorkflowState,
-		StateTypes.SNS_TOPIC: SnsTopicWorkflowState,
-		StateTypes.SCHEDULE_TRIGGER: ScheduleTriggerWorkflowState,
-		StateTypes.API_GATEWAY_RESPONSE: ApiGatewayResponseWorkflowState
-	}
 
 	workflow_state_type = state_type_to_workflow_state.get(state_type)
 
@@ -55,6 +51,23 @@ def workflow_state_from_json(credentials, deploy_diagram: AwsDeployment, workflo
 	workflow_state.setup(deploy_diagram, workflow_state_json)
 
 	return workflow_state
+
+
+def workflow_state_from_json(credentials, deploy_diagram: AwsDeployment, workflow_state_json: Dict) -> WorkflowState:
+	state_type_to_workflow_state: Dict[StateTypes, WorkflowStateTypes] = {
+		StateTypes.LAMBDA: LambdaWorkflowState,
+		StateTypes.API_ENDPOINT: ApiEndpointWorkflowState,
+		StateTypes.SQS_QUEUE: SqsQueueWorkflowState,
+		StateTypes.SNS_TOPIC: SnsTopicWorkflowState,
+		StateTypes.SCHEDULE_TRIGGER: ScheduleTriggerWorkflowState,
+		StateTypes.API_GATEWAY_RESPONSE: ApiGatewayResponseWorkflowState
+	}
+	return do_workflow_state_from_json(
+		state_type_to_workflow_state,
+		credentials,
+		deploy_diagram,
+		workflow_state_json
+	)
 
 
 def workflow_relationship_from_json(deploy_diagram: AwsDeployment, workflow_relationship_json: Dict):

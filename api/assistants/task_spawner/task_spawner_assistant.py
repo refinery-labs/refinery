@@ -71,7 +71,7 @@ from tasks.aws_lambda import (
     set_lambda_reserved_concurrency,
     deploy_aws_lambda,
     clean_lambda_iam_policies, publish_new_aws_lambda_version, list_lambda_event_source_mappings,
-)
+    deploy_aws_lambda_with_code)
 from tasks.build.common import (
     finalize_codebuild
 )
@@ -101,7 +101,7 @@ from tasks.cloudwatch import (
 from tasks.sns import (
     create_sns_topic,
     subscribe_lambda_to_sns_topic,
-    get_sns_topic_subscriptions, unsubscribe_lambda_from_sns_topic)
+    get_sns_topic_subscriptions, unsubscribe_lambda_from_sns_topic, subscribe_workflow_to_sns_topic)
 from tasks.sqs import (
     create_sqs_queue,
     map_sqs_to_lambda,
@@ -113,7 +113,7 @@ from tasks.api_gateway import (
     create_resource,
     create_method,
     link_api_method_to_lambda,
-    get_lambda_uri_for_api_method)
+    get_lambda_uri_for_api_method, link_api_method_to_workflow)
 
 
 # noinspection PyTypeChecker,SqlResolve
@@ -576,6 +576,17 @@ class TaskSpawner(object):
 
     @run_on_executor
     @log_exception
+    @emit_runtime_metrics("deploy_aws_lambda_with_code")
+    def deploy_aws_lambda_with_code(self, credentials, lambda_object, workflow_manager_invoke_url):
+        return deploy_aws_lambda_with_code(
+            self.aws_client_factory,
+            credentials,
+            lambda_object,
+            workflow_manager_invoke_url
+        )
+
+    @run_on_executor
+    @log_exception
     @emit_runtime_metrics("publish_new_aws_lambda_version")
     def publish_new_aws_lambda_version(self, credentials, lambda_object):
         return publish_new_aws_lambda_version(
@@ -760,6 +771,25 @@ class TaskSpawner(object):
     @run_on_executor
     @emit_runtime_metrics("unsubscribe_lambda_from_sns_topic")
     def unsubscribe_lambda_from_sns_topic(self, credentials, subscription_arn):
+        return unsubscribe_lambda_from_sns_topic(
+            self.aws_client_factory,
+            credentials,
+            subscription_arn
+        )
+
+    @run_on_executor
+    @emit_runtime_metrics("subscribe_workflow_to_sns_topic")
+    def subscribe_workflow_to_sns_topic(self, credentials, topic_object, workflow_manager_url):
+        return subscribe_workflow_to_sns_topic(
+            self.aws_client_factory,
+            credentials,
+            topic_object,
+            workflow_manager_url
+        )
+
+    @run_on_executor
+    @emit_runtime_metrics("unsubscribe_workflow_from_sns_topic")
+    def unsubscribe_workflow_from_sns_topic(self, credentials, subscription_arn):
         return unsubscribe_lambda_from_sns_topic(
             self.aws_client_factory,
             credentials,
@@ -964,6 +994,17 @@ class TaskSpawner(object):
     @emit_runtime_metrics("link_api_method_to_lambda")
     def link_api_method_to_lambda(self, credentials, rest_api_id, resource_id, api_endpoint):
         return link_api_method_to_lambda(
+            self.aws_client_factory,
+            credentials,
+            rest_api_id,
+            resource_id,
+            api_endpoint
+        )
+
+    @run_on_executor
+    @emit_runtime_metrics("link_api_method_to_workflow_manager")
+    def link_api_method_to_workflow(self, credentials, rest_api_id, resource_id, api_endpoint):
+        return link_api_method_to_workflow(
             self.aws_client_factory,
             credentials,
             rest_api_id,

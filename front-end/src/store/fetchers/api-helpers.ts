@@ -317,11 +317,16 @@ export async function startLibraryBuild(libraryBuildArgs: LibraryBuildArguments)
   }
 }
 
-export async function teardownProject(openedDeploymentProjectId: string, states: ProductionWorkflowState[]) {
+export async function teardownProject(
+  openedDeploymentProjectId: string,
+  openedDeploymentId: string,
+  states: ProductionWorkflowState[]
+) {
   const destroyDeploymentResult = await makeApiRequest<InfraTearDownRequest, InfraTearDownResponse>(
     API_ENDPOINT.InfraTearDown,
     {
       project_id: openedDeploymentProjectId,
+      deployment_id: openedDeploymentId,
       teardown_nodes: states
     }
   );

@@ -216,6 +216,140 @@ resource "aws_iam_role_policy_attachment" "refinery_default_aws_lambda_attachmen
   policy_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/refinery_default_aws_lambda_policy"
 }
 
+resource "aws_iam_policy" "refinery_workflow_manager_queue_handler_policy" {
+  name        = "refinery_workflow_manager_queue_handler_policy"
+  path        = "/"
+  description = "Refinery Queue Handler runtime IAM policy for an AWS Lambda run by Workflow Manager."
+  policy      = <<POLICY
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "sqs:ReceiveMessage"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+POLICY
+
+}
+
+resource "aws_iam_role" "refinery_workflow_manager_queue_handler_role" {
+  name = "refinery_workflow_manager_queue_handler_role"
+
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Effect": "Allow",
+      "Sid": ""
+    }
+  ]
+}
+EOF
+
+}
+
+/*
+	This attached the IAM policy to the IAM role for the
+	default Lambda IAM permissions.
+*/
+resource "aws_iam_role_policy_attachment" "refinery_workflow_manager_queue_handler_role" {
+  role       = aws_iam_role.refinery_workflow_manager_aws_lambda_role.id
+  policy_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/refinery_workflow_manager_queue_handler_policy"
+}
+
+resource "aws_iam_role" "refinery_workflow_manager_aws_lambda_role" {
+  name = "refinery_workflow_manager_aws_lambda_role"
+
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Effect": "Allow",
+      "Sid": ""
+    }
+  ]
+}
+EOF
+
+}
+
+resource "aws_iam_policy" "refinery_workflow_manager_policy" {
+  name        = "refinery_workflow_manager_policy"
+  path        = "/"
+  description = "Policy for the Refinery Workflow Manager to be able to orchestrate a workflow."
+  policy      = <<POLICY
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutObject",
+                "lambda:InvokeFunction"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "sns:Publish",
+                "sqs:SendMessage"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+POLICY
+}
+
+resource "aws_iam_role" "refinery_workflow_manager_role" {
+  name = "refinery_workflow_manager_role"
+
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "AWS": "${var.root_account_id}"
+      },
+      "Effect": "Allow"
+    }
+  ]
+}
+EOF
+
+}
+
+/*
+	This attached the IAM policy to the IAM role for the
+	default Lambda IAM permissions.
+*/
+resource "aws_iam_role_policy_attachment" "refinery_workflow_manager_attachment" {
+  role       = aws_iam_role.refinery_workflow_manager_role.id
+  policy_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/refinery_workflow_manager_policy"
+}
+
+
 /*
 	The permissions policy for CloudWatch Events deployed by
 	Refinery. This allows CloudWatch to trigger the underlying

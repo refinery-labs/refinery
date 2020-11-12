@@ -386,6 +386,7 @@ def get_execution_stats_since_timestamp(db_session_maker, task_spawner, credenti
         "debug"
     )
 
+    """
     for cached_execution_shard in cached_execution_shards:
         cached_execution_shard_dict = cached_execution_shard.to_dict()
 
@@ -395,6 +396,7 @@ def get_execution_stats_since_timestamp(db_session_maker, task_spawner, credenti
         # Remove this from the shards to go scan since we already have it
         if cached_execution_shard_dict["date_shard"] in all_s3_shards:
             all_s3_shards.remove(cached_execution_shard_dict["date_shard"])
+    """
 
     logit("Number of un-cached shards in S3 we have to scan: " + str(len(all_s3_shards)), "debug")
 

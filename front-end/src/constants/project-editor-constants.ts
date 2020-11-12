@@ -215,6 +215,17 @@ def main(block_input, backpack)
     return "Hello World!"
 end
 `,
+  [SupportedLanguage.PYTHON_36_TEMPORAL]: `
+def main(block_input, backpack):
+    return "Hello World!"
+`,
+  [SupportedLanguage.NODEJS_10_TEMPORAL]: `
+async function main(blockInput, backpack) {
+    return 'Hello World!';
+}
+
+module.exports = { main };
+`,
   [SupportedLanguage.PYTHON_3]: `
 def main(block_input, backpack):
     return "Hello World!"
@@ -359,7 +370,8 @@ export const blockTypeToDefaultStateMapping: BlockTypeToDefaultState = {
   [WorkflowStateType.SCHEDULE_TRIGGER]: () => SCHEDULE_EXPRESSION_BLOCK_DEFAULT_STATE,
   [WorkflowStateType.SNS_TOPIC]: () => TOPIC_BLOCK_DEFAULT_STATE,
   [WorkflowStateType.API_GATEWAY]: () => SHARED_BLOCK_DEFAULTS,
-  [WorkflowStateType.WARMER_TRIGGER]: () => SHARED_BLOCK_DEFAULTS
+  [WorkflowStateType.WARMER_TRIGGER]: () => SHARED_BLOCK_DEFAULTS,
+  [WorkflowStateType.SQS_QUEUE_HANDLER]: () => SHARED_BLOCK_DEFAULTS
 };
 
 export const blockNameText = 'Name of the block.';

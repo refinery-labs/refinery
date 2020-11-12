@@ -125,4 +125,26 @@ def unsubscribe_lambda_from_sns_topic(aws_client_factory, credentials, subscript
     )
 
     # TODO do something with response?
-    response = sns_client.unsubscribe(subscription_arn)
+    response = sns_client.unsubscribe(
+        SubscriptionArn=subscription_arn
+    )
+
+
+def subscribe_workflow_to_sns_topic(aws_client_factory, credentials, topic_object, workflow_manager_url):
+    sns_client = aws_client_factory.get_aws_client(
+        "sns",
+        credentials,
+    )
+
+    sns_topic_response = sns_client.subscribe(
+        TopicArn=topic_object.arn,
+        Protocol="https",
+        Endpoint=workflow_manager_url,
+        Attributes={},
+        ReturnSubscriptionArn=True
+    )
+
+    return {
+        "arn": sns_topic_response["SubscriptionArn"]
+    }
+

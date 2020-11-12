@@ -35,8 +35,11 @@ class Deployment(Base):
 
     timestamp = Column(Integer())
 
-    def __init__(self):
-        self.id = str(uuid.uuid4())
+    def __init__(self, id=None):
+        if id is None:
+            self.id = str(uuid.uuid4())
+        else:
+            self.id = id
         self.timestamp = int(time.time())
 
     def to_dict(self):

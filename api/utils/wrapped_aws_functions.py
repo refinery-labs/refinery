@@ -1,9 +1,14 @@
+from __future__ import annotations
+
 # The various functions in this file are just wrapped AWS functions with retry logic configured
 from enum import Enum
-from typing import AnyStr, List, Type, Any, Generic, Dict, Union, Optional
+from typing import AnyStr, List, Type, Any, Generic, Dict, Union, Optional, TYPE_CHECKING
 
 from assistants.decorators import aws_exponential_backoff, NOT_FOUND_EXCEPTION, RESOURCE_IN_USE_EXCEPTION, \
     RESOURCE_NOT_FOUND_EXCEPTION
+
+if TYPE_CHECKING:
+    from assistants.deployments.aws.api_endpoint import ApiEndpointWorkflowState
 
 
 @aws_exponential_backoff()
@@ -367,3 +372,43 @@ def sqs_create_queue(sqs_client, queue_name: AnyStr, attributes: Dict[AnyStr, An
 @aws_exponential_backoff()
 def sqs_get_queue_url(sqs_client, queue_name: AnyStr, **kwargs):
     return sqs_client.get_queue_url(QueueName=queue_name, **kwargs)
+
+
+@aws_exponential_backoff(max_attempts=10)
+def try_to_put_api_integration(api_gateway_client, rest_api_id, resource_id, api_endpoint: ApiEndpointWorkflowState, lambda_uri):
+    return api_gateway_client.put_integration(
+        restApiId=rest_api_id,
+        resourceId=resource_id,
+        httpMethod=api_endpoint.http_method,
+        type="AWS_PROXY",
+        # MUST be POST: https://github.com/boto/boto3/issues/572#issuecomment-239294381
+        integrationHttpMethod="POST",
+        uri=lambda_uri,
+        connectionType="INTERNET",
+        timeoutInMillis=29000  # 29 seconds
+    )
+
+
+@aws_exponential_backoff(max_attempts=10)
+def try_to_put_http_api_integration(api_gateway_client, rest_api_id, resource_id, api_endpoint: ApiEndpointWorkflowState, http_url):
+    return api_gateway_client.put_integration(
+        restApiId=rest_api_id,
+        resourceId=resource_id,
+        httpMethod=api_endpoint.http_method,
+        type="HTTP_PROXY",
+        integrationHttpMethod=api_endpoint.http_method,
+        uri=http_url,
+        connectionType="INTERNET",
+        timeoutInMillis=29000  # 29 seconds
+    )
+
+
+@aws_exponential_backoff(max_attempts=10)
+def try_to_put_integration_response(api_gateway_client, rest_api_id, resource_id, api_endpoint):
+    return api_gateway_client.put_integration_response(
+        restApiId=rest_api_id,
+        resourceId=resource_id,
+        httpMethod=api_endpoint.http_method,
+        statusCode="200",
+        contentHandling="CONVERT_TO_TEXT"
+    )

@@ -51,13 +51,11 @@ class RunLambda(BaseHandler):
             pass
 
         lambda_input_data = {
-            "_refinery": {
-                "backpack": backpack_data,
-                "throw_exceptions_fully": True,
-                "input_data": input_data
-            }
+            "backpack": backpack_data,
+            "input_data": input_data
         }
 
+        """
         if "execution_id" in self.json and self.json["execution_id"]:
             lambda_input_data["_refinery"]["execution_id"] = str(self.json["execution_id"])
 
@@ -66,6 +64,7 @@ class RunLambda(BaseHandler):
                 "debug_id": self.json["debug_id"],
                 "websocket_uri": self.app_config.get("LAMBDA_CALLBACK_ENDPOINT"),
             }
+        """
 
         self.logger("Executing Lambda...")
         lambda_result = yield self.task_spawner.execute_aws_lambda(
@@ -74,9 +73,17 @@ class RunLambda(BaseHandler):
             lambda_input_data
         )
 
+        lambda_execution_result = {}
+
+        return_data = json.loads(
+            lambda_result["returned_data"]
+        )
+        lambda_execution_result["returned_data"] = return_data["result"] if "result" in return_data else ""
+        lambda_execution_result["logs"] = lambda_result["logs"] if "logs" in lambda_result else ""
+
         self.write({
             "success": True,
-            "result": lambda_result
+            "result": lambda_execution_result
         })
 
 

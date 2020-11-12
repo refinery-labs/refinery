@@ -28,7 +28,9 @@ export enum SupportedLanguage {
   NODEJS_10 = 'nodejs10.16.3',
   NODEJS_1020 = 'nodejs10.20.1',
   PHP7 = 'php7.3',
-  GO1_12 = 'go1.12'
+  GO1_12 = 'go1.12',
+  PYTHON_36_TEMPORAL = 'Python 3.6 Temporal',
+  NODEJS_10_TEMPORAL = 'Node.js 10 Temporal'
 }
 
 export enum WorkflowStateType {
@@ -40,6 +42,7 @@ export enum WorkflowStateType {
   API_ENDPOINT = 'api_endpoint',
   SNS_TOPIC = 'sns_topic',
   SQS_QUEUE = 'sqs_queue',
+  SQS_QUEUE_HANDLER = 'sqs_queue_handler',
   SCHEDULE_TRIGGER = 'schedule_trigger'
 }
 

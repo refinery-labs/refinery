@@ -1,7 +1,7 @@
 import json
 import os
 
-from pyconstants.project_constants import LAMBDA_BASE_LIBRARIES
+from pyconstants.project_constants import LAMBDA_BASE_LIBRARIES, LAMBDA_TEMPORAL_RUNTIMES
 
 
 def app_init_config(app_config):
@@ -21,6 +21,7 @@ def app_init_config(app_config):
             email_templates[template_name] = file_handler.read()
 
     lamdba_base_codes = {}
+    lambda_temporal_runtimes = {}
 
     customer_iam_policy = ""
 
@@ -34,6 +35,13 @@ def app_init_config(app_config):
         # Load Lambda base templates
         with open("./lambda_bases/" + language_name, "r") as file_handler:
             lamdba_base_codes[language_name] = file_handler.read()
+
+    for language_name, folder_name in LAMBDA_TEMPORAL_RUNTIMES.items():
+        # Load temporal runtimes
+        # TODO, this wont work for runtimes that are multiple files.
+        # I did it this way to prevent an additional file read on every build.
+        with open(f'./runtimes/{folder_name}', 'r') as f:
+            lambda_temporal_runtimes[language_name] = f.read()
 
     default_project_array = []
 
@@ -51,6 +59,7 @@ def app_init_config(app_config):
     init_config = dict(
         EMAIL_TEMPLATES=email_templates,
         LAMDBA_BASE_CODES=lamdba_base_codes,
+        LAMBDA_TEMPORAL_RUNTIMES=lambda_temporal_runtimes,
         CUSTOMER_IAM_POLICY=customer_iam_policy,
         DEFAULT_PROJECT_ARRAY=default_project_array
     )
