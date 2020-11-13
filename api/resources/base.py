@@ -10,5 +10,5 @@ class Resource(ABC):
         pass
 
     @abstractmethod
-    def serialize(self):
+    def uid(self):
         pass
