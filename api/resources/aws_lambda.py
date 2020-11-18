@@ -1,6 +1,7 @@
 from assistants.decorators import aws_exponential_backoff
 from botocore.exceptions import ClientError
 from data_types.lambda_config import LambdaConfig
+from functools import cached_property
 from hashlib import sha256
 from json import dumps
 from resources.base import Resource
@@ -21,10 +22,6 @@ RUNTIME_TO_BUILDER = {b.RUNTIME_PRETTY_NAME: b for b in BUILDERS}
 
 
 class AWSLambda(Resource):
-    _s3_client = None
-    _lambda_client = None
-    _s3_path = None
-
     def __init__(self, app_config, aws_client_factory, credentials, lambda_config: LambdaConfig):
         self.app_config = app_config
         self.aws_client_factory = aws_client_factory
@@ -35,20 +32,16 @@ class AWSLambda(Resource):
     def builder(self):
         return RUNTIME_TO_BUILDER[self.lambda_config.runtime]
 
-    @property
+    @cached_property
     def s3_path(self):
-        # Similar to self.uid, but excludes env
-        if self._s3_path is None:
-            uid_input = bytes("{}{}{}{}".format(
-                self.lambda_config.runtime,
-                self.lambda_config.code,
-                dumps(self.lambda_config.shared_files, sort_keys=True),
-                sorted(self.lambda_config.libraries),
-            ), encoding='UTF-8')
+        uid_input = bytes("{}{}{}{}".format(
+            self.lambda_config.runtime,
+            self.lambda_config.code,
+            dumps(self.lambda_config.shared_files, sort_keys=True),
+            sorted(self.lambda_config.libraries),
+        ), encoding='UTF-8')
 
-            self._s3_path = sha256(uid_input).hexdigest() + ".zip"
-
-        return self._s3_path
+        return sha256(uid_input).hexdigest() + ".zip"
 
     @property
     def exists_in_s3(self):
@@ -59,25 +52,19 @@ class AWSLambda(Resource):
             self.s3_path
         )
 
-    @property
+    @cached_property
     def s3_client(self):
-        if self._s3_client is None:
-            self._s3_client = self.aws_client_factory.get_aws_client(
-                "s3",
-                self.credentials
-            )
+        return self.aws_client_factory.get_aws_client(
+            "s3",
+            self.credentials
+        )
 
-        return self._s3_client
-
-    @property
+    @cached_property
     def lambda_client(self):
-        if self._lambda_client is None:
-            self._lambda_client = self.aws_client_factory.get_aws_client(
-                "lambda",
-                self.credentials
-            )
-
-        return self._lambda_client
+        return self.aws_client_factory.get_aws_client(
+            "lambda",
+            self.credentials
+        )
 
     @property
     def uid(self):
@@ -87,7 +74,7 @@ class AWSLambda(Resource):
         zip_data = self.get_zip_data()
         self.upload_to_s3(zip_data)
 
-        self.deploy_lambda()
+        return self.deploy_lambda()
 
     def get_zip_data(self):
         builder = self.builder(
@@ -134,7 +121,7 @@ class AWSLambda(Resource):
 
     def create_lambda_function(self):
         # https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda.html#Lambda.Client.create_function
-        return self.lambda_client.create_function(
+        response = self.lambda_client.create_function(
             FunctionName=self.lambda_config.name,
             Runtime=self.lambda_config.runtime,
             Role=self.lambda_config.role,
@@ -154,6 +141,8 @@ class AWSLambda(Resource):
             Tags=self.lambda_config.tags,
             Layers=self.lambda_config.layers
         )
+
+        return response['FunctionArn']
 
     def teardown(self):
         lambda_delete_function(self.lambda_client, self.lambda_config.name)

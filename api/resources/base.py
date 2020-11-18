@@ -9,6 +9,7 @@ class Resource(ABC):
     def teardown(self):
         pass
 
+    @property
     @abstractmethod
     def uid(self):
         pass

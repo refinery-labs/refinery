@@ -1,10 +1,9 @@
+from functools import cached_property
 from hashlib import sha256
 from json import dumps
 
 
 class LambdaConfig:
-    _uid = None
-
     def __init__(self, name, runtime, code, libraries, env, shared_files, role, memory, handler, is_inline_execution, max_execution_time, tags, layers):
         self.name = name
         self.runtime = runtime
@@ -21,11 +20,8 @@ class LambdaConfig:
         self.layers = layers
         self.description = "A Lambda deployed by refinery"
 
-    @property
+    @cached_property
     def uid(self):
-        if self._uid is not None:
-            return self._uid
-
         attrs = [
             self.name,
             self.runtime,
@@ -43,6 +39,4 @@ class LambdaConfig:
             self.description
         ]
         template = '{}' * len(attrs)
-        self._uid = sha256(template.formate(attrs).encode("UTF-8")).hexdigest()
-
-        return self._uid
+        return sha256(template.formate(attrs).encode("UTF-8")).hexdigest()
