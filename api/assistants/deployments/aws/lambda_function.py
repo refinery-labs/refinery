@@ -12,7 +12,8 @@ from assistants.deployments.aws.types import AwsDeploymentState
 from assistants.deployments.diagram.code_block import CodeBlockWorkflowState
 from assistants.deployments.diagram.types import StateTypes
 from assistants.deployments.aws.utils import get_language_specific_environment_variables, get_layers_for_lambda
-from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
+from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME, PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME, \
+    NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME, TEMPORAL_LANGUAGES
 from utils.general import logit
 
 if TYPE_CHECKING:
@@ -76,6 +77,9 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
         self.layers = get_layers_for_lambda(
             self.language
         ) + self.layers
+
+        if self.language in TEMPORAL_LANGUAGES:
+            self.handler = "lambda_function.lambda_handler"
 
         self.execution_pipeline_id = deploy_diagram.project_id
         self.execution_log_level = deploy_diagram.project_config["logging"]["level"]
