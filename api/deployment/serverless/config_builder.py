@@ -6,8 +6,11 @@ from yaml import dump
 
 
 class ServerlessConfigBuilder:
-    def __init__(self, app_config, deployment_id, project_config):
+    _api_resource_base_set = False
+
+    def __init__(self, app_config, project_id, deployment_id, project_config):
         self.app_config = app_config
+        self.project_id = project_id
         self.deployment_id = deployment_id
         self.project_config = project_config
         self.name = project_config['name']
@@ -103,7 +106,7 @@ class ServerlessConfigBuilder:
             id_: {
                 "Type": "AWS::SQS::Queue",
                 "Properties": {
-                    "QueueName": queue_name
+                    "QueueName": self.slugify(queue_name)
                 }
             }
         })
@@ -129,6 +132,8 @@ class ServerlessConfigBuilder:
         return
 
     def build_api_endpoint(self, workflow_state):
+        self.set_api_resource_base()
+
         api_resources = {}
         api_path = workflow_state['api_path']
         path_parts = [i.strip() for i in api_path.split('/') if i]
@@ -141,6 +146,20 @@ class ServerlessConfigBuilder:
         api_resources.update(self.get_proxy_method(workflow_state, path_part, i))
 
         self.set_aws_resources(api_resources)
+
+    def set_api_resource_base(self):
+        if self._api_resource_base_set:
+            return
+
+        project_id = self.get_id(self.project_id)
+
+        self.set_aws_resources({
+            "ApiGatewayRestApi": {
+                "Type": "AWS::ApiGateway::RestApi",
+                "Properties": {"Name": f"Gateway_{project_id}"}
+            }
+        })
+        self._api_resource_base_set = True
 
     def set_api_resource(self, api_resources, path_part, index, parent=None):
         resource = self.get_url_resource_name(path_part, index)
