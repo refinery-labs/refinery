@@ -15,7 +15,7 @@ class ServerlessConfigBuilder:
         self.functions = {}
         self.resources = {}
         self.serverless_config = {
-            "service": self.name,
+            "service": self.slugify(self.name),
             "provider": {
                 "name": "aws",
                 "region": "us-west-2"
@@ -52,7 +52,7 @@ class ServerlessConfigBuilder:
     ###########################################################################
 
     def build_lambda(self, workflow_state):
-        id_ = workflow_state['id']
+        id_ = self.get_id(workflow_state['id'])
         name = workflow_state['name']
         language = workflow_state['language']
         memory = workflow_state['memory']
@@ -96,7 +96,7 @@ class ServerlessConfigBuilder:
     ###########################################################################
 
     def build_sqs_queue(self, workflow_state):
-        id_ = workflow_state['id']
+        id_ = self.get_id(workflow_state['id'])
         queue_name = workflow_state['name']
 
         self.set_aws_resources({
@@ -107,6 +107,18 @@ class ServerlessConfigBuilder:
                 }
             }
         })
+
+        self.functions[f'QueueHandler{id_}'] = {
+            "handler": "lambda/queue/handler.compute",
+            "events": [{
+                "sqs": {
+                    "batchSize": 10,
+                    "arn": {
+                        "Fn::GetAtt": [id_, "Arn"]
+                    }
+                }
+            }]
+        }
 
     ###########################################################################
     # API Resource
@@ -157,9 +169,10 @@ class ServerlessConfigBuilder:
     def get_proxy_method(self, workflow_state, path_part, index):
         url_resource_name = self.get_url_resource_name(path_part, index)
         http_method = workflow_state['http_method']
-        id_ = workflow_state['id']
+        raw_id = workflow_state['id']
+        id_ = self.get_id(raw_id)
         base = self.app_config.get("workflow_manager_api_url")
-        uri = f"{base}/deployment/{self.deployment_id}/workflow/{id_}"
+        uri = f"{base}/deployment/{self.deployment_id}/workflow/{raw_id}"
 
         return {
             id_: {
@@ -193,3 +206,11 @@ class ServerlessConfigBuilder:
             self.resources['Resources'] = {}
 
         self.resources["Resources"].update(resources)
+
+    def get_id(self, id_):
+        return ''.join([i for i in id_ if i.isalnum()])
+
+    def slugify(self, name):
+        return ''.join([
+            i for i in name.replace(' ', '_') if i.isalnum() or i == '_'
+        ])
