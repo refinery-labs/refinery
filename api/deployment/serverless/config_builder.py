@@ -2,6 +2,7 @@ from functools import cached_property
 from pyconstants.project_constants import (
     LANGUAGE_TO_RUNTIME, LANGUAGE_TO_HANDLER
 )
+from yaml import dump
 
 
 class ServerlessConfigBuilder:
@@ -21,7 +22,10 @@ class ServerlessConfigBuilder:
             },
             "functions": self.functions,
             "resources": self.resources,
-            "exclude": ["./**"]
+            "package": {
+                "individually": True,
+                "exclude": ["./**"]
+            }
         }
 
     @cached_property
@@ -41,6 +45,8 @@ class ServerlessConfigBuilder:
 
             builder(workflow_state)
 
+        return dump(self.serverless_config)
+
     ###########################################################################
     # Lambda
     ###########################################################################
@@ -54,7 +60,7 @@ class ServerlessConfigBuilder:
         reserved_concurrency_count = workflow_state['reserved_concurrency_count']
         environment_variables = workflow_state.get("environment_variables", {})
         layers = workflow_state.get("layers", [])
-        handler = get_lambda_handler(id_, LANGUAGE_TO_HANDLER['language'])
+        handler = self.get_lambda_handler(id_, LANGUAGE_TO_HANDLER[language])
 
         self.functions[id_] = {
             "name": name,
@@ -74,35 +80,16 @@ class ServerlessConfigBuilder:
             }
         }
  
-    def get_lambda_module_name(self, id_):
-        return "lambda" + id_.replace("-", '')
-
     def get_lambda_handler(self, id_, handler_module):
-        return self.get_lambda_module_name(id_) + handler_module
+        return f'lambda/{id_}/{handler_module}'
 
     ###########################################################################
     # Schedule trigger
     ###########################################################################
 
     def build_schedule_trigger(self, workflow_state):
-        id_ = workflow_state['id']
-        name = workflow_state['name']
-        description = workflow_state['description']
-        input_string = workflow_state['input_string']
-        rate = workflow_state['schedule_expression']
-        handler = "" # XXX ???
-
-        self.functions[id_] = {
-            "handler": handler,
-            "events": [{
-                "schedule": {
-                    "name": name,
-                    "description": description,
-                    "input": input_string,
-                    "rate": rate
-                }
-            }]
-        }
+        # Do nothing, this is handled by temporal
+        return 
 
     ###########################################################################
     # SQS queue
@@ -136,18 +123,15 @@ class ServerlessConfigBuilder:
 
         for i, path_part in enumerate(path_parts):
             parent = path_parts[i - 1] if i > 0 else None
-            self.set_api_resource(api_resources, path_part, parent)
+            self.set_api_resource(api_resources, path_part, i, parent)
 
-        api_resources.update(self.get_proxy_method(workflow_state, path_parts[-1]))
+        # Last element from enumeration will be the end of the url
+        api_resources.update(self.get_proxy_method(workflow_state, path_part, i))
 
         self.set_aws_resources(api_resources)
 
-    def set_api_resource(self, api_resources, path_part, parent=None):
-        resource = self.get_url_resource_name(path_part)
-
-        if resource in api_resources:
-            return
-
+    def set_api_resource(self, api_resources, path_part, index, parent=None):
+        resource = self.get_url_resource_name(path_part, index)
         parentId = {}
         config = {
             "Type": "AWS::ApiGateway::Resource",
@@ -161,7 +145,7 @@ class ServerlessConfigBuilder:
         }
 
         if parent:
-            parentId['Fn::Ref'] = self.get_url_resource_name(parent)
+            parentId['Fn::Ref'] = self.get_url_resource_name(parent, index - 1)
         else:
             parentId['Fn::GetAtt'] = [
                 'ApiGatewayRestApi',
@@ -170,19 +154,19 @@ class ServerlessConfigBuilder:
 
         api_resources[resource] = config
 
-    def get_proxy_method(self, workflow_state, path_part):
-        name = "Proxy" + self.get_url_resource_name(path_part) 
+    def get_proxy_method(self, workflow_state, path_part, index):
+        url_resource_name = self.get_url_resource_name(path_part, index)
         http_method = workflow_state['http_method']
         id_ = workflow_state['id']
         base = self.app_config.get("workflow_manager_api_url")
         uri = f"{base}/deployment/{self.deployment_id}/workflow/{id_}"
 
         return {
-            name: {
+            id_: {
                 "Type": "AWS::ApiGateway::Method",
                 "Properties": {
                     "ResourceId": {
-                        "Ref": self.get_url_resource_name(path_part)
+                        "Ref": url_resource_name
                     },
                     "RestApiId": {
                         "Ref": "ApiGatewayRestApi",
@@ -201,8 +185,8 @@ class ServerlessConfigBuilder:
     # Utility functions
     ###########################################################################
 
-    def get_url_resource_name(self, name):
-        return f"Path{name}"
+    def get_url_resource_name(self, name, index):
+        return f"Path{name}_{index}"
 
     def set_aws_resources(self, resources):
         if "Resources" not in self.resources:
