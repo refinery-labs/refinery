@@ -32,7 +32,7 @@ class Python36Builder:
     RUNTIME = "python3.6"
     RUNTIME_PRETTY_NAME = PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME
 
-    def __init__(self, app_config, aws_client_factory, credentials, code, libraries, path_prefix, zipfile):
+    def __init__(self, app_config, aws_client_factory, credentials, code, libraries):
         # TODO use dependency injection
         self.app_config = app_config
         self.aws_client_factory = aws_client_factory
@@ -42,8 +42,6 @@ class Python36Builder:
             *libraries
         ]
         self.libraries_object = generate_libraries_dict(self.libraries)
-        self.path_prefix = path_prefix
-        self.zipfile = zipfile
 
     @property
     def lambda_function(self):
