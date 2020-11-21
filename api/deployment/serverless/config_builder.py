@@ -112,7 +112,7 @@ class ServerlessConfigBuilder:
         })
 
         self.functions[f'QueueHandler{id_}'] = {
-            "handler": "lambda/queue/handler.compute",
+            "handler": "lambda/queue/index.handler",
             "events": [{
                 "sqs": {
                     "batchSize": 10,
