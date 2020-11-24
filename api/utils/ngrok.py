@@ -39,14 +39,16 @@ class NgrokSpawner(object):
             shell=False,
             universal_newlines=True,
         )
-        stdout, tmp = process_handler.communicate()
+        stdout, stderr = process_handler.communicate()
+        logit("ngrok stdout: ", stdout)
+        logit("ngrok stderr: ", stderr)
 
     @run_on_executor
     def get_ngrok_tunnel_hostname(self):
         ngrok_url = False
 
         while not ngrok_url:
-            logit("Querying the ngrok API server for exposed endpoint URL...")
+            logit("Querying the ngrok API server for exposed endpoint URL... (if you see this many times, check ngrok)")
 
             try:
                 response = requests.get(

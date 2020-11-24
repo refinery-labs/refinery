@@ -228,7 +228,10 @@ resource "aws_iam_policy" "refinery_workflow_manager_queue_handler_policy" {
             "Sid": "VisualEditor1",
             "Effect": "Allow",
             "Action": [
-                "sqs:ReceiveMessage"
+                "sqs:ReceiveMessage",
+                "sqs:DeleteMessage",
+                "sqs:GetQueryAttributes",
+                "sqs:GetQueueAttributes"
             ],
             "Resource": "*"
         }
@@ -263,8 +266,8 @@ EOF
 	This attached the IAM policy to the IAM role for the
 	default Lambda IAM permissions.
 */
-resource "aws_iam_role_policy_attachment" "refinery_workflow_manager_queue_handler_role" {
-  role       = aws_iam_role.refinery_workflow_manager_aws_lambda_role.id
+resource "aws_iam_role_policy_attachment" "refinery_workflow_manager_queue_handler_attachment" {
+  role       = aws_iam_role.refinery_workflow_manager_queue_handler_role.id
   policy_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/refinery_workflow_manager_queue_handler_policy"
 }
 

@@ -20,12 +20,12 @@ import {
   ProjectExecutionsByExecutionId
 } from '@/types/deployment-executions-types';
 import { sortExecutions } from '@/utils/project-execution-utils';
-import { STYLE_CLASSES } from '@/lib/cytoscape-styles';
 import { deepJSONCopy } from '@/lib/general-utils';
 import { autoRefreshJob, timeout, waitUntil } from '@/utils/async-utils';
 import { SIDEBAR_PANE } from '@/types/project-editor-types';
 import { DeploymentViewActions } from '@/constants/store-constants';
 import { ExecutionLogMetadata, ExecutionStatusType } from '@/types/execution-logs-types';
+import { STYLE_CLASSES } from '@/lib/cytoscape-enums';
 
 // Enums
 export enum DeploymentExecutionsGetters {

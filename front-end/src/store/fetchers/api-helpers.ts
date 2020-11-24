@@ -62,7 +62,6 @@ import { convertExecutionResponseToProjectExecutionGroup } from '@/utils/project
 import { RefineryProject, SupportedLanguage, WorkflowState } from '@/types/graph';
 import { ProductionWorkflowState } from '@/types/production-workflow-types';
 import { blockTypeToDefaultStateMapping, DEFAULT_PROJECT_CONFIG } from '@/constants/project-editor-constants';
-import { unwrapProjectJson, wrapJson } from '@/utils/project-helpers';
 import { ExecutionLogMetadata } from '@/types/execution-logs-types';
 import { DeployProjectParams, DeployProjectResult } from '@/types/project-editor-types';
 import { CURRENT_TRANSITION_SCHEMA } from '@/constants/graph-constants';
@@ -78,6 +77,7 @@ import {
 } from '@/types/demo-walkthrough-types';
 import { DemoWalkthroughStoreModule } from '@/store';
 import { sub, getUnixTime, fromUnixTime } from 'date-fns';
+import { unwrapProjectJson, wrapJson } from '@/utils/json-helpers';
 
 export interface LibraryBuildArguments {
   language: SupportedLanguage;
@@ -331,7 +331,7 @@ export async function teardownProject(
     }
   );
 
-  if (!destroyDeploymentResult || !destroyDeploymentResult.success) {
+  if (!destroyDeploymentResult || !destroyDeploymentResult.success || !destroyDeploymentResult.result) {
     throw new Error('Server failed to handle Destroy Deployment request');
   }
 
@@ -438,8 +438,8 @@ export async function openProject(request: GetSavedProjectRequest) {
   }));
 
   project.workflow_relationships = project.workflow_relationships.map(wr => ({
-    version: CURRENT_TRANSITION_SCHEMA,
-    ...wr
+    ...wr,
+    version: CURRENT_TRANSITION_SCHEMA
   }));
 
   // Ensure there an object for the exception handler
@@ -544,10 +544,11 @@ export async function deployProject({
     force_redeploy: forceRedeploy
   });
 
-  if (!response || !response.success) {
+  if (!response || !response.success || !response.result) {
     if (response && response.code && response.code === DeployDiagramResponseCode.DeploymentLockFailure) {
       throw new Error('Deployment is currently in progress for this project.');
     }
+
     throw new Error('Unable to create new deployment.');
   }
 
