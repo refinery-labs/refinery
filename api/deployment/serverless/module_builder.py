@@ -5,7 +5,26 @@ from os.path import join
 from pyconstants.project_constants import PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME
 from pyconstants.project_constants import NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME
 from utils.general import add_file_to_zipfile
+from yaml import dump
 from zipfile import ZIP_DEFLATED, ZipFile
+
+
+BUILDSPEC = dump({
+    "artifacts": {
+        "files": [
+            "**/*"
+        ]
+    },
+    "phases": {
+        "build": {
+            "commands": [
+                "serverless deploy"
+            ]
+        },
+    },
+    "run-as": "root",
+    "version": 0.1
+})
 
 
 class ServerlessModuleBuilder:
@@ -32,6 +51,7 @@ class ServerlessModuleBuilder:
             with ZipFile(buffer, 'w', ZIP_DEFLATED) as zipfile:
                 self.build_workflow_states(zipfile)
                 self.build_config(zipfile)
+                self.add_buildspec(zipfile)
 
                 return buffer.getvalue()
 
@@ -53,6 +73,9 @@ class ServerlessModuleBuilder:
 
             if builder:
                 builder(workflow_state, zipfile)
+
+    def add_buildspec(self, zipfile):
+        add_file_to_zipfile(zipfile, "buildspec.yml", BUILDSPEC)
 
     ###########################################################################
     # Lambda builder
