@@ -23,10 +23,11 @@ BUILDSPEC = dump({
 
 
 class ServerlessDismantler(Dismantler):
-    def __init__(self, app_config, aws_client_factory, s3_path):
+    def __init__(self, app_config, aws_client_factory, credentials, deployment_id):
         self.app_config = app_config
         self.aws_client_factory = aws_client_factory
-        self.s3_path = s3_path
+        self.credentials = credentials
+        self.deployment_id = deployment_id
 
     @cached_property
     def codebuild(self):
@@ -34,6 +35,10 @@ class ServerlessDismantler(Dismantler):
             "codebuild",
             self.credentials
         )
+
+    @cached_property
+    def s3_path(self):
+        return f'{self.credentials["lambda_packages_bucket"],}/{self.deployment_id}.zip'
 
     def dismantle(self):
         build_id = self.codebuild.start_build(

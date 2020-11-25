@@ -29,12 +29,8 @@ class ServerlessBuilder(Builder):
         )
 
     @cached_property
-    def build_uuid(self):
-        return uuid4()
-
-    @cached_property
     def s3_key(self):
-        return f'buildspecs/{self.build_uuid}.zip'
+        return f'buildspecs/{self.deployment_id}.zip'
 
     @cached_property
     def s3_path(self):
@@ -42,7 +38,7 @@ class ServerlessBuilder(Builder):
 
     @cached_property
     def final_s3_package_zip_path(self):
-        return f"{self.build_uuid}.zip"
+        return f"{self.deployment_id}.zip"
 
     def build(self):
         module_builder = ServerlessModuleBuilder(
