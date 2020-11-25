@@ -37,10 +37,15 @@ class ServerlessBuilder(Builder):
         return f"{self.credentials['lambda_packages_bucket']}/{self.s3_key}"
 
     @cached_property
+    def s3_bucket(self):
+        return self.credentials['lambda_packages_bucket']
+
+    @cached_property
     def final_s3_package_zip_path(self):
         return f"{self.deployment_id}.zip"
 
-    def build(self):
+    def build(self, rebuild=False):
+        artifact_zip = self.get_artifact_zipfile() if rebuild else None
         module_builder = ServerlessModuleBuilder(
             self.app_config,
             self.aws_client_factory,
@@ -48,10 +53,18 @@ class ServerlessBuilder(Builder):
             self.deployment_id,
             self.project_config
         )
-        zipfile = module_builder.build()
+        zipfile = module_builder.build(artifact_zip)
         serverless_zipfile = self.perform_codebuild(zipfile)
 
         return self.parse_serverless_output(serverless_zipfile)
+
+    def get_artifact_zipfile(self):
+        return self.read_from_s3(
+            self.aws_client_factory,
+            self.credentials,
+            self.s3_bucket,
+            self.final_s3_package_zip_path
+        )
 
     def perform_codebuild(self, zipfile):
         self.s3.put_object(
@@ -78,6 +91,7 @@ class ServerlessBuilder(Builder):
         )
 
     def parse_serverless_output(self, serverless_zipfile):
+        # TODO return deployment.json created from project.json and serverless_info
         with ZipFile(serverless_zipfile) as zipfile:
             with zipfile.open('serverless_info') as serverless_info:
                 print('----------------------------------------')

@@ -35,7 +35,7 @@ class ServerlessModuleBuilder:
     def __init__(self, app_config, aws_client_factory, project_id, deployment_id, project_config):
         self.app_config = app_config
         self.aws_client_factory = aws_client_factory
-        self.project_id = project_id
+        self.project_id = projectself_id
         self.deployment_id = deployment_id
         self.project_config = project_config
 
@@ -50,14 +50,20 @@ class ServerlessModuleBuilder:
             "sqs_queue": self.build_sqs_queue
         }
 
-    def build(self):
-        with BytesIO() as buffer:
-            with ZipFile(buffer, 'w', ZIP_DEFLATED) as zipfile:
-                self.build_workflow_states(zipfile)
-                self.build_config(zipfile)
-                self.add_buildspec(zipfile)
+    def build(self, buffer=None):
+        if buffer is not None:
+            return self._build(buffer)
 
-                return buffer.getvalue()
+        with BytesIO() as buffer:
+            return self._build(buffer)
+
+    def _build(self, buffer):
+        with ZipFile(buffer, 'w', ZIP_DEFLATED) as zipfile:
+            self.build_workflow_states(zipfile)
+            self.build_config(zipfile)
+            self.add_buildspec(zipfile)
+
+            return buffer.getvalue()
 
     def build_config(self, zipfile):
         builder = ServerlessConfigBuilder(
