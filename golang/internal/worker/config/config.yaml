@@ -1,0 +1,5 @@
+workflow-manager-worker:
+  region: us-west-2
+  client_duration: 900
+  iam_role_name: refinery_workflow_manager_role
+  temporal_host_port: ${TEMPORAL_HOST_PORT:"localhost:7233"}
