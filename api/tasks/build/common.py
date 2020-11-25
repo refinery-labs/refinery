@@ -45,6 +45,31 @@ def get_codebuild_artifact_zip_data(aws_client_factory, credentials, build_id, f
 
 
 def finalize_codebuild(aws_client_factory, credentials, build_id, final_s3_package_zip_path):
+    s3_client = aws_client_factory.get_aws_client(
+        "s3",
+        credentials
+    )
+    output_artifact_path = wait_for_codebuild_completion(
+        aws_client_factory,
+        credentials,
+        build_id
+    )
+
+    # We now copy this artifact to a location with a deterministic hash name
+    # so that we can query for its existence and cache previously-build packages.
+    s3_client.copy_object(
+        Bucket=credentials["lambda_packages_bucket"],
+        CopySource={
+            "Bucket": credentials["lambda_packages_bucket"],
+            "Key": output_artifact_path
+        },
+        Key=final_s3_package_zip_path
+    )
+
+    return True
+
+
+def wait_for_codebuild_completion(aws_client_factory, credentials, build_id):
     codebuild_client = aws_client_factory.get_aws_client(
         "codebuild",
         credentials
@@ -106,15 +131,4 @@ def finalize_codebuild(aws_client_factory, credentials, build_id, final_s3_packa
         msg = "Build ID " + build_id + " failed with status code '" + build_status + "'!"
         raise BuildException(msg, log_output)
 
-    # We now copy this artifact to a location with a deterministic hash name
-    # so that we can query for its existence and cache previously-build packages.
-    s3_copy_response = s3_client.copy_object(
-        Bucket=credentials["lambda_packages_bucket"],
-        CopySource={
-            "Bucket": credentials["lambda_packages_bucket"],
-            "Key": output_artifact_path
-        },
-        Key=final_s3_package_zip_path
-    )
-
-    return True
+    return output_artifact_path
