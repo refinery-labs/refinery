@@ -55,7 +55,7 @@ type AwsClientManager struct {
 	clientMutexLookupMutex sync.Mutex
 }
 
-func NewAwsClientManager(workflowManagerConfig WorkflowManagerConfig) *AwsClientManager {
+func NewAwsClientManager(workflowManagerConfig WorkerConfig) *AwsClientManager {
 	awsAccessKeyID := workflowManagerConfig.AwsAccessKeyID
 	awsSecretAccessKey := workflowManagerConfig.AwsSecretAccessKey
 	region := workflowManagerConfig.Region

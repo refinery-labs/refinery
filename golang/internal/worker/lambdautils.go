@@ -64,7 +64,7 @@ func (s *RefineryAwsActivities) writePipelineLogs(
 		"return_data":           returnData,
 	}
 
-	s3Client, err := s.clientManager.getS3Client(params.AccountID)
+	s3Client, err := s.ClientManager.getS3Client(params.AccountID)
 	if err != nil {
 		return err
 	}

@@ -1,1 +1,3 @@
 secrets.yaml
+cmd/worker/worker
+cmd/workflowmanager/workflowmanager
