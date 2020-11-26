@@ -1,0 +1,8 @@
+FROM golang
+
+ADD . /workflow-manager-worker
+WORKDIR /workflow-manager-worker/cmd/worker
+
+RUN go install .
+
+ENTRYPOINT worker

@@ -1,0 +1,10 @@
+FROM golang
+
+ADD . /workflow-manager
+WORKDIR /workflow-manager/cmd/workflowmanager
+
+RUN go install .
+
+ENTRYPOINT workflowmanager
+
+EXPOSE 3000

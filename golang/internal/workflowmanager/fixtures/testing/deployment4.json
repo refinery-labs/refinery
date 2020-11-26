@@ -1,0 +1,953 @@
+{
+  "name": "cadence-test",
+  "project_id": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+  "deployment_id": "b220f302-66a6-41af-b580-d46e2baf2389",
+  "global_handlers": {},
+  "workflow_states": [
+    {
+      "id": "7ae16bff-e7e7-433b-9ca5-c41d33585ff8",
+      "name": "Untitled_API_Endpoint_Block7ae16bff-e7e7-433b-9ca5-c41d33585ff8",
+      "original_name": "Untitled API Endpoint Block",
+      "type": "api_endpoint",
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [
+          {
+            "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block02677370-f519-4f75-9f1d-51aaad8c0b81",
+            "id": "8a67a90b-a2bb-414b-b9d5-7c6b5b19d4f4",
+            "name": "then",
+            "type": "lambda",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_API_Endpoint_Block7ae16bff-e7e7-433b-9ca5-c41d33585ff8",
+            "next": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block02677370-f519-4f75-9f1d-51aaad8c0b81"
+          }
+        ],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_API_Endpoint_Block7ae16bff-e7e7-433b-9ca5-c41d33585ff8",
+      "state_hash": null,
+      "url": "https://b1s235pk0j.execute-api.us-west-2.amazonaws.com/refinery/replaceme/cyanelkmare",
+      "rest_api_id": "b1s235pk0j",
+      "http_method": "GET",
+      "api_path": "/replaceme/cyanelkmare"
+    },
+    {
+      "id": "a4d7e31d-dc8c-49ce-af47-8b9946eb6efa",
+      "name": "API_Endpoint_Response_Blocka4d7e31d-dc8c-49ce-af47-8b9946eb6efa",
+      "original_name": "API Endpoint Response Block",
+      "type": "api_gateway_response",
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": null,
+      "state_hash": null
+    },
+    {
+      "id": "7ee1c6e4-5f3d-4189-a88e-ca8e1bb5858d",
+      "name": "Untitled_API_Endpoint_Block7ee1c6e4-5f3d-4189-a88e-ca8e1bb5858d",
+      "original_name": "Untitled API Endpoint Block",
+      "type": "api_endpoint",
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [
+          {
+            "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_A2652463f-c568-4bdb-9879-21a8f069f653",
+            "id": "36741b5a-9b5a-427c-ac9f-6d12d02d79da",
+            "name": "then",
+            "type": "lambda",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_API_Endpoint_Block7ee1c6e4-5f3d-4189-a88e-ca8e1bb5858d",
+            "next": "arn:aws:lambda:us-west-2:623905218559:function:Block_A2652463f-c568-4bdb-9879-21a8f069f653"
+          }
+        ],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_API_Endpoint_Block7ee1c6e4-5f3d-4189-a88e-ca8e1bb5858d",
+      "state_hash": null,
+      "url": "https://b1s235pk0j.execute-api.us-west-2.amazonaws.com/refinery/replaceme/ballisticsagepanther",
+      "rest_api_id": "b1s235pk0j",
+      "http_method": "GET",
+      "api_path": "/replaceme/ballisticsagepanther"
+    },
+    {
+      "id": "0182df26-1280-4279-8486-e08d40127a67",
+      "name": "API_Endpoint_Response_Block0182df26-1280-4279-8486-e08d40127a67",
+      "original_name": "API Endpoint Response Block",
+      "type": "api_gateway_response",
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": null,
+      "state_hash": null
+    },
+    {
+      "id": "e1e8a66a-381b-4c01-b00a-a0ac93493974",
+      "name": "Untitled_Timer_Blocke1e8a66a-381b-4c01-b00a-a0ac93493974",
+      "original_name": "Untitled Timer Block",
+      "type": "schedule_trigger",
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [
+          {
+            "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Blocke7127e00-1590-447e-95ef-e8cb4655e05b",
+            "id": "01f3e619-a297-45f3-849d-3e9ca1f1a201",
+            "name": "then",
+            "type": "lambda",
+            "node": "arn:aws:events:us-west-2:623905218559:rule/Untitled_Timer_Blocke1e8a66a-381b-4c01-b00a-a0ac93493974",
+            "next": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Blocke7127e00-1590-447e-95ef-e8cb4655e05b"
+          }
+        ],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:events:us-west-2:623905218559:rule/Untitled_Timer_Blocke1e8a66a-381b-4c01-b00a-a0ac93493974",
+      "state_hash": null,
+      "schedule_expression": "rate(2 minutes)",
+      "input_string": "",
+      "description": "Deployed by Refinery"
+    },
+    {
+      "id": "cf63dbbc-0de4-4c53-937d-cdd5eeb6cc75",
+      "name": "Untitled_API_Endpoint_Blockcf63dbbc-0de4-4c53-937d-cdd5eeb6cc75",
+      "original_name": "Untitled API Endpoint Block",
+      "type": "api_endpoint",
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [
+          {
+            "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Blockd5c14395-eb40-48b7-8f9b-72eab34dfc4c",
+            "id": "0a0d6b74-b956-4d88-9823-06c167f167c2",
+            "name": "then",
+            "type": "lambda",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_API_Endpoint_Blockcf63dbbc-0de4-4c53-937d-cdd5eeb6cc75",
+            "next": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Blockd5c14395-eb40-48b7-8f9b-72eab34dfc4c"
+          }
+        ],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_API_Endpoint_Blockcf63dbbc-0de4-4c53-937d-cdd5eeb6cc75",
+      "state_hash": null,
+      "url": "https://b1s235pk0j.execute-api.us-west-2.amazonaws.com/refinery/replaceme/plumerayspirit",
+      "rest_api_id": "b1s235pk0j",
+      "http_method": "GET",
+      "api_path": "/replaceme/plumerayspirit"
+    },
+    {
+      "id": "e4fb5367-2385-4887-b2b0-4a3b38fa87d8",
+      "name": "API_Endpoint_Response_Blocke4fb5367-2385-4887-b2b0-4a3b38fa87d8",
+      "original_name": "API Endpoint Response Block",
+      "type": "api_gateway_response",
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": null,
+      "state_hash": null
+    },
+    {
+      "id": "b7094711-dfeb-42ac-a0fd-fb50594fcf6c",
+      "name": "queue_handler_36350e19-49f9-4d98-acea-a68be3a8f7a0b7094711-dfeb-",
+      "original_name": "queue_handler_36350e19-49f9-4d98-acea-a68be3a8f7a0",
+      "type": "sqs_queue_handler",
+      "language": "nodejs12.x",
+      "code": "\n'use strict';\nconst https = require('https')\n\nfunction log(data) {\n    process.stdout.write(JSON.stringify(data));\n}\n\nfunction httpsPost({body, ...options}) {\n    return new Promise((resolve,reject) => {\n        const req = https.request({\n            method: 'POST',\n            ...options,\n        }, res => {\n            const chunks = [];\n            res.on('data', data => chunks.push(data))\n            res.on('end', () => {\n                let body = Buffer.concat(chunks);\n                switch(res.headers['content-type']) {\n                    case 'application/json':\n                        body = JSON.parse(body);\n                        break;\n                }\n                resolve(body)\n            })\n        })\n        req.on('error',reject);\n        if(body) {\n            req.write(body);\n        }\n        req.end();\n    })\n}\n\nmodule.exports.handler = async event => {\n    const workflowCallbackURL = new URL(process.env.WORKFLOW_CALLBACK_URL);\n\n    const data = JSON.stringify(event.Records);\n    \n    const res = await httpsPost({\n        hostname: workflowCallbackURL.host,\n        path: workflowCallbackURL.pathname,\n        port: workflowCallbackURL.port,\n        headers: {\n            'Content-Type': 'application/json',\n            'Content-Length': data.length\n        },\n        body: data\n    })\n    \n    log(res);\n\n    return {};\n};\n",
+      "layers": [],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": null,
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": null,
+        "EXECUTION_MODE": "REGULAR"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:queue_handler_36350e19-49f9-4d98-acea-a68be3a8f7a0b7094711-dfeb-",
+      "state_hash": null,
+      "max_execution_time": 30,
+      "memory": 512,
+      "reserved_concurrency_count": false
+    },
+    {
+      "id": "36350e19-49f9-4d98-acea-a68be3a8f7a0",
+      "name": "test_queue36350e19-49f9-4d98-acea-a68be3a8f7a0",
+      "original_name": "test queue",
+      "type": "sqs_queue",
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [
+          {
+            "arn": "arn:aws:lambda:us-west-2:623905218559:function:queue_handlerfe3dcf75-bbcd-4f10-816d-b0e501c08ac8",
+            "id": "52f8d473-4527-4dd2-a7a4-5e19952832ca",
+            "name": "then",
+            "type": "lambda",
+            "node": "arn:aws:sqs:us-west-2:623905218559:test_queue36350e19-49f9-4d98-acea-a68be3a8f7a0",
+            "next": "arn:aws:lambda:us-west-2:623905218559:function:queue_handlerfe3dcf75-bbcd-4f10-816d-b0e501c08ac8"
+          },
+          {
+            "arn": "arn:aws:lambda:us-west-2:623905218559:function:queue_handler279ac74a9-819a-4ceb-9ac5-1527c4ca6715",
+            "id": "bd70a91c-fc96-4f48-a4cf-55ee948facef",
+            "name": "then",
+            "type": "lambda",
+            "node": "arn:aws:sqs:us-west-2:623905218559:test_queue36350e19-49f9-4d98-acea-a68be3a8f7a0",
+            "next": "arn:aws:lambda:us-west-2:623905218559:function:queue_handler279ac74a9-819a-4ceb-9ac5-1527c4ca6715"
+          }
+        ],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:sqs:us-west-2:623905218559:test_queue36350e19-49f9-4d98-acea-a68be3a8f7a0",
+      "state_hash": null,
+      "url": "https://sqs.us-west-2.amazonaws.com/623905218559/test_queue36350e19-49f9-4d98-acea-a68be3a8f7a0",
+      "batch_size": 1
+    },
+    {
+      "id": "199a6416-5b2f-476c-ba30-cb0c6eb4fe59",
+      "name": "test_topic199a6416-5b2f-476c-ba30-cb0c6eb4fe59",
+      "original_name": "test topic",
+      "type": "sns_topic",
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [
+          {
+            "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Blockedc25dc9-8093-495a-8598-e320aa7c0f0d",
+            "id": "a78174ab-58f1-4693-bd57-bd219e19f96b",
+            "name": "then",
+            "type": "lambda",
+            "node": "arn:aws:sns:us-west-2:623905218559:test_topic199a6416-5b2f-476c-ba30-cb0c6eb4fe59",
+            "next": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Blockedc25dc9-8093-495a-8598-e320aa7c0f0d"
+          },
+          {
+            "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block369a7480-cc71-405e-b945-b9f90792729d",
+            "id": "f174b746-e363-431f-80fb-bc34f8b42b76",
+            "name": "then",
+            "type": "lambda",
+            "node": "arn:aws:sns:us-west-2:623905218559:test_topic199a6416-5b2f-476c-ba30-cb0c6eb4fe59",
+            "next": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block369a7480-cc71-405e-b945-b9f90792729d"
+          }
+        ],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:sns:us-west-2:623905218559:test_topic199a6416-5b2f-476c-ba30-cb0c6eb4fe59",
+      "state_hash": null
+    },
+    {
+      "id": "2652463f-c568-4bdb-9879-21a8f069f653",
+      "name": "Block_A2652463f-c568-4bdb-9879-21a8f069f653",
+      "original_name": "Block A",
+      "type": "lambda",
+      "language": "Python 3.6 Temporal",
+      "code": "\ndef main(block_input, backpack):\n    return \"Hello World!\"\n",
+      "layers": [],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": "LOG_ALL",
+        "EXECUTION_MODE": "REGULAR",
+        "TRANSITION_DATA": "{\"if\": [], \"else\": [], \"exception\": [], \"then\": [{\"arn\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_Bbf0203e7-1a2f-4124-b219-e557c4844ec6\", \"id\": \"a1fd3823-47c3-48af-a6fd-ec7a25fdcf5d\", \"name\": \"then\", \"type\": \"lambda\", \"node\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_A2652463f-c568-4bdb-9879-21a8f069f653\", \"next\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_Bbf0203e7-1a2f-4124-b219-e557c4844ec6\"}, {\"arn\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_C6302cd4c-ee40-4337-a8c0-2a69f5c47db8\", \"id\": \"cf39e28b-16a2-4d4f-95e5-62130a40b684\", \"name\": \"then\", \"type\": \"lambda\", \"node\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_A2652463f-c568-4bdb-9879-21a8f069f653\", \"next\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_C6302cd4c-ee40-4337-a8c0-2a69f5c47db8\"}], \"fan-out\": [], \"fan-in\": [], \"merge\": []}"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [
+          {
+            "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_Bbf0203e7-1a2f-4124-b219-e557c4844ec6",
+            "id": "a1fd3823-47c3-48af-a6fd-ec7a25fdcf5d",
+            "name": "then",
+            "type": "lambda",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Block_A2652463f-c568-4bdb-9879-21a8f069f653",
+            "next": "arn:aws:lambda:us-west-2:623905218559:function:Block_Bbf0203e7-1a2f-4124-b219-e557c4844ec6"
+          },
+          {
+            "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_C6302cd4c-ee40-4337-a8c0-2a69f5c47db8",
+            "id": "cf39e28b-16a2-4d4f-95e5-62130a40b684",
+            "name": "then",
+            "type": "lambda",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Block_A2652463f-c568-4bdb-9879-21a8f069f653",
+            "next": "arn:aws:lambda:us-west-2:623905218559:function:Block_C6302cd4c-ee40-4337-a8c0-2a69f5c47db8"
+          }
+        ],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_A2652463f-c568-4bdb-9879-21a8f069f653",
+      "state_hash": "67a11d57f69bef942527c58795e52dc08949292766e599ee618f95cd12120cdc",
+      "max_execution_time": 900,
+      "memory": 768,
+      "reserved_concurrency_count": false
+    },
+    {
+      "id": "bf0203e7-1a2f-4124-b219-e557c4844ec6",
+      "name": "Block_Bbf0203e7-1a2f-4124-b219-e557c4844ec6",
+      "original_name": "Block B",
+      "type": "lambda",
+      "language": "Python 3.6 Temporal",
+      "code": "\ndef main(block_input, backpack):\n    return \"Hello World!\"\n",
+      "layers": [],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": "LOG_ALL",
+        "EXECUTION_MODE": "REGULAR",
+        "TRANSITION_DATA": "{\"if\": [], \"else\": [], \"exception\": [], \"then\": [{\"arn\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9\", \"id\": \"3157e922-7714-4535-8d19-eb5d4faa78a9\", \"name\": \"then\", \"type\": \"lambda\", \"node\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_Bbf0203e7-1a2f-4124-b219-e557c4844ec6\", \"next\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9\"}], \"fan-out\": [], \"fan-in\": [], \"merge\": []}"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [
+          {
+            "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9",
+            "id": "3157e922-7714-4535-8d19-eb5d4faa78a9",
+            "name": "then",
+            "type": "lambda",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Block_Bbf0203e7-1a2f-4124-b219-e557c4844ec6",
+            "next": "arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9"
+          }
+        ],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_Bbf0203e7-1a2f-4124-b219-e557c4844ec6",
+      "state_hash": "d262e4b5406ed9bf410a3c967fbede5110450831176c8b0c616e2a361286300c",
+      "max_execution_time": 900,
+      "memory": 768,
+      "reserved_concurrency_count": false
+    },
+    {
+      "id": "6302cd4c-ee40-4337-a8c0-2a69f5c47db8",
+      "name": "Block_C6302cd4c-ee40-4337-a8c0-2a69f5c47db8",
+      "original_name": "Block C",
+      "type": "lambda",
+      "language": "Python 3.6 Temporal",
+      "code": "\ndef main(block_input, backpack):\n    return \"Hello World!\"\n",
+      "layers": [],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": "LOG_ALL",
+        "EXECUTION_MODE": "REGULAR",
+        "TRANSITION_DATA": "{\"if\": [], \"else\": [], \"exception\": [], \"then\": [{\"arn\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9\", \"id\": \"bd95ff1d-54cc-472a-9be6-fb3788cff1e4\", \"name\": \"then\", \"type\": \"lambda\", \"node\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_C6302cd4c-ee40-4337-a8c0-2a69f5c47db8\", \"next\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9\"}], \"fan-out\": [], \"fan-in\": [], \"merge\": []}"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [
+          {
+            "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9",
+            "id": "bd95ff1d-54cc-472a-9be6-fb3788cff1e4",
+            "name": "then",
+            "type": "lambda",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Block_C6302cd4c-ee40-4337-a8c0-2a69f5c47db8",
+            "next": "arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9"
+          }
+        ],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_C6302cd4c-ee40-4337-a8c0-2a69f5c47db8",
+      "state_hash": "c12f0f529eadc1cd5864f0d2108a2bfad5712f592af225a081c9828644b9d462",
+      "max_execution_time": 900,
+      "memory": 768,
+      "reserved_concurrency_count": false
+    },
+    {
+      "id": "30b66565-1d04-4bc3-8480-352d2d4661e9",
+      "name": "Block_D30b66565-1d04-4bc3-8480-352d2d4661e9",
+      "original_name": "Block D",
+      "type": "lambda",
+      "language": "Python 3.6 Temporal",
+      "code": "\ndef main(block_input, backpack):\n    return \"Hello World!\"\n",
+      "layers": [],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": "LOG_ALL",
+        "EXECUTION_MODE": "REGULAR",
+        "TRANSITION_DATA": "{\"if\": [], \"else\": [], \"exception\": [], \"then\": [{\"arn\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_F5926fdab-df5a-472f-a1fe-5f9da6317720\", \"id\": \"cdf62b38-300e-4d87-babd-2a1d00465426\", \"name\": \"then\", \"type\": \"lambda\", \"node\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9\", \"next\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_F5926fdab-df5a-472f-a1fe-5f9da6317720\"}], \"fan-out\": [], \"fan-in\": [], \"merge\": []}"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [
+          {
+            "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_F5926fdab-df5a-472f-a1fe-5f9da6317720",
+            "id": "cdf62b38-300e-4d87-babd-2a1d00465426",
+            "name": "then",
+            "type": "lambda",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9",
+            "next": "arn:aws:lambda:us-west-2:623905218559:function:Block_F5926fdab-df5a-472f-a1fe-5f9da6317720"
+          }
+        ],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9",
+      "state_hash": "3267a316f9835f4393ee7256b3ae6e00b496e7cef8056fd99d09528d4333a861",
+      "max_execution_time": 900,
+      "memory": 768,
+      "reserved_concurrency_count": false
+    },
+    {
+      "id": "5926fdab-df5a-472f-a1fe-5f9da6317720",
+      "name": "Block_F5926fdab-df5a-472f-a1fe-5f9da6317720",
+      "original_name": "Block F",
+      "type": "lambda",
+      "language": "Python 3.6 Temporal",
+      "code": "\ndef main(block_input, backpack):\n    return \"Hello World!\"\n",
+      "layers": [],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": "LOG_ALL",
+        "EXECUTION_MODE": "REGULAR",
+        "TRANSITION_DATA": "{\"if\": [], \"else\": [], \"exception\": [], \"then\": [{\"arn\": null, \"id\": \"d0c3a0d3-4cd0-4391-8a17-7d2a2f57a782\", \"name\": \"then\", \"type\": \"api_gateway_response\", \"node\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_F5926fdab-df5a-472f-a1fe-5f9da6317720\", \"next\": null}], \"fan-out\": [], \"fan-in\": [], \"merge\": []}"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [
+          {
+            "arn": null,
+            "id": "d0c3a0d3-4cd0-4391-8a17-7d2a2f57a782",
+            "name": "then",
+            "type": "api_gateway_response",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Block_F5926fdab-df5a-472f-a1fe-5f9da6317720",
+            "next": null
+          }
+        ],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_F5926fdab-df5a-472f-a1fe-5f9da6317720",
+      "state_hash": "4b5f7fe3f447118b521cfc0a1f55846108d4ad51709682b09ef5a0b33ea21e54",
+      "max_execution_time": 900,
+      "memory": 768,
+      "reserved_concurrency_count": false
+    },
+    {
+      "id": "02677370-f519-4f75-9f1d-51aaad8c0b81",
+      "name": "Untitled_Code_Block02677370-f519-4f75-9f1d-51aaad8c0b81",
+      "original_name": "Untitled Code Block",
+      "type": "lambda",
+      "language": "Python 3.6 Temporal",
+      "code": "\ndef main(block_input, backpack):\n    return \"Hello World!\"\n",
+      "layers": [],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": "LOG_ALL",
+        "EXECUTION_MODE": "REGULAR",
+        "TRANSITION_DATA": "{\"if\": [], \"else\": [], \"exception\": [], \"then\": [{\"arn\": null, \"id\": \"613dcbba-b5c7-4863-90a0-c3a2ee3dc898\", \"name\": \"then\", \"type\": \"api_gateway_response\", \"node\": \"arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block02677370-f519-4f75-9f1d-51aaad8c0b81\", \"next\": null}, {\"arn\": \"arn:aws:sns:us-west-2:623905218559:test_topic199a6416-5b2f-476c-ba30-cb0c6eb4fe59\", \"id\": \"575fbb1c-477f-490b-a7a0-fcd94ea2b35a\", \"name\": \"then\", \"type\": \"sns_topic\", \"node\": \"arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block02677370-f519-4f75-9f1d-51aaad8c0b81\", \"next\": \"arn:aws:sns:us-west-2:623905218559:test_topic199a6416-5b2f-476c-ba30-cb0c6eb4fe59\"}], \"fan-out\": [], \"fan-in\": [], \"merge\": []}"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [
+          {
+            "arn": null,
+            "id": "613dcbba-b5c7-4863-90a0-c3a2ee3dc898",
+            "name": "then",
+            "type": "api_gateway_response",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block02677370-f519-4f75-9f1d-51aaad8c0b81",
+            "next": null
+          },
+          {
+            "arn": "arn:aws:sns:us-west-2:623905218559:test_topic199a6416-5b2f-476c-ba30-cb0c6eb4fe59",
+            "id": "575fbb1c-477f-490b-a7a0-fcd94ea2b35a",
+            "name": "then",
+            "type": "sns_topic",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block02677370-f519-4f75-9f1d-51aaad8c0b81",
+            "next": "arn:aws:sns:us-west-2:623905218559:test_topic199a6416-5b2f-476c-ba30-cb0c6eb4fe59"
+          }
+        ],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block02677370-f519-4f75-9f1d-51aaad8c0b81",
+      "state_hash": "cf3e92d3129ae6f32b6d02b37dc600e90013fe21b22d03bd9405f14c27f1dce9",
+      "max_execution_time": 900,
+      "memory": 768,
+      "reserved_concurrency_count": false
+    },
+    {
+      "id": "edc25dc9-8093-495a-8598-e320aa7c0f0d",
+      "name": "Untitled_Code_Blockedc25dc9-8093-495a-8598-e320aa7c0f0d",
+      "original_name": "Untitled Code Block",
+      "type": "lambda",
+      "language": "Python 3.6 Temporal",
+      "code": "\ndef main(block_input, backpack):\n    return \"Hello World!\"\n",
+      "layers": [],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": "LOG_ALL",
+        "EXECUTION_MODE": "REGULAR",
+        "TRANSITION_DATA": "{\"if\": [], \"else\": [], \"exception\": [], \"then\": [], \"fan-out\": [], \"fan-in\": [], \"merge\": []}"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Blockedc25dc9-8093-495a-8598-e320aa7c0f0d",
+      "state_hash": "40549e8e457de8a4918396987d9cfe1d4c698b13047769cc2a4ec0ee55d80f12",
+      "max_execution_time": 900,
+      "memory": 768,
+      "reserved_concurrency_count": false
+    },
+    {
+      "id": "369a7480-cc71-405e-b945-b9f90792729d",
+      "name": "Untitled_Code_Block369a7480-cc71-405e-b945-b9f90792729d",
+      "original_name": "Untitled Code Block",
+      "type": "lambda",
+      "language": "Python 3.6 Temporal",
+      "code": "\ndef main(block_input, backpack):\n    return \"Hello World!\"\n",
+      "layers": [],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": "LOG_ALL",
+        "EXECUTION_MODE": "REGULAR",
+        "TRANSITION_DATA": "{\"if\": [], \"else\": [], \"exception\": [], \"then\": [], \"fan-out\": [], \"fan-in\": [], \"merge\": []}"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block369a7480-cc71-405e-b945-b9f90792729d",
+      "state_hash": "becbabc7a693f25ef388088ba72d1793f0209fdb3758e3f7edc042248a81759c",
+      "max_execution_time": 900,
+      "memory": 768,
+      "reserved_concurrency_count": false
+    },
+    {
+      "id": "e7127e00-1590-447e-95ef-e8cb4655e05b",
+      "name": "Untitled_Code_Blocke7127e00-1590-447e-95ef-e8cb4655e05b",
+      "original_name": "Untitled Code Block",
+      "type": "lambda",
+      "language": "Python 3.6 Temporal",
+      "code": "\ndef main(block_input, backpack):\n    return \"Hello World!\"\n",
+      "layers": [],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": "LOG_ALL",
+        "EXECUTION_MODE": "REGULAR",
+        "TRANSITION_DATA": "{\"if\": [], \"else\": [], \"exception\": [], \"then\": [], \"fan-out\": [], \"fan-in\": [], \"merge\": []}"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Blocke7127e00-1590-447e-95ef-e8cb4655e05b",
+      "state_hash": "393be5316158f53241997349a07821661d0753378f2eede85afdceec5195b7d9",
+      "max_execution_time": 900,
+      "memory": 768,
+      "reserved_concurrency_count": false
+    },
+    {
+      "id": "d5c14395-eb40-48b7-8f9b-72eab34dfc4c",
+      "name": "Untitled_Code_Blockd5c14395-eb40-48b7-8f9b-72eab34dfc4c",
+      "original_name": "Untitled Code Block",
+      "type": "lambda",
+      "language": "Python 3.6 Temporal",
+      "code": "\ndef main(block_input, backpack):\n    return \"Hello World!\"\n",
+      "layers": [],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": "LOG_ALL",
+        "EXECUTION_MODE": "REGULAR",
+        "TRANSITION_DATA": "{\"if\": [], \"else\": [], \"exception\": [], \"then\": [{\"arn\": null, \"id\": \"d840cee2-650c-4a75-a608-263089f27814\", \"name\": \"then\", \"type\": \"api_gateway_response\", \"node\": \"arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Blockd5c14395-eb40-48b7-8f9b-72eab34dfc4c\", \"next\": null}, {\"arn\": \"arn:aws:sqs:us-west-2:623905218559:test_queue36350e19-49f9-4d98-acea-a68be3a8f7a0\", \"id\": \"a9f4a0f6-7aa9-4a5d-9009-29d59fe6f366\", \"name\": \"then\", \"type\": \"sqs_queue\", \"node\": \"arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Blockd5c14395-eb40-48b7-8f9b-72eab34dfc4c\", \"next\": \"arn:aws:sqs:us-west-2:623905218559:test_queue36350e19-49f9-4d98-acea-a68be3a8f7a0\"}], \"fan-out\": [], \"fan-in\": [], \"merge\": []}"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [
+          {
+            "arn": null,
+            "id": "d840cee2-650c-4a75-a608-263089f27814",
+            "name": "then",
+            "type": "api_gateway_response",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Blockd5c14395-eb40-48b7-8f9b-72eab34dfc4c",
+            "next": null
+          },
+          {
+            "arn": "arn:aws:sqs:us-west-2:623905218559:test_queue36350e19-49f9-4d98-acea-a68be3a8f7a0",
+            "id": "a9f4a0f6-7aa9-4a5d-9009-29d59fe6f366",
+            "name": "then",
+            "type": "sqs_queue",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Blockd5c14395-eb40-48b7-8f9b-72eab34dfc4c",
+            "next": "arn:aws:sqs:us-west-2:623905218559:test_queue36350e19-49f9-4d98-acea-a68be3a8f7a0"
+          }
+        ],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Blockd5c14395-eb40-48b7-8f9b-72eab34dfc4c",
+      "state_hash": "4d0710c027dafc3bce94ed22a4e0784855c5d22d62845cf8303435752a647ca8",
+      "max_execution_time": 900,
+      "memory": 768,
+      "reserved_concurrency_count": false
+    },
+    {
+      "id": "fe3dcf75-bbcd-4f10-816d-b0e501c08ac8",
+      "name": "queue_handlerfe3dcf75-bbcd-4f10-816d-b0e501c08ac8",
+      "original_name": "queue_handler",
+      "type": "lambda",
+      "language": "Python 3.6 Temporal",
+      "code": "\ndef main(block_input, backpack):\n    return \"Hello World!\"\n",
+      "layers": [],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": "LOG_ALL",
+        "EXECUTION_MODE": "REGULAR",
+        "TRANSITION_DATA": "{\"if\": [], \"else\": [], \"exception\": [], \"then\": [], \"fan-out\": [], \"fan-in\": [], \"merge\": []}"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:queue_handlerfe3dcf75-bbcd-4f10-816d-b0e501c08ac8",
+      "state_hash": "5f1029fe8a14ea6fc0ad4894b40e00f27f63724761c8a4c2c985589ac0ae2bb6",
+      "max_execution_time": 900,
+      "memory": 768,
+      "reserved_concurrency_count": false
+    },
+    {
+      "id": "79ac74a9-819a-4ceb-9ac5-1527c4ca6715",
+      "name": "queue_handler279ac74a9-819a-4ceb-9ac5-1527c4ca6715",
+      "original_name": "queue_handler2",
+      "type": "lambda",
+      "language": "Python 3.6 Temporal",
+      "code": "\ndef main(block_input, backpack):\n    return \"Hello World!\"\n",
+      "layers": [],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": "LOG_ALL",
+        "EXECUTION_MODE": "REGULAR",
+        "TRANSITION_DATA": "{\"if\": [], \"else\": [], \"exception\": [], \"then\": [], \"fan-out\": [], \"fan-in\": [], \"merge\": []}"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:queue_handler279ac74a9-819a-4ceb-9ac5-1527c4ca6715",
+      "state_hash": "1f48047f71af028552e92bd43f01d5c8e1bd75b7de8f631f393188bfa24fdf12",
+      "max_execution_time": 900,
+      "memory": 768,
+      "reserved_concurrency_count": false
+    },
+    {
+      "id": "5cf4bd77208d436a876b8d7fdf38f1a0",
+      "name": "__api_gateway__",
+      "original_name": "__api_gateway__",
+      "type": "api_gateway",
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "API_GATEWAY",
+      "state_hash": null,
+      "rest_api_id": "b1s235pk0j"
+    }
+  ],
+  "workflow_relationships": [
+    {
+      "id": "8a67a90b-a2bb-414b-b9d5-7c6b5b19d4f4",
+      "name": "then",
+      "type": "lambda",
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block02677370-f519-4f75-9f1d-51aaad8c0b81",
+      "node": "7ae16bff-e7e7-433b-9ca5-c41d33585ff8",
+      "next": "02677370-f519-4f75-9f1d-51aaad8c0b81"
+    },
+    {
+      "id": "36741b5a-9b5a-427c-ac9f-6d12d02d79da",
+      "name": "then",
+      "type": "lambda",
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_A2652463f-c568-4bdb-9879-21a8f069f653",
+      "node": "7ee1c6e4-5f3d-4189-a88e-ca8e1bb5858d",
+      "next": "2652463f-c568-4bdb-9879-21a8f069f653"
+    },
+    {
+      "id": "01f3e619-a297-45f3-849d-3e9ca1f1a201",
+      "name": "then",
+      "type": "lambda",
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Blocke7127e00-1590-447e-95ef-e8cb4655e05b",
+      "node": "e1e8a66a-381b-4c01-b00a-a0ac93493974",
+      "next": "e7127e00-1590-447e-95ef-e8cb4655e05b"
+    },
+    {
+      "id": "0a0d6b74-b956-4d88-9823-06c167f167c2",
+      "name": "then",
+      "type": "lambda",
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Blockd5c14395-eb40-48b7-8f9b-72eab34dfc4c",
+      "node": "cf63dbbc-0de4-4c53-937d-cdd5eeb6cc75",
+      "next": "d5c14395-eb40-48b7-8f9b-72eab34dfc4c"
+    },
+    {
+      "id": "52f8d473-4527-4dd2-a7a4-5e19952832ca",
+      "name": "then",
+      "type": "lambda",
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:queue_handlerfe3dcf75-bbcd-4f10-816d-b0e501c08ac8",
+      "node": "36350e19-49f9-4d98-acea-a68be3a8f7a0",
+      "next": "fe3dcf75-bbcd-4f10-816d-b0e501c08ac8"
+    },
+    {
+      "id": "bd70a91c-fc96-4f48-a4cf-55ee948facef",
+      "name": "then",
+      "type": "lambda",
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:queue_handler279ac74a9-819a-4ceb-9ac5-1527c4ca6715",
+      "node": "36350e19-49f9-4d98-acea-a68be3a8f7a0",
+      "next": "79ac74a9-819a-4ceb-9ac5-1527c4ca6715"
+    },
+    {
+      "id": "a78174ab-58f1-4693-bd57-bd219e19f96b",
+      "name": "then",
+      "type": "lambda",
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Blockedc25dc9-8093-495a-8598-e320aa7c0f0d",
+      "node": "199a6416-5b2f-476c-ba30-cb0c6eb4fe59",
+      "next": "edc25dc9-8093-495a-8598-e320aa7c0f0d"
+    },
+    {
+      "id": "f174b746-e363-431f-80fb-bc34f8b42b76",
+      "name": "then",
+      "type": "lambda",
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block369a7480-cc71-405e-b945-b9f90792729d",
+      "node": "199a6416-5b2f-476c-ba30-cb0c6eb4fe59",
+      "next": "369a7480-cc71-405e-b945-b9f90792729d"
+    },
+    {
+      "id": "a1fd3823-47c3-48af-a6fd-ec7a25fdcf5d",
+      "name": "then",
+      "type": "lambda",
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_Bbf0203e7-1a2f-4124-b219-e557c4844ec6",
+      "node": "2652463f-c568-4bdb-9879-21a8f069f653",
+      "next": "bf0203e7-1a2f-4124-b219-e557c4844ec6"
+    },
+    {
+      "id": "cf39e28b-16a2-4d4f-95e5-62130a40b684",
+      "name": "then",
+      "type": "lambda",
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_C6302cd4c-ee40-4337-a8c0-2a69f5c47db8",
+      "node": "2652463f-c568-4bdb-9879-21a8f069f653",
+      "next": "6302cd4c-ee40-4337-a8c0-2a69f5c47db8"
+    },
+    {
+      "id": "3157e922-7714-4535-8d19-eb5d4faa78a9",
+      "name": "then",
+      "type": "lambda",
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9",
+      "node": "bf0203e7-1a2f-4124-b219-e557c4844ec6",
+      "next": "30b66565-1d04-4bc3-8480-352d2d4661e9"
+    },
+    {
+      "id": "bd95ff1d-54cc-472a-9be6-fb3788cff1e4",
+      "name": "then",
+      "type": "lambda",
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9",
+      "node": "6302cd4c-ee40-4337-a8c0-2a69f5c47db8",
+      "next": "30b66565-1d04-4bc3-8480-352d2d4661e9"
+    },
+    {
+      "id": "cdf62b38-300e-4d87-babd-2a1d00465426",
+      "name": "then",
+      "type": "lambda",
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_F5926fdab-df5a-472f-a1fe-5f9da6317720",
+      "node": "30b66565-1d04-4bc3-8480-352d2d4661e9",
+      "next": "5926fdab-df5a-472f-a1fe-5f9da6317720"
+    },
+    {
+      "id": "d0c3a0d3-4cd0-4391-8a17-7d2a2f57a782",
+      "name": "then",
+      "type": "api_gateway_response",
+      "arn": null,
+      "node": "5926fdab-df5a-472f-a1fe-5f9da6317720",
+      "next": "0182df26-1280-4279-8486-e08d40127a67"
+    },
+    {
+      "id": "613dcbba-b5c7-4863-90a0-c3a2ee3dc898",
+      "name": "then",
+      "type": "api_gateway_response",
+      "arn": null,
+      "node": "02677370-f519-4f75-9f1d-51aaad8c0b81",
+      "next": "a4d7e31d-dc8c-49ce-af47-8b9946eb6efa"
+    },
+    {
+      "id": "575fbb1c-477f-490b-a7a0-fcd94ea2b35a",
+      "name": "then",
+      "type": "sns_topic",
+      "arn": "arn:aws:sns:us-west-2:623905218559:test_topic199a6416-5b2f-476c-ba30-cb0c6eb4fe59",
+      "node": "02677370-f519-4f75-9f1d-51aaad8c0b81",
+      "next": "199a6416-5b2f-476c-ba30-cb0c6eb4fe59"
+    },
+    {
+      "id": "d840cee2-650c-4a75-a608-263089f27814",
+      "name": "then",
+      "type": "api_gateway_response",
+      "arn": null,
+      "node": "d5c14395-eb40-48b7-8f9b-72eab34dfc4c",
+      "next": "e4fb5367-2385-4887-b2b0-4a3b38fa87d8"
+    },
+    {
+      "id": "a9f4a0f6-7aa9-4a5d-9009-29d59fe6f366",
+      "name": "then",
+      "type": "sqs_queue",
+      "arn": "arn:aws:sqs:us-west-2:623905218559:test_queue36350e19-49f9-4d98-acea-a68be3a8f7a0",
+      "node": "d5c14395-eb40-48b7-8f9b-72eab34dfc4c",
+      "next": "36350e19-49f9-4d98-acea-a68be3a8f7a0"
+    }
+  ]
+}
