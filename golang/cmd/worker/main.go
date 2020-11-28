@@ -34,7 +34,7 @@ func getConfigProvider(configDir string) config.Provider {
 }
 
 func main() {
-	provider := getConfigProvider("./config")
+	provider := getConfigProvider("./config/workflow-manager-worker")
 
 	var workerConfig worker.WorkerConfig
 	if err := provider.Get("workflow-manager-worker").Populate(&workerConfig); err != nil {

@@ -32,7 +32,7 @@ func getConfigProvider(configDir string) config.Provider {
 }
 
 func main() {
-	provider := getConfigProvider("./config")
+	provider := getConfigProvider("./config/workflow-manager")
 
 	var workflowManagerConfig workflowmanager.WorkflowManagerConfig
 	if err := provider.Get("workflow-manager").Populate(&workflowManagerConfig); err != nil {

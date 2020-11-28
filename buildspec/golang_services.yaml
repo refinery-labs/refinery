@@ -1,0 +1,35 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      docker: 18
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws --version
+      - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
+      - REPOSITORY_URI=134071937287.dkr.ecr.us-west-2.amazonaws.com
+      - WORKFLOW_MANAGER_REPO=$REPOSITORY_URI/workflow-manager
+      - WORKFLOW_MANAGER_WORKER_REPO=$REPOSITORY_URI/workflow-manager-worker
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
+  build:
+    commands:
+      - echo Build started on `date`
+      - echo Building the Refinery Workflow Manager Docker image...
+      - cd ./golang/
+      - docker build -t $WORKFLOW_MANAGER_REPO:latest -f docker/Dockerfile.workflow-manager .
+      - docker tag $WORKFLOW_MANAGER_REPO:latest $WORKFLOW_MANAGER_REPO:$IMAGE_TAG
+      - echo Building the Refinery Workflow Manager Worker Docker image...
+      - docker build -t $WORKFLOW_MANAGER_WORKER_REPO:latest -f docker/Dockerfile.workflow-manager-worker .
+      - docker tag $WORKFLOW_MANAGER_WORKER_REPO:latest $WORKFLOW_MANAGER_WORKER_REPO:$IMAGE_TAG
+  post_build:
+    commands:
+      - echo Build completed on `date`
+      - echo Pushing the Refinery Workflow Manager Docker image...
+      - docker push $WORKFLOW_MANAGER_REPO:latest
+      - docker push $WORKFLOW_MANAGER_REPO:$IMAGE_TAG
+      - echo Pushing the Refinery Workflow Manager Worker Docker image...
+      - docker push $WORKFLOW_MANAGER_WORKER_REPO:latest
+      - docker push $WORKFLOW_MANAGER_WORKER_REPO:$IMAGE_TAG

@@ -2,7 +2,7 @@ env/
 api/.mypy_cache/
 api/config/development.yaml
 *.yml
-!buildspec.yml
+!buildspec/api_server.yaml
 *.pyc
 tmp/
 elastic-beanstack-package.zip
