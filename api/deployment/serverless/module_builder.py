@@ -51,18 +51,19 @@ class ServerlessModuleBuilder:
 
     def build(self, buffer=None):
         if buffer is not None:
-            return self._build(buffer)
+            self._build(buffer)
+
+            return buffer.getvalue()
 
         with BytesIO() as buffer:
-            return self._build(buffer)
+            self._build(buffer)
+            return buffer.getvalue()
 
     def _build(self, buffer):
         with ZipFile(buffer, 'w', ZIP_DEFLATED) as zipfile:
             self.build_workflow_states(zipfile)
             self.build_config(zipfile)
             self.add_buildspec(zipfile)
-
-            return buffer.getvalue()
 
     def build_config(self, zipfile):
         builder = ServerlessConfigBuilder(

@@ -79,7 +79,7 @@ class ServerlessBuilder(Builder):
             projectName='refinery-builds',
             sourceTypeOverride='s3',
             sourceLocationOverride=self.s3_path,
-            imageOverride="aws/codebuild/nodejs:12"
+            imageOverride="docker.io/node:12",
         )['build']['id']
 
         return get_codebuild_artifact_zip_data(
