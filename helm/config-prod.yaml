@@ -25,6 +25,3 @@ users:
       - --cluster-name
       - refinery
       command: aws
-      env:
-      - name: AWS_PROFILE
-        value: refinery-prod
