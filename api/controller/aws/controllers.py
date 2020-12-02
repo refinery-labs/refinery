@@ -405,13 +405,14 @@ class DeployDiagram(BaseHandler):
 
         self._dbsession = None
 
-        deployment_id = latest_deployment.id or str(uuid4())
+        deployment_id = latest_deployment.id if latest_deployment else str(uuid4())
         builder = ServerlessBuilder(
             self.app_config,
             self.aws_client_factory,
+            credentials,
             project_id,
             deployment_id,
-            project_config
+            diagram_data
         )
 
         builder.build(rebuild=latest_deployment is not None)

@@ -44,7 +44,7 @@ field_size_limit(maxsize)
 if __name__ == "__main__":
     #import debugpy
     #debugpy.listen(('0.0.0.0', 5678))
-    logit("Starting the Refinery service...", "info")
+    #logit("Starting the Refinery service...", "info")
 
     """
     NOTE: Classes added here must have camel casing without two capital letters back to back.

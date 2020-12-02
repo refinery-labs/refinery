@@ -7,12 +7,13 @@ from zipfile import ZipFile
 
 
 class ServerlessBuilder(Builder):
-    def __init__(self, app_config, aws_client_factory, project_id, deployment_id, project_config):
+    def __init__(self, app_config, aws_client_factory, credentials, project_id, deployment_id, diagram_data):
         self.app_config = app_config
         self.aws_client_factory = aws_client_factory
+        self.credentials = credentials
         self.project_id = project_id
         self.deployment_id = deployment_id
-        self.project_config = project_config
+        self.diagram_data = diagram_data
 
     @cached_property
     def codebuild(self):
@@ -48,10 +49,9 @@ class ServerlessBuilder(Builder):
         artifact_zip = self.get_artifact_zipfile() if rebuild else None
         module_builder = ServerlessModuleBuilder(
             self.app_config,
-            self.aws_client_factory,
             self.project_id,
             self.deployment_id,
-            self.project_config
+            self.diagram_data
         )
         zipfile = module_builder.build(artifact_zip)
         serverless_zipfile = self.perform_codebuild(zipfile)
@@ -75,9 +75,8 @@ class ServerlessBuilder(Builder):
             # should be validated in the future.
             ACL="public-read"
         )
-
         build_id = self.codebuild.start_build(
-            projectName='refinery-serverless-builds',
+            projectName='refinery-builds',
             sourceTypeOverride='s3',
             sourceLocationOverride=self.s3_path,
             imageOverride="aws/codebuild/nodejs:12"

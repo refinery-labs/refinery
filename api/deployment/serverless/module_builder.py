@@ -32,12 +32,11 @@ BUILDSPEC = dump({
 
 
 class ServerlessModuleBuilder:
-    def __init__(self, app_config, aws_client_factory, project_id, deployment_id, project_config):
+    def __init__(self, app_config, project_id, deployment_id, diagram_data):
         self.app_config = app_config
-        self.aws_client_factory = aws_client_factory
-        self.project_id = projectself_id
+        self.project_id = project_id
         self.deployment_id = deployment_id
-        self.project_config = project_config
+        self.diagram_data = diagram_data
 
     ###########################################################################
     # High level builder stuff
@@ -70,14 +69,14 @@ class ServerlessModuleBuilder:
             self.app_config,
             self.project_id,
             self.deployment_id,
-            self.project_config
+            self.diagram_data
         )
         serverless_yaml = builder.build()
 
         add_file_to_zipfile(zipfile, "serverless.yml", serverless_yaml)
 
     def build_workflow_states(self, zipfile):
-        for workflow_state in self.project_config['workflow_states']:
+        for workflow_state in self.diagram_data['workflow_states']:
             type_ = workflow_state['type']
             builder = self.workflow_state_builders.get(type_)
 
