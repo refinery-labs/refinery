@@ -48,8 +48,30 @@ phases:
       - docker push $WORKFLOW_MANAGER_WORKER_REPO:latest
       - docker push $WORKFLOW_MANAGER_WORKER_REPO:$IMAGE_TAG
       - |
+        tee ./helm/refinery/secrets.yaml <<END
+        secrets:
+          awsAccessKeyID: $AWS_ACCESS_KEY_ID
+          awsSecretAccessKey: $AWS_SECRET_ACCESS_KEY
+          serviceSharedSecret: $SERVICE_SHARED_SECRET
+          mailgunApiKey: $MAILGUN_API_KEY
+          cookieSecretValue: $COOKIE_SECRET_VALUE
+          stripeApiKey: $STRIPE_API_KEY
+          intercomHMACSecret: $INTERCOM_HMAC_SECRET
+          githubClientID: $GITHUB_CLIENT_ID
+          githubClientSecret: $GITHUB_CLIENT_SECRET
+          ngrokApiSecret: $NGROK_API_SECRET
+
+        aws:
+          accountID: "$AWS_ACCOUNT_ID"
+
+        postgresql:
+          postgresqlPassword: $POSTGRESQL_PASSWORD
+        END
+      - |
         helm upgrade
-        -i refinery ./helm/refinery
         -f ./helm/refinery/values.$ENV.yaml
+        -f ./helm/refinery/secrets.yaml
         --set workflowManager.container.tag=$IMAGE_TAG
         --set workflowMangaerWorker.container.tag=$IMAGE_TAG
+        refinery
+        ./helm/refinery
