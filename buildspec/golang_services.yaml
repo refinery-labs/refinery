@@ -30,6 +30,7 @@ phases:
       - IMAGE_TAG=${COMMIT_HASH:=latest}
   build:
     commands:
+      - PREVIOUS_CWD=$(pwd)
       - echo Build started on `date`
       - echo Building the Refinery Workflow Manager Docker image...
       - cd ./golang/
@@ -38,6 +39,7 @@ phases:
       - echo Building the Refinery Workflow Manager Worker Docker image...
       - docker build -t $WORKFLOW_MANAGER_WORKER_REPO:latest -f docker/Dockerfile.workflow-manager-worker .
       - docker tag $WORKFLOW_MANAGER_WORKER_REPO:latest $WORKFLOW_MANAGER_WORKER_REPO:$IMAGE_TAG
+      - cd $PREVIOUS_CWD
   post_build:
     commands:
       - echo Build completed on `date`
