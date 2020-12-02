@@ -50,8 +50,8 @@ phases:
       - |
         tee ./helm/refinery/secrets.yaml <<END
         secrets:
-          awsAccessKeyID: $AWS_ACCESS_KEY_ID
-          awsSecretAccessKey: $AWS_SECRET_ACCESS_KEY
+          awsAccessKeyID: $REFINERYAWS_ACCESS_KEY_ID
+          awsSecretAccessKey: $REFINERY_AWS_SECRET_ACCESS_KEY
           serviceSharedSecret: $SERVICE_SHARED_SECRET
           mailgunApiKey: $MAILGUN_API_KEY
           cookieSecretValue: $COOKIE_SECRET_VALUE
@@ -62,7 +62,7 @@ phases:
           ngrokApiSecret: $NGROK_API_SECRET
 
         aws:
-          accountID: "$AWS_ACCOUNT_ID"
+          accountID: "$REFINERY_AWS_ACCOUNT_ID"
 
         postgresql:
           postgresqlPassword: $POSTGRESQL_PASSWORD
