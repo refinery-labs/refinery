@@ -2,5 +2,8 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/helm" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/helm/helm-charts" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/helm/temporal" vcs="Git" />
   </component>
 </project>

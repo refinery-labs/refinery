@@ -19,11 +19,11 @@ def emit_runtime_metrics(metric_name):
     :type metric_name: basestring
     :return: Decorated function
     """
-    is_debug = (os.environ.get("is_debug").lower() == "true")
+    debug = (os.environ.get("debug").lower() == "true")
 
     env_name = "Development"
 
-    if not is_debug:
+    if not debug:
         env_name = "Production"
 
     def decorator(func):

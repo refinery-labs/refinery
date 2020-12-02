@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: refinery-api-config
+  namespace: refinery
+data:
+  REFINERY_ENV: {{ .Values.env }}
+  aws_access_key: {{ .Values.secrets.awsAccessKeyID }}
+  aws_secret_key: {{ .Values.secrets.awsSecretAccessKey }}
+  aws_account_id: "{{ .Values.aws.accountID }}"
+  region_name: {{ .Values.aws.region }}
+  assume_role_session_lifetime_seconds: "900"
+  customer_aws_admin_assume_role: {{ .Values.aws.resources.customerAwsAdminAssumeRole }}
+  lambda_role: {{ .Values.aws.resources.lambdaRole }}
+  events_role: {{ .Values.aws.resources.eventsRole }}

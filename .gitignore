@@ -14,6 +14,7 @@ auto-reload.sh
 nginx-container/front-end-dist/
 *.validator.ts
 secrets.json
+secrets.yaml
 
 # Created by https://www.gitignore.io/api/intellij
 # Edit at https://www.gitignore.io/?templates=intellij

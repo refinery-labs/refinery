@@ -1,0 +1,57 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: workflow-manager-worker
+  namespace: refinery
+  labels:
+    k8s-app: workflow-manager-worker
+  annotations:
+    deployment.kubernetes.io/revision: '2'
+    description: Worker for the refinery workflow manager.
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: workflow-manager-worker
+  template:
+    metadata:
+      name: workflow-manager-worker
+      labels:
+        k8s-app: workflow-manager-worker
+      annotations:
+        description: Worker for the refinery workflow manager.
+    spec:
+      containers:
+        - name: workflow-manager-worker
+          image: "{{ .Values.workflowManagerWorker.container.image }}:{{ .Values.workflowManagerWorker.container.tag }}"
+          imagePullPolicy: {{ .Values.workflowManagerWorker.container.imagePullPolicy }}
+          resources: {}
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          envFrom:
+            - configMapRef:
+                name: temporal-client-config
+          securityContext:
+            privileged: false
+          volumeMounts:
+            - name: config
+              mountPath: {{ .Values.workflowManagerWorker.volumeMounts.config.mountPath }}
+              subPath: {{ .Values.workflowManagerWorker.volumeMounts.config.subPath }}
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: {{ .Values.workflowManagerWorker.volumes.configMap.name }}
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+      securityContext: {}
+      schedulerName: default-scheduler
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+

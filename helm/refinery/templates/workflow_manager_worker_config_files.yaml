@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: refinery-workflow-manager-worker-config-files
+data:
+  secrets.yaml: |
+    workflow-manager-worker:
+      aws_access_key_id: {{ .Values.secrets.awsAccessKeyID }} 
+      aws_secret_access_key: {{ .Values.secrets.awsSecretAccessKey }} 

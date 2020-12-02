@@ -1,0 +1,126 @@
+replicaCount: 1
+
+namespace: refinery
+
+env: production
+
+temporal:
+  hostPort: temporal-frontend.temporal:7233
+
+apiServer:
+  debug: false
+  container:
+    tag: latest
+    image: 134071937287.dkr.ecr.us-west-2.amazonaws.com/refinery-api-server-prod
+    pullPolicy: Always
+    configMapRef:
+  volumeMounts:
+    config:
+      mountPath: /worker/config/production.yaml
+      subPath: production.yaml
+  volumes:
+    configMap:
+      name: refinery-api-config-files
+  ports:
+    http:
+      port: 8002
+      targetPort: 7777
+  config:
+    accessControlAllowOrigins:
+      - http://localhost
+      - http://localhost:8080
+      - http://localhost:8002
+    emails:
+      billingAlertEmail: billing@pimpmysg.com
+      customerAwsEmailSuffix: "@mail.refineryusercontent.com"
+      fromEmail: reply-for-help@mail.refinery.io
+      alertsEmail: chrislegolife@gmail.com
+      freeTrialFreezeAlerts: chrislegolife@gmail.com
+      internalSignupNotificationEmail: chrislegolife@gmail.com
+
+frontEnd:
+  origin: http://localhost
+  container:
+    tag: latest
+    image: 134071937287.dkr.ecr.us-west-2.amazonaws.com/refinery-nginx-server
+    pullPolicy: Always
+  ports:
+    http:
+      port: 8080
+      targetPort: 8080
+
+workflowManager:
+  url: http://workflow-manager.refinery/api/v1
+  container:
+    tag: latest
+    image: 134071937287.dkr.ecr.us-west-2.amazonaws.com/workflow-manager
+    pullPolicy: Always
+  ports:
+    http:
+      port: 3000
+      targetPort: 3000
+
+workflowManagerWorker:
+  container:
+    tag: latest
+    image: 134071937287.dkr.ecr.us-west-2.amazonaws.com/workflow-manager-worker
+    pullPolicy: Always
+  volumeMounts:
+    config:
+      mountPath: /workflow-manager-worker/worker/config/secrets.yaml
+      subPath: secrets.yaml
+  volumes:
+    configMap:
+      name: refinery-workflow-manager-worker-config-files
+
+secrets:
+  awsAccessKeyID: FILL_ME_IN
+  awsSecretAccessKey: FILL_ME_IN
+  serviceSharedSecret: FILL_ME_IN
+  mailgunApiKey: FILL_ME_IN
+  cookieSecretValue: FILL_ME_IN
+  stripeApiKey: FILL_ME_IN
+  intercomHMACSecret: FILL_ME_IN
+  githubClientID: FILL_ME_IN
+  githubClientSecret: FILL_ME_IN
+  ngrokApiSecret: FILL_ME_IN
+
+ngrok:
+  enabled: false
+
+aws:
+  accountID: FILL_ME_IN
+  region: us-west-2
+  resources:
+    lambdaRole: arn:aws:iam::361596142897:role/refinery_aws_lambda_admin_role
+    eventsRole: arn:aws:iam::361596142897:role/refinery_aws_cloudwatch_admin_role
+    tmpLambdaPackagesBucket: lambdabuildpackages-a82d4bf25863445bb29abcaea1647602
+    pipelineLogsBucket: lambda-logging-7e0dfa0b3ca344498915470c137ef745
+    customerAwsAdminAssumeRole: DO_NOT_DELETE_REFINERY_SYSTEM_ACCOUNT
+
+postgresql:
+  host: postresql.refinery
+  postgresqlUsername: refinery 
+  postgresqlPassword: FILL_ME_IN
+  postgresqlDatabase: workflow_store
+  initdbScripts:
+    setup.sql: |
+      CREATE TABLE workflows(
+        id TEXT NOT NULL UNIQUE,
+        deployment_id TEXT NOT NULL,
+        dsl TEXT NOT NULL,
+        PRIMARY KEY (id, deployment_id)
+      );
+
+      CREATE TABLE workflow_runs(
+        id TEXT NOT NULL,
+        workflow_id TEXT NOT NULL,
+        PRIMARY KEY (id, workflow_id),
+        FOREIGN KEY (workflow_id) REFERENCES workflows(id)
+      );
+
+# Unused config values
+lambdaRedis:
+  hostname: NOT_USED
+  port: NOT_USED
+  password: NOT_USED
