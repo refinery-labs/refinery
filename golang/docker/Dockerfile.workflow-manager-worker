@@ -1,0 +1,11 @@
+FROM golang
+ADD . /workflow-manager-worker
+WORKDIR /workflow-manager-worker/cmd/worker
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o worker .
+
+FROM alpine
+RUN apk --no-cache add ca-certificates
+WORKDIR /root/
+COPY --from=0 /workflow-manager-worker/cmd/worker/worker .
+COPY --from=0 /workflow-manager-worker/config ./config
+CMD ["./worker"]

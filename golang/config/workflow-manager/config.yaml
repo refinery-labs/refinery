@@ -1,0 +1,3 @@
+workflow-manager:
+  temporal_host_port: ${TEMPORAL_HOST_PORT:"localhost:7233"}
+  database_uri: ${DATABASE_URI:"postgresql://refinery:refinery@localhost:5432/workflow_store?sslmode=disable"}

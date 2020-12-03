@@ -1,0 +1,425 @@
+{
+  "name": "cadence-test",
+  "project_id": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+  "deployment_id": "dead4bd77-208d-436a-876b-8d7fdf38f1a0",
+  "global_handlers": {},
+  "workflow_states": [
+    {
+      "id": "2652463f-c568-4bdb-9879-21a8f069f653",
+      "name": "Block_A2652463f-c568-4bdb-9879-21a8f069f653",
+      "type": "lambda",
+      "language": "nodejs8.10",
+      "code": "\nasync function main(blockInput, backpack) {\n    return 'Hello World!';\n}\n\nmodule.exports = { main };\n",
+      "layers": [
+        "arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:30"
+      ],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": "LOG_ALL",
+        "EXECUTION_MODE": "REGULAR",
+        "NODE_PATH": "/var/task/node_modules/",
+        "TRANSITION_DATA": "{\"if\": [], \"else\": [], \"exception\": [], \"then\": [{\"arn\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_Bbf0203e7-1a2f-4124-b219-e557c4844ec6\", \"id\": \"a1fd3823-47c3-48af-a6fd-ec7a25fdcf5d\", \"name\": \"then\", \"type\": \"lambda\", \"node\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_A2652463f-c568-4bdb-9879-21a8f069f653\", \"next\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_Bbf0203e7-1a2f-4124-b219-e557c4844ec6\"}, {\"arn\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_C6302cd4c-ee40-4337-a8c0-2a69f5c47db8\", \"id\": \"cf39e28b-16a2-4d4f-95e5-62130a40b684\", \"name\": \"then\", \"type\": \"lambda\", \"node\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_A2652463f-c568-4bdb-9879-21a8f069f653\", \"next\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_C6302cd4c-ee40-4337-a8c0-2a69f5c47db8\"}], \"fan-out\": [], \"fan-in\": [], \"merge\": []}"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [
+          {
+            "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_Bbf0203e7-1a2f-4124-b219-e557c4844ec6",
+            "id": "a1fd3823-47c3-48af-a6fd-ec7a25fdcf5d",
+            "name": "then",
+            "type": "lambda",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Block_A2652463f-c568-4bdb-9879-21a8f069f653",
+            "next": "arn:aws:lambda:us-west-2:623905218559:function:Block_Bbf0203e7-1a2f-4124-b219-e557c4844ec6"
+          },
+          {
+            "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_C6302cd4c-ee40-4337-a8c0-2a69f5c47db8",
+            "id": "cf39e28b-16a2-4d4f-95e5-62130a40b684",
+            "name": "then",
+            "type": "lambda",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Block_A2652463f-c568-4bdb-9879-21a8f069f653",
+            "next": "arn:aws:lambda:us-west-2:623905218559:function:Block_C6302cd4c-ee40-4337-a8c0-2a69f5c47db8"
+          }
+        ],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_A2652463f-c568-4bdb-9879-21a8f069f653",
+      "state_hash": "245a6bbed9d01bcdb5b5a35ec51a240c5335911ab1515329c78c6270a35983f8",
+      "max_execution_time": 900,
+      "memory": 768,
+      "reserved_concurrency_count": false
+    },
+    {
+      "id": "bf0203e7-1a2f-4124-b219-e557c4844ec6",
+      "name": "Block_Bbf0203e7-1a2f-4124-b219-e557c4844ec6",
+      "type": "lambda",
+      "language": "nodejs8.10",
+      "code": "\nasync function main(blockInput, backpack) {\n    return 'Hello World!';\n}\n\nmodule.exports = { main };\n",
+      "layers": [
+        "arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:30"
+      ],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": "LOG_ALL",
+        "EXECUTION_MODE": "REGULAR",
+        "NODE_PATH": "/var/task/node_modules/",
+        "TRANSITION_DATA": "{\"if\": [], \"else\": [], \"exception\": [], \"then\": [{\"arn\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9\", \"id\": \"3157e922-7714-4535-8d19-eb5d4faa78a9\", \"name\": \"then\", \"type\": \"lambda\", \"node\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_Bbf0203e7-1a2f-4124-b219-e557c4844ec6\", \"next\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9\"}], \"fan-out\": [], \"fan-in\": [], \"merge\": []}"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [
+          {
+            "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9",
+            "id": "3157e922-7714-4535-8d19-eb5d4faa78a9",
+            "name": "then",
+            "type": "lambda",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Block_Bbf0203e7-1a2f-4124-b219-e557c4844ec6",
+            "next": "arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9"
+          }
+        ],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_Bbf0203e7-1a2f-4124-b219-e557c4844ec6",
+      "state_hash": "321200365a8067ee449e3a572559ae5d4061504aa1f0446c387bf42ac1ec26a5",
+      "max_execution_time": 900,
+      "memory": 768,
+      "reserved_concurrency_count": false
+    },
+    {
+      "id": "6302cd4c-ee40-4337-a8c0-2a69f5c47db8",
+      "name": "Block_C6302cd4c-ee40-4337-a8c0-2a69f5c47db8",
+      "type": "lambda",
+      "language": "nodejs8.10",
+      "code": "\nasync function main(blockInput, backpack) {\n    return 'Hello World!';\n}\n\nmodule.exports = { main };\n",
+      "layers": [
+        "arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:30"
+      ],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": "LOG_ALL",
+        "EXECUTION_MODE": "REGULAR",
+        "NODE_PATH": "/var/task/node_modules/",
+        "TRANSITION_DATA": "{\"if\": [], \"else\": [], \"exception\": [], \"then\": [{\"arn\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9\", \"id\": \"bd95ff1d-54cc-472a-9be6-fb3788cff1e4\", \"name\": \"then\", \"type\": \"lambda\", \"node\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_C6302cd4c-ee40-4337-a8c0-2a69f5c47db8\", \"next\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9\"}], \"fan-out\": [], \"fan-in\": [], \"merge\": []}"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [
+          {
+            "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9",
+            "id": "bd95ff1d-54cc-472a-9be6-fb3788cff1e4",
+            "name": "then",
+            "type": "lambda",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Block_C6302cd4c-ee40-4337-a8c0-2a69f5c47db8",
+            "next": "arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9"
+          }
+        ],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_C6302cd4c-ee40-4337-a8c0-2a69f5c47db8",
+      "state_hash": "6f013f73ec9a31dc8bed8d70bd926c8e1aa9a479ec748c700c145ca2b42425ef",
+      "max_execution_time": 900,
+      "memory": 768,
+      "reserved_concurrency_count": false
+    },
+    {
+      "id": "30b66565-1d04-4bc3-8480-352d2d4661e9",
+      "name": "Block_D30b66565-1d04-4bc3-8480-352d2d4661e9",
+      "type": "lambda",
+      "language": "nodejs8.10",
+      "code": "\nasync function main(blockInput, backpack) {\n    return 'Hello World!';\n}\n\nmodule.exports = { main };\n",
+      "layers": [
+        "arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:30"
+      ],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": "LOG_ALL",
+        "EXECUTION_MODE": "REGULAR",
+        "NODE_PATH": "/var/task/node_modules/",
+        "TRANSITION_DATA": "{\"if\": [], \"else\": [], \"exception\": [], \"then\": [{\"arn\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_F5926fdab-df5a-472f-a1fe-5f9da6317720\", \"id\": \"cdf62b38-300e-4d87-babd-2a1d00465426\", \"name\": \"then\", \"type\": \"lambda\", \"node\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9\", \"next\": \"arn:aws:lambda:us-west-2:623905218559:function:Block_F5926fdab-df5a-472f-a1fe-5f9da6317720\"}], \"fan-out\": [], \"fan-in\": [], \"merge\": []}"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [
+          {
+            "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_F5926fdab-df5a-472f-a1fe-5f9da6317720",
+            "id": "cdf62b38-300e-4d87-babd-2a1d00465426",
+            "name": "then",
+            "type": "lambda",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9",
+            "next": "arn:aws:lambda:us-west-2:623905218559:function:Block_F5926fdab-df5a-472f-a1fe-5f9da6317720"
+          }
+        ],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9",
+      "state_hash": "074c99807d369dfd4e580cbc13553f3aeb071c1a1d336476ab366e8d9fc8d6b6",
+      "max_execution_time": 900,
+      "memory": 768,
+      "reserved_concurrency_count": false
+    },
+    {
+      "id": "5926fdab-df5a-472f-a1fe-5f9da6317720",
+      "name": "Block_F5926fdab-df5a-472f-a1fe-5f9da6317720",
+      "type": "lambda",
+      "language": "nodejs8.10",
+      "code": "\nasync function main(blockInput, backpack) {\n    return 'Hello World!';\n}\n\nmodule.exports = { main };\n",
+      "layers": [
+        "arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:30"
+      ],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": "LOG_ALL",
+        "EXECUTION_MODE": "REGULAR",
+        "NODE_PATH": "/var/task/node_modules/",
+        "TRANSITION_DATA": "{\"if\": [], \"else\": [], \"exception\": [], \"then\": [], \"fan-out\": [], \"fan-in\": [], \"merge\": []}"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_F5926fdab-df5a-472f-a1fe-5f9da6317720",
+      "state_hash": "c342631ec9513b8291e417051eda48faea937a5162a1046df084cf6aafb488b0",
+      "max_execution_time": 900,
+      "memory": 768,
+      "reserved_concurrency_count": false
+    },
+    {
+      "id": "7ae16bff-e7e7-433b-9ca5-c41d33585ff8",
+      "name": "Untitled_API_Endpoint_Block7ae16bff-e7e7-433b-9ca5-c41d33585ff8",
+      "type": "api_endpoint",
+      "language": "python2.7",
+      "code": "",
+      "layers": [
+        "arn:aws:lambda:us-west-2:134071937287:layer:refinery-python27-custom-runtime:28"
+      ],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": "LOG_ALL",
+        "EXECUTION_MODE": "API_ENDPOINT",
+        "PYTHONPATH": "/var/task/",
+        "PYTHONUNBUFFERED": "1",
+        "TRANSITION_DATA": "{\"if\": [], \"else\": [], \"exception\": [], \"then\": [{\"arn\": \"arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block02677370-f519-4f75-9f1d-51aaad8c0b81\", \"id\": \"bc50ca3a-6a48-4001-afaa-e0ea84d08c99\", \"name\": \"then\", \"type\": \"lambda\", \"node\": \"arn:aws:lambda:us-west-2:623905218559:function:Untitled_API_Endpoint_Block7ae16bff-e7e7-433b-9ca5-c41d33585ff8\", \"next\": \"arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block02677370-f519-4f75-9f1d-51aaad8c0b81\"}], \"fan-out\": [], \"fan-in\": [], \"merge\": []}"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [
+          {
+            "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block02677370-f519-4f75-9f1d-51aaad8c0b81",
+            "id": "bc50ca3a-6a48-4001-afaa-e0ea84d08c99",
+            "name": "then",
+            "type": "lambda",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_API_Endpoint_Block7ae16bff-e7e7-433b-9ca5-c41d33585ff8",
+            "next": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block02677370-f519-4f75-9f1d-51aaad8c0b81"
+          }
+        ],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_API_Endpoint_Block7ae16bff-e7e7-433b-9ca5-c41d33585ff8",
+      "state_hash": "17e8eca424c5b7bd199d5e4c24f7417d051e892f61b8694b51cbcf92435c8dc8",
+      "max_execution_time": 30,
+      "memory": 512,
+      "reserved_concurrency_count": false,
+      "url": null,
+      "rest_api_id": null,
+      "http_method": "GET",
+      "api_path": "/replaceme/cyanelkmare"
+    },
+    {
+      "id": "a4d7e31d-dc8c-49ce-af47-8b9946eb6efa",
+      "name": "API_Endpoint_Response_Blocka4d7e31d-dc8c-49ce-af47-8b9946eb6efa",
+      "type": "api_gateway_response",
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": null,
+      "state_hash": null
+    },
+    {
+      "id": "02677370-f519-4f75-9f1d-51aaad8c0b81",
+      "name": "Untitled_Code_Block02677370-f519-4f75-9f1d-51aaad8c0b81",
+      "type": "lambda",
+      "language": "nodejs8.10",
+      "code": "\nasync function main(blockInput, backpack) {\n    return 'Hello World!';\n}\n\nmodule.exports = { main };\n",
+      "layers": [
+        "arn:aws:lambda:us-west-2:134071937287:layer:refinery-node810-custom-runtime:30"
+      ],
+      "libraries": [],
+      "environment_variables": {
+        "REDIS_HOSTNAME": "52.13.93.158",
+        "REDIS_PASSWORD": "55MiUAKEzvOicydfscZJp815IGco3DRbbIbTFWDGqNGZxHIEdIUIJasAFbqXuMBw",
+        "REDIS_PORT": "6379",
+        "EXECUTION_PIPELINE_ID": "5cf4bd77-208d-436a-876b-8d7fdf38f1a0",
+        "LOG_BUCKET_NAME": "refinery-lambda-logging-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PACKAGES_BUCKET_NAME": "refinery-lambda-build-packages-jfljz0fnetatlgc3dwigzfw3sylgffe8",
+        "PIPELINE_LOGGING_LEVEL": "LOG_ALL",
+        "EXECUTION_MODE": "REGULAR",
+        "NODE_PATH": "/var/task/node_modules/",
+        "TRANSITION_DATA": "{\"if\": [], \"else\": [], \"exception\": [], \"then\": [{\"arn\": null, \"id\": \"613dcbba-b5c7-4863-90a0-c3a2ee3dc898\", \"name\": \"then\", \"type\": \"api_gateway_response\", \"node\": \"arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block02677370-f519-4f75-9f1d-51aaad8c0b81\", \"next\": null}], \"fan-out\": [], \"fan-in\": [], \"merge\": []}"
+      },
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [
+          {
+            "arn": null,
+            "id": "613dcbba-b5c7-4863-90a0-c3a2ee3dc898",
+            "name": "then",
+            "type": "api_gateway_response",
+            "node": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block02677370-f519-4f75-9f1d-51aaad8c0b81",
+            "next": null
+          }
+        ],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block02677370-f519-4f75-9f1d-51aaad8c0b81",
+      "state_hash": "2eebd855a24ed3e76b8d9131093f757ca28951d76c95af0668c0715ae1c59f9f",
+      "max_execution_time": 900,
+      "memory": 768,
+      "reserved_concurrency_count": false
+    },
+    {
+      "id": "5cf4bd77208d436a876b8d7fdf38f1a0",
+      "name": "__api_gateway__",
+      "type": "api_gateway",
+      "transitions": {
+        "if": [],
+        "else": [],
+        "exception": [],
+        "then": [],
+        "fan-out": [],
+        "fan-in": [],
+        "merge": []
+      },
+      "arn": "API_GATEWAY",
+      "state_hash": null,
+      "rest_api_id": "b1s235pk0j"
+    }
+  ],
+  "workflow_relationships": [
+    {
+      "id": "a1fd3823-47c3-48af-a6fd-ec7a25fdcf5d",
+      "name": "then",
+      "type": "lambda",
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_Bbf0203e7-1a2f-4124-b219-e557c4844ec6",
+      "node": "2652463f-c568-4bdb-9879-21a8f069f653",
+      "next": "bf0203e7-1a2f-4124-b219-e557c4844ec6"
+    },
+    {
+      "id": "cf39e28b-16a2-4d4f-95e5-62130a40b684",
+      "name": "then",
+      "type": "lambda",
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_C6302cd4c-ee40-4337-a8c0-2a69f5c47db8",
+      "node": "2652463f-c568-4bdb-9879-21a8f069f653",
+      "next": "6302cd4c-ee40-4337-a8c0-2a69f5c47db8"
+    },
+    {
+      "id": "3157e922-7714-4535-8d19-eb5d4faa78a9",
+      "name": "then",
+      "type": "lambda",
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9",
+      "node": "bf0203e7-1a2f-4124-b219-e557c4844ec6",
+      "next": "30b66565-1d04-4bc3-8480-352d2d4661e9"
+    },
+    {
+      "id": "bd95ff1d-54cc-472a-9be6-fb3788cff1e4",
+      "name": "then",
+      "type": "lambda",
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_D30b66565-1d04-4bc3-8480-352d2d4661e9",
+      "node": "6302cd4c-ee40-4337-a8c0-2a69f5c47db8",
+      "next": "30b66565-1d04-4bc3-8480-352d2d4661e9"
+    },
+    {
+      "id": "cdf62b38-300e-4d87-babd-2a1d00465426",
+      "name": "then",
+      "type": "lambda",
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Block_F5926fdab-df5a-472f-a1fe-5f9da6317720",
+      "node": "30b66565-1d04-4bc3-8480-352d2d4661e9",
+      "next": "5926fdab-df5a-472f-a1fe-5f9da6317720"
+    },
+    {
+      "id": "bc50ca3a-6a48-4001-afaa-e0ea84d08c99",
+      "name": "then",
+      "type": "lambda",
+      "arn": "arn:aws:lambda:us-west-2:623905218559:function:Untitled_Code_Block02677370-f519-4f75-9f1d-51aaad8c0b81",
+      "node": "7ae16bff-e7e7-433b-9ca5-c41d33585ff8",
+      "next": "02677370-f519-4f75-9f1d-51aaad8c0b81"
+    },
+    {
+      "id": "613dcbba-b5c7-4863-90a0-c3a2ee3dc898",
+      "name": "then",
+      "type": "api_gateway_response",
+      "arn": null,
+      "node": "02677370-f519-4f75-9f1d-51aaad8c0b81",
+      "next": "a4d7e31d-dc8c-49ce-af47-8b9946eb6efa"
+    }
+  ]
+}

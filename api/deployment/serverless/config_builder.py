@@ -14,6 +14,7 @@ class ServerlessConfigBuilder:
         self.deployment_id = deployment_id
         self.diagram_data = diagram_data
         self.name = diagram_data['name']
+        self.name = self.get_safe_project_name(diagram_data['name'])
         self.workflow_states = diagram_data['workflow_states']
         self.functions = {}
         self.resources = {}
@@ -42,6 +43,19 @@ class ServerlessConfigBuilder:
         }
 
     def build(self):
+        # TODO We will not build an api gateway with SF, instead we will build and manage it from API.
+        # Today, the api gateway is stored in the project config (different than the project.json)
+        # we will need the restApiId (api gateway id) to persist through deployments to prevent
+        # user's project domain from changing on every deploy, teardown, and redeploy.
+        #
+        # provider:
+        #  apiGateway:
+        #    restApiId:
+        #      'Fn::ImportValue': apiGateway-restApiId
+
+        # TODO If we have the above implemented, we don't need this.
+        self.build_api_gateway()
+
         for workflow_state in self.workflow_states:
             type_ = workflow_state['type']
             builder = self.workflow_state_mappers[type_]
@@ -56,7 +70,7 @@ class ServerlessConfigBuilder:
 
     def build_lambda(self, workflow_state):
         id_ = self.get_id(workflow_state['id'])
-        name = workflow_state['name']
+        name = self.get_unique_name(workflow_state['name'], id_)
         language = workflow_state['language']
         memory = workflow_state['memory']
         max_execution_time = workflow_state['max_execution_time']
@@ -100,7 +114,7 @@ class ServerlessConfigBuilder:
 
     def build_sqs_queue(self, workflow_state):
         id_ = self.get_id(workflow_state['id'])
-        queue_name = workflow_state['name']
+        queue_name = self.get_unique_name(workflow_state['name'], id_)
 
         self.set_aws_resources({
             id_: {
@@ -111,11 +125,23 @@ class ServerlessConfigBuilder:
             }
         })
 
+        handler_name = f"{queue_name}_Handler"
+        try:
+            handler_batch_size = int(workflow_state["batch_size"])
+        except ValueError:
+            raise Exception(f"unable to parse 'batch_size' for SQS Queue: {queue_name}")
+
         self.functions[f'QueueHandler{id_}'] = {
+            "name": handler_name,
             "handler": "lambda/queue/index.handler",
+            "package": {
+                "include": [
+                    f"lambda/queue/**"
+                ]
+            },
             "events": [{
                 "sqs": {
-                    "batchSize": 10,
+                    "batchSize": handler_batch_size,
                     "arn": {
                         "Fn::GetAtt": [id_, "Arn"]
                     }
@@ -123,9 +149,39 @@ class ServerlessConfigBuilder:
             }]
         }
 
+        self.set_aws_outputs({
+            id_: {
+                "Value": {
+                    "Ref": id_
+                }
+            }
+        })
+
     ###########################################################################
     # API Resource
     ###########################################################################
+
+    def build_api_gateway(self):
+        name = self.get_api_gateway_name()
+        api_gateway_resource = {
+            "ApiGatewayRestApi": {
+                "Type": "AWS::ApiGateway::RestApi",
+                "Properties": {
+                    "Name": name
+                }
+            }
+        }
+        self.set_aws_resources(api_gateway_resource)
+
+        api_gateway_output = {
+            "ApiGatewayRestApiID": {
+                "Value": {
+                    "Ref": "ApiGatewayRestApi"
+                }
+            }
+        }
+        self.set_aws_outputs(api_gateway_output)
+
 
     def build_api_gateway_response(self, workflow_state):
         # Do nothing
@@ -176,7 +232,7 @@ class ServerlessConfigBuilder:
         }
 
         if parent:
-            parentId['Fn::Ref'] = self.get_url_resource_name(parent, index - 1)
+            parentId['Ref'] = self.get_url_resource_name(parent, index - 1)
         else:
             parentId['Fn::GetAtt'] = [
                 'ApiGatewayRestApi',
@@ -204,8 +260,9 @@ class ServerlessConfigBuilder:
                         "Ref": "ApiGatewayRestApi",
                     },
                     "HttpMethod": http_method.upper(),
+                    "AuthorizationType": "",
                     "Integration": {
-                        "IntegrationMethod": "POST",
+                        "IntegrationHttpMethod": "POST",
                         "Type": "HTTP",
                         "Uri": uri,
                     }
@@ -217,8 +274,16 @@ class ServerlessConfigBuilder:
     # Utility functions
     ###########################################################################
 
+    def get_unique_name(self, name, id_):
+        return self.slugify(f"{name}_{id_}")
+
     def get_url_resource_name(self, name, index):
-        return f"Path{name}_{index}"
+        safe_name = self.get_safe_config_key(name)
+        return f"Path{safe_name}{index}"
+
+    def get_api_gateway_name(self):
+        # TODO we should use the project's ID instead of the name to prevent collisions
+        return f"ApiGateway{self.name}"
 
     def set_aws_resources(self, resources):
         if "Resources" not in self.resources:
@@ -226,8 +291,22 @@ class ServerlessConfigBuilder:
 
         self.resources["Resources"].update(resources)
 
+    def set_aws_outputs(self, outputs):
+        if "Outputs" not in self.resources:
+            self.resources['Outputs'] = {}
+
+        self.resources["Outputs"].update(outputs)
+
     def get_id(self, id_):
-        return ''.join([i for i in id_ if i.isalnum()])
+        return self.get_safe_config_key(id_)
+
+    def get_safe_config_key(self, s):
+        return ''.join([i for i in s if i.isalnum()])
+
+    def get_safe_project_name(self, name):
+        return ''.join([
+            i for i in name.replace(' ', '-') if i.isalnum() or i == '_'
+        ])
 
     def slugify(self, name):
         return ''.join([
