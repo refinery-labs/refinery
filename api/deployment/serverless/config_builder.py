@@ -14,7 +14,7 @@ class ServerlessConfigBuilder:
         self.deployment_id = deployment_id
         self.diagram_data = diagram_data
         self.name = diagram_data['name']
-        self.name = self.get_safe_project_name(diagram_data['name'])
+        self.name = self.slugify(diagram_data['name'])
         self.workflow_states = diagram_data['workflow_states']
         self.functions = {}
         self.resources = {}
@@ -303,12 +303,7 @@ class ServerlessConfigBuilder:
     def get_safe_config_key(self, s):
         return ''.join([i for i in s if i.isalnum()])
 
-    def get_safe_project_name(self, name):
-        return ''.join([
-            i for i in name.replace(' ', '-') if i.isalnum() or i == '_'
-        ])
-
     def slugify(self, name):
         return ''.join([
-            i for i in name.replace(' ', '_') if i.isalnum() or i == '_'
+            i for i in name.replace(' ', '-') if i.isalnum() or i == '_'
         ])
