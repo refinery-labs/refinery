@@ -4,6 +4,8 @@ namespace: refinery
 
 env: production
 
+repositoryURI: FILL_ME_IN
+
 temporal:
   hostPort: temporal-frontend.temporal:7233
 
@@ -11,7 +13,7 @@ apiServer:
   debug: false
   container:
     tag: latest
-    image: 134071937287.dkr.ecr.us-west-2.amazonaws.com/refinery-api-server-prod
+    image: refinery-api-server-kubes
     pullPolicy: Always
     configMapRef:
   volumeMounts:
@@ -42,7 +44,7 @@ frontEnd:
   origin: http://localhost
   container:
     tag: latest
-    image: 134071937287.dkr.ecr.us-west-2.amazonaws.com/refinery-nginx-server
+    image: refinery-nginx-server-kubes
     pullPolicy: Always
   ports:
     http:
@@ -53,7 +55,7 @@ workflowManager:
   url: http://workflow-manager.refinery/api/v1
   container:
     tag: latest
-    image: 134071937287.dkr.ecr.us-west-2.amazonaws.com/workflow-manager
+    image: workflow-manager
     pullPolicy: Always
   ports:
     http:
@@ -63,7 +65,7 @@ workflowManager:
 workflowManagerWorker:
   container:
     tag: latest
-    image: 134071937287.dkr.ecr.us-west-2.amazonaws.com/workflow-manager-worker
+    image: workflow-manager-worker
     pullPolicy: Always
   volumeMounts:
     config:
