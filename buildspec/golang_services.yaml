@@ -42,6 +42,7 @@ phases:
       - cd $PREVIOUS_CWD
   post_build:
     commands:
+      - cd ./helm/refinery
       - echo Build completed on `date`
       - echo Pushing the Refinery Workflow Manager Docker image...
       - docker push $WORKFLOW_MANAGER_REPO:latest
@@ -50,7 +51,7 @@ phases:
       - docker push $WORKFLOW_MANAGER_WORKER_REPO:latest
       - docker push $WORKFLOW_MANAGER_WORKER_REPO:$IMAGE_TAG
       - |
-        tee ./helm/refinery/secrets.yaml <<END
+        tee ./secrets.yaml <<END
         secrets:
           awsAccessKeyID: $REFINERYAWS_ACCESS_KEY_ID
           awsSecretAccessKey: $REFINERY_AWS_SECRET_ACCESS_KEY
@@ -69,11 +70,11 @@ phases:
         postgresql:
           postgresqlPassword: $POSTGRESQL_PASSWORD
         END
+      - helm dependencies update
       - |
         helm upgrade \
-        -f ./helm/refinery/values.$ENV.yaml \
-        -f ./helm/refinery/secrets.yaml \
+        -f ./values.$ENV.yaml \
+        -f ./secrets.yaml \
         --set workflowManager.container.tag=$IMAGE_TAG \
         --set workflowMangaerWorker.container.tag=$IMAGE_TAG \
-        refinery \
-        ./helm/refinery
+        refinery .
