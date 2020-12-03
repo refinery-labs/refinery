@@ -4,6 +4,10 @@ const MonacoEditorPlugin = require('monaco-editor-webpack-plugin');
 const aliases = {};
 const transpileDependencies = [];
 
+const cloudfrontURL = process.env.CLOUDFRONT_URL;
+const s3DeployPath = process.env.S3_DEPLOY_PATH;
+const appAPIURL = process.env.APP_API_URL; // https://app.refinery.io/api
+
 // General plugins for all environments
 const plugins = [
   new MonacoEditorPlugin({
@@ -26,7 +30,7 @@ if (process.env.NODE_ENV === 'production') {
 
 module.exports = {
   lintOnSave: false,
-  publicPath: process.env.NODE_ENV === 'production' ? 'https://d3asw1bke2pwdg.cloudfront.net/' : '/',
+  publicPath: process.env.NODE_ENV === 'production' ? cloudfrontURL : '/',
   // integrity: true,
   css: {
     loaderOptions: {
@@ -121,7 +125,7 @@ module.exports = {
       skipWaiting: true,
       runtimeCaching: [
         {
-          urlPattern: new RegExp('^https://app.refinery.io/api', 'i'),
+          urlPattern: new RegExp(`^${appURL}/api`, 'i'),
           handler: 'NetworkOnly'
         },
         {
@@ -144,7 +148,7 @@ module.exports = {
           handler: 'CacheFirst'
         },
         {
-          urlPattern: new RegExp('^https://app.refinery.io/', 'i'),
+          urlPattern: new RegExp(`^${appURL}`, 'i'),
           handler: 'CacheFirst',
           options: {
             cacheName: 'app',
@@ -154,7 +158,7 @@ module.exports = {
           }
         },
         {
-          urlPattern: new RegExp('^https://d3asw1bke2pwdg.cloudfront.net/', 'i'),
+          urlPattern: new RegExp(`^${cloudfrontURL}`, 'i'),
           handler: 'CacheFirst'
         }
       ]
@@ -175,7 +179,7 @@ module.exports = {
       staticErrorPage: 'error.html',
       assetPath: 'dist',
       assetMatch: ['**', '!**/*.map'],
-      deployPath: '/',
+      deployPath: s3DeployPath,
       acl: 'public-read',
       enableCloudfront: false,
       pluginVersion: '3.0.0'

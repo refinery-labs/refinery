@@ -70,10 +70,10 @@ phases:
           postgresqlPassword: $POSTGRESQL_PASSWORD
         END
       - |
-        helm upgrade
-        -f ./helm/refinery/values.$ENV.yaml
-        -f ./helm/refinery/secrets.yaml
-        --set workflowManager.container.tag=$IMAGE_TAG
-        --set workflowMangaerWorker.container.tag=$IMAGE_TAG
-        refinery
+        helm upgrade \
+        -f ./helm/refinery/values.$ENV.yaml \
+        -f ./helm/refinery/secrets.yaml \
+        --set workflowManager.container.tag=$IMAGE_TAG \
+        --set workflowMangaerWorker.container.tag=$IMAGE_TAG \
+        refinery \
         ./helm/refinery
