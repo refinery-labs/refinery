@@ -118,7 +118,7 @@ phases:
         --namespace refinery \
         -f ./values.$ENV.yaml \
         -f ./secrets.yaml \
-        --set repositoryURI=$REPOSITORY_URI
+        --set repositoryURI=$REPOSITORY_URI \
         --set apiServer.container.tag=$IMAGE_TAG \
         --set frontEnd.container.tag=$IMAGE_TAG \
         --set workflowManager.container.tag=$IMAGE_TAG \
