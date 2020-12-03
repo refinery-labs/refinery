@@ -53,7 +53,7 @@ phases:
       - |
         tee ./secrets.yaml <<END
         secrets:
-          awsAccessKeyID: $REFINERYAWS_ACCESS_KEY_ID
+          awsAccessKeyID: $REFINERY_AWS_ACCESS_KEY_ID
           awsSecretAccessKey: $REFINERY_AWS_SECRET_ACCESS_KEY
           serviceSharedSecret: $SERVICE_SHARED_SECRET
           mailgunApiKey: $MAILGUN_API_KEY
