@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
         - name: refinery-front-end
-          image: {{ .Values.frontEnd.container.image }}:{{ .Values.frontEnd.container.tag }}
+          image: "{{ .Values.repositoryURI }}{{ .Values.frontEnd.container.image }}:{{ .Values.frontEnd.container.tag }}"
           imagePullPolicy: {{ .Values.frontEnd.container.imagePullPolicy }}
           resources: {}
           terminationMessagePath: /dev/termination-log
