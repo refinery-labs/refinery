@@ -10,7 +10,7 @@ phases:
       - aws --version
       - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
       - REPOSITORY_URI=134071937287.dkr.ecr.us-west-2.amazonaws.com
-      - API_SERVER_REPO=$REPOSITORY_URI/refinery-api-server-prod
+      - API_SERVER_REPO=$REPOSITORY_URI/refinery-api-server-kubes
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
       - IMAGE_TAG=${COMMIT_HASH:=latest}
   build:

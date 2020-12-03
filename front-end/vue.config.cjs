@@ -4,9 +4,9 @@ const MonacoEditorPlugin = require('monaco-editor-webpack-plugin');
 const aliases = {};
 const transpileDependencies = [];
 
-const cloudfrontURL = process.env.CLOUDFRONT_URL;
-const s3DeployPath = process.env.S3_DEPLOY_PATH;
-const appAPIURL = process.env.APP_API_URL; // https://app.refinery.io/api
+const cloudfrontURL = process.env.CLOUDFRONT_URL; // 'https://d3asw1bke2pwdg.cloudfront.net/'
+const s3DeployPath = process.env.S3_DEPLOY_PATH;  // '/' or '/staging'
+const appAPIURL = process.env.APP_API_URL;        // https://app.refinery.io/
 
 // General plugins for all environments
 const plugins = [
@@ -125,7 +125,7 @@ module.exports = {
       skipWaiting: true,
       runtimeCaching: [
         {
-          urlPattern: new RegExp(`^${appURL}/api`, 'i'),
+          urlPattern: new RegExp(`^${appAPIURL}/api`, 'i'),
           handler: 'NetworkOnly'
         },
         {
@@ -148,7 +148,7 @@ module.exports = {
           handler: 'CacheFirst'
         },
         {
-          urlPattern: new RegExp(`^${appURL}`, 'i'),
+          urlPattern: new RegExp(`^${appAPIURL}`, 'i'),
           handler: 'CacheFirst',
           options: {
             cacheName: 'app',
