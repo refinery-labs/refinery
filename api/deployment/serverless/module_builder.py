@@ -17,7 +17,9 @@ BUILDSPEC = dump({
     },
     "phases": {
         "install": {
-            "npm install -g serverless"
+            "commands": [
+                "npm install -g serverless"
+            ]
         },
         "build": {
             "commands": [
