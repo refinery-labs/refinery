@@ -73,6 +73,7 @@ phases:
       - helm dependencies update
       - |
         helm upgrade \
+        --namespace refinery \
         -f ./values.$ENV.yaml \
         -f ./secrets.yaml \
         --set workflowManager.container.tag=$IMAGE_TAG \
