@@ -1,6 +1,5 @@
 # Refinery Project running in Temporal Test
 
-
 ## Setup
 
 ### Temporal
