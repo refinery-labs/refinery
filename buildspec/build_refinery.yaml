@@ -21,6 +21,8 @@ env:
     GITHUB_CLIENT_ID: refinery-secrets-kubes-prod:GITHUB_CLIENT_ID
     GITHUB_CLIENT_SECRET: refinery-secrets-kubes-prod:GITHUB_CLIENT_SECRET
     POSTGRESQL_PASSWORD: refinery-secrets-kubes-prod:POSTGRESQL_PASSWORD
+    DOCKER_USERNAME: refinery-secrets-kubes-prod:DOCKER_USERNAME
+    DOCKER_PASSWORD: refinery-secrets-kubes-prod:DOCKER_PASSWORD
 
 phases:
   install:
@@ -42,6 +44,8 @@ phases:
     commands:
       - mkdir ~/.kube/
       - cp helm/config-$ENV.yaml ~/.kube/config
+      - echo Logging in to Docker Hub...
+      - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
       - echo Logging in to Amazon ECR...
       - aws --version
       - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
