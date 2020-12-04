@@ -6,6 +6,9 @@ env:
     - REPOSITORY_URI
     - AWS_DEFAULT_REGION
     - CODEBUILD_RESOLVED_SOURCE_VERSION
+    - CLOUDFRONT_URL
+    - S3_DEPLOY_PATH
+    - APP_API_URL
   secrets-manager:
     REFINERY_AWS_ACCOUNT_ID: refinery-secrets-kubes-prod:REFINERY_AWS_ACCOUNT_ID
     REFINERY_AWS_ACCESS_KEY_ID: refinery-secrets-kubes-prod:REFINERY_AWS_ACCESS_KEY_ID
