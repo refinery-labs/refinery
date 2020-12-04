@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
         - name: workflow-manager
-          image: "{{ .Values.repositoryURI }}{{ .Values.workflowManager.container.image }}:{{ .Values.workflowManager.container.tag }}"
+          image: "{{ .Values.repositoryURI }}/{{ .Values.workflowManager.container.image }}:{{ .Values.workflowManager.container.tag }}"
           imagePullPolicy: {{ .Values.workflowManager.container.imagePullPolicy }}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
