@@ -44,6 +44,7 @@ phases:
     commands:
       - mkdir ~/.kube/
       - cp helm/config-$ENV.yaml ~/.kube/config
+      - export KUBECONFIG=$KUBECONFIG:~/.kube/config
       - echo Logging in to Docker Hub...
       - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
       - echo Logging in to Amazon ECR...
@@ -122,6 +123,7 @@ phases:
       - helm dependencies update
       - |
         helm upgrade \
+        --kubeconfig ~/.kube/config \
         --namespace refinery \
         -f ./values.$ENV.yaml \
         -f ./secrets.yaml \
