@@ -68,11 +68,11 @@ phases:
       - docker tag $API_SERVER_REPO:latest $API_SERVER_REPO:$IMAGE_TAG
 
       - echo Building the Refinery Workflow Manager Docker image...
-      - docker build -t $WORKFLOW_MANAGER_REPO:latest -f docker/Dockerfile.workflow-manager ./golang
+      - docker build -t $WORKFLOW_MANAGER_REPO:latest -f ./golang/docker/Dockerfile.workflow-manager ./golang
       - docker tag $WORKFLOW_MANAGER_REPO:latest $WORKFLOW_MANAGER_REPO:$IMAGE_TAG
 
       - echo Building the Refinery Workflow Manager Worker Docker image...
-      - docker build -t $WORKFLOW_MANAGER_WORKER_REPO:latest -f docker/Dockerfile.workflow-manager-worker ./golang
+      - docker build -t $WORKFLOW_MANAGER_WORKER_REPO:latest -f ./golang/docker/Dockerfile.workflow-manager-worker ./golang
       - docker tag $WORKFLOW_MANAGER_WORKER_REPO:latest $WORKFLOW_MANAGER_WORKER_REPO:$IMAGE_TAG
   post_build:
     commands:
