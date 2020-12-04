@@ -452,6 +452,37 @@ resource "aws_iam_policy" "refinery_codebuild_base_policy" {
   "Statement": [
     {
       "Effect": "Allow",
+      "Resource": "*",
+      "Action": [
+        "cloudformation:CreateUploadBucket",
+        "cloudformation:RegisterType",
+        "cloudformation:DescribeStackDriftDetectionStatus",
+        "cloudformation:ListExports",
+        "cloudformation:ListStacks",
+        "cloudformation:SetTypeDefaultVersion",
+        "cloudformation:DescribeType",
+        "cloudformation:ListImports",
+        "cloudformation:ListTypes",
+        "cloudformation:DescribeTypeRegistration",
+        "cloudformation:DeregisterType",
+        "cloudformation:ListTypeRegistrations",
+        "cloudformation:EstimateTemplateCost",
+        "cloudformation:DescribeAccountLimits",
+        "cloudformation:CreateStackSet",
+        "cloudformation:ValidateTemplate",
+        "cloudformation:ListTypeVersions"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": "cloudformation:*",
+      "Resource": [
+        "arn:aws:cloudformation:*:${data.aws_caller_identity.current.account_id}:stack/*/*",
+        "arn:aws:cloudformation:*:${data.aws_caller_identity.current.account_id}:stackset/*:*"
+      ]
+    },
+    {
+      "Effect": "Allow",
       "Resource": [
         "arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/refinery-builds",
         "arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/refinery-builds:*"
