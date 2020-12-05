@@ -3,8 +3,6 @@ version: 0.2
 env:
   exported-variables:
     - ENV
-    - EKS_CLUSTER_NAME
-    - EKS_KUBECTL_ROLE_ARN
     - REPOSITORY_URI
     - AWS_DEFAULT_REGION
     - CODEBUILD_RESOLVED_SOURCE_VERSION
@@ -48,15 +46,9 @@ phases:
       - aws --version
       - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
       - echo Updating kube config...
-      - echo "Setting Environment Variables related to AWS CLI for Kube Config Setup"
-      - CREDENTIALS=$(aws sts assume-role --role-arn $EKS_KUBECTL_ROLE_ARN --role-session-name codebuild-kubectl --duration-seconds 900)
-      - export AWS_ACCESS_KEY_ID="$(echo ${CREDENTIALS} | jq -r '.Credentials.AccessKeyId')"
-      - export AWS_SECRET_ACCESS_KEY="$(echo ${CREDENTIALS} | jq -r '.Credentials.SecretAccessKey')"
-      - export AWS_SESSION_TOKEN="$(echo ${CREDENTIALS} | jq -r '.Credentials.SessionToken')"
-      - export AWS_EXPIRATION=$(echo ${CREDENTIALS} | jq -r '.Credentials.Expiration')
-      # Setup kubectl with our EKS Cluster
-      - echo "Update Kube Config"
-      - aws eks update-kubeconfig --name $EKS_CLUSTER_NAME
+      - aws --region $AWS_DEFAULT_REGION eks update-kubeconfig --name refinery
+      - cat ~/.kube/config
+      - KUBECONFIG=$HOME/.kube/config
       - kubectl -n refinery get pods
 #      - WORKFLOW_MANAGER_REPO=$REPOSITORY_URI/workflow-manager
 #      - WORKFLOW_MANAGER_WORKER_REPO=$REPOSITORY_URI/workflow-manager-worker
