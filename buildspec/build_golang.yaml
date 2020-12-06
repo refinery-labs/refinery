@@ -45,7 +45,7 @@ phases:
       - aws --version
       - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
       - echo Updating kube config...
-      - aws --region $AWS_DEFAULT_REGION eks update-kubeconfig --name refinery --role-arn 
+      - aws --region $AWS_DEFAULT_REGION eks update-kubeconfig --name refinery --role-arn arn:aws:iam::134071937287:role/EksCodeBuildKubectlRole
       - KUBECONFIG=$HOME/.kube/config
       - kubectl config view --minify
       - kubectl -n refinery get pods
