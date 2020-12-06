@@ -45,9 +45,9 @@ phases:
       - aws --version
       - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
       - echo Updating kube config...
-      - aws --region $AWS_DEFAULT_REGION eks update-kubeconfig --name refinery
-      - aws --region us-west-2 eks get-token --cluster-name refinery
+      - aws --region $AWS_DEFAULT_REGION eks update-kubeconfig --name refinery --role-arn 
       - KUBECONFIG=$HOME/.kube/config
+      - kubectl config view --minify
       - kubectl -n refinery get pods
 #      - WORKFLOW_MANAGER_REPO=$REPOSITORY_URI/workflow-manager
 #      - WORKFLOW_MANAGER_WORKER_REPO=$REPOSITORY_URI/workflow-manager-worker
