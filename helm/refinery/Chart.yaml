@@ -27,6 +27,6 @@ dependencies:
     version: 9.8.11
     repository: https://charts.bitnami.com/bitnami
     condition: postgresql.enabled
-  - name: nginx-stable/nginx-ingress
-    version: 1.9.1
+  - name: nginx-ingress
+    version: 0.7.1
     repository: https://helm.nginx.com/stable

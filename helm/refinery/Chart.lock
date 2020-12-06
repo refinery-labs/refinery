@@ -2,5 +2,8 @@ dependencies:
 - name: postgresql
   repository: https://charts.bitnami.com/bitnami
   version: 9.8.11
-digest: sha256:3f9e13cc6ede59c10bcb7ba350b0cd0d4fec77eca7de3ce4c6baf49af447588c
-generated: "2020-11-17T16:01:40.840092598-05:00"
+- name: nginx-ingress
+  repository: https://helm.nginx.com/stable
+  version: 0.7.1
+digest: sha256:b9006fe3da783cce14ed68073f894269293af3dc356df74ef9593f9a4a9080aa
+generated: "2020-12-06T04:07:58.44631154-05:00"
