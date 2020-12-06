@@ -44,9 +44,6 @@ phases:
       - ./get_helm.sh
   pre_build:
     commands:
-      - mkdir ~/.kube/
-      - cp helm/config-$ENV.yaml ~/.kube/config
-      - export KUBECONFIG=$KUBECONFIG:~/.kube/config
       - echo Logging in to Docker Hub...
       - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
       - echo Logging in to Amazon ECR...
