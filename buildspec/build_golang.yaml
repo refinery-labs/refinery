@@ -39,7 +39,6 @@ phases:
       - ./get_helm.sh
   pre_build:
     commands:
-      - mkdir ~/.kube/
       - echo Logging in to Docker Hub...
       - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
       - echo Logging in to Amazon ECR...
