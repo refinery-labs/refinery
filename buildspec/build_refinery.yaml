@@ -9,6 +9,8 @@ env:
     - CLOUDFRONT_URL
     - S3_DEPLOY_PATH
     - APP_API_URL
+    - EKS_CLUSTER_NAME
+    - EKS_KUBECTL_ROLE_ARN
   secrets-manager:
     REFINERY_AWS_ACCOUNT_ID: refinery-secrets-kubes-prod:REFINERY_AWS_ACCOUNT_ID
     REFINERY_AWS_ACCESS_KEY_ID: refinery-secrets-kubes-prod:REFINERY_AWS_ACCESS_KEY_ID
@@ -50,6 +52,8 @@ phases:
       - echo Logging in to Amazon ECR...
       - aws --version
       - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
+      - echo Updating kube config...
+      - aws --region $AWS_DEFAULT_REGION eks update-kubeconfig --name $EKS_CLUSTER_NAME --role-arn $EKS_KUBECTL_ROLE_ARN
       - WORKFLOW_MANAGER_REPO=$REPOSITORY_URI/workflow-manager
       - WORKFLOW_MANAGER_WORKER_REPO=$REPOSITORY_URI/workflow-manager-worker
       - API_SERVER_REPO=$REPOSITORY_URI/refinery-api-server-kubes
@@ -124,7 +128,7 @@ phases:
       - |
         helm upgrade \
         --kubeconfig ~/.kube/config \
-        --namespace refinery \
+        --namespace $EKS_CLUSTER_NAME \
         -f ./values.$ENV.yaml \
         -f ./secrets.yaml \
         --set repositoryURI=$REPOSITORY_URI \
