@@ -4,7 +4,7 @@
 
 ### Temporal
 
-# Run the following commands
+#### Run the following commands
 ```
 git clone https://github.com/temporalio/temporal.git
 cd temporal
@@ -13,7 +13,7 @@ make bins
 docker-compose up
 ```
 
-# Run the following commands in a separate terminal
+#### Run the following commands in a separate terminal
 ```
 ./tctl --ns refinery n re --gd false
 ```
