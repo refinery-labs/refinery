@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
         - name: workflow-manager-worker
-          image: {{- template "workflowManagerWorker.image" }}
+          image: {{ .Values.repositoryURI }}/{{ .Values.workflowManagerWorker.container.image }}{{- if .Values.workflowManagerWorker.container.digest }}{{- printf "@%s" .Values.workflowManagerWorker.container.digest }}{{- else }}{{- printf ":%s" .Values.workflowManagerWorker.container.tag }}{{- end }}
           imagePullPolicy: {{ .Values.workflowManagerWorker.container.imagePullPolicy }}
           resources: {}
           terminationMessagePath: /dev/termination-log

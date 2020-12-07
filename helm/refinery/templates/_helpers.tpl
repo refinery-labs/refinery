@@ -61,30 +61,3 @@ Create the name of the service account to use
 {{- end }}
 {{- end }}
 
-{{- define "apiServer.image" -}}
-{{- if .Values.apiServer.container.digest }}
-"{{ .Values.repositoryURI }}/{{ .Values.apiServer.container.image }}@{{ .Values.apiServer.container.digest }}"
-{{- else }}
-"{{ .Values.repositoryURI }}/{{ .Values.apiServer.container.image }}:{{ .Values.apiServer.container.tag }}"
-{{- end }}
-
-{{- define "frontEnd.image" -}}
-{{- if .Values.frontEnd.container.digest }}
-"{{ .Values.repositoryURI }}/{{ .Values.frontEnd.container.image }}@{{ .Values.frontEnd.container.digest }}"
-{{- else }}
-"{{ .Values.repositoryURI }}/{{ .Values.frontEnd.container.image }}:{{ .Values.frontEnd.container.tag }}"
-{{- end }}
-
-{{- define "workflowManager.image" -}}
-{{- if .Values.workflowManager.container.digest }}
-"{{ .Values.repositoryURI }}/{{ .Values.workflowManager.container.image }}@{{ .Values.workflowManager.container.digest }}"
-{{- else }}
-"{{ .Values.repositoryURI }}/{{ .Values.workflowManager.container.image }}:{{ .Values.workflowManager.container.tag }}"
-{{- end }}
-
-{{- define "workflowManagerWorker.image" -}}
-{{- if .Values.workflowManagerWorker.container.digest }}
-"{{ .Values.repositoryURI }}/{{ .Values.workflowManagerWorker.container.image }}@{{ .Values.workflowManagerWorker.container.digest }}"
-{{- else }}
-"{{ .Values.repositoryURI }}/{{ .Values.workflowManagerWorker.container.image }}:{{ .Values.workflowManagerWorker.container.tag }}"
-{{- end }}

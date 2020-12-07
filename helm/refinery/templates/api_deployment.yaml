@@ -23,7 +23,7 @@ spec:
     spec:
       containers:
         - name: refinery-api-server
-          image: {{- template "apiServer.image" }}
+          image: {{ .Values.repositoryURI }}/{{ .Values.apiServer.container.image }}{{- if .Values.apiServer.container.digest }}{{- printf "@%s" .Values.apiServer.container.digest }}{{- else }}{{- printf ":%s" .Values.apiServer.container.tag }}{{- end }}
           imagePullPolicy: {{ .Values.apiServer.container.imagePullPolicy }}
           terminationMessagePath: /dev/termination-log
           terminationMessagePolicy: File
