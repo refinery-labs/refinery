@@ -33,7 +33,6 @@ phases:
       - echo Building the Refinery API server Docker image...
       - docker build -t $API_SERVER_REPO:latest ./api/
       - docker tag $API_SERVER_REPO:latest $API_SERVER_REPO:$IMAGE_TAG
-      - docker tag $WORKFLOW_MANAGER_WORKER_REPO:latest $WORKFLOW_MANAGER_WORKER_REPO:$IMAGE_TAG
   post_build:
     commands:
       - cd ./helm/refinery
