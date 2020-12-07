@@ -41,6 +41,8 @@ phases:
       - aws --region $AWS_DEFAULT_REGION eks update-kubeconfig --name $EKS_CLUSTER_NAME --role-arn $EKS_KUBECTL_ROLE_ARN
   build:
     commands:
+      - PREVIOUS_CWD=$(pwd)
+      - cd ./helm/refinery
       - |
         tee ./secrets.yaml <<END
         secrets:
@@ -61,8 +63,10 @@ phases:
           postgresqlPassword: $POSTGRESQL_PASSWORD
         END
       - helm dependencies update
+      - cd $PREVIOUS_CWD
   post_build:
     commands:
+      - cd ./helm/refinery
       - |
         helm upgrade \
         --kubeconfig ~/.kube/config \
