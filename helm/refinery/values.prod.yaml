@@ -19,7 +19,7 @@ apiServer:
     configMapRef:
   volumeMounts:
     config:
-      mountPath: /worker/config/production.yaml
+      mountPath: /work/config/production.yaml
       subPath: production.yaml
   volumes:
     configMap:
