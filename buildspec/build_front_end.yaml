@@ -10,9 +10,6 @@ env:
     - S3_DEPLOY_BUCKET
     - S3_DEPLOY_PATH
     - APP_API_URL
-  secrets-manager:
-    DOCKER_USERNAME: refinery-secrets-kubes-prod:DOCKER_USERNAME
-    DOCKER_PASSWORD: refinery-secrets-kubes-prod:DOCKER_PASSWORD
 
 phases:
   install:
@@ -23,11 +20,9 @@ phases:
       - apt install -y awscli git python3
   pre_build:
     commands:
-      - echo Logging in to Docker Hub...
-      - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
       - echo Logging in to Amazon ECR...
       - aws --version
-      - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
+      - aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $REPOSITORY_URI
       - FRONT_END_REPO=$REPOSITORY_URI/refinery-nginx-server-kubes
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
       - IMAGE_TAG=${COMMIT_HASH:=latest}

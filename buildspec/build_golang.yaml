@@ -5,9 +5,6 @@ env:
     - REPOSITORY_URI
     - AWS_DEFAULT_REGION
     - CODEBUILD_RESOLVED_SOURCE_VERSION
-  secrets-manager:
-    DOCKER_USERNAME: refinery-secrets-kubes-prod:DOCKER_USERNAME
-    DOCKER_PASSWORD: refinery-secrets-kubes-prod:DOCKER_PASSWORD
 
 phases:
   install:
@@ -18,11 +15,9 @@ phases:
       - apt install -y awscli git python3
   pre_build:
     commands:
-      - echo Logging in to Docker Hub...
-      - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
       - echo Logging in to Amazon ECR...
       - aws --version
-      - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
+      - aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $REPOSITORY_URI
       - WORKFLOW_MANAGER_REPO=$REPOSITORY_URI/workflow-manager
       - WORKFLOW_MANAGER_WORKER_REPO=$REPOSITORY_URI/workflow-manager-worker
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
