@@ -36,12 +36,6 @@ phases:
       - curl -o aws-iam-authenticator https://amazon-eks.s3-us-west-2.amazonaws.com/1.12.7/2019-03-27/bin/linux/amd64/aws-iam-authenticator
       - chmod +x ./aws-iam-authenticator
       - mkdir -p ~/bin && cp ./aws-iam-authenticator ~/bin/aws-iam-authenticator && export PATH=~/bin:$PATH
-      - curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
-      - chmod +x kubectl
-      - mv ./kubectl /usr/local/bin/kubectl
-      - curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 > get_helm.sh
-      - chmod 700 get_helm.sh
-      - ./get_helm.sh
   pre_build:
     commands:
       - echo Logging in to Docker Hub...
@@ -49,8 +43,6 @@ phases:
       - echo Logging in to Amazon ECR...
       - aws --version
       - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
-      - echo Updating kube config...
-      - aws --region $AWS_DEFAULT_REGION eks update-kubeconfig --name $EKS_CLUSTER_NAME --role-arn $EKS_KUBECTL_ROLE_ARN
       - WORKFLOW_MANAGER_REPO=$REPOSITORY_URI/workflow-manager
       - WORKFLOW_MANAGER_WORKER_REPO=$REPOSITORY_URI/workflow-manager-worker
       - API_SERVER_REPO=$REPOSITORY_URI/refinery-api-server-kubes
@@ -101,36 +93,3 @@ phases:
       - docker push $WORKFLOW_MANAGER_WORKER_REPO:latest
       - docker push $WORKFLOW_MANAGER_WORKER_REPO:$IMAGE_TAG
 
-      - |
-        tee ./secrets.yaml <<END
-        secrets:
-          awsAccessKeyID: $REFINERY_AWS_ACCESS_KEY_ID
-          awsSecretAccessKey: $REFINERY_AWS_SECRET_ACCESS_KEY
-          serviceSharedSecret: $SERVICE_SHARED_SECRET
-          mailgunApiKey: $MAILGUN_API_KEY
-          cookieSecretValue: $COOKIE_SECRET_VALUE
-          stripeApiKey: $STRIPE_API_KEY
-          intercomHMACSecret: $INTERCOM_HMAC_SECRET
-          githubClientID: $GITHUB_CLIENT_ID
-          githubClientSecret: $GITHUB_CLIENT_SECRET
-
-        aws:
-          accountID: "$REFINERY_AWS_ACCOUNT_ID"
-
-        postgresql:
-          postgresqlPassword: $POSTGRESQL_PASSWORD
-        END
-
-      - helm dependencies update
-      - |
-        helm upgrade \
-        --kubeconfig ~/.kube/config \
-        --namespace $EKS_CLUSTER_NAME \
-        -f ./values.$ENV.yaml \
-        -f ./secrets.yaml \
-        --set repositoryURI=$REPOSITORY_URI \
-        --set apiServer.container.tag=$IMAGE_TAG \
-        --set frontEnd.container.tag=$IMAGE_TAG \
-        --set workflowManager.container.tag=$IMAGE_TAG \
-        --set workflowMangaerWorker.container.tag=$IMAGE_TAG \
-        refinery .

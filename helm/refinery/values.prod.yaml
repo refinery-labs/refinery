@@ -13,6 +13,7 @@ apiServer:
   debug: false
   container:
     tag: latest
+    digest: ""
     image: refinery-api-server-kubes
     pullPolicy: Always
     configMapRef:
@@ -44,6 +45,7 @@ frontEnd:
   origin: http://localhost
   container:
     tag: latest
+    digest: ""
     image: refinery-nginx-server-kubes
     pullPolicy: Always
   ports:
@@ -55,6 +57,7 @@ workflowManager:
   url: http://workflow-manager.refinery/api/v1
   container:
     tag: latest
+    digest: ""
     image: workflow-manager
     pullPolicy: Always
   ports:
@@ -65,6 +68,7 @@ workflowManager:
 workflowManagerWorker:
   container:
     tag: latest
+    digest: ""
     image: workflow-manager-worker
     pullPolicy: Always
   volumeMounts:

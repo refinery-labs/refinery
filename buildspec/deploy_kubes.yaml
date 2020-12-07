@@ -1,0 +1,74 @@
+version: 0.2
+
+env:
+  exported-variables:
+    - ENV
+    - AWS_DEFAULT_REGION
+    - EKS_CLUSTER_NAME
+    - EKS_KUBECTL_ROLE_ARN
+    - REPOSITORY_URI
+    - IMAGE_NAME
+    - IMAGE_DIGEST
+  secrets-manager:
+    REFINERY_AWS_ACCOUNT_ID: refinery-secrets-kubes-prod:REFINERY_AWS_ACCOUNT_ID
+    REFINERY_AWS_ACCESS_KEY_ID: refinery-secrets-kubes-prod:REFINERY_AWS_ACCESS_KEY_ID
+    REFINERY_AWS_SECRET_ACCESS_KEY: refinery-secrets-kubes-prod:REFINERY_AWS_SECRET_ACCESS_KEY
+    SERVICE_SHARED_SECRET: refinery-secrets-kubes-prod:SERVICE_SHARED_SECRET
+    MAILGUN_API_KEY: refinery-secrets-kubes-prod:MAILGUN_API_KEY
+    COOKIE_SECRET_VALUE: refinery-secrets-kubes-prod:COOKIE_SECRET_VALUE
+    STRIPE_API_KEY: refinery-secrets-kubes-prod:STRIPE_API_KEY
+    INTERCOM_HMAC_SECRET: refinery-secrets-kubes-prod:INTERCOM_HMAC_SECRET
+    GITHUB_CLIENT_ID: refinery-secrets-kubes-prod:GITHUB_CLIENT_ID
+    GITHUB_CLIENT_SECRET: refinery-secrets-kubes-prod:GITHUB_CLIENT_SECRET
+    POSTGRESQL_PASSWORD: refinery-secrets-kubes-prod:POSTGRESQL_PASSWORD
+
+phases:
+  install:
+    runtime_versions:
+      docker: 18
+    commands:
+      - apt update
+      - apt install -y awscli
+      - curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+      - chmod +x kubectl
+      - mv ./kubectl /usr/local/bin/kubectl
+      - curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 > get_helm.sh
+      - chmod 700 get_helm.sh
+      - ./get_helm.sh
+  pre_build:
+    commands:
+      - echo Updating kube config...
+      - aws --region $AWS_DEFAULT_REGION eks update-kubeconfig --name $EKS_CLUSTER_NAME --role-arn $EKS_KUBECTL_ROLE_ARN
+  build:
+    commands:
+      - |
+        tee ./secrets.yaml <<END
+        secrets:
+          awsAccessKeyID: $REFINERY_AWS_ACCESS_KEY_ID
+          awsSecretAccessKey: $REFINERY_AWS_SECRET_ACCESS_KEY
+          serviceSharedSecret: $SERVICE_SHARED_SECRET
+          mailgunApiKey: $MAILGUN_API_KEY
+          cookieSecretValue: $COOKIE_SECRET_VALUE
+          stripeApiKey: $STRIPE_API_KEY
+          intercomHMACSecret: $INTERCOM_HMAC_SECRET
+          githubClientID: $GITHUB_CLIENT_ID
+          githubClientSecret: $GITHUB_CLIENT_SECRET
+
+        aws:
+          accountID: "$REFINERY_AWS_ACCOUNT_ID"
+
+        postgresql:
+          postgresqlPassword: $POSTGRESQL_PASSWORD
+        END
+      - helm dependencies update
+  post_build:
+    commands:
+      - |
+        helm upgrade \
+        --kubeconfig ~/.kube/config \
+        --namespace $EKS_CLUSTER_NAME \
+        -f ./values.$ENV.yaml \
+        -f ./secrets.yaml \
+        --set repositoryURI=$REPOSITORY_URI \
+        --set $IMAGE_NAME.container.digest=$IMAGE_DIGEST \
+        refinery .

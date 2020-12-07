@@ -1,0 +1,52 @@
+version: 0.2
+
+env:
+  exported-variables:
+    - REPOSITORY_URI
+    - AWS_DEFAULT_REGION
+    - CODEBUILD_RESOLVED_SOURCE_VERSION
+    - CLOUDFRONT_URL
+    - S3_DEPLOY_REGION
+    - S3_DEPLOY_BUCKET
+    - S3_DEPLOY_PATH
+    - APP_API_URL
+  secrets-manager:
+    DOCKER_USERNAME: refinery-secrets-kubes-prod:DOCKER_USERNAME
+    DOCKER_PASSWORD: refinery-secrets-kubes-prod:DOCKER_PASSWORD
+
+phases:
+  install:
+    runtime-versions:
+      docker: 18
+    commands:
+      - apt update
+      - apt install -y awscli git python3
+  pre_build:
+    commands:
+      - echo Logging in to Docker Hub...
+      - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+      - echo Logging in to Amazon ECR...
+      - aws --version
+      - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
+      - FRONT_END_REPO=$REPOSITORY_URI/refinery-nginx-server-kubes
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
+  build:
+    commands:
+      - echo Build started on `date`
+
+      - echo Building the Refinery Frontend...
+      - cd ./front-end
+      - ./build/build-production-assets.sh
+      - mv front-end-dist ../nginx-container/front-end-dist
+      - cd ..
+      - docker build -t $FRONT_END_REPO:latest ./nginx-container/
+      - docker tag $FRONT_END_REPO:latest $FRONT_END_REPO:$IMAGE_TAG
+  post_build:
+    commands:
+      - cd ./helm/refinery
+      - echo Build completed on `date`
+
+      - echo Pushing the Docker front end image...
+      - docker push $FRONT_END_REPO:latest
+      - docker push $FRONT_END_REPO:$IMAGE_TAG

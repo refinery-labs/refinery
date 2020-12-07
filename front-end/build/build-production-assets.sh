@@ -11,6 +11,8 @@ docker run \
   -e AWS_DEFAULT_REGION \
   -e AWS_CONTAINER_CREDENTIALS_RELATIVE_URI \
   -e CLOUDFRONT_URL \
+  -e S3_DEPLOY_REGION \
+  -e S3_DEPLOY_BUCKET \
   -e S3_DEPLOY_PATH \
   -e APP_API_URL \
   -v "$(pwd)"/front-end-dist:/work/output \

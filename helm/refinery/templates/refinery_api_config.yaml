@@ -5,6 +5,7 @@ metadata:
   namespace: refinery
 data:
   REFINERY_ENV: {{ .Values.env }}
+  debug: {{ .Values.apiServer.debug }}
   aws_access_key: {{ .Values.secrets.awsAccessKeyID }}
   aws_secret_key: {{ .Values.secrets.awsSecretAccessKey }}
   aws_account_id: "{{ .Values.aws.accountID }}"

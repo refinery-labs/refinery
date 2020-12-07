@@ -5,6 +5,8 @@ const aliases = {};
 const transpileDependencies = [];
 
 const cloudfrontURL = process.env.CLOUDFRONT_URL; // 'https://d3asw1bke2pwdg.cloudfront.net/'
+const s3DeployRegion = process.env.S3_DEPLOY_REGION;  // 'us-east-1'
+const s3DeployBucket = process.env.S3_DEPLOY_BUCKET;  // 'app.refinery.io' or 'app-staging.refinery.io'
 const s3DeployPath = process.env.S3_DEPLOY_PATH;  // '/' or '/staging'
 const appAPIURL = process.env.APP_API_URL;        // https://app.refinery.io/
 
@@ -167,8 +169,8 @@ module.exports = {
   pluginOptions: {
     s3Deploy: {
       awsProfile: 'default',
-      region: 'us-east-1',
-      bucket: 'app.refinery.io',
+      region: s3DeployRegion,
+      bucket: s3DeployBucket,
       pwa: true,
       pwaFiles: 'index.html,service-worker.js,manifest.json',
       uploadConcurrency: 5,

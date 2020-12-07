@@ -1,0 +1,51 @@
+version: 0.2
+
+env:
+  exported-variables:
+    - REPOSITORY_URI
+    - AWS_DEFAULT_REGION
+    - CODEBUILD_RESOLVED_SOURCE_VERSION
+  secrets-manager:
+    DOCKER_USERNAME: refinery-secrets-kubes-prod:DOCKER_USERNAME
+    DOCKER_PASSWORD: refinery-secrets-kubes-prod:DOCKER_PASSWORD
+
+phases:
+  install:
+    runtime-versions:
+      docker: 18
+    commands:
+      - apt update
+      - apt install -y awscli git python3
+  pre_build:
+    commands:
+      - echo Logging in to Docker Hub...
+      - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+      - echo Logging in to Amazon ECR...
+      - aws --version
+      - $(aws ecr get-login --region $AWS_DEFAULT_REGION --no-include-email)
+      - WORKFLOW_MANAGER_REPO=$REPOSITORY_URI/workflow-manager
+      - WORKFLOW_MANAGER_WORKER_REPO=$REPOSITORY_URI/workflow-manager-worker
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
+  build:
+    commands:
+      - echo Build started on `date`
+
+      - echo Building the Refinery Workflow Manager Docker image...
+      - docker build -t $WORKFLOW_MANAGER_REPO:latest -f ./golang/docker/Dockerfile.workflow-manager ./golang
+      - docker tag $WORKFLOW_MANAGER_REPO:latest $WORKFLOW_MANAGER_REPO:$IMAGE_TAG
+
+      - echo Building the Refinery Workflow Manager Worker Docker image...
+      - docker build -t $WORKFLOW_MANAGER_WORKER_REPO:latest -f ./golang/docker/Dockerfile.workflow-manager-worker ./golang
+      - docker tag $WORKFLOW_MANAGER_WORKER_REPO:latest $WORKFLOW_MANAGER_WORKER_REPO:$IMAGE_TAG
+  post_build:
+    commands:
+      - echo Build completed on `date`
+
+      - echo Pushing the Refinery Workflow Manager Docker image...
+      - docker push $WORKFLOW_MANAGER_REPO:latest
+      - docker push $WORKFLOW_MANAGER_REPO:$IMAGE_TAG
+
+      - echo Pushing the Refinery Workflow Manager Worker Docker image...
+      - docker push $WORKFLOW_MANAGER_WORKER_REPO:latest
+      - docker push $WORKFLOW_MANAGER_WORKER_REPO:$IMAGE_TAG
