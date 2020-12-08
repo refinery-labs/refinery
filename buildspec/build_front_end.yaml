@@ -35,13 +35,11 @@ phases:
       - ./build/build-production-assets.sh
       - mv front-end-dist ../nginx-container/front-end-dist
       - cd ..
-      - docker build -t $FRONT_END_REPO:latest ./nginx-container/
-      - docker tag $FRONT_END_REPO:latest $FRONT_END_REPO:$IMAGE_TAG
+      - docker build -t $FRONT_END_REPO:$IMAGE_TAG ./nginx-container/
   post_build:
     commands:
       - cd ./helm/refinery
       - echo Build completed on `date`
 
       - echo Pushing the Docker front end image...
-      - docker push $FRONT_END_REPO:latest
       - docker push $FRONT_END_REPO:$IMAGE_TAG

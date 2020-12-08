@@ -26,13 +26,11 @@ phases:
       - echo Build started on `date`
 
       - echo Building the Refinery API server Docker image...
-      - docker build -t $API_SERVER_REPO:latest ./api/
-      - docker tag $API_SERVER_REPO:latest $API_SERVER_REPO:$IMAGE_TAG
+      - docker build -t $API_SERVER_REPO:$IMAGE_TAG ./api/
   post_build:
     commands:
       - cd ./helm/refinery
       - echo Build completed on `date`
 
       - echo Pushing the Docker API server image...
-      - docker push $API_SERVER_REPO:latest
       - docker push $API_SERVER_REPO:$IMAGE_TAG
