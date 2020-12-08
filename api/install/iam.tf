@@ -450,6 +450,36 @@ resource "aws_iam_policy" "refinery_codebuild_base_policy" {
 {
   "Version": "2012-10-17",
   "Statement": [
+   {
+      "Effect": "Allow",
+      "Action": [
+        "s3:ListStorageLensConfigurations",
+        "s3:GetAccessPoint",
+        "s3:PutAccountPublicAccessBlock",
+        "s3:GetAccountPublicAccessBlock",
+        "s3:ListAllMyBuckets",
+        "s3:ListAccessPoints",
+        "s3:ListJobs",
+        "s3:PutStorageLensConfiguration",
+        "s3:CreateJob"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "s3:*",
+      "Resource": "arn:aws:s3:::*/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "s3:*",
+      "Resource": [
+        "arn:aws:s3:::*",
+        "arn:aws:s3:*:${data.aws_caller_identity.current.account_id}:storage-lens/*",
+        "arn:aws:s3:*:${data.aws_caller_identity.current.account_id}:job/*",
+        "arn:aws:s3:*:${data.aws_caller_identity.current.account_id}:accesspoint/*"
+      ]
+    },
     {
       "Effect": "Allow",
       "Resource": "*",
@@ -470,7 +500,15 @@ resource "aws_iam_policy" "refinery_codebuild_base_policy" {
         "cloudformation:DescribeAccountLimits",
         "cloudformation:CreateStackSet",
         "cloudformation:ValidateTemplate",
-        "cloudformation:ListTypeVersions"
+        "cloudformation:ListTypeVersions",
+        "s3:CreateBucket",
+        "s3:ListBucket",
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:ListAllMyBuckets",
+        "s3:GetBucketLocation",
+        "s3:GetObjectVersion",
+        "s3:SetBucketEncryption"
       ]
     },
     {
