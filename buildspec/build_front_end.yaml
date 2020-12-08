@@ -38,7 +38,6 @@ phases:
       - docker build -t $FRONT_END_REPO:$IMAGE_TAG ./nginx-container/
   post_build:
     commands:
-      - cd ./helm/refinery
       - echo Build completed on `date`
 
       - echo Pushing the Docker front end image...

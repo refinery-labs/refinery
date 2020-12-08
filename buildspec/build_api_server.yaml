@@ -29,7 +29,6 @@ phases:
       - docker build -t $API_SERVER_REPO:$IMAGE_TAG ./api/
   post_build:
     commands:
-      - cd ./helm/refinery
       - echo Build completed on `date`
 
       - echo Pushing the Docker API server image...
