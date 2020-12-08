@@ -1,6 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: workflow-store-config
-data:
-  DATABASE_URI: postgresql://{{ .Values.postgresql.postgresqlUsername }}:{{ .Values.postgresql.postgresqlPassword }}@refinery-postgresql/{{ .Values.postgresql.postgresqlDatabase }}?sslmode=disable

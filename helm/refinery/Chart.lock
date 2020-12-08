@@ -1,9 +1,0 @@
-dependencies:
-- name: postgresql
-  repository: https://charts.bitnami.com/bitnami
-  version: 9.8.11
-- name: nginx-ingress
-  repository: https://helm.nginx.com/stable
-  version: 0.7.1
-digest: sha256:b9006fe3da783cce14ed68073f894269293af3dc356df74ef9593f9a4a9080aa
-generated: "2020-12-06T04:07:58.44631154-05:00"

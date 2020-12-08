@@ -1,6 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: temporal-client-config
-data:
-  TEMPORAL_HOST_PORT: {{ .Values.temporal.hostPort }}
