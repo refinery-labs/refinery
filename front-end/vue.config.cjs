@@ -8,7 +8,7 @@ const cloudfrontURL = process.env.CLOUDFRONT_URL; // 'https://d3asw1bke2pwdg.clo
 const s3DeployRegion = process.env.S3_DEPLOY_REGION;  // 'us-east-1'
 const s3DeployBucket = process.env.S3_DEPLOY_BUCKET;  // 'app.refinery.io' or 'app-staging.refinery.io'
 const s3DeployPath = process.env.S3_DEPLOY_PATH;  // '/' or '/staging'
-const appAPIURL = process.env.APP_API_URL;        // https://app.refinery.io/
+const appAPIURL = process.env.VUE_APP_API_HOST;        // https://app.refinery.io/
 
 // General plugins for all environments
 const plugins = [
