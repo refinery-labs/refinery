@@ -3,7 +3,7 @@ const isDevelopment = process.env.NODE_ENV !== 'production';
 let shimsSet = false;
 // Only shim the Monaco stuff if we're not in dev
 if (!isDevelopment) {
-  __webpack_public_path__ = 'https://app.refinery.io/manifest/';
+  __webpack_public_path__ = `https://${process.env.VUE_APP_API_HOST}/manifest/`;
 
   setupMonacoShims();
 }

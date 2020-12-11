@@ -333,7 +333,7 @@ const ProjectViewModule: Module<ProjectViewState, RootState> = {
 
       const compressedData = LZString.compressToEncodedURIComponent(JSON.stringify(rest));
 
-      return `https://app.refinery.io/import#${compressedData}`;
+      return `https://${process.env.VUE_APP_API_HOST}/import#${compressedData}`;
     },
     [ProjectViewGetters.isProjectRepoSet]: state => {
       return state.openedProjectConfig && state.openedProjectConfig.project_repo;
