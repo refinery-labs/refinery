@@ -41,6 +41,10 @@ phases:
 
       - echo Pushing the Refinery Workflow Manager Docker image...
       - docker push $WORKFLOW_MANAGER_REPO:$IMAGE_TAG
+      - docker tag $WORKFLOW_MANAGER_REPO:$IMAGE_TAG $WORKFLOW_MANAGER_REPO:latest
+      - docker push $WORKFLOW_MANAGER_REPO:latest
 
       - echo Pushing the Refinery Workflow Manager Worker Docker image...
       - docker push $WORKFLOW_MANAGER_WORKER_REPO:$IMAGE_TAG
+      - docker tag $WORKFLOW_MANAGER_WORKER_REPO:$IMAGE_TAG $WORKFLOW_MANAGER_WORKER_REPO:latest
+      - docker push $WORKFLOW_MANAGER_WORKER_REPO:latest

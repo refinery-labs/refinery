@@ -37,3 +37,5 @@ phases:
 
       - echo Pushing the Docker API server image...
       - docker push $API_SERVER_REPO:$IMAGE_TAG
+      - docker tag $API_SERVER_REPO:$IMAGE_TAG $API_SERVER_REPO:latest
+      - docker push $API_SERVER_REPO:latest

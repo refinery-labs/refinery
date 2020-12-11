@@ -46,3 +46,5 @@ phases:
 
       - echo Pushing the Docker front end image...
       - docker push $FRONT_END_REPO:$IMAGE_TAG
+      - docker tag $FRONT_END_REPO:$IMAGE_TAG $FRONT_END_REPO:latest
+      - docker push $FRONT_END_REPO:latest
