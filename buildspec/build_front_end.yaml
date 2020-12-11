@@ -10,25 +10,25 @@ env:
     - S3_DEPLOY_BUCKET
     - S3_DEPLOY_PATH
     - APP_API_URL
+  secrets-manager:
+    DOCKER_USERNAME: refinery-secrets-kubes-prod:DOCKER_USERNAME
+    DOCKER_PASSWORD: refinery-secrets-kubes-prod:DOCKER_PASSWORD
 
 phases:
   install:
     runtime-versions:
       docker: 18
-    commands:
-      - apt update
-      - apt install -y awscli git python3
   pre_build:
     commands:
-      - echo Logging in to Amazon ECR...
-      - aws --version
-      - aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $REPOSITORY_URI
       - FRONT_END_REPO=$REPOSITORY_URI/refinery-nginx-server-kubes
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
       - IMAGE_TAG=${COMMIT_HASH:=latest}
   build:
     commands:
       - echo Build started on `date`
+
+      - echo Logging into DockerHub...
+      - docker login --username $DOCKER_USERNAME --password $DOCKER_PASSWORD
 
       - echo Building the Refinery Frontend...
       - cd ./front-end
@@ -39,6 +39,10 @@ phases:
   post_build:
     commands:
       - echo Build completed on `date`
+
+      - echo Logging in to Amazon ECR...
+      - aws --version
+      - aws ecr get-login-password --region us-west-2 | docker login --username AWS --password-stdin $REPOSITORY_URI
 
       - echo Pushing the Docker front end image...
       - docker push $FRONT_END_REPO:$IMAGE_TAG
