@@ -1,5 +1,5 @@
 # refinery-front-end
- 
+
 ## Code Philosophy
 
 - Use Typescript or fear eternally for your production (and mental) stability
