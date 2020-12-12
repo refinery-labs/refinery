@@ -14,7 +14,7 @@ const appAPIURL = process.env.VUE_APP_API_HOST;        // https://app.refinery.i
 const plugins = [
   new MonacoEditorPlugin({
     filename: '[name]-[hash].worker.js',
-    publicPath: '/manifest/',
+    publicPath: '/',
     languages: ['javascript', 'php', 'python', 'go', 'json', 'markdown', 'ruby']
   })
 ];
