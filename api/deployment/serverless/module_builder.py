@@ -17,11 +17,13 @@ BUILDSPEC = dump({
     },
     "phases": {
         "install": {
-            "npm install -g serverless"
+            "commands": [
+                "npm install -g serverless"
+            ]
         },
         "build": {
             "commands": [
-                "serverless deploy",
+                "serverless deploy --stage prod",
                 "serverless info -v > serverless_info"
             ]
         },
@@ -32,12 +34,11 @@ BUILDSPEC = dump({
 
 
 class ServerlessModuleBuilder:
-    def __init__(self, app_config, aws_client_factory, project_id, deployment_id, project_config):
+    def __init__(self, app_config, project_id, deployment_id, diagram_data):
         self.app_config = app_config
-        self.aws_client_factory = aws_client_factory
-        self.project_id = projectself_id
+        self.project_id = project_id
         self.deployment_id = deployment_id
-        self.project_config = project_config
+        self.diagram_data = diagram_data
 
     ###########################################################################
     # High level builder stuff
@@ -52,10 +53,13 @@ class ServerlessModuleBuilder:
 
     def build(self, buffer=None):
         if buffer is not None:
-            return self._build(buffer)
+            self._build(buffer)
+
+            return buffer.getvalue()
 
         with BytesIO() as buffer:
-            return self._build(buffer)
+            self._build(buffer)
+            return buffer.getvalue()
 
     def _build(self, buffer):
         with ZipFile(buffer, 'w', ZIP_DEFLATED) as zipfile:
@@ -63,21 +67,19 @@ class ServerlessModuleBuilder:
             self.build_config(zipfile)
             self.add_buildspec(zipfile)
 
-            return buffer.getvalue()
-
     def build_config(self, zipfile):
         builder = ServerlessConfigBuilder(
             self.app_config,
             self.project_id,
             self.deployment_id,
-            self.project_config
+            self.diagram_data
         )
         serverless_yaml = builder.build()
 
         add_file_to_zipfile(zipfile, "serverless.yml", serverless_yaml)
 
     def build_workflow_states(self, zipfile):
-        for workflow_state in self.project_config['workflow_states']:
+        for workflow_state in self.diagram_data['workflow_states']:
             type_ = workflow_state['type']
             builder = self.workflow_state_builders.get(type_)
 

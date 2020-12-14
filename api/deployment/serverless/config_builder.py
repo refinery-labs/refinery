@@ -8,13 +8,14 @@ from yaml import dump
 class ServerlessConfigBuilder:
     _api_resource_base_set = False
 
-    def __init__(self, app_config, project_id, deployment_id, project_config):
+    def __init__(self, app_config, project_id, deployment_id, diagram_data):
         self.app_config = app_config
         self.project_id = project_id
         self.deployment_id = deployment_id
-        self.project_config = project_config
-        self.name = self.get_safe_project_name(project_config['name'])
-        self.workflow_states = project_config['workflow_states']
+        self.diagram_data = diagram_data
+        self.name = diagram_data['name']
+        self.name = self.slugify(diagram_data['name'])
+        self.workflow_states = diagram_data['workflow_states']
         self.functions = {}
         self.resources = {}
         self.serverless_config = {
@@ -302,12 +303,7 @@ class ServerlessConfigBuilder:
     def get_safe_config_key(self, s):
         return ''.join([i for i in s if i.isalnum()])
 
-    def get_safe_project_name(self, name):
-        return ''.join([
-            i for i in name.replace(' ', '-') if i.isalnum() or i == '_'
-        ])
-
     def slugify(self, name):
         return ''.join([
-            i for i in name.replace(' ', '_') if i.isalnum() or i == '_'
+            i for i in name.replace(' ', '-') if i.isalnum() or i == '_'
         ])
