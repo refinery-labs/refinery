@@ -109,7 +109,7 @@ class ServerlessModuleBuilder:
     def build_python(self, workflow_state, zipfile):
         id_ = workflow_state['id']
         code = workflow_state['code']
-        lambda_fn = self.app_config.get("LAMBDA_TEMPORAL_RUNTIMES")['python']
+        lambda_fn = self.app_config.get("LAMBDA_TEMPORAL_RUNTIMES")['python3.6']
 
         add_file_to_zipfile(zipfile, self.get_path(id_, "refinery_main.py"), code)
         add_file_to_zipfile(zipfile, self.get_path(id_, "lambda_function.py"), lambda_fn)
@@ -117,7 +117,7 @@ class ServerlessModuleBuilder:
     def build_nodejs(self, workflow_state, zipfile):
         id_ = workflow_state['id']
         code = workflow_state['code']
-        lambda_fn = self.app_config.get("LAMBDA_TEMPORAL_RUNTIMES")['nodejs']
+        lambda_fn = self.app_config.get("LAMBDA_TEMPORAL_RUNTIMES")['nodejs10.x']
 
         add_file_to_zipfile(zipfile, self.get_path(id_, "refinery_main.js"), code)
         add_file_to_zipfile(zipfile, self.get_path(id_, "index.js"), lambda_fn)
