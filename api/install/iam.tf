@@ -333,7 +333,7 @@ resource "aws_iam_role" "refinery_workflow_manager_role" {
     {
       "Action": "sts:AssumeRole",
       "Principal": {
-        "AWS": "${var.root_account_id}"
+        "AWS": "arn:aws:iam::${var.root_account_id}:root"
       },
       "Effect": "Allow"
     }
