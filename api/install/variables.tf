@@ -1,4 +1,4 @@
-variable "root_account_id" {}
+variable "workflow_manager_user_arn" {}
 
 variable "access_key" {
 }

@@ -61,7 +61,7 @@ def _write_terraform_base_files(app_config, sts_client, aws_account_data, base_d
 
     # Write out the terraform configuration data
     terraform_configuration_data = {
-        "root_account_id": app_config.get("aws_account_id"),
+        "workflow_manager_user_arn": app_config.get("workflow_manager_user_arn"),
         "session_token": assumed_role_credentials["session_token"],
         "role_session_name": assumed_role_credentials["role_session_name"],
         "assume_role_arn": sub_account_admin_role_arn,
