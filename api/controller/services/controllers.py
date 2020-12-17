@@ -1018,13 +1018,6 @@ class ResetIAMConsoleUserIAMForAccount(BaseHandler):
         This blows away all the IAM policies for a specific AWS account and updates it with the latest policy.
         """
 
-        # Get AWS account ID
-        account_id = self.get_argument(
-            "account_id",
-            default=None,
-            strip=True
-        )
-
         if not account_id:
             self.write({
                 "success": False,
