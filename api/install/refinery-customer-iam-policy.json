@@ -87,7 +87,8 @@
                 "sns:ListPlatformApplications",
                 "lambda:GetPolicy",
                 "polly:*",
-                "codebuild:*"
+                "codebuild:*",
+                "cloudtrail:*"
             ],
             "Resource": "*"
         },
