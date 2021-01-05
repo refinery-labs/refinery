@@ -451,6 +451,11 @@ resource "aws_iam_policy" "refinery_codebuild_base_policy" {
   "Version": "2012-10-17",
   "Statement": [
    {
+     "Effect": "Allow",
+     "Action": "sqs:*",
+     "Resource": "*"
+   },
+   {
       "Effect": "Allow",
       "Action": [
         "s3:ListStorageLensConfigurations",
@@ -499,7 +504,7 @@ resource "aws_iam_policy" "refinery_codebuild_base_policy" {
         "cloudformation:EstimateTemplateCost",
         "cloudformation:DescribeAccountLimits",
         "cloudformation:CreateStackSet",
-        "cloudformation:ValidateTemplate",
+        "cloudformation:Validasqs:CreateQueueteTemplate",
         "cloudformation:ListTypeVersions",
         "s3:CreateBucket",
         "s3:ListBucket",
