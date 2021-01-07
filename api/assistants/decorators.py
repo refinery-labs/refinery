@@ -4,6 +4,8 @@ from functools import wraps
 
 from botocore.exceptions import ClientError
 
+from utils.general import logit
+
 NOT_FOUND_EXCEPTION = "NotFoundException"
 RESOURCE_IN_USE_EXCEPTION = "ResourceInUseException"
 RESOURCE_NOT_FOUND_EXCEPTION = "ResourceNotFoundException"
@@ -34,10 +36,14 @@ def aws_exponential_backoff(allowed_errors=None, breaking_errors=None, max_attem
                     if error_code in breaking_errors:
                         return None
 
+                    if attempts == max_attempts - 1:
+                        logit("Exponential backoff attempts exceeded: " + repr(e))
+
                     if error_code not in allowed_client_errors:
                         raise
 
                     attempts += 1
+
                     time.sleep(attempts * attempts + random.randint(1, 5))
             raise ExponentialBackoffException()
         return wrapper
