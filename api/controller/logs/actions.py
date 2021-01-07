@@ -4,6 +4,7 @@ import time
 
 from tornado import gen
 
+from assistants.decorators import aws_exponential_backoff
 from models import CachedExecutionLogsShard
 from pyconstants.project_constants import REGEX_WHITELISTS
 from utils.general import logit
@@ -196,6 +197,7 @@ def update_athena_table_partitions(task_spawner, credentials, project_id):
     raise gen.Return()
 
 
+@aws_exponential_backoff()
 @gen.coroutine
 def load_further_partitions(task_spawner, credentials, project_id, new_shards_list):
     project_id = re.sub(REGEX_WHITELISTS["project_id"], "", project_id)
@@ -210,10 +212,18 @@ def load_further_partitions(task_spawner, credentials, project_id, new_shards_li
         )
     )
 
-    for new_shard in new_shards_list:
+    # Grab the first 1000 shards only
+    shard_slice = new_shards_list[:1000]
+
+    for new_shard in shard_slice:
         query += "PARTITION (dt = '" + new_shard.replace("dt=", "") + "') "
         query += "LOCATION 's3://" + credentials["logs_bucket"] + "/"
         query += project_id + "/" + new_shard + "/'\n"
+
+    # Recursively call this function in chunks
+    if len(new_shards_list) > 1000:
+        logit("Recursively adding Athena shards in additional batch of 1000...")
+        yield load_further_partitions(task_spawner, credentials, project_id, new_shards_list[1000:])
 
     logit("Updating previously un-indexed partitions... ", "debug")
     yield task_spawner.perform_athena_query(
