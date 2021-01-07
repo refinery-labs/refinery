@@ -234,16 +234,11 @@ def paginated_fn_with(fn, item_list, limit):
     :param limit: Maximium size of each chunk
     :return: Array of results, where each result is the returned value from invoking `fn`
     """
+
     output_chunks = []
 
-    remaining_list = item_list
-
-    while len(remaining_list) > 0:
-        sub_list = remaining_list[:limit]
-
-        output_chunks.append(fn(sub_list))
-
-        remaining_list = remaining_list[limit:]
+    for i in range(0, len(item_list), limit):
+        output_chunks.append(fn(item_list[i:i + limit]))
 
     return output_chunks
 
