@@ -4,6 +4,7 @@ import time
 
 from tornado import gen
 
+from assistants.decorators import aws_exponential_backoff
 from models import CachedExecutionLogsShard
 from pyconstants.project_constants import REGEX_WHITELISTS
 from utils.general import logit
@@ -196,8 +197,60 @@ def update_athena_table_partitions(task_spawner, credentials, project_id):
     raise gen.Return()
 
 
+@aws_exponential_backoff()
 @gen.coroutine
 def load_further_partitions(task_spawner, credentials, project_id, new_shards_list):
+
+    # Split the queries into batches of 1000
+    queries = paginated_fn_with(
+        lambda sub_list: generate_athena_add_shards_query(credentials["logs_bucket"], project_id, sub_list),
+        new_shards_list,
+        1000
+    )
+
+    # Reverse order of queries that they execute from newest to oldest (newest are added first)
+    queries.reverse()
+
+    # Perform the athena query with each generated query
+    for index, query in enumerate(queries):
+        logit("Updating previously un-indexed partitions... Batch " + str(index), "debug")
+        yield task_spawner.perform_athena_query(
+            credentials,
+            query,
+            False
+        )
+
+
+def paginated_fn_with(fn, item_list, limit):
+    """
+    Takes in a function and calls it with a sublist of length `limit`.
+
+    For example:
+      paginated_fn_with(lambda sl: sl, [1,2,3,4,5,6,7], 3)
+
+    Would return: [[1,2,3],[4,5,6],[7]]
+    :param fn: Function to invoke with each chunk
+    :param item_list: List to iterate over
+    :param limit: Maximium size of each chunk
+    :return: Array of results, where each result is the returned value from invoking `fn`
+    """
+
+    output_chunks = []
+
+    for i in range(0, len(item_list), limit):
+        output_chunks.append(fn(item_list[i:i + limit]))
+
+    return output_chunks
+
+
+def generate_athena_add_shards_query(logs_bucket, project_id, new_shards_list):
+    """
+    Generates an Athena query that adds shards to the index given a list of shards to include.
+    :param logs_bucket: Bucket name where the shards live
+    :param project_id: ID of the project (used for name of table)
+    :param new_shards_list: List of shards to add to Athena index
+    :return: Generated query in string format.
+    """
     project_id = re.sub(REGEX_WHITELISTS["project_id"], "", project_id)
 
     query_template = "ALTER TABLE PRJ_{{PROJECT_ID_REPLACE_ME}} ADD IF NOT EXISTS\n"
@@ -212,15 +265,10 @@ def load_further_partitions(task_spawner, credentials, project_id, new_shards_li
 
     for new_shard in new_shards_list:
         query += "PARTITION (dt = '" + new_shard.replace("dt=", "") + "') "
-        query += "LOCATION 's3://" + credentials["logs_bucket"] + "/"
+        query += "LOCATION 's3://" + logs_bucket + "/"
         query += project_id + "/" + new_shard + "/'\n"
 
-    logit("Updating previously un-indexed partitions... ", "debug")
-    yield task_spawner.perform_athena_query(
-        credentials,
-        query,
-        False
-    )
+    return query
 
 
 def get_five_minute_dt_from_dt(input_datetime):

@@ -141,6 +141,8 @@ def get_s3_list_from_prefix(aws_client_factory, credentials, s3_bucket, s3_prefi
         credentials,
     )
 
+    prev_continuation_token = continuation_token
+
     s3_options = {
         "Bucket": s3_bucket,
         "Prefix": s3_prefix,
@@ -179,6 +181,10 @@ def get_s3_list_from_prefix(aws_client_factory, credentials, s3_bucket, s3_prefi
     # for the hash key used to determine if we need to
     # re-partition the Athena table.
     common_prefixes.sort()
+
+    # We need to reset the continuation token if it hasn't changed (or else there is an infinite loop)
+    if continuation_token == prev_continuation_token:
+        continuation_token = False
 
     return {
         "common_prefixes": common_prefixes,
