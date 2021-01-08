@@ -69,10 +69,6 @@ def _write_terraform_base_files(app_config, sts_client, aws_account_data, base_d
         "secret_key": assumed_role_credentials["secret_access_key"],
         "region": app_config.get("region_name"),
         "s3_bucket_suffix": aws_account_data["s3_bucket_suffix"],
-        "redis_secrets": {
-            "password": aws_account_data["redis_password"],
-            "secret_prefix": aws_account_data["redis_secret_prefix"],
-        }
     }
 
     logit("Writing Terraform input variables to file...")
@@ -187,11 +183,6 @@ def terraform_configure_aws_account(aws_client_factory, app_config, preterraform
             terraform_state = file_handler.read()
 
         terraform_configuration_data["terraform_state"] = terraform_state
-        terraform_configuration_data["redis_hostname"] = terraform_provisioned_account_details["redis_elastic_ip"]["value"]
-        terraform_configuration_data["ssh_public_key"] = terraform_provisioned_account_details[
-            "refinery_redis_ssh_key_public_key_openssh"]["value"]
-        terraform_configuration_data["ssh_private_key"] = terraform_provisioned_account_details[
-            "refinery_redis_ssh_key_private_key_pem"]["value"]
     finally:
         # Ensure we clear the temporary directory no matter what
         rmtree(base_dir)

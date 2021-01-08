@@ -7,7 +7,6 @@ from json import dumps
 from models import User, Organization
 from models.aws_accounts import AWSAccount
 from tasks.aws_lambda import get_lambda_arns
-from tasks.ec2 import get_ec2_instance_ids
 from tasks.role import get_assume_role_credentials
 from utils.general import logit, get_urand_password
 from time import sleep
@@ -108,13 +107,7 @@ def create_new_sub_aws_account(app_config, db_session_maker, aws_organization_cl
     new_aws_account.s3_bucket_suffix = str(get_urand_password(32)).lower()
     new_aws_account.iam_admin_username = "refinery-customer"
     new_aws_account.iam_admin_password = get_urand_password(32)
-    new_aws_account.redis_hostname = ""
-    new_aws_account.redis_password = get_urand_password(64)
-    new_aws_account.redis_port = 6379
-    new_aws_account.redis_secret_prefix = get_urand_password(40)
     new_aws_account.terraform_state = ""
-    new_aws_account.ssh_public_key = ""
-    new_aws_account.ssh_private_key = ""
     new_aws_account.aws_account_email = app_config.get(
         "customer_aws_email_prefix") + aws_unique_account_id + app_config.get("customer_aws_email_suffix")
     new_aws_account.terraform_state_versions = []
@@ -208,17 +201,11 @@ def unfreeze_aws_account(aws_client_factory, credentials):
     to their account getting frozen. By calling this the account will be
     re-enabled for regular Refinery use.
     * De-throttle all AWS Lambdas
-    * Turn on EC2 instances (redis)
     """
     logit("Unfreezing AWS account...")
 
     lambda_client = aws_client_factory.get_aws_client(
         "lambda",
-        credentials
-    )
-
-    ec2_client = aws_client_factory.get_aws_client(
-        "ec2",
         credentials
     )
 
@@ -233,29 +220,6 @@ def unfreeze_aws_account(aws_client_factory, credentials):
         lambda_client.delete_function_concurrency(
             FunctionName=lambda_arn
         )
-
-    # Start EC2 instance(s)
-    ec2_instance_ids = get_ec2_instance_ids(
-        aws_client_factory, credentials)
-
-    # Max attempts
-    remaining_attempts = 20
-
-    # Prevents issue if a freeze happens too quickly after an un-freeze
-    while remaining_attempts > 0:
-        try:
-            start_instance_response = ec2_client.start_instances(
-                InstanceIds=ec2_instance_ids
-            )
-        except ClientError as boto_error:
-            if boto_error.response["Error"]["Code"] != "IncorrectInstanceState":
-                raise
-
-            logit("EC2 instance isn't ready to be started yet!")
-            logit("Waiting 2 seconds and trying again...")
-            sleep(2)
-
-        remaining_attempts = remaining_attempts - 1
 
     return True
 
@@ -274,27 +238,11 @@ def freeze_aws_account(app_config, aws_client_factory, db_session_maker, credent
     * Revoke all active AWS console sessions - TODO
     * Iterate over all deployed Lambdas and throttle them
     * Stop all active CodeBuilds
-    * Turn-off EC2 instances (redis)
     """
     logit("Freezing AWS account...")
 
-    iam_client = aws_client_factory.get_aws_client(
-        "iam",
-        credentials
-    )
-
-    lambda_client = aws_client_factory.get_aws_client(
-        "lambda",
-        credentials
-    )
-
     codebuild_client = aws_client_factory.get_aws_client(
         "codebuild",
-        credentials
-    )
-
-    ec2_client = aws_client_factory.get_aws_client(
-        "ec2",
         credentials
     )
 
@@ -364,13 +312,6 @@ def freeze_aws_account(app_config, aws_client_factory, db_session_maker, credent
         stop_build_response = codebuild_client.stop_build(
             id=active_build_id
         )
-
-    ec2_instance_ids = get_ec2_instance_ids(
-        aws_client_factory, credentials)
-
-    stop_instance_response = ec2_client.stop_instances(
-        InstanceIds=ec2_instance_ids
-    )
 
     dbsession.close()
     return False

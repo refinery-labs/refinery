@@ -2,40 +2,11 @@
     "Version": "2012-10-17",
     "Statement": [
         {
-            "Sid": "VisualEditor9",
             "Effect": "Allow",
-            "Action": [
-                "cloudformation:CreateUploadBucket",
-                "cloudformation:RegisterType",
-                "cloudformation:DescribeStackDriftDetectionStatus",
-                "cloudformation:ListExports",
-                "cloudformation:ListStacks",
-                "cloudformation:SetTypeDefaultVersion",
-                "cloudformation:DescribeType",
-                "cloudformation:ListImports",
-                "cloudformation:ListTypes",
-                "cloudformation:DescribeTypeRegistration",
-                "cloudformation:DeregisterType",
-                "cloudformation:ListTypeRegistrations",
-                "cloudformation:EstimateTemplateCost",
-                "cloudformation:DescribeAccountLimits",
-                "cloudformation:CreateStackSet",
-                "cloudformation:ValidateTemplate",
-                "cloudformation:ListTypeVersions"
-            ],
+            "Action": "cloudformation:*",
             "Resource": "*"
         },
         {
-            "Sid": "VisualEditor10",
-            "Effect": "Allow",
-            "Action": "cloudformation:*",
-            "Resource": [
-                "arn:aws:cloudformation:*:*:stack/*/*",
-                "arn:aws:cloudformation:*:*:stackset/*:*"
-            ]
-        },
-        {
-            "Sid": "VisualEditor0",
             "Effect": "Allow",
             "Action": [
                 "sqs:DeleteMessage",
@@ -125,7 +96,6 @@
             "Resource": "*"
         },
         {
-            "Sid": "VisualEditor1",
             "Effect": "Allow",
             "Action": [
                 "cloudformation:DescribeStackResources",
@@ -137,13 +107,11 @@
             ]
         },
         {
-            "Sid": "VisualEditor2",
             "Effect": "Allow",
             "Action": "s3:*",
             "Resource": "arn:aws:s3:::*"
         },
         {
-            "Sid": "VisualEditor3",
             "Effect": "Allow",
             "Action": [
                 "dynamodb:DeleteItem",
@@ -175,7 +143,6 @@
             "Resource": "arn:aws:dynamodb:*:*:table/*"
         },
         {
-            "Sid": "VisualEditor4",
             "Effect": "Allow",
             "Action": [
                 "dynamodb:Scan",
@@ -200,7 +167,6 @@
             ]
         },
         {
-            "Sid": "VisualEditor5",
             "Effect": "Allow",
             "Action": [
                 "dynamodb:DescribeReservedCapacityOfferings",
@@ -221,7 +187,6 @@
             "Resource": "*"
         },
         {
-            "Sid": "VisualEditor6",
             "Effect": "Allow",
             "Action": [
                 "cloudwatch:PutDashboard",
@@ -244,7 +209,6 @@
             ]
         },
         {
-            "Sid": "VisualEditor7",
             "Effect": "Allow",
             "Action": [
                 "cloudwatch:PutMetricData",
