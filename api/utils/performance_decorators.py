@@ -29,7 +29,7 @@ def emit_runtime_metrics(metric_name):
     :type metric_name: basestring
     :return: Decorated function
     """
-    debug = is_debug_environment()
+    is_debug = is_debug_environment()
     env_name = "Development"
 
     if not is_debug:
