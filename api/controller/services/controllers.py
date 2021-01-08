@@ -499,14 +499,10 @@ class MaintainAWSAccountReserves(BaseHandler):
             self.logger("Creating a new AWS sub-account for later terraform use...")
             # We have to yield because you can't mint more than one sub-account at a time
             # (AWS can litterally only process one request at a time).
-            try:
-                yield self.task_spawner.create_new_sub_aws_account(
-                    "MANAGED",
-                    False
-                )
-            except Exception as e:
-                self.logger("An error occurred while creating an AWS sub-account: " + repr(e), "error")
-                pass
+            yield self.task_spawner.create_new_sub_aws_account(
+                "MANAGED",
+                False
+            )
 
         dbsession.close()
 
