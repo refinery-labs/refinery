@@ -58,15 +58,19 @@ class AWSAccount(Base):
     iam_admin_password = Column(Text())
 
     # Redis hostname
+    #TODO: Nuke this
     redis_hostname = Column(Text())
 
     # Redis password
+    # TODO: Nuke this
     redis_password = Column(Text())
 
     # Redis port
+    # TODO: Nuke this
     redis_port = Column(BigInteger())
 
     # Redis secret prefix
+    # TODO: Nuke this
     redis_secret_prefix = Column(Text())
 
     # Terraform latest state

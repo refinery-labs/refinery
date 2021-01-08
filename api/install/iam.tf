@@ -216,6 +216,7 @@ resource "aws_iam_role_policy_attachment" "refinery_default_aws_lambda_attachmen
   policy_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/refinery_default_aws_lambda_policy"
 }
 
+<<<<<<< HEAD
 resource "aws_iam_policy" "refinery_workflow_manager_queue_handler_policy" {
   name        = "refinery_workflow_manager_queue_handler_policy"
   path        = "/"
@@ -353,6 +354,8 @@ resource "aws_iam_role_policy_attachment" "refinery_workflow_manager_attachment"
 }
 
 
+=======
+>>>>>>> 72ce144b (Remove redis from Terraform config and code)
 /*
 	The permissions policy for CloudWatch Events deployed by
 	Refinery. This allows CloudWatch to trigger the underlying
@@ -450,6 +453,7 @@ resource "aws_iam_policy" "refinery_codebuild_base_policy" {
 {
   "Version": "2012-10-17",
   "Statement": [
+<<<<<<< HEAD
    {
      "Effect": "Allow",
      "Action": "sqs:*",
@@ -524,6 +528,8 @@ resource "aws_iam_policy" "refinery_codebuild_base_policy" {
         "arn:aws:cloudformation:*:${data.aws_caller_identity.current.account_id}:stackset/*:*"
       ]
     },
+=======
+>>>>>>> 72ce144b (Remove redis from Terraform config and code)
     {
       "Effect": "Allow",
       "Resource": [

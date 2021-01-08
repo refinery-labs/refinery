@@ -11,6 +11,16 @@ def unix_time_millis(dt):
     return (dt - epoch).total_seconds() * 1000.0
 
 
+def is_debug_environment():
+    if "debug" in os.environ:
+        return str(os.environ.get("debug")).lower() == "true"
+
+    if "is_debug" in os.environ:
+        return str(os.environ.get("is_debug")).lower() == "true"
+
+    return False
+
+
 def emit_runtime_metrics(metric_name):
     """
     Decorator that emits metrics to Cloudwatch about an invocation.
@@ -19,8 +29,7 @@ def emit_runtime_metrics(metric_name):
     :type metric_name: basestring
     :return: Decorated function
     """
-    is_debug = (os.environ.get("is_debug").lower() == "true")
-
+    debug = is_debug_environment()
     env_name = "Development"
 
     if not is_debug:

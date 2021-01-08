@@ -165,9 +165,6 @@ class LambdaWorkflowState(AwsWorkflowState, CodeBlockWorkflowState):
         )
 
         all_environment_vars = {
-            "REDIS_HOSTNAME": self._credentials["redis_hostname"],
-            "REDIS_PASSWORD": self._credentials["redis_password"],
-            "REDIS_PORT": str(self._credentials["redis_port"]),
             # Deployment id
             "EXECUTION_PIPELINE_ID": self.execution_pipeline_id,
             "LOG_BUCKET_NAME": self._credentials["logs_bucket"],
