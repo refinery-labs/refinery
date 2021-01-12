@@ -24,7 +24,7 @@ BUILDSPEC = dump({
         "build": {
             "commands": [
                 "serverless deploy --stage prod",
-                "serverless info -v > serverless_info"
+                "serverless info -v --stage prod > serverless_info"
             ]
         },
     },

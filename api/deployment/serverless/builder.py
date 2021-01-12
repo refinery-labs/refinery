@@ -1,7 +1,10 @@
 from deployment.base import Builder
+from deployment.serverless.info_parser import ServerlessInfoParser
 from deployment.serverless.module_builder import ServerlessModuleBuilder
 from functools import cached_property
+from io import BytesIO
 from tasks.build.common import get_codebuild_artifact_zip_data
+from utils.general import logit
 from uuid import uuid4
 from zipfile import ZipFile
 
@@ -67,6 +70,8 @@ class ServerlessBuilder(Builder):
         )
 
     def perform_codebuild(self, zipfile):
+        logit(f'Creating codebuild s3 location override at {self.s3_path}')
+
         self.s3.put_object(
             Bucket=self.credentials['lambda_packages_bucket'],
             Body=zipfile,
@@ -82,6 +87,8 @@ class ServerlessBuilder(Builder):
             imageOverride="docker.io/node:12",
         )['build']['id']
 
+        logit(f'Completed codebuild id {build_id}')
+
         return get_codebuild_artifact_zip_data(
             self.aws_client_factory,
             self.credentials,
@@ -91,9 +98,8 @@ class ServerlessBuilder(Builder):
 
     def parse_serverless_output(self, serverless_zipfile):
         # TODO return deployment.json created from project.json and serverless_info
-        with ZipFile(serverless_zipfile) as zipfile:
+        with ZipFile(BytesIO(serverless_zipfile)) as zipfile:
             with zipfile.open('serverless_info') as serverless_info:
-                print('----------------------------------------')
-                print("SERVERLESS INFO")
-                print(serverless_info.read())
-                print('----------------------------------------')
+                parser = ServerlessInfoParser(serverless_info.read())
+
+                print(parser.lambda_resource_map)
