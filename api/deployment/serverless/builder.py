@@ -100,6 +100,7 @@ class ServerlessBuilder(Builder):
         # TODO return deployment.json created from project.json and serverless_info
         with ZipFile(BytesIO(serverless_zipfile)) as zipfile:
             with zipfile.open('serverless_info') as serverless_info:
-                parser = ServerlessInfoParser(serverless_info.read())
+                text = serverless_info.read().decode("UTF-8")
+                parser = ServerlessInfoParser(text)
 
-                print(parser.lambda_resource_map)
+                return parser.lambda_resource_map
