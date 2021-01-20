@@ -16,7 +16,7 @@ class DeploymentConfigBuilder:
 
     @cached_property
     def value(self):
-        pass
+        return self.deployment
 
     def add_workflow_relationship(self):
         pass

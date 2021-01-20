@@ -58,8 +58,14 @@ class ServerlessBuilder(Builder):
         )
         zipfile = module_builder.build(artifact_zip)
         serverless_zipfile = self.perform_codebuild(zipfile)
+        lambda_resource_map = self.parse_serverless_output(serverless_zipfile)
+        config_builder = DeploymentConfigBuilder(
+            self.project_id,
+            self.diagram_data,
+            lambda_resource_map
+        )
 
-        return self.parse_serverless_output(serverless_zipfile)
+        return config_builder.value
 
     def get_artifact_zipfile(self):
         return self.read_from_s3(
