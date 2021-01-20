@@ -1,4 +1,5 @@
 from deployment.base import Builder
+from deployment.serverless.deploy_config_builder import DeploymentConfigBuilder
 from deployment.serverless.info_parser import ServerlessInfoParser
 from deployment.serverless.module_builder import ServerlessModuleBuilder
 from functools import cached_property
