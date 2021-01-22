@@ -71,6 +71,12 @@ func main() {
 	v1.Delete("/deployment/:deploymentID", controller.CancelWorkflowsForDeployment)
 	v1.Post("/deployment", controller.CreateWorkflowsForDeployment)
 	v1.Delete("/executions", controller.StopAllOpenWorkflows)
+	v1.Get("/health", func(c *fiber.Ctx) error {
+		c.JSON(map[string]bool{
+			"success": true,
+		})
+		return nil
+	})
 
 	app.Listen(":3000")
 }

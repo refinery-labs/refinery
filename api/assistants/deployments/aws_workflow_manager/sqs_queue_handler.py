@@ -73,7 +73,7 @@ class SqsQueueHandlerWorkflowState(LambdaWorkflowState):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.language = "nodejs12.x"
+        self.language = "nodejs10.x"
         self.code = handler_code
         self.libraries = []
         self.max_execution_time = 30
