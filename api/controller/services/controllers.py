@@ -282,10 +282,7 @@ class OnboardThirdPartyAWSAccountApply(BaseHandler):
             previous_aws_account.organization_id = None
 
             # Update the AWS account with this new information
-            current_aws_account.redis_hostname = account_provisioning_details["redis_hostname"]
             current_aws_account.terraform_state = account_provisioning_details["terraform_state"]
-            current_aws_account.ssh_public_key = account_provisioning_details["ssh_public_key"]
-            current_aws_account.ssh_private_key = account_provisioning_details["ssh_private_key"]
             current_aws_account.aws_account_status = "IN_USE"
             current_aws_account.organization_id = refinery_user.organization_id
 
@@ -410,7 +407,7 @@ class MaintainAWSAccountReserves(BaseHandler):
         # At a MINIMUM we have to wait 60 seconds from the time of account creation
         # to actually perform the Terraform step.
         # We'll do 20 because it usually takes 15 to get the "Account Verified" email.
-        minimum_account_age_seconds = (60 * 5)
+        minimum_account_age_seconds = (60 * 2)
         current_timestamp = int(time.time())
         non_setup_aws_accounts = dbsession.query(AWSAccount).filter(
             AWSAccount.aws_account_status == "CREATED",
@@ -463,10 +460,7 @@ class MaintainAWSAccountReserves(BaseHandler):
                 ).first()
 
                 # Update the AWS account with this new information
-                current_aws_account.redis_hostname = account_provisioning_details["redis_hostname"]
                 current_aws_account.terraform_state = account_provisioning_details["terraform_state"]
-                current_aws_account.ssh_public_key = account_provisioning_details["ssh_public_key"]
-                current_aws_account.ssh_private_key = account_provisioning_details["ssh_private_key"]
                 current_aws_account.aws_account_status = "AVAILABLE"
 
                 # Create a new terraform state version
@@ -499,14 +493,10 @@ class MaintainAWSAccountReserves(BaseHandler):
             self.logger("Creating a new AWS sub-account for later terraform use...")
             # We have to yield because you can't mint more than one sub-account at a time
             # (AWS can litterally only process one request at a time).
-            try:
-                yield self.task_spawner.create_new_sub_aws_account(
-                    "MANAGED",
-                    False
-                )
-            except Exception as e:
-                self.logger("An error occurred while creating an AWS sub-account: " + repr(e), "error")
-                pass
+            yield self.task_spawner.create_new_sub_aws_account(
+                "MANAGED",
+                False
+            )
 
         dbsession.close()
 

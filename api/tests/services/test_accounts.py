@@ -71,10 +71,7 @@ class TestAssumeAccounts(ServerUnitTestBase, AsyncHTTPTestCase):
 	def test_maintain_aws_account_pool(self):
 		test_val = "FAKE_TESTING_VALUE"
 		self.mock_task_spawner.terraform_configure_aws_account.return_value = create_future(dict(
-			redis_hostname=test_val,
-			terraform_state=test_val,
-			ssh_public_key=test_val,
-			ssh_private_key=test_val
+			terraform_state=test_val
 		))
 		self.mock_task_spawner.freeze_aws_account.return_value = dict()
 		self.mock_task_spawner.create_new_sub_aws_account.return_value = create_future(dict())

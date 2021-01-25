@@ -24,8 +24,6 @@ class TestDeployDiagram(ServerUnitTestBase, AsyncHTTPTestCase):
 			"region": "fake-region",
 			"account_id": "fake-account-id",
 			"account_type": "MANAGED",
-			"redis_hostname": "fake-redis-hostname",
-			"redis_password": "fake-redis-password",
 			"redis_port": "fake-redis-port",
 			"logs_bucket": "fake-logs-bucket",
 			"lambda_packages_bucket": "fake-lambda-packages-bucket"

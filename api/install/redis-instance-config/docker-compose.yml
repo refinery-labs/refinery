@@ -1,9 +1,0 @@
-version: "3"
-services:
-    redis:
-        build: .
-        restart: always
-        environment:
-            REDIS_PASSWORD: "${password}"
-        ports:
-            - "6379:6379"
