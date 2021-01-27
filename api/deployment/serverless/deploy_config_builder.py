@@ -14,8 +14,8 @@ class DeploymentConfigBuilder:
         states = self.get_workflow_state_mapper(relationships)
 
         return {
-            "name": diagram_data['name'],
-            "project_id": project_id,
+            "name": self.diagram_data['name'],
+            "project_id": self.project_id,
             "global_handlers": {},
             "workflow_relationships": relationships,
             "workflow_states": states
@@ -26,7 +26,7 @@ class DeploymentConfigBuilder:
 
         for workflow_state in self.diagram_data.get("workflow_states", []):
             uuid = workflow_state['id']
-            base = self.get_deployed_workflow_state_base(workflow_state)
+            base = self.get_deployed_workflow_state_base(workflow_state, relationships)
             states[uuid] = base
 
             if uuid in self.lambda_resource_map:
