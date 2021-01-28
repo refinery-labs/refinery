@@ -45,12 +45,14 @@ export class EditBlockLayersWrapper extends Vue implements EditBlockLayersWrappe
       readOnly: this.readOnly,
       activeBlockId: selectedNode.id,
       activeBlockName: selectedNode.name,
-      layers: BlockLayersStoreModule.layers,
+      layers: selectedNode.layers,
+      container: selectedNode.container,
       canAddMoreLayers: BlockLayersStoreModule.canAddMoreLayers,
       isModalVisible: this.readOnly
         ? BlockLayersStoreModule.isReadOnlyModalVisible
         : BlockLayersStoreModule.isModalVisible,
       onModalHidden: () => BlockLayersStoreModule.closeModal(this.readOnly),
+      updateContainer: (container: string) => BlockLayersStoreModule.updateContainer(container),
       addNewLayer: () => BlockLayersStoreModule.addNewLayer(),
       deleteLayer: index => BlockLayersStoreModule.deleteLayer(index),
       closeEditor: (discard: boolean) => BlockLayersStoreModule.closeEditor({ discard, readOnly: this.readOnly }),
@@ -60,7 +62,7 @@ export class EditBlockLayersWrapper extends Vue implements EditBlockLayersWrappe
     return (
       <div>
         <b-button class="col-12" variant="dark" on={{ click: this.onOpenModal }}>
-          {this.readOnly ? 'View' : 'Edit'} Layers
+          {this.readOnly ? 'View' : 'Edit'} Environment
         </b-button>
         <EditBlockLayersEditor props={blockLayersEditorProps} />
       </div>

@@ -99,6 +99,7 @@ export interface SavedBlockMetadata {
 
 export interface LambdaWorkflowState extends WorkflowState {
   layers: string[];
+  container: string;
   code: string;
   language: SupportedLanguage;
   libraries: string[];

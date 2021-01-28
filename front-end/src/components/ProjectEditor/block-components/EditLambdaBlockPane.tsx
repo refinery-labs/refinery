@@ -663,7 +663,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     );
   }
 
-  public renderBlockLayers() {
+  public renderBlockEnvironment() {
     const blockLayersEditorWrapperProps: EditBlockLayersWrapperProps & EditBlockPaneProps = {
       selectedNode: this.selectedNode,
       selectedNodeMetadata: null,
@@ -671,8 +671,8 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
     };
 
     return (
-      <b-form-group description="Click to add AWS Lambda Layers to the runtime environment.">
-        <label class="d-block">Block Layers (Lambda Layers):</label>
+      <b-form-group description="Click to set the Lambda's runtime environment.">
+        <label class="d-block">Block Environment (Lambda Layers or Dockerfile):</label>
         <EditBlockLayersWrapper props={blockLayersEditorWrapperProps} />
       </b-form-group>
     );
@@ -896,7 +896,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
           <b-col xl={6}>{this.renderAwsLink()}</b-col>
 
           <b-col xl={6}>{this.renderBlockVariables()}</b-col>
-          <b-col xl={6}>{this.renderBlockLayers()}</b-col>
+          <b-col xl={6}>{this.renderBlockEnvironment()}</b-col>
           <b-col xl={6}>{this.renderLanguageSelector()}</b-col>
           <b-col xl={6}>{this.renderDownloadBlock()}</b-col>
           <b-col xl={6}>{this.renderForm(this.selectedNode, maxExecutionTimeProps)}</b-col>
@@ -914,7 +914,7 @@ export class EditLambdaBlock extends Vue implements EditBlockPaneProps {
 
         <b-col xl={6}>{this.renderCreateSavedBlockButton()}</b-col>
         <b-col xl={6}>{this.renderBlockVariables()}</b-col>
-        <b-col xl={6}>{this.renderBlockLayers()}</b-col>
+        <b-col xl={6}>{this.renderBlockEnvironment()}</b-col>
         <b-col xl={6}>{this.renderLibrarySelector()}</b-col>
         <b-col xl={6}>{this.renderLocalFileLinkButton()}</b-col>
         <b-col xl={6}>{this.renderDownloadBlock()}</b-col>

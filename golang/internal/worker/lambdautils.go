@@ -86,55 +86,36 @@ func (s *RefineryAwsActivities) writePipelineLogs(
 	return err
 }
 
-func unpackLambdaResponse(lambdaResponsePayload []byte) (resultData, backpackData string, errorText string, err error) {
+type LambdaResponsePayload struct {
+	ErrorType    string   `json:"errorType"`
+	ErrorMessage string   `json:"errorMessage"`
+	ErrorTrace   []string `json:"trace"`
+	Result       string   `json:"result"`
+	Backpack     string   `json:"backpack"`
+}
+
+func unpackLambdaResponse(lambdaResponsePayload []byte) (lambdaResponse LambdaResponsePayload, err error) {
 	var unpackedString string
 	err = json.Unmarshal(lambdaResponsePayload, &unpackedString)
 	if err != nil {
 		unpackedString = string(lambdaResponsePayload)
 	}
 
-	var parsedOutput map[string]interface{}
-	err = json.Unmarshal([]byte(unpackedString), &parsedOutput)
+	err = json.Unmarshal([]byte(unpackedString), &lambdaResponse)
 	if err != nil {
 		return
 	}
 
-	if errorTextInterface, ok := parsedOutput["errorMessage"]; ok {
-		var errorTextBytes []byte
-		errorTextBytes, err = json.Marshal(errorTextInterface)
-		if err != nil {
-			return
-		}
-		errorText = string(errorTextBytes)
-
-		if errorText == "" {
-			errorText = "{}"
-		}
+	if lambdaResponse.ErrorMessage == "" {
+		lambdaResponse.ErrorMessage = "{}"
 	}
 
-	if resultDataInterface, ok := parsedOutput["result"]; ok {
-		var resultDataBytes []byte
-		resultDataBytes, err = json.Marshal(resultDataInterface)
-		if err != nil {
-			return
-		}
-		resultData = string(resultDataBytes)
-
-		if resultData == "" {
-			resultData = "{}"
-		}
+	if len(lambdaResponse.Result) == 0 {
+		lambdaResponse.Result = "{}"
 	}
-	if backpackDataInterface, ok := parsedOutput["backpack"]; ok {
-		var backpackDataBytes []byte
-		backpackDataBytes, err = json.Marshal(backpackDataInterface)
-		if err != nil {
-			return
-		}
-		backpackData = string(backpackDataBytes)
 
-		if backpackData == "" {
-			backpackData = "{}"
-		}
+	if len(lambdaResponse.Backpack) == 0 {
+		lambdaResponse.Backpack = "{}"
 	}
 	return
 }

@@ -16,6 +16,7 @@ export interface BlockLayersState {
 
   selectedBlock: LambdaWorkflowState | null;
   layers: string[];
+  container: string;
 }
 
 export const baseState: BlockLayersState = {
@@ -23,7 +24,8 @@ export const baseState: BlockLayersState = {
   isReadOnlyModalVisible: false,
 
   selectedBlock: null,
-  layers: []
+  layers: [],
+  container: ''
 };
 
 // Must copy so that we can not thrash the pointers...
@@ -36,6 +38,7 @@ export class BlockLayersStore extends VuexModule<ThisType<BlockLayersState>, Roo
 
   public selectedBlock: LambdaWorkflowState | null = initialState.selectedBlock;
   public layers: string[] = initialState.layers;
+  public container: string = initialState.container;
 
   get canAddMoreLayers() {
     return this.layers.length < 4;
@@ -53,6 +56,11 @@ export class BlockLayersStore extends VuexModule<ThisType<BlockLayersState>, Roo
       return;
     }
     this.isModalVisible = modalVisibility;
+  }
+
+  @Mutation
+  public updateContainer(container: string) {
+    this.container = container;
   }
 
   @Mutation
@@ -115,10 +123,15 @@ export class BlockLayersStore extends VuexModule<ThisType<BlockLayersState>, Roo
     }
 
     const layers = deepJSONCopy(this.layers);
+    const container = this.container;
 
     this.resetState();
 
     this.context.commit(`project/editBlockPane/${EditBlockMutators.setLayers}`, layers, {
+      root: true
+    });
+
+    this.context.commit(`project/editBlockPane/${EditBlockMutators.setContainer}`, container, {
       root: true
     });
 

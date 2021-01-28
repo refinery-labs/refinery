@@ -4,6 +4,7 @@ go 1.15
 
 require (
 	github.com/ReneKroon/ttlcache/v2 v2.1.0
+	github.com/aws/aws-lambda-go v1.22.0
 	github.com/aws/aws-sdk-go v1.35.35
 	github.com/gofiber/fiber/v2 v2.2.0
 	github.com/google/uuid v1.1.2

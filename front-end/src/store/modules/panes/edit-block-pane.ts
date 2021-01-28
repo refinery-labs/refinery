@@ -57,6 +57,7 @@ export enum EditBlockMutators {
   setExecutionMemory = 'setExecutionMemory',
   setMaxExecutionTime = 'setMaxExecutionTime',
   setLayers = 'setLayers',
+  setContainer = 'setContainer',
   setEnvironmentVariables = 'setEnvironmentVariables',
   setSavedInputData = 'setSavedInputData',
 
@@ -357,6 +358,9 @@ const EditBlockPaneModule: Module<EditBlockPaneState, RootState> = {
     },
     [EditBlockMutators.setLayers](state, layers) {
       lambdaChange(state, block => (block.layers = layers));
+    },
+    [EditBlockMutators.setContainer](state, container) {
+      lambdaChange(state, block => (block.container = container));
     },
     [EditBlockMutators.setEnvironmentVariables](state, environmentVariables) {
       lambdaChange(state, block => (block.environment_variables = environmentVariables));

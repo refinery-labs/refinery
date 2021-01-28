@@ -2,7 +2,9 @@ package worker
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"strings"
 
 	"go.temporal.io/sdk/activity"
 
@@ -17,10 +19,6 @@ type RefineryAwsActivities struct {
 }
 
 func (a *RefineryAwsActivities) AwsLambdaActivity(ctx context.Context, params dsl.BlockActivityParams) (dsl.BlockResult, error) {
-	var (
-		resultData, backpackData, errorText string
-	)
-
 	lambdaClient, err := a.ClientManager.getLambdaClient(params.AccountID)
 	if err != nil {
 		activity.GetLogger(ctx).Error("error while getting lambda client", err)
@@ -37,46 +35,55 @@ func (a *RefineryAwsActivities) AwsLambdaActivity(ctx context.Context, params ds
 	}
 	lambdaOutput, err := lambdaClient.Invoke(invokeInput)
 
+	logType := "SUCCESS"
 	logResult := filterLogOutput(lambdaOutput.LogResult)
 
 	if err != nil {
-		a.writePipelineLogs(
-			ctx,
-			params,
-			"EXCEPTION",
-			logResult,
-			resultData,
-			backpackData,
-		)
+		// Error while invoking lambda, we should try to invoke this lambda again
 		return dsl.BlockResult{}, err
 	}
 
 	// If we are unable to unpack the response, fallback to
-	resultData, backpackData, errorText, err = unpackLambdaResponse(lambdaOutput.Payload)
+	lambdaResponse, err := unpackLambdaResponse(lambdaOutput.Payload)
 	if err != nil {
 		log.Println("unable to unpack lambda response", string(lambdaOutput.Payload), err)
-		resultData = string(lambdaOutput.Payload)
-		backpackData = params.Backpack
+		lambdaResponse.Result = string(lambdaOutput.Payload)
+		lambdaResponse.Backpack = params.Backpack
+	}
+
+	if lambdaResponse.ErrorType != "" {
+		logType = "EXCEPTION"
+
+		lambdaResponse.Result = string(lambdaOutput.Payload)
+		lambdaResponse.Backpack = params.Backpack
+
+		serializedTrace := strings.Join(lambdaResponse.ErrorTrace, "\n")
+		logResult = fmt.Sprintf(
+			"%s\n%s\n%s",
+			lambdaResponse.ErrorType,
+			lambdaResponse.ErrorMessage,
+			serializedTrace,
+		)
 	}
 
 	a.writePipelineLogs(
 		ctx,
 		params,
-		"SUCCESS",
+		logType,
 		logResult,
-		resultData,
-		backpackData,
+		string(lambdaResponse.Result),
+		string(lambdaResponse.Backpack),
 	)
 
 	blockResult := dsl.BlockResult{
-		Data:      resultData,
-		Backpack:  backpackData,
+		Data:      string(lambdaResponse.Result),
+		Backpack:  string(lambdaResponse.Backpack),
 		BlockType: dsl.AwsLambdaBlockType,
-		IsError:   errorText != "",
+		IsError:   logType == "EXCEPTION",
 	}
 
 	if blockResult.IsError {
-		blockResult.ErrorText = errorText
+		blockResult.ErrorText = logResult
 		// Fallback on the original backpack
 		// TODO should the lambda return a backpack instead?
 		blockResult.Backpack = params.Backpack

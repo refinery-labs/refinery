@@ -3,6 +3,10 @@ import Vue from 'vue';
 import { Prop } from 'vue-property-decorator';
 import { preventDefaultWrapper } from '@/utils/dom-utils';
 import { arnRegex } from '@/constants/project-editor-constants';
+import { nopWrite } from '@/utils/block-utils';
+import { BlockLocalCodeSyncStoreModule } from '@/store';
+import { EditorProps } from '@/types/component-types';
+import RefineryCodeEditor from '@/components/Common/RefineryCodeEditor';
 
 export interface BlockLayersEditorProps {
   readOnly: boolean;
@@ -10,8 +14,11 @@ export interface BlockLayersEditorProps {
   activeBlockId: string | null;
   activeBlockName: string | null;
   layers: string[];
+  container: string;
 
   canAddMoreLayers: boolean;
+
+  updateContainer: (container: string) => void;
 
   addNewLayer: () => void;
   deleteLayer: (index: number) => void;
@@ -29,10 +36,13 @@ export class EditBlockLayersEditor extends Vue implements BlockLayersEditorProps
   @Prop({ required: true }) activeBlockId!: string | null;
   @Prop({ required: true }) activeBlockName!: string | null;
   @Prop({ required: true }) layers!: string[];
+  @Prop({ required: true }) container!: string;
 
   @Prop({ required: true }) readOnly!: boolean;
 
   @Prop({ required: true }) canAddMoreLayers!: boolean;
+
+  @Prop({ required: true }) updateContainer!: (container: string) => void;
 
   @Prop({ required: true }) addNewLayer!: () => void;
   @Prop({ required: true }) deleteLayer!: (index: number) => void;
@@ -102,19 +112,8 @@ export class EditBlockLayersEditor extends Vue implements BlockLayersEditorProps
 
     const arnsValid = this.layers.some(layer => !arnRegex.test(layer));
 
-    const bottomStateButtons = (
-      <div class="display--flex justify-content-end margin-between-sides--normal mt-2">
-        <b-button variant="outline-danger" on={{ click: () => this.closeEditor(true) }}>
-          Reset Changes
-        </b-button>
-        <b-button variant="primary" type="submit" disabled={arnsValid}>
-          Save Changes
-        </b-button>
-      </div>
-    );
-
     return (
-      <b-form on={{ submit: preventDefaultWrapper(() => this.closeEditor(false)) }}>
+      <b-form>
         <b-form-group
           class="margin-bottom--none padding-bottom--small"
           description="These are standard AWS Lambda layers, which may be used to add functionality to the environment your Lambda runs in."
@@ -124,13 +123,23 @@ export class EditBlockLayersEditor extends Vue implements BlockLayersEditorProps
             {this.layers.length === 0 ? helperText : null}
           </div>
         </b-form-group>
-        {this.readOnly ? null : bottomStateButtons}
       </b-form>
     );
   }
 
+  public renderContainerEditor() {
+    const editorProps: EditorProps = {
+      name: `docker-container`,
+      lang: 'text',
+      content: this.container,
+      onChange: this.updateContainer
+    };
+
+    return <RefineryCodeEditor props={editorProps} />;
+  }
+
   public renderModal() {
-    const nameString = `${this.readOnly ? 'View' : 'Edit'} Block Layers for '${this.activeBlockName}'`;
+    const nameString = `${this.readOnly ? 'View' : 'Edit'} Environment for '${this.activeBlockName}'`;
 
     const addNewLayerButton = (
       <b-button variant="primary" on={{ click: this.addNewLayer }} disabled={!this.canAddMoreLayers}>
@@ -142,6 +151,17 @@ export class EditBlockLayersEditor extends Vue implements BlockLayersEditorProps
       hidden: this.onModalHidden
     };
 
+    const bottomStateButtons = (
+      <div class="display--flex justify-content-end margin-between-sides--normal mt-2">
+        <b-button variant="outline-danger" on={{ click: () => this.closeEditor(true) }}>
+          Reset Changes
+        </b-button>
+        <b-button variant="primary" on={{ click: () => this.closeEditor(false) }}>
+          Save Changes
+        </b-button>
+      </div>
+    );
+
     return (
       <b-modal
         ref={`code-modal-${this.activeBlockId}`}
@@ -152,13 +172,16 @@ export class EditBlockLayersEditor extends Vue implements BlockLayersEditorProps
         title={nameString}
         visible={this.isModalVisible}
       >
-        <div class="display--flex justify-content-end mb-2">
-          <div class="flex-grow--1 text-align--left padding-top--normal-small">
-            <label class="mb-0">Block Layers (Lambda Layers):</label>
-          </div>
-          {this.readOnly ? null : addNewLayerButton}
+        <div>
+          <b-tabs class="mt-3">
+            <b-tab title="Lambda Layers">
+              <div class="display--flex justify-content-end mb-2">{this.readOnly ? null : addNewLayerButton}</div>
+              {this.renderContents()}
+            </b-tab>
+            <b-tab title="Docker Container">{this.renderContainerEditor()}</b-tab>
+          </b-tabs>
+          {this.readOnly ? null : bottomStateButtons}
         </div>
-        {this.renderContents()}
       </b-modal>
     );
   }
