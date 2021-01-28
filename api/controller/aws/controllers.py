@@ -415,7 +415,62 @@ class DeployDiagram(BaseHandler):
             diagram_data
         )
 
-        builder.build(rebuild=latest_deployment is not None)
+        # TODO: Update the project data? Deployments should probably be an explicit "Save Project" action.
+
+        # Add a reference to this deployment from the associated project
+        existing_project = self.dbsession.query(Project).filter_by(
+            id=project_id
+        ).first()
+
+        if existing_project is None:
+            self.write({
+                "success": False,
+                "code": "DEPLOYMENT_UPDATE",
+                "msg": "Unable to find project when updating deployment information.",
+            })
+
+            # TODO we probably want to teardown the deployment if this is the case
+
+            raise gen.Return()
+
+        project_log_table_future = self.task_spawner.create_project_id_log_table(
+            credentials,
+            project_id
+        )
+
+        # Build the project
+        self.logger("Begin deployment")
+        deployment_config = builder.build(rebuild=latest_deployment is not None)
+
+        # Create deployment metadata
+        new_deployment = Deployment()
+        new_deployment.organization_id = org_id
+        new_deployment.project_id = project_id
+        new_deployment.deployment_json = json.dumps(deployment_config)
+
+        existing_project.deployments.append(new_deployment)
+
+        deployment_log = DeploymentLog()
+        deployment_log.org_id = org_id
+
+        self.dbsession.add(deployment_log)
+        self.dbsession.commit()
+        self.logger("Updating database with new project config...")
+        update_project_config(
+            self.dbsession,
+            project_id,
+            project_config
+        )
+
+        self.write({
+            "success": True,
+            "result": {
+                "deployment_success": True,
+                "diagram_data": deployment_config,
+                "project_id": project_id,
+                "deployment_id": new_deployment.id,
+            }
+        })
 
     @authenticated
     @disable_on_overdue_payment

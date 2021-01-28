@@ -22,15 +22,16 @@ class DeploymentConfigBuilder:
         }
 
     def get_workflow_state_mapper(self, relationships):
-        states = {}
+        states = []
 
         for workflow_state in self.diagram_data.get("workflow_states", []):
             uuid = workflow_state['id']
             base = self.get_deployed_workflow_state_base(workflow_state, relationships)
-            states[uuid] = base
 
             if uuid in self.lambda_resource_map:
                 workflow_state['arn'] = self.lambda_resource_map[uuid]
+
+            states.append(base)
 
         return states
 
