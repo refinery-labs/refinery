@@ -5,9 +5,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o runtime .
 
 FROM alpine
 RUN apk --no-cache add ca-certificates
-WORKDIR /var/runtime
 
-ENV HANDLER_DIR /var/runtime/handlers
+ENV HANDLER_DIR /handlers
 
-COPY --from=builder /runtime/cmd/runtime/runtime bootstrap
-COPY --from=builder /runtime/fixtures/runtime/handlers .
+COPY --from=builder /runtime/cmd/runtime/runtime /var/runtime/bootstrap
+COPY --from=builder /runtime/fixtures/runtime/handlers /var/runtime/handlers

@@ -114,6 +114,10 @@ class ServerlessModuleBuilder:
         add_file_to_zipfile(zipfile, self.get_path(id_, "refinery_main.py"), code)
         add_file_to_zipfile(zipfile, self.get_path(id_, "lambda_function.py"), lambda_fn)
 
+        container = workflow_state.get('container')
+        if container is not None:
+            add_file_to_zipfile(zipfile, self.get_path(id_, "Dockerfile"), container)
+
     def build_nodejs(self, workflow_state, zipfile):
         id_ = workflow_state['id']
         code = workflow_state['code']

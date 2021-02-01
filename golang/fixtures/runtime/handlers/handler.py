@@ -8,7 +8,7 @@ if sys.path[0] != '':
 OUTPUT_TAG = "REFINERY_OUTPUT_CUSTOM_RUNTIME"
 
 def format_output(data):
-    return f"<{OUTPUT_TAG}>{data}</{OUTPUT_TAG}>"
+    return "<{tag}>{data}</{tag}>".format(data=data, tag=OUTPUT_TAG)
 
 def get_return_data(result, backpack, error):
     return json.dumps({

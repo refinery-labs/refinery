@@ -45,7 +45,7 @@ export type ProductionTransitionLookup = { [key in WorkflowRelationshipType]: Pr
 
 export interface ProductionLambdaWorkflowState extends ProductionWorkflowState {
   layers: string[];
-  container: string;
+  container?: string;
   code: string;
   language: SupportedLanguage;
   libraries: string[];

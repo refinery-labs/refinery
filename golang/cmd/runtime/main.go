@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"regexp"
@@ -19,34 +18,19 @@ var (
 	outputRegex = regexp.MustCompile(OUTPUT_REGEX)
 )
 
-type InvokeEvent struct {
-	Command      string           `json:"command"`
-	Handler      string           `json:"handler"`
-	Cwd          string           `json:"cwd"`
-	ImportPath   string           `json:"import_path"`
-	FunctionName string           `json:"function_name"`
-	BlockInput   *json.RawMessage `json:"block_input"`
-	Backpack     *json.RawMessage `json:"backpack"`
-}
-
-type HandlerResponse struct {
-	Result   *json.RawMessage `json:"result"`
-	Backpack *json.RawMessage `json:"backpack"`
-	Error    string           `json:"error"`
-}
-
-func parseStdout(stdout string) (handlerResponse HandlerResponse, err error) {
+func parseStdout(stdout string) (responseData runtime.HandlerResponse, err error) {
 	output := outputRegex.FindStringSubmatch(stdout)
 	if len(output) == 0 {
 		err = fmt.Errorf("Unable to find output from handler")
 		return
 	}
 	returnedData := output[1]
-	err = json.Unmarshal([]byte(returnedData), &handlerResponse)
+	err = json.Unmarshal([]byte(returnedData), &responseData)
 	return
 }
 
-func HandleRequest(ctx context.Context, invokeEvent InvokeEvent) (handlerResponse HandlerResponse, err error) {
+func HandleRequest(invokeEvent runtime.InvokeEvent) (lambdaResponse runtime.LambdaResponse, err error) {
+	fmt.Printf("Handling request: %+v\n", invokeEvent)
 	functionInput, err := json.Marshal(invokeEvent)
 	if err != nil {
 		return
@@ -72,7 +56,7 @@ func HandleRequest(ctx context.Context, invokeEvent InvokeEvent) (handlerRespons
 	/*
 		TODO should we use protobuf to communicate between the processes?
 	*/
-	handlerResponse, err = parseStdout(res.Stdout)
+	handlerResponse, err := parseStdout(res.Stdout)
 	if err != nil {
 		return
 	}
@@ -81,10 +65,14 @@ func HandleRequest(ctx context.Context, invokeEvent InvokeEvent) (handlerRespons
 		err = fmt.Errorf("%s", handlerResponse.Error)
 		return
 	}
+
+	lambdaResponse.Result = handlerResponse.Result
+	lambdaResponse.Backpack = handlerResponse.Backpack
 	return
 }
 
 func main() {
+	fmt.Println("Starting runtime...")
 	// Make the handler available for Remote Procedure Call by AWS Lambda
 	lambda.Start(HandleRequest)
 }

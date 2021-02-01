@@ -14,7 +14,7 @@ export interface BlockLayersEditorProps {
   activeBlockId: string | null;
   activeBlockName: string | null;
   layers: string[];
-  container: string;
+  container?: string;
 
   canAddMoreLayers: boolean;
 
@@ -36,7 +36,7 @@ export class EditBlockLayersEditor extends Vue implements BlockLayersEditorProps
   @Prop({ required: true }) activeBlockId!: string | null;
   @Prop({ required: true }) activeBlockName!: string | null;
   @Prop({ required: true }) layers!: string[];
-  @Prop({ required: true }) container!: string;
+  @Prop({ required: true }) container?: string;
 
   @Prop({ required: true }) readOnly!: boolean;
 
@@ -131,7 +131,7 @@ export class EditBlockLayersEditor extends Vue implements BlockLayersEditorProps
     const editorProps: EditorProps = {
       name: `docker-container`,
       lang: 'text',
-      content: this.container,
+      content: this.container || '# No Dockerfile specified for this block.',
       onChange: this.updateContainer
     };
 
