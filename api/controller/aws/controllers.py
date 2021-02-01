@@ -394,127 +394,17 @@ class DeployDiagram(BaseHandler):
     @gen.coroutine
     def do_diagram_deployment(self, project_name, project_id, diagram_data, project_config, force_redeploy):
         credentials = self.get_authenticated_user_cloud_configuration()
-
         org_id = self.get_authenticated_user_org().id
-
         latest_deployment = self.dbsession.query(Deployment).filter_by(
             project_id=project_id
         ).order_by(
             Deployment.timestamp.desc()
         ).first()
 
-        latest_deployment_json = None
-        if not force_redeploy and latest_deployment is not None:
-            latest_deployment_json = json.loads(latest_deployment.deployment_json)
-
-        # Kill the current session because deployment can take a very long time.
-        # A new session will be automatically opened when the session is grabbed again.
         self.dbsession.close()
 
         self._dbsession = None
 
-        # Model a deployment in memory to handle the deployment of each state
-        deployment_diagram: AwsDeployment = AwsDeployment(
-            project_id,
-            project_name,
-            project_config,
-            self.task_spawner,
-            credentials,
-            app_config=self.app_config,
-            aws_client_factory=self.aws_client_factory,
-            api_gateway_manager=self.api_gateway_manager,
-            latest_deployment=latest_deployment_json
-        )
-
-        exceptions = yield deployment_diagram.deploy_diagram(diagram_data)
-
-        # Check if the deployment failed
-        if len(exceptions) != 0:
-            yield self.rollback_deployment(deployment_diagram, credentials, [e.serialize() for e in exceptions])
-            raise gen.Return()
-
-        # Cleanup any unused resources
-        try:
-            yield self.cleanup_deployment(deployment_diagram, credentials, successful_deploy=True)
-        except Exception as e:
-            # Errors collected during cleanup should be non-blocking for a deployment
-            self.logger("An error occurred while cleaning up deployment: " + str(e), "error")
-
-        serialized_deployment = deployment_diagram.serialize()
-        org = self.get_authenticated_user_org()
-
-        # Add log bucket for the workflow manager to log to
-        workflow_manager_serialized_deployment = {
-            **serialized_deployment,
-            "logs_bucket": credentials["logs_bucket"],
-            "account_id": credentials["account_id"]
-        }
-
-        try:
-            yield self.workflow_manager_service.create_workflows_for_deployment(workflow_manager_serialized_deployment)
-        except WorkflowManagerException as e:
-            self.logger("An error occurred while trying to create workflows in the Workflow Manager: " + str(e), "error")
-
-            yield self.rollback_deployment(deployment_diagram, credentials, [str(e)])
-
-            raise gen.Return()
-
-        # TODO: Update the project data? Deployments should probably be an explicit "Save Project" action.
-
-        # Add a reference to this deployment from the associated project
-        existing_project = self.dbsession.query(Project).filter_by(
-            id=project_id
-        ).first()
-
-        if existing_project is None:
-            yield self.rollback_deployment(
-                deployment_diagram,
-                credentials,
-                [],
-                code="DEPLOYMENT_UPDATE",
-                msg="Unable to find project when updating deployment information."
-            )
-
-            raise gen.Return()
-
-        serialized_deployment = deployment_diagram.serialize()
-
-        new_deployment = Deployment(id=deployment_diagram.deployment_id)
-        new_deployment.organization_id = org.id
-        new_deployment.project_id = project_id
-        new_deployment.deployment_json = json.dumps(
-           serialized_deployment
-        )
-
-        existing_project.deployments.append(
-            new_deployment
-        )
-
-        deployment_log = DeploymentLog()
-        deployment_log.org_id = org_id
-
-        self.dbsession.add(deployment_log)
-        self.dbsession.commit()
-
-        # Update project config
-        self.logger("Updating database with new project config...")
-        update_project_config(
-            self.dbsession,
-            project_id,
-            deployment_diagram.get_updated_config()
-        )
-
-        self.write({
-            "success": True,
-            "result": {
-                "deployment_success": True,
-                "diagram_data": serialized_deployment,
-                "project_id": project_id,
-                "deployment_id": new_deployment.id,
-            }
-        })
-
-        """
         deployment_id = latest_deployment.id if latest_deployment else str(uuid4())
         builder = ServerlessBuilder(
             self.app_config,
@@ -525,79 +415,6 @@ class DeployDiagram(BaseHandler):
             diagram_data
         )
 
-        builder.build(rebuild=latest_deployment is not None)
-        """
-
-    @authenticated
-    @disable_on_overdue_payment
-    @gen.coroutine
-    def do_diagram_deployment_legacy(self, project_name, project_id, diagram_data, project_config, force_redeploy):
-        credentials = self.get_authenticated_user_cloud_configuration()
-
-        org_id = self.get_authenticated_user_org().id
-
-        latest_deployment = self.dbsession.query(Deployment).filter_by(
-            project_id=project_id
-        ).order_by(
-            Deployment.timestamp.desc()
-        ).first()
-
-        latest_deployment_json = None
-        if not force_redeploy and latest_deployment is not None:
-            latest_deployment_json = json.loads(latest_deployment.deployment_json)
-
-        # Kill the current session because deployment can take a very long time.
-        # A new session will be automatically opened when the session is grabbed again.
-        self.dbsession.close()
-
-        self._dbsession = None
-
-        # Model a deployment in memory to handle the deployment of each state
-        deployment_diagram: AwsDeployment = AwsDeployment(
-            project_id,
-            project_name,
-            project_config,
-            self.task_spawner,
-            credentials,
-            app_config=self.app_config,
-            aws_client_factory=self.aws_client_factory,
-            api_gateway_manager=self.api_gateway_manager,
-            latest_deployment=latest_deployment_json
-        )
-
-        exceptions = yield deployment_diagram.deploy_diagram(diagram_data)
-
-        # Check if the deployment failed
-        if len(exceptions) != 0:
-            yield self.rollback_deployment(deployment_diagram, credentials, [e.serialize() for e in exceptions])
-            raise gen.Return()
-
-        # Cleanup any unused resources
-        try:
-            yield self.cleanup_deployment(deployment_diagram, credentials, successful_deploy=True)
-        except Exception as e:
-            # Errors collected during cleanup should be non-blocking for a deployment
-            self.logger("An error occurred while cleaning up deployment: " + str(e), "error")
-
-        serialized_deployment = deployment_diagram.serialize()
-        org = self.get_authenticated_user_org()
-
-        # Add log bucket for the workflow manager to log to
-        workflow_manager_serialized_deployment = {
-            **serialized_deployment,
-            "logs_bucket": credentials["logs_bucket"],
-            "account_id": credentials["account_id"]
-        }
-
-        try:
-            yield self.workflow_manager_service.create_workflows_for_deployment(workflow_manager_serialized_deployment)
-        except WorkflowManagerException as e:
-            self.logger("An error occurred while trying to create workflows in the Workflow Manager: " + str(e), "error")
-
-            yield self.rollback_deployment(deployment_diagram, credentials, [str(e)])
-
-            raise gen.Return()
-
         # TODO: Update the project data? Deployments should probably be an explicit "Save Project" action.
 
         # Add a reference to this deployment from the associated project
@@ -606,53 +423,54 @@ class DeployDiagram(BaseHandler):
         ).first()
 
         if existing_project is None:
-            yield self.rollback_deployment(
-                deployment_diagram,
-                credentials,
-                [],
-                code="DEPLOYMENT_UPDATE",
-                msg="Unable to find project when updating deployment information."
-            )
+            self.write({
+                "success": False,
+                "code": "DEPLOYMENT_UPDATE",
+                "msg": "Unable to find project when updating deployment information.",
+            })
+
+            # TODO we probably want to teardown the deployment if this is the case
 
             raise gen.Return()
 
-        serialized_deployment = deployment_diagram.serialize()
+        project_log_table_future = self.task_spawner.create_project_id_log_table(
+            credentials,
+            project_id
+        )
 
-        new_deployment = Deployment(id=deployment_diagram.deployment_id)
-        new_deployment.organization_id = org.id
+        # Build the project
+        self.logger("Begin deployment")
+        deployment_config = builder.build(rebuild=latest_deployment is not None)
+
+        # Create deployment metadata
+        new_deployment = Deployment()
+        new_deployment.organization_id = org_id
         new_deployment.project_id = project_id
-        new_deployment.deployment_json = json.dumps(
-           serialized_deployment
-        )
+        new_deployment.deployment_json = json.dumps(deployment_config)
 
-        existing_project.deployments.append(
-            new_deployment
-        )
+        existing_project.deployments.append(new_deployment)
 
         deployment_log = DeploymentLog()
         deployment_log.org_id = org_id
 
         self.dbsession.add(deployment_log)
         self.dbsession.commit()
-
-        # Update project config
         self.logger("Updating database with new project config...")
         update_project_config(
             self.dbsession,
             project_id,
-            deployment_diagram.get_updated_config()
+            project_config
         )
 
         self.write({
             "success": True,
             "result": {
                 "deployment_success": True,
-                "diagram_data": serialized_deployment,
+                "diagram_data": deployment_config,
                 "project_id": project_id,
                 "deployment_id": new_deployment.id,
             }
         })
-
 
     @authenticated
     @disable_on_overdue_payment
@@ -683,7 +501,7 @@ class DeployDiagram(BaseHandler):
         try:
             # Enforce that we are only attempting to do this multiple times simultaneously for the same project
             with task_lock:
-                yield self.do_diagram_deployment_legacy(
+                yield self.do_diagram_deployment(
                     project_name, project_id, diagram_data, project_config, force_redeploy)
 
         except AcquireFailure:
