@@ -18,18 +18,22 @@ class ServerlessConfigBuilder:
         self.workflow_states = diagram_data['workflow_states']
         self.functions = {}
         self.resources = {}
+        self.container_images = {}
         self.serverless_config = {
             "service": self.slugify(self.name),
             "provider": {
                 "name": "aws",
-                "region": "us-west-2"
+                "region": "us-west-2",
+                "ecr": {
+                    "images": self.container_images
+                }
             },
             "functions": self.functions,
             "resources": self.resources,
             "package": {
                 "individually": True,
                 "exclude": ["./**"]
-            }
+            },
         }
 
     @cached_property
@@ -71,17 +75,22 @@ class ServerlessConfigBuilder:
     def build_lambda(self, workflow_state):
         id_ = self.get_id(workflow_state['id'])
         name = self.get_unique_name(workflow_state['name'], id_)
-        language = workflow_state['language']
         memory = workflow_state['memory']
+        language = workflow_state['language']
         max_execution_time = workflow_state['max_execution_time']
         reserved_concurrency_count = workflow_state['reserved_concurrency_count']
         environment_variables = workflow_state.get("environment_variables", {})
-        layers = workflow_state.get("layers", [])
-        handler = self.get_lambda_handler(id_, LANGUAGE_TO_HANDLER[language])
+        lambda_path = f"lambda/{id_}"
+
+        lambda_environment = self.get_lambda_environment(id_, workflow_state, language)
+        if lambda_environment.get('image') is not None:
+            self.container_images[id_] = {
+                "path": lambda_path
+            }
 
         self.functions[id_] = {
             "name": name,
-            "handler": handler,
+            **lambda_environment,
             "description": "A lambda deployed by refinery",
             "runtime": LANGUAGE_TO_RUNTIME[language],
             "memorySize": memory,
@@ -89,14 +98,28 @@ class ServerlessConfigBuilder:
             "reservedConcurrency": reserved_concurrency_count,
             "tracing": 'PassThrough',
             "environment": environment_variables,
-            "layers": layers,
             "package": {
                 "include": [
-                    f"lambda/{id_}/**"
+                    f"{lambda_path}/**"
                 ]
             }
         }
- 
+
+    def get_lambda_environment(self, id_, workflow_state, language):
+        if workflow_state.get('container') is not None and workflow_state.get('container') != '':
+            return {
+                "image": {
+                    "name": id_
+                }
+            }
+
+        handler = self.get_lambda_handler(id_, LANGUAGE_TO_HANDLER[language])
+        layers = workflow_state.get("layers", [])
+        return {
+            "handler": handler,
+            "layers": layers,
+        }
+
     def get_lambda_handler(self, id_, handler_module):
         return f'lambda/{id_}/{handler_module}'
 

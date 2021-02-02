@@ -91,7 +91,7 @@ class ServerlessBuilder(Builder):
             projectName='refinery-builds',
             sourceTypeOverride='s3',
             sourceLocationOverride=self.s3_path,
-            imageOverride="docker.io/node:12",
+            imageOverride="public.ecr.aws/d7v1k2o3/serverless-framework-codebuild@sha256:bc930b7820f97015a5539d594e75ff22e6bf883c377b3371b1b37cfacb4a7435"
         )['build']['id']
 
         logit(f'Completed codebuild id {build_id}')

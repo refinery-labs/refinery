@@ -16,20 +16,17 @@ BUILDSPEC = dump({
         ]
     },
     "phases": {
-        "install": {
-            "commands": [
-                "npm install -g serverless"
-            ]
-        },
         "build": {
             "commands": [
+                "dockerd-entrypoint.sh",
+                "aws ecr get-login-password | docker login --username AWS --password-stdin 623905218559.dkr.ecr.us-west-2.amazonaws.com",
                 "serverless deploy --stage prod",
                 "serverless info -v --stage prod > serverless_info"
             ]
         },
     },
     "run-as": "root",
-    "version": 0.1
+    "version": 0.2
 })
 
 

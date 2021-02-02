@@ -466,11 +466,22 @@ resource "aws_iam_policy" "refinery_codebuild_base_policy" {
     {
         "Effect": "Allow",
         "Action": [
-            "ecr:DescribeImages",
-            "ecr:UploadLayerPart",
+            "ecr:GetAuthorizationToken",
+            "ecr:BatchCheckLayerAvailability",
+            "ecr:GetDownloadUrlForLayer",
+            "ecr:GetRepositoryPolicy",
+            "ecr:SetRepositoryPolicy",
+            "ecr:DescribeRepositories",
             "ecr:ListImages",
+            "ecr:DescribeImages",
+            "ecr:BatchGetImage",
+            "ecr:ListTagsForResource",
+            "ecr:DescribeImageScanFindings",
             "ecr:InitiateLayerUpload",
-            "ecr:PutImage"
+            "ecr:UploadLayerPart",
+            "ecr:CompleteLayerUpload",
+            "ecr:PutImage",
+            "ecr:CreateRepository"
         ],
         "Resource": "arn:aws:ecr:*:${data.aws_caller_identity.current.account_id}:repository/*"
     },

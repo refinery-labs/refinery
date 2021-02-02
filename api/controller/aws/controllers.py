@@ -440,7 +440,8 @@ class DeployDiagram(BaseHandler):
 
         # Build the project
         self.logger("Begin deployment")
-        deployment_config = builder.build(rebuild=latest_deployment is not None)
+        # deployment_config = builder.build(rebuild=latest_deployment is not None)
+        deployment_config = builder.build(rebuild=False)
 
         # Create deployment metadata
         new_deployment = Deployment()

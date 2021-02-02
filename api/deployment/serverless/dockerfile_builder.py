@@ -10,6 +10,8 @@ FROM 623905218559.dkr.ecr.us-west-2.amazonaws.com/refinery-container-runtime AS 
 
 COPY --from=refinery-container-runtime /var/runtime/bootstrap /var/runtime/bootstrap
 COPY --from=refinery-container-runtime /var/runtime/handlers /var/runtime/handlers
+ 
+COPY . /var/task
 
 ENTRYPOINT [ "/var/runtime/bootstrap" ]
 """
