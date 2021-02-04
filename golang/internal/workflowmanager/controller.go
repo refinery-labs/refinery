@@ -25,11 +25,16 @@ func success(c *fiber.Ctx) {
 }
 
 func failure(c *fiber.Ctx, err error) {
-	log.Println(err)
+	log.Println(c.Method(), c.Path(), err)
 	c.JSON(map[string]interface{}{
 		"success": false,
 		"error":   err.Error(),
 	})
+}
+
+func (controller *Controller) ErrorHandler(ctx *fiber.Ctx, err error) error {
+	failure(ctx, err)
+	return err
 }
 
 // handleSnsTopicRequest either confirms a topic request or returns the message passed in via the topic.
@@ -87,11 +92,6 @@ func getTriggerData(body []byte, deploymentID, workflowID string) (inputData []s
 		inputData = append(inputData, req.Body)
 	}
 	return
-}
-
-func (controller *Controller) ErrorHandler(ctx *fiber.Ctx, err error) error {
-	failure(ctx, err)
-	return err
 }
 
 // continueWorkflow continues a workflow that has been blocked on some IO (ex. topics, queues, etc).

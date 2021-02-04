@@ -31,6 +31,13 @@ func getConfigProvider(configDir string) config.Provider {
 	return provider
 }
 
+func health(c *fiber.Ctx) error {
+	c.JSON(map[string]bool{
+		"success": true,
+	})
+	return nil
+}
+
 func main() {
 	provider := getConfigProvider("./config/workflow-manager")
 
@@ -62,6 +69,8 @@ func main() {
 		ErrorHandler:          controller.ErrorHandler,
 	})
 
+	app.Get("/", health)
+
 	api := app.Group("/api")
 	v1 := api.Group("/v1")
 
@@ -71,12 +80,10 @@ func main() {
 	v1.Delete("/deployment/:deploymentID", controller.CancelWorkflowsForDeployment)
 	v1.Post("/deployment", controller.CreateWorkflowsForDeployment)
 	v1.Delete("/executions", controller.StopAllOpenWorkflows)
-	v1.Get("/health", func(c *fiber.Ctx) error {
-		c.JSON(map[string]bool{
-			"success": true,
-		})
-		return nil
-	})
+	v1.Get("/health", health)
 
-	app.Listen(":3000")
+	err = app.Listen(":3000")
+	if err != nil {
+		log.Fatalln("Unable to start server", err)
+	}
 }

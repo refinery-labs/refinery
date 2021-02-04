@@ -24,14 +24,14 @@ class ServerlessInfoParser:
 
         # Parse dictionary from stack output
         for k, v in (i.strip().split(": ") for i in parts[-1].split("\n") if i):
-            if 'LambdaFunctionQualifiedArn' not in k or not k:
-                continue
+            if 'LambdaFunctionQualifiedArn' in k:
+                h = key_identifiers.sub('', k).lower()
 
-            h = key_identifiers.sub('', k).lower()
+                if len(h) != 32:
+                    continue
 
-            if len(h) != 32:
-                continue
-
-            result[f'{h[0:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:32]}'] = v.strip()
+                result[f'{h[0:8]}-{h[8:12]}-{h[12:16]}-{h[16:20]}-{h[20:32]}'] = v.strip()
+            else:
+                result[k] = v.strip()
         
         return result

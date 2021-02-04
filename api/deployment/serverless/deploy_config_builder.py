@@ -3,9 +3,10 @@ from functools import cached_property
 
 
 class DeploymentConfigBuilder:
-    def __init__(self, project_id, diagram_data, lambda_resource_map):
+    def __init__(self, project_id, diagram_data, build_id, lambda_resource_map):
         self.project_id = project_id
         self.diagram_data = diagram_data
+        self.build_id = build_id
         self.lambda_resource_map = lambda_resource_map
 
     @cached_property
@@ -16,6 +17,7 @@ class DeploymentConfigBuilder:
         return {
             "name": self.diagram_data['name'],
             "project_id": self.project_id,
+            "build_id": self.build_id,
             "global_handlers": {},
             "workflow_relationships": relationships,
             "workflow_states": states
@@ -24,12 +26,19 @@ class DeploymentConfigBuilder:
     def get_workflow_state_mapper(self, relationships):
         states = []
 
+        api_endpoint_base = self.lambda_resource_map.get('ApiGatewayInvokeURL')
+
         for workflow_state in self.diagram_data.get("workflow_states", []):
             uuid = workflow_state['id']
-            base = self.get_deployed_workflow_state_base(workflow_state, relationships)
 
             if uuid in self.lambda_resource_map:
                 workflow_state['arn'] = self.lambda_resource_map[uuid]
+
+            if workflow_state.get('type') == 'api_endpoint':
+                api_path = workflow_state.get('api_path')
+                workflow_state['url'] = api_endpoint_base + api_path
+
+            base = self.get_deployed_workflow_state_base(workflow_state, relationships)
 
             states.append(base)
 

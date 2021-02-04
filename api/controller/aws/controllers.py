@@ -7,6 +7,7 @@ import pinject
 from jsonschema import validate as validate_schema
 from tornado import gen
 
+from assistants.aws_clients.aws_clients_assistant import AwsClientFactory
 from assistants.deployments.aws_workflow_manager.aws_deployment import AwsDeployment
 from assistants.deployments.aws.lambda_function import LambdaWorkflowState
 from assistants.deployments.aws.utils import get_base_lambda_code
@@ -18,6 +19,7 @@ from controller.decorators import authenticated, disable_on_overdue_payment
 from controller.logs.actions import delete_logs
 from controller.projects.actions import update_project_config
 from deployment.serverless.builder import ServerlessBuilder
+from deployment.serverless.dismantler import ServerlessDismantler
 from models import InlineExecutionLambda, Project, Deployment, DeploymentLog
 from pyexceptions.builds import BuildException
 from services.workflow_manager.workflow_manager_service import WorkflowManagerService, WorkflowManagerException
@@ -241,7 +243,8 @@ class InfraTearDownDependencies:
         schedule_trigger_manager,
         sns_manager,
         sqs_manager,
-        workflow_manager_service
+        workflow_manager_service,
+        aws_client_factory
     ):
         pass
 
@@ -255,61 +258,39 @@ class InfraTearDown(BaseHandler):
     sns_manager = None
     sqs_manager = None
     workflow_manager_service: WorkflowManagerService = None
+    aws_client_factory: AwsClientFactory = None
 
     @authenticated
     @gen.coroutine
     def post(self):
-
-        teardown_nodes = self.json["teardown_nodes"]
-
         credentials = self.get_authenticated_user_cloud_configuration()
 
-        yield self._append_transition_arns(self.json['deployment_id'], teardown_nodes)
-        teardown_operation_results = yield teardown_infrastructure(
-            self.api_gateway_manager,
-            self.lambda_manager,
-            self.schedule_trigger_manager,
-            self.sns_manager,
-            self.sqs_manager,
+        project_id = self.json["project_id"]
+        deployment_id = self.json["deployment_id"]
+
+        serverless_dismanteler = ServerlessDismantler(
+            self.app_config,
+            self.aws_client_factory,
             credentials,
-            teardown_nodes
+            deployment_id
         )
+        serverless_dismanteler.dismantle()
 
         # Delete our logs
         # No need to yield till it completes
         delete_logs(
             self.task_spawner,
             credentials,
-            self.json["project_id"]
+            project_id
         )
 
-        self.workflow_manager_service.delete_deployment_workflows(self.json["deployment_id"])
+        self.workflow_manager_service.delete_deployment_workflows(deployment_id)
         # TODO client should send ARN to server
 
         self.write({
             "success": True,
-            "result": teardown_operation_results
+            "result": "done"
         })
-
-    @gen.coroutine
-    def _append_transition_arns(self, deployment_id, teardown_nodes):
-        deployment = self.db_session_maker.query(Deployment).filter_by(
-            id=deployment_id
-        ).first()
-
-        if not deployment:
-            return
-
-        deploy_info = json.loads(deployment.deployment_json) or {}
-        transition_handlers = deploy_info.get('transition_handlers', {})
-
-        for arn in transition_handlers.values():
-            teardown_nodes.append({
-                "type": "lambda",
-                "name": arn,
-                "id": arn,
-                "arn": arn
-            })
 
 
 class InfraCollisionCheck(BaseHandler):
@@ -405,6 +386,9 @@ class DeployDiagram(BaseHandler):
 
         self._dbsession = None
 
+        previous_deployment_json = json.loads(latest_deployment.deployment_json) if latest_deployment else {}
+        previous_build_id = previous_deployment_json.get('build_id') if previous_deployment_json else None
+
         deployment_id = latest_deployment.id if latest_deployment else str(uuid4())
         builder = ServerlessBuilder(
             self.app_config,
@@ -412,6 +396,7 @@ class DeployDiagram(BaseHandler):
             credentials,
             project_id,
             deployment_id,
+            previous_build_id,
             diagram_data
         )
 
@@ -440,8 +425,7 @@ class DeployDiagram(BaseHandler):
 
         # Build the project
         self.logger("Begin deployment")
-        # deployment_config = builder.build(rebuild=latest_deployment is not None)
-        deployment_config = builder.build(rebuild=False)
+        deployment_config = builder.build(rebuild=previous_build_id is not None)
 
         # Create deployment metadata
         new_deployment = Deployment()

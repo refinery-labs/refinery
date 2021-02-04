@@ -11,11 +11,6 @@ BUILDSPEC = dump({
         ]
     },
     "phases": {
-        "install": {
-            "commands": [
-                "npm install -g serverless"
-            ]
-        },
         "build": {
             "commands": [
                 "serverless remove"
@@ -42,15 +37,19 @@ class ServerlessDismantler(Dismantler):
         )
 
     @cached_property
+    def s3_key(self):
+        return f'buildspecs/{self.deployment_id}.zip'
+
+    @cached_property
     def s3_path(self):
-        return f'{self.credentials["lambda_packages_bucket"],}/{self.deployment_id}.zip'
+        return f"{self.credentials['lambda_packages_bucket']}/{self.s3_key}"
 
     def dismantle(self):
         build_id = self.codebuild.start_build(
-            projectName='refinery-serverless-teardowns',
+            projectName='refinery-builds',
             sourceTypeOverride='s3',
             sourceLocationOverride=self.s3_path,
-            imageOverride="aws/codebuild/nodejs:12"
+            imageOverride="public.ecr.aws/d7v1k2o3/serverless-framework-codebuild:latest"
         )['build']['id']
 
         wait_for_codebuild_completion(

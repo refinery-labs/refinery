@@ -6,7 +6,7 @@ from pyconstants.project_constants import PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME
 from pyconstants.project_constants import NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME
 from utils.general import add_file_to_zipfile
 from yaml import dump
-from zipfile import ZIP_DEFLATED, ZipFile
+from zipfile import ZIP_STORED, ZipFile
 
 
 BUILDSPEC = dump({
@@ -59,7 +59,7 @@ class ServerlessModuleBuilder:
             return buffer.getvalue()
 
     def _build(self, buffer):
-        with ZipFile(buffer, 'w', ZIP_DEFLATED) as zipfile:
+        with ZipFile(buffer, 'w', ZIP_STORED) as zipfile:
             self.build_workflow_states(zipfile)
             self.build_config(zipfile)
             self.add_buildspec(zipfile)

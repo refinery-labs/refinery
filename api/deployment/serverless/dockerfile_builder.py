@@ -1,5 +1,5 @@
 from io import BytesIO
-from zipfile import ZIP_DEFLATED, ZipFile
+from zipfile import ZIP_STORED, ZipFile
 
 from utils.general import add_file_to_zipfile
 
@@ -37,7 +37,7 @@ class DockerEnvBuilder:
             return buffer.getvalue()
 
     def _build(self, buffer):
-        with ZipFile(buffer, 'w', ZIP_DEFLATED) as zipfile:
+        with ZipFile(buffer, 'w', ZIP_STORED) as zipfile:
             self.build_dockerfile(zipfile)
 
     def build_dockerfile(self, zipfile):

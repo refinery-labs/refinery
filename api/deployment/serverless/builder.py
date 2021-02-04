@@ -7,16 +7,17 @@ from io import BytesIO
 from tasks.build.common import get_codebuild_artifact_zip_data
 from utils.general import logit
 from uuid import uuid4
-from zipfile import ZipFile
+from zipfile import ZipFile, ZIP_STORED, ZIP_DEFLATED
 
 
 class ServerlessBuilder(Builder):
-    def __init__(self, app_config, aws_client_factory, credentials, project_id, deployment_id, diagram_data):
+    def __init__(self, app_config, aws_client_factory, credentials, project_id, deployment_id, build_id, diagram_data):
         self.app_config = app_config
         self.aws_client_factory = aws_client_factory
         self.credentials = credentials
         self.project_id = project_id
         self.deployment_id = deployment_id
+        self.build_id = build_id
         self.diagram_data = diagram_data
 
     @cached_property
@@ -51,6 +52,14 @@ class ServerlessBuilder(Builder):
 
     def build(self, rebuild=False):
         artifact_zip = self.get_artifact_zipfile() if rebuild else None
+
+        if artifact_zip is not None:
+            unpacked_artifact_zip = BytesIO()
+            with ZipFile(artifact_zip, 'r', ZIP_STORED) as zipfile, ZipFile(unpacked_artifact_zip, 'w', ZIP_DEFLATED) as new_zipfile:
+                for f in zipfile.namelist():
+                    new_zipfile.writestr(f, zipfile.read(f))
+            artifact_zip = unpacked_artifact_zip
+
         module_builder = ServerlessModuleBuilder(
             self.app_config,
             self.project_id,
@@ -58,23 +67,33 @@ class ServerlessBuilder(Builder):
             self.diagram_data
         )
         zipfile = module_builder.build(artifact_zip)
-        serverless_zipfile = self.perform_codebuild(zipfile)
+
+        build_id = self.perform_codebuild(zipfile)
+
+        serverless_zipfile = get_codebuild_artifact_zip_data(
+            self.aws_client_factory,
+            self.credentials,
+            build_id,
+            self.final_s3_package_zip_path
+        )
         lambda_resource_map = self.parse_serverless_output(serverless_zipfile)
         config_builder = DeploymentConfigBuilder(
             self.project_id,
             self.diagram_data,
+            build_id,
             lambda_resource_map
         )
 
         return config_builder.value
 
     def get_artifact_zipfile(self):
-        return self.read_from_s3(
+        s3_file_bytes = get_codebuild_artifact_zip_data(
             self.aws_client_factory,
             self.credentials,
-            self.s3_bucket,
+            self.build_id,
             self.final_s3_package_zip_path
         )
+        return BytesIO(s3_file_bytes)
 
     def perform_codebuild(self, zipfile):
         logit(f'Creating codebuild s3 location override at {self.s3_path}')
@@ -91,17 +110,12 @@ class ServerlessBuilder(Builder):
             projectName='refinery-builds',
             sourceTypeOverride='s3',
             sourceLocationOverride=self.s3_path,
-            imageOverride="public.ecr.aws/d7v1k2o3/serverless-framework-codebuild@sha256:bc930b7820f97015a5539d594e75ff22e6bf883c377b3371b1b37cfacb4a7435"
+            imageOverride="public.ecr.aws/d7v1k2o3/serverless-framework-codebuild:latest"
         )['build']['id']
 
         logit(f'Completed codebuild id {build_id}')
 
-        return get_codebuild_artifact_zip_data(
-            self.aws_client_factory,
-            self.credentials,
-            build_id,
-            self.final_s3_package_zip_path
-        )
+        return build_id
 
     def parse_serverless_output(self, serverless_zipfile):
         # TODO return deployment.json created from project.json and serverless_info

@@ -19,6 +19,7 @@ class ServerlessConfigBuilder:
         self.functions = {}
         self.resources = {}
         self.container_images = {}
+        self.api_method_ids = []
         self.serverless_config = {
             "service": self.slugify(self.name),
             "provider": {
@@ -26,7 +27,8 @@ class ServerlessConfigBuilder:
                 "region": "us-west-2",
                 "ecr": {
                     "images": self.container_images
-                }
+                },
+                "stage": "dev"
             },
             "functions": self.functions,
             "resources": self.resources,
@@ -47,19 +49,6 @@ class ServerlessConfigBuilder:
         }
 
     def build(self):
-        # TODO We will not build an api gateway with SF, instead we will build and manage it from API.
-        # Today, the api gateway is stored in the project config (different than the project.json)
-        # we will need the restApiId (api gateway id) to persist through deployments to prevent
-        # user's project domain from changing on every deploy, teardown, and redeploy.
-        #
-        # provider:
-        #  apiGateway:
-        #    restApiId:
-        #      'Fn::ImportValue': apiGateway-restApiId
-
-        # TODO If we have the above implemented, we don't need this.
-        self.build_api_gateway()
-
         for workflow_state in self.workflow_states:
             type_ = workflow_state['type']
             builder = self.workflow_state_mappers[type_]
@@ -184,28 +173,6 @@ class ServerlessConfigBuilder:
     # API Resource
     ###########################################################################
 
-    def build_api_gateway(self):
-        name = self.get_api_gateway_name()
-        api_gateway_resource = {
-            "ApiGatewayRestApi": {
-                "Type": "AWS::ApiGateway::RestApi",
-                "Properties": {
-                    "Name": name
-                }
-            }
-        }
-        self.set_aws_resources(api_gateway_resource)
-
-        api_gateway_output = {
-            "ApiGatewayRestApiID": {
-                "Value": {
-                    "Ref": "ApiGatewayRestApi"
-                }
-            }
-        }
-        self.set_aws_outputs(api_gateway_output)
-
-
     def build_api_gateway_response(self, workflow_state):
         # Do nothing
         return
@@ -217,6 +184,8 @@ class ServerlessConfigBuilder:
         api_path = workflow_state['api_path']
         path_parts = [i.strip() for i in api_path.split('/') if i]
 
+        i = 0
+        path_part = None
         for i, path_part in enumerate(path_parts):
             parent = path_parts[i - 1] if i > 0 else None
             self.set_api_resource(api_resources, path_part, i, parent)
@@ -232,12 +201,57 @@ class ServerlessConfigBuilder:
 
         project_id = self.get_id(self.project_id)
 
+        # TODO We will not build an api gateway with SF, instead we will build and manage it from API.
+        # Today, the api gateway is stored in the project config (different than the project.json)
+        # we will need the restApiId (api gateway id) to persist through deployments to prevent
+        # user's project domain from changing on every deploy, teardown, and redeploy.
+        #
+        # provider:
+        #  apiGateway:
+        #    restApiId:
+        #      'Fn::ImportValue': apiGateway-restApiId
+
         self.set_aws_resources({
             "ApiGatewayRestApi": {
                 "Type": "AWS::ApiGateway::RestApi",
-                "Properties": {"Name": f"Gateway_{project_id}"}
+                "Properties": {
+                    "Name": f"Gateway_{project_id}"
+                }
+            },
+            "ApiGatewayDeployment": {
+                "Type": "AWS::ApiGateway::Deployment",
+                "DependsOn": self.api_method_ids,
+                "Properties": {
+                    "RestApiId": {
+                        "Ref": "ApiGatewayRestApi"
+                    },
+                    "StageName": "${self:provider.stage, 'dev'}"
+                }
             }
         })
+
+        invoke_url_format = [
+            "https://",
+            {"Ref": "ApiGatewayRestApi"},
+            ".execute-api.${self:provider.region}.amazonaws.com/${self:provider.stage, 'dev'}"
+        ]
+
+        self.set_aws_outputs({
+            "ApiGatewayRestApiID": {
+                "Value": {
+                    "Ref": "ApiGatewayRestApi"
+                }
+            },
+            "ApiGatewayInvokeURL": {
+                "Value": {
+                    "Fn::Join": [
+                        "",
+                        invoke_url_format
+                    ]
+                }
+            }
+        })
+
         self._api_resource_base_set = True
 
     def set_api_resource(self, api_resources, path_part, index, parent=None):
@@ -272,6 +286,17 @@ class ServerlessConfigBuilder:
         base = self.app_config.get("workflow_manager_api_url")
         uri = f"{base}/deployment/{self.deployment_id}/workflow/{raw_id}"
 
+        self.api_method_ids.append(id_)
+
+        method_response_codes = [
+            {
+                "StatusCode": 200
+            },
+            {
+                "StatusCode": 500
+            }
+        ]
+
         return {
             id_: {
                 "Type": "AWS::ApiGateway::Method",
@@ -285,10 +310,12 @@ class ServerlessConfigBuilder:
                     "HttpMethod": http_method.upper(),
                     "AuthorizationType": "",
                     "Integration": {
-                        "IntegrationHttpMethod": "POST",
+                        "IntegrationHttpMethod": http_method.upper(),
                         "Type": "HTTP",
                         "Uri": uri,
-                    }
+                        "IntegrationResponse": method_response_codes
+                    },
+                    "MethodResponses": method_response_codes
                 }
             }
         }
@@ -303,10 +330,6 @@ class ServerlessConfigBuilder:
     def get_url_resource_name(self, name, index):
         safe_name = self.get_safe_config_key(name)
         return f"Path{safe_name}{index}"
-
-    def get_api_gateway_name(self):
-        # TODO we should use the project's ID instead of the name to prevent collisions
-        return f"ApiGateway{self.name}"
 
     def set_aws_resources(self, resources):
         if "Resources" not in self.resources:
