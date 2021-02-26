@@ -229,6 +229,8 @@ func (controller *Controller) StartWorkflow(c *fiber.Ctx) error {
 	workflowID := c.Params("workflowID")
 	log.Println("Starting workflow:", workflowID, "for project:", deploymentID)
 
+	fmt.Printf("%s", c.Body())
+
 	startedWorkflows, err := controller.startWorkflows(
 		ctx,
 		deploymentID,

@@ -1,12 +1,13 @@
+import json
+
+from botocore.exceptions import ClientError
 from deployment.base import Builder
 from deployment.serverless.deploy_config_builder import DeploymentConfigBuilder
 from deployment.serverless.info_parser import ServerlessInfoParser
 from deployment.serverless.module_builder import ServerlessModuleBuilder
 from functools import cached_property
 from io import BytesIO
-from tasks.build.common import get_codebuild_artifact_zip_data
 from utils.general import logit
-from uuid import uuid4
 from zipfile import ZipFile, ZIP_STORED, ZIP_DEFLATED
 
 
@@ -21,9 +22,9 @@ class ServerlessBuilder(Builder):
         self.diagram_data = diagram_data
 
     @cached_property
-    def codebuild(self):
+    def lambda_function(self):
         return self.aws_client_factory.get_aws_client(
-            "codebuild",
+            "lambda",
             self.credentials
         )
 
@@ -50,6 +51,10 @@ class ServerlessBuilder(Builder):
     def final_s3_package_zip_path(self):
         return f"{self.deployment_id}.zip"
 
+    @cached_property
+    def serverless_deploy_arn(self):
+        return self.app_config.get("serverless_deploy_arn")
+
     def build(self, rebuild=False):
         artifact_zip = self.get_artifact_zipfile() if rebuild else None
 
@@ -68,54 +73,65 @@ class ServerlessBuilder(Builder):
         )
         zipfile = module_builder.build(artifact_zip)
 
-        build_id = self.perform_codebuild(zipfile)
+        serverless_output = self.perform_lambda_serverless_deploy(zipfile)
+        parser = ServerlessInfoParser(serverless_output)
 
-        serverless_zipfile = get_codebuild_artifact_zip_data(
-            self.aws_client_factory,
-            self.credentials,
-            build_id,
-            self.final_s3_package_zip_path
-        )
-        lambda_resource_map = self.parse_serverless_output(serverless_zipfile)
+        lambda_resource_map = parser.lambda_resource_map
+
         config_builder = DeploymentConfigBuilder(
             self.project_id,
             self.diagram_data,
-            build_id,
+            self.deployment_id,
+            self.build_id,
             lambda_resource_map
         )
 
         return config_builder.value
 
     def get_artifact_zipfile(self):
-        s3_file_bytes = get_codebuild_artifact_zip_data(
-            self.aws_client_factory,
-            self.credentials,
-            self.build_id,
-            self.final_s3_package_zip_path
-        )
+        try:
+            s3_file = self.s3.get_object(
+                Bucket=self.s3_bucket,
+                Key=self.s3_key
+            )
+        except ClientError as e:
+            logit(f'Error while accessing previous build artifact: {e.response}')
+            return None
+
+        s3_file_bytes = s3_file["Body"].read()
+
         return BytesIO(s3_file_bytes)
 
-    def perform_codebuild(self, zipfile):
-        logit(f'Creating codebuild s3 location override at {self.s3_path}')
+    def perform_lambda_serverless_deploy(self, zipfile):
+        logit(f'Creating s3 build bundle override at {self.s3_path}')
 
         self.s3.put_object(
-            Bucket=self.credentials['lambda_packages_bucket'],
+            Bucket=self.s3_bucket,
             Body=zipfile,
             Key=self.s3_key,
             # Legacy indicates this value must be public read, this assertion
             # should be validated in the future.
             ACL="public-read"
         )
-        build_id = self.codebuild.start_build(
-            projectName='refinery-builds',
-            sourceTypeOverride='s3',
-            sourceLocationOverride=self.s3_path,
-            imageOverride="public.ecr.aws/d7v1k2o3/serverless-framework-codebuild:latest"
-        )['build']['id']
 
-        logit(f'Completed codebuild id {build_id}')
+        payload = {
+            "bucket": self.s3_bucket,
+            "key": self.s3_key,
+            "action": "deploy",
+            "deployment_id": self.deployment_id
+        }
 
-        return build_id
+        resp = self.lambda_function.invoke(
+            FunctionName=self.serverless_deploy_arn,
+            InvocationType='RequestResponse',
+            LogType='Tail',
+            Payload=json.dumps(payload).encode()
+        )
+        payload = resp["Payload"].read()
+
+        # TODO error check
+
+        return json.loads(payload)["output"]
 
     def parse_serverless_output(self, serverless_zipfile):
         # TODO return deployment.json created from project.json and serverless_info

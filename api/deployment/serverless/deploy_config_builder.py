@@ -3,9 +3,10 @@ from functools import cached_property
 
 
 class DeploymentConfigBuilder:
-    def __init__(self, project_id, diagram_data, build_id, lambda_resource_map):
+    def __init__(self, project_id, diagram_data, deployment_id, build_id, lambda_resource_map):
         self.project_id = project_id
         self.diagram_data = diagram_data
+        self.deployment_id = deployment_id
         self.build_id = build_id
         self.lambda_resource_map = lambda_resource_map
 
@@ -17,6 +18,7 @@ class DeploymentConfigBuilder:
         return {
             "name": self.diagram_data['name'],
             "project_id": self.project_id,
+            "deployment_id": self.deployment_id,
             "build_id": self.build_id,
             "global_handlers": {},
             "workflow_relationships": relationships,

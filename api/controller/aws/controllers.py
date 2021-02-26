@@ -389,13 +389,13 @@ class DeployDiagram(BaseHandler):
         previous_deployment_json = json.loads(latest_deployment.deployment_json) if latest_deployment else {}
         previous_build_id = previous_deployment_json.get('build_id') if previous_deployment_json else None
 
-        deployment_id = latest_deployment.id if latest_deployment else str(uuid4())
+        new_deployment_id = str(uuid4())
         builder = ServerlessBuilder(
             self.app_config,
             self.aws_client_factory,
             credentials,
             project_id,
-            deployment_id,
+            new_deployment_id,
             previous_build_id,
             diagram_data
         )
@@ -427,8 +427,21 @@ class DeployDiagram(BaseHandler):
         self.logger("Begin deployment")
         deployment_config = builder.build(rebuild=previous_build_id is not None)
 
+        try:
+            yield self.workflow_manager_service.create_workflows_for_deployment(deployment_config)
+        except WorkflowManagerException as e:
+            self.logger("An error occurred while trying to create workflows in the Workflow Manager: " + str(e), "error")
+
+            self.write({
+                "success": False,
+                "code": "DEPLOYMENT_WORKFLOWS",
+                "msg": "An error occurred while trying to create workflows in the workflow manager",
+            })
+
+            raise gen.Return()
+
         # Create deployment metadata
-        new_deployment = Deployment()
+        new_deployment = Deployment(id=new_deployment_id)
         new_deployment.organization_id = org_id
         new_deployment.project_id = project_id
         new_deployment.deployment_json = json.dumps(deployment_config)

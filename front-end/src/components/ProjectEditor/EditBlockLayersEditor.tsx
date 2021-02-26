@@ -128,14 +128,20 @@ export class EditBlockLayersEditor extends Vue implements BlockLayersEditorProps
   }
 
   public renderContainerEditor() {
-    const editorProps: EditorProps = {
-      name: `docker-container`,
-      lang: 'text',
-      content: this.container || '# No Dockerfile specified for this block.',
-      onChange: this.updateContainer
-    };
-
-    return <RefineryCodeEditor props={editorProps} />;
+    return (
+      <b-form>
+        <b-form-group>
+          <b-input
+            disabled={this.readOnly}
+            className="col-md-10"
+            placeholder="Base Docker image (ie. alpine, ubuntu:18.08, etc.)"
+            value={this.container}
+            required={true}
+            on={{ update: this.updateContainer }}
+          />
+        </b-form-group>
+      </b-form>
+    );
   }
 
   public renderModal() {

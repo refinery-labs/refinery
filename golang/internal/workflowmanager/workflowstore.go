@@ -85,7 +85,7 @@ func (s DatabaseWorkflowStore) SaveDeploymentWorkflows(deploymentID string, work
 	}
 
 	var stmt *sql.Stmt
-	if stmt, err = tx.Prepare("INSERT INTO workflows(id, deployment_id, dsl) VALUES ($1, $2, $3)"); err != nil {
+	if stmt, err = tx.Prepare("INSERT INTO workflows(id, deployment_id, dsl) VALUES ($1, $2, $3) ON DUPLICATE UPDATE workflows SET dsl=? WHERE id=? AND deployment_id=?"); err != nil {
 		return
 	}
 	defer stmt.Close()
@@ -97,7 +97,9 @@ func (s DatabaseWorkflowStore) SaveDeploymentWorkflows(deploymentID string, work
 			return
 		}
 
-		if _, err = stmt.Exec(workflowID, deploymentID, string(serializedDSL)); err != nil {
+		dsl := string(serializedDSL)
+
+		if _, err = stmt.Exec(workflowID, deploymentID, dsl, dsl, workflowID, deploymentID); err != nil {
 			return
 		}
 	}

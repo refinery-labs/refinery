@@ -20,7 +20,7 @@ BUILDSPEC = dump({
             "commands": [
                 "dockerd-entrypoint.sh",
                 "aws ecr get-login-password | docker login --username AWS --password-stdin 623905218559.dkr.ecr.us-west-2.amazonaws.com",
-                "serverless deploy --stage prod",
+                "serverless deploy --stage prod --aws-s3-accelerate",
                 "serverless info -v --stage prod > serverless_info"
             ]
         },

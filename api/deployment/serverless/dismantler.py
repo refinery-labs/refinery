@@ -1,8 +1,11 @@
+import json
+
 from deployment.base import Dismantler
 from functools import cached_property
 from tasks.build.common import wait_for_codebuild_completion
 from yaml import dump
 
+from utils.general import logit
 
 BUILDSPEC = dump({
     "artifacts": {
@@ -37,23 +40,44 @@ class ServerlessDismantler(Dismantler):
         )
 
     @cached_property
+    def lambda_function(self):
+        return self.aws_client_factory.get_aws_client(
+            "lambda",
+            self.credentials
+        )
+
+    @cached_property
     def s3_key(self):
         return f'buildspecs/{self.deployment_id}.zip'
 
     @cached_property
+    def s3_bucket(self):
+        return self.credentials['lambda_packages_bucket']
+
+    @cached_property
     def s3_path(self):
-        return f"{self.credentials['lambda_packages_bucket']}/{self.s3_key}"
+        return f"{self.s3_bucket}/{self.s3_key}"
+
+    @cached_property
+    def serverless_deploy_arn(self):
+        return self.app_config.get("serverless_deploy_arn")
 
     def dismantle(self):
-        build_id = self.codebuild.start_build(
-            projectName='refinery-builds',
-            sourceTypeOverride='s3',
-            sourceLocationOverride=self.s3_path,
-            imageOverride="public.ecr.aws/d7v1k2o3/serverless-framework-codebuild:latest"
-        )['build']['id']
+        payload = {
+            "bucket": self.s3_bucket,
+            "key": self.s3_key,
+            "action": "remove",
+            "deployment_id": self.deployment_id
+        }
 
-        wait_for_codebuild_completion(
-            self.aws_client_factory,
-            self.credentials,
-            build_id
+        resp = self.lambda_function.invoke(
+            FunctionName=self.serverless_deploy_arn,
+            InvocationType='RequestResponse',
+            LogType='Tail',
+            Payload=json.dumps(payload).encode()
         )
+        payload = resp["Payload"].read()
+
+        # TODO error check
+
+        return json.loads(payload)["output"]

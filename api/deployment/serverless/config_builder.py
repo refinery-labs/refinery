@@ -313,7 +313,7 @@ class ServerlessConfigBuilder:
                         "IntegrationHttpMethod": http_method.upper(),
                         "Type": "HTTP",
                         "Uri": uri,
-                        "IntegrationResponse": method_response_codes
+                        "IntegrationResponses": method_response_codes
                     },
                     "MethodResponses": method_response_codes
                 }

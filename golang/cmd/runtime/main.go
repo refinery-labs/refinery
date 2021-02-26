@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"log"
+	"os"
 	"regexp"
 	"strings"
 
+	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/refinery-labs/refinery/golang/internal/runtime"
 )
@@ -29,6 +33,26 @@ func parseStdout(stdout string) (responseData runtime.HandlerResponse, err error
 	return
 }
 
+func HandleRequestApiGateway(ctx context.Context, request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
+	var invokeEvent runtime.InvokeEvent
+
+	err := json.Unmarshal([]byte(request.Body), &invokeEvent)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, err
+	}
+
+	resp, err := HandleRequest(invokeEvent)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, err
+	}
+
+	body, err := json.Marshal(resp)
+	if err != nil {
+		return events.APIGatewayProxyResponse{}, err
+	}
+	return events.APIGatewayProxyResponse{Body: string(body), StatusCode: 200}, nil
+}
+
 func HandleRequest(invokeEvent runtime.InvokeEvent) (lambdaResponse runtime.LambdaResponse, err error) {
 	fmt.Printf("Handling request: %+v\n", invokeEvent)
 	functionInput, err := json.Marshal(invokeEvent)
@@ -49,6 +73,10 @@ func HandleRequest(invokeEvent runtime.InvokeEvent) (lambdaResponse runtime.Lamb
 	}
 
 	res, err := cmd.Execute()
+
+	fmt.Println("STDOUT", res.Stdout)
+	fmt.Println("STDERR", res.Stderr)
+
 	if err != nil {
 		return
 	}
@@ -74,5 +102,13 @@ func HandleRequest(invokeEvent runtime.InvokeEvent) (lambdaResponse runtime.Lamb
 func main() {
 	fmt.Println("Starting runtime...")
 	// Make the handler available for Remote Procedure Call by AWS Lambda
-	lambda.Start(HandleRequest)
+	lambdaEnv := os.Getenv("LAMBDA_ENVIRONMENT")
+	switch lambdaEnv {
+	case "REFINERY":
+		lambda.Start(HandleRequest)
+	case "API_GATEWAY":
+		lambda.Start(HandleRequestApiGateway)
+	default:
+		log.Fatal("Unsupported lambda environment type:", lambdaEnv)
+	}
 }
