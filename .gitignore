@@ -8,12 +8,13 @@ elastic-beanstack-package.zip
 docker-*.yml
 docker-*.yaml
 install/config.yaml
-front-end/node_modules/
+node_modules/
 auto-reload.sh
 nginx-container/front-end-dist/
 *.validator.ts
 secrets.json
 secrets.yaml
+.webpack/
 
 # Created by https://www.gitignore.io/api/intellij
 # Edit at https://www.gitignore.io/?templates=intellij
