@@ -1,0 +1,5 @@
+---
+Outputs:
+  ServerlessFrameworkBuilderLambdaFunctionArn:
+    Description: 'ARN will be imported by other stacks'
+    Value: !GetAtt ServerlessFrameworkBuilderLambdaFunction.Arn

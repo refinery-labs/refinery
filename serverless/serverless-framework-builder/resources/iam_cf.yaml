@@ -1,0 +1,30 @@
+---
+Resources:
+  ExampleLambdaRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: "${self:service}-${self:provider.stage}-${self:provider.region}-ExampleLambdaRole"
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Policies:
+        - PolicyName: ExampleLambdaPolicy
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                - "s3:*"
+                - "cloudformation:*"
+                - "iam:*"
+                - "lambda:*"
+                - "apigateway:*"
+                - "sqs:*"
+                - "logs:*"
+                Resource: "*"
+      ManagedPolicyArns:
+        - "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+        - "arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess"
+        - "arn:aws:iam::aws:policy/AmazonElasticFileSystemClientReadWriteAccess"
