@@ -4,6 +4,8 @@ from uuid import uuid4
 from zipfile import ZIP_DEFLATED, ZipFile
 
 from yaml import dump
+from tornado import gen
+from tornado.concurrent import run_on_executor
 
 from pyconstants.project_constants import NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME
 from tasks.build.common import get_codebuild_artifact_zip_data, get_final_zip_package_path
@@ -37,7 +39,9 @@ class NodeJs12Builder:
     RUNTIME = "nodejs10.x"
     RUNTIME_PRETTY_NAME = NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME
 
-    def __init__(self, app_config, aws_client_factory, credentials, code, libraries):
+    def __init__(self, executor, loop, app_config, aws_client_factory, credentials, code, libraries):
+        self.executor = executor
+        self.loop = loop
         self.app_config = app_config
         self.aws_client_factory = aws_client_factory
         self.credentials = credentials
@@ -49,9 +53,11 @@ class NodeJs12Builder:
     def lambda_function(self):
         return self.app_config.get("LAMBDA_TEMPORAL_RUNTIMES")[self.RUNTIME]
 
+    @gen.coroutine
     def build(self):
         # Create a virtual file handler for the Lambda zip package
-        package_zip = BytesIO(self.get_zip())
+        zip_with_deps = yield self.get_zip_with_deps()
+        package_zip = BytesIO(zip_with_deps)
 
         with ZipFile(package_zip, "a", ZIP_DEFLATED) as zip_file_handler:
             add_file_to_zipfile(zip_file_handler, "refinery_main.js", self.code)
@@ -62,7 +68,8 @@ class NodeJs12Builder:
 
         return zip_data
 
-    def get_zip(self):
+    @run_on_executor
+    def get_zip_with_deps(self):
         if len(self.libraries) == 0:
             return b''
 

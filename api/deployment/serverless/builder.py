@@ -1,3 +1,4 @@
+import base64
 import json
 
 from botocore.exceptions import ClientError
@@ -9,12 +10,17 @@ from functools import cached_property
 from io import BytesIO
 from utils.general import logit
 from zipfile import ZipFile, ZIP_STORED, ZIP_DEFLATED
+from tornado.concurrent import run_on_executor
 
+class LambdaInvokeException(Exception):
+    pass
 
 class ServerlessBuilder(Builder):
-    def __init__(self, app_config, aws_client_factory, credentials, project_id, deployment_id, build_id, diagram_data):
+    def __init__(self, app_config, aws_client_factory, executor, loop, credentials, project_id, deployment_id, build_id, diagram_data):
         self.app_config = app_config
         self.aws_client_factory = aws_client_factory
+        self.executor = executor
+        self.loop = loop
         self.credentials = credentials
         self.project_id = project_id
         self.deployment_id = deployment_id
@@ -52,9 +58,10 @@ class ServerlessBuilder(Builder):
         return f"{self.deployment_id}.zip"
 
     @cached_property
-    def serverless_deploy_arn(self):
-        return self.app_config.get("serverless_deploy_arn")
+    def serverless_framework_builder_arn(self):
+        return self.app_config.get("serverless_framework_builder_arn")
 
+    @run_on_executor
     def build(self, rebuild=False):
         artifact_zip = self.get_artifact_zipfile() if rebuild else None
 
@@ -73,7 +80,12 @@ class ServerlessBuilder(Builder):
         )
         zipfile = module_builder.build(artifact_zip)
 
-        serverless_output = self.perform_lambda_serverless_deploy(zipfile)
+        try:
+            serverless_output = self.perform_lambda_serverless_deploy(zipfile)
+        except LambdaInvokeException as e:
+            logit(str(e), "error")
+            return None
+
         parser = ServerlessInfoParser(serverless_output)
 
         lambda_resource_map = parser.lambda_resource_map
@@ -122,22 +134,20 @@ class ServerlessBuilder(Builder):
         }
 
         resp = self.lambda_function.invoke(
-            FunctionName=self.serverless_deploy_arn,
+            FunctionName=self.serverless_framework_builder_arn,
             InvocationType='RequestResponse',
             LogType='Tail',
             Payload=json.dumps(payload).encode()
         )
+
         payload = resp["Payload"].read()
 
-        # TODO error check
+        error = resp.get("FunctionError")
+        if error is not None:
+            log_result = base64.b64decode(resp["LogResult"])
+            logit(log_result.decode())
+            raise LambdaInvokeException(str(payload))
 
-        return json.loads(payload)["output"]
+        decoded_payload = json.loads(payload)
 
-    def parse_serverless_output(self, serverless_zipfile):
-        # TODO return deployment.json created from project.json and serverless_info
-        with ZipFile(BytesIO(serverless_zipfile)) as zipfile:
-            with zipfile.open('serverless_info') as serverless_info:
-                text = serverless_info.read().decode("UTF-8")
-                parser = ServerlessInfoParser(text)
-
-                return parser.lambda_resource_map
+        return decoded_payload.get("output")

@@ -1,5 +1,6 @@
 import json
 
+import pinject
 from jsonschema import validate as validate_schema
 from tornado import gen
 
@@ -8,6 +9,9 @@ from controller.decorators import authenticated, disable_on_overdue_payment
 from controller.lambdas.actions import is_build_package_cached
 from controller.lambdas.schemas import *
 from models import Deployment
+from tasks.build.temporal.code_builder_factory import CodeBuilderFactory
+from tasks.build.temporal.nodejs import NodeJs12Builder
+from tasks.build.temporal.python import Python36Builder
 from utils.block_libraries import generate_libraries_dict
 
 
@@ -177,11 +181,16 @@ class UpdateEnvironmentVariables(BaseHandler):
         })
 
 
-class BuildLibrariesPackage(BaseHandler):
-    builder_manager = None
+class BuildLibrariesPackageDependencies:
+    @pinject.copy_args_to_public_fields
+    def __init__(self, builder_manager, code_builder_factory):
+        pass
 
-    def _initialize(self, builder_manager):
-        self.builder_manager = builder_manager
+
+class BuildLibrariesPackage(BaseHandler):
+    dependencies = BuildLibrariesPackageDependencies
+    builder_manager = None
+    code_builder_factory: CodeBuilderFactory = None
 
     @authenticated
     @gen.coroutine
@@ -194,7 +203,9 @@ class BuildLibrariesPackage(BaseHandler):
         current_user = self.get_authenticated_user()
         credentials = self.get_authenticated_user_cloud_configuration()
 
-        libraries_dict = generate_libraries_dict(self.json["libraries"])
+        libraries = self.json["libraries"]
+
+        libraries_dict = generate_libraries_dict(libraries)
 
         build_id = False
 
@@ -246,6 +257,21 @@ class BuildLibrariesPackage(BaseHandler):
             self.builder_manager.get_build_container_ip(
                 credentials
             )
+
+        elif self.json["language"] == Python36Builder.RUNTIME_PRETTY_NAME:
+            builder = self.code_builder_factory.get_python36_builder(
+                credentials,
+                "",
+                libraries
+            )
+            yield builder.get_zip_with_deps()
+        elif self.json["language"] == NodeJs12Builder.RUNTIME_PRETTY_NAME:
+            builder = self.code_builder_factory.get_nodejs12_builder(
+                credentials,
+                "",
+                libraries
+            )
+            yield builder.get_zip_with_deps()
         else:
             self.error(
                 "You've provided a language that Refinery does not currently support!",

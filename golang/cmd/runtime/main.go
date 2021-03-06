@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"regexp"
 	"strings"
@@ -104,11 +103,9 @@ func main() {
 	// Make the handler available for Remote Procedure Call by AWS Lambda
 	lambdaEnv := os.Getenv("LAMBDA_ENVIRONMENT")
 	switch lambdaEnv {
-	case "REFINERY":
-		lambda.Start(HandleRequest)
 	case "API_GATEWAY":
 		lambda.Start(HandleRequestApiGateway)
 	default:
-		log.Fatal("Unsupported lambda environment type:", lambdaEnv)
+		lambda.Start(HandleRequest)
 	}
 }

@@ -4,7 +4,7 @@ resource "aws_ecs_cluster" "refinery_builders_cluster" {
 
 data "aws_ecs_task_definition" "refinery_builders_task_definition" {
   task_definition = "${aws_ecs_task_definition.refinery_builders_task_definition.family}"
-  depends_on = [ "aws_ecs_task_definition.refinery_builders_task_definition" ]
+  depends_on = [ aws_ecs_task_definition.refinery_builders_task_definition ]
 }
 
 # Set up CloudWatch group and log stream and retain logs for 30 days

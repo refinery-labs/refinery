@@ -12,13 +12,12 @@ from assistants.deployments.aws_workflow_manager.aws_deployment import AwsDeploy
 from assistants.deployments.aws.lambda_function import LambdaWorkflowState
 from assistants.deployments.aws.utils import get_base_lambda_code
 from assistants.deployments.diagram.workflow_states import StateTypes
-from assistants.deployments.teardown import teardown_infrastructure
 from controller import BaseHandler
 from controller.aws.schemas import *
 from controller.decorators import authenticated, disable_on_overdue_payment
 from controller.logs.actions import delete_logs
 from controller.projects.actions import update_project_config
-from deployment.serverless.builder import ServerlessBuilder
+from deployment.serverless.builder_factory import BuilderFactory
 from deployment.serverless.dismantler import ServerlessDismantler
 from models import InlineExecutionLambda, Project, Deployment, DeploymentLog
 from pyexceptions.builds import BuildException
@@ -305,7 +304,7 @@ class InfraCollisionCheck(BaseHandler):
 
 class DeployDiagramDependencies:
     @pinject.copy_args_to_public_fields
-    def __init__(self, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager, sqs_manager, workflow_manager_service, aws_client_factory):
+    def __init__(self, builder_factory, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager, sqs_manager, workflow_manager_service, aws_client_factory):
         pass
 
 
@@ -325,6 +324,7 @@ class DeployDiagram(BaseHandler):
     sqs_manager = None
     aws_client_factory = None
     workflow_manager_service: WorkflowManagerService = None
+    builder_factory: BuilderFactory = None
 
     @gen.coroutine
     def cleanup_deployment(self, deployment_diagram, credentials, successful_deploy):
@@ -390,9 +390,7 @@ class DeployDiagram(BaseHandler):
         previous_build_id = previous_deployment_json.get('build_id') if previous_deployment_json else None
 
         new_deployment_id = str(uuid4())
-        builder = ServerlessBuilder(
-            self.app_config,
-            self.aws_client_factory,
+        builder = self.builder_factory.get_serverless_builder(
             credentials,
             project_id,
             new_deployment_id,
@@ -425,7 +423,16 @@ class DeployDiagram(BaseHandler):
 
         # Build the project
         self.logger("Begin deployment")
-        deployment_config = builder.build(rebuild=previous_build_id is not None)
+        deployment_config = yield builder.build(rebuild=previous_build_id is not None)
+
+        if deployment_config is None:
+            self.write({
+                "success": False,
+                "code": "PROJECT_DEPLOYMENT",
+                "msg": "An error occurred while trying to deploy the project.",
+            })
+
+            raise gen.Return()
 
         try:
             yield self.workflow_manager_service.create_workflows_for_deployment(deployment_config)
@@ -435,7 +442,7 @@ class DeployDiagram(BaseHandler):
             self.write({
                 "success": False,
                 "code": "DEPLOYMENT_WORKFLOWS",
-                "msg": "An error occurred while trying to create workflows in the workflow manager",
+                "msg": "An error occurred while trying to create workflows in the workflow manager.",
             })
 
             raise gen.Return()

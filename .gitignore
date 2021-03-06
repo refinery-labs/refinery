@@ -15,6 +15,8 @@ nginx-container/front-end-dist/
 secrets.json
 secrets.yaml
 .webpack/
+.serverless/
+postgresql_data/
 
 # Created by https://www.gitignore.io/api/intellij
 # Edit at https://www.gitignore.io/?templates=intellij

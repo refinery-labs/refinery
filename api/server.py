@@ -6,7 +6,7 @@ import tornado.ioloop
 import tornado.web
 import sys
 
-from app import TornadoBindingSpec, TornadoApp, WebsocketApp
+from app import TornadoBindingSpec, TornadoApp, WebsocketApp, BuilderFactory
 from assistants.aws_account_management.preterraform import PreterraformManager
 from assistants.aws_clients.aws_clients_assistant import STSClientBindingSpec, AwsClientFactory
 from assistants.billing.billing_assistant import BillingSpawner
@@ -28,6 +28,7 @@ from services.workflow_manager.workflow_manager_service import WorkflowManagerSe
 from services.project_inventory.project_inventory_service import ProjectInventoryService
 from services.stripe.stripe_service import StripeService
 from services.user_management.user_management_service import UserManagementService
+from tasks.build.temporal.code_builder_factory import CodeBuilderFactory
 from utils.general import logit, UtilsBindingSpec
 from assistants.deployments.ecs_builders import BuilderManager, AwsEcsManager
 
@@ -73,7 +74,9 @@ if __name__ == "__main__":
         StripeService,
         UserManagementService,
         GithubAssistant,
-        WorkflowManagerService
+        WorkflowManagerService,
+        BuilderFactory,
+        CodeBuilderFactory
     ]
 
     binding_specs = [

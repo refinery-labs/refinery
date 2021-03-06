@@ -9,6 +9,8 @@ from tasks.build.common import get_codebuild_artifact_zip_data, get_final_zip_pa
 from utils.block_libraries import generate_libraries_dict, get_requirements_text
 from utils.general import add_file_to_zipfile
 from uuid import uuid4
+from tornado import gen
+from tornado.concurrent import run_on_executor
 
 
 BUILDSPEC = dump({
@@ -32,8 +34,10 @@ class Python36Builder:
     RUNTIME = "python3.6"
     RUNTIME_PRETTY_NAME = PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME
 
-    def __init__(self, app_config, aws_client_factory, credentials, code, libraries):
+    def __init__(self, executor, loop, app_config, aws_client_factory, credentials, code, libraries):
         # TODO use dependency injection
+        self.executor = executor
+        self.loop = loop
         self.app_config = app_config
         self.aws_client_factory = aws_client_factory
         self.credentials = credentials
@@ -47,8 +51,9 @@ class Python36Builder:
     def lambda_function(self):
         return self.app_config.get("LAMBDA_TEMPORAL_RUNTIMES")[self.RUNTIME]
 
+    @gen.coroutine
     def build(self):
-        base_zip_data = self.get_zip_with_deps() if len(self.libraries) > 0 else b''
+        base_zip_data = yield self.get_zip_with_deps()
 
         # Create a virtual file handler for the Lambda zip package
         lambda_package_zip = BytesIO(base_zip_data)
@@ -62,7 +67,11 @@ class Python36Builder:
 
         return lambda_package_zip_data
 
+    @run_on_executor
     def get_zip_with_deps(self):
+        if len(self.libraries):
+            return b''
+
         s3_zip_path = get_final_zip_package_path(
             self.RUNTIME,
             self.libraries_object

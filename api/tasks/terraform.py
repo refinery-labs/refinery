@@ -10,7 +10,7 @@ from uuid import uuid4
 from utils.general import logit
 
 
-TERRAFORM_TIMEOUT = 300  # 5 minutes
+TERRAFORM_TIMEOUT = 30000  # 5 minutes
 
 
 def write_terraform_base_files(app_config, sts_client, aws_account_dict):
@@ -234,6 +234,20 @@ def terraform_apply(aws_client_factory, app_config, preterraform_manager, sts_cl
               aws_account_data["account_id"] + "...")
 
         refresh_state_parameter = "true" if refresh_terraform_state else "false"
+
+        # TODO we will need to migrate everyone's terraform state in order to use next version of terraform
+        # process_handler = Popen(
+        #     [
+        #         temporary_directory + "terraform",
+        #          "state", "replace-provider", "-auto-approve", "registry.terraform.io/-/aws", "registry.terraform.io/hashicorp/aws"
+        #         ],
+        #     stdout=PIPE,
+        #     stderr=PIPE,
+        #     shell=False,
+        #     cwd=temporary_directory,
+        # )
+        # process_stdout, process_stderr = run_terraform_process(process_handler)
+        # print(process_stdout, process_stderr)
 
         # Terraform plan
         process_handler = Popen(

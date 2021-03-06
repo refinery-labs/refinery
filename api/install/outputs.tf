@@ -33,3 +33,10 @@ output "lambda_packages_s3_bucket_id" {
   value = aws_s3_bucket.lambda-build-packages.id
 }
 
+//output "serverless_framework_builder_arn" {
+//  value = module.serverless_framework_builder.this_lambda_function_arn
+//}
+//
+//output "docker_container_modifier_arn" {
+//  value = module.docker_container_modifier.this_lambda_function_arn
+//}

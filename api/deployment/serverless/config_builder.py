@@ -25,9 +25,6 @@ class ServerlessConfigBuilder:
             "provider": {
                 "name": "aws",
                 "region": "us-west-2",
-                "ecr": {
-                    "images": self.container_images
-                },
                 "stage": "dev"
             },
             "functions": self.functions,
@@ -54,6 +51,8 @@ class ServerlessConfigBuilder:
             builder = self.workflow_state_mappers[type_]
 
             builder(workflow_state)
+
+        # TODO for all images that have been identified, inject the refinery runtime into them
 
         return dump(self.serverless_config)
 
@@ -95,12 +94,11 @@ class ServerlessConfigBuilder:
         }
 
     def get_lambda_environment(self, id_, workflow_state, language):
-        if workflow_state.get('container') is not None and workflow_state.get('container') != '':
-            return {
-                "image": {
-                    "name": id_
-                }
-            }
+        # TODO we should have the uri of the function image to put here from ecr
+        # if workflow_state.get('container') is not None and workflow_state.get('container') != '':
+        #     return {
+        #         "image": uri
+        #     }
 
         handler = self.get_lambda_handler(id_, LANGUAGE_TO_HANDLER[language])
         layers = workflow_state.get("layers", [])

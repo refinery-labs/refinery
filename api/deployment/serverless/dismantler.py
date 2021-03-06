@@ -59,8 +59,8 @@ class ServerlessDismantler(Dismantler):
         return f"{self.s3_bucket}/{self.s3_key}"
 
     @cached_property
-    def serverless_deploy_arn(self):
-        return self.app_config.get("serverless_deploy_arn")
+    def serverless_framework_builder_arn(self):
+        return self.app_config.get("serverless_framework_builder_arn")
 
     def dismantle(self):
         payload = {
@@ -71,7 +71,7 @@ class ServerlessDismantler(Dismantler):
         }
 
         resp = self.lambda_function.invoke(
-            FunctionName=self.serverless_deploy_arn,
+            FunctionName=self.serverless_framework_builder_arn,
             InvocationType='RequestResponse',
             LogType='Tail',
             Payload=json.dumps(payload).encode()

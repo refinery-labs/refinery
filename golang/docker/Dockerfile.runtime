@@ -2,11 +2,9 @@ FROM golang AS builder
 ADD . /runtime 
 WORKDIR /runtime/cmd/runtime
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o runtime .
+RUN chmod -R 755 /runtime/fixtures/runtime/handlers/*
 
-FROM alpine
-RUN apk --no-cache add ca-certificates
-
-ENV HANDLER_DIR /handlers
+FROM scratch
 
 COPY --from=builder /runtime/cmd/runtime/runtime /var/runtime/bootstrap
 COPY --from=builder /runtime/fixtures/runtime/handlers /var/runtime/handlers

@@ -1,29 +1,13 @@
-service: serverless-framework-builder
+service: builder-functions
 
 provider:
   name: aws
-  runtime: nodejs12.x
   stage: ${opt:stage, 'dev'}
   region: ${opt:region, 'us-west-2'}
   versionFunctions: false
-  logRetentionInDays: 1
-  deploymentBucket:
-    serverSideEncryption: AES256
-    blockPublicAccess: true
-  endpointType: regional
-  environment:
-    AWS_NODEJS_CONNECTION_REUSE_ENABLED: "1"
-    NODE_ENV: development
-  logs:
-    restApi:
-      accessLogging: false
-      executionLogging: false
-      fullExecutionData: false
-      roleManagedExternally: true
 
 plugins:
   - serverless-vpc-plugin
-  - serverless-webpack
 
 package:
   individually: true
@@ -32,26 +16,16 @@ package:
 custom:
   vpcConfig:
     cidrBlock: "10.0.0.0/16"
-    createDbSubnet: true
     createNatInstance: true
-    createParameters: true
     zones:
       - us-west-2a
-      - us-west-2b
     services:
-      - secretsmanager
       - s3
       - elasticfilesystem
-  webpack:
-    includeModules:
-      forceExclude:
-        - aws-sdk
-      forceInclude:
-        - serverless
-    packager: npm
 
 functions:
-  serverlessFrameworkBuilder:
+  serverless-framework-builder:
+    runtime: nodejs12.x
     handler: index.lambdaHandler
     timeout: 900
     fileSystemConfig:
@@ -60,16 +34,12 @@ functions:
         "Fn::GetAtt":
         - "EFSAccessPoint"
         - "Arn"
-    description: Serverless Framework Builder
     dependsOn:
       - EFSMountTarget1
       - EFSMountTarget2
     role: ExampleLambdaRole
-    tracing: Active
-    environment:
-      SCHEMA_NAME: public
 
 resources:
-  - ${file(resources/iam_cf.yml)}
-  - ${file(resources/efs_cf.yml)}
-  - ${file(outputs/outputs.yml)}
+  - ${file(resources/iam_cf.yaml)}
+  - ${file(resources/efs_cf.yaml)}
+  - ${file(outputs/outputs.yaml)}
