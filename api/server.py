@@ -2,11 +2,15 @@
 # coding=utf8
 # -*- coding: utf8 -*-
 # vim: set fileencoding=utf8 :
+import asyncio
+
 import tornado.ioloop
 import tornado.web
 import sys
 
-from app import TornadoBindingSpec, TornadoApp, WebsocketApp, BuilderFactory
+from tornado.platform.asyncio import AnyThreadEventLoopPolicy
+
+from app import TornadoBindingSpec, TornadoApp, WebsocketApp, NodeJsBuilder, PythonBuilder
 from assistants.aws_account_management.preterraform import PreterraformManager
 from assistants.aws_clients.aws_clients_assistant import STSClientBindingSpec, AwsClientFactory
 from assistants.billing.billing_assistant import BillingSpawner
@@ -21,6 +25,8 @@ from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from assistants.user_creation_assistant import UserCreationAssistant
 from config.provider import ConfigBindingSpec
 from assistants.github.oauth_provider import GithubOAuthProviderBindingSpec
+from deployment.deployment_manager import DeploymentManager
+from deployment.serverless.module_builder import ServerlessModuleBuilder
 from services.auth.oauth_service import OAuthServiceBindingSpec
 
 from services.aws.clients import AWSClientBindingSpec
@@ -56,6 +62,7 @@ if __name__ == "__main__":
     will not matter).
     """
     dep_classes = [
+        DeploymentManager,
         ApiGatewayManager,
         LambdaManager,
         ScheduleTriggerManager,
@@ -75,8 +82,10 @@ if __name__ == "__main__":
         UserManagementService,
         GithubAssistant,
         WorkflowManagerService,
-        BuilderFactory,
-        CodeBuilderFactory
+        CodeBuilderFactory,
+        NodeJsBuilder,
+        PythonBuilder,
+        ServerlessModuleBuilder
     ]
 
     binding_specs = [
@@ -90,6 +99,11 @@ if __name__ == "__main__":
         OAuthServiceBindingSpec()
     ]
     app_object_graph = pinject.new_object_graph(modules=[], classes=dep_classes, binding_specs=binding_specs)
+
+    # debug object graph
+    # print(app_object_graph._obj_provider._binding_mapping._binding_key_to_binding.keys())
+
+    asyncio.set_event_loop_policy(AnyThreadEventLoopPolicy())
 
     tornado_app = app_object_graph.provide(TornadoApp)
     server = tornado_app.new_server( app_object_graph )

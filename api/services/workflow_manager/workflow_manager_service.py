@@ -20,7 +20,6 @@ class WorkflowManagerService:
         # TODO: Allow this to be stubbed via the constructor
         self.http = httpclient.AsyncHTTPClient()
 
-    @gen.coroutine
     def create_workflows_for_deployment(self, serialized_deployment):
         try:
             response = yield self.http.fetch(
@@ -36,7 +35,6 @@ class WorkflowManagerService:
         if not parsed_response["success"]:
             raise WorkflowManagerException("Unable to create Workflow Manager workflows: " + parsed_response["error"])
 
-    @gen.coroutine
     def delete_deployment_workflows(self, deployment_id):
         try:
             response = yield self.http.fetch(

@@ -2,29 +2,54 @@ import base64
 import json
 
 from botocore.exceptions import ClientError
+from tornado import gen
+
+from assistants.aws_clients.aws_clients_assistant import AwsClientFactory
+from config.app_config import AppConfig
 from deployment.base import Builder
 from deployment.serverless.deploy_config_builder import DeploymentConfigBuilder
+from deployment.serverless.exceptions import LambdaInvokeException
 from deployment.serverless.info_parser import ServerlessInfoParser
-from deployment.serverless.module_builder import ServerlessModuleBuilder
+from deployment.serverless.module_builder import ServerlessModuleBuilder, ServerlessModuleConfig
 from functools import cached_property
 from io import BytesIO
 from utils.general import logit
 from zipfile import ZipFile, ZIP_STORED, ZIP_DEFLATED
-from tornado.concurrent import run_on_executor
 
-class LambdaInvokeException(Exception):
-    pass
+
+def unzip_file(artifact_zip):
+    unpacked_artifact_zip = BytesIO()
+    with ZipFile(artifact_zip, 'r', ZIP_STORED) as zipfile, ZipFile(unpacked_artifact_zip, 'w', ZIP_DEFLATED) as new_zipfile:
+        for f in zipfile.namelist():
+            new_zipfile.writestr(f, zipfile.read(f))
+    return unpacked_artifact_zip
+
 
 class ServerlessBuilder(Builder):
-    def __init__(self, app_config, aws_client_factory, executor, loop, credentials, project_id, deployment_id, build_id, diagram_data):
+    app_config: AppConfig = None
+    aws_client_factory: AwsClientFactory = None
+    serverless_module_builder: ServerlessModuleBuilder = None
+
+    def __init__(
+        self,
+        app_config,
+        aws_client_factory,
+        serverless_module_builder,
+        credentials,
+        project_id,
+        deployment_id,
+        build_id,
+        stage,
+        diagram_data
+    ):
         self.app_config = app_config
         self.aws_client_factory = aws_client_factory
-        self.executor = executor
-        self.loop = loop
+        self.serverless_module_builder = serverless_module_builder
         self.credentials = credentials
         self.project_id = project_id
         self.deployment_id = deployment_id
         self.build_id = build_id
+        self.stage = stage
         self.diagram_data = diagram_data
 
     @cached_property
@@ -61,29 +86,26 @@ class ServerlessBuilder(Builder):
     def serverless_framework_builder_arn(self):
         return self.app_config.get("serverless_framework_builder_arn")
 
-    @run_on_executor
     def build(self, rebuild=False):
         artifact_zip = self.get_artifact_zipfile() if rebuild else None
 
         if artifact_zip is not None:
-            unpacked_artifact_zip = BytesIO()
-            with ZipFile(artifact_zip, 'r', ZIP_STORED) as zipfile, ZipFile(unpacked_artifact_zip, 'w', ZIP_DEFLATED) as new_zipfile:
-                for f in zipfile.namelist():
-                    new_zipfile.writestr(f, zipfile.read(f))
-            artifact_zip = unpacked_artifact_zip
+            artifact_zip = unzip_file(artifact_zip)
 
-        module_builder = ServerlessModuleBuilder(
-            self.app_config,
+        config = ServerlessModuleConfig(
+            self.credentials,
             self.project_id,
             self.deployment_id,
+            self.stage,
             self.diagram_data
         )
-        zipfile = module_builder.build(artifact_zip)
+
+        zipfile = self.serverless_module_builder.build(config, artifact_zip)
 
         try:
             serverless_output = self.perform_lambda_serverless_deploy(zipfile)
         except LambdaInvokeException as e:
-            logit(str(e), "error")
+            logit("an error occurred when trying to deploy serverless framework project: " + str(e), "error")
             return None
 
         parser = ServerlessInfoParser(serverless_output)
@@ -91,6 +113,7 @@ class ServerlessBuilder(Builder):
         lambda_resource_map = parser.lambda_resource_map
 
         config_builder = DeploymentConfigBuilder(
+            self.credentials,
             self.project_id,
             self.diagram_data,
             self.deployment_id,
@@ -130,6 +153,7 @@ class ServerlessBuilder(Builder):
             "bucket": self.s3_bucket,
             "key": self.s3_key,
             "action": "deploy",
+            "stage": self.stage,
             "deployment_id": self.deployment_id
         }
 

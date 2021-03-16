@@ -1,8 +1,13 @@
+from sqlalchemy import Enum
+
+from data_types.deployment_stages import DeploymentStages
 from .initiate_database import *
 from .projects import Project
 import json
 import uuid
 import time
+
+
 
 
 class Deployment(Base):
@@ -30,6 +35,8 @@ class Deployment(Base):
             "organizations.id"
         )
     )
+
+    stage = Column(Enum(DeploymentStages), nullable=False)
 
     deployment_json = Column(Text())
 

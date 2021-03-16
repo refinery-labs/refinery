@@ -3,7 +3,8 @@ from functools import cached_property
 
 
 class DeploymentConfigBuilder:
-    def __init__(self, project_id, diagram_data, deployment_id, build_id, lambda_resource_map):
+    def __init__(self, credentials, project_id, diagram_data, deployment_id, build_id, lambda_resource_map):
+        self.credentials = credentials
         self.project_id = project_id
         self.diagram_data = diagram_data
         self.deployment_id = deployment_id

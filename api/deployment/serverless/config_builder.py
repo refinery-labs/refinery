@@ -1,31 +1,36 @@
+import os
 from functools import cached_property
+
+from data_types.deployment_stages import DeploymentStages
+from deployment.serverless.utils import slugify, get_unique_workflow_state_name
 from pyconstants.project_constants import (
-    LANGUAGE_TO_RUNTIME, LANGUAGE_TO_HANDLER
-)
+    LANGUAGE_TO_RUNTIME, LANGUAGE_TO_HANDLER)
 from yaml import dump
 
 
 class ServerlessConfigBuilder:
     _api_resource_base_set = False
 
-    def __init__(self, app_config, project_id, deployment_id, diagram_data):
+    def __init__(self, app_config, credentials, project_id, deployment_id, stage, diagram_data):
         self.app_config = app_config
+        self.credentials = credentials
         self.project_id = project_id
         self.deployment_id = deployment_id
+        self.stage = stage
         self.diagram_data = diagram_data
         self.name = diagram_data['name']
-        self.name = self.slugify(diagram_data['name'])
+        self.name = slugify(diagram_data['name'])
         self.workflow_states = diagram_data['workflow_states']
         self.functions = {}
         self.resources = {}
         self.container_images = {}
         self.api_method_ids = []
         self.serverless_config = {
-            "service": self.slugify(self.name),
+            "service": slugify(self.name),
             "provider": {
                 "name": "aws",
                 "region": "us-west-2",
-                "stage": "dev"
+                "stage": self.stage
             },
             "functions": self.functions,
             "resources": self.resources,
@@ -36,7 +41,7 @@ class ServerlessConfigBuilder:
         }
 
     @cached_property
-    def workflow_state_mappers(self):
+    def workflow_state_mappers_all(self):
         return {
             "api_endpoint": self.build_api_endpoint,
             "api_gateway_response": self.build_api_gateway_response,
@@ -44,6 +49,25 @@ class ServerlessConfigBuilder:
             "schedule_trigger": self.build_schedule_trigger,
             "sqs_queue": self.build_sqs_queue
         }
+
+    def ignore_workflow_state(self, workflow_state):
+        return
+
+    @cached_property
+    def workflow_state_mappers_only_lambda(self):
+        return {
+            "api_endpoint": self.ignore_workflow_state,
+            "api_gateway_response": self.ignore_workflow_state,
+            "lambda": self.build_lambda,
+            "schedule_trigger": self.ignore_workflow_state,
+            "sqs_queue": self.ignore_workflow_state
+        }
+
+    @cached_property
+    def workflow_state_mappers(self):
+        if self.stage == DeploymentStages.dev:
+            return self.workflow_state_mappers_only_lambda
+        return self.workflow_state_mappers_all
 
     def build(self):
         for workflow_state in self.workflow_states:
@@ -60,51 +84,78 @@ class ServerlessConfigBuilder:
     # Lambda
     ###########################################################################
 
-    def build_lambda(self, workflow_state):
-        id_ = self.get_id(workflow_state['id'])
-        name = self.get_unique_name(workflow_state['name'], id_)
-        memory = workflow_state['memory']
-        language = workflow_state['language']
-        max_execution_time = workflow_state['max_execution_time']
+    def get_optional_lambda_arguments(self, workflow_state):
         reserved_concurrency_count = workflow_state['reserved_concurrency_count']
-        environment_variables = workflow_state.get("environment_variables", {})
-        lambda_path = f"lambda/{id_}"
 
-        lambda_environment = self.get_lambda_environment(id_, workflow_state, language)
-        if lambda_environment.get('image') is not None:
-            self.container_images[id_] = {
-                "path": lambda_path
-            }
+        optional_arguments = {
+            "reservedConcurrency": reserved_concurrency_count,
+        } if reserved_concurrency_count is not False else {}
+
+        return optional_arguments
+
+    def build_lambda(self, workflow_state):
+        workflow_state_id = workflow_state['id']
+        id_ = self.get_id(workflow_state_id)
+        name = get_unique_workflow_state_name(self.stage, workflow_state['name'], id_)
+        memory = workflow_state['memory']
+        max_execution_time = workflow_state['max_execution_time']
+
+        lambda_environment = self.get_lambda_environment(workflow_state_id, workflow_state)
+
+        optional_arguments = self.get_optional_lambda_arguments(workflow_state)
 
         self.functions[id_] = {
             "name": name,
             **lambda_environment,
+            **optional_arguments,
             "description": "A lambda deployed by refinery",
-            "runtime": LANGUAGE_TO_RUNTIME[language],
             "memorySize": memory,
             "timeout": max_execution_time,
-            "reservedConcurrency": reserved_concurrency_count,
             "tracing": 'PassThrough',
-            "environment": environment_variables,
-            "package": {
-                "include": [
-                    f"{lambda_path}/**"
-                ]
-            }
         }
 
-    def get_lambda_environment(self, id_, workflow_state, language):
-        # TODO we should have the uri of the function image to put here from ecr
-        # if workflow_state.get('container') is not None and workflow_state.get('container') != '':
-        #     return {
-        #         "image": uri
-        #     }
+    def get_lambda_environment(self, workflow_state_id, workflow_state):
+        id_ = self.get_id(workflow_state_id)
+
+        lambda_path = f"lambda/{id_}"
+        name = workflow_state["name"]
+        language = workflow_state['language']
+        environment_variables = workflow_state.get("environment_variables", {})
+
+        account_id = self.credentials["account_id"]
+        ecr_registry = f"{account_id}.dkr.ecr.us-west-2.amazonaws.com"
+        image_name = get_unique_workflow_state_name(self.stage, name, id_).lower()
+
+        repo_uri = f"{ecr_registry}/{image_name}"
+
+        container = workflow_state.get('container')
+        if container is not None:
+            # Image tag is located in a json file in the lambda directory
+            config_path = os.path.join(lambda_path, "container.json")
+            image_tag = f"${{file(./{config_path}):tag}}"
+
+            environment_variables = {
+                **environment_variables,
+                "REFINERY_FUNCTION_NAME": workflow_state_id
+            }
+
+            return {
+                "image": f"{repo_uri}@{image_tag}",
+                "environment": environment_variables
+            }
 
         handler = self.get_lambda_handler(id_, LANGUAGE_TO_HANDLER[language])
         layers = workflow_state.get("layers", [])
         return {
             "handler": handler,
             "layers": layers,
+            "environment": environment_variables,
+            "runtime": LANGUAGE_TO_RUNTIME[language],
+            "package": {
+                "include": [
+                    f"{lambda_path}/**"
+                ]
+            }
         }
 
     def get_lambda_handler(self, id_, handler_module):
@@ -124,13 +175,13 @@ class ServerlessConfigBuilder:
 
     def build_sqs_queue(self, workflow_state):
         id_ = self.get_id(workflow_state['id'])
-        queue_name = self.get_unique_name(workflow_state['name'], id_)
+        queue_name = get_unique_workflow_state_name(self.stage, workflow_state['name'], id_)
 
         self.set_aws_resources({
             id_: {
                 "Type": "AWS::SQS::Queue",
                 "Properties": {
-                    "QueueName": self.slugify(queue_name)
+                    "QueueName": slugify(queue_name)
                 }
             }
         })
@@ -212,6 +263,10 @@ class ServerlessConfigBuilder:
         self.set_aws_resources({
             "ApiGatewayRestApi": {
                 "Type": "AWS::ApiGateway::RestApi",
+
+                # TODO: Once we have code in API to handle the teardown of this resource, we can uncomment this
+                # "DeletionPolicy": "Retain",
+
                 "Properties": {
                     "Name": f"Gateway_{project_id}"
                 }
@@ -254,11 +309,11 @@ class ServerlessConfigBuilder:
 
     def set_api_resource(self, api_resources, path_part, index, parent=None):
         resource = self.get_url_resource_name(path_part, index)
-        parentId = {}
+        parent_id = {}
         config = {
             "Type": "AWS::ApiGateway::Resource",
             "Properties": {
-                "ParentId": parentId,
+                "ParentId": parent_id,
                 "PathPart": path_part,
                 "RestApiId": {
                     "Ref": "ApiGatewayRestApi"
@@ -267,9 +322,9 @@ class ServerlessConfigBuilder:
         }
 
         if parent:
-            parentId['Ref'] = self.get_url_resource_name(parent, index - 1)
+            parent_id['Ref'] = self.get_url_resource_name(parent, index - 1)
         else:
-            parentId['Fn::GetAtt'] = [
+            parent_id['Fn::GetAtt'] = [
                 'ApiGatewayRestApi',
                 'RootResourceId'
             ]
@@ -322,9 +377,6 @@ class ServerlessConfigBuilder:
     # Utility functions
     ###########################################################################
 
-    def get_unique_name(self, name, id_):
-        return self.slugify(f"{name}_{id_}")
-
     def get_url_resource_name(self, name, index):
         safe_name = self.get_safe_config_key(name)
         return f"Path{safe_name}{index}"
@@ -346,8 +398,3 @@ class ServerlessConfigBuilder:
 
     def get_safe_config_key(self, s):
         return ''.join([i for i in s if i.isalnum()])
-
-    def slugify(self, name):
-        return ''.join([
-            i for i in name.replace(' ', '-') if i.isalnum() or i == '_'
-        ])

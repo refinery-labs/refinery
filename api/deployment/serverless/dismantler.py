@@ -26,11 +26,12 @@ BUILDSPEC = dump({
 
 
 class ServerlessDismantler(Dismantler):
-    def __init__(self, app_config, aws_client_factory, credentials, deployment_id):
+    def __init__(self, app_config, aws_client_factory, credentials, deployment_id, stage):
         self.app_config = app_config
         self.aws_client_factory = aws_client_factory
         self.credentials = credentials
         self.deployment_id = deployment_id
+        self.stage = stage
 
     @cached_property
     def codebuild(self):
@@ -67,7 +68,8 @@ class ServerlessDismantler(Dismantler):
             "bucket": self.s3_bucket,
             "key": self.s3_key,
             "action": "remove",
-            "deployment_id": self.deployment_id
+            "deployment_id": self.deployment_id,
+            "stage": self.stage
         }
 
         resp = self.lambda_function.invoke(

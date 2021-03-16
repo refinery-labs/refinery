@@ -1,47 +1,94 @@
+import base64
+import json
+import os
+import tarfile
+from contextlib import closing
+from uuid import uuid4
+
+import botocore
+import pinject
+from tornado import gen
+
+from assistants.aws_clients.aws_clients_assistant import AwsClientFactory
+from config.app_config import AppConfig
 from deployment.serverless.config_builder import ServerlessConfigBuilder
 from functools import cached_property
 from io import BytesIO
 from os.path import join
 
-from pyconstants.project_constants import PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME
+from deployment.serverless.exceptions import LambdaInvokeException, RefineryDeploymentException
+from deployment.serverless.utils import get_unique_workflow_state_name
+from pyconstants.project_constants import PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME, LANGUAGE_TO_RUNTIME, \
+    LANGUAGE_TO_CONTAINER_COMMAND, LANGUAGE_TO_CONTAINER_HANDLER, CONTAINER_LANGUAGE, LAMBDA_TEMPORAL_RUNTIMES
 from pyconstants.project_constants import NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME
-from utils.block_libraries import generate_libraries_dict
-from utils.general import add_file_to_zipfile
-from yaml import dump
+from tasks.build.temporal.nodejs import NodeJsBuilder
+from tasks.build.temporal.python import PythonBuilder
+from utils.general import add_file_to_zipfile, logit, add_file_to_tar_file
 from zipfile import ZIP_STORED, ZipFile
 
 
-BUILDSPEC = dump({
-    "artifacts": {
-        "files": [
-            "**/*"
-        ]
-    },
-    "phases": {
-        "build": {
-            "commands": [
-                "dockerd-entrypoint.sh",
-                "aws ecr get-login-password | docker login --username AWS --password-stdin 623905218559.dkr.ecr.us-west-2.amazonaws.com",
-                "serverless deploy --stage prod --aws-s3-accelerate",
-                "serverless info -v --stage prod > serverless_info"
-            ]
-        },
-    },
-    "run-as": "root",
-    "version": 0.2
-})
+REFINERY_ECR_LIFECYCLE_POLICY = {
+    "rules": [
+        {
+            "rulePriority": 1,
+            "description": "Keep only two untagged images, expire all others",
+            "selection": {
+                "tagStatus": "untagged",
+                "countType": "imageCountMoreThan",
+                "countNumber": 2
+            },
+            "action": {
+                "type": "expire"
+            }
+        }
+    ]
+}
+
+
+class ServerlessModuleConfig:
+    def __init__(self, credentials, project_id, deployment_id, stage, diagram_data):
+        self.credentials = credentials
+        self.project_id = project_id
+        self.deployment_id = deployment_id
+        self.stage = stage
+        self.diagram_data = diagram_data
 
 
 class ServerlessModuleBuilder:
-    def __init__(self, app_config, project_id, deployment_id, diagram_data):
-        self.app_config = app_config
-        self.project_id = project_id
-        self.deployment_id = deployment_id
-        self.diagram_data = diagram_data
+    app_config: AppConfig = None
+    aws_client_factory: AwsClientFactory = None
+    node_js_builder: NodeJsBuilder = None
+    python_builder: PythonBuilder = None
+
+    @pinject.copy_args_to_public_fields
+    def __init__(self, app_config, aws_client_factory, node_js_builder, python_builder):
+        pass
 
     ###########################################################################
     # High level builder stuff
     ###########################################################################
+
+    def lambda_function(self, credentials):
+        return self.aws_client_factory.get_aws_client(
+            "lambda",
+            credentials
+        )
+
+    def ecr(self, credentials):
+        return self.aws_client_factory.get_aws_client(
+            "ecr",
+            credentials
+        )
+
+    def s3(self, credentials):
+        return self.aws_client_factory.get_aws_client(
+            "s3",
+            credentials
+        )
+
+    @cached_property
+    def docker_container_modifier_arn(self):
+        return self.app_config.get("docker_container_modifier_arn")
 
     @cached_property
     def workflow_state_builders(self):
@@ -50,43 +97,41 @@ class ServerlessModuleBuilder:
             "sqs_queue": self.build_sqs_queue
         }
 
-    def build(self, buffer=None):
+    def build(self, config, buffer=None):
         if buffer is not None:
-            self._build(buffer)
+            self._build(config, buffer)
 
             return buffer.getvalue()
 
         with BytesIO() as buffer:
-            self._build(buffer)
+            self._build(config, buffer)
             return buffer.getvalue()
 
-    def _build(self, buffer):
+    def _build(self, config, buffer):
         with ZipFile(buffer, 'w', ZIP_STORED) as zipfile:
-            self.build_workflow_states(zipfile)
-            self.build_config(zipfile)
-            self.add_buildspec(zipfile)
+            self.build_workflow_states(config, zipfile)
+            self.build_config(config, zipfile)
 
-    def build_config(self, zipfile):
+    def build_config(self, config: ServerlessModuleConfig, zipfile):
         builder = ServerlessConfigBuilder(
             self.app_config,
-            self.project_id,
-            self.deployment_id,
-            self.diagram_data
+            config.credentials,
+            config.project_id,
+            config.deployment_id,
+            config.stage,
+            config.diagram_data
         )
         serverless_yaml = builder.build()
 
         add_file_to_zipfile(zipfile, "serverless.yml", serverless_yaml)
 
-    def build_workflow_states(self, zipfile):
-        for workflow_state in self.diagram_data['workflow_states']:
+    def build_workflow_states(self, config, zipfile):
+        for workflow_state in config.diagram_data['workflow_states']:
             type_ = workflow_state['type']
             builder = self.workflow_state_builders.get(type_)
 
             if builder:
-                builder(workflow_state, zipfile)
-
-    def add_buildspec(self, zipfile):
-        add_file_to_zipfile(zipfile, "buildspec.yml", BUILDSPEC)
+                builder(config, workflow_state, zipfile)
 
     ###########################################################################
     # Lambda builder
@@ -95,51 +140,158 @@ class ServerlessModuleBuilder:
     @cached_property
     def lambda_builders(self):
         return {
-            PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME: self.build_python,
-            NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME: self.build_nodejs
+            PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME: self.python_builder,
+            NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME: self.node_js_builder
         }
 
-    def build_lambda(self, workflow_state, zipfile):
+    def container_runtime_path(self, runtime):
+        path = LAMBDA_TEMPORAL_RUNTIMES[CONTAINER_LANGUAGE + runtime]
+        return os.path.split(path)[-1]
+
+    def build_lambda(self, config: ServerlessModuleConfig, workflow_state, zipfile):
+        id_ = workflow_state['id']
         language = workflow_state['language']
         builder = self.lambda_builders[language]
-
-        builder(workflow_state, zipfile)
-
-    def build_python(self, workflow_state, zipfile):
-        id_ = workflow_state['id']
-        code = workflow_state['code']
-
-        lambda_fn = self.app_config.get("LAMBDA_TEMPORAL_RUNTIMES")['python3.6']
-
-        add_file_to_zipfile(zipfile, self.get_path(id_, "refinery_main.py"), code)
-        add_file_to_zipfile(zipfile, self.get_path(id_, "lambda_function.py"), lambda_fn)
-        # TODO add libraries to zip
-
+        code = workflow_state["code"]
+        libraries = workflow_state["libraries"]
         container = workflow_state.get('container')
-        if container is not None:
-            add_file_to_zipfile(zipfile, self.get_path(id_, "Dockerfile"), container)
+        is_container = container is not None and container != ''
 
-    def build_nodejs(self, workflow_state, zipfile):
+        # TODO this should probably be async so we can speed up deployment
+        file_map = {}
+        builder.build(config.credentials, code, libraries, file_map)
+
+        if is_container:
+            logit(f"Building container: {container} for workflow state: {id_}")
+            tag = self.build_with_container(config, workflow_state, container, file_map)
+            if tag is None:
+                raise RefineryDeploymentException(f"unable to get container tag for docker container: {container}")
+
+            logit(f"Container for workflow state: {id_} built with tag: {tag}")
+
+            file_map = {
+                "container.json": json.dumps({
+                    "tag": tag
+                })
+            }
+
+        for filename, contents in file_map.items():
+            add_file_to_zipfile(zipfile, self.get_path(id_, filename), contents)
+
+    def ensure_repository_exists(self, credentials, repo_name):
+        try:
+            ecr_client = self.ecr(credentials)
+            ecr_client.create_repository(
+                repositoryName=repo_name
+            )
+            ecr_client.put_lifecycle_policy(
+                repositoryName=repo_name,
+                lifecyclePolicyText=json.dumps(REFINERY_ECR_LIFECYCLE_POLICY)
+            )
+        except botocore.exceptions.ClientError as boto_error:
+            if boto_error.response["Error"]["Code"] != "RepositoryAlreadyExistsException":
+                # If it's not the exception we expect then throw
+                raise RefineryDeploymentException(str(boto_error))
+
+    def ensure_parent_dirs_exist(self, container_tar, added_paths, dir_path):
+        path_parts = dir_path.split(os.sep)
+
+        for i, _ in enumerate(path_parts):
+            cur_dir = os.path.join(*path_parts[:i+1])
+            if cur_dir in added_paths:
+                continue
+
+            added_paths.append(cur_dir)
+
+            tarinfo = tarfile.TarInfo(cur_dir)
+            tarinfo.type = tarfile.DIRTYPE
+            tarinfo.mode = 0o755
+            container_tar.addfile(tarinfo)
+
+    def build_with_container(self, config: ServerlessModuleConfig, workflow_state, container, filemap):
         id_ = workflow_state['id']
-        code = workflow_state['code']
+        name = workflow_state['name']
+        language = workflow_state['language']
 
-        lambda_fn = self.app_config.get("LAMBDA_TEMPORAL_RUNTIMES")['nodejs10.x']
+        account_id = config.credentials["account_id"]
+        ecr_registry = f"{account_id}.dkr.ecr.us-west-2.amazonaws.com"
+        image_name = get_unique_workflow_state_name(config.stage, name, id_).lower()
 
-        add_file_to_zipfile(zipfile, self.get_path(id_, "refinery_main.js"), code)
-        add_file_to_zipfile(zipfile, self.get_path(id_, "index.js"), lambda_fn)
-        # TODO add libraries to zip
+        self.ensure_repository_exists(config.credentials, image_name)
 
-    def build_nodejs_package_json(self, libraries):
-        libraries_dict = generate_libraries_dict(libraries)
-        return {
-            "name": "lambda-function",
-            "version": "0.0.1",
-            "description": "lambda function",
-            "main": "index.js",
-            "author": "Refinery",
-            "license": "ISC",
-            "dependencies": libraries_dict
+        runtime = LANGUAGE_TO_RUNTIME[language]
+        handler_path = self.container_runtime_path(runtime)
+
+        buffer = BytesIO()
+        added_paths = []
+        with tarfile.open(fileobj=buffer, mode='w') as container_tar:
+            functions_data = json.dumps({
+                id_: {
+                    "command": LANGUAGE_TO_CONTAINER_COMMAND[language],
+                    "handler": handler_path,
+                    "import_path": "refinery_main",
+                    "function_name": "main",
+                }
+            }).encode()
+
+            runtime_path = "var/runtime"
+
+            functions_path = os.path.join(runtime_path, "functions.json")
+            add_file_to_tar_file(container_tar, functions_path, functions_data)
+
+            for filepath, contents in filemap.items():
+                filepath = os.path.join(runtime_path, id_, filepath)
+
+                dir_path, _ = os.path.split(filepath)
+                if dir_path not in added_paths:
+                    self.ensure_parent_dirs_exist(container_tar, added_paths, dir_path)
+
+                add_file_to_tar_file(container_tar, filepath, contents)
+
+        container_file_data = buffer.getvalue()
+
+        # S3 object key of the build package, randomly generated.
+        s3_key = "container_files/" + str(uuid4()) + ".tar"
+
+        build_package_bucket = config.credentials["lambda_packages_bucket"]
+
+        # Write the CodeBuild build package to S3
+        s3_client = self.s3(config.credentials)
+        s3_response = s3_client.put_object(
+            Bucket=build_package_bucket,
+            Body=container_file_data,
+            Key=s3_key,
+            ACL="public-read"
+        )
+
+        # TODO check s3 response
+
+        payload = {
+            "registry": ecr_registry,
+            "base_image": container,
+            "new_image_name": image_name,
+            "image_files": {
+                "bucket": build_package_bucket,
+                "key": s3_key
+            }
         }
+
+        lambda_client = self.lambda_function(config.credentials)
+        resp = lambda_client.invoke(
+            FunctionName=self.docker_container_modifier_arn,
+            InvocationType='RequestResponse',
+            LogType='Tail',
+            Payload=json.dumps(payload).encode()
+        )
+
+        error = resp.get("FunctionError")
+        if error is not None:
+            log_result = base64.b64decode(resp["LogResult"])
+            logit(log_result.decode())
+            raise LambdaInvokeException(str(payload))
+
+        decoded_payload = json.loads(resp["Payload"].read())
+        return decoded_payload["tag"]
 
     def get_path(self, id_, path):
         id_ = ''.join([i for i in id_ if i.isalnum()])

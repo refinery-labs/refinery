@@ -1,15 +1,22 @@
 package runtime
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
+
+type FunctionLookup map[string]RefineryFunction
 
 type InvokeEvent struct {
-	Command      string           `json:"command"`
-	Handler      string           `json:"handler"`
-	Cwd          string           `json:"cwd"`
-	ImportPath   string           `json:"import_path"`
 	FunctionName string           `json:"function_name"`
 	BlockInput   *json.RawMessage `json:"block_input"`
 	Backpack     *json.RawMessage `json:"backpack"`
+}
+
+type InvokeFunctionRequest struct {
+	BlockInput *json.RawMessage `json:"block_input"`
+	Backpack *json.RawMessage `json:"backpack"`
+	ImportPath string `json:"import_path"`
+	FunctionName string `json:"function_name"`
 }
 
 type HandlerResponse struct {
@@ -21,4 +28,11 @@ type HandlerResponse struct {
 type LambdaResponse struct {
 	Result   *json.RawMessage `json:"result"`
 	Backpack *json.RawMessage `json:"backpack"`
+}
+
+type RefineryFunction struct {
+	Command string `json:"command"`
+	Handler string `json:"handler"`
+	ImportPath string `json:"import_path"`
+	FunctionName string `json:"function_name"`
 }

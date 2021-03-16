@@ -1,8 +1,8 @@
 from tornado.concurrent import futures
 import tornado
 
-from tasks.build.temporal.nodejs import NodeJs12Builder
-from tasks.build.temporal.python import Python36Builder
+from tasks.build.temporal.nodejs import NodeJsBuilder
+from tasks.build.temporal.python import PythonBuilder
 
 
 class CodeBuilderFactory:
@@ -15,7 +15,7 @@ class CodeBuilderFactory:
         self.aws_client_factory = aws_client_factory
 
     def get_nodejs12_builder(self, credentials, code, libraries):
-        return NodeJs12Builder(
+        return NodeJsBuilder(
             self.executor,
             self.loop,
             self.app_config,
@@ -26,7 +26,7 @@ class CodeBuilderFactory:
         )
 
     def get_python36_builder(self, credentials, code, libraries):
-        return Python36Builder(
+        return PythonBuilder(
             self.executor,
             self.loop,
             self.app_config,

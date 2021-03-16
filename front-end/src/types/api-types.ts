@@ -379,18 +379,12 @@ export interface RunLambdaResult {
  * Always upon completion the Lambda should be deleted!
  */
 export interface RunTmpLambdaRequest extends BaseApiRequest {
-  code: string;
-  environment_variables: RunTmpLambdaEnvironmentVariable[];
+  project_id: string;
+  diagram_data: string;
   input_data: string;
   backpack: string;
-  language: SupportedLanguage;
-  layers: any[];
-  libraries: any[];
-  max_execution_time: number;
-  memory: number;
   block_id: string;
   debug_id: string;
-  shared_files: WorkflowFile[];
 }
 
 export interface RunTmpLambdaEnvironmentVariable {

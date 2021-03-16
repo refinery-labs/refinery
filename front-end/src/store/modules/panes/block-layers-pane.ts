@@ -114,7 +114,7 @@ export class BlockLayersStore extends VuexModule<ThisType<BlockLayersState>, Roo
     this.setModalVisibility({ modalVisibility: false, readOnly });
   }
 
-  @LoggingAction closeEditor({ discard, readOnly }: { discard: boolean; readOnly: boolean }) {
+  @LoggingAction async closeEditor({ discard, readOnly }: { discard: boolean; readOnly: boolean }) {
     this.setModalVisibility({ modalVisibility: false, readOnly: readOnly });
 
     if (discard) {
@@ -127,14 +127,14 @@ export class BlockLayersStore extends VuexModule<ThisType<BlockLayersState>, Roo
 
     this.resetState();
 
-    this.context.commit(`project/editBlockPane/${EditBlockMutators.setLayers}`, layers, {
+    await this.context.commit(`project/editBlockPane/${EditBlockMutators.setLayers}`, layers, {
       root: true
     });
 
-    this.context.commit(`project/editBlockPane/${EditBlockMutators.setContainer}`, container, {
+    await this.context.commit(`project/editBlockPane/${EditBlockMutators.setContainer}`, container, {
       root: true
     });
 
-    this.context.commit(`project/${ProjectViewMutators.markProjectDirtyStatus}`, true, { root: true });
+    await this.context.commit(`project/${ProjectViewMutators.markProjectDirtyStatus}`, true, { root: true });
   }
 }

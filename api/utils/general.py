@@ -1,5 +1,7 @@
+import io
 import os
 import sys
+import tarfile
 import uuid
 import json
 import string
@@ -131,3 +133,10 @@ def add_file_to_zipfile(handler, file_name, contents):
     info = ZipInfo(file_name)
     info.external_attr = 0o777 << 16
     handler.writestr(info, contents)
+
+
+def add_file_to_tar_file(tar_container, filepath, contents):
+    tarinfo = tarfile.TarInfo(filepath)
+    tarinfo.size = len(contents)
+    tarinfo.mode = 0o755
+    tar_container.addfile(tarinfo, io.BytesIO(contents))

@@ -42,10 +42,20 @@ LANGUAGE_TO_RUNTIME = {
     PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME: "python3.6",
     NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME: "nodejs10.x"
 }
+
 LANGUAGE_TO_HANDLER = {
     PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME: "lambda_function.lambda_handler",
     NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME: "index.handler"
 }
+LANGUAGE_TO_CONTAINER_COMMAND = {
+    PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME: "python",
+    NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME: "node"
+}
+LANGUAGE_TO_CONTAINER_HANDLER = {
+    PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME: "container_lambda_function.py"
+}
+
+CONTAINER_HANDLER_PATH = "/var/runtime/handlers"
 
 # These languages are all custom
 CUSTOM_RUNTIME_LANGUAGES = [
@@ -71,10 +81,12 @@ LAMBDA_BASE_LIBRARIES: Dict[str, List[str]] = {
     "ruby2.6.4": []
 }
 
+CONTAINER_LANGUAGE = "container_"
 LAMBDA_TEMPORAL_RUNTIMES: Dict[str, str] = {
     "python3.6": "python36/lambda_function.py",
     "nodejs10.x": "nodejs10.x/index.js",
-    "sqs_notifier": "sqs_notifier/handler.js"
+    "sqs_notifier": "sqs_notifier/handler.js",
+    CONTAINER_LANGUAGE + "python3.6": "python36/container_lambda_function.py"
 }
 
 # Regex for character whitelists for different fields

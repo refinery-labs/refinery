@@ -22,6 +22,8 @@ function makeBlockingStream__refinery(stream) {
 const EFS_MOUNT = '/mnt/efs';
 
 async function runCommand(cwd, command, args) {
+  console.log(`Running: ${command} ${args}...`);
+
   const nodeModulePath = `${process.cwd()}/node_modules`;
   const child = spawn(command, args, {
     cwd: cwd,
@@ -53,23 +55,36 @@ async function runCommand(cwd, command, args) {
   return data;
 }
 
-async function executeAction(workDir, action) {
+async function executeAction(workDir, action, {stage}) {
   const nodeModulePath = `${process.cwd()}/node_modules`;
   const serverlessScript = `${nodeModulePath}/serverless/bin/serverless.js`;
 
   if (action === 'deploy') {
-    console.log('Deploying Serverless project...');
-    const deployOutput = await runCommand(workDir, 'node', [serverlessScript, 'deploy', '--aws-s3-accelerate']);
+    const deployCommand = [
+        serverlessScript,
+        'deploy',
+        '--stage', stage,
+        '--aws-s3-accelerate'
+    ];
+    const deployOutput = await runCommand(workDir, 'node', deployCommand);
 
     console.log(`Deployment output: ${deployOutput}`);
 
     // TODO check for errors in deployOutput
 
-    console.log('Getting Serverless resources...');
-    return await runCommand(workDir, 'node', [serverlessScript, 'info', '-v']);
+    const infoCommand = [
+        serverlessScript,
+        'info', '-v',
+        '--stage', stage
+    ];
+    return await runCommand(workDir, 'node', infoCommand);
   } else if (action === 'remove') {
-    console.log('Removing Serverless project...');
-    return await runCommand(workDir, 'node', [serverlessScript, 'remove']);
+    const removeCommand = [
+        serverlessScript,
+      'remove',
+      '--stage', stage
+    ];
+    return await runCommand(workDir, 'node', removeCommand);
   }
 
   throw new Error(`action ${action} is not supported`);
@@ -82,6 +97,7 @@ exports.lambdaHandler = async (event, context) => {
 
   const action = event.action;
   const deploymentId = event.deployment_id;
+  const stage = event.stage;
 
   const workDir = path.join(EFS_MOUNT, deploymentId);
 
@@ -118,7 +134,7 @@ exports.lambdaHandler = async (event, context) => {
 
   try {
     console.log(`Executing action ${action}...`);
-    data = await executeAction(workDir, action);
+    data = await executeAction(workDir, action, {stage});
   } catch (e) {
     console.log(`Error while performing action: ${e}`);
     error = e;

@@ -1,35 +1,28 @@
 import json
-import time
-import uuid
 
-import botocore
 import pinject
 from jsonschema import validate as validate_schema
 from tornado import gen
 
 from assistants.aws_clients.aws_clients_assistant import AwsClientFactory
-from assistants.deployments.aws_workflow_manager.aws_deployment import AwsDeployment
-from assistants.deployments.aws.lambda_function import LambdaWorkflowState
-from assistants.deployments.aws.utils import get_base_lambda_code
-from assistants.deployments.diagram.workflow_states import StateTypes
 from controller import BaseHandler
 from controller.aws.schemas import *
 from controller.decorators import authenticated, disable_on_overdue_payment
 from controller.logs.actions import delete_logs
 from controller.projects.actions import update_project_config
-from deployment.serverless.builder_factory import BuilderFactory
-from deployment.serverless.dismantler import ServerlessDismantler
-from models import InlineExecutionLambda, Project, Deployment, DeploymentLog
-from pyexceptions.builds import BuildException
-from services.workflow_manager.workflow_manager_service import WorkflowManagerService, WorkflowManagerException
-from utils.general import get_random_node_id, attempt_json_decode
+from data_types.deployment_stages import DeploymentStages
+
+from deployment.deployment_manager import DeploymentManager
+from deployment.serverless.exceptions import RefineryDeploymentException
+from models import DeploymentLog
+from tasks.athena import create_project_id_log_table
+from utils.general import attempt_json_decode
 from utils.locker import AcquireFailure
-from uuid import uuid4
 
 
 class RunTmpLambdaDependencies:
     @pinject.copy_args_to_public_fields
-    def __init__(self, builder_manager, aws_client_factory):
+    def __init__(self, builder_manager, aws_client_factory, deployment_manager):
         pass
 
 
@@ -38,6 +31,35 @@ class RunTmpLambda(BaseHandler):
     dependencies = RunTmpLambdaDependencies
     builder_manager = None
     aws_client_factory = None
+    deployment_manager: DeploymentManager = None
+
+    @gen.coroutine
+    def get_lambda_arn(self, credentials, org_id, project_id, diagram_data, workflow_state_id):
+        stage = DeploymentStages.dev
+
+        # lambda_info = yield self.deployment_manager.find_existing_lambda(credentials, project_id, stage, workflow_state_id)
+        # if lambda_info is not None:
+        #     raise gen.Return(lambda_info)
+
+        try:
+            deployed_project = yield self.deployment_manager.deploy_stage(
+                credentials, org_id, project_id, stage, diagram_data, deploy_workflows=False
+            )
+        except RefineryDeploymentException as e:
+            self.logger(str(e))
+            raise gen.Return(None)
+
+        deployment_config = deployed_project["deployment_config"]
+
+        workflow_states = deployment_config["workflow_states"]
+        workflow_state_lookup = {ws["id"]: ws for ws in workflow_states}
+        function_workflow_state = workflow_state_lookup.get(workflow_state_id)
+        if function_workflow_state is None:
+            self.logger(f"cannot find function with id: {workflow_state_id}")
+            raise gen.Return(None)
+
+        arn, _, version = function_workflow_state["arn"].rpartition(":")
+        raise gen.Return((arn, version))
 
     @authenticated
     @disable_on_overdue_payment
@@ -50,11 +72,14 @@ class RunTmpLambda(BaseHandler):
         """
         validate_schema(self.json, RUN_TMP_LAMBDA_SCHEMA)
 
+        project_id = self.json["project_id"]
+        diagram_data = json.loads(self.json["diagram_data"])
+        block_id = self.json["block_id"]
+
         self.logger("Building Lambda package...")
 
         credentials = self.get_authenticated_user_cloud_configuration()
-
-        random_node_id = get_random_node_id()
+        org_id = self.get_authenticated_user_org().id
 
         # Try to parse Lambda input as JSON
         self.json["input_data"] = attempt_json_decode(
@@ -68,99 +93,10 @@ class RunTmpLambda(BaseHandler):
                 self.json["backpack"]
             )
 
-        # Dummy pipeline execution ID
-        pipeline_execution_id = "SHOULD_NEVER_HAPPEN_TMP_LAMBDA_RUN"
-
-        deployment_diagram = AwsDeployment(
-            pipeline_execution_id,
-            None,
-            project_config={
-                "logging": {
-                    "level": "LOG_NONE"
-                }
-            },
-            app_config=self.app_config,
-            credentials=credentials,
-            aws_client_factory=self.aws_client_factory,
-            task_spawner=self.task_spawner
-        )
-
-        inline_lambda = LambdaWorkflowState(
-            credentials,
-            str(uuid.uuid4()),
-            random_node_id,
-            StateTypes.LAMBDA,
-            is_inline_execution=True
-        )
-        inline_lambda.setup(deployment_diagram, self.json)
-
-        inline_lambda_hash_key = inline_lambda.get_content_hash()
-
-        # Check if we already have an inline execution Lambda for it.
-        cached_inline_execution_lambda = self.dbsession.query(InlineExecutionLambda).filter_by(
-            aws_account_id=credentials["id"],
-            unique_hash_key=inline_lambda_hash_key
-        ).first()
-
-        # We can skip this if we already have a cached execution
-        if cached_inline_execution_lambda:
-            self.logger("Inline execution is already cached as a Lambda, doing a hotload...")
-
-            # Update the latest execution time to be the current timestamp
-            # This informs our garbage collection to ensure we always delete the Lambda
-            # that was run the longest ago (so that people encounter cache-misses as
-            # little as possible.)
-            cached_inline_execution_lambda.last_used_timestamp = int(time.time())
-
-            # Update it in the database
-            self.dbsession.commit()
-
-            cached_inline_execution_lambda_dict = cached_inline_execution_lambda.to_dict()
-        else:
-            # noinspection PyUnresolvedReferences
-            try:
-                yield inline_lambda.predeploy(self.task_spawner)
-                yield inline_lambda.deploy(
-                    self.task_spawner, project_id=None, project_config=None
-                )
-            except BuildException as build_exception:
-                self.write({
-                    "success": False,
-                    "msg": "An error occurred while building the Code Block package.",
-                    "log_output": build_exception.build_output
-                })
-                raise gen.Return()
-            except botocore.exceptions.ClientError as boto_error:
-                self.logger("An exception occurred while setting up the Code Block.")
-                self.logger(boto_error)
-
-                error_message = boto_error.response["Error"]["Message"] + " (Code: " + boto_error.response["Error"]["Code"] + ")"
-
-                self.write({
-                    "success": False,
-                    "msg": error_message,
-                    "log_output": ""
-                })
-                raise gen.Return()
-
         execute_lambda_params = {
             "backpack": backpack_data,
             "block_input": self.json["input_data"],
         }
-
-        # Get inline execution code
-        inline_execution_code = get_base_lambda_code(
-            self.app_config,
-            self.json["language"],
-            self.json["code"]
-        )
-
-        if self.json["language"] == "go1.12":
-            self.write({
-                "success": False,
-                "msg": "Language currently not supported for code runner",
-                "log_output": ""
-            })
 
         if "debug_id" in self.json:
             # TODO implement live debugging
@@ -172,11 +108,33 @@ class RunTmpLambda(BaseHandler):
             """
             pass
 
-        self.logger(f"Executing Lambda '{inline_lambda.arn}'...")
 
-        lambda_result = yield self.task_spawner.execute_aws_lambda(
+        # TODO this code is needed if going from package to docker uri
+        # need to figure out how to get around this maybe?
+        """
+        yield self.deployment_manager.remove_latest_stage(
+            credentials, project_id, DeploymentStages.dev, remove_workflows=False
+        )
+        """
+
+        lambda_info = yield self.get_lambda_arn(credentials, org_id, project_id, diagram_data, block_id)
+        if lambda_info is None:
+            self.logger(f"Unable to get arn for lambda: {block_id} for project: {project_id}")
+            self.write({
+                "success": False,
+                "msg": "Unable to build and deploy lambda.",
+                "log_output": ""
+            })
+            raise gen.Return()
+
+        lambda_arn, version = lambda_info
+
+        self.logger(f"Executing Lambda '{lambda_arn}'...")
+
+        lambda_result = yield self.task_spawner.execute_aws_lambda_with_version(
             credentials,
-            inline_lambda.arn,
+            lambda_arn,
+            version,
             execute_lambda_params
         )
 
@@ -213,20 +171,6 @@ class RunTmpLambda(BaseHandler):
             })
             raise gen.Return()
 
-        # If it's not a supported language for inline execution that
-        # means that it needs to be manually deleted since it's not in the
-        # regular garbage collection pool.
-        """
-		if self.json[ "language" ] in NOT_SUPPORTED_INLINE_EXECUTION_LANGUAGES:
-			self.logger( "Deleting Lambda..." )
-
-			# Now we delete the lambda, don't yield because we don't need to wait
-			delete_result = self.task_spawner.delete_aws_lambda(
-				credentials,
-				random_node_id
-			)
-		"""
-
         self.write({
             "success": True,
             "result": lambda_execution_result
@@ -237,13 +181,7 @@ class InfraTearDownDependencies:
     @pinject.copy_args_to_public_fields
     def __init__(
         self,
-        api_gateway_manager,
-        lambda_manager,
-        schedule_trigger_manager,
-        sns_manager,
-        sqs_manager,
-        workflow_manager_service,
-        aws_client_factory
+        deployment_manager
     ):
         pass
 
@@ -251,13 +189,7 @@ class InfraTearDownDependencies:
 # noinspection PyMethodOverriding, PyAttributeOutsideInit
 class InfraTearDown(BaseHandler):
     dependencies = InfraTearDownDependencies
-    api_gateway_manager = None
-    lambda_manager = None
-    schedule_trigger_manager = None
-    sns_manager = None
-    sqs_manager = None
-    workflow_manager_service: WorkflowManagerService = None
-    aws_client_factory: AwsClientFactory = None
+    deployment_manager: DeploymentManager = None
 
     @authenticated
     @gen.coroutine
@@ -267,13 +199,9 @@ class InfraTearDown(BaseHandler):
         project_id = self.json["project_id"]
         deployment_id = self.json["deployment_id"]
 
-        serverless_dismanteler = ServerlessDismantler(
-            self.app_config,
-            self.aws_client_factory,
-            credentials,
-            deployment_id
+        yield self.deployment_manager.remove_stage(
+            credentials, deployment_id, DeploymentStages.prod
         )
-        serverless_dismanteler.dismantle()
 
         # Delete our logs
         # No need to yield till it completes
@@ -282,9 +210,6 @@ class InfraTearDown(BaseHandler):
             credentials,
             project_id
         )
-
-        self.workflow_manager_service.delete_deployment_workflows(deployment_id)
-        # TODO client should send ARN to server
 
         self.write({
             "success": True,
@@ -304,156 +229,45 @@ class InfraCollisionCheck(BaseHandler):
 
 class DeployDiagramDependencies:
     @pinject.copy_args_to_public_fields
-    def __init__(self, builder_factory, lambda_manager, api_gateway_manager, schedule_trigger_manager, sns_manager, sqs_manager, workflow_manager_service, aws_client_factory):
+    def __init__(self, deployment_manager, aws_client_factory):
         pass
-
-
-def filter_teardown_nodes(teardown_nodes):
-    return [
-        node for node in teardown_nodes
-        if node["type"] not in ["lambda", "api_endpoint", "api_gateway", "sqs_queue", "sns_topic"]
-    ]
 
 
 class DeployDiagram(BaseHandler):
     dependencies = DeployDiagramDependencies
-    lambda_manager = None
-    api_gateway_manager = None
-    schedule_trigger_manager = None
-    sns_manager = None
-    sqs_manager = None
-    aws_client_factory = None
-    workflow_manager_service: WorkflowManagerService = None
-    builder_factory: BuilderFactory = None
+    deployment_manager: DeploymentManager = None
+    aws_client_factory: AwsClientFactory = None
 
     @gen.coroutine
-    def cleanup_deployment(self, deployment_diagram, credentials, successful_deploy):
-        yield deployment_diagram.remove_workflow_states(
-            self.api_gateway_manager,
-            self.lambda_manager,
-            self.schedule_trigger_manager,
-            self.sns_manager,
-            self.sqs_manager,
-            credentials,
-            successful_deploy
-        )
-
-        # Delete our logs
-        # No need to yield till it completes
-        delete_logs(
-            self.task_spawner,
-            credentials,
-            deployment_diagram.project_id
-        )
-
-    @gen.coroutine
-    def rollback_deployment(self, deployment_diagram, credentials, exceptions, code=None, msg=None):
-        self.logger("We are now rolling back the deployments we've made...", "error")
-
-        yield self.cleanup_deployment(deployment_diagram, credentials, successful_deploy=False)
-
-        self.logger("We've completed our rollback, returning an error...", "error")
-
-        if code is not None:
-            self.write({
-                "success": False,
-                "code": code,
-                "msg": msg
-            })
-            raise gen.Return()
-
-        self.write({
-            "success": True,  # Success meaning we caught it
-            "result": {
-                "deployment_success": False,
-                "exceptions": exceptions
-            }
-        })
-
-    @authenticated
-    @disable_on_overdue_payment
-    @gen.coroutine
-    def do_diagram_deployment(self, project_name, project_id, diagram_data, project_config, force_redeploy):
-        credentials = self.get_authenticated_user_cloud_configuration()
-        org_id = self.get_authenticated_user_org().id
-        latest_deployment = self.dbsession.query(Deployment).filter_by(
-            project_id=project_id
-        ).order_by(
-            Deployment.timestamp.desc()
-        ).first()
-
-        self.dbsession.close()
-
-        self._dbsession = None
-
-        previous_deployment_json = json.loads(latest_deployment.deployment_json) if latest_deployment else {}
-        previous_build_id = previous_deployment_json.get('build_id') if previous_deployment_json else None
-
-        new_deployment_id = str(uuid4())
-        builder = self.builder_factory.get_serverless_builder(
-            credentials,
-            project_id,
-            new_deployment_id,
-            previous_build_id,
-            diagram_data
-        )
-
-        # TODO: Update the project data? Deployments should probably be an explicit "Save Project" action.
-
-        # Add a reference to this deployment from the associated project
-        existing_project = self.dbsession.query(Project).filter_by(
-            id=project_id
-        ).first()
-
-        if existing_project is None:
-            self.write({
-                "success": False,
-                "code": "DEPLOYMENT_UPDATE",
-                "msg": "Unable to find project when updating deployment information.",
-            })
-
-            # TODO we probably want to teardown the deployment if this is the case
-
-            raise gen.Return()
-
-        project_log_table_future = self.task_spawner.create_project_id_log_table(
+    def create_project_id_log_table(self, credentials, project_id):
+        return create_project_id_log_table(
+            self.aws_client_factory,
             credentials,
             project_id
         )
 
-        # Build the project
-        self.logger("Begin deployment")
-        deployment_config = yield builder.build(rebuild=previous_build_id is not None)
-
-        if deployment_config is None:
-            self.write({
-                "success": False,
-                "code": "PROJECT_DEPLOYMENT",
-                "msg": "An error occurred while trying to deploy the project.",
-            })
-
-            raise gen.Return()
+    @gen.coroutine
+    def do_diagram_deployment(self, project_id, diagram_data, project_config):
+        credentials = self.get_authenticated_user_cloud_configuration()
+        org_id = self.get_authenticated_user_org().id
+        stage = DeploymentStages.prod
 
         try:
-            yield self.workflow_manager_service.create_workflows_for_deployment(deployment_config)
-        except WorkflowManagerException as e:
-            self.logger("An error occurred while trying to create workflows in the Workflow Manager: " + str(e), "error")
-
+            deployed_project = yield self.deployment_manager.deploy_stage(
+                credentials, org_id, project_id, stage, diagram_data
+            )
+        except RefineryDeploymentException as e:
             self.write({
                 "success": False,
-                "code": "DEPLOYMENT_WORKFLOWS",
-                "msg": "An error occurred while trying to create workflows in the workflow manager.",
+                "code": "DEPLOYMENT",
+                "msg": str(e)
             })
-
             raise gen.Return()
 
-        # Create deployment metadata
-        new_deployment = Deployment(id=new_deployment_id)
-        new_deployment.organization_id = org_id
-        new_deployment.project_id = project_id
-        new_deployment.deployment_json = json.dumps(deployment_config)
-
-        existing_project.deployments.append(new_deployment)
+        project_log_table_future = self.create_project_id_log_table(
+            credentials,
+            project_id
+        )
 
         deployment_log = DeploymentLog()
         deployment_log.org_id = org_id
@@ -467,13 +281,16 @@ class DeployDiagram(BaseHandler):
             project_config
         )
 
+        deployment_id = deployed_project["deployment_id"]
+        deployment_config = deployed_project["deployment_config"]
+
         self.write({
             "success": True,
             "result": {
                 "deployment_success": True,
-                "diagram_data": deployment_config,
                 "project_id": project_id,
-                "deployment_id": new_deployment.id,
+                "deployment_id": deployment_id,
+                "diagram_data": deployment_config,
             }
         })
 
@@ -493,11 +310,9 @@ class DeployDiagram(BaseHandler):
             })
             raise gen.Return()
 
-        project_name = self.json["project_name"]
         project_id = self.json["project_id"]
         diagram_data = json.loads(self.json["diagram_data"])
         project_config = self.json["project_config"]
-        force_redeploy = self.json["force_redeploy"]
 
         lock_id = "deploy_diagram_" + project_id
 
@@ -507,7 +322,7 @@ class DeployDiagram(BaseHandler):
             # Enforce that we are only attempting to do this multiple times simultaneously for the same project
             with task_lock:
                 yield self.do_diagram_deployment(
-                    project_name, project_id, diagram_data, project_config, force_redeploy)
+                    project_id,diagram_data, project_config)
 
         except AcquireFailure:
             self.logger("Unable to acquire deploy diagram lock for " + project_id)

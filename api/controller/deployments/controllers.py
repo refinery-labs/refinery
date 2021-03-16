@@ -7,6 +7,15 @@ from controller.deployments.schemas import *
 from models import Deployment, CachedExecutionLogsShard
 
 
+class DeploySecureResolver(BaseHandler):
+    @gen.coroutine
+    def post(self):
+        project_id = self.json["project_id"]
+        docker_container = self.json["docker_container"]
+        language = self.json["language"]
+        functions = self.json["functions"]
+
+
 class GetLatestProjectDeployment(BaseHandler):
     @authenticated
     @gen.coroutine

@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path"
 	"regexp"
 	"strings"
 
@@ -13,18 +15,14 @@ import (
 	"github.com/refinery-labs/refinery/golang/internal/runtime"
 )
 
-const (
-	OUTPUT_REGEX = `<REFINERY_OUTPUT_CUSTOM_RUNTIME>(.*)<\/REFINERY_OUTPUT_CUSTOM_RUNTIME>`
-)
-
 var (
-	outputRegex = regexp.MustCompile(OUTPUT_REGEX)
+	outputRegex = regexp.MustCompile(runtime.OutputRegexStr)
 )
 
 func parseStdout(stdout string) (responseData runtime.HandlerResponse, err error) {
 	output := outputRegex.FindStringSubmatch(stdout)
 	if len(output) == 0 {
-		err = fmt.Errorf("Unable to find output from handler")
+		err = fmt.Errorf("unable to find output from handler")
 		return
 	}
 	returnedData := output[1]
@@ -52,41 +50,105 @@ func HandleRequestApiGateway(ctx context.Context, request events.APIGatewayProxy
 	return events.APIGatewayProxyResponse{Body: string(body), StatusCode: 200}, nil
 }
 
+func loadFunctionLookup() (functionLookup runtime.FunctionLookup, err error) {
+	var data []byte
+
+	functionLookup = runtime.FunctionLookup{}
+
+	data, err = ioutil.ReadFile(runtime.FunctionsPath)
+	if err != nil {
+		fmt.Println("File reading error", err)
+		return
+	}
+
+	err = json.Unmarshal(data, &functionLookup)
+	if err != nil {
+		fmt.Println("Error parsing rpc function lookup", err)
+		return
+	}
+	return functionLookup, err
+}
+
+func getFunctionConfig(functionName string) (functionName_ string, funcConfig runtime.RefineryFunction, err error) {
+	var (
+		ok bool
+		functionLookup runtime.FunctionLookup
+	)
+
+	functionLookup, err = loadFunctionLookup()
+	if err != nil {
+		return
+	}
+
+	if functionName == "" {
+		functionName = os.Getenv("REFINERY_FUNCTION_NAME")
+	}
+
+	functionName_ = functionName
+
+	funcConfig, ok = functionLookup[functionName]
+	if !ok {
+		err = fmt.Errorf("unable to find function with name: %s", functionName)
+	}
+	return
+}
+
 func HandleRequest(invokeEvent runtime.InvokeEvent) (lambdaResponse runtime.LambdaResponse, err error) {
+	var (
+		functionName string
+		functionInput []byte
+		funcConfig runtime.RefineryFunction
+		res runtime.ExecResult
+		handlerResponse runtime.HandlerResponse
+	)
+
 	fmt.Printf("Handling request: %+v\n", invokeEvent)
-	functionInput, err := json.Marshal(invokeEvent)
+
+	functionName, funcConfig, err = getFunctionConfig(invokeEvent.FunctionName)
+	if err != nil {
+		return
+	}
+
+	req := runtime.InvokeFunctionRequest{
+		BlockInput:   invokeEvent.BlockInput,
+		Backpack:     invokeEvent.Backpack,
+		ImportPath:   funcConfig.ImportPath,
+		FunctionName: funcConfig.FunctionName,
+	}
+
+	functionInput, err = json.Marshal(req)
 	if err != nil {
 		return
 	}
 
 	handlerStdin := strings.NewReader(string(functionInput))
 
-	cmd := runtime.ExecTask{
-		Command: invokeEvent.Command,
+	refineryCommand := runtime.ExecTask{
+		Command: funcConfig.Command,
 		Args: []string{
-			invokeEvent.Handler,
+			funcConfig.Handler,
 		},
-		Cwd:         invokeEvent.Cwd,
+		Cwd:         path.Join(runtime.RuntimeDir, functionName),
 		Stdin:       handlerStdin,
 		StreamStdio: false,
 	}
 
-	res, err := cmd.Execute()
-
-	fmt.Println("STDOUT", res.Stdout)
-	fmt.Println("STDERR", res.Stderr)
+	res, err = refineryCommand.Execute()
 
 	if err != nil {
+		fmt.Printf("%s\n", err)
 		return
 	}
 
 	/*
 		TODO should we use protobuf to communicate between the processes?
 	*/
-	handlerResponse, err := parseStdout(res.Stdout)
+	handlerResponse, err = parseStdout(res.Stdout)
 	if err != nil {
 		return
 	}
+
+	fmt.Println(handlerResponse)
 
 	if handlerResponse.Error != "" {
 		err = fmt.Errorf("%s", handlerResponse.Error)
@@ -100,6 +162,7 @@ func HandleRequest(invokeEvent runtime.InvokeEvent) (lambdaResponse runtime.Lamb
 
 func main() {
 	fmt.Println("Starting runtime...")
+
 	// Make the handler available for Remote Procedure Call by AWS Lambda
 	lambdaEnv := os.Getenv("LAMBDA_ENVIRONMENT")
 	switch lambdaEnv {

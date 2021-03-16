@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import zipfile
 from io import BytesIO
 from typing import TYPE_CHECKING
@@ -16,6 +17,7 @@ from base64 import b64decode
 from botocore.exceptions import ClientError
 from json import dumps, loads
 
+from deployment.serverless.exceptions import LambdaInvokeException
 from models import InlineExecutionLambda
 from pyconstants.project_constants import LAMBDA_SUPPORTED_LANGUAGES, EMPTY_ZIP_DATA
 from tasks.build.ruby import build_ruby_264_lambda
@@ -23,8 +25,8 @@ from tasks.build.golang import get_go_112_base_code
 from tasks.build.nodejs import build_nodejs_10163_lambda, build_nodejs_810_lambda, build_nodejs_10201_lambda
 from tasks.build.php import build_php_73_lambda
 from tasks.build.python import build_python36_lambda, build_python27_lambda
-from tasks.build.temporal.python import Python36Builder
-from tasks.build.temporal.nodejs import NodeJs12Builder
+from tasks.build.temporal.python import PythonBuilder
+from tasks.build.temporal.nodejs import NodeJsBuilder
 from tasks.s3 import s3_object_exists
 from utils.general import logit, log_exception
 from utils.wrapped_aws_functions import lambda_list_event_source_mappings, api_gateway_get_rest_api, \
@@ -93,6 +95,103 @@ def warm_up_lambda(aws_client_factory, credentials, arn, warmup_concurrency_leve
             }
         })
     )
+
+
+def execute_aws_lambda_with_version(aws_client_factory, credentials, arn, version, input_data):
+    lambda_client = aws_client_factory.get_aws_client("lambda", credentials)
+    response = lambda_invoke(
+        lambda_client,
+        arn=arn,
+        invocation_type=LambdaInvocationType.REQUEST_RESPONSE,
+        payload=dumps(input_data),
+        qualifier=version
+    )
+
+    full_response = response["Payload"].read()
+
+    # Decode it all the way
+    try:
+        full_response = loads(
+            loads(
+                full_response
+            )
+        )
+    except BaseException:
+        pass
+
+    if type(full_response) in [dict, list]:
+        # make the response pretty if we can
+        full_response = dumps(
+            full_response,
+            indent=4
+        )
+    elif isinstance(full_response, bytes):
+        full_response = full_response.decode('utf-8')
+    else:
+        full_response = str(full_response)
+
+    print(full_response)
+
+    # Detect from response if it was an error
+    is_error = False
+
+    if "FunctionError" in response:
+        is_error = True
+
+    log_output = b64decode(
+        response["LogResult"]
+    ).decode("utf-8")
+
+    # Strip the Lambda stuff from the output
+    if "RequestId:" in log_output:
+        log_lines = log_output.split("\n")
+        returned_log_lines = []
+
+        for log_line in log_lines:
+            if log_line.startswith("START RequestId: "):
+                continue
+
+            if log_line.startswith("END RequestId: "):
+                continue
+
+            if log_line.startswith("REPORT RequestId: "):
+                continue
+
+            if log_line.startswith("XRAY TraceId: "):
+                continue
+
+            if "START RequestId: " in log_line:
+                log_line = log_line.split("START RequestId: ")[0]
+
+            if "END RequestId: " in log_line:
+                log_line = log_line.split("END RequestId: ")[0]
+
+            if "REPORT RequestId: " in log_line:
+                log_line = log_line.split("REPORT RequestId: ")[0]
+
+            if "XRAY TraceId: " in log_line:
+                log_line = log_line.split("XRAY TraceId: ")[0]
+
+            returned_log_lines.append(
+                log_line
+            )
+
+        log_output = "\n".join(returned_log_lines)
+
+    # Mark truncated if logs are not complete
+    truncated = True
+    if "START RequestId: " in log_output and "END RequestId: " in log_output:
+        truncated = False
+
+    return {
+        "truncated": truncated,
+        "arn": arn,
+        "version": response["ExecutedVersion"],
+        "status_code": response["StatusCode"],
+        "logs": log_output,
+        "is_error": is_error,
+        "returned_data": full_response,
+    }
 
 
 def execute_aws_lambda(aws_client_factory, credentials, arn, input_data):
@@ -281,8 +380,8 @@ def build_lambda(app_config, aws_client_factory, credentials, lambda_object):
             lambda_object.code,
             lambda_object.libraries
         )
-    elif lambda_object.language == Python36Builder.RUNTIME_PRETTY_NAME:
-        builder = Python36Builder(
+    elif lambda_object.language == PythonBuilder.RUNTIME_PRETTY_NAME:
+        builder = PythonBuilder(
             app_config,
             aws_client_factory,
             credentials,
@@ -290,8 +389,8 @@ def build_lambda(app_config, aws_client_factory, credentials, lambda_object):
             lambda_object.libraries
         )
         package_zip_data = builder.build()
-    elif lambda_object.language == NodeJs12Builder.RUNTIME_PRETTY_NAME:
-        builder = NodeJs12Builder(
+    elif lambda_object.language == NodeJsBuilder.RUNTIME_PRETTY_NAME:
+        builder = NodeJsBuilder(
             app_config,
             aws_client_factory,
             credentials,

@@ -1,44 +1,45 @@
 package main
 
 import (
-	"archive/tar"
 	"bytes"
 	"encoding/base64"
 	"fmt"
-	"log"
-	"os"
-	"sort"
-	"strings"
-
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/ecr"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/crane"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"io/ioutil"
+	"log"
+	"os"
+	"strings"
 )
 
 var (
 	EFS_PATH = "/mnt/efs"
+	functionDir = "var/runtime/function"
 )
 
 type ImageFile struct {
-	Path     string `json:"path"`
-	Contents string `json:"contents"`
+	Bucket     string `json:"bucket"`
+	Key string `json:"key"`
 }
 
 type InvokeEvent struct {
 	Registry     string      `json:"registry"`
 	BaseImage    string      `json:"base_image"`
 	NewImageName string      `json:"new_image_name"`
-	ImageFiles   []ImageFile `json:"image_files"`
+	ImageFiles   ImageFile `json:"image_files"`
 }
 
 type InvokeResponse struct {
-	Success bool `json:"success"`
+	Tag string `json:"tag"`
+	DeploymentID string `json:"deployment_id"`
 }
 
 func ApiGatewayHandler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -47,38 +48,32 @@ func ApiGatewayHandler(request events.APIGatewayProxyRequest) (events.APIGateway
 	return events.APIGatewayProxyResponse{Body: request.Body, StatusCode: 200}, nil
 }
 
-// Layer creates a layer from a single file map. These layers are reproducible and consistent.
-// A filemap is a path -> file content map representing a file system.
-func Layer(filemap map[string][]byte) (v1.Layer, error) {
-	b := &bytes.Buffer{}
-	w := tar.NewWriter(b)
+func getLayerFromS3(bucket, key string) (layer v1.Layer, err error) {
+	sess, err := session.NewSession()
+	if err != nil {
+		return
+	}
 
-	fn := []string{}
-	for f := range filemap {
-		fn = append(fn, f)
+	s3Client := s3.New(sess)
+	input := s3.GetObjectInput{
+		Bucket:                     aws.String(bucket),
+		Key:                        aws.String(key),
 	}
-	sort.Strings(fn)
+	resp, err := s3Client.GetObject(&input)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
 
-	for _, f := range fn {
-		c := filemap[f]
-		if err := w.WriteHeader(&tar.Header{
-			Name: f,
-			Size: int64(len(c)),
-			Mode: 0o755,
-		}); err != nil {
-			return nil, err
-		}
-		if _, err := w.Write(c); err != nil {
-			return nil, err
-		}
+	tarData, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return
 	}
-	if err := w.Close(); err != nil {
-		return nil, err
-	}
-	return tarball.LayerFromReader(b)
+	tarReader := bytes.NewReader(tarData)
+	return tarball.LayerFromReader(tarReader)
 }
 
-func Handler(invokeEvent InvokeEvent) (hashLookup map[string]string, err error) {
+func Handler(invokeEvent InvokeEvent) (resp InvokeResponse, err error) {
 	sess, err := session.NewSession(&aws.Config{
 		Region: aws.String("us-west-2"),
 	})
@@ -94,7 +89,7 @@ func Handler(invokeEvent InvokeEvent) (hashLookup map[string]string, err error) 
 
 	authData := ecrAuthToken.AuthorizationData
 	if len(authData) == 0 {
-		return hashLookup, fmt.Errorf("No auth data for ecr")
+		return resp, fmt.Errorf("No auth data for ecr")
 	}
 
 	authToken := *authData[0].AuthorizationToken
@@ -123,20 +118,12 @@ func Handler(invokeEvent InvokeEvent) (hashLookup map[string]string, err error) 
 		return
 	}
 
-	filemap := map[string][]byte{}
-	for _, imageFile := range invokeEvent.ImageFiles {
-		contents, nerr := base64.StdEncoding.DecodeString(imageFile.Contents)
-		if nerr != nil {
-			return
-		}
-		filemap[imageFile.Path] = contents
-	}
-
 	log.Println("Creating function files layer...")
-	functionFilesLayer, err := Layer(filemap)
+	functionFilesLayer, err := getLayerFromS3(invokeEvent.ImageFiles.Bucket, invokeEvent.ImageFiles.Key)
 	if err != nil {
 		return
 	}
+
 
 	log.Println("Getting runtime image layers...")
 	runtimeLayers, err := runtimeImage.Layers()
@@ -149,11 +136,12 @@ func Handler(invokeEvent InvokeEvent) (hashLookup map[string]string, err error) 
 	newTag := fmt.Sprintf("%s/%s", invokeEvent.Registry, invokeEvent.NewImageName)
 
 	log.Println("Modifying docker image...")
-	hash, err := ModifyDockerBaseImage(invokeEvent.BaseImage, newTag, appendLayers, options)
+	tag, deploymentID, err := ModifyDockerBaseImage(invokeEvent.BaseImage, newTag, appendLayers, options)
 
-	return map[string]string{
-		invokeEvent.NewImageName: hash,
-	}, err
+	return InvokeResponse{
+		Tag:          tag,
+		DeploymentID: deploymentID,
+	}, nil
 }
 
 func main() {

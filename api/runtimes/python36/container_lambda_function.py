@@ -1,13 +1,10 @@
-import os
-import traceback
 import json
+import os
 import sys
+import traceback
 
 root = os.path.abspath(os.path.join(os.path.dirname(__file__)))
 sys.path.insert(0, root)
-
-if sys.path[0] != '':
-    sys.path.insert(0, '')
 
 OUTPUT_TAG = "REFINERY_OUTPUT_CUSTOM_RUNTIME"
 

@@ -7,4 +7,3 @@ RUN chmod -R 755 /runtime/fixtures/runtime/handlers/*
 FROM scratch
 
 COPY --from=builder /runtime/cmd/runtime/runtime /var/runtime/bootstrap
-COPY --from=builder /runtime/fixtures/runtime/handlers /var/runtime/handlers

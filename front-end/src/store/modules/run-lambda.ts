@@ -25,6 +25,7 @@ import Vue from 'vue';
 import { getLambdaResultFromWebsocketMessage, parseLambdaWebsocketMessage } from '@/utils/websocket-utils';
 import { getSharedFilesForCodeBlock } from '@/utils/project-helpers';
 import { getBackpackValueOrDefault } from '@/utils/project-execution-utils';
+import { wrapJson } from '@/utils/json-helpers';
 
 export interface InputDataCache {
   [key: string]: string;
@@ -435,22 +436,6 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
 
       const block = config.codeBlock;
 
-      const runLambdaEnvironmentVariables = Object.keys(block.environment_variables).reduce((envVarsOut, id) => {
-        const configVariable = config.projectConfig.environment_variables[id];
-
-        // Missing value... Just keep going.
-        if (!configVariable) {
-          return envVarsOut;
-        }
-
-        envVarsOut.push({
-          key: block.environment_variables[id].name,
-          value: configVariable.value
-        });
-
-        return envVarsOut;
-      }, [] as RunTmpLambdaEnvironmentVariable[]);
-
       const inputDataCacheValue = context.state.devLambdaInputDataCache[block.id];
 
       const inputData = inputDataCacheValue !== undefined ? inputDataCacheValue : config.codeBlock.saved_input_data;
@@ -471,20 +456,17 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       // messages that come for this specific UUID.
       await context.dispatch(RunLambdaActions.WebsocketSubscribeToDebugID, debugId);
 
-      // Get list of Shared File Links for the Code Block being run
-      const sharedFiles = getSharedFilesForCodeBlock(block.id, config.project);
+      const projectJson = wrapJson(config.project);
+
+      if (!projectJson) {
+        throw new Error('Unable to send project to server.');
+      }
 
       const request: RunTmpLambdaRequest = {
-        environment_variables: runLambdaEnvironmentVariables,
         input_data: inputData === undefined || inputData === null ? '' : inputData,
-        shared_files: sharedFiles,
+        project_id: config.project.project_id,
+        diagram_data: projectJson,
         backpack: backpackData,
-        code: block.code,
-        language: block.language,
-        layers: block.layers,
-        libraries: block.libraries,
-        max_execution_time: block.max_execution_time,
-        memory: block.memory,
         block_id: block.id,
         debug_id: debugId
       };

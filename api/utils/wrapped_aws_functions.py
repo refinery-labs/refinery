@@ -224,10 +224,10 @@ class LambdaLogType(Enum):
     TAIL = 'Tail'
 
 
-@aws_exponential_backoff()
 def lambda_invoke(
         lambda_client,
         arn: AnyStr,
+        qualifier: AnyStr,
         invocation_type: LambdaInvocationType,
         payload: AnyStr,
         log_type: LambdaLogType = LambdaLogType.TAIL
@@ -236,7 +236,8 @@ def lambda_invoke(
         FunctionName=arn,
         InvocationType=str(invocation_type.value[0]),
         LogType=str(log_type.value),
-        Payload=payload
+        Payload=payload,
+        Qualifier=qualifier
     )
 
 

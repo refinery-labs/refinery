@@ -20,6 +20,19 @@ Base = declarative_base()
 engine_url_format = "postgresql://{username}:{password}@{host}/{db}?client_encoding=utf8"
 
 
+@contextmanager
+def session_scope(db_session_maker):
+    session = db_session_maker()
+    try:
+        yield session
+        session.commit()
+    except:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+
 def get_refinery_engine(app_config):
     postgresql_username = app_config.get("postgreql_username")
     postgresql_password = app_config.get("postgreql_password")

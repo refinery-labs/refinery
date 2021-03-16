@@ -71,7 +71,7 @@ from tasks.aws_lambda import (
     set_lambda_reserved_concurrency,
     deploy_aws_lambda,
     clean_lambda_iam_policies, publish_new_aws_lambda_version, list_lambda_event_source_mappings,
-    deploy_aws_lambda_with_code)
+    deploy_aws_lambda_with_code, execute_aws_lambda_with_version)
 from tasks.build.common import (
     finalize_codebuild
 )
@@ -529,6 +529,17 @@ class TaskSpawner(object):
             self.aws_client_factory,
             credentials,
             arn,
+            input_data
+        )
+
+    @run_on_executor
+    @emit_runtime_metrics("execute_aws_lambda")
+    def execute_aws_lambda_with_version(self, credentials, arn, version, input_data):
+        return execute_aws_lambda_with_version(
+            self.aws_client_factory,
+            credentials,
+            arn,
+            version,
             input_data
         )
 

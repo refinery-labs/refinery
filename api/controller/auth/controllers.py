@@ -453,6 +453,12 @@ class Authenticate(BaseHandler):
         })
 
 
+class GetAuthToken(BaseHandler):
+    @gen.coroutine
+    def post(self):
+        pass
+
+
 class Logout(BaseHandler):
     @gen.coroutine
     def post(self):
