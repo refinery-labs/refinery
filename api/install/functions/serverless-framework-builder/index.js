@@ -96,10 +96,10 @@ exports.lambdaHandler = async (event, context) => {
   }
 
   const action = event.action;
-  const deploymentId = event.deployment_id;
+  const buildId = event.build_id;
   const stage = event.stage;
 
-  const workDir = path.join(EFS_MOUNT, deploymentId);
+  const workDir = path.join(EFS_MOUNT, buildId);
 
   const bucket = event.bucket;
   const key = event.key;

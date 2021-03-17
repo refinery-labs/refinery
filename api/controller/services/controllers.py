@@ -13,6 +13,7 @@ from controller import BaseHandler
 from controller.services.actions import clear_sub_account_packages, get_last_month_start_and_end_date_strings
 from models import AWSAccount, User, TerraformStateVersion
 from assistants.deployments.dangling_resources import get_user_dangling_resources
+from models.deployment_auth import DeploymentAuth
 from pyconstants.project_constants import THIRD_PARTY_AWS_ACCOUNT_ROLE_NAME
 
 
@@ -35,6 +36,42 @@ class AdministrativeAssumeAccount(BaseHandler):
         self.redirect(
             "/"
         )
+
+
+class GenerateDeploymentAuthSecret(BaseHandler):
+    @gen.coroutine
+    def get(self, account_id=None):
+        if not account_id:
+            self.write({
+                "success": False,
+                "msg": "You must specify a account_id via the URL (/UUID/)."
+            })
+
+        user: User = self.dbsession.query(User).filter_by(
+            id=account_id
+        ).first()
+
+        org_id = user.organization_id
+
+        existing_auth = self.dbsession.query(DeploymentAuth).filter_by(
+            org_id=org_id
+        ).first()
+
+        if existing_auth is not None:
+            self.write({
+                "success": False,
+                "msg": "Existing auth already exists for user"
+            })
+            raise gen.Return()
+
+        deployment_auth = DeploymentAuth(org_id)
+
+        self.dbsession.add(deployment_auth)
+        self.dbsession.commit()
+
+        self.write({
+            "success": True
+        })
 
 
 class AssumeRoleCredentials(BaseHandler):

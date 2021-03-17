@@ -111,6 +111,7 @@ class TornadoApp:
             (r"/api/v1/projects/rename", RenameProject),
             (r"/api/v1/projects/config/get", GetProjectConfig),
 
+            (r"/api/v1/deployments/secure_resolver", SecureResolverDeployment),
             (r"/api/v1/deployments/get_latest", GetLatestProjectDeployment),
             (r"/api/v1/deployments/delete_all_in_project", DeleteDeploymentsInProject),
 
@@ -133,6 +134,7 @@ class TornadoApp:
 
             # These are "services" which are only called by external crons, etc.
             # External users are blocked from ever reaching these routes
+            (r"/services/v1/generate_deployment_auth_secret/([a-f0-9\-]+)", GenerateDeploymentAuthSecret),
             (r"/services/v1/assume_account_role/([a-f0-9\-]+)", AdministrativeAssumeAccount),
             (r"/services/v1/assume_role_credentials/([a-f0-9\-]+)", AssumeRoleCredentials),
             (r"/services/v1/maintain_aws_account_pool", MaintainAWSAccountReserves),

@@ -43,7 +43,7 @@ class RunTmpLambda(BaseHandler):
 
         try:
             deployed_project = yield self.deployment_manager.deploy_stage(
-                credentials, org_id, project_id, stage, diagram_data, deploy_workflows=False
+                credentials, org_id, project_id, stage, diagram_data, deploy_workflows=False, create_log_table=False
             )
         except RefineryDeploymentException as e:
             self.logger(str(e))
@@ -200,15 +200,7 @@ class InfraTearDown(BaseHandler):
         deployment_id = self.json["deployment_id"]
 
         yield self.deployment_manager.remove_stage(
-            credentials, deployment_id, DeploymentStages.prod
-        )
-
-        # Delete our logs
-        # No need to yield till it completes
-        delete_logs(
-            self.task_spawner,
-            credentials,
-            project_id
+            credentials, project_id, deployment_id, DeploymentStages.prod
         )
 
         self.write({
@@ -264,16 +256,6 @@ class DeployDiagram(BaseHandler):
             })
             raise gen.Return()
 
-        project_log_table_future = self.create_project_id_log_table(
-            credentials,
-            project_id
-        )
-
-        deployment_log = DeploymentLog()
-        deployment_log.org_id = org_id
-
-        self.dbsession.add(deployment_log)
-        self.dbsession.commit()
         self.logger("Updating database with new project config...")
         update_project_config(
             self.dbsession,

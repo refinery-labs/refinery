@@ -163,7 +163,7 @@ class ServerlessModuleBuilder:
 
         if is_container:
             logit(f"Building container: {container} for workflow state: {id_}")
-            tag = self.build_with_container(config, workflow_state, container, file_map)
+            tag, deployment_id = self.build_with_container(config, workflow_state, container, file_map)
             if tag is None:
                 raise RefineryDeploymentException(f"unable to get container tag for docker container: {container}")
 
@@ -171,9 +171,12 @@ class ServerlessModuleBuilder:
 
             file_map = {
                 "container.json": json.dumps({
-                    "tag": tag
+                    "tag": tag,
+                    "deployment_id": deployment_id
                 })
             }
+            if deployment_id != "":
+                config.deployment_id = deployment_id
 
         for filename, contents in file_map.items():
             add_file_to_zipfile(zipfile, self.get_path(id_, filename), contents)
@@ -208,10 +211,18 @@ class ServerlessModuleBuilder:
             tarinfo.mode = 0o755
             container_tar.addfile(tarinfo)
 
-    def build_with_container(self, config: ServerlessModuleConfig, workflow_state, container, filemap):
+    def build_with_container(self, config: ServerlessModuleConfig, workflow_state, container, file_map):
         id_ = workflow_state['id']
         name = workflow_state['name']
         language = workflow_state['language']
+        container_uri = container["uri"]
+        container_functions = container.get("functions")
+        container_app_dir = container.get("app_dir")
+
+        runtime = LANGUAGE_TO_RUNTIME[language]
+        runtime_path = "var/runtime"
+
+        content_root = os.path.join(runtime_path, id_) if container_app_dir is None else container_app_dir
 
         account_id = config.credentials["account_id"]
         ecr_registry = f"{account_id}.dkr.ecr.us-west-2.amazonaws.com"
@@ -219,34 +230,43 @@ class ServerlessModuleBuilder:
 
         self.ensure_repository_exists(config.credentials, image_name)
 
-        runtime = LANGUAGE_TO_RUNTIME[language]
         handler_path = self.container_runtime_path(runtime)
 
         buffer = BytesIO()
         added_paths = []
         with tarfile.open(fileobj=buffer, mode='w') as container_tar:
-            functions_data = json.dumps({
-                id_: {
-                    "command": LANGUAGE_TO_CONTAINER_COMMAND[language],
-                    "handler": handler_path,
-                    "import_path": "refinery_main",
-                    "function_name": "main",
-                }
-            }).encode()
+            if container_functions:
+                functions_data = json.dumps({
+                    f["function_name"]: {
+                        "command": LANGUAGE_TO_CONTAINER_COMMAND[language],
+                        "handler": handler_path,
+                        "import_path": f["import_path"],
+                        "function_name": f["function_name"],
+                    }
+                    for f in container_functions
+                }).encode()
+            else:
+                functions_data = json.dumps({
+                    id_: {
+                        "command": LANGUAGE_TO_CONTAINER_COMMAND[language],
+                        "handler": handler_path,
+                        "import_path": "refinery_main",
+                        "function_name": "main",
+                    }
+                }).encode()
 
-            runtime_path = "var/runtime"
-
-            functions_path = os.path.join(runtime_path, "functions.json")
-            add_file_to_tar_file(container_tar, functions_path, functions_data)
-
-            for filepath, contents in filemap.items():
-                filepath = os.path.join(runtime_path, id_, filepath)
+            for filepath, contents in file_map.items():
+                filepath = os.path.join(content_root, filepath)
+                print(filepath)
 
                 dir_path, _ = os.path.split(filepath)
                 if dir_path not in added_paths:
                     self.ensure_parent_dirs_exist(container_tar, added_paths, dir_path)
 
                 add_file_to_tar_file(container_tar, filepath, contents)
+
+            functions_path = os.path.join(runtime_path, "functions.json")
+            add_file_to_tar_file(container_tar, functions_path, functions_data)
 
         container_file_data = buffer.getvalue()
 
@@ -268,7 +288,7 @@ class ServerlessModuleBuilder:
 
         payload = {
             "registry": ecr_registry,
-            "base_image": container,
+            "base_image": container_uri,
             "new_image_name": image_name,
             "image_files": {
                 "bucket": build_package_bucket,
@@ -291,7 +311,10 @@ class ServerlessModuleBuilder:
             raise LambdaInvokeException(str(payload))
 
         decoded_payload = json.loads(resp["Payload"].read())
-        return decoded_payload["tag"]
+
+        tag = decoded_payload["tag"]
+        deployment_id = decoded_payload["deployment_id"]
+        return tag, deployment_id
 
     def get_path(self, id_, path):
         id_ = ''.join([i for i in id_ if i.isalnum()])

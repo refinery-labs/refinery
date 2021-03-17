@@ -1,5 +1,6 @@
 import base64
 import json
+from uuid import uuid4
 
 from botocore.exceptions import ClientError
 from tornado import gen
@@ -68,7 +69,7 @@ class ServerlessBuilder(Builder):
 
     @cached_property
     def s3_key(self):
-        return f'buildspecs/{self.deployment_id}.zip'
+        return f'buildspecs/{self.build_id}.zip'
 
     @cached_property
     def s3_path(self):
@@ -80,13 +81,17 @@ class ServerlessBuilder(Builder):
 
     @cached_property
     def final_s3_package_zip_path(self):
-        return f"{self.deployment_id}.zip"
+        return f"{self.build_id}.zip"
 
     @cached_property
     def serverless_framework_builder_arn(self):
         return self.app_config.get("serverless_framework_builder_arn")
 
     def build(self, rebuild=False):
+        if self.build_id is None:
+            logit("Previous build does not exist, creating new build...")
+            self.build_id = str(uuid4())
+
         artifact_zip = self.get_artifact_zipfile() if rebuild else None
 
         if artifact_zip is not None:
@@ -101,11 +106,12 @@ class ServerlessBuilder(Builder):
         )
 
         zipfile = self.serverless_module_builder.build(config, artifact_zip)
+        self.deployment_id = config.deployment_id
 
         try:
             serverless_output = self.perform_lambda_serverless_deploy(zipfile)
         except LambdaInvokeException as e:
-            logit("an error occurred when trying to deploy serverless framework project: " + str(e), "error")
+            logit(str(e), "error")
             return None
 
         parser = ServerlessInfoParser(serverless_output)

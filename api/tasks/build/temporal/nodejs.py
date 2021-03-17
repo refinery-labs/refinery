@@ -37,6 +37,10 @@ class NodeJsBuilder(LanguageBuilder):
         filemap["refinery_main.js"] = code
         filemap["index.js"] = self.lambda_function
 
+        handler_code = self.container_runtime
+
+        filemap["container_lambda_function.js"] = handler_code
+
     def add_files_to_codebuild_package(self, filemap, libraries_object):
         package_json = {
             "name": "refinery-lambda",

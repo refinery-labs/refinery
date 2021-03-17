@@ -10,18 +10,22 @@ from tornado.concurrent import futures, run_on_executor
 from tornado.ioloop import IOLoop
 
 from assistants.aws_clients.aws_clients_assistant import AwsClientFactory
+from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from config.app_config import AppConfig
+from controller.logs.actions import delete_logs
 from data_types.deployment_stages import DeploymentStages
 from deployment.serverless.builder import ServerlessBuilder
 from deployment.serverless.dismantler import ServerlessDismantler
 from deployment.serverless.exceptions import RefineryDeploymentException
 from deployment.serverless.module_builder import ServerlessModuleBuilder
-from models import Deployment, Project
+from models import Deployment, Project, DeploymentLog
 from models.initiate_database import session_scope
 from services.workflow_manager.workflow_manager_service import WorkflowManagerException
+from tasks.athena import create_project_id_log_table
 
 
 class DeploymentManager(object):
+    task_spawner: TaskSpawner = None
     app_config: AppConfig = None
     aws_client_factory: AwsClientFactory = None
     db_session_maker = None
@@ -31,7 +35,7 @@ class DeploymentManager(object):
 
     # noinspection PyUnresolvedReferences
     @pinject.copy_args_to_public_fields
-    def __init__(self, logger, app_config, db_session_maker, aws_client_factory, workflow_manager_service, serverless_module_builder, loop=None):
+    def __init__(self, logger, task_spawner, app_config, db_session_maker, aws_client_factory, workflow_manager_service, serverless_module_builder, loop=None):
         self.executor = futures.ThreadPoolExecutor(10)
         self.loop = loop or tornado.ioloop.IOLoop.current()
 
@@ -88,13 +92,22 @@ class DeploymentManager(object):
             return None
         return lambda_arn, version
 
+    @gen.coroutine
+    def create_project_id_log_table(self, credentials, project_id):
+        return create_project_id_log_table(
+            self.aws_client_factory,
+            credentials,
+            project_id
+        )
+
     @run_on_executor
     def deploy_stage(
             self,
             credentials,
             org_id, project_id, stage: DeploymentStages,
             diagram_data,
-            deploy_workflows=True
+            deploy_workflows=True,
+            create_log_table=True
     ):
 
         with session_scope(self.db_session_maker) as dbsession:
@@ -122,7 +135,7 @@ class DeploymentManager(object):
         )
 
         self.logger(f"Deploying project: {project_id} with deployment id: {new_deployment_id}")
-        deployment_config = builder.build(rebuild=previous_build_id is not None)
+        deployment_config = builder.build(rebuild=True)
 
         if deployment_config is None:
             raise RefineryDeploymentException("an error occurred while trying to build and deploy the project.",)
@@ -135,7 +148,7 @@ class DeploymentManager(object):
                 raise RefineryDeploymentException("an error occurred while trying to create workflows in the workflow manager.")
 
         # Create deployment metadata
-        new_deployment = Deployment(id=new_deployment_id)
+        new_deployment = Deployment(id=deployment_config["deployment_id"])
         new_deployment.organization_id = org_id
         new_deployment.project_id = project_id
         new_deployment.deployment_json = json.dumps(deployment_config)
@@ -145,6 +158,15 @@ class DeploymentManager(object):
             existing_project = self.get_existing_project(dbsession, project_id)
             existing_project.deployments.append(new_deployment)
             deployment_id = new_deployment.id
+
+            deployment_log = DeploymentLog()
+            deployment_log.org_id = org_id
+
+        if create_log_table:
+            project_log_table_future = self.create_project_id_log_table(
+                credentials,
+                project_id
+            )
 
         return {
             "deployment_id": deployment_id,
@@ -161,21 +183,43 @@ class DeploymentManager(object):
 
             deployment_id = latest_deployment.id
 
-        yield self.remove_stage(credentials, deployment_id, stage, remove_workflows)
+        yield self.remove_stage(credentials, project_id, deployment_id, stage, remove_workflows)
 
     @run_on_executor
-    def remove_stage(self, credentials, deployment_id, stage: DeploymentStages, remove_workflows=True):
-        serverless_dismanteler = ServerlessDismantler(
+    def remove_stage(self, credentials, project_id, deployment_id, stage: DeploymentStages, remove_workflows=True, remove_logs=True):
+        with session_scope(self.db_session_maker) as dbsession:
+            latest_deployment = self.get_latest_deployment(dbsession, project_id, stage)
+
+            previous_deployment_json = {}
+            if latest_deployment:
+                previous_deployment_json = json.loads(latest_deployment.deployment_json)
+
+            build_id = previous_deployment_json.get('build_id') if previous_deployment_json else None
+
+        if build_id is None:
+            raise RefineryDeploymentException("Unable to ")
+
+        serverless_dismantler = ServerlessDismantler(
             self.app_config,
             self.aws_client_factory,
             credentials,
+            build_id,
             deployment_id,
             stage.value
         )
 
         # TODO check return?
         # What happens on failure?
-        serverless_dismanteler.dismantle()
+        serverless_dismantler.dismantle()
 
         if remove_workflows:
             self.workflow_manager_service.delete_deployment_workflows(deployment_id)
+
+        if remove_logs:
+            # Delete our logs
+            # No need to yield till it completes
+            delete_logs(
+                self.task_spawner,
+                credentials,
+                project_id
+            )

@@ -86,7 +86,8 @@ LAMBDA_TEMPORAL_RUNTIMES: Dict[str, str] = {
     "python3.6": "python36/lambda_function.py",
     "nodejs10.x": "nodejs10.x/index.js",
     "sqs_notifier": "sqs_notifier/handler.js",
-    CONTAINER_LANGUAGE + "python3.6": "python36/container_lambda_function.py"
+    CONTAINER_LANGUAGE + "python3.6": "python36/container_lambda_function.py",
+    CONTAINER_LANGUAGE + "nodejs10.x": "nodejs10.x/container_lambda_function.js"
 }
 
 # Regex for character whitelists for different fields

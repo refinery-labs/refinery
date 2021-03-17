@@ -121,6 +121,11 @@ func HandleRequest(invokeEvent runtime.InvokeEvent) (lambdaResponse runtime.Lamb
 		return
 	}
 
+	cwd := path.Join(runtime.RuntimeDir, functionName)
+	if invokeEvent.WorkDir != "" {
+		cwd = invokeEvent.WorkDir
+	}
+
 	handlerStdin := strings.NewReader(string(functionInput))
 
 	refineryCommand := runtime.ExecTask{
@@ -128,7 +133,7 @@ func HandleRequest(invokeEvent runtime.InvokeEvent) (lambdaResponse runtime.Lamb
 		Args: []string{
 			funcConfig.Handler,
 		},
-		Cwd:         path.Join(runtime.RuntimeDir, functionName),
+		Cwd:         cwd,
 		Stdin:       handlerStdin,
 		StreamStdio: false,
 	}
@@ -145,6 +150,9 @@ func HandleRequest(invokeEvent runtime.InvokeEvent) (lambdaResponse runtime.Lamb
 	*/
 	handlerResponse, err = parseStdout(res.Stdout)
 	if err != nil {
+		fmt.Println(res.Stdout)
+		fmt.Println(res.Stderr)
+		fmt.Printf("%s\n", err)
 		return
 	}
 

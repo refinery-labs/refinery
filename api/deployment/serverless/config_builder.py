@@ -85,11 +85,11 @@ class ServerlessConfigBuilder:
     ###########################################################################
 
     def get_optional_lambda_arguments(self, workflow_state):
-        reserved_concurrency_count = workflow_state['reserved_concurrency_count']
+        reserved_concurrency_count = workflow_state.get('reserved_concurrency_count')
 
         optional_arguments = {
             "reservedConcurrency": reserved_concurrency_count,
-        } if reserved_concurrency_count is not False else {}
+        } if not (reserved_concurrency_count in [None, False]) else {}
 
         return optional_arguments
 
@@ -97,8 +97,11 @@ class ServerlessConfigBuilder:
         workflow_state_id = workflow_state['id']
         id_ = self.get_id(workflow_state_id)
         name = get_unique_workflow_state_name(self.stage, workflow_state['name'], id_)
-        memory = workflow_state['memory']
-        max_execution_time = workflow_state['max_execution_time']
+
+        memory = workflow_state.get('memory')
+        memorySize = {'memorySize': memory} if memory is not None else {}
+        max_execution_time = workflow_state.get('max_execution_time')
+        timeout = {'timeout': max_execution_time} if max_execution_time is not None else {}
 
         lambda_environment = self.get_lambda_environment(workflow_state_id, workflow_state)
 
@@ -108,9 +111,9 @@ class ServerlessConfigBuilder:
             "name": name,
             **lambda_environment,
             **optional_arguments,
+            **memorySize,
+            **timeout,
             "description": "A lambda deployed by refinery",
-            "memorySize": memory,
-            "timeout": max_execution_time,
             "tracing": 'PassThrough',
         }
 

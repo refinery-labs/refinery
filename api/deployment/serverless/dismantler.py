@@ -1,35 +1,21 @@
+import base64
 import json
 
 from deployment.base import Dismantler
 from functools import cached_property
-from tasks.build.common import wait_for_codebuild_completion
+
+from deployment.serverless.exceptions import LambdaInvokeException
 from yaml import dump
 
 from utils.general import logit
 
-BUILDSPEC = dump({
-    "artifacts": {
-        "files": [
-            "**/*"
-        ]
-    },
-    "phases": {
-        "build": {
-            "commands": [
-                "serverless remove"
-            ]
-        },
-    },
-    "run-as": "root",
-    "version": 0.1
-})
-
 
 class ServerlessDismantler(Dismantler):
-    def __init__(self, app_config, aws_client_factory, credentials, deployment_id, stage):
+    def __init__(self, app_config, aws_client_factory, credentials, build_id, deployment_id, stage):
         self.app_config = app_config
         self.aws_client_factory = aws_client_factory
         self.credentials = credentials
+        self.build_id = build_id
         self.deployment_id = deployment_id
         self.stage = stage
 
@@ -49,7 +35,7 @@ class ServerlessDismantler(Dismantler):
 
     @cached_property
     def s3_key(self):
-        return f'buildspecs/{self.deployment_id}.zip'
+        return f'buildspecs/{self.build_id}.zip'
 
     @cached_property
     def s3_bucket(self):
@@ -68,7 +54,7 @@ class ServerlessDismantler(Dismantler):
             "bucket": self.s3_bucket,
             "key": self.s3_key,
             "action": "remove",
-            "deployment_id": self.deployment_id,
+            "build_id": self.build_id,
             "stage": self.stage
         }
 
@@ -80,6 +66,10 @@ class ServerlessDismantler(Dismantler):
         )
         payload = resp["Payload"].read()
 
-        # TODO error check
+        error = resp.get("FunctionError")
+        if error is not None:
+            log_result = base64.b64decode(resp["LogResult"])
+            logit(log_result.decode())
+            raise LambdaInvokeException(str(payload))
 
         return json.loads(payload)["output"]

@@ -89,6 +89,13 @@ class Organization(Base):
         backref="organizations"
     )
 
+    # Deployments owned by the organization
+    deployment_auth = relationship(
+        "DeploymentAuth",
+        lazy="dynamic",
+        backref="organizations"
+    )
+
     timestamp = Column(Integer())
 
     def __init__(self):

@@ -18,7 +18,8 @@ from utils.locker import Locker
 
 CSRF_EXEMPT_ENDPOINTS = [
     "/services/v1/mark_account_needs_closing",
-    "/api/v1/github/proxy"
+    "/api/v1/github/proxy",
+    "/api/v1/deployments/secure_resolver"
 ]
 
 
@@ -121,7 +122,7 @@ class BaseHandler(TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler):
 
         return is_owner
 
-    def get_authenticated_user_cloud_configuration( self ):
+    def get_authenticated_user_cloud_configuration(self, org_id=None):
         """
         This just returns the first cloud configuration. Short term use since we'll
         eventually be moving to a multiple AWS account deploy system.
@@ -137,17 +138,20 @@ class BaseHandler(TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler):
         if self.user_aws_credentials is not None:
             return self.user_aws_credentials
 
-        # Pull the authenticated user's organization
-        user_organization = self.get_authenticated_user_org()
+        if org_id is None:
+            # Pull the authenticated user's organization
+            user_organization = self.get_authenticated_user_org()
 
-        if user_organization is None:
-            logit("Account has no organization associated with it!")
+            if user_organization is None:
+                logit("Account has no organization associated with it!")
 
-            # credential error is raised, does not return
-            raise_credential_error()
+                # credential error is raised, does not return
+                raise_credential_error()
+
+            org_id = user_organization.id
 
         aws_account = self.dbsession.query(AWSAccount).filter_by(
-            organization_id=user_organization.id,
+            organization_id=org_id,
             aws_account_status="IN_USE"
         ).first()
 

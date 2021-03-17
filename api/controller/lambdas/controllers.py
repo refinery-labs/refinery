@@ -46,15 +46,25 @@ class RunLambda(BaseHandler):
                 })
                 return
 
+        function_name = {}
+        work_dir = {}
+
         # Try to parse Lambda input as JSON
         try:
             input_data = json.loads(
                 self.json["input_data"]
             )
-        except ValueError:
+            function_name = {"function_name": input_data["function_name"]}
+            del input_data["function_name"]
+            work_dir = {"work_dir": input_data["work_dir"]}
+            del input_data["work_dir"]
+        except ValueError as e:
+            self.logger(e)
             pass
 
         lambda_input_data = {
+            **function_name,
+            **work_dir,
             "backpack": backpack_data,
             "input_data": input_data
         }
@@ -69,11 +79,15 @@ class RunLambda(BaseHandler):
                 "websocket_uri": self.app_config.get("LAMBDA_CALLBACK_ENDPOINT"),
             }
         """
+        arn, _, version = self.json["arn"].rpartition(":")
+
+        print(arn, version)
 
         self.logger("Executing Lambda...")
-        lambda_result = yield self.task_spawner.execute_aws_lambda(
+        lambda_result = yield self.task_spawner.execute_aws_lambda_with_version(
             credentials,
-            self.json["arn"],
+            arn,
+            version,
             lambda_input_data
         )
 
