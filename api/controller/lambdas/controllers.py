@@ -56,15 +56,12 @@ class RunLambda(BaseHandler):
             )
             function_name = {"function_name": input_data["function_name"]}
             del input_data["function_name"]
-            work_dir = {"work_dir": input_data["work_dir"]}
-            del input_data["work_dir"]
         except ValueError as e:
             self.logger(e)
             pass
 
         lambda_input_data = {
             **function_name,
-            **work_dir,
             "backpack": backpack_data,
             "input_data": input_data
         }
@@ -80,8 +77,6 @@ class RunLambda(BaseHandler):
             }
         """
         arn, _, version = self.json["arn"].rpartition(":")
-
-        print(arn, version)
 
         self.logger("Executing Lambda...")
         lambda_result = yield self.task_spawner.execute_aws_lambda_with_version(

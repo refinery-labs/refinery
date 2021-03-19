@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
-	"path"
 	"regexp"
 	"strings"
 
@@ -69,7 +69,7 @@ func loadFunctionLookup() (functionLookup runtime.FunctionLookup, err error) {
 	return functionLookup, err
 }
 
-func getFunctionConfig(functionName string) (functionName_ string, funcConfig runtime.RefineryFunction, err error) {
+func getFunctionConfig(functionName string) (funcConfig runtime.RefineryFunction, err error) {
 	var (
 		ok bool
 		functionLookup runtime.FunctionLookup
@@ -84,8 +84,6 @@ func getFunctionConfig(functionName string) (functionName_ string, funcConfig ru
 		functionName = os.Getenv("REFINERY_FUNCTION_NAME")
 	}
 
-	functionName_ = functionName
-
 	funcConfig, ok = functionLookup[functionName]
 	if !ok {
 		err = fmt.Errorf("unable to find function with name: %s", functionName)
@@ -95,7 +93,6 @@ func getFunctionConfig(functionName string) (functionName_ string, funcConfig ru
 
 func HandleRequest(invokeEvent runtime.InvokeEvent) (lambdaResponse runtime.LambdaResponse, err error) {
 	var (
-		functionName string
 		functionInput []byte
 		funcConfig runtime.RefineryFunction
 		res runtime.ExecResult
@@ -104,8 +101,9 @@ func HandleRequest(invokeEvent runtime.InvokeEvent) (lambdaResponse runtime.Lamb
 
 	fmt.Printf("Handling request: %+v\n", invokeEvent)
 
-	functionName, funcConfig, err = getFunctionConfig(invokeEvent.FunctionName)
+	funcConfig, err = getFunctionConfig(invokeEvent.FunctionName)
 	if err != nil {
+		log.Println(err)
 		return
 	}
 
@@ -118,12 +116,8 @@ func HandleRequest(invokeEvent runtime.InvokeEvent) (lambdaResponse runtime.Lamb
 
 	functionInput, err = json.Marshal(req)
 	if err != nil {
+		log.Println(err)
 		return
-	}
-
-	cwd := path.Join(runtime.RuntimeDir, functionName)
-	if invokeEvent.WorkDir != "" {
-		cwd = invokeEvent.WorkDir
 	}
 
 	handlerStdin := strings.NewReader(string(functionInput))
@@ -133,7 +127,7 @@ func HandleRequest(invokeEvent runtime.InvokeEvent) (lambdaResponse runtime.Lamb
 		Args: []string{
 			funcConfig.Handler,
 		},
-		Cwd:         cwd,
+		Cwd:         funcConfig.WorkDir,
 		Stdin:       handlerStdin,
 		StreamStdio: false,
 	}
@@ -141,25 +135,27 @@ func HandleRequest(invokeEvent runtime.InvokeEvent) (lambdaResponse runtime.Lamb
 	res, err = refineryCommand.Execute()
 
 	if err != nil {
-		fmt.Printf("%s\n", err)
+		log.Println(err)
 		return
 	}
+
+	log.Println(res.Stdout)
+	log.Println(res.Stderr)
 
 	/*
 		TODO should we use protobuf to communicate between the processes?
 	*/
 	handlerResponse, err = parseStdout(res.Stdout)
 	if err != nil {
-		fmt.Println(res.Stdout)
-		fmt.Println(res.Stderr)
-		fmt.Printf("%s\n", err)
+		log.Println(err)
 		return
 	}
 
-	fmt.Println(handlerResponse)
+	fmt.Printf("handler response: %+v", handlerResponse)
 
 	if handlerResponse.Error != "" {
 		err = fmt.Errorf("%s", handlerResponse.Error)
+		log.Println(err)
 		return
 	}
 

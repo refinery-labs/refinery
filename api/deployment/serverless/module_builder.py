@@ -242,6 +242,7 @@ class ServerlessModuleBuilder:
                         "handler": handler_path,
                         "import_path": f["import_path"],
                         "function_name": f["function_name"],
+                        "work_dir": f["work_dir"]
                     }
                     for f in container_functions
                 }).encode()
@@ -252,6 +253,7 @@ class ServerlessModuleBuilder:
                         "handler": handler_path,
                         "import_path": "refinery_main",
                         "function_name": "main",
+                        "work_dir": os.path.join("/", runtime_path, id_)
                     }
                 }).encode()
 

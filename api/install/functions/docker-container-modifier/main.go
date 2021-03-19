@@ -20,11 +20,6 @@ import (
 	"strings"
 )
 
-var (
-	EFS_PATH = "/mnt/efs"
-	functionDir = "var/runtime/function"
-)
-
 type ImageFile struct {
 	Bucket     string `json:"bucket"`
 	Key string `json:"key"`

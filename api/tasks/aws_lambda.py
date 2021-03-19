@@ -110,13 +110,22 @@ def execute_aws_lambda_with_version(aws_client_factory, credentials, arn, versio
     full_response = response["Payload"].read()
 
     # Decode it all the way
+
+    is_error = False
+    error_message = ""
     try:
-        full_response = loads(
-            loads(
-                full_response
-            )
+        first_decode = loads(
+            full_response
         )
-    except BaseException:
+
+        if type(first_decode) is dict and "errorMessage" in first_decode.keys():
+            is_error = True
+            error_message = first_decode["errorMessage"]
+
+        full_response = loads(
+            first_decode
+        )
+    except BaseException as e:
         pass
 
     if type(full_response) in [dict, list]:
@@ -130,11 +139,7 @@ def execute_aws_lambda_with_version(aws_client_factory, credentials, arn, versio
     else:
         full_response = str(full_response)
 
-    print(full_response)
-
     # Detect from response if it was an error
-    is_error = False
-
     if "FunctionError" in response:
         is_error = True
 
@@ -177,6 +182,8 @@ def execute_aws_lambda_with_version(aws_client_factory, credentials, arn, versio
             )
 
         log_output = "\n".join(returned_log_lines)
+
+    log_output += error_message
 
     # Mark truncated if logs are not complete
     truncated = True

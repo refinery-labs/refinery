@@ -55,16 +55,22 @@ async function runCommand(cwd, command, args) {
   return data;
 }
 
-async function executeAction(workDir, action, {stage}) {
+async function executeAction(workDir, action, {stage, functionName}) {
   const nodeModulePath = `${process.cwd()}/node_modules`;
   const serverlessScript = `${nodeModulePath}/serverless/bin/serverless.js`;
 
-  if (action === 'deploy') {
+  if (action === 'deploy' || action === 'deployFunction') {
+    const deployFunctionOptions = action === 'deployFunction' ? [
+      '--function', functionName,
+      '--force'
+    ] : [];
+
     const deployCommand = [
-        serverlessScript,
-        'deploy',
-        '--stage', stage,
-        '--aws-s3-accelerate'
+      serverlessScript,
+      'deploy',
+      ...deployFunctionOptions,
+      '--stage', stage,
+      '--aws-s3-accelerate'
     ];
     const deployOutput = await runCommand(workDir, 'node', deployCommand);
 
@@ -73,9 +79,9 @@ async function executeAction(workDir, action, {stage}) {
     // TODO check for errors in deployOutput
 
     const infoCommand = [
-        serverlessScript,
-        'info', '-v',
-        '--stage', stage
+      serverlessScript,
+      'info', '-v',
+      '--stage', stage
     ];
     return await runCommand(workDir, 'node', infoCommand);
   } else if (action === 'remove') {
@@ -96,10 +102,11 @@ exports.lambdaHandler = async (event, context) => {
   }
 
   const action = event.action;
-  const buildId = event.build_id;
+  const deploymentId = event.deployment_id;
   const stage = event.stage;
+  const functionName = event.function_name;
 
-  const workDir = path.join(EFS_MOUNT, buildId);
+  const workDir = path.join(EFS_MOUNT, deploymentId);
 
   const bucket = event.bucket;
   const key = event.key;
@@ -134,7 +141,7 @@ exports.lambdaHandler = async (event, context) => {
 
   try {
     console.log(`Executing action ${action}...`);
-    data = await executeAction(workDir, action, {stage});
+    data = await executeAction(workDir, action, {stage, functionName});
   } catch (e) {
     console.log(`Error while performing action: ${e}`);
     error = e;

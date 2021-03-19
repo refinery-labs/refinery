@@ -8,7 +8,6 @@ type FunctionLookup map[string]RefineryFunction
 
 type InvokeEvent struct {
 	FunctionName string           `json:"function_name"`
-	WorkDir string `json:"work_dir"`
 	BlockInput   *json.RawMessage `json:"block_input"`
 	Backpack     *json.RawMessage `json:"backpack"`
 }
@@ -36,4 +35,5 @@ type RefineryFunction struct {
 	Handler string `json:"handler"`
 	ImportPath string `json:"import_path"`
 	FunctionName string `json:"function_name"`
+	WorkDir string `json:"work_dir"`
 }

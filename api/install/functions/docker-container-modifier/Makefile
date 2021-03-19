@@ -7,4 +7,4 @@ clean:
 	rm -rf ./bin
 
 package: clean build
-	zip package.zip ./bin/main
+	zip docker-container-modifier.zip ./bin/main

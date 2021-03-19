@@ -10,7 +10,7 @@
   },
   "main": "index.js",
   "scripts": {
-    "package": "zip -r package.zip .",
+    "package": "zip -r serverless-framework-builder.zip .",
     "deploy": "sls deploy -v --force",
     "remove": "sls remove -v",
     "test": "sls invoke -f example"

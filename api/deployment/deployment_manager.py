@@ -107,7 +107,8 @@ class DeploymentManager(object):
             org_id, project_id, stage: DeploymentStages,
             diagram_data,
             deploy_workflows=True,
-            create_log_table=True
+            create_log_table=True,
+            function_name=None
     ):
 
         with session_scope(self.db_session_maker) as dbsession:
@@ -135,7 +136,7 @@ class DeploymentManager(object):
         )
 
         self.logger(f"Deploying project: {project_id} with deployment id: {new_deployment_id}")
-        deployment_config = builder.build(rebuild=True)
+        deployment_config = builder.build(rebuild=True, function_name=function_name)
 
         if deployment_config is None:
             raise RefineryDeploymentException("an error occurred while trying to build and deploy the project.",)
@@ -197,7 +198,7 @@ class DeploymentManager(object):
             build_id = previous_deployment_json.get('build_id') if previous_deployment_json else None
 
         if build_id is None:
-            raise RefineryDeploymentException("Unable to ")
+            raise RefineryDeploymentException("unable to find built application; build ID was not given")
 
         serverless_dismantler = ServerlessDismantler(
             self.app_config,

@@ -3,7 +3,7 @@ DEPLOY_SECURE_RESOLVER_SCHEMA = {
     "properties": {
         "action": {
             "type": "string",
-            "enum": ["build", "remove", "arn"]
+            "enum": ["build", "buildFunction", "remove", "arn"]
         },
         "stage": {
             "type": "string",
@@ -27,6 +27,9 @@ DEPLOY_SECURE_RESOLVER_SCHEMA = {
                         "type": "string"
                     },
                     "function_name": {
+                        "type": "string"
+                    },
+                    "work_dir": {
                         "type": "string"
                     }
                 }

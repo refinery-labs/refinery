@@ -1,1 +1,0 @@
-{"3ad12452-70dd-47be-bd3f-bd9a52c08614": {"command": "python", "handler": "3ad12452-70dd-47be-bd3f-bd9a52c08614/container_lambda_function.py", "import_path": "refinery_main", "function_name": "main"}}

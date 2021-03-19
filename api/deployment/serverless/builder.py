@@ -87,7 +87,7 @@ class ServerlessBuilder(Builder):
     def serverless_framework_builder_arn(self):
         return self.app_config.get("serverless_framework_builder_arn")
 
-    def build(self, rebuild=False):
+    def build(self, rebuild=False, function_name=None):
         if self.build_id is None:
             logit("Previous build does not exist, creating new build...")
             self.build_id = str(uuid4())
@@ -109,7 +109,7 @@ class ServerlessBuilder(Builder):
         self.deployment_id = config.deployment_id
 
         try:
-            serverless_output = self.perform_lambda_serverless_deploy(zipfile)
+            serverless_output = self.perform_serverless_deploy(zipfile, function_name)
         except LambdaInvokeException as e:
             logit(str(e), "error")
             return None
@@ -143,7 +143,7 @@ class ServerlessBuilder(Builder):
 
         return BytesIO(s3_file_bytes)
 
-    def perform_lambda_serverless_deploy(self, zipfile):
+    def perform_serverless_deploy(self, zipfile, function_name):
         logit(f'Creating s3 build bundle override at {self.s3_path}')
 
         self.s3.put_object(
@@ -158,8 +158,9 @@ class ServerlessBuilder(Builder):
         payload = {
             "bucket": self.s3_bucket,
             "key": self.s3_key,
-            "action": "deploy",
+            "action": "deploy" if function_name is None else "deployFunction",
             "stage": self.stage,
+            "function_name": function_name.replace("-", "") if function_name is not None else None,
             "deployment_id": self.deployment_id
         }
 

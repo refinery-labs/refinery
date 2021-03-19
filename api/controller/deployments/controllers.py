@@ -118,8 +118,22 @@ class SecureResolverDeployment(BaseHandler):
             })
         elif action == "build":
             self.logger(f"Deploying {project_id}")
+
+            workflow_state_id = str(uuid4())
+            function_name = None
+
+            deployment = self.deployment_manager.get_latest_deployment(self.dbsession, project_id, stage)
+            if deployment is not None:
+                deployment_json = json.loads(deployment.deployment_json)
+                workflow_states = deployment_json["workflow_states"]
+                workflow_state_id = workflow_states[0]["id"]
+
+                # TODO serverless framework does no register change of docker image URI, so function does not update
+                # if only deploying one function
+                # function_name = workflow_state_id
+
             workflow_state = {
-                "id": str(uuid4()),
+                "id": workflow_state_id,
                 "type": "lambda",
                 "code": "",
                 "libraries": [],
@@ -143,7 +157,8 @@ class SecureResolverDeployment(BaseHandler):
                     credentials,
                     deployment_auth.org_id, project_id, stage,
                     diagram_data,
-                    deploy_workflows=False
+                    deploy_workflows=False,
+                    function_name=function_name
                 )
             except RefineryDeploymentException as e:
                 self.write({
