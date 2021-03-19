@@ -61,13 +61,11 @@ async function executeAction(workDir, action, {stage, functionName}) {
 
   if (action === 'deploy' || action === 'deployFunction') {
     const deployFunctionOptions = action === 'deployFunction' ? [
-      '--function', functionName,
-      '--force'
-    ] : [];
+      'function', '--update-config', functionName
+    ] : ['deploy'];
 
     const deployCommand = [
       serverlessScript,
-      'deploy',
       ...deployFunctionOptions,
       '--stage', stage,
       '--aws-s3-accelerate'

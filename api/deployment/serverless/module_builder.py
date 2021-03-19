@@ -19,7 +19,8 @@ from os.path import join
 from deployment.serverless.exceptions import LambdaInvokeException, RefineryDeploymentException
 from deployment.serverless.utils import get_unique_workflow_state_name
 from pyconstants.project_constants import PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME, LANGUAGE_TO_RUNTIME, \
-    LANGUAGE_TO_CONTAINER_COMMAND, LANGUAGE_TO_CONTAINER_HANDLER, CONTAINER_LANGUAGE, LAMBDA_TEMPORAL_RUNTIMES
+    LANGUAGE_TO_CONTAINER_COMMAND, LANGUAGE_TO_CONTAINER_HANDLER, CONTAINER_LANGUAGE, LAMBDA_TEMPORAL_RUNTIMES, \
+    LANGUAGE_TO_MODULE_SEARCH_ENV_VAR, CONTAINER_RUNTIME_PATH
 from pyconstants.project_constants import NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME
 from tasks.build.temporal.nodejs import NodeJsBuilder
 from tasks.build.temporal.python import PythonBuilder
@@ -163,7 +164,7 @@ class ServerlessModuleBuilder:
 
         if is_container:
             logit(f"Building container: {container} for workflow state: {id_}")
-            tag, deployment_id = self.build_with_container(config, workflow_state, container, file_map)
+            tag, deployment_id = self.build_with_container(config, workflow_state, file_map)
             if tag is None:
                 raise RefineryDeploymentException(f"unable to get container tag for docker container: {container}")
 
@@ -211,74 +212,56 @@ class ServerlessModuleBuilder:
             tarinfo.mode = 0o755
             container_tar.addfile(tarinfo)
 
-    def build_with_container(self, config: ServerlessModuleConfig, workflow_state, container, file_map):
-        id_ = workflow_state['id']
-        name = workflow_state['name']
-        language = workflow_state['language']
-        container_uri = container["uri"]
-        container_functions = container.get("functions")
-        container_app_dir = container.get("app_dir")
+    def get_functions_config(self, id_, container, language):
+        app_dir = container["app_dir"]
+        function_dir = os.path.join("/", CONTAINER_RUNTIME_PATH, id_)
 
         runtime = LANGUAGE_TO_RUNTIME[language]
-        runtime_path = "var/runtime"
+        handler_path = os.path.join(function_dir, self.container_runtime_path(runtime))
 
-        content_root = os.path.join(runtime_path, id_) if container_app_dir is None else container_app_dir
+        command = LANGUAGE_TO_CONTAINER_COMMAND[language]
 
-        account_id = config.credentials["account_id"]
+        # NODE_PATH, PYTHONPATH, etc.
+        language_env_var = LANGUAGE_TO_MODULE_SEARCH_ENV_VAR[language]
+
+        function_options = {
+           "command": command,
+           "handler": handler_path,
+        }
+
+        container_functions = container.get("functions")
+        if container_functions:
+            return {
+                f["function_name"]: {
+                    **function_options,
+                    "import_path": f["import_path"],
+                    "function_name": f["function_name"],
+                    "work_dir": f["work_dir"] if f.get("work_dir") is not None else app_dir,
+                    "env": f"{language_env_var}={app_dir}"
+                }
+                for f in container_functions
+            }
+
+        return {
+                id_: {
+                    **function_options,
+                    "import_path": "refinery_main",
+                    "function_name": "main",
+                    "work_dir": function_dir,
+                    "env": f"{language_env_var}={function_dir}"
+                }
+            }
+
+    def perform_docker_container_modification(self, credentials, container_uri, repo_name, container_file_data):
+        account_id = credentials["account_id"]
         ecr_registry = f"{account_id}.dkr.ecr.us-west-2.amazonaws.com"
-        image_name = get_unique_workflow_state_name(config.stage, name, id_).lower()
-
-        self.ensure_repository_exists(config.credentials, image_name)
-
-        handler_path = self.container_runtime_path(runtime)
-
-        buffer = BytesIO()
-        added_paths = []
-        with tarfile.open(fileobj=buffer, mode='w') as container_tar:
-            if container_functions:
-                functions_data = json.dumps({
-                    f["function_name"]: {
-                        "command": LANGUAGE_TO_CONTAINER_COMMAND[language],
-                        "handler": handler_path,
-                        "import_path": f["import_path"],
-                        "function_name": f["function_name"],
-                        "work_dir": f["work_dir"]
-                    }
-                    for f in container_functions
-                }).encode()
-            else:
-                functions_data = json.dumps({
-                    id_: {
-                        "command": LANGUAGE_TO_CONTAINER_COMMAND[language],
-                        "handler": handler_path,
-                        "import_path": "refinery_main",
-                        "function_name": "main",
-                        "work_dir": os.path.join("/", runtime_path, id_)
-                    }
-                }).encode()
-
-            for filepath, contents in file_map.items():
-                filepath = os.path.join(content_root, filepath)
-                print(filepath)
-
-                dir_path, _ = os.path.split(filepath)
-                if dir_path not in added_paths:
-                    self.ensure_parent_dirs_exist(container_tar, added_paths, dir_path)
-
-                add_file_to_tar_file(container_tar, filepath, contents)
-
-            functions_path = os.path.join(runtime_path, "functions.json")
-            add_file_to_tar_file(container_tar, functions_path, functions_data)
-
-        container_file_data = buffer.getvalue()
-
         # S3 object key of the build package, randomly generated.
-        s3_key = "container_files/" + str(uuid4()) + ".tar"
+        s3_key = f"container_files/{str(uuid4())}.tar"
 
-        build_package_bucket = config.credentials["lambda_packages_bucket"]
+        build_package_bucket = credentials["lambda_packages_bucket"]
 
         # Write the CodeBuild build package to S3
-        s3_client = self.s3(config.credentials)
+        s3_client = self.s3(credentials)
         s3_response = s3_client.put_object(
             Bucket=build_package_bucket,
             Body=container_file_data,
@@ -291,14 +274,15 @@ class ServerlessModuleBuilder:
         payload = {
             "registry": ecr_registry,
             "base_image": container_uri,
-            "new_image_name": image_name,
+            "new_image_name": repo_name,
             "image_files": {
                 "bucket": build_package_bucket,
                 "key": s3_key
             }
         }
 
-        lambda_client = self.lambda_function(config.credentials)
+        # Invoke docker container modifier lambda
+        lambda_client = self.lambda_function(credentials)
         resp = lambda_client.invoke(
             FunctionName=self.docker_container_modifier_arn,
             InvocationType='RequestResponse',
@@ -317,6 +301,43 @@ class ServerlessModuleBuilder:
         tag = decoded_payload["tag"]
         deployment_id = decoded_payload["deployment_id"]
         return tag, deployment_id
+
+    def build_with_container(self, config: ServerlessModuleConfig, workflow_state, file_map):
+        id_ = workflow_state['id']
+        name = workflow_state['name']
+        container = workflow_state["container"]
+        language = workflow_state['language']
+        container_uri = container["uri"]
+
+        content_root = os.path.join(CONTAINER_RUNTIME_PATH, id_)
+
+        repo_name = get_unique_workflow_state_name(config.stage, name, id_).lower()
+
+        self.ensure_repository_exists(config.credentials, repo_name)
+
+        buffer = BytesIO()
+        added_paths = []
+        with tarfile.open(fileobj=buffer, mode='w') as container_tar:
+
+            functions_config = self.get_functions_config(id_, container, language)
+
+            for filepath, contents in file_map.items():
+                filepath = os.path.join(content_root, filepath)
+                print(filepath)
+
+                dir_path, _ = os.path.split(filepath)
+                if dir_path not in added_paths:
+                    self.ensure_parent_dirs_exist(container_tar, added_paths, dir_path)
+
+                add_file_to_tar_file(container_tar, filepath, contents)
+
+            functions_path = os.path.join(CONTAINER_RUNTIME_PATH, "functions.json")
+            functions_config_data = json.dumps(functions_config).encode()
+            add_file_to_tar_file(container_tar, functions_path, functions_config_data)
+
+        container_file_data = buffer.getvalue()
+
+        return self.perform_docker_container_modification(config.credentials, container_uri, repo_name, container_file_data)
 
     def get_path(self, id_, path):
         id_ = ''.join([i for i in id_ if i.isalnum()])

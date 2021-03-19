@@ -15,6 +15,9 @@ DEPLOY_SECURE_RESOLVER_SCHEMA = {
         "container_uri": {
             "type": "string",
         },
+        "app_dir": {
+            "type": "string",
+        },
         "language": {
             "type": "string",
         },

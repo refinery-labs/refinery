@@ -56,6 +56,7 @@ class SecureResolverDeployment(BaseHandler):
         container_uri = self.json["container_uri"]
         language = self.json["language"]
         functions = self.json["functions"]
+        app_dir = self.json["app_dir"]
         """
         [
             {
@@ -127,9 +128,6 @@ class SecureResolverDeployment(BaseHandler):
                 deployment_json = json.loads(deployment.deployment_json)
                 workflow_states = deployment_json["workflow_states"]
                 workflow_state_id = workflow_states[0]["id"]
-
-                # TODO serverless framework does no register change of docker image URI, so function does not update
-                # if only deploying one function
                 # function_name = workflow_state_id
 
             workflow_state = {
@@ -141,7 +139,7 @@ class SecureResolverDeployment(BaseHandler):
                 "container": {
                     "uri": container_uri,
                     "functions": functions,
-                    "app_dir": "/"
+                    "app_dir": app_dir
                 },
                 "language": language,
             }
