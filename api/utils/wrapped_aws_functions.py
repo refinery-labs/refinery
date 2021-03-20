@@ -225,12 +225,12 @@ class LambdaLogType(Enum):
 
 
 def lambda_invoke(
-        lambda_client,
-        arn: AnyStr,
-        qualifier: AnyStr,
-        invocation_type: LambdaInvocationType,
-        payload: AnyStr,
-        log_type: LambdaLogType = LambdaLogType.TAIL
+    lambda_client,
+    arn: AnyStr,
+    invocation_type: LambdaInvocationType,
+    payload: AnyStr,
+    log_type: LambdaLogType = LambdaLogType.TAIL,
+    qualifier = None
 ):
     return lambda_client.invoke(
         FunctionName=arn,

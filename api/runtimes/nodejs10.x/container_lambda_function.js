@@ -68,10 +68,10 @@ async function __rfn_init() {
 		const importedFile = require(importPath);
 	    const mainEntrypoint = importedFile[functionName];
 
-		const output = await mainEntrypoint(lambdaInput);
+		const result = await mainEntrypoint(lambdaInput);
 
 		__returnResult({
-      "output": output,
+      "result": result,
       "backpack": backpack,
     });
 
@@ -85,7 +85,7 @@ async function __rfn_init() {
     }
     console.log(
       `<${outputTag}>` + JSON.stringify({
-        "output": e,
+        "result": e,
         "backpack": backpack
       }) + `</${outputTag}>`
     );

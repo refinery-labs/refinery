@@ -14,4 +14,5 @@ require (
 	go.temporal.io/api v1.2.0
 	go.temporal.io/sdk v1.2.0
 	go.uber.org/config v1.4.0
+	go.uber.org/zap v1.16.0 // indirect
 )

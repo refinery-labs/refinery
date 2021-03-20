@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"go.uber.org/zap"
 	"io/ioutil"
 	"log"
 	"os"
@@ -99,11 +101,23 @@ func HandleRequest(invokeEvent runtime.InvokeEvent) (lambdaResponse runtime.Lamb
 		handlerResponse runtime.HandlerResponse
 	)
 
-	fmt.Printf("Handling request: %+v\n", invokeEvent)
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		log.Println("unable to create zap logger", err)
+		return
+	}
+
+	logger.Debug(
+		"handling request:",
+		zap.String("request", fmt.Sprintf("%+v", invokeEvent)),
+	)
 
 	funcConfig, err = getFunctionConfig(invokeEvent.FunctionName)
 	if err != nil {
-		log.Println(err)
+		logger.Error(
+			"unable to get function config",
+			zap.Error(err),
+		)
 		return
 	}
 
@@ -116,8 +130,17 @@ func HandleRequest(invokeEvent runtime.InvokeEvent) (lambdaResponse runtime.Lamb
 
 	functionInput, err = json.Marshal(req)
 	if err != nil {
-		log.Println(err)
+		logger.Error(
+			"unable to marshal function request",
+			zap.Error(err),
+		)
 		return
+	}
+
+	envVars := os.Environ()
+
+	for k, v := range funcConfig.Env {
+		envVars = append(envVars, k + "=" + v)
 	}
 
 	handlerStdin := strings.NewReader(string(functionInput))
@@ -127,35 +150,44 @@ func HandleRequest(invokeEvent runtime.InvokeEvent) (lambdaResponse runtime.Lamb
 		Args: []string{
 			funcConfig.Handler,
 		},
+		Env: 		 envVars,
 		Cwd:         funcConfig.WorkDir,
 		Stdin:       handlerStdin,
 		StreamStdio: false,
 	}
 
 	res, err = refineryCommand.Execute()
-
 	if err != nil {
-		log.Println(err)
+		logger.Error(
+			"error when executing handler command",
+			zap.Error(err),
+		)
 		return
 	}
 
-	log.Println(res.Stdout)
-	log.Println(res.Stderr)
+	logger.Debug("handler stdout", zap.String("stdout", res.Stdout))
+	logger.Debug("handler stderr", zap.String("stderr", res.Stderr))
 
 	/*
 		TODO should we use protobuf to communicate between the processes?
 	*/
 	handlerResponse, err = parseStdout(res.Stdout)
 	if err != nil {
-		log.Println(err)
+		logger.Error("error while parsing stdout from handler", zap.Error(err))
 		return
 	}
 
-	fmt.Printf("handler response: %+v", handlerResponse)
+	logger.Debug(
+		"handler response",
+		zap.String(
+			"handlerResponse",
+			fmt.Sprintf("%v", handlerResponse),
+		),
+	)
 
 	if handlerResponse.Error != "" {
-		err = fmt.Errorf("%s", handlerResponse.Error)
-		log.Println(err)
+		err = errors.New(handlerResponse.Error)
+		logger.Error("handler error", zap.Error(err))
 		return
 	}
 
@@ -168,7 +200,7 @@ func main() {
 	fmt.Println("Starting runtime...")
 
 	// Make the handler available for Remote Procedure Call by AWS Lambda
-	lambdaEnv := os.Getenv("LAMBDA_ENVIRONMENT")
+	lambdaEnv := os.Getenv("LAMBDA_CALLER")
 	switch lambdaEnv {
 	case "API_GATEWAY":
 		lambda.Start(HandleRequestApiGateway)

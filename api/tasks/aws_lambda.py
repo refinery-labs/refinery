@@ -97,6 +97,72 @@ def warm_up_lambda(aws_client_factory, credentials, arn, warmup_concurrency_leve
     )
 
 
+def decode_lambda_response(response):
+    try:
+        first_decode = loads(
+            response
+        )
+
+        if type(first_decode) is not str:
+            return first_decode
+
+        return loads(
+            first_decode
+        )
+    except BaseException as e:
+        print(e)
+        pass
+
+
+def dump_lambda_response(parsed_response):
+    if type(parsed_response) in [dict, list]:
+        # make the response pretty if we can
+        return dumps(
+            parsed_response,
+            indent=4
+        )
+    elif isinstance(parsed_response, bytes):
+        return parsed_response.decode('utf-8')
+    else:
+        return str(parsed_response)
+
+
+def filter_lambda_log_output(log_output):
+    log_lines = log_output.split("\n")
+    returned_log_lines = []
+
+    for log_line in log_lines:
+        if log_line.startswith("START RequestId: "):
+            continue
+
+        if log_line.startswith("END RequestId: "):
+            continue
+
+        if log_line.startswith("REPORT RequestId: "):
+            continue
+
+        if log_line.startswith("XRAY TraceId: "):
+            continue
+
+        if "START RequestId: " in log_line:
+            log_line = log_line.split("START RequestId: ")[0]
+
+        if "END RequestId: " in log_line:
+            log_line = log_line.split("END RequestId: ")[0]
+
+        if "REPORT RequestId: " in log_line:
+            log_line = log_line.split("REPORT RequestId: ")[0]
+
+        if "XRAY TraceId: " in log_line:
+            log_line = log_line.split("XRAY TraceId: ")[0]
+
+        returned_log_lines.append(
+            log_line
+        )
+
+    return "\n".join(returned_log_lines)
+
+
 def execute_aws_lambda_with_version(aws_client_factory, credentials, arn, version, input_data):
     lambda_client = aws_client_factory.get_aws_client("lambda", credentials)
     response = lambda_invoke(
@@ -107,41 +173,11 @@ def execute_aws_lambda_with_version(aws_client_factory, credentials, arn, versio
         qualifier=version
     )
 
-    full_response = response["Payload"].read()
+    payload = response["Payload"].read()
 
-    # Decode it all the way
+    parsed_response = decode_lambda_response(payload)
 
-    is_error = False
-    error_message = ""
-    try:
-        first_decode = loads(
-            full_response
-        )
-
-        if type(first_decode) is dict and "errorMessage" in first_decode.keys():
-            is_error = True
-            error_message = first_decode["errorMessage"]
-
-        full_response = loads(
-            first_decode
-        )
-    except BaseException as e:
-        pass
-
-    if type(full_response) in [dict, list]:
-        # make the response pretty if we can
-        full_response = dumps(
-            full_response,
-            indent=4
-        )
-    elif isinstance(full_response, bytes):
-        full_response = full_response.decode('utf-8')
-    else:
-        full_response = str(full_response)
-
-    # Detect from response if it was an error
-    if "FunctionError" in response:
-        is_error = True
+    returned_data = dump_lambda_response(parsed_response)
 
     log_output = b64decode(
         response["LogResult"]
@@ -149,41 +185,16 @@ def execute_aws_lambda_with_version(aws_client_factory, credentials, arn, versio
 
     # Strip the Lambda stuff from the output
     if "RequestId:" in log_output:
-        log_lines = log_output.split("\n")
-        returned_log_lines = []
+        log_output = filter_lambda_log_output(log_output)
 
-        for log_line in log_lines:
-            if log_line.startswith("START RequestId: "):
-                continue
+    is_error = False
+    # Detect from response if it was an error
+    if "FunctionError" in response:
+        is_error = True
 
-            if log_line.startswith("END RequestId: "):
-                continue
-
-            if log_line.startswith("REPORT RequestId: "):
-                continue
-
-            if log_line.startswith("XRAY TraceId: "):
-                continue
-
-            if "START RequestId: " in log_line:
-                log_line = log_line.split("START RequestId: ")[0]
-
-            if "END RequestId: " in log_line:
-                log_line = log_line.split("END RequestId: ")[0]
-
-            if "REPORT RequestId: " in log_line:
-                log_line = log_line.split("REPORT RequestId: ")[0]
-
-            if "XRAY TraceId: " in log_line:
-                log_line = log_line.split("XRAY TraceId: ")[0]
-
-            returned_log_lines.append(
-                log_line
-            )
-
-        log_output = "\n".join(returned_log_lines)
-
-    log_output += error_message
+    if type(parsed_response) is dict and "errorMessage" in parsed_response.keys():
+        is_error = True
+        log_output += parsed_response["errorMessage"]
 
     # Mark truncated if logs are not complete
     truncated = True
@@ -197,7 +208,7 @@ def execute_aws_lambda_with_version(aws_client_factory, credentials, arn, versio
         "status_code": response["StatusCode"],
         "logs": log_output,
         "is_error": is_error,
-        "returned_data": full_response,
+        "returned_data": returned_data,
     }
 
 

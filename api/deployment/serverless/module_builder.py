@@ -237,7 +237,9 @@ class ServerlessModuleBuilder:
                     "import_path": f["import_path"],
                     "function_name": f["function_name"],
                     "work_dir": f["work_dir"] if f.get("work_dir") is not None else app_dir,
-                    "env": f"{language_env_var}={app_dir}"
+                    "env": {
+                        language_env_var: app_dir
+                    }
                 }
                 for f in container_functions
             }
@@ -248,7 +250,9 @@ class ServerlessModuleBuilder:
                     "import_path": "refinery_main",
                     "function_name": "main",
                     "work_dir": function_dir,
-                    "env": f"{language_env_var}={function_dir}"
+                    "env": {
+                        language_env_var: function_dir
+                    }
                 }
             }
 

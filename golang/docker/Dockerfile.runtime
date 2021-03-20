@@ -2,7 +2,6 @@ FROM golang AS builder
 ADD . /runtime 
 WORKDIR /runtime/cmd/runtime
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o runtime .
-RUN chmod -R 755 /runtime/fixtures/runtime/handlers/*
 
 FROM scratch
 
