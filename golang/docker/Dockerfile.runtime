@@ -1,8 +1,0 @@
-FROM golang AS builder
-ADD . /runtime 
-WORKDIR /runtime/cmd/runtime
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o runtime .
-
-FROM scratch
-
-COPY --from=builder /runtime/cmd/runtime/runtime /var/runtime/bootstrap

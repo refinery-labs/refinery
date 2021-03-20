@@ -47,7 +47,6 @@ class RunLambda(BaseHandler):
                 return
 
         function_name = {}
-        work_dir = {}
 
         # Try to parse Lambda input as JSON
         try:
@@ -57,13 +56,17 @@ class RunLambda(BaseHandler):
             function_name = {"function_name": input_data["function_name"]}
             del input_data["function_name"]
         except ValueError as e:
-            self.logger(e)
-            pass
+            self.write({
+                "success": False,
+                "failure_msg": "Unable to read input data JSON",
+                "failure_reason": "InvalidInputDataJson"
+            })
+            return
 
         lambda_input_data = {
             **function_name,
             "backpack": backpack_data,
-            "input_data": input_data
+            "block_input": input_data
         }
 
         """

@@ -59,16 +59,18 @@ async function __rfn_init() {
 
 		// Inside of the try catch statement to ensure that any exceptions thrown here are logged.
 		const inputData = JSON.parse( __input_data );
-		const lambdaInput = inputData[ "lambda_input" ];
+		const lambdaInput = inputData[ "block_input" ];
 		let backpack = inputData[ "backpack" ];
 
 		const importPath = inputData["import_path"];
 	    const functionName = inputData["function_name"];
 
+	    console.log(backpack);
+
 		const importedFile = require(importPath);
 	    const mainEntrypoint = importedFile[functionName];
 
-		const result = await mainEntrypoint(lambdaInput);
+		const result = await mainEntrypoint(lambdaInput, backpack);
 
 		__returnResult({
       "result": result,

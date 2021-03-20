@@ -57,14 +57,6 @@ class SecureResolverDeployment(BaseHandler):
         language = self.json["language"]
         functions = self.json["functions"]
         app_dir = self.json["app_dir"]
-        """
-        [
-            {
-                "import_path": "index",
-                "function_name: "foo"
-            }
-        ]
-        """
 
         secret = self.request.headers.get('REFINERY_DEPLOYMENT_SECRET')
         if secret is None:
