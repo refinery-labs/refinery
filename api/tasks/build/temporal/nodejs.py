@@ -11,18 +11,9 @@ NODEJS_BUILDSPEC = dump({
             "**/*"
         ]
     },
-    "env": {
-        "parameter-store": {
-            "build_ssh_key": "build_ssh_key"
-        }
-    },
     "phases": {
         "build": {
             "commands": [
-                "mkdir -p ~/.ssh",
-                "echo \"$build_ssh_key\" > ~/.ssh/id_rsa",
-                "chmod 600 ~/.ssh/id_rsa",
-                "ssh-keygen -F github.com || ssh-keyscan github.com >>~/.ssh/known_hosts",
                 "npm install"
             ]
         }

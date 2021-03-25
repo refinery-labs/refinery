@@ -108,7 +108,8 @@ class DeploymentManager(object):
             diagram_data,
             deploy_workflows=True,
             create_log_table=True,
-            function_name=None
+            function_name=None,
+            new_deployment_id=None
     ):
 
         with session_scope(self.db_session_maker) as dbsession:
@@ -121,7 +122,8 @@ class DeploymentManager(object):
         previous_build_id = previous_deployment_json.get('build_id') if previous_deployment_json else None
 
         # TODO check for collisions
-        new_deployment_id = str(uuid4())
+        if new_deployment_id is None:
+            new_deployment_id = str(uuid4())
 
         builder = ServerlessBuilder(
             self.app_config,
@@ -149,11 +151,12 @@ class DeploymentManager(object):
                 raise RefineryDeploymentException("an error occurred while trying to create workflows in the workflow manager.")
 
         # Create deployment metadata
-        new_deployment = Deployment(id=deployment_config["deployment_id"])
+        new_deployment = Deployment(id=new_deployment_id)
         new_deployment.organization_id = org_id
         new_deployment.project_id = project_id
         new_deployment.deployment_json = json.dumps(deployment_config)
         new_deployment.stage = stage.value
+        new_deployment.tag = deployment_config["deployment_id"]
 
         with session_scope(self.db_session_maker) as dbsession:
             existing_project = self.get_existing_project(dbsession, project_id)

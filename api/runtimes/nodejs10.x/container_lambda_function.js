@@ -19,7 +19,7 @@ process.stdin.on('end', function () {
 function __returnResult(programOutput) {
 	console.log(
 		`<${outputTag}>` + JSON.stringify(
-			programOutput
+		programOutput
 		) + `</${outputTag}>`
 	);
 }
@@ -52,7 +52,7 @@ function __promisify(fn) {
 }
 
 async function __rfn_init() {
-  try {
+	try {
 		if (process.stdout._handle) {
 			process.stdout._handle.setBlocking(true);
 		}
@@ -63,56 +63,58 @@ async function __rfn_init() {
 		let backpack = inputData[ "backpack" ];
 
 		const importPath = inputData["import_path"];
-	    const functionName = inputData["function_name"];
+		const functionName = inputData["function_name"];
 
-	    console.log(backpack);
+		console.log(backpack);
 
 		const importedFile = require(importPath);
-	    const mainEntrypoint = importedFile[functionName];
+		const mainEntrypoint = importedFile[functionName];
 
 		const result = await mainEntrypoint(lambdaInput, backpack);
 
 		__returnResult({
-      "result": result,
-      "backpack": backpack,
-    });
+			"result": result,
+			"error": "",
+			"backpack": backpack,
+		});
 
-    backpack = {};
-    flushProcessOutputsAndExit__refinery(0);
-  } catch ( e ) {
-    if( e.stack ) {
-      e = e.stack.toString()
-    } else {
-      e = e.toString();
-    }
-    console.log(
-      `<${outputTag}>` + JSON.stringify({
-        "result": e,
-        "backpack": backpack
-      }) + `</${outputTag}>`
-    );
-    backpack = {};
-    flushProcessOutputsAndExit__refinery(-1);
-  }
+		backpack = {};
+		flushProcessOutputsAndExit__refinery(0);
+	} catch ( e ) {
+		if( e.stack ) {
+			e = e.stack.toString()
+		} else {
+			e = e.toString();
+		}
+		console.log(
+			`<${outputTag}>` + JSON.stringify({
+				"result": "",
+				"error": e,
+				"backpack": backpack
+			}) + `</${outputTag}>`
+		);
+		backpack = {};
+		flushProcessOutputsAndExit__refinery(-1);
+	}
 }
 
 function flushProcessOutputsAndExit__refinery(exitCode) {
-  // Configure the streams to be blocking
-  makeBlockingStream__refinery(process.stdout);
-  makeBlockingStream__refinery(process.stderr);
+	// Configure the streams to be blocking
+	makeBlockingStream__refinery(process.stdout);
+	makeBlockingStream__refinery(process.stderr);
 
 
-  // Allow Node to cleanup any internals before the next process tick
-  setImmediate(function callProcessExitWithCode() {
-    process.exit(exitCode);
-  });
+	// Allow Node to cleanup any internals before the next process tick
+	setImmediate(function callProcessExitWithCode() {
+		process.exit(exitCode);
+	});
 }
 
 function makeBlockingStream__refinery(stream) {
-  if (!stream || !stream._handle || !stream._handle.setBlocking) {
-    // Not able to set blocking so just bail out
-    return;
-  }
+	if (!stream || !stream._handle || !stream._handle.setBlocking) {
+		// Not able to set blocking so just bail out
+		return;
+	}
 
-  stream._handle.setBlocking(true);
+	stream._handle.setBlocking(true);
 }

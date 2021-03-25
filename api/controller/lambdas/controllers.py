@@ -69,6 +69,13 @@ class RunLambda(BaseHandler):
             "block_input": input_data
         }
 
+        api_gateway_lambda = self.json["execution_type"] == "API_GATEWAY"
+
+        if api_gateway_lambda:
+            lambda_input_data = {
+                "body": json.dumps(lambda_input_data)
+            }
+
         """
         if "execution_id" in self.json and self.json["execution_id"]:
             lambda_input_data["_refinery"]["execution_id"] = str(self.json["execution_id"])
@@ -94,7 +101,13 @@ class RunLambda(BaseHandler):
         return_data = json.loads(
             lambda_result["returned_data"]
         )
-        lambda_execution_result["returned_data"] = return_data["result"] if "result" in return_data else ""
+
+        if api_gateway_lambda:
+            return_data = json.loads(return_data["body"])
+
+        print(return_data)
+
+        lambda_execution_result["returned_data"] = json.dumps(return_data["result"]) if "result" in return_data else ""
         lambda_execution_result["logs"] = lambda_result["logs"] if "logs" in lambda_result else ""
 
         self.write({

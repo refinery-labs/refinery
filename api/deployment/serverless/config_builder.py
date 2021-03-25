@@ -175,34 +175,39 @@ class ServerlessConfigBuilder:
 
         role_name = id_ + "Role"
 
-        lambda_policies = self.get_lambda_role_policies(id_, ws_policies)
+        iam_role = self.build_iam_role("lambda.amazonaws.com", role_name, ws_policies)
+
+        self.set_aws_resources({
+            role_name: iam_role
+        })
+        return role_name
+
+    def build_iam_role(self, principal_service, role_name, policies):
+        iam_policies = self.get_iam_role_policies(role_name, policies)
 
         assume_role_policy_document = {
             "Statement": [
                 {
                     "Effect": "Allow",
                     "Principal": {
-                        "Service": "lambda.amazonaws.com"
+                        "Service": principal_service
                     },
                     "Action": "sts:AssumeRole"
                 }
             ]
         }
 
-        self.set_aws_resources({
-            role_name: {
-                "Type": "AWS::IAM::Role",
-                "Properties": {
-                    "RoleName": role_name,
-                    "AssumeRolePolicyDocument": assume_role_policy_document,
-                    "Policies": lambda_policies
-                }
+        return {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "RoleName": role_name,
+                "AssumeRolePolicyDocument": assume_role_policy_document,
+                "Policies": iam_policies
             }
-        })
-        return role_name
+        }
 
-    def get_lambda_role_policies(self, id_, policies):
-        base_policy_name = id_ + "Policy"
+    def get_iam_role_policies(self, role_name, policies):
+        base_policy_name = role_name + "Policy"
         role_policies = []
         for n, policy in enumerate(policies):
             action = policy["action"]
@@ -327,6 +332,9 @@ class ServerlessConfigBuilder:
         #    restApiId:
         #      'Fn::ImportValue': apiGateway-restApiId
 
+        api_gateway_deployment_id = self.get_id(self.deployment_id)
+        api_gateway_deployment_name = f"ApiGatewayDeployment{api_gateway_deployment_id}"
+
         self.set_aws_resources({
             "ApiGatewayRestApi": {
                 "Type": "AWS::ApiGateway::RestApi",
@@ -338,7 +346,7 @@ class ServerlessConfigBuilder:
                     "Name": f"Gateway_{project_id}"
                 }
             },
-            "ApiGatewayDeployment": {
+            api_gateway_deployment_name: {
                 "Type": "AWS::ApiGateway::Deployment",
                 "DependsOn": self.api_method_ids,
                 "Properties": {
@@ -398,6 +406,25 @@ class ServerlessConfigBuilder:
 
         api_resources[resource] = config
 
+    def build_lambda_proxy_iam_role(self, lambda_id):
+        policies = [
+            {
+                "action": "lambda:*",
+                "resource": {
+                    "Fn::GetAtt": [f"{lambda_id}LambdaFunction", "Arn"]
+                }
+            }
+        ]
+
+        role_name = lambda_id + "ApiGatewayProxyRole"
+
+        iam_role = self.build_iam_role("apigateway.amazonaws.com", role_name, policies)
+
+        self.set_aws_resources({
+            role_name: iam_role
+        })
+        return role_name
+
     def get_proxy_method(self, workflow_state, path_part, index):
         url_resource_name = self.get_url_resource_name(path_part, index)
         http_method = workflow_state['http_method']
@@ -425,8 +452,13 @@ class ServerlessConfigBuilder:
         }
         if lambda_id is not None:
             lambda_id = self.get_id(lambda_id)
+            role_name = self.build_lambda_proxy_iam_role(lambda_id)
+
             lambda_uri_format = "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations"
             integration.update({
+                "Credentials": {
+                    "Fn::GetAtt": [role_name, "Arn"]
+                },
                 "Type": "AWS_PROXY",
                 "Uri": {
                     "Fn::Sub": [

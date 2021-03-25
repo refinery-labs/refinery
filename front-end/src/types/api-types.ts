@@ -345,6 +345,7 @@ export interface RunLambdaRequest extends BaseApiRequest {
   arn: string;
   input_data: string;
   backpack: string;
+  execution_type: string;
   execution_id?: string;
   debug_id?: string;
 }

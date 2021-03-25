@@ -48,9 +48,6 @@ class LanguageBuilder(ABC):
         # Create a virtual file handler for the Lambda zip package
         package_zip = BytesIO(zip_with_deps)
 
-        # with ZipFile(package_zip, 'w') as _:
-        #     pass
-
         with ZipFile(package_zip, "r") as zip_file_handler:
             for filename in zip_file_handler.namelist():
                 file_map[filename] = zip_file_handler.read(filename)
@@ -66,7 +63,10 @@ class LanguageBuilder(ABC):
 
     def get_zip_with_deps(self, credentials, libraries_object):
         if len(libraries_object) == 0:
-            return b''
+            buffer = BytesIO(b'')
+            with ZipFile(buffer, "w") as f:
+                pass
+            return buffer.getvalue()
 
         s3_zip_path = get_final_zip_package_path(self.RUNTIME, libraries_object)
         exists = s3_object_exists(

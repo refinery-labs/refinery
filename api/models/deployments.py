@@ -40,6 +40,8 @@ class Deployment(Base):
 
     deployment_json = Column(Text())
 
+    tag = Column(Text())
+
     timestamp = Column(Integer())
 
     def __init__(self, id=None):

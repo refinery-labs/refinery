@@ -3,8 +3,12 @@ from pyconstants.project_constants import LAMBDA_SUPPORTED_LANGUAGES
 RUN_LAMBDA_SCHEMA = {
     "type": "object",
     "properties": {
-            "input_data": {},
+        "input_data": {},
         "backpack": {},
+        "execution_type": {
+            "type": "string",
+            "enum": ["LAMBDA", "API_GATEWAY"]
+        },
         "arn": {
                 "type": "string",
                 },

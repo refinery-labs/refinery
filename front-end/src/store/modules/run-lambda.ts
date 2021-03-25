@@ -367,9 +367,21 @@ const RunLambdaModule: Module<RunLambdaState, RootState> = {
       // messages that come for this specific UUID.
       await context.dispatch(RunLambdaActions.WebsocketSubscribeToDebugID, debugId);
 
+      let lambdaExecutionType = 'LAMBDA';
+      const envVars = Object.keys(block.environment_variables).filter(
+        // @ts-ignore
+        envVarName => envVarName === 'LAMBDA_CALLER'
+      );
+      if (envVars.length > 0) {
+        // @ts-ignore
+        lambdaExecutionType = block.environment_variables['LAMBDA_CALLER'];
+      }
+
       const request: RunLambdaRequest = {
         input_data: inputData === undefined || inputData === null ? '' : inputData,
         backpack: backpackData,
+        // TODO
+        execution_type: lambdaExecutionType,
         arn: block.arn,
         execution_id: uuid(),
         debug_id: debugId
