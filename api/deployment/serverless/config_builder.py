@@ -98,24 +98,31 @@ class ServerlessConfigBuilder:
         id_ = self.get_id(workflow_state_id)
         name = get_unique_workflow_state_name(self.stage, workflow_state['name'], id_)
 
-        memory = workflow_state.get('memory')
-        memorySize = {'memorySize': memory} if memory is not None else {}
-        max_execution_time = workflow_state.get('max_execution_time')
-        timeout = {'timeout': max_execution_time} if max_execution_time is not None else {}
-
-        lambda_environment = self.get_lambda_environment(workflow_state_id, workflow_state)
-
-        optional_arguments = self.get_optional_lambda_arguments(workflow_state)
-
-        self.functions[id_] = {
+        function_config = {
             "name": name,
-            **lambda_environment,
-            **optional_arguments,
-            **memorySize,
-            **timeout,
-            "description": "A lambda deployed by refinery",
+            "description": "A lambda deployed by Refinery",
             "tracing": 'PassThrough',
         }
+
+        memory = workflow_state.get('memory')
+        if memory is not None:
+            function_config.update({'memorySize': memory})
+
+        max_execution_time = workflow_state.get('max_execution_time')
+        if max_execution_time is not None:
+            function_config.update({'timeout': max_execution_time})
+
+        role = self.get_lambda_role(id_, workflow_state)
+        if role is not None:
+            function_config.update({'role': role})
+
+        lambda_environment = self.get_lambda_environment(workflow_state_id, workflow_state)
+        function_config.update(lambda_environment)
+
+        optional_arguments = self.get_optional_lambda_arguments(workflow_state)
+        function_config.update(optional_arguments)
+
+        self.functions[id_] = function_config
 
     def get_lambda_environment(self, workflow_state_id, workflow_state):
         id_ = self.get_id(workflow_state_id)
@@ -160,6 +167,62 @@ class ServerlessConfigBuilder:
                 ]
             }
         }
+
+    def get_lambda_role(self, id_, workflow_state):
+        ws_policies = workflow_state.get("policies")
+        if ws_policies is None:
+            return None
+
+        role_name = id_ + "Role"
+
+        lambda_policies = self.get_lambda_role_policies(id_, ws_policies)
+
+        assume_role_policy_document = {
+            "Statement": [
+                {
+                    "Effect": "Allow",
+                    "Principal": {
+                        "Service": "lambda.amazonaws.com"
+                    },
+                    "Action": "sts:AssumeRole"
+                }
+            ]
+        }
+
+        self.set_aws_resources({
+            role_name: {
+                "Type": "AWS::IAM::Role",
+                "Properties": {
+                    "RoleName": role_name,
+                    "AssumeRolePolicyDocument": assume_role_policy_document,
+                    "Policies": lambda_policies
+                }
+            }
+        })
+        return role_name
+
+    def get_lambda_role_policies(self, id_, policies):
+        base_policy_name = id_ + "Policy"
+        role_policies = []
+        for n, policy in enumerate(policies):
+            action = policy["action"]
+            resource = policy["resource"]
+
+            role_policies.append(
+                {
+                    "PolicyName": f"{base_policy_name}{n}",
+                    "PolicyDocument": {
+                        "Statement": [
+                            {
+                                "Effect": "Allow",
+                                "Action": action,
+                                "Resource": resource
+                            }
+                        ]
+                    }
+                }
+            )
+        return role_policies
 
     def get_lambda_handler(self, id_, handler_module):
         return f'lambda/{id_}/{handler_module}'
@@ -243,7 +306,8 @@ class ServerlessConfigBuilder:
             self.set_api_resource(api_resources, path_part, i, parent)
 
         # Last element from enumeration will be the end of the url
-        api_resources.update(self.get_proxy_method(workflow_state, path_part, i))
+        proxy_method = self.get_proxy_method(workflow_state, path_part, i)
+        api_resources.update(proxy_method)
 
         self.set_aws_resources(api_resources)
 
@@ -342,7 +406,7 @@ class ServerlessConfigBuilder:
         base = self.app_config.get("workflow_manager_api_url")
         uri = f"{base}/deployment/{self.deployment_id}/workflow/{raw_id}"
 
-        self.api_method_ids.append(id_)
+        lambda_id = workflow_state.get("lambda_proxy")
 
         method_response_codes = [
             {
@@ -352,6 +416,31 @@ class ServerlessConfigBuilder:
                 "StatusCode": 500
             }
         ]
+
+        integration = {
+            "IntegrationHttpMethod": http_method.upper(),
+            "Type": "HTTP",
+            "Uri": uri,
+            "IntegrationResponses": method_response_codes
+        }
+        if lambda_id is not None:
+            lambda_id = self.get_id(lambda_id)
+            lambda_uri_format = "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations"
+            integration.update({
+                "Type": "AWS_PROXY",
+                "Uri": {
+                    "Fn::Sub": [
+                        lambda_uri_format,
+                        {
+                            "lambdaArn": {
+                                "Fn::GetAtt": [f"{lambda_id}LambdaFunction", "Arn"]
+                            }
+                        }
+                    ]
+                }
+            })
+
+        self.api_method_ids.append(id_)
 
         return {
             id_: {
@@ -365,12 +454,7 @@ class ServerlessConfigBuilder:
                     },
                     "HttpMethod": http_method.upper(),
                     "AuthorizationType": "",
-                    "Integration": {
-                        "IntegrationHttpMethod": http_method.upper(),
-                        "Type": "HTTP",
-                        "Uri": uri,
-                        "IntegrationResponses": method_response_codes
-                    },
+                    "Integration": integration,
                     "MethodResponses": method_response_codes
                 }
             }

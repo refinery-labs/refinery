@@ -11,6 +11,7 @@ from controller.deployments.schemas import *
 from data_types.deployment_stages import DeploymentStages
 from deployment.deployment_manager import DeploymentManager
 from deployment.serverless.exceptions import RefineryDeploymentException
+from deployment.serverless.utils import get_unique_workflow_state_name
 from models import Deployment, CachedExecutionLogsShard, Project, DeploymentLog
 from models.deployment_auth import DeploymentAuth
 from utils.locker import AcquireFailure
@@ -56,7 +57,6 @@ class SecureResolverDeployment(BaseHandler):
         container_uri = self.json["container_uri"]
         language = self.json["language"]
         functions = self.json["functions"]
-        app_dir = self.json["app_dir"]
 
         secret = self.request.headers.get('REFINERY_DEPLOYMENT_SECRET')
         if secret is None:
@@ -94,53 +94,102 @@ class SecureResolverDeployment(BaseHandler):
         self.dbsession.close()
         self._dbsession = None
 
-        if action == "arn":
+        if action == "url":
             deployment = self.deployment_manager.get_latest_deployment(self.dbsession, project_id, stage)
             if deployment is None:
                 self.write({
-                    "success": False
+                    "success": False,
+                    "msg": "no latest deployment for project"
                 })
                 raise gen.Return()
 
             deployment_json = json.loads(deployment.deployment_json)
             workflow_states = deployment_json["workflow_states"]
-            arn = workflow_states[0]["arn"]
+            ws_lookup_by_type = {ws["type"]: ws for ws in workflow_states}
+
+            api_endpoint = ws_lookup_by_type["api_endpoint"]
+            if api_endpoint is None:
+                self.write({
+                    "success": False,
+                    "msg": "no api endpoint in deployed project"
+                })
+                raise gen.Return()
+
             self.write({
                 "success": True,
-                "arn": arn
+                "url": api_endpoint["url"]
             })
+
         elif action == "build":
             self.logger(f"Deploying {project_id}")
 
-            workflow_state_id = str(uuid4())
+            secure_resolver_id = str(uuid4())
+            api_endpoint_id = str(uuid4())
             function_name = None
 
             deployment = self.deployment_manager.get_latest_deployment(self.dbsession, project_id, stage)
             if deployment is not None:
                 deployment_json = json.loads(deployment.deployment_json)
                 workflow_states = deployment_json["workflow_states"]
-                workflow_state_id = workflow_states[0]["id"]
-                # function_name = workflow_state_id
+                ws_lookup_by_type = {ws["type"]: ws for ws in workflow_states}
 
-            workflow_state = {
-                "id": workflow_state_id,
+                secure_resolver_ws = ws_lookup_by_type.get("lambda")
+                if secure_resolver_ws is not None:
+                    secure_resolver_id = secure_resolver_ws["id"]
+                    # function_name = secure_resolver_id
+
+                api_endpoint_ws = ws_lookup_by_type.get("api_endpoint")
+                if api_endpoint_ws is not None:
+                    api_endpoint_id = api_endpoint_ws["id"]
+
+            document_vault_s3_bucket = "cryptovault-loq-" + secure_resolver_id
+
+            app_dir = self.json["app_dir"]
+
+            secure_resolver = {
+                "id": secure_resolver_id,
                 "type": "lambda",
+                "name": project_name,
                 "code": "",
                 "libraries": [
-                    "loq-sdk@git+ssh://git@github.com:refinery-labs/loq-sdk.git"
+                    "loq-sdk@git+ssh://git@github.com:refinery-labs/loq-sdk.git#0.0.1"
                 ],
-                "name": project_name,
                 "container": {
                     "uri": container_uri,
                     "functions": functions,
                     "app_dir": app_dir
                 },
+                # TODO how long do we want to wait for this to run?
+                "max_execution_time": 60,
+                "environment_variables": {
+                    "DOCUMENT_VAULT_S3_BUCKET": document_vault_s3_bucket,
+                },
                 "language": language,
+                "policies": [
+                    {
+                        "action": [
+                            "dynamodb:*",
+                            "s3:*"
+                        ],
+                        "resource": '*'
+                    }
+                ]
+            }
+
+            api_endpoint = {
+                "id": api_endpoint_id,
+                "type": "api_endpoint",
+                "api_path": "/execute",
+                "http_method": "POST",
+                "lambda_proxy": secure_resolver["id"]
             }
 
             diagram_data = {
                 "name": project_name,
-                "workflow_states": [workflow_state],
+                "workflow_states": [
+                    secure_resolver,
+                    api_endpoint
+                ],
                 "workflow_relationships": [],
             }
 
@@ -170,6 +219,11 @@ class SecureResolverDeployment(BaseHandler):
                     "success": False,
                     "msg": str(e)
                 })
+        else:
+            self.write({
+                "success": False,
+                "msg": "action not supported: " + action
+            })
 
 
 class GetLatestProjectDeployment(BaseHandler):

@@ -124,6 +124,8 @@ class ServerlessModuleBuilder:
         )
         serverless_yaml = builder.build()
 
+        print(serverless_yaml)
+
         add_file_to_zipfile(zipfile, "serverless.yml", serverless_yaml)
 
     def build_workflow_states(self, config, zipfile):
