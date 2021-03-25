@@ -126,7 +126,9 @@ class SecureResolverDeployment(BaseHandler):
                 "id": workflow_state_id,
                 "type": "lambda",
                 "code": "",
-                "libraries": [],
+                "libraries": [
+                    "loq-sdk@git+ssh://git@github.com:refinery-labs/loq-sdk.git"
+                ],
                 "name": project_name,
                 "container": {
                     "uri": container_uri,

@@ -249,6 +249,18 @@ def terraform_apply(aws_client_factory, app_config, preterraform_manager, sts_cl
         # process_stdout, process_stderr = run_terraform_process(process_handler)
         # print(process_stdout, process_stderr)
 
+        process_handler = Popen(
+            [
+                temporary_directory + "terraform", "init"
+            ],
+            stdout=PIPE,
+            stderr=PIPE,
+            shell=False,
+            cwd=temporary_directory,
+        )
+        process_stdout, process_stderr = run_terraform_process(process_handler)
+        print(process_stdout, process_stderr)
+
         # Terraform plan
         process_handler = Popen(
             [

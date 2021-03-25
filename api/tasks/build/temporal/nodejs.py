@@ -11,16 +11,20 @@ NODEJS_BUILDSPEC = dump({
             "**/*"
         ]
     },
+    "env": {
+        "parameter-store": {
+            "build_ssh_key": "build_ssh_key"
+        }
+    },
     "phases": {
         "build": {
             "commands": [
+                "mkdir -p ~/.ssh",
+                "echo \"$build_ssh_key\" > ~/.ssh/id_rsa",
+                "chmod 600 ~/.ssh/id_rsa",
+                "ssh-keygen -F github.com || ssh-keyscan github.com >>~/.ssh/known_hosts",
                 "npm install"
             ]
-        },
-        "install": {
-            "runtime-versions": {
-                "nodejs": 10
-            }
         }
     },
     "version": 0.2
@@ -31,7 +35,7 @@ class NodeJsBuilder(LanguageBuilder):
     RUNTIME = "nodejs10.x"
     RUNTIME_PRETTY_NAME = NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME
     BUILDSPEC = NODEJS_BUILDSPEC
-    IMAGE_OVERRIDE = "docker.io/nodejs:12"
+    IMAGE_OVERRIDE = "aws/codebuild/amazonlinux2-x86_64-standard:3.0"
 
     def add_files_to_build_package(self, filemap, code):
         filemap["refinery_main.js"] = code

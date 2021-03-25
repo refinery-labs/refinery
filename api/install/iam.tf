@@ -491,6 +491,11 @@ resource "aws_iam_policy" "refinery_codebuild_base_policy" {
         "Resource": "*"
     },
     {
+        "Effect": "Allow",
+        "Action": "ssm:GetParameters",
+        "Resource": "*"
+    },
+    {
       "Effect": "Allow",
       "Resource": [
         "arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/codebuild/refinery-builds",

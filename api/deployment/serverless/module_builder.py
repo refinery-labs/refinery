@@ -327,7 +327,6 @@ class ServerlessModuleBuilder:
 
             for filepath, contents in file_map.items():
                 filepath = os.path.join(content_root, filepath)
-                print(filepath)
 
                 dir_path, _ = os.path.split(filepath)
                 if dir_path not in added_paths:

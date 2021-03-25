@@ -48,10 +48,10 @@ class LanguageBuilder(ABC):
         # Create a virtual file handler for the Lambda zip package
         package_zip = BytesIO(zip_with_deps)
 
-        with ZipFile(package_zip, 'w') as _:
-            pass
+        # with ZipFile(package_zip, 'w') as _:
+        #     pass
 
-        with ZipFile(package_zip, "r", ZIP_DEFLATED) as zip_file_handler:
+        with ZipFile(package_zip, "r") as zip_file_handler:
             for filename in zip_file_handler.namelist():
                 file_map[filename] = zip_file_handler.read(filename)
 
