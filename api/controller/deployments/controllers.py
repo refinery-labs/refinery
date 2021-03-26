@@ -27,11 +27,41 @@ class SecureResolverDeployment(BaseHandler):
     dependencies = DeploySecureResolverDependencies
     deployment_manager: DeploymentManager = None
 
+    def get_project(self):
+        project_id = self.json.get("project_id")
+        if project_id is not None:
+            project = self.dbsession.query(Project).filter_by(
+                id=project_id
+            ).first()
+            if project is None:
+                self.write({
+                    "success": False,
+                    "msg": "unable to find project with given ID"
+                })
+                raise gen.Return()
+
+            return project_id, project.name
+
+        project_name = "secure-resolver"
+        project = self.dbsession.query(Project).filter_by(
+            name=project_name
+        ).first()
+
+        if project is None:
+            project = Project()
+            project.name = project_name
+            self.dbsession.add(project)
+            project.users.append(self.authenticated_user)
+            self.dbsession.commit()
+
+        return project.id, project_name
+
     @gen.coroutine
     def post(self):
         validate_schema(self.json, DEPLOY_SECURE_RESOLVER_SCHEMA)
 
-        project_id = self.json["project_id"]
+        project_id, _ = self.get_project()
+
         lock_id = "deploy_diagram_" + project_id
 
         task_lock = self.task_locker.lock(self.dbsession, lock_id)
@@ -144,7 +174,17 @@ class SecureResolverDeployment(BaseHandler):
                 secure_resolver,
                 api_endpoint
             ],
-            "workflow_relationships": [],
+            "workflow_relationships": [
+                {
+                    "node": api_endpoint_id,
+                    "name": "then",
+                    "type": "then",
+                    "next": secure_resolver_id,
+                    "expression": "",
+                    "id": str(uuid4()),
+                    "version": "1.0.0"
+                },
+            ],
         }
 
         try:
@@ -166,7 +206,6 @@ class SecureResolverDeployment(BaseHandler):
     def do_deployment(self):
         action = self.json["action"]
         stage = DeploymentStages(self.json["stage"])
-        project_id = self.json["project_id"]
 
         secret = self.request.headers.get('REFINERY_DEPLOYMENT_SECRET')
         if secret is None:
@@ -187,17 +226,7 @@ class SecureResolverDeployment(BaseHandler):
             })
             raise gen.Return()
 
-        project = self.dbsession.query(Project).filter_by(
-            id=project_id
-        ).first()
-        if project is None:
-            self.write({
-                "success": False,
-                "msg": "unable to find project with given ID"
-            })
-            raise gen.Return()
-
-        project_name = project.name
+        project_id, project_name = self.get_project()
 
         credentials = self.get_authenticated_user_cloud_configuration(org_id=deployment_auth.org_id)
 

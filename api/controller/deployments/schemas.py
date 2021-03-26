@@ -40,7 +40,6 @@ DEPLOY_SECURE_RESOLVER_SCHEMA = {
         }
     },
     "required": [
-        "project_id"
     ]
 }
 
