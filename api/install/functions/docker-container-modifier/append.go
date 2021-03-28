@@ -11,7 +11,13 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 )
 
-func ModifyDockerBaseImage(baseRef string, newTag string, appendLayers []v1.Layer, options ...crane.Option) (tag, deploymentID string, err error) {
+type ContainerConfig struct {
+	tag string
+	deploymentID string
+	workDir string
+}
+
+func ModifyDockerBaseImage(baseRef string, newTag string, appendLayers []v1.Layer, options ...crane.Option) (containerConfig ContainerConfig, err error) {
 	var base v1.Image
 
 	if baseRef == "" {
@@ -43,10 +49,12 @@ func ModifyDockerBaseImage(baseRef string, newTag string, appendLayers []v1.Laye
 
 	configFile.Config.Entrypoint = []string{"/var/runtime/bootstrap"}
 
+	containerConfig.workDir = configFile.Config.WorkingDir
+
 	for _, envVar := range configFile.Config.Env {
 		if strings.Index(envVar, "REFINERY_DEPLOYMENT_ID") == 0 {
 			parts := strings.Split(envVar, "=")
-			deploymentID = parts[len(parts)-1]
+			containerConfig.deploymentID = parts[len(parts)-1]
 		}
 	}
 
@@ -67,7 +75,7 @@ func ModifyDockerBaseImage(baseRef string, newTag string, appendLayers []v1.Laye
 	if err != nil {
 		return
 	}
-	tag = h.String()
+	containerConfig.tag = h.String()
 
 	return
 }

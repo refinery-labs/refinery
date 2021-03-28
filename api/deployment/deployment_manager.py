@@ -58,6 +58,14 @@ class DeploymentManager(object):
         return existing_project
 
     @staticmethod
+    def get_deployment_with_tag(dbsession, tag) -> Deployment:
+        return dbsession.query(Deployment).filter_by(
+            tag=tag
+        ).order_by(
+            Deployment.timestamp.desc()
+        ).first()
+
+    @staticmethod
     def get_latest_deployment(dbsession, project_id, stage) -> Deployment:
         return dbsession.query(Deployment).filter_by(
             project_id=project_id, stage=stage
@@ -156,7 +164,7 @@ class DeploymentManager(object):
         new_deployment.project_id = project_id
         new_deployment.deployment_json = json.dumps(deployment_config)
         new_deployment.stage = stage.value
-        new_deployment.tag = deployment_config["deployment_id"]
+        new_deployment.tag = builder.deployment_tag
 
         with session_scope(self.db_session_maker) as dbsession:
             existing_project = self.get_existing_project(dbsession, project_id)

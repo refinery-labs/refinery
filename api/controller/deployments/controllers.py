@@ -12,8 +12,8 @@ from data_types.deployment_stages import DeploymentStages
 from deployment.deployment_manager import DeploymentManager
 from deployment.serverless.exceptions import RefineryDeploymentException
 from deployment.serverless.utils import get_unique_workflow_state_name
-from models import Deployment, CachedExecutionLogsShard, Project, DeploymentLog
-from models.deployment_auth import DeploymentAuth
+from models import Deployment, CachedExecutionLogsShard, Project, DeploymentLog, ProjectVersion
+from models.deployment_auth import DeploymentAuth, session_scope
 from utils.locker import AcquireFailure
 
 
@@ -27,8 +27,7 @@ class SecureResolverDeployment(BaseHandler):
     dependencies = DeploySecureResolverDependencies
     deployment_manager: DeploymentManager = None
 
-    def get_project(self):
-        project_id = self.json.get("project_id")
+    def get_project(self, project_id):
         if project_id is not None:
             project = self.dbsession.query(Project).filter_by(
                 id=project_id
@@ -60,7 +59,8 @@ class SecureResolverDeployment(BaseHandler):
     def post(self):
         validate_schema(self.json, DEPLOY_SECURE_RESOLVER_SCHEMA)
 
-        project_id, _ = self.get_project()
+        project_id = self.json.get("project_id")
+        project_id, _ = self.get_project(project_id)
 
         lock_id = "deploy_diagram_" + project_id
 
@@ -79,8 +79,10 @@ class SecureResolverDeployment(BaseHandler):
                 "msg": "Deployment for this project is already in progress",
             })
 
-    def get_deployment_url(self, project_id, stage):
-        deployment = self.deployment_manager.get_latest_deployment(self.dbsession, project_id, stage)
+    def get_deployment_url(self, deployment_id):
+        # deployment_id is used as a "tag" here since we can't guarantee that it will be unique since
+        # the customer is providing it
+        deployment = self.deployment_manager.get_deployment_with_tag(self.dbsession, deployment_id)
         if deployment is None:
             self.logger("no latest deployment for project")
             return None
@@ -187,6 +189,29 @@ class SecureResolverDeployment(BaseHandler):
             ],
         }
 
+        latest_project_version = self.dbsession.query(ProjectVersion).filter_by(
+            project_id=project_id
+        ).order_by(ProjectVersion.version.desc()).first()
+
+        if latest_project_version is None:
+            project_version = 1
+        else:
+            project_version = (latest_project_version.version + 1)
+
+        new_project_version = ProjectVersion()
+        new_project_version.version = project_version
+        new_project_version.project_json = json.dumps(
+            diagram_data
+        )
+
+        project = self.dbsession.query(Project).filter_by(
+            id=project_id
+        ).first()
+        project.versions.append(
+            new_project_version
+        )
+        self.dbsession.commit()
+
         try:
             yield self.deployment_manager.deploy_stage(
                 credentials,
@@ -205,7 +230,6 @@ class SecureResolverDeployment(BaseHandler):
     @gen.coroutine
     def do_deployment(self):
         action = self.json["action"]
-        stage = DeploymentStages(self.json["stage"])
 
         secret = self.request.headers.get('REFINERY_DEPLOYMENT_SECRET')
         if secret is None:
@@ -226,7 +250,8 @@ class SecureResolverDeployment(BaseHandler):
             })
             raise gen.Return()
 
-        project_id, project_name = self.get_project()
+        project_id = self.json.get("project_id")
+        project_id, project_name = self.get_project(project_id)
 
         credentials = self.get_authenticated_user_cloud_configuration(org_id=deployment_auth.org_id)
 
@@ -234,23 +259,24 @@ class SecureResolverDeployment(BaseHandler):
         self._dbsession = None
 
         if action == "url":
-            url = self.get_deployment_url(project_id, stage)
+            deployment_id = self.json.get("deployment_id")
+            url = self.get_deployment_url(deployment_id)
             if url is None:
                 self.write({
-                    "success": False,
-                    "msg": "no api endpoint in deployed project"
+                    "error": "no api endpoint in deployed project"
                 })
                 raise gen.Return()
 
             self.write({
-                "success": True,
                 "url": url
             })
 
         elif action == "build":
+            stage = DeploymentStages(self.json["stage"])
             yield self.build_secure_resolver(
                 credentials, deployment_auth.org_id, project_id, project_name, stage)
         elif action == "remove":
+            stage = DeploymentStages(self.json["stage"])
             self.logger(f"Removing deployment for {project_id}")
             try:
                 yield self.deployment_manager.remove_latest_stage(

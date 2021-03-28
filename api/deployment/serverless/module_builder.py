@@ -53,6 +53,7 @@ class ServerlessModuleConfig:
         self.deployment_id = deployment_id
         self.stage = stage
         self.diagram_data = diagram_data
+        self.deployment_tag = None
 
 
 class ServerlessModuleBuilder:
@@ -164,7 +165,7 @@ class ServerlessModuleBuilder:
 
         if is_container:
             logit(f"Building container: {container} for workflow state: {id_}")
-            tag, deployment_id = self.build_with_container(config, workflow_state, file_map)
+            tag, deployment_tag, work_dir = self.build_with_container(config, workflow_state, file_map)
             if tag is None:
                 raise RefineryDeploymentException(f"unable to get container tag for docker container: {container}")
 
@@ -173,11 +174,11 @@ class ServerlessModuleBuilder:
             file_map = {
                 "container.json": json.dumps({
                     "tag": tag,
-                    "deployment_id": deployment_id
+                    "deployment_tag": deployment_tag
                 })
             }
-            if deployment_id != "":
-                config.deployment_id = deployment_id
+            if deployment_tag != "":
+                config.deployment_tag = deployment_tag
 
         for filename, contents in file_map.items():
             add_file_to_zipfile(zipfile, self.get_path(id_, filename), contents)
@@ -304,7 +305,8 @@ class ServerlessModuleBuilder:
 
         tag = decoded_payload["tag"]
         deployment_id = decoded_payload["deployment_id"]
-        return tag, deployment_id
+        work_dir = decoded_payload["work_dir"]
+        return tag, deployment_id, work_dir
 
     def build_with_container(self, config: ServerlessModuleConfig, workflow_state, file_map):
         id_ = workflow_state['id']

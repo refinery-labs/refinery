@@ -52,6 +52,7 @@ class ServerlessBuilder(Builder):
         self.build_id = build_id
         self.stage = stage
         self.diagram_data = diagram_data
+        self.deployment_tag = None
 
     @cached_property
     def lambda_function(self):
@@ -106,7 +107,7 @@ class ServerlessBuilder(Builder):
         )
 
         zipfile = self.serverless_module_builder.build(config, artifact_zip)
-        self.deployment_id = config.deployment_id
+        self.deployment_tag = config.deployment_tag
 
         try:
             serverless_output = self.perform_serverless_deploy(zipfile, function_name)

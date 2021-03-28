@@ -35,6 +35,7 @@ type InvokeEvent struct {
 type InvokeResponse struct {
 	Tag string `json:"tag"`
 	DeploymentID string `json:"deployment_id"`
+	WorkDir string `json:"work_dir"`
 }
 
 func ApiGatewayHandler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -131,11 +132,15 @@ func Handler(invokeEvent InvokeEvent) (resp InvokeResponse, err error) {
 	newTag := fmt.Sprintf("%s/%s", invokeEvent.Registry, invokeEvent.NewImageName)
 
 	log.Println("Modifying docker image...")
-	tag, deploymentID, err := ModifyDockerBaseImage(invokeEvent.BaseImage, newTag, appendLayers, options)
+	containerConfig, err := ModifyDockerBaseImage(invokeEvent.BaseImage, newTag, appendLayers, options)
+	if err != nil {
+		return
+	}
 
 	return InvokeResponse{
-		Tag:          tag,
-		DeploymentID: deploymentID,
+		Tag:          containerConfig.tag,
+		DeploymentID: containerConfig.deploymentID,
+		WorkDir: containerConfig.workDir,
 	}, nil
 }
 
