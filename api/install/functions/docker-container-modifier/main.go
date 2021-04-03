@@ -30,6 +30,7 @@ type InvokeEvent struct {
 	BaseImage    string      `json:"base_image"`
 	NewImageName string      `json:"new_image_name"`
 	ImageFiles   ImageFile `json:"image_files"`
+	ModifyEntrypoint bool `json:"modify_entrypoint"`
 }
 
 type InvokeResponse struct {
@@ -132,7 +133,7 @@ func Handler(invokeEvent InvokeEvent) (resp InvokeResponse, err error) {
 	newTag := fmt.Sprintf("%s/%s", invokeEvent.Registry, invokeEvent.NewImageName)
 
 	log.Println("Modifying docker image...")
-	containerConfig, err := ModifyDockerBaseImage(invokeEvent.BaseImage, newTag, appendLayers, options)
+	containerConfig, err := ModifyDockerBaseImage(invokeEvent.BaseImage, newTag, appendLayers, invokeEvent.ModifyEntrypoint, options)
 	if err != nil {
 		return
 	}

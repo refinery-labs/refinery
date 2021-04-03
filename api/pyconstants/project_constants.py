@@ -5,6 +5,7 @@ EMPTY_ZIP_DATA = b"PK\x05\x06\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0
 
 # Note: These are referenced CodeBlockWorkflowState.setup, when adding a new value here, make sure the
 # runtime is properly set if the value is specified as a language.
+DOCKER_RUNTIME_PRETTY_NAME = "Docker"
 PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME = "Python 3.6 Temporal"
 NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME = "Node.js 10 Temporal"
 

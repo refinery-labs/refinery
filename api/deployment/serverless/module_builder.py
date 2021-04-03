@@ -19,8 +19,8 @@ from os.path import join
 from deployment.serverless.exceptions import LambdaInvokeException, RefineryDeploymentException
 from deployment.serverless.utils import get_unique_workflow_state_name
 from pyconstants.project_constants import PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME, LANGUAGE_TO_RUNTIME, \
-    LANGUAGE_TO_CONTAINER_COMMAND, LANGUAGE_TO_CONTAINER_HANDLER, CONTAINER_LANGUAGE, LAMBDA_TEMPORAL_RUNTIMES, \
-    LANGUAGE_TO_MODULE_SEARCH_ENV_VAR, CONTAINER_RUNTIME_PATH
+    LANGUAGE_TO_CONTAINER_COMMAND, CONTAINER_LANGUAGE, LAMBDA_TEMPORAL_RUNTIMES, \
+    LANGUAGE_TO_MODULE_SEARCH_ENV_VAR, CONTAINER_RUNTIME_PATH, DOCKER_RUNTIME_PRETTY_NAME
 from pyconstants.project_constants import NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME
 from tasks.build.temporal.nodejs import NodeJsBuilder
 from tasks.build.temporal.python import PythonBuilder
@@ -141,7 +141,13 @@ class ServerlessModuleBuilder:
 
     @cached_property
     def lambda_builders(self):
+        class NoopBuilder:
+            @staticmethod
+            def build(credentials, code, libraries, file_map):
+                pass
+
         return {
+            DOCKER_RUNTIME_PRETTY_NAME: NoopBuilder,
             PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME: self.python_builder,
             NODEJS_10_TEMPORAL_RUNTIME_PRETTY_NAME: self.node_js_builder
         }
@@ -246,18 +252,18 @@ class ServerlessModuleBuilder:
             }
 
         return {
-                id_: {
-                    **function_options,
-                    "import_path": "refinery_main",
-                    "function_name": "main",
-                    "work_dir": function_dir,
-                    "env": {
-                        language_env_var: function_dir
-                    }
+            id_: {
+                **function_options,
+                "import_path": "refinery_main",
+                "function_name": "main",
+                "work_dir": function_dir,
+                "env": {
+                    language_env_var: function_dir
                 }
             }
+        }
 
-    def perform_docker_container_modification(self, credentials, container_uri, repo_name, container_file_data):
+    def perform_docker_container_modification(self, credentials, container_uri, repo_name, container_file_data, contains_functions):
         account_id = credentials["account_id"]
         ecr_registry = f"{account_id}.dkr.ecr.us-west-2.amazonaws.com"
         # S3 object key of the build package, randomly generated.
@@ -283,7 +289,8 @@ class ServerlessModuleBuilder:
             "image_files": {
                 "bucket": build_package_bucket,
                 "key": s3_key
-            }
+            },
+            "modify_entrypoint": contains_functions
         }
 
         # Invoke docker container modifier lambda
@@ -308,20 +315,8 @@ class ServerlessModuleBuilder:
         work_dir = decoded_payload["work_dir"]
         return tag, deployment_id, work_dir
 
-    def build_with_container(self, config: ServerlessModuleConfig, workflow_state, file_map):
-        id_ = workflow_state['id']
-        name = workflow_state['name']
-        container = workflow_state["container"]
-        language = workflow_state['language']
-        container_uri = container["uri"]
-
+    def get_container_files(self, buffer, id_, container, language, file_map):
         content_root = os.path.join(CONTAINER_RUNTIME_PATH, id_)
-
-        repo_name = get_unique_workflow_state_name(config.stage, name, id_).lower()
-
-        self.ensure_repository_exists(config.credentials, repo_name)
-
-        buffer = BytesIO()
         added_paths = []
         with tarfile.open(fileobj=buffer, mode='w') as container_tar:
 
@@ -340,9 +335,27 @@ class ServerlessModuleBuilder:
             functions_config_data = json.dumps(functions_config).encode()
             add_file_to_tar_file(container_tar, functions_path, functions_config_data)
 
+    def build_with_container(self, config: ServerlessModuleConfig, workflow_state, file_map):
+        id_ = workflow_state['id']
+        name = workflow_state['name']
+        container = workflow_state["container"]
+        language = workflow_state['language']
+        container_uri = container["uri"]
+
+        contains_functions = container.get("functions") is not None
+
+        repo_name = get_unique_workflow_state_name(config.stage, name, id_).lower()
+
+        self.ensure_repository_exists(config.credentials, repo_name)
+
+        buffer = BytesIO()
+
+        if contains_functions:
+            self.get_container_files(buffer, id_, container, language, file_map)
+
         container_file_data = buffer.getvalue()
 
-        return self.perform_docker_container_modification(config.credentials, container_uri, repo_name, container_file_data)
+        return self.perform_docker_container_modification(config.credentials, container_uri, repo_name, container_file_data, contains_functions)
 
     def get_path(self, id_, path):
         id_ = ''.join([i for i in id_ if i.isalnum()])

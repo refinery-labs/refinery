@@ -136,10 +136,10 @@ class ServerlessConfigBuilder:
         ecr_registry = f"{account_id}.dkr.ecr.us-west-2.amazonaws.com"
         image_name = get_unique_workflow_state_name(self.stage, name, id_).lower()
 
-        repo_uri = f"{ecr_registry}/{image_name}"
-
         container = workflow_state.get('container')
         if container is not None:
+            repo_uri = f"{ecr_registry}/{image_name}"
+
             # Image tag is located in a json file in the lambda directory
             config_path = os.path.join(lambda_path, "container.json")
             image_tag = f"${{file(./{config_path}):tag}}"
@@ -452,6 +452,7 @@ class ServerlessConfigBuilder:
         }
         if lambda_id is not None:
             lambda_id = self.get_id(lambda_id)
+            lambda_id = lambda_id[0].upper() + lambda_id[1:]
             role_name = self.build_lambda_proxy_iam_role(lambda_id)
 
             lambda_uri_format = "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${lambdaArn}/invocations"

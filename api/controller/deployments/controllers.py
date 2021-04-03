@@ -14,6 +14,7 @@ from deployment.serverless.exceptions import RefineryDeploymentException
 from deployment.serverless.utils import get_unique_workflow_state_name
 from models import Deployment, CachedExecutionLogsShard, Project, DeploymentLog, ProjectVersion
 from models.deployment_auth import DeploymentAuth, session_scope
+from pyconstants.project_constants import PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME, DOCKER_RUNTIME_PRETTY_NAME
 from utils.locker import AcquireFailure
 
 
@@ -94,14 +95,31 @@ class SecureResolverDeployment(BaseHandler):
         api_endpoint = ws_lookup_by_type["api_endpoint"]
         return api_endpoint["url"]
 
+    def tokenizer_env_vars(self, ws_id):
+        document_vault_s3_bucket = "cryptovault-loq-" + ws_id
+        return {
+            "LAMBDA_CALLER": "API_GATEWAY",
+            "DOCUMENT_VAULT_S3_BUCKET": document_vault_s3_bucket,
+        }
+
+    def tokenizer_policies(self):
+        return {
+            "action": [
+                "dynamodb:*",
+                "s3:*"
+            ],
+            "resource": '*'
+        }
+
     def create_secure_resolver_workflow_state(
-        self, secure_resolver_id, project_name, container_uri, functions, app_dir, language
+            self, secure_resolver_id, secure_resolver_name, container_uri, functions, app_dir, language
     ):
-        document_vault_s3_bucket = "cryptovault-loq-" + secure_resolver_id
+        tokenizer_env_vars = self.tokenizer_env_vars(secure_resolver_id)
+        tokenizer_policy = self.tokenizer_policies()
         return {
             "id": secure_resolver_id,
             "type": "lambda",
-            "name": project_name,
+            "name": secure_resolver_name,
             "code": "",
             "libraries": [],
             "container": {
@@ -112,18 +130,34 @@ class SecureResolverDeployment(BaseHandler):
             # TODO how long do we want to wait for this to run?
             "max_execution_time": 60,
             "environment_variables": {
-                "LAMBDA_CALLER": "API_GATEWAY",
-                "DOCUMENT_VAULT_S3_BUCKET": document_vault_s3_bucket,
+                **tokenizer_env_vars
             },
             "language": language,
             "policies": [
-                {
-                    "action": [
-                        "dynamodb:*",
-                        "s3:*"
-                    ],
-                    "resource": '*'
-                }
+                tokenizer_policy
+            ]
+        }
+
+    def create_tokenizer_workflow_state(self, tokenizer_id, tokenizer_name, secure_resolver_id):
+        tokenizer_env_vars = self.tokenizer_env_vars(secure_resolver_id)
+        tokenizer_policy = self.tokenizer_policies()
+        return {
+            "id": tokenizer_id,
+            "type": "lambda",
+            "name": tokenizer_name,
+            "code": "",
+            "libraries": [],
+            "container": {
+                "uri": "public.ecr.aws/d7v1k2o3/refinery-tokenizer"
+            },
+            # TODO how long do we want to wait for this to run?
+            "max_execution_time": 60,
+            "environment_variables": {
+                **tokenizer_env_vars
+            },
+            "language": DOCKER_RUNTIME_PRETTY_NAME,
+            "policies": [
+                tokenizer_policy
             ]
         }
 
@@ -135,53 +169,106 @@ class SecureResolverDeployment(BaseHandler):
 
         self.logger(f"Deploying {project_id}")
 
-        secure_resolver_id = str(uuid4())
-        api_endpoint_id = str(uuid4())
         deployment_id = str(uuid4())
-        function_name = None
+
+        secure_resolver_name = f"secure-resolver"
+        secure_resolver_api_path = f"/{deployment_id}"
+        tokenizer_name = f"tokenizer"
+        tokenize_api_path = f"/tokenize"
+        detokenize_api_path = f"/detokenize"
+
+        name_to_id = {
+            secure_resolver_name: str(uuid4()),
+            secure_resolver_api_path: str(uuid4()),
+            tokenizer_name: str(uuid4()),
+            tokenize_api_path: str(uuid4()),
+            detokenize_api_path: str(uuid4())
+        }
+
+        def set_ws_id(from_lookup, to_lookup, name, id_):
+            ws = from_lookup.get(name)
+            if ws is not None:
+                to_lookup[name] = ws["id"]
+                return
+            to_lookup[name] = id_
 
         deployment = self.deployment_manager.get_latest_deployment(self.dbsession, project_id, stage)
         if deployment is not None:
             deployment_json = json.loads(deployment.deployment_json)
 
             workflow_states = deployment_json["workflow_states"]
-            ws_lookup_by_type = {ws["type"]: ws for ws in workflow_states}
+            ws_lookup_by_name = {ws["name"] if ws.get("name") else ws.get("api_path"): ws for ws in workflow_states}
 
-            secure_resolver_ws = ws_lookup_by_type.get("lambda")
-            if secure_resolver_ws is not None:
-                secure_resolver_id = secure_resolver_ws["id"]
-                # function_name = secure_resolver_id
-
-            api_endpoint_ws = ws_lookup_by_type.get("api_endpoint")
-            if api_endpoint_ws is not None:
-                api_endpoint_id = api_endpoint_ws["id"]
+            for name, id_ in name_to_id.items():
+                set_ws_id(ws_lookup_by_name, name_to_id, name, id_)
 
         app_dir = self.json["app_dir"]
 
+        secure_resolver_id = name_to_id[secure_resolver_name]
         secure_resolver = self.create_secure_resolver_workflow_state(
-            secure_resolver_id, project_name, container_uri, functions, app_dir, language
+            secure_resolver_id, secure_resolver_name, container_uri, functions, app_dir, language
         )
 
-        api_endpoint = {
-            "id": api_endpoint_id,
+        tokenizer_id = name_to_id[tokenizer_name]
+        tokenizer = self.create_tokenizer_workflow_state(tokenizer_id, tokenizer_name, secure_resolver_id)
+
+        secure_resolver_api_endpoint = {
+            "id": name_to_id[secure_resolver_api_path],
             "type": "api_endpoint",
-            "api_path": f"/{deployment_id}",
+            "api_path": secure_resolver_api_path,
             "http_method": "POST",
             "lambda_proxy": secure_resolver["id"]
+        }
+
+        tokenize_api_endpoint = {
+            "id": name_to_id[tokenize_api_path],
+            "type": "api_endpoint",
+            "api_path": tokenize_api_path,
+            "http_method": "POST",
+            "lambda_proxy": tokenizer["id"]
+        }
+
+        detokenize_api_endpoint = {
+            "id": name_to_id[detokenize_api_path],
+            "type": "api_endpoint",
+            "api_path": detokenize_api_path,
+            "http_method": "POST",
+            "lambda_proxy": tokenizer["id"]
         }
 
         diagram_data = {
             "name": project_name,
             "workflow_states": [
                 secure_resolver,
-                api_endpoint
+                secure_resolver_api_endpoint,
+                tokenizer,
+                tokenize_api_endpoint,
+                detokenize_api_endpoint
             ],
             "workflow_relationships": [
                 {
-                    "node": api_endpoint_id,
+                    "node": name_to_id[secure_resolver_api_path],
                     "name": "then",
                     "type": "then",
                     "next": secure_resolver_id,
+                    "expression": "",
+                    "id": str(uuid4()),
+                    "version": "1.0.0"
+                },
+                {
+                    "node": name_to_id[tokenize_api_path],
+                    "name": "then",
+                    "type": "then",
+                    "next": tokenizer_id,
+                    "expression": "",
+                    "id": str(uuid4()),
+                    "version": "1.0.0"
+                },
+                {
+                    "node": name_to_id[detokenize_api_path],
+                    "name": "then",
+                    "type": "then",
+                    "next": tokenizer_id,
                     "expression": "",
                     "id": str(uuid4()),
                     "version": "1.0.0"
@@ -218,7 +305,8 @@ class SecureResolverDeployment(BaseHandler):
                 org_id, project_id, stage,
                 diagram_data,
                 deploy_workflows=False,
-                function_name=function_name,
+                # TODO this should be function_names, not just one function_name
+                function_name=None,
                 new_deployment_id=deployment_id
             )
         except RefineryDeploymentException as e:

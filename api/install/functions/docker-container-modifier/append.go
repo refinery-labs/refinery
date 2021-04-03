@@ -17,7 +17,7 @@ type ContainerConfig struct {
 	workDir string
 }
 
-func ModifyDockerBaseImage(baseRef string, newTag string, appendLayers []v1.Layer, options ...crane.Option) (containerConfig ContainerConfig, err error) {
+func ModifyDockerBaseImage(baseRef string, newTag string, appendLayers []v1.Layer, modifyEntrypoint bool, options ...crane.Option) (containerConfig ContainerConfig, err error) {
 	var base v1.Image
 
 	if baseRef == "" {
@@ -47,7 +47,9 @@ func ModifyDockerBaseImage(baseRef string, newTag string, appendLayers []v1.Laye
 		return
 	}
 
-	configFile.Config.Entrypoint = []string{"/var/runtime/bootstrap"}
+	if modifyEntrypoint {
+		configFile.Config.Entrypoint = []string{"/var/runtime/bootstrap"}
+	}
 
 	containerConfig.workDir = configFile.Config.WorkingDir
 
