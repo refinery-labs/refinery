@@ -162,10 +162,11 @@ class SecureResolverDeployment(BaseHandler):
         }
 
     @gen.coroutine
-    def build_secure_resolver(self, credentials, org_id, project_id, project_name, stage):
-        container_uri = self.json["container_uri"]
-        language = self.json["language"]
-        functions = self.json["functions"]
+    def build_secure_resolver(self, action, credentials, org_id, project_id, project_name, stage):
+        container_uri = action["container_uri"]
+        language = action["language"]
+        functions = action["functions"]
+        app_dir = action["app_dir"]
 
         self.logger(f"Deploying {project_id}")
 
@@ -201,8 +202,6 @@ class SecureResolverDeployment(BaseHandler):
 
             for name, id_ in name_to_id.items():
                 set_ws_id(ws_lookup_by_name, name_to_id, name, id_)
-
-        app_dir = self.json["app_dir"]
 
         secure_resolver_id = name_to_id[secure_resolver_name]
         secure_resolver = self.create_secure_resolver_workflow_state(
@@ -318,6 +317,7 @@ class SecureResolverDeployment(BaseHandler):
     @gen.coroutine
     def do_deployment(self):
         action = self.json["action"]
+        action_type = action["type"]
 
         # TODO: Move this into an auth decorator so it doesn't have to be copy-pasted
         secret = self.request.headers.get('REFINERY_DEPLOYMENT_SECRET')
@@ -339,7 +339,7 @@ class SecureResolverDeployment(BaseHandler):
             })
             raise gen.Return()
 
-        project_id = self.json.get("project_id")
+        project_id = self.json["project_id"]
         project_id, project_name = self.get_project(project_id)
 
         credentials = self.get_authenticated_user_cloud_configuration(org_id=deployment_auth.org_id)
@@ -347,8 +347,8 @@ class SecureResolverDeployment(BaseHandler):
         self.dbsession.close()
         self._dbsession = None
 
-        if action == "url":
-            deployment_id = self.json.get("deployment_id")
+        if action_type == "url":
+            deployment_id = action["deployment_id"]
             url = self.get_deployment_url(deployment_id)
             if url is None:
                 self.write({
@@ -360,12 +360,12 @@ class SecureResolverDeployment(BaseHandler):
                 "url": url
             })
 
-        elif action == "build":
-            stage = DeploymentStages(self.json["stage"])
+        elif action_type == "build":
+            stage = DeploymentStages(action["stage"])
             yield self.build_secure_resolver(
-                credentials, deployment_auth.org_id, project_id, project_name, stage)
-        elif action == "remove":
-            stage = DeploymentStages(self.json["stage"])
+                action, credentials, deployment_auth.org_id, project_id, project_name, stage)
+        elif action_type == "remove":
+            stage = DeploymentStages(action["stage"])
             self.logger(f"Removing deployment for {project_id}")
             try:
                 yield self.deployment_manager.remove_latest_stage(
