@@ -319,6 +319,7 @@ class SecureResolverDeployment(BaseHandler):
     def do_deployment(self):
         action = self.json["action"]
 
+        # TODO: Move this into an auth decorator so it doesn't have to be copy-pasted
         secret = self.request.headers.get('REFINERY_DEPLOYMENT_SECRET')
         if secret is None:
             self.write({

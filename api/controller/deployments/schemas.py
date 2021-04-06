@@ -1,16 +1,37 @@
-DEPLOY_SECURE_RESOLVER_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "action": {
-            "type": "string",
-            "enum": ["build", "buildFunction", "remove", "url"]
+from enum import Enum, unique
+
+@unique
+class DeploySecureResolverAction(Enum):
+    URL = "url",
+    DEPLOY = "deploy",
+    REMOVE = "remove"
+
+
+def make_action_schema(payload_type: DeploySecureResolverAction, payload_schema):
+    return {
+        "type": "object",
+        "properties": {
+            "action": {
+                "type": "string",
+                "enum": [payload_type]
+            },
+            "payload": {
+                "type": "object",
+                **payload_schema
+            }
         },
+        "required": [
+            "action",
+            "payload"
+        ]
+    }
+
+
+DEPLOY_SECURE_RESOLVER__BUILD_ACTION_SCHEMA = {
+    "properties": {
         "stage": {
             "type": "string",
             "enum": ["dev", "prod"]
-        },
-        "project_id": {
-            "type": "string",
         },
         "container_uri": {
             "type": "string",
@@ -37,9 +58,62 @@ DEPLOY_SECURE_RESOLVER_SCHEMA = {
                     }
                 }
             }
+        },
+    },
+    "required": [
+        "stage",
+        "container_uri",
+        "app_dir",
+        "language",
+        "functions"
+    ]
+}
+
+DEPLOY_SECURE_RESOLVER__REMOVE_ACTION_SCHEMA = {
+    "properties": {
+        "stage": {
+            "type": "string",
+            "enum": ["dev", "prod"]
+        },
+        "project_id": {
+            "type": "string",
         }
     },
     "required": [
+        "stage",
+        "project_id"
+    ]
+}
+
+DEPLOY_SECURE_RESOLVER__URL_ACTION_SCHEMA = {
+    "properties": {
+        "deployment_id": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "deployment_id"
+    ]
+}
+
+DEPLOY_SECURE_RESOLVER_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "project_id": {
+            "type": "string"
+        },
+        "action": {
+            "type": "object",
+            "oneOf": [
+                make_action_schema("url", DEPLOY_SECURE_RESOLVER__URL_ACTION_SCHEMA),
+                make_action_schema("build", DEPLOY_SECURE_RESOLVER__BUILD_ACTION_SCHEMA),
+                make_action_schema("remove", DEPLOY_SECURE_RESOLVER__REMOVE_ACTION_SCHEMA)
+            ]
+        }
+    },
+    "required": [
+        "action",
+        "project_id"
     ]
 }
 
