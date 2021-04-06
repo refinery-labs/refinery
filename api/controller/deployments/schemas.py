@@ -11,7 +11,7 @@ def make_action_schema(payload_type: DeploySecureResolverAction, payload_schema)
     return {
         "type": "object",
         "properties": {
-            "action": {
+            "type": {
                 "type": "string",
                 "enum": [payload_type]
             },
@@ -56,7 +56,12 @@ DEPLOY_SECURE_RESOLVER__BUILD_ACTION_SCHEMA = {
                     "work_dir": {
                         "type": "string"
                     }
-                }
+                },
+                "required": [
+                    "import_path",
+                    "function_name",
+                    "work_dir"
+                ]
             }
         },
     },
@@ -74,14 +79,10 @@ DEPLOY_SECURE_RESOLVER__REMOVE_ACTION_SCHEMA = {
         "stage": {
             "type": "string",
             "enum": ["dev", "prod"]
-        },
-        "project_id": {
-            "type": "string",
         }
     },
     "required": [
-        "stage",
-        "project_id"
+        "stage"
     ]
 }
 
