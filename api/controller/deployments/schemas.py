@@ -21,7 +21,7 @@ def make_action_schema(payload_type: DeploySecureResolverAction, payload_schema)
             }
         },
         "required": [
-            "action",
+            "type",
             "payload"
         ]
     }

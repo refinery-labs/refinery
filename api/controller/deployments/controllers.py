@@ -12,23 +12,23 @@ from utils.locker import AcquireFailure
 
 
 class DeploySecureResolverDependencies:
-    serverless_deployment_assistant: ServerlessDeployAssistant
-
     @pinject.copy_args_to_public_fields
-    def __init__(self, serverless_deployment_assistant):
+    def __init__(self, deployment_manager, serverless_deploy_assistant):
         pass
 
 
 class SecureResolverDeployment(BaseHandler):
     dependencies = DeploySecureResolverDependencies
     deployment_manager: DeploymentManager = None
+    serverless_deploy_assistant: ServerlessDeployAssistant = None
+
 
     @gen.coroutine
     def post(self):
         validate_schema(self.json, DEPLOY_SECURE_RESOLVER_SCHEMA)
 
         project_id = self.json.get("project_id")
-        project_id, _ = self.dependencies.serverless_deployment_assistant.get_project(
+        project_id, _ = self.serverless_deploy_assistant.get_project(
             self.dbsession,
             project_id,
             self.authenticated_user
@@ -57,7 +57,7 @@ class SecureResolverDeployment(BaseHandler):
                     credentials=self.get_authenticated_user_cloud_configuration(),
                     authenticated_user=self.authenticated_user
                 )
-                result = yield self.dependencies.serverless_deployment_assistant.do_deployment(config)
+                result = yield self.dependencies.serverless_deploy_assistant.do_deployment(config)
             self.write(result)
 
         except AcquireFailure:

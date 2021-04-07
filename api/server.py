@@ -66,8 +66,6 @@ if __name__ == "__main__":
     dep_classes = [
         DeploymentManager,
         ApiGatewayManager,
-        BuildSecureResolver,
-        ServerlessDeployAssistant,
         LambdaManager,
         ScheduleTriggerManager,
         SnsManager,
@@ -89,6 +87,8 @@ if __name__ == "__main__":
         CodeBuilderFactory,
         NodeJsBuilder,
         PythonBuilder,
+        BuildSecureResolver,
+        ServerlessDeployAssistant,
         ServerlessModuleBuilder
     ]
 
