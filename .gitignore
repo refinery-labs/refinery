@@ -17,6 +17,7 @@ secrets.yaml
 .webpack/
 .serverless/
 postgresql_data/
+custom-runtime/
 
 # Created by https://www.gitignore.io/api/intellij
 # Edit at https://www.gitignore.io/?templates=intellij

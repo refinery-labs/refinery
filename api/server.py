@@ -18,6 +18,8 @@ from assistants.deployments.api_gateway import ApiGatewayManager
 from assistants.deployments.awslambda import LambdaManager
 from assistants.deployments.dangling_resources import AwsResourceEnumerator
 from assistants.deployments.schedule_trigger import ScheduleTriggerManager
+from assistants.deployments.serverless.build_secure_resolver import BuildSecureResolver
+from assistants.deployments.serverless.deploy import ServerlessDeployAssistant
 from assistants.deployments.sns import SnsManager
 from assistants.deployments.sqs import SqsManager
 from assistants.github.github_assistant import GithubAssistant
@@ -64,6 +66,8 @@ if __name__ == "__main__":
     dep_classes = [
         DeploymentManager,
         ApiGatewayManager,
+        BuildSecureResolver,
+        ServerlessDeployAssistant,
         LambdaManager,
         ScheduleTriggerManager,
         SnsManager,

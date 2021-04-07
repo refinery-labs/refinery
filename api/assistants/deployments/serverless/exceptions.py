@@ -1,0 +1,3 @@
+
+class UnknownProjectIdException(Exception):
+    pass
