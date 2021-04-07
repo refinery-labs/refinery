@@ -112,7 +112,9 @@ class DeploymentManager(object):
     def deploy_stage(
             self,
             credentials,
-            org_id, project_id, stage: DeploymentStages,
+            org_id,
+            project_id,
+            stage: DeploymentStages,
             diagram_data,
             deploy_workflows=True,
             create_log_table=True,
