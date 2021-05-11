@@ -13,6 +13,7 @@ phases:
       - REPOSITORY_NGINX_URI=134071937287.dkr.ecr.us-west-2.amazonaws.com/refinery-nginx-server
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
       - IMAGE_TAG=${COMMIT_HASH:=latest}
+      - docker login --username freeqaz --password 62e6d27d-9cc3-4c3a-b7d2-af0f824ea370
   build:
     commands:
       - echo Build started on `date`
