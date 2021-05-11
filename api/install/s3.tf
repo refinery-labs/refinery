@@ -97,11 +97,11 @@ resource "aws_s3_bucket" "lambda-build-packages" {
     enabled = true
 
     expiration {
-      days = 14
+      days = 0
     }
 
     noncurrent_version_expiration {
-      days = 14
+      days = 0
     }
 
     abort_incomplete_multipart_upload_days = 1
