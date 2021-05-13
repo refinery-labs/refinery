@@ -63,7 +63,8 @@ def finalize_codebuild(aws_client_factory, credentials, build_id, final_s3_packa
 
     build_status = None
 
-    # Loop until we have the build information (up to ~5 minutes)
+    # Loop until we have the build information (up to 20 minutes)
+    # Note: CodeBuild is slow as f*ck sometimes. That's why this is here. This sucks.
     for _ in range(240):
         # Check the status of the build we just kicked off
         try:
@@ -87,7 +88,7 @@ def finalize_codebuild(aws_client_factory, credentials, build_id, final_s3_packa
 
         logit("Build ID " + build_id +
               " is still in progress, querying the status again in 2 seconds...")
-        sleep(2)
+        sleep(5)
 
     if build_status != "SUCCEEDED":
         # Pull log group
