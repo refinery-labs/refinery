@@ -263,58 +263,6 @@ class ServerlessModuleBuilder:
             }
         }
 
-    def perform_docker_container_modification(self, credentials, container_uri, repo_name, container_file_data, contains_functions):
-        account_id = credentials["account_id"]
-        ecr_registry = f"{account_id}.dkr.ecr.us-west-2.amazonaws.com"
-        # S3 object key of the build package, randomly generated.
-        s3_key = f"container_files/{str(uuid4())}.tar"
-
-        build_package_bucket = credentials["lambda_packages_bucket"]
-
-        # Write the CodeBuild build package to S3
-        s3_client = self.s3(credentials)
-        s3_response = s3_client.put_object(
-            Bucket=build_package_bucket,
-            Body=container_file_data,
-            Key=s3_key,
-            ACL="public-read"
-        )
-
-        # TODO check s3 response
-
-        payload = {
-            "registry": ecr_registry,
-            "base_image": container_uri,
-            "new_image_name": repo_name,
-            "image_files": {
-                "bucket": build_package_bucket,
-                "key": s3_key
-            },
-            "modify_entrypoint": contains_functions
-        }
-
-        # Invoke docker container modifier lambda
-        lambda_client = self.lambda_function(credentials)
-        resp = lambda_client.invoke(
-            FunctionName=self.docker_container_modifier_arn,
-            InvocationType='RequestResponse',
-            LogType='Tail',
-            Payload=json.dumps(payload).encode()
-        )
-
-        error = resp.get("FunctionError")
-        if error is not None:
-            log_result = base64.b64decode(resp["LogResult"])
-            logit(log_result.decode())
-            raise LambdaInvokeException(str(payload))
-
-        decoded_payload = json.loads(resp["Payload"].read())
-
-        tag = decoded_payload["tag"]
-        deployment_id = decoded_payload["deployment_id"]
-        work_dir = decoded_payload["work_dir"]
-        return tag, deployment_id, work_dir
-
     def get_container_files(self, buffer, id_, container, language, file_map):
         content_root = os.path.join(CONTAINER_RUNTIME_PATH, id_)
         added_paths = []
@@ -356,6 +304,60 @@ class ServerlessModuleBuilder:
         container_file_data = buffer.getvalue()
 
         return self.perform_docker_container_modification(config.credentials, container_uri, repo_name, container_file_data, contains_functions)
+
+    def perform_docker_container_modification(self, credentials, container_uri, repo_name, container_file_data, contains_functions):
+        account_id = credentials["account_id"]
+        ecr_registry = f"{account_id}.dkr.ecr.us-west-2.amazonaws.com"
+        # S3 object key of the build package, randomly generated.
+        s3_key = f"container_files/{str(uuid4())}.tar"
+
+        build_package_bucket = credentials["lambda_packages_bucket"]
+
+        # Write the CodeBuild build package to S3
+        s3_client = self.s3(credentials)
+        s3_response = s3_client.put_object(
+            Bucket=build_package_bucket,
+            Body=container_file_data,
+            Key=s3_key,
+            ACL="public-read"
+        )
+
+        # TODO check s3 response
+
+        payload = {
+            "registry": ecr_registry,
+            "base_image": container_uri,
+            "new_image_name": repo_name,
+            "image_files": {
+                "bucket": build_package_bucket,
+                "key": s3_key
+            },
+            "modify_entrypoint": contains_functions
+        }
+
+        logit("Performing docker container modification: " + json.dumps(payload, indent=2))
+
+        # Invoke docker container modifier lambda
+        lambda_client = self.lambda_function(credentials)
+        resp = lambda_client.invoke(
+            FunctionName=self.docker_container_modifier_arn,
+            InvocationType='RequestResponse',
+            LogType='Tail',
+            Payload=json.dumps(payload).encode()
+        )
+
+        error = resp.get("FunctionError")
+        if error is not None:
+            log_result = base64.b64decode(resp["LogResult"])
+            logit(log_result.decode())
+            raise LambdaInvokeException(str(payload))
+
+        decoded_payload = json.loads(resp["Payload"].read())
+
+        tag = decoded_payload["tag"]
+        deployment_id = decoded_payload["deployment_id"]
+        work_dir = decoded_payload["work_dir"]
+        return tag, deployment_id, work_dir
 
     def get_path(self, id_, path):
         id_ = ''.join([i for i in id_ if i.isalnum()])

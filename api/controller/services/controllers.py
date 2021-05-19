@@ -91,7 +91,7 @@ class AssumeRoleCredentials(BaseHandler):
             # We then assume the administrator role for the sub-account we created
             assumed_role_credentials = yield self.task_spawner.get_assume_role_credentials(
                 str(account_id),
-                3600  # One hour - TODO CHANGEME
+                43200
             )
         except ClientError as boto_error:
             self.logger("Assume role boto error:" + repr(boto_error), "error")

@@ -4,7 +4,7 @@ from tornado import gen
 
 from assistants.deployments.serverless.deploy import ServerlessDeploymentConfig, ServerlessDeployAssistant
 from controller import BaseHandler
-from controller.decorators import authenticated
+from controller.decorators import authenticated, secret_authentication
 from controller.deployments.schemas import *
 from deployment.deployment_manager import DeploymentManager
 from models import Deployment, CachedExecutionLogsShard
@@ -22,9 +22,9 @@ class SecureResolverDeployment(BaseHandler):
     deployment_manager: DeploymentManager = None
     serverless_deploy_assistant: ServerlessDeployAssistant = None
 
-
+    @secret_authentication
     @gen.coroutine
-    def post(self):
+    def post(self, org_id):
         validate_schema(self.json, DEPLOY_SECURE_RESOLVER_SCHEMA)
 
         project_id = self.json.get("project_id")
@@ -34,15 +34,6 @@ class SecureResolverDeployment(BaseHandler):
             self.authenticated_user
         )
 
-        # TODO: Move this into an auth decorator so it doesn't have to be copy-pasted
-        secret = self.request.headers.get('REFINERY_DEPLOYMENT_SECRET')
-        if secret is None:
-            self.write({
-                "success": False,
-                "msg": "secret not provided"
-            })
-            raise gen.Return()
-
         lock_id = "deploy_diagram_" + project_id
 
         task_lock = self.task_locker.lock(self.dbsession, lock_id)
@@ -50,14 +41,15 @@ class SecureResolverDeployment(BaseHandler):
         try:
             # Enforce that we are only attempting to do this multiple times simultaneously for the same project
             with task_lock:
+                user_cloud_config = self.get_authenticated_user_cloud_configuration(org_id=org_id)
                 config = ServerlessDeploymentConfig(
                     project_id=project_id,
-                    secret=secret,
+                    org_id=org_id,
                     action=self.json["action"],
-                    credentials=self.get_authenticated_user_cloud_configuration(),
+                    credentials=user_cloud_config,
                     authenticated_user=self.authenticated_user
                 )
-                result = yield self.dependencies.serverless_deploy_assistant.do_deployment(config)
+                result = yield self.serverless_deploy_assistant.do_deployment(config)
             self.write(result)
 
         except AcquireFailure:

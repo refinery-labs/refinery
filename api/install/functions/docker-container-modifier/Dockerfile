@@ -1,5 +1,15 @@
-FROM alpine
+FROM golang AS builder
 
-COPY bin/main /
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 
-CMD ["/main"]
+ADD . /code
+WORKDIR /code
+RUN make
+
+FROM scratch
+
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /code/bin/main /main
+
+WORKDIR /
+ENTRYPOINT ["/main"]

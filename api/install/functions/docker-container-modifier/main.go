@@ -1,42 +1,31 @@
 package main
 
 import (
-	"bytes"
-	"encoding/base64"
+	"encoding/json"
 	"fmt"
-	"github.com/aws/aws-lambda-go/events"
-	"github.com/aws/aws-lambda-go/lambda"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/ecr"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/crane"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"io/ioutil"
 	"log"
 	"os"
+	"path"
+	"path/filepath"
 	"strings"
+
+	"github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 )
 
-type ImageFile struct {
-	Bucket     string `json:"bucket"`
-	Key string `json:"key"`
-}
+// TODO: These are duplicated from the Loq golang monorepo, we should probably put this service there at some point.
+const FunctionsPath = `/var/runtime/functions.json`
 
-type InvokeEvent struct {
-	Registry     string      `json:"registry"`
-	BaseImage    string      `json:"base_image"`
-	NewImageName string      `json:"new_image_name"`
-	ImageFiles   ImageFile `json:"image_files"`
-	ModifyEntrypoint bool `json:"modify_entrypoint"`
-}
-
-type InvokeResponse struct {
-	Tag string `json:"tag"`
-	DeploymentID string `json:"deployment_id"`
-	WorkDir string `json:"work_dir"`
+type RefineryFunction struct {
+	Command      string            `json:"command"`
+	Handler      string            `json:"handler"`
+	ImportPath   string            `json:"import_path"`
+	FunctionName string            `json:"function_name"`
+	WorkDir      string            `json:"work_dir"`
+	Env          map[string]string `json:"env"`
 }
 
 func ApiGatewayHandler(request events.APIGatewayProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -45,72 +34,12 @@ func ApiGatewayHandler(request events.APIGatewayProxyRequest) (events.APIGateway
 	return events.APIGatewayProxyResponse{Body: request.Body, StatusCode: 200}, nil
 }
 
-func getLayerFromS3(bucket, key string) (layer v1.Layer, err error) {
-	sess, err := session.NewSession()
-	if err != nil {
-		return
-	}
-
-	s3Client := s3.New(sess)
-	input := s3.GetObjectInput{
-		Bucket:                     aws.String(bucket),
-		Key:                        aws.String(key),
-	}
-	resp, err := s3Client.GetObject(&input)
-	if err != nil {
-		return
-	}
-	defer resp.Body.Close()
-
-	tarData, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return
-	}
-	tarReader := bytes.NewReader(tarData)
-	return tarball.LayerFromReader(tarReader)
+func isLocalDev() bool {
+	return len(os.Args) != 1
 }
 
 func Handler(invokeEvent InvokeEvent) (resp InvokeResponse, err error) {
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String("us-west-2"),
-	})
-
-	if err != nil {
-		return
-	}
-
-	ecrClient := ecr.New(sess)
-
-	log.Println("Getting authorization token from ecr...")
-	ecrAuthToken, err := ecrClient.GetAuthorizationToken(nil)
-
-	authData := ecrAuthToken.AuthorizationData
-	if len(authData) == 0 {
-		return resp, fmt.Errorf("No auth data for ecr")
-	}
-
-	authToken := *authData[0].AuthorizationToken
-
-	auth, err := base64.StdEncoding.DecodeString(authToken)
-	if err != nil {
-		return
-	}
-
-	authParts := strings.Split(string(auth), ":")
-
-	cfg := authn.AuthConfig{
-		Username: authParts[0],
-		Password: authParts[1],
-	}
-
-	authenticator := authn.FromConfig(cfg)
-
-	options := crane.WithAuth(authenticator)
-
-	refineryRuntimeRepo := os.Getenv("REFINERY_CONTAINER_RUNTIME_REPOSITORY")
-	log.Println("Pulling Refinery container runtime from:", refineryRuntimeRepo)
-
-	runtimeImage, err := crane.Pull(refineryRuntimeRepo)
+	options, err := loadCraneOptions()
 	if err != nil {
 		return
 	}
@@ -121,30 +50,177 @@ func Handler(invokeEvent InvokeEvent) (resp InvokeResponse, err error) {
 		return
 	}
 
-
-	log.Println("Getting runtime image layers...")
-	runtimeLayers, err := runtimeImage.Layers()
+	runtimeLayers, err := loadRuntimeLayers()
 	if err != nil {
 		return
 	}
 
-	appendLayers := append(runtimeLayers, functionFilesLayer)
+	appendLayers := []v1.Layer{functionFilesLayer}
+	if invokeEvent.ModifyEntrypoint {
+		appendLayers = append(appendLayers, runtimeLayers...)
+	}
 
 	newTag := fmt.Sprintf("%s/%s", invokeEvent.Registry, invokeEvent.NewImageName)
 
+	modifier := NewDockerContainerModifier(
+		invokeEvent.BaseImage,
+		false,
+		invokeEvent.ModifyEntrypoint,
+		options,
+	)
+
+	base, err := modifier.LoadImage()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
 	log.Println("Modifying docker image...")
-	containerConfig, err := ModifyDockerBaseImage(invokeEvent.BaseImage, newTag, appendLayers, invokeEvent.ModifyEntrypoint, options)
+	newImg, containerConfig, err := modifier.AppendLayersToBaseImage(base, appendLayers)
 	if err != nil {
 		return
 	}
+
+	modifier.PushImage(newImg, newTag)
 
 	return InvokeResponse{
 		Tag:          containerConfig.tag,
 		DeploymentID: containerConfig.deploymentID,
-		WorkDir: containerConfig.workDir,
+		WorkDir:      containerConfig.workDir,
 	}, nil
 }
 
+func loadFunctionConfig(functionsConfigFile string) (configFile FunctionConfigFile, err error) {
+	data, err := ioutil.ReadFile(functionsConfigFile)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	err = json.Unmarshal(data, &configFile)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	return
+}
+
+func getNewContainerNames(containerTarFile string) (newTag, newFilename string) {
+	basename := path.Base(containerTarFile)
+	basenameExt := filepath.Ext(basename)
+	tag := strings.TrimSuffix(basename, basenameExt)
+
+	newTag = fmt.Sprintf("lunasec-%s", tag)
+	newFilename = newTag + basenameExt
+	return
+}
+
+func modifyDevelopmentContainer(containerTarFile, functionsConfigFile string) {
+	configFile, err := loadFunctionConfig(functionsConfigFile)
+	if err != nil {
+		panic(err)
+	}
+
+	modifier := NewDockerContainerModifier(
+		containerTarFile,
+		true,
+		true,
+		nil,
+	)
+
+	base, err := modifier.LoadImage()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	imgConfigFile, err := base.ConfigFile()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	workDir := imgConfigFile.Config.WorkingDir
+
+	var refineryFunctions []RefineryFunction
+	for _, f := range configFile.Functions {
+		// TODO (cthompson) hardcoded for testing, most of the logic for building the function config is in python
+		// we should move the logic into this code since it makes more sense to have it here for testing locally.
+		refineryFunction := RefineryFunction{
+			Command:      "node",
+			Handler:      "container_lambda_function.js",
+			ImportPath:   f.ImportPath,
+			FunctionName: f.FunctionName,
+			WorkDir:      workDir,
+			// TODO (cthompson) we need to get env variables into this function from the user
+			Env: map[string]string{},
+		}
+		refineryFunctions = append(refineryFunctions, refineryFunction)
+	}
+
+	functionData, err := json.Marshal(refineryFunctions)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	files := []InMemoryFile{
+		{FunctionsPath, string(functionData)},
+	}
+
+	tarData, err := buildInMemoryTarFile(files)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	fileLayer, err := tarball.LayerFromReader(&tarData)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	runtimeLayers, err := loadRuntimeLayersFromTar()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	appendLayers := []v1.Layer{
+		fileLayer,
+	}
+	appendLayers = append(appendLayers, runtimeLayers...)
+
+	img, _, err := modifier.AppendLayersToBaseImage(base, appendLayers)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	newTag, newFilename := getNewContainerNames(containerTarFile)
+
+	log.Printf("saving modified container image to: %s\n", newFilename)
+	err = modifier.SaveImageToFile(img, newTag, newFilename)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+}
+
 func main() {
-	lambda.Start(Handler)
+	log.SetFlags(log.Lshortfile)
+
+	// TODO (cthompson) we should control building this code with tags https://stackoverflow.com/questions/38950909/c-style-conditional-compilation-in-golang
+	localDev := isLocalDev()
+	if !localDev {
+		lambda.Start(Handler)
+	}
+
+	if len(os.Args) != 3 {
+		log.Printf("usage: %s <container tar file> <lunasec config file>", os.Args[0])
+		return
+	}
+
+	containerTarFile := os.Args[1]
+	functionsConfigFile := os.Args[2]
+	modifyDevelopmentContainer(containerTarFile, functionsConfigFile)
 }

@@ -184,6 +184,7 @@ class DeploymentManager(object):
 
         return {
             "deployment_id": deployment_id,
+            "deployment_tag": builder.deployment_tag,
             "deployment_config": deployment_config
         }
 

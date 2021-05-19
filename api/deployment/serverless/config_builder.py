@@ -7,6 +7,8 @@ from pyconstants.project_constants import (
     LANGUAGE_TO_RUNTIME, LANGUAGE_TO_HANDLER)
 from yaml import dump
 
+from utils.general import logit
+
 
 class ServerlessConfigBuilder:
     _api_resource_base_set = False
@@ -47,20 +49,23 @@ class ServerlessConfigBuilder:
             "api_gateway_response": self.build_api_gateway_response,
             "lambda": self.build_lambda,
             "schedule_trigger": self.build_schedule_trigger,
-            "sqs_queue": self.build_sqs_queue
+            "sqs_queue": self.build_sqs_queue,
+            "bucket": self.build_s3_bucket
         }
-
-    def ignore_workflow_state(self, workflow_state):
-        return
 
     @cached_property
     def workflow_state_mappers_only_lambda(self):
+        def ignore_workflow_state(workflow_state):
+            logit("ignoring workflow state: " + workflow_state["id"], "debug")
+            return
+
         return {
-            "api_endpoint": self.ignore_workflow_state,
-            "api_gateway_response": self.ignore_workflow_state,
+            "api_endpoint": ignore_workflow_state,
+            "api_gateway_response": ignore_workflow_state,
             "lambda": self.build_lambda,
-            "schedule_trigger": self.ignore_workflow_state,
-            "sqs_queue": self.ignore_workflow_state
+            "schedule_trigger": ignore_workflow_state,
+            "sqs_queue": ignore_workflow_state,
+            "bucket": ignore_workflow_state
         }
 
     @cached_property
@@ -445,7 +450,7 @@ class ServerlessConfigBuilder:
         ]
 
         integration = {
-            "IntegrationHttpMethod": http_method.upper(),
+            "IntegrationHttpMethod": "POST",
             "Type": "HTTP",
             "Uri": uri,
             "IntegrationResponses": method_response_codes
@@ -492,6 +497,158 @@ class ServerlessConfigBuilder:
                 }
             }
         }
+
+    ###########################################################################
+    # S3 Bucket Resource
+    ###########################################################################
+
+    def build_s3_bucket_policy(self, bucket_id):
+        id_ = bucket_id + "Policy"
+        policy_statement = {
+            "Sid": "PublicReadGetObject",
+            "Effect": "Allow",
+            "Principal": "*",
+            "Action": [
+                "s3:GetObject"
+            ],
+            "Resource": f"arn:aws:s3:::{bucket_id}/*"
+        }
+        bucket_policy_resource = {
+            "Type": "AWS::S3::BucketPolicy",
+            "Properties": {
+                "Bucket": {
+                    "Ref": bucket_id
+                },
+                "PolicyDocument": {
+                    "Statement": [
+                        policy_statement
+                    ]
+                }
+            }
+        }
+        return {
+            id_: bucket_policy_resource
+        }
+
+    def build_cloudfront_distribution(self, bucket_id):
+        id_ = bucket_id + "Cloudfront"
+        # An identifier for the origin which must be unique within the distribution
+        origin = bucket_id + "Origin"
+
+        origin_resource = {
+            "DomainName": f"{bucket_id}.s3.amazonaws.com",
+            "Id": origin,
+            "CustomOriginConfig": {
+                "HTTPPort": 80,
+                "HTTPSPort": 443,
+                "OriginProtocolPolicy": "https-only"
+            }
+        }
+
+        cloudfront_resource = {
+            "Type": "AWS::CloudFront::Distribution",
+            "Properties": {
+                "DistributionConfig": {
+                    "Origins": [
+                        origin_resource
+                    ],
+                    "Enabled": "true",
+                    "DefaultRootObject": "index.html",
+                    "CustomErrorResponses": [
+                        {
+                            "ErrorCode": 404,
+                            "ResponseCode": 200,
+                            "ResponsePagePath": "/index.html"
+                        }
+                    ],
+                    "DefaultCacheBehavior": {
+                        "AllowedMethods": [
+                            "HEAD", "DELETE", "POST", "GET", "OPTIONS", "PUT", "PATCH"
+                        ],
+                        "TargetOriginId": origin,
+                        # Defining if and how the QueryString and Cookies are forwarded to the origin which in this case is S3
+                        "ForwardedValues": {
+                            "QueryString": "false",
+                            "Cookies": {
+                                "Forward": "none"
+                            }
+                        },
+                        "ViewerProtocolPolicy": "redirect-to-https",
+                    },
+                    "ViewerCertificate": {
+                        "CloudFrontDefaultCertificate": "true"
+                    }
+                }
+            }
+        }
+        return {
+            id_: cloudfront_resource
+        }
+
+    def build_s3_bucket(self, workflow_state):
+        bucket_name = workflow_state['bucket_name']
+        publish = workflow_state.get('publish')
+        cors = workflow_state.get('cors')
+
+        s3_public_properties = {}
+        if publish:
+            s3_public_properties = {
+                "AccessControl": "PublicRead",
+                "WebsiteConfiguration": {
+                    "IndexDocument": "index.html",
+                    "ErrorDocument": "index.html"
+                }
+            }
+
+        s3_cors = {}
+        if cors:
+            s3_cors = {
+                "CorsConfiguration": {
+                    "CorsRules": [
+                        {
+                            "AllowedHeaders": [
+                                "*"
+                            ],
+                            "AllowedMethods": [
+                                "GET", "PUT"
+                            ],
+                            "AllowedOrigins": [
+                                "*"
+                            ]
+                        }
+                    ]
+                }
+            }
+
+        bucket_id = self.get_id(bucket_name)
+        bucket_resource = {
+            "Type": "AWS::S3::Bucket",
+            "Properties": {
+                "BucketName": bucket_id,
+                **s3_public_properties,
+                **s3_cors
+            }
+        }
+
+        cloudfront_resource = {}
+        if publish is not None and publish:
+            cloudfront_resource = self.build_cloudfront_distribution(bucket_id)
+
+        bucket_policy_resource = self.build_s3_bucket_policy(bucket_id)
+
+        resources = {
+            bucket_id: bucket_resource,
+            **bucket_policy_resource,
+            **cloudfront_resource
+        }
+        self.set_aws_resources(resources)
+
+        self.set_aws_outputs({
+            id_: {
+                "Value": {
+                    "Ref": id_
+                }
+            } for id_ in resources.keys()})
 
     ###########################################################################
     # Utility functions

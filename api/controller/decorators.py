@@ -3,6 +3,9 @@ Decorators used by controllers to enforce endpoint preconditions
 """
 import time
 
+from controller import BaseHandler
+from models.deployment_auth import DeploymentAuth
+
 
 def authenticated(func):
     """
@@ -30,6 +33,42 @@ def authenticated(func):
 
         return func(*args, **kwargs)
     return wrapper
+
+
+def secret_authentication(func):
+    """
+    Decorator to ensure the user is currently authenticated via a secret.
+
+    If the user is not, the response will be:
+    {
+            "success": false,
+            "code": "AUTH_REQUIRED",
+            "msg": "...",
+    }
+    """
+    def wrapper(*args, **kwargs):
+        self_reference: BaseHandler = args[0]
+
+        secret = self_reference.request.headers.get('REFINERY_DEPLOYMENT_SECRET')
+        if secret is None:
+            self_reference.write({
+                "success": False,
+                "code": "AUTH_REQUIRED",
+                "msg": "secret not provided"
+            })
+            return
+
+        deployment_auth = self_reference.get_deployment_auth(secret)
+        if deployment_auth is None:
+            self_reference.write({
+                "success": False,
+                "msg": "no organization for provided secret"
+            })
+            return
+
+        return func(*args, org_id=deployment_auth.org_id, **kwargs)
+    return wrapper
+
 
 def get_user_free_trial_information( input_user ):
     return_data = {

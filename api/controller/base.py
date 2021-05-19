@@ -7,6 +7,7 @@ from tornado import gen
 from typing import Optional
 
 from models import User
+from models.deployment_auth import DeploymentAuth
 from models.initiate_database import *
 from models.users import User
 from models.projects import Project
@@ -223,7 +224,7 @@ class BaseHandler(TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler):
             max_age_days=cookie_expiration_days
         )
 
-    def get_authenticated_user( self):
+    def get_authenticated_user(self):
         """
         Grabs the currently authenticated user
 
@@ -246,6 +247,11 @@ class BaseHandler(TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler):
         self.authenticated_user = authenticated_user
 
         return authenticated_user
+
+    def get_deployment_auth(self, secret) -> DeploymentAuth:
+        return self.dbsession.query(DeploymentAuth).filter_by(
+            secret=secret
+        ).first()
 
     def prepare( self ):
         """

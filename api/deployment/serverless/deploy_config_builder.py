@@ -18,6 +18,7 @@ class DeploymentConfigBuilder:
 
         return {
             "name": self.diagram_data['name'],
+            "secrets": self.diagram_data.get("secrets"),
             "project_id": self.project_id,
             "deployment_id": self.deployment_id,
             "build_id": self.build_id,

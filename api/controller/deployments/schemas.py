@@ -3,6 +3,7 @@ from enum import Enum, unique
 @unique
 class DeploySecureResolverAction(Enum):
     URL = "url",
+    SECRETS = "secrets",
     DEPLOY = "deploy",
     REMOVE = "remove"
 
@@ -59,8 +60,7 @@ DEPLOY_SECURE_RESOLVER__BUILD_ACTION_SCHEMA = {
                 },
                 "required": [
                     "import_path",
-                    "function_name",
-                    "work_dir"
+                    "function_name"
                 ]
             }
         },
@@ -97,6 +97,28 @@ DEPLOY_SECURE_RESOLVER__URL_ACTION_SCHEMA = {
     ]
 }
 
+DEPLOY_SECURE_RESOLVER__WORKFLOW_STATES_ACTION_SCHEMA = {
+    "properties": {
+        "deployment_id": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "deployment_id"
+    ]
+}
+
+DEPLOY_SECURE_RESOLVER__SECRETS_ACTION_SCHEMA = {
+    "properties": {
+        "deployment_id": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "deployment_id"
+    ]
+}
+
 DEPLOY_SECURE_RESOLVER_SCHEMA = {
     "type": "object",
     "properties": {
@@ -107,6 +129,8 @@ DEPLOY_SECURE_RESOLVER_SCHEMA = {
             "type": "object",
             "oneOf": [
                 make_action_schema("url", DEPLOY_SECURE_RESOLVER__URL_ACTION_SCHEMA),
+                make_action_schema("workflow_states", DEPLOY_SECURE_RESOLVER__WORKFLOW_STATES_ACTION_SCHEMA),
+                make_action_schema("secrets", DEPLOY_SECURE_RESOLVER__SECRETS_ACTION_SCHEMA),
                 make_action_schema("build", DEPLOY_SECURE_RESOLVER__BUILD_ACTION_SCHEMA),
                 make_action_schema("remove", DEPLOY_SECURE_RESOLVER__REMOVE_ACTION_SCHEMA)
             ]
