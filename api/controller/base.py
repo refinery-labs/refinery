@@ -20,7 +20,7 @@ from utils.locker import Locker
 CSRF_EXEMPT_ENDPOINTS = [
     "/services/v1/mark_account_needs_closing",
     "/api/v1/github/proxy",
-    "/api/v1/deployments/secure_resolver"
+    "/api/v1/project"
 ]
 
 
@@ -224,7 +224,7 @@ class BaseHandler(TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler):
             max_age_days=cookie_expiration_days
         )
 
-    def get_authenticated_user(self):
+    def get_authenticated_user(self, user_id=None):
         """
         Grabs the currently authenticated user
 
@@ -234,10 +234,11 @@ class BaseHandler(TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler):
         if self.authenticated_user is not None:
             return self.authenticated_user
 
-        user_id = self.get_authenticated_user_id()
-
         if user_id is None:
-            return None
+            user_id = self.get_authenticated_user_id()
+
+            if user_id is None:
+                return None
 
         # Pull related user
         authenticated_user: User = self.dbsession.query( User ).filter_by(
@@ -292,7 +293,7 @@ class BaseHandler(TornadoBaseHandlerInjectionMixin, tornado.web.RequestHandler):
                 "No CSRF validation header supplied!",
                 "INVALID_CSRF"
             )
-            raise gen.Return()
+            return
 
         # Logic for adding Cross-origin resource sharing (CORS) headers.
         if "Origin" in self.request.headers:

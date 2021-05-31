@@ -2,36 +2,42 @@ import pinject
 from jsonschema import validate as validate_schema
 from tornado import gen
 
-from assistants.deployments.serverless.deploy import ServerlessDeploymentConfig, ServerlessDeployAssistant
+from assistants.serverless.deploy import ServerlessDeploymentConfig, ServerlessDeployAssistant
 from controller import BaseHandler
 from controller.decorators import authenticated, secret_authentication
 from controller.deployments.schemas import *
-from deployment.deployment_manager import DeploymentManager
+from assistants.deployments.deployment_manager import DeploymentManager
 from models import Deployment, CachedExecutionLogsShard
 from utils.locker import AcquireFailure
 
 
-class DeploySecureResolverDependencies:
+class DeploySecureEnclaveDependencies:
     @pinject.copy_args_to_public_fields
     def __init__(self, deployment_manager, serverless_deploy_assistant):
         pass
 
 
-class SecureResolverDeployment(BaseHandler):
-    dependencies = DeploySecureResolverDependencies
+class SecureEnclaveDeployment(BaseHandler):
+    dependencies = DeploySecureEnclaveDependencies
     deployment_manager: DeploymentManager = None
     serverless_deploy_assistant: ServerlessDeployAssistant = None
 
     @secret_authentication
     @gen.coroutine
     def post(self, org_id):
-        validate_schema(self.json, DEPLOY_SECURE_RESOLVER_SCHEMA)
+        validate_schema(self.json, DEPLOY_SECURE_ENCLAVE_SCHEMA)
 
         project_id = self.json.get("project_id")
-        project_id, _ = self.serverless_deploy_assistant.get_project(
+
+        project_name = self.json.get("project_name")
+        if project_name is None:
+            raise Exception("unable to get project since project name is not provided")
+
+        project_id = self.serverless_deploy_assistant.get_project(
             self.dbsession,
             project_id,
-            self.authenticated_user
+            self.authenticated_user,
+            project_name
         )
 
         lock_id = "deploy_diagram_" + project_id
@@ -44,6 +50,7 @@ class SecureResolverDeployment(BaseHandler):
                 user_cloud_config = self.get_authenticated_user_cloud_configuration(org_id=org_id)
                 config = ServerlessDeploymentConfig(
                     project_id=project_id,
+                    project_name=project_name,
                     org_id=org_id,
                     action=self.json["action"],
                     credentials=user_cloud_config,

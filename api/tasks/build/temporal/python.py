@@ -1,8 +1,8 @@
 from yaml import dump
 
-from pyconstants.project_constants import PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME, EMPTY_ZIP_DATA, LANGUAGE_TO_RUNTIME
+from pyconstants.project_constants import PYTHON_36_TEMPORAL_RUNTIME_PRETTY_NAME
 from tasks.build.temporal.language_builder import LanguageBuilder
-from utils.block_libraries import generate_libraries_dict, get_requirements_text
+from utils.block_libraries import get_requirements_text
 
 
 PYTHON_BUILDSPEC = dump({

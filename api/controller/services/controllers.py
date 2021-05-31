@@ -51,10 +51,8 @@ class GenerateDeploymentAuthSecret(BaseHandler):
             id=account_id
         ).first()
 
-        org_id = user.organization_id
-
         existing_auth = self.dbsession.query(DeploymentAuth).filter_by(
-            org_id=org_id
+            user_id=user.id
         ).first()
 
         if existing_auth is not None:
@@ -64,7 +62,7 @@ class GenerateDeploymentAuthSecret(BaseHandler):
             })
             raise gen.Return()
 
-        deployment_auth = DeploymentAuth(org_id)
+        deployment_auth = DeploymentAuth(user.id)
 
         self.dbsession.add(deployment_auth)
         self.dbsession.commit()

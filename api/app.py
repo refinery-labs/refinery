@@ -13,6 +13,7 @@ from controller.health import *
 from controller.internal import *
 from controller.lambdas import *
 from controller.logs import *
+from controller.project.controllers import ProjectCreate, ProjectBuild, ProjectDeploy, ProjectDeployment
 from controller.projects import *
 from controller.projects.controllers_short_links import GetProjectShortlink, CreateProjectShortlink
 from controller.saved_blocks import *
@@ -111,7 +112,15 @@ class TornadoApp:
             (r"/api/v1/projects/rename", RenameProject),
             (r"/api/v1/projects/config/get", GetProjectConfig),
 
-            (r"/api/v1/deployments/secure_resolver", SecureResolverDeployment),
+            (r"/api/v1/project/create", ProjectCreate),
+            (r"/api/v1/project/build", ProjectBuild),
+            (r"/api/v1/project/deploy", ProjectDeploy),
+            (r"/api/v1/project/remove", GetProjectConfig),
+            (r"/api/v1/project/deployment", ProjectDeployment),
+            (r"/api/v1/project/deployment/rollback", GetProjectConfig),
+            (r"/api/v1/project/deployment/outputs", GetProjectConfig),
+            (r"/api/v1/project/deployment/teardown", GetProjectConfig),
+
             (r"/api/v1/deployments/get_latest", GetLatestProjectDeployment),
             (r"/api/v1/deployments/delete_all_in_project", DeleteDeploymentsInProject),
 

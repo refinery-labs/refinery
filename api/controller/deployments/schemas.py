@@ -1,14 +1,7 @@
 from enum import Enum, unique
 
-@unique
-class DeploySecureResolverAction(Enum):
-    URL = "url",
-    SECRETS = "secrets",
-    DEPLOY = "deploy",
-    REMOVE = "remove"
 
-
-def make_action_schema(payload_type: DeploySecureResolverAction, payload_schema):
+def make_action_schema(payload_type: str, payload_schema):
     return {
         "type": "object",
         "properties": {
@@ -28,16 +21,26 @@ def make_action_schema(payload_type: DeploySecureResolverAction, payload_schema)
     }
 
 
-DEPLOY_SECURE_RESOLVER__BUILD_ACTION_SCHEMA = {
+DEPLOY_SECURE_RESOLVER__BUILD_SECURE_ENCLAVE_ACTION_SCHEMA = {
+    "properties": {
+        "stage": {
+            "type": "string",
+            "enum": ["dev", "prod"]
+        },
+    },
+    "required": [
+        "stage",
+    ]
+}
+
+
+DEPLOY_SECURE_RESOLVER__BUILD_SECURE_RESOLVER_ACTION_SCHEMA = {
     "properties": {
         "stage": {
             "type": "string",
             "enum": ["dev", "prod"]
         },
         "container_uri": {
-            "type": "string",
-        },
-        "app_dir": {
             "type": "string",
         },
         "language": {
@@ -68,7 +71,6 @@ DEPLOY_SECURE_RESOLVER__BUILD_ACTION_SCHEMA = {
     "required": [
         "stage",
         "container_uri",
-        "app_dir",
         "language",
         "functions"
     ]
@@ -119,10 +121,13 @@ DEPLOY_SECURE_RESOLVER__SECRETS_ACTION_SCHEMA = {
     ]
 }
 
-DEPLOY_SECURE_RESOLVER_SCHEMA = {
+DEPLOY_SECURE_ENCLAVE_SCHEMA = {
     "type": "object",
     "properties": {
         "project_id": {
+            "type": "string"
+        },
+        "project_name": {
             "type": "string"
         },
         "action": {
@@ -131,7 +136,8 @@ DEPLOY_SECURE_RESOLVER_SCHEMA = {
                 make_action_schema("url", DEPLOY_SECURE_RESOLVER__URL_ACTION_SCHEMA),
                 make_action_schema("workflow_states", DEPLOY_SECURE_RESOLVER__WORKFLOW_STATES_ACTION_SCHEMA),
                 make_action_schema("secrets", DEPLOY_SECURE_RESOLVER__SECRETS_ACTION_SCHEMA),
-                make_action_schema("build", DEPLOY_SECURE_RESOLVER__BUILD_ACTION_SCHEMA),
+                make_action_schema("build_secure_enclave", DEPLOY_SECURE_RESOLVER__BUILD_SECURE_ENCLAVE_ACTION_SCHEMA),
+                make_action_schema("build_secure_resolver", DEPLOY_SECURE_RESOLVER__BUILD_SECURE_RESOLVER_ACTION_SCHEMA),
                 make_action_schema("remove", DEPLOY_SECURE_RESOLVER__REMOVE_ACTION_SCHEMA)
             ]
         }

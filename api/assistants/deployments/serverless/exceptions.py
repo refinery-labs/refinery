@@ -1,3 +1,7 @@
 
-class UnknownProjectIdException(Exception):
+class LambdaInvokeException(Exception):
+    pass
+
+
+class RefineryDeploymentException(Exception):
     pass

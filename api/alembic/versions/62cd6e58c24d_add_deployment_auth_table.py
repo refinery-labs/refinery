@@ -19,11 +19,11 @@ depends_on = None
 def upgrade():
     op.create_table('deployment_auth',
         sa.Column('id', sa.CHAR(length=36), nullable=False),
-        sa.Column('org_id', sa.CHAR(length=36), nullable=True),
+        sa.Column('user_id', sa.CHAR(length=36), nullable=True),
         sa.Column('secret', sa.Text(), nullable=True),
         sa.PrimaryKeyConstraint('id')
     )
 
 
 def downgrade():
-    op.drop_table('secret')
+    op.drop_table('deployment_auth')

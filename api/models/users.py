@@ -118,6 +118,13 @@ class User(Base):
         backref="user",
     )
 
+    # Deployments owned by the organization
+    deployment_auth = relationship(
+        "DeploymentAuth",
+        lazy="dynamic",
+        backref="user"
+    )
+
     timestamp = Column(Integer())
 
     # Tier the user's account is under (free/paid)

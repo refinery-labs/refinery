@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import zipfile
 from io import BytesIO
 from typing import TYPE_CHECKING
@@ -17,9 +16,8 @@ from base64 import b64decode
 from botocore.exceptions import ClientError
 from json import dumps, loads
 
-from deployment.serverless.exceptions import LambdaInvokeException
 from models import InlineExecutionLambda
-from pyconstants.project_constants import LAMBDA_SUPPORTED_LANGUAGES, EMPTY_ZIP_DATA
+from pyconstants.project_constants import LAMBDA_SUPPORTED_LANGUAGES
 from tasks.build.ruby import build_ruby_264_lambda
 from tasks.build.golang import get_go_112_base_code
 from tasks.build.nodejs import build_nodejs_10163_lambda, build_nodejs_810_lambda, build_nodejs_10201_lambda

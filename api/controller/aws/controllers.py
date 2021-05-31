@@ -8,13 +8,11 @@ from assistants.aws_clients.aws_clients_assistant import AwsClientFactory
 from controller import BaseHandler
 from controller.aws.schemas import *
 from controller.decorators import authenticated, disable_on_overdue_payment
-from controller.logs.actions import delete_logs
 from controller.projects.actions import update_project_config
 from data_types.deployment_stages import DeploymentStages
 
-from deployment.deployment_manager import DeploymentManager
-from deployment.serverless.exceptions import RefineryDeploymentException
-from models import DeploymentLog
+from assistants.deployments.deployment_manager import DeploymentManager
+from assistants.deployments.serverless.exceptions import RefineryDeploymentException
 from tasks.athena import create_project_id_log_table
 from utils.general import attempt_json_decode
 from utils.locker import AcquireFailure

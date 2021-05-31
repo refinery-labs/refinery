@@ -6,20 +6,21 @@ import asyncio
 
 import tornado.ioloop
 import tornado.web
-import sys
 
 from tornado.platform.asyncio import AnyThreadEventLoopPolicy
 
 from app import TornadoBindingSpec, TornadoApp, WebsocketApp, NodeJsBuilder, PythonBuilder
 from assistants.aws_account_management.preterraform import PreterraformManager
 from assistants.aws_clients.aws_clients_assistant import STSClientBindingSpec, AwsClientFactory
+from assistants.aws_clients.aws_secrets_manager import AwsSecretsManagerFactory
 from assistants.billing.billing_assistant import BillingSpawner
 from assistants.deployments.api_gateway import ApiGatewayManager
 from assistants.deployments.awslambda import LambdaManager
 from assistants.deployments.dangling_resources import AwsResourceEnumerator
 from assistants.deployments.schedule_trigger import ScheduleTriggerManager
-from assistants.deployments.serverless.build_secure_resolver import BuildSecureResolver
-from assistants.deployments.serverless.deploy import ServerlessDeployAssistant
+
+from assistants.projects.project_manager import ProjectManager
+from assistants.serverless.deploy import ServerlessDeployAssistant
 from assistants.deployments.sns import SnsManager
 from assistants.deployments.sqs import SqsManager
 from assistants.github.github_assistant import GithubAssistant
@@ -27,8 +28,8 @@ from assistants.task_spawner.task_spawner_assistant import TaskSpawner
 from assistants.user_creation_assistant import UserCreationAssistant
 from config.provider import ConfigBindingSpec
 from assistants.github.oauth_provider import GithubOAuthProviderBindingSpec
-from deployment.deployment_manager import DeploymentManager
-from deployment.serverless.module_builder import ServerlessModuleBuilder
+from assistants.deployments.deployment_manager import DeploymentManager
+from assistants.deployments.serverless.module_builder import ServerlessModuleBuilder
 from services.auth.oauth_service import OAuthServiceBindingSpec
 
 from services.aws.clients import AWSClientBindingSpec
@@ -37,7 +38,7 @@ from services.project_inventory.project_inventory_service import ProjectInventor
 from services.stripe.stripe_service import StripeService
 from services.user_management.user_management_service import UserManagementService
 from tasks.build.temporal.code_builder_factory import CodeBuilderFactory
-from utils.general import logit, UtilsBindingSpec
+from utils.general import UtilsBindingSpec
 from assistants.deployments.ecs_builders import BuilderManager, AwsEcsManager
 
 from services.websocket_router import ScheduledHeartbeatRunner, WebsocketRouter
@@ -87,9 +88,10 @@ if __name__ == "__main__":
         CodeBuilderFactory,
         NodeJsBuilder,
         PythonBuilder,
-        BuildSecureResolver,
         ServerlessDeployAssistant,
-        ServerlessModuleBuilder
+        ServerlessModuleBuilder,
+        AwsSecretsManagerFactory,
+        ProjectManager
     ]
 
     binding_specs = [

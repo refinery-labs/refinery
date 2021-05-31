@@ -62,11 +62,11 @@ def secret_authentication(func):
         if deployment_auth is None:
             self_reference.write({
                 "success": False,
-                "msg": "no organization for provided secret"
+                "msg": "no user for provided secret"
             })
             return
 
-        return func(*args, org_id=deployment_auth.org_id, **kwargs)
+        return func(*args, org_id=deployment_auth.user_id, **kwargs)
     return wrapper
 
 

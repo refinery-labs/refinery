@@ -1,14 +1,3 @@
-FROM golang AS golang-functions
-
-RUN apt update
-RUN apt install -y zip
-
-COPY install/functions/docker-container-modifier/ /build/docker-container-modifier/
-
-WORKDIR /build/docker-container-modifier
-RUN make package
-
-
 FROM node AS node-functions
 
 RUN apt update
@@ -38,7 +27,6 @@ COPY . /work/
 WORKDIR /work/install/
 RUN chmod +x /work/install/terraform
 RUN /work/install/terraform init
-COPY --from=golang-functions /build/docker-container-modifier/package.zip ./functions/docker-container-modifier/package.zip
 COPY --from=node-functions /build/serverless-framework-builder/package.zip ./functions/serverless-framework-builder/package.zip
 WORKDIR /work/
 
